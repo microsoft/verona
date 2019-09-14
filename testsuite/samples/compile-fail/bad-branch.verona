@@ -1,0 +1,22 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class A {}
+class Cell[X] { value: X }
+
+main(
+  left: (Cell[A & iso] & mut),
+  right: (Cell[A & iso] & mut),
+  choose: U64) {
+
+  var x = A();
+  if choose {
+    left.value = x;
+  } else {
+    right.value = x;
+  };
+
+  // CHECK-L: when using (region-param partial 1): Neither regions of merge are complete
+  // CHECK-L: Inference failed for main
+  left.value = right.value;
+}
+

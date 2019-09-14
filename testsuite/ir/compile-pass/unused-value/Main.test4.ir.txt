@@ -1,0 +1,21 @@
+IR for Main.test4:
+
+  Basic block BB0:
+    0 <- integer 1
+    if 0
+     then goto BB1
+     else goto BB2
+
+  Basic block BB1:
+    goto BB3
+
+  Basic block BB2:
+    1 <- new A
+    end-scope(1)
+    goto BB3
+
+  Basic block BB3:
+    2 <- integer 0
+    end-scope(0)
+    return 2
+

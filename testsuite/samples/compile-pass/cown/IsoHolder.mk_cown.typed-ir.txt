@@ -1,0 +1,11 @@
+Typed IR for IsoHolder.mk_cown:
+Receiver
+  self :: (IsoHolder & iso(none))
+
+  Basic block BB0:
+    1 <- new None :: (None & iso(none))
+    2 <- self.contents = 1 :: (None & iso(none))
+    3 <- cown 2 :: cown [None]
+    end-scope(1, 2, self)
+    return 3
+

@@ -1,0 +1,98 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+#pragma once
+
+#include "../ds/forward_list.h"
+#include "../region/region.h"
+#include "../sched/epoch.h"
+#include "../sched/schedulerthread.h"
+#include "../test/systematic.h"
+
+#include <queue>
+
+namespace verona::rt
+{
+  template<typename T>
+  class Noticeboard : public BaseNoticeboard
+  {
+  public:
+    Noticeboard(T content_)
+    {
+      is_fundamental = std::is_fundamental_v<T>;
+      put(content_);
+    }
+
+    void trace(ObjectStack* st) const
+    {
+      if constexpr (!std::is_fundamental_v<T>)
+      {
+        auto p = get<T>();
+        if (p)
+          st->push(p);
+      }
+      else
+      {
+        UNUSED(st);
+      }
+    }
+
+    // NOTE: the rc of new_o is not incremented
+    void update(Alloc* alloc, T new_o)
+    {
+      if constexpr (!std::is_fundamental_v<T>)
+      {
+        assert(new_o->debug_is_immutable());
+      }
+#ifdef USE_SYSTEMATIC_TESTING
+      update_buffer_push(new_o);
+      flush_some(alloc);
+      Scheduler::yield_my_turn();
+#else
+      if constexpr (!std::is_fundamental_v<T>)
+      {
+        Epoch e(alloc);
+        auto local_content = get<T>();
+        e.dec_in_epoch(local_content);
+      }
+      else
+      {
+        UNUSED(alloc);
+      }
+      put(new_o);
+#endif
+    }
+
+    T peek(Alloc* alloc)
+    {
+      if constexpr (std::is_fundamental_v<T>)
+      {
+        UNUSED(alloc);
+        return get<T>();
+      }
+      else
+      {
+        T local_content;
+        {
+          // only protect incref with epoch
+          Epoch e(alloc);
+          local_content = get<T>();
+          local_content->incref();
+        }
+        // It's possible that the following three things happen:
+        // 1) cown is already Scanned,
+        // 2) the owner of the noticeboard is in PreScan,
+        // 3) the owner calls update
+        // This way, the old content of the noticeboard is never scanned.
+        // Intuitively, peek amounts to a way of receiving new msg, so it needs
+        // to be scanned.
+        if (Scheduler::should_scan())
+        {
+          ObjectStack f(alloc);
+          local_content->trace(f);
+          Cown::scan_stack(alloc, Scheduler::epoch(), f);
+        }
+        return local_content;
+      }
+    }
+  };
+} // namespace verona::rt

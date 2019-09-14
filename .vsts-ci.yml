@@ -1,0 +1,191 @@
+resources:
+- repo: self
+
+phases:
+- phase: RT_Linux
+  queue:
+    name: 'Hosted Ubuntu 1604'
+    parallel: 3
+    matrix:
+      Debug:
+        BuildType: Debug
+        Asan: Off
+      Release:
+        Asan: Off
+        BuildType: Release
+      ASAN-Debug:
+        BuildType: Debug
+        Asan: On
+      ASAN-Release:
+        BuildType: Release
+        Asan: On
+  steps:
+  - checkout: self
+    submodules: recursive
+
+  - script: |
+      sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+      sudo apt-get update
+      sudo apt-get install -y ninja-build libc++-dev libc++abi-dev libc++abi1 libstdc++-7-dev llvm-6.0
+
+      sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-6.0 100
+      sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100
+      sudo update-alternatives --set cc /usr/bin/clang
+
+      sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-6.0 100
+      sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
+      sudo update-alternatives --set c++ /usr/bin/clang++
+
+    displayName: 'Install Build Dependencies'
+
+  - task: CMake@1
+    displayName: 'CMake ../src/rt -GNinja -DUSE_ASAN=$(Asan) -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS="-stdlib=libstdc++ -std=c++17"'
+    inputs:
+      cmakeArgs: '../src/rt -GNinja -DUSE_ASAN=$(Asan) -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS="-stdlib=libstdc++ -std=c++17"  -DVERONA_CI_BUILD=On'
+
+  - script: |
+      ninja
+      export ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer
+      export ASAN_OPTIONS="alloc_dealloc_mismatch=0 symbolize=1"
+      ctest -j 4 -E "([1-9][0-9]00|[4-9]00)" --timeout 400 --output-on-failure
+
+    workingDirectory: build
+    failOnStderr: true
+    displayName: 'Compile & Test'
+
+- phase: RT_Windows
+  queue:
+    name: 'Hosted VS2017'
+    parallel: 2
+    matrix:
+      Debug:
+        BuildType: Debug
+      Release:
+        BuildType: Release
+
+  steps:
+  - checkout: self
+    submodules: recursive
+
+  - task: CMake@1
+    displayName: 'CMake ../src/rt -G"Visual Studio 15 2017 Win64"'
+    inputs:
+      cmakeArgs: '../src/rt -G"Visual Studio 15 2017 Win64" -DVERONA_CI_BUILD=On'
+
+  - task: MSBuild@1
+    displayName: 'Build solution build/verona.sln'
+    inputs:
+      solution: build/verona.sln
+      msbuildArguments: '/m /p:Configuration=$(BuildType)'
+
+  - script: 'ctest -j 4 -E "([1-9][0-9]00|[2-9]00|compile)" --timeout 400  --interactive-debug-mode 0 --output-on-failure'
+    workingDirectory: build
+    displayName: 'Run Ctest'
+
+- phase: Format
+  queue:
+    name: 'Hosted Ubuntu 1604'
+  steps:
+
+  - checkout: self
+    submodules: recursive
+
+  - script: |
+      wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+      sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-6.0 main"
+      sudo apt-get update
+      sudo apt-get install -y clang-format-6.0
+      sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-6.0 100
+
+    displayName: 'Install Clang tools'
+
+  - task: CMake@1
+    displayName: 'CMake ../src'
+    inputs:
+      cmakeArgs: '../src -DVERONA_CI_BUILD=On'
+
+  - script: |
+      make clangformat
+      git diff $(Build.SourceVersion)
+      if [ "$(git diff $(Build.SourceVersion))" != "" ]; then exit 1; fi
+
+    workingDirectory: build
+    displayName: 'Clang-Format'
+
+  - script: |
+      grep -L "Copyright (c) Microsoft Corporation"  `git ls-files -- '*.cpp' '*.cc' '*.h' '*.hh' '*.verona'| xargs`
+    displayName: 'Check Copyright'
+
+  - script: |
+      cd src/rt/external/snmalloc
+      git diff origin/master --quiet
+
+    displayName: 'Check snmalloc up-to-date'
+
+- phase: Lang_Linux
+  queue:
+    name: 'Hosted Ubuntu 1604'
+
+  steps:
+  - checkout: self
+    submodules: recursive
+
+  - script: |
+      sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+
+      sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 15CF4D18AF4F7421
+      sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-6.0 main"
+
+      sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 379CE192D401AB61
+      sudo apt-get install -y ninja-build ghc libghc-parsec3-dev libstdc++-7-dev llvm-6.0-tools
+
+      pip install OutputCheck
+
+    displayName: 'Install Build Dependencies'
+
+  - task: CMake@1
+    displayName: 'CMake'
+    inputs:
+      cmakeArgs: '.. -GNinja -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_BUILD_TYPE="Debug" -DVERONA_CI_BUILD=On'
+
+  - script: 'ninja -v install'
+    displayName: 'Build'
+    workingDirectory: build
+    failOnStderr: true
+
+  - script: 'ctest --output-on-failure -j4'
+    displayName: 'Run compiler testsuite'
+    workingDirectory: build
+
+- phase: Lang_Windows
+  queue:
+    name: 'Hosted VS2017'
+    parallel: 2
+    matrix:
+      Debug:
+        BuildType: Debug
+      Release:
+        BuildType: Release
+
+  steps:
+  - checkout: self
+    submodules: recursive
+  
+  - script:
+      pip install OutputCheck
+
+  - task: CMake@1
+    displayName: 'CMake .. -G"Visual Studio 15 2017 Win64"'
+    inputs:
+      cmakeArgs: '.. -G"Visual Studio 15 2017 Win64" -DVERONA_CI_BUILD=On'
+
+  - task: MSBuild@1
+    displayName: 'Build solution build/verona.sln'
+    inputs:
+      solution: build/INSTALL.vcxproj
+      msbuildArguments: '/m /p:Configuration=$(BuildType)'
+
+  - script:
+      ctest -j 4 --output-on-failure -C $(BuildType)
+    workingDirectory: build
+

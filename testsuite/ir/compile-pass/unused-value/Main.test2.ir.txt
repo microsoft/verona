@@ -1,0 +1,11 @@
+IR for Main.test2:
+
+  Basic block BB0:
+    0 <- new A
+    1 <- new A
+    overwrite(0)
+    2 <- unit
+    3 <- integer 0
+    end-scope(1, 2)
+    return 3
+

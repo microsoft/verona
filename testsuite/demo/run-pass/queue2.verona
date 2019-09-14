@@ -1,0 +1,202 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+class Node[Value]
+{
+  value: (iso & Value) | (None & imm);
+  next: (Node[Value] & mut) | (None & imm);
+}
+
+class Queue[Value]
+{
+  hd: Node[Value] & mut;
+  tl: Node[Value] & mut;
+  none: None & imm;  // Fix when we have singletons
+
+  create(): Queue[Value] & iso
+  {
+    var q = new Queue;
+    var n = new Node in q;
+    q.hd = n;
+    q.tl = n;
+    q.none = freeze (new None);
+    n.next = q.none;
+    n.value = q.none;
+    q
+  }
+
+  add(self: mut, v: iso & Value)
+  {
+    var n_tail = new Node in self;
+    n_tail.next = self.none;
+    n_tail.value = self.none;
+
+    var old_tl = self.tl;
+    old_tl.value = v;
+    old_tl.next = n_tail;
+    self.tl = n_tail;
+  }
+
+  remove(self: mut): (iso & Value) | (None & imm)
+  {
+    var h = self.hd;
+    match (h.value = self.none)
+    {
+      var a: None => a,
+      var v: Value =>
+      {
+        match (h.next)
+        {
+          var a: None => self.none, // Should be unreachable, but not enforced by type system.
+          var b: Node[Value] =>
+          {
+            self.hd = b;
+            v
+          }
+        }
+      }
+    }
+  }
+}
+
+class Worker
+{
+  id: U64;
+
+  do (self: mut, w: iso & Job) 
+  {
+    Builtin.print2("Worker {} starting job {}\n", self.id, w.id);
+    Builtin.print2("Worker {} finishing job {}\n", self.id, w.id);
+  }
+
+  create(i: U64): Worker & iso
+  {
+    var w = new Worker;
+    (mut-view w).id = i;
+    w
+  }
+}
+
+class Job
+{
+  id: U64;
+
+  create(i: U64): Job & iso
+  {
+    var w = new Job;
+    (mut-view w).id = i;
+    w
+  }
+}
+
+class Scheduler
+{
+  queues: (Queue[Job] | Queue[Worker]) & iso;
+
+  refine(q: Queue[Worker]) {}
+
+  create(): cown[Scheduler]
+  {
+    var s = new Scheduler;
+    var q = Queue.create();
+    Scheduler.refine(mut-view(q));
+    s.queues = q;
+    cown(s)
+  }
+
+  add_job(rs: cown[Scheduler], j: Job & iso)
+  {
+    when (var s = rs) 
+    {
+      match (mut-view(s.queues))
+      {
+        var jq: Queue[Job] => jq.add(j),
+        var wq: Queue[Worker] =>
+        {
+          match (wq.remove())
+          {
+            var n: None => 
+            {
+              var jq = Queue.create();
+              (mut-view jq).add(j);
+              s.queues = jq;
+            }
+            var w: Worker =>
+            {
+              when () { (mut-view w).do(j); Scheduler.add_worker(rs, w) }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  add_worker(rs: cown[Scheduler], w: Worker & iso)
+  {
+    when (var s = rs) 
+    {
+      match (mut-view(s.queues))
+      {
+        var wq: Queue[Worker] => wq.add(w),
+        var jq: Queue[Job] =>
+        {
+          match (jq.remove())
+          {
+            var n: None => 
+            {
+              var wq = Queue.create();
+              (mut-view wq).add(w);
+              s.queues = wq;
+            }
+            var j: Job =>
+            {
+              when () 
+              { 
+                (mut-view w).do(j); 
+                Scheduler.add_worker(rs, w) 
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+class Main
+{
+  main()
+  {
+    var rs = Scheduler.create();
+    Scheduler.add_worker(rs, Worker.create(1));
+    Scheduler.add_worker(rs, Worker.create(2));
+    Scheduler.add_worker(rs, Worker.create(3));
+    Scheduler.add_worker(rs, Worker.create(4));
+    Scheduler.add_job(rs, Job.create(100));
+    Scheduler.add_job(rs, Job.create(101));
+    Scheduler.add_job(rs, Job.create(102));
+    Scheduler.add_job(rs, Job.create(103));
+    Scheduler.add_job(rs, Job.create(104));
+    Scheduler.add_job(rs, Job.create(105));
+    Scheduler.add_job(rs, Job.create(106));
+    Scheduler.add_job(rs, Job.create(107));
+    Scheduler.add_worker(rs, Worker.create(5));
+    Scheduler.add_worker(rs, Worker.create(6));
+    Scheduler.add_job(rs, Job.create(108));
+    Scheduler.add_job(rs, Job.create(109));
+    Scheduler.add_job(rs, Job.create(110));
+    Scheduler.add_job(rs, Job.create(111));
+    Scheduler.add_job(rs, Job.create(112));
+    Scheduler.add_job(rs, Job.create(113));
+    Scheduler.add_job(rs, Job.create(114));
+    Scheduler.add_job(rs, Job.create(115));
+    Scheduler.add_job(rs, Job.create(116));
+    Scheduler.add_job(rs, Job.create(117));
+    Scheduler.add_job(rs, Job.create(118));
+
+
+    Builtin.print("done\n");
+    // CHECK-L: done
+  }
+}
+

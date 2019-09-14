@@ -1,0 +1,77 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class Builtin {
+  print(format: String) {}
+  print1[T0](format: String, arg0: T0) {}
+  print2[T0, T1](format: String, arg0: T0, arg1: T1) {}
+  print3[T0, T1, T2](format: String, arg0: T0, arg1: T1, arg2: T2) {}
+  print4[T0, T1, T2, T3](format: String, arg0: T0, arg1: T1, arg2: T2, arg3: T3) {}
+  print5[T0, T1, T2, T3, T4](format: String, arg0: T0, arg1: T1, arg2: T2, arg3: T3, arg4: T4) {}
+
+  u64_add(x: U64, y: U64): U64 { Builtin.u64_add(x, y) }
+  u64_sub(x: U64, y: U64): U64 { Builtin.u64_sub(x, y) }
+  u64_lt(x: U64, y: U64): U64 { Builtin.u64_lt(x, y) }
+  u64_gt(x: U64, y: U64): U64 { Builtin.u64_gt(x, y) }
+  u64_le(x: U64, y: U64): U64 { Builtin.u64_le(x, y) }
+  u64_ge(x: U64, y: U64): U64 { Builtin.u64_ge(x, y) }
+  u64_eq(x: U64, y: U64): U64 { Builtin.u64_eq(x, y) }
+  u64_ne(x: U64, y: U64): U64 { Builtin.u64_ne(x, y) }
+  u64_and(x: U64, y: U64): U64 { Builtin.u64_and(x, y) }
+  u64_or(x: U64, y: U64): U64 { Builtin.u64_or(x, y) }
+
+  // Temporary API to implement promises
+  create_sleeping_cown[T](): cown[T] { Builtin.create_sleeping_cown() }
+  fulfill_sleeping_cown[T](x: cown[T], v: T) { Builtin.fulfill_sleeping_cown(x, v) }
+}
+
+class None {
+  create(): None & imm {
+    freeze (new None)
+  }
+}
+
+class U64Obj
+{
+  v: U64;
+  create(x: U64) : U64Obj & iso
+  {
+    var o = new U64Obj;
+    o.v = x;
+    o
+  }
+
+  print(p : U64Obj & mut)
+  {
+    Builtin.print1("{}\n", p.v);
+  }
+}
+
+class Promise[T]
+{
+  inner_cown: cown[T];
+
+  create(): Promise[T] & iso
+  { 
+    var p = new Promise;
+    p.inner_cown = Builtin.create_sleeping_cown();
+    p
+  } 
+
+  wait_handle(self: mut): cown[T]
+  { 
+    self.inner_cown
+  }
+
+  fulfill(self: iso, v: T & iso)
+  { 
+    Builtin.fulfill_sleeping_cown(self.inner_cown, v); 
+  }
+}
+
+class Sys
+{
+  abort()
+  {
+    Sys.abort() 
+  }
+}

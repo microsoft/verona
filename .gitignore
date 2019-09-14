@@ -1,0 +1,7 @@
+/build*/
+CMakeFiles/
+.vscode/
+.vs/
+**/dump/*
+/src/rt/build*/
+/Testing/

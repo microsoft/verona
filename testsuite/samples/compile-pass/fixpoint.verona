@@ -1,0 +1,18 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class A { f: B & mut; }
+class B { f: A & mut; }
+
+class Main {
+  main() { }
+
+  fixpoint(a: A & mut) : (A | B) & mut
+  {
+    var current = a;
+    while 1
+    {
+      current = current.f;
+    };
+    current
+  }
+}

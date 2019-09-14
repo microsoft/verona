@@ -1,0 +1,89 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+// Example using when 
+class Log
+{
+  write1(self: mut)
+  {
+    Builtin.print1("{}\n", 42);
+  }
+
+  write2(self: mut, v: U64)
+  {
+    Builtin.print1("{}\n", v);
+  }
+
+  create(): cown[Log]
+  {
+    cown(new Log)
+  }
+}
+
+class LogMessage
+{
+  capture: U64;
+
+  run (self: iso, l: Log & mut)
+  {
+    l.write1();
+    l.write2(self.capture);
+  }
+
+  run_imm (self: imm, l: Log & mut)
+  {
+    l.write1();
+    l.write2(self.capture);
+  }
+
+  create(v: U64): LogMessage & iso
+  {
+    var a = new LogMessage;
+    a.capture = v;
+    a
+  }
+}
+
+class Main
+{
+  do_stuff_iso(log: cown[Log], v: U64)
+  {
+    var m = LogMessage.create(v);
+    when (log) { m.run(log) };
+  }
+
+  do_stuff_imm(log: cown[Log], v: U64)
+  {
+    var m = freeze (LogMessage.create(v));
+    when (log) { m.run_imm(log) };
+    when (log) { m.run_imm(log) };
+  }
+
+  do_stuff_nested(r: cown[Log], v1: U64, v2: U64)
+  {
+    var m1 = LogMessage.create(v1);
+    var m2 = LogMessage.create(v2);
+
+    when (var log = r) {
+      m1.run(log);
+
+      when (var log = r) {
+        m2.run(log)
+      };
+    };
+  }
+
+  main()
+  {
+    var counter = 5;
+    while counter
+    {
+      var log = Log.create();
+      Builtin.print1("{}\n", counter);
+      Main.do_stuff_iso(log, counter);
+      Main.do_stuff_imm(log, counter);
+      Main.do_stuff_nested(log, counter, counter + 1);
+      counter = counter - 1;
+    };
+  }
+}
+// CHECK-L: 1

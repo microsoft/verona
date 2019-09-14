@@ -1,0 +1,11 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class A { }
+class Main
+{
+  main()
+  {
+    var x = new A;
+    var y = new A in x;
+  }
+}

@@ -1,0 +1,10 @@
+IR for Main.test1:
+Parameters:
+  x
+
+  Basic block BB0:
+    1 <- copy x
+    2 <- unit
+    end-scope(1, x)
+    return 2
+

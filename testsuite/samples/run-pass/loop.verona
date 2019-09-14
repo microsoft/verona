@@ -1,0 +1,29 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class True { create(): True & imm { freeze (new True) } }
+class False { create(): False & imm { freeze (new False) } }
+
+// CHECK-L: 5: True
+// CHECK-L: 4: False
+// CHECK-L: 3: True
+// CHECK-L: 2: False
+// CHECK-L: 1: True
+class Main
+{
+  main()
+  {
+    var a = True.create();
+    var counter = 5;
+  
+    while counter
+    {
+      Builtin.print2("{}: {}\n", counter, a);
+      match a
+      {
+        var t: True => a = False.create(),
+        var t: False => a = True.create(),
+      };
+      counter = counter - 1;
+    };
+  }
+}

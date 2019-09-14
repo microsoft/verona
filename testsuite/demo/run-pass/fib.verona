@@ -1,0 +1,40 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class Fib
+{
+  fib(x: U64): cown[U64Obj]
+  {
+    var pw = Promise.create();
+    var pr = (mut-view pw).wait_handle();
+
+    if (x < 2)
+    {
+      pw.fulfill(U64Obj.create(1));
+    } 
+    else
+    {
+      when () 
+      {
+        var p1 = Fib.fib(x - 1);
+        var p2 = Fib.fib(x - 2);
+        when (p1, p2) {
+          var r = U64Obj.create(p1.v + p2.v);
+          pw.fulfill(r)
+        }
+      }
+    };
+    pr
+  }
+}
+
+class Main
+{
+  main()
+  {
+    when (var uo = Fib.fib(12))
+    {
+      // CHECK-L: result=233
+      Builtin.print1("result={}\n", uo.v);
+    }
+  }
+}

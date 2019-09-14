@@ -1,0 +1,143 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+// Example using when for dining philosophers
+
+class Fork
+{
+  use_count: U64;
+
+  add_use(self: mut)
+  {
+    self.use_count = self.use_count + 1;
+  }
+
+  create(): iso & Fork
+  {
+    var f = new Fork;
+    f.use_count = 0;
+    f
+  }
+}
+
+class Philosopher
+{
+  id: U64;
+  fork1: cown[Fork];
+  fork2: cown[Fork];
+  door:  cown[Door];
+  hunger: U64;
+
+  create(n: U64, f1: cown[Fork], f2: cown[Fork], d: cown[Door]): iso & Philosopher
+  {
+    var p = new Philosopher;
+    p.hunger = 10;
+    p.fork1 = f1;
+    p.fork2 = f2;
+    p.door = d;
+	  p.id = n;
+    p
+  }
+
+  request_eat(self: iso)
+  {
+    when (var f1 = self.fork1, var f2 = self.fork2) 
+    {
+      Builtin.print2("philosopher {} eating, hunger={}\n", self.id, self.hunger);
+      f1.add_use();
+      f2.add_use();
+      self.hunger = self.hunger - 1;
+      Builtin.print2("philosopher {} eaten, new hunger={}\n", self.id, self.hunger);
+      if (self.hunger)
+      {
+        self.request_eat();
+      }
+      else
+      {
+        Builtin.print1("philosopher {} leaving\n", self.id);
+        Door.leave(self.door);
+      }
+    };
+  }
+}
+
+class Door
+{
+  count: U64;
+  fork1: cown[Fork];
+  fork2: cown[Fork];
+  fork3: cown[Fork];
+  fork4: cown[Fork];
+
+  create(
+    f1: cown[Fork], 
+    f2: cown[Fork], 
+    f3: cown[Fork], 
+    f4: cown[Fork]): Door & iso
+  {
+    var d = new Door;
+    d.count = 4;
+    d.fork1 = f1;
+    d.fork2 = f2;
+    d.fork3 = f3;
+    d.fork4 = f4;
+    d
+  }
+
+  leave(door: cown[Door])
+  {
+    when (door) 
+    {
+      Builtin.print1("philosopher leaving, door count {}\n", door.count);
+      door.count = door.count - 1;
+      if (door.count)
+      {
+        Builtin.print1("philosopher left, door count {}\n", door.count);
+      }
+      else
+      {
+        when (var f1 = door.fork1, 
+              var f2 = door.fork2, 
+              var f3 = door.fork3, 
+              var f4 = door.fork4)
+
+        {
+          Builtin.print1("fork 1: {}\n", f1.use_count);
+          Builtin.print1("fork 2: {}\n", f2.use_count);
+          Builtin.print1("fork 3: {}\n", f3.use_count);
+          Builtin.print1("fork 4: {}\n", f4.use_count);
+          // CHECK-L: fork 1: 20
+          // CHECK-L: fork 2: 20
+          // CHECK-L: fork 3: 20
+          // CHECK-L: fork 4: 20
+        }
+      }
+    }
+  }
+}
+
+class Main
+{
+  main()
+  {
+    var f1 = cown(Fork.create());
+    Builtin.print1("fork 1: {}\n", f1);
+    var f2 = cown(Fork.create());
+    Builtin.print1("fork 2: {}\n", f2);
+    var f3 = cown(Fork.create());
+    Builtin.print1("fork 3: {}\n", f3);
+    var f4 = cown(Fork.create());
+    Builtin.print1("fork 4: {}\n", f4);
+
+    var d = cown(Door.create(f1,f2,f3,f4));
+
+    var p1 = Philosopher.create(1, f1, f2, d);
+    var p2 = Philosopher.create(2, f2, f3, d);
+    var p3 = Philosopher.create(3, f3, f4, d);
+    var p4 = Philosopher.create(4, f4, f1, d);
+
+    p1.request_eat();
+    p2.request_eat();
+    p3.request_eat();
+    p4.request_eat();
+  }
+}

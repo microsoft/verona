@@ -1,0 +1,22 @@
+IR for Main.test1:
+
+  Basic block BB0:
+    0 <- integer 5
+    goto BB1
+
+  Basic block BB1:
+    1 <- integer 1
+    if 1
+     then goto BB2
+     else goto BB3
+
+  Basic block BB2:
+    goto BB1
+
+  Basic block BB3:
+    2 <- static Main
+    3 <- call 2.use(0)
+    4 <- unit
+    end-scope(0, 1, 2, 3)
+    return 4
+

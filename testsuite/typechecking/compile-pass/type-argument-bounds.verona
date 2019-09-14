@@ -1,0 +1,38 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+interface IHasFoo
+{
+  foo(self: mut);
+}
+
+class HasFoo
+{
+  foo(self: mut) {}
+}
+
+class A[X: HasFoo] { }
+
+class UseHasFoo {
+  use_has_foo(x: HasFoo & mut) {}
+}
+
+class Test[X: HasFoo & mut]
+{
+  f1: A[HasFoo];
+  f2: A[HasFoo & iso];
+  f3: A[X];
+
+  call_foo_on_x(x: X) {
+    x.foo();
+  }
+
+  use_X_as_has_foo(x: X) {
+    UseHasFoo.use_has_foo(x)
+  }
+}
+
+class Main
+{
+  main() { }
+}
+

@@ -1,0 +1,28 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class A { }
+class B { }
+class C { }
+class D { }
+
+class Main {
+  use_a(x: A & iso): (C & iso) { new C }
+  use_b(x: B & iso): (D & iso) { new D }
+
+  do_match(x: (A | B) & iso): (C | D) & iso {
+    match x {
+      var a: A => Main.use_a(a),
+      var b: B => Main.use_b(b),
+    }
+  }
+
+  main()
+  {
+    // CHECK-L: C
+    // CHECK-L: D
+    // CHECK-L: C
+    Builtin.print1("{}\n", Main.do_match(new A));
+    Builtin.print1("{}\n", Main.do_match(new B));
+    Builtin.print1("{}\n", Main.do_match(new A));
+  }
+}

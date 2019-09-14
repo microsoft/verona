@@ -1,0 +1,14 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+// Field and method definitions can be interleaved
+
+class A {
+  foo() {}
+  field1: U64;
+  bar() {}
+  field2: U64;
+}
+
+class Main {
+  main() { }
+}

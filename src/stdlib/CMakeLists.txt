@@ -1,0 +1,1 @@
+install (FILES builtin.verona DESTINATION stdlib)

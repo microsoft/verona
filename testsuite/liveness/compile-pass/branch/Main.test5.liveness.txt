@@ -1,0 +1,34 @@
+Liveness Analysis for Main.test5:
+Parameters:
+  x
+
+  Basic block BB0:
+    live(x), zombie()
+    1 <- integer 1
+    live(1, x), zombie()
+    if 1
+     then goto BB1
+     else goto BB2
+
+  Basic block BB1:
+    live(), zombie(1, x)
+    goto BB3
+
+  Basic block BB2:
+    live(x), zombie(1)
+    2 <- static Main
+    live(2, x), zombie(1)
+    3 <- call 2.use(x)
+    live(), zombie(1, 2, 3, x)
+    end-scope(2, 3)
+    live(), zombie(1, x)
+    goto BB3
+
+  Basic block BB3:
+    live(), zombie(1, x)
+    4 <- unit
+    live(4), zombie(1, x)
+    end-scope(1, x)
+    live(4), zombie()
+    return 4
+

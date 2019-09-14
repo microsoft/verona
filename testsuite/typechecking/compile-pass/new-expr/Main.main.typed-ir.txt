@@ -1,0 +1,9 @@
+Typed IR for Main.main:
+
+  Basic block BB0:
+    0 <- new A :: (A & iso(none))
+    1 <- new A in 0 :: (A & mut(variable 0))
+    2 <- unit :: unit
+    end-scope(0, 1)
+    return 2
+

@@ -1,0 +1,9 @@
+Checks:          '-clang-analyzer-security.insecureAPI.bzero,clang-diagnostic-*,readability-else-after-return,performance-unnecessary-copy-initialization,bugprone-use-after-move,modernize-use-nullptr,modernize-redundant-void-arg,modernize-return-braced-init-list,modernize-use-default-member-init,modernize-use-equals-default,modernize-use-equals-delete,modernize-use-nodiscard,modernize-use-override,cppcoreguidelines-avoid-goto,misc-unconventional-assign-operator,cppcoreguidelines-narrowing-conversions,bugprone-assert-side-effect,bugprone-bool-pointer-implicit-conversion,bugprone-copy-constructor-init,bugprone-forward-declaration-namespace,bugprone-forwarding-reference-overload,bugprone-macro-parentheses,bugprone-macro-repeated-side-effects,bugprone-move-forwarding-reference,bugprone-misplaced-widening-cast,bugprone-swapped-arguments,bugprone-undelegated-constructor,bugprone-unused-raii,cert-dcl21-cpp,llvm-namespace-comment,misc-static-assert,misc-redundant-expression,modernize-loop-convert,modernize-use-using,performance-noexcept-move-constructor,readability-non-const-parameter'
+# It would be nice to enable:
+# - readability-magic-numbers
+# - modernize-avoid-c-arrays
+# - cppcoreguidelines-pro-bounds-array-to-pointer-decay (assert breaks it).
+# - readability-braces-around-statements (mostly works, but is very confused by constexpr if).
+CheckOptions:
+  - key:             modernize-use-default-member-init.UseAssignment
+    value:           '1'

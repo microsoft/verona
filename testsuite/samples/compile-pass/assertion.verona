@@ -1,0 +1,16 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class A {}
+class B {}
+class Main { main() {} }
+
+class Cell[X] { value: X; }
+
+static_assert(A subtype A);
+static_assert(A not subtype B);
+static_assert(A subtype (A | B));
+
+static_assert[X](X subtype X);
+static_assert[X](Cell[X] subtype Cell[X]);
+static_assert[X](Cell[X] not subtype Cell[A]);
+static_assert[X, Y](X not subtype Y);

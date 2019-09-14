@@ -1,0 +1,26 @@
+IR for Main.test2:
+Parameters:
+  x
+  y
+
+  Basic block BB0:
+    2 <- integer 1
+    if 2
+     then goto BB1
+     else goto BB2
+
+  Basic block BB1:
+    3 <- copy x
+    end-scope(3)
+    goto BB3
+
+  Basic block BB2:
+    4 <- copy y
+    end-scope(4)
+    goto BB3
+
+  Basic block BB3:
+    5 <- unit
+    end-scope(2, x, y)
+    return 5
+

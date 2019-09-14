@@ -1,0 +1,27 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class A { f: (A & mut) | (None & imm); }
+
+class Main
+{
+  mk_none(): None & imm {
+    freeze(new None)
+  }
+
+  main() {
+    var x = new A;
+    var y = new A in x;
+    y.f = Main.mk_none();
+    x.f = y;
+
+    x = freeze(x);
+
+    // CHECK-L: A
+    Main.print_imm(x);
+  }
+
+  print_imm[X](x: X & imm)
+  {
+    Builtin.print1("{}\n", x);
+  }
+}

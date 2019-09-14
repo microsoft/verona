@@ -1,0 +1,95 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+class Node[Value]
+{
+    value: (iso & Value) | (None & imm);
+    next: (Node[Value] & mut) | (None & imm);
+}
+
+class Queue[Value]
+{
+  hd: Node[Value] & mut;
+  tl: Node[Value] & mut;
+  none: None & imm;  // Fix when we have singletons
+
+  create(): Queue[Value] & iso
+  {
+    var q = new Queue;
+    var n = new Node in q;
+    q.hd = n;
+    q.tl = n;
+    q.none = freeze (new None);
+    n.next = q.none;
+    n.value = q.none;
+    q
+  }
+
+  add(self: mut, v: iso & Value)
+  {
+    var n_tail = new Node in self;
+    n_tail.next = self.none;
+    n_tail.value = self.none;
+
+    var old_tl = self.tl;
+    old_tl.value = v;
+    old_tl.next = n_tail;
+    self.tl = n_tail;
+  }
+
+  remove(self: mut): (iso & Value) | (None & imm)
+  {
+    var h = self.hd;
+    match (h.value = self.none)
+    {
+      var a: None => a,
+      var v: Value =>
+      {
+        match (h.next)
+        {
+          var a: None => self.none, // Should be unreachable, but not enforced by type system.
+          var n: Node[Value] =>
+          {
+            self.hd = n;
+            v
+          }
+        }
+      }
+    }
+  }
+}
+
+class Main
+{
+  refine(a: Queue[U64Obj]) {}
+
+  main()
+  {
+    var q = mut-view (Queue.create());
+
+    // Type inference is choosing Queue[U64Obj & iso], which we can't codegen yet.
+    Main.refine(q);
+
+    q.add(U64Obj.create(1));
+    q.add(U64Obj.create(2));
+
+    var a1 = q.remove();
+    Main.print(a1);
+    // CHECK-L: Queue elem: 1
+    var a2 = q.remove();
+    Main.print(a2);
+    // CHECK-L: Queue elem: 2
+    var a3 = q.remove();
+    Main.print(a3);
+    // CHECK-L: Queue empty
+  }
+
+  print(a: (U64Obj & iso) | (None & imm))
+  {
+    match (a)
+    {
+      var vv: U64Obj => Builtin.print1("Queue elem: {}\n", (mut-view vv).v),
+      var n: None   => Builtin.print("Queue empty\n"),
+    }
+  }
+}

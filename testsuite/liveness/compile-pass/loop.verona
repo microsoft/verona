@@ -1,0 +1,35 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class A {}
+class Main
+{
+  main() {}
+  use[X](value: X) { }
+
+  test1(x: A & mut) {
+    while 1 {
+    };
+  }
+
+  test2(x: A & mut) {
+    while 1 {
+    };
+    Main.use(x);
+  }
+
+  test3(x: A & mut) {
+    while 1 {
+      Main.use(x);
+    };
+    Main.use(x);
+  }
+
+  test4(x: A & mut) {
+    while 1 {
+      while 1 {
+        Main.use(x);
+      }
+    };
+    Main.use(x);
+  }
+}

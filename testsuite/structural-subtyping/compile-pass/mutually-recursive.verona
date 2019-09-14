@@ -1,0 +1,26 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class Main { main() { } }
+
+interface MutualRecursiveA {
+  get_b(self: mut): MutualRecursiveB & mut;
+}
+
+interface MutualRecursiveB {
+  get_a(self: mut): MutualRecursiveA & mut;
+}
+
+class ConcreteA {
+  f: ConcreteB & mut;
+  get_b(self: mut): ConcreteB & mut { self.f }
+}
+
+class ConcreteB {
+  f: ConcreteA & mut;
+  get_a(self: mut): ConcreteA & mut { self.f }
+}
+
+// ConcreteA <: MutualRecursiveA requires ConcreteB <: MutualRecursiveB, which
+// in turn requires ConcreteA <: MutualRecursiveA again.
+static_assert(ConcreteA subtype MutualRecursiveA);
+static_assert(ConcreteB subtype MutualRecursiveB);

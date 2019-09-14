@@ -1,0 +1,141 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+interface Comparable[class T]
+{
+  less(self: mut, other: T & mut): U64;
+}
+
+class Empty { }
+class Node[T: iso | mut] {
+  left: (Node[T] & iso) | (Empty & iso);
+  value: T;
+  right: (Node[T] & iso) | (Empty & iso);
+
+  create(value: T): Node[T] & iso
+  {
+    var result = new Node;
+    result.value = value;
+    result.left = new Empty;
+    result.right = new Empty;
+    result
+  }
+}
+
+class Tree[T: Comparable[T] & (iso | mut)] {
+  top: (Node[T] & iso) | (Empty & iso);
+
+  create(): Tree[T] & iso {
+    var result = new Tree;
+    result.top = new Empty;
+    result
+  }
+
+  insert(self: mut, value: T) {
+    self.top = self._insert(self.top = new Empty, value);
+  }
+
+  _insert(self: mut,
+          current: (Node[T] & iso) | (Empty & iso),
+          value: T): (Node[T] & iso)
+  {
+    match current
+    {
+      var e: Empty => Node.create(value),
+      var n: Node[T] => {
+        if (mut-view value).less(mut-view(n.value)) {
+          n.left = self._insert(n.left = new Empty, value);
+        } else {
+          if (mut-view (n.value)).less(mut-view value) {
+            n.right = self._insert(n.right = new Empty, value);
+          } else {
+          }
+        };
+        n
+      },
+    }
+  }
+
+  _print(self: mut, node: (Node[T] & mut) | (Empty & mut))
+  {
+    match node
+    {
+      var e: Empty => {},
+      var n: Node[T] => {
+        self._print(mut-view (n.left));
+        Builtin.print1("{:#}\n", mut-view (n.value));
+        self._print(mut-view (n.right));
+      },
+    };
+  }
+
+  print(self: mut)
+  {
+    self._print(mut-view (self.top));
+  }
+}
+
+class Value {
+  value: U64;
+
+  create(value: U64): Value & iso
+  {
+    var result = new Value;
+    result.value = value;
+    result
+  }
+
+  create_in(value: U64, parent: mut): Value & mut
+  {
+    var result = new Value in parent;
+    result.value = value;
+    result
+  }
+
+  less(self: mut, other: Value & mut): U64
+  {
+    self.value < other.value
+  }
+}
+
+class Main {
+  main() {
+    Main.test_iso_tree(mut-view (Tree.create()));
+    Main.test_mut_tree(mut-view (Tree.create()));
+  }
+
+  test_iso_tree(tree: Tree[Value & iso] & mut) {
+    tree.insert(Value.create(5));
+    tree.insert(Value.create(12));
+    tree.insert(Value.create(3));
+    tree.insert(Value.create(7));
+
+    // CHECK-L: Value { 3 }
+    // CHECK-L: Value { 5 }
+    // CHECK-L: Value { 7 }
+    // CHECK-L: Value { 12 }
+    tree.print();
+
+    // CHECK-L: Tree[(Value & iso(•))] { Node[(Value & iso(•))] { Node[(Value & iso(•))] { Empty, Value { 3 }, Empty }, Value { 5 }, Node[(Value & iso(•))] { Node[(Value & iso(•))] { Empty, Value { 7 }, Empty }, Value { 12 }, Empty } } }
+    Builtin.print1("{:#}\n", tree);
+  }
+
+  test_mut_tree(tree: Tree[Value & mut] & mut) {
+    tree.insert(Value.create_in(4, tree));
+    tree.insert(Value.create_in(8, tree));
+    tree.insert(Value.create_in(6, tree));
+    tree.insert(Value.create_in(100, tree));
+
+    // CHECK-L: Value { 4 }
+    // CHECK-L: Value { 6 }
+    // CHECK-L: Value { 8 }
+    // CHECK-L: Value { 100 }
+    tree.print();
+
+    Builtin.print("Done1\n");
+
+    // CHECK-L: Tree[(Value & mut(•))] { Node[(Value & mut(•))] { Empty, Value { 4 }, Node[(Value & mut(•))] { Node[(Value & mut(•))] { Empty, Value { 6 }, Empty }, Value { 8 }, Node[(Value & mut(•))] { Empty, Value { 100 }, Empty } } } }
+    Builtin.print1("{:#}\n", tree);
+
+    Builtin.print("Done2");
+  }
+}

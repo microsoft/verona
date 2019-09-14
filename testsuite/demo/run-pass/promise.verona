@@ -1,0 +1,35 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class Main
+{
+  promise_test(i: U64)
+  {
+    var p = Promise.create();
+    var r = (mut-view p).wait_handle();
+
+    when(r) { U64Obj.print(r) };
+
+    Builtin.print1("{}\n", i + 1);
+
+    var v = new U64Obj;
+    v.v = i + 2;
+
+    p.fulfill(v);
+
+    Builtin.print1("{}\n", i + 3);
+  }
+
+  main()
+  {
+    Main.promise_test(10);
+    Main.promise_test(20);
+    Main.promise_test(30);
+    Main.promise_test(40);
+    Main.promise_test(50);
+    Main.promise_test(60);
+
+// Added for CI purposes
+    Builtin.print("999");
+// CHECK-L: 999
+  }
+}

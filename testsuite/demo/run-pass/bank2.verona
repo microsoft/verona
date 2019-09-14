@@ -1,0 +1,45 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class BankAccount
+{
+  balance: U64;
+
+  transfer(src: cown[BankAccount], 
+           dst: cown[BankAccount],
+           amount: U64)
+  {
+    when (src, dst)
+    {
+      src.balance = src.balance - amount;
+      dst.balance = dst.balance + amount;
+      Builtin.print2("new balance, src={}, dst={}\n", src.balance, dst.balance);
+    }
+  }
+
+  create(opening_balance: U64): cown[BankAccount]
+  {
+    var account = new BankAccount;
+    account.balance = opening_balance;
+    cown(account)
+  }
+}
+
+class Main
+{
+  main()
+  {
+    var a1 = BankAccount.create(501);
+    var a2 = BankAccount.create(502);
+    var a3 = BankAccount.create(503);
+    var a4 = BankAccount.create(504);
+
+    BankAccount.transfer(a1,a2,10);
+    BankAccount.transfer(a2,a3,20);
+    BankAccount.transfer(a3,a4,40);
+    BankAccount.transfer(a4,a1,80);
+
+    // Added for CI purposes
+    Builtin.print("done\n");
+    // CHECK-L: done
+  }
+}

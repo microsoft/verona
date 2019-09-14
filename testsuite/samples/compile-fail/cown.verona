@@ -1,0 +1,28 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class IsoHolder 
+{
+  contents: iso & None;
+
+  mk_cown_fail (self: iso): cown[None]
+  {
+    // CHECK-L: cown.verona:${LINE:+1}:5: error: Type '(None & iso(variable self))' is not isolated for cown creation
+    cown (self.contents)
+  }
+}
+
+class Cown {
+  cown_fail(x: None & imm): None & imm
+  {
+    // CHECK-L: cown.verona:${LINE:+1}:13: error: Type '(None & imm(none))' is not isolated for cown creation
+    var a = cown x;
+    None.create()
+  }
+}
+
+class Main 
+{
+  main()
+  {
+  }
+}

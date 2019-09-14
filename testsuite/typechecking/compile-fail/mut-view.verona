@@ -1,0 +1,23 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class A { f: A & iso; }
+
+class Main
+{
+  main() { }
+
+  test1(x: A & imm) {
+    // CHECK-L: mut-view.verona:${LINE:+1}:5: error: Type '(A & imm(none))' is not writable
+    mut-view x;
+  }
+
+  test2[X](x: X) {
+    // CHECK-L: mut-view.verona:${LINE:+1}:5: error: Type '(apply-extract (external 0) X)' is not writable
+    mut-view x;
+  }
+
+  test3(x: A & (iso | imm)) {
+    // CHECK-L: mut-view.verona:${LINE:+1}:5: error: Type '((A & imm(none)) | (A & iso(none)))' is not writable
+    mut-view x;
+  }
+}

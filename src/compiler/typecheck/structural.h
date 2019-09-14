@@ -1,0 +1,32 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+#include "compiler/instantiation.h"
+#include "compiler/typecheck/constraint.h"
+#include "compiler/visitor.h"
+
+namespace verona::compiler
+{
+  void add_structural_constraints(
+    Context& context,
+    Constraint::Compound* solution,
+    const TypePtr& sub,
+    const EntityTypePtr& super);
+
+  bool solve_has_method(
+    Context& context,
+    Constraint::Compound* solution,
+    const TypePtr& sub,
+    const HasMethodTypePtr& super);
+
+  bool solve_has_applied_method(
+    Context& context,
+    Constraint::Compound* solution,
+    const TypePtr& sub,
+    const HasAppliedMethodTypePtr& super);
+
+  bool solve_has_field(
+    Context& context,
+    Constraint::Compound* solution,
+    const TypePtr& sub,
+    const HasFieldTypePtr& super);
+}

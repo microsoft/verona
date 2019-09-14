@@ -1,0 +1,19 @@
+IR for Main.test5:
+
+  Basic block BB0:
+    goto BB1
+
+  Basic block BB1:
+    0 <- integer 1
+    if 0
+     then goto BB2
+     else goto BB3
+
+  Basic block BB2:
+    goto BB1
+
+  Basic block BB3:
+    1 <- integer 0
+    end-scope(0)
+    return 1
+
