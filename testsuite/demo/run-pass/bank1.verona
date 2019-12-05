@@ -1,23 +1,62 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+
+/*****************************************************************************
+ * This example is the simpliest example of concurrency in Verona.
+ * 
+ * It illustrates the creation of cowns, and scheduling work on a single cown
+ * using `when`.
+ *****************************************************************************/
+
+/**
+ * This class represent a extremely naive bank account that simply has a single
+ * unsigned integer field representing its balance.
+ *
+ * It supports two operations
+ *  - Creating a new bank account
+ *  - Adding to the accounts balance.
+ * These are both static methods on the class
+ **/
 class BankAccount
 {
   balance: U64;
 
+  /**
+   * Creates a new bank account wrapped in a `cown` with an opening balance
+   * from the supplied argument.
+   **/
+  create(opening_balance: U64): cown[BankAccount]
+  {
+    // Create a new BankAccount object
+    var account = new BankAccount;
+    // Update its balance
+    account.balance = opening_balance;
+    // Wrap it in a `cown` for concurrent access
+    cown(account)
+  }
+
+  /**
+   * This is a static method of bank account that takes a `cown` of a bank
+   * account, and an amount to add to the bank account.
+   * 
+   * The method is effectively asynchronous, when it returns the bank account
+   * may or may not have been updated, but the work to update the bank account
+   * will have been scheduled.  Work on a single cown is always processed in
+   * the order it is scheduled.
+   **/
   add(account: cown[BankAccount], amount: U64)
   {
+    /**
+     * The syntax `when (account) { C }` means, when exclusive access to
+     * `account` is available, then run `C` with exclusive access to account.
+     * The statement returns once the work is scheduled, but not necessarily
+     * executed. 
+     **/
     when (account)
     {
       account.balance = account.balance + amount;
       Builtin.print1("new balance: {}\n", account.balance);
     }
-  }
-
-  create(opening_balance: U64): cown[BankAccount]
-  {
-    var account = new BankAccount;
-    account.balance = opening_balance;
-    cown(account)
   }
 }
 
@@ -25,24 +64,42 @@ class Main
 {
   example(start: U64)
   {
+    // Allocates a fresh bank account
     var s = BankAccount.create(start);
+    // Add increasing amounts to the bank account
+    // The amounts will always be added in the order below as 
+    // operations on a single cown are performed in the order they are
+    // scheduled.
     BankAccount.add(s, 1);
-    BankAccount.add(s, 1);
-    BankAccount.add(s, 1);
-    BankAccount.add(s, 1);
-    BankAccount.add(s, 1);
-    BankAccount.add(s, 1);
+    BankAccount.add(s, 2);
+    BankAccount.add(s, 3);
+    BankAccount.add(s, 4);
+    BankAccount.add(s, 5);
+    BankAccount.add(s, 6);
   }
 
   main()
   {
+    // Runs four versions of the example
+    // The examples are scheduled sequentially, but as the majority of the work
+    // is asynchronous, the messages are printed in parallel.
     Main.example(100);
     Main.example(200);
     Main.example(300);
     Main.example(400);
 
-    // Added for CI purposes
+    // Note that "done" can be printed in the output sequence before all or even
+    // any of the "new balance" messages have been displayed.
     Builtin.print("done\n");
-    // CHECK-L: done
+
+    // Check that the order is correct for the example starting with an opening
+    // balance of 100. The following comments are used in CI to check the output
+
+    // CHECK-L: new balance: 101
+    // CHECK-L: new balance: 103
+    // CHECK-L: new balance: 106
+    // CHECK-L: new balance: 110
+    // CHECK-L: new balance: 115
+    // CHECK-L: new balance: 121
   }
 }
