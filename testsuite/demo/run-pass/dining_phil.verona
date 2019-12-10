@@ -1,7 +1,22 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-// Example using when for dining philosophers
 
+/*****************************************************************************
+ * This example uses the Verona concurrency model for the classic 
+ * dining philosophers problem.
+ *   https://en.wikipedia.org/wiki/Dining_philosophers_problem
+ *
+ * The Verona runtime solves this problem by applying a stable order to the 
+ * acquisition of `cown`s for a `when` expression, that is, the order the
+ * runtime grabs `cown`c for a behaviour is not necessarily the order they are
+ * written in.
+ *****************************************************************************/
+
+/**
+ * The fork class represents the resource the philosophers will contend over,
+ * hence, we will create these as `cown`s to provide the synchronisation
+ * inherent in the example.
+ **/
 class Fork
 {
   use_count: U64;
@@ -11,22 +26,36 @@ class Fork
     self.use_count = self.use_count + 1;
   }
 
-  create(): iso & Fork
+  create(): cown[Fork]
   {
     var f = new Fork;
     f.use_count = 0;
-    f
+    cown(f)
   }
 }
 
+/**
+ * The Philosopher class represents the philosophers eating at the table
+ **/
 class Philosopher
 {
+  // id used for printing the trace of what happened.
   id: U64;
+  // The two forks this Philosopher is using to eat
   fork1: cown[Fork];
   fork2: cown[Fork];
+  // The door is used, so we can synchonise the finish to eating. 
   door:  cown[Door];
+  // The number of times left for this philosopher to eat.
   hunger: U64;
 
+  /**
+   * This static method creates a Philosopher
+   *
+   * It returns the Philosopher with the capability `iso`.  This is linear
+   * capability that expresses unique ownership of this object (and potentially
+   * other objects in the same regions). 
+   **/
   create(n: U64, f1: cown[Fork], f2: cown[Fork], d: cown[Door]): iso & Philosopher
   {
     var p = new Philosopher;
@@ -38,28 +67,63 @@ class Philosopher
     p
   }
 
+  /**
+   * The eat instance method, requires non-exclusive mutable access to this
+   * object and the two forks it is using to eat.
+   **/
+  eat(self: mut, f1: Fork & mut, f2: Fork & mut)
+  {
+    Builtin.print2("philosopher {} eating, hunger={}\n", self.id, self.hunger);
+    f1.add_use();
+    f2.add_use();
+    self.hunger = self.hunger - 1;
+    Builtin.print2("philosopher {} eaten, new hunger={}\n", self.id, self.hunger);
+  }
+
+  /**
+   * This instance method perform the requests to acquire the forks for this 
+   * Philosopher.
+   * 
+   * The Philosopher is passed as an `iso`, so that its linear capability can be
+   * sent into the closure of the when expression.
+   **/
   request_eat(self: iso)
   {
+    // Request the philosophers forks
+    // This captures the self parameter in the closure that it schedules.
     when (var f1 = self.fork1, var f2 = self.fork2) 
     {
-      Builtin.print2("philosopher {} eating, hunger={}\n", self.id, self.hunger);
-      f1.add_use();
-      f2.add_use();
-      self.hunger = self.hunger - 1;
-      Builtin.print2("philosopher {} eaten, new hunger={}\n", self.id, self.hunger);
+      // mut-view is an annotation to coerce the `iso` capability to a `mut`
+      // capability for this call. When we have more inference for capabilities
+      // this will be inferred.
+      (mut-view self).eat(f1, f2);
+
       if (self.hunger)
       {
+        // No zero hunger, so recurse.
+        // Though, this is not technically recursion, as this call is actually
+        // in the closure created and scheduled by `request_eat`.
         self.request_eat();
       }
       else
       {
+        // This Philosopher is finished, so leave the room through the door.
         Builtin.print1("philosopher {} leaving\n", self.id);
         Door.leave(self.door);
       }
     };
+    // Accessing self here is an error as it has been captured by the closure
+    // Uncommenting the following line illustrates this:
+    // self.fork1;
   }
 }
 
+/**
+ * This class is used to track the Philosophers leaving the room.
+ * 
+ * When all the Philosophers have left the room, it acquires the forks and
+ * prints their use count.
+ **/
 class Door
 {
   count: U64;
@@ -72,7 +136,7 @@ class Door
     f1: cown[Fork], 
     f2: cown[Fork], 
     f3: cown[Fork], 
-    f4: cown[Fork]): Door & iso
+    f4: cown[Fork]): cown[Door]
   {
     var d = new Door;
     d.count = 4;
@@ -80,27 +144,33 @@ class Door
     d.fork2 = f2;
     d.fork3 = f3;
     d.fork4 = f4;
-    d
+    cown(d)
   }
 
   leave(door: cown[Door])
   {
+    // Schedule work for when the door is available
     when (door) 
     {
       Builtin.print1("philosopher leaving, door count {}\n", door.count);
+      // Decrement the count of philosophers in the room.
       door.count = door.count - 1;
       if (door.count)
       {
+        // Philosophers still left, so do nothing more.
         Builtin.print1("philosopher left, door count {}\n", door.count);
       }
       else
       {
+        // All the Philosophers have left, acquire the forks
         when (var f1 = door.fork1, 
               var f2 = door.fork2, 
               var f3 = door.fork3, 
               var f4 = door.fork4)
 
         {
+          // Print use count of all the forks, so we can check for correction
+          // execution of the example.
           Builtin.print1("fork 1: {}\n", f1.use_count);
           Builtin.print1("fork 2: {}\n", f2.use_count);
           Builtin.print1("fork 3: {}\n", f3.use_count);
@@ -119,16 +189,16 @@ class Main
 {
   main()
   {
-    var f1 = cown(Fork.create());
+    var f1 = Fork.create();
     Builtin.print1("fork 1: {}\n", f1);
-    var f2 = cown(Fork.create());
+    var f2 = Fork.create();
     Builtin.print1("fork 2: {}\n", f2);
-    var f3 = cown(Fork.create());
+    var f3 = Fork.create();
     Builtin.print1("fork 3: {}\n", f3);
-    var f4 = cown(Fork.create());
+    var f4 = Fork.create();
     Builtin.print1("fork 4: {}\n", f4);
 
-    var d = cown(Door.create(f1,f2,f3,f4));
+    var d = Door.create(f1,f2,f3,f4);
 
     var p1 = Philosopher.create(1, f1, f2, d);
     var p2 = Philosopher.create(2, f2, f3, d);

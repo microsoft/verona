@@ -72,7 +72,7 @@ if (FILECHECK AND PythonInterp_FOUND)
 
   set_tests_properties(
     # Region-checking hasn't been ported yet
-    samples/compile-fail/bad-branch
+    features/compile-fail/bad-branch
 
     # The typechecker takes way too much time to solve this test
     ir/compile-pass/loop-complexity
