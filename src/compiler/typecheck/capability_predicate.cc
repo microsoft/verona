@@ -124,13 +124,13 @@ namespace verona::compiler
     PredicateSet visit_union(const UnionTypePtr& type) final
     {
       return combine_elements(
-        type->elements, PredicateSet::all(), std::bit_and());
+        type->elements, PredicateSet::all(), std::bit_and<PredicateSet>());
     }
 
     PredicateSet visit_intersection(const IntersectionTypePtr& type) final
     {
       return combine_elements(
-        type->elements, PredicateSet::empty(), std::bit_or());
+        type->elements, PredicateSet::empty(), std::bit_or<PredicateSet>());
     }
     PredicateSet
     visit_variable_renaming_type(const VariableRenamingTypePtr& type) final

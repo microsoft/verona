@@ -5,13 +5,13 @@
 #include <variant>
 
 /**
- * MSVC doesn't assume exhaustivity of enum classes.
+ * GCC and MSVC don't assume exhaustivity of enum classes.
  * Clang does.
  *
  * This macro is used to allow clang to continue to check exhaustivity assuming
  * it is a member of the enum class.
  **/
-#ifdef _MSC_VER
+#if defined(__GNUC__) || defined(_MSC_VER)
 #  define EXHAUSTIVE_SWITCH \
     default: \
       abort();
