@@ -59,7 +59,10 @@ namespace verona::compiler
     {
       this->visit_expr(*expr.condition, args...);
       this->visit_expr(*expr.then_block, args...);
-      this->visit_expr(*expr.else_block, args...);
+      if (expr.else_block)
+      {
+        this->visit_expr(*expr.else_block->body, args...);
+      }
     }
     void visit_block(BlockExpr& expr, Args... args) override
     {

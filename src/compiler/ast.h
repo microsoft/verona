@@ -419,11 +419,16 @@ namespace verona::compiler
     ASTPtr<Expression> body;
   };
 
+  struct ElseExpr : public Expression
+  {
+    ASTPtr<Expression> body;
+  };
+
   struct IfExpr : public Expression
   {
     ASTPtr<Expression> condition;
     ASTPtr<Expression> then_block;
-    ASTPtr<Expression> else_block;
+    ASTPtr<ElseExpr, /* optional */ true> else_block;
   };
 
   struct BlockExpr : public Expression

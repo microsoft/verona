@@ -104,7 +104,14 @@ namespace verona::compiler
 
     void visit_if(IfExpr& e) final
     {
-      print("(if {} {} {})", *e.condition, *e.then_block, *e.else_block);
+      if (e.else_block)
+      {
+        print("(if {} {} {}", *e.condition, *e.then_block, *e.else_block->body);
+      }
+      else
+      {
+        print("(if {} {})", *e.condition, *e.then_block);
+      }
     }
 
     void visit_block(BlockExpr& e) final

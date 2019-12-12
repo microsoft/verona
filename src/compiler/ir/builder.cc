@@ -683,8 +683,18 @@ namespace verona::compiler
     // Result of each branch is owned by the Phi node.
     BuilderResult then_value =
       push_scope(*expr.then_block, phi_input_kind(kind), then_bb);
-    BuilderResult else_value =
-      push_scope(*expr.else_block, phi_input_kind(kind), else_bb);
+
+    BuilderResult<IRInput> else_value = BuilderResult<IRInput>::Invalid();
+
+    if (expr.else_block)
+    {
+      else_value =
+        push_scope(*expr.else_block->body, phi_input_kind(kind), else_bb);
+    }
+    else
+    {
+      else_value = unit(expr.source_range, phi_input_kind(kind), else_bb);
+    }
 
     BasicBlock* exit_bb = function_ir_->add_block(bb);
     set_terminator(then_bb, BranchTerminator{exit_bb});
