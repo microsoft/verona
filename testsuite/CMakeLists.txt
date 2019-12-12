@@ -4,6 +4,9 @@ find_package(PythonInterp)
 
 if (NOT PythonInterp_FOUND)
   message(WARNING " No python interpreter - Test Suite not compiled")
+  if (VERONA_CI_BUILD)
+    message(FATAL_ERROR "Tests must be built in CI!")
+  endif()
 endif()
 
 find_program(FILECHECK
@@ -21,6 +24,9 @@ endif()
 if(NOT FILECHECK)
   message(WARNING " Could not find OutputCheck - Test Suite not compiled")
   message(WARNING "   Run: pip install OutputCheck")
+  if (VERONA_CI_BUILD)
+    message(FATAL_ERROR "Tests must be built in CI!")
+  endif()
 endif()
 
 if (FILECHECK AND PythonInterp_FOUND)

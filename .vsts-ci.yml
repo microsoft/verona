@@ -139,7 +139,7 @@ phases:
       sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 379CE192D401AB61
       sudo apt-get install -y ninja-build ghc libghc-parsec3-dev libstdc++-7-dev llvm-6.0-tools
 
-      pip install OutputCheck
+      sudo pip install wheel OutputCheck
 
     displayName: 'Install Build Dependencies'
 
