@@ -161,6 +161,7 @@ namespace verona::bytecode
     Print, // format(u8), argc(u8), args(u8)...
     Return,
     Store, // dst(u8), base(u8), selector(u32), src(u8)
+    TraceRegion, // region(u8)
     Unreachable,
     When, // codepointer(u32), cown count(u8), capture count(u8)
 
@@ -348,6 +349,13 @@ namespace verona::bytecode
   {
     using Operands = OpcodeOperands<Register, std::string_view>;
     constexpr static std::string_view format = "STRING {}, \"{}\"";
+  };
+
+  template<>
+  struct OpcodeSpec<Opcode::TraceRegion>
+  {
+    using Operands = OpcodeOperands<Register>;
+    constexpr static std::string_view format = "TRACE REGION {}";
   };
 
   template<>

@@ -36,6 +36,8 @@ namespace verona::compiler
       builtin_create_sleeping_cown();
     else if (name == "fulfill_sleeping_cown")
       builtin_fulfill_sleeping_cown();
+    else if (name == "trace")
+      builtin_trace_region();
     else
       throw std::logic_error("Invalid builtin");
   }
@@ -77,6 +79,16 @@ namespace verona::compiler
 
     gen_.opcode(Opcode::NewSleepingCown);
     gen_.reg(Register(0));
+    gen_.opcode(Opcode::Return);
+  }
+
+  void BuiltinGenerator::builtin_trace_region()
+  {
+    assert(abi_.arguments == 2);
+    assert(abi_.returns == 1);
+
+    gen_.opcode(Opcode::TraceRegion);
+    gen_.reg(Register(1));
     gen_.opcode(Opcode::Return);
   }
 

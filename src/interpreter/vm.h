@@ -83,6 +83,7 @@ namespace verona::interpreter
     void opcode_store(
       Register dst, const Value& base, SelectorIdx selector, Value src);
     void opcode_string(Register dst, std::string_view imm);
+    void opcode_trace_region(const Value& region);
     void
     opcode_when(CodePtr selector, uint8_t cown_count, uint8_t capture_count);
     void opcode_unreachable();

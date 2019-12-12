@@ -5,20 +5,31 @@ class Node[Value]
 {
     value: (iso & Value) | (None & imm);
     next: (Node[Value] & mut) | (None & imm);
+
+    final(self: mut)
+    {
+      Builtin.print("Finalise node\n");
+    }
 }
 
 class Queue[Value]
 {
+  id: U64;
   hd: Node[Value] & mut;
   tl: Node[Value] & mut;
   none: None & imm;  // Fix when we have singletons
+  length: U64;
+  freed: U64;
 
-  create(): Queue[Value] & iso
+  create(i: U64): Queue[Value] & iso
   {
     var q = new Queue;
     var n = new Node in q;
     q.hd = n;
     q.tl = n;
+    q.id = i;
+    q.length = 0;
+    q.freed = 0;
     q.none = freeze (new None);
     n.next = q.none;
     n.value = q.none;
@@ -35,11 +46,28 @@ class Queue[Value]
     old_tl.value = v;
     old_tl.next = n_tail;
     self.tl = n_tail;
+
+    self.length = self.length + 1;
   }
 
   remove(self: mut): (iso & Value) | (None & imm)
   {
     var h = self.hd;
+
+    // Data structure level GC heuristic:
+    var boundary = self.length + self.length + 4;
+    var value = self.freed > boundary;
+    
+    if (value)
+    {
+      Builtin.print1("Should reclaim some memory! Queue {}\n", self.id);
+      
+      // This needs to ensure other references are removed in the type system.
+      Builtin.trace(self);
+      
+      self.freed = 0;
+    };
+
     match (h.value = self.none)
     {
       var a: None => a,
@@ -51,6 +79,8 @@ class Queue[Value]
           var n: Node[Value] =>
           {
             self.hd = n;
+            self.length = self.length - 1;
+            self.freed = self.freed + 1;
             v
           }
         }

@@ -10,33 +10,62 @@ class Main
 {
   refine(a: Queue[U64Obj]) {}
 
-  main()
+  run(q: Queue[U64Obj] & mut)
   {
-    var q = mut-view (Queue.create());
-
-    // Type inference is choosing Queue[U64Obj & iso], which we can't codegen yet.
-    Main.refine(q);
-
     q.add(U64Obj.create(1));
     q.add(U64Obj.create(2));
 
     var a1 = q.remove();
-    Main.print(a1);
-    // CHECK-L: Queue elem: 1
+    Main.print(q.id, a1);
     var a2 = q.remove();
-    Main.print(a2);
-    // CHECK-L: Queue elem: 2
+    Main.print(q.id, a2);
     var a3 = q.remove();
-    Main.print(a3);
-    // CHECK-L: Queue empty
+    Main.print(q.id, a3);
   }
 
-  print(a: (U64Obj & iso) | (None & imm))
+  main()
+  {
+    var q = mut-view (Queue.create(1));
+    var q2 = mut-view (Queue.create(2));
+
+    // Type inference is choosing Queue[U64Obj & iso], which we can't codegen yet.
+    Main.refine(q);
+
+    Main.run(q);
+    // CHECK-L: Queue 1 elem: 1
+    // CHECK-L: Queue 1 elem: 2
+
+    Main.run(q2);
+    Main.run(q);
+    Main.run(q2);
+    Main.run(q2);
+    Main.run(q);
+    Main.run(q2);
+    Main.run(q2);
+    Main.run(q);
+    Main.run(q);
+    Main.run(q2);
+    Main.run(q);
+    Main.run(q2);
+    Main.run(q2);
+    Main.run(q);
+    Main.run(q);
+    Main.run(q2);
+    Main.run(q);
+    Main.run(q);
+    Main.run(q2);
+    Main.run(q);
+    Main.run(q);
+
+    Builtin.print("Finished\n");
+  }
+
+  print(id: U64, a: (U64Obj & iso) | (None & imm))
   {
     match (a)
     {
-      var vv: U64Obj => Builtin.print1("Queue elem: {}\n", (mut-view vv).v),
-      var n: None   => Builtin.print("Queue empty\n"),
+      var vv: U64Obj => Builtin.print2("Queue {} elem: {}\n", id, (mut-view vv).v),
+      var n: None   => Builtin.print1("Queue {} empty\n", id),
     }
   }
 }

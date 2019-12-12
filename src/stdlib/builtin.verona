@@ -22,6 +22,11 @@ class Builtin {
   // Temporary API to implement promises
   create_sleeping_cown[T](): cown[T] { Builtin.create_sleeping_cown() }
   fulfill_sleeping_cown[T](x: cown[T], v: T) { Builtin.fulfill_sleeping_cown(x, v) }
+
+  // This exposes trace on a trable region
+  // TODO: invalidate other references into this region
+  // TODO: needs expanding as we add other region allocation strategies
+  trace(x : mut) { }
 }
 
 class None {
