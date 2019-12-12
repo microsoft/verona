@@ -16,7 +16,7 @@ namespace verona::rt
       internal_release();
 
       while (external_lock.exchange(true, std::memory_order_acq_rel))
-        snmalloc::AAL::pause();
+        snmalloc::Aal::pause();
 
       internal_lock.store(1, std::memory_order_relaxed);
       external_release();
@@ -49,12 +49,12 @@ namespace verona::rt
     void external_acquire()
     {
       while (external_lock.exchange(true, std::memory_order_acq_rel))
-        snmalloc::AAL::pause();
+        snmalloc::Aal::pause();
 
       Barrier::memory();
 
       while (internal_lock.load(std::memory_order_acquire) != 0)
-        snmalloc::AAL::pause();
+        snmalloc::Aal::pause();
     }
 
     void internal_release()

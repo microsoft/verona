@@ -84,7 +84,7 @@ namespace Systematic
   private:
     static size_t get_start()
     {
-      static size_t start = snmalloc::AAL::tick();
+      static size_t start = snmalloc::Aal::tick();
       return start;
     }
 
@@ -102,7 +102,7 @@ namespace Systematic
       alock.internal_acquire();
       systematic_id = get_systematic_id();
       working_index = verona::rt::bits::inc_mod(working_index, size);
-      log[working_index].header.time = snmalloc::AAL::tick() - get_start();
+      log[working_index].header.time = snmalloc::Aal::tick() - get_start();
       log[working_index].header.items = (working_index - index + size) % size;
       index = working_index;
       alock.internal_release();

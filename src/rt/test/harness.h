@@ -76,7 +76,7 @@ public:
     // The CI build is configured to output the trace on failure, so will print
     // the seed, so it can be duplicated. Adding noise to CI means we will get
     // more coverage over time.
-    size_t random = ((snmalloc::AAL::tick()) & 0xffff) * 100000;
+    size_t random = ((snmalloc::Aal::tick()) & 0xffff) * 100000;
 #else
     // When not a CI build use the seed the user specified.
     size_t random = 0;
