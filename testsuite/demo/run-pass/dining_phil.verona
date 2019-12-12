@@ -198,7 +198,7 @@ class Main
     var f4 = Fork.create();
     Builtin.print1("fork 4: {}\n", f4);
 
-    var d = Door.create(f1,f2,f3,f4);
+    var d = Door.create(f1, f2, f3, f4);
 
     var p1 = Philosopher.create(1, f1, f2, d);
     var p2 = Philosopher.create(2, f2, f3, d);
