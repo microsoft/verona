@@ -40,7 +40,7 @@ namespace verona::rt
      **/
     std::atomic<size_t> inflight_count = 0;
 
-    uint64_t last_unpause_tsc = AAL::tick();
+    uint64_t last_unpause_tsc = Aal::tick();
     std::mutex m;
     std::condition_variable cv;
     std::atomic_uint64_t barrier_count = 0;
@@ -572,7 +572,7 @@ namespace verona::rt
       }
 
 #ifndef USE_SYSTEMATIC_TESTING
-      uint64_t now = AAL::tick();
+      uint64_t now = Aal::tick();
       uint64_t elapsed = now - last_unpause_tsc;
       last_unpause_tsc = now;
 

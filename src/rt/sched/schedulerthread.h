@@ -397,7 +397,7 @@ namespace verona::rt
 
     T* steal()
     {
-      uint64_t tsc = AAL::tick();
+      uint64_t tsc = Aal::tick();
       T* cown;
 
       while (running)
@@ -438,12 +438,12 @@ namespace verona::rt
         victim = victim->next;
 
         // Wait until a minimum timeout has passed.
-        uint64_t tsc2 = AAL::tick();
+        uint64_t tsc2 = Aal::tick();
 
 #ifndef USE_SYSTEMATIC_TESTING
         if ((tsc2 - tsc) < TSC_QUIESCENCE_TIMEOUT)
         {
-          AAL::pause();
+          Aal::pause();
         }
         else
 #else
