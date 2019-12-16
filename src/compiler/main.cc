@@ -18,6 +18,7 @@
 
 #include <CLI/CLI.hpp>
 #include <cstring>
+#include <experimental/filesystem>
 #include <fstream>
 #include <iostream>
 #include <pegmatite.hh>
@@ -77,6 +78,8 @@ namespace verona::compiler
 
   bool compile(const Options& options, std::vector<uint8_t>* output)
   {
+    using filepath = std::experimental::filesystem::path;
+
     Context context;
 
     // Print a diagnostic summary when we exit, along any path.
@@ -87,8 +90,16 @@ namespace verona::compiler
 
     std::unique_ptr<Program> program = std::make_unique<Program>();
 
+    std::queue<filepath> work_list;
     for (auto& input_file : options.input_files)
     {
+      filepath input_file_path(input_file);
+      work_list.push(input_file_path);
+    }
+
+    while (!work_list.empty())
+    {
+      auto& input_file = work_list.front();
       std::ifstream input(input_file, std::ios::binary);
       if (!input.is_open())
       {
@@ -96,14 +107,24 @@ namespace verona::compiler
         return false;
       }
 
-      context.add_source_file(input_file);
-      std::unique_ptr<File> file = parse(context, input_file, input);
+      context.add_source_file(input_file.string());
+      std::unique_ptr<File> file = parse(context, input_file.string(), input);
       if (!file)
       {
         std::cerr << "Parsing failed" << std::endl;
         return false;
       }
+
+      // Add nested includes to the work list.
+      for (auto& include : file->modules)
+      {
+        auto directory = input_file.remove_filename();
+        directory += "/" + (std::string)*include;
+        work_list.push(directory);
+      }
+
       program->files.push_back(std::move(file));
+      work_list.pop();
     }
 
     dump_ast(context, program.get(), "ast");

@@ -58,38 +58,3 @@ class Queue[Value]
     }
   }
 }
-
-class Main
-{
-  refine(a: Queue[U64Obj]) {}
-
-  main()
-  {
-    var q = mut-view (Queue.create());
-
-    // Type inference is choosing Queue[U64Obj & iso], which we can't codegen yet.
-    Main.refine(q);
-
-    q.add(U64Obj.create(1));
-    q.add(U64Obj.create(2));
-
-    var a1 = q.remove();
-    Main.print(a1);
-    // CHECK-L: Queue elem: 1
-    var a2 = q.remove();
-    Main.print(a2);
-    // CHECK-L: Queue elem: 2
-    var a3 = q.remove();
-    Main.print(a3);
-    // CHECK-L: Queue empty
-  }
-
-  print(a: (U64Obj & iso) | (None & imm))
-  {
-    match (a)
-    {
-      var vv: U64Obj => Builtin.print1("Queue elem: {}\n", (mut-view vv).v),
-      var n: None   => Builtin.print("Queue empty\n"),
-    }
-  }
-}

@@ -1,63 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-class Node[Value]
-{
-  value: (iso & Value) | (None & imm);
-  next: (Node[Value] & mut) | (None & imm);
-}
-
-class Queue[Value]
-{
-  hd: Node[Value] & mut;
-  tl: Node[Value] & mut;
-  none: None & imm;  // Fix when we have singletons
-
-  create(): Queue[Value] & iso
-  {
-    var q = new Queue;
-    var n = new Node in q;
-    q.hd = n;
-    q.tl = n;
-    q.none = freeze (new None);
-    n.next = q.none;
-    n.value = q.none;
-    q
-  }
-
-  add(self: mut, v: iso & Value)
-  {
-    var n_tail = new Node in self;
-    n_tail.next = self.none;
-    n_tail.value = self.none;
-
-    var old_tl = self.tl;
-    old_tl.value = v;
-    old_tl.next = n_tail;
-    self.tl = n_tail;
-  }
-
-  remove(self: mut): (iso & Value) | (None & imm)
-  {
-    var h = self.hd;
-    match (h.value = self.none)
-    {
-      var a: None => a,
-      var v: Value =>
-      {
-        match (h.next)
-        {
-          var a: None => self.none, // Should be unreachable, but not enforced by type system.
-          var b: Node[Value] =>
-          {
-            self.hd = b;
-            v
-          }
-        }
-      }
-    }
-  }
-}
+// This just directly includes the queue file. Stop gap until module system
+// and packaging implenented
+// Module system will work on a directory level, rather than individual file
+use "library/queue.verona"
 
 class Worker
 {

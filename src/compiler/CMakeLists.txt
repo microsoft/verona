@@ -47,6 +47,9 @@ target_include_directories(veronac-lib PRIVATE ../../external/pegmatite)
 
 target_link_libraries(veronac-lib fmt)
 target_link_libraries(veronac-lib CLI11::CLI11)
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_link_libraries(veronac-lib "stdc++fs")
+endif()
 
 add_executable(veronac main.cc)
 target_link_libraries(veronac interpreter)

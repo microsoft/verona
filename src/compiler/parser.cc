@@ -239,7 +239,9 @@ namespace verona::compiler
 
     Rule where_clauses = term("where") >> comma_sep1(where_clause);
 
-    Rule file = *entity >> *assertion;
+    Rule module = "use" >> string_literal;
+
+    Rule file = *module >> *entity >> *assertion;
 
     static const VeronaGrammar& get()
     {
