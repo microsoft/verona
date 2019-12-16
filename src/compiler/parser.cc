@@ -84,7 +84,8 @@ namespace verona::compiler
     Rule keyword = term(
       "while"_E | "if" | "class" | "interface" | "var" | "unit" | "match" |
       "U64" | "String" | "iso" | "mut" | "imm" | "mut-view" | "freeze" | "in" |
-      "cown" | "static_assert" | "not" | "subtype" | "when" | "from" | "where");
+      "cown" | "static_assert" | "not" | "subtype" | "when" | "from" | "where" |
+      "else");
 
     Rule self = term("self");
     Rule self_def = self;
@@ -113,7 +114,7 @@ namespace verona::compiler
     Rule local_def = def_ident;
 
     Rule symbol_expr = ref_ident;
-    Rule define_local = "var" >> local_def >> -("=" >> expr2);
+    Rule define_local = trace("var", "var" >> local_def >> -("=" >> expr2));
     Rule assign_local = ref_ident >> "=" >> expr2;
 
     Rule field_expr = expr4 >> "." >> ref_ident;
@@ -125,7 +126,8 @@ namespace verona::compiler
 
     Rule empty_expr = trace("Empty", ""_E);
     Rule while_loop = trace("While", "while" >> expr3 >> block);
-    Rule if_expr = trace("If", "if" >> expr3 >> block >> "else" >> block);
+    Rule else_expr = "else" >> block;
+    Rule if_expr = trace("If", "if" >> expr3 >> block >> -else_expr);
     Rule block_expr = block;
 
     Rule match_arm = "var" >> local_def >> ":" >> type >> "=>" >>
@@ -211,13 +213,14 @@ namespace verona::compiler
     Rule method = def_ident >> fn_signature >> (fn_body | ";");
 
     Rule field = def_ident >> ":" >> type >> ";";
-    Rule member = method | field;
+    Rule member = trace("member", method | field);
 
     Rule class_kind = "class"_E;
     Rule interface_kind = "interface"_E;
     Rule entity_kind = class_kind | interface_kind;
 
-    Rule entity = entity_kind >> def_ident >> generics >> braces(*member);
+    Rule entity =
+      trace("entity", entity_kind >> def_ident >> generics >> braces(*member));
 
     Rule assertion_kind_subtype = "subtype"_E;
     Rule assertion_kind_not_subtype = "not"_E >> "subtype"_E;
@@ -273,6 +276,7 @@ namespace verona::compiler
     BindAST<WhileExpr> while_loop = g.while_loop;
     BindAST<WhenExpr> when_clause = g.when_clause;
     BindAST<IfExpr> if_expr = g.if_expr;
+    BindAST<ElseExpr> else_expr = g.else_expr;
     BindAST<BlockExpr> block_expr = g.block_expr;
     BindAST<EmptyExpr> empty_expr = g.empty_expr;
 

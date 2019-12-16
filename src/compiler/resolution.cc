@@ -417,7 +417,8 @@ namespace verona::compiler
     {
       visit_expr(*expr.condition);
       push_scope([&]() { visit_expr(*expr.then_block); });
-      push_scope([&]() { visit_expr(*expr.else_block); });
+      if (expr.else_block)
+        push_scope([&]() { visit_expr(*expr.else_block->body); });
     }
 
     void visit_while(WhileExpr& expr) final
