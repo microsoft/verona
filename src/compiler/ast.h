@@ -67,6 +67,24 @@ namespace verona::compiler
     const Name& name() const;
   };
 
+  struct StringLiteral : public pegmatite::ASTString
+  {
+    bool construct(
+      const pegmatite::InputRange& r,
+      pegmatite::ASTStack& st,
+      const pegmatite::ErrorReporter& er) override
+    {
+      pegmatite::ASTString::construct(r, st, er);
+      size_type newline;
+      while ((newline = find("\\n")) != npos)
+      {
+        replace(newline, 2, "\n");
+      }
+
+      return true;
+    }
+  };
+
   /**
    * Class that encapsulates behaviour related to source locations.  This is
    * composed with other AST elements that may be looked up by source location
@@ -313,6 +331,7 @@ namespace verona::compiler
 
   struct File : public ASTContainer
   {
+    ASTList<StringLiteral> modules;
     ASTList<Entity> entities;
     ASTList<StaticAssertion> assertions;
   };
@@ -494,24 +513,6 @@ namespace verona::compiler
   struct IntegerLiteralExpr : public Expression
   {
     ASTChild<pegmatite::ASTInteger> value;
-  };
-
-  struct StringLiteral : public pegmatite::ASTString
-  {
-    bool construct(
-      const pegmatite::InputRange& r,
-      pegmatite::ASTStack& st,
-      const pegmatite::ErrorReporter& er) override
-    {
-      pegmatite::ASTString::construct(r, st, er);
-      size_type newline;
-      while ((newline = find("\\n")) != npos)
-      {
-        replace(newline, 2, "\n");
-      }
-
-      return true;
-    }
   };
 
   struct StringLiteralExpr : public Expression
