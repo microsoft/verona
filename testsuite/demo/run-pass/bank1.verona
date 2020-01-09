@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 /*****************************************************************************
- * This example is the simpliest example of concurrency in Verona.
+ * This example is the simplest example of concurrency in Verona.
  * 
  * It illustrates the creation of cowns, and scheduling work on a single cown
  * using `when`.

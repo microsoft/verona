@@ -31,13 +31,14 @@ This is what a global GC does with its stop the world phases, which scan memory 
 This dynamic consensus that an object is no longer in use can cause 
 either latency issues or throughput.
 There is amazing research in doing this better
-but in Verona we want to take an alternative approach, ownership.
+but in Verona we want to take an alternative approach: ownership.
 
 Ownership has been used a in a few languages to support scalable memory management.
 Rather than allowing multiple threads to access a single object, we ensure that at most one thread can access an object at a time.
-This is fundamental in languages like [Pony](github.com/ponylang/) and [Rust](https://www.rust-lang.org).
-This removes the need for dynamic consensus, as ownership provides static consensus, a single thread is responsible for deallocating an object.
-The ownership can transfer, but ownership transfer is a two party consensus, not a global consensus problem.
+This is fundamental in languages like [Pony](www.ponylang.io) and [Rust](https://www.rust-lang.org).
+This removes the need for dynamic consensus. 
+Ownership provides static consensus, a single thread is responsible for deallocating an object.
+Static ownership is transferable, but such a transfer is a two-party consensus problem rather than a global consensus problem.
 Thus much easier to implement efficiently.
 
 We view Verona as giving up on concurrent mutation as a necessary step for scalable memory management.
@@ -50,8 +51,8 @@ The latter means you need an amazing concurrency story as you can only have one.
 
 # Concurrent Ownership
 
-In Project Verona, we are introducing a new model of concurrent programming, concurrent owners, or cowns for short.
-A cown encapsulates some resources (e.g. regions of memory) and ensures it accessed by a single thread of execution at a time.
+In Project Verona, we are introducing a new model of concurrent programming: concurrent owners, or cowns for short.
+A cown encapsulates some set of resources (e.g. regions of memory) and ensures they are accessed by a single thread of execution at a time.
 
 In Verona, we can wrap an object in a `cown`, and that will make it concurrent.
 ```

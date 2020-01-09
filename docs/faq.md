@@ -2,14 +2,11 @@
 
 ## What is Project Verona?
 
-Project Verona is a research project being run by Microsoft Research
-with academic collaborators at Imperial College London.
-We are exploring 
-research around
-language and runtime design for safe scalable memory management and
-compartmentalisation.
-The prototype here only covers the memory management
-aspects of the research.
+Project Verona is a research project being run by Microsoft Research with 
+academic collaborators at Imperial College London.
+We are exploring research around language and runtime design for safe scalable
+memory management and compartmentalisation.
+The prototype here only covers the memory management aspects of the research.
 
 ## What research questions is Project Verona attempting to answer?
 

@@ -73,10 +73,7 @@ cmake .. -G "Visual Studio 15 2017 Win64"
 
 # Building on Linux
 
-These steps were tested with the Windows Subsystem for Linux, with an
-Ubuntu 18.04 install.
-WSL can be installed through the Microsoft Store.
-These steps were not tested with WSL2.
+These steps were tested on Ubuntu 18.04.
 
 First, you will need to install dependencies:
 ```
@@ -84,10 +81,8 @@ sudo apt update        # optional, if you haven't updated recently
 sudo apt dist-upgrade  # optional, if you haven't updated recently
 sudo apt install cmake ninja-build python \
                  clang clang-format clang-tools \
-                 llvm llvm-6.0-tools
+                 llvm
 ```
-There is no `llvm-tools` package for Ubuntu 18.04, so you will need to
-manually specify the appropriate version number.
 
 Now you can run
 ```
