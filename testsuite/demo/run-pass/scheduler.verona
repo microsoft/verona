@@ -45,7 +45,7 @@ class Scheduler
   create(): cown[Scheduler]
   {
     var s = new Scheduler;
-    var q = Queue.create();
+    var q = Queue.create(0);
     Scheduler.refine(mut-view(q));
     s.queues = q;
     cown(s)
@@ -64,7 +64,7 @@ class Scheduler
           {
             var n: None => 
             {
-              var jq = Queue.create();
+              var jq = Queue.create(0);
               (mut-view jq).add(j);
               s.queues = jq;
             }
@@ -91,7 +91,7 @@ class Scheduler
           {
             var n: None => 
             {
-              var wq = Queue.create();
+              var wq = Queue.create(0);
               (mut-view wq).add(w);
               s.queues = wq;
             }

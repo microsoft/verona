@@ -415,6 +415,15 @@ namespace verona::interpreter
     write(dst, std::move(a));
   }
 
+  void VM::opcode_trace_region(const Value& object)
+  {
+    check_type(object, {Value::Tag::ISO, Value::Tag::MUT});
+
+    VMObject* region = object->object->region();
+
+    rt::RegionTrace::gc(alloc_, region);
+  }
+
   void VM::opcode_print(const Value& src, uint8_t argc)
   {
     check_type(src, Value::Tag::STRING);
@@ -624,6 +633,7 @@ namespace verona::interpreter
       OP(Return, opcode_return);
       OP(Store, opcode_store);
       OP(String, opcode_string);
+      OP(TraceRegion, opcode_trace_region);
       OP(When, opcode_when);
       OP(Unreachable, opcode_unreachable);
 

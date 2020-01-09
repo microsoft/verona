@@ -21,6 +21,7 @@ namespace verona::compiler
   private:
     void builtin_print();
     void builtin_create_sleeping_cown();
+    void builtin_trace_region();
     void builtin_fulfill_sleeping_cown();
     void builtin_binop(bytecode::BinaryOperator op);
   };
