@@ -22,7 +22,7 @@ class Fib
         if (x < 2)
         {
           // Implicitely lifting a Value to a promise
-          1;
+          1
         } 
         else
         {
@@ -37,7 +37,7 @@ class Fib
               p1 + p2
             }
           }
-        };
+        }
       }
    */
 

@@ -100,7 +100,7 @@ class Philosopher
 
       if (self.hunger)
       {
-        // No zero hunger, so recurse.
+        // Not zero hunger, so recurse.
         // Though, this is not technically recursion, as this call is actually
         // in the closure created and scheduled by `request_eat`.
         self.request_eat();
@@ -169,7 +169,7 @@ class Door
               var f4 = door.fork4)
 
         {
-          // Print use count of all the forks, so we can check for correction
+          // Print use count of all the forks, so we can check for correct
           // execution of the example.
           Builtin.print1("fork 1: {}\n", f1.use_count);
           Builtin.print1("fork 2: {}\n", f2.use_count);
