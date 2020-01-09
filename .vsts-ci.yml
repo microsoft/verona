@@ -116,12 +116,6 @@ phases:
       grep -L "Copyright (c) Microsoft Corporation"  `git ls-files -- '*.cpp' '*.cc' '*.h' '*.hh' '*.verona'| xargs`
     displayName: 'Check Copyright'
 
-  - script: |
-      cd src/rt/external/snmalloc
-      git diff origin/master --quiet
-
-    displayName: 'Check snmalloc up-to-date'
-
 - phase: Lang_Linux
   queue:
     name: 'Hosted Ubuntu 1604'
