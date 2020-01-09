@@ -3,15 +3,18 @@
 ## What is Project Verona?
 
 Project Verona is a research project being run by Microsoft Research
-with academic collaborators at Imperial College London.  We are exploring 
+with academic collaborators at Imperial College London.
+We are exploring 
 research around
 language and runtime design for safe scalable memory management and
-compartmentalisation.  The prototype here only covers the memory management
+compartmentalisation.
+The prototype here only covers the memory management
 aspects of the research.
 
 ## What research questions is Project Verona attempting to answer?
 
-There are several areas we are investigating in Project Verona.  A few of the
+There are several areas we are investigating in Project Verona.
+A few of the
 high-level questions are here:
 
 * If we design a language without concurrent mutation,
@@ -41,12 +44,14 @@ and linearity, and Pony, such as reference capabilities.
 Backwards compatibility adds a lot of impedance and constraints on research.
 With Project Verona we have chosen to start with a clean slate to see what 
 can be achieved
-towards our research questions. The ideas we develop hopefully can be tamed
+towards our research questions.
+The ideas we develop hopefully can be tamed
 and fed back into existing languages in a backwards compatible way.
 
 ## When will this be a product?
 
-This is a research project not a product. Some times research projects turn 
+This is a research project not a product.
+Some times research projects turn 
 into products, e.g. F#, but normally they do not! We hope the ideas we research
 can benefit other languages.
 
@@ -62,5 +67,6 @@ problems that matter.
 ## Why have you open sourced the project so early?
 
 We are open sourcing at this stage to collaborate with academic partners on
-the language design.  We want to conduct this research openly to benefit
+the language design.
+We want to conduct this research openly to benefit
 the community in general.

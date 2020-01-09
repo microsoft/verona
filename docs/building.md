@@ -64,8 +64,8 @@ The default configuration is Debug.
 ## Using Visual Studio 2017
 
 If you are using Visual Studio 2017, then you will need to run commands
-inside the Developer Command Prompt for VS 2017. Furthermore, the `cmake`
-command is different:
+inside the Developer Command Prompt for VS 2017.
+Furthermore, the `cmake` command is different:
 ```
 cmake .. -G "Visual Studio 15 2017 Win64"
 ```
@@ -74,7 +74,8 @@ cmake .. -G "Visual Studio 15 2017 Win64"
 # Building on Linux
 
 These steps were tested with the Windows Subsystem for Linux, with an
-Ubuntu 18.04 install. WSL can be installed through the Microsoft Store.
+Ubuntu 18.04 install.
+WSL can be installed through the Microsoft Store.
 These steps were not tested with WSL2.
 
 First, you will need to install dependencies:
@@ -104,8 +105,8 @@ cmake .. -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
 to provide the other configurations.
 
-Note: Sometimes `cmake` detects `gcc` instead of `clang`. To override this,
-run `cmake` with environment variables, for example:
+Note: Sometimes `cmake` detects `gcc` instead of `clang`.
+To override this, run `cmake` with environment variables, for example:
 ```
 CC=clang CXX=clang++ cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug
 ```
@@ -114,8 +115,8 @@ directory.
 
 ## Subsequent builds
 
-For subsequent builds, you do not need to rerun `cmake`. From the `build_ninja`
-directory, you can run
+For subsequent builds, you do not need to rerun `cmake`.
+From the `build_ninja` directory, you can run
 ```
 ninja install
 ```

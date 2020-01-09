@@ -5,10 +5,11 @@
  * This file contains the start of the standard library. It is just enough to 
  * get a few examples working.
  * 
- * Nothing in here is expected to remain long-term without significant.
- * 
+ * Nothing in here is expected to remain long-term without significant change.
  **/
 
+// Intrinsics that return a result, simply call themselves, which trivially satifies the type.
+// We will add explicit mechanism for intrinsic in the future. 
 class Builtin {
   // Selection of print functions that simply pass to the underlying C++
   // formatter.  This is a hack to get some examples with output until we have 
