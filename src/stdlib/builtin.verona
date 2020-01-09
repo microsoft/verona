@@ -9,7 +9,7 @@
  **/
 
 // Intrinsics that return a result, simply call themselves, which trivially satifies the type.
-// We will add explicit mechanism for intrinsic in the future. 
+// Weill add explicit mechanism for intrinsic in the future. 
 class Builtin {
   // Selection of print functions that simply pass to the underlying C++
   // formatter.  This is a hack to get some examples with output until we have 
@@ -37,7 +37,7 @@ class Builtin {
   create_sleeping_cown[T](): cown[T] { Builtin.create_sleeping_cown() }
   fulfill_sleeping_cown[T](x: cown[T], v: T) { Builtin.fulfill_sleeping_cown(x, v) }
 
-  // This exposes trace on a trable region
+  // This exposes trace on a tracable region
   // TODO: invalidate other references into this region
   // TODO: needs expanding as we add other region allocation strategies
   trace(x : mut) { }
