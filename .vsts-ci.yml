@@ -131,7 +131,7 @@ phases:
       sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-6.0 main"
 
       sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 379CE192D401AB61
-      sudo apt-get install -y ninja-build ghc libghc-parsec3-dev libstdc++-7-dev llvm-6.0-tools
+      sudo apt-get install -y ninja-build ghc libghc-parsec3-dev libstdc++-7-dev
 
       sudo pip install wheel OutputCheck
 

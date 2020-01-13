@@ -6,6 +6,14 @@
 // Module system will work on a directory level, rather than individual file
 use "library/queue.verona"
 
+/**
+ *  This uses the queue implementation, and builds a very simple worker to 
+ *  job matcher.
+ *  
+ *  Workers can process a single job at a time. 
+ **/
+
+// Simple class to represent a Worker, has an id for tracing.
 class Worker
 {
   id: U64;
@@ -24,6 +32,7 @@ class Worker
   }
 }
 
+// Simple class to represent a job, has an id for tracing.
 class Job
 {
   id: U64;
@@ -34,14 +43,24 @@ class Job
     (mut-view w).id = i;
     w
   }
+
+  final(self: mut)
+  {
+    Builtin.print1("Job {} finalised!\n", self.id);
+  }
 }
 
+// Responsible for matching incoming jobs with workers.
 class Scheduler
 {
+  // There are either too many jobs or too many workers.
+  // This field represents the appropiate kind of queue for that state.
   queues: (Queue[Job] | Queue[Worker]) & iso;
 
   refine(q: Queue[Worker]) {}
 
+  // Allocates a scheduler with its queue.
+  // Returns a cown, for concurrency.
   create(): cown[Scheduler]
   {
     var s = new Scheduler;
@@ -51,26 +70,35 @@ class Scheduler
     cown(s)
   }
 
+  // Adds a job to the scheduler.
   add_job(rs: cown[Scheduler], j: Job & iso)
   {
+    // Schedule turn on scheduler
     when (var s = rs) 
     {
       match (mut-view(s.queues))
       {
-        var jq: Queue[Job] => jq.add(j),
+        var jq: Queue[Job] => jq.add(j), // No workers, so just add job j.
         var wq: Queue[Worker] =>
         {
           match (wq.remove())
           {
             var n: None => 
             {
+              // No workers, so build job queue, and add job j.
               var jq = Queue.create(0);
               (mut-view jq).add(j);
               s.queues = jq;
             }
             var w: Worker =>
             {
-              when () { (mut-view w).do(j); Scheduler.add_worker(rs, w) }
+              // Schedule worker and job to work together
+              when () 
+              { 
+                (mut-view w).do(j); 
+                // re-add worker to the scheduler.
+                Scheduler.add_worker(rs, w) 
+              }
             }
           }
         }
@@ -78,28 +106,33 @@ class Scheduler
     }
   }
 
+  // Adds a worker to the scheduler.
   add_worker(rs: cown[Scheduler], w: Worker & iso)
   {
+    // Schedule turn on scheduler
     when (var s = rs) 
     {
       match (mut-view(s.queues))
       {
-        var wq: Queue[Worker] => wq.add(w),
+        var wq: Queue[Worker] => wq.add(w), // No jobs, so just add worker w.
         var jq: Queue[Job] =>
         {
           match (jq.remove())
           {
             var n: None => 
             {
+              // No jobs, so build worker queue, and add worker w.
               var wq = Queue.create(0);
               (mut-view wq).add(w);
               s.queues = wq;
             }
             var j: Job =>
             {
+              // Schedule worker and job to work together
               when () 
               { 
                 (mut-view w).do(j); 
+                // re-add worker to the scheduler.
                 Scheduler.add_worker(rs, w) 
               }
             }
@@ -114,6 +147,7 @@ class Main
 {
   main()
   {
+    // Run some workload to show behaviours.
     var rs = Scheduler.create();
     Scheduler.add_worker(rs, Worker.create(1));
     Scheduler.add_worker(rs, Worker.create(2));

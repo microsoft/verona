@@ -6,14 +6,42 @@
 // Module system will work on a directory level, rather than individual file
 use "library/queue.verona"
 
+/**
+ * Simple harness to illustrate the memory management of the queue.
+ * 
+ * The trace produced highlights, how regions can be collected
+ * independently.
+ */
+
+/**
+ * Simple wrapper of a U64, with a finaliser, 
+ * so finalisation can be traced.
+ **/
+class U64ObjF
+{
+  v: U64;
+  create(x: U64) : U64ObjF & iso
+  {
+    var o = new U64ObjF;
+    o.v = x;
+    o
+  }
+
+  final(self: mut)
+  {
+    Builtin.print1("Final U64ObjF {}\n", self.v)
+  }
+}
+
 class Main
 {
-  refine(a: Queue[U64Obj]) {}
+  refine(a: Queue[U64ObjF]) {}
 
-  run(q: Queue[U64Obj] & mut)
+  // Add and remove some elements to a queue
+  run(q: Queue[U64ObjF] & mut)
   {
-    q.add(U64Obj.create(1));
-    q.add(U64Obj.create(2));
+    q.add(U64ObjF.create(1));
+    q.add(U64ObjF.create(2));
 
     var a1 = q.remove();
     Main.print(q.id, a1);
@@ -23,12 +51,15 @@ class Main
     Main.print(q.id, a3);
   }
 
+  // Creates to queues, and interleaves adding and removing elements from the queues.
+  // The nodes of the queues get deleted periodically, and per queue, but the Values
+  // get delete as soon as they are removed from the queues.
   main()
   {
     var q = mut-view (Queue.create(1));
     var q2 = mut-view (Queue.create(2));
 
-    // Type inference is choosing Queue[U64Obj & iso], which we can't codegen yet.
+    // Type inference is choosing Queue[U64ObjF & iso], which we can't codegen yet.
     Main.refine(q);
 
     Main.run(q);
@@ -60,11 +91,11 @@ class Main
     Builtin.print("Finished\n");
   }
 
-  print(id: U64, a: (U64Obj & iso) | (None & imm))
+  print(id: U64, a: (U64ObjF & iso) | (None & imm))
   {
     match (a)
     {
-      var vv: U64Obj => Builtin.print2("Queue {} elem: {}\n", id, (mut-view vv).v),
+      var vv: U64ObjF => Builtin.print2("Queue {} elem: {}\n", id, (mut-view vv).v),
       var n: None   => Builtin.print1("Queue {} empty\n", id),
     }
   }

@@ -1,6 +1,19 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+
+/**
+ * This file contains the start of the standard library. It is just enough to 
+ * get a few examples working.
+ * 
+ * Nothing in here is expected to remain long-term without significant change.
+ **/
+
+// Intrinsics that return a result, simply call themselves, which trivially satifies the type.
+// We'll add explicit mechanism for intrinsic in the future. 
 class Builtin {
+  // Selection of print functions that simply pass to the underlying C++
+  // formatter.  This is a hack to get some examples with output until we have 
+  // implemented IO.
   print(format: String) {}
   print1[T0](format: String, arg0: T0) {}
   print2[T0, T1](format: String, arg0: T0, arg1: T1) {}
@@ -20,21 +33,29 @@ class Builtin {
   u64_or(x: U64, y: U64): U64 { Builtin.u64_or(x, y) }
 
   // Temporary API to implement promises
+  // This should not be used outside the standard library.
   create_sleeping_cown[T](): cown[T] { Builtin.create_sleeping_cown() }
   fulfill_sleeping_cown[T](x: cown[T], v: T) { Builtin.fulfill_sleeping_cown(x, v) }
 
-  // This exposes trace on a trable region
+  // This exposes trace on a traceable region
   // TODO: invalidate other references into this region
   // TODO: needs expanding as we add other region allocation strategies
   trace(x : mut) { }
 }
 
+/**
+ * Simple None class that is used in examples.
+ **/
 class None {
   create(): None & imm {
     freeze (new None)
   }
 }
 
+/**
+ * Class for boxing a U64. Useful until we have property support for primitives
+ * in all the correct places.
+ **/
 class U64Obj
 {
   v: U64;
@@ -51,6 +72,10 @@ class U64Obj
   }
 }
 
+/**
+ * This is the implementation of promises. It should be surfaced more nicely to
+ * the programmer, but is type safe.
+ **/ 
 class Promise[T]
 {
   inner_cown: cown[T];
@@ -70,13 +95,5 @@ class Promise[T]
   fulfill(self: iso, v: T & iso)
   { 
     Builtin.fulfill_sleeping_cown(self.inner_cown, v); 
-  }
-}
-
-class Sys
-{
-  abort()
-  {
-    Sys.abort() 
   }
 }

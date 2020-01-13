@@ -1,5 +1,16 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+
+/*****************************************************************************
+ * This example illustrates the nested use of `when`.
+ *****************************************************************************/
+
+/**
+ * Simple class for wrapping printing to a log. 
+ * Does not actually do anything.
+ * Note that, the Builtin.print functions are temporary until proper stdout and
+ * IO support have been implemented.
+ **/
 class Log 
 {
   print(fmt: String, v1: U64, v2: U64)
@@ -8,10 +19,35 @@ class Log
   }
 }
 
+/**
+ * This class represent a extremely naive bank account that simply has a single
+ * unsigned integer field representing its balance.
+ *
+ * It supports two operations
+ *  - Creating a new bank account
+ *  - Transferring money between account.
+ * These are both static methods on the class
+ **/
 class BankAccount
 {
   balance: U64;
 
+   /**
+   * Creates a new bank account wrapped in a `cown` with an opening balance
+   * from the supplied argument.
+   **/
+  create(opening_balance: U64): cown[BankAccount]
+  {
+    var a = new BankAccount;
+    a.balance = opening_balance;
+    cown(a)
+  }
+
+  /**
+   * This is a static method of bank account that takes two `cown`s of bank
+   * accounts, and an amount to transfer between the accounts. It additionally
+   * takes a `cown` for serialising logging.
+   */
   transfer(src: cown[BankAccount], 
            dst: cown[BankAccount],
            amount: U64,
@@ -23,18 +59,23 @@ class BankAccount
       var nd = dst.balance + amount;
       src.balance = ns;
       dst.balance = nd;
+      /**
+       * This nested `when` does not have access to `src` or `dst`.
+       * It captures the values of the variables `ns` and `nd` in its closure.
+       * It is important for deadlock freedom that we cannot increase the set of
+       * cowns that is held by a computation. Hence, we do not provide a
+       * mechanism to acquire new cowns, only to schedule new work on another
+       * set of cowns.
+       **/
       when (log) 
       {
         log.print("new balance, src={}, dst={}\n", ns, nd);
+
+        // Uncommenting the following line will lead to a compiler error as src
+        // is not capturable by this `when`
+        // src.balance = 0;
       }
     }
-  }
-
-  create(opening_balance: U64): cown[BankAccount]
-  {
-    var a = new BankAccount;
-    a.balance = opening_balance;
-    cown(a)
   }
 }
 
@@ -46,6 +87,8 @@ class Main
     var a2 = BankAccount.create(502);
     var a3 = BankAccount.create(503);
     var a4 = BankAccount.create(504);
+
+    // Create a concurrent log to share across the various operations.
     var l = cown(new Log);
 
     BankAccount.transfer(a1,a2,10,l);
