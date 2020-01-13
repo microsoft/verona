@@ -113,4 +113,30 @@ Reading the demo examples [bank2](../testsuite/demo/run-pass/bank2.verona) and [
 
 # Regions
 
-...
+Verona uses regions, groups of objects, as its fundamental concept of ownership.
+Rather than specifying object ownership as a reference owns an object,
+we generalise this a little to a reference can own a region, 
+where a region is a group of objects.
+Within a region, any object can refer to any other objects in that region.
+There is no restriction on the topology.
+When the owning reference to a region goes away then the entire region can be collected.
+
+We use `iso` in a type to mean this is an owning reference to a region,
+and `mut` for a reference within the same region.
+When we allocate an object, we specify if it should be in its own region:
+```
+var x = new Node;
+```
+or in the same region as another object
+```
+var y = new Node in x
+```
+
+Regions can be nested, and form a forest, where the roots are either on the
+stack, or in cowns. 
+
+We have a collection of simple examples to understand how the mechanism works.
+We recommend looking at [region101](../testsuite/demo/run-pass/region101.verona) first to understand the basics,
+and then the implementation of a [queue](../testsuite/demo/run-pass/library/queue.verona),
+and its uses in [queue harness](../testsuite/demo/run-pass/queue_harness.verona)
+and a [simple scheduler](../testsuite/demo/run-pass/scheduler.verona).
