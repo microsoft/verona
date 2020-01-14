@@ -145,3 +145,61 @@ We recommend looking at [region101](../testsuite/demo/run-pass/region101.verona)
 and then the implementation of a [queue](../testsuite/demo/run-pass/library/queue.verona),
 and its uses in [queue harness](../testsuite/demo/run-pass/queue_harness.verona)
 and a [simple scheduler](../testsuite/demo/run-pass/scheduler.verona).
+
+
+
+# Systematic testing
+
+Inspired by [P and P#](https://github.com/p-org/), the Verona runtime deeply integrates systematic testing into its design.
+The concurrency model of Verona means that all concurrent interactions must be understood by the runtime. 
+This means that we can produce a replayable interleaving.
+This is surfaced in numerous runtime unit tests ensure good coverage of the runtime, and run on every CI build.
+
+The primary implementation has been targetted at testing the runtime, but we have surfaced an alternative interpreter for the language to aid in testing.
+This is built in the `veronac-sys` and `interpeter-sys` these take additional parameters of 
+```
+  --run-seed N
+  --run-seed_upper N
+```
+So 
+```
+  veronac-sys.exe --run testsuite/demo/run-pass/dining_phil.verona --run-seed 100 --run-seed_upper 200
+```
+will run 100 example interleavings of the program.  If you replace the line in the program
+```
+    d.count = 4;
+```
+with 
+```
+    d.count = 3;
+```
+Then the program is incorrect: 
+it only waits for 3 philosophers to finish eating before it checks how many times the forks have been used.
+In standard running this is very hard to observe as the interleaving is unlikely to occur.
+But in systematic testing, we can observe the failure:
+```
+...
+Seed: 122
+...
+fork 1: 19
+fork 2: 20
+fork 3: 20
+fork 4: 19
+philosopher 4 eating, hunger=1
+philosopher 4 eaten, new hunger=0
+philosopher 4 leaving
+philosopher leaving, door count 0
+philosopher left, door count 18446744073709551615
+Seed: 123
+...
+```
+That is for seed 122 some of the forks aren't used enough times before the Door exits.
+We can now replay the example adding additional logging to understand and debug the problem.
+
+Note: the seed is consistent across platforms, 
+but not necessarily across versions of the runtime.
+This seed was checked with dbec63a0fa4969cb5e186773f626e94c2494811f.  
+The precise semantics of what will be preserved across versions is still to be decided.
+
+This feature has been invaluable in debugging some of the concurrent algorithms in the runtime,
+and we believe surfacing to the language will be a huge benefit for testing Verona programs.
