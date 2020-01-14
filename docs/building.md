@@ -24,14 +24,14 @@ git submodule update --recursive
 # Building on Windows
 
 You will need to install [Visual Studio 2019][] and [cmake][].
-To build and run tests, you will need [Python][].
+To build and run tests, you will need [Python 3][].
 
 If you are using Visual Studio 2017, some of the steps will be different;
 please see the subsection below.
 
 [Visual Studio 2019]: https://visualstudio.microsoft.com/downloads/
 [cmake]: https://cmake.org/download/
-[Python]: https://www.python.org/downloads/
+[Python 3]: https://www.python.org/downloads/
 
 Run the following inside the Developer Command Prompt for VS 2019:
 
@@ -79,7 +79,7 @@ First, you will need to install dependencies:
 ```
 sudo apt update        # optional, if you haven't updated recently
 sudo apt dist-upgrade  # optional, if you haven't updated recently
-sudo apt install cmake ninja-build python \
+sudo apt install cmake ninja-build python3 \
                  clang clang-format clang-tools \
                  llvm
 ```
@@ -140,7 +140,7 @@ We have not yet implemented a full AOT compiler.
 
 # Running the test suite
 
-Note that the test suite requires Python to be installed.
+Note that the test suite requires Python 3 to be installed.
 
 The test suite can be run from the `build` or `build_ninja` directories:
 ```

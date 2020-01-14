@@ -1,5 +1,5 @@
-project(verona-lang CXX)
 cmake_minimum_required(VERSION 3.10.0)
+project(verona-lang CXX)
 
 IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   SET(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/dist CACHE PATH "Default to installing inside build dir" FORCE)
