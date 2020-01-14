@@ -9,8 +9,8 @@
 name: Check for snmalloc updates
 
 # The environment variables below should be the only configuration that ever
-# needs changing. In particular if the submodule is moved then SUBMODULE_PATH
-# needs to be updated.
+# needs changing. In particular if the submodule is moved then SUBMODULE_KEY
+# may need to be updated.
 env:
   # This is the key used for this submodule in .gitmodules
   # Most of the time it will match the path
