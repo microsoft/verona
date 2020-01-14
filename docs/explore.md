@@ -195,6 +195,10 @@ Seed: 123
 ```
 That is for seed 122 some of the forks aren't used enough times before the Door exits.
 We can now replay the example adding additional logging to understand and debug the problem.
+Running a particular seed can be done as:
+```
+  veronac-sys.exe --run testsuite/demo/run-pass/dining_phil.verona --run-seed 122
+```
 
 Note: the seed is consistent across platforms, 
 but not necessarily across versions of the runtime.
