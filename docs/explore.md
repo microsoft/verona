@@ -52,7 +52,7 @@ The latter means you need an amazing concurrency story as you can only have one.
 # Concurrent Ownership
 
 In Project Verona, we are introducing a new model of concurrent programming: concurrent owners, or cowns for short.
-A cown encapsulates some set of resources (e.g. regions of memory) and ensures they are accessed by a single thread of execution at a time.
+A cown, pronounced like "cone", encapsulates some set of resources (e.g. regions of memory) and ensures they are accessed by a single thread of execution at a time.
 
 In Verona, we can wrap an object in a `cown`, and that will make it concurrent.
 ```
