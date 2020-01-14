@@ -9,11 +9,11 @@ this project, please do reach out to discuss this.
 
 The project is not ready to be used outside of research.
 
-[Building](docs/building.md)
+# [Building](docs/building.md)
 
-[FAQ](docs/faq.md)
+# [FAQ](docs/faq.md)
 
-[Exploring the language](docs/explore.md)
+# [Exploring the language](docs/explore.md)
 
 # Status
 
