@@ -157,7 +157,7 @@ jobs:
 - job:
   displayName: Lang_Windows
   pool:
-    vmImage: 'vs2017-win2016'
+    vmImage: 'windows-latest'
   strategy:
     matrix:
       Debug:
@@ -173,9 +173,9 @@ jobs:
       pip install OutputCheck
 
   - task: CMake@1
-    displayName: 'CMake .. -G"Visual Studio 15 2017 Win64"'
+    displayName: 'CMake .. -G"Visual Studio 16 2019 " -A"x64"'
     inputs:
-      cmakeArgs: '.. -G"Visual Studio 15 2017 Win64" -DVERONA_CI_BUILD=On'
+      cmakeArgs: '.. -G"Visual Studio 16 2019" -A"x64" -DVERONA_CI_BUILD=On'
 
   - task: MSBuild@1
     displayName: 'Build solution build/verona.sln'
