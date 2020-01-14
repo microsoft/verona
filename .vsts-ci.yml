@@ -1,11 +1,12 @@
 resources:
 - repo: self
 
-phases:
-- phase: RT_Linux
-  queue:
-    name: 'Hosted Ubuntu 1604'
-    parallel: 3
+jobs:
+- job: 
+  displayName: RT_Linux
+  pool:
+    vmImage: 'ubuntu-16.04'
+  strategy:
     matrix:
       Debug:
         BuildType: Debug
@@ -53,10 +54,11 @@ phases:
     failOnStderr: true
     displayName: 'Compile & Test'
 
-- phase: RT_Windows
-  queue:
-    name: 'Hosted VS2017'
-    parallel: 2
+- job: 
+  displayName: RT_Windows
+  pool:
+    vmImage: 'vs2017-win2016'
+  strategy:
     matrix:
       Debug:
         BuildType: Debug
@@ -82,11 +84,11 @@ phases:
     workingDirectory: build
     displayName: 'Run Ctest'
 
-- phase: Format
-  queue:
-    name: 'Hosted Ubuntu 1604'
+- job: 
+  displayName: Format
+  pool:
+    vmImage: 'ubuntu-16.04'
   steps:
-
   - checkout: self
     submodules: recursive
 
@@ -116,9 +118,10 @@ phases:
       grep -L "Copyright (c) Microsoft Corporation"  `git ls-files -- '*.cpp' '*.cc' '*.h' '*.hh' '*.verona'| xargs`
     displayName: 'Check Copyright'
 
-- phase: Lang_Linux
-  queue:
-    name: 'Hosted Ubuntu 1604'
+- job: 
+  displayName: Lang_Linux
+  pool:
+    vmImage: 'ubuntu-16.04'
 
   steps:
   - checkout: self
@@ -151,10 +154,11 @@ phases:
     displayName: 'Run compiler testsuite'
     workingDirectory: build
 
-- phase: Lang_Windows
-  queue:
-    name: 'Hosted VS2017'
-    parallel: 2
+- job:
+  displayName: Lang_Windows
+  pool:
+    vmImage: 'vs2017-win2016'
+  strategy:
     matrix:
       Debug:
         BuildType: Debug
