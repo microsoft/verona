@@ -179,7 +179,11 @@ phases:
       solution: build/INSTALL.vcxproj
       msbuildArguments: '/m /p:Configuration=$(BuildType)'
 
+  - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
+    displayName: 'Component Detection'
+    inputs:
+      failOnAlert: true
+
   - script:
       ctest -j 4 --output-on-failure -C $(BuildType)
     workingDirectory: build
-
