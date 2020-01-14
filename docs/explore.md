@@ -109,6 +109,9 @@ This example adds an amount to a balance on a bank account.
 The concurrent owners add to the expressiveness of other approaches by enabling acquiring multiple cowns in one go.
 Reading the demo examples [bank2](../testsuite/demo/run-pass/bank2.verona) and [bank3](../testsuite/demo/run-pass/bank3.verona) can help illustrate this.
 
+There are two other slightly more advanced examples of concurrency that are well documented:
+  * [Dining Philosophers](../testsuite/demo/run-pass/dining_phil.verona), which illustrates a slightly more elaborate concurrent protocol.
+  * [Parallel Fibonacci](../testsuite/demo/run-pass/fib.verona), which illustrates fork/join parallism using `when` and `promises`.
 
 
 # Regions
