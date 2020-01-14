@@ -51,7 +51,7 @@ if (FILECHECK AND Python3_FOUND)
       file(TO_NATIVE_PATH ${testdir}/${filename} testfilename)
 
       add_test(NAME ${testname} COMMAND ${CMAKE_COMMAND}
-	      -DPYTHON_EXECUTABLE=${Python3_EXECUTABLE}
+	-DPYTHON_EXECUTABLE=${Python3_EXECUTABLE}
         -DVERONAC=${VERONAC}
         -DINTERPRETER=${VERONAI}
         -DFILECHECK=${FILECHECK}
