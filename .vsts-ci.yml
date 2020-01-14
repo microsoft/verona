@@ -39,9 +39,9 @@ phases:
     displayName: 'Install Build Dependencies'
 
   - task: CMake@1
-    displayName: 'CMake ../src/rt -GNinja -DUSE_ASAN=$(Asan) -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS="-stdlib=libstdc++ -std=c++17"'
+    displayName: 'CMake ../src/rt -GNinja -DUSE_ASAN=$(Asan) -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS="-stdlib=libstdc++"'
     inputs:
-      cmakeArgs: '../src/rt -GNinja -DUSE_ASAN=$(Asan) -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS="-stdlib=libstdc++ -std=c++17"  -DVERONA_CI_BUILD=On'
+      cmakeArgs: '../src/rt -GNinja -DUSE_ASAN=$(Asan) -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS="-stdlib=libstdc++"  -DVERONA_CI_BUILD=On'
 
   - script: |
       ninja
