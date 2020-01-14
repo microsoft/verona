@@ -119,10 +119,12 @@ we generalise this a little to a reference can own a region,
 where a region is a group of objects.
 Within a region, any object can refer to any other objects in that region.
 There is no restriction on the topology.
-When the owning reference to a region goes away then the entire region can be collected.
+When the owning reference to a region goes away then the entire region is collected.
 
-We use `iso` in a type to mean this is an owning reference to a region,
-and `mut` for a reference within the same region.
+We use `iso`, for isolated, in a type to mean this is an owning reference to a region.
+We use `mut` references, for mutable, are non-owning. 
+When used as a field type, the reference points to an object in the same region as the outer object. 
+When used as an argument type, the reference points to an object in an unknown region.
 When we allocate an object, we specify if it should be in its own region:
 ```
 var x = new Node;

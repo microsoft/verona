@@ -43,8 +43,12 @@ class Main
   {
     Builtin.print("Test 1\n");
 
+    // Note, `in` is used in allocation to specify a region,
+    // without `in` a new region is assumed.
+
     // Allocate a new node in its own region.
     var r1 = new Node;
+    // Allocate two nodes in the same region as r1.
     var r2 = new Node in r1;
     var r3 = new Node in r1;
 
@@ -53,7 +57,7 @@ class Main
     r2.id = 2;
     r3.id = 3;
 
-    // Create a little graph
+    // Create a little graph that has a cycle
     r1.field = r2;
     r2.field = r3;
     r3.field = mut-view(r1);
