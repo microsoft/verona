@@ -90,7 +90,14 @@ jobs:
               owner: owner,
               repo: repo,
               title: `${submodule_name} is out-of-date`,
-              body: `Submodule at path \`${submodule_path}\` is at revision \`${local_rev}\`, whereas upstream is at revision \`${remote_rev}\`.`,
+              body:
+          `Submodule at path \`${submodule_path}\` is at revision\
+          \`${local_rev}\`, whereas upstream is at revision \`${remote_rev}\`.
+
+          You can update the submodule by running:
+
+              git submodule update --remote ${submodule_path}
+          `,
               labels: [label]
             })
           } else {
