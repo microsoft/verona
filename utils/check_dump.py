@@ -1,11 +1,9 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # Compare the dump output of the Verona compiler to a set of expected files.
 #
 # Every .txt file in the expected set must exist in the dump output. The dump is
 # allowed to have additional files which will be ignored.
-
-from __future__ import print_function
 
 import os
 import os.path

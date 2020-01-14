@@ -1,8 +1,8 @@
 enable_testing()
 
-find_package(PythonInterp)
+find_package(Python3 COMPONENTS Interpreter)
 
-if (NOT PythonInterp_FOUND)
+if (NOT Python3_FOUND)
   message(WARNING " No python interpreter - Test Suite not compiled")
   if (VERONA_CI_BUILD)
     message(FATAL_ERROR "Tests must be built in CI!")
@@ -29,7 +29,7 @@ if(NOT FILECHECK)
   endif()
 endif()
 
-if (FILECHECK AND PythonInterp_FOUND)
+if (FILECHECK AND Python3_FOUND)
   function(subdirlist result curdir)
     file(GLOB children LIST_DIRECTORIES true RELATIVE ${curdir}  ${curdir}/*)
     set(dirlist "")
@@ -51,7 +51,7 @@ if (FILECHECK AND PythonInterp_FOUND)
       file(TO_NATIVE_PATH ${testdir}/${filename} testfilename)
 
       add_test(NAME ${testname} COMMAND ${CMAKE_COMMAND}
-        -DPYTHON_EXECUTABLE=${PYTHON_EXECUTABLE}
+	-DPYTHON_EXECUTABLE=${Python3_EXECUTABLE}
         -DVERONAC=${VERONAC}
         -DINTERPRETER=${VERONAI}
         -DFILECHECK=${FILECHECK}
