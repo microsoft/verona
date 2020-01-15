@@ -72,7 +72,7 @@ int main(int argc, char** argv)
 
   for (size_t i = 0; i < 100; i++)
   {
-    std::cout << "Repeeat: " << i << std::endl;
+    std::cout << "Repeat: " << i << std::endl;
     test_runtime_pause(cores, pauses);
   }
 #endif
