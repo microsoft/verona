@@ -20,6 +20,12 @@
 #    include <pthread.h>
 #    include <pthread_np.h>
 #  endif
+#elif defined(__APPLE__)
+#  include <mach/mach.h>
+#  include <mach/thread_policy.h>
+#  include <sys/sysctl.h>
+#  include <sys/types.h>
+#  include <unistd.h>
 #endif
 
 #include <algorithm>
@@ -175,6 +181,17 @@ namespace verona::rt
       get_cpuset<cpuset_t>([](cpuset_t& all_cpus) {
         pthread_getaffinity_np(pthread_self(), sizeof(cpuset_t), &all_cpus);
       });
+#elif defined(__APPLE__)
+      unsigned int core_count;
+      size_t len = sizeof(core_count);
+      int ret = sysctlbyname("hw.logicalcpu", &core_count, &len, NULL, 0);
+      if (ret >= 0)
+      {
+        for (uint32_t index = 0; index < core_count; index++)
+        {
+          cpus->push_back(CPU{0, 0, 0, index, false});
+        }
+      }
 #else
 #  error Missing CPU enumeration for your OS.
 #endif
@@ -334,6 +351,15 @@ namespace verona::rt
 #  else
       pthread_setaffinity_np(pthread_self(), sizeof(set), &set);
 #  endif
+#elif defined(__APPLE__)
+      thread_affinity_policy_data_t policy;
+      policy.affinity_tag = affinity;
+
+      thread_policy_set(
+        mach_thread_self(),
+        THREAD_AFFINITY_POLICY,
+        (thread_policy_t)&policy,
+        1);
 #else
 #  error Missing CPU affinity support for your OS.
 #endif

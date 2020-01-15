@@ -1,3 +1,5 @@
+include(CheckCXXSymbolExists)
+
 # Needed for pegmatite
 add_definitions(-DUSE_RTTI=1)
 
@@ -46,10 +48,17 @@ target_include_directories(veronac-lib PRIVATE ../../external/pegmatite)
 
 target_link_libraries(veronac-lib fmt)
 target_link_libraries(veronac-lib CLI11::CLI11)
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  target_link_libraries(veronac-lib "stdc++fs")
-endif()
 
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  check_cxx_symbol_exists(_LIBCPP_VERSION ciso646 IS_LIBCXX)
+  if (IS_LIBCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7.0)
+    target_link_libraries(veronac-lib "c++experimental")
+  elseif (IS_LIBCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0)
+    target_link_libraries(veronac-lib "c++fs")
+  elseif(NOT IS_LIBCXX)
+    target_link_libraries(veronac-lib "stdc++fs")
+  endif()
+endif()
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   target_link_libraries(veronac-lib "stdc++fs")
 endif()
