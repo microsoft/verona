@@ -1,7 +1,7 @@
 # Systems programming
 
 The term system programming language is used to cover a wide range of problems from high-level performance critical systems going down the stack to low-level memory managers and kernel modules.
-The are two distinct aspect to system programming:
+There are two distinct aspect to system programming:
 
 * Predictability
   - Latency
@@ -26,7 +26,7 @@ This is an explicit non-goal of the project.
 
 There is a tension in programming language design between scalability and safety.
 To provide temporal memory safety (no use after free bugs), you need to know when an object will never be accessed again.
-This is however, typically, a global problem as it can be across many threads and determining when it is no longer accessed requires some form of consensus between the threads.
+This is however, typically, a global problem as the accesses can be across many threads and determining when an object is no longer accessed requires some form of consensus between the threads.
 This is what a global GC does with its stop the world phases, which scan memory to determine if something is unreachable.
 This dynamic consensus that an object is no longer in use can cause 
 either latency issues or throughput.
@@ -36,13 +36,13 @@ but in Verona we want to take an alternative approach: ownership.
 Ownership has been used a in a few languages to support scalable memory management.
 Rather than allowing multiple threads to access a single object, we ensure that at most one thread can access an object at a time.
 This is fundamental in languages like [Pony](www.ponylang.io) and [Rust](https://www.rust-lang.org).
-Ownership removes the need for dynamic consensus.   
+Ownership removes the need for dynamic consensus.
 It provides static consensus, a single thread is responsible for deallocating an object.
 Static ownership is transferable, but such a transfer is a two-party consensus problem rather than a global consensus problem.
 Thus much easier to implement efficiently.
 
-We view Verona as giving up on concurrent mutation as a necessary step for scalable memory management.
-By giving up on concurrent mutation, we cannot implement concurrency as a library.
+In Project Verona, we view giving up concurrent mutation as a necessary step for scalable memory management.
+By eliminating concurrent mutation, we cannot implement concurrency as a library.
 There are two alternatives here, expose "unsafe" to enable unsafe libraries for concurrency (e.g. Rust), or provide a concurrency model as part of the language (e.g. Pony).
 
 The former means the language can rely on fewer invariants as it does not understand how the code inside the unsafe blocks is providing concurrency.
