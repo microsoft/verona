@@ -1,6 +1,5 @@
 # Needed for pegmatite
 add_definitions(-DUSE_RTTI=1)
-set(CMAKE_CXX_STANDARD 17)
 
 add_library(veronac-lib
   analysis.cc
