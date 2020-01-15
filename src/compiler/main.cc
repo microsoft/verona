@@ -177,7 +177,12 @@ namespace verona::compiler
 #  endif
     char buf[PATH_MAX];
     char slash = '/';
-    readlink(self_link_path, buf, PATH_MAX - 1);
+    auto result = readlink(self_link_path, buf, PATH_MAX - 1);
+    if (result == -1)
+    {
+      // TODO proper error reporting.
+      abort();
+    }
 #else
 #  error "Unsupported platform"
 #endif
