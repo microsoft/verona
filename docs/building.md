@@ -140,7 +140,7 @@ We have not yet implemented a full AOT compiler.
 
 # Running the test suite
 
-Note that the test suite requires Python 3 to be installed.
+Note that the test suite requires Python 3 to be installed. If your cmake version is below 3.12.4, then it will not find you Python installation, and you should update CMake.
 
 The test suite can be run from the `build` or `build_ninja` directories:
 ```
