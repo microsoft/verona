@@ -18,7 +18,19 @@
 
 #include <CLI/CLI.hpp>
 #include <cstring>
-#include <experimental/filesystem>
+#ifndef __has_include
+#  error("__has_include not supported");
+#else
+#  if __has_include(<filesystem>)
+#    include <filesystem>
+namespace fs = std::filesystem;
+#  elif __has_include(<experimental/filesystem>)
+#    include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#  else
+#    error("No filesystem support")
+#  endif
+#endif
 #include <fstream>
 #include <iostream>
 #include <pegmatite.hh>
@@ -78,7 +90,7 @@ namespace verona::compiler
 
   bool compile(const Options& options, std::vector<uint8_t>* output)
   {
-    using filepath = std::experimental::filesystem::path;
+    using filepath = fs::path;
 
     Context context;
 
