@@ -13,24 +13,12 @@
 #include "compiler/resolution.h"
 #include "compiler/typecheck/wf_types.h"
 #include "ds/console.h"
+#include "fs.h"
 #include "interpreter/interpreter.h"
 #include "interpreter/options.h"
 
 #include <CLI/CLI.hpp>
 #include <cstring>
-#ifndef __has_include
-#  error("__has_include not supported");
-#else
-#  if __has_include(<filesystem>)
-#    include <filesystem>
-namespace fs = std::filesystem;
-#  elif __has_include(<experimental/filesystem>)
-#    include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#  else
-#    error("No filesystem support")
-#  endif
-#endif
 #include <fstream>
 #include <iostream>
 #include <pegmatite.hh>

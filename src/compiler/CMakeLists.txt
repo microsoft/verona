@@ -3,6 +3,28 @@ include(CheckCXXSymbolExists)
 # Needed for pegmatite
 add_definitions(-DUSE_RTTI=1)
 
+CHECK_CXX_SOURCE_COMPILES(
+"
+#include <filesystem>
+int main()
+{
+  std::filesystem::path p;
+}
+"
+ CXX_FILESYSTEM)
+
+if (NOT CXX_FILESYSTEM)
+  CHECK_CXX_SOURCE_COMPILES(
+  "
+  #include <experimental/filesystem>
+  int main()
+  {
+    std::experimental::filesystem::path p;
+  }
+  "
+  CXX_FILESYSTEM_EXPERIMENTAL)
+endif()
+
 add_library(veronac-lib
   analysis.cc
   ast.cc
@@ -75,3 +97,11 @@ target_include_directories(veronac-sys PRIVATE ../../external/pegmatite)
 target_link_libraries(veronac-sys interpreter-sys)
 target_link_libraries(veronac-sys veronac-lib)
 install(TARGETS veronac-sys RUNTIME DESTINATION .)
+
+if (CXX_FILESYSTEM)
+  target_compile_definitions(veronac PRIVATE CXX_FILESYSTEM)
+  target_compile_definitions(veronac-sys PRIVATE CXX_FILESYSTEM)
+elseif (CXX_FILESYSTEM_EXPERIMENTAL)
+  target_compile_definitions(veronac PRIVATE CXX_FILESYSTEM_EXPERIMENTAL)
+  target_compile_definitions(veronac-sys PRIVATE CXX_FILESYSTEM_EXPERIMENTAL)
+endif ()
