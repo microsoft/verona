@@ -137,15 +137,6 @@ namespace verona::compiler
       const TypeAssignment& assignment,
       const RegionGraph& graph,
       const LivenessReasonState& live_out,
-      const FreezeStmt& stmt)
-    {
-      consume_variable(assignment, graph, live_out, stmt.input);
-    }
-
-    void visit_stmt(
-      const TypeAssignment& assignment,
-      const RegionGraph& graph,
-      const LivenessReasonState& live_out,
       const CopyStmt& stmt)
     {
       consume_variable(assignment, graph, live_out, stmt.input);

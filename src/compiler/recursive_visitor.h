@@ -87,10 +87,6 @@ namespace verona::compiler
     {
       this->visit_expr(*expr.expr, args...);
     }
-    void visit_freeze_expr(FreezeExpr& expr, Args... args) override
-    {
-      this->visit_expr(*expr.expr, args...);
-    }
     void visit_new_expr(NewExpr& expr, Args... args) override {}
     void visit_new_cown(NewCownExpr& expr, Args... args) override
     {

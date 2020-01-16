@@ -266,16 +266,6 @@ namespace verona::compiler
       gen_.reg(input);
     }
 
-    void visit_stmt(const FreezeStmt& stmt)
-    {
-      Register input = variable(stmt.input);
-      Register output = variable(stmt.output);
-
-      gen_.opcode(Opcode::Freeze);
-      gen_.reg(output);
-      gen_.reg(input);
-    }
-
     void visit_stmt(const UnitStmt& stmt)
     {
       Register output = variable(stmt.output);

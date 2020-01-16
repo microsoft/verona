@@ -83,9 +83,9 @@ namespace verona::compiler
 
     Rule keyword = term(
       "while"_E | "if" | "class" | "interface" | "primitive" | "var" | "unit" |
-      "match" | "String" | "iso" | "mut" | "imm" | "mut-view" | "freeze" |
-      "in" | "cown" | "static_assert" | "not" | "subtype" | "when" | "from" |
-      "where" | "else" | "builtin");
+      "match" | "String" | "iso" | "mut" | "imm" | "mut-view" | "in" | "cown" |
+      "static_assert" | "not" | "subtype" | "when" | "from" | "where" | "else" |
+      "builtin");
 
     Rule self = term("self");
     Rule self_def = self;
@@ -137,7 +137,6 @@ namespace verona::compiler
     Rule new_parent = "in" >> ref_ident;
     Rule new_expr = "new" >> ref_ident >> -new_parent;
     Rule mut_view_expr = "mut-view" >> expr5;
-    Rule freeze_expr = "freeze" >> parens(expr1);
     Rule new_cown = "cown" >> ExprPtr(expr1);
     Rule when_clause = "when" >> parens(comma_sep(when_argument)) >> block_expr;
 
@@ -171,8 +170,8 @@ namespace verona::compiler
     Rule expr5 =
       symbol_expr | integer_literal_expr | string_literal_expr | parens(expr1);
     Rule expr4 = call | field_expr | expr5;
-    Rule expr3 = binary_operator_expr | new_expr | mut_view_expr | freeze_expr |
-      new_cown | expr4;
+    Rule expr3 =
+      binary_operator_expr | new_expr | mut_view_expr | new_cown | expr4;
     Rule expr2 = if_expr | match_expr | when_clause | block_expr | expr3;
     Rule expr1 =
       define_local | assign_local | assign_field | while_loop | expr2;
@@ -287,7 +286,6 @@ namespace verona::compiler
     BindAST<MatchArm> match_arm = g.match_arm;
     BindAST<MatchExpr> match_expr = g.match_expr;
     BindAST<ViewExpr> mut_view_expr = g.mut_view_expr;
-    BindAST<FreezeExpr> freeze_expr = g.freeze_expr;
 
     BindAST<NewParent> new_parent = g.new_parent;
     BindAST<NewExpr> new_expr = g.new_expr;

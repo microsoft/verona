@@ -165,11 +165,6 @@ namespace verona::compiler
       print("(mut-view {})", *e.expr);
     }
 
-    void visit_freeze_expr(FreezeExpr& e) final
-    {
-      print("(freeze {})", *e.expr);
-    }
-
     void visit_entity_type(const EntityTypePtr& ty) final
     {
       print("{}{}", ty->definition->name, optional_list(ty->arguments));

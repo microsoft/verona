@@ -31,6 +31,8 @@ namespace verona::compiler
         return builtin_create_sleeping_cown();
       else if (method == "fulfill_sleeping_cown")
         return builtin_fulfill_sleeping_cown();
+      else if (method == "freeze")
+        return builtin_freeze();
       else if (method == "trace")
         return builtin_trace_region();
     }
@@ -57,7 +59,8 @@ namespace verona::compiler
       else if (method == "or")
         return builtin_binop(bytecode::BinaryOperator::Or);
     }
-    throw std::logic_error("Invalid builtin");
+    fmt::print(stderr, "Invalid builtin {}.{}\n", entity, method);
+    abort();
   }
 
   void BuiltinGenerator::builtin_print()
@@ -106,6 +109,23 @@ namespace verona::compiler
     assert(abi_.returns == 1);
 
     gen_.opcode(Opcode::TraceRegion);
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(0));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Return);
+  }
+
+  void BuiltinGenerator::builtin_freeze()
+  {
+    assert(abi_.arguments == 2);
+    assert(abi_.returns == 1);
+
+    gen_.opcode(Opcode::Freeze);
+    gen_.reg(Register(0));
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Clear);
     gen_.reg(Register(1));
     gen_.opcode(Opcode::Return);
   }

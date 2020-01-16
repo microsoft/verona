@@ -555,11 +555,6 @@ namespace verona::compiler
     ASTPtr<Expression> expr;
   };
 
-  struct FreezeExpr : public Expression
-  {
-    ASTPtr<Expression> expr;
-  };
-
   enum class BinaryOperator
   {
     Add,

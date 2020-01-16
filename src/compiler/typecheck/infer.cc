@@ -527,21 +527,6 @@ namespace verona::compiler
     void visit_stmt(
       TypeAssignment& assignment,
       std::vector<Variable>& dead_variables,
-      const FreezeStmt& stmt)
-    {
-      TypePtr input = get_type(assignment, stmt.input);
-      TypePtr entity = context_.mk_entity_of(input);
-
-      add_constraint(input, context_.mk_isolated(RegionNone()), "freeze");
-      set_type(
-        assignment,
-        stmt.output,
-        context_.mk_intersection(entity, context_.mk_immutable()));
-    }
-
-    void visit_stmt(
-      TypeAssignment& assignment,
-      std::vector<Variable>& dead_variables,
       const EndScopeStmt& stmt)
     {
       std::copy(

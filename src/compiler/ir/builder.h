@@ -357,9 +357,6 @@ namespace verona::compiler
     BuilderResult<IRInput>
     visit_view_expr(ViewExpr& expr, ValueKind kind, BasicBlock*& bb) final;
 
-    BuilderResult<IRInput>
-    visit_freeze_expr(FreezeExpr& expr, ValueKind kind, BasicBlock*& bb) final;
-
     BuilderResult<IRInput> visit_binary_operator_expr(
       BinaryOperatorExpr& expr, ValueKind kind, BasicBlock*& bb) final;
 

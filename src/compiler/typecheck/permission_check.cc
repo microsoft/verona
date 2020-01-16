@@ -94,8 +94,6 @@ namespace verona::compiler
       }
     }
 
-    void visit_stmt(const TypeAssignment& assignment, const FreezeStmt& stmt) {}
-
     void visit_stmt(const TypeAssignment& assignment, const CopyStmt& stmt) {}
 
     void

@@ -259,17 +259,6 @@ namespace verona::compiler
   }
 
   void IRPrinter::print_inner_statement(
-    const TypeAssignment* assignment, const FreezeStmt& stmt) const
-  {
-    fmt::print(
-      out_,
-      "{} <- freeze({}){}",
-      stmt.output,
-      stmt.input,
-      type_of(assignment, stmt.output));
-  }
-
-  void IRPrinter::print_inner_statement(
     const TypeAssignment* assignment, const CopyStmt& stmt) const
   {
     fmt::print(

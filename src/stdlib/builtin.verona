@@ -24,6 +24,9 @@ class Builtin {
   builtin create_sleeping_cown[T](): cown[T];
   builtin fulfill_sleeping_cown[T](x: cown[T], v: T);
 
+  // Freeze an isolated object graph
+  builtin freeze[class T](x: T & iso): T & imm;
+
   // This exposes trace on a traceable region
   // TODO: invalidate other references into this region
   // TODO: needs expanding as we add other region allocation strategies
@@ -35,7 +38,7 @@ class Builtin {
  **/
 class None {
   create(): None & imm {
-    freeze (new None)
+    Builtin.freeze (new None)
   }
 }
 

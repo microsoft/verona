@@ -103,12 +103,6 @@ namespace verona::compiler
       use_variable(stmt.input);
     }
 
-    void visit_inner_stmt(const FreezeStmt& stmt)
-    {
-      define_variable(stmt.output);
-      use_variable(stmt.input);
-    }
-
     void visit_inner_stmt(const CopyStmt& stmt)
     {
       define_variable(stmt.output);

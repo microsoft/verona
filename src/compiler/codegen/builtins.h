@@ -23,9 +23,10 @@ namespace verona::compiler
     void generate_builtin(std::string_view entity, std::string_view method);
 
     void builtin_print();
-    void builtin_create_sleeping_cown();
-    void builtin_trace_region();
-    void builtin_fulfill_sleeping_cown();
     void builtin_binop(bytecode::BinaryOperator op);
+    void builtin_create_sleeping_cown();
+    void builtin_fulfill_sleeping_cown();
+    void builtin_freeze();
+    void builtin_trace_region();
   };
 }

@@ -61,7 +61,7 @@ class Queue[Value]
     var q = new Queue;
     
     // Fake up singleton for None.
-    q.none = freeze (new None);
+    q.none = None.create();
     
     // Set id and initialise statistics
     q.id = i;

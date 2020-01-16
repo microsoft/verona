@@ -257,14 +257,6 @@ namespace verona::compiler
     IRInput input;
   };
 
-  struct FreezeStmt : public BaseStatement
-  {
-    using BaseStatement::BaseStatement;
-
-    Variable output;
-    IRInput input;
-  };
-
   /**
    * Generated at the end of a source-language scope.
    * Contains the list of local variables that go out of scope here. The
@@ -307,7 +299,6 @@ namespace verona::compiler
     CopyStmt,
     MatchBindStmt,
     ViewStmt,
-    FreezeStmt,
     EndScopeStmt,
     OverwriteStmt,
     UnitStmt>

@@ -114,10 +114,6 @@ namespace verona::compiler
       {
         return visit_view_expr(*expr_, std::forward<Args>(args)...);
       }
-      else if (auto expr_ = dynamic_cast<FreezeExpr*>(&expr))
-      {
-        return visit_freeze_expr(*expr_, std::forward<Args>(args)...);
-      }
       else if (auto expr_ = dynamic_cast<BinaryOperatorExpr*>(&expr))
       {
         return visit_binary_operator_expr(*expr_, std::forward<Args>(args)...);
@@ -217,10 +213,6 @@ namespace verona::compiler
       return visit_base_expr(expr, std::forward<Args>(args)...);
     }
     virtual Return visit_view_expr(ViewExpr& expr, Args... args)
-    {
-      return visit_base_expr(expr, std::forward<Args>(args)...);
-    }
-    virtual Return visit_freeze_expr(FreezeExpr& expr, Args... args)
     {
       return visit_base_expr(expr, std::forward<Args>(args)...);
     }

@@ -525,13 +525,6 @@ namespace verona::compiler
     {}
 
     void visit_stmt(
-      const FreezeStmt& stmt,
-      const Instantiation& instantiation,
-      const TypecheckResults& typecheck,
-      const TypeAssignment& assignment)
-    {}
-
-    void visit_stmt(
       const EndScopeStmt& stmt,
       const Instantiation& instantiation,
       const TypecheckResults& typecheck,

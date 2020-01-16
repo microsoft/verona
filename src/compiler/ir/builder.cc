@@ -728,15 +728,6 @@ namespace verona::compiler
     return add_statement(bb, std::move(stmt));
   }
 
-  BuilderResult<IRInput> IRBuilder::visit_freeze_expr(
-    FreezeExpr& expr, ValueKind kind, BasicBlock*& bb)
-  {
-    FreezeStmt stmt(expr.source_range);
-    stmt.input = visit_input(*expr.expr, bb);
-    stmt.output = fresh_variable(kind);
-    return add_statement(bb, std::move(stmt));
-  }
-
   BuilderResult<IRInput> IRBuilder::visit_binary_operator_expr(
     BinaryOperatorExpr& expr, ValueKind kind, BasicBlock*& bb)
   {

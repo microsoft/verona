@@ -490,6 +490,13 @@ namespace verona::compiler
               context.mk_fixpoint(
                 context.mk_union(var, close_fixpoint(context, var, left))));
         }
+
+        if (auto left = c.left->dyncast<TypeParameter>())
+        {
+          InferTypePtr var = reverse_polarity(infer, context);
+          return Substitution(
+            var, context.mk_union(var, context.mk_entity_of(left)));
+        }
       }
     }
 

@@ -53,7 +53,7 @@ class Main
 
   do_stuff_imm(log: cown[Log], v: U64 & imm)
   {
-    var m = freeze (LogMessage.create(v));
+    var m = Builtin.freeze(LogMessage.create(v));
     when (log) { m.run_imm(log) };
     when (log) { m.run_imm(log) };
   }
