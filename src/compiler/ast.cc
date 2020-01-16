@@ -68,7 +68,7 @@ namespace verona::compiler
     if (parent == nullptr)
       throw std::logic_error("path called before resolution");
 
-    return parent->path() + "." + name;
+    return parent->path() + "." + get_name();
   }
 
   std::string

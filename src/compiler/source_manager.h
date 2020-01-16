@@ -230,6 +230,9 @@ namespace verona::compiler
        */
       MissingMethodBodyInPrimitive,
       /**
+       */
+      BuiltinMethodHasBody,
+      /**
        * A primitive has a field.
        */
       FieldInPrimitive,
@@ -333,6 +336,8 @@ namespace verona::compiler
           return "Method '{}' in class '{}' must have a body";
         case Diagnostic::MissingMethodBodyInPrimitive:
           return "Method '{}' in primitive '{}' must have a body";
+        case Diagnostic::BuiltinMethodHasBody:
+          return "Builtin method '{}' in '{}' must not have a body";
         case Diagnostic::FieldInPrimitive:
           return "Primitives cannot have fields";
         case Diagnostic::InferenceFailedForMethod:

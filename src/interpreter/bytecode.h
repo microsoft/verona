@@ -203,7 +203,7 @@ namespace verona::bytecode
   {
     using Operands =
       OpcodeOperands<Register, BinaryOperator, Register, Register>;
-    constexpr static std::string_view format = "{} {}, {}, {}";
+    constexpr static std::string_view format = "{1} {0}, {2}, {3}";
   };
 
   template<>

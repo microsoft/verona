@@ -574,7 +574,9 @@ namespace verona::compiler
     add_method(EntityReachability& parent, const CodegenItem<Method>& method)
     {
       std::optional<Label> label;
-      if (method.definition->body != nullptr)
+      if (
+        method.definition->body != nullptr ||
+        method.definition->kind() == Method::Builtin)
       {
         label = gen_.create_label();
         if (method.definition->is_finaliser())

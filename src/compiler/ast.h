@@ -269,14 +269,13 @@ namespace verona::compiler
 
   struct Member : public SourceLocatableMixin<ASTContainer>
   {
-    ASTChild<Name> name;
-
     /**
      * Pointer back to the Entity which contains this member.
      * Added during resolution
      */
     const Entity* parent = nullptr;
 
+    virtual const Name& get_name() const = 0;
     std::string path() const;
     virtual std::string
     instantiated_path(const Instantiation& instantiation) const = 0;
@@ -308,27 +307,56 @@ namespace verona::compiler
 
   struct Method : public Member
   {
+    enum class Kind
+    {
+      Regular,
+      Builtin,
+    };
+    static constexpr Kind Regular = Kind::Regular;
+    static constexpr Kind Builtin = Kind::Builtin;
+
+    ASTPtr<ASTConstant<Kind>, /* optional */ true> kind_;
+    ASTChild<Name> name;
     ASTPtr<FnSignature> signature;
 
     // Body is required in classes. This is enforced during resolution.
     ASTPtr<FnBody, /* optional */ true> body;
 
-    std::string instantiated_path(const Instantiation& instantiation) const;
+    std::string
+    instantiated_path(const Instantiation& instantiation) const final;
+
+    const Name& get_name() const final
+    {
+      return name;
+    }
+    Kind kind() const
+    {
+      if (kind_)
+        return kind_->value();
+      else
+        return Kind::Regular;
+    }
 
     bool is_finaliser() const
     {
-      return Member::name == "final";
+      return name == "final";
     }
   };
 
   struct Field : public Member
   {
+    ASTChild<Name> name;
     ASTPtr<TypeExpression> type_expression;
 
     // Added during resolution
     TypePtr type;
 
-    std::string instantiated_path(const Instantiation& instantiation) const;
+    const Name& get_name() const final
+    {
+      return name;
+    }
+    std::string
+    instantiated_path(const Instantiation& instantiation) const final;
   };
 
   struct File : public ASTContainer

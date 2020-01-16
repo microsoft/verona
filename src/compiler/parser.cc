@@ -85,7 +85,7 @@ namespace verona::compiler
       "while"_E | "if" | "class" | "interface" | "primitive" | "var" | "unit" |
       "match" | "U64" | "String" | "iso" | "mut" | "imm" | "mut-view" |
       "freeze" | "in" | "cown" | "static_assert" | "not" | "subtype" | "when" |
-      "from" | "where" | "else");
+      "from" | "where" | "else" | "builtin");
 
     Rule self = term("self");
     Rule self_def = self;
@@ -210,7 +210,10 @@ namespace verona::compiler
     Rule fn_signature = generics >> function_params >> -(":" >> type) >>
       -ExprPtr(where_clauses);
     Rule fn_body = block;
-    Rule method = def_ident >> fn_signature >> (fn_body | ";");
+
+    Rule method_builtin = "builtin"_E;
+    Rule method = -(method_builtin) >> def_ident >> fn_signature >>
+      (fn_body | ";");
 
     Rule field = def_ident >> ":" >> type >> ";";
     Rule member = trace("member", method | field);
@@ -357,6 +360,8 @@ namespace verona::compiler
 
     BindAST<FnSignature> fn_signature = g.fn_signature;
     BindAST<FnBody> fn_body = g.fn_body;
+    BindConstant<Method::Kind, Method::Builtin> method_builtin =
+      g.method_builtin;
     BindAST<Method> method = g.method;
 
     BindConstant<Entity::Kind, Entity::Class> class_kind = g.class_kind;

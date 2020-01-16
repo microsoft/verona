@@ -16,9 +16,12 @@ namespace verona::compiler
     using FunctionGenerator::FunctionGenerator;
 
   public:
-    void generate_builtin(std::string_view name);
+    static void generate(
+      Context& context, Generator& gen, const CodegenItem<Method>& method);
 
   private:
+    void generate_builtin(std::string_view entity, std::string_view method);
+
     void builtin_print();
     void builtin_create_sleeping_cown();
     void builtin_trace_region();

@@ -3,6 +3,7 @@
 #include "compiler/codegen/codegen.h"
 
 #include "compiler/ast.h"
+#include "compiler/codegen/builtins.h"
 #include "compiler/codegen/descriptor.h"
 #include "compiler/codegen/function.h"
 #include "compiler/codegen/generator.h"
@@ -125,15 +126,21 @@ namespace verona::compiler
     {
       for (const auto& [method, method_info] : entity_info.methods)
       {
-        if (method.definition->body == nullptr)
+        if (!method_info.label.has_value())
           continue;
 
         gen.define_label(method_info.label.value());
-
-        const FnAnalysis& fn_analysis =
-          analysis.functions.at(method.definition);
-        emit_function(
-          context, reachability, selectors, gen, method, fn_analysis);
+        if (method.definition->kind() == Method::Builtin)
+        {
+          BuiltinGenerator::generate(context, gen, method);
+        }
+        else
+        {
+          const FnAnalysis& fn_analysis =
+            analysis.functions.at(method.definition);
+          emit_function(
+            context, reachability, selectors, gen, method, fn_analysis);
+        }
       }
     }
   }

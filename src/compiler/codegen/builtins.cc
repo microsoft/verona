@@ -8,38 +8,53 @@ namespace verona::compiler
 {
   using bytecode::Opcode;
 
-  void BuiltinGenerator::generate_builtin(std::string_view name)
+  /* static */
+  void BuiltinGenerator::generate(
+    Context& context, Generator& gen, const CodegenItem<Method>& method)
   {
-    if (name.rfind("print", 0) == 0)
-      builtin_print();
-    else if (name == "u64_add")
-      builtin_binop(bytecode::BinaryOperator::Add);
-    else if (name == "u64_sub")
-      builtin_binop(bytecode::BinaryOperator::Sub);
-    else if (name == "u64_lt")
-      builtin_binop(bytecode::BinaryOperator::Lt);
-    else if (name == "u64_gt")
-      builtin_binop(bytecode::BinaryOperator::Gt);
-    else if (name == "u64_le")
-      builtin_binop(bytecode::BinaryOperator::Le);
-    else if (name == "u64_ge")
-      builtin_binop(bytecode::BinaryOperator::Ge);
-    else if (name == "u64_eq")
-      builtin_binop(bytecode::BinaryOperator::Eq);
-    else if (name == "u64_ne")
-      builtin_binop(bytecode::BinaryOperator::Ne);
-    else if (name == "u64_and")
-      builtin_binop(bytecode::BinaryOperator::And);
-    else if (name == "u64_or")
-      builtin_binop(bytecode::BinaryOperator::Or);
-    else if (name == "create_sleeping_cown")
-      builtin_create_sleeping_cown();
-    else if (name == "fulfill_sleeping_cown")
-      builtin_fulfill_sleeping_cown();
-    else if (name == "trace")
-      builtin_trace_region();
-    else
-      throw std::logic_error("Invalid builtin");
+    FunctionABI abi(*method.definition->signature);
+    BuiltinGenerator v(context, gen, abi);
+    v.generate_header(method.instantiated_path());
+    v.generate_builtin(
+      method.definition->parent->name, method.definition->name);
+    v.finish();
+  }
+
+  void BuiltinGenerator::generate_builtin(
+    std::string_view entity, std::string_view method)
+  {
+    if (entity == "Builtin")
+    {
+      if (method.rfind("print", 0) == 0)
+        return builtin_print();
+      else if (method == "create_sleeping_cown")
+        return builtin_create_sleeping_cown();
+      else if (method == "fulfill_sleeping_cown")
+        return builtin_fulfill_sleeping_cown();
+      else if (method == "trace")
+        return builtin_trace_region();
+      else if (method == "u64_add")
+        return builtin_binop(bytecode::BinaryOperator::Add);
+      else if (method == "u64_sub")
+        return builtin_binop(bytecode::BinaryOperator::Sub);
+      else if (method == "u64_lt")
+        return builtin_binop(bytecode::BinaryOperator::Lt);
+      else if (method == "u64_gt")
+        return builtin_binop(bytecode::BinaryOperator::Gt);
+      else if (method == "u64_le")
+        return builtin_binop(bytecode::BinaryOperator::Le);
+      else if (method == "u64_ge")
+        return builtin_binop(bytecode::BinaryOperator::Ge);
+      else if (method == "u64_eq")
+        return builtin_binop(bytecode::BinaryOperator::Eq);
+      else if (method == "u64_ne")
+        return builtin_binop(bytecode::BinaryOperator::Ne);
+      else if (method == "u64_and")
+        return builtin_binop(bytecode::BinaryOperator::And);
+      else if (method == "u64_or")
+        return builtin_binop(bytecode::BinaryOperator::Or);
+    }
+    throw std::logic_error("Invalid builtin");
   }
 
   void BuiltinGenerator::builtin_print()

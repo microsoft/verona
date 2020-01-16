@@ -180,7 +180,7 @@ namespace verona::compiler
       {
         member->parent = entity;
 
-        const Name& name = member->name;
+        const Name& name = member->get_name();
         auto [it, inserted] =
           entity->members_table.insert({name, member.get()});
         if (!inserted)
@@ -194,7 +194,7 @@ namespace verona::compiler
             name);
           report(
             context_,
-            it->second->name,
+            it->second->get_name(),
             DiagnosticKind::Note,
             Diagnostic::PreviousDefinitionHere,
             name);
@@ -291,26 +291,44 @@ namespace verona::compiler
         add_signature(method->signature.get());
         resolve_signature(method->signature.get());
 
-        if (method->parent->kind->value() == Entity::Class && !method->body)
+        switch (method->kind())
         {
-          report(
-            context_,
-            method->name,
-            DiagnosticKind::Error,
-            Diagnostic::MissingMethodBodyInClass,
-            method->name,
-            method->parent->name);
-        }
+          case Method::Regular:
+            if (!method->body && method->parent->kind->value() == Entity::Class)
+            {
+              report(
+                context_,
+                method->name,
+                DiagnosticKind::Error,
+                Diagnostic::MissingMethodBodyInClass,
+                method->name,
+                method->parent->name);
+            }
 
-        if (method->parent->kind->value() == Entity::Primitive && !method->body)
-        {
-          report(
-            context_,
-            method->name,
-            DiagnosticKind::Error,
-            Diagnostic::MissingMethodBodyInPrimitive,
-            method->name,
-            method->parent->name);
+            if (method->parent->kind->value() == Entity::Primitive)
+            {
+              report(
+                context_,
+                method->name,
+                DiagnosticKind::Error,
+                Diagnostic::MissingMethodBodyInPrimitive,
+                method->name,
+                method->parent->name);
+            }
+            break;
+
+          case Method::Builtin:
+            if (method->body)
+            {
+              report(
+                context_,
+                method->name,
+                DiagnosticKind::Error,
+                Diagnostic::BuiltinMethodHasBody,
+                method->name,
+                method->parent->name);
+            }
+            break;
         }
 
         if (method->body)
