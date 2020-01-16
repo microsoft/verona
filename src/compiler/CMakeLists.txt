@@ -1,8 +1,5 @@
 include(CheckCXXSymbolExists)
 
-# Needed for pegmatite
-add_definitions(-DUSE_RTTI=1)
-
 CHECK_CXX_SOURCE_COMPILES(
 "
 #include <filesystem>
@@ -62,14 +59,11 @@ add_library(veronac-lib
   typecheck/structural.cc
   typecheck/typecheck.cc
   typecheck/wf_types.cc
-  ../../external/pegmatite/ast.cc
-  ../../external/pegmatite/parser.cc
 )
 
-target_include_directories(veronac-lib PRIVATE ../../external/pegmatite)
-
-target_link_libraries(veronac-lib fmt)
 target_link_libraries(veronac-lib CLI11::CLI11)
+target_link_libraries(veronac-lib fmt)
+target_link_libraries(veronac-lib pegmatite-static)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   check_cxx_symbol_exists(_LIBCPP_VERSION ciso646 IS_LIBCXX)
@@ -87,13 +81,11 @@ endif()
 
 add_executable(veronac main.cc)
 target_link_libraries(veronac interpreter)
-target_include_directories(veronac PRIVATE ../../external/pegmatite)
 target_link_libraries(veronac veronac-lib)
 install(TARGETS veronac RUNTIME DESTINATION .)
 
 add_executable(veronac-sys main.cc)
 target_compile_definitions(veronac-sys PRIVATE USE_SYSTEMATIC_TESTING)
-target_include_directories(veronac-sys PRIVATE ../../external/pegmatite)
 target_link_libraries(veronac-sys interpreter-sys)
 target_link_libraries(veronac-sys veronac-lib)
 install(TARGETS veronac-sys RUNTIME DESTINATION .)
