@@ -359,9 +359,7 @@ namespace verona::rt
       pthread_setaffinity_np(pthread_self(), sizeof(set), &set);
 #  endif
 #elif defined(__APPLE__)
-      thread_affinity_policy_data_t policy = {
-        static_cast<integer_t>(affinity)
-      };
+      thread_affinity_policy_data_t policy = {static_cast<integer_t>(affinity)};
 
       thread_policy_set(
         mach_thread_self(),
