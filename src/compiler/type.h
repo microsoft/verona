@@ -491,19 +491,6 @@ namespace verona::compiler
   };
   typedef std::shared_ptr<const IsEntityType> IsEntityTypePtr;
 
-  struct IntegerType final : public Type
-  {
-    bool operator<(const IntegerType& other) const
-    {
-      return false;
-    }
-
-  private:
-    IntegerType() {}
-    friend TypeInterner;
-  };
-  typedef std::shared_ptr<const IntegerType> IntegerTypePtr;
-
   struct StringType final : public Type
   {
     bool operator<(const StringType& other) const

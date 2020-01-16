@@ -351,18 +351,6 @@ namespace verona::compiler
     }
 
     /*
-     * --------------
-     *   U64 <: U64
-     */
-    if (auto left = c.left->dyncast<IntegerType>())
-    {
-      if (auto right = c.right->dyncast<IntegerType>())
-      {
-        return Trivial();
-      }
-    }
-
-    /*
      * --------------------
      *   String <: String
      */
@@ -545,8 +533,8 @@ namespace verona::compiler
       // TODO: the definition of what an "entity-like" type is is kind of
       // scattered around the code-base.
       if (
-        c.left->dyncast<EntityType>() || c.left->dyncast<IntegerType>() ||
-        c.left->dyncast<StringType>() || c.left->dyncast<CownType>())
+        c.left->dyncast<EntityType>() || c.left->dyncast<StringType>() ||
+        c.left->dyncast<CownType>())
       {
         return Trivial();
       }
@@ -740,9 +728,8 @@ namespace verona::compiler
       {
         // These are types that are used without any capability.
         if (
-          c.left->dyncast<IntegerType>() || c.left->dyncast<CownType>() ||
-          c.left->dyncast<StaticType>() || c.left->dyncast<StringType>() ||
-          c.left->dyncast<UnitType>())
+          c.left->dyncast<CownType>() || c.left->dyncast<StaticType>() ||
+          c.left->dyncast<StringType>() || c.left->dyncast<UnitType>())
           return Trivial();
 
         if (auto left_cap = c.left->dyncast<CapabilityType>())

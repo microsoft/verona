@@ -174,7 +174,6 @@ namespace verona::compiler
       this->visit_type(ty->inner, args...);
     }
 
-    void visit_integer_type(const IntegerTypePtr& ty, Args... args) override {}
     void visit_string_type(const StringTypePtr& ty, Args... args) override {}
     void visit_type_parameter(const TypeParameterPtr& ty, Args... args) override
     {}

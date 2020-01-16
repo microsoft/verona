@@ -112,10 +112,6 @@ namespace verona::compiler
     {
       return CapabilityPredicate::Sendable | CapabilityPredicate::NonLinear;
     }
-    PredicateSet visit_integer_type(const IntegerTypePtr& type) final
-    {
-      return CapabilityPredicate::Sendable | CapabilityPredicate::NonLinear;
-    }
     PredicateSet visit_string_type(const StringTypePtr& type) final
     {
       return CapabilityPredicate::Sendable | CapabilityPredicate::NonLinear;

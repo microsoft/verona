@@ -99,6 +99,7 @@ namespace verona::compiler
 
   Reachability compute_reachability(
     Context& context,
+    const Program& program,
     Generator& gen,
     CodegenItem<Entity> main_class,
     CodegenItem<Method> main_method,

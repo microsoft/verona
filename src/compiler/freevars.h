@@ -201,11 +201,6 @@ namespace verona::compiler
       return FreeVariables();
     }
 
-    FreeVariables visit_integer_type(const IntegerTypePtr& ty) final
-    {
-      return FreeVariables();
-    }
-
     FreeVariables visit_string_type(const StringTypePtr& ty) final
     {
       return FreeVariables();

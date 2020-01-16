@@ -315,10 +315,6 @@ namespace verona::compiler
       {
         return visit_is_entity_type(ty_, std::forward<Args>(args)...);
       }
-      else if (auto ty_ = ty->dyncast<IntegerType>())
-      {
-        return visit_integer_type(ty_, std::forward<Args>(args)...);
-      }
       else if (auto ty_ = ty->dyncast<StringType>())
       {
         return visit_string_type(ty_, std::forward<Args>(args)...);
@@ -454,10 +450,6 @@ namespace verona::compiler
     {
       return visit_base_type(ty, std::forward<Args>(args)...);
     }
-    virtual Return visit_integer_type(const IntegerTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
     virtual Return visit_string_type(const StringTypePtr& ty, Args... args)
     {
       return visit_base_type(ty, std::forward<Args>(args)...);
@@ -502,10 +494,6 @@ namespace verona::compiler
   public:
     virtual Return visit_type_expression(TypeExpression& te, Args... args)
     {
-      if (auto expr_ = dynamic_cast<IntegerTypeExpr*>(&te))
-      {
-        return visit_integer_type_expr(*expr_, std::forward<Args>(args)...);
-      }
       if (auto expr_ = dynamic_cast<StringTypeExpr*>(&te))
       {
         return visit_string_type_expr(*expr_, std::forward<Args>(args)...);
@@ -553,10 +541,6 @@ namespace verona::compiler
         typeid(te).name(),
         typeid(*this).name());
       abort();
-    }
-    virtual Return visit_integer_type_expr(IntegerTypeExpr& te, Args... args)
-    {
-      return visit_base_type_expression(te, std::forward<Args>(args)...);
     }
     virtual Return visit_string_type_expr(StringTypeExpr& te, Args... args)
     {

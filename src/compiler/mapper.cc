@@ -124,11 +124,6 @@ namespace verona::compiler
     return context().mk_is_entity();
   }
 
-  TypePtr RecursiveTypeMapper::visit_integer_type(const IntegerTypePtr& ty)
-  {
-    return context().mk_integer_type();
-  }
-
   TypePtr RecursiveTypeMapper::visit_string_type(const StringTypePtr& ty)
   {
     return context().mk_string_type();

@@ -94,7 +94,6 @@ namespace verona::compiler
     IsEntityTypePtr mk_is_entity();
 
     UnitTypePtr mk_unit();
-    IntegerTypePtr mk_integer_type();
     StringTypePtr mk_string_type();
 
     FixpointTypePtr mk_fixpoint(TypePtr inner);

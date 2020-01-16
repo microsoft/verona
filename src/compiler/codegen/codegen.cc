@@ -155,8 +155,8 @@ namespace verona::compiler
     std::vector<uint8_t> code;
     Generator gen(code);
 
-    Reachability reachability =
-      compute_reachability(context, gen, entry->first, entry->second, analysis);
+    Reachability reachability = compute_reachability(
+      context, program, gen, entry->first, entry->second, analysis);
     SelectorTable selectors = SelectorTable::build(reachability);
 
     emit_program_header(reachability, selectors, gen, entry->first);

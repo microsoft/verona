@@ -270,10 +270,6 @@ namespace verona::compiler
     {
       print("(is-entity)");
     }
-    void visit_integer_type(const IntegerTypePtr& ty) final
-    {
-      print("(integer)");
-    }
     void visit_string_type(const StringTypePtr& ty) final
     {
       print("(string)");
@@ -351,11 +347,6 @@ namespace verona::compiler
     void visit_type_sequence(const BoundedTypeSequence& seq)
     {
       print("[{}]", comma_sep(seq.types));
-    }
-
-    void visit_integer_type_expr(IntegerTypeExpr& te)
-    {
-      print("(integer)");
     }
 
     void visit_string_type_expr(StringTypeExpr& te)

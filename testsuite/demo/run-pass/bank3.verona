@@ -13,7 +13,7 @@
  **/
 class Log 
 {
-  print(fmt: String, v1: U64, v2: U64)
+  print(fmt: String, v1: U64 & imm, v2: U64 & imm)
   {
     Builtin.print2(fmt, v1, v2);
   }
@@ -30,13 +30,13 @@ class Log
  **/
 class BankAccount
 {
-  balance: U64;
+  balance: U64 & imm;
 
    /**
    * Creates a new bank account wrapped in a `cown` with an opening balance
    * from the supplied argument.
    **/
-  create(opening_balance: U64): cown[BankAccount]
+  create(opening_balance: U64 & imm): cown[BankAccount]
   {
     var a = new BankAccount;
     a.balance = opening_balance;
@@ -50,7 +50,7 @@ class BankAccount
    */
   transfer(src: cown[BankAccount], 
            dst: cown[BankAccount],
-           amount: U64,
+           amount: U64 & imm,
            log: cown[Log])
   {
     when (src, dst)

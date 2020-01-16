@@ -19,7 +19,7 @@
  **/
 class Fork
 {
-  use_count: U64;
+  use_count: U64 & imm;
 
   add_use(self: mut)
   {
@@ -40,14 +40,14 @@ class Fork
 class Philosopher
 {
   // id used for printing the trace of what happened.
-  id: U64;
+  id: U64 & imm;
   // The two forks this Philosopher is using to eat
   fork1: cown[Fork];
   fork2: cown[Fork];
   // The door is used, so we can synchronise the finish to eating.
   door:  cown[Door];
   // The number of times left for this philosopher to eat.
-  hunger: U64;
+  hunger: U64 & imm;
 
   /**
    * This static method creates a Philosopher
@@ -56,7 +56,7 @@ class Philosopher
    * capability that expresses unique ownership of this object (and potentially
    * other objects in the same regions). 
    **/
-  create(n: U64, f1: cown[Fork], f2: cown[Fork], d: cown[Door]): iso & Philosopher
+  create(n: U64 & imm, f1: cown[Fork], f2: cown[Fork], d: cown[Door]): iso & Philosopher
   {
     var p = new Philosopher;
     p.hunger = 10;
@@ -126,7 +126,7 @@ class Philosopher
  **/
 class Door
 {
-  count: U64;
+  count: U64 & imm;
   fork1: cown[Fork];
   fork2: cown[Fork];
   fork3: cown[Fork];

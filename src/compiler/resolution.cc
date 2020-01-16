@@ -467,11 +467,6 @@ namespace verona::compiler
       push_scope([&]() { visit_expr(*expr.inner); });
     }
 
-    TypePtr visit_integer_type_expr(IntegerTypeExpr& te)
-    {
-      return context_.mk_integer_type();
-    }
-
     TypePtr visit_string_type_expr(StringTypeExpr& te)
     {
       return context_.mk_string_type();

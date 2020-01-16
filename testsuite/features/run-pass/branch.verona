@@ -18,7 +18,7 @@ class Main {
   run(
     left: (Cell[A & iso] & mut),
     right: (Cell[A & iso] & mut),
-    choose: U64) {
+    choose: U64 & imm) {
 
     var x = A.create();
     if choose {

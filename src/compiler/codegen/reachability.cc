@@ -23,8 +23,12 @@ namespace verona::compiler
   : private RecursiveTypeVisitor<const Instantiation&>
   {
     ReachabilityVisitor(
-      Context& context, Generator& gen, const AnalysisResults& analysis)
+      Context& context,
+      const Program& program,
+      Generator& gen,
+      const AnalysisResults& analysis)
     : context_(context),
+      program_(program),
       gen_(gen),
       analysis_(analysis),
       solver_out_(context_.dump("reachability-solver"))
@@ -495,7 +499,9 @@ namespace verona::compiler
       const Instantiation& instantiation,
       const TypecheckResults& typecheck,
       const TypeAssignment& assignment)
-    {}
+    {
+      push(CodegenItem(program_.find_entity("U64"), Instantiation::empty()));
+    }
 
     void visit_stmt(
       const StringLiteralStmt& stmt,
@@ -592,6 +598,7 @@ namespace verona::compiler
     }
 
     Context& context_;
+    const Program& program_;
     Generator& gen_;
     const AnalysisResults& analysis_;
     Reachability result_;
@@ -654,12 +661,13 @@ namespace verona::compiler
 
   Reachability compute_reachability(
     Context& context,
+    const Program& program,
     Generator& gen,
     CodegenItem<Entity> main_class,
     CodegenItem<Method> main_method,
     const AnalysisResults& analysis)
   {
-    ReachabilityVisitor v(context, gen, analysis);
+    ReachabilityVisitor v(context, program, gen, analysis);
     v.process(main_class, main_method);
 
     dump_reachability(context, v.result_);

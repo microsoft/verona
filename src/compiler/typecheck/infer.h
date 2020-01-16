@@ -26,6 +26,7 @@ namespace verona::compiler
 
   std::unique_ptr<InferResults> infer(
     Context& context,
+    const Program& program,
     const Method& method,
     const MethodIR& ir,
     const LivenessAnalysis& liveness);
