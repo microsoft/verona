@@ -130,6 +130,9 @@ jobs:
         BuildType: Release
 
   steps:
+  - checkout: self
+    submodules: recursive
+
   - script: |
       sudo pip install wheel OutputCheck
     displayName:  Dependencies
