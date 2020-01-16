@@ -125,9 +125,11 @@ There is no restriction on the topology.
 When the owning reference to a region goes away then the entire region is collected.
 
 We use `iso`, for isolated, in a type to mean this is an owning reference to a region.
-We use `mut` references, for mutable, are non-owning. 
-When used as a field type, the reference points to an object in the same region as the outer object. 
-When used as an argument type, the reference points to an object in an unknown region.
+We use `mut`, for mutable, in a type to mean a mutable but non-owning reference. 
+When `mut` is used in a field type, the reference points to an object in the same region as the object with the field. 
+When `mut` is used on an argument type, the reference points to an object in an unknown region.
+This is similar to a borrowed type in Rust.
+
 When we allocate an object, we specify if it should be in its own region:
 ```
 var x = new Node;

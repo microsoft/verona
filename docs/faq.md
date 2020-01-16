@@ -11,8 +11,7 @@ The prototype here only covers the memory management aspects of the research.
 ## What research questions is Project Verona attempting to answer?
 
 There are several areas we are investigating in Project Verona.
-A few of the
-high-level questions are here:
+A few of the high-level questions are here:
 
 * If we design a language without concurrent mutation,
   can we build scalable memory management?
@@ -40,15 +39,14 @@ and linearity, and Pony, such as reference capabilities.
 
 Backwards compatibility adds a lot of impedance and constraints on research.
 With Project Verona we have chosen to start with a clean slate to see what 
-can be achieved
-towards our research questions.
+can be achieved towards our research questions.
 The ideas we develop hopefully can be tamed
 and fed back into existing languages in a backwards compatible way.
 
 ## When will this be a product?
 
 This is a research project not a product.
-Some times research projects turn 
+Sometimes research projects turn 
 into products, e.g. F#, but normally they do not! We hope the ideas we research
 can benefit other languages.
 
