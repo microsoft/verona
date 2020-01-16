@@ -67,8 +67,6 @@ namespace verona::compiler
 
     TypePtr mk_viewpoint(TypePtr left, TypePtr right);
 
-    TypePtr mk_cown(TypePtr contents);
-
     template<typename T>
     TypePtr mk_viewpoint(
       std::optional<CapabilityKind> capability,

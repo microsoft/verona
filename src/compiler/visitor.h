@@ -98,10 +98,6 @@ namespace verona::compiler
       {
         return visit_new_expr(*expr_, std::forward<Args>(args)...);
       }
-      else if (auto expr_ = dynamic_cast<NewCownExpr*>(&expr))
-      {
-        return visit_new_cown(*expr_, std::forward<Args>(args)...);
-      }
       else if (auto expr_ = dynamic_cast<IntegerLiteralExpr*>(&expr))
       {
         return visit_integer_literal_expr(*expr_, std::forward<Args>(args)...);
@@ -193,10 +189,6 @@ namespace verona::compiler
     {
       return visit_base_expr(expr, std::forward<Args>(args)...);
     }
-    virtual Return visit_new_cown(NewCownExpr& expr, Args... args)
-    {
-      return visit_base_expr(expr, std::forward<Args>(args)...);
-    }
     virtual Return
     visit_integer_literal_expr(IntegerLiteralExpr& expr, Args... args)
     {
@@ -278,10 +270,6 @@ namespace verona::compiler
       else if (auto ty_ = ty->dyncast<RangeType>())
       {
         return visit_range_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<CownType>())
-      {
-        return visit_cown_type(ty_, std::forward<Args>(args)...);
       }
       else if (auto ty_ = ty->dyncast<ViewpointType>())
       {
@@ -410,10 +398,6 @@ namespace verona::compiler
     {
       return visit_base_type(ty, std::forward<Args>(args)...);
     }
-    virtual Return visit_cown_type(const CownTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
     virtual Return
     visit_viewpoint_type(const ViewpointTypePtr& ty, Args... args)
     {
@@ -494,10 +478,6 @@ namespace verona::compiler
       {
         return visit_symbol_type_expr(*expr_, std::forward<Args>(args)...);
       }
-      else if (auto expr_ = dynamic_cast<CownTypeExpr*>(&te))
-      {
-        return visit_cown_type_expr(*expr_, std::forward<Args>(args)...);
-      }
       else if (auto expr_ = dynamic_cast<UnionTypeExpr*>(&te))
       {
         return visit_union_type_expr(*expr_, std::forward<Args>(args)...);
@@ -539,10 +519,6 @@ namespace verona::compiler
       return visit_base_type_expression(te, std::forward<Args>(args)...);
     }
     virtual Return visit_symbol_type_expr(SymbolTypeExpr& te, Args... args)
-    {
-      return visit_base_type_expression(te, std::forward<Args>(args)...);
-    }
-    virtual Return visit_cown_type_expr(CownTypeExpr& te, Args... args)
     {
       return visit_base_type_expression(te, std::forward<Args>(args)...);
     }

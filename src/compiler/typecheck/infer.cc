@@ -326,17 +326,20 @@ namespace verona::compiler
       // Link cown parameters
       for (size_t i = 0; i < stmt.cowns.size(); i++)
       {
-        const auto& cown = stmt.cowns[i];
-        TypePtr cown_typ = get_type(assignment, cown);
-        TypePtr entity = context_.mk_entity_of(fresh_type_var());
-        add_constraint(cown_typ, context_.mk_cown(entity), "cown_param");
+        const Variable& cown = stmt.cowns[i];
+        TypePtr contents = context_.mk_entity_of(fresh_type_var());
+        TypePtr cown_type = get_entity("cown", {contents});
+        TypePtr expected_type =
+          context_.mk_intersection(cown_type, context_.mk_immutable());
+
+        add_constraint(get_type(assignment, cown), expected_type, "cown_param");
 
         const auto& param = closure.parameters[i];
         Region region = RegionExternal{
           i}; // Really i, what about multiple whens? PAUL TO COMMENT
         TypePtr cap = context_.mk_mutable(region);
         set_type(
-          closure_assignment, param, context_.mk_intersection(entity, cap));
+          closure_assignment, param, context_.mk_intersection(contents, cap));
       }
 
       // Link capture parameter types
@@ -385,16 +388,6 @@ namespace verona::compiler
 
       set_type(assignment, stmt.output, context_.mk_intersection(cap, entity));
       set_type_arguments(stmt.type_arguments, BoundedTypeSequence(arguments));
-    }
-
-    void visit_stmt(
-      TypeAssignment& assignment,
-      std::vector<Variable>& dead_variables,
-      const NewCownStmt& stmt)
-    {
-      // Checking of permissions is done later.
-      auto entity = context_.mk_entity_of(get_type(assignment, stmt.input));
-      set_type(assignment, stmt.output, context_.mk_cown(entity));
     }
 
     void visit_stmt(
@@ -656,7 +649,7 @@ namespace verona::compiler
      * Get an entity type by name.
      *
      * This is used to locate standard library classes which the compiler has
-     * special knowledge of, eg. U64.
+     * special knowledge of, eg. U64 or Cown.
      */
     TypePtr get_entity(const std::string& name, TypeList args = TypeList())
     {

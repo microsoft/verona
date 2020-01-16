@@ -162,17 +162,6 @@ namespace verona::compiler
   }
 
   void IRPrinter::print_inner_statement(
-    const TypeAssignment* assignment, const NewCownStmt& stmt) const
-  {
-    fmt::print(
-      out_,
-      "{} <- cown {}{}",
-      stmt.output,
-      stmt.input,
-      type_of(assignment, stmt.output));
-  }
-
-  void IRPrinter::print_inner_statement(
     const TypeAssignment* assignment, const CallStmt& stmt) const
   {
     fmt::print(

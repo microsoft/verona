@@ -88,10 +88,6 @@ namespace verona::compiler
       this->visit_expr(*expr.expr, args...);
     }
     void visit_new_expr(NewExpr& expr, Args... args) override {}
-    void visit_new_cown(NewCownExpr& expr, Args... args) override
-    {
-      this->visit_expr(*expr.contents, args...);
-    }
 
     void visit_symbol(SymbolExpr& expr, Args... args) override {}
     void visit_empty(EmptyExpr& expr, Args... args) override {}
@@ -140,11 +136,6 @@ namespace verona::compiler
     {
       this->visit_type(ty->lower, args...);
       this->visit_type(ty->upper, args...);
-    }
-
-    void visit_cown_type(const CownTypePtr& ty, Args... args) override
-    {
-      this->visit_type(ty->contents, args...);
     }
 
     void visit_has_field_type(const HasFieldTypePtr& ty, Args... args) override

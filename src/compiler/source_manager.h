@@ -206,10 +206,6 @@ namespace verona::compiler
        */
       TypeNotWritable,
       /**
-       * Trying to make cown from no iso state.
-       */
-      TypeNotIsolatedForCown,
-      /**
        * Trying to send an unsendable type.
        */
       TypeNotSendableForWhen,
@@ -323,8 +319,6 @@ namespace verona::compiler
           return "Type '{}' is not readable";
         case Diagnostic::TypeNotWritable:
           return "Type '{}' is not writable";
-        case Diagnostic::TypeNotIsolatedForCown:
-          return "Type '{}' is not isolated for cown creation";
         case Diagnostic::TypeNotSendableForWhen:
           return "Type '{}' is not sendable for when clause for captured "
                  "variable: {}";

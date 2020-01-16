@@ -226,22 +226,6 @@ namespace verona::compiler
   };
   typedef std::shared_ptr<const ViewpointType> ViewpointTypePtr;
 
-  struct CownType final : public Type
-  {
-    TypePtr contents;
-
-    bool operator<(const CownType& other) const
-    {
-      return contents < other.contents;
-    }
-
-  private:
-    CownType(TypePtr contents) : contents(contents) {}
-    friend TypeInterner;
-  };
-
-  typedef std::shared_ptr<const CownType> CownTypePtr;
-
   struct IntersectionType;
   struct UnionType;
   typedef std::shared_ptr<const UnionType> UnionTypePtr;

@@ -27,10 +27,6 @@ namespace verona::compiler
     {
       if (method.rfind("print", 0) == 0)
         return builtin_print();
-      else if (method == "create_sleeping_cown")
-        return builtin_create_sleeping_cown();
-      else if (method == "fulfill_sleeping_cown")
-        return builtin_fulfill_sleeping_cown();
       else if (method == "freeze")
         return builtin_freeze();
       else if (method == "trace")
@@ -58,6 +54,15 @@ namespace verona::compiler
         return builtin_binop(bytecode::BinaryOperator::And);
       else if (method == "or")
         return builtin_binop(bytecode::BinaryOperator::Or);
+    }
+    else if (entity == "cown")
+    {
+      if (method == "create")
+        return builtin_cown_create();
+      else if (method == "_create_sleeping")
+        return builtin_cown_create_sleeping();
+      else if (method == "_fulfill_sleeping")
+        return builtin_cown_fulfill_sleeping();
     }
     fmt::print(stderr, "Invalid builtin {}.{}\n", entity, method);
     abort();
@@ -93,13 +98,16 @@ namespace verona::compiler
     gen_.opcode(Opcode::Return);
   }
 
-  void BuiltinGenerator::builtin_create_sleeping_cown()
+  void BuiltinGenerator::builtin_freeze()
   {
-    assert(abi_.arguments == 1);
+    assert(abi_.arguments == 2);
     assert(abi_.returns == 1);
 
-    gen_.opcode(Opcode::NewSleepingCown);
+    gen_.opcode(Opcode::Freeze);
     gen_.reg(Register(0));
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(1));
     gen_.opcode(Opcode::Return);
   }
 
@@ -117,36 +125,6 @@ namespace verona::compiler
     gen_.opcode(Opcode::Return);
   }
 
-  void BuiltinGenerator::builtin_freeze()
-  {
-    assert(abi_.arguments == 2);
-    assert(abi_.returns == 1);
-
-    gen_.opcode(Opcode::Freeze);
-    gen_.reg(Register(0));
-    gen_.reg(Register(1));
-    gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(1));
-    gen_.opcode(Opcode::Return);
-  }
-
-  void BuiltinGenerator::builtin_fulfill_sleeping_cown()
-  {
-    assert(abi_.arguments == 3);
-    assert(abi_.returns == 1);
-
-    gen_.opcode(Opcode::FulfillSleepingCown);
-    gen_.reg(Register(1));
-    gen_.reg(Register(2));
-    gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(0));
-    gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(1));
-    gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(2));
-    gen_.opcode(Opcode::Return);
-  }
-
   void BuiltinGenerator::builtin_binop(bytecode::BinaryOperator op)
   {
     assert(abi_.arguments == 2);
@@ -157,6 +135,51 @@ namespace verona::compiler
     gen_.u8(static_cast<uint8_t>(op));
     gen_.reg(Register(0));
     gen_.reg(Register(1));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Return);
+  }
+
+  void BuiltinGenerator::builtin_cown_create()
+  {
+    assert(abi_.arguments == 2);
+    assert(abi_.returns == 1);
+
+    // This is a static method, therefore register 0 contains the descriptor for
+    // cown[T]. We use that to initialize the cown.
+    gen_.opcode(Opcode::NewCown);
+    gen_.reg(Register(0));
+    gen_.reg(Register(0));
+    gen_.reg(Register(1));
+
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Return);
+  }
+
+  void BuiltinGenerator::builtin_cown_create_sleeping()
+  {
+    assert(abi_.arguments == 1);
+    assert(abi_.returns == 1);
+
+    // This is a static method, therefore register 0 contains the descriptor for
+    // cown[T]. We use that to initialize the cown.
+    gen_.opcode(Opcode::NewSleepingCown);
+    gen_.reg(Register(0));
+    gen_.reg(Register(0));
+    gen_.opcode(Opcode::Return);
+  }
+
+  void BuiltinGenerator::builtin_cown_fulfill_sleeping()
+  {
+    assert(abi_.arguments == 2);
+    assert(abi_.returns == 1);
+
+    gen_.opcode(Opcode::FulfillSleepingCown);
+    gen_.reg(Register(0));
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(0));
     gen_.opcode(Opcode::Clear);
     gen_.reg(Register(1));
     gen_.opcode(Opcode::Return);

@@ -62,11 +62,6 @@ namespace verona::compiler
     }
   }
 
-  TypePtr Polarizer::visit_cown_type(const CownTypePtr& ty, Polarity polarity)
-  {
-    return context_.mk_cown(apply(ty->contents, polarity));
-  }
-
   TypeSignature
   Polarizer::visit_signature(const TypeSignature& signature, Polarity polarity)
   {

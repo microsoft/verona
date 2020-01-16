@@ -192,15 +192,6 @@ namespace verona::compiler
       }
     }
 
-    void visit_stmt(const NewCownStmt& stmt)
-    {
-      Register input = variable(stmt.input);
-      Register output = variable(stmt.output);
-      gen_.opcode(Opcode::NewCown);
-      gen_.reg(output);
-      gen_.reg(input);
-    }
-
     void visit_stmt(const MatchBindStmt& stmt)
     {
       Register input = variable(stmt.input);

@@ -79,11 +79,6 @@ namespace verona::compiler
     return context().mk_range(apply(ty->lower), apply(ty->upper));
   }
 
-  TypePtr RecursiveTypeMapper::visit_cown_type(const CownTypePtr& ty)
-  {
-    return context().mk_cown(apply(ty->contents));
-  }
-
   TypePtr RecursiveTypeMapper::visit_viewpoint_type(const ViewpointTypePtr& ty)
   {
     TypeSet variables;

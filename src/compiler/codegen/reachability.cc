@@ -447,13 +447,6 @@ namespace verona::compiler
     }
 
     void visit_stmt(
-      const NewCownStmt& stmt,
-      const Instantiation& instantiation,
-      const TypecheckResults& typecheck,
-      const TypeAssignment& assignment)
-    {}
-
-    void visit_stmt(
       const MatchBindStmt& stmt,
       const Instantiation& instantiation,
       const TypecheckResults& typecheck,

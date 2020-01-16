@@ -316,7 +316,7 @@ namespace verona::compiler
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
       type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
-      type->dyncast<CownType>() || type->dyncast<UnitType>())
+      type->dyncast<UnitType>())
       return type;
 
     if (type->dyncast<TypeParameter>() || type->dyncast<InferType>())
@@ -398,7 +398,7 @@ namespace verona::compiler
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
       type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
-      type->dyncast<CownType>() || type->dyncast<UnitType>())
+      type->dyncast<UnitType>())
       return type;
 
     // TODO: We never actually create UnapplyRegionType anymore, so we could
@@ -416,9 +416,7 @@ namespace verona::compiler
     if (left->dyncast<EntityType>() || left->dyncast<EntityOfType>())
       return mk_top();
 
-    if (
-      right->dyncast<EntityType>() || right->dyncast<StringType>() ||
-      right->dyncast<CownType>())
+    if (right->dyncast<EntityType>() || right->dyncast<StringType>())
       return right;
 
     if (auto isect = left->dyncast<IntersectionType>())
@@ -544,13 +542,6 @@ namespace verona::compiler
     std::cerr << "Bad Viewpoint(" << *left << ", " << *right << ")"
               << std::endl;
     abort();
-  }
-
-  TypePtr TypeInterner::mk_cown(TypePtr contents)
-  {
-    assert(is_interned(contents));
-
-    return intern(CownType(contents));
   }
 
   template<typename T>
@@ -855,8 +846,8 @@ namespace verona::compiler
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
       type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
-      type->dyncast<CownType>() || type->dyncast<StaticType>() ||
-      type->dyncast<UnitType>() || type->dyncast<TypeParameter>())
+      type->dyncast<StaticType>() || type->dyncast<UnitType>() ||
+      type->dyncast<TypeParameter>())
       return type;
 
     if (
@@ -958,8 +949,8 @@ namespace verona::compiler
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
       type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
-      type->dyncast<CownType>() || type->dyncast<StaticType>() ||
-      type->dyncast<UnitType>() || type->dyncast<TypeParameter>())
+      type->dyncast<StaticType>() || type->dyncast<UnitType>() ||
+      type->dyncast<TypeParameter>())
       return type;
 
     if (
@@ -1155,7 +1146,6 @@ namespace verona::compiler
     DISPATCH(NotChildOfType);
     DISPATCH(PathCompressionType);
     DISPATCH(RangeType);
-    DISPATCH(CownType);
     DISPATCH(StaticType);
     DISPATCH(StringType);
     DISPATCH(TypeParameter);

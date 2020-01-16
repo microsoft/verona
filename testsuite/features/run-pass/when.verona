@@ -13,9 +13,9 @@ class Log
     Builtin.print1("{}\n", v);
   }
 
-  create(): cown[Log]
+  create(): cown[Log] & imm
   {
-    cown(new Log)
+    cown.create(new Log)
   }
 }
 
@@ -45,20 +45,20 @@ class LogMessage
 
 class Main
 {
-  do_stuff_iso(log: cown[Log], v: U64 & imm)
+  do_stuff_iso(log: cown[Log] & imm, v: U64 & imm)
   {
     var m = LogMessage.create(v);
     when (log) { m.run(log) };
   }
 
-  do_stuff_imm(log: cown[Log], v: U64 & imm)
+  do_stuff_imm(log: cown[Log] & imm, v: U64 & imm)
   {
     var m = Builtin.freeze(LogMessage.create(v));
     when (log) { m.run_imm(log) };
     when (log) { m.run_imm(log) };
   }
 
-  do_stuff_nested(r: cown[Log], v1: U64 & imm, v2: U64 & imm)
+  do_stuff_nested(r: cown[Log] & imm, v1: U64 & imm, v2: U64 & imm)
   {
     var m1 = LogMessage.create(v1);
     var m2 = LogMessage.create(v2);

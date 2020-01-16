@@ -161,14 +161,6 @@ namespace verona::compiler
     TypeArgumentsId type_arguments;
   };
 
-  struct NewCownStmt : public BaseStatement
-  {
-    using BaseStatement::BaseStatement;
-
-    Variable output;
-    IRInput input;
-  };
-
   struct CallStmt : public BaseStatement
   {
     using BaseStatement::BaseStatement;
@@ -288,7 +280,6 @@ namespace verona::compiler
 
   typedef std::variant<
     NewStmt,
-    NewCownStmt,
     StaticTypeStmt,
     CallStmt,
     WhenStmt,

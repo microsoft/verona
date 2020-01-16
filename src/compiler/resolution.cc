@@ -474,12 +474,6 @@ namespace verona::compiler
       return context_.mk_string_type();
     }
 
-    TypePtr visit_cown_type_expr(CownTypeExpr& te)
-    {
-      // TODO warning/error if contents contains permissions.
-      return context_.mk_cown(visit_type_expression(*te.contents));
-    }
-
     TypePtr visit_symbol_type_expr(SymbolTypeExpr& te)
     {
       te.symbol = resolve(te.name);

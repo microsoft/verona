@@ -58,8 +58,6 @@ namespace verona::compiler
     void print_inner_statement(
       const TypeAssignment* assignment, const NewStmt& stmt) const;
     void print_inner_statement(
-      const TypeAssignment* assignment, const NewCownStmt& stmt) const;
-    void print_inner_statement(
       const TypeAssignment* assignment, const CallStmt& stmt) const;
     void print_inner_statement(
       const TypeAssignment* assignment, const WhenStmt& stmt) const;

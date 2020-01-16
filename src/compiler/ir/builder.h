@@ -331,9 +331,6 @@ namespace verona::compiler
     visit_new_expr(NewExpr& expr, ValueKind kind, BasicBlock*& bb) final;
 
     BuilderResult<IRInput>
-    visit_new_cown(NewCownExpr& expr, ValueKind kind, BasicBlock*& bb) final;
-
-    BuilderResult<IRInput>
     visit_empty(EmptyExpr& expr, ValueKind kind, BasicBlock*& bb) final;
 
     BuilderResult<IRInput> visit_integer_literal_expr(

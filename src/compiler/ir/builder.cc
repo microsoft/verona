@@ -513,15 +513,6 @@ namespace verona::compiler
   }
 
   BuilderResult<IRInput>
-  IRBuilder::visit_new_cown(NewCownExpr& expr, ValueKind kind, BasicBlock*& bb)
-  {
-    NewCownStmt stmt(expr.source_range);
-    stmt.input = visit_input(*expr.contents, bb);
-    stmt.output = fresh_variable(kind);
-    return add_statement(bb, std::move(stmt));
-  }
-
-  BuilderResult<IRInput>
   IRBuilder::visit_match_expr(MatchExpr& expr, ValueKind kind, BasicBlock*& bb)
   {
     IRInput input = visit_input(*expr.expr, bb);

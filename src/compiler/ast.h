@@ -445,11 +445,6 @@ namespace verona::compiler
     const Entity* definition = nullptr;
   };
 
-  struct NewCownExpr : public Expression
-  {
-    ASTPtr<Expression> contents;
-  };
-
   struct Argument : public ASTContainer
   {
     ASTPtr<Expression> inner;
@@ -597,11 +592,6 @@ namespace verona::compiler
 
     // Added during resolution
     Symbol symbol = ErrorSymbol();
-  };
-
-  struct CownTypeExpr final : public TypeExpression
-  {
-    ASTPtr<TypeExpression> contents;
   };
 
   struct UnionTypeExpr final : public TypeExpression

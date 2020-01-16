@@ -139,11 +139,6 @@ namespace verona::compiler
       print("(new {}{})", e.class_name, optional(prefixed(" ", e.parent)));
     }
 
-    void visit_new_cown(NewCownExpr& e) final
-    {
-      print("(cown {})", *e.contents);
-    }
-
     void visit_integer_literal_expr(IntegerLiteralExpr& e) final
     {
       print("(integer {})", e.value.value);
@@ -217,11 +212,6 @@ namespace verona::compiler
     void visit_range_type(const RangeTypePtr& ty) final
     {
       print("({} ... {})", *ty->lower, *ty->upper);
-    }
-
-    void visit_cown_type(const CownTypePtr& ty) final
-    {
-      print("cown [{}]", *ty->contents);
     }
 
     void visit_viewpoint_type(const ViewpointTypePtr& ty) final
@@ -352,11 +342,6 @@ namespace verona::compiler
     void visit_symbol_type_expr(SymbolTypeExpr& te)
     {
       print("{}{}", te.name, optional_list(te.arguments));
-    }
-
-    void visit_cown_type_expr(CownTypeExpr& te)
-    {
-      print("cown [{}]", *te.contents);
     }
 
     void visit_capability_type_expr(CapabilityTypeExpr& te)

@@ -133,6 +133,9 @@ namespace verona::interpreter
         return value->object->descriptor();
       case Value::DESCRIPTOR:
         return value->descriptor;
+      case Value::COWN:
+      case Value::COWN_UNOWNED:
+        return value->cown->descriptor;
       case Value::U64:
         return code_.special_descriptors().u64;
       default:
@@ -393,16 +396,18 @@ namespace verona::interpreter
     write(dst, Value::iso(new (object) VMObject(nullptr)));
   }
 
-  void VM::opcode_new_cown(Register dst, Value src)
+  void
+  VM::opcode_new_cown(Register dst, const VMDescriptor* descriptor, Value src)
   {
     check_type(src, Value::Tag::ISO);
     VMObject* contents = src.consume_iso();
-    write(dst, Value::cown(new VMCown(contents)));
+    write(dst, Value::cown(new VMCown(descriptor, contents)));
   }
 
-  void VM::opcode_new_sleeping_cown(Register dst)
+  void
+  VM::opcode_new_sleeping_cown(Register dst, const VMDescriptor* descriptor)
   {
-    auto a = Value::cown(new VMCown());
+    auto a = Value::cown(new VMCown(descriptor));
     trace(" New sleeping cown {}", a);
 
     write(dst, std::move(a));
@@ -585,7 +590,7 @@ namespace verona::interpreter
     // If no cowns create a fake one to run the code on.
     if (cowns.size() == 0)
     {
-      cowns.push_back(new VMCown(nullptr));
+      cowns.push_back(new VMCown(nullptr, nullptr));
     }
 
     rt::Cown::schedule<ExecuteMessage, rt::YesTransfer>(

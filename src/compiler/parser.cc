@@ -83,7 +83,7 @@ namespace verona::compiler
 
     Rule keyword = term(
       "while"_E | "if" | "class" | "interface" | "primitive" | "var" | "unit" |
-      "match" | "String" | "iso" | "mut" | "imm" | "mut-view" | "in" | "cown" |
+      "match" | "String" | "iso" | "mut" | "imm" | "mut-view" | "in" |
       "static_assert" | "not" | "subtype" | "when" | "from" | "where" | "else" |
       "builtin");
 
@@ -137,7 +137,6 @@ namespace verona::compiler
     Rule new_parent = "in" >> ref_ident;
     Rule new_expr = "new" >> ref_ident >> -new_parent;
     Rule mut_view_expr = "mut-view" >> expr5;
-    Rule new_cown = "cown" >> ExprPtr(expr1);
     Rule when_clause = "when" >> parens(comma_sep(when_argument)) >> block_expr;
 
     Rule when_argument = when_argument_as | when_argument_shadow;
@@ -170,8 +169,7 @@ namespace verona::compiler
     Rule expr5 =
       symbol_expr | integer_literal_expr | string_literal_expr | parens(expr1);
     Rule expr4 = call | field_expr | expr5;
-    Rule expr3 =
-      binary_operator_expr | new_expr | mut_view_expr | new_cown | expr4;
+    Rule expr3 = binary_operator_expr | new_expr | mut_view_expr | expr4;
     Rule expr2 = if_expr | match_expr | when_clause | block_expr | expr3;
     Rule expr1 =
       define_local | assign_local | assign_field | while_loop | expr2;
@@ -184,14 +182,12 @@ namespace verona::compiler
     Rule capability_type = capability_kind;
     Rule string_type = "String"_E;
     Rule symbol_type = ref_ident >> -brackets(comma_sep(type));
-    Rule cown_type = "cown" >> brackets(type);
     Rule union_type = sep_by2(type1, "|");
     Rule intersection_type = sep_by2(type1, "&");
     Rule viewpoint_type = type1 >> "->" >> (viewpoint_type | type1);
 
     Rule type1 = parens(type) | symbol_type | capability_type | string_type;
-    Rule type =
-      union_type | intersection_type | viewpoint_type | type1 | cown_type;
+    Rule type = union_type | intersection_type | viewpoint_type | type1;
 
     Rule type_param_kind_class = "class"_E;
     Rule type_param_kind = type_param_kind_class;
@@ -289,7 +285,6 @@ namespace verona::compiler
 
     BindAST<NewParent> new_parent = g.new_parent;
     BindAST<NewExpr> new_expr = g.new_expr;
-    BindAST<NewCownExpr> new_cown = g.new_cown;
 
     BindAST<Argument> argument = g.argument;
 
@@ -327,7 +322,6 @@ namespace verona::compiler
     BindAST<StringTypeExpr> string_type = g.string_type;
     BindAST<IntersectionTypeExpr> intersection_type = g.intersection_type;
     BindAST<SymbolTypeExpr> symbol_type = g.symbol_type;
-    BindAST<CownTypeExpr> cown_type = g.cown_type;
     BindAST<UnionTypeExpr> union_type = g.union_type;
     BindAST<ViewpointTypeExpr> viewpoint_type = g.viewpoint_type;
 
