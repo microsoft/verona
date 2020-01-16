@@ -30,7 +30,7 @@ Project Verona is a research language that is inspired by ideas from other langu
 
 * [Rust](https://www.rust-lang.org)
 * [Cyclone](http://cyclone.thelanguage.org/)
-* [Pony](github.com/ponylang/)
+* [Pony](https://github.com/ponylang/)
 
 Many of the ideas we built on have been popularised by Rust, such as borrowing
 and linearity, and Pony, such as reference capabilities.
