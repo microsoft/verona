@@ -82,10 +82,10 @@ namespace verona::compiler
     Rule string_literal = term('"' >> string_body >> '"');
 
     Rule keyword = term(
-      "while"_E | "if" | "class" | "interface" | "var" | "unit" | "match" |
-      "U64" | "String" | "iso" | "mut" | "imm" | "mut-view" | "freeze" | "in" |
-      "cown" | "static_assert" | "not" | "subtype" | "when" | "from" | "where" |
-      "else");
+      "while"_E | "if" | "class" | "interface" | "primitive" | "var" | "unit" |
+      "match" | "U64" | "String" | "iso" | "mut" | "imm" | "mut-view" |
+      "freeze" | "in" | "cown" | "static_assert" | "not" | "subtype" | "when" |
+      "from" | "where" | "else");
 
     Rule self = term("self");
     Rule self_def = self;
@@ -217,7 +217,8 @@ namespace verona::compiler
 
     Rule class_kind = "class"_E;
     Rule interface_kind = "interface"_E;
-    Rule entity_kind = class_kind | interface_kind;
+    Rule primitive_kind = "primitive"_E;
+    Rule entity_kind = class_kind | interface_kind | primitive_kind;
 
     Rule entity =
       trace("entity", entity_kind >> def_ident >> generics >> braces(*member));
@@ -361,6 +362,8 @@ namespace verona::compiler
     BindConstant<Entity::Kind, Entity::Class> class_kind = g.class_kind;
     BindConstant<Entity::Kind, Entity::Interface> interface_kind =
       g.interface_kind;
+    BindConstant<Entity::Kind, Entity::Primitive> primitive_kind =
+      g.primitive_kind;
 
     BindAST<Field> field = g.field;
     BindAST<Entity> entity = g.entity;

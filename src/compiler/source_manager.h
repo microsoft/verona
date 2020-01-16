@@ -226,6 +226,14 @@ namespace verona::compiler
        */
       MissingMethodBodyInClass,
       /**
+       * A primitive's method has no body.
+       */
+      MissingMethodBodyInPrimitive,
+      /**
+       * A primitive has a field.
+       */
+      FieldInPrimitive,
+      /**
        * Type inference failed for method.
        */
       InferenceFailedForMethod,
@@ -323,6 +331,10 @@ namespace verona::compiler
           return "Static assertion failed, '{}' is a subtype of '{}'";
         case Diagnostic::MissingMethodBodyInClass:
           return "Method '{}' in class '{}' must have a body";
+        case Diagnostic::MissingMethodBodyInPrimitive:
+          return "Method '{}' in primitive '{}' must have a body";
+        case Diagnostic::FieldInPrimitive:
+          return "Primitives cannot have fields";
         case Diagnostic::InferenceFailedForMethod:
           return "Inference failed for method {}";
         case Diagnostic::FinaliserHasNoParameters:

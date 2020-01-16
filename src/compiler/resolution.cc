@@ -302,6 +302,17 @@ namespace verona::compiler
             method->parent->name);
         }
 
+        if (method->parent->kind->value() == Entity::Primitive && !method->body)
+        {
+          report(
+            context_,
+            method->name,
+            DiagnosticKind::Error,
+            Diagnostic::MissingMethodBodyInPrimitive,
+            method->name,
+            method->parent->name);
+        }
+
         if (method->body)
           visit_expr(*method->body->expression);
       });
@@ -309,6 +320,12 @@ namespace verona::compiler
 
     void visit_field(Field* fld) final
     {
+      if (fld->parent->kind->value() == Entity::Primitive)
+      {
+        report(
+          context_, *fld, DiagnosticKind::Error, Diagnostic::FieldInPrimitive);
+      }
+
       fld->type = visit_type_expression(*fld->type_expression);
     }
 

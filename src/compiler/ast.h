@@ -288,9 +288,11 @@ namespace verona::compiler
     {
       Class,
       Interface,
+      Primitive,
     };
     static constexpr Kind Class = Kind::Class;
     static constexpr Kind Interface = Kind::Interface;
+    static constexpr Kind Primitive = Kind::Primitive;
 
     ASTPtr<ASTConstant<Kind>> kind;
     ASTChild<Name> name;

@@ -527,6 +527,8 @@ namespace verona::compiler
         return out << "class";
       case Entity::Interface:
         return out << "interface";
+      case Entity::Primitive:
+        return out << "primitive";
 
         EXHAUSTIVE_SWITCH;
     }

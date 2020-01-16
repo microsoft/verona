@@ -8,7 +8,7 @@ namespace verona::compiler
 {
   using bytecode::SelectorIdx;
 
-  void emit_class_descriptor(
+  void emit_class_primitive_descriptor(
     const SelectorTable& selectors,
     Generator& gen,
     const CodegenItem<Entity>& entity,
@@ -83,7 +83,8 @@ namespace verona::compiler
     switch (entity.definition->kind->value())
     {
       case Entity::Class:
-        emit_class_descriptor(selectors, gen, entity, reachability);
+      case Entity::Primitive:
+        emit_class_primitive_descriptor(selectors, gen, entity, reachability);
         break;
 
       case Entity::Interface:
