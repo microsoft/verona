@@ -143,7 +143,7 @@ jobs:
       cmakeArgs: '.. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On'
 
   - script: |
-      make -j 4
+      make -j 4 install
 
     workingDirectory: build
     failOnStderr: true
