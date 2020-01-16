@@ -19,17 +19,6 @@ class Builtin {
   builtin print4[T0, T1, T2, T3](format: String, arg0: T0, arg1: T1, arg2: T2, arg3: T3);
   builtin print5[T0, T1, T2, T3, T4](format: String, arg0: T0, arg1: T1, arg2: T2, arg3: T3, arg4: T4);
 
-  builtin u64_add(x: U64 & imm, y: U64 & imm): U64 & imm;
-  builtin u64_sub(x: U64 & imm, y: U64 & imm): U64 & imm;
-  builtin u64_lt(x: U64 & imm, y: U64 & imm): U64 & imm;
-  builtin u64_gt(x: U64 & imm, y: U64 & imm): U64 & imm;
-  builtin u64_le(x: U64 & imm, y: U64 & imm): U64 & imm;
-  builtin u64_ge(x: U64 & imm, y: U64 & imm): U64 & imm;
-  builtin u64_eq(x: U64 & imm, y: U64 & imm): U64 & imm;
-  builtin u64_ne(x: U64 & imm, y: U64 & imm): U64 & imm;
-  builtin u64_and(x: U64 & imm, y: U64 & imm): U64 & imm;
-  builtin u64_or(x: U64 & imm, y: U64 & imm): U64 & imm;
-
   // Temporary API to implement promises
   // This should not be used outside the standard library.
   builtin create_sleeping_cown[T](): cown[T];
@@ -96,4 +85,15 @@ class Promise[T]
   }
 }
 
-primitive U64 { }
+primitive U64 {
+  builtin add(self: imm, other: U64 & imm): U64 & imm;
+  builtin sub(self: imm, other: U64 & imm): U64 & imm;
+  builtin lt(self: imm, other: U64 & imm): U64 & imm;
+  builtin gt(self: imm, other: U64 & imm): U64 & imm;
+  builtin le(self: imm, other: U64 & imm): U64 & imm;
+  builtin ge(self: imm, other: U64 & imm): U64 & imm;
+  builtin eq(self: imm, other: U64 & imm): U64 & imm;
+  builtin ne(self: imm, other: U64 & imm): U64 & imm;
+  builtin and(self: imm, other: U64 & imm): U64 & imm;
+  builtin or(self: imm, other: U64 & imm): U64 & imm;
+}

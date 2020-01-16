@@ -33,25 +33,28 @@ namespace verona::compiler
         return builtin_fulfill_sleeping_cown();
       else if (method == "trace")
         return builtin_trace_region();
-      else if (method == "u64_add")
+    }
+    else if (entity == "U64")
+    {
+      if (method == "add")
         return builtin_binop(bytecode::BinaryOperator::Add);
-      else if (method == "u64_sub")
+      else if (method == "sub")
         return builtin_binop(bytecode::BinaryOperator::Sub);
-      else if (method == "u64_lt")
+      else if (method == "lt")
         return builtin_binop(bytecode::BinaryOperator::Lt);
-      else if (method == "u64_gt")
+      else if (method == "gt")
         return builtin_binop(bytecode::BinaryOperator::Gt);
-      else if (method == "u64_le")
+      else if (method == "le")
         return builtin_binop(bytecode::BinaryOperator::Le);
-      else if (method == "u64_ge")
+      else if (method == "ge")
         return builtin_binop(bytecode::BinaryOperator::Ge);
-      else if (method == "u64_eq")
+      else if (method == "eq")
         return builtin_binop(bytecode::BinaryOperator::Eq);
-      else if (method == "u64_ne")
+      else if (method == "ne")
         return builtin_binop(bytecode::BinaryOperator::Ne);
-      else if (method == "u64_and")
+      else if (method == "and")
         return builtin_binop(bytecode::BinaryOperator::And);
-      else if (method == "u64_or")
+      else if (method == "or")
         return builtin_binop(bytecode::BinaryOperator::Or);
     }
     throw std::logic_error("Invalid builtin");
@@ -126,18 +129,16 @@ namespace verona::compiler
 
   void BuiltinGenerator::builtin_binop(bytecode::BinaryOperator op)
   {
-    assert(abi_.arguments == 3);
+    assert(abi_.arguments == 2);
     assert(abi_.returns == 1);
 
     gen_.opcode(Opcode::BinOp);
     gen_.reg(Register(0));
     gen_.u8(static_cast<uint8_t>(op));
-    gen_.reg(Register(1));
-    gen_.reg(Register(2));
-    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(0));
     gen_.reg(Register(1));
     gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(2));
+    gen_.reg(Register(1));
     gen_.opcode(Opcode::Return);
   }
 }

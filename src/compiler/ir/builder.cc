@@ -99,11 +99,11 @@ namespace verona::compiler
   }
 
   /* static */
-  std::unique_ptr<MethodIR> IRBuilder::build(
-    const FnSignature& sig, const FnBody& body, const Entity* builtin)
+  std::unique_ptr<MethodIR>
+  IRBuilder::build(const FnSignature& sig, const FnBody& body)
   {
     auto mir = std::make_unique<MethodIR>();
-    IRBuilder builder(mir.get(), builtin);
+    IRBuilder builder(mir.get());
 
     std::optional<LocalID> receiver;
     if (sig.receiver)
@@ -742,14 +742,11 @@ namespace verona::compiler
   {
     IRInput left = visit_input(*expr.left, bb);
     IRInput right = visit_input(*expr.right, bb);
-    IRInput builtin =
-      find_builtin(expr.source_range, ValueKindAny(current_scope()), bb);
 
     CallStmt stmt(expr.source_range);
-    stmt.receiver = builtin;
+    stmt.receiver = left;
     stmt.method = binary_operator_method_name(expr.kind->value());
     stmt.type_arguments = fresh_type_arguments();
-    stmt.arguments.push_back(left);
     stmt.arguments.push_back(right);
     stmt.output = fresh_variable(kind);
     return add_statement(bb, std::move(stmt));
@@ -762,20 +759,6 @@ namespace verona::compiler
       return BuilderResult<IRInput>::Invalid();
 
     UnitStmt stmt(source_range);
-    stmt.output = fresh_variable(kind);
-    return add_statement(bb, std::move(stmt));
-  }
-
-  IRInput IRBuilder::find_builtin(
-    SourceManager::SourceRange source_range, ValueKind kind, BasicBlock* bb)
-  {
-    // TODO: the builder doesn't have a way to fail at the moment.
-    if (!builtin_definition_)
-      throw std::logic_error("No Builtin class found");
-
-    StaticTypeStmt stmt(source_range);
-    stmt.definition = builtin_definition_;
-    stmt.type_arguments = fresh_type_arguments();
     stmt.output = fresh_variable(kind);
     return add_statement(bb, std::move(stmt));
   }

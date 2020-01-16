@@ -167,11 +167,10 @@ namespace verona::compiler
   {
   public:
     static std::unique_ptr<MethodIR>
-    build(const FnSignature& sig, const FnBody& body, const Entity* builtin);
+    build(const FnSignature& sig, const FnBody& body);
 
   private:
-    IRBuilder(MethodIR* ir, const Entity* builtin)
-    : method_ir_(ir), builtin_definition_(builtin)
+    IRBuilder(MethodIR* ir) : method_ir_(ir)
     {
       scopes_.push_back(std::make_unique<ScopeData>());
     }
@@ -373,9 +372,6 @@ namespace verona::compiler
     BuilderResult<IRInput> unit(
       SourceManager::SourceRange source_range, ValueKind kind, BasicBlock* bb);
 
-    IRInput find_builtin(
-      SourceManager::SourceRange source_range, ValueKind kind, BasicBlock* bb);
-
     /**
      * For each basic block `term` jumps to, add `pred` as a predecessor.
      */
@@ -475,11 +471,5 @@ namespace verona::compiler
      * This contains a cache of symbols that are (re)defined by each expression.
      */
     ExprAssignsSymbol assigns_sym_;
-
-    /**
-     * Pointer to the Builtin entity. This is used to desugar certain
-     * expressions into method calls on that module.
-     */
-    const Entity* builtin_definition_;
   };
 }

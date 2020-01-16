@@ -105,9 +105,7 @@ namespace verona::compiler
 
       FnAnalysis& analysis = results_->functions[method];
 
-      const Entity* builtin = program_.find_entity("Builtin");
-      analysis.ir =
-        IRBuilder::build(*method->signature, *method->body, builtin);
+      analysis.ir = IRBuilder::build(*method->signature, *method->body);
       IRPrinter(*context_.dump(path, "ir")).print("IR", *method, *analysis.ir);
 
       analysis.liveness = compute_liveness(*analysis.ir);

@@ -305,7 +305,9 @@ namespace verona::compiler
                 method->parent->name);
             }
 
-            if (method->parent->kind->value() == Entity::Primitive)
+            if (
+              !method->body &&
+              method->parent->kind->value() == Entity::Primitive)
             {
               report(
                 context_,
