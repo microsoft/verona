@@ -15,6 +15,7 @@ endif()
 
 add_subdirectory(external/CLI11)
 add_subdirectory(external/fmt)
+add_subdirectory(external/pegmatite)
 
 add_subdirectory(src)
 add_subdirectory(testsuite)

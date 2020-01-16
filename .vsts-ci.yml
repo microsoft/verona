@@ -102,9 +102,9 @@ jobs:
     displayName: 'Install Clang tools'
 
   - task: CMake@1
-    displayName: 'CMake ../src'
+    displayName: 'CMake ..'
     inputs:
-      cmakeArgs: '../src -DVERONA_CI_BUILD=On'
+      cmakeArgs: '..'
 
   - script: |
       make clangformat
@@ -117,6 +117,44 @@ jobs:
   - script: |
       grep -L "Copyright (c) Microsoft Corporation"  `git ls-files -- '*.cpp' '*.cc' '*.h' '*.hh' '*.verona'| xargs`
     displayName: 'Check Copyright'
+
+- job: 
+  displayName: Lang_MacOSX
+  pool:
+    vmImage: 'macOS-10.14'
+  strategy:
+    matrix:
+      Debug:
+        BuildType: Debug
+      Release:
+        BuildType: Release
+
+  steps:
+  - checkout: self
+    submodules: recursive
+
+  - script: |
+      sudo pip install wheel OutputCheck
+    displayName:  Dependencies
+
+  - task: CMake@1
+    displayName: 'CMake .. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On'
+    inputs:
+      cmakeArgs: '.. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On'
+
+  - script: |
+      make -j 4 install
+
+    workingDirectory: build
+    failOnStderr: true
+    displayName: 'Compile'
+
+  - script: |
+      ctest -j 4 --output-on-failure -C $(BuildType)
+
+    workingDirectory: build
+    failOnStderr: true
+    displayName: 'Run compiler test suite'
 
 - job: 
   displayName: Lang_Linux

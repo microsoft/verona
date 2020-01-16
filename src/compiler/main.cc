@@ -13,24 +13,12 @@
 #include "compiler/resolution.h"
 #include "compiler/typecheck/wf_types.h"
 #include "ds/console.h"
+#include "fs.h"
 #include "interpreter/interpreter.h"
 #include "interpreter/options.h"
 
 #include <CLI/CLI.hpp>
 #include <cstring>
-#ifndef __has_include
-#  error("__has_include not supported");
-#else
-#  if __has_include(<filesystem>)
-#    include <filesystem>
-namespace fs = std::filesystem;
-#  elif __has_include(<experimental/filesystem>)
-#    include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#  else
-#    error("No filesystem support")
-#  endif
-#endif
 #include <fstream>
 #include <iostream>
 #include <pegmatite.hh>
@@ -40,8 +28,10 @@ namespace fs = std::experimental::filesystem;
 #  define WIN32_LEAN_AND_MEAN
 #  define NOMINMAX
 #  include <windows.h>
-#elif __linux__
+#elif defined(__linux__)
 #  include <linux/limits.h>
+#elif defined(__APPLE__)
+#  include <mach-o/dyld.h>
 #endif
 
 // #include <filesystem>
@@ -181,6 +171,18 @@ namespace verona::compiler
     if (result == -1)
     {
       // TODO proper error reporting.
+      abort();
+    }
+    buf[result] = 0;
+#elif defined(__APPLE__)
+    char buf[PATH_MAX];
+    char slash = '/';
+    uint32_t size = PATH_MAX;
+    auto result = _NSGetExecutablePath(buf, &size);
+    if (result == -1)
+    {
+      // TODO: It seems like this can only fail if buf is too small.
+      // We should retry in a loop with a bigger buffer.
       abort();
     }
 #else
