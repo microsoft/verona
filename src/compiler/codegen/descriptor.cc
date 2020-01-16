@@ -19,17 +19,17 @@ namespace verona::compiler
     Generator::Relocatable rel_field_count = gen.create_relocatable();
 
     gen.str(entity.instantiated_path());
-    gen.u16(rel_method_slots);
-    gen.u16(truncate<uint16_t>(reachability.methods.size()));
-    gen.u16(rel_field_slots);
-    gen.u16(rel_field_count);
+    gen.u32(rel_method_slots);
+    gen.u32(truncate<uint32_t>(reachability.methods.size()));
+    gen.u32(rel_field_slots);
+    gen.u32(rel_field_count);
     // Output label for finaliser for this class, if it has one.
     if (reachability.finaliser.label.has_value())
       gen.u32(reachability.finaliser.label.value());
     else
       gen.u32(0);
 
-    uint16_t method_slots = 0;
+    uint32_t method_slots = 0;
     for (const auto& [method, info] : reachability.methods)
     {
       TypeList arguments;
@@ -42,18 +42,18 @@ namespace verona::compiler
       SelectorIdx index = selectors.get(selector);
       gen.selector(index);
       gen.u32(info.label.value());
-      method_slots = std::max((uint16_t)(index + 1), method_slots);
+      method_slots = std::max((uint32_t)(index + 1), method_slots);
     }
 
-    uint16_t field_count = 0;
-    uint16_t field_slots = 0;
+    uint32_t field_count = 0;
+    uint32_t field_slots = 0;
     for (const auto& member : entity.definition->members)
     {
       if (const Field* fld = member->get_as<Field>())
       {
         SelectorIdx index = selectors.get(Selector::field(fld->name));
         gen.selector(index);
-        field_slots = std::max((uint16_t)(index + 1), field_slots);
+        field_slots = std::max((uint32_t)(index + 1), field_slots);
         field_count++;
       }
     }
@@ -67,10 +67,10 @@ namespace verona::compiler
   emit_interface_descriptor(Generator& gen, const CodegenItem<Entity>& entity)
   {
     gen.str(entity.instantiated_path());
-    gen.u16(0);
-    gen.u16(0);
-    gen.u16(0);
-    gen.u16(0);
+    gen.u32(0);
+    gen.u32(0);
+    gen.u32(0);
+    gen.u32(0);
     gen.u32(0);
   }
 

@@ -17,6 +17,17 @@ namespace verona::interpreter
   using bytecode::Opcode;
   using bytecode::SelectorIdx;
 
+  /**
+   * Programs have a few special descriptors and selectors which the VM needs to
+   * be aware of. Their value is encoded in the program's header, and is be
+   * loaded into this struct.
+   */
+  struct SpecialDescriptors
+  {
+    const VMDescriptor* main;
+    SelectorIdx main_selector;
+  };
+
   class Code
   {
   public:
@@ -124,13 +135,15 @@ namespace verona::interpreter
     Code(std::vector<uint8_t> code) : data_(std::move(code))
     {
       size_t ip = 0;
-      entrypoint_ = u32(ip);
 
-      uint16_t descriptors_count = u16(ip);
-      for (uint16_t i = 0; i < descriptors_count; i++)
+      uint32_t descriptors_count = u32(ip);
+      for (uint32_t i = 0; i < descriptors_count; i++)
       {
         descriptors_.push_back(load_descriptor(ip));
       }
+
+      special_descriptors_.main = get_descriptor(load<DescriptorIdx>(ip));
+      special_descriptors_.main_selector = load<SelectorIdx>(ip);
     }
 
     const std::vector<std::unique_ptr<const VMDescriptor>>& descriptors()
@@ -138,9 +151,15 @@ namespace verona::interpreter
       return descriptors_;
     }
 
+    const SpecialDescriptors& special_descriptors() const
+    {
+      return special_descriptors_;
+    }
+
     size_t entrypoint() const
     {
-      return entrypoint_;
+      SelectorIdx selector = special_descriptors_.main_selector;
+      return special_descriptors_.main->methods[selector];
     }
 
     const VMDescriptor* get_descriptor(DescriptorIdx desc) const
@@ -157,28 +176,29 @@ namespace verona::interpreter
   private:
     const std::vector<uint8_t> data_;
     std::vector<std::unique_ptr<const VMDescriptor>> descriptors_;
-    size_t entrypoint_;
+
+    SpecialDescriptors special_descriptors_;
 
     std::unique_ptr<VMDescriptor> load_descriptor(size_t& ip)
     {
       std::string_view name = str(ip);
-      uint16_t method_slots = u16(ip);
-      uint16_t method_count = u16(ip);
-      uint16_t field_slots = u16(ip);
-      uint16_t field_count = u16(ip);
-      uint32_t finaliser_slot = u32(ip);
+      uint32_t method_slots = u32(ip);
+      uint32_t method_count = u32(ip);
+      uint32_t field_slots = u32(ip);
+      uint32_t field_count = u32(ip);
+      uint32_t finaliser_ip = u32(ip);
 
       auto descriptor = std::make_unique<VMDescriptor>(
-        name, method_slots, field_slots, field_count, finaliser_slot);
+        name, method_slots, field_slots, field_count, finaliser_ip);
 
-      for (uint8_t i = 0; i < method_count; i++)
+      for (uint32_t i = 0; i < method_count; i++)
       {
         SelectorIdx index = selector(ip);
         uint32_t offset = u32(ip);
         assert(index < method_slots);
         descriptor->methods[index] = offset;
       }
-      for (uint8_t i = 0; i < field_count; i++)
+      for (uint32_t i = 0; i < field_count; i++)
       {
         SelectorIdx index = selector(ip);
         assert(index < field_slots);

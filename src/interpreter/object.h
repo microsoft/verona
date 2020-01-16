@@ -16,13 +16,13 @@ namespace verona::interpreter
       size_t method_slots,
       size_t field_slots,
       size_t field_count,
-      uint32_t finaliser_slot);
+      uint32_t finaliser_ip);
 
     const std::string name;
     const size_t field_count;
     std::unique_ptr<uint32_t[]> fields;
     std::unique_ptr<uint32_t[]> methods;
-    const uint32_t finaliser_slot;
+    const uint32_t finaliser_ip;
   };
 
   struct VMObject : public rt::Object

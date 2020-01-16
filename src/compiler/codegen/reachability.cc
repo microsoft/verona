@@ -610,7 +610,7 @@ namespace verona::compiler
   }
 
   const EntityReachability&
-  Reachability::find_entity(CodegenItem<Entity>& entity) const
+  Reachability::find_entity(const CodegenItem<Entity>& entity) const
   {
     auto it = equivalent_entities.find(entity);
     if (it != equivalent_entities.end())

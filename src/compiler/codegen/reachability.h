@@ -93,7 +93,8 @@ namespace verona::compiler
      * Find the information related to this entity or an equivalent one.
      */
     EntityReachability& find_entity(const CodegenItem<Entity>& entity);
-    const EntityReachability& find_entity(CodegenItem<Entity>& entity) const;
+    const EntityReachability&
+    find_entity(const CodegenItem<Entity>& entity) const;
   };
 
   Reachability compute_reachability(

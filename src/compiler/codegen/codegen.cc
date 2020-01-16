@@ -93,30 +93,25 @@ namespace verona::compiler
 
   void emit_program_header(
     const Reachability& reachability,
+    const SelectorTable& selectors,
     Generator& gen,
-    const CodegenItem<Entity>& main_class,
-    const CodegenItem<Method>& main_method)
+    const CodegenItem<Entity>& main_class)
   {
     const EntityReachability& class_info = reachability.entities.at(main_class);
-    const MethodReachability& method_info = class_info.methods.at(main_method);
 
-    // Offset to the entrypoint
-    gen.u32(method_info.label.value());
     // Number of descriptors
-    gen.u16(truncate<uint16_t>(reachability.entities.size()));
-  }
-
-  void emit_descriptors(
-    const Reachability& reachability,
-    const SelectorTable& selectors,
-    Generator& gen)
-  {
+    gen.u32(truncate<uint32_t>(reachability.entities.size()));
     size_t index = 0;
     for (const auto& [entity, info] : reachability.entities)
     {
       gen.define_relocatable(info.descriptor, index++);
       emit_descriptor(selectors, gen, entity, info);
     }
+
+    // Index of the main descriptor
+    gen.u32(reachability.find_entity(main_class).descriptor);
+    // Index of the main selector
+    gen.u32(selectors.get(Selector::method("main", TypeList())));
   }
 
   void emit_functions(
@@ -157,8 +152,7 @@ namespace verona::compiler
       compute_reachability(context, gen, entry->first, entry->second, analysis);
     SelectorTable selectors = SelectorTable::build(reachability);
 
-    emit_program_header(reachability, gen, entry->first, entry->second);
-    emit_descriptors(reachability, selectors, gen);
+    emit_program_header(reachability, selectors, gen, entry->first);
     emit_functions(context, analysis, reachability, selectors, gen);
 
     gen.finish();

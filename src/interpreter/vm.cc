@@ -21,9 +21,7 @@ namespace verona::interpreter
     frame_.locals = code_.u8(ip_);
     code_.u32(ip_); // size
 
-    // TODO do a better check using descriptors.
-    assert(
-      (static_cast<size_t>(frame_.argc) == args.size()) || args.size() == 0);
+    assert(static_cast<size_t>(frame_.argc) == args.size());
 
     trace(
       "Entering function {}, argc={:d} retc={:d} locals={:d}",
@@ -39,23 +37,17 @@ namespace verona::interpreter
     grow_stack(frame_.base + frame_.argc + frame_.locals);
 
     size_t index = 0;
-    // First cown_count arguments are cowns
+
+    // First argument is the receiver, followed by cown_count cowns that are
+    // being acquired, followed by captures.
     for (auto& a : args)
     {
-      if (index == 0)
+      if (index > 0 && index <= cown_count)
       {
-        // We don't have a receiver.
-        // so just ignore value.
+        a.switch_to_cown_body();
       }
-      else
-      {
-        if (cown_count > 0)
-        {
-          cown_count--;
-          a.switch_to_cown_body();
-        }
-        stack_.at(index).overwrite(alloc_, std::move(a));
-      }
+      stack_.at(index).overwrite(alloc_, std::move(a));
+
       index++;
     }
 
@@ -75,7 +67,7 @@ namespace verona::interpreter
   void VM::execute_finaliser(VMObject* object)
   {
     const VMDescriptor* descriptor = object->descriptor();
-    auto finaliser_ip = descriptor->finaliser_slot;
+    uint32_t finaliser_ip = descriptor->finaliser_ip;
     if (finaliser_ip != 0)
     {
       auto vm = VM::local_vm;
@@ -559,7 +551,9 @@ namespace verona::interpreter
     args.reserve(header.argc);
     cowns.reserve(cown_count);
 
+    // First argument is a placeholder for the receiver.
     args.push_back(Value());
+
     // The rest are the cowns
     for (size_t i = 0; i < cown_count; i++)
     {

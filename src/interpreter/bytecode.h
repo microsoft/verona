@@ -13,17 +13,19 @@
  * Bytecode has the following layout:
  *
  * Program header:
- * - 32-bit absolute offset of the entrypoint
- * - 16-bit number of descriptors
+ * - 32-bit number of descriptors, followed by that many descriptors (see below)
+ * - 32-bit descriptor index of Main class
+ * - 32-bit selector index of main method
  *
  * Descriptor:
  * - 16-bit name length, followed by the name bytes
- * - 16-bit size of the fields vtable
- * - 16-bit number of fields
- * - 16-bit size of the methods vtables
- * - 16-bit number of methods
- * - For each field, 16-bit selector index
- * - For each method, 16-bit selector index and 32-bit absolute offset
+ * - 32-bit size of the fields vtable
+ * - 32-bit number of fields
+ * - 32-bit size of the methods vtables
+ * - 32-bit number of methods
+ * - 32-bit offset to finaliser
+ * - For each field, 32-bit selector index
+ * - For each method, 32-bit selector index and 32-bit absolute offset
  *
  * Methods:
  * - 16-bit name length, followed by the name bytes
@@ -35,7 +37,7 @@
  *   instruction data
  *
  * All integers are little-endian format. There is no padding or alignment
- * anywhere. Descriptors must immediately follow the program header.
+ * anywhere.
  *
  * # Instruction encoding
  *
