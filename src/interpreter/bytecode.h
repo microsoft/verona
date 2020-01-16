@@ -16,6 +16,7 @@
  * - 32-bit number of descriptors, followed by that many descriptors (see below)
  * - 32-bit descriptor index of Main class
  * - 32-bit selector index of main method
+ * - 32-bit descriptor index of U64 class (optional)
  *
  * Descriptor:
  * - 16-bit name length, followed by the name bytes
@@ -117,6 +118,9 @@ namespace verona::bytecode
   typedef uint32_t DescriptorIdx;
   typedef uint32_t SelectorIdx;
   typedef uint32_t CodePtr;
+
+  static constexpr DescriptorIdx INVALID_DESCRIPTOR =
+    std::numeric_limits<DescriptorIdx>::max();
 
   struct FunctionHeader
   {

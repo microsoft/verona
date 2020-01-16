@@ -26,6 +26,7 @@ namespace verona::interpreter
   {
     const VMDescriptor* main;
     SelectorIdx main_selector;
+    const VMDescriptor* u64;
   };
 
   class Code
@@ -144,6 +145,8 @@ namespace verona::interpreter
 
       special_descriptors_.main = get_descriptor(load<DescriptorIdx>(ip));
       special_descriptors_.main_selector = load<SelectorIdx>(ip);
+      special_descriptors_.u64 =
+        get_optional_descriptor(load<DescriptorIdx>(ip));
     }
 
     const std::vector<std::unique_ptr<const VMDescriptor>>& descriptors()
@@ -171,6 +174,14 @@ namespace verona::interpreter
         throw std::logic_error(s.str());
       }
       return descriptors_.at(desc).get();
+    }
+
+    const VMDescriptor* get_optional_descriptor(DescriptorIdx desc) const
+    {
+      if (desc == bytecode::INVALID_DESCRIPTOR)
+        return nullptr;
+      else
+        return get_descriptor(desc);
     }
 
   private:

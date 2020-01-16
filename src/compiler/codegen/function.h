@@ -24,6 +24,13 @@ namespace verona::compiler
     const CodegenItem<Method>& method,
     const FnAnalysis& analysis);
 
+  void emit_functions(
+    Context& context,
+    const AnalysisResults& analysis,
+    const Reachability& reachability,
+    const SelectorTable& selectors,
+    Generator& gen);
+
   struct FunctionABI
   {
     explicit FunctionABI(const FnSignature& sig)

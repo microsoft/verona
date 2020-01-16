@@ -90,11 +90,24 @@ namespace verona::compiler
     std::map<CodegenItem<Entity>, CodegenItem<Entity>> equivalent_entities;
 
     /**
+     * Find the canonical item that is equivalent to `entity`.
+     */
+    const CodegenItem<Entity>&
+    normalize_equivalence(const CodegenItem<Entity>& entity) const;
+
+    /**
      * Find the information related to this entity or an equivalent one.
      */
     EntityReachability& find_entity(const CodegenItem<Entity>& entity);
     const EntityReachability&
     find_entity(const CodegenItem<Entity>& entity) const;
+
+    /**
+     * Find the information related to this entity or an equivalent one,
+     * returns nullptr if the item is not reachable.
+     */
+    const EntityReachability*
+    try_find_entity(const CodegenItem<Entity>& entity) const;
   };
 
   Reachability compute_reachability(

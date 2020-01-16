@@ -608,24 +608,36 @@ namespace verona::compiler
     std::unique_ptr<std::ostream> solver_out_;
   };
 
-  EntityReachability&
-  Reachability::find_entity(const CodegenItem<Entity>& entity)
+  const CodegenItem<Entity>&
+  Reachability::normalize_equivalence(const CodegenItem<Entity>& entity) const
   {
     auto it = equivalent_entities.find(entity);
     if (it != equivalent_entities.end())
-      return entities.at(it->second);
+      return it->second;
     else
-      return entities.at(entity);
+      return entity;
+  }
+
+  EntityReachability&
+  Reachability::find_entity(const CodegenItem<Entity>& entity)
+  {
+    return entities.at(normalize_equivalence(entity));
   }
 
   const EntityReachability&
   Reachability::find_entity(const CodegenItem<Entity>& entity) const
   {
-    auto it = equivalent_entities.find(entity);
-    if (it != equivalent_entities.end())
-      return entities.at(it->second);
+    return entities.at(normalize_equivalence(entity));
+  }
+
+  const EntityReachability*
+  Reachability::try_find_entity(const CodegenItem<Entity>& entity) const
+  {
+    auto it = entities.find(normalize_equivalence(entity));
+    if (it != entities.end())
+      return &it->second;
     else
-      return entities.at(entity);
+      return nullptr;
   }
 
   void dump_reachability(Context& context, const Reachability& reachability)

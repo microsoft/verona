@@ -92,59 +92,6 @@ namespace verona::compiler
     return std::make_pair(class_item, method_item);
   }
 
-  void emit_program_header(
-    const Reachability& reachability,
-    const SelectorTable& selectors,
-    Generator& gen,
-    const CodegenItem<Entity>& main_class)
-  {
-    const EntityReachability& class_info = reachability.entities.at(main_class);
-
-    // Number of descriptors
-    gen.u32(truncate<uint32_t>(reachability.entities.size()));
-    size_t index = 0;
-    for (const auto& [entity, info] : reachability.entities)
-    {
-      gen.define_relocatable(info.descriptor, index++);
-      emit_descriptor(selectors, gen, entity, info);
-    }
-
-    // Index of the main descriptor
-    gen.u32(reachability.find_entity(main_class).descriptor);
-    // Index of the main selector
-    gen.u32(selectors.get(Selector::method("main", TypeList())));
-  }
-
-  void emit_functions(
-    Context& context,
-    const AnalysisResults& analysis,
-    const Reachability& reachability,
-    const SelectorTable& selectors,
-    Generator& gen)
-  {
-    for (const auto& [entity, entity_info] : reachability.entities)
-    {
-      for (const auto& [method, method_info] : entity_info.methods)
-      {
-        if (!method_info.label.has_value())
-          continue;
-
-        gen.define_label(method_info.label.value());
-        if (method.definition->kind() == Method::Builtin)
-        {
-          BuiltinGenerator::generate(context, gen, method);
-        }
-        else
-        {
-          const FnAnalysis& fn_analysis =
-            analysis.functions.at(method.definition);
-          emit_function(
-            context, reachability, selectors, gen, method, fn_analysis);
-        }
-      }
-    }
-  }
-
   std::vector<uint8_t> codegen(
     Context& context, const Program& program, const AnalysisResults& analysis)
   {
@@ -159,7 +106,7 @@ namespace verona::compiler
       context, program, gen, entry->first, entry->second, analysis);
     SelectorTable selectors = SelectorTable::build(reachability);
 
-    emit_program_header(reachability, selectors, gen, entry->first);
+    emit_program_header(program, reachability, selectors, gen, entry->first);
     emit_functions(context, analysis, reachability, selectors, gen);
 
     gen.finish();

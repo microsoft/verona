@@ -131,9 +131,10 @@ namespace verona::interpreter
       case Value::IMM:
       case Value::ISO:
         return value->object->descriptor();
-        break;
       case Value::DESCRIPTOR:
         return value->descriptor;
+      case Value::U64:
+        return code_.special_descriptors().u64;
       default:
         fatal("Cannot call method on {}={}", receiver, value);
     }
