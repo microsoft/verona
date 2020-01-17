@@ -70,8 +70,9 @@ Furthermore, the `cmake` command is different:
 cmake .. -G "Visual Studio 15 2017 Win64"
 ```
 
+# Building on UNIX-like platform
 
-# Building on Linux
+## Prerequisites to build on Linux
 
 These steps were tested on Ubuntu 18.04.
 
@@ -83,6 +84,27 @@ sudo apt install cmake ninja-build python3 \
                  clang clang-format clang-tools \
                  llvm
 ```
+
+## Prerequisites to build on macOS
+
+These steps were tested on macOS Catalina (10.15).
+
+First, you will need to install dependencies:
+
+- Install Python 3.x
+- Install [Xcode](https://developer.apple.com/xcode/download/)
+   - You also need to install the `XCode Command Line Tools` by running 
+   `xcode-select --install`. Alternatively, if you already have the full Xcode 
+   installed, you can find them under the menu 
+   `Xcode -> Open Developer Tool -> More Developer Tools...`. This step will 
+   install `clang`, `clang++`, and `make`.
+- Install [Homebrew](https://brew.sh/)
+- Install `ninja` and `cmake` running the following command:
+```
+brew install ninja cmake
+```
+
+## Build instructions:
 
 Now you can run
 ```
