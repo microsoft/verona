@@ -1,0 +1,24 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class Cell[T] {
+  foo(self: mut) {}
+}
+
+class A {
+  bar(): Cell[U64Obj] & iso {
+    new Cell
+  }
+
+  refine(c: Cell[U64Obj] & mut) {}
+
+  baz() {
+    var cell = A.bar();
+    (mut-view cell).foo();
+  }
+}
+
+class Main {
+  main() {
+    A.baz();
+  }
+}
