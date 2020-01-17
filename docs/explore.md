@@ -11,7 +11,7 @@ There are two distinct aspects to system programming:
   - Can treat memory directly as bits and bytes
   - Little or no abstraction on the hardware
 
-To implement many low-level systems (for instance, a memory manager), you need raw access.
+To implement a low-level system of various kinds (for example, a memory manager), you need raw access.
 In some sense, the memory manager is producing an abstraction on the machine that high-level services can consume.
 Guaranteeing safety through a type system for programmers with raw access has not been achieved.
 
@@ -35,7 +35,7 @@ but in Verona we want to take an alternative approach: ownership.
 
 Ownership has been used in a few languages to support scalable memory management.
 Rather than allowing multiple threads to access a single object, we ensure that at most one thread can access an object at a time.
-This is fundamental in languages like [Pony](www.ponylang.io) and [Rust](https://www.rust-lang.org).
+This is fundamental in languages like [Pony](https://www.ponylang.io) and [Rust](https://www.rust-lang.org).
 Ownership removes the need for dynamic consensus.
 It provides static consensus, a single thread is responsible for deallocating an object.
 Static ownership is transferable, but such a transfer is a two-party consensus problem rather than a global consensus problem.
