@@ -1,5 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+
+/*
+ * This test fixes https://github.com/microsoft/verona/issues/35
+ */
+
 class A {
   foo(self: iso) {}
 }
