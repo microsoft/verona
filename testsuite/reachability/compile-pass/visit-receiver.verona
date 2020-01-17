@@ -1,0 +1,17 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+class A {
+  foo(self: iso) {}
+}
+
+class B {
+  bar(): A & iso {
+    new A
+  }
+}
+
+class Main {
+  main() {
+    (B.bar()).foo();
+  }
+}
