@@ -116,6 +116,49 @@ From the `build_ninja` directory, you can run
 ninja install
 ```
 
+# Building on macOS
+
+These steps were tested on macOS Catalina (10.15).
+
+First, you will need to install dependencies:
+
+- Install Python 3.x
+- Install [Xcode](https://developer.apple.com/xcode/download/)
+   - You also need to install the `XCode Command Line Tools` by running 
+   `xcode-select --install`. Alternatively, if you already have the full Xcode 
+   installed, you can find them under the menu 
+   `Xcode -> Open Developer Tool -> More Developer Tools...`. This step will 
+   install `clang`, `clang++`, and `make`.
+- Install [Homebrew](https://brew.sh/)
+- Install `ninja` and `cmake` running the following command:
+```
+brew install ninja cmake
+```
+
+Now you can run
+```
+mkdir build_ninja
+cd build_ninja
+cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug
+ninja install
+```
+to build the debug installation.
+
+Switch the `cmake` line to either
+```
+cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release
+cmake .. -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+```
+to provide the other configurations.
+
+## Subsequent builds
+
+For subsequent builds, you do not need to rerun `cmake`.
+From the `build_ninja` directory, you can run
+```
+ninja install
+```
+
 # Running examples
 
 Inside the build directory, by default, there will be a `dist` directory that
