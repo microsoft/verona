@@ -104,7 +104,7 @@ First, you will need to install dependencies:
 brew install ninja cmake
 ```
 
-# Build instructions:
+## Build instructions:
 
 Now you can run
 ```
