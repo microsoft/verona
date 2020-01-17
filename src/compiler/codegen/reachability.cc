@@ -370,6 +370,7 @@ namespace verona::compiler
             call_arguments.begin(),
             call_arguments.end(),
             std::back_inserter(arguments));
+          parent->push(CodegenItem(entity, Instantiation(entity_arguments)));
           parent->push(CodegenItem(method, Instantiation(arguments)));
         }
       }
