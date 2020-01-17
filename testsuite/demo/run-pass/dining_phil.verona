@@ -44,7 +44,7 @@ class Philosopher
   // The two forks this Philosopher is using to eat
   fork1: cown[Fork];
   fork2: cown[Fork];
-  // The door is used, so we can synchonise the finish to eating. 
+  // The door is used, so we can synchronise the finish to eating.
   door:  cown[Door];
   // The number of times left for this philosopher to eat.
   hunger: U64;
