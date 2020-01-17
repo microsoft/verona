@@ -1,7 +1,7 @@
 # Systems programming
 
-The term system programming language is used to cover a wide range of problems from high-level performance critical systems going down the stack to low-level memory managers and kernel modules.
-There are two distinct aspect to system programming:
+The term system programming language is used to cover a wide range of problems from high-level performance-critical systems going down the stack to low-level memory managers and kernel modules.
+There are two distinct aspects to system programming:
 
 * Predictability
   - Latency
@@ -11,7 +11,7 @@ There are two distinct aspect to system programming:
   - Can treat memory directly as bits and bytes
   - Little or no abstraction on the hardware
 
-To implement many low-level systems, for instance a memory manager, you need raw access.
+To implement a low-level system of various kinds (for example, a memory manager), you need raw access.
 In some sense, the memory manager is producing an abstraction on the machine that high-level services can consume.
 Guaranteeing safety through a type system for programmers with raw access has not been achieved.
 
@@ -26,14 +26,14 @@ This is an explicit non-goal of the project.
 
 There is a tension in programming language design between scalability and safety.
 To provide temporal memory safety (no use after free bugs), you need to know when an object will never be accessed again.
-This is however, typically, a global problem as the accesses can be across many threads and determining when an object is no longer accessed requires some form of consensus between the threads.
-This is what a global GC does with its stop the world phases, which scan memory to determine if something is unreachable.
+This is, however, typically a global problem as the accesses can be across many threads and determining when an object is no longer accessed requires some form of consensus between the threads.
+This is what a global GC does with its stop-the-world phases, which scan memory to determine if something is unreachable.
 This dynamic consensus that an object is no longer in use can cause 
 either latency issues or throughput.
 There is amazing research in doing this better
 but in Verona we want to take an alternative approach: ownership.
 
-Ownership has been used a in a few languages to support scalable memory management.
+Ownership has been used in a few languages to support scalable memory management.
 Rather than allowing multiple threads to access a single object, we ensure that at most one thread can access an object at a time.
 This is fundamental in languages like [Pony](https://www.ponylang.io) and [Rust](https://www.rust-lang.org).
 Ownership removes the need for dynamic consensus.
@@ -72,7 +72,7 @@ when (var x = c)
 }
 Builtin.print("Goodbye\n")
 ```
-The `when` keyword is not blocking it asynchronously schedules work, and returns immediately.
+The `when` keyword is not blocking: it asynchronously schedules work, and returns immediately.
 Thus it is perfectly possible for this to print
 ```
 Goodbye
@@ -120,7 +120,7 @@ Verona uses regions, groups of objects, as its fundamental concept of ownership.
 Rather than specifying object ownership as a reference owns an object,
 we generalise this a little to a reference can own a region, 
 where a region is a group of objects.
-Within a region, any object can refer to any other objects in that region.
+Within a region, any object can refer to any other object in that region.
 There is no restriction on the topology.
 When the owning reference to a region goes away then the entire region is collected.
 
@@ -140,7 +140,7 @@ var y = new Node in x
 ```
 
 Regions can be nested, and form a forest, where the roots are either on the
-stack, or in cowns. 
+stack or in cowns. 
 
 We have a collection of simple examples to understand how the mechanism works.
 We recommend looking at [region101](../testsuite/demo/run-pass/region101.verona) first to understand the basics,
@@ -155,10 +155,10 @@ and a [simple scheduler](../testsuite/demo/run-pass/scheduler.verona).
 Inspired by [P and P#](https://github.com/p-org/), the Verona runtime deeply integrates systematic testing into its design.
 The concurrency model of Verona means that all concurrent interactions must be understood by the runtime. 
 This means that we can produce a replayable interleaving.
-This is surfaced in numerous runtime unit tests ensure good coverage of the runtime, and run on every CI build.
+This is surfaced in numerous runtime unit tests that ensure good coverage of the runtime, and run on every CI build.
 
-The primary implementation has been targetted at testing the runtime, but we have surfaced an alternative interpreter for the language to aid in testing.
-This is built in the `veronac-sys` and `interpeter-sys` these take additional parameters of 
+The primary implementation has been targeted at testing the runtime, but we have surfaced an alternative interpreter for the language to aid in testing.
+This is built in the `veronac-sys` and `interpeter-sys`. These take additional parameters of 
 ```
   --run-seed N
   --run-seed_upper N
@@ -177,7 +177,7 @@ with
 ```
 Then the program is incorrect: 
 it only waits for 3 philosophers to finish eating before it checks how many times the forks have been used.
-In standard running this is very hard to observe as the interleaving is unlikely to occur.
+In standard running, this is very hard to observe as the interleaving is unlikely to occur.
 But in systematic testing, we can observe the failure:
 ```
 ...
@@ -195,7 +195,7 @@ philosopher left, door count 18446744073709551615
 Seed: 123
 ...
 ```
-That is for seed 122 some of the forks aren't used enough times before the Door exits.
+That is because for seed 122 some of the forks aren't used enough times before the Door exits.
 We can now replay the example adding additional logging to understand and debug the problem.
 Running a particular seed can be done as:
 ```
