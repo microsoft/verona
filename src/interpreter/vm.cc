@@ -447,21 +447,14 @@ namespace verona::interpreter
         fmt::print(format, *values[0], *values[1]);
         break;
       case 3:
-        fmt::print(format, *values[0], *values[1], *values[2], *values[3]);
+        fmt::print(format, *values[0], *values[1], *values[2]);
         break;
       case 4:
-        fmt::print(
-          format, *values[0], *values[1], *values[2], *values[3], *values[4]);
+        fmt::print(format, *values[0], *values[1], *values[2], *values[3]);
         break;
       case 5:
         fmt::print(
-          format,
-          *values[0],
-          *values[1],
-          *values[2],
-          *values[3],
-          *values[4],
-          *values[5]);
+          format, *values[0], *values[1], *values[2], *values[3], *values[4]);
         break;
       default:
         fatal("{} is more arguments than opcode_print can handle", argc);
