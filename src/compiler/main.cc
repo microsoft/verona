@@ -120,9 +120,11 @@ namespace verona::compiler
       // Add nested includes to the work list.
       for (auto& include : file->modules)
       {
-        auto directory = input_file.remove_filename();
-        directory += "/" + (std::string)*include;
-        work_list.push(directory);
+        auto new_input_file = input_file.remove_filename();
+        if (new_input_file.empty())
+          new_input_file = ".";
+        new_input_file += "/" + (std::string)*include;
+        work_list.push(new_input_file);
       }
 
       program->files.push_back(std::move(file));
