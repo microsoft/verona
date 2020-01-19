@@ -11,10 +11,7 @@ namespace verona::compiler
   Polarity reverse_polarity(Polarity polarity)
   {
     switch (polarity)
-
     {
-//polarity class oluşturulup yeni bir polarity nesnesi 
-//oluşturmuş ve onu switch sorgusana sokmuş
       case Polarity::Positive:
         return Polarity::Negative;
       case Polarity::Negative:
