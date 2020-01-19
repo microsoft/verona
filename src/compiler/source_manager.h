@@ -815,7 +815,7 @@ namespace verona::compiler
      */
     static bool is_small_source_location(SourceLocation l)
     {
-      return extract_bits<SourceLocation, discriminator_offset, 1>(l) == 0;
+      return ((l >> discriminator_offset) & static_cast<SourceLocation>(1)) == 0;
     }
 
     /**
