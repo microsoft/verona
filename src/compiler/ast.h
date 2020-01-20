@@ -329,6 +329,7 @@ namespace verona::compiler
     {
       return name;
     }
+
     Kind kind() const
     {
       if (kind_)
