@@ -19,7 +19,7 @@ namespace fs
   struct path : std::string
   {
     path(const std::string& p) : std::string(p) {}
-    path(char* p) : std::string(p) {}
+    path(const char* p) : std::string(p) {}
 
     std::string string()
     {
