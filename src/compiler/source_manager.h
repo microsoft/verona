@@ -739,7 +739,8 @@ namespace verona::compiler
     {
       static_assert(std::is_integral_v<T>);
       static_assert(std::is_unsigned_v<T>);
-      static_assert((sizeof(T) * CHAR_BIT) > HighBit);
+      auto const upper_bound = sizeof(T) * CHAR_BIT;
+      static_assert((upper_bound > HighBit) || ((upper_bound == HighBit) && (Width ==  1)));
       static_assert(HighBit >= Width);
       const T mask = (static_cast<T>(1) << (Width)) - 1;
       return (bitfield >> (HighBit - Width)) & mask;
@@ -826,7 +827,7 @@ namespace verona::compiler
      */
     static bool is_small_source_location(SourceLocation l)
     {
-      return ((l >> discriminator_offset) & static_cast<SourceLocation>(1)) == 0;
+      return extract_bits<SourceLocation, discriminator_offset + 1, 1>(l) == 0;
     }
 
     /**
