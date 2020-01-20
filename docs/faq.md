@@ -65,3 +65,36 @@ We are open sourcing at this stage to collaborate with academic partners on
 the language design.
 We want to conduct this research openly to benefit
 the community in general.
+
+
+## Why have you implemented Project Verona in C++ rather than a safe language?
+
+This is really two questions.
+
+### Why is the Verona runtime implemented in C++?
+
+The runtime is inherently using a lot of unsafe code: it is producing the abstraction from the raw bits and bytes into the abstraction that the language uses.
+It is also inherently racy providing numerous lock-free datastructures for messaging and scheduling work.
+The runtime is also providing memory management concepts:
+
+* the allocator, [snmalloc](https://github.com/microsoft/snmalloc), we designed for the runtime
+* the management of regions of memory
+* reference counting of various runtime concepts
+* ...
+
+Hence, the implementation requires very low-level access to the machine, that cannot be found in any safe language that we know of.
+When we started the project, C++ has the best tooling for handling unsafe code.
+Rust would be an interesting choice to understand what abstraction we could surface to Rust.
+As the concepts we are surfacing are different to Rust's type system it is unclear how beneficial this would be.
+
+Ultimately, we want to verify the runtime against a formal specification, but this is a massive undertaking and is on the boundary of current verification research.
+
+
+### Why is the Verona compiler implemented in C++?
+
+One of our core aims with Project Verona is to support high-quality C++ FFI.
+To support this, we will need extremely tight integration with a C++ compiler, like Clang.
+Using C++ as the implementation language of our compiler makes this integration much
+simpler.
+
+Self-hosting the front-end of the compiler is a long-term possibility.
