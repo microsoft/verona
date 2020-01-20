@@ -1,0 +1,5 @@
+use "library/child.verona"
+
+class Main {
+    main() {}
+}
