@@ -23,8 +23,12 @@ namespace verona::compiler
   : private RecursiveTypeVisitor<const Instantiation&>
   {
     ReachabilityVisitor(
-      Context& context, Generator& gen, const AnalysisResults& analysis)
+      Context& context,
+      const Program& program,
+      Generator& gen,
+      const AnalysisResults& analysis)
     : context_(context),
+      program_(program),
       gen_(gen),
       analysis_(analysis),
       solver_out_(context_.dump("reachability-solver"))
@@ -443,13 +447,6 @@ namespace verona::compiler
     }
 
     void visit_stmt(
-      const NewCownStmt& stmt,
-      const Instantiation& instantiation,
-      const TypecheckResults& typecheck,
-      const TypeAssignment& assignment)
-    {}
-
-    void visit_stmt(
       const MatchBindStmt& stmt,
       const Instantiation& instantiation,
       const TypecheckResults& typecheck,
@@ -495,7 +492,9 @@ namespace verona::compiler
       const Instantiation& instantiation,
       const TypecheckResults& typecheck,
       const TypeAssignment& assignment)
-    {}
+    {
+      push(CodegenItem(program_.find_entity("U64"), Instantiation::empty()));
+    }
 
     void visit_stmt(
       const StringLiteralStmt& stmt,
@@ -513,13 +512,6 @@ namespace verona::compiler
 
     void visit_stmt(
       const ViewStmt& stmt,
-      const Instantiation& instantiation,
-      const TypecheckResults& typecheck,
-      const TypeAssignment& assignment)
-    {}
-
-    void visit_stmt(
-      const FreezeStmt& stmt,
       const Instantiation& instantiation,
       const TypecheckResults& typecheck,
       const TypeAssignment& assignment)
@@ -574,7 +566,9 @@ namespace verona::compiler
     add_method(EntityReachability& parent, const CodegenItem<Method>& method)
     {
       std::optional<Label> label;
-      if (method.definition->body != nullptr)
+      if (
+        method.definition->body != nullptr ||
+        method.definition->kind() == Method::Builtin)
       {
         label = gen_.create_label();
         if (method.definition->is_finaliser())
@@ -590,6 +584,7 @@ namespace verona::compiler
     }
 
     Context& context_;
+    const Program& program_;
     Generator& gen_;
     const AnalysisResults& analysis_;
     Reachability result_;
@@ -599,24 +594,36 @@ namespace verona::compiler
     std::unique_ptr<std::ostream> solver_out_;
   };
 
+  const CodegenItem<Entity>&
+  Reachability::normalize_equivalence(const CodegenItem<Entity>& entity) const
+  {
+    auto it = equivalent_entities.find(entity);
+    if (it != equivalent_entities.end())
+      return it->second;
+    else
+      return entity;
+  }
+
   EntityReachability&
   Reachability::find_entity(const CodegenItem<Entity>& entity)
   {
-    auto it = equivalent_entities.find(entity);
-    if (it != equivalent_entities.end())
-      return entities.at(it->second);
-    else
-      return entities.at(entity);
+    return entities.at(normalize_equivalence(entity));
   }
 
   const EntityReachability&
-  Reachability::find_entity(CodegenItem<Entity>& entity) const
+  Reachability::find_entity(const CodegenItem<Entity>& entity) const
   {
-    auto it = equivalent_entities.find(entity);
-    if (it != equivalent_entities.end())
-      return entities.at(it->second);
+    return entities.at(normalize_equivalence(entity));
+  }
+
+  const EntityReachability*
+  Reachability::try_find_entity(const CodegenItem<Entity>& entity) const
+  {
+    auto it = entities.find(normalize_equivalence(entity));
+    if (it != entities.end())
+      return &it->second;
     else
-      return entities.at(entity);
+      return nullptr;
   }
 
   void dump_reachability(Context& context, const Reachability& reachability)
@@ -652,12 +659,13 @@ namespace verona::compiler
 
   Reachability compute_reachability(
     Context& context,
+    const Program& program,
     Generator& gen,
     CodegenItem<Entity> main_class,
     CodegenItem<Method> main_method,
     const AnalysisResults& analysis)
   {
-    ReachabilityVisitor v(context, gen, analysis);
+    ReachabilityVisitor v(context, program, gen, analysis);
     v.process(main_class, main_method);
 
     dump_reachability(context, v.result_);

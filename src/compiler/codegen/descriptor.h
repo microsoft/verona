@@ -7,9 +7,10 @@
 
 namespace verona::compiler
 {
-  void emit_descriptor(
+  void emit_program_header(
+    const Program& program,
+    const Reachability& reachability,
     const SelectorTable& selectors,
     Generator& gen,
-    const CodegenItem<Entity>& entity,
-    const EntityReachability& reachability);
+    const CodegenItem<Entity>& main);
 };

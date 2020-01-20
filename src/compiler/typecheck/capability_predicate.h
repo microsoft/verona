@@ -29,8 +29,7 @@ namespace verona::compiler
     Writable = 2,
     NonWritable = 4,
     NonLinear = 8,
-    Cownable = 16,
-    Sendable = 32,
+    Sendable = 16,
   };
 
   /**

@@ -41,9 +41,12 @@ namespace verona::interpreter
 
     rt::Cown* cown = new EmptyCown();
 
-    // Args initially empty
+    // The entrypoint is a static function, so we pass the Main descriptor as
+    // the receiver. This matches the usual calling convention for static
+    // methods.
     // TODO: Should this contain command line arguments in the future?
     std::vector<Value> args;
+    args.push_back(Value::descriptor(code.special_descriptors().main));
 
     rt::Cown::schedule<ExecuteMessage>(cown, ip, std::move(args), 0);
 

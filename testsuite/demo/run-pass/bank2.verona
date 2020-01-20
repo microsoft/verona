@@ -17,17 +17,17 @@
  **/
 class BankAccount
 {
-  balance: U64;
+  balance: U64 & imm;
 
    /**
    * Creates a new bank account wrapped in a `cown` with an opening balance
    * from the supplied argument.
    **/
- create(opening_balance: U64): cown[BankAccount]
+ create(opening_balance: U64 & imm): cown[BankAccount] & imm
   {
     var account = new BankAccount;
     account.balance = opening_balance;
-    cown(account)
+    cown.create(account)
   }
 
   /**
@@ -38,9 +38,9 @@ class BankAccount
    * may or may not have been updated, but the work to update the bank accounts
    * will have been scheduled.
    **/
-  transfer(src: cown[BankAccount], 
-           dst: cown[BankAccount],
-           amount: U64)
+  transfer(src: cown[BankAccount] & imm, 
+           dst: cown[BankAccount] & imm,
+           amount: U64 & imm)
   {
     /**
      * The syntax `when (src, dst) { C }` means, when exclusive access to

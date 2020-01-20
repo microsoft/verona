@@ -8,20 +8,20 @@ class Log
     Builtin.print1("{}\n", 42);
   }
 
-  write2(self: mut, v: U64)
+  write2(self: mut, v: U64 & imm)
   {
     Builtin.print1("{}\n", v);
   }
 
-  create(): cown[Log]
+  create(): cown[Log] & imm
   {
-    cown(new Log)
+    cown.create(new Log)
   }
 }
 
 class LogMessage
 {
-  capture: U64;
+  capture: U64 & imm;
 
   run (self: iso, l: Log & mut)
   {
@@ -35,7 +35,7 @@ class LogMessage
     l.write2(self.capture);
   }
 
-  create(v: U64): LogMessage & iso
+  create(v: U64 & imm): LogMessage & iso
   {
     var a = new LogMessage;
     a.capture = v;
@@ -45,20 +45,20 @@ class LogMessage
 
 class Main
 {
-  do_stuff_iso(log: cown[Log], v: U64)
+  do_stuff_iso(log: cown[Log] & imm, v: U64 & imm)
   {
     var m = LogMessage.create(v);
     when (log) { m.run(log) };
   }
 
-  do_stuff_imm(log: cown[Log], v: U64)
+  do_stuff_imm(log: cown[Log] & imm, v: U64 & imm)
   {
-    var m = freeze (LogMessage.create(v));
+    var m = Builtin.freeze(LogMessage.create(v));
     when (log) { m.run_imm(log) };
     when (log) { m.run_imm(log) };
   }
 
-  do_stuff_nested(r: cown[Log], v1: U64, v2: U64)
+  do_stuff_nested(r: cown[Log] & imm, v1: U64 & imm, v2: U64 & imm)
   {
     var m1 = LogMessage.create(v1);
     var m2 = LogMessage.create(v2);

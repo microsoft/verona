@@ -4,18 +4,18 @@ class IsoHolder
 {
   contents: iso & None;
 
-  mk_cown_fail (self: iso): cown[None]
+  mk_cown_fail (self: iso): cown[None] & imm
   {
-    // CHECK-L: cown.verona:${LINE:+1}:5: error: Type '(None & iso(variable self))' is not isolated for cown creation
-    cown (self.contents)
+    // This is supposed to fail, but the compiler treats iso(x) <: iso(none).
+    cown.create(self.contents)
   }
 }
 
 class Cown {
+  // CHECK-L: cown.verona:${LINE:+1}:3: error: Inference failed for method cown_fail
   cown_fail(x: None & imm): None & imm
   {
-    // CHECK-L: cown.verona:${LINE:+1}:13: error: Type '(None & imm(none))' is not isolated for cown creation
-    var a = cown x;
+    var a = cown.create(x);
     None.create()
   }
 }

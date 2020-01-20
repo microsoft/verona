@@ -13,12 +13,12 @@ namespace verona::interpreter
     size_t method_slots,
     size_t field_slots,
     size_t field_count,
-    uint32_t finaliser_slot)
+    uint32_t finaliser_ip)
   : name(name),
     methods(std::make_unique<uint32_t[]>(method_slots)),
     fields(std::make_unique<uint32_t[]>(field_slots)),
     field_count(field_count),
-    finaliser_slot(finaliser_slot)
+    finaliser_ip(finaliser_ip)
   {
     rt::Descriptor::size = sizeof(VMObject);
     rt::Descriptor::trace = VMObject::trace_fn;

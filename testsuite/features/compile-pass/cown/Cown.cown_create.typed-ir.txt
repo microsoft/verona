@@ -2,10 +2,11 @@ Typed IR for Cown.cown_create:
 
   Basic block BB0:
     0 <- new None :: (None & iso(none))
-    1 <- cown 0 :: cown [None]
-    2 <- static Cown :: (static Cown)
-    3 <- call 2.pass_cown[None](1) :: (None & iso(none))
-    4 <- copy 1 :: cown [None]
-    end-scope(0, 1, 2, 3)
-    return 4
+    1 <- static cown[None] :: (static cown[None])
+    2 <- call 1.create(0) :: (cown[None] & imm(none))
+    3 <- static Cown :: (static Cown)
+    4 <- call 3.pass_cown[None](2) :: (None & iso(none))
+    5 <- copy 2 :: (cown[None] & imm(none))
+    end-scope(0, 1, 2, 3, 4)
+    return 5
 

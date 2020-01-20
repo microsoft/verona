@@ -17,12 +17,8 @@ namespace verona::compiler
   {
   public:
     AnalysisVisitor(
-      Context& context,
-      const Entity* builtin_definition,
-      AnalysisResults* results)
-    : context_(context),
-      builtin_definition_(builtin_definition),
-      results_(results)
+      Context& context, const Program& program, AnalysisResults* results)
+    : context_(context), program_(program), results_(results)
     {}
 
     void visit_program(Program* program)
@@ -109,8 +105,7 @@ namespace verona::compiler
 
       FnAnalysis& analysis = results_->functions[method];
 
-      analysis.ir = IRBuilder::build(
-        *method->signature, *method->body, builtin_definition_);
+      analysis.ir = IRBuilder::build(*method->signature, *method->body);
       IRPrinter(*context_.dump(path, "ir")).print("IR", *method, *analysis.ir);
 
       analysis.liveness = compute_liveness(*analysis.ir);
@@ -119,7 +114,7 @@ namespace verona::compiler
         .print("Liveness Analysis", *method, *analysis.ir);
 
       analysis.inference =
-        infer(context_, *method, *analysis.ir, *analysis.liveness);
+        infer(context_, program_, *method, *analysis.ir, *analysis.liveness);
 
       analysis.typecheck = typecheck(context_, method, *analysis.inference);
       if (!analysis.typecheck)
@@ -151,7 +146,7 @@ namespace verona::compiler
     }
 
     Context& context_;
-    const Entity* builtin_definition_;
+    const Program& program_;
     AnalysisResults* results_;
   };
 
@@ -212,8 +207,7 @@ namespace verona::compiler
     auto results = std::make_unique<AnalysisResults>();
     results->ok = true;
 
-    AnalysisVisitor visitor(
-      context, program->find_entity("Builtin"), results.get());
+    AnalysisVisitor visitor(context, *program, results.get());
     visitor.visit_program(program);
 
     return results;

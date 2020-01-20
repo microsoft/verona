@@ -1,7 +1,15 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-class True { create(): True & imm { freeze (new True) } }
-class False { create(): False & imm { freeze (new False) } }
+class True {
+  create(): True & imm {
+    Builtin.freeze (new True)
+  }
+}
+class False {
+  create(): False & imm {
+    Builtin.freeze (new False)
+  }
+}
 
 // CHECK-L: 5: True
 // CHECK-L: 4: False

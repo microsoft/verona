@@ -13,7 +13,7 @@
  **/
 class Log 
 {
-  print(fmt: String, v1: U64, v2: U64)
+  print(fmt: String, v1: U64 & imm, v2: U64 & imm)
   {
     Builtin.print2(fmt, v1, v2);
   }
@@ -30,17 +30,17 @@ class Log
  **/
 class BankAccount
 {
-  balance: U64;
+  balance: U64 & imm;
 
    /**
    * Creates a new bank account wrapped in a `cown` with an opening balance
    * from the supplied argument.
    **/
-  create(opening_balance: U64): cown[BankAccount]
+  create(opening_balance: U64 & imm): cown[BankAccount] & imm
   {
     var a = new BankAccount;
     a.balance = opening_balance;
-    cown(a)
+    cown.create(a)
   }
 
   /**
@@ -48,10 +48,10 @@ class BankAccount
    * accounts, and an amount to transfer between the accounts. It additionally
    * takes a `cown` for serialising logging.
    */
-  transfer(src: cown[BankAccount], 
-           dst: cown[BankAccount],
-           amount: U64,
-           log: cown[Log])
+  transfer(src: cown[BankAccount] & imm, 
+           dst: cown[BankAccount] & imm,
+           amount: U64 & imm,
+           log: cown[Log] & imm)
   {
     when (src, dst)
     {
@@ -89,7 +89,7 @@ class Main
     var a4 = BankAccount.create(504);
 
     // Create a concurrent log to share across the various operations.
-    var l = cown(new Log);
+    var l = cown.create(new Log);
 
     BankAccount.transfer(a1,a2,10,l);
     BankAccount.transfer(a2,a3,20,l);

@@ -206,10 +206,6 @@ namespace verona::compiler
        */
       TypeNotWritable,
       /**
-       * Trying to make cown from no iso state.
-       */
-      TypeNotIsolatedForCown,
-      /**
        * Trying to send an unsendable type.
        */
       TypeNotSendableForWhen,
@@ -225,6 +221,17 @@ namespace verona::compiler
        * A class' method has no body.
        */
       MissingMethodBodyInClass,
+      /**
+       * A primitive's method has no body.
+       */
+      MissingMethodBodyInPrimitive,
+      /**
+       */
+      BuiltinMethodHasBody,
+      /**
+       * A primitive has a field.
+       */
+      FieldInPrimitive,
       /**
        * Type inference failed for method.
        */
@@ -312,8 +319,6 @@ namespace verona::compiler
           return "Type '{}' is not readable";
         case Diagnostic::TypeNotWritable:
           return "Type '{}' is not writable";
-        case Diagnostic::TypeNotIsolatedForCown:
-          return "Type '{}' is not isolated for cown creation";
         case Diagnostic::TypeNotSendableForWhen:
           return "Type '{}' is not sendable for when clause for captured "
                  "variable: {}";
@@ -323,6 +328,12 @@ namespace verona::compiler
           return "Static assertion failed, '{}' is a subtype of '{}'";
         case Diagnostic::MissingMethodBodyInClass:
           return "Method '{}' in class '{}' must have a body";
+        case Diagnostic::MissingMethodBodyInPrimitive:
+          return "Method '{}' in primitive '{}' must have a body";
+        case Diagnostic::BuiltinMethodHasBody:
+          return "Builtin method '{}' in '{}' must not have a body";
+        case Diagnostic::FieldInPrimitive:
+          return "Primitives cannot have fields";
         case Diagnostic::InferenceFailedForMethod:
           return "Inference failed for method {}";
         case Diagnostic::FinaliserHasNoParameters:

@@ -19,20 +19,20 @@
  **/
 class BankAccount
 {
-  balance: U64;
+  balance: U64 & imm;
 
   /**
    * Creates a new bank account wrapped in a `cown` with an opening balance
    * from the supplied argument.
    **/
-  create(opening_balance: U64): cown[BankAccount]
+  create(opening_balance: U64 & imm): cown[BankAccount] & imm
   {
     // Create a new BankAccount object
     var account = new BankAccount;
     // Update its balance
     account.balance = opening_balance;
     // Wrap it in a `cown` for concurrent access
-    cown(account)
+    cown.create(account)
   }
 
   /**
@@ -44,7 +44,7 @@ class BankAccount
    * will have been scheduled.  Work on a single cown is always processed in
    * the order it is scheduled.
    **/
-  add(account: cown[BankAccount], amount: U64)
+  add(account: cown[BankAccount] & imm, amount: U64 & imm)
   {
     /**
      * The syntax `when (account) { C }` means, when exclusive access to
@@ -62,7 +62,7 @@ class BankAccount
 
 class Main
 {
-  example(start: U64)
+  example(start: U64 & imm)
   {
     // Allocates a fresh bank account
     var s = BankAccount.create(start);

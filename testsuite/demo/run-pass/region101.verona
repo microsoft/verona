@@ -129,7 +129,7 @@ class Main
     i3.id = 3;
 
     // Create a simple three element linked list
-    i3.next = freeze(new None);
+    i3.next = None.create();
     i2.next = i3;
     i1.next = i2;
 
@@ -141,7 +141,7 @@ class Main
       var a : None => a,
       var i : IsoNode =>
       {
-        i1.next = (i.next = freeze(new None))
+        i1.next = (i.next = None.create())
       }
     };
     Builtin.print("Swing pointer - complete\n");

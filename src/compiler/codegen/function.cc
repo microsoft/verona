@@ -107,45 +107,66 @@ namespace verona::compiler
     const FnAnalysis& analysis)
   {
     FunctionABI abi(*method.definition->signature);
-    if (method.definition->parent->name == "Builtin")
+
+    std::vector<Label> closure_labels;
+    MethodIR& mir = *analysis.ir;
+    for (size_t i = 0; i < mir.function_irs.size(); i++)
+      closure_labels.push_back(gen.create_label());
+
+    for (size_t i = 0; i < mir.function_irs.size(); i++)
     {
-      BuiltinGenerator v(context, gen, abi);
-      v.generate_header(method.instantiated_path());
-      v.generate_builtin(method.definition->name);
+      FunctionIR& ir = *mir.function_irs[i];
+      if (i != 0)
+        abi = FunctionABI::create_closure_abi(ir.parameters.size());
+
+      IRGenerator v(
+        context,
+        reachability,
+        selectors,
+        gen,
+        abi,
+        method,
+        *analysis.typecheck,
+        closure_labels);
+
+      std::string name = method.instantiated_path();
+      if (i != 0)
+        name += ".$c." + std::to_string(i);
+
+      gen.define_label(closure_labels[i]);
+
+      v.generate_header(name);
+      v.generate_body(ir);
       v.finish();
     }
-    else
+  }
+
+  void emit_functions(
+    Context& context,
+    const AnalysisResults& analysis,
+    const Reachability& reachability,
+    const SelectorTable& selectors,
+    Generator& gen)
+  {
+    for (const auto& [entity, entity_info] : reachability.entities)
     {
-      std::vector<Label> closure_labels;
-      MethodIR& mir = *analysis.ir;
-      for (size_t i = 0; i < mir.function_irs.size(); i++)
-        closure_labels.push_back(gen.create_label());
-
-      for (size_t i = 0; i < mir.function_irs.size(); i++)
+      for (const auto& [method, method_info] : entity_info.methods)
       {
-        FunctionIR& ir = *mir.function_irs[i];
-        if (i != 0)
-          abi = FunctionABI::create_closure_abi(ir.parameters.size());
+        if (!method_info.label.has_value())
+          continue;
 
-        IRGenerator v(
-          context,
-          reachability,
-          selectors,
-          gen,
-          abi,
-          method,
-          *analysis.typecheck,
-          closure_labels);
-
-        std::string name = method.instantiated_path();
-        if (i != 0)
-          name += ".$c." + std::to_string(i);
-
-        gen.define_label(closure_labels[i]);
-
-        v.generate_header(name);
-        v.generate_body(ir);
-        v.finish();
+        gen.define_label(method_info.label.value());
+        if (method.definition->kind() == Method::Builtin)
+        {
+          BuiltinGenerator::generate(context, gen, method);
+        }
+        else
+        {
+          const FnAnalysis& fn_analysis =
+            analysis.functions.at(method.definition);
+          emit_function(
+            context, reachability, selectors, gen, method, fn_analysis);
+        }
       }
     }
   }

@@ -13,17 +13,20 @@
  * Bytecode has the following layout:
  *
  * Program header:
- * - 32-bit absolute offset of the entrypoint
- * - 16-bit number of descriptors
+ * - 32-bit number of descriptors, followed by that many descriptors (see below)
+ * - 32-bit descriptor index of Main class
+ * - 32-bit selector index of main method
+ * - 32-bit descriptor index of U64 class (optional)
  *
  * Descriptor:
  * - 16-bit name length, followed by the name bytes
- * - 16-bit size of the fields vtable
- * - 16-bit number of fields
- * - 16-bit size of the methods vtables
- * - 16-bit number of methods
- * - For each field, 16-bit selector index
- * - For each method, 16-bit selector index and 32-bit absolute offset
+ * - 32-bit size of the fields vtable
+ * - 32-bit number of fields
+ * - 32-bit size of the methods vtables
+ * - 32-bit number of methods
+ * - 32-bit offset to finaliser
+ * - For each field, 32-bit selector index
+ * - For each method, 32-bit selector index and 32-bit absolute offset
  *
  * Methods:
  * - 16-bit name length, followed by the name bytes
@@ -35,7 +38,7 @@
  *   instruction data
  *
  * All integers are little-endian format. There is no padding or alignment
- * anywhere. Descriptors must immediately follow the program header.
+ * anywhere.
  *
  * # Instruction encoding
  *
@@ -116,6 +119,9 @@ namespace verona::bytecode
   typedef uint32_t SelectorIdx;
   typedef uint32_t CodePtr;
 
+  static constexpr DescriptorIdx INVALID_DESCRIPTOR =
+    std::numeric_limits<DescriptorIdx>::max();
+
   struct FunctionHeader
   {
     std::string_view name;
@@ -155,9 +161,9 @@ namespace verona::bytecode
     Move, // dst(u8), src(u8)
     MutView, // dst(u8), src(u8)
     New, // dst(u8), region(u8), descriptor(u8)
-    NewCown, // dst(u8), src(u8)
+    NewCown, // dst(u8), descriptor(u8), src(u8)
     NewRegion, // dst(u8), descriptor(u8)
-    NewSleepingCown, // dst(u8)
+    NewSleepingCown, // dst(u8), descriptor(u8)
     Print, // format(u8), argc(u8), args(u8)...
     Return,
     Store, // dst(u8), base(u8), selector(u32), src(u8)
@@ -201,7 +207,7 @@ namespace verona::bytecode
   {
     using Operands =
       OpcodeOperands<Register, BinaryOperator, Register, Register>;
-    constexpr static std::string_view format = "{} {}, {}, {}";
+    constexpr static std::string_view format = "{1} {0}, {2}, {3}";
   };
 
   template<>
@@ -312,15 +318,15 @@ namespace verona::bytecode
   template<>
   struct OpcodeSpec<Opcode::NewCown>
   {
-    using Operands = OpcodeOperands<Register, Register>;
-    constexpr static std::string_view format = "NEW_COWN {}, {}";
+    using Operands = OpcodeOperands<Register, Register, Register>;
+    constexpr static std::string_view format = "NEW_COWN {}, {}, {}";
   };
 
   template<>
   struct OpcodeSpec<Opcode::NewSleepingCown>
   {
-    using Operands = OpcodeOperands<Register>;
-    constexpr static std::string_view format = "NEW_SLEEPING_COWN {}";
+    using Operands = OpcodeOperands<Register, Register>;
+    constexpr static std::string_view format = "NEW_SLEEPING_COWN {} {}";
   };
 
   template<>

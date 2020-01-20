@@ -167,11 +167,10 @@ namespace verona::compiler
   {
   public:
     static std::unique_ptr<MethodIR>
-    build(const FnSignature& sig, const FnBody& body, const Entity* builtin);
+    build(const FnSignature& sig, const FnBody& body);
 
   private:
-    IRBuilder(MethodIR* ir, const Entity* builtin)
-    : method_ir_(ir), builtin_definition_(builtin)
+    IRBuilder(MethodIR* ir) : method_ir_(ir)
     {
       scopes_.push_back(std::make_unique<ScopeData>());
     }
@@ -332,9 +331,6 @@ namespace verona::compiler
     visit_new_expr(NewExpr& expr, ValueKind kind, BasicBlock*& bb) final;
 
     BuilderResult<IRInput>
-    visit_new_cown(NewCownExpr& expr, ValueKind kind, BasicBlock*& bb) final;
-
-    BuilderResult<IRInput>
     visit_empty(EmptyExpr& expr, ValueKind kind, BasicBlock*& bb) final;
 
     BuilderResult<IRInput> visit_integer_literal_expr(
@@ -358,9 +354,6 @@ namespace verona::compiler
     BuilderResult<IRInput>
     visit_view_expr(ViewExpr& expr, ValueKind kind, BasicBlock*& bb) final;
 
-    BuilderResult<IRInput>
-    visit_freeze_expr(FreezeExpr& expr, ValueKind kind, BasicBlock*& bb) final;
-
     BuilderResult<IRInput> visit_binary_operator_expr(
       BinaryOperatorExpr& expr, ValueKind kind, BasicBlock*& bb) final;
 
@@ -371,9 +364,6 @@ namespace verona::compiler
      * variable is created and a UnitStmt is generated to write to it.
      */
     BuilderResult<IRInput> unit(
-      SourceManager::SourceRange source_range, ValueKind kind, BasicBlock* bb);
-
-    IRInput find_builtin(
       SourceManager::SourceRange source_range, ValueKind kind, BasicBlock* bb);
 
     /**
@@ -475,11 +465,5 @@ namespace verona::compiler
      * This contains a cache of symbols that are (re)defined by each expression.
      */
     ExprAssignsSymbol assigns_sym_;
-
-    /**
-     * Pointer to the Builtin entity. This is used to desugar certain
-     * expressions into method calls on that module.
-     */
-    const Entity* builtin_definition_;
   };
 }

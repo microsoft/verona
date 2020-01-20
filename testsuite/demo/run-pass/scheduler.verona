@@ -61,17 +61,17 @@ class Scheduler
 
   // Allocates a scheduler with its queue.
   // Returns a cown, for concurrency.
-  create(): cown[Scheduler]
+  create(): cown[Scheduler] & imm
   {
     var s = new Scheduler;
     var q = Queue.create(0);
     Scheduler.refine(mut-view(q));
     s.queues = q;
-    cown(s)
+    cown.create(s)
   }
 
   // Adds a job to the scheduler.
-  add_job(rs: cown[Scheduler], j: Job & iso)
+  add_job(rs: cown[Scheduler] & imm, j: Job & iso)
   {
     // Schedule turn on scheduler
     when (var s = rs) 
@@ -107,7 +107,7 @@ class Scheduler
   }
 
   // Adds a worker to the scheduler.
-  add_worker(rs: cown[Scheduler], w: Worker & iso)
+  add_worker(rs: cown[Scheduler] & imm, w: Worker & iso)
   {
     // Schedule turn on scheduler
     when (var s = rs) 
@@ -150,31 +150,7 @@ class Main
     // Run some workload to show behaviours.
     var rs = Scheduler.create();
     Scheduler.add_worker(rs, Worker.create(1));
-    Scheduler.add_worker(rs, Worker.create(2));
-    Scheduler.add_worker(rs, Worker.create(3));
-    Scheduler.add_worker(rs, Worker.create(4));
-    Scheduler.add_job(rs, Job.create(100));
-    Scheduler.add_job(rs, Job.create(101));
-    Scheduler.add_job(rs, Job.create(102));
-    Scheduler.add_job(rs, Job.create(103));
-    Scheduler.add_job(rs, Job.create(104));
-    Scheduler.add_job(rs, Job.create(105));
-    Scheduler.add_job(rs, Job.create(106));
-    Scheduler.add_job(rs, Job.create(107));
-    Scheduler.add_worker(rs, Worker.create(5));
-    Scheduler.add_worker(rs, Worker.create(6));
-    Scheduler.add_job(rs, Job.create(108));
-    Scheduler.add_job(rs, Job.create(109));
-    Scheduler.add_job(rs, Job.create(110));
-    Scheduler.add_job(rs, Job.create(111));
-    Scheduler.add_job(rs, Job.create(112));
-    Scheduler.add_job(rs, Job.create(113));
-    Scheduler.add_job(rs, Job.create(114));
-    Scheduler.add_job(rs, Job.create(115));
-    Scheduler.add_job(rs, Job.create(116));
-    Scheduler.add_job(rs, Job.create(117));
     Scheduler.add_job(rs, Job.create(118));
-
 
     Builtin.print("done\n");
     // CHECK-L: done

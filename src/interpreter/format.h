@@ -80,11 +80,18 @@ private:
       }
 
       case Value::COWN:
-        return fmt::format_to(it, "cown({})", fmt::ptr(inner.cown->contents));
+        return fmt::format_to(
+          it,
+          "{}({})",
+          inner.cown->descriptor->name,
+          fmt::ptr(inner.cown->contents));
 
       case Value::COWN_UNOWNED:
         return fmt::format_to(
-          it, "cown_unowned({})", fmt::ptr(inner.cown->contents));
+          it,
+          "unowned-{}({})",
+          inner.cown->descriptor->name,
+          fmt::ptr(inner.cown->contents));
 
       case Value::U64:
         return fmt::format_to(it, "{}", inner.u64);

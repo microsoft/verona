@@ -4,17 +4,14 @@ class A { f: (A & mut) | (None & imm); }
 
 class Main
 {
-  mk_none(): None & imm {
-    freeze(new None)
-  }
 
   main() {
     var x = new A;
     var y = new A in x;
-    y.f = Main.mk_none();
+    y.f = None.create();
     x.f = y;
 
-    x = freeze(x);
+    x = Builtin.freeze(x);
 
     // CHECK-L: A
     Main.print_imm(x);

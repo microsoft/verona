@@ -3,6 +3,7 @@
 #include "compiler/codegen/codegen.h"
 
 #include "compiler/ast.h"
+#include "compiler/codegen/builtins.h"
 #include "compiler/codegen/descriptor.h"
 #include "compiler/codegen/function.h"
 #include "compiler/codegen/generator.h"
@@ -91,58 +92,6 @@ namespace verona::compiler
     return std::make_pair(class_item, method_item);
   }
 
-  void emit_program_header(
-    const Reachability& reachability,
-    Generator& gen,
-    const CodegenItem<Entity>& main_class,
-    const CodegenItem<Method>& main_method)
-  {
-    const EntityReachability& class_info = reachability.entities.at(main_class);
-    const MethodReachability& method_info = class_info.methods.at(main_method);
-
-    // Offset to the entrypoint
-    gen.u32(method_info.label.value());
-    // Number of descriptors
-    gen.u16(truncate<uint16_t>(reachability.entities.size()));
-  }
-
-  void emit_descriptors(
-    const Reachability& reachability,
-    const SelectorTable& selectors,
-    Generator& gen)
-  {
-    size_t index = 0;
-    for (const auto& [entity, info] : reachability.entities)
-    {
-      gen.define_relocatable(info.descriptor, index++);
-      emit_descriptor(selectors, gen, entity, info);
-    }
-  }
-
-  void emit_functions(
-    Context& context,
-    const AnalysisResults& analysis,
-    const Reachability& reachability,
-    const SelectorTable& selectors,
-    Generator& gen)
-  {
-    for (const auto& [entity, entity_info] : reachability.entities)
-    {
-      for (const auto& [method, method_info] : entity_info.methods)
-      {
-        if (method.definition->body == nullptr)
-          continue;
-
-        gen.define_label(method_info.label.value());
-
-        const FnAnalysis& fn_analysis =
-          analysis.functions.at(method.definition);
-        emit_function(
-          context, reachability, selectors, gen, method, fn_analysis);
-      }
-    }
-  }
-
   std::vector<uint8_t> codegen(
     Context& context, const Program& program, const AnalysisResults& analysis)
   {
@@ -153,12 +102,11 @@ namespace verona::compiler
     std::vector<uint8_t> code;
     Generator gen(code);
 
-    Reachability reachability =
-      compute_reachability(context, gen, entry->first, entry->second, analysis);
+    Reachability reachability = compute_reachability(
+      context, program, gen, entry->first, entry->second, analysis);
     SelectorTable selectors = SelectorTable::build(reachability);
 
-    emit_program_header(reachability, gen, entry->first, entry->second);
-    emit_descriptors(reachability, selectors, gen);
+    emit_program_header(program, reachability, selectors, gen, entry->first);
     emit_functions(context, analysis, reachability, selectors, gen);
 
     gen.finish();

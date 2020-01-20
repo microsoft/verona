@@ -19,18 +19,18 @@
  **/
 class Fork
 {
-  use_count: U64;
+  use_count: U64 & imm;
 
   add_use(self: mut)
   {
     self.use_count = self.use_count + 1;
   }
 
-  create(): cown[Fork]
+  create(): cown[Fork] & imm
   {
     var f = new Fork;
     f.use_count = 0;
-    cown(f)
+    cown.create(f)
   }
 }
 
@@ -40,14 +40,14 @@ class Fork
 class Philosopher
 {
   // id used for printing the trace of what happened.
-  id: U64;
+  id: U64 & imm;
   // The two forks this Philosopher is using to eat
-  fork1: cown[Fork];
-  fork2: cown[Fork];
+  fork1: cown[Fork] & imm;
+  fork2: cown[Fork] & imm;
   // The door is used, so we can synchronise the finish to eating.
-  door:  cown[Door];
+  door:  cown[Door] & imm;
   // The number of times left for this philosopher to eat.
-  hunger: U64;
+  hunger: U64 & imm;
 
   /**
    * This static method creates a Philosopher
@@ -56,7 +56,11 @@ class Philosopher
    * capability that expresses unique ownership of this object (and potentially
    * other objects in the same regions). 
    **/
-  create(n: U64, f1: cown[Fork], f2: cown[Fork], d: cown[Door]): iso & Philosopher
+  create(
+    n: U64 & imm,
+    f1: cown[Fork] & imm,
+    f2: cown[Fork] & imm,
+    d: cown[Door] & imm): iso & Philosopher
   {
     var p = new Philosopher;
     p.hunger = 10;
@@ -126,17 +130,17 @@ class Philosopher
  **/
 class Door
 {
-  count: U64;
-  fork1: cown[Fork];
-  fork2: cown[Fork];
-  fork3: cown[Fork];
-  fork4: cown[Fork];
+  count: U64 & imm;
+  fork1: cown[Fork] & imm;
+  fork2: cown[Fork] & imm;
+  fork3: cown[Fork] & imm;
+  fork4: cown[Fork] & imm;
 
   create(
-    f1: cown[Fork], 
-    f2: cown[Fork], 
-    f3: cown[Fork], 
-    f4: cown[Fork]): cown[Door]
+    f1: cown[Fork] & imm, 
+    f2: cown[Fork] & imm, 
+    f3: cown[Fork] & imm, 
+    f4: cown[Fork] & imm): cown[Door] & imm
   {
     var d = new Door;
     d.count = 4;
@@ -144,10 +148,10 @@ class Door
     d.fork2 = f2;
     d.fork3 = f3;
     d.fork4 = f4;
-    cown(d)
+    cown.create(d)
   }
 
-  leave(door: cown[Door])
+  leave(door: cown[Door] & imm)
   {
     // Schedule work for when the door is available
     when (door) 
