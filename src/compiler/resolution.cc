@@ -180,7 +180,7 @@ namespace verona::compiler
       {
         member->parent = entity;
 
-        const Name& name = member->name;
+        const Name& name = member->get_name();
         auto [it, inserted] =
           entity->members_table.insert({name, member.get()});
         if (!inserted)
@@ -194,7 +194,7 @@ namespace verona::compiler
             name);
           report(
             context_,
-            it->second->name,
+            it->second->get_name(),
             DiagnosticKind::Note,
             Diagnostic::PreviousDefinitionHere,
             name);
@@ -291,15 +291,46 @@ namespace verona::compiler
         add_signature(method->signature.get());
         resolve_signature(method->signature.get());
 
-        if (method->parent->kind->value() == Entity::Class && !method->body)
+        switch (method->kind())
         {
-          report(
-            context_,
-            method->name,
-            DiagnosticKind::Error,
-            Diagnostic::MissingMethodBodyInClass,
-            method->name,
-            method->parent->name);
+          case Method::Regular:
+            if (!method->body && method->parent->kind->value() == Entity::Class)
+            {
+              report(
+                context_,
+                method->name,
+                DiagnosticKind::Error,
+                Diagnostic::MissingMethodBodyInClass,
+                method->name,
+                method->parent->name);
+            }
+
+            if (
+              !method->body &&
+              method->parent->kind->value() == Entity::Primitive)
+            {
+              report(
+                context_,
+                method->name,
+                DiagnosticKind::Error,
+                Diagnostic::MissingMethodBodyInPrimitive,
+                method->name,
+                method->parent->name);
+            }
+            break;
+
+          case Method::Builtin:
+            if (method->body)
+            {
+              report(
+                context_,
+                method->name,
+                DiagnosticKind::Error,
+                Diagnostic::BuiltinMethodHasBody,
+                method->name,
+                method->parent->name);
+            }
+            break;
         }
 
         if (method->body)
@@ -309,6 +340,12 @@ namespace verona::compiler
 
     void visit_field(Field* fld) final
     {
+      if (fld->parent->kind->value() == Entity::Primitive)
+      {
+        report(
+          context_, *fld, DiagnosticKind::Error, Diagnostic::FieldInPrimitive);
+      }
+
       fld->type = visit_type_expression(*fld->type_expression);
     }
 
@@ -432,20 +469,9 @@ namespace verona::compiler
       push_scope([&]() { visit_expr(*expr.inner); });
     }
 
-    TypePtr visit_integer_type_expr(IntegerTypeExpr& te)
-    {
-      return context_.mk_integer_type();
-    }
-
     TypePtr visit_string_type_expr(StringTypeExpr& te)
     {
       return context_.mk_string_type();
-    }
-
-    TypePtr visit_cown_type_expr(CownTypeExpr& te)
-    {
-      // TODO warning/error if contents contains permissions.
-      return context_.mk_cown(visit_type_expression(*te.contents));
     }
 
     TypePtr visit_symbol_type_expr(SymbolTypeExpr& te)

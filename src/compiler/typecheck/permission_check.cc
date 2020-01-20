@@ -41,21 +41,6 @@ namespace verona::compiler
 
     void visit_stmt(const TypeAssignment& assignment, const NewStmt& stmt) {}
 
-    void visit_stmt(const TypeAssignment& assignment, const NewCownStmt& stmt)
-    {
-      const TypePtr& base_type = assignment.at(stmt.input);
-      PredicateSet predicates = predicates_for_type(base_type);
-      if (!predicates.contains(CapabilityPredicate::Cownable))
-      {
-        report(
-          context_,
-          stmt.source_range,
-          DiagnosticKind::Error,
-          Diagnostic::TypeNotIsolatedForCown,
-          *base_type);
-      }
-    }
-
     void visit_stmt(const TypeAssignment& assignment, const MatchBindStmt& stmt)
     {}
 
@@ -93,8 +78,6 @@ namespace verona::compiler
         }
       }
     }
-
-    void visit_stmt(const TypeAssignment& assignment, const FreezeStmt& stmt) {}
 
     void visit_stmt(const TypeAssignment& assignment, const CopyStmt& stmt) {}
 

@@ -173,7 +173,6 @@ namespace verona::compiler
     TypePtr visit_unit_type(const UnitTypePtr& ty) override;
     TypePtr visit_infer(const InferTypePtr& ty) override;
     TypePtr visit_range_type(const RangeTypePtr& ty) override;
-    TypePtr visit_cown_type(const CownTypePtr& ty) override;
     TypePtr visit_viewpoint_type(const ViewpointTypePtr& ty) override;
     TypePtr visit_has_field_type(const HasFieldTypePtr& ty) override;
     TypePtr
@@ -182,7 +181,6 @@ namespace verona::compiler
     TypePtr
     visit_has_applied_method_type(const HasAppliedMethodTypePtr& ty) override;
     TypePtr visit_is_entity_type(const IsEntityTypePtr& ty) override;
-    TypePtr visit_integer_type(const IntegerTypePtr& ty) override;
     TypePtr visit_string_type(const StringTypePtr& ty) override;
     TypePtr visit_fixpoint_type(const FixpointTypePtr& ty) override;
     TypePtr

@@ -161,14 +161,6 @@ namespace verona::compiler
     TypeArgumentsId type_arguments;
   };
 
-  struct NewCownStmt : public BaseStatement
-  {
-    using BaseStatement::BaseStatement;
-
-    Variable output;
-    IRInput input;
-  };
-
   struct CallStmt : public BaseStatement
   {
     using BaseStatement::BaseStatement;
@@ -257,14 +249,6 @@ namespace verona::compiler
     IRInput input;
   };
 
-  struct FreezeStmt : public BaseStatement
-  {
-    using BaseStatement::BaseStatement;
-
-    Variable output;
-    IRInput input;
-  };
-
   /**
    * Generated at the end of a source-language scope.
    * Contains the list of local variables that go out of scope here. The
@@ -296,7 +280,6 @@ namespace verona::compiler
 
   typedef std::variant<
     NewStmt,
-    NewCownStmt,
     StaticTypeStmt,
     CallStmt,
     WhenStmt,
@@ -307,7 +290,6 @@ namespace verona::compiler
     CopyStmt,
     MatchBindStmt,
     ViewStmt,
-    FreezeStmt,
     EndScopeStmt,
     OverwriteStmt,
     UnitStmt>

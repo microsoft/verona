@@ -1,0 +1,20 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+// We can add methods to primitives and call them.
+primitive P {
+  m1() {
+    Builtin.print("Hello from P");
+  }
+  m2(self: imm) { }
+}
+
+class Main {
+  main() {
+    // CHECK-L: Hello from P
+    P.m1();
+
+    // There isn't really a way to call m2, since we can't create an instance of
+    // P.
+  }
+}

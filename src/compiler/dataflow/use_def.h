@@ -72,12 +72,6 @@ namespace verona::compiler
       define_variable(stmt.output);
     }
 
-    void visit_inner_stmt(const NewCownStmt& stmt)
-    {
-      define_variable(stmt.output);
-      use_variable(stmt.input);
-    }
-
     void visit_inner_stmt(const MatchBindStmt& stmt)
     {
       define_variable(stmt.output);
@@ -98,12 +92,6 @@ namespace verona::compiler
     }
 
     void visit_inner_stmt(const ViewStmt& stmt)
-    {
-      define_variable(stmt.output);
-      use_variable(stmt.input);
-    }
-
-    void visit_inner_stmt(const FreezeStmt& stmt)
     {
       define_variable(stmt.output);
       use_variable(stmt.input);

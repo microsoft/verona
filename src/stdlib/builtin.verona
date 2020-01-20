@@ -8,39 +8,24 @@
  * Nothing in here is expected to remain long-term without significant change.
  **/
 
-// Intrinsics that return a result, simply call themselves, which trivially satifies the type.
-// We'll add explicit mechanism for intrinsic in the future. 
 class Builtin {
   // Selection of print functions that simply pass to the underlying C++
   // formatter.  This is a hack to get some examples with output until we have 
   // implemented IO.
-  print(format: String) {}
-  print1[T0](format: String, arg0: T0) {}
-  print2[T0, T1](format: String, arg0: T0, arg1: T1) {}
-  print3[T0, T1, T2](format: String, arg0: T0, arg1: T1, arg2: T2) {}
-  print4[T0, T1, T2, T3](format: String, arg0: T0, arg1: T1, arg2: T2, arg3: T3) {}
-  print5[T0, T1, T2, T3, T4](format: String, arg0: T0, arg1: T1, arg2: T2, arg3: T3, arg4: T4) {}
+  builtin print(format: String);
+  builtin print1[T0](format: String, arg0: T0);
+  builtin print2[T0, T1](format: String, arg0: T0, arg1: T1);
+  builtin print3[T0, T1, T2](format: String, arg0: T0, arg1: T1, arg2: T2);
+  builtin print4[T0, T1, T2, T3](format: String, arg0: T0, arg1: T1, arg2: T2, arg3: T3);
+  builtin print5[T0, T1, T2, T3, T4](format: String, arg0: T0, arg1: T1, arg2: T2, arg3: T3, arg4: T4);
 
-  u64_add(x: U64, y: U64): U64 { Builtin.u64_add(x, y) }
-  u64_sub(x: U64, y: U64): U64 { Builtin.u64_sub(x, y) }
-  u64_lt(x: U64, y: U64): U64 { Builtin.u64_lt(x, y) }
-  u64_gt(x: U64, y: U64): U64 { Builtin.u64_gt(x, y) }
-  u64_le(x: U64, y: U64): U64 { Builtin.u64_le(x, y) }
-  u64_ge(x: U64, y: U64): U64 { Builtin.u64_ge(x, y) }
-  u64_eq(x: U64, y: U64): U64 { Builtin.u64_eq(x, y) }
-  u64_ne(x: U64, y: U64): U64 { Builtin.u64_ne(x, y) }
-  u64_and(x: U64, y: U64): U64 { Builtin.u64_and(x, y) }
-  u64_or(x: U64, y: U64): U64 { Builtin.u64_or(x, y) }
-
-  // Temporary API to implement promises
-  // This should not be used outside the standard library.
-  create_sleeping_cown[T](): cown[T] { Builtin.create_sleeping_cown() }
-  fulfill_sleeping_cown[T](x: cown[T], v: T) { Builtin.fulfill_sleeping_cown(x, v) }
+  // Freeze an isolated object graph
+  builtin freeze[class T](x: T & iso): T & imm;
 
   // This exposes trace on a traceable region
   // TODO: invalidate other references into this region
   // TODO: needs expanding as we add other region allocation strategies
-  trace(x : mut) { }
+  builtin trace(x : mut);
 }
 
 /**
@@ -48,7 +33,7 @@ class Builtin {
  **/
 class None {
   create(): None & imm {
-    freeze (new None)
+    Builtin.freeze (new None)
   }
 }
 
@@ -58,8 +43,8 @@ class None {
  **/
 class U64Obj
 {
-  v: U64;
-  create(x: U64) : U64Obj & iso
+  v: U64 & imm;
+  create(x: U64 & imm) : U64Obj & iso
   {
     var o = new U64Obj;
     o.v = x;
@@ -72,28 +57,50 @@ class U64Obj
   }
 }
 
+primitive cown[class T] {
+  builtin create(value: T & iso): cown[T] & imm;
+
+  // Temporary API to implement promises
+  // This should not be used outside the standard library.
+  builtin _create_sleeping(): cown[T] & imm;
+  builtin _fulfill_sleeping(self: imm, v: T & iso);
+}
+
 /**
  * This is the implementation of promises. It should be surfaced more nicely to
  * the programmer, but is type safe.
  **/ 
-class Promise[T]
+class Promise[class T]
 {
-  inner_cown: cown[T];
+  inner_cown: cown[T] & imm;
 
   create(): Promise[T] & iso
   { 
     var p = new Promise;
-    p.inner_cown = Builtin.create_sleeping_cown();
+    p.inner_cown = cown._create_sleeping();
     p
   } 
 
-  wait_handle(self: mut): cown[T]
+  wait_handle(self: mut): cown[T] & imm
   { 
     self.inner_cown
   }
 
   fulfill(self: iso, v: T & iso)
   { 
-    Builtin.fulfill_sleeping_cown(self.inner_cown, v); 
+    (self.inner_cown)._fulfill_sleeping(v); 
   }
+}
+
+primitive U64 {
+  builtin add(self: imm, other: U64 & imm): U64 & imm;
+  builtin sub(self: imm, other: U64 & imm): U64 & imm;
+  builtin lt(self: imm, other: U64 & imm): U64 & imm;
+  builtin gt(self: imm, other: U64 & imm): U64 & imm;
+  builtin le(self: imm, other: U64 & imm): U64 & imm;
+  builtin ge(self: imm, other: U64 & imm): U64 & imm;
+  builtin eq(self: imm, other: U64 & imm): U64 & imm;
+  builtin ne(self: imm, other: U64 & imm): U64 & imm;
+  builtin and(self: imm, other: U64 & imm): U64 & imm;
+  builtin or(self: imm, other: U64 & imm): U64 & imm;
 }

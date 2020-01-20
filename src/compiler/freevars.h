@@ -149,11 +149,6 @@ namespace verona::compiler
       return combine(ty->lower, ty->upper);
     }
 
-    FreeVariables visit_cown_type(const CownTypePtr& ty) final
-    {
-      return free_variables(ty->contents).without_inferrable_regions();
-    }
-
     FreeVariables visit_viewpoint_type(const ViewpointTypePtr& ty) final
     {
       return free_variables(ty->right);
@@ -197,11 +192,6 @@ namespace verona::compiler
     }
 
     FreeVariables visit_unit_type(const UnitTypePtr& ty) final
-    {
-      return FreeVariables();
-    }
-
-    FreeVariables visit_integer_type(const IntegerTypePtr& ty) final
     {
       return FreeVariables();
     }

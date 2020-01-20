@@ -55,7 +55,6 @@ namespace verona::compiler
     TypePtr visit_base_type(const TypePtr& ty, Polarity polarity) final;
     TypePtr visit_infer(const InferTypePtr& ty, Polarity polarity) final;
     TypePtr visit_range_type(const RangeTypePtr& ty, Polarity polarity) final;
-    TypePtr visit_cown_type(const CownTypePtr& ty, Polarity polarity) final;
     TypePtr visit_union(const UnionTypePtr& ty, Polarity polarity) final;
     TypePtr
     visit_intersection(const IntersectionTypePtr& ty, Polarity polarity) final;

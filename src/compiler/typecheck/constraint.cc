@@ -70,6 +70,26 @@ namespace verona::compiler
     }
 
     /*
+     * -----------------------
+     *   α+ <: entity-of(α-)
+     */
+    if (auto right = c.right->dyncast<EntityOfType>())
+    {
+      if (auto infer_right = right->inner->dyncast<InferType>())
+      {
+        if (auto left = c.left->dyncast<InferType>())
+        {
+          if (
+            left->index == infer_right->index &&
+            left->subindex == infer_right->subindex)
+          {
+            return Trivial();
+          }
+        }
+      }
+    }
+
+    /*
      *     T1 <: T2
      *     T1 <: T3
      * -----------------
@@ -163,22 +183,6 @@ namespace verona::compiler
       else
       {
         return Substitution(var, context.mk_intersection(var, c.right));
-      }
-    }
-
-    /*
-     * Cown types have covariant type arguments.
-     *
-     *         T1 <: T2
-     * ------------------------
-     *  cown [T1] <: cown [T2]
-     *
-     */
-    if (auto left = c.left->dyncast<CownType>())
-    {
-      if (auto right = c.right->dyncast<CownType>())
-      {
-        return Compound(c, context).add(left->contents, right->contents);
       }
     }
 
@@ -351,18 +355,6 @@ namespace verona::compiler
     }
 
     /*
-     * --------------
-     *   U64 <: U64
-     */
-    if (auto left = c.left->dyncast<IntegerType>())
-    {
-      if (auto right = c.right->dyncast<IntegerType>())
-      {
-        return Trivial();
-      }
-    }
-
-    /*
      * --------------------
      *   String <: String
      */
@@ -477,8 +469,13 @@ namespace verona::compiler
 
     /**
      *
-     * ---------------------- subst [ (α+ | T) / α+ ]
+     * ---------------------- subst [ (α+ | C) / α+ ]
      *   C <: entity-of(-α)
+     *
+     * TODO: Is the following sound?
+     *
+     * ---------------------- subst [ (α+ | X) / α+ ]
+     *   X <: entity-of(-α)
      *
      * TODO: Could we generalise this to
      *
@@ -490,17 +487,21 @@ namespace verona::compiler
     {
       if (auto infer = right->inner->dyncast<InferType>())
       {
-        if (auto left = c.left->dyncast<EntityType>())
+        if (c.left->dyncast<EntityType>() || c.left->dyncast<TypeParameter>())
         {
           InferTypePtr var = reverse_polarity(infer, context);
 
-          if (context.free_variables(left).contains(var))
-            return Substitution(var, context.mk_union(var, left));
-          else
+          if (context.free_variables(c.left).contains(var))
+          {
             return Substitution(
               var,
               context.mk_fixpoint(
-                context.mk_union(var, close_fixpoint(context, var, left))));
+                context.mk_union(var, close_fixpoint(context, var, c.left))));
+          }
+          else
+          {
+            return Substitution(var, context.mk_union(var, c.left));
+          }
         }
       }
     }
@@ -534,19 +535,15 @@ namespace verona::compiler
      * -------------------
      *  C[T] <: is-entity
      *
-     * ------------------
-     *  U64 <: is-entity
+     * ---------------------
+     *  String <: is-entity
      *
-     * ----------------------
-     *  cown[T] <: is-entity
      */
     if (c.right->dyncast<IsEntityType>())
     {
       // TODO: the definition of what an "entity-like" type is is kind of
       // scattered around the code-base.
-      if (
-        c.left->dyncast<EntityType>() || c.left->dyncast<IntegerType>() ||
-        c.left->dyncast<StringType>() || c.left->dyncast<CownType>())
+      if (c.left->dyncast<EntityType>() || c.left->dyncast<StringType>())
       {
         return Trivial();
       }
@@ -731,7 +728,6 @@ namespace verona::compiler
        *      iso() <: !child-of(y)
        *       x->T <: !child-of(y)
        *        U64 <: !child-of(y)
-       *    cown[T] <: !child-of(y)
        *   static E <: !child-of(y)
        *     String <: !child-of(y)
        *       unit <: !child-of(y)
@@ -740,7 +736,6 @@ namespace verona::compiler
       {
         // These are types that are used without any capability.
         if (
-          c.left->dyncast<IntegerType>() || c.left->dyncast<CownType>() ||
           c.left->dyncast<StaticType>() || c.left->dyncast<StringType>() ||
           c.left->dyncast<UnitType>())
           return Trivial();

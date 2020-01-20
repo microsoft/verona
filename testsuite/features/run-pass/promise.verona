@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 class Main
 {
-  promise_test(i: U64)
+  promise_test(i: U64 & imm)
   {
     var p = Promise.create();
     var r = (mut-view p).wait_handle();

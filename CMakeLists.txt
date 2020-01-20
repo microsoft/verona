@@ -11,6 +11,7 @@ enable_testing()
 
 if(MSVC)
   add_compile_options(/permissive-)
+  add_compile_options(/utf-8)
 endif()
 
 add_subdirectory(external/CLI11)

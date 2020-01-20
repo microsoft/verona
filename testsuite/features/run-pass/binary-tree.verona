@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 interface Comparable[class T]
 {
-  less(self: mut, other: T & mut): U64;
+  less(self: mut, other: T & mut): U64 & imm;
 }
 
 class Empty { }
@@ -75,23 +75,23 @@ class Tree[T: Comparable[T] & (iso | mut)] {
 }
 
 class Value {
-  value: U64;
+  value: U64 & imm;
 
-  create(value: U64): Value & iso
+  create(value: U64 & imm): Value & iso
   {
     var result = new Value;
     result.value = value;
     result
   }
 
-  create_in(value: U64, parent: mut): Value & mut
+  create_in(value: U64 & imm, parent: mut): Value & mut
   {
     var result = new Value in parent;
     result.value = value;
     result
   }
 
-  less(self: mut, other: Value & mut): U64
+  less(self: mut, other: Value & mut): U64 & imm
   {
     self.value < other.value
   }

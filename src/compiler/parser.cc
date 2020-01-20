@@ -82,10 +82,10 @@ namespace verona::compiler
     Rule string_literal = term('"' >> string_body >> '"');
 
     Rule keyword = term(
-      "while"_E | "if" | "class" | "interface" | "var" | "unit" | "match" |
-      "U64" | "String" | "iso" | "mut" | "imm" | "mut-view" | "freeze" | "in" |
-      "cown" | "static_assert" | "not" | "subtype" | "when" | "from" | "where" |
-      "else");
+      "while"_E | "if" | "class" | "interface" | "primitive" | "var" | "unit" |
+      "match" | "String" | "iso" | "mut" | "imm" | "mut-view" | "in" |
+      "static_assert" | "not" | "subtype" | "when" | "from" | "where" | "else" |
+      "builtin");
 
     Rule self = term("self");
     Rule self_def = self;
@@ -137,8 +137,6 @@ namespace verona::compiler
     Rule new_parent = "in" >> ref_ident;
     Rule new_expr = "new" >> ref_ident >> -new_parent;
     Rule mut_view_expr = "mut-view" >> expr5;
-    Rule freeze_expr = "freeze" >> parens(expr1);
-    Rule new_cown = "cown" >> ExprPtr(expr1);
     Rule when_clause = "when" >> parens(comma_sep(when_argument)) >> block_expr;
 
     Rule when_argument = when_argument_as | when_argument_shadow;
@@ -171,8 +169,7 @@ namespace verona::compiler
     Rule expr5 =
       symbol_expr | integer_literal_expr | string_literal_expr | parens(expr1);
     Rule expr4 = call | field_expr | expr5;
-    Rule expr3 = binary_operator_expr | new_expr | mut_view_expr | freeze_expr |
-      new_cown | expr4;
+    Rule expr3 = binary_operator_expr | new_expr | mut_view_expr | expr4;
     Rule expr2 = if_expr | match_expr | when_clause | block_expr | expr3;
     Rule expr1 =
       define_local | assign_local | assign_field | while_loop | expr2;
@@ -183,18 +180,14 @@ namespace verona::compiler
 
     Rule capability_kind = isolated | mutable_ | immutable;
     Rule capability_type = capability_kind;
-    Rule integer_type = "U64"_E;
     Rule string_type = "String"_E;
     Rule symbol_type = ref_ident >> -brackets(comma_sep(type));
-    Rule cown_type = "cown" >> brackets(type);
     Rule union_type = sep_by2(type1, "|");
     Rule intersection_type = sep_by2(type1, "&");
     Rule viewpoint_type = type1 >> "->" >> (viewpoint_type | type1);
 
-    Rule type1 =
-      parens(type) | symbol_type | capability_type | integer_type | string_type;
-    Rule type =
-      union_type | intersection_type | viewpoint_type | type1 | cown_type;
+    Rule type1 = parens(type) | symbol_type | capability_type | string_type;
+    Rule type = union_type | intersection_type | viewpoint_type | type1;
 
     Rule type_param_kind_class = "class"_E;
     Rule type_param_kind = type_param_kind_class;
@@ -210,14 +203,18 @@ namespace verona::compiler
     Rule fn_signature = generics >> function_params >> -(":" >> type) >>
       -ExprPtr(where_clauses);
     Rule fn_body = block;
-    Rule method = def_ident >> fn_signature >> (fn_body | ";");
+
+    Rule method_builtin = "builtin"_E;
+    Rule method = -(method_builtin) >> def_ident >> fn_signature >>
+      (fn_body | ";");
 
     Rule field = def_ident >> ":" >> type >> ";";
     Rule member = trace("member", method | field);
 
     Rule class_kind = "class"_E;
     Rule interface_kind = "interface"_E;
-    Rule entity_kind = class_kind | interface_kind;
+    Rule primitive_kind = "primitive"_E;
+    Rule entity_kind = class_kind | interface_kind | primitive_kind;
 
     Rule entity =
       trace("entity", entity_kind >> def_ident >> generics >> braces(*member));
@@ -285,11 +282,9 @@ namespace verona::compiler
     BindAST<MatchArm> match_arm = g.match_arm;
     BindAST<MatchExpr> match_expr = g.match_expr;
     BindAST<ViewExpr> mut_view_expr = g.mut_view_expr;
-    BindAST<FreezeExpr> freeze_expr = g.freeze_expr;
 
     BindAST<NewParent> new_parent = g.new_parent;
     BindAST<NewExpr> new_expr = g.new_expr;
-    BindAST<NewCownExpr> new_cown = g.new_cown;
 
     BindAST<Argument> argument = g.argument;
 
@@ -324,11 +319,9 @@ namespace verona::compiler
     BindAST<BinaryOperatorExpr> binary_operator_expr = g.binary_operator_expr;
 
     BindAST<CapabilityTypeExpr> capability_type = g.capability_type;
-    BindAST<IntegerTypeExpr> integer_type = g.integer_type;
     BindAST<StringTypeExpr> string_type = g.string_type;
     BindAST<IntersectionTypeExpr> intersection_type = g.intersection_type;
     BindAST<SymbolTypeExpr> symbol_type = g.symbol_type;
-    BindAST<CownTypeExpr> cown_type = g.cown_type;
     BindAST<UnionTypeExpr> union_type = g.union_type;
     BindAST<ViewpointTypeExpr> viewpoint_type = g.viewpoint_type;
 
@@ -356,11 +349,15 @@ namespace verona::compiler
 
     BindAST<FnSignature> fn_signature = g.fn_signature;
     BindAST<FnBody> fn_body = g.fn_body;
+    BindConstant<Method::Kind, Method::Builtin> method_builtin =
+      g.method_builtin;
     BindAST<Method> method = g.method;
 
     BindConstant<Entity::Kind, Entity::Class> class_kind = g.class_kind;
     BindConstant<Entity::Kind, Entity::Interface> interface_kind =
       g.interface_kind;
+    BindConstant<Entity::Kind, Entity::Primitive> primitive_kind =
+      g.primitive_kind;
 
     BindAST<Field> field = g.field;
     BindAST<Entity> entity = g.entity;

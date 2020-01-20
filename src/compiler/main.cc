@@ -121,8 +121,10 @@ namespace verona::compiler
       for (auto& include : file->modules)
       {
         auto directory = input_file.remove_filename();
-        directory += "/" + (std::string)*include;
-        work_list.push(directory);
+        if (directory.empty())
+          directory = ".";
+        auto new_input_file = directory.string() + "/" + (std::string)*include;
+        work_list.push(new_input_file);
       }
 
       program->files.push_back(std::move(file));

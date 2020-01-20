@@ -33,18 +33,18 @@ class Tests
 class Main
 {
 // CHECK: .*error: Inference failed for method test1
-  test1(r: cown[Log], m: LogMessage & mut)
+  test1(r: cown[Log] & imm, m: LogMessage & mut)
   {
     when (var a = r) { m.run(a) };
   }
 
 // CHECK-L: error: Inference failed for method test2
-  test2(r: cown[NotLog], m: LogMessage & iso)
+  test2(r: cown[NotLog] & imm, m: LogMessage & iso)
   {
     when (var a = r) { m.run(a) };
   }
 
-  test3(r: cown[Log], m: LogMessage & iso)
+  test3(r: cown[Log] & imm, m: LogMessage & iso)
   {
 // CHECK-L: ${CHECKFILE_ABS_PATH}:${LINE:+7}:5: error: Cannot use variable 'm'
 // CHECK-L:    when (var a = r) { m.run(a) };

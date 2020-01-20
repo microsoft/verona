@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 class A {}
 interface I {}
+primitive P {}
 
 class Main
 {
@@ -36,8 +37,14 @@ class Main
 
     // CHECK-L: new-expr.verona:${LINE:+1}:9: error: I is not a class
     new I in x;
+
+    // CHECK-L: new-expr.verona:${LINE:+1}:9: error: P is not a class
+    new P;
+
+    // CHECK-L: new-expr.verona:${LINE:+1}:9: error: P is not a class
+    new P in x;
   }
 }
 
 // Make sure we don't have unexpected errors.
-// CHECK-L: 11 errors generated
+// CHECK-L: 13 errors generated

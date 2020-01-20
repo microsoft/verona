@@ -41,7 +41,7 @@ class Fib
       }
    */
 
-  fib(x: U64): cown[U64Obj]
+  fib(x: U64 & imm): cown[U64Obj] & imm
   {
     var pw = Promise.create();
     var pr = (mut-view pw).wait_handle();

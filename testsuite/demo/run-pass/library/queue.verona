@@ -35,7 +35,7 @@ class Node[Value]
 class Queue[Value]
 {
   // Used for tracing to illustrate which queue is doing something.
-  id: U64;
+  id: U64 & imm;
 
   // Start of the queue
   hd: Node[Value] & mut;
@@ -51,17 +51,17 @@ class Queue[Value]
   // to decide when it is worth tracing to reclaim.
   // Future implementations will use other memory management strategies,
   // and there statistics might not be needed.
-  length: U64;
-  freed: U64;
+  length: U64 & imm;
+  freed: U64 & imm;
 
   // Creates an empty queue in a new region with id = i
-  create(i: U64): Queue[Value] & iso
+  create(i: U64 & imm): Queue[Value] & iso
   {
     // Allocate the queue in a new region
     var q = new Queue;
     
     // Fake up singleton for None.
-    q.none = freeze (new None);
+    q.none = None.create();
     
     // Set id and initialise statistics
     q.id = i;

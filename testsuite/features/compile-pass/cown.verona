@@ -4,22 +4,22 @@ class IsoHolder
 {
   contents: iso & None;
 
-  mk_cown (self: iso): cown[None]
+  mk_cown (self: iso): cown[None] & imm
   {
-    cown (self.contents = new None)
+    cown.create(self.contents = new None)
   }
 }
 
 class Cown {
-  pass_cown[X](x: cown[X]): None & iso
+  pass_cown[class X](x: cown[X] & imm): None & iso
   {
     new None
   }
 
-  cown_create(): cown[None]
+  cown_create(): cown[None] & imm
   {
     var a = new None;
-    var r = cown a;
+    var r = cown.create(a);
     Cown.pass_cown(r);
     r
   }

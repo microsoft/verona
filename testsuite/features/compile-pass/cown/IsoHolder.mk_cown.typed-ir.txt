@@ -3,9 +3,10 @@ Receiver
   self :: (IsoHolder & iso(none))
 
   Basic block BB0:
-    1 <- new None :: (None & iso(none))
-    2 <- self.contents = 1 :: (None & iso(none))
-    3 <- cown 2 :: cown [None]
-    end-scope(1, 2, self)
-    return 3
+    1 <- static cown[None] :: (static cown[None])
+    2 <- new None :: (None & iso(none))
+    3 <- self.contents = 2 :: (None & iso(none))
+    4 <- call 1.create(3) :: (cown[None] & imm(none))
+    end-scope(1, 2, 3, self)
+    return 4
 

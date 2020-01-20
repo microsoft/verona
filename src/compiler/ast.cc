@@ -68,7 +68,7 @@ namespace verona::compiler
     if (parent == nullptr)
       throw std::logic_error("path called before resolution");
 
-    return parent->path() + "." + name;
+    return parent->path() + "." + get_name();
   }
 
   std::string
@@ -101,25 +101,25 @@ namespace verona::compiler
     switch (op)
     {
       case BinaryOperator::Add:
-        return "u64_add";
+        return "add";
       case BinaryOperator::Sub:
-        return "u64_sub";
+        return "sub";
       case BinaryOperator::Lt:
-        return "u64_lt";
+        return "lt";
       case BinaryOperator::Le:
-        return "u64_le";
+        return "le";
       case BinaryOperator::Gt:
-        return "u64_gt";
+        return "gt";
       case BinaryOperator::Ge:
-        return "u64_ge";
+        return "ge";
       case BinaryOperator::Eq:
-        return "u64_eq";
+        return "eq";
       case BinaryOperator::Ne:
-        return "u64_ne";
+        return "ne";
       case BinaryOperator::And:
-        return "u64_and";
+        return "and";
       case BinaryOperator::Or:
-        return "u64_or";
+        return "or";
 
         EXHAUSTIVE_SWITCH
     }

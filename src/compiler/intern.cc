@@ -315,8 +315,7 @@ namespace verona::compiler
       type->dyncast<DelayedFieldViewType>() || type->dyncast<EntityOfType>() ||
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
-      type->dyncast<IntegerType>() || type->dyncast<StringType>() ||
-      type->dyncast<IsEntityType>() || type->dyncast<CownType>() ||
+      type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
       type->dyncast<UnitType>())
       return type;
 
@@ -398,8 +397,7 @@ namespace verona::compiler
       type->dyncast<DelayedFieldViewType>() || type->dyncast<EntityOfType>() ||
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
-      type->dyncast<IntegerType>() || type->dyncast<StringType>() ||
-      type->dyncast<IsEntityType>() || type->dyncast<CownType>() ||
+      type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
       type->dyncast<UnitType>())
       return type;
 
@@ -418,9 +416,7 @@ namespace verona::compiler
     if (left->dyncast<EntityType>() || left->dyncast<EntityOfType>())
       return mk_top();
 
-    if (
-      right->dyncast<EntityType>() || right->dyncast<IntegerType>() ||
-      right->dyncast<StringType>() || right->dyncast<CownType>())
+    if (right->dyncast<EntityType>() || right->dyncast<StringType>())
       return right;
 
     if (auto isect = left->dyncast<IntersectionType>())
@@ -548,13 +544,6 @@ namespace verona::compiler
     abort();
   }
 
-  TypePtr TypeInterner::mk_cown(TypePtr contents)
-  {
-    assert(is_interned(contents));
-
-    return intern(CownType(contents));
-  }
-
   template<typename T>
   TypePtr TypeInterner::mk_viewpoint(
     std::optional<CapabilityKind> capability,
@@ -679,11 +668,6 @@ namespace verona::compiler
     return intern(IsEntityType());
   }
 
-  IntegerTypePtr TypeInterner::mk_integer_type()
-  {
-    return intern(IntegerType());
-  }
-
   StringTypePtr TypeInterner::mk_string_type()
   {
     return intern(StringType());
@@ -763,10 +747,9 @@ namespace verona::compiler
 
     // These are all entity-like types already.
     if (
-      inner->dyncast<EntityType>() || inner->dyncast<IntegerType>() ||
-      inner->dyncast<StringType>() || inner->dyncast<UnitType>() ||
-      inner->dyncast<EntityOfType>() || inner->dyncast<HasFieldType>() ||
-      inner->dyncast<HasMethodType>() ||
+      inner->dyncast<EntityType>() || inner->dyncast<StringType>() ||
+      inner->dyncast<UnitType>() || inner->dyncast<EntityOfType>() ||
+      inner->dyncast<HasFieldType>() || inner->dyncast<HasMethodType>() ||
       inner->dyncast<HasAppliedMethodType>() ||
       inner->dyncast<DelayedFieldViewType>())
       return inner;
@@ -862,8 +845,7 @@ namespace verona::compiler
       type->dyncast<DelayedFieldViewType>() || type->dyncast<EntityOfType>() ||
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
-      type->dyncast<IntegerType>() || type->dyncast<StringType>() ||
-      type->dyncast<IsEntityType>() || type->dyncast<CownType>() ||
+      type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
       type->dyncast<StaticType>() || type->dyncast<UnitType>() ||
       type->dyncast<TypeParameter>())
       return type;
@@ -966,8 +948,7 @@ namespace verona::compiler
       type->dyncast<DelayedFieldViewType>() || type->dyncast<EntityOfType>() ||
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
-      type->dyncast<IntegerType>() || type->dyncast<StringType>() ||
-      type->dyncast<IsEntityType>() || type->dyncast<CownType>() ||
+      type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
       type->dyncast<StaticType>() || type->dyncast<UnitType>() ||
       type->dyncast<TypeParameter>())
       return type;
@@ -1160,13 +1141,11 @@ namespace verona::compiler
     DISPATCH(HasMethodType);
     DISPATCH(IndirectType);
     DISPATCH(InferType);
-    DISPATCH(IntegerType);
     DISPATCH(IntersectionType);
     DISPATCH(IsEntityType);
     DISPATCH(NotChildOfType);
     DISPATCH(PathCompressionType);
     DISPATCH(RangeType);
-    DISPATCH(CownType);
     DISPATCH(StaticType);
     DISPATCH(StringType);
     DISPATCH(TypeParameter);

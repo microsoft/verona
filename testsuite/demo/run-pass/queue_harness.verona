@@ -19,8 +19,8 @@ use "library/queue.verona"
  **/
 class U64ObjF
 {
-  v: U64;
-  create(x: U64) : U64ObjF & iso
+  v: U64 & imm;
+  create(x: U64 & imm) : U64ObjF & iso
   {
     var o = new U64ObjF;
     o.v = x;
@@ -91,7 +91,7 @@ class Main
     Builtin.print("Finished\n");
   }
 
-  print(id: U64, a: (U64ObjF & iso) | (None & imm))
+  print(id: U64 & imm, a: (U64ObjF & iso) | (None & imm))
   {
     match (a)
     {

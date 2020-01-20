@@ -23,7 +23,7 @@ namespace verona::compiler
   {
     return CapabilityPredicate::Readable | CapabilityPredicate::Writable |
       CapabilityPredicate::NonWritable | CapabilityPredicate::NonLinear |
-      CapabilityPredicate::Cownable | CapabilityPredicate::Sendable;
+      CapabilityPredicate::Sendable;
   }
 
   bool PredicateSet::contains(CapabilityPredicate predicate) const
@@ -61,8 +61,7 @@ namespace verona::compiler
           if (std::holds_alternative<RegionNone>(type->region))
           {
             return CapabilityPredicate::Readable |
-              CapabilityPredicate::Writable | CapabilityPredicate::Cownable |
-              CapabilityPredicate::Sendable;
+              CapabilityPredicate::Writable | CapabilityPredicate::Sendable;
           }
           else
           {
@@ -105,14 +104,6 @@ namespace verona::compiler
     }
 
     PredicateSet visit_static_type(const StaticTypePtr& type) final
-    {
-      return CapabilityPredicate::Sendable | CapabilityPredicate::NonLinear;
-    }
-    PredicateSet visit_cown_type(const CownTypePtr& type) final
-    {
-      return CapabilityPredicate::Sendable | CapabilityPredicate::NonLinear;
-    }
-    PredicateSet visit_integer_type(const IntegerTypePtr& type) final
     {
       return CapabilityPredicate::Sendable | CapabilityPredicate::NonLinear;
     }
@@ -170,8 +161,6 @@ namespace verona::compiler
         return out << "writable";
       case CapabilityPredicate::NonWritable:
         return out << "non-writable";
-      case CapabilityPredicate::Cownable:
-        return out << "cownable";
       case CapabilityPredicate::Sendable:
         return out << "sendable";
       case CapabilityPredicate::NonLinear:

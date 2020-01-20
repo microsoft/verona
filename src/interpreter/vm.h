@@ -22,10 +22,7 @@ namespace verona::interpreter
 
     static void dealloc_vm()
     {
-      if (local_vm != nullptr)
-      {
-        delete local_vm;
-      }
+      delete local_vm;
     }
 
     static void init_vm(const Code* code, bool verbose)
@@ -76,8 +73,9 @@ namespace verona::interpreter
     void opcode_new(
       Register dst, const Value& parent, const VMDescriptor* descriptor);
     void opcode_new_region(Register dst, const VMDescriptor* descriptor);
-    void opcode_new_cown(Register dst, Value src);
-    void opcode_new_sleeping_cown(Register dst);
+    void
+    opcode_new_cown(Register dst, const VMDescriptor* descriptor, Value src);
+    void opcode_new_sleeping_cown(Register dst, const VMDescriptor* descriptor);
     void opcode_print(const Value& src, uint8_t argc);
     void opcode_return();
     void opcode_store(

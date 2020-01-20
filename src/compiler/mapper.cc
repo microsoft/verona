@@ -79,11 +79,6 @@ namespace verona::compiler
     return context().mk_range(apply(ty->lower), apply(ty->upper));
   }
 
-  TypePtr RecursiveTypeMapper::visit_cown_type(const CownTypePtr& ty)
-  {
-    return context().mk_cown(apply(ty->contents));
-  }
-
   TypePtr RecursiveTypeMapper::visit_viewpoint_type(const ViewpointTypePtr& ty)
   {
     TypeSet variables;
@@ -122,11 +117,6 @@ namespace verona::compiler
   TypePtr RecursiveTypeMapper::visit_is_entity_type(const IsEntityTypePtr& ty)
   {
     return context().mk_is_entity();
-  }
-
-  TypePtr RecursiveTypeMapper::visit_integer_type(const IntegerTypePtr& ty)
-  {
-    return context().mk_integer_type();
   }
 
   TypePtr RecursiveTypeMapper::visit_string_type(const StringTypePtr& ty)

@@ -16,13 +16,13 @@ namespace verona::interpreter
       size_t method_slots,
       size_t field_slots,
       size_t field_count,
-      uint32_t finaliser_slot);
+      uint32_t finaliser_ip);
 
     const std::string name;
     const size_t field_count;
     std::unique_ptr<uint32_t[]> fields;
     std::unique_ptr<uint32_t[]> methods;
-    const uint32_t finaliser_slot;
+    const uint32_t finaliser_ip;
   };
 
   struct VMObject : public rt::Object
@@ -52,12 +52,16 @@ namespace verona::interpreter
 
   struct VMCown : public rt::VCown<VMCown>
   {
+    // This is the descriptor for cown[T], not for T.
+    // It is used to dispatch methods on the cown itself.
+    const VMDescriptor* descriptor;
     VMObject* contents;
 
     /**
      * contents should be a region entrypoint. VMCown will take ownership of it.
      */
-    explicit VMCown(VMObject* contents) : contents(contents)
+    explicit VMCown(const VMDescriptor* descriptor, VMObject* contents)
+    : descriptor(descriptor), contents(contents)
     {
       assert((contents == nullptr) || contents->debug_is_iso());
     }
@@ -65,7 +69,8 @@ namespace verona::interpreter
     /**
      * This is for promises., the cown should be initially unscheduled.
      */
-    explicit VMCown() : contents(nullptr)
+    explicit VMCown(const VMDescriptor* descriptor)
+    : descriptor(descriptor), contents(nullptr)
     {
       wake();
     }

@@ -22,11 +22,13 @@ namespace verona::compiler
   public:
     Infer(
       Context& context,
+      const Program& program,
       const Method& method,
       const LivenessAnalysis& liveness,
       InferResults* results,
       const MethodIR& mir)
     : context_(context),
+      program_(program),
       method_(method),
       liveness_(liveness),
       results_(results),
@@ -324,17 +326,20 @@ namespace verona::compiler
       // Link cown parameters
       for (size_t i = 0; i < stmt.cowns.size(); i++)
       {
-        const auto& cown = stmt.cowns[i];
-        TypePtr cown_typ = get_type(assignment, cown);
-        TypePtr entity = context_.mk_entity_of(fresh_type_var());
-        add_constraint(cown_typ, context_.mk_cown(entity), "cown_param");
+        const Variable& cown = stmt.cowns[i];
+        TypePtr contents = context_.mk_entity_of(fresh_type_var());
+        TypePtr cown_type = get_entity("cown", {contents});
+        TypePtr expected_type =
+          context_.mk_intersection(cown_type, context_.mk_immutable());
+
+        add_constraint(get_type(assignment, cown), expected_type, "cown_param");
 
         const auto& param = closure.parameters[i];
         Region region = RegionExternal{
           i}; // Really i, what about multiple whens? PAUL TO COMMENT
         TypePtr cap = context_.mk_mutable(region);
         set_type(
-          closure_assignment, param, context_.mk_intersection(entity, cap));
+          closure_assignment, param, context_.mk_intersection(contents, cap));
       }
 
       // Link capture parameter types
@@ -383,16 +388,6 @@ namespace verona::compiler
 
       set_type(assignment, stmt.output, context_.mk_intersection(cap, entity));
       set_type_arguments(stmt.type_arguments, BoundedTypeSequence(arguments));
-    }
-
-    void visit_stmt(
-      TypeAssignment& assignment,
-      std::vector<Variable>& dead_variables,
-      const NewCownStmt& stmt)
-    {
-      // Checking of permissions is done later.
-      auto entity = context_.mk_entity_of(get_type(assignment, stmt.input));
-      set_type(assignment, stmt.output, context_.mk_cown(entity));
     }
 
     void visit_stmt(
@@ -486,7 +481,10 @@ namespace verona::compiler
       std::vector<Variable>& dead_variables,
       const IntegerLiteralStmt& stmt)
     {
-      set_type(assignment, stmt.output, context_.mk_integer_type());
+      TypePtr u64 = get_entity("U64");
+      TypePtr type = context_.mk_intersection(u64, context_.mk_immutable());
+
+      set_type(assignment, stmt.output, type);
     }
 
     void visit_stmt(
@@ -517,21 +515,6 @@ namespace verona::compiler
       TypePtr cap = context_.mk_mutable(region);
 
       set_type(assignment, stmt.output, context_.mk_intersection(entity, cap));
-    }
-
-    void visit_stmt(
-      TypeAssignment& assignment,
-      std::vector<Variable>& dead_variables,
-      const FreezeStmt& stmt)
-    {
-      TypePtr input = get_type(assignment, stmt.input);
-      TypePtr entity = context_.mk_entity_of(input);
-
-      add_constraint(input, context_.mk_isolated(RegionNone()), "freeze");
-      set_type(
-        assignment,
-        stmt.output,
-        context_.mk_intersection(entity, context_.mk_immutable()));
     }
 
     void visit_stmt(
@@ -577,7 +560,10 @@ namespace verona::compiler
     void visit_term(TypeAssignment& assignment, const IfTerminator& term)
     {
       TypePtr input = get_type(assignment, term.input);
-      add_constraint(input, context_.mk_integer_type(), "if_term");
+      TypePtr u64 = get_entity("U64");
+      TypePtr expected = context_.mk_intersection(u64, context_.mk_immutable());
+
+      add_constraint(input, expected, "if_term");
     }
 
     void set_type(TypeAssignment& assignment, Variable v, TypePtr ty)
@@ -659,7 +645,24 @@ namespace verona::compiler
       return types;
     }
 
+    /**
+     * Get an entity type by name.
+     *
+     * This is used to locate standard library classes which the compiler has
+     * special knowledge of, eg. U64 or Cown.
+     */
+    TypePtr get_entity(const std::string& name, TypeList args = TypeList())
+    {
+      const Entity* entity = program_.find_entity(name);
+      if (!entity)
+      {
+        abort();
+      }
+      return context_.mk_entity_type(entity, args);
+    }
+
     Context& context_;
+    const Program& program_;
     const Method& method_;
     const LivenessAnalysis& liveness_;
     InferResults* results_;
@@ -677,12 +680,13 @@ namespace verona::compiler
 
   std::unique_ptr<InferResults> infer(
     Context& context,
+    const Program& program,
     const Method& method,
     const MethodIR& mir,
     const LivenessAnalysis& liveness)
   {
     auto results = std::make_unique<InferResults>();
-    Infer inferer(context, method, liveness, results.get(), mir);
+    Infer inferer(context, program, method, liveness, results.get(), mir);
     inferer.set_parameter_types(*mir.function_irs.front());
     for (auto& ir : mir.function_irs)
       inferer.process(*ir);

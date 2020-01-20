@@ -98,10 +98,6 @@ namespace verona::compiler
       {
         return visit_new_expr(*expr_, std::forward<Args>(args)...);
       }
-      else if (auto expr_ = dynamic_cast<NewCownExpr*>(&expr))
-      {
-        return visit_new_cown(*expr_, std::forward<Args>(args)...);
-      }
       else if (auto expr_ = dynamic_cast<IntegerLiteralExpr*>(&expr))
       {
         return visit_integer_literal_expr(*expr_, std::forward<Args>(args)...);
@@ -113,10 +109,6 @@ namespace verona::compiler
       else if (auto expr_ = dynamic_cast<ViewExpr*>(&expr))
       {
         return visit_view_expr(*expr_, std::forward<Args>(args)...);
-      }
-      else if (auto expr_ = dynamic_cast<FreezeExpr*>(&expr))
-      {
-        return visit_freeze_expr(*expr_, std::forward<Args>(args)...);
       }
       else if (auto expr_ = dynamic_cast<BinaryOperatorExpr*>(&expr))
       {
@@ -197,10 +189,6 @@ namespace verona::compiler
     {
       return visit_base_expr(expr, std::forward<Args>(args)...);
     }
-    virtual Return visit_new_cown(NewCownExpr& expr, Args... args)
-    {
-      return visit_base_expr(expr, std::forward<Args>(args)...);
-    }
     virtual Return
     visit_integer_literal_expr(IntegerLiteralExpr& expr, Args... args)
     {
@@ -217,10 +205,6 @@ namespace verona::compiler
       return visit_base_expr(expr, std::forward<Args>(args)...);
     }
     virtual Return visit_view_expr(ViewExpr& expr, Args... args)
-    {
-      return visit_base_expr(expr, std::forward<Args>(args)...);
-    }
-    virtual Return visit_freeze_expr(FreezeExpr& expr, Args... args)
     {
       return visit_base_expr(expr, std::forward<Args>(args)...);
     }
@@ -287,10 +271,6 @@ namespace verona::compiler
       {
         return visit_range_type(ty_, std::forward<Args>(args)...);
       }
-      else if (auto ty_ = ty->dyncast<CownType>())
-      {
-        return visit_cown_type(ty_, std::forward<Args>(args)...);
-      }
       else if (auto ty_ = ty->dyncast<ViewpointType>())
       {
         return visit_viewpoint_type(ty_, std::forward<Args>(args)...);
@@ -314,10 +294,6 @@ namespace verona::compiler
       else if (auto ty_ = ty->dyncast<IsEntityType>())
       {
         return visit_is_entity_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<IntegerType>())
-      {
-        return visit_integer_type(ty_, std::forward<Args>(args)...);
       }
       else if (auto ty_ = ty->dyncast<StringType>())
       {
@@ -422,10 +398,6 @@ namespace verona::compiler
     {
       return visit_base_type(ty, std::forward<Args>(args)...);
     }
-    virtual Return visit_cown_type(const CownTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
     virtual Return
     visit_viewpoint_type(const ViewpointTypePtr& ty, Args... args)
     {
@@ -451,10 +423,6 @@ namespace verona::compiler
       return visit_base_type(ty, std::forward<Args>(args)...);
     }
     virtual Return visit_is_entity_type(const IsEntityTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_integer_type(const IntegerTypePtr& ty, Args... args)
     {
       return visit_base_type(ty, std::forward<Args>(args)...);
     }
@@ -502,10 +470,6 @@ namespace verona::compiler
   public:
     virtual Return visit_type_expression(TypeExpression& te, Args... args)
     {
-      if (auto expr_ = dynamic_cast<IntegerTypeExpr*>(&te))
-      {
-        return visit_integer_type_expr(*expr_, std::forward<Args>(args)...);
-      }
       if (auto expr_ = dynamic_cast<StringTypeExpr*>(&te))
       {
         return visit_string_type_expr(*expr_, std::forward<Args>(args)...);
@@ -513,10 +477,6 @@ namespace verona::compiler
       else if (auto expr_ = dynamic_cast<SymbolTypeExpr*>(&te))
       {
         return visit_symbol_type_expr(*expr_, std::forward<Args>(args)...);
-      }
-      else if (auto expr_ = dynamic_cast<CownTypeExpr*>(&te))
-      {
-        return visit_cown_type_expr(*expr_, std::forward<Args>(args)...);
       }
       else if (auto expr_ = dynamic_cast<UnionTypeExpr*>(&te))
       {
@@ -554,19 +514,11 @@ namespace verona::compiler
         typeid(*this).name());
       abort();
     }
-    virtual Return visit_integer_type_expr(IntegerTypeExpr& te, Args... args)
-    {
-      return visit_base_type_expression(te, std::forward<Args>(args)...);
-    }
     virtual Return visit_string_type_expr(StringTypeExpr& te, Args... args)
     {
       return visit_base_type_expression(te, std::forward<Args>(args)...);
     }
     virtual Return visit_symbol_type_expr(SymbolTypeExpr& te, Args... args)
-    {
-      return visit_base_type_expression(te, std::forward<Args>(args)...);
-    }
-    virtual Return visit_cown_type_expr(CownTypeExpr& te, Args... args)
     {
       return visit_base_type_expression(te, std::forward<Args>(args)...);
     }

@@ -139,11 +139,6 @@ namespace verona::compiler
       print("(new {}{})", e.class_name, optional(prefixed(" ", e.parent)));
     }
 
-    void visit_new_cown(NewCownExpr& e) final
-    {
-      print("(cown {})", *e.contents);
-    }
-
     void visit_integer_literal_expr(IntegerLiteralExpr& e) final
     {
       print("(integer {})", e.value.value);
@@ -163,11 +158,6 @@ namespace verona::compiler
     void visit_view_expr(ViewExpr& e) final
     {
       print("(mut-view {})", *e.expr);
-    }
-
-    void visit_freeze_expr(FreezeExpr& e) final
-    {
-      print("(freeze {})", *e.expr);
     }
 
     void visit_entity_type(const EntityTypePtr& ty) final
@@ -224,11 +214,6 @@ namespace verona::compiler
       print("({} ... {})", *ty->lower, *ty->upper);
     }
 
-    void visit_cown_type(const CownTypePtr& ty) final
-    {
-      print("cown [{}]", *ty->contents);
-    }
-
     void visit_viewpoint_type(const ViewpointTypePtr& ty) final
     {
       print(
@@ -269,10 +254,6 @@ namespace verona::compiler
     void visit_is_entity_type(const IsEntityTypePtr& ty) final
     {
       print("(is-entity)");
-    }
-    void visit_integer_type(const IntegerTypePtr& ty) final
-    {
-      print("(integer)");
     }
     void visit_string_type(const StringTypePtr& ty) final
     {
@@ -353,11 +334,6 @@ namespace verona::compiler
       print("[{}]", comma_sep(seq.types));
     }
 
-    void visit_integer_type_expr(IntegerTypeExpr& te)
-    {
-      print("(integer)");
-    }
-
     void visit_string_type_expr(StringTypeExpr& te)
     {
       print("(string)");
@@ -366,11 +342,6 @@ namespace verona::compiler
     void visit_symbol_type_expr(SymbolTypeExpr& te)
     {
       print("{}{}", te.name, optional_list(te.arguments));
-    }
-
-    void visit_cown_type_expr(CownTypeExpr& te)
-    {
-      print("cown [{}]", *te.contents);
     }
 
     void visit_capability_type_expr(CapabilityTypeExpr& te)
@@ -527,6 +498,8 @@ namespace verona::compiler
         return out << "class";
       case Entity::Interface:
         return out << "interface";
+      case Entity::Primitive:
+        return out << "primitive";
 
         EXHAUSTIVE_SWITCH;
     }
