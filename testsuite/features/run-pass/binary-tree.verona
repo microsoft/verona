@@ -14,7 +14,8 @@
 //
 // This example shows a couple of interesting features: 
 // - Access to nested regions without extracting, when using a `Tree[iso]`.
-// - F-bounded polymorphism, in the form of `T: Comparable[T]`.
+// - Interfaces, with F-bounded polymorphism, in the form of `T: Comparable[T]`.
+// - Operator overloading
 // - The `class T` type parameter in `Comparable`, to apply a custom capability
 //   to a type parameter (i.e. `T & mut`).
 // - Eventually, region annotations in the form of `where return in self`, ...
@@ -22,7 +23,7 @@
 
 interface Comparable[class T]
 {
-  less(self: mut, other: T & mut): U64 & imm;
+  lt(self: mut, other: T & mut): U64 & imm;
 }
 
 class Empty { }
@@ -63,10 +64,10 @@ class Tree[T: Comparable[T] & (iso | mut)] {
     {
       var e: Empty => Node.create(value, self),
       var n: Node[T] => {
-        if (mut-view value).less(mut-view (n.value)) {
+        if (mut-view value) < (mut-view (n.value)) {
           n.left = self._insert(n.left = new Empty, value);
         } else {
-          if (mut-view (n.value)).less(mut-view value) {
+          if (mut-view (n.value)) < (mut-view value) {
             n.right = self._insert(n.right = new Empty, value);
           } else {
           }
@@ -112,7 +113,7 @@ class Value {
     result
   }
 
-  less(self: mut, other: Value & mut): U64 & imm
+  lt(self: mut, other: Value & mut): U64 & imm
   {
     self.value < other.value
   }
