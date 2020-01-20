@@ -14,7 +14,7 @@ We will split the rest of this document based on the various stages of running a
 
 The simplist way to debug the compiler is to get it to dump all the phases of compiling every method:
 ```
-veronac.exe --dump-path dmp region101.verona
+veronac --dump-path dmp region101.verona
 ```
 This dumps all the stages of compiling each method into a sub-directory `dmp`.
 For each Class and Method, you should find:
@@ -36,16 +36,28 @@ For each Class and Method, you should find:
 ```
 The order is the order of the phases in the compiler, and can be used to track where something has gone wrong.
 
-Individual, phases and results for particular methods can be output using other options to the compiler.
+Individual results can be printed to the standard output instead by passing the --print= flag to the compiler.
+For example, the following command will print the intermediate representation for the Main.main method.
+
+```
+$ veronac bank1.verona --print=Main.main.ir
+IR for Main.main:
+  Basic block BB0:
+    0 <- static Main
+    1 <- integer 100
+    2 <- call 0.example()
+[...]
+```
 
 ### Debugging the parser
 
 The Verona parser currently uses [Pegmatite](https://github.com/CompilerTeaching/Pegmatite), a PEG parser design the teaching and rapid prototyping.
 This has two compile options that can aid debugging:
 
-* DEBUG_PARSING  - this outputs tracing during parsing the string
-* DEBUG_AST_CONSTRUCTION  - this outputs the construction of the AST nodes
+* BUILD_TRACING  - this outputs tracing during parsing the string
+* BUILD_AST_TRACING  - this outputs the construction of the AST nodes
 
+These can be set by passing cmake `-DBUILD_TRACING=On` and `-DBUILD_AST_TRACING=On` respectively.
 
 ## Debugging the interpreter
 
@@ -62,7 +74,7 @@ veronac foo.verona --run --run-verbose
 The `--verbose` option basically provides a trace of the interpreters operations:
 for example:
 ```
-veronac.exe --run --run-verbose region101.verona
+veronac --run --run-verbose region101.verona
 ```
 produces
 ```
@@ -77,7 +89,7 @@ produces
 
 Both the interpreter, and the compiler's run option, can also provide systematic testing for concurrency:
 ```
-  veronac-sys.exe --run testsuite/demo/run-pass/dining_phil.verona --run-seed 100 --run-seed_upper 200
+  veronac-sys --run testsuite/demo/run-pass/dining_phil.verona --run-seed 100 --run-seed_upper 200
 ```
 runs 100 seeds sequentially, but testing various interleavings of the runtime. The seeds are replayable.
 
@@ -93,16 +105,13 @@ Both of these can produce high detail logging of the runtime operations.
 It is considerably easier to debug a crash in systematic testing, than in standard concurrent execution.
 The majority of tests of the runtime cover a large number of pseudo-random traces, so that the failures can easily be replayed.  The code in
 
-* https://github.com/microsoft/verona/blob/master/src/rt/test/harness.h#L38-L70
-* https://github.com/microsoft/verona/blob/master/src/rt/test/harness.h#L73-L114
+* [src/rt/test/harness.h/SystematicTestingHarness constructor](https://github.com/microsoft/verona/blob/82a00c9d7e0e4f12b08e2b829a599a9ef94c1402/src/rt/test/harness.h#L38-L70)
+* [src/rt/test/harness.h/SystematicTestingHarness::run](https://github.com/microsoft/verona/blob/82a00c9d7e0e4f12b08e2b829a599a9ef94c1402/src/rt/test/harness.h#L73-L114)
 
 highlights all of the features for running with the various logging and random seed approaches.
 
-To compile the run-time with systematic testing build with
-```C++
-USE_SYSTEMATIC_TESTING
-```
-defined, and then call
+To compile the run-time with systematic testing you can pass CMake `-DUSE_SYSTEMATIC_TESTING=On`, 
+and then in your program call
 ```C++
 Systematic::enable_logging();
 ```
@@ -113,15 +122,14 @@ Scheduler::get().set_seed(seed);
 specifies the seed for the pseudo-random interleaving.
 The seed to interleaving should be consistent across platforms.
 
-To enable crash logging build with
-```C++
-USE_FLIGHT_RECORDER
-```
-defined, and call
+To enable crash logging you can pass CMake `-DUSE_CRASH_LOGGING=On`
+and in your program call
 ```C++
 Systematic::enable_crash_logging();
 ```
 to enable its output.
+
+Some build artifacts automatically have these settings enabled by default. 
 
 The systematic testing log has the earliest entry first, while the crash logging is in reverse, and contains timestamps.
 This is a quirk of how the crash log is reconstructed after the runtime crashes.
