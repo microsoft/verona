@@ -1,19 +1,40 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+
+// Creates a binary tree that can be used for either `iso` or `mut` values.
+//
+// All the nodes in the tree are allocated in the same region as the root
+// `Tree`. They however hold values which could be in a child region, if `Tree`
+// is instantiated with `iso`.
+//
+// It would be nice to have the nodes be `iso`s if the values are, enabling
+// prompt deallocation of the nodes when removing them. Unfortunately we don't
+// (yet) have a way of expressing this in a generic way, since the nodes must be
+// `mut` if the values are.
+//
+// This example shows a couple of interesting features: 
+// - Access to nested regions without extracting, when using a `Tree[iso]`.
+// - F-bounded polymorphism, in the form of `T: Comparable[T]`.
+// - The `class T` type parameter in `Comparable`, to apply a custom capability
+//   to a type parameter (i.e. `T & mut`).
+// - Eventually, region annotations in the form of `where return in self`, ...
+//   This is not yet enforced in the compiler so we don't have it here.
+
 interface Comparable[class T]
 {
   less(self: mut, other: T & mut): U64 & imm;
 }
 
 class Empty { }
-class Node[T: iso | mut] {
-  left: (Node[T] & iso) | (Empty & iso);
-  value: T;
-  right: (Node[T] & iso) | (Empty & iso);
 
-  create(value: T): Node[T] & iso
+class Node[T: iso | mut] {
+  left: (Node[T] & mut) | (Empty & iso);
+  value: T;
+  right: (Node[T] & mut) | (Empty & iso);
+
+  create(value: T, parent: mut): Node[T] & mut
   {
-    var result = new Node;
+    var result = new Node in parent;
     result.value = value;
     result.left = new Empty;
     result.right = new Empty;
@@ -22,7 +43,7 @@ class Node[T: iso | mut] {
 }
 
 class Tree[T: Comparable[T] & (iso | mut)] {
-  top: (Node[T] & iso) | (Empty & iso);
+  top: (Node[T] & mut) | (Empty & iso);
 
   create(): Tree[T] & iso {
     var result = new Tree;
@@ -35,14 +56,14 @@ class Tree[T: Comparable[T] & (iso | mut)] {
   }
 
   _insert(self: mut,
-          current: (Node[T] & iso) | (Empty & iso),
-          value: T): (Node[T] & iso)
+          current: (Node[T] & mut) | (Empty & iso),
+          value: T): (Node[T] & mut)
   {
     match current
     {
-      var e: Empty => Node.create(value),
+      var e: Empty => Node.create(value, self),
       var n: Node[T] => {
-        if (mut-view value).less(mut-view(n.value)) {
+        if (mut-view value).less(mut-view (n.value)) {
           n.left = self._insert(n.left = new Empty, value);
         } else {
           if (mut-view (n.value)).less(mut-view value) {
