@@ -22,10 +22,7 @@ namespace verona::interpreter
 
     static void dealloc_vm()
     {
-      if (local_vm != nullptr)
-      {
-        delete local_vm;
-      }
+      delete local_vm;
     }
 
     static void init_vm(const Code* code, bool verbose)
