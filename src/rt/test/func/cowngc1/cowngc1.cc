@@ -379,7 +379,7 @@ int main(int argc, char** argv)
   PRNG rand(harness.seed);
 
   size_t ring = harness.opt.is<size_t>("--ring", 10);
-  size_t forward = harness.opt.is<size_t>("--forward", 10);
+  uint64_t forward = harness.opt.is<uint64_t>("--forward", 10);
 
   harness.run(test_cown_gc, forward, ring, &rand);
   harness.run(test_cown_gc_before_sched);
