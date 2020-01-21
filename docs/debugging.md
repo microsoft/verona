@@ -140,7 +140,7 @@ Both logs use the same printing in the runtime:
 ```C++
 Systematic::cout() << "My messages" << ... << std::endl;
 ```
-For, crash log the pretty print functions are not run until the crash, so they
+For the crash log, the pretty print functions are not run until the crash, so they
 should not depend on any state other than the `uintptr_t` sized argument they
 are provided.  Here is an example log from systematic testing:
 ```
