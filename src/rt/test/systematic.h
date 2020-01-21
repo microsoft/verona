@@ -205,6 +205,10 @@ namespace Systematic
 
     static void dump(std::ostream& o)
     {
+      o << "Crash log begins with most recent events" << std::endl;
+
+      o << "THIS IS BACKWARDS COMPARED TO THE NORMAL LOG!" << std::endl;
+
       // Set up all logs for dumping
       auto curr = global_logs().iterate();
       auto mine = get().log;
