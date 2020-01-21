@@ -1,72 +1,15 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 /*****************************************************************************
- * This example demonstrates how one could build a channel.
+ * This example demonstrates how one could build a channel in verona using
+ * cowns.
  *
- * It illustrates creating and using promises and cowns and communicating
- * between behaviours.
+ * As well as cowns, this implementation using promises to communicate between
+ * behaviours.
  *****************************************************************************/
 
 use "library/queue.verona"
-
-/*
- * Create a channel from two queues:
- *   - A queue of reads
- *   - A queue of writes
- *
- * Writing a value to the channel services the first waiting read
- * if one doesn't exist then the write is queued.
- *
- * Reading a value from the channel returns a promise of a value.
- * If a write has been queued then the read is immediately serviced,
- * otherwise the read is queued.
- */
-class Channel[T] {
-  _ws: Queue[Writer[T]] & iso;
-  _rs: Queue[Reader[T]] & iso;
-
-  create(): cown[Channel[T]] & imm {
-    var result = new Channel;
-    result._ws = Queue.create(0);
-    result._rs = Queue.create(1);
-    cown.create(result)
-  }
-
-  /*
-   * Write is a synchronous method.
-   * The method schedules a behaviour to log a write
-   * to the channel.
-   */
-  write(channel: cown[Channel[T]] & imm, value: T) {
-    var cell = Cell.create(value);
-    when(channel) {
-      match((mut-view (channel._rs)).remove()) {
-        var _: None => (mut-view (channel._ws)).add(Writer.create(cell)),
-        var r: Reader[T] => r.write(cell),
-      }
-    }
-  }
-
-  /*
-   * Read is an asynchronous method.
-   * The method returns the wait part of a promise
-   * that will be fulfilled when a value is available.
-   */
-  read(channel: cown[Channel[T]] & imm): cown[Cell[T]] & imm {
-    var r = Reader.create();
-    var handle = (mut-view r).await();
-    when(channel) {
-      match((mut-view (channel._ws)).remove()) {
-        var _: None => (mut-view (channel._rs)).add(r),
-        var w: Writer[T] => {
-          match (w.read()) {
-            var _: None => {} /* shouldn't be possible */
-            var c: Cell[T] => r.write(c),
-          }
-        }
-      }
-    };
-    handle
-  }
-}
 
 /*
  * A wrapper class around data, this allows data to
@@ -129,6 +72,83 @@ class Writer[T] {
   }
 }
 
+/*
+ * Create a channel from two queues:
+ *   - A queue of reads
+ *   - A queue of writes
+ *
+ * Writing a value to the channel services the first waiting read
+ * if one doesn't exist then the write is queued.
+ *
+ * Reading a value from the channel returns a promise of a value.
+ * If a write has been queued then the read is immediately serviced,
+ * otherwise the read is queued.
+ *
+ * This could have been written as a single queue, e.g.:
+ *   _messages: (Queue[Writer[T]] & iso) | (Queue[Reader[T] & iso])
+ * to highlight that there are only ever Readers _or_ Writers. Two
+ * queues have been used for simplicity.
+ */
+class Channel[T] {
+  _ws: Queue[Writer[T]] & iso;
+  _rs: Queue[Reader[T]] & iso;
+
+  create(): cown[Channel[T]] & imm {
+    var result = new Channel;
+    result._ws = Queue.create(0);
+    result._rs = Queue.create(1);
+    cown.create(result)
+  }
+
+  /*
+   * Write is a synchronous method.
+   * The method schedules a behaviour to log a write
+   * to the channel.
+   */
+  write(channel: cown[Channel[T]] & imm, value: T) {
+    var cell = Cell.create(value);
+    when(channel) {
+      match((mut-view (channel._rs)).remove()) {
+        // No readers are waiting, so add this 'value' to the end of the queue
+        var _: None => (mut-view (channel._ws)).add(Writer.create(cell)),
+        // Fulfill the longest waiting Reader.
+        var r: Reader[T] => r.write(cell),
+      }
+    }
+  }
+
+  /*
+   * Read is an asynchronous method.
+   * The method returns the wait part of a promise
+   * that will be fulfilled when a value is available.
+   */
+  read(channel: cown[Channel[T]] & imm): cown[Cell[T]] & imm {
+    // Create a Reader and take the wait handle part of the request.
+    // This lets us immediately return the handle and schedule a behaviour
+    // that queues the promise part of the request.
+    var r = Reader.create();
+    var handle = (mut-view r).await();
+    when(channel) {
+      match((mut-view (channel._ws)).remove()) {
+        // No writers are waiting, so add this read request to the end of the
+        // queue.
+        var _: None => (mut-view (channel._rs)).add(r),
+        var w: Writer[T] => {
+          match (w.read()) {
+            // None case shouldn't be possible, when we extract the cell we
+            // will also remove the Writer from the queue and drop all
+            // references to it. A Writer is never re-used.
+            var _: None => {}
+            // A Writer exists so immediately fulfill the read.
+            var c: Cell[T] => r.write(c),
+          }
+        }
+      }
+    };
+    handle
+  }
+}
+
 class Main {
   main() {
     var channel = Channel.create();
@@ -140,17 +160,19 @@ class Main {
     when(var received = Channel.read(channel)) {
       match (received.extract()) {
         var _: None => Builtin.print("Empty\n"),
-        var o: U64Obj => Builtin.print1("Contents: {:#}\n", o),
+        var o: U64Obj => Builtin.print1("Contents: {:#}\n", o.v),
       }
     };
 
     when(var received = Channel.read(channel)) {
       match (received.extract()) {
         var _: None => Builtin.print("Empty\n"),
-        var o: U64Obj => Builtin.print1("Contents: {:#}\n", o),
+        var o: U64Obj => Builtin.print1("Contents: {:#}\n", o.v),
       }
     };
 
     Channel.write(channel, U64Obj.create(52));
+    // CHECK-L: Contents: 7
+    // CHECK-L: Contents: 52
   }
 }
