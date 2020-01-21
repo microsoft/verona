@@ -160,7 +160,7 @@ The first line comes from the following line:
 It prints the address of the `cown` and the `get_epoch_mark` on that object.
 
 If neither systematic testing or the crash log is enabled, then all the logging
-should be erased by the compiler.
+should be erased when compiling the runtime.
 
 ### ASAN
 
