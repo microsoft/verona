@@ -735,7 +735,7 @@ namespace verona::compiler
      * extracted and `Width` is the number of bits to extract.
      */
     template<typename T, unsigned HighBit, unsigned Width>
-    static T extract_bits(T bitfield)
+    static constexpr T extract_bits(T bitfield)
     {
       static_assert(std::is_integral_v<T>);
       static_assert(std::is_unsigned_v<T>);
@@ -827,6 +827,7 @@ namespace verona::compiler
      */
     static bool is_small_source_location(SourceLocation l)
     {
+      static_assert(extract_bits<SourceLocation, discriminator_offset + 1, 1>(static_cast<SourceLocation>(1) << 31) == 1);
       return extract_bits<SourceLocation, discriminator_offset + 1, 1>(l) == 0;
     }
 
