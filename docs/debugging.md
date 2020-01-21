@@ -12,7 +12,7 @@ We will split the rest of this document based on the various stages of running a
 
 ## Debugging the compiler
 
-The simplist way to debug the compiler is to get it to dump all the phases of compiling every method:
+The simplest way to debug the compiler is to get it to dump all the phases of compiling every method:
 ```
 veronac --dump-path dmp region101.verona
 ```
@@ -36,7 +36,7 @@ For each Class and Method, you should find:
 ```
 The order is the order of the phases in the compiler, and can be used to track where something has gone wrong.
 
-Individual results can be printed to the standard output instead by passing the --print= flag to the compiler.
+Individual results can be printed to the standard output instead by passing the `--print=` flag to the compiler.
 For example, the following command will print the intermediate representation for the Main.main method.
 
 ```
@@ -51,7 +51,7 @@ IR for Main.main:
 
 ### Debugging the parser
 
-The Verona parser currently uses [Pegmatite](https://github.com/CompilerTeaching/Pegmatite), a PEG parser design the teaching and rapid prototyping.
+The Verona parser currently uses [Pegmatite](https://github.com/CompilerTeaching/Pegmatite), a PEG parser designed for teaching and rapid prototyping.
 This has two compile options that can aid debugging:
 
 * BUILD_TRACING  - this outputs tracing during parsing the string
@@ -71,7 +71,7 @@ or
 ```
 veronac foo.verona --run --run-verbose
 ```
-The `--verbose` option basically provides a trace of the interpreters operations:
+The `--verbose` option basically provides a trace of the interpreter's operations:
 for example:
 ```
 veronac --run --run-verbose region101.verona
@@ -129,10 +129,41 @@ Systematic::enable_crash_logging();
 ```
 to enable its output.
 
-Some build artifacts automatically have these settings enabled by default. 
+The two modes are independent, and both can be enabled if required.
+
+Some build artifacts automatically have these settings enabled by default including some of the runtime unit tests, veronac-sys and interpreter-sys.
 
 The systematic testing log has the earliest entry first, while the crash logging is in reverse, and contains timestamps.
 This is a quirk of how the crash log is reconstructed after the runtime crashes.
 
+Both logs use the same printing in the runtime:
+```C++
+Systematic::cout() << "My messages" << ... << std::endl;
+```
+For, crash log the pretty print functions are not run until the crash, so they
+should not depend on any state other than the `uintptr_t` sized argument they
+are provided.  Here is an example log from systematic testing:
+```
+   3      Scheduled Cown: 0000400001010470 (EPOCH_A)
+  2       Unscheduling Cown: 0000400001010320
+    4     Popped cown:0000400001010400
+    4     Scheduled Cown: 0000400001010400 (EPOCH_A)
+    4     LD protocol loop
+```
+The left hand columns containing `2`, `3`, and `4` represent which thread is executing.
+The rest of the line is the message that is being logged.
+The first line comes from the following line:
+```C++
+        Systematic::cout() << "Scheduled Cown: " << cown << " ("
+                           << cown->get_epoch_mark() << ")" << std::endl;
+```
+It prints the address of the `cown` and the `get_epoch_mark` on that object.
 
-Enabling ASAN on Clang builds by passing CMake `-DUSE_ASAN=On` will aid in detecting memory corruption issues.
+If neither systematic testing or the crash log is enabled, then all the logging
+should be erased by the compiler.
+
+### ASAN
+
+The runtime is inherently unsafe.  Systematic testing gives good coverage of corner case, but cannot in itself detect memory corruption.
+In CI, we use ASAN to find memory safety violations. 
+ASAN can be enabled on Clang builds by passing CMake `-DUSE_ASAN=On`.
