@@ -1,0 +1,156 @@
+/*****************************************************************************
+ * This example demonstrates how one could build a channel.
+ *
+ * It illustrates creating and using promises and cowns and communicating
+ * between behaviours.
+ *****************************************************************************/
+
+use "library/queue.verona"
+
+/*
+ * Create a channel from two queues:
+ *   - A queue of reads
+ *   - A queue of writes
+ *
+ * Writing a value to the channel services the first waiting read
+ * if one doesn't exist then the write is queued.
+ *
+ * Reading a value from the channel returns a promise of a value.
+ * If a write has been queued then the read is immediately serviced,
+ * otherwise the read is queued.
+ */
+class Channel[T] {
+  _ws: Queue[Writer[T]] & iso;
+  _rs: Queue[Reader[T]] & iso;
+
+  create(): cown[Channel[T]] & imm {
+    var result = new Channel;
+    result._ws = Queue.create(0);
+    result._rs = Queue.create(1);
+    cown.create(result)
+  }
+
+  /*
+   * Write is a synchronous method.
+   * The method schedules a behaviour to log a write
+   * to the channel.
+   */
+  write(channel: cown[Channel[T]] & imm, value: T) {
+    var cell = Cell.create(value);
+    when(channel) {
+      match((mut-view (channel._rs)).remove()) {
+        var _: None => (mut-view (channel._ws)).add(Writer.create(cell)),
+        var r: Reader[T] => r.write(cell),
+      }
+    }
+  }
+
+  /*
+   * Read is an asynchronous method.
+   * The method returns the wait part of a promise
+   * that will be fulfilled when a value is available.
+   */
+  read(channel: cown[Channel[T]] & imm): cown[Cell[T]] & imm {
+    var r = Reader.create();
+    var handle = (mut-view r).await();
+    when(channel) {
+      match((mut-view (channel._ws)).remove()) {
+        var _: None => (mut-view (channel._rs)).add(r),
+        var w: Writer[T] => {
+          match (w.read()) {
+            var _: None => {} /* shouldn't be possible */
+            var c: Cell[T] => r.write(c),
+          }
+        }
+      }
+    };
+    handle
+  }
+}
+
+/*
+ * A wrapper class around data, this allows data to
+ * be passed around in cowns. The value can be extracted
+ * when required.
+ */
+class Cell[T] {
+  _data: T | (None & imm);
+  _none: None & imm;
+
+  create(data: T): Cell[T] & iso {
+    var result = new Cell;
+    result._data = data;
+    result._none = Builtin.freeze(new None);
+    result
+  }
+
+  extract(self: mut): T | (None & imm) {
+    self._data = self._none
+  }
+}
+
+/*
+ * The Reader class encapsulates a read request, storing
+ * the promise of a value.
+ */
+class Reader[T] {
+  _promise: Promise[Cell[T]] & iso;
+
+  create(): Reader[T] & iso {
+    var result = new Reader;
+    result._promise = Promise.create();
+    result
+  }
+
+  await(self: mut): cown[Cell[T]] & imm {
+    (mut-view (self._promise)).wait_handle()
+  }
+
+  write(self: iso, value: Cell[T] & iso) {
+    (self._promise).fulfill(value);
+  }
+}
+
+/*
+ * The Writer class encapsulates a write request, storing
+ * the value that was written.
+ */
+class Writer[T] {
+  _data: (Cell[T] & iso) | (None & imm);
+
+  create(data: Cell[T] & iso): Writer[T] & iso {
+    var result = new Writer;
+    result._data = data;
+    result
+  }
+
+  read(self: iso): (Cell[T] & iso) | (None & imm) {
+    self._data = Builtin.freeze(new None)
+  }
+}
+
+class Main {
+  main() {
+    var channel = Channel.create();
+
+    /* write a message into the channel */
+    Channel.write(channel, U64Obj.create(7));
+
+    /* wait for a message to be received on the channel */
+    when(var received = Channel.read(channel)) {
+      match (received.extract()) {
+        var _: None => Builtin.print("Empty\n"),
+        var o: U64Obj => Builtin.print1("Contents: {:#}\n", o),
+      }
+    };
+
+    when(var received = Channel.read(channel)) {
+      match (received.extract()) {
+        var _: None => Builtin.print("Empty\n"),
+        var o: U64Obj => Builtin.print1("Contents: {:#}\n", o),
+      }
+    };
+
+    Channel.write(channel, U64Obj.create(52));
+  }
+}
