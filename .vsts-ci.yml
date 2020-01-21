@@ -3,21 +3,33 @@ resources:
 
 jobs:
 - job: 
-  displayName: RT_Linux
+  displayName: Linux
   pool:
     vmImage: 'ubuntu-16.04'
   strategy:
     matrix:
-      Debug:
+      Clang-6 Debug:
+        CC: clang-6.0
+        CXX: clang++-6.0
+        CXXFLAGS: -stdlib=libstdc++
         BuildType: Debug
         Asan: Off
-      Release:
+      Clang-6 Release:
+        CC: clang-6.0
+        CXX: clang++-6.0
+        CXXFLAGS: -stdlib=libstdc++
         Asan: Off
         BuildType: Release
-      ASAN-Debug:
+      Clang-6 Debug (ASAN):
+        CC: clang-6.0
+        CXX: clang++-6.0
+        CXXFLAGS: -stdlib=libstdc++
         BuildType: Debug
         Asan: On
-      ASAN-Release:
+      Clang-6 Release (ASAN):
+        CC: clang-6.0
+        CXX: clang++-6.0
+        CXXFLAGS: -stdlib=libstdc++
         BuildType: Release
         Asan: On
   steps:
@@ -27,35 +39,41 @@ jobs:
   - script: |
       sudo add-apt-repository ppa:ubuntu-toolchain-r/test
       sudo apt-get update
-      sudo apt-get install -y ninja-build libc++-dev libc++abi-dev libc++abi1 libstdc++-7-dev llvm-6.0
+      sudo apt-get install -y ninja-build libstdc++-7-dev clang-6.0
 
-      sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-6.0 100
-      sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100
-      sudo update-alternatives --set cc /usr/bin/clang
-
-      sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-6.0 100
-      sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
-      sudo update-alternatives --set c++ /usr/bin/clang++
-
+      sudo pip install wheel OutputCheck
     displayName: 'Install Build Dependencies'
 
   - task: CMake@1
-    displayName: 'CMake ../src/rt -GNinja -DUSE_ASAN=$(Asan) -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS="-stdlib=libstdc++"'
+    displayName: 'CMake .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DRT_TESTS=On'
     inputs:
-      cmakeArgs: '../src/rt -GNinja -DUSE_ASAN=$(Asan) -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS="-stdlib=libstdc++"  -DVERONA_CI_BUILD=On'
+      cmakeArgs: |
+        .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DRT_TESTS=On
 
   - script: |
-      ninja
+      ninja -j4 install
+    workingDirectory: build
+    failOnStderr: true
+    displayName: 'Compile'
+
+  - script: |
       export ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer
       export ASAN_OPTIONS="alloc_dealloc_mismatch=0 symbolize=1"
       ctest -j 4 -E "([1-9][0-9]00|[4-9]00)" --timeout 400 --output-on-failure
-
-    workingDirectory: build
+    workingDirectory: build/src/rt
     failOnStderr: true
-    displayName: 'Compile & Test'
+    displayName: Runtime test suite
+
+  - script: |
+      export ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer
+      export ASAN_OPTIONS="alloc_dealloc_mismatch=0 symbolize=1"
+      ctest -j 4 --timeout 400 --output-on-failure
+    workingDirectory: build/testsuite
+    failOnStderr: true
+    displayName: Language test suite
 
 - job: 
-  displayName: RT_Windows
+  displayName: Windows
   pool:
     vmImage: 'vs2017-win2016'
   strategy:
@@ -69,20 +87,82 @@ jobs:
   - checkout: self
     submodules: recursive
 
+  - script:
+      pip install OutputCheck
+
   - task: CMake@1
-    displayName: 'CMake ../src/rt -G"Visual Studio 15 2017 Win64"'
+    displayName: 'CMake .. -G"Visual Studio 15 2017 Win64" -DVERONA_CI_BUILD=On -DRT_TESTS=On'
     inputs:
-      cmakeArgs: '../src/rt -G"Visual Studio 15 2017 Win64" -DVERONA_CI_BUILD=On'
+      cmakeArgs: '.. -G"Visual Studio 15 2017 Win64" -DVERONA_CI_BUILD=On -DRT_TESTS=On'
+
+  - script: |
+      dir /s /b
 
   - task: MSBuild@1
-    displayName: 'Build solution build/verona.sln'
+    displayName: 'Build solution build/verona-lang.sln'
     inputs:
-      solution: build/verona.sln
+      solution: build/INSTALL.vcxproj
       msbuildArguments: '/m /p:Configuration=$(BuildType)'
 
-  - script: 'ctest -j 4 -E "([1-9][0-9]00|[2-9]00|compile)" --timeout 400  --interactive-debug-mode 0 --output-on-failure'
+  - script: |
+      ctest -j 4 -E "([1-9][0-9]00|[4-9]00)" --timeout 400 --output-on-failure --interactive-debug-mode 0 -C $(BuildType)
+    workingDirectory: build/src/rt
+    failOnStderr: true
+    displayName: Runtime test suite
+
+  - script: |
+      ctest -j 4 --timeout 400 --output-on-failure --interactive-debug-mode 0 -C $(BuildType)
+    workingDirectory: build/testsuite
+    failOnStderr: true
+    displayName: Language test suite
+
+  - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
+    displayName: 'Component Detection'
+    inputs:
+      failOnAlert: true
+
+- job: 
+  displayName: macOS
+  pool:
+    vmImage: 'macOS-10.14'
+  strategy:
+    matrix:
+      Debug:
+        BuildType: Debug
+      Release:
+        BuildType: Release
+
+  steps:
+  - checkout: self
+    submodules: recursive
+
+  - script: |
+      sudo pip install wheel OutputCheck
+    displayName:  Dependencies
+
+  - task: CMake@1
+    displayName: 'CMake .. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On -DRT_TESTS=On'
+    inputs:
+      cmakeArgs: '.. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On -DRT_TESTS=On'
+
+  - script: |
+      make -j 4 install
+
     workingDirectory: build
-    displayName: 'Run Ctest'
+    failOnStderr: true
+    displayName: 'Compile'
+
+  - script: |
+      ctest -j 4 -E "([1-9][0-9]00|[4-9]00)" --timeout 400 --output-on-failure
+    workingDirectory: build/src/rt
+    failOnStderr: true
+    displayName: Runtime test suite
+
+  - script: |
+      ctest -j 4 --timeout 400 --output-on-failure
+    workingDirectory: build/testsuite
+    failOnStderr: true
+    displayName: Language test suite
 
 - job: 
   displayName: Format
@@ -117,115 +197,3 @@ jobs:
   - script: |
       grep -L "Copyright (c) Microsoft Corporation"  `git ls-files -- '*.cpp' '*.cc' '*.h' '*.hh' '*.verona'| xargs`
     displayName: 'Check Copyright'
-
-- job: 
-  displayName: Lang_MacOSX
-  pool:
-    vmImage: 'macOS-10.14'
-  strategy:
-    matrix:
-      Debug:
-        BuildType: Debug
-      Release:
-        BuildType: Release
-
-  steps:
-  - checkout: self
-    submodules: recursive
-
-  - script: |
-      sudo pip install wheel OutputCheck
-    displayName:  Dependencies
-
-  - task: CMake@1
-    displayName: 'CMake .. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On'
-    inputs:
-      cmakeArgs: '.. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On'
-
-  - script: |
-      make -j 4 install
-
-    workingDirectory: build
-    failOnStderr: true
-    displayName: 'Compile'
-
-  - script: |
-      ctest -j 4 --output-on-failure -C $(BuildType)
-
-    workingDirectory: build
-    failOnStderr: true
-    displayName: 'Run compiler test suite'
-
-- job: 
-  displayName: Lang_Linux
-  pool:
-    vmImage: 'ubuntu-16.04'
-
-  steps:
-  - checkout: self
-    submodules: recursive
-
-  - script: |
-      sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-
-      sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 15CF4D18AF4F7421
-      sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-6.0 main"
-
-      sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 379CE192D401AB61
-      sudo apt-get install -y ninja-build ghc libghc-parsec3-dev libstdc++-7-dev
-
-      sudo pip install wheel OutputCheck
-
-    displayName: 'Install Build Dependencies'
-
-  - task: CMake@1
-    displayName: 'CMake'
-    inputs:
-      cmakeArgs: '.. -GNinja -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_BUILD_TYPE="Debug" -DVERONA_CI_BUILD=On'
-
-  - script: 'ninja -v install'
-    displayName: 'Build'
-    workingDirectory: build
-    failOnStderr: true
-
-  - script: 'ctest --output-on-failure -j4'
-    displayName: 'Run compiler testsuite'
-    workingDirectory: build
-
-- job:
-  displayName: Lang_Windows
-  pool:
-    vmImage: 'windows-latest'
-  strategy:
-    matrix:
-      Debug:
-        BuildType: Debug
-      Release:
-        BuildType: Release
-
-  steps:
-  - checkout: self
-    submodules: recursive
-  
-  - script:
-      pip install OutputCheck
-
-  - task: CMake@1
-    displayName: 'CMake .. -G"Visual Studio 16 2019 " -A"x64"'
-    inputs:
-      cmakeArgs: '.. -G"Visual Studio 16 2019" -A"x64" -DVERONA_CI_BUILD=On'
-
-  - task: MSBuild@1
-    displayName: 'Build solution build/verona.sln'
-    inputs:
-      solution: build/INSTALL.vcxproj
-      msbuildArguments: '/m /p:Configuration=$(BuildType)'
-
-  - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
-    displayName: 'Component Detection'
-    inputs:
-      failOnAlert: true
-
-  - script:
-      ctest -j 4 --output-on-failure -C $(BuildType)
-    workingDirectory: build
