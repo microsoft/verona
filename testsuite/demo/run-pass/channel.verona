@@ -172,7 +172,9 @@ class Main {
     };
 
     Channel.write(channel, U64Obj.create(52));
-    // CHECK-L: Contents: 7
-    // CHECK-L: Contents: 52
+
+    // Check-dag as the output could appear in either order
+    // CHECK-DAG: Contents: 7
+    // CHECK-DAG: Contents: 52
   }
 }
