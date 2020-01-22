@@ -160,21 +160,19 @@ class Main {
     when(var received = Channel.read(channel)) {
       match (received.extract()) {
         var _: None => Builtin.print("Empty\n"),
-        var o: U64Obj => Builtin.print1("Contents: {:#}\n", o.v),
+        var o: U64Obj => Builtin.print1("Contents 1: {:#}\n", o.v),
       }
     };
 
     when(var received = Channel.read(channel)) {
       match (received.extract()) {
         var _: None => Builtin.print("Empty\n"),
-        var o: U64Obj => Builtin.print1("Contents: {:#}\n", o.v),
+        var o: U64Obj => Builtin.print1("Contents 2: {:#}\n", o.v),
       }
     };
 
     Channel.write(channel, U64Obj.create(52));
 
-    // Check-dag as the output could appear in either order
-    // CHECK-DAG: Contents: 7
-    // CHECK-DAG: Contents: 52
+    // CHECK-L: Contents 1: 7
   }
 }
