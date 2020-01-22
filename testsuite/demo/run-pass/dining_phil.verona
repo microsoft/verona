@@ -67,7 +67,7 @@ class Philosopher
     p.fork1 = f1;
     p.fork2 = f2;
     p.door = d;
-	  p.id = n;
+    p.id = n;
     p
   }
 
