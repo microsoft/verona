@@ -57,7 +57,7 @@ A cown, pronounced like "cone", encapsulates some set of resources (e.g. regions
 In Verona, we can wrap an object in a `cown`, and that will make it concurrent.
 ```
 // x is some isolated object graph
-var c = cown(x)
+var c = cown.create(x)
 // c is a cown that mediates access to x.
 // We have lost direct access to x here
 ```
