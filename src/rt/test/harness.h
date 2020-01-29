@@ -25,6 +25,8 @@ extern "C" void dump_flight_recorder()
 
 class SystematicTestHarness
 {
+  size_t seed = 0;
+
 public:
   opt::Opt opt;
 
@@ -80,7 +82,7 @@ public:
     // When not a CI build use the seed the user specified.
     size_t random = 0;
 #endif
-    for (size_t seed = seed_lower + random; seed < seed_upper + random; seed++)
+    for (seed = seed_lower + random; seed < seed_upper + random; seed++)
     {
       std::cout << "Seed: " << seed << std::endl;
 
@@ -111,5 +113,11 @@ public:
                 << duration_cast<seconds>((t1 - start)).count() << " seconds"
                 << std::endl;
     }
+  }
+
+  size_t current_seed()
+  {
+    assert(seed != 0);
+    return seed;
   }
 };

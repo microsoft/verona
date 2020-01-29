@@ -64,6 +64,15 @@ struct PRNG
     return rand();
 #endif
   }
+
+  void seed(size_t seed)
+  {
+#ifdef USE_SYSTEMATIC_TESTING
+    return rand.set_state(seed);
+#else
+    return rand.seed(seed);
+#endif
+  }
 };
 
 static constexpr uint64_t others_count = 3;
@@ -359,10 +368,15 @@ struct Ping : public VAction<Ping>
   }
 };
 
-void test_cown_gc(uint64_t forward_count, size_t ring_size, PRNG* rand)
+void test_cown_gc(
+  uint64_t forward_count,
+  size_t ring_size,
+  SystematicTestHarness* h,
+  PRNG* rand)
 {
   rcown_first = nullptr;
   auto a = new RCown(ring_size, forward_count);
+  rand->seed(h->current_seed());
   Cown::schedule<Ping>(a, a, rand);
 }
 
@@ -381,7 +395,7 @@ int main(int argc, char** argv)
   size_t ring = harness.opt.is<size_t>("--ring", 10);
   uint64_t forward = harness.opt.is<uint64_t>("--forward", 10);
 
-  harness.run(test_cown_gc, forward, ring, &rand);
+  harness.run(test_cown_gc, forward, ring, &harness, &rand);
   harness.run(test_cown_gc_before_sched);
 
   return 0;

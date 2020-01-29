@@ -54,6 +54,15 @@ struct PRNG
     return rand();
 #endif
   }
+
+  void seed(size_t seed)
+  {
+#ifdef USE_SYSTEMATIC_TESTING
+    return rand.set_state(seed);
+#else
+    return rand.seed(seed);
+#endif
+  }
 };
 
 struct CCown;
@@ -366,10 +375,15 @@ struct Ping : public VAction<Ping<region_type>>
 };
 
 template<RegionType region_type>
-void test_cown_gc(uint64_t forward_count, size_t ring_size, PRNG* rand)
+void test_cown_gc(
+  uint64_t forward_count,
+  size_t ring_size,
+  SystematicTestHarness* h,
+  PRNG* rand)
 {
   rcown_first = nullptr;
   auto a = new RCown<region_type>(ring_size, forward_count);
+  rand->seed(h->current_seed());
   Cown::schedule<Ping<region_type>>(a, a, rand);
 }
 
@@ -381,8 +395,8 @@ int main(int argc, char** argv)
   size_t ring = harness.opt.is<size_t>("--ring", 10);
   uint64_t forward = harness.opt.is<uint64_t>("--forward", 10);
 
-  harness.run(test_cown_gc<RegionType::Trace>, forward, ring, &rand);
-  harness.run(test_cown_gc<RegionType::Arena>, forward, ring, &rand);
+  harness.run(test_cown_gc<RegionType::Trace>, forward, ring, &harness, &rand);
+  harness.run(test_cown_gc<RegionType::Arena>, forward, ring, &harness, &rand);
 
   return 0;
 }
