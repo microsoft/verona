@@ -32,7 +32,6 @@ public:
   size_t cores;
   size_t seed_lower;
   size_t seed_upper;
-  size_t seed;
   high_resolution_clock::time_point start;
 
   SystematicTestHarness(int argc, char** argv) : opt(argc, argv)
@@ -81,7 +80,7 @@ public:
     // When not a CI build use the seed the user specified.
     size_t random = 0;
 #endif
-    for (seed = seed_lower + random; seed < seed_upper + random; seed++)
+    for (size_t seed = seed_lower + random; seed < seed_upper + random; seed++)
     {
       std::cout << "Seed: " << seed << std::endl;
 

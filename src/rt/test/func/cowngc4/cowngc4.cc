@@ -376,7 +376,7 @@ void test_cown_gc(uint64_t forward_count, size_t ring_size, PRNG* rand)
 int main(int argc, char** argv)
 {
   SystematicTestHarness harness(argc, argv);
-  PRNG rand(harness.seed);
+  PRNG rand(harness.seed_lower);
 
   size_t ring = harness.opt.is<size_t>("--ring", 10);
   uint64_t forward = harness.opt.is<uint64_t>("--forward", 10);
