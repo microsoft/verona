@@ -16,6 +16,7 @@
 #include "fs.h"
 #include "interpreter/interpreter.h"
 #include "interpreter/options.h"
+#include "test/setup.h"
 
 #include <CLI/CLI.hpp>
 #include <cstring>
@@ -206,6 +207,7 @@ namespace verona::compiler
   int main(int argc, const char** argv)
   {
     enable_colour_console();
+    setup();
 
     Options options;
 

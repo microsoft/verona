@@ -45,10 +45,10 @@ jobs:
     displayName: 'Install Build Dependencies'
 
   - task: CMake@1
-    displayName: 'CMake .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DRT_TESTS=On'
+    displayName: 'CMake .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=On'
     inputs:
       cmakeArgs: |
-        .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DRT_TESTS=On
+        .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=On
 
   - script: |
       ninja -j4 install
@@ -91,9 +91,9 @@ jobs:
       pip install OutputCheck
 
   - task: CMake@1
-    displayName: 'CMake .. -G"Visual Studio 15 2017 Win64" -DVERONA_CI_BUILD=On -DRT_TESTS=On'
+    displayName: 'CMake .. -G"Visual Studio 15 2017 Win64" -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=On'
     inputs:
-      cmakeArgs: '.. -G"Visual Studio 15 2017 Win64" -DVERONA_CI_BUILD=On -DRT_TESTS=On'
+      cmakeArgs: '.. -G"Visual Studio 15 2017 Win64" -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=On'
 
   - script: |
       dir /s /b
@@ -143,7 +143,7 @@ jobs:
   - task: CMake@1
     displayName: 'CMake .. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On -DRT_TESTS=On'
     inputs:
-      cmakeArgs: '.. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On -DRT_TESTS=On'
+      cmakeArgs: '.. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=On'
 
   - script: |
       make -j 4 install
