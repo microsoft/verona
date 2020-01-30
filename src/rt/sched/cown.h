@@ -658,7 +658,7 @@ namespace verona::rt
       // Free the destination array and the action
       alloc->dealloc(body.cowns, body.count * sizeof(Cown*));
       alloc->dealloc(body.action, body.action->size());
-      alloc->dealloc(m->get_body(), sizeof(MultiMessage::MultiMessageBody));
+      alloc->dealloc<sizeof(MultiMessage::MultiMessageBody)>(m->get_body());
 
       return true;
     }
@@ -922,7 +922,7 @@ namespace verona::rt
       }
 
       MultiMessage* last = queue.destroy();
-      alloc->dealloc(last, sizeof(MultiMessage));
+      alloc->dealloc<sizeof(MultiMessage)>(last);
     }
 
     static MultiMessage* stub_msg(Alloc* alloc)

@@ -193,7 +193,7 @@ namespace verona::rt
     inline void dealloc(Alloc* alloc)
     {
       external_map->dealloc(alloc);
-      alloc->dealloc(external_map, sizeof(ExternalMap));
+      alloc->dealloc<sizeof(ExternalMap)>(external_map);
     }
 
     void merge(Alloc* alloc, ExternalReferenceTable* that)
