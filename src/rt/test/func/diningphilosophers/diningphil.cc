@@ -160,7 +160,7 @@ void test_dining(
   }
 
   verona::Scramble scrambler;
-  xoroshiro::p128r32 rand(h->seed);
+  xoroshiro::p128r32 rand(h->current_seed());
 
   for (size_t i = 0; i < philosophers; i++)
   {

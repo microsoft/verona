@@ -25,6 +25,8 @@ extern "C" void dump_flight_recorder()
 
 class SystematicTestHarness
 {
+  size_t seed = 0;
+
 public:
   opt::Opt opt;
 
@@ -32,7 +34,6 @@ public:
   size_t cores;
   size_t seed_lower;
   size_t seed_upper;
-  size_t seed;
   high_resolution_clock::time_point start;
 
   SystematicTestHarness(int argc, char** argv) : opt(argc, argv)
@@ -112,5 +113,11 @@ public:
                 << duration_cast<seconds>((t1 - start)).count() << " seconds"
                 << std::endl;
     }
+  }
+
+  size_t current_seed()
+  {
+    assert(seed != 0);
+    return seed;
   }
 };
