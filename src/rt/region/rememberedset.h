@@ -79,7 +79,7 @@ namespace verona::rt
     inline void dealloc(Alloc* alloc)
     {
       hash_set->dealloc<false>(alloc);
-      alloc->dealloc(hash_set, sizeof(HashSet));
+      alloc->dealloc<sizeof(HashSet)>(hash_set);
     }
 
     void merge(Alloc* alloc, RememberedSet* that)
