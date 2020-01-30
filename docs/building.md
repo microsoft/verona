@@ -125,7 +125,7 @@ to provide the other configurations.
 Note: Sometimes `cmake` detects `gcc` instead of `clang`.
 To override this, run `cmake` with environment variables, for example:
 ```
-CC=clang CXX=clang++ cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug
+cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_CC_COMPILER=/usr/bin/clang
 ```
 This may require you to remove your CMakeCache.txt file from the build
 directory.
