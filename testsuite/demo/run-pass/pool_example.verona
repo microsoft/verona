@@ -1,0 +1,70 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+/*****************************************************************************
+ * This file implements an example of a Pool of U64Objs.
+ *
+ * The Pool has 4 U64Objs and different size requests are made.
+ *
+ *****************************************************************************/
+use "library/pool.verona"
+
+class Main {
+  print_resources(rs: Queue[Resource[U64Obj]] & iso) {
+    match ((mut-view rs).remove()) {
+      var _: None => {}
+      var r: Resource[U64Obj] => {
+        var o = (mut-view r).use();
+        Builtin.print1("Got: {:#}\n", mut-view o);
+        Main.print_resources(rs);
+      }
+    };
+  }
+
+  main() {
+    // Create a Pool of U64Objs
+    var p = Pool.create();
+    Pool.add(p, Cell.create(U64Obj.create(1)));
+    Pool.add(p, Cell.create(U64Obj.create(2)));
+    Pool.add(p, Cell.create(U64Obj.create(3)));
+    Pool.add(p, Cell.create(U64Obj.create(4)));
+
+    // Issue a varying number of requests and print the contents
+    when (var group = Pool.request(p, 2)) {
+      Builtin.print("-----------------------------------\n");
+      Builtin.print1("Got group of size: {:#}\n", (mut-view group).size());
+      Main.print_resources((mut-view group).extract());
+    };
+
+    when (var group = Pool.request(p, 1)) {
+      Builtin.print("-----------------------------------\n");
+      Builtin.print1("Got group of size: {:#}\n", (mut-view group).size());
+      Main.print_resources((mut-view group).extract());
+    };
+
+    when (var group = Pool.request(p, 2)) {
+      Builtin.print("-----------------------------------\n");
+      Builtin.print1("Got group of size: {:#}\n", (mut-view group).size());
+      Main.print_resources((mut-view group).extract());
+    };
+
+    when (var group = Pool.request(p, 3)) {
+      Builtin.print("-----------------------------------\n");
+      Builtin.print1("Got group of size: {:#}\n", (mut-view group).size());
+      Main.print_resources((mut-view group).extract());
+    };
+
+    when (var group = Pool.request(p, 3)) {
+      Builtin.print("-----------------------------------\n");
+      Builtin.print1("Got group of size: {:#}\n", (mut-view group).size());
+      Main.print_resources((mut-view group).extract());
+    };
+
+    // For lack of a better check
+    // CHECK-L: Got group of size: 3
+
+    // FIXME: Requesting too many resources will currently cause
+    // an error with snmalloc as a Promise is unfulfilled on exit.
+  }
+}
+

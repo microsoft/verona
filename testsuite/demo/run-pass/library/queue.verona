@@ -2,11 +2,11 @@
 // Licensed under the MIT License.
 
 /**
- *  This file implements a simple queue.  The queue always 
+ *  This file implements a simple queue.  The queue always
  *  contains at least one node.  The last node in the queue
  *  does not contain a Value. This removes a branch from the
  *  fast path of Addition.
- * 
+ *
  *  The queue is stored in a single region, but the Values it
  *  contains are in sub-regions.
  **/
@@ -59,10 +59,10 @@ class Queue[Value]
   {
     // Allocate the queue in a new region
     var q = new Queue;
-    
+
     // Fake up singleton for None.
     q.none = None.create();
-    
+
     // Set id and initialise statistics
     q.id = i;
     q.length = 0;
@@ -77,7 +77,7 @@ class Queue[Value]
     // Link stub node into queue.
     q.hd = n;
     q.tl = n;
-    
+
     // Return queue
     q
   }
@@ -99,6 +99,18 @@ class Queue[Value]
     self.length = self.length + 1;
   }
 
+  add_front(self: mut, v: iso & Value)
+  {
+    // Create new head node
+    var n_head = new Node in self;
+    n_head.next = self.hd;
+    n_head.value = v;
+    self.hd = n_head;
+
+    // Update statistics
+    self.length = self.length + 1;
+  }
+
   remove(self: mut): (iso & Value) | (None & imm)
   {
     var h = self.hd;
@@ -106,15 +118,15 @@ class Queue[Value]
     // Data structure level GC heuristic:
     var boundary = self.length + self.length + 4;
     var value = self.freed > boundary;
-    
+
     // Decide if we should collect some old nodes.
     if (value)
     {
       Builtin.print1("Should reclaim some memory! Queue {}\n", self.id);
-      
+
       // This needs to ensure other references are removed in the type system.
       Builtin.trace(self);
-      
+
       self.freed = 0;
     };
 

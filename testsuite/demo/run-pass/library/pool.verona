@@ -1,0 +1,235 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+/*****************************************************************************
+ * This file implements a Pool of resources.
+ *
+ * The Pool captures a collection of resources of the same type. Requests
+ * can be made to the Pool to get n resources. Requesting Resources returns
+ * a Promise that will be fulfilled by the Pool when enough Resources are
+ * available. The Requests are serviced in the order they are received.
+ *
+ * One can access the Resources but cannot extract the contents away.
+ * The Resources are automatically returned to the Pool when they
+ * are no longer accessible.
+ *
+ *****************************************************************************/
+use "queue.verona"
+
+/*
+ * Data structure for tracking a request holds an internal promise to be
+ * fulfilled and the number of resources requested (_n).
+ */
+class Request[T] {
+  _promise: Promise[Group[T]] & iso;
+  _n: U64 & imm;
+
+  create(n: U64 & imm): Request[T] & iso {
+    var result = new Request;
+    result._promise = Promise.create();
+    result._n = n;
+    result
+  }
+
+  /*
+   * Get a cown to wait on, this will be available when the request
+   * is fulfilled.
+   */
+  await(self: mut): cown[Group[T]] & imm {
+    (mut-view (self._promise)).wait_handle()
+  }
+
+  /*
+   * Fulfill this request by providing a Group[T], this fulfills
+   * the waiting promise.
+   */
+  fulfill(self: iso, g: Group[T] & iso) {
+    (self._promise).fulfill(g);
+  }
+}
+
+/*
+ * A wrapper around some data, this allows disambiguating between None
+ * and Cell[T] in other classes.
+ */
+class Cell[T] {
+  _data: T & iso;
+
+  create(data: T & iso): Cell[T] & iso {
+    var result = new Cell;
+    result._data = data;
+    result
+  }
+
+  /*
+   * Return a view on the Cells data but do not extract it.
+   */
+  read(self: mut): T & iso where return in self {
+    self._data
+  }
+}
+
+/*
+ * Resource wraps a single Cell of a Group, the Cell can be
+ * read but not extracted.
+ * When the Resource goes out of scope it will be destroyed at its
+ * data returned to the Pool from where it came.
+ */
+class Resource[T] {
+  _cell: (Cell[T] & iso) | (None & imm);
+  _origin: cown[Pool[T]] & imm;
+
+  create(origin: cown[Pool[T]] & imm, cell: Cell[T] & iso): Resource[T] & iso {
+    var result = new Resource;
+    result._cell = cell;
+    result._origin = origin;
+    result
+  }
+
+  /*
+   * Return a view on the Cells contents.
+   */
+  use(self: mut): T & iso where return in self {
+    match (self._cell) {
+      // FIXME: The None case should never happen as the cell is only
+      // extracted in the finaliser, an error should really occur
+      // here if it does.
+      // var n: None => {},
+      var c: Cell[T] => (mut-view c).read(),
+    }
+  }
+
+  /*
+   * Finaliser returns the Cell in the Resource to the
+   * original Pool
+   */
+  final(self: mut) {
+    match (self._cell = Builtin.freeze(new None)) {
+      // FIXME: The only time the Cell is extracted is in the finaliser
+      // case, if the contents is None then an error should occur.
+      // var _: None => {}
+      var c: Cell[T] => Pool.add(self._origin, c),
+    }
+  }
+}
+
+/*
+ * A Group is a wrapper around a Queue[Resource[T]], this exists
+ * mostly to provide a nicer interface/integration with the Pools
+ * and Resources.
+ */
+class Group[T] {
+  _resources: Queue[Resource[T]] & iso;
+
+  create(resources: Queue[Resource[T]] & iso): Group[T] & iso {
+    var result = new Group;
+    result._resources = resources;
+    result
+  }
+
+  size(self: mut): U64 & imm {
+    (self._resources).length
+  }
+
+  /*
+   * Get the list of resources in this Group
+   */
+  extract(self: mut): Queue[Resource[T]] & iso {
+    // FIXME: Perhaps this should be swapped with None & imm and
+    // error if one tries to extract the Queue twice
+    self._resources = Queue.create(0)
+  }
+}
+
+/*
+ * A Pool captures a collection of items or Resources of the same type.
+ * Requests can be made to Pool to get n of the Resources.
+ * Requests are serviced in the order that they are received.
+ */
+class Pool[T] {
+  _resources: Queue[Cell[T]] & iso;
+  _requests: Queue[Request[T]] & iso;
+
+  create(): cown[Pool[T]] & imm {
+    var result = new Pool;
+    result._resources = Queue.create(0);
+    result._requests = Queue.create(0);
+    cown.create(result)
+  }
+
+  add(pool: cown[Pool[T]] & imm, resource: Cell[T] & iso) {
+    when (var p = pool) {
+      (mut-view (p._resources)).add(resource);
+      Pool._check_requests(pool);
+    }
+  }
+
+  /*
+   * Give the compiler some help so that it doesn't trip up inferring
+   * the type of the loop when creating the sublist.
+   */
+  _give_resource(pool: cown[Pool[T]] & imm,
+                 resource: (Cell[T] & iso) | (None & imm),
+                 out: Queue[Resource[T]] & mut) {
+    match resource {
+      // The None case should never happen as we already
+      // checked that there are enough resources in the Pool.
+      var _: None => {}
+      var c: Cell[T] => out.add(Resource.create(pool, c)),
+    };
+  }
+
+  /*
+   * Check the first request in the queue, if it can be satisified then
+   * fulfill the requests and schedule a behaviour to check the next
+   * waiting request.
+   */
+  _check_requests(pool: cown[Pool[T]] & imm) {
+    when (var p = pool) {
+      // Get the first waiting request
+      match ((mut-view (p._requests)).remove()) {
+        var _: None => {}
+        var r: Request[T] => {
+
+          var resources = mut-view (p._resources);
+          if (r._n <= (resources.length)) {
+            // There are enough resources,
+            // take n out of the pool and fulfill the promise
+            // with a new Group
+            var sub = Queue.create(0);
+            var n = r._n;
+            var mutsub = mut-view sub;
+            while (n) {
+              Pool._give_resource(pool, resources.remove(), mutsub);
+              n = n - 1;
+            };
+            r.fulfill(Group.create(sub));
+
+            // Check the next request
+            Pool._check_requests(pool);
+
+          } else {
+            // otherwise, push back on to the head of the queue
+            (mut-view (p._requests)).add_front(r);
+          }
+        }
+      }
+    }
+  }
+
+  /*
+   * Request n resources from the Pool,
+   * returning a promise of a Group[T] when resources are available.
+   */
+  request(pool: cown[Pool[T]] & imm, n: U64 & imm): cown[Group[T]] & imm {
+    // create a request and schedule a behaviour to add it to the pool,
+    // immediately return a handle for the request.
+    var request = Request.create(n);
+    var handle = (mut-view request).await();
+    when (var p = pool) {
+      (mut-view (p._requests)).add(request);
+      Pool._check_requests(pool);
+    };
+    handle
+  }
+}
