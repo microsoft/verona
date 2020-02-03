@@ -13,6 +13,8 @@
 #include "ds/helpers.h"
 #include "interpreter/bytecode.h"
 
+#include <array>
+
 namespace verona::compiler
 {
   using bytecode::Opcode;
