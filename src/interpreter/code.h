@@ -23,7 +23,8 @@ namespace verona::interpreter
   /**
    * Randomly generated verona bytes :)
    */
-  constexpr static const std::array<uint8_t, 4> VERONA_BYTES = {0xB0, 0x45, 0x46, 0xBE};
+  constexpr static const std::array<uint8_t, 4> VERONA_BYTES = {
+    0xB0, 0x45, 0x46, 0xBE};
 
   /**
    * Programs have a few special descriptors and selectors which the VM needs to
@@ -144,22 +145,30 @@ namespace verona::interpreter
       return header;
     }
 
+    void parse_verona_nums(size_t& ip)
+    {
+      for (unsigned char verona_value : VERONA_BYTES)
+      {
+        if (u8(ip) != verona_value)
+        {
+          throw std::logic_error("Not a verona file");
+        }
+      }
+    }
+
+    void parse_versions(size_t& ip)
+    {
+      special_descriptors_.major_version = u32(ip);
+      special_descriptors_.minor_version = u32(ip);
+      special_descriptors_.build_version = u32(ip);
+    }
+
     Code(std::vector<uint8_t> code) : data_(std::move(code))
     {
       size_t ip = 0;
 
-      for (size_t i = 0; i < VERONA_BYTES.size(); i++)
-      {
-          auto value = u8(ip);
-          auto verona_value = VERONA_BYTES[i];
-          if (value != verona_value) {
-              throw std::logic_error("Not a verona file");
-          }
-      }
-
-      special_descriptors_.major_version = u32(ip);
-      special_descriptors_.minor_version = u32(ip);
-      special_descriptors_.build_version = u32(ip);
+      parse_verona_nums(ip);
+      parse_versions(ip);
 
       uint32_t descriptors_count = u32(ip);
       for (uint32_t i = 0; i < descriptors_count; i++)
