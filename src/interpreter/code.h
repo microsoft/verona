@@ -5,7 +5,6 @@
 #include "interpreter/bytecode.h"
 #include "interpreter/object.h"
 
-#include <array>
 #include <fmt/ostream.h>
 #include <optional>
 #include <verona.h>
@@ -136,18 +135,11 @@ namespace verona::interpreter
       return header;
     }
 
-    void parse_verona_nums(size_t& ip) {
-        uint32_t nums = u32(ip);
-        if (nums != bytecode::VERONA_NUMBER) {
-            throw std::logic_error{ "Invalid magic number, not recognized" };
-        }
-    }
-
     Code(std::vector<uint8_t> code) : data_(std::move(code))
     {
       size_t ip = 0;
 
-      parse_verona_nums(ip);
+      check_verona_nums(ip);
 
       uint32_t descriptors_count = u32(ip);
       for (uint32_t i = 0; i < descriptors_count; i++)
@@ -201,6 +193,15 @@ namespace verona::interpreter
     std::vector<std::unique_ptr<const VMDescriptor>> descriptors_;
 
     SpecialDescriptors special_descriptors_;
+
+    void check_verona_nums(size_t& ip)
+    {
+      uint32_t nums = u32(ip);
+      if (nums != bytecode::MAGIC_NUMBER)
+      {
+        throw std::logic_error{"Invalid magic number, not recognized"};
+      }
+    }
 
     std::unique_ptr<VMDescriptor> load_descriptor(size_t& ip)
     {
