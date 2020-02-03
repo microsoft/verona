@@ -11,11 +11,19 @@
 
 namespace verona::interpreter
 {
+  using bytecode::BuildVersion;
   using bytecode::CodePtr;
   using bytecode::DescriptorIdx;
   using bytecode::FunctionHeader;
+  using bytecode::MajorVersion;
+  using bytecode::MinorVersion;
   using bytecode::Opcode;
   using bytecode::SelectorIdx;
+
+  /**
+   * Randomly generated verona bytes :)
+   */
+  constexpr static const std::array<uint8_t, 4> VERONA_BYTES = {0xB0, 0x45, 0x46, 0xBE};
 
   /**
    * Programs have a few special descriptors and selectors which the VM needs to
@@ -27,6 +35,9 @@ namespace verona::interpreter
     const VMDescriptor* main;
     SelectorIdx main_selector;
     const VMDescriptor* u64;
+    MajorVersion major_version;
+    MinorVersion minor_version;
+    BuildVersion build_version;
   };
 
   class Code
@@ -136,6 +147,19 @@ namespace verona::interpreter
     Code(std::vector<uint8_t> code) : data_(std::move(code))
     {
       size_t ip = 0;
+
+      for (size_t i = 0; i < VERONA_BYTES.size(); i++)
+      {
+          auto value = u8(ip);
+          auto verona_value = VERONA_BYTES[i];
+          if (value != verona_value) {
+              throw std::logic_error("Not a verona file");
+          }
+      }
+
+      special_descriptors_.major_version = u32(ip);
+      special_descriptors_.minor_version = u32(ip);
+      special_descriptors_.build_version = u32(ip);
 
       uint32_t descriptors_count = u32(ip);
       for (uint32_t i = 0; i < descriptors_count; i++)
