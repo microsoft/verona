@@ -18,6 +18,15 @@ namespace verona::compiler
   using bytecode::Opcode;
   using bytecode::SelectorIdx;
 
+  /**
+   * Randomly generated verona bytes :)
+   */
+  constexpr static const char* verona_bytes = "\xB0\x45\x46\xBE";
+
+  constexpr static uint32_t MAJOR_VERSION = 0;
+  constexpr static uint32_t MINOR_VERSION = 0;
+  constexpr static uint32_t BUILD_VERSION = 0;
+
   bool is_valid_main_signature(Context& context, const FnSignature& signature)
   {
     return signature.generics->types.empty() && signature.receiver == nullptr &&
@@ -92,6 +101,32 @@ namespace verona::compiler
     return std::make_pair(class_item, method_item);
   }
 
+  void write_magic_bytes(std::vector<uint8_t>& vector)
+  {
+    for (uint8_t i = 0; i < 4; i++)
+    {
+      vector.push_back(verona_bytes[i]);
+    }
+
+    auto* major_version = reinterpret_cast<uint8_t*>(MAJOR_VERSION);
+    auto* minor_version = reinterpret_cast<uint8_t*>(MINOR_VERSION);
+    auto* build_version = reinterpret_cast<uint8_t*>(BUILD_VERSION);
+
+    for (size_t i = 0; i < 4; i++)
+    {
+        vector.push_back(major_version[i]);
+    }
+
+    for (size_t i = 0; i < 4; i++)
+    {
+        vector.push_back(minor_version[i]);
+    }
+    for (size_t i = 0; i < 4; i++)
+    {
+        vector.push_back(build_version[i]);
+    }
+  }
+
   std::vector<uint8_t> codegen(
     Context& context, const Program& program, const AnalysisResults& analysis)
   {
@@ -100,6 +135,11 @@ namespace verona::compiler
       return {};
 
     std::vector<uint8_t> code;
+
+    // TODO: write bytes
+
+    write_magic_bytes(code);
+
     Generator gen(code);
 
     Reachability reachability = compute_reachability(
