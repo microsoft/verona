@@ -5,27 +5,18 @@
 #include "interpreter/bytecode.h"
 #include "interpreter/object.h"
 
+#include <array>
 #include <fmt/ostream.h>
 #include <optional>
-#include <array>
 #include <verona.h>
 
 namespace verona::interpreter
 {
-  using bytecode::BuildVersion;
   using bytecode::CodePtr;
   using bytecode::DescriptorIdx;
   using bytecode::FunctionHeader;
-  using bytecode::MajorVersion;
-  using bytecode::MinorVersion;
   using bytecode::Opcode;
   using bytecode::SelectorIdx;
-
-  /**
-   * Randomly generated verona bytes :)
-   */
-  constexpr static const std::array<uint8_t, 4> VERONA_BYTES = {
-    0xB0, 0x45, 0x46, 0xBE};
 
   /**
    * Programs have a few special descriptors and selectors which the VM needs to
@@ -37,9 +28,6 @@ namespace verona::interpreter
     const VMDescriptor* main;
     SelectorIdx main_selector;
     const VMDescriptor* u64;
-    MajorVersion major_version;
-    MinorVersion minor_version;
-    BuildVersion build_version;
   };
 
   class Code
@@ -99,10 +87,12 @@ namespace verona::interpreter
     {
       return load<int16_t>(ip);
     }
-    uint16_t u32(size_t& ip) const
+
+    uint32_t u32(size_t& ip) const
     {
       return load<uint32_t>(ip);
     }
+
     uint64_t u64(size_t& ip) const
     {
       return load<uint64_t>(ip);
@@ -146,22 +136,11 @@ namespace verona::interpreter
       return header;
     }
 
-    void parse_verona_nums(size_t& ip)
-    {
-      for (unsigned char verona_value : VERONA_BYTES)
-      {
-        if (u8(ip) != verona_value)
-        {
-          throw std::logic_error("Not a verona file");
+    void parse_verona_nums(size_t& ip) {
+        uint32_t nums = u32(ip);
+        if (nums != bytecode::VERONA_NUMBER) {
+            throw std::logic_error{ "Invalid magic number, not recognized" };
         }
-      }
-    }
-
-    void parse_versions(size_t& ip)
-    {
-      special_descriptors_.major_version = u32(ip);
-      special_descriptors_.minor_version = u32(ip);
-      special_descriptors_.build_version = u32(ip);
     }
 
     Code(std::vector<uint8_t> code) : data_(std::move(code))
@@ -169,7 +148,6 @@ namespace verona::interpreter
       size_t ip = 0;
 
       parse_verona_nums(ip);
-      parse_versions(ip);
 
       uint32_t descriptors_count = u32(ip);
       for (uint32_t i = 0; i < descriptors_count; i++)
