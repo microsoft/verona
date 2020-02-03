@@ -1,0 +1,20 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+/*
+ * This test checks https://github.com/microsoft/verona/issues/67
+ */
+
+class B {
+  foo(self: mut) {}
+}
+
+class Main {
+  main() {
+    var b = new B;
+    var mutb = mut-view b;
+    while (1) {
+      mutb.foo();
+    };
+  }
+}
