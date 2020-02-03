@@ -13,8 +13,6 @@
 #include "ds/helpers.h"
 #include "interpreter/bytecode.h"
 
-#include <array>
-
 namespace verona::compiler
 {
   using bytecode::Opcode;
@@ -95,21 +93,12 @@ namespace verona::compiler
   }
 
   /**
-   * Writes the verona bytes, literally writes VERONA_NUMBEr
-   * @param code Generator to gen from
-   */
-  void write_verona_bytes(Generator& code)
-  {
-    code.u32(bytecode::VERONA_NUMBER);
-  }
-
-  /**
-   * Writes the verona integers to the bytecode
+   * Writes the magic numbers to the bytecode
    * @param code Generator to which the bytes should be emitted
    */
-  void write_magic_bytes(Generator& code)
+  void write_magic_number(Generator& code)
   {
-    write_verona_bytes(code);
+      code.u32(bytecode::MAGIC_NUMBER);
   }
 
   std::vector<uint8_t> codegen(
@@ -121,9 +110,8 @@ namespace verona::compiler
 
     std::vector<uint8_t> code;
 
-
     Generator gen(code);
-    write_magic_bytes(gen);
+      write_magic_number(gen);
 
     Reachability reachability = compute_reachability(
       context, program, gen, entry->first, entry->second, analysis);

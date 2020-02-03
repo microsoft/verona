@@ -13,7 +13,7 @@
  * Bytecode has the following layout:
  *
  * Program header:
- * - 32-bit verona magic number, 4085854915
+ * - 32-bit verona magic number, equal to the MAGIC_NUMBER constant
  * - 32-bit number of descriptors, followed by that many descriptors (see below)
  * - 32-bit descriptor index of Main class
  * - 32-bit selector index of main method
@@ -132,7 +132,7 @@ namespace verona::bytecode
     uint32_t size;
   };
 
-  constexpr static uint32_t VERONA_NUMBER = 4085854915;
+  constexpr static uint32_t MAGIC_NUMBER = 0xF38932C3;
 
   /**
    * Type-safe wrapper for register indices, helps avoid implicit conversion
