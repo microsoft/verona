@@ -7,6 +7,7 @@
 
 #include <fmt/ostream.h>
 #include <optional>
+#include <array>
 #include <verona.h>
 
 namespace verona::interpreter
