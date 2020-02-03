@@ -115,6 +115,9 @@
  */
 namespace verona::bytecode
 {
+  typedef uint32_t MajorVersion;
+  typedef uint32_t MinorVersion;
+  typedef uint32_t BuildVersion;
   typedef uint32_t DescriptorIdx;
   typedef uint32_t SelectorIdx;
   typedef uint32_t CodePtr;

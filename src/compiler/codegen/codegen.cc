@@ -21,10 +21,21 @@ namespace verona::compiler
   /**
    * Randomly generated verona bytes :)
    */
-  constexpr static const char* verona_bytes = "\xB0\x45\x46\xBE";
+  constexpr static const std::array<uint8_t, 4> VERONA_BYTES = {0xB0, 0x45, 0x46, 0xBE};
 
+  /**
+   * Major verona version
+   */
   constexpr static uint32_t MAJOR_VERSION = 0;
+
+  /**
+   * Minor verona version
+   */
   constexpr static uint32_t MINOR_VERSION = 0;
+
+  /**
+   * Build verona version
+   */
   constexpr static uint32_t BUILD_VERSION = 0;
 
   bool is_valid_main_signature(Context& context, const FnSignature& signature)
@@ -101,30 +112,69 @@ namespace verona::compiler
     return std::make_pair(class_item, method_item);
   }
 
-  void write_magic_bytes(std::vector<uint8_t>& vector)
+  /**
+   * Writes the verona bytes, literally writes VERONA_BYTES
+   * @param vector Vector of bytes to write the data to
+   */
+  void write_verona_bytes(std::vector<uint8_t>& vector)
   {
     for (uint8_t i = 0; i < 4; i++)
     {
-      vector.push_back(verona_bytes[i]);
+      vector.push_back(VERONA_BYTES[i]);
     }
+  }
 
-    auto* major_version = reinterpret_cast<uint8_t*>(MAJOR_VERSION);
-    auto* minor_version = reinterpret_cast<uint8_t*>(MINOR_VERSION);
-    auto* build_version = reinterpret_cast<uint8_t*>(BUILD_VERSION);
+  /**
+   * Writes major version to bytecode
+   * @param vector Vector where bytecode should go
+   */
+  void write_major_version(std::vector<uint8_t>& vector)
+  {
+    auto* major_version = reinterpret_cast<const uint8_t*>(&MAJOR_VERSION);
 
     for (size_t i = 0; i < 4; i++)
     {
-        vector.push_back(major_version[i]);
+      vector.push_back(major_version[i]);
     }
+  }
+
+  /**
+   * Writes the minor version to the bytecode
+   * @param vector Vector where the bytecode should go
+   */
+  void write_minor_version(std::vector<uint8_t>& vector)
+  {
+    auto* minor_version = reinterpret_cast<const uint8_t*>(&MINOR_VERSION);
+    for (size_t i = 0; i < 4; i++)
+    {
+      vector.push_back(minor_version[i]);
+    }
+  }
+
+  /**
+   * Writes the build version to the bytecode
+   * @param vector Vector where the bytecode should go
+   */
+  void write_build_version(std::vector<uint8_t>& vector)
+  {
+    auto* build_version = reinterpret_cast<const uint8_t*>(&BUILD_VERSION);
 
     for (size_t i = 0; i < 4; i++)
     {
-        vector.push_back(minor_version[i]);
+      vector.push_back(build_version[i]);
     }
-    for (size_t i = 0; i < 4; i++)
-    {
-        vector.push_back(build_version[i]);
-    }
+  }
+
+  /**
+   * Writes the verona integers, major, minor and build versions to the bytecode
+   * @param vector Vector where the bytecode should go
+   */
+  void write_magic_bytes(std::vector<uint8_t>& vector)
+  {
+    write_verona_bytes(vector);
+    write_major_version(vector);
+    write_minor_version(vector);
+    write_build_version(vector);
   }
 
   std::vector<uint8_t> codegen(
@@ -135,8 +185,6 @@ namespace verona::compiler
       return {};
 
     std::vector<uint8_t> code;
-
-    // TODO: write bytes
 
     write_magic_bytes(code);
 
