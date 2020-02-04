@@ -57,6 +57,8 @@ function(CheckStatus)
 
   if(NOT ${code} EQUAL ${CHECK_STATUS_EXPECTED_STATUS})
     message(FATAL_ERROR " \"${cmd_str}\" exited with error code ${code}, expected ${CHECK_STATUS_EXPECTED_STATUS}")
+  else()
+    message(STATUS "Executing \"${cmd_str}\" completed!")
   endif()
 endfunction()
 
