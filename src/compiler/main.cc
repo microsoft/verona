@@ -124,7 +124,8 @@ namespace verona::compiler
         auto directory = input_file.remove_filename();
         if (directory.empty())
           directory = ".";
-        auto new_input_file = directory.string() + "/" + static_cast<std::string>(*include);
+        auto new_input_file =
+          directory.string() + "/" + static_cast<std::string>(*include);
         work_list.push(new_input_file);
       }
 
