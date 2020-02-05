@@ -1,10 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+#include "ds/console.h"
 #include "interpreter/code.h"
 #include "interpreter/interpreter.h"
 #include "interpreter/options.h"
 #include "test/setup.h"
-#include "ds/console.h"
 
 #include <CLI/CLI.hpp>
 #include <verona.h>
