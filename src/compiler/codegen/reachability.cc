@@ -399,6 +399,9 @@ namespace verona::compiler
         visit_types(ty->elements);
       }
 
+      void visit_variable_renaming_type(const VariableRenamingTypePtr& ty) final
+      {}
+
       void visit_capability(const CapabilityTypePtr& ty) final {}
 
       ReachabilityVisitor* parent;

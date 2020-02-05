@@ -1,8 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+#include "ds/console.h"
 #include "interpreter/code.h"
 #include "interpreter/interpreter.h"
 #include "interpreter/options.h"
+#include "test/setup.h"
 
 #include <CLI/CLI.hpp>
 #include <verona.h>
@@ -19,6 +21,9 @@ struct Options : public verona::interpreter::InterpreterOptions
 
 int main(int argc, const char** argv)
 {
+  enable_colour_console();
+  setup();
+
   Options options;
 
   CLI::App app{"Verona Bytecode Interpreter"};

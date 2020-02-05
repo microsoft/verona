@@ -16,6 +16,7 @@
 #include "fs.h"
 #include "interpreter/interpreter.h"
 #include "interpreter/options.h"
+#include "test/setup.h"
 
 #include <CLI/CLI.hpp>
 #include <cstring>
@@ -123,7 +124,8 @@ namespace verona::compiler
         auto directory = input_file.remove_filename();
         if (directory.empty())
           directory = ".";
-        auto new_input_file = directory.string() + "/" + (std::string)*include;
+        auto new_input_file =
+          directory.string() + "/" + static_cast<std::string>(*include);
         work_list.push(new_input_file);
       }
 
@@ -206,6 +208,7 @@ namespace verona::compiler
   int main(int argc, const char** argv)
   {
     enable_colour_console();
+    setup();
 
     Options options;
 

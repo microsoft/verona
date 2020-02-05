@@ -86,6 +86,10 @@ set_tests_properties(
   # The typechecker takes way too much time to solve this test
   ir/compile-pass/loop-complexity
 
+  # This test randomly times out (microsoft/verona#77).
+  # Disable it until we find out why.
+  features/run-pass/when
+
   PROPERTIES DISABLED true)
 
 add_custom_target(update-dump
