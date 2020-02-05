@@ -162,16 +162,14 @@ namespace verona::rt
     {
       switch (o->get_class())
       {
-        case Object::RC:
-        {
+        case Object::RC: {
           assert(o->debug_is_immutable());
           Systematic::cout() << "RS releasing: immutable: " << o << std::endl;
           Immutable::release(alloc, o);
           break;
         }
 
-        case Object::COWN:
-        {
+        case Object::COWN: {
           Systematic::cout() << "RS releasing: cown: " << o << std::endl;
           cown::release(alloc, (Cown*)o);
           break;

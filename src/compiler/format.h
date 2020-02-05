@@ -337,28 +337,27 @@ namespace verona::compiler
      * arguments.
      */
     template<typename T>
-    explicit prefixed(std::string, T &&)->prefixed<T>;
+    explicit prefixed(std::string, T &&) -> prefixed<T>;
 
     template<typename T>
-    explicit surrounded(std::string, std::string, T &&)->surrounded<T>;
+    explicit surrounded(std::string, std::string, T &&) -> surrounded<T>;
 
     template<typename T>
-    explicit optional(T &&)->optional<T>;
+    explicit optional(T &&) -> optional<T>;
 
     template<typename T>
-    explicit defaulted(T&&, std::string)->defaulted<T>;
+    explicit defaulted(T&&, std::string) -> defaulted<T>;
 
     template<typename T>
-    explicit separated_by(T&&, std::string)->separated_by<T>;
+    explicit separated_by(T&&, std::string) -> separated_by<T>;
 
     template<typename T, typename Fn>
-    explicit separated_by(T&&, std::string, Fn &&)
-      ->separated_by<
-        T,
-        std::invoke_result_t<Fn, const internal::element_type<T>&>>;
+    explicit separated_by(T&&, std::string, Fn &&) -> separated_by<
+      T,
+      std::invoke_result_t<Fn, const internal::element_type<T>&>>;
 
     template<typename T>
-    explicit lines(T &&)->lines<T>;
+    explicit lines(T &&) -> lines<T>;
 
     /**
      * Print an object to a string.

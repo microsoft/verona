@@ -49,8 +49,7 @@ namespace verona::rt
         switch (o->get_class())
         {
           case Object::RC:
-          case Object::SCC_PTR:
-          {
+          case Object::SCC_PTR: {
             Systematic::cout()
               << "Immutable Scan: reaches immutable: " << o << std::endl;
             if (o->in_epoch(epoch))
@@ -63,8 +62,7 @@ namespace verona::rt
             break;
           }
 
-          case Object::COWN:
-          {
+          case Object::COWN: {
             Systematic::cout()
               << "Immutable Scan: reaches cown: " << o << std::endl;
             cown::mark_for_scan(o, epoch);
@@ -155,15 +153,13 @@ namespace verona::rt
 
       switch (c)
       {
-        case Object::RC:
-        {
+        case Object::RC: {
           if (r->decref())
             dfs.push(r);
           break;
         }
 
-        case Object::UNMARKED:
-        {
+        case Object::UNMARKED: {
           if (w != r)
           {
             scc.push(w);
@@ -171,8 +167,7 @@ namespace verona::rt
           break;
         }
 
-        case Object::COWN:
-        {
+        case Object::COWN: {
           Systematic::cout() << "Immutable releasing cown: " << w << std::endl;
           cown::release(alloc, (Cown*)w);
           break;

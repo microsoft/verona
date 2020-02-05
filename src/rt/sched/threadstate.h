@@ -127,16 +127,14 @@ namespace verona::rt
     {
       switch (state)
       {
-        case NotInLD:
-        {
+        case NotInLD: {
           switch (s)
           {
             case NotInLD:
             case Finished:
               return NotInLD;
 
-            case WantLD:
-            {
+            case WantLD: {
               state = PreScan;
               return vote_one<PreScan, Scan>(total_votes);
             }
@@ -146,8 +144,7 @@ namespace verona::rt
           }
         }
 
-        case PreScan:
-        {
+        case PreScan: {
           switch (s)
           {
             case NotInLD:
@@ -163,8 +160,7 @@ namespace verona::rt
           }
         }
 
-        case Scan:
-        {
+        case Scan: {
           switch (s)
           {
             case PreScan:
@@ -178,8 +174,7 @@ namespace verona::rt
           }
         }
 
-        case AllInScan:
-        {
+        case AllInScan: {
           switch (s)
           {
             case Scan:
@@ -198,8 +193,7 @@ namespace verona::rt
           }
         }
 
-        case BelieveDone:
-        {
+        case BelieveDone: {
           switch (s)
           {
             case BelieveDone_Voted:
@@ -208,8 +202,7 @@ namespace verona::rt
             case BelieveDone_Confirm:
               return vote<BelieveDone_Ack, ReallyDone>(total_votes);
 
-            case BelieveDone_Retract:
-            {
+            case BelieveDone_Retract: {
               retracted = true;
               return vote<BelieveDone_Ack, ReallyDone>(total_votes);
             }
@@ -222,13 +215,11 @@ namespace verona::rt
           }
         }
 
-        case ReallyDone:
-        {
+        case ReallyDone: {
           switch (s)
           {
             case BelieveDone_Ack:
-            case ReallyDone:
-            {
+            case ReallyDone: {
               if (retracted)
               {
                 vote<ReallyDone_Retract, AllInScan>(total_votes);
@@ -248,8 +239,7 @@ namespace verona::rt
           }
         }
 
-        case Sweep:
-        {
+        case Sweep: {
           switch (s)
           {
             case ReallyDone_Confirm:

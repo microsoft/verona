@@ -69,8 +69,7 @@ private:
 
       case Value::ISO:
       case Value::MUT:
-      case Value::IMM:
-      {
+      case Value::IMM: {
         VMObject* object = inner.object;
         if (recursive)
           return format_object(object, it);

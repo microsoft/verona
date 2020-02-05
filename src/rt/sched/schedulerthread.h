@@ -605,8 +605,7 @@ namespace verona::rt
         // Actions taken when a state transition occurs.
         switch (state)
         {
-          case ThreadState::PreScan:
-          {
+          case ThreadState::PreScan: {
             if (Scheduler::get().unpause())
               stats.unpause();
 
@@ -614,23 +613,20 @@ namespace verona::rt
             return;
           }
 
-          case ThreadState::Scan:
-          {
+          case ThreadState::Scan: {
             if (sprev != ThreadState::PreScan)
               enter_prescan();
             enter_scan();
             return;
           }
 
-          case ThreadState::AllInScan:
-          {
+          case ThreadState::AllInScan: {
             if (sprev == ThreadState::PreScan)
               enter_scan();
             return;
           }
 
-          case ThreadState::BelieveDone:
-          {
+          case ThreadState::BelieveDone: {
             if (scheduled_unscanned_cown)
               ld_state_change(ThreadState::BelieveDone_Retract);
             else
@@ -638,19 +634,16 @@ namespace verona::rt
             continue;
           }
 
-          case ThreadState::ReallyDone_Confirm:
-          {
+          case ThreadState::ReallyDone_Confirm: {
             continue;
           }
 
-          case ThreadState::Sweep:
-          {
+          case ThreadState::Sweep: {
             collect_cowns();
             continue;
           }
 
-          default:
-          {
+          default: {
             continue;
           }
         }

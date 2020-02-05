@@ -152,12 +152,12 @@ namespace verona::rt
 
             if (idmask & p->Processor.GroupMask[j].Mask)
             {
-              cpus->push_back(
-                CPU{get_numa_node(group, id, numa, numa_count),
-                    get_package(group, id, package, package_count),
-                    group,
-                    id,
-                    hyperthread});
+              cpus->push_back(CPU{
+                get_numa_node(group, id, numa, numa_count),
+                get_package(group, id, package, package_count),
+                group,
+                id,
+                hyperthread});
 
               hyperthread = true;
             }

@@ -431,8 +431,7 @@ namespace verona::rt
       {
         switch (p->get_class())
         {
-          case Object::ISO:
-          {
+          case Object::ISO: {
             // An iso is always the root, and the last thing in the ring.
             // Don't run the finaliser.
             assert(p == o);
@@ -443,8 +442,7 @@ namespace verona::rt
             break;
           }
 
-          case Object::MARKED:
-          {
+          case Object::MARKED: {
             use_memory(p->size());
             p->unmark();
             prev = p;
@@ -452,8 +450,7 @@ namespace verona::rt
             break;
           }
 
-          case Object::UNMARKED:
-          {
+          case Object::UNMARKED: {
             Object* q = p->get_next();
 
             if constexpr (ring == FinaliserRing)

@@ -52,8 +52,7 @@ namespace notify_interleave
       auto a = b->a;
       switch (b->state)
       {
-        case NOTIFYSEND:
-        {
+        case NOTIFYSEND: {
           g_called = false;
           a->mark_notify();
           Cown::schedule<Ping>(a);
@@ -62,8 +61,7 @@ namespace notify_interleave
           break;
         }
 
-        case WAIT:
-        {
+        case WAIT: {
           if (b->wait_count > 0)
           {
             b->wait_count--;
@@ -76,14 +74,12 @@ namespace notify_interleave
           break;
         }
 
-        case EXIT:
-        {
+        case EXIT: {
           Cown::release(ThreadAlloc::get(), b);
           break;
         }
 
-        default:
-        {
+        default: {
           abort();
         }
       }

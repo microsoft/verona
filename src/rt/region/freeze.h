@@ -197,8 +197,7 @@ namespace verona::rt
 
           switch (c)
           {
-            case Object::PENDING:
-            {
+            case Object::PENDING: {
               // We have found a reference back into one of the SCCs
               // on the current path.  Collapse the path by unioning
               // all the nodes up to that SCC.
@@ -225,30 +224,26 @@ namespace verona::rt
               break;
             }
 
-            case Object::ISO:
-            {
+            case Object::ISO: {
               // External Iso, process that later.
               iso.push(q);
               break;
             }
 
             case Object::RC:
-            case Object::COWN:
-            {
+            case Object::COWN: {
               // External reference
               r->incref();
               break;
             }
 
-            case Object::NONATOMIC_RC:
-            {
+            case Object::NONATOMIC_RC: {
               // Reference to an already complete SCC, so incref it.
               r->incref_nonatomic();
               break;
             }
 
-            case Object::UNMARKED:
-            {
+            case Object::UNMARKED: {
               // Lazily construct stack of sublists for gcing
               objects.push(q->get_next());
               // Clear the `has_ext_ref` bit.
@@ -277,8 +272,7 @@ namespace verona::rt
         {
           switch (p->get_class())
           {
-            case Object::UNMARKED:
-            {
+            case Object::UNMARKED: {
               // Node was unreachable deallocate it
               auto next = p->get_next();
 
@@ -290,8 +284,7 @@ namespace verona::rt
               continue;
             }
 
-            case Object::NONATOMIC_RC:
-            {
+            case Object::NONATOMIC_RC: {
               // Convert to atomic rc to allow sharing.
               p->make_atomic();
               break;

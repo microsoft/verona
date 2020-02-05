@@ -309,8 +309,7 @@ struct Ping : public VAction<Ping>
       // Ping, only about a quarter.
       switch (rand->next() % 12)
       {
-        case 0:
-        {
+        case 0: {
           size_t idx = rand->next() % others_count;
           if (rcown->array[idx] != nullptr)
           {
@@ -324,8 +323,7 @@ struct Ping : public VAction<Ping>
           }
           break;
         }
-        case 1:
-        {
+        case 1: {
           // Can't drop pointer to region, otherwise the region would leak.
           // Instead, we drop the pointer to the region's cown. We also need to
           // clear the remembered set.
@@ -339,8 +337,7 @@ struct Ping : public VAction<Ping>
           }
           break;
         }
-        case 2:
-        {
+        case 2: {
           // Can't drop pointer to region, otherwise the region would leak.
           // Instead, we drop the pointer to the region's cown. We also need to
           // clear the remembered set.

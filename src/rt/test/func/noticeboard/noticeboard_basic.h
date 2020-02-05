@@ -120,16 +120,14 @@ namespace noticeboard_basic
       (void)alloc;
       switch (peeker->state)
       {
-        case INIT:
-        {
+        case INIT: {
           Cown::schedule<UpdateDB>(peeker->db, peeker->db);
           Scheduler::want_ld();
           peeker->state = WAITFORGC;
           Cown::schedule<ToPeek>(peeker, peeker);
           return;
         }
-        case WAITFORGC:
-        {
+        case WAITFORGC: {
           if (peeker->wait_for_gc_n == 0)
           {
             peeker->state = PEEK;
@@ -141,8 +139,7 @@ namespace noticeboard_basic
           Cown::schedule<ToPeek>(peeker, peeker);
           return;
         }
-        case PEEK:
-        {
+        case PEEK: {
           auto o = (C*)peeker->box->peek(alloc);
           if (o->alive == nullptr)
           {
@@ -160,8 +157,7 @@ namespace noticeboard_basic
           Cown::schedule<ToPeek>(peeker, peeker);
           return;
         }
-        case WAITFORCOLLECTION:
-        {
+        case WAITFORCOLLECTION: {
           if (peeker->wait_for_collection == 0)
           {
             peeker->state = USEALIVE;
@@ -173,15 +169,13 @@ namespace noticeboard_basic
           Cown::schedule<ToPeek>(peeker, peeker);
           return;
         }
-        case USEALIVE:
-        {
+        case USEALIVE: {
           Cown::schedule<Ping>(peeker->alive);
           peeker->state = EXIT;
           Cown::schedule<ToPeek>(peeker, peeker);
           return;
         }
-        case EXIT:
-        {
+        case EXIT: {
           return;
         }
       }

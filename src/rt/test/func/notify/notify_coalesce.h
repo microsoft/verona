@@ -54,8 +54,7 @@ namespace notify_coalesce
       auto a = b->a;
       switch (b->state)
       {
-        case NOTIFY:
-        {
+        case NOTIFY: {
           g_called = 0;
           for (int i = 0; i < 10; ++i)
           {
@@ -68,8 +67,7 @@ namespace notify_coalesce
           break;
         }
 
-        case WAIT:
-        {
+        case WAIT: {
           if (b->wait_count > 0)
           {
             b->wait_count--;
@@ -82,16 +80,14 @@ namespace notify_coalesce
           break;
         }
 
-        case CHECK:
-        {
+        case CHECK: {
           // If this assert fails, check if BATCH_COUNT is lower than 100.
           assert(g_called == 1);
           Cown::release(ThreadAlloc::get(), b);
           break;
         }
 
-        default:
-        {
+        default: {
           abort();
         }
       }

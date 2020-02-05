@@ -319,14 +319,12 @@ namespace verona::rt
             // Only the consumer can call `mark_sleeping`. The consumer should
             // not call `mark_sleeping` is the queue is SLEEPING.
             abort();
-          case DELAY:
-          {
+          case DELAY: {
             T* clear = clear_state(bk);
             back.compare_exchange_strong(bk, clear, std::memory_order_release);
             return false;
           }
-          case NOTIFY:
-          {
+          case NOTIFY: {
             notify = true;
             T* clear = clear_state(bk);
             back.compare_exchange_strong(bk, clear, std::memory_order_release);

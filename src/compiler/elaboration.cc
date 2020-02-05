@@ -98,8 +98,7 @@ namespace verona::compiler
     {
       switch (clause.kind->value())
       {
-        case WhereClause::In:
-        {
+        case WhereClause::In: {
           auto [previous, inserted] =
             result->parameters.insert({local, clause});
           if (!inserted)

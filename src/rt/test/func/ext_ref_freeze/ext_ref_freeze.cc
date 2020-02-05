@@ -73,8 +73,7 @@ struct Loop : public VAction<Loop>
     (void)alloc;
     switch (state)
     {
-      case ADVANCEEPOCH:
-      {
+      case ADVANCEEPOCH: {
         if (advance_epoch_count > 0)
         {
           advance_epoch_count--;
@@ -87,8 +86,7 @@ struct Loop : public VAction<Loop>
         Cown::schedule<Loop>(a, a);
         return;
       }
-      case SETUP:
-      {
+      case SETUP: {
         auto r = new (alloc) C;
 
         r->f1 = new (alloc, r) C;
@@ -106,8 +104,7 @@ struct Loop : public VAction<Loop>
         Cown::schedule<Loop>(a, a);
         return;
       }
-      case WAITFORGC:
-      {
+      case WAITFORGC: {
         if (count > 0)
         {
           Scheduler::want_ld();
@@ -120,15 +117,13 @@ struct Loop : public VAction<Loop>
         Cown::schedule<Loop>(a, a);
         return;
       }
-      case REUSE:
-      {
+      case REUSE: {
         state = EXIT;
         Cown::schedule<Ping>(a->r->f1->b);
         Cown::schedule<Loop>(a, a);
         return;
       }
-      case EXIT:
-      {
+      case EXIT: {
         Immutable::release(alloc, g_ext_ref);
         g_ext_ref = nullptr;
         return;

@@ -130,11 +130,12 @@ namespace verona::compiler
     static fmt::text_style style_for_diagnostic_kind(DiagnosticKind k)
     {
       static const std::array<fmt::text_style, NumberOfDiagnosticKinds>
-        DiagnosticKindStyles = {fmt::text_style(),
-                                fmt::text_style(),
-                                fg(fmt::color::red),
-                                fg(fmt::color::red),
-                                fg(fmt::color::red)};
+        DiagnosticKindStyles = {
+          fmt::text_style(),
+          fmt::text_style(),
+          fg(fmt::color::red),
+          fg(fmt::color::red),
+          fg(fmt::color::red)};
       return DiagnosticKindStyles.at(static_cast<int>(k));
     }
 

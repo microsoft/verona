@@ -420,8 +420,7 @@ namespace verona::rt
 
       switch (c)
       {
-        case RegionMD::SCC_PTR:
-        {
+        case RegionMD::SCC_PTR: {
           auto parent = get_scc();
           auto curr = this;
 
@@ -440,8 +439,7 @@ namespace verona::rt
           return parent;
         }
 
-        default:
-        {
+        default: {
           return this;
         }
       }

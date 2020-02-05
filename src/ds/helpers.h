@@ -49,7 +49,7 @@ struct overload : Ts...
   using Ts::operator()...;
 };
 template<typename... Ts>
-overload(Ts...)->overload<Ts...>;
+overload(Ts...) -> overload<Ts...>;
 
 /**
  * Match a set of patterns to an std::variant.

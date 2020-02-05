@@ -325,8 +325,7 @@ struct Ping : public VAction<Ping<region_type>>
       // Ping, only about a quarter.
       switch (rand->next() % 8)
       {
-        case 0:
-        {
+        case 0: {
           // Can't drop pointer to region, otherwise the region would leak.
           // Instead, we drop the pointer to the region's cown. We also need to
           // clear the remembered set.
@@ -343,8 +342,7 @@ struct Ping : public VAction<Ping<region_type>>
           }
           break;
         }
-        case 1:
-        {
+        case 1: {
           // Can't drop pointer to region, otherwise the region would leak.
           // Instead, we drop the pointer to the region's cown. We also need to
           // clear the remembered set.

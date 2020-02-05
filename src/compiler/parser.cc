@@ -105,12 +105,12 @@ namespace verona::compiler
      * A reference to an identifier.  Valid identifier strings that are not
      * also keywords.
      */
-    Rule ref_ident = !(term(keyword >> (! + ident_char))) >> base_ident;
+    Rule ref_ident = !(term(keyword >> (!+ident_char))) >> base_ident;
     /**
      * A definition of a new identifier.  Valid identifier strings that are not
      * also keywords or `self`.
      */
-    Rule def_ident = !term((self | keyword) >> (! + ident_char)) >> base_ident;
+    Rule def_ident = !term((self | keyword) >> (!+ident_char)) >> base_ident;
     Rule local_def = def_ident;
 
     Rule symbol_expr = ref_ident;
