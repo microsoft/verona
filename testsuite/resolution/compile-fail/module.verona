@@ -1,3 +1,6 @@
+// Copyright (c) Contributers to Project Verona. All rights reserved.
+// Licensed under the MIT License.
+
 // Reported errors should point to the proper source location.
 use "module/child.verona"
-// CHECK-L: child.verona:2:8: error: Cannot find value for symbol 'T'
+// CHECK-L: child.verona:${LINE:-1}:8: error: Cannot find value for symbol 'T'

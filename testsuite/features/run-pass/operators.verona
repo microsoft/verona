@@ -1,3 +1,7 @@
+// Copyright (c) Contributers to Project Verona. All rights reserved.
+// Licensed under the MIT License.
+
+
 class Main {
   run(x: (False | True) & imm, y: (False | True) & imm)
   {

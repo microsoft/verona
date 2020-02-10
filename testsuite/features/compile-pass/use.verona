@@ -1,3 +1,6 @@
+// Copyright (c) Contributers to Project Verona. All rights reserved.
+// Licensed under the MIT License.
+
 use "library/child.verona"
 
 class Main {
