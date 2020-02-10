@@ -195,7 +195,6 @@ jobs:
   - script: |
       set -eo pipefail
       make clangformat
-
       git diff --exit-code $(Build.SourceVersion)
 
     workingDirectory: build
@@ -203,5 +202,9 @@ jobs:
 
   - script: |
       set -eo pipefail
-      grep -L "Copyright (c) Microsoft Corporation"  `git ls-files -- '*.cpp' '*.cc' '*.h' '*.hh' '*.verona'| xargs`
-    displayName: 'Check Copyright'
+      files=`git ls-files -- '*.cpp' '*.cc' '*.h' '*.hh' '*.verona'| xargs`
+      grep -L "Copyright (c)"  $files | tee header_missing
+      [ ! -s header_missing ]
+      grep -L "Licensed under the MIT License." $files | tee header_missing
+      [ ! -s header_missing ]
+    displayName: 'Check Copyright and License'

@@ -1,3 +1,6 @@
+// Copyright (c) Contributers to Project Verona. All rights reserved.
+// Licensed under the MIT License.
+
 #include <verona.h>
 
 using namespace snmalloc;
