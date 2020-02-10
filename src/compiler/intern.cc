@@ -1106,8 +1106,8 @@ namespace verona::compiler
    * Only if the types match do we need to compare the data, which we can do
    * using the existing operator<.
    */
-  bool TypeInterner::LessTypes::
-  operator()(const Type& left, const Type& right) const
+  bool
+  TypeInterner::LessTypes::operator()(const Type& left, const Type& right) const
   {
     const std::type_info& info = typeid(left);
     std::type_index ti_left(info);
@@ -1160,20 +1160,20 @@ namespace verona::compiler
     abort();
   }
 
-  bool TypeInterner::LessTypes::
-  operator()(const TypePtr& left, const TypePtr& right) const
+  bool TypeInterner::LessTypes::operator()(
+    const TypePtr& left, const TypePtr& right) const
   {
     return (*this)(*left, *right);
   }
 
-  bool TypeInterner::LessTypes::
-  operator()(const TypePtr& left, const Type& right) const
+  bool TypeInterner::LessTypes::operator()(
+    const TypePtr& left, const Type& right) const
   {
     return (*this)(*left, right);
   }
 
-  bool TypeInterner::LessTypes::
-  operator()(const Type& left, const TypePtr& right) const
+  bool TypeInterner::LessTypes::operator()(
+    const Type& left, const TypePtr& right) const
   {
     return (*this)(left, *right);
   }

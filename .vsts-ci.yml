@@ -172,7 +172,7 @@ jobs:
 - job: 
   displayName: Format
   pool:
-    vmImage: 'ubuntu-16.04'
+    vmImage: 'ubuntu-18.04'
   steps:
   - checkout: self
     submodules: recursive
@@ -180,10 +180,10 @@ jobs:
   - script: |
       set -eo pipefail
       wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-      sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-6.0 main"
+      sudo apt-add-repository "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-9 main"
       sudo apt-get update
-      sudo apt-get install -y clang-format-6.0
-      sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-6.0 100
+      sudo apt-get install -y clang-format-9 clang-tidy-9
+      sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-9 100
 
     displayName: 'Install Clang tools'
 

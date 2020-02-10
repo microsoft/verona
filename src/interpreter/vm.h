@@ -138,7 +138,8 @@ namespace verona::interpreter
     }
 
     template<typename... Args>
-    [[noreturn]] void fatal(std::string_view fmt, Args&&... args) const {
+    [[noreturn]] void fatal(std::string_view fmt, Args&&... args) const
+    {
       fmt::print(std::cerr, "[{:4x}]: {:<{}}FATAL: ", start_ip_, "", indent_);
       fmt::print(std::cerr, fmt, std::forward<Args>(args)...);
       fmt::print(std::cerr, "\n");
