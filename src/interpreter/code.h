@@ -86,10 +86,12 @@ namespace verona::interpreter
     {
       return load<int16_t>(ip);
     }
-    uint16_t u32(size_t& ip) const
+
+    uint32_t u32(size_t& ip) const
     {
       return load<uint32_t>(ip);
     }
+
     uint64_t u64(size_t& ip) const
     {
       return load<uint64_t>(ip);
@@ -136,6 +138,8 @@ namespace verona::interpreter
     Code(std::vector<uint8_t> code) : data_(std::move(code))
     {
       size_t ip = 0;
+
+      check_verona_nums(ip);
 
       uint32_t descriptors_count = u32(ip);
       for (uint32_t i = 0; i < descriptors_count; i++)
@@ -189,6 +193,15 @@ namespace verona::interpreter
     std::vector<std::unique_ptr<const VMDescriptor>> descriptors_;
 
     SpecialDescriptors special_descriptors_;
+
+    void check_verona_nums(size_t& ip)
+    {
+      uint32_t nums = u32(ip);
+      if (nums != bytecode::MAGIC_NUMBER)
+      {
+        throw std::logic_error{"Invalid magic number, not recognized"};
+      }
+    }
 
     std::unique_ptr<VMDescriptor> load_descriptor(size_t& ip)
     {

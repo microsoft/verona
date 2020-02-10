@@ -92,6 +92,15 @@ namespace verona::compiler
     return std::make_pair(class_item, method_item);
   }
 
+  /**
+   * Writes the magic numbers to the bytecode
+   * @param code Generator to which the bytes should be emitted
+   */
+  void write_magic_number(Generator& code)
+  {
+    code.u32(bytecode::MAGIC_NUMBER);
+  }
+
   std::vector<uint8_t> codegen(
     Context& context, const Program& program, const AnalysisResults& analysis)
   {
@@ -100,7 +109,9 @@ namespace verona::compiler
       return {};
 
     std::vector<uint8_t> code;
+
     Generator gen(code);
+    write_magic_number(gen);
 
     Reachability reachability = compute_reachability(
       context, program, gen, entry->first, entry->second, analysis);
