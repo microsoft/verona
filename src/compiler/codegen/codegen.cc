@@ -98,7 +98,7 @@ namespace verona::compiler
    */
   void write_magic_number(Generator& code)
   {
-      code.u32(bytecode::MAGIC_NUMBER);
+    code.u32(bytecode::MAGIC_NUMBER);
   }
 
   std::vector<uint8_t> codegen(
@@ -111,7 +111,7 @@ namespace verona::compiler
     std::vector<uint8_t> code;
 
     Generator gen(code);
-      write_magic_number(gen);
+    write_magic_number(gen);
 
     Reachability reachability = compute_reachability(
       context, program, gen, entry->first, entry->second, analysis);
