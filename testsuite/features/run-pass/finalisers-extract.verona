@@ -1,0 +1,73 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+// This test demostrates the "extract and return in finalisers" pattern.
+// A Handle owns a Value object. When the Handle goes out of scope and its
+// finaliser runs, the Value is returned to a global Pool using a when block.
+
+class Value {
+  _id: U64 & imm;
+
+  create(id: U64 & imm): Value & iso {
+    var result = new Value;
+    result._id = id;
+    result
+  }
+}
+
+class Pool {
+  value: Value & iso;
+
+  create(value: Value & iso): cown[Pool] & imm {
+    var pool = new Pool;
+    pool.value = value;
+    cown.create(pool)
+  }
+  
+  push(self: mut, value: Value & iso) {
+    self.value = value;
+  }
+}
+
+class Handle {
+  pool: cown[Pool] & imm;
+  value: Value & iso;
+
+  create(pool: cown[Pool] & imm, value: Value & iso): Handle & iso {
+    var handle = new Handle;
+    handle.pool = pool;
+    handle.value = value;
+    handle
+  }
+
+  final(self: mut) {
+    var value = (self.value = Value.create(0));
+    when (var p = self.pool) {
+      Builtin.print1("Returning: {:#}\n", mut-view value);
+      p.push(value);
+    }
+  }
+}
+
+class Main {
+  drop[T](x: T) { }
+  main() {
+    var pool = Pool.create(Value.create(5));
+
+    when (pool) {
+      Builtin.print1("Initial: {:#}\n", pool.value);
+    };
+
+    // The handle is dropped when the block ends and is returned to the pool
+    { Handle.create(pool, Value.create(12)); };
+
+    when (pool) {
+      Builtin.print1("Final: {:#}\n", pool.value);
+    };
+
+    // CHECK-L: Initial: Value { 5 }
+    // CHECK-L: Returning: Value { 12 }
+    // CHECK-L: Final: Value { 12 }
+  }
+}
+

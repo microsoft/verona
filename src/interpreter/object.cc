@@ -22,14 +22,27 @@ namespace verona::interpreter
   {
     rt::Descriptor::size = sizeof(VMObject);
     rt::Descriptor::trace = VMObject::trace_fn;
-    rt::Descriptor::trace_possibly_iso = VMObject::trace_fn;
-    rt::Descriptor::finaliser = VMObject::finaliser_fn;
+
+    // Try to be on the trivial ring as much as possible. This requires the
+    // following three methods to be null.
+    //
+    // If there are no fields, then VMObject's destructor is a no-op and we can
+    // skip it. In that case, there are also obviously no iso fields.
+    rt::Descriptor::destructor =
+      field_count > 0 ? VMObject::destructor_fn : nullptr;
+    rt::Descriptor::trace_possibly_iso =
+      field_count > 0 ? VMObject::trace_fn : nullptr;
+    rt::Descriptor::finaliser =
+      finaliser_ip > 0 ? VMObject::finaliser_fn : nullptr;
   }
 
-  VMObject::VMObject(VMObject* region)
-  : fields(std::make_unique<FieldValue[]>(descriptor()->field_count)),
-    parent_(region)
-  {}
+  VMObject::VMObject(VMObject* region) : parent_(region)
+  {
+    if (descriptor()->field_count > 0)
+      fields = std::make_unique<FieldValue[]>(descriptor()->field_count);
+    else
+      fields = nullptr;
+  }
 
   VMObject* VMObject::region()
   {
@@ -58,9 +71,12 @@ namespace verona::interpreter
   void VMObject::finaliser_fn(rt::Object* base_object)
   {
     VMObject* object = static_cast<VMObject*>(base_object);
-
     VM::execute_finaliser(object);
+  }
 
+  void VMObject::destructor_fn(rt::Object* base_object)
+  {
+    VMObject* object = static_cast<VMObject*>(base_object);
     (object)->~VMObject();
   }
 }

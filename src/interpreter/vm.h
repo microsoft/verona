@@ -43,9 +43,11 @@ namespace verona::interpreter
     /**
      * Run finaliser for this VM object.
      *
-     * This creates a new frame in the thread local VMs state.
+     * This creates a new frame in the thread local VMs state. Existing running
+     * frames will be restored after the finaliser completes.
      *
-     * Existing running frames will be restored after the finaliser completes.
+     * This assumes that `object` does indeed have a finaliser, found in its
+     * descriptor's finaliser_ip field.
      **/
     static void execute_finaliser(VMObject* object);
 

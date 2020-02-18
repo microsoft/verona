@@ -45,6 +45,7 @@ namespace verona::interpreter
 
     static void trace_fn(const rt::Object* base_object, rt::ObjectStack* stack);
     static void finaliser_fn(rt::Object* base_object);
+    static void destructor_fn(rt::Object* base_object);
 
   private:
     VMObject* parent_;
