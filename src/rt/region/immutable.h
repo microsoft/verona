@@ -127,10 +127,12 @@ namespace verona::rt
         {
           Object* w = fl.pop();
           total += w->size();
+          w->destructor();
           w->dealloc(alloc);
         }
 
         total += v->size();
+        v->destructor();
         v->dealloc(alloc);
       }
 

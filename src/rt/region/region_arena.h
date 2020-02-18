@@ -543,12 +543,19 @@ namespace verona::rt
 
       Systematic::cout() << "Region release: arena region: " << o << std::endl;
 
-      // Run all finalisers
+      // Clean up all the non-trivial objects, by running the finaliser and
+      // destructor, and collecting iso regions.
+      //
+      // This must be done in two passes, as one object's finaliser may read
+      // another object's fields, or even extract sub-regions from it.
       for (auto it = begin<NonTrivial>(); it != end<NonTrivial>(); ++it)
       {
-        Object* p = *it;
-        p->find_iso_fields(o, f, collect);
-        p->finalise();
+        (*it)->finalise();
+      }
+      for (auto it = begin<NonTrivial>(); it != end<NonTrivial>(); ++it)
+      {
+        (*it)->find_iso_fields(o, f, collect);
+        (*it)->destructor();
       }
 
       // Now we can deallocate large object ring.
