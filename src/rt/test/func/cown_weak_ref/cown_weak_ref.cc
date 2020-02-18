@@ -41,7 +41,7 @@ struct MyCown : VCown<MyCown>
     if (parent != nullptr)
       parent->weak_release(ThreadAlloc::get_noncachable());
 
-    Systematic::cout() << "Finalising " << this << " up_count " << up_count
+    Systematic::cout() << "Destroying " << this << " up_count " << up_count
                        << std::endl;
   }
 };

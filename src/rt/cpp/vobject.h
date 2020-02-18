@@ -36,8 +36,15 @@ namespace verona::rt
   struct has_notified<T, std::void_t<decltype(&T::notified)>> : std::true_type
   {};
 
+  template<class T, class = void>
+  struct has_finaliser : std::false_type
+  {};
   template<class T>
-  struct has_finaliser
+  struct has_finaliser<T, std::void_t<decltype(&T::finaliser)>> : std::true_type
+  {};
+
+  template<class T>
+  struct has_destructor
   {
     constexpr static bool value = !std::is_trivially_destructible_v<T>;
   };
@@ -78,6 +85,12 @@ namespace verona::rt
 
     static void gc_final(Object* o)
     {
+      if constexpr (has_finaliser<T>::value)
+        ((T*)o)->finaliser();
+    }
+
+    static void gc_destructor(Object* o)
+    {
       ((T*)o)->~T();
     }
 
@@ -88,7 +101,8 @@ namespace verona::rt
         gc_trace,
         has_trace_possibly_iso<T>::value ? gc_trace_possibly_iso : nullptr,
         has_finaliser<T>::value ? gc_final : nullptr,
-        has_notified<T>::value ? gc_notified : nullptr};
+        has_notified<T>::value ? gc_notified : nullptr,
+        has_destructor<T>::value ? gc_destructor : nullptr};
 
       return &desc;
     }
