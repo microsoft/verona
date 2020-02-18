@@ -434,6 +434,7 @@ namespace verona::rt
         p->get_class() == Object::ISO || p->get_class() == Object::UNMARKED);
       if constexpr (ring == TrivialRing)
       {
+        UNUSED(gc);
         assert(p->is_trivial());
 
         // p is about to be collected; remove the entry for it in
@@ -445,6 +446,8 @@ namespace verona::rt
       }
       else
       {
+        UNUSED(alloc);
+
         assert(!p->is_trivial());
         p->finalise();
 
@@ -548,6 +551,12 @@ namespace verona::rt
           p->dealloc(alloc);
           p = q;
         }
+      }
+      else
+      {
+        UNUSED(o);
+        UNUSED(f);
+        UNUSED(collect);
       }
     }
 
