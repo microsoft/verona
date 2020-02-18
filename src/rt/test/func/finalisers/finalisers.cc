@@ -24,7 +24,7 @@ struct C1 : public V<C1<region_type>, region_type>
       st->push(f2);
   }
 
-  // trace_possibly_iso means this object might need finalisation!
+  // Omit trace_possibly_iso as it would make this object non-trivial.
 };
 
 template<RegionType region_type>

@@ -100,9 +100,13 @@ struct O : public V<O<region_type>, region_type>
 
   void trace_possibly_iso(ObjectStack* st)
   {
-    trace(st);
+    if (f1 != nullptr)
+      st->push(f1);
+    if (f2 != nullptr)
+      st->push(f2);
   }
 };
+
 using OTrace = O<RegionType::Trace>;
 using OArena = O<RegionType::Arena>;
 

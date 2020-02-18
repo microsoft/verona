@@ -94,13 +94,6 @@ struct O : public V<O<region_type>, region_type>
     if (cown != nullptr)
       st->push(cown);
   }
-
-  // We need this so O is considered as needing finalisation, so that
-  // `Region::cown_scan` will trace the cown pointer.
-  void trace_possibly_iso(ObjectStack* st)
-  {
-    trace(st);
-  }
 };
 using OTrace = O<RegionType::Trace>;
 using OArena = O<RegionType::Arena>;

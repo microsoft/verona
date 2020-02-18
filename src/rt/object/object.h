@@ -684,9 +684,14 @@ namespace verona::rt
       return get_descriptor()->trace_possibly_iso != nullptr;
     }
 
-    inline bool needs_finaliser_ring()
+    static inline bool is_trivial(const Descriptor* desc)
     {
-      return has_finaliser() || has_possibly_iso_fields();
+      return desc->finaliser == nullptr && desc->trace_possibly_iso == nullptr;
+    }
+
+    inline bool is_trivial()
+    {
+      return is_trivial(get_descriptor());
     }
 
   public:

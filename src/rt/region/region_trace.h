@@ -33,9 +33,10 @@ namespace verona::rt
    *                         other __ ... ___/
    *                        objects
    *
-   * If the Iso object has a finaliser, then all the objects in the ring also
-   * have finalisers. If the Iso object does not have a finaliser, then all of
-   * the objects in the ring also do not have finalisers.
+   * If the Iso object is trivial (ie. it has no finaliser, no destructor and no
+   * subregions), then all the objects in the ring are also trivial. Conversely,
+   * if the Iso object is non-trivial, then all of the objects in the ring are
+   * also non-trivial.
    *
    * The other objects are placed in a second ring, referenced by the
    * `next_not_root` and `last_not_root` pointers.
@@ -52,13 +53,12 @@ namespace verona::rt
   private:
     enum RingKind
     {
-      FinaliserRing,
-      NonfinaliserRing,
-      BothRings
+      TrivialRing,
+      NonTrivialRing,
     };
 
-    // Circular linked list ("secondary ring") for objects that have a
-    // finaliser if the root does not, or vice versa.
+    // Circular linked list ("secondary ring") for trivial objects if the root
+    // is trivial, or vice versa.
     Object* next_not_root;
     Object* last_not_root;
 
@@ -273,7 +273,7 @@ namespace verona::rt
     {
       Object* p = get_next();
 
-      if (hd->needs_finaliser_ring() == p->needs_finaliser_ring())
+      if (hd->is_trivial() == p->is_trivial())
       {
         tl->init_next(p);
         set_next(hd);
@@ -316,7 +316,7 @@ namespace verona::rt
       assert(debug_is_in_region(nroot));
 
       // Swap the rings if necessary.
-      if (oroot->needs_finaliser_ring() != nroot->needs_finaliser_ring())
+      if (oroot->is_trivial() != nroot->is_trivial())
       {
         assert(last_not_root->get_next() == this);
 
@@ -400,8 +400,8 @@ namespace verona::rt
       size_t marked)
     {
       current_memory_used = 0;
-      sweep_ring<FinaliserRing>(alloc, o, f, collect);
-      sweep_ring<NonfinaliserRing>(alloc, o, f, collect);
+      sweep_ring<NonTrivialRing>(alloc, o, f, collect);
+      sweep_ring<TrivialRing>(alloc, o, f, collect);
       hash_set->sweep_set(alloc, marked);
       previous_memory_used = size_to_sizeclass(current_memory_used);
     }
@@ -410,19 +410,17 @@ namespace verona::rt
     void
     sweep_ring(Alloc* alloc, Object* o, ObjectStack& f, ObjectStack& collect)
     {
-      static_assert(ring != BothRings);
-
       bool in_secondary_ring;
-      if constexpr (ring == FinaliserRing)
-        in_secondary_ring = !o->needs_finaliser_ring();
+      if constexpr (ring == TrivialRing)
+        in_secondary_ring = !o->is_trivial();
       else
-        in_secondary_ring = o->needs_finaliser_ring();
+        in_secondary_ring = o->is_trivial();
 
       Object* prev = this;
       Object* p = in_secondary_ring ? next_not_root : get_next();
       Object* gc = nullptr;
 
-      if constexpr (ring != FinaliserRing)
+      if constexpr (ring != NonTrivialRing)
         UNUSED(gc);
 
       // Note: we don't use the iterator because we need to remove and
@@ -456,7 +454,7 @@ namespace verona::rt
           {
             Object* q = p->get_next();
 
-            if constexpr (ring == FinaliserRing)
+            if constexpr (ring == NonTrivialRing)
             {
               p->find_iso_fields(o, f, collect);
               if (p->has_finaliser())
@@ -498,7 +496,7 @@ namespace verona::rt
         }
       }
 
-      if constexpr (ring == FinaliserRing)
+      if constexpr (ring == NonTrivialRing)
       {
         p = gc;
         while (p != nullptr)
@@ -539,21 +537,21 @@ namespace verona::rt
     }
 
   public:
-    template<IteratorType type = Both>
+    template<IteratorType type = AllObjects>
     class iterator
     {
       friend class RegionTrace;
 
       static_assert(
-        type == NoFinaliser || type == NeedsFinaliser || type == Both);
+        type == Trivial || type == NonTrivial || type == AllObjects);
 
       iterator(RegionTrace* r) : reg(r)
       {
         Object* q = r->get_next();
-        if constexpr (type == NoFinaliser)
-          ptr = !q->needs_finaliser_ring() ? q : r->next_not_root;
-        else if constexpr (type == NeedsFinaliser)
-          ptr = q->needs_finaliser_ring() ? q : r->next_not_root;
+        if constexpr (type == Trivial)
+          ptr = q->is_trivial() ? q : r->next_not_root;
+        else if constexpr (type == NonTrivial)
+          ptr = !q->is_trivial() ? q : r->next_not_root;
         else
           ptr = q;
 
@@ -575,7 +573,7 @@ namespace verona::rt
           return *this;
         }
 
-        if constexpr (type == Both)
+        if constexpr (type == AllObjects)
         {
           if (ptr != reg->last_not_root && reg->next_not_root != reg)
           {
@@ -614,13 +612,13 @@ namespace verona::rt
       Object* ptr;
     };
 
-    template<IteratorType type = Both>
+    template<IteratorType type = AllObjects>
     inline iterator<type> begin()
     {
       return {this};
     }
 
-    template<IteratorType type = Both>
+    template<IteratorType type = AllObjects>
     inline iterator<type> end()
     {
       return {this, nullptr};

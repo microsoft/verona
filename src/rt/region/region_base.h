@@ -38,9 +38,9 @@ namespace verona::rt
   public:
     enum IteratorType
     {
-      NeedsFinaliser,
-      NoFinaliser,
-      Both
+      Trivial,
+      NonTrivial,
+      AllObjects,
     };
 
   private:
