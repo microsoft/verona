@@ -48,7 +48,7 @@ if(USE_ASAN)
   endif()
   target_compile_definitions(verona_rt INTERFACE -DUSE_MALLOC)
   target_compile_options(verona_rt INTERFACE -g -fsanitize=address -fno-omit-frame-pointer)
-  target_link_libraries(verona_rt INTERFACE -lasan)
+  target_link_libraries(verona_rt INTERFACE -fsanitize=address)
 endif()
 
 if(USE_SYSTEMATIC_TESTING)
