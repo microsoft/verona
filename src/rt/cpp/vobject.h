@@ -109,17 +109,6 @@ namespace verona::rt
 
     void trace(ObjectStack*) {}
 
-    // Dummy functions to make compiler happy.
-    void trace_possibly_iso(ObjectStack*)
-    {
-      abort();
-    }
-
-    void notified(Object*)
-    {
-      abort();
-    }
-
     static EpochMark get_alloc_epoch()
     {
       return Scheduler::alloc_epoch();
