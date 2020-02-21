@@ -509,11 +509,16 @@ namespace verona::interpreter
   void VM::opcode_store(
     Register dst, const Value& base, SelectorIdx selector, Value src)
   {
-    check_type(base, {Value::Tag::ISO, Value::Tag::MUT, Value::Tag::IMM});
+    check_type(base, {Value::Tag::ISO, Value::Tag::MUT});
 
     VMObject* object = base->object;
     const VMDescriptor* desc = object->descriptor();
     size_t index = desc->fields[selector];
+
+    if (src.tag == Value::Tag::MUT && object->region() != src->object->region())
+    {
+      fatal("Writing reference to incorrect region");
+    }
 
     Value old_value =
       object->fields[index].exchange(alloc_, object->region(), std::move(src));
