@@ -81,8 +81,7 @@ First, you will need to install dependencies:
 sudo apt update        # optional, if you haven't updated recently
 sudo apt dist-upgrade  # optional, if you haven't updated recently
 sudo apt install cmake ninja-build python3 \
-                 clang clang-format clang-tools \
-                 llvm
+                 clang-8 clang-format clang-tools
 ```
 
 ## Prerequisites to build on macOS
