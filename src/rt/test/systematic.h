@@ -443,8 +443,11 @@ namespace Systematic
   inline static void signal_handler(int sig, siginfo_t*, void*)
   {
     auto str = strsignal(sig);
-    write(1, str, strlen(str));
-    write(1, "\n", 1);
+
+    // We're ignoring the result of write, as there's not much we can do if it
+    // fails. We're about to crash anyway.
+    (void)write(1, str, strlen(str));
+    (void)write(1, "\n", 1);
 
     constexpr size_t max_stack_frames = 64;
     void* frames[max_stack_frames];

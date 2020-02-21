@@ -8,27 +8,27 @@ jobs:
     vmImage: 'ubuntu-16.04'
   strategy:
     matrix:
-      Clang-6 Debug:
-        CC: clang-6.0
-        CXX: clang++-6.0
+      Clang-8 Debug:
+        CC: clang-8
+        CXX: clang++-8
         CXXFLAGS: -stdlib=libstdc++
         BuildType: Debug
         Asan: Off
-      Clang-6 Release:
-        CC: clang-6.0
-        CXX: clang++-6.0
+      Clang-8 Release:
+        CC: clang-8
+        CXX: clang++-8
         CXXFLAGS: -stdlib=libstdc++
         Asan: Off
         BuildType: Release
-      Clang-6 Debug (ASAN):
-        CC: clang-6.0
-        CXX: clang++-6.0
+      Clang-8 Debug (ASAN):
+        CC: clang-8
+        CXX: clang++-8
         CXXFLAGS: -stdlib=libstdc++
         BuildType: Debug
         Asan: On
-      Clang-6 Release (ASAN):
-        CC: clang-6.0
-        CXX: clang++-6.0
+      Clang-8 Release (ASAN):
+        CC: clang-8
+        CXX: clang++-8
         CXXFLAGS: -stdlib=libstdc++
         BuildType: Release
         Asan: On
@@ -38,9 +38,8 @@ jobs:
 
   - script: |
       set -eo pipefail
-      sudo add-apt-repository ppa:ubuntu-toolchain-r/test
       sudo apt-get update
-      sudo apt-get install -y ninja-build libstdc++-7-dev clang-6.0
+      sudo apt-get install -y ninja-build
 
       sudo pip install wheel OutputCheck
     displayName: 'Install Build Dependencies'
