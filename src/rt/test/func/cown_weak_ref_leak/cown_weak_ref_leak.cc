@@ -24,5 +24,9 @@ void run_test()
 int main(int argc, char** argv)
 {
   SystematicTestHarness h(argc, argv);
+
+  // This example intentionally leaks a weak-reference.
+  Scheduler::set_detect_leaks(false);
+
   h.run(run_test);
 }

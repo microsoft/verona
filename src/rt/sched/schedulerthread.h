@@ -321,7 +321,12 @@ namespace verona::rt
       {
         if (cown->thread.load(std::memory_order_relaxed) != nullptr)
         {
-          cown->collect(alloc);
+          // May have already be torn down, but is waiting for weak references
+          // to go away.
+          if (!cown->cown_zero_rc())
+          {
+            cown->collect(alloc);
+          }
           cown->thread.store(nullptr, std::memory_order_relaxed);
         }
         cown = cown->next;
