@@ -67,30 +67,28 @@ namespace verona::interpreter
   void VM::execute_finaliser(VMObject* object)
   {
     const VMDescriptor* descriptor = object->descriptor();
-    uint32_t finaliser_ip = descriptor->finaliser_ip;
-    if (finaliser_ip != 0)
-    {
-      auto vm = VM::local_vm;
-      vm->trace("Finaliser for: {}", descriptor->name);
+    assert(descriptor->finaliser_ip > 0);
 
-      auto old_halt = vm->halt_;
-      vm->halt_ = false;
+    auto vm = VM::local_vm;
+    vm->trace("Finaliser for: {}", descriptor->name);
 
-      // Set up a new frame for finaliser
-      vm->write(Register(vm->frame_.locals - 1), Value::mut(object));
-      vm->call(finaliser_ip, (uint8_t)1);
+    auto old_halt = vm->halt_;
+    vm->halt_ = false;
 
-      // Save call stack, so we can jump back into normal execution.
-      auto backup = std::move(vm->cfstack_);
+    // Set up a new frame for finaliser
+    vm->write(Register(vm->frame_.locals - 1), Value::mut(object));
+    vm->call(descriptor->finaliser_ip, (uint8_t)1);
 
-      // Run finaliser to completion
-      vm->dispatch_loop();
+    // Save call stack, so we can jump back into normal execution.
+    auto backup = std::move(vm->cfstack_);
 
-      // Put back normal execution
-      vm->cfstack_ = std::move(backup);
-      vm->opcode_return();
-      vm->halt_ = old_halt;
-    }
+    // Run finaliser to completion
+    vm->dispatch_loop();
+
+    // Put back normal execution
+    vm->cfstack_ = std::move(backup);
+    vm->opcode_return();
+    vm->halt_ = old_halt;
   }
 
   void VM::grow_stack(size_t size)

@@ -11,32 +11,31 @@ namespace memory_iterator
   /**
    * Helper for iterator tests that allocates objects into the region whose
    * iso object is `o`, and then maintains unordered sets to ensure the
-   * the iterators traverse over all objects, all objects without finalisers,
-   * and all objects with finalisers.
+   * the iterators traverse over all objects, all trivial objects, and all
+   * non-trivial objects.
    **/
   template<class T, class... Rest>
   void test_iterator_insert(
     Alloc* alloc,
     Object* o,
     std::unordered_set<Object*>& all,
-    std::unordered_set<Object*>& no_finaliser,
-    std::unordered_set<Object*>& needs_finaliser)
+    std::unordered_set<Object*>& trivial,
+    std::unordered_set<Object*>& non_trivial)
   {
-    UNUSED(no_finaliser);
-    UNUSED(needs_finaliser);
+    UNUSED(trivial);
+    UNUSED(non_trivial);
 
     Object* t = new (alloc, o) T;
     all.insert(t);
 
     if constexpr (
       has_trace_possibly_iso<T>::value || !std::is_trivially_destructible_v<T>)
-      needs_finaliser.insert(t);
+      non_trivial.insert(t);
     else
-      no_finaliser.insert(t);
+      trivial.insert(t);
 
     if constexpr (sizeof...(Rest) > 0)
-      test_iterator_insert<Rest...>(
-        alloc, o, all, no_finaliser, needs_finaliser);
+      test_iterator_insert<Rest...>(alloc, o, all, trivial, non_trivial);
   }
 
   template<RegionType region_type>
@@ -46,7 +45,7 @@ namespace memory_iterator
     using C = C1<region_type>;
     using F = F1<region_type>;
 
-    // Only one finaliser object.
+    // Only one non-trivial object.
     {
       auto* o = new F;
       auto* reg = RegionClass::get(o);
@@ -57,15 +56,15 @@ namespace memory_iterator
         assert(p == o);
       }
 
-      for (auto n_it = reg->template begin<RegionBase::NoFinaliser>();
-           n_it != reg->template end<RegionBase::NoFinaliser>();
+      for (auto n_it = reg->template begin<RegionBase::Trivial>();
+           n_it != reg->template end<RegionBase::Trivial>();
            ++n_it)
       {
         assert(0); // unreachable
       }
 
-      for (auto f_it = reg->template begin<RegionBase::NeedsFinaliser>();
-           f_it != reg->template end<RegionBase::NeedsFinaliser>();
+      for (auto f_it = reg->template begin<RegionBase::NonTrivial>();
+           f_it != reg->template end<RegionBase::NonTrivial>();
            ++f_it)
       {
         assert(*f_it == o);
@@ -74,7 +73,7 @@ namespace memory_iterator
       Region::release(ThreadAlloc::get(), o);
     }
 
-    // Only one non-finaliser object.
+    // Only one trivial object.
     {
       auto* o = new C;
       auto* reg = RegionClass::get(o);
@@ -85,15 +84,15 @@ namespace memory_iterator
         assert(p == o);
       }
 
-      for (auto n_it = reg->template begin<RegionBase::NoFinaliser>();
-           n_it != reg->template end<RegionBase::NoFinaliser>();
+      for (auto n_it = reg->template begin<RegionBase::Trivial>();
+           n_it != reg->template end<RegionBase::Trivial>();
            ++n_it)
       {
         assert(*n_it == o);
       }
 
-      for (auto f_it = reg->template begin<RegionBase::NeedsFinaliser>();
-           f_it != reg->template end<RegionBase::NeedsFinaliser>();
+      for (auto f_it = reg->template begin<RegionBase::NonTrivial>();
+           f_it != reg->template end<RegionBase::NonTrivial>();
            ++f_it)
       {
         assert(0); // unreachable
@@ -117,8 +116,8 @@ namespace memory_iterator
       C* oc = nullptr;
       F* of = nullptr;
       std::unordered_set<Object*> s1; // all objects
-      std::unordered_set<Object*> s2; // no finaliser
-      std::unordered_set<Object*> s3; // needs finaliser
+      std::unordered_set<Object*> s2; // trivial
+      std::unordered_set<Object*> s3; // non-trivial
       std::unordered_set<Object*> s4; // to be garbage collected
       auto* alloc = ThreadAlloc::get();
 
@@ -180,8 +179,8 @@ namespace memory_iterator
       }
       assert(s1.empty());
 
-      for (auto n_it = reg->template begin<RegionBase::NoFinaliser>();
-           n_it != reg->template end<RegionBase::NoFinaliser>();
+      for (auto n_it = reg->template begin<RegionBase::Trivial>();
+           n_it != reg->template end<RegionBase::Trivial>();
            ++n_it)
       {
         assert(s2.count(*n_it));
@@ -189,8 +188,8 @@ namespace memory_iterator
       }
       assert(s2.empty());
 
-      for (auto f_it = reg->template begin<RegionBase::NeedsFinaliser>();
-           f_it != reg->template end<RegionBase::NeedsFinaliser>();
+      for (auto f_it = reg->template begin<RegionBase::NonTrivial>();
+           f_it != reg->template end<RegionBase::NonTrivial>();
            ++f_it)
       {
         assert(s3.count(*f_it));
@@ -224,8 +223,8 @@ namespace memory_iterator
       using XF = XLargeF2<region_type>;
 
       std::unordered_set<Object*> s1; // all objects
-      std::unordered_set<Object*> s2; // no finaliser
-      std::unordered_set<Object*> s3; // needs finaliser
+      std::unordered_set<Object*> s2; // trivial
+      std::unordered_set<Object*> s3; // non-trivial
       auto* alloc = ThreadAlloc::get();
 
       auto* o = new (alloc) XF;
@@ -240,10 +239,10 @@ namespace memory_iterator
       // Now a bunch of objects into an arena.
       test_iterator_insert<C, C, C, F, F, F>(alloc, o, s1, s2, s3);
 
-      // Force a new arena, then only add non-finaliser objects.
+      // Force a new arena, then only add trivial objects.
       test_iterator_insert<LC, C, C, C, C>(alloc, o, s1, s2, s3);
 
-      // // Force a new arena, then only finaliser objects.
+      // // Force a new arena, then only non-trivial objects.
       test_iterator_insert<LF, F, F, F, F>(alloc, o, s1, s2, s3);
 
       // // And now a chain of arenas.
@@ -260,8 +259,8 @@ namespace memory_iterator
       }
       assert(s1.empty());
 
-      for (auto n_it = reg->template begin<RegionBase::NoFinaliser>();
-           n_it != reg->template end<RegionBase::NoFinaliser>();
+      for (auto n_it = reg->template begin<RegionBase::Trivial>();
+           n_it != reg->template end<RegionBase::Trivial>();
            ++n_it)
       {
         assert(s2.count(*n_it));
@@ -269,8 +268,8 @@ namespace memory_iterator
       }
       assert(s2.empty());
 
-      for (auto f_it = reg->template begin<RegionBase::NeedsFinaliser>();
-           f_it != reg->template end<RegionBase::NeedsFinaliser>();
+      for (auto f_it = reg->template begin<RegionBase::NonTrivial>();
+           f_it != reg->template end<RegionBase::NonTrivial>();
            ++f_it)
       {
         assert(s3.count(*f_it));

@@ -87,14 +87,32 @@ namespace verona::rt
     //  st.push(o.field)
     using TraceFunction = void (*)(const Object* o, ObjectStack* st);
     using TraceIsoFunction = void (*)(const Object* o, ObjectStack* st);
-    using FinalFunction = void (*)(Object* o);
+
     using NotifiedFunction = void (*)(Object* o);
+
+    // We distinguish between an object's finaliser and its destructor.
+    //
+    // The finaliser is run while all objects in the region are valid. It may
+    // follow pointers and examine other objects. On the other hand it must
+    // leave the object in a valid state as well, for other finalisers to run.
+    //
+    // When the destructor runs, other objects of the region may have already
+    // been destroyed and deallocated. Therefore the destructor must not follow
+    // any of its fields. On the other hand, it may leave the object in an
+    // invalid state ie. close file descriptors or deallocate some auxiliary
+    // storage.
+    //
+    // The finaliser can extract sub-regions and eg. send them in a
+    // multi-message. The destructor on the other hand may not do this.
+    using FinalFunction = void (*)(Object* o);
+    using DestructorFunction = void (*)(Object* o);
 
     size_t size;
     TraceFunction trace;
     TraceIsoFunction trace_possibly_iso;
     FinalFunction finaliser;
     NotifiedFunction notified = nullptr;
+    DestructorFunction destructor = nullptr;
     // TODO: virtual dispatch, pattern matching on type, reflection
   };
 
@@ -679,14 +697,25 @@ namespace verona::rt
       return get_descriptor()->notified != nullptr;
     }
 
+    inline bool has_destructor()
+    {
+      return get_descriptor()->destructor != nullptr;
+    }
+
     inline bool has_possibly_iso_fields()
     {
       return get_descriptor()->trace_possibly_iso != nullptr;
     }
 
-    inline bool needs_finaliser_ring()
+    static inline bool is_trivial(const Descriptor* desc)
     {
-      return has_finaliser() || has_possibly_iso_fields();
+      return desc->destructor == nullptr && desc->finaliser == nullptr &&
+        desc->trace_possibly_iso == nullptr;
+    }
+
+    inline bool is_trivial()
+    {
+      return is_trivial(get_descriptor());
     }
 
   public:
@@ -718,6 +747,12 @@ namespace verona::rt
     {
       if (has_notified())
         get_descriptor()->notified(this);
+    }
+
+    inline void destructor()
+    {
+      if (has_destructor())
+        get_descriptor()->destructor(this);
     }
 
     inline void dealloc(Alloc* alloc)

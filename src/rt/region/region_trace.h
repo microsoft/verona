@@ -33,9 +33,10 @@ namespace verona::rt
    *                         other __ ... ___/
    *                        objects
    *
-   * If the Iso object has a finaliser, then all the objects in the ring also
-   * have finalisers. If the Iso object does not have a finaliser, then all of
-   * the objects in the ring also do not have finalisers.
+   * If the Iso object is trivial (ie. it has no finaliser, no destructor and no
+   * subregions), then all the objects in the ring are also trivial. Conversely,
+   * if the Iso object is non-trivial, then all of the objects in the ring are
+   * also non-trivial.
    *
    * The other objects are placed in a second ring, referenced by the
    * `next_not_root` and `last_not_root` pointers.
@@ -52,13 +53,12 @@ namespace verona::rt
   private:
     enum RingKind
     {
-      FinaliserRing,
-      NonfinaliserRing,
-      BothRings
+      TrivialRing,
+      NonTrivialRing,
     };
 
-    // Circular linked list ("secondary ring") for objects that have a
-    // finaliser if the root does not, or vice versa.
+    // Circular linked list ("secondary ring") for trivial objects if the root
+    // is trivial, or vice versa.
     Object* next_not_root;
     Object* last_not_root;
 
@@ -273,7 +273,7 @@ namespace verona::rt
     {
       Object* p = get_next();
 
-      if (hd->needs_finaliser_ring() == p->needs_finaliser_ring())
+      if (hd->is_trivial() == p->is_trivial())
       {
         tl->init_next(p);
         set_next(hd);
@@ -316,7 +316,7 @@ namespace verona::rt
       assert(debug_is_in_region(nroot));
 
       // Swap the rings if necessary.
-      if (oroot->needs_finaliser_ring() != nroot->needs_finaliser_ring())
+      if (oroot->is_trivial() != nroot->is_trivial())
       {
         assert(last_not_root->get_next() == this);
 
@@ -387,11 +387,21 @@ namespace verona::rt
       }
     }
 
+    enum class SweepAll
+    {
+      Yes,
+      No
+    };
+
     /**
      * Sweep and deallocate all unmarked objects in the region. If we find an
      * unmarked object that points to a subregion, we add it to `collect` so we
      * can release it later.
+     *
+     * If sweep_all is Yes, it is assumed the entire region is being released
+     * and the Iso object is collected as well.
      **/
+    template<SweepAll sweep_all = SweepAll::No>
     void sweep(
       Alloc* alloc,
       Object* o,
@@ -400,30 +410,66 @@ namespace verona::rt
       size_t marked)
     {
       current_memory_used = 0;
-      sweep_ring<FinaliserRing>(alloc, o, f, collect);
-      sweep_ring<NonfinaliserRing>(alloc, o, f, collect);
+
+      RingKind primary_ring = o->is_trivial() ? TrivialRing : NonTrivialRing;
+
+      // We sweep the non-trivial ring first, as finalisers in there could refer
+      // to other objects. The ISO object o could be deallocated by either of
+      // these two lines.
+      sweep_ring<NonTrivialRing, sweep_all>(alloc, o, primary_ring, f, collect);
+      sweep_ring<TrivialRing, sweep_all>(alloc, o, primary_ring, f, collect);
+
       hash_set->sweep_set(alloc, marked);
       previous_memory_used = size_to_sizeclass(current_memory_used);
     }
 
+    /**
+     * Garbage Collect an object. If the object is trivial, then it is
+     * deallocated immediately. Otherwise it is added to the `gc` linked list.
+     */
     template<RingKind ring>
-    void
-    sweep_ring(Alloc* alloc, Object* o, ObjectStack& f, ObjectStack& collect)
+    void sweep_object(Alloc* alloc, Object* p, Object** gc)
     {
-      static_assert(ring != BothRings);
-
-      bool in_secondary_ring;
-      if constexpr (ring == FinaliserRing)
-        in_secondary_ring = !o->needs_finaliser_ring();
-      else
-        in_secondary_ring = o->needs_finaliser_ring();
-
-      Object* prev = this;
-      Object* p = in_secondary_ring ? next_not_root : get_next();
-      Object* gc = nullptr;
-
-      if constexpr (ring != FinaliserRing)
+      assert(
+        p->get_class() == Object::ISO || p->get_class() == Object::UNMARKED);
+      if constexpr (ring == TrivialRing)
+      {
         UNUSED(gc);
+        assert(p->is_trivial());
+
+        // p is about to be collected; remove the entry for it in
+        // the ExternalRefTable.
+        if (p->has_ext_ref())
+          ExternalReferenceTable::erase(p);
+
+        p->dealloc(alloc);
+      }
+      else
+      {
+        UNUSED(alloc);
+
+        assert(!p->is_trivial());
+        p->finalise();
+
+        // We can't deallocate the object yet, as other objects' finalisers may
+        // look at it. We build up a linked list of all objects to delete, we'll
+        // deallocate them after sweeping through the entire ring.
+        p->init_next(*gc);
+        *gc = p;
+      }
+    }
+
+    template<RingKind ring, SweepAll sweep_all>
+    void sweep_ring(
+      Alloc* alloc,
+      Object* o,
+      RingKind primary_ring,
+      ObjectStack& f,
+      ObjectStack& collect)
+    {
+      Object* prev = this;
+      Object* p = ring == primary_ring ? get_next() : next_not_root;
+      Object* gc = nullptr;
 
       // Note: we don't use the iterator because we need to remove and
       // deallocate objects from the rings.
@@ -434,17 +480,27 @@ namespace verona::rt
           case Object::ISO:
           {
             // An iso is always the root, and the last thing in the ring.
-            // Don't run the finaliser.
-            assert(p == o);
             assert(p->get_next_any_mark() == this);
             assert(p->get_region() == this);
-            use_memory(p->size());
+
+            // The ISO is considered marked, unless we're releasing the
+            // entire region anyway.
+            if constexpr (sweep_all == SweepAll::Yes)
+            {
+              sweep_object<ring>(alloc, p, &gc);
+            }
+            else
+            {
+              use_memory(p->size());
+            }
+
             p = this;
             break;
           }
 
           case Object::MARKED:
           {
+            assert(sweep_all == SweepAll::No);
             use_memory(p->size());
             p->unmark();
             prev = p;
@@ -455,38 +511,14 @@ namespace verona::rt
           case Object::UNMARKED:
           {
             Object* q = p->get_next();
+            sweep_object<ring>(alloc, p, &gc);
 
-            if constexpr (ring == FinaliserRing)
-            {
-              p->find_iso_fields(o, f, collect);
-              if (p->has_finaliser())
-                p->finalise();
-
-              // Build up linked list of objects with finalisers.
-              // We'll deallocate them after sweeping through the entire ring.
-              p->set_next(gc);
-              gc = p;
-            }
-            else
-            {
-              UNUSED(f);
-              UNUSED(collect);
-              assert(!p->has_possibly_iso_fields());
-
-              // p is about to be collected; remove the entry for it in
-              // the ExternalRefTable.
-              if (p->has_ext_ref())
-                ExternalReferenceTable::erase(p);
-
-              p->dealloc(alloc);
-            }
-
-            if (prev == this && in_secondary_ring)
+            if (ring != primary_ring && prev == this)
               next_not_root = q;
             else
               prev->set_next(q);
 
-            if (in_secondary_ring && last_not_root == p)
+            if (ring != primary_ring && last_not_root == p)
               last_not_root = prev;
 
             p = q;
@@ -498,15 +530,33 @@ namespace verona::rt
         }
       }
 
-      if constexpr (ring == FinaliserRing)
+      // We need to collect all sub-regions and then deallocate the objects.
+      // Unfortunately we can't do this as a single pass, as find_iso_fields
+      // looks at the referenced object's header to see if it points to the same
+      // region or to a different one.
+      if constexpr (ring == NonTrivialRing)
       {
         p = gc;
         while (p != nullptr)
         {
+          p->find_iso_fields(o, f, collect);
+          p = p->get_next();
+        }
+
+        p = gc;
+        while (p != nullptr)
+        {
           Object* q = p->get_next();
+          p->destructor();
           p->dealloc(alloc);
           p = q;
         }
+      }
+      else
+      {
+        UNUSED(o);
+        UNUSED(f);
+        UNUSED(collect);
       }
     }
 
@@ -523,14 +573,10 @@ namespace verona::rt
 
       Systematic::cout() << "Region release: trace region: " << o << std::endl;
 
-      o->find_iso_fields(o, f, collect);
-      o->finalise();
+      // Sweep everything, including the entrypoint.
+      sweep<SweepAll::Yes>(alloc, o, f, collect, 0);
 
-      sweep(alloc, o, f, collect, 0);
       dealloc(alloc);
-
-      // Note that sweep does not deallocate the iso object!
-      o->dealloc(alloc);
     }
 
     void use_memory(size_t size)
@@ -539,21 +585,21 @@ namespace verona::rt
     }
 
   public:
-    template<IteratorType type = Both>
+    template<IteratorType type = AllObjects>
     class iterator
     {
       friend class RegionTrace;
 
       static_assert(
-        type == NoFinaliser || type == NeedsFinaliser || type == Both);
+        type == Trivial || type == NonTrivial || type == AllObjects);
 
       iterator(RegionTrace* r) : reg(r)
       {
         Object* q = r->get_next();
-        if constexpr (type == NoFinaliser)
-          ptr = !q->needs_finaliser_ring() ? q : r->next_not_root;
-        else if constexpr (type == NeedsFinaliser)
-          ptr = q->needs_finaliser_ring() ? q : r->next_not_root;
+        if constexpr (type == Trivial)
+          ptr = q->is_trivial() ? q : r->next_not_root;
+        else if constexpr (type == NonTrivial)
+          ptr = !q->is_trivial() ? q : r->next_not_root;
         else
           ptr = q;
 
@@ -575,7 +621,7 @@ namespace verona::rt
           return *this;
         }
 
-        if constexpr (type == Both)
+        if constexpr (type == AllObjects)
         {
           if (ptr != reg->last_not_root && reg->next_not_root != reg)
           {
@@ -614,13 +660,13 @@ namespace verona::rt
       Object* ptr;
     };
 
-    template<IteratorType type = Both>
+    template<IteratorType type = AllObjects>
     inline iterator<type> begin()
     {
       return {this};
     }
 
-    template<IteratorType type = Both>
+    template<IteratorType type = AllObjects>
     inline iterator<type> end()
     {
       return {this, nullptr};

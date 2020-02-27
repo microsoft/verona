@@ -10,36 +10,43 @@ namespace verona::rt
 {
   using namespace snmalloc;
 
-  template<typename A>
-  struct has_trace_possibly_iso
+  // These helpers are used to determine if various methods are provided by the
+  // child class of V<>. They intentionally only check for the name of the
+  // method, not for its precise signature.
+  //
+  // If for example a class C has a notified method with an incorrect
+  // signature, `has_notified<C>` will still be true. However the
+  // implementation of V<C> (in this case `gc_notified`) would not compile.
+  //
+  // This is better than ignoring methods with the right name but the wrong
+  // signature.
+  template<class T, class = void>
+  struct has_trace_possibly_iso : std::false_type
+  {};
+  template<class T>
+  struct has_trace_possibly_iso<
+    T,
+    std::void_t<decltype(&T::trace_possibly_iso)>> : std::true_type
+  {};
+
+  template<class T, class = void>
+  struct has_notified : std::false_type
+  {};
+  template<class T>
+  struct has_notified<T, std::void_t<decltype(&T::notified)>> : std::true_type
+  {};
+
+  template<class T, class = void>
+  struct has_finaliser : std::false_type
+  {};
+  template<class T>
+  struct has_finaliser<T, std::void_t<decltype(&T::finaliser)>> : std::true_type
+  {};
+
+  template<class T>
+  struct has_destructor
   {
-  private:
-    template<typename B>
-    static auto test(ObjectStack* st)
-      -> decltype(std::declval<B>().trace_possibly_iso(st), std::true_type());
-
-    template<typename>
-    static std::false_type test(...);
-
-  public:
-    static constexpr bool value =
-      std::is_same_v<std::true_type, decltype(test<A>(nullptr))>;
-  };
-
-  template<typename A>
-  struct has_notified
-  {
-  private:
-    template<typename B>
-    static auto test(Object* o)
-      -> decltype(std::declval<B>().notified(o), std::true_type());
-
-    template<typename>
-    static std::false_type test(...);
-
-  public:
-    static constexpr bool value =
-      std::is_same_v<std::true_type, decltype(test<A>(nullptr))>;
+    constexpr static bool value = !std::is_trivially_destructible_v<T>;
   };
 
   template<
@@ -66,15 +73,23 @@ namespace verona::rt
 
     static void gc_trace_possibly_iso(const Object* o, ObjectStack* st)
     {
-      ((T*)o)->trace_possibly_iso(st);
+      if constexpr (has_trace_possibly_iso<T>::value)
+        ((T*)o)->trace_possibly_iso(st);
     }
 
     static void gc_notified(Object* o)
     {
-      ((T*)o)->notified(o);
+      if constexpr (has_notified<T>::value)
+        ((T*)o)->notified(o);
     }
 
     static void gc_final(Object* o)
+    {
+      if constexpr (has_finaliser<T>::value)
+        ((T*)o)->finaliser();
+    }
+
+    static void gc_destructor(Object* o)
     {
       ((T*)o)->~T();
     }
@@ -85,24 +100,14 @@ namespace verona::rt
         sizeof(T),
         gc_trace,
         has_trace_possibly_iso<T>::value ? gc_trace_possibly_iso : nullptr,
-        std::is_trivially_destructible_v<T> ? nullptr : gc_final,
-        has_notified<T>::value ? gc_notified : nullptr};
+        has_finaliser<T>::value ? gc_final : nullptr,
+        has_notified<T>::value ? gc_notified : nullptr,
+        has_destructor<T>::value ? gc_destructor : nullptr};
 
       return &desc;
     }
 
     void trace(ObjectStack*) {}
-
-    // Dummy functions to make compiler happy.
-    void trace_possibly_iso(ObjectStack*)
-    {
-      abort();
-    }
-
-    void notified(Object*)
-    {
-      abort();
-    }
 
     static EpochMark get_alloc_epoch()
     {

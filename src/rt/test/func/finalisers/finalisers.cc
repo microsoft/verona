@@ -24,7 +24,7 @@ struct C1 : public V<C1<region_type>, region_type>
       st->push(f2);
   }
 
-  // trace_possibly_iso means this object might need finalisation!
+  // Omit trace_possibly_iso as it would make this object non-trivial.
 };
 
 template<RegionType region_type>
@@ -32,12 +32,21 @@ class C2 : public V<C2<region_type>, region_type>
 {
 public:
   C2<region_type>* f1 = nullptr;
-  bool finalised = false;
+  enum State
+  {
+    LIVE,
+    FINALISED,
+    DESTRUCTED
+  };
+
+  State state;
+
+  C2() : state(LIVE) {}
 
   void trace(ObjectStack* st) const
   {
-    // Tracing should never happen after finalisation
-    check(!finalised);
+    // Tracing should never happen after destruction
+    check(state == LIVE || state == FINALISED);
 
     if (f1 != nullptr)
       st->push(f1);
@@ -48,11 +57,16 @@ public:
     trace(st);
   }
 
+  void finaliser()
+  {
+    check(state == LIVE);
+    state = FINALISED;
+  }
+
   ~C2()
   {
-    // Don't double deallocate.
-    check(!finalised);
-    finalised = true;
+    check(state == FINALISED);
+    state = DESTRUCTED;
   }
 };
 
@@ -65,7 +79,7 @@ public:
     live_count++;
   }
 
-  ~F1()
+  void finaliser()
   {
     live_count--;
     logger::cout() << "Finalised" << std::endl;
@@ -89,7 +103,7 @@ public:
     live_count++;
   }
 
-  ~F2()
+  void finaliser()
   {
     live_count--;
     logger::cout() << "Finalised: " << id << std::endl;

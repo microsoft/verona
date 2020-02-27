@@ -317,7 +317,9 @@ namespace verona::rt
         // Finally deallocate objects.
         while (!to_dealloc.empty())
         {
-          to_dealloc.pop()->dealloc(alloc);
+          Object* q = to_dealloc.pop();
+          q->destructor();
+          q->dealloc(alloc);
         }
 
         reg->discard(alloc);

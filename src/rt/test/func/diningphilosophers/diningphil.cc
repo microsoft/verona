@@ -53,7 +53,6 @@ struct KeepAlive : public VAction<KeepAlive>
 
 struct Philosopher : public VCown<Philosopher>
 {
-  bool final = false;
   size_t id;
   std::vector<Cown*> forks;
   size_t to_eat;
@@ -64,20 +63,9 @@ struct Philosopher : public VCown<Philosopher>
 
   void trace(ObjectStack* fields) const
   {
-    if (!final)
-      for (auto f : forks)
-      {
-        fields->push(f);
-      }
-  }
-
-  ~Philosopher()
-  {
-    assert(to_eat == 0);
-    final = true;
     for (auto f : forks)
     {
-      Cown::release(ThreadAlloc::get_noncachable(), f);
+      fields->push(f);
     }
   }
 };

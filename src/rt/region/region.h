@@ -237,8 +237,6 @@ namespace verona::rt
      * pointers to cowns, and immutables and subregions (which might contain
      * pointers to cowns).
      *
-     * TODO: Note that there is a misnomer, as these objects are classified as
-     * "needing finalisation."
      **/
     template<class RegionType>
     static void cown_scan_internal(
@@ -248,13 +246,11 @@ namespace verona::rt
       ObjectStack& recurse,
       EpochMark epoch)
     {
-      // First, iterate over all objects "needing finalisation" and trace them.
+      // First, iterate over all objects and trace them.
       auto reg = RegionType::get(o);
-      for (auto b_it = reg->template begin<RegionBase::NeedsFinaliser>();
-           b_it != reg->template end<RegionBase::NeedsFinaliser>();
-           ++b_it)
+      for (auto b : *reg)
       {
-        (*b_it)->trace(f);
+        b->trace(f);
       }
 
       // Now process the pointers we traced.

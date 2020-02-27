@@ -921,6 +921,9 @@ namespace verona::rt
         }
       }
 
+      // Now we may run our destructor.
+      destructor();
+
       MultiMessage* last = queue.destroy();
       alloc->dealloc<sizeof(MultiMessage)>(last);
     }

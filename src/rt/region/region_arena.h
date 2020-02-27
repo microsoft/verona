@@ -33,11 +33,11 @@ namespace verona::rt
    * Objects that are too large to be allocated within an arena are allocated
    * by snmalloc and placed into the large object ring, a circular linked list
    * of objects accessed via the Object::next pointer. This ring mixes both
-   * objects needing finalisers and objects not needing finalisers. Since the
-   * iso object may not be in the large object ring, we need a pointer to the
-   * last object in the ring, to ensure merges are fast. If the iso object is
-   * in the large object ring, then it must be in the last position, so it can
-   * point to the region metadata object.
+   * trivial and non-trivial objects. Since the iso object may not be in the
+   * large object ring, we need a pointer to the last object in the ring, to
+   * ensure merges are fast. If the iso object is in the large object ring,
+   * then it must be in the last position, so it can point to the region
+   * metadata object.
    **/
   class RegionArena : public RegionBase
   {
@@ -57,54 +57,54 @@ namespace verona::rt
      * objects inside an arena are set to nullptr. An initialized arena is
      * guaranteed to have at least one object.
      *
-     * Objects not needing finalisers are allocated from the beginning of the
-     * arena, starting at `objects_begin`. `objects_end` points to the first
-     * byte after the last object, i.e. the place where the next object will be
-     * allocated.
+     * Trivial objects (ie. those with no destructor, no finaliser and no iso
+     * fields) are allocated from the beginning of the arena, starting at
+     * `objects_begin`. `objects_end` points to the first byte after the last
+     * object, i.e. the place where the next object will be allocated.
      *
-     * Objects needing finalisers are allocated from the end of the arena.
-     * `finalisers_end` points past the end of the arena and `finalisers_begin`
-     * points to the first object that needs a finaliser.
+     * Non-trivial objects are allocated from the end of the arena.
+     * `non_trivial_end` points past the end of the arena and
+     * `non_trivial_begin` points to the first non-trivial object.
      *
      * Note that certain operations require the bottom `MIN_ALLOC_BITS` to be
      * free, so we need to ensure all objects allocated within an arena are
      * properly aligned. This may involve extra padding in the "header" of an
      * Arena object, and also rounding up object sizes.
      *
-     *                       +------------------+
-     *                       | next arena --------> ...
-     *                       | objects_end      |
-     *                       | finalisers_begin |
-     *                       | finalisers_end   |
-     *                       |==================|
-     *    objects_begin ---> | object_1         |
-     *                       +------------------+
-     *                       | ...              |
-     *                       +------------------+
-     *                       | object_n         |
-     *                       +~~~~~~~~~~~~~~~~~~+
-     *      objects_end ---> | free space       |
-     *                       |                  |
-     *                       +~~~~~~~~~~~~~~~~~~+
-     * finalisers_begin ---> | finaliser_m      |
-     *                       +------------------+
-     *                       | ...              |
-     *                       +------------------+
-     *                       | finaliser_1      |
-     *                       +------------------+
-     *   finalisers_end --->
+     *                       +-------------------+
+     *                       | next arena ---------> ...
+     *                       | objects_end       |
+     *                       | non_trivial_begin |
+     *                       | non_trivial_end   |
+     *                       |===================|
+     *    objects_begin ---> | object_1          |
+     *                       +-------------------+
+     *                       | ...               |
+     *                       +-------------------+
+     *                       | object_n          |
+     *                       +~~~~~~~~~~~~~~~~~~~+
+     *      objects_end ---> | free space        |
+     *                       |                   |
+     *                       +~~~~~~~~~~~~~~~~~~~+
+     * non_trivial_begin --> | non_trivial_m     |
+     *                       +-------------------+
+     *                       | ...               |
+     *                       +-------------------+
+     *                       | non_trivial_1     |
+     *                       +-------------------+
+     *   non_trivial_end --->
      *
      * We can iterate over objects by starting from `objects_begin`, moving the
      * pointer by the size of the current object, until we reach `objects_end`.
      * We iterate from the first allocated object to the last allocated object.
      *
-     * We can iterate over objects needing finaliers by starting from
-     * `finalisers_begin`, moving the pointer by the size of the current
-     * object, until we reach `finalisers_end`. We iterate from the last
+     * We can iterate over non-trivial objects by starting from
+     * `non_trivial_begin`, moving the pointer by the size of the current
+     * object, until we reach `non_trivial_end`. We iterate from the last
      * allocated object to the first allocated object.
      *
      * We can calculate the remaining free space by taking the difference of
-     * `finalisers_begin` and `objects_end`.
+     * `non_trivial_begin` and `objects_end`.
      **/
     class Arena
     {
@@ -127,16 +127,16 @@ namespace verona::rt
       std::byte* objects_end;
 
       /**
-       * Pointer to the first allocated object that needs a finaliser.
+       * Pointer to the first allocated non-trivial object.
        **/
-      std::byte* finalisers_begin;
+      std::byte* non_trivial_begin;
 
       /**
        * Pointer to the byte after the Arena. We technically don't need to
        * store this pointer, but we have some space because `objects_begin`
        * needs to be aligned.
        **/
-      std::byte* finalisers_end;
+      std::byte* non_trivial_end;
 
       /**
        * Where objects will actually be allocated.
@@ -147,8 +147,8 @@ namespace verona::rt
       Arena()
       : next(nullptr),
         objects_end(objects_begin),
-        finalisers_begin(objects_begin + SIZE),
-        finalisers_end(finalisers_begin)
+        non_trivial_begin(objects_begin + SIZE),
+        non_trivial_end(non_trivial_begin)
       {
         assert(free_space() == SIZE);
       }
@@ -156,7 +156,7 @@ namespace verona::rt
       inline size_t free_space() const
       {
         assert(debug_invariant());
-        std::ptrdiff_t diff = finalisers_begin - objects_end;
+        std::ptrdiff_t diff = non_trivial_begin - objects_end;
         return (size_t)diff;
       }
 
@@ -178,15 +178,15 @@ namespace verona::rt
 
         Object* o = nullptr;
 
-        if (desc->finaliser != nullptr || desc->trace_possibly_iso != nullptr)
-        {
-          finalisers_begin -= sz;
-          o = (Object*)finalisers_begin;
-        }
-        else
+        if (Object::is_trivial(desc))
         {
           o = (Object*)objects_end;
           objects_end += sz;
+        }
+        else
+        {
+          non_trivial_begin -= sz;
+          o = (Object*)non_trivial_begin;
         }
 
         o->set_descriptor(desc);
@@ -200,13 +200,13 @@ namespace verona::rt
       bool debug_invariant() const
       {
         bool objects_ptrs = objects_begin <= objects_end;
-        bool finalisers_ptrs = finalisers_begin <= finalisers_end;
-        bool no_overlap = (finalisers_begin - objects_end) >= 0;
+        bool non_trivial_ptrs = non_trivial_begin <= non_trivial_end;
+        bool no_overlap = (non_trivial_begin - objects_end) >= 0;
         auto alignment1 = Object::debug_is_aligned(objects_begin);
         auto alignment2 = Object::debug_is_aligned(objects_end);
-        auto alignment3 = Object::debug_is_aligned(finalisers_begin);
-        auto alignment4 = Object::debug_is_aligned(finalisers_end);
-        return objects_ptrs && finalisers_ptrs && no_overlap && alignment1 &&
+        auto alignment3 = Object::debug_is_aligned(non_trivial_begin);
+        auto alignment4 = Object::debug_is_aligned(non_trivial_end);
+        return objects_ptrs && non_trivial_ptrs && no_overlap && alignment1 &&
           alignment2 && alignment3 && alignment4;
       }
     };
@@ -543,13 +543,19 @@ namespace verona::rt
 
       Systematic::cout() << "Region release: arena region: " << o << std::endl;
 
-      // Run all finalisers.
-      for (auto it = begin<NeedsFinaliser>(); it != end<NeedsFinaliser>(); ++it)
+      // Clean up all the non-trivial objects, by running the finaliser and
+      // destructor, and collecting iso regions.
+      //
+      // This must be done in two passes, as one object's finaliser may read
+      // another object's fields, or even extract sub-regions from it.
+      for (auto it = begin<NonTrivial>(); it != end<NonTrivial>(); ++it)
       {
-        Object* p = *it;
-        p->find_iso_fields(o, f, collect);
-        if (p->has_finaliser())
-          p->finalise();
+        (*it)->finalise();
+      }
+      for (auto it = begin<NonTrivial>(); it != end<NonTrivial>(); ++it)
+      {
+        (*it)->find_iso_fields(o, f, collect);
+        (*it)->destructor();
       }
 
       // Now we can deallocate large object ring.
@@ -579,13 +585,13 @@ namespace verona::rt
     }
 
   public:
-    template<IteratorType type = Both>
+    template<IteratorType type = AllObjects>
     class iterator
     {
       friend class RegionArena;
 
       static_assert(
-        type == NoFinaliser || type == NeedsFinaliser || type == Both);
+        type == Trivial || type == NonTrivial || type == AllObjects);
 
       iterator(RegionArena* r) : reg(r), arena(r->first_arena), ptr(nullptr)
       {
@@ -642,7 +648,7 @@ namespace verona::rt
         assert(arena->debug_invariant());
         size_t sz = snmalloc::bits::align_up(ptr->size(), Object::ALIGNMENT);
         std::byte* q = (std::byte*)ptr + sz;
-        if constexpr (type == NoFinaliser)
+        if constexpr (type == Trivial)
         {
           assert(q > arena->objects_begin && q <= arena->objects_end);
 
@@ -650,39 +656,37 @@ namespace verona::rt
           if (q != arena->objects_end)
             return (Object*)q;
         }
-        else if constexpr (type == NeedsFinaliser)
+        else if constexpr (type == NonTrivial)
         {
-          assert(q > arena->finalisers_begin && q <= arena->finalisers_end);
+          assert(q > arena->non_trivial_begin && q <= arena->non_trivial_end);
 
           // We have not yet reached the end, so q is valid.
-          if (q != arena->finalisers_end)
+          if (q != arena->non_trivial_end)
             return (Object*)q;
         }
-        else if constexpr (type == Both)
+        else if constexpr (type == AllObjects)
         {
           assert(
             (q > arena->objects_begin && q <= arena->objects_end) ||
-            (q > arena->finalisers_begin && q <= arena->finalisers_end));
+            (q > arena->non_trivial_begin && q <= arena->non_trivial_end));
 
           // We have not yet reached either end, so q is valid.
-          if (q != arena->objects_end && q != arena->finalisers_end)
+          if (q != arena->objects_end && q != arena->non_trivial_end)
             return (Object*)q;
 
-          // We reached the end of non-finaliser objects and there are finaliser
+          // We reached the end of trivial objects and there are non-trivial
           // objects to iterate over.
           if (
             q == arena->objects_end &&
-            arena->finalisers_begin != arena->finalisers_end)
-            return (Object*)arena->finalisers_begin;
+            arena->non_trivial_begin != arena->non_trivial_end)
+            return (Object*)arena->non_trivial_begin;
         }
         return nullptr;
       }
 
       /**
        * Starting from the current `arena`, set `ptr` to the first
-       * "appropriate" Object, i.e. the first object without a finaliser, the
-       * first object that needs a finaliser, or the first object regardless
-       * of finalisation.
+       * "appropriate" Object.
        *
        * If no object can be found in the arena list, then we try the large
        * object ring. If no objects are left, then `ptr` is set to nullptr.
@@ -715,20 +719,20 @@ namespace verona::rt
         {
           assert(
             arena->objects_begin < arena->objects_end ||
-            arena->finalisers_begin < arena->finalisers_end);
+            arena->non_trivial_begin < arena->non_trivial_end);
           assert(arena->debug_invariant());
-          if constexpr (type == NoFinaliser || type == Both)
+          if constexpr (type == Trivial || type == AllObjects)
           {
             if (arena->objects_begin != arena->objects_end)
               return (Object*)arena->objects_begin;
           }
-          if constexpr (type == NeedsFinaliser || type == Both)
+          if constexpr (type == NonTrivial || type == AllObjects)
           {
-            if (arena->finalisers_begin != arena->finalisers_end)
-              return (Object*)arena->finalisers_begin;
+            if (arena->non_trivial_begin != arena->non_trivial_end)
+              return (Object*)arena->non_trivial_begin;
           }
           // Every arena contains at least one object.
-          if constexpr (type == Both)
+          if constexpr (type == AllObjects)
             assert(0);
           arena = arena->next;
         }
@@ -747,10 +751,10 @@ namespace verona::rt
         while (q != reg)
         {
           bool cond;
-          if constexpr (type == NoFinaliser)
-            cond = !q->needs_finaliser_ring();
-          else if constexpr (type == NeedsFinaliser)
-            cond = q->needs_finaliser_ring();
+          if constexpr (type == Trivial)
+            cond = q->is_trivial();
+          else if constexpr (type == NonTrivial)
+            cond = !q->is_trivial();
           else
             cond = true;
 
@@ -762,13 +766,13 @@ namespace verona::rt
       }
     };
 
-    template<IteratorType type = Both>
+    template<IteratorType type = AllObjects>
     inline iterator<type> begin()
     {
       return {this};
     }
 
-    template<IteratorType type = Both>
+    template<IteratorType type = AllObjects>
     inline iterator<type> end()
     {
       return {this, nullptr, nullptr};
