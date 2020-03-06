@@ -168,14 +168,13 @@ namespace verona::rt
     {
       assert(o->debug_is_iso());
       ObjectStack collect(alloc);
-      ObjectStack f(alloc);
-      Region::release_internal(alloc, o, f, collect);
+      Region::release_internal(alloc, o, collect);
 
       while (!collect.empty())
       {
         o = collect.pop();
         assert(o->debug_is_iso());
-        Region::release_internal(alloc, o, f, collect);
+        Region::release_internal(alloc, o, collect);
       }
     }
 
@@ -300,18 +299,17 @@ namespace verona::rt
      *
      * We dispatch based on the type of region represented by `o`.
      **/
-    static void release_internal(
-      Alloc* alloc, Object* o, ObjectStack& f, ObjectStack& collect)
+    static void release_internal(Alloc* alloc, Object* o, ObjectStack& collect)
     {
       assert(o->debug_is_iso());
       RegionBase* r = o->get_region();
       switch (Region::get_type(r))
       {
         case RegionType::Trace:
-          ((RegionTrace*)r)->release_internal(alloc, o, f, collect);
+          ((RegionTrace*)r)->release_internal(alloc, o, collect);
           return;
         case RegionType::Arena:
-          ((RegionArena*)r)->release_internal(alloc, o, f, collect);
+          ((RegionArena*)r)->release_internal(alloc, o, collect);
           return;
         default:
           abort();

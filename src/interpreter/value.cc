@@ -325,6 +325,31 @@ namespace verona::interpreter
     }
   }
 
+  void FieldValue::add_isos(rt::ObjectStack& stack) const
+  {
+    switch (tag)
+    {
+      case Value::ISO:
+        stack.push(inner.object);
+        break;
+
+      case Value::COWN:
+      case Value::MUT:
+      case Value::IMM:
+      case Value::UNINIT:
+      case Value::U64:
+      case Value::STRING:
+      case Value::DESCRIPTOR:
+        break;
+
+      case Value::COWN_UNOWNED:
+        // Cannot be part of the heap.
+        abort();
+
+        EXHAUSTIVE_SWITCH
+    }
+  }
+
   FieldValue::~FieldValue()
   {
     switch (tag)

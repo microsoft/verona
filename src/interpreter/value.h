@@ -192,6 +192,12 @@ namespace verona::interpreter
 
     void trace(rt::ObjectStack* stack) const;
 
+    /**
+     * If this Value contains an ISO, then add it to the stack
+     * Otherwise, do nothing.
+     **/
+    void add_isos(rt::ObjectStack& stack) const;
+
     friend fmt::formatter<Value>;
 
   private:

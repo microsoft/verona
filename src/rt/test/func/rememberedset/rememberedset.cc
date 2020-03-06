@@ -20,8 +20,6 @@ struct C1 : public V<C1<region_type>, region_type>
     if (f2 != nullptr)
       st->push(f2);
   }
-
-  // trace_possibly_iso would mean this object might need finalisation!
 };
 
 /**

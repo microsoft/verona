@@ -21,9 +21,10 @@ namespace memory_subregion
         st->push(f2);
     }
 
-    void trace_possibly_iso(ObjectStack* st)
+    void finaliser(Object* region, ObjectStack& sub_regions)
     {
-      trace(st);
+      Object::add_sub_region(f1, region, sub_regions);
+      Object::add_sub_region(f2, region, sub_regions);
     }
   };
 

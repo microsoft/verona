@@ -109,12 +109,10 @@ struct O : public V<O<region_type>, region_type>
       st->push(cown);
   }
 
-  void trace_possibly_iso(ObjectStack* st)
+  void finaliser(Object* region, ObjectStack& sub_regions)
   {
-    if (f1 != nullptr)
-      st->push(f1);
-    if (f2 != nullptr)
-      st->push(f2);
+    Object::add_sub_region(f1, region, sub_regions);
+    Object::add_sub_region(f2, region, sub_regions);
   }
 };
 

@@ -23,8 +23,6 @@ struct C1 : public V<C1<region_type>, region_type>
     if (f2 != nullptr)
       st->push(f2);
   }
-
-  // Omit trace_possibly_iso as it would make this object non-trivial.
 };
 
 template<RegionType region_type>
@@ -52,15 +50,11 @@ public:
       st->push(f1);
   }
 
-  void trace_possibly_iso(ObjectStack* st)
-  {
-    trace(st);
-  }
-
-  void finaliser()
+  void finaliser(Object* region, ObjectStack& sub_regions)
   {
     check(state == LIVE);
     state = FINALISED;
+    Object::add_sub_region(f1, region, sub_regions);
   }
 
   ~C2()
@@ -79,7 +73,7 @@ public:
     live_count++;
   }
 
-  void finaliser()
+  void finaliser(Object*, ObjectStack&)
   {
     live_count--;
     logger::cout() << "Finalised" << std::endl;
@@ -103,7 +97,7 @@ public:
     live_count++;
   }
 
-  void finaliser()
+  void finaliser(Object*, ObjectStack&)
   {
     live_count--;
     logger::cout() << "Finalised: " << id << std::endl;

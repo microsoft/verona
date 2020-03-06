@@ -942,8 +942,10 @@ namespace verona::rt
 #endif
       Systematic::cout() << "Collecting: " << this << std::endl;
 
+      ObjectStack dummy(alloc);
       // Run finaliser before releasing our data.
-      finalise();
+      // Sub-regions handled by code below.
+      finalise(nullptr, dummy);
 
       // Release our data.
       ObjectStack f(alloc);

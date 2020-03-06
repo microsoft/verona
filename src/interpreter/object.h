@@ -44,7 +44,14 @@ namespace verona::interpreter
     VMObject* region();
 
     static void trace_fn(const rt::Object* base_object, rt::ObjectStack* stack);
-    static void finaliser_fn(rt::Object* base_object);
+    static void finaliser_fn(
+      rt::Object* base_object,
+      rt::Object* region,
+      rt::ObjectStack& sub_regions);
+    static void collect_iso_fields(
+      rt::Object* base_object,
+      rt::Object* region,
+      rt::ObjectStack& sub_regions);
     static void destructor_fn(rt::Object* base_object);
 
   private:
@@ -82,12 +89,6 @@ namespace verona::interpreter
     }
 
     void trace(rt::ObjectStack* stack)
-    {
-      if (contents != nullptr)
-        stack->push(contents);
-    }
-
-    void trace_possibly_iso(rt::ObjectStack* stack)
     {
       if (contents != nullptr)
         stack->push(contents);

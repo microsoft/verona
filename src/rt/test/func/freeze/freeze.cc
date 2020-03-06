@@ -25,6 +25,18 @@ struct C1 : public V<C1>
     if (f2 != nullptr)
       st->push(f2);
   }
+
+  void finaliser(Object* region, ObjectStack& st)
+  {
+    if (f1 != nullptr)
+    {
+      Object::add_sub_region(f1, region, st);
+    }
+    if (f2 != nullptr)
+    {
+      Object::add_sub_region(f2, region, st);
+    }
+  }
 };
 
 class Foo : public V<Foo>
@@ -251,18 +263,21 @@ void test4()
 
 void test5()
 {
-  // Freeze with unreachable subregion 
+  // Freeze with unreachable subregion
   // Bug reported in #83
   //
   // There are two regions, [1, 2], [3].
   //
-  // Freeze 1, 
+  // Freeze 1,
   // Ptr from 2 to subregion 3
   auto* alloc = ThreadAlloc::get();
 
   C1* o1 = new (alloc) C1;
+  std::cout << "o1: " << o1 << std::endl;
   C1* o2 = new (alloc, o1) C1;
+  std::cout << "o2: " << o2 << std::endl;
   C1* o3 = new (alloc) C1;
+  std::cout << "o3: " << o3 << std::endl;
 
   o2->f1 = o3;
 
