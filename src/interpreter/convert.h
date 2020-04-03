@@ -33,36 +33,6 @@ namespace verona::interpreter
   struct convert_operand;
 
   /**
-   * Helper type extending convert_operand to a list of operands.
-   *
-   * This class should be instantiated using the type of the member function
-   * pointer to an opcode handler, such as `void (VM::*)(Register, Value)`.
-   *
-   * It provides the following method:
-   *
-   *     template<Ts...>
-   *     static tuple<...> convert(VM*, tuple<Ts...> operands)
-   *
-   * Where the argument tuple matches the opcode's spec, and the return tuple
-   * matches the opcode handler's argument types.
-   */
-  template<typename Fn>
-  struct convert_operand_list;
-  template<typename... Args>
-  struct convert_operand_list<void (VM::*)(Args...)>
-  {
-    template<typename... Ts>
-    static std::tuple<Args...> convert(VM* vm, std::tuple<Ts...> operands)
-    {
-      return std::apply(
-        [&](auto... operands) -> std::tuple<Args...> {
-          return {convert_operand<Args>::convert(vm, operands)...};
-        },
-        operands);
-    }
-  };
-
-  /**
    * Blanket identity conversion on operands, for any type.
    */
   template<typename T>
@@ -79,8 +49,8 @@ namespace verona::interpreter
   {
     /**
      * Operand conversion from a Register to a Value, which might consume the
-     * underlying register. The opcode handler receives ownership of the Value and
-     * must use it or clear it before exiting.
+     * underlying register. The opcode handler receives ownership of the Value
+     * and must use it or clear it before exiting.
      */
     static Value convert(VM* vm, Register reg)
     {
@@ -166,4 +136,36 @@ namespace verona::interpreter
     }
   };
 
+  /**
+   * Helper type used to convert operands and execute an opcode handler.
+   * It is used to "pattern match" on the signature of the handler and
+   * instantiate the right operand conversion.
+   *
+   * The type is specialized to provide different behaviours based on the return
+   * type of the opcode handler. If it is `Value`, then the first operand is
+   * assumed to be a register index, in which the return value is stored.
+   */
+  template<typename Fn>
+  struct execute_handler;
+
+  template<typename... Args>
+  struct execute_handler<void (VM::*)(Args...)>
+  {
+    template<void (VM::*Fn)(Args...), typename... Ts>
+    static void execute(VM* vm, Ts... operands)
+    {
+      (vm->*Fn)(convert_operand<Args>::convert(vm, operands)...);
+    }
+  };
+
+  template<typename... Args>
+  struct execute_handler<Value (VM::*)(Args...)>
+  {
+    template<Value (VM::*Fn)(Args...), typename... Ts>
+    static void execute(VM* vm, Register dst, Ts... operands)
+    {
+      Value result = (vm->*Fn)(convert_operand<Args>::convert(vm, operands)...);
+      vm->write(dst, std::move(result));
+    }
+  };
 }

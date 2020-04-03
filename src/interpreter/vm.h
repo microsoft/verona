@@ -52,34 +52,31 @@ namespace verona::interpreter
     static void execute_finaliser(VMObject* object);
 
   private:
-    void opcode_binop(
-      Register dst, bytecode::BinaryOperator op, uint64_t left, uint64_t right);
+    Value
+    opcode_binop(bytecode::BinaryOperator op, uint64_t left, uint64_t right);
     void opcode_call(SelectorIdx selector, uint8_t callspace);
     void call(size_t addr, uint8_t callspace);
-    void opcode_clear(Register dst);
-    void opcode_copy(Register dst, Value src);
+    Value opcode_clear();
+    Value opcode_copy(Value src);
     void opcode_fulfill_sleeping_cown(const Value& cown, Value result);
-    void opcode_freeze(Register dst, Value src);
-    void opcode_int64(Register dst, uint64_t imm);
+    Value opcode_freeze(Value src);
+    Value opcode_int64(uint64_t imm);
     void opcode_jump(int16_t offset);
     void opcode_jump_if(uint64_t condition, int16_t offset);
-    void opcode_load(Register dst, const Value& base, SelectorIdx selector);
-    void opcode_load_descriptor(Register dst, DescriptorIdx desc_idx);
-    void opcode_match(
-      Register dst, const Value& src, const VMDescriptor* descriptor);
-    void opcode_move(Register dst, Register src);
-    void opcode_mut_view(Register dst, const Value& src);
-    void opcode_new(
-      Register dst, const Value& parent, const VMDescriptor* descriptor);
-    void opcode_new_region(Register dst, const VMDescriptor* descriptor);
-    void
-    opcode_new_cown(Register dst, const VMDescriptor* descriptor, Value src);
-    void opcode_new_sleeping_cown(Register dst, const VMDescriptor* descriptor);
+    Value opcode_load(const Value& base, SelectorIdx selector);
+    Value opcode_load_descriptor(DescriptorIdx desc_idx);
+    Value opcode_match(const Value& src, const VMDescriptor* descriptor);
+    Value opcode_move(Register src);
+    Value opcode_mut_view(const Value& src);
+    Value
+    opcode_new_object(const Value& parent, const VMDescriptor* descriptor);
+    Value opcode_new_region(const VMDescriptor* descriptor);
+    Value opcode_new_cown(const VMDescriptor* descriptor, Value src);
+    Value opcode_new_sleeping_cown(const VMDescriptor* descriptor);
     void opcode_print(std::string_view fmt, uint8_t argc);
     void opcode_return();
-    void opcode_store(
-      Register dst, const Value& base, SelectorIdx selector, Value src);
-    void opcode_string(Register dst, std::string_view imm);
+    Value opcode_store(const Value& base, SelectorIdx selector, Value src);
+    Value opcode_string(std::string_view imm);
     void opcode_trace_region(const Value& region);
     void
     opcode_when(CodePtr selector, uint8_t cown_count, uint8_t capture_count);
@@ -235,6 +232,8 @@ namespace verona::interpreter
 
     template<typename T>
     friend struct convert_operand;
+    template<typename T>
+    friend struct execute_handler;
   };
 
   /**
