@@ -181,6 +181,11 @@ namespace verona::bytecode
   {
     Add,
     Sub,
+    Mul,
+    Div,
+    Mod,
+    Shl,
+    Shr,
     Lt,
     Le,
     Gt,

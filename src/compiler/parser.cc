@@ -152,6 +152,11 @@ namespace verona::compiler
 
     Rule operator_add = "+"_E;
     Rule operator_sub = "-"_E;
+    Rule operator_mul = "*"_E;
+    Rule operator_div = "/"_E;
+    Rule operator_mod = "%"_E;
+    Rule operator_shl = "<<"_E;
+    Rule operator_shr = ">>"_E;
     Rule operator_lt = "<"_E;
     Rule operator_le = "<="_E;
     Rule operator_gt = ">"_E;
@@ -160,7 +165,8 @@ namespace verona::compiler
     Rule operator_ne = "!="_E;
     Rule operator_and = "&&"_E;
     Rule operator_or = "||"_E;
-    Rule binary_operator = operator_add | operator_sub | operator_le |
+    Rule binary_operator = operator_add | operator_sub | operator_mul |
+      operator_div | operator_mod | operator_shl | operator_shr | operator_le |
       operator_lt | operator_ge | operator_gt | operator_eq | operator_ne |
       operator_and | operator_or;
 
@@ -300,6 +306,16 @@ namespace verona::compiler
       g.operator_add;
     BindConstant<BinaryOperator, BinaryOperator::Sub> operator_sub =
       g.operator_sub;
+    BindConstant<BinaryOperator, BinaryOperator::Mul> operator_mul =
+      g.operator_mul;
+    BindConstant<BinaryOperator, BinaryOperator::Div> operator_div =
+      g.operator_div;
+    BindConstant<BinaryOperator, BinaryOperator::Mod> operator_mod =
+      g.operator_mod;
+    BindConstant<BinaryOperator, BinaryOperator::Shl> operator_shl =
+      g.operator_shl;
+    BindConstant<BinaryOperator, BinaryOperator::Shr> operator_shr =
+      g.operator_shr;
     BindConstant<BinaryOperator, BinaryOperator::Lt> operator_lt =
       g.operator_lt;
     BindConstant<BinaryOperator, BinaryOperator::Le> operator_le =

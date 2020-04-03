@@ -171,6 +171,20 @@ namespace verona::interpreter
         return Value::u64(left + right);
       case bytecode::BinaryOperator::Sub:
         return Value::u64(left - right);
+      case bytecode::BinaryOperator::Mul:
+        return Value::u64(left * right);
+      case bytecode::BinaryOperator::Div:
+        if (right == 0)
+          fatal("Division by zero");
+        return Value::u64(left / right);
+      case bytecode::BinaryOperator::Mod:
+        if (right == 0)
+          fatal("Division by zero");
+        return Value::u64(left % right);
+      case bytecode::BinaryOperator::Shl:
+        return Value::u64(left << right);
+      case bytecode::BinaryOperator::Shr:
+        return Value::u64(left >> right);
       case bytecode::BinaryOperator::Lt:
         return Value::u64(left < right);
       case bytecode::BinaryOperator::Gt:

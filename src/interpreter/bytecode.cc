@@ -24,6 +24,21 @@ namespace verona::bytecode
       case BinaryOperator::Sub:
         fmt::print(out, "SUB");
         break;
+      case BinaryOperator::Mul:
+        fmt::print(out, "MUL");
+        break;
+      case BinaryOperator::Div:
+        fmt::print(out, "DIV");
+        break;
+      case BinaryOperator::Mod:
+        fmt::print(out, "MOD");
+        break;
+      case BinaryOperator::Shl:
+        fmt::print(out, "SHL");
+        break;
+      case BinaryOperator::Shr:
+        fmt::print(out, "SHR");
+        break;
       case BinaryOperator::Lt:
         fmt::print(out, "LT");
         break;

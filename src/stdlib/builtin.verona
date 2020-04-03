@@ -95,6 +95,11 @@ class Promise[class T]
 primitive U64 {
   builtin add(self: imm, other: U64 & imm): U64 & imm;
   builtin sub(self: imm, other: U64 & imm): U64 & imm;
+  builtin mul(self: imm, other: U64 & imm): U64 & imm;
+  builtin div(self: imm, other: U64 & imm): U64 & imm;
+  builtin mod(self: imm, other: U64 & imm): U64 & imm;
+  builtin shl(self: imm, other: U64 & imm): U64 & imm;
+  builtin shr(self: imm, other: U64 & imm): U64 & imm;
   builtin lt(self: imm, other: U64 & imm): U64 & imm;
   builtin gt(self: imm, other: U64 & imm): U64 & imm;
   builtin le(self: imm, other: U64 & imm): U64 & imm;

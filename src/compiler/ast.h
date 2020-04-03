@@ -555,6 +555,11 @@ namespace verona::compiler
   {
     Add,
     Sub,
+    Mul,
+    Div,
+    Mod,
+    Shl,
+    Shr,
     Lt,
     Le,
     Gt,
