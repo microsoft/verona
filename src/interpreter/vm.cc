@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 #include "interpreter/vm.h"
 
+#include "interpreter/convert.h"
 #include "interpreter/format.h"
 
 #include <fmt/ranges.h>
@@ -162,47 +163,41 @@ namespace verona::interpreter
   }
 
   void VM::opcode_binop(
-    Register dst,
-    bytecode::BinaryOperator op,
-    const Value& left,
-    const Value& right)
+    Register dst, bytecode::BinaryOperator op, uint64_t left, uint64_t right)
   {
-    check_type(left, Value::Tag::U64);
-    check_type(right, Value::Tag::U64);
-
     uint64_t result;
 
     switch (op)
     {
       case bytecode::BinaryOperator::Add:
-        result = left->u64 + right->u64;
+        result = left + right;
         break;
       case bytecode::BinaryOperator::Sub:
-        result = left->u64 - right->u64;
+        result = left - right;
         break;
       case bytecode::BinaryOperator::Lt:
-        result = left->u64 < right->u64;
+        result = left < right;
         break;
       case bytecode::BinaryOperator::Gt:
-        result = left->u64 > right->u64;
+        result = left > right;
         break;
       case bytecode::BinaryOperator::Le:
-        result = left->u64 <= right->u64;
+        result = left <= right;
         break;
       case bytecode::BinaryOperator::Ge:
-        result = left->u64 >= right->u64;
+        result = left >= right;
         break;
       case bytecode::BinaryOperator::Eq:
-        result = left->u64 == right->u64;
+        result = left == right;
         break;
       case bytecode::BinaryOperator::Ne:
-        result = left->u64 != right->u64;
+        result = left != right;
         break;
       case bytecode::BinaryOperator::And:
-        result = left->u64 && right->u64;
+        result = left && right;
         break;
       case bytecode::BinaryOperator::Or:
-        result = left->u64 || right->u64;
+        result = left || right;
         break;
 
         EXHAUSTIVE_SWITCH;
@@ -272,7 +267,7 @@ namespace verona::interpreter
 
   void VM::opcode_fulfill_sleeping_cown(const Value& cown, Value result)
   {
-    check_type(cown, Value::Tag::COWN);
+    check_type(cown, Value::COWN);
 
     cown->cown->contents = result.consume_iso();
 
@@ -282,7 +277,7 @@ namespace verona::interpreter
 
   void VM::opcode_freeze(Register dst, Value src)
   {
-    check_type(src, Value::Tag::ISO);
+    check_type(src, Value::ISO);
 
     VMObject* contents = src.consume_iso();
     rt::Freeze::apply(alloc_, contents);
@@ -309,17 +304,15 @@ namespace verona::interpreter
     ip_ = start_ip_ + offset;
   }
 
-  void VM::opcode_jump_if(const Value& src, int16_t offset)
+  void VM::opcode_jump_if(uint64_t condition, int16_t offset)
   {
-    check_type(src, Value::Tag::U64);
-
-    if (src->u64 > 0)
+    if (condition > 0)
       ip_ = start_ip_ + offset;
   }
 
   void VM::opcode_load(Register dst, const Value& base, SelectorIdx selector)
   {
-    check_type(base, {Value::Tag::ISO, Value::Tag::MUT, Value::Tag::IMM});
+    check_type(base, {Value::ISO, Value::MUT, Value::IMM});
 
     VMObject* object = base->object;
     const VMDescriptor* descriptor = object->descriptor();
@@ -371,7 +364,7 @@ namespace verona::interpreter
 
   void VM::opcode_mut_view(Register dst, const Value& src)
   {
-    check_type(src, {Value::Tag::ISO, Value::Tag::MUT});
+    check_type(src, {Value::ISO, Value::MUT});
 
     write(dst, Value::mut(src->object));
   }
@@ -379,7 +372,7 @@ namespace verona::interpreter
   void VM::opcode_new(
     Register dst, const Value& parent, const VMDescriptor* descriptor)
   {
-    check_type(parent, {Value::Tag::ISO, Value::Tag::MUT});
+    check_type(parent, {Value::ISO, Value::MUT});
 
     VMObject* region = parent->object->region();
     rt::Object* object = rt::Region::alloc(alloc_, region, descriptor);
@@ -397,7 +390,7 @@ namespace verona::interpreter
   void
   VM::opcode_new_cown(Register dst, const VMDescriptor* descriptor, Value src)
   {
-    check_type(src, Value::Tag::ISO);
+    check_type(src, Value::ISO);
     VMObject* contents = src.consume_iso();
     write(dst, Value::cown(new VMCown(descriptor, contents)));
   }
@@ -413,24 +406,21 @@ namespace verona::interpreter
 
   void VM::opcode_trace_region(const Value& object)
   {
-    check_type(object, {Value::Tag::ISO, Value::Tag::MUT});
+    check_type(object, {Value::ISO, Value::MUT});
 
     VMObject* region = object->object->region();
-
     rt::RegionTrace::gc(alloc_, region);
   }
 
-  void VM::opcode_print(const Value& src, uint8_t argc)
+  void VM::opcode_print(std::string_view fmt, uint8_t argc)
   {
-    check_type(src, Value::Tag::STRING);
-    std::string_view format = src->string();
     fmt::dynamic_format_arg_store<fmt::format_context> store;
     for (uint8_t i = 0; i < argc; i++)
     {
       Register reg = code_.load<Register>(ip_);
       store.push_back(std::cref(read(reg)));
     }
-    fmt::vprint(format, store);
+    fmt::vprint(fmt, store);
   }
 
   void VM::opcode_return()
@@ -481,7 +471,7 @@ namespace verona::interpreter
   void VM::opcode_store(
     Register dst, const Value& base, SelectorIdx selector, Value src)
   {
-    check_type(base, {Value::Tag::ISO, Value::Tag::MUT});
+    check_type(base, {Value::ISO, Value::MUT});
 
     VMObject* object = base->object;
     const VMDescriptor* desc = object->descriptor();
@@ -535,7 +525,7 @@ namespace verona::interpreter
     {
       Value& v = values[i];
       trace("Capturing cown {:d}: {}", i, v);
-      check_type(v, Value::Tag::COWN);
+      check_type(v, Value::COWN);
 
       // Multimessage will take increfs on all the cowns, so don't need to
       // protect them here.
