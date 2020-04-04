@@ -424,39 +424,13 @@ namespace verona::interpreter
   {
     check_type(src, Value::Tag::STRING);
     std::string_view format = src->string();
-
-    std::vector<const Value*> values;
+    fmt::dynamic_format_arg_store<fmt::format_context> store;
     for (uint8_t i = 0; i < argc; i++)
     {
-      values.push_back(&read(code_.load<Register>(ip_)));
+      Register reg = code_.load<Register>(ip_);
+      store.push_back(std::cref(read(reg)));
     }
-
-    // Sadly fmt doesn't have any public API for dynamic sized lists of
-    // arguments.
-    switch (argc)
-    {
-      case 0:
-        fmt::print(format);
-        break;
-      case 1:
-        fmt::print(format, *values[0]);
-        break;
-      case 2:
-        fmt::print(format, *values[0], *values[1]);
-        break;
-      case 3:
-        fmt::print(format, *values[0], *values[1], *values[2]);
-        break;
-      case 4:
-        fmt::print(format, *values[0], *values[1], *values[2], *values[3]);
-        break;
-      case 5:
-        fmt::print(
-          format, *values[0], *values[1], *values[2], *values[3], *values[4]);
-        break;
-      default:
-        fatal("{} is more arguments than opcode_print can handle", argc);
-    };
+    fmt::vprint(format, store);
   }
 
   void VM::opcode_return()
