@@ -32,24 +32,41 @@ namespace verona::compiler
        * Helper method which dereferences its argument if possible, or returns
        * it unchanged otherwise.
        */
-      template<
-        typename T,
-        typename = std::enable_if_t<can_dereference<T>::value>>
-      const auto& deref(const T& ptr)
+      template<typename T>
+      const auto& deref(const T& value)
       {
-        return *ptr;
-      }
-
-      template<
-        typename T,
-        typename = std::enable_if_t<!can_dereference<T>::value>>
-      const T& deref(const T& value)
-      {
-        return value;
+        if constexpr (can_dereference<T>::value)
+          return *value;
+        else
+          return value;
       }
 
       template<typename T>
       using element_type = typename std::remove_reference_t<T>::value_type;
+
+      template<typename T, typename = void>
+      struct has_value_method : std::false_type
+      {};
+
+      template<typename T>
+      struct has_value_method<
+        T,
+        std::void_t<decltype(std::declval<const T&>().has_value())>>
+      : std::true_type
+      {};
+
+      /**
+       * Check whether something has a "useful" value, using either a has_value
+       * method or by converting to a boolean.
+       */
+      template<typename T>
+      bool has_value(const T& p)
+      {
+        if constexpr (has_value_method<T>::value)
+          return p.has_value();
+        else
+          return bool(p);
+      }
     }
 
     /**
@@ -68,9 +85,9 @@ namespace verona::compiler
         return out << self.prefix_ << internal::deref(self.value_);
       }
 
-      operator bool() const
+      bool has_value() const
       {
-        return bool(value_);
+        return internal::has_value(value_);
       }
 
     private:
@@ -95,9 +112,9 @@ namespace verona::compiler
                    << self.suffix_;
       }
 
-      operator bool() const
+      bool has_value() const
       {
-        return bool(value_);
+        return internal::has_value(value_);
       }
 
     private:
@@ -107,8 +124,9 @@ namespace verona::compiler
     };
 
     /**
-     * Printable object which only displays its contents if true when converted
-     * to a boolean.
+     * Printable object which only displays its contents if the contents have
+     * a value, as defined by their `has_value` method or by converting to a
+     * boolean.
      *
      * The contents would usually be an std::optional, a pointer or a vector
      * inside of a separated_by printer. Combinators such a prefixed and
@@ -123,14 +141,14 @@ namespace verona::compiler
     {
       explicit optional(T&& value) : value_(std::forward<T>(value)) {}
 
-      operator bool() const
+      bool has_value() const
       {
-        return bool(value_);
+        return internal::has_value(value_);
       }
 
       friend std::ostream& operator<<(std::ostream& out, const optional& self)
       {
-        if (self.value_)
+        if (self.has_value())
           return out << internal::deref(self.value_);
         else
           return out;
@@ -159,7 +177,7 @@ namespace verona::compiler
           return out << self.fallback_;
       }
 
-      operator bool() const
+      bool has_value() const
       {
         return true;
       }
@@ -190,7 +208,7 @@ namespace verona::compiler
       : value_(std::forward<T>(value)), separator_(separator), getter_(getter)
       {}
 
-      operator bool() const
+      bool has_value() const
       {
         return !value_.empty();
       }
@@ -232,7 +250,7 @@ namespace verona::compiler
     {
       explicit lines(T&& value) : value_(std::forward<T>(value)) {}
 
-      operator bool() const
+      bool has_value() const
       {
         return !value_.empty();
       }
