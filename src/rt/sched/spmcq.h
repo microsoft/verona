@@ -57,8 +57,8 @@ namespace verona::rt
 
       do
       {
-        node->next_in_queue = ABA<T>::ptr(cmp);
-      } while (!tail.compare_exchange(cmp, node));
+        node->next_in_queue = cmp.ptr();
+      } while (!cmp.store_conditional(node));
     }
 
     T* pop(Alloc* alloc)
@@ -72,13 +72,13 @@ namespace verona::rt
       {
         Epoch e(alloc);
         epoch = e.get_local_epoch_epoch();
-        tl = ABA<T>::ptr(cmp);
+        tl = cmp.ptr();
         auto unmasked_tl = unmask(tl);
         next = unmasked_tl->next_in_queue;
 
         if (next == nullptr)
           return nullptr;
-      } while (!tail.compare_exchange(cmp, next));
+      } while (!cmp.store_conditional(next));
 
       assert(epoch != T::NO_EPOCH_SET);
 
