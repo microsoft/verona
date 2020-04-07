@@ -63,6 +63,14 @@ namespace verona::interpreter
     return v;
   }
 
+  Value Value::pointer(FieldValue* ptr)
+  {
+    Value v;
+    v.tag = POINTER;
+    v.inner.pointer = ptr;
+    return v;
+  }
+
   Value Value::descriptor(const VMDescriptor* descriptor)
   {
     Value v;
@@ -114,6 +122,7 @@ namespace verona::interpreter
         delete inner.string_ptr;
         break;
 
+      case POINTER:
       case MUT:
       case UNINIT:
       case U64:
@@ -185,6 +194,9 @@ namespace verona::interpreter
         rt::Immutable::acquire(inner.object);
         return Value::imm(inner.object);
 
+      case POINTER:
+        return Value::pointer(inner.pointer);
+
         EXHAUSTIVE_SWITCH
     }
   }
@@ -207,6 +219,9 @@ namespace verona::interpreter
 
       case Value::U64:
         return Value::u64(inner.u64);
+
+      case Value::POINTER:
+        return Value::pointer(inner.pointer);
 
       case Value::STRING:
         return Value::string(inner.string());
@@ -317,6 +332,11 @@ namespace verona::interpreter
       case Value::DESCRIPTOR:
         break;
 
+      case Value::POINTER:
+        // Pointers are traced by their "owner" (eg. Array), as it has more
+        // information about them.
+        break;
+
       case Value::COWN_UNOWNED:
         // Cannot be part of the heap.
         abort();
@@ -343,6 +363,10 @@ namespace verona::interpreter
       case Value::DESCRIPTOR:
       case Value::U64:
       case Value::UNINIT:
+        break;
+
+      case Value::POINTER:
+        // Pointers are freed either manually or by Array's hardcoded destructor
         break;
 
       case Value::COWN_UNOWNED:

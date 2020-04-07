@@ -168,6 +168,12 @@ namespace verona::bytecode
     NewCown, // dst(u8), descriptor(u8), src(u8)
     NewRegion, // dst(u8), descriptor(u8)
     NewSleepingCown, // dst(u8), descriptor(u8)
+    PointerAllocate, // dst(u8), size(u8)
+    PointerFree, // ptr(u8), size(u8)
+    PointerGet, // dst(u8), parent(u8), ptr(u8), index(u8)
+    PointerSet, // parent(u8), ptr(u8), index(u8), value(u8)
+    PointerSwap, // dst(u8), parent(u8), ptr(u8), index(u8), value(u8)
+    PointerMove, // parent(u8), from(u8), to(u8), size(u8)
     Print, // format(u8), argc(u8), args(u8)...
     Return,
     Store, // dst(u8), base(u8), selector(u32), src(u8)
@@ -343,6 +349,49 @@ namespace verona::bytecode
   {
     using Operands = OpcodeOperands<Register, Register>;
     constexpr static std::string_view format = "NEW_SLEEPING_COWN {} {}";
+  };
+
+  template<>
+  struct OpcodeSpec<Opcode::PointerAllocate>
+  {
+    using Operands = OpcodeOperands<Register, Register>;
+    constexpr static std::string_view format = "PTR ALLOCATE {} {}";
+  };
+
+  template<>
+  struct OpcodeSpec<Opcode::PointerFree>
+  {
+    using Operands = OpcodeOperands<Register, Register>;
+    constexpr static std::string_view format = "PTR FREE {} {}";
+  };
+
+  template<>
+  struct OpcodeSpec<Opcode::PointerGet>
+  {
+    using Operands = OpcodeOperands<Register, Register, Register, Register>;
+    constexpr static std::string_view format = "PTR GET {} {} {} {}";
+  };
+
+  template<>
+  struct OpcodeSpec<Opcode::PointerSet>
+  {
+    using Operands = OpcodeOperands<Register, Register, Register, Register>;
+    constexpr static std::string_view format = "PTR SET {} {} {} {}";
+  };
+
+  template<>
+  struct OpcodeSpec<Opcode::PointerSwap>
+  {
+    using Operands =
+      OpcodeOperands<Register, Register, Register, Register, Register>;
+    constexpr static std::string_view format = "PTR SWAP {} {} {} {} {}";
+  };
+
+  template<>
+  struct OpcodeSpec<Opcode::PointerMove>
+  {
+    using Operands = OpcodeOperands<Register, Register, Register, Register>;
+    constexpr static std::string_view format = "PTR MOVE {} {} {} {}";
   };
 
   template<>

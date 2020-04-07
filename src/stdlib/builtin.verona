@@ -112,3 +112,66 @@ primitive U64 {
   builtin and(self: imm, other: U64 & imm): U64 & imm;
   builtin or(self: imm, other: U64 & imm): U64 & imm;
 }
+
+/**
+ * Manually managed array of values.
+ *
+ * This API is unsafe, and should only be used to implement Array.
+ *
+ * The elements stored through the pointer are not traced automatically. They
+ * should instead be traced through some other mean. For example, the trace
+ * function of Array is special cased to cover its backing array.
+ */
+primitive Pointer[T] {
+  /**
+   * Allocate a block of memory.
+   *
+   * The size is specified in number of elements, not in bytes.
+   */
+  builtin allocate(size: U64 & imm): Pointer[T] & imm;
+
+  /**
+   * Free a block of memory.
+   *
+   * The size argument must match the size that was used during allocation.
+   * All elements in the allocation must be uninitialized.
+   */
+  builtin free(ptr: Pointer[T] & imm, size: U64);
+
+  /**
+   * Get the element at the given index.
+   *
+   * The parent argument is used to apply region information and viewpoint
+   * adaptation.
+   */
+  builtin get(parent: (mut | imm), ptr: Pointer[T] & imm, index: U64 & imm): T
+    where return in parent;
+
+  /**
+   * Set the value at a given index. That location must be uninitialized prior
+   * to calling this function. If it is initialized, then the swap method should
+   * be used instead to ensure the old value is collected correctly.
+   *
+   * The parent argument is used to apply region information and to access the
+   * remembered set in case a reference counted value is written.
+   */
+  builtin set(parent: mut, ptr: Pointer[T] & imm, index: U64 & imm, value: T)
+    where value in parent;
+
+  /**
+   * Replace the value at a given index.
+   *
+   * The parent argument is used to apply region information and to access the
+   * remembered set in case a reference counted value is written.
+   */
+  builtin swap(parent: mut, ptr: Pointer[T] & imm, index: U64 & imm, value: T): T
+    where value in parent, return from parent;
+
+  /**
+   * Move a set of values from one allocation to another. The memory locations
+   * in the destination array must be uninitialized. The locations in the source
+   * array will be uninitialized after this method is called.
+   */
+  builtin move(parent: mut, src: Pointer[T] & imm, dst: Pointer[T] & imm, size: U64 & imm);
+}
+

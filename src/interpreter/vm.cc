@@ -342,6 +342,7 @@ namespace verona::interpreter
       case Value::U64:
       case Value::STRING:
       case Value::DESCRIPTOR:
+      case Value::POINTER:
       case Value::COWN:
         result = false;
         break;
@@ -563,6 +564,80 @@ namespace verona::interpreter
     fatal("Reached unreachable opcode");
   }
 
+  Value VM::opcode_pointer_allocate(uint64_t size)
+  {
+    FieldValue* ptr =
+      static_cast<FieldValue*>(alloc_->alloc(size * sizeof(FieldValue)));
+    for (size_t i = 0; i < size; i++)
+    {
+      new (ptr + i) FieldValue();
+    }
+    return Value::pointer(ptr);
+  }
+
+  void VM::opcode_pointer_free(const Value& ptr, uint64_t size)
+  {
+    check_type(ptr, Value::POINTER);
+
+    for (size_t i = 0; i < size; i++)
+    {
+      check(
+        ptr->pointer[i].is_initialized(),
+        "Cannot free pointer with initialized data");
+    }
+
+    alloc_->dealloc(ptr->pointer, size * sizeof(FieldValue));
+  }
+
+  Value
+  VM::opcode_pointer_get(const Value& parent, const Value& ptr, uint64_t index)
+  {
+    check_type(ptr, Value::POINTER);
+    check_type(parent, {Value::ISO, Value::MUT, Value::IMM});
+    return ptr->pointer[index].read(parent.tag);
+  }
+
+  void VM::opcode_pointer_set(
+    const Value& parent, const Value& ptr, uint64_t index, Value value)
+  {
+    check_type(ptr, Value::POINTER);
+    check_type(parent, {Value::ISO, Value::MUT});
+    VMObject* region = parent->object->region();
+
+    check(
+      ptr->pointer[index].is_initialized(),
+      "Cannot overwrite initialized element");
+    ptr->pointer[index].exchange(alloc_, region, std::move(value));
+  }
+
+  Value VM::opcode_pointer_swap(
+    const Value& parent, const Value& ptr, uint64_t index, Value value)
+  {
+    check_type(ptr, Value::POINTER);
+    check_type(parent, {Value::ISO, Value::MUT});
+    VMObject* region = parent->object->region();
+    Value old = ptr->pointer[index].exchange(alloc_, region, std::move(value));
+    return std::move(old);
+  }
+
+  void VM::opcode_pointer_move(
+    const Value& parent, const Value& src, const Value& dst, uint64_t size)
+  {
+    check_type(parent, {Value::ISO, Value::MUT});
+    check_type(src, Value::POINTER);
+    check_type(dst, Value::POINTER);
+
+    VMObject* region = parent->object->region();
+    for (size_t i = 0; i < size; i++)
+    {
+      check(
+        dst->pointer[i].is_initialized(),
+        "Cannot overwrite initialized element");
+      Value value = src->pointer[i].exchange(alloc_, region, Value());
+      dst->pointer[i].exchange(alloc_, region, std::move(value));
+    }
+  }
+
   void VM::dispatch_opcode(Opcode op)
   {
     switch (op)
@@ -591,6 +666,12 @@ namespace verona::interpreter
       OP(NewRegion, opcode_new_region);
       OP(NewSleepingCown, opcode_new_sleeping_cown);
       OP(NewCown, opcode_new_cown);
+      OP(PointerAllocate, opcode_pointer_allocate);
+      OP(PointerFree, opcode_pointer_free);
+      OP(PointerGet, opcode_pointer_get);
+      OP(PointerSet, opcode_pointer_set);
+      OP(PointerSwap, opcode_pointer_swap);
+      OP(PointerMove, opcode_pointer_move);
       OP(Print, opcode_print);
       OP(Return, opcode_return);
       OP(Store, opcode_store);

@@ -76,6 +76,21 @@ namespace verona::compiler
       else if (method == "_fulfill_sleeping")
         return builtin_cown_fulfill_sleeping();
     }
+    else if (entity == "Pointer")
+    {
+      if (method == "allocate")
+        return builtin_pointer_allocate();
+      else if (method == "free")
+        return builtin_pointer_free();
+      else if (method == "get")
+        return builtin_pointer_get();
+      else if (method == "set")
+        return builtin_pointer_set();
+      else if (method == "swap")
+        return builtin_pointer_swap();
+      else if (method == "move")
+        return builtin_pointer_move();
+    }
     fmt::print(stderr, "Invalid builtin {}.{}\n", entity, method);
     abort();
   }
@@ -205,6 +220,117 @@ namespace verona::compiler
     gen_.reg(Register(0));
     gen_.opcode(Opcode::Clear);
     gen_.reg(Register(1));
+    gen_.opcode(Opcode::Return);
+  }
+
+  void BuiltinGenerator::builtin_pointer_allocate()
+  {
+    assert(abi_.arguments == 2);
+    assert(abi_.returns == 1);
+    gen_.opcode(Opcode::PointerAllocate);
+    gen_.reg(Register(0));
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Return);
+  }
+
+  void BuiltinGenerator::builtin_pointer_free()
+  {
+    assert(abi_.arguments == 3);
+    assert(abi_.returns == 1);
+    gen_.opcode(Opcode::PointerFree);
+    gen_.reg(Register(1));
+    gen_.reg(Register(2));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(2));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(0));
+    gen_.opcode(Opcode::Return);
+  }
+
+  void BuiltinGenerator::builtin_pointer_get()
+  {
+    assert(abi_.arguments == 4);
+    assert(abi_.returns == 1);
+    gen_.opcode(Opcode::PointerGet);
+    gen_.reg(Register(0));
+    gen_.reg(Register(1));
+    gen_.reg(Register(2));
+    gen_.reg(Register(3));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(3));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(2));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Return);
+  }
+
+  void BuiltinGenerator::builtin_pointer_set()
+  {
+    assert(abi_.arguments == 5);
+    assert(abi_.returns == 1);
+    gen_.opcode(Opcode::PointerSet);
+    gen_.reg(Register(1));
+    gen_.reg(Register(2));
+    gen_.reg(Register(3));
+    gen_.reg(Register(4));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(4));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(3));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(2));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(0));
+    gen_.opcode(Opcode::Return);
+  }
+
+  void BuiltinGenerator::builtin_pointer_swap()
+  {
+    assert(abi_.arguments == 5);
+    assert(abi_.returns == 1);
+    gen_.opcode(Opcode::PointerSwap);
+    gen_.reg(Register(0));
+    gen_.reg(Register(1));
+    gen_.reg(Register(2));
+    gen_.reg(Register(3));
+    gen_.reg(Register(4));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(4));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(3));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(2));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Return);
+  }
+
+  void BuiltinGenerator::builtin_pointer_move()
+  {
+    assert(abi_.arguments == 5);
+    assert(abi_.returns == 1);
+    gen_.opcode(Opcode::PointerMove);
+    gen_.reg(Register(1));
+    gen_.reg(Register(2));
+    gen_.reg(Register(3));
+    gen_.reg(Register(4));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(4));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(3));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(2));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(1));
+    gen_.opcode(Opcode::Clear);
+    gen_.reg(Register(0));
     gen_.opcode(Opcode::Return);
   }
 }

@@ -31,5 +31,12 @@ namespace verona::compiler
     void builtin_cown_create();
     void builtin_cown_create_sleeping();
     void builtin_cown_fulfill_sleeping();
+
+    void builtin_pointer_allocate();
+    void builtin_pointer_free();
+    void builtin_pointer_get();
+    void builtin_pointer_set();
+    void builtin_pointer_swap();
+    void builtin_pointer_move();
   };
 }

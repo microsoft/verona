@@ -83,6 +83,17 @@ namespace verona::interpreter
     opcode_when(CodePtr selector, uint8_t cown_count, uint8_t capture_count);
     void opcode_unreachable();
 
+    Value opcode_pointer_allocate(uint64_t size);
+    void opcode_pointer_free(const Value& parent, uint64_t size);
+    Value
+    opcode_pointer_get(const Value& parent, const Value& ptr, uint64_t index);
+    void opcode_pointer_set(
+      const Value& parent, const Value& ptr, uint64_t index, Value value);
+    Value opcode_pointer_swap(
+      const Value& parent, const Value& ptr, uint64_t index, Value value);
+    void opcode_pointer_move(
+      const Value& parent, const Value& src, const Value& dst, uint64_t size);
+
     /**
      * Switches on the opcode value and invokes the appropriate handler.
      */

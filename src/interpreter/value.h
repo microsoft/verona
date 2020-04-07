@@ -12,6 +12,7 @@ namespace verona::interpreter
   struct VMDescriptor;
   struct VMObject;
   struct VMCown;
+  struct FieldValue;
 
   /**
    * Tagged Verona value, which handles ownership of objects and reference
@@ -39,6 +40,7 @@ namespace verona::interpreter
       COWN,
       COWN_UNOWNED,
 
+      POINTER,
       STRING,
     };
 
@@ -50,6 +52,7 @@ namespace verona::interpreter
       const VMDescriptor* descriptor;
       uint64_t u64;
       std::string* string_ptr;
+      FieldValue* pointer;
 
       std::string& string()
       {
@@ -78,6 +81,8 @@ namespace verona::interpreter
     static Value imm(VMObject* object);
     // Takes ownership of the reference count.
     static Value cown(VMCown* cown);
+
+    static Value pointer(FieldValue* ptr);
 
     static Value descriptor(const VMDescriptor* descriptor);
 
@@ -155,6 +160,7 @@ namespace verona::interpreter
     static constexpr Tag DESCRIPTOR = Tag::DESCRIPTOR;
     static constexpr Tag COWN = Tag::COWN;
     static constexpr Tag COWN_UNOWNED = Tag::COWN_UNOWNED;
+    static constexpr Tag POINTER = Tag::POINTER;
     static constexpr Tag STRING = Tag::STRING;
   };
 

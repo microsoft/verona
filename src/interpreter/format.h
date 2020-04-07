@@ -102,6 +102,9 @@ private:
       case Value::DESCRIPTOR:
         return fmt::format_to(it, "descriptor({})", inner.descriptor->name);
 
+      case Value::POINTER:
+        return fmt::format_to(it, "pointer({})", fmt::ptr(inner.pointer));
+
         EXHAUSTIVE_SWITCH;
     }
   }
@@ -161,6 +164,8 @@ struct fmt::formatter<verona::interpreter::Value::Tag>
         return fmt::format_to(ctx.out(), "DESCRIPTOR");
       case Tag::STRING:
         return fmt::format_to(ctx.out(), "STRING");
+      case Tag::POINTER:
+        return fmt::format_to(ctx.out(), "POINTER");
 
         EXHAUSTIVE_SWITCH
     }
