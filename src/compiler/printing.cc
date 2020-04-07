@@ -415,6 +415,21 @@ namespace verona::compiler
       case BinaryOperator::Sub:
         fmt::print(out, "-");
         break;
+      case BinaryOperator::Mul:
+        fmt::print(out, "*");
+        break;
+      case BinaryOperator::Div:
+        fmt::print(out, "/");
+        break;
+      case BinaryOperator::Mod:
+        fmt::print(out, "%");
+        break;
+      case BinaryOperator::Shl:
+        fmt::print(out, "<<");
+        break;
+      case BinaryOperator::Shr:
+        fmt::print(out, ">>");
+        break;
       case BinaryOperator::Lt:
         fmt::print(out, "<");
         break;

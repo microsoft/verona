@@ -38,6 +38,16 @@ namespace verona::compiler
         return builtin_binop(bytecode::BinaryOperator::Add);
       else if (method == "sub")
         return builtin_binop(bytecode::BinaryOperator::Sub);
+      else if (method == "mul")
+        return builtin_binop(bytecode::BinaryOperator::Mul);
+      else if (method == "div")
+        return builtin_binop(bytecode::BinaryOperator::Div);
+      else if (method == "mod")
+        return builtin_binop(bytecode::BinaryOperator::Mod);
+      else if (method == "shl")
+        return builtin_binop(bytecode::BinaryOperator::Shl);
+      else if (method == "shr")
+        return builtin_binop(bytecode::BinaryOperator::Shr);
       else if (method == "lt")
         return builtin_binop(bytecode::BinaryOperator::Lt);
       else if (method == "gt")

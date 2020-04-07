@@ -179,7 +179,7 @@ namespace verona::compiler
       if (stmt.parent)
       {
         Register parent = variable(*stmt.parent);
-        gen_.opcode(Opcode::New);
+        gen_.opcode(Opcode::NewObject);
         gen_.reg(output);
         gen_.reg(parent);
         gen_.reg(descriptor);
