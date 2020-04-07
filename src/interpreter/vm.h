@@ -51,6 +51,16 @@ namespace verona::interpreter
      **/
     static void execute_finaliser(VMObject* object);
 
+    /**
+     * Clear the contents of an Array object and deallocate its allocated memory.
+     */
+    void dealloc_array_data(const VMObject* object);
+
+    /**
+     * Trace through every element of an Array object.
+     */
+    void trace_array_data(const VMObject* object, rt::ObjectStack* stack);
+
   private:
     Value
     opcode_binop(bytecode::BinaryOperator op, uint64_t left, uint64_t right);
@@ -134,6 +144,19 @@ namespace verona::interpreter
 
     const VMDescriptor* find_dispatch_descriptor(Register receiver) const;
 
+    struct ArrayFields
+    {
+      FieldValue* data;
+      size_t size;
+      size_t capacity;
+    };
+
+    /**
+     * Load the fields of an Array object, using the selectors from the
+     * SpecialDescriptors table.
+     */
+    ArrayFields load_array_fields(const VMObject* object) const;
+
     template<typename... Args>
     void trace(std::string_view fmt, Args&&... args) const
     {
@@ -154,8 +177,14 @@ namespace verona::interpreter
       abort();
     }
 
-    void check_type(const Value& value, Value::Tag expected);
-    void check_type(const Value& value, std::vector<Value::Tag> expected);
+    template<typename... Args>
+    void check(bool condition, std::string_view fmt, Args&&... args) const
+    {
+      if (!condition)
+        fatal(fmt, std::forward<Args>(args)...);
+    }
+    void check_type(const Value& value, Value::Tag expected) const;
+    void check_type(const Value& value, std::vector<Value::Tag> expected) const;
 
     const Code& code_;
     rt::Alloc* alloc_;

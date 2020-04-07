@@ -111,6 +111,13 @@ namespace verona::compiler
       return code_.size();
     }
 
+    template<typename T, typename = std::enable_if_t<std::is_enum_v<T>>>
+    void write(T value)
+    {
+      typedef std::underlying_type_t<T> wire_type;
+      write<wire_type>(static_cast<wire_type>(value));
+    }
+
   private:
     /**
      * Write an integer value in little endian format.
@@ -118,8 +125,16 @@ namespace verona::compiler
      * The common_type_t disables template parameter deduction, forcing the
      * caller the specify the integer type explicitly.
      */
-    template<typename T>
-    void write(std::common_type_t<T> value);
+    template<typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+    void write(std::common_type_t<T> value)
+    {
+      size_t offset = code_.size();
+      code_.reserve(offset + sizeof(T));
+      for (size_t i = 0; i < sizeof(T) * 8; i += 8)
+      {
+        code_.push_back((value >> i) & 0xff);
+      }
+    }
 
     void add_relocation(
       size_t offset,

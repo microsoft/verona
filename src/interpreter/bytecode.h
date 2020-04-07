@@ -18,8 +18,12 @@
  * - 32-bit descriptor index of Main class
  * - 32-bit selector index of main method
  * - 32-bit descriptor index of U64 class (optional)
+ * - 32-bit selector index of the `_data` field (optional)
+ * - 32-bit selector index of the `_size` field (optional)
+ * - 32-bit selector index of the `_capacity` field (optional)
  *
  * Descriptor:
+ * - 8-bit descriptor kind
  * - 16-bit name length, followed by the name bytes
  * - 32-bit size of the fields vtable
  * - 32-bit number of fields
@@ -123,6 +127,9 @@ namespace verona::bytecode
   static constexpr DescriptorIdx INVALID_DESCRIPTOR =
     std::numeric_limits<DescriptorIdx>::max();
 
+  static constexpr DescriptorIdx INVALID_SELECTOR =
+    std::numeric_limits<SelectorIdx>::max();
+
   struct FunctionHeader
   {
     std::string_view name;
@@ -203,6 +210,26 @@ namespace verona::bytecode
     Or,
 
     maximum_value = Or,
+  };
+
+  enum class DescriptorKind : uint8_t
+  {
+    // Intended for values that are not managed by the runtime, eg. U64 or
+    // Pointer. The descriptor is just used for method dispatch.
+    Primitive,
+
+    // Not really used for much yet, eventually might add pattern matching.
+    Interface,
+
+    // The VM provides trace/finalise/destructor functions which traverse all
+    // fields.
+    Class,
+
+    // The provided trace/finalise/destructor methods also manage the contents
+    // of the array, by accessing the _data/_size/_capacity fields.
+    Array,
+
+    maximum_value = Array,
   };
 
   template<typename... Args>

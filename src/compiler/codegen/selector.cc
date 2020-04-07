@@ -23,4 +23,14 @@ namespace verona::compiler
   {
     return selectors_.at(selector);
   }
+
+  std::optional<bytecode::SelectorIdx>
+  SelectorTable::try_get(const Selector& selector) const
+  {
+    auto it = selectors_.find(selector);
+    if (it != selectors_.end())
+      return it->second;
+    else
+      return std::nullopt;
+  }
 }

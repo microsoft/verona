@@ -93,19 +93,6 @@ namespace verona::compiler
     u8(frame_size, child_callspace - reg.index);
   }
 
-  template<typename T>
-  void Generator::write(std::common_type_t<T> value)
-  {
-    static_assert(std::is_integral_v<T>);
-
-    size_t offset = code_.size();
-    code_.reserve(offset + sizeof(T));
-    for (size_t i = 0; i < sizeof(T) * 8; i += 8)
-    {
-      code_.push_back((value >> i) & 0xff);
-    }
-  }
-
   void Generator::finish()
   {
     for (const auto& rel : relocations_)

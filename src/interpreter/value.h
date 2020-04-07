@@ -176,6 +176,8 @@ namespace verona::interpreter
     FieldValue() : tag(Value::UNINIT) {}
     ~FieldValue();
 
+    bool is_initialized() const;
+
     /**
      * Get the contents of the FieldValue.
      *

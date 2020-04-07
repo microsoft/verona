@@ -12,6 +12,7 @@ namespace verona::interpreter
   struct VMDescriptor : public rt::Descriptor
   {
     VMDescriptor(
+      bytecode::DescriptorKind kind,
       std::string_view name,
       size_t method_slots,
       size_t field_slots,
@@ -46,6 +47,10 @@ namespace verona::interpreter
     static void trace_fn(const rt::Object* base_object, rt::ObjectStack* stack);
     static void finaliser_fn(rt::Object* base_object);
     static void destructor_fn(rt::Object* base_object);
+
+    static void
+    array_trace_fn(const rt::Object* base_object, rt::ObjectStack* stack);
+    static void array_destructor_fn(rt::Object* base_object);
 
   private:
     VMObject* parent_;

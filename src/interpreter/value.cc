@@ -208,6 +208,11 @@ namespace verona::interpreter
     return inner.object;
   }
 
+  bool FieldValue::is_initialized() const
+  {
+    return tag == Value::UNINIT;
+  }
+
   Value FieldValue::read(Value::Tag parent)
   {
     assert(

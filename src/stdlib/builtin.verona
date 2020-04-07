@@ -175,3 +175,106 @@ primitive Pointer[T] {
   builtin move(parent: mut, src: Pointer[T] & imm, dst: Pointer[T] & imm, size: U64 & imm);
 }
 
+/**
+ * Dynamically resizable array.
+ *
+ * Codegen and the VM have special support for this class. The trace function
+ * will traverse the first _size elements of the _data field. The class'
+ * destructor clears the data and frees the underlying memory allocation.
+ */
+class Array[T] {
+  _data: Pointer[T] & imm;
+  _size: U64 & imm;
+  _capacity: U64 & imm;
+
+  create(): Array[T] & iso
+  {
+    var this = new Array;
+    this._data = Pointer.allocate(0);
+    this._size = 0;
+    this._capacity = 0;
+    this
+  }
+
+  push_back(self: mut, value: T)
+    where value in self
+  {
+    if (self._size + 1) > self._capacity
+    {
+      self._grow();
+    };
+
+    Pointer.set(self, self._data, self._size, value);
+    self._size = self._size + 1;
+  }
+
+  _grow(self: mut)
+  {
+    if self._capacity == 0 {
+      Pointer.free(self._data, self._capacity);
+
+      self._capacity = 8;
+      self._data = Pointer.allocate(self._capacity);
+    } else {
+      var ew_capacity = 2 * self._capacity;
+      var ew_data = Pointer.allocate(ew_capacity);
+
+      Pointer.move(self, self._data, ew_data, self._size);
+      Pointer.free(self._data, self._capacity);
+
+      self._capacity = ew_capacity;
+      self._data = ew_data;
+    }
+  }
+
+  apply(self: mut, index: U64 & imm): T
+    where return in self
+  {
+    if index >= self._size
+    {
+      Builtin.error("Out-of-bound access")
+    }
+    else
+    {
+      Pointer.get(self, self._data, index)
+    }
+  }
+
+  update(self: mut, index: U64 & imm, value: T): T
+    where value in self, return from self
+  {
+    if index >= self._size
+    {
+      Builtin.error("Out-of-bound access")
+    }
+    else
+    {
+      Pointer.swap(self, self._data, index, value)
+    }
+  }
+
+  size(self: mut): U64
+  {
+    self._size
+  }
+
+  capacity(self: mut): U64
+  {
+    self._capacity
+  }
+
+  print(self: mut)
+  {
+    var i = 0;
+    Builtin.print("{{");
+    while i < self._size {
+      if i == 0 {
+        Builtin.print1("{}", self.apply(i));
+      } else {
+        Builtin.print1(", {}", self.apply(i));
+      };
+      i = i + 1;
+    };
+    Builtin.print("}}");
+  }
+}

@@ -6,6 +6,7 @@
 
 namespace verona::compiler
 {
+  using bytecode::DescriptorKind;
   using bytecode::SelectorIdx;
 
   class EmitProgramHeader
@@ -53,6 +54,26 @@ namespace verona::compiler
       }
     }
 
+    DescriptorKind descriptor_kind(const CodegenItem<Entity>& entity) const
+    {
+      if (entity.definition->name == "Array")
+      {
+        return DescriptorKind::Array;
+      }
+      else
+      {
+        switch (entity.definition->kind->value())
+        {
+          case Entity::Class:
+            return DescriptorKind::Class;
+          case Entity::Interface:
+            return DescriptorKind::Interface;
+          case Entity::Primitive:
+            return DescriptorKind::Primitive;
+        }
+      }
+    }
+
     void emit_class_primitive_descriptor(
       const CodegenItem<Entity>& entity, const EntityReachability& info)
     {
@@ -60,6 +81,7 @@ namespace verona::compiler
       Generator::Relocatable rel_field_slots = gen.create_relocatable();
       Generator::Relocatable rel_field_count = gen.create_relocatable();
 
+      gen.write(descriptor_kind(entity));
       gen.str(entity.instantiated_path());
       gen.u32(rel_method_slots);
       gen.u32(truncate<uint32_t>(info.methods.size()));
@@ -109,6 +131,7 @@ namespace verona::compiler
 
     void emit_interface_descriptor(const CodegenItem<Entity>& entity)
     {
+      gen.write(descriptor_kind(entity));
       gen.str(entity.instantiated_path());
       gen.u32(0);
       gen.u32(0);
@@ -132,6 +155,14 @@ namespace verona::compiler
         gen.u32(bytecode::INVALID_DESCRIPTOR);
     }
 
+    void emit_optional_special_selector(const Selector& selector)
+    {
+      if (auto index = selectors.try_get(selector))
+        gen.u32(*index);
+      else
+        gen.u32(bytecode::INVALID_SELECTOR);
+    }
+
     void emit_special_descriptors(const CodegenItem<Entity>& main_class)
     {
       // Index of the main descriptor
@@ -140,6 +171,9 @@ namespace verona::compiler
       gen.u32(selectors.get(Selector::method("main", TypeList())));
 
       emit_optional_special_descriptor("U64");
+      emit_optional_special_selector(Selector::field("_data"));
+      emit_optional_special_selector(Selector::field("_size"));
+      emit_optional_special_selector(Selector::field("_capacity"));
     }
 
   private:

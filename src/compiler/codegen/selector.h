@@ -53,7 +53,10 @@ namespace verona::compiler
   {
   public:
     static SelectorTable build(const Reachability& reachability);
+
     bytecode::SelectorIdx get(const Selector& selector) const;
+    std::optional<bytecode::SelectorIdx>
+    try_get(const Selector& selector) const;
 
   private:
     SelectorTable() {}

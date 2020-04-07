@@ -13,6 +13,7 @@ namespace verona::interpreter
 {
   using bytecode::CodePtr;
   using bytecode::DescriptorIdx;
+  using bytecode::DescriptorKind;
   using bytecode::FunctionHeader;
   using bytecode::Opcode;
   using bytecode::SelectorIdx;
@@ -27,6 +28,9 @@ namespace verona::interpreter
     const VMDescriptor* main;
     SelectorIdx main_selector;
     const VMDescriptor* u64;
+    SelectorIdx data_field_selector;
+    SelectorIdx size_field_selector;
+    SelectorIdx capacity_field_selector;
   };
 
   class Code
@@ -151,6 +155,8 @@ namespace verona::interpreter
       special_descriptors_.main_selector = load<SelectorIdx>(ip);
       special_descriptors_.u64 =
         get_optional_descriptor(load<DescriptorIdx>(ip));
+      special_descriptors_.data_field_selector = load<SelectorIdx>(ip);
+      special_descriptors_.size_field_selector = load<SelectorIdx>(ip);
     }
 
     const std::vector<std::unique_ptr<const VMDescriptor>>& descriptors()
@@ -205,6 +211,7 @@ namespace verona::interpreter
 
     std::unique_ptr<VMDescriptor> load_descriptor(size_t& ip)
     {
+      DescriptorKind kind = load<DescriptorKind>(ip);
       std::string_view name = str(ip);
       uint32_t method_slots = u32(ip);
       uint32_t method_count = u32(ip);
@@ -213,7 +220,7 @@ namespace verona::interpreter
       uint32_t finaliser_ip = u32(ip);
 
       auto descriptor = std::make_unique<VMDescriptor>(
-        name, method_slots, field_slots, field_count, finaliser_ip);
+        kind, name, method_slots, field_slots, field_count, finaliser_ip);
 
       for (uint32_t i = 0; i < method_count; i++)
       {

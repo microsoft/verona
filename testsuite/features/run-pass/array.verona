@@ -1,0 +1,20 @@
+class Main
+{
+  main()
+  {
+    var x = mut-view (Array.create());
+    var i = 1;
+    while i <= 10 {
+      x.push_back(i);
+      i = i + 1;
+    };
+
+    // CHECK-L: size = 10
+    // CHECK-L: capacity = 16
+    // CHECK-L: {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+    Builtin.print1("size = {}\n", x.size());
+    Builtin.print1("capacity = {}\n", x.capacity());
+    x.print();
+  }
+}
+

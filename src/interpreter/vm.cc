@@ -92,6 +92,25 @@ namespace verona::interpreter
     vm->halt_ = old_halt;
   }
 
+  void VM::dealloc_array_data(const VMObject* object)
+  {
+    ArrayFields array = load_array_fields(object);
+    for (size_t i = 0; i < array.size; i++)
+    {
+      array.data[i].~FieldValue();
+    }
+    alloc_->dealloc(array.data, array.capacity * sizeof(FieldValue));
+  }
+
+  void VM::trace_array_data(const VMObject* object, rt::ObjectStack* stack)
+  {
+    ArrayFields array = load_array_fields(object);
+    for (size_t i = 0; i < array.size; i++)
+    {
+      array.data[i].trace(stack);
+    }
+  }
+
   void VM::grow_stack(size_t size)
   {
     size = snmalloc::bits::next_pow2(size);
@@ -142,24 +161,52 @@ namespace verona::interpreter
     }
   }
 
-  void VM::check_type(const Value& value, Value::Tag expected)
+  VM::ArrayFields VM::load_array_fields(const VMObject* object) const
   {
-    if (value.tag != expected)
-      fatal(
-        "Invalid tag {} for value {}, expected {}", value.tag, value, expected);
+    const VMDescriptor* descriptor = object->descriptor();
+
+    // field is a member-pointer into the Value::Inner union.
+    auto load = [&](SelectorIdx selector, Value::Tag tag, auto field) {
+      check(selector != bytecode::INVALID_SELECTOR, "Missing field selector");
+
+      size_t index = descriptor->fields[selector];
+      Value value = object->fields[index].read(Value::MUT);
+      check_type(value, tag);
+
+      auto result = value.inner.*field;
+
+      value.clear(alloc_);
+
+      return result;
+    };
+
+    const auto& special = code_.special_descriptors();
+    return {
+      load(special.data_field_selector, Value::POINTER, &Value::Inner::pointer),
+      load(special.size_field_selector, Value::U64, &Value::Inner::u64),
+      load(special.capacity_field_selector, Value::U64, &Value::Inner::u64)};
   }
 
-  void VM::check_type(const Value& value, std::vector<Value::Tag> expected)
+  void VM::check_type(const Value& value, Value::Tag expected) const
   {
-    if (
-      std::find(expected.begin(), expected.end(), value.tag) == expected.end())
-    {
-      fatal(
-        "Invalid tag {} for value {}, expected one of {}",
-        value.tag,
-        value,
-        expected);
-    }
+    check(
+      value.tag == expected,
+      "Invalid tag {} for value {}, expected {}",
+      value.tag,
+      value,
+      expected);
+  }
+
+  void
+  VM::check_type(const Value& value, std::vector<Value::Tag> expected) const
+  {
+    auto it = std::find(expected.begin(), expected.end(), value.tag);
+    check(
+      it != expected.end(),
+      "Invalid tag {} for value {}, expected one of {}",
+      value.tag,
+      value,
+      expected);
   }
 
   Value
