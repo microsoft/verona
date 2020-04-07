@@ -26,6 +26,8 @@ namespace verona::compiler
     void builtin_freeze();
     void builtin_trace_region();
     void builtin_binop(bytecode::BinaryOperator op);
+    void builtin_error();
+
     void builtin_cown_create();
     void builtin_cown_create_sleeping();
     void builtin_cown_fulfill_sleeping();

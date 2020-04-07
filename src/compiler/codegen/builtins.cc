@@ -31,6 +31,8 @@ namespace verona::compiler
         return builtin_freeze();
       else if (method == "trace")
         return builtin_trace_region();
+      else if (method == "error")
+        return builtin_error();
     }
     else if (entity == "U64")
     {
@@ -133,6 +135,17 @@ namespace verona::compiler
     gen_.opcode(Opcode::Clear);
     gen_.reg(Register(1));
     gen_.opcode(Opcode::Return);
+  }
+
+  void BuiltinGenerator::builtin_error()
+  {
+    assert(abi_.arguments == 2);
+    assert(abi_.returns == 1);
+
+    gen_.opcode(Opcode::Error);
+    gen_.reg(Register(1));
+
+    // This opcode aborts the VM and never returns.
   }
 
   void BuiltinGenerator::builtin_binop(bytecode::BinaryOperator op)

@@ -151,6 +151,7 @@ namespace verona::bytecode
     Call, // selector(u32), callspace(u8)
     Clear, // dst(u8)
     Copy, // dst(u8), src(u8)
+    Error, // reason(u8)
     FulfillSleepingCown, // cown(u8), val(u8)
     Freeze, // dst(u8), src(u8)
     Int64, // dst(u8), immediate(u64)
@@ -237,6 +238,13 @@ namespace verona::bytecode
   {
     using Operands = OpcodeOperands<Register, Register>;
     constexpr static std::string_view format = "COPY {}, {}";
+  };
+
+  template<>
+  struct OpcodeSpec<Opcode::Error>
+  {
+    using Operands = OpcodeOperands<Register>;
+    constexpr static std::string_view format = "ERROR {}";
   };
 
   template<>

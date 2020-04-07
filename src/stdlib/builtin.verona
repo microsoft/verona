@@ -26,6 +26,9 @@ class Builtin {
   // TODO: invalidate other references into this region
   // TODO: needs expanding as we add other region allocation strategies
   builtin trace(x : mut);
+
+  // Print the given message and abort execution.
+  builtin error[T](reason: String): T;
 }
 
 /**

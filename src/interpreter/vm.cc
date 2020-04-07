@@ -289,6 +289,11 @@ namespace verona::interpreter
     return std::move(src);
   }
 
+  void VM::opcode_error(std::string_view reason)
+  {
+    fatal("{}", reason);
+  }
+
   Value VM::opcode_int64(uint64_t imm)
   {
     return Value::u64(imm);
@@ -572,6 +577,7 @@ namespace verona::interpreter
       OP(Clear, opcode_clear);
       OP(Copy, opcode_copy);
       OP(FulfillSleepingCown, opcode_fulfill_sleeping_cown);
+      OP(Error, opcode_error);
       OP(Freeze, opcode_freeze);
       OP(Int64, opcode_int64);
       OP(Jump, opcode_jump);

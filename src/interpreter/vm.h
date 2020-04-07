@@ -58,6 +58,7 @@ namespace verona::interpreter
     void call(size_t addr, uint8_t callspace);
     Value opcode_clear();
     Value opcode_copy(Value src);
+    void opcode_error(std::string_view reason);
     void opcode_fulfill_sleeping_cown(const Value& cown, Value result);
     Value opcode_freeze(Value src);
     Value opcode_int64(uint64_t imm);
