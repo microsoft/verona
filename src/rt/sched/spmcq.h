@@ -65,13 +65,13 @@ namespace verona::rt
     {
       T* next;
       T* tl;
-      auto cmp = tail.read();
 
-      uint64_t epoch;
+      Epoch e(alloc);
+      uint64_t epoch = e.get_local_epoch_epoch();
+
+      auto cmp = tail.read();
       do
       {
-        Epoch e(alloc);
-        epoch = e.get_local_epoch_epoch();
         tl = cmp.ptr();
         auto unmasked_tl = unmask(tl);
         next = unmasked_tl->next_in_queue;
