@@ -149,7 +149,11 @@ if(NOT DEFINED VERONA_RT_ONLY_HEADER_LIBRARY)
   # Try to avoid testing fairness of OS.
   set_tests_properties(func-con-fair_variance PROPERTIES PROCESSORS 7)
 
-  MATH(EXPR CHUNK "500")
+  if (VERONA_CI)
+    MATH(EXPR CHUNK "100")
+  else ()
+    MATH(EXPR CHUNK "500")
+  endif ()
 
   # cowngc{1,4} are basically variations on the same test.
   # The other cowngc tests are more complicated.
