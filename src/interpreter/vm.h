@@ -55,7 +55,6 @@ namespace verona::interpreter
     Value
     opcode_binop(bytecode::BinaryOperator op, uint64_t left, uint64_t right);
     void opcode_call(SelectorIdx selector, uint8_t callspace);
-    void call(size_t addr, uint8_t callspace);
     Value opcode_clear();
     Value opcode_copy(Value src);
     void opcode_fulfill_sleeping_cown(const Value& cown, Value result);
@@ -81,6 +80,20 @@ namespace verona::interpreter
     void
     opcode_when(CodePtr selector, uint8_t cown_count, uint8_t capture_count);
     void opcode_unreachable();
+
+    enum class OnReturn
+    {
+      Halt,
+      Continue,
+    };
+
+    /**
+     * Setup a new frame for execution.
+     *
+     * The frame is added to the control flow stack, and the register stack is
+     * grown to be big enough to execute this frame.
+     */
+    void push_frame(size_t ip, size_t base, OnReturn on_return);
 
     /**
      * Switches on the opcode value and invokes the appropriate handler.
@@ -127,7 +140,8 @@ namespace verona::interpreter
     {
       if (verbose_)
       {
-        fmt::print(std::cerr, "[{:4x}]: {:<{}}", start_ip_, "", indent_);
+        size_t indent = cfstack_.empty() ? 0 : cfstack_.size() - 1;
+        fmt::print(std::cerr, "[{:4x}]: {:<{}}", start_ip_, "", indent);
         fmt::print(std::cerr, fmt, std::forward<Args>(args)...);
         fmt::print(std::cerr, "\n");
       }
@@ -136,7 +150,8 @@ namespace verona::interpreter
     template<typename... Args>
     [[noreturn]] void fatal(std::string_view fmt, Args&&... args) const
     {
-      fmt::print(std::cerr, "[{:4x}]: {:<{}}FATAL: ", start_ip_, "", indent_);
+      size_t indent = cfstack_.empty() ? 0 : cfstack_.size() - 1;
+      fmt::print(std::cerr, "[{:4x}]: {:<{}}FATAL: ", start_ip_, "", indent);
       fmt::print(std::cerr, fmt, std::forward<Args>(args)...);
       fmt::print(std::cerr, "\n");
       abort();
@@ -146,20 +161,16 @@ namespace verona::interpreter
     void check_type(const Value& value, std::vector<Value::Tag> expected);
 
     const Code& code_;
-    rt::Alloc* alloc_;
-    bool verbose_;
-
-    /**
-     * Instruction Pointer
-     */
-    size_t ip_;
+    rt::Alloc* const alloc_;
+    const bool verbose_;
 
     /**
      * Address of the currently executing instruction.
      *
-     * After an instruction is parsed, ip_ points to the start of the next
-     * instruction. start_ip_ is used for tracing, and to resolve relative
+     * After an instruction is parsed, frame().ip points to the start of the
+     * next instruction. start_ip_ is used for tracing, and to resolve relative
      * offsets.
+     *
      */
     size_t start_ip_;
 
@@ -186,7 +197,7 @@ namespace verona::interpreter
        *
        * This is unused in the lowest frame, as exiting that frame halts the VM.
        */
-      size_t return_address;
+      size_t ip;
 
       /**
        * Base offset into the value stack.
@@ -206,29 +217,31 @@ namespace verona::interpreter
       uint8_t argc;
       uint8_t retc;
 
-      static Frame initial()
-      {
-        return Frame{0, 0, 0, 0, 0};
-      }
+      /**
+       * Determine the behaviour of the RETURN opcode within this frame.
+       * If Halt, it will pop the frame and halt execution. If Continue,
+       * it will pop the frame and continue executing the previous one.
+       */
+      OnReturn on_return;
     };
-
-    /**
-     * Current frame.
-     */
-    Frame frame_;
 
     /**
      * Call stack.
      *
-     * On CALL, the current frame is pushed on here, and on RETURN the top of
-     * the stack is popped and becomes the current frame.
+     * On CALL, a new frame is push on here, and on RETURN the top of
+     * the stack is popped, restoring the previous state.
      */
     std::vector<Frame> cfstack_;
 
-    /**
-     * Ident level for tracing
-     **/
-    size_t indent_ = 0;
+    Frame& frame()
+    {
+      return cfstack_.back();
+    }
+
+    const Frame& frame() const
+    {
+      return cfstack_.back();
+    }
 
     template<typename T>
     friend struct convert_operand;
