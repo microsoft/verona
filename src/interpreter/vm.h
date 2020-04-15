@@ -235,11 +235,13 @@ namespace verona::interpreter
 
     Frame& frame()
     {
+      assert(!cfstack_.empty());
       return cfstack_.back();
     }
 
     const Frame& frame() const
     {
+      assert(!cfstack_.empty());
       return cfstack_.back();
     }
 

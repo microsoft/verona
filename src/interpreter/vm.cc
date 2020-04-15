@@ -90,11 +90,15 @@ namespace verona::interpreter
     vm->trace("Running the finaliser for: {}", descriptor->name);
 
     // Set up a new frame for the finaliser. The frame starts past the current,
-    // with no overlap.
+    // with no overlap, or at zero if there are no executing frames.
     //
     // The frame is marked as "halt on return" so we gain back control when the
     // finaliser is done.
-    size_t base = vm->frame().base + vm->frame().locals;
+    size_t base;
+    if (vm->cfstack_.empty())
+      base = 0;
+    else
+      base = vm->frame().base + vm->frame().locals;
     vm->push_frame(descriptor->finaliser_ip, base, OnReturn::Halt);
     if (vm->frame().argc != 1)
     {
