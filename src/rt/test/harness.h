@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 #pragma once
 
+#include <cassert>
 #include <chrono>
 #include <test/opt.h>
 #include <verona.h>

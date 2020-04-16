@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 #pragma once
 
+#include <cassert>
 #include <snmalloc.h>
 
 namespace verona::rt

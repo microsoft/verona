@@ -6,14 +6,56 @@
 
 namespace verona::rt
 {
+  /**
+   * Single Produce Multiple Consumer Queue.
+   *
+   * This queue forms the primary scheduler queue for each thread to
+   * schedule cowns.
+   *
+   * Slightly mis-named queue. It has two ends
+   *
+   *   - the first end can only be accessed from a single thread using
+   *     `push` to add elements to the queue in a LIFO way wrt to `pop`.
+   *   - the second end can be used by multiple threads to `pop` elements
+   *     and `push_back` elements. `push_back` behaves in a FIFO way wrt to
+   *     `pop`.
+   *
+   * The queue uses an intrusive list in the elements of the queue.  (For
+   * Verona this is the Cowns). To make this memory safe and ABA safe we use
+   * to mechanisms.
+   *
+   *   - ABA protection from snmalloc - this will use LL/SC or Double-word
+   *     compare and swap.  This ensures that the same element can be added
+   *     to the queue multiple times without leading to ABA issues.
+   *   - Memory safety, the underlying elements of the queue my also be
+   *     deallocated however, if this occurs, then we could potentially access
+   *     decommitted memory with the optimistic concurrency. To protect against
+   *     this we use an epoch mechanism, that is, elements may only
+   *     deallocated, if sufficient epochs have passed since it was last in
+   *     the queue.
+   *
+   * Using two mechanisms means that we can have intrusive `next` fields,
+   * which gives zero allocation scheduling, but don't have to wait for the
+   * epoch to advance to reschedule.
+   *
+   * The queue also has a notion of a token. This is used to determine once
+   * the queue has been flushed through.  The client can check if the value
+   * popped is a token.  This is used to monitor how quickly this queue is
+   * completed, and then can be used for
+   *   - The leak detector algorithm
+   *   - The fairness of scheduling
+   */
   template<class T>
   class SPMCQ
   {
   private:
     friend T;
-    T* head;
-    snmalloc::ABA<T> tail;
     static constexpr uintptr_t BIT = 1;
+    // Written by a single thread that owns the queue.
+    T* head;
+    // Multi-threaded end of the "queue" requires ABA protection.
+    // Used for work stealing and posting new work from another thread.
+    snmalloc::ABA<T> tail;
 
     T* unmask(T* tagged_ptr)
     {
@@ -42,7 +84,7 @@ namespace verona::rt
 
     void push(Alloc* alloc, T* node)
     {
-      (void)alloc;
+      UNUSED(alloc);
       auto unmasked_node = unmask(node);
       unmasked_node->next_in_queue = nullptr;
       auto unmasked_head = unmask(head);
@@ -52,33 +94,37 @@ namespace verona::rt
 
     void push_back(Alloc* alloc, T* node)
     {
-      (void)alloc;
+      UNUSED(alloc);
       auto cmp = tail.read();
 
       do
       {
-        node->next_in_queue = ABA<T>::ptr(cmp);
-      } while (!tail.compare_exchange(cmp, node));
+        node->next_in_queue = cmp.ptr();
+      } while (!cmp.store_conditional(node));
     }
 
     T* pop(Alloc* alloc)
     {
       T* next;
       T* tl;
-      auto cmp = tail.read();
 
-      uint64_t epoch;
+      // Hold epoch to ensure that the value read from `tail` cannot be
+      // deallocated during this operation.  This must occur before read of
+      // tail.
+      Epoch e(alloc);
+      uint64_t epoch = e.get_local_epoch_epoch();
+
+      auto cmp = tail.read();
       do
       {
-        Epoch e(alloc);
-        epoch = e.get_local_epoch_epoch();
-        tl = ABA<T>::ptr(cmp);
+        tl = cmp.ptr();
         auto unmasked_tl = unmask(tl);
+        // This operation is memory safe due to holding the epoch.
         next = unmasked_tl->next_in_queue;
 
         if (next == nullptr)
           return nullptr;
-      } while (!tail.compare_exchange(cmp, next));
+      } while (!cmp.store_conditional(next));
 
       assert(epoch != T::NO_EPOCH_SET);
 
