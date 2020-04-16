@@ -193,16 +193,19 @@ namespace verona::interpreter
     struct Frame
     {
       /**
-       * Address to which execution returns when exiting this frame.
+       * Bytecode offset at which instruction data is fetched.
        *
-       * This is unused in the lowest frame, as exiting that frame halts the VM.
+       * This value changes as operands get parsed from the bytecode. This means
+       * during execution of an opcode, it actually points to the next
+       * instruction. start_ip_ should be used to get the offset of the
+       * currently executing instruction.
        */
       size_t ip;
 
       /**
        * Base offset into the value stack.
        *
-       * All register accesses are relative the the current frame's base
+       * All register accesses are relative to the current frame's base
        */
       size_t base;
 

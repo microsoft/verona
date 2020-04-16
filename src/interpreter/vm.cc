@@ -11,18 +11,17 @@ namespace verona::interpreter
 {
   void VM::run(std::vector<Value> args, size_t cown_count, size_t start)
   {
+    assert(cfstack_.empty());
+
     halt_ = false;
     push_frame(start, 0, OnReturn::Halt);
 
     assert(static_cast<size_t>(frame().argc) == args.size());
 
-    // Load registers with cowns values.
-    assert(frame().base == 0);
-
-    size_t index = 0;
-
     // First argument is the receiver, followed by cown_count cowns that are
-    // being acquired, followed by captures.
+    // being acquired, followed by captures. The cowns need to be transformed
+    // so we actually pass their contents to the behaviour instead.
+    size_t index = 0;
     for (auto& a : args)
     {
       if (index > 0 && index <= cown_count)
@@ -75,8 +74,8 @@ namespace verona::interpreter
   void VM::execute_finaliser(VMObject* object)
   {
     // This function gets called by the runtime to execute a finaliser.
-    // We can't assume much about the VM's state when this is called, as we must
-    // restore anything we might have tampered with.
+    // We can't assume much about the VM's state when this is called, and we
+    // must restore anything we might have tampered with.
     //
     // For example the finaliser could be called on a running VM as a
     // consequence of clearing a Register, or it could be called on a halted VM
@@ -86,6 +85,12 @@ namespace verona::interpreter
     assert(descriptor->finaliser_ip > 0);
 
     auto vm = VM::local_vm;
+
+    // Save any VM state that isn't in stacks, and setup the VM into some
+    // reasonable state.
+    bool old_halt = std::exchange(vm->halt_, false);
+    size_t old_start_ip =
+      std::exchange(vm->start_ip_, descriptor->finaliser_ip);
 
     vm->trace("Running the finaliser for: {}", descriptor->name);
 
@@ -99,7 +104,9 @@ namespace verona::interpreter
       base = 0;
     else
       base = vm->frame().base + vm->frame().locals;
+
     vm->push_frame(descriptor->finaliser_ip, base, OnReturn::Halt);
+
     if (vm->frame().argc != 1)
     {
       vm->fatal("Finaliser must have one argument, found {}", vm->frame().argc);
@@ -107,12 +114,11 @@ namespace verona::interpreter
 
     vm->write(Register(0), Value::mut(object));
 
-    bool old_halt = std::exchange(vm->halt_, false);
-
     // Run finaliser to completion.
     vm->dispatch_loop();
 
     vm->halt_ = old_halt;
+    vm->start_ip_ = old_start_ip;
   }
 
   void VM::grow_stack(size_t size)
