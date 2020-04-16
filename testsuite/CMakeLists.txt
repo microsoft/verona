@@ -86,9 +86,10 @@ set_tests_properties(
   # The typechecker takes way too much time to solve this test
   ir/compile-pass/loop-complexity
 
-  # This test randomly times out (microsoft/verona#77).
+  # These test randomly get stuck in a solver loop (microsoft/verona#77).
   # Disable it until we find out why.
   features/run-pass/when
+  features/run-pass/loop
 
   PROPERTIES DISABLED true)
 
