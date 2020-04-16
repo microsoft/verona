@@ -11,36 +11,17 @@ namespace verona::interpreter
 {
   void VM::run(std::vector<Value> args, size_t cown_count, size_t start)
   {
+    assert(cfstack_.empty());
+
     halt_ = false;
-    start_ip_ = ip_ = start;
+    push_frame(start, 0, OnReturn::Halt);
 
-    std::string_view name = code_.str(ip_);
-
-    frame_ = Frame::initial();
-    frame_.argc = code_.u8(ip_);
-    frame_.retc = code_.u8(ip_);
-    frame_.locals = code_.u8(ip_);
-    code_.u32(ip_); // size
-
-    assert(static_cast<size_t>(frame_.argc) == args.size());
-
-    trace(
-      "Entering function {}, argc={:d} retc={:d} locals={:d}",
-      name,
-      frame_.argc,
-      frame_.retc,
-      frame_.locals);
-
-    // Load registers with cowns values.
-    assert(frame_.base == 0);
-
-    // Ensure the stack is large enough.
-    grow_stack(frame_.base + frame_.argc + frame_.locals);
-
-    size_t index = 0;
+    assert(static_cast<size_t>(frame().argc) == args.size());
 
     // First argument is the receiver, followed by cown_count cowns that are
-    // being acquired, followed by captures.
+    // being acquired, followed by captures. The cowns need to be transformed
+    // so we actually pass their contents to the behaviour instead.
+    size_t index = 0;
     for (auto& a : args)
     {
       if (index > 0 && index <= cown_count)
@@ -55,41 +36,89 @@ namespace verona::interpreter
     dispatch_loop();
   }
 
+  void VM::push_frame(size_t ip, size_t base, OnReturn on_return)
+  {
+    FunctionHeader header = code_.function_header(ip);
+
+    start_ip_ = ip;
+    trace(
+      "Calling function {}, base={:d}, argc={:d} retc={:d} locals={:d}",
+      header.name,
+      base,
+      header.argc,
+      header.retc,
+      header.locals);
+
+    Frame frame;
+    frame.ip = ip;
+    frame.argc = header.argc;
+    frame.retc = header.retc;
+    frame.locals = header.locals;
+    frame.base = base;
+    frame.on_return = on_return;
+
+    grow_stack(frame.base + frame.locals);
+    cfstack_.push_back(frame);
+  }
+
   void VM::dispatch_loop()
   {
     while (!halt_)
     {
-      start_ip_ = ip_;
-      Opcode op = code_.opcode(ip_);
+      start_ip_ = frame().ip;
+      Opcode op = code_.opcode(frame().ip);
       dispatch_opcode(op);
     }
   }
 
   void VM::execute_finaliser(VMObject* object)
   {
+    // This function gets called by the runtime to execute a finaliser.
+    // We can't assume much about the VM's state when this is called, and we
+    // must restore anything we might have tampered with.
+    //
+    // For example the finaliser could be called on a running VM as a
+    // consequence of clearing a Register, or it could be called on a halted VM
+    // as a consequence of the scheduler collection a cown.
+
     const VMDescriptor* descriptor = object->descriptor();
     assert(descriptor->finaliser_ip > 0);
 
     auto vm = VM::local_vm;
-    vm->trace("Finaliser for: {}", descriptor->name);
 
-    auto old_halt = vm->halt_;
-    vm->halt_ = false;
+    // Save any VM state that isn't in stacks, and setup the VM into some
+    // reasonable state.
+    bool old_halt = std::exchange(vm->halt_, false);
+    size_t old_start_ip =
+      std::exchange(vm->start_ip_, descriptor->finaliser_ip);
 
-    // Set up a new frame for finaliser
-    vm->write(Register(vm->frame_.locals - 1), Value::mut(object));
-    vm->call(descriptor->finaliser_ip, (uint8_t)1);
+    vm->trace("Running the finaliser for: {}", descriptor->name);
 
-    // Save call stack, so we can jump back into normal execution.
-    auto backup = std::move(vm->cfstack_);
+    // Set up a new frame for the finaliser. The frame starts past the current,
+    // with no overlap, or at zero if there are no executing frames.
+    //
+    // The frame is marked as "halt on return" so we gain back control when the
+    // finaliser is done.
+    size_t base;
+    if (vm->cfstack_.empty())
+      base = 0;
+    else
+      base = vm->frame().base + vm->frame().locals;
 
-    // Run finaliser to completion
+    vm->push_frame(descriptor->finaliser_ip, base, OnReturn::Halt);
+
+    if (vm->frame().argc != 1)
+    {
+      vm->fatal("Finaliser must have one argument, found {}", vm->frame().argc);
+    }
+
+    vm->write(Register(0), Value::mut(object));
+
+    // Run finaliser to completion.
     vm->dispatch_loop();
 
-    // Put back normal execution
-    vm->cfstack_ = std::move(backup);
-    vm->opcode_return();
     vm->halt_ = old_halt;
+    vm->start_ip_ = old_start_ip;
   }
 
   void VM::grow_stack(size_t size)
@@ -101,24 +130,28 @@ namespace verona::interpreter
 
   Value& VM::read(Register reg)
   {
-    if (reg.index >= frame_.locals)
+    if (reg.index >= frame().locals)
+    {
       fatal("Out of bounds stack access (register {})", reg.index);
-    return stack_.at(frame_.base + reg.index);
+    }
+    return stack_.at(frame().base + reg.index);
   }
 
   const Value& VM::read(Register reg) const
   {
-    if (reg.index >= frame_.locals)
+    if (reg.index >= frame().locals)
+    {
       fatal("Out of bounds stack access (register {})", reg.index);
-    return stack_.at(frame_.base + reg.index);
+    }
+    return stack_.at(frame().base + reg.index);
   }
 
   void VM::write(Register reg, Value value)
   {
-    if (reg.index >= frame_.locals)
+    if (reg.index >= frame().locals)
       fatal("Out of bounds stack access (register {})", reg.index);
 
-    stack_.at(frame_.base + reg.index).overwrite(alloc_, std::move(value));
+    stack_.at(frame().base + reg.index).overwrite(alloc_, std::move(value));
   }
 
   const VMDescriptor* VM::find_dispatch_descriptor(Register receiver) const
@@ -210,54 +243,26 @@ namespace verona::interpreter
   {
     if (callspace == 0)
       fatal("Not enough call space to find a receiver");
-    if (callspace > frame_.locals)
+    if (callspace > frame().locals)
       fatal("Call space does not fit in current frame");
 
     // Dispatch on the receiver, which is the first value in the callspace.
     const VMDescriptor* descriptor =
-      find_dispatch_descriptor(Register(frame_.locals - callspace));
+      find_dispatch_descriptor(Register(frame().locals - callspace));
 
     size_t addr = descriptor->methods[selector];
-    VM::call(addr, callspace);
-  }
+    size_t base = frame().base + frame().locals - callspace;
 
-  void VM::call(size_t addr, uint8_t callspace)
-  {
-    FunctionHeader header = code_.function_header(addr);
+    push_frame(addr, base, OnReturn::Continue);
 
-    if (callspace < header.argc || callspace < header.retc)
+    if (callspace < frame().argc || callspace < frame().retc)
     {
       fatal(
         "Call space is too small: callspace={:d}, argc={:d}, retc={:d}",
         callspace,
-        header.argc,
-        header.retc);
+        frame().argc,
+        frame().retc);
     }
-
-    // End of current frame
-    size_t top = frame_.base + frame_.locals;
-
-    cfstack_.push_back(frame_);
-    indent_++;
-
-    frame_.argc = header.argc;
-    frame_.retc = header.retc;
-    frame_.locals = header.locals;
-    frame_.base = top - callspace;
-    frame_.return_address = ip_;
-
-    // Ensure the stack is large enough.
-    grow_stack(frame_.base + frame_.locals);
-
-    ip_ = addr;
-
-    trace(
-      "Calling function {}, base=r{:d} argc={:d} retc={:d} locals={:d}",
-      header.name,
-      frame_.base,
-      frame_.argc,
-      frame_.retc,
-      frame_.locals);
   }
 
   Value VM::opcode_clear()
@@ -301,13 +306,13 @@ namespace verona::interpreter
 
   void VM::opcode_jump(int16_t offset)
   {
-    ip_ = start_ip_ + offset;
+    frame().ip = start_ip_ + offset;
   }
 
   void VM::opcode_jump_if(uint64_t condition, int16_t offset)
   {
     if (condition > 0)
-      ip_ = start_ip_ + offset;
+      frame().ip = start_ip_ + offset;
   }
 
   Value VM::opcode_load(const Value& base, SelectorIdx selector)
@@ -414,7 +419,7 @@ namespace verona::interpreter
     fmt::dynamic_format_arg_store<fmt::format_context> store;
     for (uint8_t i = 0; i < argc; i++)
     {
-      Register reg = code_.load<Register>(ip_);
+      Register reg = code_.load<Register>(frame().ip);
       store.push_back(std::cref(read(reg)));
     }
     fmt::vprint(fmt, store);
@@ -424,7 +429,7 @@ namespace verona::interpreter
   {
     // Ensure that all registers (except the return values) have been cleared
     // already.
-    for (int i = frame_.retc; i < frame_.locals; i++)
+    for (int i = frame().retc; i < frame().locals; i++)
     {
       Value& value = read(Register(i));
       switch (value.tag)
@@ -446,23 +451,22 @@ namespace verona::interpreter
       }
     }
 
-    if (cfstack_.empty())
+    if (frame().on_return == OnReturn::Halt)
     {
       // We currently never use the return value of the top function, so just
       // clear the return registers.
-      for (int i = frame_.retc; i < frame_.locals; i++)
+      for (int i = frame().retc; i < frame().locals; i++)
       {
         read(Register(i)).clear(alloc_);
       }
 
       halt_ = true;
-      return;
     }
-
-    ip_ = frame_.return_address;
-    frame_ = cfstack_.back();
+    else if (cfstack_.size() < 2)
+    {
+      fatal("Cannot return of top-most frame");
+    }
     cfstack_.pop_back();
-    indent_--;
   }
 
   Value VM::opcode_store(const Value& base, SelectorIdx selector, Value src)
@@ -489,7 +493,7 @@ namespace verona::interpreter
     // One added for unused receiver
     // TODO-Better-Static-codegen
     auto callspace = cown_count + capture_count + 1;
-    if (callspace > frame_.locals)
+    if (callspace > frame().locals)
       fatal("Call space does not fit in current frame");
 
     size_t entry_addr = closure_body;
@@ -504,7 +508,7 @@ namespace verona::interpreter
         header.argc);
     }
 
-    size_t top = frame_.base + frame_.locals;
+    size_t top = frame().base + frame().locals;
     Value* values = &stack_[top - callspace + 1];
 
     // Prepare the cowns and the arguments for the method invocation.
@@ -541,7 +545,7 @@ namespace verona::interpreter
     }
 
     trace(
-      "Dispatching when to function {}, argc={:d}", header.name, frame_.argc);
+      "Dispatching when to function {}, argc={:d}", header.name, header.argc);
 
     // If no cowns create a fake one to run the code on.
     if (cowns.size() == 0)
@@ -564,7 +568,7 @@ namespace verona::interpreter
     {
 #define OP(NAME, FN) \
   case Opcode::NAME: \
-    execute_opcode<Opcode::NAME, &VM::FN>(ip_); \
+    execute_opcode<Opcode::NAME, &VM::FN>(frame().ip); \
     break;
 
       OP(BinOp, opcode_binop);
