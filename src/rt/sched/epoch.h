@@ -10,6 +10,10 @@
 
 namespace verona::rt
 {
+#ifdef USE_SYSTEMATIC_TESTING
+  bool coin();
+#endif
+
   static constexpr uint64_t EJECTED_BIT = 0x8000000000000000;
 
   static uint64_t inc_epoch_by(uint64_t epoch, uint64_t i)
@@ -195,12 +199,20 @@ namespace verona::rt
     // TODO: Add a proper heuristic here
     bool advance_is_sensible()
     {
+#ifdef USE_SYSTEMATIC_TESTING
+      return coin();
+#else
       return *get_pressure(2) > 128;
+#endif
     }
 
     bool advance_is_urgent()
     {
+#ifdef USE_SYSTEMATIC_TESTING
+      return coin();
+#else
       return *get_pressure(2) > 1024;
+#endif
     }
 
     uint64_t get_epoch()
@@ -273,6 +285,7 @@ namespace verona::rt
       {
         if (!not_in_epoch(o, e))
         {
+          Systematic::cout() << "Ejecting other thread" << std::endl;
           o->eject();
         }
 
@@ -402,13 +415,16 @@ namespace verona::rt
     Epoch(Alloc* a) : alloc(a)
     {
       static thread_local ThreadLocalEpoch thread_local_epoch;
+      yield();
       local_epoch = thread_local_epoch.ptr;
       local_epoch->use_epoch(a);
     }
 
     ~Epoch()
     {
+      yield();
       local_epoch->release_epoch(alloc);
+      yield();
     }
 
     void add_pressure()

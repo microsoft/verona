@@ -17,6 +17,13 @@ namespace verona::rt
   using CownThread = SchedulerThread<Cown>;
   using Scheduler = ThreadPool<CownThread>;
 
+#ifdef USE_SYSTEMATIC_TESTING
+  inline bool coin()
+  {
+    return Scheduler::coin();
+  }
+#endif
+
   static void yield()
   {
 #ifdef USE_SYSTEMATIC_TESTING
