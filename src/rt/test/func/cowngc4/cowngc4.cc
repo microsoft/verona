@@ -65,7 +65,18 @@ struct PRNG
   }
 };
 
-struct CCown;
+struct CCown : public VCown<CCown>
+{
+  CCown* child;
+  CCown(CCown* child_) : child(child_) {}
+
+  void trace(ObjectStack* fields) const
+  {
+    if (child != nullptr)
+      fields->push(child);
+  }
+};
+
 template<RegionType region_type>
 struct RCown;
 
@@ -109,18 +120,6 @@ struct O : public V<O<region_type>, region_type>
 
 using OTrace = O<RegionType::Trace>;
 using OArena = O<RegionType::Arena>;
-
-struct CCown : public VCown<CCown>
-{
-  CCown* child;
-  CCown(CCown* child_) : child(child_) {}
-
-  void trace(ObjectStack* fields) const
-  {
-    if (child != nullptr)
-      fields->push(child);
-  }
-};
 
 template<RegionType region_type>
 struct RCown : public VCown<RCown<region_type>>
