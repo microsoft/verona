@@ -7,7 +7,7 @@ to. Within each top-level directory, tests are further split by _mode_.
 Each test's expectations depends on its mode.
 - `compile-pass`: Compilation must succeed.
 - `compile-fail`: Compilation must fail. The compiler's standard error will be
-  compared against the test file using `FileCheck`.
+  compared against the test file using `OutputCheck`.
 
 Each mode is implemented by a `.cmake` file at the top of the testsuite
 directory.

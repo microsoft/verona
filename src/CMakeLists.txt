@@ -26,4 +26,9 @@ add_subdirectory(compiler)
 add_subdirectory(interpreter)
 add_subdirectory(stdlib)
 
+# Some builds (ex. clang format) don't need LLVM
+if(NOT DISABLE_LLVM_BUILD)
+  add_subdirectory(mlir)
+endif()
+
 clangformat_targets()
