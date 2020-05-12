@@ -44,6 +44,7 @@ jobs:
       set -eo pipefail
       sudo apt-get update
       sudo apt-get install -y clang ninja-build cmake lld
+      curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
     displayName: 'Install Build Dependencies'
 
   - task: CMake@1
@@ -55,28 +56,19 @@ jobs:
   - script: |
       set -eo pipefail
       ninja
-      VERSION=$(./bin/mlir-tblgen --version | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+" | cut -d "." -f 1,3)
-      echo "##vso[task.setvariable variable=VERSION]$VERSION"
     workingDirectory: build
     displayName: 'Compile LLVM & MLIR'
 
   - script: |
       set -eo pipefail
-      rm -rf /tmp/$PKG_NAME
-      mkdir -p /tmp/$PKG_NAME
-      tar zcf /tmp/$PKG_NAME/$PKG_NAME.tar.gz .
-    displayName: 'Create artifact'
+      rm -f $(PKG_NAME).tar.gz
+      tar zcf $(PKG_NAME).tar.gz build
+    displayName: 'Create package'
 
-  - task: UniversalPackages@0
-    displayName: 'Publishing Package'
-    inputs:
-      command: publish
-      publishDirectory: /tmp/$(PKG_NAME)
-      vstsFeedPublish: Project%20Verona/LLVMBuild
-      vstsFeedPackagePublish: $(PKG_NAME)
-      packagePublishDescription: 'Verona LLVM $(BuildType) Build for Linux at $(GOOD_HASH)'
-      versionOption: custom
-      versionPublish: $(VERSION).$(Build.Buildid)
+  - script: |
+      set -eo pipefail
+      az storage blob upload --container-name llvmbuild --file $(PKG_NAME).tar.gz --name $(PKG_NAME) --connection-string "$(BLOB_CONNECTION_STRING)"
+    displayName: 'Upload package'
 
 ############################################## Windows Builds
 - job:
@@ -94,12 +86,13 @@ jobs:
   variables:
   - name: PKG_NAME
     value: verona-llvm-x86_64-windows-$(BuildName)-$(GOOD_HASH)
-  # TODO: Figure how to set version on Windows
-  - name: VERSION
-    value: 11.0
 
   steps:
   - checkout: llvm
+
+  - powershell: |
+      Invoke-WebRequest -Uri https://aka.ms/installazurecliwindows -OutFile .\AzureCLI.msi; Start-Process msiexec.exe -Wait -ArgumentList '/I AzureCLI.msi /quiet'; rm .\AzureCLI.msi
+    displayName: 'Install Azure CLI'
 
   - powershell: |
       Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
@@ -129,21 +122,13 @@ jobs:
       msbuildArguments: '/m /p:Configuration=$(BuildType)'
 
   - script: |
-      rd /s /q $(PKG_NAME)
-      mkdir $(PKG_NAME)
-      tar.exe -z -c -f $(PKG_NAME)/$(PKG_NAME).tar.gz build
-    displayName: 'Create artifact'
+      rd /s /q $(PKG_NAME).tar.gz
+      tar.exe -z -c -f $(PKG_NAME).tar.gz build
+    displayName: 'Create package'
 
-  - task: UniversalPackages@0
-    displayName: 'Publishing Package'
-    inputs:
-      command: publish
-      publishDirectory: $(PKG_NAME)
-      vstsFeedPublish: Project%20Verona/LLVMBuild
-      vstsFeedPackagePublish: $(PKG_NAME)
-      packagePublishDescription: 'Verona LLVM $(BuildType) Build for Windows at $(GOOD_HASH)'
-      versionOption: custom
-      versionPublish: $(VERSION).$(Build.Buildid)
+  - script: |
+      "C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2\wbin\az" storage blob upload --container-name llvmbuild --file $(PKG_NAME).tar.gz --name $(PKG_NAME) --connection-string "$(BLOB_CONNECTION_STRING)"
+    displayName: 'Upload package'
 
 ############################################## MacOS Builds
 - job:
@@ -181,25 +166,16 @@ jobs:
   - script: |
       set -eo pipefail
       make -j 4
-      VERSION=$(./bin/mlir-tblgen --version | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+" | cut -d "." -f 1,3)
-      echo "##vso[task.setvariable variable=VERSION]$VERSION"
     workingDirectory: build
     displayName: 'Compile LLVM & MLIR'
 
   - script: |
       set -eo pipefail
-      rm -rf /tmp/$PKG_NAME
-      mkdir -p /tmp/$PKG_NAME
-      tar zcf /tmp/$PKG_NAME/$PKG_NAME.tar.gz .
-    displayName: 'Create artifact'
+      rm -f $(PKG_NAME).tar.gz
+      tar zcf $(PKG_NAME).tar.gz build
+    displayName: 'Create package'
 
-  - task: UniversalPackages@0
-    displayName: 'Publishing Package'
-    inputs:
-      command: publish
-      publishDirectory: /tmp/$(PKG_NAME)
-      vstsFeedPublish: Project%20Verona/LLVMBuild
-      vstsFeedPackagePublish: $(PKG_NAME)
-      packagePublishDescription: 'Verona LLVM $(BuildType) Build for MacOS at $(GOOD_HASH)'
-      versionOption: custom
-      versionPublish: $(VERSION).$(Build.Buildid)
+  - script: |
+      set -eo pipefail
+      az storage blob upload --container-name llvmbuild --file $(PKG_NAME).tar.gz --name $(PKG_NAME) --connection-string "$(BLOB_CONNECTION_STRING)"
+    displayName: 'Upload package'

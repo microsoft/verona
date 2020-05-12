@@ -20,3 +20,7 @@
 	url = https://github.com/yhirose/cpp-peglib.git
 	branch = master
 	shallow = true
+[submodule "external/llvm-project"]
+	path = external/llvm-project
+	url = https://github.com/llvm/llvm-project.git
+	shallow = true

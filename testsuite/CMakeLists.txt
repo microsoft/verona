@@ -33,10 +33,12 @@ endif()
 set(VERONAC ${CMAKE_INSTALL_PREFIX}/veronac)
 set(VERONAI ${CMAKE_INSTALL_PREFIX}/interpreter)
 set(VERONAP ${CMAKE_INSTALL_PREFIX}/verona-ast)
+set(VERONAM ${CMAKE_INSTALL_PREFIX}/verona-mlir)
 if(WIN32)
   set(VERONAC ${VERONAC}.exe)
   set(VERONAI ${VERONAI}.exe)
   set(VERONAP ${VERONAP}.exe)
+  set(VERONAM ${VERONAM}.exe)
 endif()
 
 function(subdirlist result curdir)
@@ -52,7 +54,7 @@ endfunction()
 
 function(add_tests mode dir)
   set(testdir ${CMAKE_CURRENT_SOURCE_DIR}/${dir}/${mode})
-  file(GLOB filenames RELATIVE ${testdir} ${testdir}/*.verona)
+  file(GLOB filenames RELATIVE ${testdir} ${testdir}/*.verona ${testdir}/*.mlir)
   foreach(filename ${filenames})
     get_filename_component(stem ${filename} NAME_WE)
     set(testname ${dir}/${mode}/${stem})
@@ -64,6 +66,7 @@ function(add_tests mode dir)
       -DVERONAC=${VERONAC}
       -DINTERPRETER=${VERONAI}
       -DPARSER=${VERONAP}
+      -DMLIRGEN=${VERONAM}
       -DGRAMMAR=${CMAKE_INSTALL_PREFIX}/grammar.peg
       -DFILECHECK=${FILECHECK}
       -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
@@ -80,6 +83,7 @@ foreach(TEST_FOLDER ${TEST_FOLDERS})
   add_tests(compile-fail ${TEST_FOLDER})
   add_tests(run-pass ${TEST_FOLDER})
   add_tests(ast-parse ${TEST_FOLDER})
+  add_tests(mlir-parse ${TEST_FOLDER})
 endforeach()
 
 set_tests_properties(
@@ -100,6 +104,7 @@ add_custom_target(update-dump COMMAND ${CMAKE_COMMAND}
   -DPYTHON_EXECUTABLE=${Python3_EXECUTABLE}
   -DVERONAC=${VERONAC}
   -DPARSER=${VERONAP}
+  -DMLIRGEN=${VERONAM}
   -DGRAMMAR=${CMAKE_INSTALL_PREFIX}/grammar.peg
   -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
   -P ${CMAKE_CURRENT_SOURCE_DIR}/update-dump.cmake)

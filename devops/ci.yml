@@ -7,9 +7,10 @@ pr:
 - master
 
 jobs:
+############################################## Configure CI Run
 - job: ConfigureCIRun
   pool:
-    vmImage: 'ubuntu-16.04'
+    vmImage: 'ubuntu-18.04'
   steps:
   - script: |
       echo " - PR Build"
@@ -28,14 +29,25 @@ jobs:
         echo Doc changes only;
         echo "##vso[task.setvariable variable=docOnly;isOutput=true]true" #set variable to testRuntime to On
       fi
+      if [ -z "$(LLVMCommit)" ]; then
+        echo "LLVMCommit empty, picking from submodule"
+        LLVMCommit=$(git submodule status external/llvm-project | grep -o "[0-9a-f]\{11\}" | head -n 1)
+      else
+        LLVMCommit=$(LLVMCommit)
+      fi
+      echo "LLVMCommit: $LLVMCommit"
+      echo "##vso[task.setvariable variable=LLVMCommit;isOutput=true]$LLVMCommit"
     displayName: 'Check for runtime changes'
     name: setVarStep
-- job:
+
+############################################## Linux Builds
+- job: 
   displayName: Linux
   dependsOn: ConfigureCIRun
   condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.docOnly'], 'false')
   variables:
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
+    LLVMCommit: $[ dependencies.ConfigureCIRun.outputs['setVarStep.LLVMCommit'] ]
   pool:
     vmImage: 'ubuntu-18.04'
   strategy:
@@ -54,7 +66,27 @@ jobs:
         Asan: On
   steps:
   - checkout: self
-    submodules: recursive
+
+  - script: |
+      set -eo pipefail
+      git submodule init
+      git submodule update --depth 1 --recursive
+    displayName: 'Checkout submodules'
+
+  - script:
+      echo "##vso[task.setvariable variable=PKG_NAME]verona-llvm-x86_64-linux-release-$(LLVMCommit)"
+    displayName: 'Set LLVM Package'
+
+  - script: |
+      set -eo pipefail
+      wget -q -O $(PKG_NAME).tar.gz https://verona.blob.core.windows.net/llvmbuild/$(PKG_NAME)
+    displayName: 'Download package'
+
+  - bash: |
+      set -eo pipefail
+      ./utils/llvm/setup-llvm-builddir.sh $(PKG_NAME).tar.gz
+    displayName: 'Setup LLVM Build dir'
+    workingDirectory: '$(Build.SourcesDirectory)'
 
   - script: |
       set -eo pipefail
@@ -83,32 +115,51 @@ jobs:
     workingDirectory: build
     displayName: 'Tests'
 
-- job:
+############################################## Windows Builds
+- job: 
   displayName: Windows
   dependsOn: ConfigureCIRun
   condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.docOnly'], 'false')
   variables:
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
-
+    LLVMCommit: $[ dependencies.ConfigureCIRun.outputs['setVarStep.LLVMCommit'] ]
   pool:
     vmImage: 'windows-2019'
   strategy:
     matrix:
       Release:
+        CXXFLAGS: '/EHsc /D _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING=1'
         BuildType: Release
 
   steps:
   - checkout: self
-    submodules: recursive
+
+  - script: |
+      git submodule init
+      git submodule update --depth 1 --recursive
+    displayName: 'Checkout submodules'
 
   - script:
       pip install OutputCheck
     displayName: 'Dependencies'
 
+  - bash:
+      echo "##vso[task.setvariable variable=PKG_NAME]verona-llvm-x86_64-windows-release-$(LLVMCommit)"
+    displayName: 'Set LLVM Package'
+
+  - powershell: |
+      $ProgressPreference = 'SilentlyContinue'; (New-Object Net.WebClient).DownloadFile("https://verona.blob.core.windows.net/llvmbuild/$(PKG_NAME)", "$(PKG_NAME).tar.gz")
+    displayName: 'Download package'
+
+  - bash: |
+      ./utils/llvm/setup-llvm-builddir.sh $(PKG_NAME).tar.gz
+    displayName: 'Setup LLVM Build dir'
+    workingDirectory: '$(Build.SourcesDirectory)'
+
   - script: |
       mkdir build
       cd build
-      cmake .. -G"Visual Studio 16 2019" -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=$(RTTests)
+      cmake .. -G"Visual Studio 16 2019" -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=$(RTTests) -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
     displayName: 'CMake'
 
   - task: MSBuild@1
@@ -119,7 +170,7 @@ jobs:
 
   - script: |
       ctest -j 4 -E "([1-9][0-9]00|[4-9]00)" --timeout 400 --output-on-failure --interactive-debug-mode 0 -C $(BuildType)
-    workingDirectory: build/
+    workingDirectory: build
     displayName: 'Tests'
 
   - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
@@ -127,13 +178,14 @@ jobs:
     inputs:
       failOnAlert: true
 
-- job:
-  displayName: macOS
+############################################## MacOS Builds
+- job: 
+  displayName: MacOS
   dependsOn: ConfigureCIRun
   condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.docOnly'], 'false')
   variables:
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
-
+    LLVMCommit: $[ dependencies.ConfigureCIRun.outputs['setVarStep.LLVMCommit'] ]
   pool:
     vmImage: 'macOS-10.14'
   strategy:
@@ -143,12 +195,32 @@ jobs:
 
   steps:
   - checkout: self
-    submodules: recursive
+
+  - script: |
+      set -eo pipefail
+      git submodule init
+      git submodule update --depth 1 --recursive
+    displayName: 'Checkout submodules'
 
   - script: |
       set -eo pipefail
       sudo pip install wheel OutputCheck
-    displayName:  'Dependencies'
+    displayName: 'Dependencies'
+
+  - script:
+      echo "##vso[task.setvariable variable=PKG_NAME]verona-llvm-x86_64-macos-release-$(LLVMCommit)"
+    displayName: 'Set LLVM Package'
+
+  - script: |
+      set -eo pipefail
+      curl -s --output $(PKG_NAME).tar.gz https://verona.blob.core.windows.net/llvmbuild/$(PKG_NAME)
+    displayName: 'Download package'
+
+  - bash: |
+      set -eo pipefail
+      ./utils/llvm/setup-llvm-builddir.sh $(PKG_NAME).tar.gz
+    displayName: 'Setup LLVM Build dir'
+    workingDirectory: '$(Build.SourcesDirectory)'
 
   - task: CMake@1
     displayName: 'CMake'
@@ -168,28 +240,34 @@ jobs:
     workingDirectory: build/
     displayName: 'Tests'
 
-- job:
+############################################## Clang Format Check
+- job: 
   displayName: Format
   pool:
     vmImage: 'ubuntu-18.04'
   steps:
   - checkout: self
-    submodules: recursive
 
   - script: |
       set -eo pipefail
-      wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+      git submodule init
+      git submodule update --depth 1 --recursive
+    displayName: 'Update submodules'
+
+  - script: |
+      set -eo pipefail
+      wget -q -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
       sudo apt-add-repository "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-9 main"
       sudo apt-get update
       sudo apt-get install -y clang-format-9 clang-tidy-9
       sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-9 100
-
     displayName: 'Install Clang tools'
 
   - task: CMake@1
     displayName: 'CMake'
     inputs:
-      cmakeArgs: '..'
+      cmakeArgs: |
+        .. -DDISABLE_LLVM_BUILD=ON
 
   - script: |
       set -eo pipefail
