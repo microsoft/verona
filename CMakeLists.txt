@@ -21,3 +21,21 @@ add_subdirectory(external/pegmatite)
 
 add_subdirectory(src)
 add_subdirectory(testsuite)
+
+# A target to run the ctests
+# TODO: Add run-time libraries, too, and a check-all for both
+include(ProcessorCount)
+ProcessorCount(N)
+if (NOT N EQUAL 0)
+  set(CTEST_ARGS "-j${N}")
+endif()
+set(CTEST "ctest")
+add_custom_target("check"
+                  COMMAND ${CTEST} ${CTEST_ARGS}
+                  COMMENT "Run ctest tests"
+                  USES_TERMINAL)
+
+# FIXME: Why doesn't this work on Windows?
+if (UNIX)
+  add_dependencies("check" "install")
+endif()

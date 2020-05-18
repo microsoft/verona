@@ -165,7 +165,15 @@ Note that the test suite requires Python 3 to be installed. If your cmake versio
 
 The test suite can be run from the `build` or `build_ninja` directories:
 ```
-ctest
+ninja check
+```
+
+On Windows, you need to run `ctest` directly.
+
+These tests are driven by `ctest`. To run specific tests or with different
+configurations, run:
+```
+ctest <args>
 ```
 
 On Windows, you will need to pass the option `-C <config>` where `<config>` is
