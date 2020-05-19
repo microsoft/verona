@@ -27,15 +27,22 @@ add_subdirectory(testsuite)
 include(ProcessorCount)
 ProcessorCount(N)
 if (NOT N EQUAL 0)
-  set(CTEST_ARGS "-j${N}")
+  set(PARALLEL_ARGS --parallel ${N})
 endif()
+
+# The `install` target is not supported by add_dependencies
+# and doesn't work with msbuild.  This adds a custom target that
+# pushes the original target into cmake, so that tests can
+# depend on it.
+add_custom_target(install_for_test
+                  COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} ${PARALLEL_ARGS} --config $<CONFIG> --target install
+                  COMMENT "Installs distribution."
+                  USES_TERMINAL COMMAND_EXPAND_LISTS)
+
 set(CTEST "ctest")
 add_custom_target("check"
-                  COMMAND ${CTEST} ${CTEST_ARGS}
+                  COMMAND ${CTEST} ${PARALLEL_ARGS} -C$<CONFIG>
                   COMMENT "Run ctest tests"
-                  USES_TERMINAL)
+                  USES_TERMINAL COMMAND_EXPAND_LISTS)
 
-# FIXME: Why doesn't this work on Windows?
-if (UNIX)
-  add_dependencies("check" "install")
-endif()
+add_dependencies("check" "install_for_test")
