@@ -168,19 +168,11 @@ The test suite can be run from the `build` or `build_ninja` directories:
 ninja check
 ```
 
-On Windows, you need to run `ctest` directly.
-
-These tests are driven by `ctest`. To run specific tests or with different
-configurations, run:
+On Windows, this can be achieved with:
 ```
-ctest <args>
+cmake --build . --target check --config <config>
 ```
-
-On Windows, you will need to pass the option `-C <config>` where `<config>` is
-the build type, e.g. Debug.
-
-Use the options `-j N` to run `N` jobs in parallel, and `-R <regex>` to run
-tests that match the regular expression `<regex>`.
+Where `<config>` is the build type, e.g. Debug.
 
 ## Building the runtime tests
 

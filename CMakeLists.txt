@@ -41,7 +41,7 @@ add_custom_target(install_for_test
 
 set(CTEST "ctest")
 add_custom_target("check"
-                  COMMAND ${CTEST} ${PARALLEL_ARGS} -C$<CONFIG>
+                  COMMAND ${CTEST} ${PARALLEL_ARGS} -C $<CONFIG>
                   COMMENT "Run ctest tests"
                   USES_TERMINAL COMMAND_EXPAND_LISTS)
 
