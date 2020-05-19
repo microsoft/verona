@@ -1,3 +1,5 @@
+find_package(Threads REQUIRED)
+
 add_library(verona-ast-lib
   ast.cc
   err.cc
@@ -8,6 +10,7 @@ add_library(verona-ast-lib
 
 target_link_libraries(verona-ast-lib CLI11::CLI11)
 target_link_libraries(verona-ast-lib cpp-peglib)
+target_link_libraries(verona-ast-lib Threads::Threads)
 
 add_executable(verona-ast main.cc cli.cc path.cc)
 target_link_libraries(verona-ast verona-ast-lib)
