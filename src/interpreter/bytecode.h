@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <ostream>
 #include <string_view>
 
