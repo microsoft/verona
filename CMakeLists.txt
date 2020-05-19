@@ -19,5 +19,8 @@ add_subdirectory(external/CLI11)
 add_subdirectory(external/fmt)
 add_subdirectory(external/pegmatite)
 
+add_library(cpp-peglib INTERFACE)
+target_include_directories(cpp-peglib INTERFACE external/cpp-peglib)
+
 add_subdirectory(src)
 add_subdirectory(testsuite)

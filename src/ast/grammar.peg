@@ -1,0 +1,99 @@
+# TODO:
+# module typeparams
+# error handling
+# getter, setter, rest/spread
+# value constraints
+
+module <- (typedef / field / function)*
+
+typedef <-
+  category id typeparams oftype constraints ('=' type ';' / typebody)
+category <- <'type' / 'class'>
+typebody <- '{' (typedef / field / function)* '}'
+
+typeparams <- ('[' list(typeparam)? ']')?
+typeparam <- id
+constraints <- constraint*
+constraint <- 'where' id oftype inittype
+
+field <- id oftype initexpr ';'
+
+function <- funcname sig (block / ';')
+funcname <- (id / sym)?
+sig <- typeparams params oftype constraints
+params <- '(' list(param)? ')'
+param <- namedparam / type
+namedparam <- id oftype initexpr
+
+type <- type_one (type_op type_one)*
+type_op <- <'&' / '|'>
+type_one <-
+  type_tuple /
+  type_ref /
+  typebody
+type_tuple <- '(' list(type)? ')'
+type_ref <- (id typeargs?) ('.' id typeargs?)*
+
+typeargs <- '[' list(typearg) ']'
+typearg <- type / expr
+
+oftype <- (':' type)?
+inittype <- ('=' type)?
+initexpr <- ('=' expr)?
+
+seq <- term* expr?
+term <- atom* (blockexpr / ';')
+expr <- blockexpr / atom+ blockexpr?
+
+blockexpr <- block / when / while / match / if / for / typedef
+block <- '{' seq '}'
+when <- 'when' tuple block
+while <- 'while' cond block
+match <- 'match' cond '{' case* '}'
+if <- 'if' cond block else
+for <- 'for' '(' list(expr) 'in' seq ')' block
+
+cond <- '(' seq ')'
+else <- ('else' (if / block))?
+case <- pattern guard block
+pattern <- expr
+guard <- ('if' '(' seq ')')?
+
+atom <-
+  break / continue / return / yield / let / new / lambda /
+  hex / binary / float / int / string /
+  id / sym / tuple / typeargs
+
+break <- 'break'
+continue <- 'continue'
+return <- 'return'
+yield <- 'yield'
+let <- 'let' (id / '(' list(id)? ')') oftype
+new <- 'new' type? typebody?
+lambda <- sig block
+tuple <- '(' list(expr)? ')'
+
+keyword <-
+  'type' / 'class' / 'where' /
+  'if' / 'else' / 'while' / 'for' / 'in' / 'match' / 'when' /
+  'break' / 'continue' / 'return' / 'yield' /
+  'let' / 'new'
+
+id <- <!keyword %word>
+sym <- <[!-'*+\x2D./:<-@\\^|~]+> # Reserved: , _ () [] {} ` ;
+
+float <- <digits '.' digits ([eE][-+]? digits)?>
+int <- <digits>
+digits <- [0-9][_0-9]*
+hex <- <'0x' [_a-fA-F]*>
+binary <- <'0b' [_01]*>
+string <- '`' ('(' <((!'(' !')' .) / substring)*> ')' / <%word>)
+substring <- '(' ('\\)' / (!'(' !')' .) / substring)* ')'
+
+list(x) <- x (',' x)*
+
+blank <- [ \t\r\n]+
+linecomment <- '//' (![\r\n] .)*
+nestedcomment <- '/*' ((!'/*' !'*/' .) / nestedcomment)* '*/'
+%whitespace <- (blank / linecomment / nestedcomment)*
+%word <- [_a-zA-Z][_a-zA-Z0-9']*
