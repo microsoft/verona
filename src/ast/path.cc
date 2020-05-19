@@ -1,8 +1,12 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 #include "path.h"
 
 #if defined(__linux__)
 #  include <limits.h>
 #  include <stdlib.h>
+#elif defined(__APPLE__)
+#  include <sys/syslimits.h>
 #endif
 
 namespace path
