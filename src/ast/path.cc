@@ -6,8 +6,8 @@
 #  include <limits.h>
 #  include <stdlib.h>
 #elif defined(__APPLE__)
-#  include <sys/syslimits.h>
 #  include <mach-o/dyld.h>
+#  include <sys/syslimits.h>
 #elif defined(_WIN32)
 #  define WIN32_LEAN_AND_MEAN
 #  define NOMINMAX
