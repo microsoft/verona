@@ -3,14 +3,6 @@
 #include "parser.h"
 #include "sym.h"
 
-// #include "llvm/ExecutionEngine/ExecutionEngine.h"
-// #include "llvm/ExecutionEngine/GenericValue.h"
-// #include "llvm/ExecutionEngine/MCJIT.h"
-// #include <llvm/IR/IRBuilder.h>
-// #include <llvm/IR/ValueSymbolTable.h>
-// #include <llvm/IR/Verifier.h>
-// #include <llvm/Support/TargetSelect.h>
-
 int main(int argc, char** argv)
 {
   auto opt = cli::parse(argc, argv);

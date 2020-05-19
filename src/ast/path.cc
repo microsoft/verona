@@ -9,23 +9,35 @@ namespace path
 {
   std::string executable()
   {
-#if defined(__linux__)
+#ifdef WIN32
+    char buf[MAX_PATH];
+    GetModuleFileNameA(NULL, buf, MAX_PATH);
+    return std::string(buf);
+#elif defined(__linux__) || defined(__FreeBSD__)
+#  ifdef __linux__
     constexpr auto link = "/proc/self/exe";
-    char buffer[PATH_MAX];
-    return realpath(link, buffer);
-#elif defined(_WIN32)
-    char p[MAX_PATH];
-    GetModuleFileName(NULL, p, MAX_PATH);
-    return std::string(p);
+#  elif defined(__FreeBSD__)
+    constexpr auto link = "/proc/curproc/file";
+#  endif
+    char buf[PATH_MAX];
+    return std::string(realpath(link, buf));
+#elif defined(__APPLE__)
+    char buf[PATH_MAX];
+    uint32_t size = PATH_MAX;
+    auto result = _NSGetExecutablePath(buf, &size);
+    if (result == -1)
+      buf[0] = '\0';
+
+    return std::string(buf);
 #else
-#  error "path::executable not supported on this target."
+#  error "Unsupported platform"
 #endif
   }
 
   std::string directory(const std::string& path)
   {
     constexpr auto delim =
-#if defined(__linux__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
       "/"
 #elif defined(_WIN32)
       "\\"
