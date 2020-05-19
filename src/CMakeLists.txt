@@ -21,6 +21,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
 
+add_subdirectory(ast)
 add_subdirectory(compiler)
 add_subdirectory(interpreter)
 add_subdirectory(stdlib)

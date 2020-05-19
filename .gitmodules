@@ -11,3 +11,7 @@
 [submodule "external/fmt"]
 	path = external/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "external/cpp-peglib"]
+	path = external/cpp-peglib
+	url = https://github.com/yhirose/cpp-peglib.git
+	branch = master
