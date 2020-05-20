@@ -87,8 +87,8 @@ int <- <digits>
 digits <- [0-9][_0-9]*
 hex <- <'0x' [_a-fA-F]*>
 binary <- <'0b' [_01]*>
-string <- '`' ('(' <((!'(' !')' .) / substring)*> ')' / <%word>)
-substring <- '(' ('\\)' / (!'(' !')' .) / substring)* ')'
+string <- '"' (!'"' (escaped / .))* '"'
+escaped <- '\\' ('\\' / '"' / [bfnrt])
 
 list(x) <- x (',' x)*
 
