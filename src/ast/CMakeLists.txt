@@ -16,16 +16,3 @@ target_link_libraries(verona-ast verona-ast-lib)
 
 install(TARGETS verona-ast RUNTIME DESTINATION .)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/grammar.peg DESTINATION .)
-
-enable_testing()
-
-set(PARSER ${CMAKE_INSTALL_PREFIX}/verona-ast)
-if(WIN32)
-  set(PARSER ${PARSER}.exe)
-endif()
-
-add_test(NAME ast-parse COMMAND ${CMAKE_COMMAND}
-  -DPARSER=${PARSER}
-  -DGRAMMAR=${CMAKE_INSTALL_PREFIX}/grammar.peg
-  -DTEST_DIR=${CMAKE_CURRENT_SOURCE_DIR}/test
-  -P ${CMAKE_CURRENT_SOURCE_DIR}/test/tests.cmake)
