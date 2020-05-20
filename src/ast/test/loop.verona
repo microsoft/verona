@@ -1,0 +1,57 @@
+// CHECK-L: module
+
+// CHECK-L: function
+// CHECK-L: id (f)
+// CHECK-L: param
+// CHECK-L: id (x)
+f(x)
+{
+  // CHECK-L: let
+  // CHECK-L: local (a)
+  // CHECK-L: infix (=)
+  // CHECK-L: int (0)
+  let a = 0;
+  // CHECK-L: while
+  // CHECK-L: cond
+  // CHECK-L: ref (a)
+  // CHECK-L: infix (<)
+  // CHECK-L: int (5)
+  while (a < 5)
+  {
+    // CHECK-L: ref (a)
+    // CHECK-L: infix (=)
+    // CHECK-L: ref (a)
+    // CHECK-L: infix (+)
+    // CHECK-L: int (1)
+    a = a + 1;
+
+    // CHECK-L: if
+    // CHECK-L: ref (a)
+    // CHECK-L: infix (<)
+    // CHECK-L: int (2)
+    if (a < 2)
+    {
+      // CHECK-L: continue
+      continue;
+    }
+    // CHECK-L: else
+    else
+    {
+      // CHECK-L: break
+      break;
+    }
+  };
+
+  // CHECK-L: for
+  // CHECK-L: ref (a)
+  // CHECK-L: ref (x)
+  for (a in x) {
+    // CHECK-L: prefix (foo)
+    // CHECK-L: ref (a)
+    foo(a);
+  };
+
+  // CHECK-L: yield
+  // CHECK-L: ref (a)
+  yield a;
+}

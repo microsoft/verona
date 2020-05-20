@@ -1,0 +1,39 @@
+// CHECK-L: module
+
+// CHECK-L: foo
+foo()
+{
+  // CHECK-L: let
+  // CHECK-L: local (r1)
+  // CHECK-L: infix (=)
+  // CHECK-L: new
+  // CHECK-L: type
+  // CHECK-L: Foo
+  let r1 = new Foo;
+  // CHECK-L: let
+  // CHECK-L: local (r2)
+  // CHECK-L: infix (=)
+  // CHECK-L: new
+  // CHECK-L: type
+  // CHECK-L: Foo
+  // CHECK-L: x
+  // CHECK-L: infix (=)
+  // CHECK-L: int (0)
+  let r2 = new Foo { x = 0 };
+  // CHECK-L: let
+  // CHECK-L: local (f)
+  // CHECK-L: infix (=)
+  // CHECK-L: lambda
+  // CHECK-L: typeparam
+  // CHECK-L: id (A)
+  // CHECK-L: param
+  // CHECK-L: id (a)
+  // CHECK-L: constraint
+  // CHECK-L: id (A)
+  // CHECK-L: id (U64)
+  // CHECK-L: block
+  // CHECK-L: ref (a)
+  // CHECK-L: infix (+)
+  // CHECK-L: int (42)
+  let f = [A](a) where A: U64 { a + 42 };
+}
