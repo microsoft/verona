@@ -40,6 +40,11 @@ f()
   // CHECK-L: let
   // CHECK-L: local (x7)
   // CHECK-L: infix (=)
+  // CHECK-L: string (foo `( baz)
+  let x7 = `(foo `\( baz);
+  // CHECK-L: let
+  // CHECK-L: local (x8)
+  // CHECK-L: infix (=)
   // CHECK-L: string (foo `(bar) baz)
-  let x7 = `(foo `(bar) baz);
+  let x8 = `(foo `(bar) baz);
 }
