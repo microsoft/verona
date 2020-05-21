@@ -37,19 +37,4 @@ f()
   // CHECK-L: infix (=)
   // CHECK-L: string (wat ℵ \n)
   let x6 = `(wat ℵ \n);
-  // CHECK-L: let
-  // CHECK-L: local (x7)
-  // CHECK-L: infix (=)
-  // CHECK-L: string (foo\nbar\) baz)
-  let x7 = `(foo\nbar\) baz);
-  // CHECK-L: let
-  // CHECK-L: local (x8)
-  // CHECK-L: infix (=)
-  // CHECK-L: string (foo \`\( \ ( \\ baz)
-  let x8 = `(foo \`\( \ ( \\ baz);
-  // CHECK-L: let
-  // CHECK-L: local (x9)
-  // CHECK-L: infix (=)
-  // CHECK-L: string (foo `(bar) `bar baz)
-  let x9 = `(foo `(bar) `bar baz);
 }
