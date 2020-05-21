@@ -6,7 +6,7 @@ namespace ast
 {
   using namespace peg::udl;
 
-  Ast from(const Ast& ast, const char* name, const std::string& token)
+  Ast token(const Ast& ast, const char* name, const std::string& token)
   {
     return std::make_shared<AstImpl>(
       ast->path.c_str(),
@@ -43,6 +43,43 @@ namespace ast
       assert(find != parent->nodes.end());
       parent->nodes.erase(find);
     }
+  }
+
+  void rename(Ast& ast, const char* name)
+  {
+    Ast next;
+
+    if (ast->is_token)
+    {
+      next = std::make_shared<AstImpl>(
+        ast->path.c_str(),
+        ast->line,
+        ast->column,
+        name,
+        ast->token,
+        ast->position,
+        ast->length);
+    }
+    else
+    {
+      next = std::make_shared<AstImpl>(
+        ast->path.c_str(),
+        ast->line,
+        ast->column,
+        name,
+        ast->nodes,
+        ast->position,
+        ast->length,
+        ast->choice_count,
+        ast->choice);
+
+      for (auto& node : ast->nodes)
+        node->parent = next;
+
+      ast->nodes.clear();
+    }
+
+    replace(ast, next);
   }
 
   Ast get_closest(Ast ast, Tag tag)

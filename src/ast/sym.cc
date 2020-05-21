@@ -14,6 +14,13 @@ namespace
   void add_symbol(ast::Ident id, ast::Ast& ast, err::Errors& err)
   {
     auto enclosing = ast::get_scope(ast);
+
+    if (!enclosing)
+    {
+      err << ast << id << " has no enclosing scope." << err::end;
+      return;
+    }
+
     auto scope = enclosing->scope;
     auto find = scope->sym.find(id);
 
@@ -34,12 +41,12 @@ namespace
     if (!prev || (prev->tag == "infix"_))
     {
       // If it's the first atom, or it's after an infix, it's a prefix operator.
-      ast::replace(ast, ast::from(ast, "prefix", ast->token));
+      ast::rename(ast, "prefix");
     }
     else
     {
       // If it's after anything else, it's an infix operator.
-      ast::replace(ast, ast::from(ast, "infix", ast->token));
+      ast::rename(ast, "infix");
     }
   }
 
@@ -73,7 +80,9 @@ namespace
 
   void only_atom(ast::Ast& ast, err::Errors& err)
   {
-    if (ast::get_expr(ast)->nodes.size() > 1)
+    auto expr = ast::get_expr(ast);
+
+    if (!expr || (expr->nodes.size() > 1))
     {
       err << ast << ast->name << " must be the only element of an expression."
           << err::end;
@@ -82,7 +91,9 @@ namespace
 
   void first_atom(ast::Ast& ast, err::Errors& err)
   {
-    if (ast::get_expr(ast)->nodes[0] != ast)
+    auto expr = ast::get_expr(ast);
+
+    if (!expr || (expr->nodes[0] != ast))
     {
       err << ast << ast->name << " must be the first element of an expression."
           << err::end;
@@ -153,7 +164,7 @@ namespace sym
         if (ast->nodes[0]->nodes.size() == 0)
         {
           ast->nodes[0]->nodes.push_back(
-            ast::from(ast->nodes[0], "id", "apply"));
+            ast::token(ast->nodes[0], "id", "apply"));
         }
 
         auto node = ast->nodes[0]->nodes[0];
@@ -166,6 +177,13 @@ namespace sym
       {
         add_symbol(ast->nodes[0]->token, ast, err);
         break;
+      }
+
+      case "term"_:
+      {
+        ast::rename(ast, "expr");
+        sym::build(ast, err);
+        return;
       }
 
       case "blockexpr"_:
@@ -192,7 +210,7 @@ namespace sym
         auto node = ast->nodes[0];
 
         if (node->tag == "id"_)
-          ast::replace(node, ast::from(node, "ref", node->token));
+          ast::rename(node, "ref");
 
         elide_node(ast, err);
         return;
@@ -223,7 +241,7 @@ namespace sym
         for_each(ast, err, [](auto& node, auto& err) {
           if (node->tag == "id"_)
           {
-            ast::replace(node, ast::from(node, "local", node->token));
+            ast::rename(node, "local");
             add_symbol(node->token, node, err);
           }
         });
@@ -251,7 +269,7 @@ namespace sym
 
             if ((lookup->tag == "id"_) || (lookup->tag == "sym"_))
             {
-              ast::replace(next, ast::from(lookup, "lookup", lookup->token));
+              ast::rename(lookup, "lookup");
               ast::remove(ast);
               break;
             }
