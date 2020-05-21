@@ -1,32 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// CHECK-L: module
-
-// CHECK-L: function
-// CHECK-L: id (foo)
-// CHECK-L: param
-// CHECK-L: id (a)
-// CHECK-L: id (Cown)
-// CHECK-L: id (A)
-// CHECK-L: param
-// CHECK-L: id (b)
-// CHECK-L: id (Cown)
-// CHECK-L: id (B)
 foo(a: Cown[A], b: Cown[B])
 {
-  // CHECK-L: when
-  // CHECK-L: ref (a)
   when (a) {};
-  // CHECK-L: when
-  // CHECK-L: ref (a)
-  // CHECK-L: ref (b)
   when (a, b) {
-    // CHECK-L: when
-    // CHECK-L: prefix (bar)
     when (bar()) {};
-    // CHECK-L: return
-    // CHECK-L: ref (b)
     return b;
   };
 }

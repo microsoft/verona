@@ -35,4 +35,11 @@ namespace files
 
     return data;
   }
+
+  void dump(const std::string& file, std::string content)
+  {
+    std::ofstream f(file.c_str(), std::ifstream::out);
+    f << content;
+    f.close();
+  }
 }

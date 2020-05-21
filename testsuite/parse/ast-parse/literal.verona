@@ -1,40 +1,12 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// CHECK-L: module
-
-// CHECK-L: function
-// CHECK-L: id (f)
 f()
 {
-  // CHECK-L: let
-  // CHECK-L: local (x1)
-  // CHECK-L: infix (=)
-  // CHECK-L: int (00_42)
   let x1 = 00_42;
-  // CHECK-L: let
-  // CHECK-L: local (x2)
-  // CHECK-L: infix (=)
-  // CHECK-L: hex (0xc0_FFeE)
   let x2 = 0xc0_FFeE;
-  // CHECK-L: let
-  // CHECK-L: local (x3)
-  // CHECK-L: infix (=)
-  // CHECK-L: binary (0b10_10_10)
   let x3 = 0b10_10_10;
-  // CHECK-L: let
-  // CHECK-L: local (x4)
-  // CHECK-L: infix (=)
-  // CHECK-L: float (27.18e-1)
   let x4 = 27.18e-1;
-  // CHECK-L: let
-  // CHECK-L: local (x5)
-  // CHECK-L: infix (=)
-  // CHECK-L: string (foo)
   let x5 = `foo;
-  // CHECK-L: let
-  // CHECK-L: local (x6)
-  // CHECK-L: infix (=)
-  // CHECK-L: string (wat ℵ \n)
   let x6 = `(wat ℵ \n);
 }

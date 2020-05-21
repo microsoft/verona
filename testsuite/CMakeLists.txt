@@ -96,7 +96,10 @@ set_tests_properties(
 
   PROPERTIES DISABLED true)
 
-add_custom_target(update-dump
-  COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/utils/update_dump.py
-    ${VERONAC}
-    ${CMAKE_CURRENT_SOURCE_DIR})
+add_custom_target(update-dump COMMAND ${CMAKE_COMMAND}
+  -DPYTHON_EXECUTABLE=${Python3_EXECUTABLE}
+  -DVERONAC=${VERONAC}
+  -DPARSER=${PARSER}
+  -DGRAMMAR=${CMAKE_INSTALL_PREFIX}/grammar.peg
+  -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+  -P ${CMAKE_CURRENT_SOURCE_DIR}/update-dump.cmake)

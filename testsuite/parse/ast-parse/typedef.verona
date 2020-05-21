@@ -1,38 +1,13 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// CHECK-L: module
-
-// CHECK-L: typedef
-// CHECK-L: category (type)
-// CHECK-L: id (UInt)
-// CHECK-L: id (U64)
-// CHECK-L: type_op (&)
-// CHECK-L: id (imm)
 type UInt = U64 & imm;
 
-// CHECK-L: typedef
-// CHECK-L: category (class)
-// CHECK-L: id (Foo)
 class Foo {}
 
-// CHECK-L: typedef
-// CHECK-L: category (class)
-// CHECK-L: id (Bar)
 class Bar
 {
-  // CHECK-L: typedef
-  // CHECK-L: category (type)
-  // CHECK-L: id (A)
-  // CHECK-L: id (U64)
   type A = U64;
-
-  // CHECK-L: field
-  // CHECK-L: id (a)
-  // CHECK-L: id (A)
   a : A;
-
-  // CHECK-L: function
-  // CHECK-L: id (f)
   f() {}
 }

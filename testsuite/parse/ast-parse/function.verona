@@ -1,46 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// CHECK-L: module
-
-// CHECK-L: function
-// CHECK-L: id (foo)
-foo(
-  // CHECK-L: typeparam
-  // CHECK-L: id (a)
-  // CHECK-L: id (N)
-  a: N,
-  // CHECK-L: param
-  // CHECK-L: id (b)
-  // CHECK-L: id (U64)
-  // CHECK-L: type_op (&)
-  // CHECK-L: id (imm)
-  b: U64 & imm)
-  // CHECK-L: id (R)
-  : R
-  // constraint
-  // CHECK-L: id (N)
-  // CHECK-L: id (imm)
+foo(a: N, b: U64 & imm): R
   where N: imm
-  // constraint
-  // CHECK-L: id (R)
-  // CHECK-L: id (U64)
-  // CHECK-L: type_op (&)
-  // CHECK-L: id (imm)
   where R: U64 & imm
 {
-  // CHECK-L: let
-  // CHECK-L: local (x)
-  // CHECK-L: ref (a)
-  // CHECK-L: infix (+)
-  // CHECK-L: ref (b)
   let x = a + b;
-  // CHECK-L: let
-  // CHECK-L: local (r)
-  // CHECK-L: id (R)
-  // CHECK-L: infix (=)
-  // CHECK-L: ref (x)
   let r: R = x
-  // CHECK-L: ref (x)
   x
 }
