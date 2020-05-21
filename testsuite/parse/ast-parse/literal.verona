@@ -30,21 +30,26 @@ f()
   // CHECK-L: let
   // CHECK-L: local (x5)
   // CHECK-L: infix (=)
-  // CHECK-L: string (wat ℵ \n)
-  let x5 = `(wat ℵ \n);
+  // CHECK-L: string (foo)
+  let x5 = `foo;
   // CHECK-L: let
   // CHECK-L: local (x6)
   // CHECK-L: infix (=)
-  // CHECK-L: string (foo\nbar\) baz)
-  let x6 = `(foo\nbar\) baz);
+  // CHECK-L: string (wat ℵ \n)
+  let x6 = `(wat ℵ \n);
   // CHECK-L: let
   // CHECK-L: local (x7)
   // CHECK-L: infix (=)
-  // CHECK-L: string (foo `( baz)
-  let x7 = `(foo `\( baz);
+  // CHECK-L: string (foo\nbar\) baz)
+  let x7 = `(foo\nbar\) baz);
   // CHECK-L: let
   // CHECK-L: local (x8)
   // CHECK-L: infix (=)
-  // CHECK-L: string (foo `(bar) baz)
-  let x8 = `(foo `(bar) baz);
+  // CHECK-L: string (foo \`\( \ ( \\ baz)
+  let x8 = `(foo \`\( \ ( \\ baz);
+  // CHECK-L: let
+  // CHECK-L: local (x9)
+  // CHECK-L: infix (=)
+  // CHECK-L: string (foo `(bar) `bar baz)
+  let x9 = `(foo `(bar) `bar baz);
 }
