@@ -32,11 +32,11 @@ endif()
 
 set(VERONAC ${CMAKE_INSTALL_PREFIX}/veronac)
 set(VERONAI ${CMAKE_INSTALL_PREFIX}/interpreter)
-set(PARSER ${CMAKE_INSTALL_PREFIX}/verona-ast)
+set(VERONAP ${CMAKE_INSTALL_PREFIX}/verona-ast)
 if(WIN32)
   set(VERONAC ${VERONAC}.exe)
   set(VERONAI ${VERONAI}.exe)
-  set(PARSER ${PARSER}.exe)
+  set(VERONAP ${VERONAP}.exe)
 endif()
 
 function(subdirlist result curdir)
@@ -63,7 +63,7 @@ function(add_tests mode dir)
       -DPYTHON_EXECUTABLE=${Python3_EXECUTABLE}
       -DVERONAC=${VERONAC}
       -DINTERPRETER=${VERONAI}
-      -DPARSER=${PARSER}
+      -DPARSER=${VERONAP}
       -DGRAMMAR=${CMAKE_INSTALL_PREFIX}/grammar.peg
       -DFILECHECK=${FILECHECK}
       -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
@@ -99,7 +99,7 @@ set_tests_properties(
 add_custom_target(update-dump COMMAND ${CMAKE_COMMAND}
   -DPYTHON_EXECUTABLE=${Python3_EXECUTABLE}
   -DVERONAC=${VERONAC}
-  -DPARSER=${PARSER}
+  -DPARSER=${VERONAP}
   -DGRAMMAR=${CMAKE_INSTALL_PREFIX}/grammar.peg
   -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
   -P ${CMAKE_CURRENT_SOURCE_DIR}/update-dump.cmake)

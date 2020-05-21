@@ -31,7 +31,7 @@ int main(int argc, char** argv)
     std::cout << peg::ast_to_s(ast) << std::endl;
 
   if (opt.dump_path != "")
-    files::dump(opt.dump_path + "/ast.txt", peg::ast_to_s(ast));
+    files::write(opt.dump_path + "/ast.txt", peg::ast_to_s(ast));
 
   return 0;
 }
