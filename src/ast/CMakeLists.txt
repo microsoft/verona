@@ -5,7 +5,8 @@ add_library(verona-ast-lib
   err.cc
   files.cc
   parser.cc
-  sym.cc)
+  sym.cc
+  )
 
 target_link_libraries(verona-ast-lib CLI11::CLI11)
 target_link_libraries(verona-ast-lib cpp-peglib)
