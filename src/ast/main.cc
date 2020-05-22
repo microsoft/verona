@@ -30,7 +30,7 @@ int main(int argc, char** argv)
   if (opt.ast)
     std::cout << peg::ast_to_s(ast) << std::endl;
 
-  if (opt.dump_path != "")
+  if (!opt.dump_path.empty())
     files::write(opt.dump_path + "/ast.txt", peg::ast_to_s(ast));
 
   return 0;
