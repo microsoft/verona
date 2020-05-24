@@ -12,13 +12,13 @@ namespace verona::rt
    * This queue forms the primary scheduler queue for each thread to
    * schedule cowns.
    *
-   * Slightly mis-named queue. It has two ends
+   * The queue has two ends.
    *
-   *   - the first end can only be accessed from a single thread using
-   *     `push` to add elements to the queue in a LIFO way wrt to `pop`.
-   *   - the second end can be used by multiple threads to `pop` elements
-   *     and `push_back` elements. `push_back` behaves in a FIFO way wrt to
-   *     `pop`.
+   *   - the back end can only be accessed from a single thread using
+   *     `enqueue` to add elements to the queue in a FIFO way wrt to `dequeue`.
+   *   - the front end can be used by multiple threads to `dequeue` elements
+   *     and `enqueue_front` elements. `enqueue_front` behaves in a LIFO way wrt
+   *     to `dequeue`.
    *
    * The queue uses an intrusive list in the elements of the queue.  (For
    * Verona this is the Cowns). To make this memory safe and ABA safe we use
@@ -52,10 +52,10 @@ namespace verona::rt
     friend T;
     static constexpr uintptr_t BIT = 1;
     // Written by a single thread that owns the queue.
-    T* head;
+    T* back;
     // Multi-threaded end of the "queue" requires ABA protection.
     // Used for work stealing and posting new work from another thread.
-    snmalloc::ABA<T> tail;
+    snmalloc::ABA<T> front;
 
     T* unmask(T* tagged_ptr)
     {
@@ -78,24 +78,24 @@ namespace verona::rt
       assert(token);
       token->next_in_queue = nullptr;
       token = set_bit(token);
-      head = token;
-      tail.init(token);
+      back = token;
+      front.init(token);
     }
 
-    void push(Alloc* alloc, T* node)
+    void enqueue(Alloc* alloc, T* node)
     {
       UNUSED(alloc);
       auto unmasked_node = unmask(node);
       unmasked_node->next_in_queue = nullptr;
-      auto unmasked_head = unmask(head);
-      unmasked_head->next_in_queue.store(node, std::memory_order_release);
-      head = node;
+      auto unmasked_back = unmask(back);
+      unmasked_back->next_in_queue.store(node, std::memory_order_release);
+      back = node;
     }
 
-    void push_back(Alloc* alloc, T* node)
+    void enqueue_front(Alloc* alloc, T* node)
     {
       UNUSED(alloc);
-      auto cmp = tail.read();
+      auto cmp = front.read();
 
       do
       {
@@ -103,24 +103,24 @@ namespace verona::rt
       } while (!cmp.store_conditional(node));
     }
 
-    T* pop(Alloc* alloc)
+    T* dequeue(Alloc* alloc)
     {
       T* next;
-      T* tl;
+      T* fnt;
 
-      // Hold epoch to ensure that the value read from `tail` cannot be
+      // Hold epoch to ensure that the value read from `front` cannot be
       // deallocated during this operation.  This must occur before read of
-      // tail.
+      // front.
       Epoch e(alloc);
       uint64_t epoch = e.get_local_epoch_epoch();
 
-      auto cmp = tail.read();
+      auto cmp = front.read();
       do
       {
-        tl = cmp.ptr();
-        auto unmasked_tl = unmask(tl);
+        fnt = cmp.ptr();
+        auto unmasked_fnt = unmask(fnt);
         // This operation is memory safe due to holding the epoch.
-        next = unmasked_tl->next_in_queue;
+        next = unmasked_fnt->next_in_queue;
 
         if (next == nullptr)
           return nullptr;
@@ -128,18 +128,18 @@ namespace verona::rt
 
       assert(epoch != T::NO_EPOCH_SET);
 
-      tl->epoch_when_popped = epoch;
+      fnt->epoch_when_popped = epoch;
 
-      return tl;
+      return fnt;
     }
 
     // The callers are expected to guarantee no one is attempting to access the
     // queue concurrently.
     void destroy(Alloc* alloc)
     {
-      assert(tail.peek() == head);
-      assert(is_bit_set(head));
-      auto unmasked = unmask(head);
+      assert(front.peek() == back);
+      assert(is_bit_set(back));
+      auto unmasked = unmask(back);
       assert(unmasked->next_in_queue == nullptr);
 
       unmasked->dealloc(alloc);
@@ -147,7 +147,7 @@ namespace verona::rt
 
     bool is_empty()
     {
-      return head == tail.peek() && is_bit_set(head);
+      return back == front.peek() && is_bit_set(back);
     }
   };
 } // namespace verona::rt
