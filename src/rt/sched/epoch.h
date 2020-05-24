@@ -110,7 +110,7 @@ namespace verona::rt
 
     void add_to_dec_list(Alloc* alloc, Object* p)
     {
-      auto node = (DecNode*)alloc->alloc(sizeof(DecNode));
+      auto node = (DecNode*)alloc->alloc<sizeof(DecNode)>();
       node->o = p;
       dec_list.enqueue((InnerNode*)node);
       (*get_to_dec(2))++;
@@ -181,7 +181,7 @@ namespace verona::rt
         {
           auto dn = (DecNode*)dec_list.dequeue();
           auto o = dn->o;
-          alloc->dealloc(dn);
+          alloc->dealloc<sizeof(DecNode)>(dn);
           Immutable::release(alloc, o);
         }
 
