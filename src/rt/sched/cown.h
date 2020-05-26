@@ -597,6 +597,7 @@ namespace verona::rt
       // counted as inflight
       if (Scheduler::should_scan() && e == Scheduler::local()->send_epoch)
       {
+        // TODO: Investigate systematic testing coverage here.
         if (cown->get_epoch_mark() != Scheduler::local()->send_epoch)
         {
           cown->scan(alloc, Scheduler::local()->send_epoch);
@@ -832,6 +833,7 @@ namespace verona::rt
           // if (Scheduler::in_prescan())
           //   return true;
           //
+          // TODO: Investigate systematic testing coverage here.
           if (n != 0)
             return true;
 

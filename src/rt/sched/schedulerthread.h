@@ -745,6 +745,7 @@ namespace verona::rt
         if (c->weak_count == 0)
         {
           Systematic::cout() << "Stub collect: " << c << std::endl;
+          // TODO: Investigate systematic testing coverage here.
           auto epoch = c->epoch_when_popped;
           auto outdated =
             epoch == T::NO_EPOCH_SET || GlobalEpoch::is_outdated(epoch);
