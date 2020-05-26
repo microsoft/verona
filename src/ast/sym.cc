@@ -34,48 +34,84 @@ namespace
     scope->sym.emplace(id, ast);
   }
 
-  void set_fixity(ast::Ast& ast)
+  void resolve_ref(ast::Ast& ast, err::Errors& err)
   {
-    auto prev = ast::get_prev_in_expr(ast);
+    assert(ast->tag == "ref"_);
+    auto def = ast::get_def(ast, ast->token);
 
-    if (!prev || (prev->tag == "infix"_))
+    if (!def)
     {
-      // If it's the first atom, or it's after an infix, it's a prefix operator.
-      ast::rename(ast, "prefix");
+      ast::rename(ast, "op");
     }
     else
     {
-      // If it's after anything else, it's an infix operator.
-      ast::rename(ast, "infix");
+      switch (def->tag)
+      {
+        case "typedef"_:
+        case "typeparam"_:
+        {
+          ast::rename(ast, "typeref");
+          break;
+        }
+
+        case "field"_:
+        case "function"_:
+        {
+          // could be a mamber ref if implicit self access is allowed
+          ast::rename(ast, "op");
+          break;
+        }
+
+        case "namedparam"_:
+        case "local"_:
+        {
+          // TODO: use before def
+          ast::rename(ast, "localref");
+          break;
+        }
+
+        default:
+        {
+          assert(0);
+        }
+      }
+    }
+  }
+
+  void add_typeargs(ast::Ast& ast, ast::Ast& typeargs)
+  {
+    // Adds a typeargs node to ast and moves to the next node in the expr.
+    // If it isn't a typeargs node, adds an empty typeargs onde and does not
+    // advance to the next node in the expr.
+    if (typeargs && (typeargs->tag == "typeargs"_))
+    {
+      auto next = ast::get_next_in_expr(typeargs);
+      ast::remove(typeargs);
+      ast::push_back(ast, typeargs);
+      typeargs = next;
+    }
+    else
+    {
+      auto emptyargs = ast::node(ast, "typeargs");
+      ast::push_back(ast, emptyargs);
     }
   }
 
   template<typename T>
   void for_each(ast::Ast ast, err::Errors& err, T f)
   {
-    auto size = ast->nodes.size();
-
-    for (decltype(size) i = 0; i < size; i++)
+    for (decltype(ast->nodes.size()) i = 0; i < ast->nodes.size(); i++)
     {
       auto node = ast->nodes[i];
       f(node, err);
-
-      // Back up if we remove nodes. Only remove earlier siblings.
-      if (ast->nodes.size() < size)
-      {
-        auto diff = size - ast->nodes.size();
-        i -= diff;
-        size = ast->nodes.size();
-      }
     }
   }
 
-  void elide_node(ast::Ast& ast, err::Errors& err)
+  void elide(ast::Ast& ast, err::Errors& err)
   {
     assert(ast->nodes.size() == 1);
     auto child = ast->nodes[0];
     ast::replace(ast, child);
-    sym::build(ast, err);
   }
 
   void only_atom(ast::Ast& ast, err::Errors& err)
@@ -126,12 +162,11 @@ namespace
 
 namespace sym
 {
-  void build(ast::Ast& ast, err::Errors& err)
+  void scope(ast::Ast& ast, err::Errors& err)
   {
     switch (ast->tag)
     {
       case "module"_:
-      case "typebody"_:
       case "lambda"_:
       {
         add_scope(ast);
@@ -182,13 +217,14 @@ namespace sym
       case "term"_:
       {
         ast::rename(ast, "expr");
-        sym::build(ast, err);
+        sym::scope(ast, err);
         return;
       }
 
       case "blockexpr"_:
       {
-        elide_node(ast, err);
+        elide(ast, err);
+        scope(ast, err);
         return;
       }
 
@@ -207,12 +243,12 @@ namespace sym
 
       case "atom"_:
       {
-        auto node = ast->nodes[0];
+        elide(ast, err);
 
-        if (node->tag == "id"_)
-          ast::rename(node, "ref");
+        if (ast->tag == "id"_)
+          ast::rename(ast, "ref");
 
-        elide_node(ast, err);
+        scope(ast, err);
         return;
       }
 
@@ -248,15 +284,6 @@ namespace sym
         break;
       }
 
-      case "ref"_:
-      {
-        auto def = ast::get_def(ast, ast->token);
-
-        if (!def || ((def->tag != "local"_) && (def->tag != "namedparam"_)))
-          set_fixity(ast);
-        break;
-      }
-
       case "sym"_:
       {
         if (ast->token == ".")
@@ -265,12 +292,13 @@ namespace sym
 
           if (next && (next->tag == "atom"_))
           {
-            auto lookup = next->nodes[0];
+            auto id = next->nodes[0];
 
-            if ((lookup->tag == "id"_) || (lookup->tag == "sym"_))
+            if ((id->tag == "id"_) || (id->tag == "sym"_))
             {
-              ast::rename(lookup, "lookup");
-              ast::remove(ast);
+              auto lookup = ast::token(id, "lookup", id->token);
+              ast::replace(ast, lookup);
+              ast::remove(next);
               break;
             }
           }
@@ -280,12 +308,105 @@ namespace sym
         }
         else
         {
-          set_fixity(ast);
+          ast::rename(ast, "op");
         }
         break;
       }
     }
 
-    for_each(ast, err, build);
+    for_each(ast, err, scope);
+  }
+
+  void references(ast::Ast& ast, err::Errors& err)
+  {
+    switch (ast->tag)
+    {
+      case "ref"_:
+      {
+        resolve_ref(ast, err);
+        break;
+      }
+    }
+
+    for_each(ast, err, references);
+  }
+
+  void precedence(ast::Ast& ast, err::Errors& err)
+  {
+    switch (ast->tag)
+    {
+      case "typeref"_:
+      {
+        // static-call <-
+        //  typeref typargs? (lookup-typeref typeargs?)*
+        //  (lookup typeargs?)? tuple?
+        // (static-call qualtype function typeargs (args ...))
+        auto typeref = ast;
+        auto call = ast::node(ast, "static-call");
+        ast::replace(ast, call);
+
+        auto qualtype = ast::node(ast, "qualtype");
+        ast::push_back(qualtype, typeref);
+        ast::push_back(ast, qualtype);
+
+        auto next = ast::get_next_in_expr(ast);
+        add_typeargs(qualtype, next);
+
+        // look for type lookups followed by optional typeargs
+        auto def = ast::get_def(ast, typeref->token);
+        assert(def && (def->tag == "typedef"_));
+
+        while (next)
+        {
+          if (next->tag != "lookup"_)
+            break;
+
+          auto subdef = ast::get_def(def, next->token);
+
+          if (!subdef || (subdef->tag != "typedef"_))
+            break;
+
+          ast::remove(next);
+          ast::rename(next, "typeref");
+          ast::push_back(qualtype, next);
+          next = ast::get_next_in_expr(ast);
+          add_typeargs(qualtype, next);
+          def = subdef;
+        }
+
+        if (next && (next->tag == "lookup"_))
+        {
+          // function call
+          ast::remove(next);
+          ast::rename(next, "function");
+          ast::push_back(call, next);
+          next = ast::get_next_in_expr(ast);
+          add_typeargs(call, next);
+        }
+        else
+        {
+          // create sugar
+          auto create = ast::token(call, "function", "create");
+          ast::push_back(call, create);
+          auto typeargs = ast::node(ast, "typeargs");
+          ast::push_back(call, typeargs);
+        }
+
+        if (next && (next->tag == "tuple"_))
+        {
+          ast::remove(next);
+          ast::rename(next, "args");
+          ast::push_back(call, next);
+        }
+        else
+        {
+          auto args = ast::node(call, "args");
+          ast::push_back(call, args);
+        }
+        return;
+      }
+    }
+
+    for_each(ast, err, precedence);
   }
 }
