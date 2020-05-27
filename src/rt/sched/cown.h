@@ -2,7 +2,17 @@
 // Licensed under the MIT License.
 #pragma once
 
+// TODO: make this a cmake option?
+// #define USE_BACKPRESSURE_TRACE
+// TODO: rm
+#define APPLY_BACKPRESSURE
+
+#ifdef USE_BACKPRESSURE_TRACE
+#  include "../test/log.h"
+#endif
+
 #include "../ds/forward_list.h"
+#include "../ds/morebits.h"
 #include "../ds/mpscq.h"
 #include "../region/region.h"
 #include "../test/systematic.h"
@@ -34,7 +44,7 @@ namespace verona::rt
 
   class Cown : public Object
   {
-    static constexpr size_t BATCH_COUNT = 100;
+    using MessageBody = MultiMessage::MultiMessageBody;
 
   public:
     enum TryFastSend
@@ -83,6 +93,10 @@ namespace verona::rt
      * strong reference still exists.
      **/
     std::atomic<size_t> weak_count = 1;
+
+    std::atomic<uint32_t> backpressure = 0;
+
+    static constexpr size_t backpressure_overload_threshold = 600;
 
     static Cown* create_token_cown()
     {
@@ -692,6 +706,8 @@ namespace verona::rt
         }
       }
 
+      Scheduler::local()->message_body = &body;
+
       // Run the action.
       body.action->f();
 
@@ -702,10 +718,8 @@ namespace verona::rt
       for (size_t i = 0; i < last; i++)
         body.cowns[i]->schedule();
 
-      // Free the destination array and the action
-      alloc->dealloc(body.cowns, body.count * sizeof(Cown*));
+      // Free the action
       alloc->dealloc(body.action, body.action->size());
-      alloc->dealloc<sizeof(MultiMessage::MultiMessageBody)>(m->get_body());
 
       return true;
     }
@@ -771,9 +785,87 @@ namespace verona::rt
         Scheduler::record_inflight_message();
       }
 
+      if ((sched != nullptr) && (sched->message_body != nullptr))
+        backpressure_scan(*sched->message_body, *body);
+
       // Try to acquire as many cowns as possible without rescheduling,
       // starting from the beginning.
       fast_send(body, epoch);
+    }
+
+    static void
+    backpressure_scan(const MessageBody& senders, const MessageBody& receivers)
+    {
+      int32_t receiver_load = 0;
+#ifdef USE_BACKPRESSURE_TRACE
+      const auto now = Aal::tick();
+#endif
+      for (size_t r = 0; r < receivers.count; r++)
+      {
+        auto* receiver = receivers.cowns[r];
+        const auto bp = receiver->backpressure.load(std::memory_order_acquire);
+        const auto load = rt::bits::backpressure_load(bp);
+        receiver_load += (int32_t)load;
+
+        if (load > backpressure_overload_threshold)
+          Scheduler::local()->overload(receiver);
+
+#ifdef USE_BACKPRESSURE_TRACE
+        const auto new_load = rt::bits::backpressure_load(
+          receiver->backpressure.load(std::memory_order_relaxed));
+        logger::cout().trace("backpressure_load", receiver, new_load, now);
+#endif
+      }
+
+      for (size_t s = 0; s < senders.count; s++)
+      {
+        auto* sender = senders.cowns[s];
+        const auto bp = sender->backpressure.load(std::memory_order_relaxed);
+        const auto load = rt::bits::backpressure_load(bp);
+        const int32_t pressure = receiver_load - (int32_t)load;
+        if (pressure > 0)
+        {
+          sender->backpressure.store(
+            rt::bits::backpressure_pressure_add(bp, pressure),
+            std::memory_order_relaxed);
+        }
+#ifdef USE_BACKPRESSURE_TRACE
+        const auto new_load = rt::bits::backpressure_load(
+          sender->backpressure.load(std::memory_order_relaxed));
+        logger::cout().trace("backpressure_pressure", sender, new_load, now);
+#endif
+      }
+    }
+
+    bool apply_backpressure(Alloc* alloc, MessageBody* senders)
+    {
+#ifdef APPLY_BACKPRESSURE
+      const auto bp = backpressure.load(std::memory_order_relaxed);
+      const auto load = rt::bits::backpressure_load(bp);
+      const auto pressure = rt::bits::backpressure_pressure(bp);
+
+      bool backpressure_applied =
+        (pressure == 0xff) && (load < backpressure_overload_threshold);
+      if (backpressure_applied)
+      {
+        for (size_t s = 0; s < senders->count; s++)
+        {
+          auto* sender = senders->cowns[s];
+          Systematic::cout() << "Mute " << sender << std::endl;
+          sender->backpressure.store(
+            rt::bits::backpressure_pressure_reset(bp),
+            std::memory_order_relaxed);
+          Scheduler::local()->mute(sender);
+        }
+      }
+#else
+      const bool backpressure_applied = false;
+#endif
+
+      alloc->dealloc(senders->cowns, senders->count * sizeof(Cown*));
+      alloc->dealloc<sizeof(MultiMessage::MultiMessageBody)>(senders);
+
+      return backpressure_applied;
     }
 
     /**
@@ -800,12 +892,13 @@ namespace verona::rt
       auto notified_called = false;
       auto notify = false;
 
-      // Handle up to BATCH_COUNT messages.
-      for (size_t n = 0; n < BATCH_COUNT; n++)
+      MultiMessage* curr = nullptr;
+      size_t batch_size = 0;
+      do
       {
         assert(!queue.is_sleeping());
 
-        MultiMessage* curr = queue.dequeue(alloc, notify);
+        curr = queue.dequeue(alloc, notify);
 
         if (!notified_called && notify)
         {
@@ -840,9 +933,9 @@ namespace verona::rt
           // // finished.
           // if (Scheduler::in_prescan())
           //   return true;
-          //
+
           // TODO: Investigate systematic testing coverage here.
-          if (n != 0)
+          if (batch_size > 0)
             return true;
 
           // Reschedule if cown does not go to sleep.
@@ -866,6 +959,26 @@ namespace verona::rt
 
         assert(!queue.is_sleeping());
 
+        const auto bp = backpressure.load(std::memory_order_relaxed);
+        if ((bp & 0xff) == 0)
+        {
+          Systematic::cout() << "Enqueue message token" << std::endl;
+          queue.enqueue(stub_msg(alloc));
+        }
+        else if (curr->get_body() == nullptr)
+        {
+          Systematic::cout() << "Reached message token" << std::endl;
+          backpressure.store(
+            rt::bits::backpressure_load_reset(bp), std::memory_order_release);
+          return true;
+        }
+        backpressure.store(
+          rt::bits::backpressure_load_inc(bp), std::memory_order_release);
+
+        batch_size++;
+        Systematic::cout() << "batch," << this << "," << batch_size << ","
+                           << std::endl;
+
         Systematic::cout() << "Running Message " << curr << " on " << this
                            << std::endl;
 
@@ -873,17 +986,12 @@ namespace verona::rt
         // be rescheduled, even if it has pending work. This also means the
         // cown's queue should not be marked as empty, even if it is.
         if (!run_step(curr))
-        {
           return false;
-        }
 
-        // If we hit the end then tell scheduler thread to reschedule this cown.
-        // TODO Back pressure, this should trigger back pressure on this cown.
-        if (curr == until)
-        {
-          break;
-        }
-      }
+        if (apply_backpressure(alloc, Scheduler::local()->message_body))
+          return false;
+
+      } while ((curr != until) && (batch_size < 256));
 
       return true;
     }

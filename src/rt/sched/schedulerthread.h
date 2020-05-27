@@ -10,6 +10,7 @@
 
 #include <snmalloc.h>
 #include <thread>
+#include <unordered_set> // TODO: better integer sets
 
 namespace verona::rt
 {
@@ -83,6 +84,14 @@ namespace verona::rt
     size_t total_cowns = 0;
     std::atomic<size_t> free_cowns = 0;
 
+    typename T::MessageBody* message_body = nullptr;
+
+    std::unordered_set<T*> muted;
+    std::unordered_set<T*> overloaded;
+#ifdef USE_BACKPRESSURE_TRACE
+    std::unordered_map<T*, uint64_t> mute_time;
+#endif
+
     T* get_token_cown()
     {
       assert(token_cown);
@@ -98,6 +107,9 @@ namespace verona::rt
     {
       if (t.joinable())
         t.join();
+
+      assert(muted.empty());
+      assert(overloaded.empty());
     }
 
     template<typename... Args>
@@ -168,6 +180,68 @@ namespace verona::rt
       }
     }
 
+    void overload(T* cown)
+    {
+      const auto added = overloaded.insert(cown).second;
+      if (added)
+        cown->weak_acquire();
+    }
+
+    void mute(T* cown)
+    {
+      auto inserted = muted.insert(cown).second;
+      if (inserted)
+        T::acquire(cown);
+
+#ifdef USE_BACKPRESSURE_TRACE
+      mute_time.emplace(cown, Aal::tick());
+#endif
+    }
+
+    void unmute()
+    {
+#ifdef USE_BACKPRESSURE_TRACE
+      const auto now = Aal::tick();
+#endif
+      for (auto* c : muted)
+      {
+        Systematic::cout() << "Unmute " << c << std::endl;
+        c->schedule();
+        T::release(alloc, c);
+#ifdef USE_BACKPRESSURE_TRACE
+        const auto t_muted = mute_time.find(c)->second;
+        logger::cout().trace("backpressure_mutetime", c, now - t_muted, now);
+#endif
+      }
+      muted.clear();
+#ifdef USE_BACKPRESSURE_TRACE
+      mute_time.clear();
+      logger::cout() << std::flush;
+#endif
+      for (auto* c : overloaded)
+      {
+        c->weak_release(alloc);
+      }
+      overloaded.clear();
+    }
+
+    void check_backpressure()
+    {
+      if (muted.empty())
+        return;
+
+      size_t avg_load = 0;
+      for (auto* c : overloaded)
+        avg_load += rt::bits::backpressure_load(
+          c->backpressure.load(std::memory_order_acquire));
+
+      if (!overloaded.empty())
+        avg_load /= overloaded.size();
+
+      if (avg_load < 100)
+        unmute();
+    }
+
     /**
      * Startup is supplied to initialise thread local state before the runtime
      * starts.
@@ -216,6 +290,8 @@ namespace verona::rt
 
         check_token_cown();
 
+        check_backpressure();
+
         if (cown == nullptr)
         {
           cown = q.dequeue(alloc);
@@ -260,6 +336,10 @@ namespace verona::rt
         Systematic::cout() << "Running Cown: " << cown << std::endl;
 
         bool reschedule = cown->run(alloc, state, send_epoch);
+
+#ifdef USE_BACKPRESSURE_TRACE
+        logger::cout() << std::flush;
+#endif
 
         if (reschedule)
         {
@@ -314,6 +394,13 @@ namespace verona::rt
         Scheduler::yield_my_turn();
 #endif
       }
+
+      assert(muted.empty());
+      for (auto* c : overloaded)
+      {
+        c->weak_release(alloc);
+      }
+      overloaded.clear();
 
       Systematic::cout() << "Begin teardown (phase 1)" << std::endl;
 
@@ -449,8 +536,13 @@ namespace verona::rt
           UNUSED(tsc);
         }
 #endif
-          // Enter sleep only when the queue doesn't contain any real cowns.
-          if (state == ThreadState::NotInLD && q.is_empty())
+          if (!muted.empty())
+        {
+          unmute();
+          continue;
+        }
+        // Enter sleep only when the queue doesn't contain any real cowns.
+        else if (state == ThreadState::NotInLD && q.is_empty())
         {
           // We've been spinning looking for work for some time. While paused,
           // our running flag may be set to false, in which case we terminate.
@@ -460,7 +552,7 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING
         else
         {
-          Scheduler::yield_my_turn();
+          yield();
         }
 #endif
       }
@@ -695,8 +787,10 @@ namespace verona::rt
       Systematic::cout() << "send_epoch (2): " << send_epoch << std::endl;
 
       // Send empty messages to all cowns that can be LIFO scheduled.
-      T* p = list;
 
+      unmute();
+
+      T* p = list;
       while (p != nullptr)
       {
         if (p->can_lifo_schedule())

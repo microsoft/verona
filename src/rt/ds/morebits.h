@@ -71,5 +71,54 @@ namespace verona::rt
 #endif
     }
 
+    /**
+     * Backpressure bit representation
+     *
+     * |31          24|23              8|7      0|
+     * |   pressure   |   load history  |  load  |
+     *
+     */
+
+    static inline uint8_t backpressure_pressure(uint32_t bp)
+    {
+      return (bp & 0xff'0000'00) >> 24;
+    }
+
+    static inline uint32_t backpressure_pressure_add(uint32_t bp, int32_t n)
+    {
+      int32_t p = (int32_t)backpressure_pressure(bp) + n;
+      assert(p > 0);
+      p = (p > 0xff) ? 0xff : p;
+      return ((uint32_t)p << 24) | (bp & 0x00'ffff'ff);
+    }
+
+    static inline uint32_t backpressure_pressure_reset(uint32_t bp)
+    {
+      return bp & 0x00'ffff'ff;
+    }
+
+    static inline uint32_t backpressure_load(uint32_t bp)
+    {
+      const uint32_t h3 = (bp & 0xf000'00) >> 16;
+      const uint32_t h2 = (bp & 0x0f00'00) >> 12;
+      const uint32_t h1 = (bp & 0x00f0'00) >> 8;
+      const uint32_t h0 = (bp & 0x000f'00) >> 4;
+      return (h3 + h2 + h1 + h0) | (bp & 0xff);
+    }
+
+    static inline uint32_t backpressure_load_inc(uint32_t bp)
+    {
+      if ((bp & 0xff) < 0xff)
+        bp++;
+      return bp;
+    }
+
+    static inline uint32_t backpressure_load_reset(uint32_t bp)
+    {
+      uint32_t hist = (bp & 0x00'ffff'f0) << 4;
+      hist &= 0x00'ffff'00;
+      return (bp & 0xff'0000'00) | hist;
+    }
+
   }; // namespace bits
 }; // namespace verona::rt

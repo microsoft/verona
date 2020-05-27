@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 #pragma once
 
+#include "aal/aal.h"
+
 #include <iostream>
 #include <sstream>
 
@@ -31,6 +33,17 @@ namespace logger
       ss << f;
       o << ss.str();
       std::stringstream().swap(ss);
+      return *this;
+    }
+
+    template<typename T>
+    inline Log& trace(
+      const char* prefix,
+      const T* label,
+      size_t value,
+      uint64_t timestamp = snmalloc::Aal::tick())
+    {
+      ss << prefix << "," << label << "," << timestamp << "," << value << "\n";
       return *this;
     }
   };
