@@ -13,7 +13,6 @@ namespace cli
     bool exec = false;
     std::string grammar;
     std::string filename;
-    std::string dump_path;
   };
 
   Opt parse(int argc, char** argv);

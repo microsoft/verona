@@ -6,10 +6,15 @@ foreach(TEST_FOLDER ${TEST_FOLDERS})
   endif()
 
   if(${TEST_FOLDER} MATCHES ".*/parse")
-    execute_process(COMMAND ${PYTHON_EXECUTABLE}
-      ${PROJECT_SOURCE_DIR}/utils/update_dump.py
-      "${PARSER} -g ${GRAMMAR}"
-      ${TEST_FOLDER})
+    file(GLOB PARSE_TESTS "${TEST_FOLDER}/ast-parse/*.verona")
+    foreach(PARSE_TEST ${PARSE_TESTS})
+      get_filename_component(TEST_NAME ${PARSE_TEST} NAME_WE)
+      set(OUT_FILE ${TEST_FOLDER}/ast-parse/${TEST_NAME}/ast.txt)
+      message(STATUS "Regenerating ${OUT_FILE}")
+      execute_process(
+        COMMAND ${PARSER} -a -g ${GRAMMAR} ${PARSE_TEST}
+        OUTPUT_FILE ${OUT_FILE})
+    endforeach()
   else()
     execute_process(COMMAND ${PYTHON_EXECUTABLE}
       ${PROJECT_SOURCE_DIR}/utils/update_dump.py

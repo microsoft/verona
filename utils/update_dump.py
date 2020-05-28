@@ -4,7 +4,6 @@ import filecmp
 import fnmatch
 import os
 import os.path
-import shlex
 import shutil
 import subprocess
 import sys
@@ -25,7 +24,7 @@ class Updater:
     self.has_error = True
 
   def generate_dump(self, source, dump_dir):
-    cmd = shlex.split(self.compiler) + ["--dump-path=%s" % dump_dir, source]
+    cmd = [self.compiler, "--dump-path=%s" % dump_dir, source]
     self.log("Running %r" % " ".join(cmd))
     ret = subprocess.call(cmd)
     if ret != 0:
