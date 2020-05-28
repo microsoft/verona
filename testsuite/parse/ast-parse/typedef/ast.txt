@@ -1,0 +1,58 @@
++ module
+  + typedef
+    - category (type)
+    - id (UInt)
+    + typeparams
+    + oftype
+    + constraints
+    + type
+      + type_one/1
+        + type_ref
+          - id (U64)
+      - type_op (&)
+      + type_one/1
+        + type_ref
+          - id (imm)
+  + typedef
+    - category (class)
+    - id (Foo)
+    + typeparams
+    + oftype
+    + constraints
+    + typebody
+  + typedef
+    - category (class)
+    - id (Bar)
+    + typeparams
+    + oftype
+    + constraints
+    + typebody
+      + typedef
+        - category (type)
+        - id (A)
+        + typeparams
+        + oftype
+        + constraints
+        + type
+          + type_one/1
+            + type_ref
+              - id (U64)
+      + field
+        - id (a)
+        + oftype
+          + type
+            + type_one/1
+              + type_ref
+                - id (A)
+        + initexpr
+      + function
+        + funcname
+          - id (f)
+        + sig
+          + typeparams
+          + params
+          + oftype
+          + constraints
+        + block
+          + seq
+

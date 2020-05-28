@@ -1,0 +1,48 @@
++ module
+  + function
+    + funcname
+      - id (f)
+    + sig
+      + typeparams
+      + params
+      + oftype
+      + constraints
+    + block
+      + seq
+        + term
+          + let
+            - local (x1)
+            + oftype
+          - infix (=)
+          - int (00_42)
+        + term
+          + let
+            - local (x2)
+            + oftype
+          - infix (=)
+          - hex (0xc0_FFeE)
+        + term
+          + let
+            - local (x3)
+            + oftype
+          - infix (=)
+          - binary (0b10_10_10)
+        + term
+          + let
+            - local (x4)
+            + oftype
+          - infix (=)
+          - float (27.18e-1)
+        + term
+          + let
+            - local (x5)
+            + oftype
+          - infix (=)
+          - string (foo)
+        + term
+          + let
+            - local (x6)
+            + oftype
+          - infix (=)
+          - string (wat ℵ \n)
+

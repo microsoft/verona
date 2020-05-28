@@ -1,0 +1,71 @@
++ module
+  + function
+    + funcname
+      - id (foo)
+    + sig
+      + typeparams
+      + params
+      + oftype
+      + constraints
+    + block
+      + seq
+        + term
+          + let
+            - local (r1)
+            + oftype
+          - infix (=)
+          + new
+            + type
+              + type_one/1
+                + type_ref
+                  - id (Foo)
+        + term
+          + let
+            - local (r2)
+            + oftype
+          - infix (=)
+          + new
+            + type
+              + type_one/1
+                + type_ref
+                  - id (Foo)
+          + block
+            + seq
+              + expr/1
+                - prefix (x)
+                - infix (=)
+                - int (0)
+        + term
+        + term
+          + let
+            - local (f)
+            + oftype
+          - infix (=)
+          + lambda
+            + sig
+              + typeparams
+                + typeparam
+                  - id (A)
+              + params
+                + param/0
+                  + namedparam
+                    - id (a)
+                    + oftype
+                    + initexpr
+              + oftype
+              + constraints
+                + constraint
+                  - id (A)
+                  + oftype
+                    + type
+                      + type_one/1
+                        + type_ref
+                          - id (U64)
+                  + inittype
+            + block
+              + seq
+                + expr/1
+                  - ref (a)
+                  - infix (+)
+                  - int (42)
+

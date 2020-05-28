@@ -10,4 +10,5 @@
 namespace files
 {
   std::vector<char> slurp(const std::string& file, bool optional = false);
+  void write(const std::string& file, const std::string& content);
 }

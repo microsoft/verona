@@ -1,0 +1,11 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+foo(a: N, b: U64 & imm): R
+  where N: imm
+  where R: U64 & imm
+{
+  let x = a + b;
+  let r: R = x
+  x
+}

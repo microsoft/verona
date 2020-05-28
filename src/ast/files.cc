@@ -35,4 +35,11 @@ namespace files
 
     return data;
   }
+
+  void write(const std::string& file, const std::string& content)
+  {
+    std::ofstream f(file.c_str(), std::ifstream::out);
+    f << content;
+    f.close();
+  }
 }

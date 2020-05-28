@@ -1,0 +1,72 @@
++ module
+  + function
+    + funcname
+      - id (foo)
+    + sig
+      + typeparams
+      + params
+        + param/0
+          + namedparam
+            - id (a)
+            + oftype
+              + type
+                + type_one/1
+                  + type_ref
+                    - id (Cown)
+                    + typeargs
+                      + typearg/0
+                        + type
+                          + type_one/1
+                            + type_ref
+                              - id (A)
+            + initexpr
+        + param/0
+          + namedparam
+            - id (b)
+            + oftype
+              + type
+                + type_one/1
+                  + type_ref
+                    - id (Cown)
+                    + typeargs
+                      + typearg/0
+                        + type
+                          + type_one/1
+                            + type_ref
+                              - id (B)
+            + initexpr
+      + oftype
+      + constraints
+    + block
+      + seq
+        + term
+          + when
+            + tuple
+              + expr/1
+                - ref (a)
+            + block
+              + seq
+        + term
+        + term
+          + when
+            + tuple
+              + expr/1
+                - ref (a)
+              + expr/1
+                - ref (b)
+            + block
+              + seq
+                + term
+                  + when
+                    + tuple
+                      + expr/1
+                        - prefix (bar)
+                        + tuple
+                    + block
+                      + seq
+                + term
+                + term
+                  - return (return)
+                  - ref (b)
+        + term
+

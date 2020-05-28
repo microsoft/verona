@@ -1,0 +1,9 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+foo()
+{
+  let r1 = new Foo;
+  let r2 = new Foo { x = 0 };
+  let f = [A](a) where A: U64 { a + 42 };
+}

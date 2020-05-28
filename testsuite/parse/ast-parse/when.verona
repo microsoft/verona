@@ -1,0 +1,11 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+foo(a: Cown[A], b: Cown[B])
+{
+  when (a) {};
+  when (a, b) {
+    when (bar()) {};
+    return b;
+  };
+}
