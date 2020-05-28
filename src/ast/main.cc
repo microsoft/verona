@@ -23,10 +23,6 @@ int main(int argc, char** argv)
     return -1;
   }
 
-  // import
-  // typecheck
-  // codegen
-
   if (opt.ast)
     std::cout << peg::ast_to_s(ast) << std::endl;
 

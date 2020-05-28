@@ -149,15 +149,7 @@ namespace sym
 
       case "function"_:
       {
-        // A missing function name is sugar for "apply"
-        if (ast->nodes[0]->nodes.size() == 0)
-        {
-          ast->nodes[0]->nodes.push_back(
-            ast::from(ast->nodes[0], "id", "apply"));
-        }
-
-        auto node = ast->nodes[0]->nodes[0];
-        add_symbol(node->token, ast, err);
+        add_symbol(ast->nodes[0]->nodes[0]->token, ast, err);
         add_scope(ast);
         break;
       }

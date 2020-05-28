@@ -23,7 +23,6 @@ namespace parser
     if (!parser.load_grammar(grammar.data(), grammar.size()))
       exit(-1);
 
-    parser.enable_packrat_parsing();
     parser.enable_ast<ast::AstImpl>();
     return parser;
   }
