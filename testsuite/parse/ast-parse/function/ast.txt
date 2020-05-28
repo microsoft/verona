@@ -74,4 +74,14 @@
           - infix (=)
           - ref (x)
           - ref (x)
+  + function
+    + funcname
+      - id (apply)
+    + sig
+      + typeparams
+      + params
+      + oftype
+      + constraints
+    + block
+      + seq
 

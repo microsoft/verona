@@ -9,3 +9,5 @@ foo(a: N, b: U64 & imm): R
   let r: R = x
   x
 }
+
+(){}
