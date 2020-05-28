@@ -69,7 +69,7 @@ class Updater:
            self.update_test(filepath)
 
 if len(sys.argv) < 3:
-  print("Usage: %s COMPILER FILES..." % sys.argv[0], file=sys.stderr)
+  print("Usage: %s VERONAC FILES..." % sys.argv[0], file=sys.stderr)
   sys.exit(1)
 
 updater = Updater(sys.argv[1])
@@ -82,3 +82,4 @@ for path in sys.argv[2:]:
 
 if updater.has_error:
   sys.exit(1)
+
