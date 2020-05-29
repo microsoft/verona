@@ -9,4 +9,7 @@ f()
   let x4 = 27.18e-1;
   let x5 = `foo;
   let x6 = `(wat ℵ \n);
+  let x7 = `(foo\nbar\) baz);
+  let x8 = `(foo \`\( \ ( \\ baz);
+  let x9 = `(foo `(bar) `bar baz);
 }

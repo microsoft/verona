@@ -45,4 +45,22 @@
             + oftype
           - infix (=)
           - string (wat ℵ \n)
+        + term
+          + let
+            - local (x7)
+            + oftype
+          - infix (=)
+          - string (foo\nbar\) baz)
+        + term
+          + let
+            - local (x8)
+            + oftype
+          - infix (=)
+          - string (foo \`\( \ ( \\ baz)
+        + term
+          + let
+            - local (x9)
+            + oftype
+          - infix (=)
+          - string (foo `(bar) `bar baz)
 
