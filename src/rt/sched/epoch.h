@@ -11,7 +11,7 @@
 namespace verona::rt
 {
 #ifdef USE_SYSTEMATIC_TESTING
-  bool coin();
+  bool coin(size_t range_bits = 1);
 #endif
 
   static constexpr uint64_t EJECTED_BIT = 0x8000000000000000;
@@ -200,7 +200,7 @@ namespace verona::rt
     bool advance_is_sensible()
     {
 #ifdef USE_SYSTEMATIC_TESTING
-      return coin();
+      return coin(4);
 #else
       return *get_pressure(2) > 128;
 #endif
@@ -209,7 +209,7 @@ namespace verona::rt
     bool advance_is_urgent()
     {
 #ifdef USE_SYSTEMATIC_TESTING
-      return coin();
+      return coin(7);
 #else
       return *get_pressure(2) > 1024;
 #endif

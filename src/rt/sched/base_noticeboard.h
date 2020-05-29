@@ -45,7 +45,7 @@ namespace verona::rt
       return *(T*)content;
     }
 
-#ifdef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
     std::queue<CT> update_buffer;
 
     template<typename T>

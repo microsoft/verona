@@ -42,7 +42,7 @@ namespace noticeboard_basic
 
     DB(Object* c) : box{c}
     {
-#ifdef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       register_noticeboard(&box);
 #endif
     }

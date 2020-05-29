@@ -10,7 +10,7 @@ namespace noticeboard_primitive_weak
 
     Writer(int x_0, int x_1) : box_0{x_0}, box_1{x_1}
     {
-#ifdef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       register_noticeboard(&box_0);
       register_noticeboard(&box_1);
 #endif

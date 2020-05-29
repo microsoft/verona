@@ -43,7 +43,7 @@ namespace verona::rt
       {
         assert(new_o->debug_is_immutable());
       }
-#ifdef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       update_buffer_push(new_o);
       flush_some(alloc);
       Scheduler::yield_my_turn();

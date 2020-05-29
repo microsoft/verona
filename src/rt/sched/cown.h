@@ -18,9 +18,10 @@ namespace verona::rt
   using Scheduler = ThreadPool<CownThread>;
 
 #ifdef USE_SYSTEMATIC_TESTING
-  inline bool coin()
+  /// 1/2^range_bits likelyhood of coin saying true
+  inline bool coin(size_t range_bits)
   {
-    return Scheduler::coin();
+    return Scheduler::coin(range_bits);
   }
 #endif
 
@@ -117,7 +118,7 @@ namespace verona::rt
     }
 
   public:
-#ifdef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
     std::vector<BaseNoticeboard*> noticeboards;
 
     void flush_all(Alloc* alloc)
@@ -177,7 +178,7 @@ namespace verona::rt
       TryFastSend try_fast = NoTryFast>
     bool send(MultiMessage* m)
     {
-#ifdef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       flush_all(ThreadAlloc::get());
 
       Scheduler::yield_my_turn();
@@ -926,7 +927,7 @@ namespace verona::rt
 
       mark_collected();
 
-#ifdef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       flush_all(alloc);
 #endif
       Systematic::cout() << "Collecting: " << this << std::endl;

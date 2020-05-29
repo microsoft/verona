@@ -140,9 +140,11 @@ namespace verona::rt
       return (get().scrambler);
     }
 
-    static bool coin()
+    /// 1/2^range_bits likelyhood of coin saying true
+    static bool coin(size_t range_bits = 1)
     {
-      return (rand_get_next() & 1) == 0;
+      assert(range_bits < 20);
+      return (rand_get_next() & ((1ULL << range_bits) - 1)) == 0;
     }
 
     void set_seed(uint64_t seed)
@@ -181,7 +183,7 @@ namespace verona::rt
 
       assert(running_thread == me || running_thread == nullptr);
 
-      uint32_t next = r.next() % (1 << (me->systematic_id & 15));
+      uint32_t next = r.next() & me->systematic_speed_mask;
       if (next == 0 && running_thread != nullptr)
       {
         choose_thread();
@@ -375,6 +377,9 @@ namespace verona::rt
         count--;
       }
       t->systematic_id = count;
+#ifdef USE_SYSTEMATIC_TESTING
+      t->systematic_speed_mask = (1 << (rand_get_next() % 16)) - 1;
+#endif
       t->next = first_thread;
     }
 

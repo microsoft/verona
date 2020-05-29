@@ -19,6 +19,7 @@ namespace verona::rt
   public:
     /// Friendly thread identifier for logging information.
     size_t systematic_id = 0;
+    size_t systematic_speed_mask = 1;
 
   private:
     using Scheduler = ThreadPool<SchedulerThread<T>>;
@@ -576,7 +577,6 @@ namespace verona::rt
         // systematic testing.
         yield();
         ThreadState::State snext = Scheduler::get().next_state(sprev);
-        yield();
 
         // If we have a lost wake-up, then all threads can get stuck
         // trying to perform a LD.
@@ -589,6 +589,7 @@ namespace verona::rt
 
         if (snext == sprev)
           return;
+        yield();
 
         if (first)
         {
