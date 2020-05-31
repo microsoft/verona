@@ -1,4 +1,74 @@
-/home/sylvanc/dev/verona/testsuite/parse/ast-parse/alloc.verona:7:20: Expected an infix operator here.
----
-/home/sylvanc/dev/verona/testsuite/parse/ast-parse/alloc.verona:7:20: Expected an assignment or the end of an expression here.
++ module
+  + function
+    + funcname
+      - id (foo)
+    + sig
+      + typeparams
+      + params
+      + oftype
+      + constraints
+    + block
+      + seq
+        + expr
+          + assign
+            + let
+              - local (r1)
+              + oftype
+            + new
+              + type
+                + type_one/1
+                  + type_ref
+                    - id (Foo)
+        + expr
+          + assign
+            + let
+              - local (r2)
+              + oftype
+            + new
+              + type
+                + type_one/1
+                  + type_ref
+                    - id (Foo)
+              + typebody
+                + field
+                  - id (x)
+                  + oftype
+                  + initexpr
+                    + expr/1
+                      - int (0)
+        + expr
+          + assign
+            + let
+              - local (f)
+              + oftype
+            + lambda
+              + sig
+                + typeparams
+                  + typeparam
+                    - id (A)
+                + params
+                  + param/0
+                    + namedparam
+                      - id (a)
+                      + oftype
+                      + initexpr
+                + oftype
+                + constraints
+                  + constraint
+                    - id (A)
+                    + oftype
+                      + type
+                        + type_one/1
+                          + type_ref
+                            - id (U64)
+                    + inittype
+              + block
+                + seq
+                  + expr/1
+                    + call
+                      - function (+)
+                      + typeargs
+                      - localref (a)
+                      + args
+                        - int (42)
 

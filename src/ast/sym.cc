@@ -171,6 +171,7 @@ namespace sym
     {
       case "module"_:
       case "lambda"_:
+      case "new"_:
       {
         add_scope(ast);
         break;

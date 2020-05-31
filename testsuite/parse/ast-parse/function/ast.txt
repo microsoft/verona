@@ -1,4 +1,91 @@
-/home/sylvanc/dev/verona/testsuite/parse/ast-parse/function.verona:10:3: Expected an infix operator here.
----
-/home/sylvanc/dev/verona/testsuite/parse/ast-parse/function.verona:10:3: Expected an assignment or the end of an expression here.
++ module
+  + function
+    + funcname
+      - id (foo)
+    + sig
+      + typeparams
+      + params
+        + param/0
+          + namedparam
+            - id (a)
+            + oftype
+              + type
+                + type_one/1
+                  + type_ref
+                    - id (N)
+            + initexpr
+        + param/0
+          + namedparam
+            - id (b)
+            + oftype
+              + type
+                + type_one/1
+                  + type_ref
+                    - id (U64)
+                - type_op (&)
+                + type_one/1
+                  + type_ref
+                    - id (imm)
+            + initexpr
+      + oftype
+        + type
+          + type_one/1
+            + type_ref
+              - id (R)
+      + constraints
+        + constraint
+          - id (N)
+          + oftype
+            + type
+              + type_one/1
+                + type_ref
+                  - id (imm)
+          + inittype
+        + constraint
+          - id (R)
+          + oftype
+            + type
+              + type_one/1
+                + type_ref
+                  - id (U64)
+              - type_op (&)
+              + type_one/1
+                + type_ref
+                  - id (imm)
+          + inittype
+    + block
+      + seq
+        + expr
+          + assign
+            + let
+              - local (x)
+              + oftype
+            + call
+              - function (+)
+              + typeargs
+              - localref (a)
+              + args
+                - localref (b)
+        + expr
+          + assign
+            + let
+              - local (r)
+              + oftype
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (R)
+            - localref (x)
+        + expr/1
+          - localref (x)
+  + function
+    + funcname
+      - id (apply)
+    + sig
+      + typeparams
+      + params
+      + oftype
+      + constraints
+    + block
+      + seq
 
