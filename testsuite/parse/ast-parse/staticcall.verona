@@ -1,0 +1,23 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+class B
+{
+  class C
+  {
+    bar() {}
+  }
+
+  foo() {}
+}
+
+f(x: A, y: A)
+{
+  B;
+  B.foo;
+  B.foo();
+  B.C;
+  B[X].C;
+  B[X].C[X];
+  B[X].C[X].bar[X](x, (y), (x, y));
+}
