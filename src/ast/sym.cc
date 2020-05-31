@@ -221,7 +221,7 @@ namespace sym
       case "term"_:
       {
         ast::rename(ast, "expr");
-        sym::scope(ast, err);
+        scope(ast, err);
         return;
       }
 
@@ -630,6 +630,7 @@ namespace sym
         if (ast->nodes.empty())
           return;
 
+        auto expr = ast;
         ast = ast->nodes[0];
 
         switch (ast->tag)
@@ -655,6 +656,24 @@ namespace sym
             prec_assign(ast, err);
             break;
           }
+        }
+
+        if (expr->nodes.size() == 1)
+        {
+          elide(expr, err);
+          precedence(expr, err);
+          return;
+        }
+        break;
+      }
+
+      case "tuple"_:
+      {
+        if (ast->nodes.size() == 1)
+        {
+          elide(ast, err);
+          precedence(ast, err);
+          return;
         }
         break;
       }
