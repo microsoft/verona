@@ -47,7 +47,6 @@
             + block
               + seq
         + expr
-        + expr
           + when
             + tuple
               + expr/1
@@ -67,9 +66,7 @@
                           + args
                     + block
                       + seq
-                + expr
-                + expr
+                + expr/1
                   + return
                     - localref (b)
-        + expr
 

@@ -63,7 +63,6 @@
                           + expr
                             - break (break)
         + expr
-        + expr
           + for
             + expr/1
               - localref (a)
@@ -80,8 +79,7 @@
                       + expr/1
                         - localref (a)
                     + args
-        + expr
-        + expr
+        + expr/1
           + yield
             - localref (a)
 
