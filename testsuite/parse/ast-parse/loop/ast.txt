@@ -14,72 +14,57 @@
       + constraints
     + block
       + seq
-        + expr
-          + assign
-            + let
-              - local (a)
-              + oftype
-            - int (0)
-        + expr
-          + while
-            + cond
-              + seq
-                + expr/1
-                  + call
-                    - function (<)
-                    + typeargs
-                    - localref (a)
-                    + args
-                      - int (5)
-            + block
-              + seq
-                + expr
-                  + assign
-                    - localref (a)
+        + assign
+          + let
+            - local (a)
+            + oftype
+          - int (0)
+        + while
+          + cond
+            + seq
+              + call
+                - function (<)
+                + typeargs
+                - localref (a)
+                + args
+                  - int (5)
+          + block
+            + seq
+              + assign
+                - localref (a)
+                + call
+                  - function (+)
+                  + typeargs
+                  - localref (a)
+                  + args
+                    - int (1)
+              + if
+                + cond
+                  + seq
                     + call
-                      - function (+)
+                      - function (<)
                       + typeargs
                       - localref (a)
                       + args
-                        - int (1)
-                + expr
-                  + if
-                    + cond
-                      + seq
-                        + expr/1
-                          + call
-                            - function (<)
-                            + typeargs
-                            - localref (a)
-                            + args
-                              - int (2)
-                    + block
-                      + seq
-                        + expr
-                          - continue (continue)
-                    + else
-                      + block
-                        + seq
-                          + expr
-                            - break (break)
-        + expr
-          + for
-            + expr/1
-              - localref (a)
+                        - int (2)
+                + block
+                  + seq
+                    - continue (continue)
+                + else
+                  + block
+                    + seq
+                      - break (break)
+        + for
+          - localref (a)
+          + seq
+            - localref (x)
+          + block
             + seq
-              + expr/1
-                - localref (x)
-            + block
-              + seq
-                + expr
-                  + call
-                    - function (foo)
-                    + typeargs
-                    + tuple
-                      + expr/1
-                        - localref (a)
-                    + args
-        + expr/1
-          + yield
-            - localref (a)
+              + call
+                - function (foo)
+                + typeargs
+                - localref (a)
+                + args
+        + yield
+          - localref (a)
 

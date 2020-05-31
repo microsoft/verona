@@ -9,58 +9,49 @@
       + constraints
     + block
       + seq
-        + expr
-          + assign
-            + let
-              - local (x1)
-              + oftype
-            - int (00_42)
-        + expr
-          + assign
-            + let
-              - local (x2)
-              + oftype
-            - hex (0xc0_FFeE)
-        + expr
-          + assign
-            + let
-              - local (x3)
-              + oftype
-            - binary (0b10_10_10)
-        + expr
-          + assign
-            + let
-              - local (x4)
-              + oftype
-            - float (27.18e-1)
-        + expr
-          + assign
-            + let
-              - local (x5)
-              + oftype
-            - string (foo)
-        + expr
-          + assign
-            + let
-              - local (x6)
-              + oftype
-            - string (wat ℵ \n)
-        + expr
-          + assign
-            + let
-              - local (x7)
-              + oftype
-            - string (foo\nbar\) baz)
-        + expr
-          + assign
-            + let
-              - local (x8)
-              + oftype
-            - string (foo \`\( \ ( \\ baz)
-        + expr
-          + assign
-            + let
-              - local (x9)
-              + oftype
-            - string (foo `(bar) `bar baz)
+        + assign
+          + let
+            - local (x1)
+            + oftype
+          - int (00_42)
+        + assign
+          + let
+            - local (x2)
+            + oftype
+          - hex (0xc0_FFeE)
+        + assign
+          + let
+            - local (x3)
+            + oftype
+          - binary (0b10_10_10)
+        + assign
+          + let
+            - local (x4)
+            + oftype
+          - float (27.18e-1)
+        + assign
+          + let
+            - local (x5)
+            + oftype
+          - string (foo)
+        + assign
+          + let
+            - local (x6)
+            + oftype
+          - string (wat ℵ \n)
+        + assign
+          + let
+            - local (x7)
+            + oftype
+          - string (foo\nbar\) baz)
+        + assign
+          + let
+            - local (x8)
+            + oftype
+          - string (foo \`\( \ ( \\ baz)
+        + assign
+          + let
+            - local (x9)
+            + oftype
+          - string (foo `(bar) `bar baz)
 

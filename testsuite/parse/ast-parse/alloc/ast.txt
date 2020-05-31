@@ -9,66 +9,61 @@
       + constraints
     + block
       + seq
-        + expr
-          + assign
-            + let
-              - local (r1)
-              + oftype
-            + new
-              + type
-                + type_one/1
-                  + type_ref
-                    - id (Foo)
-        + expr
-          + assign
-            + let
-              - local (r2)
-              + oftype
-            + new
-              + type
-                + type_one/1
-                  + type_ref
-                    - id (Foo)
-              + typebody
-                + field
-                  - id (x)
-                  + oftype
-                  + initexpr
-                    + expr/1
-                      - int (0)
-        + expr
-          + assign
-            + let
-              - local (f)
-              + oftype
-            + lambda
-              + sig
-                + typeparams
-                  + typeparam
-                    - id (A)
-                + params
-                  + param/0
-                    + namedparam
-                      - id (a)
-                      + oftype
-                      + initexpr
+        + assign
+          + let
+            - local (r1)
+            + oftype
+          + new
+            + type
+              + type_one/1
+                + type_ref
+                  - id (Foo)
+        + assign
+          + let
+            - local (r2)
+            + oftype
+          + new
+            + type
+              + type_one/1
+                + type_ref
+                  - id (Foo)
+            + typebody
+              + field
+                - id (x)
                 + oftype
-                + constraints
-                  + constraint
-                    - id (A)
+                + initexpr
+                  - int (0)
+        + assign
+          + let
+            - local (f)
+            + oftype
+          + lambda
+            + sig
+              + typeparams
+                + typeparam
+                  - id (A)
+              + params
+                + param/0
+                  + namedparam
+                    - id (a)
                     + oftype
-                      + type
-                        + type_one/1
-                          + type_ref
-                            - id (U64)
-                    + inittype
-              + block
-                + seq
-                  + expr/1
-                    + call
-                      - function (+)
-                      + typeargs
-                      - localref (a)
-                      + args
-                        - int (42)
+                    + initexpr
+              + oftype
+              + constraints
+                + constraint
+                  - id (A)
+                  + oftype
+                    + type
+                      + type_one/1
+                        + type_ref
+                          - id (U64)
+                  + inittype
+            + block
+              + seq
+                + call
+                  - function (+)
+                  + typeargs
+                  - localref (a)
+                  + args
+                    - int (42)
 

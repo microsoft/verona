@@ -55,29 +55,26 @@
           + inittype
     + block
       + seq
-        + expr
-          + assign
-            + let
-              - local (x)
-              + oftype
-            + call
-              - function (+)
-              + typeargs
-              - localref (a)
-              + args
-                - localref (b)
-        + expr
-          + assign
-            + let
-              - local (r)
-              + oftype
-                + type
-                  + type_one/1
-                    + type_ref
-                      - id (R)
-            - localref (x)
-        + expr/1
+        + assign
+          + let
+            - local (x)
+            + oftype
+          + call
+            - function (+)
+            + typeargs
+            - localref (a)
+            + args
+              - localref (b)
+        + assign
+          + let
+            - local (r)
+            + oftype
+              + type
+                + type_one/1
+                  + type_ref
+                    - id (R)
           - localref (x)
+        - localref (x)
   + function
     + funcname
       - id (apply)
