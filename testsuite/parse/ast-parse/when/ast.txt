@@ -39,34 +39,37 @@
       + constraints
     + block
       + seq
-        + term
+        + expr
           + when
             + tuple
               + expr/1
-                - ref (a)
+                - localref (a)
             + block
               + seq
-        + term
-        + term
+        + expr
+        + expr
           + when
             + tuple
               + expr/1
-                - ref (a)
+                - localref (a)
               + expr/1
-                - ref (b)
+                - localref (b)
             + block
               + seq
-                + term
+                + expr
                   + when
                     + tuple
                       + expr/1
-                        - prefix (bar)
-                        + tuple
+                        + call
+                          - function (bar)
+                          + typeargs
+                          + tuple
+                          + args
                     + block
                       + seq
-                + term
-                + term
-                  - return (return)
-                  - ref (b)
-        + term
+                + expr
+                + expr
+                  + return
+                    - localref (b)
+        + expr
 
