@@ -48,9 +48,9 @@ namespace ast
     {
       auto find = std::find(parent->nodes.begin(), parent->nodes.end(), prev);
       assert(find != parent->nodes.end());
-      *find = next;
       next->parent = parent;
       prev->parent.reset();
+      *find = next;
     }
 
     prev = next;
