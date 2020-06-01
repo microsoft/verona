@@ -55,15 +55,17 @@
           + inittype
     + block
       + seq
-        + term
+        + assign
           + let
             - local (x)
             + oftype
-          - infix (=)
-          - ref (a)
-          - infix (+)
-          - ref (b)
-        + expr/1
+          + call
+            - function (+)
+            + typeargs
+            - localref (a)
+            + args
+              - localref (b)
+        + assign
           + let
             - local (r)
             + oftype
@@ -71,9 +73,8 @@
                 + type_one/1
                   + type_ref
                     - id (R)
-          - infix (=)
-          - ref (x)
-          - ref (x)
+          - localref (x)
+        - localref (x)
   + function
     + funcname
       - id (apply)

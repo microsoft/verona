@@ -7,5 +7,7 @@
 
 namespace sym
 {
-  void build(ast::Ast& ast, err::Errors& err);
+  void scope(ast::Ast& ast, err::Errors& err);
+  void references(ast::Ast& ast, err::Errors& err);
+  void precedence(ast::Ast& ast, err::Errors& err);
 }

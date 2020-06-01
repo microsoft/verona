@@ -6,7 +6,7 @@ namespace ast
 {
   using namespace peg::udl;
 
-  Ast from(const Ast& ast, const char* name, const std::string& token)
+  Ast token(const Ast& ast, const char* name, const std::string& token)
   {
     return std::make_shared<AstImpl>(
       ast->path.c_str(),
@@ -18,6 +18,28 @@ namespace ast
       ast->length);
   }
 
+  Ast node(const Ast& ast, const char* name)
+  {
+    std::vector<Ast> none;
+
+    return std::make_shared<AstImpl>(
+      ast->path.c_str(),
+      ast->line,
+      ast->column,
+      name,
+      none,
+      ast->position,
+      ast->length,
+      ast->choice_count,
+      ast->choice);
+  }
+
+  void push_back(Ast& ast, Ast& child)
+  {
+    ast->nodes.push_back(child);
+    child->parent = ast;
+  }
+
   void replace(Ast& prev, Ast next)
   {
     auto parent = prev->parent.lock();
@@ -26,8 +48,9 @@ namespace ast
     {
       auto find = std::find(parent->nodes.begin(), parent->nodes.end(), prev);
       assert(find != parent->nodes.end());
-      *find = next;
       next->parent = parent;
+      prev->parent.reset();
+      *find = next;
     }
 
     prev = next;
@@ -42,7 +65,29 @@ namespace ast
       auto find = std::find(parent->nodes.begin(), parent->nodes.end(), ast);
       assert(find != parent->nodes.end());
       parent->nodes.erase(find);
+      ast->parent.reset();
     }
+  }
+
+  void rename(Ast& ast, const char* name)
+  {
+    Ast next;
+
+    if (ast->is_token)
+    {
+      next = token(ast, name, ast->token);
+    }
+    else
+    {
+      next = node(ast, name);
+
+      for (auto& node : ast->nodes)
+        push_back(next, node);
+
+      ast->nodes.clear();
+    }
+
+    replace(ast, next);
   }
 
   Ast get_closest(Ast ast, Tag tag)
@@ -63,7 +108,7 @@ namespace ast
 
   Ast get_expr(Ast ast)
   {
-    while (ast && (ast->tag != "expr"_) && (ast->tag != "term"_))
+    while (ast && (ast->tag != "expr"_))
       ast = ast->parent.lock();
 
     return ast;
@@ -71,20 +116,13 @@ namespace ast
 
   Ast get_def(Ast ast, Ident id)
   {
-    auto pos = ast->position;
-
     while ((ast = get_scope(ast)))
     {
       auto scope = ast->scope;
       auto find = scope->sym.find(id);
 
       if (find != scope->sym.end())
-      {
-        auto def = find->second.lock();
-
-        if (def->position < pos)
-          return def;
-      }
+        return find->second.lock();
 
       ast = ast->parent.lock();
     }

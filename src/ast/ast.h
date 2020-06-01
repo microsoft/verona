@@ -26,9 +26,12 @@ namespace ast
     std::map<Ident, WeakAst> sym;
   };
 
-  Ast from(const Ast& ast, const char* name, const std::string& token);
+  Ast token(const Ast& ast, const char* name, const std::string& token);
+  Ast node(const Ast& ast, const char* name);
+  void push_back(Ast& ast, Ast& child);
   void replace(Ast& prev, Ast next);
   void remove(Ast ast);
+  void rename(Ast& ast, const char* name);
 
   Ast get_closest(Ast ast, Tag tag);
   Ast get_scope(Ast ast);

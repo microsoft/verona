@@ -15,7 +15,13 @@ int main(int argc, char** argv)
     return -1;
 
   err::Errors err;
-  sym::build(ast, err);
+  sym::scope(ast, err);
+
+  if (err.empty())
+    sym::references(ast, err);
+
+  if (err.empty())
+    sym::precedence(ast, err);
 
   if (!err.empty())
   {

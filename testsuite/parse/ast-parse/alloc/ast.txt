@@ -9,38 +9,34 @@
       + constraints
     + block
       + seq
-        + term
+        + assign
           + let
             - local (r1)
             + oftype
-          - infix (=)
           + new
             + type
               + type_one/1
                 + type_ref
                   - id (Foo)
-        + term
+        + assign
           + let
             - local (r2)
             + oftype
-          - infix (=)
           + new
             + type
               + type_one/1
                 + type_ref
                   - id (Foo)
-          + block
-            + seq
-              + expr/1
-                - prefix (x)
-                - infix (=)
-                - int (0)
-        + term
-        + term
+            + typebody
+              + field
+                - id (x)
+                + oftype
+                + initexpr
+                  - int (0)
+        + assign
           + let
             - local (f)
             + oftype
-          - infix (=)
           + lambda
             + sig
               + typeparams
@@ -64,8 +60,10 @@
                   + inittype
             + block
               + seq
-                + expr/1
-                  - ref (a)
-                  - infix (+)
-                  - int (42)
+                + call
+                  - function (+)
+                  + typeargs
+                  - localref (a)
+                  + args
+                    - int (42)
 

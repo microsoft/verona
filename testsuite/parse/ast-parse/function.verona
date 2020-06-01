@@ -6,7 +6,7 @@ foo(a: N, b: U64 & imm): R
   where R: U64 & imm
 {
   let x = a + b;
-  let r: R = x
+  let r: R = x;
   x
 }
 

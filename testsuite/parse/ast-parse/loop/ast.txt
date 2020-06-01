@@ -14,62 +14,57 @@
       + constraints
     + block
       + seq
-        + term
+        + assign
           + let
             - local (a)
             + oftype
-          - infix (=)
           - int (0)
-        + term
-          + while
-            + cond
-              + seq
-                + expr/1
-                  - ref (a)
-                  - infix (<)
-                  - int (5)
-            + block
-              + seq
-                + term
-                  - ref (a)
-                  - infix (=)
-                  - ref (a)
-                  - infix (+)
-                  - int (1)
-                + term
-                  + if
-                    + cond
-                      + seq
-                        + expr/1
-                          - ref (a)
-                          - infix (<)
-                          - int (2)
-                    + block
-                      + seq
-                        + term
-                          - continue (continue)
-                    + else
-                      + block
-                        + seq
-                          + term
-                            - break (break)
-        + term
-        + term
-          + for
-            + expr/1
-              - ref (a)
+        + while
+          + cond
             + seq
-              + expr/1
-                - ref (x)
-            + block
-              + seq
-                + term
-                  - prefix (foo)
-                  + tuple
-                    + expr/1
-                      - ref (a)
-        + term
-        + term
-          - yield (yield)
-          - ref (a)
+              + call
+                - function (<)
+                + typeargs
+                - localref (a)
+                + args
+                  - int (5)
+          + block
+            + seq
+              + assign
+                - localref (a)
+                + call
+                  - function (+)
+                  + typeargs
+                  - localref (a)
+                  + args
+                    - int (1)
+              + if
+                + cond
+                  + seq
+                    + call
+                      - function (<)
+                      + typeargs
+                      - localref (a)
+                      + args
+                        - int (2)
+                + block
+                  + seq
+                    - continue (continue)
+                + else
+                  + block
+                    + seq
+                      - break (break)
+        + for
+          - localref (a)
+          + seq
+            - localref (x)
+          + block
+            + seq
+              + call
+                - function (foo)
+                + typeargs
+                - localref (a)
+                + args
+        + yield
+          - localref (a)
 
