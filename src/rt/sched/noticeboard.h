@@ -26,6 +26,12 @@ namespace verona::rt
     {
       if constexpr (!std::is_fundamental_v<T>)
       {
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
+        for (auto p : update_buffer)
+        {
+          st->push((T)p);
+        }
+#endif
         auto p = get<T>();
         if (p)
           st->push(p);
