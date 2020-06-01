@@ -54,4 +54,34 @@
             - local (x9)
             + oftype
           - string (foo `(bar) `bar baz)
+        + assign
+          + let
+            - local (xa)
+            + oftype
+          + call
+            - function (+)
+            + typeargs
+            + call
+              - function (+)
+              + typeargs
+              - int (1)
+              + args
+                - int (2)
+            + args
+              - int (3)
+        + assign
+          + let
+            - local (xb)
+            + oftype
+          + call
+            - function (+)
+            + typeargs
+            - int (1)
+            + args
+              + call
+                - function (+)
+                + typeargs
+                - int (2)
+                + args
+                  - int (3)
 
