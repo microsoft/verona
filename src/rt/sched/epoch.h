@@ -182,6 +182,7 @@ namespace verona::rt
           auto dn = (DecNode*)dec_list.dequeue();
           auto o = dn->o;
           alloc->dealloc<sizeof(DecNode)>(dn);
+          Systematic::cout() << "Delayed decref on " << o << std::endl;
           Immutable::release(alloc, o);
         }
 

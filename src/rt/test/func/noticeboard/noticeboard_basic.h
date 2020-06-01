@@ -12,7 +12,14 @@ namespace noticeboard_basic
 
   struct Ping : public VAction<Ping>
   {
-    void f() {}
+    void* target;
+
+    Ping(void* t) : target(t) {}
+
+    void f()
+    {
+      Systematic::cout() << "Ping on " << target << std::endl;
+    }
   };
 
   struct C : public V<C>
@@ -97,6 +104,9 @@ namespace noticeboard_basic
       if (db->n == 30)
       {
         C* new_c = new (alloc) C(1);
+
+        Systematic::cout() << "Update DB Create C " << new_c << std::endl;
+
         Freeze::apply(alloc, new_c);
         db->box.update(alloc, new_c);
       }
@@ -175,7 +185,7 @@ namespace noticeboard_basic
         }
         case USEALIVE:
         {
-          Cown::schedule<Ping>(peeker->alive);
+          Cown::schedule<Ping>(peeker->alive, peeker->alive);
           peeker->state = EXIT;
           Cown::schedule<ToPeek>(peeker, peeker);
           return;
@@ -193,21 +203,30 @@ namespace noticeboard_basic
   {
     Alloc* alloc = ThreadAlloc::get();
 
-    Alive* alive = new Alive;
+    Alive* alive = new (alloc) Alive;
+    Systematic::cout() << "Alive" << alive << std::endl;
 
     C* c = new (alloc) C(0);
     c->next = new (alloc) C(10);
 
     RegionTrace::insert(alloc, c, alive);
     c->alive = alive;
+    Systematic::cout() << "Create C " << c << " with alive " << alive
+                       << std::endl;
+
+    Systematic::cout() << "Create C next" << c->next << std::endl;
 
     Freeze::apply(alloc, c);
 
     DB* db = new DB(c);
+    Systematic::cout() << "DB " << db << std::endl;
+
     Peeker* peeker = new Peeker(db, &db->box);
 
+    Systematic::cout() << "Peeker " << peeker << std::endl;
+
     Cown::schedule<ToPeek>(peeker, peeker);
-    Cown::schedule<Ping>(alive);
+    Cown::schedule<Ping>(alive, alive);
 
     Cown::release(alloc, alive);
     Cown::release(alloc, peeker);

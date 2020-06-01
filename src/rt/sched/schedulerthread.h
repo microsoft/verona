@@ -514,6 +514,8 @@ namespace verona::rt
       // registered with a scheduler thread.
       if (cown->owning_thread() == nullptr)
       {
+        Systematic::cout() << "Bind cown " << this << " to scheduler thread."
+                           << std::endl;
         cown->set_owning_thread(this);
         cown->next = list;
         list = cown;

@@ -308,6 +308,9 @@ namespace verona::rt
         if (!t)
         {
           // Deallocate an unowned cown
+          Systematic::cout()
+            << "Not allocated on a Verona thread, so deallocating: " << this
+            << std::endl;
           assert(epoch_when_popped == NO_EPOCH_SET);
           dealloc(alloc);
           return;
