@@ -12,4 +12,6 @@ f()
   let x7 = `(foo\nbar\) baz);
   let x8 = `(foo \`\( \ ( \\ baz);
   let x9 = `(foo `(bar) `bar baz);
+  let xa = 1 + 2 + 3;
+  let xb = 1 + (2 + 3);
 }
