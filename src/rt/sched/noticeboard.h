@@ -62,12 +62,13 @@ namespace verona::rt
                            << local_content << " new value " << new_o
                            << std::endl;
         e.dec_in_epoch(local_content);
+        put(new_o);
       }
       else
       {
         UNUSED(alloc);
+        put(new_o);
       }
-      put(new_o);
 #endif
     }
 
