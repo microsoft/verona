@@ -57,7 +57,7 @@ namespace
         case "field"_:
         case "function"_:
         {
-          // could be a mamber ref if implicit self access is allowed
+          // could be a member ref if implicit self access is allowed
           ast::rename(ast, "op");
           break;
         }
@@ -81,7 +81,7 @@ namespace
   void add_typeargs(ast::Ast& ast, ast::Ast& typeargs)
   {
     // Adds a typeargs node to ast and moves to the next node in the expr.
-    // If it isn't a typeargs node, adds an empty typeargs onde and does not
+    // If it isn't a typeargs node, adds an empty typeargs node and does not
     // advance to the next node in the expr.
     if (typeargs && (typeargs->tag == "typeargs"_))
     {
@@ -418,6 +418,9 @@ namespace sym
 
   void prec_member(ast::Ast& ast, err::Errors& err)
   {
+    // member <- obj (lookup / typeargs tuple? / tuple)*
+    // lookup can't distinguish types from fields, so invocation is either
+    // calling a method or calling `apply` on a field.
     prec_obj(ast, err);
     auto next = ast::get_next_in_expr(ast);
 
