@@ -90,7 +90,7 @@ namespace verona::rt
 
     SchedulerThread() : token_cown{T::create_token_cown()}, q{token_cown}
     {
-      token_cown->thread = this;
+      token_cown->set_owning_thread(this);
     }
 
     ~SchedulerThread()
@@ -319,11 +319,8 @@ namespace verona::rt
       cown = list;
       while (cown != nullptr)
       {
-        if (cown->thread.load(std::memory_order_relaxed) != nullptr)
-        {
+        if (!cown->is_collected())
           cown->collect(alloc);
-          cown->thread.store(nullptr, std::memory_order_relaxed);
-        }
         cown = cown->next;
       }
 
@@ -495,8 +492,7 @@ namespace verona::rt
       if (has_thread_bit(cown))
       {
         auto unmasked = clear_thread_bit(cown);
-        SchedulerThread* sched =
-          unmasked->thread.load(std::memory_order_relaxed);
+        SchedulerThread* sched = unmasked->owning_thread();
         assert(!sched->debug_is_token_consumed());
         sched->set_token_consumed(true);
 
@@ -515,9 +511,9 @@ namespace verona::rt
 
       // Register this cown with the scheduler thread if it is not currently
       // registered with a scheduler thread.
-      if (cown->thread.load(std::memory_order::memory_order_relaxed) == nullptr)
+      if (cown->owning_thread() == nullptr)
       {
-        cown->thread.store(this, std::memory_order::memory_order_relaxed);
+        cown->set_owning_thread(this);
         cown->next = list;
         list = cown;
         total_cowns++;
@@ -744,29 +740,28 @@ namespace verona::rt
       while (*p != nullptr)
       {
         T* c = *p;
-        Systematic::cout() << "Stub collect: " << c << std::endl;
-        auto epoch = c->epoch_when_popped;
-        auto no_weak_refs = c->weak_count == 0;
-        auto outdated =
-          epoch == T::NO_EPOCH_SET || GlobalEpoch::is_outdated(epoch);
-        if (
-          c->thread.load(std::memory_order_acquire) == nullptr &&
-          no_weak_refs && outdated)
+        // Collect cown stubs when the weak count is zero.
+        if (c->weak_count == 0)
         {
-          count++;
-          *p = c->next;
-          assert((!Scheduler::get_detect_leaks()) || c->cown_zero_rc());
-          c->dealloc(alloc);
-          Systematic::cout() << "Stub collected: " << c << std::endl;
-        }
-        else
-        {
-          if (!outdated)
-            Systematic::cout() << "Cown " << c << " not outdated." << std::endl;
-          if (!no_weak_refs)
-            Systematic::cout()
-              << "Cown " << c << " has weak refs." << std::endl;
-          p = &(c->next);
+          Systematic::cout() << "Stub collect: " << c << std::endl;
+          auto epoch = c->epoch_when_popped;
+          auto outdated =
+            epoch == T::NO_EPOCH_SET || GlobalEpoch::is_outdated(epoch);
+          if (outdated)
+          {
+            count++;
+            *p = c->next;
+            assert((!Scheduler::get_detect_leaks()) || c->cown_zero_rc());
+            c->dealloc(alloc);
+            Systematic::cout() << "Stub collected: " << c << std::endl;
+            continue;
+          }
+          else
+          {
+            if (!outdated)
+              Systematic::cout()
+                << "Cown " << c << " not outdated." << std::endl;
+          }
         }
       }
 

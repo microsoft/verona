@@ -65,7 +65,10 @@ namespace verona::rt
     verona::rt::MPSCQ<MultiMessage> queue;
 
     // Used for garbage collection of cyclic cowns only.
-    std::atomic<SchedulerThread<Cown>*> thread;
+    // Uses the bottom bit to indicate the cown has been collected
+    // If the object is collected by the leak detector, we should not
+    // collect again when the weak reference count hits 0.
+    std::atomic<uintptr_t> thread_status;
     Cown* next;
 
     /**
@@ -85,6 +88,32 @@ namespace verona::rt
       a->set_descriptor(&desc);
       a->cown_mark_scanned();
       return a;
+    }
+
+    static constexpr uintptr_t collected_mask = 1;
+    static constexpr uintptr_t thread_mask = ~collected_mask;
+
+    void set_owning_thread(SchedulerThread<Cown>* owner)
+    {
+      thread_status = (uintptr_t)owner;
+    }
+
+    void mark_collected()
+    {
+      thread_status |= 1;
+    }
+
+    bool is_collected()
+    {
+      return (thread_status.load(std::memory_order_relaxed) & collected_mask) !=
+        0;
+    }
+
+    SchedulerThread<Cown>* owning_thread()
+    {
+      return (
+        SchedulerThread<
+          Cown>*)(thread_status.load(std::memory_order_relaxed) & thread_mask);
     }
 
   public:
@@ -230,6 +259,8 @@ namespace verona::rt
 
       Systematic::cout() << "Cown dealloc: " << o << std::endl;
 
+      bool collect_not_required = a->is_collected();
+
       // During teardown don't recursively delete.
       if (Scheduler::is_teardown_in_progress())
       {
@@ -257,7 +288,8 @@ namespace verona::rt
       }
 
       // If last, then collect the cown body.
-      a->collect(alloc);
+      if (!collect_not_required)
+        a->collect(alloc);
       yield();
       a->weak_release(alloc);
     }
@@ -273,7 +305,7 @@ namespace verona::rt
       Systematic::cout() << "Weak release " << this << std::endl;
       if (weak_count.fetch_sub(1) == 1)
       {
-        auto* t = thread.load(std::memory_order_relaxed);
+        auto* t = owning_thread();
         yield();
         if (!t)
         {
@@ -286,8 +318,6 @@ namespace verona::rt
           e.add_pressure();
         }
         t->free_cowns++;
-        thread.store(nullptr, std::memory_order_release);
-
         yield();
       }
     }
@@ -352,14 +382,14 @@ namespace verona::rt
 
       if (local != nullptr)
       {
-        thread = local;
+        set_owning_thread(local);
         next = local->list;
         local->list = this;
         local->total_cowns++;
       }
       else
       {
-        thread = nullptr;
+        set_owning_thread(nullptr);
         next = nullptr;
       }
     }
@@ -868,7 +898,7 @@ namespace verona::rt
         return false;
 
       // Check if the Cown is already collected
-      if (thread != nullptr)
+      if (!is_collected())
       {
 #ifdef USE_SYSTEMATIC_TESTING
         Scheduler::yield_my_turn();
@@ -877,7 +907,6 @@ namespace verona::rt
         Systematic::cout() << "Collecting (sweep)" << this << std::endl;
 
         collect(alloc);
-        thread = nullptr;
       }
 
       return true;
@@ -890,6 +919,13 @@ namespace verona::rt
 
     void collect(Alloc* alloc)
     {
+      // If this was collected by leak detector, then don't double dealloc
+      // cown body, when the ref count drops.
+      if (is_collected())
+        return;
+
+      mark_collected();
+
 #ifdef USE_SYSTEMATIC_TESTING
       flush_all(alloc);
 #endif
