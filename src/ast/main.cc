@@ -9,7 +9,8 @@ int main(int argc, char** argv)
 {
   auto opt = cli::parse(argc, argv);
   auto parser = parser::create(opt.grammar);
-  auto ast = parser::parse(parser, opt.filename);
+  auto src = files::slurp(opt.filename);
+  auto ast = parser::parse(parser, src, opt.filename);
 
   if (!ast)
     return -1;
