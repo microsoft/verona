@@ -199,18 +199,18 @@ namespace
     }
     else if (v <= 0x7FF)
     {
-      s.push_back(0xc0 | (v >> 6));
+      s.push_back(0xc0 | ((v >> 6) & 0xff));
       s.push_back(0x80 | (v & 0x3f));
     }
     else if (v <= 0xffff)
     {
-      s.push_back(0xe0 | (v >> 12));
+      s.push_back(0xe0 | ((v >> 12) & 0xff));
       s.push_back(0x80 | ((v >> 6) & 0x3f));
       s.push_back(0x80 | (v & 0x3f));
     }
     else if (v < 0x10ffff)
     {
-      s.push_back(0xf0 | (v >> 18));
+      s.push_back(0xf0 | ((v >> 18) & 0xff));
       s.push_back(0x80 | ((v >> 12) & 0x3f));
       s.push_back(0x80 | ((v >> 6) & 0x3f));
       s.push_back(0x80 | (v & 0x3f));
@@ -251,7 +251,7 @@ namespace
 
         case 'e':
         {
-          dst.push_back('\e');
+          dst.push_back(0x1b);
           break;
         }
 
@@ -368,7 +368,7 @@ namespace
         if (pos == 0)
         {
           ast::remove(node);
- 
+
           if (ast->nodes.empty())
             return;
         }
