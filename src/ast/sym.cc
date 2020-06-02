@@ -161,6 +161,317 @@ namespace
     err << ast << ast->token << " must be the last expression in a block."
         << err::end;
   }
+
+  size_t hex(const std::string& src, size_t& i, size_t len)
+  {
+    size_t r = 0;
+
+    for (size_t count = 0; count < len; count++)
+    {
+      if (i >= (src.size() - 1))
+        return r;
+
+      auto c = src[i + 1];
+
+      if ((c >= '0') && (c <= '9'))
+        c = c - '0';
+      else if ((c >= 'A') && (c <= 'F'))
+        c = c - 'A' + 10;
+      else if ((c >= 'a') && (c <= 'f'))
+        c = c - 'a' + 10;
+      else
+        return r;
+
+      i++;
+      r = (r << 4) + c;
+    }
+
+    return r;
+  }
+
+  std::string utf8(size_t v)
+  {
+    std::string s;
+
+    if (v <= 0x7f)
+    {
+      s.push_back(v & 0x7f);
+    }
+    else if (v <= 0x7FF)
+    {
+      s.push_back(0xc0 | (v >> 6));
+      s.push_back(0x80 | (v & 0x3f));
+    }
+    else if (v <= 0xffff)
+    {
+      s.push_back(0xe0 | (v >> 12));
+      s.push_back(0x80 | ((v >> 6) & 0x3f));
+      s.push_back(0x80 | (v & 0x3f));
+    }
+    else if (v < 0x10ffff)
+    {
+      s.push_back(0xf0 | (v >> 18));
+      s.push_back(0x80 | ((v >> 12) & 0x3f));
+      s.push_back(0x80 | ((v >> 6) & 0x3f));
+      s.push_back(0x80 | (v & 0x3f));
+    }
+
+    return s;
+  }
+
+  std::string escape(const std::string& src)
+  {
+    std::string dst;
+
+    for (size_t i = 0; i < src.size(); i++)
+    {
+      auto c = src[i];
+
+      if (c != '\\')
+      {
+        dst.push_back(c);
+        continue;
+      }
+
+      auto n = src[++i];
+
+      switch (n)
+      {
+        case 'a':
+        {
+          dst.push_back('\a');
+          break;
+        }
+
+        case 'b':
+        {
+          dst.push_back('\b');
+          break;
+        }
+
+        case 'e':
+        {
+          dst.push_back('\e');
+          break;
+        }
+
+        case 'f':
+        {
+          dst.push_back('\f');
+          break;
+        }
+
+        case 'n':
+        {
+          dst.push_back('\n');
+          break;
+        }
+
+        case 'r':
+        {
+          dst.push_back('\r');
+          break;
+        }
+
+        case 't':
+        {
+          dst.push_back('\t');
+          break;
+        }
+
+        case 'v':
+        {
+          dst.push_back('\v');
+          break;
+        }
+
+        case '\\':
+        {
+          dst.push_back('\\');
+          break;
+        }
+
+        case '0':
+        {
+          dst.push_back('\0');
+          break;
+        }
+
+        case 'x':
+        {
+          dst.append(utf8(hex(src, i, 2)));
+          break;
+        }
+
+        case 'u':
+        {
+          dst.append(utf8(hex(src, i, 4)));
+          break;
+        }
+
+        case 'U':
+        {
+          dst.append(utf8(hex(src, i, 6)));
+          break;
+        }
+
+        default:
+        {
+          dst.push_back(n);
+          break;
+        }
+      }
+    }
+
+    return dst;
+  }
+
+  void mangle_indent(ast::Ast& ast)
+  {
+    if (ast->nodes.empty())
+      return;
+
+    // Remove a leading blank line if one exists.
+    auto node = ast->nodes.front();
+
+    if (node->tag == "quote"_)
+    {
+      auto pos = node->token.find_first_not_of(" \f\r\t\v");
+
+      if ((pos != std::string::npos) && (node->token[pos] == '\n'))
+      {
+        if (pos == (node->token.size() - 1))
+        {
+          ast::remove(node);
+
+          if (ast->nodes.empty())
+            return;
+        }
+        else
+        {
+          auto trim = node->token.substr(pos + 1);
+          auto quote = ast::token(node, "quote", trim);
+          ast::replace(node, quote);
+        }
+      }
+    }
+
+    // Remove a trailing blank line if one exists.
+    node = ast->nodes.back();
+
+    if (node->tag == "quote"_)
+    {
+      auto pos = node->token.find_last_not_of(" \f\r\t\v");
+
+      if ((pos != std::string::npos) && (node->token[pos] == '\n'))
+      {
+        if (pos == 0)
+        {
+          ast::remove(node);
+ 
+          if (ast->nodes.empty())
+            return;
+        }
+        else
+        {
+          auto trim = node->token.substr(0, pos);
+          auto quote = ast::token(node, "quote", trim);
+          ast::replace(node, quote);
+        }
+      }
+    }
+
+    // If the first node is not a quote, the string starts with an unquote that
+    // is not indented, so we need no indentation mangling.
+    if (ast->nodes[0]->tag != "quote"_)
+      return;
+
+    // Calculate indentation.
+    size_t indent = std::numeric_limits<size_t>::max();
+
+    for (size_t i = 0; i < ast->nodes.size(); i++)
+    {
+      node = ast->nodes[i];
+
+      if (node->tag != "quote"_)
+        continue;
+
+      // Start from the first character only on the first node. Otherwise start
+      // from right after the first newline.
+      size_t prev = 0;
+
+      if (i > 0)
+      {
+        prev = node->token.find("\n");
+
+        if (prev != std::string::npos)
+          prev++;
+      }
+
+      while (prev != std::string::npos)
+      {
+        auto pos = node->token.find_first_not_of(" \f\r\t\v", prev);
+
+        // Entirely blank lines don't influence indentation.
+        if (pos == std::string::npos)
+          break;
+
+        auto len = pos - prev;
+
+        if (len < indent)
+          indent = len;
+
+        prev = node->token.find("\n", pos);
+
+        if (prev != std::string::npos)
+          prev++;
+      }
+    }
+
+    // Trim indentation.
+    if (indent > 0)
+    {
+      for (size_t i = 0; i < ast->nodes.size(); i++)
+      {
+        node = ast->nodes[i];
+
+        if (node->tag != "quote"_)
+          continue;
+
+        // Start from the first character only on the first node. Otherwise
+        // start from right after the first newline.
+        std::string s;
+        size_t prev = 0;
+
+        if (i > 0)
+        {
+          prev = node->token.find("\n");
+
+          if (prev == std::string::npos)
+            continue;
+
+          prev++;
+          s.append(node->token.substr(0, prev));
+        }
+
+        while (prev != std::string::npos)
+        {
+          auto pos = node->token.find("\n", prev);
+
+          if (pos != std::string::npos)
+            pos++;
+
+          if ((prev + indent) < node->token.size())
+            s.append(node->token.substr(prev + indent, pos - indent));
+
+          prev = pos;
+        }
+
+        auto quote = ast::token(node, "quote", s);
+        ast::replace(node, quote);
+      }
+    }
+  }
 }
 
 namespace sym
@@ -327,6 +638,46 @@ namespace sym
           ast::rename(ast, "op");
         }
         break;
+      }
+
+      case "string"_:
+      {
+        auto s = escape(ast->token);
+        auto e = ast::token(ast, "string", s);
+        ast::replace(ast, e);
+        break;
+      }
+
+      case "interp_string"_:
+      {
+        mangle_indent(ast);
+        break;
+      }
+
+      case "quote"_:
+      {
+        // Quote elements of an interpolated string are not escaped.
+        ast::rename(ast, "string");
+        break;
+      }
+
+      case "unquote"_:
+      {
+        if (ast->nodes[0]->tag == "%word"_)
+        {
+          auto ref = ast->nodes[0];
+          auto expr = ast::node(ast, "expr");
+          ast::replace(ast, expr);
+          ast::rename(ref, "ref");
+          ast::push_back(ast, ref);
+        }
+        else
+        {
+          elide(ast, err);
+        }
+
+        scope(ast, err);
+        return;
       }
     }
 
@@ -667,6 +1018,24 @@ namespace sym
             prec_assign(ast, err);
             break;
           }
+        }
+
+        auto parent = expr->parent.lock();
+
+        if (parent && (parent->tag == "interp_string"_))
+        {
+          // (call (function 'string') (typeargs) obj (args))
+          auto call = ast::node(expr, "call");
+          auto fun = ast::token(expr, "function", "string");
+          ast::push_back(call, fun);
+          auto typeargs = ast::node(expr, "typeargs");
+          ast::push_back(call, typeargs);
+          auto obj = expr->nodes[0];
+          ast::remove(obj);
+          ast::push_back(call, obj);
+          auto args = ast::node(expr, "args");
+          ast::push_back(call, args);
+          ast::push_back(expr, call);
         }
 
         if (expr->nodes.size() == 1)
