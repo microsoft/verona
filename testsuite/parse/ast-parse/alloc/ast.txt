@@ -20,21 +20,6 @@
                   - id (Foo)
         + assign
           + let
-            - local (r2)
-            + oftype
-          + new
-            + type
-              + type_one/1
-                + type_ref
-                  - id (Foo)
-            + typebody
-              + field
-                - id (x)
-                + oftype
-                + initexpr
-                  - int (0)
-        + assign
-          + let
             - local (f)
             + oftype
           + lambda
