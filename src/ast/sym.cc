@@ -365,6 +365,10 @@ namespace
 
       if ((pos != std::string::npos) && (node->token[pos] == '\n'))
       {
+        // Handle \r\n pairs.
+        if ((pos > 0) && (node->token[pos] == '\r'))
+          pos--;
+
         if (pos == 0)
         {
           ast::remove(node);
