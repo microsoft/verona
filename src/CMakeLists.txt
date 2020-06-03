@@ -7,6 +7,7 @@ if (RT_TESTS)
 else()
   set (VERONA_RT_ONLY_HEADER_LIBRARY ON)
 endif()
+of yeah!
 add_subdirectory(rt)
 
 
