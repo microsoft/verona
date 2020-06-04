@@ -14,6 +14,6 @@ f()
   let string5 = `(foo `(bar) `bar baz);
   let precedence1 = 1 + 2 + 3;
   let precedence2 = 1 + (2 + 3);
-  let object1 = new { x : U64; };
-  let object2 = new Foo { x : U64; };
+  let object1 = new { x : U64 = 0; };
+  let object2 = new Foo { x : U64 = 0; };
 }

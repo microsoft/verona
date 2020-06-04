@@ -100,6 +100,7 @@
                           + type_ref
                             - id (U64)
                     + initexpr
+                      - int (0)
         + assign
           + let
             - local (object2)
@@ -118,4 +119,5 @@
                       + type_ref
                         - id (U64)
                 + initexpr
+                  - int (0)
 
