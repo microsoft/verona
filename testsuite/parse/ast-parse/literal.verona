@@ -7,11 +7,6 @@ f()
   let int2 = 0xc0_FFeE;
   let int3 = 0b10_10_10;
   let float1 = 27.18e-1;
-  let string1 = `foo;
-  let string2 = `(wat ℵ \n);
-  let string3 = `(foo\nbar\) baz);
-  let string4 = `(foo \`\( \ ( \\ baz);
-  let string5 = `(foo `(bar) `bar baz);
   let precedence1 = 1 + 2 + 3;
   let precedence2 = 1 + (2 + 3);
   let object1 = new { x : U64 = 0; };
