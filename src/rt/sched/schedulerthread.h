@@ -333,7 +333,7 @@ namespace verona::rt
 
       GlobalEpoch::advance();
 
-      collect_cown_stubs();
+      collect_cown_stubs<true>();
 
       Systematic::cout() << "End teardown (phase 2)" << std::endl;
 
@@ -719,6 +719,7 @@ namespace verona::rt
       }
     }
 
+    template<bool during_teardown = false>
     void collect_cown_stubs()
     {
       // Cannot collect the cown state while another thread could be
@@ -741,8 +742,17 @@ namespace verona::rt
       {
         T* c = *p;
         // Collect cown stubs when the weak count is zero.
-        if (c->weak_count == 0)
+        if (c->weak_count == 0 || during_teardown)
         {
+          if (c->weak_count != 0)
+          {
+            Systematic::cout() << "Leaking cown: " << c << std::endl;
+            if (Scheduler::get_detect_leaks())
+            {
+              *p = c->next;
+              continue;
+            }
+          }
           Systematic::cout() << "Stub collect: " << c << std::endl;
           auto epoch = c->epoch_when_popped;
           auto outdated =
@@ -751,7 +761,6 @@ namespace verona::rt
           {
             count++;
             *p = c->next;
-            assert((!Scheduler::get_detect_leaks()) || c->cown_zero_rc());
             c->dealloc(alloc);
             Systematic::cout() << "Stub collected: " << c << std::endl;
             continue;
