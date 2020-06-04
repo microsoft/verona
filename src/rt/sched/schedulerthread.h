@@ -763,6 +763,7 @@ namespace verona::rt
                 << "Cown " << c << " not outdated." << std::endl;
           }
         }
+        p = &(c->next);
       }
 
       free_cowns -= count;
