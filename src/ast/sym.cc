@@ -294,7 +294,8 @@ namespace sym
 
       case "string"_:
       {
-        auto s = lit::escape(ast->token);
+        auto s = lit::crlf2lf(ast->token);
+        s = lit::escape(s);
         auto e = ast::token(ast, "string", s);
         ast::replace(ast, e);
         break;
@@ -302,6 +303,7 @@ namespace sym
 
       case "interp_string"_:
       {
+        lit::crlf2lf(ast);
         lit::mangle_indent(ast);
         break;
       }

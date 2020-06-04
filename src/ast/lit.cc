@@ -16,11 +16,6 @@ namespace
     return n;
   }
 
-  bool has_cr(const std::string& s, size_t pos)
-  {
-    return (pos < s.size()) && (pos > 0) && (s[pos - 1] == '\r');
-  }
-
   void remove_leading_blank_line(ast::Ast& ast)
   {
     if (ast->nodes.empty())
@@ -66,10 +61,6 @@ namespace
 
     if ((pos != std::string::npos) && (text[pos] == '\n'))
     {
-      // Handle \r\n pairs.
-      if (has_cr(text, pos))
-        pos--;
-
       if (pos == 0)
       {
         ast::remove(node);
@@ -170,11 +161,10 @@ namespace
       {
         auto end = nextline(text, prev);
         auto start = prev + indent;
-        auto nl = has_cr(s, end - 1) ? 2 : 1;
 
         // Handle blank lines shorter than the indent.
-        if ((end - nl) <= start)
-          start = end - nl;
+        if (end < start)
+          start = end - 1;
 
         auto len = end - start;
 
@@ -247,6 +237,39 @@ namespace lit
     }
 
     return s;
+  }
+
+  std::string crlf2lf(const std::string& src)
+  {
+    std::string s;
+    size_t prev = 0;
+
+    while (true)
+    {
+      auto pos = src.find("\r\n", prev);
+      s.append(src.substr(prev, pos - prev));
+
+      if (pos == std::string::npos)
+        break;
+
+      s.push_back('\n');
+      prev = pos + 2;
+    }
+
+    return s;
+  }
+
+  void crlf2lf(ast::Ast& ast)
+  {
+    for (auto node : ast->nodes)
+    {
+      if (node->tag != "quote"_)
+        continue;
+
+      auto s = crlf2lf(node->token);
+      auto lf = ast::token(node, "quote", s);
+      ast::replace(node, lf);
+    }
   }
 
   std::string escape(const std::string& src)
