@@ -32,6 +32,7 @@ namespace ast
   void replace(Ast& prev, Ast next);
   void remove(Ast ast);
   void rename(Ast& ast, const char* name);
+  void elide(Ast& ast);
 
   Ast get_closest(Ast ast, Tag tag);
   Ast get_scope(Ast ast);
@@ -39,4 +40,17 @@ namespace ast
   Ast get_def(Ast ast, Ident id);
   Ast get_prev_in_expr(Ast ast);
   Ast get_next_in_expr(Ast ast);
+
+  template<typename E, typename T>
+  void for_each(Ast ast, E& err, T f)
+  {
+    if (!ast)
+      return;
+
+    for (decltype(ast->nodes.size()) i = 0; i < ast->nodes.size(); i++)
+    {
+      auto node = ast->nodes[i];
+      f(node, err);
+    }
+  }
 }

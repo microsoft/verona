@@ -90,6 +90,13 @@ namespace ast
     replace(ast, next);
   }
 
+  void elide(Ast& ast)
+  {
+    assert(ast->nodes.size() == 1);
+    auto child = ast->nodes.front();
+    ast::replace(ast, child);
+  }
+
   Ast get_closest(Ast ast, Tag tag)
   {
     while (ast && (ast->tag != tag))
