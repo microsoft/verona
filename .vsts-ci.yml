@@ -8,10 +8,13 @@ jobs:
   steps:
   - script: |
       echo "Determine if runtime changed."
-      git diff --quiet origin/master -- src/rt || echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable to testRuntime to On
-      git diff --quiet origin/master -- src/rt && echo "##vso[task.setvariable variable=testRuntime;isOutput=true]Off" #set variable to testRuntime to Off
-      git diff --quiet origin/master -- src/rt && echo "Runtime unchanged!"
-      git diff --quiet origin/master -- src/rt || echo "Runtime changed!"
+      if git diff --quiet origin/master -- src/rt; then
+        echo "Runtime unchanged!"
+        echo "##vso[task.setvariable variable=testRuntime;isOutput=true]Off" #set variable to testRuntime to Off
+      else
+        echo "Runtime changed!"
+        echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable to testRuntime to On
+      fi
     displayName: Check for runtime changes.
     name: setVarStep
 - job: 
