@@ -171,8 +171,16 @@ namespace sym
     {
       case "module"_:
       case "lambda"_:
+      {
+        add_scope(ast);
+        break;
+      }
+
       case "new"_:
       {
+        if (ast->nodes.size() == 0)
+          err << ast << "new requires type name or body" << err::end;
+
         add_scope(ast);
         break;
       }
