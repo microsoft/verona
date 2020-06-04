@@ -1,19 +1,38 @@
 resources:
 - repo: self
 
+trigger: none
+
+pr:
+- master
+
+schedules:
+- cron: "0 0 * * *"
+  displayName: Daily midnight build
+  branches:
+    include:
+    - master
+
 jobs:
 - job: HasRuntimeChanged
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
   - script: |
-      echo "Determine if runtime changed."
-      if git diff --quiet origin/master -- src/rt; then
-        echo "Runtime unchanged!"
-        echo "##vso[task.setvariable variable=testRuntime;isOutput=true]Off" #set variable to testRuntime to Off
-      else
-        echo "Runtime changed!"
+      echo "Determine Type of build"
+      if git diff --quiet origin/master; then
+        echo " - Scheduled master - build and test everything"
         echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable to testRuntime to On
+      else
+        echo " - PR Build"
+        echo "Determine if runtime changed."
+        if git diff --quiet origin/master -- src/rt; then
+          echo " - Runtime unchanged!"
+          echo "##vso[task.setvariable variable=testRuntime;isOutput=true]Off" #set variable to testRuntime to Off
+        else
+          echo " - Runtime changed!"
+          echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable to testRuntime to On
+        fi
       fi
     displayName: Check for runtime changes.
     name: setVarStep
