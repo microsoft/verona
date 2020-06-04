@@ -296,9 +296,6 @@ namespace verona::rt
 
     /**
      * Release a weak reference to this cown.
-     *
-     * This sets thread field to nullptr, so that the scheduler thread
-     * responsible for this cown can collect the stub.
      **/
     void weak_release(Alloc* alloc)
     {
@@ -309,14 +306,17 @@ namespace verona::rt
         yield();
         if (!t)
         {
+          // Deallocate an unowned cown
           assert(epoch_when_popped == NO_EPOCH_SET);
           dealloc(alloc);
           return;
         }
+        // Register that the epoch should be moved on
         {
           Epoch e(alloc);
           e.add_pressure();
         }
+        // Tell owning thread that it has a free cown to collect.
         t->free_cowns++;
         yield();
       }
