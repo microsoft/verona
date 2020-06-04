@@ -60,7 +60,6 @@ jobs:
       sudo apt-get install -y ninja-build
 
       sudo pip install wheel OutputCheck
-      echo RTTESTS=$(RTTests)
     displayName: 'Install Build Dependencies'
 
   - task: CMake@1
