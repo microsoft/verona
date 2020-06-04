@@ -56,10 +56,9 @@
   indent 2 spaces "{no interp: $x}")
         + interp_string
           - string (
-    hi
+hi
 )
         + interp_string
-          - string ()
         + assign
           + let
             - local (tab)

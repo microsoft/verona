@@ -22,5 +22,5 @@
   let tab = "\t";
   "{
     look, a $tab in my string
-  }"
+  }";
 }

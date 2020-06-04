@@ -5,8 +5,7 @@
 #include "ast.h"
 #include "err.h"
 
-namespace sym
+namespace prec
 {
-  void scope(ast::Ast& ast, err::Errors& err);
-  void references(ast::Ast& ast, err::Errors& err);
+  void build(ast::Ast& ast, err::Errors& err);
 }

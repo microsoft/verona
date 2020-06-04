@@ -3,6 +3,7 @@
 #include "cli.h"
 #include "files.h"
 #include "parser.h"
+#include "prec.h"
 #include "sym.h"
 
 int main(int argc, char** argv)
@@ -22,7 +23,7 @@ int main(int argc, char** argv)
     sym::references(ast, err);
 
   if (err.empty())
-    sym::precedence(ast, err);
+    prec::build(ast, err);
 
   if (!err.empty())
   {

@@ -4,7 +4,9 @@ add_library(verona-ast-lib
   ast.cc
   err.cc
   files.cc
+  lit.cc
   parser.cc
+  prec.cc
   sym.cc
   )
 
