@@ -31,31 +31,6 @@
           - float (27.18e-1)
         + assign
           + let
-            - local (string1)
-            + oftype
-          - string (foo)
-        + assign
-          + let
-            - local (string2)
-            + oftype
-          - string (wat ℵ \n)
-        + assign
-          + let
-            - local (string3)
-            + oftype
-          - string (foo\nbar\) baz)
-        + assign
-          + let
-            - local (string4)
-            + oftype
-          - string (foo \`\( \ ( \\ baz)
-        + assign
-          + let
-            - local (string5)
-            + oftype
-          - string (foo `(bar) `bar baz)
-        + assign
-          + let
             - local (precedence1)
             + oftype
           + call

@@ -219,7 +219,7 @@ namespace lit
     return r;
   }
 
-  std::string utf8(uint32_t v)
+  std::string utf8(size_t v)
   {
     std::string s;
 
