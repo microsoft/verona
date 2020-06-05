@@ -51,7 +51,8 @@ namespace verona::rt
         return i->second.get_wref();
       }
 
-      ExternalRef(ExternalReferenceTable* ert_, Object* o_) : ert{ert_}, o{o_}
+      ExternalRef(ExternalReferenceTable* ert_, Object* o_)
+      : Object(desc()), ert{ert_}, o{o_}
       {
         set_descriptor(desc());
         make_scc();

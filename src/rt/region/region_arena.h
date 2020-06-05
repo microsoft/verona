@@ -233,7 +233,10 @@ namespace verona::rt
     Object* last_large;
 
     RegionArena()
-    : first_arena(nullptr), last_arena(nullptr), last_large(nullptr)
+    : RegionBase(desc()),
+      first_arena(nullptr),
+      last_arena(nullptr),
+      last_large(nullptr)
     {
       set_descriptor(desc());
       init_next(this);

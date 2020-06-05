@@ -42,6 +42,11 @@ namespace verona::rt
       YesTryFast
     };
 
+    Cown(const Descriptor* desc) : Object(desc)
+    {
+      this->init(ThreadAlloc::get(), desc, Scheduler::alloc_epoch());
+    }
+
   private:
     friend class DLList<Cown>;
     friend class MultiMessage;

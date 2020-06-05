@@ -115,14 +115,15 @@ namespace verona::rt
     }
 
   public:
+    V() : Base(desc()) {}
+
     void* operator new(size_t)
     {
       if constexpr (std::is_same_v<Base, Object>)
         return RegionClass::template create<sizeof(T)>(
           ThreadAlloc::get(), desc());
       else
-        return Cown::alloc<sizeof(T)>(
-          ThreadAlloc::get(), desc(), get_alloc_epoch());
+        return ThreadAlloc::get()->alloc<sizeof(T)>();
     }
 
     void* operator new(size_t, Alloc* alloc)
@@ -130,7 +131,7 @@ namespace verona::rt
       if constexpr (std::is_same_v<Base, Object>)
         return RegionClass::template create<sizeof(T)>(alloc, desc());
       else
-        return Cown::alloc<sizeof(T)>(alloc, desc(), get_alloc_epoch());
+        return ThreadAlloc::get()->alloc<sizeof(T)>();
     }
 
     void* operator new(size_t, Object* region)
@@ -139,8 +140,7 @@ namespace verona::rt
         return RegionClass::template alloc<sizeof(T)>(
           ThreadAlloc::get(), region, desc());
       else
-        return Cown::alloc<sizeof(T)>(
-          ThreadAlloc::get(), desc(), get_alloc_epoch());
+        return ThreadAlloc::get()->alloc<sizeof(T)>();
     }
 
     void* operator new(size_t, Alloc* alloc, Object* region)
@@ -148,7 +148,7 @@ namespace verona::rt
       if constexpr (std::is_same_v<Base, Object>)
         return RegionClass::template alloc<sizeof(T)>(alloc, region, desc());
       else
-        return Cown::alloc<sizeof(T)>(alloc, desc(), get_alloc_epoch());
+        return ThreadAlloc::get()->alloc<sizeof(T)>();
     }
 
     void operator delete(void*)

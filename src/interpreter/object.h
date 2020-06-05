@@ -32,7 +32,7 @@ namespace verona::interpreter
      *
      * If the object is in a new region, nullptr should be passed instead.
      */
-    explicit VMObject(VMObject* region);
+    explicit VMObject(VMObject* region, const VMDescriptor* desc);
 
     std::unique_ptr<FieldValue[]> fields;
 

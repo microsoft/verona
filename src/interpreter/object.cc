@@ -36,7 +36,8 @@ namespace verona::interpreter
       finaliser_ip > 0 ? VMObject::finaliser_fn : nullptr;
   }
 
-  VMObject::VMObject(VMObject* region) : parent_(region)
+  VMObject::VMObject(VMObject* region, const VMDescriptor* desc)
+  : Object(desc), parent_(region)
   {
     if (descriptor()->field_count > 0)
       fields = std::make_unique<FieldValue[]>(descriptor()->field_count);
