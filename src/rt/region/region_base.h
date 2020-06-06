@@ -43,6 +43,8 @@ namespace verona::rt
       AllObjects,
     };
 
+    RegionBase(const Descriptor* desc) : Object(desc) {}
+
   private:
     inline void dealloc(Alloc* alloc)
     {

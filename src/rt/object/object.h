@@ -205,7 +205,7 @@ namespace verona::rt
     Object(const Object&) = delete;
     Object& operator=(const Object&) = delete;
 
-    Object() = default;
+    Object(const Descriptor* desc) : descriptor(desc) {}
 
     inline const Descriptor* get_descriptor() const
     {

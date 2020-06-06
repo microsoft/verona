@@ -380,7 +380,7 @@ namespace verona::interpreter
 
     VMObject* region = parent->object->region();
     rt::Object* object = rt::Region::alloc(alloc_, region, descriptor);
-    return Value::mut(new (object) VMObject(region));
+    return Value::mut(new (object) VMObject(region, descriptor));
   }
 
   Value VM::opcode_new_region(const VMDescriptor* descriptor)
@@ -388,7 +388,7 @@ namespace verona::interpreter
     // TODO(region): For now, the only kind of region we can create is a trace
     // region. Later, we might need a new bytecode?
     rt::Object* object = rt::RegionTrace::create(alloc_, descriptor);
-    return Value::iso(new (object) VMObject(nullptr));
+    return Value::iso(new (object) VMObject(nullptr, descriptor));
   }
 
   Value VM::opcode_new_cown(const VMDescriptor* descriptor, Value src)

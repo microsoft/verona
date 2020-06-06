@@ -68,7 +68,8 @@ namespace verona::rt
     // Compact representation of previous memory used as a sizeclass.
     snmalloc::sizeclass_t previous_memory_used = 0;
 
-    explicit RegionTrace(Object* o) : next_not_root(this), last_not_root(this)
+    explicit RegionTrace(Object* o)
+    : RegionBase(desc()), next_not_root(this), last_not_root(this)
     {
       set_descriptor(desc());
       init_next(o);
