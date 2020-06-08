@@ -46,7 +46,7 @@ jobs:
 - job: 
   displayName: Linux
   dependsOn: ConfigureCIRun
-  condition: eq(dependencies.ConfigureCIRun.output['setVarStep.docOnly'], "false")
+  condition: eq(dependencies.ConfigureCIRun.output['setVarStep.docOnly'], 'false')
   variables: 
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
   pool:
@@ -114,7 +114,7 @@ jobs:
 - job: 
   displayName: Windows
   dependsOn: ConfigureCIRun
-  condition: eq(dependencies.ConfigureCIRun.output['setVarStep.docOnly'], "false")
+  condition: eq(dependencies.ConfigureCIRun.output['setVarStep.docOnly'], 'false')
   variables: 
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
 
@@ -159,7 +159,7 @@ jobs:
 - job: 
   displayName: macOS
   dependsOn: ConfigureCIRun
-  condition: eq(dependencies.ConfigureCIRun.output['setVarStep.docOnly'], "false")
+  condition: eq(dependencies.ConfigureCIRun.output['setVarStep.docOnly'], 'false')
   variables: 
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
 
