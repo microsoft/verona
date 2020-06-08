@@ -249,6 +249,33 @@ void test4()
   snmalloc::current_alloc_pool()->debug_check_empty();
 }
 
+void test5()
+{
+  // Freeze with unreachable subregion 
+  // Bug reported in #83
+  //
+  // There are two regions, [1, 2], [3].
+  //
+  // Freeze 1, 
+  // Ptr from 2 to subregion 3
+  auto* alloc = ThreadAlloc::get();
+
+  C1* o1 = new (alloc) C1;
+  C1* o2 = new (alloc, o1) C1;
+  C1* o3 = new (alloc) C1;
+
+  o2->f1 = o3;
+
+  Freeze::apply(alloc, o1);
+
+  check(o1->debug_test_rc(1));
+
+  // Free immutable graph.
+  Immutable::release(alloc, o1);
+
+  snmalloc::current_alloc_pool()->debug_check_empty();
+}
+
 void freeze_weird_ring()
 {
   auto* alloc = ThreadAlloc::get();
@@ -455,6 +482,7 @@ int main(int, char**)
   test2();
   test3();
   test4();
+  test5();
   test_two_rings_1();
   test_two_rings_2();
   freeze_weird_ring();
