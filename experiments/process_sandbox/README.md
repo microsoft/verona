@@ -32,5 +32,6 @@ Finally, the child process enters a run loop waiting for messages from the paren
 Note that, for this to be efficient, the OS must implement lazy commit so that allocating a large (e.g. 1GiB) shared memory region does not consume 1GiB of physical memory or swap unless it is actually used.
 
 Currently, the in-memory RPC mechanism used to invoke methods in the child is very high latency.
-This may not be a problem for Verona, where foreign calls are likely to be wrapped in `when` clauses.
+This may not be a problem for Verona, where foreign calls are likely to be wrapped in `when` clauses, which can batch multiple operations within the library.
+The asynchronous operation of `when` clauses hides latency, avoiding the blocking operations in the C++ proof-of-concept.
 This overhead could be significantly reduced on an OS that supported Spring / Solaris Doors.

@@ -11,7 +11,7 @@ Core principles of interoperability
 
 The Verona interoperability model will be built on the following principles:
 
- - Foreign code should not imply unsafety.
+ - Using foreign code should not require giving up on the safety guarantees of Verona.
  - Interoperability should not compromise any security guarantees of the non-Verona language or library API.
  - Most libraries are stateful, the correct granularity for interoperability is a library, not a function.
 
@@ -75,7 +75,9 @@ class LLVM
 This includes two attributes that tell the compiler the format of the library (native code) and how to parse the header (which, in this example, would have to be something provided by the user that included the desired headers).
 Once C++ module support is more widespread, module imports can take the place of header inclusions.
 
-This instructs the compiler to take the C++ namespace structure and inject each namespace as a class within the LLVM class and all C++ classes as nested classes.
+This instructs the compiler to expose the C++ namespace and class structure the `LLVM` Verona class.
+C++ namespaces and classes will appear as nested classes within the Verona `LLVM` class.
+For example, `LLVM.llvm.SmallVector[LLVM.int, 12]` corresponds to `llvm::SmallVector<int, 12>`.
 
 Instantiating this class would require the user to specify a sandboxing policy, for example (again, straw-man syntax):
 
@@ -90,7 +92,19 @@ The programmer can then construct LLVM types within that region.
 Implementation
 --------------
 
-The proposed implementation strategy for C/C++ interoperability is to deeply embed clang.
+C/C++ are among the most difficult cases for interoperability, for two reasons:
+
+ - They lack of a clear module system or interface format. 
+   C/C++ 'interfaces' are header files.  
+   These are just text concatenation and can contain arbitrary C/C++ code.
+   They have to be extracted by compiling the code and cannot be recreated with 100% fidelity by anything that is not a complete C/C++ preprocess, parser, and semantic analysis toolchain.
+ - ABI complexity. 
+   The standard C ABI is not too hard to handle for any given platform (except bitfields) but there are a load of non-standard GCC and MSVC extensions that give fine-grained control over structure layout.
+   Beyond that, C++ is even harder.
+   Things like diamond inheritance (handled differently in Itanium / MSVC ABIs), RTTI (handled completely differently in MSVC vs Itanium, subtly differently in Itanium vs Aarch32 vs Fuchsia), exception ABIs (totally different between Win32, Win64, and Itanium, with some significant differences between ARM and x86 Windows) add up to a very large amount of ABI logic that differs between platforms and architectures.
+   Getting these right is really, really hard in anything that isn't a complete C/C++ compiler.
+
+To address this, the proposed implementation strategy for C/C++ interoperability is to deeply embed clang.
 We are already depending on LLVM (and MLIR) for our compiler infrastructure and so embedding clang is not a significant addition.
 In the above example, the we would pass the `llvm.h` header to clang and generate an AST.
 Any lookup of symbols within the `LLVM` class's namespace would inspect this AST to find equivalent types.
