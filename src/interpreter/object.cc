@@ -60,7 +60,7 @@ namespace verona::interpreter
     }
   }
 
-  void VMObject::trace_fn(const rt::Object* base_object, rt::ObjectStack* stack)
+  void VMObject::trace_fn(const rt::Object* base_object, rt::ObjectStack& stack)
   {
     const VMObject* object = static_cast<const VMObject*>(base_object);
     const VMDescriptor* descriptor = object->descriptor();

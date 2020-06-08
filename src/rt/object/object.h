@@ -85,7 +85,7 @@ namespace verona::rt
   {
     // for field in o do
     //  st.push(o.field)
-    using TraceFunction = void (*)(const Object* o, ObjectStack* st);
+    using TraceFunction = void (*)(const Object* o, ObjectStack& st);
 
     using NotifiedFunction = void (*)(Object* o);
 
@@ -723,7 +723,7 @@ namespace verona::rt
   private:
     inline void trace(ObjectStack& f) const
     {
-      get_descriptor()->trace(this, &f);
+      get_descriptor()->trace(this, f);
     }
 
     inline void finalise(Object* region, ObjectStack& isos)

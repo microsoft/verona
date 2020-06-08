@@ -15,13 +15,13 @@ struct C1 : public V<C1<region_type>, region_type>
   C1<region_type>* f1 = nullptr;
   C1<region_type>* f2 = nullptr;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
 
     if (f2 != nullptr)
-      st->push(f2);
+      st.push(f2);
   }
 };
 
@@ -31,13 +31,13 @@ struct F1 : public V<F1<region_type>, region_type>
   F1<region_type>* f1 = nullptr;
   F1<region_type>* f2 = nullptr;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
 
     if (f2 != nullptr)
-      st->push(f2);
+      st.push(f2);
   }
 
   void finaliser(Object* region, ObjectStack& sub_regions)
@@ -91,19 +91,19 @@ struct C3 : public V<C3<region_type>, region_type>
   F3<region_type>* f1 = nullptr;
   F3<region_type>* f2 = nullptr;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (c1 != nullptr)
-      st->push(c1);
+      st.push(c1);
 
     if (c2 != nullptr)
-      st->push(c2);
+      st.push(c2);
 
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
 
     if (f2 != nullptr)
-      st->push(f2);
+      st.push(f2);
   }
 };
 
@@ -115,19 +115,19 @@ struct F3 : public V<F3<region_type>, region_type>
   F3<region_type>* f1 = nullptr;
   F3<region_type>* f2 = nullptr;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (c1 != nullptr)
-      st->push(c1);
+      st.push(c1);
 
     if (c2 != nullptr)
-      st->push(c2);
+      st.push(c2);
 
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
 
     if (f2 != nullptr)
-      st->push(f2);
+      st.push(f2);
   }
 
   void finaliser(Object* region, ObjectStack& sub_regions)

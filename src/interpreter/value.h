@@ -145,7 +145,7 @@ namespace verona::interpreter
       return &inner;
     }
 
-    void trace(rt::ObjectStack* stack) const;
+    void trace(rt::ObjectStack& stack) const;
 
     static constexpr Tag UNINIT = Tag::UNINIT;
     static constexpr Tag ISO = Tag::ISO;
@@ -190,7 +190,7 @@ namespace verona::interpreter
      */
     Value exchange(rt::Alloc* alloc, rt::Object* region, Value&& value);
 
-    void trace(rt::ObjectStack* stack) const;
+    void trace(rt::ObjectStack& stack) const;
 
     /**
      * If this Value contains an ISO, then add it to the stack

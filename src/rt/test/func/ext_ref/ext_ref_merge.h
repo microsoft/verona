@@ -11,10 +11,10 @@ namespace ext_ref_merge
   struct C : public V<C<region_type>, region_type>
   {
     C* f1 = nullptr;
-    void trace(ObjectStack* st) const
+    void trace(ObjectStack& st) const
     {
       if (f1 != nullptr)
-        st->push(f1);
+        st.push(f1);
     }
   };
 

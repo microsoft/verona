@@ -43,7 +43,7 @@ namespace verona::interpreter
 
     VMObject* region();
 
-    static void trace_fn(const rt::Object* base_object, rt::ObjectStack* stack);
+    static void trace_fn(const rt::Object* base_object, rt::ObjectStack& stack);
     static void finaliser_fn(
       rt::Object* base_object,
       rt::Object* region,
@@ -88,10 +88,10 @@ namespace verona::interpreter
       rt::VCown<VMCown>::schedule();
     }
 
-    void trace(rt::ObjectStack* stack)
+    void trace(rt::ObjectStack& stack)
     {
       if (contents != nullptr)
-        stack->push(contents);
+        stack.push(contents);
     }
   };
 }

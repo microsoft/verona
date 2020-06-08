@@ -7,10 +7,10 @@ struct CCown : public VCown<CCown>
   CCown* child;
   CCown(CCown* child_) : child(child_) {}
 
-  void trace(ObjectStack* fields) const
+  void trace(ObjectStack& fields) const
   {
     if (child != nullptr)
-      fields->push(child);
+      fields.push(child);
   }
 };
 

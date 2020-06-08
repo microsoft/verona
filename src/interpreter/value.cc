@@ -297,18 +297,18 @@ namespace verona::interpreter
     return result;
   }
 
-  void FieldValue::trace(rt::ObjectStack* stack) const
+  void FieldValue::trace(rt::ObjectStack& stack) const
   {
     switch (tag)
     {
       case Value::ISO:
       case Value::MUT:
       case Value::IMM:
-        stack->push(inner.object);
+        stack.push(inner.object);
         break;
 
       case Value::COWN:
-        stack->push(inner.cown);
+        stack.push(inner.cown);
         break;
 
       case Value::UNINIT:

@@ -57,7 +57,7 @@ namespace verona::rt
 
     using RegionClass = typename RegionType_to_class<region_type>::T;
 
-    static void gc_trace(const Object* o, ObjectStack* st)
+    static void gc_trace(const Object* o, ObjectStack& st)
     {
       ((T*)o)->trace(st);
     }
@@ -91,7 +91,7 @@ namespace verona::rt
       return &desc;
     }
 
-    void trace(ObjectStack*) {}
+    void trace(ObjectStack&) {}
 
     static EpochMark get_alloc_epoch()
     {

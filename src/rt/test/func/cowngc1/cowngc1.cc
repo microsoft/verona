@@ -86,10 +86,10 @@ struct CCown : public VCown<CCown>
   CCown* child;
   CCown(CCown* child_) : child(child_) {}
 
-  void trace(ObjectStack* fields) const
+  void trace(ObjectStack& fields) const
   {
     if (child != nullptr)
-      fields->push(child);
+      fields.push(child);
   }
 };
 
@@ -99,12 +99,12 @@ struct O : public V<O<region_type>, region_type>
   O<RegionType::Trace>* f1 = nullptr;
   CCown* cown = nullptr;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
     if (cown != nullptr)
-      st->push(cown);
+      st.push(cown);
   }
 };
 using OTrace = O<RegionType::Trace>;
@@ -216,28 +216,28 @@ struct RCown : public VCown<RCown>
     Systematic::cout() << "  next " << next << std::endl;
   }
 
-  void trace(ObjectStack* fields) const
+  void trace(ObjectStack& fields) const
   {
     for (uint64_t i = 0; i < others_count; i++)
     {
       if (array[i] != nullptr)
-        fields->push(array[i]);
+        fields.push(array[i]);
     }
 
     if (otrace != nullptr)
-      fields->push(otrace);
+      fields.push(otrace);
 
     if (oarena != nullptr)
-      fields->push(oarena);
+      fields.push(oarena);
 
     if (imm1 != nullptr)
-      fields->push(imm1);
+      fields.push(imm1);
 
     if (imm2 != nullptr)
-      fields->push(imm2);
+      fields.push(imm2);
 
     assert(next != nullptr);
-    fields->push(next);
+    fields.push(next);
   }
 };
 

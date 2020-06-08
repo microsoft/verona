@@ -33,7 +33,7 @@ namespace verona::rt
       // The object externally referred to
       Object* o;
 
-      static void gc_trace(const Object*, ObjectStack*) {}
+      static void gc_trace(const Object*, ObjectStack&) {}
 
       static const Descriptor* desc()
       {

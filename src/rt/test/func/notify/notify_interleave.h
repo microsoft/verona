@@ -35,10 +35,10 @@ namespace notify_interleave
 
     B(A* a_) : a{a_} {}
 
-    void trace(ObjectStack* st) const
+    void trace(ObjectStack& st) const
     {
       assert(a);
-      st->push(a);
+      st.push(a);
     }
   };
 

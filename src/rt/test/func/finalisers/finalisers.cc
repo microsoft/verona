@@ -15,13 +15,13 @@ struct C1 : public V<C1<region_type>, region_type>
   C1<region_type>* f1 = nullptr;
   C1<region_type>* f2 = nullptr;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
 
     if (f2 != nullptr)
-      st->push(f2);
+      st.push(f2);
   }
 };
 
@@ -41,13 +41,13 @@ public:
 
   C2() : state(LIVE) {}
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     // Tracing should never happen after destruction
     check(state == LIVE || state == FINALISED);
 
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
   }
 
   void finaliser(Object* region, ObjectStack& sub_regions)
