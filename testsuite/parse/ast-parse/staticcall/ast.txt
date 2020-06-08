@@ -14,6 +14,7 @@
         + constraints
         + typebody
           + function
+            + qualifier
             + funcname
               - id (bar)
             + sig
@@ -24,6 +25,7 @@
             + block
               + seq
       + function
+        + qualifier
         + funcname
           - id (foo)
         + sig
@@ -34,6 +36,7 @@
         + block
           + seq
   + function
+    + qualifier
     + funcname
       - id (f)
     + sig

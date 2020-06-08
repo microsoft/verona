@@ -38,6 +38,7 @@
             + type_ref
               - id (U64)
       + field
+        + qualifier
         - id (a)
         + oftype
           + type
@@ -46,6 +47,7 @@
                 - id (A)
         + initexpr
       + function
+        + qualifier
         + funcname
           - id (f)
         + sig

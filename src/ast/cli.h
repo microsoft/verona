@@ -9,8 +9,7 @@ namespace cli
   struct Opt
   {
     bool ast = false;
-    bool llvm = false;
-    bool exec = false;
+    bool force = false;
     std::string grammar;
     std::string filename;
   };

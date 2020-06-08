@@ -1,5 +1,6 @@
 + module
   + function
+    + qualifier
     + funcname
       - id (foo)
     + sig
@@ -76,6 +77,7 @@
           - localref (x)
         - localref (x)
   + function
+    + qualifier
     + funcname
       - id (apply)
     + sig

@@ -7,6 +7,7 @@ add_library(verona-ast-lib
   lit.cc
   parser.cc
   prec.cc
+  ref.cc
   sym.cc
   )
 

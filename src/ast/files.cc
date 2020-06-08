@@ -10,15 +10,10 @@ namespace files
 
     if (!f)
     {
-      if (optional)
-      {
-        return {};
-      }
-      else
-      {
-        std::cerr << "Could not open file " << file << std::endl;
-        exit(-1);
-      }
+      if (!optional)
+        std::cout << "Could not open file " << file << std::endl;
+
+      return {};
     }
 
     auto size = f.tellg();
@@ -29,8 +24,8 @@ namespace files
 
     if (!optional && !f)
     {
-      std::cerr << "Could not read file " << file << std::endl;
-      exit(-1);
+      std::cout << "Could not read file " << file << std::endl;
+      return {};
     }
 
     return data;

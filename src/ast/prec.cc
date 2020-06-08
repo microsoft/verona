@@ -70,29 +70,29 @@ namespace
       // function call
       ast::remove(next);
       ast::rename(next, "function");
-      ast::push_back(call, next);
+      ast::push_back(ast, next);
       next = ast::get_next_in_expr(ast);
-      add_typeargs(call, next);
+      add_typeargs(ast, next);
     }
     else
     {
       // create sugar
-      auto create = ast::token(call, "function", "create");
-      ast::push_back(call, create);
+      auto create = ast::token(ast, "function", "create");
+      ast::push_back(ast, create);
       auto typeargs = ast::node(ast, "typeargs");
-      ast::push_back(call, typeargs);
+      ast::push_back(ast, typeargs);
     }
 
     if (next && (next->tag == "tuple"_))
     {
       ast::remove(next);
       ast::rename(next, "args");
-      ast::push_back(call, next);
+      ast::push_back(ast, next);
     }
     else
     {
-      auto args = ast::node(call, "args");
-      ast::push_back(call, args);
+      auto args = ast::node(ast, "args");
+      ast::push_back(ast, args);
     }
   }
 
