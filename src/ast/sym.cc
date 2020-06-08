@@ -36,50 +36,6 @@ namespace
     scope->sym.emplace(id, ast);
   }
 
-  void resolve_ref(ast::Ast& ast, err::Errors& err)
-  {
-    assert(ast->tag == "ref"_);
-    auto def = ast::get_def(ast, ast->token);
-
-    if (!def)
-    {
-      ast::rename(ast, "op");
-    }
-    else
-    {
-      switch (def->tag)
-      {
-        case "typedef"_:
-        case "typeparam"_:
-        {
-          ast::rename(ast, "typeref");
-          break;
-        }
-
-        case "field"_:
-        case "function"_:
-        {
-          // could be a member ref if implicit self access is allowed
-          ast::rename(ast, "op");
-          break;
-        }
-
-        case "namedparam"_:
-        case "local"_:
-        {
-          // TODO: use before def
-          ast::rename(ast, "localref");
-          break;
-        }
-
-        default:
-        {
-          assert(0);
-        }
-      }
-    }
-  }
-
   void only_atom(ast::Ast& ast, err::Errors& err)
   {
     auto expr = ast::get_expr(ast);
@@ -128,7 +84,7 @@ namespace
 
 namespace sym
 {
-  void scope(ast::Ast& ast, err::Errors& err)
+  void build(ast::Ast& ast, err::Errors& err)
   {
     switch (ast->tag)
     {
@@ -141,9 +97,6 @@ namespace sym
 
       case "new"_:
       {
-        if (ast->nodes.size() == 0)
-          err << ast << "new requires type name or body" << err::end;
-
         add_scope(ast);
         break;
       }
@@ -164,20 +117,20 @@ namespace sym
 
       case "field"_:
       {
-        add_symbol(ast->nodes.front()->token, ast, err);
+        add_symbol(ast->nodes[1]->token, ast, err);
         break;
       }
 
       case "function"_:
       {
         // A missing function name is sugar for "apply"
-        if (ast->nodes.front()->nodes.size() == 0)
+        if (ast->nodes[1]->nodes.size() == 0)
         {
-          ast->nodes.front()->nodes.push_back(
+          ast->nodes[1]->nodes.push_back(
             ast::token(ast->nodes.front(), "id", "apply"));
         }
 
-        auto node = ast->nodes.front()->nodes.front();
+        auto node = ast->nodes[1]->nodes.front();
         add_symbol(node->token, ast, err);
         add_scope(ast);
         break;
@@ -192,14 +145,14 @@ namespace sym
       case "term"_:
       {
         ast::rename(ast, "expr");
-        scope(ast, err);
+        build(ast, err);
         return;
       }
 
       case "blockexpr"_:
       {
         ast::elide(ast);
-        scope(ast, err);
+        build(ast, err);
         return;
       }
 
@@ -223,7 +176,7 @@ namespace sym
         if (ast->tag == "id"_)
           ast::rename(ast, "ref");
 
-        scope(ast, err);
+        build(ast, err);
         return;
       }
 
@@ -330,25 +283,11 @@ namespace sym
           ast::elide(ast);
         }
 
-        scope(ast, err);
+        build(ast, err);
         return;
       }
     }
 
-    ast::for_each(ast, err, scope);
-  }
-
-  void references(ast::Ast& ast, err::Errors& err)
-  {
-    switch (ast->tag)
-    {
-      case "ref"_:
-      {
-        resolve_ref(ast, err);
-        break;
-      }
-    }
-
-    ast::for_each(ast, err, references);
+    ast::for_each(ast, err, build);
   }
 }

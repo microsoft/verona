@@ -1,5 +1,6 @@
 + module
   + function
+    + qualifier
     + funcname
       - id (f)
     + sig

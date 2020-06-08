@@ -10,6 +10,8 @@ namespace parser
     const std::string& path, size_t ln, size_t col, const std::string& msg);
   peg::parser create(const std::string& file);
   ast::Ast parse(peg::parser& parser, const std::string& file);
+  ast::Ast
+  parse(peg::parser& parser, const std::string& path, const std::string& ext);
 
   template<typename T>
   peg::parser create(const T& grammar, const std::string& file)
@@ -17,11 +19,11 @@ namespace parser
     peg::parser parser;
 
     parser.log = [&](size_t ln, size_t col, const std::string& msg) {
-      std::cerr << format_error_message(file, ln, col, msg) << std::endl;
+      std::cout << format_error_message(file, ln, col, msg) << std::endl;
     };
 
     if (!parser.load_grammar(grammar.data(), grammar.size()))
-      exit(-1);
+      return {};
 
     parser.enable_packrat_parsing();
     parser.enable_ast<ast::AstImpl>();
@@ -34,11 +36,11 @@ namespace parser
     ast::Ast ast;
 
     parser.log = [&](size_t ln, size_t col, const std::string& msg) {
-      std::cerr << format_error_message(file, ln, col, msg) << std::endl;
+      std::cout << format_error_message(file, ln, col, msg) << std::endl;
     };
 
     if (!parser.parse_n(src.data(), src.size(), ast, file.c_str()))
-      return nullptr;
+      return {};
 
     return ast;
   }

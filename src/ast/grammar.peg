@@ -16,9 +16,12 @@ typeparam <- id
 constraints <- constraint*
 constraint <- 'where' id oftype inittype
 
-field <- id oftype initexpr ';'
+field <- qualifier id oftype initexpr ';'
+qualifier <- (static / private)*
+static <- 'static'
+private <- 'private'
 
-function <- funcname sig (block / ';')
+function <- qualifier funcname sig (block / ';')
 funcname <- (id / sym)?
 sig <- typeparams params oftype constraints
 params <- '(' list(param)? ')'
@@ -61,7 +64,7 @@ guard <- ('if' '(' seq ')')?
 
 atom <-
   break / continue / return / yield / let / new / lambda /
-  hex / binary / float / int / interp_string / string /
+  hex / binary / float / int / interp_string / string / true / false /
   id / sym / tuple / typeargs
 
 break <- 'break'
@@ -74,7 +77,7 @@ lambda <- sig block
 tuple <- '(' list(expr)? ')'
 
 keyword <-
-  'type' / 'class' / 'where' /
+  'type' / 'class' / 'where' / 'static' / 'private' /
   'if' / 'else' / 'while' / 'for' / 'in' / 'match' / 'when' /
   'break' / 'continue' / 'return' / 'yield' /
   'let' / 'new'
@@ -87,6 +90,8 @@ int <- <digits>
 digits <- [0-9][_0-9]*
 hex <- <'0x' [_0-9a-fA-F]*>
 binary <- <'0b' [_01]*>
+true <- 'true'
+false <- 'false'
 
 string <- ["] <('\\"' / !'"' .)*> '"'
 interp_string <- ["][{] (unquote / quote)* '}"'

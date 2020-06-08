@@ -1,5 +1,6 @@
 + module
   + function
+    + qualifier
     + funcname
       - id (f)
     + sig
@@ -68,6 +69,7 @@
               + type_one/2
                 + typebody
                   + field
+                    + qualifier
                     - id (x)
                     + oftype
                       + type
@@ -87,6 +89,7 @@
                   - id (Foo)
             + typebody
               + field
+                + qualifier
                 - id (x)
                 + oftype
                   + type
