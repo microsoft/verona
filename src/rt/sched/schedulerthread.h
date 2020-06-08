@@ -19,6 +19,7 @@ namespace verona::rt
   public:
     /// Friendly thread identifier for logging information.
     size_t systematic_id = 0;
+    size_t systematic_speed_mask = 1;
 
   private:
     using Scheduler = ThreadPool<SchedulerThread<T>>;
@@ -513,6 +514,8 @@ namespace verona::rt
       // registered with a scheduler thread.
       if (cown->owning_thread() == nullptr)
       {
+        Systematic::cout() << "Bind cown " << this << " to scheduler thread."
+                           << std::endl;
         cown->set_owning_thread(this);
         cown->next = list;
         list = cown;
@@ -576,7 +579,6 @@ namespace verona::rt
         // systematic testing.
         yield();
         ThreadState::State snext = Scheduler::get().next_state(sprev);
-        yield();
 
         // If we have a lost wake-up, then all threads can get stuck
         // trying to perform a LD.
@@ -589,6 +591,7 @@ namespace verona::rt
 
         if (snext == sprev)
           return;
+        yield();
 
         if (first)
         {
@@ -754,6 +757,7 @@ namespace verona::rt
             }
           }
           Systematic::cout() << "Stub collect: " << c << std::endl;
+          // TODO: Investigate systematic testing coverage here.
           auto epoch = c->epoch_when_popped;
           auto outdated =
             epoch == T::NO_EPOCH_SET || GlobalEpoch::is_outdated(epoch);

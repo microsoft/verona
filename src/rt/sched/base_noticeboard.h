@@ -45,13 +45,13 @@ namespace verona::rt
       return *(T*)content;
     }
 
-#ifdef USE_SYSTEMATIC_TESTING
-    std::queue<CT> update_buffer;
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
+    std::deque<CT> update_buffer;
 
     template<typename T>
     void update_buffer_push(T v)
     {
-      update_buffer.push((CT)v);
+      update_buffer.push_back((CT)v);
     }
 
     void flush_n(Alloc* alloc, size_t n)
@@ -66,7 +66,7 @@ namespace verona::rt
         {
           assert(!update_buffer.empty());
           prev = update_buffer.front();
-          update_buffer.pop();
+          update_buffer.pop_front();
         }
         put(prev);
       }
@@ -79,7 +79,7 @@ namespace verona::rt
           e.dec_in_epoch(prev);
           assert(!update_buffer.empty());
           prev = (Object*)update_buffer.front();
-          update_buffer.pop();
+          update_buffer.pop_front();
         }
         assert(prev);
         put(prev);
@@ -93,6 +93,8 @@ namespace verona::rt
       {
         return;
       }
+      Systematic::cout() << "Flushing values on noticeboard: " << this
+                         << std::endl;
       flush_n(alloc, update_buffer.size());
     }
 

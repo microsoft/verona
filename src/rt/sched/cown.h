@@ -18,9 +18,10 @@ namespace verona::rt
   using Scheduler = ThreadPool<CownThread>;
 
 #ifdef USE_SYSTEMATIC_TESTING
-  inline bool coin()
+  /// 1/2^range_bits likelyhood of coin saying true
+  inline bool coin(size_t range_bits)
   {
-    return Scheduler::coin();
+    return Scheduler::coin(range_bits);
   }
 #endif
 
@@ -122,7 +123,7 @@ namespace verona::rt
     }
 
   public:
-#ifdef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
     std::vector<BaseNoticeboard*> noticeboards;
 
     void flush_all(Alloc* alloc)
@@ -182,7 +183,7 @@ namespace verona::rt
       TryFastSend try_fast = NoTryFast>
     bool send(MultiMessage* m)
     {
-#ifdef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       flush_all(ThreadAlloc::get());
 
       Scheduler::yield_my_turn();
@@ -312,6 +313,9 @@ namespace verona::rt
         if (!t)
         {
           // Deallocate an unowned cown
+          Systematic::cout()
+            << "Not allocated on a Verona thread, so deallocating: " << this
+            << std::endl;
           assert(epoch_when_popped == NO_EPOCH_SET);
           dealloc(alloc);
           return;
@@ -601,6 +605,7 @@ namespace verona::rt
       // counted as inflight
       if (Scheduler::should_scan() && e == Scheduler::local()->send_epoch)
       {
+        // TODO: Investigate systematic testing coverage here.
         if (cown->get_epoch_mark() != Scheduler::local()->send_epoch)
         {
           cown->scan(alloc, Scheduler::local()->send_epoch);
@@ -836,6 +841,7 @@ namespace verona::rt
           // if (Scheduler::in_prescan())
           //   return true;
           //
+          // TODO: Investigate systematic testing coverage here.
           if (n != 0)
             return true;
 
@@ -931,7 +937,7 @@ namespace verona::rt
 
       mark_collected();
 
-#ifdef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       flush_all(alloc);
 #endif
       Systematic::cout() << "Collecting: " << this << std::endl;

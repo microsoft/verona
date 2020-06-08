@@ -235,6 +235,8 @@ namespace verona::rt
             case Object::RC:
             case Object::COWN:
             {
+              Systematic::cout()
+                << "External reference during freeze: " << r << std::endl;
               // External reference
               r->incref();
               break;

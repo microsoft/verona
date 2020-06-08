@@ -18,7 +18,7 @@ namespace noticeboard_weak
 
     Writer(Object* c_0, Object* c_1) : box_0{c_0}, box_1{c_1}
     {
-#ifdef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       register_noticeboard(&box_0);
       register_noticeboard(&box_1);
 #endif
