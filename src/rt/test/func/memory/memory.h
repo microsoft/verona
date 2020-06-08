@@ -15,16 +15,14 @@ struct C1 : public V<C1<region_type>, region_type>
   C1<region_type>* f1 = nullptr;
   C1<region_type>* f2 = nullptr;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
 
     if (f2 != nullptr)
-      st->push(f2);
+      st.push(f2);
   }
-
-  // Omit trace_possibly_iso as it would make this object non-trivial.
 };
 
 template<RegionType region_type>
@@ -33,18 +31,19 @@ struct F1 : public V<F1<region_type>, region_type>
   F1<region_type>* f1 = nullptr;
   F1<region_type>* f2 = nullptr;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
 
     if (f2 != nullptr)
-      st->push(f2);
+      st.push(f2);
   }
 
-  void trace_possibly_iso(ObjectStack* st)
+  void finaliser(Object* region, ObjectStack& sub_regions)
   {
-    trace(st);
+    Object::add_sub_region(f1, region, sub_regions);
+    Object::add_sub_region(f2, region, sub_regions);
   }
 
   F1()
@@ -92,22 +91,20 @@ struct C3 : public V<C3<region_type>, region_type>
   F3<region_type>* f1 = nullptr;
   F3<region_type>* f2 = nullptr;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (c1 != nullptr)
-      st->push(c1);
+      st.push(c1);
 
     if (c2 != nullptr)
-      st->push(c2);
+      st.push(c2);
 
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
 
     if (f2 != nullptr)
-      st->push(f2);
+      st.push(f2);
   }
-
-  // Omit trace_possibly_iso as it would make this object non-trivial.
 };
 
 template<RegionType region_type>
@@ -118,24 +115,27 @@ struct F3 : public V<F3<region_type>, region_type>
   F3<region_type>* f1 = nullptr;
   F3<region_type>* f2 = nullptr;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (c1 != nullptr)
-      st->push(c1);
+      st.push(c1);
 
     if (c2 != nullptr)
-      st->push(c2);
+      st.push(c2);
 
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
 
     if (f2 != nullptr)
-      st->push(f2);
+      st.push(f2);
   }
 
-  void trace_possibly_iso(ObjectStack* st)
+  void finaliser(Object* region, ObjectStack& sub_regions)
   {
-    trace(st);
+    Object::add_sub_region(c1, region, sub_regions);
+    Object::add_sub_region(c2, region, sub_regions);
+    Object::add_sub_region(f1, region, sub_regions);
+    Object::add_sub_region(f2, region, sub_regions);
   }
 
   F3()

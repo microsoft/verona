@@ -26,12 +26,12 @@ struct MyCown : VCown<MyCown>
 
   size_t up_count = 0;
 
-  void trace(ObjectStack* os) const
+  void trace(ObjectStack& os) const
   {
     if (left != nullptr)
-      os->push(left);
+      os.push(left);
     if (right != nullptr)
-      os->push(right);
+      os.push(right);
 
     // Do not push parent, as this is a weak reference.
   }

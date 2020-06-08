@@ -121,7 +121,10 @@ namespace verona::rt
 
         // Run all finalisers for this SCC before deallocating.
         fl.forall<run_finaliser>();
-        v->finalise();
+
+        // We don't need the actual subregions here, as they have been frozen.
+        ObjectStack dummy(alloc);
+        v->finalise(nullptr, dummy);
 
         while (!fl.empty())
         {
@@ -146,7 +149,9 @@ namespace verona::rt
 
     static inline void run_finaliser(Object* o)
     {
-      o->finalise();
+      // We don't need the actual subregions here, as they have been frozen.
+      ObjectStack dummy(ThreadAlloc::get_noncachable());
+      o->finalise(nullptr, dummy);
     }
 
     static inline void scc_classify(

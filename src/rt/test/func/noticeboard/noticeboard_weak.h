@@ -24,7 +24,7 @@ namespace noticeboard_weak
 #endif
     }
 
-    void trace(ObjectStack* fields) const
+    void trace(ObjectStack& fields) const
     {
       box_0.trace(fields);
       box_1.trace(fields);

@@ -31,7 +31,7 @@ namespace verona::rt
     struct alignas(descriptor_alignment) Descriptor
     {
       using Function = void (*)(Action*);
-      using TraceFunction = void (*)(const Action*, ObjectStack*);
+      using TraceFunction = void (*)(const Action*, ObjectStack&);
 
       size_t size;
 
@@ -69,7 +69,7 @@ namespace verona::rt
 
     inline void trace(ObjectStack& st)
     {
-      get_descriptor()->trace(this, &st);
+      get_descriptor()->trace(this, st);
     }
 
     inline const Descriptor* get_descriptor()

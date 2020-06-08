@@ -17,13 +17,25 @@ struct C1 : public V<C1>
   C1* f1 = nullptr;
   C1* f2 = nullptr;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
 
     if (f2 != nullptr)
-      st->push(f2);
+      st.push(f2);
+  }
+
+  void finaliser(Object* region, ObjectStack& st)
+  {
+    if (f1 != nullptr)
+    {
+      Object::add_sub_region(f1, region, st);
+    }
+    if (f2 != nullptr)
+    {
+      Object::add_sub_region(f2, region, st);
+    }
   }
 };
 
@@ -58,13 +70,13 @@ public:
   }
 
   // Required by the library;
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (head != nullptr)
-      st->push(head);
+      st.push(head);
 
     if (tail != nullptr)
-      st->push(tail);
+      st.push(tail);
   }
 };
 
@@ -249,6 +261,36 @@ void test4()
   snmalloc::current_alloc_pool()->debug_check_empty();
 }
 
+void test5()
+{
+  // Freeze with unreachable subregion
+  // Bug reported in #83
+  //
+  // There are two regions, [1, 2], [3].
+  //
+  // Freeze 1,
+  // Ptr from 2 to subregion 3
+  auto* alloc = ThreadAlloc::get();
+
+  C1* o1 = new (alloc) C1;
+  std::cout << "o1: " << o1 << std::endl;
+  C1* o2 = new (alloc, o1) C1;
+  std::cout << "o2: " << o2 << std::endl;
+  C1* o3 = new (alloc) C1;
+  std::cout << "o3: " << o3 << std::endl;
+
+  o2->f1 = o3;
+
+  Freeze::apply(alloc, o1);
+
+  check(o1->debug_test_rc(1));
+
+  // Free immutable graph.
+  Immutable::release(alloc, o1);
+
+  snmalloc::current_alloc_pool()->debug_check_empty();
+}
+
 void freeze_weird_ring()
 {
   auto* alloc = ThreadAlloc::get();
@@ -278,11 +320,11 @@ struct Symbolic : public V<Symbolic>
   size_t id;
   std::vector<Symbolic*> fields;
 
-  void trace(ObjectStack* s) const
+  void trace(ObjectStack& s) const
   {
     for (auto o : fields)
     {
-      s->push(o);
+      s.push(o);
     }
   }
 };
@@ -455,6 +497,7 @@ int main(int, char**)
   test2();
   test3();
   test4();
+  test5();
   test_two_rings_1();
   test_two_rings_2();
   freeze_weird_ring();

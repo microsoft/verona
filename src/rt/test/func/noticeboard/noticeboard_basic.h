@@ -31,12 +31,12 @@ namespace noticeboard_basic
 
     C(int x_) : x(x_) {}
 
-    void trace(ObjectStack* st) const
+    void trace(ObjectStack& st) const
     {
       if (next != nullptr)
-        st->push(next);
+        st.push(next);
       if (alive != nullptr)
-        st->push(alive);
+        st.push(alive);
     }
   };
 
@@ -54,7 +54,7 @@ namespace noticeboard_basic
 #endif
     }
 
-    void trace(ObjectStack* fields) const
+    void trace(ObjectStack& fields) const
     {
       box.trace(fields);
     }
@@ -82,14 +82,14 @@ namespace noticeboard_basic
 
     Peeker(DB* db_, Noticeboard<Object*>* box_) : db(db_), box(box_) {}
 
-    void trace(ObjectStack* fields) const
+    void trace(ObjectStack& fields) const
     {
       if (alive != nullptr)
       {
-        fields->push(alive);
+        fields.push(alive);
       }
       assert(db);
-      fields->push(db);
+      fields.push(db);
     }
   };
 

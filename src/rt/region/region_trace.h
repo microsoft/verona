@@ -232,7 +232,7 @@ namespace verona::rt
       size_t marked = 0;
 
       reg->mark(alloc, o, f, marked);
-      reg->sweep(alloc, o, f, collect, marked);
+      reg->sweep(alloc, o, collect, marked);
 
       // `collect` contains all the iso objects to unreachable subregions.
       // Since they are unreachable, we can just release them.
@@ -251,9 +251,9 @@ namespace verona::rt
         // Unfortunately, we can't use Region::release_internal because of a
         // circular dependency between header files.
         if (RegionTrace::is_trace_region(r))
-          ((RegionTrace*)r)->release_internal(alloc, o, f, collect);
+          ((RegionTrace*)r)->release_internal(alloc, o, collect);
         else if (RegionArena::is_arena_region(r))
-          ((RegionArena*)r)->release_internal(alloc, o, f, collect);
+          ((RegionArena*)r)->release_internal(alloc, o, collect);
         else
           abort();
       }
@@ -403,12 +403,7 @@ namespace verona::rt
      * and the Iso object is collected as well.
      **/
     template<SweepAll sweep_all = SweepAll::No>
-    void sweep(
-      Alloc* alloc,
-      Object* o,
-      ObjectStack& f,
-      ObjectStack& collect,
-      size_t marked)
+    void sweep(Alloc* alloc, Object* o, ObjectStack& collect, size_t marked)
     {
       current_memory_used = 0;
 
@@ -417,8 +412,8 @@ namespace verona::rt
       // We sweep the non-trivial ring first, as finalisers in there could refer
       // to other objects. The ISO object o could be deallocated by either of
       // these two lines.
-      sweep_ring<NonTrivialRing, sweep_all>(alloc, o, primary_ring, f, collect);
-      sweep_ring<TrivialRing, sweep_all>(alloc, o, primary_ring, f, collect);
+      sweep_ring<NonTrivialRing, sweep_all>(alloc, o, primary_ring, collect);
+      sweep_ring<TrivialRing, sweep_all>(alloc, o, primary_ring, collect);
 
       hash_set->sweep_set(alloc, marked);
       previous_memory_used = size_to_sizeclass(current_memory_used);
@@ -429,13 +424,21 @@ namespace verona::rt
      * deallocated immediately. Otherwise it is added to the `gc` linked list.
      */
     template<RingKind ring>
-    void sweep_object(Alloc* alloc, Object* p, Object** gc)
+    void sweep_object(
+      Alloc* alloc,
+      Object* p,
+      Object* region,
+      Object** gc,
+      ObjectStack& sub_regions)
     {
       assert(
         p->get_class() == Object::ISO || p->get_class() == Object::UNMARKED);
       if constexpr (ring == TrivialRing)
       {
         UNUSED(gc);
+        UNUSED(sub_regions);
+        UNUSED(region);
+
         assert(p->is_trivial());
 
         // p is about to be collected; remove the entry for it in
@@ -450,7 +453,7 @@ namespace verona::rt
         UNUSED(alloc);
 
         assert(!p->is_trivial());
-        p->finalise();
+        p->finalise(region, sub_regions);
 
         // We can't deallocate the object yet, as other objects' finalisers may
         // look at it. We build up a linked list of all objects to delete, we'll
@@ -462,11 +465,7 @@ namespace verona::rt
 
     template<RingKind ring, SweepAll sweep_all>
     void sweep_ring(
-      Alloc* alloc,
-      Object* o,
-      RingKind primary_ring,
-      ObjectStack& f,
-      ObjectStack& collect)
+      Alloc* alloc, Object* o, RingKind primary_ring, ObjectStack& collect)
     {
       Object* prev = this;
       Object* p = ring == primary_ring ? get_next() : next_not_root;
@@ -488,7 +487,7 @@ namespace verona::rt
             // entire region anyway.
             if constexpr (sweep_all == SweepAll::Yes)
             {
-              sweep_object<ring>(alloc, p, &gc);
+              sweep_object<ring>(alloc, p, o, &gc, collect);
             }
             else
             {
@@ -512,7 +511,7 @@ namespace verona::rt
           case Object::UNMARKED:
           {
             Object* q = p->get_next();
-            sweep_object<ring>(alloc, p, &gc);
+            sweep_object<ring>(alloc, p, o, &gc, collect);
 
             if (ring != primary_ring && prev == this)
               next_not_root = q;
@@ -531,19 +530,9 @@ namespace verona::rt
         }
       }
 
-      // We need to collect all sub-regions and then deallocate the objects.
-      // Unfortunately we can't do this as a single pass, as find_iso_fields
-      // looks at the referenced object's header to see if it points to the same
-      // region or to a different one.
+      // Deallocate the objects, if not done in first pass.
       if constexpr (ring == NonTrivialRing)
       {
-        p = gc;
-        while (p != nullptr)
-        {
-          p->find_iso_fields(o, f, collect);
-          p = p->get_next();
-        }
-
         p = gc;
         while (p != nullptr)
         {
@@ -556,7 +545,6 @@ namespace verona::rt
       else
       {
         UNUSED(o);
-        UNUSED(f);
         UNUSED(collect);
       }
     }
@@ -567,15 +555,14 @@ namespace verona::rt
      *
      * Note: this does not release subregions. Use Region::release instead.
      **/
-    void release_internal(
-      Alloc* alloc, Object* o, ObjectStack& f, ObjectStack& collect)
+    void release_internal(Alloc* alloc, Object* o, ObjectStack& collect)
     {
       assert(o->debug_is_iso());
 
       Systematic::cout() << "Region release: trace region: " << o << std::endl;
 
       // Sweep everything, including the entrypoint.
-      sweep<SweepAll::Yes>(alloc, o, f, collect, 0);
+      sweep<SweepAll::Yes>(alloc, o, collect, 0);
 
       dealloc(alloc);
     }

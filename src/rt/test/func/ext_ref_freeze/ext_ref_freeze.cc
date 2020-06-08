@@ -16,12 +16,12 @@ struct C : public V<C>
 {
   C* f1 = nullptr;
   B* b = nullptr;
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
     if (b != nullptr)
-      st->push(b);
+      st.push(b);
   }
 };
 
@@ -49,10 +49,10 @@ struct A : public VCown<A>
 
   int advance_epoch_count = 100;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (r != nullptr)
-      st->push(r);
+      st.push(r);
   }
 };
 

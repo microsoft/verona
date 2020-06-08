@@ -297,20 +297,45 @@ namespace verona::interpreter
     return result;
   }
 
-  void FieldValue::trace(rt::ObjectStack* stack) const
+  void FieldValue::trace(rt::ObjectStack& stack) const
   {
     switch (tag)
     {
       case Value::ISO:
       case Value::MUT:
       case Value::IMM:
-        stack->push(inner.object);
+        stack.push(inner.object);
         break;
 
       case Value::COWN:
-        stack->push(inner.cown);
+        stack.push(inner.cown);
         break;
 
+      case Value::UNINIT:
+      case Value::U64:
+      case Value::STRING:
+      case Value::DESCRIPTOR:
+        break;
+
+      case Value::COWN_UNOWNED:
+        // Cannot be part of the heap.
+        abort();
+
+        EXHAUSTIVE_SWITCH
+    }
+  }
+
+  void FieldValue::add_isos(rt::ObjectStack& stack) const
+  {
+    switch (tag)
+    {
+      case Value::ISO:
+        stack.push(inner.object);
+        break;
+
+      case Value::COWN:
+      case Value::MUT:
+      case Value::IMM:
       case Value::UNINIT:
       case Value::U64:
       case Value::STRING:

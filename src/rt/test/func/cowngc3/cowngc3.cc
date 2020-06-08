@@ -41,7 +41,7 @@ struct MyCown : public VCown<MyCown>
 {
   MyCown() {}
 
-  void trace(ObjectStack*) {}
+  void trace(ObjectStack&) {}
 };
 
 /**
@@ -62,7 +62,7 @@ struct Ping : public VAction<Ping>
     Systematic::cout() << "Ping on " << c << std::endl;
   }
 
-  void trace(ObjectStack*) const {}
+  void trace(ObjectStack&) const {}
 };
 
 void noise()
@@ -131,10 +131,10 @@ struct M2 : public VAction<M2>
     }
   }
 
-  void trace(ObjectStack* ob) const
+  void trace(ObjectStack& ob) const
   {
     if (keep_alive != nullptr)
-      ob->push(keep_alive);
+      ob.push(keep_alive);
   }
 };
 

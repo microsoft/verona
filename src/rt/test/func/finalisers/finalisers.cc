@@ -15,16 +15,14 @@ struct C1 : public V<C1<region_type>, region_type>
   C1<region_type>* f1 = nullptr;
   C1<region_type>* f2 = nullptr;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
 
     if (f2 != nullptr)
-      st->push(f2);
+      st.push(f2);
   }
-
-  // Omit trace_possibly_iso as it would make this object non-trivial.
 };
 
 template<RegionType region_type>
@@ -43,24 +41,20 @@ public:
 
   C2() : state(LIVE) {}
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     // Tracing should never happen after destruction
     check(state == LIVE || state == FINALISED);
 
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
   }
 
-  void trace_possibly_iso(ObjectStack* st)
-  {
-    trace(st);
-  }
-
-  void finaliser()
+  void finaliser(Object* region, ObjectStack& sub_regions)
   {
     check(state == LIVE);
     state = FINALISED;
+    Object::add_sub_region(f1, region, sub_regions);
   }
 
   ~C2()
@@ -79,7 +73,7 @@ public:
     live_count++;
   }
 
-  void finaliser()
+  void finaliser(Object*, ObjectStack&)
   {
     live_count--;
     logger::cout() << "Finalised" << std::endl;
@@ -103,7 +97,7 @@ public:
     live_count++;
   }
 
-  void finaliser()
+  void finaliser(Object*, ObjectStack&)
   {
     live_count--;
     logger::cout() << "Finalised: " << id << std::endl;

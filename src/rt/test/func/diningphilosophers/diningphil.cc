@@ -40,9 +40,9 @@ struct KeepAlive : public VAction<KeepAlive>
     Cown::schedule<Ping>(c);
   }
 
-  void trace(ObjectStack* fields) const
+  void trace(ObjectStack& fields) const
   {
-    fields->push(c);
+    fields.push(c);
   }
 
   void f()
@@ -61,11 +61,11 @@ struct Philosopher : public VCown<Philosopher>
   : id(id_), forks(forks_), to_eat(to_eat_)
   {}
 
-  void trace(ObjectStack* fields) const
+  void trace(ObjectStack& fields) const
   {
     for (auto f : forks)
     {
-      fields->push(f);
+      fields.push(f);
     }
   }
 };
@@ -109,10 +109,10 @@ struct Eat : public VAction<Eat>
                        << p_->id << " " << p_ << std::endl;
   }
 
-  void trace(ObjectStack* fields) const
+  void trace(ObjectStack& fields) const
   {
     Systematic::cout() << "Calling custom trace" << std::endl;
-    fields->push(eater);
+    fields.push(eater);
   }
 };
 

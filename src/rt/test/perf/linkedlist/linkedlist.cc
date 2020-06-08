@@ -13,13 +13,13 @@ struct C1 : public V<C1>
   C1* f1 = nullptr;
   C1* f2 = nullptr;
 
-  void trace(ObjectStack* st) const
+  void trace(ObjectStack& st) const
   {
     if (f1 != nullptr)
-      st->push(f1);
+      st.push(f1);
 
     if (f2 != nullptr)
-      st->push(f2);
+      st.push(f2);
   }
 };
 

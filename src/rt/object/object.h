@@ -85,8 +85,7 @@ namespace verona::rt
   {
     // for field in o do
     //  st.push(o.field)
-    using TraceFunction = void (*)(const Object* o, ObjectStack* st);
-    using TraceIsoFunction = void (*)(const Object* o, ObjectStack* st);
+    using TraceFunction = void (*)(const Object* o, ObjectStack& st);
 
     using NotifiedFunction = void (*)(Object* o);
 
@@ -102,14 +101,15 @@ namespace verona::rt
     // invalid state ie. close file descriptors or deallocate some auxiliary
     // storage.
     //
-    // The finaliser can extract sub-regions and eg. send them in a
-    // multi-message. The destructor on the other hand may not do this.
-    using FinalFunction = void (*)(Object* o);
+    // The finaliser can must add all the subregions reachable from this object
+    // to the ObjectStack it is passed, so that they can be deallocated once
+    // this region has been deallocated.
+    using FinalFunction = void (*)(Object* o, Object* region, ObjectStack& st);
+
     using DestructorFunction = void (*)(Object* o);
 
     size_t size;
     TraceFunction trace;
-    TraceIsoFunction trace_possibly_iso;
     FinalFunction finaliser;
     NotifiedFunction notified = nullptr;
     DestructorFunction destructor = nullptr;
@@ -702,15 +702,9 @@ namespace verona::rt
       return get_descriptor()->destructor != nullptr;
     }
 
-    inline bool has_possibly_iso_fields()
-    {
-      return get_descriptor()->trace_possibly_iso != nullptr;
-    }
-
     static inline bool is_trivial(const Descriptor* desc)
     {
-      return desc->destructor == nullptr && desc->finaliser == nullptr &&
-        desc->trace_possibly_iso == nullptr;
+      return desc->destructor == nullptr && desc->finaliser == nullptr;
     }
 
     inline bool is_trivial()
@@ -729,18 +723,13 @@ namespace verona::rt
   private:
     inline void trace(ObjectStack& f) const
     {
-      get_descriptor()->trace(this, &f);
+      get_descriptor()->trace(this, f);
     }
 
-    inline void trace_possibly_iso(ObjectStack& f) const
-    {
-      get_descriptor()->trace_possibly_iso(this, &f);
-    }
-
-    inline void finalise()
+    inline void finalise(Object* region, ObjectStack& isos)
     {
       if (has_finaliser())
-        get_descriptor()->finaliser(this);
+        get_descriptor()->finaliser(this, region, isos);
     }
 
     inline void notified()
@@ -760,21 +749,23 @@ namespace verona::rt
       alloc->dealloc(this, size());
     }
 
-    inline void
-    find_iso_fields(Object* region_entry, ObjectStack& f, ObjectStack& iso_st)
+  protected:
+    static void
+    add_sub_region(Object* obj, Object* region, ObjectStack& sub_regions)
     {
-      // Find all isolated fields in p other than some predecessor o.
-      if (!has_possibly_iso_fields())
-        return;
-
-      trace_possibly_iso(f);
-
-      while (!f.empty())
+      // Should be the entry-point of the region.
+      assert(
+        (region == nullptr) || (region->get_class() == Object::RegionMD::ISO));
+      // Have to be careful about internal references to the entry point for the
+      // `region` i.e. when obj == region we are refering to the entry point
+      // from inside the region and should not treat this as a subregion
+      // pointer.
+      if ((obj != nullptr) && (obj != region))
       {
-        Object* o = f.pop();
-
-        if ((o != region_entry) && (o->get_class() == Object::ISO))
-          iso_st.push(o);
+        if (obj->get_class() == Object::RegionMD::ISO)
+        {
+          sub_regions.push(obj);
+        }
       }
     }
   };
