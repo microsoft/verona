@@ -1,0 +1,27 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+main()
+{
+  let x: (U64 | None) & imm = 1;
+  match (x)
+  {
+    // An expression e, which will be elaborated to `x == e`
+    // so if that doesn't type check, it won't compile
+    0 {}
+    f(42) {}
+    // Create alias of subtype or capability
+    n: U64 {}
+    n: U64 | I32 {}
+    // Pattern guard
+    n: U64 if (n < 5) {}
+    // Multiple patterns, separated by `|`
+    8 | f(42) | (5 | 2 | 3) {}
+    n: U64 if (n < 5) | 7 {}
+    // Match subtype without alias
+    : None {}
+    : U64 | None {}
+    // Default case
+    _ {}
+  }
+}

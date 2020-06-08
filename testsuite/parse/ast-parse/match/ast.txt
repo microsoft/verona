@@ -1,0 +1,168 @@
++ module
+  + function
+    + funcname
+      - id (main)
+    + sig
+      + typeparams
+      + params
+      + oftype
+      + constraints
+    + block
+      + seq
+        + assign
+          + let
+            - local (x)
+            + oftype
+              + type
+                + type_one/0
+                  + type_tuple
+                    + type
+                      + type_one/1
+                        + type_ref
+                          - id (U64)
+                      - type_op (|)
+                      + type_one/1
+                        + type_ref
+                          - id (None)
+                - type_op (&)
+                + type_one/1
+                  + type_ref
+                    - id (imm)
+          - int (1)
+        + match
+          + cond
+            + seq
+              - localref (x)
+          + case
+            + pattern
+              - int (0)
+            + block
+              + seq
+          + case
+            + pattern
+              + call
+                - function (f)
+                + typeargs
+                - int (42)
+                + args
+            + block
+              + seq
+          + case
+            + pattern
+              + alias
+                - id (n)
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (U64)
+            + block
+              + seq
+          + case
+            + pattern
+              + alias
+                - id (n)
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (U64)
+                  - type_op (|)
+                  + type_one/1
+                    + type_ref
+                      - id (I32)
+            + block
+              + seq
+          + case
+            + pattern
+              + alias
+                - id (n)
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (U64)
+              + guard
+                + seq
+                  + call
+                    - function (n)
+                    + typeargs
+                    + call
+                      - function (<)
+                      + typeargs
+                      - int (5)
+                      + args
+                    + args
+            + block
+              + seq
+          + case
+            + pattern
+              - int (8)
+            + pattern
+              + call
+                - function (f)
+                + typeargs
+                - int (42)
+                + args
+            + pattern
+              + call
+                - function (|)
+                + typeargs
+                + call
+                  - function (|)
+                  + typeargs
+                  - int (5)
+                  + args
+                    - int (2)
+                + args
+                  - int (3)
+            + block
+              + seq
+          + case
+            + pattern
+              + alias
+                - id (n)
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (U64)
+              + guard
+                + seq
+                  + call
+                    - function (n)
+                    + typeargs
+                    + call
+                      - function (<)
+                      + typeargs
+                      - int (5)
+                      + args
+                    + args
+            + pattern
+              - int (7)
+            + block
+              + seq
+          + case
+            + pattern
+              + alias
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (None)
+            + block
+              + seq
+          + case
+            + pattern
+              + alias
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (U64)
+                  - type_op (|)
+                  + type_one/1
+                    + type_ref
+                      - id (None)
+            + block
+              + seq
+          + case
+            + pattern
+              - dontcare (_)
+            + block
+              + seq
+

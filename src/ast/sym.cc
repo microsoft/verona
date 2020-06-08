@@ -280,6 +280,22 @@ namespace sym
         build(ast, err);
         return;
       }
+
+      case "pattern"_:
+      {
+        if (ast->nodes[0]->tag != "alias"_)
+        {
+          auto expr = ast::node(ast, "expr");
+          while (ast->nodes.size() > 0)
+          {
+            auto node = ast->nodes[0];
+            ast::remove(ast->nodes[0]);
+            ast::push_back(expr, node);
+          }
+          ast::push_back(ast, expr);
+        }
+        break;
+      }
     }
 
     ast::for_each(ast, build, err);
