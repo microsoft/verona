@@ -1,0 +1,64 @@
+resources:
+  repositories:
+  - repository: llvm
+    type: github
+    endpoint: LLVMServiceConnection
+    name: llvm/llvm-project
+
+trigger: none
+
+pr:
+- llvm-build
+
+jobs:
+- job: 
+  displayName: LLVM Linux Build
+  pool: VeronaLinuxLLVMBuild
+  strategy:
+    matrix:
+      Clang-8 Debug:
+        CC: clang
+        CXX: clang++
+        CXXFLAGS: -stdlib=libstdc++
+        BuildType: Debug
+        Asan: Off
+  steps:
+  - checkout: llvm
+
+  - script: |
+      set -eo pipefail
+      git checkout $(GOOD_HASH)
+    displayName: 'Move tree to known good LLVM commit for Verona'
+
+  - script: |
+      set -eo pipefail
+      sudo apt-get update
+      sudo apt-get install -y clang ninja-build cmake lld
+    displayName: 'Install Build Dependencies'
+
+  - task: CMake@1
+    displayName: 'CMake'
+    inputs:
+      cmakeArgs: |
+        ../llvm -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_BUILD_EXAMPLES=ON -DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_BUILD_TYPE=Debug -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_LLD=ON
+
+  - script: |
+      set -eo pipefail
+      ninja check-mlir
+    workingDirectory: build
+    failOnStderr: true
+    displayName: 'Compile and check'
+
+  - script: |
+      set -eo pipefail
+      # FIXME: Be more precise on what we keep
+      rm -f /tmp/VeronaLLVM-$(GOOD_HASH).tar.xz
+      CPUS=$(nproc --all)
+      XZ_DEFAULTS="--threads $CPUS" tar Jcf /tmp/VeronaLLVM-$(GOOD_HASH).tar.xz .
+    failOnStderr: true
+    displayName: 'Create artifact'
+
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: /tmp/VeronaLLVM-$(GOOD_HASH).tar.xz
+      artifactName: VeronaLLVM-$(GOOD_HASH)
