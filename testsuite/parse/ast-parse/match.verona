@@ -15,13 +15,15 @@ main()
     n: U64 | I32 {}
     // Pattern guard
     n: U64 if (n < 5) {}
-    // Multiple patterns, separated by `|`
-    8 | f(42) | (5 | 2 | 3) {}
-    n: U64 if (n < 5) | 7 {}
+    // Multiple patterns, separated by `,`
+    8, f(42), 5 | 2 | 3 {}
+    n: U64 if (n < 5), 7 {}
     // Match subtype without alias
-    : None {}
-    : U64 | None {}
+    _: None {}
+    _: U64 | None {}
     // Default case
     _ {}
+    // Mixed tuple patterns
+    (n: U64, x.foo(), 42, _) {}
   }
 }

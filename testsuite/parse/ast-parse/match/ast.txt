@@ -141,6 +141,7 @@
           + case
             + pattern
               + alias
+                - id (_)
                 + type
                   + type_one/1
                     + type_ref
@@ -150,6 +151,7 @@
           + case
             + pattern
               + alias
+                - id (_)
                 + type
                   + type_one/1
                     + type_ref
@@ -163,6 +165,29 @@
           + case
             + pattern
               - dontcare (_)
+            + block
+              + seq
+          + case
+            + pattern
+              + mixed
+                + pattern
+                  + alias
+                    - id (n)
+                    + type
+                      + type_one/1
+                        + type_ref
+                          - id (U64)
+                + pattern
+                  + invoke
+                    + member
+                      - localref (x)
+                      - lookup (foo)
+                    + typeargs
+                    + args
+                + pattern
+                  - int (42)
+                + pattern
+                  - dontcare (_)
             + block
               + seq
 

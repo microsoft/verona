@@ -58,10 +58,11 @@ for <- 'for' '(' list(expr) 'in' seq ')' block
 
 cond <- '(' seq ')'
 else <- ('else' (if / block))?
-case <- pattern ('|' pattern)* block
-pattern <- (dontcare / alias / (!'|' atom)+) guard?
-alias <- id? ':' type
-guard <- ('if' '(' seq ')')
+case <- list(pattern) block
+pattern <- (alias / dontcare / mixed / atom+) guard?
+alias <- (id / dontcare) ':' type
+mixed <- '(' list(pattern) ')'
+guard <- 'if' '(' seq ')'
 dontcare <- '_'
 
 atom <-
