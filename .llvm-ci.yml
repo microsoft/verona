@@ -1,0 +1,88 @@
+resources:
+  repositories:
+  - repository: llvm
+    type: github
+    endpoint: LLVMServiceConnection
+    name: llvm/llvm-project
+
+jobs:
+- job:
+  displayName: LLVM Linux Build
+  pool: verona-llvm-build-linux
+  timeoutInMinutes: 120
+  strategy:
+    matrix:
+      Clang Release:
+        CC: clang
+        CXX: clang++
+        CXXFLAGS: -stdlib=libstdc++
+        BuildType: Release
+        BuildName: release
+        Sanitizer:
+      Clang Debug+ASAN:
+        CC: clang
+        CXX: clang++
+        CXXFLAGS: -stdlib=libstdc++
+        BuildType: Debug
+        BuildName: debug
+        Sanitizer: Address
+  steps:
+  - checkout: llvm
+
+  - script: |
+      set -eo pipefail
+      git checkout master
+      git fetch
+      git pull
+      if git branch | grep -q "^  verona$"; then
+        git branch -D verona
+      fi
+      git checkout -b verona $(GOOD_HASH)
+    displayName: 'Move tree to known good LLVM commit for Verona'
+
+  - script: |
+      set -eo pipefail
+      sudo apt-get update
+      sudo apt-get install -y clang ninja-build cmake lld
+    displayName: 'Install Build Dependencies'
+
+  - script: |
+      set -eo pipefail
+      rm -rf /tmp/VeronaLLVM*
+    displayName: 'Cleanup'
+
+  - task: CMake@1
+    displayName: 'CMake'
+    inputs:
+      cmakeArgs: |
+        ../llvm -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DLLVM_USE_SANITIZER=$(Sanitizer) -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_BUILD_EXAMPLES=ON -DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_BUILD_TYPE=Debug -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_LLD=ON
+
+  - script: |
+      set -eo pipefail
+      ninja
+      VERSION=$(./bin/mlir-tblgen --version | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+" | cut -d "." -f 1,3)
+      echo "##vso[task.setvariable variable=VERSION]$VERSION"
+    workingDirectory: build
+    failOnStderr: true
+    displayName: 'Compile LLVM & MLIR'
+
+  - script: |
+      set -eo pipefail
+      PKG_NAME="verona-llvm-$(VERSION)-x86_64-linux-$(BuildName)-$(GOOD_HASH)"
+      echo "##vso[task.setvariable variable=PKG_NAME]$PKG_NAME"
+      mkdir -p /tmp/$PKG_NAME
+      CPUS=$(nproc --all)
+      XZ_DEFAULTS="--threads $CPUS" tar Jcf /tmp/$PKG_NAME/$PKG_NAME.tar.xz .
+    failOnStderr: true
+    displayName: 'Create artifact'
+
+  - task: UniversalPackages@0
+    displayName: 'Publishing Package'
+    inputs:
+      command: publish
+      publishDirectory: /tmp/$(PKG_NAME)
+      vstsFeedPublish: Project%20Verona/LLVMBuild
+      vstsFeedPackagePublish: $(PKG_NAME)
+      packagePublishDescription: 'Verona LLVM $(BuildType) Build for Linux at $(GOOD_HASH)'
+      versionOption: custom
+      versionPublish: $(VERSION).$(Build.Buildid)
