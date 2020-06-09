@@ -5,8 +5,6 @@ resources:
     endpoint: LLVMServiceConnection
     name: llvm/llvm-project
 
-trigger: none
-
 jobs:
 - job: 
   displayName: LLVM Linux Build
