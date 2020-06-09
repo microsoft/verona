@@ -7,9 +7,6 @@ resources:
 
 trigger: none
 
-pr:
-- llvm-build
-
 jobs:
 - job: 
   displayName: LLVM Linux Build
