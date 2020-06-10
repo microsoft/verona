@@ -11,12 +11,18 @@ jobs:
   pool: VeronaLinuxLLVMBuild
   strategy:
     matrix:
+      Clang-8 Release:
+        CC: clang
+        CXX: clang++
+        CXXFLAGS: -stdlib=libstdc++
+        BuildType: Release
+        Sanitizer:
       Clang-8 Debug:
         CC: clang
         CXX: clang++
         CXXFLAGS: -stdlib=libstdc++
         BuildType: Debug
-        Asan: Off
+        Sanitizer: Address
   steps:
   - checkout: llvm
 
@@ -35,7 +41,7 @@ jobs:
     displayName: 'CMake'
     inputs:
       cmakeArgs: |
-        ../llvm -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_BUILD_EXAMPLES=ON -DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_BUILD_TYPE=Debug -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_LLD=ON
+        ../llvm -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DLLVM_USE_SANITIZER=$(Sanitizer) -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_BUILD_EXAMPLES=ON -DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_BUILD_TYPE=Debug -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_LLD=ON
 
   - script: |
       set -eo pipefail
@@ -47,13 +53,13 @@ jobs:
   - script: |
       set -eo pipefail
       # FIXME: Be more precise on what we keep
-      rm -f /tmp/VeronaLLVM-$(GOOD_HASH).tar.xz
+      rm -f /tmp/VeronaLLVM-x86_64-Linux-$(BuildType)-$(GOOD_HASH).tar.xz
       CPUS=$(nproc --all)
-      XZ_DEFAULTS="--threads $CPUS" tar Jcf /tmp/VeronaLLVM-$(GOOD_HASH).tar.xz .
+      XZ_DEFAULTS="--threads $CPUS" tar Jcf /tmp/VeronaLLVM-x86_64-Linux-$(BuildType)-$(GOOD_HASH).tar.xz .
     failOnStderr: true
     displayName: 'Create artifact'
 
   - task: PublishPipelineArtifact@1
     inputs:
-      targetPath: /tmp/VeronaLLVM-$(GOOD_HASH).tar.xz
-      artifactName: VeronaLLVM-$(GOOD_HASH)
+      targetPath: /tmp/VeronaLLVM-x86_64-Linux-$(BuildType)-$(GOOD_HASH).tar.xz
+      artifactName: VeronaLLVM-x86_64-Linux-$(BuildType)-$(GOOD_HASH)
