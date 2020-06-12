@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 #include "path.h"
 
+#include <cstring>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -38,8 +39,16 @@ namespace path
 #  error "path::delim not supported on this target."
 #endif
     ;
-
   constexpr auto delim_len = length(delim);
+
+  constexpr auto src_delim =
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+    delim
+#else
+    "/"
+#endif
+    ;
+  constexpr auto src_delim_len = length(src_delim);
 
   std::string executable()
   {
@@ -123,6 +132,49 @@ namespace path
       return {};
 
     return path.substr(pos + 1);
+  }
+
+  std::string to_platform(const std::string& path)
+  {
+    auto result = path;
+
+    if constexpr (delim != src_delim)
+    {
+      auto pos = result.find(src_delim, src_delim_len);
+
+      while (pos != std::string::npos)
+      {
+        result.replace(pos, src_delim_len, delim, delim_len);
+        pos = result.find(delim, pos);
+      }
+    }
+
+    return result;
+  }
+
+  std::string canonical(const std::string& path)
+  {
+#ifdef _WIN32
+    char resolved[FILENAME_MAX];
+
+    if (
+      (GetFullPathName(path.c_str(), FILENAME_MAX, resolved, NULL) == 0) ||
+      (GetFileAttributes(resolved) == INVALID_FILE_ATTRIBUTES))
+    {
+      return {};
+    }
+#elif defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+    char resolved[PATH_MAX];
+
+    if (realpath(path.c_str(), resolved) == NULL)
+      return {};
+
+    // Win32 includes a trailing delimiter but POSIX does not.
+    if (is_directory(path))
+      ::strcat(resolved, delim);
+#endif
+
+    return std::string(resolved);
   }
 
   std::vector<std::string> files(const std::string& path)
