@@ -13,6 +13,8 @@ namespace path
   std::string join(const std::string& path1, const std::string& path2);
   std::string to_directory(const std::string& path);
   std::string extension(const std::string& path);
+  std::string to_platform(const std::string& path);
+  std::string canonical(const std::string& path);
 
   std::vector<std::string> files(const std::string& path);
 
