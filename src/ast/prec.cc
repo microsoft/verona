@@ -196,9 +196,21 @@ namespace
       }
 
       ast::remove(next);
-      ast::push_back(ast, next);
-      auto args = ast::node(ast, "args");
-      ast::push_back(ast, args);
+
+      if (next->tag == "tuple"_)
+      {
+        auto obj = next->nodes.front();
+        ast::remove(obj);
+        ast::push_back(ast, obj);
+        ast::rename(next, "args");
+        ast::push_back(ast, next);
+      }
+      else
+      {
+        ast::push_back(ast, next);
+        auto args = ast::node(ast, "args");
+        ast::push_back(ast, args);
+      }
     }
     else
     {
