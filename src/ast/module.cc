@@ -74,7 +74,10 @@ namespace
         auto find = modules.find(canonical_path);
 
         if (find != modules.end())
+        {
+          m->edges.push_back(find->second);
           continue;
+        }
 
         auto dep = make_module(path);
         modules.emplace(canonical_path, dep);
@@ -153,8 +156,9 @@ namespace module
 
       for (auto& pair : pairs)
       {
-        err << "These modules cause a cyclic dependency: " << pair.first->name
-            << ", " << pair.second->name << err::end;
+        err << "These modules cause a cyclic dependency:" << std::endl
+            << "  " << pair.second->name << std::endl
+            << "  " << pair.first->name << err::end;
       }
     }
 
