@@ -170,4 +170,19 @@ namespace module
 
     return m;
   }
+
+  ModulePtr build(
+    const std::string& grammar,
+    const Passes& passes,
+    const std::string& path,
+    const std::string& ext,
+    err::Errors& err)
+  {
+    auto parser = parser::create(grammar, err);
+
+    if (!err.empty())
+      return {};
+
+    return build(parser, passes, path, ext, err);
+  }
 }
