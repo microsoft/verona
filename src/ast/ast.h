@@ -28,6 +28,7 @@ namespace ast
 
   Ast token(const Ast& ast, const char* name, const std::string& token);
   Ast node(const Ast& ast, const char* name);
+  Ast module(const std::string& path);
   void push_back(Ast& ast, Ast& child);
   void replace(Ast& prev, Ast next);
   void remove(Ast ast);
@@ -41,8 +42,8 @@ namespace ast
   Ast get_prev_in_expr(Ast ast);
   Ast get_next_in_expr(Ast ast);
 
-  template<typename E, typename T>
-  void for_each(Ast ast, E& err, T f)
+  template<typename Arg, typename Func>
+  void for_each(Ast ast, Arg& arg, Func f)
   {
     if (!ast)
       return;
@@ -50,7 +51,7 @@ namespace ast
     for (decltype(ast->nodes.size()) i = 0; i < ast->nodes.size(); i++)
     {
       auto node = ast->nodes[i];
-      f(node, err);
+      f(node, arg);
     }
   }
 }

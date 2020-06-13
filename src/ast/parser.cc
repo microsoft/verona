@@ -7,32 +7,27 @@
 
 namespace parser
 {
-  std::string format_error_message(
-    const std::string& path, size_t ln, size_t col, const std::string& msg)
+  peg::parser create(const std::string& file, err::Errors& err)
   {
-    std::stringstream ss;
-    ss << path.c_str() << ":" << ln << ":" << col << ": " << msg << std::endl;
-    return ss.str();
+    return create(files::slurp(file, err), file, err);
   }
 
-  peg::parser create(const std::string& file)
+  ast::Ast parse(peg::parser& parser, const std::string& file, err::Errors& err)
   {
-    return create(files::slurp(file), file);
+    return parse(parser, files::slurp(file, err), file, err);
   }
 
-  ast::Ast parse(peg::parser& parser, const std::string& file)
-  {
-    return parse(parser, files::slurp(file), file);
-  }
-
-  ast::Ast
-  parse(peg::parser& parser, const std::string& path, const std::string& ext)
+  ast::Ast parse(
+    peg::parser& parser,
+    const std::string& path,
+    const std::string& ext,
+    err::Errors& err)
   {
     if (!path::is_directory(path))
-      return parse(parser, path);
+      return parse(parser, path, err);
 
     auto files = path::files(path);
-    ast::Ast module;
+    ast::Ast module = ast::module(path);
 
     for (auto& file : files)
     {
@@ -40,13 +35,9 @@ namespace parser
         continue;
 
       auto name = path::join(path, file);
-      auto ast = parse(parser, name);
+      auto ast = parse(parser, name, err);
 
-      if (!module)
-      {
-        module = ast;
-      }
-      else
+      if (ast)
       {
         for (auto& node : ast->nodes)
           ast::push_back(module, node);

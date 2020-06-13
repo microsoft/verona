@@ -34,6 +34,14 @@ namespace ast
       ast->choice);
   }
 
+  Ast module(const std::string& path)
+  {
+    std::vector<Ast> none;
+
+    return std::make_shared<AstImpl>(
+      path.c_str(), 0, 0, "module", none, 0, 0, 0, 0);
+  }
+
   void push_back(Ast& ast, Ast& child)
   {
     ast->nodes.push_back(child);

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 #include "path.h"
 
+#include <algorithm>
 #include <cstring>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -30,32 +31,24 @@ namespace path
     return *str ? 1 + length(str + 1) : 0;
   }
 
-  constexpr auto delim =
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
-    "/"
-#elif defined(_WIN32)
-    "\\"
-#else
-#  error "path::delim not supported on this target."
-#endif
-    ;
+  constexpr auto delim = "/";
   constexpr auto delim_len = length(delim);
 
-  constexpr auto src_delim =
+  constexpr auto platform_delim =
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
     delim
-#else
-    "/"
+#elif defined(_WIN32)
+    "\\"
 #endif
     ;
-  constexpr auto src_delim_len = length(src_delim);
+  constexpr auto platform_delim_len = length(platform_delim);
 
   std::string executable()
   {
 #ifdef WIN32
     char buf[MAX_PATH];
     GetModuleFileNameA(NULL, buf, MAX_PATH);
-    return std::string(buf);
+    return from_platform(std::string(buf));
 #elif defined(__linux__) || defined(__FreeBSD__)
 #  ifdef __linux__
     constexpr auto link = "/proc/self/exe";
@@ -134,22 +127,23 @@ namespace path
     return path.substr(pos + 1);
   }
 
-  std::string to_platform(const std::string& path)
+  std::string from_platform(const std::string& path)
   {
-    auto result = path;
-
-    if constexpr (delim != src_delim)
+    if constexpr (delim != platform_delim)
     {
-      auto pos = result.find(src_delim, src_delim_len);
+      auto result = path;
+      auto pos = result.find(platform_delim, platform_delim_len);
 
       while (pos != std::string::npos)
       {
-        result.replace(pos, src_delim_len, delim, delim_len);
-        pos = result.find(delim, pos);
+        result.replace(pos, platform_delim_len, delim, delim_len);
+        pos = result.find(platform_delim, pos);
       }
+
+      return result;
     }
 
-    return result;
+    return path;
   }
 
   std::string canonical(const std::string& path)
@@ -157,12 +151,8 @@ namespace path
 #ifdef _WIN32
     char resolved[FILENAME_MAX];
 
-    if (
-      (GetFullPathName(path.c_str(), FILENAME_MAX, resolved, NULL) == 0) ||
-      (GetFileAttributes(resolved) == INVALID_FILE_ATTRIBUTES))
-    {
+    if (GetFullPathNameA(path.c_str(), FILENAME_MAX, resolved, NULL) == 0)
       return {};
-    }
 #elif defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
     char resolved[PATH_MAX];
 
@@ -174,7 +164,7 @@ namespace path
       ::strcat(resolved, delim);
 #endif
 
-    return std::string(resolved);
+    return from_platform(std::string(resolved));
   }
 
   std::vector<std::string> files(const std::string& path)
@@ -237,6 +227,8 @@ namespace path
 #  error "path::files not supported on this target."
 #endif
 
+    // Sort files to avoid a non-deterministic build.
+    std::sort(r.begin(), r.end());
     return r;
   }
 
@@ -287,7 +279,7 @@ namespace path
     struct stat sb;
     return (_stat(path.c_str(), &sb) == 0) && S_ISREG(sb.st_mode);
 #else
-#  error "path::files not supported on this target."
+#  error "path::is_file not supported on this target."
 #endif
   }
 

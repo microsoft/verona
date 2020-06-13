@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 #pragma once
 
+#include "err.h"
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -9,6 +11,8 @@
 
 namespace files
 {
-  std::vector<char> slurp(const std::string& file, bool optional = false);
-  void write(const std::string& file, const std::string& content);
+  std::vector<char> slurp(const std::string& file, err::Errors& err);
+
+  bool
+  write(const std::string& file, const std::string& content, err::Errors& err);
 }
