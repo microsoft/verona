@@ -14,7 +14,6 @@ namespace cli
 
     Opt opt;
     app.add_flag("-a,--ast", opt.ast, "Emit an abstract syntax tree.");
-    app.add_flag("-f,--force", opt.force, "Emit AST even on error.");
     app.add_option("-g,--grammar", opt.grammar, "Grammar to use.");
     app.add_option("file", opt.filename, "File to compile.")->required();
 

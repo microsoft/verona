@@ -5,6 +5,7 @@ add_library(verona-ast-lib
   err.cc
   files.cc
   lit.cc
+  module.cc
   parser.cc
   prec.cc
   ref.cc

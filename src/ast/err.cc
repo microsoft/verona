@@ -4,7 +4,7 @@
 
 namespace err
 {
-  bool Errors::empty()
+  bool Errors::empty() const
   {
     return list.size() == 0;
   }
@@ -23,11 +23,17 @@ namespace err
       ss.str(std::string());
     }
 
-    list.back().push_back({ast, std::string()});
+    list.back().push_back({ast, {}});
     return *this;
   }
 
   Errors& Errors::operator<<(const std::string& s)
+  {
+    ss << s;
+    return *this;
+  }
+
+  Errors& Errors::operator<<(size_t s)
   {
     ss << s;
     return *this;
@@ -39,14 +45,27 @@ namespace err
     return *this;
   }
 
-  Errors& Errors::operator<<(const err::endtoken&)
+  Errors& Errors::operator<<(const Errors& err)
   {
-    // Finish the last error in this group and start a new one.
+    list.insert(list.end(), err.list.begin(), err.list.end());
+    return *this;
+  }
+
+  Errors& Errors::operator<<(const endtoken&)
+  {
+    auto msg = ss.str();
+    ss.str(std::string());
+
     if ((list.size() > 0) && (list.back().size() > 0))
     {
-      list.back().back().msg = ss.str();
-      ss.str(std::string());
+      // Finish the last error in this group and start a new one.
+      list.back().back().msg = msg;
       list.push_back({});
+    }
+    else if (!msg.empty())
+    {
+      list.push_back({});
+      list.back().push_back({{}, msg});
     }
 
     return *this;
@@ -55,26 +74,7 @@ namespace err
   std::string Errors::to_s() const
   {
     std::ostringstream ss;
-    bool first_group = true;
-
-    for (auto& group : list)
-    {
-      if (first_group)
-      {
-        first_group = false;
-      }
-      else if (group.size() > 0)
-      {
-        ss << "---" << std::endl;
-      }
-
-      for (auto& err : group)
-      {
-        ss << err.ast->path << ":" << err.ast->line << ":" << err.ast->column
-           << ": " << err.msg << std::endl;
-      }
-    }
-
+    ss << *this;
     return ss.str();
   }
 }

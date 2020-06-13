@@ -4,15 +4,13 @@
 
 namespace files
 {
-  std::vector<char> slurp(const std::string& file, bool optional)
+  std::vector<char> slurp(const std::string& file, err::Errors& err)
   {
     std::ifstream f(file.c_str(), std::ios::binary | std::ios::ate);
 
     if (!f)
     {
-      if (!optional)
-        std::cout << "Could not open file " << file << std::endl;
-
+      err << "Couldn't open file " << file << err::end;
       return {};
     }
 
@@ -22,19 +20,32 @@ namespace files
     std::vector<char> data(static_cast<std::vector<char>::size_type>(size));
     f.read(data.data(), size);
 
-    if (!optional && !f)
+    if (!f)
     {
-      std::cout << "Could not read file " << file << std::endl;
+      err << "Couldn't read file " << file << err::end;
       return {};
     }
 
     return data;
   }
 
-  void write(const std::string& file, const std::string& content)
+  bool
+  write(const std::string& file, const std::string& content, err::Errors& err)
   {
     std::ofstream f(file.c_str(), std::ifstream::out);
+
+    if (!f)
+    {
+      err << "Couldn't open file " << file << err::end;
+      return false;
+    }
+
     f << content;
+
+    if (!f)
+      err << "Couldn't write to file " << file << err::end;
+
     f.close();
+    return !!f;
   }
 }

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 #include "cli.h"
 #include "files.h"
+#include "module.h"
 #include "parser.h"
 #include "path.h"
 #include "prec.h"
@@ -10,39 +11,25 @@
 
 int main(int argc, char** argv)
 {
-  auto opt = cli::parse(argc, argv);
-  auto parser = parser::create(opt.grammar);
-
-  if (!parser)
-  {
-    std::cout << "Couldn't create parser from " << opt.grammar << std::endl;
-    return -1;
-  }
-
-  auto ast = parser::parse(parser, opt.filename, "verona");
-
-  if (!ast)
-    return -1;
-
   err::Errors err;
-  sym::build(ast, err);
-
-  if (err.empty())
-    ref::build(ast, err);
-
-  if (err.empty())
-    prec::build(ast, err);
+  auto opt = cli::parse(argc, argv);
+  auto parser = parser::create(opt.grammar, err);
 
   if (!err.empty())
   {
-    std::cout << err.to_s() << std::endl;
-
-    if (!opt.force)
-      return -1;
+    std::cerr << err;
+    return -1;
   }
 
-  if (opt.ast || opt.force)
-    std::cout << peg::ast_to_s(ast) << std::endl;
+  module::Passes passes = {sym::build, ref::build, prec::build};
 
-  return 0;
+  auto m = module::build(parser, passes, opt.filename, "verona", err);
+
+  if (!err.empty())
+    std::cerr << err;
+
+  if (opt.ast)
+    std::cout << m;
+
+  return err.empty() ? 0 : -1;
 }
