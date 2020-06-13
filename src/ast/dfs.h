@@ -42,7 +42,7 @@ namespace dfs
 
     if (ok)
     {
-      for (auto it = node->edges.begin(); it != node->edges.end(); ++it)
+      for (auto it = node->edges.begin(); it != node->edges.end();)
       {
         if ((*it)->color == expect)
         {
@@ -52,8 +52,11 @@ namespace dfs
         {
           // A cycle has been detected. Always break the cycle.
           ok &= action.fail(node, *it);
-          node->edges.erase(it);
+          it = node->edges.erase(it);
+          continue;
         }
+
+        ++it;
       }
 
       if (ok)
