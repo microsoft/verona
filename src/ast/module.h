@@ -33,6 +33,13 @@ namespace module
     const std::string& ext,
     err::Errors& err);
 
+  ModulePtr build(
+    const std::string& grammar,
+    const Passes& passes,
+    const std::string& path,
+    const std::string& ext,
+    err::Errors& err);
+
   template<typename T>
   T& operator<<(T& out, ModulePtr m)
   {
