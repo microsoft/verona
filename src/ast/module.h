@@ -16,7 +16,6 @@ namespace module
   {
     std::string name;
     ast::Ast ast;
-    err::Errors err;
 
     dfs::Color color;
     std::vector<std::shared_ptr<Module>> edges;
