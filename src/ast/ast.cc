@@ -72,6 +72,15 @@ namespace ast
     {
       auto find = std::find(parent->nodes.begin(), parent->nodes.end(), ast);
       assert(find != parent->nodes.end());
+
+      if (iteration_parent() == parent)
+      {
+        size_t i = std::distance(parent->nodes.begin(), find);
+
+        if (i <= iteration_index())
+          iteration_index()--;
+      }
+
       parent->nodes.erase(find);
       ast->parent.reset();
     }
@@ -176,5 +185,17 @@ namespace ast
     }
 
     return {};
+  }
+
+  Ast& iteration_parent()
+  {
+    thread_local Ast parent;
+    return parent;
+  }
+
+  size_t& iteration_index()
+  {
+    thread_local size_t index;
+    return index;
   }
 }

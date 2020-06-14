@@ -28,11 +28,11 @@ namespace
           name = path::to_directory(name);
 
         deps.push_back(name);
-        break;
+        return;
       }
     }
 
-    ast::for_each(ast, deps, extract);
+    ast::for_each(ast, extract, deps);
   }
 
   ModulePtr load(

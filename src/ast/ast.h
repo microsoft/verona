@@ -42,16 +42,32 @@ namespace ast
   Ast get_prev_in_expr(Ast ast);
   Ast get_next_in_expr(Ast ast);
 
-  template<typename Arg, typename Func>
-  void for_each(Ast ast, Arg& arg, Func f)
+  Ast& iteration_parent();
+  size_t& iteration_index();
+
+  template<typename Func, typename... Args>
+  void for_each(Ast ast, Func& f, Args&... args)
   {
     if (!ast)
       return;
 
-    for (decltype(ast->nodes.size()) i = 0; i < ast->nodes.size(); i++)
+    // This convoluted approach allows calling ast::remove on a node that is in
+    // the current ast->nodes vector while maintaining the correct iteration
+    // sequence.
+    auto prev_parent = iteration_parent();
+    auto prev_index = iteration_index();
+
+    iteration_parent() = ast;
+    iteration_index() = 0;
+
+    while (iteration_index() < ast->nodes.size())
     {
-      auto node = ast->nodes[i];
-      f(node, arg);
+      auto node = ast->nodes[iteration_index()];
+      f(node, args...);
+      iteration_index()++;
     }
+
+    iteration_parent() = prev_parent;
+    iteration_index() = prev_index;
   }
 }
