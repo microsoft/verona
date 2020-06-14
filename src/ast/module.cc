@@ -89,19 +89,43 @@ namespace
     return modules.begin()->second;
   }
 
-  bool run_passes(ModulePtr& m, const Passes& passes)
+  void detect_cycles(ModulePtr& m, err::Errors& err)
+  {
+    std::vector<std::pair<ModulePtr, ModulePtr>> pairs;
+
+    dfs::cycles(
+      m,
+      [](auto& parent, auto& child, auto& pairs) {
+        pairs.emplace_back(parent, child);
+        return false;
+      },
+      pairs);
+
+    for (auto& pair : pairs)
+    {
+      err << "These modules cause a cyclic dependency:" << std::endl
+          << "  " << pair.second->name << std::endl
+          << "  " << pair.first->name << err::end;
+    }
+  }
+
+  bool run_passes(ModulePtr& m, const Passes& passes, err::Errors& err)
   {
     return dfs::post(
       m,
-      [](auto& m, auto& passes) {
+      [](auto& m, auto& passes, auto& err) {
+        // Stop running passes when we get errors on this module, then add those
+        // errors to the main error list.
+        err::Errors lerr;
         bool ok = true;
 
         for (auto& pass : passes)
         {
-          pass(m->ast, m->err);
+          pass(m->ast, lerr);
 
-          if (!m->err.empty())
+          if (!lerr.empty())
           {
+            err << lerr;
             ok = false;
             break;
           }
@@ -109,17 +133,7 @@ namespace
 
         return ok;
       },
-      passes);
-  }
-
-  bool gather_errors(ModulePtr& m, err::Errors& err)
-  {
-    return dfs::post(
-      m,
-      [](auto& m, auto& err) {
-        err << m->err;
-        return true;
-      },
+      passes,
       err);
   }
 }
@@ -136,29 +150,10 @@ namespace module
     auto m = load(parser, path, ext, err);
 
     if (err.empty())
-    {
-      std::vector<std::pair<ModulePtr, ModulePtr>> pairs;
-      dfs::cycles(
-        m,
-        [](auto& parent, auto& child, auto& pairs) {
-          pairs.emplace_back(parent, child);
-          return false;
-        },
-        pairs);
-
-      for (auto& pair : pairs)
-      {
-        err << "These modules cause a cyclic dependency:" << std::endl
-            << "  " << pair.second->name << std::endl
-            << "  " << pair.first->name << err::end;
-      }
-    }
+      detect_cycles(m, err);
 
     if (err.empty())
-    {
-      if (!run_passes(m, passes))
-        gather_errors(m, err);
-    }
+      run_passes(m, passes, err);
 
     return m;
   }
