@@ -36,6 +36,15 @@ namespace
     scope->sym.emplace(id, ast);
   }
 
+  void id_to_local(ast::Ast& ast, err::Errors& err)
+  {
+    if (ast->tag == "id"_)
+    {
+      ast::rename(ast, "local");
+      add_symbol(ast->token, ast, err);
+    }
+  }
+
   void only_atom(ast::Ast& ast, err::Errors& err)
   {
     auto expr = ast::get_expr(ast);
@@ -201,14 +210,7 @@ namespace sym
       case "let"_:
       {
         first_atom(ast, err);
-
-        ast::for_each(ast, err, [](auto& node, auto& err) {
-          if (node->tag == "id"_)
-          {
-            ast::rename(node, "local");
-            add_symbol(node->token, node, err);
-          }
-        });
+        ast::for_each(ast, id_to_local, err);
         break;
       }
 
@@ -288,6 +290,6 @@ namespace sym
       }
     }
 
-    ast::for_each(ast, err, build);
+    ast::for_each(ast, build, err);
   }
 }

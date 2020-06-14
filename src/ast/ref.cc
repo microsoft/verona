@@ -64,6 +64,6 @@ namespace ref
       }
     }
 
-    ast::for_each(ast, err, build);
+    ast::for_each(ast, build, err);
   }
 }

@@ -332,7 +332,10 @@ namespace prec
       case "expr"_:
       {
         if (ast->nodes.empty())
+        {
+          ast::remove(ast);
           return;
+        }
 
         auto expr = ast;
         ast = ast->nodes.front();
@@ -401,6 +404,6 @@ namespace prec
       }
     }
 
-    ast::for_each(ast, err, build);
+    ast::for_each(ast, build, err);
   }
 }
