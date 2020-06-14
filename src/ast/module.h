@@ -43,20 +43,14 @@ namespace module
   template<typename T>
   T& operator<<(T& out, ModulePtr m)
   {
-    struct Stream : public dfs::Default<Module>
-    {
-      T& out;
-      Stream(T& out) : out(out) {}
-
-      bool post(ModulePtr& m)
-      {
+    dfs::post(
+      m,
+      [](auto& m, T& out) {
         out << peg::ast_to_s(m->ast);
         return true;
-      }
-    };
+      },
+      out);
 
-    Stream s(out);
-    dfs::dfs(m, s);
     return out;
   }
 }

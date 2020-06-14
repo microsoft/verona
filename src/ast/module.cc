@@ -91,13 +91,9 @@ namespace
 
   bool run_passes(ModulePtr& m, const Passes& passes)
   {
-    struct RunPasses : public dfs::Default<Module>
-    {
-      const Passes& passes;
-      RunPasses(const Passes& passes) : passes(passes) {}
-
-      bool post(ModulePtr& m)
-      {
+    return dfs::post(
+      m,
+      [](auto& m, auto& passes) {
         bool ok = true;
 
         for (auto& pass : passes)
@@ -112,29 +108,19 @@ namespace
         }
 
         return ok;
-      }
-    };
-
-    RunPasses rp(passes);
-    return dfs::dfs(m, rp);
+      },
+      passes);
   }
 
   bool gather_errors(ModulePtr& m, err::Errors& err)
   {
-    struct GatherErrors : public dfs::Default<Module>
-    {
-      err::Errors& err;
-      GatherErrors(err::Errors& err) : err(err) {}
-
-      bool post(ModulePtr& m)
-      {
+    return dfs::post(
+      m,
+      [](auto& m, auto& err) {
         err << m->err;
         return true;
-      }
-    };
-
-    GatherErrors ge(err);
-    return dfs::dfs(m, ge);
+      },
+      err);
   }
 }
 
@@ -151,8 +137,14 @@ namespace module
 
     if (err.empty())
     {
-      dfs::CyclicPairs<Module> pairs;
-      dfs::detect_cycles(m, pairs);
+      std::vector<std::pair<ModulePtr, ModulePtr>> pairs;
+      dfs::cycles(
+        m,
+        [](auto& parent, auto& child, auto& pairs) {
+          pairs.emplace_back(parent, child);
+          return false;
+        },
+        pairs);
 
       for (auto& pair : pairs)
       {
