@@ -11,56 +11,23 @@ namespace dfs
     black
   };
 
-  template<typename Node>
-  struct Default
-  {
-    using NodePtr = std::shared_ptr<Node>;
-
-    inline bool pre(NodePtr& node)
-    {
-      return true;
-    }
-
-    inline bool post(NodePtr& node)
-    {
-      return true;
-    }
-
-    inline bool fail(NodePtr& parent, NodePtr& child)
-    {
-      return false;
-    }
-  };
-
-  template<typename Node, typename Action>
-  bool dfs(Color expect, std::shared_ptr<Node>& node, Action& action)
+  template<typename Node, typename Func, typename... Args>
+  bool pre(Color expect, Node& node, Func f, Args&... args)
   {
     assert(expect != grey);
     assert(node->color == expect);
     node->color = grey;
-    auto ok = action.pre(node);
+    auto ok = f(node, args...);
 
     if (ok)
     {
       for (auto it = node->edges.begin(); it != node->edges.end();)
       {
         if ((*it)->color == expect)
-        {
-          ok &= dfs(expect, *it, action);
-        }
-        else if ((*it)->color == grey)
-        {
-          // A cycle has been detected. Always break the cycle.
-          ok &= action.fail(node, *it);
-          it = node->edges.erase(it);
-          continue;
-        }
+          ok &= pre(expect, *it, f, args...);
 
         ++it;
       }
-
-      if (ok)
-        ok = action.post(node);
     }
 
     if (expect == white)
@@ -71,36 +38,81 @@ namespace dfs
     return ok;
   }
 
-  template<typename Node, typename Action>
-  bool dfs(std::shared_ptr<Node>& node, Action& action)
+  template<typename Node, typename Func, typename... Args>
+  bool pre(Node& node, Func f, Args&... args)
   {
-    return dfs(node->color, node, action);
+    return pre(node->color, node, f, args...);
   }
 
-  template<typename Node>
-  using CyclicPairs =
-    std::vector<std::pair<std::shared_ptr<Node>, std::shared_ptr<Node>>>;
-
-  template<typename Node>
-  bool detect_cycles(
-    std::shared_ptr<Node>& node,
-    CyclicPairs<Node>& pairs)
+  template<typename Node, typename Func, typename... Args>
+  bool post(Color expect, Node& node, Func f, Args&... args)
   {
-    using NodePtr = std::shared_ptr<Node>;
+    assert(expect != grey);
+    assert(node->color == expect);
+    node->color = grey;
+    auto ok = true;
 
-    struct DetectCycles : public Default<Node>
+    for (auto it = node->edges.begin(); it != node->edges.end();)
     {
-      CyclicPairs<Node>& pairs;
-      DetectCycles(CyclicPairs<Node>& pairs) : pairs(pairs) {}
+      if ((*it)->color == expect)
+        ok &= post(expect, *it, f, args...);
 
-      bool fail(NodePtr& parent, NodePtr& child)
+      ++it;
+    }
+
+    if (ok)
+      ok = f(node, args...);
+
+    if (expect == white)
+      node->color = black;
+    else
+      node->color = white;
+
+    return ok;
+  }
+
+  template<typename Node, typename Func, typename... Args>
+  bool post(Node& node, Func f, Args&... args)
+  {
+    return post(node->color, node, f, args...);
+  }
+
+  template<typename Node, typename Func, typename... Args>
+  bool cycles(Color expect, Node& node, Func f, Args&... args)
+  {
+    assert(expect != grey);
+    assert(node->color == expect);
+    node->color = grey;
+    auto ok = true;
+
+    for (auto it = node->edges.begin(); it != node->edges.end();)
+    {
+      if ((*it)->color == expect)
       {
-        pairs.emplace_back(parent, child);
-        return false;
+        ok &= cycles(expect, *it, f, args...);
       }
-    };
+      else if ((*it)->color == grey)
+      {
+        // A cycle has been detected. Always break the cycle.
+        ok &= f(node, *it, args...);
+        it = node->edges.erase(it);
+        continue;
+      }
 
-    DetectCycles dc(pairs);
-    return dfs(node, dc);
+      ++it;
+    }
+
+    if (expect == white)
+      node->color = black;
+    else
+      node->color = white;
+
+    return ok;
+  }
+
+  template<typename Node, typename Func, typename... Args>
+  bool cycles(Node& node, Func f, Args&... args)
+  {
+    return cycles(node->color, node, f, args...);
   }
 }

@@ -46,7 +46,7 @@ namespace ast
   size_t& iteration_index();
 
   template<typename Func, typename... Args>
-  void for_each(Ast ast, Func& f, Args&... args)
+  void for_each(Ast ast, Func f, Args&... args)
   {
     if (!ast)
       return;
