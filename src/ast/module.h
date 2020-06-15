@@ -45,7 +45,8 @@ namespace module
     dfs::post(
       m,
       [](auto& m, T& out) {
-        out << peg::ast_to_s(m->ast);
+        if (m->ast)
+          out << peg::ast_to_s(m->ast);
         return true;
       },
       out);
