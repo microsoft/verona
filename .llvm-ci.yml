@@ -32,12 +32,8 @@ jobs:
   - script: |
       set -eo pipefail
       git checkout master
-      git fetch
       git pull
-      if git branch | grep -q "^  verona$"; then
-        git branch -D verona
-      fi
-      git checkout -b verona $(GOOD_HASH)
+      git checkout $(GOOD_HASH)
     displayName: 'Move tree to known good LLVM commit for Verona'
 
   - script: |
