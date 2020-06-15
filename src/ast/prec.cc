@@ -96,18 +96,39 @@ namespace
     }
   }
 
-  void obj_rule(ast::Ast& ast, err::Errors& err)
+  bool obj_rule(ast::Ast& ast, err::Errors& err)
   {
-    if (ast && (ast->tag == "typeref"_))
-      staticcall_rule(ast, err);
+    if (!ast)
+      return false;
+
+    switch (ast->tag)
+    {
+      case "typeref"_:
+      {
+        staticcall_rule(ast, err);
+        break;
+      }
+
+      case "lookup"_:
+      case "typeargs"_:
+      {
+        err << ast << "Expected an expression, got " << ast->name << "."
+            << err::end;
+        return false;
+      }
+    }
+
+    return true;
   }
 
-  void member_rule(ast::Ast& ast, err::Errors& err)
+  bool member_rule(ast::Ast& ast, err::Errors& err)
   {
     // member <- obj (lookup / typeargs tuple? / tuple)*
     // lookup can't distinguish types from fields, so invocation is either
     // calling a method or calling `apply` on a field.
-    obj_rule(ast, err);
+    if (!obj_rule(ast, err))
+      return false;
+
     auto next = ast::get_next_in_expr(ast);
 
     while (next)
@@ -169,72 +190,76 @@ namespace
         }
 
         default:
-          return;
+          return true;
       }
     }
+
+    return true;
   }
 
-  void prefix_rule(ast::Ast& ast, err::Errors& err)
+  bool prefix_rule(ast::Ast& ast, err::Errors& err)
   {
     // (call function typeargs obj (args))
-    if (ast && (ast->tag == "op"_))
+    if (ast->tag != "op"_)
+      return member_rule(ast, err);
+
+    auto op = ast;
+    auto call = ast::node(ast, "call");
+    ast::replace(ast, call);
+    ast::rename(op, "function");
+    ast::push_back(ast, op);
+    auto next = ast::get_next_in_expr(ast);
+    add_typeargs(ast, next);
+
+    if (!next)
     {
-      auto op = ast;
-      auto call = ast::node(ast, "call");
-      ast::replace(ast, call);
-      ast::rename(op, "function");
-      ast::push_back(ast, op);
-      auto next = ast::get_next_in_expr(ast);
-      add_typeargs(ast, next);
-      prefix_rule(next, err);
+      err << ast << "Expected an argument to this prefix function."
+          << err::end;
+      return false;
+    }
 
-      if (!next)
-      {
-        err << ast << "Expected an argument to this prefix function."
-            << err::end;
-        return;
-      }
+    if (!prefix_rule(next, err))
+      return false;
 
-      ast::remove(next);
+    ast::remove(next);
 
-      if (next->tag == "tuple"_)
-      {
-        auto obj = next->nodes.front();
-        ast::remove(obj);
-        ast::push_back(ast, obj);
-        ast::rename(next, "args");
-        ast::push_back(ast, next);
-      }
-      else
-      {
-        ast::push_back(ast, next);
-        auto args = ast::node(ast, "args");
-        ast::push_back(ast, args);
-      }
+    if (next->tag == "tuple"_)
+    {
+      auto obj = next->nodes.front();
+      ast::remove(obj);
+      ast::push_back(ast, obj);
+      ast::rename(next, "args");
+      ast::push_back(ast, next);
     }
     else
     {
-      member_rule(ast, err);
+      ast::push_back(ast, next);
+      auto args = ast::node(ast, "args");
+      ast::push_back(ast, args);
     }
+
+    return true;
   }
 
-  void infix_rule(ast::Ast& ast, err::Errors& err)
+  bool infix_rule(ast::Ast& ast, err::Errors& err)
   {
     // (call function typeargs lhs (args rhs))
     // Infix operators are left associative.
-    prefix_rule(ast, err);
+    if (!prefix_rule(ast, err))
+      return false;
+
     auto next = ast::get_next_in_expr(ast);
     std::string op;
 
     while (next)
     {
       if (next->tag == "assign"_)
-        return;
+        return true;
 
       if (next->tag != "op"_)
       {
         err << next << "Expected an infix operator here." << err::end;
-        return;
+        return false;
       }
 
       if (op.empty())
@@ -263,35 +288,37 @@ namespace
       {
         err << ast << "Expected an expression after this infix operator."
             << err::end;
-        return;
+        return false;
       }
 
-      prefix_rule(next, err);
+      if (!prefix_rule(next, err))
+        return false;
 
-      if (next)
-      {
-        ast::remove(next);
-        ast::push_back(args, next);
-        next = ast::get_next_in_expr(ast);
-      }
+      ast::remove(next);
+      ast::push_back(args, next);
+      next = ast::get_next_in_expr(ast);
     }
+
+    return true;
   }
 
-  void assign_rule(ast::Ast& ast, err::Errors& err)
+  bool assign_rule(ast::Ast& ast, err::Errors& err)
   {
     // (assign lhs rhs)
     // Assignment is right associative.
-    infix_rule(ast, err);
+    if (!infix_rule(ast, err))
+      return false;
+
     auto next = ast::get_next_in_expr(ast);
 
     if (!next)
-      return;
+      return true;
 
     if (next->tag != "assign"_)
     {
       err << next << "Expected an assignment or the end of an expression here."
           << err::end;
-      return;
+      return false;
     }
 
     auto lhs = ast;
@@ -300,16 +327,71 @@ namespace
     ast::push_back(ast, lhs);
     ast::remove(next);
     next = ast::get_next_in_expr(ast);
-    assign_rule(next, err);
 
     if (!next)
     {
       err << ast << "Expected an expression after this assignment." << err::end;
-      return;
+      return false;
     }
+
+    if (!assign_rule(next, err))
+      return false;
 
     ast::remove(next);
     ast::push_back(ast, next);
+    return true;
+  }
+
+  void controlflow_rule(ast::Ast& ast, err::Errors& err)
+  {
+    switch (ast->tag)
+    {
+      case "break"_:
+      case "continue"_:
+        break;
+
+      case "return"_:
+      case "yield"_:
+      {
+        auto control = ast::node(ast, ast->name.c_str());
+        ast::replace(ast, control);
+        auto next = ast::get_next_in_expr(ast);
+
+        if (next && assign_rule(next, err))
+        {
+          ast::remove(next);
+          ast::push_back(ast, next);
+        }
+        break;
+      }
+
+      default:
+      {
+        assign_rule(ast, err);
+        break;
+      }
+    }
+  }
+
+  void interp_rule(ast::Ast& ast)
+  {
+    auto parent = ast->parent.lock();
+
+    if (!parent || (parent->tag != "interp_string"_))
+      return;
+
+    // (call (function 'string') (typeargs) obj (args))
+    auto call = ast::node(ast, "call");
+    auto fun = ast::token(ast, "function", "string");
+    ast::push_back(call, fun);
+    auto typeargs = ast::node(ast, "typeargs");
+    ast::push_back(call, typeargs);
+    auto obj = ast->nodes.front();
+    ast::remove(obj);
+    ast::push_back(call, obj);
+    auto args = ast::node(ast, "args");
+    ast::push_back(call, args);
+    ast::push_back(ast, call);
   }
 }
 
@@ -337,56 +419,14 @@ namespace prec
           return;
         }
 
-        auto expr = ast;
-        ast = ast->nodes.front();
+        controlflow_rule(ast->nodes.front(), err);
+        interp_rule(ast);
 
-        switch (ast->tag)
+        if (ast->nodes.size() == 1)
         {
-          case "break"_:
-          case "continue"_:
-            break;
-
-          case "return"_:
-          case "yield"_:
-          {
-            auto control = ast::node(ast, ast->name.c_str());
-            ast::replace(ast, control);
-            auto next = ast::get_next_in_expr(ast);
-            assign_rule(next, err);
-            ast::remove(next);
-            ast::push_back(ast, next);
-            break;
-          }
-
-          default:
-          {
-            assign_rule(ast, err);
-            break;
-          }
-        }
-
-        auto parent = expr->parent.lock();
-
-        if (parent && (parent->tag == "interp_string"_))
-        {
-          // (call (function 'string') (typeargs) obj (args))
-          auto call = ast::node(expr, "call");
-          auto fun = ast::token(expr, "function", "string");
-          ast::push_back(call, fun);
-          auto typeargs = ast::node(expr, "typeargs");
-          ast::push_back(call, typeargs);
-          auto obj = expr->nodes.front();
-          ast::remove(obj);
-          ast::push_back(call, obj);
-          auto args = ast::node(expr, "args");
-          ast::push_back(call, args);
-          ast::push_back(expr, call);
-        }
-
-        if (expr->nodes.size() == 1)
-        {
-          ast::elide(expr);
-          build(expr, err);
+          // Elide expr nodes that have a single element.
+          ast::elide(ast);
+          build(ast, err);
           return;
         }
         break;
@@ -396,6 +436,7 @@ namespace prec
       {
         if (ast->nodes.size() == 1)
         {
+          // Elide tuple nodes that have a single expression in them.
           ast::elide(ast);
           build(ast, err);
           return;

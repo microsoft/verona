@@ -9,7 +9,6 @@ using namespace peg::udl;
 namespace
 {
   using namespace module;
-  using Modules = std::map<std::string, ModulePtr>;
 
   ModulePtr make_module(const std::string& name)
   {
@@ -41,7 +40,7 @@ namespace
     const std::string& ext,
     err::Errors& err)
   {
-    Modules modules;
+    std::map<std::string, ModulePtr> modules;
     std::vector<ModulePtr> stack;
     bool ok = true;
 
