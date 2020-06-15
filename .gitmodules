@@ -2,16 +2,21 @@
 	path = src/rt/external/snmalloc
 	url = https://github.com/Microsoft/snmalloc
 	branch = master
+	shallow = true
 [submodule "external/pegmatite"]
 	path = external/pegmatite
 	url = https://github.com/CompilerTeaching/Pegmatite
+	shallow = true
 [submodule "external/CLI11"]
 	path = external/CLI11
 	url = https://github.com/CLIUtils/CLI11
+	shallow = true
 [submodule "external/fmt"]
 	path = external/fmt
 	url = https://github.com/fmtlib/fmt.git
+	shallow = true
 [submodule "external/cpp-peglib"]
 	path = external/cpp-peglib
 	url = https://github.com/yhirose/cpp-peglib.git
 	branch = master
+	shallow = true
