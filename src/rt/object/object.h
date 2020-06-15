@@ -300,7 +300,7 @@ namespace verona::rt
     friend class RegionArena;
     friend class RememberedSet;
     friend class ExternalReferenceTable;
-    template<typename Entry, size_t& key_of(Entry*)>
+    template<typename Entry, uintptr_t& key_of(Entry&)>
     friend class PtrKeyHashMap;
     friend class Message;
     friend class LocalEpoch;

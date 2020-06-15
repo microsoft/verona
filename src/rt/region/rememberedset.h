@@ -57,15 +57,15 @@ namespace verona::rt
       {
         if (o != nullptr)
         {
-          o = HashSet::get_unmarked_pointer((size_t)o);
+          o = HashSet::get_unmarked_pointer((uintptr_t)o);
           RememberedSet::release_internal(ThreadAlloc::get(), o);
         }
       }
     };
 
-    static size_t& hash_set_key_of(HashSetEntry* e)
+    static uintptr_t& hash_set_key_of(HashSetEntry& e)
     {
-      return (size_t&)e->o;
+      return (uintptr_t&)e.o;
     }
     using HashSet = PtrKeyHashMap<HashSetEntry, hash_set_key_of>;
     HashSet* hash_set;
@@ -86,7 +86,7 @@ namespace verona::rt
     {
       for (auto& e : *that->hash_set)
       {
-        Object* q = HashSet::get_unmarked_pointer((size_t)e.o);
+        Object* q = HashSet::get_unmarked_pointer((uintptr_t)e.o);
         size_t dummy;
 
         HashSetEntry entry{q};

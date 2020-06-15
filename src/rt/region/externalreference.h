@@ -44,9 +44,10 @@ namespace verona::rt
       }
 
       // May only be called if there's a ext_ref for o in rs.
-      static ExternalRef* find_ext_ref(ExternalReferenceTable* ert, Object* o)
+      static ExternalRef*
+      find_ext_ref(ExternalReferenceTable* ert, const Object* o)
       {
-        auto i = ert->external_map->find((size_t)o);
+        auto i = ert->external_map->find(o);
         assert(i != ert->external_map->end());
         return i->second.get_wref();
       }
@@ -57,7 +58,7 @@ namespace verona::rt
         set_descriptor(desc());
         make_scc();
 
-        auto pair = std::make_pair((size_t)o, ExternalRefHolder{this});
+        auto pair = std::make_pair((uintptr_t)o, ExternalRefHolder{this});
         ert.load(std::memory_order_relaxed)
           ->external_map->insert_unique(ThreadAlloc::get(), pair);
 
@@ -172,16 +173,18 @@ namespace verona::rt
       }
     };
 
-    static size_t& external_map_key_of(std::pair<size_t, ExternalRefHolder>* e)
+    static uintptr_t&
+    external_map_key_of(std::pair<size_t, ExternalRefHolder>& e)
     {
-      return e->first;
+      return e.first;
     }
 
     // No tracing is need for external_map, because entries in the map doesn't
     // contribute to objects RC; when an object is collected, its corresponding
     // entry in the map (if any) is removed as well.
-    using ExternalMap =
-      PtrKeyHashMap<std::pair<size_t, ExternalRefHolder>, external_map_key_of>;
+    using ExternalMap = PtrKeyHashMap<
+      std::pair<uintptr_t, ExternalRefHolder>,
+      external_map_key_of>;
 
     ExternalMap* external_map;
 
