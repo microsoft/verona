@@ -1,5 +1,5 @@
 + classdef
-  - id ($module:/home/sylvanc/dev/verona/testsuite/parse/ast-parse/alloc.verona)
+  - id ($module)
   + typeparams
   + oftype
   + constraints
