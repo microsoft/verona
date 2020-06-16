@@ -3,9 +3,10 @@
 
 foo(a: Cown[A], b: Cown[B])
 {
-  when (a) {}
-  when (a, b) {
-    when (bar()) {}
-    return b
-  }
+  // when (a) {}
+  // when (a, b) {
+    // when (bar()) {}
+    c ()
+    // return b
+  // }
 }

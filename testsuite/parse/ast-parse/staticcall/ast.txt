@@ -1,159 +1,161 @@
-+ module
-  + typedef
-    - category (class)
-    - id (B)
-    + typeparams
-    + oftype
-    + constraints
-    + typebody
-      + typedef
-        - category (class)
-        - id (C)
-        + typeparams
-        + oftype
-        + constraints
-        + typebody
-          + function
-            + qualifier
-            + funcname
-              - id (bar)
-            + sig
-              + typeparams
-              + params
-              + oftype
-              + constraints
-            + block
-              + seq
-      + function
-        + qualifier
-        + funcname
-          - id (foo)
-        + sig
-          + typeparams
-          + params
-          + oftype
-          + constraints
-        + block
-          + seq
-  + function
-    + qualifier
-    + funcname
-      - id (f)
-    + sig
++ classdef
+  - id ($module:/home/sylvanc/dev/verona/testsuite/parse/ast-parse/staticcall.verona)
+  + typeparams
+  + oftype
+  + constraints
+  + typebody
+    + classdef
+      - id (B)
       + typeparams
-      + params
-        + param/0
-          + namedparam
-            - id (x)
-            + oftype
-              + type
-                + type_one/1
-                  + type_ref
-                    - id (A)
-            + initexpr
-        + param/0
-          + namedparam
-            - id (y)
-            + oftype
-              + type
-                + type_one/1
-                  + type_ref
-                    - id (A)
-            + initexpr
       + oftype
       + constraints
-    + block
-      + seq
-        + static-call
-          + qualtype
-            - typeref (B)
+      + typebody
+        + classdef
+          - id (C)
+          + typeparams
+          + oftype
+          + constraints
+          + typebody
+            + function
+              + qualifier
+              + funcname
+                - id (bar)
+              + sig
+                + typeparams
+                + params
+                + oftype
+                + constraints
+              + block
+                + seq
+        + function
+          + qualifier
+          + funcname
+            - id (foo)
+          + sig
+            + typeparams
+            + params
+            + oftype
+            + constraints
+          + block
+            + seq
+    + function
+      + qualifier
+      + funcname
+        - id (f)
+      + sig
+        + typeparams
+        + params
+          + param/0
+            + namedparam
+              - id (x)
+              + oftype
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (A)
+              + initexpr
+          + param/0
+            + namedparam
+              - id (y)
+              + oftype
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (A)
+              + initexpr
+        + oftype
+        + constraints
+      + block
+        + seq
+          + static-call
+            + qualtype
+              - typeref (B)
+              + typeargs
+            - function (create)
             + typeargs
-          - function (create)
-          + typeargs
-          + args
-        + static-call
-          + qualtype
-            - typeref (B)
+            + args
+          + static-call
+            + qualtype
+              - typeref (B)
+              + typeargs
+            - function (foo)
             + typeargs
-          - function (foo)
-          + typeargs
-          + args
-        + static-call
-          + qualtype
-            - typeref (B)
+            + args
+          + static-call
+            + qualtype
+              - typeref (B)
+              + typeargs
+            - function (foo)
             + typeargs
-          - function (foo)
-          + typeargs
-          + args
-        + static-call
-          + qualtype
-            - typeref (B)
+            + args
+          + static-call
+            + qualtype
+              - typeref (B)
+              + typeargs
+              - typeref (C)
+              + typeargs
+            - function (create)
             + typeargs
-            - typeref (C)
+            + args
+          + static-call
+            + qualtype
+              - typeref (B)
+              + typeargs
+                + typearg/0
+                  + type
+                    + type_one/1
+                      + type_ref
+                        - id (X)
+              - typeref (C)
+              + typeargs
+            - function (create)
             + typeargs
-          - function (create)
-          + typeargs
-          + args
-        + static-call
-          + qualtype
-            - typeref (B)
+            + args
+          + static-call
+            + qualtype
+              - typeref (B)
+              + typeargs
+                + typearg/0
+                  + type
+                    + type_one/1
+                      + type_ref
+                        - id (X)
+              - typeref (C)
+              + typeargs
+                + typearg/0
+                  + type
+                    + type_one/1
+                      + type_ref
+                        - id (X)
+            - function (create)
+            + typeargs
+            + args
+          + static-call
+            + qualtype
+              - typeref (B)
+              + typeargs
+                + typearg/0
+                  + type
+                    + type_one/1
+                      + type_ref
+                        - id (X)
+              - typeref (C)
+              + typeargs
+                + typearg/0
+                  + type
+                    + type_one/1
+                      + type_ref
+                        - id (X)
+            - function (bar)
             + typeargs
               + typearg/0
                 + type
                   + type_one/1
                     + type_ref
                       - id (X)
-            - typeref (C)
-            + typeargs
-          - function (create)
-          + typeargs
-          + args
-        + static-call
-          + qualtype
-            - typeref (B)
-            + typeargs
-              + typearg/0
-                + type
-                  + type_one/1
-                    + type_ref
-                      - id (X)
-            - typeref (C)
-            + typeargs
-              + typearg/0
-                + type
-                  + type_one/1
-                    + type_ref
-                      - id (X)
-          - function (create)
-          + typeargs
-          + args
-        + static-call
-          + qualtype
-            - typeref (B)
-            + typeargs
-              + typearg/0
-                + type
-                  + type_one/1
-                    + type_ref
-                      - id (X)
-            - typeref (C)
-            + typeargs
-              + typearg/0
-                + type
-                  + type_one/1
-                    + type_ref
-                      - id (X)
-          - function (bar)
-          + typeargs
-            + typearg/0
-              + type
-                + type_one/1
-                  + type_ref
-                    - id (X)
-          + args
-            - localref (x)
-            - localref (y)
-            + tuple
+            + args
               - localref (x)
               - localref (y)
-
+              + tuple
+                - localref (x)
+                - localref (y)

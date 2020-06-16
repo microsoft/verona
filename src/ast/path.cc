@@ -276,8 +276,9 @@ namespace path
     struct stat sb;
     return (stat(path.c_str(), &sb) == 0) && S_ISREG(sb.st_mode);
 #elif defined(_WIN32)
-    struct stat sb;
-    return (_stat(path.c_str(), &sb) == 0) && S_ISREG(sb.st_mode);
+    struct _stat sb;
+    return (_stat(path.c_str(), &sb) == 0) &&
+      (((sb.st_mode) & _S_IFMT) == _S_IFREG);
 #else
 #  error "path::is_file not supported on this target."
 #endif
