@@ -90,21 +90,40 @@ namespace
 
   void detect_cycles(ModulePtr& m, err::Errors& err)
   {
-    std::vector<std::pair<ModulePtr, ModulePtr>> pairs;
+    std::vector<std::vector<ModulePtr>> cycles;
 
     dfs::cycles(
       m,
-      [](auto& parent, auto& child, auto& pairs) {
-        pairs.emplace_back(parent, child);
+      [](auto& parent, auto& child, auto& cycles) {
+        cycles.push_back({parent});
+        auto& cycle = cycles.back();
+        auto m = parent;
+
+        while (m != child)
+        {
+          for (auto& m2 : m->edges)
+          {
+            if (m2->color == dfs::grey)
+            {
+              cycle.push_back(m2);
+              m = m2;
+              break;
+            }
+          }
+        }
+
         return false;
       },
-      pairs);
+      cycles);
 
-    for (auto& pair : pairs)
+    for (auto& cycle : cycles)
     {
-      err << "These modules cause a cyclic dependency:" << std::endl
-          << "  " << pair.second->name << std::endl
-          << "  " << pair.first->name << err::end;
+      err << "These modules cause a cyclic dependency:\n";
+
+      for (auto& m : cycle)
+        err << "  " <<m->name << "\n";
+
+      err << err::end;
     }
   }
 
