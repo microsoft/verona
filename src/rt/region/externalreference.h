@@ -49,7 +49,8 @@ namespace verona::rt
       {
         auto i = ert->external_map->find(o);
         assert(i != ert->external_map->end());
-        return i->second.get_wref();
+        assert(i->second);
+        return i->second;
       }
 
       ExternalRef(ExternalReferenceTable* ert_, Object* o_)
@@ -58,7 +59,7 @@ namespace verona::rt
         set_descriptor(desc());
         make_scc();
 
-        auto pair = std::make_pair((uintptr_t)o, ExternalRefHolder{this});
+        auto pair = std::make_pair((uintptr_t)o, this);
         ert.load(std::memory_order_relaxed)
           ->external_map->insert_unique(ThreadAlloc::get(), pair);
 
@@ -106,85 +107,37 @@ namespace verona::rt
       }
     };
 
-    /**
-     * ExternalRef wrapper holding the regions ownership on the ExternalRef.
-     * Destructor invalidates the ExternalRef.
-     */
-    class ExternalRefHolder
+    struct MapCallbacks
     {
-    private:
-      ExternalRef* ext_ref;
-
-    public:
-      ExternalRefHolder() : ext_ref{nullptr} {}
-
-      explicit ExternalRefHolder(ExternalRef* ext_ref_) : ext_ref{ext_ref_}
+      static uintptr_t& key_of(std::pair<size_t, ExternalRef*>& e)
       {
-        assert(ext_ref);
-        ext_ref->incref();
+        return e.first;
       }
 
-      ExternalRefHolder(const ExternalRefHolder&) = delete;
-
-      ExternalRefHolder& operator=(const ExternalRefHolder&) = delete;
-
-      ExternalRefHolder(ExternalRefHolder&& other) noexcept
-      : ext_ref{other.ext_ref}
+      static void on_insert(std::pair<size_t, ExternalRef*>& e)
       {
-        if (this != &other)
-        {
-          other.ext_ref = nullptr;
-        }
+        e.second->incref();
       }
 
-      ExternalRefHolder& operator=(ExternalRefHolder&& other) noexcept
+      static void on_erase(std::pair<size_t, ExternalRef*>& e)
       {
-        if (this != &other)
-        {
-          ext_ref = other.ext_ref;
-          other.ext_ref = nullptr;
-        }
-        return *this;
-      }
-
-      void set_ert(ExternalReferenceTable* ert_)
-      {
-        assert(ext_ref->o);
-        ext_ref->ert.store(ert_, std::memory_order_relaxed);
-      }
-
-      ExternalRef* get_wref()
-      {
-        assert(ext_ref);
-        return ext_ref;
-      }
-
-      ~ExternalRefHolder()
-      {
-        if (ext_ref)
+        if (e.second)
         {
           // The object this external ref points to has been collected, so we
-          // need to invalidate this ext_ref so that `is_in` return false.
-          ext_ref->o = nullptr;
-          ext_ref->ert.store(nullptr, std::memory_order_relaxed);
-          Alloc* alloc = ThreadAlloc::get();
-          Immutable::release(alloc, ext_ref);
+          // need to invalidate this ext_ref so that `is_in` returns
+          // false.second.
+          e.second->o = nullptr;
+          e.second->ert.store(nullptr, std::memory_order_relaxed);
+          Immutable::release(ThreadAlloc::get(), e.second);
         }
       }
     };
 
-    static uintptr_t&
-    external_map_key_of(std::pair<size_t, ExternalRefHolder>& e)
-    {
-      return e.first;
-    }
-
     // No tracing is need for external_map, because entries in the map doesn't
     // contribute to objects RC; when an object is collected, its corresponding
     // entry in the map (if any) is removed as well.
-    using ExternalMap = PtrKeyHashMap<
-      std::pair<uintptr_t, ExternalRefHolder>,
-      external_map_key_of>;
+    using ExternalMap =
+      PtrKeyHashMap<std::pair<uintptr_t, ExternalRef*>, MapCallbacks>;
 
     ExternalMap* external_map;
 
@@ -204,7 +157,8 @@ namespace verona::rt
     {
       for (auto& e : *that->external_map)
       {
-        e.second.set_ert(this);
+        assert(e.second->o);
+        e.second->ert.store(this, std::memory_order_relaxed);
         auto pair = std::make_pair(e.first, std::move(e.second));
         external_map->insert_unique(alloc, pair);
       }

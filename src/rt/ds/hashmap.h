@@ -7,6 +7,17 @@
 
 namespace verona::rt
 {
+  template<typename Entry>
+  struct DefaultMapCallbacks
+  {
+    static uintptr_t& key_of(Entry& entry)
+    {
+      return &entry.first;
+    }
+    static void on_insert(Entry&) {}
+    static void on_erase(Entry&) {}
+  };
+
   /**
    * Robinhood hashmap from Key(Object*) to Value. The Entry is either Object*,
    * using hashmap as a set, or pair{Object*, Value}.
@@ -15,7 +26,7 @@ namespace verona::rt
    * bits (normally zero due pointer alignment) are used to encode marking
    * status (MARK) and distance-to-initial-bucket (DIB).
    */
-  template<typename Entry, uintptr_t& key_of(Entry&)>
+  template<typename Entry, typename CB = DefaultMapCallbacks<Entry>>
   class PtrKeyHashMap
   {
   private:
@@ -70,7 +81,7 @@ namespace verona::rt
         for (size_t index = 0; index < old_size; index++)
         {
           auto& entry = old_set[index];
-          auto& key = key_of(entry);
+          auto& key = CB::key_of(entry);
           if (key != 0)
           {
             key = (uintptr_t)get_unmarked_pointer(key);
@@ -103,7 +114,7 @@ namespace verona::rt
         for (size_t index = 0; index < old_size; index++)
         {
           auto& entry = old_set[index];
-          auto& key = key_of(entry);
+          auto& key = CB::key_of(entry);
 
           if ((key & MARK) != 0)
           {
@@ -113,7 +124,7 @@ namespace verona::rt
           }
           else if (key != 0)
           {
-            entry.~Entry();
+            delete_entry(entry);
           }
         }
 
@@ -144,9 +155,15 @@ namespace verona::rt
       // must have no dib. If the DIB is greater than the maximum DIB, encode
       // it as the maximum DIB. We will recalculate the real DIB when we
       // fetch it.
-      auto& key = key_of(entry);
+      auto& key = CB::key_of(entry);
       key = key | (dib < DIB_MAX ? dib : DIB_MAX);
       set[index] = std::move(entry);
+    }
+
+    static void delete_entry(Entry& entry)
+    {
+      CB::on_erase(entry);
+      entry.~Entry();
     }
 
     inline size_t get_size()
@@ -187,7 +204,7 @@ namespace verona::rt
           i++;
           if (i == size)
             break;
-          if (key_of(map->set[i]) != 0)
+          if (CB::key_of(map->set[i]) != 0)
             break;
         }
 
@@ -231,7 +248,7 @@ namespace verona::rt
       {
         return i;
       }
-      if (key_of(set[0]) != 0)
+      if (CB::key_of(set[0]) != 0)
       {
         return i;
       }
@@ -248,7 +265,7 @@ namespace verona::rt
     void mark_slot(size_t index, size_t& marked)
     {
       assert(index < get_size());
-      auto& key = key_of(set[index]);
+      auto& key = CB::key_of(set[index]);
       assert(key != 0);
 
       if ((key & MARK) == 0)
@@ -269,9 +286,9 @@ namespace verona::rt
           for (size_t i = 0; i < size; ++i)
           {
             auto& e = set[i];
-            if (key_of(e) != 0)
+            if (CB::key_of(e) != 0)
             {
-              e.~Entry();
+              delete_entry(e);
             }
           }
         }
@@ -282,7 +299,7 @@ namespace verona::rt
     // Returns true if newly added, false if previously present.
     bool insert(Alloc* alloc, Entry& entry, size_t& location)
     {
-      auto orig_key = key_of(entry);
+      const auto& orig_key = CB::key_of(entry);
       assert(orig_key == (uintptr_t)get_unmarked_pointer(orig_key));
 
       if (size_bits == 0)
@@ -296,15 +313,16 @@ namespace verona::rt
       for (size_t i = 0; i <= mask; i++)
       {
         auto& other = set[index];
-        auto& other_key = key_of(other);
+        auto& other_key = CB::key_of(other);
 
         if (other_key == 0)
         {
-          if (key_of(entry) == orig_key)
+          if (CB::key_of(entry) == orig_key)
             location = index;
 
           // This index is empty, insert here.
           set_entry(index, entry, dib_entry);
+          CB::on_insert(entry);
 
           count++;
           grow(alloc);
@@ -318,8 +336,8 @@ namespace verona::rt
           // This entry is already present. This should only happen for the
           // original o, not for any swapped pointer.
           if (
-            (key_of(entry) == orig_key) &&
-            (key_of(entry) == (uintptr_t)get_unmarked_pointer(other_key)))
+            (CB::key_of(entry) == orig_key) &&
+            (CB::key_of(entry) == (uintptr_t)get_unmarked_pointer(other_key)))
           {
             location = index;
             return false;
@@ -329,7 +347,7 @@ namespace verona::rt
         {
           auto tmp = std::move(other);
 
-          if (key_of(entry) == orig_key)
+          if (CB::key_of(entry) == orig_key)
             location = index;
 
           // The DIB of the entry to insert is greater than the DIB of the
@@ -337,7 +355,7 @@ namespace verona::rt
           // somewhere to insert other.
           set_entry(index, entry, dib_entry);
 
-          key_of(tmp) = (uintptr_t)get_pointer(key_of(tmp));
+          CB::key_of(tmp) = (uintptr_t)get_pointer(CB::key_of(tmp));
           entry = std::move(tmp);
           dib_entry = dib_other;
         }
@@ -386,7 +404,7 @@ namespace verona::rt
       for (size_t index = 0; index < size; index++)
       {
         auto& entry = set[index];
-        auto& key = key_of(entry);
+        auto& key = CB::key_of(entry);
 
         if (key == 0)
         {
@@ -422,16 +440,16 @@ namespace verona::rt
             set_entry(
               index - empty_dib + fill_dib, entry, dib - empty_dib + fill_dib);
 
-            key_of(set[index]) = 0;
+            CB::key_of(set[index]) = 0;
             empty_dib++;
             fill_dib++;
           }
         }
         else
         {
-          set[index].~Entry();
+          delete_entry(set[index]);
 
-          key_of(set[index]) = 0;
+          CB::key_of(set[index]) = 0;
 
           if (fill_dib > 0)
           {
@@ -452,7 +470,7 @@ namespace verona::rt
         for (size_t index = 0; index < size; index++)
         {
           auto& entry = set[index];
-          auto& key = key_of(entry);
+          auto& key = CB::key_of(entry);
 
           size_t dib = get_dib(size, index, key);
 
@@ -465,7 +483,7 @@ namespace verona::rt
               entry,
               dib - empty_dib + fill_dib);
 
-            key_of(set[index]) = 0;
+            CB::key_of(set[index]) = 0;
             empty_dib++;
             fill_dib++;
           }
@@ -498,7 +516,7 @@ namespace verona::rt
 
       for (size_t i = 0; i <= mask; i++)
       {
-        auto& k = key_of(set[index]);
+        auto& k = CB::key_of(set[index]);
         if (k == 0)
         {
           return end();
@@ -545,12 +563,12 @@ namespace verona::rt
       auto size = get_size();
       auto mask = size - 1;
       auto cur_index = i.get_index();
-      i->~Entry();
+      delete_entry(*i);
       auto next_index = (cur_index + 1) & mask;
 
       uintptr_t key = 0;
       size_t dib = 0;
-      while ((key = key_of(set[next_index])) != 0 &&
+      while ((key = CB::key_of(set[next_index])) != 0 &&
              (dib = get_dib(size, next_index, key)) != 0)
       {
         set_entry(cur_index, set[next_index], dib - 1);
@@ -559,7 +577,7 @@ namespace verona::rt
         next_index = (next_index + 1) & mask;
       }
 
-      key_of(set[cur_index]) = 0;
+      CB::key_of(set[cur_index]) = 0;
       count--;
     }
   };

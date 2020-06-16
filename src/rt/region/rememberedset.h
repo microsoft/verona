@@ -19,55 +19,29 @@ namespace verona::rt
     friend class RegionArena;
 
   private:
-    // It's not allowed to pass lambda as template argument (until c++20);
-    // using static function as a workaround for HashSet and ExternalMap.
-
-    struct HashSetEntry
+    struct SetCallbacks
     {
-      Object* o;
-
-      explicit HashSetEntry(Object* o_) : o{o_}
+      static uintptr_t& key_of(Object*& e)
       {
-        assert(o_);
+        return (uintptr_t&)e;
       }
 
-      HashSetEntry(const HashSetEntry&) = delete;
-
-      HashSetEntry& operator=(const HashSetEntry&) = delete;
-
-      HashSetEntry(HashSetEntry&& other) noexcept : o{other.o}
+      static void on_insert(Object*& e)
       {
-        if (this != &other)
-        {
-          other.o = nullptr;
-        }
+        assert(e != nullptr);
       }
 
-      HashSetEntry& operator=(HashSetEntry&& other) noexcept
+      static void on_erase(Object*& e)
       {
-        if (this != &other)
+        if (e != nullptr)
         {
-          o = other.o;
-          other.o = nullptr;
-        }
-        return *this;
-      }
-
-      ~HashSetEntry()
-      {
-        if (o != nullptr)
-        {
-          o = HashSet::get_unmarked_pointer((uintptr_t)o);
-          RememberedSet::release_internal(ThreadAlloc::get(), o);
+          e = HashSet::get_unmarked_pointer((uintptr_t)e);
+          RememberedSet::release_internal(ThreadAlloc::get(), e);
         }
       }
     };
 
-    static uintptr_t& hash_set_key_of(HashSetEntry& e)
-    {
-      return (uintptr_t&)e.o;
-    }
-    using HashSet = PtrKeyHashMap<HashSetEntry, hash_set_key_of>;
+    using HashSet = PtrKeyHashMap<Object*, SetCallbacks>;
     HashSet* hash_set;
 
   public:
@@ -86,19 +60,15 @@ namespace verona::rt
     {
       for (auto& e : *that->hash_set)
       {
-        Object* q = HashSet::get_unmarked_pointer((uintptr_t)e.o);
+        Object* q = HashSet::get_unmarked_pointer((uintptr_t)e);
         size_t dummy;
 
-        HashSetEntry entry{q};
         // If q is already present in this, decref, otherwise insert.
         // No need to call release, as the rc will not drop to zero.
-        if (!hash_set->insert(alloc, entry, dummy))
+        if (!hash_set->insert(alloc, q, dummy))
         {
           q->decref();
         }
-
-        // If we don't null this out, the destructor will release q.
-        entry.o = nullptr;
       }
     }
 
@@ -110,10 +80,8 @@ namespace verona::rt
 
       size_t dummy;
 
-      HashSetEntry entry{o};
-      if (hash_set->insert(alloc, entry, dummy))
+      if (hash_set->insert(alloc, o, dummy))
       {
-        assert(entry.o == nullptr);
         // If the caller is not transfering ownership of a refcount, i.e., the
         // object is being added to the region but not dropped from somewhere,
         // we need to incref it.
@@ -122,7 +90,6 @@ namespace verona::rt
       }
       else
       {
-        entry.o = nullptr;
         // If the caller is transfering ownership of a refcount, i.e., the
         // object is being moved from somewhere to this region, but the object
         // is already here, we need to decref it.
@@ -137,17 +104,8 @@ namespace verona::rt
       assert(o->debug_is_rc() || o->debug_is_cown());
 
       size_t index = 0;
-
-      HashSetEntry entry{o};
-      if (hash_set->insert(alloc, entry, index))
-      {
-        assert(entry.o == nullptr);
+      if (hash_set->insert(alloc, o, index))
         o->incref();
-      }
-      else
-      {
-        entry.o = nullptr;
-      }
 
       hash_set->mark_slot(index, marked);
     }
