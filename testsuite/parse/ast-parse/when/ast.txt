@@ -1,5 +1,5 @@
 + classdef
-  - id ($module:/home/sylvanc/dev/verona/testsuite/parse/ast-parse/when.verona)
+  - id ($module)
   + typeparams
   + oftype
   + constraints
@@ -45,8 +45,23 @@
         + constraints
       + block
         + seq
-          + call
-            - function (c)
-            + typeargs
+          + when
+            - localref (a)
+            + block
+              + seq
+          + when
             + tuple
-            + args
+              - localref (a)
+              - localref (b)
+            + block
+              + seq
+                + when
+                  + call
+                    - function (bar)
+                    + typeargs
+                    + tuple
+                    + args
+                  + block
+                    + seq
+                + return
+                  - localref (b)

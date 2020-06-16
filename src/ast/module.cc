@@ -38,7 +38,7 @@ namespace
 
     auto moduledef = (defs.size() > 0) ? defs.front() : ast;
     auto classdef = ast::node(moduledef, "classdef");
-    auto id = ast::token(classdef, "id", "$module:" + path);
+    auto id = ast::token(classdef, "id", "$module");
     ast::push_back(classdef, id);
 
     if (moduledef->tag == "moduledef"_)
