@@ -160,7 +160,7 @@ namespace verona::rt
       return dib;
     }
 
-    inline void set_entry(size_t index, Entry& entry, size_t dib)
+    inline void set_entry(size_t index, Entry entry, size_t dib)
     {
       // When entry is passed in, it may or may not have a mark bit, but it
       // must have no dib. If the DIB is greater than the maximum DIB, encode
@@ -313,7 +313,7 @@ namespace verona::rt
     }
 
     // Returns true if newly added, false if previously present.
-    bool insert(Alloc* alloc, Entry& entry, size_t& location)
+    bool insert(Alloc* alloc, Entry entry, size_t& location)
     {
       const auto& orig_key = key_of(entry);
       assert(orig_key == unmark_key(orig_key));
@@ -337,8 +337,8 @@ namespace verona::rt
             location = index;
 
           // This index is empty, insert here.
-          set_entry(index, entry, dib_entry);
           CB::on_insert(entry);
+          set_entry(index, std::move(entry), dib_entry);
 
           count++;
           grow(alloc);
@@ -369,7 +369,7 @@ namespace verona::rt
           // The DIB of the entry to insert is greater than the DIB of the
           // entry at this index. Insert o here, and continue looking for
           // somewhere to insert other.
-          set_entry(index, entry, dib_entry);
+          set_entry(index, std::move(entry), dib_entry);
 
           key_of(tmp) = (uintptr_t)get_pointer(key_of(tmp));
           entry = std::move(tmp);
@@ -385,15 +385,15 @@ namespace verona::rt
       return false;
     }
 
-    bool insert(Alloc* alloc, Entry& entry)
+    bool insert(Alloc* alloc, Entry entry)
     {
       size_t dummy;
-      return insert(alloc, entry, dummy);
+      return insert(alloc, std::move(entry), dummy);
     }
 
-    void insert_unique(Alloc* alloc, Entry& entry)
+    void insert_unique(Alloc* alloc, Entry entry)
     {
-      auto unique = insert(alloc, entry);
+      auto unique = insert(alloc, std::move(entry));
       assert(unique);
       UNUSED(unique);
     }

@@ -59,9 +59,9 @@ namespace verona::rt
         set_descriptor(desc());
         make_scc();
 
-        auto pair = std::make_pair(o, this);
         ert.load(std::memory_order_relaxed)
-          ->external_map->insert_unique(ThreadAlloc::get(), pair);
+          ->external_map->insert_unique(
+            ThreadAlloc::get(), std::make_pair(o, this));
 
         o->set_has_ext_ref();
       }
@@ -154,8 +154,8 @@ namespace verona::rt
       {
         assert(e.second->o);
         e.second->ert.store(this, std::memory_order_relaxed);
-        auto pair = std::make_pair(e.first, std::move(e.second));
-        external_map->insert_unique(alloc, pair);
+        external_map->insert_unique(
+          alloc, std::make_pair(e.first, std::move(e.second)));
       }
     }
 

@@ -90,7 +90,7 @@ namespace verona::rt
 
       size_t index = 0;
       if (hash_set->insert(alloc, o, index))
-        HashSet::unmark_pointer(o)->incref();
+        o->incref();
 
       hash_set->mark_slot(index, marked);
     }
