@@ -95,12 +95,10 @@ namespace verona::rt
         for (size_t index = 0; index < old_size; index++)
         {
           auto& entry = old_set[index];
-          auto& key = key_of(entry);
+          const auto key = unmark_key(key_of(entry));
           if (key != 0)
           {
-            key = unmark_key(key);
-            size_t dummy;
-            insert(alloc, entry, dummy);
+            insert(alloc, entry);
           }
         }
 
@@ -133,8 +131,7 @@ namespace verona::rt
           if ((key & MARK) != 0)
           {
             key = unmark_key(key);
-            size_t dummy;
-            insert(alloc, entry, dummy);
+            insert(alloc, entry);
           }
           else if (key != 0)
           {
@@ -388,10 +385,15 @@ namespace verona::rt
       return false;
     }
 
-    void insert_unique(Alloc* alloc, Entry& entry)
+    bool insert(Alloc* alloc, Entry& entry)
     {
       size_t dummy;
-      auto unique = insert(alloc, entry, dummy);
+      return insert(alloc, entry, dummy);
+    }
+
+    void insert_unique(Alloc* alloc, Entry& entry)
+    {
+      auto unique = insert(alloc, entry);
       assert(unique);
       UNUSED(unique);
     }

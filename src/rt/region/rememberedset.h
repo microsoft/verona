@@ -51,11 +51,10 @@ namespace verona::rt
       for (auto*& e : *that->hash_set)
       {
         Object* q = HashSet::unmark_pointer(e);
-        size_t dummy;
 
         // If q is already present in this, decref, otherwise insert.
         // No need to call release, as the rc will not drop to zero.
-        if (!hash_set->insert(alloc, q, dummy))
+        if (!hash_set->insert(alloc, q))
         {
           q->decref();
         }
@@ -68,15 +67,13 @@ namespace verona::rt
       // If o is not present, add it and o->incref().
       assert(o->debug_is_rc() || o->debug_is_cown());
 
-      size_t dummy;
-
       // If the caller is not transfering ownership of a refcount, i.e., the
       // object is being added to the region but not dropped from somewhere,
       // we need to incref it.
       if constexpr (transfer == NoTransfer)
         o->incref();
 
-      if (!hash_set->insert(alloc, o, dummy))
+      if (!hash_set->insert(alloc, o))
       {
         // If the caller is transfering ownership of a refcount, i.e., the
         // object is being moved from somewhere to this region, but the object
