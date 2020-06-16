@@ -109,11 +109,6 @@ namespace verona::rt
 
     struct MapCallbacks
     {
-      static uintptr_t& key_of(std::pair<size_t, ExternalRef*>& e)
-      {
-        return e.first;
-      }
-
       static void on_insert(std::pair<size_t, ExternalRef*>& e)
       {
         e.second->incref();

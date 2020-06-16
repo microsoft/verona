@@ -21,14 +21,10 @@ namespace verona::rt
   private:
     struct SetCallbacks
     {
-      static uintptr_t& key_of(Object*& e)
-      {
-        return (uintptr_t&)e;
-      }
-
       static void on_insert(Object*& e)
       {
         assert(e != nullptr);
+        UNUSED(e);
       }
 
       static void on_erase(Object*& e)
