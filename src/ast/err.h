@@ -49,7 +49,7 @@ namespace err
         }
         else if (group.size() > 0)
         {
-          out << "---" << std::endl;
+          out << "---\n";
         }
 
         for (auto& e : group)
@@ -60,7 +60,10 @@ namespace err
                 << ": ";
           }
 
-          out << e.msg << std::endl;
+          out << e.msg;
+
+          if (e.msg.empty() || (e.msg.back() != '\n'))
+            out << "\n";
         }
       }
 

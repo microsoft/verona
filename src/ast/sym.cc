@@ -18,10 +18,7 @@ namespace
     auto enclosing = ast::get_scope(ast);
 
     if (!enclosing)
-    {
-      err << ast << id << " has no enclosing scope." << err::end;
       return;
-    }
 
     auto scope = enclosing->scope;
     auto find = scope->sym.find(id);
@@ -97,22 +94,10 @@ namespace sym
   {
     switch (ast->tag)
     {
-      case "module"_:
-      case "lambda"_:
-      {
-        add_scope(ast);
-        break;
-      }
-
-      case "new"_:
-      {
-        add_scope(ast);
-        break;
-      }
-
+      case "classdef"_:
       case "typedef"_:
       {
-        add_symbol(ast->nodes[1]->token, ast, err);
+        add_symbol(ast->nodes.front()->token, ast, err);
         add_scope(ast);
         not_in_pattern(ast, err);
         break;
@@ -187,6 +172,13 @@ namespace sym
 
         build(ast, err);
         return;
+      }
+
+      case "lambda"_:
+      case "new"_:
+      {
+        add_scope(ast);
+        break;
       }
 
       case "break"_:

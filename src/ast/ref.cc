@@ -19,6 +19,7 @@ namespace
     {
       switch (def->tag)
       {
+        case "classdef"_:
         case "typedef"_:
         case "typeparam"_:
         {

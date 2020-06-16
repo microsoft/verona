@@ -28,7 +28,6 @@ namespace ast
 
   Ast token(const Ast& ast, const char* name, const std::string& token);
   Ast node(const Ast& ast, const char* name);
-  Ast module(const std::string& path);
   void push_back(Ast& ast, Ast& child);
   void replace(Ast& prev, Ast next);
   void remove(Ast ast);

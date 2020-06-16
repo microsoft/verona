@@ -45,7 +45,6 @@ namespace
 
     // look for type lookups followed by optional typeargs
     auto def = ast::get_def(ast, typeref->token);
-    assert(def && (def->tag == "typedef"_));
 
     while (next)
     {
@@ -54,8 +53,12 @@ namespace
 
       auto subdef = ast::get_def(def, next->token);
 
-      if (!subdef || (subdef->tag != "typedef"_))
+      if (
+        !subdef ||
+        ((subdef->tag != "typedef"_) && (subdef->tag != "classdef"_)))
+      {
         break;
+      }
 
       ast::remove(next);
       ast::rename(next, "typeref");
@@ -213,8 +216,7 @@ namespace
 
     if (!next)
     {
-      err << ast << "Expected an argument to this prefix function."
-          << err::end;
+      err << ast << "Expected an argument to this prefix function." << err::end;
       return false;
     }
 
