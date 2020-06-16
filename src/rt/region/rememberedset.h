@@ -30,10 +30,8 @@ namespace verona::rt
       static void on_erase(Object*& e)
       {
         if (e != nullptr)
-        {
-          e = HashSet::get_unmarked_pointer((uintptr_t)e);
-          RememberedSet::release_internal(ThreadAlloc::get(), e);
-        }
+          RememberedSet::release_internal(
+            ThreadAlloc::get(), HashSet::unmark_pointer(e));
       }
     };
 
@@ -56,7 +54,7 @@ namespace verona::rt
     {
       for (auto& e : *that->hash_set)
       {
-        Object* q = HashSet::get_unmarked_pointer((uintptr_t)e);
+        Object* q = HashSet::unmark_pointer(e);
         size_t dummy;
 
         // If q is already present in this, decref, otherwise insert.

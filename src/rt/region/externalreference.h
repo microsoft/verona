@@ -59,7 +59,7 @@ namespace verona::rt
         set_descriptor(desc());
         make_scc();
 
-        auto pair = std::make_pair((uintptr_t)o, this);
+        auto pair = std::make_pair(o, this);
         ert.load(std::memory_order_relaxed)
           ->external_map->insert_unique(ThreadAlloc::get(), pair);
 
@@ -109,12 +109,12 @@ namespace verona::rt
 
     struct MapCallbacks
     {
-      static void on_insert(std::pair<size_t, ExternalRef*>& e)
+      static void on_insert(std::pair<Object*, ExternalRef*>& e)
       {
         e.second->incref();
       }
 
-      static void on_erase(std::pair<size_t, ExternalRef*>& e)
+      static void on_erase(std::pair<Object*, ExternalRef*>& e)
       {
         if (e.second)
         {
@@ -132,7 +132,7 @@ namespace verona::rt
     // contribute to objects RC; when an object is collected, its corresponding
     // entry in the map (if any) is removed as well.
     using ExternalMap =
-      PtrKeyHashMap<std::pair<uintptr_t, ExternalRef*>, MapCallbacks>;
+      PtrKeyHashMap<std::pair<Object*, ExternalRef*>, MapCallbacks>;
 
     ExternalMap* external_map;
 

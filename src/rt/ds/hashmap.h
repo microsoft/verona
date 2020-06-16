@@ -58,9 +58,6 @@ namespace verona::rt
     template<typename V>
     struct is_valid_pair<std::pair<Object*, V>> : std::true_type
     {};
-    template<typename V>
-    struct is_valid_pair<std::pair<uintptr_t, V>> : std::true_type
-    {};
 
     static_assert(
       std::is_same_v<Entry, Object*> || is_valid_pair<Entry>::value,
@@ -101,7 +98,7 @@ namespace verona::rt
           auto& key = key_of(entry);
           if (key != 0)
           {
-            key = (uintptr_t)get_unmarked_pointer(key);
+            key = unmark_key(key);
             size_t dummy;
             insert(alloc, entry, dummy);
           }
@@ -135,7 +132,7 @@ namespace verona::rt
 
           if ((key & MARK) != 0)
           {
-            key = (uintptr_t)get_unmarked_pointer(key);
+            key = unmark_key(key);
             size_t dummy;
             insert(alloc, entry, dummy);
           }
@@ -159,7 +156,7 @@ namespace verona::rt
         // Recalculate the DIB.
         size_t mask = size - 1;
         dib = (index + size -
-               (verona::rt::bits::hash(get_unmarked_pointer(key)) & mask)) &
+               (verona::rt::bits::hash((void*)unmark_key(key)) & mask)) &
           mask;
       }
 
@@ -244,6 +241,12 @@ namespace verona::rt
       }
     };
 
+    static uintptr_t unmark_key(uintptr_t p)
+    {
+      assert(p != 0);
+      return p & POINTER_MASK;
+    }
+
   public:
     static PtrKeyHashMap* create()
     {
@@ -251,11 +254,10 @@ namespace verona::rt
       return new (r) PtrKeyHashMap();
     }
 
-    static Object* get_unmarked_pointer(uintptr_t p)
+    // The Object* returned has no mark bits or dib.
+    static Object* unmark_pointer(Object* p)
     {
-      assert(p != 0);
-      // The Object* returned has no mark bits or dib.
-      return (Object*)(p & POINTER_MASK);
+      return (Object*)unmark_key((uintptr_t)p);
     }
 
     Iterator begin()
@@ -317,7 +319,7 @@ namespace verona::rt
     bool insert(Alloc* alloc, Entry& entry, size_t& location)
     {
       const auto& orig_key = key_of(entry);
-      assert(orig_key == (uintptr_t)get_unmarked_pointer(orig_key));
+      assert(orig_key == unmark_key(orig_key));
 
       if (size_bits == 0)
         grow(alloc);
@@ -354,7 +356,7 @@ namespace verona::rt
           // original o, not for any swapped pointer.
           if (
             (key_of(entry) == orig_key) &&
-            (key_of(entry) == (uintptr_t)get_unmarked_pointer(other_key)))
+            (key_of(entry) == unmark_key(other_key)))
           {
             location = index;
             return false;
@@ -437,7 +439,7 @@ namespace verona::rt
         }
         else if ((key & MARK) != 0)
         {
-          key = (uintptr_t)get_unmarked_pointer(key);
+          key = unmark_key(key);
           size_t dib = get_dib(size, index, key);
 
           if (dib == 0)
@@ -493,7 +495,7 @@ namespace verona::rt
 
           if (dib > 0)
           {
-            key = (uintptr_t)get_unmarked_pointer(key);
+            key = unmark_key(key);
 
             set_entry(
               (index - empty_dib + fill_dib + size) & mask,
@@ -524,7 +526,7 @@ namespace verona::rt
         return end();
       }
 
-      assert(key == get_unmarked_pointer((uintptr_t)key));
+      assert((uintptr_t)key == unmark_key((uintptr_t)key));
 
       auto size = get_size();
       auto mask = (uintptr_t)size - 1;
@@ -545,8 +547,7 @@ namespace verona::rt
         {
           // This entry is already present. This should only happen for the
           // original o, not for any swapped pointer.
-          if (
-            (k == (uintptr_t)key) && (k == (uintptr_t)get_unmarked_pointer(k)))
+          if ((k == (uintptr_t)key) && (k == unmark_key(k)))
           {
             return {this, index};
           }
