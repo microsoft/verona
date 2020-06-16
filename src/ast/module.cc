@@ -121,7 +121,7 @@ namespace
       err << "These modules cause a cyclic dependency:\n";
 
       for (auto& m : cycle)
-        err << "  " <<m->name << "\n";
+        err << "  " << m->name << "\n";
 
       err << err::end;
     }

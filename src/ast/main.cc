@@ -14,11 +14,9 @@ int main(int argc, char** argv)
   auto opt = cli::parse(argc, argv);
   auto m = module::build(opt.grammar, passes, opt.filename, "verona", err);
 
-  if (!err.empty())
-    std::cerr << err;
-
   if (opt.ast)
     std::cout << m;
 
-  return err.empty() ? 0 : -1;
+  std::cerr << err;
+  return -err.empty();
 }

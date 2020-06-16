@@ -1,15 +1,13 @@
 # TODO:
-# module typeparams
 # error handling
 # getter, setter, rest/spread
 # value constraints
 
-module <- (typedef / field / function)*
-
-typedef <-
-  category id typeparams oftype constraints ('=' type ';' / typebody)
-category <- <'type' / 'class'>
-typebody <- '{' (typedef / field / function)* '}'
+module <- (moduledef / classdef / typedef / field / function)*
+moduledef <- 'module' typeparams oftype constraints ';'
+classdef <- 'class' id typeparams oftype constraints typebody
+typedef <- 'type' id typeparams oftype constraints '=' type ';'
+typebody <- '{' (classdef / typedef / field / function)* '}'
 
 typeparams <- ('[' list(typeparam)? ']')?
 typeparam <- id
@@ -50,7 +48,7 @@ seq <- term* expr?
 term <- atom* (blockexpr / ';')
 expr <- blockexpr / atom+ blockexpr?
 
-blockexpr <- block / when / while / match / if / for / typedef
+blockexpr <- block / when / while / match / if / for / classdef / typedef
 block <- '{' seq '}'
 when <- 'when' tuple block
 while <- 'while' cond block
