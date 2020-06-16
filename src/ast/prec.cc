@@ -225,7 +225,7 @@ namespace
 
     ast::remove(next);
 
-    if (next->tag == "tuple"_)
+    if ((next->tag == "tuple"_) && !next->nodes.empty())
     {
       auto obj = next->nodes.front();
       ast::remove(obj);

@@ -1,55 +1,59 @@
-+ module
-  + function
-    + qualifier
-    + funcname
-      - id (foo)
-    + sig
-      + typeparams
-      + params
-      + oftype
-      + constraints
-    + block
-      + seq
-        + assign
-          + let
-            - local (r1)
-            + oftype
-          + new
-            + type
-              + type_one/1
-                + type_ref
-                  - id (Foo)
-        + assign
-          + let
-            - local (f)
-            + oftype
-          + lambda
-            + sig
-              + typeparams
-                + typeparam
-                  - id (A)
-              + params
-                + param/0
-                  + namedparam
-                    - id (a)
-                    + oftype
-                    + initexpr
++ classdef
+  - id ($module:/home/sylvanc/dev/verona/testsuite/parse/ast-parse/alloc.verona)
+  + typeparams
+  + oftype
+  + constraints
+  + typebody
+    + function
+      + qualifier
+      + funcname
+        - id (foo)
+      + sig
+        + typeparams
+        + params
+        + oftype
+        + constraints
+      + block
+        + seq
+          + assign
+            + let
+              - local (r1)
               + oftype
-              + constraints
-                + constraint
-                  - id (A)
-                  + oftype
-                    + type
-                      + type_one/1
-                        + type_ref
-                          - id (U64)
-                  + inittype
-            + block
-              + seq
-                + call
-                  - function (+)
-                  + typeargs
-                  - localref (a)
-                  + args
-                    - int (42)
-
+            + new
+              + type
+                + type_one/1
+                  + type_ref
+                    - id (Foo)
+          + assign
+            + let
+              - local (f)
+              + oftype
+            + lambda
+              + sig
+                + typeparams
+                  + typeparam
+                    - id (A)
+                + params
+                  + param/0
+                    + namedparam
+                      - id (a)
+                      + oftype
+                      + initexpr
+                + oftype
+                + constraints
+                  + constraint
+                    - id (A)
+                    + oftype
+                      + type
+                        + type_one/1
+                          + type_ref
+                            - id (U64)
+                    + inittype
+              + block
+                + seq
+                  + call
+                    - function (+)
+                    + typeargs
+                    - localref (a)
+                    + args
+                      - int (42)

@@ -18,5 +18,5 @@ int main(int argc, char** argv)
     std::cout << m;
 
   std::cerr << err;
-  return -err.empty();
+  return err.empty() ? 0 : -1;
 }

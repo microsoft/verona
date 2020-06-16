@@ -39,12 +39,11 @@ namespace module
     const std::string& ext,
     err::Errors& err);
 
-  template<typename T>
-  T& operator<<(T& out, ModulePtr m)
+  inline std::ostream& operator<<(std::ostream& out, ModulePtr m)
   {
     dfs::post(
       m,
-      [](auto& m, T& out) {
+      [](auto& m, auto& out) {
         if (m->ast)
           out << peg::ast_to_s(m->ast);
         return true;

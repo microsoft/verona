@@ -1,71 +1,75 @@
-+ module
-  + function
-    + qualifier
-    + funcname
-      - id (f)
-    + sig
-      + typeparams
-      + params
-        + param/0
-          + namedparam
-            - id (x)
-            + oftype
-            + initexpr
-      + oftype
-      + constraints
-    + block
-      + seq
-        + assign
-          + let
-            - local (a)
-            + oftype
-          - int (0)
-        + while
-          + cond
-            + seq
-              + call
-                - function (<)
-                + typeargs
-                - localref (a)
-                + args
-                  - int (5)
-          + block
-            + seq
-              + assign
-                - localref (a)
++ classdef
+  - id ($module:/home/sylvanc/dev/verona/testsuite/parse/ast-parse/loop.verona)
+  + typeparams
+  + oftype
+  + constraints
+  + typebody
+    + function
+      + qualifier
+      + funcname
+        - id (f)
+      + sig
+        + typeparams
+        + params
+          + param/0
+            + namedparam
+              - id (x)
+              + oftype
+              + initexpr
+        + oftype
+        + constraints
+      + block
+        + seq
+          + assign
+            + let
+              - local (a)
+              + oftype
+            - int (0)
+          + while
+            + cond
+              + seq
                 + call
-                  - function (+)
+                  - function (<)
                   + typeargs
                   - localref (a)
                   + args
-                    - int (1)
-              + if
-                + cond
-                  + seq
-                    + call
-                      - function (<)
-                      + typeargs
-                      - localref (a)
-                      + args
-                        - int (2)
-                + block
-                  + seq
-                    - continue (continue)
-                + else
+                    - int (5)
+            + block
+              + seq
+                + assign
+                  - localref (a)
+                  + call
+                    - function (+)
+                    + typeargs
+                    - localref (a)
+                    + args
+                      - int (1)
+                + if
+                  + cond
+                    + seq
+                      + call
+                        - function (<)
+                        + typeargs
+                        - localref (a)
+                        + args
+                          - int (2)
                   + block
                     + seq
-                      - break (break)
-        + for
-          - localref (a)
-          + seq
-            - localref (x)
-          + block
+                      - continue (continue)
+                  + else
+                    + block
+                      + seq
+                        - break (break)
+          + for
+            - localref (a)
             + seq
-              + call
-                - function (foo)
-                + typeargs
-                - localref (a)
-                + args
-        + yield
-          - localref (a)
-
+              - localref (x)
+            + block
+              + seq
+                + call
+                  - function (foo)
+                  + typeargs
+                  - localref (a)
+                  + args
+          + yield
+            - localref (a)

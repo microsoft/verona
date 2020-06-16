@@ -29,7 +29,7 @@ namespace parser
       return parse(parser, path, err);
 
     auto files = path::files(path);
-    std::vector<ast::Ast> modules;
+    ast::Ast result;
 
     for (auto& file : files)
     {
@@ -39,68 +39,19 @@ namespace parser
       auto name = path::join(path, file);
       auto ast = parse(parser, name, err);
 
-      if (ast)
-        modules.push_back(ast);
-    }
-
-    if (modules.empty())
-      return {};
-
-    ast::Ast moduledef = modules.front();
-
-    for (auto& module : modules)
-    {
-      for (auto& node : module->nodes)
+      if (result)
       {
-        if (node->tag == "moduledef"_)
-        {
-          if (moduledef->tag != "moduledef"_)
-          {
-            moduledef = node;
-          }
-          else
-          {
-            err << node << "A module definition already exists.\n"
-                << moduledef << "Previous definition is here." << err::end;
-          }
-        }
+        for (auto& node : ast->nodes)
+          ast::push_back(result, node);
+
+        ast->nodes.clear();
+      }
+      else
+      {
+        result = ast;
       }
     }
 
-    auto classdef = ast::node(moduledef, "classdef");
-    auto id = ast::token(classdef, "id", "$module:" + path);
-    ast::push_back(classdef, id);
-
-    if (moduledef->tag == "moduledef"_)
-    {
-      ast::remove(moduledef);
-
-      for (auto& node : moduledef->nodes)
-        ast::push_back(classdef, node);
-
-      moduledef->nodes.clear();
-    }
-    else
-    {
-      auto typeparams = ast::node(moduledef, "typeparams");
-      ast::push_back(classdef, typeparams);
-      auto oftype = ast::node(moduledef, "oftype");
-      ast::push_back(classdef, oftype);
-      auto constraints = ast::node(moduledef, "constraints");
-      ast::push_back(classdef, constraints);
-    }
-
-    auto typebody = ast::node(moduledef, "typebody");
-    ast::push_back(classdef, typebody);
-
-    for (auto& module : modules)
-    {
-      for (auto& node : module->nodes)
-        ast::push_back(typebody, node);
-
-      module->nodes.clear();
-    }
-
-    return classdef;
+    return result;
   }
 }

@@ -15,6 +15,63 @@ namespace
     return std::make_shared<Module>(name);
   }
 
+  bool moduledef(ast::Ast& ast, const std::string& path, err::Errors& err)
+  {
+    std::vector<ast::Ast> defs;
+
+    for (auto& node : ast->nodes)
+    {
+      if (node->tag == "moduledef"_)
+        defs.push_back(node);
+    }
+
+    if (defs.size() > 1)
+    {
+      err << defs.front()
+          << "This module contains multiple definitions.\n";
+
+      for (auto& def : defs)
+        err << def << "Module definition here.\n";
+
+      err << err::end;
+      return false;
+    }
+
+    auto moduledef = (defs.size() > 0) ? defs.front() : ast;
+    auto classdef = ast::node(moduledef, "classdef");
+    auto id = ast::token(classdef, "id", "$module:" + path);
+    ast::push_back(classdef, id);
+
+    if (moduledef->tag == "moduledef"_)
+    {
+      ast::remove(moduledef);
+
+      for (auto& node : moduledef->nodes)
+        ast::push_back(classdef, node);
+
+      moduledef->nodes.clear();
+    }
+    else
+    {
+      auto typeparams = ast::node(moduledef, "typeparams");
+      ast::push_back(classdef, typeparams);
+      auto oftype = ast::node(moduledef, "oftype");
+      ast::push_back(classdef, oftype);
+      auto constraints = ast::node(moduledef, "constraints");
+      ast::push_back(classdef, constraints);
+    }
+
+    auto typebody = ast::node(moduledef, "typebody");
+    ast::push_back(classdef, typebody);
+
+    for (auto& node : ast->nodes)
+      ast::push_back(typebody, node);
+
+    ast->nodes.clear();
+    ast = classdef;
+    return true;
+  }
+
   void extract(ast::Ast& ast, std::vector<std::string>& deps)
   {
     switch (ast->tag)
@@ -55,7 +112,7 @@ namespace
       stack.pop_back();
       m->ast = parser::parse(parser, m->name, ext, err);
 
-      if (!m->ast)
+      if (!m->ast || !moduledef(m->ast, m->name, err))
       {
         ok = false;
         continue;
