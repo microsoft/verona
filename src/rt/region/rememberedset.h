@@ -21,11 +21,7 @@ namespace verona::rt
   private:
     struct SetCallbacks
     {
-      static void on_insert(Object*& e)
-      {
-        assert(e != nullptr);
-        UNUSED(e);
-      }
+      static void on_insert(Object*&) {}
 
       static void on_erase(Object*& e)
       {
@@ -52,7 +48,7 @@ namespace verona::rt
 
     void merge(Alloc* alloc, RememberedSet* that)
     {
-      for (auto& e : *that->hash_set)
+      for (auto*& e : *that->hash_set)
       {
         Object* q = HashSet::unmark_pointer(e);
         size_t dummy;
@@ -74,15 +70,13 @@ namespace verona::rt
 
       size_t dummy;
 
-      if (hash_set->insert(alloc, o, dummy))
-      {
-        // If the caller is not transfering ownership of a refcount, i.e., the
-        // object is being added to the region but not dropped from somewhere,
-        // we need to incref it.
-        if constexpr (transfer == NoTransfer)
-          o->incref();
-      }
-      else
+      // If the caller is not transfering ownership of a refcount, i.e., the
+      // object is being added to the region but not dropped from somewhere,
+      // we need to incref it.
+      if constexpr (transfer == NoTransfer)
+        o->incref();
+
+      if (!hash_set->insert(alloc, o, dummy))
       {
         // If the caller is transfering ownership of a refcount, i.e., the
         // object is being moved from somewhere to this region, but the object
