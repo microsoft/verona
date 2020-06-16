@@ -54,13 +54,19 @@ namespace verona::rt
 
     template<typename>
     struct is_valid_pair : std::false_type
-    {};
+    {
+      using value_type = Object*;
+    };
     template<typename V>
     struct is_valid_pair<std::pair<Object*, V>> : std::true_type
-    {};
+    {
+      using value_type = V;
+    };
+    using ValueType = typename is_valid_pair<Entry>::value_type;
+    static constexpr bool is_set = std::is_same_v<Entry, Object*>;
 
     static_assert(
-      std::is_same_v<Entry, Object*> || is_valid_pair<Entry>::value,
+      is_set || is_valid_pair<Entry>::value,
       "Map Entry must be Object* or std::pair<Object*, V>");
 
     static uintptr_t& key_of(Entry& entry)
@@ -173,7 +179,8 @@ namespace verona::rt
 
     static void delete_entry(Entry& entry)
     {
-      CB::on_erase(entry);
+      auto cb_entry = unmark_entry(entry);
+      CB::on_erase(cb_entry);
       entry.~Entry();
     }
 
@@ -189,20 +196,34 @@ namespace verona::rt
     class Iterator
     {
     private:
+      template<typename _Entry, typename _CB>
+      friend class PtrKeyHashMap;
+
       PtrKeyHashMap* map;
       size_t i;
 
-    public:
-      Iterator(PtrKeyHashMap* map_, size_t i_) : map{map_}, i{i_} {}
-
-      Entry& operator*()
+      Entry& entry()
       {
         return map->set[i];
       }
 
-      Entry* operator->()
+    public:
+      Iterator(PtrKeyHashMap* map_, size_t i_) : map{map_}, i{i_} {}
+
+      Object* key()
       {
-        return &map->set[i];
+        return (Object*)unmark_key(key_of(entry()));
+      }
+
+      template<bool v = !is_set, typename = typename std::enable_if_t<v>>
+      ValueType& value()
+      {
+        return entry().second;
+      }
+
+      Entry operator*()
+      {
+        return unmark_entry(entry());
       }
 
       Iterator& operator++()
@@ -238,10 +259,20 @@ namespace verona::rt
       }
     };
 
+    // The key returned has no mark bits or dib.
     static uintptr_t unmark_key(uintptr_t p)
     {
       assert(p != 0);
       return p & POINTER_MASK;
+    }
+
+    static Entry unmark_entry(Entry& entry)
+    {
+      auto* key = (Object*)unmark_key(key_of(entry));
+      if constexpr (is_set)
+        return key;
+      else
+        return std::make_pair(key, entry.second);
     }
 
   public:
@@ -249,12 +280,6 @@ namespace verona::rt
     {
       auto r = ThreadAlloc::get()->alloc<sizeof(PtrKeyHashMap)>();
       return new (r) PtrKeyHashMap();
-    }
-
-    // The Object* returned has no mark bits or dib.
-    static Object* unmark_pointer(Object* p)
-    {
-      return (Object*)unmark_key((uintptr_t)p);
     }
 
     Iterator begin()
@@ -337,7 +362,8 @@ namespace verona::rt
             location = index;
 
           // This index is empty, insert here.
-          CB::on_insert(entry);
+          auto cb_entry = unmark_entry(entry);
+          CB::on_insert(cb_entry);
           set_entry(index, std::move(entry), dib_entry);
 
           count++;
@@ -583,7 +609,7 @@ namespace verona::rt
       auto size = get_size();
       auto mask = size - 1;
       auto cur_index = i.get_index();
-      delete_entry(*i);
+      delete_entry(i.entry());
       auto next_index = (cur_index + 1) & mask;
 
       uintptr_t key = 0;

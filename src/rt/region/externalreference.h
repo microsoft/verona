@@ -49,8 +49,8 @@ namespace verona::rt
       {
         auto i = ert->external_map->find(o);
         assert(i != ert->external_map->end());
-        assert(i->second);
-        return i->second;
+        assert(i.value());
+        return i.value();
       }
 
       ExternalRef(ExternalReferenceTable* ert_, Object* o_)
@@ -150,12 +150,11 @@ namespace verona::rt
 
     void merge(Alloc* alloc, ExternalReferenceTable* that)
     {
-      for (auto& e : *that->external_map)
+      for (auto e : *that->external_map)
       {
         assert(e.second->o);
         e.second->ert.store(this, std::memory_order_relaxed);
-        external_map->insert_unique(
-          alloc, std::make_pair(e.first, std::move(e.second)));
+        external_map->insert_unique(alloc, std::move(e));
       }
     }
 

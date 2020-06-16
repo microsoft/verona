@@ -26,8 +26,7 @@ namespace verona::rt
       static void on_erase(Object*& e)
       {
         if (e != nullptr)
-          RememberedSet::release_internal(
-            ThreadAlloc::get(), HashSet::unmark_pointer(e));
+          RememberedSet::release_internal(ThreadAlloc::get(), e);
       }
     };
 
@@ -48,15 +47,13 @@ namespace verona::rt
 
     void merge(Alloc* alloc, RememberedSet* that)
     {
-      for (auto*& e : *that->hash_set)
+      for (auto* e : *that->hash_set)
       {
-        Object* q = HashSet::unmark_pointer(e);
-
         // If q is already present in this, decref, otherwise insert.
         // No need to call release, as the rc will not drop to zero.
-        if (!hash_set->insert(alloc, q))
+        if (!hash_set->insert(alloc, e))
         {
-          q->decref();
+          e->decref();
         }
       }
     }
