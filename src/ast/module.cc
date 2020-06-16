@@ -27,8 +27,7 @@ namespace
 
     if (defs.size() > 1)
     {
-      err << defs.front()
-          << "This module contains multiple definitions.\n";
+      err << defs.front() << "This module contains multiple definitions.\n";
 
       for (auto& def : defs)
         err << def << "Module definition here.\n";
