@@ -1,0 +1,81 @@
++ classdef
+  - id ($module)
+  + typeparams
+    + typeparam
+      - id (A)
+    + typeparam
+      - id (B)
+  + oftype
+    + type
+      + type_one/1
+        + type_ref
+          - id (C)
+  + constraints
+  + typebody
+    + function
+      + qualifier
+      + funcname
+        - id (foo)
+      + sig
+        + typeparams
+        + params
+        + oftype
+        + constraints
+      + block
+        + seq
+    + function
+      + qualifier
+        - private (private)
+      + funcname
+        - id (_foo)
+      + sig
+        + typeparams
+        + params
+        + oftype
+        + constraints
+      + block
+        + seq
++ classdef
+  - id ($module)
+  + typeparams
+  + oftype
+  + constraints
+  + typebody
+    + typedef
+      - id (Foo)
+      + typeparams
+      + oftype
+      + constraints
+      + type
+        + type_one/2
+          + module_ref
+            - string (module_foo)
+            + typeargs
+              + typearg/0
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (A)
+              + typearg/0
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (B)
+    + function
+      + qualifier
+      + funcname
+        - id (main)
+      + sig
+        + typeparams
+        + params
+        + oftype
+        + constraints
+      + block
+        + seq
+          + static-call
+            + qualtype
+              - typeref (Foo)
+              + typeargs
+            - function (foo)
+            + typeargs
+            + args
