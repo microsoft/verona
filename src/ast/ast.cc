@@ -67,6 +67,11 @@ namespace ast
 
       if (iteration_parent() == parent)
       {
+        // If we are currently iterating over the nodes in parent, we need to
+        // back up the iteration index by one, but only if the node we are
+        // removing is less than or equal to the current iteration index. This
+        // is to allow removing children of parent without invalidating the
+        // iterator.
         size_t i = std::distance(parent->nodes.begin(), find);
 
         if (i <= iteration_index())
@@ -181,12 +186,16 @@ namespace ast
 
   Ast& iteration_parent()
   {
+    // This is only used as a helper in ast::for_each to allow removing child
+    // nodes of parent without invalidating the iterator.
     thread_local Ast parent;
     return parent;
   }
 
   size_t& iteration_index()
   {
+    // This is only used as a helper in ast::for_each to allow removing child
+    // nodes of parent without invalidating the iterator.
     thread_local size_t index;
     return index;
   }
