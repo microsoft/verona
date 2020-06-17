@@ -190,6 +190,9 @@ namespace
       [](auto& m, auto& passes, auto& err) {
         // Stop running passes when we get errors on this module, then add those
         // errors to the main error list.
+        if (!m->ast)
+          return false;
+
         err::Errors lerr;
         bool ok = true;
 
