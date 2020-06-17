@@ -77,7 +77,7 @@ lambda <- sig block
 tuple <- '(' list(expr)? ')'
 
 keyword <-
-  'type' / 'class' / 'where' / 'static' / 'private' /
+  'module' / 'type' / 'class' / 'where' / 'static' / 'private' /
   'if' / 'else' / 'while' / 'for' / 'in' / 'match' / 'when' /
   'break' / 'continue' / 'return' / 'yield' /
   'let' / 'new'

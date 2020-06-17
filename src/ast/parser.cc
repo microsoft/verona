@@ -28,8 +28,11 @@ namespace parser
     if (!path::is_directory(path))
       return parse(parser, path, err);
 
-    auto files = path::files(path);
     ast::Ast result;
+    auto files = path::files(path);
+
+    if (files.empty())
+      err << "No " << ext << " files found in " << path << err::end;
 
     for (auto& file : files)
     {
