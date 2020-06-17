@@ -52,13 +52,17 @@ ephemeral_os_disk=true
 os_disk_size_gb=200
 
 # Windows not supported yet
-if [ "$os" != "linux" ]; then
-  echo "Only Linux supported for now"
+if [ "$os" == "linux" ]; then
+  # az vm image list --publisher Canonical --offer UbuntuServer --sku 18.04-LTS --output table --all
+  image="Canonical:UbuntuServer:18.04-LTS:latest"
+elif [ "$os" == "windows" ]; then
+  # az vm image list --publisher Microsoft --offer VisualStudio --output table --all
+  image="MicrosoftVisualStudio:visualstudio2019latest:vs-2019-ent-latest-ws2019:latest"
+else
+  echo "Only Linux and Windows supported for now"
   exit 1
 fi
 
-# az vm image list --publisher Canonical --offer UbuntuServer --sku 18.04-LTS --output table --all
-image="Canonical:UbuntuServer:18.04-LTS:latest"
 
 set -x
 az group create \
@@ -71,8 +75,8 @@ az vmss create \
     --name "$vmss_name" \
     --resource-group "$resource_group_name" \
     --authentication-type password \
-    --admin-username "$(openssl rand -hex 16)" \
-    --admin-password "$(openssl rand -base64 16)" \
+    --admin-username "$(openssl rand -hex 8)" \
+    --admin-password "$(openssl rand -base64 8)" \
     --ephemeral-os-disk $ephemeral_os_disk \
     --image "$image" \
     --os-disk-size-gb $os_disk_size_gb \
