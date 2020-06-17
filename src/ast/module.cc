@@ -75,7 +75,7 @@ namespace
   {
     switch (ast->tag)
     {
-      case "package_loc"_:
+      case "module_ref"_:
       {
         auto name = path::join(ast->path, ast->nodes.front()->token);
 

@@ -31,11 +31,11 @@ type_op <- <'&' / '|'>
 type_one <-
   type_tuple /
   type_ref /
-  package_loc /
+  module_ref /
   typebody
 type_tuple <- '(' list(type)? ')'
 type_ref <- (id typeargs?) ('.' id typeargs?)*
-package_loc <- string typeargs?
+module_ref <- string typeargs?
 
 typeargs <- '[' list(typearg) ']'
 typearg <- type / expr
