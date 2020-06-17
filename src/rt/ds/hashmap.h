@@ -82,6 +82,7 @@ namespace verona::rt
     struct inspect_entry_type<Object*> : std::true_type
     {
       using value_type = Object*;
+      using entry_view = value_type;
       static constexpr bool is_set = true;
     };
 
@@ -89,6 +90,7 @@ namespace verona::rt
     struct inspect_entry_type<std::pair<Object*, V>> : std::true_type
     {
       using value_type = V;
+      using entry_view = std::pair<Object*, V*>;
       static constexpr bool is_set = false;
     };
 
@@ -97,6 +99,7 @@ namespace verona::rt
       "Map Entry must be Object* or std::pair<Object*, V>");
 
     using ValueType = typename inspect_entry_type<Entry>::value_type;
+    using EntryView = typename inspect_entry_type<Entry>::entry_view;
     static constexpr bool is_set = inspect_entry_type<Entry>::is_set;
 
     static uintptr_t& key_of(Entry& entry)
@@ -253,9 +256,13 @@ namespace verona::rt
         return entry().second;
       }
 
-      Entry operator*()
+      EntryView operator*()
       {
-        return unmark_entry(entry());
+        auto* key = (Object*)unmark_key(key_of(entry()));
+        if constexpr (is_set)
+          return key;
+        else
+          return std::make_pair(key, &entry().second);
       }
 
       Iterator& operator++()
@@ -296,15 +303,6 @@ namespace verona::rt
     {
       assert(p != 0);
       return p & POINTER_MASK;
-    }
-
-    static Entry unmark_entry(Entry& entry)
-    {
-      auto* key = (Object*)unmark_key(key_of(entry));
-      if constexpr (is_set)
-        return key;
-      else
-        return std::make_pair(key, entry.second);
     }
 
   public:

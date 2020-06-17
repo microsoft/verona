@@ -59,6 +59,7 @@ namespace verona::rt
         set_descriptor(desc());
         make_scc();
 
+        incref();
         ert.load(std::memory_order_relaxed)
           ->external_map->insert_unique(
             ThreadAlloc::get(), std::make_pair(o, this));
@@ -109,14 +110,11 @@ namespace verona::rt
 
     struct MapCallbacks
     {
-      static void on_insert(std::pair<Object*, ExternalRef*>& e)
-      {
-        e.second->incref();
-      }
+      static void on_insert(std::pair<Object*, ExternalRef*>&) {}
 
       static void on_erase(std::pair<Object*, ExternalRef*>& e)
       {
-        if (e.second)
+        if (e.second != nullptr)
         {
           // The object this external ref points to has been collected, so we
           // need to invalidate this ext_ref so that `is_in` returns
@@ -152,9 +150,11 @@ namespace verona::rt
     {
       for (auto e : *that->external_map)
       {
-        assert(e.second->o);
-        e.second->ert.store(this, std::memory_order_relaxed);
-        external_map->insert_unique(alloc, std::move(e));
+        auto* ext_ref = *e.second;
+        assert(ext_ref->o);
+        ext_ref->ert.store(this, std::memory_order_relaxed);
+        *e.second = nullptr;
+        external_map->insert_unique(alloc, std::make_pair(e.first, ext_ref));
       }
     }
 
