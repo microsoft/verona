@@ -15,6 +15,8 @@ namespace
     return std::make_shared<Module>(name);
   }
 
+  // This ensures that a module has only one moduledef node, and transforms the
+  // moduledef to a classdef, such that from this point on, modules are classes.
   bool moduledef(ast::Ast& ast, const std::string& path, err::Errors& err)
   {
     std::vector<ast::Ast> defs;
@@ -71,6 +73,8 @@ namespace
     return true;
   }
 
+  // This extract all module references from an Ast, and builds a vector of
+  // dependency paths rooted in the Ast path.
   void extract(ast::Ast& ast, std::vector<std::string>& deps)
   {
     switch (ast->tag)
