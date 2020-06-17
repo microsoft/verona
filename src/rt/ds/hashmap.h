@@ -20,6 +20,28 @@ namespace verona::rt
    *
    * The key must be Object*, because the low bits are used to encode marking
    * status (MARK) and distance-to-initial-bucket (DIB).
+   *
+   * Static callbacks may be supplied as the second template parameter as
+   * follows:
+   *   ```cpp
+   *   struct MyMapCallbacks
+   *   {
+   *     static void on_insert(Entry& e)
+   *     {
+   *       // called every time an entry is inserted into the map
+   *       // i.e. when `insert` returns true.
+   *     }
+   *
+   *     static void on_erase(Entry& e)
+   *     {
+   *       // called every time an entry is deleted from the map
+   *     }
+   *   };
+   *
+   *   using MyMap = PtrKeyHashMap<std::pair<Object*, uint8_t>, MyMapCallbacks>;
+   *   ```
+   *   Note that all callbacks will have the low bits of the Entry key unmarked
+   *   so that it may be used as expected.
    */
   template<typename Entry, typename CB = DefaultMapCallbacks<Entry>>
   class PtrKeyHashMap
