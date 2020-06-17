@@ -174,7 +174,8 @@ namespace verona::rt
       return dib;
     }
 
-    inline void set_entry(size_t index, Entry entry, size_t dib)
+    template<typename E>
+    inline void set_entry(size_t index, E entry, size_t dib)
     {
       // When entry is passed in, it may or may not have a mark bit, but it
       // must have no dib. If the DIB is greater than the maximum DIB, encode
@@ -182,13 +183,14 @@ namespace verona::rt
       // fetch it.
       auto& key = key_of(entry);
       key = key | (dib < DIB_MAX ? dib : DIB_MAX);
-      set[index] = std::move(entry);
+      set[index] = std::forward<E>(entry);
     }
 
     static void delete_entry(Entry& entry)
     {
-      auto cb_entry = unmark_entry(entry);
-      CB::on_erase(cb_entry);
+      auto& key = key_of(entry);
+      key = unmark_key(key);
+      CB::on_erase(entry);
       entry.~Entry();
     }
 
@@ -346,9 +348,10 @@ namespace verona::rt
     }
 
     // Returns true if newly added, false if previously present.
-    bool insert(Alloc* alloc, Entry entry, size_t& location)
+    template<typename E>
+    bool insert(Alloc* alloc, E entry, size_t& location)
     {
-      const auto& orig_key = key_of(entry);
+      auto& orig_key = key_of(entry);
       assert(orig_key == unmark_key(orig_key));
 
       if (size_bits == 0)
@@ -370,9 +373,12 @@ namespace verona::rt
             location = index;
 
           // This index is empty, insert here.
-          auto cb_entry = unmark_entry(entry);
-          CB::on_insert(cb_entry);
-          set_entry(index, std::move(entry), dib_entry);
+          uintptr_t key_swap = orig_key;
+          orig_key = unmark_key(orig_key);
+          CB::on_insert(entry);
+          orig_key = key_swap;
+
+          set_entry(index, std::forward<E>(entry), dib_entry);
 
           count++;
           grow(alloc);
@@ -403,7 +409,7 @@ namespace verona::rt
           // The DIB of the entry to insert is greater than the DIB of the
           // entry at this index. Insert o here, and continue looking for
           // somewhere to insert other.
-          set_entry(index, std::move(entry), dib_entry);
+          set_entry(index, std::forward<E>(entry), dib_entry);
 
           key_of(tmp) = (uintptr_t)get_pointer(key_of(tmp));
           entry = std::move(tmp);
@@ -419,15 +425,17 @@ namespace verona::rt
       return false;
     }
 
-    bool insert(Alloc* alloc, Entry entry)
+    template<typename E>
+    bool insert(Alloc* alloc, E entry)
     {
       size_t dummy;
-      return insert(alloc, std::move(entry), dummy);
+      return insert(alloc, std::forward<E>(entry), dummy);
     }
 
-    void insert_unique(Alloc* alloc, Entry entry)
+    template<typename E>
+    void insert_unique(Alloc* alloc, E entry)
     {
-      auto unique = insert(alloc, std::move(entry));
+      auto unique = insert(alloc, std::forward<E>(entry));
       assert(unique);
       UNUSED(unique);
     }
