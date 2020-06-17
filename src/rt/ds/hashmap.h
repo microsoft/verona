@@ -53,25 +53,33 @@ namespace verona::rt
     }
 
     template<typename>
-    struct is_valid_pair : std::false_type
+    struct inspect_entry_type : std::false_type
+    {};
+
+    template<>
+    struct inspect_entry_type<Object*> : std::true_type
     {
       using value_type = Object*;
+      static constexpr bool is_set = true;
     };
+
     template<typename V>
-    struct is_valid_pair<std::pair<Object*, V>> : std::true_type
+    struct inspect_entry_type<std::pair<Object*, V>> : std::true_type
     {
       using value_type = V;
+      static constexpr bool is_set = false;
     };
-    using ValueType = typename is_valid_pair<Entry>::value_type;
-    static constexpr bool is_set = std::is_same_v<Entry, Object*>;
 
     static_assert(
-      is_set || is_valid_pair<Entry>::value,
+      inspect_entry_type<Entry>(),
       "Map Entry must be Object* or std::pair<Object*, V>");
+
+    using ValueType = typename inspect_entry_type<Entry>::value_type;
+    static constexpr bool is_set = inspect_entry_type<Entry>::is_set;
 
     static uintptr_t& key_of(Entry& entry)
     {
-      if constexpr (std::is_same_v<Entry, Object*>)
+      if constexpr (is_set)
         return (uintptr_t&)entry;
       else
         return (uintptr_t&)entry.first;
