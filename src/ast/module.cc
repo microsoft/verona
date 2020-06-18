@@ -105,7 +105,7 @@ namespace
     bool ok = true;
 
     auto canonical_path = path::canonical(path);
-    auto m = make_module(path);
+    auto m = make_module(path::from_platform(path));
     modules.emplace(canonical_path, m);
     stack.push_back(m);
 
