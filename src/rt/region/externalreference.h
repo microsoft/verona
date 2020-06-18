@@ -44,11 +44,13 @@ namespace verona::rt
       }
 
       // May only be called if there's a ext_ref for o in rs.
-      static ExternalRef* find_ext_ref(ExternalReferenceTable* ert, Object* o)
+      static ExternalRef*
+      find_ext_ref(ExternalReferenceTable* ert, const Object* o)
       {
-        auto i = ert->external_map->find((size_t)o);
+        auto i = ert->external_map->find(o);
         assert(i != ert->external_map->end());
-        return i->second.get_wref();
+        assert(i.value());
+        return i.value();
       }
 
       ExternalRef(ExternalReferenceTable* ert_, Object* o_)
@@ -57,9 +59,10 @@ namespace verona::rt
         set_descriptor(desc());
         make_scc();
 
-        auto pair = std::make_pair((size_t)o, ExternalRefHolder{this});
+        incref();
         ert.load(std::memory_order_relaxed)
-          ->external_map->insert_unique(ThreadAlloc::get(), pair);
+          ->external_map->insert_unique(
+            ThreadAlloc::get(), std::make_pair(o, this));
 
         o->set_has_ext_ref();
       }
@@ -105,83 +108,29 @@ namespace verona::rt
       }
     };
 
-    /**
-     * ExternalRef wrapper holding the regions ownership on the ExternalRef.
-     * Destructor invalidates the ExternalRef.
-     */
-    class ExternalRefHolder
+    struct MapCallbacks
     {
-    private:
-      ExternalRef* ext_ref;
+      static void on_insert(std::pair<Object*, ExternalRef*>&) {}
 
-    public:
-      ExternalRefHolder() : ext_ref{nullptr} {}
-
-      explicit ExternalRefHolder(ExternalRef* ext_ref_) : ext_ref{ext_ref_}
+      static void on_erase(std::pair<Object*, ExternalRef*>& e)
       {
-        assert(ext_ref);
-        ext_ref->incref();
-      }
-
-      ExternalRefHolder(const ExternalRefHolder&) = delete;
-
-      ExternalRefHolder& operator=(const ExternalRefHolder&) = delete;
-
-      ExternalRefHolder(ExternalRefHolder&& other) noexcept
-      : ext_ref{other.ext_ref}
-      {
-        if (this != &other)
-        {
-          other.ext_ref = nullptr;
-        }
-      }
-
-      ExternalRefHolder& operator=(ExternalRefHolder&& other) noexcept
-      {
-        if (this != &other)
-        {
-          ext_ref = other.ext_ref;
-          other.ext_ref = nullptr;
-        }
-        return *this;
-      }
-
-      void set_ert(ExternalReferenceTable* ert_)
-      {
-        assert(ext_ref->o);
-        ext_ref->ert.store(ert_, std::memory_order_relaxed);
-      }
-
-      ExternalRef* get_wref()
-      {
-        assert(ext_ref);
-        return ext_ref;
-      }
-
-      ~ExternalRefHolder()
-      {
-        if (ext_ref)
+        if (e.second != nullptr)
         {
           // The object this external ref points to has been collected, so we
-          // need to invalidate this ext_ref so that `is_in` return false.
-          ext_ref->o = nullptr;
-          ext_ref->ert.store(nullptr, std::memory_order_relaxed);
-          Alloc* alloc = ThreadAlloc::get();
-          Immutable::release(alloc, ext_ref);
+          // need to invalidate this ext_ref so that `is_in` returns
+          // false.second.
+          e.second->o = nullptr;
+          e.second->ert.store(nullptr, std::memory_order_relaxed);
+          Immutable::release(ThreadAlloc::get(), e.second);
         }
       }
     };
-
-    static size_t& external_map_key_of(std::pair<size_t, ExternalRefHolder>* e)
-    {
-      return e->first;
-    }
 
     // No tracing is need for external_map, because entries in the map doesn't
     // contribute to objects RC; when an object is collected, its corresponding
     // entry in the map (if any) is removed as well.
     using ExternalMap =
-      PtrKeyHashMap<std::pair<size_t, ExternalRefHolder>, external_map_key_of>;
+      PtrKeyHashMap<std::pair<Object*, ExternalRef*>, MapCallbacks>;
 
     ExternalMap* external_map;
 
@@ -199,11 +148,13 @@ namespace verona::rt
 
     void merge(Alloc* alloc, ExternalReferenceTable* that)
     {
-      for (auto& e : *that->external_map)
+      for (auto e : *that->external_map)
       {
-        e.second.set_ert(this);
-        auto pair = std::make_pair(e.first, std::move(e.second));
-        external_map->insert_unique(alloc, pair);
+        auto* ext_ref = *e.second;
+        assert(ext_ref->o);
+        ext_ref->ert.store(this, std::memory_order_relaxed);
+        *e.second = nullptr;
+        external_map->insert_unique(alloc, std::make_pair(e.first, ext_ref));
       }
     }
 
