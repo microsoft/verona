@@ -21,27 +21,24 @@ namespace verona::rt
   private:
     struct SetCallbacks
     {
-      static void on_insert(Object*&) {}
+      static void on_insert(Alloc*, Object*&) {}
 
-      static void on_erase(Object*& e)
+      static void on_erase(Alloc* alloc, Object*& e)
       {
-        if (e != nullptr)
-          RememberedSet::release_internal(ThreadAlloc::get(), e);
+        RememberedSet::release_internal(alloc, e);
       }
     };
 
-    using HashSet = PtrKeyHashMap<Object*, SetCallbacks>;
+    using HashSet = ObjectMap<Object*, SetCallbacks>;
     HashSet* hash_set;
 
   public:
-    RememberedSet()
-    {
-      hash_set = HashSet::create();
-    }
+    RememberedSet() : hash_set(HashSet::create(ThreadAlloc::get())) {}
 
     inline void dealloc(Alloc* alloc)
     {
-      hash_set->dealloc<false>(alloc);
+      hash_set->clear(alloc, false);
+      hash_set->dealloc(alloc);
       alloc->dealloc<sizeof(HashSet)>(hash_set);
     }
 
@@ -51,7 +48,7 @@ namespace verona::rt
       {
         // If q is already present in this, decref, otherwise insert.
         // No need to call release, as the rc will not drop to zero.
-        if (!hash_set->insert(alloc, e))
+        if (!hash_set->insert(alloc, e).first)
         {
           e->decref();
         }
@@ -70,7 +67,7 @@ namespace verona::rt
       if constexpr (transfer == NoTransfer)
         o->incref();
 
-      if (!hash_set->insert(alloc, o))
+      if (!hash_set->insert(alloc, o).first)
       {
         // If the caller is transfering ownership of a refcount, i.e., the
         // object is being moved from somewhere to this region, but the object
@@ -80,16 +77,16 @@ namespace verona::rt
       }
     }
 
-    void mark(Alloc* alloc, Object* o, size_t& marked)
+    void mark(Alloc* alloc, Object* o)
     {
       // If o isn't present, insert it and incref.
       assert(o->debug_is_rc() || o->debug_is_cown());
 
-      size_t index = 0;
-      if (hash_set->insert(alloc, o, index))
+      auto r = hash_set->insert(alloc, o);
+      if (r.first)
         o->incref();
 
-      hash_set->mark_slot(index, marked);
+      r.second.mark();
     }
 
     void discard(Alloc* alloc)

@@ -229,10 +229,9 @@ namespace verona::rt
       RegionTrace* reg = get(o);
       ObjectStack f(alloc);
       ObjectStack collect(alloc);
-      size_t marked = 0;
 
-      reg->mark(alloc, o, f, marked);
-      reg->sweep(alloc, o, collect, marked);
+      reg->mark(alloc, o, f);
+      reg->sweep(alloc, o, collect);
 
       // `collect` contains all the iso objects to unreachable subregions.
       // Since they are unreachable, we can just release them.
@@ -355,7 +354,7 @@ namespace verona::rt
      * Scan through the region and mark all objects reachable from the iso
      * object `o`. We don't follow pointers to subregions.
      **/
-    void mark(Alloc* alloc, Object* o, ObjectStack& dfs, size_t& marked)
+    void mark(Alloc* alloc, Object* o, ObjectStack& dfs)
     {
       o->trace(dfs);
       while (!dfs.empty())
@@ -374,12 +373,12 @@ namespace verona::rt
 
           case Object::SCC_PTR:
             p = p->immutable();
-            RememberedSet::mark(alloc, p, marked);
+            RememberedSet::mark(alloc, p);
             break;
 
           case Object::RC:
           case Object::COWN:
-            RememberedSet::mark(alloc, p, marked);
+            RememberedSet::mark(alloc, p);
             break;
 
           default:
@@ -403,7 +402,7 @@ namespace verona::rt
      * and the Iso object is collected as well.
      **/
     template<SweepAll sweep_all = SweepAll::No>
-    void sweep(Alloc* alloc, Object* o, ObjectStack& collect, size_t marked)
+    void sweep(Alloc* alloc, Object* o, ObjectStack& collect)
     {
       current_memory_used = 0;
 
@@ -415,7 +414,7 @@ namespace verona::rt
       sweep_ring<NonTrivialRing, sweep_all>(alloc, o, primary_ring, collect);
       sweep_ring<TrivialRing, sweep_all>(alloc, o, primary_ring, collect);
 
-      hash_set->sweep_set(alloc, marked);
+      hash_set->sweep(alloc);
       previous_memory_used = size_to_sizeclass(current_memory_used);
     }
 
@@ -444,7 +443,7 @@ namespace verona::rt
         // p is about to be collected; remove the entry for it in
         // the ExternalRefTable.
         if (p->has_ext_ref())
-          ExternalReferenceTable::erase(p);
+          ExternalReferenceTable::erase(alloc, p);
 
         p->dealloc(alloc);
       }
@@ -562,7 +561,7 @@ namespace verona::rt
       Systematic::cout() << "Region release: trace region: " << o << std::endl;
 
       // Sweep everything, including the entrypoint.
-      sweep<SweepAll::Yes>(alloc, o, collect, 0);
+      sweep<SweepAll::Yes>(alloc, o, collect);
 
       dealloc(alloc);
     }

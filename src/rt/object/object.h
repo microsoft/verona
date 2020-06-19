@@ -301,7 +301,7 @@ namespace verona::rt
     friend class RememberedSet;
     friend class ExternalReferenceTable;
     template<typename Entry, typename CB>
-    friend class PtrKeyHashMap;
+    friend class ObjectMap;
     friend class Message;
     friend class LocalEpoch;
 
