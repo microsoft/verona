@@ -33,16 +33,22 @@ bool model_check(
       err << "not found: " << e.first << "\n";
       return false;
     }
-    assert(!it.is_marked());
+    else if (it.is_marked())
+    {
+      err << "marked: " << e.first << "\n";
+      return false;
+    }
   }
 
   auto iter_model = model;
   for (auto it = map.begin(); it != map.end(); ++it)
     iter_model.erase(it.key());
 
-  for (const auto& e : iter_model)
+  if (!iter_model.empty())
   {
-    err << "not found: " << e.first << "\n";
+    for (const auto& e : iter_model)
+      err << "not found: " << e.first << "\n";
+
     return false;
   }
 
@@ -73,8 +79,12 @@ bool test(size_t seed)
       std::cout << err.str() << std::flush;
       return false;
     }
-    assert(inserted);
-    UNUSED(inserted);
+
+    if (!inserted)
+    {
+      std::cout << err.str() << "not inserted: " << entry.first << std::flush;
+      return false;
+    }
 
     if ((rng.next() % 10) == 0)
     {
@@ -87,8 +97,12 @@ bool test(size_t seed)
         std::cout << err.str() << std::flush;
         return false;
       }
-      assert(!inserted);
-      UNUSED(inserted);
+
+      if (inserted)
+      {
+        std::cout << err.str() << "not updated: " << entry.first << std::flush;
+        return false;
+      }
     }
 
     if ((rng.next() % 10) == 0)
@@ -101,8 +115,12 @@ bool test(size_t seed)
         std::cout << err.str() << std::flush;
         return false;
       }
-      assert(erased);
-      UNUSED(erased);
+
+      if (!erased)
+      {
+        std::cout << err.str() << "not erased: " << entry.first << std::flush;
+        return false;
+      }
     }
   }
 
