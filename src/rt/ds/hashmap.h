@@ -69,23 +69,27 @@ namespace verona::rt
     struct inspect_entry_type<K*> : std::true_type
     {
       static_assert(std::is_base_of_v<Object, K>);
-      using value_type = K*;
-      using entry_view = value_type;
+      using key_type = K*;
+      using value_type = key_type;
+      using entry_view = key_type;
       static constexpr bool is_set = true;
     };
     template<typename K, typename V>
     struct inspect_entry_type<std::pair<K*, V>> : std::true_type
     {
       static_assert(std::is_base_of_v<Object, K>);
+      using key_type = K*;
       using value_type = V;
-      using entry_view = std::pair<K*, V*>;
+      using entry_view = std::pair<key_type, V*>;
       static constexpr bool is_set = false;
     };
 
     static_assert(
       inspect_entry_type<Entry>(),
-      "Map Entry must be Object* or std::pair<Object*, V>");
+      "Map Entry must be K* or std::pair<K*, V>"
+      " where K is derrived from Object");
 
+    using KeyType = typename inspect_entry_type<Entry>::key_type;
     using ValueType = typename inspect_entry_type<Entry>::value_type;
     using EntryView = typename inspect_entry_type<Entry>::entry_view;
     static constexpr bool is_set = inspect_entry_type<Entry>::is_set;
@@ -112,9 +116,9 @@ namespace verona::rt
     /**
      * Return the probe index of the entry.
      */
-    static size_t probe_index(uintptr_t key)
+    static uint8_t probe_index(uintptr_t key)
     {
-      return (size_t)(key & PROBE_MASK);
+      return (uint8_t)(key & PROBE_MASK);
     }
 
     /**
@@ -167,6 +171,7 @@ namespace verona::rt
       const auto key_swap = key_of(entry);
       key_of(entry) = unmark_key(key_of(entry));
       f(alloc, entry);
+      assert(unmark_key(key_swap) == unmark_key(key_of(entry)));
       key_of(entry) = key_swap;
     }
 
@@ -190,9 +195,9 @@ namespace verona::rt
       Iterator(const ObjectMap& m, size_t i) : map(m), index(i) {}
 
     public:
-      Object* key()
+      KeyType key()
       {
-        return (Object*)unmark_key(key_of(entry()));
+        return (KeyType)unmark_key(key_of(entry()));
       }
 
       template<bool v = !is_set, typename = typename std::enable_if_t<v>>
@@ -304,7 +309,7 @@ namespace verona::rt
      * corresponding entry. If no entry exitsts, the return value will be equal
      * to the return value of `end()`.
      */
-    Iterator find(const Object* key) const
+    Iterator find(const KeyType key) const
     {
       if (key == nullptr)
         return end();
@@ -384,7 +389,7 @@ namespace verona::rt
      * Remove an entry from the map corresponding to the given key. The return
      * value is false if no entry was found for the key and true otherwise.
      */
-    bool erase(Alloc* alloc, const Object* key)
+    bool erase(Alloc* alloc, const KeyType key)
     {
       auto it = find(key);
       if (it == end())
@@ -461,7 +466,7 @@ namespace verona::rt
           out << " ∅";
           continue;
         }
-        out << " (" << (const Object*)unmark_key(key_of(slots[i])) << ", probe "
+        out << " (" << (const KeyType)unmark_key(key_of(slots[i])) << ", probe "
             << (size_t)probe_index(key) << ")";
       }
       out << " } cap: " << capacity();
