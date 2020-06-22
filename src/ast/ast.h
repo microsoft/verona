@@ -4,6 +4,8 @@
 
 #include <peglib.h>
 
+const int foo = 42;
+
 namespace ast
 {
   struct SymbolScope;
