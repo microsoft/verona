@@ -61,8 +61,7 @@ namespace verona::rt
 
         incref();
         ert.load(std::memory_order_relaxed)
-          ->external_map->insert_unique(
-            ThreadAlloc::get(), std::make_pair(o, this));
+          ->insert(ThreadAlloc::get(), o, this);
 
         o->set_has_ext_ref();
       }
@@ -110,9 +109,9 @@ namespace verona::rt
 
     struct MapCallbacks
     {
-      static void on_insert(std::pair<Object*, ExternalRef*>&) {}
+      static void on_insert(Alloc*, std::pair<Object*, ExternalRef*>&) {}
 
-      static void on_erase(std::pair<Object*, ExternalRef*>& e)
+      static void on_erase(Alloc* alloc, std::pair<Object*, ExternalRef*>& e)
       {
         if (e.second != nullptr)
         {
@@ -121,7 +120,7 @@ namespace verona::rt
           // false.second.
           e.second->o = nullptr;
           e.second->ert.store(nullptr, std::memory_order_relaxed);
-          Immutable::release(ThreadAlloc::get(), e.second);
+          Immutable::release(alloc, e.second);
         }
       }
     };
@@ -130,17 +129,16 @@ namespace verona::rt
     // contribute to objects RC; when an object is collected, its corresponding
     // entry in the map (if any) is removed as well.
     using ExternalMap =
-      PtrKeyHashMap<std::pair<Object*, ExternalRef*>, MapCallbacks>;
+      ObjectMap<std::pair<Object*, ExternalRef*>, MapCallbacks>;
 
     ExternalMap* external_map;
 
   public:
     ExternalReferenceTable()
-    {
-      external_map = ExternalMap::create();
-    }
+    : external_map(ExternalMap::create(ThreadAlloc::get()))
+    {}
 
-    inline void dealloc(Alloc* alloc)
+    void dealloc(Alloc* alloc)
     {
       external_map->dealloc(alloc);
       alloc->dealloc<sizeof(ExternalMap)>(external_map);
@@ -154,13 +152,21 @@ namespace verona::rt
         assert(ext_ref->o);
         ext_ref->ert.store(this, std::memory_order_relaxed);
         *e.second = nullptr;
-        external_map->insert_unique(alloc, std::make_pair(e.first, ext_ref));
+        insert(alloc, e.first, ext_ref);
       }
     }
 
-    void erase(Object* p)
+    void insert(Alloc* alloc, Object* object, ExternalRef* ext_ref)
     {
-      external_map->erase(p);
+      auto unique =
+        external_map->insert(alloc, std::make_pair(object, ext_ref)).first;
+      assert(unique);
+      UNUSED(unique);
+    }
+
+    void erase(Alloc* alloc, Object* p)
+    {
+      external_map->erase(alloc, p);
     }
   };
 

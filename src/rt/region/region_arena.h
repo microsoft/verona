@@ -583,7 +583,7 @@ namespace verona::rt
       }
 
       // Sweep the RememberedSet, to ensure destructors are called.
-      hash_set->sweep_set(alloc, 0);
+      hash_set->sweep(alloc);
 
       // Deallocate RegionArena
       // Don't need to deallocate `o`, since it was part of the arena or ring.
