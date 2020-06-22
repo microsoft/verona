@@ -69,18 +69,18 @@ namespace verona::rt
     struct inspect_entry_type<K*> : std::true_type
     {
       static_assert(std::is_base_of_v<Object, K>);
-      using key_type = K*;
-      using value_type = key_type;
-      using entry_view = key_type;
+      using key_type = K;
+      using value_type = key_type*;
+      using entry_view = value_type;
       static constexpr bool is_set = true;
     };
     template<typename K, typename V>
     struct inspect_entry_type<std::pair<K*, V>> : std::true_type
     {
       static_assert(std::is_base_of_v<Object, K>);
-      using key_type = K*;
+      using key_type = K;
       using value_type = V;
-      using entry_view = std::pair<key_type, V*>;
+      using entry_view = std::pair<key_type*, V*>;
       static constexpr bool is_set = false;
     };
 
@@ -195,9 +195,9 @@ namespace verona::rt
       Iterator(const ObjectMap& m, size_t i) : map(m), index(i) {}
 
     public:
-      KeyType key()
+      KeyType* key()
       {
-        return (KeyType)unmark_key(key_of(entry()));
+        return (KeyType*)unmark_key(key_of(entry()));
       }
 
       template<bool v = !is_set, typename = typename std::enable_if_t<v>>
@@ -309,7 +309,7 @@ namespace verona::rt
      * corresponding entry. If no entry exitsts, the return value will be equal
      * to the return value of `end()`.
      */
-    Iterator find(const KeyType key) const
+    Iterator find(const KeyType* key) const
     {
       if (key == nullptr)
         return end();
@@ -389,7 +389,7 @@ namespace verona::rt
      * Remove an entry from the map corresponding to the given key. The return
      * value is false if no entry was found for the key and true otherwise.
      */
-    bool erase(Alloc* alloc, const KeyType key)
+    bool erase(Alloc* alloc, const KeyType* key)
     {
       auto it = find(key);
       if (it == end())
@@ -466,8 +466,8 @@ namespace verona::rt
           out << " ∅";
           continue;
         }
-        out << " (" << (const KeyType)unmark_key(key_of(slots[i])) << ", probe "
-            << (size_t)probe_index(key) << ")";
+        out << " (" << (const KeyType*)unmark_key(key_of(slots[i]))
+            << ", probe " << (size_t)probe_index(key) << ")";
       }
       out << " } cap: " << capacity();
       return out;
