@@ -338,8 +338,7 @@ namespace verona::rt
     template<typename E>
     std::pair<bool, Iterator> insert(Alloc* alloc, E entry)
     {
-      // Resize at ~.8 load factor.
-      if (size() >= ((capacity() * 4) / 5))
+      if (unlikely(size() == capacity()))
         resize(alloc);
 
       assert(key_of(entry) != 0);

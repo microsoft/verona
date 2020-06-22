@@ -76,12 +76,12 @@ bool test(size_t seed)
     assert(inserted);
     UNUSED(inserted);
 
-    if (rng.next() % 10)
+    if ((rng.next() % 10) == 0)
     {
       err << "update " << key << "\n";
       entry.second = -entry.second;
       model.insert(entry);
-      auto inserted = map.insert(alloc, entry).first;
+      inserted = map.insert(alloc, entry).first;
       if (!model_check(map, model, err))
       {
         std::cout << err.str() << std::flush;
@@ -91,7 +91,7 @@ bool test(size_t seed)
       UNUSED(inserted);
     }
 
-    if (rng.next() % 10)
+    if ((rng.next() % 10) == 0)
     {
       err << "erase " << key << "\n";
       model.erase(entry.first);
