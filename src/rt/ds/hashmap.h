@@ -56,6 +56,12 @@ namespace verona::rt
     static_assert((MARK_MASK & PROBE_MASK) == 0);
     static_assert(((MARK_MASK | PROBE_MASK) & ~Object::MASK) == 0);
 
+    /**
+     * Used to ensure that capacity is always a power of 2. The size of the
+     * slots allocation is equal to `capacity() * entry_alloc`.
+     */
+    static constexpr size_t entry_alloc = bits::next_pow2_const(sizeof(Entry));
+
     template<typename>
     struct inspect_entry_type : std::false_type
     {};
@@ -120,9 +126,9 @@ namespace verona::rt
     {
       auto prev = *this;
 
-      const auto alloc_size = bits::next_pow2(capacity() * sizeof(Entry) * 2);
+      const auto alloc_size = capacity() * entry_alloc * 2;
       slots = (Entry*)alloc->alloc<YesZero>(alloc_size);
-      capacity_shift = bits::ctz(alloc_size / sizeof(Entry));
+      capacity_shift = (uint8_t)bits::ctz(alloc_size / entry_alloc);
       filled_slots = 0;
       longest_probe = 0;
 
@@ -240,9 +246,8 @@ namespace verona::rt
      */
     ObjectMap(Alloc* alloc)
     {
-      static constexpr size_t init_alloc =
-        bits::next_pow2_const(sizeof(Entry) * 8);
-      capacity_shift = bits::ctz(init_alloc / sizeof(Entry));
+      static constexpr size_t init_alloc = entry_alloc * 8;
+      capacity_shift = (uint8_t)bits::ctz(init_alloc / entry_alloc);
       slots = (Entry*)alloc->alloc<init_alloc, YesZero>();
     }
 
@@ -260,7 +265,7 @@ namespace verona::rt
     void dealloc(Alloc* alloc)
     {
       clear(alloc);
-      alloc->dealloc(slots, capacity() * sizeof(Entry));
+      alloc->dealloc(slots, capacity() * entry_alloc);
     }
 
     /**
@@ -277,7 +282,7 @@ namespace verona::rt
      */
     size_t capacity() const
     {
-      return (1 << capacity_shift);
+      return ((size_t)1 << capacity_shift);
     }
 
     Iterator begin() const
@@ -305,7 +310,7 @@ namespace verona::rt
         return end();
 
       const auto hash = bits::hash((void*)key);
-      auto index = hash % capacity();
+      auto index = hash & (capacity() - 1);
       for (size_t probe_len = 0; probe_len <= longest_probe; probe_len++)
       {
         const auto k = unmark_key(key_of(slots[index]));
@@ -335,7 +340,7 @@ namespace verona::rt
       assert(key_of(entry) != 0);
       const auto key = unmark_key(key_of(entry));
       const auto hash = bits::hash((void*)key);
-      auto index = hash % capacity();
+      auto index = hash & (capacity() - 1);
 
       for (uint8_t probe_len = 0; probe_len <= PROBE_MASK; probe_len++)
       {
