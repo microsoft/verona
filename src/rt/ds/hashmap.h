@@ -56,12 +56,6 @@ namespace verona::rt
     static_assert((MARK_MASK & PROBE_MASK) == 0);
     static_assert(((MARK_MASK | PROBE_MASK) & ~Object::MASK) == 0);
 
-    /**
-     * Used to ensure that capacity is always a power of 2. The size of the
-     * slots allocation is equal to `capacity() * entry_alloc`.
-     */
-    static constexpr size_t entry_alloc = bits::next_pow2_const(sizeof(Entry));
-
     template<typename>
     struct inspect_entry_type : std::false_type
     {};
@@ -130,9 +124,8 @@ namespace verona::rt
     {
       auto prev = *this;
 
-      const auto alloc_size = capacity() * entry_alloc * 2;
-      slots = (Entry*)alloc->alloc<YesZero>(alloc_size);
-      capacity_shift = (uint8_t)bits::ctz(alloc_size / entry_alloc);
+      capacity_shift++;
+      slots = (Entry*)alloc->alloc<YesZero>(capacity() * sizeof(Entry));
       filled_slots = 0;
       longest_probe = 0;
 
@@ -251,9 +244,9 @@ namespace verona::rt
      */
     ObjectMap(Alloc* alloc)
     {
-      static constexpr size_t init_alloc = entry_alloc * 8;
-      capacity_shift = (uint8_t)bits::ctz(init_alloc / entry_alloc);
-      slots = (Entry*)alloc->alloc<init_alloc, YesZero>();
+      static constexpr size_t init_capacity = 8;
+      capacity_shift = (uint8_t)bits::ctz(init_capacity);
+      slots = (Entry*)alloc->alloc<init_capacity * sizeof(Entry), YesZero>();
     }
 
     ~ObjectMap()
@@ -270,7 +263,7 @@ namespace verona::rt
     void dealloc(Alloc* alloc)
     {
       clear(alloc);
-      alloc->dealloc(slots, capacity() * entry_alloc);
+      alloc->dealloc(slots, capacity() * sizeof(Entry));
     }
 
     /**
