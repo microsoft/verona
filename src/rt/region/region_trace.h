@@ -414,7 +414,7 @@ namespace verona::rt
       sweep_ring<NonTrivialRing, sweep_all>(alloc, o, primary_ring, collect);
       sweep_ring<TrivialRing, sweep_all>(alloc, o, primary_ring, collect);
 
-      hash_set->sweep(alloc);
+      RememberedSet::sweep(alloc);
       previous_memory_used = size_to_sizeclass(current_memory_used);
     }
 

@@ -107,29 +107,10 @@ namespace verona::rt
       }
     };
 
-    struct MapCallbacks
-    {
-      static void on_insert(Alloc*, std::pair<Object*, ExternalRef*>&) {}
-
-      static void on_erase(Alloc* alloc, std::pair<Object*, ExternalRef*>& e)
-      {
-        if (e.second != nullptr)
-        {
-          // The object this external ref points to has been collected, so we
-          // need to invalidate this ext_ref so that `is_in` returns
-          // false.second.
-          e.second->o = nullptr;
-          e.second->ert.store(nullptr, std::memory_order_relaxed);
-          Immutable::release(alloc, e.second);
-        }
-      }
-    };
-
     // No tracing is need for external_map, because entries in the map doesn't
     // contribute to objects RC; when an object is collected, its corresponding
     // entry in the map (if any) is removed as well.
-    using ExternalMap =
-      ObjectMap<std::pair<Object*, ExternalRef*>, MapCallbacks>;
+    using ExternalMap = ObjectMap<std::pair<Object*, ExternalRef*>>;
 
     ExternalMap* external_map;
 
@@ -140,6 +121,9 @@ namespace verona::rt
 
     void dealloc(Alloc* alloc)
     {
+      for (auto it = external_map->begin(); it != external_map->end(); ++it)
+        remove_ref(alloc, it);
+
       external_map->dealloc(alloc);
       alloc->dealloc<sizeof(ExternalMap)>(external_map);
     }
@@ -166,7 +150,24 @@ namespace verona::rt
 
     void erase(Alloc* alloc, Object* p)
     {
-      external_map->erase(alloc, p);
+      auto it = external_map->find(p);
+      assert(it != external_map->end());
+      remove_ref(alloc, it);
+    }
+
+    void remove_ref(Alloc* alloc, ExternalMap::Iterator& it)
+    {
+      auto*& ext_ref = it.value();
+      if (ext_ref != nullptr)
+      {
+        // The object this external ref points to has been collected, so we
+        // need to invalidate this ext_ref so that `is_in` returns
+        // false.second.
+        ext_ref->o = nullptr;
+        ext_ref->ert.store(nullptr, std::memory_order_relaxed);
+        Immutable::release(alloc, ext_ref);
+      }
+      external_map->erase(it);
     }
   };
 

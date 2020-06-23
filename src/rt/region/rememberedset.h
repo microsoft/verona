@@ -19,17 +19,7 @@ namespace verona::rt
     friend class RegionArena;
 
   private:
-    struct SetCallbacks
-    {
-      static void on_insert(Alloc*, Object*&) {}
-
-      static void on_erase(Alloc* alloc, Object*& e)
-      {
-        RememberedSet::release_internal(alloc, e);
-      }
-    };
-
-    using HashSet = ObjectMap<Object*, SetCallbacks>;
+    using HashSet = ObjectMap<Object*>;
     HashSet* hash_set;
 
   public:
@@ -37,11 +27,14 @@ namespace verona::rt
 
     inline void dealloc(Alloc* alloc)
     {
-      hash_set->clear(alloc, false);
+      discard(alloc, false);
       hash_set->dealloc(alloc);
       alloc->dealloc<sizeof(HashSet)>(hash_set);
     }
 
+    /**
+     * Add the objects from another set to this set.
+     */
     void merge(Alloc* alloc, RememberedSet* that)
     {
       for (auto* e : *that->hash_set)
@@ -55,10 +48,13 @@ namespace verona::rt
       }
     }
 
+    /**
+     * Add an object into the set. If the object is not already present, incref
+     * and add it to the set.
+     */
     template<TransferOwnership transfer>
     void insert(Alloc* alloc, Object* o)
     {
-      // If o is not present, add it and o->incref().
       assert(o->debug_is_rc() || o->debug_is_cown());
 
       // If the caller is not transfering ownership of a refcount, i.e., the
@@ -77,9 +73,12 @@ namespace verona::rt
       }
     }
 
+    /**
+     * Mark the given object. If the object is not in the set, incref and add it
+     * to the set.
+     */
     void mark(Alloc* alloc, Object* o)
     {
-      // If o isn't present, insert it and incref.
       assert(o->debug_is_rc() || o->debug_is_cown());
 
       auto r = hash_set->insert(alloc, o);
@@ -89,8 +88,38 @@ namespace verona::rt
       r.second.mark();
     }
 
-    void discard(Alloc* alloc)
+    /**
+     * Erase all unmarked entries from the set and unmark the remaining entries.
+     */
+    void sweep(Alloc* alloc)
     {
+      for (auto it = hash_set->begin(); it != hash_set->end(); ++it)
+      {
+        if (!it.is_marked())
+        {
+          RememberedSet::release_internal(alloc, *it);
+          hash_set->erase(it);
+        }
+        else
+        {
+          it.unmark();
+        }
+      }
+    }
+
+    /**
+     * Erase all entries from the set. If `release` is true, the remaining
+     * objects will be released.
+     */
+    void discard(Alloc* alloc, bool release = true)
+    {
+      for (auto it = hash_set->begin(); it != hash_set->end(); ++it)
+      {
+        if (release)
+          RememberedSet::release_internal(alloc, *it);
+
+        hash_set->erase(it);
+      }
       hash_set->clear(alloc);
     }
 

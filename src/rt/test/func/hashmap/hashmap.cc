@@ -109,7 +109,7 @@ bool test(size_t seed)
     {
       err << "erase " << key << "\n";
       model.erase(entry.first);
-      auto erased = map.erase(alloc, entry.first);
+      auto erased = map.erase(entry.first);
       if (!model_check(map, model, err))
       {
         std::cout << err.str() << std::flush;

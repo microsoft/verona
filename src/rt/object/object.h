@@ -300,7 +300,7 @@ namespace verona::rt
     friend class RegionArena;
     friend class RememberedSet;
     friend class ExternalReferenceTable;
-    template<typename Entry, typename CB>
+    template<typename Entry>
     friend class ObjectMap;
     friend class Message;
     friend class LocalEpoch;
