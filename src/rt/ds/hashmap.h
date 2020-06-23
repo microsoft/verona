@@ -6,38 +6,11 @@
 
 namespace verona::rt
 {
-  template<typename Entry>
-  struct DefaultMapCallbacks
-  {
-    static void on_insert(Alloc*, Entry&) {}
-    static void on_erase(Alloc*, Entry&) {}
-  };
-
   /**
    * Robin Hood hash map where the key type is `K*`, where `K` is derrived from
    * `Object`. The `Entry` type must be either `K*` or `std::pair<K*, Value>`.
-   *
-   * Static callbacks may be supplied as the second template parameter as
-   * follows:
-   *   ```cpp
-   *   struct MyMapCallbacks
-   *   {
-   *     static void on_insert(Entry& e)
-   *     {
-   *       // called every time an entry is inserted into the map
-   *       // i.e. when `insert` returns true.
-   *     }
-   *
-   *     static void on_erase(Entry& e)
-   *     {
-   *       // called every time an entry is deleted from the map
-   *     }
-   *   };
-   *
-   *   using MyMap = PtrKeyHashMap<std::pair<Object*, uint8_t>, MyMapCallbacks>;
-   *   ```
    */
-  template<typename Entry, typename CB = DefaultMapCallbacks<Entry>>
+  template<typename Entry>
   class ObjectMap
   {
     Entry* slots;
@@ -116,9 +89,18 @@ namespace verona::rt
     }
 
     /**
-     * Increase the allocation size by approximately 50%, rounded up to the
-     * nearest allocation size. The entries in the previous allocation will be
-     * reinserted.
+     * Allocate enough slots for 8 entries.
+     */
+    void init_alloc(Alloc* alloc)
+    {
+      static constexpr size_t init_capacity = 8;
+      capacity_shift = (uint8_t)bits::ctz(init_capacity);
+      slots = (Entry*)alloc->alloc<init_capacity * sizeof(Entry), YesZero>();
+    }
+
+    /**
+     * Double the allocation size. The entries in the previous allocation will
+     * be reinserted.
      */
     void resize(Alloc* alloc)
     {
@@ -135,6 +117,8 @@ namespace verona::rt
           insert(alloc, it.key());
         else
           insert(alloc, std::make_pair(it.key(), std::move(it.value())));
+
+        key_of(it.entry()) = 0;
       }
     }
 
@@ -154,27 +138,13 @@ namespace verona::rt
         longest_probe = probe_len;
     }
 
-    /**
-     * Call a function using an `Entry&` where the key is temporarily reset to
-     * the original value.
-     */
-    template<typename F>
-    void call_cb(F f, Alloc* alloc, Entry& entry)
-    {
-      const auto key_swap = key_of(entry);
-      key_of(entry) = unmark_key(key_of(entry));
-      f(alloc, entry);
-      assert(unmark_key(key_swap) == unmark_key(key_of(entry)));
-      key_of(entry) = key_swap;
-    }
-
   public:
     /**
      * Iterator over the entries in an `ObjectMap`, starting from a slot index.
      */
     class Iterator
     {
-      template<typename _Entry, typename _CB>
+      template<typename _Entry>
       friend class ObjectMap;
 
       const ObjectMap& map;
@@ -207,6 +177,11 @@ namespace verona::rt
       void mark()
       {
         key_of(entry()) |= MARK_MASK;
+      }
+
+      void unmark()
+      {
+        key_of(entry()) &= ~MARK_MASK;
       }
 
       EntryView operator*()
@@ -244,9 +219,7 @@ namespace verona::rt
      */
     ObjectMap(Alloc* alloc)
     {
-      static constexpr size_t init_capacity = 8;
-      capacity_shift = (uint8_t)bits::ctz(init_capacity);
-      slots = (Entry*)alloc->alloc<init_capacity * sizeof(Entry), YesZero>();
+      init_alloc(alloc);
     }
 
     ~ObjectMap()
@@ -254,15 +227,14 @@ namespace verona::rt
       dealloc(ThreadAlloc::get());
     }
 
-    static ObjectMap<Entry, CB>* create(Alloc* alloc)
+    static ObjectMap<Entry>* create(Alloc* alloc)
     {
-      return new (alloc->alloc<sizeof(ObjectMap<Entry, CB>)>())
-        ObjectMap(alloc);
+      return new (alloc->alloc<sizeof(ObjectMap<Entry>)>()) ObjectMap(alloc);
     }
 
     void dealloc(Alloc* alloc)
     {
-      clear(alloc);
+      clear(nullptr);
       alloc->dealloc(slots, capacity() * sizeof(Entry));
     }
 
@@ -356,7 +328,6 @@ namespace verona::rt
           place_entry(std::forward<E>(entry), index, probe_len);
           assert(!(key_of(slots[index]) & MARK_MASK));
           filled_slots++;
-          call_cb(CB::on_insert, alloc, slots[index]);
           return std::make_pair(true, Iterator(*this, index));
         }
 
@@ -381,13 +352,13 @@ namespace verona::rt
      * Remove an entry from the map corresponding to the given key. The return
      * value is false if no entry was found for the key and true otherwise.
      */
-    bool erase(Alloc* alloc, const KeyType* key)
+    bool erase(const KeyType* key)
     {
       auto it = find(key);
       if (it == end())
         return false;
 
-      erase(alloc, it);
+      erase(it);
       return true;
     }
 
@@ -395,7 +366,7 @@ namespace verona::rt
      * Remove an entry from the map at the given iterator position. The iterator
      * must be valid. This operation will not invalidate the iterator.
      */
-    void erase(Alloc* alloc, Iterator& it)
+    void erase(Iterator& it)
     {
       assert(key_of(it.entry()) != 0);
 
@@ -403,43 +374,25 @@ namespace verona::rt
       // the the minimum probe length determined by the maximum value we can
       // stash in the lower bits of the key.
 
-      call_cb(CB::on_erase, alloc, it.entry());
       it.entry().~Entry();
       key_of(it.entry()) = 0;
       filled_slots--;
     }
 
     /**
-     * Empty the map, removing all entries. If `callback` is false, then the
-     * entries removed will not have the callback `on_erase` called with the
-     * removed entries.
+     * Empty the map, removing all entries. If `alloc` is not null, the capacity
+     * will be reset to the initial allocation size. Resetting the allocation
+     * size may significantly improve iteration performance.
      */
-    void clear(Alloc* alloc, bool callback = true)
+    void clear(Alloc* alloc)
     {
       for (auto it = begin(); it != end(); ++it)
-      {
-        if (callback)
-          call_cb(CB::on_erase, alloc, it.entry());
+        erase(it);
 
-        it.entry().~Entry();
-        key_of(it.entry()) = 0;
-      }
       longest_probe = 0;
-      filled_slots = 0;
-    }
 
-    /**
-     * Erase all unmarked entries from the map and unmark the remaining entries.
-     */
-    void sweep(Alloc* alloc)
-    {
-      for (auto it = begin(); it != end(); ++it)
-      {
-        if (!it.is_marked())
-          erase(alloc, it);
-        else
-          key_of(it.entry()) &= ~MARK_MASK;
-      }
+      if ((alloc != nullptr) && (capacity() > 8))
+        init_alloc(alloc);
     }
 
     /**
