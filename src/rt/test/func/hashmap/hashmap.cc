@@ -82,7 +82,7 @@ bool test(size_t seed)
 
     if (!inserted)
     {
-      std::cout << err.str() << "not inserted: " << entry.first << std::flush;
+      std::cout << err.str() << "not inserted: " << entry.first << std::endl;
       return false;
     }
 
@@ -100,7 +100,7 @@ bool test(size_t seed)
 
       if (inserted)
       {
-        std::cout << err.str() << "not updated: " << entry.first << std::flush;
+        std::cout << err.str() << "not updated: " << entry.first << std::endl;
         return false;
       }
     }
@@ -118,10 +118,17 @@ bool test(size_t seed)
 
       if (!erased)
       {
-        std::cout << err.str() << "not erased: " << entry.first << std::flush;
+        std::cout << err.str() << "not erased: " << entry.first << std::endl;
         return false;
       }
     }
+  }
+
+  map.clear(alloc);
+  if (map.size() != 0)
+  {
+    map.debug_layout(std::cout) << "not empty" << std::endl;
+    return false;
   }
 
   return true;

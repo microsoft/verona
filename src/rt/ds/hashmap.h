@@ -392,7 +392,10 @@ namespace verona::rt
       longest_probe = 0;
 
       if ((alloc != nullptr) && (capacity() > 8))
+      {
+        alloc->dealloc(slots, capacity() * sizeof(Entry));
         init_alloc(alloc);
+      }
     }
 
     /**
