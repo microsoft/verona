@@ -33,23 +33,33 @@
 
 set -e
 
-expected_args=4
-if [[ $# != $expected_args ]]; then
-    echo "Usage: $0 <subscription> <region> <vmss-name> linux|windows"
-    echo "Example: $0 7150ce20-6afe... eastus llvm-build linux"
+expected_args=5
+if [[ $# < $expected_args ]]; then
+    echo "Usage: $0 <subscription> <region> <vmss-name> linux|windows SKU [disk]"
+    echo "Example: $0 7150ce20-6afe... northeurope build linux Standard_D16as_v4"
+    echo "Example: $0 7150ce20-6afe... northeurope llvm-build linux Standard_D16s_v3 200"
     exit 1
 fi
 
+# Settings from cmd-line
 subscription=$1
 region=$2
 os=$4
 vmss_name="verona-$3-$os"
 resource_group_name="$vmss_name-rg"
+os_disk_size_gb=""
+ephemeral_os_disk=""
 
-# Common settings
-sku=Standard_D16s_v3
-ephemeral_os_disk=true
-os_disk_size_gb=200
+# Machine type
+if [ "$5" != "" ]; then
+  sku=$5
+fi
+
+# Ephemeral disk if additional option set
+if [ "$6" != "" ]; then
+  ephemeral_os_disk="--ephemeral-os-disk true"
+  os_disk_size_gb="--os-disk-size-gb $6"
+fi
 
 # Windows not supported yet
 if [ "$os" == "linux" ]; then
@@ -77,10 +87,10 @@ az vmss create \
     --authentication-type password \
     --admin-username "$(openssl rand -hex 8)" \
     --admin-password "$(openssl rand -base64 8)" \
-    --ephemeral-os-disk $ephemeral_os_disk \
     --image "$image" \
-    --os-disk-size-gb $os_disk_size_gb \
     --vm-sku $sku \
+    $ephemeral_os_disk \
+    $os_disk_size_gb \
     --instance-count 0 \
     --disable-overprovision \
     --upgrade-policy-mode manual \
