@@ -145,6 +145,8 @@ int main(int argc, char** argv)
     std::cout << "seed: " << seed << std::endl;
     if (!test(seed))
       return 1;
+
+    current_alloc_pool()->debug_check_empty();
   }
 
   return 0;
