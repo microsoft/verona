@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 #ifdef _MSC_VER
 #  define WIN32_LEAN_AND_MEAN
 #  define NOMINMAX

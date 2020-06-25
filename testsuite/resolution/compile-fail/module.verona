@@ -1,5 +1,5 @@
-// Copyright (c) Contributers to Project Verona. All rights reserved.
-// Licensed under the MIT License.
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 
 // Reported errors should point to the proper source location.
 use "module/child.verona"

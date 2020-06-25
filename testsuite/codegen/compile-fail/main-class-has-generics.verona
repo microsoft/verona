@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 // CHECK-L: main-class-has-generics.verona:${LINE:+1}:7: error: Class 'Main' must not be generic
 class Main[X] {
   main() { }

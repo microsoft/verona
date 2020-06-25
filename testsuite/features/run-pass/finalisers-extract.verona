@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 
 // This test demostrates the "extract and return in finalisers" pattern.
 // A Handle owns a Value object. When the Handle goes out of scope and its
