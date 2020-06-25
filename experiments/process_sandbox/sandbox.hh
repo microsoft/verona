@@ -330,8 +330,17 @@ namespace sandbox
   template<typename Ret, typename... Args>
   struct argframe
   {
+    /**
+     * The return value of this function.  If the return value is void, uses
+     * char as an unused placeholder.
+     */
     std::conditional_t<std::is_void_v<Ret>, char, Ret> ret;
+    /**
+     * The arguments to the function.
+     */
     std::tuple<std::remove_reference_t<Args>...> args;
+    // FIXME: This strips references, so we copy arguments, but should probably
+    // turn references into pointers.
   };
 
   /**
@@ -544,23 +553,41 @@ namespace sandbox
   {
     /**
      * Template that deduces the return type and argument types for a function
-     * type.  The `return_type` will be set to the function's return type and
-     * `argument_type` to a tuple of the arguments. For example,
      * `signature<void(int, float)>::return_type` is `void` and
      * `signature<void(int, float)>::argument_type` is `std::tuple<int, float>`.
      */
     template<typename T>
     struct signature;
+    /**
+     * Specialisation for when the callee is a value.
+     */
     template<typename R, typename... Args>
     struct signature<R(Args...)>
     {
+      /**
+       * The return type of the function whose type is being extracted.
+       */
       using return_type = R;
+      /**
+       * A tuple type containing all of the argument types of the function
+       * whose type is being extracted.
+       */
       using argument_type = std::tuple<Args...>;
     };
+    /**
+     * Specification for when the callee is a reference.
+     */
     template<typename R, typename... Args>
     struct signature<R (&)(Args...)>
     {
+      /**
+       * The return type of the function whose type is being extracted.
+       */
       using return_type = R;
+      /**
+       * A tuple type containing all of the argument types of the function
+       * whose type is being extracted.
+       */
       using argument_type = std::tuple<Args...>;
     };
 
@@ -571,9 +598,18 @@ namespace sandbox
      */
     template<typename Ret, typename T>
     struct extract_args;
+    /**
+     * Explicit specialisation.  This is the only version that actually exists,
+     * but C++17 doesn't let us declare the generic version with these
+     * constraints.
+     */
     template<typename Ret, typename... T>
     struct extract_args<Ret, std::tuple<T...>>
     {
+      /**
+       * The wrapper function type for the exported function type provided by
+       * the template arguments.
+       */
       using wrapper = SandboxedFunction<Ret, T...>;
     };
   }

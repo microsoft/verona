@@ -727,25 +727,84 @@ namespace sandbox
     }
   };
 
+  /**
+   * Class representing a view of a shared memory region.  This provides both
+   * the parent and child views of the region.
+   */
   struct SharedMemoryRegion
   {
     // FIXME: The parent process can currently blindly follow pointers in these
     // regions.  We should explicitly mask all pointers against the size of the
     // allocation when we use them from outside.
+    /**
+     * The memory provider associated with this region.  This is responsible
+     * for allocating pages within the shared range.  It lives within the
+     * shared region because it can be called from both inside and outside of
+     * the sandbox.
+     */
     SharedMemoryProvider memory_provider;
+    /**
+     * A flag indicating that the parent has instructed the sandbox to exit.
+     */
     std::atomic<bool> should_exit = false;
+    /**
+     * The index of the function currently being called.  This interface is not
+     * currently reentrant.
+     */
     int function_index;
+    /**
+     * A pointer to the tuple (in the shared memory range) that contains the
+     * argument frame provided by the sandbox caller.
+     */
     void* msg_buffer = nullptr;
+    /**
+     * The message queue for the parent's allocator.  This is stored in the
+     * shared region because the child must be able to free memory allocated by
+     * the parent.
+     */
     snmalloc::RemoteAllocator allocator_state;
 #ifdef __unix__
+    /**
+     * Mutex used to protect `cv`.
+     */
     pthread_mutex_t mutex;
+    /**
+     * The condition variable that the child sleeps on when waiting for
+     * messages from the parent.
+     */
     pthread_cond_t cv;
+    /**
+     * Flag indicating whether the child is executing.  Set on startup and
+     */
     std::atomic<bool> is_child_executing = false;
 #endif
+    /**
+     * Waits until the `is_child_executing` flag is in the `expected` state.
+     * This is used to wait for the child to start and to stop.
+     */
     void wait(bool expected);
+    /**
+     * Wait until the `is_child_executing` flag is in the `expected` state.
+     * Returns true if the condition was met or false if the timeout was
+     * exceeded before the child entered the desired state.
+     */
     bool wait(bool expected, struct timespec timeout);
+    /**
+     * Update the `is_child_executing` flag and wake up any waiters.  Note that
+     * the `wait` functions will only unblock if `is_child_executing` is
+     * modified using this function.
+     */
     void signal(bool new_state);
+    /**
+     * Constructor.  Initialises the mutex and condition variables.
+     */
     SharedMemoryRegion();
+    /**
+     * Destroy this shared memory region.  Unmaps the region.  Nothing in the
+     * `SharedMemoryRegion` structure is trusted and so this takes the `size`
+     * of the region as an explicit argument.  The parent is responsible for
+     * tracking this value in trusted memory.
+     */
     void destroy(size_t size);
   };
 
@@ -759,6 +818,7 @@ namespace sandbox
     }
     pthread_mutex_unlock(&mutex);
   }
+
   bool SharedMemoryRegion::wait(bool expected, struct timespec timeout)
   {
     struct timespec now;
@@ -773,6 +833,7 @@ namespace sandbox
     pthread_mutex_unlock(&mutex);
     return ret;
   }
+
   void SharedMemoryRegion::signal(bool new_state)
   {
     pthread_mutex_lock(&mutex);
@@ -780,6 +841,7 @@ namespace sandbox
     pthread_cond_signal(&cv);
     pthread_mutex_unlock(&mutex);
   }
+
   SharedMemoryRegion::SharedMemoryRegion()
   {
     pthread_mutexattr_t mattrs;
@@ -792,6 +854,7 @@ namespace sandbox
     pthread_condattr_setclock(&cvattrs, CLOCK_MONOTONIC);
     pthread_cond_init(&cv, &cvattrs);
   }
+
   void SharedMemoryRegion::destroy(size_t size)
   {
     pthread_mutex_destroy(&mutex);

@@ -25,21 +25,76 @@ namespace snmalloc
 
 namespace sandbox
 {
+  /**
+   * The proxy pagemap.  In the sandboxed process, there are two parts of the
+   * pagemap.  The process maintains a private pagemap for process-local
+   * memory, the parent process maintains a fragment of this pagemap
+   * corresponding to the shared memory region.
+   *
+   * This class is responsible for managing the composition of the two page
+   * maps.  All queries are local but updates must be forwarded to either the
+   * parent process or the private pagemap.
+   */
   struct ProxyPageMap
   {
+    /**
+     * Singleton instance of this class.
+     */
     static ProxyPageMap p;
+    /**
+     * Accessor, returns the singleton instance of this class.
+     */
     static ProxyPageMap& pagemap()
     {
       return p;
     }
+    /**
+     * Helper function used by the set methods that are part of the page map
+     * interface.  If the address (`p`) is not in the shared region then this
+     * delegates to the default page map.  Otherwise, this writes the required
+     * change as a message to the parent process and spins waiting for the
+     * parent to make the required update.
+     */
     void set(uintptr_t p, uint8_t x, uint8_t big);
+    /**
+     * Get the pagemap entry for a specific address. This queries the default
+     * pagemap.
+     */
     static uint8_t get(address_t p);
+    /**
+     * Get the pagemap entry for a specific address. This queries the default
+     * pagemap.
+     */
     static uint8_t get(void* p);
+    /**
+     * Type-safe interface for setting that a particular memory region contains
+     * a superslab. This calls `set`.
+     */
     void set_slab(snmalloc::Superslab* slab);
+    /**
+     * Type-safe interface for notifying that a region no longer contains a
+     * superslab.  Calls `set`.
+     */
     void clear_slab(snmalloc::Superslab* slab);
+    /**
+     * Type-safe interface for notifying that a region no longer contains a
+     * medium slab.  Calls `set`.
+     */
     void clear_slab(snmalloc::Mediumslab* slab);
+    /**
+     * Type-safe interface for setting that a particular memory region contains
+     * a medium slab. This calls `set`.
+     */
     void set_slab(snmalloc::Mediumslab* slab);
+    /**
+     * Type-safe interface for setting the pagemap values for a region to
+     * indicate a large allocation.
+     */
     void set_large_size(void* p, size_t size);
+    /**
+     * The inverse operation of `set_large_size`, updates a range to indicate
+     * that it is not in use.
+     */
     void clear_large_size(void* p, size_t size);
   };
 }
@@ -75,21 +130,51 @@ namespace
   }
   typedef void (*dlfunc_t)(void);
 
+  /**
+   * It is undefined behaviour in C to cast from a `void*` to a function
+   * pointer, but POSIX only provides a single function to get a pointer from a
+   * library.  BSD systems provide `dlfunc` to avoid this but glibc does not,
+   * so we provide our own.
+   */
   dlfunc_t dlfunc(void* handle, const char* symbol)
   {
     return (dlfunc_t)dlsym(handle, symbol);
   }
 #endif
 
+  /**
+   * The file descriptor that will be used to communicate with the pagemap.
+   * This is set to a constant after the proxy pagemap is safe to use, the
+   * initial -1 value ensures that we don't try to use it before the memory
+   * manager is set up.
+   */
   int pagemap_socket = -1;
+
+  /**
+   * A pointer to the object that manages the vtable exported by this library.
+   */
   ExportedLibrary* library;
+
+  /**
+   * The start of the shared memory region.  Passed as a command-line argument.
+   */
   void* shared_memory_start = 0;
+
+  /**
+   * The end of the shared memory region.  Passed as a command-line argument.
+   */
   void* shared_memory_end = 0;
+
+  /**
+   * The exported function that returns the type encoding of an exported
+   * function.  This is used by the library caller for type checking.
+   */
   char* exported_types(int idx)
   {
     return library->type_encoding(idx);
   }
 }
+
 namespace sandbox
 {
   void ProxyPageMap::set(uintptr_t p, uint8_t x, uint8_t big = 0)
@@ -117,30 +202,37 @@ namespace sandbox
       GlobalPagemap::pagemap().set(p, x);
     }
   }
+
   uint8_t ProxyPageMap::get(address_t p)
   {
     return GlobalPagemap::pagemap().get(p);
   }
+
   uint8_t ProxyPageMap::get(void* p)
   {
     return GlobalPagemap::pagemap().get(address_cast(p));
   }
+
   void ProxyPageMap::set_slab(snmalloc::Superslab* slab)
   {
     set(reinterpret_cast<uintptr_t>(slab), (size_t)CMSuperslab);
   }
+
   void ProxyPageMap::clear_slab(snmalloc::Superslab* slab)
   {
     set(reinterpret_cast<uintptr_t>(slab), (size_t)CMNotOurs);
   }
+
   void ProxyPageMap::clear_slab(snmalloc::Mediumslab* slab)
   {
     set(reinterpret_cast<uintptr_t>(slab), (size_t)CMNotOurs);
   }
+
   void ProxyPageMap::set_slab(snmalloc::Mediumslab* slab)
   {
     set(reinterpret_cast<uintptr_t>(slab), (size_t)CMMediumslab);
   }
+
   void ProxyPageMap::set_large_size(void* p, size_t size)
   {
     size_t size_bits = bits::next_pow2_bits(size);
@@ -160,6 +252,7 @@ namespace sandbox
       ss = ss + SUPERSLAB_SIZE * run;
     }
   }
+
   void ProxyPageMap::clear_large_size(void* p, size_t size)
   {
     if ((p >= shared_memory_start) && (p < shared_memory_end))
@@ -172,19 +265,49 @@ namespace sandbox
     GlobalPagemap::pagemap().set_range(
       reinterpret_cast<uintptr_t>(p), CMNotOurs, range);
   }
+
+  /**
+   * The class that represents the internal side of an exported library.  This
+   * manages a run loop that waits for calls, invokes them, and returns the
+   * result.
+   */
   class ExportedLibraryPrivate
   {
     friend class ExportedLibrary;
 #ifdef __unix__
+    /**
+     * The type used for handles to operating system resources.  On POSIX
+     * systems, file descriptors are `int`s (and everything is a file).
+     */
     using handle_t = int;
 #endif
+
+    /**
+     * The socket that should be used for passing new file descriptors into
+     * this process.
+     *
+     * Not implemented yet.
+     */
     __attribute__((unused)) handle_t socket_fd;
+
+    /**
+     * The shared memory region owned by this sandboxed library.
+     */
     struct SharedMemoryRegion* shared_mem;
 
   public:
+    /**
+     * Constructor.  Takes the socket over which this process should receive
+     * additional file descriptors and the shared memory region.
+     */
     ExportedLibraryPrivate(handle_t sock, SharedMemoryRegion* region)
     : socket_fd(sock), shared_mem(region)
     {}
+
+    /**
+     * The run loop.  Takes the public interface of this library (effectively,
+     * the library's vtable) as an argument.
+     */
     void runloop(ExportedLibrary* library)
     {
       while (1)
@@ -210,6 +333,7 @@ namespace sandbox
     }
   };
 }
+
 char* ExportedLibrary::type_encoding(int idx)
 {
   return functions.at(idx)->type_encoding();

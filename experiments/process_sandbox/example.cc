@@ -5,8 +5,14 @@
 
 using namespace sandbox;
 
+/**
+ * The structure that represents an instance of the demo sandbox.
+ */
 struct SandboxDemo
 {
+  /**
+   * The library that defines the functions exposed by this sandbox.
+   */
   SandboxedLibrary lib = {"example_lib.so"};
 #define EXPORTED_FUNCTION(public_name, private_name) \
   decltype(make_sandboxed_function<decltype(private_name)>(lib)) public_name = \
