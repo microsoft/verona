@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 /**
  * This examples is exploiting a complexity in the leak detector and
  * noticeboards.

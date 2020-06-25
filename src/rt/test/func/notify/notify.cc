@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 #include <test/harness.h>
 // Harness must come before tests.
 #include "./notify_basic.h"

@@ -1,5 +1,5 @@
-// Copyright (c) Contributers to Project Verona. All rights reserved.
-// Licensed under the MIT License.
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 
 class Main {
   // CHECK-L: builtin-body.verona:${LINE:+1}:11: error: Builtin method 'foo' in 'Main' must not have a body

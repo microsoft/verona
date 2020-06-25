@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 // CHECK-L: multiple-definitions.verona:${LINE:+3}:7: error: Symbol 'SameClass' is already defined in this scope
 // CHECK-L: multiple-definitions.verona:${LINE:+1}:7: note: 'SameClass' was previously defined here
 class SameClass {}

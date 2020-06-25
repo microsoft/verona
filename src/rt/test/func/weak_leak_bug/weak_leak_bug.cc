@@ -1,5 +1,5 @@
-// Copyright (c) Project Verona contributers. All rights reserved.
-// Licensed under the MIT License.
+// Copyright Microsoft and Project Verona Contributors
+// SPDX-License-Identifier: MIT
 
 // See issue #84 for origin of this test.
 #include <test/harness.h>

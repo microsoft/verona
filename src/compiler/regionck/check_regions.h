@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 #include "compiler/dataflow/liveness_reason.h"
 #include "compiler/typecheck/capability_predicate.h"
 #include "compiler/zip.h"
