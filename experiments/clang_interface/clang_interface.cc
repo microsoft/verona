@@ -1,3 +1,6 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 #include <clang/ASTMatchers/ASTMatchers.h>
 #include <clang/CodeGen/ModuleBuilder.h>

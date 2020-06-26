@@ -1,3 +1,6 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
 #include <assert.h>
 #include <dlfcn.h>
 #include <fcntl.h>
