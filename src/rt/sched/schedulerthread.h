@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "../ds/hashmap.h"
 #include "../object/object.h"
+#include "../test/log.h"
 #include "cpu.h"
 #include "schedulerstats.h"
 #include "spmcq.h"
@@ -13,6 +15,8 @@
 
 namespace verona::rt
 {
+  namespace bp = backpressure;
+
   template<class T>
   class SchedulerThread
   {
@@ -83,13 +87,26 @@ namespace verona::rt
     size_t total_cowns = 0;
     std::atomic<size_t> free_cowns = 0;
 
+    typename T::MessageBody* message_body = nullptr;
+
+#ifdef USE_BACKPRESSURE_TRACE
+    ObjectMap<std::pair<T*, uint64_t>> muted;
+#else
+    ObjectMap<T*> muted;
+#endif
+    ObjectMap<T*> overloaded;
+
     T* get_token_cown()
     {
       assert(token_cown);
       return token_cown;
     }
 
-    SchedulerThread() : token_cown{T::create_token_cown()}, q{token_cown}
+    SchedulerThread()
+    : token_cown{T::create_token_cown()},
+      q{token_cown},
+      muted{ThreadAlloc::get()},
+      overloaded{ThreadAlloc::get()}
     {
       token_cown->set_owning_thread(this);
     }
@@ -98,6 +115,9 @@ namespace verona::rt
     {
       if (t.joinable())
         t.join();
+
+      assert(muted.size() == 0);
+      assert(overloaded.size() == 0);
     }
 
     template<typename... Args>
@@ -168,6 +188,81 @@ namespace verona::rt
       }
     }
 
+    void overload(T* cown)
+    {
+      const auto added = overloaded.insert(alloc, cown).first;
+      if (added)
+        cown->weak_acquire();
+    }
+
+    void mute(T* cown)
+    {
+#ifdef USE_BACKPRESSURE_TRACE
+      const auto added =
+        muted.insert(alloc, std::make_pair(cown, Aal::tick())).first;
+#else
+      const auto added = muted.insert(alloc, cown).first;
+#endif
+      if (added)
+      {
+        Systematic::cout() << "Mute " << cown << std::endl;
+        T::acquire(cown);
+
+        const auto removed = overloaded.erase(cown);
+        if (removed)
+          cown->weak_release(alloc);
+      }
+    }
+
+    void unmute()
+    {
+#ifdef USE_BACKPRESSURE_TRACE
+      const auto now = Aal::tick();
+#endif
+      for (auto it = muted.begin(); it != muted.end(); ++it)
+      {
+        auto* cown = it.key();
+        Systematic::cout() << "Unmute " << cown << std::endl;
+#ifdef USE_BACKPRESSURE_TRACE
+        logger::trace("backpressure_mutetime", cown, now - it.value(), now);
+#endif
+        auto bp = cown->backpressure.load(std::memory_order_relaxed);
+        bp = bp::unmute(bp);
+        cown->backpressure.store(bp, std::memory_order_relaxed);
+
+        cown->queue.wake();
+        cown->schedule();
+        T::release(alloc, cown);
+        muted.erase(it);
+      }
+      muted.clear(alloc);
+
+      for (auto it = overloaded.begin(); it != overloaded.end(); ++it)
+      {
+        auto* cown = *it;
+        cown->weak_release(alloc);
+        overloaded.erase(it);
+      }
+      overloaded.clear(alloc);
+    }
+
+    void check_backpressure()
+    {
+      if (muted.size() == 0)
+        return;
+
+      size_t avg_load = 0;
+      for (auto* cown : overloaded)
+        avg_load +=
+          bp::load(cown->backpressure.load(std::memory_order_acquire));
+
+      if (overloaded.size() != 0)
+        avg_load /= overloaded.size();
+
+      if (avg_load < bp::unmute_threshold)
+        unmute();
+    }
+
     /**
      * Startup is supplied to initialise thread local state before the runtime
      * starts.
@@ -216,6 +311,8 @@ namespace verona::rt
 
         check_token_cown();
 
+        check_backpressure();
+
         if (cown == nullptr)
         {
           cown = q.dequeue(alloc);
@@ -260,6 +357,10 @@ namespace verona::rt
         Systematic::cout() << "Running Cown: " << cown << std::endl;
 
         bool reschedule = cown->run(alloc, state, send_epoch);
+
+#ifdef USE_BACKPRESSURE_TRACE
+        logger::cout() << std::flush;
+#endif
 
         if (reschedule)
         {
@@ -314,6 +415,14 @@ namespace verona::rt
         Scheduler::yield_my_turn();
 #endif
       }
+
+      assert(muted.size() == 0);
+      for (auto* c : overloaded)
+      {
+        c->weak_release(alloc);
+      }
+      overloaded.clear(nullptr);
+      logger::cout() << std::flush;
 
       Systematic::cout() << "Begin teardown (phase 1)" << std::endl;
 
@@ -449,8 +558,13 @@ namespace verona::rt
           UNUSED(tsc);
         }
 #endif
-          // Enter sleep only when the queue doesn't contain any real cowns.
-          if (state == ThreadState::NotInLD && q.is_empty())
+          if (muted.size() != 0)
+        {
+          unmute();
+          continue;
+        }
+        // Enter sleep only when the queue doesn't contain any real cowns.
+        else if (state == ThreadState::NotInLD && q.is_empty())
         {
           // We've been spinning looking for work for some time. While paused,
           // our running flag may be set to false, in which case we terminate.
@@ -460,7 +574,7 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING
         else
         {
-          Scheduler::yield_my_turn();
+          yield();
         }
 #endif
       }
@@ -695,8 +809,10 @@ namespace verona::rt
       Systematic::cout() << "send_epoch (2): " << send_epoch << std::endl;
 
       // Send empty messages to all cowns that can be LIFO scheduled.
-      T* p = list;
 
+      unmute();
+
+      T* p = list;
       while (p != nullptr)
       {
         if (p->can_lifo_schedule())
