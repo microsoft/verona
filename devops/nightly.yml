@@ -56,13 +56,13 @@ jobs:
       GCC Debug:
         CC: gcc
         CXX: g++
-        CXXFLAGS: -stdlib=libstdc++
+        CXXFLAGS:
         BuildType: Debug
         Asan: Off
       GCC Release:
         CC: gcc
         CXX: g++
-        CXXFLAGS: -stdlib=libstdc++
+        CXXFLAGS:
         Asan: Off
         BuildType: Release
       Clang Debug:
@@ -97,7 +97,6 @@ jobs:
       set -eo pipefail
       sudo apt-get update
       sudo apt-get install -y ninja-build
-
       sudo pip install wheel OutputCheck
     displayName: 'Dependencies'
 
