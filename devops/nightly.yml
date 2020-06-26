@@ -131,7 +131,7 @@ jobs:
     vmImage: 'windows-2019'
   strategy:
     matrix:
-      Debug:
+      RelWithDebInfo:
         BuildType: RelWithDebInfo
       Release:
         BuildType: Release
