@@ -135,7 +135,7 @@ jobs:
   strategy:
     matrix:
       Debug:
-        BuildType: Debug
+        BuildType: RelWithDebInfo
       Release:
         BuildType: Release
 

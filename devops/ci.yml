@@ -46,7 +46,7 @@ jobs:
     vmImage: 'ubuntu-18.04'
   strategy:
     matrix:
-      Clang-8 RelWithDebInfo+ASAN:
+      Clang RelDbg+ASAN:
         CC: clang
         CXX: clang++
         CXXFLAGS: -stdlib=libstdc++
