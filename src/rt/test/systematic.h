@@ -446,8 +446,9 @@ namespace Systematic
 
     // We're ignoring the result of write, as there's not much we can do if it
     // fails. We're about to crash anyway.
-    (void)write(1, str, strlen(str));
-    (void)write(1, "\n", 1);
+    auto n = write(1, str, strlen(str));
+    n = write(1, "\n", 1);
+    UNUSED(n);
 
     constexpr size_t max_stack_frames = 64;
     void* frames[max_stack_frames];
