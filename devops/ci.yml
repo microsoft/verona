@@ -12,29 +12,23 @@ jobs:
     vmImage: 'ubuntu-16.04'
   steps:
   - script: |
-      echo "Determine Type of build"
-      if git diff --quiet origin/master; then
-        echo " - Scheduled master - build and test everything"
-        echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable to testRuntime to On
-      else
-        echo " - PR Build"
-        if  git diff origin/master --name-only | grep -v "^doc" | grep -v "^experiments" | grep -v "\.md$"; then
-          echo Src changes;
-          echo "##vso[task.setvariable variable=docOnly;isOutput=true]false" #set variable to testRuntime to On
-          echo "Determine if runtime changed."
-          if git diff --quiet origin/master -- src/rt; then
-            echo " - Runtime unchanged!"
-            echo "##vso[task.setvariable variable=testRuntime;isOutput=true]Off" #set variable to testRuntime to Off
-          else
-            echo " - Runtime changed!"
-            echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable to testRuntime to On
-          fi
+      echo " - PR Build"
+      if  git diff origin/master --name-only | grep -v "^doc" | grep -v "^experiments" | grep -v "\.md$"; then
+        echo Src changes;
+        echo "##vso[task.setvariable variable=docOnly;isOutput=true]false" #set variable to testRuntime to On
+        echo "Determine if runtime changed."
+        if git diff --quiet origin/master -- src/rt; then
+          echo " - Runtime unchanged!"
+          echo "##vso[task.setvariable variable=testRuntime;isOutput=true]Off" #set variable to testRuntime to Off
         else
-          echo Doc changes only;
-          echo "##vso[task.setvariable variable=docOnly;isOutput=true]true" #set variable to testRuntime to On
+          echo " - Runtime changed!"
+          echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable to testRuntime to On
         fi
+      else
+        echo Doc changes only;
+        echo "##vso[task.setvariable variable=docOnly;isOutput=true]true" #set variable to testRuntime to On
       fi
-    displayName: Check for runtime changes.
+    displayName: 'Check for runtime changes'
     name: setVarStep
 - job:
   displayName: Linux
@@ -73,7 +67,7 @@ jobs:
     displayName: 'CMake'
     inputs:
       cmakeArgs: |
-        .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DLLVM_ENABLE_ASSERTIONS=True -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=$(RTTests)
+        .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=$(RTTests)
 
   - script: |
       set -eo pipefail
@@ -200,7 +194,6 @@ jobs:
       set -eo pipefail
       make clangformat
       git diff --exit-code $(Build.SourceVersion)
-
     workingDirectory: build
     displayName: 'Clang-Format'
 
