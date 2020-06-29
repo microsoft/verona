@@ -101,18 +101,12 @@ jobs:
   steps:
   - checkout: llvm
 
-  - task: PowerShell@2
-    inputs:
-      targetType: inline
-      script:
-        Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+  - powershell: |
+      Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
     displayName: 'Install Choco'
 
-  - task: PowerShell@2
-    inputs:
-      targetType: inline
-      script:
-        C:\ProgramData\chocolatey\bin\choco install --accept-license -y cmake
+  - powershell: |
+      C:\ProgramData\chocolatey\bin\choco install --accept-license -y cmake
     displayName: 'Install CMake'
 
   - script: |
@@ -137,7 +131,6 @@ jobs:
   - script: |
       rd /s /q $(PKG_NAME)
       mkdir $(PKG_NAME)
-      # We only cache the build directory, the sources will be checked out by the submodule
       tar.exe -z -c -f $(PKG_NAME)/$(PKG_NAME).tar.gz build
     displayName: 'Create artifact'
 

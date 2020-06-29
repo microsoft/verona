@@ -6,76 +6,51 @@ trigger: none
 pr:
 - master
 
-schedules:
-- cron: "0 0 * * *"
-  displayName: Daily midnight build
-  branches:
-    include:
-    - master
-
 jobs:
 - job: ConfigureCIRun
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
   - script: |
-      echo "Determine Type of build"
-      if git diff --quiet origin/master; then
-        echo " - Scheduled master - build and test everything"
-        echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable to testRuntime to On
-      else
-        echo " - PR Build"
-        if  git diff origin/master --name-only | grep -v "^doc" | grep -v "^experiments" | grep -v "\.md$"; then
-          echo Src changes;
-          echo "##vso[task.setvariable variable=docOnly;isOutput=true]false" #set variable to testRuntime to On
-          echo "Determine if runtime changed."
-          if git diff --quiet origin/master -- src/rt; then
-            echo " - Runtime unchanged!"
-            echo "##vso[task.setvariable variable=testRuntime;isOutput=true]Off" #set variable to testRuntime to Off
-          else
-            echo " - Runtime changed!"
-            echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable to testRuntime to On
-          fi
-        else 
-          echo Doc changes only; 
-          echo "##vso[task.setvariable variable=docOnly;isOutput=true]true" #set variable to testRuntime to On
+      echo " - PR Build"
+      if  git diff origin/master --name-only | grep -v "^doc" | grep -v "^experiments" | grep -v "\.md$"; then
+        echo Src changes;
+        echo "##vso[task.setvariable variable=docOnly;isOutput=true]false" #set variable to testRuntime to On
+        echo "Determine if runtime changed."
+        if git diff --quiet origin/master -- src/rt; then
+          echo " - Runtime unchanged!"
+          echo "##vso[task.setvariable variable=testRuntime;isOutput=true]Off" #set variable to testRuntime to Off
+        else
+          echo " - Runtime changed!"
+          echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable to testRuntime to On
         fi
+      else
+        echo Doc changes only;
+        echo "##vso[task.setvariable variable=docOnly;isOutput=true]true" #set variable to testRuntime to On
       fi
-    displayName: Check for runtime changes.
+    displayName: 'Check for runtime changes'
     name: setVarStep
-- job: 
+- job:
   displayName: Linux
   dependsOn: ConfigureCIRun
   condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.docOnly'], 'false')
-  variables: 
+  variables:
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
   pool:
-    vmImage: 'ubuntu-16.04'
+    vmImage: 'ubuntu-18.04'
   strategy:
     matrix:
-      Clang-8 Debug:
-        CC: clang-8
-        CXX: clang++-8
-        CXXFLAGS: -stdlib=libstdc++
-        BuildType: Debug
-        Asan: Off
-      Clang-8 Release:
-        CC: clang-8
-        CXX: clang++-8
-        CXXFLAGS: -stdlib=libstdc++
-        Asan: Off
+      GCC Release:
+        CC: gcc
+        CXX: g++
+        CXXFLAGS:
         BuildType: Release
-      Clang-8 Debug (ASAN):
-        CC: clang-8
-        CXX: clang++-8
+        Asan: Off
+      Clang RelDbg+ASAN:
+        CC: clang
+        CXX: clang++
         CXXFLAGS: -stdlib=libstdc++
-        BuildType: Debug
-        Asan: On
-      Clang-8 Release (ASAN):
-        CC: clang-8
-        CXX: clang++-8
-        CXXFLAGS: -stdlib=libstdc++
-        BuildType: Release
+        BuildType: RelWithDebInfo
         Asan: On
   steps:
   - checkout: self
@@ -85,21 +60,19 @@ jobs:
       set -eo pipefail
       sudo apt-get update
       sudo apt-get install -y ninja-build
-
       sudo pip install wheel OutputCheck
-    displayName: 'Install Build Dependencies'
+    displayName: 'Dependencies'
 
   - task: CMake@1
-    displayName: 'CMake .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=$(RTTests)'
+    displayName: 'CMake'
     inputs:
       cmakeArgs: |
         .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=$(RTTests)
 
   - script: |
       set -eo pipefail
-      ninja -j4 install
+      ninja install
     workingDirectory: build
-    failOnStderr: true
     displayName: 'Compile'
 
   - script: |
@@ -108,22 +81,19 @@ jobs:
       export ASAN_OPTIONS="alloc_dealloc_mismatch=0 symbolize=1"
       ctest -j 4 -E "([1-9][0-9]00|[4-9]00)" --timeout 400 --output-on-failure
     workingDirectory: build
-    failOnStderr: true
-    displayName: Tests
+    displayName: 'Tests'
 
-- job: 
+- job:
   displayName: Windows
   dependsOn: ConfigureCIRun
   condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.docOnly'], 'false')
-  variables: 
+  variables:
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
 
   pool:
-    vmImage: 'vs2017-win2016'
+    vmImage: 'windows-2019'
   strategy:
     matrix:
-      Debug:
-        BuildType: Debug
       Release:
         BuildType: Release
 
@@ -133,14 +103,16 @@ jobs:
 
   - script:
       pip install OutputCheck
-      
+    displayName: 'Dependencies'
+
   - script: |
       mkdir build
       cd build
-      cmake .. -G"Visual Studio 15 2017 Win64" -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=$(RTTests)
+      cmake .. -G"Visual Studio 16 2019" -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=$(RTTests)
+    displayName: 'CMake'
 
   - task: MSBuild@1
-    displayName: 'Build solution build/verona-lang.sln'
+    displayName: 'Compile'
     inputs:
       solution: build/INSTALL.vcxproj
       msbuildArguments: '/m /p:Configuration=$(BuildType)'
@@ -148,27 +120,24 @@ jobs:
   - script: |
       ctest -j 4 -E "([1-9][0-9]00|[4-9]00)" --timeout 400 --output-on-failure --interactive-debug-mode 0 -C $(BuildType)
     workingDirectory: build/
-    failOnStderr: true
-    displayName: Tests
+    displayName: 'Tests'
 
   - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
     displayName: 'Component Detection'
     inputs:
       failOnAlert: true
 
-- job: 
+- job:
   displayName: macOS
   dependsOn: ConfigureCIRun
   condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.docOnly'], 'false')
-  variables: 
+  variables:
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
 
   pool:
     vmImage: 'macOS-10.14'
   strategy:
     matrix:
-      Debug:
-        BuildType: Debug
       Release:
         BuildType: Release
 
@@ -179,29 +148,26 @@ jobs:
   - script: |
       set -eo pipefail
       sudo pip install wheel OutputCheck
-    displayName:  Dependencies
+    displayName:  'Dependencies'
 
   - task: CMake@1
-    displayName: 'CMake .. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On -DRT_TESTS=$(RTTests)'
+    displayName: 'CMake'
     inputs:
       cmakeArgs: '.. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=$(RTTests)'
 
   - script: |
       set -eo pipefail
       make -j 4 install
-
     workingDirectory: build
-    failOnStderr: true
     displayName: 'Compile'
 
   - script: |
       set -eo pipefail
       ctest -j 4 -E "([1-9][0-9]00|[4-9]00)" --timeout 400 --output-on-failure
     workingDirectory: build/
-    failOnStderr: true
-    displayName: Tests suite
+    displayName: 'Tests'
 
-- job: 
+- job:
   displayName: Format
   pool:
     vmImage: 'ubuntu-18.04'
@@ -220,7 +186,7 @@ jobs:
     displayName: 'Install Clang tools'
 
   - task: CMake@1
-    displayName: 'CMake ..'
+    displayName: 'CMake'
     inputs:
       cmakeArgs: '..'
 
@@ -228,7 +194,6 @@ jobs:
       set -eo pipefail
       make clangformat
       git diff --exit-code $(Build.SourceVersion)
-
     workingDirectory: build
     displayName: 'Clang-Format'
 
