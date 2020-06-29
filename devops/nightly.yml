@@ -71,7 +71,7 @@ jobs:
     displayName: 'CMake'
     inputs:
       cmakeArgs: |
-        .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=ON
+        .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DENABLE_ASSERTS=ON -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=ON
 
   - script: |
       set -eo pipefail
@@ -109,7 +109,7 @@ jobs:
   - script: |
       mkdir build
       cd build
-      cmake .. -G"Visual Studio 16 2019" -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=ON
+      cmake .. -G"Visual Studio 16 2019" -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=ON
     displayName: 'CMake'
 
   - task: MSBuild@1
@@ -152,7 +152,7 @@ jobs:
     displayName: 'CMake'
     inputs:
       cmakeArgs: |
-        .. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=ON
+        .. -DCMAKE_BUILD_TYPE=$(BuildType) -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DSNMALLOC_CI_BUILD=On -DRT_TESTS=ON
 
   - script: |
       set -eo pipefail
