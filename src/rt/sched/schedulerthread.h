@@ -89,11 +89,7 @@ namespace verona::rt
 
     typename T::MessageBody* message_body = nullptr;
 
-#ifdef USE_BACKPRESSURE_TRACE
-    ObjectMap<std::pair<T*, uint64_t>> muted;
-#else
     ObjectMap<T*> muted;
-#endif
     ObjectMap<T*> overloaded;
 
     T* get_token_cown()
@@ -197,12 +193,7 @@ namespace verona::rt
 
     void mute(T* cown)
     {
-#ifdef USE_BACKPRESSURE_TRACE
-      const auto added =
-        muted.insert(alloc, std::make_pair(cown, Aal::tick())).first;
-#else
       const auto added = muted.insert(alloc, cown).first;
-#endif
       if (added)
       {
         Systematic::cout() << "Mute " << cown << std::endl;
@@ -216,16 +207,10 @@ namespace verona::rt
 
     void unmute()
     {
-#ifdef USE_BACKPRESSURE_TRACE
-      const auto now = Aal::tick();
-#endif
       for (auto it = muted.begin(); it != muted.end(); ++it)
       {
         auto* cown = it.key();
         Systematic::cout() << "Unmute " << cown << std::endl;
-#ifdef USE_BACKPRESSURE_TRACE
-        logger::trace("backpressure_mutetime", cown, now - it.value(), now);
-#endif
         auto bp = cown->backpressure.load(std::memory_order_relaxed);
         bp = bp::unmute(bp);
         cown->backpressure.store(bp, std::memory_order_relaxed);
@@ -273,7 +258,6 @@ namespace verona::rt
     void run(void (*startup)(Args...), Args... args)
     {
       startup(args...);
-      // TODO: back-pressure
       // Don't use affinity with systematic testing.  We're only ever running
       // one thread at a time in systematic testing mode and by pinning each
       // thread to a core we massively increase contention.
@@ -358,10 +342,6 @@ namespace verona::rt
 
         bool reschedule = cown->run(alloc, state, send_epoch);
 
-#ifdef USE_BACKPRESSURE_TRACE
-        logger::cout() << std::flush;
-#endif
-
         if (reschedule)
         {
           if (should_steal_for_fairness)
@@ -422,7 +402,6 @@ namespace verona::rt
         c->weak_release(alloc);
       }
       overloaded.clear(nullptr);
-      logger::cout() << std::flush;
 
       Systematic::cout() << "Begin teardown (phase 1)" << std::endl;
 

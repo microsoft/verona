@@ -2,15 +2,6 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-// TODO: make this a cmake option, or remove
-// #define USE_BACKPRESSURE_TRACE
-// TODO: make this a cmake option, or remove
-#define APPLY_BACKPRESSURE
-
-#ifdef USE_BACKPRESSURE_TRACE
-#  include "../test/trace.h"
-#endif
-
 #include "../ds/forward_list.h"
 #include "../ds/morebits.h"
 #include "../ds/mpscq.h"
@@ -796,9 +787,6 @@ namespace verona::rt
     static void
     backpressure_scan(const MessageBody& senders, const MessageBody& receivers)
     {
-#ifdef USE_BACKPRESSURE_TRACE
-      const auto now = Aal::tick();
-#endif
       uint32_t pressure = 0;
       for (size_t r = 0; r < receivers.count; r++)
       {
@@ -808,12 +796,6 @@ namespace verona::rt
         pressure += load >> 3;
         if (load > bp::overload_threshold)
           Scheduler::local()->overload(receiver);
-
-#ifdef USE_BACKPRESSURE_TRACE
-        const auto new_load =
-          bp::load(receiver->backpressure.load(std::memory_order_relaxed));
-        logger::trace("backpressure_load", receiver, new_load, now);
-#endif
       }
 
       for (size_t s = 0; s < senders.count; s++)
@@ -822,12 +804,6 @@ namespace verona::rt
         const auto bp = sender->backpressure.load(std::memory_order_relaxed);
         sender->backpressure.store(
           bp::pressure_add(bp, pressure), std::memory_order_release);
-
-#ifdef USE_BACKPRESSURE_TRACE
-        const auto sender_pressure =
-          bp::pressure(sender->backpressure.load(std::memory_order_relaxed));
-        logger::trace("backpressure_pressure", sender, sender_pressure, now);
-#endif
       }
     }
 
@@ -845,11 +821,9 @@ namespace verona::rt
         if (bp::should_mute(bp))
         {
           bp = bp::mute(bp);
-#ifdef APPLY_BACKPRESSURE
           Scheduler::local()->mute(sender);
           if (s == senders->index)
             muted = true;
-#endif
         }
         sender->backpressure.store(bp, std::memory_order_release);
       }
