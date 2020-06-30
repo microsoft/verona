@@ -15,6 +15,8 @@ This project is at a very early stage, parts of the type checker are still to be
 implemented, and there are very few language features implemented yet. This will
 change, but will take time.
 
+Nightly Build (Win/Lin/Mac) [![Build Status](https://dev.azure.com/ProjectVeronaCI/Project%20Verona/_apis/build/status/Verona%20Nightly?branchName=master)](https://dev.azure.com/ProjectVeronaCI/Project%20Verona/_build/latest?definitionId=6&branchName=master)
+
 # [Building](docs/building.md)
 
 # [FAQ](docs/faq.md)
