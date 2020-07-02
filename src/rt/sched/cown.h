@@ -15,7 +15,6 @@
 namespace verona::rt
 {
   using namespace snmalloc;
-  namespace bp = backpressure;
   class Cown;
   using CownThread = SchedulerThread<Cown>;
   using Scheduler = ThreadPool<CownThread>;
@@ -87,7 +86,7 @@ namespace verona::rt
      **/
     std::atomic<size_t> weak_count = 1;
 
-    std::atomic<uint32_t> backpressure = bp::init;
+    std::atomic<Backpressure> backpressure;
 
     static Cown* create_token_cown()
     {
@@ -792,18 +791,18 @@ namespace verona::rt
       {
         auto* receiver = receivers.cowns[r];
         const auto bp = receiver->backpressure.load(std::memory_order_acquire);
-        const auto load = bp::load(bp);
+        const auto load = bp.total_load();
         pressure += load >> 3;
-        if (load > bp::overload_threshold)
+        if (load > Backpressure::overload_threshold)
           Scheduler::local()->overload(receiver);
       }
 
       for (size_t s = 0; s < senders.count; s++)
       {
         auto* sender = senders.cowns[s];
-        const auto bp = sender->backpressure.load(std::memory_order_relaxed);
-        sender->backpressure.store(
-          bp::pressure_add(bp, pressure), std::memory_order_release);
+        auto bp = sender->backpressure.load(std::memory_order_relaxed);
+        bp.pressure_add(pressure);
+        sender->backpressure.store(bp, std::memory_order_release);
       }
     }
 
@@ -817,10 +816,13 @@ namespace verona::rt
       {
         auto* sender = senders->cowns[s];
         auto bp = sender->backpressure.load(std::memory_order_relaxed);
-        bp = bp::distribute_load(bp, bp0);
-        if (bp::should_mute(bp))
+        // This is done because the other participants in this multimessage are
+        // likely to have their load reset before they are acquired for the
+        // multimessage.
+        bp.distribute_load(bp0);
+        if (bp.should_mute())
         {
-          bp = bp::mute(bp);
+          bp.mute();
           Scheduler::local()->mute(sender);
           if (s == senders->index)
             muted = true;
@@ -861,8 +863,8 @@ namespace verona::rt
       MultiMessage* curr = nullptr;
       size_t batch_size = 0;
       auto bp = backpressure.load(std::memory_order_relaxed);
-      assert(!bp::muted(backpressure.load(std::memory_order_relaxed)));
-      const size_t batch_limit = 100 + (bp::load(bp) >> 3);
+      assert(!bp.muted());
+      const size_t batch_limit = 100 + (bp.total_load() >> 3);
       do
       {
         assert(!queue.is_sleeping());
@@ -932,22 +934,22 @@ namespace verona::rt
         if (curr->get_body() == nullptr)
         {
           Systematic::cout() << "Reached message token" << std::endl;
-          bp = bp::load_reset(bp);
+          bp.load_reset();
           backpressure.store(bp, std::memory_order_release);
           return true;
         }
 
-        if ((bp & 0xff) == 0)
+        if (bp.current_load() == 0)
         {
           Systematic::cout() << "Enqueue message token" << std::endl;
           queue.enqueue(stub_msg(alloc));
         }
-        else if ((bp & 0xff) == 0xff)
+        else if (bp.current_load() == 0xff)
         {
           // This is necessary to keep a strong load signal when overloaded.
-          bp = bp::load_reset(bp);
+          bp.load_reset();
         }
-        bp = bp::load_inc(bp);
+        bp.load_inc();
         backpressure.store(bp, std::memory_order_release);
 
         batch_size++;
@@ -992,7 +994,7 @@ namespace verona::rt
       // Check if the Cown is already collected or muted.
       if (
         !is_collected() &&
-        !bp::muted(backpressure.load(std::memory_order_relaxed)))
+        !backpressure.load(std::memory_order_relaxed).muted())
       {
 #ifdef USE_SYSTEMATIC_TESTING
         Scheduler::yield_my_turn();
@@ -1060,7 +1062,7 @@ namespace verona::rt
         }
       }
 
-      assert(!bp::muted(backpressure.load(std::memory_order_relaxed)));
+      assert(!backpressure.load(std::memory_order_relaxed).muted());
 
       // Now we may run our destructor.
       destructor();

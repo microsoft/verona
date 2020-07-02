@@ -15,8 +15,6 @@
 
 namespace verona::rt
 {
-  namespace bp = backpressure;
-
   template<class T>
   class SchedulerThread
   {
@@ -212,7 +210,8 @@ namespace verona::rt
         auto* cown = it.key();
         Systematic::cout() << "Unmute " << cown << std::endl;
         auto bp = cown->backpressure.load(std::memory_order_relaxed);
-        bp = bp::unmute(bp);
+        assert(bp.muted());
+        bp.unmute();
         cown->backpressure.store(bp, std::memory_order_relaxed);
 
         cown->queue.wake();
@@ -239,12 +238,12 @@ namespace verona::rt
       size_t avg_load = 0;
       for (auto* cown : overloaded)
         avg_load +=
-          bp::load(cown->backpressure.load(std::memory_order_acquire));
+          cown->backpressure.load(std::memory_order_acquire).total_load();
 
       if (overloaded.size() != 0)
         avg_load /= overloaded.size();
 
-      if (avg_load < bp::unmute_threshold)
+      if (avg_load < Backpressure::unmute_threshold)
         unmute();
     }
 
