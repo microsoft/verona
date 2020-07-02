@@ -792,6 +792,9 @@ namespace verona::rt
         auto* receiver = receivers.cowns[r];
         const auto bp = receiver->backpressure.load(std::memory_order_acquire);
         const auto load = bp.total_load();
+        // Accumulate a value proportional to the load on this cown to be added
+        // to the pressure on each sending cown. This will be a value in the
+        // range [0, 151].
         pressure += load >> 3;
         if (load > Backpressure::overload_threshold)
           Scheduler::local()->overload(receiver);

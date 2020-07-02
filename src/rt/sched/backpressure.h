@@ -18,7 +18,10 @@ namespace verona::rt
      * |   pressure   |   load history  |  load  |
      *
      * The 8-bit pressure field is 0 when muted and in the range [1, 255]
-     * otherwise.
+     * otherwise. A non-zero value is collected by incrementing the caunter by a
+     * value proportional to the load on a receiving cown when this cown sends a
+     * message to it. A maximum value of 255 will eventually result in this cown
+     * being muted.
      *
      * The 16-bit load history field is a ring buffer with a capacity for 4
      * 4-bit entries.
@@ -133,7 +136,12 @@ namespace verona::rt
      */
     inline void distribute_load(const Backpressure& bp0)
     {
-      bits |= bp0.current_load();
+      // This operation makes no change when applied to the first cown of a
+      // multimessage and otherwise replaces the current load count with that of
+      // the first cown. We expect that all participants acquired after the
+      // first are likely to have had their load counters reset to 1 when
+      // acquired for the message.
+      bits |= (uint32_t)bp0.current_load();
     }
   };
 }

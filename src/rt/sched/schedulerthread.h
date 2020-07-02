@@ -85,9 +85,24 @@ namespace verona::rt
     size_t total_cowns = 0;
     std::atomic<size_t> free_cowns = 0;
 
+    /**
+     * The body of a message running on this scheduler thread. This is used as
+     * the senders for backpressure scanning.
+     */
     typename T::MessageBody* message_body = nullptr;
 
+    /**
+     * Tracks cowns that are currently muted by the backpressure system. These
+     * cowns must not be collected until they are unmuted. A reference count is
+     * held for each cown in this set.
+     */
     ObjectMap<T*> muted;
+
+    /**
+     * Tracks cowns that are currently overloaded. A weak reference is held for
+     * each cown in this set to ensure that the backpressure bits on each entry
+     * are live.
+     */
     ObjectMap<T*> overloaded;
 
     T* get_token_cown()
