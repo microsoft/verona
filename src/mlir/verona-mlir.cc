@@ -41,7 +41,13 @@ namespace
     cl::values(clEnumValN(InputKind::MLIR, "mlir", "MLIR file")));
 
   // Optimisations enabled
-  cl::opt<bool> enableOpt("opt", cl::desc("Enable optimizations"));
+  static cl::opt<unsigned> optLevel(
+    "O",
+    cl::desc("Optimization level. [-O0, -O1, -O2, or -O3] "
+             "(default = '-O0')"),
+    cl::Prefix,
+    cl::ZeroOrMore,
+    cl::init(0));
 
   // Grammar file
   cl::opt<std::string> grammarFile("g", cl::init(""), cl::desc("Grammar file"));
@@ -170,7 +176,7 @@ int main(int argc, char** argv)
   // Emit MLIR
   try
   {
-    gen.emitMLIR(outputFile);
+    gen.emitMLIR(outputFile, optLevel);
   }
   catch (std::runtime_error& e)
   {
