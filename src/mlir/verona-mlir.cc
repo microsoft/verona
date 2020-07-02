@@ -40,20 +40,6 @@ namespace
     cl::values(clEnumValN(InputKind::Verona, "verona", "Verona file")),
     cl::values(clEnumValN(InputKind::MLIR, "mlir", "MLIR file")));
 
-  // Output type, what to emit
-  enum class OutputKind
-  {
-    None,
-    MLIR,
-    LLVM
-  };
-  cl::opt<enum OutputKind> outputKind(
-    "emit",
-    cl::init(OutputKind::None),
-    cl::desc("Output type"),
-    cl::values(clEnumValN(OutputKind::MLIR, "mlir", "MLIR")),
-    cl::values(clEnumValN(OutputKind::LLVM, "llvm", "LLVM IR")));
-
   // Optimisations enabled
   cl::opt<bool> enableOpt("opt", cl::desc("Enable optimizations"));
 
@@ -82,10 +68,6 @@ namespace
         inputKind = InputKind::Verona;
     }
 
-    // Default to output MLIR
-    if (outputKind == OutputKind::None)
-      outputKind = OutputKind::MLIR;
-
     // Choose output file extension from output type
     // Careful with mlir->mlir not to overwrite source file
     if (outputFile.empty())
@@ -99,16 +81,9 @@ namespace
       {
         std::string newName =
           filename.substr(0, filename.find_last_of('.')).str();
-        if (outputKind == OutputKind::MLIR)
-        {
-          if (inputKind == InputKind::MLIR)
-            newName += ".new";
-          newName += ".mlir";
-        }
-        else
-        {
-          newName += ".ll";
-        }
+        if (inputKind == InputKind::MLIR)
+          newName += ".new";
+        newName += ".mlir";
         outputFile = newName;
       }
     }
@@ -192,36 +167,16 @@ int main(int argc, char** argv)
       return 1;
   }
 
-  // Emit the MLIR graph
-  if (outputKind == OutputKind::MLIR)
+  // Emit MLIR
+  try
   {
-    try
-    {
-      gen.emitMLIR(outputFile);
-    }
-    catch (std::runtime_error& e)
-    {
-      std::cerr << "ERROR: failed to lower to MLIR" << std::endl
-                << e.what() << std::endl;
-      return 1;
-    }
-    return 0;
+    gen.emitMLIR(outputFile);
   }
-
-  // Emit LLVM IR
-  if (outputKind == OutputKind::LLVM)
+  catch (std::runtime_error& e)
   {
-    try
-    {
-      gen.emitLLVM(outputFile);
-    }
-    catch (std::runtime_error& e)
-    {
-      std::cerr << "ERROR: failed to lower to LLVM" << std::endl
-                << e.what() << std::endl;
-      return 1;
-    }
-    return 0;
+    std::cerr << "ERROR: failed to lower to MLIR" << std::endl
+              << e.what() << std::endl;
+    return 1;
   }
   return 0;
 }
