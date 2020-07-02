@@ -15,6 +15,7 @@
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
+#include "llvm/Support/Path.h"
 
 namespace
 {
@@ -78,23 +79,23 @@ namespace
     // Careful with mlir->mlir not to overwrite source file
     if (outputFile.empty())
     {
-      llvm::StringRef filename(inputFile);
-      if (filename == "-")
+      if (inputFile == "-")
       {
         outputFile = "-";
       }
       else
       {
-        std::string newName =
-          filename.substr(0, filename.find_last_of('.')).str();
+        llvm::SmallString<128> newName(inputFile);
         if (inputKind == InputKind::MLIR)
-          newName += ".new";
-        newName += ".mlir";
-        outputFile = newName;
+          llvm::sys::path::replace_extension(newName, ".new.mlir");
+        else
+          llvm::sys::path::replace_extension(newName, ".mlir");
+        outputFile = newName.c_str();
       }
     }
 
     // Default grammar
+    // FIXME: Move to llvm::sys::path, but LLVM's GetMainExecutable is horrible
     grammarFile = path::directory(path::executable()).append("/grammar.peg");
   }
 } // namespace
