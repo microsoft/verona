@@ -20,7 +20,7 @@ namespace
 {
   namespace cl = llvm::cl;
   // Input file name
-  static cl::opt<std::string> inputFile(
+  cl::opt<std::string> inputFile(
     cl::Positional,
     cl::desc("<input file>"),
     cl::init("-"),
@@ -33,7 +33,7 @@ namespace
     Verona,
     MLIR
   };
-  static cl::opt<enum InputKind> inputKind(
+  cl::opt<enum InputKind> inputKind(
     "x",
     cl::init(InputKind::None),
     cl::desc("Input type"),
@@ -47,7 +47,7 @@ namespace
     MLIR,
     LLVM
   };
-  static cl::opt<enum OutputKind> outputKind(
+  cl::opt<enum OutputKind> outputKind(
     "emit",
     cl::init(OutputKind::None),
     cl::desc("Output type"),
@@ -55,15 +55,13 @@ namespace
     cl::values(clEnumValN(OutputKind::LLVM, "llvm", "LLVM IR")));
 
   // Optimisations enabled
-  static cl::opt<bool> enableOpt("opt", cl::desc("Enable optimizations"));
+  cl::opt<bool> enableOpt("opt", cl::desc("Enable optimizations"));
 
   // Grammar file
-  static cl::opt<std::string>
-    grammarFile("g", cl::init(""), cl::desc("Grammar file"));
+  cl::opt<std::string> grammarFile("g", cl::init(""), cl::desc("Grammar file"));
 
   // Output file
-  static cl::opt<std::string>
-    outputFile("o", cl::init(""), cl::desc("Output file"));
+  cl::opt<std::string> outputFile("o", cl::init(""), cl::desc("Output file"));
 
   // Set defaults form command line arguments
   void cmdLineDefaults()
@@ -184,8 +182,7 @@ int main(int argc, char** argv)
       }
       catch (std::runtime_error& e)
       {
-        std::cerr << "ERROR: cannot read MLIR file " << inputFile
-                  << std::endl
+        std::cerr << "ERROR: cannot read MLIR file " << inputFile << std::endl
                   << e.what() << std::endl;
         return 1;
       }
