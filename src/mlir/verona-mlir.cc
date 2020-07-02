@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 
 #include "CLI/CLI.hpp"
-#include "ast/cli.h"
 #include "ast/module.h"
 #include "ast/parser.h"
 #include "ast/path.h"
@@ -14,107 +13,111 @@
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
 
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 
 namespace
 {
+  namespace cl = llvm::cl;
+  // Input file name
+  static cl::opt<std::string> inputFile(
+    cl::Positional,
+    cl::desc("<input file>"),
+    cl::init("-"),
+    cl::value_desc("filename"));
+
   // Source file types, to choose how to parse
-  enum class SourceKind
+  enum class InputKind
   {
     None,
     Verona,
     MLIR
   };
+  static cl::opt<enum InputKind> inputKind(
+    "x",
+    cl::init(InputKind::None),
+    cl::desc("Input type"),
+    cl::values(clEnumValN(InputKind::Verona, "verona", "Verona file")),
+    cl::values(clEnumValN(InputKind::MLIR, "mlir", "MLIR file")));
 
-  // Command line options, with output control
-  struct Opt
+  // Output type, what to emit
+  enum class OutputKind
   {
-    std::string grammar;
-    std::string filename;
-    std::string output;
-    bool mlir = false;
-    bool llvm = false;
+    None,
+    MLIR,
+    LLVM
   };
+  static cl::opt<enum OutputKind> outputKind(
+    "emit",
+    cl::init(OutputKind::None),
+    cl::desc("Output type"),
+    cl::values(clEnumValN(OutputKind::MLIR, "mlir", "MLIR")),
+    cl::values(clEnumValN(OutputKind::LLVM, "llvm", "LLVM IR")));
 
-  // Parse cmd-line and set defaults
-  Opt parse(int argc, char** argv)
+  // Optimisations enabled
+  static cl::opt<bool> enableOpt("opt", cl::desc("Enable optimizations"));
+
+  // Grammar file
+  static cl::opt<std::string>
+    grammarFile("g", cl::init(""), cl::desc("Grammar file"));
+
+  // Output file
+  static cl::opt<std::string>
+    outputFile("o", cl::init(""), cl::desc("Output file"));
+
+  // Set defaults form command line arguments
+  void cmdLineDefaults()
   {
-    CLI::App app{"Verona MLIR"};
+    // Default input is stdin
+    if (inputFile.empty())
+      inputFile = "-";
 
-    Opt opt;
-    app.add_flag("--emit-mlir", opt.mlir, "Emit MLIR.");
-    app.add_flag("--emit-llvm", opt.llvm, "Emit LLVM (default).");
-    app.add_option("-g,--grammar", opt.grammar, "Grammar to use.");
-    app.add_option("-o,--output", opt.output, "Output filename.");
-    app.add_option("file", opt.filename, "File to compile.");
-
-    try
+    // Detect source type from extension, if not passed as argument
+    if (inputKind == InputKind::None)
     {
-      app.parse(argc, argv);
-    }
-    catch (const CLI::ParseError& e)
-    {
-      exit(app.exit(e));
+      llvm::StringRef filename(inputFile);
+      if (filename.endswith(".verona"))
+        inputKind = InputKind::Verona;
+      else if (filename.endswith(".mlir"))
+        inputKind = InputKind::MLIR;
+      else if (filename == "-") // STDIN, assume Verona
+        inputKind = InputKind::Verona;
     }
 
-    // Default is to output MLIR
-    if (!opt.llvm)
-      opt.mlir = true;
+    // Default to output MLIR
+    if (outputKind == OutputKind::None)
+      outputKind = OutputKind::MLIR;
+
+    // Choose output file extension from output type
+    // Careful with mlir->mlir not to overwrite source file
+    if (outputFile.empty())
+    {
+      llvm::StringRef filename(inputFile);
+      if (filename == "-")
+      {
+        outputFile = "-";
+      }
+      else
+      {
+        std::string newName =
+          filename.substr(0, filename.find_last_of('.')).str();
+        if (outputKind == OutputKind::MLIR)
+        {
+          if (inputKind == InputKind::MLIR)
+            newName += ".new";
+          newName += ".mlir";
+        }
+        else
+        {
+          newName += ".ll";
+        }
+        outputFile = newName;
+      }
+    }
 
     // Default grammar
-    if (opt.grammar.empty())
-      opt.grammar = path::directory(path::executable()).append("/grammar.peg");
-
-    // Default input is stdin
-    if (opt.filename.empty())
-      opt.filename = "-";
-
-    return opt;
-  }
-
-  // Print help
-  void help()
-  {
-    std::cout << "Compiler Syntax: verona-mlir AST|MLIR|LLVM <filename.verona>"
-              << std::endl;
-  }
-
-  // Detect source type from extension
-  SourceKind getSourceType(llvm::StringRef filename)
-  {
-    auto source = SourceKind::None;
-    if (filename.endswith(".verona"))
-      source = SourceKind::Verona;
-    else if (filename.endswith(".mlir"))
-      source = SourceKind::MLIR;
-    else if (filename == "-") // STDIN, assume MLIR
-      source = SourceKind::MLIR;
-    return source;
-  }
-
-  // Choose output file extension from output type
-  // Careful with mlir->mlir not to overwrite source file
-  std::string
-  getOutputFilename(llvm::StringRef filename, Opt& opt, SourceKind source)
-  {
-    if (!opt.output.empty())
-      return opt.output;
-    if (filename == "-")
-      return "-";
-
-    std::string newName = filename.substr(0, filename.find_last_of('.')).str();
-    if (opt.mlir)
-    {
-      if (source == SourceKind::MLIR)
-        newName += ".mlir.out";
-      else
-        newName += ".mlir";
-    }
-    else
-    {
-      newName += ".ll";
-    }
-    return newName;
+    if (grammarFile.empty())
+      grammarFile = path::directory(path::executable()).append("/grammar.peg");
   }
 } // namespace
 
@@ -130,32 +133,31 @@ int main(int argc, char** argv)
   llvm::InitLLVM y(argc, argv);
 
   // Parse cmd-line options
-  auto opt = parse(argc, argv);
-  llvm::StringRef filename(opt.filename);
-  auto source = getSourceType(filename);
-  if (source == SourceKind::None)
+  cl::ParseCommandLineOptions(argc, argv, "Verona MLIR Generator\n");
+  cmdLineDefaults();
+
+  if (inputKind == InputKind::None)
   {
-    std::cerr << "ERROR: Unknown source file " << filename.str()
-              << ". Must be [verona, mlir]" << std::endl;
+    std::cerr << "ERROR: Unknown source type for '" << inputFile
+              << "'. Must be [verona, mlir]" << std::endl;
     return 1;
   }
-  std::string outputFilename = getOutputFilename(filename, opt, source);
 
   // MLIR Generator
   mlir::verona::Generator gen;
 
   // Parse the source file (verona/mlir)
-  switch (source)
+  switch (inputKind)
   {
-    case SourceKind::Verona:
+    case InputKind::Verona:
     {
       // Parse the file
       err::Errors err;
       module::Passes passes = {sym::build, ref::build, prec::build};
-      auto m = module::build(opt.grammar, passes, opt.filename, "verona", err);
+      auto m = module::build(grammarFile, passes, inputFile, "verona", err);
       if (!err.empty())
       {
-        std::cerr << "ERROR: cannot parse Verona file " << filename.str()
+        std::cerr << "ERROR: cannot parse Verona file " << inputFile
                   << std::endl
                   << err.to_s() << std::endl;
         return 1;
@@ -167,22 +169,22 @@ int main(int argc, char** argv)
       }
       catch (std::runtime_error& e)
       {
-        std::cerr << "ERROR: cannot convert Verona file " << filename.str()
+        std::cerr << "ERROR: cannot convert Verona file " << inputFile
                   << " into MLIR" << std::endl
                   << e.what() << std::endl;
         return 1;
       }
       break;
     }
-    case SourceKind::MLIR:
+    case InputKind::MLIR:
       // Parse MLIR file
       try
       {
-        gen.readMLIR(opt.filename);
+        gen.readMLIR(inputFile);
       }
       catch (std::runtime_error& e)
       {
-        std::cerr << "ERROR: cannot read MLIR file " << filename.str()
+        std::cerr << "ERROR: cannot read MLIR file " << inputFile
                   << std::endl
                   << e.what() << std::endl;
         return 1;
@@ -194,11 +196,11 @@ int main(int argc, char** argv)
   }
 
   // Emit the MLIR graph
-  if (opt.mlir)
+  if (outputKind == OutputKind::MLIR)
   {
     try
     {
-      gen.emitMLIR(outputFilename);
+      gen.emitMLIR(outputFile);
     }
     catch (std::runtime_error& e)
     {
@@ -210,11 +212,11 @@ int main(int argc, char** argv)
   }
 
   // Emit LLVM IR
-  if (opt.llvm)
+  if (outputKind == OutputKind::LLVM)
   {
     try
     {
-      gen.emitLLVM(outputFilename);
+      gen.emitLLVM(outputFile);
     }
     catch (std::runtime_error& e)
     {
