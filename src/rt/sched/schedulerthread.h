@@ -250,16 +250,19 @@ namespace verona::rt
       if (muted.size() == 0)
         return;
 
-      size_t avg_load = 0;
-      for (auto* cown : overloaded)
-        avg_load +=
+      for (auto it = overloaded.begin(); it != overloaded.end(); ++it)
+      {
+        auto* cown = *it;
+        const auto load =
           cown->backpressure.load(std::memory_order_acquire).total_load();
+        if (load >= Backpressure::unoverload_threshold)
+          return;
 
-      if (overloaded.size() != 0)
-        avg_load /= overloaded.size();
+        cown->weak_release(alloc);
+        overloaded.erase(cown);
+      }
 
-      if (avg_load < Backpressure::unmute_threshold)
-        unmute();
+      unmute();
     }
 
     /**

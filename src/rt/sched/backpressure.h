@@ -35,7 +35,7 @@ namespace verona::rt
 
   public:
     static constexpr size_t overload_threshold = 800;
-    static constexpr size_t unmute_threshold = 100;
+    static constexpr size_t unoverload_threshold = 100;
 
     /**
      * Return the current pressure value.
