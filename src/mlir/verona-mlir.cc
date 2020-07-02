@@ -49,11 +49,11 @@ namespace
     cl::ZeroOrMore,
     cl::init(0));
 
-  // Grammar file
-  cl::opt<std::string> grammarFile("g", cl::init(""), cl::desc("Grammar file"));
-
   // Output file
   cl::opt<std::string> outputFile("o", cl::init(""), cl::desc("Output file"));
+
+  // Grammar file is not optional
+  std::string grammarFile;
 
   // Set defaults form command line arguments
   void cmdLineDefaults()
@@ -95,8 +95,7 @@ namespace
     }
 
     // Default grammar
-    if (grammarFile.empty())
-      grammarFile = path::directory(path::executable()).append("/grammar.peg");
+    grammarFile = path::directory(path::executable()).append("/grammar.peg");
   }
 } // namespace
 
