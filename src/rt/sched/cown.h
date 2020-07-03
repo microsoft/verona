@@ -996,10 +996,8 @@ namespace verona::rt
       if (in_epoch(epoch))
         return false;
 
-      // Check if the Cown is already collected or muted.
-      if (
-        !is_collected() &&
-        !backpressure.load(std::memory_order_relaxed).muted())
+      // Check if the Cown is already collected.
+      if (!is_collected())
       {
 #ifdef USE_SYSTEMATIC_TESTING
         Scheduler::yield_my_turn();
