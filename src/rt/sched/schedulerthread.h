@@ -259,7 +259,7 @@ namespace verona::rt
           return;
 
         cown->weak_release(alloc);
-        overloaded.erase(cown);
+        overloaded.erase(it);
       }
 
       unmute();

@@ -704,11 +704,7 @@ namespace verona::rt
       Systematic::cout() << "MultiMessage " << m << " completed and running on "
                          << cown << std::endl;
 
-      // Reschedule all the cowns.
-      for (size_t i = 0; i < last; i++)
-        body.cowns[i]->schedule();
-
-      // Free the action
+      // Free the action.
       alloc->dealloc(body.action, body.action->size());
 
       return true;
@@ -783,7 +779,7 @@ namespace verona::rt
       fast_send(body, epoch);
     }
 
-    static void
+    static inline void
     backpressure_scan(const MessageBody& senders, const MessageBody& receivers)
     {
       uint32_t pressure = 0;
@@ -809,7 +805,7 @@ namespace verona::rt
       }
     }
 
-    bool apply_backpressure(Alloc* alloc, MessageBody* senders)
+    inline bool apply_backpressure(Alloc* alloc, MessageBody* senders)
     {
       bool muted = false;
       const auto bp0 =
@@ -829,6 +825,11 @@ namespace verona::rt
           Scheduler::local()->mute(sender);
           if (s == senders->index)
             muted = true;
+        }
+        else if (s != senders->index)
+        {
+          // Reschedule other participants if they have not been muted.
+          sender->schedule();
         }
         sender->backpressure.store(bp, std::memory_order_release);
       }
@@ -966,7 +967,8 @@ namespace verona::rt
         if (!run_step(curr))
           return false;
 
-        if (apply_backpressure(alloc, Scheduler::local()->message_body))
+        auto* body = curr->get_body();
+        if (apply_backpressure(alloc, body))
           return false;
 
       } while ((curr != until) && (batch_size < batch_limit));
