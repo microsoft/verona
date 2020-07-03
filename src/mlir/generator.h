@@ -13,6 +13,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Error.h"
 
 #include <peglib.h>
 #include <string>
@@ -43,12 +44,12 @@ namespace mlir::verona
     }
 
     // Read AST/MLIR into MLIR module, returns false on failure.
-    void readAST(const ::ast::Ast& ast);
-    void readMLIR(const std::string& filename);
+    llvm::Error readAST(const ::ast::Ast& ast);
+    llvm::Error readMLIR(const std::string& filename);
 
     // Transform the opaque MLIR format into Verona dialect and LLVM IR.
-    void emitMLIR(const llvm::StringRef filename = "", unsigned optLevel = 0);
-    void emitLLVM(const llvm::StringRef filename = "", unsigned optLevel = 0);
+    llvm::Error emitMLIR(const llvm::StringRef filename, unsigned optLevel = 0);
+    llvm::Error emitLLVM(const llvm::StringRef filename, unsigned optLevel = 0);
 
     using Types = llvm::SmallVector<mlir::Type, 4>;
     using Values = llvm::SmallVector<mlir::Value, 4>;
@@ -68,11 +69,11 @@ namespace mlir::verona
     mlir::Location getLocation(const ::ast::Ast& ast);
 
     // Parses a module, the global context.
-    void parseModule(const ::ast::Ast& ast);
+    llvm::Error parseModule(const ::ast::Ast& ast);
 
     // Parses a function, from a top-level (module) view.
-    mlir::FuncOp parseProto(const ::ast::Ast& ast);
-    mlir::FuncOp parseFunction(const ::ast::Ast& ast);
+    llvm::Expected<mlir::FuncOp> parseProto(const ::ast::Ast& ast);
+    llvm::Expected<mlir::FuncOp> parseFunction(const ::ast::Ast& ast);
 
     // Recursive type parser, gathers all available information on the type
     // and sub-types, modifiers, annotations, etc.
@@ -84,19 +85,23 @@ namespace mlir::verona
 
     // Generic block/node parser, calls other parse functions to handle each
     // individual type. Block returns last value, for return.
-    mlir::Value parseBlock(const ::ast::Ast& ast);
-    mlir::Value parseNode(const ::ast::Ast& ast);
-    mlir::Value parseValue(const ::ast::Ast& ast);
+    llvm::Expected<mlir::Value> parseBlock(const ::ast::Ast& ast);
+    llvm::Expected<mlir::Value> parseNode(const ::ast::Ast& ast);
+    llvm::Expected<mlir::Value> parseValue(const ::ast::Ast& ast);
 
     // Specific parsers (there will be more).
-    mlir::Value parseAssign(const ::ast::Ast& ast);
-    mlir::Value parseCall(const ::ast::Ast& ast);
+    llvm::Expected<mlir::Value> parseAssign(const ::ast::Ast& ast);
+    llvm::Expected<mlir::Value> parseCall(const ::ast::Ast& ast);
 
     // Wrappers for unary/binary operands
-    mlir::Value genOperation(
+    llvm::Expected<mlir::Value> genOperation(
       mlir::Location loc,
       llvm::StringRef name,
       llvm::ArrayRef<mlir::Value> ops,
       mlir::Type retTy);
   };
+
+  // Error Handling
+  // FIXME: This is totally incomplete
+  llvm::Error fail(llvm::Twine desc);
 }

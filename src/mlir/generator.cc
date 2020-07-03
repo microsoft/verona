@@ -31,30 +31,31 @@ namespace mlir::verona
   using namespace ASTInterface;
 
   // ===================================================== Public Interface
-  void Generator::readAST(const ::ast::Ast& ast)
+  llvm::Error Generator::readAST(const ::ast::Ast& ast)
   {
     // Parse the AST with the rules below
-    parseModule(ast);
+    if (auto err = parseModule(ast))
+      return err;
 
     // On error, dump module for debug purposes
     if (mlir::failed(mlir::verify(*module)))
     {
       module->dump();
-      throw std::runtime_error("MLIR verification failed from Verona file");
+      return fail("MLIR verification failed from Verona file");
     }
+    return llvm::Error::success();
   }
 
-  void Generator::readMLIR(const std::string& filename)
+  llvm::Error Generator::readMLIR(const std::string& filename)
   {
     if (filename.empty())
-      throw std::runtime_error("No input filename provided");
+      return fail("No input filename provided");
 
     // Read an MLIR file
     auto srcOrErr = llvm::MemoryBuffer::getFileOrSTDIN(filename);
 
     if (auto err = srcOrErr.getError())
-      throw std::runtime_error(
-        "Cannot open file " + filename + ": " + err.message());
+      return fail("Cannot open file " + filename + ": " + err.message());
 
     // Setup source manager and parse
     llvm::SourceMgr sourceMgr;
@@ -65,34 +66,36 @@ namespace mlir::verona
     if (mlir::failed(mlir::verify(*module)))
     {
       module->dump();
-      throw std::runtime_error("MLIR verification failed from MLIR file");
+      return fail("MLIR verification failed from MLIR file");
     }
+    return llvm::Error::success();
   }
 
-  void Generator::emitMLIR(llvm::StringRef filename, unsigned optLevel)
+  llvm::Error Generator::emitMLIR(llvm::StringRef filename, unsigned optLevel)
   {
     if (filename.empty())
-      throw std::runtime_error("No output filename provided");
+      return fail("No output filename provided");
 
     // Write to the file requested
     std::error_code error;
     auto out = llvm::raw_fd_ostream(filename, error);
     if (error)
-      throw std::runtime_error("Cannot open output filename");
+      return fail("Cannot open output filename");
 
     // We're not optimising the MLIR module like we do for LLVM output
     // because this is mostly for debug and testing. We could do that
     // in the future.
     module->print(out);
+    return llvm::Error::success();
   }
 
   // FIXME: This function will not work. It must receive an MLIR module that is
   // 100% composed of dialects that can be fully converted to LLVM dialect.
   // We keep this code here as future reference on how to lower to LLVM.
-  void Generator::emitLLVM(llvm::StringRef filename, unsigned optLevel)
+  llvm::Error Generator::emitLLVM(llvm::StringRef filename, unsigned optLevel)
   {
     if (filename.empty())
-      throw std::runtime_error("No output filename provided");
+      return fail("No output filename provided");
 
     // The lowering "pass manager"
     mlir::PassManager pm(&context);
@@ -110,21 +113,22 @@ namespace mlir::verona
     if (mlir::failed(pm.run(module.get())))
     {
       module->dump();
-      throw std::runtime_error("Failed to lower to LLVM dialect");
+      return fail("Failed to lower to LLVM dialect");
     }
 
     // Then lower to LLVM IR
     auto llvm = mlir::translateModuleToLLVMIR(module.get());
     if (!llvm)
-      throw std::runtime_error("Failed to lower to LLVM IR");
+      return fail("Failed to lower to LLVM IR");
 
     // Write to the file requested
     std::error_code error;
     auto out = llvm::raw_fd_ostream(filename, error);
     if (error)
-      throw std::runtime_error("Failed open output file");
+      return fail("Cannot open output filename");
 
     llvm->print(out, nullptr);
+    return llvm::Error::success();
   }
 
   // ===================================================== AST -> MLIR
@@ -134,39 +138,28 @@ namespace mlir::verona
       Identifier::get(ast->path, &context), ast->line, ast->column);
   }
 
-  mlir::Type Generator::parseType(const ::ast::Ast& ast)
-  {
-    assert(ast->tag == NodeKind::OfType && "Bad node");
-    auto desc = getTypeDesc(ast);
-    if (desc.empty())
-      return builder.getNoneType();
-
-    // If type is in the alias table, get it
-    if (typeTable.inScope(desc))
-      return typeTable.lookup(desc);
-
-    // Else, insert into the table and return
-    auto dialect = Identifier::get("type", &context);
-    auto type = mlir::OpaqueType::get(dialect, desc, &context);
-    typeTable.insert(desc, type);
-    return type;
-  }
-
-  void Generator::parseModule(const ::ast::Ast& ast)
+  llvm::Error Generator::parseModule(const ::ast::Ast& ast)
   {
     assert(ast->tag == NodeKind::ClassDef && "Bad node");
     module = mlir::ModuleOp::create(getLocation(ast));
     // TODO: Support more than just functions at the module level
     auto body = findNode(ast, NodeKind::TypeBody);
-    for (auto fun : body.lock()->nodes)
-      module->push_back(parseFunction(fun));
+    for (auto f : body.lock()->nodes)
+    {
+      auto fun = parseFunction(f);
+      if (auto err = fun.takeError())
+        return err;
+      module->push_back(*fun);
+    }
+    return llvm::Error::success();
   }
 
-  mlir::FuncOp Generator::parseProto(const ::ast::Ast& ast)
+  llvm::Expected<mlir::FuncOp> Generator::parseProto(const ::ast::Ast& ast)
   {
     assert(ast->tag == NodeKind::Function && "Bad node");
     auto name = getFunctionName(ast);
-    assert(!functionTable.inScope(name) && "Redeclaration");
+    if (functionTable.inScope(name))
+      return functionTable.lookup(name);
 
     // Parse 'where' clause
     auto constraints = getFunctionConstraints(ast);
@@ -191,16 +184,17 @@ namespace mlir::verona
     return func;
   }
 
-  mlir::FuncOp Generator::parseFunction(const ::ast::Ast& ast)
+  llvm::Expected<mlir::FuncOp> Generator::parseFunction(const ::ast::Ast& ast)
   {
     assert(ast->tag == NodeKind::Function && "Bad node");
 
     // Declare function signature
     TypeScopeT alias_scope(typeTable);
     auto name = getFunctionName(ast);
-    if (!functionTable.inScope(name))
-      parseProto(ast);
-    auto func = functionTable.lookup(name);
+    auto proto = parseProto(ast);
+    if (auto err = proto.takeError())
+      return std::move(err);
+    auto &func = *proto;
     auto retTy = func.getType().getResult(0);
 
     // Create entry block
@@ -223,20 +217,42 @@ namespace mlir::verona
     // Lower body
     auto body = getFunctionBody(ast);
     auto last = parseNode(body.lock());
+    if (auto err = last.takeError())
+      return std::move(err);
 
     // Return last value
-    if (last && last.getType() != retTy)
+    if (*last && last->getType() != retTy)
     {
       // Cast type (we trust the ast)
-      last = genOperation(last.getLoc(), "verona.cast", {last}, retTy);
+      last = genOperation(last->getLoc(), "verona.cast", {*last}, retTy);
     }
     else
     {
       last = genOperation(getLocation(ast), "verona.none", {}, retTy);
     }
-    builder.create<mlir::ReturnOp>(getLocation(ast), last);
+    if (auto err = last.takeError())
+      return std::move(err);
+    builder.create<mlir::ReturnOp>(getLocation(ast), *last);
 
     return func;
+  }
+
+  mlir::Type Generator::parseType(const ::ast::Ast& ast)
+  {
+    assert(ast->tag == NodeKind::OfType && "Bad node");
+    auto desc = getTypeDesc(ast);
+    if (desc.empty())
+      return builder.getNoneType();
+
+    // If type is in the alias table, get it
+    if (typeTable.inScope(desc))
+      return typeTable.lookup(desc);
+
+    // Else, insert into the table and return
+    auto dialect = Identifier::get("type", &context);
+    auto type = mlir::OpaqueType::get(dialect, desc, &context);
+    typeTable.insert(desc, type);
+    return type;
   }
 
   void Generator::declareVariable(llvm::StringRef name, mlir::Value val)
@@ -251,16 +267,21 @@ namespace mlir::verona
     symbolTable.update(name, val);
   }
 
-  mlir::Value Generator::parseBlock(const ::ast::Ast& ast)
+  llvm::Expected<mlir::Value> Generator::parseBlock(const ::ast::Ast& ast)
   {
     auto seq = findNode(ast, NodeKind::Seq);
     mlir::Value last;
     for (auto sub : seq.lock()->nodes)
-      last = parseNode(sub);
+    {
+      auto node = parseNode(sub);
+      if (auto err = node.takeError())
+        return std::move(err);
+      last = *node;
+    }
     return last;
   }
 
-  mlir::Value Generator::parseNode(const ::ast::Ast& ast)
+  llvm::Expected<mlir::Value> Generator::parseNode(const ::ast::Ast& ast)
   {
     if (ast->is_token)
       return parseValue(ast);
@@ -278,11 +299,11 @@ namespace mlir::verona
       case NodeKind::Call:
         return parseCall(ast);
       default:
-        throw std::runtime_error("Node not implemented yet: " + ast->name);
+        return fail("Node " + ast->name + " not implemented yet");
     }
   }
 
-  mlir::Value Generator::parseValue(const ::ast::Ast& ast)
+  llvm::Expected<mlir::Value> Generator::parseValue(const ::ast::Ast& ast)
   {
     assert(ast->is_token && "Bad node");
 
@@ -293,11 +314,10 @@ namespace mlir::verona
       return var;
     }
     // TODO: Literals need attributes and types
-
-    throw std::runtime_error("Value not implemented yet: " + ast->name);
+    return fail("Value [" + ast->name + " = " + ast->token + "] not implemented yet");
   }
 
-  mlir::Value Generator::parseAssign(const ::ast::Ast& ast)
+  llvm::Expected<mlir::Value> Generator::parseAssign(const ::ast::Ast& ast)
   {
     assert(ast->tag == NodeKind::Assign && "Bad node");
 
@@ -309,11 +329,13 @@ namespace mlir::verona
     // The right-hand side can be any expression
     // This is the value and we update the variable
     auto rhs = parseNode(ast->nodes[1]);
-    declareVariable(name, rhs);
+    if (auto err = rhs.takeError())
+      return std::move(err);
+    declareVariable(name, *rhs);
     return symbolTable.lookup(name);
   }
 
-  mlir::Value Generator::parseCall(const ::ast::Ast& ast)
+  llvm::Expected<mlir::Value> Generator::parseCall(const ::ast::Ast& ast)
   {
     assert(ast->tag == NodeKind::Call && "Bad node");
     llvm::StringRef name = findNode(ast, NodeKind::Function).lock()->token;
@@ -323,7 +345,7 @@ namespace mlir::verona
     if (functionTable.inScope(name))
     {
       // TODO: Lower calls.
-      return mlir::Value();
+      return fail("Function calls not implemented yet");
     }
 
     // Else, it should be an operation that we can lower natively
@@ -332,15 +354,19 @@ namespace mlir::verona
     if (name == "+")
     {
       auto arg0 = parseNode(findNode(ast, NodeKind::Localref).lock());
+      if (auto err = arg0.takeError())
+        return std::move(err);
       auto arg1 = parseNode(findNode(ast, NodeKind::Args).lock()->nodes[0]);
+      if (auto err = arg1.takeError())
+        return std::move(err);
       auto dialect = Identifier::get("type", &context);
       auto type = mlir::OpaqueType::get(dialect, "ret", &context);
-      return genOperation(getLocation(ast), "verona.add", {arg0, arg1}, type);
+      return genOperation(getLocation(ast), "verona.add", {*arg0, *arg1}, type);
     }
-    llvm_unreachable("Operation not implemented yet");
+    return fail("Operation '" + name + "' not implemented yet");
   }
 
-  mlir::Value Generator::genOperation(
+  llvm::Expected<mlir::Value> Generator::genOperation(
     mlir::Location loc,
     llvm::StringRef name,
     llvm::ArrayRef<mlir::Value> ops,
@@ -352,5 +378,12 @@ namespace mlir::verona
     state.addTypes({retTy});
     auto op = builder.createOperation(state);
     return op->getResult(0);
+  }
+
+  // Error handling
+  llvm::Error fail(llvm::Twine desc)
+  {
+    return llvm::make_error<llvm::StringError>(
+      desc, llvm::inconvertibleErrorCode());
   }
 }
