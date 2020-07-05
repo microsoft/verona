@@ -3,7 +3,9 @@
 #pragma once
 
 #include "../object/object.h"
+#include "backpressure.h"
 #include "cpu.h"
+#include "ds/mpscq.h"
 #include "schedulerstats.h"
 #include "spmcq.h"
 #include "threadpool.h"
@@ -82,6 +84,9 @@ namespace verona::rt
     T* list = nullptr;
     size_t total_cowns = 0;
     std::atomic<size_t> free_cowns = 0;
+
+    typename T::MessageBody* message_body = nullptr;
+    MPSCQ<BackpressureMessage<T>> bp_q;
 
     T* get_token_cown()
     {

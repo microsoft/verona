@@ -6,9 +6,12 @@
 #include "../ds/mpscq.h"
 #include "../region/region.h"
 #include "../test/systematic.h"
+#include "backpressure.h"
 #include "base_noticeboard.h"
 #include "multimessage.h"
 #include "schedulerthread.h"
+// TODO: rm
+#include "../test/log.h"
 
 namespace verona::rt
 {
@@ -34,7 +37,7 @@ namespace verona::rt
 
   class Cown : public Object
   {
-    static constexpr size_t BATCH_COUNT = 100;
+    using MessageBody = MultiMessage::MultiMessageBody;
 
   public:
     enum TryFastSend
@@ -83,6 +86,8 @@ namespace verona::rt
      * strong reference still exists.
      **/
     std::atomic<size_t> weak_count = 1;
+
+    std::atomic<Backpressure> backpressure;
 
     static Cown* create_token_cown()
     {
@@ -800,12 +805,18 @@ namespace verona::rt
       auto notified_called = false;
       auto notify = false;
 
-      // Handle up to BATCH_COUNT messages.
-      for (size_t n = 0; n < BATCH_COUNT; n++)
+      auto bp = backpressure.load(std::memory_order_acquire);
+      assert(!bp.muted());
+      const auto batch_limit = (size_t)100 | (size_t)bp.shifted_total_load();
+      bool token_reached = false;
+
+      MultiMessage* curr = nullptr;
+      size_t batch_size = 0;
+      do
       {
         assert(!queue.is_sleeping());
 
-        MultiMessage* curr = queue.dequeue(alloc, notify);
+        curr = queue.dequeue(alloc, notify);
 
         if (!notified_called && notify)
         {
@@ -842,7 +853,7 @@ namespace verona::rt
           //   return true;
           //
           // TODO: Investigate systematic testing coverage here.
-          if (n != 0)
+          if (batch_size != 0)
             return true;
 
           // Reschedule if cown does not go to sleep.
@@ -866,6 +877,36 @@ namespace verona::rt
 
         assert(!queue.is_sleeping());
 
+        // This load may be relaxed because modifications to the backpressure
+        // load bits have only occured from this thread since the initial
+        // acquire load.
+        bp = backpressure.load(std::memory_order_relaxed);
+        if (curr->get_body() == nullptr)
+        {
+          Systematic::cout() << "Reached message token" << std::endl;
+          token_reached = true;
+          continue;
+        }
+        if (token_reached || (bp.current_load() == 0))
+        {
+          Systematic::cout() << "Enqueue message token" << std::endl;
+          queue.enqueue(stub_msg(alloc));
+        }
+        if (
+          (bp.current_load() == 0xff) ||
+          (token_reached && (curr->get_body()->index == 0)))
+        {
+          bp.reset_load();
+        }
+        bp.inc_load();
+        token_reached = false;
+        backpressure.store(bp, std::memory_order_release);
+
+        logger::cout() << "backpressure_load," << this << "," << Aal::tick()
+                       << "," << bp.total_load() << std::endl;
+
+        batch_size++;
+
         Systematic::cout() << "Running Message " << curr << " on " << this
                            << std::endl;
 
@@ -873,17 +914,9 @@ namespace verona::rt
         // be rescheduled, even if it has pending work. This also means the
         // cown's queue should not be marked as empty, even if it is.
         if (!run_step(curr))
-        {
           return false;
-        }
 
-        // If we hit the end then tell scheduler thread to reschedule this cown.
-        // TODO Back pressure, this should trigger back pressure on this cown.
-        if (curr == until)
-        {
-          break;
-        }
-      }
+      } while ((curr != until) && (batch_size < batch_limit));
 
       return true;
     }
@@ -976,6 +1009,8 @@ namespace verona::rt
             abort();
         }
       }
+
+      assert(!backpressure.load(std::memory_order_acquire).muted());
 
       // Now we may run our destructor.
       destructor();
