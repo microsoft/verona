@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+// TODO: rm
+#define USE_BACKPRESSURE
+
 #include "../ds/forward_list.h"
 #include "../ds/mpscq.h"
 #include "../region/region.h"
@@ -10,8 +13,6 @@
 #include "base_noticeboard.h"
 #include "multimessage.h"
 #include "schedulerthread.h"
-// TODO: rm
-#include "../test/log.h"
 
 namespace verona::rt
 {
@@ -697,18 +698,15 @@ namespace verona::rt
         }
       }
 
+      Scheduler::local()->message_body = &body;
+
       // Run the action.
       body.action->f();
 
       Systematic::cout() << "MultiMessage " << m << " completed and running on "
                          << cown << std::endl;
 
-      // Reschedule all the cowns.
-      for (size_t i = 0; i < last; i++)
-        body.cowns[i]->schedule();
-
-      // Free the destination array and the action
-      alloc->dealloc(body.cowns, body.count * sizeof(Cown*));
+      // Free the body and the action.
       alloc->dealloc(body.action, body.action->size());
       alloc->dealloc<sizeof(MultiMessage::MultiMessageBody)>(m->get_body());
 
@@ -776,9 +774,82 @@ namespace verona::rt
         Scheduler::record_inflight_message();
       }
 
+      if ((sched != nullptr) && (sched->message_body != nullptr))
+        backpressure_scan(*sched->message_body, *body);
+
       // Try to acquire as many cowns as possible without rescheduling,
       // starting from the beginning.
       fast_send(body, epoch);
+    }
+
+    /**
+     * Return true if any senders are overloaded or if any sender is in the
+     * receiver set.
+     */
+    static inline bool backpressure_priority(
+      const MessageBody& senders, const MessageBody& receivers)
+    {
+      for (size_t s = 0; s < senders.count; s++)
+      {
+        const auto* sender = senders.cowns[s];
+        if (sender->backpressure.load(std::memory_order_acquire).overloaded())
+          return true;
+
+        for (size_t r = 0; r < receivers.count; r++)
+        {
+          const auto* receiver = receivers.cowns[r];
+          if (receiver == sender)
+            return true;
+        }
+      }
+      return false;
+    }
+
+    /**
+     * TODO
+     */
+    static inline void
+    backpressure_scan(const MessageBody& senders, const MessageBody& receivers)
+    {
+      if (backpressure_priority(senders, receivers))
+      { // Unmute any muted receivers.
+        for (size_t r = 0; r < receivers.count; r++)
+        {
+          auto* receiver = receivers.cowns[r];
+          if (receiver->backpressure.load(std::memory_order_acquire).muted())
+            Scheduler::local()->unmute_cown(receiver);
+        }
+        return;
+      }
+
+      // Mute senders if any receivers are overloaded/muted.
+      for (size_t r = 0; r < receivers.count; r++)
+      {
+        auto* receiver = receivers.cowns[r];
+        const auto bp = receiver->backpressure.load(std::memory_order_acquire);
+        if (bp.triggers_muting())
+        {
+          Scheduler::local()->mutor = receiver;
+          return;
+        }
+      }
+    }
+
+    /**
+     * TODO. If false is returned, the caller must reschedule the senders and
+     * deallocate the senders array.
+     */
+    inline bool apply_backpressure(Cown** senders, size_t count)
+    {
+#ifndef USE_BACKPRESSURE
+      Scheduler::local()->mutor = nullptr;
+#endif
+      if (Scheduler::local()->mutor == nullptr)
+        return false;
+
+      Scheduler::local()->mute(Scheduler::local()->mutor, senders, count);
+      Scheduler::local()->mutor = nullptr;
+      return true;
     }
 
     /**
@@ -808,7 +879,6 @@ namespace verona::rt
       auto bp = backpressure.load(std::memory_order_acquire);
       assert(!bp.muted());
       const auto batch_limit = (size_t)100 | (size_t)bp.shifted_total_load();
-      bool token_reached = false;
 
       MultiMessage* curr = nullptr;
       size_t batch_size = 0;
@@ -869,7 +939,7 @@ namespace verona::rt
           }
 
           Systematic::cout()
-            << "Cown has no work this time:" << this << std::endl;
+            << "Cown has no work this time: " << this << std::endl;
           // Deschedule the cown.
           Cown::release(alloc, this);
           return false;
@@ -884,37 +954,47 @@ namespace verona::rt
         if (curr->get_body() == nullptr)
         {
           Systematic::cout() << "Reached message token" << std::endl;
-          token_reached = true;
-          continue;
-        }
-        if (token_reached || (bp.current_load() == 0))
-        {
-          Systematic::cout() << "Enqueue message token" << std::endl;
-          queue.enqueue(stub_msg(alloc));
+          bp.remove_token();
+          backpressure.store(bp, std::memory_order_release);
+          return true;
         }
         if (
-          (bp.current_load() == 0xff) ||
-          (token_reached && (curr->get_body()->index == 0)))
+          (bp.needs_token() && (curr->get_body()->index == 0)) ||
+          (bp.current_load() == 0xff))
         {
           bp.reset_load();
         }
+        if (bp.needs_token())
+        {
+          Systematic::cout() << "Enqueue message token" << std::endl;
+          queue.enqueue(stub_msg(alloc));
+          bp.add_token();
+        }
         bp.inc_load();
-        token_reached = false;
         backpressure.store(bp, std::memory_order_release);
-
-        logger::cout() << "backpressure_load," << this << "," << Aal::tick()
-                       << "," << bp.total_load() << std::endl;
 
         batch_size++;
 
         Systematic::cout() << "Running Message " << curr << " on " << this
                            << std::endl;
 
+        auto* senders = curr->get_body()->cowns;
+        const size_t senders_count = curr->get_body()->count;
+
         // A function that returns false indicates that the cown should not
         // be rescheduled, even if it has pending work. This also means the
         // cown's queue should not be marked as empty, even if it is.
         if (!run_step(curr))
           return false;
+
+        if (apply_backpressure(senders, senders_count))
+          return false;
+
+        // Reschedule the other cowns.
+        for (size_t s = 0; s < (senders_count - 1); s++)
+          senders[s]->schedule();
+
+        alloc->dealloc(senders, senders_count * sizeof(Cown*));
 
       } while ((curr != until) && (batch_size < batch_limit));
 
@@ -941,14 +1021,16 @@ namespace verona::rt
       if (in_epoch(epoch))
         return false;
 
-      // Check if the Cown is already collected
-      if (!is_collected())
+      // Check if the Cown is already collected or is muted.
+      if (
+        !is_collected() &&
+        !backpressure.load(std::memory_order_acquire).muted())
       {
 #ifdef USE_SYSTEMATIC_TESTING
         Scheduler::yield_my_turn();
 #endif
 
-        Systematic::cout() << "Collecting (sweep)" << this << std::endl;
+        Systematic::cout() << "Collecting (sweep) " << this << std::endl;
 
         collect(alloc);
       }
