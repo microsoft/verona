@@ -41,7 +41,7 @@ namespace mlir::verona
     if (mlir::failed(mlir::verify(*module)))
     {
       module->dump();
-      return fail("MLIR verification failed from Verona file");
+      return runtimeError("MLIR verification failed from Verona file");
     }
     return llvm::Error::success();
   }
@@ -49,13 +49,14 @@ namespace mlir::verona
   llvm::Error Generator::readMLIR(const std::string& filename)
   {
     if (filename.empty())
-      return fail("No input filename provided");
+      return runtimeError("No input filename provided");
 
     // Read an MLIR file
     auto srcOrErr = llvm::MemoryBuffer::getFileOrSTDIN(filename);
 
     if (auto err = srcOrErr.getError())
-      return fail("Cannot open file " + filename + ": " + err.message());
+      return runtimeError(
+        "Cannot open file " + filename + ": " + err.message());
 
     // Setup source manager and parse
     llvm::SourceMgr sourceMgr;
@@ -66,7 +67,7 @@ namespace mlir::verona
     if (mlir::failed(mlir::verify(*module)))
     {
       module->dump();
-      return fail("MLIR verification failed from MLIR file");
+      return runtimeError("MLIR verification failed from MLIR file");
     }
     return llvm::Error::success();
   }
@@ -74,13 +75,13 @@ namespace mlir::verona
   llvm::Error Generator::emitMLIR(llvm::StringRef filename, unsigned optLevel)
   {
     if (filename.empty())
-      return fail("No output filename provided");
+      return runtimeError("No output filename provided");
 
     // Write to the file requested
     std::error_code error;
     auto out = llvm::raw_fd_ostream(filename, error);
     if (error)
-      return fail("Cannot open output filename");
+      return runtimeError("Cannot open output filename");
 
     // We're not optimising the MLIR module like we do for LLVM output
     // because this is mostly for debug and testing. We could do that
@@ -95,7 +96,7 @@ namespace mlir::verona
   llvm::Error Generator::emitLLVM(llvm::StringRef filename, unsigned optLevel)
   {
     if (filename.empty())
-      return fail("No output filename provided");
+      return runtimeError("No output filename provided");
 
     // The lowering "pass manager"
     mlir::PassManager pm(&context);
@@ -113,19 +114,19 @@ namespace mlir::verona
     if (mlir::failed(pm.run(module.get())))
     {
       module->dump();
-      return fail("Failed to lower to LLVM dialect");
+      return runtimeError("Failed to lower to LLVM dialect");
     }
 
     // Then lower to LLVM IR
     auto llvm = mlir::translateModuleToLLVMIR(module.get());
     if (!llvm)
-      return fail("Failed to lower to LLVM IR");
+      return runtimeError("Failed to lower to LLVM IR");
 
     // Write to the file requested
     std::error_code error;
     auto out = llvm::raw_fd_ostream(filename, error);
     if (error)
-      return fail("Cannot open output filename");
+      return runtimeError("Cannot open output filename");
 
     llvm->print(out, nullptr);
     return llvm::Error::success();
@@ -194,7 +195,7 @@ namespace mlir::verona
     auto proto = parseProto(ast);
     if (auto err = proto.takeError())
       return std::move(err);
-    auto &func = *proto;
+    auto& func = *proto;
     auto retTy = func.getType().getResult(0);
 
     // Create entry block
@@ -299,7 +300,8 @@ namespace mlir::verona
       case NodeKind::Call:
         return parseCall(ast);
       default:
-        return fail("Node " + ast->name + " not implemented yet");
+        return parsingError(
+          "Node " + ast->name + " not implemented yet", getLocation(ast));
     }
   }
 
@@ -314,7 +316,9 @@ namespace mlir::verona
       return var;
     }
     // TODO: Literals need attributes and types
-    return fail("Value [" + ast->name + " = " + ast->token + "] not implemented yet");
+    return parsingError(
+      "Value [" + ast->name + " = " + ast->token + "] not implemented yet",
+      getLocation(ast));
   }
 
   llvm::Expected<mlir::Value> Generator::parseAssign(const ::ast::Ast& ast)
@@ -338,14 +342,16 @@ namespace mlir::verona
   llvm::Expected<mlir::Value> Generator::parseCall(const ::ast::Ast& ast)
   {
     assert(ast->tag == NodeKind::Call && "Bad node");
-    llvm::StringRef name = findNode(ast, NodeKind::Function).lock()->token;
+    auto op = findNode(ast, NodeKind::Function).lock();
+    llvm::StringRef name = op->token;
 
     // All operations are calls, only calls to previously defined functions
     // are function calls. FIXME: Is this really what we want?
     if (functionTable.inScope(name))
     {
       // TODO: Lower calls.
-      return fail("Function calls not implemented yet");
+      return parsingError(
+        "Function calls not implemented yet", getLocation(ast));
     }
 
     // Else, it should be an operation that we can lower natively
@@ -363,7 +369,8 @@ namespace mlir::verona
       auto type = mlir::OpaqueType::get(dialect, "ret", &context);
       return genOperation(getLocation(ast), "verona.add", {*arg0, *arg1}, type);
     }
-    return fail("Operation '" + name + "' not implemented yet");
+    return parsingError(
+      "Operation '" + name.str() + "' not implemented yet", getLocation(op));
   }
 
   llvm::Expected<mlir::Value> Generator::genOperation(
@@ -378,12 +385,5 @@ namespace mlir::verona
     state.addTypes({retTy});
     auto op = builder.createOperation(state);
     return op->getResult(0);
-  }
-
-  // Error handling
-  llvm::Error fail(llvm::Twine desc)
-  {
-    return llvm::make_error<llvm::StringError>(
-      desc, llvm::inconvertibleErrorCode());
   }
 }
