@@ -5,7 +5,7 @@
 #include "../object/object.h"
 #include "backpressure.h"
 #include "cpu.h"
-#include "ds/mpscq.h"
+#include "ds/hashmap.h"
 #include "schedulerstats.h"
 #include "spmcq.h"
 #include "threadpool.h"
@@ -85,8 +85,9 @@ namespace verona::rt
     size_t total_cowns = 0;
     std::atomic<size_t> free_cowns = 0;
 
+    ObjectMap<std::pair<T*, ObjectMap<T*>*>> mute_map;
     typename T::MessageBody* message_body = nullptr;
-    MPSCQ<BackpressureMessage<T>> bp_q;
+    T* mutor = nullptr;
 
     T* get_token_cown()
     {
@@ -94,7 +95,10 @@ namespace verona::rt
       return token_cown;
     }
 
-    SchedulerThread() : token_cown{T::create_token_cown()}, q{token_cown}
+    SchedulerThread()
+    : token_cown{T::create_token_cown()},
+      q{token_cown},
+      mute_map{ThreadAlloc::get()}
     {
       token_cown->set_owning_thread(this);
     }
@@ -103,6 +107,8 @@ namespace verona::rt
     {
       if (t.joinable())
         t.join();
+
+      assert(mute_map.size() == 0);
     }
 
     template<typename... Args>
@@ -174,6 +180,126 @@ namespace verona::rt
     }
 
     /**
+     * Mute a set of cowns.
+     */
+    void mute(T* mutor, T** cowns, size_t count)
+    {
+      auto it = mute_map.find(mutor);
+      if (it == mute_map.end())
+      {
+        mutor->weak_acquire();
+        auto* set = ObjectMap<T*>::create(alloc);
+        it = mute_map.insert(alloc, std::make_pair(mutor, set)).second;
+      }
+      auto& mute_set = *it.value();
+
+      for (size_t i = 0; i < count; i++)
+      {
+        auto* cown = cowns[i];
+        auto bp = cown->backpressure.load(std::memory_order_acquire);
+        if (bp.muted())
+          continue;
+
+        yield();
+        auto bp_prev = bp;
+        bp.mute();
+        if (!cown->backpressure.compare_exchange_strong(
+              bp_prev, bp, std::memory_order_acq_rel))
+        {
+          Systematic::cout() << "failed mute: " << cown << std::endl;
+          cown->schedule();
+          continue;
+        }
+
+        Systematic::cout() << "Mute " << cown << std::endl;
+        T::acquire(cown);
+        mute_set.insert(alloc, cown);
+      }
+
+      alloc->dealloc(cowns, count * sizeof(T*));
+    }
+
+    /**
+     * TODO
+     */
+    template<bool force = false>
+    void unmute()
+    {
+      for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
+      {
+        auto* mutor = entry.key();
+        if (
+          force ||
+          mutor->backpressure.load(std::memory_order_acquire)
+            .triggers_unmuting())
+        {
+          auto& mute_set = *entry.value();
+          for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
+          {
+            unmute_local_cown(it.key());
+            mute_set.erase(it);
+          }
+          mutor->weak_release(alloc);
+          mute_map.erase(entry);
+          mute_set.dealloc(alloc);
+          alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
+        }
+      }
+
+      if (mute_map.size() == 0)
+        mute_map.clear(alloc);
+    }
+
+    /**
+     * TODO
+     */
+    void unmute_cown(T* cown)
+    {
+      for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
+      {
+        auto& mute_set = *entry.value();
+        auto it = mute_set.find(cown);
+        if (it != mute_set.end())
+        {
+          unmute_local_cown(cown);
+          mute_set.erase(it);
+          return;
+        }
+      }
+      Systematic::cout() << "irresponsible unmute: " << cown << std::endl;
+      // Mark for unmuting by responsible scheduler.
+      auto bp_theirs = cown->backpressure.load(std::memory_order_acquire);
+      while (bp_theirs.muted())
+      {
+        yield();
+        auto bp_ours = bp_theirs;
+        bp_ours.unmute();
+        if (cown->backpressure.compare_exchange_weak(
+              bp_theirs, bp_ours, std::memory_order_acq_rel))
+          break;
+      }
+    }
+
+    /**
+     * TODO
+     */
+    inline void unmute_local_cown(T* cown)
+    {
+      Systematic::cout() << "Unmute " << cown << std::endl;
+      yield();
+      auto bp = cown->backpressure.load(std::memory_order_acquire);
+      if (bp.muted())
+      {
+        bp.unmute();
+        cown->backpressure.store(bp, std::memory_order_release);
+      }
+      yield();
+      cown->queue.wake();
+      cown->schedule();
+      T::release(alloc, cown);
+    }
+
+    /**
      * Startup is supplied to initialise thread local state before the runtime
      * starts.
      *
@@ -183,7 +309,6 @@ namespace verona::rt
     void run(void (*startup)(Args...), Args... args)
     {
       startup(args...);
-      // TODO: back-pressure
       // Don't use affinity with systematic testing.  We're only ever running
       // one thread at a time in systematic testing mode and by pinning each
       // thread to a core we massively increase contention.
@@ -220,6 +345,8 @@ namespace verona::rt
         }
 
         check_token_cown();
+
+        unmute();
 
         if (cown == nullptr)
         {
@@ -319,6 +446,8 @@ namespace verona::rt
         Scheduler::yield_my_turn();
 #endif
       }
+
+      assert(mute_map.size() == 0);
 
       Systematic::cout() << "Begin teardown (phase 1)" << std::endl;
 
@@ -454,8 +583,13 @@ namespace verona::rt
           UNUSED(tsc);
         }
 #endif
-          // Enter sleep only when the queue doesn't contain any real cowns.
-          if (state == ThreadState::NotInLD && q.is_empty())
+          if (mute_map.size() != 0)
+        {
+          unmute<true>();
+          continue;
+        }
+        // Enter sleep only when the queue doesn't contain any real cowns.
+        else if (state == ThreadState::NotInLD && q.is_empty())
         {
           // We've been spinning looking for work for some time. While paused,
           // our running flag may be set to false, in which case we terminate.
@@ -465,7 +599,7 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING
         else
         {
-          Scheduler::yield_my_turn();
+          yield();
         }
 #endif
       }
@@ -700,8 +834,10 @@ namespace verona::rt
       Systematic::cout() << "send_epoch (2): " << send_epoch << std::endl;
 
       // Send empty messages to all cowns that can be LIFO scheduled.
-      T* p = list;
 
+      unmute<true>();
+
+      T* p = list;
       while (p != nullptr)
       {
         if (p->can_lifo_schedule())
