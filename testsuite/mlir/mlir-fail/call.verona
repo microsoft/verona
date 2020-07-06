@@ -1,0 +1,12 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+// CHECK-L: Function calls not implemented yet
+foo(a: N, b: U64 & imm): R
+  where N: imm
+  where R: U64 & imm
+{
+  let x = a + b;
+  let r: R = foo(a, b);
+  x
+}
