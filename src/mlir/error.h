@@ -16,7 +16,7 @@
 // can return when trying to parse Verona files to MLIR, and then lowering to
 // LLVM IR.
 //
-// The all must have a description. Parsing related errors must also have a
+// They all must have a description. Parsing related errors must also have a
 // file location, pointing to the original place the failing function is
 // trying to work with. Stacking multiple errors generate a stack trace.
 namespace mlir::verona
