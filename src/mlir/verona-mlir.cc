@@ -124,6 +124,7 @@ int main(int argc, char** argv)
 
   // MLIR Generator
   mlir::verona::Generator gen;
+  llvm::ExitOnError check;
 
   // Parse the source file (verona/mlir)
   switch (inputKind)
@@ -142,26 +143,12 @@ int main(int argc, char** argv)
         return 1;
       }
       // Parse AST file into MLIR
-      if (
-        auto err = llvm::handleErrors(
-          gen.readAST(m->ast), [](const llvm::StringError& e) {
-            std::cerr << "ERROR: cannot convert Verona file " << inputFile
-                      << " into MLIR" << std::endl
-                      << e.getMessage() << std::endl;
-          }))
-        return 1;
+      check(gen.readAST(m->ast));
     }
     break;
     case InputKind::MLIR:
       // Parse MLIR file
-      if (
-        auto err = llvm::handleErrors(
-          gen.readMLIR(inputFile), [](const llvm::StringError& e) {
-            std::cerr << "ERROR: cannot read MLIR file " << inputFile
-                      << std::endl
-                      << e.getMessage() << std::endl;
-          }))
-        return 1;
+      check(gen.readMLIR(inputFile));
       break;
     default:
       std::cerr << "ERROR: invalid source file type" << std::endl;
@@ -169,12 +156,6 @@ int main(int argc, char** argv)
   }
 
   // Emit MLIR
-  if (
-    auto err = llvm::handleErrors(
-      gen.emitMLIR(outputFile, optLevel), [](const llvm::StringError& e) {
-        std::cerr << "ERROR: failed to lower to MLIR" << std::endl
-                  << e.getMessage() << std::endl;
-      }))
-    return 1;
+  check(gen.emitMLIR(outputFile, optLevel));
   return 0;
 }
