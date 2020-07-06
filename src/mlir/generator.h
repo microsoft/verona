@@ -4,6 +4,7 @@
 #pragma once
 
 #include "ast/ast.h"
+#include "error.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Function.h"
 #include "mlir/IR/MLIRContext.h"
@@ -100,8 +101,4 @@ namespace mlir::verona
       llvm::ArrayRef<mlir::Value> ops,
       mlir::Type retTy);
   };
-
-  // Error Handling
-  // FIXME: This is totally incomplete
-  llvm::Error fail(llvm::Twine desc);
 }
