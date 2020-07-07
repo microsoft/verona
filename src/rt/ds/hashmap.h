@@ -147,15 +147,15 @@ namespace verona::rt
       template<typename _Entry>
       friend class ObjectMap;
 
-      const ObjectMap& map;
+      const ObjectMap* map;
       size_t index;
 
       Entry& entry()
       {
-        return map.slots[index];
+        return map->slots[index];
       }
 
-      Iterator(const ObjectMap& m, size_t i) : map(m), index(i) {}
+      Iterator(const ObjectMap* m, size_t i) : map(m), index(i) {}
 
     public:
       KeyType* key()
@@ -194,9 +194,9 @@ namespace verona::rt
 
       Iterator& operator++()
       {
-        while (++index < map.capacity())
+        while (++index < map->capacity())
         {
-          const auto key = key_of(map.slots[index]);
+          const auto key = key_of(map->slots[index]);
           if (key != 0)
             break;
         }
@@ -205,7 +205,7 @@ namespace verona::rt
 
       bool operator==(const Iterator& other) const
       {
-        return (index == other.index) && (&map == &other.map);
+        return (index == other.index) && (map == other.map);
       }
 
       bool operator!=(const Iterator& other) const
@@ -257,7 +257,7 @@ namespace verona::rt
 
     Iterator begin() const
     {
-      auto it = Iterator(*this, 0);
+      auto it = Iterator(this, 0);
       if (unmark_key(key_of(slots[0])) == 0)
         ++it;
 
@@ -266,7 +266,7 @@ namespace verona::rt
 
     Iterator end() const
     {
-      return Iterator(*this, capacity());
+      return Iterator(this, capacity());
     }
 
     /**
@@ -285,7 +285,7 @@ namespace verona::rt
       {
         const auto k = unmark_key(key_of(slots[index]));
         if (k == (uintptr_t)key)
-          return Iterator(*this, index);
+          return Iterator(this, index);
 
         if (++index == capacity())
           index = 0;
@@ -320,7 +320,7 @@ namespace verona::rt
           if constexpr (!is_set)
             entry.second = std::forward<E>(entry).second;
 
-          return std::make_pair(false, Iterator(*this, index));
+          return std::make_pair(false, Iterator(this, index));
         }
 
         if (k == 0)
@@ -328,7 +328,7 @@ namespace verona::rt
           place_entry(std::forward<E>(entry), index, probe_len);
           assert(!(key_of(slots[index]) & MARK_MASK));
           filled_slots++;
-          return std::make_pair(true, Iterator(*this, index));
+          return std::make_pair(true, Iterator(this, index));
         }
 
         if (probe_index(k) < probe_len)
