@@ -182,7 +182,7 @@ namespace verona::rt
     /**
      * Mute a set of cowns.
      */
-    void mute(T* mutor, T** cowns, size_t count)
+    void mute(T** cowns, size_t count)
     {
       auto it = mute_map.find(mutor);
       if (it == mute_map.end())
@@ -227,11 +227,10 @@ namespace verona::rt
     {
       for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
       {
-        auto* mutor = entry.key();
+        auto* m = entry.key();
         if (
           force ||
-          mutor->backpressure.load(std::memory_order_acquire)
-            .triggers_unmuting())
+          m->backpressure.load(std::memory_order_acquire).triggers_unmuting())
         {
           auto& mute_set = *entry.value();
           for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
@@ -239,7 +238,7 @@ namespace verona::rt
             unmute_local_cown(it.key());
             mute_set.erase(it);
           }
-          mutor->weak_release(alloc);
+          m->weak_release(alloc);
           mute_map.erase(entry);
           mute_set.dealloc(alloc);
           alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
