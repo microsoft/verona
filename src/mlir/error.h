@@ -54,7 +54,8 @@ namespace mlir::verona
     }
     /**
      * Public ErrorInfo interface, converts to error_code for
-     * interoperation with other error handling mechanisms.
+     * interoperation with other error handling mechanisms that use the C++11
+     * error types.
      * FIXME: For now, we don't care about that, but once we start working
      * with other error handling we should implement this for real.
      */
@@ -99,7 +100,8 @@ namespace mlir::verona
     }
     /**
      * Public ErrorInfo interface, converts to error_code for
-     * interoperation with other error handling mechanisms.
+     * interoperation with other error handling mechanisms that use the C++11
+     * error types.
      * FIXME: For now, we don't care about that, but once we start working
      * with other error handling we should implement this for real.
      */
