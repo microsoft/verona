@@ -847,7 +847,7 @@ namespace verona::rt
       if (Scheduler::local()->mutor == nullptr)
         return false;
 
-      Scheduler::local()->mute(Scheduler::local()->mutor, senders, count);
+      Scheduler::local()->mute(senders, count);
       Scheduler::local()->mutor = nullptr;
       return true;
     }
