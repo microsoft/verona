@@ -180,7 +180,8 @@ namespace verona::rt
     }
 
     /**
-     * Mute a set of cowns.
+     * Mute a set of cowns. This will add the cowns to the mute set of the
+     * mutor.
      */
     void mute(T** cowns, size_t count)
     {
@@ -224,10 +225,12 @@ namespace verona::rt
     }
 
     /**
-     * TODO
+     * Scan the mute map for sets that may be unmuted. If `force` is true, then
+     * all mute sets in the map will be unmuted, regardless of the state of the
+     * mutors.
      */
     template<bool force = false>
-    void unmute()
+    void mute_map_scan()
     {
       for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
       {
@@ -254,7 +257,7 @@ namespace verona::rt
     }
 
     /**
-     * TODO
+     * Unmute an individual cown.
      */
     void unmute_cown(T* cown)
     {
@@ -283,7 +286,7 @@ namespace verona::rt
     }
 
     /**
-     * TODO
+     * Unmute a cown that exists in this mute map.
      */
     inline void unmute_local_cown(T* cown)
     {
@@ -348,7 +351,7 @@ namespace verona::rt
 
         check_token_cown();
 
-        unmute();
+        mute_map_scan();
 
         if (cown == nullptr)
         {
@@ -587,7 +590,7 @@ namespace verona::rt
 #endif
           if (mute_map.size() != 0)
         {
-          unmute<true>();
+          mute_map_scan<true>();
           continue;
         }
         // Enter sleep only when the queue doesn't contain any real cowns.
@@ -837,7 +840,7 @@ namespace verona::rt
 
       // Send empty messages to all cowns that can be LIFO scheduled.
 
-      unmute<true>();
+      mute_map_scan<true>();
 
       T* p = list;
       while (p != nullptr)

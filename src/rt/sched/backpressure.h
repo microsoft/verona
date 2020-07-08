@@ -2,22 +2,70 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-/** TODO: cleanup notes (lexicon, state transitions, major components, etc.)
+/**
+ * ## Introduction
  *
- * ## Muting
- * A cown is muted after it runs a message where it has sent a message to an
- * overloaded/muted cown and no sender participating in the message is
- * overloaded or in the receiver set. Once a cown is muted, the scheduler thread
- * running the cown becomes responsible for eventually unmuting it.
+ * The primary goal of backpressure is to prevent runaway growth of a cown's
+ * message queue that might eventually result in a Verona application running
+ * out of memory. This is achieved by tracking the load on each cown to detect
+ * when it is unable to process messages as quickly as messages are added to the
+ * queue. Once a cown is considered "overloaded", message sends to that cown
+ * will result in the senders being muted so that the overloaded cown may
+ * temporarily process more messages than it receives. Similarly, cowns sending
+ * to muted receivers will also be muted so that cowns don't experience runaway
+ * queue growth while they are muted. Muted cowns are generally not rescheduled
+ * until the receiver that resulted in their muting (the "mutor") is no longer
+ * muted or overloaded.
  *
- * ## Unmuting
- * - Each scheduler thread scans the mutors of its mute map on each iteration of
- * the run loop. If any mutor is not muted and is not overloaded, the
- * corresponding mute set is unmuted and the entry is removed.
- * - An overloaded cown is sending a message to the muted cown. In this case,
- * the muted cown is unmuted by the responsible scheduler thread.
+ * ## Cown Load
  *
- * ## Cown Backpressure States:
+ * The backpressure system uses "load" as an approximation for message queue
+ * depth. Load is measured using a token message that occasionally falls out of
+ * its message queue. The "current load" on a cown is equal to the number of
+ * messages processed by the cown since the last token message fell out. Once
+ * the next token falls out of its queue, the current load is stored into a ring
+ * buffer and the current load is reset. The total load for the cown is
+ * calculated as the sum of the current load and previous loads stored in the
+ * ring buffer. Simply measuring the batch size of messages processed by the
+ * cown does not account for additional participants of a message cutting their
+ * batch short once they receive the mutli-message.
+ *
+ * ## Backpressure Mute Map Scan
+ *
+ * Once a scheduler thread completes a message action that would result in the
+ * muted multimessage cowns, the cowns are acquired by the scheduler thread and
+ * placed in a "mute map" on the scheduler thread. The mute map is a mapping
+ * from mutor => mute set, where "mute set" referrs to the set of cowns muted by
+ * a mutor. Each scheduler thread scans the mutors of its mute map on each
+ * iteration of the run loop. If any mutor is not muted and is not overloaded,
+ * the corresponding mute set is unmuted and the entry is removed from the mute
+ * map. A mutor may exist as the key in mutiple mute maps, but a muted cown may
+ * only be tracked in a single mute set.
+ *
+ * ## Backpressure Message Scan
+ *
+ * All messages from one set of sending cowns to a set of receiving cowns is
+ * scanned to determine if the senders should be muted. Such a message will
+ * result in muted senders if all of the following are true:
+ *   1. The receiver set does not contain any of the senders
+ *   2. No sender is overloaded
+ *   3. One of the receivers is either overloaded or muted.
+ *
+ * A message is given "priority" if either condition 1 or 2 are false. A
+ * priority message will result in any muted receivers being unmuted so that the
+ * senders may make progress sooner.
+ *
+ * The backpressure bits of any cown may be modified by the scheduler thread
+ * running the cown or holding the muted cown in its mute map. The only
+ * exception to this is when a priority message requires a recipient cown to be
+ * unmuted and that cown is not in the mute map of the scheduler thread on which
+ * the priority message is running. In this case, the mute bit field of the
+ * cown's backpressure bits is unset using a CAS loop so that the next
+ * backpressure message scan on the responsible thread will unmute the cown.
+ *
+ * ## Cown Backpressure States
+ *
+ * These states are not explicitly encoded, but they are useful to consider.
  *
  *     +------------+     +------------+
  *  +--|            |---->|            |--+
@@ -36,8 +84,6 @@
 
 namespace verona::rt
 {
-  // TODO: audit member functions
-
   class Backpressure
   {
     static constexpr uint32_t current_load_mask = 0x00'0000'ff;
@@ -56,9 +102,14 @@ namespace verona::rt
      *   [23:08] load_history
      *   [07:00] current_load
      *
-     * TODO
+     * The `muted` bit indicates if a cown is currently muted. A muted cown must
+     * not run nor be collected until it has been unmuted.
      *
-     * The 16-bit load history field is a ring buffer with a capacity for 4
+     * The `needs_token` bit indicates if the token message is not in a cown's
+     * queue and that a new token message should be added if it runs another
+     * message.
+     *
+     * The 16-bit `load_history` field is a ring buffer with a capacity for 4
      * 4-bit entries.
      *
      * The 8-bit load field tracks an approximation of a cown's message queue
@@ -71,8 +122,7 @@ namespace verona::rt
 
   public:
     /**
-     * Return true if this cown is muted. A muted cown must not run nor be
-     * collected until it has been unmuted.
+     * Return true if this cown is muted.
      */
     inline bool muted() const
     {
@@ -139,8 +189,7 @@ namespace verona::rt
     }
 
     /**
-     * Mark this cown as muted. A muted cown must not run nor be collected until
-     * it has been unmuted.
+     * Mark this cown as muted.
      */
     inline void mute()
     {
@@ -167,8 +216,7 @@ namespace verona::rt
     }
 
     /**
-     * Mark that this cown has removed the token message from its queue and
-     * requires a new token message to be added if it runs another message.
+     * Mark that this cown has removed the token message from its queue.
      */
     inline void remove_token()
     {
@@ -180,14 +228,12 @@ namespace verona::rt
      */
     inline void inc_load()
     {
-      // TODO: reset on max?
       if (current_load() < 0xff)
         bits++;
     }
 
     /**
-     * Reset the current load to zero and store the upper nibble into the load
-     * history buffer.
+     * Reset the current load and store its upper nibble in the load history.
      */
     inline void reset_load()
     {
