@@ -30,7 +30,7 @@
  * cown does not account for additional participants of a message cutting their
  * batch short once they receive the mutli-message.
  *
- * ## Backpressure Mute Map Scan
+ * ## Mute Map Scan
  *
  * Once a scheduler thread completes a message action that would result in the
  * muted multimessage cowns, the cowns are acquired by the scheduler thread and
@@ -42,7 +42,7 @@
  * map. A mutor may exist as the key in mutiple mute maps, but a muted cown may
  * only be tracked in a single mute set.
  *
- * ## Backpressure Message Scan
+ * ## Message Scan
  *
  * All messages from one set of sending cowns to a set of receiving cowns is
  * scanned to determine if the senders should be muted. Such a message will
@@ -55,13 +55,12 @@
  * priority message will result in any muted receivers being unmuted so that the
  * senders may make progress sooner.
  *
- * The backpressure bits of any cown may be modified by the scheduler thread
- * running the cown or holding the muted cown in its mute map. The only
- * exception to this is when a priority message requires a recipient cown to be
- * unmuted and that cown is not in the mute map of the scheduler thread on which
- * the priority message is running. In this case, the mute bit field of the
- * cown's backpressure bits is unset using a CAS loop so that the next
- * backpressure message scan on the responsible thread will unmute the cown.
+ * The backpressure bits of any cown may only be modified by the scheduler
+ * thread running the cown or holding the muted cown in its mute map. If a
+ * priority message requires a recipient cown to be unmuted, then the scheduler
+ * thread running the message will search for the cown in its mute map. If the
+ * cown does not exist, then it will be sent to other scheduler threads until it
+ * is found and subsequently unmuted.
  *
  * ## Cown Backpressure States
  *
@@ -81,6 +80,8 @@
  *     +------------+     +------------+
  *
  */
+
+#include "ds/mpscq.h"
 
 namespace verona::rt
 {
@@ -239,6 +240,20 @@ namespace verona::rt
     {
       const uint32_t hist = (bits & 0x00'0fff'f0) << 4;
       bits = (bits & 0xff'0000'00) | hist;
+    }
+  };
+
+  template<typename T>
+  struct UnmuteMessage
+  {
+    std::atomic<UnmuteMessage*> next;
+    T* cown;
+
+    UnmuteMessage(T* cown_) : cown(cown_) {}
+
+    size_t size() const
+    {
+      return sizeof(UnmuteMessage<T>);
     }
   };
 }
