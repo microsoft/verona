@@ -809,7 +809,9 @@ namespace verona::rt
     }
 
     /**
-     * TODO
+     * Set the `mutor` field of the current scheduler thread if the senders
+     * should be muted as a result of this message. Otherwise the `mutor` will
+     * remain null.
      */
     static inline void
     backpressure_scan(const MessageBody& senders, const MessageBody& receivers)
