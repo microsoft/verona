@@ -3,6 +3,7 @@
 #pragma once
 
 /** TODO: cleanup notes (lexicon, state transitions, major components, etc.)
+ *
  * ## Muting
  * A cown is muted after it runs a message where it has sent a message to an
  * overloaded/muted cown and no sender participating in the message is
@@ -44,15 +45,14 @@ namespace verona::rt
     static constexpr uint32_t muted_mask = 0x80'0000'00;
     static constexpr uint32_t needs_token_mask = 0x40'0000'00;
 
-    // TODO: tweak thresholds
     static constexpr uint32_t overload_threshold = 800;
     static constexpr uint32_t unmute_threshold = 100;
 
     /**
-     * Backpressure bits are contain the following fields:
+     * Backpressure bits contain the following fields:
      *   [31:31] muted
      *   [30:30] needs_token
-     *   [29:24] unused
+     *   [29:24] (unused)
      *   [23:08] load_history
      *   [07:00] current_load
      *
@@ -67,11 +67,12 @@ namespace verona::rt
      * function will push the upper nibble of the current load into the load
      * history ring buffer.
      */
-    uint32_t bits = 0;
+    uint32_t bits = 0 | needs_token_mask;
 
   public:
     /**
-     * TODO
+     * Return true if this cown is muted. A muted cown must not run nor be
+     * collected until it has been unmuted.
      */
     inline bool muted() const
     {
@@ -79,7 +80,8 @@ namespace verona::rt
     }
 
     /**
-     * TODO
+     * Return true if the token message is not in this cown's queue and a new
+     * token message should be added if it runs another message.
      */
     inline bool needs_token() const
     {
@@ -87,7 +89,8 @@ namespace verona::rt
     }
 
     /**
-     * TODO
+     * Return the amount of messages processed since the last token message fell
+     * out of this cown's queue.
      */
     inline uint8_t current_load() const
     {
@@ -111,15 +114,7 @@ namespace verona::rt
     }
 
     /**
-     * TODO. This value will be in the range [0, 151].
-     */
-    inline uint8_t shifted_total_load() const
-    {
-      return total_load() >> 3;
-    }
-
-    /**
-     * TODO
+     * Return true if this cown is overloaded.
      */
     inline bool overloaded() const
     {
@@ -127,7 +122,7 @@ namespace verona::rt
     }
 
     /**
-     * TODO
+     * Return true if this cown is muted or overloaded.
      */
     inline bool triggers_muting() const
     {
@@ -135,7 +130,8 @@ namespace verona::rt
     }
 
     /**
-     * TODO
+     * Return true if this cown is not muted and if the load is substantially
+     * lower than the threshold for muting.
      */
     inline bool triggers_unmuting() const
     {
@@ -143,7 +139,8 @@ namespace verona::rt
     }
 
     /**
-     * TODO
+     * Mark this cown as muted. A muted cown must not run nor be collected until
+     * it has been unmuted.
      */
     inline void mute()
     {
@@ -152,7 +149,7 @@ namespace verona::rt
     }
 
     /**
-     * TODO
+     * Unmark this cown as muted.
      */
     inline void unmute()
     {
@@ -161,7 +158,8 @@ namespace verona::rt
     }
 
     /**
-     * TODO
+     * Mark that this cown has a token message in its queue and no longer
+     * requires a new token message to be added.
      */
     inline void add_token()
     {
@@ -169,7 +167,8 @@ namespace verona::rt
     }
 
     /**
-     * TODO
+     * Mark that this cown has removed the token message from its queue and
+     * requires a new token message to be added if it runs another message.
      */
     inline void remove_token()
     {
@@ -181,6 +180,7 @@ namespace verona::rt
      */
     inline void inc_load()
     {
+      // TODO: reset on max?
       if (current_load() < 0xff)
         bits++;
     }
@@ -192,7 +192,7 @@ namespace verona::rt
     inline void reset_load()
     {
       const uint32_t hist = (bits & 0x00'0fff'f0) << 4;
-      bits = (bits & ~current_load_mask) | hist;
+      bits = (bits & 0xff'0000'00) | hist;
     }
   };
 }

@@ -2,9 +2,6 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-// TODO: rm
-#define USE_BACKPRESSURE
-
 #include "../ds/forward_list.h"
 #include "../ds/mpscq.h"
 #include "../region/region.h"
@@ -802,6 +799,12 @@ namespace verona::rt
             return true;
         }
       }
+
+#ifdef USE_SYSTEMATIC_TESTING
+      if (coin(3))
+        return true;
+#endif
+
       return false;
     }
 
@@ -827,23 +830,30 @@ namespace verona::rt
       {
         auto* receiver = receivers.cowns[r];
         const auto bp = receiver->backpressure.load(std::memory_order_acquire);
-        if (bp.triggers_muting())
+        if (
+          bp.triggers_muting()
+#ifdef USE_SYSTEMATIC_TESTING
+          || coin(5)
+#endif
+        )
         {
+          if (Scheduler::local()->mutor != nullptr)
+            Scheduler::local()->mutor->weak_release(ThreadAlloc::get());
+
           Scheduler::local()->mutor = receiver;
+          receiver->weak_acquire();
           return;
         }
       }
     }
 
     /**
-     * TODO. If false is returned, the caller must reschedule the senders and
-     * deallocate the senders array.
+     * Mute the senders participating in this message if a backpressure scan set
+     * the mutor during the action. If false is returned, the caller must
+     * reschedule the senders and deallocate the senders array.
      */
     inline bool apply_backpressure(Cown** senders, size_t count)
     {
-#ifndef USE_BACKPRESSURE
-      Scheduler::local()->mutor = nullptr;
-#endif
       if (Scheduler::local()->mutor == nullptr)
         return false;
 
@@ -878,7 +888,8 @@ namespace verona::rt
 
       auto bp = backpressure.load(std::memory_order_acquire);
       assert(!bp.muted());
-      const auto batch_limit = (size_t)100 | (size_t)bp.shifted_total_load();
+      // The batch limit is between 100 and 251, depending on the load.
+      const auto batch_limit = (size_t)100 | ((size_t)bp.total_load() >> 3);
 
       MultiMessage* curr = nullptr;
       size_t batch_size = 0;
@@ -1098,6 +1109,7 @@ namespace verona::rt
       destructor();
 
       MultiMessage* last = queue.destroy();
+      assert(last->next.load(std::memory_order_relaxed) == nullptr);
       alloc->dealloc<sizeof(MultiMessage)>(last);
     }
 

@@ -187,9 +187,12 @@ namespace verona::rt
       auto it = mute_map.find(mutor);
       if (it == mute_map.end())
       {
-        mutor->weak_acquire();
         auto* set = ObjectMap<T*>::create(alloc);
         it = mute_map.insert(alloc, std::make_pair(mutor, set)).second;
+      }
+      else
+      {
+        mutor->weak_release(alloc);
       }
       auto& mute_set = *it.value();
 
@@ -200,18 +203,19 @@ namespace verona::rt
         if (bp.muted())
           continue;
 
-        yield();
-        auto bp_prev = bp;
-        bp.mute();
-        if (!cown->backpressure.compare_exchange_strong(
-              bp_prev, bp, std::memory_order_acq_rel))
-        {
-          Systematic::cout() << "failed mute: " << cown << std::endl;
+        if (
+          (state == ThreadState::PreScan) || (state == ThreadState::Scan) ||
+          (state == ThreadState::AllInScan))
+        { // Messages in this cowns queue must be scanned.
           cown->schedule();
           continue;
         }
 
+        yield();
+
         Systematic::cout() << "Mute " << cown << std::endl;
+        bp.mute();
+        cown->backpressure.store(bp, std::memory_order_release);
         T::acquire(cown);
         mute_set.insert(alloc, cown);
       }
@@ -265,8 +269,7 @@ namespace verona::rt
           return;
         }
       }
-      Systematic::cout() << "irresponsible unmute: " << cown << std::endl;
-      // Mark for unmuting by responsible scheduler.
+      // Mark for the responsible scheduler to unmute.
       auto bp_theirs = cown->backpressure.load(std::memory_order_acquire);
       while (bp_theirs.muted())
       {
