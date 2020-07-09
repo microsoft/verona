@@ -10,12 +10,12 @@
  * out of memory. This is achieved by tracking the load on each cown to detect
  * when it is unable to process messages as quickly as messages are added to the
  * queue. Once a cown is considered "overloaded", message sends to that cown
- * will result in the senders being muted so that the overloaded cown may
- * temporarily process more messages than it receives. Similarly, cowns sending
- * to muted receivers will also be muted so that cowns don't experience runaway
- * queue growth while they are muted. Muted cowns are generally not rescheduled
- * until the receiver that resulted in their muting (the "mutor") is no longer
- * muted or overloaded.
+ * will result in the senders being "muted", and temporarily descheduled. This
+ * is done so that the overloaded cown may process more messages than it
+ * receives. Similarly, cowns sending to muted receivers will also be muted so
+ * that cowns don't experience runaway queue growth while they are muted. Muted
+ * cowns are generally not rescheduled until the receiver that resulted in their
+ * muting (the "mutor") is no longer muted or overloaded.
  *
  * ## Cown Load
  *
@@ -28,28 +28,28 @@
  * calculated as the sum of the current load and previous loads stored in the
  * ring buffer. Simply measuring the batch size of messages processed by the
  * cown does not account for additional participants of a message cutting their
- * batch short once they receive the mutli-message.
+ * batch short once they receive the multi-message.
  *
  * ## Mute Map Scan
  *
- * Once a scheduler thread completes a message action that would result in the
- * muted multimessage cowns, the cowns are acquired by the scheduler thread and
- * placed in a "mute map" on the scheduler thread. The mute map is a mapping
- * from mutor => mute set, where "mute set" referrs to the set of cowns muted by
- * a mutor. Each scheduler thread scans the mutors of its mute map on each
- * iteration of the run loop. If any mutor is not muted and is not overloaded,
- * the corresponding mute set is unmuted and the entry is removed from the mute
- * map. A mutor may exist as the key in mutiple mute maps, but a muted cown may
- * only be tracked in a single mute set.
+ * Once a scheduler thread completes a message action that would result in
+ * muting the cowns running the messsage, the cowns are acquired by the
+ * scheduler thread and placed in a "mute map" on the scheduler thread. The mute
+ * map is a mapping from mutor => mute set, where "mute set" referrs to the set
+ * of cowns muted by a mutor. Each scheduler thread scans the mutors of its mute
+ * map on each iteration of the run loop. If any mutor is not muted and is not
+ * overloaded, the corresponding mute set is unmuted and the entry is removed
+ * from the mute map. A mutor may exist as the key in mutiple mute maps, but a
+ * muted cown may only be tracked in a single mute set.
  *
  * ## Message Scan
  *
- * All messages from one set of sending cowns to a set of receiving cowns is
- * scanned to determine if the senders should be muted. Such a message will
- * result in muted senders if all of the following are true:
- *   1. The receiver set does not contain any of the senders
- *   2. No sender is overloaded
- *   3. One of the receivers is either overloaded or muted.
+ * All messages from one set of sending cowns to a set of receiving cowns are
+ * scanned to determine if the senders should be muted. The senders will be
+ * muted if all of the following are true:
+ *   1. The receiver set does not contain any of the senders.
+ *   2. No sender is overloaded.
+ *   3. Any of the receivers are either overloaded or muted.
  *
  * A message is given "priority" if either condition 1 or 2 are false. A
  * priority message will result in any muted receivers being unmuted so that the
@@ -140,7 +140,7 @@ namespace verona::rt
     }
 
     /**
-     * Return the amount of messages processed since the last token message fell
+     * Return the count of messages processed since the last token message fell
      * out of this cown's queue.
      */
     inline uint8_t current_load() const
@@ -155,7 +155,7 @@ namespace verona::rt
     inline uint32_t total_load() const
     {
       // Add the current load to the 4 upper nibbles stored as load history. The
-      // load history may be more efficiently compressed, but the clang SLP
+      // load history could be more efficiently compressed, but the clang SLP
       // vectorizer optimizes this nicely with AVX2 instructions.
       const uint32_t h3 = (bits & 0x00'f000'00) >> 16;
       const uint32_t h2 = (bits & 0x00'0f00'00) >> 12;
@@ -173,7 +173,8 @@ namespace verona::rt
     }
 
     /**
-     * Return true if this cown is muted or overloaded.
+     * If this cown is recieving a message without priority, return true if the
+     * senders should be muted.
      */
     inline bool triggers_muting() const
     {
@@ -181,8 +182,8 @@ namespace verona::rt
     }
 
     /**
-     * Return true if this cown is not muted and if the load is substantially
-     * lower than the threshold for muting.
+     * If this cown is a key in a mute map, return true if the correspinding
+     * mute set should be unmuted.
      */
     inline bool triggers_unmuting() const
     {
@@ -192,26 +193,25 @@ namespace verona::rt
     /**
      * Mark this cown as muted.
      */
-    inline void mute()
+    inline void set_muted()
     {
       assert(!muted());
       bits |= muted_mask;
     }
 
     /**
-     * Unmark this cown as muted.
+     * Mark this cown as not muted.
      */
-    inline void unmute()
+    inline void unset_muted()
     {
       assert(muted());
       bits &= ~muted_mask;
     }
 
     /**
-     * Mark that this cown has a token message in its queue and no longer
-     * requires a new token message to be added.
+     * Mark that this cown has a token message in its queue.
      */
-    inline void add_token()
+    inline void set_needs_token()
     {
       bits &= ~needs_token_mask;
     }
@@ -219,7 +219,7 @@ namespace verona::rt
     /**
      * Mark that this cown has removed the token message from its queue.
      */
-    inline void remove_token()
+    inline void unset_needs_token()
     {
       bits |= needs_token_mask;
     }

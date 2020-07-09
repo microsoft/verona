@@ -219,7 +219,7 @@ namespace verona::rt
 
         Systematic::cout() << "Mute " << cown << std::endl;
         auto bp = cown->backpressure.load(std::memory_order_relaxed);
-        bp.mute();
+        bp.set_muted();
         cown->backpressure.store(bp, std::memory_order_release);
         T::acquire(cown);
         mute_set.insert(alloc, cown);
@@ -303,7 +303,7 @@ namespace verona::rt
     {
       Systematic::cout() << "Unmute " << cown << std::endl;
       auto bp = cown->backpressure.load(std::memory_order_relaxed);
-      bp.unmute();
+      bp.unset_muted();
       cown->backpressure.store(bp, std::memory_order_release);
       cown->queue.wake();
       cown->schedule();

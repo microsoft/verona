@@ -967,7 +967,7 @@ namespace verona::rt
         if (curr->get_body() == nullptr)
         {
           Systematic::cout() << "Reached message token" << std::endl;
-          bp.remove_token();
+          bp.set_needs_token();
           backpressure.store(bp, std::memory_order_release);
           return true;
         }
@@ -981,7 +981,7 @@ namespace verona::rt
         {
           Systematic::cout() << "Enqueue message token" << std::endl;
           queue.enqueue(stub_msg(alloc));
-          bp.add_token();
+          bp.unset_needs_token();
         }
         bp.inc_load();
         backpressure.store(bp, std::memory_order_release);
