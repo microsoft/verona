@@ -289,8 +289,8 @@ namespace verona::rt
           return;
         }
       }
-      // We are not responsible for this cown, so it must be sent to the next
-      // schdeuler thread to be unmuted.
+      // We are not responsible for unmuting this cown, so a request to unmute
+      // it is sent to the next scheduler thread.
       cown->weak_acquire();
       next->unmute_q.enqueue(new (alloc->alloc<sizeof(UnmuteMessage<T>)>())
                                UnmuteMessage<T>(cown));

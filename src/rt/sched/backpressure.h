@@ -7,46 +7,32 @@
  *
  * The primary goal of backpressure is to prevent runaway growth of a cown's
  * message queue that might eventually result in a Verona application running
- * out of memory. This is achieved by tracking the load on each cown to detect
- * when it is unable to process messages as quickly as messages are added to the
- * queue. Once a cown is considered "overloaded", message sends to that cown
- * will result in the senders being "muted", and temporarily descheduled. This
- * is done so that the overloaded cown may process more messages than it
- * receives. Similarly, cowns sending to muted receivers will also be muted so
- * that cowns don't experience runaway queue growth while they are muted. Muted
- * cowns are generally not rescheduled until the receiver that resulted in their
- * muting (the "mutor") is no longer muted or overloaded.
+ * out of memory. Cowns that receive messages at a higher rate than they are
+ * able to process are considered "overloaded" and may lead to this unbounded
+ * queue growth. Once an overloaded cown is identified, cowns sending messages
+ * to it will be temporarily descheduled ("muted") so that the overloaded cown
+ * can work through its queue. Similarly, cowns sending to muted receivers will
+ * also be muted so that cowns do not themselves become overloaded as a
+ * consequence of being muted. Muted cowns will be rescheduled after the
+ * receiver that triggered their muting (the "mutor") is no longer muted or
+ * overloaded.
  *
- * ## Cown Load
+ * ## Detecting Overloaded Cowns
  *
- * The backpressure system uses "load" as an approximation for message queue
- * depth. Load is measured using a token message that occasionally falls out of
- * its message queue. The "current load" on a cown is equal to the number of
- * messages processed by the cown since the last token message fell out. Once
- * the next token falls out of its queue, the current load is stored into a ring
- * buffer and the current load is reset. The total load for the cown is
- * calculated as the sum of the current load and previous loads stored in the
- * ring buffer. Simply measuring the batch size of messages processed by the
- * cown does not account for additional participants of a message cutting their
- * batch short once they receive the multi-message.
+ * An overloaded cown is one that experiences message queue growth as it is
+ * processing messages. Since it would be prohibitively expensive to calculate
+ * the length of a message queue directly, a count of messages removed from the
+ * queue over some period is used as an approximation for message queue size.
+ * Like scheduler fairness, the period is determined using a token message that
+ * will occasionally fall out of the queue and then be inserted to begin the
+ * next period. The "load" of a cown at any time is the accumulation of messages
+ * processed over multiple periods.
  *
- * ## Mute Map Scan
- *
- * Once a scheduler thread completes a message action that would result in
- * muting the cowns running the messsage, the cowns are acquired by the
- * scheduler thread and placed in a "mute map" on the scheduler thread. The mute
- * map is a mapping from mutor => mute set, where "mute set" referrs to the set
- * of cowns muted by a mutor. Each scheduler thread scans the mutors of its mute
- * map on each iteration of the run loop. If any mutor is not muted and is not
- * overloaded, the corresponding mute set is unmuted and the entry is removed
- * from the mute map. A mutor may exist as the key in mutiple mute maps, but a
- * muted cown may only be tracked in a single mute set.
- *
- * ## Message Scan
+ * ## Muting Cowns
  *
  * All messages from one set of sending cowns to a set of receiving cowns are
  * scanned to determine if the senders should be muted. The senders will be
- * muted if all of the following are true:
+ * muted once their action completes if all of the following are true:
  *   1. The receiver set does not contain any of the senders.
  *   2. No sender is overloaded.
  *   3. Any of the receivers are either overloaded or muted.
@@ -55,36 +41,41 @@
  * priority message will result in any muted receivers being unmuted so that the
  * senders may make progress sooner.
  *
- * The backpressure bits of any cown may only be modified by the scheduler
- * thread running the cown or holding the muted cown in its mute map. If a
- * priority message requires a recipient cown to be unmuted, then the scheduler
- * thread running the message will search for the cown in its mute map. If the
- * cown does not exist, then it will be sent to other scheduler threads until it
- * is found and subsequently unmuted.
+ * If all of the above conditions are met, the first receiver that is either
+ * overloaded or muted is identified as the mutor for the senders. First in this
+ * case means the least cown, determined by the mutlimessage cown order.
  *
- * ## Cown Backpressure States
+ * ## Tracking Muted Cowns
  *
- * These states are not explicitly encoded, but they are useful to consider.
+ * Once a scheduler thread completes a message action that would result in
+ * muting the cowns running the messsage, the cowns are acquired by the
+ * scheduler thread and placed in a "mute map" on the scheduler thread. The mute
+ * map is a mapping from mutor => mute set, where "mute set" refers to the set
+ * of cowns muted by a mutor.
  *
- *     +------------+     +------------+
- *  +--|            |---->|            |--+
- *  |  | Normal     |     | Muting     |  |
- *  +->|            |<-+  |            |<-+
- *     +------------+  ^  +------------+
- *          | ^        |      |
- *          v |        |      v
- *     +------------+  |  +------------+
- *     |            |  |  |            |
- *     | Overloaded |  +--| Muted      |
- *     |            |     |            |
- *     +------------+     +------------+
+ * A mutor may exist as a key in mutiple mute maps, since cowns may continue
+ * sending messages to it on other threads and then be subsequently muted by
+ * that thread on which the senders were running. However, a muted cown must
+ * only exist in a mute set on the scheduler thread that muted it.
  *
+ * A muted cown may not be scheduled or collected until they are removed from
+ * their scheduler thread's mute map and rescheduled by that thread ("unmuted").
+ *
+ * Each scheduler thread scans the mutors of its mute map on each iteration of
+ * the run loop. If any mutor is not muted and is not overloaded, all cowns in
+ * the corresponding mute set are unmuted and the entry is removed from the mute
+ * map.
  */
 
 #include "ds/mpscq.h"
 
 namespace verona::rt
 {
+  /**
+   * Tracks information related to backpressure for a cown. This class may only
+   * be modified by the scheduler thread that is either running the cown or is
+   * tracking the muted cown in its mute map.
+   */
   class Backpressure
   {
     static constexpr uint32_t current_load_mask = 0x00'0000'ff;
@@ -103,8 +94,7 @@ namespace verona::rt
      *   [23:08] load_history
      *   [07:00] current_load
      *
-     * The `muted` bit indicates if a cown is currently muted. A muted cown must
-     * not run nor be collected until it has been unmuted.
+     * The `muted` bit indicates if a cown is currently muted.
      *
      * The `needs_token` bit indicates if the token message is not in a cown's
      * queue and that a new token message should be added if it runs another

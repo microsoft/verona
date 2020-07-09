@@ -960,9 +960,6 @@ namespace verona::rt
 
         assert(!queue.is_sleeping());
 
-        // This load may be relaxed because modifications to the backpressure
-        // load bits have only occured from this thread since the initial
-        // acquire load.
         bp = backpressure.load(std::memory_order_relaxed);
         if (curr->get_body() == nullptr)
         {
