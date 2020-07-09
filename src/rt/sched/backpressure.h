@@ -28,7 +28,7 @@
  * calculated as the sum of the current load and previous loads stored in the
  * ring buffer. Simply measuring the batch size of messages processed by the
  * cown does not account for additional participants of a message cutting their
- * batch short once they receive the mutli-message.
+ * batch short once they receive the multi-message.
  *
  * ## Mute Map Scan
  *
