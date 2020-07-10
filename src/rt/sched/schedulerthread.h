@@ -235,8 +235,7 @@ namespace verona::rt
      * unmuting. If `force` is true, then all mute sets in the map will be
      * unmuted.
      */
-    template<bool force = false>
-    void mute_map_scan()
+    void mute_map_scan(bool force = false)
     {
       // Handle unmute queue first.
       while (true)
@@ -600,7 +599,7 @@ namespace verona::rt
 #endif
           if ((mute_map.size() != 0) || (unmute_q.peek() != nullptr))
         {
-          mute_map_scan<true>();
+          mute_map_scan(true);
           continue;
         }
         // Enter sleep only when the queue doesn't contain any real cowns.
@@ -850,7 +849,7 @@ namespace verona::rt
 
       // Send empty messages to all cowns that can be LIFO scheduled.
 
-      mute_map_scan<true>();
+      mute_map_scan(true);
 
       T* p = list;
       while (p != nullptr)

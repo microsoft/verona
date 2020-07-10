@@ -7,15 +7,27 @@
  *
  * The primary goal of backpressure is to prevent runaway growth of a cown's
  * message queue that might eventually result in a Verona application running
- * out of memory. Cowns that receive messages at a higher rate than they are
- * able to process are considered "overloaded" and may lead to this unbounded
- * queue growth. Once an overloaded cown is identified, cowns sending messages
- * to it will be temporarily descheduled ("muted") so that the overloaded cown
- * can work through its queue. Similarly, cowns sending to muted receivers will
- * also be muted so that cowns do not themselves become overloaded as a
- * consequence of being muted. Muted cowns will be rescheduled after the
- * receiver that triggered their muting (the "mutor") is no longer muted or
- * overloaded.
+ * out of memory.
+ *
+ * The following expects the reader to be familiar with scheduler threads,
+ * work stealing, fairness, cown reference counting, mutli-message acquisition,
+ * and actions.
+ *
+ * If a cown receives messages more quickly than it is able to process them, the
+ * queue will start to grow in an unbounded fashion. Cowns that aren't able to
+ * keep up with their arriving messages are marked as "overloaded". Once a cown
+ * is marked as overloaded, cowns sending messages to it will be temporarily
+ * descheduled ("muted"). Descheduling cowns that are sending to an overloaded
+ * cown helps alleviate pressure on the it by:
+ *   - Temporarily removing a source of incoming messges
+ *   - Allowing more scheduler time to be spent on the overload cown rather than
+ *     the descheduled ones.
+ *
+ * Similarly, cowns sending to cowns that have been muted will also be muted to
+ * prevent runaway queue growth while the muted cown in descheduled.
+ *
+ * Muted cowns will be rescheduled after the receiver that triggered their
+ * muting (the "mutor") is no longer muted or overloaded.
  *
  * ## Detecting Overloaded Cowns
  *
