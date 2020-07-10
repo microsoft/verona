@@ -6,7 +6,12 @@
  * cowns send messages to a single set of `Receiver` cowns. The `Recevier` cowns
  * may be placed behind a chain of `Proxy` cowns to test backpressure
  * propagation.
- **/
+ *
+ * Without backpressure, the receivers would have their queues grow at a much
+ * higher rate than they could process the messages. The muted proxies may also
+ * experience similar queue growth if the backpressure is not corretly
+ * propagated from the receiver set.
+ */
 
 #include "test/log.h"
 #include "test/opt.h"

@@ -6,6 +6,9 @@
  * receives a message from the sender it will randomly select a sender with
  * which to run a multimessage. This is intended to test a scenario where a
  * muted cowns are frequently required by an overloaded cown to make progress.
+ *
+ * A correct implementation of backpressure must ensure that the receivers make
+ * progress despite requiring their muted senders to do so.
  */
 
 #include "test/log.h"

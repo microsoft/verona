@@ -4,7 +4,13 @@
 /**
  * This test involves many small sets of `Sender` cowns repeatedly selecting a
  * small random subset of `Receiver` cowns and sending them a message.
- **/
+ *
+ * A correct backpressure system should ensure that the receivers do not
+ * experience runaway message queue growth with constantly changing
+ * relationships between senders and receivers. All receivers must also maintain
+ * high load signals despite constantly participating in multimessages with
+ * different sets of cowns.
+ */
 
 #include "test/log.h"
 #include "test/opt.h"
