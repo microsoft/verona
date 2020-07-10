@@ -193,6 +193,8 @@ namespace verona::rt
      */
     void mute(T** cowns, size_t count)
     {
+      assert(mutor != nullptr);
+
       auto it = mute_map.find(mutor);
       if (it == mute_map.end())
       {
