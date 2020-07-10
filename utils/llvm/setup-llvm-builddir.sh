@@ -22,14 +22,7 @@ image="$(basename $file .tar.gz)"
 # Download build cache
 if [ ! -f "$file" ]; then
   echo "Downloading $image"
-  az artifacts universal download \
-    --organization "https://dev.azure.com/ProjectVeronaCI/" \
-    --project "22b49111-ce1d-420e-8301-3fea815478ea" \
-    --scope project \
-    --feed "LLVMBuild" \
-    --name "$image" \
-    --version "*" \
-    --path /tmp
+  wget -q -O $file "https://verona.blob.core.windows.net/llvmbuild/$image"
 fi
 if [ ! -f "$file" ]; then
   echo "$file not downloaded correctly"
