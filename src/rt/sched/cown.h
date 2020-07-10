@@ -1107,9 +1107,10 @@ namespace verona::rt
       // Now we may run our destructor.
       destructor();
 
-      MultiMessage* last = queue.destroy();
-      assert(last->next.load(std::memory_order_relaxed) == nullptr);
-      alloc->dealloc<sizeof(MultiMessage)>(last);
+      MultiMessage* stub = queue.destroy();
+      // All messages must have been run by the time the cown is collected.
+      assert(stub->next.load(std::memory_order_relaxed) == nullptr);
+      alloc->dealloc<sizeof(MultiMessage)>(stub);
     }
 
     static MultiMessage* stub_msg(Alloc* alloc)

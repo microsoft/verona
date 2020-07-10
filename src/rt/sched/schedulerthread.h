@@ -229,8 +229,9 @@ namespace verona::rt
     }
 
     /**
-     * Scan the mute map for cowns that may be unmuted. If `force` is true, then
-     * all mute sets in the map will be unmuted.
+     * Unmute all mute sets where the mutor is in a state that triggers
+     * unmuting. If `force` is true, then all mute sets in the map will be
+     * unmuted.
      */
     template<bool force = false>
     void mute_map_scan()
@@ -274,7 +275,8 @@ namespace verona::rt
     }
 
     /**
-     * Unmute an individual cown.
+     * Unmute an individual cown. If the cown does not exist in our mute map,
+     * request that the next scheduler thread unmute it.
      */
     void unmute_cown(T* cown)
     {
