@@ -11,7 +11,6 @@ git submodule update --init --recursive
 ```
 from the root of the checkout.
 
-
 ## Updating code
 
 To pull the latest code from the master branch, `cd` to the root of the
@@ -20,6 +19,30 @@ checkout and run
 git pull
 git submodule update --recursive
 ```
+
+## Updating LLVM
+
+LLVM builds take a long time, so we cached the build directory from Linux, Windows and MacOS for our CI, that can also be used on developer's machines.
+
+The main URL is https://verona.blob.core.windows.net/llvmbuild/, and the packages are called `verona-llvm-x86_64-${OS}-release-${LLVMCommit}`, with `${OS}` = { `linux`, `windows`, `macos` } and `${LLVMCommit}` being the same as the llvm-project submodule (currently @ `3c123acf57c`).
+
+Download the file, use the following URLs: ${PKG_NAME} ([Linux][], [Windows][], [MacOS][]).
+
+[Linux]: https://verona.blob.core.windows.net/llvmbuild/verona-llvm-x86_64-linux-release-3c123acf57c
+[Windows]: https://verona.blob.core.windows.net/llvmbuild/verona-llvm-x86_64-windows-release-3c123acf57c
+[MacOS]: https://verona.blob.core.windows.net/llvmbuild/verona-llvm-x86_64-macos-release-3c123acf57c
+
+Run the following script at the root of your checkout:
+```
+bash ./utils/llvm/setup-llvm-builddir.sh $(PKG_NAME).tar.gz
+```
+
+On Windwows, run it on PowerShell, not `cmd`, to get access to unix-like tools.
+
+If you want to compile LLVM directly, the options we used in the cache are available [here][]. For now, you'll have to build it before Verona in its own build directory. We're working to make that build straight from Verona's build directory, but it's not yet ready.
+
+[here]: https://github.com/microsoft/verona/blob/master/devops/llvm.yml
+
 
 # Building on Windows
 
