@@ -45,13 +45,14 @@
  * All messages from one set of sending cowns to a set of receiving cowns are
  * scanned to determine if the senders should be muted. The senders will be
  * muted once their action completes if all of the following are true:
- *   1. The receiver set does not contain any of the senders.
- *   2. No sender is overloaded.
- *   3. Any of the receivers are either overloaded or muted.
+ *   1. Any of the receivers are either overloaded or muted.
+ *   2. The receiver set does not contain any of the senders.
+ *   3. No sender is overloaded.
  *
- * A message is given "priority" if either condition 1 or 2 are false. A
- * priority message will result in any muted receivers being unmuted so that the
- * senders may make progress sooner.
+ * A message is given "priority" if either condition 2 or 3 are false, i.e., if
+ * any receiver is overloaded or is sending to itself. A priority message will
+ * result in any muted receivers being unmuted so that the senders may make
+ * progress sooner.
  *
  * If all of the above conditions are met, the first receiver that is either
  * overloaded or muted is identified as the mutor for the senders. First in this
@@ -77,6 +78,24 @@
  * the run loop. If any mutor is not muted and is not overloaded, all cowns in
  * the corresponding mute set are unmuted and the entry is removed from the mute
  * map.
+ *
+ * ## Limitations
+ *
+ * Fan-in/Fan-out:
+ * The backpressure system does not attempt to predict the consequences of a
+ * cown sending a message before the first message is sent. Backpressure is only
+ * applied to senders after they have already contributed to overloading a set
+ * of cowns. So the first message sent by a cown can always result in an
+ * unchecked storm of messages to some set of receivers. In general, such
+ * prediction is considered prohibitively expensive.
+ *
+ * Frequent Unmute for Priority:
+ * We cannot ensure that a cown unmuted by a priority message will only handle
+ * that message required for progress before becoming muted once again. The
+ * perf-backpressure3 test shows a scenario where runaway receiver queue growth
+ * could be prevented. However, a general solution would require reordering the
+ * messages processed by the producer, which would break causal message
+ * ordering.
  */
 
 #include "ds/mpscq.h"
