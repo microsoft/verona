@@ -10,7 +10,7 @@
  * out of memory.
  *
  * The following expects the reader to be familiar with scheduler threads,
- * work stealing, fairness, cown reference counting, mutli-message acquisition,
+ * work stealing, fairness, cown reference counting, multi-message acquisition,
  * and actions.
  *
  * If a cown receives messages more quickly than it is able to process them, the
@@ -56,7 +56,7 @@
  *
  * If all of the above conditions are met, the first receiver that is either
  * overloaded or muted is identified as the mutor for the senders. First in this
- * case means the least cown, determined by the mutlimessage cown order.
+ * case means the least cown, determined by the multimessage cown order.
  *
  * ## Tracking Muted Cowns
  *
@@ -273,7 +273,7 @@ namespace verona::rt
   template<typename T>
   struct UnmuteMessage
   {
-    std::atomic<UnmuteMessage*> next;
+    std::atomic<UnmuteMessage*> next{nullptr};
     T* cown;
 
     UnmuteMessage(T* cown_) : cown(cown_) {}
