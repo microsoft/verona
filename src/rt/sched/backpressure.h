@@ -109,54 +109,46 @@ namespace verona::rt
    */
   class Backpressure
   {
-    /**
-     * Backpressure bits contain the following fields:
-     *   [31:31] muted
-     *   [30:30] needs_token
-     *   [29:24] (unused)
-     *   [23:08] load_history
-     *   [07:00] current_load
-     *
-     * The `muted` bit indicates if a cown is currently muted.
-     *
-     * The `needs_token` bit indicates if the token message is not in a cown's
-     * queue and that a new token message should be added if it runs another
-     * message.
-     *
-     * The 16-bit `load_history` field is a ring buffer with a capacity for 4
-     * 4-bit entries.
-     *
-     * The 8-bit load field tracks an approximation of a cown's message queue
-     * depth as a count of messages processed between token messages falling out
-     * of the queue. When the token message falls out, the `reset_load()`
-     * function will push the upper nibble of the current load into the load
-     * history ring buffer.
-     */
-
-    static constexpr uint32_t muted_mask = bits::one_at_bit(31);
-    static constexpr uint32_t needs_token_mask = bits::one_at_bit(30);
-    static constexpr uint32_t unused_mask = 0x3f'0000'00;
-    static constexpr uint32_t load_hist_mask = 0x00'ffff'00;
-    static constexpr uint32_t current_load_mask = 0x00'0000'ff;
-
-    static_assert(
-      (muted_mask ^ needs_token_mask ^ unused_mask ^ load_hist_mask ^
-       current_load_mask) == (uint32_t)~0);
-
     // Load at which cown is overloaded.
     static constexpr uint32_t overload_threshold = 800;
     // Load at which a mutor triggers unmuting, if not muted.
     static constexpr uint32_t unmute_threshold = 100;
 
-    uint32_t bits = 0 | needs_token_mask;
+    /**
+     * Tracks an approximation of a cown's message queue depth as a count of
+     * messages processed between token messages falling out of the queue. When
+     * the token message falls out, the `reset_load()` function will push the
+     * upper nibble of the current load into the load history ring buffer.
+     */
+    uint32_t _current_load : 8;
+    /**
+     * Ring buffer with a capacity for 4 4-bit entries.
+     */
+    uint32_t _load_hist : 16;
+    /**
+     * Reserved for future use.
+     */
+    uint32_t : 6;
+    /**
+     * Indicates if the token message is not in a cown's queue and that a new
+     * token message should be added if it runs another message.
+     */
+    uint32_t _needs_token : 1;
+    /**
+     * Indicates if a cown is currently muted.
+     */
+    uint32_t _muted : 1;
 
   public:
+    Backpressure() : _current_load(0), _load_hist(0), _needs_token(1), _muted(0)
+    {}
+
     /**
      * Return true if this cown is muted.
      */
     inline bool muted() const
     {
-      return (bits & muted_mask) != 0;
+      return _muted != 0;
     }
 
     /**
@@ -165,7 +157,7 @@ namespace verona::rt
      */
     inline bool needs_token() const
     {
-      return (bits & needs_token_mask) != 0;
+      return _needs_token != 0;
     }
 
     /**
@@ -174,7 +166,7 @@ namespace verona::rt
      */
     inline uint8_t current_load() const
     {
-      return bits & current_load_mask;
+      return _current_load;
     }
 
     /**
@@ -186,10 +178,10 @@ namespace verona::rt
       // Add the current load to the 4 upper nibbles stored as load history. The
       // load history could be more efficiently compressed, but the clang SLP
       // vectorizer optimizes this nicely with AVX2 instructions.
-      const uint32_t h3 = bits::extract<23, 20>(bits) << 4;
-      const uint32_t h2 = bits::extract<19, 16>(bits) << 4;
-      const uint32_t h1 = bits::extract<15, 12>(bits) << 4;
-      const uint32_t h0 = bits::extract<11, 8>(bits) << 4;
+      const uint32_t h3 = bits::extract<15, 12>(_load_hist) << 4;
+      const uint32_t h2 = bits::extract<11, 8>(_load_hist) << 4;
+      const uint32_t h1 = bits::extract<7, 4>(_load_hist) << 4;
+      const uint32_t h0 = bits::extract<3, 0>(_load_hist) << 4;
       return (h3 + h2 + h1 + h0) | current_load();
     }
 
@@ -225,7 +217,7 @@ namespace verona::rt
     inline void set_muted()
     {
       assert(!muted());
-      bits |= muted_mask;
+      _muted = 1;
     }
 
     /**
@@ -234,7 +226,7 @@ namespace verona::rt
     inline void unset_muted()
     {
       assert(muted());
-      bits &= ~muted_mask;
+      _muted = 0;
     }
 
     /**
@@ -242,7 +234,7 @@ namespace verona::rt
      */
     inline void set_needs_token()
     {
-      bits &= ~needs_token_mask;
+      _needs_token = 1;
     }
 
     /**
@@ -250,7 +242,7 @@ namespace verona::rt
      */
     inline void unset_needs_token()
     {
-      bits |= needs_token_mask;
+      _needs_token = 0;
     }
 
     /**
@@ -258,8 +250,7 @@ namespace verona::rt
      */
     inline void inc_load()
     {
-      if (current_load() < 0xff)
-        bits++;
+      _current_load += 1;
     }
 
     /**
@@ -267,10 +258,17 @@ namespace verona::rt
      */
     inline void reset_load()
     {
-      const uint32_t hist = (bits & 0x00'0fff'f0) << 4;
-      bits = (bits & 0xff'0000'00) | hist;
+      _load_hist &= 0x0fff;
+      _load_hist <<= 4;
+      _load_hist |= (_current_load >> 4);
+      _current_load = 0;
     }
   };
+
+  static_assert((sizeof(Backpressure) == 4) && (alignof(Backpressure) == 4));
+  static_assert(
+    (sizeof(Backpressure) == sizeof(std::atomic<Backpressure>)) &&
+    (alignof(Backpressure) == alignof(std::atomic<Backpressure>)));
 
   template<typename T>
   struct UnmuteMessage
@@ -285,9 +283,4 @@ namespace verona::rt
       return sizeof(UnmuteMessage<T>);
     }
   };
-
-  static_assert((sizeof(Backpressure) == 4) && (alignof(Backpressure) == 4));
-  static_assert(
-    (sizeof(Backpressure) == sizeof(std::atomic<Backpressure>)) &&
-    (alignof(Backpressure) == alignof(std::atomic<Backpressure>)));
 }
