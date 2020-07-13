@@ -214,7 +214,7 @@ namespace verona::rt
         if (
           (state == ThreadState::PreScan) || (state == ThreadState::Scan) ||
           (state == ThreadState::AllInScan))
-        { // Messages in this cowns queue must be scanned.
+        { // Messages in this cown's queue must be scanned.
           cown->schedule();
           continue;
         }
@@ -238,17 +238,15 @@ namespace verona::rt
     void mute_map_scan(bool force = false)
     {
       // Handle unmute queue first.
-      while (true)
+      while (unmute_q.peek() != nullptr)
       {
-        bool notify;
-        auto* msg = unmute_q.dequeue(alloc, notify);
-        if (msg == nullptr)
-          break;
-
-        if (msg->cown->backpressure.load(std::memory_order_acquire).muted())
-          unmute_cown(msg->cown);
-
-        msg->cown->weak_release(alloc);
+        auto* cown = unmute_q.dequeue(alloc)->cown;
+        if (!cown->backpressure.load(std::memory_order_acquire).muted())
+        {
+          cown->weak_release(alloc);
+          continue;
+        }
+        unmute_cown(cown, true);
       }
 
       for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
@@ -279,7 +277,7 @@ namespace verona::rt
      * Unmute an individual cown. If the cown does not exist in our mute map,
      * request that the next scheduler thread unmute it.
      */
-    void unmute_cown(T* cown)
+    void unmute_cown(T* cown, bool has_weak_ref)
     {
       for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
       {
@@ -287,6 +285,9 @@ namespace verona::rt
         auto it = mute_set.find(cown);
         if (it != mute_set.end())
         {
+          if (has_weak_ref)
+            cown->weak_release(alloc);
+
           unmute_local_cown(cown);
           mute_set.erase(it);
           return;
@@ -294,7 +295,9 @@ namespace verona::rt
       }
       // We are not responsible for unmuting this cown, so a request to unmute
       // it is sent to the next scheduler thread.
-      cown->weak_acquire();
+      if (!has_weak_ref)
+        cown->weak_acquire();
+
       next->unmute_q.enqueue(new (alloc->alloc<sizeof(UnmuteMessage<T>)>())
                                UnmuteMessage<T>(cown));
     }
@@ -464,6 +467,12 @@ namespace verona::rt
       assert(mute_map.size() == 0);
 
       Systematic::cout() << "Begin teardown (phase 1)" << std::endl;
+
+      while (unmute_q.peek() != nullptr)
+      {
+        auto* msg = unmute_q.dequeue(alloc);
+        msg->cown->weak_release(alloc);
+      }
 
       cown = list;
       while (cown != nullptr)

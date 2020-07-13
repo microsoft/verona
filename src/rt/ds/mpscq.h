@@ -215,6 +215,22 @@ namespace verona::rt
     }
 
     /**
+     * Dequeues (removes) an element from the queue
+     *
+     * Returns nullptr if the queue is empty.
+     *
+     * If it returns a message, will delete the previous message.
+     *
+     * Messages are deallocated after the next message is dequeued. This ensures
+     * that there is always a message in the queue.
+     **/
+    T* dequeue(snmalloc::Alloc* alloc)
+    {
+      bool notify;
+      return dequeue(alloc, notify);
+    }
+
+    /**
      * Used to find the first element in the queue. Only safe to use in the
      * consumer.
      **/

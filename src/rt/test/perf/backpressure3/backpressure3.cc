@@ -106,6 +106,8 @@ struct Send : public VAction<Send>
 
     if ((timer::now() - s->start) < s->duration)
       Cown::schedule<Send>(s, s);
+    else
+      Scheduler::want_ld();
   }
 };
 
