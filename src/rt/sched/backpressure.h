@@ -109,14 +109,6 @@ namespace verona::rt
    */
   class Backpressure
   {
-    static constexpr uint32_t current_load_mask = 0x00'0000'ff;
-    static constexpr uint32_t load_hist_mask = 0x00'ffff'00;
-    static constexpr uint32_t muted_mask = 0x80'0000'00;
-    static constexpr uint32_t needs_token_mask = 0x40'0000'00;
-
-    static constexpr uint32_t overload_threshold = 800;
-    static constexpr uint32_t unmute_threshold = 100;
-
     /**
      * Backpressure bits contain the following fields:
      *   [31:31] muted
@@ -140,6 +132,22 @@ namespace verona::rt
      * function will push the upper nibble of the current load into the load
      * history ring buffer.
      */
+
+    static constexpr uint32_t muted_mask = bits::one_at_bit(31);
+    static constexpr uint32_t needs_token_mask = bits::one_at_bit(30);
+    static constexpr uint32_t unused_mask = 0x3f'0000'00;
+    static constexpr uint32_t load_hist_mask = 0x00'ffff'00;
+    static constexpr uint32_t current_load_mask = 0x00'0000'ff;
+
+    static_assert(
+      (muted_mask ^ needs_token_mask ^ unused_mask ^ load_hist_mask ^
+       current_load_mask) == (uint32_t)~0);
+
+    // Load at which cown is overloaded.
+    static constexpr uint32_t overload_threshold = 800;
+    // Load at which a mutor triggers unmuting, if not muted.
+    static constexpr uint32_t unmute_threshold = 100;
+
     uint32_t bits = 0 | needs_token_mask;
 
   public:
@@ -178,10 +186,10 @@ namespace verona::rt
       // Add the current load to the 4 upper nibbles stored as load history. The
       // load history could be more efficiently compressed, but the clang SLP
       // vectorizer optimizes this nicely with AVX2 instructions.
-      const uint32_t h3 = (bits & 0x00'f000'00) >> 16;
-      const uint32_t h2 = (bits & 0x00'0f00'00) >> 12;
-      const uint32_t h1 = (bits & 0x00'00f0'00) >> 8;
-      const uint32_t h0 = (bits & 0x00'000f'00) >> 4;
+      const uint32_t h3 = bits::extract<23, 20>(bits) << 4;
+      const uint32_t h2 = bits::extract<19, 16>(bits) << 4;
+      const uint32_t h1 = bits::extract<15, 12>(bits) << 4;
+      const uint32_t h0 = bits::extract<11, 8>(bits) << 4;
       return (h3 + h2 + h1 + h0) | current_load();
     }
 
@@ -277,4 +285,9 @@ namespace verona::rt
       return sizeof(UnmuteMessage<T>);
     }
   };
+
+  static_assert((sizeof(Backpressure) == 4) && (alignof(Backpressure) == 4));
+  static_assert(
+    (sizeof(Backpressure) == sizeof(std::atomic<Backpressure>)) &&
+    (alignof(Backpressure) == alignof(std::atomic<Backpressure>)));
 }

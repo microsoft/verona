@@ -783,7 +783,7 @@ namespace verona::rt
      * Return true if any senders are overloaded or if any sender is in the
      * receiver set.
      */
-    static inline bool backpressure_priority(
+    static inline bool backpressure_has_priority(
       const MessageBody& senders, const MessageBody& receivers)
     {
       for (size_t s = 0; s < senders.count; s++)
@@ -816,7 +816,7 @@ namespace verona::rt
     static inline void
     backpressure_scan(const MessageBody& senders, const MessageBody& receivers)
     {
-      if (backpressure_priority(senders, receivers))
+      if (backpressure_has_priority(senders, receivers))
       { // Unmute any muted receivers.
         for (size_t r = 0; r < receivers.count; r++)
         {
