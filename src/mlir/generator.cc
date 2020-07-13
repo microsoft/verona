@@ -135,19 +135,20 @@ namespace mlir::verona
   // ===================================================== AST -> MLIR
   mlir::Location Generator::getLocation(const ::ast::Ast& ast)
   {
+    auto path = getPath(ast);
     return builder.getFileLineColLoc(
-      Identifier::get(ast->path, &context), ast->line, ast->column);
+      Identifier::get(path.file, &context), path.line, path.column);
   }
 
   llvm::Error Generator::parseModule(const ::ast::Ast& ast)
   {
-    assert(ast->tag == NodeKind::ClassDef && "Bad node");
+    assert(isClass(ast) && "Bad node");
     module = mlir::ModuleOp::create(getLocation(ast));
     // TODO: Support more than just functions at the module level
-    auto body = findNode(ast, NodeKind::TypeBody);
-    for (auto f : body.lock()->nodes)
+    auto body = getClassBody(ast);
+    for (auto f : getSubNodes(body))
     {
-      auto fun = parseFunction(f);
+      auto fun = parseFunction(f.lock());
       if (auto err = fun.takeError())
         return err;
       module->push_back(*fun);
@@ -157,7 +158,7 @@ namespace mlir::verona
 
   llvm::Expected<mlir::FuncOp> Generator::parseProto(const ::ast::Ast& ast)
   {
-    assert(ast->tag == NodeKind::Function && "Bad node");
+    assert(isFunction(ast) && "Bad node");
     auto name = getFunctionName(ast);
     if (functionTable.inScope(name))
       return functionTable.lookup(name);
@@ -166,8 +167,11 @@ namespace mlir::verona
     auto constraints = getFunctionConstraints(ast);
     for (auto c : constraints)
     {
-      auto alias = getTokenValue(findNode(c, NodeKind::ID));
-      auto ty = findNode(c, NodeKind::OfType);
+      // This is wrong. Constraints are not aliases, but with
+      // the oversimplified representaiton we have and the fluid
+      // state of the type system, this will "work" for now.
+      auto alias = getID(c);
+      auto ty = getType(c);
       typeTable.insert(alias, parseType(ty.lock()));
     }
 
@@ -187,7 +191,7 @@ namespace mlir::verona
 
   llvm::Expected<mlir::FuncOp> Generator::parseFunction(const ::ast::Ast& ast)
   {
-    assert(ast->tag == NodeKind::Function && "Bad node");
+    assert(isFunction(ast) && "Bad node");
 
     // Declare function signature
     TypeScopeT alias_scope(typeTable);
@@ -209,8 +213,7 @@ namespace mlir::verona
     assert(args.size() == argVals.size() && "Argument mismatch");
     for (auto var_val : llvm::zip(args, argVals))
     {
-      llvm::StringRef name =
-        findNode(std::get<0>(var_val).lock(), NodeKind::ID).lock()->token;
+      auto name = getID(std::get<0>(var_val).lock());
       auto value = std::get<1>(var_val);
       declareVariable(name, value);
     }
@@ -240,7 +243,7 @@ namespace mlir::verona
 
   mlir::Type Generator::parseType(const ::ast::Ast& ast)
   {
-    assert(ast->tag == NodeKind::OfType && "Bad node");
+    assert(isType(ast) && "Bad node");
     auto desc = getTypeDesc(ast);
     if (desc.empty())
       return builder.getNoneType();
@@ -270,11 +273,10 @@ namespace mlir::verona
 
   llvm::Expected<mlir::Value> Generator::parseBlock(const ::ast::Ast& ast)
   {
-    auto seq = findNode(ast, NodeKind::Seq);
     mlir::Value last;
-    for (auto sub : seq.lock()->nodes)
+    for (auto sub : getSubNodes(ast))
     {
-      auto node = parseNode(sub);
+      auto node = parseNode(sub.lock());
       if (auto err = node.takeError())
         return std::move(err);
       last = *node;
@@ -284,10 +286,10 @@ namespace mlir::verona
 
   llvm::Expected<mlir::Value> Generator::parseNode(const ::ast::Ast& ast)
   {
-    if (ast->is_token)
+    if (isValue(ast))
       return parseValue(ast);
 
-    switch (ast->tag)
+    switch (getKind(ast))
     {
       case NodeKind::Localref:
         return parseValue(ast);
@@ -301,38 +303,38 @@ namespace mlir::verona
         return parseCall(ast);
       default:
         return parsingError(
-          "Node " + ast->name + " not implemented yet", getLocation(ast));
+          "Node " + getName(ast) + " not implemented yet", getLocation(ast));
     }
   }
 
   llvm::Expected<mlir::Value> Generator::parseValue(const ::ast::Ast& ast)
   {
-    assert(ast->is_token && "Bad node");
+    assert(isValue(ast) && "Bad node");
 
     // Variables
-    if (ast->tag == NodeKind::Localref)
+    if (isLocalRef(ast))
     {
-      auto var = symbolTable.lookup(ast->token);
+      auto var = symbolTable.lookup(getTokenValue(ast));
       return var;
     }
     // TODO: Literals need attributes and types
     return parsingError(
-      "Value [" + ast->name + " = " + ast->token + "] not implemented yet",
+      "Value [" + getName(ast) + " = " + getTokenValue(ast) +
+        "] not implemented yet",
       getLocation(ast));
   }
 
   llvm::Expected<mlir::Value> Generator::parseAssign(const ::ast::Ast& ast)
   {
-    assert(ast->tag == NodeKind::Assign && "Bad node");
+    assert(isAssign(ast) && "Bad node");
 
     // Must be a Let declaring a variable (for now).
-    auto let = findNode(ast, NodeKind::Let);
-    auto local = findNode(let, NodeKind::Local);
-    llvm::StringRef name = getTokenValue(local);
+    auto let = getLHS(ast);
+    auto name = getLocalName(let);
 
     // The right-hand side can be any expression
     // This is the value and we update the variable
-    auto rhs = parseNode(ast->nodes[1]);
+    auto rhs = parseNode(getRHS(ast).lock());
     if (auto err = rhs.takeError())
       return std::move(err);
     declareVariable(name, *rhs);
@@ -341,9 +343,8 @@ namespace mlir::verona
 
   llvm::Expected<mlir::Value> Generator::parseCall(const ::ast::Ast& ast)
   {
-    assert(ast->tag == NodeKind::Call && "Bad node");
-    auto op = findNode(ast, NodeKind::Function).lock();
-    llvm::StringRef name = op->token;
+    assert(isCall(ast) && "Bad node");
+    auto name = getID(ast);
 
     // All operations are calls, only calls to previously defined functions
     // are function calls. FIXME: Is this really what we want?
@@ -359,10 +360,10 @@ namespace mlir::verona
     // FIXME: Make this able to discern different types of operations.
     if (name == "+")
     {
-      auto arg0 = parseNode(findNode(ast, NodeKind::Localref).lock());
+      auto arg0 = parseNode(getOperand(ast, 0).lock());
       if (auto err = arg0.takeError())
         return std::move(err);
-      auto arg1 = parseNode(findNode(ast, NodeKind::Args).lock()->nodes[0]);
+      auto arg1 = parseNode(getOperand(ast, 1).lock());
       if (auto err = arg1.takeError())
         return std::move(err);
       auto dialect = Identifier::get("type", &context);
@@ -370,7 +371,7 @@ namespace mlir::verona
       return genOperation(getLocation(ast), "verona.add", {*arg0, *arg1}, type);
     }
     return parsingError(
-      "Operation '" + name.str() + "' not implemented yet", getLocation(op));
+      "Operation '" + name + "' not implemented yet", getLocation(ast));
   }
 
   llvm::Expected<mlir::Value> Generator::genOperation(
