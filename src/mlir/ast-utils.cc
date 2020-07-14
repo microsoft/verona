@@ -53,8 +53,7 @@ namespace mlir::verona::ASTInterface
       ptr = ptr->nodes[0];
 
     // Return the nodes
-    for (auto n : ptr->nodes)
-      nodes.push_back(n);
+    nodes.insert(nodes.end(), ptr->nodes.begin(), ptr->nodes.end());
     return nodes;
   }
 
