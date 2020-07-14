@@ -144,6 +144,12 @@ namespace mlir::verona::ASTInterface
   ::ast::WeakAst getLHS(::ast::WeakAst ast);
   /// Return the right-hand side of an assignment
   ::ast::WeakAst getRHS(::ast::WeakAst ast);
+  /// Return the number of operands in an operation
+  size_t numOperands(::ast::WeakAst ast);
+  /// Return true if node an unary operation
+  bool isUnary(::ast::WeakAst ast);
+  /// Return true if node an binary operation
+  bool isBinary(::ast::WeakAst ast);
   /// Return the n-th operand of the operation
   ::ast::WeakAst getOperand(::ast::WeakAst ast, size_t n);
 }
