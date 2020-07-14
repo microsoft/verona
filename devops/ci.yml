@@ -50,6 +50,7 @@ jobs:
     LLVMCommit: $[ dependencies.ConfigureCIRun.outputs['setVarStep.LLVMCommit'] ]
   pool:
     vmImage: 'ubuntu-18.04'
+  timeoutInMinutes: 120
   strategy:
     matrix:
       # GCC Release:
@@ -125,6 +126,7 @@ jobs:
     LLVMCommit: $[ dependencies.ConfigureCIRun.outputs['setVarStep.LLVMCommit'] ]
   pool:
     vmImage: 'windows-2019'
+  timeoutInMinutes: 120
   strategy:
     matrix:
       Release:
@@ -188,6 +190,7 @@ jobs:
     LLVMCommit: $[ dependencies.ConfigureCIRun.outputs['setVarStep.LLVMCommit'] ]
   pool:
     vmImage: 'macOS-10.14'
+  timeoutInMinutes: 120
   strategy:
     matrix:
       Release:
