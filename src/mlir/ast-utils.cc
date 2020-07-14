@@ -29,6 +29,11 @@ namespace mlir::verona::ASTInterface
     return getKind(ast) == kind;
   }
 
+  bool isAny(::ast::WeakAst ast, std::vector<NodeKind>& kinds)
+  {
+    return std::find(kinds.begin(), kinds.end(), getKind(ast)) != kinds.end();
+  }
+
   ::ast::WeakAst findNode(::ast::WeakAst ast, NodeType type)
   {
     assert(!isValue(ast) && "Bad node");
@@ -61,6 +66,12 @@ namespace mlir::verona::ASTInterface
   bool isValue(::ast::WeakAst ast)
   {
     return ast.lock()->is_token;
+  }
+
+  bool isConstant(::ast::WeakAst ast)
+  {
+    std::vector<NodeKind> kinds{NodeKind::Integer, NodeKind::Float};
+    return isValue(ast) && isAny(ast, kinds);
   }
 
   bool isLocalRef(::ast::WeakAst ast)
