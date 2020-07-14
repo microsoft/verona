@@ -1,0 +1,8 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+f(x)
+{
+  let a = 42;
+  let b = 3.1415;
+}

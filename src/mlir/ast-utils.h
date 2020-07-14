@@ -67,6 +67,7 @@ namespace mlir::verona::ASTInterface
     Integer = peg::str2tag("int"),
     Local = peg::str2tag("local"),
     Localref = peg::str2tag("localref"),
+    Float = peg::str2tag("float"),
   };
 
   // ================================================= Generic Helpers
@@ -85,6 +86,8 @@ namespace mlir::verona::ASTInterface
   unsigned int getKind(::ast::WeakAst ast);
   /// Return true if node is of a certain kind
   bool isA(::ast::WeakAst ast, NodeKind kind);
+  /// Return true if node is of any kind in a list
+  bool isAny(::ast::WeakAst ast, std::vector<NodeKind>& kind);
   /// Find a sub-node of tag 'type'
   ::ast::WeakAst findNode(::ast::WeakAst ast, NodeType type);
   /// Return a list of sub-nodes
@@ -93,6 +96,8 @@ namespace mlir::verona::ASTInterface
   // ================================================= Value Helpers
   /// Return true if node is a value
   bool isValue(::ast::WeakAst ast);
+  /// Return true if node is a value
+  bool isConstant(::ast::WeakAst ast);
   /// Return true if node is a local variable reference
   bool isLocalRef(::ast::WeakAst ast);
   /// Get the string value of a token

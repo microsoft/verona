@@ -309,15 +309,27 @@ namespace mlir::verona
 
   llvm::Expected<mlir::Value> Generator::parseValue(const ::ast::Ast& ast)
   {
-    assert(isValue(ast) && "Bad node");
-
     // Variables
     if (isLocalRef(ast))
+      return symbolTable.lookup(getTokenValue(ast));
+
+    // Constants
+    if (isConstant(ast))
     {
-      auto var = symbolTable.lookup(getTokenValue(ast));
-      return var;
+      // We lower each constant to their own values for now as we
+      // don't yet have a good scheme for the types and MLIR can't
+      // have attributes from unknown types. Once we set on a type
+      // system compatibility between Verona and MLIR, we can change
+      // this to emit the attribute right away.
+      auto type = mlir::OpaqueType::get(
+        Identifier::get("type", &context), getName(ast), &context);
+      auto value = getTokenValue(ast);
+      return genOperation(
+        getLocation(ast), "verona.constant(" + value + ")", {}, type);
     }
+
     // TODO: Literals need attributes and types
+    assert(isValue(ast) && "Bad node");
     return parsingError(
       "Value [" + getName(ast) + " = " + getTokenValue(ast) +
         "] not implemented yet",
