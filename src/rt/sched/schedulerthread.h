@@ -86,7 +86,6 @@ namespace verona::rt
     size_t total_cowns = 0;
     std::atomic<size_t> free_cowns = 0;
 
-    MPSCQ<UnmuteMessage<T>> unmute_q;
     ObjectMap<std::pair<T*, ObjectMap<T*>*>> mute_map;
     typename T::MessageBody* message_body = nullptr;
     T* mutor = nullptr;
@@ -103,8 +102,6 @@ namespace verona::rt
       mute_map{ThreadAlloc::get()}
     {
       token_cown->set_owning_thread(this);
-      unmute_q.init(new (ThreadAlloc::get()->alloc<sizeof(UnmuteMessage<T>)>())
-                      UnmuteMessage<T>(nullptr));
     }
 
     ~SchedulerThread()
@@ -113,10 +110,6 @@ namespace verona::rt
         t.join();
 
       assert(mute_map.size() == 0);
-
-      auto* stub = unmute_q.destroy();
-      assert(stub->next == nullptr);
-      alloc->dealloc<sizeof(UnmuteMessage<T>)>(stub);
     }
 
     template<typename... Args>
@@ -219,12 +212,17 @@ namespace verona::rt
           continue;
         }
 
-        Systematic::cout() << "Mute " << cown << std::endl;
         auto bp = cown->backpressure.load(std::memory_order_relaxed);
+        assert(!bp.muted());
+
+        yield();
+        assert(cown->backpressure.load(std::memory_order_acquire) == bp);
+
+        Systematic::cout() << "Mute " << cown << std::endl;
         bp.set_muted();
         cown->backpressure.store(bp, std::memory_order_release);
-        T::acquire(cown);
-        mute_set.insert(alloc, cown);
+        if (mute_set.insert(alloc, cown).first)
+          T::acquire(cown);
       }
 
       alloc->dealloc(cowns, count * sizeof(T*));
@@ -237,18 +235,6 @@ namespace verona::rt
      */
     void mute_map_scan(bool force = false)
     {
-      // Handle unmute queue first.
-      while (unmute_q.peek() != nullptr)
-      {
-        auto* cown = unmute_q.dequeue(alloc)->cown;
-        if (!cown->backpressure.load(std::memory_order_acquire).muted())
-        {
-          cown->weak_release(alloc);
-          continue;
-        }
-        unmute_cown(cown, true);
-      }
-
       for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
       {
         auto* m = entry.key();
@@ -259,7 +245,8 @@ namespace verona::rt
           auto& mute_set = *entry.value();
           for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
           {
-            unmute_local_cown(it.key());
+            unmute_cown(it.key());
+            T::release(alloc, it.key());
             mute_set.erase(it);
           }
           m->weak_release(alloc);
@@ -274,46 +261,26 @@ namespace verona::rt
     }
 
     /**
-     * Unmute an individual cown. If the cown does not exist in our mute map,
-     * request that the next scheduler thread unmute it.
+     * Unmute an individual cown.
      */
-    void unmute_cown(T* cown, bool has_weak_ref)
+    inline void unmute_cown(T* cown)
     {
-      for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
-      {
-        auto& mute_set = *entry.value();
-        auto it = mute_set.find(cown);
-        if (it != mute_set.end())
-        {
-          if (has_weak_ref)
-            cown->weak_release(alloc);
-
-          unmute_local_cown(cown);
-          mute_set.erase(it);
-          return;
-        }
-      }
-      // We are not responsible for unmuting this cown, so a request to unmute
-      // it is sent to the next scheduler thread.
-      if (!has_weak_ref)
-        cown->weak_acquire();
-
-      next->unmute_q.enqueue(new (alloc->alloc<sizeof(UnmuteMessage<T>)>())
-                               UnmuteMessage<T>(cown));
-    }
-
-    /**
-     * Unmute a cown that exists in this mute map.
-     */
-    inline void unmute_local_cown(T* cown)
-    {
-      Systematic::cout() << "Unmute " << cown << std::endl;
       auto bp = cown->backpressure.load(std::memory_order_relaxed);
-      bp.unset_muted();
-      cown->backpressure.store(bp, std::memory_order_release);
+      Backpressure bp_unmuted;
+      do
+      {
+        if (!bp.muted())
+          return;
+
+        bp_unmuted = bp;
+        bp_unmuted.unset_muted();
+        yield();
+      } while (!cown->backpressure.compare_exchange_weak(
+        bp, bp_unmuted, std::memory_order_acq_rel));
+
+      Systematic::cout() << "Unmute " << cown << std::endl;
       cown->queue.wake();
       cown->schedule();
-      T::release(alloc, cown);
     }
 
     /**
@@ -468,12 +435,6 @@ namespace verona::rt
 
       Systematic::cout() << "Begin teardown (phase 1)" << std::endl;
 
-      while (unmute_q.peek() != nullptr)
-      {
-        auto* msg = unmute_q.dequeue(alloc);
-        msg->cown->weak_release(alloc);
-      }
-
       cown = list;
       while (cown != nullptr)
       {
@@ -606,7 +567,7 @@ namespace verona::rt
           UNUSED(tsc);
         }
 #endif
-          if ((mute_map.size() != 0) || (unmute_q.peek() != nullptr))
+          if (mute_map.size() != 0)
         {
           mute_map_scan(true);
           continue;

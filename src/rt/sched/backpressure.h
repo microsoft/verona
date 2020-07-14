@@ -61,18 +61,20 @@
  * ## Tracking Muted Cowns
  *
  * Once a scheduler thread completes a message action that would result in
- * muting the cowns running the messsage, the cowns are acquired by the
- * scheduler thread and placed in a "mute map" on the scheduler thread. The mute
- * map is a mapping from mutor => mute set, where "mute set" refers to the set
- * of cowns muted by a mutor.
+ * muting the cowns running the messsage, the cowns are marked as muted,
+ * acquired by the scheduler thread, and placed in a "mute map" on the scheduler
+ * thread. The mute map is a mapping from mutor => mute set, where "mute set"
+ * refers to the set of cowns muted by a mutor.
  *
  * A mutor may exist as a key in mutiple mute maps, since cowns may continue
  * sending messages to it on other threads and then be subsequently muted by
- * that thread on which the senders were running. However, a muted cown must
- * only exist in a mute set on the scheduler thread that muted it.
+ * that thread on which the senders were running. A muted cown may also exist in
+ * multiple mute sets across scheduler threads. This would result from an unmute
+ * via a priority message followed by a remuting the cown before it has been
+ * erased from the original mute set.
  *
- * A muted cown may not be scheduled or collected until they are removed from
- * their scheduler thread's mute map and rescheduled by that thread ("unmuted").
+ * A muted cown may not be scheduled or collected until they are marked as no
+ * longer muted and recheduled ("unmuted").
  *
  * Each scheduler thread scans the mutors of its mute map on each iteration of
  * the run loop. If any mutor is not muted and is not overloaded, all cowns in
@@ -93,7 +95,7 @@
  * We cannot ensure that a cown unmuted by a priority message will only handle
  * that message required for progress before becoming muted once again. The
  * perf-backpressure3 test shows a scenario where runaway receiver queue growth
- * could be prevented. However, a general solution would require reordering the
+ * can be prevented. However, a general solution would require reordering the
  * messages processed by the producer, which would break causal message
  * ordering.
  */
@@ -142,6 +144,11 @@ namespace verona::rt
   public:
     Backpressure() : _current_load(0), _load_hist(0), _needs_token(1), _muted(0)
     {}
+
+    bool operator==(Backpressure& other) const
+    {
+      return *(uint32_t*)this == *(uint32_t*)&other;
+    }
 
     /**
      * Return true if this cown is muted.
@@ -269,18 +276,4 @@ namespace verona::rt
   static_assert(
     (sizeof(Backpressure) == sizeof(std::atomic<Backpressure>)) &&
     (alignof(Backpressure) == alignof(std::atomic<Backpressure>)));
-
-  template<typename T>
-  struct UnmuteMessage
-  {
-    std::atomic<UnmuteMessage*> next{nullptr};
-    T* cown;
-
-    UnmuteMessage(T* cown_) : cown(cown_) {}
-
-    size_t size() const
-    {
-      return sizeof(UnmuteMessage<T>);
-    }
-  };
 }

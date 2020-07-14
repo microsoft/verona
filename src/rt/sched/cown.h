@@ -822,7 +822,7 @@ namespace verona::rt
         {
           auto* receiver = receivers.cowns[r];
           if (receiver->backpressure.load(std::memory_order_acquire).muted())
-            Scheduler::local()->unmute_cown(receiver, false);
+            Scheduler::local()->unmute_cown(receiver);
         }
         return;
       }
