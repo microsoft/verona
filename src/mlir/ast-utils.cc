@@ -240,16 +240,33 @@ namespace mlir::verona::ASTInterface
     return ast.lock()->nodes[1];
   }
 
-  ::ast::WeakAst getOperand(::ast::WeakAst ast, size_t n)
+  size_t numOperands(::ast::WeakAst ast)
   {
     assert(isCall(ast) && "Bad node");
+    if (!isValue(ast.lock()->nodes[2]))
+      return 0;
+    auto args = findNode(ast, NodeKind::Args);
+    return args.lock()->nodes.size() + 1;
+  }
+
+  bool isUnary(::ast::WeakAst ast)
+  {
+    return numOperands(ast) == 1;
+  }
+  bool isBinary(::ast::WeakAst ast)
+  {
+    return numOperands(ast) == 2;
+  }
+
+  ::ast::WeakAst getOperand(::ast::WeakAst ast, size_t n)
+  {
+    assert(n < numOperands(ast) && "Bad offset");
     auto ptr = ast.lock();
     // Calls have the first operand after 'typeargs' (3rd place)
     if (n == 0)
       return ptr->nodes[2];
     // All others in 'args'
-    auto args = ptr->nodes[3];
-    assert(n <= args->nodes.size() && "Bad offset");
-    return args->nodes[n - 1];
+    auto args = findNode(ast, NodeKind::Args);
+    return args.lock()->nodes[n - 1];
   }
 }

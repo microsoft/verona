@@ -368,20 +368,78 @@ namespace mlir::verona
     }
 
     // Else, it should be an operation that we can lower natively
-    // TODO: Separate between unary, binary, ternary, etc.
-    // FIXME: Make this able to discern different types of operations.
-    if (name == "+")
+    if (isUnary(ast))
     {
+      return parsingError(
+        "Unary Operation '" + name + "' not implemented yet", getLocation(ast));
+    }
+    else if (isBinary(ast))
+    {
+      // Get bpth arguments
       auto arg0 = parseNode(getOperand(ast, 0).lock());
       if (auto err = arg0.takeError())
         return std::move(err);
       auto arg1 = parseNode(getOperand(ast, 1).lock());
       if (auto err = arg1.takeError())
         return std::move(err);
+      // Type for arithmetic operations is currently unknown
       auto dialect = Identifier::get("type", &context);
       auto type = mlir::OpaqueType::get(dialect, "ret", &context);
-      return genOperation(getLocation(ast), "verona.add", {*arg0, *arg1}, type);
+      if (name == "+")
+      {
+        return genOperation(
+          getLocation(ast), "verona.add", {*arg0, *arg1}, type);
+      }
+      else if (name == "-")
+      {
+        return genOperation(
+          getLocation(ast), "verona.sub", {*arg0, *arg1}, type);
+      }
+      else if (name == "*")
+      {
+        return genOperation(
+          getLocation(ast), "verona.mul", {*arg0, *arg1}, type);
+      }
+      else if (name == "/")
+      {
+        return genOperation(
+          getLocation(ast), "verona.div", {*arg0, *arg1}, type);
+      }
+
+      // Type for comparison operations is boolean
+      type = mlir::OpaqueType::get(dialect, "bool", &context);
+      if (name == "==")
+      {
+        return genOperation(
+          getLocation(ast), "verona.eq", {*arg0, *arg1}, type);
+      }
+      else if (name == "!=")
+      {
+        return genOperation(
+          getLocation(ast), "verona.ne", {*arg0, *arg1}, type);
+      }
+      else if (name == ">")
+      {
+        return genOperation(
+          getLocation(ast), "verona.gt", {*arg0, *arg1}, type);
+      }
+      else if (name == "<")
+      {
+        return genOperation(
+          getLocation(ast), "verona.lt", {*arg0, *arg1}, type);
+      }
+      else if (name == ">=")
+      {
+        return genOperation(
+          getLocation(ast), "verona.ge", {*arg0, *arg1}, type);
+      }
+      else if (name == "<=")
+      {
+        return genOperation(
+          getLocation(ast), "verona.le", {*arg0, *arg1}, type);
+      }
     }
+
     return parsingError(
       "Operation '" + name + "' not implemented yet", getLocation(ast));
   }
