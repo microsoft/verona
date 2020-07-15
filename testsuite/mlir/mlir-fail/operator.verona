@@ -5,8 +5,8 @@ foo(a: N, b: U64 & imm): R
   where N: imm
   where R: U64 & imm
 {
-  // CHECK: Operation '-' not implemented yet at loc.*operator.verona":${LINE:+1}:11
-  let x = a - b;
+  // CHECK: Operation '?' not implemented yet at loc.*operator.verona":${LINE:+1}:11
+  let x = a ? b;
   let r: R = x;
   x
 }
