@@ -16,14 +16,14 @@
  * If a cown receives messages more quickly than it is able to process them, the
  * queue will start to grow in an unbounded fashion. Cowns that aren't able to
  * keep up with their arriving messages are marked as "overloaded". Once a cown
- * is marked as overloaded, cowns sending messages to it will be temporarily
+ * is marked as overloaded, cowns sending messages to it may be temporarily
  * descheduled ("muted"). Descheduling cowns that are sending to an overloaded
  * cown helps alleviate pressure on the it by:
  *   - Temporarily removing a source of incoming messges
  *   - Allowing more scheduler time to be spent on the overload cown rather than
  *     the descheduled ones.
  *
- * Similarly, cowns sending to cowns that have been muted will also be muted to
+ * Similarly, non-overloaded cowns sending to muted cowns may also be muted to
  * prevent runaway queue growth while the muted cown in descheduled.
  *
  * Muted cowns will be rescheduled after the receiver that triggered their
@@ -40,23 +40,52 @@
  * next period. The "load" of a cown at any time is the accumulation of messages
  * processed over multiple periods.
  *
- * ## Muting Cowns
+ * ## Backpressure Response
+ *
+ * The backpressure system is designed to respond to an overloaded cown by
+ * muting cowns that contribute to its load. However, some cowns may be
+ * temporarily unmutable in order to ensure that overload cowns make progress.
+ * In this system a cown may transition between many states as they interact
+ * with cowns contributing to the backpressure response, as shown in the
+ * following diagram:
+ *
+ *      +--------+     +-----------+
+ *  +-->|        |---->|           |---+
+ *      | Normal |     | Unmutable |   |
+ *      |        |<----|           |<--+
+ *      +--------+     +-----------+
+ *        |   ^         ^
+ *        |   |         |
+ *        v   |         |
+ *      +-------+       |
+ *      |       |-------+
+ *      | Muted |
+ *      |       |
+ *      +-------+
+ *
+ * State Properties:
+ * - Normal: The inital state of all cowns.
+ * - Muted: A muted cown may not be scheduled or deallocated.
+ * - Unmutable: An nnmutable cown may not be muted.
+ *
+ * State Transition Rules:
+ * - Cowns sending to overload/muted cowns may be muted.
+ * - A cown is unmutable so long as a message from an overloaded cown is in its
+ *   queue.
+ *
+ * ## Scanning Messages
  *
  * All messages from one set of sending cowns to a set of receiving cowns are
  * scanned to determine if the senders should be muted. The senders will be
  * muted once their action completes if all of the following are true:
  *   1. Any of the receivers are either overloaded or muted.
  *   2. The receiver set does not contain any of the senders.
- *   3. No sender is overloaded.
- *
- * A message is given "priority" if either condition 2 or 3 are false, i.e., if
- * any receiver is overloaded or is sending to itself. A priority message will
- * result in any muted receivers being unmuted so that the senders may make
- * progress sooner.
+ *   3. None of the senders are overloaded.
  *
  * If all of the above conditions are met, the first receiver that is either
  * overloaded or muted is identified as the mutor for the senders. First in this
- * case means the least cown, determined by the multimessage cown order.
+ * case means the least cown, determined by the multimessage cown order. All
+ * senders that are in the "normal" (therefore mutable) state will be muted.
  *
  * ## Tracking Muted Cowns
  *
@@ -83,7 +112,7 @@
  *
  * ## Limitations
  *
- * Fan-in/Fan-out:
+ * Prediction:
  * The backpressure system does not attempt to predict the consequences of a
  * cown sending a message before the first message is sent. Backpressure is only
  * applied to senders after they have already contributed to overloading a set
@@ -91,13 +120,15 @@
  * unchecked storm of messages to some set of receivers. In general, such
  * prediction is considered prohibitively expensive.
  *
- * Frequent Unmute for Priority:
- * We cannot ensure that a cown unmuted by a priority message will only handle
- * that message required for progress before becoming muted once again. The
- * perf-backpressure3 test shows a scenario where runaway receiver queue growth
- * can be prevented. However, a general solution would require reordering the
- * messages processed by the producer, which would break causal message
- * ordering.
+ * Deadlock Prevention:
+ * The backpressure system is designed to achieve its goals while maintaining
+ * properties of the Verona runtime, such as causal message order and deadlock
+ * freedom. Deadlock freedom limits the backpressure system because a
+ * multi-message including an overload cown may be indefinitely postponed if any
+ * other participants are muted. So, in order to prevent deadlock, the cowns
+ * that an overload cown interacts with (i.e. sends messages to or participates
+ * in multi-messages with) are unmutable so long as a message from an overloaded
+ * cown exists in its message queue.
  */
 
 #include "ds/mpscq.h"
@@ -130,19 +161,21 @@ namespace verona::rt
     /**
      * Reserved for future use.
      */
-    uint32_t : 6;
+    uint32_t : 5;
     /**
      * Indicates if the token message is not in a cown's queue and that a new
      * token message should be added if it runs another message.
      */
     uint32_t _needs_token : 1;
     /**
-     * Indicates if a cown is currently muted.
+     * Indicates if a cown is currently muted (1), unmutable (2), or
+     * unmutable-dirty (3).
      */
-    uint32_t _muted : 1;
+    uint32_t _response_state : 2;
 
   public:
-    Backpressure() : _current_load(0), _load_hist(0), _needs_token(1), _muted(0)
+    Backpressure()
+    : _current_load(0), _load_hist(0), _needs_token(1), _response_state(0)
     {}
 
     bool operator==(Backpressure& other) const
@@ -155,7 +188,24 @@ namespace verona::rt
      */
     inline bool muted() const
     {
-      return _muted != 0;
+      return _response_state == 1;
+    }
+
+    /**
+     * Return true if this cown is unmutable or unmutable-dirty.
+     */
+    inline bool unmutable() const
+    {
+      return (_response_state & 0b10) != 0;
+    }
+
+    /**
+     * Return true if this cown may become normal when the next token message is
+     * reached.
+     */
+    inline bool unmutable_dirty() const
+    {
+      return _response_state == 3;
     }
 
     /**
@@ -219,21 +269,38 @@ namespace verona::rt
     }
 
     /**
-     * Mark this cown as muted.
+     * Mark this cown as normal.
      */
-    inline void set_muted()
+    inline void set_state_normal()
     {
-      assert(!muted());
-      _muted = 1;
+      assert(muted() || unmutable_dirty());
+      _response_state = 0;
     }
 
     /**
-     * Mark this cown as not muted.
+     * Mark this cown as muted.
      */
-    inline void unset_muted()
+    inline void set_state_muted()
     {
-      assert(muted());
-      _muted = 0;
+      assert(_response_state == 0);
+      _response_state = 1;
+    }
+
+    /**
+     * Mark this cown as unmutable.
+     */
+    inline void set_state_unmutable()
+    {
+      _response_state = 2;
+    }
+
+    /**
+     * Mark this cown as unmutable-dirty.
+     */
+    inline void set_state_unmutable_dirty()
+    {
+      assert(unmutable());
+      _response_state = 3;
     }
 
     /**

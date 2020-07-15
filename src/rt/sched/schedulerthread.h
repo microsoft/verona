@@ -203,24 +203,30 @@ namespace verona::rt
       for (size_t i = 0; i < count; i++)
       {
         auto* cown = cowns[i];
+        auto bp = cown->backpressure.load(std::memory_order_relaxed);
+        assert(!bp.muted());
 
         if (
-          (state == ThreadState::PreScan) || (state == ThreadState::Scan) ||
-          (state == ThreadState::AllInScan))
+          (bp.unmutable()) || (state == ThreadState::PreScan) ||
+          (state == ThreadState::Scan) || (state == ThreadState::AllInScan))
         { // Messages in this cown's queue must be scanned.
           cown->schedule();
           continue;
         }
 
-        auto bp = cown->backpressure.load(std::memory_order_relaxed);
-        assert(!bp.muted());
-
         yield();
-        assert(cown->backpressure.load(std::memory_order_acquire) == bp);
+
+        auto bp_muted = bp;
+        bp_muted.set_state_muted();
+        if (!cown->backpressure.compare_exchange_weak(
+              bp, bp_muted, std::memory_order_acq_rel))
+        {
+          assert(!bp.muted());
+          cown->schedule();
+          continue;
+        }
 
         Systematic::cout() << "Mute " << cown << std::endl;
-        bp.set_muted();
-        cown->backpressure.store(bp, std::memory_order_release);
         if (mute_set.insert(alloc, cown).first)
           T::acquire(cown);
       }
@@ -245,7 +251,7 @@ namespace verona::rt
           auto& mute_set = *entry.value();
           for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
           {
-            unmute_cown(it.key());
+            it.key()->unmute();
             T::release(alloc, it.key());
             mute_set.erase(it);
           }
@@ -258,29 +264,6 @@ namespace verona::rt
 
       if (mute_map.size() == 0)
         mute_map.clear(alloc);
-    }
-
-    /**
-     * Unmute an individual cown.
-     */
-    inline void unmute_cown(T* cown)
-    {
-      auto bp = cown->backpressure.load(std::memory_order_relaxed);
-      Backpressure bp_unmuted;
-      do
-      {
-        if (!bp.muted())
-          return;
-
-        bp_unmuted = bp;
-        bp_unmuted.unset_muted();
-        yield();
-      } while (!cown->backpressure.compare_exchange_weak(
-        bp, bp_unmuted, std::memory_order_acq_rel));
-
-      Systematic::cout() << "Unmute " << cown << std::endl;
-      cown->queue.wake();
-      cown->schedule();
     }
 
     /**

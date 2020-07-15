@@ -779,33 +779,44 @@ namespace verona::rt
       fast_send(body, epoch);
     }
 
-    /**
-     * Return true if any senders are overloaded or if any sender is in the
-     * receiver set.
-     */
-    static inline bool backpressure_has_priority(
-      const MessageBody& senders, const MessageBody& receivers)
+    inline void unmute(bool unmutable = false)
     {
-      for (size_t s = 0; s < senders.count; s++)
+      auto bp = backpressure.load(std::memory_order_acquire);
+      Backpressure bp_unmuted;
+      bool needs_resched = false;
+      do
       {
-        const auto* sender = senders.cowns[s];
-        if (sender->backpressure.load(std::memory_order_acquire).overloaded())
-          return true;
+        needs_resched = bp.muted();
+        bp_unmuted = bp;
 
-        for (size_t r = 0; r < receivers.count; r++)
+        if (unmutable)
         {
-          const auto* receiver = receivers.cowns[r];
-          if (receiver == sender)
-            return true;
+          if (bp.unmutable() && !bp.unmutable_dirty())
+            return; // TODO: interaction with token
+
+          bp_unmuted.set_state_unmutable();
         }
-      }
+        else
+        {
+          if (!bp.muted())
+            return;
 
-#ifdef USE_SYSTEMATIC_TESTING
-      if (coin(3))
-        return true;
-#endif
+          bp_unmuted.set_state_normal();
+        }
 
-      return false;
+        yield();
+
+      } while (!backpressure.compare_exchange_weak(
+        bp, bp_unmuted, std::memory_order_acq_rel));
+
+      assert(unmutable || needs_resched);
+
+      if (!needs_resched)
+        return;
+
+      Systematic::cout() << "Unmute " << this << std::endl;
+      queue.wake();
+      schedule();
     }
 
     /**
@@ -816,15 +827,34 @@ namespace verona::rt
     static inline void
     backpressure_scan(const MessageBody& senders, const MessageBody& receivers)
     {
-      if (backpressure_has_priority(senders, receivers))
-      { // Unmute any muted receivers.
+      // Make receivers unmutable if any sender is overloaded.
+      for (size_t s = 0; s < senders.count; s++)
+      {
+        auto* sender = senders.cowns[s];
+        if (
+          !sender->backpressure.load(std::memory_order_relaxed).overloaded()
+#ifdef USE_SYSTEMATIC_TESTING
+          && !coin(3)
+#endif
+        )
+          continue;
+
         for (size_t r = 0; r < receivers.count; r++)
         {
           auto* receiver = receivers.cowns[r];
-          if (receiver->backpressure.load(std::memory_order_acquire).muted())
-            Scheduler::local()->unmute_cown(receiver);
+          receiver->unmute(true);
         }
         return;
+      }
+
+      // Ignore message if any senders are are in the set of receivers.
+      for (size_t s = 0; s < senders.count; s++)
+      {
+        for (size_t r = 0; r < receivers.count; r++)
+        {
+          if (senders.cowns[s] == receivers.cowns[r])
+            return;
+        }
       }
 
       // Mute senders if any receivers are overloaded/muted.
