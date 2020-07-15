@@ -220,13 +220,14 @@ namespace verona::rt
         bp_muted.set_state_muted();
         if (!cown->backpressure.compare_exchange_weak(
               bp, bp_muted, std::memory_order_acq_rel))
-        {
+        { // spurious failure, or a transition to unmutable
           assert(!bp.muted());
           cown->schedule();
           continue;
         }
 
         Systematic::cout() << "Mute " << cown << std::endl;
+        assert(!bp.unmutable());
         if (mute_set.insert(alloc, cown).first)
           T::acquire(cown);
       }

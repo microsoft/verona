@@ -792,7 +792,7 @@ namespace verona::rt
         if (unmutable)
         {
           if (bp.unmutable() && !bp.unmutable_dirty())
-            return; // TODO: interaction with token
+            return;
 
           bp_unmuted.set_state_unmutable();
         }
@@ -880,8 +880,70 @@ namespace verona::rt
     }
 
     /**
-     * Mute the senders participating in this message if a backpressure scan set
-     * the mutor during the action. If false is returned, the caller must
+     * Update backpressure based on the ocurrence of a token message. Return
+     * true if the current message is a token.
+     */
+    inline bool check_message_token(Alloc* alloc, MessageBody* curr)
+    {
+      auto bp = backpressure.load(std::memory_order_relaxed);
+      bool token_reached = false;
+      bool load_reset = false;
+      if (curr == nullptr)
+      {
+        Systematic::cout() << "Reached message token" << std::endl;
+        token_reached = true;
+      }
+      else
+      {
+        if (
+          (bp.needs_token() && (curr->index == 0)) ||
+          (bp.current_load() == 0xff))
+        {
+          load_reset = true;
+        }
+        if (bp.needs_token())
+        {
+          Systematic::cout() << "Enqueue message token" << std::endl;
+          queue.enqueue(stub_msg(alloc));
+        }
+      }
+
+      Backpressure bp_update;
+      do
+      {
+        bp_update = bp;
+        if (token_reached)
+        {
+          bp_update = bp;
+          bp_update.set_needs_token();
+          if (bp.unmutable())
+            bp.unmutable_dirty();
+          else if (bp.unmutable_dirty())
+            bp.set_state_normal();
+        }
+        else
+        {
+          if (load_reset)
+            bp_update.reset_load();
+
+          bp_update.inc_load();
+          bp_update.unset_needs_token();
+        }
+
+        yield();
+
+        // The following exchange will fail spuriously, or when another thread
+        // has set this cown to unmutable.
+      } while (!backpressure.compare_exchange_weak(
+                 bp, bp_update, std::memory_order_acq_rel) &&
+               token_reached);
+
+      return token_reached;
+    }
+
+    /**
+     * Mute the senders participating in this message if a backpressure scan
+     * set the mutor during the action. If false is returned, the caller must
      * reschedule the senders and deallocate the senders array.
      */
     inline bool apply_backpressure(Cown** senders, size_t count)
@@ -915,13 +977,13 @@ namespace verona::rt
       auto until = queue.peek_back();
       yield(); // Reading global state in peek_back().
 
-      auto notified_called = false;
-      auto notify = false;
-
-      auto bp = backpressure.load(std::memory_order_acquire);
+      const auto bp = backpressure.load(std::memory_order_acquire);
       assert(!bp.muted());
       // The batch limit is between 100 and 251, depending on the load.
       const auto batch_limit = (size_t)100 | ((size_t)bp.total_load() >> 3);
+
+      auto notified_called = false;
+      auto notify = false;
 
       MultiMessage* curr = nullptr;
       size_t batch_size = 0;
@@ -990,28 +1052,8 @@ namespace verona::rt
 
         assert(!queue.is_sleeping());
 
-        bp = backpressure.load(std::memory_order_relaxed);
-        if (curr->get_body() == nullptr)
-        {
-          Systematic::cout() << "Reached message token" << std::endl;
-          bp.set_needs_token();
-          backpressure.store(bp, std::memory_order_release);
+        if (check_message_token(alloc, curr->get_body()))
           return true;
-        }
-        if (
-          (bp.needs_token() && (curr->get_body()->index == 0)) ||
-          (bp.current_load() == 0xff))
-        {
-          bp.reset_load();
-        }
-        if (bp.needs_token())
-        {
-          Systematic::cout() << "Enqueue message token" << std::endl;
-          queue.enqueue(stub_msg(alloc));
-          bp.unset_needs_token();
-        }
-        bp.inc_load();
-        backpressure.store(bp, std::memory_order_release);
 
         batch_size++;
 

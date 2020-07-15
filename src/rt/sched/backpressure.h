@@ -332,7 +332,6 @@ namespace verona::rt
      */
     inline void reset_load()
     {
-      _load_hist &= 0x0fff;
       _load_hist <<= 4;
       _load_hist |= (_current_load >> 4);
       _current_load = 0;
