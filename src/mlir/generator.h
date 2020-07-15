@@ -42,6 +42,13 @@ namespace mlir::verona
       // make sure we end up with onlt Verona dialect, then Standard
       // dialects, then LLVM dialect, before converting to LLVM IR.
       context.allowUnregisteredDialects();
+
+      // Initialise known opaque types, for comparison.
+      // TODO: Use Verona dialect types directly and isA<>.
+      allocaTy = genOpaqueType("alloca", context);
+      unkTy = genOpaqueType("unk", context);
+      noneTy = genOpaqueType("none", context);
+      boolTy = genOpaqueType("bool", context);
     }
 
     // Read AST/MLIR into MLIR module, returns false on failure.
@@ -65,6 +72,12 @@ namespace mlir::verona
     SymbolTableT symbolTable;
     FunctionTableT functionTable;
     TypeTableT typeTable;
+
+    // Helper for types, before we start using actual Verona types
+    mlir::Type allocaTy;
+    mlir::Type unkTy;
+    mlir::Type noneTy;
+    mlir::Type boolTy;
 
     // Get location of an ast node
     mlir::Location getLocation(const ::ast::Ast& ast);
@@ -94,11 +107,13 @@ namespace mlir::verona
     llvm::Expected<mlir::Value> parseAssign(const ::ast::Ast& ast);
     llvm::Expected<mlir::Value> parseCall(const ::ast::Ast& ast);
 
-    // Wrappers for unary/binary operands
+    // Wrappers for opaque operators/types before we use actual Verona dialect
     llvm::Expected<mlir::Value> genOperation(
       mlir::Location loc,
       llvm::StringRef name,
       llvm::ArrayRef<mlir::Value> ops,
       mlir::Type retTy);
+    mlir::OpaqueType
+    genOpaqueType(llvm::StringRef name, mlir::MLIRContext& context);
   };
 }

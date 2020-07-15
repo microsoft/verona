@@ -253,8 +253,7 @@ namespace mlir::verona
       return typeTable.lookup(desc);
 
     // Else, insert into the table and return
-    auto dialect = Identifier::get("type", &context);
-    auto type = mlir::OpaqueType::get(dialect, desc, &context);
+    auto type = genOpaqueType(desc, context);
     typeTable.insert(desc, type);
     return type;
   }
@@ -311,7 +310,13 @@ namespace mlir::verona
   {
     // Variables
     if (isLocalRef(ast))
-      return symbolTable.lookup(getTokenValue(ast));
+    {
+      // We use allocas to track location and load/stores to track access
+      auto var = symbolTable.lookup(getTokenValue(ast));
+      if (var.getType() == allocaTy)
+        return genOperation(getLocation(ast), "verona.load", {var}, unkTy);
+      return var;
+    }
 
     // Constants
     if (isConstant(ast))
@@ -321,8 +326,7 @@ namespace mlir::verona
       // have attributes from unknown types. Once we set on a type
       // system compatibility between Verona and MLIR, we can change
       // this to emit the attribute right away.
-      auto type = mlir::OpaqueType::get(
-        Identifier::get("type", &context), getName(ast), &context);
+      auto type = genOpaqueType(getName(ast), context);
       auto value = getTokenValue(ast);
       return genOperation(
         getLocation(ast), "verona.constant(" + value + ")", {}, type);
@@ -344,13 +348,29 @@ namespace mlir::verona
     auto let = getLHS(ast);
     auto name = getLocalName(let);
 
+    // If the variable wasn't declared yet, create an alloca
+    if (!symbolTable.inScope(name))
+    {
+      auto alloca = genOperation(
+        getLocation(ast), "verona.alloca", {}, allocaTy);
+      if (auto err = alloca.takeError())
+        return std::move(err);
+      declareVariable(name, *alloca);
+    }
+    auto store = symbolTable.lookup(name);
+
     // The right-hand side can be any expression
     // This is the value and we update the variable
     auto rhs = parseNode(getRHS(ast).lock());
     if (auto err = rhs.takeError())
       return std::move(err);
-    declareVariable(name, *rhs);
-    return symbolTable.lookup(name);
+
+    // Store the value in the alloca
+    auto op = genOperation(
+      getLocation(ast), "verona.store", {*rhs, store}, unkTy);
+    if (auto err = op.takeError())
+      return std::move(err);
+    return store;
   }
 
   llvm::Expected<mlir::Value> Generator::parseCall(const ::ast::Ast& ast)
@@ -382,61 +402,56 @@ namespace mlir::verona
       auto arg1 = parseNode(getOperand(ast, 1).lock());
       if (auto err = arg1.takeError())
         return std::move(err);
-      // Type for arithmetic operations is currently unknown
-      auto dialect = Identifier::get("type", &context);
-      auto type = mlir::OpaqueType::get(dialect, "ret", &context);
       if (name == "+")
       {
         return genOperation(
-          getLocation(ast), "verona.add", {*arg0, *arg1}, type);
+          getLocation(ast), "verona.add", {*arg0, *arg1}, unkTy);
       }
       else if (name == "-")
       {
         return genOperation(
-          getLocation(ast), "verona.sub", {*arg0, *arg1}, type);
+          getLocation(ast), "verona.sub", {*arg0, *arg1}, unkTy);
       }
       else if (name == "*")
       {
         return genOperation(
-          getLocation(ast), "verona.mul", {*arg0, *arg1}, type);
+          getLocation(ast), "verona.mul", {*arg0, *arg1}, unkTy);
       }
       else if (name == "/")
       {
         return genOperation(
-          getLocation(ast), "verona.div", {*arg0, *arg1}, type);
+          getLocation(ast), "verona.div", {*arg0, *arg1}, unkTy);
       }
 
-      // Type for comparison operations is boolean
-      type = mlir::OpaqueType::get(dialect, "bool", &context);
       if (name == "==")
       {
         return genOperation(
-          getLocation(ast), "verona.eq", {*arg0, *arg1}, type);
+          getLocation(ast), "verona.eq", {*arg0, *arg1}, boolTy);
       }
       else if (name == "!=")
       {
         return genOperation(
-          getLocation(ast), "verona.ne", {*arg0, *arg1}, type);
+          getLocation(ast), "verona.ne", {*arg0, *arg1}, boolTy);
       }
       else if (name == ">")
       {
         return genOperation(
-          getLocation(ast), "verona.gt", {*arg0, *arg1}, type);
+          getLocation(ast), "verona.gt", {*arg0, *arg1}, boolTy);
       }
       else if (name == "<")
       {
         return genOperation(
-          getLocation(ast), "verona.lt", {*arg0, *arg1}, type);
+          getLocation(ast), "verona.lt", {*arg0, *arg1}, boolTy);
       }
       else if (name == ">=")
       {
         return genOperation(
-          getLocation(ast), "verona.ge", {*arg0, *arg1}, type);
+          getLocation(ast), "verona.ge", {*arg0, *arg1}, boolTy);
       }
       else if (name == "<=")
       {
         return genOperation(
-          getLocation(ast), "verona.le", {*arg0, *arg1}, type);
+          getLocation(ast), "verona.le", {*arg0, *arg1}, boolTy);
       }
     }
 
@@ -456,5 +471,12 @@ namespace mlir::verona
     state.addTypes({retTy});
     auto op = builder.createOperation(state);
     return op->getResult(0);
+  }
+
+  mlir::OpaqueType
+  Generator::genOpaqueType(llvm::StringRef name, mlir::MLIRContext& context)
+  {
+    auto dialect = mlir::Identifier::get("type", &context);
+    return mlir::OpaqueType::get(dialect, name, &context);
   }
 }
