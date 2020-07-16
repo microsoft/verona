@@ -1,7 +1,7 @@
 find_package(Threads REQUIRED)
 
 # We're not building LLVM, but downloading the build dir from an artefact
-set(LLVM_BUILD "${CMAKE_SOURCE_DIR}/external/llvm-project/build")
+set(LLVM_BUILD ${VERONA_LLVM_LOCATION})
 
 # Find MLIR_DIR and LLVM_EXTERNAL_LIT from LLVM_BUILD
 if (NOT DEFINED MLIR_DIR AND DEFINED LLVM_BUILD)

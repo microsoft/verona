@@ -1,4 +1,42 @@
 cmake_minimum_required(VERSION 3.10.0)
+
+option (VERONA_LLVM_LOCATION "Location of LLVM build" "")
+
+
+
+# This is to trick the CMake into building LLVM before Verona.
+if (NOT DEFINED VERONA_LLVM_LOCATION)
+  project(verona CXX)
+  # Choose sanitizers based on stuff.
+  # -DLLVM_USE_SANITIZER=$(Sanitizer) 
+  set(LLVM_ENABLE_PROJECTS mlir)
+  set(LLVM_TARGETS_TO_BUILD "X86")
+  set(LLVM_ENABLE_ASSERTIONS ON)
+  set(LLVM_ENABLE_LLD ON)
+  set(LLVM_ENABLE_EH ON) 
+  set(LLVM_ENABLE_RTTI ON)
+
+  include(ExternalProject)
+  ExternalProject_Add(mlir SOURCE_DIR ${CMAKE_SOURCE_DIR}/external/llvm-project/llvm
+    CMAKE_ARGS -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_ENABLE_RTTI=ON -DLLVM_ENABLE_EH=ON -DLLVM_ENABLE_LLD=ON -DCMAKE_VERBOSE_BUILD=On
+    BUILD_ALWAYS true
+    USES_TERMINAL_BUILD true
+    USES_TERMINAL_CONFIGURE true
+    INSTALL_COMMAND "")
+
+  ExternalProject_Add(verona SOURCE_DIR ${CMAKE_SOURCE_DIR}
+    DEPENDS mlir
+    TEST_AFTER_INSTALL true
+    BUILD_ALWAYS true
+    USES_TERMINAL_BUILD true
+    USES_TERMINAL_CONFIGURE true
+    USES_TERMINAL_INSTALL true
+    USES_TERMINAL_TEST true
+    CMAKE_ARGS -DVERONA_LLVM_LOCATION=${CMAKE_BINARY_DIR}/mlir-prefix/src/mlir-build/)
+
+  return ()
+endif()
+
 project(verona-lang CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
@@ -72,11 +110,3 @@ add_custom_target(install_for_test
                   COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} ${PARALLEL_ARGS} --config $<CONFIG> --target install
                   COMMENT "Installs distribution."
                   USES_TERMINAL COMMAND_EXPAND_LISTS)
-
-set(CTEST "ctest")
-add_custom_target("check"
-                  COMMAND ${CTEST} ${PARALLEL_ARGS} -C $<CONFIG>
-                  COMMENT "Run ctest tests"
-                  USES_TERMINAL COMMAND_EXPAND_LISTS)
-
-add_dependencies("check" "install_for_test")
