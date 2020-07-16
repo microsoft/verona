@@ -1,7 +1,5 @@
 include_directories(.)
 
-option(RT_TESTS "Including unit tests for the runtime" OFF)
-
 # Main target does not test runtime, build subdirectory for that
 if (RT_TESTS)
 else()

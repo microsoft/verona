@@ -1,14 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 project(verona C CXX)
 
-option(USE_SCHED_STATS "Track scheduler stats" OFF)
-option(USE_ASAN "Use address sanitizer" OFF)
-option(VERONA_CI_BUILD "Disable features not sensible for CI" OFF)
-
-option(USE_SYSTEMATIC_TESTING "Enable systematic testing in the runtime" OFF)
-option(VERONA_EXPENSIVE_SYSTEMATIC_TESTING "Increase the range of seeds covered by systematic testing" OFF)
-option(USE_CRASH_LOGGING "Enable crash logging in the runtime" OFF)
-
 set(SNMALLOC_ONLY_HEADER_LIBRARY ON)
 add_subdirectory(external/snmalloc EXCLUDE_FROM_ALL)
 

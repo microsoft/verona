@@ -3,11 +3,26 @@ cmake_minimum_required(VERSION 3.10.0)
 option (VERONA_LLVM_LOCATION "Location of LLVM build" "")
 option (VERONA_ONLY_BUILD_LLVM "Used to build a cache for LLVM build" Off)
 
+set (VERONA_EXTRA_CMAKE_ARGS)
+
+macro(verona_option variable message default)
+  option(variable message default)
+  list (APPEND VERONA_EXTRA_CMAKE_ARGS
+    "-D${variable}=${${variable}}"
+  )
+endmacro()
+
+verona_option(RT_TESTS "Including unit tests for the runtime" OFF)
+verona_option(USE_SCHED_STATS "Track scheduler stats" OFF)
+verona_option(USE_ASAN "Use address sanitizer" OFF)
+verona_option(VERONA_CI_BUILD "Disable features not sensible for CI" OFF)
+verona_option(USE_SYSTEMATIC_TESTING "Enable systematic testing in the runtime" OFF)
+verona_option(VERONA_EXPENSIVE_SYSTEMATIC_TESTING "Increase the range of seeds covered by systematic testing" OFF)
+verona_option(USE_CRASH_LOGGING "Enable crash logging in the runtime" OFF)
 
 # This is to trick the CMake into building LLVM before Verona.
 if (VERONA_LLVM_LOCATION STREQUAL "")
   project(verona CXX)
-
 
   set (EXTRA_CMAKE_ARGS)
   list (APPEND EXTRA_CMAKE_ARGS
@@ -39,6 +54,10 @@ if (VERONA_LLVM_LOCATION STREQUAL "")
     USES_TERMINAL_CONFIGURE true
   )
 
+  list (APPEND VERONA_EXTRA_CMAKE_ARGS
+    -DVERONA_LLVM_LOCATION=${CMAKE_BINARY_DIR}/mlir_install
+  )
+
   if (NOT VERONA_ONLY_BUILD_LLVM)
     ExternalProject_Add(verona SOURCE_DIR ${CMAKE_SOURCE_DIR}
       DEPENDS mlir
@@ -48,7 +67,7 @@ if (VERONA_LLVM_LOCATION STREQUAL "")
       USES_TERMINAL_CONFIGURE true
       USES_TERMINAL_INSTALL true
       USES_TERMINAL_TEST true
-      CMAKE_ARGS -DVERONA_LLVM_LOCATION=${CMAKE_BINARY_DIR}/mlir_install)
+      CMAKE_ARGS ${VERONA_EXTRA_CMAKE_ARGS})
   endif ()
   return ()
 endif()
