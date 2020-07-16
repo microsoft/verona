@@ -1,10 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(verona C CXX)
 
-option(USE_MEASURE "Measure performance with histograms" OFF)
 option(USE_SCHED_STATS "Track scheduler stats" OFF)
 option(USE_ASAN "Use address sanitizer" OFF)
-option(USE_QUICK_EXIT "Enable the use of quick_exit in the C++ API" ON)
 option(VERONA_CI_BUILD "Disable features not sensible for CI" OFF)
 
 option(USE_SYSTEMATIC_TESTING "Enable systematic testing in the runtime" OFF)
@@ -90,10 +88,6 @@ endif()
 
 if(USE_SCHED_STATS)
   target_compile_definitions(verona_rt INTERFACE -DUSE_SCHED_STATS)
-endif()
-
-if(USE_QUICK_EXIT)
-  target_compile_definitions(verona_rt INTERFACE -DUSE_QUICK_EXIT)
 endif()
 
 target_compile_definitions(verona_rt INTERFACE -DSNMALLOC_CHEAP_CHECKS)
