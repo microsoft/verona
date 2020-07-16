@@ -419,20 +419,22 @@ namespace mlir::verona
       auto arg1 = parseNode(getOperand(ast, 1).lock());
       if (auto err = arg1.takeError())
         return std::move(err);
+
       // Get op name and type
       using opPairTy = std::pair<llvm::StringRef, mlir::Type>;
       opPairTy op = llvm::StringSwitch<opPairTy>(name)
-                      .Case("+", std::make_pair("verona.add", unkTy))
-                      .Case("-", std::make_pair("verona.sub", unkTy))
-                      .Case("*", std::make_pair("verona.mul", unkTy))
-                      .Case("/", std::make_pair("verona.div", unkTy))
-                      .Case("==", std::make_pair("verona.eq", boolTy))
-                      .Case("!=", std::make_pair("verona.ne", boolTy))
-                      .Case(">", std::make_pair("verona.gt", boolTy))
-                      .Case("<", std::make_pair("verona.lt", boolTy))
-                      .Case(">=", std::make_pair("verona.ge", boolTy))
-                      .Case("<=", std::make_pair("verona.le", boolTy))
+                      .Case("+", {"verona.add", unkTy})
+                      .Case("-", {"verona.sub", unkTy})
+                      .Case("*", {"verona.mul", unkTy})
+                      .Case("/", {"verona.div", unkTy})
+                      .Case("==", {"verona.eq", boolTy})
+                      .Case("!=", {"verona.ne", boolTy})
+                      .Case(">", {"verona.gt", boolTy})
+                      .Case("<", {"verona.lt", boolTy})
+                      .Case(">=", {"verona.ge", boolTy})
+                      .Case("<=", {"verona.le", boolTy})
                       .Default(std::make_pair("", unkTy));
+
       // Match, return the right op with the right type
       if (!op.first.empty())
         return genOperation(
