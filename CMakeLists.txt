@@ -1,39 +1,55 @@
 cmake_minimum_required(VERSION 3.10.0)
 
 option (VERONA_LLVM_LOCATION "Location of LLVM build" "")
-
+option (VERONA_ONLY_BUILD_LLVM "Used to build a cache for LLVM build" Off)
 
 
 # This is to trick the CMake into building LLVM before Verona.
-if (NOT DEFINED VERONA_LLVM_LOCATION)
+if (VERONA_LLVM_LOCATION STREQUAL "")
   project(verona CXX)
+
+
+  set (EXTRA_CMAKE_ARGS)
+  list (APPEND EXTRA_CMAKE_ARGS
+    -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/mlir_install
+    -DLLVM_ENABLE_PROJECTS=mlir
+    -DLLVM_TARGETS_TO_BUILD=X86
+    -DLLVM_ENABLE_ASSERTIONS=On
+    -DLLVM_ENABLE_RTTI=ON
+    -DLLVM_ENABLE_EH=ON
+  )
+
+  if (MSVC)
+  
+  else()
+  list (APPEND EXTRA_CMAKE_ARGS
+    -DLLVM_ENABLE_LLD=ON
+  )
+  endif()
+  
   # Choose sanitizers based on stuff.
   # -DLLVM_USE_SANITIZER=$(Sanitizer) 
-  set(LLVM_ENABLE_PROJECTS mlir)
-  set(LLVM_TARGETS_TO_BUILD "X86")
-  set(LLVM_ENABLE_ASSERTIONS ON)
-  set(LLVM_ENABLE_LLD ON)
-  set(LLVM_ENABLE_EH ON) 
-  set(LLVM_ENABLE_RTTI ON)
+
 
   include(ExternalProject)
   ExternalProject_Add(mlir SOURCE_DIR ${CMAKE_SOURCE_DIR}/external/llvm-project/llvm
-    CMAKE_ARGS -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_ENABLE_RTTI=ON -DLLVM_ENABLE_EH=ON -DLLVM_ENABLE_LLD=ON -DCMAKE_VERBOSE_BUILD=On
+    CMAKE_ARGS ${EXTRA_CMAKE_ARGS}
     BUILD_ALWAYS true
     USES_TERMINAL_BUILD true
     USES_TERMINAL_CONFIGURE true
-    INSTALL_COMMAND "")
+  )
 
-  ExternalProject_Add(verona SOURCE_DIR ${CMAKE_SOURCE_DIR}
-    DEPENDS mlir
-    TEST_AFTER_INSTALL true
-    BUILD_ALWAYS true
-    USES_TERMINAL_BUILD true
-    USES_TERMINAL_CONFIGURE true
-    USES_TERMINAL_INSTALL true
-    USES_TERMINAL_TEST true
-    CMAKE_ARGS -DVERONA_LLVM_LOCATION=${CMAKE_BINARY_DIR}/mlir-prefix/src/mlir-build/)
-
+  if (NOT VERONA_ONLY_BUILD_LLVM)
+    ExternalProject_Add(verona SOURCE_DIR ${CMAKE_SOURCE_DIR}
+      DEPENDS mlir
+      TEST_AFTER_INSTALL true
+      BUILD_ALWAYS true
+      USES_TERMINAL_BUILD true
+      USES_TERMINAL_CONFIGURE true
+      USES_TERMINAL_INSTALL true
+      USES_TERMINAL_TEST true
+      CMAKE_ARGS -DVERONA_LLVM_LOCATION=${CMAKE_BINARY_DIR}/mlir_install)
+  endif ()
   return ()
 endif()
 

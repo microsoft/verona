@@ -3,17 +3,20 @@ find_package(Threads REQUIRED)
 # We're not building LLVM, but downloading the build dir from an artefact
 set(LLVM_BUILD ${VERONA_LLVM_LOCATION})
 
+# std::iterator is used by MLIR/LLVM
+# This is deprecated and causes warnings in MSVC.
+if (MSVC)
+  add_compile_definitions(_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
+endif ()
+
 # Find MLIR_DIR and LLVM_EXTERNAL_LIT from LLVM_BUILD
-if (NOT DEFINED MLIR_DIR AND DEFINED LLVM_BUILD)
-  set(LLVM_DIR ${LLVM_BUILD}/lib/cmake/llvm)
-  message(STATUS "Setting LLVM_DIR as ${LLVM_DIR}")
-  set(MLIR_DIR ${LLVM_BUILD}/lib/cmake/mlir)
-  message(STATUS "Setting MLIR_DIR as ${MLIR_DIR}")
-endif()
-if (NOT DEFINED LLVM_EXTERNAL_LIT AND DEFINED LLVM_BUILD)
-  set(LLVM_EXTERNAL_LIT ${LLVM_BUILD}/bin/llvm-lit CACHE STRING "Command used to spawn lit")
-  message(STATUS "Setting LLVM_EXTERNAL_LIT as ${LLVM_EXTERNAL_LIT}")
-endif()
+set(LLVM_DIR ${LLVM_BUILD}/lib/cmake/llvm)
+message(STATUS "Setting LLVM_DIR as ${LLVM_DIR}")
+set(MLIR_DIR ${LLVM_BUILD}/lib/cmake/mlir)
+message(STATUS "Setting MLIR_DIR as ${MLIR_DIR}")
+set(LLVM_EXTERNAL_LIT ${LLVM_BUILD}/bin/llvm-lit CACHE STRING "Command used to spawn lit")
+message(STATUS "Setting LLVM_EXTERNAL_LIT as ${LLVM_EXTERNAL_LIT}")
+
 find_package(MLIR REQUIRED CONFIG)
 
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
