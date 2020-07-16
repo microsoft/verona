@@ -1,0 +1,26 @@
+
+
+module {
+  func @f(%arg0: none) -> none {
+    %0 = "verona.alloca"() : () -> !type.alloca
+    %1 = "verona.store"(%arg0, %0) : (none, !type.alloca) -> !type.unk
+    %2 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %3 = "verona.constant(2)"() : () -> !type.int
+    %4 = "verona.lt"(%2, %3) : (!type.unk, !type.int) -> i1
+    cond_br %4, ^bb1, ^bb2
+  ^bb1:  // pred: ^bb0
+    %5 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %6 = "verona.constant(1)"() : () -> !type.int
+    %7 = "verona.add"(%5, %6) : (!type.unk, !type.int) -> !type.unk
+    %8 = "verona.store"(%7, %0) : (!type.unk, !type.alloca) -> !type.unk
+    br ^bb3
+  ^bb2:  // pred: ^bb0
+    %9 = "verona.constant(0)"() : () -> !type.int
+    %10 = "verona.store"(%9, %0) : (!type.int, !type.alloca) -> !type.unk
+    br ^bb3
+  ^bb3:  // 2 preds: ^bb1, ^bb2
+    %11 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %12 = "verona.cast"(%11) : (!type.unk) -> none
+    return %12 : none
+  }
+}

@@ -203,6 +203,7 @@ namespace mlir::verona
     auto retTy = func.getType().getResult(0);
 
     // Create entry block
+    currentFunc = func;
     auto& entryBlock = *func.addEntryBlock();
     builder.setInsertionPointToStart(&entryBlock);
 
@@ -213,9 +214,21 @@ namespace mlir::verona
     assert(args.size() == argVals.size() && "Argument mismatch");
     for (auto var_val : llvm::zip(args, argVals))
     {
+      // Get the argument name/value
       auto name = getID(std::get<0>(var_val).lock());
       auto value = std::get<1>(var_val);
-      declareVariable(name, value);
+      // Allocate space in the stack
+      auto alloca =
+        genOperation(getLocation(ast), "verona.alloca", {}, allocaTy);
+      if (auto err = alloca.takeError())
+        return std::move(err);
+      // Store the value of the argument
+      auto store =
+        genOperation(getLocation(ast), "verona.store", {value, *alloca}, unkTy);
+      if (auto err = store.takeError())
+        return std::move(err);
+      // Associate the name with the alloca SSA value
+      declareVariable(name, *alloca);
     }
 
     // Lower body
@@ -293,6 +306,7 @@ namespace mlir::verona
       case NodeKind::Localref:
         return parseValue(ast);
       case NodeKind::Block:
+      case NodeKind::Seq:
         return parseBlock(ast);
       case NodeKind::ID:
         return parseValue(ast);
@@ -300,6 +314,8 @@ namespace mlir::verona
         return parseAssign(ast);
       case NodeKind::Call:
         return parseCall(ast);
+      case NodeKind::If:
+        return parseCondition(ast);
       default:
         return parsingError(
           "Node " + getName(ast) + " not implemented yet", getLocation(ast));
@@ -351,8 +367,8 @@ namespace mlir::verona
     // If the variable wasn't declared yet, create an alloca
     if (!symbolTable.inScope(name))
     {
-      auto alloca = genOperation(
-        getLocation(ast), "verona.alloca", {}, allocaTy);
+      auto alloca =
+        genOperation(getLocation(ast), "verona.alloca", {}, allocaTy);
       if (auto err = alloca.takeError())
         return std::move(err);
       declareVariable(name, *alloca);
@@ -366,8 +382,8 @@ namespace mlir::verona
       return std::move(err);
 
     // Store the value in the alloca
-    auto op = genOperation(
-      getLocation(ast), "verona.store", {*rhs, store}, unkTy);
+    auto op =
+      genOperation(getLocation(ast), "verona.store", {*rhs, store}, unkTy);
     if (auto err = op.takeError())
       return std::move(err);
     return store;
@@ -457,6 +473,59 @@ namespace mlir::verona
 
     return parsingError(
       "Operation '" + name + "' not implemented yet", getLocation(ast));
+  }
+
+  llvm::Expected<mlir::Value> Generator::parseCondition(const ::ast::Ast& ast)
+  {
+    // TODO: MLIR doesn't support conditions with literals
+    // we need to make a constexpr decision and only lower the right block
+    if (isConstant(ast))
+    {
+      return parsingError(
+        "Conditionals with literals not supported yet", getLocation(ast));
+    }
+
+    // First node is a sequence of conditions
+    // lower in the current basic block.
+    auto condNode = getCond(ast).lock();
+    auto condLoc = getLocation(condNode);
+    auto cond = parseNode(condNode);
+    if (auto err = cond.takeError())
+      return std::move(err);
+
+    // Create basic-blocks, conditionally branch to if/else
+    mlir::ValueRange empty{};
+    auto ifBB = currentFunc.addBlock();
+    auto elseBB = currentFunc.addBlock();
+    auto exitBB = currentFunc.addBlock();
+    builder.create<mlir::CondBranchOp>(
+      condLoc, *cond, ifBB, empty, elseBB, empty);
+
+    // If block
+    auto ifNode = getIfBlock(ast).lock();
+    auto ifLoc = getLocation(ifNode);
+    builder.setInsertionPointToEnd(ifBB);
+    auto ifBlock = parseNode(ifNode);
+    if (auto err = ifBlock.takeError())
+      return std::move(err);
+    builder.create<mlir::BranchOp>(ifLoc, exitBB, empty);
+
+    // Else block
+    auto elseNode = getElseBlock(ast).lock();
+    auto elseLoc = getLocation(elseNode);
+    builder.setInsertionPointToEnd(elseBB);
+    auto elseBlock = parseNode(elseNode);
+    if (auto err = elseBlock.takeError())
+      return std::move(err);
+    builder.create<mlir::BranchOp>(elseLoc, exitBB, empty);
+
+    // Move to exit block, where the remaining instructions will be lowered.
+    builder.setInsertionPointToEnd(exitBB);
+
+    // No value returned, but needs to adapt to parseNode. No one will
+    // ever use this value. TODO: create a hybrid error handling for
+    // void returning constructs.
+    return mlir::Value();
   }
 
   llvm::Expected<mlir::Value> Generator::genOperation(

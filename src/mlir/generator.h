@@ -9,6 +9,7 @@
 #include "mlir/IR/Function.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Module.h"
+#include "mlir/IR/StandardTypes.h"
 #include "mlir/Target/LLVMIR.h"
 #include "symbol.h"
 
@@ -48,7 +49,7 @@ namespace mlir::verona
       allocaTy = genOpaqueType("alloca", context);
       unkTy = genOpaqueType("unk", context);
       noneTy = genOpaqueType("none", context);
-      boolTy = genOpaqueType("bool", context);
+      boolTy = builder.getI1Type();
     }
 
     // Read AST/MLIR into MLIR module, returns false on failure.
@@ -67,6 +68,7 @@ namespace mlir::verona
     mlir::OwningModuleRef module;
     mlir::OpBuilder builder;
     mlir::MLIRContext context;
+    mlir::FuncOp currentFunc;
 
     // Symbol tables for variables, functions and classes.
     SymbolTableT symbolTable;
@@ -106,6 +108,7 @@ namespace mlir::verona
     // Specific parsers (there will be more).
     llvm::Expected<mlir::Value> parseAssign(const ::ast::Ast& ast);
     llvm::Expected<mlir::Value> parseCall(const ::ast::Ast& ast);
+    llvm::Expected<mlir::Value> parseCondition(const ::ast::Ast& ast);
 
     // Wrappers for opaque operators/types before we use actual Verona dialect
     llvm::Expected<mlir::Value> genOperation(

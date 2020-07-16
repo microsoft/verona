@@ -1,0 +1,15 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+f(x)
+{
+  if (x < 2)
+  {
+    x = x + 1;
+  }
+  else
+  {
+    x = 0;
+  }
+  x;
+}
