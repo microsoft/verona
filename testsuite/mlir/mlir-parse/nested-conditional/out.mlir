@@ -1,0 +1,87 @@
+
+
+module {
+  func @f(%arg0: none) -> none {
+    %0 = "verona.alloca"() : () -> !type.alloca
+    %1 = "verona.store"(%arg0, %0) : (none, !type.alloca) -> !type.unk
+    %2 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %3 = "verona.constant(2)"() : () -> !type.int
+    %4 = "verona.lt"(%2, %3) : (!type.unk, !type.int) -> i1
+    cond_br %4, ^bb1, ^bb2
+  ^bb1:  // pred: ^bb0
+    %5 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %6 = "verona.constant(1)"() : () -> !type.int
+    %7 = "verona.add"(%5, %6) : (!type.unk, !type.int) -> !type.unk
+    %8 = "verona.store"(%7, %0) : (!type.unk, !type.alloca) -> !type.unk
+    br ^bb3
+  ^bb2:  // pred: ^bb0
+    %9 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %10 = "verona.constant(100)"() : () -> !type.int
+    %11 = "verona.gt"(%9, %10) : (!type.unk, !type.int) -> i1
+    cond_br %11, ^bb4, ^bb5
+  ^bb3:  // 2 preds: ^bb1, ^bb6
+    %12 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %13 = "verona.cast"(%12) : (!type.unk) -> none
+    return %13 : none
+  ^bb4:  // pred: ^bb2
+    %14 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %15 = "verona.constant(1)"() : () -> !type.int
+    %16 = "verona.sub"(%14, %15) : (!type.unk, !type.int) -> !type.unk
+    %17 = "verona.store"(%16, %0) : (!type.unk, !type.alloca) -> !type.unk
+    br ^bb6
+  ^bb5:  // pred: ^bb2
+    %18 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %19 = "verona.constant(20)"() : () -> !type.int
+    %20 = "verona.le"(%18, %19) : (!type.unk, !type.int) -> i1
+    cond_br %20, ^bb7, ^bb8
+  ^bb6:  // 2 preds: ^bb4, ^bb9
+    br ^bb3
+  ^bb7:  // pred: ^bb5
+    %21 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %22 = "verona.constant(2)"() : () -> !type.int
+    %23 = "verona.mul"(%21, %22) : (!type.unk, !type.int) -> !type.unk
+    %24 = "verona.store"(%23, %0) : (!type.unk, !type.alloca) -> !type.unk
+    br ^bb9
+  ^bb8:  // pred: ^bb5
+    %25 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %26 = "verona.constant(50)"() : () -> !type.int
+    %27 = "verona.ge"(%25, %26) : (!type.unk, !type.int) -> i1
+    cond_br %27, ^bb10, ^bb11
+  ^bb9:  // 2 preds: ^bb7, ^bb12
+    br ^bb6
+  ^bb10:  // pred: ^bb8
+    %28 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %29 = "verona.constant(10)"() : () -> !type.int
+    %30 = "verona.div"(%28, %29) : (!type.unk, !type.int) -> !type.unk
+    %31 = "verona.store"(%30, %0) : (!type.unk, !type.alloca) -> !type.unk
+    br ^bb12
+  ^bb11:  // pred: ^bb8
+    %32 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %33 = "verona.constant(10)"() : () -> !type.int
+    %34 = "verona.eq"(%32, %33) : (!type.unk, !type.int) -> i1
+    cond_br %34, ^bb13, ^bb14
+  ^bb12:  // 2 preds: ^bb10, ^bb15
+    br ^bb9
+  ^bb13:  // pred: ^bb11
+    %35 = "verona.constant(10)"() : () -> !type.int
+    %36 = "verona.store"(%35, %0) : (!type.int, !type.alloca) -> !type.unk
+    br ^bb15
+  ^bb14:  // pred: ^bb11
+    %37 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %38 = "verona.constant(20)"() : () -> !type.int
+    %39 = "verona.ne"(%37, %38) : (!type.unk, !type.int) -> i1
+    cond_br %39, ^bb16, ^bb17
+  ^bb15:  // 2 preds: ^bb13, ^bb18
+    br ^bb12
+  ^bb16:  // pred: ^bb14
+    %40 = "verona.constant(42)"() : () -> !type.int
+    %41 = "verona.store"(%40, %0) : (!type.int, !type.alloca) -> !type.unk
+    br ^bb18
+  ^bb17:  // pred: ^bb14
+    %42 = "verona.constant(0)"() : () -> !type.int
+    %43 = "verona.store"(%42, %0) : (!type.int, !type.alloca) -> !type.unk
+    br ^bb18
+  ^bb18:  // 2 preds: ^bb16, ^bb17
+    br ^bb15
+  }
+}

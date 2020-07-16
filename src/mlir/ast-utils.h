@@ -68,6 +68,9 @@ namespace mlir::verona::ASTInterface
     Local = peg::str2tag("local"),
     Localref = peg::str2tag("localref"),
     Float = peg::str2tag("float"),
+    Condition = peg::str2tag("cond"),
+    If = peg::str2tag("if"),
+    Else = peg::str2tag("else"),
   };
 
   // ================================================= Generic Helpers
@@ -100,6 +103,8 @@ namespace mlir::verona::ASTInterface
   bool isConstant(::ast::WeakAst ast);
   /// Return true if node is a local variable reference
   bool isLocalRef(::ast::WeakAst ast);
+  /// Return true if node is a new variable definition
+  bool isLet(::ast::WeakAst ast);
   /// Get the string value of a token
   const std::string& getTokenValue(::ast::WeakAst ast);
   /// Return true if node is a variable definition
@@ -152,4 +157,20 @@ namespace mlir::verona::ASTInterface
   bool isBinary(::ast::WeakAst ast);
   /// Return the n-th operand of the operation
   ::ast::WeakAst getOperand(::ast::WeakAst ast, size_t n);
+
+  // ================================================= Condition Helpers
+  /// Return true if node is an if statement
+  bool isIf(::ast::WeakAst ast);
+  /// Return true if node is a condition
+  bool isCondition(::ast::WeakAst ast);
+  /// Return true if node is an else block
+  bool isBlock(::ast::WeakAst ast);
+  /// Return true if node is an else block
+  bool isElse(::ast::WeakAst ast);
+  /// Return the condition form an if statement
+  ::ast::WeakAst getCond(::ast::WeakAst ast);
+  /// Return the block form an if statement
+  ::ast::WeakAst getIfBlock(::ast::WeakAst ast);
+  /// Return the else block form an if statement
+  ::ast::WeakAst getElseBlock(::ast::WeakAst ast);
 }

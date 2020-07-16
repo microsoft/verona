@@ -79,6 +79,11 @@ namespace mlir::verona::ASTInterface
     return isValue(ast) && isA(ast, NodeKind::Localref);
   }
 
+  bool isLet(::ast::WeakAst ast)
+  {
+    return isA(ast, NodeKind::Let);
+  }
+
   const std::string& getTokenValue(::ast::WeakAst ast)
   {
     assert(isValue(ast) && "Bad node");
@@ -89,6 +94,10 @@ namespace mlir::verona::ASTInterface
 
   const std::string& getLocalName(::ast::WeakAst ast)
   {
+    // Local variables can be new 'local' or existing 'localref'
+    if (isLocalRef(ast))
+      return getTokenValue(ast);
+    assert(isLet(ast) && "Bad node");
     return getTokenValue(findNode(ast, NodeKind::Local));
   }
 
@@ -228,9 +237,11 @@ namespace mlir::verona::ASTInterface
 
   ::ast::WeakAst getLHS(::ast::WeakAst ast)
   {
-    // LHS is the assignable 'let'
+    // LHS is the assignable 'let' or 'localref'
     assert(isAssign(ast) && "Bad node");
-    return findNode(ast, NodeKind::Let);
+    auto lhs = ast.lock()->nodes[0];
+    assert((isLocalRef(lhs) || isLet(lhs)) && "Bad node");
+    return lhs;
   }
 
   ::ast::WeakAst getRHS(::ast::WeakAst ast)
@@ -269,4 +280,48 @@ namespace mlir::verona::ASTInterface
     auto args = findNode(ast, NodeKind::Args);
     return args.lock()->nodes[n - 1];
   }
+
+  // ================================================= Condition Helpers
+  bool isIf(::ast::WeakAst ast)
+  {
+    return isA(ast, NodeKind::If);
+  }
+
+  bool isCondition(::ast::WeakAst ast)
+  {
+    return isA(ast, NodeKind::Condition);
+  }
+
+  bool isBlock(::ast::WeakAst ast)
+  {
+    return isA(ast, NodeKind::Block);
+  }
+
+  bool isElse(::ast::WeakAst ast)
+  {
+    return isA(ast, NodeKind::Else);
+  }
+
+  ::ast::WeakAst getCond(::ast::WeakAst ast)
+  {
+    assert(isIf(ast) && "Bad node");
+    // Cond nodes are always seq, even with just one cond
+    auto cond = findNode(ast, NodeKind::Condition);
+    return findNode(cond, NodeKind::Seq);
+  }
+
+  ::ast::WeakAst getIfBlock(::ast::WeakAst ast)
+  {
+    assert(isIf(ast) && "Bad node");
+    return findNode(ast, NodeKind::Block);
+  }
+
+  ::ast::WeakAst getElseBlock(::ast::WeakAst ast)
+  {
+    assert(isIf(ast) && "Bad node");
+    // Else has either a single node or a seq
+    auto node = findNode(ast, NodeKind::Else);
+    return node.lock()->nodes[0];
+  }
+
 }
