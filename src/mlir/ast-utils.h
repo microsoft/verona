@@ -7,6 +7,7 @@
 #include "ast/path.h"
 #include "ast/sym.h"
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 
 #include <string>
@@ -90,7 +91,7 @@ namespace mlir::verona::ASTInterface
   /// Return true if node is of a certain kind
   bool isA(::ast::WeakAst ast, NodeKind kind);
   /// Return true if node is of any kind in a list
-  bool isAny(::ast::WeakAst ast, std::vector<NodeKind>& kind);
+  bool isAny(::ast::WeakAst ast, llvm::ArrayRef<NodeKind> kind);
   /// Find a sub-node of tag 'type'
   ::ast::WeakAst findNode(::ast::WeakAst ast, NodeType type);
   /// Return a list of sub-nodes
