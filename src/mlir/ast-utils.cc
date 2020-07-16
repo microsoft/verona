@@ -29,7 +29,7 @@ namespace mlir::verona::ASTInterface
     return getKind(ast) == kind;
   }
 
-  bool isAny(::ast::WeakAst ast, std::vector<NodeKind>& kinds)
+  bool isAny(::ast::WeakAst ast, llvm::ArrayRef<NodeKind> kinds)
   {
     return std::find(kinds.begin(), kinds.end(), getKind(ast)) != kinds.end();
   }
@@ -70,8 +70,7 @@ namespace mlir::verona::ASTInterface
 
   bool isConstant(::ast::WeakAst ast)
   {
-    std::vector<NodeKind> kinds{NodeKind::Integer, NodeKind::Float};
-    return isValue(ast) && isAny(ast, kinds);
+    return isValue(ast) && isAny(ast, {NodeKind::Integer, NodeKind::Float});
   }
 
   bool isLocalRef(::ast::WeakAst ast)

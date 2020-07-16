@@ -18,6 +18,7 @@
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Transforms/Passes.h"
 
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
@@ -411,64 +412,35 @@ namespace mlir::verona
     }
     else if (isBinary(ast))
     {
-      // Get bpth arguments
+      // Get both arguments
       auto arg0 = parseNode(getOperand(ast, 0).lock());
       if (auto err = arg0.takeError())
         return std::move(err);
       auto arg1 = parseNode(getOperand(ast, 1).lock());
       if (auto err = arg1.takeError())
         return std::move(err);
-      if (name == "+")
-      {
+      // Get op name and type
+      using opPairTy = std::pair<llvm::StringRef, mlir::Type>;
+      opPairTy op = llvm::StringSwitch<opPairTy>(name)
+                      .Case("+", std::make_pair("verona.add", unkTy))
+                      .Case("-", std::make_pair("verona.sub", unkTy))
+                      .Case("*", std::make_pair("verona.mul", unkTy))
+                      .Case("/", std::make_pair("verona.div", unkTy))
+                      .Case("==", std::make_pair("verona.eq", boolTy))
+                      .Case("!=", std::make_pair("verona.ne", boolTy))
+                      .Case(">", std::make_pair("verona.gt", boolTy))
+                      .Case("<", std::make_pair("verona.lt", boolTy))
+                      .Case(">=", std::make_pair("verona.ge", boolTy))
+                      .Case("<=", std::make_pair("verona.le", boolTy))
+                      .Default(std::make_pair("", unkTy));
+      // Match, return the right op with the right type
+      if (!op.first.empty())
         return genOperation(
-          getLocation(ast), "verona.add", {*arg0, *arg1}, unkTy);
-      }
-      else if (name == "-")
-      {
-        return genOperation(
-          getLocation(ast), "verona.sub", {*arg0, *arg1}, unkTy);
-      }
-      else if (name == "*")
-      {
-        return genOperation(
-          getLocation(ast), "verona.mul", {*arg0, *arg1}, unkTy);
-      }
-      else if (name == "/")
-      {
-        return genOperation(
-          getLocation(ast), "verona.div", {*arg0, *arg1}, unkTy);
-      }
+          getLocation(ast), op.first, {*arg0, *arg1}, op.second);
 
-      if (name == "==")
-      {
-        return genOperation(
-          getLocation(ast), "verona.eq", {*arg0, *arg1}, boolTy);
-      }
-      else if (name == "!=")
-      {
-        return genOperation(
-          getLocation(ast), "verona.ne", {*arg0, *arg1}, boolTy);
-      }
-      else if (name == ">")
-      {
-        return genOperation(
-          getLocation(ast), "verona.gt", {*arg0, *arg1}, boolTy);
-      }
-      else if (name == "<")
-      {
-        return genOperation(
-          getLocation(ast), "verona.lt", {*arg0, *arg1}, boolTy);
-      }
-      else if (name == ">=")
-      {
-        return genOperation(
-          getLocation(ast), "verona.ge", {*arg0, *arg1}, boolTy);
-      }
-      else if (name == "<=")
-      {
-        return genOperation(
-          getLocation(ast), "verona.le", {*arg0, *arg1}, boolTy);
-      }
+      return parsingError(
+        "Binary operation '" + name + "' not implemented yet",
+        getLocation(ast));
     }
 
     return parsingError(
