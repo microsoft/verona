@@ -72,6 +72,7 @@ namespace mlir::verona::ASTInterface
     Condition = peg::str2tag("cond"),
     If = peg::str2tag("if"),
     Else = peg::str2tag("else"),
+    While = peg::str2tag("while"),
   };
 
   // ================================================= Generic Helpers
@@ -92,6 +93,8 @@ namespace mlir::verona::ASTInterface
   bool isA(::ast::WeakAst ast, NodeKind kind);
   /// Return true if node is of any kind in a list
   bool isAny(::ast::WeakAst ast, llvm::ArrayRef<NodeKind> kind);
+  /// Return true if node has a certain kind sub-node
+  bool hasA(::ast::WeakAst ast, NodeKind kind);
   /// Find a sub-node of tag 'type'
   ::ast::WeakAst findNode(::ast::WeakAst ast, NodeType type);
   /// Return a list of sub-nodes
@@ -168,10 +171,18 @@ namespace mlir::verona::ASTInterface
   bool isBlock(::ast::WeakAst ast);
   /// Return true if node is an else block
   bool isElse(::ast::WeakAst ast);
+  /// Return true if the 'if' node has an else block
+  bool hasElse(::ast::WeakAst ast);
   /// Return the condition form an if statement
   ::ast::WeakAst getCond(::ast::WeakAst ast);
   /// Return the block form an if statement
   ::ast::WeakAst getIfBlock(::ast::WeakAst ast);
   /// Return the else block form an if statement
   ::ast::WeakAst getElseBlock(::ast::WeakAst ast);
+
+  // ================================================= Loop Helpers
+  /// Return true if node is a while loop
+  bool isWhile(::ast::WeakAst ast);
+  /// Return the block form a loop
+  ::ast::WeakAst getLoopBlock(::ast::WeakAst ast);
 }

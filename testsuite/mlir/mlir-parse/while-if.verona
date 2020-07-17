@@ -1,0 +1,14 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+f(a, x)
+{
+  while (a < 5)
+  {
+    if (a != x)
+    {
+      a = a + 1;
+    }
+  }
+  a;
+}
