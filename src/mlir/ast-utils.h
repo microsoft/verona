@@ -73,6 +73,8 @@ namespace mlir::verona::ASTInterface
     If = peg::str2tag("if"),
     Else = peg::str2tag("else"),
     While = peg::str2tag("while"),
+    Continue = peg::str2tag("continue"),
+    Break = peg::str2tag("break"),
   };
 
   // ================================================= Generic Helpers
@@ -183,6 +185,10 @@ namespace mlir::verona::ASTInterface
   // ================================================= Loop Helpers
   /// Return true if node is a while loop
   bool isWhile(::ast::WeakAst ast);
+  /// Return true if node is a loop continue
+  bool isContinue(::ast::WeakAst ast);
+  /// Return true if node is a loop break
+  bool isBreak(::ast::WeakAst ast);
   /// Return the block form a loop
   ::ast::WeakAst getLoopBlock(::ast::WeakAst ast);
 }
