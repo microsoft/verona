@@ -74,6 +74,8 @@ namespace mlir::verona
     SymbolTableT symbolTable;
     FunctionTableT functionTable;
     TypeTableT typeTable;
+    // Nested reference for head/exit blocks in loops.
+    BasicBlockTableT loopTable;
 
     // Helper for types, before we start using actual Verona types
     mlir::Type allocaTy;
@@ -110,6 +112,8 @@ namespace mlir::verona
     llvm::Expected<mlir::Value> parseCall(const ::ast::Ast& ast);
     llvm::Expected<mlir::Value> parseCondition(const ::ast::Ast& ast);
     llvm::Expected<mlir::Value> parseWhileLoop(const ::ast::Ast& ast);
+    llvm::Expected<mlir::Value> parseContinue(const ::ast::Ast& ast);
+    llvm::Expected<mlir::Value> parseBreak(const ::ast::Ast& ast);
 
     // Wrappers for opaque operators/types before we use actual Verona dialect
     llvm::Expected<mlir::Value> genOperation(

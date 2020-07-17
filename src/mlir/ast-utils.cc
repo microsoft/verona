@@ -342,6 +342,16 @@ namespace mlir::verona::ASTInterface
     return isA(ast, NodeKind::While);
   }
 
+  bool isContinue(::ast::WeakAst ast)
+  {
+    return isValue(ast) && isA(ast, NodeKind::Continue);
+  }
+
+  bool isBreak(::ast::WeakAst ast)
+  {
+    return isValue(ast) && isA(ast, NodeKind::Break);
+  }
+
   ::ast::WeakAst getLoopBlock(::ast::WeakAst ast)
   {
     assert(isWhile(ast) && "Bad node");

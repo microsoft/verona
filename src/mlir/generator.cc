@@ -161,6 +161,7 @@ namespace mlir::verona
   {
     assert(isFunction(ast) && "Bad node");
     auto name = getFunctionName(ast);
+    // We only care about the functions declared in the current scope
     if (functionTable.inScope(name))
       return functionTable.lookup(name);
 
@@ -263,11 +264,12 @@ namespace mlir::verona
       return builder.getNoneType();
 
     // If type is in the alias table, get it
-    if (typeTable.inScope(desc))
-      return typeTable.lookup(desc);
+    auto type = typeTable.lookup(desc);
+    if (type)
+      return type;
 
     // Else, insert into the table and return
-    auto type = genOpaqueType(desc, context);
+    type = genOpaqueType(desc, context);
     typeTable.insert(desc, type);
     return type;
   }
@@ -299,9 +301,6 @@ namespace mlir::verona
 
   llvm::Expected<mlir::Value> Generator::parseNode(const ::ast::Ast& ast)
   {
-    if (isValue(ast))
-      return parseValue(ast);
-
     switch (getKind(ast))
     {
       case NodeKind::Localref:
@@ -319,10 +318,17 @@ namespace mlir::verona
         return parseCondition(ast);
       case NodeKind::While:
         return parseWhileLoop(ast);
-      default:
-        return parsingError(
-          "Node " + getName(ast) + " not implemented yet", getLocation(ast));
+      case NodeKind::Continue:
+        return parseContinue(ast);
+      case NodeKind::Break:
+        return parseBreak(ast);
     }
+
+    if (isValue(ast))
+      return parseValue(ast);
+
+    return parsingError(
+      "Node " + getName(ast) + " not implemented yet", getLocation(ast));
   }
 
   llvm::Expected<mlir::Value> Generator::parseValue(const ::ast::Ast& ast)
@@ -331,7 +337,11 @@ namespace mlir::verona
     if (isLocalRef(ast))
     {
       // We use allocas to track location and load/stores to track access
-      auto var = symbolTable.lookup(getTokenValue(ast));
+      auto name = getTokenValue(ast);
+      auto var = symbolTable.lookup(name);
+      if (!var)
+        return parsingError(
+          "Variable " + name + " not declared before use", getLocation(ast));
       if (var.getType() == allocaTy)
         return genOperation(getLocation(ast), "verona.load", {var}, unkTy);
       return var;
@@ -363,12 +373,12 @@ namespace mlir::verona
   {
     assert(isAssign(ast) && "Bad node");
 
-    // Must be a Let declaring a variable (for now).
-    auto let = getLHS(ast);
-    auto name = getLocalName(let);
+    // Can either be a let (new variable) or localref (existing variable).
+    auto var = getLHS(ast);
+    auto name = getLocalName(var);
 
-    // If the variable wasn't declared yet, create an alloca
-    if (!symbolTable.inScope(name))
+    // If the variable wasn't declared yet in this context, create an alloca
+    if (isLet(var))
     {
       auto alloca =
         genOperation(getLocation(ast), "verona.alloca", {}, allocaTy);
@@ -377,6 +387,10 @@ namespace mlir::verona
       declareVariable(name, *alloca);
     }
     auto store = symbolTable.lookup(name);
+    if (!store)
+      return parsingError(
+        "Variable " + name + " not declared before use",
+        getLocation(var.lock()));
 
     // The right-hand side can be any expression
     // This is the value and we update the variable
@@ -463,6 +477,9 @@ namespace mlir::verona
         "Conditionals with literals not supported yet", getLocation(ast));
     }
 
+    // Create local context for condition variables (valid for both if/else)
+    SymbolScopeT var_scope{symbolTable};
+
     // First node is a sequence of conditions
     // lower in the current basic block.
     auto condNode = getCond(ast).lock();
@@ -485,26 +502,36 @@ namespace mlir::verona
       builder.create<mlir::CondBranchOp>(
         condLoc, *cond, ifBB, empty, exitBB, empty);
 
-    // If block
-    auto ifNode = getIfBlock(ast).lock();
-    auto ifLoc = getLocation(ifNode);
-    builder.setInsertionPointToEnd(ifBB);
-    auto ifBlock = parseNode(ifNode);
-    if (auto err = ifBlock.takeError())
-      return std::move(err);
-    builder.create<mlir::BranchOp>(ifLoc, exitBB, empty);
+    {
+      // Create local context for the if block variables
+      SymbolScopeT if_scope{symbolTable};
+
+      // If block
+      auto ifNode = getIfBlock(ast).lock();
+      auto ifLoc = getLocation(ifNode);
+      builder.setInsertionPointToEnd(ifBB);
+      auto ifBlock = parseNode(ifNode);
+      if (auto err = ifBlock.takeError())
+        return std::move(err);
+      if (ifBB->getOps<mlir::BranchOp>().empty())
+        builder.create<mlir::BranchOp>(ifLoc, exitBB, empty);
+    }
 
     // Else block
     // We don't need to lower the else part if it's empty
     if (hasElse(ast))
     {
+      // Create local context for the else block variables
+      SymbolScopeT else_scope{symbolTable};
+
       auto elseNode = getElseBlock(ast).lock();
       auto elseLoc = getLocation(elseNode);
       builder.setInsertionPointToEnd(elseBB);
       auto elseBlock = parseNode(elseNode);
       if (auto err = elseBlock.takeError())
         return std::move(err);
-      builder.create<mlir::BranchOp>(elseLoc, exitBB, empty);
+      if (elseBB->getOps<mlir::BranchOp>().empty())
+        builder.create<mlir::BranchOp>(elseLoc, exitBB, empty);
     }
 
     // Move to exit block, where the remaining instructions will be lowered.
@@ -536,6 +563,9 @@ namespace mlir::verona
     auto exitBB = currentFunc.addBlock();
     builder.create<mlir::BranchOp>(getLocation(ast), headBB, empty);
 
+    // Create local context for loop variables
+    SymbolScopeT var_scope{symbolTable};
+
     // First node is a sequence of conditions
     // lower in the head basic block, with the conditional branch.
     builder.setInsertionPointToEnd(headBB);
@@ -547,6 +577,11 @@ namespace mlir::verona
     builder.create<mlir::CondBranchOp>(
       condLoc, *cond, bodyBB, empty, exitBB, empty);
 
+    // Create local head/tail basic-block context for continue/break
+    BasicBlockScopeT loop_scope{loopTable};
+    loopTable.insert("head", headBB);
+    loopTable.insert("tail", exitBB);
+
     // Loop body, branch back to head node which will decide exit criteria
     auto bodyNode = getLoopBlock(ast).lock();
     auto bodyLoc = getLocation(bodyNode);
@@ -554,10 +589,48 @@ namespace mlir::verona
     auto bodyBlock = parseNode(bodyNode);
     if (auto err = bodyBlock.takeError())
       return std::move(err);
-    builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
+    if (bodyBB->getOps<mlir::BranchOp>().empty())
+      builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
 
     // Move to exit block, where the remaining instructions will be lowered.
     builder.setInsertionPointToEnd(exitBB);
+
+    // No value returned, but needs to adapt to parseNode. No one will
+    // ever use this value. TODO: create a hybrid error handling for
+    // void returning constructs.
+    return mlir::Value();
+  }
+
+  llvm::Expected<mlir::Value> Generator::parseContinue(const ::ast::Ast& ast)
+  {
+    assert(isContinue(ast) && "Bad node");
+    // Nested loops have multiple heads, we only care about the last one
+    if (!loopTable.inScope("head"))
+      return parsingError("Continue without a loop", getLocation(ast));
+    auto head = loopTable.lookup("head");
+    mlir::ValueRange empty{};
+    // We assume the continue is the last operation in its basic block
+    // and that was checked by the parser
+    builder.create<mlir::BranchOp>(getLocation(ast), head, empty);
+
+    // No value returned, but needs to adapt to parseNode. No one will
+    // ever use this value. TODO: create a hybrid error handling for
+    // void returning constructs.
+    return mlir::Value();
+  }
+
+  // Can we merge this code with the function above?
+  llvm::Expected<mlir::Value> Generator::parseBreak(const ::ast::Ast& ast)
+  {
+    assert(isBreak(ast) && "Bad node");
+    // Nested loops have multiple tails, we only care about the last one
+    if (!loopTable.inScope("tail"))
+      return parsingError("Break without a loop", getLocation(ast));
+    auto head = loopTable.lookup("tail");
+    mlir::ValueRange empty{};
+    // We assume the break is the last operation in its basic block
+    // and that was checked by the parser
+    builder.create<mlir::BranchOp>(getLocation(ast), head, empty);
 
     // No value returned, but needs to adapt to parseNode. No one will
     // ever use this value. TODO: create a hybrid error handling for
