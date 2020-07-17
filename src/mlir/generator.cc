@@ -317,6 +317,8 @@ namespace mlir::verona
         return parseCall(ast);
       case NodeKind::If:
         return parseCondition(ast);
+      case NodeKind::While:
+        return parseWhileLoop(ast);
       default:
         return parsingError(
           "Node " + getName(ast) + " not implemented yet", getLocation(ast));
@@ -451,9 +453,11 @@ namespace mlir::verona
 
   llvm::Expected<mlir::Value> Generator::parseCondition(const ::ast::Ast& ast)
   {
+    assert(isIf(ast) && "Bad node");
+
     // TODO: MLIR doesn't support conditions with literals
     // we need to make a constexpr decision and only lower the right block
-    if (isConstant(ast))
+    if (isConstant(getCond(ast)))
     {
       return parsingError(
         "Conditionals with literals not supported yet", getLocation(ast));
@@ -470,10 +474,16 @@ namespace mlir::verona
     // Create basic-blocks, conditionally branch to if/else
     mlir::ValueRange empty{};
     auto ifBB = currentFunc.addBlock();
-    auto elseBB = currentFunc.addBlock();
+    mlir::Block* elseBB = nullptr;
+    if (hasElse(ast))
+      elseBB = currentFunc.addBlock();
     auto exitBB = currentFunc.addBlock();
-    builder.create<mlir::CondBranchOp>(
-      condLoc, *cond, ifBB, empty, elseBB, empty);
+    if (hasElse(ast))
+      builder.create<mlir::CondBranchOp>(
+        condLoc, *cond, ifBB, empty, elseBB, empty);
+    else
+      builder.create<mlir::CondBranchOp>(
+        condLoc, *cond, ifBB, empty, exitBB, empty);
 
     // If block
     auto ifNode = getIfBlock(ast).lock();
@@ -485,13 +495,66 @@ namespace mlir::verona
     builder.create<mlir::BranchOp>(ifLoc, exitBB, empty);
 
     // Else block
-    auto elseNode = getElseBlock(ast).lock();
-    auto elseLoc = getLocation(elseNode);
-    builder.setInsertionPointToEnd(elseBB);
-    auto elseBlock = parseNode(elseNode);
-    if (auto err = elseBlock.takeError())
+    // We don't need to lower the else part if it's empty
+    if (hasElse(ast))
+    {
+      auto elseNode = getElseBlock(ast).lock();
+      auto elseLoc = getLocation(elseNode);
+      builder.setInsertionPointToEnd(elseBB);
+      auto elseBlock = parseNode(elseNode);
+      if (auto err = elseBlock.takeError())
+        return std::move(err);
+      builder.create<mlir::BranchOp>(elseLoc, exitBB, empty);
+    }
+
+    // Move to exit block, where the remaining instructions will be lowered.
+    builder.setInsertionPointToEnd(exitBB);
+
+    // No value returned, but needs to adapt to parseNode. No one will
+    // ever use this value. TODO: create a hybrid error handling for
+    // void returning constructs.
+    return mlir::Value();
+  }
+
+  llvm::Expected<mlir::Value> Generator::parseWhileLoop(const ::ast::Ast& ast)
+  {
+    assert(isWhile(ast) && "Bad node");
+
+    // TODO: MLIR doesn't support conditions with literals
+    // we need to make a constexpr decision and only lower the right block
+    if (isConstant(getCond(ast)))
+    {
+      return parsingError(
+        "Loop conditions with literals not supported yet", getLocation(ast));
+    }
+
+    // Create the head basic-block, which will check the condition
+    // and dispatch the loop to the body block or exit.
+    mlir::ValueRange empty{};
+    auto headBB = currentFunc.addBlock();
+    auto bodyBB = currentFunc.addBlock();
+    auto exitBB = currentFunc.addBlock();
+    builder.create<mlir::BranchOp>(getLocation(ast), headBB, empty);
+
+    // First node is a sequence of conditions
+    // lower in the head basic block, with the conditional branch.
+    builder.setInsertionPointToEnd(headBB);
+    auto condNode = getCond(ast).lock();
+    auto condLoc = getLocation(condNode);
+    auto cond = parseNode(condNode);
+    if (auto err = cond.takeError())
       return std::move(err);
-    builder.create<mlir::BranchOp>(elseLoc, exitBB, empty);
+    builder.create<mlir::CondBranchOp>(
+      condLoc, *cond, bodyBB, empty, exitBB, empty);
+
+    // Loop body, branch back to head node which will decide exit criteria
+    auto bodyNode = getLoopBlock(ast).lock();
+    auto bodyLoc = getLocation(bodyNode);
+    builder.setInsertionPointToEnd(bodyBB);
+    auto bodyBlock = parseNode(bodyNode);
+    if (auto err = bodyBlock.takeError())
+      return std::move(err);
+    builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
 
     // Move to exit block, where the remaining instructions will be lowered.
     builder.setInsertionPointToEnd(exitBB);

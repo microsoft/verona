@@ -109,6 +109,7 @@ namespace mlir::verona
     llvm::Expected<mlir::Value> parseAssign(const ::ast::Ast& ast);
     llvm::Expected<mlir::Value> parseCall(const ::ast::Ast& ast);
     llvm::Expected<mlir::Value> parseCondition(const ::ast::Ast& ast);
+    llvm::Expected<mlir::Value> parseWhileLoop(const ::ast::Ast& ast);
 
     // Wrappers for opaque operators/types before we use actual Verona dialect
     llvm::Expected<mlir::Value> genOperation(
