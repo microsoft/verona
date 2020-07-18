@@ -185,6 +185,8 @@ namespace mlir::verona::ASTInterface
   // ================================================= Loop Helpers
   /// Return true if node is a while loop
   bool isWhile(::ast::WeakAst ast);
+  /// Return true if node is any kind of loop
+  bool isLoop(::ast::WeakAst ast);
   /// Return true if node is a loop continue
   bool isContinue(::ast::WeakAst ast);
   /// Return true if node is a loop break

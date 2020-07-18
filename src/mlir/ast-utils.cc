@@ -38,7 +38,7 @@ namespace mlir::verona::ASTInterface
   {
     auto nodes = ast.lock()->nodes;
     return std::find_if(nodes.begin(), nodes.end(), [&](::ast::Ast& node) {
-             return getKind(node) == kind && !node->nodes.empty();
+             return isA(node, kind);
            }) != nodes.end();
   }
 
@@ -311,12 +311,16 @@ namespace mlir::verona::ASTInterface
 
   bool hasElse(::ast::WeakAst ast)
   {
-    return isA(ast, NodeKind::If) && hasA(ast, NodeKind::Else);
+    // Else nodes always exist inside `if` nodes, but if there was no `else`
+    // block, they're empty. We should only return true if they're not.
+    return isA(ast, NodeKind::If) && hasA(ast, NodeKind::Else) &&
+      !findNode(ast, NodeKind::Else).lock()->nodes.empty();
   }
 
   ::ast::WeakAst getCond(::ast::WeakAst ast)
   {
-    assert(isAny(ast, {NodeKind::If, NodeKind::While}) && "Bad node");
+    // These are the nodes that could have conditions as subnodes
+    assert((isIf(ast) || isLoop(ast)) && "Bad node");
     // Cond nodes are always seq, even with just one cond
     auto cond = findNode(ast, NodeKind::Condition);
     return findNode(cond, NodeKind::Seq);
@@ -342,6 +346,12 @@ namespace mlir::verona::ASTInterface
     return isA(ast, NodeKind::While);
   }
 
+  bool isLoop(::ast::WeakAst ast)
+  {
+    // Add isFor when we support it
+    return isWhile(ast);
+  }
+
   bool isContinue(::ast::WeakAst ast)
   {
     return isValue(ast) && isA(ast, NodeKind::Continue);
@@ -354,7 +364,7 @@ namespace mlir::verona::ASTInterface
 
   ::ast::WeakAst getLoopBlock(::ast::WeakAst ast)
   {
-    assert(isWhile(ast) && "Bad node");
+    assert(isLoop(ast) && "Bad node");
     return findNode(ast, NodeKind::Block);
   }
 }

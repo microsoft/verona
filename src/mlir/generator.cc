@@ -339,9 +339,7 @@ namespace mlir::verona
       // We use allocas to track location and load/stores to track access
       auto name = getTokenValue(ast);
       auto var = symbolTable.lookup(name);
-      if (!var)
-        return parsingError(
-          "Variable " + name + " not declared before use", getLocation(ast));
+      assert(var && "Undeclared variable lookup, broken ast");
       if (var.getType() == allocaTy)
         return genOperation(getLocation(ast), "verona.load", {var}, unkTy);
       return var;
@@ -496,11 +494,15 @@ namespace mlir::verona
       elseBB = currentFunc.addBlock();
     auto exitBB = currentFunc.addBlock();
     if (hasElse(ast))
+    {
       builder.create<mlir::CondBranchOp>(
         condLoc, *cond, ifBB, empty, elseBB, empty);
+    }
     else
+    {
       builder.create<mlir::CondBranchOp>(
         condLoc, *cond, ifBB, empty, exitBB, empty);
+    }
 
     {
       // Create local context for the if block variables
