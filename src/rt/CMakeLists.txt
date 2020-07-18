@@ -4,13 +4,6 @@ project(verona C CXX)
 set(SNMALLOC_ONLY_HEADER_LIBRARY ON)
 add_subdirectory(external/snmalloc EXCLUDE_FROM_ALL)
 
-set(default_build_type "RelWithDebInfo")
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-  message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
-  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
-endif()
-
 macro(subdirlist result curdir)
   file(GLOB children LIST_DIRECTORIES true RELATIVE ${curdir} ${curdir}/*)
   set(dirlist "")

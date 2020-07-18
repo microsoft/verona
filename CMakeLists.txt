@@ -1,10 +1,22 @@
 cmake_minimum_required(VERSION 3.10.0)
 
-option (VERONA_LLVM_LOCATION "Location of LLVM build" "")
 option (VERONA_ONLY_BUILD_LLVM "Used to build a cache for LLVM build" Off)
+option (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM" On)
 
+# Restrict types of builds to ones where we have cached LLVM
+set(default_build_type "Release")
+if(NOT CMAKE_BUILD_TYPE)
+  if (NOT CMAKE_CONFIGURATION_TYPES)
+
+  message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
+  set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Choose the types of build." FORCE)
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
+endif()
+
+# This is used to create options that are passed through to the main Verona
+# build
 set (VERONA_EXTRA_CMAKE_ARGS)
-
 macro(verona_option variable message default)
   option(variable message default)
   list (APPEND VERONA_EXTRA_CMAKE_ARGS
@@ -21,46 +33,85 @@ verona_option(VERONA_EXPENSIVE_SYSTEMATIC_TESTING "Increase the range of seeds c
 verona_option(USE_CRASH_LOGGING "Enable crash logging in the runtime" OFF)
 
 # This is to trick the CMake into building LLVM before Verona.
-if (VERONA_LLVM_LOCATION STREQUAL "")
-  project(verona CXX)
+# We use two External Projects, so that the LLVM build can complete and install
+# before we start the Verona one.  This is required as we consume CMake
+# artifacts, which are not available otherwise.
+include(ExternalProject)
+if (NOT DEFINED VERONA_LLVM_LOCATION)
+  project(verona CXX)  
+  if (VERONA_DOWNLOAD_LLVM)
 
-  set (EXTRA_CMAKE_ARGS)
-  list (APPEND EXTRA_CMAKE_ARGS
-    -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/mlir_install
-    -DLLVM_ENABLE_PROJECTS=mlir
-    -DLLVM_TARGETS_TO_BUILD=X86
-    -DLLVM_ENABLE_ASSERTIONS=On
-    -DLLVM_ENABLE_RTTI=ON
-    -DLLVM_ENABLE_EH=ON
-  )
+  find_package(Git)
+    execute_process(
+      COMMAND ${GIT_EXECUTABLE} rev-parse --short=11 HEAD
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external/llvm-project"
+      OUTPUT_VARIABLE LLVM_PACKAGE_GIT_VERSION
+    )
 
-  if (MSVC)
-  
+    string(TOLOWER ${CMAKE_SYSTEM_NAME} PLATFORM)
+    
+    set(MLIR_TARGETS)
+    # Need loop to download all types for possible configurations
+    # Required by multi-build systems like msbuild
+    foreach (BUILD_TYPE_MIXED ${CMAKE_CONFIGURATION_TYPES})
+      string (TOLOWER ${BUILD_TYPE_MIXED} BUILD_TYPE)
+      set(PKG_NAME verona-llvm-x86_64-${PLATFORM}-${BUILD_TYPE}-${LLVM_PACKAGE_GIT_VERSION})
+      ExternalProject_Add(mlir-${BUILD_TYPE}
+        URL https://verona.blob.core.windows.net/llvmbuild/${PKG_NAME}
+        CONFIGURE_COMMAND ""
+        BUILD_COMMAND ""
+        INSTALL_COMMAND ""
+        TEST_COMMAND ""
+        USES_TERMINAL_DOWNLOAD true
+      )
+      message(STATUS "Down task for ${BUILD_TYPE}")
+      list (APPEND MLIR_TARGETS mlir-${BUILD_TYPE})
+    endforeach()
+
+    set (MLIR_TYPE mlir-$<LOWER_CASE:$<CONFIG>>)
+    set (MLIR_INSTALL 
+      ${CMAKE_BINARY_DIR}/${MLIR_TYPE}-prefix/src/${MLIR_TYPE})
   else()
-  list (APPEND EXTRA_CMAKE_ARGS
-    -DLLVM_ENABLE_LLD=ON
-  )
+    set (MLIR_INSTALL ${CMAKE_BINARY_DIR}/mlir_install)
+
+    set (LLVM_EXTRA_CMAKE_ARGS)
+    list (APPEND LLVM_EXTRA_CMAKE_ARGS
+      -DCMAKE_INSTALL_PREFIX=${MLIR_INSTALL}
+      -DLLVM_ENABLE_PROJECTS=mlir
+      -DLLVM_TARGETS_TO_BUILD=X86
+      -DLLVM_ENABLE_ASSERTIONS=On
+      -DLLVM_ENABLE_RTTI=ON
+      -DLLVM_ENABLE_EH=ON
+    )
+
+    # TODO: remove before finished!
+    # Choose sanitizers based on stuff.
+    # -DLLVM_USE_SANITIZER=$(Sanitizer) 
+
+    if (NOT MSVC)
+      list (APPEND LLVM_EXTRA_CMAKE_ARGS
+        -DLLVM_ENABLE_LLD=ON
+      )
+    endif()
+
+    ExternalProject_Add(mlir
+      SOURCE_DIR ${CMAKE_SOURCE_DIR}/external/llvm-project/llvm
+      CMAKE_ARGS ${LLVM_EXTRA_CMAKE_ARGS}
+      BUILD_ALWAYS true
+      USES_TERMINAL_BUILD true
+      USES_TERMINAL_CONFIGURE true
+    )
   endif()
-  
-  # Choose sanitizers based on stuff.
-  # -DLLVM_USE_SANITIZER=$(Sanitizer) 
 
-
-  include(ExternalProject)
-  ExternalProject_Add(mlir SOURCE_DIR ${CMAKE_SOURCE_DIR}/external/llvm-project/llvm
-    CMAKE_ARGS ${EXTRA_CMAKE_ARGS}
-    BUILD_ALWAYS true
-    USES_TERMINAL_BUILD true
-    USES_TERMINAL_CONFIGURE true
-  )
-
+  # Point Verona at the MLIR
   list (APPEND VERONA_EXTRA_CMAKE_ARGS
-    -DVERONA_LLVM_LOCATION=${CMAKE_BINARY_DIR}/mlir_install
+    -DVERONA_LLVM_LOCATION=${MLIR_INSTALL}
   )
 
   if (NOT VERONA_ONLY_BUILD_LLVM)
-    ExternalProject_Add(verona SOURCE_DIR ${CMAKE_SOURCE_DIR}
-      DEPENDS mlir
+    ExternalProject_Add(verona 
+      SOURCE_DIR ${CMAKE_SOURCE_DIR}
+      DEPENDS ${MLIR_TARGETS}
       TEST_AFTER_INSTALL true
       BUILD_ALWAYS true
       USES_TERMINAL_BUILD true
@@ -136,12 +187,3 @@ ProcessorCount(N)
 if (NOT N EQUAL 0)
   set(PARALLEL_ARGS --parallel ${N})
 endif()
-
-# The `install` target is not supported by add_dependencies
-# and doesn't work with msbuild.  This adds a custom target that
-# pushes the original target into cmake, so that tests can
-# depend on it.
-add_custom_target(install_for_test
-                  COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} ${PARALLEL_ARGS} --config $<CONFIG> --target install
-                  COMMENT "Installs distribution."
-                  USES_TERMINAL COMMAND_EXPAND_LISTS)
