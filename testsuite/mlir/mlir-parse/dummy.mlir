@@ -1,18 +1,26 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// RUN: verona-mlir %s -o - | verona-mlir | FileCheck %s
-
 module {
-  // CHECK: func @bar(%arg0: !verona.U64) -> !type<"U64 & imm"> {
-  func @bar(%arg0: !verona.U64) -> !type<"U64 & imm"> {
-    // CHECK: %[[res:[0-9]+]] = verona.foo %arg0 : !verona.U64
-    %res = verona.foo %arg0 : !verona.U64
-    // CHECK: %[[cast:[0-9]+]] = "verona.cast"(%[[res]]) : (!verona.U64) -> !verona.S64
-    %cast = "verona.cast"(%res) : (!verona.U64) -> !verona.S64
-    // CHECK: %[[foo:[0-9]+]] = "verona.test"(%[[cast]]) : (!verona.S64) -> !type<"U64 & imm">
-    %foo = "verona.test"(%cast) : (!verona.S64) -> (!type<"U64 & imm">)
-    // CHECK: return %[[foo]] : !type<"U64 & imm">
-    return %foo : !type<"U64 & imm">
+  verona.class @C {
+  }
+
+  verona.class @D {
+    verona.field "f" : !verona.U64
+    verona.field "g" : !verona.U64
+  }
+
+  func @bar() -> !verona.U64 {
+    %a = verona.new_region @C [ ] : !verona.U64
+    %b = verona.new_object @D [ "f", "g" ] (%a, %a : !verona.U64, !verona.U64) in (%a : !verona.U64) : !verona.U64
+
+    %c = verona.view %a : !verona.U64 -> !verona.U64
+    %d = verona.field_read %b["f"] : !verona.U64 -> !verona.U64
+    verona.field_write %b["g"], %c : !verona.U64 -> !verona.U64 -> !verona.U64
+
+    verona.tidy %a : !verona.U64
+    verona.drop %a : !verona.U64
+
+    return %a : !verona.U64
   }
 }
