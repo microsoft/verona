@@ -23,6 +23,86 @@
 namespace mlir::verona
 {
   /**
+   * Return Value.
+   *
+   * Verona constructs (including functions, operations, statements) can return
+   * 0, 1 or many values (tuples). Constructs that don't return values (like
+   * lexical blocks, conditionals, loops, termination) can safely return an
+   * empty "ReturnValue" with the guarantee (by the ast construction) that no
+   * other construct will try to use their return value.
+   *
+   * Tuples in MLIR are best represented by a loose list of values:
+   * https://mlir.llvm.org/docs/Rationale/Rationale/#tuple-types
+   * So we keep track of all values returned along with their normalised and
+   * canonicalised types (property distribution), and can access them via simply
+   * taking the n-th value in the list.
+   */
+  class ReturnValue
+  {
+    using ValuesTy = llvm::SmallVector<mlir::Value, 4>;
+    ValuesTy values;
+
+  public:
+    /// Default constructor, builds an empty return value.
+    ReturnValue() {}
+    /// Single value constructor.
+    ReturnValue(mlir::Value& value)
+    {
+      values.push_back(value);
+    }
+    /// Multiple value constructor.
+    ReturnValue(mlir::ResultRange& range)
+    {
+      values.insert(values.begin(), range.begin(), range.end());
+    }
+    /// Assignment operator for ReturnValue.
+    ReturnValue& operator=(ReturnValue& other)
+    {
+      values = other.values;
+      return *this;
+    }
+    /// Assignment operator for mlir::Value.
+    ReturnValue& operator=(mlir::Value& value)
+    {
+      values.push_back(value);
+      return *this;
+    }
+
+    /// Returns true if this return value has exactly one value.
+    bool hasValue() const
+    {
+      return values.size() == 1;
+    }
+
+    /// Access to the single value held, error if none or more than one.
+    mlir::Value get() const
+    {
+      assert(values.size() > 0 && "Access to empty return value");
+      assert(values.size() == 1 && "Direct access to multiple values");
+      return values[0];
+    }
+
+    /// Returns true if this return value has one or more values.
+    bool hasValues() const
+    {
+      return !values.empty();
+    }
+
+    /// Returns a copy of the values.
+    ValuesTy getAll() const
+    {
+      assert(values.size() > 0 && "Access to empty return value");
+      return values;
+    }
+
+    /// Add elements to the list
+    void push_back(mlir::Value& value)
+    {
+      values.push_back(value);
+    }
+  };
+
+  /**
    * MLIR Generator.
    *
    * There are two entry points: AST and MLIR, and two exit points: MLIR
@@ -116,31 +196,31 @@ namespace mlir::verona
 
     /// Generic node parser, calls other parse functions to handle each
     /// individual type.
-    llvm::Expected<mlir::Value> parseNode(const ::ast::Ast& ast);
+    llvm::Expected<ReturnValue> parseNode(const ::ast::Ast& ast);
 
     /// Parses a block (multiple statements), return last value.
-    llvm::Expected<mlir::Value> parseBlock(const ::ast::Ast& ast);
+    llvm::Expected<ReturnValue> parseBlock(const ::ast::Ast& ast);
     /// Parses a value (constants, variables).
-    llvm::Expected<mlir::Value> parseValue(const ::ast::Ast& ast);
+    llvm::Expected<ReturnValue> parseValue(const ::ast::Ast& ast);
     /// Parses an assign statement.
-    llvm::Expected<mlir::Value> parseAssign(const ::ast::Ast& ast);
+    llvm::Expected<ReturnValue> parseAssign(const ::ast::Ast& ast);
     /// Parses function calls and native operations.
-    llvm::Expected<mlir::Value> parseCall(const ::ast::Ast& ast);
+    llvm::Expected<ReturnValue> parseCall(const ::ast::Ast& ast);
     /// Parses an if/else block.
-    llvm::Expected<mlir::Value> parseCondition(const ::ast::Ast& ast);
+    llvm::Expected<ReturnValue> parseCondition(const ::ast::Ast& ast);
     /// Parses a 'while' loop block.
-    llvm::Expected<mlir::Value> parseWhileLoop(const ::ast::Ast& ast);
+    llvm::Expected<ReturnValue> parseWhileLoop(const ::ast::Ast& ast);
     /// Parses a 'continue' statement.
-    llvm::Expected<mlir::Value> parseContinue(const ::ast::Ast& ast);
+    llvm::Expected<ReturnValue> parseContinue(const ::ast::Ast& ast);
     /// Parses a 'break' statement.
-    llvm::Expected<mlir::Value> parseBreak(const ::ast::Ast& ast);
+    llvm::Expected<ReturnValue> parseBreak(const ::ast::Ast& ast);
     /// Parses a 'return' statement.
-    llvm::Expected<mlir::Value> parseReturn(const ::ast::Ast& ast);
+    llvm::Expected<ReturnValue> parseReturn(const ::ast::Ast& ast);
 
     // =============================================================== Temporary
 
     /// Wrapper for opaque operators before we use actual Verona dialect.
-    llvm::Expected<mlir::Value> genOperation(
+    llvm::Expected<ReturnValue> genOperation(
       mlir::Location loc,
       llvm::StringRef name,
       llvm::ArrayRef<mlir::Value> ops,

@@ -234,12 +234,12 @@ namespace mlir::verona
       if (auto err = alloca.takeError())
         return std::move(err);
       // Store the value of the argument
-      auto store =
-        genOperation(getLocation(ast), "verona.store", {value, *alloca}, unkTy);
+      auto store = genOperation(
+        getLocation(ast), "verona.store", {value, alloca->get()}, unkTy);
       if (auto err = store.takeError())
         return std::move(err);
       // Associate the name with the alloca SSA value
-      declareVariable(name, *alloca);
+      declareVariable(name, alloca->get());
     }
 
     // Lower body
@@ -253,18 +253,22 @@ namespace mlir::verona
       return func;
 
     // Return last value (or none)
-    if (*last && last->getType() != retTy)
+    // TODO: Implement multiple return values for tuples
+    if (last->hasValue() && last->get().getType() != retTy)
     {
       // Cast type (we trust the ast)
-      last = genOperation(last->getLoc(), "verona.cast", {*last}, retTy);
+      last =
+        genOperation(last->get().getLoc(), "verona.cast", {last->get()}, retTy);
     }
     else
     {
+      // None type (void)
+      // TODO: We should declare void functions without a return type
       last = genOperation(getLocation(ast), "verona.none", {}, retTy);
     }
     if (auto err = last.takeError())
       return std::move(err);
-    builder.create<mlir::ReturnOp>(getLocation(ast), *last);
+    builder.create<mlir::ReturnOp>(getLocation(ast), last->getAll());
 
     return func;
   }
@@ -299,9 +303,9 @@ namespace mlir::verona
     symbolTable.update(name, val);
   }
 
-  llvm::Expected<mlir::Value> Generator::parseBlock(const ::ast::Ast& ast)
+  llvm::Expected<ReturnValue> Generator::parseBlock(const ::ast::Ast& ast)
   {
-    mlir::Value last;
+    ReturnValue last;
     for (auto sub : getSubNodes(ast))
     {
       auto node = parseNode(sub.lock());
@@ -312,7 +316,7 @@ namespace mlir::verona
     return last;
   }
 
-  llvm::Expected<mlir::Value> Generator::parseNode(const ::ast::Ast& ast)
+  llvm::Expected<ReturnValue> Generator::parseNode(const ::ast::Ast& ast)
   {
     switch (getKind(ast))
     {
@@ -346,7 +350,7 @@ namespace mlir::verona
       "Node " + getName(ast) + " not implemented yet", getLocation(ast));
   }
 
-  llvm::Expected<mlir::Value> Generator::parseValue(const ::ast::Ast& ast)
+  llvm::Expected<ReturnValue> Generator::parseValue(const ::ast::Ast& ast)
   {
     // Variables
     if (isLocalRef(ast))
@@ -382,7 +386,7 @@ namespace mlir::verona
       getLocation(ast));
   }
 
-  llvm::Expected<mlir::Value> Generator::parseAssign(const ::ast::Ast& ast)
+  llvm::Expected<ReturnValue> Generator::parseAssign(const ::ast::Ast& ast)
   {
     assert(isAssign(ast) && "Bad node");
 
@@ -391,13 +395,14 @@ namespace mlir::verona
     auto name = getLocalName(var);
 
     // If the variable wasn't declared yet in this context, create an alloca
+    // TODO: Implement declaration of tuples (multiple values)
     if (isLet(var))
     {
       auto alloca =
         genOperation(getLocation(ast), "verona.alloca", {}, allocaTy);
       if (auto err = alloca.takeError())
         return std::move(err);
-      declareVariable(name, *alloca);
+      declareVariable(name, alloca->get());
     }
     auto store = symbolTable.lookup(name);
     if (!store)
@@ -412,20 +417,20 @@ namespace mlir::verona
       return std::move(err);
 
     // Store the value in the alloca
-    auto op =
-      genOperation(getLocation(ast), "verona.store", {*rhs, store}, unkTy);
+    auto op = genOperation(
+      getLocation(ast), "verona.store", {rhs->get(), store}, unkTy);
     if (auto err = op.takeError())
       return std::move(err);
     return store;
   }
 
-  llvm::Expected<mlir::Value> Generator::parseCall(const ::ast::Ast& ast)
+  llvm::Expected<ReturnValue> Generator::parseCall(const ::ast::Ast& ast)
   {
     assert(isCall(ast) && "Bad node");
     auto name = getID(ast);
 
     // All operations are calls, only calls to previously defined functions
-    // are function calls. FIXME: Is this really what we want?
+    // are function calls.
     if (auto func = functionTable.lookup(name))
     {
       auto argNodes = getAllOperands(ast);
@@ -443,16 +448,16 @@ namespace mlir::verona
         // Types are incomplete here, so add casts (will be cleaned later)
         auto argTy = std::get<1>(val_ty).getType();
         auto cast =
-          genOperation(getLocation(arg), "verona.cast", {*val}, argTy);
+          genOperation(getLocation(arg), "verona.cast", {val->get()}, argTy);
         if (auto err = cast.takeError())
           return std::move(err);
 
-        args.push_back(*cast);
+        args.push_back(cast->get());
       }
 
       auto call = builder.create<mlir::CallOp>(getLocation(ast), func, args);
-      // TODO: If we can return multiple results, this will change everything
-      return call.getResult(0);
+      auto res = call.getResults();
+      return res;
     }
 
     // Else, it should be an operation that we can lower natively
@@ -464,6 +469,7 @@ namespace mlir::verona
     else if (isBinary(ast))
     {
       // Get both arguments
+      // TODO: If the arguments are tuples, do we need to apply element-wise?
       auto arg0 = parseNode(getOperand(ast, 0).lock());
       if (auto err = arg0.takeError())
         return std::move(err);
@@ -489,7 +495,7 @@ namespace mlir::verona
       // Match, return the right op with the right type
       if (!op.first.empty())
         return genOperation(
-          getLocation(ast), op.first, {*arg0, *arg1}, op.second);
+          getLocation(ast), op.first, {arg0->get(), arg1->get()}, op.second);
 
       return parsingError(
         "Binary operation '" + name + "' not implemented yet",
@@ -500,21 +506,19 @@ namespace mlir::verona
       "Operation '" + name + "' not implemented yet", getLocation(ast));
   }
 
-  llvm::Expected<mlir::Value> Generator::parseReturn(const ::ast::Ast& ast)
+  llvm::Expected<ReturnValue> Generator::parseReturn(const ::ast::Ast& ast)
   {
     assert(isReturn(ast) && "Bad node");
     auto expr = parseNode(getSingleSubNode(ast).lock());
     if (auto err = expr.takeError())
       return std::move(err);
-    builder.create<mlir::ReturnOp>(getLocation(ast), *expr);
+    builder.create<mlir::ReturnOp>(getLocation(ast), expr->getAll());
 
-    // No value returned, but needs to adapt to parseNode. No one will
-    // ever use this value. TODO: create a hybrid error handling for
-    // void returning constructs.
-    return mlir::Value();
+    // No values to return, basic block is terminated.
+    return ReturnValue();
   }
 
-  llvm::Expected<mlir::Value> Generator::parseCondition(const ::ast::Ast& ast)
+  llvm::Expected<ReturnValue> Generator::parseCondition(const ::ast::Ast& ast)
   {
     assert(isIf(ast) && "Bad node");
 
@@ -547,12 +551,12 @@ namespace mlir::verona
     if (hasElse(ast))
     {
       builder.create<mlir::CondBranchOp>(
-        condLoc, *cond, ifBB, empty, elseBB, empty);
+        condLoc, cond->get(), ifBB, empty, elseBB, empty);
     }
     else
     {
       builder.create<mlir::CondBranchOp>(
-        condLoc, *cond, ifBB, empty, exitBB, empty);
+        condLoc, cond->get(), ifBB, empty, exitBB, empty);
     }
 
     {
@@ -590,13 +594,11 @@ namespace mlir::verona
     // Move to exit block, where the remaining instructions will be lowered.
     builder.setInsertionPointToEnd(exitBB);
 
-    // No value returned, but needs to adapt to parseNode. No one will
-    // ever use this value. TODO: create a hybrid error handling for
-    // void returning constructs.
-    return mlir::Value();
+    // No values to return from lexical constructs.
+    return ReturnValue();
   }
 
-  llvm::Expected<mlir::Value> Generator::parseWhileLoop(const ::ast::Ast& ast)
+  llvm::Expected<ReturnValue> Generator::parseWhileLoop(const ::ast::Ast& ast)
   {
     assert(isWhile(ast) && "Bad node");
 
@@ -628,7 +630,7 @@ namespace mlir::verona
     if (auto err = cond.takeError())
       return std::move(err);
     builder.create<mlir::CondBranchOp>(
-      condLoc, *cond, bodyBB, empty, exitBB, empty);
+      condLoc, cond->get(), bodyBB, empty, exitBB, empty);
 
     // Create local head/tail basic-block context for continue/break
     BasicBlockScopeT loop_scope{loopTable};
@@ -648,13 +650,11 @@ namespace mlir::verona
     // Move to exit block, where the remaining instructions will be lowered.
     builder.setInsertionPointToEnd(exitBB);
 
-    // No value returned, but needs to adapt to parseNode. No one will
-    // ever use this value. TODO: create a hybrid error handling for
-    // void returning constructs.
-    return mlir::Value();
+    // No values to return from lexical constructs.
+    return ReturnValue();
   }
 
-  llvm::Expected<mlir::Value> Generator::parseContinue(const ::ast::Ast& ast)
+  llvm::Expected<ReturnValue> Generator::parseContinue(const ::ast::Ast& ast)
   {
     assert(isContinue(ast) && "Bad node");
     // Nested loops have multiple heads, we only care about the last one
@@ -666,14 +666,12 @@ namespace mlir::verona
     // and that was checked by the parser
     builder.create<mlir::BranchOp>(getLocation(ast), head, empty);
 
-    // No value returned, but needs to adapt to parseNode. No one will
-    // ever use this value. TODO: create a hybrid error handling for
-    // void returning constructs.
-    return mlir::Value();
+    // No values to return, basic block is terminated.
+    return ReturnValue();
   }
 
   // Can we merge this code with the function above?
-  llvm::Expected<mlir::Value> Generator::parseBreak(const ::ast::Ast& ast)
+  llvm::Expected<ReturnValue> Generator::parseBreak(const ::ast::Ast& ast)
   {
     assert(isBreak(ast) && "Bad node");
     // Nested loops have multiple tails, we only care about the last one
@@ -685,13 +683,11 @@ namespace mlir::verona
     // and that was checked by the parser
     builder.create<mlir::BranchOp>(getLocation(ast), head, empty);
 
-    // No value returned, but needs to adapt to parseNode. No one will
-    // ever use this value. TODO: create a hybrid error handling for
-    // void returning constructs.
-    return mlir::Value();
+    // No values to return, basic block is terminated.
+    return ReturnValue();
   }
 
-  llvm::Expected<mlir::Value> Generator::genOperation(
+  llvm::Expected<ReturnValue> Generator::genOperation(
     mlir::Location loc,
     llvm::StringRef name,
     llvm::ArrayRef<mlir::Value> ops,
@@ -702,7 +698,8 @@ namespace mlir::verona
     state.addOperands(ops);
     state.addTypes({retTy});
     auto op = builder.createOperation(state);
-    return op->getResult(0);
+    auto res = op->getResults();
+    return res;
   }
 
   mlir::OpaqueType
