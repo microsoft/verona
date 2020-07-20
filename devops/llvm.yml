@@ -165,7 +165,7 @@ jobs:
 
   - script: |
       set -eo pipefail
-      make -j 4
+      make -j 4 install
     workingDirectory: build
     displayName: 'Compile LLVM & MLIR'
 
