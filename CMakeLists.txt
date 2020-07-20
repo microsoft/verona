@@ -2,26 +2,6 @@ cmake_minimum_required(VERSION 3.10.0)
 
 option (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM" On)
 
-# Restrict types of builds to ones where we have cached LLVM
-set(default_build_type "Release")
-if (MSVC)
-  if (NOT CMAKE_CONFIGURATION_TYPES)
-    if (NOT CMAKE_BUILD_TYPE)
-      set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Choose the types of build." FORCE)
-    else()
-      set(CMAKE_CONFIGURATION_TYPES "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
-    endif()
-  endif ()
-else ()
-  if (NOT CMAKE_BUILD_TYPE)
-    message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
-    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
-  endif()
-  if (NOT CMAKE_CONFIGURATION_TYPES)
-    set(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE} CACHE STRING "Choose the types of build." FORCE)
-  endif ()
-endif ()
-
 # This is used to create options that are passed through to the main Verona
 # build
 set (VERONA_EXTRA_CMAKE_ARGS)
@@ -47,10 +27,29 @@ verona_option(USE_CRASH_LOGGING "Enable crash logging in the runtime" OFF)
 # artifacts, which are not available otherwise.
 include(ExternalProject)
 if (NOT DEFINED VERONA_LLVM_LOCATION)
-  project(verona CXX)  
-  if (VERONA_DOWNLOAD_LLVM)
+  project(verona CXX)
+  # Restrict types of builds to ones where we have cached LLVM
+  set(default_build_type "Release")
+  if (MSVC)
+    if (NOT CMAKE_CONFIGURATION_TYPES)
+      if (NOT CMAKE_BUILD_TYPE)
+        set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Choose the types of build." FORCE)
+      else()
+        set(CMAKE_CONFIGURATION_TYPES "${CMAKE_BUILD_TYPE}" CACHE STRING "Choose the type of build." FORCE)
+      endif()
+    endif ()
+  else ()
+    if (NOT CMAKE_BUILD_TYPE)
+      message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+      set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
+    endif()
+    if (NOT CMAKE_CONFIGURATION_TYPES)
+      set(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE} CACHE STRING "Choose the types of build." FORCE)
+    endif ()
+  endif ()
 
-  find_package(Git)
+  if (VERONA_DOWNLOAD_LLVM)
+    find_package(Git)
     execute_process(
       COMMAND ${GIT_EXECUTABLE} rev-parse --short=11 HEAD
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external/llvm-project"
