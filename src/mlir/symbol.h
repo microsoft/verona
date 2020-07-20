@@ -15,14 +15,17 @@ namespace mlir::verona
    * and the MLIR ounterpart) in a scope. Creating a new scope makes
    * all future insertions happen at that level, destroying it pops
    * the scope out of the stack.
-
+   *
    * New scopes are created by creating a new local variable like:
    *   SymbolScopeT scope(symbolTable);
    * The destructor pops the scope automatically.
-
+   *
    * We cannot use LLVM's ADT/ScopedHashTable like MLIR's Toy example because
    * that coped hash table does not allow redefinition, which is a problem when
    * declaring variables with a type only and then assigning values later.
+   *
+   * Also, note that because of how `lookup` returns nullptr, we can only store
+   * pointers or objects that "behave like pointers" (by implementing *, ->).
    */
   template<class T>
   class ScopedTable
@@ -48,8 +51,6 @@ namespace mlir::verona
     bool insert(llvm::StringRef key, T value)
     {
       auto& frame = stack.back();
-      if (frame.count(key.str()))
-        return false;
       auto res = frame.emplace(key, value);
       return res.second;
     }
@@ -60,8 +61,9 @@ namespace mlir::verona
       for (auto it = stack.rbegin(), end = stack.rend(); it != end; it++)
       {
         auto& frame = *it;
-        if (frame.count(key.str()))
-          return frame[key.str()];
+        auto val = frame.find(key.str());
+        if (val != frame.end())
+          return val->second;
       }
       return nullptr;
     }
@@ -77,8 +79,6 @@ namespace mlir::verona
     bool update(llvm::StringRef key, T value)
     {
       auto& frame = stack.back();
-      if (!frame.count(key.str()))
-        return insert(key, value);
       // FIXME: Check types are compatible
       frame[key.str()] = value;
       return true;
