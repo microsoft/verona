@@ -89,7 +89,7 @@ jobs:
 
   - script: |
       set -eo pipefail
-      ninja install
+      ninja
     workingDirectory: build
     displayName: 'Compile'
 
@@ -139,7 +139,7 @@ jobs:
   - task: MSBuild@1
     displayName: 'Compile'
     inputs:
-      solution: build/INSTALL.vcxproj
+      solution: build/verona.sln
       msbuildArguments: '/m /p:Configuration=$(BuildType)'
 
   - script: |
@@ -190,7 +190,7 @@ jobs:
 
   - script: |
       set -eo pipefail
-      make -j 4 install
+      make -j 4
     workingDirectory: build
     displayName: 'Compile'
 
