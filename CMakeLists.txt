@@ -5,14 +5,23 @@ option (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM" On)
 
 # Restrict types of builds to ones where we have cached LLVM
 set(default_build_type "Release")
-if(NOT CMAKE_BUILD_TYPE)
+if (MSVC)
   if (NOT CMAKE_CONFIGURATION_TYPES)
-
-  message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
-  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
-  set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Choose the types of build." FORCE)
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
-endif()
+    if (NOT CMAKE_BUILD_TYPE)
+      set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Choose the types of build." FORCE)
+    else()
+      set(CMAKE_CONFIGURATION_TYPES "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
+    endif()
+  endif ()
+else ()
+  if (NOT CMAKE_BUILD_TYPE)
+    message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
+  endif()
+  if (NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE} CACHE STRING "Choose the types of build." FORCE)
+  endif ()
+endif ()
 
 # This is used to create options that are passed through to the main Verona
 # build
