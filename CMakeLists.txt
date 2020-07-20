@@ -136,12 +136,14 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
   set(VERONA_MINIMAL_CMAKE On)
   add_subdirectory(src EXCLUDE_FROM_ALL)
 
+  set (SEPARATE_TEST (NOT ${MSVC})
+
   ExternalProject_Add(verona 
     SOURCE_DIR ${CMAKE_SOURCE_DIR}
     DEPENDS ${MLIR_TARGETS}
     TEST_COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> --timeout 400 --output-on-failure --interactive-debug-mode 0
     TEST_AFTER_INSTALL true
-    TEST_EXCLUDE_FROM_MAIN true
+    TEST_EXCLUDE_FROM_MAIN ${SEPARATE_TEST}
     BUILD_ALWAYS true
     USES_TERMINAL_BUILD true
     USES_TERMINAL_CONFIGURE true
@@ -149,9 +151,11 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
     USES_TERMINAL_TEST true
     CMAKE_ARGS ${VERONA_EXTRA_CMAKE_ARGS})
 
-  ExternalProject_Add_StepTargets(verona test)
+  if (${SEPARATE_TEST})
+    ExternalProject_Add_StepTargets(verona test)
 
-  add_custom_target(check DEPENDS verona-test)
+    add_custom_target(check DEPENDS verona-test)
+  endif ()
   return ()
 endif()
 
