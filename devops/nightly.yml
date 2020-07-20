@@ -14,29 +14,9 @@ schedules:
     - master
 
 jobs:
-############################################## Configure CI Run
-- job: ConfigureCIRun
-  pool:
-    vmImage: 'ubuntu-18.04'
-  steps:
-  - script: |
-      if [ -z "$(LLVMCommit)" ]; then
-        echo "LLVMCommit empty, picking from submodule"
-        LLVMCommit=$(git submodule status external/llvm-project | grep -o "[0-9a-f]\{11\}" | head -n 1)
-      else
-        LLVMCommit=$(LLVMCommit)
-      fi
-      echo "LLVMCommit: $LLVMCommit"
-      echo "##vso[task.setvariable variable=LLVMCommit;isOutput=true]$LLVMCommit"
-    displayName: 'Check for runtime changes'
-    name: setVarStep
-
 ############################################## Linux Builds
 - job:
   displayName: Linux
-  dependsOn: ConfigureCIRun
-  variables:
-    LLVMCommit: $[ dependencies.ConfigureCIRun.outputs['setVarStep.LLVMCommit'] ]
   pool:
     vmImage: 'ubuntu-18.04'
   timeoutInMinutes: 120
@@ -117,9 +97,6 @@ jobs:
 ############################################## Windows Builds
 - job:
   displayName: Windows
-  dependsOn: ConfigureCIRun
-  variables:
-    LLVMCommit: $[ dependencies.ConfigureCIRun.outputs['setVarStep.LLVMCommit'] ]
   pool:
     vmImage: 'windows-2019'
   timeoutInMinutes: 120
@@ -171,9 +148,6 @@ jobs:
 ############################################## MacOS Builds
 - job:
   displayName: macOS
-  dependsOn: ConfigureCIRun
-  variables:
-    LLVMCommit: $[ dependencies.ConfigureCIRun.outputs['setVarStep.LLVMCommit'] ]
   pool:
     vmImage: 'macOS-10.14'
   timeoutInMinutes: 120

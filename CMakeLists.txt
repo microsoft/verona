@@ -37,6 +37,8 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
       else()
         set(CMAKE_CONFIGURATION_TYPES "${CMAKE_BUILD_TYPE}" CACHE STRING "Choose the type of build." FORCE)
       endif()
+      list (APPEND VERONA_EXTRA_CMAKE_ARGS
+        -DCMAKE_CONFIGURATION_TYPES=${CMAKE_CONFIGURATION_TYPES})
     endif ()
   else ()
     if (NOT CMAKE_BUILD_TYPE)

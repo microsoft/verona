@@ -29,14 +29,6 @@ jobs:
         echo Doc changes only;
         echo "##vso[task.setvariable variable=docOnly;isOutput=true]true" #set variable to testRuntime to On
       fi
-      if [ -z "$(LLVMCommit)" ]; then
-        echo "LLVMCommit empty, picking from submodule"
-        LLVMCommit=$(git submodule status external/llvm-project | grep -o "[0-9a-f]\{11\}" | head -n 1)
-      else
-        LLVMCommit=$(LLVMCommit)
-      fi
-      echo "LLVMCommit: $LLVMCommit"
-      echo "##vso[task.setvariable variable=LLVMCommit;isOutput=true]$LLVMCommit"
     displayName: 'Check for runtime changes'
     name: setVarStep
 
@@ -47,7 +39,6 @@ jobs:
   condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.docOnly'], 'false')
   variables:
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
-    LLVMCommit: $[ dependencies.ConfigureCIRun.outputs['setVarStep.LLVMCommit'] ]
   pool:
     vmImage: 'ubuntu-18.04'
   timeoutInMinutes: 120
@@ -108,7 +99,6 @@ jobs:
   condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.docOnly'], 'false')
   variables:
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
-    LLVMCommit: $[ dependencies.ConfigureCIRun.outputs['setVarStep.LLVMCommit'] ]
   pool:
     vmImage: 'windows-2019'
   timeoutInMinutes: 120
@@ -160,7 +150,6 @@ jobs:
   condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.docOnly'], 'false')
   variables:
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
-    LLVMCommit: $[ dependencies.ConfigureCIRun.outputs['setVarStep.LLVMCommit'] ]
   pool:
     vmImage: 'macOS-10.14'
   timeoutInMinutes: 120
