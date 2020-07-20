@@ -71,7 +71,7 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
       if (${BUILD_TYPE} STREQUAL relwithdebinfo)
         # RelWithDebInfo should use release LLVM.
         set(LLVM_BUILD_TYPE release)
-      elseif (NOT WIN32)
+      elseif (WIN32)
         set(LLVM_BUILD_TYPE ${BUILD_TYPE})
       else ()
         # Use release everywhere it works.
