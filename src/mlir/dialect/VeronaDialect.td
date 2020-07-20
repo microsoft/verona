@@ -21,7 +21,11 @@ def Verona_Dialect : Dialect {
 //===----------------------------------------------------------------------===//
 
 class Verona_Op<string mnemonic, list<OpTrait> traits = []> :
-        Op<Verona_Dialect, mnemonic, traits>;
+        Op<Verona_Dialect, mnemonic, traits> {
+    let parser = [{ return ::parse$cppClass(parser, result); }];
+    let printer = [{ return ::print(p, *this); }];
+    let verifier = [{ return ::verify(*this); }];
+}
 
 def Verona_IntegerType : DialectType<Verona_Dialect,
     CPred<"$_self.isa<::mlir::verona::IntegerType>()">, "integer type">,
