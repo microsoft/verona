@@ -70,10 +70,16 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
       string (TOLOWER ${BUILD_TYPE_MIXED} BUILD_TYPE)
       if (${BUILD_TYPE} STREQUAL relwithdebinfo)
         # RelWithDebInfo should use release LLVM.
-        set(PKG_NAME verona-llvm-install-x86_64-${PLATFORM}-release-${LLVM_PACKAGE_GIT_VERSION})
+        set(LLVM_BUILD_TYPE release)
+      elseif (NOT WIN32)
+        set(LLVM_BUILD_TYPE ${BUILD_TYPE})
       else ()
-        set(PKG_NAME verona-llvm-install-x86_64-${PLATFORM}-${BUILD_TYPE}-${LLVM_PACKAGE_GIT_VERSION})
+        # Use release everywhere it works.
+        set(LLVM_BUILD_TYPE release)
       endif ()
+
+      set(PKG_NAME verona-llvm-install-x86_64-${PLATFORM}-${LLVM_BUILD_TYPE}-${LLVM_PACKAGE_GIT_VERSION})
+
       ExternalProject_Add(mlir-${BUILD_TYPE}
         URL https://verona.blob.core.windows.net/llvmbuild/${PKG_NAME}
         CONFIGURE_COMMAND ""
