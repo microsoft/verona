@@ -23,6 +23,15 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
 
+namespace
+{
+  /// Helper to make sure the basic block has a terminator
+  bool hasTerminator(mlir::Block* bb)
+  {
+    return !bb->getOperations().empty() && bb->back().isKnownTerminator();
+  }
+}
+
 namespace mlir::verona
 {
   // FIXME: Until we decide how the interface is going to be, this helps to
@@ -239,7 +248,11 @@ namespace mlir::verona
     if (auto err = last.takeError())
       return std::move(err);
 
-    // Return last value
+    // Check if needs to return a value at all
+    if (hasTerminator(builder.getBlock()))
+      return func;
+
+    // Return last value (or none)
     if (*last && last->getType() != retTy)
     {
       // Cast type (we trust the ast)
@@ -314,6 +327,8 @@ namespace mlir::verona
         return parseAssign(ast);
       case NodeKind::Call:
         return parseCall(ast);
+      case NodeKind::Return:
+        return parseReturn(ast);
       case NodeKind::If:
         return parseCondition(ast);
       case NodeKind::While:
@@ -411,11 +426,33 @@ namespace mlir::verona
 
     // All operations are calls, only calls to previously defined functions
     // are function calls. FIXME: Is this really what we want?
-    if (functionTable.inScope(name))
+    if (auto func = functionTable.lookup(name))
     {
-      // TODO: Lower calls.
-      return parsingError(
-        "Function calls not implemented yet", getLocation(ast));
+      auto argNodes = getAllOperands(ast);
+      assert(
+        argNodes.size() == func.getNumArguments() &&
+        "Wrong number of arguments");
+      llvm::SmallVector<mlir::Value, 4> args;
+      for (const auto& val_ty : llvm::zip(argNodes, func.getArguments()))
+      {
+        auto arg = std::get<0>(val_ty).lock();
+        auto val = parseNode(arg);
+        if (auto err = val.takeError())
+          return std::move(err);
+
+        // Types are incomplete here, so add casts (will be cleaned later)
+        auto argTy = std::get<1>(val_ty).getType();
+        auto cast =
+          genOperation(getLocation(arg), "verona.cast", {*val}, argTy);
+        if (auto err = cast.takeError())
+          return std::move(err);
+
+        args.push_back(*cast);
+      }
+
+      auto call = builder.create<mlir::CallOp>(getLocation(ast), func, args);
+      // TODO: If we can return multiple results, this will change everything
+      return call.getResult(0);
     }
 
     // Else, it should be an operation that we can lower natively
@@ -461,6 +498,20 @@ namespace mlir::verona
 
     return parsingError(
       "Operation '" + name + "' not implemented yet", getLocation(ast));
+  }
+
+  llvm::Expected<mlir::Value> Generator::parseReturn(const ::ast::Ast& ast)
+  {
+    assert(isReturn(ast) && "Bad node");
+    auto expr = parseNode(getSingleSubNode(ast).lock());
+    if (auto err = expr.takeError())
+      return std::move(err);
+    builder.create<mlir::ReturnOp>(getLocation(ast), *expr);
+
+    // No value returned, but needs to adapt to parseNode. No one will
+    // ever use this value. TODO: create a hybrid error handling for
+    // void returning constructs.
+    return mlir::Value();
   }
 
   llvm::Expected<mlir::Value> Generator::parseCondition(const ::ast::Ast& ast)
@@ -515,7 +566,7 @@ namespace mlir::verona
       auto ifBlock = parseNode(ifNode);
       if (auto err = ifBlock.takeError())
         return std::move(err);
-      if (ifBB->getOps<mlir::BranchOp>().empty())
+      if (!hasTerminator(builder.getBlock()))
         builder.create<mlir::BranchOp>(ifLoc, exitBB, empty);
     }
 
@@ -532,7 +583,7 @@ namespace mlir::verona
       auto elseBlock = parseNode(elseNode);
       if (auto err = elseBlock.takeError())
         return std::move(err);
-      if (elseBB->getOps<mlir::BranchOp>().empty())
+      if (!hasTerminator(builder.getBlock()))
         builder.create<mlir::BranchOp>(elseLoc, exitBB, empty);
     }
 
@@ -591,7 +642,7 @@ namespace mlir::verona
     auto bodyBlock = parseNode(bodyNode);
     if (auto err = bodyBlock.takeError())
       return std::move(err);
-    if (bodyBB->getOps<mlir::BranchOp>().empty())
+    if (!hasTerminator(builder.getBlock()))
       builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
 
     // Move to exit block, where the remaining instructions will be lowered.
