@@ -64,7 +64,7 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
     # Required by multi-build systems like msbuild
     foreach (BUILD_TYPE_MIXED ${CMAKE_CONFIGURATION_TYPES})
       string (TOLOWER ${BUILD_TYPE_MIXED} BUILD_TYPE)
-      set(PKG_NAME verona-llvm-x86_64-${PLATFORM}-${BUILD_TYPE}-${LLVM_PACKAGE_GIT_VERSION})
+      set(PKG_NAME verona-llvm-install-x86_64-${PLATFORM}-${BUILD_TYPE}-${LLVM_PACKAGE_GIT_VERSION})
       ExternalProject_Add(mlir-${BUILD_TYPE}
         URL https://verona.blob.core.windows.net/llvmbuild/${PKG_NAME}
         CONFIGURE_COMMAND ""
