@@ -148,7 +148,7 @@ jobs:
   - script: |
       mkdir build
       cd build
-      cmake .. -G"Visual Studio 16 2019" -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=ON -DCMAKE_CXX_FLAGS="$(CXXFLAGS)" -DCMAKE_CONFIGURATIONS_TYPES="$(BuildType)"
+      cmake .. -G"Visual Studio 16 2019" -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=ON -DCMAKE_CXX_FLAGS="$(CXXFLAGS)" -DCMAKE_CONFIGURATION_TYPES="$(BuildType)"
     displayName: 'CMake'
 
   - task: MSBuild@1
