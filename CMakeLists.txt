@@ -136,14 +136,21 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
   set(VERONA_MINIMAL_CMAKE On)
   add_subdirectory(src EXCLUDE_FROM_ALL)
 
-  set (SEPARATE_TEST (NOT ${MSVC}))
+  # Current the ExternalProject_Add_StepTargets seems to be generating something
+  # that is breaking CI for MSVC. So on MSVC with have a single build and test
+  # target. On other platforms we keep them separate.
+  if (MSVC)
+    set (SEPARATE_TEST_TARGET false)
+  else ()
+    set (SEPARATE_TEST_TARGET true)
+  endif()
 
   ExternalProject_Add(verona 
     SOURCE_DIR ${CMAKE_SOURCE_DIR}
     DEPENDS ${MLIR_TARGETS}
     TEST_COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> --timeout 400 --output-on-failure --interactive-debug-mode 0
     TEST_AFTER_INSTALL true
-    TEST_EXCLUDE_FROM_MAIN ${SEPARATE_TEST}
+    TEST_EXCLUDE_FROM_MAIN ${SEPARATE_TEST_TARGET}
     BUILD_ALWAYS true
     USES_TERMINAL_BUILD true
     USES_TERMINAL_CONFIGURE true
@@ -151,7 +158,7 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
     USES_TERMINAL_TEST true
     CMAKE_ARGS ${VERONA_EXTRA_CMAKE_ARGS})
 
-  if (${SEPARATE_TEST})
+  if (${SEPARATE_TEST_TARGET})
     ExternalProject_Add_StepTargets(verona test)
 
     add_custom_target(check DEPENDS verona-test)
