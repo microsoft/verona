@@ -45,37 +45,37 @@ namespace mlir::verona::ASTInterface
   enum NodeKind : NodeType
   {
     None = 0,
-    Module = peg::str2tag("module"),
-    ClassDef = peg::str2tag("classdef"),
-    Function = peg::str2tag("function"),
-    FuncName = peg::str2tag("funcname"),
-    Sig = peg::str2tag("sig"),
-    Block = peg::str2tag("block"),
-    OfType = peg::str2tag("oftype"),
-    Constraints = peg::str2tag("constraints"),
-    Constraint = peg::str2tag("constraint"),
-    Type = peg::str2tag("type"),
-    TypeRef = peg::str2tag("type_ref"),
-    TypeBody = peg::str2tag("typebody"),
-    Params = peg::str2tag("params"),
-    NamedParam = peg::str2tag("namedparam"),
-    ID = peg::str2tag("id"),
-    Seq = peg::str2tag("seq"),
-    Assign = peg::str2tag("assign"),
-    Let = peg::str2tag("let"),
-    Call = peg::str2tag("call"),
-    Return = peg::str2tag("return"),
-    Args = peg::str2tag("args"),
-    Integer = peg::str2tag("int"),
-    Local = peg::str2tag("local"),
-    Localref = peg::str2tag("localref"),
-    Float = peg::str2tag("float"),
-    Condition = peg::str2tag("cond"),
-    If = peg::str2tag("if"),
-    Else = peg::str2tag("else"),
-    While = peg::str2tag("while"),
-    Continue = peg::str2tag("continue"),
-    Break = peg::str2tag("break"),
+    Module = peg::str2tag("module"), // = 73005690
+    ClassDef = peg::str2tag("classdef"), // = 983016457
+    Function = peg::str2tag("function"), // = 89836898
+    FuncName = peg::str2tag("funcname"), // = 90200697
+    Sig = peg::str2tag("sig"), // = 124317
+    Block = peg::str2tag("block"), // = 117895113
+    OfType = peg::str2tag("oftype"), // = 3504561
+    Constraints = peg::str2tag("constraints"), // = 4070926742
+    Constraint = peg::str2tag("constraint"), // = 2466070853
+    Type = peg::str2tag("type"), // = 4058008
+    TypeRef = peg::str2tag("type_ref"), // = 2115269750
+    TypeBody = peg::str2tag("typebody"), // = 2117081800
+    Params = peg::str2tag("params"), // = 4271185724
+    NamedParam = peg::str2tag("namedparam"), // = 1544471404
+    ID = peg::str2tag("id"), // = 3565
+    Seq = peg::str2tag("seq"), // = 124167
+    Assign = peg::str2tag("assign"), // = 3930587681
+    Let = peg::str2tag("let"), // = 114397
+    Call = peg::str2tag("call"), // = 3519010
+    Return = peg::str2tag("return"), // = 210835850
+    Args = peg::str2tag("args"), // = 3609031
+    Integer = peg::str2tag("int"), // = 117427
+    Local = peg::str2tag("local"), // = 124201581
+    Localref = peg::str2tag("localref"), // = 961318684
+    Float = peg::str2tag("float"), // = 122359824
+    Condition = peg::str2tag("cond"), // = 3533542
+    If = peg::str2tag("if"), // = 3567
+    Else = peg::str2tag("else"), // = 3742303
+    While = peg::str2tag("while"), // = 140358143
+    Continue = peg::str2tag("continue"), // = 2929012833
+    Break = peg::str2tag("break"), // = 117842911
   };
 
   // ================================================= Generic Helpers
