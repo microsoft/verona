@@ -122,6 +122,11 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
     -DVERONA_LLVM_LOCATION=${MLIR_INSTALL}
   )
 
+  # This is used to provide the clangformat target at the top
+  # level
+  set(VERONA_MINIMAL_CMAKE On)
+  add_subdirectory(src EXCLUDE_FROM_ALL)
+
   ExternalProject_Add(verona 
     SOURCE_DIR ${CMAKE_SOURCE_DIR}
     DEPENDS ${MLIR_TARGETS}

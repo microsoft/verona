@@ -227,7 +227,7 @@ jobs:
     displayName: 'CMake'
     inputs:
       cmakeArgs: |
-        .. -DDISABLE_LLVM_BUILD=ON
+        ..
 
   - script: |
       set -eo pipefail

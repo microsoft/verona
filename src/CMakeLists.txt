@@ -18,14 +18,12 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     add_compile_options(-Wmismatched-tags)
 endif()
 
-
-add_subdirectory(ast)
-add_subdirectory(compiler)
-add_subdirectory(interpreter)
-add_subdirectory(stdlib)
-
-# Some builds (ex. clang format) don't need LLVM
-if(NOT DISABLE_LLVM_BUILD)
+# Some builds (ex. clang format) don't need external dependencies like LLVM
+if(NOT VERONA_MINIMAL_CMAKE)
+  add_subdirectory(ast)
+  add_subdirectory(compiler)
+  add_subdirectory(interpreter)
+  add_subdirectory(stdlib)
   add_subdirectory(mlir)
 endif()
 
