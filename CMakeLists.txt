@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.10.0)
 
-option (VERONA_ONLY_BUILD_LLVM "Used to build a cache for LLVM build" Off)
 option (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM" On)
 
 # Restrict types of builds to ones where we have cached LLVM
@@ -79,7 +78,7 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
 
     set (MLIR_TYPE mlir-$<LOWER_CASE:$<CONFIG>>)
     set (MLIR_INSTALL 
-      ${CMAKE_BINARY_DIR}/${MLIR_TYPE}-prefix/src/${MLIR_TYPE})
+      ${CMAKE_BINARY_DIR}/${MLIR_TYPE}-prefix/src/${MLIR_TYPE}/install)
   else()
     set (MLIR_INSTALL ${CMAKE_BINARY_DIR}/mlir_install)
 
@@ -117,18 +116,16 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
     -DVERONA_LLVM_LOCATION=${MLIR_INSTALL}
   )
 
-  if (NOT VERONA_ONLY_BUILD_LLVM)
-    ExternalProject_Add(verona 
-      SOURCE_DIR ${CMAKE_SOURCE_DIR}
-      DEPENDS ${MLIR_TARGETS}
-      TEST_AFTER_INSTALL true
-      BUILD_ALWAYS true
-      USES_TERMINAL_BUILD true
-      USES_TERMINAL_CONFIGURE true
-      USES_TERMINAL_INSTALL true
-      USES_TERMINAL_TEST true
-      CMAKE_ARGS ${VERONA_EXTRA_CMAKE_ARGS})
-  endif ()
+  ExternalProject_Add(verona 
+    SOURCE_DIR ${CMAKE_SOURCE_DIR}
+    DEPENDS ${MLIR_TARGETS}
+    TEST_AFTER_INSTALL true
+    BUILD_ALWAYS true
+    USES_TERMINAL_BUILD true
+    USES_TERMINAL_CONFIGURE true
+    USES_TERMINAL_INSTALL true
+    USES_TERMINAL_TEST true
+    CMAKE_ARGS ${VERONA_EXTRA_CMAKE_ARGS})
   return ()
 endif()
 
