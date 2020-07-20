@@ -97,7 +97,7 @@ jobs:
       set -eo pipefail
       export ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer
       export ASAN_OPTIONS="alloc_dealloc_mismatch=0 symbolize=1"
-      ctest -j 4 -E "([1-9][0-9]00|[4-9]00)" --timeout 400 --output-on-failure
+      ninja check
     workingDirectory: build
     displayName: 'Tests'
 
@@ -142,10 +142,11 @@ jobs:
       solution: build/verona.sln
       msbuildArguments: '/m /p:Configuration=$(BuildType)'
 
-  - script: |
-      ctest -j 4 -E "([1-9][0-9]00|[4-9]00)" --timeout 400 --output-on-failure --interactive-debug-mode 0 -C $(BuildType)
-    workingDirectory: build
-    displayName: 'Tests'
+  - task: MSBuild@1
+    displayName: 'Compile'
+    inputs:
+      solution: build/check.vcxproj
+      msbuildArguments: '/m /p:Configuration=$(BuildType)'
 
   - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
     displayName: 'Component Detection'
@@ -196,7 +197,7 @@ jobs:
 
   - script: |
       set -eo pipefail
-      ctest -j 4 -E "([1-9][0-9]00|[4-9]00)" --timeout 400 --output-on-failure
+      make check
     workingDirectory: build/
     displayName: 'Tests'
 

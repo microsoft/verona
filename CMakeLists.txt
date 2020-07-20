@@ -122,6 +122,11 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
     -DVERONA_LLVM_LOCATION=${MLIR_INSTALL}
   )
 
+  # Use top-level install directory when building
+  # as a subproject.
+  list (APPEND VERONA_EXTRA_CMAKE_ARGS
+    -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/dist)
+
   # This is used to provide the clangformat target at the top
   # level
   set(VERONA_MINIMAL_CMAKE On)
@@ -130,13 +135,19 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
   ExternalProject_Add(verona 
     SOURCE_DIR ${CMAKE_SOURCE_DIR}
     DEPENDS ${MLIR_TARGETS}
+    TEST_COMMAND ctest --timeout 400 --output-on-failure --interactive-debug-mode 0
     TEST_AFTER_INSTALL true
+    TEST_EXCLUDE_FROM_MAIN true
     BUILD_ALWAYS true
     USES_TERMINAL_BUILD true
     USES_TERMINAL_CONFIGURE true
     USES_TERMINAL_INSTALL true
     USES_TERMINAL_TEST true
     CMAKE_ARGS ${VERONA_EXTRA_CMAKE_ARGS})
+
+  ExternalProject_Add_StepTargets(verona test)
+
+  add_custom_target(check DEPENDS verona-test)
   return ()
 endif()
 
