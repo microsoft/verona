@@ -1,3 +1,11 @@
+# Some builds (ex. clang format) don't need external dependencies like LLVM
+if(VERONA_MINIMAL_CMAKE)
+  set (SNMALLOC_ONLY_HEADER_LIBRARY On)
+  add_subdirectory(rt/external/snmalloc EXCLUDE_FROM_ALL)
+  clangformat_targets()
+  return()
+endif()
+
 include_directories(.)
 
 # Main target does not test runtime, build subdirectory for that
@@ -18,13 +26,8 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     add_compile_options(-Wmismatched-tags)
 endif()
 
-# Some builds (ex. clang format) don't need external dependencies like LLVM
-if(NOT VERONA_MINIMAL_CMAKE)
-  add_subdirectory(ast)
-  add_subdirectory(compiler)
-  add_subdirectory(interpreter)
-  add_subdirectory(stdlib)
-  add_subdirectory(mlir)
-endif()
-
-clangformat_targets()
+add_subdirectory(ast)
+add_subdirectory(compiler)
+add_subdirectory(interpreter)
+add_subdirectory(stdlib)
+add_subdirectory(mlir)

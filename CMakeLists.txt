@@ -58,7 +58,10 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
     )
 
     string(TOLOWER ${CMAKE_SYSTEM_NAME} PLATFORM)
-    
+    if ($PLATFORM STREQUAL "darwin")
+      set (PLATFORM "macos")
+    endif ()
+
     set(MLIR_TARGETS)
     # Need loop to download all types for possible configurations
     # Required by multi-build systems like msbuild
@@ -135,7 +138,7 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
   ExternalProject_Add(verona 
     SOURCE_DIR ${CMAKE_SOURCE_DIR}
     DEPENDS ${MLIR_TARGETS}
-    TEST_COMMAND ctest --timeout 400 --output-on-failure --interactive-debug-mode 0
+    TEST_COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> --timeout 400 --output-on-failure --interactive-debug-mode 0
     TEST_AFTER_INSTALL true
     TEST_EXCLUDE_FROM_MAIN true
     BUILD_ALWAYS true
