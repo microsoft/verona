@@ -136,7 +136,7 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
   set(VERONA_MINIMAL_CMAKE On)
   add_subdirectory(src EXCLUDE_FROM_ALL)
 
-  set (SEPARATE_TEST (NOT ${MSVC})
+  set (SEPARATE_TEST (NOT ${MSVC}))
 
   ExternalProject_Add(verona 
     SOURCE_DIR ${CMAKE_SOURCE_DIR}

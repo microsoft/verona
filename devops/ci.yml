@@ -127,15 +127,9 @@ jobs:
     displayName: 'CMake'
 
   - task: MSBuild@1
-    displayName: 'Compile'
+    displayName: 'Compile and Tests'
     inputs:
       solution: build/verona.sln
-      msbuildArguments: '/m /p:Configuration=$(BuildType)'
-
-  - task: MSBuild@1
-    displayName: 'Tests'
-    inputs:
-      solution: build/check.vcxproj
       msbuildArguments: '/m /p:Configuration=$(BuildType)'
 
   - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
