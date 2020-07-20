@@ -110,6 +110,7 @@ namespace mlir::verona
     // Specific parsers (there will be more).
     llvm::Expected<mlir::Value> parseAssign(const ::ast::Ast& ast);
     llvm::Expected<mlir::Value> parseCall(const ::ast::Ast& ast);
+    llvm::Expected<mlir::Value> parseReturn(const ::ast::Ast& ast);
     llvm::Expected<mlir::Value> parseCondition(const ::ast::Ast& ast);
     llvm::Expected<mlir::Value> parseWhileLoop(const ::ast::Ast& ast);
     llvm::Expected<mlir::Value> parseContinue(const ::ast::Ast& ast);

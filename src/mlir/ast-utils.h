@@ -64,6 +64,7 @@ namespace mlir::verona::ASTInterface
     Assign = peg::str2tag("assign"),
     Let = peg::str2tag("let"),
     Call = peg::str2tag("call"),
+    Return = peg::str2tag("return"),
     Args = peg::str2tag("args"),
     Integer = peg::str2tag("int"),
     Local = peg::str2tag("local"),
@@ -99,6 +100,8 @@ namespace mlir::verona::ASTInterface
   bool hasA(::ast::WeakAst ast, NodeKind kind);
   /// Find a sub-node of tag 'type'
   ::ast::WeakAst findNode(::ast::WeakAst ast, NodeType type);
+  /// Return the single sub-node, error out if more than one
+  ::ast::WeakAst getSingleSubNode(::ast::WeakAst ast);
   /// Return a list of sub-nodes
   std::vector<::ast::WeakAst> getSubNodes(::ast::WeakAst ast);
 
@@ -149,6 +152,8 @@ namespace mlir::verona::ASTInterface
   // ================================================= Operation Helpers
   /// Return true if node is an operation/call
   bool isCall(::ast::WeakAst ast);
+  /// Return true if node is a return
+  bool isReturn(::ast::WeakAst ast);
   /// Return true if node is an assignment
   bool isAssign(::ast::WeakAst ast);
   /// Return the left-hand side of an assignment
@@ -163,6 +168,8 @@ namespace mlir::verona::ASTInterface
   bool isBinary(::ast::WeakAst ast);
   /// Return the n-th operand of the operation
   ::ast::WeakAst getOperand(::ast::WeakAst ast, size_t n);
+  /// Return all operands of the operation
+  std::vector<::ast::WeakAst> getAllOperands(::ast::WeakAst ast);
 
   // ================================================= Condition Helpers
   /// Return true if node is an if statement

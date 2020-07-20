@@ -56,6 +56,13 @@ namespace mlir::verona::ASTInterface
     return *sub;
   }
 
+  ::ast::WeakAst getSingleSubNode(::ast::WeakAst ast)
+  {
+    auto ptr = ast.lock();
+    assert(ptr->nodes.size() == 1 && "Wrong number of nodes");
+    return ptr->nodes[0];
+  }
+
   std::vector<::ast::WeakAst> getSubNodes(::ast::WeakAst ast)
   {
     auto ptr = ast.lock();
@@ -237,6 +244,11 @@ namespace mlir::verona::ASTInterface
     return isA(ast, NodeKind::Call);
   }
 
+  bool isReturn(::ast::WeakAst ast)
+  {
+    return isA(ast, NodeKind::Return);
+  }
+
   bool isAssign(::ast::WeakAst ast)
   {
     return isA(ast, NodeKind::Assign);
@@ -286,6 +298,15 @@ namespace mlir::verona::ASTInterface
     // All others in 'args'
     auto args = findNode(ast, NodeKind::Args);
     return args.lock()->nodes[n - 1];
+  }
+
+  std::vector<::ast::WeakAst> getAllOperands(::ast::WeakAst ast)
+  {
+    auto numOps = numOperands(ast);
+    std::vector<::ast::WeakAst> ops;
+    for (size_t i = 0; i < numOps; i++)
+      ops.push_back(getOperand(ast, i));
+    return ops;
   }
 
   // ================================================= Condition Helpers

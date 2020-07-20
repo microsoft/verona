@@ -6,7 +6,17 @@ foo(a: N, b: U64 & imm): R
   where R: U64 & imm
 {
   let x = a + b;
-  // CHECK: Function calls not implemented yet at loc.*call.verona":${LINE:+1}:14
-  let r: R = foo(a, b);
-  x
+  let y = a - b;
+  if (x < 100)
+  {
+    return foo(x, y);
+  }
+  x + y;
+}
+
+()
+{
+  let a: imm = 10;
+  let b: U64 & imm = 20;
+  foo(a, b);
 }
