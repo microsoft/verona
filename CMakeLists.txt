@@ -32,6 +32,7 @@ macro(verona_option variable message default)
   )
 endmacro()
 
+verona_option(ENABLE_ASSERTS "Enable asserts even in release builds" OFF)
 verona_option(RT_TESTS "Including unit tests for the runtime" OFF)
 verona_option(USE_SCHED_STATS "Track scheduler stats" OFF)
 verona_option(USE_ASAN "Use address sanitizer" OFF)
@@ -63,7 +64,12 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
     # Required by multi-build systems like msbuild
     foreach (BUILD_TYPE_MIXED ${CMAKE_CONFIGURATION_TYPES})
       string (TOLOWER ${BUILD_TYPE_MIXED} BUILD_TYPE)
-      set(PKG_NAME verona-llvm-install-x86_64-${PLATFORM}-${BUILD_TYPE}-${LLVM_PACKAGE_GIT_VERSION})
+      if (${BUILD_TYPE} STREQUAL relwithdebinfo)
+        # RelWithDebInfo should use release LLVM.
+        set(PKG_NAME verona-llvm-install-x86_64-${PLATFORM}-release-${LLVM_PACKAGE_GIT_VERSION})
+      else ()
+        set(PKG_NAME verona-llvm-install-x86_64-${PLATFORM}-${BUILD_TYPE}-${LLVM_PACKAGE_GIT_VERSION})
+      endif ()
       ExternalProject_Add(mlir-${BUILD_TYPE}
         URL https://verona.blob.core.windows.net/llvmbuild/${PKG_NAME}
         CONFIGURE_COMMAND ""
@@ -134,6 +140,10 @@ project(verona-lang CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 set(CMAKE_CXX_STANDARD 17)
 
+if (VERONA_CI_BUILD)
+  set (SNMALLOC_CI_BUILD ON)
+endif ()
+
 IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   SET(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/dist CACHE PATH "Default to installing inside build dir" FORCE)
 ENDIF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
@@ -185,11 +195,3 @@ target_include_directories(cpp-peglib INTERFACE external/cpp-peglib)
 
 add_subdirectory(src)
 add_subdirectory(testsuite)
-
-# A target to run the ctests
-# TODO: Add run-time libraries, too, and a check-all for both
-include(ProcessorCount)
-ProcessorCount(N)
-if (NOT N EQUAL 0)
-  set(PARALLEL_ARGS --parallel ${N})
-endif()
