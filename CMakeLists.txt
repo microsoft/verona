@@ -61,9 +61,6 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
     )
 
     string(TOLOWER ${CMAKE_SYSTEM_NAME} PLATFORM)
-    if (${PLATFORM} STREQUAL "darwin")
-      set (PLATFORM "macos")
-    endif ()
 
     set(MLIR_TARGETS)
     # Need loop to download all types for possible configurations
