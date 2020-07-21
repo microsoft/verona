@@ -24,19 +24,37 @@ git submodule update --recursive
 
 LLVM builds take a long time, so we cached the build directory from Linux, Windows and MacOS for our CI, that can also be used on developer's machines.
 
-Run the following script at the root of your checkout:
+The CMake flag `VERONA_DOWNLOAD_LLVM` is used to control whether a cached build 
+is used or not. 
+
 ```
-bash ./utils/llvm/setup-llvm-builddir.sh verona-llvm-x86_64-${OS}-${BuildType}-${LLVMCommit}.tar.gz
+cmake -DVERONA_DOWNLOAD_LLVM=ON ..
 ```
+Will automatically pull in a pre-compiled install directory for LLVM, and use
+that for building Verona.
+This is the default.
 
-With `${OS}` = { `linux`, `windows`, `macos` }, `BuildType` = { `release`, `debug` } and `${LLVMCommit}` being the same as the llvm-project submodule (currently @ `3c123acf57c`).
+If this flag is unset, e.g.
+```
+cmake -DVERONA_DOWNLOAD_LLVM=OFF ..
+```
+then the build will compile LLVM locally, and use that to build the Verona
+compiler.
 
-On Windwows, run it on PowerShell, not `cmd`, to get access to unix-like tools. You can use LLVM release builds on Linux and MacOS debug builds of Verona, but on Windows, you must use the same build type, to avoid CRT incompatibility issues.
+Additional, parameters can be passed to the LLVM build: e.g.
+```
+cmake -DVERONA_DOWNLOAD_LLVM=OFF .. -DLLVM_EXTRA_CMAKE_ARGS="-DLLVM_USE_SANITIZER=Address;-DLLVM_ENABLE_LLD=ON"
+```
+This examples switches on Address Sanitizer on the LLVM build, and uses LLD.
+Note the `;` to separate arguments.
 
-If you want to compile LLVM directly, the options we used in the cache are available [here][]. For now, you'll have to build it before Verona in its own build directory. We're working to make that build straight from Verona's build directory, but it's not yet ready.
-
-[here]: https://github.com/microsoft/verona/blob/master/devops/llvm.yml
-
+There is a final option, you can point Verona at a pre-built LLVM install
+directory
+```
+cmake -DVERONA_LLVM_LOCATION=[location of an instal of llvm] ..
+```
+This is useful if you are working on a LLVM/MLIR issues related to Verona in a
+separate checkout.
 
 # Building on Windows
 
@@ -56,25 +74,33 @@ Run the following inside the Developer Command Prompt for VS 2019:
 mkdir build
 cd build
 cmake .. -G "Visual Studio 16 2019" -A x64
-msbuild INSTALL.vcxproj /m /P:Configuration=Debug
+msbuild verona.sln /m /P:Configuration=Debug
 ```
 
 This builds a Debug install. Switching the last line for
 ```
-msbuild INSTALL.vcxproj /m /P:Configuration=Release
-msbuild INSTALL.vcxproj /m /P:Configuration=RelWithDebInfo
+msbuild verona.sln /m /P:Configuration=Release
+msbuild verona.sln /m /P:Configuration=RelWithDebInfo
 ```
 will build Release or Release with debug info.
 
 We currently use an install target to layout the standard library and the
 compiler in a well defined way so that it can automatically be found.
 
+Due to the complex interaction with LLVM/MLIR builds, to pass flags to the
+verona build require using the `EXTRA_VERONA_CMAKE_FLAGS`, e.g.
+```
+cmake .. -G Ninja -DEXTRA_VERONA_CMAKE_FLAGS="-DCMAKE_CXX_COMPILER=clang-cl;-DCMAKE_C_COMPILER=clang-cl"
+```
+This example specifies to build Verona with `clang-cl`. Note: the options must be
+separated by `;`.
+
 ## Subsequent builds
 
 For subsequent builds, you do not need to rerun `cmake`. From the `build`
 directory, you can run
 ```
-msbuild INSTALL.vcxproj /m
+msbuild verona.sln /m
 ```
 The default configuration is Debug.
 
@@ -127,7 +153,7 @@ Now you can run
 mkdir build_ninja
 cd build_ninja
 cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug
-ninja install
+ninja
 ```
 to build the debug installation.
 
@@ -138,11 +164,14 @@ cmake .. -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
 to provide the other configurations.
 
-Note: Sometimes `cmake` detects `gcc` instead of `clang`.
-To override this, run `cmake` with environment variables, for example:
+Due to the complex interaction with LLVM/MLIR builds, to pass flags to the
+verona build require using the `EXTRA_VERONA_CMAKE_FLAGS`, e.g.
 ```
-cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_C_COMPILER=/usr/bin/clang
+cmake .. -DEXTRA_VERONA_CMAKE_FLAGS="-DCMAKE_CXX_COMPILER=/usr/bin/clang++;-DCMAKE_C_COMPILER=/usr/bin/clang"
 ```
+This example specifies to build Verona with `clang`. Note: the options must be
+separated by `;`.
+This can be helpful as sometimes `cmake` detects `gcc` instead of `clang`.
 This may require you to remove your CMakeCache.txt file from the build
 directory.
 
@@ -151,7 +180,7 @@ directory.
 For subsequent builds, you do not need to rerun `cmake`.
 From the `build_ninja` directory, you can run
 ```
-ninja install
+ninja
 ```
 
 # Running examples
@@ -193,11 +222,6 @@ Where `<config>` is the build type, e.g. Debug.
 
 ## Building the runtime tests
 
-By default, the runtime tests are not built. There are two ways to build and
-run them:
-
-  1. *Recommended:* Go into `src/rt` and follow the README instructions there.
-     This will build the tests under `src/rt/build[_ninja]`.
-  2. Run `cmake` with `-DRT_TESTS=ON`.
-     This will build the tests under `build[_ninja]/src/rt`.
-
+By default, the runtime tests are not built. To enable their building
+call cmake with `-DRT_TESTS=ON`.
+This will build the tests under `build[_ninja]/verona-prefix/src/verona-build/src/rt`.
