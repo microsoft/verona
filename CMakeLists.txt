@@ -2,6 +2,36 @@ cmake_minimum_required(VERSION 3.10.0)
 
 option (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM" ON)
 
+# Lifted from snmalloc. Hard to include with external projects, so copied
+macro(clangformat_targets)
+  # The clang-format tool is installed under a variety of different names.  Try
+  # to find a sensible one.  Only look for versions 9 explicitly - we don't
+  # know whether our clang-format file will work with newer versions of the
+  # tool.  It does not work with older versions as AfterCaseLabel is not supported
+  # in earlier versions.
+  #
+  # This can always be overriden with `-DCLANG_FORMAT=/path/to/clang-format` if
+  # need be.
+  find_program(CLANG_FORMAT NAMES
+    clang-format-9)
+
+  # If we've found a clang-format tool, generate a target for it, otherwise emit
+  # a warning.
+  if (${CLANG_FORMAT} STREQUAL "CLANG_FORMAT-NOTFOUND")
+    message(WARNING "Not generating clangformat target, no clang-format tool found")
+  else ()
+    message(STATUS "Generating clangformat target using ${CLANG_FORMAT}")
+    file(GLOB_RECURSE ALL_SOURCE_FILES src/*.cc src/*.h src/*.hh)
+    add_custom_target(
+      clangformat
+      COMMAND ${CLANG_FORMAT}
+      -i
+      ${ALL_SOURCE_FILES})
+  endif()
+endmacro()
+
+clangformat_targets()
+
 # This is used to create options that are passed through to the main Verona
 # build
 if (NOT DEFINED VERONA_EXTRA_CMAKE_ARGS)
@@ -128,11 +158,6 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
   # as a subproject.
   list (APPEND VERONA_EXTRA_CMAKE_ARGS
     -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/dist)
-
-  # This is used to provide the clangformat target at the top
-  # level
-  set(VERONA_MINIMAL_CMAKE On)
-  add_subdirectory(src EXCLUDE_FROM_ALL)
 
   # Current the ExternalProject_Add_StepTargets seems to be generating something
   # that is breaking CI for MSVC. So on MSVC with have a single build and test
