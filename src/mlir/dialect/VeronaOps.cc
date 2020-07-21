@@ -47,7 +47,8 @@ static void print(OpAsmPrinter& printer, verona::ClassOp op)
  * here:
  * - The class referenced by the operation must exist.
  * - There must be as many field names as there are operands.
- * - The set of field names must match those specified in the class definition (TODO: not implemented yet)
+ * - The set of field names must match those specified in the class definition
+ *   (TODO: not implemented yet)
  *
  * TODO: Rather than a templated function, should this be a trait?
  */
@@ -55,8 +56,8 @@ template<typename Op>
 static LogicalResult verifyAllocationOp(Op op)
 {
   auto className = op.class_();
-  auto classOp = dyn_cast_or_null<verona::ClassOp>(
-    SymbolTable::lookupNearestSymbolFrom(op.getParentOp(), className));
+  auto classOp = SymbolTable::lookupNearestSymbolFrom<verona::ClassOp>(
+    op.getParentOp(), className);
   if (!classOp)
   {
     return op.emitOpError("class '")
