@@ -43,9 +43,10 @@ compiler.
 
 Additional, parameters can be passed to the LLVM build: e.g.
 ```
-cmake -DVERONA_DOWNLOAD_LLVM=OFF .. -DLLVM_EXTRA_CMAKE_ARGS="-DLLVM_USE_SANITIZER=Address"
+cmake -DVERONA_DOWNLOAD_LLVM=OFF .. -DLLVM_EXTRA_CMAKE_ARGS="-DLLVM_USE_SANITIZER=Address;-DLLVM_ENABLE_LLD=ON"
 ```
-This examples switches on Address Sanitizer on the LLVM build.
+This examples switches on Address Sanitizer on the LLVM build, and uses LLD.
+Note the `;` to separate arguments.
 
 There is a final option, you can point Verona at a pre-built LLVM install
 directory

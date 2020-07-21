@@ -146,7 +146,7 @@ jobs:
         BuildName: debug
   variables:
   - name: PKG_NAME
-    value: verona-llvm-install-x86_64-macos-$(BuildName)-$(GOOD_HASH)
+    value: verona-llvm-install-x86_64-darwin-$(BuildName)-$(GOOD_HASH)
   steps:
   - checkout: llvm
 

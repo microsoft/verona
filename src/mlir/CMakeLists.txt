@@ -5,6 +5,7 @@ set(LLVM_BUILD ${VERONA_LLVM_LOCATION})
 
 # std::iterator is used by MLIR/LLVM
 # This is deprecated and causes warnings in MSVC.
+# Once fixed in LLVM, the following three lines can be removed.
 if (MSVC)
   add_compile_definitions(_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
 endif ()

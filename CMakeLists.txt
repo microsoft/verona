@@ -35,7 +35,7 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
   if (MSVC)
     if (NOT CMAKE_CONFIGURATION_TYPES)
       if (NOT CMAKE_BUILD_TYPE)
-        set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Choose the types of build." FORCE)
+        set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDbgInfo" CACHE STRING "Choose the types of build." FORCE)
       else()
         set(CMAKE_CONFIGURATION_TYPES "${CMAKE_BUILD_TYPE}" CACHE STRING "Choose the type of build." FORCE)
       endif()
@@ -111,12 +111,6 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
       -DLLVM_ENABLE_RTTI=ON
       -DLLVM_ENABLE_EH=ON
     )
-
-    if (NOT MSVC AND NOT APPLE)
-      list (APPEND LLVM_EXTRA_CMAKE_ARGS
-        -DLLVM_ENABLE_LLD=ON
-      )
-    endif()
 
     ExternalProject_Add(mlir
       SOURCE_DIR ${CMAKE_SOURCE_DIR}/external/llvm-project/llvm
