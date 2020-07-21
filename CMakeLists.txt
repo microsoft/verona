@@ -1,10 +1,12 @@
 cmake_minimum_required(VERSION 3.10.0)
 
-option (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM" On)
+option (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM" ON)
 
 # This is used to create options that are passed through to the main Verona
 # build
-set (VERONA_EXTRA_CMAKE_ARGS)
+if (NOT DEFINED VERONA_EXTRA_CMAKE_ARGS)
+  set (VERONA_EXTRA_CMAKE_ARGS)
+endif ()
 macro(verona_option variable message default)
   option(variable message default)
   list (APPEND VERONA_EXTRA_CMAKE_ARGS
@@ -98,7 +100,9 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
   else()
     set (MLIR_INSTALL ${CMAKE_BINARY_DIR}/mlir_install)
 
-    set (LLVM_EXTRA_CMAKE_ARGS)
+    if (NOT DEFINED LLVM_EXTRA_CMAKE_ARGS)
+      set (LLVM_EXTRA_CMAKE_ARGS)
+    endif ()
     list (APPEND LLVM_EXTRA_CMAKE_ARGS
       -DCMAKE_INSTALL_PREFIX=${MLIR_INSTALL}
       -DLLVM_ENABLE_PROJECTS=mlir
@@ -108,11 +112,7 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
       -DLLVM_ENABLE_EH=ON
     )
 
-    # TODO: remove before finished!
-    # Choose sanitizers based on stuff.
-    # -DLLVM_USE_SANITIZER=$(Sanitizer) 
-
-    if (NOT MSVC)
+    if (NOT MSVC AND NOT APPLE)
       list (APPEND LLVM_EXTRA_CMAKE_ARGS
         -DLLVM_ENABLE_LLD=ON
       )
@@ -125,6 +125,7 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
       USES_TERMINAL_BUILD true
       USES_TERMINAL_CONFIGURE true
     )
+    set (MLIR_TARGETS mlir)
   endif()
 
   # Point Verona at the MLIR
