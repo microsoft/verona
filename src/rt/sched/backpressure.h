@@ -98,9 +98,7 @@
  * A mutor may exist as a key in mutiple mute maps, since cowns may continue
  * sending messages to it on other threads and then be subsequently muted by
  * that thread on which the senders were running. A muted cown may also exist in
- * multiple mute sets across scheduler threads. This would result from an unmute
- * via a priority message followed by a remuting the cown before it has been
- * erased from the original mute set.
+ * multiple mute sets across scheduler threads.
  *
  * A muted cown may not be scheduled or collected until they are marked as no
  * longer muted and recheduled ("unmuted").
@@ -163,10 +161,10 @@ namespace verona::rt
      */
     uint32_t : 5;
     /**
-     * Indicates if the token message is not in a cown's queue and that a new
-     * token message should be added if it runs another message.
+     * Indicates if the token message is in a cown's queue. If zero, a new token
+     * message should be added if the cown runs another message.
      */
-    uint32_t _needs_token : 1;
+    uint32_t _has_token : 1;
     /**
      * Indicates if a cown is currently muted (1), unmutable (2), or
      * unmutable-dirty (3).
@@ -175,7 +173,7 @@ namespace verona::rt
 
   public:
     Backpressure()
-    : _current_load(0), _load_hist(0), _needs_token(1), _response_state(0)
+    : _current_load(0), _load_hist(0), _has_token(0), _response_state(0)
     {}
 
     bool operator==(Backpressure& other) const
@@ -209,12 +207,11 @@ namespace verona::rt
     }
 
     /**
-     * Return true if the token message is not in this cown's queue and a new
-     * token message should be added if it runs another message.
+     * Return true if the token message is in this cown's queue.
      */
-    inline bool needs_token() const
+    inline bool has_token() const
     {
-      return _needs_token != 0;
+      return _has_token == 1;
     }
 
     /**
@@ -251,8 +248,7 @@ namespace verona::rt
     }
 
     /**
-     * If this cown is recieving a message without priority, return true if the
-     * senders should be muted.
+     * Return true if mutable senders should be muted.
      */
     inline bool triggers_muting() const
     {
@@ -306,17 +302,17 @@ namespace verona::rt
     /**
      * Mark that this cown has a token message in its queue.
      */
-    inline void set_needs_token()
+    inline void set_has_token()
     {
-      _needs_token = 1;
+      _has_token = 1;
     }
 
     /**
      * Mark that this cown has removed the token message from its queue.
      */
-    inline void unset_needs_token()
+    inline void unset_has_token()
     {
-      _needs_token = 0;
+      _has_token = 0;
     }
 
     /**

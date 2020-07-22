@@ -779,11 +779,14 @@ namespace verona::rt
       fast_send(body, epoch);
     }
 
+    /**
+     * Unmute a cown if it is muted.
+     */
     inline void unmute(bool unmutable = false)
     {
       auto bp = backpressure.load(std::memory_order_acquire);
       Backpressure bp_unmuted;
-      bool needs_resched = false;
+      bool needs_resched;
       do
       {
         needs_resched = bp.muted();
@@ -884,7 +887,7 @@ namespace verona::rt
     }
 
     /**
-     * Update backpressure based on the ocurrence of a token message. Return
+     * Update backpressure based on the occurrence of a token message. Return
      * true if the current message is a token.
      */
     inline bool check_message_token(Alloc* alloc, MessageBody* curr)
@@ -901,12 +904,12 @@ namespace verona::rt
       else
       {
         if (
-          (bp.needs_token() && (curr->index == 0)) ||
+          (!bp.has_token() && (curr->index == 0)) ||
           (bp.current_load() == 0xff))
         {
           load_reset = true;
         }
-        if (bp.needs_token())
+        if (!bp.has_token())
         {
           Systematic::cout() << "Enqueue message token" << std::endl;
           queue.enqueue(stub_msg(alloc));
@@ -920,7 +923,7 @@ namespace verona::rt
         if (token_reached)
         {
           bp_update = bp;
-          bp_update.set_needs_token();
+          bp_update.unset_has_token();
           if (bp.unmutable())
             bp.unmutable_dirty();
           else if (bp.unmutable_dirty())
@@ -932,16 +935,16 @@ namespace verona::rt
             bp_update.reset_load();
 
           bp_update.inc_load();
-          bp_update.unset_needs_token();
+          bp_update.set_has_token();
         }
 
         yield();
-
         // The following exchange will fail spuriously, or when another thread
         // has set this cown to unmutable.
       } while (!backpressure.compare_exchange_weak(
                  bp, bp_update, std::memory_order_acq_rel) &&
                token_reached);
+      yield();
 
       return token_reached;
     }
