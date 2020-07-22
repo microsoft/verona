@@ -156,7 +156,9 @@ namespace mlir::verona
     module = mlir::ModuleOp::create(getLocation(ast));
     // TODO: Support more than just functions at the module level
     auto body = getClassBody(ast);
-    for (auto f : getSubNodes(body))
+    llvm::SmallVector<::ast::WeakAst, 4> funcs;
+    getSubNodes(funcs, body);
+    for (auto f : funcs)
     {
       auto fun = parseFunction(f.lock());
       if (auto err = fun.takeError())
@@ -175,7 +177,8 @@ namespace mlir::verona
       return functionTable.lookup(name);
 
     // Parse 'where' clause
-    auto constraints = getFunctionConstraints(ast);
+    llvm::SmallVector<::ast::WeakAst, 4> constraints;
+    getFunctionConstraints(constraints, ast);
     for (auto c : constraints)
     {
       // This is wrong. Constraints are not aliases, but with
@@ -188,7 +191,8 @@ namespace mlir::verona
 
     // Function type from signature
     Types types;
-    auto args = getFunctionArgs(ast);
+    llvm::SmallVector<::ast::WeakAst, 4> args;
+    getFunctionArgs(args, ast);
     for (auto arg : args)
       types.push_back(parseType(getType(arg).lock()));
     auto retTy = parseType(getFunctionType(ast).lock());
@@ -220,7 +224,8 @@ namespace mlir::verona
 
     // Declare all arguments on current scope
     SymbolScopeT var_scope(symbolTable);
-    auto args = getFunctionArgs(ast);
+    llvm::SmallVector<::ast::WeakAst, 4> args;
+    getFunctionArgs(args, ast);
     auto argVals = entryBlock.getArguments();
     assert(args.size() == argVals.size() && "Argument mismatch");
     for (auto var_val : llvm::zip(args, argVals))
@@ -306,7 +311,9 @@ namespace mlir::verona
   llvm::Expected<ReturnValue> Generator::parseBlock(const ::ast::Ast& ast)
   {
     ReturnValue last;
-    for (auto sub : getSubNodes(ast))
+    llvm::SmallVector<::ast::WeakAst, 4> nodes;
+    getSubNodes(nodes, ast);
+    for (auto sub : nodes)
     {
       auto node = parseNode(sub.lock());
       if (auto err = node.takeError())
@@ -433,7 +440,8 @@ namespace mlir::verona
     // are function calls.
     if (auto func = functionTable.lookup(name))
     {
-      auto argNodes = getAllOperands(ast);
+      llvm::SmallVector<::ast::WeakAst, 4> argNodes;
+      getAllOperands(argNodes, ast);
       assert(
         argNodes.size() == func.getNumArguments() &&
         "Wrong number of arguments");
