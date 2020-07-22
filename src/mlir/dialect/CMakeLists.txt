@@ -5,6 +5,7 @@ add_mlir_doc(VeronaOps -gen-op-doc VeronaOps Verona/)
 add_mlir_dialect_library(MLIRVerona
     VeronaDialect.cc
     VeronaOps.cc
+    VeronaTypes.cc
 
     DEPENDS
     MLIRVeronaOpsIncGen

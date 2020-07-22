@@ -239,7 +239,7 @@ def Verona_FieldOp : Verona_Op<"field", [InClassScope]> {
       This operation is used inside class bodies to define new fields.
     }];
 
-    let arguments = (ins StrAttr : $name, TypeAttr : $type);
+    let arguments = (ins StrAttr : $name, Verona_TypeAttr : $type);
     let assemblyFormat = [{ $name `:` $type attr-dict }];
     let verifier = [{ return success(); }];
 }
