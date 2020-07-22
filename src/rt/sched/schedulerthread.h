@@ -204,6 +204,7 @@ namespace verona::rt
       {
         auto* cown = cowns[i];
         auto bp = cown->backpressure.load(std::memory_order_relaxed);
+        yield();
         assert(!bp.muted());
 
         if (
@@ -221,11 +222,13 @@ namespace verona::rt
         if (!cown->backpressure.compare_exchange_weak(
               bp, bp_muted, std::memory_order_acq_rel))
         { // spurious failure, or a transition to unmutable
+          yield();
           assert(!bp.muted());
           cown->schedule();
           continue;
         }
 
+        yield();
         Systematic::cout() << "Mute " << cown << std::endl;
         assert(!bp.unmutable());
         if (mute_set.insert(alloc, cown).first)
@@ -249,6 +252,7 @@ namespace verona::rt
           force ||
           m->backpressure.load(std::memory_order_acquire).triggers_unmuting())
         {
+          yield();
           auto& mute_set = *entry.value();
           for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
           {

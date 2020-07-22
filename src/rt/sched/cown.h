@@ -809,6 +809,7 @@ namespace verona::rt
       } while (!backpressure.compare_exchange_weak(
         bp, bp_unmuted, std::memory_order_acq_rel));
 
+      yield();
       assert(unmutable || needs_resched);
 
       if (!needs_resched)
@@ -839,6 +840,8 @@ namespace verona::rt
         )
           continue;
 
+        yield();
+
         for (size_t r = 0; r < receivers.count; r++)
         {
           auto* receiver = receivers.cowns[r];
@@ -862,6 +865,7 @@ namespace verona::rt
       {
         auto* receiver = receivers.cowns[r];
         const auto bp = receiver->backpressure.load(std::memory_order_acquire);
+        yield();
         if (
           bp.triggers_muting()
 #ifdef USE_SYSTEMATIC_TESTING
@@ -886,6 +890,7 @@ namespace verona::rt
     inline bool check_message_token(Alloc* alloc, MessageBody* curr)
     {
       auto bp = backpressure.load(std::memory_order_relaxed);
+      yield();
       bool token_reached = false;
       bool load_reset = false;
       if (curr == nullptr)
@@ -978,6 +983,7 @@ namespace verona::rt
       yield(); // Reading global state in peek_back().
 
       const auto bp = backpressure.load(std::memory_order_acquire);
+      yield();
       assert(!bp.muted());
       // The batch limit is between 100 and 251, depending on the load.
       const auto batch_limit = (size_t)100 | ((size_t)bp.total_load() >> 3);
@@ -1174,6 +1180,7 @@ namespace verona::rt
         }
       }
 
+      yield();
       assert(!backpressure.load(std::memory_order_acquire).muted());
 
       // Now we may run our destructor.
