@@ -223,14 +223,13 @@ namespace verona::rt
               bp, bp_muted, std::memory_order_acq_rel))
         { // spurious failure, or a transition to unmutable
           yield();
-          assert(!bp.muted());
+          assert(!bp.muted() && !bp.extra_rc());
           cown->schedule();
           continue;
         }
 
         yield();
         Systematic::cout() << "Mute " << cown << std::endl;
-        assert(!bp.unmutable());
         if (mute_set.insert(alloc, cown).first)
           T::acquire(cown);
       }
@@ -324,7 +323,7 @@ namespace verona::rt
         {
           cown = q.dequeue(alloc);
           if (cown != nullptr)
-            Systematic::cout() << "Popped cown:" << cown << std::endl;
+            Systematic::cout() << "Popped cown: " << cown << std::endl;
         }
 
         if (cown == nullptr)
