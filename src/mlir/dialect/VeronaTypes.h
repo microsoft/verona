@@ -12,6 +12,8 @@ namespace mlir::verona
   void printVeronaType(Type type, DialectAsmPrinter& os);
 
   bool isa_verona_type(Type type);
+  bool isSubtype(Type lhs, Type rhs);
+  LogicalResult checkSubtype(Location loc, Type lhs, Type rhs);
 
   namespace detail
   {

@@ -6,6 +6,8 @@
 
 include "VeronaDialect.td"
 include "mlir/IR/SymbolInterfaces.td"
+include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
 
 def Verona_CopyOp : Verona_Op<"copy"> {
     let summary = "Copy a reference";
@@ -17,7 +19,9 @@ def Verona_CopyOp : Verona_Op<"copy"> {
     let results = (outs Verona_Type : $output);
 
     let assemblyFormat = [{$input attr-dict `:` type($input) `->` type($output)}];
-    let verifier = [{ return success(); }];
+    let verifier = [{
+      return checkSubtype(getLoc(), input().getType(), output().getType());
+    }];
 }
 
 def Verona_ViewOp : Verona_Op<"view"> {
@@ -181,6 +185,21 @@ def Verona_AllocateObjectOp : Verona_Op<"new_object"> {
       attr-dict
       `:` type($output)
     }];
+}
+
+def Verona_ReturnOp : Verona_Op<"return", [NoSideEffect, HasParent<"FuncOp">, ReturnLike, Terminator]> {
+  let arguments = (ins Verona_Type:$input);
+
+  let assemblyFormat = "attr-dict $input `:` type($input)";
+  let verifier = [{
+    auto fn = cast<FuncOp>(getParentOp());
+    const auto &results = fn.getType().getResults();
+    if (results.size() != 1) {
+      return emitOpError() << "can only be used to return one value";
+    }
+
+    return checkSubtype(getLoc(), input().getType(), results.front());
+  }];
 }
 
 def Verona_ClassOp : Verona_Op<"class", [

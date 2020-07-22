@@ -317,4 +317,50 @@ namespace mlir::verona
     return type.getKind() >= FIRST_VERONA_TYPE &&
       type.getKind() < LAST_VERONA_TYPE;
   }
+
+  bool isSubtype(Type lhs, Type rhs)
+  {
+    if (lhs == rhs)
+      return true;
+
+    if (auto meetType = lhs.dyn_cast<MeetType>())
+    {
+      return llvm::any_of(meetType.getElements(), [&](Type element) {
+        return isSubtype(element, rhs);
+      });
+    }
+
+    if (auto joinType = lhs.dyn_cast<JoinType>())
+    {
+      return llvm::all_of(joinType.getElements(), [&](Type element) {
+        return isSubtype(element, rhs);
+      });
+    }
+
+    if (auto meetType = rhs.dyn_cast<MeetType>())
+    {
+      return llvm::all_of(meetType.getElements(), [&](Type element) {
+        return isSubtype(lhs, element);
+      });
+    }
+
+    if (auto joinType = rhs.dyn_cast<JoinType>())
+    {
+      return llvm::any_of(joinType.getElements(), [&](Type element) {
+        return isSubtype(lhs, element);
+      });
+    }
+
+    return false;
+  }
+
+  LogicalResult checkSubtype(Location loc, Type lhs, Type rhs)
+  {
+    if (!isSubtype(lhs, rhs))
+    {
+      return emitError(loc) << lhs << " is not a subtype of " << rhs;
+    }
+
+    return success();
+  }
 }
