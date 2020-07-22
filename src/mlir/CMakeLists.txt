@@ -60,7 +60,7 @@ set(LIBS
         MLIRTargetLLVMIR
         verona-ast-lib
         )
-add_llvm_executable(verona-mlir verona-mlir.cc generator.cc ast-utils.cc error.cc)
+add_llvm_executable(verona-mlir verona-mlir.cc generator.cc error.cc)
 
 # Disable exception handling once we separated peglib from LLVM
 #target_compile_options(verona-mlir PRIVATE -fno-rtti -fno-exceptions)
