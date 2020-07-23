@@ -226,8 +226,10 @@ def Verona_ClassEndOp : Verona_Op<"_class_end", [Terminator, InClassScope]> {
 
     let arguments = (ins);
     let results = (outs);
-    let assemblyFormat = "attr-dict";
     let verifier = [{ return success(); }];
+
+    let parser = ?;
+    let printer = ?;
 }
 
 def Verona_FieldOp : Verona_Op<"field", [InClassScope]> {

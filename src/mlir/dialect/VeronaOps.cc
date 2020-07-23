@@ -49,8 +49,6 @@ static void print(OpAsmPrinter& printer, verona::ClassOp op)
  * - There must be as many field names as there are operands.
  * - The set of field names must match those specified in the class definition
  *   (TODO: not implemented yet)
- *
- * TODO: Rather than a templated function, should this be a trait?
  */
 template<typename Op>
 static LogicalResult verifyAllocationOp(Op op)
@@ -88,6 +86,8 @@ static LogicalResult verify(verona::AllocateObjectOp op)
 static LogicalResult verify(verona::ClassOp classOp)
 {
   Block* body = classOp.getBody();
+
+  // This is the NoRegionArguments trait in recent LLVM
   if (body->getNumArguments() != 0)
     return classOp.emitOpError("expected body to have no arguments");
 
