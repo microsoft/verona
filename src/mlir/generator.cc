@@ -68,17 +68,14 @@ namespace mlir::verona
       return runtimeError(
         "Cannot open file " + filename + ": " + err.message());
 
-    // Setup source manager and parse
+    // Setup source manager and parse the input. This includes verification of
+    // the IR.
     llvm::SourceMgr sourceMgr;
     sourceMgr.AddNewSourceBuffer(std::move(*srcOrErr), llvm::SMLoc());
     module = mlir::parseSourceFile(sourceMgr, builder.getContext());
+    if (!module)
+      return runtimeError("Can't load MLIR file");
 
-    // On error, dump module for debug purposes
-    if (mlir::failed(mlir::verify(*module)))
-    {
-      module->dump();
-      return runtimeError("MLIR verification failed from MLIR file");
-    }
     return llvm::Error::success();
   }
 
