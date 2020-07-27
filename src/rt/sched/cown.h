@@ -812,7 +812,7 @@ namespace verona::rt
         }
 
         yield();
-      } while (!backpressure.compare_exchange_weak(
+      } while (!backpressure.compare_exchange_strong(
         bp, bp_unmuted, std::memory_order_acq_rel));
 
       yield();
@@ -948,9 +948,9 @@ namespace verona::rt
         }
 
         yield();
-        // The following exchange will fail spuriously, or when another thread
-        // has set this cown to unmutable.
-      } while (!backpressure.compare_exchange_weak(
+        // The following exchange will fail when another thread has set this
+        // cown to unmutable.
+      } while (!backpressure.compare_exchange_strong(
         bp, bp_update, std::memory_order_acq_rel));
       yield();
 

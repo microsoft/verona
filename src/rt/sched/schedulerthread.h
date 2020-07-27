@@ -219,9 +219,9 @@ namespace verona::rt
 
         auto bp_muted = bp;
         bp_muted.set_state_muted();
-        if (!cown->backpressure.compare_exchange_weak(
+        if (!cown->backpressure.compare_exchange_strong(
               bp, bp_muted, std::memory_order_acq_rel))
-        { // spurious failure, or a transition to unmutable
+        {
           yield();
           assert(!bp.muted() && !bp.extra_rc());
           cown->schedule();
