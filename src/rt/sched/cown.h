@@ -908,6 +908,7 @@ namespace verona::rt
       if (curr == nullptr)
       {
         Systematic::cout() << "Reached message token" << std::endl;
+        assert(bp.has_token());
         token_reached = true;
       }
       else
@@ -931,7 +932,6 @@ namespace verona::rt
         bp_update = bp;
         if (token_reached)
         {
-          bp_update = bp;
           bp_update.unset_has_token();
           if (bp.unmutable())
             bp.unmutable_dirty();
@@ -951,8 +951,7 @@ namespace verona::rt
         // The following exchange will fail spuriously, or when another thread
         // has set this cown to unmutable.
       } while (!backpressure.compare_exchange_weak(
-                 bp, bp_update, std::memory_order_acq_rel) &&
-               token_reached);
+        bp, bp_update, std::memory_order_acq_rel));
       yield();
 
       return token_reached;
