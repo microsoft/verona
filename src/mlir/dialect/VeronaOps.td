@@ -129,14 +129,14 @@ def Verona_AllocateRegionOp : Verona_Op<"new_region"> {
     }];
 
     let arguments = (ins
-      SymbolRefAttr:$class_,
+      SymbolRefAttr:$class_name,
       StrArrayAttr:$field_names,
       Variadic<Verona_Type>:$fields
     );
     let results = (outs Verona_Type : $output);
 
     let assemblyFormat = [{
-      $class_ $field_names
+      $class_name $field_names
       (`(` $fields^ `:` type($fields) `)`)?
       attr-dict
       `:` type($output)
@@ -167,7 +167,7 @@ def Verona_AllocateObjectOp : Verona_Op<"new_object"> {
     }];
 
     let arguments = (ins
-      SymbolRefAttr:$class_,
+      SymbolRefAttr:$class_name,
       StrArrayAttr:$field_names,
       Variadic<Verona_Type>:$fields,
       Verona_Type:$region
@@ -175,7 +175,7 @@ def Verona_AllocateObjectOp : Verona_Op<"new_object"> {
     let results = (outs Verona_Type : $output);
 
     let assemblyFormat = [{
-      $class_ $field_names
+      $class_name $field_names
       (`(` $fields^ `:` type($fields) `)`)?
       `in` `(` $region `:` type($region) `)`
       attr-dict

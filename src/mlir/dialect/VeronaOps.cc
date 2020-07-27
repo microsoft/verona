@@ -53,7 +53,7 @@ static void print(OpAsmPrinter& printer, verona::ClassOp op)
 template<typename Op>
 static LogicalResult verifyAllocationOp(Op op)
 {
-  auto className = op.class_();
+  auto className = op.class_name();
   auto classOp = SymbolTable::lookupNearestSymbolFrom<verona::ClassOp>(
     op.getParentOp(), className);
   if (!classOp)
@@ -92,6 +92,7 @@ static LogicalResult verify(verona::ClassOp classOp)
     return classOp.emitOpError("expected body to have no arguments");
 
   // Verify that classes contain only fields, and that there are no duplicates.
+  // TODO: once we add methods, verify that there are no duplicates either.
   llvm::StringSet<> fields;
   for (Operation& op : *body)
   {
