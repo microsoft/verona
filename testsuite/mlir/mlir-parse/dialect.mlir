@@ -8,7 +8,7 @@
 // class C {  }
 // class D {
 //   f: U64;
-//   g: U64;
+//   g: S32;
 // }
 //
 // bar() {
@@ -30,7 +30,7 @@ module {
 
   verona.class @D {
     verona.field "f" : !verona.U64
-    verona.field "g" : !verona.U64
+    verona.field "g" : !verona.S32
   }
 
   func @bar() -> !verona.U64 {
@@ -40,12 +40,14 @@ module {
     %c = verona.new_object @D [ "f", "g" ] (%b, %b : !verona.U64, !verona.U64) in (%a : !verona.U64) : !verona.S64
 
     %d = verona.field_read %c["f"] : !verona.S64 -> !verona.U64
-    verona.field_write %c["g"], %d : !verona.S64 -> !verona.U64 -> !verona.U64
+    verona.field_write %c["f"], %d : !verona.S64 -> !verona.U64 -> !verona.U64
+
+    %e = verona.field_read %c["g"] : !verona.S64 -> !verona.S32
 
     verona.tidy %a : !verona.U64
     verona.drop %a : !verona.U64
 
-    %e = verona.new_region @C [ ] : !verona.U64
-    return %e : !verona.U64
+    %f = verona.new_region @C [ ] : !verona.U64
+    return %f : !verona.U64
   }
 }
