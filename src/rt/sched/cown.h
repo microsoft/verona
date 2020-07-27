@@ -862,6 +862,9 @@ namespace verona::rt
         return;
       }
 
+      if (Scheduler::local()->mutor != nullptr)
+        return;
+
       // Ignore message if any senders are are in the set of receivers.
       for (size_t s = 0; s < senders.count; s++)
       {
@@ -885,9 +888,7 @@ namespace verona::rt
 #endif
         )
         {
-          if (Scheduler::local()->mutor != nullptr)
-            Scheduler::local()->mutor->weak_release(ThreadAlloc::get());
-
+          assert(Scheduler::local()->mutor == nullptr);
           Scheduler::local()->mutor = receiver;
           receiver->weak_acquire();
           return;
