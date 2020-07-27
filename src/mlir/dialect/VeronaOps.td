@@ -215,9 +215,10 @@ def Verona_ClassOp : Verona_Op<"class", [
     let regions = (region SizedRegion<1> : $body);
 }
 
-// Trait used for operations that can only appear directly inside a class, such
-// as field definitions.
+// Trait used for operations that can only appear directly inside another, such
+// as field definitions inside classes and terminators inside regions.
 def InClassScope : HasParent<"ClassOp">;
+def InLoopScope : HasParent<"WhileOp">;
 
 def Verona_ClassEndOp : Verona_Op<"_class_end", [Terminator, InClassScope]> {
     let summary = "End of a Verona class block";
@@ -244,6 +245,106 @@ def Verona_FieldOp : Verona_Op<"field", [InClassScope]> {
 
     let arguments = (ins StrAttr : $name, Verona_TypeAttr : $type);
     let assemblyFormat = [{ $name `:` $type attr-dict }];
+    let verifier = [{ return success(); }];
+}
+
+def Verona_ContinueOp : Verona_Op<"continue", [Terminator, InLoopScope]> {
+    let summary = "continues any loop block";
+
+    let arguments = (ins);
+    let results = (outs);
+    let assemblyFormat = [{ attr-dict }];
+    let verifier = [{ return success(); }];
+}
+
+def Verona_BreakOp : Verona_Op<"break", [Terminator, InLoopScope]> {
+    let summary = "breaks any loop region, returning control to previous region";
+
+    let arguments = (ins);
+    let results = (outs);
+    let assemblyFormat = [{ attr-dict }];
+    let verifier = [{ return success(); }];
+}
+
+def Verona_LoopExitOp : Verona_Op<"loop_exit", [InLoopScope]> {
+    let summary = "breaks any loop block if condition is `false`";
+
+    let arguments = (ins BooleanType:$cond);
+    let results = (outs);
+    let assemblyFormat = [{ $cond `:` type($cond) attr-dict }];
+    let verifier = [{ return success(); }];
+}
+
+def Verona_WhileOp : Verona_Op<"while"> {
+    let summary = "any loop operation (while, for) without known range";
+    let description = [{
+      Verona while loops don't have any range information and are solely based on
+      conditions before and inside the loop to traverse and terminate. The actual
+      semantics is to execute the body of the loop until the condition stops
+      evaluating to (bool) `true`.
+
+      As a first implementation, the loop does no capture or yield of values, like
+      its SCF/Affine counterparts. All values are tracked via loads and stores.
+
+      An example of such a loop is:
+      ```mlir
+      // Some values declared before the loop
+      verona.store %val, %addr : U64*
+      // Constants with direct context
+      %five = verona.const 5 : U64
+
+      // The loop captures %a
+      verona.while {
+        // The condition is evaluated first
+        %a = verona.load %addr : U64
+        %cond = verona.gt %a, %five : bool
+        // If %cond is false, 'end' exits the loop
+        verona.loop_exit %cond
+
+        // Else, executes body of loop
+        %0 = verona.op %a, ...
+        ...
+
+        // Control flow automatically goes to beginning of the block
+        // Exit condition only through `verona.loop_exit %cond` or `verona.break`.
+        // Early loop back with `verona.continue`, including as a terminator.
+        verona.continue
+      }
+      ```
+
+      Value tracking is not trivial and mostly worth it when it helps tracking
+      scalar evolution and access patterns. In that case, we're better off using
+      SCF/Affine directly.
+
+      However, iterator based loops can be represented as a while loop by a
+      sequence of three operations on iterators:
+        * has_value: check if the produces still has values to use
+        * apply: returns the current value
+        * next: increments the "pointer" to the next element, which may be the end
+      An example of such code would be:
+      ```verona
+      {
+        var $iter = x;
+        while ($iter.has_value())
+        {
+          a = $iter.apply();
+          $iter.next();
+          foo(a);
+        }
+      }
+      ```
+
+      In Verona, Ranges (Range[Ty](start, end, step)) can also be considered
+      iterators over a container of [Tys] and therefore can also be represented
+      in the while loop operation. However, such access is regular, with known
+      range and step, and are much more efficient if represented in other dialects
+      such as SCF or Affine.
+    }];
+
+    // There are no arguments or return values, only the inner region
+    let arguments = (ins);
+    let results = (outs);
+    let regions = (region AnyRegion : $body);
     let verifier = [{ return success(); }];
 }
 

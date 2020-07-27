@@ -43,6 +43,28 @@ static void print(OpAsmPrinter& printer, verona::ClassOp op)
     op.body(), /*printEntryBlockArgs=*/false, /*printBlockTerminators=*/false);
 }
 
+static ParseResult parseWhileOp(OpAsmParser& parser, OperationState& state)
+{
+  Region* body = state.addRegion();
+
+  if (parser.parseOptionalAttrDictWithKeyword(state.attributes))
+    return failure();
+
+  if (parser.parseRegion(*body, /*arguments=*/{}, /*argTypes=*/{}))
+    return failure();
+
+  return success();
+}
+
+static void print(OpAsmPrinter& printer, verona::WhileOp op)
+{
+  printer << verona::WhileOp::getOperationName() << ' ';
+  printer.printOptionalAttrDict(
+    op.getAttrs(), /*elidedAttrs=*/{SymbolTable::getSymbolAttrName()});
+  printer.printRegion(
+    op.body(), /*printEntryBlockArgs=*/false, /*printBlockTerminators=*/false);
+}
+
 /**
  * AllocateRegionOp and AllocateObjectOp share similar features, which we verify
  * here:

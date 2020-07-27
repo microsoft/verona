@@ -41,4 +41,6 @@ def Verona_TypeAttr :
   let convertFromStorage = "$_self.getValue().cast<Type>()";
 }
 
+def BooleanType : TypeAlias<AnyI1, "bool">;
+
 #endif // VERONA_DIALECT
