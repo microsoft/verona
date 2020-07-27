@@ -237,12 +237,11 @@ namespace mlir::verona
   static void printTypeList(ArrayRef<Type> types, DialectAsmPrinter& os)
   {
     os << "<";
-    llvm::interleaveComma(
-      types, os, [&](auto element) {
-        // Verona types are closed
-        assert(isa_verona_type(element));
-        printVeronaType(element, os);
-      });
+    llvm::interleaveComma(types, os, [&](auto element) {
+      // Verona types are closed
+      assert(isa_verona_type(element));
+      printVeronaType(element, os);
+    });
     os << ">";
   }
 

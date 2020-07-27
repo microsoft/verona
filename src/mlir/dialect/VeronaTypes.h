@@ -7,8 +7,7 @@
 
 namespace mlir::verona
 {
-  Type
-  parseVeronaType(DialectAsmParser& parser);
+  Type parseVeronaType(DialectAsmParser& parser);
   void printVeronaType(Type type, DialectAsmPrinter& os);
 
   bool isa_verona_type(Type type);
