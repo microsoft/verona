@@ -219,6 +219,10 @@ namespace verona::rt
 
         auto bp_muted = bp;
         bp_muted.set_state_muted();
+        auto ins = mute_set.insert(alloc, cown);
+        if (ins.first)
+          T::acquire(cown);
+
         if (
 #ifdef USE_SYSTEMATIC_TESTING
           coin(9) ||
@@ -227,15 +231,15 @@ namespace verona::rt
             bp, bp_muted, std::memory_order_acq_rel))
         {
           yield();
-          assert(!bp.muted() && !bp.extra_rc());
+          assert(!bp.muted());
           cown->schedule();
+          mute_set.erase(ins.second);
+          if (ins.first)
+            T::release(alloc, cown);
+
           continue;
         }
-
-        yield();
         Systematic::cout() << "Mute " << cown << std::endl;
-        if (mute_set.insert(alloc, cown).first)
-          T::acquire(cown);
       }
 
       alloc->dealloc(cowns, count * sizeof(T*));
@@ -259,6 +263,7 @@ namespace verona::rt
           auto& mute_set = *entry.value();
           for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
           {
+            Systematic::cout() << "Mute map remove " << it.key() << std::endl;
             it.key()->unmute();
             T::release(alloc, it.key());
             mute_set.erase(it);

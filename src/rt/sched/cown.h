@@ -797,19 +797,15 @@ namespace verona::rt
         {
           if (bp.unmutable() && !bp.unmutable_dirty())
             return;
-          if (needs_resched)
-            bp_unmuted.set_extra_rc();
 
           bp_unmuted.set_state_unmutable();
         }
         else
         {
-          if (!bp.muted() && !bp.extra_rc())
+          if (!bp.muted())
             return;
           if (bp.muted())
             bp_unmuted.set_state_normal();
-          if (bp.extra_rc())
-            bp_unmuted.unset_extra_rc();
         }
 
         yield();
@@ -821,17 +817,13 @@ namespace verona::rt
           bp, bp_unmuted, std::memory_order_acq_rel));
 
       yield();
-      assert(set_unmutable || needs_resched || bp.extra_rc());
-
-      if (!set_unmutable && bp.extra_rc())
-        Cown::release(ThreadAlloc::get(), this);
+      assert(set_unmutable || needs_resched);
 
       if (!needs_resched)
         return;
 
-      Systematic::cout() << "Unmute " << this << std::endl;
-      if (set_unmutable)
-        Cown::acquire(this);
+      Systematic::cout() << "Unmute " << this
+                         << (set_unmutable ? " (unmutable)" : "") << std::endl;
 
       queue.wake();
       schedule();

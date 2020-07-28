@@ -159,12 +159,7 @@ namespace verona::rt
     /**
      * Reserved for future use.
      */
-    uint32_t : 4;
-    /**
-     * Indicates if an extra reference count has been added to this cown. This
-     * would occur if the cown was made unmutable while existing in a mute map.
-     */
-    uint32_t _extra_rc : 1;
+    uint32_t : 5;
     /**
      * Indicates if the token message is in a cown's queue. If zero, a new token
      * message should be added if the cown runs another message.
@@ -178,11 +173,7 @@ namespace verona::rt
 
   public:
     Backpressure()
-    : _current_load(0),
-      _load_hist(0),
-      _extra_rc(0),
-      _has_token(0),
-      _response_state(0)
+    : _current_load(0), _load_hist(0), _has_token(0), _response_state(0)
     {}
 
     bool operator==(Backpressure& other) const
@@ -221,14 +212,6 @@ namespace verona::rt
     inline bool has_token() const
     {
       return _has_token == 1;
-    }
-
-    /**
-     * Return true if an extra reference count has been added to the cown.
-     */
-    inline bool extra_rc() const
-    {
-      return _extra_rc == 1;
     }
 
     /**
@@ -330,22 +313,6 @@ namespace verona::rt
     inline void unset_has_token()
     {
       _has_token = 0;
-    }
-
-    /**
-     * Mark that an extra reference count has been added to the cown.
-     */
-    inline void set_extra_rc()
-    {
-      _extra_rc = 1;
-    }
-
-    /**
-     * Mark that an extra reference count has been removed from the cown.
-     */
-    inline void unset_extra_rc()
-    {
-      _extra_rc = 0;
     }
 
     /**
