@@ -66,7 +66,6 @@ the language design.
 We want to conduct this research openly to benefit
 the community in general.
 
-
 ## Why have you implemented Project Verona in C++ rather than a safe language?
 
 This is really two questions.
@@ -88,7 +87,6 @@ Rust would be an interesting choice to understand what abstraction we could surf
 As the concepts we are surfacing are different to Rust's type system it is unclear how beneficial this would be.
 
 Ultimately, we want to verify the runtime against a formal specification, but this is a massive undertaking and is on the boundary of current verification research.
-
 
 ### Why is the Verona compiler implemented in C++?
 
