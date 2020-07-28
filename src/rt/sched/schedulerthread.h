@@ -219,8 +219,12 @@ namespace verona::rt
 
         auto bp_muted = bp;
         bp_muted.set_state_muted();
-        if (!cown->backpressure.compare_exchange_strong(
-              bp, bp_muted, std::memory_order_acq_rel))
+        if (
+#ifdef USE_SYSTEMATIC_TESTING
+          coin(9) ||
+#endif
+          !cown->backpressure.compare_exchange_weak(
+            bp, bp_muted, std::memory_order_acq_rel))
         {
           yield();
           assert(!bp.muted() && !bp.extra_rc());

@@ -782,9 +782,10 @@ namespace verona::rt
     /**
      * Unmute a cown if it is muted.
      */
-    inline void unmute(bool unmutable = false)
+    inline void unmute(bool set_unmutable = false)
     {
       auto bp = backpressure.load(std::memory_order_acquire);
+      yield();
       Backpressure bp_unmuted;
       bool needs_resched;
       do
@@ -792,7 +793,7 @@ namespace verona::rt
         needs_resched = bp.muted();
         bp_unmuted = bp;
 
-        if (unmutable)
+        if (set_unmutable)
         {
           if (bp.unmutable() && !bp.unmutable_dirty())
             return;
@@ -812,20 +813,24 @@ namespace verona::rt
         }
 
         yield();
-      } while (!backpressure.compare_exchange_strong(
-        bp, bp_unmuted, std::memory_order_acq_rel));
+      } while (
+#ifdef USE_SYSTEMATIC_TESTING
+        coin(9) ||
+#endif
+        !backpressure.compare_exchange_weak(
+          bp, bp_unmuted, std::memory_order_acq_rel));
 
       yield();
-      assert(unmutable || needs_resched || bp.extra_rc());
+      assert(set_unmutable || needs_resched || bp.extra_rc());
 
-      if (!unmutable && bp.extra_rc())
+      if (!set_unmutable && bp.extra_rc())
         Cown::release(ThreadAlloc::get(), this);
 
       if (!needs_resched)
         return;
 
       Systematic::cout() << "Unmute " << this << std::endl;
-      if (unmutable)
+      if (set_unmutable)
         Cown::acquire(this);
 
       queue.wake();
@@ -951,8 +956,12 @@ namespace verona::rt
         yield();
         // The following exchange will fail when another thread has set this
         // cown to unmutable.
-      } while (!backpressure.compare_exchange_strong(
-        bp, bp_update, std::memory_order_acq_rel));
+      } while (
+#ifdef USE_SYSTEMATIC_TESTING
+        coin(9) ||
+#endif
+        !backpressure.compare_exchange_weak(
+          bp, bp_update, std::memory_order_acq_rel));
       yield();
 
       return token_reached;
