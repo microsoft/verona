@@ -48,7 +48,6 @@ There are two alternatives here, expose "unsafe" to enable unsafe libraries for 
 The former means the language can rely on fewer invariants as it does not understand how the code inside the unsafe blocks is providing concurrency.
 The latter means you need an amazing concurrency story as you can only have one.
 
-
 # Concurrent Ownership
 
 In Project Verona, we are introducing a new model of concurrent programming: concurrent owners, or cowns for short.
