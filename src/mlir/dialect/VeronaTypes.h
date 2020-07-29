@@ -10,7 +10,8 @@ namespace mlir::verona
   Type parseVeronaType(DialectAsmParser& parser);
   void printVeronaType(Type type, DialectAsmPrinter& os);
 
-  bool isa_verona_type(Type type);
+  bool isaVeronaType(Type type);
+  bool areVeronaTypes(llvm::ArrayRef<Type> types);
   bool isSubtype(Type lhs, Type rhs);
   LogicalResult checkSubtype(Location loc, Type lhs, Type rhs);
 

@@ -28,12 +28,12 @@ class Verona_Op<string mnemonic, list<OpTrait> traits = []> :
 }
 
 def Verona_Type : DialectType<Verona_Dialect,
-    CPred<"isa_verona_type($_self)">, "Verona type">;
+    CPred<"isaVeronaType($_self)">, "Verona type">;
 
 def Verona_TypeAttr :
     Attr<And<
       [CPred<"$_self.isa<TypeAttr>()">,
-       CPred<"isa_verona_type($_self.cast<TypeAttr>().getValue())">]>>
+       CPred<"isaVeronaType($_self.cast<TypeAttr>().getValue())">]>>
 {
   let storageType = [{ TypeAttr }];
   let returnType = [{ Type }];

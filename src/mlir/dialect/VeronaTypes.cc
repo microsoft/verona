@@ -111,6 +111,7 @@ namespace mlir::verona
 {
   MeetType MeetType::get(MLIRContext* ctx, llvm::ArrayRef<mlir::Type> elements)
   {
+    assert(areVeronaTypes(elements));
     return Base::get(ctx, VeronaTypes::Meet, elements);
   }
 
@@ -121,6 +122,7 @@ namespace mlir::verona
 
   JoinType JoinType::get(MLIRContext* ctx, llvm::ArrayRef<mlir::Type> elements)
   {
+    assert(areVeronaTypes(elements));
     return Base::get(ctx, VeronaTypes::Join, elements);
   }
 
@@ -237,11 +239,8 @@ namespace mlir::verona
   static void printTypeList(ArrayRef<Type> types, DialectAsmPrinter& os)
   {
     os << "<";
-    llvm::interleaveComma(types, os, [&](auto element) {
-      // Verona types are closed
-      assert(isa_verona_type(element));
-      printVeronaType(element, os);
-    });
+    llvm::interleaveComma(
+      types, os, [&](auto element) { printVeronaType(element, os); });
     os << ">";
   }
 
@@ -311,10 +310,15 @@ namespace mlir::verona
     }
   }
 
-  bool isa_verona_type(Type type)
+  bool isaVeronaType(Type type)
   {
     return type.getKind() >= FIRST_VERONA_TYPE &&
       type.getKind() < LAST_VERONA_TYPE;
+  }
+
+  bool areVeronaTypes(llvm::ArrayRef<Type> types)
+  {
+    return llvm::all_of(types, isaVeronaType);
   }
 
   bool isSubtype(Type lhs, Type rhs)

@@ -54,8 +54,8 @@ template<typename Op>
 static LogicalResult verifyAllocationOp(Op op)
 {
   auto className = op.class_name();
-  auto classOp = SymbolTable::lookupNearestSymbolFrom<verona::ClassOp>(
-    op.getParentOp(), className);
+  auto classOp =
+    SymbolTable::lookupNearestSymbolFrom<verona::ClassOp>(op, className);
   if (!classOp)
   {
     return op.emitOpError("class '")
@@ -113,6 +113,23 @@ static LogicalResult verify(verona::ClassOp classOp)
 
 namespace mlir::verona
 {
+  LogicalResult CopyOp::typecheck()
+  {
+    return checkSubtype(getLoc(), input().getType(), output().getType());
+  }
+
+  LogicalResult ReturnOp::typecheck()
+  {
+    auto fn = cast<FuncOp>(getParentOp());
+    const auto& results = fn.getType().getResults();
+    if (results.size() != 1)
+    {
+      return emitOpError() << "can only be used to return one value";
+    }
+
+    return checkSubtype(getLoc(), input().getType(), results.front());
+  }
+
 #define GET_OP_CLASSES
 #include "dialect/VeronaOps.cpp.inc"
 
