@@ -489,8 +489,17 @@ namespace Systematic
     for (auto i = 2; i < n_frames; i++)
     {
       auto* sym = syms[i];
+#  ifdef __APPLE__
+      // macOS format: index module   address symbol + offset
+      auto* mangle_n = strrchr(sym, '+') - (sizeof(char) * 2);
+      auto* mangle_0 = mangle_n;
+      while ((*mangle_0 != ' ') && (mangle_0 != sym))
+        mangle_0 -= sizeof(char);
+#  else
+      // Linux format: module(symbol+offset) [address]
       auto* mangle_0 = strchr(sym, '(');
-      auto* mangle_n = strchr(mangle_0, '+');
+      auto* mangle_n = (mangle_0) ? strchr(mangle_0, '+') : 0;
+#  endif
 
       if (!mangle_n || ((mangle_0 + 1) == mangle_n))
       {
