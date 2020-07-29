@@ -5,23 +5,13 @@
 
 #include "ast-utils.h"
 #include "dialect/VeronaDialect.h"
-#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/StandardTypes.h"
 #include "mlir/IR/Types.h"
-#include "mlir/IR/Verifier.h"
-#include "mlir/Parser.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Pass/PassManager.h"
-#include "mlir/Support/FileUtilities.h"
-#include "mlir/Transforms/Passes.h"
 
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/ToolOutputFile.h"
 
 namespace
 {
@@ -41,102 +31,14 @@ namespace mlir::verona
   using namespace ASTInterface;
 
   // ===================================================== Public Interface
-  llvm::Error Generator::readAST(const ::ast::Ast& ast)
+  llvm::Expected<mlir::OwningModuleRef>
+  Generator::lower(MLIRContext* context, const ::ast::Ast& ast)
   {
-    // Parse the AST with the rules below
-    if (auto err = parseModule(ast))
-      return err;
+    Generator gen(context);
+    if (auto err = gen.parseModule(ast))
+      return std::move(err);
 
-    // On error, dump module for debug purposes
-    if (mlir::failed(mlir::verify(*module)))
-    {
-      module->dump();
-      return runtimeError("MLIR verification failed from Verona file");
-    }
-    return llvm::Error::success();
-  }
-
-  llvm::Error Generator::readMLIR(const std::string& filename)
-  {
-    if (filename.empty())
-      return runtimeError("No input filename provided");
-
-    // Read an MLIR file
-    auto srcOrErr = llvm::MemoryBuffer::getFileOrSTDIN(filename);
-
-    if (auto err = srcOrErr.getError())
-      return runtimeError(
-        "Cannot open file " + filename + ": " + err.message());
-
-    // Setup source manager and parse the input. This includes verification of
-    // the IR.
-    llvm::SourceMgr sourceMgr;
-    sourceMgr.AddNewSourceBuffer(std::move(*srcOrErr), llvm::SMLoc());
-    module = mlir::parseSourceFile(sourceMgr, builder.getContext());
-    if (!module)
-      return runtimeError("Can't load MLIR file");
-
-    return llvm::Error::success();
-  }
-
-  llvm::Error Generator::emitMLIR(llvm::StringRef filename, unsigned optLevel)
-  {
-    if (filename.empty())
-      return runtimeError("No output filename provided");
-
-    // Write to the file requested
-    std::error_code error;
-    auto out = llvm::raw_fd_ostream(filename, error);
-    if (error)
-      return runtimeError("Cannot open output filename");
-
-    // We're not optimising the MLIR module like we do for LLVM output
-    // because this is mostly for debug and testing. We could do that
-    // in the future.
-    module->print(out);
-    return llvm::Error::success();
-  }
-
-  // FIXME: This function will not work. It must receive an MLIR module that is
-  // 100% composed of dialects that can be fully converted to LLVM dialect.
-  // We keep this code here as future reference on how to lower to LLVM.
-  llvm::Error Generator::emitLLVM(llvm::StringRef filename, unsigned optLevel)
-  {
-    if (filename.empty())
-      return runtimeError("No output filename provided");
-
-    // The lowering "pass manager"
-    mlir::PassManager pm(&context);
-    if (optLevel > 0)
-    {
-      pm.addPass(mlir::createInlinerPass());
-      pm.addPass(mlir::createSymbolDCEPass());
-      mlir::OpPassManager& optPM = pm.nest<mlir::FuncOp>();
-      optPM.addPass(mlir::createCanonicalizerPass());
-      optPM.addPass(mlir::createCSEPass());
-    }
-    pm.addPass(mlir::createLowerToLLVMPass());
-
-    // First lower to LLVM dialect
-    if (mlir::failed(pm.run(module.get())))
-    {
-      module->dump();
-      return runtimeError("Failed to lower to LLVM dialect");
-    }
-
-    // Then lower to LLVM IR
-    auto llvm = mlir::translateModuleToLLVMIR(module.get());
-    if (!llvm)
-      return runtimeError("Failed to lower to LLVM IR");
-
-    // Write to the file requested
-    std::error_code error;
-    auto out = llvm::raw_fd_ostream(filename, error);
-    if (error)
-      return runtimeError("Cannot open output filename");
-
-    llvm->print(out, nullptr);
-    return llvm::Error::success();
+    return std::move(gen.module);
   }
 
   // ===================================================== AST -> MLIR
@@ -144,7 +46,7 @@ namespace mlir::verona
   {
     auto path = getPath(ast);
     return builder.getFileLineColLoc(
-      Identifier::get(path.file, &context), path.line, path.column);
+      Identifier::get(path.file, context), path.line, path.column);
   }
 
   llvm::Error Generator::parseModule(const ::ast::Ast& ast)
@@ -288,7 +190,7 @@ namespace mlir::verona
       return type;
 
     // Else, insert into the table and return
-    type = genOpaqueType(desc, context);
+    type = genOpaqueType(desc);
     typeTable.insert(desc, type);
     return type;
   }
@@ -376,7 +278,7 @@ namespace mlir::verona
       // have attributes from unknown types. Once we set on a type
       // system compatibility between Verona and MLIR, we can change
       // this to emit the attribute right away.
-      auto type = genOpaqueType(getName(ast), context);
+      auto type = genOpaqueType(getName(ast));
       auto value = getTokenValue(ast);
       return genOperation(
         getLocation(ast), "verona.constant(" + value + ")", {}, type);
@@ -698,7 +600,7 @@ namespace mlir::verona
     llvm::ArrayRef<mlir::Value> ops,
     mlir::Type retTy)
   {
-    auto opName = OperationName(name, &context);
+    auto opName = OperationName(name, context);
     auto state = OperationState(loc, opName);
     state.addOperands(ops);
     state.addTypes({retTy});
@@ -707,10 +609,9 @@ namespace mlir::verona
     return res;
   }
 
-  mlir::OpaqueType
-  Generator::genOpaqueType(llvm::StringRef name, mlir::MLIRContext& context)
+  mlir::OpaqueType Generator::genOpaqueType(llvm::StringRef name)
   {
-    auto dialect = mlir::Identifier::get("type", &context);
-    return mlir::OpaqueType::get(dialect, name, &context);
+    auto dialect = mlir::Identifier::get("type", context);
+    return mlir::OpaqueType::get(dialect, name, context);
   }
 }
