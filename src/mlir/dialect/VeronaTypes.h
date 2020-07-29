@@ -30,6 +30,7 @@ namespace mlir::verona
     struct JoinTypeStorage;
     struct IntegerTypeStorage;
     struct CapabilityTypeStorage;
+    struct ClassTypeStorage;
   }
 
   struct MeetType
@@ -74,5 +75,13 @@ namespace mlir::verona
     using Base::Base;
     static CapabilityType get(MLIRContext* ctx, Capability cap);
     Capability getCapability() const;
+  };
+
+  struct ClassType
+  : public Type::TypeBase<ClassType, Type, detail::ClassTypeStorage>
+  {
+    using Base::Base;
+    static ClassType get(MLIRContext* ctx, StringRef s);
+    StringRef getName() const;
   };
 }

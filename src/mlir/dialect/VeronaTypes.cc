@@ -110,6 +110,33 @@ namespace mlir::verona::detail
         CapabilityTypeStorage(key);
     }
   };
+
+  struct ClassTypeStorage : public ::mlir::TypeStorage
+  {
+    StringRef class_name;
+
+    using KeyTy = StringRef;
+
+    ClassTypeStorage(StringRef class_name) : class_name(class_name) {}
+
+    static llvm::hash_code hashKey(const KeyTy& key)
+    {
+      return llvm::hash_value(key);
+    }
+
+    bool operator==(const KeyTy& key) const
+    {
+      return key == class_name;
+    }
+
+    static ClassTypeStorage*
+    construct(TypeStorageAllocator& allocator, const KeyTy& key)
+    {
+      StringRef name = allocator.copyInto(key);
+      return new (allocator.allocate<ClassTypeStorage>())
+        ClassTypeStorage(name);
+    }
+  };
 } // namespace mlir::verona::detail
 
 namespace mlir::verona
@@ -159,6 +186,16 @@ namespace mlir::verona
   Capability CapabilityType::getCapability() const
   {
     return getImpl()->capability;
+  }
+
+  ClassType ClassType::get(MLIRContext* ctx, StringRef class_name)
+  {
+    return Base::get(ctx, class_name);
+  }
+
+  StringRef ClassType::getName() const
+  {
+    return getImpl()->class_name;
   }
 
   /// Parse a list of types, surrounded by angle brackets and separated by
@@ -220,6 +257,17 @@ namespace mlir::verona
     return IntegerType::get(ctx, width, sign);
   }
 
+  static Type parseClassType(MLIRContext* ctx, DialectAsmParser& parser)
+  {
+    StringAttr attr;
+    if (
+      parser.parseLess() || parser.parseAttribute(attr) ||
+      parser.parseGreater())
+      return Type();
+
+    return ClassType::get(ctx, attr.getValue());
+  }
+
   Type parseVeronaType(DialectAsmParser& parser)
   {
     MLIRContext* ctx = parser.getBuilder().getContext();
@@ -228,7 +276,9 @@ namespace mlir::verona
     if (parser.parseKeyword(&keyword))
       return Type();
 
-    if (keyword == "meet")
+    if (keyword == "class")
+      return parseClassType(ctx, parser);
+    else if (keyword == "meet")
       return parseMeetType(ctx, parser);
     else if (keyword == "join")
       return parseJoinType(ctx, parser);
@@ -306,6 +356,9 @@ namespace mlir::verona
             os << "imm";
             break;
         }
+      })
+      .Case<ClassType>([&](ClassType type) {
+        os << "class<\"" << type.getName() << "\">";
       });
   }
 
