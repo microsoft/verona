@@ -62,7 +62,7 @@ namespace verona
      * This operator provides a comparison using the builtin scrambling from the
      * underlying feisel network.
      **/
-    bool operator()(void* p1, void* p2)
+    bool operator()(const void* p1, const void* p2)
     {
       return perm((uintptr_t)p1) < perm((uintptr_t)p2);
     }
