@@ -73,14 +73,23 @@ bool test(size_t seed)
     auto entry = std::make_pair(key, (int32_t)i);
     err << "insert " << key << "\n";
     model.insert(entry);
-    auto inserted = map.insert(alloc, entry).first;
+    auto insertion = map.insert(alloc, entry);
+    if ((insertion.first != true) || (insertion.second.key() != key))
+    {
+      map.debug_layout(err)
+        << "\n"
+        << "incorrect return from insert: " << insertion.first << ", "
+        << insertion.second.key() << "\n";
+      std::cout << err.str() << std::flush;
+      return false;
+    }
     if (!model_check(map, model, err))
     {
       std::cout << err.str() << std::flush;
       return false;
     }
 
-    if (!inserted)
+    if (!insertion.first)
     {
       std::cout << err.str() << "not inserted: " << entry.first << std::endl;
       return false;
@@ -91,14 +100,14 @@ bool test(size_t seed)
       err << "update " << key << "\n";
       entry.second = -entry.second;
       model.insert(entry);
-      inserted = map.insert(alloc, entry).first;
+      insertion = map.insert(alloc, entry);
       if (!model_check(map, model, err))
       {
         std::cout << err.str() << std::flush;
         return false;
       }
 
-      if (inserted)
+      if (insertion.first)
       {
         std::cout << err.str() << "not updated: " << entry.first << std::endl;
         return false;

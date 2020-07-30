@@ -310,6 +310,7 @@ namespace verona::rt
       const auto key = unmark_key(key_of(entry));
       const auto hash = bits::hash((void*)key);
       auto index = hash & (capacity() - 1);
+      size_t iter_index = ~(size_t)0;
 
       for (uint8_t probe_len = 0; probe_len <= PROBE_MASK; probe_len++)
       {
@@ -320,7 +321,10 @@ namespace verona::rt
           if constexpr (!is_set)
             entry.second = std::forward<E>(entry).second;
 
-          return std::make_pair(false, Iterator(this, index));
+          if (iter_index == ~(size_t)0)
+            iter_index = index;
+
+          return std::make_pair(false, Iterator(this, iter_index));
         }
 
         if (k == 0)
@@ -328,11 +332,17 @@ namespace verona::rt
           place_entry(std::forward<E>(entry), index, probe_len);
           assert(!(key_of(slots[index]) & MARK_MASK));
           filled_slots++;
-          return std::make_pair(true, Iterator(this, index));
+          if (iter_index == ~(size_t)0)
+            iter_index = index;
+
+          return std::make_pair(true, Iterator(this, iter_index));
         }
 
         if (probe_index(k) < probe_len)
         { // Robin Hood time. Swap with current slot and continue.
+          if (iter_index == ~(size_t)0)
+            iter_index = index;
+
           Entry swap = std::move(slots[index]);
           place_entry(std::forward<E>(entry), index, probe_len);
           entry = swap;
