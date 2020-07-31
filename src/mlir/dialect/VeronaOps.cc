@@ -87,10 +87,6 @@ static LogicalResult verify(verona::ClassOp classOp)
 {
   Block* body = classOp.getBody();
 
-  // This is the NoRegionArguments trait in recent LLVM
-  if (body->getNumArguments() != 0)
-    return classOp.emitOpError("expected body to have no arguments");
-
   // Verify that classes contain only fields, and that there are no duplicates.
   // TODO: once we add methods, verify that there are no duplicates either.
   llvm::StringSet<> fields;

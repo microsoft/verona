@@ -185,7 +185,8 @@ def Verona_AllocateObjectOp : Verona_Op<"new_object"> {
 
 def Verona_ClassOp : Verona_Op<"class", [
   Symbol, IsolatedFromAbove, SymbolTable,
-  SingleBlockImplicitTerminator<"ClassEndOp">
+  SingleBlockImplicitTerminator<"ClassEndOp">,
+  NoRegionArguments
 ]> {
     let summary = "Verona class definition";
     let description = [{
