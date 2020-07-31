@@ -104,55 +104,42 @@ namespace mlir::verona
 
   /**
    * MLIR Generator.
-   *
-   * There are two entry points: AST and MLIR, and two exit points: MLIR
-   * and LLVM IR. The MLIR -> MLIR path is for self-validation and future
-   * optimisation passes (mainly testing).
-   *
-   * The LLVM IR can be dumped or used in the next step of the compilation,
-   * lowering to machine code by the LLVM library.
-   *
-   * For now, the error handling is crude and needs proper consideration,
-   * especially aggregating all errors and context before sending it back to
-   * the public API callers.
    */
   struct Generator
   {
-    Generator() : builder(&context)
-    {
-      // Opaque operations and types can only exist if we allow
-      // unregistered dialects to co-exist. Full conversions later will
-      // make sure we end up with onlt Verona dialect, then Standard
-      // dialects, then LLVM dialect, before converting to LLVM IR.
-      context.allowUnregisteredDialects();
+    /**
+     * Convert an AST into a high-level MLIR module.
+     *
+     * Currently this generates opaque MLIR operations, which can't be processed
+     * by the rest of the compiler, but we will slowly be transitioning to the
+     * Verona dialect.
+     *
+     */
+    static llvm::Expected<mlir::OwningModuleRef>
+    lower(MLIRContext* context, const ::ast::Ast& ast);
 
+  private:
+    Generator(MLIRContext* context) : context(context), builder(context)
+    {
       // Initialise known opaque types, for comparison.
       // TODO: Use Verona dialect types directly and isA<>.
-      allocaTy = genOpaqueType("alloca", context);
-      unkTy = genOpaqueType("unk", context);
-      noneTy = genOpaqueType("none", context);
+      allocaTy = genOpaqueType("alloca");
+      unkTy = genOpaqueType("unk");
+      noneTy = genOpaqueType("none");
       boolTy = builder.getI1Type();
     }
 
-    /// Read AST into MLIR module.
-    llvm::Error readAST(const ::ast::Ast& ast);
-    /// Read MLIR into MLIR module.
-    llvm::Error readMLIR(const std::string& filename);
-
-    /// Transform the opaque MLIR format into Verona dialect.
-    llvm::Error emitMLIR(const llvm::StringRef filename, unsigned optLevel = 0);
-    /// Transform the Verona dialect into LLVM IR.
-    llvm::Error emitLLVM(const llvm::StringRef filename, unsigned optLevel = 0);
-
     using Types = llvm::SmallVector<mlir::Type, 4>;
 
-  private:
     /// MLIR module.
     mlir::OwningModuleRef module;
+
+    /// MLIR context. This is owned by the caller of Generator::lower.
+    mlir::MLIRContext* context;
+
     /// MLIR builder.
     mlir::OpBuilder builder;
-    /// MLIR context.
-    mlir::MLIRContext context;
+
     /// Current MLIR function.
     mlir::FuncOp currentFunc;
 
@@ -225,8 +212,8 @@ namespace mlir::verona
       llvm::StringRef name,
       llvm::ArrayRef<mlir::Value> ops,
       mlir::Type retTy);
+
     /// Wrappers for opaque types before we use actual Verona dialect.
-    mlir::OpaqueType
-    genOpaqueType(llvm::StringRef name, mlir::MLIRContext& context);
+    mlir::OpaqueType genOpaqueType(llvm::StringRef name);
   };
 }

@@ -9,7 +9,7 @@
 #include "ast/ref.h"
 #include "ast/sym.h"
 #include "dialect/VeronaDialect.h"
-#include "generator.h"
+#include "driver.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
 
@@ -122,8 +122,7 @@ int main(int argc, char** argv)
     return 1;
   }
 
-  // MLIR Generator
-  mlir::verona::Generator gen;
+  mlir::verona::Driver driver(optLevel);
   llvm::ExitOnError check;
 
   // Parse the source file (verona/mlir)
@@ -143,19 +142,19 @@ int main(int argc, char** argv)
         return 1;
       }
       // Parse AST file into MLIR
-      check(gen.readAST(m->ast));
+      check(driver.readAST(m->ast));
     }
     break;
     case InputKind::MLIR:
       // Parse MLIR file
-      check(gen.readMLIR(inputFile));
+      check(driver.readMLIR(inputFile));
       break;
     default:
       std::cerr << "ERROR: invalid source file type" << std::endl;
       return 1;
   }
 
-  // Emit MLIR
-  check(gen.emitMLIR(outputFile, optLevel));
+  check(driver.emitMLIR(outputFile));
+
   return 0;
 }
