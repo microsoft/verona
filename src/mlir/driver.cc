@@ -13,7 +13,7 @@
 
 namespace mlir::verona
 {
-  Driver::Driver(unsigned optLevel, bool lowerToLLVM) : passManager(&context)
+  Driver::Driver(unsigned optLevel) : passManager(&context)
   {
     // Opaque operations and types can only exist if we allow
     // unregistered dialects to co-exist. Full conversions later will
@@ -30,10 +30,6 @@ namespace mlir::verona
       mlir::OpPassManager& funcPM = passManager.nest<mlir::FuncOp>();
       funcPM.addPass(mlir::createCanonicalizerPass());
       funcPM.addPass(mlir::createCSEPass());
-    }
-    if (lowerToLLVM)
-    {
-      passManager.addPass(mlir::createLowerToLLVMPass());
     }
   }
 
@@ -77,21 +73,18 @@ namespace mlir::verona
     return llvm::Error::success();
   }
 
-  llvm::Error Driver::process()
+  llvm::Error Driver::emitMLIR(llvm::StringRef filename)
   {
+    assert(module);
+
+    if (filename.empty())
+      return runtimeError("No output filename provided");
+
     if (failed(passManager.run(module.get())))
     {
       module->dump();
       return runtimeError("Failed to run some passes");
     }
-
-    return llvm::Error::success();
-  }
-
-  llvm::Error Driver::emitMLIR(llvm::StringRef filename)
-  {
-    if (filename.empty())
-      return runtimeError("No output filename provided");
 
     // Write to the file requested
     std::error_code error;
@@ -100,31 +93,6 @@ namespace mlir::verona
       return runtimeError("Cannot open output filename");
 
     module->print(out);
-    return llvm::Error::success();
-  }
-
-  llvm::Error Driver::emitLLVM(llvm::StringRef filename)
-  {
-    if (filename.empty())
-      return runtimeError("No output filename provided");
-
-    // Lower the module to LLVM IR.
-    // For this to work, the module must only contain LLVM dialect, ie. the
-    // driver must have been configured to run the "Lower to LLVM" pass.
-    auto llvm = mlir::translateModuleToLLVMIR(module.get());
-    if (!llvm)
-    {
-      module->dump();
-      return runtimeError("Failed to lower to LLVM IR");
-    }
-
-    // Write to the file requested
-    std::error_code error;
-    auto out = llvm::raw_fd_ostream(filename, error);
-    if (error)
-      return runtimeError("Cannot open output filename");
-
-    llvm->print(out, nullptr);
     return llvm::Error::success();
   }
 }

@@ -133,10 +133,13 @@ namespace mlir::verona
 
     /// MLIR module.
     mlir::OwningModuleRef module;
-    /// MLIR context.
+
+    /// MLIR context. This is owned by the caller of Generator::lower.
     mlir::MLIRContext* context;
+
     /// MLIR builder.
     mlir::OpBuilder builder;
+
     /// Current MLIR function.
     mlir::FuncOp currentFunc;
 

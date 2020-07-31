@@ -154,7 +154,6 @@ int main(int argc, char** argv)
       return 1;
   }
 
-  check(driver.process());
   check(driver.emitMLIR(outputFile));
 
   return 0;

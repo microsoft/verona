@@ -10,13 +10,11 @@ namespace mlir::verona
   /**
    * Main compiler API.
    *
-   * The driver is used by calling three methods in succession:
-   * - `readXXX` is used to load the MLIR module. It can either be loaded from
-   *    textual MLIR or from the AST.
-   * - `process` runs the MLIR lowering pipeline. Passes are selected by the
-   *    Driver's constructor's arguments.
-   * - `emitXXX` writes the result to a text file, either in MLIR or in LLVM IR
-   *    format.
+   * The driver is user by first calling one of the `readXXX` methods, followed
+   * by `emitMLIR`. The various `readXXX` methods allow using different kinds of
+   * input.
+   *
+   * The lowering pipeline is configured through Driver's constructor arguments.
    *
    * For now, the error handling is crude and needs proper consideration,
    * especially aggregating all errors and context before sending it back to
@@ -25,7 +23,7 @@ namespace mlir::verona
   class Driver
   {
   public:
-    Driver(unsigned optLevel = 0, bool lowerToLLVM = false);
+    Driver(unsigned optLevel = 0);
 
     // TODO: add a readSource function that parses Verona source code.
     // this might be more thinking about the error API of the Driver.
@@ -35,14 +33,6 @@ namespace mlir::verona
 
     /// Read textual MLIR into the driver's module.
     llvm::Error readMLIR(const std::string& filename);
-
-    // Run the MLIR pipeline on the module. This uses the passes that were
-    // configured by the driver's constructor.
-    llvm::Error process();
-
-    /// Emit the module as textual LLVM IR.
-    /// This will fail if the module is not in LLVM dialect yet.
-    llvm::Error emitLLVM(const llvm::StringRef filename);
 
     /// Emit the module as textual MLIR.
     llvm::Error emitMLIR(const llvm::StringRef filename);
