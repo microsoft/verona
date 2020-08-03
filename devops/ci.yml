@@ -176,7 +176,8 @@ jobs:
 
   - script: |
       set -eo pipefail
-      make -j 4
+      N=$(sysctl -n hw.ncpu)
+      make -j $N
     workingDirectory: build
     displayName: 'Compile'
 
