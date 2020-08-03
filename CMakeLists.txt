@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10.0)
 
 option (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM" ON)
+option (VERBOSE_LLVM_DOWNLOAD "Verbose LLVM/MLIR download step" OFF)
 
 # Lifted from snmalloc. Hard to include with external projects, so copied
 macro(clangformat_targets)
@@ -109,8 +110,17 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
 
       set(PKG_NAME verona-llvm-install-x86_64-${PLATFORM}-${LLVM_BUILD_TYPE}-${LLVM_PACKAGE_GIT_VERSION})
 
+      # Quiet downloads are the default. Note that the download flag is reversed
+      # so we created a more meaningful variable "verbose=true" -> "no progress=false"
+      if (NOT DEFINED VERBOSE_LLVM_DOWNLOAD OR NOT ${VERBOSE_LLVM_DOWNLOAD})
+        set(LLVM_DOWNLOAD_NO_PROGRESS ON)
+      else()
+        set(LLVM_DOWNLOAD_NO_PROGRESS OFF)
+      endif()
+
       ExternalProject_Add(mlir-${BUILD_TYPE}
         URL https://verona.blob.core.windows.net/llvmbuild/${PKG_NAME}
+        DOWNLOAD_NO_PROGRESS ${LLVM_DOWNLOAD_NO_PROGRESS}
         CONFIGURE_COMMAND ""
         BUILD_COMMAND ""
         INSTALL_COMMAND ""
