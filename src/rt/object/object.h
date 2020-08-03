@@ -219,10 +219,10 @@ namespace verona::rt
     }
 #endif
 
-    inline void* id()
+    inline const void* id() const
     {
 #ifdef USE_SYSTEMATIC_TESTING
-      return (void*)sys_id;
+      return (void const*)sys_id;
 #else
       return this;
 #endif

@@ -25,7 +25,7 @@ namespace verona::rt
       return a & static_cast<T>(~(b >> shift));
     }
 
-    inline static size_t hash(void* p)
+    inline static size_t hash(const void* p)
     {
       size_t x = static_cast<size_t>(snmalloc::address_cast(p));
 

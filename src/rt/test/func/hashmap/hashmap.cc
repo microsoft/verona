@@ -55,11 +55,14 @@ bool model_check(
   return true;
 }
 
+struct Key : public VCown<Key>
+{};
+
 bool test(size_t seed)
 {
   auto* alloc = ThreadAlloc::get();
-  ObjectMap<std::pair<Object*, int32_t>> map(alloc);
-  std::unordered_map<Object*, int32_t> model;
+  ObjectMap<std::pair<Key*, int32_t>> map(alloc);
+  std::unordered_map<Key*, int32_t> model;
 
   xoroshiro::p128r64 rng{seed};
   std::stringstream err;
@@ -69,9 +72,13 @@ bool test(size_t seed)
   static constexpr size_t entries = 100;
   for (size_t i = 0; i < entries; i++)
   {
-    auto* key = (Object*)(rng.next() * Object::ALIGNMENT);
+    auto* key = new (alloc) Key();
     auto entry = std::make_pair(key, (int32_t)i);
-    err << "insert " << key << "\n";
+    err << "insert " << key
+#ifdef USE_SYSTEMATIC_TESTING
+        << " (" << key->id() << ")"
+#endif
+        << "\n";
     model.insert(entry);
     auto insertion = map.insert(alloc, entry);
     if ((insertion.first != true) || (insertion.second.key() != key))
@@ -91,7 +98,7 @@ bool test(size_t seed)
 
     if (!insertion.first)
     {
-      std::cout << err.str() << "not inserted: " << entry.first << std::endl;
+      std::cout << err.str() << "not inserted: " << key << std::endl;
       return false;
     }
 
@@ -109,7 +116,7 @@ bool test(size_t seed)
 
       if (insertion.first)
       {
-        std::cout << err.str() << "not updated: " << entry.first << std::endl;
+        std::cout << err.str() << "not updated: " << key << std::endl;
         return false;
       }
     }
@@ -117,8 +124,8 @@ bool test(size_t seed)
     if ((rng.next() % 10) == 0)
     {
       err << "erase " << key << "\n";
-      model.erase(entry.first);
-      auto erased = map.erase(entry.first);
+      model.erase(key);
+      auto erased = map.erase(key);
       if (!model_check(map, model, err))
       {
         std::cout << err.str() << std::flush;
@@ -127,9 +134,10 @@ bool test(size_t seed)
 
       if (!erased)
       {
-        std::cout << err.str() << "not erased: " << entry.first << std::endl;
+        std::cout << err.str() << "not erased: " << key << std::endl;
         return false;
       }
+      Cown::release(alloc, key);
     }
   }
 
@@ -139,6 +147,9 @@ bool test(size_t seed)
     map.debug_layout(std::cout) << "not empty" << std::endl;
     return false;
   }
+
+  for (auto e : model)
+    Cown::release(alloc, e.first);
 
   return true;
 }
