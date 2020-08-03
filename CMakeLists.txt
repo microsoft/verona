@@ -90,6 +90,7 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external/llvm-project"
       OUTPUT_VARIABLE LLVM_PACKAGE_GIT_VERSION
     )
+    string(STRIP ${LLVM_PACKAGE_GIT_VERSION} LLVM_PACKAGE_GIT_VERSION)
 
     string(TOLOWER ${CMAKE_SYSTEM_NAME} PLATFORM)
 
@@ -108,7 +109,13 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
         set(LLVM_BUILD_TYPE release)
       endif ()
 
+      # Setup LLVM download (+MD5 string)
+      set(LLVM_URL https://verona.blob.core.windows.net/llvmbuild)
       set(PKG_NAME verona-llvm-install-x86_64-${PLATFORM}-${LLVM_BUILD_TYPE}-${LLVM_PACKAGE_GIT_VERSION})
+      set(MD5_NAME ${PKG_NAME}.md5)
+      file(DOWNLOAD "${LLVM_URL}/${MD5_NAME}" ${CMAKE_BINARY_DIR}/${MD5_NAME})
+      file(STRINGS ${CMAKE_BINARY_DIR}/${MD5_NAME} LLVM_MD5_SUM REGEX [0-9a-f]+)
+      string(STRIP ${LLVM_MD5_SUM} LLVM_MD5_SUM)
 
       # Quiet downloads are the default. Note that the download flag is reversed
       # so we created a more meaningful variable "verbose=true" -> "no progress=false"
@@ -119,7 +126,8 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
       endif()
 
       ExternalProject_Add(mlir-${BUILD_TYPE}
-        URL https://verona.blob.core.windows.net/llvmbuild/${PKG_NAME}
+        URL ${LLVM_URL}/${PKG_NAME}
+        URL_MD5 ${LLVM_MD5_SUM}
         DOWNLOAD_NO_PROGRESS ${LLVM_DOWNLOAD_NO_PROGRESS}
         CONFIGURE_COMMAND ""
         BUILD_COMMAND ""
