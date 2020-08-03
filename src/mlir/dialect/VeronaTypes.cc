@@ -229,6 +229,8 @@ namespace mlir::verona
       return CapabilityType::get(ctx, Capability::Isolated);
     else if (keyword == "mut")
       return CapabilityType::get(ctx, Capability::Mutable);
+    else if (keyword == "imm")
+      return CapabilityType::get(ctx, Capability::Immutable);
     else if (keyword.startswith("U") || keyword.startswith("S"))
       return parseIntegerType(ctx, parser, keyword);
 
@@ -303,6 +305,9 @@ namespace mlir::verona
             break;
           case Capability::Mutable:
             os << "mut";
+            break;
+          case Capability::Immutable:
+            os << "imm";
             break;
         }
         break;

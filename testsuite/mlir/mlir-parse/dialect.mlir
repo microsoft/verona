@@ -48,6 +48,6 @@ module {
     verona.drop %a : !verona.U64
 
     %f = verona.new_region @C [ ] : !verona.U64
-    return %f : !verona.U64
+    verona.return %f : !verona.U64
   }
 }

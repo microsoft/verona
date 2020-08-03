@@ -89,6 +89,7 @@ namespace mlir::verona
   {
     Isolated,
     Mutable,
+    Immutable,
   };
 
   struct CapabilityType
