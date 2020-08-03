@@ -64,11 +64,13 @@ jobs:
       set -eo pipefail
       rm -f $(PKG_NAME).tar.gz
       tar zcf $(PKG_NAME).tar.gz build/install
+      md5sum $(PKG_NAME).tar.gz | awk '{print $1}' > $(PKG_NAME).tar.gz.md5
     displayName: 'Create package'
 
   - script: |
       set -eo pipefail
       az storage blob upload --container-name llvmbuild --file $(PKG_NAME).tar.gz --name $(PKG_NAME) --connection-string "$(BLOB_CONNECTION_STRING)"
+      az storage blob upload --container-name llvmbuild --file $(PKG_NAME).tar.gz.md5 --name $(PKG_NAME).md5 --connection-string "$(BLOB_CONNECTION_STRING)"
     displayName: 'Upload package'
 
 ############################################## Windows Builds
@@ -127,9 +129,17 @@ jobs:
       tar.exe -z -c -f $(PKG_NAME).tar.gz build/install
     displayName: 'Create package'
 
+  - powershell:
+      Get-FileHash $(PKG_NAME).tar.gz -Algorithm MD5 | Select-Object Hash | Format-Wide > $(PKG_NAME).tar.gz.md5
+    displayName: 'Create MD5'
+
   - script: |
       "C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2\wbin\az" storage blob upload --container-name llvmbuild --file $(PKG_NAME).tar.gz --name $(PKG_NAME) --connection-string "$(BLOB_CONNECTION_STRING)"
     displayName: 'Upload package'
+
+  - script: |
+      "C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2\wbin\az" storage blob upload --container-name llvmbuild --file $(PKG_NAME).tar.gz.md5 --name $(PKG_NAME).md5 --connection-string "$(BLOB_CONNECTION_STRING)"
+    displayName: 'Upload MD5'
 
 ############################################## MacOS Builds
 - job:
@@ -175,9 +185,11 @@ jobs:
       set -eo pipefail
       rm -f $(PKG_NAME).tar.gz
       tar zcf $(PKG_NAME).tar.gz build/install
+      md5 -r $(PKG_NAME).tar.gz | awk '{print $1}' > $(PKG_NAME).tar.gz.md5
     displayName: 'Create package'
 
   - script: |
       set -eo pipefail
       az storage blob upload --container-name llvmbuild --file $(PKG_NAME).tar.gz --name $(PKG_NAME) --connection-string "$(BLOB_CONNECTION_STRING)"
+      az storage blob upload --container-name llvmbuild --file $(PKG_NAME).tar.gz.md5 --name $(PKG_NAME).md5 --connection-string "$(BLOB_CONNECTION_STRING)"
     displayName: 'Upload package'
