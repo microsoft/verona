@@ -3,6 +3,7 @@
 
 #include "VeronaOps.h"
 
+#include "Typechecker.h"
 #include "VeronaDialect.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/OpImplementation.h"

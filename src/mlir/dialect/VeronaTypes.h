@@ -12,8 +12,6 @@ namespace mlir::verona
 
   bool isaVeronaType(Type type);
   bool areVeronaTypes(llvm::ArrayRef<Type> types);
-  bool isSubtype(Type lhs, Type rhs);
-  LogicalResult checkSubtype(Location loc, Type lhs, Type rhs);
 
   namespace detail
   {
