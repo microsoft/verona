@@ -174,10 +174,14 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
     -DCMAKE_EXPORT_COMPILE_COMMANDS=1
     -DCMAKE_CXX_STANDARD=17)
 
+  # We use ctest directly as test command, pass it -j
+  include(ProcessorCount)
+  ProcessorCount(N)
+
   ExternalProject_Add(verona 
     SOURCE_DIR ${CMAKE_SOURCE_DIR}
     DEPENDS ${MLIR_TARGETS}
-    TEST_COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> --timeout 400 --output-on-failure --interactive-debug-mode 0
+    TEST_COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> -j ${N} --timeout 400 --output-on-failure --interactive-debug-mode 0
     TEST_AFTER_INSTALL true
     TEST_EXCLUDE_FROM_MAIN ${SEPARATE_TEST_TARGET}
     BUILD_ALWAYS true
