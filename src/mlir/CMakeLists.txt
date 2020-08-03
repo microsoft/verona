@@ -10,6 +10,10 @@ if (MSVC)
   add_compile_definitions(_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
 endif ()
 
+# LLVM requires CMake 3.13+ and this policy is for 3.12-, so we force new to
+# avoid the CMake warnings on LLVM CMake files that we can't change
+cmake_policy(SET CMP0077 NEW)
+
 # Find MLIR_DIR and LLVM_EXTERNAL_LIT from LLVM_BUILD
 set(LLVM_DIR ${LLVM_BUILD}/lib/cmake/llvm)
 message(STATUS "Setting LLVM_DIR as ${LLVM_DIR}")
