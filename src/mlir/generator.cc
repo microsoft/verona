@@ -5,6 +5,7 @@
 
 #include "ast-utils.h"
 #include "dialect/VeronaDialect.h"
+#include "dialect/VeronaOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Dialect.h"
@@ -539,11 +540,6 @@ namespace mlir::verona
     builder.create<mlir::CondBranchOp>(
       condLoc, cond->get(), bodyBB, empty, exitBB, empty);
 
-    // Create local head/tail basic-block context for continue/break
-    BasicBlockScopeT loop_scope{loopTable};
-    loopTable.insert("head", headBB);
-    loopTable.insert("tail", exitBB);
-
     // Loop body, branch back to head node which will decide exit criteria
     auto bodyNode = getLoopBlock(ast).lock();
     auto bodyLoc = getLocation(bodyNode);
@@ -564,14 +560,7 @@ namespace mlir::verona
   llvm::Expected<ReturnValue> Generator::parseContinue(const ::ast::Ast& ast)
   {
     assert(isContinue(ast) && "Bad node");
-    // Nested loops have multiple heads, we only care about the last one
-    if (!loopTable.inScope("head"))
-      return parsingError("Continue without a loop", getLocation(ast));
-    auto head = loopTable.lookup("head");
-    mlir::ValueRange empty{};
-    // We assume the continue is the last operation in its basic block
-    // and that was checked by the parser
-    builder.create<mlir::BranchOp>(getLocation(ast), head, empty);
+    builder.create<mlir::verona::ContinueOp>(getLocation(ast));
 
     // No values to return, basic block is terminated.
     return ReturnValue();
@@ -581,14 +570,7 @@ namespace mlir::verona
   llvm::Expected<ReturnValue> Generator::parseBreak(const ::ast::Ast& ast)
   {
     assert(isBreak(ast) && "Bad node");
-    // Nested loops have multiple tails, we only care about the last one
-    if (!loopTable.inScope("tail"))
-      return parsingError("Break without a loop", getLocation(ast));
-    auto head = loopTable.lookup("tail");
-    mlir::ValueRange empty{};
-    // We assume the break is the last operation in its basic block
-    // and that was checked by the parser
-    builder.create<mlir::BranchOp>(getLocation(ast), head, empty);
+    builder.create<mlir::verona::BreakOp>(getLocation(ast));
 
     // No values to return, basic block is terminated.
     return ReturnValue();

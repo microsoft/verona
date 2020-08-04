@@ -134,11 +134,4 @@ namespace mlir::verona
    */
   using TypeTableT = ScopedTable<mlir::Type>;
   using TypeScopeT = ScopedTableScope<mlir::Type>;
-
-  /**
-   * Basic Block Symbols. New scopes should be created when entering loops
-   * to determine what is the head/exit block for 'break'/'continue'.
-   */
-  using BasicBlockTableT = ScopedTable<mlir::Block*>;
-  using BasicBlockScopeT = ScopedTableScope<mlir::Block*>;
 }
