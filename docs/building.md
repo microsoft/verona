@@ -88,9 +88,9 @@ We currently use an install target to layout the standard library and the
 compiler in a well defined way so that it can automatically be found.
 
 Due to the complex interaction with LLVM/MLIR builds, to pass flags to the
-verona build require using the `EXTRA_VERONA_CMAKE_FLAGS`, e.g.
+verona build require using the `VERONA_EXTRA_CMAKE_ARGS`, e.g.
 ```
-cmake .. -G Ninja -DEXTRA_VERONA_CMAKE_FLAGS="-DCMAKE_CXX_COMPILER=clang-cl;-DCMAKE_C_COMPILER=clang-cl"
+cmake .. -G Ninja -DVERONA_EXTRA_CMAKE_ARGS="-DCMAKE_CXX_COMPILER=clang-cl;-DCMAKE_C_COMPILER=clang-cl"
 ```
 This example specifies to build Verona with `clang-cl`. Note: the options must be
 separated by `;`.
@@ -165,9 +165,9 @@ cmake .. -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 to provide the other configurations.
 
 Due to the complex interaction with LLVM/MLIR builds, to pass flags to the
-verona build require using the `EXTRA_VERONA_CMAKE_FLAGS`, e.g.
+verona build require using the `VERONA_EXTRA_CMAKE_ARGS`, e.g.
 ```
-cmake .. -DEXTRA_VERONA_CMAKE_FLAGS="-DCMAKE_CXX_COMPILER=/usr/bin/clang++;-DCMAKE_C_COMPILER=/usr/bin/clang"
+cmake .. -DVERONA_EXTRA_CMAKE_ARGS="-DCMAKE_CXX_COMPILER=/usr/bin/clang++;-DCMAKE_C_COMPILER=/usr/bin/clang"
 ```
 This example specifies to build Verona with `clang`. Note: the options must be
 separated by `;`.
