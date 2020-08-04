@@ -85,7 +85,7 @@ namespace verona::rt
      **/
     std::atomic<size_t> weak_count = 1;
 
-    std::atomic<Backpressure> backpressure;
+    std::atomic<Backpressure> backpressure{};
 
     static Cown* create_token_cown()
     {
