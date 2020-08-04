@@ -134,6 +134,32 @@ static LogicalResult verify(verona::ClassOp classOp)
   return success();
 }
 
+static LogicalResult verify(verona::WhileOp whileOp)
+{
+  auto& body = whileOp.body();
+
+  // While blocks must have a condition on the first block
+  // with a LoopExit operation.
+  bool hasExit = false;
+  for (Operation& op : body.getBlocks().front())
+  {
+    if (verona::LoopExitOp exit_op = dyn_cast<verona::LoopExitOp>(op))
+    {
+      hasExit = true;
+      break;
+    }
+  }
+
+  // And the terminator of the last block must be a continue.
+  bool hasCont =
+    isa<verona::ContinueOp>(body.getBlocks().back().getTerminator());
+
+  if (hasExit && hasCont)
+    return success();
+
+  return failure();
+}
+
 namespace mlir::verona
 {
   LogicalResult CopyOp::typecheck()

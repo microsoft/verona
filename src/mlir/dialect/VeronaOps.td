@@ -345,7 +345,6 @@ def Verona_WhileOp : Verona_Op<"while"> {
     let arguments = (ins);
     let results = (outs);
     let regions = (region AnyRegion : $body);
-    let verifier = [{ return success(); }];
 }
 
 #endif // VERONA_OPS
