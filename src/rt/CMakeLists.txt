@@ -56,6 +56,12 @@ endif()
 
 if(VERONA_CI_BUILD)
   target_compile_definitions(verona_rt INTERFACE -DCI_BUILD)
+else()
+  if(MSVC)
+    target_compile_options(verona_rt INTERFACE /WX-)
+  else()
+    target_compile_options(verona_rt INTERFACE -Wno-error)
+  endif()
 endif()
 
 target_link_libraries(verona_rt INTERFACE snmalloc_lib)
