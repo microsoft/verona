@@ -549,17 +549,19 @@ namespace verona::rt
         {
           // Case 1: target cown was already scheduled.
           Systematic::cout()
-            << "MultiMessage fast send interrupted" << std::endl;
+            << "MultiMessage " << m << " fast send interrupted" << std::endl;
           return;
         }
         else if (body->index == last)
         {
           // Case 2: acquired the last cown.
           Systematic::cout()
-            << "MultiMessage fast acquired " << cowns[body->index] << std::endl;
+            << "MultiMessage " << m
+            << " fast acquire cown: " << cowns[body->index] << std::endl;
           Systematic::cout()
-            << "MultiMessage fast send completed, rescheduling cown "
-            << cowns[body->index] << std::endl;
+            << "MultiMessage " << m
+            << " fast send complete, reschedule cown: " << cowns[body->index]
+            << std::endl;
           cowns[body->index]->schedule();
           return;
         }
@@ -905,7 +907,8 @@ namespace verona::rt
       bool load_reset = false;
       if (curr == nullptr)
       {
-        Systematic::cout() << "Reached message token" << std::endl;
+        Systematic::cout() << "Reached message token on cown: " << this
+                           << std::endl;
         assert(bp.has_token());
         token_reached = true;
       }
@@ -919,7 +922,8 @@ namespace verona::rt
         }
         if (!bp.has_token())
         {
-          Systematic::cout() << "Enqueue message token" << std::endl;
+          Systematic::cout()
+            << "Enqueue message token on cown: " << this << std::endl;
           queue.enqueue(stub_msg(alloc));
         }
       }

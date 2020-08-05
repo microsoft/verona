@@ -59,8 +59,8 @@ namespace verona::rt
         (e == EpochMark::EPOCH_NONE) || (e == EpochMark::EPOCH_A) ||
         (e == EpochMark::EPOCH_B));
 
-      Systematic::cout() << this << " state change " << get_epoch() << " -> "
-                         << e << std::endl;
+      Systematic::cout() << "MultiMessage epoch: " << this << " " << get_epoch()
+                         << " -> " << e << std::endl;
 
       body = (MultiMessageBody*)((uintptr_t)get_body() | (size_t)e);
 
@@ -70,15 +70,8 @@ namespace verona::rt
     static MultiMessageBody*
     make_body(Alloc* alloc, size_t count, Cown** cowns, Action* action)
     {
-      auto body = (MultiMessageBody*)alloc->alloc<sizeof(MultiMessageBody)>();
-      body->index = 0;
-      body->count = count;
-      body->cowns = cowns;
-      body->action = action;
-
-      Systematic::cout() << "MultiMessageBody " << body << std::endl;
-
-      return body;
+      return new (alloc->alloc<sizeof(MultiMessageBody)>())
+        MultiMessageBody{0, count, cowns, action};
     }
 
     static MultiMessage*
