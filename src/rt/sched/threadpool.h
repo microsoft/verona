@@ -3,16 +3,12 @@
 #pragma once
 
 #include "cpu.h"
+#include "test/systematic.h"
 #include "threadstate.h"
 
 #include <condition_variable>
 #include <mutex>
 #include <snmalloc.h>
-
-#ifdef USE_SYSTEMATIC_TESTING
-#  include "ds/scramble.h"
-#  include "test/xoroshiro.h"
-#endif
 
 namespace verona::rt
 {
@@ -47,8 +43,6 @@ namespace verona::rt
     T* first_thread = nullptr;
 #ifdef USE_SYSTEMATIC_TESTING
     T* running_thread = nullptr;
-    xoroshiro::p128r32 r;
-    Scramble scrambler;
 #endif
 
     bool allow_teardown = true;
@@ -130,34 +124,11 @@ namespace verona::rt
     }
 
 #ifdef USE_SYSTEMATIC_TESTING
-    static size_t rand_get_next()
-    {
-      return get().r.next();
-    }
-
-    static Scramble& get_scrambler()
-    {
-      return (get().scrambler);
-    }
-
-    /// 1/2^range_bits likelyhood of coin saying true
-    static bool coin(size_t range_bits = 1)
-    {
-      assert(range_bits < 20);
-      return (rand_get_next() & ((1ULL << range_bits) - 1)) == 0;
-    }
-
-    void set_seed(uint64_t seed)
-    {
-      r.set_state(seed);
-      scrambler.setup(r);
-    }
-
     void choose_thread()
     {
       std::unique_lock<std::mutex> lock(m);
       assert(running_thread != nullptr);
-      uint32_t i = r.next() % thread_count;
+      uint32_t i = Systematic::get_rng().next() % thread_count;
       auto result = running_thread;
 
       while (i > 0 || result->sleeping)
@@ -183,7 +154,7 @@ namespace verona::rt
 
       assert(running_thread == me || running_thread == nullptr);
 
-      uint32_t next = r.next() & me->systematic_speed_mask;
+      uint32_t next = Systematic::get_rng().next() & me->systematic_speed_mask;
       if (next == 0 && running_thread != nullptr)
       {
         choose_thread();
@@ -378,7 +349,7 @@ namespace verona::rt
       }
       t->systematic_id = count;
 #ifdef USE_SYSTEMATIC_TESTING
-      t->systematic_speed_mask = (1 << (rand_get_next() % 16)) - 1;
+      t->systematic_speed_mask = (1 << (Systematic::get_rng().next() % 16)) - 1;
 #endif
       t->next = first_thread;
     }

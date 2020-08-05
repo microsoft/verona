@@ -131,12 +131,12 @@ int main(int argc, char** argv)
                  << ", receivers: " << receivers << ", duration: " << duration
                  << "ms" << std::endl;
 
-  auto& sched = Scheduler::get();
-  Scheduler::set_detect_leaks(true);
 #ifdef USE_SYSTEMATIC_TESTING
   Systematic::enable_logging();
-  sched.set_seed(seed);
+  Systematic::set_seed(seed);
 #endif
+  Scheduler::set_detect_leaks(true);
+  auto& sched = Scheduler::get();
   sched.set_fair(true);
   sched.init(cores);
 

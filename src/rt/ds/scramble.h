@@ -32,6 +32,17 @@ namespace verona
 
     uintptr_t keys[ROUNDS];
 
+  public:
+    Scramble() {}
+
+    void setup(xoroshiro::p128r32& r)
+    {
+      for (size_t i = 0; i < ROUNDS; i++)
+      {
+        keys[i] = (uintptr_t)r.next();
+      }
+    }
+
     uintptr_t perm(uintptr_t p)
     {
       uintptr_t l = p & MASK_BOTTOM;
@@ -45,17 +56,6 @@ namespace verona
       }
 
       return l + ((uintptr_t)r << PTR_HALF_SHIFT);
-    }
-
-  public:
-    Scramble() {}
-
-    void setup(xoroshiro::p128r32& r)
-    {
-      for (size_t i = 0; i < ROUNDS; i++)
-      {
-        keys[i] = (uintptr_t)r.next();
-      }
     }
 
     /**

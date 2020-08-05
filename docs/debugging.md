@@ -57,7 +57,7 @@ This has two compile options that can aid debugging:
 * BUILD_TRACING  - this outputs tracing during parsing the string
 * BUILD_AST_TRACING  - this outputs the construction of the AST nodes
 
-These can be set by passing cmake `-DBUILD_TRACING=On` and `-DBUILD_AST_TRACING=On` respectively.
+These can be set by passing cmake `-DBUILD_TRACING=ON` and `-DBUILD_AST_TRACING=ON` respectively.
 
 ## Debugging the interpreter
 
@@ -67,7 +67,7 @@ Every option that you can pass to the interpreter, can also be passed to the com
 ```
 interpreter foo.bc --verbose
 ```
-or 
+or
 ```
 veronac foo.verona --run --run-verbose
 ```
@@ -110,19 +110,19 @@ The majority of tests of the runtime cover a large number of pseudo-random trace
 
 highlights all of the features for running with the various logging and random seed approaches.
 
-To compile the run-time with systematic testing you can pass CMake `-DUSE_SYSTEMATIC_TESTING=On`, 
+To compile the run-time with systematic testing you can pass CMake `-DUSE_SYSTEMATIC_TESTING=ON`,
 and then in your program call
 ```C++
 Systematic::enable_logging();
 ```
 to print the logging, and
 ```C++
-Scheduler::get().set_seed(seed);
+Systematic::set_seed(seed);
 ```
 specifies the seed for the pseudo-random interleaving.
 The seed to interleaving should be consistent across platforms.
 
-To enable crash logging you can pass CMake `-DUSE_CRASH_LOGGING=On`
+To enable crash logging you can pass CMake `-DUSE_CRASH_LOGGING=ON`
 and in your program call
 ```C++
 Systematic::enable_crash_logging();
@@ -165,5 +165,5 @@ should be erased when compiling the runtime.
 ### ASAN
 
 The runtime is inherently unsafe.  Systematic testing gives good coverage of corner case, but cannot in itself detect memory corruption.
-In CI, we use ASAN to find memory safety violations. 
-ASAN can be enabled on Clang builds by passing CMake `-DUSE_ASAN=On`.
+In CI, we use ASAN to find memory safety violations.
+ASAN can be enabled on Clang builds by passing CMake `-DUSE_ASAN=ON`.

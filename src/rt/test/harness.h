@@ -89,7 +89,7 @@ public:
 
       Scheduler& sched = Scheduler::get();
 #ifdef USE_SYSTEMATIC_TESTING
-      sched.set_seed(seed);
+      Systematic::set_seed(seed);
       if (seed % 2 == 1)
       {
         sched.set_fair(true);
@@ -101,7 +101,6 @@ public:
 #else
       UNUSED(seed);
 #endif
-
       sched.init(cores);
 
       f(std::forward<Args>(args)...);

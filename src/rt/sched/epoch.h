@@ -4,16 +4,13 @@
 
 #include "../ds/asymlock.h"
 #include "../ds/queue.h"
+#include "../test/systematic.h"
 #include "region/immutable.h"
 
 #include <snmalloc.h>
 
 namespace verona::rt
 {
-#ifdef USE_SYSTEMATIC_TESTING
-  bool coin(size_t range_bits = 1);
-#endif
-
   static constexpr uint64_t EJECTED_BIT = 0x8000000000000000;
 
   static uint64_t inc_epoch_by(uint64_t epoch, uint64_t i)
@@ -201,7 +198,7 @@ namespace verona::rt
     bool advance_is_sensible()
     {
 #ifdef USE_SYSTEMATIC_TESTING
-      return coin(4);
+      return Systematic::coin(4);
 #else
       return *get_pressure(2) > 128;
 #endif
@@ -210,7 +207,7 @@ namespace verona::rt
     bool advance_is_urgent()
     {
 #ifdef USE_SYSTEMATIC_TESTING
-      return coin(7);
+      return Systematic::coin(7);
 #else
       return *get_pressure(2) > 1024;
 #endif

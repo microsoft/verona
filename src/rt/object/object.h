@@ -198,7 +198,7 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING
     // Used to give objects unique identifiers for systematic testing.
     inline static size_t id_source = 0;
-    size_t sys_id;
+    uintptr_t sys_id;
 #endif
 
   public:
@@ -222,7 +222,7 @@ namespace verona::rt
     inline const void* id() const
     {
 #ifdef USE_SYSTEMATIC_TESTING
-      return (void const*)sys_id;
+      return (const void*)Systematic::get_scrambler().perm(sys_id);
 #else
       return this;
 #endif

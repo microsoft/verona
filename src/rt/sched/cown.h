@@ -18,14 +18,6 @@ namespace verona::rt
   using CownThread = SchedulerThread<Cown>;
   using Scheduler = ThreadPool<CownThread>;
 
-#ifdef USE_SYSTEMATIC_TESTING
-  /// 1/2^range_bits likelyhood of coin saying true
-  inline bool coin(size_t range_bits)
-  {
-    return Scheduler::coin(range_bits);
-  }
-#endif
-
   static void yield()
   {
 #ifdef USE_SYSTEMATIC_TESTING
@@ -745,7 +737,7 @@ namespace verona::rt
 
 #ifdef USE_SYSTEMATIC_TESTING
       std::sort(&sort[0], &sort[count], [](Cown*& a, Cown*& b) {
-        return Scheduler::get_scrambler()(a->id(), b->id());
+        return Systematic::get_scrambler()(a->id(), b->id());
       });
 #else
       std::sort(&sort[0], &sort[count]);
@@ -811,7 +803,7 @@ namespace verona::rt
         yield();
       } while (
 #ifdef USE_SYSTEMATIC_TESTING
-        coin(9) ||
+        Systematic::coin(9) ||
 #endif
         !backpressure.compare_exchange_weak(
           bp, bp_unmuted, std::memory_order_acq_rel));
@@ -844,7 +836,7 @@ namespace verona::rt
         if (
           !sender->backpressure.load(std::memory_order_relaxed).overloaded()
 #ifdef USE_SYSTEMATIC_TESTING
-          && !coin(3)
+          && !Systematic::coin(3)
 #endif
         )
           continue;
@@ -881,7 +873,7 @@ namespace verona::rt
         if (
           bp.triggers_muting()
 #ifdef USE_SYSTEMATIC_TESTING
-          || coin(5)
+          || Systematic::coin(5)
 #endif
         )
         {
@@ -950,7 +942,7 @@ namespace verona::rt
         // cown to unmutable.
       } while (
 #ifdef USE_SYSTEMATIC_TESTING
-        coin(9) ||
+        Systematic::coin(9) ||
 #endif
         !backpressure.compare_exchange_weak(
           bp, bp_update, std::memory_order_acq_rel));
