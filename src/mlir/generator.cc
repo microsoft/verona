@@ -538,7 +538,8 @@ namespace mlir::verona
     auto cond = parseNode(condNode);
     if (auto err = cond.takeError())
       return std::move(err);
-    builder.create<mlir::verona::LoopExitOp>(getLocation(condNode), cond->get());
+    builder.create<mlir::verona::LoopExitOp>(
+      getLocation(condNode), cond->get());
 
     // Loop body, may create more BBs, must terminate (default: continue)
     auto bodyNode = getLoopBlock(ast).lock();
