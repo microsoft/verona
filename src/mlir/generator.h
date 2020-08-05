@@ -140,9 +140,6 @@ namespace mlir::verona
     /// MLIR builder.
     mlir::OpBuilder builder;
 
-    /// Current MLIR function.
-    mlir::FuncOp currentFunc;
-
     /// Symbol tables for variables.
     SymbolTableT symbolTable;
     /// Symbol tables for functions.
