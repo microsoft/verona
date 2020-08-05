@@ -61,117 +61,42 @@ verona_option(USE_CRASH_LOGGING "Enable crash logging in the runtime" OFF)
 include(ExternalProject)
 if (NOT DEFINED VERONA_LLVM_LOCATION)
   project(verona CXX)
-  # Restrict types of builds to ones where we have cached LLVM
   set(default_build_type "Release")
-  if (MSVC)
-    if (NOT CMAKE_CONFIGURATION_TYPES)
-      if (NOT CMAKE_BUILD_TYPE)
-        set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDbgInfo" CACHE STRING "Choose the types of build." FORCE)
-      else()
-        set(CMAKE_CONFIGURATION_TYPES "${CMAKE_BUILD_TYPE}" CACHE STRING "Choose the type of build." FORCE)
-      endif()
-      list (APPEND VERONA_EXTRA_CMAKE_ARGS
-        -DCMAKE_CONFIGURATION_TYPES=${CMAKE_CONFIGURATION_TYPES})
-    endif ()
-  else ()
-    if (NOT CMAKE_BUILD_TYPE)
-      message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
-      set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
-    endif()
-    if (NOT CMAKE_CONFIGURATION_TYPES)
-      set(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE} CACHE STRING "Choose the types of build." FORCE)
-    endif ()
-  endif ()
-
-  if (VERONA_DOWNLOAD_LLVM)
-    find_package(Git)
-    execute_process(
-      COMMAND ${GIT_EXECUTABLE} rev-parse --short=11 HEAD
-      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external/llvm-project"
-      OUTPUT_VARIABLE LLVM_PACKAGE_GIT_VERSION
-    )
-    string(STRIP ${LLVM_PACKAGE_GIT_VERSION} LLVM_PACKAGE_GIT_VERSION)
-
-    string(TOLOWER ${CMAKE_SYSTEM_NAME} PLATFORM)
-
-    set(MLIR_TARGETS)
-    # Need loop to download all types for possible configurations
-    # Required by multi-build systems like msbuild
-    foreach (BUILD_TYPE_MIXED ${CMAKE_CONFIGURATION_TYPES})
-      string (TOLOWER ${BUILD_TYPE_MIXED} BUILD_TYPE)
-      if (${BUILD_TYPE} STREQUAL relwithdebinfo)
-        # RelWithDebInfo should use release LLVM.
-        set(LLVM_BUILD_TYPE release)
-      elseif (WIN32)
-        set(LLVM_BUILD_TYPE ${BUILD_TYPE})
-      else ()
-        # Use release everywhere it works.
-        set(LLVM_BUILD_TYPE release)
-      endif ()
-
-      # Setup LLVM download (+MD5 string)
-      set(LLVM_URL https://verona.blob.core.windows.net/llvmbuild)
-      set(PKG_NAME verona-llvm-install-x86_64-${PLATFORM}-${LLVM_BUILD_TYPE}-${LLVM_PACKAGE_GIT_VERSION})
-      set(MD5_NAME ${PKG_NAME}.md5)
-      file(DOWNLOAD "${LLVM_URL}/${MD5_NAME}" ${CMAKE_BINARY_DIR}/${MD5_NAME})
-      file(STRINGS ${CMAKE_BINARY_DIR}/${MD5_NAME} LLVM_MD5_SUM REGEX [0-9a-f]+)
-      string(STRIP ${LLVM_MD5_SUM} LLVM_MD5_SUM)
-
-      # Quiet downloads are the default. Note that the download flag is reversed
-      # so we created a more meaningful variable "verbose=true" -> "no progress=false"
-      if (NOT DEFINED VERBOSE_LLVM_DOWNLOAD OR NOT ${VERBOSE_LLVM_DOWNLOAD})
-        set(LLVM_DOWNLOAD_NO_PROGRESS ON)
-      else()
-        set(LLVM_DOWNLOAD_NO_PROGRESS OFF)
-      endif()
-
-      ExternalProject_Add(mlir-${BUILD_TYPE}
-        URL ${LLVM_URL}/${PKG_NAME}
-        URL_MD5 ${LLVM_MD5_SUM}
-        DOWNLOAD_NO_PROGRESS ${LLVM_DOWNLOAD_NO_PROGRESS}
-        CONFIGURE_COMMAND ""
-        BUILD_COMMAND ""
-        INSTALL_COMMAND ""
-        TEST_COMMAND ""
-        USES_TERMINAL_DOWNLOAD true
-      )
-      message(STATUS "Down task for ${BUILD_TYPE}")
-      list (APPEND MLIR_TARGETS mlir-${BUILD_TYPE})
-    endforeach()
-
-    set (MLIR_TYPE mlir-$<LOWER_CASE:$<CONFIG>>)
-    set (MLIR_INSTALL 
-      ${CMAKE_BINARY_DIR}/${MLIR_TYPE}-prefix/src/${MLIR_TYPE}/install)
-  else()
-    set (MLIR_INSTALL ${CMAKE_BINARY_DIR}/mlir_install)
-
-    if (NOT DEFINED LLVM_EXTRA_CMAKE_ARGS)
-      set (LLVM_EXTRA_CMAKE_ARGS)
-    endif ()
-    list (APPEND LLVM_EXTRA_CMAKE_ARGS
-      -DCMAKE_INSTALL_PREFIX=${MLIR_INSTALL}
-      -DLLVM_ENABLE_PROJECTS=mlir
-      -DLLVM_TARGETS_TO_BUILD=X86
-      -DLLVM_ENABLE_ASSERTIONS=On
-      -DLLVM_ENABLE_RTTI=ON
-      -DLLVM_ENABLE_EH=ON
-      -DCMAKE_CXX_STANDARD=17
-    )
-
-    ExternalProject_Add(mlir
-      SOURCE_DIR ${CMAKE_SOURCE_DIR}/external/llvm-project/llvm
-      CMAKE_ARGS ${LLVM_EXTRA_CMAKE_ARGS}
-      BUILD_ALWAYS true
-      USES_TERMINAL_BUILD true
-      USES_TERMINAL_CONFIGURE true
-    )
-    set (MLIR_TARGETS mlir)
+  if (NOT CMAKE_BUILD_TYPE)
+    message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
   endif()
+
+  set (MLIR_INSTALL ${CMAKE_BINARY_DIR}/$<CONFIG>/mlir)
+  ExternalProject_Add(external
+    SOURCE_DIR ${CMAKE_SOURCE_DIR}/external
+    CMAKE_ARGS 
+      ${LLVM_EXTRA_CMAKE_ARGS} 
+      -DVERONA_DOWNLOAD_LLVM=${VERONA_DOWNLOAD_LLVM}
+      -DMLIR_INSTALL=${MLIR_INSTALL}
+      -DCMAKE_BUILD_TYPE=$<CONFIG>
+    BUILD_ALWAYS true
+    INSTALL_COMMAND ""
+    TEST_COMMAND ""
+    USES_TERMINAL_BUILD true
+    USES_TERMINAL_CONFIGURE true
+  )
 
   # Point Verona at the MLIR
   list (APPEND VERONA_EXTRA_CMAKE_ARGS
-    -DVERONA_LLVM_LOCATION=${MLIR_INSTALL}
+    -DVERONA_LLVM_LOCATION=${MLIR_INSTALL}/install
   )
+
+  if (NOT MSVC)
+    list (APPEND VERONA_EXTRA_CMAKE_ARGS
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      -DCMAKE_EXPORT_COMPILE_COMMANDS=1
+    )
+  else ()
+    list (APPEND VERONA_EXTRA_CMAKE_ARGS
+      -DCMAKE_CONFIGURATION_TYPES=Release;Debug;RelWithDebInfo
+    )
+  endif ()
 
   # Use top-level install directory when building
   # as a subproject.
@@ -189,16 +114,15 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
 
   # Define project level defaults
   list (APPEND VERONA_EXTRA_CMAKE_ARGS
-    -DCMAKE_EXPORT_COMPILE_COMMANDS=1
     -DCMAKE_CXX_STANDARD=17)
 
   # We use ctest directly as test command, pass it -j
   include(ProcessorCount)
   ProcessorCount(N)
 
-  ExternalProject_Add(verona 
+  ExternalProject_Add(verona
     SOURCE_DIR ${CMAKE_SOURCE_DIR}
-    DEPENDS ${MLIR_TARGETS}
+    DEPENDS external
     TEST_COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> -j ${N} --timeout 400 --output-on-failure --interactive-debug-mode 0
     TEST_AFTER_INSTALL true
     TEST_EXCLUDE_FROM_MAIN ${SEPARATE_TEST_TARGET}
@@ -218,6 +142,8 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
 endif()
 
 project(verona-lang CXX)
+
+message(STATUS "Build Type for Verona ${CMAKE_BUILD_TYPE}")
 
 if (VERONA_CI_BUILD)
   set (SNMALLOC_CI_BUILD ON)
