@@ -5,6 +5,10 @@
 
 namespace verona::rt
 {
+  /**
+   * AsymmetricLock allows a single owning thread to use the internal
+   * acquire/release API. Other threads must use the external API.
+   */
   class AsymmetricLock
   {
   private:
