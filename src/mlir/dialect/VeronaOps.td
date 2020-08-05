@@ -269,6 +269,9 @@ def Verona_BreakOp : Verona_Op<"break", [Terminator, InLoopScope]> {
 def Verona_LoopExitOp : Verona_Op<"loop_exit", [InLoopScope]> {
     let summary = "breaks any loop block if condition is `false`";
 
+    let builders = [
+      OpBuilder<"OpBuilder &builder, OperationState &state, bool cond">
+    ];
     let arguments = (ins BooleanType:$cond);
     let results = (outs);
     let assemblyFormat = [{ $cond `:` type($cond) attr-dict }];

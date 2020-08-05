@@ -21,6 +21,13 @@ namespace
   {
     return !bb->getOperations().empty() && bb->back().isKnownTerminator();
   }
+
+  /// Add a new basic block into a region and return it
+  mlir::Block* addBlock(mlir::Region* region)
+  {
+    region->push_back(new mlir::Block());
+    return &region->back();
+  }
 }
 
 namespace mlir::verona
@@ -118,7 +125,6 @@ namespace mlir::verona
     auto retTy = func.getType().getResult(0);
 
     // Create entry block
-    currentFunc = func;
     auto& entryBlock = *func.addEntryBlock();
     builder.setInsertionPointToStart(&entryBlock);
 
@@ -450,12 +456,13 @@ namespace mlir::verona
       return std::move(err);
 
     // Create basic-blocks, conditionally branch to if/else
+    auto region = builder.getInsertionBlock()->getParent();
     mlir::ValueRange empty{};
-    auto ifBB = currentFunc.addBlock();
+    auto ifBB = addBlock(region);
     mlir::Block* elseBB = nullptr;
     if (hasElse(ast))
-      elseBB = currentFunc.addBlock();
-    auto exitBB = currentFunc.addBlock();
+      elseBB = addBlock(region);
+    auto exitBB = addBlock(region);
     if (hasElse(ast))
     {
       builder.create<mlir::CondBranchOp>(
@@ -518,40 +525,31 @@ namespace mlir::verona
         "Loop conditions with literals not supported yet", getLocation(ast));
     }
 
-    // Create the head basic-block, which will check the condition
-    // and dispatch the loop to the body block or exit.
-    mlir::ValueRange empty{};
-    auto headBB = currentFunc.addBlock();
-    auto bodyBB = currentFunc.addBlock();
-    auto exitBB = currentFunc.addBlock();
-    builder.create<mlir::BranchOp>(getLocation(ast), headBB, empty);
-
     // Create local context for loop variables
     SymbolScopeT var_scope{symbolTable};
 
-    // First node is a sequence of conditions
-    // lower in the head basic block, with the conditional branch.
-    builder.setInsertionPointToEnd(headBB);
+    // While operation
+    auto whileOp = builder.create<mlir::verona::WhileOp>(getLocation(ast));
+    auto block = addBlock(&whileOp.body());
+
+    // First node is a sequence of conditions for the loop_exit node
+    builder.setInsertionPointToEnd(block);
     auto condNode = getCond(ast).lock();
-    auto condLoc = getLocation(condNode);
     auto cond = parseNode(condNode);
     if (auto err = cond.takeError())
       return std::move(err);
-    builder.create<mlir::CondBranchOp>(
-      condLoc, cond->get(), bodyBB, empty, exitBB, empty);
+    builder.create<mlir::verona::LoopExitOp>(getLocation(condNode), cond->get());
 
-    // Loop body, branch back to head node which will decide exit criteria
+    // Loop body, may create more BBs, must terminate (default: continue)
     auto bodyNode = getLoopBlock(ast).lock();
-    auto bodyLoc = getLocation(bodyNode);
-    builder.setInsertionPointToEnd(bodyBB);
     auto bodyBlock = parseNode(bodyNode);
     if (auto err = bodyBlock.takeError())
       return std::move(err);
     if (!hasTerminator(builder.getBlock()))
-      builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
+      builder.create<mlir::verona::ContinueOp>(getLocation(bodyNode));
 
-    // Move to exit block, where the remaining instructions will be lowered.
-    builder.setInsertionPointToEnd(exitBB);
+    // Continue on the contained basic block, after the while
+    builder.setInsertionPointAfter(whileOp);
 
     // No values to return from lexical constructs.
     return ReturnValue();

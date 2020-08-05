@@ -62,7 +62,7 @@ static void print(OpAsmPrinter& printer, verona::WhileOp op)
   printer.printOptionalAttrDict(
     op.getAttrs(), /*elidedAttrs=*/{SymbolTable::getSymbolAttrName()});
   printer.printRegion(
-    op.body(), /*printEntryBlockArgs=*/false, /*printBlockTerminators=*/false);
+    op.body(), /*printEntryBlockArgs=*/false, /*printBlockTerminators=*/true);
 }
 
 /**
