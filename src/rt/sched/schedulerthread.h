@@ -126,13 +126,13 @@ namespace verona::rt
 
     inline void schedule_fifo(T* a)
     {
-      Systematic::cout() << "Enqueued Cown: " << a << " ("
-                         << a->get_epoch_mark() << ")" << std::endl;
+      Systematic::cout() << "Enqueue cown: " << a << " (" << a->get_epoch_mark()
+                         << ")" << std::endl;
 
       // Scheduling on this thread, from this thread.
       if (!a->scanned(send_epoch))
       {
-        Systematic::cout() << "Enqueued Unscanned Cown: " << a << std::endl;
+        Systematic::cout() << "Enqueue unscanned cown: " << a << std::endl;
         scheduled_unscanned_cown = true;
       }
       assert(!a->queue.is_sleeping());
@@ -150,7 +150,7 @@ namespace verona::rt
     {
       // A lifo scheduled cown is coming from an external source, such as
       // asynchronous I/O.
-      Systematic::cout() << "LIFO Scheduled Cown: " << a << std::endl;
+      Systematic::cout() << "LIFO schedule cown: " << a << std::endl;
 
       q.enqueue_front(ThreadAlloc::get(), a);
       stats.lifo();
@@ -332,7 +332,7 @@ namespace verona::rt
         {
           cown = q.dequeue(alloc);
           if (cown != nullptr)
-            Systematic::cout() << "Popped cown: " << cown << std::endl;
+            Systematic::cout() << "Pop cown: " << cown << std::endl;
         }
 
         if (cown == nullptr)
@@ -344,7 +344,7 @@ namespace verona::rt
             break;
         }
 
-        Systematic::cout() << "Scheduled Cown: " << cown << " ("
+        Systematic::cout() << "Schedule cown: " << cown << " ("
                            << cown->get_epoch_mark() << ")" << std::endl;
 
         // Administrative work before handling messages.
@@ -369,7 +369,7 @@ namespace verona::rt
 
         ld_protocol();
 
-        Systematic::cout() << "Running Cown: " << cown << std::endl;
+        Systematic::cout() << "Running cown: " << cown << std::endl;
 
         bool reschedule = cown->run(alloc, state, send_epoch);
 
@@ -410,14 +410,14 @@ namespace verona::rt
                 }
               }
 
-              Systematic::cout() << "Rescheduling Cown: " << cown << " ("
+              Systematic::cout() << "Reschedule cown: " << cown << " ("
                                  << cown->get_epoch_mark() << ")" << std::endl;
             }
           }
         }
         else
         {
-          Systematic::cout() << "Unscheduling Cown: " << cown << std::endl;
+          Systematic::cout() << "Unschedule cown: " << cown << std::endl;
           // Don't reschedule.
           cown = nullptr;
         }
@@ -468,7 +468,7 @@ namespace verona::rt
         if (cown != nullptr)
         {
           // stats.steal();
-          Systematic::cout() << "Fast-steal Cown: " << cown << " from "
+          Systematic::cout() << "Fast-steal cown: " << cown << " from "
                              << victim->systematic_id << std::endl;
           result = cown;
           return true;
@@ -540,7 +540,7 @@ namespace verona::rt
           if (cown != nullptr)
           {
             stats.steal();
-            Systematic::cout() << "Stole Cown: " << cown << " from "
+            Systematic::cout() << "Stole cown: " << cown << " from "
                                << victim->systematic_id << std::endl;
             return cown;
           }
@@ -633,7 +633,7 @@ namespace verona::rt
       // registered with a scheduler thread.
       if (cown->owning_thread() == nullptr)
       {
-        Systematic::cout() << "Bind cown " << this << " to scheduler thread."
+        Systematic::cout() << "Bind cown to scheduler thread: " << this
                            << std::endl;
         cown->set_owning_thread(this);
         cown->next = list;

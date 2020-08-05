@@ -125,28 +125,23 @@ namespace verona::rt
     SCANNED = 0x4,
   };
 
-  inline std::ostream& operator<<(std::ostream& os, const EpochMark& e)
+  inline std::ostream& operator<<(std::ostream& os, EpochMark e)
   {
-    os << std::left;
     switch (e)
     {
       case EpochMark::EPOCH_NONE:
-        os << "EPOCH_NONE";
-        break;
+        return os << "EPOCH_NONE";
       case EpochMark::EPOCH_A:
-        os << "EPOCH_A";
-        break;
+        return os << "EPOCH_A";
       case EpochMark::EPOCH_B:
-        os << "EPOCH_B";
-        break;
+        return os << "EPOCH_B";
       case EpochMark::SCHEDULED_FOR_SCAN:
-        os << "SCHEDULED_FOR_SCAN";
-        break;
+        return os << "SCHEDULED_FOR_SCAN";
       case EpochMark::SCANNED:
-        os << "SCANNED";
-        break;
+        return os << "SCANNED";
+      default:
+        return os;
     }
-    return os;
   }
 
   enum TransferOwnership
@@ -169,6 +164,31 @@ namespace verona::rt
       NONATOMIC_RC = 0x6,
       COWN = 0x7
     };
+
+    inline friend std::ostream& operator<<(std::ostream& os, RegionMD md)
+    {
+      switch (md)
+      {
+        case RegionMD::UNMARKED:
+          return os << "UNMARKED";
+        case RegionMD::MARKED:
+          return os << "MARKED";
+        case RegionMD::SCC_PTR:
+          return os << "SCC_PTR";
+        case RegionMD::RC:
+          return os << "RC";
+        case RegionMD::ISO:
+          return os << "ISO";
+        case RegionMD::PENDING:
+          return os << "PENDING";
+        case RegionMD::NONATOMIC_RC:
+          return os << "NONATOMIC_RC";
+        case RegionMD::COWN:
+          return os << "COWN";
+        default:
+          return os;
+      }
+    }
 
     // Note that while we only need 3 bits, we need to reserve enough bits
     // for the hashmap implementation. A static assert in hashmap.h should
@@ -517,8 +537,9 @@ namespace verona::rt
 
     inline void set_epoch_mark(EpochMark e)
     {
-      Systematic::cout() << "Object state :" << this << ": " << get_epoch_mark()
-                         << " -> " << e << std::endl;
+      Systematic::cout() << "Object epoch: " << this << " (" << get_class()
+                         << ") " << get_epoch_mark() << " -> " << e
+                         << std::endl;
 
       // We only require relaxed consistency here as we can perfectly see old
       // values as we know that we will only need up-to-date values once we have
@@ -538,8 +559,6 @@ namespace verona::rt
         (e == EpochMark::EPOCH_NONE) || (e == EpochMark::EPOCH_A) ||
         (e == EpochMark::EPOCH_B) || (e == EpochMark::SCANNED));
 
-      Systematic::cout() << "Epoch change on: " << this << " : " << get_class()
-                         << " -> " << e << std::endl;
       set_epoch_mark(e);
     }
 
