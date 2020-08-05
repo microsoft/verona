@@ -11,6 +11,21 @@ namespace verona::rt
   {
     using namespace snmalloc::bits;
 
+    /**
+     * Extract the bits in the range [hi, lo], where lo is shifted to the
+     * rightmost bit position.
+     */
+    template<uint8_t hi, uint8_t lo, typename T>
+    static T extract(T instr)
+    {
+      static_assert(std::is_integral_v<T>, "Type must be integral");
+      static_assert(hi <= (sizeof(T) * 8));
+      static_assert(hi >= lo);
+      constexpr T len = (hi - lo) + 1;
+      constexpr T mask = (T)~0 >> ((T)(sizeof(T) * 8) - len);
+      return (instr >> lo) & mask;
+    }
+
     template<class T>
     constexpr T inc_mod(T v, T mod)
     {
