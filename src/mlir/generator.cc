@@ -430,7 +430,8 @@ namespace mlir::verona
     auto op = region->getParentOp();
     if (isa<mlir::verona::WhileOp>(op))
     {
-      builder.create<mlir::verona::LoopReturnOp>(getLocation(ast), expr->getAll());
+      builder.create<mlir::verona::LoopReturnOp>(
+        getLocation(ast), expr->getAll());
     }
     else
     {
