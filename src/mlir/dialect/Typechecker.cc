@@ -137,6 +137,34 @@ namespace mlir::verona
       return llvm::any_of(right.getElements(), [&](Type element) {
         return isSubtype(left, element);
       });
+    },
+    [](ViewpointType left, IntegerType right) {
+      auto ctx = left.getContext();
+      return isSubtype(left.getLeftType(), getAnyCapability(ctx)) &&
+        isSubtype(left.getRightType(), right);
+    },
+    [](ViewpointType left, ClassType right) {
+      auto ctx = left.getContext();
+      return isSubtype(left.getLeftType(), getAnyCapability(ctx)) &&
+        isSubtype(left.getRightType(), right);
+    },
+    [](ViewpointType left, CapabilityType right) {
+      auto ctx = left.getContext();
+      return right.getCapability() == Capability::Mutable &&
+        isSubtype(left.getLeftType(), getWritable(ctx)) &&
+        isSubtype(left.getRightType(), getWritable(ctx));
+    },
+    [](ViewpointType left, CapabilityType right) {
+      auto ctx = left.getContext();
+      return right.getCapability() == Capability::Immutable &&
+        isSubtype(left.getLeftType(), getAnyCapability(ctx)) &&
+        isSubtype(left.getRightType(), getImm(ctx));
+    },
+    [](ViewpointType left, CapabilityType right) {
+      auto ctx = left.getContext();
+      return right.getCapability() == Capability::Immutable &&
+        isSubtype(left.getLeftType(), getImm(ctx)) &&
+        isSubtype(left.getRightType(), getAnyCapability(ctx));
     });
 
   bool isSubtype(Type lhs, Type rhs)
@@ -178,7 +206,6 @@ namespace mlir::verona
 
   LogicalResult FieldReadOp::typecheck()
   {
-    // TODO: Apply viewpoint adaptation
     auto originType = origin().getType();
     auto fieldType = getFieldType();
 
@@ -186,7 +213,9 @@ namespace mlir::verona
       return emitError("Cannot find field '")
         << field() << "' in type " << originType;
 
-    return checkSubtype(getOperation(), fieldType, output().getType());
+    auto adaptedType = ViewpointType::get(getContext(), originType, fieldType);
+
+    return checkSubtype(getOperation(), adaptedType, output().getType());
   }
 
   LogicalResult FieldWriteOp::typecheck()

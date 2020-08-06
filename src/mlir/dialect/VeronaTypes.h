@@ -42,6 +42,7 @@ namespace mlir::verona
     struct IntegerTypeStorage;
     struct CapabilityTypeStorage;
     struct ClassTypeStorage;
+    struct ViewpointTypeStorage;
   }
 
   struct MeetType
@@ -157,4 +158,38 @@ namespace mlir::verona
     FieldsRef getFields() const;
     Type getFieldType(StringRef name) const;
   };
+
+  struct ViewpointType
+  : public Type::TypeBase<ViewpointType, Type, detail::ViewpointTypeStorage>
+  {
+    using Base::Base;
+    static ViewpointType get(MLIRContext* ctx, Type left, Type right);
+
+    Type getLeftType() const;
+    Type getRightType() const;
+  };
+
+  // Various convenience functions used to construct commonly used Verona types.
+  // TODO: These should be constructed upfront and cached in some context
+  // object.
+  inline Type getIso(MLIRContext* ctx)
+  {
+    return CapabilityType::get(ctx, Capability::Isolated);
+  }
+  inline Type getMut(MLIRContext* ctx)
+  {
+    return CapabilityType::get(ctx, Capability::Mutable);
+  }
+  inline Type getImm(MLIRContext* ctx)
+  {
+    return CapabilityType::get(ctx, Capability::Immutable);
+  }
+  inline Type getWritable(MLIRContext* ctx)
+  {
+    return JoinType::get(ctx, {getIso(ctx), getMut(ctx)});
+  }
+  inline Type getAnyCapability(MLIRContext* ctx)
+  {
+    return JoinType::get(ctx, {getIso(ctx), getMut(ctx), getImm(ctx)});
+  }
 }

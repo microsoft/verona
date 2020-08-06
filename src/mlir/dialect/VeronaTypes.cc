@@ -171,6 +171,33 @@ namespace mlir::verona::detail
       return success();
     }
   };
+
+  struct ViewpointTypeStorage : public ::mlir::TypeStorage
+  {
+    Type left;
+    Type right;
+
+    using KeyTy = std::tuple<Type, Type>;
+
+    ViewpointTypeStorage(Type left, Type right) : left(left), right(right) {}
+
+    static llvm::hash_code hashKey(const KeyTy& key)
+    {
+      return llvm::hash_value(key);
+    }
+
+    bool operator==(const KeyTy& key) const
+    {
+      return key == std::tie(left, right);
+    }
+
+    static ViewpointTypeStorage*
+    construct(TypeStorageAllocator& allocator, const KeyTy& key)
+    {
+      return new (allocator.allocate<ViewpointTypeStorage>())
+        ViewpointTypeStorage(std::get<0>(key), std::get<1>(key));
+    }
+  };
 } // namespace mlir::verona::detail
 
 namespace mlir::verona
@@ -261,6 +288,21 @@ namespace mlir::verona
         return it.second;
     }
     return nullptr;
+  }
+
+  ViewpointType ViewpointType::get(MLIRContext* ctx, Type left, Type right)
+  {
+    return Base::get(ctx, std::make_tuple(left, right));
+  }
+
+  Type ViewpointType::getLeftType() const
+  {
+    return getImpl()->left;
+  }
+
+  Type ViewpointType::getRightType() const
+  {
+    return getImpl()->right;
   }
 
   /// Parse a list of types, surrounded by angle brackets and separated by
@@ -370,6 +412,19 @@ namespace mlir::verona
     return pending;
   }
 
+  static Type parseViewpointType(MLIRContext* ctx, DialectAsmParser& parser)
+  {
+    Type left;
+    Type right;
+    if (
+      parser.parseLess() || !(left = parseVeronaType(parser)) ||
+      parser.parseComma() || !(right = parseVeronaType(parser)) ||
+      parser.parseGreater())
+      return Type();
+
+    return ViewpointType::get(ctx, left, right);
+  }
+
   Type parseVeronaType(DialectAsmParser& parser)
   {
     MLIRContext* ctx = parser.getBuilder().getContext();
@@ -384,6 +439,8 @@ namespace mlir::verona
       return parseMeetType(ctx, parser);
     else if (keyword == "join")
       return parseJoinType(ctx, parser);
+    else if (keyword == "viewpoint")
+      return parseViewpointType(ctx, parser);
     else if (keyword == "top")
       return MeetType::get(ctx, {});
     else if (keyword == "bottom")
@@ -476,7 +533,11 @@ namespace mlir::verona
             break;
         }
       })
-      .Case<ClassType>([&](ClassType type) { printClassType(type, os); });
+      .Case<ClassType>([&](ClassType type) { printClassType(type, os); })
+      .Case<ViewpointType>([&](ViewpointType type) {
+        os << "viewpoint<" << type.getLeftType() << ", " << type.getRightType()
+           << ">";
+      });
   }
 
   bool isaVeronaType(Type type)
@@ -536,6 +597,19 @@ namespace mlir::verona
     }
   }
 
+  /// Distribute all join and meets found in `type`, by applying `f` to every
+  /// "atom" in the type. `type` is assumed to be in normal form already.
+  ///
+  /// For example, given `join<meet<A, B>, C>`, this function returns
+  /// `join<meet<f(A), f(B)>, f(C)>`.
+  static Type
+  distributeAll(MLIRContext* ctx, Type type, llvm::function_ref<Type(Type)> f)
+  {
+    return distributeType<JoinType>(ctx, type, [&](Type inner) {
+      return distributeType<MeetType>(ctx, inner, f);
+    });
+  }
+
   /// Normalize a meet type.
   /// This function returns the normal form of `meet<normalized..., rest...>`,
   /// distributing any nested joins.
@@ -587,6 +661,20 @@ namespace mlir::verona
     return JoinType::get(ctx, result);
   }
 
+  /// Normalize a viewpoint type, distributing any join or meet found in either
+  /// own its constituent types.
+  Type normalizeViewpoint(MLIRContext* ctx, Type left, Type right)
+  {
+    Type normalizedLeft = normalizeType(left);
+    Type normalizedRight = normalizeType(right);
+
+    return distributeAll(ctx, normalizedLeft, [&](Type distributedLeft) {
+      return distributeAll(ctx, normalizedRight, [&](Type distributedRight) {
+        return ViewpointType::get(ctx, distributedLeft, distributedRight);
+      });
+    });
+  }
+
   // TODO: The amount of normalization done is quite limited. In particular it
   // does not always flatten types (eg. changing `join<A, join<B, C>>` into
   // `join<A, B, C>`), nor does it do any simplification (eg. `join<A, A, B>`
@@ -597,11 +685,12 @@ namespace mlir::verona
     MLIRContext* ctx = type.getContext();
     assert(isaVeronaType(type));
     return TypeSwitch<Type, Type>(type)
-      .Case<JoinType>([&](Type type) {
-        return normalizeJoin(ctx, type.cast<JoinType>().getElements());
-      })
-      .Case<MeetType>([&](Type type) {
-        return normalizeMeet(ctx, type.cast<MeetType>().getElements());
+      .Case<JoinType>(
+        [&](JoinType type) { return normalizeJoin(ctx, type.getElements()); })
+      .Case<MeetType>(
+        [&](MeetType type) { return normalizeMeet(ctx, type.getElements()); })
+      .Case<ViewpointType>([&](ViewpointType type) {
+        return normalizeViewpoint(ctx, type.getLeftType(), type.getRightType());
       })
       .Default([&](Type type) { return type; });
   }
@@ -672,6 +761,9 @@ namespace mlir::verona
       .Case<ClassType>([&](ClassType origin) -> std::pair<Type, Type> {
         Type field = origin.getFieldType(name);
         return {field, field};
+      })
+      .Case<ViewpointType>([&](ViewpointType origin) {
+        return lookupFieldType(origin.getRightType(), name);
       })
       .Default([](Type origin) -> std::pair<Type, Type> {
         return {nullptr, nullptr};
