@@ -737,7 +737,7 @@ namespace verona::rt
 
 #ifdef USE_SYSTEMATIC_TESTING
       std::sort(&sort[0], &sort[count], [](Cown*& a, Cown*& b) {
-        return Systematic::get_scrambler()(a->id(), b->id());
+        return a->id() < b->id();
       });
 #else
       std::sort(&sort[0], &sort[count]);

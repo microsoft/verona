@@ -219,12 +219,12 @@ namespace verona::rt
     }
 #endif
 
-    inline const void* id() const
+    inline uintptr_t id() const
     {
 #ifdef USE_SYSTEMATIC_TESTING
-      return (const void*)Systematic::get_scrambler().perm(sys_id);
+      return Systematic::get_scrambler().perm(sys_id);
 #else
-      return this;
+      return (uintptr_t)this;
 #endif
     }
 
