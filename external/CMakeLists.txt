@@ -1,7 +1,10 @@
-# This layer of cmake is used to convert multi-configuration systems,
-# into a single configuration system, as $<CONFIG> is not usable during
-# the URL download method.  Adding a layer allows us to convert $<CONFIG>
-# into ${CMAKE_BUILD_TYPE}
+# Build the external dependencies that need to be built as external projects
+#
+# This layer of cmake is guaranteed to have a CMAKE_BUILD_TYPE set, as the
+# calling context will have passed $<CONFIG> as an argument. 
+# This enables better interaction with downloads and multi-config builds such as
+# msbuild.  It also means that changing build type repeatedly can used cached
+# versions of external artifacts.
 cmake_minimum_required(VERSION 3.10.0)
 
 project(verona_external CXX)
@@ -15,7 +18,7 @@ if (VERONA_DOWNLOAD_LLVM)
     OUTPUT_VARIABLE LLVM_PACKAGE_GIT_VERSION
   )
   string(STRIP ${LLVM_PACKAGE_GIT_VERSION} LLVM_PACKAGE_GIT_VERSION)
-  
+
   string(TOLOWER ${CMAKE_SYSTEM_NAME} PLATFORM)
   # Need loop to download all types for possible configurations
   # Required by multi-build systems like msbuild
