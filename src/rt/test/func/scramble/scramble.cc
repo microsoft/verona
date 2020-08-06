@@ -9,17 +9,17 @@ int main()
   bool failed = false;
   for (size_t i = 0; i < 100; i++)
   {
-    verona::Scramble perm;
-    perm.setup(r);
+    verona::Scramble s1;
+    s1.setup(r);
 
-    verona::Scramble perm2;
-    perm2.setup(r);
+    verona::Scramble s2;
+    s2.setup(r);
 
     size_t count = 0;
 
-    for (uint8_t* p = nullptr; p < (void*)1000; p++)
+    for (uintptr_t p = 0; p < 1000; p++)
     {
-      if (perm(p, p + 1) == perm2(p, p + 1))
+      if ((s1.perm(p) < s1.perm(p + 1)) == (s2.perm(p) < s2.perm(p + 1)))
         count++;
     }
 

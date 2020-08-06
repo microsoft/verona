@@ -31,11 +31,11 @@ namespace verona::interpreter
   void
   instantiate(size_t cores, const Code& code, bool verbose, size_t seed = 1234)
   {
+#ifdef USE_SYSTEMATIC_TESTING
+    Systematic::set_seed(seed);
+#endif
     rt::Scheduler& sched = rt::Scheduler::get();
     sched.init(cores);
-#ifdef USE_SYSTEMATIC_TESTING
-    sched.set_seed(seed);
-#endif
 
     size_t ip = code.entrypoint();
 

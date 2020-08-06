@@ -40,9 +40,9 @@ namespace verona::rt
       return a & static_cast<T>(~(b >> shift));
     }
 
-    inline static size_t hash(const void* p)
+    inline static size_t hash(uintptr_t p)
     {
-      size_t x = static_cast<size_t>(snmalloc::address_cast(p));
+      size_t x = static_cast<size_t>(p);
 
       if (snmalloc::bits::is64())
       {

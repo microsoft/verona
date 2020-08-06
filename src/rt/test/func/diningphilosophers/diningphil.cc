@@ -1,7 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include <ds/scramble.h>
-#include <random>
 #include <test/harness.h>
 
 struct Fork : public VCown<Fork>
@@ -157,7 +156,8 @@ void test_dining(
     std::vector<Cown*> my_forks;
 
     std::sort(forks.begin(), forks.end(), [&scrambler](Fork*& a, Fork*& b) {
-      return scrambler(((Cown*)a)->id(), ((Cown*)b)->id());
+      return scrambler.perm(((Cown*)a)->id()) <
+        scrambler.perm(((Cown*)b)->id());
     });
 
     for (size_t j = 0; j < fork_count; j++)

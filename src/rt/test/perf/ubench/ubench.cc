@@ -237,13 +237,13 @@ int main(int argc, char** argv)
                  << std::endl;
 
   auto* alloc = sn::ThreadAlloc::get();
-  auto& sched = rt::Scheduler::get();
 #ifdef USE_SYSTEMATIC_TESTING
   Systematic::enable_logging();
-  sched.set_seed(seed);
+  Systematic::set_seed(seed);
 #else
   UNUSED(seed);
 #endif
+  auto& sched = rt::Scheduler::get();
   sched.set_fair(true);
   sched.init(cores);
 

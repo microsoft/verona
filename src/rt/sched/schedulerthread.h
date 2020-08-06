@@ -225,7 +225,7 @@ namespace verona::rt
 
         if (
 #ifdef USE_SYSTEMATIC_TESTING
-          coin(9) ||
+          Systematic::coin(9) ||
 #endif
           !cown->backpressure.compare_exchange_weak(
             bp, bp_muted, std::memory_order_acq_rel))
@@ -310,7 +310,7 @@ namespace verona::rt
         if (
           (total_cowns < (free_cowns << 1))
 #ifdef USE_SYSTEMATIC_TESTING
-          || Scheduler::coin()
+          || Systematic::coin()
 #endif
         )
           collect_cown_stubs();

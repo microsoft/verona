@@ -105,7 +105,7 @@ namespace verona::rt
         return;
       }
       auto n = update_buffer.size();
-      auto r = Scheduler::rand_get_next();
+      auto r = Systematic::get_rng().next();
       auto pick = (size_t)(r % (n + 1));
       if (pick == 0)
       {

@@ -16,6 +16,10 @@
 
 #include "../ds/asymlock.h"
 #include "ds/morebits.h"
+#ifdef USE_SYSTEMATIC_TESTING
+#  include "ds/scramble.h"
+#  include "test/xoroshiro.h"
+#endif
 
 #include <iomanip>
 #include <iostream>
@@ -24,6 +28,34 @@
 
 namespace Systematic
 {
+#ifdef USE_SYSTEMATIC_TESTING
+  static inline xoroshiro::p128r32& get_rng()
+  {
+    static thread_local xoroshiro::p128r32 rng;
+    return rng;
+  }
+
+  static inline verona::Scramble& get_scrambler()
+  {
+    static thread_local verona::Scramble scrambler;
+    return scrambler;
+  }
+
+  static inline void set_seed(uint64_t seed)
+  {
+    auto& rng = get_rng();
+    rng.set_state(seed);
+    get_scrambler().setup(rng);
+  }
+
+  /// 1/(2^range_bits) likelyhood of returning true
+  static inline bool coin(size_t range_bits = 1)
+  {
+    assert(range_bits < 20);
+    return (get_rng().next() & ((1ULL << range_bits) - 1)) == 0;
+  }
+#endif
+
 #ifdef USE_FLIGHT_RECORDER
   static constexpr bool flight_recorder = true;
 #else
