@@ -426,7 +426,16 @@ namespace mlir::verona
     auto expr = parseNode(getSingleSubNode(ast).lock());
     if (auto err = expr.takeError())
       return std::move(err);
-    builder.create<mlir::ReturnOp>(getLocation(ast), expr->getAll());
+    auto region = builder.getInsertionBlock()->getParent();
+    auto op = region->getParentOp();
+    if (isa<mlir::verona::WhileOp>(op))
+    {
+      builder.create<mlir::verona::LoopReturnOp>(getLocation(ast), expr->getAll());
+    }
+    else
+    {
+      builder.create<mlir::ReturnOp>(getLocation(ast), expr->getAll());
+    }
 
     // No values to return, basic block is terminated.
     return ReturnValue();

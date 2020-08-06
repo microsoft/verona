@@ -16,6 +16,10 @@ f(a, x)
     {
       break;
     }
+    else
+    {
+      return a;
+    }
   }
   a;
 }

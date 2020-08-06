@@ -29,6 +29,9 @@ module {
     ^bb3:  // pred: ^bb2
       verona.break
     ^bb4:  // pred: ^bb2
+      %19 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+      verona.loop_return %19 : !type.unk
+    ^bb5:  // no predecessors
       verona.continue
     }
     %4 = "verona.load"(%0) : (!type.alloca) -> !type.unk
