@@ -172,7 +172,7 @@ namespace verona::rt
     uint32_t _response_state : 2;
 
   public:
-    Backpressure()
+    Backpressure() noexcept
     : _current_load(0), _load_hist(0), _has_token(0), _response_state(0)
     {}
 
