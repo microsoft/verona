@@ -10,7 +10,10 @@ namespace mlir::verona
   Type parseVeronaType(DialectAsmParser& parser);
   void printVeronaType(Type type, DialectAsmPrinter& os);
 
+  /// Returns true if the type is one defined by the Verona dialect.
   bool isaVeronaType(Type type);
+  /// Returns true if all types in the array are ones defined by the Verona
+  /// dialect.
   bool areVeronaTypes(llvm::ArrayRef<Type> types);
 
   namespace detail

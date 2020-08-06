@@ -145,6 +145,8 @@ namespace mlir::verona
     //
     // For this to work, we would need to apply normalization to the types
     // first.
+    assert(isaVeronaType(lhs));
+    assert(isaVeronaType(rhs));
     return RULES(lhs, rhs);
   }
 

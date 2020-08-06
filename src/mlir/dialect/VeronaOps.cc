@@ -125,6 +125,8 @@ namespace mlir::verona
     const auto& results = fn.getType().getResults();
     if (results.size() != 1)
     {
+      // TODO: The `verona.return` op could easily be extended to support
+      // multiple (and zero) return values.
       return emitOpError() << "can only be used to return one value";
     }
 

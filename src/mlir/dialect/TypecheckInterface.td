@@ -22,6 +22,10 @@ def TypecheckInterface : OpInterface<"TypecheckInterface"> {
     consumption. Typechecking exits on the first error and is not expected to
     print user-friendly error messages. The user-facing part of the type system
     will be provided by the type inference pass.
+
+    For the time being, not all operations need to provide this interface. Those
+    that don't are considered always valid. In the future, we will most likely 
+    require all statement-like operations to implement this interface.
   }];
   let methods = [
     InterfaceMethod<
@@ -31,4 +35,8 @@ def TypecheckInterface : OpInterface<"TypecheckInterface"> {
   ];
 }
 
+// Typecheckable can be used in the list of traits to opt-in to the
+// TypecheckInterface, and have the `typecheck` method's signature automatically
+// declared. Of course, an implementation of the method must still be provided
+// manually.
 def Typecheckable : DeclareOpInterfaceMethods<TypecheckInterface>;

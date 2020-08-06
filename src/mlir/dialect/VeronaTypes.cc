@@ -156,6 +156,12 @@ namespace mlir::verona
     return getImpl()->capability;
   }
 
+  /// Parse a list of types, surrounded by angle brackets and separated by
+  /// commas. The types inside the list must be Verona types and should not use
+  /// the `!verona.` prefix.
+  ///
+  /// Empty lists are allowed, but must still use angle brackets, i.e. `< >`.
+  /// Lists of one elements are also allowed.
   static ParseResult
   parseTypeList(DialectAsmParser& parser, llvm::SmallVectorImpl<Type>& result)
   {
