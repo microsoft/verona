@@ -78,7 +78,7 @@ else()
   )
 
   ExternalProject_Add(mlir
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/external/llvm-project/llvm
+    SOURCE_DIR ${CMAKE_SOURCE_DIR}/llvm-project/llvm
     CMAKE_ARGS ${LLVM_EXTRA_CMAKE_ARGS}
     BUILD_ALWAYS true
     USES_TERMINAL_BUILD true
