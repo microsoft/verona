@@ -1,8 +1,16 @@
 cmake_minimum_required(VERSION 3.10.0)
 
-option (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM" ON)
-option (VERBOSE_LLVM_DOWNLOAD "Verbose LLVM/MLIR download step" OFF)
+# CMAKE_HOME_DIRECTORY should not be passed down to another project.
+set (VERONA_DONT_PASS CMAKE_HOME_DIRECTORY)
+macro (option_top VAR HELP DEFAULT)
+  option (${VAR} ${HELP} ${DEFAULT})
+  list (APPEND VERONA_DONT_PASS ${VAR})
+endmacro ()
 
+option_top (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM" ON)
+option_top (VERBOSE_LLVM_DOWNLOAD "Verbose LLVM/MLIR download step" OFF)
+
+message (STATUS "Download LLVM: ${VERONA_DOWNLOAD_LLVM}")
 # Lifted from snmalloc. Hard to include with external projects, so copied
 macro(clangformat_targets)
   # The clang-format tool is installed under a variety of different names.  Try
@@ -33,26 +41,14 @@ endmacro()
 
 clangformat_targets()
 
-# This is used to create options that are passed through to the main Verona
-# build
-if (NOT DEFINED VERONA_EXTRA_CMAKE_ARGS)
-  set (VERONA_EXTRA_CMAKE_ARGS)
-endif ()
-macro(verona_option variable message default)
-  option(variable message default)
-  list (APPEND VERONA_EXTRA_CMAKE_ARGS
-    "-D${variable}=${${variable}}"
-  )
-endmacro()
-
-verona_option(ENABLE_ASSERTS "Enable asserts even in release builds" OFF)
-verona_option(RT_TESTS "Including unit tests for the runtime" OFF)
-verona_option(USE_SCHED_STATS "Track scheduler stats" OFF)
-verona_option(USE_ASAN "Use address sanitizer" OFF)
-verona_option(VERONA_CI_BUILD "Disable features not sensible for CI" OFF)
-verona_option(USE_SYSTEMATIC_TESTING "Enable systematic testing in the runtime" OFF)
-verona_option(VERONA_EXPENSIVE_SYSTEMATIC_TESTING "Increase the range of seeds covered by systematic testing" OFF)
-verona_option(USE_CRASH_LOGGING "Enable crash logging in the runtime" OFF)
+option(ENABLE_ASSERTS "Enable asserts even in release builds" OFF)
+option(RT_TESTS "Including unit tests for the runtime" OFF)
+option(USE_SCHED_STATS "Track scheduler stats" OFF)
+option(USE_ASAN "Use address sanitizer" OFF)
+option(VERONA_CI_BUILD "Disable features not sensible for CI" OFF)
+option(USE_SYSTEMATIC_TESTING "Enable systematic testing in the runtime" OFF)
+option(VERONA_EXPENSIVE_SYSTEMATIC_TESTING "Increase the range of seeds covered by systematic testing" OFF)
+option(USE_CRASH_LOGGING "Enable crash logging in the runtime" OFF)
 
 # This is to trick the CMake into building LLVM before Verona.
 # We use two External Projects, so that the LLVM build can complete and install
@@ -68,19 +64,46 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
   endif()
 
   set (MLIR_INSTALL ${CMAKE_BINARY_DIR}/$<CONFIG>/mlir)
+
+  set (EXTERNAL_EXTRA_CMAKE_ARGS)
+  list (APPEND EXTERNAL_EXTRA_CMAKE_ARGS 
+    -DVERONA_DOWNLOAD_LLVM=${VERONA_DOWNLOAD_LLVM}
+    -DMLIR_INSTALL=${MLIR_INSTALL}
+    -DCMAKE_BUILD_TYPE=$<CONFIG>)
+
+  if (VERONA_DOWNLOAD_LLVM AND DEFINED LLVM_EXTRA_CMAKE_ARGS)
+    message (WARNING "Ignoring LLVM_EXTRA_CMAKE_ARGS as cached LLVM.")
+  endif ()
+
+  if (NOT VERONA_DOWNLOAD_LLVM)
+    if (NOT DEFINED LLVM_EXTRA_CMAKE_ARGS)
+      set (LLVM_EXTRA_CMAKE_ARGS)
+    endif ()
+
+    list (APPEND EXTERNAL_EXTRA_CMAKE_ARGS
+      -DLLVM_EXTRA_CMAKE_ARGS=${LLVM_EXTRA_CMAKE_ARGS}
+    )
+  else ()
+    list (APPEND EXTERNAL_EXTRA_CMAKE_ARGS
+      -DVERBOSE_LLVM_DOWNLOAD=${VERBOSE_LLVM_DOWNLOAD}
+    )
+  endif ()
+
+
   ExternalProject_Add(external
     SOURCE_DIR ${CMAKE_SOURCE_DIR}/external
-    CMAKE_ARGS 
-      ${LLVM_EXTRA_CMAKE_ARGS} 
-      -DVERONA_DOWNLOAD_LLVM=${VERONA_DOWNLOAD_LLVM}
-      -DMLIR_INSTALL=${MLIR_INSTALL}
-      -DCMAKE_BUILD_TYPE=$<CONFIG>
+    CMAKE_ARGS ${EXTERNAL_EXTRA_CMAKE_ARGS} 
     BUILD_ALWAYS true
     INSTALL_COMMAND ""
     TEST_COMMAND ""
     USES_TERMINAL_BUILD true
     USES_TERMINAL_CONFIGURE true
   )
+
+  if (DEFINED VERONA_EXTRA_CMAKE_ARGS)
+    message (WARNING "Do not use VERONA_EXTRA_CMAKE_ARGS! Value ignored")
+  endif ()
+  set (VERONA_EXTRA_CMAKE_ARGS)
 
   # Point Verona at the MLIR
   list (APPEND VERONA_EXTRA_CMAKE_ARGS
@@ -89,19 +112,30 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
 
   if (NOT MSVC)
     list (APPEND VERONA_EXTRA_CMAKE_ARGS
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_EXPORT_COMPILE_COMMANDS=1
     )
-  else ()
-    list (APPEND VERONA_EXTRA_CMAKE_ARGS
-      -DCMAKE_CONFIGURATION_TYPES=Release;Debug;RelWithDebInfo
-    )
   endif ()
+
+  # Define project level defaults
+  list (APPEND VERONA_EXTRA_CMAKE_ARGS
+    -DCMAKE_CXX_STANDARD=17)
 
   # Use top-level install directory when building
   # as a subproject.
   list (APPEND VERONA_EXTRA_CMAKE_ARGS
     -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/dist)
+  list (APPEND VERONA_DONT_PASS CMAKE_INSTALL_PREFIX)
+
+  get_cmake_property(CACHE_VARS CACHE_VARIABLES)
+  foreach (CACHE_VAR ${CACHE_VARS})
+    message (STATUS "list (FIND ${VERONA_DONT_PASS} ${CACHE_VAR} INDEX)")
+    list (FIND VERONA_DONT_PASS ${CACHE_VAR} INDEX)
+    if (${INDEX} EQUAL -1)
+      list(APPEND VERONA_EXTRA_CMAKE_ARGS
+        -D${CACHE_VAR}=${${CACHE_VAR}}
+      )
+    endif()
+  endforeach ()
 
   # Current the ExternalProject_Add_StepTargets seems to be generating something
   # that is breaking CI for MSVC. So on MSVC with have a single build and test
@@ -111,10 +145,6 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
   else ()
     set (SEPARATE_TEST_TARGET true)
   endif()
-
-  # Define project level defaults
-  list (APPEND VERONA_EXTRA_CMAKE_ARGS
-    -DCMAKE_CXX_STANDARD=17)
 
   # We use ctest directly as test command, pass it -j
   include(ProcessorCount)
@@ -144,6 +174,8 @@ endif()
 project(verona-lang CXX)
 
 message(STATUS "Build Type for Verona ${CMAKE_BUILD_TYPE}")
+set(CMAKE_CONFIGURATION_TYPES  Release Debug RelWithDebInfo)
+message(STATUS "Build types ${CMAKE_CONFIGURATION_TYPES}")
 
 if (VERONA_CI_BUILD)
   set (SNMALLOC_CI_BUILD ON)

@@ -87,14 +87,6 @@ will build Release or Release with debug info.
 We currently use an install target to layout the standard library and the
 compiler in a well defined way so that it can automatically be found.
 
-Due to the complex interaction with LLVM/MLIR builds, to pass flags to the
-verona build require using the `VERONA_EXTRA_CMAKE_ARGS`, e.g.
-```
-cmake .. -G Ninja -DVERONA_EXTRA_CMAKE_ARGS="-DCMAKE_CXX_COMPILER=clang-cl;-DCMAKE_C_COMPILER=clang-cl"
-```
-This example specifies to build Verona with `clang-cl`. Note: the options must be
-separated by `;`.
-
 ## Subsequent builds
 
 For subsequent builds, you do not need to rerun `cmake`. From the `build`
@@ -163,17 +155,6 @@ cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release
 cmake .. -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
 to provide the other configurations.
-
-Due to the complex interaction with LLVM/MLIR builds, to pass flags to the
-verona build require using the `VERONA_EXTRA_CMAKE_ARGS`, e.g.
-```
-cmake .. -DVERONA_EXTRA_CMAKE_ARGS="-DCMAKE_CXX_COMPILER=/usr/bin/clang++;-DCMAKE_C_COMPILER=/usr/bin/clang"
-```
-This example specifies to build Verona with `clang`. Note: the options must be
-separated by `;`.
-This can be helpful as sometimes `cmake` detects `gcc` instead of `clang`.
-This may require you to remove your CMakeCache.txt file from the build
-directory.
 
 ## Subsequent builds
 
