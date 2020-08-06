@@ -278,6 +278,17 @@ def Verona_LoopExitOp : Verona_Op<"loop_exit", [InLoopScope]> {
     let verifier = [{ return success(); }];
 }
 
+def Verona_LoopReturnOp : Verona_Op<"loop_return", [Terminator, InLoopScope]> {
+    let summary = "returns the value out of the function (not the loop)";
+
+    let builders = [OpBuilder<
+      "OpBuilder &b, OperationState &result", [{ build(b, result, llvm::None); }]
+    >];
+    let arguments = (ins Variadic<AnyType>:$operands);
+    let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
+    let verifier = [{ return success(); }];
+}
+
 def Verona_WhileOp : Verona_Op<"while"> {
     let summary = "any loop operation (while, for) without known range";
     let description = [{
