@@ -334,4 +334,124 @@ namespace mlir::verona
   {
     return llvm::all_of(types, isaVeronaType);
   }
+
+  /// Distribute a lattice type (join or meet) by applying `f` to every element
+  /// of it. Each return value of the continuation is added to `result`.
+  ///
+  /// Assuming `type` is in normal form, this method will process nested `T`s
+  /// as well.
+  ///
+  /// For example, given `join<A, join<B, C>>`, this method will add
+  /// `f(A), f(B), f(C)` to `result`.
+  template<typename T>
+  static void distributeType(
+    SmallVectorImpl<Type>& result, T type, llvm::function_ref<Type(Type)> f)
+  {
+    for (Type element : type.getElements())
+    {
+      if (auto nested = element.dyn_cast<T>())
+        distributeType<T>(result, nested, f);
+      else
+        result.push_back(f(element));
+    }
+  }
+
+  /// If the argument `type` is of kind `T` (where `T` is a lattice type, ie.
+  /// JoinType or MeetType), distribute it by applying `f` to every element of
+  /// it. The return values are combined to form a new lattice type of the same
+  /// kind. If `type` is not of kind `T`, it is directly applied to `f`.
+  ///
+  /// Assuming `type` is in normal form, this method will process nested `T`s
+  /// as well.
+  ///
+  /// For example, given `join<A, join<B, C>>`, this method will return
+  /// `join<f(A), f(B), f(C)>`.
+  template<typename T>
+  static Type
+  distributeType(MLIRContext* ctx, Type type, llvm::function_ref<Type(Type)> f)
+  {
+    if (auto node = type.dyn_cast<T>())
+    {
+      SmallVector<Type, 4> result;
+      distributeType<T>(result, node, f);
+      return T::get(ctx, result);
+    }
+    else
+    {
+      return f(type);
+    }
+  }
+
+  /// Normalize a meet type.
+  /// This function returns the normal form of `meet<normalized..., rest...>`,
+  /// distributing any nested joins.
+  ///
+  /// Types in `normalized` must be in normal form and not contain any joins.
+  /// Types in `rest` may be in any form.
+  ///
+  /// This method uses `normalized` as scratch space; it recurses with more
+  /// elements pushed to it. When it returns, `normalized` will always have its
+  /// original length and contents.
+  ///
+  /// TODO: this function uses recursion to iterate over the `rest` array,
+  /// because that works well with normalizeType. It could be rewritten to use
+  /// loops, which is probably more efficient and doesn't risk blowing the
+  /// stack.
+  Type normalizeMeet(
+    MLIRContext* ctx, SmallVectorImpl<Type>& normalized, ArrayRef<Type> rest)
+  {
+    if (rest.empty())
+      return MeetType::get(ctx, normalized);
+
+    Type element = normalizeType(rest.front());
+    return distributeType<JoinType>(ctx, element, [&](auto inner) {
+      normalized.push_back(inner);
+      auto result = normalizeMeet(ctx, normalized, rest.drop_front());
+      normalized.pop_back();
+      return result;
+    });
+  }
+
+  /// Normalize a meet type.
+  /// This function returns the normal form of `meet<elements...>`,
+  /// distributing any nested joins.
+  Type normalizeMeet(MLIRContext* ctx, ArrayRef<Type> elements)
+  {
+    SmallVector<Type, 4> result;
+    return normalizeMeet(ctx, result, elements);
+  }
+
+  /// Normalize a join type.
+  /// This function returns the normal form of `join<elements...>`. The only
+  /// effect of this is individually normalizing the contents of `elements`.
+  Type normalizeJoin(MLIRContext* ctx, ArrayRef<Type> elements)
+  {
+    SmallVector<Type, 4> result;
+    llvm::transform(elements, std::back_inserter(result), [&](Type element) {
+      return normalizeType(element);
+    });
+    return JoinType::get(ctx, result);
+  }
+
+  Type normalizeType(Type type)
+  {
+    MLIRContext* ctx = type.getContext();
+    assert(isaVeronaType(type));
+    switch (type.getKind())
+    {
+      // These don't contain any nested types and need no expansion.
+      case VeronaTypes::Integer:
+      case VeronaTypes::Capability:
+        return type;
+
+      case VeronaTypes::Join:
+        return normalizeJoin(ctx, type.cast<JoinType>().getElements());
+
+      case VeronaTypes::Meet:
+        return normalizeMeet(ctx, type.cast<MeetType>().getElements());
+
+      default:
+        abort();
+    }
+  }
 }

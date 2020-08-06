@@ -163,7 +163,7 @@ namespace mlir::verona
 {
   LogicalResult CopyOp::typecheck()
   {
-    return checkSubtype(getLoc(), input().getType(), output().getType());
+    return checkSubtype(getOperation(), input().getType(), output().getType());
   }
 
 #define GET_OP_CLASSES

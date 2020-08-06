@@ -33,4 +33,11 @@ module {
 
     return
   }
+
+  func @test_distributivity(%a: !verona.meet<U64, join<iso, mut>>) {
+    // We allow distributivity of join over meets.
+    %b = verona.copy %a: !verona.meet<U64, join<iso, mut>> -> !verona.join<meet<U64, iso>, meet<U64, mut>> 
+
+    return
+  }
 }

@@ -23,9 +23,10 @@ namespace mlir::verona
   };
 
   /// Returns true if `lhs` is a subtype of `rhs`.
+  /// `lhs` and `rhs` should be in normal form already.
   bool isSubtype(Type lhs, Type rhs);
 
   /// Check whether `lhs` is a subtype of `rhs`. If it isn't, an error is
-  /// emitted using location `loc`, and a failure is returned.
-  LogicalResult checkSubtype(Location loc, Type lhs, Type rhs);
+  /// emitted and a failure is returned.
+  LogicalResult checkSubtype(Operation* op, Type lhs, Type rhs);
 }
