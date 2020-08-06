@@ -10,6 +10,8 @@ cmake_minimum_required(VERSION 3.10.0)
 project(verona_external CXX)
 include(ExternalProject)
 
+message (STATUS "Install MLIR to ${MLIR_INSTALL}")
+
 if (VERONA_DOWNLOAD_LLVM)
   find_package(Git)
   execute_process(
@@ -18,6 +20,7 @@ if (VERONA_DOWNLOAD_LLVM)
     OUTPUT_VARIABLE LLVM_PACKAGE_GIT_VERSION
   )
   string(STRIP ${LLVM_PACKAGE_GIT_VERSION} LLVM_PACKAGE_GIT_VERSION)
+  message (STATUS "Detected GIT commit: ${LLVM_PACKAGE_GIT_VERSION}")
 
   string(TOLOWER ${CMAKE_SYSTEM_NAME} PLATFORM)
   # Need loop to download all types for possible configurations
@@ -42,18 +45,10 @@ if (VERONA_DOWNLOAD_LLVM)
   file(STRINGS ${CMAKE_BINARY_DIR}/${MD5_NAME} LLVM_MD5_SUM REGEX [0-9a-f]+)
   string(STRIP ${LLVM_MD5_SUM} LLVM_MD5_SUM)
 
-  # Quiet downloads are the default. Note that the download flag is reversed
-  # so we created a more meaningful variable "verbose=true" -> "no progress=false"
-  if (NOT DEFINED VERBOSE_LLVM_DOWNLOAD OR NOT ${VERBOSE_LLVM_DOWNLOAD})
-    set(LLVM_DOWNLOAD_NO_PROGRESS ON)
-  else()
-    set(LLVM_DOWNLOAD_NO_PROGRESS OFF)
-  endif()
-
   ExternalProject_Add(mlir
     URL ${LLVM_URL}/${PKG_NAME}
     URL_MD5 ${LLVM_MD5_SUM}
-    DOWNLOAD_NO_PROGRESS ${LLVM_DOWNLOAD_NO_PROGRESS}
+    DOWNLOAD_NO_PROGRESS NOT ${VERBOSE_LLVM_DOWNLOAD}
     CONFIGURE_COMMAND ""
     PREFIX mlir-${LLVM_BUILD_TYPE}
     SOURCE_DIR ${MLIR_INSTALL}
@@ -64,9 +59,6 @@ if (VERONA_DOWNLOAD_LLVM)
   )
 
 else()
-  if (NOT DEFINED LLVM_EXTRA_CMAKE_ARGS)
-    set (LLVM_EXTRA_CMAKE_ARGS)
-  endif ()
   list (APPEND LLVM_EXTRA_CMAKE_ARGS
     -DCMAKE_INSTALL_PREFIX=${MLIR_INSTALL}/install
     -DLLVM_ENABLE_PROJECTS=mlir
