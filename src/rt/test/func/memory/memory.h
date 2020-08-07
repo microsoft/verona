@@ -105,14 +105,6 @@ struct C3 : public V<C3<region_type>, region_type>
     if (f2 != nullptr)
       st.push(f2);
   }
-
-  void finaliser(Object* region, ObjectStack& sub_regions)
-  {
-    Object::add_sub_region(f1, region, sub_regions);
-    Object::add_sub_region(f2, region, sub_regions);
-    Object::add_sub_region(c1, region, sub_regions);
-    Object::add_sub_region(c2, region, sub_regions);
-  }
 };
 
 template<RegionType region_type>

@@ -319,18 +319,18 @@ namespace memory_subregion
   template<RegionType region_type>
   void test_subregion_deep()
   {
-    using C = C3<region_type>;
+    using F = F3<region_type>;
 
     auto* alloc = ThreadAlloc::get();
 
     // Create the first region, with some unreachable objects.
-    auto* r1 = new (alloc) C;
+    auto* r1 = new (alloc) F;
     auto curr = r1;
     std::cout << "Build long region chain." << std::endl;
     for (size_t i = 0; i < 1 << 20; i++)
     {
-      auto n = new (alloc) C;
-      curr->c1 = n;
+      auto n = new (alloc) F;
+      curr->f1 = n;
       curr = n;
     }
     std::cout << "Dealloc long region chain." << std::endl;
