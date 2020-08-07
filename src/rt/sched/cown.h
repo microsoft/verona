@@ -274,8 +274,6 @@ namespace verona::rt
 
       Systematic::cout() << "Cown dealloc: " << o << std::endl;
 
-      bool collect_not_required = a->is_collected();
-
       // During teardown don't recursively delete.
       if (Scheduler::is_teardown_in_progress())
       {
@@ -303,10 +301,11 @@ namespace verona::rt
       }
 
       // If last, then collect the cown body.
-      if (!collect_not_required)
-        a->collect(alloc);
-      yield();
-      a->weak_release(alloc);
+      if (!a->is_collected())
+        // Queue_collect calls weak release.
+        a->queue_collect(alloc);
+      else
+        a->weak_release(alloc);
     }
 
     /**
@@ -1153,6 +1152,42 @@ namespace verona::rt
     inline bool is_live(EpochMark send_epoch)
     {
       return in_epoch(EpochMark::SCHEDULED_FOR_SCAN) || in_epoch(send_epoch);
+    }
+
+    /**
+     * Called when strong reference count reaches one.
+     * Uses thread_local state to deal with deep deallocation
+     * chains by queuing recursive calls.
+     **/
+    void queue_collect(Alloc* alloc)
+    {
+      thread_local ObjectStack* work_list = nullptr;
+
+      // If there is a already a queue, use it
+      if (work_list != nullptr)
+      {
+        work_list->push(this);
+        return;
+      }
+
+      // Make queue for recursive deallocations.
+      ObjectStack current(alloc);
+      work_list = &current;
+
+      // Collect the current cown
+      collect(alloc);
+      yield();
+      weak_release(alloc);
+
+      // Collect recursively reachable cowns
+      while (!current.empty())
+      {
+        auto a = (Cown*)current.pop();
+        a->collect(alloc);
+        yield();
+        a->weak_release(alloc);
+      }
+      work_list = nullptr;
     }
 
     void collect(Alloc* alloc)

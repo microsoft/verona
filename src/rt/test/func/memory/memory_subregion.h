@@ -316,6 +316,30 @@ namespace memory_subregion
     snmalloc::current_alloc_pool()->debug_check_empty();
   }
 
+  template<RegionType region_type>
+  void test_subregion_deep()
+  {
+    using F = F3<region_type>;
+
+    auto* alloc = ThreadAlloc::get();
+
+    // Create the first region, with some unreachable objects.
+    auto* r1 = new (alloc) F;
+    auto curr = r1;
+    std::cout << "Build long region chain." << std::endl;
+    for (size_t i = 0; i < 1 << 20; i++)
+    {
+      auto n = new (alloc) F;
+      curr->f1 = n;
+      curr = n;
+    }
+    std::cout << "Dealloc long region chain." << std::endl;
+
+    Region::release(alloc, r1);
+    snmalloc::current_alloc_pool()->debug_check_empty();
+    std::cout << "Dealloced long region chain." << std::endl;
+  }
+
   void run_test()
   {
     test_subregion_singleton<RegionType::Trace>();
@@ -328,6 +352,8 @@ namespace memory_subregion
 
     test_subregion_swap_root<RegionType::Trace>();
     test_subregion_swap_root<RegionType::Arena>();
+
+    test_subregion_deep<RegionType::Trace>();
 
     test_subregion_merge<RegionType::Trace>();
     test_subregion_merge<RegionType::Arena>();
