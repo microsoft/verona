@@ -8,6 +8,8 @@
 #include "mlir/IR/Module.h"
 #include "mlir/Pass/PassManager.h"
 
+#include "llvm/Support/SourceMgr.h"
+
 namespace mlir::verona
 {
   /**
@@ -51,5 +53,13 @@ namespace mlir::verona
     /// MLIR Pass Manager
     /// It gets configured by the constructor based on the provided arguments.
     mlir::PassManager passManager;
+
+    /// Source manager.
+    llvm::SourceMgr sourceManager;
+
+    /// Diagnostic handler that pretty-prints MLIR errors.
+    /// The handler registers itself with the MLIR context and gets invoked
+    /// automatically. We only need to keep it alive by storing it here.
+    SourceMgrDiagnosticHandler diagnosticHandler;
   };
 }
