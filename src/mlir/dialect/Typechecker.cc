@@ -1,3 +1,6 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
 #include "Typechecker.h"
 
 #include "TypecheckInterface.h"
@@ -37,7 +40,7 @@ namespace mlir::verona
     /// Whenever the Rule is applied to arbitrary Type values, the left-hand
     /// side and right-hand side Type are respectively dyncasted to `Left` and
     /// `Right`.
-    //
+    ///
     /// If either dyncast fails, the rule fails. Otherwise, the decision is
     /// delegated to the embedded callable object, passing it the dyncasted
     /// values.

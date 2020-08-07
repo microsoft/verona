@@ -1,3 +1,6 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
 include "mlir/IR/OpBase.td"
 
 def TypecheckInterface : OpInterface<"TypecheckInterface"> {
