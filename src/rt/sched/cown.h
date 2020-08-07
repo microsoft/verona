@@ -1164,7 +1164,7 @@ namespace verona::rt
       yield();
       weak_release(alloc);
 
-      // Collect recursively reachable cowns 
+      // Collect recursively reachable cowns
       while (!current.empty())
       {
         auto a = (Cown*)current.pop();

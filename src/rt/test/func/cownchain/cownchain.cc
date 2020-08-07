@@ -27,7 +27,7 @@ struct ChainCown : public VCown<ChainCown>
   static ChainCown* make_chain(Alloc* alloc, size_t length)
   {
     ChainCown* hd = nullptr;
-    for (; length > 0; length --)
+    for (; length > 0; length--)
     {
       auto next = new (alloc) LinkObject(hd);
       if (hd != nullptr)

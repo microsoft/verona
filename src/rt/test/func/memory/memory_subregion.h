@@ -340,7 +340,6 @@ namespace memory_subregion
     std::cout << "Dealloced long region chain." << std::endl;
   }
 
-
   void run_test()
   {
     test_subregion_singleton<RegionType::Trace>();
