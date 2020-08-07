@@ -19,7 +19,7 @@ namespace verona::rt
       size_t index;
       size_t count;
       Cown** cowns;
-      Behaviour* be;
+      Behaviour* behaviour;
     };
 
   private:
@@ -68,10 +68,10 @@ namespace verona::rt
     }
 
     static MultiMessageBody*
-    make_body(Alloc* alloc, size_t count, Cown** cowns, Behaviour* be)
+    make_body(Alloc* alloc, size_t count, Cown** cowns, Behaviour* behaviour)
     {
       return new (alloc->alloc<sizeof(MultiMessageBody)>())
-        MultiMessageBody{0, count, cowns, be};
+        MultiMessageBody{0, count, cowns, behaviour};
     }
 
     static MultiMessage*

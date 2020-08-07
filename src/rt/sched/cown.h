@@ -693,7 +693,7 @@ namespace verona::rt
 
           // Scan closure
           ObjectStack f(alloc);
-          body.be->trace(f);
+          body.behaviour->trace(f);
           scan_stack(alloc, Scheduler::local()->send_epoch, f);
         }
         else
@@ -706,13 +706,13 @@ namespace verona::rt
       Scheduler::local()->message_body = &body;
 
       // Run the behaviour.
-      body.be->f();
+      body.behaviour->f();
 
       Systematic::cout() << "MultiMessage " << m << " completed and running on "
                          << cown << std::endl;
 
       // Free the body and the behaviour.
-      alloc->dealloc(body.be, body.be->size());
+      alloc->dealloc(body.behaviour, body.behaviour->size());
       alloc->dealloc<sizeof(MultiMessage::MultiMessageBody)>(m->get_body());
 
       return true;
