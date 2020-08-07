@@ -82,7 +82,7 @@ MyCown* make_tree(int n, MyCown* p)
   return c;
 }
 
-struct Up : VAction<Up>
+struct Up : VBehaviour<Up>
 {
   MyCown* m;
   Up(MyCown* m) : m(m) {}
@@ -108,7 +108,7 @@ struct Up : VAction<Up>
   }
 };
 
-struct Down : VAction<Down>
+struct Down : VBehaviour<Down>
 {
   MyCown* m;
   Down(MyCown* m) : m(m) {}

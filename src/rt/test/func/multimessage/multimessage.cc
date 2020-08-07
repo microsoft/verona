@@ -20,7 +20,7 @@ void test_multimessage(size_t cores)
     }
   };
 
-  struct GotMsg : public VAction<GotMsg>
+  struct GotMsg : public VBehaviour<GotMsg>
   {
     Cown* a;
     GotMsg(Cown* a) : a(a) {}
@@ -31,7 +31,7 @@ void test_multimessage(size_t cores)
     }
   };
 
-  class AddTwo : public VAction<AddTwo>
+  class AddTwo : public VBehaviour<AddTwo>
   {
   private:
     CCown* a;

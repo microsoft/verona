@@ -260,7 +260,7 @@ struct RCown : public VCown<RCown<region_type>>
   }
 };
 
-struct Pong : public VAction<Pong>
+struct Pong : public VBehaviour<Pong>
 {
   CCown* ccown;
   Pong(CCown* ccown) : ccown(ccown) {}
@@ -280,7 +280,7 @@ struct Pong : public VAction<Pong>
 };
 
 template<RegionType region_type>
-struct Ping : public VAction<Ping<region_type>>
+struct Ping : public VBehaviour<Ping<region_type>>
 {
   using RegionClass = typename RegionType_to_class<region_type>::T;
 

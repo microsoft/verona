@@ -16,6 +16,19 @@
 
 namespace verona::rt
 {
+  /**
+   * There is typically one scheduler thread pinned to each physical CPU core.
+   * Each scheduler thread is responsible for running cowns in its queue and
+   * periodically stealing cowns from the queues of other scheduler threads.
+   * This periodic work stealing is done to fairly distribute work across the
+   * available scheduler threads. The period of work stealing for fairness is
+   * determined by a single token cown that will be dequeued once all cowns
+   * before it have been run. The removal of the token cown from the queue
+   * occurs at a rate inversely proportional to the amount of cowns pending work
+   * on that thread. A scheduler thread will enqueue a new token, if its
+   * previous one has been dequeued or stolen, once more work is scheduled on
+   * the scheduler thread.
+   */
   template<class T>
   class SchedulerThread
   {

@@ -52,7 +52,7 @@ struct MyCown : public VCown<MyCown>
  **/
 std::atomic<MyCown*> fake_noticeboard;
 
-struct Ping : public VAction<Ping>
+struct Ping : public VBehaviour<Ping>
 {
   Cown* c;
   Ping(Cown* c) : c(c) {}
@@ -75,7 +75,7 @@ void noise()
   }
 }
 
-struct WantLD : public VAction<WantLD>
+struct WantLD : public VBehaviour<WantLD>
 {
   Cown* c;
   WantLD(Cown* c) : c(c) {}
@@ -87,7 +87,7 @@ struct WantLD : public VAction<WantLD>
   }
 };
 
-struct M0 : public VAction<M0>
+struct M0 : public VBehaviour<M0>
 {
   Cown* c;
   M0(Cown* c) : c(c) {}
@@ -106,7 +106,7 @@ struct M0 : public VAction<M0>
   }
 };
 
-struct M2 : public VAction<M2>
+struct M2 : public VBehaviour<M2>
 {
   Cown* c;
   MyCown* keep_alive;
@@ -138,7 +138,7 @@ struct M2 : public VAction<M2>
   }
 };
 
-struct M1 : public VAction<M1>
+struct M1 : public VBehaviour<M1>
 {
   MyCown* m;
   M1(MyCown* m) : m(m) {}

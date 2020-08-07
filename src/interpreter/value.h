@@ -126,7 +126,7 @@ namespace verona::interpreter
     /**
      * Consume a COWN value, making it unowned. Ownership is released to the
      * caller.  But the cown is still intact.  This is used when ownership of a
-     * cown is passed to the runtime in a multimessage.
+     * cown is passed to the runtime in a multi-message.
      */
     void consume_cown();
 

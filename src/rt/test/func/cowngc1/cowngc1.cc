@@ -241,7 +241,7 @@ struct RCown : public VCown<RCown>
   }
 };
 
-struct Pong : public VAction<Pong>
+struct Pong : public VBehaviour<Pong>
 {
   CCown* ccown;
   Pong(CCown* ccown) : ccown(ccown) {}
@@ -260,7 +260,7 @@ struct Pong : public VAction<Pong>
   }
 };
 
-struct Ping : public VAction<Ping>
+struct Ping : public VBehaviour<Ping>
 {
   RCown* rcown;
   PRNG* rand;

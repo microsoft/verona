@@ -10,7 +10,7 @@ namespace noticeboard_basic
     int n = 10;
   };
 
-  struct Ping : public VAction<Ping>
+  struct Ping : public VBehaviour<Ping>
   {
     void* target;
 
@@ -93,7 +93,7 @@ namespace noticeboard_basic
     }
   };
 
-  struct UpdateDB : public VAction<UpdateDB>
+  struct UpdateDB : public VBehaviour<UpdateDB>
   {
     DB* db;
     UpdateDB(DB* db) : db(db) {}
@@ -119,7 +119,7 @@ namespace noticeboard_basic
     }
   };
 
-  struct ToPeek : public VAction<ToPeek>
+  struct ToPeek : public VBehaviour<ToPeek>
   {
     Peeker* peeker;
     ToPeek(Peeker* peeker) : peeker(peeker) {}

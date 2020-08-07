@@ -72,7 +72,7 @@ struct Monitor : public rt::VCown<Monitor>
   }
 };
 
-struct Ping : public rt::VAction<Ping>
+struct Ping : public rt::VBehaviour<Ping>
 {
   Pinger* pinger;
   std::array<Pinger*, 2> recipients;
@@ -123,7 +123,7 @@ static void start_timer(Monitor* monitor, std::chrono::milliseconds timeout)
   }).detach();
 }
 
-struct Start : public rt::VAction<Start>
+struct Start : public rt::VBehaviour<Start>
 {
   Monitor* monitor;
 
@@ -144,7 +144,7 @@ struct Start : public rt::VAction<Start>
   }
 };
 
-struct Stop : public rt::VAction<Stop>
+struct Stop : public rt::VBehaviour<Stop>
 {
   Monitor* monitor;
 
@@ -158,7 +158,7 @@ struct Stop : public rt::VAction<Stop>
   }
 };
 
-struct StopPinger : public rt::VAction<StopPinger>
+struct StopPinger : public rt::VBehaviour<StopPinger>
 {
   Pinger* pinger;
   Monitor* monitor;
@@ -174,7 +174,7 @@ struct StopPinger : public rt::VAction<StopPinger>
   }
 };
 
-struct NotifyStopped : public rt::VAction<NotifyStopped>
+struct NotifyStopped : public rt::VBehaviour<NotifyStopped>
 {
   Monitor* monitor;
 
@@ -194,7 +194,7 @@ struct NotifyStopped : public rt::VAction<NotifyStopped>
   }
 };
 
-struct Report : public rt::VAction<Report>
+struct Report : public rt::VBehaviour<Report>
 {
   Monitor* monitor;
 

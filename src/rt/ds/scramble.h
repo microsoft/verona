@@ -15,7 +15,7 @@ namespace verona
    * This class encapsulates a simple Feistel network to provide a permutation
    * function on pointer sized values, which is then used to compare the
    * pointers.  This is useful for testing different orders of cown acquisition
-   * inside a multimessage.
+   * inside a multi-message.
    *
    * The implementation is guaranteed to be a permutation as a Feisel network is
    * invertible.  This is not a crytpographic primitive, it is just a compact

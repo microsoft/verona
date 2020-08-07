@@ -109,7 +109,7 @@ namespace ext_ref_basic
     }
   };
 
-  struct AMsg : public VAction<AMsg>
+  struct AMsg : public VBehaviour<AMsg>
   {
     A* a;
     B* b;

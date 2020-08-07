@@ -77,19 +77,19 @@
  *
  * All messages from one set of sending cowns to a set of receiving cowns are
  * scanned to determine if the senders should be muted. The senders will be
- * muted once their action completes if all of the following are true:
+ * muted once their behaviour completes if all of the following are true:
  *   1. Any of the receivers are either overloaded or muted.
  *   2. The receiver set does not contain any of the senders.
  *   3. None of the senders are overloaded.
  *
  * If all of the above conditions are met, the first receiver that is either
  * overloaded or muted is identified as the mutor for the senders. First in this
- * case means the least cown, determined by the multimessage cown order. All
+ * case means the least cown, determined by the multi-message cown order. All
  * senders that are in the "normal" (therefore mutable) state will be muted.
  *
  * ## Tracking Muted Cowns
  *
- * Once a scheduler thread completes a message action that would result in
+ * Once a scheduler thread completes a message behaviour that would result in
  * muting the cowns running the messsage, the cowns are marked as muted,
  * acquired by the scheduler thread, and placed in a "mute map" on the scheduler
  * thread. The mute map is a mapping from mutor => mute set, where "mute set"

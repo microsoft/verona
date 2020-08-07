@@ -7,7 +7,7 @@
 struct MyCown : VCown<MyCown>
 {};
 
-struct Msg : VAction<Msg>
+struct Msg : VBehaviour<Msg>
 {
   MyCown* m;
   Msg(MyCown* m) : m(m) {}

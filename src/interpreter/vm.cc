@@ -531,7 +531,7 @@ namespace verona::interpreter
       // protect them here.
       cowns.push_back(v->cown);
       // Releases reference count to caller, so we can use it inside
-      // multimessage.
+      // multi-message.
       v.consume_cown();
       args.push_back(std::move(v));
     }

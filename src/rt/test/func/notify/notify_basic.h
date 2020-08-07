@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 namespace notify_basic
 {
-  struct Ping : public VAction<Ping>
+  struct Ping : public VBehaviour<Ping>
   {
     void f() {}
   };

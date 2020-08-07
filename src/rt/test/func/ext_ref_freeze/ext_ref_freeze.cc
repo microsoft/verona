@@ -25,7 +25,7 @@ struct C : public V<C>
   }
 };
 
-struct Ping : public VAction<Ping>
+struct Ping : public VBehaviour<Ping>
 {
   void f() {}
 };
@@ -58,7 +58,7 @@ struct A : public VCown<A>
 
 ExternalRef* g_ext_ref = nullptr;
 
-struct Loop : public VAction<Loop>
+struct Loop : public VBehaviour<Loop>
 {
   A* a;
   Loop(A* a) : a(a) {}

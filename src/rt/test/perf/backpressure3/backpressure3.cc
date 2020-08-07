@@ -4,7 +4,7 @@
 /**
  * This test involves many senders and a single receiver. Whenever the receiver
  * receives a message from the sender it will randomly select a sender with
- * which to run a multimessage. This is intended to test a scenario where a
+ * which to run a multi-message. This is intended to test a scenario where a
  * muted cowns are frequently required by an overloaded cown to make progress.
  *
  * A correct implementation of backpressure must ensure that the receivers make
@@ -41,7 +41,7 @@ struct Receiver : public VCown<Receiver>
   }
 };
 
-struct Receive : public VAction<Receive>
+struct Receive : public VBehaviour<Receive>
 {
   Receiver* r;
   Sender* s;
@@ -94,7 +94,7 @@ struct Sender : public VCown<Sender>
   }
 };
 
-struct Send : public VAction<Send>
+struct Send : public VBehaviour<Send>
 {
   Sender* s;
 
