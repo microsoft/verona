@@ -14,14 +14,14 @@ struct CCown : public VCown<CCown>
   }
 };
 
-struct Nop : public VAction<Nop>
+struct Nop : public VBehaviour<Nop>
 {
   Nop() {}
 
-  void f () {}
+  void f() {}
 };
 
-struct Mess : public VAction<Mess>
+struct Mess : public VBehaviour<Mess>
 {
   CCown* ccown;
   size_t timer;
@@ -44,19 +44,19 @@ struct Mess : public VAction<Mess>
     {
       Scheduler::want_ld();
     }
-    
+
     Systematic::cout() << "Self: " << timer << std::endl;
     Cown::schedule<Mess>(ccown, ccown, timer - 1);
   }
 };
 
-struct Go : public VAction<Go>
+struct Go : public VBehaviour<Go>
 {
   CCown* start;
 
   Go(CCown* start) : start(start) {}
 
-  void f ()
+  void f()
   {
     Cown::schedule<Mess>(start, start, (size_t)31);
     cown::release(ThreadAlloc::get(), start);
@@ -77,21 +77,21 @@ void test_cown_gc()
 
 /**
  * This is a test that captures the following interesting behaviour
- * 
+ *
  * There are three cowns L, M, S
  *  Main - Go(S) -> L  (1)
  *  Main - Nop -> M (2)
- *  
+ *
  *  L.Go(S)    -Mess(31)-> S    (after 1)
  *  S.Mess(31) -Mess(30)-> S
- *  S.Mess(30) WantLD Signalled 
- *  S.Mess(30) -Mess(29)-> S 
+ *  S.Mess(30) WantLD Signalled
+ *  S.Mess(30) -Mess(29)-> S
  *  ...
  *  S.Mess(0)  -Mess(0)->  M    (after 2)
  *  M.Mess(0)  -Mess(0)->  L
- *  
+ *
  * The aim of this test is for L to become descheduled at the same time as
- * S is signalling it wants the LD.  This triggers many awkward cases in the 
+ * S is signalling it wants the LD.  This triggers many awkward cases in the
  * Cown collection algorithm.
  */
 int main(int argc, char** argv)

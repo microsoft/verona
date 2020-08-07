@@ -8,7 +8,7 @@
  * A correct backpressure system should ensure that the receivers do not
  * experience runaway message queue growth with constantly changing
  * relationships between senders and receivers. All receivers must also maintain
- * high load signals despite constantly participating in multimessages with
+ * high load signals despite constantly participating in multi-messages with
  * different sets of cowns.
  */
 
@@ -28,7 +28,7 @@ struct Receiver : public VCown<Receiver>
   timer::time_point prev = timer::now();
 };
 
-struct Receive : public VAction<Receive>
+struct Receive : public VBehaviour<Receive>
 {
   Receiver** receivers;
   size_t receiver_count;
@@ -90,7 +90,7 @@ struct Sender : public VCown<Sender>
   }
 };
 
-struct Send : public VAction<Send>
+struct Send : public VBehaviour<Send>
 {
   Sender* s;
 

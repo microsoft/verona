@@ -34,7 +34,7 @@ struct Receiver : public VCown<Receiver>
   timer::time_point prev = timer::now();
 };
 
-struct Receive : public VAction<Receive>
+struct Receive : public VBehaviour<Receive>
 {
   void f()
   {
@@ -71,7 +71,7 @@ struct Proxy : public VCown<Proxy>
   }
 };
 
-struct Forward : public VAction<Forward>
+struct Forward : public VBehaviour<Forward>
 {
   Proxy* proxy;
 
@@ -112,7 +112,7 @@ struct Sender : public VCown<Sender>
   }
 };
 
-struct Send : public VAction<Send>
+struct Send : public VBehaviour<Send>
 {
   Sender* s;
 

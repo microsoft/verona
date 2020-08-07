@@ -13,7 +13,7 @@ namespace notify_coalesce
     }
   };
 
-  struct Ping : public VAction<Ping>
+  struct Ping : public VBehaviour<Ping>
   {
     void f()
     {
@@ -44,7 +44,7 @@ namespace notify_coalesce
     }
   };
 
-  struct Loop : public VAction<Loop>
+  struct Loop : public VBehaviour<Loop>
   {
     B* b;
     Loop(B* b) : b(b) {}

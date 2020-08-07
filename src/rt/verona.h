@@ -7,7 +7,7 @@
 #  define SNMALLOC_USE_THREAD_DESTRUCTOR 1
 #endif
 
-#include "cpp/vaction.h"
+#include "cpp/vbehaviour.h"
 #include "cpp/vobject.h"
 #include "object/object.h"
 #include "region/externalreference.h"

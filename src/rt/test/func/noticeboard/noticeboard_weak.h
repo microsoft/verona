@@ -31,7 +31,7 @@ namespace noticeboard_weak
     }
   };
 
-  struct WriterLoop : public VAction<WriterLoop>
+  struct WriterLoop : public VBehaviour<WriterLoop>
   {
     Writer* writer;
     WriterLoop(Writer* writer) : writer(writer) {}
@@ -64,7 +64,7 @@ namespace noticeboard_weak
   Reader* g_reader = nullptr;
   Writer* g_writer = nullptr;
 
-  struct ReaderLoop : public VAction<ReaderLoop>
+  struct ReaderLoop : public VBehaviour<ReaderLoop>
   {
     Reader* reader;
     ReaderLoop(Reader* reader) : reader(reader) {}

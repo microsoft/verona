@@ -17,7 +17,7 @@ struct Fork : public VCown<Fork>
   }
 };
 
-struct Ping : public VAction<Ping>
+struct Ping : public VBehaviour<Ping>
 {
   void f() {}
 };
@@ -29,7 +29,7 @@ struct Ping : public VAction<Ping>
  * will be reclaimable, once this message is delivered it will be
  * deallocated.
  **/
-struct KeepAlive : public VAction<KeepAlive>
+struct KeepAlive : public VBehaviour<KeepAlive>
 {
   Cown* c;
 
@@ -71,7 +71,7 @@ struct Philosopher : public VCown<Philosopher>
 
 void eat_send(Philosopher* p);
 
-struct Ponder : public VAction<Ponder>
+struct Ponder : public VBehaviour<Ponder>
 {
   Philosopher* p;
 
@@ -86,7 +86,7 @@ struct Ponder : public VAction<Ponder>
   }
 };
 
-struct Eat : public VAction<Eat>
+struct Eat : public VBehaviour<Eat>
 {
   Philosopher* eater;
 

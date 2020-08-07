@@ -257,7 +257,7 @@ namespace verona::interpreter
   /**
    * This represent the closure for all when clauses in the runtime
    */
-  class ExecuteMessage : public rt::VAction<ExecuteMessage>
+  class ExecuteMessage : public rt::VBehaviour<ExecuteMessage>
   {
     size_t start;
     std::vector<Value> args;

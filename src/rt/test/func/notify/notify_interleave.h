@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 namespace notify_interleave
 {
-  struct Ping : public VAction<Ping>
+  struct Ping : public VBehaviour<Ping>
   {
     void f() {}
   };
@@ -42,7 +42,7 @@ namespace notify_interleave
     }
   };
 
-  struct Loop : public VAction<Loop>
+  struct Loop : public VBehaviour<Loop>
   {
     B* b;
     Loop(B* b) : b(b) {}

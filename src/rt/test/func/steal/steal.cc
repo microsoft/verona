@@ -10,7 +10,7 @@ struct Runner : public VCown<Runner>
 
 void schedule_run(size_t decay);
 
-struct Run : public VAction<Run>
+struct Run : public VBehaviour<Run>
 {
   Runner* r;
   size_t decay;

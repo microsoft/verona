@@ -10,7 +10,7 @@ using namespace verona::rt;
 struct A : public VCown<A>
 {};
 
-struct M : public VAction<M>
+struct M : public VBehaviour<M>
 {
   Cown* a;
 

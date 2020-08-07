@@ -21,7 +21,7 @@ struct A : public VCown<A>
 int constexpr n_cowns = 6;
 double elapsed_secs[n_cowns];
 
-struct Loop : public VAction<Loop>
+struct Loop : public VBehaviour<Loop>
 {
   A* a;
   Loop(A* a) : a(a) {}
@@ -53,7 +53,7 @@ struct Loop : public VAction<Loop>
 struct B : public VCown<A>
 {};
 
-struct Spawn : public VAction<Spawn>
+struct Spawn : public VBehaviour<Spawn>
 {
   void f()
   {
