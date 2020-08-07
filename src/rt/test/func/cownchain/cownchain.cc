@@ -1,6 +1,6 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
 #include <test/harness.h>
 #include <test/xoroshiro.h>
 /**
