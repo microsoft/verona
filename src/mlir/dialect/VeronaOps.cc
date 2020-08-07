@@ -86,17 +86,17 @@ static LogicalResult verify(verona::AllocateObjectOp op)
 
 static LogicalResult verify(verona::ReturnOp op)
 {
-    auto fn = cast<FuncOp>(op.getParentOp());
+  auto fn = cast<FuncOp>(op.getParentOp());
 
-    // Only check that the number of operands matches the function signature.
-    // Actual typechecking of the operands is done in the `typecheck` pass.
-    const auto &results = fn.getType().getResults();
-    if (op.getNumOperands() != results.size())
-      return op.emitOpError("has ")
-        << op.getNumOperands() << " operands, but enclosing function (@"
-        << fn.getName() << ") returns " << results.size();
+  // Only check that the number of operands matches the function signature.
+  // Actual typechecking of the operands is done in the `typecheck` pass.
+  const auto& results = fn.getType().getResults();
+  if (op.getNumOperands() != results.size())
+    return op.emitOpError("has ")
+      << op.getNumOperands() << " operands, but enclosing function (@"
+      << fn.getName() << ") returns " << results.size();
 
-    return success();
+  return success();
 }
 
 static LogicalResult verify(verona::ClassOp classOp)
@@ -141,7 +141,7 @@ namespace mlir::verona
 
     // The verifier already checks that the number of operands matches the
     // function signature. We only need to check types.
-    for (auto [operand, type]: llvm::zip(operands(), results))
+    for (auto [operand, type] : llvm::zip(operands(), results))
     {
       if (failed(checkSubtype(getLoc(), operand.getType(), type)))
         return failure();
