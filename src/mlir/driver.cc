@@ -16,7 +16,8 @@
 
 namespace mlir::verona
 {
-  Driver::Driver(unsigned optLevel) : passManager(&context)
+  Driver::Driver(unsigned optLevel)
+  : passManager(&context), diagnosticHandler(sourceManager, &context)
   {
     // Opaque operations and types can only exist if we allow
     // unregistered dialects to co-exist. Full conversions later will
@@ -65,11 +66,10 @@ namespace mlir::verona
       return runtimeError(
         "Cannot open file " + filename + ": " + err.message());
 
-    // Setup source manager and parse the input.
+    // Add the input to the source manager and parse it.
     // `parseSourceFile` already includes verification of the IR.
-    llvm::SourceMgr sourceMgr;
-    sourceMgr.AddNewSourceBuffer(std::move(*srcOrErr), llvm::SMLoc());
-    module = mlir::parseSourceFile(sourceMgr, &context);
+    sourceManager.AddNewSourceBuffer(std::move(*srcOrErr), llvm::SMLoc());
+    module = mlir::parseSourceFile(sourceManager, &context);
     if (!module)
       return runtimeError("Can't load MLIR file");
 
