@@ -32,4 +32,9 @@ module {
     // Bottom (ie. an empty join) is a subtype of anything.
     verona.return %a: !verona.bottom
   }
+
+  func @test3(%a: !verona.meet<U64, imm>) -> (!verona.U64, !verona.imm) {
+    // Return supports multiple operands, which are subtyped individually
+    verona.return %a, %a : !verona.meet<U64, imm>, !verona.meet<U64, imm>
+  }
 }

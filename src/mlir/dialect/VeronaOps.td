@@ -216,10 +216,10 @@ def Verona_ReturnOp : Verona_Op<"return", [
       }
     ```
   }];
-  let arguments = (ins Verona_Type:$input);
 
-  let assemblyFormat = "attr-dict $input `:` type($input)";
-  let verifier = [{ return success(); }];
+  let arguments = (ins Variadic<AnyType>:$operands);
+
+  let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
 }
 
 def Verona_ClassOp : Verona_Op<"class", [

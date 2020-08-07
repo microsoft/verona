@@ -13,4 +13,7 @@ module {
   func @test2(%arg0: !verona.bottom) -> !verona.U64 {
     verona.return %arg0 : !verona.bottom
   }
+  func @test3(%arg0: !verona.meet<U64, imm>) -> (!verona.U64, !verona.imm) {
+    verona.return %arg0, %arg0 : !verona.meet<U64, imm>, !verona.meet<U64, imm>
+  }
 }
