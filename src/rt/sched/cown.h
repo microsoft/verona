@@ -1146,18 +1146,18 @@ namespace verona::rt
      **/
     void queue_collect(Alloc* alloc)
     {
-      thread_local ObjectStack* queue = nullptr;
+      thread_local ObjectStack* work_list = nullptr;
 
       // If there is a already a queue, use it
-      if (queue != nullptr)
+      if (work_list != nullptr)
       {
-        queue->push(this);
+        work_list->push(this);
         return;
       }
 
       // Make queue for recursive deallocations.
       ObjectStack current(alloc);
-      queue = &current;
+      work_list = &current;
 
       // Collect the current cown
       collect(alloc);
@@ -1172,7 +1172,7 @@ namespace verona::rt
         yield();
         a->weak_release(alloc);
       }
-      queue = nullptr;
+      work_list = nullptr;
     }
 
     void collect(Alloc* alloc)
