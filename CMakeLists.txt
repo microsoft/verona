@@ -49,6 +49,10 @@ option(VERONA_CI_BUILD "Disable features not sensible for CI" OFF)
 option(USE_SYSTEMATIC_TESTING "Enable systematic testing in the runtime" OFF)
 option(VERONA_EXPENSIVE_SYSTEMATIC_TESTING "Increase the range of seeds covered by systematic testing" OFF)
 option(USE_CRASH_LOGGING "Enable crash logging in the runtime" OFF)
+if (NOT MSVC)
+  option(CMAKE_EXPORT_COMPILE_COMMANDS "Export compilation commands" ON)
+endif ()
+
 
 # This is to trick the CMake into building LLVM before Verona.
 # We use two External Projects, so that the LLVM build can complete and install
@@ -109,12 +113,6 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
   list (APPEND VERONA_EXTRA_CMAKE_ARGS
     -DVERONA_LLVM_LOCATION=${MLIR_INSTALL}/install
   )
-
-  if (NOT MSVC)
-    list (APPEND VERONA_EXTRA_CMAKE_ARGS
-      -DCMAKE_EXPORT_COMPILE_COMMANDS=1
-    )
-  endif ()
 
   # Define project level defaults
   list (APPEND VERONA_EXTRA_CMAKE_ARGS
