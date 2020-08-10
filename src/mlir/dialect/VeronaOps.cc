@@ -138,25 +138,29 @@ static LogicalResult verify(verona::WhileOp whileOp)
 {
   auto& body = whileOp.body();
 
-  // While blocks must have a condition on the first block
-  // with a LoopExit operation.
+  // While blocks must have a condition exit with a LoopExit operation.
   bool hasExit = false;
-  for (Operation& op : body.getBlocks().front())
+  for (Block& b : body.getBlocks())
   {
-    if (verona::LoopExitOp exit_op = dyn_cast<verona::LoopExitOp>(op))
+    // Until we find a loop_exit, keep searching
+    if (!hasExit)
     {
-      hasExit = true;
-      break;
+      for (Operation& op : b)
+      {
+        if (verona::LoopExitOp exit_op = dyn_cast<verona::LoopExitOp>(op))
+        {
+          hasExit = true;
+          break;
+        }
+      }
     }
+    // All blocks must terminate
+    if (!b.back().isKnownTerminator())
+      return failure();
   }
 
-  // And the terminator of the last block must be a continue.
-  bool hasCont =
-    isa<verona::ContinueOp>(body.getBlocks().back().getTerminator());
-
-  if (hasExit && hasCont)
+  if (hasExit)
     return success();
-
   return failure();
 }
 

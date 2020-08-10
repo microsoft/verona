@@ -269,9 +269,6 @@ def Verona_BreakOp : Verona_Op<"break", [Terminator, InLoopScope]> {
 def Verona_LoopExitOp : Verona_Op<"loop_exit", [InLoopScope]> {
     let summary = "breaks any loop block if condition is `false`";
 
-    let builders = [
-      OpBuilder<"OpBuilder &builder, OperationState &state, bool cond">
-    ];
     let arguments = (ins BooleanType:$cond);
     let results = (outs);
     let assemblyFormat = [{ $cond `:` type($cond) attr-dict }];
@@ -289,7 +286,7 @@ def Verona_LoopReturnOp : Verona_Op<"loop_return", [Terminator, InLoopScope]> {
     let verifier = [{ return success(); }];
 }
 
-def Verona_WhileOp : Verona_Op<"while"> {
+def Verona_WhileOp : Verona_Op<"while", [NoRegionArguments]> {
     let summary = "any loop operation (while, for) without known range";
     let description = [{
       Verona while loops don't have any range information and are solely based on
