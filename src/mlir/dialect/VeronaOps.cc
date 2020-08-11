@@ -139,27 +139,22 @@ static LogicalResult verify(verona::WhileOp whileOp)
   auto& body = whileOp.body();
 
   // While blocks must have a condition exit with a LoopExit operation.
-  bool hasExit = false;
+  unsigned numExits = 0;
   for (Block& b : body.getBlocks())
   {
     // Until we find a loop_exit, keep searching
-    if (!hasExit)
+    for (Operation& op : b)
     {
-      for (Operation& op : b)
+      if (verona::LoopExitOp exit_op = dyn_cast<verona::LoopExitOp>(op))
       {
-        if (verona::LoopExitOp exit_op = dyn_cast<verona::LoopExitOp>(op))
-        {
-          hasExit = true;
-          break;
-        }
+        numExits++;
+        break;
       }
     }
-    // All blocks must terminate
-    if (!b.back().isKnownTerminator())
-      return failure();
   }
 
-  if (hasExit)
+  // Can only have one loop_exit
+  if (numExits == 1)
     return success();
   return failure();
 }
