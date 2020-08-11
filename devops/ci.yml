@@ -225,7 +225,7 @@ jobs:
 
   - script: |
       set -eo pipefail
-      files=`git ls-files -- '*.cpp' '*.cc' '*.h' '*.hh' '*.verona'| xargs`
+      files=`git ls-files -- '*.cpp' '*.cc' '*.h' '*.hh' '*.verona' '*.td' | xargs`
       grep -L "Copyright Microsoft and Project Verona Contributors."  $files | tee header_missing
       [ ! -s header_missing ]
       grep -L "SPDX-License-Identifier: MIT" $files | tee header_missing

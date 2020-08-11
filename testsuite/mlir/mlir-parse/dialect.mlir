@@ -19,8 +19,6 @@
 //
 //     tidy(a);
 //     drop(a);
-//
-//     return new C;
 // }
 // ```
 
@@ -33,7 +31,7 @@ module {
     verona.field "g" : !verona.S32
   }
 
-  func @bar() -> !verona.U64 {
+  func @bar() {
     %a = verona.new_region @C [ ] : !verona.U64
     %b = verona.view %a : !verona.U64 -> !verona.U64
 
@@ -47,7 +45,6 @@ module {
     verona.tidy %a : !verona.U64
     verona.drop %a : !verona.U64
 
-    %f = verona.new_region @C [ ] : !verona.U64
-    return %f : !verona.U64
+    return
   }
 }

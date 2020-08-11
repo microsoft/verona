@@ -5,9 +5,12 @@
 #define VERONA_OPS
 
 include "VeronaDialect.td"
+include "TypecheckInterface.td"
 include "mlir/IR/SymbolInterfaces.td"
+include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
 
-def Verona_CopyOp : Verona_Op<"copy"> {
+def Verona_CopyOp : Verona_Op<"copy", [ Typecheckable ]> {
     let summary = "Copy a reference";
     let description = [{
       Make a copy of the given reference.
@@ -239,7 +242,7 @@ def Verona_FieldOp : Verona_Op<"field", [InClassScope]> {
       This operation is used inside class bodies to define new fields.
     }];
 
-    let arguments = (ins StrAttr : $name, TypeAttr : $type);
+    let arguments = (ins StrAttr : $name, Verona_TypeAttr : $type);
     let assemblyFormat = [{ $name `:` $type attr-dict }];
     let verifier = [{ return success(); }];
 }

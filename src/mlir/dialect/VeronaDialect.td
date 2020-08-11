@@ -27,10 +27,18 @@ class Verona_Op<string mnemonic, list<OpTrait> traits = []> :
     let verifier = [{ return ::verify(*this); }];
 }
 
-def Verona_IntegerType : DialectType<Verona_Dialect,
-    CPred<"$_self.isa<::mlir::verona::IntegerType>()">, "integer type">,
-    BuildableType<"$_builder.getType<::mlir::verona::IntegerType>()">;
+def Verona_Type : DialectType<Verona_Dialect,
+    CPred<"isaVeronaType($_self)">, "Verona type">;
 
-def Verona_Type : AnyTypeOf<[Verona_IntegerType]>;
+def Verona_TypeAttr :
+    Attr<And<
+      [CPred<"$_self.isa<TypeAttr>()">,
+       CPred<"isaVeronaType($_self.cast<TypeAttr>().getValue())">]>>
+{
+  let storageType = [{ TypeAttr }];
+  let returnType = [{ Type }];
+  let valueType = NoneType;
+  let convertFromStorage = "$_self.getValue().cast<Type>()";
+}
 
 #endif // VERONA_DIALECT

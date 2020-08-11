@@ -3,6 +3,7 @@
 
 #include "VeronaOps.h"
 
+#include "Typechecker.h"
 #include "VeronaDialect.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/OpImplementation.h"
@@ -54,8 +55,8 @@ template<typename Op>
 static LogicalResult verifyAllocationOp(Op op)
 {
   auto className = op.class_name();
-  auto classOp = SymbolTable::lookupNearestSymbolFrom<verona::ClassOp>(
-    op.getParentOp(), className);
+  auto classOp =
+    SymbolTable::lookupNearestSymbolFrom<verona::ClassOp>(op, className);
   if (!classOp)
   {
     return op.emitOpError("class '")
@@ -113,6 +114,11 @@ static LogicalResult verify(verona::ClassOp classOp)
 
 namespace mlir::verona
 {
+  LogicalResult CopyOp::typecheck()
+  {
+    return checkSubtype(getLoc(), input().getType(), output().getType());
+  }
+
 #define GET_OP_CLASSES
 #include "dialect/VeronaOps.cpp.inc"
 
