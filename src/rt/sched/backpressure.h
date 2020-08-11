@@ -66,7 +66,7 @@
  * State Properties:
  * - Normal: The inital state of all cowns.
  * - Muted: A muted cown may not be scheduled or deallocated.
- * - Unmutable: An nnmutable cown may not be muted.
+ * - Unmutable: An unmutable cown may not be muted.
  *
  * State Transition Rules:
  * - Cowns sending to overload/muted cowns may be muted.
@@ -166,7 +166,7 @@ namespace verona::rt
      */
     uint32_t _has_token : 1;
     /**
-     * Indicates if a cown is currently muted (1), unmutable (2), or
+     * Indicates if a cown is currently normal (0), muted (1), unmutable (2), or
      * unmutable-dirty (3).
      */
     uint32_t _response_state : 2;

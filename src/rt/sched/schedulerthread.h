@@ -253,6 +253,7 @@ namespace verona::rt
           continue;
         }
         Systematic::cout() << "Mute " << cown << std::endl;
+        assert(!bp.unmutable());
       }
 
       alloc->dealloc(cowns, count * sizeof(T*));
