@@ -541,6 +541,8 @@ namespace verona::rt
       assert(body->index < count);
       size_t last = count - 1;
 
+      backpressure_ensure_progress(body);
+
       for (; body->index < count; body->index++)
       {
         MultiMessage* m = MultiMessage::make_message(alloc, body, epoch);
@@ -845,28 +847,6 @@ namespace verona::rt
     static inline void
     backpressure_scan(const MessageBody& senders, const MessageBody& receivers)
     {
-      // Make receivers unmutable if any sender is overloaded.
-      for (size_t s = 0; s < senders.count; s++)
-      {
-        auto* sender = senders.cowns[s];
-        if (
-          !sender->backpressure.load(std::memory_order_relaxed).overloaded()
-#ifdef USE_SYSTEMATIC_TESTING
-          && !Systematic::coin(3)
-#endif
-        )
-          continue;
-
-        yield();
-
-        for (size_t r = 0; r < receivers.count; r++)
-        {
-          auto* receiver = receivers.cowns[r];
-          receiver->unmute(true);
-        }
-        return;
-      }
-
       if (Scheduler::local()->mutor != nullptr)
         return;
 
@@ -898,6 +878,31 @@ namespace verona::rt
           receiver->weak_acquire();
           return;
         }
+      }
+    }
+
+    /**
+     * Ensures that any muted recipients will become unmutable if any of the
+     * message cowns are overloaded.
+     */
+    static inline void backpressure_ensure_progress(MessageBody* body)
+    {
+      bool requires_unmute = std::any_of(
+        &body->cowns[0], &body->cowns[body->count], [](const auto* c) {
+          return c->backpressure.load(std::memory_order_acquire).overloaded();
+        });
+      yield();
+      if (
+        !requires_unmute
+#ifdef USE_SYSTEMATIC_TESTING
+        && !Systematic::coin(3)
+#endif
+      )
+        return;
+
+      for (size_t i = body->index; i < body->count; i++)
+      {
+        body->cowns[i]->unmute(true);
       }
     }
 
