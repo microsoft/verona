@@ -5,3 +5,4 @@ CMakeFiles/
 **/dump/*
 /src/rt/build*/
 /Testing/
+compile_commands.json
