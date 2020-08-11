@@ -186,42 +186,6 @@ def Verona_AllocateObjectOp : Verona_Op<"new_object"> {
     }];
 }
 
-def Verona_ReturnOp : Verona_Op<"return", [
-  NoSideEffect, HasParent<"FuncOp">, ReturnLike,
-  Terminator, Typecheckable
-]> {
-  let summary = "Return from the current function";
-  let description = [{
-    The `verona.return` terminates execution of the current function, returning
-    a value to its caller.
-  
-    This operation is very similar to the standard dialect's `return` operation,
-    but it allows subsumption: the return value need only be of a subtype of the
-    function's return type.
-
-    For example, here the function expects a return value of type
-    `join<U64, S64>`. The two occurences of `verona.return` use values of types
-    `U64` and `S64` instead, both of which are subtypes of the expected return
-    type.
-
-    ```mlir
-      func @foo() : !verona.join<U64, S64> {
-       ^bb1:
-        ...
-        verona.return %a : U64
-
-       ^bb2:
-        ...
-        verona.return %b : S64
-      }
-    ```
-  }];
-
-  let arguments = (ins Variadic<AnyType>:$operands);
-
-  let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
-}
-
 def Verona_ClassOp : Verona_Op<"class", [
   Symbol, IsolatedFromAbove, SymbolTable,
   SingleBlockImplicitTerminator<"ClassEndOp">,

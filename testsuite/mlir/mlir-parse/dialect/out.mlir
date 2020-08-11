@@ -16,6 +16,6 @@ module {
     %5 = verona.field_read %2["g"] : !verona.S64 -> !verona.S32
     verona.tidy %0 : !verona.U64
     verona.drop %0 : !verona.U64
-    verona.return
+    return
   }
 }

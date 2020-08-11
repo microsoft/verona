@@ -84,21 +84,6 @@ static LogicalResult verify(verona::AllocateObjectOp op)
   return verifyAllocationOp(op);
 }
 
-static LogicalResult verify(verona::ReturnOp op)
-{
-  auto fn = cast<FuncOp>(op.getParentOp());
-
-  // Only check that the number of operands matches the function signature.
-  // Actual typechecking of the operands is done in the `typecheck` pass.
-  const auto& results = fn.getType().getResults();
-  if (op.getNumOperands() != results.size())
-    return op.emitOpError("has ")
-      << op.getNumOperands() << " operands, but enclosing function (@"
-      << fn.getName() << ") returns " << results.size();
-
-  return success();
-}
-
 static LogicalResult verify(verona::ClassOp classOp)
 {
   Block* body = classOp.getBody();
@@ -132,22 +117,6 @@ namespace mlir::verona
   LogicalResult CopyOp::typecheck()
   {
     return checkSubtype(getLoc(), input().getType(), output().getType());
-  }
-
-  LogicalResult ReturnOp::typecheck()
-  {
-    auto fn = cast<FuncOp>(getParentOp());
-    const auto& results = fn.getType().getResults();
-
-    // The verifier already checks that the number of operands matches the
-    // function signature. We only need to check types.
-    for (auto [operand, type] : llvm::zip(operands(), results))
-    {
-      if (failed(checkSubtype(getLoc(), operand.getType(), type)))
-        return failure();
-    }
-
-    return success();
   }
 
 #define GET_OP_CLASSES

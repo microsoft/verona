@@ -45,6 +45,6 @@ module {
     verona.tidy %a : !verona.U64
     verona.drop %a : !verona.U64
 
-    verona.return
+    return
   }
 }

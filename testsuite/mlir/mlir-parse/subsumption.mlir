@@ -5,7 +5,7 @@
 // For instance, we can copy a value from type A & B to a value of type A.
 
 module {
-  func @test1(%a: !verona.meet<U64, imm>) -> !verona.imm {
+  func @test1(%a: !verona.meet<U64, imm>) {
     // We can drop components of an intersection.
     %b = verona.copy %a : !verona.meet<U64, imm> -> !verona.U64
 
@@ -24,17 +24,13 @@ module {
     // Join and meet can nest
     %g = verona.copy %a : !verona.meet<U64, imm> -> !verona.join<meet<U64, imm>, S64>
 
-    // Return also supports subsumption: the function's return value is imm.
-    verona.return %a : !verona.meet<U64, imm>
+    return
   }
 
-  func @test2(%a: !verona.bottom) -> !verona.U64 {
+  func @test2(%a: !verona.bottom) {
     // Bottom (ie. an empty join) is a subtype of anything.
-    verona.return %a: !verona.bottom
-  }
+    %b = verona.copy %a: !verona.bottom -> !verona.U64
 
-  func @test3(%a: !verona.meet<U64, imm>) -> (!verona.U64, !verona.imm) {
-    // Return supports multiple operands, which are subtyped individually
-    verona.return %a, %a : !verona.meet<U64, imm>, !verona.meet<U64, imm>
+    return
   }
 }
