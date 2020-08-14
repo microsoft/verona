@@ -426,9 +426,40 @@ namespace mlir::verona
     auto expr = parseNode(getSingleSubNode(ast).lock());
     if (auto err = expr.takeError())
       return std::move(err);
+
+    // Check which type of region we're in
     auto region = builder.getInsertionBlock()->getParent();
+    mlir::Type retTy;
     auto op = region->getParentOp();
-    if (isa<mlir::verona::WhileOp>(op))
+    bool isInLoop = isa<mlir::verona::WhileOp>(op);
+
+    // Get the function return type (for casts)
+    while (!isa<mlir::FuncOp>(op))
+    {
+      op = op->getParentRegion()->getParentOp();
+    }
+    if (auto func = dyn_cast<mlir::FuncOp>(op))
+    {
+      retTy = func.getType().getResult(0);
+    }
+    else
+    {
+      return parsingError(
+        "Return operation without parent function", getLocation(ast));
+    }
+
+    // Emit the cast if necessary
+    if (expr->hasValue() && expr->get().getType() != retTy)
+    {
+      // Cast type (we trust the ast)
+      expr =
+        genOperation(expr->get().getLoc(), "verona.cast", {expr->get()}, retTy);
+      if (auto err = expr.takeError())
+        return std::move(err);
+    }
+
+    // Emit the right return instruction
+    if (isInLoop)
     {
       builder.create<mlir::verona::LoopReturnOp>(
         getLocation(ast), expr->getAll());
