@@ -11,7 +11,7 @@ foo(a: N, b: U64 & imm): R
   {
     return foo(x, y);
   }
-  x + y;
+  return x + y;
 }
 
 ()
