@@ -170,4 +170,36 @@ namespace mlir::verona
 
     return success();
   }
+
+  LogicalResult CopyOp::typecheck()
+  {
+    return checkSubtype(getOperation(), input().getType(), output().getType());
+  }
+
+  LogicalResult FieldReadOp::typecheck()
+  {
+    // TODO: Apply viewpoint adaptation
+    auto originType = origin().getType();
+    auto fieldType = getFieldType();
+
+    if (!fieldType)
+      return emitError("Cannot find field '")
+        << field() << "' in type " << originType;
+
+    return checkSubtype(getOperation(), fieldType, output().getType());
+  }
+
+  LogicalResult FieldWriteOp::typecheck()
+  {
+    auto [readType, writeType] = getFieldType();
+
+    assert((readType == nullptr) == (writeType == nullptr));
+    if (!readType)
+      return emitError("Cannot find field '")
+        << field() << "' in type " << origin().getType();
+
+    if (failed(checkSubtype(getOperation(), value().getType(), writeType)))
+      return failure();
+    return checkSubtype(getOperation(), readType, output().getType());
+  }
 }

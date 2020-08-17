@@ -5,6 +5,7 @@
 
 #include "Typechecker.h"
 #include "VeronaDialect.h"
+#include "VeronaTypes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/StandardTypes.h"
@@ -114,9 +115,14 @@ static LogicalResult verify(verona::ClassOp classOp)
 
 namespace mlir::verona
 {
-  LogicalResult CopyOp::typecheck()
+  Type FieldReadOp::getFieldType()
   {
-    return checkSubtype(getOperation(), input().getType(), output().getType());
+    return lookupFieldType(origin().getType(), field()).first;
+  }
+
+  std::pair<Type, Type> FieldWriteOp::getFieldType()
+  {
+    return lookupFieldType(origin().getType(), field());
   }
 
 #define GET_OP_CLASSES

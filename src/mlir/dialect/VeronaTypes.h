@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "VeronaOps.h"
 #include "mlir/IR/Dialect.h"
 
 namespace mlir::verona
@@ -23,6 +24,16 @@ namespace mlir::verona
   /// TODO: normalizing types is a potentially expensive operation, so we should
   /// try to cache the results.
   Type normalizeType(Type type);
+
+  /// Look up the type of a field in an `origin` type.
+  ///
+  /// The function returns a pair of types, used respectively to read and write
+  /// to the field. For example, given classes C and D with fields of type T
+  /// and U, reading the field from `C | D` yields a `T | U`, whereas a value of
+  /// type `T & U` must be written to it.
+  ///
+  /// Both types will be null if the field cannot be found in the origin.
+  std::pair<Type, Type> lookupFieldType(Type origin, StringRef name);
 
   namespace detail
   {

@@ -3,6 +3,7 @@
 
 #include "dialect/VeronaTypes.h"
 
+#include "dialect/VeronaOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/StandardTypes.h"
@@ -475,9 +476,7 @@ namespace mlir::verona
             break;
         }
       })
-      .Case<ClassType>([&](ClassType type) {
-        printClassType(type, os);
-      });
+      .Case<ClassType>([&](ClassType type) { printClassType(type, os); });
   }
 
   bool isaVeronaType(Type type)
@@ -605,5 +604,77 @@ namespace mlir::verona
         return normalizeMeet(ctx, type.cast<MeetType>().getElements());
       })
       .Default([&](Type type) { return type; });
+  }
+
+  /// Look up a field's type from a meet type.
+  ///
+  /// The field must be present in at least one element of the meet.
+  static std::pair<Type, Type>
+  lookupMeetFieldType(MeetType meetType, StringRef name)
+  {
+    MLIRContext* ctx = meetType.getContext();
+
+    bool found;
+    SmallVector<Type, 4> readElements;
+    SmallVector<Type, 4> writeElements;
+
+    for (Type origin : meetType.getElements())
+    {
+      auto [readType, writeType] = lookupFieldType(origin, name);
+      assert((readType == nullptr) == (writeType == nullptr));
+
+      if (readType != nullptr)
+      {
+        readElements.push_back(readType);
+        writeElements.push_back(writeType);
+        found = true;
+      }
+    }
+
+    if (found)
+      return {MeetType::get(ctx, readElements),
+              JoinType::get(ctx, writeElements)};
+    else
+      return {nullptr, nullptr};
+  }
+
+  /// Look up a field's type from a join type.
+  ///
+  /// The field must be present in all the elements of the meet. This extends to
+  /// empty joins: looking up a field will always succeed.
+  static std::pair<Type, Type>
+  lookupJoinFieldType(JoinType joinType, StringRef name)
+  {
+    MLIRContext* ctx = joinType.getContext();
+    SmallVector<Type, 4> readElements;
+    SmallVector<Type, 4> writeElements;
+
+    for (Type origin : joinType.getElements())
+    {
+      auto [readType, writeType] = lookupFieldType(origin, name);
+      assert((readType == nullptr) == (writeType == nullptr));
+
+      if (readType == nullptr)
+        return {nullptr, nullptr};
+    }
+
+    return {JoinType::get(ctx, readElements),
+            MeetType::get(ctx, writeElements)};
+  }
+
+  std::pair<Type, Type> lookupFieldType(Type origin, StringRef name)
+  {
+    return TypeSwitch<Type, std::pair<Type, Type>>(origin)
+      .Case<MeetType>(
+        [&](MeetType origin) { return lookupMeetFieldType(origin, name); })
+      .Case<JoinType>(
+        [&](JoinType origin) { return lookupJoinFieldType(origin, name); })
+      .Case<ClassType>([&](ClassType origin) -> std::pair<Type, Type> {
+        Type field = origin.getFieldType(name);
+        return {field, field};
+      })
+      .Default([](Type origin) -> std::pair<Type, Type> {
+        return {nullptr, nullptr};
+      });
   }
 }
