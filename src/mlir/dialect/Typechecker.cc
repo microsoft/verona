@@ -141,23 +141,31 @@ namespace mlir::verona
 
   bool isSubtype(Type lhs, Type rhs)
   {
-    // TODO: Applying the syntax-directed rules enumerated above is not enough
-    // to recognize certain relationships, such as distributivity:
-    //
-    // (A & (B | C)) <: (A & B) | (A & C)
-    //
-    // For this to work, we would need to apply normalization to the types
-    // first.
     assert(isaVeronaType(lhs));
     assert(isaVeronaType(rhs));
+
     return RULES(lhs, rhs);
   }
 
-  LogicalResult checkSubtype(Location loc, Type lhs, Type rhs)
+  LogicalResult checkSubtype(Operation* op, Type lhs, Type rhs)
   {
-    if (!isSubtype(lhs, rhs))
+    assert(isaVeronaType(lhs));
+    assert(isaVeronaType(rhs));
+
+    Type normalizedLeft = normalizeType(lhs);
+    Type normalizedRight = normalizeType(rhs);
+    if (!isSubtype(normalizedLeft, normalizedRight))
     {
-      return emitError(loc) << lhs << " is not a subtype of " << rhs;
+      InFlightDiagnostic diag = op->emitError()
+        << lhs << " is not a subtype of " << rhs;
+
+      // If we did some normalization, attach a note with the normalized type to
+      // make debugging easier.
+      if (lhs != normalizedLeft || rhs != normalizedRight)
+        diag.attachNote() << "using normalized types " << normalizedLeft
+                          << " and " << normalizedRight;
+
+      return failure();
     }
 
     return success();

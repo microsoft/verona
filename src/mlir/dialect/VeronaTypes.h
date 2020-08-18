@@ -16,6 +16,14 @@ namespace mlir::verona
   /// dialect.
   bool areVeronaTypes(llvm::ArrayRef<Type> types);
 
+  /// Normalize a type by distributing unions and intersections, putting the
+  /// type in disjunctive normal form. This is a necessary step in order for
+  /// subtyping to recognise certain relations.
+  ///
+  /// TODO: normalizing types is a potentially expensive operation, so we should
+  /// try to cache the results.
+  Type normalizeType(Type type);
+
   namespace detail
   {
     struct MeetTypeStorage;

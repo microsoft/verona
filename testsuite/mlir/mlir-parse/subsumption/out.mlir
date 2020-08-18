@@ -14,4 +14,8 @@ module {
     %0 = verona.copy %arg0 : !verona.bottom -> !verona.U64
     return
   }
+  func @test_distributivity(%arg0: !verona.meet<U64, join<iso, mut>>) {
+    %0 = verona.copy %arg0 : !verona.meet<U64, join<iso, mut>> -> !verona.join<meet<U64, iso>, meet<U64, mut>>
+    return
+  }
 }
