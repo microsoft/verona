@@ -6,6 +6,7 @@
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/OpImplementation.h"
 
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 namespace mlir::verona::detail
@@ -25,17 +26,25 @@ namespace mlir::verona::detail
 
     void printClassType(ClassType type)
     {
-      // TODO: Support printing recursive types. If we're already in the process
-      // of printing a class' body and reach the same class again, we should
-      // skip its body. See the LLVM dialect's implementation of struct types
-      // for an example.
       os << "class<\"" << type.getName() << "\"";
+
+      if (!class_stack.insert(type.getName()))
+      {
+        // If the class is already in the stack, then we're already in the
+        // process of printing that class. We should skip the body to avoid
+        // infinite recursion.
+        os << ">";
+        return;
+      }
+
       for (auto [field_name, field_type] : type.getFields())
       {
         os << ", \"" << field_name << "\" : ";
         printVeronaType(field_type);
       }
       os << ">";
+
+      class_stack.pop_back();
     }
 
     void printVeronaType(Type type)
@@ -99,6 +108,7 @@ namespace mlir::verona::detail
 
   private:
     llvm::raw_ostream& os;
+    llvm::SetVector<StringRef> class_stack;
   };
 
   class TypeParser
@@ -199,10 +209,21 @@ namespace mlir::verona::detail
       if (parser.parseLess() || parseString(&name))
         return Type();
 
-      // TODO: Support parsing recursive types by constructing an uninitialized
-      // ClassType first and filling it up later. This would require passing
-      // around the set of "pending" classes around.
-      // See the LLVM dialect's implementation of struct types for an example.
+      // We try to insert this class into the stack of pending classes, such
+      // that recursive occurences may omit the body.
+      if (!class_stack.insert(name))
+      {
+        // If the class is already in the stack, then we're already in the
+        // process of parsing that class. We should not parse the body and
+        // instead return a (maybe) incomplete type.
+        //
+        // The type's body will be completed when the outer parsing is done.
+        if (parser.parseGreater())
+          return Type();
+
+        return ClassType::get(context, name);
+      }
+
       while (succeeded(parser.parseOptionalComma()))
       {
         StringRef field_name;
@@ -217,6 +238,8 @@ namespace mlir::verona::detail
 
       if (parser.parseGreater())
         return Type();
+
+      class_stack.pop_back();
 
       ClassType pending = ClassType::get(context, name);
       if (failed(pending.setFields(fields)))
@@ -281,6 +304,7 @@ namespace mlir::verona::detail
   private:
     MLIRContext* context;
     DialectAsmParser& parser;
+    llvm::SetVector<StringRef> class_stack;
   };
 }
 
