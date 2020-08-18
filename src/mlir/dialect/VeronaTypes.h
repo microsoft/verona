@@ -77,11 +77,73 @@ namespace mlir::verona
     Capability getCapability() const;
   };
 
+  /**
+   * A class is described both by its name and its list of fields. A class
+   * named C with fields f and g would be represented as follows:
+   *
+   *   !verona.class<"C", "f": T, "g": U>
+   *
+   * Recursive classes are represented by omitting its body in the recursive
+   * use. The example below shows a class D with a field to an instance of the
+   * same class `D`.
+   *
+   *   !verona.class<"D", "f": class<"D">>
+   *
+   * Only the name is used to unique the type. This means you may not have two
+   * type classes with different list of fields. This allows a two step
+   * construction of class types, necessary to construct recursive classes.
+   *
+   * A ClassType is constructed by calling `ClassType::get(name)` followed by a
+   * call to `setFields` to initialize the contents. In the case of recursive
+   * classes, the result of the `get` call may be used to construct the field
+   * types.
+   *
+   * For example, the type corresponding to the following class:
+   *
+   *   class A {
+   *     f: A
+   *   }
+   *
+   * would be constructed as follows:
+   *
+   *   ClassType a = ClassType::get(ctx, "A");
+   *   FieldsRef fields = { { "f", a } };
+   *   a.setFields(a);
+   *
+   * TODO: While recursive types can be constructed programmatically, they can
+   * neither be parsed nor printed yet.
+   */
   struct ClassType
   : public Type::TypeBase<ClassType, Type, detail::ClassTypeStorage>
   {
     using Base::Base;
-    static ClassType get(MLIRContext* ctx, StringRef s);
+
+    /// This is used to keep the list of (field name, field type) pairs.
+    /// We want a container that preserves insertion order so we get
+    /// deterministic behaviour and can round-trip the IR.
+    ///
+    /// TODO: An llvm::MapVector may be more suitable for this, so we have
+    /// constant-time lookup of fields. However it isn't supported by MLIR's
+    /// TypeStorageAllocator.
+    using FieldsRef = ArrayRef<std::pair<StringRef, Type>>;
+
+    /// Get a reference to the class with the given name. The returned type may
+    /// not be fully initialized yet until setFields is called.
+    static ClassType get(MLIRContext* ctx, StringRef name);
+
+    /// Get a reference to the class with the given name, initializing it if
+    /// necessary. Returns null if the class was already initialized with
+    /// different contents.
+    static ClassType get(MLIRContext* ctx, StringRef name, FieldsRef fields);
+
+    /// Set the list of fields contained in this class.
+    ///
+    /// Returns a failure if the type has already been initialized but with
+    /// different contents.
+    LogicalResult setFields(FieldsRef fields);
+
     StringRef getName() const;
+    FieldsRef getFields() const;
+    Type getFieldType(StringRef name) const;
   };
 }

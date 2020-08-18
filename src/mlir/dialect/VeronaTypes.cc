@@ -113,11 +113,18 @@ namespace mlir::verona::detail
 
   struct ClassTypeStorage : public ::mlir::TypeStorage
   {
-    StringRef class_name;
-
+    using FieldsRef = ClassType::FieldsRef;
     using KeyTy = StringRef;
 
-    ClassTypeStorage(StringRef class_name) : class_name(class_name) {}
+    // Only the class name is used to unique the type. The `isInitialized` flag
+    // and `fields` array are part of the type's mutable component.
+    StringRef class_name;
+    bool isInitialized;
+    FieldsRef fields;
+
+    ClassTypeStorage(StringRef class_name)
+    : class_name(class_name), isInitialized(false), fields()
+    {}
 
     static llvm::hash_code hashKey(const KeyTy& key)
     {
@@ -135,6 +142,32 @@ namespace mlir::verona::detail
       StringRef name = allocator.copyInto(key);
       return new (allocator.allocate<ClassTypeStorage>())
         ClassTypeStorage(name);
+    }
+
+    LogicalResult mutate(TypeStorageAllocator& allocator, FieldsRef new_fields)
+    {
+      if (isInitialized)
+      {
+        return new_fields == this->fields ? success() : failure();
+      }
+
+      // We construct a temporary array, in which the field names have been
+      // copied into `allocator`. Later this array itself will be copied into
+      // `allocator`.
+      //
+      // TODO: this could be made more efficient if TypeStorageAllocator could
+      // hand us an uninitialized (or default-initialized) mutable array, which
+      // we could later fill with the copied field names.
+      SmallVector<std::pair<StringRef, Type>, 4> temp_fields;
+      temp_fields.reserve(new_fields.size());
+      for (auto [field_name, field_type] : new_fields)
+      {
+        temp_fields.push_back({allocator.copyInto(field_name), field_type});
+      }
+      this->fields = allocator.copyInto(FieldsRef(temp_fields));
+
+      isInitialized = true;
+      return success();
     }
   };
 } // namespace mlir::verona::detail
@@ -188,14 +221,45 @@ namespace mlir::verona
     return getImpl()->capability;
   }
 
-  ClassType ClassType::get(MLIRContext* ctx, StringRef class_name)
+  ClassType ClassType::get(MLIRContext* ctx, StringRef name)
   {
-    return Base::get(ctx, class_name);
+    return Base::get(ctx, name);
+  }
+
+  ClassType ClassType::get(MLIRContext* ctx, StringRef name, FieldsRef fields)
+  {
+    ClassType type = ClassType::get(ctx, name);
+    if (succeeded(type.setFields(fields)))
+      return type;
+    else
+      return ClassType();
+  }
+
+  LogicalResult
+  ClassType::setFields(ArrayRef<std::pair<StringRef, Type>> fields)
+  {
+    return Base::mutate(fields);
   }
 
   StringRef ClassType::getName() const
   {
     return getImpl()->class_name;
+  }
+
+  ClassType::FieldsRef ClassType::getFields() const
+  {
+    assert(getImpl()->isInitialized);
+    return getImpl()->fields;
+  }
+
+  Type ClassType::getFieldType(StringRef name) const
+  {
+    for (auto it : getFields())
+    {
+      if (it.first == name)
+        return it.second;
+    }
+    return nullptr;
   }
 
   /// Parse a list of types, surrounded by angle brackets and separated by
@@ -259,13 +323,50 @@ namespace mlir::verona
 
   static Type parseClassType(MLIRContext* ctx, DialectAsmParser& parser)
   {
-    StringAttr attr;
-    if (
-      parser.parseLess() || parser.parseAttribute(attr) ||
-      parser.parseGreater())
+    auto loc = parser.getNameLoc();
+
+    StringAttr name;
+    SmallVector<std::pair<StringRef, Type>, 4> fields;
+
+    if (parser.parseLess() || parser.parseAttribute(name))
       return Type();
 
-    return ClassType::get(ctx, attr.getValue());
+    // TODO: Support parsing recursive types by constructing an uninitialized
+    // ClassType first and filling it up later. This would require passing
+    // around the set of "pending" classes around.
+    // See the LLVM dialect's implementation of struct types for an example.
+    while (succeeded(parser.parseOptionalComma()))
+    {
+      // TODO: using parseAttribute here causes problems, as it will eat the
+      // colon and type, thinking those refer to the attribute's type. To work
+      // around this, it is currently necessary to put both an attribute type
+      // and a field type, eg. `!verona.class<"A", "f": i1 : U32>`, the `i1` is
+      // the attribute type (whose value doesn't actually matter) and U32 is the
+      // field's type. We should extend MLIR's DialectAsmParser to expose a
+      // `parseString` public method (it exists internally already).
+      StringAttr field_name;
+      Type field_type;
+      if (
+        parser.parseAttribute(field_name) || parser.parseColon() ||
+        !(field_type = parseVeronaType(parser)))
+        return Type();
+
+      fields.push_back({field_name.getValue(), field_type});
+    }
+
+    if (parser.parseGreater())
+      return Type();
+
+    ClassType pending = ClassType::get(ctx, name.getValue());
+    if (failed(pending.setFields(fields)))
+    {
+      InFlightDiagnostic diag = parser.emitError(loc)
+        << "class type \"" << pending.getName()
+        << "\" already used with different definition";
+      return Type();
+    }
+
+    return pending;
   }
 
   Type parseVeronaType(DialectAsmParser& parser)
@@ -304,6 +405,23 @@ namespace mlir::verona
     os << "<";
     llvm::interleaveComma(
       types, os, [&](auto element) { printVeronaType(element, os); });
+    os << ">";
+  }
+
+  void printClassType(ClassType type, DialectAsmPrinter& os)
+  {
+    // TODO: Support printing recursive types. If we're already in the process
+    // of printing a class' body and reach the same class again, we should skip
+    // its body. See the LLVM dialect's implementation of struct types for an
+    // example.
+    os << "class<\"" << type.getName() << "\"";
+    for (auto [field_name, field_type] : type.getFields())
+    {
+      // TODO: The extra ": i1" annotation is to work around a bug in the
+      // parser, see parseClassType for details.
+      os << ", " << field_name << ": i1 :";
+      printVeronaType(field_type, os);
+    }
     os << ">";
   }
 
@@ -358,7 +476,7 @@ namespace mlir::verona
         }
       })
       .Case<ClassType>([&](ClassType type) {
-        os << "class<\"" << type.getName() << "\">";
+        printClassType(type, os);
       });
   }
 
