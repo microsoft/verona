@@ -1,21 +1,22 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// This is a simple example to demonstrate the Verona MLIR dialect. The types
-// used are just a placeholder and not correct yet.
+// This is a simple example to demonstrate the Verona MLIR dialect.
 //
 // ```verona
 // class C {  }
 // class D {
-//   f: U64;
-//   g: S32;
+//   f: U64 & imm;
+//   g: S32 & mut;
 // }
 //
-// bar() {
-//     let a = new C;
-//     let b = view a;
-//     let c = new D { f: b, g: b } in a;
-//     c.g = c.f;
+// bar(x: U64 & imm, y: U64 & imm) {
+//     let a : C & iso = new C;
+//     let b : C & mut = view a;
+//     let c : D & mut = new D { f: x, g: b } in a;
+//     let d : U64 & imm = c.f;
+//     let e : D & mut = c.g;
+//     let f : U64 & imm = (c.g = y);
 //
 //     tidy(a);
 //     drop(a);
@@ -27,23 +28,33 @@ module {
   }
 
   verona.class @D {
-    verona.field "f" : !verona.U64
-    verona.field "g" : !verona.S32
+    verona.field "f" : !verona.meet<U64, imm>
+    verona.field "g" : !verona.meet<class<"C">, mut>
   }
 
-  func @bar() {
-    %a = verona.new_region @C [ ] : !verona.U64
-    %b = verona.view %a : !verona.U64 -> !verona.U64
+  func @bar(%x: !verona.meet<U64, imm>, %y: !verona.meet<U64, imm>) {
+    %a = verona.new_region @C [ ] : !verona.meet<class<"C">, iso>
+    %b = verona.view %a : !verona.meet<class<"C">, iso> -> !verona.meet<class<"C">, mut>
 
-    %c = verona.new_object @D [ "f", "g" ] (%b, %b : !verona.U64, !verona.U64) in (%a : !verona.U64) : !verona.S64
+    %c = verona.new_object @D [ "f", "g" ] (%x, %b : !verona.meet<U64, imm>, !verona.meet<class<"C">, mut>)
+      in (%a : !verona.meet<class<"C">, iso>)
+      : !verona.meet<class<"D", "f" : i1 : meet<U64, imm>, "g" : i1 : meet<class<"C">, mut>>, mut>
 
-    %d = verona.field_read %c["f"] : !verona.S64 -> !verona.U64
-    verona.field_write %c["f"], %d : !verona.S64 -> !verona.U64 -> !verona.U64
+    %d = verona.field_read %c["f"]
+       : !verona.meet<class<"D", "f" : i1 : meet<U64, imm>, "g" : i1 : meet<class<"C">, mut>>, mut>
+      -> !verona.meet<U64, imm>
 
-    %e = verona.field_read %c["g"] : !verona.S64 -> !verona.S32
+    %e = verona.field_read %c["g"]
+       : !verona.meet<class<"D", "f" : i1 : meet<U64, imm>, "g" : i1 : meet<class<"C">, mut>>, mut>
+      -> !verona.meet<class<"C">, mut>
 
-    verona.tidy %a : !verona.U64
-    verona.drop %a : !verona.U64
+    %f = verona.field_write %c["f"], %y
+       : !verona.meet<class<"D", "f" : i1 : meet<U64, imm>, "g" : i1 : meet<class<"C">, mut>>, mut>
+      -> !verona.meet<U64, imm>
+      -> !verona.meet<U64, imm>
+
+     verona.tidy %a : !verona.meet<class<"C">, iso>
+     verona.drop %a : !verona.meet<class<"C">, iso>
 
     return
   }
