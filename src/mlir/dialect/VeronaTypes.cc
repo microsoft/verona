@@ -433,6 +433,11 @@ namespace mlir::verona
     return JoinType::get(ctx, result);
   }
 
+  // TODO: The amount of normalization done is quite limited. In particular it
+  // does not always flatten types (eg. changing `join<A, join<B, C>>` into
+  // `join<A, B, C>`), nor does it do any simplification (eg. `join<A, A, B>`
+  // into `join<A, B>`). These normalizations aren't necessary for subtyping,
+  // but could help with other places in the compiler.
   Type normalizeType(Type type)
   {
     MLIRContext* ctx = type.getContext();
@@ -451,7 +456,7 @@ namespace mlir::verona
         return normalizeMeet(ctx, type.cast<MeetType>().getElements());
 
       default:
-        abort();
+        llvm_unreachable("invalid Verona type");
     }
   }
 }
