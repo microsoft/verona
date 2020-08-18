@@ -124,7 +124,7 @@ namespace mlir::verona::detail
     ///
     /// Empty lists are allowed, but must still use angle brackets, i.e. `< >`.
     /// Lists of one elements are also allowed.
-    ParseResult parseTypeList(llvm::SmallVectorImpl<Type>& result)
+    ParseResult parseInnerTypeList(llvm::SmallVectorImpl<Type>& result)
     {
       if (parser.parseLess())
         return failure();
@@ -134,7 +134,7 @@ namespace mlir::verona::detail
 
       do
       {
-        mlir::Type element = parseVeronaType();
+        mlir::Type element = parseInnerType();
         if (!element)
           return failure();
 
@@ -150,7 +150,7 @@ namespace mlir::verona::detail
     Type parseMeetType()
     {
       SmallVector<mlir::Type, 2> elements;
-      if (parseTypeList(elements))
+      if (parseInnerTypeList(elements))
         return Type();
       return MeetType::get(context, elements);
     }
@@ -158,7 +158,7 @@ namespace mlir::verona::detail
     Type parseJoinType()
     {
       SmallVector<mlir::Type, 2> elements;
-      if (parseTypeList(elements))
+      if (parseInnerTypeList(elements))
         return Type();
       return JoinType::get(context, elements);
     }
@@ -230,7 +230,7 @@ namespace mlir::verona::detail
         Type field_type;
         if (
           parseString(&field_name) || parser.parseColon() ||
-          !(field_type = parseVeronaType()))
+          !(field_type = parseInnerType()))
           return Type();
 
         fields.push_back({field_name, field_type});
@@ -258,20 +258,16 @@ namespace mlir::verona::detail
       Type left;
       Type right;
       if (
-        parser.parseLess() || !(left = parseVeronaType()) ||
-        parser.parseComma() || !(right = parseVeronaType()) ||
+        parser.parseLess() || !(left = parseInnerType()) ||
+        parser.parseComma() || !(right = parseInnerType()) ||
         parser.parseGreater())
         return Type();
 
       return ViewpointType::get(context, left, right);
     }
 
-    Type parseVeronaType()
+    Type parseVeronaType(StringRef keyword)
     {
-      StringRef keyword;
-      if (parser.parseKeyword(&keyword))
-        return Type();
-
       if (keyword == "class")
         return parseClassType();
       else if (keyword == "meet")
@@ -299,6 +295,53 @@ namespace mlir::verona::detail
 
       parser.emitError(parser.getNameLoc(), "unknown verona type: ") << keyword;
       return Type();
+    }
+
+    Type parseVeronaType()
+    {
+      StringRef keyword;
+      if (parser.parseKeyword(&keyword))
+        return Type();
+
+      return parseVeronaType(keyword);
+    }
+
+    /// Parse a type that appears inside another Verona type. For instance, when
+    /// parsing `!verona.meet<T, U>`, this function is used to parse the T and
+    /// the U.
+    ///
+    /// Due to the closed nature of the dialect, we allow inner types to be
+    /// mentioned without a prefix. For instance,
+    /// `!verona.meet<class<"C">, mut>` can be used in place of
+    /// `!verona.meet<!verona.class<"C">, !verona.mut>`.
+    ///
+    /// However, if the type does not start with a keyword, we fallback to
+    /// MLIR's generic type parser. This makes the long form described above,
+    /// `!verona.meet<!verona.class<"C">, !verona.mut>` parser.
+    ///
+    /// The main reason we support this fallback is to allow type aliases to be
+    /// used inside Verona types. For example, given:
+    ///
+    ///    !C = type !verona.class<"C", "f": meet<U64, imm>>
+    ///
+    /// the type `!verona.meet<!C, mut>` can be used. Closeness of the types is
+    /// still enforced.
+    Type parseInnerType()
+    {
+      StringRef keyword;
+      if (succeeded(parser.parseOptionalKeyword(&keyword)))
+        return parseVeronaType(keyword);
+
+      auto location = parser.getCurrentLocation();
+      Type result;
+      if (parser.parseType(result))
+        return Type();
+
+      if (!isaVeronaType(result))
+        parser.emitError(location)
+          << "inner type " << result << " is not a Verona type";
+
+      return result;
     }
 
   private:
