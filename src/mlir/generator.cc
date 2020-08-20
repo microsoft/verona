@@ -5,7 +5,6 @@
 
 #include "ast-utils.h"
 #include "dialect/VeronaDialect.h"
-#include "dialect/VeronaOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Dialect.h"
@@ -431,7 +430,6 @@ namespace mlir::verona
     auto region = builder.getInsertionBlock()->getParent();
     mlir::Type retTy;
     auto op = region->getParentOp();
-    bool isInLoop = isa<mlir::verona::WhileOp>(op);
 
     // Get the function return type (for casts)
     while (!isa<mlir::FuncOp>(op))
@@ -458,16 +456,7 @@ namespace mlir::verona
         return std::move(err);
     }
 
-    // Emit the right return instruction
-    if (isInLoop)
-    {
-      builder.create<mlir::verona::LoopReturnOp>(
-        getLocation(ast), expr->getAll());
-    }
-    else
-    {
-      builder.create<mlir::ReturnOp>(getLocation(ast), expr->getAll());
-    }
+    builder.create<mlir::ReturnOp>(getLocation(ast), expr->getAll());
 
     // No values to return, basic block is terminated.
     return ReturnValue();
@@ -566,32 +555,46 @@ namespace mlir::verona
         "Loop conditions with literals not supported yet", getLocation(ast));
     }
 
+    // Create the head basic-block, which will check the condition
+    // and dispatch the loop to the body block or exit.
+    auto region = builder.getInsertionBlock()->getParent();
+    mlir::ValueRange empty{};
+    auto headBB = addBlock(region);
+    auto bodyBB = addBlock(region);
+    auto exitBB = addBlock(region);
+    builder.create<mlir::BranchOp>(getLocation(ast), headBB, empty);
+
     // Create local context for loop variables
     SymbolScopeT var_scope{symbolTable};
 
-    // While operation
-    auto whileOp = builder.create<mlir::verona::WhileOp>(getLocation(ast));
-    auto block = addBlock(&whileOp.body());
-
-    // First node is a sequence of conditions for the loop_exit node
-    builder.setInsertionPointToEnd(block);
+    // First node is a sequence of conditions
+    // lower in the head basic block, with the conditional branch.
+    builder.setInsertionPointToEnd(headBB);
     auto condNode = getCond(ast).lock();
+    auto condLoc = getLocation(condNode);
     auto cond = parseNode(condNode);
     if (auto err = cond.takeError())
       return std::move(err);
-    builder.create<mlir::verona::LoopExitOp>(
-      getLocation(condNode), cond->get());
+    builder.create<mlir::CondBranchOp>(
+      condLoc, cond->get(), bodyBB, empty, exitBB, empty);
 
-    // Loop body, may create more BBs, must terminate (default: continue)
+    // Create local head/tail basic-block context for continue/break
+    BasicBlockScopeT loop_scope{loopTable};
+    loopTable.insert("head", headBB);
+    loopTable.insert("tail", exitBB);
+
+    // Loop body, branch back to head node which will decide exit criteria
     auto bodyNode = getLoopBlock(ast).lock();
+    auto bodyLoc = getLocation(bodyNode);
+    builder.setInsertionPointToEnd(bodyBB);
     auto bodyBlock = parseNode(bodyNode);
     if (auto err = bodyBlock.takeError())
       return std::move(err);
     if (!hasTerminator(builder.getBlock()))
-      builder.create<mlir::verona::ContinueOp>(getLocation(bodyNode));
+      builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
 
-    // Continue on the contained basic block, after the while
-    builder.setInsertionPointAfter(whileOp);
+    // Move to exit block, where the remaining instructions will be lowered.
+    builder.setInsertionPointToEnd(exitBB);
 
     // No values to return from lexical constructs.
     return ReturnValue();
@@ -600,7 +603,14 @@ namespace mlir::verona
   llvm::Expected<ReturnValue> Generator::parseContinue(const ::ast::Ast& ast)
   {
     assert(isContinue(ast) && "Bad node");
-    builder.create<mlir::verona::ContinueOp>(getLocation(ast));
+    // Nested loops have multiple heads, we only care about the last one
+    if (!loopTable.inScope("head"))
+      return parsingError("Continue without a loop", getLocation(ast));
+    auto head = loopTable.lookup("head");
+    mlir::ValueRange empty{};
+    // We assume the continue is the last operation in its basic block
+    // and that was checked by the parser
+    builder.create<mlir::BranchOp>(getLocation(ast), head, empty);
 
     // No values to return, basic block is terminated.
     return ReturnValue();
@@ -610,7 +620,14 @@ namespace mlir::verona
   llvm::Expected<ReturnValue> Generator::parseBreak(const ::ast::Ast& ast)
   {
     assert(isBreak(ast) && "Bad node");
-    builder.create<mlir::verona::BreakOp>(getLocation(ast));
+    // Nested loops have multiple tails, we only care about the last one
+    if (!loopTable.inScope("tail"))
+      return parsingError("Break without a loop", getLocation(ast));
+    auto head = loopTable.lookup("tail");
+    mlir::ValueRange empty{};
+    // We assume the break is the last operation in its basic block
+    // and that was checked by the parser
+    builder.create<mlir::BranchOp>(getLocation(ast), head, empty);
 
     // No values to return, basic block is terminated.
     return ReturnValue();
