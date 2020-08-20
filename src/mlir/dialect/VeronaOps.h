@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "dialect/RegionChecker.h"
 #include "dialect/TypecheckInterface.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/Function.h"

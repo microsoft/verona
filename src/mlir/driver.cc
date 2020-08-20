@@ -3,6 +3,7 @@
 
 #include "driver.h"
 
+#include "dialect/RegionChecker.h"
 #include "dialect/Typechecker.h"
 #include "generator.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
@@ -35,6 +36,7 @@ namespace mlir::verona
 
     // TODO: make the set of passes configurable from the command-line
     passManager.addPass(std::make_unique<TypecheckerPass>());
+    passManager.addPass(std::make_unique<RegionCheckerPass>());
 
     if (optLevel > 0)
     {

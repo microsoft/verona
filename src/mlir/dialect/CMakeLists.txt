@@ -3,6 +3,7 @@ add_mlir_doc(VeronaDialect -gen-dialect-doc VeronaDialect Verona/)
 add_mlir_doc(VeronaOps -gen-op-doc VeronaOps Verona/)
 
 add_mlir_interface(TypecheckInterface)
+add_mlir_interface(RegionChecker)
 
 add_mlir_dialect_library(MLIRVerona
     VeronaDialect.cc
@@ -10,6 +11,7 @@ add_mlir_dialect_library(MLIRVerona
     VeronaTypes.cc
     Typechecker.cc
     TypecheckInterface.cc
+    RegionChecker.cc
 
     DEPENDS
     MLIRVeronaOpsIncGen

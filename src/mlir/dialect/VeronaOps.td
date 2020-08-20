@@ -6,11 +6,12 @@
 
 include "VeronaDialect.td"
 include "TypecheckInterface.td"
+include "RegionChecker.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-def Verona_CopyOp : Verona_Op<"copy", [ Typecheckable ]> {
+def Verona_CopyOp : Verona_Op<"copy", [ Typecheckable, RegionCheck ]> {
     let summary = "Copy a reference";
     let description = [{
       Make a copy of the given reference.
@@ -23,7 +24,7 @@ def Verona_CopyOp : Verona_Op<"copy", [ Typecheckable ]> {
     let verifier = [{ return success(); }];
 }
 
-def Verona_ViewOp : Verona_Op<"view"> {
+def Verona_ViewOp : Verona_Op<"view", [ RegionCheck ]> {
     let summary = "Get an unowned reference to the specified object.";
     let description = [{
       Get an unowned reference to the specified object. This operation can be
@@ -40,7 +41,7 @@ def Verona_ViewOp : Verona_Op<"view"> {
     let verifier = [{ return success(); }];
 }
 
-def Verona_FieldReadOp : Verona_Op<"field_read", [ Typecheckable ]> {
+def Verona_FieldReadOp : Verona_Op<"field_read", [ Typecheckable, RegionCheck ]> {
     let summary = "Read a field from a reference";
     let description = [{
       Read the value of a field from a reference. The result value is always an
@@ -71,7 +72,7 @@ def Verona_FieldReadOp : Verona_Op<"field_read", [ Typecheckable ]> {
     }];
 }
 
-def Verona_FieldWriteOp : Verona_Op<"field_write", [ Typecheckable ]> {
+def Verona_FieldWriteOp : Verona_Op<"field_write", [ Typecheckable, RegionCheck ]> {
     let summary = "Write to a field through a reference";
     let description = [{
       Write a new value to a field. The field's old value is returned.
