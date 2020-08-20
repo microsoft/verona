@@ -43,28 +43,6 @@ static void print(OpAsmPrinter& printer, verona::ClassOp op)
     op.body(), /*printEntryBlockArgs=*/false, /*printBlockTerminators=*/false);
 }
 
-static ParseResult parseWhileOp(OpAsmParser& parser, OperationState& state)
-{
-  Region* body = state.addRegion();
-
-  if (parser.parseOptionalAttrDictWithKeyword(state.attributes))
-    return failure();
-
-  if (parser.parseRegion(*body, /*arguments=*/{}, /*argTypes=*/{}))
-    return failure();
-
-  return success();
-}
-
-static void print(OpAsmPrinter& printer, verona::WhileOp op)
-{
-  printer << verona::WhileOp::getOperationName() << ' ';
-  printer.printOptionalAttrDict(
-    op.getAttrs(), /*elidedAttrs=*/{SymbolTable::getSymbolAttrName()});
-  printer.printRegion(
-    op.body(), /*printEntryBlockArgs=*/false, /*printBlockTerminators=*/true);
-}
-
 /**
  * AllocateRegionOp and AllocateObjectOp share similar features, which we verify
  * here:
@@ -132,31 +110,6 @@ static LogicalResult verify(verona::ClassOp classOp)
   }
 
   return success();
-}
-
-static LogicalResult verify(verona::WhileOp whileOp)
-{
-  auto& body = whileOp.body();
-
-  // While blocks must have a condition exit with a LoopExit operation.
-  unsigned numExits = 0;
-  for (Block& b : body.getBlocks())
-  {
-    // Until we find a loop_exit, keep searching
-    for (Operation& op : b)
-    {
-      if (verona::LoopExitOp exit_op = dyn_cast<verona::LoopExitOp>(op))
-      {
-        numExits++;
-        break;
-      }
-    }
-  }
-
-  // Can only have one loop_exit
-  if (numExits == 1)
-    return success();
-  return failure();
 }
 
 namespace mlir::verona

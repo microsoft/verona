@@ -146,6 +146,8 @@ namespace mlir::verona
     FunctionTableT functionTable;
     /// Symbol tables for classes.
     TypeTableT typeTable;
+    /// Nested reference for head/exit blocks in loops.
+    BasicBlockTableT loopTable;
 
     /// Alloca types, before we start using Verona types with known sizes.
     mlir::Type allocaTy;
