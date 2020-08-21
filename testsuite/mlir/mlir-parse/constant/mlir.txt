@@ -1,0 +1,16 @@
+
+
+module {
+  func @f(%arg0: none) -> none {
+    %0 = "verona.alloca"() : () -> !type.alloca
+    %1 = "verona.store"(%arg0, %0) : (none, !type.alloca) -> !type.unk
+    %2 = "verona.alloca"() : () -> !type.alloca
+    %3 = "verona.constant(42)"() : () -> !type.int
+    %4 = "verona.store"(%3, %2) : (!type.int, !type.alloca) -> !type.unk
+    %5 = "verona.alloca"() : () -> !type.alloca
+    %6 = "verona.constant(3.1415)"() : () -> !type.float
+    %7 = "verona.store"(%6, %5) : (!type.float, !type.alloca) -> !type.unk
+    %8 = "verona.cast"(%5) : (!type.alloca) -> none
+    return %8 : none
+  }
+}

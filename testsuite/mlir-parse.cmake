@@ -6,11 +6,11 @@ PrepareTest(VERONAM_FLAGS EXPECTED_DUMP ACTUAL_DUMP)
 
 execute_process(
   COMMAND ${MLIRGEN} ${TEST_FILE} -o -
-  OUTPUT_FILE ${ACTUAL_DUMP}/out.mlir
+  OUTPUT_FILE ${ACTUAL_DUMP}/mlir.txt
   RESULT_VARIABLE EXIT_CODE)
 
 if(NOT ${EXIT_CODE} EQUAL 0)
-  file(READ ${ACTUAL_DUMP}/out.mlir ERROR_MESSAGES)
+  file(READ ${ACTUAL_DUMP}/mlir.txt ERROR_MESSAGES)
   message(STATUS "OUTPUT:\n${ERROR_MESSAGES}")
   message(FATAL_ERROR " ${MLIRGEN} exited with error code ${EXIT_CODE}")
 endif()
