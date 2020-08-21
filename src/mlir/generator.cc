@@ -101,10 +101,14 @@ namespace mlir::verona
     getFunctionArgs(args, ast);
     for (auto arg : args)
       types.push_back(parseType(getType(arg).lock()));
-    auto retTy = parseType(getFunctionType(ast).lock());
-    auto funcTy = builder.getFunctionType(types, retTy);
+
+    // Return type is nothing if no type
+    llvm::SmallVector<mlir::Type, 1> retTy;
+    if (hasType(getFunctionType(ast)))
+      retTy.push_back(parseType(getFunctionType(ast).lock()));
 
     // Create function
+    auto funcTy = builder.getFunctionType(types, retTy);
     auto func = mlir::FuncOp::create(getLocation(ast), name, funcTy);
     functionTable.insert(name, func);
     return func;
@@ -167,22 +171,35 @@ namespace mlir::verona
 
     // Return last value (or none)
     // TODO: Implement multiple return values for tuples
-    auto retTy = func.getType().getResult(0);
-    if (last->hasValue() && last->get().getType() != retTy)
+    auto retTy = func.getType();
+    bool hasLast = last->hasValue();
+    bool hasRetTy = retTy.getNumResults() > 0;
+    if (hasLast && hasRetTy)
     {
-      // Cast type (we trust the ast)
-      last =
-        genOperation(last->get().getLoc(), "verona.cast", {last->get()}, retTy);
+      // Function has return value and there is a last value,
+      // check types, cast if not the same, return.
+      if (last->get().getType() != retTy.getResult(0))
+      {
+        last = genOperation(
+          last->get().getLoc(),
+          "verona.cast",
+          {last->get()},
+          retTy.getResult(0));
+        if (auto err = last.takeError())
+          return std::move(err);
+      }
+      builder.create<mlir::ReturnOp>(getLocation(ast), last->getAll());
+    }
+    else if (!hasRetTy)
+    {
+      // Function return value is void, ignore last value and return.
+      builder.create<mlir::ReturnOp>(getLocation(ast));
     }
     else
     {
-      // None type (void)
-      // TODO: We should declare void functions without a return type
-      last = genOperation(getLocation(ast), "verona.none", {}, retTy);
+      // Has return type but no value, emit an error.
+      return parsingError("Function has no value to return", getLocation(ast));
     }
-    if (auto err = last.takeError())
-      return std::move(err);
-    builder.create<mlir::ReturnOp>(getLocation(ast), last->getAll());
 
     return func;
   }
@@ -192,7 +209,7 @@ namespace mlir::verona
     assert(isType(ast) && "Bad node");
     auto desc = getTypeDesc(ast);
     if (desc.empty())
-      return builder.getNoneType();
+      return unkTy;
 
     // If type is in the alias table, get it
     auto type = typeTable.lookup(desc);

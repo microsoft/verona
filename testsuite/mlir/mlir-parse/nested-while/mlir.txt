@@ -1,9 +1,9 @@
 
 
 module {
-  func @f(%arg0: none) -> none {
+  func @f(%arg0: !type.S64) -> !type.S64 {
     %0 = "verona.alloca"() : () -> !type.alloca
-    %1 = "verona.store"(%arg0, %0) : (none, !type.alloca) -> !type.unk
+    %1 = "verona.store"(%arg0, %0) : (!type.S64, !type.alloca) -> !type.unk
     br ^bb1
   ^bb1:  // 2 preds: ^bb0, ^bb6
     %2 = "verona.load"(%0) : (!type.alloca) -> !type.unk
@@ -17,8 +17,8 @@ module {
     br ^bb4
   ^bb3:  // pred: ^bb1
     %8 = "verona.load"(%0) : (!type.alloca) -> !type.unk
-    %9 = "verona.cast"(%8) : (!type.unk) -> none
-    return %9 : none
+    %9 = "verona.cast"(%8) : (!type.unk) -> !type.S64
+    return %9 : !type.S64
   ^bb4:  // 2 preds: ^bb2, ^bb5
     %10 = "verona.load"(%5) : (!type.alloca) -> !type.unk
     %11 = "verona.constant(10)"() : () -> !type.int

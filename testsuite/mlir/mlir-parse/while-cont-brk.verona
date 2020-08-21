@@ -1,7 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-f(a, x)
+f(a : U32, x : S32) : F16
 {
   while (a < 5)
   {

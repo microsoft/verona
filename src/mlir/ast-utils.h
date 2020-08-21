@@ -307,18 +307,26 @@ namespace mlir::verona::ASTInterface
     return findNode(ast, NodeKind::OfType);
   }
 
+  /// Return true if node has non-empty (oftype / type)
+  bool hasType(::ast::WeakAst ast)
+  {
+    if (!isA(ast, NodeKind::OfType))
+      return false;
+    return hasA(ast, NodeKind::Type);
+  }
+
   /// Get the string description of a type node
   const std::string getTypeDesc(::ast::WeakAst ast)
   {
     assert(isType(ast) && "Bad node");
-    auto ptr = ast.lock();
-    if (ptr->nodes.empty())
+    if (!hasType(ast))
       return "";
 
     std::string desc;
     // This undoes the work that the ast did to split the types
     // and it should be rethought, but MLIR doens't allow multiple
     // types on a single node. Perhaps attributes?
+    auto ptr = ast.lock();
     auto type = findNode(ptr, NodeKind::Type).lock();
     for (auto sub : type->nodes)
     {
