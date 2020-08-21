@@ -1,6 +1,7 @@
 
 
 module {
+  func @declaration() -> none
   func @foo(%arg0: !type.imm, %arg1: !type<"U64&imm">) -> !type<"U64&imm"> {
     %0 = "verona.alloca"() : () -> !type.alloca
     %1 = "verona.store"(%arg0, %0) : (!type.imm, !type.alloca) -> !type.unk

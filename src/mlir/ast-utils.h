@@ -397,6 +397,15 @@ namespace mlir::verona::ASTInterface
     return findNode(ast, NodeKind::Block);
   }
 
+  /// Returns true if the function has a body (definition)
+  bool hasFunctionBody(::ast::WeakAst ast)
+  {
+    assert(isFunction(ast) && "Bad node");
+
+    // Body is just a block
+    return hasA(ast, NodeKind::Block);
+  }
+
   // ================================================= Class Helpers
   /// Get the body of a class/module declaration
   ::ast::WeakAst getClassBody(::ast::WeakAst ast)
