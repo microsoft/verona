@@ -216,6 +216,11 @@ namespace mlir::verona
     if (type)
       return type;
 
+    // Special treatment for type name 'bool'
+    // TODO: Should this be a special type in the grammar?
+    if (desc == "bool")
+      return boolTy;
+
     // Else, insert into the table and return
     type = genOpaqueType(desc);
     typeTable.insert(desc, type);
@@ -270,6 +275,8 @@ namespace mlir::verona
         return parseCondition(ast);
       case NodeKind::While:
         return parseWhileLoop(ast);
+      case NodeKind::For:
+        return parseForLoop(ast);
       case NodeKind::Continue:
         return parseContinue(ast);
       case NodeKind::Break:
@@ -372,6 +379,9 @@ namespace mlir::verona
         argNodes.size() == func.getNumArguments() &&
         "Wrong number of arguments");
       llvm::SmallVector<mlir::Value, 4> args;
+      // FIXME: Functions that were only declared don't have the first basic
+      // block and therefore have zero "arguments" allocated. Since we only
+      // use the type here, we could just iterate through the types.
       for (const auto& val_ty : llvm::zip(argNodes, func.getArguments()))
       {
         auto arg = std::get<0>(val_ty).lock();
@@ -380,6 +390,7 @@ namespace mlir::verona
           return std::move(err);
 
         // Types are incomplete here, so add casts (will be cleaned later)
+        // FIXME: Only add casts when the types aren't the same.
         auto argTy = std::get<1>(val_ty).getType();
         auto cast =
           genOperation(getLocation(arg), "verona.cast", {val->get()}, argTy);
@@ -443,6 +454,8 @@ namespace mlir::verona
   llvm::Expected<ReturnValue> Generator::parseReturn(const ::ast::Ast& ast)
   {
     assert(isReturn(ast) && "Bad node");
+    // TODO: Implement returning multiple values
+    // FIXME: Functions that don't return anything won't have a return value
     auto expr = parseNode(getSingleSubNode(ast).lock());
     if (auto err = expr.takeError())
       return std::move(err);
@@ -459,6 +472,7 @@ namespace mlir::verona
     }
     if (auto func = dyn_cast<mlir::FuncOp>(op))
     {
+      // TODO: Implement returning multiple values
       retTy = func.getType().getResult(0);
     }
     else
@@ -608,6 +622,75 @@ namespace mlir::verona
     auto bodyNode = getLoopBlock(ast).lock();
     auto bodyLoc = getLocation(bodyNode);
     builder.setInsertionPointToEnd(bodyBB);
+    auto bodyBlock = parseNode(bodyNode);
+    if (auto err = bodyBlock.takeError())
+      return std::move(err);
+    if (!hasTerminator(builder.getBlock()))
+      builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
+
+    // Move to exit block, where the remaining instructions will be lowered.
+    builder.setInsertionPointToEnd(exitBB);
+
+    // No values to return from lexical constructs.
+    return ReturnValue();
+  }
+
+  llvm::Expected<ReturnValue> Generator::parseForLoop(const ::ast::Ast& ast)
+  {
+    assert(isFor(ast) && "Bad node");
+
+    // For loops are of the shape (item in list), which need to initialise
+    // the item, take the next from the list and exit if there is none.
+    // All of that is within the scope of the loop, so we need to create a
+    // scope now, to drop them from future ops.
+    SymbolScopeT var_scope{symbolTable};
+
+    // First, we identify the iterator. Nested loops will have their own
+    // iterators, of the same name, but within their own lexical blocks.
+    auto seqNode = getLoopSeq(ast).lock();
+    auto list = parseNode(seqNode);
+    if (auto err = list.takeError())
+      return std::move(err);
+    declareVariable("$iter", list->get());
+    llvm::SmallVector<mlir::Value, 1> iter{symbolTable.lookup("$iter")};
+
+    // Create the head basic-block, which will check the condition
+    // and dispatch the loop to the body block or exit.
+    auto region = builder.getInsertionBlock()->getParent();
+    mlir::ValueRange empty{};
+    auto headBB = addBlock(region);
+    auto bodyBB = addBlock(region);
+    auto exitBB = addBlock(region);
+    builder.create<mlir::BranchOp>(getLocation(ast), headBB, empty);
+
+    // First node is a check on the lists `has_value` boolean return.
+    builder.setInsertionPointToEnd(headBB);
+    auto condLoc = getLocation(seqNode);
+    auto has_value = functionTable.lookup("has_value");
+    auto cond = builder.create<mlir::CallOp>(condLoc, has_value, iter);
+    builder.create<mlir::CondBranchOp>(
+      condLoc, cond.getResult(0), bodyBB, empty, exitBB, empty);
+
+    // Create local head/tail basic-block context for continue/break
+    BasicBlockScopeT loop_scope{loopTable};
+    loopTable.insert("head", headBB);
+    loopTable.insert("tail", exitBB);
+
+    // Preamble for the loop body is:
+    //  val = $iter.apply();
+    // val must have been declared in outer scope
+    builder.setInsertionPointToEnd(bodyBB);
+    auto indVarName = getTokenValue(getLoopInd(ast));
+    auto apply = functionTable.lookup("apply");
+    auto value = builder.create<mlir::CallOp>(condLoc, apply, iter);
+    declareVariable(indVarName, value.getResult(0));
+    //  %iter.next();
+    auto next = functionTable.lookup("next");
+    builder.create<mlir::CallOp>(condLoc, next, iter);
+
+    // Loop body, branch back to head node which will decide exit criteria
+    auto bodyNode = getLoopBlock(ast).lock();
+    auto bodyLoc = getLocation(bodyNode);
     auto bodyBlock = parseNode(bodyNode);
     if (auto err = bodyBlock.takeError())
       return std::move(err);

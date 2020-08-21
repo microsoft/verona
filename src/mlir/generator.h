@@ -191,6 +191,8 @@ namespace mlir::verona
     llvm::Expected<ReturnValue> parseCondition(const ::ast::Ast& ast);
     /// Parses a 'while' loop block.
     llvm::Expected<ReturnValue> parseWhileLoop(const ::ast::Ast& ast);
+    /// Parses a 'for' loop block.
+    llvm::Expected<ReturnValue> parseForLoop(const ::ast::Ast& ast);
     /// Parses a 'continue' statement.
     llvm::Expected<ReturnValue> parseContinue(const ::ast::Ast& ast);
     /// Parses a 'break' statement.
