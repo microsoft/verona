@@ -121,7 +121,10 @@ namespace mlir::verona
     if (auto err = proto.takeError())
       return std::move(err);
     auto& func = *proto;
-    auto retTy = func.getType().getResult(0);
+
+    // If just declaration, return the proto value
+    if (!hasFunctionBody(ast))
+      return func;
 
     // Create entry block
     auto& entryBlock = *func.addEntryBlock();
@@ -164,6 +167,7 @@ namespace mlir::verona
 
     // Return last value (or none)
     // TODO: Implement multiple return values for tuples
+    auto retTy = func.getType().getResult(0);
     if (last->hasValue() && last->get().getType() != retTy)
     {
       // Cast type (we trust the ast)
