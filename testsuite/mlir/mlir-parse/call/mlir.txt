@@ -34,7 +34,7 @@ module {
     %25 = "verona.cast"(%24) : (!type.unk) -> !type<"U64&imm">
     return %25 : !type<"U64&imm">
   }
-  func @apply() -> none {
+  func @apply() {
     %0 = "verona.alloca"() : () -> !type.alloca
     %1 = "verona.constant(10)"() : () -> !type.int
     %2 = "verona.store"(%1, %0) : (!type.int, !type.alloca) -> !type.unk
@@ -46,7 +46,6 @@ module {
     %8 = "verona.load"(%3) : (!type.alloca) -> !type.unk
     %9 = "verona.cast"(%8) : (!type.unk) -> !type<"U64&imm">
     %10 = call @foo(%7, %9) : (!type.imm, !type<"U64&imm">) -> !type<"U64&imm">
-    %11 = "verona.cast"(%10) : (!type<"U64&imm">) -> none
-    return %11 : none
+    return
   }
 }

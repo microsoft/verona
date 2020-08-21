@@ -125,7 +125,6 @@ namespace mlir::verona
       // TODO: Use Verona dialect types directly and isA<>.
       allocaTy = genOpaqueType("alloca");
       unkTy = genOpaqueType("unk");
-      noneTy = genOpaqueType("none");
       boolTy = builder.getI1Type();
     }
 
@@ -153,8 +152,6 @@ namespace mlir::verona
     mlir::Type allocaTy;
     /// Unknown types, will be defined during type inference.
     mlir::Type unkTy;
-    /// Temporary type to hold no types at all (ex: return void).
-    mlir::Type noneTy;
     /// MLIR boolean type (int1).
     mlir::Type boolTy;
 

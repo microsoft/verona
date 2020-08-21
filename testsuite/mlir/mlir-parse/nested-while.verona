@@ -1,7 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-f(a)
+f(a : S64) : S64
 {
   while (a < 50)
   {

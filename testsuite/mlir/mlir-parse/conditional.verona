@@ -1,7 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-f(x)
+f(x : U16) : S16
 {
   if (x < 2)
   {
