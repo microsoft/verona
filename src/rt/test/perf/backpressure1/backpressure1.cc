@@ -162,7 +162,7 @@ int main(int argc, char** argv)
   for (size_t p = 0; p < proxies; p++)
     proxy_chain.push_back(new (alloc) Proxy(p));
 
-  Scheduler::set_allow_teardown(false);
+  Scheduler::add_external_event_source();
   auto thr = std::thread([=] {
     for (size_t i = 0; i < senders; i++)
     {
@@ -190,7 +190,7 @@ int main(int argc, char** argv)
         Cown::release(alloc, r);
     }
 
-    Scheduler::set_allow_teardown(true);
+    Scheduler::remove_external_event_source();
   });
 
   sched.run();

@@ -115,11 +115,11 @@ struct Report;
 static void start_timer(Monitor* monitor, std::chrono::milliseconds timeout)
 {
   rt::Cown::acquire(monitor);
-  rt::Scheduler::set_allow_teardown(false);
+  rt::Scheduler::add_external_event_source();
   std::thread([=]() mutable {
     std::this_thread::sleep_for(timeout);
     rt::Cown::schedule<Stop, rt::YesTransfer>((rt::Cown*)monitor, monitor);
-    rt::Scheduler::set_allow_teardown(true);
+    rt::Scheduler::remove_external_event_source();
   }).detach();
 }
 

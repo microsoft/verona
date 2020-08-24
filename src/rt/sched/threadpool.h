@@ -45,7 +45,9 @@ namespace verona::rt
     T* running_thread = nullptr;
 #endif
 
-    bool allow_teardown = true;
+    /// Count of external event sources, such as I/O, that will prevent
+    /// quiescence.
+    std::atomic<size_t> external_event_sources = 0;
     // Pausing if value is odd.
     // Is not atomic, since updates are only made while a lock is held.
     // We are assuming that no partial write will be observed.
@@ -96,12 +98,28 @@ namespace verona::rt
       return get().inflight_count == 0;
     }
 
-    static void set_allow_teardown(bool allow)
+    /// Increment the external event source count. A non-zero count will prevent
+    /// runtime teardown.
+    static void add_external_event_source()
     {
-      Systematic::cout() << "Set allow teardown: " << allow << std::endl;
       auto& s = get();
-      s.allow_teardown = allow;
-      if (allow)
+      auto prev_count =
+        s.external_event_sources.fetch_add(1, std::memory_order_seq_cst);
+      Systematic::cout() << "Add external event source (now "
+                         << (prev_count + 1) << ")" << std::endl;
+    }
+
+    /// Decrement the external event source count. This will allow runtime
+    /// teardown if the count drops to zero.
+    static void remove_external_event_source()
+    {
+      auto& s = get();
+      auto prev_count =
+        s.external_event_sources.fetch_sub(1, std::memory_order_seq_cst);
+      assert(prev_count != 0);
+      Systematic::cout() << "Remove external event source (now "
+                         << (prev_count - 1) << ")" << std::endl;
+      if (prev_count == 1)
         s.unpause();
     }
 
@@ -461,7 +479,7 @@ namespace verona::rt
           t = t->next;
         } while (t != first_thread);
 
-        if (!allow_teardown)
+        if (external_event_sources.load(std::memory_order_seq_cst) != 0)
         {
           assert((runtime_pausing & 1) == 0);
           runtime_pausing++;
