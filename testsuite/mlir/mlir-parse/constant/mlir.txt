@@ -1,15 +1,13 @@
 
 
 module {
-  func @f(%arg0: !type.unk) {
+  func @f() {
     %0 = "verona.alloca"() : () -> !type.alloca
-    %1 = "verona.store"(%arg0, %0) : (!type.unk, !type.alloca) -> !type.unk
-    %2 = "verona.alloca"() : () -> !type.alloca
-    %3 = "verona.constant(42)"() : () -> !type.int
-    %4 = "verona.store"(%3, %2) : (!type.int, !type.alloca) -> !type.unk
-    %5 = "verona.alloca"() : () -> !type.alloca
-    %6 = "verona.constant(3.1415)"() : () -> !type.float
-    %7 = "verona.store"(%6, %5) : (!type.float, !type.alloca) -> !type.unk
+    %1 = "verona.constant(42)"() : () -> !type.int
+    %2 = "verona.store"(%1, %0) : (!type.int, !type.alloca) -> !type.unk
+    %3 = "verona.alloca"() : () -> !type.alloca
+    %4 = "verona.constant(3.1415)"() : () -> !type.float
+    %5 = "verona.store"(%4, %3) : (!type.float, !type.alloca) -> !type.unk
     return
   }
 }

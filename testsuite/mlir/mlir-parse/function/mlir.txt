@@ -2,8 +2,7 @@
 
 module {
   func @empty_declaration()
-  func @single_arg(!type.unk)
-  func @unknown_arguments(!type.unk, !type.unk)
+  func @single_arg(!type.S16)
   func @args_and_ret(!type.U32, !type.S32) -> !type.F64
   func @foo(%arg0: !type.imm, %arg1: !type<"U64&imm">) -> !type<"U64&imm"> {
     %0 = "verona.alloca"() : () -> !type.alloca
