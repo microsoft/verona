@@ -375,14 +375,11 @@ namespace mlir::verona
     {
       llvm::SmallVector<::ast::WeakAst, 4> argNodes;
       getAllOperands(argNodes, ast);
-      assert(
-        argNodes.size() == func.getNumArguments() &&
-        "Wrong number of arguments");
+      auto argTypes = func.getType().getInputs();
+      assert(argNodes.size() == argTypes.size() && "Wrong number of arguments");
       llvm::SmallVector<mlir::Value, 4> args;
-      // FIXME: Functions that were only declared don't have the first basic
-      // block and therefore have zero "arguments" allocated. Since we only
-      // use the type here, we could just iterate through the types.
-      for (const auto& val_ty : llvm::zip(argNodes, func.getArguments()))
+      // For each argument / type, cast.
+      for (const auto& val_ty : llvm::zip(argNodes, argTypes))
       {
         auto arg = std::get<0>(val_ty).lock();
         auto val = parseNode(arg);
@@ -390,8 +387,7 @@ namespace mlir::verona
           return std::move(err);
 
         // Types are incomplete here, so add casts (will be cleaned later)
-        // FIXME: Only add casts when the types aren't the same.
-        auto argTy = std::get<1>(val_ty).getType();
+        auto argTy = std::get<1>(val_ty);
         auto cast =
           genOperation(getLocation(arg), "verona.cast", {val->get()}, argTy);
         if (auto err = cast.takeError())

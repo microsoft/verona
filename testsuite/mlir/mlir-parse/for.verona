@@ -4,7 +4,7 @@
 apply(x) : S32;
 has_value(x) : bool;
 next(x);
-foo(a : S32) { }
+foo(a : S32);
 
 f(x)
 {
