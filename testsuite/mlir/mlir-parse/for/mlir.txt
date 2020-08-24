@@ -4,11 +4,7 @@ module {
   func @apply(!type.unk) -> !type.S32
   func @has_value(!type.unk) -> i1
   func @next(!type.unk)
-  func @foo(%arg0: !type.S32) {
-    %0 = "verona.alloca"() : () -> !type.alloca
-    %1 = "verona.store"(%arg0, %0) : (!type.S32, !type.alloca) -> !type.unk
-    return
-  }
+  func @foo(!type.S32)
   func @f(%arg0: !type.unk) {
     %0 = "verona.alloca"() : () -> !type.alloca
     %1 = "verona.store"(%arg0, %0) : (!type.unk, !type.alloca) -> !type.unk
