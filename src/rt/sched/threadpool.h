@@ -107,18 +107,20 @@ namespace verona::rt
         s.external_event_sources.fetch_add(1, std::memory_order_seq_cst);
       Systematic::cout() << "Add external event source (now "
                          << (prev_count + 1) << ")" << std::endl;
-      s.unpause();
     }
 
     /// Decrement the external event source count. This will allow runtime
     /// teardown if the count drops to zero.
     static void remove_external_event_source()
     {
+      auto& s = get();
       auto prev_count =
-        get().external_event_sources.fetch_sub(1, std::memory_order_seq_cst);
+        s.external_event_sources.fetch_sub(1, std::memory_order_seq_cst);
       assert(prev_count != 0);
       Systematic::cout() << "Remove external event source (now "
                          << (prev_count - 1) << ")" << std::endl;
+      if (prev_count == 1)
+        s.unpause();
     }
 
     static void set_fair(bool fair)
