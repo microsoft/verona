@@ -32,7 +32,7 @@ void test_runtime_pause(size_t cores, size_t pauses)
 {
   Scheduler& sched = Scheduler::get();
   sched.init(cores);
-  Scheduler::set_allow_teardown(false);
+  Scheduler::add_external_event_source();
 
   auto a = new A;
 
@@ -50,7 +50,7 @@ void test_runtime_pause(size_t cores, size_t pauses)
     auto pause_time = std::chrono::nanoseconds(dist(rng));
     std::this_thread::sleep_for(pause_time);
 
-    Scheduler::set_allow_teardown(true);
+    Scheduler::remove_external_event_source();
   });
 
   sched.run();
