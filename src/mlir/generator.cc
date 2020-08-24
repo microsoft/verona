@@ -457,11 +457,16 @@ namespace mlir::verona
   llvm::Expected<ReturnValue> Generator::parseReturn(const ::ast::Ast& ast)
   {
     assert(isReturn(ast) && "Bad node");
+
     // TODO: Implement returning multiple values
-    // FIXME: Functions that don't return anything won't have a return value
-    auto expr = parseNode(getSingleSubNode(ast).lock());
-    if (auto err = expr.takeError())
-      return std::move(err);
+    ReturnValue expr;
+    if (hasSubs(ast))
+    {
+      auto node = parseNode(getSingleSubNode(ast).lock());
+      if (auto err = node.takeError())
+        return std::move(err);
+      expr = *node;
+    }
 
     // Check which type of region we're in
     auto region = builder.getInsertionBlock()->getParent();
@@ -475,8 +480,9 @@ namespace mlir::verona
     }
     if (auto func = dyn_cast<mlir::FuncOp>(op))
     {
-      // TODO: Implement returning multiple values
-      retTy = func.getType().getResult(0);
+      // Void returns don't have results
+      if (func.getType().getNumResults() > 0)
+        retTy = func.getType().getResult(0);
     }
     else
     {
@@ -484,17 +490,25 @@ namespace mlir::verona
         "Return operation without parent function", getLocation(ast));
     }
 
-    // Emit the cast if necessary
-    if (expr->hasValue() && expr->get().getType() != retTy)
+    if (expr.hasValue())
     {
-      // Cast type (we trust the ast)
-      expr =
-        genOperation(expr->get().getLoc(), "verona.cast", {expr->get()}, retTy);
-      if (auto err = expr.takeError())
-        return std::move(err);
+      assert(retTy && "Return value from a void function");
+      // Emit the cast if necessary (we trust the ast)
+      if (expr.get().getType() != retTy)
+      {
+        auto op =
+          genOperation(expr.get().getLoc(), "verona.cast", {expr.get()}, retTy);
+        if (auto err = op.takeError())
+          return std::move(err);
+        expr = *op;
+      }
+      builder.create<mlir::ReturnOp>(getLocation(ast), expr.getAll());
     }
-
-    builder.create<mlir::ReturnOp>(getLocation(ast), expr->getAll());
+    else
+    {
+      assert(!retTy && "Return void from a valued function");
+      builder.create<mlir::ReturnOp>(getLocation(ast));
+    }
 
     // No values to return, basic block is terminated.
     return ReturnValue();

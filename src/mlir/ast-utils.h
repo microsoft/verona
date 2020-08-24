@@ -127,6 +127,12 @@ namespace mlir::verona::ASTInterface
            }) != nodes.end();
   }
 
+  /// Return true if node has subnodes
+  bool hasSubs(::ast::WeakAst ast)
+  {
+    return !ast.lock()->nodes.empty();
+  }
+
   /// Return true if node is a value
   bool isValue(::ast::WeakAst ast)
   {
@@ -357,12 +363,8 @@ namespace mlir::verona::ASTInterface
   {
     assert(isFunction(ast) && "Bad node");
 
-    // Empty function name is "apply"
     auto funcname = findNode(ast, NodeKind::FuncName).lock();
-    assert(!funcname->nodes.empty() && "Bad function");
-
-    // Else, get function name
-    assert(funcname->nodes.size() == 1);
+    assert(hasSubs(funcname) && "Bad function");
     return getTokenValue(funcname->nodes[0]);
   }
 
@@ -500,7 +502,7 @@ namespace mlir::verona::ASTInterface
     // Else nodes always exist inside `if` nodes, but if there was no `else`
     // block, they're empty. We should only return true if they're not.
     return isA(ast, NodeKind::If) && hasA(ast, NodeKind::Else) &&
-      !findNode(ast, NodeKind::Else).lock()->nodes.empty();
+      hasSubs(findNode(ast, NodeKind::Else));
   }
 
   /// Return the block form an if statement
@@ -523,7 +525,7 @@ namespace mlir::verona::ASTInterface
   /// Return the else block form an if statement
   ::ast::WeakAst getElseBlock(::ast::WeakAst ast)
   {
-    assert(isIf(ast) && "Bad node");
+    assert(hasElse(ast) && "Bad node");
     // Else has either a single node or a seq
     auto node = findNode(ast, NodeKind::Else);
     return node.lock()->nodes[0];
