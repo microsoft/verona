@@ -4,6 +4,9 @@ module {
   func @empty_declaration()
   func @single_arg(!type.S16)
   func @args_and_ret(!type.U32, !type.S32) -> !type.F64
+  func @empty_return() {
+    return
+  }
   func @foo(%arg0: !type.imm, %arg1: !type<"U64&imm">) -> !type<"U64&imm"> {
     %0 = "verona.alloca"() : () -> !type.alloca
     %1 = "verona.store"(%arg0, %0) : (!type.imm, !type.alloca) -> !type.unk

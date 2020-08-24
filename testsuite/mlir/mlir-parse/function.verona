@@ -7,6 +7,11 @@ single_arg(x : S16);
 
 args_and_ret(a : U32, b : S32) : F64;
 
+empty_return()
+{
+  return;
+}
+
 foo(a: N, b: U64 & imm): R
   where N: imm
   where R: U64 & imm
