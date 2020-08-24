@@ -388,12 +388,19 @@ namespace mlir::verona
 
         // Types are incomplete here, so add casts (will be cleaned later)
         auto argTy = std::get<1>(val_ty);
-        auto cast =
-          genOperation(getLocation(arg), "verona.cast", {val->get()}, argTy);
-        if (auto err = cast.takeError())
-          return std::move(err);
+        if (argTy != val->get().getType())
+        {
+          auto cast =
+            genOperation(getLocation(arg), "verona.cast", {val->get()}, argTy);
+          if (auto err = cast.takeError())
+            return std::move(err);
 
-        args.push_back(cast->get());
+          args.push_back(cast->get());
+        }
+        else
+        {
+          args.push_back(val->get());
+        }
       }
 
       auto call = builder.create<mlir::CallOp>(getLocation(ast), func, args);

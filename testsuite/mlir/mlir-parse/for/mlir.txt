@@ -19,8 +19,7 @@ module {
   ^bb2:  // pred: ^bb1
     %7 = call @apply(%5) : (!type.unk) -> !type.S32
     call @next(%5) : (!type.unk) -> ()
-    %8 = "verona.cast"(%7) : (!type.S32) -> !type.S32
-    call @foo(%8) : (!type.S32) -> ()
+    call @foo(%7) : (!type.S32) -> ()
     br ^bb1
   ^bb3:  // pred: ^bb1
     return
