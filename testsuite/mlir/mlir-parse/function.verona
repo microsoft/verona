@@ -3,9 +3,7 @@
 
 empty_declaration();
 
-// Is this really valid?
-single_arg(x);
-unknown_arguments(x, y);
+single_arg(x : S16);
 
 args_and_ret(a : U32, b : S32) : F64;
 
