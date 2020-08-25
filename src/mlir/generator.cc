@@ -31,12 +31,6 @@ namespace
 
 namespace mlir::verona
 {
-  // FIXME: Until we decide how the interface is going to be, this helps to
-  // keep the idea of separation without actually doing it. We could have just
-  // a namespace and functions, a static class, or a stateful class, all of
-  // which will have different choices on the calls to the interface.
-  using namespace ASTInterface;
-
   // ===================================================== Public Interface
   llvm::Expected<mlir::OwningModuleRef>
   Generator::lower(MLIRContext* context, const ::ast::Ast& ast)
@@ -51,19 +45,19 @@ namespace mlir::verona
   // ===================================================== AST -> MLIR
   mlir::Location Generator::getLocation(const ::ast::Ast& ast)
   {
-    auto path = getPath(ast);
+    auto path = AST::getPath(ast);
     return builder.getFileLineColLoc(
       Identifier::get(path.file, context), path.line, path.column);
   }
 
   llvm::Error Generator::parseModule(const ::ast::Ast& ast)
   {
-    assert(isClass(ast) && "Bad node");
+    assert(AST::isClass(ast) && "Bad node");
     module = mlir::ModuleOp::create(getLocation(ast));
     // TODO: Support more than just functions at the module level
-    auto body = getClassBody(ast);
+    auto body = AST::getClassBody(ast);
     llvm::SmallVector<::ast::WeakAst, 4> funcs;
-    getSubNodes(funcs, body);
+    AST::getSubNodes(funcs, body);
     for (auto f : funcs)
     {
       auto fun = parseFunction(f.lock());
@@ -76,36 +70,36 @@ namespace mlir::verona
 
   llvm::Expected<mlir::FuncOp> Generator::parseProto(const ::ast::Ast& ast)
   {
-    assert(isFunction(ast) && "Bad node");
-    auto name = getFunctionName(ast);
+    assert(AST::isFunction(ast) && "Bad node");
+    auto name = AST::getFunctionName(ast);
     // We only care about the functions declared in the current scope
     if (functionTable.inScope(name))
       return functionTable.lookup(name);
 
     // Parse 'where' clause
     llvm::SmallVector<::ast::WeakAst, 4> constraints;
-    getFunctionConstraints(constraints, ast);
+    AST::getFunctionConstraints(constraints, ast);
     for (auto c : constraints)
     {
       // This is wrong. Constraints are not aliases, but with
       // the oversimplified representaiton we have and the fluid
       // state of the type system, this will "work" for now.
-      auto alias = getID(c);
-      auto ty = getType(c);
+      auto alias = AST::getID(c);
+      auto ty = AST::getType(c);
       typeTable.insert(alias, parseType(ty.lock()));
     }
 
     // Function type from signature
     Types types;
     llvm::SmallVector<::ast::WeakAst, 4> args;
-    getFunctionArgs(args, ast);
+    AST::getFunctionArgs(args, ast);
     for (auto arg : args)
-      types.push_back(parseType(getType(arg).lock()));
+      types.push_back(parseType(AST::getType(arg).lock()));
 
     // Return type is nothing if no type
     llvm::SmallVector<mlir::Type, 1> retTy;
-    if (hasType(getFunctionType(ast)))
-      retTy.push_back(parseType(getFunctionType(ast).lock()));
+    if (AST::hasType(AST::getFunctionType(ast)))
+      retTy.push_back(parseType(AST::getFunctionType(ast).lock()));
 
     // Create function
     auto funcTy = builder.getFunctionType(types, retTy);
@@ -116,18 +110,18 @@ namespace mlir::verona
 
   llvm::Expected<mlir::FuncOp> Generator::parseFunction(const ::ast::Ast& ast)
   {
-    assert(isFunction(ast) && "Bad node");
+    assert(AST::isFunction(ast) && "Bad node");
 
     // Declare function signature
     TypeScopeT alias_scope(typeTable);
-    auto name = getFunctionName(ast);
+    auto name = AST::getFunctionName(ast);
     auto proto = parseProto(ast);
     if (auto err = proto.takeError())
       return std::move(err);
     auto& func = *proto;
 
     // If just declaration, return the proto value
-    if (!hasFunctionBody(ast))
+    if (!AST::hasFunctionBody(ast))
       return func;
 
     // Create entry block
@@ -137,13 +131,13 @@ namespace mlir::verona
     // Declare all arguments on current scope
     SymbolScopeT var_scope(symbolTable);
     llvm::SmallVector<::ast::WeakAst, 4> args;
-    getFunctionArgs(args, ast);
+    AST::getFunctionArgs(args, ast);
     auto argVals = entryBlock.getArguments();
     assert(args.size() == argVals.size() && "Argument mismatch");
     for (auto var_val : llvm::zip(args, argVals))
     {
       // Get the argument name/value
-      auto name = getID(std::get<0>(var_val).lock());
+      auto name = AST::getID(std::get<0>(var_val).lock());
       auto value = std::get<1>(var_val);
       // Allocate space in the stack
       auto alloca =
@@ -160,7 +154,7 @@ namespace mlir::verona
     }
 
     // Lower body
-    auto body = getFunctionBody(ast);
+    auto body = AST::getFunctionBody(ast);
     auto last = parseNode(body.lock());
     if (auto err = last.takeError())
       return std::move(err);
@@ -206,8 +200,8 @@ namespace mlir::verona
 
   mlir::Type Generator::parseType(const ::ast::Ast& ast)
   {
-    assert(isType(ast) && "Bad node");
-    auto desc = getTypeDesc(ast);
+    assert(AST::isType(ast) && "Bad node");
+    auto desc = AST::getTypeDesc(ast);
     if (desc.empty())
       return unkTy;
 
@@ -243,7 +237,7 @@ namespace mlir::verona
   {
     ReturnValue last;
     llvm::SmallVector<::ast::WeakAst, 4> nodes;
-    getSubNodes(nodes, ast);
+    AST::getSubNodes(nodes, ast);
     for (auto sub : nodes)
     {
       auto node = parseNode(sub.lock());
@@ -256,47 +250,47 @@ namespace mlir::verona
 
   llvm::Expected<ReturnValue> Generator::parseNode(const ::ast::Ast& ast)
   {
-    switch (getKind(ast))
+    switch (AST::getKind(ast))
     {
-      case NodeKind::Localref:
+      case AST::NodeKind::Localref:
         return parseValue(ast);
-      case NodeKind::Block:
-      case NodeKind::Seq:
+      case AST::NodeKind::Block:
+      case AST::NodeKind::Seq:
         return parseBlock(ast);
-      case NodeKind::ID:
+      case AST::NodeKind::ID:
         return parseValue(ast);
-      case NodeKind::Assign:
+      case AST::NodeKind::Assign:
         return parseAssign(ast);
-      case NodeKind::Call:
+      case AST::NodeKind::Call:
         return parseCall(ast);
-      case NodeKind::Return:
+      case AST::NodeKind::Return:
         return parseReturn(ast);
-      case NodeKind::If:
+      case AST::NodeKind::If:
         return parseCondition(ast);
-      case NodeKind::While:
+      case AST::NodeKind::While:
         return parseWhileLoop(ast);
-      case NodeKind::For:
+      case AST::NodeKind::For:
         return parseForLoop(ast);
-      case NodeKind::Continue:
+      case AST::NodeKind::Continue:
         return parseContinue(ast);
-      case NodeKind::Break:
+      case AST::NodeKind::Break:
         return parseBreak(ast);
     }
 
-    if (isValue(ast))
+    if (AST::isValue(ast))
       return parseValue(ast);
 
     return parsingError(
-      "Node " + getName(ast) + " not implemented yet", getLocation(ast));
+      "Node " + AST::getName(ast) + " not implemented yet", getLocation(ast));
   }
 
   llvm::Expected<ReturnValue> Generator::parseValue(const ::ast::Ast& ast)
   {
     // Variables
-    if (isLocalRef(ast))
+    if (AST::isLocalRef(ast))
     {
       // We use allocas to track location and load/stores to track access
-      auto name = getTokenValue(ast);
+      auto name = AST::getTokenValue(ast);
       auto var = symbolTable.lookup(name);
       assert(var && "Undeclared variable lookup, broken ast");
       if (var.getType() == allocaTy)
@@ -305,38 +299,38 @@ namespace mlir::verona
     }
 
     // Constants
-    if (isConstant(ast))
+    if (AST::isConstant(ast))
     {
       // We lower each constant to their own values for now as we
       // don't yet have a good scheme for the types and MLIR can't
       // have attributes from unknown types. Once we set on a type
       // system compatibility between Verona and MLIR, we can change
       // this to emit the attribute right away.
-      auto type = genOpaqueType(getName(ast));
-      auto value = getTokenValue(ast);
+      auto type = genOpaqueType(AST::getName(ast));
+      auto value = AST::getTokenValue(ast);
       return genOperation(
         getLocation(ast), "verona.constant(" + value + ")", {}, type);
     }
 
     // TODO: Literals need attributes and types
-    assert(isValue(ast) && "Bad node");
+    assert(AST::isValue(ast) && "Bad node");
     return parsingError(
-      "Value [" + getName(ast) + " = " + getTokenValue(ast) +
+      "Value [" + AST::getName(ast) + " = " + AST::getTokenValue(ast) +
         "] not implemented yet",
       getLocation(ast));
   }
 
   llvm::Expected<ReturnValue> Generator::parseAssign(const ::ast::Ast& ast)
   {
-    assert(isAssign(ast) && "Bad node");
+    assert(AST::isAssign(ast) && "Bad node");
 
     // Can either be a let (new variable) or localref (existing variable).
-    auto var = getLHS(ast);
-    auto name = getLocalName(var);
+    auto var = AST::getLHS(ast);
+    auto name = AST::getLocalName(var);
 
     // If the variable wasn't declared yet in this context, create an alloca
     // TODO: Implement declaration of tuples (multiple values)
-    if (isLet(var))
+    if (AST::isLet(var))
     {
       auto alloca =
         genOperation(getLocation(ast), "verona.alloca", {}, allocaTy);
@@ -352,7 +346,7 @@ namespace mlir::verona
 
     // The right-hand side can be any expression
     // This is the value and we update the variable
-    auto rhs = parseNode(getRHS(ast).lock());
+    auto rhs = parseNode(AST::getRHS(ast).lock());
     if (auto err = rhs.takeError())
       return std::move(err);
 
@@ -366,15 +360,15 @@ namespace mlir::verona
 
   llvm::Expected<ReturnValue> Generator::parseCall(const ::ast::Ast& ast)
   {
-    assert(isCall(ast) && "Bad node");
-    auto name = getID(ast);
+    assert(AST::isCall(ast) && "Bad node");
+    auto name = AST::getID(ast);
 
     // All operations are calls, only calls to previously defined functions
     // are function calls.
     if (auto func = functionTable.lookup(name))
     {
       llvm::SmallVector<::ast::WeakAst, 4> argNodes;
-      getAllOperands(argNodes, ast);
+      AST::getAllOperands(argNodes, ast);
       auto argTypes = func.getType().getInputs();
       assert(argNodes.size() == argTypes.size() && "Wrong number of arguments");
       llvm::SmallVector<mlir::Value, 4> args;
@@ -409,19 +403,19 @@ namespace mlir::verona
     }
 
     // Else, it should be an operation that we can lower natively
-    if (isUnary(ast))
+    if (AST::isUnary(ast))
     {
       return parsingError(
         "Unary Operation '" + name + "' not implemented yet", getLocation(ast));
     }
-    else if (isBinary(ast))
+    else if (AST::isBinary(ast))
     {
       // Get both arguments
       // TODO: If the arguments are tuples, do we need to apply element-wise?
-      auto arg0 = parseNode(getOperand(ast, 0).lock());
+      auto arg0 = parseNode(AST::getOperand(ast, 0).lock());
       if (auto err = arg0.takeError())
         return std::move(err);
-      auto arg1 = parseNode(getOperand(ast, 1).lock());
+      auto arg1 = parseNode(AST::getOperand(ast, 1).lock());
       if (auto err = arg1.takeError())
         return std::move(err);
 
@@ -456,13 +450,13 @@ namespace mlir::verona
 
   llvm::Expected<ReturnValue> Generator::parseReturn(const ::ast::Ast& ast)
   {
-    assert(isReturn(ast) && "Bad node");
+    assert(AST::isReturn(ast) && "Bad node");
 
     // TODO: Implement returning multiple values
     ReturnValue expr;
-    if (hasSubs(ast))
+    if (AST::hasSubs(ast))
     {
-      auto node = parseNode(getSingleSubNode(ast).lock());
+      auto node = parseNode(AST::getSingleSubNode(ast).lock());
       if (auto err = node.takeError())
         return std::move(err);
       expr = *node;
@@ -516,11 +510,11 @@ namespace mlir::verona
 
   llvm::Expected<ReturnValue> Generator::parseCondition(const ::ast::Ast& ast)
   {
-    assert(isIf(ast) && "Bad node");
+    assert(AST::isIf(ast) && "Bad node");
 
     // TODO: MLIR doesn't support conditions with literals
     // we need to make a constexpr decision and only lower the right block
-    if (isConstant(getCond(ast)))
+    if (AST::isConstant(AST::getCond(ast)))
     {
       return parsingError(
         "Conditionals with literals not supported yet", getLocation(ast));
@@ -531,7 +525,7 @@ namespace mlir::verona
 
     // First node is a sequence of conditions
     // lower in the current basic block.
-    auto condNode = getCond(ast).lock();
+    auto condNode = AST::getCond(ast).lock();
     auto condLoc = getLocation(condNode);
     auto cond = parseNode(condNode);
     if (auto err = cond.takeError())
@@ -542,10 +536,10 @@ namespace mlir::verona
     mlir::ValueRange empty{};
     auto ifBB = addBlock(region);
     mlir::Block* elseBB = nullptr;
-    if (hasElse(ast))
+    if (AST::hasElse(ast))
       elseBB = addBlock(region);
     auto exitBB = addBlock(region);
-    if (hasElse(ast))
+    if (AST::hasElse(ast))
     {
       builder.create<mlir::CondBranchOp>(
         condLoc, cond->get(), ifBB, empty, elseBB, empty);
@@ -561,7 +555,7 @@ namespace mlir::verona
       SymbolScopeT if_scope{symbolTable};
 
       // If block
-      auto ifNode = getIfBlock(ast).lock();
+      auto ifNode = AST::getIfBlock(ast).lock();
       auto ifLoc = getLocation(ifNode);
       builder.setInsertionPointToEnd(ifBB);
       auto ifBlock = parseNode(ifNode);
@@ -573,12 +567,12 @@ namespace mlir::verona
 
     // Else block
     // We don't need to lower the else part if it's empty
-    if (hasElse(ast))
+    if (AST::hasElse(ast))
     {
       // Create local context for the else block variables
       SymbolScopeT else_scope{symbolTable};
 
-      auto elseNode = getElseBlock(ast).lock();
+      auto elseNode = AST::getElseBlock(ast).lock();
       auto elseLoc = getLocation(elseNode);
       builder.setInsertionPointToEnd(elseBB);
       auto elseBlock = parseNode(elseNode);
@@ -597,11 +591,11 @@ namespace mlir::verona
 
   llvm::Expected<ReturnValue> Generator::parseWhileLoop(const ::ast::Ast& ast)
   {
-    assert(isWhile(ast) && "Bad node");
+    assert(AST::isWhile(ast) && "Bad node");
 
     // TODO: MLIR doesn't support conditions with literals
     // we need to make a constexpr decision and only lower the right block
-    if (isConstant(getCond(ast)))
+    if (AST::isConstant(AST::getCond(ast)))
     {
       return parsingError(
         "Loop conditions with literals not supported yet", getLocation(ast));
@@ -622,7 +616,7 @@ namespace mlir::verona
     // First node is a sequence of conditions
     // lower in the head basic block, with the conditional branch.
     builder.setInsertionPointToEnd(headBB);
-    auto condNode = getCond(ast).lock();
+    auto condNode = AST::getCond(ast).lock();
     auto condLoc = getLocation(condNode);
     auto cond = parseNode(condNode);
     if (auto err = cond.takeError())
@@ -636,7 +630,7 @@ namespace mlir::verona
     loopTable.insert("tail", exitBB);
 
     // Loop body, branch back to head node which will decide exit criteria
-    auto bodyNode = getLoopBlock(ast).lock();
+    auto bodyNode = AST::getLoopBlock(ast).lock();
     auto bodyLoc = getLocation(bodyNode);
     builder.setInsertionPointToEnd(bodyBB);
     auto bodyBlock = parseNode(bodyNode);
@@ -654,7 +648,7 @@ namespace mlir::verona
 
   llvm::Expected<ReturnValue> Generator::parseForLoop(const ::ast::Ast& ast)
   {
-    assert(isFor(ast) && "Bad node");
+    assert(AST::isFor(ast) && "Bad node");
 
     // For loops are of the shape (item in list), which need to initialise
     // the item, take the next from the list and exit if there is none.
@@ -664,7 +658,7 @@ namespace mlir::verona
 
     // First, we identify the iterator. Nested loops will have their own
     // iterators, of the same name, but within their own lexical blocks.
-    auto seqNode = getLoopSeq(ast).lock();
+    auto seqNode = AST::getLoopSeq(ast).lock();
     auto list = parseNode(seqNode);
     if (auto err = list.takeError())
       return std::move(err);
@@ -698,7 +692,7 @@ namespace mlir::verona
     //  val = $iter.apply();
     // val must have been declared in outer scope
     builder.setInsertionPointToEnd(bodyBB);
-    auto indVarName = getTokenValue(getLoopInd(ast));
+    auto indVarName = AST::getTokenValue(AST::getLoopInd(ast));
     auto apply = functionTable.lookup(ABI::iteratorApply);
     auto value = builder.create<mlir::CallOp>(condLoc, apply, iter);
     declareVariable(indVarName, value.getResult(0));
@@ -707,7 +701,7 @@ namespace mlir::verona
     builder.create<mlir::CallOp>(condLoc, next, iter);
 
     // Loop body, branch back to head node which will decide exit criteria
-    auto bodyNode = getLoopBlock(ast).lock();
+    auto bodyNode = AST::getLoopBlock(ast).lock();
     auto bodyLoc = getLocation(bodyNode);
     auto bodyBlock = parseNode(bodyNode);
     if (auto err = bodyBlock.takeError())
@@ -724,7 +718,7 @@ namespace mlir::verona
 
   llvm::Expected<ReturnValue> Generator::parseContinue(const ::ast::Ast& ast)
   {
-    assert(isContinue(ast) && "Bad node");
+    assert(AST::isContinue(ast) && "Bad node");
     // Nested loops have multiple heads, we only care about the last one
     if (!loopTable.inScope("head"))
       return parsingError("Continue without a loop", getLocation(ast));
@@ -741,7 +735,7 @@ namespace mlir::verona
   // Can we merge this code with the function above?
   llvm::Expected<ReturnValue> Generator::parseBreak(const ::ast::Ast& ast)
   {
-    assert(isBreak(ast) && "Bad node");
+    assert(AST::isBreak(ast) && "Bad node");
     // Nested loops have multiple tails, we only care about the last one
     if (!loopTable.inScope("tail"))
       return parsingError("Break without a loop", getLocation(ast));
