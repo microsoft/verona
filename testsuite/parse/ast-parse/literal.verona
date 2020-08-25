@@ -3,6 +3,9 @@
 
 f()
 {
+  // Type inferred
+  let bool1 = true;
+  let bool2 = false;
   let int1 = 00_42;
   let int2 = 0xc0_FFeE;
   let int3 = 0b10_10_10;
@@ -11,4 +14,12 @@ f()
   let precedence2 = 1 + (2 + 3);
   let object1 = new { x : U64 = 0; };
   let object2 = new Foo { x : U64 = 0; };
+
+  // Type declared
+  let bool3 : bool = true;
+  let bool4 : bool = false;
+  let int4 : U16 = 00_420;
+  let int5 : S32 = 0xc0_FFeE;
+  let int6 : U8 = 0b100_10_10;
+  let float2 : F32 = 207.18e-1;
 }

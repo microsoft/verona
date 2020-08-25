@@ -17,6 +17,16 @@
         + seq
           + assign
             + let
+              - local (bool1)
+              + oftype
+            - bool (true)
+          + assign
+            + let
+              - local (bool2)
+              + oftype
+            - bool (false)
+          + assign
+            + let
               - local (int1)
               + oftype
             - int (00_42)
@@ -103,3 +113,57 @@
                           - id (U64)
                   + initexpr
                     - int (0)
+          + assign
+            + let
+              - local (bool3)
+              + oftype
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (bool)
+            - bool (true)
+          + assign
+            + let
+              - local (bool4)
+              + oftype
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (bool)
+            - bool (false)
+          + assign
+            + let
+              - local (int4)
+              + oftype
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (U16)
+            - int (00_420)
+          + assign
+            + let
+              - local (int5)
+              + oftype
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (S32)
+            - hex (0xc0_FFeE)
+          + assign
+            + let
+              - local (int6)
+              + oftype
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (U8)
+            - binary (0b100_10_10)
+          + assign
+            + let
+              - local (float2)
+              + oftype
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (F32)
+            - float (207.18e-1)

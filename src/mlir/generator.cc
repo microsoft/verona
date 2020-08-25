@@ -252,13 +252,9 @@ namespace mlir::verona
   {
     switch (AST::getKind(ast))
     {
-      case AST::NodeKind::Localref:
-        return parseValue(ast);
       case AST::NodeKind::Block:
       case AST::NodeKind::Seq:
         return parseBlock(ast);
-      case AST::NodeKind::ID:
-        return parseValue(ast);
       case AST::NodeKind::Assign:
         return parseAssign(ast);
       case AST::NodeKind::Call:
