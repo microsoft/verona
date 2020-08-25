@@ -65,6 +65,9 @@ namespace mlir::verona
       Type = peg::str2tag("type"), // = 4058008
       TypeRef = peg::str2tag("type_ref"), // = 2115269750
       TypeBody = peg::str2tag("typebody"), // = 2117081800
+      Bool = peg::str2tag("bool"), // = 3565102
+      Hex = peg::str2tag("hex"), // = 110293
+      Binary = peg::str2tag("binary"), // = 3884723791
       Params = peg::str2tag("params"), // = 4271185724
       NamedParam = peg::str2tag("namedparam"), // = 1544471404
       ID = peg::str2tag("id"), // = 3565
@@ -82,7 +85,7 @@ namespace mlir::verona
       If = peg::str2tag("if"), // = 3567
       Else = peg::str2tag("else"), // = 3742303
       While = peg::str2tag("while"), // = 140358143
-      For = peg::str2tag("for"), // = 140358143
+      For = peg::str2tag("for"), // = 112155
       Continue = peg::str2tag("continue"), // = 2929012833
       Break = peg::str2tag("break"), // = 117842911
     };
@@ -151,7 +154,13 @@ namespace mlir::verona
     /// Return true if node is a value
     static bool isConstant(::ast::WeakAst ast)
     {
-      return isValue(ast) && isAny(ast, {NodeKind::Integer, NodeKind::Float});
+      return isValue(ast) &&
+        isAny(ast,
+              {NodeKind::Integer,
+               NodeKind::Float,
+               NodeKind::Bool,
+               NodeKind::Hex,
+               NodeKind::Binary});
     }
 
     /// Return true if node is a local variable reference

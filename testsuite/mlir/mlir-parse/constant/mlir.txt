@@ -8,6 +8,30 @@ module {
     %3 = "verona.alloca"() : () -> !type.alloca
     %4 = "verona.constant(3.1415)"() : () -> !type.float
     %5 = "verona.store"(%4, %3) : (!type.float, !type.alloca) -> !type.unk
+    %6 = "verona.alloca"() : () -> !type.alloca
+    %7 = "verona.constant(true)"() : () -> !type.bool
+    %8 = "verona.store"(%7, %6) : (!type.bool, !type.alloca) -> !type.unk
+    %9 = "verona.alloca"() : () -> !type.alloca
+    %10 = "verona.constant(0xAE)"() : () -> !type.hex
+    %11 = "verona.store"(%10, %9) : (!type.hex, !type.alloca) -> !type.unk
+    %12 = "verona.alloca"() : () -> !type.alloca
+    %13 = "verona.constant(0b11011)"() : () -> !type.binary
+    %14 = "verona.store"(%13, %12) : (!type.binary, !type.alloca) -> !type.unk
+    %15 = "verona.alloca"() : () -> !type.alloca
+    %16 = "verona.constant(42)"() : () -> !type.int
+    %17 = "verona.store"(%16, %15) : (!type.int, !type.alloca) -> !type.unk
+    %18 = "verona.alloca"() : () -> !type.alloca
+    %19 = "verona.constant(3.1415)"() : () -> !type.float
+    %20 = "verona.store"(%19, %18) : (!type.float, !type.alloca) -> !type.unk
+    %21 = "verona.alloca"() : () -> !type.alloca
+    %22 = "verona.constant(false)"() : () -> !type.bool
+    %23 = "verona.store"(%22, %21) : (!type.bool, !type.alloca) -> !type.unk
+    %24 = "verona.alloca"() : () -> !type.alloca
+    %25 = "verona.constant(0xDEADBEEF)"() : () -> !type.hex
+    %26 = "verona.store"(%25, %24) : (!type.hex, !type.alloca) -> !type.unk
+    %27 = "verona.alloca"() : () -> !type.alloca
+    %28 = "verona.constant(0b1)"() : () -> !type.binary
+    %29 = "verona.store"(%28, %27) : (!type.binary, !type.alloca) -> !type.unk
     return
   }
 }
