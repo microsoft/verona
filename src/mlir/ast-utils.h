@@ -496,7 +496,7 @@ namespace mlir::verona::ASTInterface
   }
 
   // ================================================= Condition Helpers
-  /// Return the condition form an if statement
+  /// Return the condition from an if statement
   bool hasElse(::ast::WeakAst ast)
   {
     // Else nodes always exist inside `if` nodes, but if there was no `else`
@@ -505,7 +505,7 @@ namespace mlir::verona::ASTInterface
       hasSubs(findNode(ast, NodeKind::Else));
   }
 
-  /// Return the block form an if statement
+  /// Return the block from an if statement
   ::ast::WeakAst getCond(::ast::WeakAst ast)
   {
     // These are the nodes that could have conditions as subnodes
@@ -522,7 +522,7 @@ namespace mlir::verona::ASTInterface
     return findNode(ast, NodeKind::Block);
   }
 
-  /// Return the else block form an if statement
+  /// Return the else block from an if statement
   ::ast::WeakAst getElseBlock(::ast::WeakAst ast)
   {
     assert(hasElse(ast) && "Bad node");
@@ -532,21 +532,21 @@ namespace mlir::verona::ASTInterface
   }
 
   // ================================================= Loop Helpers
-  /// Return the block form a loop
+  /// Return the block from a loop
   ::ast::WeakAst getLoopBlock(::ast::WeakAst ast)
   {
     assert(isLoop(ast) && "Bad node");
     return findNode(ast, NodeKind::Block);
   }
 
-  /// Return the sequence generator form a `for` loop
+  /// Return the sequence generator from a `for` loop
   ::ast::WeakAst getLoopSeq(::ast::WeakAst ast)
   {
     assert(isFor(ast) && "Bad node");
     return findNode(findNode(ast, NodeKind::Seq), NodeKind::Localref);
   }
 
-  /// Return the induction variable form a `for` loop
+  /// Return the induction variable from a `for` loop
   ::ast::WeakAst getLoopInd(::ast::WeakAst ast)
   {
     assert(isFor(ast) && "Bad node");
