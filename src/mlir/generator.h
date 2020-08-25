@@ -103,6 +103,27 @@ namespace mlir::verona
   };
 
   /**
+   * Language ABI (temporary).
+   *
+   * This is a temporary list of constants for holding on to ABI specific
+   * ideas like how to lower an iterator or a lambda or constants. Due to
+   * the current nature of the AST, we need those ideas here. If we improve
+   * the AST, or create an improved veneer of ABI related lowering, we should
+   * move this logic there and remove these constants.
+   */
+  namespace ABI
+  {
+    /// Iteration handler, to call `has_value`, `apply` and `next`.
+    const char* const iteratorHandler = "$iter";
+    /// Iteration value check, to be performed before taking a value.
+    const char* const iteratorHasValue = "has_value";
+    /// Iteration value copy, should only be called if `has_value` is true.
+    const char* const iteratorApply = "apply";
+    /// Iteration pointer increment, moves on to the next element in the list.
+    const char* const iteratorNext = "next";
+  }
+
+  /**
    * MLIR Generator.
    */
   struct Generator

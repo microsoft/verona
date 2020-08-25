@@ -668,8 +668,9 @@ namespace mlir::verona
     auto list = parseNode(seqNode);
     if (auto err = list.takeError())
       return std::move(err);
-    declareVariable("$iter", list->get());
-    llvm::SmallVector<mlir::Value, 1> iter{symbolTable.lookup("$iter")};
+    declareVariable(ABI::iteratorHandler, list->get());
+    llvm::SmallVector<mlir::Value, 1> iter{
+      symbolTable.lookup(ABI::iteratorHandler)};
 
     // Create the head basic-block, which will check the condition
     // and dispatch the loop to the body block or exit.
@@ -683,7 +684,7 @@ namespace mlir::verona
     // First node is a check on the lists `has_value` boolean return.
     builder.setInsertionPointToEnd(headBB);
     auto condLoc = getLocation(seqNode);
-    auto has_value = functionTable.lookup("has_value");
+    auto has_value = functionTable.lookup(ABI::iteratorHasValue);
     auto cond = builder.create<mlir::CallOp>(condLoc, has_value, iter);
     builder.create<mlir::CondBranchOp>(
       condLoc, cond.getResult(0), bodyBB, empty, exitBB, empty);
@@ -698,11 +699,11 @@ namespace mlir::verona
     // val must have been declared in outer scope
     builder.setInsertionPointToEnd(bodyBB);
     auto indVarName = getTokenValue(getLoopInd(ast));
-    auto apply = functionTable.lookup("apply");
+    auto apply = functionTable.lookup(ABI::iteratorApply);
     auto value = builder.create<mlir::CallOp>(condLoc, apply, iter);
     declareVariable(indVarName, value.getResult(0));
     //  %iter.next();
-    auto next = functionTable.lookup("next");
+    auto next = functionTable.lookup(ABI::iteratorNext);
     builder.create<mlir::CallOp>(condLoc, next, iter);
 
     // Loop body, branch back to head node which will decide exit criteria
