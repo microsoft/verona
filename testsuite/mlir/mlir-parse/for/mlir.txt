@@ -1,10 +1,10 @@
 
 
 module {
-  func @apply(!type.unk) -> !type.S32
-  func @has_value(!type.unk) -> i1
-  func @next(!type.unk)
   func @foo(!type.S32)
+  func @has_value(!type.unk) -> !type.bool
+  func @apply(!type.unk) -> !type.unk
+  func @next(!type.unk)
   func @f(%arg0: !type.unk) {
     %0 = "verona.alloca"() : () -> !type.alloca
     %1 = "verona.store"(%arg0, %0) : (!type.unk, !type.alloca) -> !type.unk
@@ -14,12 +14,14 @@ module {
     %5 = "verona.load"(%0) : (!type.alloca) -> !type.unk
     br ^bb1
   ^bb1:  // 2 preds: ^bb0, ^bb2
-    %6 = call @has_value(%5) : (!type.unk) -> i1
-    cond_br %6, ^bb2, ^bb3
+    %6 = call @has_value(%5) : (!type.unk) -> !type.bool
+    %7 = "verona.cast"(%6) : (!type.bool) -> i1
+    cond_br %7, ^bb2, ^bb3
   ^bb2:  // pred: ^bb1
-    %7 = call @apply(%5) : (!type.unk) -> !type.S32
+    %8 = call @apply(%5) : (!type.unk) -> !type.unk
     call @next(%5) : (!type.unk) -> ()
-    call @foo(%7) : (!type.S32) -> ()
+    %9 = "verona.cast"(%8) : (!type.unk) -> !type.S32
+    call @foo(%9) : (!type.S32) -> ()
     br ^bb1
   ^bb3:  // pred: ^bb1
     return
