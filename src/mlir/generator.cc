@@ -68,6 +68,21 @@ namespace mlir::verona
     return llvm::Error::success();
   }
 
+  llvm::Expected<mlir::FuncOp> Generator::generateProto(
+    mlir::Location loc,
+    llvm::StringRef name,
+    llvm::ArrayRef<mlir::Type> types,
+    llvm::ArrayRef<mlir::Type> retTy)
+  {
+    assert(!functionTable.inScope(name) && "Duplicated function declaration");
+
+    // Create function
+    auto funcTy = builder.getFunctionType(types, retTy);
+    auto func = mlir::FuncOp::create(loc, name, funcTy);
+    functionTable.insert(name, func);
+    return func;
+  }
+
   llvm::Expected<mlir::FuncOp> Generator::parseProto(const ::ast::Ast& ast)
   {
     assert(AST::isFunction(ast) && "Bad node");
@@ -101,10 +116,54 @@ namespace mlir::verona
     if (AST::hasType(AST::getFunctionType(ast)))
       retTy.push_back(parseType(AST::getFunctionType(ast).lock()));
 
-    // Create function
-    auto funcTy = builder.getFunctionType(types, retTy);
-    auto func = mlir::FuncOp::create(getLocation(ast), name, funcTy);
-    functionTable.insert(name, func);
+    return generateProto(getLocation(ast), name, types, retTy);
+  }
+
+  llvm::Expected<mlir::FuncOp> Generator::generateEmptyFunction(
+    mlir::Location loc,
+    llvm::StringRef name,
+    llvm::ArrayRef<llvm::StringRef> args,
+    llvm::ArrayRef<mlir::Type> types,
+    llvm::ArrayRef<mlir::Type> retTy)
+  {
+    assert(args.size() == types.size() && "Argument/type mismatch");
+
+    // If it's not declared yet, do so. This simplifies direct declaration of
+    // compiler functions. User functions should be checked at the parse level.
+    if (!functionTable.inScope(name))
+    {
+      auto proto = generateProto(loc, name, types, retTy);
+      if (auto err = proto.takeError())
+        return std::move(err);
+      functionTable.insert(name, *proto);
+    }
+    auto func = functionTable.lookup(name);
+
+    // Create entry block, set builder entry point
+    auto& entryBlock = *func.addEntryBlock();
+    auto argVals = entryBlock.getArguments();
+    assert(args.size() == argVals.size() && "Argument/value mismatch");
+    builder.setInsertionPointToStart(&entryBlock);
+
+    // Declare all arguments
+    for (auto var_val : llvm::zip(args, argVals))
+    {
+      // Get the argument name/value
+      auto name = std::get<0>(var_val);
+      auto value = std::get<1>(var_val);
+      // Allocate space in the stack
+      auto alloca = genOperation(loc, "verona.alloca", {}, allocaTy);
+      if (auto err = alloca.takeError())
+        return std::move(err);
+      // Store the value of the argument
+      auto store =
+        genOperation(loc, "verona.store", {value, alloca->get()}, unkTy);
+      if (auto err = store.takeError())
+        return std::move(err);
+      // Associate the name with the alloca SSA value
+      declareVariable(name, alloca->get());
+    }
+
     return func;
   }
 
@@ -112,46 +171,55 @@ namespace mlir::verona
   {
     assert(AST::isFunction(ast) && "Bad node");
 
-    // Declare function signature
+    // Parse 'where' clause
     TypeScopeT alias_scope(typeTable);
-    auto name = AST::getFunctionName(ast);
-    auto proto = parseProto(ast);
-    if (auto err = proto.takeError())
-      return std::move(err);
-    auto& func = *proto;
+    llvm::SmallVector<::ast::WeakAst, 4> constraints;
+    AST::getFunctionConstraints(constraints, ast);
+    for (auto c : constraints)
+    {
+      // This is wrong. Constraints are not aliases, but with
+      // the oversimplified representaiton we have and the fluid
+      // state of the type system, this will "work" for now.
+      auto alias = AST::getID(c);
+      auto ty = AST::getType(c);
+      typeTable.insert(alias, parseType(ty.lock()));
+    }
+
+    // Function type from signature
+    llvm::SmallVector<llvm::StringRef, 4> argNames;
+    Types types;
+    llvm::SmallVector<::ast::WeakAst, 4> args;
+    AST::getFunctionArgs(args, ast);
+    for (auto arg : args)
+    {
+      argNames.push_back(AST::getID(arg));
+      types.push_back(parseType(AST::getType(arg).lock()));
+    }
+
+    // Return type is nothing if no type
+    llvm::SmallVector<mlir::Type, 1> retTy;
+    if (AST::hasType(AST::getFunctionType(ast)))
+      retTy.push_back(parseType(AST::getFunctionType(ast).lock()));
 
     // If just declaration, return the proto value
+    auto name = AST::getFunctionName(ast);
     if (!AST::hasFunctionBody(ast))
+    {
+      // Declare function signature
+      auto proto = generateProto(getLocation(ast), name, types, retTy);
+      if (auto err = proto.takeError())
+        return std::move(err);
+      auto& func = *proto;
       return func;
-
-    // Create entry block
-    auto& entryBlock = *func.addEntryBlock();
-    builder.setInsertionPointToStart(&entryBlock);
+    }
 
     // Declare all arguments on current scope
     SymbolScopeT var_scope(symbolTable);
-    llvm::SmallVector<::ast::WeakAst, 4> args;
-    AST::getFunctionArgs(args, ast);
-    auto argVals = entryBlock.getArguments();
-    assert(args.size() == argVals.size() && "Argument mismatch");
-    for (auto var_val : llvm::zip(args, argVals))
-    {
-      // Get the argument name/value
-      auto name = AST::getID(std::get<0>(var_val).lock());
-      auto value = std::get<1>(var_val);
-      // Allocate space in the stack
-      auto alloca =
-        genOperation(getLocation(ast), "verona.alloca", {}, allocaTy);
-      if (auto err = alloca.takeError())
-        return std::move(err);
-      // Store the value of the argument
-      auto store = genOperation(
-        getLocation(ast), "verona.store", {value, alloca->get()}, unkTy);
-      if (auto err = store.takeError())
-        return std::move(err);
-      // Associate the name with the alloca SSA value
-      declareVariable(name, alloca->get());
-    }
+    auto def =
+      generateEmptyFunction(getLocation(ast), name, argNames, types, retTy);
+    if (auto err = def.takeError())
+      return std::move(err);
+    auto& func = *def;
 
     // Lower body
     auto body = AST::getFunctionBody(ast);
@@ -165,20 +233,16 @@ namespace mlir::verona
 
     // Return last value (or none)
     // TODO: Implement multiple return values for tuples
-    auto retTy = func.getType();
     bool hasLast = last->hasValue();
-    bool hasRetTy = retTy.getNumResults() > 0;
+    bool hasRetTy = !retTy.empty();
     if (hasLast && hasRetTy)
     {
       // Function has return value and there is a last value,
       // check types, cast if not the same, return.
-      if (last->get().getType() != retTy.getResult(0))
+      if (last->get().getType() != retTy[0])
       {
         last = genOperation(
-          last->get().getLoc(),
-          "verona.cast",
-          {last->get()},
-          retTy.getResult(0));
+          last->get().getLoc(), "verona.cast", {last->get()}, retTy[0]);
         if (auto err = last.takeError())
           return std::move(err);
       }

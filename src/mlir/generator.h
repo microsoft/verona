@@ -179,6 +179,11 @@ namespace mlir::verona
     /// Get location of an ast node
     mlir::Location getLocation(const ::ast::Ast& ast);
 
+    // ================================================================= Parsers
+    // These methods parse the AST into MLIR constructs, then either return the
+    // expected MLIR value or call the generators (see below) to do that for
+    // them.
+
     /// Parses a module, the global context.
     llvm::Error parseModule(const ::ast::Ast& ast);
 
@@ -221,7 +226,26 @@ namespace mlir::verona
     /// Parses a 'return' statement.
     llvm::Expected<ReturnValue> parseReturn(const ::ast::Ast& ast);
 
+    // ============================================================== Generators
+    // These methods build complex MLIR constructs from parameters either
+    // acquired from the AST or built by the compiler as to mimic the AST.
+
+    /// Generate a prototype, populating the symbol table
+    llvm::Expected<mlir::FuncOp> generateProto(
+      mlir::Location loc,
+      llvm::StringRef name,
+      llvm::ArrayRef<mlir::Type> types,
+      llvm::ArrayRef<mlir::Type> retTy);
+    /// Generates an empty function (with the first basic block)
+    llvm::Expected<mlir::FuncOp> generateEmptyFunction(
+      mlir::Location loc,
+      llvm::StringRef name,
+      llvm::ArrayRef<llvm::StringRef> args,
+      llvm::ArrayRef<mlir::Type> types,
+      llvm::ArrayRef<mlir::Type> retTy);
+
     // =============================================================== Temporary
+    // These methods should disappear once the Verona dialect is more advanced.
 
     /// Wrapper for opaque operators before we use actual Verona dialect.
     llvm::Expected<ReturnValue> genOperation(
