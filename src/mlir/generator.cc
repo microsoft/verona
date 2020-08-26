@@ -3,6 +3,7 @@
 
 #include "generator.h"
 
+#include "abi.h"
 #include "ast-utils.h"
 #include "dialect/VeronaDialect.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -42,7 +43,7 @@ namespace mlir::verona
     return std::move(gen.module);
   }
 
-  // ===================================================== AST -> MLIR
+  // ===================================================== Helpers
   mlir::Location Generator::getLocation(const ::ast::Ast& ast)
   {
     auto path = AST::getPath(ast);
@@ -50,6 +51,45 @@ namespace mlir::verona
       Identifier::get(path.file, context), path.line, path.column);
   }
 
+  void Generator::declareVariable(llvm::StringRef name, mlir::Value val)
+  {
+    assert(!symbolTable.inScope(name) && "Redeclaration");
+    symbolTable.insert(name, val);
+  }
+
+  void Generator::updateVariable(llvm::StringRef name, mlir::Value val)
+  {
+    assert(symbolTable.inScope(name) && "Variable not declared");
+    symbolTable.update(name, val);
+  }
+
+  void Generator::declareFunction(
+    llvm::StringRef name,
+    llvm::ArrayRef<llvm::StringRef> types,
+    llvm::StringRef retTy)
+  {
+    // If already declared, ignore
+    if (functionTable.inScope(name))
+      return;
+
+    // Map type names to MLIR types
+    Types argTys;
+    for (auto a : types)
+      argTys.push_back(genOpaqueType(a));
+    llvm::SmallVector<mlir::Type, 1> retTys;
+    if (!retTy.empty())
+      retTys.push_back(genOpaqueType(retTy));
+
+    // Generate the function and check: this should never fail
+    auto func = generateProto(unkLoc, name, argTys, retTys);
+    if (auto err = func.takeError())
+      assert(false && "FIXME: broken function generator");
+
+    // Add function declaration to the module
+    module->push_back(*func);
+  }
+
+  // ===================================================== AST -> MLIR
   llvm::Error Generator::parseModule(const ::ast::Ast& ast)
   {
     assert(AST::isClass(ast) && "Bad node");
@@ -66,105 +106,6 @@ namespace mlir::verona
       module->push_back(*fun);
     }
     return llvm::Error::success();
-  }
-
-  llvm::Expected<mlir::FuncOp> Generator::generateProto(
-    mlir::Location loc,
-    llvm::StringRef name,
-    llvm::ArrayRef<mlir::Type> types,
-    llvm::ArrayRef<mlir::Type> retTy)
-  {
-    assert(!functionTable.inScope(name) && "Duplicated function declaration");
-
-    // Create function
-    auto funcTy = builder.getFunctionType(types, retTy);
-    auto func = mlir::FuncOp::create(loc, name, funcTy);
-    functionTable.insert(name, func);
-    return func;
-  }
-
-  llvm::Expected<mlir::FuncOp> Generator::parseProto(const ::ast::Ast& ast)
-  {
-    assert(AST::isFunction(ast) && "Bad node");
-    auto name = AST::getFunctionName(ast);
-    // We only care about the functions declared in the current scope
-    if (functionTable.inScope(name))
-      return functionTable.lookup(name);
-
-    // Parse 'where' clause
-    llvm::SmallVector<::ast::WeakAst, 4> constraints;
-    AST::getFunctionConstraints(constraints, ast);
-    for (auto c : constraints)
-    {
-      // This is wrong. Constraints are not aliases, but with
-      // the oversimplified representaiton we have and the fluid
-      // state of the type system, this will "work" for now.
-      auto alias = AST::getID(c);
-      auto ty = AST::getType(c);
-      typeTable.insert(alias, parseType(ty.lock()));
-    }
-
-    // Function type from signature
-    Types types;
-    llvm::SmallVector<::ast::WeakAst, 4> args;
-    AST::getFunctionArgs(args, ast);
-    for (auto arg : args)
-      types.push_back(parseType(AST::getType(arg).lock()));
-
-    // Return type is nothing if no type
-    llvm::SmallVector<mlir::Type, 1> retTy;
-    if (AST::hasType(AST::getFunctionType(ast)))
-      retTy.push_back(parseType(AST::getFunctionType(ast).lock()));
-
-    return generateProto(getLocation(ast), name, types, retTy);
-  }
-
-  llvm::Expected<mlir::FuncOp> Generator::generateEmptyFunction(
-    mlir::Location loc,
-    llvm::StringRef name,
-    llvm::ArrayRef<llvm::StringRef> args,
-    llvm::ArrayRef<mlir::Type> types,
-    llvm::ArrayRef<mlir::Type> retTy)
-  {
-    assert(args.size() == types.size() && "Argument/type mismatch");
-
-    // If it's not declared yet, do so. This simplifies direct declaration of
-    // compiler functions. User functions should be checked at the parse level.
-    if (!functionTable.inScope(name))
-    {
-      auto proto = generateProto(loc, name, types, retTy);
-      if (auto err = proto.takeError())
-        return std::move(err);
-      functionTable.insert(name, *proto);
-    }
-    auto func = functionTable.lookup(name);
-
-    // Create entry block, set builder entry point
-    auto& entryBlock = *func.addEntryBlock();
-    auto argVals = entryBlock.getArguments();
-    assert(args.size() == argVals.size() && "Argument/value mismatch");
-    builder.setInsertionPointToStart(&entryBlock);
-
-    // Declare all arguments
-    for (auto var_val : llvm::zip(args, argVals))
-    {
-      // Get the argument name/value
-      auto name = std::get<0>(var_val);
-      auto value = std::get<1>(var_val);
-      // Allocate space in the stack
-      auto alloca = genOperation(loc, "verona.alloca", {}, allocaTy);
-      if (auto err = alloca.takeError())
-        return std::move(err);
-      // Store the value of the argument
-      auto store =
-        genOperation(loc, "verona.store", {value, alloca->get()}, unkTy);
-      if (auto err = store.takeError())
-        return std::move(err);
-      // Associate the name with the alloca SSA value
-      declareVariable(name, alloca->get());
-    }
-
-    return func;
   }
 
   llvm::Expected<mlir::FuncOp> Generator::parseFunction(const ::ast::Ast& ast)
@@ -239,14 +180,8 @@ namespace mlir::verona
     {
       // Function has return value and there is a last value,
       // check types, cast if not the same, return.
-      if (last->get().getType() != retTy[0])
-      {
-        last = genOperation(
-          last->get().getLoc(), "verona.cast", {last->get()}, retTy[0]);
-        if (auto err = last.takeError())
-          return std::move(err);
-      }
-      builder.create<mlir::ReturnOp>(getLocation(ast), last->getAll());
+      auto cast = generateAutoCast(last->get().getLoc(), last->get(), retTy[0]);
+      builder.create<mlir::ReturnOp>(getLocation(ast), cast);
     }
     else if (!hasRetTy)
     {
@@ -275,7 +210,7 @@ namespace mlir::verona
       return type;
 
     // Special treatment for type name 'bool'
-    // TODO: Should this be a special type in the grammar?
+    // TODO: Type matching when we have proper Verona types
     if (desc == "bool")
       return boolTy;
 
@@ -283,18 +218,6 @@ namespace mlir::verona
     type = genOpaqueType(desc);
     typeTable.insert(desc, type);
     return type;
-  }
-
-  void Generator::declareVariable(llvm::StringRef name, mlir::Value val)
-  {
-    assert(!symbolTable.inScope(name) && "Redeclaration");
-    symbolTable.insert(name, val);
-  }
-
-  void Generator::updateVariable(llvm::StringRef name, mlir::Value val)
-  {
-    assert(symbolTable.inScope(name) && "Variable not declared");
-    symbolTable.update(name, val);
   }
 
   llvm::Expected<ReturnValue> Generator::parseBlock(const ::ast::Ast& ast)
@@ -354,22 +277,15 @@ namespace mlir::verona
       auto var = symbolTable.lookup(name);
       assert(var && "Undeclared variable lookup, broken ast");
       if (var.getType() == allocaTy)
-        return genOperation(getLocation(ast), "verona.load", {var}, unkTy);
+        return generateLoad(getLocation(ast), var);
       return var;
     }
 
     // Constants
     if (AST::isConstant(ast))
     {
-      // We lower each constant to their own values for now as we
-      // don't yet have a good scheme for the types and MLIR can't
-      // have attributes from unknown types. Once we set on a type
-      // system compatibility between Verona and MLIR, we can change
-      // this to emit the attribute right away.
-      auto type = genOpaqueType(AST::getName(ast));
-      auto value = AST::getTokenValue(ast);
-      return genOperation(
-        getLocation(ast), "verona.constant(" + value + ")", {}, type);
+      return generateConstant(
+        getLocation(ast), AST::getTokenValue(ast), AST::getName(ast));
     }
 
     // TODO: Literals need attributes and types
@@ -392,11 +308,8 @@ namespace mlir::verona
     // TODO: Implement declaration of tuples (multiple values)
     if (AST::isLet(var))
     {
-      auto alloca =
-        genOperation(getLocation(ast), "verona.alloca", {}, allocaTy);
-      if (auto err = alloca.takeError())
-        return std::move(err);
-      declareVariable(name, alloca->get());
+      auto alloca = generateAlloca(getLocation(ast));
+      declareVariable(name, alloca);
     }
     auto store = symbolTable.lookup(name);
     if (!store)
@@ -411,11 +324,7 @@ namespace mlir::verona
       return std::move(err);
 
     // Store the value in the alloca
-    auto op = genOperation(
-      getLocation(ast), "verona.store", {rhs->get(), store}, unkTy);
-    if (auto err = op.takeError())
-      return std::move(err);
-    return store;
+    return generateStore(getLocation(ast), rhs->get(), store);
   }
 
   llvm::Expected<ReturnValue> Generator::parseCall(const ::ast::Ast& ast)
@@ -432,29 +341,20 @@ namespace mlir::verona
       auto argTypes = func.getType().getInputs();
       assert(argNodes.size() == argTypes.size() && "Wrong number of arguments");
       llvm::SmallVector<mlir::Value, 4> args;
+
       // For each argument / type, cast.
       for (const auto& val_ty : llvm::zip(argNodes, argTypes))
       {
+        // Arguments lowered before the call
         auto arg = std::get<0>(val_ty).lock();
         auto val = parseNode(arg);
         if (auto err = val.takeError())
           return std::move(err);
 
-        // Types are incomplete here, so add casts (will be cleaned later)
+        // Types could be incomplete here, casts may be needed
         auto argTy = std::get<1>(val_ty);
-        if (argTy != val->get().getType())
-        {
-          auto cast =
-            genOperation(getLocation(arg), "verona.cast", {val->get()}, argTy);
-          if (auto err = cast.takeError())
-            return std::move(err);
-
-          args.push_back(cast->get());
-        }
-        else
-        {
-          args.push_back(val->get());
-        }
+        auto cast = generateAutoCast(getLocation(arg), val->get(), argTy);
+        args.push_back(cast);
       }
 
       auto call = builder.create<mlir::CallOp>(getLocation(ast), func, args);
@@ -481,23 +381,27 @@ namespace mlir::verona
 
       // Get op name and type
       using opPairTy = std::pair<llvm::StringRef, mlir::Type>;
-      opPairTy op = llvm::StringSwitch<opPairTy>(name)
-                      .Case("+", {"verona.add", unkTy})
-                      .Case("-", {"verona.sub", unkTy})
-                      .Case("*", {"verona.mul", unkTy})
-                      .Case("/", {"verona.div", unkTy})
-                      .Case("==", {"verona.eq", boolTy})
-                      .Case("!=", {"verona.ne", boolTy})
-                      .Case(">", {"verona.gt", boolTy})
-                      .Case("<", {"verona.lt", boolTy})
-                      .Case(">=", {"verona.ge", boolTy})
-                      .Case("<=", {"verona.le", boolTy})
-                      .Default(std::make_pair("", unkTy));
+      opPairTy opTy = llvm::StringSwitch<opPairTy>(name)
+                        .Case("+", {"verona.add", unkTy})
+                        .Case("-", {"verona.sub", unkTy})
+                        .Case("*", {"verona.mul", unkTy})
+                        .Case("/", {"verona.div", unkTy})
+                        .Case("==", {"verona.eq", boolTy})
+                        .Case("!=", {"verona.ne", boolTy})
+                        .Case(">", {"verona.gt", boolTy})
+                        .Case("<", {"verona.lt", boolTy})
+                        .Case(">=", {"verona.ge", boolTy})
+                        .Case("<=", {"verona.le", boolTy})
+                        .Default(std::make_pair("", unkTy));
+      auto opName = opTy.first;
+      auto opType = opTy.second;
 
       // Match, return the right op with the right type
-      if (!op.first.empty())
+      if (!opName.empty())
+      {
         return genOperation(
-          getLocation(ast), op.first, {arg0->get(), arg1->get()}, op.second);
+          getLocation(ast), opName, {arg0->get(), arg1->get()}, opType);
+      }
 
       return parsingError(
         "Binary operation '" + name + "' not implemented yet",
@@ -522,12 +426,11 @@ namespace mlir::verona
       expr = *node;
     }
 
-    // Check which type of region we're in
+    // Check which type of region we're in to
+    // get the function return type (for casts)
     auto region = builder.getInsertionBlock()->getParent();
     mlir::Type retTy;
     auto op = region->getParentOp();
-
-    // Get the function return type (for casts)
     while (!isa<mlir::FuncOp>(op))
     {
       op = op->getParentRegion()->getParentOp();
@@ -544,19 +447,13 @@ namespace mlir::verona
         "Return operation without parent function", getLocation(ast));
     }
 
+    // Either retrurns empty or auto-cast'ed value
     if (expr.hasValue())
     {
       assert(retTy && "Return value from a void function");
       // Emit the cast if necessary (we trust the ast)
-      if (expr.get().getType() != retTy)
-      {
-        auto op =
-          genOperation(expr.get().getLoc(), "verona.cast", {expr.get()}, retTy);
-        if (auto err = op.takeError())
-          return std::move(err);
-        expr = *op;
-      }
-      builder.create<mlir::ReturnOp>(getLocation(ast), expr.getAll());
+      auto cast = generateAutoCast(expr.get().getLoc(), expr.get(), retTy);
+      builder.create<mlir::ReturnOp>(getLocation(ast), cast);
     }
     else
     {
@@ -601,13 +498,17 @@ namespace mlir::verona
     auto exitBB = addBlock(region);
     if (AST::hasElse(ast))
     {
-      builder.create<mlir::CondBranchOp>(
-        condLoc, cond->get(), ifBB, empty, elseBB, empty);
+      if (
+        auto err =
+          generateCondBranch(condLoc, cond->get(), ifBB, empty, elseBB, empty))
+        return std::move(err);
     }
     else
     {
-      builder.create<mlir::CondBranchOp>(
-        condLoc, cond->get(), ifBB, empty, exitBB, empty);
+      if (
+        auto err =
+          generateCondBranch(condLoc, cond->get(), ifBB, empty, exitBB, empty))
+        return std::move(err);
     }
 
     {
@@ -675,14 +576,16 @@ namespace mlir::verona
 
     // First node is a sequence of conditions
     // lower in the head basic block, with the conditional branch.
-    builder.setInsertionPointToEnd(headBB);
     auto condNode = AST::getCond(ast).lock();
     auto condLoc = getLocation(condNode);
+    builder.setInsertionPointToEnd(headBB);
     auto cond = parseNode(condNode);
     if (auto err = cond.takeError())
       return std::move(err);
-    builder.create<mlir::CondBranchOp>(
-      condLoc, cond->get(), bodyBB, empty, exitBB, empty);
+    if (
+      auto err =
+        generateCondBranch(condLoc, cond->get(), bodyBB, empty, exitBB, empty))
+      return std::move(err);
 
     // Create local head/tail basic-block context for continue/break
     BasicBlockScopeT loop_scope{loopTable};
@@ -722,9 +625,9 @@ namespace mlir::verona
     auto list = parseNode(seqNode);
     if (auto err = list.takeError())
       return std::move(err);
-    declareVariable(ABI::iteratorHandler, list->get());
+    declareVariable(ABI::LoopIterator::handler, list->get());
     llvm::SmallVector<mlir::Value, 1> iter{
-      symbolTable.lookup(ABI::iteratorHandler)};
+      symbolTable.lookup(ABI::LoopIterator::handler)};
 
     // Create the head basic-block, which will check the condition
     // and dispatch the loop to the body block or exit.
@@ -735,13 +638,19 @@ namespace mlir::verona
     auto exitBB = addBlock(region);
     builder.create<mlir::BranchOp>(getLocation(ast), headBB, empty);
 
-    // First node is a check on the lists `has_value` boolean return.
-    builder.setInsertionPointToEnd(headBB);
+    // First node is a check if the list has value, returns boolean.
+    declareFunction(
+      ABI::LoopIterator::check::name,
+      {ABI::LoopIterator::check::types[0]},
+      ABI::LoopIterator::check::retTy);
+    auto has_value = functionTable.lookup(ABI::LoopIterator::check::name);
     auto condLoc = getLocation(seqNode);
-    auto has_value = functionTable.lookup(ABI::iteratorHasValue);
+    builder.setInsertionPointToEnd(headBB);
     auto cond = builder.create<mlir::CallOp>(condLoc, has_value, iter);
-    builder.create<mlir::CondBranchOp>(
-      condLoc, cond.getResult(0), bodyBB, empty, exitBB, empty);
+    if (
+      auto err = generateCondBranch(
+        condLoc, cond.getResult(0), bodyBB, empty, exitBB, empty))
+      return std::move(err);
 
     // Create local head/tail basic-block context for continue/break
     BasicBlockScopeT loop_scope{loopTable};
@@ -751,13 +660,21 @@ namespace mlir::verona
     // Preamble for the loop body is:
     //  val = $iter.apply();
     // val must have been declared in outer scope
+    declareFunction(
+      ABI::LoopIterator::apply::name,
+      {ABI::LoopIterator::apply::types[0]},
+      ABI::LoopIterator::apply::retTy);
+    auto apply = functionTable.lookup(ABI::LoopIterator::apply::name);
     builder.setInsertionPointToEnd(bodyBB);
     auto indVarName = AST::getTokenValue(AST::getLoopInd(ast));
-    auto apply = functionTable.lookup(ABI::iteratorApply);
     auto value = builder.create<mlir::CallOp>(condLoc, apply, iter);
     declareVariable(indVarName, value.getResult(0));
     //  %iter.next();
-    auto next = functionTable.lookup(ABI::iteratorNext);
+    declareFunction(
+      ABI::LoopIterator::next::name,
+      {ABI::LoopIterator::next::types[0]},
+      ABI::LoopIterator::next::retTy);
+    auto next = functionTable.lookup(ABI::LoopIterator::next::name);
     builder.create<mlir::CallOp>(condLoc, next, iter);
 
     // Loop body, branch back to head node which will decide exit criteria
@@ -780,36 +697,162 @@ namespace mlir::verona
   {
     assert(AST::isContinue(ast) && "Bad node");
     // Nested loops have multiple heads, we only care about the last one
-    if (!loopTable.inScope("head"))
-      return parsingError("Continue without a loop", getLocation(ast));
-    auto head = loopTable.lookup("head");
-    mlir::ValueRange empty{};
-    // We assume the continue is the last operation in its basic block
-    // and that was checked by the parser
-    builder.create<mlir::BranchOp>(getLocation(ast), head, empty);
+    if (auto err = generateLoopBranch(getLocation(ast), "head"))
+      return std::move(err);
 
     // No values to return, basic block is terminated.
     return ReturnValue();
   }
 
-  // Can we merge this code with the function above?
   llvm::Expected<ReturnValue> Generator::parseBreak(const ::ast::Ast& ast)
   {
     assert(AST::isBreak(ast) && "Bad node");
     // Nested loops have multiple tails, we only care about the last one
-    if (!loopTable.inScope("tail"))
-      return parsingError("Break without a loop", getLocation(ast));
-    auto head = loopTable.lookup("tail");
-    mlir::ValueRange empty{};
-    // We assume the break is the last operation in its basic block
-    // and that was checked by the parser
-    builder.create<mlir::BranchOp>(getLocation(ast), head, empty);
+    if (auto err = generateLoopBranch(getLocation(ast), "tail"))
+      return std::move(err);
 
     // No values to return, basic block is terminated.
     return ReturnValue();
   }
 
-  llvm::Expected<ReturnValue> Generator::genOperation(
+  // ===================================================== MLIR Generators
+  llvm::Expected<mlir::FuncOp> Generator::generateProto(
+    mlir::Location loc,
+    llvm::StringRef name,
+    llvm::ArrayRef<mlir::Type> types,
+    llvm::ArrayRef<mlir::Type> retTy)
+  {
+    assert(!functionTable.inScope(name) && "Duplicated function declaration");
+
+    // Create function
+    auto funcTy = builder.getFunctionType(types, retTy);
+    auto func = mlir::FuncOp::create(loc, name, funcTy);
+    functionTable.insert(name, func);
+    return func;
+  }
+
+  llvm::Expected<mlir::FuncOp> Generator::generateEmptyFunction(
+    mlir::Location loc,
+    llvm::StringRef name,
+    llvm::ArrayRef<llvm::StringRef> args,
+    llvm::ArrayRef<mlir::Type> types,
+    llvm::ArrayRef<mlir::Type> retTy)
+  {
+    assert(args.size() == types.size() && "Argument/type mismatch");
+
+    // If it's not declared yet, do so. This simplifies direct declaration of
+    // compiler functions. User functions should be checked at the parse level.
+    if (!functionTable.inScope(name))
+    {
+      auto proto = generateProto(loc, name, types, retTy);
+      if (auto err = proto.takeError())
+        return std::move(err);
+      functionTable.insert(name, *proto);
+    }
+    auto func = functionTable.lookup(name);
+
+    // Create entry block, set builder entry point
+    auto& entryBlock = *func.addEntryBlock();
+    auto argVals = entryBlock.getArguments();
+    assert(args.size() == argVals.size() && "Argument/value mismatch");
+    builder.setInsertionPointToStart(&entryBlock);
+
+    // Declare all arguments
+    for (auto var_val : llvm::zip(args, argVals))
+    {
+      // Get the argument name/value
+      auto name = std::get<0>(var_val);
+      auto value = std::get<1>(var_val);
+      // Allocate space in the stack & store the argument value
+      auto alloca = generateAlloca(loc);
+      auto store = generateStore(loc, value, alloca);
+      // Associate the name with the alloca SSA value
+      declareVariable(name, alloca);
+    }
+
+    return func;
+  }
+
+  llvm::Error Generator::generateCondBranch(
+    mlir::Location loc,
+    mlir::Value cond,
+    mlir::Block* ifBB,
+    mlir::ValueRange ifArgs,
+    mlir::Block* elseBB,
+    mlir::ValueRange elseArgs)
+  {
+    // Cast to i1 if necessary
+    auto cast = generateAutoCast(loc, cond, builder.getI1Type());
+    builder.create<mlir::CondBranchOp>(
+      loc, cast, ifBB, ifArgs, elseBB, elseArgs);
+    return llvm::Error::success();
+  }
+
+  llvm::Error
+  Generator::generateLoopBranch(mlir::Location loc, llvm::StringRef blockName)
+  {
+    if (!loopTable.inScope(blockName))
+      return parsingError("Loop branch without a loop", loc);
+    auto block = loopTable.lookup(blockName);
+    mlir::ValueRange empty{};
+    // We assume the branch is the last operation in its basic block
+    // and that was checked by the parser
+    builder.create<mlir::BranchOp>(loc, block, empty);
+    return llvm::Error::success();
+  }
+
+  // ======================================================= Generator Helpers
+  mlir::Value Generator::generateAutoCast(
+    mlir::Location loc, mlir::Value value, mlir::Type type)
+  {
+    // No cast needed
+    if (value.getType() == type)
+      return value;
+
+    // Cast needed
+    return genOperation(value.getLoc(), "verona.cast", {value}, type);
+  }
+
+  mlir::Value Generator::generateConstant(
+    mlir::Location loc, llvm::StringRef value, llvm::StringRef typeName)
+  {
+    // We lower each constant to their own values for now as we
+    // don't yet have a good scheme for the types and MLIR can't
+    // have attributes from unknown types. Once we set on a type
+    // system compatibility between Verona and MLIR, we can change
+    // this to emit the attribute right away.
+    mlir::Type type = unkTy;
+    if (!typeName.empty())
+      type = genOpaqueType(typeName);
+    return genOperation(loc, "verona.constant(" + value.str() + ")", {}, type);
+  }
+
+  mlir::Value
+  Generator::generateAlloca(mlir::Location loc, llvm::StringRef typeName)
+  {
+    mlir::Type type = allocaTy;
+    if (!typeName.empty())
+      type = genOpaqueType(typeName);
+    return genOperation(loc, "verona.alloca", {}, type);
+  }
+
+  mlir::Value Generator::generateLoad(mlir::Location loc, mlir::Value addr)
+  {
+    // TODO: Check if addr's type is a known pointer type and dereference
+    // the type to use here instead of unkTy.
+    return genOperation(loc, "verona.load", {addr}, unkTy);
+  }
+
+  mlir::Value Generator::generateStore(
+    mlir::Location loc, mlir::Value value, mlir::Value addr)
+  {
+    // TODO: Check if addr's type is a known pointer type and dereference
+    // the type to use here instead of unkTy.
+    return genOperation(loc, "verona.store", {value, addr}, unkTy);
+  }
+
+  // =============================================================== Temporary
+  mlir::Value Generator::genOperation(
     mlir::Location loc,
     llvm::StringRef name,
     llvm::ArrayRef<mlir::Value> ops,
@@ -820,7 +863,7 @@ namespace mlir::verona
     state.addOperands(ops);
     state.addTypes({retTy});
     auto op = builder.createOperation(state);
-    auto res = op->getResults();
+    auto res = op->getResult(0);
     return res;
   }
 
