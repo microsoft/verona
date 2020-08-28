@@ -21,161 +21,239 @@ namespace verona::rt
   // This is better than ignoring methods with the right name but the wrong
   // signature.
   template<class T, class = void>
-  struct has_notified : std::false_type
+  struct has_notified_cpp : std::false_type
   {};
   template<class T>
-  struct has_notified<T, std::void_t<decltype(&T::notified)>> : std::true_type
+  struct has_notified_cpp<T, std::void_t<decltype(&T::notified)>> : std::true_type
   {};
 
   template<class T, class = void>
-  struct has_finaliser : std::false_type
+  struct has_finaliser_cpp : std::false_type
   {};
   template<class T>
-  struct has_finaliser<T, std::void_t<decltype(&T::finaliser)>> : std::true_type
+  struct has_finaliser_cpp<T, std::void_t<decltype(&T::finaliser)>> : std::true_type
+  {};
+
+  template<class T, class = void>
+  struct has_trace_cpp : std::false_type
+  {};
+  template<class T>
+  struct has_trace_cpp<T, std::void_t<decltype(&T::trace)>> : std::true_type
   {};
 
   template<class T>
-  struct has_destructor
+  struct has_destructor_cpp
   {
     constexpr static bool value = !std::is_trivially_destructible_v<T>;
   };
 
   template<
-    class T,
-    RegionType region_type = RegionType::Trace,
-    class Base = Object>
-  class V : public Base
+    class T, class Base = Object>
+  class VRep : public Base
   {
+    /// Embedded C++ object
+  public: 
+    T contents;
   private:
-    static_assert(
-      std::is_same_v<Base, Object> ?
-        region_type == RegionType::Trace || region_type == RegionType::Arena :
-        region_type == RegionType::Cown);
-    static_assert(
-      std::is_same_v<Base, Object> || std::is_same_v<Base, Cown>,
-      "V base must be Object or Cown");
-
-    using RegionClass = typename RegionType_to_class<region_type>::T;
 
     static void gc_trace(const Object* o, ObjectStack& st)
     {
-      ((T*)o)->trace(st);
+      if constexpr (has_trace_cpp<T>::value)
+        (((VRep*)o)->contents).trace(st);
     }
 
     static void gc_notified(Object* o)
     {
-      if constexpr (has_notified<T>::value)
-        ((T*)o)->notified(o);
+      if constexpr (has_notified_cpp<T>::value)
+        (((VRep*)o)->contents).notified(o);
     }
 
     static void gc_final(Object* o, Object* region, ObjectStack& sub_regions)
     {
-      if constexpr (has_finaliser<T>::value)
-        ((T*)o)->finaliser(region, sub_regions);
+      if constexpr (has_finaliser_cpp<T>::value)
+        (((VRep*)o)->contents).finaliser(region, sub_regions);
     }
 
     static void gc_destructor(Object* o)
     {
-      ((T*)o)->~T();
-    }
-
-    static const Descriptor* desc()
-    {
-      static constexpr Descriptor desc = {
-        sizeof(T),
-        gc_trace,
-        has_finaliser<T>::value ? gc_final : nullptr,
-        has_notified<T>::value ? gc_notified : nullptr,
-        has_destructor<T>::value ? gc_destructor : nullptr};
-
-      return &desc;
-    }
-
-    void trace(ObjectStack&) {}
-
-    static EpochMark get_alloc_epoch()
-    {
-      return Scheduler::alloc_epoch();
+      (((VRep*)o)->contents).~T();
     }
 
   public:
-    V() : Base(desc()) {}
-
-    void* operator new(size_t)
+    static const Descriptor* desc()
     {
-      if constexpr (std::is_same_v<Base, Object>)
-        return RegionClass::template create<sizeof(T)>(
-          ThreadAlloc::get(), desc());
-      else
-        return ThreadAlloc::get()->alloc<sizeof(T)>();
-    }
+      static constexpr Descriptor desc = {
+        sizeof(VRep),
+        gc_trace,
+        has_finaliser_cpp<T>::value ? gc_final : nullptr,
+        has_notified_cpp<T>::value ? gc_notified : nullptr,
+        has_destructor_cpp<T>::value ? gc_destructor : nullptr};
 
-    void* operator new(size_t, Alloc* alloc)
-    {
-      if constexpr (std::is_same_v<Base, Object>)
-        return RegionClass::template create<sizeof(T)>(alloc, desc());
-      else
-        return alloc->alloc<sizeof(T)>();
+      return &desc;
     }
-
-    void* operator new(size_t, Object* region)
-    {
-      if constexpr (std::is_same_v<Base, Object>)
-        return RegionClass::template alloc<sizeof(T)>(
-          ThreadAlloc::get(), region, desc());
-      else
-        return ThreadAlloc::get()->alloc<sizeof(T)>();
-    }
-
-    void* operator new(size_t, Alloc* alloc, Object* region)
-    {
-      if constexpr (std::is_same_v<Base, Object>)
-        return RegionClass::template alloc<sizeof(T)>(alloc, region, desc());
-      else
-        return alloc->alloc<sizeof(T)>();
-    }
-
-    void operator delete(void*)
-    {
-      // Should not be called directly, present to allow calling if the
-      // constructor throws an exception. The object lifetime is managed by the
-      // region.
-    }
-
-    void operator delete(void*, size_t)
-    {
-      // Should not be called directly, present to allow calling if the
-      // constructor throws an exception. The object lifetime is managed by the
-      // region.
-    }
-
-    void operator delete(void*, Alloc*)
-    {
-      // Should not be called directly, present to allow calling if the
-      // constructor throws an exception. The object lifetime is managed by the
-      // region.
-    }
-
-    void operator delete(void*, Object*)
-    {
-      // Should not be called directly, present to allow calling if the
-      // constructor throws an exception. The object lifetime is managed by the
-      // region.
-    }
-
-    void operator delete(void*, Alloc*, Object*)
-    {
-      // Should not be called directly, present to allow calling if the
-      // constructor throws an exception. The object lifetime is managed by the
-      // region.
-    }
-
-    void* operator new[](size_t size) = delete;
-    void operator delete[](void* p) = delete;
-    void operator delete[](void* p, size_t sz) = delete;
   };
 
-  // Cowns are not allocated inside regions, but we still need a RegionType.
+  template<
+    class T,
+    class Base = Object>
+  class V
+  {
+    template<
+      class T2,
+      class Base2>
+    friend bool operator!=(V<T2,Base2>, Object*);
+
+    using VRep = VRep<T, Base>;
+  //private:
+  public:
+    VRep* rep = nullptr;
+
+    V(VRep* rep) : rep(rep) {}
+
+  public:
+    V() {}
+
+    T* operator->() {
+      return &(rep->contents);
+    }
+
+    operator Base*()
+    {
+      return rep;
+    }
+
+    operator Base*() const
+    {
+      return rep;
+    }
+
+    operator T*()
+    {
+      return &(rep->contents);
+    }
+
+    operator T*() const
+    {
+      return &(rep->contents);
+    }
+
+    const T* operator->() const {
+      return &(rep->contents);
+    }
+
+    const T& operator*() const {
+      return rep->contents;
+    }
+
+    T& operator*() {
+      return rep->contents;
+    }
+
+    size_t id()
+    {
+      return rep->id();
+    }
+  };
+
   template<class T>
-  using VCown = V<T, RegionType::Cown, Cown>;
+  using VCown = V<T, Cown>;
+
+  template<class T>
+  class VAlloc
+  {
+  public:
+    template<typename... Args>
+    static VCown<T> make_cown(Alloc* alloc, Args... args)
+    {
+      using VRep = VRep<T, Cown>;
+      VRep* object = (VRep*)Cown::alloc(alloc, VRep::desc(), Scheduler::alloc_epoch());
+      
+      new (&(object->contents)) T(std::forward<Args>(args)...);
+
+      return VCown<T>(object);
+    }
+
+    template<typename... Args>
+    static VCown<T> make_cown(Args... args)
+    {
+      return make_cown(ThreadAlloc::get(), std::forward<Args>(args)...);
+    }
+
+    template<class RegionClass, typename... Args>
+    static V<T> make(Alloc* alloc, Args... args)
+    {
+      VRep<T>*  object = (VRep<T>*)RegionClass::template create<sizeof(VRep<T>)>(alloc, VRep<T>::desc());
+
+      // Initialise C++ object contents
+      new (&(object->contents)) T(std::forward<Args>(args)...);
+
+      return V<T>(object);
+    }
+
+    template<typename... Args>
+    static V<T> make_arena(Alloc* alloc, Args... args)
+    {
+      return make<RegionArena, Args...>(alloc, std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    static V<T> make_trace(Alloc* alloc, Args... args)
+    {
+      return make<RegionTrace, Args...>(alloc, std::forward<Args>(args)...);
+    }
+
+    template<class RegionClass, typename... Args>
+    static V<T> make_in(Object* region, Alloc* alloc, Args... args)
+    {
+      // Build object in correct region
+      VRep<T>* object = (VRep<T>*)RegionClass::template alloc<sizeof(VRep<T>)>(alloc, region, VRep<T>::desc());
+      // Initialise C++ object contents
+      new (&(object->contents)) T(std::forward<Args>(args)...);
+      return V<T>(object);
+    }
+
+    template<typename... Args>
+    static V<T> make_in_arena(Object* region, Alloc* alloc, Args... args)
+    {
+      return make_in<RegionArena, Args...>(region, alloc, std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    static V<T> make_in_trace(Object* region, Alloc* alloc, Args... args)
+    {
+      return make_in<RegionTrace, Args...>(region, alloc, std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    static V<T> make_in_arena(Object* region, Args... args)
+    {
+      return make_in_arena<Args...>(region, ThreadAlloc::get(), std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    static V<T> make_in_trace(Object* region, Args... args)
+    {
+      return make_in_trace<Args...>(region, ThreadAlloc::get(), std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    static V<T> make_arena(Args... args)
+    {
+      return make_arena<Args...>(ThreadAlloc::get(), std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    static V<T> make_trace(Args... args)
+    {
+      return make_trace<Args...>(ThreadAlloc::get(), std::forward<Args>(args)...);
+    }
+  };
+
+  template<
+    class T,
+    class Base>
+  static bool operator!=(V<T, Base> v, Object* o)
+  {
+    return v.rep != o;
+  }
 } // namespace verona::rt

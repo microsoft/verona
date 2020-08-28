@@ -165,6 +165,8 @@ namespace verona::rt
       COWN = 0x7
     };
 
+    Object() {}
+
     inline friend std::ostream& operator<<(std::ostream& os, RegionMD md)
     {
       switch (md)

@@ -50,11 +50,6 @@ namespace verona::rt
       YesTryFast
     };
 
-    Cown(const Descriptor* desc) : Object(desc)
-    {
-      this->init(ThreadAlloc::get(), desc, Scheduler::alloc_epoch());
-    }
-
   private:
     friend class DLList<Cown>;
     friend class MultiMessage;
@@ -162,6 +157,7 @@ namespace verona::rt
     static Cown* alloc(Alloc* alloc, const Descriptor* desc, EpochMark epoch)
     {
       Cown* a = (Cown*)alloc->alloc<size>();
+      new (a) Cown();
       a->init(alloc, desc, epoch);
       return a;
     }
@@ -169,6 +165,7 @@ namespace verona::rt
     static Cown* alloc(Alloc* alloc, const Descriptor* desc, EpochMark epoch)
     {
       Cown* a = (Cown*)alloc->alloc(desc->size);
+      new (a) Cown();
       a->init(alloc, desc, epoch);
       return a;
     }
@@ -313,7 +310,7 @@ namespace verona::rt
      **/
     void weak_release(Alloc* alloc)
     {
-      Systematic::cout() << "Weak release " << this << std::endl;
+      Systematic::cout() << "Weak release " << this << " (" << weak_count << ")" << std::endl;
       if (weak_count.fetch_sub(1) == 1)
       {
         auto* t = owning_thread();
