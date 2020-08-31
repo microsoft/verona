@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "backpressure.h"
 #include "cpu.h"
 #include "ds/hashmap.h"
 #include "ds/mpscq.h"
 #include "object/object.h"
 #include "schedulerstats.h"
 #include "spmcq.h"
+#include "status.h"
 #include "threadpool.h"
 
 #include <snmalloc.h>
@@ -216,13 +216,14 @@ namespace verona::rt
       for (size_t i = 0; i < count; i++)
       {
         auto* cown = cowns[i];
-        auto bp = cown->backpressure.load(std::memory_order_relaxed);
+        auto bp = cown->bp_state.load(std::memory_order_relaxed);
         yield();
-        assert(!bp.muted());
+        assert(bp != BackpressureState::Muted);
 
         if (
-          (bp.unmutable()) || (state == ThreadState::PreScan) ||
-          (state == ThreadState::Scan) || (state == ThreadState::AllInScan))
+          (bp & BackpressureState::IsUnmutable) ||
+          (state == ThreadState::PreScan) || (state == ThreadState::Scan) ||
+          (state == ThreadState::AllInScan))
         { // Messages in this cown's queue must be scanned.
           cown->schedule();
           continue;
@@ -230,8 +231,6 @@ namespace verona::rt
 
         yield();
 
-        auto bp_muted = bp;
-        bp_muted.set_state_muted();
         auto ins = mute_set.insert(alloc, cown);
         if (ins.first)
           T::acquire(cown);
@@ -240,11 +239,11 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING
           Systematic::coin(9) ||
 #endif
-          !cown->backpressure.compare_exchange_weak(
-            bp, bp_muted, std::memory_order_acq_rel))
+          !cown->bp_state.compare_exchange_weak(
+            bp, BackpressureState::Muted, std::memory_order_acq_rel))
         {
           yield();
-          assert(!bp.muted());
+          assert(bp != BackpressureState::Muted);
           cown->schedule();
           mute_set.erase(ins.second);
           if (ins.first)
@@ -252,8 +251,9 @@ namespace verona::rt
 
           continue;
         }
-        Systematic::cout() << "Mute " << cown << std::endl;
-        assert(!bp.unmutable());
+        Systematic::cout() << "Cown " << this << ": backpressure state " << bp
+                           << " -> Muted" << std::endl;
+        assert(!(bp & BackpressureState::IsUnmutable));
       }
 
       alloc->dealloc(cowns, count * sizeof(T*));
@@ -269,9 +269,7 @@ namespace verona::rt
       for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
       {
         auto* m = entry.key();
-        if (
-          force ||
-          m->backpressure.load(std::memory_order_acquire).triggers_unmuting())
+        if (force || m->triggers_unmuting())
         {
           yield();
           auto& mute_set = *entry.value();
