@@ -50,10 +50,6 @@ namespace mlir::verona
     {
       values.push_back(value);
     }
-    ReturnValue(mlir::Value& value)
-    {
-      values.push_back(value);
-    }
     /// Multiple value constructor.
     ReturnValue(mlir::ResultRange& range)
     {

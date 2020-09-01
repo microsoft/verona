@@ -447,7 +447,7 @@ namespace mlir::verona
         "Return operation without parent function", getLocation(ast));
     }
 
-    // Either retrurns empty or auto-cast'ed value
+    // Either returns empty or auto-cast'ed value
     if (expr.hasValue())
     {
       assert(retTy && "Return value from a void function");
