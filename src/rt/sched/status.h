@@ -11,11 +11,16 @@ namespace verona::rt
   /// TODO: backpressure docs
   enum struct BackpressureState : uint8_t
   {
+    /// Cown is not in a backpressure response state.
     Normal = 0b00,
+    /// Cown is muted. A muted cown must not be scheduled.
     Muted = 0b01,
+    /// Cown is temporarily unmutable.
     Unmutable = 0b10,
+    /// Cown is temporarily unmutable. This cown may transition back to Normal
+    /// if another token message falls out of its queue.
     MaybeUnmutable = 0b11,
-
+    /// Bit mask for Unmutable or MaybeUnmutable states.
     IsUnmutable = 0b10,
   };
 
@@ -37,7 +42,7 @@ namespace verona::rt
       case BackpressureState::MaybeUnmutable:
         return os << "MaybeUnmutable";
       default:
-        return os << "??";
+        abort();
     }
   }
 
