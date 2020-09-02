@@ -792,19 +792,22 @@ namespace verona::rt
 
     /// Transition a cown between backpressure states. Return the previous
     /// state. An attempt to set the state to Normal may be preempted by another
-    /// thread setting the state to Unmutable.
+    /// thread setting the cown to any state that isn't Muted.
     inline BackpressureState backpressure_transition(BackpressureState state)
     {
-      auto prev = bp_state.load(std::memory_order_relaxed);
+      auto prev = bp_state.load(std::memory_order_acquire);
       do
       {
         yield();
         if (
           (state == BackpressureState::Normal) &&
-          (prev == BackpressureState::Unmutable))
+          (prev != BackpressureState::Muted))
           return prev;
 
         assert(check_backpressure_transition(prev, state));
+        if (prev == state)
+          return prev;
+
       } while (
 #ifdef USE_SYSTEMATIC_TESTING
         Systematic::coin(9) ||
@@ -950,7 +953,7 @@ namespace verona::rt
 
         auto bp = bp_state.load(std::memory_order_acquire);
         if (bp == BackpressureState::Unmutable)
-          backpressure_transition(BackpressureState::Unmutable);
+          backpressure_transition(BackpressureState::MaybeUnmutable);
         else if (bp == BackpressureState::MaybeUnmutable)
           backpressure_transition(BackpressureState::Normal);
 
