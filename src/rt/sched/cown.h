@@ -535,42 +535,40 @@ namespace verona::rt
      **/
     static void fast_send(MultiMessage::MultiMessageBody* body, EpochMark epoch)
     {
-      size_t count = body->count;
-      Cown** cowns = body->cowns;
+      auto* alloc = ThreadAlloc::get();
+      const auto last = body->count - 1;
+      assert(body->index <= last);
 
-      Alloc* alloc = ThreadAlloc::get();
-      assert(body->index < count);
-      size_t last = count - 1;
+      const auto make_unmutable = backpressure_ensure_progress(body);
 
-      backpressure_ensure_progress(body);
-
-      for (; body->index < count; body->index++)
+      for (; body->index < body->count; body->index++)
       {
         MultiMessage* m = MultiMessage::make_message(alloc, body, epoch);
-        Systematic::cout() << "MultiMessage " << m << " index " << body->index
-                           << " fast requesting " << cowns[body->index]
-                           << std::endl;
+        auto* next = body->cowns[body->index];
+        Systematic::cout() << "MultiMessage " << m << ": fast requesting "
+                           << next << ", index " << body->index << std::endl;
 
-        bool needs_scheduling =
-          cowns[body->index]->send<YesTransfer, YesTryFast>(m);
+        bool needs_scheduling = next->send<YesTransfer, YesTryFast>(m);
         if (!needs_scheduling)
         {
           // Case 1: target cown was already scheduled.
+          // The message may have beeen freed at this point.
           Systematic::cout()
-            << "MultiMessage " << m << " fast send interrupted" << std::endl;
+            << "MultiMessage " << m << ": fast send interrupted" << std::endl;
+          if (make_unmutable)
+            next->unmute(true);
           return;
         }
-        else if (body->index == last)
+
+        Systematic::cout() << "MultiMessage " << m << ": fast acquire cown "
+                           << next << std::endl;
+        if (body->index == last)
         {
           // Case 2: acquired the last cown.
           Systematic::cout()
             << "MultiMessage " << m
-            << " fast acquire cown: " << cowns[body->index] << std::endl;
-          Systematic::cout()
-            << "MultiMessage " << m
-            << " fast send complete, reschedule cown: " << cowns[body->index]
-            << std::endl;
-          cowns[body->index]->schedule();
+            << ": fast send complete, reschedule last cown" << std::endl;
+          next->schedule();
           return;
         }
 
@@ -579,15 +577,9 @@ namespace verona::rt
         // queue may be non-empty: the scheduler may have allowed another
         // multi-message to request and send another message to this cown.
         // However, we are guaranteed to be the first message in the queue.
-        bool notify;
-        MultiMessage* m2 =
-          (MultiMessage*)cowns[body->index]->queue.dequeue(alloc, notify);
+        const auto* m2 = next->queue.dequeue(alloc);
         assert(m == m2);
-
-        Systematic::cout() << "MultiMessage " << m2 << " index " << body->index
-                           << " fast acquired " << cowns[body->index]
-                           << std::endl;
-        Systematic::cout() << "Sending next MultiMessage" << std::endl;
+        UNUSED(m2);
       }
     }
 
@@ -914,27 +906,24 @@ namespace verona::rt
       }
     }
 
-    /// Ensures that any muted recipients will become unmutable if any of the
-    /// message cowns are overloaded.
-    static inline void backpressure_ensure_progress(MessageBody* body)
+    /// Return true if any participants are either overloaded or unmutable. This
+    /// ensures that overloaded cowns can always run messages in their queue.
+    static inline bool backpressure_ensure_progress(MessageBody* body)
     {
       bool requires_unmute = std::any_of(
-        &body->cowns[0], &body->cowns[body->count], [](const auto* c) {
-          return c->status.load(std::memory_order_acquire).overloaded();
+        &body->cowns[body->index],
+        &body->cowns[body->count],
+        [](const auto* c) {
+          return c->status.load(std::memory_order_acquire).overloaded() ||
+            (c->bp_state.load(std::memory_order_acquire) &
+             BackpressureState::IsUnmutable);
         });
       yield();
-      if (
-        !requires_unmute
+      return
 #ifdef USE_SYSTEMATIC_TESTING
-        && !Systematic::coin(3)
+        Systematic::coin(3) ||
 #endif
-      )
-        return;
-
-      for (size_t i = body->index; i < body->count; i++)
-      {
-        body->cowns[i]->unmute(true);
-      }
+        requires_unmute;
     }
 
     /// Update backpressure status based on the occurrence of a token message.
