@@ -4,6 +4,7 @@
 #pragma once
 
 #include "ast/ast.h"
+#include "dialect/VeronaDialect.h"
 #include "error.h"
 #include "mlir/IR/Module.h"
 #include "mlir/Pass/PassManager.h"

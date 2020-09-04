@@ -7,6 +7,7 @@
 #include "generator.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/IR/Verifier.h"
+#include "mlir/InitAllDialects.h"
 #include "mlir/Parser.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
@@ -18,8 +19,13 @@
 namespace mlir::verona
 {
   Driver::Driver(unsigned optLevel)
-  : passManager(&context), diagnosticHandler(sourceManager, &context)
+  : context(/*loadAllDialects=*/false),
+    passManager(&context),
+    diagnosticHandler(sourceManager, &context)
   {
+    context.getOrLoadDialect<mlir::StandardOpsDialect>();
+    context.getOrLoadDialect<mlir::verona::VeronaDialect>();
+
     // Opaque operations and types can only exist if we allow
     // unregistered dialects to co-exist. Full conversions later will
     // make sure we end up with only Verona dialect, then Standard

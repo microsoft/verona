@@ -14,8 +14,7 @@ using namespace mlir::verona;
 // Verona dialect.
 //===----------------------------------------------------------------------===//
 
-VeronaDialect::VeronaDialect(mlir::MLIRContext* context)
-: Dialect(getDialectNamespace(), context)
+void VeronaDialect::initialize()
 {
   addOperations<
 #define GET_OP_LIST
