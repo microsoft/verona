@@ -535,59 +535,55 @@ namespace verona::rt
      **/
     static void fast_send(MultiMessage::MultiMessageBody* body, EpochMark epoch)
     {
-      size_t count = body->count;
-      Cown** cowns = body->cowns;
+      auto* alloc = ThreadAlloc::get();
+      const auto last = body->count - 1;
+      assert(body->index <= last);
 
-      Alloc* alloc = ThreadAlloc::get();
-      assert(body->index < count);
-      size_t last = count - 1;
-
-      backpressure_ensure_progress(body);
-
-      for (; body->index < count; body->index++)
+      const auto make_unmutable = backpressure_ensure_progress(body);
+      for (; body->index < body->count; body->index++)
       {
         MultiMessage* m = MultiMessage::make_message(alloc, body, epoch);
-        Systematic::cout() << "MultiMessage " << m << " index " << body->index
-                           << " fast requesting " << cowns[body->index]
-                           << std::endl;
+        auto* next = body->cowns[body->index];
+        Systematic::cout() << "MultiMessage " << m << ": fast requesting "
+                           << next << ", index " << body->index << std::endl;
 
-        bool needs_scheduling =
-          cowns[body->index]->send<YesTransfer, YesTryFast>(m);
-        if (!needs_scheduling)
         {
-          // Case 1: target cown was already scheduled.
-          Systematic::cout()
-            << "MultiMessage " << m << " fast send interrupted" << std::endl;
-          return;
+          // Hold an epoch so that a scheduled `next` cown is not collected by
+          // the time that we must set it unmutable.
+          Epoch e(alloc);
+          bool needs_scheduling = next->send<YesTransfer, YesTryFast>(m);
+          if (!needs_scheduling)
+          {
+            // Case 1: target cown was already scheduled.
+            Systematic::cout()
+              << "MultiMessage " << m << ": fast send interrupted" << std::endl;
+            if (make_unmutable)
+              next->unmute(true);
+            return;
+          }
         }
-        else if (body->index == last)
+
+        Systematic::cout() << "MultiMessage " << m << ": fast acquire cown "
+                           << next << std::endl;
+        if (body->index == last)
         {
           // Case 2: acquired the last cown.
           Systematic::cout()
             << "MultiMessage " << m
-            << " fast acquire cown: " << cowns[body->index] << std::endl;
-          Systematic::cout()
-            << "MultiMessage " << m
-            << " fast send complete, reschedule cown: " << cowns[body->index]
-            << std::endl;
-          cowns[body->index]->schedule();
+            << ": fast send complete, reschedule last cown" << std::endl;
+          next->schedule();
           return;
         }
 
-        // The cown was asleep, so we have acquired it now. Dequeue the message
-        // because we want to handle it now. Note that after dequeueing, the
-        // queue may be non-empty: the scheduler may have allowed another
-        // multi-message to request and send another message to this cown.
-        // However, we are guaranteed to be the first message in the queue.
-        bool notify;
-        MultiMessage* m2 =
-          (MultiMessage*)cowns[body->index]->queue.dequeue(alloc, notify);
+        // The cown was asleep, so we have acquired it now. Dequeue the
+        // message because we want to handle it now. Note that after
+        // dequeueing, the queue may be non-empty: the scheduler may have
+        // allowed another multi-message to request and send another message
+        // to this cown. However, we are guaranteed to be the first message in
+        // the queue.
+        const auto* m2 = next->queue.dequeue(alloc);
         assert(m == m2);
-
-        Systematic::cout() << "MultiMessage " << m2 << " index " << body->index
-                           << " fast acquired " << cowns[body->index]
-                           << std::endl;
-        Systematic::cout() << "Sending next MultiMessage" << std::endl;
+        UNUSED(m2);
       }
     }
 
@@ -612,10 +608,10 @@ namespace verona::rt
       Systematic::cout() << "MultiMessage " << m << " index " << body.index
                          << " acquired " << cown << " epoch " << e << std::endl;
 
-      // If we are in should_scan, and we observe a message in this epoch, then
-      // all future messages must have been sent while in pre-scan or later.
-      // Thus any messages that weren't implicitly scanned on send, will be
-      // counted as inflight
+      // If we are in should_scan, and we observe a message in this epoch,
+      // then all future messages must have been sent while in pre-scan or
+      // later. Thus any messages that weren't implicitly scanned on send,
+      // will be counted as inflight
       if (Scheduler::should_scan() && e == Scheduler::local()->send_epoch)
       {
         // TODO: Investigate systematic testing coverage here.
@@ -633,10 +629,10 @@ namespace verona::rt
           Systematic::cout() << "Message not in current epoch" << std::endl;
           // We can only see messages from other epochs during the prescan and
           // scan phases.  The message epochs must be up-to-date in all other
-          // phases.  We can also see messages sent by threads that have made it
-          // into PreScan before us. But the global state must be PreScan, we
-          // just haven't moved into it yet. `debug_in_prescan` accounts for
-          // either the local or the global state is prescan.
+          // phases.  We can also see messages sent by threads that have made
+          // it into PreScan before us. But the global state must be PreScan,
+          // we just haven't moved into it yet. `debug_in_prescan` accounts
+          // for either the local or the global state is prescan.
           assert(Scheduler::should_scan() || Scheduler::debug_in_prescan());
 
           if (e != EpochMark::EPOCH_NONE)
@@ -685,7 +681,8 @@ namespace verona::rt
         {
           Systematic::cout() << "Trace message: " << m << std::endl;
 
-          // Scan cowns for this message, as they may not have been scanned yet.
+          // Scan cowns for this message, as they may not have been scanned
+          // yet.
           for (size_t i = 0; i < body.count; i++)
           {
             Systematic::cout()
@@ -735,8 +732,8 @@ namespace verona::rt
      * Sends a multi-message to the first cown we want to acquire.
      *
      * Pass `transfer = YesTransfer` as a template argument if the
-     * caller is transfering ownership of a reference count on each cown to this
-     * method.
+     * caller is transfering ownership of a reference count on each cown to
+     *this method.
      **/
     template<
       class Be,
@@ -791,8 +788,8 @@ namespace verona::rt
     }
 
     /// Transition a cown between backpressure states. Return the previous
-    /// state. An attempt to set the state to Normal may be preempted by another
-    /// thread setting the cown to any state that isn't Muted.
+    /// state. An attempt to set the state to Normal may be preempted by
+    /// another thread setting the cown to any state that isn't Muted.
     inline BackpressureState backpressure_transition(BackpressureState state)
     {
       auto prev = bp_state.load(std::memory_order_acquire);
@@ -877,8 +874,8 @@ namespace verona::rt
     }
 
     /// Set the `mutor` field of the current scheduler thread if the senders
-    /// should be muted as a result of this message. Otherwise the `mutor` will
-    /// remain null.
+    /// should be muted as a result of this message. Otherwise the `mutor`
+    /// will remain null.
     static inline void
     backpressure_scan(const MessageBody& senders, const MessageBody& receivers)
     {
@@ -914,27 +911,25 @@ namespace verona::rt
       }
     }
 
-    /// Ensures that any muted recipients will become unmutable if any of the
-    /// message cowns are overloaded.
-    static inline void backpressure_ensure_progress(MessageBody* body)
+    /// Return true if any participants are either overloaded or unmutable.
+    /// This ensures that overloaded cowns can always run messages in their
+    /// queue.
+    static inline bool backpressure_ensure_progress(MessageBody* body)
     {
       bool requires_unmute = std::any_of(
-        &body->cowns[0], &body->cowns[body->count], [](const auto* c) {
-          return c->status.load(std::memory_order_acquire).overloaded();
+        &body->cowns[body->index],
+        &body->cowns[body->count],
+        [](const auto* c) {
+          return c->status.load(std::memory_order_acquire).overloaded() ||
+            (c->bp_state.load(std::memory_order_acquire) &
+             BackpressureState::IsUnmutable);
         });
       yield();
-      if (
-        !requires_unmute
+      return
 #ifdef USE_SYSTEMATIC_TESTING
-        && !Systematic::coin(3)
+        Systematic::coin(3) ||
 #endif
-      )
-        return;
-
-      for (size_t i = body->index; i < body->count; i++)
-      {
-        body->cowns[i]->unmute(true);
-      }
+        requires_unmute;
     }
 
     /// Update backpressure status based on the occurrence of a token message.
@@ -999,8 +994,8 @@ namespace verona::rt
      *
      * It will process multi-messages and notifications.
      *
-     * The notifications will only be processed once in a call to this.  It will
-     * not process messages that were not in the queue before it began
+     * The notifications will only be processed once in a call to this.  It
+     *will not process messages that were not in the queue before it began
      * processing messages.
      *
      * If this cown receives a notification after it has already called
@@ -1050,15 +1045,16 @@ namespace verona::rt
           // Reschedule if we have processed a message.
           // This is primarily an optimisation to keep busy cowns active cowns
           // around.
-          // However,  if we remove this line then the leak detector will have a
-          // bug.  It is possible to miss a wake-up from a Scan thread, is the
-          // cown is currently active on a pre-scan thread. The following should
-          // be added after if we alter this behaviour:
+          // However,  if we remove this line then the leak detector will have
+          // a bug.  It is possible to miss a wake-up from a Scan thread, is
+          // the cown is currently active on a pre-scan thread. The following
+          // should be added after if we alter this behaviour:
           //
           // // We are about to unschedule this cown, if another thread has
           // // marked this cown as scheduled for scan it will not have been
           // // able to reschedule it, but as this thread hasn't started
-          // // scanning it will not have been scanned.  Ensure we can't miss it
+          // // scanning it will not have been scanned.  Ensure we can't miss
+          // it
           // // by keeping in scheduler queue until the prescan phase has
           // // finished.
           // if (Scheduler::in_prescan())
