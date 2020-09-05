@@ -101,10 +101,6 @@ namespace
 
 int main(int argc, char** argv)
 {
-  // MLIR boilerplace
-  mlir::registerAllDialects();
-  mlir::registerAllPasses();
-
   // Set up pretty-print signal handlers
   llvm::InitLLVM y(argc, argv);
 
