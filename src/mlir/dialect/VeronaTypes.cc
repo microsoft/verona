@@ -260,9 +260,8 @@ namespace mlir::verona
   void printVeronaType(Type type, DialectAsmPrinter& os)
   {
     TypeSwitch<Type>(type)
-      .Case<IntegerType>([&](Type type) {
-        auto iTy = type.cast<IntegerType>();
-        if (iTy.getSign())
+      .Case<IntegerType>([&](IntegerType type) {
+        if (type.getSign())
         {
           os << "S";
         }
@@ -270,35 +269,32 @@ namespace mlir::verona
         {
           os << "U";
         }
-        os << iTy.getWidth();
+        os << type.getWidth();
       })
-      .Case<MeetType>([&](Type type) {
-        auto meetType = type.cast<MeetType>();
-        if (meetType.getElements().empty())
+      .Case<MeetType>([&](MeetType type) {
+        if (type.getElements().empty())
         {
           os << "top";
         }
         else
         {
           os << "meet";
-          printTypeList(meetType.getElements(), os);
+          printTypeList(type.getElements(), os);
         }
       })
-      .Case<JoinType>([&](Type type) {
-        auto joinType = type.cast<JoinType>();
-        if (joinType.getElements().empty())
+      .Case<JoinType>([&](JoinType type) {
+        if (type.getElements().empty())
         {
           os << "bottom";
         }
         else
         {
           os << "join";
-          printTypeList(joinType.getElements(), os);
+          printTypeList(type.getElements(), os);
         }
       })
-      .Case<CapabilityType>([&](Type type) {
-        auto capType = type.cast<CapabilityType>();
-        switch (capType.getCapability())
+      .Case<CapabilityType>([&](CapabilityType type) {
+        switch (type.getCapability())
         {
           case Capability::Isolated:
             os << "iso";
@@ -315,8 +311,7 @@ namespace mlir::verona
 
   bool isaVeronaType(Type type)
   {
-    return type.isa<MeetType>() || type.isa<JoinType>() ||
-      type.isa<IntegerType>() || type.isa<CapabilityType>();
+    return type.isa<MeetType, JoinType, IntegerType, CapabilityType>();
   }
 
   bool areVeronaTypes(llvm::ArrayRef<Type> types)
@@ -431,15 +426,13 @@ namespace mlir::verona
   {
     MLIRContext* ctx = type.getContext();
     assert(isaVeronaType(type));
-    Type ret;
-    TypeSwitch<Type>(type)
+    return TypeSwitch<Type, Type>(type)
       .Case<JoinType>([&](Type type) {
-        ret = normalizeJoin(ctx, type.cast<JoinType>().getElements());
+        return normalizeJoin(ctx, type.cast<JoinType>().getElements());
       })
       .Case<MeetType>([&](Type type) {
-        ret = normalizeMeet(ctx, type.cast<MeetType>().getElements());
+        return normalizeMeet(ctx, type.cast<MeetType>().getElements());
       })
-      .Default([&](Type type) { ret = type; });
-    return ret;
+      .Default([&](Type type) { return type; });
   }
 }
