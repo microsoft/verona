@@ -8,6 +8,9 @@
 // class D {
 //   f: U64 & imm;
 //   g: S32 & mut;
+//   h: F32;
+//   i: F64;
+//   j: bool;
 // }
 //
 // bar(x: U64 & imm, y: U64 & imm) {
@@ -30,6 +33,9 @@ module {
   verona.class @D {
     verona.field "f" : !verona.meet<U64, imm>
     verona.field "g" : !verona.meet<class<"C">, mut>
+    verona.field "h" : !verona.F32
+    verona.field "i" : !verona.F64
+    verona.field "j" : !verona.bool
   }
 
   func @bar(%x: !verona.meet<U64, imm>, %y: !verona.meet<U64, imm>) {

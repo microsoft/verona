@@ -40,6 +40,7 @@ namespace mlir::verona
     struct MeetTypeStorage;
     struct JoinTypeStorage;
     struct IntegerTypeStorage;
+    struct FloatTypeStorage;
     struct CapabilityTypeStorage;
     struct ClassTypeStorage;
     struct ViewpointTypeStorage;
@@ -72,6 +73,23 @@ namespace mlir::verona
 
     size_t getWidth() const;
     bool getSign() const;
+  };
+
+  struct FloatType
+  : public Type::TypeBase<FloatType, Type, detail::FloatTypeStorage>
+  {
+    using Base::Base;
+
+    static FloatType get(MLIRContext* context, size_t width);
+
+    size_t getWidth() const;
+  };
+
+  struct BoolType : public Type::TypeBase<BoolType, Type, TypeStorage>
+  {
+    using Base::Base;
+
+    static BoolType get(MLIRContext* context);
   };
 
   enum class Capability

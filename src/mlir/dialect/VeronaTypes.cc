@@ -56,7 +56,7 @@ namespace mlir::verona::detail
     }
   };
 
-  struct IntegerTypeStorage : public ::mlir::TypeStorage
+  struct IntegerTypeStorage : public TypeStorage
   {
     uint8_t width;
     enum SignType
@@ -86,7 +86,27 @@ namespace mlir::verona::detail
     }
   };
 
-  struct CapabilityTypeStorage : public ::mlir::TypeStorage
+  struct FloatTypeStorage : public TypeStorage
+  {
+    uint8_t width;
+
+    // width
+    using KeyTy = size_t;
+    FloatTypeStorage(const KeyTy& key) : width(key) {}
+
+    bool operator==(const KeyTy& key) const
+    {
+      return key == KeyTy(width);
+    }
+
+    static FloatTypeStorage*
+    construct(TypeStorageAllocator& allocator, const KeyTy& key)
+    {
+      return new (allocator.allocate<FloatTypeStorage>()) FloatTypeStorage(key);
+    }
+  };
+
+  struct CapabilityTypeStorage : public TypeStorage
   {
     Capability capability;
 
@@ -237,6 +257,21 @@ namespace mlir::verona
   bool IntegerType::getSign() const
   {
     return getImpl()->sign;
+  }
+
+  FloatType FloatType::get(MLIRContext* ctx, size_t width)
+  {
+    return Base::get(ctx, width);
+  }
+
+  size_t FloatType::getWidth() const
+  {
+    return getImpl()->width;
+  }
+
+  BoolType BoolType::get(MLIRContext* ctx)
+  {
+    return ::mlir::detail::TypeUniquer::get<BoolType>(ctx);
   }
 
   CapabilityType CapabilityType::get(MLIRContext* ctx, Capability cap)
@@ -429,6 +464,18 @@ namespace mlir::verona
     return ViewpointType::get(ctx, left, right);
   }
 
+  static Type
+  parseFloatType(MLIRContext* ctx, DialectAsmParser& parser, StringRef keyword)
+  {
+    size_t width = 0;
+    if (keyword.substr(1).getAsInteger(10, width))
+    {
+      parser.emitError(parser.getNameLoc(), "unknown verona type: ") << keyword;
+      return Type();
+    }
+    return FloatType::get(ctx, width);
+  }
+
   Type parseVeronaType(DialectAsmParser& parser)
   {
     MLIRContext* ctx = parser.getBuilder().getContext();
@@ -455,8 +502,12 @@ namespace mlir::verona
       return CapabilityType::get(ctx, Capability::Mutable);
     else if (keyword == "imm")
       return CapabilityType::get(ctx, Capability::Immutable);
+    else if (keyword == "bool")
+      return BoolType::get(ctx);
     else if (keyword.startswith("U") || keyword.startswith("S"))
       return parseIntegerType(ctx, parser, keyword);
+    else if (keyword.startswith("F"))
+      return parseFloatType(ctx, parser, keyword);
 
     parser.emitError(parser.getNameLoc(), "unknown verona type: ") << keyword;
     return Type();
@@ -499,6 +550,8 @@ namespace mlir::verona
         }
         os << type.getWidth();
       })
+      .Case<FloatType>([&](FloatType type) { os << "F" << type.getWidth(); })
+      .Case<BoolType>([&](BoolType type) { os << "bool"; })
       .Case<MeetType>([&](MeetType type) {
         if (type.getElements().empty())
         {
@@ -550,6 +603,8 @@ namespace mlir::verona
       IntegerType,
       CapabilityType,
       ClassType,
+      FloatType,
+      BoolType,
       ViewpointType>();
   }
 
