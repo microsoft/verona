@@ -63,7 +63,10 @@ namespace mlir::verona
       Constraints = peg::str2tag("constraints"), // = 4070926742
       Constraint = peg::str2tag("constraint"), // = 2466070853
       Type = peg::str2tag("type"), // = 4058008
+      TypeTuple = peg::str2tag("type_tuple"), // = 1428239871
       TypeRef = peg::str2tag("type_ref"), // = 2115269750
+      TypeOp = peg::str2tag("type_op"), // = 4098764984
+      TypeOne = peg::str2tag("type_one"), // = 2115257603
       TypeBody = peg::str2tag("typebody"), // = 2117081800
       Bool = peg::str2tag("bool"), // = 3565102
       Hex = peg::str2tag("hex"), // = 110293
@@ -178,7 +181,19 @@ namespace mlir::verona
     /// Return true if node is a type
     static bool isType(::ast::WeakAst ast)
     {
-      return isA(ast, NodeKind::OfType);
+      return isA(ast, NodeKind::Type);
+    }
+
+    /// Return true if node is a type holder
+    static bool isTypeHolder(::ast::WeakAst ast)
+    {
+      return isAny(ast, {NodeKind::OfType, NodeKind::TypeTuple});
+    }
+
+    /// Return true if node is final type (tuple element)
+    static bool IsTypeTupleElement(::ast::WeakAst ast)
+    {
+      return isA(ast, NodeKind::TypeOne);
     }
 
     /// Return true if node is a function
@@ -340,39 +355,41 @@ namespace mlir::verona
     /// Return true if node has non-empty (oftype / type)
     static bool hasType(::ast::WeakAst ast)
     {
-      if (!isA(ast, NodeKind::OfType))
+      if (!isTypeHolder(ast))
         return false;
       return hasA(ast, NodeKind::Type);
     }
 
-    /// Get the string description of a type node
-    static const std::string getTypeDesc(::ast::WeakAst ast)
+    /// Get the list of types grouped by the same operator (| or &) or
+    /// a single type, if no grouping. T must be a list type with push_back.
+    template<class T>
+    static void getTypeElements(::ast::WeakAst ast, char& sep, T& nodes)
     {
-      assert(isType(ast) && "Bad node");
-      if (!hasType(ast))
-        return "";
+      assert(isTypeHolder(ast) && "Bad node");
 
-      std::string desc;
-      // This undoes the work that the ast did to split the types
-      // and it should be rethought, but MLIR doens't allow multiple
-      // types on a single node. Perhaps attributes?
-      auto ptr = ast.lock();
-      auto type = findNode(ptr, NodeKind::Type).lock();
-      for (auto sub : type->nodes)
+      // (type) is a tuple of (type_one)s and/or (type_op)s. The type ops must
+      // be all the same (& or |), return a list of (type_one)s and the group
+      // operator (in sep).
+      sep = 0;
+      auto ptr = findNode(ast, NodeKind::Type).lock();
+      for (auto node : ptr->nodes)
       {
-        if (sub->is_token)
+        switch (node->tag)
         {
-          desc += sub->token;
-        }
-        else
-        {
-          auto ref = findNode(sub, NodeKind::TypeRef).lock();
-          desc += ref->nodes[0]->token;
+          case NodeKind::TypeOp:
+            // Check if type operator is the same all over
+            if (!sep)
+              sep = node->token[0];
+            else
+              assert(sep == node->token[0] && "Invalid type grouping");
+            break;
+          case NodeKind::TypeOne:
+            // If this node is a tuple, it will have a type holder in it.
+            // otherwise, it will be a (type_ref)
+            nodes.push_back(node->nodes[0]);
+            break;
         }
       }
-      assert(!desc.empty());
-
-      return desc;
     }
 
     // ================================================= Function Helpers

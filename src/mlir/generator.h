@@ -220,6 +220,8 @@ namespace mlir::verona
     // These methods build complex MLIR constructs from parameters either
     // acquired from the AST or built by the compiler as to mimic the AST.
 
+    /// Generate a Verona type from parsing its name.
+    mlir::Type generateType(llvm::StringRef name);
     /// Generate a prototype, populating the symbol table
     llvm::Expected<mlir::FuncOp> generateProto(
       mlir::Location loc,

@@ -1,11 +1,11 @@
 
 
 module {
-  func @foo(%arg0: !type.imm, %arg1: !type<"U64&imm">) -> !type<"U64&imm"> {
+  func @foo(%arg0: !verona.imm, %arg1: !verona.meet<U64, imm>) -> !verona.meet<U64, imm> {
     %0 = "verona.alloca"() : () -> !type.alloca
-    %1 = "verona.store"(%arg0, %0) : (!type.imm, !type.alloca) -> !type.unk
+    %1 = "verona.store"(%arg0, %0) : (!verona.imm, !type.alloca) -> !type.unk
     %2 = "verona.alloca"() : () -> !type.alloca
-    %3 = "verona.store"(%arg1, %2) : (!type<"U64&imm">, !type.alloca) -> !type.unk
+    %3 = "verona.store"(%arg1, %2) : (!verona.meet<U64, imm>, !type.alloca) -> !type.unk
     %4 = "verona.alloca"() : () -> !type.alloca
     %5 = "verona.load"(%0) : (!type.alloca) -> !type.unk
     %6 = "verona.load"(%2) : (!type.alloca) -> !type.unk
@@ -22,17 +22,17 @@ module {
     cond_br %16, ^bb1, ^bb2
   ^bb1:  // pred: ^bb0
     %17 = "verona.load"(%4) : (!type.alloca) -> !type.unk
-    %18 = "verona.cast"(%17) : (!type.unk) -> !type.imm
+    %18 = "verona.cast"(%17) : (!type.unk) -> !verona.imm
     %19 = "verona.load"(%9) : (!type.alloca) -> !type.unk
-    %20 = "verona.cast"(%19) : (!type.unk) -> !type<"U64&imm">
-    %21 = call @foo(%18, %20) : (!type.imm, !type<"U64&imm">) -> !type<"U64&imm">
-    return %21 : !type<"U64&imm">
+    %20 = "verona.cast"(%19) : (!type.unk) -> !verona.meet<U64, imm>
+    %21 = call @foo(%18, %20) : (!verona.imm, !verona.meet<U64, imm>) -> !verona.meet<U64, imm>
+    return %21 : !verona.meet<U64, imm>
   ^bb2:  // pred: ^bb0
     %22 = "verona.load"(%4) : (!type.alloca) -> !type.unk
     %23 = "verona.load"(%9) : (!type.alloca) -> !type.unk
     %24 = "verona.add"(%22, %23) : (!type.unk, !type.unk) -> !type.unk
-    %25 = "verona.cast"(%24) : (!type.unk) -> !type<"U64&imm">
-    return %25 : !type<"U64&imm">
+    %25 = "verona.cast"(%24) : (!type.unk) -> !verona.meet<U64, imm>
+    return %25 : !verona.meet<U64, imm>
   }
   func @apply() {
     %0 = "verona.alloca"() : () -> !type.alloca
@@ -42,10 +42,10 @@ module {
     %4 = "verona.constant(20)"() : () -> !type.int
     %5 = "verona.store"(%4, %3) : (!type.int, !type.alloca) -> !type.unk
     %6 = "verona.load"(%0) : (!type.alloca) -> !type.unk
-    %7 = "verona.cast"(%6) : (!type.unk) -> !type.imm
+    %7 = "verona.cast"(%6) : (!type.unk) -> !verona.imm
     %8 = "verona.load"(%3) : (!type.alloca) -> !type.unk
-    %9 = "verona.cast"(%8) : (!type.unk) -> !type<"U64&imm">
-    %10 = call @foo(%7, %9) : (!type.imm, !type<"U64&imm">) -> !type<"U64&imm">
+    %9 = "verona.cast"(%8) : (!type.unk) -> !verona.meet<U64, imm>
+    %10 = call @foo(%7, %9) : (!verona.imm, !verona.meet<U64, imm>) -> !verona.meet<U64, imm>
     return
   }
 }

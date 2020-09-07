@@ -197,27 +197,91 @@ namespace mlir::verona
     return func;
   }
 
+  mlir::Type Generator::generateType(llvm::StringRef name)
+  {
+    // Capabilities / boolean
+    if (name == "iso")
+      return CapabilityType::get(context, Capability::Isolated);
+    else if (name == "mut")
+      return CapabilityType::get(context, Capability::Mutable);
+    else if (name == "imm")
+      return CapabilityType::get(context, Capability::Immutable);
+    else if (name == "bool")
+      return BoolType::get(context);
+
+    // Numeric
+    size_t bitWidth = 0;
+    name.substr(1).getAsInteger(10, bitWidth);
+    bool validWidth = bitWidth >= 8 && bitWidth <= 128;
+
+    // Float
+    bool isFloat = name.startswith("F");
+    if (isFloat && validWidth)
+      return FloatType::get(context, bitWidth);
+
+    // Integer
+    bool isSigned = name.startswith("S");
+    bool isUnsigned = name.startswith("U");
+    if ((isSigned || isUnsigned) && validWidth)
+      return IntegerType::get(context, bitWidth, isSigned);
+
+    // Anything else, return opaque for now
+    // TODO: Implement all Verona types...
+    return genOpaqueType(name);
+  }
+
   mlir::Type Generator::parseType(const ::ast::Ast& ast)
   {
-    assert(AST::isType(ast) && "Bad node");
-    auto desc = AST::getTypeDesc(ast);
-    if (desc.empty())
+    // Match any existing Verona types
+    char sep = 0;
+    llvm::SmallVector<::ast::WeakAst, 1> nodes;
+    AST::getTypeElements(ast, sep, nodes);
+
+    // No types, return "unknown"
+    if (nodes.size() == 0)
       return unkTy;
 
-    // If type is in the alias table, get it
-    auto type = typeTable.lookup(desc);
-    if (type)
+    // Simple types should work directly, including `where` types.
+    // FIXME: This treats `where` as alias, but they're really not.
+    if (nodes.size() == 1)
+    {
+      auto name = AST::getID(nodes[0]);
+      if (auto type = typeTable.lookup(name))
+        return type;
+      auto type = generateType(name);
+      typeTable.insert(name, type);
       return type;
+    }
 
-    // Special treatment for type name 'bool'
-    // TODO: Type matching when we have proper Verona types
-    if (desc == "bool")
-      return boolTy;
+    // Composite types (meet, join) may require recursion
+    llvm::SmallVector<mlir::Type, 1> types;
+    for (auto node : nodes)
+    {
+      // Recursive nodes
+      if (AST::isTypeHolder(node))
+      {
+        types.push_back(parseType(node.lock()));
+      }
+      // Direct nodes
+      else
+      {
+        types.push_back(generateType(AST::getID(node)));
+      }
+    }
 
-    // Else, insert into the table and return
-    type = genOpaqueType(desc);
-    typeTable.insert(desc, type);
-    return type;
+    // Return group of nodes
+    switch (sep)
+    {
+      case '|':
+        return JoinType::get(context, types);
+      case '&':
+        return MeetType::get(context, types);
+      default:
+        assert(false && "Invalid type operation");
+    }
+
+    // TODO: We need a nicer fall back here, but the code should never get here
+    llvm_unreachable("Unrecoverable error parsing types");
   }
 
   llvm::Expected<ReturnValue> Generator::parseBlock(const ::ast::Ast& ast)

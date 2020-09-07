@@ -2,16 +2,16 @@
 
 module {
   func @empty_declaration()
-  func @single_arg(!type.S16)
-  func @args_and_ret(!type.U32, !type.S32) -> !type.F64
+  func @single_arg(!verona.S16)
+  func @args_and_ret(!verona.U32, !verona.S32) -> !verona.F64
   func @empty_return() {
     return
   }
-  func @foo(%arg0: !type.imm, %arg1: !type<"U64&imm">) -> !type<"U64&imm"> {
+  func @foo(%arg0: !verona.imm, %arg1: !verona.meet<U64, imm>) -> !verona.meet<U64, imm> {
     %0 = "verona.alloca"() : () -> !type.alloca
-    %1 = "verona.store"(%arg0, %0) : (!type.imm, !type.alloca) -> !type.unk
+    %1 = "verona.store"(%arg0, %0) : (!verona.imm, !type.alloca) -> !type.unk
     %2 = "verona.alloca"() : () -> !type.alloca
-    %3 = "verona.store"(%arg1, %2) : (!type<"U64&imm">, !type.alloca) -> !type.unk
+    %3 = "verona.store"(%arg1, %2) : (!verona.meet<U64, imm>, !type.alloca) -> !type.unk
     %4 = "verona.alloca"() : () -> !type.alloca
     %5 = "verona.load"(%0) : (!type.alloca) -> !type.unk
     %6 = "verona.load"(%2) : (!type.alloca) -> !type.unk
@@ -21,8 +21,8 @@ module {
     %10 = "verona.load"(%4) : (!type.alloca) -> !type.unk
     %11 = "verona.store"(%10, %9) : (!type.unk, !type.alloca) -> !type.unk
     %12 = "verona.load"(%4) : (!type.alloca) -> !type.unk
-    %13 = "verona.cast"(%12) : (!type.unk) -> !type<"U64&imm">
-    return %13 : !type<"U64&imm">
+    %13 = "verona.cast"(%12) : (!type.unk) -> !verona.meet<U64, imm>
+    return %13 : !verona.meet<U64, imm>
   }
   func @apply() {
     return
