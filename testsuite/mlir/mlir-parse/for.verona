@@ -3,7 +3,7 @@
 
 foo(a : S32);
 
-f(x)
+f(x : U64)
 {
   let a : S32 = 0;
   for (a in x) {

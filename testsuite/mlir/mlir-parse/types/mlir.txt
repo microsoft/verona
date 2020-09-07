@@ -1,0 +1,15 @@
+
+
+module {
+  func @foo(%arg0: !verona.meet<S32, iso>, %arg1: !verona.meet<U64, imm>) -> !verona.join<meet<S32, iso>, meet<U64, imm>, meet<U32, mut>> {
+    %0 = "verona.alloca"() : () -> !type.alloca
+    %1 = "verona.store"(%arg0, %0) : (!verona.meet<S32, iso>, !type.alloca) -> !type.unk
+    %2 = "verona.alloca"() : () -> !type.alloca
+    %3 = "verona.store"(%arg1, %2) : (!verona.meet<U64, imm>, !type.alloca) -> !type.unk
+    %4 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %5 = "verona.load"(%2) : (!type.alloca) -> !type.unk
+    %6 = "verona.add"(%4, %5) : (!type.unk, !type.unk) -> !type.unk
+    %7 = "verona.cast"(%6) : (!type.unk) -> !verona.join<meet<S32, iso>, meet<U64, imm>, meet<U32, mut>>
+    return %7 : !verona.join<meet<S32, iso>, meet<U64, imm>, meet<U32, mut>>
+  }
+}

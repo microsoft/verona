@@ -1,11 +1,11 @@
 
 
 module {
-  func @f(%arg0: !type.U32, %arg1: !type.S32) -> !type.F16 {
+  func @f(%arg0: !verona.U32, %arg1: !verona.S32) -> !verona.F16 {
     %0 = "verona.alloca"() : () -> !type.alloca
-    %1 = "verona.store"(%arg0, %0) : (!type.U32, !type.alloca) -> !type.unk
+    %1 = "verona.store"(%arg0, %0) : (!verona.U32, !type.alloca) -> !type.unk
     %2 = "verona.alloca"() : () -> !type.alloca
-    %3 = "verona.store"(%arg1, %2) : (!type.S32, !type.alloca) -> !type.unk
+    %3 = "verona.store"(%arg1, %2) : (!verona.S32, !type.alloca) -> !type.unk
     br ^bb1
   ^bb1:  // 3 preds: ^bb0, ^bb4, ^bb7
     %4 = "verona.load"(%0) : (!type.alloca) -> !type.unk
@@ -23,8 +23,8 @@ module {
     cond_br %13, ^bb4, ^bb5
   ^bb3:  // 2 preds: ^bb1, ^bb6
     %14 = "verona.load"(%0) : (!type.alloca) -> !type.unk
-    %15 = "verona.cast"(%14) : (!type.unk) -> !type.F16
-    return %15 : !type.F16
+    %15 = "verona.cast"(%14) : (!type.unk) -> !verona.F16
+    return %15 : !verona.F16
   ^bb4:  // pred: ^bb2
     br ^bb1
   ^bb5:  // pred: ^bb2

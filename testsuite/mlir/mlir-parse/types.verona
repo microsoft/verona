@@ -1,0 +1,9 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+// TODO: `where` variables are still not `verona` variables, so we can't
+// use them in join/meet because they won't pass `isVeronaType` check.
+foo(a: S32 & iso, b: U64 & imm): (S32 & iso) | (U64 & imm) | (U32 & mut)
+{
+  a + b;
+}

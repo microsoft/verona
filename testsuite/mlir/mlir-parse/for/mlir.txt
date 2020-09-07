@@ -1,13 +1,13 @@
 
 
 module {
-  func @foo(!type.S32)
+  func @foo(!verona.S32)
   func @has_value(!type.unk) -> !type.bool
   func @apply(!type.unk) -> !type.unk
   func @next(!type.unk)
-  func @f(%arg0: !type.unk) {
+  func @f(%arg0: !verona.U64) {
     %0 = "verona.alloca"() : () -> !type.alloca
-    %1 = "verona.store"(%arg0, %0) : (!type.unk, !type.alloca) -> !type.unk
+    %1 = "verona.store"(%arg0, %0) : (!verona.U64, !type.alloca) -> !type.unk
     %2 = "verona.alloca"() : () -> !type.alloca
     %3 = "verona.constant(0)"() : () -> !type.int
     %4 = "verona.store"(%3, %2) : (!type.int, !type.alloca) -> !type.unk
@@ -20,8 +20,8 @@ module {
   ^bb2:  // pred: ^bb1
     %8 = call @apply(%5) : (!type.unk) -> !type.unk
     call @next(%5) : (!type.unk) -> ()
-    %9 = "verona.cast"(%8) : (!type.unk) -> !type.S32
-    call @foo(%9) : (!type.S32) -> ()
+    %9 = "verona.cast"(%8) : (!type.unk) -> !verona.S32
+    call @foo(%9) : (!verona.S32) -> ()
     br ^bb1
   ^bb3:  // pred: ^bb1
     return
