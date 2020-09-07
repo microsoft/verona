@@ -6,6 +6,9 @@ module {
   verona.class @D {
     verona.field "f" : !verona.meet<U64, imm>
     verona.field "g" : !verona.meet<class<"C">, mut>
+    verona.field "h" : !verona.F32
+    verona.field "i" : !verona.F64
+    verona.field "j" : !verona.bool
   }
   func @bar(%arg0: !verona.meet<U64, imm>, %arg1: !verona.meet<U64, imm>) {
     %0 = verona.new_region @C [] : !verona.meet<class<"C">, iso>

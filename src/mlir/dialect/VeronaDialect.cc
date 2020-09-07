@@ -27,6 +27,8 @@ void VeronaDialect::initialize()
     IntegerType,
     CapabilityType,
     ClassType,
+    FloatType,
+    BoolType,
     ViewpointType>();
 
   allowUnknownOperations();
