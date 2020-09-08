@@ -1,0 +1,21 @@
+
+
+module {
+  func @test_class_mut(%arg0: !verona.meet<class<"C1", "f" : meet<class<"D1">, mut>>, mut>) -> !verona.meet<class<"D1">, mut> {
+    %0 = verona.field_read %arg0["f"] : !verona.meet<class<"C1", "f" : meet<class<"D1">, mut>>, mut> -> !verona.meet<class<"D1">, mut>
+    return %0 : !verona.meet<class<"D1">, mut>
+  }
+  func @test_join(%arg0: !verona.meet<join<class<"C1", "f" : meet<class<"D1">, mut>>, class<"C2", "f" : meet<class<"D2">, mut>>>, mut>) -> !verona.meet<join<class<"D1">, class<"D2">>, mut> {
+    %0 = verona.field_read %arg0["f"] : !verona.meet<join<class<"C1", "f" : meet<class<"D1">, mut>>, class<"C2", "f" : meet<class<"D2">, mut>>>, mut> -> !verona.meet<join<class<"D1">, class<"D2">>, mut>
+    return %0 : !verona.meet<join<class<"D1">, class<"D2">>, mut>
+  }
+  func @test_meet(%arg0: !verona.meet<class<"C1", "f" : meet<class<"D1">, mut>>, class<"C2", "f" : meet<class<"D2">, mut>>, mut>) -> !verona.meet<class<"D1">, class<"D2">, mut> {
+    %0 = verona.field_read %arg0["f"] : !verona.meet<class<"C1", "f" : meet<class<"D1">, mut>>, class<"C2", "f" : meet<class<"D2">, mut>>, mut> -> !verona.meet<class<"D1">, class<"D2">, mut>
+    return %0 : !verona.meet<class<"D1">, class<"D2">, mut>
+  }
+  func @test_bottom(%arg0: !verona.bottom) {
+    %0 = verona.field_read %arg0["f"] : !verona.bottom -> !verona.bottom
+    %1 = verona.field_read %arg0["g"] : !verona.bottom -> !verona.meet<class<"D1">, class<"D2">, iso>
+    return
+  }
+}
