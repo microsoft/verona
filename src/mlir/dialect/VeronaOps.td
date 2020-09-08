@@ -40,7 +40,7 @@ def Verona_ViewOp : Verona_Op<"view"> {
     let verifier = [{ return success(); }];
 }
 
-def Verona_FieldReadOp : Verona_Op<"field_read"> {
+def Verona_FieldReadOp : Verona_Op<"field_read", [ Typecheckable ]> {
     let summary = "Read a field from a reference";
     let description = [{
       Read the value of a field from a reference. The result value is always an
@@ -60,9 +60,18 @@ def Verona_FieldReadOp : Verona_Op<"field_read"> {
 
     let assemblyFormat = [{$origin `[` $field `]` attr-dict `:` type($origin) `->` type($output)}];
     let verifier = [{ return success(); }];
+
+    let extraClassDeclaration = [{
+      /// Get the type of the field being read by this operation, based of the
+      /// type of the origin and the name of the field. 
+      ///
+      /// This method returns null if the field does not exist. This cannot
+      /// happen on programs that typecheck successfully.
+      Type getFieldType();
+    }];
 }
 
-def Verona_FieldWriteOp : Verona_Op<"field_write"> {
+def Verona_FieldWriteOp : Verona_Op<"field_write", [ Typecheckable ]> {
     let summary = "Write to a field through a reference";
     let description = [{
       Write a new value to a field. The field's old value is returned.
@@ -79,6 +88,17 @@ def Verona_FieldWriteOp : Verona_Op<"field_write"> {
         $origin `[` $field `]` `,` $value attr-dict `:` type($origin) `->` type($value) `->` type($output)
     }];
     let verifier = [{ return success(); }];
+
+    let extraClassDeclaration = [{
+      /// Get the type of the field being read and written to by this operation,
+      /// based of the type of the origin and the name of the field. Two
+      /// different types are returned, as the read and the write types could
+      /// differ (eg. when reading to an origin with a join type).
+      ///
+      /// This method returns a pair of nulls if the field does not exist. This
+      /// cannot happen on programs that typecheck successfully.
+      std::pair<Type, Type> getFieldType();
+    }];
 }
 
 def Verona_TidyOp : Verona_Op<"tidy"> {

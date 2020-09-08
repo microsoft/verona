@@ -3,6 +3,7 @@
 
 #include "dialect/VeronaTypes.h"
 
+#include "dialect/VeronaOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/StandardTypes.h"
@@ -110,6 +111,93 @@ namespace mlir::verona::detail
         CapabilityTypeStorage(key);
     }
   };
+
+  struct ClassTypeStorage : public ::mlir::TypeStorage
+  {
+    using FieldsRef = ClassType::FieldsRef;
+    using KeyTy = StringRef;
+
+    // Only the class name is used to unique the type. The `isInitialized` flag
+    // and `fields` array are part of the type's mutable component.
+    StringRef class_name;
+    bool isInitialized;
+    FieldsRef fields;
+
+    ClassTypeStorage(StringRef class_name)
+    : class_name(class_name), isInitialized(false), fields()
+    {}
+
+    static llvm::hash_code hashKey(const KeyTy& key)
+    {
+      return llvm::hash_value(key);
+    }
+
+    bool operator==(const KeyTy& key) const
+    {
+      return key == class_name;
+    }
+
+    static ClassTypeStorage*
+    construct(TypeStorageAllocator& allocator, const KeyTy& key)
+    {
+      StringRef name = allocator.copyInto(key);
+      return new (allocator.allocate<ClassTypeStorage>())
+        ClassTypeStorage(name);
+    }
+
+    LogicalResult mutate(TypeStorageAllocator& allocator, FieldsRef new_fields)
+    {
+      if (isInitialized)
+      {
+        return new_fields == this->fields ? success() : failure();
+      }
+
+      // We construct a temporary array, in which the field names have been
+      // copied into `allocator`. Later this array itself will be copied into
+      // `allocator`.
+      //
+      // TODO: this could be made more efficient if TypeStorageAllocator could
+      // hand us an uninitialized (or default-initialized) mutable array, which
+      // we could later fill with the copied field names.
+      SmallVector<std::pair<StringRef, Type>, 4> temp_fields;
+      temp_fields.reserve(new_fields.size());
+      for (auto [field_name, field_type] : new_fields)
+      {
+        temp_fields.push_back({allocator.copyInto(field_name), field_type});
+      }
+      this->fields = allocator.copyInto(FieldsRef(temp_fields));
+
+      isInitialized = true;
+      return success();
+    }
+  };
+
+  struct ViewpointTypeStorage : public ::mlir::TypeStorage
+  {
+    Type left;
+    Type right;
+
+    using KeyTy = std::tuple<Type, Type>;
+
+    ViewpointTypeStorage(Type left, Type right) : left(left), right(right) {}
+
+    static llvm::hash_code hashKey(const KeyTy& key)
+    {
+      return llvm::hash_value(key);
+    }
+
+    bool operator==(const KeyTy& key) const
+    {
+      return key == std::tie(left, right);
+    }
+
+    static ViewpointTypeStorage*
+    construct(TypeStorageAllocator& allocator, const KeyTy& key)
+    {
+      return new (allocator.allocate<ViewpointTypeStorage>())
+        ViewpointTypeStorage(std::get<0>(key), std::get<1>(key));
+    }
+  };
 } // namespace mlir::verona::detail
 
 namespace mlir::verona
@@ -159,6 +247,62 @@ namespace mlir::verona
   Capability CapabilityType::getCapability() const
   {
     return getImpl()->capability;
+  }
+
+  ClassType ClassType::get(MLIRContext* ctx, StringRef name)
+  {
+    return Base::get(ctx, name);
+  }
+
+  ClassType ClassType::get(MLIRContext* ctx, StringRef name, FieldsRef fields)
+  {
+    ClassType type = ClassType::get(ctx, name);
+    if (succeeded(type.setFields(fields)))
+      return type;
+    else
+      return ClassType();
+  }
+
+  LogicalResult
+  ClassType::setFields(ArrayRef<std::pair<StringRef, Type>> fields)
+  {
+    return Base::mutate(fields);
+  }
+
+  StringRef ClassType::getName() const
+  {
+    return getImpl()->class_name;
+  }
+
+  ClassType::FieldsRef ClassType::getFields() const
+  {
+    assert(getImpl()->isInitialized);
+    return getImpl()->fields;
+  }
+
+  Type ClassType::getFieldType(StringRef name) const
+  {
+    for (auto it : getFields())
+    {
+      if (it.first == name)
+        return it.second;
+    }
+    return nullptr;
+  }
+
+  ViewpointType ViewpointType::get(MLIRContext* ctx, Type left, Type right)
+  {
+    return Base::get(ctx, std::make_tuple(left, right));
+  }
+
+  Type ViewpointType::getLeftType() const
+  {
+    return getImpl()->left;
+  }
+
+  Type ViewpointType::getRightType() const
+  {
+    return getImpl()->right;
   }
 
   /// Parse a list of types, surrounded by angle brackets and separated by
@@ -220,6 +364,71 @@ namespace mlir::verona
     return IntegerType::get(ctx, width, sign);
   }
 
+  // Annoyingly, DialectAsmParser only exposes `parseOptionalString`, no
+  // `parseString`. This method implements the latter based on the former.
+  ParseResult parseString(DialectAsmParser& parser, StringRef* value)
+  {
+    auto loc = parser.getCurrentLocation();
+    if (failed(parser.parseOptionalString(value)))
+      return parser.emitError(loc, "expected string literal");
+    else
+      return success();
+  }
+
+  static Type parseClassType(MLIRContext* ctx, DialectAsmParser& parser)
+  {
+    auto loc = parser.getNameLoc();
+
+    StringRef name;
+    SmallVector<std::pair<StringRef, Type>, 4> fields;
+
+    if (parser.parseLess() || parseString(parser, &name))
+      return Type();
+
+    // TODO: Support parsing recursive types by constructing an uninitialized
+    // ClassType first and filling it up later. This would require passing
+    // around the set of "pending" classes around.
+    // See the LLVM dialect's implementation of struct types for an example.
+    while (succeeded(parser.parseOptionalComma()))
+    {
+      StringRef field_name;
+      Type field_type;
+      if (
+        parseString(parser, &field_name) || parser.parseColon() ||
+        !(field_type = parseVeronaType(parser)))
+        return Type();
+
+      fields.push_back({field_name, field_type});
+    }
+
+    if (parser.parseGreater())
+      return Type();
+
+    ClassType pending = ClassType::get(ctx, name);
+    if (failed(pending.setFields(fields)))
+    {
+      InFlightDiagnostic diag = parser.emitError(loc)
+        << "class type \"" << pending.getName()
+        << "\" already used with different definition";
+      return Type();
+    }
+
+    return pending;
+  }
+
+  static Type parseViewpointType(MLIRContext* ctx, DialectAsmParser& parser)
+  {
+    Type left;
+    Type right;
+    if (
+      parser.parseLess() || !(left = parseVeronaType(parser)) ||
+      parser.parseComma() || !(right = parseVeronaType(parser)) ||
+      parser.parseGreater())
+      return Type();
+
+    return ViewpointType::get(ctx, left, right);
+  }
+
   Type parseVeronaType(DialectAsmParser& parser)
   {
     MLIRContext* ctx = parser.getBuilder().getContext();
@@ -228,10 +437,14 @@ namespace mlir::verona
     if (parser.parseKeyword(&keyword))
       return Type();
 
-    if (keyword == "meet")
+    if (keyword == "class")
+      return parseClassType(ctx, parser);
+    else if (keyword == "meet")
       return parseMeetType(ctx, parser);
     else if (keyword == "join")
       return parseJoinType(ctx, parser);
+    else if (keyword == "viewpoint")
+      return parseViewpointType(ctx, parser);
     else if (keyword == "top")
       return MeetType::get(ctx, {});
     else if (keyword == "bottom")
@@ -254,6 +467,21 @@ namespace mlir::verona
     os << "<";
     llvm::interleaveComma(
       types, os, [&](auto element) { printVeronaType(element, os); });
+    os << ">";
+  }
+
+  void printClassType(ClassType type, DialectAsmPrinter& os)
+  {
+    // TODO: Support printing recursive types. If we're already in the process
+    // of printing a class' body and reach the same class again, we should skip
+    // its body. See the LLVM dialect's implementation of struct types for an
+    // example.
+    os << "class<\"" << type.getName() << "\"";
+    for (auto [field_name, field_type] : type.getFields())
+    {
+      os << ", \"" << field_name << "\" : ";
+      printVeronaType(field_type, os);
+    }
     os << ">";
   }
 
@@ -306,12 +534,23 @@ namespace mlir::verona
             os << "imm";
             break;
         }
+      })
+      .Case<ClassType>([&](ClassType type) { printClassType(type, os); })
+      .Case<ViewpointType>([&](ViewpointType type) {
+        os << "viewpoint<" << type.getLeftType() << ", " << type.getRightType()
+           << ">";
       });
   }
 
   bool isaVeronaType(Type type)
   {
-    return type.isa<MeetType, JoinType, IntegerType, CapabilityType>();
+    return type.isa<
+      MeetType,
+      JoinType,
+      IntegerType,
+      CapabilityType,
+      ClassType,
+      ViewpointType>();
   }
 
   bool areVeronaTypes(llvm::ArrayRef<Type> types)
@@ -366,6 +605,19 @@ namespace mlir::verona
     }
   }
 
+  /// Distribute all join and meets found in `type`, by applying `f` to every
+  /// "atom" in the type. `type` is assumed to be in normal form already.
+  ///
+  /// For example, given `join<meet<A, B>, C>`, this function returns
+  /// `join<meet<f(A), f(B)>, f(C)>`.
+  static Type
+  distributeAll(MLIRContext* ctx, Type type, llvm::function_ref<Type(Type)> f)
+  {
+    return distributeType<JoinType>(ctx, type, [&](Type inner) {
+      return distributeType<MeetType>(ctx, inner, f);
+    });
+  }
+
   /// Normalize a meet type.
   /// This function returns the normal form of `meet<normalized..., rest...>`,
   /// distributing any nested joins.
@@ -417,6 +669,20 @@ namespace mlir::verona
     return JoinType::get(ctx, result);
   }
 
+  /// Normalize a viewpoint type, distributing any join or meet found in either
+  /// own its constituent types.
+  Type normalizeViewpoint(MLIRContext* ctx, Type left, Type right)
+  {
+    Type normalizedLeft = normalizeType(left);
+    Type normalizedRight = normalizeType(right);
+
+    return distributeAll(ctx, normalizedLeft, [&](Type distributedLeft) {
+      return distributeAll(ctx, normalizedRight, [&](Type distributedRight) {
+        return ViewpointType::get(ctx, distributedLeft, distributedRight);
+      });
+    });
+  }
+
   // TODO: The amount of normalization done is quite limited. In particular it
   // does not always flatten types (eg. changing `join<A, join<B, C>>` into
   // `join<A, B, C>`), nor does it do any simplification (eg. `join<A, A, B>`
@@ -427,12 +693,88 @@ namespace mlir::verona
     MLIRContext* ctx = type.getContext();
     assert(isaVeronaType(type));
     return TypeSwitch<Type, Type>(type)
-      .Case<JoinType>([&](Type type) {
-        return normalizeJoin(ctx, type.cast<JoinType>().getElements());
-      })
-      .Case<MeetType>([&](Type type) {
-        return normalizeMeet(ctx, type.cast<MeetType>().getElements());
+      .Case<JoinType>(
+        [&](JoinType type) { return normalizeJoin(ctx, type.getElements()); })
+      .Case<MeetType>(
+        [&](MeetType type) { return normalizeMeet(ctx, type.getElements()); })
+      .Case<ViewpointType>([&](ViewpointType type) {
+        return normalizeViewpoint(ctx, type.getLeftType(), type.getRightType());
       })
       .Default([&](Type type) { return type; });
+  }
+
+  /// Look up a field's type from a meet type.
+  ///
+  /// The field must be present in at least one element of the meet.
+  static std::pair<Type, Type>
+  lookupMeetFieldType(MeetType meetType, StringRef name)
+  {
+    MLIRContext* ctx = meetType.getContext();
+
+    bool found;
+    SmallVector<Type, 4> readElements;
+    SmallVector<Type, 4> writeElements;
+
+    for (Type origin : meetType.getElements())
+    {
+      auto [readType, writeType] = lookupFieldType(origin, name);
+      assert((readType == nullptr) == (writeType == nullptr));
+
+      if (readType != nullptr)
+      {
+        readElements.push_back(readType);
+        writeElements.push_back(writeType);
+        found = true;
+      }
+    }
+
+    if (found)
+      return {MeetType::get(ctx, readElements),
+              JoinType::get(ctx, writeElements)};
+    else
+      return {nullptr, nullptr};
+  }
+
+  /// Look up a field's type from a join type.
+  ///
+  /// The field must be present in all the elements of the meet. This extends to
+  /// empty joins: looking up a field will always succeed.
+  static std::pair<Type, Type>
+  lookupJoinFieldType(JoinType joinType, StringRef name)
+  {
+    MLIRContext* ctx = joinType.getContext();
+    SmallVector<Type, 4> readElements;
+    SmallVector<Type, 4> writeElements;
+
+    for (Type origin : joinType.getElements())
+    {
+      auto [readType, writeType] = lookupFieldType(origin, name);
+      assert((readType == nullptr) == (writeType == nullptr));
+
+      if (readType == nullptr)
+        return {nullptr, nullptr};
+    }
+
+    return {JoinType::get(ctx, readElements),
+            MeetType::get(ctx, writeElements)};
+  }
+
+  std::pair<Type, Type> lookupFieldType(Type origin, StringRef name)
+  {
+    return TypeSwitch<Type, std::pair<Type, Type>>(origin)
+      .Case<MeetType>(
+        [&](MeetType origin) { return lookupMeetFieldType(origin, name); })
+      .Case<JoinType>(
+        [&](JoinType origin) { return lookupJoinFieldType(origin, name); })
+      .Case<ClassType>([&](ClassType origin) -> std::pair<Type, Type> {
+        Type field = origin.getFieldType(name);
+        return {field, field};
+      })
+      .Case<ViewpointType>([&](ViewpointType origin) {
+        return lookupFieldType(origin.getRightType(), name);
+      })
+      .Default([](Type origin) -> std::pair<Type, Type> {
+        return {nullptr, nullptr};
+      });
   }
 }
