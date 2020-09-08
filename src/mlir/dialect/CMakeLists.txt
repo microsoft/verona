@@ -10,6 +10,7 @@ add_mlir_dialect_library(MLIRVerona
     VeronaTypes.cc
     Typechecker.cc
     TypecheckInterface.cc
+    TypeSyntax.cc
 
     DEPENDS
     MLIRVeronaOpsIncGen
