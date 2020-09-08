@@ -26,41 +26,43 @@
 // }
 // ```
 
+!C = type !verona.class<"C">
+!D = type !verona.class<"D", "f" : meet<U64, imm>, "g" : meet<!C, mut>>
 module {
   verona.class @C {
   }
 
   verona.class @D {
     verona.field "f" : !verona.meet<U64, imm>
-    verona.field "g" : !verona.meet<class<"C">, mut>
+    verona.field "g" : !verona.meet<!C, mut>
     verona.field "h" : !verona.F32
     verona.field "i" : !verona.F64
     verona.field "j" : !verona.bool
   }
 
   func @bar(%x: !verona.meet<U64, imm>, %y: !verona.meet<U64, imm>) {
-    %a = verona.new_region @C [ ] : !verona.meet<class<"C">, iso>
-    %b = verona.view %a : !verona.meet<class<"C">, iso> -> !verona.meet<class<"C">, mut>
+    %a = verona.new_region @C [ ] : !verona.meet<!C, iso>
+    %b = verona.view %a : !verona.meet<!C, iso> -> !verona.meet<!C, mut>
 
-    %c = verona.new_object @D [ "f", "g" ] (%x, %b : !verona.meet<U64, imm>, !verona.meet<class<"C">, mut>)
-      in (%a : !verona.meet<class<"C">, iso>)
-      : !verona.meet<class<"D", "f" : meet<U64, imm>, "g" : meet<class<"C">, mut>>, mut>
+    %c = verona.new_object @D [ "f", "g" ] (%x, %b : !verona.meet<U64, imm>, !verona.meet<!C, mut>)
+      in (%a : !verona.meet<!C, iso>)
+      : !verona.meet<!D, mut>
 
     %d = verona.field_read %c["f"]
-       : !verona.meet<class<"D", "f" : meet<U64, imm>, "g" : meet<class<"C">, mut>>, mut>
+       : !verona.meet<!D, mut>
       -> !verona.meet<U64, imm>
 
     %e = verona.field_read %c["g"]
-       : !verona.meet<class<"D", "f" : meet<U64, imm>, "g" : meet<class<"C">, mut>>, mut>
-      -> !verona.meet<class<"C">, mut>
+       : !verona.meet<!D, mut>
+      -> !verona.meet<!C, mut>
 
     %f = verona.field_write %c["f"], %y
-       : !verona.meet<class<"D", "f" : meet<U64, imm>, "g" : meet<class<"C">, mut>>, mut>
+       : !verona.meet<!D, mut>
       -> !verona.meet<U64, imm>
       -> !verona.meet<U64, imm>
 
-     verona.tidy %a : !verona.meet<class<"C">, iso>
-     verona.drop %a : !verona.meet<class<"C">, iso>
+     verona.tidy %a : !verona.meet<!C, iso>
+     verona.drop %a : !verona.meet<!C, iso>
 
     return
   }
