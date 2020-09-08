@@ -18,4 +18,18 @@ module {
     %1 = verona.field_read %arg0["g"] : !verona.bottom -> !verona.meet<class<"D1">, class<"D2">, iso>
     return
   }
+  func @test_recursive(%arg0: !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut>) -> !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut> {
+    %0 = verona.field_read %arg0["f"] : !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut> -> !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut>
+    %1 = verona.field_read %0["f"] : !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut> -> !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut>
+    return %1 : !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut>
+  }
+  func @test_recursive_loop(%arg0: !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut>) -> !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut> {
+    br ^bb1(%arg0 : !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut>)
+  ^bb1(%0: !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut>):  // 2 preds: ^bb0, ^bb1
+    %1 = verona.field_read %0["f"] : !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut> -> !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut>
+    %true = constant true
+    cond_br %true, ^bb1(%1 : !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut>), ^bb2
+  ^bb2:  // pred: ^bb1
+    return %1 : !verona.meet<class<"R1", "f" : meet<class<"R1">, mut>>, mut>
+  }
 }
