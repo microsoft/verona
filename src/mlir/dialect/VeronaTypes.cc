@@ -544,7 +544,13 @@ namespace mlir::verona
 
   bool isaVeronaType(Type type)
   {
-    return type.isa<MeetType, JoinType, IntegerType, CapabilityType>();
+    return type.isa<
+      MeetType,
+      JoinType,
+      IntegerType,
+      CapabilityType,
+      ClassType,
+      ViewpointType>();
   }
 
   bool areVeronaTypes(llvm::ArrayRef<Type> types)
