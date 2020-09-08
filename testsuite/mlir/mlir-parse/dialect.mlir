@@ -38,18 +38,18 @@ module {
 
     %c = verona.new_object @D [ "f", "g" ] (%x, %b : !verona.meet<U64, imm>, !verona.meet<class<"C">, mut>)
       in (%a : !verona.meet<class<"C">, iso>)
-      : !verona.meet<class<"D", "f" : i1 : meet<U64, imm>, "g" : i1 : meet<class<"C">, mut>>, mut>
+      : !verona.meet<class<"D", "f" : meet<U64, imm>, "g" : meet<class<"C">, mut>>, mut>
 
     %d = verona.field_read %c["f"]
-       : !verona.meet<class<"D", "f" : i1 : meet<U64, imm>, "g" : i1 : meet<class<"C">, mut>>, mut>
+       : !verona.meet<class<"D", "f" : meet<U64, imm>, "g" : meet<class<"C">, mut>>, mut>
       -> !verona.meet<U64, imm>
 
     %e = verona.field_read %c["g"]
-       : !verona.meet<class<"D", "f" : i1 : meet<U64, imm>, "g" : i1 : meet<class<"C">, mut>>, mut>
+       : !verona.meet<class<"D", "f" : meet<U64, imm>, "g" : meet<class<"C">, mut>>, mut>
       -> !verona.meet<class<"C">, mut>
 
     %f = verona.field_write %c["f"], %y
-       : !verona.meet<class<"D", "f" : i1 : meet<U64, imm>, "g" : i1 : meet<class<"C">, mut>>, mut>
+       : !verona.meet<class<"D", "f" : meet<U64, imm>, "g" : meet<class<"C">, mut>>, mut>
       -> !verona.meet<U64, imm>
       -> !verona.meet<U64, imm>
 

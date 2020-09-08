@@ -364,14 +364,25 @@ namespace mlir::verona
     return IntegerType::get(ctx, width, sign);
   }
 
+  // Annoyingly, DialectAsmParser only exposes `parseOptionalString`, no
+  // `parseString`. This method implements the latter based on the former.
+  ParseResult parseString(DialectAsmParser& parser, StringRef* value)
+  {
+    auto loc = parser.getCurrentLocation();
+    if (failed(parser.parseOptionalString(value)))
+      return parser.emitError(loc, "expected string literal");
+    else
+      return success();
+  }
+
   static Type parseClassType(MLIRContext* ctx, DialectAsmParser& parser)
   {
     auto loc = parser.getNameLoc();
 
-    StringAttr name;
+    StringRef name;
     SmallVector<std::pair<StringRef, Type>, 4> fields;
 
-    if (parser.parseLess() || parser.parseAttribute(name))
+    if (parser.parseLess() || parseString(parser, &name))
       return Type();
 
     // TODO: Support parsing recursive types by constructing an uninitialized
@@ -380,27 +391,20 @@ namespace mlir::verona
     // See the LLVM dialect's implementation of struct types for an example.
     while (succeeded(parser.parseOptionalComma()))
     {
-      // TODO: using parseAttribute here causes problems, as it will eat the
-      // colon and type, thinking those refer to the attribute's type. To work
-      // around this, it is currently necessary to put both an attribute type
-      // and a field type, eg. `!verona.class<"A", "f": i1 : U32>`, the `i1` is
-      // the attribute type (whose value doesn't actually matter) and U32 is the
-      // field's type. We should extend MLIR's DialectAsmParser to expose a
-      // `parseString` public method (it exists internally already).
-      StringAttr field_name;
+      StringRef field_name;
       Type field_type;
       if (
-        parser.parseAttribute(field_name) || parser.parseColon() ||
+        parseString(parser, &field_name) || parser.parseColon() ||
         !(field_type = parseVeronaType(parser)))
         return Type();
 
-      fields.push_back({field_name.getValue(), field_type});
+      fields.push_back({field_name, field_type});
     }
 
     if (parser.parseGreater())
       return Type();
 
-    ClassType pending = ClassType::get(ctx, name.getValue());
+    ClassType pending = ClassType::get(ctx, name);
     if (failed(pending.setFields(fields)))
     {
       InFlightDiagnostic diag = parser.emitError(loc)
@@ -475,9 +479,7 @@ namespace mlir::verona
     os << "class<\"" << type.getName() << "\"";
     for (auto [field_name, field_type] : type.getFields())
     {
-      // TODO: The extra ": i1" annotation is to work around a bug in the
-      // parser, see parseClassType for details.
-      os << ", " << field_name << ": i1 :";
+      os << ", \"" << field_name << "\" : ";
       printVeronaType(field_type, os);
     }
     os << ">";
