@@ -10,10 +10,10 @@ module {
   func @bar(%arg0: !verona.meet<U64, imm>, %arg1: !verona.meet<U64, imm>) {
     %0 = verona.new_region @C [] : !verona.meet<class<"C">, iso>
     %1 = verona.view %0 : !verona.meet<class<"C">, iso> -> !verona.meet<class<"C">, mut>
-    %2 = verona.new_object @D ["f", "g"](%arg0, %1 : !verona.meet<U64, imm>, !verona.meet<class<"C">, mut>) in(%0 : !verona.meet<class<"C">, iso>) : !verona.meet<class<"D", f: i1 :meet<U64, imm>, g: i1 :meet<class<"C">, mut>>, mut>
-    %3 = verona.field_read %2["f"] : !verona.meet<class<"D", f: i1 :meet<U64, imm>, g: i1 :meet<class<"C">, mut>>, mut> -> !verona.meet<U64, imm>
-    %4 = verona.field_read %2["g"] : !verona.meet<class<"D", f: i1 :meet<U64, imm>, g: i1 :meet<class<"C">, mut>>, mut> -> !verona.meet<class<"C">, mut>
-    %5 = verona.field_write %2["f"], %arg1 : !verona.meet<class<"D", f: i1 :meet<U64, imm>, g: i1 :meet<class<"C">, mut>>, mut> -> !verona.meet<U64, imm> -> !verona.meet<U64, imm>
+    %2 = verona.new_object @D ["f", "g"](%arg0, %1 : !verona.meet<U64, imm>, !verona.meet<class<"C">, mut>) in(%0 : !verona.meet<class<"C">, iso>) : !verona.meet<class<"D", "f" : meet<U64, imm>, "g" : meet<class<"C">, mut>>, mut>
+    %3 = verona.field_read %2["f"] : !verona.meet<class<"D", "f" : meet<U64, imm>, "g" : meet<class<"C">, mut>>, mut> -> !verona.meet<U64, imm>
+    %4 = verona.field_read %2["g"] : !verona.meet<class<"D", "f" : meet<U64, imm>, "g" : meet<class<"C">, mut>>, mut> -> !verona.meet<class<"C">, mut>
+    %5 = verona.field_write %2["f"], %arg1 : !verona.meet<class<"D", "f" : meet<U64, imm>, "g" : meet<class<"C">, mut>>, mut> -> !verona.meet<U64, imm> -> !verona.meet<U64, imm>
     verona.tidy %0 : !verona.meet<class<"C">, iso>
     verona.drop %0 : !verona.meet<class<"C">, iso>
     return
