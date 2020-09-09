@@ -36,7 +36,7 @@ namespace mlir::verona
 
     // TODO: make the set of passes configurable from the command-line
     passManager.addPass(std::make_unique<TypecheckerPass>());
-    passManager.addPass(std::make_unique<RegionCheckerPass>());
+    passManager.addPass(std::make_unique<PrintRegionAnalysisPass>());
 
     if (optLevel > 0)
     {

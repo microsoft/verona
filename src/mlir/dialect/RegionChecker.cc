@@ -413,14 +413,15 @@ namespace mlir::verona
     intersector.finish([&](auto fact) { add(fact); });
   }
 
-  void RegionCheckerPass::runOnFunction()
+  RegionAnalysis::RegionAnalysis(FuncOp operation) : operation(operation)
   {
     llvm::SetVector<Block*> worklist;
-    DenseMap<Block*, StableFacts> facts;
 
-    DominanceInfo dominance(getOperation());
+    // TODO: we should use OperationPass' getAnalysis, so we can get cached
+    // results, however we can't do that from within another analysis.
+    DominanceInfo dominance(operation);
 
-    worklist.insert(&getOperation().getCallableRegion()->front());
+    worklist.insert(&operation.getCallableRegion()->front());
     while (!worklist.empty())
     {
       Block* current = worklist.pop_back_val();
@@ -439,21 +440,66 @@ namespace mlir::verona
         worklist.insert(current->succ_begin(), current->succ_end());
       }
     }
+  }
 
-    // TODO: find a more appropriate way to print the results.
-    AsmState state(getOperation());
-    for (Block& block : getOperation())
+  /// Get a string representiation of each element `facts`, ordered by the
+  /// textual representiation.
+  ///
+  /// This ensures facts are printed in a deterministic order.
+  static SmallVector<std::string, 0> getSortedFacts(const StableFacts& facts, AsmState& state)
+  {
+    SmallVector<std::string, 0> result;
+    for (const auto& it : facts.aliases)
+    {
+      std::string s;
+      llvm::raw_string_ostream ss(s);
+      it.print(ss, state);
+      result.push_back(ss.str());
+    }
+    llvm::sort(result);
+    return result;
+  }
+
+  void RegionAnalysis::print(llvm::raw_ostream& os)
+  {
+    os << "// Topological Facts for @" << operation.getName() << "\n";
+    AsmState state(operation);
+    for (Block& block : operation)
     {
       const StableFacts& data = facts[&block];
-      block.printAsOperand(llvm::errs(), state);
-      llvm::errs() << "\n";
-      for (const auto& it : data.aliases)
+      block.printAsOperand(os, state);
+      if (!block.args_empty())
       {
-        llvm::errs() << "  ";
-        it.print(llvm::errs(), state);
-        llvm::errs() << "\n";
+        os << '(';
+        interleaveComma(block.getArguments(), os, [&](Value arg) {
+          arg.printAsOperand(os, state);
+          os << ": " << arg.getType();
+        });
+        os << ')';
       }
+      os << ":\n";
+      for (const auto& fact : getSortedFacts(data, state))
+      {
+        os << "  // " << fact << "\n";
+      }
+      for (auto& op : block)
+      {
+        os << "  ";
+        op.print(os, state);
+        os << "\n";
+      }
+      os << "\n";
     }
+  }
+
+  void PrintRegionAnalysisPass::runOnOperation()
+  {
+    getOperation().walk([&](FuncOp func) {
+      RegionAnalysis& analysis = getChildAnalysis<RegionAnalysis>(func);
+      analysis.print(llvm::errs());
+    });
+
+    markAllAnalysesPreserved();
   }
 
   void CopyOp::add_facts(FactEvaluator& facts)

@@ -7,9 +7,24 @@
 
 namespace mlir::verona
 {
-  class RegionCheckerPass : public PassWrapper<RegionCheckerPass, FunctionPass>
+  class PrintRegionAnalysisPass
+  : public PassWrapper<PrintRegionAnalysisPass, OperationPass<ModuleOp>>
   {
-    void runOnFunction() override;
+    void runOnOperation() override;
+  };
+
+  struct StableFacts;
+  struct RegionAnalysis
+  {
+    RegionAnalysis(FuncOp operation);
+    void print(llvm::raw_ostream& os);
+
+    RegionAnalysis(const RegionAnalysis& other) = delete;
+    RegionAnalysis& operator=(const RegionAnalysis& other) = delete;
+
+  private:
+    DenseMap<Block*, StableFacts> facts;
+    FuncOp operation;
   };
 
   struct FactEvaluator;
