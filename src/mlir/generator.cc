@@ -533,14 +533,6 @@ namespace mlir::verona
   {
     assert(AST::isIf(ast) && "Bad node");
 
-    // TODO: MLIR doesn't support conditions with literals
-    // we need to make a constexpr decision and only lower the right block
-    if (AST::isConstant(AST::getCond(ast)))
-    {
-      return parsingError(
-        "Conditionals with literals not supported yet", getLocation(ast));
-    }
-
     // Create local context for condition variables (valid for both if/else)
     SymbolScopeT var_scope{symbolTable};
 
@@ -617,14 +609,6 @@ namespace mlir::verona
   llvm::Expected<ReturnValue> Generator::parseWhileLoop(const ::ast::Ast& ast)
   {
     assert(AST::isWhile(ast) && "Bad node");
-
-    // TODO: MLIR doesn't support conditions with literals
-    // we need to make a constexpr decision and only lower the right block
-    if (AST::isConstant(AST::getCond(ast)))
-    {
-      return parsingError(
-        "Loop conditions with literals not supported yet", getLocation(ast));
-    }
 
     // Create the head basic-block, which will check the condition
     // and dispatch the loop to the body block or exit.
