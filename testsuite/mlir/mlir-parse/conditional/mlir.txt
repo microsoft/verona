@@ -15,12 +15,24 @@ module {
     %8 = "verona.store"(%7, %0) : (!type.unk, !type.alloca) -> !type.unk
     br ^bb3
   ^bb2:  // pred: ^bb0
-    %9 = "verona.constant(0)"() : () -> !type.int
-    %10 = "verona.store"(%9, %0) : (!type.int, !type.alloca) -> !type.unk
-    br ^bb3
-  ^bb3:  // 2 preds: ^bb1, ^bb2
+    %9 = "verona.constant(true)"() : () -> !type.bool
+    %10 = "verona.cast"(%9) : (!type.bool) -> i1
+    cond_br %10, ^bb4, ^bb5
+  ^bb3:  // 2 preds: ^bb1, ^bb6
     %11 = "verona.load"(%0) : (!type.alloca) -> !type.unk
     %12 = "verona.cast"(%11) : (!type.unk) -> !verona.S16
     return %12 : !verona.S16
+  ^bb4:  // pred: ^bb2
+    %13 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %14 = "verona.constant(1)"() : () -> !type.int
+    %15 = "verona.sub"(%13, %14) : (!type.unk, !type.int) -> !type.unk
+    %16 = "verona.store"(%15, %0) : (!type.unk, !type.alloca) -> !type.unk
+    br ^bb6
+  ^bb5:  // pred: ^bb2
+    %17 = "verona.constant(0)"() : () -> !type.int
+    %18 = "verona.store"(%17, %0) : (!type.int, !type.alloca) -> !type.unk
+    br ^bb6
+  ^bb6:  // 2 preds: ^bb4, ^bb5
+    br ^bb3
   }
 }

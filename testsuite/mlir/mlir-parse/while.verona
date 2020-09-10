@@ -7,5 +7,9 @@ f(a : U32) : U32
   {
     a = a + 1;
   }
+  while(false)
+  {
+    a = a - 1;
+  }
   a;
 }
