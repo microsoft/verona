@@ -50,9 +50,31 @@ namespace verona::rt
       YesTryFast
     };
 
-    Cown(const Descriptor* desc) : Object(desc)
+    Cown(bool initialise = true)
     {
-      this->init(ThreadAlloc::get(), desc, Scheduler::alloc_epoch());
+      make_cown();
+
+      if (initialise)
+      {
+        auto alloc = ThreadAlloc::get();
+        auto epoch = Scheduler::alloc_epoch();
+        set_epoch(epoch);
+        queue.init(stub_msg(alloc));
+        CownThread* local = Scheduler::local();
+
+        if (local != nullptr)
+        {
+          set_owning_thread(local);
+          next = local->list;
+          local->list = this;
+          local->total_cowns++;
+        }
+        else
+        {
+          set_owning_thread(nullptr);
+          next = nullptr;
+        }
+      }
     }
 
   private:
@@ -97,11 +119,12 @@ namespace verona::rt
     static Cown* create_token_cown()
     {
       static constexpr Descriptor desc = {
-        sizeof(Cown), nullptr, nullptr, nullptr};
+        vsizeof<Cown>, nullptr, nullptr, nullptr};
       auto alloc = ThreadAlloc::get();
-      auto a = (Cown*)alloc->alloc<sizeof(Cown)>();
-      a->make_cown();
-      a->set_descriptor(&desc);
+      auto p = alloc->alloc<desc.size>();
+      auto o = Object::register_object(p, &desc);
+      auto a = new (o) Cown(false);
+
       a->cown_mark_scanned();
       return a;
     }
@@ -158,21 +181,6 @@ namespace verona::rt
     }
 
 #endif
-
-    template<size_t size>
-    static Cown* alloc(Alloc* alloc, const Descriptor* desc, EpochMark epoch)
-    {
-      Cown* a = (Cown*)alloc->alloc<size>();
-      a->init(alloc, desc, epoch);
-      return a;
-    }
-
-    static Cown* alloc(Alloc* alloc, const Descriptor* desc, EpochMark epoch)
-    {
-      Cown* a = (Cown*)alloc->alloc(desc->size);
-      a->init(alloc, desc, epoch);
-      return a;
-    }
 
     /**
      * This method implements sending a Message to a Cown. Returns true if the
@@ -387,28 +395,6 @@ namespace verona::rt
       {
         incref();
         schedule();
-      }
-    }
-
-    void init(Alloc* alloc, const Descriptor* desc, EpochMark epoch)
-    {
-      make_cown();
-      set_descriptor(desc);
-      set_epoch(epoch);
-      queue.init(stub_msg(alloc));
-      CownThread* local = Scheduler::local();
-
-      if (local != nullptr)
-      {
-        set_owning_thread(local);
-        next = local->list;
-        local->list = this;
-        local->total_cowns++;
-      }
-      else
-      {
-        set_owning_thread(nullptr);
-        next = nullptr;
       }
     }
 

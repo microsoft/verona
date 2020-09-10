@@ -39,7 +39,7 @@ namespace verona::interpreter
   }
 
   VMObject::VMObject(VMObject* region, const VMDescriptor* desc)
-  : Object(desc), parent_(region)
+  : Object(), parent_(region)
   {
     if (descriptor()->field_count > 0)
       fields = std::make_unique<FieldValue[]>(descriptor()->field_count);

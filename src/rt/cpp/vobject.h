@@ -79,17 +79,12 @@ namespace verona::rt
       ((T*)o)->~T();
     }
 
-    static const Descriptor* desc()
-    {
-      static constexpr Descriptor desc = {
-        sizeof(T),
-        gc_trace,
-        has_finaliser<T>::value ? gc_final : nullptr,
-        has_notified<T>::value ? gc_notified : nullptr,
-        has_destructor<T>::value ? gc_destructor : nullptr};
-
-      return &desc;
-    }
+    static constexpr Descriptor desc = {
+      vsizeof<T>,
+      gc_trace,
+      has_finaliser<T>::value ? gc_final : nullptr,
+      has_notified<T>::value ? gc_notified : nullptr,
+      has_destructor<T>::value ? gc_destructor : nullptr};
 
     void trace(ObjectStack&) {}
 
@@ -99,40 +94,38 @@ namespace verona::rt
     }
 
   public:
-    V() : Base(desc()) {}
+    V() : Base() {}
 
     void* operator new(size_t)
     {
       if constexpr (std::is_same_v<Base, Object>)
-        return RegionClass::template create<sizeof(T)>(
-          ThreadAlloc::get(), desc());
+        return RegionClass::template create<desc.size>(
+          ThreadAlloc::get(), &desc);
       else
-        return ThreadAlloc::get()->alloc<sizeof(T)>();
+        return Object::register_object(
+          ThreadAlloc::get()->alloc<desc.size>(), &desc);
     }
 
     void* operator new(size_t, Alloc* alloc)
     {
       if constexpr (std::is_same_v<Base, Object>)
-        return RegionClass::template create<sizeof(T)>(alloc, desc());
+        return RegionClass::template create<desc.size>(alloc, &desc);
       else
-        return alloc->alloc<sizeof(T)>();
+        return Object::register_object(alloc->alloc<desc.size>(), &desc);
     }
 
     void* operator new(size_t, Object* region)
     {
-      if constexpr (std::is_same_v<Base, Object>)
-        return RegionClass::template alloc<sizeof(T)>(
-          ThreadAlloc::get(), region, desc());
-      else
-        return ThreadAlloc::get()->alloc<sizeof(T)>();
+      static_assert(std::is_same_v<Base, Object>, "Don't call on cowns.");
+      return RegionClass::template alloc<desc.size>(
+        ThreadAlloc::get(), region, &desc);
     }
 
     void* operator new(size_t, Alloc* alloc, Object* region)
     {
+      static_assert(std::is_same_v<Base, Object>, "Don't call on cowns.");
       if constexpr (std::is_same_v<Base, Object>)
-        return RegionClass::template alloc<sizeof(T)>(alloc, region, desc());
-      else
-        return alloc->alloc<sizeof(T)>();
+        return RegionClass::template alloc<desc.size>(alloc, region, &desc);
     }
 
     void operator delete(void*)
