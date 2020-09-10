@@ -1,0 +1,20 @@
+
+
+module {
+  verona.class @C {
+  }
+  verona.class @D {
+    verona.field "f" : !verona.meet<U64, imm>
+    verona.field "g" : !verona.meet<S32, mut>
+    verona.field "h" : !verona.F32
+    verona.field "i" : !verona.F64
+    verona.field "j" : !verona.bool
+  }
+  func @bar(%arg0: !verona.meet<U64, imm>, %arg1: !verona.meet<U64, imm>) {
+    %0 = "verona.alloca"() : () -> !type.alloca
+    %1 = "verona.store"(%arg0, %0) : (!verona.meet<U64, imm>, !type.alloca) -> !type.unk
+    %2 = "verona.alloca"() : () -> !type.alloca
+    %3 = "verona.store"(%arg1, %2) : (!verona.meet<U64, imm>, !type.alloca) -> !type.unk
+    return
+  }
+}

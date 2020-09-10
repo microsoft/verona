@@ -4,6 +4,7 @@
 #pragma once
 
 #include "ast/ast.h"
+#include "dialect/VeronaOps.h"
 #include "error.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Function.h"
@@ -186,6 +187,8 @@ namespace mlir::verona
 
     /// Parses a function, from a top-level (module) view.
     llvm::Expected<mlir::FuncOp> parseFunction(const ::ast::Ast& ast);
+    /// Parse a class declaration
+    llvm::Expected<mlir::verona::ClassOp> parseClass(const ::ast::Ast& ast);
 
     /// Recursive type parser, gathers all available information on the type
     /// and sub-types, modifiers, annotations, etc.

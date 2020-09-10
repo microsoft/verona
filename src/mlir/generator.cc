@@ -93,19 +93,62 @@ namespace mlir::verona
   llvm::Error Generator::parseModule(const ::ast::Ast& ast)
   {
     assert(AST::isClass(ast) && "Bad node");
+    assert(AST::getID(ast) == "$module" && "Bad node");
     module = mlir::ModuleOp::create(getLocation(ast));
-    // TODO: Support more than just functions at the module level
+
     auto body = AST::getClassBody(ast);
-    llvm::SmallVector<::ast::WeakAst, 4> funcs;
-    AST::getSubNodes(funcs, body);
-    for (auto f : funcs)
+    llvm::SmallVector<::ast::WeakAst, 4> globals;
+    AST::getSubNodes(globals, body);
+    for (auto g : globals)
     {
-      auto fun = parseFunction(f.lock());
-      if (auto err = fun.takeError())
-        return err;
-      module->push_back(*fun);
+      if (AST::isClass(g))
+      {
+        auto c = parseClass(g.lock());
+        if (auto err = c.takeError())
+          return err;
+        module->push_back(*c);
+      }
+      else if (AST::isFunction(g))
+      {
+        auto f = parseFunction(g.lock());
+        if (auto err = f.takeError())
+          return err;
+        module->push_back(*f);
+      }
     }
     return llvm::Error::success();
+  }
+
+  llvm::Expected<mlir::verona::ClassOp>
+  Generator::parseClass(const ::ast::Ast& ast)
+  {
+    assert(AST::isClass(ast) && "Bad node");
+
+    // Create the class operation
+    auto name = AST::getID(ast);
+    auto loc = getLocation(ast);
+    auto c = builder.create<mlir::verona::ClassOp>(loc, name);
+    auto block = addBlock(&c.getRegion());
+    auto prev = builder.getInsertionBlock();
+    builder.setInsertionPointToEnd(block);
+
+    // Add each field
+    llvm::SmallVector<::ast::WeakAst, 4> fieldNodes;
+    auto body = AST::getClassBody(ast);
+    AST::getSubNodes(fieldNodes, body);
+    for (auto field : fieldNodes)
+    {
+      auto desc = AST::getID(field);
+      auto ty = parseType(AST::getType(field).lock());
+      mlir::TypeAttr attr = TypeAttr::get(ty);
+      builder.create<mlir::verona::FieldOp>(
+        getLocation(field.lock()), desc, attr);
+    }
+    builder.create<mlir::verona::ClassEndOp>(loc);
+    builder.setInsertionPointToEnd(prev);
+
+    // TODO: Add the type/alias
+    return c;
   }
 
   llvm::Expected<mlir::FuncOp> Generator::parseFunction(const ::ast::Ast& ast)
