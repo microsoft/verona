@@ -57,12 +57,22 @@ namespace verona::rt
     {
       if constexpr (has_notified<T>::value)
         ((T*)o)->notified(o);
+      else
+      {
+        UNUSED(o);
+      }
     }
 
     static void gc_final(Object* o, Object* region, ObjectStack& sub_regions)
     {
       if constexpr (has_finaliser<T>::value)
         ((T*)o)->finaliser(region, sub_regions);
+      else
+      {
+        UNUSED(o);
+        UNUSED(region);
+        UNUSED(sub_regions);
+      }
     }
 
     static void gc_destructor(Object* o)
