@@ -69,7 +69,7 @@ namespace verona::rt
       if constexpr (is_set)
         return (uintptr_t&)entry;
       else
-        return  (uintptr_t&)std::get<0>(entry);
+        return (uintptr_t&)std::get<0>(entry);
     }
 
     /**
