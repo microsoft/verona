@@ -44,12 +44,12 @@ jobs:
   timeoutInMinutes: 120
   strategy:
     matrix:
-      # GCC Release:
-      #   CC: gcc
-      #   CXX: g++
-      #   CXXFLAGS:
-      #   BuildType: Release
-      #   Asan: Off
+      GCC Release:
+        CC: gcc
+        CXX: g++
+        CXXFLAGS:
+        BuildType: Release
+        Asan: Off
       Clang RelDbg+ASAN:
         CC: clang
         CXX: clang++
