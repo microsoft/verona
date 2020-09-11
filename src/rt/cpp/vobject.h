@@ -44,9 +44,7 @@ namespace verona::rt
    * Common base class for V and VCown to build descriptors
    * from C++ objects using compile time reflection.
    */
-  template<
-    class T,
-    class Base = Object>
+  template<class T, class Base = Object>
   class VBase : public Base
   {
   private:
@@ -79,16 +77,16 @@ namespace verona::rt
 
     static Descriptor* desc()
     {
-      static Descriptor desc = {
-        vsizeof<T>,
-        gc_trace,
-        has_finaliser<T>::value ? gc_final : nullptr,
-        has_notified<T>::value ? gc_notified : nullptr,
-        has_destructor<T>::value ? gc_destructor : nullptr};
+      static Descriptor desc = {vsizeof<T>,
+                                gc_trace,
+                                has_finaliser<T>::value ? gc_final : nullptr,
+                                has_notified<T>::value ? gc_notified : nullptr,
+                                has_destructor<T>::value ? gc_destructor :
+                                                           nullptr};
 
       return &desc;
     }
-    
+
     void operator delete(void*)
     {
       // Should not be called directly, present to allow calling if the
@@ -129,14 +127,12 @@ namespace verona::rt
     void operator delete[](void* p, size_t sz) = delete;
   };
 
-  /** 
+  /**
    * Converts a C++ class into a Verona Object
    *
    * Will fill the Verona descriptor with relevant fields.
    */
-  template<
-    class T,
-    RegionType region_type = RegionType::Trace>
+  template<class T, RegionType region_type = RegionType::Trace>
   class V : public VBase<T, Object>
   {
     using RegionClass = typename RegionType_to_class<region_type>::T;
@@ -152,7 +148,8 @@ namespace verona::rt
 
     void* operator new(size_t, Alloc* alloc)
     {
-      return RegionClass::template create<vsizeof<T>>(alloc, VBase<T, Object>::desc());
+      return RegionClass::template create<vsizeof<T>>(
+        alloc, VBase<T, Object>::desc());
     }
 
     void* operator new(size_t, Object* region)
@@ -163,11 +160,12 @@ namespace verona::rt
 
     void* operator new(size_t, Alloc* alloc, Object* region)
     {
-      return RegionClass::template alloc<vsizeof<T>>(alloc, region, VBase<T, Object>::desc());
+      return RegionClass::template alloc<vsizeof<T>>(
+        alloc, region, VBase<T, Object>::desc());
     }
   };
 
-  /** 
+  /**
    * Converts a C++ class into a Verona Cown
    *
    * Will fill the Verona descriptor with relevant fields.
@@ -186,7 +184,8 @@ namespace verona::rt
 
     void* operator new(size_t, Alloc* alloc)
     {
-      return Object::register_object(alloc->alloc<vsizeof<T>>(), VBase<T, Cown>::desc());
+      return Object::register_object(
+        alloc->alloc<vsizeof<T>>(), VBase<T, Cown>::desc());
     }
   };
 } // namespace verona::rt

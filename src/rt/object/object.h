@@ -260,8 +260,8 @@ namespace verona::rt
         {
           puts(
             "Internal error! Runtime allocation in progress on this thread.");
-          // This error can occur because a type was allocated by the runtime that 
-          // does not inherit from Object.
+          // This error can occur because a type was allocated by the runtime
+          // that does not inherit from Object.
           abort();
         }
         else
