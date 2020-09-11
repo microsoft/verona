@@ -260,10 +260,8 @@ namespace verona::rt
         {
           puts(
             "Internal error! Runtime allocation in progress on this thread.");
-          // This error can occur because
-          //  * a type was allocated by the runtime that does not inherit from
-          //  Object.
-          //  * ...
+          // This error can occur because a type was allocated by the runtime that 
+          // does not inherit from Object.
           abort();
         }
         else
@@ -312,7 +310,7 @@ namespace verona::rt
     inline const Descriptor* get_descriptor() const
     {
       return (
-        const Descriptor*)((uintptr_t)get_header().descriptor.load() & ~MARK_MASK);
+        const Descriptor*)((uintptr_t)get_header().descriptor.load(std::memory_order_relaxed) & ~MARK_MASK);
     }
 
 #ifdef USE_SYSTEMATIC_TESTING
