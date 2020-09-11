@@ -22,18 +22,18 @@ jobs:
   timeoutInMinutes: 120
   strategy:
     matrix:
-      # GCC Debug:
-      #   CC: gcc
-      #   CXX: g++
-      #   CXXFLAGS:
-      #   BuildType: Debug
-      #   Asan: Off
-      # GCC Release:
-      #   CC: gcc
-      #   CXX: g++
-      #   CXXFLAGS:
-      #   Asan: Off
-      #   BuildType: Release
+      GCC Debug:
+        CC: gcc
+        CXX: g++
+        CXXFLAGS:
+        BuildType: Debug
+        Asan: Off
+      GCC Release:
+        CC: gcc
+        CXX: g++
+        CXXFLAGS:
+        Asan: Off
+        BuildType: Release
       Clang Debug:
         CC: clang
         CXX: clang++
