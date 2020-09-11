@@ -60,11 +60,15 @@ namespace verona::rt
      * Trivial objects (ie. those with no destructor, no finaliser and no iso
      * fields) are allocated from the beginning of the arena, starting at
      * `objects_begin`. `objects_end` points to the first byte after the last
-     * object, i.e. the place where the next object will be allocated.
+     * object, i.e. the place where the next object will be allocated. `objects`
+     * begin points to the start of the allocation, rather then the Object*
+     * that stores the header before it.
      *
      * Non-trivial objects are allocated from the end of the arena.
      * `non_trivial_end` points past the end of the arena and
      * `non_trivial_begin` points to the first non-trivial object.
+     * `non_trivial_begin` points to the start of the header of the first
+     *object.
      *
      * Note that certain operations require the bottom `MIN_ALLOC_BITS` to be
      * free, so we need to ensure all objects allocated within an arena are
@@ -176,20 +180,20 @@ namespace verona::rt
         assert(debug_invariant());
         assert(free_space() >= sz);
 
-        Object* o = nullptr;
+        void* p = nullptr;
 
         if (Object::is_trivial(desc))
         {
-          o = (Object*)objects_end;
+          p = objects_end;
           objects_end += sz;
         }
         else
         {
           non_trivial_begin -= sz;
-          o = (Object*)non_trivial_begin;
+          p = non_trivial_begin;
         }
 
-        o->set_descriptor(desc);
+        auto o = Object::register_object(p, desc);
         o->init_next(nullptr);
 
         assert(debug_invariant());
@@ -233,19 +237,18 @@ namespace verona::rt
     Object* last_large;
 
     RegionArena()
-    : RegionBase(desc()),
+    : RegionBase(),
       first_arena(nullptr),
       last_arena(nullptr),
       last_large(nullptr)
     {
-      set_descriptor(desc());
       init_next(this);
     }
 
     static const Descriptor* desc()
     {
       static constexpr Descriptor desc = {
-        sizeof(RegionArena), nullptr, nullptr, nullptr};
+        vsizeof<RegionArena>, nullptr, nullptr, nullptr};
 
       return &desc;
     }
@@ -275,14 +278,14 @@ namespace verona::rt
     template<size_t size = 0>
     static Object* create(Alloc* alloc, const Descriptor* desc)
     {
-      void* p = alloc->alloc<sizeof(RegionArena)>();
+      void* p = Object::register_object(
+        alloc->alloc<vsizeof<RegionArena>>(), RegionArena::desc());
       RegionArena* reg = new (p) RegionArena();
 
       // o might be allocated in the arena or the large object ring.
       Object* o = reg->alloc_internal<size>(alloc, desc);
       assert(Object::debug_is_aligned(o));
 
-      o->set_descriptor(desc);
       o->init_iso();
       o->set_region(reg);
       assert(
@@ -417,16 +420,19 @@ namespace verona::rt
     template<size_t size = 0>
     Object* alloc_internal(Alloc* alloc, const Descriptor* desc)
     {
-      size_t sz = snmalloc::bits::align_up(desc->size, Object::ALIGNMENT);
+      assert((size == 0) || (desc->size == size));
+
+      auto sz = size == 0 ? desc->size : size;
       if (sz > Arena::SIZE)
       {
         // Allocate object.
-        Object* o = nullptr;
+        void* p = nullptr;
         if constexpr (size == 0)
-          o = (Object*)alloc->alloc(desc->size);
+          p = alloc->alloc(desc->size);
         else
-          o = (Object*)alloc->alloc<size>();
-        o->set_descriptor(desc);
+          p = alloc->alloc<size>();
+
+        auto o = Object::register_object(p, desc);
 
         // Add to large object ring
         append(o);
@@ -643,6 +649,8 @@ namespace verona::rt
     private:
       RegionArena* reg;
       Arena* arena;
+      /// ptr points to the object after the header, as this is the pointer
+      /// used most commonly in the runtime.
       Object* ptr;
 
       /**
@@ -653,14 +661,16 @@ namespace verona::rt
       {
         assert(arena->debug_invariant());
         size_t sz = snmalloc::bits::align_up(ptr->size(), Object::ALIGNMENT);
-        std::byte* q = (std::byte*)ptr + sz;
+        // Get actual end of the object, that is,
+        // q points to the start of the header of the next object.
+        std::byte* q = ptr->real_start() + sz;
         if constexpr (type == Trivial)
         {
           assert(q > arena->objects_begin && q <= arena->objects_end);
 
           // We have not yet reached the end, so q is valid.
           if (q != arena->objects_end)
-            return (Object*)q;
+            return Object::object_start(q);
         }
         else if constexpr (type == NonTrivial)
         {
@@ -668,7 +678,7 @@ namespace verona::rt
 
           // We have not yet reached the end, so q is valid.
           if (q != arena->non_trivial_end)
-            return (Object*)q;
+            return Object::object_start(q);
         }
         else if constexpr (type == AllObjects)
         {
@@ -678,14 +688,14 @@ namespace verona::rt
 
           // We have not yet reached either end, so q is valid.
           if (q != arena->objects_end && q != arena->non_trivial_end)
-            return (Object*)q;
+            return Object::object_start(q);
 
           // We reached the end of trivial objects and there are non-trivial
           // objects to iterate over.
           if (
             q == arena->objects_end &&
             arena->non_trivial_begin != arena->non_trivial_end)
-            return (Object*)arena->non_trivial_begin;
+            return Object::object_start(arena->non_trivial_begin);
         }
         return nullptr;
       }
@@ -730,12 +740,14 @@ namespace verona::rt
           if constexpr (type == Trivial || type == AllObjects)
           {
             if (arena->objects_begin != arena->objects_end)
-              return (Object*)arena->objects_begin;
+              // objects_begin points to header of first object.
+              // we return the actually Object*.
+              return Object::object_start(arena->objects_begin);
           }
           if constexpr (type == NonTrivial || type == AllObjects)
           {
             if (arena->non_trivial_begin != arena->non_trivial_end)
-              return (Object*)arena->non_trivial_begin;
+              return Object::object_start(arena->non_trivial_begin);
           }
           // Every arena contains at least one object.
           if constexpr (type == AllObjects)

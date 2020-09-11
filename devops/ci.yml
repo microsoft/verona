@@ -14,11 +14,11 @@ jobs:
   steps:
   - script: |
       echo " - PR Build"
-      if  git diff origin/master --name-only | grep -v "^doc" | grep -v "^experiments" | grep -v "\.md$"; then
+      if  git diff --ignore-submodules=dirty origin/master --name-only | grep -v "^doc" | grep -v "^experiments" | grep -v "\.md$"; then
         echo Src changes;
         echo "##vso[task.setvariable variable=docOnly;isOutput=true]false" #set variable to testRuntime to On
         echo "Determine if runtime changed."
-        if git diff --quiet origin/master -- src/rt; then
+        if git diff --ignore-submodules=dirty --quiet origin/master -- src/rt; then
           echo " - Runtime unchanged!"
           echo "##vso[task.setvariable variable=testRuntime;isOutput=true]Off" #set variable to testRuntime to Off
         else
@@ -44,12 +44,12 @@ jobs:
   timeoutInMinutes: 120
   strategy:
     matrix:
-      # GCC Release:
-      #   CC: gcc
-      #   CXX: g++
-      #   CXXFLAGS:
-      #   BuildType: Release
-      #   Asan: Off
+      GCC Release:
+        CC: gcc
+        CXX: g++
+        CXXFLAGS:
+        BuildType: Release
+        Asan: Off
       Clang RelDbg+ASAN:
         CC: clang
         CXX: clang++
@@ -219,7 +219,7 @@ jobs:
   - script: |
       set -eo pipefail
       make clangformat
-      git diff --exit-code $(Build.SourceVersion)
+      git diff --ignore-submodules=dirty --exit-code $(Build.SourceVersion)
     workingDirectory: build
     displayName: 'Clang-Format'
 

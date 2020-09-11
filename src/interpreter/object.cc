@@ -20,7 +20,7 @@ namespace verona::interpreter
     field_count(field_count),
     finaliser_ip(finaliser_ip)
   {
-    rt::Descriptor::size = sizeof(VMObject);
+    rt::Descriptor::size = rt::vsizeof<VMObject>;
     rt::Descriptor::trace = VMObject::trace_fn;
 
     // Try to be on the trivial ring as much as possible. This requires the
@@ -39,7 +39,7 @@ namespace verona::interpreter
   }
 
   VMObject::VMObject(VMObject* region, const VMDescriptor* desc)
-  : Object(desc), parent_(region)
+  : Object(), parent_(region)
   {
     if (descriptor()->field_count > 0)
       fields = std::make_unique<FieldValue[]>(descriptor()->field_count);

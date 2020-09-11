@@ -38,7 +38,7 @@ namespace verona::rt
       static const Descriptor* desc()
       {
         static constexpr Descriptor desc = {
-          sizeof(ExternalRef), gc_trace, nullptr, nullptr};
+          vsizeof<ExternalRef>, gc_trace, nullptr, nullptr};
 
         return &desc;
       }
@@ -54,9 +54,8 @@ namespace verona::rt
       }
 
       ExternalRef(ExternalReferenceTable* ert_, Object* o_)
-      : Object(desc()), ert{ert_}, o{o_}
+      : Object(), ert{ert_}, o{o_}
       {
-        set_descriptor(desc());
         make_scc();
 
         incref();
@@ -64,11 +63,6 @@ namespace verona::rt
           ->insert(ThreadAlloc::get(), o, this);
 
         o->set_has_ext_ref();
-      }
-
-      void* operator new(size_t size)
-      {
-        return ThreadAlloc::get_noncachable()->alloc(size);
       }
 
     public:
@@ -85,8 +79,12 @@ namespace verona::rt
           return ext_ref;
         }
 
-        auto ext_ref = new ExternalRef(ert, o);
-        return ext_ref;
+        // External references are not allocated in any regions, but have
+        // independent lifetime protected by reference counting.
+        void* header_obj = ThreadAlloc::get_noncachable()
+                             ->template alloc<vsizeof<ExternalRef>>();
+        Object* obj = Object::register_object(header_obj, desc());
+        return new (obj) ExternalRef(ert, o);
       }
 
       /**

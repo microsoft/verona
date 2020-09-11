@@ -21,8 +21,6 @@ namespace verona::rt
 
   enum class RegionType
   {
-    Cown = 0, // only used by vobject for cowns
-
     Trace,
     Arena,
   };
@@ -43,7 +41,7 @@ namespace verona::rt
       AllObjects,
     };
 
-    RegionBase(const Descriptor* desc) : Object(desc) {}
+    RegionBase() : Object() {}
 
   private:
     inline void dealloc(Alloc* alloc)

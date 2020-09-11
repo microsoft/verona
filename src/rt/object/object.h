@@ -150,6 +150,10 @@ namespace verona::rt
     YesTransfer
   };
 
+  /// The C++ representation of objects has no fields. All meta-data for the
+  /// object is in the `Header` struct. Object should not be allocated directly,
+  /// but instead should be allocated as part of the runtime.
+  /// Contains a unique ID in systematic testing.
   class Object
   {
   public:
@@ -201,19 +205,24 @@ namespace verona::rt
     // ensure that pointers to objects are aligned.
     static constexpr size_t ALIGNMENT = (1 << MIN_ALLOC_BITS);
 
+    /// This class represents the Verona object header.
+    /// It is stored directly before a Verona object.
+    struct Header
+    {
+      union
+      {
+        Object* next;
+        std::atomic<size_t> rc;
+        size_t bits;
+      };
+
+      std::atomic<const Descriptor*> descriptor;
+    };
+
   private:
     static constexpr uintptr_t MASK = ALIGNMENT - 1;
     static constexpr uint8_t SHIFT = (uint8_t)bits::next_pow2_bits_const(MASK);
     static constexpr size_t ONE_RC = 1 << SHIFT;
-
-    union
-    {
-      Object* next;
-      std::atomic<size_t> rc;
-      size_t bits;
-    };
-
-    std::atomic<const Descriptor*> descriptor;
 
 #ifdef USE_SYSTEMATIC_TESTING
     // Used to give objects unique identifiers for systematic testing.
@@ -221,15 +230,89 @@ namespace verona::rt
     uintptr_t sys_id;
 #endif
 
+    Header& get_header() const
+    {
+      return *((Header*)real_start());
+    }
+
   public:
+    /// Returns the start of the allocation containing this object
+    /// I.e. the start of the objects verona header.
+    byte* real_start() const
+    {
+      return ((byte*)this) - sizeof(Header);
+    }
+
     Object(const Object&) = delete;
     Object& operator=(const Object&) = delete;
 
-    Object(const Descriptor* desc) : descriptor(desc) {}
+    /// Used to check type has been allocated by the runtime.
+    /// Any runtime allocation function sets this, before calling
+    /// the constructor of a class.
+    static void runtime_alloc(bool value)
+    {
+#ifndef NDEBUG
+      thread_local bool previous = false;
+
+      if (previous == value)
+      {
+        if (value)
+        {
+          puts(
+            "Internal error! Runtime allocation in progress on this thread.");
+          // This error can occur because a type was allocated by the runtime
+          // that does not inherit from Object.
+          abort();
+        }
+        else
+        {
+          puts("Internal error! Not part of Verona allocation.");
+          // This error is because produce_alloc was not called prior to
+          // initialising this object.  This is probably due to not being
+          // allocated with the Verona region allocator
+          abort();
+        }
+      }
+
+      previous = value;
+#endif
+    }
+
+    /// Should be called by the region allocator prior to initialising an
+    /// object as part of the runtime.  This is used to ensure that all
+    /// subclasses of rt::Object are actually part of the runtime.
+    static Object* register_object(void* base, const Descriptor* desc)
+    {
+      Object* obj = object_start(base);
+      obj->get_header().descriptor = desc;
+      runtime_alloc(true);
+      return obj;
+    }
+
+    /// Given a pointer to the start of the header, return a pointer to the
+    /// start of the object.
+    static Object* object_start(void* p)
+    {
+      return (Object*)((char*)p + sizeof(Object::Header));
+    }
+
+    Object()
+    {
+      // Confirm this is  runtime alloc, and unset flag
+      runtime_alloc(false);
+
+#ifdef USE_SYSTEMATIC_TESTING
+      sys_id = ++id_source;
+#endif
+
+      // This should have already been set up.
+      assert(get_descriptor() != nullptr);
+    }
 
     inline const Descriptor* get_descriptor() const
     {
-      return (const Descriptor*)((uintptr_t)descriptor.load() & ~MARK_MASK);
+      return (
+        const Descriptor*)((uintptr_t)get_header().descriptor.load(std::memory_order_relaxed) & ~MARK_MASK);
     }
 
 #ifdef USE_SYSTEMATIC_TESTING
@@ -286,12 +369,13 @@ namespace verona::rt
     {
       assert(debug_is_immutable());
       Object* o = immutable();
-      return o->bits == ((test_rc << SHIFT) | (uint8_t)RegionMD::RC);
+      return o->get_header().bits ==
+        ((test_rc << SHIFT) | (uint8_t)RegionMD::RC);
     }
 
     intptr_t debug_rc()
     {
-      return (intptr_t)bits >> SHIFT;
+      return (intptr_t)get_header().bits >> SHIFT;
     }
 
     Object* debug_immutable_root()
@@ -302,7 +386,7 @@ namespace verona::rt
     Object* debug_next()
     {
       assert(debug_is_iso() || debug_is_mutable());
-      return (Object*)(bits & ~MASK);
+      return (Object*)(get_header().bits & ~MASK);
     }
 
     static bool debug_is_aligned(const void* o)
@@ -330,17 +414,10 @@ namespace verona::rt
     template<typename T>
     friend class Noticeboard;
 
-    inline void set_descriptor(const Descriptor* desc)
-    {
-      descriptor = desc;
-#ifdef USE_SYSTEMATIC_TESTING
-      sys_id = ++id_source;
-#endif
-    }
-
+  private:
     inline RegionMD get_class()
     {
-      return (RegionMD)(bits & MASK);
+      return (RegionMD)(get_header().bits & MASK);
     }
 
     inline size_t size()
@@ -355,18 +432,18 @@ namespace verona::rt
 
     inline void init_iso()
     {
-      bits = (size_t)this | (uint8_t)RegionMD::ISO;
+      get_header().bits = (size_t)this | (uint8_t)RegionMD::ISO;
     }
 
     inline void init_next(Object* o)
     {
-      next = o;
+      get_header().next = o;
     }
 
     inline Object* get_next()
     {
       assert(get_class() == RegionMD::UNMARKED);
-      return next;
+      return get_header().next;
     }
 
     inline Object* get_next_any_mark()
@@ -376,57 +453,57 @@ namespace verona::rt
         (get_class() == RegionMD::UNMARKED) ||
         (get_class() == RegionMD::PENDING) || (get_class() == RegionMD::ISO));
 
-      return (Object*)(bits & ~MASK);
+      return (Object*)(get_header().bits & ~MASK);
     }
 
     inline void set_next(Object* o)
     {
       assert(get_class() == RegionMD::UNMARKED);
-      next = o;
+      get_header().next = o;
     }
 
     inline RegionBase* get_region()
     {
       assert(get_class() == RegionMD::ISO);
-      return (RegionBase*)(bits & ~MASK);
+      return (RegionBase*)(get_header().bits & ~MASK);
     }
 
     inline void set_region(RegionBase* region)
     {
       assert(get_class() == RegionMD::ISO);
-      bits = (size_t)region | (uint8_t)RegionMD::ISO;
+      get_header().bits = (size_t)region | (uint8_t)RegionMD::ISO;
     }
 
     inline Object* get_scc()
     {
       assert(get_class() == RegionMD::SCC_PTR);
-      return (Object*)(bits & ~MASK);
+      return (Object*)(get_header().bits & ~MASK);
     }
 
     inline void set_scc(Object* o)
     {
-      bits = (size_t)o | (uint8_t)RegionMD::SCC_PTR;
+      get_header().bits = (size_t)o | (uint8_t)RegionMD::SCC_PTR;
     }
 
     inline void make_scc()
     {
-      bits = (size_t)RegionMD::RC + ONE_RC;
+      get_header().bits = (size_t)RegionMD::RC + ONE_RC;
     }
 
     inline void make_nonatomic_scc()
     {
-      bits = (size_t)RegionMD::NONATOMIC_RC + ONE_RC;
+      get_header().bits = (size_t)RegionMD::NONATOMIC_RC + ONE_RC;
     }
 
     inline void make_atomic()
     {
       assert(get_class() == RegionMD::NONATOMIC_RC);
-      bits = (bits & ~MASK) | (uint8_t)RegionMD::RC;
+      get_header().bits = (get_header().bits & ~MASK) | (uint8_t)RegionMD::RC;
     }
 
     inline void make_cown()
     {
-      bits = (size_t)RegionMD::COWN + ONE_RC;
+      get_header().bits = (size_t)RegionMD::COWN + ONE_RC;
     }
 
     inline bool is_pending()
@@ -438,7 +515,7 @@ namespace verona::rt
     {
       // If this is balanced it should never get above 64.
       assert(rank < 128);
-      bits = (rank << SHIFT) | (size_t)RegionMD::PENDING;
+      get_header().bits = (rank << SHIFT) | (size_t)RegionMD::PENDING;
     }
 
     inline void set_pending()
@@ -449,7 +526,7 @@ namespace verona::rt
     inline size_t pending_rank()
     {
       assert(is_pending());
-      return bits >> SHIFT;
+      return get_header().bits >> SHIFT;
     }
 
     inline Object* root_and_class(RegionMD& c)
@@ -498,31 +575,31 @@ namespace verona::rt
     inline void mark()
     {
       assert(get_class() == RegionMD::UNMARKED);
-      bits |= (uint8_t)RegionMD::MARKED;
+      get_header().bits |= (uint8_t)RegionMD::MARKED;
     }
 
     inline void unmark()
     {
       assert(get_class() == RegionMD::MARKED);
-      bits &= ~(size_t)RegionMD::MARKED;
+      get_header().bits &= ~(size_t)RegionMD::MARKED;
     }
 
     inline void mark_pending()
     {
       assert(get_class() == RegionMD::UNMARKED);
-      bits |= (uint8_t)RegionMD::PENDING;
+      get_header().bits |= (uint8_t)RegionMD::PENDING;
     }
 
     inline void unmark_pending()
     {
       assert(get_class() == RegionMD::PENDING);
-      bits &= ~(size_t)RegionMD::PENDING;
+      get_header().bits &= ~(size_t)RegionMD::PENDING;
     }
 
   public:
     inline EpochMark get_epoch_mark()
     {
-      return (EpochMark)((uintptr_t)descriptor.load() & MARK_MASK);
+      return (EpochMark)((uintptr_t)get_header().descriptor.load() & MARK_MASK);
     }
 
   private:
@@ -544,7 +621,7 @@ namespace verona::rt
       // We only require relaxed consistency here as we can perfectly see old
       // values as we know that we will only need up-to-date values once we have
       // completed the consensus protocol to enter the sweep phase of the LD.
-      descriptor.store(
+      get_header().descriptor.store(
         (const Descriptor*)((uintptr_t)get_descriptor() | (size_t)e),
         std::memory_order_relaxed);
     }
@@ -566,24 +643,25 @@ namespace verona::rt
     {
       assert(!debug_is_immutable());
 
-      return ((uintptr_t)descriptor.load() & (uintptr_t)1) == (uintptr_t)1;
+      return ((uintptr_t)get_header().descriptor.load() & (uintptr_t)1) ==
+        (uintptr_t)1;
     }
 
     inline void set_has_ext_ref()
     {
       assert(!debug_is_immutable());
-      assert(((uintptr_t)descriptor.load() & MARK_MASK) == 0);
+      assert(((uintptr_t)get_header().descriptor.load() & MARK_MASK) == 0);
 
-      descriptor.store(
-        (const Descriptor*)((uintptr_t)descriptor.load() | (uintptr_t)1),
+      get_header().descriptor.store(
+        (const Descriptor*)((uintptr_t)get_header().descriptor.load() | (uintptr_t)1),
         std::memory_order_relaxed);
     }
 
     inline void clear_has_ext_ref()
     {
       assert(!debug_is_immutable());
-      descriptor.store(
-        (const Descriptor*)((uintptr_t)descriptor.load() & ~(uintptr_t)1),
+      get_header().descriptor.store(
+        (const Descriptor*)((uintptr_t)get_header().descriptor.load() & ~(uintptr_t)1),
         std::memory_order_relaxed);
     }
 
@@ -616,7 +694,7 @@ namespace verona::rt
     inline void incref_nonatomic()
     {
       assert(get_class() == RegionMD::NONATOMIC_RC);
-      bits += ONE_RC;
+      get_header().bits += ONE_RC;
     }
 
     // Returns true if you are incrementing from zero.
@@ -624,7 +702,7 @@ namespace verona::rt
     {
       assert((get_class() == RegionMD::RC) || (get_class() == RegionMD::COWN));
 
-      return rc.fetch_add(ONE_RC) == get_class();
+      return get_header().rc.fetch_add(ONE_RC) == get_class();
     }
 
     inline bool decref()
@@ -636,12 +714,12 @@ namespace verona::rt
 
       size_t done_rc = (size_t)get_class() + ONE_RC;
 
-      size_t approx_rc = bits;
+      size_t approx_rc = get_header().bits;
       assert(approx_rc >= ONE_RC);
 
       if (approx_rc != done_rc)
       {
-        approx_rc = rc.fetch_sub(ONE_RC);
+        approx_rc = get_header().rc.fetch_sub(ONE_RC);
 
         if (approx_rc != done_rc)
           return false;
@@ -672,11 +750,11 @@ namespace verona::rt
       // The top bit of the strong count is set to indicate that the strong
       // count has reached zero, and future weak count increase should fail.
       assert(debug_rc() != 0);
-      assert(rc < FINISHED_RC);
+      assert(get_header().rc < FINISHED_RC);
       assert(get_class() == RegionMD::COWN);
       static constexpr size_t DONE_RC = (size_t)RegionMD::COWN + ONE_RC;
 
-      size_t prev_rc = rc.fetch_sub(ONE_RC);
+      size_t prev_rc = get_header().rc.fetch_sub(ONE_RC);
 
       if (prev_rc != DONE_RC)
         return false;
@@ -684,7 +762,7 @@ namespace verona::rt
       yield();
 
       size_t zero_rc = (size_t)RegionMD::COWN;
-      return rc.compare_exchange_strong(zero_rc, FINISHED_RC);
+      return get_header().rc.compare_exchange_strong(zero_rc, FINISHED_RC);
     }
 
     /**
@@ -694,7 +772,7 @@ namespace verona::rt
     {
       // Check if top bit is set, if not then we have validily created a new
       // strong reference
-      if (rc.fetch_add(ONE_RC) < FINISHED_RC)
+      if (get_header().rc.fetch_add(ONE_RC) < FINISHED_RC)
         return true;
 
       yield();
@@ -702,7 +780,7 @@ namespace verona::rt
       // We failed to create a strong reference reset rc.
       // Note store is fine, as only other operations on this will
       // be failed weak reference promotions.
-      rc.store(FINISHED_RC, std::memory_order_relaxed);
+      get_header().rc.store(FINISHED_RC, std::memory_order_relaxed);
       return false;
     }
 
@@ -736,7 +814,7 @@ namespace verona::rt
     {
       assert(get_class() == RegionMD::COWN);
 
-      return rc.load(std::memory_order_relaxed) == FINISHED_RC;
+      return get_header().rc.load(std::memory_order_relaxed) == FINISHED_RC;
     }
 
   private:
@@ -765,7 +843,7 @@ namespace verona::rt
 
     inline void dealloc(Alloc* alloc)
     {
-      alloc->dealloc(this, size());
+      alloc->dealloc(&this->get_header(), size());
     }
 
   protected:
@@ -788,4 +866,11 @@ namespace verona::rt
       }
     }
   };
+
+  /// Returns the size required for a Verona object to embed the
+  /// C++ object T.
+  template<class T>
+  static constexpr size_t vsizeof = snmalloc::bits::align_up(
+    sizeof(T) + sizeof(Object::Header), Object::ALIGNMENT);
+
 } // namespace verona::rt

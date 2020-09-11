@@ -68,17 +68,14 @@ namespace verona::rt
     // Compact representation of previous memory used as a sizeclass.
     snmalloc::sizeclass_t previous_memory_used = 0;
 
-    explicit RegionTrace(Object* o)
-    : RegionBase(desc()), next_not_root(this), last_not_root(this)
-    {
-      set_descriptor(desc());
-      init_next(o);
-    }
+    explicit RegionTrace()
+    : RegionBase(), next_not_root(this), last_not_root(this)
+    {}
 
     static const Descriptor* desc()
     {
       static constexpr Descriptor desc = {
-        sizeof(RegionTrace), nullptr, nullptr, nullptr};
+        vsizeof<RegionTrace>, nullptr, nullptr, nullptr};
 
       return &desc;
     }
@@ -108,21 +105,22 @@ namespace verona::rt
     template<size_t size = 0>
     static Object* create(Alloc* alloc, const Descriptor* desc)
     {
-      Object* o = nullptr;
-      if constexpr (size == 0)
-        o = (Object*)alloc->alloc(desc->size);
-      else
-        o = (Object*)alloc->alloc<size>();
-      assert(Object::debug_is_aligned(o));
-
-      void* p = alloc->alloc<sizeof(RegionTrace)>();
-      RegionTrace* reg = new (p) RegionTrace(o);
+      void* p = alloc->alloc<vsizeof<RegionTrace>>();
+      Object* o = Object::register_object(p, RegionTrace::desc());
+      auto reg = new (o) RegionTrace();
       reg->use_memory(desc->size);
 
-      o->set_descriptor(desc);
+      if constexpr (size == 0)
+        p = alloc->alloc(desc->size);
+      else
+        p = alloc->alloc<size>();
+      o = Object::register_object(p, desc);
+
+      reg->init_next(o);
       o->init_iso();
       o->set_region(reg);
 
+      assert(Object::debug_is_aligned(o));
       return o;
     }
 
@@ -138,22 +136,25 @@ namespace verona::rt
     template<size_t size = 0>
     static Object* alloc(Alloc* alloc, Object* in, const Descriptor* desc)
     {
+      assert((size == 0) || (size == desc->size));
       RegionTrace* reg = get(in);
 
-      Object* o = nullptr;
+      assert(reg != nullptr);
+
+      void* p = nullptr;
       if constexpr (size == 0)
-        o = (Object*)alloc->alloc(desc->size);
+        p = alloc->alloc(desc->size);
       else
-        o = (Object*)alloc->alloc<size>();
+        p = alloc->alloc<size>();
+
+      auto o = (Object*)Object::register_object(p, desc);
       assert(Object::debug_is_aligned(o));
-      o->set_descriptor(desc);
 
       // Add to the ring.
       reg->append(o);
 
       // GC heuristics.
       reg->use_memory(desc->size);
-
       return o;
     }
 
