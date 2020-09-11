@@ -21,8 +21,6 @@ namespace verona::rt
 
   enum class RegionType
   {
-    Cown = 0, // only used by vobject for cowns
-
     Trace,
     Arena,
   };

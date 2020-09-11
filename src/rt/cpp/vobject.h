@@ -40,23 +40,16 @@ namespace verona::rt
     constexpr static bool value = !std::is_trivially_destructible_v<T>;
   };
 
+  /**
+   * Common base class for V and VCown to build descriptors
+   * from C++ objects using compile time reflection.
+   */
   template<
     class T,
-    RegionType region_type = RegionType::Trace,
     class Base = Object>
-  class V : public Base
+  class VBase : public Base
   {
   private:
-    static_assert(
-      std::is_same_v<Base, Object> ?
-        region_type == RegionType::Trace || region_type == RegionType::Arena :
-        region_type == RegionType::Cown);
-    static_assert(
-      std::is_same_v<Base, Object> || std::is_same_v<Base, Cown>,
-      "V base must be Object or Cown");
-
-    using RegionClass = typename RegionType_to_class<region_type>::T;
-
     static void gc_trace(const Object* o, ObjectStack& st)
     {
       ((T*)o)->trace(st);
@@ -79,6 +72,11 @@ namespace verona::rt
       ((T*)o)->~T();
     }
 
+    void trace(ObjectStack&) {}
+
+  public:
+    VBase() : Base() {}
+
     static Descriptor* desc()
     {
       static Descriptor desc = {
@@ -90,49 +88,7 @@ namespace verona::rt
 
       return &desc;
     }
-
-    void trace(ObjectStack&) {}
-
-    static EpochMark get_alloc_epoch()
-    {
-      return Scheduler::alloc_epoch();
-    }
-
-  public:
-    V() : Base() {}
-
-    void* operator new(size_t)
-    {
-      if constexpr (std::is_same_v<Base, Object>)
-        return RegionClass::template create<vsizeof<T>>(
-          ThreadAlloc::get(), desc());
-      else
-        return Object::register_object(
-          ThreadAlloc::get()->alloc<vsizeof<T>>(), desc());
-    }
-
-    void* operator new(size_t, Alloc* alloc)
-    {
-      if constexpr (std::is_same_v<Base, Object>)
-        return RegionClass::template create<vsizeof<T>>(alloc, desc());
-      else
-        return Object::register_object(alloc->alloc<vsizeof<T>>(), desc());
-    }
-
-    void* operator new(size_t, Object* region)
-    {
-      static_assert(std::is_same_v<Base, Object>, "Don't call on cowns.");
-      return RegionClass::template alloc<vsizeof<T>>(
-        ThreadAlloc::get(), region, desc());
-    }
-
-    void* operator new(size_t, Alloc* alloc, Object* region)
-    {
-      static_assert(std::is_same_v<Base, Object>, "Don't call on cowns.");
-      if constexpr (std::is_same_v<Base, Object>)
-        return RegionClass::template alloc<vsizeof<T>>(alloc, region, desc());
-    }
-
+    
     void operator delete(void*)
     {
       // Should not be called directly, present to allow calling if the
@@ -173,7 +129,64 @@ namespace verona::rt
     void operator delete[](void* p, size_t sz) = delete;
   };
 
-  // Cowns are not allocated inside regions, but we still need a RegionType.
+  /** 
+   * Converts a C++ class into a Verona Object
+   *
+   * Will fill the Verona descriptor with relevant fields.
+   */
+  template<
+    class T,
+    RegionType region_type = RegionType::Trace>
+  class V : public VBase<T, Object>
+  {
+    using RegionClass = typename RegionType_to_class<region_type>::T;
+
+  public:
+    V() : VBase<T, Object>() {}
+
+    void* operator new(size_t)
+    {
+      return RegionClass::template create<vsizeof<T>>(
+        ThreadAlloc::get(), VBase<T, Object>::desc());
+    }
+
+    void* operator new(size_t, Alloc* alloc)
+    {
+      return RegionClass::template create<vsizeof<T>>(alloc, VBase<T, Object>::desc());
+    }
+
+    void* operator new(size_t, Object* region)
+    {
+      return RegionClass::template alloc<vsizeof<T>>(
+        ThreadAlloc::get(), region, VBase<T, Object>::desc());
+    }
+
+    void* operator new(size_t, Alloc* alloc, Object* region)
+    {
+      return RegionClass::template alloc<vsizeof<T>>(alloc, region, VBase<T, Object>::desc());
+    }
+  };
+
+  /** 
+   * Converts a C++ class into a Verona Cown
+   *
+   * Will fill the Verona descriptor with relevant fields.
+   */
   template<class T>
-  using VCown = V<T, RegionType::Cown, Cown>;
+  class VCown : public VBase<T, Cown>
+  {
+  public:
+    VCown() : VBase<T, Cown>() {}
+
+    void* operator new(size_t)
+    {
+      return Object::register_object(
+        ThreadAlloc::get()->alloc<vsizeof<T>>(), VBase<T, Cown>::desc());
+    }
+
+    void* operator new(size_t, Alloc* alloc)
+    {
+      return Object::register_object(alloc->alloc<vsizeof<T>>(), VBase<T, Cown>::desc());
+    }
+  };
 } // namespace verona::rt
