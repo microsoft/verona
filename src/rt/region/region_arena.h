@@ -67,7 +67,7 @@ namespace verona::rt
      * Non-trivial objects are allocated from the end of the arena.
      * `non_trivial_end` points past the end of the arena and
      * `non_trivial_begin` points to the first non-trivial object.
-     *`non_trivial_begin` points to the start of the header of the first object.
+     * `non_trivial_begin` points to the start of the header of the first object.
      *
      * Note that certain operations require the bottom `MIN_ALLOC_BITS` to be
      * free, so we need to ensure all objects allocated within an arena are

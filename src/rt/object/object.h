@@ -150,10 +150,10 @@ namespace verona::rt
     YesTransfer
   };
 
-  /// No fields as part of the C++ representation all meta-data stored before
-  /// object in Verona runtime header. Object should not be allocated directly,
+  /// The C++ representation of objects has no fields. All meta-data for the
+  /// object is in the `Header` struct. Object should not be allocated directly,
   /// but instead should be allocated as part of the runtime.
-  /// In systematic testings contains an ID.
+  /// Contains a unique ID in systematic testing.
   class Object
   {
   public:
@@ -246,7 +246,7 @@ namespace verona::rt
     Object(const Object&) = delete;
     Object& operator=(const Object&) = delete;
 
-    /// Used to check type has been allocated by the runtime
+    /// Used to check type has been allocated by the runtime.
     /// Any runtime allocation function sets this, before calling
     /// the constructor of a class.
     static void runtime_alloc(bool value)
@@ -280,9 +280,9 @@ namespace verona::rt
 #endif
     }
 
-    // Should be called by the region allocator prior to initialising an
-    // object as part of the runtime.  This is used to ensure that all
-    // subclasses of rt::Object are actually part of the runtime.
+    /// Should be called by the region allocator prior to initialising an
+    /// object as part of the runtime.  This is used to ensure that all
+    /// subclasses of rt::Object are actually part of the runtime.
     static Object* register_object(void* base, const Descriptor* desc)
     {
       Object* obj = object_start(base);
@@ -294,8 +294,8 @@ namespace verona::rt
       return obj;
     }
 
-    // Given a pointer to the start of the header return pointer to the
-    // start of the object.
+    /// Given a pointer to the start of the header, return a pointer to the
+    /// start of the object.
     static Object* object_start(void* p)
     {
       return (Object*)((char*)p + sizeof(Object::Header));
