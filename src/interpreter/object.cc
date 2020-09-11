@@ -20,7 +20,7 @@ namespace verona::interpreter
     field_count(field_count),
     finaliser_ip(finaliser_ip)
   {
-    rt::Descriptor::size = sizeof(VMObject);
+    rt::Descriptor::size = rt::vsizeof<VMObject>;
     rt::Descriptor::trace = VMObject::trace_fn;
 
     // Try to be on the trivial ring as much as possible. This requires the

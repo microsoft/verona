@@ -206,7 +206,7 @@ namespace verona::rt
     static constexpr size_t ALIGNMENT = (1 << MIN_ALLOC_BITS);
 
     /// This class represents the Verona object header.
-    /// It is store directly before a Verona object.
+    /// It is stored directly before a Verona object.
     struct Header
     {
       union
@@ -285,9 +285,6 @@ namespace verona::rt
     {
       Object* obj = object_start(base);
       obj->get_header().descriptor = desc;
-#ifdef USE_SYSTEMATIC_TESTING
-      obj->sys_id = ++id_source;
-#endif
       runtime_alloc(true);
       return obj;
     }
@@ -303,6 +300,11 @@ namespace verona::rt
     {
       // Confirm this is  runtime alloc, and unset flag
       runtime_alloc(false);
+
+#ifdef USE_SYSTEMATIC_TESTING
+      sys_id = ++id_source;
+#endif
+
       // This should have already been set up.
       assert(get_descriptor() != nullptr);
     }
