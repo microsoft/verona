@@ -4,10 +4,14 @@
 class C {  }
 class D {
   f: U64 & imm;
-  g: S32 & mut;
+  g: C & mut;
   h: F32;
   i: F64;
   j: bool;
+}
+class E {
+  a: D;
+  b: E;
 }
 
 bar(x: U64 & imm, y: U64 & imm) {
