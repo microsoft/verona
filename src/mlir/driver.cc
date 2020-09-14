@@ -19,11 +19,18 @@
 
 namespace mlir::verona
 {
-  Driver::Driver(unsigned optLevel)
+  Driver::Driver(unsigned optLevel, bool verifyDiagnostics)
   : context(/*loadAllDialects=*/false),
     passManager(&context),
-    diagnosticHandler(sourceManager, &context)
+    verifyDiagnostics_(verifyDiagnostics)
   {
+    if (verifyDiagnostics)
+      diagnosticHandler = std::make_unique<SourceMgrDiagnosticVerifierHandler>(
+        sourceManager, &context);
+    else
+      diagnosticHandler =
+        std::make_unique<SourceMgrDiagnosticHandler>(sourceManager, &context);
+
     context.getOrLoadDialect<mlir::StandardOpsDialect>();
     context.getOrLoadDialect<mlir::verona::VeronaDialect>();
 
@@ -47,65 +54,70 @@ namespace mlir::verona
     }
   }
 
-  llvm::Error Driver::readAST(const ::ast::Ast& ast)
+  LogicalResult Driver::readAST(const ::ast::Ast& ast)
   {
     auto result = Generator::lower(&context, ast);
     if (!result)
-      return result.takeError();
+    {
+      llvm::logAllUnhandledErrors(result.takeError(), llvm::errs());
+      return failure();
+    }
 
     module = std::move(*result);
 
     if (failed(verify(*module)))
     {
       module->dump();
-      return runtimeError("AST was lowered to invalid MLIR");
+      llvm::errs() << "AST was lowered to invalid MLIR\n";
+      return failure();
     }
 
-    return llvm::Error::success();
+    return success();
   }
 
-  llvm::Error Driver::readMLIR(const std::string& filename)
+  LogicalResult Driver::readMLIR(std::unique_ptr<llvm::MemoryBuffer> buffer)
   {
-    if (filename.empty())
-      return runtimeError("No input filename provided");
-
-    // Read an MLIR file
-    auto srcOrErr = llvm::MemoryBuffer::getFileOrSTDIN(filename);
-
-    if (auto err = srcOrErr.getError())
-      return runtimeError(
-        "Cannot open file " + filename + ": " + err.message());
-
     // Add the input to the source manager and parse it.
     // `parseSourceFile` already includes verification of the IR.
-    sourceManager.AddNewSourceBuffer(std::move(*srcOrErr), llvm::SMLoc());
+    sourceManager.AddNewSourceBuffer(std::move(buffer), llvm::SMLoc());
     module = mlir::parseSourceFile(sourceManager, &context);
-    if (!module)
-      return runtimeError("Can't load MLIR file");
 
-    return llvm::Error::success();
+    if (!module)
+    {
+      llvm::errs() << "Can't load MLIR file\n";
+      return failure();
+    }
+
+    return success();
   }
 
-  llvm::Error Driver::emitMLIR(llvm::StringRef filename)
+  LogicalResult Driver::emitMLIR(llvm::raw_ostream& os)
   {
     assert(module);
-
-    if (filename.empty())
-      return runtimeError("No output filename provided");
 
     if (failed(passManager.run(module.get())))
     {
       module->dump();
-      return runtimeError("Failed to run some passes");
+      llvm::errs() << "Failed to run some passes\n";
+      return failure();
     }
 
-    // Write to the file requested
-    std::error_code error;
-    auto out = llvm::raw_fd_ostream(filename, error);
-    if (error)
-      return runtimeError("Cannot open output filename");
+    module->print(os);
+    return success();
+  }
 
-    module->print(out);
-    return llvm::Error::success();
+  LogicalResult Driver::verifyDiagnostics() {
+    assert(verifyDiagnostics_);
+
+    auto* handler = static_cast<SourceMgrDiagnosticVerifierHandler*>(
+        diagnosticHandler.get());
+
+    if (failed(handler->verify()))
+    {
+      llvm::errs() << "Diagnostic verification failed\n";
+      return failure();
+    }
+
+    return success();
   }
 }

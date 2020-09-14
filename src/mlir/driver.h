@@ -29,19 +29,21 @@ namespace mlir::verona
   class Driver
   {
   public:
-    Driver(unsigned optLevel = 0);
+    Driver(unsigned optLevel = 0, bool verifyDiagnostics = false);
 
     // TODO: add a readSource function that parses Verona source code.
     // this might be more thinking about the error API of the Driver.
 
     /// Lower an AST into an MLIR module, which is loaded in the driver.
-    llvm::Error readAST(const ::ast::Ast& ast);
+    LogicalResult readAST(const ::ast::Ast& ast);
 
     /// Read textual MLIR into the driver's module.
-    llvm::Error readMLIR(const std::string& filename);
+    LogicalResult readMLIR(std::unique_ptr<llvm::MemoryBuffer> buffer);
 
     /// Emit the module as textual MLIR.
-    llvm::Error emitMLIR(const llvm::StringRef filename);
+    LogicalResult emitMLIR(llvm::raw_ostream& os);
+
+    LogicalResult verifyDiagnostics();
 
   private:
     /// MLIR context.
@@ -59,8 +61,14 @@ namespace mlir::verona
     llvm::SourceMgr sourceManager;
 
     /// Diagnostic handler that pretty-prints MLIR errors.
+    ///
     /// The handler registers itself with the MLIR context and gets invoked
     /// automatically. We only need to keep it alive by storing it here.
-    SourceMgrDiagnosticHandler diagnosticHandler;
+    ///
+    /// If the Driver was initialized with verifyDiagnostics = true, this will
+    /// be a SourceMgrDiagnosticVerifierHandler.
+    std::unique_ptr<SourceMgrDiagnosticHandler> diagnosticHandler;
+
+    bool verifyDiagnostics_;
   };
 }

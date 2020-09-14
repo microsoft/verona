@@ -1,7 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-#include "CLI/CLI.hpp"
 #include "ast/module.h"
 #include "ast/parser.h"
 #include "ast/path.h"
@@ -9,16 +8,18 @@
 #include "ast/ref.h"
 #include "ast/sym.h"
 #include "driver.h"
-#include "mlir/InitAllDialects.h"
-#include "mlir/InitAllPasses.h"
+#include "mlir/Support/FileUtilities.h"
+#include "mlir/Support/ToolUtilities.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/ToolOutputFile.h"
 
 namespace
 {
   namespace cl = llvm::cl;
+
   // Input file name
   cl::opt<std::string> inputFile(
     cl::Positional,
@@ -52,16 +53,32 @@ namespace
   // Output file
   cl::opt<std::string> outputFile("o", cl::init(""), cl::desc("Output file"));
 
-  // Grammar file is not optional
-  std::string grammarFile;
+  cl::opt<bool> splitInputFile(
+    "split-input-file",
+    cl::desc("Split the input file into pieces and "
+             "process each chunk independently"),
+    cl::init(false));
 
-  // Set defaults form command line arguments
-  void cmdLineDefaults()
+  cl::opt<bool> verifyDiagnostics(
+    "verify-diagnostics",
+    cl::desc("Check that emitted diagnostics match "
+             "expected-* lines on the corresponding line"),
+    cl::init(false));
+
+  // FIXME: Move to llvm::sys::path, but LLVM's GetMainExecutable is horrible
+  cl::opt<std::string> grammarFile(
+    "grammar",
+    cl::desc("Grammar file"),
+    cl::value_desc("filename"),
+    cl::init(path::directory(path::executable()).append("/grammar.peg")));
+
+  /// Set default command-line arguments.
+  ///
+  /// Most defaults are configured using the cl::opt constructor. Some however
+  /// depend on the value of other arguments. This function infers their value
+  /// after all command-line arguments have been parsed.
+  void inferCommandLineDefaults()
   {
-    // Default input is stdin
-    if (inputFile.empty())
-      inputFile = "-";
-
     // Detect source type from extension, if not passed as argument
     if (inputKind == InputKind::None)
     {
@@ -92,10 +109,116 @@ namespace
         outputFile = newName.c_str();
       }
     }
+  }
 
-    // Default grammar
-    // FIXME: Move to llvm::sys::path, but LLVM's GetMainExecutable is horrible
-    grammarFile = path::directory(path::executable()).append("/grammar.peg");
+  /// Check the value of command-line arguments, beyond the verification
+  /// provided by cl::opt.
+  ///
+  /// Prints an error message and returns a failure if an invalid combination is
+  /// used.
+  mlir::LogicalResult verifyCommandLine()
+  {
+    if (splitInputFile && inputKind != InputKind::MLIR)
+    {
+      llvm::errs() << "-split-input-file can only be used with MLIR inputs\n";
+      return mlir::failure();
+    }
+
+    if (verifyDiagnostics && inputKind != InputKind::MLIR)
+    {
+      llvm::errs() << "-verify-diagnostics can only be used with MLIR inputs\n";
+      return mlir::failure();
+    }
+
+    return mlir::success();
+  }
+
+  mlir::LogicalResult openInput(std::unique_ptr<llvm::MemoryBuffer>* input)
+  {
+    std::string err;
+    *input = mlir::openInputFile(inputFile, &err);
+    if (!*input)
+    {
+      llvm::errs() << err << "\n";
+      return mlir::failure();
+    }
+
+    return mlir::success();
+  }
+
+  mlir::LogicalResult openOutput(std::unique_ptr<llvm::ToolOutputFile>* output)
+  {
+    std::string err;
+    *output = mlir::openOutputFile(outputFile, &err);
+    if (!*output)
+    {
+      llvm::errs() << err << "\n";
+      return mlir::failure();
+    }
+
+    return mlir::success();
+  }
+
+  mlir::LogicalResult processVeronaInput()
+  {
+    llvm::ExitOnError check;
+
+    std::unique_ptr<llvm::ToolOutputFile> output;
+    if (mlir::failed(openOutput(&output)))
+      return mlir::failure();
+
+    // Parse the file
+    err::Errors errors;
+    module::Passes passes = {sym::build, ref::build, prec::build};
+    auto m = module::build(grammarFile, passes, inputFile, "verona", errors);
+    if (!errors.empty())
+    {
+      llvm::errs() << "ERROR: cannot parse Verona file " << inputFile << "\n"
+                   << errors.to_s() << "\n";
+      return mlir::failure();
+    }
+
+    // Parse AST file into MLIR
+    mlir::verona::Driver driver(optLevel);
+    if (mlir::failed(driver.readAST(m->ast)))
+      return mlir::failure();
+
+    return driver.emitMLIR(output->os());
+  }
+
+  mlir::LogicalResult processMLIRInput()
+  {
+    auto processBuffer = [&](auto buffer, llvm::raw_ostream& os) {
+      mlir::verona::Driver driver(optLevel, verifyDiagnostics);
+
+      mlir::LogicalResult result = driver.readMLIR(std::move(buffer));
+      if (mlir::succeeded(result))
+        result = driver.emitMLIR(os);
+
+      // In verify-diagnostics mode, the driver will almost always fail, as
+      // expected. We ignore its results and instead use the result from the
+      // diagnostic handler.
+      if (verifyDiagnostics)
+      {
+        result = driver.verifyDiagnostics();
+      }
+
+      return result;
+    };
+
+    std::unique_ptr<llvm::MemoryBuffer> input;
+    if (mlir::failed(openInput(&input)))
+      return mlir::failure();
+
+    std::unique_ptr<llvm::ToolOutputFile> output;
+    if (mlir::failed(openOutput(&output)))
+      return mlir::failure();
+
+    if (splitInputFile)
+      return mlir::splitAndProcessBuffer(
+        std::move(input), processBuffer, output->os());
+    else
+      return processBuffer(std::move(input), output->os());
   }
 } // namespace
 
@@ -104,50 +227,32 @@ int main(int argc, char** argv)
   // Set up pretty-print signal handlers
   llvm::InitLLVM y(argc, argv);
 
+  // Register some generic MLIR command line options
+  // mlir::registerAsmPrinterCLOptions();
+  // mlir::registerMLIRContextCLOptions();
+  // mlir::registerPassManagerCLOptions();
+
   // Parse cmd-line options
   cl::ParseCommandLineOptions(argc, argv, "Verona MLIR Generator\n");
-  cmdLineDefaults();
-
-  if (inputKind == InputKind::None)
-  {
-    std::cerr << "ERROR: Unknown source type for '" << inputFile
-              << "'. Must be [verona, mlir]" << std::endl;
+  inferCommandLineDefaults();
+  if (mlir::failed(verifyCommandLine()))
     return 1;
-  }
 
-  mlir::verona::Driver driver(optLevel);
-  llvm::ExitOnError check;
-
-  // Parse the source file (verona/mlir)
+  mlir::LogicalResult result = mlir::failure();
   switch (inputKind)
   {
     case InputKind::Verona:
-    {
-      // Parse the file
-      err::Errors err;
-      module::Passes passes = {sym::build, ref::build, prec::build};
-      auto m = module::build(grammarFile, passes, inputFile, "verona", err);
-      if (!err.empty())
-      {
-        std::cerr << "ERROR: cannot parse Verona file " << inputFile
-                  << std::endl
-                  << err.to_s() << std::endl;
-        return 1;
-      }
-      // Parse AST file into MLIR
-      check(driver.readAST(m->ast));
-    }
-    break;
-    case InputKind::MLIR:
-      // Parse MLIR file
-      check(driver.readMLIR(inputFile));
+      result = processVeronaInput();
       break;
+
+    case InputKind::MLIR:
+      result = processMLIRInput();
+      break;
+
     default:
-      std::cerr << "ERROR: invalid source file type" << std::endl;
+      llvm::errs() << "ERROR: invalid source file type\n";
       return 1;
   }
 
-  check(driver.emitMLIR(outputFile));
-
-  return 0;
+  return mlir::succeeded(result) ? 0 : 1;
 }
