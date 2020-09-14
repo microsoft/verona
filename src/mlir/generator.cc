@@ -124,6 +124,9 @@ namespace mlir::verona
   {
     assert(AST::isClass(ast) && "Bad node");
 
+    // Add the type first (allows recursive declaration)
+    parseClassType(ast);
+
     // Create the class operation
     auto name = AST::getID(ast);
     auto loc = getLocation(ast);
@@ -147,7 +150,6 @@ namespace mlir::verona
     builder.create<mlir::verona::ClassEndOp>(loc);
     builder.setInsertionPointToEnd(prev);
 
-    // TODO: Add the type/alias
     return c;
   }
 
@@ -242,15 +244,25 @@ namespace mlir::verona
 
   mlir::Type Generator::generateType(llvm::StringRef name)
   {
+    // If already created, return symbol
+    if (auto type = typeTable.lookup(name))
+      return type;
+
+    // Helper to cache and return types
+    auto cacheReturn = [&](mlir::Type type) {
+      typeTable.insert(name, type);
+      return type;
+    };
+
     // Capabilities / boolean
     if (name == "iso")
-      return CapabilityType::get(context, Capability::Isolated);
+      return cacheReturn(getIso(context));
     else if (name == "mut")
-      return CapabilityType::get(context, Capability::Mutable);
+      return cacheReturn(getMut(context));
     else if (name == "imm")
-      return CapabilityType::get(context, Capability::Immutable);
+      return cacheReturn(getImm(context));
     else if (name == "bool")
-      return BoolType::get(context);
+      return cacheReturn(BoolType::get(context));
 
     // Numeric
     size_t bitWidth = 0;
@@ -260,22 +272,22 @@ namespace mlir::verona
     // Float
     bool isFloat = name.startswith("F");
     if (isFloat && validWidth)
-      return FloatType::get(context, bitWidth);
+      return cacheReturn(FloatType::get(context, bitWidth));
 
     // Integer
     bool isSigned = name.startswith("S");
     bool isUnsigned = name.startswith("U");
     if ((isSigned || isUnsigned) && validWidth)
-      return IntegerType::get(context, bitWidth, isSigned);
+      return cacheReturn(IntegerType::get(context, bitWidth, isSigned));
 
     // Anything else, return opaque for now
     // TODO: Implement all Verona types...
-    return genOpaqueType(name);
+    return cacheReturn(genOpaqueType(name));
   }
 
   mlir::Type Generator::parseType(const ::ast::Ast& ast)
   {
-    // Match any existing Verona types
+    // Get type components
     char sep = 0;
     llvm::SmallVector<::ast::WeakAst, 1> nodes;
     AST::getTypeElements(ast, sep, nodes);
@@ -287,14 +299,7 @@ namespace mlir::verona
     // Simple types should work directly, including `where` types.
     // FIXME: This treats `where` as alias, but they're really not.
     if (nodes.size() == 1)
-    {
-      auto name = AST::getID(nodes[0]);
-      if (auto type = typeTable.lookup(name))
-        return type;
-      auto type = generateType(name);
-      typeTable.insert(name, type);
-      return type;
-    }
+      return generateType(AST::getID(nodes[0]));
 
     // Composite types (meet, join) may require recursion
     llvm::SmallVector<mlir::Type, 1> types;
@@ -312,7 +317,7 @@ namespace mlir::verona
       }
     }
 
-    // Return group of nodes
+    // Return set of nodes, no need to cache
     switch (sep)
     {
       case '|':
@@ -325,6 +330,35 @@ namespace mlir::verona
 
     // TODO: We need a nicer fall back here, but the code should never get here
     llvm_unreachable("Unrecoverable error parsing types");
+  }
+
+  mlir::Type Generator::parseClassType(const ::ast::Ast& ast)
+  {
+    assert(AST::isClass(ast) && "Bad node");
+
+    // If already declared, return
+    auto name = AST::getID(ast);
+    if (auto type = typeTable.lookup(name))
+      return type;
+
+    // Declare before building fields to allow for recursive declaration
+    auto type = ClassType::get(context, name);
+    typeTable.insert(name, type);
+
+    // Field types
+    llvm::SmallVector<::ast::WeakAst, 1> nodes;
+    AST::getClassTypeElements(ast, nodes);
+    llvm::SmallVector<std::pair<StringRef, mlir::Type>, 4> fields;
+    for (auto name_type :
+         llvm::zip(AST::getClassBody(ast).lock()->nodes, nodes))
+    {
+      auto fieldName = AST::getID(std::get<0>(name_type));
+      auto fieldType = parseType(std::get<1>(name_type).lock());
+      fields.push_back({fieldName, fieldType});
+    }
+    type.setFields(fields);
+
+    return type;
   }
 
   llvm::Expected<ReturnValue> Generator::parseBlock(const ::ast::Ast& ast)
