@@ -479,6 +479,24 @@ namespace mlir::verona
       return findNode(ast, NodeKind::TypeBody);
     }
 
+    /// Get the body of a class/module declaration
+    static bool isClassType(::ast::WeakAst ast)
+    {
+      if (!isTypeHolder(ast))
+        return false;
+
+      auto typeID = findNode(
+        findNode(
+          findNode(findNode(ast, NodeKind::Type), NodeKind::TypeOne),
+          NodeKind::TypeRef),
+        NodeKind::ID);
+      auto ptr = typeID.lock();
+      auto def = ast::get_def(ptr, ptr->token);
+      if (!def)
+        return false;
+      return isClass(def);
+    }
+
     // ================================================= Operation Helpers
     /// Return the number of operands in an operation
     static size_t numOperands(::ast::WeakAst ast)

@@ -193,9 +193,6 @@ namespace mlir::verona
     /// Recursive type parser, gathers all available information on the type
     /// and sub-types, modifiers, annotations, etc.
     mlir::Type parseType(const ::ast::Ast& ast);
-    /// Parses a class type, using parseType to find the field types. Can only
-    /// find other class types that have been defined, including itself.
-    mlir::Type parseClassType(const ::ast::Ast& ast);
 
     /// Generic node parser, calls other parse functions to handle each
     /// individual type.

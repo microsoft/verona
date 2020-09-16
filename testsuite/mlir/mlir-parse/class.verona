@@ -12,6 +12,10 @@ class D {
 class E {
   a: D;
   b: E;
+  c: F;
+}
+class F {
+  d: F32;
 }
 
 bar(x: U64 & imm, y: U64 & imm) {
