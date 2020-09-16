@@ -131,15 +131,13 @@ namespace mlir::verona
     typeTable.insert(name, type);
 
     // Field names and types
-    llvm::SmallVector<::ast::WeakAst, 1> names;
-    AST::getSubNodes(names, AST::getClassBody(ast));
-    llvm::SmallVector<::ast::WeakAst, 1> types;
-    AST::getClassTypeElements(types, ast);
+    llvm::SmallVector<::ast::WeakAst, 1> nodes;
+    AST::getSubNodes(nodes, AST::getClassBody(ast));
     llvm::SmallVector<std::pair<StringRef, mlir::Type>, 4> fields;
-    for (auto name_type : llvm::zip(names, types))
+    for (auto node : nodes)
     {
-      auto fieldName = AST::getID(std::get<0>(name_type));
-      auto fieldType = parseType(std::get<1>(name_type).lock());
+      auto fieldName = AST::getID(node);
+      auto fieldType = parseType(AST::getType(node).lock());
       fields.push_back({fieldName, fieldType});
     }
     type.setFields(fields);

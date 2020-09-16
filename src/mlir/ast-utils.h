@@ -394,19 +394,6 @@ namespace mlir::verona
       }
     }
 
-    /// Get the hierarchy of types from class fields without the field info
-    /// T must be a list<ast> type with push_back.
-    template<class T>
-    static void getClassTypeElements(T& nodes, ::ast::WeakAst ast)
-    {
-      auto body = getClassBody(ast).lock();
-      for (auto field : body->nodes)
-      {
-        auto oftype = findNode(field, NodeKind::OfType);
-        nodes.push_back(oftype);
-      }
-    }
-
     // ================================================= Function Helpers
     /// Get the string name of a function node
     static llvm::StringRef getFunctionName(::ast::WeakAst ast)
