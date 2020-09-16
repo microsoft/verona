@@ -130,12 +130,13 @@ namespace mlir::verona
     auto type = ClassType::get(context, name);
     typeTable.insert(name, type);
 
-    // Field types
-    llvm::SmallVector<::ast::WeakAst, 1> nodes;
-    AST::getClassTypeElements(ast, nodes);
+    // Field names and types
+    llvm::SmallVector<::ast::WeakAst, 1> names;
+    AST::getSubNodes(names, AST::getClassBody(ast));
+    llvm::SmallVector<::ast::WeakAst, 1> types;
+    AST::getClassTypeElements(types, ast);
     llvm::SmallVector<std::pair<StringRef, mlir::Type>, 4> fields;
-    for (auto name_type :
-         llvm::zip(AST::getClassBody(ast).lock()->nodes, nodes))
+    for (auto name_type : llvm::zip(names, types))
     {
       auto fieldName = AST::getID(std::get<0>(name_type));
       auto fieldType = parseType(std::get<1>(name_type).lock());
@@ -318,7 +319,10 @@ namespace mlir::verona
       auto name = AST::getID(nodes[0]);
       if (AST::isClassType(ast))
       {
-        // Forward declare a class
+        // Pre-declaration multiple uses
+        if (auto type = typeTable.lookup(name))
+          return type;
+        // Class pre-declaration, cache it for multiple uses
         auto type = ClassType::get(context, name);
         typeTable.insert(name, type);
         return type;

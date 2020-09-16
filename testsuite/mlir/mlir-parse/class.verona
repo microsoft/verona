@@ -13,10 +13,12 @@ class E {
   a: D;
   b: E;
   c: F;
+  d: G;
 }
 class F {
-  d: F32;
+  e: G;
 }
+class G { }
 
 bar(x: U64 & imm, y: U64 & imm) {
     //let a : C & iso = new C;
