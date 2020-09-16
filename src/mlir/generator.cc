@@ -124,11 +124,26 @@ namespace mlir::verona
   {
     assert(AST::isClass(ast) && "Bad node");
 
-    // Add the type first (allows recursive declaration)
-    parseClassType(ast);
+    // Add the type first
+    // Declare before building fields to allow for recursive declaration
+    auto name = AST::getID(ast);
+    auto type = ClassType::get(context, name);
+    typeTable.insert(name, type);
+
+    // Field types
+    llvm::SmallVector<::ast::WeakAst, 1> nodes;
+    AST::getClassTypeElements(ast, nodes);
+    llvm::SmallVector<std::pair<StringRef, mlir::Type>, 4> fields;
+    for (auto name_type :
+         llvm::zip(AST::getClassBody(ast).lock()->nodes, nodes))
+    {
+      auto fieldName = AST::getID(std::get<0>(name_type));
+      auto fieldType = parseType(std::get<1>(name_type).lock());
+      fields.push_back({fieldName, fieldType});
+    }
+    type.setFields(fields);
 
     // Create the class operation
-    auto name = AST::getID(ast);
     auto loc = getLocation(ast);
     auto c = builder.create<mlir::verona::ClassOp>(loc, name);
     auto block = addBlock(&c.getRegion());
@@ -299,7 +314,20 @@ namespace mlir::verona
     // Simple types should work directly, including `where` types.
     // FIXME: This treats `where` as alias, but they're really not.
     if (nodes.size() == 1)
-      return generateType(AST::getID(nodes[0]));
+    {
+      auto name = AST::getID(nodes[0]);
+      if (AST::isClassType(ast))
+      {
+        // Forward declare a class
+        auto type = ClassType::get(context, name);
+        typeTable.insert(name, type);
+        return type;
+      }
+      else
+      {
+        return generateType(name);
+      }
+    }
 
     // Composite types (meet, join) may require recursion
     llvm::SmallVector<mlir::Type, 1> types;
@@ -330,35 +358,6 @@ namespace mlir::verona
 
     // TODO: We need a nicer fall back here, but the code should never get here
     llvm_unreachable("Unrecoverable error parsing types");
-  }
-
-  mlir::Type Generator::parseClassType(const ::ast::Ast& ast)
-  {
-    assert(AST::isClass(ast) && "Bad node");
-
-    // If already declared, return
-    auto name = AST::getID(ast);
-    if (auto type = typeTable.lookup(name))
-      return type;
-
-    // Declare before building fields to allow for recursive declaration
-    auto type = ClassType::get(context, name);
-    typeTable.insert(name, type);
-
-    // Field types
-    llvm::SmallVector<::ast::WeakAst, 1> nodes;
-    AST::getClassTypeElements(ast, nodes);
-    llvm::SmallVector<std::pair<StringRef, mlir::Type>, 4> fields;
-    for (auto name_type :
-         llvm::zip(AST::getClassBody(ast).lock()->nodes, nodes))
-    {
-      auto fieldName = AST::getID(std::get<0>(name_type));
-      auto fieldType = parseType(std::get<1>(name_type).lock());
-      fields.push_back({fieldName, fieldType});
-    }
-    type.setFields(fields);
-
-    return type;
   }
 
   llvm::Expected<ReturnValue> Generator::parseBlock(const ::ast::Ast& ast)
