@@ -303,7 +303,8 @@ namespace mlir::verona
       return ptr->nodes[0];
     }
 
-    /// Return a list of sub-nodes
+    /// Get a list of sub-nodes.
+    /// T must be a list<ast> type with push_back.
     template<class T>
     static void getSubNodes(T& nodes, ::ast::WeakAst ast)
     {
@@ -361,7 +362,8 @@ namespace mlir::verona
     }
 
     /// Get the list of types grouped by the same operator (| or &) or
-    /// a single type, if no grouping. T must be a list type with push_back.
+    /// a single type, if no grouping.
+    /// T must be a list<ast> type with push_back.
     template<class T>
     static void getTypeElements(::ast::WeakAst ast, char& sep, T& nodes)
     {
@@ -393,8 +395,9 @@ namespace mlir::verona
     }
 
     /// Get the hierarchy of types from class fields without the field info
+    /// T must be a list<ast> type with push_back.
     template<class T>
-    static void getClassTypeElements(::ast::WeakAst ast, T& nodes)
+    static void getClassTypeElements(T& nodes, ::ast::WeakAst ast)
     {
       auto body = getClassBody(ast).lock();
       for (auto field : body->nodes)
@@ -425,7 +428,8 @@ namespace mlir::verona
       return getType(sig);
     }
 
-    /// Get the ast nodes for the function arguments
+    /// Get the ast nodes for the function arguments.
+    /// T must be a list<ast> type with push_back.
     template<class T>
     static void getFunctionArgs(T& args, ::ast::WeakAst ast)
     {
@@ -439,6 +443,7 @@ namespace mlir::verona
     }
 
     /// Get the ast nodes for the function constraints
+    /// T must be a list<ast> type with push_back.
     template<class T>
     static void getFunctionConstraints(T& constraints, ::ast::WeakAst ast)
     {
@@ -551,7 +556,8 @@ namespace mlir::verona
       return args.lock()->nodes[n - 1];
     }
 
-    /// Return all operands of the operation
+    /// Get all operands of the operation.
+    /// T must be a list<ast> type with push_back.
     template<class T>
     static void getAllOperands(T& ops, ::ast::WeakAst ast)
     {

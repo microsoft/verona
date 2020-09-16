@@ -12,11 +12,14 @@ module {
   }
   verona.class @E {
     verona.field "a" : !verona.class<"D", "j" : meet<U64, imm>, "j" : meet<class<"C">, mut>, "j" : F32, "j" : F64, "j" : bool>
-    verona.field "b" : !verona.class<"E", "c" : class<"D", "j" : meet<U64, imm>, "j" : meet<class<"C">, mut>, "j" : F32, "j" : F64, "j" : bool>, "c" : class<"E">, "c" : class<"F", "d" : F32>>
-    verona.field "c" : !verona.class<"F", "d" : F32>
+    verona.field "b" : !verona.class<"E", "d" : class<"D", "j" : meet<U64, imm>, "j" : meet<class<"C">, mut>, "j" : F32, "j" : F64, "j" : bool>, "d" : class<"E">, "d" : class<"F", "e" : class<"G">>, "d" : class<"G">>
+    verona.field "c" : !verona.class<"F", "e" : class<"G">>
+    verona.field "d" : !verona.class<"G">
   }
   verona.class @F {
-    verona.field "d" : !verona.F32
+    verona.field "e" : !verona.class<"G">
+  }
+  verona.class @G {
   }
   func @bar(%arg0: !verona.meet<U64, imm>, %arg1: !verona.meet<U64, imm>) {
     %0 = "verona.alloca"() : () -> !type.alloca
