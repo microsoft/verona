@@ -182,7 +182,13 @@ namespace
     return driver.emitMLIR(output);
   }
 
-  mlir::LogicalResult processMLIRBuffer(std::unique_ptr<MemoryBuffer> buffer, llvm::raw_ostream& output) {
+  // This function is called for each segment of the input file.
+  // Usually there is only one segment, the entire file, but if
+  // --split-input-file is used the file is split and this function is applied
+  // to each part.
+  mlir::LogicalResult processMLIRBuffer(
+    std::unique_ptr<llvm::MemoryBuffer> buffer, llvm::raw_ostream& output)
+  {
     mlir::verona::Driver driver(optLevel, verifyDiagnostics);
 
     mlir::LogicalResult result = driver.readMLIR(std::move(buffer));
@@ -206,9 +212,10 @@ namespace
       return mlir::failure();
 
     if (splitInputFile)
-      return mlir::splitAndProcessBuffer(std::move(input), processMLIRInput, output);
+      return mlir::splitAndProcessBuffer(
+        std::move(input), processMLIRBuffer, output);
     else
-      return processMLIRInput(std::move(input), output);
+      return processMLIRBuffer(std::move(input), output);
   }
 } // namespace
 

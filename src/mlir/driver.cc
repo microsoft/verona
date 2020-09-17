@@ -110,11 +110,12 @@ namespace mlir::verona
     return success();
   }
 
-  LogicalResult Driver::verifyDiagnostics() {
+  LogicalResult Driver::verifyDiagnostics()
+  {
     assert(verifyDiagnostics_);
 
-    auto* handler = static_cast<SourceMgrDiagnosticVerifierHandler*>(
-        diagnosticHandler.get());
+    auto* handler =
+      static_cast<SourceMgrDiagnosticVerifierHandler*>(diagnosticHandler.get());
 
     if (failed(handler->verify()))
     {
