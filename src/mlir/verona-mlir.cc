@@ -227,11 +227,6 @@ int main(int argc, char** argv)
   // Set up pretty-print signal handlers
   llvm::InitLLVM y(argc, argv);
 
-  // Register some generic MLIR command line options
-  // mlir::registerAsmPrinterCLOptions();
-  // mlir::registerMLIRContextCLOptions();
-  // mlir::registerPassManagerCLOptions();
-
   // Parse cmd-line options
   cl::ParseCommandLineOptions(argc, argv, "Verona MLIR Generator\n");
   inferCommandLineDefaults();
