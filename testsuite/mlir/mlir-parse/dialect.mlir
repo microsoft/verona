@@ -41,11 +41,8 @@ module {
   }
 }
 
-// -----
-
 module {
   func @bar(%x: !verona.meet<U64, imm>, %y: !verona.meet<U64, imm>) {
-    // expected-note@+1 {{prior use here}}
     %a = verona.new_region @C [ ] : !verona.meet<!C, iso>
     %b = verona.view %a : !verona.meet<!C, iso> -> !verona.meet<!C, mut>
 
@@ -67,7 +64,7 @@ module {
       -> !verona.meet<U64, imm>
 
      // expected-error@+1 {{use of value '%a' expects different type than prior uses}}
-     verona.tidy %a : !verona.meet<!C, mut>
+     verona.tidy %a : !verona.meet<!C, iso>
      verona.drop %a : !verona.meet<!C, iso>
 
     return

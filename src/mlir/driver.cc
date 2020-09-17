@@ -31,6 +31,10 @@ namespace mlir::verona
       diagnosticHandler =
         std::make_unique<SourceMgrDiagnosticHandler>(sourceManager, &context);
 
+    // In verify-diagnostics mode, don't print the associated operation.
+    // It would just be adding noise to the test files
+    context.printOpOnDiagnostic(!verifyDiagnostics);
+
     context.getOrLoadDialect<mlir::StandardOpsDialect>();
     context.getOrLoadDialect<mlir::verona::VeronaDialect>();
 
