@@ -159,13 +159,9 @@ namespace
     return mlir::success();
   }
 
-  mlir::LogicalResult processVeronaInput()
+  mlir::LogicalResult processVeronaInput(llvm::raw_ostream& output)
   {
     llvm::ExitOnError check;
-
-    std::unique_ptr<llvm::ToolOutputFile> output;
-    if (mlir::failed(openOutput(&output)))
-      return mlir::failure();
 
     // Parse the file
     err::Errors errors;
@@ -183,42 +179,36 @@ namespace
     if (mlir::failed(driver.readAST(m->ast)))
       return mlir::failure();
 
-    return driver.emitMLIR(output->os());
+    return driver.emitMLIR(output);
   }
 
-  mlir::LogicalResult processMLIRInput()
+  mlir::LogicalResult processMLIRBuffer(std::unique_ptr<MemoryBuffer> buffer, llvm::raw_ostream& output) {
+    mlir::verona::Driver driver(optLevel, verifyDiagnostics);
+
+    mlir::LogicalResult result = driver.readMLIR(std::move(buffer));
+
+    if (mlir::succeeded(result))
+      result = driver.emitMLIR(output);
+
+    // In verify-diagnostics mode, the driver will almost always fail, as
+    // expected. We ignore its results and instead use the result from the
+    // diagnostic handler.
+    if (verifyDiagnostics)
+      result = driver.verifyDiagnostics();
+
+    return result;
+  };
+
+  mlir::LogicalResult processMLIRInput(llvm::raw_ostream& output)
   {
-    auto processBuffer = [&](auto buffer, llvm::raw_ostream& os) {
-      mlir::verona::Driver driver(optLevel, verifyDiagnostics);
-
-      mlir::LogicalResult result = driver.readMLIR(std::move(buffer));
-      if (mlir::succeeded(result))
-        result = driver.emitMLIR(os);
-
-      // In verify-diagnostics mode, the driver will almost always fail, as
-      // expected. We ignore its results and instead use the result from the
-      // diagnostic handler.
-      if (verifyDiagnostics)
-      {
-        result = driver.verifyDiagnostics();
-      }
-
-      return result;
-    };
-
     std::unique_ptr<llvm::MemoryBuffer> input;
     if (mlir::failed(openInput(&input)))
       return mlir::failure();
 
-    std::unique_ptr<llvm::ToolOutputFile> output;
-    if (mlir::failed(openOutput(&output)))
-      return mlir::failure();
-
     if (splitInputFile)
-      return mlir::splitAndProcessBuffer(
-        std::move(input), processBuffer, output->os());
+      return mlir::splitAndProcessBuffer(std::move(input), processMLIRInput, output);
     else
-      return processBuffer(std::move(input), output->os());
+      return processMLIRInput(std::move(input), output);
   }
 } // namespace
 
@@ -233,15 +223,21 @@ int main(int argc, char** argv)
   if (mlir::failed(verifyCommandLine()))
     return 1;
 
+  std::unique_ptr<llvm::ToolOutputFile> output;
+  if (mlir::failed(openOutput(&output)))
+    return 1;
+
   mlir::LogicalResult result = mlir::failure();
   switch (inputKind)
   {
     case InputKind::Verona:
-      result = processVeronaInput();
+      if (mlir::failed(processVeronaInput(output->os())))
+        return 1;
       break;
 
     case InputKind::MLIR:
-      result = processMLIRInput();
+      if (mlir::failed(processMLIRInput(output->os())))
+        return 1;
       break;
 
     default:
@@ -249,5 +245,6 @@ int main(int argc, char** argv)
       return 1;
   }
 
-  return mlir::succeeded(result) ? 0 : 1;
+  output->keep();
+  return 0;
 }
