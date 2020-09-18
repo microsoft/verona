@@ -10,3 +10,26 @@ f(x : U64)
     foo(a);
   }
 }
+
+f2(x : U64)
+{
+  let a : S32 = 0;
+  for (a in x) {
+    foo(a);
+    if (a > 5)
+    {
+      break
+    }
+    else
+    {
+      if (a < 2)
+      {
+        continue
+      }
+      else
+      {
+        foo(a);
+      }
+    }
+  }
+}
