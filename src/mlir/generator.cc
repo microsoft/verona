@@ -761,6 +761,7 @@ namespace mlir::verona
     // and dispatch the loop to the body block or exit.
     auto region = builder.getInsertionBlock()->getParent();
     mlir::ValueRange empty{};
+    auto nextBB = addBlock(region);
     auto headBB = addBlock(region);
     auto bodyBB = addBlock(region);
     auto exitBB = addBlock(region);
@@ -781,7 +782,7 @@ namespace mlir::verona
 
     // Create local head/tail basic-block context for continue/break
     BasicBlockScopeT loop_scope{loopTable};
-    loopTable.insert("head", headBB);
+    loopTable.insert("head", nextBB);
     loopTable.insert("tail", exitBB);
 
     // Preamble for the loop body is:
@@ -796,13 +797,6 @@ namespace mlir::verona
     auto value = builder.create<mlir::CallOp>(condLoc, apply, iter);
     declareVariable(indVarName, value.getResult(0));
 
-    //  %iter.next();
-    auto next = getFunction(
-      ABI::LoopIterator::next::name,
-      {ABI::LoopIterator::next::types[0]},
-      ABI::LoopIterator::next::retTy);
-    builder.create<mlir::CallOp>(condLoc, next, iter);
-
     // Loop body, branch back to head node which will decide exit criteria
     auto bodyNode = AST::getLoopBlock(ast).lock();
     auto bodyLoc = getLocation(bodyNode);
@@ -810,7 +804,16 @@ namespace mlir::verona
     if (auto err = bodyBlock.takeError())
       return std::move(err);
     if (!hasTerminator(builder.getBlock()))
-      builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
+      builder.create<mlir::BranchOp>(bodyLoc, nextBB, empty);
+
+    //  %iter.next();
+    builder.setInsertionPointToEnd(nextBB);
+    auto next = getFunction(
+      ABI::LoopIterator::next::name,
+      {ABI::LoopIterator::next::types[0]},
+      ABI::LoopIterator::next::retTy);
+    builder.create<mlir::CallOp>(condLoc, next, iter);
+    builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
 
     // Move to exit block, where the remaining instructions will be lowered.
     builder.setInsertionPointToEnd(exitBB);
