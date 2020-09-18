@@ -193,7 +193,7 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING
     inline friend std::ostream& operator<<(std::ostream& os, const Object* o)
     {
-      return os << o->sys_id;
+      return os << o->id<false>();
     }
 #endif
 
@@ -246,10 +246,14 @@ namespace verona::rt
     }
 #endif
 
+    template<bool scramble = true>
     inline uintptr_t id() const
     {
 #ifdef USE_SYSTEMATIC_TESTING
-      return Systematic::get_scrambler().perm(sys_id);
+      if constexpr (scramble)
+        return Systematic::get_scrambler().perm(sys_id);
+      else
+        return sys_id;
 #else
       return (uintptr_t)this;
 #endif

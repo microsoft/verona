@@ -76,7 +76,7 @@ private:
           return format_object(object, it);
         else
           return fmt::format_to(
-            it, "{}({})", object->descriptor()->name, fmt::ptr(object));
+            it, "{}({})", object->descriptor()->name, object->id<false>());
       }
 
       case Value::COWN:
@@ -84,14 +84,14 @@ private:
           it,
           "{}({})",
           inner.cown->descriptor->name,
-          fmt::ptr(inner.cown->contents));
+          inner.cown->contents->id<false>());
 
       case Value::COWN_UNOWNED:
         return fmt::format_to(
           it,
           "unowned-{}({})",
           inner.cown->descriptor->name,
-          fmt::ptr(inner.cown->contents));
+          inner.cown->contents->id<false>());
 
       case Value::U64:
         return fmt::format_to(it, "{}", inner.u64);
