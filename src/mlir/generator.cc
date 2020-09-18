@@ -63,14 +63,15 @@ namespace mlir::verona
     symbolTable.update(name, val);
   }
 
-  void Generator::declareFunction(
+  FuncOp Generator::getFunction(
     llvm::StringRef name,
     llvm::ArrayRef<llvm::StringRef> types,
     llvm::StringRef retTy)
   {
-    // If already declared, ignore
-    if (functionTable.inScope(name))
-      return;
+    // If already declared, return existing function.
+    auto result = functionTable.lookup(name);
+    if (result)
+      return result;
 
     // Map type names to MLIR types
     Types argTys;
@@ -87,6 +88,7 @@ namespace mlir::verona
 
     // Add function declaration to the module
     module->push_back(*func);
+    return *func;
   }
 
   // ===================================================== AST -> MLIR
@@ -765,11 +767,10 @@ namespace mlir::verona
     builder.create<mlir::BranchOp>(getLocation(ast), headBB, empty);
 
     // First node is a check if the list has value, returns boolean.
-    declareFunction(
+    auto has_value = getFunction(
       ABI::LoopIterator::check::name,
       {ABI::LoopIterator::check::types[0]},
       ABI::LoopIterator::check::retTy);
-    auto has_value = functionTable.lookup(ABI::LoopIterator::check::name);
     auto condLoc = getLocation(seqNode);
     builder.setInsertionPointToEnd(headBB);
     auto cond = builder.create<mlir::CallOp>(condLoc, has_value, iter);
@@ -786,21 +787,20 @@ namespace mlir::verona
     // Preamble for the loop body is:
     //  val = $iter.apply();
     // val must have been declared in outer scope
-    declareFunction(
+    auto apply = getFunction(
       ABI::LoopIterator::apply::name,
       {ABI::LoopIterator::apply::types[0]},
       ABI::LoopIterator::apply::retTy);
-    auto apply = functionTable.lookup(ABI::LoopIterator::apply::name);
     builder.setInsertionPointToEnd(bodyBB);
     auto indVarName = AST::getTokenValue(AST::getLoopInd(ast));
     auto value = builder.create<mlir::CallOp>(condLoc, apply, iter);
     declareVariable(indVarName, value.getResult(0));
+
     //  %iter.next();
-    declareFunction(
+    auto next = getFunction(
       ABI::LoopIterator::next::name,
       {ABI::LoopIterator::next::types[0]},
       ABI::LoopIterator::next::retTy);
-    auto next = functionTable.lookup(ABI::LoopIterator::next::name);
     builder.create<mlir::CallOp>(condLoc, next, iter);
 
     // Loop body, branch back to head node which will decide exit criteria

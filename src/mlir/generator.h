@@ -171,8 +171,9 @@ namespace mlir::verona
     void declareVariable(llvm::StringRef name, mlir::Value val);
     /// Updates an existing variable in the local context.
     void updateVariable(llvm::StringRef name, mlir::Value val);
-    /// Declare a (compiler generated) function.
-    void declareFunction(
+    /// Get a (compiler generated) function.
+    /// Will declare the prototype if it has not already been defined.
+    FuncOp getFunction(
       llvm::StringRef name,
       llvm::ArrayRef<llvm::StringRef> types,
       llvm::StringRef retTy);
