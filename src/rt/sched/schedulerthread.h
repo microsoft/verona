@@ -356,15 +356,15 @@ namespace verona::rt
             break;
         }
 
-        Systematic::cout() << "Schedule cown: " << cown << " ("
-                           << cown->get_epoch_mark() << ")" << std::endl;
-
         // Administrative work before handling messages.
         if (!prerun(cown))
         {
           cown = nullptr;
           continue;
         }
+
+        Systematic::cout() << "Schedule cown: " << cown << " ("
+                           << cown->get_epoch_mark() << ")" << std::endl;
 
         // This prevents the LD protocol advancing if this cown has not been
         // scanned. This catches various cases where we have stolen, or
@@ -898,8 +898,8 @@ namespace verona::rt
           {
             count++;
             *p = c->next;
-            c->dealloc(alloc);
             Systematic::cout() << "Stub collected: " << c << std::endl;
+            c->dealloc(alloc);
             continue;
           }
           else
