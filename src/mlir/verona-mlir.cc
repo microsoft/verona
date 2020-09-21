@@ -176,10 +176,20 @@ namespace
 
     // Parse AST file into MLIR
     mlir::verona::Driver driver(optLevel);
-    if (mlir::failed(driver.readAST(m->ast)))
-      return mlir::failure();
+    llvm::Error error = driver.readAST(m->ast);
+    if (!error)
+      error = driver.emitMLIR(output);
 
-    return driver.emitMLIR(output);
+    if (error)
+    {
+      driver.dumpMLIR(llvm::errs());
+      logAllUnhandledErrors(std::move(error), llvm::errs());
+      return mlir::failure();
+    }
+    else
+    {
+      return mlir::success();
+    }
   }
 
   // This function is called for each segment of the input file.
@@ -191,18 +201,31 @@ namespace
   {
     mlir::verona::Driver driver(optLevel, verifyDiagnostics);
 
-    mlir::LogicalResult result = driver.readMLIR(std::move(buffer));
-
-    if (mlir::succeeded(result))
-      result = driver.emitMLIR(output);
+    llvm::Error error = driver.readMLIR(std::move(buffer));
+    if (!error)
+      error = driver.emitMLIR(output);
 
     // In verify-diagnostics mode, the driver will almost always fail, as
     // expected. We ignore its results and instead use the result from the
     // diagnostic handler.
     if (verifyDiagnostics)
-      result = driver.verifyDiagnostics();
+    {
+      // llvm::Error requires errors to be "handled", even if they were
+      // expected, hence the empty handler.
+      handleAllErrors(std::move(error), [](const llvm::ErrorInfoBase& e) {});
+      error = driver.verifyDiagnostics();
+    }
 
-    return result;
+    if (error)
+    {
+      driver.dumpMLIR(llvm::errs());
+      logAllUnhandledErrors(std::move(error), llvm::errs());
+      return mlir::failure();
+    }
+    else
+    {
+      return mlir::success();
+    }
   };
 
   mlir::LogicalResult processMLIRInput(llvm::raw_ostream& output)
@@ -234,7 +257,6 @@ int main(int argc, char** argv)
   if (mlir::failed(openOutput(&output)))
     return 1;
 
-  mlir::LogicalResult result = mlir::failure();
   switch (inputKind)
   {
     case InputKind::Verona:

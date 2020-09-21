@@ -29,21 +29,33 @@ namespace mlir::verona
   class Driver
   {
   public:
-    Driver(unsigned optLevel = 0, bool verifyDiagnostics = false);
+    Driver(unsigned optLevel = 0, bool enableDiagnosticsVerifier = false);
 
     // TODO: add a readSource function that parses Verona source code.
     // this might be more thinking about the error API of the Driver.
 
     /// Lower an AST into an MLIR module, which is loaded in the driver.
-    LogicalResult readAST(const ::ast::Ast& ast);
+    llvm::Error readAST(const ::ast::Ast& ast);
 
     /// Read textual MLIR into the driver's module.
-    LogicalResult readMLIR(std::unique_ptr<llvm::MemoryBuffer> buffer);
+    llvm::Error readMLIR(std::unique_ptr<llvm::MemoryBuffer> buffer);
 
     /// Emit the module as textual MLIR.
-    LogicalResult emitMLIR(llvm::raw_ostream& os);
+    llvm::Error emitMLIR(llvm::raw_ostream& os);
 
-    LogicalResult verifyDiagnostics();
+    /// Check that diagnostics emitted by the MLIR pipeline match the
+    /// expectations set in the source.
+    ///
+    /// The Driver must have been initialized with
+    /// enableDiagnosticsVerifier = true.
+    llvm::Error verifyDiagnostics();
+
+    /// Dump the current IR to an ostream.
+    ///
+    /// Unlike emitMLIR, this may be used even in failure conditions, as
+    /// debugging information. If the driver holds no module (eg. lowering from
+    /// AST failed), nothing happens.
+    void dumpMLIR(llvm::raw_ostream& os);
 
   private:
     /// MLIR context.
@@ -65,10 +77,10 @@ namespace mlir::verona
     /// The handler registers itself with the MLIR context and gets invoked
     /// automatically. We only need to keep it alive by storing it here.
     ///
-    /// If the Driver was initialized with verifyDiagnostics = true, this will
-    /// be a SourceMgrDiagnosticVerifierHandler.
+    /// If the Driver was initialized with enableDiagnosticsVerifier = true,
+    /// this will be a SourceMgrDiagnosticVerifierHandler.
     std::unique_ptr<SourceMgrDiagnosticHandler> diagnosticHandler;
 
-    bool verifyDiagnostics_;
+    bool enableDiagnosticsVerifier;
   };
 }

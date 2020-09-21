@@ -19,21 +19,21 @@
 
 namespace mlir::verona
 {
-  Driver::Driver(unsigned optLevel, bool verifyDiagnostics)
+  Driver::Driver(unsigned optLevel, bool enableDiagnosticsVerifier)
   : context(/*loadAllDialects=*/false),
     passManager(&context),
-    verifyDiagnostics_(verifyDiagnostics)
+    enableDiagnosticsVerifier(enableDiagnosticsVerifier)
   {
-    if (verifyDiagnostics)
+    if (enableDiagnosticsVerifier)
       diagnosticHandler = std::make_unique<SourceMgrDiagnosticVerifierHandler>(
         sourceManager, &context);
     else
       diagnosticHandler =
         std::make_unique<SourceMgrDiagnosticHandler>(sourceManager, &context);
 
-    // In verify-diagnostics mode, don't print the associated operation.
+    // In diagnostics verification mode, don't print the associated operation.
     // It would just be adding noise to the test files
-    context.printOpOnDiagnostic(!verifyDiagnostics);
+    context.printOpOnDiagnostic(!enableDiagnosticsVerifier);
 
     context.getOrLoadDialect<mlir::StandardOpsDialect>();
     context.getOrLoadDialect<mlir::verona::VeronaDialect>();
@@ -58,71 +58,59 @@ namespace mlir::verona
     }
   }
 
-  LogicalResult Driver::readAST(const ::ast::Ast& ast)
+  llvm::Error Driver::readAST(const ::ast::Ast& ast)
   {
     auto result = Generator::lower(&context, ast);
     if (!result)
-    {
-      llvm::logAllUnhandledErrors(result.takeError(), llvm::errs());
-      return failure();
-    }
+      return result.takeError();
 
     module = std::move(*result);
 
     if (failed(verify(*module)))
-    {
-      module->dump();
-      llvm::errs() << "AST was lowered to invalid MLIR\n";
-      return failure();
-    }
+      return runtimeError("AST was lowered to invalid MLIR");
 
-    return success();
+    return llvm::Error::success();
   }
 
-  LogicalResult Driver::readMLIR(std::unique_ptr<llvm::MemoryBuffer> buffer)
+  llvm::Error Driver::readMLIR(std::unique_ptr<llvm::MemoryBuffer> buffer)
   {
     // Add the input to the source manager and parse it.
     // `parseSourceFile` already includes verification of the IR.
     sourceManager.AddNewSourceBuffer(std::move(buffer), llvm::SMLoc());
     module = mlir::parseSourceFile(sourceManager, &context);
-
     if (!module)
-    {
-      llvm::errs() << "Can't load MLIR file\n";
-      return failure();
-    }
+      return runtimeError("Can't load MLIR file");
 
-    return success();
+    return llvm::Error::success();
   }
 
-  LogicalResult Driver::emitMLIR(llvm::raw_ostream& os)
+  llvm::Error Driver::emitMLIR(llvm::raw_ostream& os)
   {
     assert(module);
 
     if (failed(passManager.run(module.get())))
-    {
-      module->dump();
-      llvm::errs() << "Failed to run some passes\n";
-      return failure();
-    }
+      return runtimeError("Failed to run some passes");
 
     module->print(os);
-    return success();
+    return llvm::Error::success();
   }
 
-  LogicalResult Driver::verifyDiagnostics()
+  llvm::Error Driver::verifyDiagnostics()
   {
-    assert(verifyDiagnostics_);
+    assert(enableDiagnosticsVerifier);
 
     auto* handler =
       static_cast<SourceMgrDiagnosticVerifierHandler*>(diagnosticHandler.get());
 
     if (failed(handler->verify()))
-    {
-      llvm::errs() << "Diagnostic verification failed\n";
-      return failure();
-    }
+      return runtimeError("Diagnostic verification failed\n");
 
-    return success();
+    return llvm::Error::success();
+  }
+
+  void Driver::dumpMLIR(llvm::raw_ostream& os)
+  {
+    if (module)
+      module->print(os);
   }
 }
