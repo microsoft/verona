@@ -114,6 +114,15 @@ namespace verona::rt
       _current_load = 0;
     }
 
+    /// Artificially overload a cown.
+    /// TODO: In the future, this will require a bit to remain overloaded after
+    /// the load drops.
+    inline void overload()
+    {
+      _load_hist = (uint16_t)-1;
+      _current_load = (uint8_t)-1;
+    }
+
     /// Indicates if the token message is in a cown's queue. If zero, a
     /// new token message should be added if the cown runs another message.
     inline bool has_token()
