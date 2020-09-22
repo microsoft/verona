@@ -928,8 +928,8 @@ namespace verona::rt
       {
         Systematic::cout() << "Reached message token on cown: " << this
                            << std::endl;
-        assert(stat.has_token == 1);
-        stat.has_token = 0;
+        assert(stat.has_token());
+        stat.set_has_token(false);
         status.store(stat, std::memory_order_release);
 
         auto bp = bp_state.load(std::memory_order_acquire);
@@ -942,19 +942,19 @@ namespace verona::rt
       }
 
       if (
-        ((stat.has_token == 0) && (curr->index == 0)) ||
+        (!stat.has_token() && (curr->index == 0)) ||
         (stat.current_load() == 0xff))
       {
         stat.reset_load();
       }
-      if (stat.has_token == 0)
+      if (!stat.has_token())
       {
         Systematic::cout() << "Cown " << this << ": enqueue message token"
                            << std::endl;
         queue.enqueue(stub_msg(alloc));
       }
       stat.inc_load();
-      stat.has_token = 1;
+      stat.set_has_token(true);
       status.store(stat, std::memory_order_release);
 
       return false;
