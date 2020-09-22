@@ -421,9 +421,6 @@ namespace verona::rt
                   cown = stolen;
                 }
               }
-
-              Systematic::cout() << "Reschedule cown: " << cown << " ("
-                                 << cown->get_epoch_mark() << ")" << std::endl;
             }
           }
         }
