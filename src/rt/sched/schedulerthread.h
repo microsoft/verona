@@ -422,8 +422,12 @@ namespace verona::rt
                 }
               }
 
-              Systematic::cout() << "Reschedule cown: " << cown << " ("
-                                 << cown->get_epoch_mark() << ")" << std::endl;
+              if (!has_thread_bit(cown))
+              {
+                Systematic::cout()
+                  << "Reschedule cown: " << cown << " ("
+                  << cown->get_epoch_mark() << ")" << std::endl;
+              }
             }
           }
         }
