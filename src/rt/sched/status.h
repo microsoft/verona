@@ -49,30 +49,26 @@ namespace verona::rt
   /// Tracks status information for a cown. This class may only be modified by
   /// the scheduler thread running a cown.
   /// TODO: possibly I/O thread when cown is uncheduled
-  class Status
+  class alignas(4) Status
   {
     // Load at which cown is overloaded.
     static constexpr uint32_t overload_threshold = 800;
     // Load at which a cown is no longer overloaded.
     static constexpr uint32_t unoverloaded_threshold = 100;
 
+    /// Ring buffer with a capacity for 4 4-bit entries.
+    uint16_t _load_hist = 0;
     /// Tracks an approximation of a cown's message queue depth as a count of
     /// messages processed between token messages falling out of the queue. When
     /// the token message falls out, the `reset_load()` function will push the
     /// upper nibble of the current load into the `load_hist` ring buffer.
-    uint32_t _current_load : 8;
-    /// Ring buffer with a capacity for 4 4-bit entries.
-    uint32_t _load_hist : 16;
-    /// Reserved for future use
-    uint32_t : 7;
+    uint8_t _current_load = 0;
+    /// Other miscellaneous bits. 7 bits are reserved for future use.
+    /// Bit 0 indicates if the token message is in a cown's queue. If zero, a
+    /// new token message should be added if the cown runs another message.
+    uint8_t _misc = 0;
 
   public:
-    /// Indicates if the token message is in a cown's queue. If zero, a new
-    /// token message should be added if the cown runs another message.
-    uint32_t has_token : 1;
-
-    Status() noexcept : _current_load(0), _load_hist(0), has_token(0) {}
-
     /// Return the count of messages processed since the last token message fell
     /// out of this cown's queue.
     inline uint8_t current_load() const
@@ -85,13 +81,11 @@ namespace verona::rt
     inline uint32_t total_load() const
     {
       // Add the current load to the 4 upper nibbles stored as load history.
-      // The load history could be more efficiently compressed, but the clang
-      // SLP vectorizer optimizes this nicely with AVX2 instructions.
-      const uint32_t h3 = bits::extract<15, 12>(_load_hist) << 4;
-      const uint32_t h2 = bits::extract<11, 8>(_load_hist) << 4;
-      const uint32_t h1 = bits::extract<7, 4>(_load_hist) << 4;
-      const uint32_t h0 = bits::extract<3, 0>(_load_hist) << 4;
-      return (h3 + h2 + h1 + h0) | _current_load;
+      const uint32_t h3 = (uint32_t)bits::extract<15, 12>(_load_hist) << 4;
+      const uint32_t h2 = (uint32_t)bits::extract<11, 8>(_load_hist) << 4;
+      const uint32_t h1 = (uint32_t)bits::extract<7, 4>(_load_hist) << 4;
+      const uint32_t h0 = (uint32_t)bits::extract<3, 0>(_load_hist) << 4;
+      return h3 + h2 + h1 + h0 + _current_load;
     }
 
     /// Return true if this cown is overloaded.
@@ -119,10 +113,18 @@ namespace verona::rt
       _load_hist |= (_current_load >> 4);
       _current_load = 0;
     }
-  };
 
-  static_assert((sizeof(Status) == 4) && (alignof(Status) == 4));
-  static_assert(
-    (sizeof(Status) == sizeof(std::atomic<Status>)) &&
-    (alignof(Status) == alignof(std::atomic<Status>)));
+    /// Indicates if the token message is in a cown's queue. If zero, a
+    /// new token message should be added if the cown runs another message.
+    inline bool has_token()
+    {
+      return bits::extract<0, 0>(_misc) == 1;
+    }
+
+    /// Set whether the cown has a token in its queue.
+    inline void set_has_token(bool value)
+    {
+      _misc = (_misc & 0xFE) | (uint8_t)value;
+    }
+  };
 }
