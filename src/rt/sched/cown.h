@@ -955,6 +955,14 @@ namespace verona::rt
       }
       stat.inc_load();
       stat.set_has_token(true);
+#ifdef USE_SYSTEMATIC_TESTING
+      if (Systematic::coin(5) && !stat.overloaded())
+      {
+        stat.overload();
+        assert(stat.overloaded());
+        Systematic::cout() << "Cown " << this << " overloaded" << std::endl;
+      }
+#endif
       status.store(stat, std::memory_order_release);
 
       return false;

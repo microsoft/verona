@@ -251,7 +251,7 @@ namespace verona::rt
 
           continue;
         }
-        Systematic::cout() << "Cown " << this << ": backpressure state " << bp
+        Systematic::cout() << "Cown " << cown << ": backpressure state " << bp
                            << " -> Muted" << std::endl;
         assert(!(bp & BackpressureState::IsUnmutable));
       }
