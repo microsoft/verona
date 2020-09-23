@@ -161,8 +161,6 @@ namespace
 
   mlir::LogicalResult processVeronaInput(llvm::raw_ostream& output)
   {
-    llvm::ExitOnError check;
-
     // Parse the file
     err::Errors errors;
     module::Passes passes = {sym::build, ref::build, prec::build};
