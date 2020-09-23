@@ -180,16 +180,12 @@ namespace
     if (!error)
       error = driver.emitMLIR(output);
 
-    if (error)
-    {
-      driver.dumpMLIR(llvm::errs());
-      logAllUnhandledErrors(std::move(error), llvm::errs());
-      return mlir::failure();
-    }
-    else
-    {
+    if (!error)
       return mlir::success();
-    }
+
+    driver.dumpMLIR(llvm::errs());
+    logAllUnhandledErrors(std::move(error), llvm::errs());
+    return mlir::failure();
   }
 
   // This function is called for each segment of the input file.
@@ -216,16 +212,12 @@ namespace
       error = driver.verifyDiagnostics();
     }
 
-    if (error)
-    {
-      driver.dumpMLIR(llvm::errs());
-      logAllUnhandledErrors(std::move(error), llvm::errs());
-      return mlir::failure();
-    }
-    else
-    {
+    if (!error)
       return mlir::success();
-    }
+
+    driver.dumpMLIR(llvm::errs());
+    logAllUnhandledErrors(std::move(error), llvm::errs());
+    return mlir::failure();
   };
 
   mlir::LogicalResult processMLIRInput(llvm::raw_ostream& output)
