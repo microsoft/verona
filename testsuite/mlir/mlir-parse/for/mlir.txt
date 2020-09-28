@@ -1,11 +1,11 @@
 
 
 module {
-  func @foo(!verona.S32)
+  func @foo(!verona.S32) attributes {class = !verona.class<"$module">}
   func @has_value(!type.unk) -> !type.bool
   func @apply(!type.unk) -> !type.unk
   func @next(!type.unk)
-  func @f(%arg0: !verona.U64) {
+  func @f(%arg0: !verona.U64) attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !type.alloca
     %1 = "verona.store"(%arg0, %0) : (!verona.U64, !type.alloca) -> !type.unk
     %2 = "verona.alloca"() : () -> !type.alloca
@@ -28,7 +28,7 @@ module {
   ^bb4:  // pred: ^bb2
     return
   }
-  func @f2(%arg0: !verona.U64) {
+  func @f2(%arg0: !verona.U64) attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !type.alloca
     %1 = "verona.store"(%arg0, %0) : (!verona.U64, !type.alloca) -> !type.unk
     %2 = "verona.alloca"() : () -> !type.alloca

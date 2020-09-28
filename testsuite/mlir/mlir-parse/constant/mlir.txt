@@ -1,7 +1,7 @@
 
 
 module {
-  func @f() {
+  func @f() attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !type.alloca
     %1 = "verona.constant(42)"() : () -> !type.int
     %2 = "verona.store"(%1, %0) : (!type.int, !type.alloca) -> !type.unk

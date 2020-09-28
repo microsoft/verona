@@ -1,13 +1,13 @@
 
 
 module {
-  func @empty_declaration()
-  func @single_arg(!verona.S16)
-  func @args_and_ret(!verona.U32, !verona.S32) -> !verona.F64
-  func @empty_return() {
+  func @empty_declaration() attributes {class = !verona.class<"$module">}
+  func @single_arg(!verona.S16) attributes {class = !verona.class<"$module">}
+  func @args_and_ret(!verona.U32, !verona.S32) -> !verona.F64 attributes {class = !verona.class<"$module">}
+  func @empty_return() attributes {class = !verona.class<"$module">} {
     return
   }
-  func @foo(%arg0: !verona.imm, %arg1: !verona.meet<U64, imm>) -> !verona.meet<U64, imm> {
+  func @foo(%arg0: !verona.imm, %arg1: !verona.meet<U64, imm>) -> !verona.meet<U64, imm> attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !type.alloca
     %1 = "verona.store"(%arg0, %0) : (!verona.imm, !type.alloca) -> !type.unk
     %2 = "verona.alloca"() : () -> !type.alloca
@@ -24,7 +24,7 @@ module {
     %13 = "verona.cast"(%12) : (!type.unk) -> !verona.meet<U64, imm>
     return %13 : !verona.meet<U64, imm>
   }
-  func @apply() {
+  func @apply() attributes {class = !verona.class<"$module">} {
     return
   }
 }

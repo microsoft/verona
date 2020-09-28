@@ -55,6 +55,7 @@ namespace mlir::verona
       None = 0,
       Module = peg::str2tag("module"), // = 73005690
       ClassDef = peg::str2tag("classdef"), // = 983016457
+      Field = peg::str2tag("field"), // = 122469826
       Function = peg::str2tag("function"), // = 89836898
       FuncName = peg::str2tag("funcname"), // = 90200697
       Sig = peg::str2tag("sig"), // = 124317
@@ -196,6 +197,12 @@ namespace mlir::verona
       return isA(ast, NodeKind::TypeOne);
     }
 
+    /// Return true if node is a field
+    static bool isField(::ast::WeakAst ast)
+    {
+      return isA(ast, NodeKind::Field);
+    }
+
     /// Return true if node is a function
     static bool isFunction(::ast::WeakAst ast)
     {
@@ -319,7 +326,7 @@ namespace mlir::verona
 
     // ================================================= Value Helpers
     /// Get the string value of a token
-    static const std::string& getTokenValue(::ast::WeakAst ast)
+    static llvm::StringRef getTokenValue(::ast::WeakAst ast)
     {
       assert(isValue(ast) && "Bad node");
       auto ptr = ast.lock();
@@ -328,7 +335,7 @@ namespace mlir::verona
     }
 
     /// Return true if node is a variable definition
-    static const std::string& getLocalName(::ast::WeakAst ast)
+    static llvm::StringRef getLocalName(::ast::WeakAst ast)
     {
       // Local variables can be new 'local' or existing 'localref'
       if (isLocalRef(ast))
@@ -338,7 +345,7 @@ namespace mlir::verona
     }
 
     /// Return true if node is an ID (func, var, type names)
-    static const std::string& getID(::ast::WeakAst ast)
+    static llvm::StringRef getID(::ast::WeakAst ast)
     {
       // FIXME: Why is the call ID 'function' while all others 'id'?
       if (isA(ast, NodeKind::Call))

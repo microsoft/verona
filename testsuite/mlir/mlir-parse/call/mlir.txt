@@ -1,7 +1,7 @@
 
 
 module {
-  func @foo(%arg0: !verona.imm, %arg1: !verona.meet<U64, imm>) -> !verona.meet<U64, imm> {
+  func @foo(%arg0: !verona.imm, %arg1: !verona.meet<U64, imm>) -> !verona.meet<U64, imm> attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !type.alloca
     %1 = "verona.store"(%arg0, %0) : (!verona.imm, !type.alloca) -> !type.unk
     %2 = "verona.alloca"() : () -> !type.alloca
@@ -34,7 +34,7 @@ module {
     %25 = "verona.cast"(%24) : (!type.unk) -> !verona.meet<U64, imm>
     return %25 : !verona.meet<U64, imm>
   }
-  func @apply() {
+  func @apply() attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !type.alloca
     %1 = "verona.constant(10)"() : () -> !type.int
     %2 = "verona.store"(%1, %0) : (!type.int, !type.alloca) -> !type.unk
