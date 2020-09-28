@@ -20,7 +20,7 @@
 
 void test_alloc_pool()
 {
-#ifndef USE_MALLOC
+#ifndef SNMALLOC_PASS_THROUGH
   auto* a1 = current_alloc_pool()->acquire();
   auto* a2 = current_alloc_pool()->acquire();
   check(a1 != a2);
