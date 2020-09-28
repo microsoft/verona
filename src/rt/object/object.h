@@ -282,6 +282,8 @@ namespace verona::rt
       }
 
       previous = value;
+#else
+      UNUSED(value);
 #endif
     }
 
