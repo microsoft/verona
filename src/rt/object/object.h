@@ -77,7 +77,7 @@ namespace verona::rt
   class Object;
   class RegionBase;
 
-  using ObjectStack = Stack<Object*, Alloc>;
+  using ObjectStack = Stack<Object, Alloc>;
   static constexpr size_t descriptor_alignment =
     snmalloc::bits::min<size_t>(8, alignof(void*));
 
