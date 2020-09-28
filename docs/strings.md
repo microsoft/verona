@@ -115,7 +115,7 @@ It is worth noting that `NSString` / `NSMutableString` and `UText` provide suffi
 String views
 ------------
 
-C++, C#, and other languages have recently introduced the idea of a view within a string, similar to a Module-2 slice.
+C++, C#, and other languages have recently introduced the idea of a view within a string, similar to a Modula-2 slice.
 A string view gives a range within a string but does not duplicate the underlying storage.
 If a string view is mutable then changes in it will be reflected into the underlying storage.
 
@@ -214,7 +214,7 @@ Unicode defines three common serialisations, with different properties:
    The variation in length can make processing and random access indexed by code point expensive.
  - UTF-16 is the most space-efficient for CJK languages and encodes every Unicode code point to 2 or 4 bytes.
    As with UTF-8, random access requires additional metadata, though this can typically be omitted for strings in European languages, where every non-Emoji character will be 2 bytes.
- - UTF-32 is the least space-efficient encoding, using 4 bytes for every character, but has the advantage of being a fixed-length encoding.
+ - UTF-32 is the least space-efficient encoding, using 4 bytes for every character, but has the advantage of being a fixed-length encoding (but grapheme cluster indexing remains challenging).
 
 UTF-8 is common on a lot of Internet protocols and so may be the input or output format.
 UTF-8 is typically used for system call or C library arguments on UNIX systems, whereas UTF-16 is common on Windows.
@@ -235,7 +235,7 @@ There are two key design questions related to encodings:
    For example, should Japanese text in Big5 encoding be required to convert to Unicode for all operations that are not part of the class's internal implementation?
  - Should strings that are using a Unicode encoding expose interfaces in a *specific* unicode encoding?
 
-*Proposal*: Standard library strings should expose interfaces in 32-bit Unicode code points.
+*Proposal*: Standard library strings should expose interfaces in 32-bit Unicode code points and sequences thereof for grapheme clusters.
 They should also be able to export or provide views in their native encoding so that operations can be optimised based on pattern matching.
 
 Draft proposal for a core string library
