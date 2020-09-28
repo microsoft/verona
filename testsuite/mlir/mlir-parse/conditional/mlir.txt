@@ -1,7 +1,7 @@
 
 
 module {
-  func @f(%arg0: !verona.U16) -> !verona.S16 {
+  func @f(%arg0: !verona.U16) -> !verona.S16 attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !type.alloca
     %1 = "verona.store"(%arg0, %0) : (!verona.U16, !type.alloca) -> !type.unk
     %2 = "verona.load"(%0) : (!type.alloca) -> !type.unk

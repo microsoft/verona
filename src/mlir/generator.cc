@@ -44,7 +44,7 @@ namespace mlir::verona
   }
 
   // ===================================================== Helpers
-  mlir::Location Generator::getLocation(const ::ast::Ast& ast)
+  mlir::Location Generator::getLocation(const ::ast::WeakAst& ast)
   {
     auto path = AST::getPath(ast);
     return builder.getFileLineColLoc(
@@ -94,79 +94,67 @@ namespace mlir::verona
   // ===================================================== AST -> MLIR
   llvm::Error Generator::parseModule(const ::ast::Ast& ast)
   {
-    assert(AST::isClass(ast) && "Bad node");
     assert(AST::getID(ast) == "$module" && "Bad node");
     module = mlir::ModuleOp::create(getLocation(ast));
-
-    auto body = AST::getClassBody(ast);
-    llvm::SmallVector<::ast::WeakAst, 4> globals;
-    AST::getSubNodes(globals, body);
-    for (auto g : globals)
-    {
-      if (AST::isClass(g))
-      {
-        auto c = parseClass(g.lock());
-        if (auto err = c.takeError())
-          return err;
-        module->push_back(*c);
-      }
-      else if (AST::isFunction(g))
-      {
-        auto f = parseFunction(g.lock());
-        if (auto err = f.takeError())
-          return err;
-        module->push_back(*f);
-      }
-    }
-    return llvm::Error::success();
+    // Modules are nothing but global classes
+    return parseClass(ast);
   }
 
-  llvm::Expected<mlir::verona::ClassOp>
-  Generator::parseClass(const ::ast::Ast& ast)
+  llvm::Error Generator::parseClass(const ::ast::Ast& ast, mlir::Type parent)
   {
     assert(AST::isClass(ast) && "Bad node");
 
-    // Add the type first
     // Declare before building fields to allow for recursive declaration
     auto name = AST::getID(ast);
     auto type = ClassType::get(context, name);
     typeTable.insert(name, type);
 
-    // Field names and types
-    llvm::SmallVector<::ast::WeakAst, 1> nodes;
+    // Nested classes, field names and types, methods, etc.
+    llvm::SmallVector<::ast::WeakAst, 4> nodes;
     AST::getSubNodes(nodes, AST::getClassBody(ast));
     llvm::SmallVector<std::pair<StringRef, mlir::Type>, 4> fields;
+
+    // Set the parent class
+    if (parent)
+      fields.push_back({"$parent", parent});
+
+    // Scan all nodes for nested classes, fields and methods
     for (auto node : nodes)
     {
-      auto fieldName = AST::getID(node);
-      auto fieldType = parseType(AST::getType(node).lock());
-      fields.push_back({fieldName, fieldType});
+      if (AST::isClass(node))
+      {
+        // Recurse into nested classes
+        if (auto err = parseClass(node.lock(), type))
+          return err;
+      }
+      else if (AST::isField(node))
+      {
+        // Get field name/type for class type declaration
+        auto fieldName = AST::getID(node);
+        auto fieldType = parseType(AST::getType(node).lock());
+        fields.push_back({fieldName, fieldType});
+      }
+      else if (AST::isFunction(node))
+      {
+        // Methods
+        auto func = parseFunction(node.lock());
+        if (auto err = func.takeError())
+          return std::move(err);
+        // Associate function with module (late mangling)
+        func->setAttr("class", TypeAttr::get(type));
+        // Push function to module
+        module->push_back(*func);
+      }
+      else
+      {
+        return parsingError(
+          "Expecting field or function on class " + name.str(),
+          getLocation(ast));
+      }
     }
     type.setFields(fields);
 
-    // Create the class operation
-    auto loc = getLocation(ast);
-    auto c = builder.create<mlir::verona::ClassOp>(loc, name);
-    auto block = addBlock(&c.getRegion());
-    auto prev = builder.getInsertionBlock();
-    builder.setInsertionPointToEnd(block);
-
-    // Add each field
-    llvm::SmallVector<::ast::WeakAst, 4> fieldNodes;
-    auto body = AST::getClassBody(ast);
-    AST::getSubNodes(fieldNodes, body);
-    for (auto field : fieldNodes)
-    {
-      auto desc = AST::getID(field);
-      auto ty = parseType(AST::getType(field).lock());
-      mlir::TypeAttr attr = TypeAttr::get(ty);
-      builder.create<mlir::verona::FieldOp>(
-        getLocation(field.lock()), desc, attr);
-    }
-    builder.create<mlir::verona::ClassEndOp>(loc);
-    builder.setInsertionPointToEnd(prev);
-
-    return c;
+    return llvm::Error::success();
   }
 
   llvm::Expected<mlir::FuncOp> Generator::parseFunction(const ::ast::Ast& ast)
@@ -435,7 +423,7 @@ namespace mlir::verona
     // TODO: Literals need attributes and types
     assert(AST::isValue(ast) && "Bad node");
     return parsingError(
-      "Value [" + AST::getName(ast) + " = " + AST::getTokenValue(ast) +
+      "Value [" + AST::getName(ast) + " = " + AST::getTokenValue(ast).str() +
         "] not implemented yet",
       getLocation(ast));
   }
@@ -458,8 +446,8 @@ namespace mlir::verona
     auto store = symbolTable.lookup(name);
     if (!store)
       return parsingError(
-        "Variable " + name + " not declared before use",
-        getLocation(var.lock()));
+        "Variable " + name.str() + " not declared before use",
+        getLocation(var));
 
     // The right-hand side can be any expression
     // This is the value and we update the variable
@@ -510,7 +498,8 @@ namespace mlir::verona
     if (AST::isUnary(ast))
     {
       return parsingError(
-        "Unary Operation '" + name + "' not implemented yet", getLocation(ast));
+        "Unary Operation '" + name.str() + "' not implemented yet",
+        getLocation(ast));
     }
     else if (AST::isBinary(ast))
     {
@@ -548,12 +537,12 @@ namespace mlir::verona
       }
 
       return parsingError(
-        "Binary operation '" + name + "' not implemented yet",
+        "Binary operation '" + name.str() + "' not implemented yet",
         getLocation(ast));
     }
 
     return parsingError(
-      "Operation '" + name + "' not implemented yet", getLocation(ast));
+      "Operation '" + name.str() + "' not implemented yet", getLocation(ast));
   }
 
   llvm::Expected<ReturnValue> Generator::parseReturn(const ::ast::Ast& ast)
