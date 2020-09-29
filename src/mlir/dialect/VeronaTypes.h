@@ -92,6 +92,13 @@ namespace mlir::verona
     static BoolType get(MLIRContext* context);
   };
 
+  struct UnknownType : public Type::TypeBase<UnknownType, Type, TypeStorage>
+  {
+    using Base::Base;
+
+    static UnknownType get(MLIRContext* context);
+  };
+
   enum class Capability
   {
     Isolated,

@@ -274,6 +274,11 @@ namespace mlir::verona
     return ::mlir::detail::TypeUniquer::get<BoolType>(ctx);
   }
 
+  UnknownType UnknownType::get(MLIRContext* ctx)
+  {
+    return ::mlir::detail::TypeUniquer::get<UnknownType>(ctx);
+  }
+
   CapabilityType CapabilityType::get(MLIRContext* ctx, Capability cap)
   {
     return Base::get(ctx, cap);
@@ -350,6 +355,7 @@ namespace mlir::verona
       ClassType,
       FloatType,
       BoolType,
+      UnknownType,
       ViewpointType>();
   }
 

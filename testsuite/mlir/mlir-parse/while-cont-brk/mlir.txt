@@ -2,35 +2,35 @@
 
 module {
   func @f(%arg0: !verona.U32, %arg1: !verona.S32) -> !verona.F16 attributes {class = !verona.class<"$module">} {
-    %0 = "verona.alloca"() : () -> !type.alloca
-    %1 = "verona.store"(%arg0, %0) : (!verona.U32, !type.alloca) -> !type.unk
-    %2 = "verona.alloca"() : () -> !type.alloca
-    %3 = "verona.store"(%arg1, %2) : (!verona.S32, !type.alloca) -> !type.unk
+    %0 = "verona.alloca"() : () -> !verona.unk
+    %1 = "verona.store"(%arg0, %0) : (!verona.U32, !verona.unk) -> !verona.unk
+    %2 = "verona.alloca"() : () -> !verona.unk
+    %3 = "verona.store"(%arg1, %2) : (!verona.S32, !verona.unk) -> !verona.unk
     br ^bb1
   ^bb1:  // 3 preds: ^bb0, ^bb4, ^bb7
-    %4 = "verona.load"(%0) : (!type.alloca) -> !type.unk
-    %5 = "verona.constant(5)"() : () -> !type.int
-    %6 = "verona.lt"(%4, %5) : (!type.unk, !type.int) -> i1
+    %4 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
+    %5 = "verona.constant(5)"() : () -> !verona.S64
+    %6 = "verona.lt"(%4, %5) : (!verona.unk, !verona.S64) -> i1
     cond_br %6, ^bb2, ^bb3
   ^bb2:  // pred: ^bb1
-    %7 = "verona.load"(%0) : (!type.alloca) -> !type.unk
-    %8 = "verona.constant(1)"() : () -> !type.int
-    %9 = "verona.add"(%7, %8) : (!type.unk, !type.int) -> !type.unk
-    %10 = "verona.store"(%9, %0) : (!type.unk, !type.alloca) -> !type.unk
-    %11 = "verona.load"(%0) : (!type.alloca) -> !type.unk
-    %12 = "verona.load"(%2) : (!type.alloca) -> !type.unk
-    %13 = "verona.lt"(%11, %12) : (!type.unk, !type.unk) -> i1
+    %7 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
+    %8 = "verona.constant(1)"() : () -> !verona.S64
+    %9 = "verona.add"(%7, %8) : (!verona.unk, !verona.S64) -> !verona.unk
+    %10 = "verona.store"(%9, %0) : (!verona.unk, !verona.unk) -> !verona.unk
+    %11 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
+    %12 = "verona.load"(%2) : (!verona.unk) -> !verona.unk
+    %13 = "verona.lt"(%11, %12) : (!verona.unk, !verona.unk) -> i1
     cond_br %13, ^bb4, ^bb5
   ^bb3:  // 2 preds: ^bb1, ^bb6
-    %14 = "verona.load"(%0) : (!type.alloca) -> !type.unk
-    %15 = "verona.cast"(%14) : (!type.unk) -> !verona.F16
+    %14 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
+    %15 = "verona.cast"(%14) : (!verona.unk) -> !verona.F16
     return %15 : !verona.F16
   ^bb4:  // pred: ^bb2
     br ^bb1
   ^bb5:  // pred: ^bb2
-    %16 = "verona.load"(%0) : (!type.alloca) -> !type.unk
-    %17 = "verona.load"(%2) : (!type.alloca) -> !type.unk
-    %18 = "verona.gt"(%16, %17) : (!type.unk, !type.unk) -> i1
+    %16 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
+    %17 = "verona.load"(%2) : (!verona.unk) -> !verona.unk
+    %18 = "verona.gt"(%16, %17) : (!verona.unk, !verona.unk) -> i1
     cond_br %18, ^bb6, ^bb7
   ^bb6:  // pred: ^bb5
     br ^bb3
