@@ -357,12 +357,12 @@ interface String
 	 * Access a specific character.  Returns a unicode code point for the
 	 * specific index in the string.
 	 */
-	func apply(self: readonly & String, index: U64) : Unichar;
+	func apply(self: readonly & String, index: U64) : Rune;
 
 	/**
 	 * Access a specific character.
 	 */
-	func apply(self: readonly & String, index: U64) : Unichar;
+	func apply(self: readonly & String, index: U64) : Rune;
 
 	/**
 	 * Takes a range in the string (expressed in Unicode code points) and
@@ -386,7 +386,7 @@ interface String
 	/**
 	 * Updates a specific character. 
 	 */
-	func update(self: (mut | iso) & String, index: U64, c: Unichar);
+	func update(self: (mut | iso) & String, index: U64, c: Rune);
 
 	/**
 	 * Replace the specified range in a string with another string.
@@ -436,7 +436,7 @@ As such, we want simple syntax for writing generics and a language-level guarant
 For example, consider a trivial search function:
 
 ```verona
-func find_character(str : String & readonly, c : Unichar) : U64 | NotFound
+func find_character(str : String & readonly, c : Rune) : U64 | NotFound
 {
 	match (str)
 	{
