@@ -510,54 +510,87 @@ namespace mlir::verona
     }
 
     // Else, it should be an operation that we can lower natively
+    // TODO: This will change when we implement a Verona library, where
+    // most of the native ops will still be dynamic calls and resolved
+    // to native when converting to LLVM.
     if (AST::isUnary(ast))
-    {
-      return parsingError(
-        "Unary Operation '" + name.str() + "' not implemented yet",
-        getLocation(ast));
-    }
+      return parseUnop(ast);
     else if (AST::isBinary(ast))
-    {
-      // Get both arguments
-      // TODO: If the arguments are tuples, do we need to apply element-wise?
-      auto arg0 = parseNode(AST::getOperand(ast, 0).lock());
-      if (auto err = arg0.takeError())
-        return std::move(err);
-      auto arg1 = parseNode(AST::getOperand(ast, 1).lock());
-      if (auto err = arg1.takeError())
-        return std::move(err);
-
-      // Get op name and type
-      using opPairTy = std::pair<llvm::StringRef, mlir::Type>;
-      opPairTy opTy = llvm::StringSwitch<opPairTy>(name)
-                        .Case("+", {"verona.add", unkTy})
-                        .Case("-", {"verona.sub", unkTy})
-                        .Case("*", {"verona.mul", unkTy})
-                        .Case("/", {"verona.div", unkTy})
-                        .Case("==", {"verona.eq", boolTy})
-                        .Case("!=", {"verona.ne", boolTy})
-                        .Case(">", {"verona.gt", boolTy})
-                        .Case("<", {"verona.lt", boolTy})
-                        .Case(">=", {"verona.ge", boolTy})
-                        .Case("<=", {"verona.le", boolTy})
-                        .Default(std::make_pair("", unkTy));
-      auto opName = opTy.first;
-      auto opType = opTy.second;
-
-      // Match, return the right op with the right type
-      if (!opName.empty())
-      {
-        return genOperation(
-          getLocation(ast), opName, {arg0->get(), arg1->get()}, opType);
-      }
-
-      return parsingError(
-        "Binary operation '" + name.str() + "' not implemented yet",
-        getLocation(ast));
-    }
+      return parseBinop(ast);
 
     return parsingError(
       "Operation '" + name.str() + "' not implemented yet", getLocation(ast));
+  }
+
+  llvm::Expected<ReturnValue> Generator::parseUnop(const ::ast::Ast& ast)
+  {
+    assert(AST::isUnary(ast) && "Bad node");
+    auto name = AST::getID(ast);
+
+    // Get argument
+    auto arg = parseNode(AST::getOperand(ast, 0).lock());
+    if (auto err = arg.takeError())
+      return std::move(err);
+
+    // Generate call to known Verona ops
+    // Using StringSwitch like parseBinop isn't as easy here
+    if (name == "tidy")
+    {
+      builder.create<TidyOp>(getLocation(ast), arg->get());
+      return ReturnValue();
+    }
+    else if (name == "drop")
+    {
+      builder.create<DropOp>(getLocation(ast), arg->get());
+      return ReturnValue();
+    }
+
+    return parsingError(
+      "Unary Operation '" + name.str() + "' not implemented yet",
+      getLocation(ast));
+  }
+
+  llvm::Expected<ReturnValue> Generator::parseBinop(const ::ast::Ast& ast)
+  {
+    assert(AST::isBinary(ast) && "Bad node");
+    auto name = AST::getID(ast);
+
+    // Get both arguments
+    // TODO: If the arguments are tuples, do we need to apply element-wise?
+    auto arg0 = parseNode(AST::getOperand(ast, 0).lock());
+    if (auto err = arg0.takeError())
+      return std::move(err);
+    auto arg1 = parseNode(AST::getOperand(ast, 1).lock());
+    if (auto err = arg1.takeError())
+      return std::move(err);
+
+    // Get op name and type
+    using opPairTy = std::pair<llvm::StringRef, mlir::Type>;
+    opPairTy opTy = llvm::StringSwitch<opPairTy>(name)
+                      .Case("+", {"verona.add", unkTy})
+                      .Case("-", {"verona.sub", unkTy})
+                      .Case("*", {"verona.mul", unkTy})
+                      .Case("/", {"verona.div", unkTy})
+                      .Case("==", {"verona.eq", boolTy})
+                      .Case("!=", {"verona.ne", boolTy})
+                      .Case(">", {"verona.gt", boolTy})
+                      .Case("<", {"verona.lt", boolTy})
+                      .Case(">=", {"verona.ge", boolTy})
+                      .Case("<=", {"verona.le", boolTy})
+                      .Default(std::make_pair("", unkTy));
+    auto opName = opTy.first;
+    auto opType = opTy.second;
+
+    // Match, return the right op with the right type
+    if (!opName.empty())
+    {
+      return genOperation(
+        getLocation(ast), opName, {arg0->get(), arg1->get()}, opType);
+    }
+
+    return parsingError(
+      "Binary operation '" + name.str() + "' not implemented yet",
+      getLocation(ast));
   }
 
   llvm::Expected<ReturnValue> Generator::parseReturn(const ::ast::Ast& ast)

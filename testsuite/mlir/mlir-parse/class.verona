@@ -35,4 +35,9 @@ class G {
   static foo(a: U32) : F32 { 3.14; }
 }
 
-bar(c: C, d: D, e: E, ne: NestE, f: F, g: G) { }
+bar(c: C, d: D, e: E, ne: NestE, f: F, g: G) {
+  // Garbage collect
+  tidy(c);
+  // Drop value
+  drop(d);
+}
