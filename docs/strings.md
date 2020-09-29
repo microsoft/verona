@@ -360,11 +360,6 @@ interface String
 	func apply(self: readonly & String, index: U64) : Rune;
 
 	/**
-	 * Access a specific character.
-	 */
-	func apply(self: readonly & String, index: U64) : Rune;
-
-	/**
 	 * Takes a range in the string (expressed in Unicode code points) and
 	 * optionally a buffer.  Either the desired characters (in the specified
 	 * encoding) are copied into that buffer, or returns an immutable array
