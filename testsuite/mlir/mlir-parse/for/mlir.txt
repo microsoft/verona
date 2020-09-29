@@ -2,69 +2,74 @@
 
 module {
   func @foo(!verona.S32) attributes {class = !verona.class<"$module">}
-  func @has_value(!type.unk) -> !type.bool
-  func @apply(!type.unk) -> !type.unk
-  func @next(!type.unk)
+  func @has_value(!verona.unk) -> !verona.bool
+  func @apply(!verona.unk) -> !verona.unk
+  func @next(!verona.unk)
   func @f(%arg0: !verona.U64) attributes {class = !verona.class<"$module">} {
-    %0 = "verona.alloca"() : () -> !type.alloca
-    %1 = "verona.store"(%arg0, %0) : (!verona.U64, !type.alloca) -> !type.unk
-    %2 = "verona.alloca"() : () -> !type.alloca
-    %3 = "verona.constant(0)"() : () -> !type.int
-    %4 = "verona.store"(%3, %2) : (!type.int, !type.alloca) -> !type.unk
-    %5 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %0 = "verona.alloca"() : () -> !verona.unk
+    %1 = "verona.store"(%arg0, %0) : (!verona.U64, !verona.unk) -> !verona.unk
+    %2 = "verona.alloca"() : () -> !verona.unk
+    %3 = "verona.constant(0)"() : () -> !verona.S64
+    %4 = "verona.store"(%3, %2) : (!verona.S64, !verona.unk) -> !verona.unk
+    %5 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
     br ^bb2
   ^bb1:  // pred: ^bb3
-    call @next(%5) : (!type.unk) -> ()
+    call @next(%5) : (!verona.unk) -> ()
     br ^bb2
   ^bb2:  // 2 preds: ^bb0, ^bb1
-    %6 = call @has_value(%5) : (!type.unk) -> !type.bool
-    %7 = "verona.cast"(%6) : (!type.bool) -> i1
+    %6 = call @has_value(%5) : (!verona.unk) -> !verona.bool
+    %7 = "verona.cast"(%6) : (!verona.bool) -> i1
     cond_br %7, ^bb3, ^bb4
   ^bb3:  // pred: ^bb2
-    %8 = call @apply(%5) : (!type.unk) -> !type.unk
-    %9 = "verona.cast"(%8) : (!type.unk) -> !verona.S32
-    call @foo(%9) : (!verona.S32) -> ()
+    %8 = call @apply(%5) : (!verona.unk) -> !verona.unk
+    %9 = "verona.load"(%8) : (!verona.unk) -> !verona.unk
+    %10 = "verona.cast"(%9) : (!verona.unk) -> !verona.S32
+    call @foo(%10) : (!verona.S32) -> ()
     br ^bb1
   ^bb4:  // pred: ^bb2
     return
   }
   func @f2(%arg0: !verona.U64) attributes {class = !verona.class<"$module">} {
-    %0 = "verona.alloca"() : () -> !type.alloca
-    %1 = "verona.store"(%arg0, %0) : (!verona.U64, !type.alloca) -> !type.unk
-    %2 = "verona.alloca"() : () -> !type.alloca
-    %3 = "verona.constant(0)"() : () -> !type.int
-    %4 = "verona.store"(%3, %2) : (!type.int, !type.alloca) -> !type.unk
-    %5 = "verona.load"(%0) : (!type.alloca) -> !type.unk
+    %0 = "verona.alloca"() : () -> !verona.unk
+    %1 = "verona.store"(%arg0, %0) : (!verona.U64, !verona.unk) -> !verona.unk
+    %2 = "verona.alloca"() : () -> !verona.unk
+    %3 = "verona.constant(0)"() : () -> !verona.S64
+    %4 = "verona.store"(%3, %2) : (!verona.S64, !verona.unk) -> !verona.unk
+    %5 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
     br ^bb2
   ^bb1:  // 2 preds: ^bb7, ^bb8
-    call @next(%5) : (!type.unk) -> ()
+    call @next(%5) : (!verona.unk) -> ()
     br ^bb2
   ^bb2:  // 2 preds: ^bb0, ^bb1
-    %6 = call @has_value(%5) : (!type.unk) -> !type.bool
-    %7 = "verona.cast"(%6) : (!type.bool) -> i1
+    %6 = call @has_value(%5) : (!verona.unk) -> !verona.bool
+    %7 = "verona.cast"(%6) : (!verona.bool) -> i1
     cond_br %7, ^bb3, ^bb4
   ^bb3:  // pred: ^bb2
-    %8 = call @apply(%5) : (!type.unk) -> !type.unk
-    %9 = "verona.cast"(%8) : (!type.unk) -> !verona.S32
-    call @foo(%9) : (!verona.S32) -> ()
-    %10 = "verona.constant(5)"() : () -> !type.int
-    %11 = "verona.gt"(%8, %10) : (!type.unk, !type.int) -> i1
-    cond_br %11, ^bb5, ^bb6
+    %8 = call @apply(%5) : (!verona.unk) -> !verona.unk
+    %9 = "verona.load"(%8) : (!verona.unk) -> !verona.unk
+    %10 = "verona.cast"(%9) : (!verona.unk) -> !verona.S32
+    call @foo(%10) : (!verona.S32) -> ()
+    %11 = "verona.load"(%8) : (!verona.unk) -> !verona.unk
+    %12 = "verona.constant(5)"() : () -> !verona.S64
+    %13 = "verona.gt"(%11, %12) : (!verona.unk, !verona.S64) -> i1
+    cond_br %13, ^bb5, ^bb6
   ^bb4:  // 2 preds: ^bb2, ^bb5
     return
   ^bb5:  // pred: ^bb3
     br ^bb4
   ^bb6:  // pred: ^bb3
-    %12 = "verona.constant(2)"() : () -> !type.int
-    %13 = "verona.lt"(%8, %12) : (!type.unk, !type.int) -> i1
-    cond_br %13, ^bb8, ^bb9
+    %14 = "verona.load"(%8) : (!verona.unk) -> !verona.unk
+    %15 = "verona.constant(2)"() : () -> !verona.S64
+    %16 = "verona.lt"(%14, %15) : (!verona.unk, !verona.S64) -> i1
+    cond_br %16, ^bb8, ^bb9
   ^bb7:  // pred: ^bb10
     br ^bb1
   ^bb8:  // pred: ^bb6
     br ^bb1
   ^bb9:  // pred: ^bb6
-    %14 = "verona.cast"(%8) : (!type.unk) -> !verona.S32
-    call @foo(%14) : (!verona.S32) -> ()
+    %17 = "verona.load"(%8) : (!verona.unk) -> !verona.unk
+    %18 = "verona.cast"(%17) : (!verona.unk) -> !verona.S32
+    call @foo(%18) : (!verona.S32) -> ()
     br ^bb10
   ^bb10:  // pred: ^bb9
     br ^bb7

@@ -5,6 +5,7 @@
 
 #include "ast/ast.h"
 #include "dialect/VeronaOps.h"
+#include "dialect/VeronaTypes.h"
 #include "error.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Function.h"
@@ -123,10 +124,8 @@ namespace mlir::verona
     Generator(MLIRContext* context)
     : context(context), builder(context), unkLoc(builder.getUnknownLoc())
     {
-      // Initialise known opaque types, for comparison.
-      // TODO: Use Verona dialect types directly and isA<>.
-      allocaTy = genOpaqueType("alloca");
-      unkTy = genOpaqueType("unk");
+      // Initialise boolean / unknown types for convenience coding
+      unkTy = generateType("unk");
       boolTy = builder.getI1Type();
     }
 
@@ -153,8 +152,6 @@ namespace mlir::verona
     /// Nested reference for head/exit blocks in loops.
     BasicBlockTableT loopTable;
 
-    /// Alloca types, before we start using Verona types with known sizes.
-    mlir::Type allocaTy;
     /// Unknown types, will be defined during type inference.
     mlir::Type unkTy;
     /// MLIR boolean type (int1).
@@ -282,8 +279,5 @@ namespace mlir::verona
       llvm::StringRef name,
       llvm::ArrayRef<mlir::Value> ops,
       mlir::Type retTy);
-
-    /// Wrappers for opaque types before we use actual Verona dialect.
-    mlir::OpaqueType genOpaqueType(llvm::StringRef name);
   };
 }

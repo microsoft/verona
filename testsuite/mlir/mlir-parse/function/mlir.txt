@@ -8,20 +8,20 @@ module {
     return
   }
   func @foo(%arg0: !verona.imm, %arg1: !verona.meet<U64, imm>) -> !verona.meet<U64, imm> attributes {class = !verona.class<"$module">} {
-    %0 = "verona.alloca"() : () -> !type.alloca
-    %1 = "verona.store"(%arg0, %0) : (!verona.imm, !type.alloca) -> !type.unk
-    %2 = "verona.alloca"() : () -> !type.alloca
-    %3 = "verona.store"(%arg1, %2) : (!verona.meet<U64, imm>, !type.alloca) -> !type.unk
-    %4 = "verona.alloca"() : () -> !type.alloca
-    %5 = "verona.load"(%0) : (!type.alloca) -> !type.unk
-    %6 = "verona.load"(%2) : (!type.alloca) -> !type.unk
-    %7 = "verona.add"(%5, %6) : (!type.unk, !type.unk) -> !type.unk
-    %8 = "verona.store"(%7, %4) : (!type.unk, !type.alloca) -> !type.unk
-    %9 = "verona.alloca"() : () -> !type.alloca
-    %10 = "verona.load"(%4) : (!type.alloca) -> !type.unk
-    %11 = "verona.store"(%10, %9) : (!type.unk, !type.alloca) -> !type.unk
-    %12 = "verona.load"(%4) : (!type.alloca) -> !type.unk
-    %13 = "verona.cast"(%12) : (!type.unk) -> !verona.meet<U64, imm>
+    %0 = "verona.alloca"() : () -> !verona.unk
+    %1 = "verona.store"(%arg0, %0) : (!verona.imm, !verona.unk) -> !verona.unk
+    %2 = "verona.alloca"() : () -> !verona.unk
+    %3 = "verona.store"(%arg1, %2) : (!verona.meet<U64, imm>, !verona.unk) -> !verona.unk
+    %4 = "verona.alloca"() : () -> !verona.unk
+    %5 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
+    %6 = "verona.load"(%2) : (!verona.unk) -> !verona.unk
+    %7 = "verona.add"(%5, %6) : (!verona.unk, !verona.unk) -> !verona.unk
+    %8 = "verona.store"(%7, %4) : (!verona.unk, !verona.unk) -> !verona.unk
+    %9 = "verona.alloca"() : () -> !verona.unk
+    %10 = "verona.load"(%4) : (!verona.unk) -> !verona.unk
+    %11 = "verona.store"(%10, %9) : (!verona.unk, !verona.unk) -> !verona.unk
+    %12 = "verona.load"(%4) : (!verona.unk) -> !verona.unk
+    %13 = "verona.cast"(%12) : (!verona.unk) -> !verona.meet<U64, imm>
     return %13 : !verona.meet<U64, imm>
   }
   func @apply() attributes {class = !verona.class<"$module">} {

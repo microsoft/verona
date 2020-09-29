@@ -76,10 +76,10 @@ namespace mlir::verona
     // Map type names to MLIR types
     Types argTys;
     for (auto a : types)
-      argTys.push_back(genOpaqueType(a));
+      argTys.push_back(generateType(a));
     llvm::SmallVector<mlir::Type, 1> retTys;
     if (!retTy.empty())
-      retTys.push_back(genOpaqueType(retTy));
+      retTys.push_back(generateType(retTy));
 
     // Generate the function and check: this should never fail
     auto func = generateProto(unkLoc, name, argTys, retTys);
@@ -267,26 +267,41 @@ namespace mlir::verona
       return cacheReturn(getImm(context));
     else if (name == "bool")
       return cacheReturn(BoolType::get(context));
+    else if (name == "unk")
+      return cacheReturn(UnknownType::get(context));
 
     // Numeric
     size_t bitWidth = 0;
     name.substr(1).getAsInteger(10, bitWidth);
     bool validWidth = bitWidth >= 8 && bitWidth <= 128;
 
-    // Float
-    bool isFloat = name.startswith("F");
-    if (isFloat && validWidth)
-      return cacheReturn(FloatType::get(context, bitWidth));
+    // Float (default literal `float` to F64)
+    // FIXME: This is not correct, but is needed to avoid opaque types
+    // We could leave unknown and resolve later as a pass
+    bool isFloat = name.startswith("F") || name == "float";
+    if (isFloat)
+    {
+      if (validWidth)
+        return cacheReturn(FloatType::get(context, bitWidth));
+      else
+        return cacheReturn(FloatType::get(context, 64));
+    }
 
-    // Integer
-    bool isSigned = name.startswith("S");
-    bool isUnsigned = name.startswith("U");
-    if ((isSigned || isUnsigned) && validWidth)
-      return cacheReturn(IntegerType::get(context, bitWidth, isSigned));
+    // Integer (default literal `int` types to S64|U64)
+    // FIXME: This is not correct, but is needed to avoid opaque types
+    // We could leave unknown and resolve later as a pass
+    bool isSigned = name.startswith("S") || name == "int";
+    bool isUnsigned = name.startswith("U") || name == "hex" || name == "binary";
+    if (isSigned || isUnsigned)
+    {
+      if (validWidth)
+        return cacheReturn(IntegerType::get(context, bitWidth, isSigned));
+      else
+        return cacheReturn(IntegerType::get(context, 64, isSigned));
+    }
 
-    // Anything else, return opaque for now
-    // TODO: Implement all Verona types...
-    return cacheReturn(genOpaqueType(name));
+    // We need better error handling here, but this should never happen
+    llvm_unreachable("Cannot lower type");
   }
 
   mlir::Type Generator::parseType(const ::ast::Ast& ast)
@@ -408,7 +423,7 @@ namespace mlir::verona
       auto name = AST::getTokenValue(ast);
       auto var = symbolTable.lookup(name);
       assert(var && "Undeclared variable lookup, broken ast");
-      if (var.getType() == allocaTy)
+      if (var.getType() == unkTy)
         return generateLoad(getLocation(ast), var);
       return var;
     }
@@ -941,16 +956,16 @@ namespace mlir::verona
     // this to emit the attribute right away.
     mlir::Type type = unkTy;
     if (!typeName.empty())
-      type = genOpaqueType(typeName);
+      type = generateType(typeName);
     return genOperation(loc, "verona.constant(" + value.str() + ")", {}, type);
   }
 
   mlir::Value
   Generator::generateAlloca(mlir::Location loc, llvm::StringRef typeName)
   {
-    mlir::Type type = allocaTy;
+    mlir::Type type = unkTy;
     if (!typeName.empty())
-      type = genOpaqueType(typeName);
+      type = generateType(typeName);
     return genOperation(loc, "verona.alloca", {}, type);
   }
 
@@ -983,11 +998,5 @@ namespace mlir::verona
     auto op = builder.createOperation(state);
     auto res = op->getResult(0);
     return res;
-  }
-
-  mlir::OpaqueType Generator::genOpaqueType(llvm::StringRef name)
-  {
-    auto dialect = mlir::Identifier::get("type", context);
-    return mlir::OpaqueType::get(dialect, name, context);
   }
 }
