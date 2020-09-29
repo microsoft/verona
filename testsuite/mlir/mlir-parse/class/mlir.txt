@@ -21,6 +21,10 @@ module {
     %9 = "verona.store"(%arg4, %8) : (!verona.class<"F", "$parent" : class<"$module">, "e" : class<"G", "$parent" : class<"$module">>>, !verona.unk) -> !verona.unk
     %10 = "verona.alloca"() : () -> !verona.unk
     %11 = "verona.store"(%arg5, %10) : (!verona.class<"G", "$parent" : class<"$module">>, !verona.unk) -> !verona.unk
+    %12 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
+    verona.tidy %12 : !verona.unk
+    %13 = "verona.load"(%2) : (!verona.unk) -> !verona.unk
+    verona.drop %13 : !verona.unk
     return
   }
 }
