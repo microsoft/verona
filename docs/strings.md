@@ -78,7 +78,7 @@ The returned pointer may point to an immutable object but it lacks a `const` qua
 In OpenStep, `NSMutableString` is a subclass of (immutable) `NSString`, which allows APIs to be implemented as methods on `NSString` or as functions that take `NSString` arguments.
 This can lead to unsafe down-casts and the fact that a mutable string is a kind of immutable string causes bugs when mutable strings are accidentally used as immutable strings and modified unexpectedly.
 
-In Verona, we can differentiate between `imm` parameters, where the callee may capture the argument and requires that it is never mutated, and `readonly` parameters, where the string may be mutable but the caller promises not to modify them.
+In Verona, we can differentiate between `imm` parameters, where the callee may capture the argument and requires that it is never mutated, and `readonly` parameters, where the string may be mutable but the caller promises not to modify them and the compiler enforces that guarantee.
 Collections using strings as keys should always take an `imm & String`, whereas functions that query properties of a string should take a `readonly & String`.
 
 Existing string implementations
@@ -157,7 +157,7 @@ For immutable strings, iterating over characters (whatever that means), equality
 
 # Iteration
 
-ICU provides a number of kinds of iteration over strings, as does OpenStep's `NSString`.
+The [International Components for Unicode Library](http://site.icu-project.org/) (ICU) provides a number of kinds of iteration over strings, as does OpenStep's `NSString`.
 These include iterating over UTF-16 code units, Unicode code points, grapheme clusters, words, and sentences, with the breaking rules defined by the Unicode specification.
 Iterating over UTF-16 code units exists at the API layer in these designs for very different reasons.
 In the case of ICU, all of the other Unicode-processing algorithms expect UTF-16.
@@ -210,7 +210,7 @@ Encodings
 
 Unicode defines three common serialisations, with different properties:
 
- - UTF-8 is the most space-efficient for most Latin alphabet languages (an Emoji) and encodes every Unicode code point in 1-4 bytes.
+ - UTF-8 is the most space-efficient for most Latin alphabet languages (and Emoji) and encodes every Unicode code point in 1-4 bytes.
    The variation in length can make processing and random access indexed by code point expensive.
  - UTF-16 is the most space-efficient for CJK languages and encodes every Unicode code point to 2 or 4 bytes.
    As with UTF-8, random access requires additional metadata, though this can typically be omitted for strings in European languages, where every non-Emoji character will be 2 bytes.
@@ -307,13 +307,13 @@ typedef StringEncoding = StringEncodingASCII |
 /**
  * Character type, stores a unicode code point.
  */
-typedef Unichar = U32;
+type Rune = U32;
 
 // Placeholder until we have syntax for value types.
-value Range
+class Range
 {
-	U64 index;
-	U64 length;
+	index: USize;
+	length: USize;
 }
 
 /**
