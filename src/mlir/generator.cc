@@ -270,22 +270,18 @@ namespace mlir::verona
     else if (name == "unk")
       return cacheReturn(UnknownType::get(context));
 
-    // Numeric
+    // Numeric (getAsInteger returns true on failure)
     size_t bitWidth = 0;
-    name.substr(1).getAsInteger(10, bitWidth);
-    bool validWidth = bitWidth >= 8 && bitWidth <= 128;
+    if (name.substr(1).getAsInteger(10, bitWidth))
+      bitWidth = 64;
+    assert(bitWidth >= 8 && bitWidth <= 128 && "Bad numeric type width");
 
     // Float (default literal `float` to F64)
     // FIXME: This is not correct, but is needed to avoid opaque types
     // We could leave unknown and resolve later as a pass
     bool isFloat = name.startswith("F") || name == "float";
     if (isFloat)
-    {
-      if (validWidth)
-        return cacheReturn(FloatType::get(context, bitWidth));
-      else
-        return cacheReturn(FloatType::get(context, 64));
-    }
+      return cacheReturn(FloatType::get(context, bitWidth));
 
     // Integer (default literal `int` types to S64|U64)
     // FIXME: This is not correct, but is needed to avoid opaque types
@@ -293,12 +289,7 @@ namespace mlir::verona
     bool isSigned = name.startswith("S") || name == "int";
     bool isUnsigned = name.startswith("U") || name == "hex" || name == "binary";
     if (isSigned || isUnsigned)
-    {
-      if (validWidth)
-        return cacheReturn(IntegerType::get(context, bitWidth, isSigned));
-      else
-        return cacheReturn(IntegerType::get(context, 64, isSigned));
-    }
+      return cacheReturn(IntegerType::get(context, bitWidth, isSigned));
 
     // We need better error handling here, but this should never happen
     llvm_unreachable("Cannot lower type");
