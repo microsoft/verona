@@ -27,6 +27,16 @@ module {
     %15 = verona.new_object @C [] in(%13 : !verona.class<"C", "$parent" : class<"$module">>) : !verona.class<"C", "$parent" : class<"$module">>
     %16 = "verona.alloca"() : () -> !verona.class<"C", "$parent" : class<"$module">>
     %17 = "verona.store"(%15, %16) : (!verona.class<"C", "$parent" : class<"$module">>, !verona.class<"C", "$parent" : class<"$module">>) -> !verona.unknown
+    %18 = "verona.constant(42)"() : () -> !verona.S64
+    %19 = "verona.constant(3.14)"() : () -> !verona.F64
+    %20 = verona.new_region @POD ["a", "b"](%18, %19 : !verona.S64, !verona.F64) : !verona.class<"POD", "$parent" : class<"$module">, "a" : U32, "b" : F64>
+    %21 = "verona.alloca"() : () -> !verona.class<"POD", "$parent" : class<"$module">, "a" : U32, "b" : F64>
+    %22 = "verona.store"(%20, %21) : (!verona.class<"POD", "$parent" : class<"$module">, "a" : U32, "b" : F64>, !verona.class<"POD", "$parent" : class<"$module">, "a" : U32, "b" : F64>) -> !verona.unknown
+    %23 = "verona.constant(21)"() : () -> !verona.S64
+    %24 = "verona.constant(2.72)"() : () -> !verona.F64
+    %25 = verona.new_object @POD ["a", "b"](%23, %24 : !verona.S64, !verona.F64) in(%21 : !verona.class<"POD", "$parent" : class<"$module">, "a" : U32, "b" : F64>) : !verona.class<"POD", "$parent" : class<"$module">, "a" : U32, "b" : F64>
+    %26 = "verona.alloca"() : () -> !verona.class<"POD", "$parent" : class<"$module">, "a" : U32, "b" : F64>
+    %27 = "verona.store"(%25, %26) : (!verona.class<"POD", "$parent" : class<"$module">, "a" : U32, "b" : F64>, !verona.class<"POD", "$parent" : class<"$module">, "a" : U32, "b" : F64>) -> !verona.unknown
     verona.tidy %0 : !verona.class<"C", "$parent" : class<"$module">>
     verona.drop %2 : !verona.class<"D", "$parent" : class<"$module">, "f" : meet<U64, imm>, "g" : meet<class<"C", "$parent" : class<"$module">>, mut>, "h" : F32, "i" : F64, "j" : bool>
     return

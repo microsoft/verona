@@ -94,6 +94,7 @@ namespace mlir::verona
       Break = peg::str2tag("break"), // = 117842911
       New = peg::str2tag("new"), // = 120796
       InRegion = peg::str2tag("inregion"), // = 4267592959
+      InitExpr = peg::str2tag("initexpr"), // = 3935567717
     };
 
     // ================================================= Path Helpers
@@ -495,7 +496,7 @@ namespace mlir::verona
     /// Get the body of a class/module declaration
     static ::ast::WeakAst getClassBody(::ast::WeakAst ast)
     {
-      assert(isClass(ast) && "Bad node");
+      assert((isClass(ast) || isNew(ast)) && "Bad node");
 
       // TypeBody is just a block node in the class
       return findNode(ast, NodeKind::TypeBody);
@@ -507,6 +508,15 @@ namespace mlir::verona
       assert(isNew(ast) && "Bad node");
 
       return findNode(ast, NodeKind::InRegion);
+    }
+
+    /// Get the field init expression
+    static ::ast::WeakAst getInitExpr(::ast::WeakAst ast)
+    {
+      assert(isField(ast) && "Bad node");
+
+      // First node of initexpr is the expression
+      return findNode(ast, NodeKind::InitExpr).lock()->nodes[0];
     }
 
     /// Get the class ref node from a type
