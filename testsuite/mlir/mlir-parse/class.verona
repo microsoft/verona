@@ -36,6 +36,10 @@ class G {
 }
 
 bar(c: C, d: D, e: E, ne: NestE, f: F, g: G) {
+  // New empty object in new region (entry point)
+  let a : C & iso = new C {};
+  // New empty object in existing region
+  let b : C & iso = new C {} in a;
   // Garbage collect
   tidy(c);
   // Drop value

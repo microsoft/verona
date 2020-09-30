@@ -221,6 +221,8 @@ namespace mlir::verona
     llvm::Expected<ReturnValue> parseBreak(const ::ast::Ast& ast);
     /// Parses a 'return' statement.
     llvm::Expected<ReturnValue> parseReturn(const ::ast::Ast& ast);
+    /// Parses a 'new' statement.
+    llvm::Expected<ReturnValue> parseNew(const ::ast::Ast& ast);
 
     // ============================================================== Generators
     // These methods build complex MLIR constructs from parameters either
