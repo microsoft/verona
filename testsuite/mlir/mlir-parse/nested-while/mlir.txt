@@ -3,7 +3,7 @@
 module {
   func @f(%arg0: !verona.S64) -> !verona.S64 attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !verona.S64
-    %1 = "verona.store"(%arg0, %0) : (!verona.S64, !verona.S64) -> !verona.unk
+    %1 = "verona.store"(%arg0, %0) : (!verona.S64, !verona.S64) -> !verona.unknown
     br ^bb1
   ^bb1:  // 2 preds: ^bb0, ^bb6
     %2 = "verona.constant(50)"() : () -> !verona.S64
@@ -12,7 +12,7 @@ module {
   ^bb2:  // pred: ^bb1
     %4 = "verona.constant(1)"() : () -> !verona.S64
     %5 = "verona.alloca"() : () -> !verona.S64
-    %6 = "verona.store"(%4, %5) : (!verona.S64, !verona.S64) -> !verona.unk
+    %6 = "verona.store"(%4, %5) : (!verona.S64, !verona.S64) -> !verona.unknown
     br ^bb4
   ^bb3:  // pred: ^bb1
     return %0 : !verona.S64
@@ -21,11 +21,11 @@ module {
     %8 = "verona.lt"(%5, %7) : (!verona.S64, !verona.S64) -> i1
     cond_br %8, ^bb5, ^bb6
   ^bb5:  // pred: ^bb4
-    %9 = "verona.add"(%5, %0) : (!verona.S64, !verona.S64) -> !verona.unk
-    %10 = "verona.store"(%9, %5) : (!verona.unk, !verona.S64) -> !verona.unk
+    %9 = "verona.add"(%5, %0) : (!verona.S64, !verona.S64) -> !verona.unknown
+    %10 = "verona.store"(%9, %5) : (!verona.unknown, !verona.S64) -> !verona.unknown
     br ^bb4
   ^bb6:  // pred: ^bb4
-    %11 = "verona.store"(%5, %0) : (!verona.S64, !verona.S64) -> !verona.unk
+    %11 = "verona.store"(%5, %0) : (!verona.S64, !verona.S64) -> !verona.unknown
     br ^bb1
   }
 }

@@ -63,7 +63,7 @@ namespace mlir::verona::detail
         })
         .Case<FloatType>([&](FloatType type) { os << "F" << type.getWidth(); })
         .Case<BoolType>([&](BoolType type) { os << "bool"; })
-        .Case<UnknownType>([&](UnknownType type) { os << "unk"; })
+        .Case<UnknownType>([&](UnknownType type) { os << "unknown"; })
         .Case<MeetType>([&](MeetType type) {
           if (type.getElements().empty())
           {
@@ -289,7 +289,7 @@ namespace mlir::verona::detail
         return CapabilityType::get(context, Capability::Immutable);
       else if (keyword == "bool")
         return BoolType::get(context);
-      else if (keyword == "unk")
+      else if (keyword == "unknown")
         return UnknownType::get(context);
       else if (keyword.startswith("U") || keyword.startswith("S"))
         return parseIntegerType(keyword);
