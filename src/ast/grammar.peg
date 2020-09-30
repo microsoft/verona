@@ -72,7 +72,8 @@ continue <- 'continue'
 return <- 'return'
 yield <- 'yield'
 let <- 'let' (id / '(' list(id)? ')') oftype
-new <- 'new' type? typebody?
+new <- 'new' type? typebody? inregion?
+inregion <- 'in' id
 lambda <- sig block
 tuple <- '(' list(expr)? ')'
 
