@@ -2,37 +2,30 @@
 
 module {
   func @f(%arg0: !verona.S64) -> !verona.S64 attributes {class = !verona.class<"$module">} {
-    %0 = "verona.alloca"() : () -> !verona.unk
-    %1 = "verona.store"(%arg0, %0) : (!verona.S64, !verona.unk) -> !verona.unk
+    %0 = "verona.alloca"() : () -> !verona.S64
+    %1 = "verona.store"(%arg0, %0) : (!verona.S64, !verona.S64) -> !verona.unk
     br ^bb1
   ^bb1:  // 2 preds: ^bb0, ^bb6
-    %2 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
-    %3 = "verona.constant(50)"() : () -> !verona.S64
-    %4 = "verona.lt"(%2, %3) : (!verona.unk, !verona.S64) -> i1
-    cond_br %4, ^bb2, ^bb3
+    %2 = "verona.constant(50)"() : () -> !verona.S64
+    %3 = "verona.lt"(%0, %2) : (!verona.S64, !verona.S64) -> i1
+    cond_br %3, ^bb2, ^bb3
   ^bb2:  // pred: ^bb1
-    %5 = "verona.alloca"() : () -> !verona.unk
-    %6 = "verona.constant(1)"() : () -> !verona.S64
-    %7 = "verona.store"(%6, %5) : (!verona.S64, !verona.unk) -> !verona.unk
+    %4 = "verona.constant(1)"() : () -> !verona.S64
+    %5 = "verona.alloca"() : () -> !verona.S64
+    %6 = "verona.store"(%4, %5) : (!verona.S64, !verona.S64) -> !verona.unk
     br ^bb4
   ^bb3:  // pred: ^bb1
-    %8 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
-    %9 = "verona.cast"(%8) : (!verona.unk) -> !verona.S64
-    return %9 : !verona.S64
+    return %0 : !verona.S64
   ^bb4:  // 2 preds: ^bb2, ^bb5
-    %10 = "verona.load"(%5) : (!verona.unk) -> !verona.unk
-    %11 = "verona.constant(10)"() : () -> !verona.S64
-    %12 = "verona.lt"(%10, %11) : (!verona.unk, !verona.S64) -> i1
-    cond_br %12, ^bb5, ^bb6
+    %7 = "verona.constant(10)"() : () -> !verona.S64
+    %8 = "verona.lt"(%5, %7) : (!verona.S64, !verona.S64) -> i1
+    cond_br %8, ^bb5, ^bb6
   ^bb5:  // pred: ^bb4
-    %13 = "verona.load"(%5) : (!verona.unk) -> !verona.unk
-    %14 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
-    %15 = "verona.add"(%13, %14) : (!verona.unk, !verona.unk) -> !verona.unk
-    %16 = "verona.store"(%15, %5) : (!verona.unk, !verona.unk) -> !verona.unk
+    %9 = "verona.add"(%5, %0) : (!verona.S64, !verona.S64) -> !verona.unk
+    %10 = "verona.store"(%9, %5) : (!verona.unk, !verona.S64) -> !verona.unk
     br ^bb4
   ^bb6:  // pred: ^bb4
-    %17 = "verona.load"(%5) : (!verona.unk) -> !verona.unk
-    %18 = "verona.store"(%17, %0) : (!verona.unk, !verona.unk) -> !verona.unk
+    %11 = "verona.store"(%5, %0) : (!verona.S64, !verona.S64) -> !verona.unk
     br ^bb1
   }
 }

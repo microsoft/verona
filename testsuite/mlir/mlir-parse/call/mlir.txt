@@ -2,50 +2,44 @@
 
 module {
   func @foo(%arg0: !verona.imm, %arg1: !verona.meet<U64, imm>) -> !verona.meet<U64, imm> attributes {class = !verona.class<"$module">} {
-    %0 = "verona.alloca"() : () -> !verona.unk
-    %1 = "verona.store"(%arg0, %0) : (!verona.imm, !verona.unk) -> !verona.unk
-    %2 = "verona.alloca"() : () -> !verona.unk
-    %3 = "verona.store"(%arg1, %2) : (!verona.meet<U64, imm>, !verona.unk) -> !verona.unk
-    %4 = "verona.alloca"() : () -> !verona.unk
-    %5 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
-    %6 = "verona.load"(%2) : (!verona.unk) -> !verona.unk
-    %7 = "verona.add"(%5, %6) : (!verona.unk, !verona.unk) -> !verona.unk
-    %8 = "verona.store"(%7, %4) : (!verona.unk, !verona.unk) -> !verona.unk
-    %9 = "verona.alloca"() : () -> !verona.unk
-    %10 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
-    %11 = "verona.load"(%2) : (!verona.unk) -> !verona.unk
-    %12 = "verona.sub"(%10, %11) : (!verona.unk, !verona.unk) -> !verona.unk
-    %13 = "verona.store"(%12, %9) : (!verona.unk, !verona.unk) -> !verona.unk
-    %14 = "verona.load"(%4) : (!verona.unk) -> !verona.unk
-    %15 = "verona.constant(100)"() : () -> !verona.S64
-    %16 = "verona.lt"(%14, %15) : (!verona.unk, !verona.S64) -> i1
-    cond_br %16, ^bb1, ^bb2
+    %0 = "verona.alloca"() : () -> !verona.imm
+    %1 = "verona.store"(%arg0, %0) : (!verona.imm, !verona.imm) -> !verona.unk
+    %2 = "verona.alloca"() : () -> !verona.meet<U64, imm>
+    %3 = "verona.store"(%arg1, %2) : (!verona.meet<U64, imm>, !verona.meet<U64, imm>) -> !verona.unk
+    %4 = "verona.add"(%0, %2) : (!verona.imm, !verona.meet<U64, imm>) -> !verona.unk
+    %5 = "verona.alloca"() : () -> !verona.unk
+    %6 = "verona.store"(%4, %5) : (!verona.unk, !verona.unk) -> !verona.unk
+    %7 = "verona.sub"(%0, %2) : (!verona.imm, !verona.meet<U64, imm>) -> !verona.unk
+    %8 = "verona.alloca"() : () -> !verona.unk
+    %9 = "verona.store"(%7, %8) : (!verona.unk, !verona.unk) -> !verona.unk
+    %10 = "verona.load"(%5) : (!verona.unk) -> !verona.unk
+    %11 = "verona.constant(100)"() : () -> !verona.S64
+    %12 = "verona.lt"(%10, %11) : (!verona.unk, !verona.S64) -> i1
+    cond_br %12, ^bb1, ^bb2
   ^bb1:  // pred: ^bb0
-    %17 = "verona.load"(%4) : (!verona.unk) -> !verona.unk
-    %18 = "verona.cast"(%17) : (!verona.unk) -> !verona.imm
-    %19 = "verona.load"(%9) : (!verona.unk) -> !verona.unk
-    %20 = "verona.cast"(%19) : (!verona.unk) -> !verona.meet<U64, imm>
-    %21 = call @foo(%18, %20) : (!verona.imm, !verona.meet<U64, imm>) -> !verona.meet<U64, imm>
-    return %21 : !verona.meet<U64, imm>
+    %13 = "verona.load"(%5) : (!verona.unk) -> !verona.unk
+    %14 = "verona.cast"(%13) : (!verona.unk) -> !verona.imm
+    %15 = "verona.load"(%8) : (!verona.unk) -> !verona.unk
+    %16 = "verona.cast"(%15) : (!verona.unk) -> !verona.meet<U64, imm>
+    %17 = call @foo(%14, %16) : (!verona.imm, !verona.meet<U64, imm>) -> !verona.meet<U64, imm>
+    return %17 : !verona.meet<U64, imm>
   ^bb2:  // pred: ^bb0
-    %22 = "verona.load"(%4) : (!verona.unk) -> !verona.unk
-    %23 = "verona.load"(%9) : (!verona.unk) -> !verona.unk
-    %24 = "verona.add"(%22, %23) : (!verona.unk, !verona.unk) -> !verona.unk
-    %25 = "verona.cast"(%24) : (!verona.unk) -> !verona.meet<U64, imm>
-    return %25 : !verona.meet<U64, imm>
+    %18 = "verona.load"(%5) : (!verona.unk) -> !verona.unk
+    %19 = "verona.load"(%8) : (!verona.unk) -> !verona.unk
+    %20 = "verona.add"(%18, %19) : (!verona.unk, !verona.unk) -> !verona.unk
+    %21 = "verona.cast"(%20) : (!verona.unk) -> !verona.meet<U64, imm>
+    return %21 : !verona.meet<U64, imm>
   }
   func @apply() attributes {class = !verona.class<"$module">} {
-    %0 = "verona.alloca"() : () -> !verona.unk
-    %1 = "verona.constant(10)"() : () -> !verona.S64
-    %2 = "verona.store"(%1, %0) : (!verona.S64, !verona.unk) -> !verona.unk
-    %3 = "verona.alloca"() : () -> !verona.unk
-    %4 = "verona.constant(20)"() : () -> !verona.S64
-    %5 = "verona.store"(%4, %3) : (!verona.S64, !verona.unk) -> !verona.unk
-    %6 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
-    %7 = "verona.cast"(%6) : (!verona.unk) -> !verona.imm
-    %8 = "verona.load"(%3) : (!verona.unk) -> !verona.unk
-    %9 = "verona.cast"(%8) : (!verona.unk) -> !verona.meet<U64, imm>
-    %10 = call @foo(%7, %9) : (!verona.imm, !verona.meet<U64, imm>) -> !verona.meet<U64, imm>
+    %0 = "verona.constant(10)"() : () -> !verona.S64
+    %1 = "verona.alloca"() : () -> !verona.S64
+    %2 = "verona.store"(%0, %1) : (!verona.S64, !verona.S64) -> !verona.unk
+    %3 = "verona.constant(20)"() : () -> !verona.S64
+    %4 = "verona.alloca"() : () -> !verona.S64
+    %5 = "verona.store"(%3, %4) : (!verona.S64, !verona.S64) -> !verona.unk
+    %6 = "verona.cast"(%1) : (!verona.S64) -> !verona.imm
+    %7 = "verona.cast"(%4) : (!verona.S64) -> !verona.meet<U64, imm>
+    %8 = call @foo(%6, %7) : (!verona.imm, !verona.meet<U64, imm>) -> !verona.meet<U64, imm>
     return
   }
 }

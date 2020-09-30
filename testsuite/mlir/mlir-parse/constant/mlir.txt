@@ -2,36 +2,36 @@
 
 module {
   func @f() attributes {class = !verona.class<"$module">} {
-    %0 = "verona.alloca"() : () -> !verona.unk
-    %1 = "verona.constant(42)"() : () -> !verona.S64
-    %2 = "verona.store"(%1, %0) : (!verona.S64, !verona.unk) -> !verona.unk
-    %3 = "verona.alloca"() : () -> !verona.unk
-    %4 = "verona.constant(3.1415)"() : () -> !verona.F64
-    %5 = "verona.store"(%4, %3) : (!verona.F64, !verona.unk) -> !verona.unk
-    %6 = "verona.alloca"() : () -> !verona.unk
-    %7 = "verona.constant(true)"() : () -> !verona.bool
-    %8 = "verona.store"(%7, %6) : (!verona.bool, !verona.unk) -> !verona.unk
-    %9 = "verona.alloca"() : () -> !verona.unk
-    %10 = "verona.constant(0xAE)"() : () -> !verona.U64
-    %11 = "verona.store"(%10, %9) : (!verona.U64, !verona.unk) -> !verona.unk
-    %12 = "verona.alloca"() : () -> !verona.unk
-    %13 = "verona.constant(0b11011)"() : () -> !verona.U64
-    %14 = "verona.store"(%13, %12) : (!verona.U64, !verona.unk) -> !verona.unk
-    %15 = "verona.alloca"() : () -> !verona.unk
-    %16 = "verona.constant(42)"() : () -> !verona.S64
-    %17 = "verona.store"(%16, %15) : (!verona.S64, !verona.unk) -> !verona.unk
-    %18 = "verona.alloca"() : () -> !verona.unk
-    %19 = "verona.constant(3.1415)"() : () -> !verona.F64
-    %20 = "verona.store"(%19, %18) : (!verona.F64, !verona.unk) -> !verona.unk
-    %21 = "verona.alloca"() : () -> !verona.unk
-    %22 = "verona.constant(false)"() : () -> !verona.bool
-    %23 = "verona.store"(%22, %21) : (!verona.bool, !verona.unk) -> !verona.unk
-    %24 = "verona.alloca"() : () -> !verona.unk
-    %25 = "verona.constant(0xDEADBEEF)"() : () -> !verona.U64
-    %26 = "verona.store"(%25, %24) : (!verona.U64, !verona.unk) -> !verona.unk
-    %27 = "verona.alloca"() : () -> !verona.unk
-    %28 = "verona.constant(0b1)"() : () -> !verona.U64
-    %29 = "verona.store"(%28, %27) : (!verona.U64, !verona.unk) -> !verona.unk
+    %0 = "verona.constant(42)"() : () -> !verona.S64
+    %1 = "verona.alloca"() : () -> !verona.S64
+    %2 = "verona.store"(%0, %1) : (!verona.S64, !verona.S64) -> !verona.unk
+    %3 = "verona.constant(3.1415)"() : () -> !verona.F64
+    %4 = "verona.alloca"() : () -> !verona.F64
+    %5 = "verona.store"(%3, %4) : (!verona.F64, !verona.F64) -> !verona.unk
+    %6 = "verona.constant(true)"() : () -> !verona.bool
+    %7 = "verona.alloca"() : () -> !verona.bool
+    %8 = "verona.store"(%6, %7) : (!verona.bool, !verona.bool) -> !verona.unk
+    %9 = "verona.constant(0xAE)"() : () -> !verona.U64
+    %10 = "verona.alloca"() : () -> !verona.U64
+    %11 = "verona.store"(%9, %10) : (!verona.U64, !verona.U64) -> !verona.unk
+    %12 = "verona.constant(0b11011)"() : () -> !verona.U64
+    %13 = "verona.alloca"() : () -> !verona.U64
+    %14 = "verona.store"(%12, %13) : (!verona.U64, !verona.U64) -> !verona.unk
+    %15 = "verona.constant(42)"() : () -> !verona.S64
+    %16 = "verona.alloca"() : () -> !verona.S64
+    %17 = "verona.store"(%15, %16) : (!verona.S64, !verona.S64) -> !verona.unk
+    %18 = "verona.constant(3.1415)"() : () -> !verona.F64
+    %19 = "verona.alloca"() : () -> !verona.F64
+    %20 = "verona.store"(%18, %19) : (!verona.F64, !verona.F64) -> !verona.unk
+    %21 = "verona.constant(false)"() : () -> !verona.bool
+    %22 = "verona.alloca"() : () -> !verona.bool
+    %23 = "verona.store"(%21, %22) : (!verona.bool, !verona.bool) -> !verona.unk
+    %24 = "verona.constant(0xDEADBEEF)"() : () -> !verona.U64
+    %25 = "verona.alloca"() : () -> !verona.U64
+    %26 = "verona.store"(%24, %25) : (!verona.U64, !verona.U64) -> !verona.unk
+    %27 = "verona.constant(0b1)"() : () -> !verona.U64
+    %28 = "verona.alloca"() : () -> !verona.U64
+    %29 = "verona.store"(%27, %28) : (!verona.U64, !verona.U64) -> !verona.unk
     return
   }
 }

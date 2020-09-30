@@ -2,14 +2,12 @@
 
 module {
   func @foo(%arg0: !verona.meet<S32, iso>, %arg1: !verona.meet<U64, imm>) -> !verona.join<meet<S32, iso>, meet<U64, imm>, meet<U32, mut>> attributes {class = !verona.class<"$module">} {
-    %0 = "verona.alloca"() : () -> !verona.unk
-    %1 = "verona.store"(%arg0, %0) : (!verona.meet<S32, iso>, !verona.unk) -> !verona.unk
-    %2 = "verona.alloca"() : () -> !verona.unk
-    %3 = "verona.store"(%arg1, %2) : (!verona.meet<U64, imm>, !verona.unk) -> !verona.unk
-    %4 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
-    %5 = "verona.load"(%2) : (!verona.unk) -> !verona.unk
-    %6 = "verona.add"(%4, %5) : (!verona.unk, !verona.unk) -> !verona.unk
-    %7 = "verona.cast"(%6) : (!verona.unk) -> !verona.join<meet<S32, iso>, meet<U64, imm>, meet<U32, mut>>
-    return %7 : !verona.join<meet<S32, iso>, meet<U64, imm>, meet<U32, mut>>
+    %0 = "verona.alloca"() : () -> !verona.meet<S32, iso>
+    %1 = "verona.store"(%arg0, %0) : (!verona.meet<S32, iso>, !verona.meet<S32, iso>) -> !verona.unk
+    %2 = "verona.alloca"() : () -> !verona.meet<U64, imm>
+    %3 = "verona.store"(%arg1, %2) : (!verona.meet<U64, imm>, !verona.meet<U64, imm>) -> !verona.unk
+    %4 = "verona.add"(%0, %2) : (!verona.meet<S32, iso>, !verona.meet<U64, imm>) -> !verona.unk
+    %5 = "verona.cast"(%4) : (!verona.unk) -> !verona.join<meet<S32, iso>, meet<U64, imm>, meet<U32, mut>>
+    return %5 : !verona.join<meet<S32, iso>, meet<U64, imm>, meet<U32, mut>>
   }
 }
