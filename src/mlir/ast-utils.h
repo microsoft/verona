@@ -92,6 +92,8 @@ namespace mlir::verona
       For = peg::str2tag("for"), // = 112155
       Continue = peg::str2tag("continue"), // = 2929012833
       Break = peg::str2tag("break"), // = 117842911
+      New = peg::str2tag("new"), // = 120796
+      InRegion = peg::str2tag("inregion"), // = 4267592959
     };
 
     // ================================================= Path Helpers
@@ -188,7 +190,7 @@ namespace mlir::verona
     /// Return true if node is a type holder
     static bool isTypeHolder(::ast::WeakAst ast)
     {
-      return isAny(ast, {NodeKind::OfType, NodeKind::TypeTuple});
+      return isAny(ast, {NodeKind::OfType, NodeKind::TypeTuple, NodeKind::New});
     }
 
     /// Return true if node is final type (tuple element)
@@ -287,6 +289,18 @@ namespace mlir::verona
       return isValue(ast) && isA(ast, NodeKind::Break);
     }
 
+    /// Return true if node is a new allocator
+    static bool isNew(::ast::WeakAst ast)
+    {
+      return isA(ast, NodeKind::New);
+    }
+
+    /// Return true if node defined a region to allocate
+    static bool hasInRegion(::ast::WeakAst ast)
+    {
+      return hasA(ast, NodeKind::InRegion);
+    }
+
     /// Find a sub-node of tag 'type'
     static ::ast::WeakAst findNode(::ast::WeakAst ast, NodeType type)
     {
@@ -357,7 +371,16 @@ namespace mlir::verona
     /// Get the ast type representaiton of an ast node
     static ::ast::WeakAst getType(::ast::WeakAst ast)
     {
-      return findNode(ast, NodeKind::OfType);
+      // This can be any of the type holders
+      for (auto node : ast.lock()->nodes)
+      {
+        if (isTypeHolder(node))
+          return node;
+      }
+      // TODO: Make this into a soft error
+      assert(false && "AST node doesn't have a type holder");
+      // Avoid no-return warnings, until we fix the TODO above
+      return ::ast::WeakAst();
     }
 
     /// Return true if node has non-empty (oftype / type)
@@ -476,6 +499,22 @@ namespace mlir::verona
 
       // TypeBody is just a block node in the class
       return findNode(ast, NodeKind::TypeBody);
+    }
+
+    /// Get the class allocation region if any
+    static ::ast::WeakAst getInRegion(::ast::WeakAst ast)
+    {
+      assert(isNew(ast) && "Bad node");
+
+      return findNode(ast, NodeKind::InRegion);
+    }
+
+    /// Get the class ref node from a type
+    static ::ast::WeakAst getClassTypeRef(::ast::WeakAst ast)
+    {
+      return findNode(
+        findNode(findNode(ast, NodeKind::Type), NodeKind::TypeOne),
+        NodeKind::TypeRef);
     }
 
     /// Get the body of a class/module declaration

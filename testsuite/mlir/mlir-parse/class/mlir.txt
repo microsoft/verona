@@ -21,10 +21,16 @@ module {
     %9 = "verona.store"(%arg4, %8) : (!verona.class<"F", "$parent" : class<"$module">, "e" : class<"G", "$parent" : class<"$module">>>, !verona.unk) -> !verona.unk
     %10 = "verona.alloca"() : () -> !verona.unk
     %11 = "verona.store"(%arg5, %10) : (!verona.class<"G", "$parent" : class<"$module">>, !verona.unk) -> !verona.unk
-    %12 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
-    verona.tidy %12 : !verona.unk
-    %13 = "verona.load"(%2) : (!verona.unk) -> !verona.unk
-    verona.drop %13 : !verona.unk
+    %12 = "verona.alloca"() : () -> !verona.unk
+    %13 = verona.new_region @C [] : !verona.class<"C", "$parent" : class<"$module">>
+    %14 = "verona.store"(%13, %12) : (!verona.class<"C", "$parent" : class<"$module">>, !verona.unk) -> !verona.unk
+    %15 = "verona.alloca"() : () -> !verona.unk
+    %16 = verona.new_object @C [] in(%12 : !verona.unk) : !verona.class<"C", "$parent" : class<"$module">>
+    %17 = "verona.store"(%16, %15) : (!verona.class<"C", "$parent" : class<"$module">>, !verona.unk) -> !verona.unk
+    %18 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
+    verona.tidy %18 : !verona.unk
+    %19 = "verona.load"(%2) : (!verona.unk) -> !verona.unk
+    verona.drop %19 : !verona.unk
     return
   }
 }

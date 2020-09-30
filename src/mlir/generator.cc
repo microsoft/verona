@@ -297,6 +297,8 @@ namespace mlir::verona
 
   mlir::Type Generator::parseType(const ::ast::Ast& ast)
   {
+    assert(AST::isTypeHolder(ast) && "Bad node");
+
     // Get type components
     char sep = 0;
     llvm::SmallVector<::ast::WeakAst, 1> nodes;
@@ -396,6 +398,8 @@ namespace mlir::verona
         return parseContinue(ast);
       case AST::NodeKind::Break:
         return parseBreak(ast);
+      case AST::NodeKind::New:
+        return parseNew(ast);
     }
 
     if (AST::isValue(ast))
@@ -870,6 +874,40 @@ namespace mlir::verona
 
     // No values to return, basic block is terminated.
     return ReturnValue();
+  }
+
+  llvm::Expected<ReturnValue> Generator::parseNew(const ::ast::Ast& ast)
+  {
+    assert(AST::isNew(ast) && "Bad node");
+    // Class name
+    auto name = AST::getID(AST::getClassTypeRef(ast));
+    auto nameAttr = SymbolRefAttr::get(name, context);
+
+    // Type to allocate
+    auto type = parseType(ast);
+    auto typeAttr = TypeAttr::get(type);
+
+    // TODO: Implement initializer list
+    llvm::SmallVector<mlir::Attribute, 1> fieldNames;
+    auto fieldNameAttr = ArrayAttr::get(fieldNames, context);
+    ValueRange inits;
+
+    // If there's an `inreg`, allocate object on existing reagion
+    if (AST::hasInRegion(ast))
+    {
+      auto regionName = AST::getID(AST::getInRegion(ast));
+      // FIXME: This brings the alloca, not the new value
+      auto regionObj = symbolTable.lookup(regionName);
+      auto alloc = builder.create<AllocateObjectOp>(
+        getLocation(ast), type, nameAttr, fieldNameAttr, inits, regionObj);
+      return alloc.getResult();
+    }
+    else
+    {
+      auto alloc = builder.create<AllocateRegionOp>(
+        getLocation(ast), type, nameAttr, fieldNameAttr, inits);
+      return alloc.getResult();
+    }
   }
 
   // ===================================================== MLIR Generators
