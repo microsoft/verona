@@ -2,30 +2,24 @@
 
 module {
   func @f(%arg0: !verona.U32, %arg1: !verona.S32) -> !verona.U32 attributes {class = !verona.class<"$module">} {
-    %0 = "verona.alloca"() : () -> !verona.unk
-    %1 = "verona.store"(%arg0, %0) : (!verona.U32, !verona.unk) -> !verona.unk
-    %2 = "verona.alloca"() : () -> !verona.unk
-    %3 = "verona.store"(%arg1, %2) : (!verona.S32, !verona.unk) -> !verona.unk
+    %0 = "verona.alloca"() : () -> !verona.U32
+    %1 = "verona.store"(%arg0, %0) : (!verona.U32, !verona.U32) -> !verona.unk
+    %2 = "verona.alloca"() : () -> !verona.S32
+    %3 = "verona.store"(%arg1, %2) : (!verona.S32, !verona.S32) -> !verona.unk
     br ^bb1
   ^bb1:  // 2 preds: ^bb0, ^bb5
-    %4 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
-    %5 = "verona.constant(5)"() : () -> !verona.S64
-    %6 = "verona.lt"(%4, %5) : (!verona.unk, !verona.S64) -> i1
-    cond_br %6, ^bb2, ^bb3
+    %4 = "verona.constant(5)"() : () -> !verona.S64
+    %5 = "verona.lt"(%0, %4) : (!verona.U32, !verona.S64) -> i1
+    cond_br %5, ^bb2, ^bb3
   ^bb2:  // pred: ^bb1
-    %7 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
-    %8 = "verona.load"(%2) : (!verona.unk) -> !verona.unk
-    %9 = "verona.ne"(%7, %8) : (!verona.unk, !verona.unk) -> i1
-    cond_br %9, ^bb4, ^bb5
+    %6 = "verona.ne"(%0, %2) : (!verona.U32, !verona.S32) -> i1
+    cond_br %6, ^bb4, ^bb5
   ^bb3:  // pred: ^bb1
-    %10 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
-    %11 = "verona.cast"(%10) : (!verona.unk) -> !verona.U32
-    return %11 : !verona.U32
+    return %0 : !verona.U32
   ^bb4:  // pred: ^bb2
-    %12 = "verona.load"(%0) : (!verona.unk) -> !verona.unk
-    %13 = "verona.constant(1)"() : () -> !verona.S64
-    %14 = "verona.add"(%12, %13) : (!verona.unk, !verona.S64) -> !verona.unk
-    %15 = "verona.store"(%14, %0) : (!verona.unk, !verona.unk) -> !verona.unk
+    %7 = "verona.constant(1)"() : () -> !verona.S64
+    %8 = "verona.add"(%0, %7) : (!verona.U32, !verona.S64) -> !verona.unk
+    %9 = "verona.store"(%8, %0) : (!verona.unk, !verona.U32) -> !verona.unk
     br ^bb5
   ^bb5:  // 2 preds: ^bb2, ^bb4
     br ^bb1

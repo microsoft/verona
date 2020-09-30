@@ -170,10 +170,8 @@ namespace mlir::verona
     void updateVariable(llvm::StringRef name, mlir::Value val);
     /// Get a (compiler generated) function.
     /// Will declare the prototype if it has not already been defined.
-    FuncOp getFunction(
-      llvm::StringRef name,
-      llvm::ArrayRef<llvm::StringRef> types,
-      llvm::StringRef retTy);
+    FuncOp genIntrinsic(
+      llvm::StringRef name, llvm::ArrayRef<mlir::Type> types, mlir::Type retTy);
 
     // ================================================================= Parsers
     // These methods parse the AST into MLIR constructs, then either return the
@@ -266,10 +264,8 @@ namespace mlir::verona
     /// Generates a verona constant with opaque type
     mlir::Value generateConstant(
       mlir::Location loc, llvm::StringRef value, llvm::StringRef typeName);
-    /// Generates a verona alloca with special type (or allocaTy if none)
-    // TODO: use defining operation instead of a special type, default to unkTy
-    mlir::Value
-    generateAlloca(mlir::Location loc, llvm::StringRef typeName = "");
+    /// Generates a verona alloca with specific type
+    mlir::Value generateAlloca(mlir::Location loc, mlir::Type type);
     /// Generates a verona load (using address' type, or unkTy)
     mlir::Value generateLoad(mlir::Location loc, mlir::Value addr);
     /// Generates a verona store (using value's type, or unkTy)

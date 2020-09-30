@@ -63,10 +63,8 @@ namespace mlir::verona
     symbolTable.update(name, val);
   }
 
-  FuncOp Generator::getFunction(
-    llvm::StringRef name,
-    llvm::ArrayRef<llvm::StringRef> types,
-    llvm::StringRef retTy)
+  FuncOp Generator::genIntrinsic(
+    llvm::StringRef name, llvm::ArrayRef<mlir::Type> types, mlir::Type retTy)
   {
     // If already declared, return existing function.
     auto result = functionTable.lookup(name);
@@ -75,11 +73,11 @@ namespace mlir::verona
 
     // Map type names to MLIR types
     Types argTys;
-    for (auto a : types)
-      argTys.push_back(generateType(a));
+    for (auto t : types)
+      argTys.push_back(t);
     llvm::SmallVector<mlir::Type, 1> retTys;
-    if (!retTy.empty())
-      retTys.push_back(generateType(retTy));
+    if (retTy)
+      retTys.push_back(retTy);
 
     // Generate the function and check: this should never fail
     auto func = generateProto(unkLoc, name, argTys, retTys);
@@ -442,6 +440,14 @@ namespace mlir::verona
   {
     assert(AST::isAssign(ast) && "Bad node");
 
+    // The right-hand side can be any expression
+    // This is the value and we update the variable
+    // We parse it first, to get its type
+    auto rhs = parseNode(AST::getRHS(ast).lock());
+    if (auto err = rhs.takeError())
+      return std::move(err);
+    auto type = (*rhs).get().getType();
+
     // Can either be a let (new variable) or localref (existing variable).
     auto var = AST::getLHS(ast);
     auto name = AST::getLocalName(var);
@@ -450,7 +456,7 @@ namespace mlir::verona
     // TODO: Implement declaration of tuples (multiple values)
     if (AST::isLet(var))
     {
-      auto alloca = generateAlloca(getLocation(ast));
+      auto alloca = generateAlloca(getLocation(ast), type);
       declareVariable(name, alloca);
     }
     auto store = symbolTable.lookup(name);
@@ -458,12 +464,6 @@ namespace mlir::verona
       return parsingError(
         "Variable " + name.str() + " not declared before use",
         getLocation(var));
-
-    // The right-hand side can be any expression
-    // This is the value and we update the variable
-    auto rhs = parseNode(AST::getRHS(ast).lock());
-    if (auto err = rhs.takeError())
-      return std::move(err);
 
     // Store the value in the alloca
     return generateStore(getLocation(ast), rhs->get(), store);
@@ -788,6 +788,7 @@ namespace mlir::verona
     declareVariable(ABI::LoopIterator::handler, list->get());
     llvm::SmallVector<mlir::Value, 1> iter{
       symbolTable.lookup(ABI::LoopIterator::handler)};
+    auto iterTy = list->get().getType();
 
     // Create the head basic-block, which will check the condition
     // and dispatch the loop to the body block or exit.
@@ -800,10 +801,7 @@ namespace mlir::verona
     builder.create<mlir::BranchOp>(getLocation(ast), headBB, empty);
 
     // First node is a check if the list has value, returns boolean.
-    auto has_value = getFunction(
-      ABI::LoopIterator::check::name,
-      {ABI::LoopIterator::check::types[0]},
-      ABI::LoopIterator::check::retTy);
+    auto has_value = genIntrinsic(ABI::LoopIterator::check, iterTy, boolTy);
     auto condLoc = getLocation(seqNode);
     builder.setInsertionPointToEnd(headBB);
     auto cond = builder.create<mlir::CallOp>(condLoc, has_value, iter);
@@ -820,10 +818,7 @@ namespace mlir::verona
     // Preamble for the loop body is:
     //  val = $iter.apply();
     // val must have been declared in outer scope
-    auto apply = getFunction(
-      ABI::LoopIterator::apply::name,
-      {ABI::LoopIterator::apply::types[0]},
-      ABI::LoopIterator::apply::retTy);
+    auto apply = genIntrinsic(ABI::LoopIterator::apply, iterTy, unkTy);
     builder.setInsertionPointToEnd(bodyBB);
     auto indVarName = AST::getTokenValue(AST::getLoopInd(ast));
     auto value = builder.create<mlir::CallOp>(condLoc, apply, iter);
@@ -840,10 +835,7 @@ namespace mlir::verona
 
     //  %iter.next();
     builder.setInsertionPointToEnd(nextBB);
-    auto next = getFunction(
-      ABI::LoopIterator::next::name,
-      {ABI::LoopIterator::next::types[0]},
-      ABI::LoopIterator::next::retTy);
+    auto next = genIntrinsic(ABI::LoopIterator::next, iterTy, {});
     builder.create<mlir::CallOp>(condLoc, next, iter);
     builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
 
@@ -959,7 +951,7 @@ namespace mlir::verona
       auto name = std::get<0>(var_val);
       auto value = std::get<1>(var_val);
       // Allocate space in the stack & store the argument value
-      auto alloca = generateAlloca(loc);
+      auto alloca = generateAlloca(loc, value.getType());
       auto store = generateStore(loc, value, alloca);
       // Associate the name with the alloca SSA value
       declareVariable(name, alloca);
@@ -1022,12 +1014,8 @@ namespace mlir::verona
     return genOperation(loc, "verona.constant(" + value.str() + ")", {}, type);
   }
 
-  mlir::Value
-  Generator::generateAlloca(mlir::Location loc, llvm::StringRef typeName)
+  mlir::Value Generator::generateAlloca(mlir::Location loc, mlir::Type type)
   {
-    mlir::Type type = unkTy;
-    if (!typeName.empty())
-      type = generateType(typeName);
     return genOperation(loc, "verona.alloca", {}, type);
   }
 

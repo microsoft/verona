@@ -44,32 +44,11 @@ namespace mlir::verona::ABI
   {
     /// Iteration handler, using `$` as a compiler-generated symbol
     constexpr static const char* const handler = "$iter";
-
     /// Iteration value check, to be performed before taking a value.
-    struct check
-    {
-      constexpr static const char* const name = "has_value";
-      constexpr static const char* const args[]{handler};
-      constexpr static const char* const types[]{"unk"};
-      constexpr static const char* const retTy{"bool"};
-    };
-
+    constexpr static const char* const check = "has_value";
     /// Iteration value copy, should only be called if `has_value` is true.
-    struct apply
-    {
-      constexpr static const char* const name = "apply";
-      constexpr static const char* const args[]{handler};
-      constexpr static const char* const types[]{"unk"};
-      constexpr static const char* const retTy{"unk"};
-    };
-
+    constexpr static const char* const apply = "apply";
     /// Iteration pointer increment, moves on to the next element in the list.
-    struct next
-    {
-      constexpr static const char* const name = "next";
-      constexpr static const char* const args[]{handler};
-      constexpr static const char* const types[]{"unk"};
-      constexpr static const char* const retTy{};
-    };
+    constexpr static const char* const next = "next";
   };
 }
