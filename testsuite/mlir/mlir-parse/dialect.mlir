@@ -26,20 +26,9 @@
 // }
 // ```
 
-!C = type !verona.class<"C">
-!D = type !verona.class<"D", "f" : meet<U64, imm>, "g" : meet<!C, mut>>
+!C = type !verona.class<"C", "$parent" : class<"$module">>
+!D = type !verona.class<"D", "$parent" : class<"$module">, "f" : meet<U64, imm>, "g" : meet<!C, mut>, "h" : meet<S32, mut>, "h" : F32, "i" : F64, "j" : bool>
 module {
-  verona.class @C {
-  }
-
-  verona.class @D {
-    verona.field "f" : !verona.meet<U64, imm>
-    verona.field "g" : !verona.meet<!C, mut>
-    verona.field "h" : !verona.F32
-    verona.field "i" : !verona.F64
-    verona.field "j" : !verona.bool
-  }
-
   func @bar(%x: !verona.meet<U64, imm>, %y: !verona.meet<U64, imm>) {
     %a = verona.new_region @C [ ] : !verona.meet<!C, iso>
     %b = verona.view %a : !verona.meet<!C, iso> -> !verona.meet<!C, mut>
