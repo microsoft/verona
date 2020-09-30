@@ -35,11 +35,21 @@ class G {
   static foo(a: U32) : F32 { 3.14; }
 }
 
+// POD class
+class POD {
+  a: U32;
+  b: F64;
+}
+
 bar(c: C, d: D, e: E, ne: NestE, f: F, g: G) {
   // New empty object in new region (entry point)
   let a : C & iso = new C {};
   // New empty object in existing region
   let b : C & iso = new C {} in a;
+  // Allocate a POD class
+  let p : POD & iso = new POD { a = 42; b = 3.14; };
+  // Allocate a POD class, in region
+  let q : POD & iso = new POD { a = 21; b = 2.72; } in p;
   // Garbage collect
   tidy(c);
   // Drop value

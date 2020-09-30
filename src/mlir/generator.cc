@@ -446,7 +446,7 @@ namespace mlir::verona
     auto rhs = parseNode(AST::getRHS(ast).lock());
     if (auto err = rhs.takeError())
       return std::move(err);
-    auto type = (*rhs).get().getType();
+    auto type = rhs->get().getType();
 
     // Can either be a let (new variable) or localref (existing variable).
     auto var = AST::getLHS(ast);
@@ -879,10 +879,23 @@ namespace mlir::verona
     auto type = parseType(ast);
     auto typeAttr = TypeAttr::get(type);
 
-    // TODO: Implement initializer list
+    // Initializer list
+    llvm::SmallVector<::ast::WeakAst, 4> nodes;
+    AST::getSubNodes(nodes, AST::getClassBody(ast));
     llvm::SmallVector<mlir::Attribute, 1> fieldNames;
+    llvm::SmallVector<mlir::Value, 1> fieldValues;
+    for (auto node : nodes)
+    {
+      if (!AST::isField(node))
+        continue;
+      fieldNames.push_back(StringAttr::get(AST::getID(node), context));
+      auto expr = parseNode(AST::getInitExpr(node).lock());
+      if (auto err = expr.takeError())
+        return std::move(err);
+      fieldValues.push_back(expr->get());
+    }
     auto fieldNameAttr = ArrayAttr::get(fieldNames, context);
-    ValueRange inits;
+    ValueRange inits{fieldValues};
 
     // If there's an `inreg`, allocate object on existing reagion
     if (AST::hasInRegion(ast))
