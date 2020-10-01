@@ -95,6 +95,8 @@ namespace mlir::verona
       New = peg::str2tag("new"), // = 120796
       InRegion = peg::str2tag("inregion"), // = 4267592959
       InitExpr = peg::str2tag("initexpr"), // = 3935567717
+      Member = peg::str2tag("member"), // = 75189616
+      Lookup = peg::str2tag("lookup"), // = 4099072514
     };
 
     // ================================================= Path Helpers
@@ -216,6 +218,12 @@ namespace mlir::verona
     static bool isClass(::ast::WeakAst ast)
     {
       return isA(ast, NodeKind::ClassDef);
+    }
+
+    /// Return true if node is a member access
+    static bool isMember(::ast::WeakAst ast)
+    {
+      return isA(ast, NodeKind::Member);
     }
 
     /// Return true if node is an operation/call
@@ -349,12 +357,21 @@ namespace mlir::verona
       return ptr->token;
     }
 
+    /// Get the local reference (local variable) from an expression
+    static llvm::StringRef getLocalRef(::ast::WeakAst ast)
+    {
+      assert(!isValue(ast) && "Bad node");
+      return getTokenValue(findNode(ast, NodeKind::Localref));
+    }
+
     /// Return true if node is a variable definition
     static llvm::StringRef getLocalName(::ast::WeakAst ast)
     {
       // Local variables can be new 'local' or existing 'localref'
       if (isLocalRef(ast))
         return getTokenValue(ast);
+      if (isMember(ast))
+        return getTokenValue(findNode(ast, NodeKind::Localref));
       assert(isLet(ast) && "Bad node");
       return getTokenValue(findNode(ast, NodeKind::Local));
     }
@@ -362,9 +379,10 @@ namespace mlir::verona
     /// Return true if node is an ID (func, var, type names)
     static llvm::StringRef getID(::ast::WeakAst ast)
     {
-      // FIXME: Why is the call ID 'function' while all others 'id'?
       if (isA(ast, NodeKind::Call))
         return getTokenValue(findNode(ast, NodeKind::Function));
+      if (isA(ast, NodeKind::Member))
+        return getTokenValue(findNode(ast, NodeKind::Lookup));
       return getTokenValue(findNode(ast, NodeKind::ID));
     }
 
@@ -574,7 +592,7 @@ namespace mlir::verona
       // LHS is the assignable 'let' or 'localref'
       assert(isAssign(ast) && "Bad node");
       auto lhs = ast.lock()->nodes[0];
-      assert((isLocalRef(lhs) || isLet(lhs)) && "Bad node");
+      assert((isLocalRef(lhs) || isLet(lhs) || isMember(lhs)) && "Bad node");
       return lhs;
     }
 

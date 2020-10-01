@@ -9,8 +9,8 @@ module {
     %0 = "verona.alloca"() : () -> !verona.U64
     %1 = "verona.store"(%arg0, %0) : (!verona.U64, !verona.U64) -> !verona.unknown
     %2 = "verona.constant(0)"() : () -> !verona.S64
-    %3 = "verona.alloca"() : () -> !verona.S64
-    %4 = "verona.store"(%2, %3) : (!verona.S64, !verona.S64) -> !verona.unknown
+    %3 = "verona.alloca"() : () -> !verona.S32
+    %4 = "verona.store"(%2, %3) : (!verona.S64, !verona.S32) -> !verona.unknown
     br ^bb2
   ^bb1:  // pred: ^bb3
     call @next(%0) : (!verona.U64) -> ()
@@ -31,8 +31,8 @@ module {
     %0 = "verona.alloca"() : () -> !verona.U64
     %1 = "verona.store"(%arg0, %0) : (!verona.U64, !verona.U64) -> !verona.unknown
     %2 = "verona.constant(0)"() : () -> !verona.S64
-    %3 = "verona.alloca"() : () -> !verona.S64
-    %4 = "verona.store"(%2, %3) : (!verona.S64, !verona.S64) -> !verona.unknown
+    %3 = "verona.alloca"() : () -> !verona.S32
+    %4 = "verona.store"(%2, %3) : (!verona.S64, !verona.S32) -> !verona.unknown
     br ^bb2
   ^bb1:  // 2 preds: ^bb7, ^bb8
     call @next(%0) : (!verona.U64) -> ()

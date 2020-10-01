@@ -398,6 +398,8 @@ namespace mlir::verona
         return parseBreak(ast);
       case AST::NodeKind::New:
         return parseNew(ast);
+      case AST::NodeKind::Member:
+        return parseFieldRead(ast);
     }
 
     if (AST::isValue(ast))
@@ -442,20 +444,29 @@ namespace mlir::verona
 
     // The right-hand side can be any expression
     // This is the value and we update the variable
-    // We parse it first, to get its type
+    // We parse it first to lower field-write correctly
     auto rhs = parseNode(AST::getRHS(ast).lock());
     if (auto err = rhs.takeError())
       return std::move(err);
-    auto type = rhs->get().getType();
 
-    // Can either be a let (new variable) or localref (existing variable).
-    auto var = AST::getLHS(ast);
-    auto name = AST::getLocalName(var);
+    auto lhs = AST::getLHS(ast);
+    // If the LHS is a field member, we have a Verona operation to represent
+    // writing to a field without an explicit alloca/store.
+    if (AST::isMember(lhs))
+      return parseFieldWrite(lhs.lock(), rhs->get());
+
+    // Else, it can either be a let (new variable)
+    // or localref (existing variable).
+    auto name = AST::getLocalName(lhs);
 
     // If the variable wasn't declared yet in this context, create an alloca
-    // TODO: Implement declaration of tuples (multiple values)
-    if (AST::isLet(var))
+    if (AST::isLet(lhs))
     {
+      auto type = unkTy;
+      // If type was declared, use it
+      auto declType = AST::getType(lhs);
+      if (AST::hasType(declType))
+        type = parseType(declType.lock());
       auto alloca = generateAlloca(getLocation(ast), type);
       declareVariable(name, alloca);
     }
@@ -463,7 +474,7 @@ namespace mlir::verona
     if (!store)
       return parsingError(
         "Variable " + name.str() + " not declared before use",
-        getLocation(var));
+        getLocation(lhs));
 
     // Store the value in the alloca
     return generateStore(getLocation(ast), rhs->get(), store);
@@ -915,6 +926,57 @@ namespace mlir::verona
     }
   }
 
+  llvm::Expected<ReturnValue> Generator::parseFieldRead(const ::ast::Ast& ast)
+  {
+    assert(AST::isMember(ast) && "Bad node");
+
+    // Find the variable to extract from
+    auto ref = AST::getLocalRef(ast);
+    auto var = symbolTable.lookup(ref);
+
+    // Get the field name
+    auto field = AST::getID(ast);
+    auto fieldAttr = StringAttr::get(field, context);
+
+    // Find the field type, if any
+    auto fieldType = unkTy;
+    if (auto classType = var.getType().dyn_cast<ClassType>())
+      fieldType = classType.getFieldType(field);
+
+    // Return the output of the field read op
+    auto loc = getLocation(ast);
+    auto op = builder.create<FieldReadOp>(loc, fieldType, var, field);
+    return op.getResult();
+  }
+
+  llvm::Expected<ReturnValue>
+  Generator::parseFieldWrite(const ::ast::Ast& ast, mlir::Value value)
+  {
+    assert(AST::isMember(ast) && "Bad node");
+
+    // Find the variable to extract from
+    auto ref = AST::getLocalRef(ast);
+    auto var = symbolTable.lookup(ref);
+
+    // Get the field name
+    auto field = AST::getID(ast);
+    auto fieldAttr = StringAttr::get(field, context);
+
+    // Find the field type
+    auto fieldType = unkTy;
+    if (auto classType = var.getType().dyn_cast<ClassType>())
+      fieldType = classType.getFieldType(field);
+
+    // Make sure we have the same type
+    auto loc = getLocation(ast);
+    if (value.getType() != fieldType)
+      value = generateAutoCast(loc, value, fieldType);
+
+    // Return the output of the field read op
+    auto op = builder.create<FieldWriteOp>(loc, fieldType, var, value, field);
+    return op.getResult();
+  }
+
   // ===================================================== MLIR Generators
   llvm::Expected<mlir::FuncOp> Generator::generateProto(
     mlir::Location loc,
@@ -1034,16 +1096,14 @@ namespace mlir::verona
 
   mlir::Value Generator::generateLoad(mlir::Location loc, mlir::Value addr)
   {
-    // TODO: Check if addr's type is a known pointer type and dereference
-    // the type to use here instead of unkTy.
+    // We let the future type inference pass determine the type of loads/stores
     return genOperation(loc, "verona.load", {addr}, unkTy);
   }
 
   mlir::Value Generator::generateStore(
     mlir::Location loc, mlir::Value value, mlir::Value addr)
   {
-    // TODO: Check if addr's type is a known pointer type and dereference
-    // the type to use here instead of unkTy.
+    // We let the future type inference pass determine the type of loads/stores
     return genOperation(loc, "verona.store", {value, addr}, unkTy);
   }
 
