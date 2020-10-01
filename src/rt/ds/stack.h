@@ -13,7 +13,7 @@ namespace verona::rt
    * wrappers below to be used which correctly handle allocation.
    */
   template<class T, class Alloc>
-  class StackBase
+  class StackSmall
   {
   private:
     static constexpr size_t STACK_COUNT = 63;
@@ -73,14 +73,19 @@ namespace verona::rt
       return ((uintptr_t)ptr & INDEX_MASK) == 0;
     }
 
-    /// Checks if an index into a block means the block has space.
-    static bool is_not_full(T** index)
+    /// Checks if an index into a block means the block has no space.
+    static bool is_full(T** index)
     {
-      return ((uintptr_t)index & INDEX_MASK) != INDEX_MASK;
+      return ((uintptr_t)index & INDEX_MASK) == INDEX_MASK;
     }
 
   public:
-    StackBase() : index(null_index) {}
+    StackSmall() : index(null_index)
+    {
+      static_assert(
+        sizeof(*this) == sizeof(void*),
+        "Stack should contain only the index pointer");
+    }
 
     /// Deallocate the linked blocks for this stack.
     void dealloc(Alloc* alloc)
@@ -107,71 +112,35 @@ namespace verona::rt
       return *index;
     }
 
-    /// Call this to determine if pop can proceed without deallocation
-    ALWAYSINLINE bool pop_is_fast()
+    /// Call this to pop an element from the stack.  Only
+    /// correct to call this if pop_is_fast just returned
+    /// true.
+    ALWAYSINLINE T* pop(Alloc* alloc)
     {
       assert(!empty());
-      return !is_empty(index - 1);
-    }
+      if (!is_empty(index - 1))
+      {
+        auto item = peek();
+        index--;
+        return item;
+      }
 
-    /// Call this to pop an element from the stack.  Only
-    /// correct to call this if pop_is_fast just returned
-    /// true.
-    ALWAYSINLINE T* pop_fast()
-    {
-      assert(pop_is_fast());
-      auto item = peek();
-      index--;
-      return item;
-    }
-
-    /// Call this to pop an element from the stack.  Only
-    /// correct to call this if pop_is_fast just returned
-    /// false.  This returns a pair of the popped element
-    /// and the block that the client must dispose of.
-    std::pair<T*, Block*> pop_slow()
-    {
-      assert(!pop_is_fast());
-      auto item = peek();
-      T** prev_index = get_block(index)->prev;
-      auto dealloc = get_block(index);
-      index = prev_index;
-      return {item, dealloc};
-    }
-
-    /// Call this to determine if push can proceed without
-    /// a new block.
-    ALWAYSINLINE bool push_is_fast()
-    {
-      return is_not_full(index);
+      return pop_slow(alloc);
     }
 
     /// Call this to push an element onto the stack.  Only
     /// correct to call this if push_is_fast just returned
     /// true.
-    ALWAYSINLINE void push_fast(T* item)
+    ALWAYSINLINE void push(T* item, Alloc* alloc)
     {
-      assert(push_is_fast());
-      index++;
-      *index = item;
-    }
+      if (!is_full(index))
+      {
+        index++;
+        *index = item;
+        return;
+      }
 
-    /// Call this to push an element onto the stack.  Only
-    /// correct to call this if push_is_fast just returned
-    /// false.  It needs to be provided a new block of memory
-    /// for the stack to use.
-    void push_slow(T* item, Block* block)
-    {
-      assert(!push_is_fast());
-
-      T** iter = (T**)block;
-      assert(is_empty(iter));
-      auto next = get_block(iter);
-
-      assert(index != (T**)&null_block);
-      next->prev = index;
-      index = &(next->data[0]);
-      next->data[0] = item;
+      push_slow(item, alloc);
     }
 
     /// For all elements of the stack
@@ -191,6 +160,42 @@ namespace verona::rt
         curr = get_block(curr)->prev;
       }
     }
+
+  private:
+    /// Call this to push an element onto the stack.  Only
+    /// correct to call this if push_is_fast just returned
+    /// false.  It needs to be provided a new block of memory
+    /// for the stack to use.
+    void push_slow(T* item, Alloc* alloc)
+    {
+      assert(is_full(index));
+
+      Block* block = (Block*)alloc->template alloc<sizeof(Block)>();
+      T** iter = (T**)block;
+      assert(is_empty(iter));
+      auto next = get_block(iter);
+
+      assert(index != (T**)&null_block);
+      next->prev = index;
+      index = &(next->data[0]);
+      next->data[0] = item;
+    }
+
+    /// Call this to pop an element from the stack.  Only
+    /// correct to call this if pop_is_fast just returned
+    /// false.  This returns a pair of the popped element
+    /// and the block that the client must dispose of.
+    T* pop_slow(Alloc* alloc)
+    {
+      assert(is_empty(index - 1));
+
+      auto item = peek();
+      Block* block = get_block(index);
+      index = block->prev;
+
+      alloc->template dealloc<sizeof(Block)>(block);
+      return item;
+    }
   };
 
   /**
@@ -201,124 +206,86 @@ namespace verona::rt
    * As this data-structure keeps a copy of the allocator, it must not
    * be passed between threads.  Use `StackSmall` for that kind of use case.
    * When pushing, this class will use the backup block rather than allocate and
-   * when popping will return a block to the backup pointer rather than deallocate.
-   * This means that we experience allocate / deallocate churn only when rapidly 
-   * crossing two allocation boundaries. A loop that pushes 32 elements and pops them
-   * on each iteration may trigger allocation the first time but will then not trigger allocation
-   * on any subsequent iteration.
+   * when popping will return a block to the backup pointer rather than
+   * deallocate. This means that we experience allocate / deallocate churn only
+   * when rapidly crossing two allocation boundaries. A loop that pushes 32
+   * elements and pops them on each iteration may trigger allocation the first
+   * time but will then not trigger allocation on any subsequent iteration.
    */
   template<class T, class Alloc>
   class Stack
   {
-    using Block = typename StackBase<T, Alloc>::Block;
-    StackBase<T, Alloc> stack;
-    Alloc* alloc;
-    Block* backup;
+    class BackupAlloc
+    {
+      using Block = typename StackSmall<T, BackupAlloc>::Block;
+      Block* backup = nullptr;
+      Alloc* underlying_alloc;
+
+    public:
+      BackupAlloc(Alloc* a) : underlying_alloc(a) {}
+
+      template<size_t Size>
+      ALWAYSINLINE void* alloc()
+      {
+        static_assert(
+          Size == sizeof(Block),
+          "Allocating something not the size of a block");
+
+        if (backup)
+          return std::exchange(backup, nullptr);
+        else
+          return underlying_alloc->template alloc<Size>();
+      }
+
+      template<size_t Size>
+      ALWAYSINLINE void dealloc(Block* b)
+      {
+        static_assert(
+          Size == sizeof(Block),
+          "Deallocating something not the size of a block");
+
+        if (backup == nullptr)
+          backup = b;
+        else
+          underlying_alloc->template dealloc<Size>(b);
+      }
+
+      ~BackupAlloc()
+      {
+        if (backup != nullptr)
+          underlying_alloc->template dealloc<sizeof(Block)>(backup);
+      }
+    };
+
+    StackSmall<T, BackupAlloc> stack;
+    BackupAlloc backup_alloc;
 
   public:
-    Stack(Alloc* alloc) : alloc(alloc), backup(nullptr) {}
+    Stack(Alloc* alloc) : backup_alloc(alloc) {}
+
+    ALWAYSINLINE T* peek()
+    {
+      return stack.peek();
+    }
 
     ALWAYSINLINE void push(T* item)
     {
-      if (stack.push_is_fast())
-      {
-        stack.push_fast(item);
-        return;
-      }
-
-      Block* new_block = backup;
-
-      if (new_block == nullptr)
-        new_block = (Block*)alloc->template alloc<sizeof(Block)>();
-
-      backup = nullptr;
-
-      stack.push_slow(item, new_block);
+      stack.push(item, &backup_alloc);
     }
 
-    T* pop()
+    ALWAYSINLINE T* pop()
     {
-      if (stack.pop_is_fast())
-      {
-        return stack.pop_fast();
-      }
-
-      auto res_block = stack.pop_slow();
-      if (backup == nullptr)
-      {
-        backup = res_block.second;
-      }
-      else
-      {
-        alloc->template dealloc<sizeof(Block)>(res_block.second);
-      }
-      return res_block.first;
+      return stack.pop(&backup_alloc);
     }
 
-    ~Stack()
-    {
-      stack.dealloc(alloc);
-      if (backup != nullptr)
-      {
-        alloc->template dealloc<sizeof(Block)>(backup);
-      }
-    }
-
-    bool empty()
+    ALWAYSINLINE bool empty()
     {
       return stack.empty();
     }
 
-    T* peek()
+    ~Stack()
     {
-      return stack.peek();
-    }
-  };
-
-  /**
-   * Block structured stack. An empty stack is the same size as a pointer.
-   *
-   * Operations require an explicit Alloc parameter in case the operation
-   * needs to allocate or deallocate blocks.
-   */
-  template<class T, class Alloc>
-  class StackSmall
-  {
-    using Block = typename StackBase<T, Alloc>::Block;
-
-    StackBase<T, Alloc> stack;
-
-  public:
-    StackSmall()
-    {
-      static_assert(sizeof(stack) == sizeof(void*), "Stack should contain only the index pointer");
-    }
-
-    T* pop(Alloc* alloc)
-    {
-      if (stack.pop_is_fast())
-        return stack.pop_fast();
-
-      auto res_block = stack.pop_slow();
-      alloc->template dealloc<sizeof(Block)>(res_block.second);
-      return res_block.first;
-    }
-
-    void push(T* item, Alloc* alloc)
-    {
-      if (stack.push_is_fast())
-      {
-        stack.push_fast(item);
-        return;
-      }
-
-      auto b = (Block*)alloc->template alloc<sizeof(Block)>();
-      stack.push_slow(item, b);
-    }
-
-    void dealloc(Alloc* alloc)
-    {
-      stack.dealloc(alloc);
+      stack.dealloc(&backup_alloc);
     }
   };
 } // namespace verona::rt
