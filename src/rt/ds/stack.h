@@ -200,6 +200,12 @@ namespace verona::rt
    *
    * As this data-structure keeps a copy of the allocator, it must not
    * be passed between threads.  Use `StackSmall` for that kind of use case.
+   * When pushing, this class will use the backup block rather than allocate and
+   * when popping will return a block to the backup pointer rather than deallocate.
+   * This means that we experience allocate / deallocate churn only when rapidly 
+   * crossing two allocation boundaries. A loop that pushes 32 elements and pops them
+   * on each iteration may trigger allocation the first time but will then not trigger allocation
+   * on any subsequent iteration.
    */
   template<class T, class Alloc>
   class Stack
@@ -270,10 +276,10 @@ namespace verona::rt
   };
 
   /**
-   * Block structured stack, that is a single pointer in size.
+   * Block structured stack. An empty stack is the same size as a pointer.
    *
-   * Operations require an explicit Alloc parameter in case more/less is
-   * required.
+   * Operations require an explicit Alloc parameter in case the operation
+   * needs to allocate or deallocate blocks.
    */
   template<class T, class Alloc>
   class StackSmall
@@ -283,7 +289,10 @@ namespace verona::rt
     StackBase<T, Alloc> stack;
 
   public:
-    StackSmall() {}
+    StackSmall()
+    {
+      static_assert(sizeof(stack) == sizeof(void*), "Stack should contain only the index pointer");
+    }
 
     T* pop(Alloc* alloc)
     {
