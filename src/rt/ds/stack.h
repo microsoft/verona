@@ -20,8 +20,8 @@ namespace verona::rt
 
     /**
      * The assumes that the allocations are aligned to the same threshold as
-     * their size The blocks contain one previous pointer, and 63 pointers to
-     * Ts.  This is a pointer of two, so we can use the bottom part of the
+     * their size. The blocks contain one previous pointer, and 63 pointers to
+     * Ts.  This is a power of two, so we can use the bottom part of the
      * pointer to track the index.
      *
      * As the block contains a previous pointer, there are only 64 possible
@@ -41,9 +41,12 @@ namespace verona::rt
       T* data[STACK_COUNT];
     };
 
+    // Dummy block to effectively allow pointer arithmetic on nullptr
+    // which is undefined behaviour.  So we statically allocate a block
+    // to represent the end of the stack.
     inline static Block null_block{};
 
-    // Index of a full block allocated
+    // Index of the full dummy block
     // Due to pointer arithmetic with nullptr being undefined behaviour
     // we use a statically allocated null block.
     static constexpr T** null_index = &(null_block.data[STACK_COUNT - 1]);
@@ -128,6 +131,7 @@ namespace verona::rt
     /// and the block that the client must dispose of.
     std::pair<T*, Block*> pop_slow()
     {
+      assert(!pop_is_fast());
       auto item = peek();
       T** prev_index = get_block(index)->prev;
       auto dealloc = get_block(index);
@@ -193,6 +197,9 @@ namespace verona::rt
    * This class uses the block structured stack with extra fields
    * for the allocator, and a backup block, so that the common case
    * of 0-1 elements can be fast, and any other block boundrary case.
+   *
+   * As this data-structure keeps a copy of the allocator, it must not
+   * be passed between threads.  Use `StackSmall` for that kind of use case.
    */
   template<class T, class Alloc>
   class Stack
