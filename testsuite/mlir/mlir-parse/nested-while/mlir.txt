@@ -11,21 +11,24 @@ module {
     cond_br %3, ^bb2, ^bb3
   ^bb2:  // pred: ^bb1
     %4 = "verona.constant(1)"() : () -> !verona.S64
-    %5 = "verona.alloca"() : () -> !verona.S64
-    %6 = "verona.store"(%4, %5) : (!verona.S64, !verona.S64) -> !verona.unknown
+    %5 = "verona.alloca"() : () -> !verona.unknown
+    %6 = "verona.store"(%4, %5) : (!verona.S64, !verona.unknown) -> !verona.unknown
     br ^bb4
   ^bb3:  // pred: ^bb1
     return %0 : !verona.S64
   ^bb4:  // 2 preds: ^bb2, ^bb5
-    %7 = "verona.constant(10)"() : () -> !verona.S64
-    %8 = "verona.lt"(%5, %7) : (!verona.S64, !verona.S64) -> i1
-    cond_br %8, ^bb5, ^bb6
+    %7 = "verona.load"(%5) : (!verona.unknown) -> !verona.unknown
+    %8 = "verona.constant(10)"() : () -> !verona.S64
+    %9 = "verona.lt"(%7, %8) : (!verona.unknown, !verona.S64) -> i1
+    cond_br %9, ^bb5, ^bb6
   ^bb5:  // pred: ^bb4
-    %9 = "verona.add"(%5, %0) : (!verona.S64, !verona.S64) -> !verona.unknown
-    %10 = "verona.store"(%9, %5) : (!verona.unknown, !verona.S64) -> !verona.unknown
+    %10 = "verona.load"(%5) : (!verona.unknown) -> !verona.unknown
+    %11 = "verona.add"(%10, %0) : (!verona.unknown, !verona.S64) -> !verona.unknown
+    %12 = "verona.store"(%11, %5) : (!verona.unknown, !verona.unknown) -> !verona.unknown
     br ^bb4
   ^bb6:  // pred: ^bb4
-    %11 = "verona.store"(%5, %0) : (!verona.S64, !verona.S64) -> !verona.unknown
+    %13 = "verona.load"(%5) : (!verona.unknown) -> !verona.unknown
+    %14 = "verona.store"(%13, %0) : (!verona.unknown, !verona.S64) -> !verona.unknown
     br ^bb1
   }
 }

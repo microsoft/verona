@@ -50,6 +50,14 @@ bar(c: C, d: D, e: E, ne: NestE, f: F, g: G) {
   let p : POD & iso = new POD { a = 42; b = 3.14; };
   // Allocate a POD class, in region
   let q : POD & iso = new POD { a = 21; b = 2.72; } in p;
+
+  // Field read / write
+  let var1: U32 & mut = p.a;
+  let var2: U32 & mut = q.a;
+  q.a = var1 + var2;
+  p.a = q.a;
+  q.a = (p.a = 1337);
+
   // Garbage collect
   tidy(c);
   // Drop value
