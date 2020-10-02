@@ -13,7 +13,7 @@ namespace verona::rt
    * wrappers below to be used which correctly handle allocation.
    */
   template<class T, class Alloc>
-  class StackSmall
+  class StackThin
   {
   private:
     static constexpr size_t STACK_COUNT = 63;
@@ -80,7 +80,7 @@ namespace verona::rt
     }
 
   public:
-    StackSmall() : index(null_index)
+    StackThin() : index(null_index)
     {
       static_assert(
         sizeof(*this) == sizeof(void*),
@@ -112,9 +112,7 @@ namespace verona::rt
       return *index;
     }
 
-    /// Call this to pop an element from the stack.  Only
-    /// correct to call this if pop_is_fast just returned
-    /// true.
+    /// Call this to pop an element from the stack.
     ALWAYSINLINE T* pop(Alloc* alloc)
     {
       assert(!empty());
@@ -128,9 +126,7 @@ namespace verona::rt
       return pop_slow(alloc);
     }
 
-    /// Call this to push an element onto the stack.  Only
-    /// correct to call this if push_is_fast just returned
-    /// true.
+    /// Call this to push an element onto the stack.
     ALWAYSINLINE void push(T* item, Alloc* alloc)
     {
       if (!is_full(index))
@@ -162,10 +158,7 @@ namespace verona::rt
     }
 
   private:
-    /// Call this to push an element onto the stack.  Only
-    /// correct to call this if push_is_fast just returned
-    /// false.  It needs to be provided a new block of memory
-    /// for the stack to use.
+    /// Slow path for push, performs a push, when allocation is required.
     void push_slow(T* item, Alloc* alloc)
     {
       assert(is_full(index));
@@ -181,10 +174,8 @@ namespace verona::rt
       next->data[0] = item;
     }
 
-    /// Call this to pop an element from the stack.  Only
-    /// correct to call this if pop_is_fast just returned
-    /// false.  This returns a pair of the popped element
-    /// and the block that the client must dispose of.
+    /// Slow path for pop, performs a pop, when deallocation of a block is
+    /// required.
     T* pop_slow(Alloc* alloc)
     {
       assert(is_empty(index - 1));
@@ -215,15 +206,22 @@ namespace verona::rt
   template<class T, class Alloc>
   class Stack
   {
+    /**
+     * The BackupAlloc allocates Blocks for the stack
+     * Uses a one place pool to avoid always calling the allocator.
+     */
     class BackupAlloc
     {
       using Block = typename StackSmall<T, BackupAlloc>::Block;
+      /// A one place pool of Block.
       Block* backup = nullptr;
+      /// Allocator that blocks are supplied by.
       Alloc* underlying_alloc;
 
     public:
       BackupAlloc(Alloc* a) : underlying_alloc(a) {}
 
+      /// Allocate a stack Block.
       template<size_t Size>
       ALWAYSINLINE void* alloc()
       {
@@ -237,6 +235,7 @@ namespace verona::rt
           return underlying_alloc->template alloc<Size>();
       }
 
+      /// Deallocate a stack Block.
       template<size_t Size>
       ALWAYSINLINE void dealloc(Block* b)
       {
@@ -257,30 +256,44 @@ namespace verona::rt
       }
     };
 
-    StackSmall<T, BackupAlloc> stack;
+    /// Underlying stack
+    StackThin<T, BackupAlloc> stack;
+
+    /// Allocator for new blocks of stack
     BackupAlloc backup_alloc;
 
   public:
     Stack(Alloc* alloc) : backup_alloc(alloc) {}
 
+    /// Return top element of the stack
     ALWAYSINLINE T* peek()
     {
       return stack.peek();
     }
 
+    /// Put an element on the stack
     ALWAYSINLINE void push(T* item)
     {
       stack.push(item, &backup_alloc);
     }
 
+    /// Remove an element on the stack
     ALWAYSINLINE T* pop()
     {
       return stack.pop(&backup_alloc);
     }
 
+    /// Check if stack is empty
     ALWAYSINLINE bool empty()
     {
       return stack.empty();
+    }
+
+    /// Apply function to every element of the stack.
+    template<void apply(T* t)>
+    void forall()
+    {
+      stack.template forall<apply>();
     }
 
     ~Stack()
