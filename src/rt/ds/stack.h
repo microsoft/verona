@@ -16,7 +16,10 @@ namespace verona::rt
   class StackThin
   {
   private:
-    static constexpr size_t STACK_COUNT = 63;
+    static constexpr size_t POINTER_COUNT = 64;
+    static_assert(snmalloc::bits::next_pow2_const(POINTER_COUNT) == POINTER_COUNT, "Should be power of 2 for alignment.");
+
+    static constexpr size_t STACK_COUNT = POINTER_COUNT - 1;
 
     /**
      * The assumes that the allocations are aligned to the same threshold as
@@ -35,11 +38,13 @@ namespace verona::rt
      * followed directly.
      */
   public:
-    struct alignas((STACK_COUNT + 1) * sizeof(T*)) Block
+    struct alignas(POINTER_COUNT * sizeof(T*)) Block
     {
       T** prev;
       T* data[STACK_COUNT];
     };
+
+    static_assert(sizeof(Block) == alignof(Block), "Size and align must be equal");
 
     // Dummy block to effectively allow pointer arithmetic on nullptr
     // which is undefined behaviour.  So we statically allocate a block
@@ -53,14 +58,13 @@ namespace verona::rt
 
   private:
     /// Mask to access the index component of the pointer to a block.
-    static constexpr uintptr_t INDEX_MASK = STACK_COUNT * sizeof(T*);
+    static constexpr uintptr_t INDEX_MASK = (POINTER_COUNT - 1) * sizeof(T*);
 
     /// Pointer into a block.  As the blocks are strongly aligned
     /// the bits 9-3 represent the element in the block, with 0 being
     /// a pointer to the `prev` pointer, and implying the empty block.
     T** index;
 
-  private:
     /// Takes an index and returns the pointer to the Block
     static Block* get_block(T** ptr)
     {
@@ -212,9 +216,11 @@ namespace verona::rt
      */
     class BackupAlloc
     {
-      using Block = typename StackSmall<T, BackupAlloc>::Block;
+      using Block = typename StackThin<T, BackupAlloc>::Block;
+
       /// A one place pool of Block.
       Block* backup = nullptr;
+
       /// Allocator that blocks are supplied by.
       Alloc* underlying_alloc;
 
