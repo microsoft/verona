@@ -17,7 +17,9 @@ namespace verona::rt
   {
   private:
     static constexpr size_t POINTER_COUNT = 64;
-    static_assert(snmalloc::bits::next_pow2_const(POINTER_COUNT) == POINTER_COUNT, "Should be power of 2 for alignment.");
+    static_assert(
+      snmalloc::bits::next_pow2_const(POINTER_COUNT) == POINTER_COUNT,
+      "Should be power of 2 for alignment.");
 
     static constexpr size_t STACK_COUNT = POINTER_COUNT - 1;
 
@@ -44,7 +46,8 @@ namespace verona::rt
       T* data[STACK_COUNT];
     };
 
-    static_assert(sizeof(Block) == alignof(Block), "Size and align must be equal");
+    static_assert(
+      sizeof(Block) == alignof(Block), "Size and align must be equal");
 
     // Dummy block to effectively allow pointer arithmetic on nullptr
     // which is undefined behaviour.  So we statically allocate a block
