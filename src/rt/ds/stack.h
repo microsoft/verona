@@ -9,8 +9,7 @@ namespace verona::rt
 {
   /**
    * This class contains the core functionality for a stack using aligned blocks
-   * of memory. It is not expecting to be used directly, but for one of its
-   * wrappers below to be used which correctly handle allocation.
+   * of memory. The stack is the size of a single pointer when empty.
    */
   template<class T, class Alloc>
   class StackThin
@@ -46,6 +45,7 @@ namespace verona::rt
       T* data[STACK_COUNT];
     };
 
+  private:
     static_assert(
       sizeof(Block) == alignof(Block), "Size and align must be equal");
 
@@ -59,7 +59,6 @@ namespace verona::rt
     // we use a statically allocated null block.
     static constexpr T** null_index = &(null_block.data[STACK_COUNT - 1]);
 
-  private:
     /// Mask to access the index component of the pointer to a block.
     static constexpr uintptr_t INDEX_MASK = (POINTER_COUNT - 1) * sizeof(T*);
 
