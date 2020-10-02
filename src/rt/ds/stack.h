@@ -169,15 +169,11 @@ namespace verona::rt
     {
       assert(is_full(index));
 
-      Block* block = (Block*)alloc->template alloc<sizeof(Block)>();
-      T** iter = (T**)block;
-      assert(is_empty(iter));
-      auto next = get_block(iter);
-
-      assert(index != (T**)&null_block);
+      Block* next = (Block*)alloc->template alloc<sizeof(Block)>();
+      assert(((uintptr_t)next) % alignof(Block) == 0);
       next->prev = index;
       index = &(next->data[0]);
-      next->data[0] = item;
+      *index = item;
     }
 
     /// Slow path for pop, performs a pop, when deallocation of a block is
