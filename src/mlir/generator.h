@@ -164,10 +164,6 @@ namespace mlir::verona
     /// Get location of an ast node.
     mlir::Location getLocation(const ::ast::WeakAst& ast);
 
-    /// Declares a new variable.
-    void declareVariable(llvm::StringRef name, mlir::Value val);
-    /// Updates an existing variable in the local context.
-    void updateVariable(llvm::StringRef name, mlir::Value val);
     /// Get a (compiler generated) function.
     /// Will declare the prototype if it has not already been defined.
     FuncOp genIntrinsic(
