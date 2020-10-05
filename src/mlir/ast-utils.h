@@ -59,6 +59,7 @@ namespace mlir::verona
       Function = peg::str2tag("function"), // = 89836898
       FuncName = peg::str2tag("funcname"), // = 90200697
       Sig = peg::str2tag("sig"), // = 124317
+      Qualifier = peg::str2tag("qualifier"), // = 3224348024
       Block = peg::str2tag("block"), // = 117895113
       OfType = peg::str2tag("oftype"), // = 3504561
       Constraints = peg::str2tag("constraints"), // = 4070926742
@@ -508,6 +509,18 @@ namespace mlir::verona
 
       // Body is just a block
       return hasA(ast, NodeKind::Block);
+    }
+
+    /// Get the function qualifiers
+    /// T must be a list<ast> type with push_back.
+    template<class T>
+    static void getFunctionQualifiers(T& qual, ::ast::WeakAst ast)
+    {
+      assert(isFunction(ast) && "Bad node");
+
+      auto quals = findNode(ast, NodeKind::Qualifier).lock();
+      for (auto c : quals->nodes)
+        qual.push_back(c);
     }
 
     // ================================================= Class Helpers

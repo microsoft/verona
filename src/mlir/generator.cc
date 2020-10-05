@@ -130,6 +130,13 @@ namespace mlir::verona
           return std::move(err);
         // Associate function with module (late mangling)
         func->setAttr("class", TypeAttr::get(type));
+        // Add qualifiers as attributes
+        llvm::SmallVector<::ast::WeakAst, 4> quals;
+        AST::getFunctionQualifiers(quals, node);
+        llvm::SmallVector<mlir::Attribute, 4> qualAttrs;
+        for (auto qual : quals)
+          qualAttrs.push_back(StringAttr::get(AST::getTokenValue(qual), context));
+        func->setAttr("qualifiers", ArrayAttr::get(qualAttrs, context));
         // Push function to module
         module->push_back(*func);
       }

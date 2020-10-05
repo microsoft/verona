@@ -1,7 +1,7 @@
 
 
 module {
-  func @foo(%arg0: !verona.meet<S32, iso>, %arg1: !verona.meet<U64, imm>) -> !verona.join<meet<S32, iso>, meet<U64, imm>, meet<U32, mut>> attributes {class = !verona.class<"$module">} {
+  func @foo(%arg0: !verona.meet<S32, iso>, %arg1: !verona.meet<U64, imm>) -> !verona.join<meet<S32, iso>, meet<U64, imm>, meet<U32, mut>> attributes {class = !verona.class<"$module">, qualifiers = []} {
     %0 = "verona.alloca"() : () -> !verona.meet<S32, iso>
     %1 = "verona.store"(%arg0, %0) : (!verona.meet<S32, iso>, !verona.meet<S32, iso>) -> !verona.unknown
     %2 = "verona.alloca"() : () -> !verona.meet<U64, imm>
