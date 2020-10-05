@@ -66,7 +66,7 @@ trace for that seed.
 These can be added to your cmake command line.
 
 ```
--DUSE_MALLOC=ON // Use malloc
+-DSNMALLOC_PASS_THROUGH=ON // Use underlying malloc
 -DUSE_STATS=ON // Track allocation stats
 -DUSE_MEASURE=ON // Measure performance with histograms
 -DUSE_SCHED_STATS=ON // Track scheduler stats

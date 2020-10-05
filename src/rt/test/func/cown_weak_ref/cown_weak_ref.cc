@@ -133,7 +133,7 @@ struct Down : VBehaviour<Down>
 
 void run_test()
 {
-  auto t = make_tree(10, nullptr);
+  auto t = make_tree(9, nullptr);
 
   Cown::schedule<Down>(t, t);
   Cown::schedule<Down, YesTransfer>(t, t);
