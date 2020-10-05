@@ -51,18 +51,6 @@ namespace mlir::verona
       Identifier::get(path.file, context), path.line, path.column);
   }
 
-  void Generator::declareVariable(llvm::StringRef name, mlir::Value val)
-  {
-    assert(!symbolTable.inScope(name) && "Redeclaration");
-    symbolTable.insert(name, val);
-  }
-
-  void Generator::updateVariable(llvm::StringRef name, mlir::Value val)
-  {
-    assert(symbolTable.inScope(name) && "Variable not declared");
-    symbolTable.update(name, val);
-  }
-
   FuncOp Generator::genIntrinsic(
     llvm::StringRef name, llvm::ArrayRef<mlir::Type> types, mlir::Type retTy)
   {
@@ -103,9 +91,11 @@ namespace mlir::verona
     assert(AST::isClass(ast) && "Bad node");
 
     // Declare before building fields to allow for recursive declaration
+    // If class is used in definitions before, it has been declared empty
+    // already, so we use `update` to fetch it.
     auto name = AST::getID(ast);
     auto type = ClassType::get(context, name);
-    typeTable.insert(name, type);
+    typeTable.update(name, type);
 
     // Nested classes, field names and types, methods, etc.
     llvm::SmallVector<::ast::WeakAst, 4> nodes;
@@ -250,23 +240,17 @@ namespace mlir::verona
     if (auto type = typeTable.lookup(name))
       return type;
 
-    // Helper to cache and return types
-    auto cacheReturn = [&](mlir::Type type) {
-      typeTable.insert(name, type);
-      return type;
-    };
-
     // Capabilities / boolean
     if (name == "iso")
-      return cacheReturn(getIso(context));
+      return typeTable.insert(name, getIso(context));
     else if (name == "mut")
-      return cacheReturn(getMut(context));
+      return typeTable.insert(name, getMut(context));
     else if (name == "imm")
-      return cacheReturn(getImm(context));
+      return typeTable.insert(name, getImm(context));
     else if (name == "bool")
-      return cacheReturn(BoolType::get(context));
+      return typeTable.insert(name, BoolType::get(context));
     else if (name == "unk")
-      return cacheReturn(UnknownType::get(context));
+      return typeTable.insert(name, UnknownType::get(context));
 
     // Numeric (getAsInteger returns true on failure)
     size_t bitWidth = 0;
@@ -279,7 +263,7 @@ namespace mlir::verona
     // We could leave unknown and resolve later as a pass
     bool isFloat = name.startswith("F") || name == "float";
     if (isFloat)
-      return cacheReturn(FloatType::get(context, bitWidth));
+      return typeTable.insert(name, FloatType::get(context, bitWidth));
 
     // Integer (default literal `int` types to S64|U64)
     // FIXME: This is not correct, but is needed to avoid opaque types
@@ -287,7 +271,8 @@ namespace mlir::verona
     bool isSigned = name.startswith("S") || name == "int";
     bool isUnsigned = name.startswith("U") || name == "hex" || name == "binary";
     if (isSigned || isUnsigned)
-      return cacheReturn(IntegerType::get(context, bitWidth, isSigned));
+      return typeTable.insert(
+        name, IntegerType::get(context, bitWidth, isSigned));
 
     // We need better error handling here, but this should never happen
     llvm_unreachable("Cannot lower type");
@@ -313,13 +298,9 @@ namespace mlir::verona
       auto name = AST::getID(nodes[0]);
       if (AST::isClassType(ast))
       {
-        // Pre-declaration multiple uses
-        if (auto type = typeTable.lookup(name))
-          return type;
-        // Class pre-declaration, cache it for multiple uses
-        auto type = ClassType::get(context, name);
-        typeTable.insert(name, type);
-        return type;
+        // Class pre-declaration, use `update` it for multiple uses
+        // before complete definition (done in `parseClass`).
+        return typeTable.update(name, ClassType::get(context, name));
       }
       else
       {
@@ -468,7 +449,7 @@ namespace mlir::verona
       if (AST::hasType(declType))
         type = parseType(declType.lock());
       auto alloca = generateAlloca(getLocation(ast), type);
-      declareVariable(name, alloca);
+      symbolTable.insert(name, alloca);
     }
     auto store = symbolTable.lookup(name);
     if (!store)
@@ -796,9 +777,8 @@ namespace mlir::verona
     auto list = parseNode(seqNode);
     if (auto err = list.takeError())
       return std::move(err);
-    declareVariable(ABI::LoopIterator::handler, list->get());
-    llvm::SmallVector<mlir::Value, 1> iter{
-      symbolTable.lookup(ABI::LoopIterator::handler)};
+    auto handler = symbolTable.insert(ABI::LoopIterator::handler, list->get());
+    llvm::SmallVector<mlir::Value, 1> iter{handler};
     auto iterTy = list->get().getType();
 
     // Create the head basic-block, which will check the condition
@@ -833,7 +813,7 @@ namespace mlir::verona
     builder.setInsertionPointToEnd(bodyBB);
     auto indVarName = AST::getTokenValue(AST::getLoopInd(ast));
     auto value = builder.create<mlir::CallOp>(condLoc, apply, iter);
-    declareVariable(indVarName, value.getResult(0));
+    symbolTable.insert(indVarName, value.getResult(0));
 
     // Loop body, branch back to head node which will decide exit criteria
     auto bodyNode = AST::getLoopBlock(ast).lock();
@@ -984,13 +964,10 @@ namespace mlir::verona
     llvm::ArrayRef<mlir::Type> types,
     llvm::ArrayRef<mlir::Type> retTy)
   {
-    assert(!functionTable.inScope(name) && "Duplicated function declaration");
-
     // Create function
     auto funcTy = builder.getFunctionType(types, retTy);
     auto func = mlir::FuncOp::create(loc, name, funcTy);
-    functionTable.insert(name, func);
-    return func;
+    return functionTable.insert(name, func);
   }
 
   llvm::Expected<mlir::FuncOp> Generator::generateEmptyFunction(
@@ -1004,14 +981,14 @@ namespace mlir::verona
 
     // If it's not declared yet, do so. This simplifies direct declaration of
     // compiler functions. User functions should be checked at the parse level.
-    if (!functionTable.inScope(name))
+    auto func = functionTable.inScope(name);
+    if (!func)
     {
       auto proto = generateProto(loc, name, types, retTy);
       if (auto err = proto.takeError())
         return std::move(err);
-      functionTable.insert(name, *proto);
+      func = *proto;
     }
-    auto func = functionTable.lookup(name);
 
     // Create entry block, set builder entry point
     auto& entryBlock = *func.addEntryBlock();
@@ -1029,7 +1006,7 @@ namespace mlir::verona
       auto alloca = generateAlloca(loc, value.getType());
       auto store = generateStore(loc, value, alloca);
       // Associate the name with the alloca SSA value
-      declareVariable(name, alloca);
+      symbolTable.insert(name, alloca);
     }
 
     return func;
