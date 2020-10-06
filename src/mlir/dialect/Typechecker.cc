@@ -141,11 +141,6 @@ namespace mlir::verona
         return isSubtype(left, element);
       });
     },
-    [](ViewpointType left, IntegerType right) {
-      auto ctx = left.getContext();
-      return isSubtype(left.getLeftType(), getAnyCapability(ctx)) &&
-        isSubtype(left.getRightType(), right);
-    },
     [](ViewpointType left, ClassType right) {
       auto ctx = left.getContext();
       return isSubtype(left.getLeftType(), getAnyCapability(ctx)) &&

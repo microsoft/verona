@@ -199,10 +199,6 @@ namespace mlir::verona
     llvm::Expected<ReturnValue> parseAssign(const ::ast::Ast& ast);
     /// Parses function calls and native operations.
     llvm::Expected<ReturnValue> parseCall(const ::ast::Ast& ast);
-    /// Parses function calls and native operations.
-    llvm::Expected<ReturnValue> parseUnop(const ::ast::Ast& ast);
-    /// Parses function calls and native operations.
-    llvm::Expected<ReturnValue> parseBinop(const ::ast::Ast& ast);
     /// Parses an if/else block.
     llvm::Expected<ReturnValue> parseCondition(const ::ast::Ast& ast);
     /// Parses a 'while' loop block.

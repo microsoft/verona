@@ -24,12 +24,10 @@ void VeronaDialect::initialize()
   addTypes<
     MeetType,
     JoinType,
-    IntegerType,
+    UnknownType,
+    DescriptorType,
     CapabilityType,
     ClassType,
-    FloatType,
-    BoolType,
-    UnknownType,
     ViewpointType>();
 
   allowUnknownOperations();

@@ -1,25 +1,27 @@
 
 
 module {
-  func @f(%arg0: !verona.U32, %arg1: !verona.S32) -> !verona.U32 attributes {class = !verona.class<"$module">, qualifiers = []} {
-    %0 = "verona.alloca"() : () -> !verona.U32
-    %1 = "verona.store"(%arg0, %0) : (!verona.U32, !verona.U32) -> !verona.unknown
-    %2 = "verona.alloca"() : () -> !verona.S32
-    %3 = "verona.store"(%arg1, %2) : (!verona.S32, !verona.S32) -> !verona.unknown
+  func @f(%arg0: !verona.class<"U32">, %arg1: !verona.class<"S32">) -> !verona.class<"U32"> attributes {class = !verona.class<"$module">, qualifiers = []} {
+    %0 = "verona.alloca"() : () -> !verona.class<"U32">
+    %1 = "verona.store"(%arg0, %0) : (!verona.class<"U32">, !verona.class<"U32">) -> !verona.unknown
+    %2 = "verona.alloca"() : () -> !verona.class<"S32">
+    %3 = "verona.store"(%arg1, %2) : (!verona.class<"S32">, !verona.class<"S32">) -> !verona.unknown
     br ^bb1
   ^bb1:  // 2 preds: ^bb0, ^bb5
-    %4 = "verona.constant(5)"() : () -> !verona.S64
-    %5 = "verona.lt"(%0, %4) : (!verona.U32, !verona.S64) -> i1
-    cond_br %5, ^bb2, ^bb3
+    %4 = "verona.constant(5)"() : () -> !verona.class<"int">
+    %5 = verona.call "<"[%0 : !verona.class<"U32">] (%4, !verona.class<"int">) : !verona.unknown
+    %6 = "verona.cast"(%5) : (!verona.unknown) -> i1
+    cond_br %6, ^bb2, ^bb3
   ^bb2:  // pred: ^bb1
-    %6 = "verona.ne"(%0, %2) : (!verona.U32, !verona.S32) -> i1
-    cond_br %6, ^bb4, ^bb5
+    %7 = verona.call "!="[%0 : !verona.class<"U32">] (%2, !verona.class<"S32">) : !verona.unknown
+    %8 = "verona.cast"(%7) : (!verona.unknown) -> i1
+    cond_br %8, ^bb4, ^bb5
   ^bb3:  // pred: ^bb1
-    return %0 : !verona.U32
+    return %0 : !verona.class<"U32">
   ^bb4:  // pred: ^bb2
-    %7 = "verona.constant(1)"() : () -> !verona.S64
-    %8 = "verona.add"(%0, %7) : (!verona.U32, !verona.S64) -> !verona.unknown
-    %9 = "verona.store"(%8, %0) : (!verona.unknown, !verona.U32) -> !verona.unknown
+    %9 = "verona.constant(1)"() : () -> !verona.class<"int">
+    %10 = verona.call "+"[%0 : !verona.class<"U32">] (%9, !verona.class<"int">) : !verona.unknown
+    %11 = "verona.store"(%10, %0) : (!verona.unknown, !verona.class<"U32">) -> !verona.unknown
     br ^bb5
   ^bb5:  // 2 preds: ^bb2, ^bb4
     br ^bb1

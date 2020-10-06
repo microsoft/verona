@@ -135,7 +135,8 @@ namespace mlir::verona
         AST::getFunctionQualifiers(quals, node);
         llvm::SmallVector<mlir::Attribute, 4> qualAttrs;
         for (auto qual : quals)
-          qualAttrs.push_back(StringAttr::get(AST::getTokenValue(qual), context));
+          qualAttrs.push_back(
+            StringAttr::get(AST::getTokenValue(qual), context));
         func->setAttr("qualifiers", ArrayAttr::get(qualAttrs, context));
         // Push function to module
         module->push_back(*func);
@@ -254,39 +255,19 @@ namespace mlir::verona
       return typeTable.insert(name, getMut(context));
     else if (name == "imm")
       return typeTable.insert(name, getImm(context));
-    else if (name == "bool")
-      return typeTable.insert(name, BoolType::get(context));
     else if (name == "unk")
       return typeTable.insert(name, UnknownType::get(context));
 
-    // Numeric (getAsInteger returns true on failure)
-    size_t bitWidth = 0;
-    if (name.substr(1).getAsInteger(10, bitWidth))
-      bitWidth = 64;
-    assert(bitWidth >= 8 && bitWidth <= 128 && "Bad numeric type width");
-
-    // Float (default literal `float` to F64)
-    // FIXME: This is not correct, but is needed to avoid opaque types
-    // We could leave unknown and resolve later as a pass
-    bool isFloat = name.startswith("F") || name == "float";
-    if (isFloat)
-      return typeTable.insert(name, FloatType::get(context, bitWidth));
-
-    // Integer (default literal `int` types to S64|U64)
-    // FIXME: This is not correct, but is needed to avoid opaque types
-    // We could leave unknown and resolve later as a pass
-    bool isSigned = name.startswith("S") || name == "int";
-    bool isUnsigned = name.startswith("U") || name == "hex" || name == "binary";
-    if (isSigned || isUnsigned)
-      return typeTable.insert(
-        name, IntegerType::get(context, bitWidth, isSigned));
-
-    // We need better error handling here, but this should never happen
-    llvm_unreachable("Cannot lower type");
+    // Every other type is just a class that we don't know yet
+    return typeTable.insert(name, ClassType::get(context, name));
   }
 
   mlir::Type Generator::parseType(const ::ast::Ast& ast)
   {
+    // Qualified types are references to classes with typeargs
+    if (AST::isQualType(ast))
+      return generateType(AST::getID(ast));
+
     assert(AST::isTypeHolder(ast) && "Bad node");
 
     // Get type components
@@ -298,22 +279,9 @@ namespace mlir::verona
     if (nodes.size() == 0)
       return unkTy;
 
-    // Simple types should work directly, including `where` types.
-    // FIXME: This treats `where` as alias, but they're really not.
+    // Simple types should work directly
     if (nodes.size() == 1)
-    {
-      auto name = AST::getID(nodes[0]);
-      if (AST::isClassType(ast))
-      {
-        // Class pre-declaration, use `update` it for multiple uses
-        // before complete definition (done in `parseClass`).
-        return typeTable.getOrAdd(name, ClassType::get(context, name));
-      }
-      else
-      {
-        return generateType(name);
-      }
-    }
+      return generateType(AST::getID(nodes[0]));
 
     // Composite types (meet, join) may require recursion
     llvm::SmallVector<mlir::Type, 1> types;
@@ -371,6 +339,7 @@ namespace mlir::verona
       case AST::NodeKind::Assign:
         return parseAssign(ast);
       case AST::NodeKind::Call:
+      case AST::NodeKind::StaticCall:
         return parseCall(ast);
       case AST::NodeKind::Return:
         return parseReturn(ast);
@@ -470,121 +439,66 @@ namespace mlir::verona
 
   llvm::Expected<ReturnValue> Generator::parseCall(const ::ast::Ast& ast)
   {
-    assert(AST::isCall(ast) && "Bad node");
+    // All operations are calls, including arithmetic, comparison, casts
+    // but they're either `call` or `static-call`.
+    assert((AST::isCall(ast) || AST::isStaticCall(ast)) && "Bad node");
     auto name = AST::getID(ast);
+    auto loc = getLocation(ast);
 
-    // All operations are calls, only calls to previously defined functions
-    // are function calls.
-    if (auto func = functionTable.lookup(name))
+    // Get arguments
+    llvm::SmallVector<::ast::WeakAst, 1> nodes;
+    AST::getAllOperands(nodes, ast);
+    llvm::SmallVector<mlir::Value, 1> args;
+    for (auto node : nodes)
     {
-      llvm::SmallVector<::ast::WeakAst, 4> argNodes;
-      AST::getAllOperands(argNodes, ast);
-      auto argTypes = func.getType().getInputs();
-      assert(argNodes.size() == argTypes.size() && "Wrong number of arguments");
-      llvm::SmallVector<mlir::Value, 4> args;
-
-      // For each argument / type, cast.
-      for (const auto& val_ty : llvm::zip(argNodes, argTypes))
-      {
-        // Arguments lowered before the call
-        auto arg = std::get<0>(val_ty).lock();
-        auto val = parseNode(arg);
-        if (auto err = val.takeError())
-          return std::move(err);
-
-        // Types could be incomplete here, casts may be needed
-        auto argTy = std::get<1>(val_ty);
-        auto cast = generateAutoCast(getLocation(arg), val->get(), argTy);
-        args.push_back(cast);
-      }
-
-      auto call = builder.create<mlir::CallOp>(getLocation(ast), func, args);
-      auto res = call.getResults();
-      return res;
+      auto arg = parseNode(node.lock());
+      if (auto err = arg.takeError())
+        return std::move(err);
+      args.push_back(arg->get());
     }
 
-    // Else, it should be an operation that we can lower natively
-    // TODO: This will change when we implement a Verona library, where
-    // most of the native ops will still be dynamic calls and resolved
-    // to native when converting to LLVM.
-    if (AST::isUnary(ast))
-      return parseUnop(ast);
-    else if (AST::isBinary(ast))
-      return parseBinop(ast);
-
-    return parsingError(
-      "Operation '" + name.str() + "' not implemented yet", getLocation(ast));
-  }
-
-  llvm::Expected<ReturnValue> Generator::parseUnop(const ::ast::Ast& ast)
-  {
-    assert(AST::isUnary(ast) && "Bad node");
-    auto name = AST::getID(ast);
-
-    // Get argument
-    auto arg = parseNode(AST::getOperand(ast, 0).lock());
-    if (auto err = arg.takeError())
-      return std::move(err);
-
-    // Generate call to known Verona ops
-    // Using StringSwitch like parseBinop isn't as easy here
+    // Some calls are lowered as special nodes, do those first
     if (name == "tidy")
     {
-      builder.create<TidyOp>(getLocation(ast), arg->get());
+      assert(args.size() == 1 && "Wrong number of arguments for tidy");
+      builder.create<TidyOp>(getLocation(ast), args[0]);
       return ReturnValue();
     }
     else if (name == "drop")
     {
-      builder.create<DropOp>(getLocation(ast), arg->get());
+      assert(args.size() == 1 && "Wrong number of arguments for drop");
+      builder.create<DropOp>(getLocation(ast), args[0]);
       return ReturnValue();
     }
 
-    return parsingError(
-      "Unary Operation '" + name.str() + "' not implemented yet",
-      getLocation(ast));
-  }
-
-  llvm::Expected<ReturnValue> Generator::parseBinop(const ::ast::Ast& ast)
-  {
-    assert(AST::isBinary(ast) && "Bad node");
-    auto name = AST::getID(ast);
-
-    // Get both arguments
-    // TODO: If the arguments are tuples, do we need to apply element-wise?
-    auto arg0 = parseNode(AST::getOperand(ast, 0).lock());
-    if (auto err = arg0.takeError())
-      return std::move(err);
-    auto arg1 = parseNode(AST::getOperand(ast, 1).lock());
-    if (auto err = arg1.takeError())
-      return std::move(err);
-
-    // Get op name and type
-    using opPairTy = std::pair<llvm::StringRef, mlir::Type>;
-    opPairTy opTy = llvm::StringSwitch<opPairTy>(name)
-                      .Case("+", {"verona.add", unkTy})
-                      .Case("-", {"verona.sub", unkTy})
-                      .Case("*", {"verona.mul", unkTy})
-                      .Case("/", {"verona.div", unkTy})
-                      .Case("==", {"verona.eq", boolTy})
-                      .Case("!=", {"verona.ne", boolTy})
-                      .Case(">", {"verona.gt", boolTy})
-                      .Case("<", {"verona.lt", boolTy})
-                      .Case(">=", {"verona.ge", boolTy})
-                      .Case("<=", {"verona.le", boolTy})
-                      .Default(std::make_pair("", unkTy));
-    auto opName = opTy.first;
-    auto opType = opTy.second;
-
-    // Match, return the right op with the right type
-    if (!opName.empty())
+    // Some function calls are static (to global functions or static members),
+    // others are dynamic (with an instance of a class as the first or left
+    // argument.
+    // Both need a descriptor, to know where to find the function to call.
+    mlir::Value descriptor;
+    if (AST::isCall(ast))
     {
-      return genOperation(
-        getLocation(ast), opName, {arg0->get(), arg1->get()}, opType);
+      // Dynamic call: `a op b` | `a.op(b...)`
+      assert(args.size() >= 1 && "Too few arguments for dynamic call");
+      descriptor = args[0];
+      args.erase(args.begin());
+    }
+    else
+    {
+      // Static call: `func(a, b...)` | `Class.op(a, b...)`
+      auto qualType = AST::getStaticQualType(ast);
+      auto type = parseType(qualType.lock());
+      auto descTy = DescriptorType::get(context, type);
+      descriptor = builder.create<StaticOp>(loc, descTy, TypeAttr::get(type));
     }
 
-    return parsingError(
-      "Binary operation '" + name.str() + "' not implemented yet",
-      getLocation(ast));
+    // Right now, we may not have enough type information to know which is which
+    // and how many arguments there are or which types are involved. When in
+    // doubt, use `unknown`.
+    ValueRange argVals{args};
+    auto call = builder.create<CallOp>(
+      loc, unkTy, descriptor, StringAttr::get(name, context), argVals);
+    return call.res();
   }
 
   llvm::Expected<ReturnValue> Generator::parseReturn(const ::ast::Ast& ast)

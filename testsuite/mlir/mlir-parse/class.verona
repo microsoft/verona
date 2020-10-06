@@ -30,9 +30,10 @@ class F {
   e: G;
 }
 
-// G is now declared, and has a static method
+// G is now declared, and has a static methods
 class G {
   static foo(a: U32) : F32 { 3.14; }
+  static baz(a: F32) : F32 { a + G.foo(42); }
 }
 
 // POD class
@@ -57,6 +58,10 @@ bar(c: C, d: D, e: E, ne: NestE, f: F, g: G) {
   q.a = var1 + var2;
   p.a = q.a;
   q.a = (p.a = 1337);
+
+  // Call a static method
+  let sta1: F32 = G.foo(13);
+  let sta2: F32 = G.baz(sta1);
 
   // Garbage collect
   tidy(c);
