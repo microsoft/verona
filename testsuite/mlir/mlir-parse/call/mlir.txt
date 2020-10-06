@@ -1,43 +1,43 @@
 
 
 module {
-  func @foo(%arg0: !verona.imm, %arg1: !verona.meet<U64, imm>) -> !verona.meet<U64, imm> attributes {class = !verona.class<"$module">, qualifiers = []} {
+  func @foo(%arg0: !verona.imm, %arg1: !verona.meet<class<"U64">, imm>) -> !verona.meet<class<"U64">, imm> attributes {class = !verona.class<"$module">, qualifiers = []} {
     %0 = "verona.alloca"() : () -> !verona.imm
     %1 = "verona.store"(%arg0, %0) : (!verona.imm, !verona.imm) -> !verona.unknown
-    %2 = "verona.alloca"() : () -> !verona.meet<U64, imm>
-    %3 = "verona.store"(%arg1, %2) : (!verona.meet<U64, imm>, !verona.meet<U64, imm>) -> !verona.unknown
-    %4 = "verona.add"(%0, %2) : (!verona.imm, !verona.meet<U64, imm>) -> !verona.unknown
+    %2 = "verona.alloca"() : () -> !verona.meet<class<"U64">, imm>
+    %3 = "verona.store"(%arg1, %2) : (!verona.meet<class<"U64">, imm>, !verona.meet<class<"U64">, imm>) -> !verona.unknown
+    %4 = verona.call "+"[%0 : !verona.imm] (%2, !verona.meet<class<"U64">, imm>) : !verona.unknown
     %5 = "verona.alloca"() : () -> !verona.unknown
     %6 = "verona.store"(%4, %5) : (!verona.unknown, !verona.unknown) -> !verona.unknown
-    %7 = "verona.sub"(%0, %2) : (!verona.imm, !verona.meet<U64, imm>) -> !verona.unknown
+    %7 = verona.call "-"[%0 : !verona.imm] (%2, !verona.meet<class<"U64">, imm>) : !verona.unknown
     %8 = "verona.alloca"() : () -> !verona.unknown
     %9 = "verona.store"(%7, %8) : (!verona.unknown, !verona.unknown) -> !verona.unknown
     %10 = "verona.load"(%5) : (!verona.unknown) -> !verona.unknown
-    %11 = "verona.constant(100)"() : () -> !verona.S64
-    %12 = "verona.lt"(%10, %11) : (!verona.unknown, !verona.S64) -> i1
-    cond_br %12, ^bb1, ^bb2
+    %11 = "verona.constant(100)"() : () -> !verona.class<"int">
+    %12 = verona.call "<"[%10 : !verona.unknown] (%11, !verona.class<"int">) : !verona.unknown
+    %13 = "verona.cast"(%12) : (!verona.unknown) -> i1
+    cond_br %13, ^bb1, ^bb2
   ^bb1:  // pred: ^bb0
-    %13 = "verona.load"(%5) : (!verona.unknown) -> !verona.unknown
-    %14 = "verona.cast"(%13) : (!verona.unknown) -> !verona.imm
+    %14 = "verona.load"(%5) : (!verona.unknown) -> !verona.unknown
     %15 = "verona.load"(%8) : (!verona.unknown) -> !verona.unknown
-    %16 = "verona.cast"(%15) : (!verona.unknown) -> !verona.meet<U64, imm>
-    %17 = call @foo(%14, %16) : (!verona.imm, !verona.meet<U64, imm>) -> !verona.meet<U64, imm>
-    return %17 : !verona.meet<U64, imm>
+    %16 = verona.call "foo"[%14 : !verona.unknown] (%15, !verona.unknown) : !verona.unknown
+    %17 = "verona.cast"(%16) : (!verona.unknown) -> !verona.meet<class<"U64">, imm>
+    return %17 : !verona.meet<class<"U64">, imm>
   ^bb2:  // pred: ^bb0
     %18 = "verona.load"(%5) : (!verona.unknown) -> !verona.unknown
     %19 = "verona.load"(%8) : (!verona.unknown) -> !verona.unknown
-    %20 = "verona.add"(%18, %19) : (!verona.unknown, !verona.unknown) -> !verona.unknown
-    %21 = "verona.cast"(%20) : (!verona.unknown) -> !verona.meet<U64, imm>
-    return %21 : !verona.meet<U64, imm>
+    %20 = verona.call "+"[%18 : !verona.unknown] (%19, !verona.unknown) : !verona.unknown
+    %21 = "verona.cast"(%20) : (!verona.unknown) -> !verona.meet<class<"U64">, imm>
+    return %21 : !verona.meet<class<"U64">, imm>
   }
   func @apply() attributes {class = !verona.class<"$module">, qualifiers = []} {
-    %0 = "verona.constant(10)"() : () -> !verona.S64
+    %0 = "verona.constant(10)"() : () -> !verona.class<"int">
     %1 = "verona.alloca"() : () -> !verona.imm
-    %2 = "verona.store"(%0, %1) : (!verona.S64, !verona.imm) -> !verona.unknown
-    %3 = "verona.constant(20)"() : () -> !verona.S64
-    %4 = "verona.alloca"() : () -> !verona.meet<U64, imm>
-    %5 = "verona.store"(%3, %4) : (!verona.S64, !verona.meet<U64, imm>) -> !verona.unknown
-    %6 = call @foo(%1, %4) : (!verona.imm, !verona.meet<U64, imm>) -> !verona.meet<U64, imm>
+    %2 = "verona.store"(%0, %1) : (!verona.class<"int">, !verona.imm) -> !verona.unknown
+    %3 = "verona.constant(20)"() : () -> !verona.class<"int">
+    %4 = "verona.alloca"() : () -> !verona.meet<class<"U64">, imm>
+    %5 = "verona.store"(%3, %4) : (!verona.class<"int">, !verona.meet<class<"U64">, imm>) -> !verona.unknown
+    %6 = verona.call "foo"[%1 : !verona.imm] (%4, !verona.meet<class<"U64">, imm>) : !verona.unknown
     return
   }
 }

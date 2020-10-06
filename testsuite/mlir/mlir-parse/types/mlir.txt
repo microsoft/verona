@@ -1,13 +1,13 @@
 
 
 module {
-  func @foo(%arg0: !verona.meet<S32, iso>, %arg1: !verona.meet<U64, imm>) -> !verona.join<meet<S32, iso>, meet<U64, imm>, meet<U32, mut>> attributes {class = !verona.class<"$module">, qualifiers = []} {
-    %0 = "verona.alloca"() : () -> !verona.meet<S32, iso>
-    %1 = "verona.store"(%arg0, %0) : (!verona.meet<S32, iso>, !verona.meet<S32, iso>) -> !verona.unknown
-    %2 = "verona.alloca"() : () -> !verona.meet<U64, imm>
-    %3 = "verona.store"(%arg1, %2) : (!verona.meet<U64, imm>, !verona.meet<U64, imm>) -> !verona.unknown
-    %4 = "verona.add"(%0, %2) : (!verona.meet<S32, iso>, !verona.meet<U64, imm>) -> !verona.unknown
-    %5 = "verona.cast"(%4) : (!verona.unknown) -> !verona.join<meet<S32, iso>, meet<U64, imm>, meet<U32, mut>>
-    return %5 : !verona.join<meet<S32, iso>, meet<U64, imm>, meet<U32, mut>>
+  func @foo(%arg0: !verona.meet<class<"S32">, iso>, %arg1: !verona.meet<class<"U64">, imm>) -> !verona.join<meet<class<"S32">, iso>, meet<class<"U64">, imm>, meet<class<"U32">, mut>> attributes {class = !verona.class<"$module">, qualifiers = []} {
+    %0 = "verona.alloca"() : () -> !verona.meet<class<"S32">, iso>
+    %1 = "verona.store"(%arg0, %0) : (!verona.meet<class<"S32">, iso>, !verona.meet<class<"S32">, iso>) -> !verona.unknown
+    %2 = "verona.alloca"() : () -> !verona.meet<class<"U64">, imm>
+    %3 = "verona.store"(%arg1, %2) : (!verona.meet<class<"U64">, imm>, !verona.meet<class<"U64">, imm>) -> !verona.unknown
+    %4 = verona.call "+"[%0 : !verona.meet<class<"S32">, iso>] (%2, !verona.meet<class<"U64">, imm>) : !verona.unknown
+    %5 = "verona.cast"(%4) : (!verona.unknown) -> !verona.join<meet<class<"S32">, iso>, meet<class<"U64">, imm>, meet<class<"U32">, mut>>
+    return %5 : !verona.join<meet<class<"S32">, iso>, meet<class<"U64">, imm>, meet<class<"U32">, mut>>
   }
 }

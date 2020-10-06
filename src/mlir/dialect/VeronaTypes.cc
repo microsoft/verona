@@ -106,6 +106,27 @@ namespace mlir::verona::detail
     }
   };
 
+  struct DescriptorTypeStorage : public TypeStorage
+  {
+    Type descriptor;
+
+    // width
+    using KeyTy = Type;
+    DescriptorTypeStorage(const KeyTy& key) : descriptor(key) {}
+
+    bool operator==(const KeyTy& key) const
+    {
+      return key == KeyTy(descriptor);
+    }
+
+    static DescriptorTypeStorage*
+    construct(TypeStorageAllocator& allocator, const KeyTy& key)
+    {
+      return new (allocator.allocate<DescriptorTypeStorage>())
+        DescriptorTypeStorage(key);
+    }
+  };
+
   struct CapabilityTypeStorage : public TypeStorage
   {
     Capability capability;
@@ -244,39 +265,19 @@ namespace mlir::verona
     return getImpl()->elements;
   }
 
-  IntegerType IntegerType::get(MLIRContext* ctx, size_t width, unsigned sign)
-  {
-    return Base::get(ctx, width, sign);
-  }
-
-  size_t IntegerType::getWidth() const
-  {
-    return getImpl()->width;
-  }
-
-  bool IntegerType::getSign() const
-  {
-    return getImpl()->sign;
-  }
-
-  FloatType FloatType::get(MLIRContext* ctx, size_t width)
-  {
-    return Base::get(ctx, width);
-  }
-
-  size_t FloatType::getWidth() const
-  {
-    return getImpl()->width;
-  }
-
-  BoolType BoolType::get(MLIRContext* ctx)
-  {
-    return ::mlir::detail::TypeUniquer::get<BoolType>(ctx);
-  }
-
   UnknownType UnknownType::get(MLIRContext* ctx)
   {
     return ::mlir::detail::TypeUniquer::get<UnknownType>(ctx);
+  }
+
+  DescriptorType DescriptorType::get(MLIRContext* ctx, Type descriptor)
+  {
+    return Base::get(ctx, descriptor);
+  }
+
+  TypeRange DescriptorType::getTypes() const
+  {
+    return getImpl()->descriptor;
   }
 
   CapabilityType CapabilityType::get(MLIRContext* ctx, Capability cap)
@@ -316,8 +317,11 @@ namespace mlir::verona
 
   ClassType::FieldsRef ClassType::getFields() const
   {
-    assert(getImpl()->isInitialized);
-    return getImpl()->fields;
+    // We may not have a full declaration available
+    if (getImpl()->isInitialized)
+      return getImpl()->fields;
+    else
+      return ClassType::FieldsRef();
   }
 
   Type ClassType::getFieldType(StringRef name) const
@@ -350,12 +354,10 @@ namespace mlir::verona
     return type.isa<
       MeetType,
       JoinType,
-      IntegerType,
+      UnknownType,
+      DescriptorType,
       CapabilityType,
       ClassType,
-      FloatType,
-      BoolType,
-      UnknownType,
       ViewpointType>();
   }
 

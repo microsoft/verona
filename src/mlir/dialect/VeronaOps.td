@@ -101,6 +101,53 @@ def Verona_FieldWriteOp : Verona_Op<"field_write", [ Typecheckable ]> {
     }];
 }
 
+def Verona_CallOp : Verona_Op<"call"> {
+    let summary = "Dynamic call to a class method";
+    let description = [{
+      The `$object` refers to the variable which represents the instance of a
+      class, which has a method called `$name` with arguments (`self`, `$args`).
+
+      Before type inference, the `$object` and most `$args` will probably have
+      Verona.Uknown type, so this can't be a standard MLIR call.
+
+      After type inference and name mangling for classes and methods, this could
+      move to a simple call to the precise mangled name with the correct
+      argument types.
+    }];
+
+    let arguments = (ins
+      Verona_Type : $object,
+      StrAttr : $name,
+      Variadic<Verona_Type> : $args
+    );
+    let results = (outs Verona_Type : $res);
+
+    let assemblyFormat = [{
+        $name `[` $object `:` type($object) `]` `(` $args `,` type($args) `)` attr-dict `:` type($res)
+    }];
+    let verifier = [{ return success(); }];
+}
+
+def Verona_StaticOp : Verona_Op<"static"> {
+    let summary = "Acquires a static descriptor of a type";
+    let description = [{
+      When applied upon a `$type` type, retrieves a descriptor for the class
+      that will have enough information to know which static methods or fields
+      it has.
+
+      Returns a descriptor of the class to be used in field access and method
+      calls.
+    }];
+
+    let arguments = (ins TypeAttr : $type);
+    let results = (outs Verona_Type : $res);
+
+    let assemblyFormat = [{
+        $type attr-dict `:` type($res)
+    }];
+    let verifier = [{ return success(); }];
+}
+
 def Verona_TidyOp : Verona_Op<"tidy"> {
     let summary = "Perform garbage-collection on a region";
     let description = [{

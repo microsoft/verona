@@ -1,73 +1,79 @@
 
 
 module {
-  func @f(%arg0: !verona.U32) -> !verona.U32 attributes {class = !verona.class<"$module">, qualifiers = []} {
-    %0 = "verona.alloca"() : () -> !verona.U32
-    %1 = "verona.store"(%arg0, %0) : (!verona.U32, !verona.U32) -> !verona.unknown
-    %2 = "verona.constant(2)"() : () -> !verona.S64
-    %3 = "verona.lt"(%0, %2) : (!verona.U32, !verona.S64) -> i1
-    cond_br %3, ^bb1, ^bb2
+  func @f(%arg0: !verona.class<"U32">) -> !verona.class<"U32"> attributes {class = !verona.class<"$module">, qualifiers = []} {
+    %0 = "verona.alloca"() : () -> !verona.class<"U32">
+    %1 = "verona.store"(%arg0, %0) : (!verona.class<"U32">, !verona.class<"U32">) -> !verona.unknown
+    %2 = "verona.constant(2)"() : () -> !verona.class<"int">
+    %3 = verona.call "<"[%0 : !verona.class<"U32">] (%2, !verona.class<"int">) : !verona.unknown
+    %4 = "verona.cast"(%3) : (!verona.unknown) -> i1
+    cond_br %4, ^bb1, ^bb2
   ^bb1:  // pred: ^bb0
-    %4 = "verona.constant(1)"() : () -> !verona.S64
-    %5 = "verona.add"(%0, %4) : (!verona.U32, !verona.S64) -> !verona.unknown
-    %6 = "verona.store"(%5, %0) : (!verona.unknown, !verona.U32) -> !verona.unknown
+    %5 = "verona.constant(1)"() : () -> !verona.class<"int">
+    %6 = verona.call "+"[%0 : !verona.class<"U32">] (%5, !verona.class<"int">) : !verona.unknown
+    %7 = "verona.store"(%6, %0) : (!verona.unknown, !verona.class<"U32">) -> !verona.unknown
     br ^bb3
   ^bb2:  // pred: ^bb0
-    %7 = "verona.constant(100)"() : () -> !verona.S64
-    %8 = "verona.gt"(%0, %7) : (!verona.U32, !verona.S64) -> i1
-    cond_br %8, ^bb4, ^bb5
+    %8 = "verona.constant(100)"() : () -> !verona.class<"int">
+    %9 = verona.call ">"[%0 : !verona.class<"U32">] (%8, !verona.class<"int">) : !verona.unknown
+    %10 = "verona.cast"(%9) : (!verona.unknown) -> i1
+    cond_br %10, ^bb4, ^bb5
   ^bb3:  // 2 preds: ^bb1, ^bb6
-    return %0 : !verona.U32
+    return %0 : !verona.class<"U32">
   ^bb4:  // pred: ^bb2
-    %9 = "verona.constant(1)"() : () -> !verona.S64
-    %10 = "verona.sub"(%0, %9) : (!verona.U32, !verona.S64) -> !verona.unknown
-    %11 = "verona.store"(%10, %0) : (!verona.unknown, !verona.U32) -> !verona.unknown
+    %11 = "verona.constant(1)"() : () -> !verona.class<"int">
+    %12 = verona.call "-"[%0 : !verona.class<"U32">] (%11, !verona.class<"int">) : !verona.unknown
+    %13 = "verona.store"(%12, %0) : (!verona.unknown, !verona.class<"U32">) -> !verona.unknown
     br ^bb6
   ^bb5:  // pred: ^bb2
-    %12 = "verona.constant(20)"() : () -> !verona.S64
-    %13 = "verona.le"(%0, %12) : (!verona.U32, !verona.S64) -> i1
-    cond_br %13, ^bb7, ^bb8
+    %14 = "verona.constant(20)"() : () -> !verona.class<"int">
+    %15 = verona.call "<="[%0 : !verona.class<"U32">] (%14, !verona.class<"int">) : !verona.unknown
+    %16 = "verona.cast"(%15) : (!verona.unknown) -> i1
+    cond_br %16, ^bb7, ^bb8
   ^bb6:  // 2 preds: ^bb4, ^bb9
     br ^bb3
   ^bb7:  // pred: ^bb5
-    %14 = "verona.constant(2)"() : () -> !verona.S64
-    %15 = "verona.mul"(%0, %14) : (!verona.U32, !verona.S64) -> !verona.unknown
-    %16 = "verona.store"(%15, %0) : (!verona.unknown, !verona.U32) -> !verona.unknown
+    %17 = "verona.constant(2)"() : () -> !verona.class<"int">
+    %18 = verona.call "*"[%0 : !verona.class<"U32">] (%17, !verona.class<"int">) : !verona.unknown
+    %19 = "verona.store"(%18, %0) : (!verona.unknown, !verona.class<"U32">) -> !verona.unknown
     br ^bb9
   ^bb8:  // pred: ^bb5
-    %17 = "verona.constant(50)"() : () -> !verona.S64
-    %18 = "verona.ge"(%0, %17) : (!verona.U32, !verona.S64) -> i1
-    cond_br %18, ^bb10, ^bb11
+    %20 = "verona.constant(50)"() : () -> !verona.class<"int">
+    %21 = verona.call ">="[%0 : !verona.class<"U32">] (%20, !verona.class<"int">) : !verona.unknown
+    %22 = "verona.cast"(%21) : (!verona.unknown) -> i1
+    cond_br %22, ^bb10, ^bb11
   ^bb9:  // 2 preds: ^bb7, ^bb12
     br ^bb6
   ^bb10:  // pred: ^bb8
-    %19 = "verona.constant(10)"() : () -> !verona.S64
-    %20 = "verona.div"(%0, %19) : (!verona.U32, !verona.S64) -> !verona.unknown
-    %21 = "verona.store"(%20, %0) : (!verona.unknown, !verona.U32) -> !verona.unknown
+    %23 = "verona.constant(10)"() : () -> !verona.class<"int">
+    %24 = verona.call "/"[%0 : !verona.class<"U32">] (%23, !verona.class<"int">) : !verona.unknown
+    %25 = "verona.store"(%24, %0) : (!verona.unknown, !verona.class<"U32">) -> !verona.unknown
     br ^bb12
   ^bb11:  // pred: ^bb8
-    %22 = "verona.constant(10)"() : () -> !verona.S64
-    %23 = "verona.eq"(%0, %22) : (!verona.U32, !verona.S64) -> i1
-    cond_br %23, ^bb13, ^bb14
+    %26 = "verona.constant(10)"() : () -> !verona.class<"int">
+    %27 = verona.call "=="[%0 : !verona.class<"U32">] (%26, !verona.class<"int">) : !verona.unknown
+    %28 = "verona.cast"(%27) : (!verona.unknown) -> i1
+    cond_br %28, ^bb13, ^bb14
   ^bb12:  // 2 preds: ^bb10, ^bb15
     br ^bb9
   ^bb13:  // pred: ^bb11
-    %24 = "verona.constant(10)"() : () -> !verona.S64
-    %25 = "verona.store"(%24, %0) : (!verona.S64, !verona.U32) -> !verona.unknown
+    %29 = "verona.constant(10)"() : () -> !verona.class<"int">
+    %30 = "verona.store"(%29, %0) : (!verona.class<"int">, !verona.class<"U32">) -> !verona.unknown
     br ^bb15
   ^bb14:  // pred: ^bb11
-    %26 = "verona.constant(20)"() : () -> !verona.S64
-    %27 = "verona.ne"(%0, %26) : (!verona.U32, !verona.S64) -> i1
-    cond_br %27, ^bb16, ^bb17
+    %31 = "verona.constant(20)"() : () -> !verona.class<"int">
+    %32 = verona.call "!="[%0 : !verona.class<"U32">] (%31, !verona.class<"int">) : !verona.unknown
+    %33 = "verona.cast"(%32) : (!verona.unknown) -> i1
+    cond_br %33, ^bb16, ^bb17
   ^bb15:  // 2 preds: ^bb13, ^bb18
     br ^bb12
   ^bb16:  // pred: ^bb14
-    %28 = "verona.constant(42)"() : () -> !verona.S64
-    %29 = "verona.store"(%28, %0) : (!verona.S64, !verona.U32) -> !verona.unknown
+    %34 = "verona.constant(42)"() : () -> !verona.class<"int">
+    %35 = "verona.store"(%34, %0) : (!verona.class<"int">, !verona.class<"U32">) -> !verona.unknown
     br ^bb18
   ^bb17:  // pred: ^bb14
-    %30 = "verona.constant(0)"() : () -> !verona.S64
-    %31 = "verona.store"(%30, %0) : (!verona.S64, !verona.U32) -> !verona.unknown
+    %36 = "verona.constant(0)"() : () -> !verona.class<"int">
+    %37 = "verona.store"(%36, %0) : (!verona.class<"int">, !verona.class<"U32">) -> !verona.unknown
     br ^bb18
   ^bb18:  // 2 preds: ^bb16, ^bb17
     br ^bb15

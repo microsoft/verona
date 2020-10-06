@@ -60,6 +60,7 @@ namespace mlir::verona
       FuncName = peg::str2tag("funcname"), // = 90200697
       Sig = peg::str2tag("sig"), // = 124317
       Qualifier = peg::str2tag("qualifier"), // = 3224348024
+      Static = peg::str2tag("static"), // = 156887736
       Block = peg::str2tag("block"), // = 117895113
       OfType = peg::str2tag("oftype"), // = 3504561
       Constraints = peg::str2tag("constraints"), // = 4070926742
@@ -67,9 +68,11 @@ namespace mlir::verona
       Type = peg::str2tag("type"), // = 4058008
       TypeTuple = peg::str2tag("type_tuple"), // = 1428239871
       TypeRef = peg::str2tag("type_ref"), // = 2115269750
+      Typeref = peg::str2tag("typeref"), // = 4098803273
       TypeOp = peg::str2tag("type_op"), // = 4098764984
       TypeOne = peg::str2tag("type_one"), // = 2115257603
       TypeBody = peg::str2tag("typebody"), // = 2117081800
+      QualType = peg::str2tag("qualtype"), // = 1660450641
       Bool = peg::str2tag("bool"), // = 3565102
       Hex = peg::str2tag("hex"), // = 110293
       Binary = peg::str2tag("binary"), // = 3884723791
@@ -80,6 +83,7 @@ namespace mlir::verona
       Assign = peg::str2tag("assign"), // = 3930587681
       Let = peg::str2tag("let"), // = 114397
       Call = peg::str2tag("call"), // = 3519010
+      StaticCall = peg::str2tag("static-call"), // = 1256961527
       Return = peg::str2tag("return"), // = 210835850
       Args = peg::str2tag("args"), // = 3609031
       Integer = peg::str2tag("int"), // = 117427
@@ -197,6 +201,12 @@ namespace mlir::verona
       return isAny(ast, {NodeKind::OfType, NodeKind::TypeTuple, NodeKind::New});
     }
 
+    /// Return true if node is a type holder
+    static bool isQualType(::ast::WeakAst ast)
+    {
+      return isA(ast, NodeKind::QualType);
+    }
+
     /// Return true if node is final type (tuple element)
     static bool IsTypeTupleElement(::ast::WeakAst ast)
     {
@@ -215,6 +225,12 @@ namespace mlir::verona
       return isA(ast, NodeKind::Function);
     }
 
+    /// Return true if node is a static qualifier
+    static bool isStatic(::ast::WeakAst ast)
+    {
+      return isA(ast, NodeKind::Static);
+    }
+
     /// Return true if node is a class/module
     static bool isClass(::ast::WeakAst ast)
     {
@@ -231,6 +247,12 @@ namespace mlir::verona
     static bool isCall(::ast::WeakAst ast)
     {
       return isA(ast, NodeKind::Call);
+    }
+
+    /// Return true if node is a static call
+    static bool isStaticCall(::ast::WeakAst ast)
+    {
+      return isA(ast, NodeKind::StaticCall);
     }
 
     /// Return true if node is a return
@@ -380,10 +402,12 @@ namespace mlir::verona
     /// Return true if node is an ID (func, var, type names)
     static llvm::StringRef getID(::ast::WeakAst ast)
     {
-      if (isA(ast, NodeKind::Call))
+      if (isAny(ast, {NodeKind::Call, NodeKind::StaticCall}))
         return getTokenValue(findNode(ast, NodeKind::Function));
       if (isA(ast, NodeKind::Member))
         return getTokenValue(findNode(ast, NodeKind::Lookup));
+      if (isA(ast, NodeKind::QualType))
+        return getTokenValue(findNode(ast, NodeKind::Typeref));
       return getTokenValue(findNode(ast, NodeKind::ID));
     }
 
@@ -580,23 +604,15 @@ namespace mlir::verona
     /// Return the number of operands in an operation
     static size_t numOperands(::ast::WeakAst ast)
     {
-      assert(isCall(ast) && "Bad node");
-      if (!isValue(ast.lock()->nodes[2]))
-        return 0;
+      assert((isCall(ast) || isStaticCall(ast)) && "Bad node");
+      // Dynamic calls must have descriptor
+      if (isCall(ast))
+        assert(
+          isValue(ast.lock()->nodes[2]) && "No descriptor for dynamic call");
+      // Dynamic call's first argument is separate (descriptor), bool to int
+      size_t firstArg = isCall(ast);
       auto args = findNode(ast, NodeKind::Args);
-      return args.lock()->nodes.size() + 1;
-    }
-
-    /// Return true if node an unary operation
-    static bool isUnary(::ast::WeakAst ast)
-    {
-      return numOperands(ast) == 1;
-    }
-
-    /// Return true if node an binary operation
-    static bool isBinary(::ast::WeakAst ast)
-    {
-      return numOperands(ast) == 2;
+      return args.lock()->nodes.size() + firstArg;
     }
 
     /// Return the left-hand side of an assignment
@@ -621,13 +637,16 @@ namespace mlir::verona
     static ::ast::WeakAst getOperand(::ast::WeakAst ast, size_t n)
     {
       assert(n < numOperands(ast) && "Bad offset");
-      auto ptr = ast.lock();
-      // Calls have the first operand after 'typeargs' (3rd place)
-      if (n == 0)
-        return ptr->nodes[2];
-      // All others in 'args'
       auto args = findNode(ast, NodeKind::Args);
-      return args.lock()->nodes[n - 1];
+      auto ptr = args.lock();
+      // Static calls don't have special first argument
+      if (isStaticCall(ast))
+        return ptr->nodes[n];
+      // Calls have the first operand as 'localref'
+      if (n == 0)
+        return findNode(ast, NodeKind::Localref);
+      // All others in 'args'
+      return ptr->nodes[n - 1];
     }
 
     /// Get all operands of the operation.
@@ -638,6 +657,13 @@ namespace mlir::verona
       auto numOps = numOperands(ast);
       for (size_t i = 0; i < numOps; i++)
         ops.push_back(getOperand(ast, i));
+    }
+
+    /// Get static call's qualified type
+    static ::ast::WeakAst getStaticQualType(::ast::WeakAst ast)
+    {
+      assert(isStaticCall(ast) && "Bad node");
+      return findNode(ast, NodeKind::QualType);
     }
 
     // ================================================= Condition Helpers
