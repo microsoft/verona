@@ -325,7 +325,7 @@ interface String
 	/**
 	 * Return the length of the string in Unicode code points.
 	 */
-	func length(self: readonly & String) : size_t;
+	length(self: readonly & String) : size_t;
 
 	/**
 	 * The encoding that this string can most easily convert to.  This will
@@ -334,7 +334,7 @@ interface String
 	 * `StringEncodingUTF8` for all read operations because ASCII is a strict
 	 * superset of UTF-8.
 	 */
-	func fastest_encoding(self: readonly & String) : StringEncoding;
+	fastest_encoding(self: readonly & String) : StringEncoding;
 
 	/**
 	 * The standard encoding that this string can most easily convert to.  This
@@ -342,7 +342,7 @@ interface String
 	 * not be for custom encodings.  For all standard-library string types,
 	 * this will return the same value as `fastest_encoding`.
 	 */
-	func fastest_unicode_encoding(self: readonly & String) : UnicodeStringEncoding;
+	fastest_unicode_encoding(self: readonly & String) : UnicodeStringEncoding;
 
 	/**
 	 * The standard encoding that will use the smallest amount of space to
@@ -351,13 +351,13 @@ interface String
 	 * `StringEncodingUTF8`, whereas CJK language strings will likely return
 	 * `StringEncodingUTF16`.
 	 */
-	func smallest_unicode_encoding(self: readonly & String) : UnicodeStringEncoding;
+	smallest_unicode_encoding(self: readonly & String) : UnicodeStringEncoding;
 
 	/**
 	 * Access a specific character.  Returns a unicode code point for the
 	 * specific index in the string.
 	 */
-	func apply(self: readonly & String, index: U64) : Rune;
+	apply(self: readonly & String, index: U64) : Rune;
 
 	/**
 	 * Takes a range in the string (expressed in Unicode code points) and
@@ -369,9 +369,9 @@ interface String
 	 * as the generic parameter then it will return an internal buffer for
 	 * immutable strings.  This is intended to be used to build fast iterators.
 	 */
-	func copy_or_view_data[StringEncoding Enc](self: readonly & String,
-	                                           range: Range,
-	                                           buffer: Optional[Array[Enc.CodeUnitType] & mut])
+	copy_or_view_data[StringEncoding Enc](self: readonly & String,
+	                                      range: Range,
+	                                      buffer: Optional[Array[Enc.CodeUnitType] & mut])
 	     : Array[Enc.CodeUnitType] & (mut | imm);
 
 	/******************************************************************************
@@ -381,14 +381,14 @@ interface String
 	/**
 	 * Updates a specific character. 
 	 */
-	func update(self: (mut | iso) & String, index: U64, c: Rune);
+	update(self: (mut | iso) & String, index: U64, c: Rune);
 
 	/**
 	 * Replace the specified range in a string with another string.
 	 */
-	func update_range[String Str](self: (mut | iso) & String,
-	                              range: Range,
-	                              newString: Str & imm);
+	update_range[String Str](self: (mut | iso) & String,
+	                         range: Range,
+	                         newString: Str & imm);
 }
 ```
 
@@ -431,7 +431,7 @@ As such, we want simple syntax for writing generics and a language-level guarant
 For example, consider a trivial search function:
 
 ```verona
-func find_character(str : String & readonly, c : Rune) : U64 | NotFound
+find_character(str : String & readonly, c : Rune) : U64 | NotFound
 {
 	match (str)
 	{
