@@ -68,6 +68,9 @@ namespace verona::rt
     // Compact representation of previous memory used as a sizeclass.
     snmalloc::sizeclass_t previous_memory_used = 0;
 
+    // Stack of stack based entry points into the region.
+    StackThin<Object, Alloc> additional_entry_points{};
+
     explicit RegionTrace()
     : RegionBase(), next_not_root(this), last_not_root(this)
     {}
@@ -189,16 +192,27 @@ namespace verona::rt
       assert(reg != other);
 
       if (is_trace_region(other))
-        reg->merge_internal(o, (RegionTrace*)other);
+      {
+        RegionTrace* other_trace = (RegionTrace*)other;
+
+        // o is not allowed to have additional roots, as it is about
+        // to be collapsed `into`.
+        if (!other_trace->additional_entry_points.empty())
+          abort();
+
+        reg->merge_internal(o, other_trace);
+
+        // Merge the ExternalReferenceTable and RememberedSet.
+        reg->ExternalReferenceTable::merge(alloc, other_trace);
+        reg->RememberedSet::merge(alloc, other_trace);
+
+        // Now we can deallocate the other region's metadata object.
+        other_trace->dealloc(alloc);
+      }
       else
-        assert(0);
-
-      // Merge the ExternalReferenceTable and RememberedSet.
-      reg->ExternalReferenceTable::merge(alloc, other);
-      reg->RememberedSet::merge(alloc, other);
-
-      // Now we can deallocate the other region's metadata object.
-      other->dealloc(alloc);
+        // TODO: Merge on other region types?
+        // Currently not supported, but possible future expansion.
+        abort();
     }
 
     /**
@@ -231,6 +245,12 @@ namespace verona::rt
       ObjectStack f(alloc);
       ObjectStack collect(alloc);
 
+      // Copy additional roots into f.
+      reg->additional_entry_points.forall([&f](Object* o) {
+        Systematic::cout() << "Additional root: " << o << std::endl;
+        f.push(o);
+      });
+
       reg->mark(alloc, o, f);
       reg->sweep(alloc, o, collect);
 
@@ -257,6 +277,25 @@ namespace verona::rt
         else
           abort();
       }
+    }
+
+    /// Add root to the stack.
+    /// Preserves for object for a GC.
+    static void push_additional_root(Object* root, Object* o, Alloc* alloc)
+    {
+      RegionTrace* reg = get(root);
+      reg->additional_entry_points.push(o, alloc);
+    }
+
+    /// Remove root to the stack.
+    /// Must be called in reservse order with respect to push_additional_root.
+    static void pop_additional_root(Object* root, Object* o, Alloc* alloc)
+    {
+      RegionTrace* reg = get(root);
+      auto result = reg->additional_entry_points.pop(alloc);
+      assert(result == o);
+      UNUSED(result);
+      UNUSED(o);
     }
 
   private:
@@ -353,7 +392,8 @@ namespace verona::rt
 
     /**
      * Scan through the region and mark all objects reachable from the iso
-     * object `o`. We don't follow pointers to subregions.
+     * object `o`. We don't follow pointers to subregions. Also will trace
+     * from anything already in `dfs`.
      **/
     void mark(Alloc* alloc, Object* o, ObjectStack& dfs)
     {
@@ -368,6 +408,7 @@ namespace verona::rt
             break;
 
           case Object::UNMARKED:
+            Systematic::cout() << "Mark" << p << std::endl;
             p->mark();
             p->trace(dfs);
             break;
@@ -511,6 +552,7 @@ namespace verona::rt
           case Object::UNMARKED:
           {
             Object* q = p->get_next();
+            Systematic::cout() << "Sweep " << p << std::endl;
             sweep_object<ring>(alloc, p, o, &gc, collect);
 
             if (ring != primary_ring && prev == this)
@@ -558,6 +600,16 @@ namespace verona::rt
     void release_internal(Alloc* alloc, Object* o, ObjectStack& collect)
     {
       assert(o->debug_is_iso());
+
+      // It is an error if this region has additional roots.
+      if (!additional_entry_points.empty())
+      {
+        Systematic::cout() << "Region release failed due to additional roots"
+                           << std::endl;
+        additional_entry_points.forall(
+          [](Object* o) { Systematic::cout() << " root" << o << std::endl; });
+        abort();
+      }
 
       Systematic::cout() << "Region release: trace region: " << o << std::endl;
 

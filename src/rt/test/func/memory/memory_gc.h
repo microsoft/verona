@@ -464,9 +464,59 @@ namespace memory_gc
     snmalloc::current_alloc_pool()->debug_check_empty();
   }
 
+  void test_additional_roots()
+  {
+    Systematic::cout() << "Additional roots test" << std::endl;
+
+    auto* alloc = ThreadAlloc::get();
+    auto* o = new (alloc) C;
+    Systematic::cout() << "Root" << o << std::endl;
+
+    // Allocate some reachable objects.
+    auto* o1 = new (alloc, o) C;
+    Systematic::cout() << " other" << o1 << std::endl;
+    auto* o2 = new (alloc, o) C;
+    Systematic::cout() << " other" << o2 << std::endl;
+    auto* o3 = new (alloc, o) C;
+    Systematic::cout() << " other" << o3 << std::endl;
+    auto* o4 = new (alloc, o) C;
+    Systematic::cout() << " other" << o4 << std::endl;
+    auto* o5 = new (alloc, o) C;
+    Systematic::cout() << " other" << o5 << std::endl;
+
+    RegionTrace::push_additional_root(o, o1, alloc);
+    RegionTrace::push_additional_root(o, o2, alloc);
+    RegionTrace::push_additional_root(o, o3, alloc);
+    RegionTrace::push_additional_root(o, o4, alloc);
+    RegionTrace::push_additional_root(o, o5, alloc);
+
+    assert(Region::debug_size(o) == 6);
+    RegionTrace::gc(alloc, o);
+    Systematic::cout() << Region::debug_size(o) << std::endl;
+    assert(Region::debug_size(o) == 6);
+
+    RegionTrace::pop_additional_root(o, o5, alloc);
+    RegionTrace::pop_additional_root(o, o4, alloc);
+
+    // Run another GC.
+    RegionTrace::gc(alloc, o);
+    assert(Region::debug_size(o) == 4);
+ 
+    RegionTrace::pop_additional_root(o, o3, alloc);
+    RegionTrace::pop_additional_root(o, o2, alloc);
+    RegionTrace::pop_additional_root(o, o1, alloc);
+
+    // Run another GC.
+    RegionTrace::gc(alloc, o);
+    assert(Region::debug_size(o) == 1);
+    Region::release(alloc, o);
+    snmalloc::current_alloc_pool()->debug_check_empty();
+  }
+
   void run_test()
   {
     test_basic();
+    test_additional_roots();
     test_linked_list();
     test_freeze();
     test_cycles();
