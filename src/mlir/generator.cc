@@ -95,7 +95,7 @@ namespace mlir::verona
     // already, so we use `update` to fetch it.
     auto name = AST::getID(ast);
     auto type = ClassType::get(context, name);
-    typeTable.update(name, type);
+    typeTable.getOrAdd(name, type);
 
     // Nested classes, field names and types, methods, etc.
     llvm::SmallVector<::ast::WeakAst, 4> nodes;
@@ -300,7 +300,7 @@ namespace mlir::verona
       {
         // Class pre-declaration, use `update` it for multiple uses
         // before complete definition (done in `parseClass`).
-        return typeTable.update(name, ClassType::get(context, name));
+        return typeTable.getOrAdd(name, ClassType::get(context, name));
       }
       else
       {
