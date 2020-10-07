@@ -254,28 +254,28 @@ The interface for strings would look roughly like this:
  */
 class StringEncodingASCII
 {
-	typedef CharType = U8;
+	typedef CodeUnitType = U8;
 }
 /**
  * String is stored as UTF-8-encoded text.
  */
 class StringEncodingUTF8
 {
-	typedef CharType = U8;
+	typedef CodeUnitType = U8;
 }
 /**
  * String is stored as UTF-16-encoded text.
  */
 class StringEncodingUTF16
 {
-	typedef CharType = U16;
+	typedef CodeUnitType = U16;
 }
 /**
  * String is stored as UTF-32-encoded text.
  */
 class StringEncodingUTF32
 {
-	typedef CharType = U32;
+	typedef CodeUnitType = U32;
 }
 /**
  * Interface for other string encodings.  Any other type can be used as a valid
@@ -284,7 +284,7 @@ class StringEncodingUTF32
  */
 interface StringEncodingCustom
 {
-	typedef CharType;
+	typedef CodeUnitType;
 }
 
 /**
@@ -371,8 +371,8 @@ interface String
 	 */
 	func copy_or_view_data[StringEncoding Enc](self: readonly & String,
 	                                           range: Range,
-	                                           buffer: Optional[Array[Enc.CharType] & mut])
-	     : Array[Enc.CharType] & (mut | imm);
+	                                           buffer: Optional[Array[Enc.CodeUnitType] & mut])
+	     : Array[Enc.CodeUnitType] & (mut | imm);
 
 	/******************************************************************************
 	 * Operations on mutable strings
