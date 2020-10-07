@@ -52,13 +52,13 @@ namespace mlir::verona
     /// Asserts if element already exist
     T insert(llvm::StringRef key, T value)
     {
-      return update(key, value, /* insert= */ true);
+      return getOrAdd(key, value, /* insert= */ true);
     }
 
-    /// Inserts or update the entry in the last scope
-    /// Returns the inserted/updated element
+    /// Fetch or insert the entry in the last scope
+    /// Returns the inserted/fetched element
     /// If insert=true, asserts if element already exist
-    T update(llvm::StringRef key, T value, bool insert = false)
+    T getOrAdd(llvm::StringRef key, T value, bool insert = false)
     {
       auto& frame = stack.back();
       auto res = frame.emplace(key, value);
