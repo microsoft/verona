@@ -37,7 +37,7 @@ namespace notify_interleave
 
     void trace(ObjectStack& st) const
     {
-      assert(a);
+      check(a);
       st.push(a);
     }
   };

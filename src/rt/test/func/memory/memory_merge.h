@@ -17,7 +17,7 @@ namespace memory_merge
     using RegionClass = typename RegionType_to_class<region_type>::T;
 
     RegionClass::merge(alloc, r1, r2);
-    assert(!r2->debug_is_iso());
+    check(!r2->debug_is_iso());
 
     // Allocate a few more things to ensure our pointers are correct.
     new (alloc, r1) LargeC2<region_type>;
@@ -26,7 +26,7 @@ namespace memory_merge
 
     Region::release(alloc, r1);
     snmalloc::current_alloc_pool()->debug_check_empty();
-    assert(live_count == 0);
+    check(live_count == 0);
   }
 
   /**
@@ -57,7 +57,7 @@ namespace memory_merge
       new (alloc, r2) LC;
 
       RegionClass::merge(alloc, r1, r2);
-      assert(r1->debug_is_iso() && !r2->debug_is_iso());
+      check(r1->debug_is_iso() && !r2->debug_is_iso());
 
       alloc_in_region<F, F, LC, XC>(alloc, r1);
 
@@ -66,13 +66,13 @@ namespace memory_merge
       RegionClass::swap_root(o1, r2);
       alloc_in_region<LC, F>(alloc, r2);
       RegionClass::swap_root(r2, o2);
-      assert(o2->debug_is_iso());
+      check(o2->debug_is_iso());
 
       alloc_in_region<F, LC>(alloc, o2);
 
       Region::release(alloc, o2);
       snmalloc::current_alloc_pool()->debug_check_empty();
-      assert(live_count == 0);
+      check(live_count == 0);
     }
 
     if constexpr (region_type == RegionType::Trace)

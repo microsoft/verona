@@ -62,7 +62,7 @@ namespace noticeboard_primitive_weak
 
       // expected assertion failure; write to x_1 was picked up before x_0
       // if (x_1 == 2) {
-      //   assert(x_0 == 1);
+      //   check(x_0 == 1);
       // }
 
       UNUSED(x_0);

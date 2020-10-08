@@ -53,7 +53,7 @@ namespace memory_subregion
 
     Region::release(alloc, r);
     snmalloc::current_alloc_pool()->debug_check_empty();
-    assert(live_count == 0);
+    check(live_count == 0);
   }
 
   /**
@@ -101,7 +101,7 @@ namespace memory_subregion
 
     Region::release(alloc, r);
     snmalloc::current_alloc_pool()->debug_check_empty();
-    assert(live_count == 0);
+    check(live_count == 0);
   }
 
   /**
@@ -144,20 +144,20 @@ namespace memory_subregion
     r2->f1 = r3;
 
     // Count items in each subregion.
-    assert(Region::debug_size(r) == 6);
-    assert(Region::debug_size(r1) == 4);
-    assert(Region::debug_size(r2) == 6);
-    assert(Region::debug_size(r3) == 3);
+    check(Region::debug_size(r) == 6);
+    check(Region::debug_size(r1) == 4);
+    check(Region::debug_size(r2) == 6);
+    check(Region::debug_size(r3) == 3);
 
     // GC r3, then r, but not r1.
     RegionTrace::gc(alloc, r3);
     RegionTrace::gc(alloc, r);
 
     // Check the sizes again.
-    assert(Region::debug_size(r) == 3);
-    assert(Region::debug_size(r1) == 4);
-    assert(Region::debug_size(r2) == 6);
-    assert(Region::debug_size(r3) == 1);
+    check(Region::debug_size(r) == 3);
+    check(Region::debug_size(r1) == 4);
+    check(Region::debug_size(r2) == 6);
+    check(Region::debug_size(r3) == 1);
 
     Region::release(alloc, r);
     snmalloc::current_alloc_pool()->debug_check_empty();
@@ -193,9 +193,9 @@ namespace memory_subregion
       if constexpr (region_type == RegionType::Trace)
       {
         // After the swap, we have some unreachable objects.
-        assert(Region::debug_size(nroot) == 3);
+        check(Region::debug_size(nroot) == 3);
         RegionTrace::gc(alloc, nroot);
-        assert(Region::debug_size(nroot) == 1);
+        check(Region::debug_size(nroot) == 1);
       }
 
       Region::release(alloc, nroot);
@@ -222,9 +222,9 @@ namespace memory_subregion
       if constexpr (region_type == RegionType::Trace)
       {
         // After the swap, we have some unreachable objects.
-        assert(Region::debug_size(nroot) == 3);
+        check(Region::debug_size(nroot) == 3);
         RegionTrace::gc(alloc, nroot);
-        assert(Region::debug_size(nroot) == 1);
+        check(Region::debug_size(nroot) == 1);
       }
 
       Region::release(alloc, nroot);
@@ -254,9 +254,9 @@ namespace memory_subregion
       if constexpr (region_type == RegionType::Trace)
       {
         // After the swap, we have some unreachable objects.
-        assert(Region::debug_size(nroot) == 3);
+        check(Region::debug_size(nroot) == 3);
         RegionTrace::gc(alloc, nroot);
-        assert(Region::debug_size(nroot) == 1);
+        check(Region::debug_size(nroot) == 1);
       }
 
       Region::release(alloc, r);
@@ -299,9 +299,9 @@ namespace memory_subregion
     // Run GC.
     if constexpr (region_type == RegionType::Trace)
     {
-      assert(Region::debug_size(r1) == 14);
+      check(Region::debug_size(r1) == 14);
       RegionTrace::gc(alloc, r1);
-      assert(Region::debug_size(r1) == 8);
+      check(Region::debug_size(r1) == 8);
     }
 
     // Let's break a link to create some more garbage, then run GC again.
@@ -309,7 +309,7 @@ namespace memory_subregion
     if constexpr (region_type == RegionType::Trace)
     {
       RegionTrace::gc(alloc, r1);
-      assert(Region::debug_size(r1) == 5);
+      check(Region::debug_size(r1) == 5);
     }
 
     Region::release(alloc, r1);

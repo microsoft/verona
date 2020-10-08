@@ -20,7 +20,7 @@ namespace memory_swap_root
     UNUSED(reg);
 
     RegionClass::swap_root(oroot, nroot);
-    assert(
+    check(
       !oroot->debug_is_iso() && nroot->debug_is_iso() &&
       reg == Region::get(nroot));
 
@@ -31,7 +31,7 @@ namespace memory_swap_root
 
     Region::release(alloc, nroot);
     snmalloc::current_alloc_pool()->debug_check_empty();
-    assert(live_count == 0);
+    check(live_count == 0);
   }
 
   /**
@@ -62,20 +62,20 @@ namespace memory_swap_root
 
       RegionClass::swap_root(oroot1, nroot1);
       RegionClass::swap_root(oroot2, nroot2);
-      assert(!oroot1->debug_is_iso() && nroot1->debug_is_iso());
-      assert(!oroot2->debug_is_iso() && nroot2->debug_is_iso());
+      check(!oroot1->debug_is_iso() && nroot1->debug_is_iso());
+      check(!oroot2->debug_is_iso() && nroot2->debug_is_iso());
 
       alloc_in_region<F, F, XC>(alloc, nroot1);
       alloc_in_region<C, C>(alloc, nroot2);
 
       RegionClass::merge(alloc, nroot1, nroot2);
-      assert(nroot1->debug_is_iso() && !nroot2->debug_is_iso());
+      check(nroot1->debug_is_iso() && !nroot2->debug_is_iso());
 
       alloc_in_region<XC, XC, C>(alloc, nroot1);
 
       Region::release(alloc, nroot1);
       snmalloc::current_alloc_pool()->debug_check_empty();
-      assert(live_count == 0);
+      check(live_count == 0);
     }
 
     if constexpr (region_type == RegionType::Trace)

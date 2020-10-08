@@ -7,7 +7,6 @@
 #include <test/opt.h>
 #include <verona.h>
 
-using namespace snmalloc;
 using namespace verona::rt;
 using namespace std::chrono;
 
@@ -117,7 +116,7 @@ public:
 
   size_t current_seed()
   {
-    assert(seed != 0);
+    check(seed != 0);
     return seed;
   }
 };

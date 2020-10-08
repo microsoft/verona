@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include <test/opt.h>
+#include <test/harness.h>
 #include <verona.h>
 
 using namespace snmalloc;
