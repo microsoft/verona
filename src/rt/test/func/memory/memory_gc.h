@@ -475,14 +475,29 @@ namespace memory_gc
     // Allocate some reachable objects.
     auto* o1 = new (alloc, o) C;
     Systematic::cout() << " other" << o1 << std::endl;
+    auto* s1 = new (alloc, o) C;
+    Systematic::cout() << " sub" << s1 << std::endl;
+    o1->f1 = s1;
     auto* o2 = new (alloc, o) C;
     Systematic::cout() << " other" << o2 << std::endl;
+    auto* s2 = new (alloc, o) C;
+    Systematic::cout() << " sub" << s2 << std::endl;
+    o2->f1 = s2;
     auto* o3 = new (alloc, o) C;
     Systematic::cout() << " other" << o3 << std::endl;
+    auto* s3 = new (alloc, o) C;
+    Systematic::cout() << " sub" << s2 << std::endl;
+    o3->f1 = s3;
     auto* o4 = new (alloc, o) C;
     Systematic::cout() << " other" << o4 << std::endl;
+    auto* s4 = new (alloc, o) C;
+    Systematic::cout() << " sub" << s4 << std::endl;
+    o4->f1 = s4;
     auto* o5 = new (alloc, o) C;
     Systematic::cout() << " other" << o5 << std::endl;
+    auto* s5 = new (alloc, o) C;
+    Systematic::cout() << " sub" << s5 << std::endl;
+    o5->f1 = s5;
 
     RegionTrace::push_additional_root(o, o1, alloc);
     RegionTrace::push_additional_root(o, o2, alloc);
@@ -490,17 +505,17 @@ namespace memory_gc
     RegionTrace::push_additional_root(o, o4, alloc);
     RegionTrace::push_additional_root(o, o5, alloc);
 
-    check(Region::debug_size(o) == 6);
+    check(Region::debug_size(o) == 11);
     RegionTrace::gc(alloc, o);
     Systematic::cout() << Region::debug_size(o) << std::endl;
-    check(Region::debug_size(o) == 6);
+    check(Region::debug_size(o) == 11);
 
     RegionTrace::pop_additional_root(o, o5, alloc);
     RegionTrace::pop_additional_root(o, o4, alloc);
 
     // Run another GC.
     RegionTrace::gc(alloc, o);
-    check(Region::debug_size(o) == 4);
+    check(Region::debug_size(o) == 7);
 
     RegionTrace::pop_additional_root(o, o3, alloc);
     RegionTrace::pop_additional_root(o, o2, alloc);

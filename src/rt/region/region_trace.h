@@ -287,8 +287,8 @@ namespace verona::rt
       reg->additional_entry_points.push(o, alloc);
     }
 
-    /// Remove root to the stack.
-    /// Must be called in reservse order with respect to push_additional_root.
+    /// Remove root from the stack.
+    /// Must be called in reverse order with respect to push_additional_root.
     static void pop_additional_root(Object* root, Object* o, Alloc* alloc)
     {
       RegionTrace* reg = get(root);
