@@ -221,20 +221,11 @@ namespace Systematic
 
     LocalLog* log = nullptr;
 #ifdef USE_FLIGHT_RECORDER
-    ThreadLocalLog()
-    {
-      if constexpr (flight_recorder)
-      {
-        log = global_logs().acquire();
-      }
-    }
+    ThreadLocalLog() : log(global_logs().acquire()) {}
 
     ~ThreadLocalLog()
     {
-      if constexpr (flight_recorder)
-      {
-        global_logs().release(log);
-      }
+      global_logs().release(log);
     }
 #endif
 
