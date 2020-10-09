@@ -20,7 +20,7 @@ namespace memory_alloc
     First* a = alloc_region<First, Rest...>(alloc);
     Region::release(alloc, a);
     snmalloc::current_alloc_pool()->debug_check_empty();
-    assert(live_count == 0);
+    check(live_count == 0);
   }
 
   /**
@@ -76,7 +76,7 @@ namespace memory_alloc
       using S5 = C2<48, region_type>;
       using S6 = C2<52, region_type>;
       using S7 = C2<56, region_type>;
-      assert(
+      check(
         sizeof(S1) % Object::ALIGNMENT != 0 ||
         sizeof(S2) % Object::ALIGNMENT != 0 ||
         sizeof(S3) % Object::ALIGNMENT != 0 ||

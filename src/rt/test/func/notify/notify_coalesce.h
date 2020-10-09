@@ -39,7 +39,7 @@ namespace notify_coalesce
 
     void trace(ObjectStack& st) const
     {
-      assert(a);
+      check(a);
       st.push(a);
     }
   };
@@ -84,8 +84,8 @@ namespace notify_coalesce
 
         case CHECK:
         {
-          // If this assert fails, check if BATCH_COUNT is lower than 100.
-          assert(g_called == 1);
+          // If this check fails, check if BATCH_COUNT is lower than 100.
+          check(g_called == 1);
           Cown::release(ThreadAlloc::get(), b);
           break;
         }

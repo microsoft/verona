@@ -52,21 +52,21 @@ namespace memory_iterator
       for (auto p : *reg)
       {
         UNUSED(p);
-        assert(p == o);
+        check(p == o);
       }
 
       for (auto n_it = reg->template begin<RegionBase::Trivial>();
            n_it != reg->template end<RegionBase::Trivial>();
            ++n_it)
       {
-        assert(0); // unreachable
+        check(0); // unreachable
       }
 
       for (auto f_it = reg->template begin<RegionBase::NonTrivial>();
            f_it != reg->template end<RegionBase::NonTrivial>();
            ++f_it)
       {
-        assert(*f_it == o);
+        check(*f_it == o);
       }
 
       Region::release(ThreadAlloc::get(), o);
@@ -80,21 +80,21 @@ namespace memory_iterator
       for (auto p : *reg)
       {
         UNUSED(p);
-        assert(p == o);
+        check(p == o);
       }
 
       for (auto n_it = reg->template begin<RegionBase::Trivial>();
            n_it != reg->template end<RegionBase::Trivial>();
            ++n_it)
       {
-        assert(*n_it == o);
+        check(*n_it == o);
       }
 
       for (auto f_it = reg->template begin<RegionBase::NonTrivial>();
            f_it != reg->template end<RegionBase::NonTrivial>();
            ++f_it)
       {
-        assert(0); // unreachable
+        check(0); // unreachable
       }
 
       Region::release(ThreadAlloc::get(), o);
@@ -168,49 +168,49 @@ namespace memory_iterator
       s4.insert(of);
 
       // Sanity check.
-      assert(s1.size() == s2.size() + s3.size());
+      check(s1.size() == s2.size() + s3.size());
 
       // Now check that we iterated over everything.
       for (auto p : *reg)
       {
-        assert(s1.count(p));
+        check(s1.count(p));
         s1.erase(p);
       }
-      assert(s1.empty());
+      check(s1.empty());
 
       for (auto n_it = reg->template begin<RegionBase::Trivial>();
            n_it != reg->template end<RegionBase::Trivial>();
            ++n_it)
       {
-        assert(s2.count(*n_it));
+        check(s2.count(*n_it));
         s2.erase(*n_it);
       }
-      assert(s2.empty());
+      check(s2.empty());
 
       for (auto f_it = reg->template begin<RegionBase::NonTrivial>();
            f_it != reg->template end<RegionBase::NonTrivial>();
            ++f_it)
       {
-        assert(s3.count(*f_it));
+        check(s3.count(*f_it));
         s3.erase(*f_it);
       }
-      assert(s3.empty());
+      check(s3.empty());
 
       // Run a GC.
-      assert(Region::debug_size(r) == 9);
+      check(Region::debug_size(r) == 9);
       RegionTrace::gc(alloc, r);
-      assert(Region::debug_size(r) == 5);
+      check(Region::debug_size(r) == 5);
 
       // Check that we didn't collect anything we shouldn't have.
       for (auto p : *reg)
       {
         UNUSED(p);
-        assert(!s4.count(p));
+        check(!s4.count(p));
       }
 
       Region::release(alloc, r);
       snmalloc::current_alloc_pool()->debug_check_empty();
-      assert(live_count == 0);
+      check(live_count == 0);
     }
     else if constexpr (region_type == RegionType::Arena)
     {
@@ -248,37 +248,37 @@ namespace memory_iterator
       test_iterator_insert<LF, LF, LC, LC>(alloc, o, s1, s2, s3);
 
       // Sanity check.
-      assert(s1.size() == s2.size() + s3.size());
+      check(s1.size() == s2.size() + s3.size());
 
       // Now check that we iterated over everything.
       for (auto p : *reg)
       {
-        assert(s1.count(p));
+        check(s1.count(p));
         s1.erase(p);
       }
-      assert(s1.empty());
+      check(s1.empty());
 
       for (auto n_it = reg->template begin<RegionBase::Trivial>();
            n_it != reg->template end<RegionBase::Trivial>();
            ++n_it)
       {
-        assert(s2.count(*n_it));
+        check(s2.count(*n_it));
         s2.erase(*n_it);
       }
-      assert(s2.empty());
+      check(s2.empty());
 
       for (auto f_it = reg->template begin<RegionBase::NonTrivial>();
            f_it != reg->template end<RegionBase::NonTrivial>();
            ++f_it)
       {
-        assert(s3.count(*f_it));
+        check(s3.count(*f_it));
         s3.erase(*f_it);
       }
-      assert(s3.empty());
+      check(s3.empty());
 
       Region::release(alloc, o);
       snmalloc::current_alloc_pool()->debug_check_empty();
-      assert(live_count == 0);
+      check(live_count == 0);
     }
   }
 

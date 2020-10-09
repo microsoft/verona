@@ -60,6 +60,15 @@ int main(int argc, char** argv)
 #  endif
 #endif
 
+#ifdef CI_BUILD
+  auto log = true;
+#else
+  auto log = opt.has("--log-all");
+#endif
+
+  if (log)
+    Systematic::enable_logging();
+
   memory_alloc::run_test();
   memory_iterator::run_test();
   memory_swap_root::run_test();

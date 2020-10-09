@@ -14,7 +14,7 @@ int main(int argc, char** argv)
 
   harness.run(notify_interleave::run_test);
 
-  // Here we ensure single-core so that we can assert the number of times
+  // Here we ensure single-core so that we can check the number of times
   // `notified` is called.
   if (harness.cores == 1)
     harness.run(notify_coalesce::run_test);

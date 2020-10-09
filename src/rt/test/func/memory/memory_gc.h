@@ -23,9 +23,9 @@ namespace memory_gc
   void alloc_garbage_helper(Alloc* alloc, Object* o)
   {
     alloc_in_region<T...>(alloc, o);
-    assert(Region::debug_size(o) == 1 + sizeof...(T)); // o + T...
+    check(Region::debug_size(o) == 1 + sizeof...(T)); // o + T...
     RegionTrace::gc(alloc, o);
-    assert(Region::debug_size(o) == 1); // only o is left
+    check(Region::debug_size(o) == 1); // only o is left
   }
 
   /**
@@ -76,25 +76,25 @@ namespace memory_gc
       o2->f2 = o4;
       o4->f2 = o7;
 
-      assert(Region::debug_size(o) == 8);
+      check(Region::debug_size(o) == 8);
       RegionTrace::gc(alloc, o);
-      assert(Region::debug_size(o) == 8); // nothing collected
+      check(Region::debug_size(o) == 8); // nothing collected
 
       // Break a link but re-add it.
       o1->f1 = nullptr;
       o1->f2 = o2;
       RegionTrace::gc(alloc, o);
-      assert(Region::debug_size(o) == 8); // nothing collected
+      check(Region::debug_size(o) == 8); // nothing collected
 
       // Now actually break a link.
       o5->f1 = nullptr;
       RegionTrace::gc(alloc, o);
-      assert(Region::debug_size(o) == 3);
+      check(Region::debug_size(o) == 3);
 
       // Now break the first link.
       o->f1 = nullptr;
       RegionTrace::gc(alloc, o);
-      assert(Region::debug_size(o) == 1); // only o is left
+      check(Region::debug_size(o) == 1); // only o is left
 
       Region::release(alloc, o);
       snmalloc::current_alloc_pool()->debug_check_empty();
@@ -143,9 +143,9 @@ namespace memory_gc
       o10->f1 = o15;
 
       // Now run a GC.
-      assert(Region::debug_size(o) == 16);
+      check(Region::debug_size(o) == 16);
       RegionTrace::gc(alloc, o);
-      assert(Region::debug_size(o) == 6);
+      check(Region::debug_size(o) == 6);
 
       Region::release(alloc, o);
       snmalloc::current_alloc_pool()->debug_check_empty();
@@ -185,9 +185,9 @@ namespace memory_gc
       o12->f1 = o13;
 
       // Now run a GC.
-      assert(Region::debug_size(o) == 14);
+      check(Region::debug_size(o) == 14);
       RegionTrace::gc(alloc, o);
-      assert(Region::debug_size(o) == 11);
+      check(Region::debug_size(o) == 11);
 
       Region::release(alloc, o);
       snmalloc::current_alloc_pool()->debug_check_empty();
@@ -228,9 +228,9 @@ namespace memory_gc
       o12->c1 = o14;
 
       // Now run a GC.
-      assert(Region::debug_size(o) == 17);
+      check(Region::debug_size(o) == 17);
       RegionTrace::gc(alloc, o);
-      assert(Region::debug_size(o) == 7);
+      check(Region::debug_size(o) == 7);
 
       Region::release(alloc, o);
       snmalloc::current_alloc_pool()->debug_check_empty();
@@ -255,9 +255,9 @@ namespace memory_gc
     // Check that it's valid.
     auto rr = scc->debug_immutable_root();
     UNUSED(rr);
-    assert(rr->debug_test_rc(1));
-    assert(scc->f1->debug_immutable_root() == rr);
-    assert(scc->f1->debug_test_rc(1));
+    check(rr->debug_test_rc(1));
+    check(scc->f1->debug_immutable_root() == rr);
+    check(scc->f1->debug_test_rc(1));
 
     // Now create a region that has pointers to the frozen SCC.
     C* r = new (alloc) C;
@@ -265,14 +265,14 @@ namespace memory_gc
     r->f1 = scc;
     r->f2 = scc->f1;
 
-    assert(Region::debug_size(r) == 2);
-    assert(scc->debug_test_rc(1));
+    check(Region::debug_size(r) == 2);
+    check(scc->debug_test_rc(1));
     RegionTrace::gc(alloc, r);
-    assert(Region::debug_size(r) == 1);
-    assert(scc->debug_test_rc(2)); // gc discovered reference to scc
+    check(Region::debug_size(r) == 1);
+    check(scc->debug_test_rc(2)); // gc discovered reference to scc
 
     Immutable::release(alloc, scc);
-    assert(scc->debug_test_rc(1));
+    check(scc->debug_test_rc(1));
     Region::release(alloc, r);
     snmalloc::current_alloc_pool()->debug_check_empty();
   }
@@ -308,9 +308,9 @@ namespace memory_gc
     o4->f2 = o2;
 
     // Now run a GC.
-    assert(Region::debug_size(o) == 6);
+    check(Region::debug_size(o) == 6);
     RegionTrace::gc(alloc, o);
-    assert(Region::debug_size(o) == 6);
+    check(Region::debug_size(o) == 6);
 
     // Allocate some garbage cycles.
 
@@ -347,9 +347,9 @@ namespace memory_gc
     o16->f1 = o14;
 
     // Now run a GC.
-    assert(Region::debug_size(o) == 17);
+    check(Region::debug_size(o) == 17);
     RegionTrace::gc(alloc, o);
-    assert(Region::debug_size(o) == 6);
+    check(Region::debug_size(o) == 6);
 
     Region::release(alloc, o);
     snmalloc::current_alloc_pool()->debug_check_empty();
@@ -368,7 +368,7 @@ namespace memory_gc
     r1->c2 = new (alloc, r1) Cx;
     r1->c1->f1 = new (alloc, r1) Fx;
     alloc_in_region<Cx, Cx, Fx, Fx>(alloc, r1); // unreachable
-    assert(Region::debug_size(r1) == 8);
+    check(Region::debug_size(r1) == 8);
 
     // Create another region.
     auto* r2 = new (alloc) Fx;
@@ -376,7 +376,7 @@ namespace memory_gc
     r2->f2 = new (alloc, r2) Fx;
     r2->f1->c1 = new (alloc, r2) Cx;
     alloc_in_region<Fx, Fx, Cx, Cx>(alloc, r2); // unreachable
-    assert(Region::debug_size(r2) == 8);
+    check(Region::debug_size(r2) == 8);
 
     // Link the two regions together. Make both reachable from the other.
     r1->f1 = r2;
@@ -384,23 +384,23 @@ namespace memory_gc
 
     // Now merge them.
     RegionTrace::merge(alloc, r1, r2);
-    assert(!r2->debug_is_iso());
+    check(!r2->debug_is_iso());
 
     // Run a GC.
-    assert(Region::debug_size(r1) == 16);
+    check(Region::debug_size(r1) == 16);
     RegionTrace::gc(alloc, r1);
-    assert(Region::debug_size(r1) == 8);
+    check(Region::debug_size(r1) == 8);
 
     // Alloc a few things, swap root, then alloc some more.
     alloc_in_region<Fx, Cx, Fx>(alloc, r1);
     RegionTrace::swap_root(r1, r2);
-    assert(!r1->debug_is_iso() && r2->debug_is_iso());
+    check(!r1->debug_is_iso() && r2->debug_is_iso());
     alloc_in_region<Cx, Cx, Fx>(alloc, r2);
 
     // Run another GC.
-    assert(Region::debug_size(r2) == 14);
+    check(Region::debug_size(r2) == 14);
     RegionTrace::gc(alloc, r2);
-    assert(Region::debug_size(r2) == 8);
+    check(Region::debug_size(r2) == 8);
 
     Region::release(alloc, r2);
     snmalloc::current_alloc_pool()->debug_check_empty();
@@ -426,17 +426,17 @@ namespace memory_gc
     alloc_in_region<Cx, Fx, Cx, Fx>(alloc, o); // unreachable
 
     // Run a GC.
-    assert(Region::debug_size(o) == 13);
+    check(Region::debug_size(o) == 13);
     RegionTrace::gc(alloc, o);
-    assert(Region::debug_size(o) == 9);
+    check(Region::debug_size(o) == 9);
 
     // Swap root, but this creates garbage.
     RegionTrace::swap_root(o, nroot);
-    assert(!o->debug_is_iso() && nroot->debug_is_iso());
+    check(!o->debug_is_iso() && nroot->debug_is_iso());
 
     // Run another GC.
     RegionTrace::gc(alloc, nroot);
-    assert(Region::debug_size(nroot) == 4);
+    check(Region::debug_size(nroot) == 4);
 
     // Create another region.
     o = new (alloc) Cx;
@@ -444,29 +444,94 @@ namespace memory_gc
     o->f1->c1 = new (alloc, o) Cx;
     auto* nnroot = new (alloc, o) Cx;
     o->f1->c2 = nnroot;
-    assert(Region::debug_size(o) == 4);
+    check(Region::debug_size(o) == 4);
 
     // Merge the regions.
     RegionTrace::merge(alloc, nroot, o);
     nroot->c2 = o;
-    assert(Region::debug_size(nroot) == 8);
+    check(Region::debug_size(nroot) == 8);
 
     // Swap root again.
     RegionTrace::swap_root(nroot, nnroot);
-    assert(!nroot->debug_is_iso() && nnroot->debug_is_iso());
+    check(!nroot->debug_is_iso() && nnroot->debug_is_iso());
 
     // Run another GC.
-    assert(Region::debug_size(nnroot) == 8);
+    check(Region::debug_size(nnroot) == 8);
     RegionTrace::gc(alloc, nnroot);
-    assert(Region::debug_size(nnroot) == 1);
+    check(Region::debug_size(nnroot) == 1);
 
     Region::release(alloc, nnroot);
+    snmalloc::current_alloc_pool()->debug_check_empty();
+  }
+
+  void test_additional_roots()
+  {
+    Systematic::cout() << "Additional roots test" << std::endl;
+
+    auto* alloc = ThreadAlloc::get();
+    auto* o = new (alloc) C;
+    Systematic::cout() << "Root" << o << std::endl;
+
+    // Allocate some reachable objects.
+    auto* o1 = new (alloc, o) C;
+    Systematic::cout() << " other" << o1 << std::endl;
+    auto* s1 = new (alloc, o) C;
+    Systematic::cout() << " sub" << s1 << std::endl;
+    o1->f1 = s1;
+    auto* o2 = new (alloc, o) C;
+    Systematic::cout() << " other" << o2 << std::endl;
+    auto* s2 = new (alloc, o) C;
+    Systematic::cout() << " sub" << s2 << std::endl;
+    o2->f1 = s2;
+    auto* o3 = new (alloc, o) C;
+    Systematic::cout() << " other" << o3 << std::endl;
+    auto* s3 = new (alloc, o) C;
+    Systematic::cout() << " sub" << s2 << std::endl;
+    o3->f1 = s3;
+    auto* o4 = new (alloc, o) C;
+    Systematic::cout() << " other" << o4 << std::endl;
+    auto* s4 = new (alloc, o) C;
+    Systematic::cout() << " sub" << s4 << std::endl;
+    o4->f1 = s4;
+    auto* o5 = new (alloc, o) C;
+    Systematic::cout() << " other" << o5 << std::endl;
+    auto* s5 = new (alloc, o) C;
+    Systematic::cout() << " sub" << s5 << std::endl;
+    o5->f1 = s5;
+
+    RegionTrace::push_additional_root(o, o1, alloc);
+    RegionTrace::push_additional_root(o, o2, alloc);
+    RegionTrace::push_additional_root(o, o3, alloc);
+    RegionTrace::push_additional_root(o, o4, alloc);
+    RegionTrace::push_additional_root(o, o5, alloc);
+
+    check(Region::debug_size(o) == 11);
+    RegionTrace::gc(alloc, o);
+    Systematic::cout() << Region::debug_size(o) << std::endl;
+    check(Region::debug_size(o) == 11);
+
+    RegionTrace::pop_additional_root(o, o5, alloc);
+    RegionTrace::pop_additional_root(o, o4, alloc);
+
+    // Run another GC.
+    RegionTrace::gc(alloc, o);
+    check(Region::debug_size(o) == 7);
+
+    RegionTrace::pop_additional_root(o, o3, alloc);
+    RegionTrace::pop_additional_root(o, o2, alloc);
+    RegionTrace::pop_additional_root(o, o1, alloc);
+
+    // Run another GC.
+    RegionTrace::gc(alloc, o);
+    check(Region::debug_size(o) == 1);
+    Region::release(alloc, o);
     snmalloc::current_alloc_pool()->debug_check_empty();
   }
 
   void run_test()
   {
     test_basic();
+    test_additional_roots();
     test_linked_list();
     test_freeze();
     test_cycles();
