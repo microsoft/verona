@@ -314,7 +314,7 @@ namespace Systematic
 
   private:
     std::ostream* o;
-    bool first ;
+    bool first;
 
     inline static bool& get_logging()
     {
@@ -361,7 +361,7 @@ namespace Systematic
 
   public:
 #ifdef USE_SYSTEMATIC_TESTING
-    SysLog() 
+    SysLog()
     {
       if constexpr (systematic)
       {
