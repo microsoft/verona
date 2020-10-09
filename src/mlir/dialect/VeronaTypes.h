@@ -60,7 +60,7 @@ namespace mlir::verona
   };
 
   /**
-   * Meet types are unions between types (A | B).
+   * Join types are unions between types (A | B).
    */
   struct JoinType
   : public Type::TypeBase<JoinType, Type, detail::JoinTypeStorage>
@@ -105,7 +105,7 @@ namespace mlir::verona
    * it at any time (ownership model). Can also be created when returning a
    * sub-region that needs to be isolated.
    *
-   * Mutable/Immutable: Read-Write/Read-Only variables and viewpoints.
+   * Mutable/Immutable: for values and viewpoints.
    */
   enum class Capability
   {

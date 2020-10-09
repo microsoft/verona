@@ -133,11 +133,14 @@ namespace mlir::verona
         // Add qualifiers as attributes
         llvm::SmallVector<::ast::WeakAst, 4> quals;
         AST::getFunctionQualifiers(quals, node);
-        llvm::SmallVector<mlir::Attribute, 4> qualAttrs;
-        for (auto qual : quals)
-          qualAttrs.push_back(
-            StringAttr::get(AST::getTokenValue(qual), context));
-        func->setAttr("qualifiers", ArrayAttr::get(qualAttrs, context));
+        if (!quals.empty())
+        {
+          llvm::SmallVector<mlir::Attribute, 4> qualAttrs;
+          for (auto qual : quals)
+            qualAttrs.push_back(
+              StringAttr::get(AST::getTokenValue(qual), context));
+          func->setAttr("qualifiers", ArrayAttr::get(qualAttrs, context));
+        }
         // Push function to module
         module->push_back(*func);
       }
@@ -264,7 +267,7 @@ namespace mlir::verona
 
   mlir::Type Generator::parseType(const ::ast::Ast& ast)
   {
-    // Qualified types are references to classes with typeargs
+    // Qualified types are references to classes
     if (AST::isQualType(ast))
       return generateType(AST::getID(ast));
 
