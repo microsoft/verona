@@ -124,11 +124,25 @@ A string view on a mutable string will be in the same region as the underlying s
 Alternatively, string views may be stack types that are bound to a specific region.
 
 String views that refer to immutable strings do not introduce memory management difficulties in Verona because immutable objects are reference counted.
-Even if the string view is mutable, it can be in any region without causing problems.
+Mutability is somewhat complex with respect to string views and can refer to any of the following:
+
+ - Is the underlying string mutable at all?
+ - Is the underlying string mutable via this view?
+ - Can the range of the string to which this view refers be modified?
+
+If the underlying string is immutable then a string view cannot modify it but a `mut` string view may refer to a modifiable range.
+There may be uses for this but this can probably be better served by a separate type, if required.
+This leaves us with three possible useful kinds of string view:
+
+ - `StringView & imm`, points to an immutable string, cannot be used to modify the contents.
+ - `StringView & readonly`, points to a mutable or immutable string, cannot be used to modify the contents but cannot guarantee that the contents will not be modified independently.
+    If this refers to a mutable string then it must be in the same region as that string.
+    If this refers to an immutable string then it can be pattern matched to a `StringView & imm` in optimised code that wishes to avoid copying.
+ - `StringView & mut`, points to a mutable string (in the same region) and can be used to modify the string.
 
 A string object does not, conceptually, contain any pointers, though it may contain pointers to internal storage if the characters are not stored inline.
 As such, it makes sense for most concrete mutable string types to expose `iso` interfaces.
-This is slightly complicated by string views, which must be in the same region as the string that they represent (or stack types bound to a specific region).
+String views on mutable strings must be in the same region as the string that they represent (or stack types bound to a specific region).
 
 Constant strings from string literals
 -------------------------------------
@@ -360,19 +374,44 @@ interface String
 	apply(self: readonly & String, index: U64) : Rune;
 
 	/**
-	 * Takes a range in the string (expressed in Unicode code points) and
-	 * optionally a buffer.  Either the desired characters (in the specified
-	 * encoding) are copied into that buffer, or returns an immutable array
-	 * that may point to the internal storage for the string.
+	 * Takes a range in the string (expressed in Unicode code points).
+	 * The return value is a slice containing *at least* the characters in
+	 * `range` and starting from `range.index`. The `range` parameter will be
+	 * modified to define the range actually returned. The callee should either
+	 * allocate a new slice and copy the data into it or return an internal
+	 * slice. 
 	 *
 	 * If the caller first calls `fastest_unicode_encoding` and uses the result
-	 * as the generic parameter then it will return an internal buffer for
-	 * immutable strings.  This is intended to be used to build fast iterators.
+	 * as the generic parameter then it will normally receive an internal buffer
+	 * when calling this method on immutable strings.
+	 *
+	 * This is intended to be used to build fast iterators.
 	 */
-	copy_or_view_data[StringEncoding Enc](self: readonly & String,
-	                                      range: Range,
-	                                      buffer: Optional[Array[Enc.CodeUnitType] & mut])
-	     : Array[Enc.CodeUnitType] & (mut | imm);
+	copy_or_view_data[Enc](self: readonly & String,
+	                       range: Range & mut)
+	     : Slice[Enc.CodeUnitType] & (mut | imm)
+	     where Enc: StringEncoding;
+
+	/**
+	 * Takes a range in the string (expressed in Unicode code points) and
+	 * a buffer that the callee may use for the return value.
+	 * The return value is a slice containing *at least* the characters in
+	 * `range` and starting from `range.index`. The `range` parameter will be
+	 * modified to define the range actually returned. The callee should either
+	 * allocate a new slice and copy the data into it, copy data into the
+	 * provided slice, or return an internal slice. 
+	 *
+	 * If the caller first calls `fastest_unicode_encoding` and uses the result
+	 * as the generic parameter then it will normally receive an internal buffer
+	 * when calling this method on immutable strings.
+	 *
+	 * This is intended to be used to build fast iterators.
+	 */
+	copy_or_view_data[Enc](self: readonly & String,
+	                       range: Range & mut)
+	                       buffer: Slice[Enc.CodeUnitType] & mut)
+	     : Slice[Enc.CodeUnitType] & (mut | imm)
+	     where Enc: StringEncoding;
 
 	/******************************************************************************
 	 * Operations on mutable strings
@@ -392,12 +431,12 @@ interface String
 }
 ```
 
-For discussion, the above proposal is somewhat simplified:
-The `update` operation should take a `StringView`, a non-owning view of a substring.
-The `String` interface should also include an operation for providing a `StringView` on a specific range.
+String views in Verona are a family of concrete types that do not own their data.
+The `String` interface is sufficient to express both strings that do and do not own their data.
+We therefore probably do not initially need a custom `StringView` interface.
 The Verona region system makes tracking ownership of string views relatively simple:
 
- - By default, all mutable strings are `iso`.
+ - By default, all mutable strings that own their data are `iso`.
  - Mutable string views are `mut`, in the same region as their owning string.
  - Immutable strings are globally immutable (`imm`).
  - Immutable string views are immutable.
@@ -405,12 +444,52 @@ The Verona region system makes tracking ownership of string views relatively sim
 This makes it easy to ensure that the lifetime of a string view is bound to the lifetime of the underlying string.
 Once stack types are better defined, it should also be possible for string views to be stack types associated with the region of the string.
 
+From the perspective of reasoning about mutation, there is no difference between a mutable string that has mutable string views and a mutable string view: if one or more string views exist on a `mut` string then that string is subject to mutation via other objects.
+If a function is passed an `iso & String` then the region guarantees are sufficient to know that the only other string views that may allow modification are `mut` parameters that are explicitly constrained to be allowed to be within the same region as the isolated string.
+Any function that takes two or more `mut & String` parameters is responsible for ensuring that they do not share the same backing store.
+
+An immutable string and an immutable string view are entirely interchangeable from any perspective other than memory consumption.
+The backing store for an immutable string cannot be deallocated until all immutable string views that reference the string are deallocated.
+`StringView` should implement a deep-copy operation that allows the programmer to explicitly avoid this problem if memory overhead is a problem in a particular use.
+This may be sufficient to motivate adding a `StringView` interface, so that programmers can provide a type that supports this and is optimised for 
+
 The minimal standard library should also include:
 
  - Concrete instantiations of the `String` interface, storing ASCII, UTF-8, and UTF-16.
+ - A generic `StringView` that takes a `String` as a generic parameter and gives a view on that string as specified by a `Range`.
  - Operations for finding substrings and extracting substrings as string views.
  - Operations for constructing the most size or speed-efficient concrete string type from a string literal or string view.
  - Operations for computing efficient hashes on strings.
+
+### Iteration over strings and string views
+
+The pattern for fast iteration will look roughly like this (note: programmers should not have to write this explicitly, it should be abstracted into helpers in the string package):
+
+```verona
+	var length = str.length();
+	var buffer_size = USize(64) : imm;
+	var buffer = Array[StringEncodingUTF32.CodeUnitType].Create(buffer_size);
+	for (var i=0 ; i<length ; i++)
+	{
+		var r = Range(i, min(length - i, buffer_size));
+		var slice = str.copy_or_view_data[StringEncodingUTF32](r, buffer);
+		for (var j = r.index ; j < r.length ; j++)
+		{
+			// Do something with the current index and the code point:
+			process(i + j, slice(j));
+		}
+	}
+```
+
+The outer loop will fetch a range of characters as a sequential copy in memory.
+For strings that store the data in an array, this may simply be a reference to the internal data.
+In this case, the outer loop would execute once.
+A string that uses a twine model would be free to return one chunk from the twine at this point and, again, avoid a copy.
+
+
+The same pattern can be used to iterate over the string's native encoding by calling `fastest_encoding` and using the return value instead of `StringEncodingUTF32`.
+When comparing two strings with the same internal encoding, this may be more efficient.
+Iterators over richer units than individual code points, such as grapheme clusters or words, can be built on top of this lower-level interface.
 
 Requirements on the language
 ----------------------------
@@ -443,15 +522,6 @@ find_character(str : String & readonly, c : Rune) : U64 | NotFound
 
 This should be equivalent to a generic where the type used for `str` is a generic paramter.
 If the compiler knows that the argument is an `AsciiString` then it should be free to substitute a version that only includes the `AsciiString` version of the `match`.
-
-# Constant expression string interning
-
-Strings used as keys will typically want to be interned where possible, giving an `imm` type that has cheap equality comparison.
-In general, string interning is a global operation and so will need synchronisation.
-In Verona, there will be one or more cowns that handle interning operations.
-Many keys will be interned at compile time and we will need to have sufficiently-expressive constant expressions that we can express this.
-
-This means that we need either to allow `when` clauses in constant expressions or we need to provide a mechanism for collecting a data structure (the set of compile-time interned strings) during constant expression evaluation and making it available to a specific cown.
 
 # Stack types
 
