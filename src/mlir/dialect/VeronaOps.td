@@ -123,7 +123,7 @@ def Verona_CallOp : Verona_Op<"call"> {
     let results = (outs Verona_Type : $res);
 
     let assemblyFormat = [{
-        $name `[` $object `:` type($object) `]` `(` $args `,` type($args) `)` attr-dict `:` type($res)
+        $name `[` $object `:` type($object) `]` `(` $args `:` type($args) `)` attr-dict `:` type($res)
     }];
     let verifier = [{ return success(); }];
 }
