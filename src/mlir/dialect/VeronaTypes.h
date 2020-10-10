@@ -74,8 +74,7 @@ namespace mlir::verona
   /**
    * Unknown types are derived types from operations that cannot define the type
    * at lowering stage, but will later be replaced by other types during type
-   * inference. Not all types will be concrete by then, but none of them should
-   * be unknown.
+   * inference.
    */
   struct UnknownType : public Type::TypeBase<UnknownType, Type, TypeStorage>
   {
@@ -95,18 +94,9 @@ namespace mlir::verona
     using Base::Base;
 
     static DescriptorType get(MLIRContext* context, Type ref);
-    TypeRange getTypes() const;
+    Type getTypes() const;
   };
 
-  /**
-   * Capability types represents traits that other types possess.
-   *
-   * Isolated: An entry point to a new region, can only have one reference to
-   * it at any time (ownership model). Can also be created when returning a
-   * sub-region that needs to be isolated.
-   *
-   * Mutable/Immutable: for values and viewpoints.
-   */
   enum class Capability
   {
     Isolated,
@@ -114,6 +104,17 @@ namespace mlir::verona
     Immutable,
   };
 
+  /**
+   * Capability types represents properties of individual references eg.
+   * a `String & imm` and a `String & mut` could point to the same object.
+   *
+   * Isolated: An entry point to a new region. There can be more than one
+   * reference to the entrypoint, but only one of them can be Isolated ie.
+   * the others must be Mutable.
+   *
+   * Immutable: A stronger property than Read-Only. It guarantees that no
+   * mutable aliases to that object exist anywhere else.
+   */
   struct CapabilityType
   : public Type::TypeBase<CapabilityType, Type, detail::CapabilityTypeStorage>
   {
@@ -195,8 +196,8 @@ namespace mlir::verona
   /**
    * Viewpoint is a view of a type through another type.
    *
-   * For examples, storing to a mutable type through an imutable viewpoint
-   * is not allowed.
+   * For examples, reading a mut field from a imm object gives you a
+   * viewpoint<mut, imm> = imm reference.
    */
   struct ViewpointType
   : public Type::TypeBase<ViewpointType, Type, detail::ViewpointTypeStorage>

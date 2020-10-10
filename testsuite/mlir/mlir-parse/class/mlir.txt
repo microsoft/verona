@@ -13,8 +13,8 @@ module {
     %1 = "verona.store"(%arg0, %0) : (!verona.class<"F32">, !verona.class<"F32">) -> !verona.unknown
     %2 = "verona.constant(42)"() : () -> !verona.class<"int">
     %3 = verona.static !verona.class<"G", "$parent" : class<"$module">> : !verona<"">
-    %4 = verona.call "foo"[%3 : !verona<"">] (%2, !verona.class<"int">) : !verona.unknown
-    %5 = verona.call "+"[%0 : !verona.class<"F32">] (%4, !verona.unknown) : !verona.unknown
+    %4 = verona.call "foo"[%3 : !verona<"">] (%2 : !verona.class<"int">) : !verona.unknown
+    %5 = verona.call "+"[%0 : !verona.class<"F32">] (%4 : !verona.unknown) : !verona.unknown
     %6 = "verona.cast"(%5) : (!verona.unknown) -> !verona.class<"F32">
     return %6 : !verona.class<"F32">
   }
@@ -53,7 +53,7 @@ module {
     %31 = verona.field_read %26["a"] : !verona.meet<class<"POD", "$parent" : class<"$module">, "a" : class<"U32">, "b" : class<"F64">>, iso> -> !verona.unknown
     %32 = "verona.alloca"() : () -> !verona.meet<class<"U32">, mut>
     %33 = "verona.store"(%31, %32) : (!verona.unknown, !verona.meet<class<"U32">, mut>) -> !verona.unknown
-    %34 = verona.call "+"[%29 : !verona.meet<class<"U32">, mut>] (%32, !verona.meet<class<"U32">, mut>) : !verona.unknown
+    %34 = verona.call "+"[%29 : !verona.meet<class<"U32">, mut>] (%32 : !verona.meet<class<"U32">, mut>) : !verona.unknown
     %35 = verona.field_write %26["a"], %34 : !verona.meet<class<"POD", "$parent" : class<"$module">, "a" : class<"U32">, "b" : class<"F64">>, iso> -> !verona.unknown -> !verona.unknown
     %36 = verona.field_read %26["a"] : !verona.meet<class<"POD", "$parent" : class<"$module">, "a" : class<"U32">, "b" : class<"F64">>, iso> -> !verona.unknown
     %37 = verona.field_write %21["a"], %36 : !verona.meet<class<"POD", "$parent" : class<"$module">, "a" : class<"U32">, "b" : class<"F64">>, iso> -> !verona.unknown -> !verona.unknown
@@ -63,11 +63,11 @@ module {
     %41 = verona.field_write %26["a"], %40 : !verona.meet<class<"POD", "$parent" : class<"$module">, "a" : class<"U32">, "b" : class<"F64">>, iso> -> !verona.unknown -> !verona.unknown
     %42 = "verona.constant(13)"() : () -> !verona.class<"int">
     %43 = verona.static !verona.class<"G", "$parent" : class<"$module">> : !verona<"">
-    %44 = verona.call "foo"[%43 : !verona<"">] (%42, !verona.class<"int">) : !verona.unknown
+    %44 = verona.call "foo"[%43 : !verona<"">] (%42 : !verona.class<"int">) : !verona.unknown
     %45 = "verona.alloca"() : () -> !verona.class<"F32">
     %46 = "verona.store"(%44, %45) : (!verona.unknown, !verona.class<"F32">) -> !verona.unknown
     %47 = verona.static !verona.class<"G", "$parent" : class<"$module">> : !verona<"">
-    %48 = verona.call "baz"[%47 : !verona<"">] (%45, !verona.class<"F32">) : !verona.unknown
+    %48 = verona.call "baz"[%47 : !verona<"">] (%45 : !verona.class<"F32">) : !verona.unknown
     %49 = "verona.alloca"() : () -> !verona.class<"F32">
     %50 = "verona.store"(%48, %49) : (!verona.unknown, !verona.class<"F32">) -> !verona.unknown
     verona.tidy %0 : !verona.class<"C", "$parent" : class<"$module">>

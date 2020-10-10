@@ -12,7 +12,7 @@ module {
     %1 = "verona.store"(%arg0, %0) : (!verona.imm, !verona.imm) -> !verona.unknown
     %2 = "verona.alloca"() : () -> !verona.meet<class<"U64">, imm>
     %3 = "verona.store"(%arg1, %2) : (!verona.meet<class<"U64">, imm>, !verona.meet<class<"U64">, imm>) -> !verona.unknown
-    %4 = verona.call "+"[%0 : !verona.imm] (%2, !verona.meet<class<"U64">, imm>) : !verona.unknown
+    %4 = verona.call "+"[%0 : !verona.imm] (%2 : !verona.meet<class<"U64">, imm>) : !verona.unknown
     %5 = "verona.alloca"() : () -> !verona.unknown
     %6 = "verona.store"(%4, %5) : (!verona.unknown, !verona.unknown) -> !verona.unknown
     %7 = "verona.load"(%5) : (!verona.unknown) -> !verona.unknown

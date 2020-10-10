@@ -110,7 +110,6 @@ namespace mlir::verona::detail
   {
     Type descriptor;
 
-    // width
     using KeyTy = Type;
     DescriptorTypeStorage(const KeyTy& key) : descriptor(key) {}
 
@@ -275,7 +274,7 @@ namespace mlir::verona
     return Base::get(ctx, descriptor);
   }
 
-  TypeRange DescriptorType::getTypes() const
+  Type DescriptorType::getTypes() const
   {
     return getImpl()->descriptor;
   }
@@ -318,6 +317,7 @@ namespace mlir::verona
   ClassType::FieldsRef ClassType::getFields() const
   {
     // We may not have a full declaration available
+    // TODO: Make this an assert when we have modules
     if (getImpl()->isInitialized)
       return getImpl()->fields;
     else

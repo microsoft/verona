@@ -21,7 +21,7 @@ module {
   ^bb3:  // pred: ^bb2
     %6 = call @apply(%0) : (!verona.class<"U64">) -> !verona.unknown
     %7 = "verona.load"(%6) : (!verona.unknown) -> !verona.unknown
-    %8 = verona.call "foo"[%7 : !verona.unknown] (, ) : !verona.unknown
+    %8 = verona.call "foo"[%7 : !verona.unknown] ( : ) : !verona.unknown
     br ^bb1
   ^bb4:  // pred: ^bb2
     return
@@ -42,10 +42,10 @@ module {
   ^bb3:  // pred: ^bb2
     %6 = call @apply(%0) : (!verona.class<"U64">) -> !verona.unknown
     %7 = "verona.load"(%6) : (!verona.unknown) -> !verona.unknown
-    %8 = verona.call "foo"[%7 : !verona.unknown] (, ) : !verona.unknown
+    %8 = verona.call "foo"[%7 : !verona.unknown] ( : ) : !verona.unknown
     %9 = "verona.load"(%6) : (!verona.unknown) -> !verona.unknown
     %10 = "verona.constant(5)"() : () -> !verona.class<"int">
-    %11 = verona.call ">"[%9 : !verona.unknown] (%10, !verona.class<"int">) : !verona.unknown
+    %11 = verona.call ">"[%9 : !verona.unknown] (%10 : !verona.class<"int">) : !verona.unknown
     %12 = "verona.cast"(%11) : (!verona.unknown) -> i1
     cond_br %12, ^bb5, ^bb6
   ^bb4:  // 2 preds: ^bb2, ^bb5
@@ -55,7 +55,7 @@ module {
   ^bb6:  // pred: ^bb3
     %13 = "verona.load"(%6) : (!verona.unknown) -> !verona.unknown
     %14 = "verona.constant(2)"() : () -> !verona.class<"int">
-    %15 = verona.call "<"[%13 : !verona.unknown] (%14, !verona.class<"int">) : !verona.unknown
+    %15 = verona.call "<"[%13 : !verona.unknown] (%14 : !verona.class<"int">) : !verona.unknown
     %16 = "verona.cast"(%15) : (!verona.unknown) -> i1
     cond_br %16, ^bb8, ^bb9
   ^bb7:  // pred: ^bb10
@@ -64,7 +64,7 @@ module {
     br ^bb1
   ^bb9:  // pred: ^bb6
     %17 = "verona.load"(%6) : (!verona.unknown) -> !verona.unknown
-    %18 = verona.call "foo"[%17 : !verona.unknown] (, ) : !verona.unknown
+    %18 = verona.call "foo"[%17 : !verona.unknown] ( : ) : !verona.unknown
     br ^bb10
   ^bb10:  // pred: ^bb9
     br ^bb7

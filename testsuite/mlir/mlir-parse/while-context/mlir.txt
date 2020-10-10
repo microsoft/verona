@@ -10,7 +10,7 @@ module {
     br ^bb1
   ^bb1:  // 2 preds: ^bb0, ^bb2
     %5 = "verona.constant(5)"() : () -> !verona.class<"int">
-    %6 = verona.call "<"[%0 : !verona.class<"F32">] (%5, !verona.class<"int">) : !verona.unknown
+    %6 = verona.call "<"[%0 : !verona.class<"F32">] (%5 : !verona.class<"int">) : !verona.unknown
     %7 = "verona.cast"(%6) : (!verona.unknown) -> i1
     cond_br %7, ^bb2, ^bb3
   ^bb2:  // pred: ^bb1
@@ -19,11 +19,11 @@ module {
     %10 = "verona.store"(%8, %9) : (!verona.class<"int">, !verona.unknown) -> !verona.unknown
     %11 = "verona.load"(%9) : (!verona.unknown) -> !verona.unknown
     %12 = "verona.constant(3)"() : () -> !verona.class<"int">
-    %13 = verona.call "+"[%11 : !verona.unknown] (%12, !verona.class<"int">) : !verona.unknown
+    %13 = verona.call "+"[%11 : !verona.unknown] (%12 : !verona.class<"int">) : !verona.unknown
     %14 = "verona.alloca"() : () -> !verona.unknown
     %15 = "verona.store"(%13, %14) : (!verona.unknown, !verona.unknown) -> !verona.unknown
     %16 = "verona.load"(%14) : (!verona.unknown) -> !verona.unknown
-    %17 = verona.call "+"[%0 : !verona.class<"F32">] (%16, !verona.unknown) : !verona.unknown
+    %17 = verona.call "+"[%0 : !verona.class<"F32">] (%16 : !verona.unknown) : !verona.unknown
     %18 = "verona.store"(%17, %0) : (!verona.unknown, !verona.class<"F32">) -> !verona.unknown
     br ^bb1
   ^bb3:  // pred: ^bb1
