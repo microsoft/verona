@@ -396,7 +396,7 @@ namespace verona::bytecode
   template<>
   struct OpcodeSpec<Opcode::Print>
   {
-    using Operands = OpcodeOperands<Register, uint8_t>;
+    using Operands = OpcodeOperands<Register, RegisterSpan>;
     constexpr static std::string_view format = "PRINT {}, {}";
   };
 

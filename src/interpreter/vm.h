@@ -79,7 +79,7 @@ namespace verona::interpreter
     Value opcode_new_region(const VMDescriptor* descriptor);
     Value opcode_new_cown(const VMDescriptor* descriptor, Value src);
     Value opcode_new_sleeping_cown(const VMDescriptor* descriptor);
-    void opcode_print(std::string_view fmt, uint8_t argc);
+    void opcode_print(std::string_view fmt, ConstValueList values);
     void opcode_return();
     Value opcode_store(const Value& base, SelectorIdx selector, Value src);
     Value opcode_string(std::string_view imm);
