@@ -217,9 +217,11 @@ namespace verona::bytecode
     NewRegion, // dst(u8), descriptor(u8)
     NewSleepingCown, // dst(u8), descriptor(u8)
     Print, // format(u8), argc(u8), args(u8)...
+    Protect, // argc(u8), args(u8)...
     Return,
     Store, // dst(u8), base(u8), selector(u32), src(u8)
     TraceRegion, // region(u8)
+    Unprotect, // argc(u8), args(u8)...
     Unreachable,
     When, // codepointer(u32), cown count(u8), capture count(u8)
 
@@ -401,6 +403,13 @@ namespace verona::bytecode
   };
 
   template<>
+  struct OpcodeSpec<Opcode::Protect>
+  {
+    using Operands = OpcodeOperands<RegisterSpan>;
+    constexpr static std::string_view format = "PROTECT {}";
+  };
+
+  template<>
   struct OpcodeSpec<Opcode::Store>
   {
     using Operands = OpcodeOperands<Register, Register, SelectorIdx, Register>;
@@ -433,6 +442,13 @@ namespace verona::bytecode
   {
     using Operands = OpcodeOperands<CodePtr, uint8_t, uint8_t>;
     constexpr static std::string_view format = "WHEN {}, {:#x}, {:#x}";
+  };
+
+  template<>
+  struct OpcodeSpec<Opcode::Unprotect>
+  {
+    using Operands = OpcodeOperands<RegisterSpan>;
+    constexpr static std::string_view format = "UNPROTECT {}";
   };
 
   template<>

@@ -565,6 +565,38 @@ namespace verona::interpreter
       cowns.size(), cowns.data(), entry_addr, std::move(args), cown_count);
   }
 
+  void VM::opcode_protect(ConstValueList values)
+  {
+    for (const Value& value : values)
+    {
+      // Only MUTs need to be protected against GC. ISOs are the entrypoint to
+      // the region, hence are always traced. IMM and COWNs hold reference
+      // counts to their object. The rest aren't managed by the runtime.
+      if (value.tag == Value::MUT)
+      {
+        VMObject* object = value->object;
+        VMObject* region = object->region();
+        rt::RegionTrace::push_additional_root(region, object, alloc_);
+      }
+    }
+  }
+
+  void VM::opcode_unprotect(ConstValueList values)
+  {
+    // We iterate over the values in reverse order, in accordance with the stack
+    // API exposed by the runtime.
+    for (auto it = values.rbegin(); it != values.rend(); ++it)
+    {
+      const Value& value = *it;
+      if (value.tag == Value::MUT)
+      {
+        VMObject* object = value->object;
+        VMObject* region = object->region();
+        rt::RegionTrace::pop_additional_root(region, object, alloc_);
+      }
+    }
+  }
+
   void VM::opcode_unreachable()
   {
     fatal("Reached unreachable opcode");
@@ -599,11 +631,13 @@ namespace verona::interpreter
       OP(NewSleepingCown, opcode_new_sleeping_cown);
       OP(NewCown, opcode_new_cown);
       OP(Print, opcode_print);
+      OP(Protect, opcode_protect);
       OP(Return, opcode_return);
       OP(Store, opcode_store);
       OP(String, opcode_string);
       OP(TraceRegion, opcode_trace_region);
       OP(When, opcode_when);
+      OP(Unprotect, opcode_unprotect);
       OP(Unreachable, opcode_unreachable);
 
 #undef OP
