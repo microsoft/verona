@@ -494,7 +494,7 @@ namespace mlir::verona
       // Static call: `func(a, b...)` | `Class.op(a, b...)`
       auto qualType = AST::getStaticQualType(ast);
       auto type = parseType(qualType.lock());
-      auto descTy = StaticClassType::get(context, type);
+      auto descTy = DescriptorType::get(context, type);
       descriptor = builder.create<StaticOp>(loc, descTy, TypeAttr::get(type));
     }
 
