@@ -53,15 +53,24 @@ namespace mlir::verona
   // ===================================================== AST -> MLIR
   llvm::Error Generator::parseModule(const ::ast::Ast& ast)
   {
-    assert(AST::getID(ast) == "$module" && "Bad node");
-    module = mlir::ModuleOp::create(getLocation(ast));
     // Modules are nothing but global classes
-    return parseClass(ast);
+    auto global = parseClass(ast);
+    if (auto err = global.takeError())
+      return std::move(err);
+    module = *global;
+
+    return llvm::Error::success();
   }
 
-  llvm::Error Generator::parseClass(const ::ast::Ast& ast, mlir::Type parent)
+  llvm::Expected<ModuleOp>
+  Generator::parseClass(const ::ast::Ast& ast, mlir::Type parent)
   {
     assert(AST::isClass(ast) && "Bad node");
+    auto loc = getLocation(ast);
+
+    // Push another scope for variables and functions
+    SymbolScopeT var_scope(symbolTable);
+    FunctionScopeT func_scope(functionTable);
 
     // Declare before building fields to allow for recursive declaration
     // If class is used in definitions before, it has been declared empty
@@ -69,6 +78,9 @@ namespace mlir::verona
     auto name = AST::getID(ast);
     auto type = ClassType::get(context, name);
     typeTable.getOrAdd(name, type);
+
+    // Creates the scope, each class/module is a new sub-module.
+    auto scope = mlir::ModuleOp::create(getLocation(ast), name);
 
     // Nested classes, field names and types, methods, etc.
     llvm::SmallVector<::ast::WeakAst, 4> nodes;
@@ -85,8 +97,11 @@ namespace mlir::verona
       if (AST::isClass(node))
       {
         // Recurse into nested classes
-        if (auto err = parseClass(node.lock(), type))
-          return err;
+        auto classMod = parseClass(node.lock(), type);
+        if (auto err = classMod.takeError())
+          return std::move(err);
+        // Push sub-class to scope
+        scope.push_back(*classMod);
       }
       else if (AST::isField(node))
       {
@@ -114,19 +129,18 @@ namespace mlir::verona
               StringAttr::get(AST::getTokenValue(qual), context));
           func->setAttr("qualifiers", ArrayAttr::get(qualAttrs, context));
         }
-        // Push function to module
-        module->push_back(*func);
+        // Push function to scope
+        scope.push_back(*func);
       }
       else
       {
         return parsingError(
-          "Expecting field or function on class " + name.str(),
-          getLocation(ast));
+          "Expecting field or function on class " + name.str(), loc);
       }
     }
     type.setFields(fields);
 
-    return llvm::Error::success();
+    return scope;
   }
 
   llvm::Expected<mlir::FuncOp> Generator::parseFunction(const ::ast::Ast& ast)

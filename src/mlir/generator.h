@@ -175,7 +175,7 @@ namespace mlir::verona
     /// Parses a function, from a top-level (module) view.
     llvm::Expected<mlir::FuncOp> parseFunction(const ::ast::Ast& ast);
     /// Parse a class declaration
-    llvm::Error
+    llvm::Expected<ModuleOp>
     parseClass(const ::ast::Ast& ast, mlir::Type parent = mlir::Type());
 
     /// Recursive type parser, gathers all available information on the type

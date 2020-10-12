@@ -1,6 +1,6 @@
 
 
-module {
+module @"$module" {
   func @foo(%arg0: !verona.imm, %arg1: !verona.meet<class<"U64">, imm>) -> !verona.meet<class<"U64">, imm> attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !verona.imm
     %1 = "verona.store"(%arg0, %0) : (!verona.imm, !verona.imm) -> !verona.unknown
