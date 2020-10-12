@@ -127,6 +127,7 @@ namespace verona::compiler
         abi,
         method,
         *analysis.typecheck,
+        *analysis.liveness,
         closure_labels);
 
       std::string name = method.instantiated_path();
