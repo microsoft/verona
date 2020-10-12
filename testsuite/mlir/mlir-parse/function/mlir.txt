@@ -1,6 +1,18 @@
 
 
-module {
+module @"$module" {
+  module @A {
+    func @foo() -> !verona.class<"bool"> attributes {class = !verona.class<"A", "$parent" : class<"$module">>, qualifiers = ["static"]} {
+      %0 = "verona.constant(true)"() : () -> !verona.class<"bool">
+      return %0 : !verona.class<"bool">
+    }
+  }
+  module @B {
+    func @foo() -> !verona.class<"bool"> attributes {class = !verona.class<"B", "$parent" : class<"$module">>, qualifiers = ["static"]} {
+      %0 = "verona.constant(false)"() : () -> !verona.class<"bool">
+      return %0 : !verona.class<"bool">
+    }
+  }
   func @empty_declaration() attributes {class = !verona.class<"$module">}
   func @single_arg(!verona.class<"S16">) attributes {class = !verona.class<"$module">}
   func @args_and_ret(!verona.class<"U32">, !verona.class<"S32">) -> !verona.class<"F64"> attributes {class = !verona.class<"$module">}
