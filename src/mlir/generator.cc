@@ -319,6 +319,9 @@ namespace mlir::verona
 
   llvm::Expected<ReturnValue> Generator::parseBlock(const ::ast::Ast& ast)
   {
+    // Blocks add lexical context
+    SymbolScopeT var_scope{symbolTable};
+
     ReturnValue last;
     llvm::SmallVector<::ast::WeakAst, 4> nodes;
     AST::getSubNodes(nodes, ast);
