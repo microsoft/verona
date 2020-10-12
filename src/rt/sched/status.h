@@ -8,39 +8,51 @@
 
 namespace verona::rt
 {
-  /// TODO: backpressure docs
-  enum struct BackpressureState : uint8_t
+  /// Backpressure priority level
+  enum struct Priority : uint8_t
   {
-    /// Cown is not in a backpressure response state.
-    Normal = 0b00,
     /// Cown is muted. A muted cown must not be scheduled.
-    Muted = 0b01,
-    /// Cown is temporarily unmutable.
-    Unmutable = 0b10,
-    /// Cown is temporarily unmutable. This cown may transition back to Normal
-    /// if another token message falls out of its queue.
-    MaybeUnmutable = 0b11,
-    /// Bit mask for Unmutable or MaybeUnmutable states.
-    IsUnmutable = 0b10,
+    Low = 0b000,
+    /// Cown is sleeping. A sleeping cown is in a normal state and cannot change
+    /// priority until scheduled.
+    Sleeping = 0b001,
+    /// Cown is normal and scheduled.
+    Normal = 0b101,
+    /// Cown is temporarily protected from muting. This state may be reached by
+    /// becoming overloaded or by being required for a behaviour with another
+    /// high priority cown.
+    High = 0b010,
+    /// Cown is high priority, but may transition back to normal if another
+    /// token message falls out of the queue.
+    MaybeHigh = 0b011,
   };
 
-  inline bool operator&(BackpressureState s1, BackpressureState s2)
+  enum struct PriorityMask : uint8_t
   {
-    return (uint8_t)s1 & (uint8_t)s2;
+    All = 0b111,
+    Normal = 0b001,
+    High = 0b010,
+  };
+
+  constexpr inline bool operator&(Priority p, PriorityMask m)
+  {
+    return (uint8_t)p & (uint8_t)m;
   }
 
-  inline std::ostream& operator<<(std::ostream& os, BackpressureState s)
+  inline std::ostream& operator<<(std::ostream& os, Priority p)
   {
-    switch (s)
+    switch (p)
     {
-      case BackpressureState::Normal:
+      case Priority::Low:
+        return os << "Low";
+      case Priority::Sleeping:
+        return os << "Sleeping";
+      case Priority::Normal:
         return os << "Normal";
-      case BackpressureState::Muted:
-        return os << "Muted";
-      case BackpressureState::Unmutable:
-        return os << "Unmutable";
-      case BackpressureState::MaybeUnmutable:
-        return os << "MaybeUnmutable";
+      case Priority::High:
+        return os << "High";
+      case Priority::MaybeHigh:
+        return os << "MaybeHigh";
       default:
         abort();
     }
@@ -53,8 +65,6 @@ namespace verona::rt
   {
     // Load at which cown is overloaded.
     static constexpr uint32_t overload_threshold = 800;
-    // Load at which a cown is no longer overloaded.
-    static constexpr uint32_t unoverloaded_threshold = 100;
 
     /// Ring buffer with a capacity for 4 4-bit entries.
     uint16_t _load_hist = 0;
@@ -92,12 +102,6 @@ namespace verona::rt
     inline bool overloaded() const
     {
       return total_load() > overload_threshold;
-    }
-
-    /// Return true if this cown is no longer overloaded.
-    inline bool unoverloaded() const
-    {
-      return total_load() < unoverloaded_threshold;
     }
 
     /// Increment the current load. This increment will become saturated at 255.

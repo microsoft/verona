@@ -218,12 +218,11 @@ namespace verona::rt
         auto* cown = cowns[i];
         auto bp = cown->bp_state.load(std::memory_order_relaxed);
         yield();
-        assert(bp != BackpressureState::Muted);
+        assert(bp != Priority::Low);
 
         if (
-          (bp & BackpressureState::IsUnmutable) ||
-          (state == ThreadState::PreScan) || (state == ThreadState::Scan) ||
-          (state == ThreadState::AllInScan))
+          (bp & PriorityMask::High) || (state == ThreadState::PreScan) ||
+          (state == ThreadState::Scan) || (state == ThreadState::AllInScan))
         { // Messages in this cown's queue must be scanned.
           cown->schedule();
           continue;
@@ -240,10 +239,10 @@ namespace verona::rt
           Systematic::coin(9) ||
 #endif
           !cown->bp_state.compare_exchange_weak(
-            bp, BackpressureState::Muted, std::memory_order_acq_rel))
+            bp, Priority::Low, std::memory_order_acq_rel))
         {
           yield();
-          assert(bp != BackpressureState::Muted);
+          assert(bp != Priority::Low);
           cown->schedule();
           mute_set.erase(ins.second);
           if (ins.first)
@@ -252,8 +251,8 @@ namespace verona::rt
           continue;
         }
         Systematic::cout() << "Cown " << cown << ": backpressure state " << bp
-                           << " -> Muted" << std::endl;
-        assert(!(bp & BackpressureState::IsUnmutable));
+                           << " -> Low" << std::endl;
+        assert(!(bp & PriorityMask::High));
       }
 
       alloc->dealloc(cowns, count * sizeof(T*));
@@ -269,7 +268,7 @@ namespace verona::rt
       for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
       {
         auto* m = entry.key();
-        if (force || m->triggers_unmuting())
+        if (force || !m->triggers_muting())
         {
           yield();
           auto& mute_set = *entry.value();
