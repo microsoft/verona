@@ -279,19 +279,21 @@ namespace verona::rt
       }
     }
 
-    /// Add root to the stack.
+    /// Add object `o` to the additional root stack of the region referenced to
+    /// by `entry`.
     /// Preserves for object for a GC.
-    static void push_additional_root(Object* root, Object* o, Alloc* alloc)
+    static void push_additional_root(Object* entry, Object* o, Alloc* alloc)
     {
-      RegionTrace* reg = get(root);
+      RegionTrace* reg = get(entry);
       reg->additional_entry_points.push(o, alloc);
     }
 
-    /// Remove root from the stack.
+    /// Remove object `o` from the additional root stack of the region
+    /// referenced to by `entry`.
     /// Must be called in reverse order with respect to push_additional_root.
-    static void pop_additional_root(Object* root, Object* o, Alloc* alloc)
+    static void pop_additional_root(Object* entry, Object* o, Alloc* alloc)
     {
-      RegionTrace* reg = get(root);
+      RegionTrace* reg = get(entry);
       auto result = reg->additional_entry_points.pop(alloc);
       assert(result == o);
       UNUSED(result);
