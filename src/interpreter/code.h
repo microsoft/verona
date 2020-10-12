@@ -268,8 +268,8 @@ namespace verona::interpreter
       }
     };
 
-    template<typename Dummy>
-    struct load_helper<std::string_view, Dummy>
+    template<>
+    struct load_helper<std::string_view>
     {
       static std::string_view load(const Code& code, size_t& ip)
       {
@@ -279,6 +279,20 @@ namespace verona::interpreter
           reinterpret_cast<const char*>(&code.data_[ip]), size);
         ip += size;
         return s;
+      }
+    };
+
+    template<>
+    struct load_helper<bytecode::RegisterSpan>
+    {
+      static bytecode::RegisterSpan load(const Code& code, size_t& ip)
+      {
+        uint8_t size = code.u8(ip);
+        code.check(ip, size);
+        const bytecode::Register* data =
+          reinterpret_cast<const bytecode::Register*>(&code.data_[ip]);
+        ip += size;
+        return bytecode::RegisterSpan(data, size);
       }
     };
   };

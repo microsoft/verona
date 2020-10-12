@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "interpreter/value_list.h"
 #include "interpreter/vm.h"
 
 namespace verona::interpreter
@@ -133,6 +134,15 @@ namespace verona::interpreter
       const Value& value = vm->read(reg);
       vm->check_type(value, Value::STRING);
       return value->string();
+    }
+  };
+
+  template<bool IsConst>
+  struct convert_operand<BaseValueList<IsConst>>
+  {
+    static BaseValueList<IsConst> convert(VM* vm, RegisterSpan regs)
+    {
+      return BaseValueList<IsConst>(vm, regs);
     }
   };
 

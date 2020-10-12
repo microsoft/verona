@@ -11,6 +11,12 @@ namespace verona::interpreter
 {
   using bytecode::Register;
 
+  template<bool Const>
+  class BaseValueList;
+
+  using ValueList = BaseValueList<false>;
+  using ConstValueList = BaseValueList<true>;
+
   class VM
   {
   public:
@@ -257,6 +263,9 @@ namespace verona::interpreter
     friend struct convert_operand;
     template<typename T>
     friend struct execute_handler;
+
+    template<bool IsConst>
+    friend class BaseValueList;
   };
 
   /**

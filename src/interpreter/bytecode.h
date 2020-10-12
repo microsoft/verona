@@ -7,6 +7,7 @@
 #include <limits>
 #include <ostream>
 #include <string_view>
+#include <vector>
 
 /**
  * # Program Layout
@@ -144,6 +145,52 @@ namespace verona::bytecode
     explicit Register(uint8_t index) : index(index) {}
     uint8_t index;
   };
+
+  /**
+   * Contiguous sequence of Register values. It is used to encode and decode
+   * opcodes that accept a variable number of operands.
+   *
+   * This is a restricted subset of a C++20 `std::span<const Register>`
+   */
+  class RegisterSpan
+  {
+  public:
+    explicit RegisterSpan(const Register* begin, const Register* end)
+    : begin_(begin), end_(end)
+    {}
+
+    explicit RegisterSpan(const Register* begin, size_t size)
+    : RegisterSpan(begin, begin + size)
+    {}
+
+    RegisterSpan(const std::vector<Register>& regs)
+    : RegisterSpan(regs.data(), regs.size())
+    {}
+
+    RegisterSpan(const std::initializer_list<Register>& regs)
+    : RegisterSpan(regs.begin(), regs.end())
+    {}
+
+    size_t size() const
+    {
+      return end_ - begin_;
+    }
+
+    const Register* begin() const
+    {
+      return begin_;
+    }
+
+    const Register* end() const
+    {
+      return end_;
+    }
+
+  private:
+    const Register* begin_;
+    const Register* end_;
+  };
+
   constexpr static size_t REGISTER_COUNT = 256;
 
   enum class Opcode : uint8_t
