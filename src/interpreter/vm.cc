@@ -423,13 +423,12 @@ namespace verona::interpreter
     rt::RegionTrace::gc(alloc_, region);
   }
 
-  void VM::opcode_print(std::string_view fmt, uint8_t argc)
+  void VM::opcode_print(std::string_view fmt, ConstValueList values)
   {
     fmt::dynamic_format_arg_store<fmt::format_context> store;
-    for (uint8_t i = 0; i < argc; i++)
+    for (const Value& value : values)
     {
-      Register reg = code_.load<Register>(frame().ip);
-      store.push_back(std::cref(read(reg)));
+      store.push_back(std::cref(value));
     }
     fmt::vprint(fmt, store);
   }
