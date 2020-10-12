@@ -106,23 +106,23 @@ namespace mlir::verona::detail
     }
   };
 
-  struct DescriptorTypeStorage : public TypeStorage
+  struct StaticClassTypeStorage : public TypeStorage
   {
     Type descriptor;
 
     using KeyTy = Type;
-    DescriptorTypeStorage(const KeyTy& key) : descriptor(key) {}
+    StaticClassTypeStorage(const KeyTy& key) : descriptor(key) {}
 
     bool operator==(const KeyTy& key) const
     {
       return key == KeyTy(descriptor);
     }
 
-    static DescriptorTypeStorage*
+    static StaticClassTypeStorage*
     construct(TypeStorageAllocator& allocator, const KeyTy& key)
     {
-      return new (allocator.allocate<DescriptorTypeStorage>())
-        DescriptorTypeStorage(key);
+      return new (allocator.allocate<StaticClassTypeStorage>())
+        StaticClassTypeStorage(key);
     }
   };
 
@@ -269,12 +269,12 @@ namespace mlir::verona
     return ::mlir::detail::TypeUniquer::get<UnknownType>(ctx);
   }
 
-  DescriptorType DescriptorType::get(MLIRContext* ctx, Type descriptor)
+  StaticClassType StaticClassType::get(MLIRContext* ctx, Type descriptor)
   {
     return Base::get(ctx, descriptor);
   }
 
-  Type DescriptorType::getTypes() const
+  Type StaticClassType::getTypes() const
   {
     return getImpl()->descriptor;
   }
@@ -355,7 +355,7 @@ namespace mlir::verona
       MeetType,
       JoinType,
       UnknownType,
-      DescriptorType,
+      StaticClassType,
       CapabilityType,
       ClassType,
       ViewpointType>();

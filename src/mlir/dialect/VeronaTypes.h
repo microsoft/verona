@@ -41,7 +41,7 @@ namespace mlir::verona
     struct JoinTypeStorage;
     struct IntegerTypeStorage;
     struct FloatTypeStorage;
-    struct DescriptorTypeStorage;
+    struct StaticClassTypeStorage;
     struct CapabilityTypeStorage;
     struct ClassTypeStorage;
     struct ViewpointTypeStorage;
@@ -84,16 +84,16 @@ namespace mlir::verona
   };
 
   /**
-   * A class descriptor type, used for access to static members of the class,
+   * A static class type, used for access to static members of the class,
    * including fields and methods. The type pointed to could be unknown before
    * type inference, but once known, should point to a fully qualified class.
    */
-  struct DescriptorType
-  : public Type::TypeBase<DescriptorType, Type, detail::DescriptorTypeStorage>
+  struct StaticClassType
+  : public Type::TypeBase<StaticClassType, Type, detail::StaticClassTypeStorage>
   {
     using Base::Base;
 
-    static DescriptorType get(MLIRContext* context, Type ref);
+    static StaticClassType get(MLIRContext* context, Type ref);
     Type getTypes() const;
   };
 

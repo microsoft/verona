@@ -25,7 +25,7 @@ void VeronaDialect::initialize()
     MeetType,
     JoinType,
     UnknownType,
-    DescriptorType,
+    StaticClassType,
     CapabilityType,
     ClassType,
     ViewpointType>();
