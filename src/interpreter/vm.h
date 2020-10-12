@@ -62,6 +62,7 @@ namespace verona::interpreter
     opcode_binop(bytecode::BinaryOperator op, uint64_t left, uint64_t right);
     void opcode_call(SelectorIdx selector, uint8_t callspace);
     Value opcode_clear();
+    void opcode_clear_list(ValueList values);
     Value opcode_copy(Value src);
     void opcode_fulfill_sleeping_cown(const Value& cown, Value result);
     Value opcode_freeze(Value src);

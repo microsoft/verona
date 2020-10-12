@@ -266,11 +266,17 @@ namespace verona::compiler
 
     void visit_stmt(const EndScopeStmt& stmt)
     {
+      std::vector<Register> regs;
       // TODO: This could be omitted for variables with a non-linear type.
       for (Variable v : stmt.dead_variables)
       {
-        gen_.opcode(Opcode::Clear);
-        gen_.reg(variable(v));
+        regs.push_back(variable(v));
+      }
+
+      if (!regs.empty())
+      {
+        gen_.opcode(Opcode::ClearList);
+        gen_.reglist(regs);
       }
     }
 
