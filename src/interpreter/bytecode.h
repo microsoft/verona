@@ -198,6 +198,7 @@ namespace verona::bytecode
     BinOp, // op(u8), src1(u8), src2(u8)
     Call, // selector(u32), callspace(u8)
     Clear, // dst(u8)
+    ClearList, // argc(u8), dst(u8)...
     Copy, // dst(u8), src(u8)
     FulfillSleepingCown, // cown(u8), val(u8)
     Freeze, // dst(u8), src(u8)
@@ -278,6 +279,13 @@ namespace verona::bytecode
   {
     using Operands = OpcodeOperands<Register>;
     constexpr static std::string_view format = "CLEAR {}";
+  };
+
+  template<>
+  struct OpcodeSpec<Opcode::ClearList>
+  {
+    using Operands = OpcodeOperands<RegisterSpan>;
+    constexpr static std::string_view format = "CLEAR_LIST {}";
   };
 
   template<>

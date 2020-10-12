@@ -4,6 +4,7 @@
 
 #include "interpreter/convert.h"
 #include "interpreter/format.h"
+#include "interpreter/value_list.h"
 
 #include <fmt/ranges.h>
 
@@ -268,6 +269,14 @@ namespace verona::interpreter
   Value VM::opcode_clear()
   {
     return Value();
+  }
+
+  void VM::opcode_clear_list(ValueList values)
+  {
+    for (Value& value : values)
+    {
+      value.clear(alloc_);
+    }
   }
 
   void VM::opcode_fulfill_sleeping_cown(const Value& cown, Value result)
@@ -574,6 +583,7 @@ namespace verona::interpreter
       OP(BinOp, opcode_binop);
       OP(Call, opcode_call);
       OP(Clear, opcode_clear);
+      OP(ClearList, opcode_clear_list);
       OP(Copy, opcode_copy);
       OP(FulfillSleepingCown, opcode_fulfill_sleeping_cown);
       OP(Freeze, opcode_freeze);
