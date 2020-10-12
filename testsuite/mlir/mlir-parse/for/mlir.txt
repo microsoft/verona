@@ -2,9 +2,6 @@
 
 module {
   func @foo(!verona.class<"S32">) attributes {class = !verona.class<"$module">}
-  func @has_value(!verona.class<"U64">) -> i1
-  func @apply(!verona.class<"U64">) -> !verona.unknown
-  func @next(!verona.class<"U64">)
   func @f(%arg0: !verona.class<"U64">) attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !verona.class<"U64">
     %1 = "verona.store"(%arg0, %0) : (!verona.class<"U64">, !verona.class<"U64">) -> !verona.unknown
@@ -13,15 +10,16 @@ module {
     %4 = "verona.store"(%2, %3) : (!verona.class<"int">, !verona.class<"S32">) -> !verona.unknown
     br ^bb2
   ^bb1:  // pred: ^bb3
-    call @next(%0) : (!verona.class<"U64">) -> ()
+    %5 = verona.call "next"[%0 : !verona.class<"U64">] ( : ) : !verona.class<"U64">
     br ^bb2
   ^bb2:  // 2 preds: ^bb0, ^bb1
-    %5 = call @has_value(%0) : (!verona.class<"U64">) -> i1
-    cond_br %5, ^bb3, ^bb4
+    %6 = verona.call "has_value"[%0 : !verona.class<"U64">] ( : ) : !verona.unknown
+    %7 = "verona.cast"(%6) : (!verona.unknown) -> i1
+    cond_br %7, ^bb3, ^bb4
   ^bb3:  // pred: ^bb2
-    %6 = call @apply(%0) : (!verona.class<"U64">) -> !verona.unknown
-    %7 = "verona.load"(%6) : (!verona.unknown) -> !verona.unknown
-    %8 = verona.call "foo"[%7 : !verona.unknown] ( : ) : !verona.unknown
+    %8 = verona.call "apply"[%0 : !verona.class<"U64">] ( : ) : !verona.unknown
+    %9 = "verona.load"(%8) : (!verona.unknown) -> !verona.unknown
+    %10 = verona.call "foo"[%9 : !verona.unknown] ( : ) : !verona.unknown
     br ^bb1
   ^bb4:  // pred: ^bb2
     return
@@ -34,37 +32,38 @@ module {
     %4 = "verona.store"(%2, %3) : (!verona.class<"int">, !verona.class<"S32">) -> !verona.unknown
     br ^bb2
   ^bb1:  // 2 preds: ^bb7, ^bb8
-    call @next(%0) : (!verona.class<"U64">) -> ()
+    %5 = verona.call "next"[%0 : !verona.class<"U64">] ( : ) : !verona.class<"U64">
     br ^bb2
   ^bb2:  // 2 preds: ^bb0, ^bb1
-    %5 = call @has_value(%0) : (!verona.class<"U64">) -> i1
-    cond_br %5, ^bb3, ^bb4
+    %6 = verona.call "has_value"[%0 : !verona.class<"U64">] ( : ) : !verona.unknown
+    %7 = "verona.cast"(%6) : (!verona.unknown) -> i1
+    cond_br %7, ^bb3, ^bb4
   ^bb3:  // pred: ^bb2
-    %6 = call @apply(%0) : (!verona.class<"U64">) -> !verona.unknown
-    %7 = "verona.load"(%6) : (!verona.unknown) -> !verona.unknown
-    %8 = verona.call "foo"[%7 : !verona.unknown] ( : ) : !verona.unknown
-    %9 = "verona.load"(%6) : (!verona.unknown) -> !verona.unknown
-    %10 = "verona.constant(5)"() : () -> !verona.class<"int">
-    %11 = verona.call ">"[%9 : !verona.unknown] (%10 : !verona.class<"int">) : !verona.unknown
-    %12 = "verona.cast"(%11) : (!verona.unknown) -> i1
-    cond_br %12, ^bb5, ^bb6
+    %8 = verona.call "apply"[%0 : !verona.class<"U64">] ( : ) : !verona.unknown
+    %9 = "verona.load"(%8) : (!verona.unknown) -> !verona.unknown
+    %10 = verona.call "foo"[%9 : !verona.unknown] ( : ) : !verona.unknown
+    %11 = "verona.load"(%8) : (!verona.unknown) -> !verona.unknown
+    %12 = "verona.constant(5)"() : () -> !verona.class<"int">
+    %13 = verona.call ">"[%11 : !verona.unknown] (%12 : !verona.class<"int">) : !verona.unknown
+    %14 = "verona.cast"(%13) : (!verona.unknown) -> i1
+    cond_br %14, ^bb5, ^bb6
   ^bb4:  // 2 preds: ^bb2, ^bb5
     return
   ^bb5:  // pred: ^bb3
     br ^bb4
   ^bb6:  // pred: ^bb3
-    %13 = "verona.load"(%6) : (!verona.unknown) -> !verona.unknown
-    %14 = "verona.constant(2)"() : () -> !verona.class<"int">
-    %15 = verona.call "<"[%13 : !verona.unknown] (%14 : !verona.class<"int">) : !verona.unknown
-    %16 = "verona.cast"(%15) : (!verona.unknown) -> i1
-    cond_br %16, ^bb8, ^bb9
+    %15 = "verona.load"(%8) : (!verona.unknown) -> !verona.unknown
+    %16 = "verona.constant(2)"() : () -> !verona.class<"int">
+    %17 = verona.call "<"[%15 : !verona.unknown] (%16 : !verona.class<"int">) : !verona.unknown
+    %18 = "verona.cast"(%17) : (!verona.unknown) -> i1
+    cond_br %18, ^bb8, ^bb9
   ^bb7:  // pred: ^bb10
     br ^bb1
   ^bb8:  // pred: ^bb6
     br ^bb1
   ^bb9:  // pred: ^bb6
-    %17 = "verona.load"(%6) : (!verona.unknown) -> !verona.unknown
-    %18 = verona.call "foo"[%17 : !verona.unknown] ( : ) : !verona.unknown
+    %19 = "verona.load"(%8) : (!verona.unknown) -> !verona.unknown
+    %20 = verona.call "foo"[%19 : !verona.unknown] ( : ) : !verona.unknown
     br ^bb10
   ^bb10:  // pred: ^bb9
     br ^bb7

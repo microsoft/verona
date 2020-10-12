@@ -164,11 +164,6 @@ namespace mlir::verona
     /// Get location of an ast node.
     mlir::Location getLocation(const ::ast::WeakAst& ast);
 
-    /// Get a (compiler generated) function.
-    /// Will declare the prototype if it has not already been defined.
-    FuncOp genIntrinsic(
-      llvm::StringRef name, llvm::ArrayRef<mlir::Type> types, mlir::Type retTy);
-
     // ================================================================= Parsers
     // These methods parse the AST into MLIR constructs, then either return the
     // expected MLIR value or call the generators (see below) to do that for
