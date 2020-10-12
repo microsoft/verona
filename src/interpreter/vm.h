@@ -187,8 +187,13 @@ namespace verona::interpreter
      *
      * Each execution frame has a view into this stack. Register access is done
      * within this view.
+     *
+     * Because of finalisers, the VM needs to support re-entrant invocations,
+     * which may cause the stack to grow at unexpected times. We use a deque
+     * rather than a vector to make sure references don't get invalidated when
+     * this happens.
      */
-    std::vector<Value> stack_;
+    std::deque<Value> stack_;
 
     struct Frame
     {
