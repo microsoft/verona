@@ -139,13 +139,13 @@ namespace verona::rt
 
     inline void schedule_fifo(T* a)
     {
-      Systematic::cout() << "Enqueue cown: " << a << " (" << a->get_epoch_mark()
+      Systematic::cout() << "Enqueue cown " << a << " (" << a->get_epoch_mark()
                          << ")" << std::endl;
 
       // Scheduling on this thread, from this thread.
       if (!a->scanned(send_epoch))
       {
-        Systematic::cout() << "Enqueue unscanned cown: " << a << std::endl;
+        Systematic::cout() << "Enqueue unscanned cown " << a << std::endl;
         scheduled_unscanned_cown = true;
       }
       assert(!a->queue.is_sleeping());
@@ -163,7 +163,7 @@ namespace verona::rt
     {
       // A lifo scheduled cown is coming from an external source, such as
       // asynchronous I/O.
-      Systematic::cout() << "LIFO schedule cown: " << a << std::endl;
+      Systematic::cout() << "LIFO schedule cown " << a << std::endl;
 
       q.enqueue_front(ThreadAlloc::get(), a);
       stats.lifo();
@@ -344,7 +344,7 @@ namespace verona::rt
         {
           cown = q.dequeue(alloc);
           if (cown != nullptr)
-            Systematic::cout() << "Pop cown: " << cown << std::endl;
+            Systematic::cout() << "Pop cown " << cown << std::endl;
         }
 
         if (cown == nullptr)
@@ -363,7 +363,7 @@ namespace verona::rt
           continue;
         }
 
-        Systematic::cout() << "Schedule cown: " << cown << " ("
+        Systematic::cout() << "Schedule cown " << cown << " ("
                            << cown->get_epoch_mark() << ")" << std::endl;
 
         // This prevents the LD protocol advancing if this cown has not been
@@ -381,7 +381,7 @@ namespace verona::rt
 
         ld_protocol();
 
-        Systematic::cout() << "Running cown: " << cown << std::endl;
+        Systematic::cout() << "Running cown " << cown << std::endl;
 
         bool reschedule = cown->run(alloc, state, send_epoch);
 
@@ -425,7 +425,7 @@ namespace verona::rt
               if (!has_thread_bit(cown))
               {
                 Systematic::cout()
-                  << "Reschedule cown: " << cown << " ("
+                  << "Reschedule cown " << cown << " ("
                   << cown->get_epoch_mark() << ")" << std::endl;
               }
             }
@@ -433,7 +433,7 @@ namespace verona::rt
         }
         else
         {
-          Systematic::cout() << "Unschedule cown: " << cown << std::endl;
+          Systematic::cout() << "Unschedule cown " << cown << std::endl;
           // Don't reschedule.
           cown = nullptr;
         }
@@ -484,7 +484,7 @@ namespace verona::rt
         if (cown != nullptr)
         {
           // stats.steal();
-          Systematic::cout() << "Fast-steal cown: " << cown << " from "
+          Systematic::cout() << "Fast-steal cown " << cown << " from "
                              << victim->systematic_id << std::endl;
           result = cown;
           return true;
@@ -556,7 +556,7 @@ namespace verona::rt
           if (cown != nullptr)
           {
             stats.steal();
-            Systematic::cout() << "Stole cown: " << cown << " from "
+            Systematic::cout() << "Stole cown " << cown << " from "
                                << victim->systematic_id << std::endl;
             return cown;
           }
@@ -886,7 +886,7 @@ namespace verona::rt
         {
           if (c->weak_count != 0)
           {
-            Systematic::cout() << "Leaking cown: " << c << std::endl;
+            Systematic::cout() << "Leaking cown " << c << std::endl;
             if (Scheduler::get_detect_leaks())
             {
               *p = c->next;

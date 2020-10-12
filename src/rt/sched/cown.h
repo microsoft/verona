@@ -260,14 +260,14 @@ namespace verona::rt
 
     static void acquire(Object* o)
     {
-      Systematic::cout() << "Cown acquire: " << o << std::endl;
+      Systematic::cout() << "Cown " << o << " acquire" << std::endl;
       assert(o->debug_is_cown());
       o->incref();
     }
 
     static void release(Alloc* alloc, Cown* o)
     {
-      Systematic::cout() << "Cown release: " << o << std::endl;
+      Systematic::cout() << "Cown " << o << " release" << std::endl;
       assert(o->debug_is_cown());
       Cown* a = ((Cown*)o);
 
@@ -281,7 +281,7 @@ namespace verona::rt
       // All paths from this point must release the weak count owned by the
       // strong count.
 
-      Systematic::cout() << "Cown dealloc: " << o << std::endl;
+      Systematic::cout() << "Cown " << o << " dealloc" << std::endl;
 
       // During teardown don't recursively delete.
       if (Scheduler::is_teardown_in_progress())
@@ -481,7 +481,7 @@ namespace verona::rt
 
           case RegionMD::COWN:
             Systematic::cout()
-              << "Object Scan: reaches cown: " << o << std::endl;
+              << "Object Scan: reaches cown " << o << std::endl;
             Cown::mark_for_scan(o, epoch);
             break;
 
@@ -672,7 +672,7 @@ namespace verona::rt
           for (size_t i = 0; i < body.count; i++)
           {
             Systematic::cout()
-              << "Scanning cown: " << body.cowns[i] << std::endl;
+              << "Scanning cown " << body.cowns[i] << std::endl;
             body.cowns[i]->scan(alloc, Scheduler::local()->send_epoch);
           }
 
@@ -926,7 +926,7 @@ namespace verona::rt
       yield();
       if (curr == nullptr)
       {
-        Systematic::cout() << "Reached message token on cown: " << this
+        Systematic::cout() << "Reached message token on cown " << this
                            << std::endl;
         assert(stat.has_token());
         stat.set_has_token(false);
@@ -1071,7 +1071,8 @@ namespace verona::rt
           }
 
           Systematic::cout()
-            << "Cown has no work this time: " << this << std::endl;
+            << "Cown " << this << " has no work this time" << std::endl;
+
           // Deschedule the cown.
           Cown::release(alloc, this);
           return false;
