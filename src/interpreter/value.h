@@ -92,6 +92,9 @@ namespace verona::interpreter
      * Clear the Value, making it UNINIT.
      *
      * It will release any ownership of regions or reference counts it may have.
+     *
+     * Note that this may cause a re-entrant call onto the VM if an object with
+     * a finaliser is deallocated.
      */
     void clear(rt::Alloc* alloc);
 
@@ -101,6 +104,9 @@ namespace verona::interpreter
      * This moves the contents of `other` into this Value, and releases the old
      * one. It's essentially a move assignment operator, but with access to the
      * memory allocator.
+     *
+     * Note that this may cause a re-entrant call onto the VM if an object with
+     * a finaliser is deallocated.
      */
     void overwrite(rt::Alloc* alloc, Value&& other);
 
