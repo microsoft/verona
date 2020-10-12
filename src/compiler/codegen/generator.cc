@@ -39,6 +39,16 @@ namespace verona::compiler
     u8(reg.index);
   }
 
+  void Generator::reglist(bytecode::RegisterSpan regs)
+  {
+    size_t size = regs.size();
+    u8(truncate<uint8_t>(size));
+    for (bytecode::Register r : regs)
+    {
+      reg(r);
+    }
+  }
+
   void Generator::opcode(bytecode::Opcode opcode)
   {
     u8((uint8_t)opcode);

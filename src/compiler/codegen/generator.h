@@ -56,6 +56,11 @@ namespace verona::compiler
     void descriptor(Descriptor descriptor);
 
     /**
+     * Emit a list of registers, prefixed by an 8-bit length.
+     */
+    void reglist(bytecode::RegisterSpan regs);
+
+    /**
      * Write relocatable integer values in little endian format, with an
      * optional added.
      *
