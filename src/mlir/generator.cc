@@ -3,7 +3,6 @@
 
 #include "generator.h"
 
-#include "abi.h"
 #include "ast-utils.h"
 #include "dialect/VeronaDialect.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -49,32 +48,6 @@ namespace mlir::verona
     auto path = AST::getPath(ast);
     return builder.getFileLineColLoc(
       Identifier::get(path.file, context), path.line, path.column);
-  }
-
-  FuncOp Generator::genIntrinsic(
-    llvm::StringRef name, llvm::ArrayRef<mlir::Type> types, mlir::Type retTy)
-  {
-    // If already declared, return existing function.
-    auto result = functionTable.lookup(name);
-    if (result)
-      return result;
-
-    // Map type names to MLIR types
-    Types argTys;
-    for (auto t : types)
-      argTys.push_back(t);
-    llvm::SmallVector<mlir::Type, 1> retTys;
-    if (retTy)
-      retTys.push_back(retTy);
-
-    // Generate the function and check: this should never fail
-    auto func = generateProto(unkLoc, name, argTys, retTys);
-    if (auto err = func.takeError())
-      assert(false && "FIXME: broken function generator");
-
-    // Add function declaration to the module
-    module->push_back(*func);
-    return *func;
   }
 
   // ===================================================== AST -> MLIR
@@ -704,7 +677,7 @@ namespace mlir::verona
     auto list = parseNode(seqNode);
     if (auto err = list.takeError())
       return std::move(err);
-    auto handler = symbolTable.insert(ABI::LoopIterator::handler, list->get());
+    auto handler = symbolTable.insert("$iter", list->get());
     llvm::SmallVector<mlir::Value, 1> iter{handler};
     auto iterTy = list->get().getType();
 
@@ -719,13 +692,14 @@ namespace mlir::verona
     builder.create<mlir::BranchOp>(getLocation(ast), headBB, empty);
 
     // First node is a check if the list has value, returns boolean.
-    auto has_value = genIntrinsic(ABI::LoopIterator::check, iterTy, boolTy);
-    auto condLoc = getLocation(seqNode);
     builder.setInsertionPointToEnd(headBB);
-    auto cond = builder.create<mlir::CallOp>(condLoc, has_value, iter);
+    auto condLoc = getLocation(seqNode);
+    auto hasValueCall = builder.create<CallOp>(
+      condLoc, unkTy, handler, StringAttr::get("has_value", context), empty);
+    auto hasValue = hasValueCall.getResult();
     if (
-      auto err = generateCondBranch(
-        condLoc, cond.getResult(0), bodyBB, empty, exitBB, empty))
+      auto err =
+        generateCondBranch(condLoc, hasValue, bodyBB, empty, exitBB, empty))
       return std::move(err);
 
     // Create local head/tail basic-block context for continue/break
@@ -736,11 +710,12 @@ namespace mlir::verona
     // Preamble for the loop body is:
     //  val = $iter.apply();
     // val must have been declared in outer scope
-    auto apply = genIntrinsic(ABI::LoopIterator::apply, iterTy, unkTy);
     builder.setInsertionPointToEnd(bodyBB);
+    auto applyCall = builder.create<CallOp>(
+      condLoc, unkTy, handler, StringAttr::get("apply", context), empty);
+    auto apply = applyCall.getResult();
     auto indVarName = AST::getTokenValue(AST::getLoopInd(ast));
-    auto value = builder.create<mlir::CallOp>(condLoc, apply, iter);
-    symbolTable.insert(indVarName, value.getResult(0));
+    symbolTable.insert(indVarName, apply);
 
     // Loop body, branch back to head node which will decide exit criteria
     auto bodyNode = AST::getLoopBlock(ast).lock();
@@ -753,8 +728,9 @@ namespace mlir::verona
 
     //  %iter.next();
     builder.setInsertionPointToEnd(nextBB);
-    auto next = genIntrinsic(ABI::LoopIterator::next, iterTy, {});
-    builder.create<mlir::CallOp>(condLoc, next, iter);
+    auto nextCall = builder.create<CallOp>(
+      condLoc, iterTy, handler, StringAttr::get("next", context), empty);
+    auto next = nextCall.getResult();
     builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
 
     // Move to exit block, where the remaining instructions will be lowered.
