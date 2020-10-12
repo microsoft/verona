@@ -56,73 +56,23 @@ namespace mlir::verona::detail
     }
   };
 
-  struct IntegerTypeStorage : public TypeStorage
+  struct DescriptorTypeStorage : public TypeStorage
   {
-    uint8_t width;
-    enum SignType
-    {
-      Unknown,
-      Unsigned,
-      Signed
-    };
-    unsigned sign;
-
-    // width, sign
-    using KeyTy = std::tuple<size_t, unsigned>;
-    IntegerTypeStorage(const KeyTy& key)
-    : width(std::get<0>(key)), sign(std::get<1>(key))
-    {}
-
-    bool operator==(const KeyTy& key) const
-    {
-      return key == KeyTy(width, sign);
-    }
-
-    static IntegerTypeStorage*
-    construct(TypeStorageAllocator& allocator, const KeyTy& key)
-    {
-      return new (allocator.allocate<IntegerTypeStorage>())
-        IntegerTypeStorage(key);
-    }
-  };
-
-  struct FloatTypeStorage : public TypeStorage
-  {
-    uint8_t width;
-
-    // width
-    using KeyTy = size_t;
-    FloatTypeStorage(const KeyTy& key) : width(key) {}
-
-    bool operator==(const KeyTy& key) const
-    {
-      return key == KeyTy(width);
-    }
-
-    static FloatTypeStorage*
-    construct(TypeStorageAllocator& allocator, const KeyTy& key)
-    {
-      return new (allocator.allocate<FloatTypeStorage>()) FloatTypeStorage(key);
-    }
-  };
-
-  struct StaticClassTypeStorage : public TypeStorage
-  {
-    Type descriptor;
+    Type describedType;
 
     using KeyTy = Type;
-    StaticClassTypeStorage(const KeyTy& key) : descriptor(key) {}
+    DescriptorTypeStorage(const KeyTy& key) : describedType(key) {}
 
     bool operator==(const KeyTy& key) const
     {
-      return key == KeyTy(descriptor);
+      return key == KeyTy(describedType);
     }
 
-    static StaticClassTypeStorage*
+    static DescriptorTypeStorage*
     construct(TypeStorageAllocator& allocator, const KeyTy& key)
     {
-      return new (allocator.allocate<StaticClassTypeStorage>())
-        StaticClassTypeStorage(key);
+      return new (allocator.allocate<DescriptorTypeStorage>())
+        DescriptorTypeStorage(key);
     }
   };
 
@@ -269,14 +219,14 @@ namespace mlir::verona
     return ::mlir::detail::TypeUniquer::get<UnknownType>(ctx);
   }
 
-  StaticClassType StaticClassType::get(MLIRContext* ctx, Type descriptor)
+  DescriptorType DescriptorType::get(MLIRContext* ctx, Type describedType)
   {
-    return Base::get(ctx, descriptor);
+    return Base::get(ctx, describedType);
   }
 
-  Type StaticClassType::getTypes() const
+  Type DescriptorType::getDescribedType() const
   {
-    return getImpl()->descriptor;
+    return getImpl()->describedType;
   }
 
   CapabilityType CapabilityType::get(MLIRContext* ctx, Capability cap)
@@ -355,7 +305,7 @@ namespace mlir::verona
       MeetType,
       JoinType,
       UnknownType,
-      StaticClassType,
+      DescriptorType,
       CapabilityType,
       ClassType,
       ViewpointType>();
