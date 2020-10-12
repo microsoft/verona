@@ -27,12 +27,14 @@ namespace verona::compiler
       FunctionABI abi,
       const CodegenItem<Method>& method,
       const TypecheckResults& typecheck,
+      const LivenessAnalysis& liveness,
       const std::vector<Label>& closure_labels)
     : FunctionGenerator(context, gen, abi),
       reachability_(reachability),
       selectors_(selectors),
       method_(method),
       typecheck_(typecheck),
+      liveness_(liveness),
       closure_labels_(closure_labels)
     {}
 
@@ -47,9 +49,13 @@ namespace verona::compiler
       {
         gen_.define_label(basic_block_label(bb));
 
-        for (const auto& stmt : bb->statements)
+        std::vector<Liveness> live_out = liveness_.statements_out(bb);
+        for (const auto& [stmt, stmt_live_out] :
+             safe_zip(bb->statements, live_out))
         {
-          std::visit([&](const auto& s) { visit_stmt(s); }, stmt);
+          const auto& stmt_live_out_ = stmt_live_out;
+          std::visit(
+            [&](const auto& s) { visit_stmt(s, stmt_live_out_); }, stmt);
         }
 
         const Terminator& term = bb->terminator.value();
@@ -102,7 +108,46 @@ namespace verona::compiler
       return selectors_.get(Selector::field(name));
     }
 
-    void visit_stmt(const CallStmt& stmt)
+    /**
+     * Use a pair of PROTECT/UNPROTECT calls to prevent live variables from
+     * being garbage collected for the duration of a CALL statement.
+     *
+     * The `fn` argument will be executed in between the emission of the two
+     * opcodes, and is used to emit the actual CALL opcode.
+     */
+    template<typename Fn>
+    void protect_live_registers(
+      const CallStmt& stmt, const Liveness& live_out, Fn&& fn)
+    {
+      std::vector<Register> registers;
+      for (const Variable& var : live_out.live_variables)
+      {
+        // We care about variables that are live *during* the call, but we're
+        // iterating over those that are live *after* it. Thankfully the only
+        // difference is in the output value of the call statement, so we skip
+        // that.
+        if (var != stmt.output)
+        {
+          registers.push_back(variable(var));
+        }
+      }
+
+      if (!registers.empty())
+      {
+        gen_.opcode(Opcode::Protect);
+        gen_.reglist(registers);
+      }
+
+      std::forward<Fn>(fn)();
+
+      if (!registers.empty())
+      {
+        gen_.opcode(Opcode::Unprotect);
+        gen_.reglist(registers);
+      }
+    }
+
+    void visit_stmt(const CallStmt& stmt, const Liveness& live_out)
     {
       bytecode::SelectorIdx selector =
         method_selector_index(stmt.method, reify(stmt.type_arguments));
@@ -119,15 +164,17 @@ namespace verona::compiler
         emit_copy_to_child(abi, Register(truncate<uint8_t>(index++)), reg);
       }
 
-      gen_.opcode(Opcode::Call);
-      gen_.selector(selector);
-      gen_.u8(truncate<uint8_t>(abi.callspace()));
+      protect_live_registers(stmt, live_out, [&]() {
+        gen_.opcode(Opcode::Call);
+        gen_.selector(selector);
+        gen_.u8(truncate<uint8_t>(abi.callspace()));
+      });
 
       Register output = variable(stmt.output);
       emit_move_from_child(abi, output, Register(0));
     }
 
-    void visit_stmt(const WhenStmt& stmt)
+    void visit_stmt(const WhenStmt& stmt, const Liveness& live_out)
     {
       // No clever type params on When closures yet.
       TypeList empty;
@@ -160,7 +207,7 @@ namespace verona::compiler
       // No output for now TODO-PROMISE
     }
 
-    void visit_stmt(const StaticTypeStmt& stmt)
+    void visit_stmt(const StaticTypeStmt& stmt, const Liveness& live_out)
     {
       Register output = variable(stmt.output);
       Descriptor index =
@@ -168,7 +215,7 @@ namespace verona::compiler
       emit_load_descriptor(output, index);
     }
 
-    void visit_stmt(const NewStmt& stmt)
+    void visit_stmt(const NewStmt& stmt, const Liveness& live_out)
     {
       Descriptor index =
         entity_descriptor(stmt.definition, reify(stmt.type_arguments));
@@ -192,14 +239,14 @@ namespace verona::compiler
       }
     }
 
-    void visit_stmt(const MatchBindStmt& stmt)
+    void visit_stmt(const MatchBindStmt& stmt, const Liveness& live_out)
     {
       Register input = variable(stmt.input);
       Register output = variable(stmt.output);
       emit_copy(output, input);
     }
 
-    void visit_stmt(const ReadFieldStmt& stmt)
+    void visit_stmt(const ReadFieldStmt& stmt, const Liveness& live_out)
     {
       Register base = variable(stmt.base);
       Register output = variable(stmt.output);
@@ -210,7 +257,7 @@ namespace verona::compiler
       gen_.selector(field_selector_index(stmt.name));
     }
 
-    void visit_stmt(const WriteFieldStmt& stmt)
+    void visit_stmt(const WriteFieldStmt& stmt, const Liveness& live_out)
     {
       Register base = variable(stmt.base);
       Register output = variable(stmt.output);
@@ -223,14 +270,14 @@ namespace verona::compiler
       gen_.reg(right);
     }
 
-    void visit_stmt(const CopyStmt& stmt)
+    void visit_stmt(const CopyStmt& stmt, const Liveness& live_out)
     {
       Register input = variable(stmt.input);
       Register output = variable(stmt.output);
       emit_copy(output, input);
     }
 
-    void visit_stmt(const IntegerLiteralStmt& stmt)
+    void visit_stmt(const IntegerLiteralStmt& stmt, const Liveness& live_out)
     {
       Register output = variable(stmt.output);
 
@@ -239,7 +286,7 @@ namespace verona::compiler
       gen_.u64(stmt.value);
     }
 
-    void visit_stmt(const StringLiteralStmt& stmt)
+    void visit_stmt(const StringLiteralStmt& stmt, const Liveness& live_out)
     {
       Register output = variable(stmt.output);
 
@@ -248,7 +295,7 @@ namespace verona::compiler
       gen_.str(stmt.value);
     }
 
-    void visit_stmt(const ViewStmt& stmt)
+    void visit_stmt(const ViewStmt& stmt, const Liveness& live_out)
     {
       Register input = variable(stmt.input);
       Register output = variable(stmt.output);
@@ -257,14 +304,14 @@ namespace verona::compiler
       gen_.reg(input);
     }
 
-    void visit_stmt(const UnitStmt& stmt)
+    void visit_stmt(const UnitStmt& stmt, const Liveness& live_out)
     {
       Register output = variable(stmt.output);
       gen_.opcode(Opcode::Clear);
       gen_.reg(output);
     }
 
-    void visit_stmt(const EndScopeStmt& stmt)
+    void visit_stmt(const EndScopeStmt& stmt, const Liveness& live_out)
     {
       std::vector<Register> regs;
       // TODO: This could be omitted for variables with a non-linear type.
@@ -280,7 +327,7 @@ namespace verona::compiler
       }
     }
 
-    void visit_stmt(const OverwriteStmt& stmt)
+    void visit_stmt(const OverwriteStmt& stmt, const Liveness& live_out)
     {
       gen_.opcode(Opcode::Clear);
       gen_.reg(variable(stmt.dead_variable));
@@ -425,6 +472,7 @@ namespace verona::compiler
     const SelectorTable& selectors_;
     const CodegenItem<Method>& method_;
     const TypecheckResults& typecheck_;
+    const LivenessAnalysis& liveness_;
     const std::vector<Label>& closure_labels_;
 
     FunctionABI abi_ = FunctionABI(*method_.definition->signature);
