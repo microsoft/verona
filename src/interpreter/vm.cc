@@ -22,16 +22,19 @@ namespace verona::interpreter
     // First argument is the receiver, followed by cown_count cowns that are
     // being acquired, followed by captures. The cowns need to be transformed
     // so we actually pass their contents to the behaviour instead.
-    size_t index = 0;
-    for (auto& a : args)
+    for (size_t i = 0; i < args.size(); i++)
     {
-      if (index > 0 && index <= cown_count)
+      Register reg(truncate<uint8_t>(i));
+      Value& value = args[i];
+      if (i > 0 && i <= cown_count)
       {
-        a.switch_to_cown_body();
+        write(reg, value.cown_body());
+        value.clear(alloc_);
       }
-      stack_.at(index).overwrite(alloc_, std::move(a));
-
-      index++;
+      else
+      {
+        write(reg, std::move(value));
+      }
     }
 
     dispatch_loop();
@@ -536,13 +539,18 @@ namespace verona::interpreter
       trace("Capturing cown {:d}: {}", i, v);
       check_type(v, Value::COWN);
 
-      // Multimessage will take increfs on all the cowns, so don't need to
-      // protect them here.
-      cowns.push_back(v->cown);
-      // Releases reference count to caller, so we can use it inside
-      // multi-message.
-      v.consume_cown();
-      args.push_back(std::move(v));
+      // Push the body of the cown into the message, as an unowned cown. The
+      // runtime will be holding a reference to the cown for us, so no need to
+      // have our own.
+      //
+      // We can't look up the pointer to the cown's contents, since for promise
+      // cowns it is not set until the promise is fulfilled.
+      args.push_back(v.as_unowned_cown());
+
+      // Transfer ownership of the cown from `v` into the `cowns` vector. The
+      // runtime will hold on to the references until after the message is
+      // executed.
+      cowns.push_back(v.consume_cown());
     }
 
     // The rest are the captured values
