@@ -19,8 +19,8 @@
  * - 32-bit number of descriptors, followed by that many descriptors (see below)
  * - 32-bit descriptor index of Main class
  * - 32-bit selector index of main method
- * - 32-bit descriptor index of U64 class (optional)
- * - 32-bit descriptor index of String class (optional)
+ * - 32-bit descriptor index of U64 class (optional, ~0 when absent)
+ * - 32-bit descriptor index of String class (optional, ~0 when absent)
  *
  * Descriptor:
  * - 16-bit name length, followed by the name bytes
@@ -121,13 +121,6 @@
  */
 namespace verona::bytecode
 {
-  typedef uint32_t DescriptorIdx;
-  typedef uint32_t SelectorIdx;
-  typedef uint32_t CodePtr;
-
-  static constexpr DescriptorIdx INVALID_DESCRIPTOR =
-    std::numeric_limits<DescriptorIdx>::max();
-
   struct FunctionHeader
   {
     std::string_view name;
@@ -137,16 +130,91 @@ namespace verona::bytecode
     uint32_t size;
   };
 
+  /**
+   * Magic number which occurs at the beginning of every Verona bytecode file.
+   * It allows the interpreter to bail out when the user obviously tried to run
+   * the wrong file (eg. a Verona source code).
+   */
   constexpr static uint32_t MAGIC_NUMBER = 0xF38932C3;
 
+  template<typename U>
+  struct Wrapper;
+
   /**
-   * Type-safe wrapper for register indices, helps avoid implicit conversion
-   * from/to integers.
+   * This special instantiation of Wrapper is used as a base class for all
+   * others. It's purpose is to allow checking whether a type is any
+   * instantiation of Wrapper, through the is_wrapper_v trait.
    */
-  struct Register
+  template<>
+  struct Wrapper<void>
+  {};
+
+  template<typename T>
+  inline constexpr bool is_wrapper_v = std::is_base_of_v<Wrapper<void>, T>;
+
+  /**
+   * Type safe wrapper around integers. Used for values that get encoded into
+   * the bytecode. This helps avoid implicit conversion from/to integers, as
+   * well as confusion between different kinds of integer values (eg. absolute
+   * vs relative offsets).
+   */
+  template<typename U>
+  struct Wrapper : public Wrapper<void>
   {
-    explicit Register(uint8_t index) : index(index) {}
-    uint8_t index;
+    using underlying_type = U;
+    explicit Wrapper(U value) : value(value) {}
+    U value;
+  };
+
+  struct Register : public Wrapper<uint8_t>
+  {
+    using Wrapper<uint8_t>::Wrapper;
+  };
+
+  /**
+   * Index used to identify a method or field. These indices are used as offset
+   * into object vtables.
+   */
+  struct SelectorIdx : public Wrapper<uint32_t>
+  {
+    using Wrapper<uint32_t>::Wrapper;
+  };
+
+  /**
+   * Index used to identify a class/interface/primitive type. The index refers
+   * to the position of that type in the program's list of descriptor.
+   */
+  struct DescriptorIdx : public Wrapper<uint32_t>
+  {
+    using Wrapper<uint32_t>::Wrapper;
+
+    /**
+     * Placeholder descriptor value used in places where a descriptor is
+     * optional, eg. the descriptor index of the U64 class, in the program
+     * header.
+     */
+    static DescriptorIdx invalid()
+    {
+      uint32_t value = std::numeric_limits<uint32_t>::max();
+      return DescriptorIdx(value);
+    }
+  };
+
+  /**
+   * Absolute offset into the program, in bytes.
+   */
+  struct AbsoluteOffset : public Wrapper<uint32_t>
+  {
+    using Wrapper<uint32_t>::Wrapper;
+  };
+
+  /**
+   * Offset into the program that is relative to the start of the current
+   * instruction, in bytes.
+   */
+  struct RelativeOffset : public Wrapper<int16_t>
+  {
+    using Wrapper<int16_t>::Wrapper;
   };
 
   /**
@@ -154,6 +222,9 @@ namespace verona::bytecode
    * opcodes that accept a variable number of operands.
    *
    * This is a restricted subset of a C++20 `std::span<const Register>`
+   *
+   * When emitted into the bytecode, this is represented as 8-bit length
+   * followed by one byte per register in the list.
    */
   class RegisterSpan
   {
@@ -270,6 +341,11 @@ namespace verona::bytecode
    * Operand specification.
    *
    * A specification is defined through specialization for each Opcode value.
+   *
+   * Each specialization provides a `Operands` type alias and a format string
+   * used to print the decoded instruction. The `Operands` definition drives
+   * both the `emit` DSL used by the code generator as well as the dispatch code
+   * in the VM.
    */
   template<Opcode opcode>
   struct OpcodeSpec;
@@ -334,14 +410,14 @@ namespace verona::bytecode
   template<>
   struct OpcodeSpec<Opcode::Jump>
   {
-    using Operands = OpcodeOperands<int16_t>;
+    using Operands = OpcodeOperands<RelativeOffset>;
     constexpr static std::string_view format = "JUMP {:+#x}";
   };
 
   template<>
   struct OpcodeSpec<Opcode::JumpIf>
   {
-    using Operands = OpcodeOperands<Register, int16_t>;
+    using Operands = OpcodeOperands<Register, RelativeOffset>;
     constexpr static std::string_view format = "JUMP_IF {}, {:+#x}";
   };
 
@@ -460,7 +536,7 @@ namespace verona::bytecode
   template<>
   struct OpcodeSpec<Opcode::When>
   {
-    using Operands = OpcodeOperands<CodePtr, uint8_t, uint8_t>;
+    using Operands = OpcodeOperands<AbsoluteOffset, uint8_t, uint8_t>;
     constexpr static std::string_view format = "WHEN {}, {:#x}, {:#x}";
   };
 
@@ -481,4 +557,31 @@ namespace verona::bytecode
   std::ostream& operator<<(std::ostream& out, const Register& self);
   std::ostream& operator<<(std::ostream& out, const BinaryOperator& self);
   std::ostream& operator<<(std::ostream& out, const Capability& self);
+
+  template<typename T>
+  std::enable_if_t<bytecode::is_wrapper_v<T>, std::ostream&>
+  operator<<(std::ostream& out, const T& self)
+  {
+    return out << self.value;
+  }
+
+  template<typename T>
+  std::enable_if_t<bytecode::is_wrapper_v<T>, bool>
+  operator==(const T& lhs, const T& rhs)
+  {
+    return lhs.value == rhs.value;
+  }
+}
+
+namespace std
+{
+  template<>
+  struct hash<verona::bytecode::DescriptorIdx>
+  {
+    size_t operator()(const verona::bytecode::DescriptorIdx& idx) const
+    {
+      using underlying_type = verona::bytecode::DescriptorIdx::underlying_type;
+      return std::hash<underlying_type>()(idx.value);
+    }
+  };
 }

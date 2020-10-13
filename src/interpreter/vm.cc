@@ -70,7 +70,7 @@ namespace verona::interpreter
     while (!halt_)
     {
       start_ip_ = frame().ip;
-      Opcode op = code_.opcode(frame().ip);
+      Opcode op = code_.load<Opcode>(frame().ip);
       dispatch_opcode(op);
     }
   }
@@ -134,28 +134,28 @@ namespace verona::interpreter
 
   Value& VM::read(Register reg)
   {
-    if (reg.index >= frame().locals)
+    if (reg.value >= frame().locals)
     {
-      fatal("Out of bounds stack access (register {})", reg.index);
+      fatal("Out of bounds stack access (register {})", reg.value);
     }
-    return stack_.at(frame().base + reg.index);
+    return stack_.at(frame().base + reg.value);
   }
 
   const Value& VM::read(Register reg) const
   {
-    if (reg.index >= frame().locals)
+    if (reg.value >= frame().locals)
     {
-      fatal("Out of bounds stack access (register {})", reg.index);
+      fatal("Out of bounds stack access (register {})", reg.value);
     }
-    return stack_.at(frame().base + reg.index);
+    return stack_.at(frame().base + reg.value);
   }
 
   void VM::write(Register reg, Value value)
   {
-    if (reg.index >= frame().locals)
-      fatal("Out of bounds stack access (register {})", reg.index);
+    if (reg.value >= frame().locals)
+      fatal("Out of bounds stack access (register {})", reg.value);
 
-    stack_.at(frame().base + reg.index).overwrite(alloc_, std::move(value));
+    stack_.at(frame().base + reg.value).overwrite(alloc_, std::move(value));
   }
 
   const VMDescriptor* VM::find_dispatch_descriptor(const Value& value) const
@@ -282,7 +282,7 @@ namespace verona::interpreter
     const Value& receiver = read(Register(frame().locals - callspace));
     const VMDescriptor* descriptor = find_dispatch_descriptor(receiver);
 
-    size_t addr = descriptor->methods[selector];
+    size_t addr = descriptor->methods[selector.value];
     size_t base = frame().base + frame().locals - callspace;
 
     push_frame(addr, base, OnReturn::Continue);
@@ -344,15 +344,15 @@ namespace verona::interpreter
     return Value::string(imm);
   }
 
-  void VM::opcode_jump(int16_t offset)
+  void VM::opcode_jump(RelativeOffset offset)
   {
-    frame().ip = start_ip_ + offset;
+    frame().ip = start_ip_ + offset.value;
   }
 
-  void VM::opcode_jump_if(uint64_t condition, int16_t offset)
+  void VM::opcode_jump_if(uint64_t condition, RelativeOffset offset)
   {
     if (condition > 0)
-      frame().ip = start_ip_ + offset;
+      frame().ip = start_ip_ + offset.value;
   }
 
   Value VM::opcode_load(const Value& base, SelectorIdx selector)
@@ -361,7 +361,7 @@ namespace verona::interpreter
 
     VMObject* object = base->object;
     const VMDescriptor* descriptor = object->descriptor();
-    size_t index = descriptor->fields[selector];
+    size_t index = descriptor->fields[selector.value];
 
     Value value = object->fields[index].read(base.tag);
     return std::move(value);
@@ -533,7 +533,7 @@ namespace verona::interpreter
 
     VMObject* object = base->object;
     const VMDescriptor* desc = object->descriptor();
-    size_t index = desc->fields[selector];
+    size_t index = desc->fields[selector.value];
 
     if (src.tag == Value::Tag::MUT && object->region() != src->object->region())
     {
@@ -545,8 +545,8 @@ namespace verona::interpreter
     return std::move(old_value);
   }
 
-  void
-  VM::opcode_when(CodePtr offset, uint8_t cown_count, uint8_t capture_count)
+  void VM::opcode_when(
+    AbsoluteOffset offset, uint8_t cown_count, uint8_t capture_count)
   {
     // One added for unused receiver
     // TODO-Better-Static-codegen
@@ -554,8 +554,7 @@ namespace verona::interpreter
     if (callspace > frame().locals)
       fatal("Call space does not fit in current frame");
 
-    size_t entry_addr = offset;
-    size_t addr = entry_addr;
+    size_t addr = offset.value;
     FunctionHeader header = code_.function_header(addr);
 
     if (callspace > header.argc)
@@ -618,7 +617,7 @@ namespace verona::interpreter
     }
 
     rt::Cown::schedule<ExecuteMessage, rt::YesTransfer>(
-      cowns.size(), cowns.data(), entry_addr, std::move(args), cown_count);
+      cowns.size(), cowns.data(), offset.value, std::move(args), cown_count);
   }
 
   void VM::opcode_protect(ConstValueList values)
