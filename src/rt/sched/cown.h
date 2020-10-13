@@ -322,7 +322,7 @@ namespace verona::rt
      **/
     void weak_release(Alloc* alloc)
     {
-      Systematic::cout() << "Weak release " << this << std::endl;
+      Systematic::cout() << "Cown " << this << " weak release" << std::endl;
       if (weak_count.fetch_sub(1) == 1)
       {
         auto* t = owning_thread();
@@ -350,8 +350,8 @@ namespace verona::rt
 
     void weak_acquire()
     {
+      Systematic::cout() << "Cown " << this << " weak acquire" << std::endl;
       assert(weak_count > 0);
-
       weak_count++;
     }
 
@@ -796,9 +796,7 @@ namespace verona::rt
         // This condition prevents a situation where a message triggering
         // prioritization on this cown has already been processed and this cown
         // has gone back to sleep by the time this state change is requested.
-        if (
-          (state == Priority::High) && (prev == Priority::Sleeping) &&
-          queue.is_sleeping())
+        if ((state == Priority::High) && (prev == Priority::Sleeping))
           return prev;
 
         if (prev == state)
@@ -1043,15 +1041,14 @@ namespace verona::rt
           // Reschedule if cown does not go to sleep.
           if (!queue.mark_sleeping(notify))
           {
+            backpressure_transition(Priority::Normal);
             if (notify)
             {
-              assert(
-                !notified_called); // We must have run something to get here.
+              // We must have run something to get here.
+              assert(!notified_called);
               cown_notified();
               // Treat notification as a message and don't deschedule
-              return true;
             }
-
             return true;
           }
 
