@@ -516,8 +516,9 @@ namespace verona::interpreter
         header.argc);
     }
 
-    size_t top = frame().base + frame().locals;
-    Value* values = &stack_[top - callspace + 1];
+    // Compute the base of the new "frame", relative to the current frame.
+    // We use this to copy these values into the message
+    size_t base = frame().locals - callspace;
 
     // Prepare the cowns and the arguments for the method invocation.
     std::vector<Value> args;
@@ -531,7 +532,7 @@ namespace verona::interpreter
     // The rest are the cowns
     for (size_t i = 0; i < cown_count; i++)
     {
-      Value& v = values[i];
+      Value& v = read(Register(truncate<uint8_t>(base + 1 + i)));
       trace("Capturing cown {:d}: {}", i, v);
       check_type(v, Value::COWN);
 
@@ -547,7 +548,7 @@ namespace verona::interpreter
     // The rest are the captured values
     for (size_t i = 0; i < capture_count; i++)
     {
-      Value& v = values[i + cown_count];
+      Value& v = read(Register(truncate<uint8_t>(base + 1 + cown_count + i)));
       trace("Capturing variable {:d}: {}", i + cown_count, v);
       args.push_back(std::move(v));
     }
