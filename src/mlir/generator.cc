@@ -21,6 +21,14 @@ namespace
     return !bb->getOperations().empty() && bb->back().isKnownTerminator();
   }
 
+  /// Check if value is from an alloca operation
+  /// TODO: This will probably disappear entirely once we have free var analisys
+  bool isAlloca(mlir::Value val)
+  {
+    // For now, allocas are opaque operations
+    return val.getDefiningOp()->getName().stripDialect() == "alloca";
+  }
+
   /// Add a new basic block into a region and return it
   mlir::Block* addBlock(mlir::Region* region)
   {
@@ -245,8 +253,6 @@ namespace mlir::verona
       return typeTable.insert(name, getMut(context));
     else if (name == "imm")
       return typeTable.insert(name, getImm(context));
-    else if (name == "unk")
-      return typeTable.insert(name, UnknownType::get(context));
 
     // Every other type is just a class that we don't know yet
     return typeTable.insert(name, ClassType::get(context, name));
@@ -368,7 +374,7 @@ namespace mlir::verona
       auto name = AST::getTokenValue(ast);
       auto var = symbolTable.lookup(name);
       assert(var && "Undeclared variable lookup, broken ast");
-      if (var.getType() == unkTy)
+      if (isAlloca(var))
         return generateLoad(getLocation(ast), var);
       return var;
     }
@@ -779,6 +785,8 @@ namespace mlir::verona
   llvm::Expected<ReturnValue> Generator::parseNew(const ::ast::Ast& ast)
   {
     assert(AST::isNew(ast) && "Bad node");
+    auto loc = getLocation(ast);
+
     // Class name
     auto name = AST::getID(AST::getClassTypeRef(ast));
     auto nameAttr = SymbolRefAttr::get(name, context);
@@ -805,20 +813,22 @@ namespace mlir::verona
     auto fieldNameAttr = ArrayAttr::get(fieldNames, context);
     ValueRange inits{fieldValues};
 
-    // If there's an `inreg`, allocate object on existing reagion
     if (AST::hasInRegion(ast))
     {
+      // If there's an `inreg`, allocate object on existing region
       auto regionName = AST::getID(AST::getInRegion(ast));
-      // FIXME: This brings the alloca, not the new value
       auto regionObj = symbolTable.lookup(regionName);
+      if (isAlloca(regionObj))
+        regionObj = generateLoad(loc, regionObj);
       auto alloc = builder.create<AllocateObjectOp>(
-        getLocation(ast), type, nameAttr, fieldNameAttr, inits, regionObj);
+        loc, type, nameAttr, fieldNameAttr, inits, regionObj);
       return alloc.getResult();
     }
     else
     {
+      // If not, allocate a new region
       auto alloc = builder.create<AllocateRegionOp>(
-        getLocation(ast), type, nameAttr, fieldNameAttr, inits);
+        loc, type, nameAttr, fieldNameAttr, inits);
       return alloc.getResult();
     }
   }

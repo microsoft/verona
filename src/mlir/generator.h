@@ -125,7 +125,7 @@ namespace mlir::verona
     : context(context), builder(context), unkLoc(builder.getUnknownLoc())
     {
       // Initialise boolean / unknown types for convenience coding
-      unkTy = generateType("unk");
+      unkTy = UnknownType::get(context);
       boolTy = builder.getI1Type();
     }
 
