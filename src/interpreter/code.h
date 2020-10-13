@@ -232,74 +232,84 @@ namespace verona::interpreter
       return descriptor;
     }
 
+    /**
+     * Helper class that allows us to override the behaviour based on the type
+     * of the operand we want to load.
+     *
+     * Different specializations are provided below for various types T. Every
+     * specialization provides a `static T load(const Code& code, size_t& ip)`
+     * method.
+     */
     template<typename T, typename = void>
     struct load_helper;
+  };
 
-    template<typename T>
-    struct load_helper<T, std::enable_if_t<std::is_integral_v<T>>>
+  template<typename T>
+  struct Code::load_helper<T, std::enable_if_t<std::is_integral_v<T>>>
+  {
+    static T load(const Code& code, size_t& ip)
     {
-      static T load(const Code& code, size_t& ip)
+      code.check(ip, sizeof(T));
+      uint64_t bits = 0;
+
+      for (size_t i = 0; i < (sizeof(T) * 8); i += 8)
       {
-        code.check(ip, sizeof(T));
-        uint64_t bits = 0;
-
-        for (size_t i = 0; i < (sizeof(T) * 8); i += 8)
-        {
-          bits |= code.data_[ip++] << i;
-        }
-
-        return (T)bits;
+        bits |= code.data_[ip++] << i;
       }
-    };
 
-    template<typename T>
-    struct load_helper<T, std::enable_if_t<std::is_enum_v<T>>>
+      return (T)bits;
+    }
+  };
+
+  template<typename T>
+  struct Code::load_helper<T, std::enable_if_t<std::is_enum_v<T>>>
+  {
+    static T load(const Code& code, size_t& ip)
     {
-      static T load(const Code& code, size_t& ip)
+      typedef std::underlying_type_t<T> wire_type;
+      wire_type value = code.load<wire_type>(ip);
+      if (value > static_cast<wire_type>(T::maximum_value))
       {
-        typedef std::underlying_type_t<T> wire_type;
-        wire_type value = code.load<wire_type>(ip);
-        if (value > static_cast<wire_type>(T::maximum_value))
-        {
-          throw std::logic_error(
-            fmt::format("Invalid value {:d} for {}", value, typeid(T).name()));
-        }
-        return static_cast<T>(value);
+        throw std::logic_error(
+          fmt::format("Invalid value {:d} for {}", value, typeid(T).name()));
       }
-    };
-
-    template<>
-    struct load_helper<std::string_view>
-    {
-      static std::string_view load(const Code& code, size_t& ip)
-      {
-        uint16_t size = code.u16(ip);
-        code.check(ip, size);
-        std::string_view s(
-          reinterpret_cast<const char*>(&code.data_[ip]), size);
-        ip += size;
-        return s;
-      }
-    };
-
-    template<>
-    struct load_helper<bytecode::RegisterSpan>
-    {
-      static bytecode::RegisterSpan load(const Code& code, size_t& ip)
-      {
-        uint8_t size = code.u8(ip);
-        code.check(ip, size);
-        const bytecode::Register* data =
-          reinterpret_cast<const bytecode::Register*>(&code.data_[ip]);
-        ip += size;
-        return bytecode::RegisterSpan(data, size);
-      }
-    };
+      return static_cast<T>(value);
+    }
   };
 
   template<>
-  inline bytecode::Register Code::load<bytecode::Register>(size_t& ip) const
+  struct Code::load_helper<std::string_view>
   {
-    return bytecode::Register(load<uint8_t>(ip));
-  }
+    static std::string_view load(const Code& code, size_t& ip)
+    {
+      uint16_t size = code.u16(ip);
+      code.check(ip, size);
+      std::string_view s(reinterpret_cast<const char*>(&code.data_[ip]), size);
+      ip += size;
+      return s;
+    }
+  };
+
+  template<>
+  struct Code::load_helper<bytecode::RegisterSpan>
+  {
+    static bytecode::RegisterSpan load(const Code& code, size_t& ip)
+    {
+      uint8_t size = code.u8(ip);
+      code.check(ip, size);
+      const bytecode::Register* data =
+        reinterpret_cast<const bytecode::Register*>(&code.data_[ip]);
+      ip += size;
+      return bytecode::RegisterSpan(data, size);
+    }
+  };
+
+  template<>
+  struct Code::load_helper<bytecode::Register>
+  {
+    static bytecode::Register load(const Code& code, size_t& ip)
+    {
+      return bytecode::Register(code.load<uint8_t>(ip));
+    }
+  };
 }
