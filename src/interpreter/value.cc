@@ -63,6 +63,14 @@ namespace verona::interpreter
     return v;
   }
 
+  Value Value::unowned_cown(VMCown* cown)
+  {
+    Value v;
+    v.tag = COWN_UNOWNED;
+    v.inner.cown = cown;
+    return v;
+  }
+
   Value Value::descriptor(const VMDescriptor* descriptor)
   {
     Value v;
@@ -124,26 +132,37 @@ namespace verona::interpreter
     tag = UNINIT;
   }
 
-  void Value::consume_cown()
+  VMCown* Value::consume_cown()
   {
     switch (tag)
     {
       case COWN:
-        tag = COWN_UNOWNED;
-        return;
+        tag = UNINIT;
+        return inner.cown;
       default:
         abort();
     }
   }
 
-  void Value::switch_to_cown_body()
+  Value Value::as_unowned_cown() const
   {
     switch (tag)
     {
+      case COWN:
+        return Value::unowned_cown(inner.cown);
+
+      default:
+        abort();
+    }
+  }
+
+  Value Value::cown_body() const
+  {
+    switch (tag)
+    {
+      case COWN:
       case COWN_UNOWNED:
-        tag = MUT;
-        inner.object = inner.cown->contents;
-        return;
+        return Value::mut(inner.cown->contents);
       default:
         abort();
     }
