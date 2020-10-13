@@ -1038,6 +1038,8 @@ namespace verona::rt
           if (batch_size != 0)
             return true;
 
+          backpressure_transition(Priority::Sleeping);
+
           // Reschedule if cown does not go to sleep.
           if (!queue.mark_sleeping(notify))
           {
@@ -1055,7 +1057,6 @@ namespace verona::rt
 
           Systematic::cout()
             << "Cown " << this << " has no work this time" << std::endl;
-          backpressure_transition(Priority::Sleeping);
 
           // Deschedule the cown.
           Cown::release(alloc, this);
