@@ -114,7 +114,7 @@ namespace verona::rt
     std::atomic<size_t> weak_count = 1;
 
     std::atomic<Status> status{};
-    std::atomic<Priority> bp_state = Priority::Sleeping;
+    std::atomic<Priority> bp_state = Priority::Normal;
 
     static Cown* create_token_cown()
     {
@@ -541,18 +541,20 @@ namespace verona::rt
                            << next << ", index " << body->index << std::endl;
 
         {
-          // Hold an epoch so that a scheduled `next` cown is not collected by
-          // the time that we must set it unmutable.
-          Epoch e(alloc);
+          if (make_unmutable)
+            next->unmute(true);
+
           bool needs_scheduling = next->send<YesTransfer, YesTryFast>(m);
           if (!needs_scheduling)
           {
             // Case 1: target cown was already scheduled.
             Systematic::cout()
               << "MultiMessage " << m << ": fast send interrupted" << std::endl;
-            if (make_unmutable)
-              next->unmute(true);
             return;
+          }
+          else
+          {
+            next->backpressure_transition(Priority::Normal, true);
           }
         }
 
@@ -782,21 +784,16 @@ namespace verona::rt
 
     /// Transition a cown between backpressure states. Return the previous
     /// state. An attempt to set the state to Normal may be preempted by
-    /// another thread setting the cown to any state that isn't Muted.
-    inline Priority backpressure_transition(Priority state)
+    /// another thread setting the cown to any state that isn't Muted. Normal
+    /// priority may overwrite High priority when the exact flag is set.
+    inline Priority backpressure_transition(Priority state, bool exact = false)
     {
       auto prev = bp_state.load(std::memory_order_acquire);
       do
       {
         yield();
 
-        if ((state == Priority::Normal) && (prev != Priority::Low))
-          return prev;
-
-        // This condition prevents a situation where a message triggering
-        // prioritization on this cown has already been processed and this cown
-        // has gone back to sleep by the time this state change is requested.
-        if ((state == Priority::High) && (prev == Priority::Sleeping))
+        if ((state == Priority::Normal) && (prev != Priority::Low) && !exact)
           return prev;
 
         if (prev == state)
@@ -833,7 +830,7 @@ namespace verona::rt
     {
       auto bp = bp_state.load(std::memory_order_acquire);
       yield();
-      return !(bp & PriorityMask::Normal);
+      return !(bp == Priority::Normal);
     }
 
     /// Set the `mutor` field of the current scheduler thread if the senders
@@ -983,9 +980,6 @@ namespace verona::rt
       Systematic::cout() << "Cown " << this << " load: " << stat.total_load()
                          << std::endl;
 
-      if (bp == Priority::Sleeping)
-        backpressure_transition(Priority::Normal);
-
       auto notified_called = false;
       auto notify = false;
 
@@ -1036,7 +1030,7 @@ namespace verona::rt
           if (batch_size != 0)
             return true;
 
-          backpressure_transition(Priority::Sleeping);
+          backpressure_transition(Priority::Normal, true);
 
           // Reschedule if cown does not go to sleep.
           if (!queue.mark_sleeping(notify))
@@ -1221,7 +1215,7 @@ namespace verona::rt
       }
 
       yield();
-      assert(bp_state.load(std::memory_order_acquire) == Priority::Sleeping);
+      assert(bp_state.load(std::memory_order_acquire) == Priority::Normal);
 
       // Now we may run our destructor.
       destructor();

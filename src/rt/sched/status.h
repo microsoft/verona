@@ -12,26 +12,25 @@ namespace verona::rt
   enum struct Priority : uint8_t
   {
     /// Cown is muted. A muted cown must not be scheduled.
-    Low = 0b000,
+    Low = 0b01,
     /// Cown is sleeping. A sleeping cown is in a normal state and cannot change
     /// priority until scheduled.
-    Sleeping = 0b001,
+    // Sleeping = 0b001,
     /// Cown is normal and scheduled.
-    Normal = 0b101,
+    Normal = 0b00,
     /// Cown is temporarily protected from muting. This state may be reached by
     /// becoming overloaded or by being required for a behaviour with another
     /// high priority cown.
-    High = 0b010,
+    High = 0b10,
     /// Cown is high priority, but may transition back to normal if another
     /// token message falls out of the queue.
-    MaybeHigh = 0b011,
+    MaybeHigh = 0b11,
   };
 
   enum struct PriorityMask : uint8_t
   {
-    All = 0b111,
-    Normal = 0b001,
-    High = 0b010,
+    All = 0b11,
+    High = 0b10,
   };
 
   constexpr inline bool operator&(Priority p, PriorityMask m)
@@ -45,8 +44,6 @@ namespace verona::rt
     {
       case Priority::Low:
         return os << "Low";
-      case Priority::Sleeping:
-        return os << "Sleeping";
       case Priority::Normal:
         return os << "Normal";
       case Priority::High:
