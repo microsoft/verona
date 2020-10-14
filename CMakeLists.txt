@@ -32,7 +32,7 @@ macro(clangformat_targets)
     message(STATUS "Generating clangformat target using ${CLANG_FORMAT}")
     find_package(Git)
     execute_process(
-      COMMAND ${GIT_EXECUTABLE} ls-files *.cc *.h *.hh
+      COMMAND ${GIT_EXECUTABLE} ls-files *.cc *.h
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
       OUTPUT_VARIABLE ALL_SOURCE_FILES_STRING
     )
