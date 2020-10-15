@@ -493,6 +493,12 @@ namespace verona::rt
 
     void cown_notified()
     {
+      // This is not a message make sure we know that.
+      // TODO: Back pressure.  This means that a notification that sends to
+      // an overloaded cown will not mute this cown.  We could set up a fake
+      // message structure, or alter how the backpressure system determines
+      // which is/are the currently active cowns.
+      Scheduler::local()->message_body = nullptr;
       notified();
     }
 
@@ -1060,13 +1066,16 @@ namespace verona::rt
 
           // Reschedule if cown does not go to sleep.
           if (!queue.mark_sleeping(notify))
-            return true;
-
-          if (notify)
           {
-            assert(!notified_called); // We must have run something to get here.
-            cown_notified();
-            // Treat notification as a message and don't deschedule
+            if (notify)
+            {
+              assert(
+                !notified_called); // We must have run something to get here.
+              cown_notified();
+              // Treat notification as a message and don't deschedule
+              return true;
+            }
+
             return true;
           }
 
