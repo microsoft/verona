@@ -24,6 +24,7 @@ namespace ast
   struct Annotation
   {
     Scope scope;
+    size_t id = 0;
   };
 
   /// Symbol scope (ID -> Ast)
@@ -32,15 +33,24 @@ namespace ast
     std::map<Ident, WeakAst> sym;
   };
 
-  /// Create a new token (value node) with name and token value
+  /// Create a new token (value node) with name and token value,
   /// using a previous token's source location, position and length.
   Ast token(const Ast& ast, const char* name, const std::string& token);
-  /// Create a new node with name and no children
+  /// Create a new node with name and no children,
   /// using a previous token's source location, position and length.
   Ast node(const Ast& ast, const char* name);
-  /// Add a child to an existing node
+
+  /// Add a child to an existing node. Either new or caller cleans it.
   void push_back(Ast& ast, Ast& child);
-  /// Replace prev with next node, updating prev's parent
+  /// Add a node `child` to `before`s parent, before that node.
+  void insert_before(Ast& child, Ast& before);
+  /// Move the `child` node to the `ast` parent.
+  void move_back(Ast& ast, Ast& child);
+  /// Move a node `child` to `before`s parent, before that node.
+  void move_before(Ast& child, Ast& before);
+  /// Move all children of one node onto the end of another node.
+  void move_children(Ast& from, Ast& to);
+  /// Replace prev with next node, updating prev's parent.
   void replace(Ast& prev, Ast next);
   /// Remove node from its parent without invalidating existing iterators.
   void remove(Ast ast);
@@ -55,13 +65,15 @@ namespace ast
   Ast get_scope(Ast ast);
   /// Find the closest 'expr' ancestor, which could be itself.
   Ast get_expr(Ast ast);
-  /// Find the 'id' in any scope above the `ast` node. Returns empty Ast
-  /// if not found.
+  /// Find the 'id' in any scope above the `ast` node. Empty ast if not found.
   Ast get_def(Ast ast, Ident id);
   /// Find previous child in 'expr' parent.
   Ast get_prev_in_expr(Ast ast);
   /// Find next child in 'expr' parent.
   Ast get_next_in_expr(Ast ast);
+
+  /// Returns a hygienic id within the scope of the ast node.
+  std::string hygienic_id(Ast ast, const char* prefix = "");
 
   /// For exclusive use of 'for_each' function to avoid invalidating iterators.
   /// Returns the iteration's parent.
@@ -103,6 +115,6 @@ extern "C"
   /// This method is for debug only,
   /// when needing to dump ast trees inside a debugger.
   /// This is needed because `peg::ast_to_s` is templated.
-  /// Needs to be in the global namespace to be found by LLDB
+  /// Needs to be in the global namespace to be found by LLDB.
   void ast_dump(const ast::Ast& ast);
 }

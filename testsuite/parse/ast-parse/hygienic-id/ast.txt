@@ -1,0 +1,280 @@
++ classdef
+  - id ($module)
+  + typeparams
+  + oftype
+  + constraints
+  + typebody
+    + function
+      + qualifier
+      + funcname
+        - id (for_sum)
+      + sig
+        + typeparams
+        + params
+          + param/0
+            + namedparam
+              - id (x)
+              + oftype
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (List)
+              + initexpr
+        + oftype
+          + type
+            + type_one/1
+              + type_ref
+                - id (U32)
+        + constraints
+      + block
+        + seq
+          + assign
+            + let
+              - local (sum)
+              + oftype
+                + type
+                  + type_one/1
+                    + type_ref
+                      - id (U32)
+            - int (0)
+          + assign
+            + let
+              - local (iter$0)
+              + oftype
+            + invoke
+              + member
+                - localref (x)
+                - lookup (values)
+              + typeargs
+              + args
+          + while
+            + cond
+              + seq
+                + invoke
+                  + member
+                    - localref (iter$0)
+                    - lookup (has_value)
+                  + typeargs
+                  + args
+            + block
+              + seq
+                + assign
+                  + let
+                    - local (a)
+                    + oftype
+                  + invoke
+                    + member
+                      - localref (iter$0)
+                      - lookup (apply)
+                    + typeargs
+                    + args
+                + invoke
+                  + member
+                    - localref (iter$0)
+                    - lookup (next)
+                  + typeargs
+                  + args
+                + assign
+                  - localref (sum)
+                  + call
+                    - function (+)
+                    + typeargs
+                    - localref (sum)
+                    + args
+                      - localref (a)
+          + assign
+            + let
+              - local (iter$1)
+              + oftype
+            + invoke
+              + member
+                - localref (x)
+                - lookup (values)
+              + typeargs
+              + args
+          + while
+            + cond
+              + seq
+                + invoke
+                  + member
+                    - localref (iter$1)
+                    - lookup (has_value)
+                  + typeargs
+                  + args
+            + block
+              + seq
+                + assign
+                  + let
+                    - local (a)
+                    + oftype
+                  + invoke
+                    + member
+                      - localref (iter$1)
+                      - lookup (apply)
+                    + typeargs
+                    + args
+                + invoke
+                  + member
+                    - localref (iter$1)
+                    - lookup (next)
+                  + typeargs
+                  + args
+                + assign
+                  - localref (sum)
+                  + call
+                    - function (+)
+                    + typeargs
+                    - localref (sum)
+                    + args
+                      - localref (a)
+                + assign
+                  + let
+                    - local (iter$2)
+                    + oftype
+                  + invoke
+                    + member
+                      - localref (x)
+                      - lookup (values)
+                    + typeargs
+                    + args
+                + while
+                  + cond
+                    + seq
+                      + invoke
+                        + member
+                          - localref (iter$2)
+                          - lookup (has_value)
+                        + typeargs
+                        + args
+                  + block
+                    + seq
+                      + assign
+                        + let
+                          - local (a)
+                          + oftype
+                        + invoke
+                          + member
+                            - localref (iter$2)
+                            - lookup (apply)
+                          + typeargs
+                          + args
+                      + invoke
+                        + member
+                          - localref (iter$2)
+                          - lookup (next)
+                        + typeargs
+                        + args
+                      + assign
+                        - localref (sum)
+                        + call
+                          - function (+)
+                          + typeargs
+                          - localref (sum)
+                          + args
+                            - localref (a)
+          + if
+            + cond
+              + seq
+                + invoke
+                  + member
+                    - localref (x)
+                    - lookup (has_values)
+                  + typeargs
+                  + args
+            + block
+              + seq
+                + assign
+                  + let
+                    - local (iter$3)
+                    + oftype
+                  + invoke
+                    + member
+                      - localref (x)
+                      - lookup (values)
+                    + typeargs
+                    + args
+                + while
+                  + cond
+                    + seq
+                      + invoke
+                        + member
+                          - localref (iter$3)
+                          - lookup (has_value)
+                        + typeargs
+                        + args
+                  + block
+                    + seq
+                      + assign
+                        + let
+                          - local (a)
+                          + oftype
+                        + invoke
+                          + member
+                            - localref (iter$3)
+                            - lookup (apply)
+                          + typeargs
+                          + args
+                      + invoke
+                        + member
+                          - localref (iter$3)
+                          - lookup (next)
+                        + typeargs
+                        + args
+                      + assign
+                        - localref (sum)
+                        + call
+                          - function (+)
+                          + typeargs
+                          - localref (sum)
+                          + args
+                            - localref (a)
+            + else
+              + block
+                + seq
+                  + assign
+                    + let
+                      - local (iter$4)
+                      + oftype
+                    + invoke
+                      + member
+                        - localref (x)
+                        - lookup (values)
+                      + typeargs
+                      + args
+                  + while
+                    + cond
+                      + seq
+                        + invoke
+                          + member
+                            - localref (iter$4)
+                            - lookup (has_value)
+                          + typeargs
+                          + args
+                    + block
+                      + seq
+                        + assign
+                          + let
+                            - local (a)
+                            + oftype
+                          + invoke
+                            + member
+                              - localref (iter$4)
+                              - lookup (apply)
+                            + typeargs
+                            + args
+                        + invoke
+                          + member
+                            - localref (iter$4)
+                            - lookup (next)
+                          + typeargs
+                          + args
+                        + assign
+                          - localref (sum)
+                          + call
+                            - function (+)
+                            + typeargs
+                            - localref (sum)
+                            + args
+                              - localref (a)
+          + return
+            - localref (sum)
