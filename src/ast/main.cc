@@ -5,12 +5,15 @@
 #include "pass.h"
 #include "prec.h"
 #include "ref.h"
+#include "sugar.h"
 #include "sym.h"
 
 int main(int argc, char** argv)
 {
-  pass::Passes passes = {
-    {"sym", sym::build}, {"ref", ref::build}, {"prec", prec::build}};
+  pass::Passes passes = {{"sugar", sugar::build},
+                         {"sym", sym::build},
+                         {"ref", ref::build},
+                         {"prec", prec::build}};
   err::Errors err;
 
   auto opt = cli::parse(argc, argv);

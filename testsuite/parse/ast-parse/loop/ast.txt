@@ -60,12 +60,36 @@
                     + block
                       + seq
                         - break (break)
-          + for
-            - localref (a)
-            + seq
-              - localref (x)
+          + assign
+            + let
+              - local (iter$0)
+              + oftype
+            - localref (x)
+          + while
+            + cond
+              + seq
+                + invoke
+                  + member
+                    - localref (iter$0)
+                    - lookup (has_value)
+                  + typeargs
+                  + args
             + block
               + seq
+                + assign
+                  - localref (a)
+                  + invoke
+                    + member
+                      - localref (iter$0)
+                      - lookup (apply)
+                    + typeargs
+                    + args
+                + invoke
+                  + member
+                    - localref (iter$0)
+                    - lookup (next)
+                  + typeargs
+                  + args
                 + call
                   - function (foo)
                   + typeargs
