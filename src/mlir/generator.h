@@ -162,7 +162,7 @@ namespace mlir::verona
     // MLIR nodes.
 
     /// Get location of an ast node.
-    mlir::Location getLocation(const ::ast::WeakAst& ast);
+    mlir::Location getLocation(const ::ast::Ast& ast);
 
     // ================================================================= Parsers
     // These methods parse the AST into MLIR constructs, then either return the
