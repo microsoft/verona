@@ -22,7 +22,7 @@ We provide the `compiler_commands.json` file for editors that use the [clangd](h
 
 ## Tests
 
-If you're only changing the compiler, interpreter or parser, then running the `check` target is enough to cover those areas.
+If you're only changing the compiler, interpreter or parser, then running the `check` target is enough to cover those areas. On Dindows, there is no separate `check` target, and the tests are run as part of the default target.
 
 If you're changing the runtime libraries, then you'll need to [build the RT tests](docs/building.md#building-the-runtime-tests) and run them before submiting a PR.
 
@@ -38,7 +38,7 @@ Both versions 8 and 10 (and therefore any other version) is incompatible with ve
 
 To do so, you can choose a number of ways to download it (ex. [npm](https://www.npmjs.com/package/clang-format), [releases](https://releases.llvm.org/), [apt](https://packages.ubuntu.com/search?suite=default&section=all&arch=any&keywords=clang-format-9&searchon=names), [Arch AUR](https://aur.archlinux.org/packages/clang-format-static-bin/), etc), then put on your PATH *before* you run CMake.
 
-A `clangformat` target will be created and you can make sure you won't break the build by runnnig that target.
+A `clangformat` target will be created and you can make sure you won't break the build by running that target.
 
 # Bugs and patches
 
