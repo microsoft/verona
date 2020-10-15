@@ -1,0 +1,72 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+foo(a: U64 & iso, b: U64 & imm): U64
+{
+  // Variables so far: a,b,c
+  let c = a + b;
+
+  // New region will consume a,b,c and return a,c
+  while (c < 100)
+  {
+    // New variables: d,e using a,b
+    let d = a - b;
+    let e = c;
+
+    // New block will consume a,b,d,e and return a,e
+    if (a > b)
+    {
+      // New variable: f using b,d
+      let f = b + d;
+
+      // New region will consume e,f and return e
+      while (f < 10)
+      {
+        // Consume f and return e
+        e = e + f;
+      }
+
+      // Consume e and return a
+      a = a + e;
+    }
+
+    // New block will consume c and return c
+    else
+    {
+      c = 42;
+    }
+  }
+
+  // Test loop break, reads x, a; may write to x;
+  let x = 21;
+  // Condition that doesn't depend on x, so this block shouldn't have it as arg
+  while (a > 0)
+  {
+    // Consumes a, b and return x
+    if (a == b)
+    {
+      x = 20;
+      break;
+    }
+    // Consumes x from either while or if, no return
+    let innerX = x;
+  }
+
+  // Test loop continue, reads y, a; may write to y;
+  let y = 30;
+  while (y > 0)
+  {
+    if (a == b)
+    {
+      y = 40;
+      continue;
+    }
+    let innerY = y;
+  }
+
+  // Return a,b,c,x,y using the new values (from the while region)
+  a = a + x;
+  b = b + y;
+  let ret = a + b;
+  return ret + c;
+}

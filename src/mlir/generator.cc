@@ -5,6 +5,7 @@
 
 #include "ast-utils.h"
 #include "dialect/VeronaDialect.h"
+#include "free-vars.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Dialect.h"
@@ -152,6 +153,12 @@ namespace mlir::verona
   llvm::Expected<mlir::FuncOp> Generator::parseFunction(const ::ast::Ast& ast)
   {
     assert(AST::isFunction(ast) && "Bad node");
+
+    // Runs the free variable analysis on the function to help build all
+    // arguments and return values of each basic block inside it
+    freeVars.runOnFunction(ast);
+    // TODO: This is temporary!
+    freeVars.dump();
 
     // Parse 'where' clause
     TypeScopeT alias_scope(typeTable);

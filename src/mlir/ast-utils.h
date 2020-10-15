@@ -386,7 +386,7 @@ namespace mlir::verona
       return getTokenValue(findNode(ast, NodeKind::Localref));
     }
 
-    /// Return true if node is a variable definition
+    /// Get the assignment variable name (new local or localref)
     static llvm::StringRef getLocalName(::ast::Ast ast)
     {
       // Local variables can be new 'local' or existing 'localref'
@@ -398,13 +398,15 @@ namespace mlir::verona
       return getTokenValue(findNode(ast, NodeKind::Local));
     }
 
-    /// Return true if node is an ID (func, var, type names)
+    /// Get the token value of the ID (func, var, type names, localref, etc.)
     static llvm::StringRef getID(::ast::Ast ast)
     {
       if (isAny(ast, {NodeKind::Call, NodeKind::StaticCall}))
         return getTokenValue(findNode(ast, NodeKind::Function));
       if (isMember(ast))
         return getTokenValue(findNode(ast, NodeKind::Lookup));
+      if (isLet(ast))
+        return getTokenValue(findNode(ast, NodeKind::Local));
       if (isQualType(ast))
         return getTokenValue(findNode(ast, NodeKind::Typeref));
       if (isInvoke(ast))
