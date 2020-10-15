@@ -218,7 +218,7 @@ namespace verona::rt
           // The scheduler thread needs to take a reference count on the Cown
           // The sending Cown must have had a reference count for this Cown
           // already
-          incref();
+          Cown::acquire(this);
         }
 
         if constexpr (try_fast == NoTryFast)
@@ -241,7 +241,7 @@ namespace verona::rt
     {
       if (queue.wake())
       {
-        incref();
+        Cown::acquire(this);
         schedule();
       }
     }
@@ -393,7 +393,7 @@ namespace verona::rt
     {
       if (queue.mark_notify())
       {
-        incref();
+        Cown::acquire(this);
         schedule();
       }
       yield();
@@ -1061,7 +1061,7 @@ namespace verona::rt
 
         batch_size++;
 
-        Systematic::cout() << "Running Message " << curr << " on " << this
+        Systematic::cout() << "Running Message " << curr << " on cown " << this
                            << std::endl;
 
         auto* senders = curr->get_body()->cowns;
@@ -1116,7 +1116,7 @@ namespace verona::rt
         Scheduler::yield_my_turn();
 #endif
 
-        Systematic::cout() << "Collecting (sweep) " << this << std::endl;
+        Systematic::cout() << "Collecting (sweep) cown " << this << std::endl;
 
         collect(alloc);
       }
@@ -1177,7 +1177,7 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       flush_all(alloc);
 #endif
-      Systematic::cout() << "Collecting: " << this << std::endl;
+      Systematic::cout() << "Collecting cown " << this << std::endl;
 
       ObjectStack dummy(alloc);
       // Run finaliser before releasing our data.

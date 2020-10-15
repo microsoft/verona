@@ -245,8 +245,7 @@ namespace verona::rt
           assert(bp != Priority::Low);
           cown->schedule();
           mute_set.erase(ins.second);
-          if (ins.first)
-            T::release(alloc, cown);
+          T::release(alloc, cown);
 
           continue;
         }
@@ -274,7 +273,8 @@ namespace verona::rt
           auto& mute_set = *entry.value();
           for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
           {
-            Systematic::cout() << "Mute map remove " << it.key() << std::endl;
+            Systematic::cout()
+              << "Mute map remove cown " << it.key() << std::endl;
             it.key()->unmute();
             T::release(alloc, it.key());
             mute_set.erase(it);
@@ -892,7 +892,7 @@ namespace verona::rt
               continue;
             }
           }
-          Systematic::cout() << "Stub collect: " << c << std::endl;
+          Systematic::cout() << "Stub collect cown " << c << std::endl;
           // TODO: Investigate systematic testing coverage here.
           auto epoch = c->epoch_when_popped;
           auto outdated =
@@ -901,7 +901,7 @@ namespace verona::rt
           {
             count++;
             *p = c->next;
-            Systematic::cout() << "Stub collected: " << c << std::endl;
+            Systematic::cout() << "Stub collected cown " << c << std::endl;
             c->dealloc(alloc);
             continue;
           }
