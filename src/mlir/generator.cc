@@ -51,7 +51,7 @@ namespace mlir::verona
   }
 
   // ===================================================== Helpers
-  mlir::Location Generator::getLocation(const ::ast::WeakAst& ast)
+  mlir::Location Generator::getLocation(const ::ast::Ast& ast)
   {
     auto path = AST::getPath(ast);
     return builder.getFileLineColLoc(
@@ -91,7 +91,7 @@ namespace mlir::verona
     auto scope = mlir::ModuleOp::create(getLocation(ast), name);
 
     // Nested classes, field names and types, methods, etc.
-    llvm::SmallVector<::ast::WeakAst, 4> nodes;
+    llvm::SmallVector<::ast::Ast, 4> nodes;
     AST::getSubNodes(nodes, AST::getClassBody(ast));
     llvm::SmallVector<std::pair<StringRef, mlir::Type>, 4> fields;
 
@@ -105,7 +105,7 @@ namespace mlir::verona
       if (AST::isClass(node))
       {
         // Recurse into nested classes
-        auto classMod = parseClass(node.lock(), type);
+        auto classMod = parseClass(node, type);
         if (auto err = classMod.takeError())
           return std::move(err);
         // Push sub-class to scope
@@ -115,19 +115,19 @@ namespace mlir::verona
       {
         // Get field name/type for class type declaration
         auto fieldName = AST::getID(node);
-        auto fieldType = parseType(AST::getType(node).lock());
+        auto fieldType = parseType(AST::getType(node));
         fields.push_back({fieldName, fieldType});
       }
       else if (AST::isFunction(node))
       {
         // Methods
-        auto func = parseFunction(node.lock());
+        auto func = parseFunction(node);
         if (auto err = func.takeError())
           return std::move(err);
         // Associate function with module (late mangling)
         func->setAttr("class", TypeAttr::get(type));
         // Add qualifiers as attributes
-        llvm::SmallVector<::ast::WeakAst, 4> quals;
+        llvm::SmallVector<::ast::Ast, 4> quals;
         AST::getFunctionQualifiers(quals, node);
         if (!quals.empty())
         {
@@ -157,7 +157,7 @@ namespace mlir::verona
 
     // Parse 'where' clause
     TypeScopeT alias_scope(typeTable);
-    llvm::SmallVector<::ast::WeakAst, 4> constraints;
+    llvm::SmallVector<::ast::Ast, 4> constraints;
     AST::getFunctionConstraints(constraints, ast);
     for (auto c : constraints)
     {
@@ -166,24 +166,24 @@ namespace mlir::verona
       // state of the type system, this will "work" for now.
       auto alias = AST::getID(c);
       auto ty = AST::getType(c);
-      typeTable.insert(alias, parseType(ty.lock()));
+      typeTable.insert(alias, parseType(ty));
     }
 
     // Function type from signature
     llvm::SmallVector<llvm::StringRef, 4> argNames;
     Types types;
-    llvm::SmallVector<::ast::WeakAst, 4> args;
+    llvm::SmallVector<::ast::Ast, 4> args;
     AST::getFunctionArgs(args, ast);
     for (auto arg : args)
     {
       argNames.push_back(AST::getID(arg));
-      types.push_back(parseType(AST::getType(arg).lock()));
+      types.push_back(parseType(AST::getType(arg)));
     }
 
     // Return type is nothing if no type
     llvm::SmallVector<mlir::Type, 1> retTy;
     if (AST::hasType(AST::getFunctionType(ast)))
-      retTy.push_back(parseType(AST::getFunctionType(ast).lock()));
+      retTy.push_back(parseType(AST::getFunctionType(ast)));
 
     // If just declaration, return the proto value
     auto name = AST::getFunctionName(ast);
@@ -207,7 +207,7 @@ namespace mlir::verona
 
     // Lower body
     auto body = AST::getFunctionBody(ast);
-    auto last = parseNode(body.lock());
+    auto last = parseNode(body);
     if (auto err = last.takeError())
       return std::move(err);
 
@@ -268,7 +268,7 @@ namespace mlir::verona
 
     // Get type components
     char sep = 0;
-    llvm::SmallVector<::ast::WeakAst, 1> nodes;
+    llvm::SmallVector<::ast::Ast, 1> nodes;
     AST::getTypeElements(ast, sep, nodes);
 
     // No types, return "unknown"
@@ -286,7 +286,7 @@ namespace mlir::verona
       // Recursive nodes
       if (AST::isTypeHolder(node))
       {
-        types.push_back(parseType(node.lock()));
+        types.push_back(parseType(node));
       }
       // Direct nodes
       else
@@ -316,11 +316,11 @@ namespace mlir::verona
     SymbolScopeT var_scope{symbolTable};
 
     ReturnValue last;
-    llvm::SmallVector<::ast::WeakAst, 4> nodes;
+    llvm::SmallVector<::ast::Ast, 4> nodes;
     AST::getSubNodes(nodes, ast);
     for (auto sub : nodes)
     {
-      auto node = parseNode(sub.lock());
+      auto node = parseNode(sub);
       if (auto err = node.takeError())
         return std::move(err);
       last = *node;
@@ -401,7 +401,7 @@ namespace mlir::verona
     // The right-hand side can be any expression
     // This is the value and we update the variable
     // We parse it first to lower field-write correctly
-    auto rhs = parseNode(AST::getRHS(ast).lock());
+    auto rhs = parseNode(AST::getRHS(ast));
     if (auto err = rhs.takeError())
       return std::move(err);
 
@@ -409,7 +409,7 @@ namespace mlir::verona
     // If the LHS is a field member, we have a Verona operation to represent
     // writing to a field without an explicit alloca/store.
     if (AST::isMember(lhs))
-      return parseFieldWrite(lhs.lock(), rhs->get());
+      return parseFieldWrite(lhs, rhs->get());
 
     // Else, it can either be a let (new variable)
     // or localref (existing variable).
@@ -422,7 +422,7 @@ namespace mlir::verona
       // If type was declared, use it
       auto declType = AST::getType(lhs);
       if (AST::hasType(declType))
-        type = parseType(declType.lock());
+        type = parseType(declType);
       auto alloca = generateAlloca(getLocation(ast), type);
       symbolTable.insert(name, alloca);
     }
@@ -445,12 +445,12 @@ namespace mlir::verona
     auto loc = getLocation(ast);
 
     // Get arguments
-    llvm::SmallVector<::ast::WeakAst, 1> nodes;
+    llvm::SmallVector<::ast::Ast, 1> nodes;
     AST::getAllOperands(nodes, ast);
     llvm::SmallVector<mlir::Value, 1> args;
     for (auto node : nodes)
     {
-      auto arg = parseNode(node.lock());
+      auto arg = parseNode(node);
       if (auto err = arg.takeError())
         return std::move(err);
       args.push_back(arg->get());
@@ -486,7 +486,7 @@ namespace mlir::verona
     {
       // Static call: `func(a, b...)` | `Class.op(a, b...)`
       auto qualType = AST::getStaticQualType(ast);
-      auto type = parseType(qualType.lock());
+      auto type = parseType(qualType);
       auto descTy = DescriptorType::get(context, type);
       descriptor = builder.create<StaticOp>(loc, descTy, TypeAttr::get(type));
     }
@@ -508,7 +508,7 @@ namespace mlir::verona
     ReturnValue expr;
     if (AST::hasSubs(ast))
     {
-      auto node = parseNode(AST::getSingleSubNode(ast).lock());
+      auto node = parseNode(AST::getSingleSubNode(ast));
       if (auto err = node.takeError())
         return std::move(err);
       expr = *node;
@@ -562,7 +562,7 @@ namespace mlir::verona
 
     // First node is a sequence of conditions
     // lower in the current basic block.
-    auto condNode = AST::getCond(ast).lock();
+    auto condNode = AST::getCond(ast);
     auto condLoc = getLocation(condNode);
     auto cond = parseNode(condNode);
     if (auto err = cond.takeError())
@@ -596,7 +596,7 @@ namespace mlir::verona
       SymbolScopeT if_scope{symbolTable};
 
       // If block
-      auto ifNode = AST::getIfBlock(ast).lock();
+      auto ifNode = AST::getIfBlock(ast);
       auto ifLoc = getLocation(ifNode);
       builder.setInsertionPointToEnd(ifBB);
       auto ifBlock = parseNode(ifNode);
@@ -613,7 +613,7 @@ namespace mlir::verona
       // Create local context for the else block variables
       SymbolScopeT else_scope{symbolTable};
 
-      auto elseNode = AST::getElseBlock(ast).lock();
+      auto elseNode = AST::getElseBlock(ast);
       auto elseLoc = getLocation(elseNode);
       builder.setInsertionPointToEnd(elseBB);
       auto elseBlock = parseNode(elseNode);
@@ -648,7 +648,7 @@ namespace mlir::verona
 
     // First node is a sequence of conditions
     // lower in the head basic block, with the conditional branch.
-    auto condNode = AST::getCond(ast).lock();
+    auto condNode = AST::getCond(ast);
     auto condLoc = getLocation(condNode);
     builder.setInsertionPointToEnd(headBB);
     auto cond = parseNode(condNode);
@@ -665,7 +665,7 @@ namespace mlir::verona
     loopTable.insert("tail", exitBB);
 
     // Loop body, branch back to head node which will decide exit criteria
-    auto bodyNode = AST::getLoopBlock(ast).lock();
+    auto bodyNode = AST::getLoopBlock(ast);
     auto bodyLoc = getLocation(bodyNode);
     builder.setInsertionPointToEnd(bodyBB);
     auto bodyBlock = parseNode(bodyNode);
@@ -693,7 +693,7 @@ namespace mlir::verona
 
     // First, we identify the iterator. Nested loops will have their own
     // iterators, of the same name, but within their own lexical blocks.
-    auto seqNode = AST::getLoopSeq(ast).lock();
+    auto seqNode = AST::getLoopSeq(ast);
     auto list = parseNode(seqNode);
     if (auto err = list.takeError())
       return std::move(err);
@@ -738,7 +738,7 @@ namespace mlir::verona
     symbolTable.insert(indVarName, apply);
 
     // Loop body, branch back to head node which will decide exit criteria
-    auto bodyNode = AST::getLoopBlock(ast).lock();
+    auto bodyNode = AST::getLoopBlock(ast);
     auto bodyLoc = getLocation(bodyNode);
     auto bodyBlock = parseNode(bodyNode);
     if (auto err = bodyBlock.takeError())
@@ -796,7 +796,7 @@ namespace mlir::verona
     auto typeAttr = TypeAttr::get(type);
 
     // Initializer list
-    llvm::SmallVector<::ast::WeakAst, 4> nodes;
+    llvm::SmallVector<::ast::Ast, 4> nodes;
     AST::getSubNodes(nodes, AST::getClassBody(ast));
     llvm::SmallVector<mlir::Attribute, 1> fieldNames;
     llvm::SmallVector<mlir::Value, 1> fieldValues;
@@ -805,7 +805,7 @@ namespace mlir::verona
       if (!AST::isField(node))
         continue;
       fieldNames.push_back(StringAttr::get(AST::getID(node), context));
-      auto expr = parseNode(AST::getInitExpr(node).lock());
+      auto expr = parseNode(AST::getInitExpr(node));
       if (auto err = expr.takeError())
         return std::move(err);
       fieldValues.push_back(expr->get());
