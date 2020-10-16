@@ -1024,13 +1024,12 @@ namespace verona::rt
           // Reschedule if cown does not go to sleep.
           if (!queue.mark_sleeping(notify))
           {
-            backpressure_transition(Priority::Normal);
             if (notify)
             {
               // We must have run something to get here.
               assert(!notified_called);
               cown_notified();
-              // Treat notification as a message and don't deschedule
+              // Treat notification as a message and don't deschedule.
             }
             return true;
           }
