@@ -4,6 +4,7 @@
 
 namespace ast
 {
+  // Include PEG's ""_ operator for string-switches
   using namespace peg::udl;
 
   Ast token(const Ast& ast, const char* name, const std::string& token)
