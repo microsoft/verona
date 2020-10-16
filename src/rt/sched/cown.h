@@ -425,21 +425,14 @@ namespace verona::rt
     bool in_epoch(EpochMark epoch)
     {
       bool result = Object::in_epoch(epoch);
-
-#ifdef USE_SYSTEMATIC_TESTING
-      Scheduler::yield_my_turn();
-#endif
-
+      yield();
       return result;
     }
 
     void dealloc(Alloc* alloc)
     {
       Object::dealloc(alloc);
-
-#ifdef USE_SYSTEMATIC_TESTING
-      Scheduler::yield_my_turn();
-#endif
+      yield();
     }
 
     bool scanned(EpochMark epoch)
@@ -1107,17 +1100,12 @@ namespace verona::rt
       if (in_epoch(epoch))
         return false;
 
-      // Check if the Cown is already collected or is muted.
-      if (
-        !is_collected() &&
-        (bp_state.load(std::memory_order_acquire) != Priority::Low))
+      // Check if the Cown is already collected.
+      if (!is_collected())
       {
-#ifdef USE_SYSTEMATIC_TESTING
-        Scheduler::yield_my_turn();
-#endif
-
+        yield();
+        assert(bp_state.load(std::memory_order_acquire) != Priority::Low);
         Systematic::cout() << "Collecting (sweep) cown " << this << std::endl;
-
         collect(alloc);
       }
 
