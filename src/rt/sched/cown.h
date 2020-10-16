@@ -525,7 +525,7 @@ namespace verona::rt
       const auto last = body->count - 1;
       assert(body->index <= last);
 
-      const auto make_unmutable = backpressure_ensure_progress(body);
+      const auto high_priority = behaviour_requires_high_priority(body);
       for (; body->index < body->count; body->index++)
       {
         MultiMessage* m = MultiMessage::make_message(alloc, body, epoch);
@@ -534,7 +534,7 @@ namespace verona::rt
                            << next << ", index " << body->index << std::endl;
 
         {
-          if (make_unmutable)
+          if (high_priority)
             next->unmute(true);
 
           bool needs_scheduling = next->send<YesTransfer, YesTryFast>(m);
@@ -807,9 +807,9 @@ namespace verona::rt
     }
 
     /// Unmute a cown if it is muted.
-    inline void unmute(bool set_unmutable = false)
+    inline void unmute(bool high_priority = false)
     {
-      auto state = (set_unmutable) ? Priority::High : Priority::Normal;
+      auto state = (high_priority) ? Priority::High : Priority::Normal;
       auto prev = backpressure_transition(state);
       if (prev != Priority::Low)
         return;
@@ -818,7 +818,7 @@ namespace verona::rt
       schedule();
     }
 
-    /// Return true if a sender to this cown should be muted.
+    /// Return true if a sender to this cown should become low priority.
     inline bool triggers_muting()
     {
       auto bp = bp_state.load(std::memory_order_acquire);
@@ -845,7 +845,7 @@ namespace verona::rt
         }
       }
 
-      // Mute senders if any receivers are overloaded/muted.
+      // Mute senders if any receivers are high or low priority.
       for (size_t r = 0; r < receivers.count; r++)
       {
         auto* receiver = receivers.cowns[r];
@@ -864,15 +864,11 @@ namespace verona::rt
       }
     }
 
-    /// Return true if any participants are either overloaded or unmutable.
-    /// This ensures that overloaded cowns can always run messages in their
-    /// queue.
-    static inline bool backpressure_ensure_progress(MessageBody* body)
+    /// Return true if any multimessage cowns have a high priority.
+    static inline bool behaviour_requires_high_priority(MessageBody* body)
     {
-      bool requires_unmute = std::any_of(
-        &body->cowns[body->index],
-        &body->cowns[body->count],
-        [](const auto* c) {
+      bool high_priority = std::any_of(
+        &body->cowns[0], &body->cowns[body->count], [](const auto* c) {
           return (
             c->bp_state.load(std::memory_order_acquire) & PriorityMask::High);
         });
@@ -881,7 +877,7 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING
         Systematic::coin(3) ||
 #endif
-        requires_unmute;
+        high_priority;
     }
 
     /// Update backpressure status based on the occurrence of a token message.
