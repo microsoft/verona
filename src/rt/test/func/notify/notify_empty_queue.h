@@ -15,7 +15,7 @@
                 when (c1, c2)
                 {
                     print ("We recevied :" + c2.count + " notifications.");
-                    assert(c2.count == 10)
+                    assert(c2.count == 10);
                     c2.closed = true;
                 }
             }
@@ -24,8 +24,8 @@
                 {
                     c1.go = false;
                     c1.count++;
-                    c2.notify()
-                    c2.notify()
+                    c2.notify();
+                    c2.notify();
                 }
                 wait(c1)
         }
@@ -35,7 +35,7 @@
     {
         if (c2.closed) error();
 
-        c2.count++
+        c2.count++;
         c1 = c2.observer;
         when (c1)
         {
@@ -83,7 +83,7 @@ namespace notify_empty_queue
         when (c1, c2)
         {
             print ("We recevied :" + c2.count + " notifications.");
-            assert(c2.count == 10)
+            assert(c2.count == 10);
             c2.closed = true;
         }
     */
