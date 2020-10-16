@@ -15,7 +15,8 @@
                 when (c1, c2)
                 {
                     print ("We recevied :" + c2.count + " notifications.");
-                    assert(c2.count == 10);
+                    assert(c2.count >= 10);
+                    assert(c2.count <= 20);
                     c2.closed = true;
                 }
             }
@@ -42,6 +43,9 @@
             c1.go = true
         }
     }
+ *
+ * Note that systematic testing is not finding counts very far from
+ * 10 for the notified cown.
  */
 
 namespace notify_empty_queue
@@ -83,7 +87,8 @@ namespace notify_empty_queue
         when (c1, c2)
         {
             print ("We recevied :" + c2.count + " notifications.");
-            assert(c2.count == 10);
+            assert(c2.count >= 10);
+            assert(c2.count <= 20);
             c2.closed = true;
         }
     */
@@ -101,7 +106,8 @@ namespace notify_empty_queue
       std::cout << "Received " << notified->count << " notifications."
                 << std::endl;
       check(leader->count == 10);
-      check(notified->count == 10);
+      check(notified->count >= 10);
+      check(notified->count <= 20);
       notified->closed = true;
 
       auto alloc = ThreadAlloc::get();
@@ -146,8 +152,7 @@ namespace notify_empty_queue
         {
           std::cout << "No go!" << std::endl;
         }
-        Cown* cowns[2] = {leader, notified};
-        Cown::schedule<Wait>(2, cowns, leader, notified);
+        Cown::schedule<Wait>(leader, leader, notified);
       }
     }
   };
@@ -172,8 +177,7 @@ namespace notify_empty_queue
     auto notified = new MyCown;
     notified->observer = leader;
 
-    Cown* cowns[2] = {leader, notified};
-    Cown::schedule<Wait>(2, cowns, leader, notified);
+    Cown::schedule<Wait>(leader, leader, notified);
     // We have left two reference counts unused for leader and notified.
     // These will be dec refed in the Finish message. This saves
     // having to correctly manage the reference counts.

@@ -396,6 +396,7 @@ namespace verona::rt
         incref();
         schedule();
       }
+      yield();
     }
 
   protected:
