@@ -218,12 +218,11 @@ namespace verona::rt
         auto* cown = cowns[i];
         auto bp = cown->bp_state.load(std::memory_order_relaxed);
         yield();
-        assert(bp != BackpressureState::Muted);
+        assert(bp != Priority::Low);
 
         if (
-          (bp & BackpressureState::IsUnmutable) ||
-          (state == ThreadState::PreScan) || (state == ThreadState::Scan) ||
-          (state == ThreadState::AllInScan))
+          (bp & PriorityMask::High) || (state == ThreadState::PreScan) ||
+          (state == ThreadState::Scan) || (state == ThreadState::AllInScan))
         { // Messages in this cown's queue must be scanned.
           cown->schedule();
           continue;
@@ -240,20 +239,19 @@ namespace verona::rt
           Systematic::coin(9) ||
 #endif
           !cown->bp_state.compare_exchange_weak(
-            bp, BackpressureState::Muted, std::memory_order_acq_rel))
+            bp, Priority::Low, std::memory_order_acq_rel))
         {
           yield();
-          assert(bp != BackpressureState::Muted);
+          assert(bp != Priority::Low);
           cown->schedule();
           mute_set.erase(ins.second);
-          if (ins.first)
-            T::release(alloc, cown);
+          T::release(alloc, cown);
 
           continue;
         }
         Systematic::cout() << "Cown " << cown << ": backpressure state " << bp
-                           << " -> Muted" << std::endl;
-        assert(!(bp & BackpressureState::IsUnmutable));
+                           << " -> Low" << std::endl;
+        assert(!(bp & PriorityMask::High));
       }
 
       alloc->dealloc(cowns, count * sizeof(T*));
@@ -269,14 +267,15 @@ namespace verona::rt
       for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
       {
         auto* m = entry.key();
-        if (force || m->triggers_unmuting())
+        if (force || !m->triggers_muting())
         {
           yield();
           auto& mute_set = *entry.value();
           for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
           {
-            Systematic::cout() << "Mute map remove " << it.key() << std::endl;
-            it.key()->unmute();
+            Systematic::cout()
+              << "Mute map remove cown " << it.key() << std::endl;
+            it.key()->backpressure_transition(Priority::Normal);
             T::release(alloc, it.key());
             mute_set.erase(it);
           }
@@ -893,7 +892,7 @@ namespace verona::rt
               continue;
             }
           }
-          Systematic::cout() << "Stub collect: " << c << std::endl;
+          Systematic::cout() << "Stub collect cown " << c << std::endl;
           // TODO: Investigate systematic testing coverage here.
           auto epoch = c->epoch_when_popped;
           auto outdated =
@@ -902,7 +901,7 @@ namespace verona::rt
           {
             count++;
             *p = c->next;
-            Systematic::cout() << "Stub collected: " << c << std::endl;
+            Systematic::cout() << "Stub collected cown " << c << std::endl;
             c->dealloc(alloc);
             continue;
           }

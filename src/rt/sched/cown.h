@@ -114,7 +114,7 @@ namespace verona::rt
     std::atomic<size_t> weak_count = 1;
 
     std::atomic<Status> status{};
-    std::atomic<BackpressureState> bp_state = BackpressureState::Normal;
+    std::atomic<Priority> bp_state = Priority::Normal;
 
     static Cown* create_token_cown()
     {
@@ -218,7 +218,7 @@ namespace verona::rt
           // The scheduler thread needs to take a reference count on the Cown
           // The sending Cown must have had a reference count for this Cown
           // already
-          incref();
+          Cown::acquire(this);
         }
 
         if constexpr (try_fast == NoTryFast)
@@ -241,7 +241,7 @@ namespace verona::rt
     {
       if (queue.wake())
       {
-        incref();
+        Cown::acquire(this);
         schedule();
       }
     }
@@ -322,7 +322,7 @@ namespace verona::rt
      **/
     void weak_release(Alloc* alloc)
     {
-      Systematic::cout() << "Weak release " << this << std::endl;
+      Systematic::cout() << "Cown " << this << " weak release" << std::endl;
       if (weak_count.fetch_sub(1) == 1)
       {
         auto* t = owning_thread();
@@ -350,8 +350,8 @@ namespace verona::rt
 
     void weak_acquire()
     {
+      Systematic::cout() << "Cown " << this << " weak acquire" << std::endl;
       assert(weak_count > 0);
-
       weak_count++;
     }
 
@@ -393,7 +393,7 @@ namespace verona::rt
     {
       if (queue.mark_notify())
       {
-        incref();
+        Cown::acquire(this);
         schedule();
       }
       yield();
@@ -425,21 +425,14 @@ namespace verona::rt
     bool in_epoch(EpochMark epoch)
     {
       bool result = Object::in_epoch(epoch);
-
-#ifdef USE_SYSTEMATIC_TESTING
-      Scheduler::yield_my_turn();
-#endif
-
+      yield();
       return result;
     }
 
     void dealloc(Alloc* alloc)
     {
       Object::dealloc(alloc);
-
-#ifdef USE_SYSTEMATIC_TESTING
-      Scheduler::yield_my_turn();
-#endif
+      yield();
     }
 
     bool scanned(EpochMark epoch)
@@ -532,7 +525,7 @@ namespace verona::rt
       const auto last = body->count - 1;
       assert(body->index <= last);
 
-      const auto make_unmutable = backpressure_ensure_progress(body);
+      const auto high_priority = behaviour_requires_high_priority(body);
       for (; body->index < body->count; body->index++)
       {
         MultiMessage* m = MultiMessage::make_message(alloc, body, epoch);
@@ -541,17 +534,20 @@ namespace verona::rt
                            << next << ", index " << body->index << std::endl;
 
         {
-          // Hold an epoch so that a scheduled `next` cown is not collected by
-          // the time that we must set it unmutable.
+          // Hold epoch in case priority needs to be raised after message is
+          // placed in queue. TODO: only hold if `high_priority` is true
           Epoch e(alloc);
+
           bool needs_scheduling = next->send<YesTransfer, YesTryFast>(m);
           if (!needs_scheduling)
           {
             // Case 1: target cown was already scheduled.
             Systematic::cout()
               << "MultiMessage " << m << ": fast send interrupted" << std::endl;
-            if (make_unmutable)
-              next->unmute(true);
+
+            if (high_priority)
+              next->backpressure_transition(Priority::High);
+
             return;
           }
         }
@@ -782,19 +778,18 @@ namespace verona::rt
 
     /// Transition a cown between backpressure states. Return the previous
     /// state. An attempt to set the state to Normal may be preempted by
-    /// another thread setting the cown to any state that isn't Muted.
-    inline BackpressureState backpressure_transition(BackpressureState state)
+    /// another thread setting the cown to any state that isn't Muted. Normal
+    /// priority may overwrite High priority when the exact flag is set.
+    inline Priority backpressure_transition(Priority state, bool exact = false)
     {
       auto prev = bp_state.load(std::memory_order_acquire);
       do
       {
         yield();
-        if (
-          (state == BackpressureState::Normal) &&
-          (prev != BackpressureState::Muted))
+
+        if ((state == Priority::Normal) && (prev != Priority::Low) && !exact)
           return prev;
 
-        assert(check_backpressure_transition(prev, state));
         if (prev == state)
           return prev;
 
@@ -807,63 +802,26 @@ namespace verona::rt
 
       Systematic::cout() << "Cown " << this << ": backpressure state " << prev
                          << " -> " << state << std::endl;
-
       yield();
+
+      if (prev != Priority::Low)
+        return prev;
+
+      auto sleeping = queue.wake();
+      UNUSED(sleeping);
+      assert(!sleeping);
+      schedule();
+
       return prev;
     }
 
-    /// Return true if the transition between backpressure states is valid.
-    static constexpr bool
-    check_backpressure_transition(BackpressureState from, BackpressureState to)
-    {
-      switch (from)
-      {
-        case BackpressureState::Normal:
-          return (to == BackpressureState::Muted) ||
-            (to == BackpressureState::Unmutable);
-        case BackpressureState::Muted:
-          return (to == BackpressureState::Normal) ||
-            (to == BackpressureState::Unmutable);
-        case BackpressureState::Unmutable:
-          return (to == BackpressureState::MaybeUnmutable) ||
-            (to == BackpressureState::Unmutable);
-        case BackpressureState::MaybeUnmutable:
-          return (to == BackpressureState::Normal) ||
-            (to == BackpressureState::Unmutable);
-        default:
-          return false;
-      }
-    }
-
-    /// Unmute a cown if it is muted.
-    inline void unmute(bool set_unmutable = false)
-    {
-      auto state = (set_unmutable) ? BackpressureState::Unmutable :
-                                     BackpressureState::Normal;
-      auto prev = backpressure_transition(state);
-      if (prev != BackpressureState::Muted)
-        return;
-
-      queue.wake();
-      schedule();
-    }
-
-    /// Return true if a sender to this cown should be muted.
+    /// Return true if a sender to this cown should become low priority.
     inline bool triggers_muting()
     {
       auto bp = bp_state.load(std::memory_order_acquire);
-      auto stat = status.load(std::memory_order_acquire);
+      auto sleeping = queue.is_sleeping();
       yield();
-      return (bp == BackpressureState::Muted) || stat.overloaded();
-    }
-
-    /// Return true if this cown should unmute its muted senders.
-    inline bool triggers_unmuting()
-    {
-      auto bp = bp_state.load(std::memory_order_acquire);
-      auto stat = status.load(std::memory_order_acquire);
-      yield();
-      return (bp != BackpressureState::Muted) && stat.unoverloaded();
+      return (bp != Priority::Normal) && !sleeping;
     }
 
     /// Set the `mutor` field of the current scheduler thread if the senders
@@ -885,7 +843,7 @@ namespace verona::rt
         }
       }
 
-      // Mute senders if any receivers are overloaded/muted.
+      // Mute senders if any receivers are high or low priority.
       for (size_t r = 0; r < receivers.count; r++)
       {
         auto* receiver = receivers.cowns[r];
@@ -904,25 +862,20 @@ namespace verona::rt
       }
     }
 
-    /// Return true if any participants are either overloaded or unmutable.
-    /// This ensures that overloaded cowns can always run messages in their
-    /// queue.
-    static inline bool backpressure_ensure_progress(MessageBody* body)
+    /// Return true if any multimessage cowns have a high priority.
+    static inline bool behaviour_requires_high_priority(MessageBody* body)
     {
-      bool requires_unmute = std::any_of(
-        &body->cowns[body->index],
-        &body->cowns[body->count],
-        [](const auto* c) {
-          return c->status.load(std::memory_order_acquire).overloaded() ||
-            (c->bp_state.load(std::memory_order_acquire) &
-             BackpressureState::IsUnmutable);
+      bool high_priority = std::any_of(
+        &body->cowns[0], &body->cowns[body->count], [](const auto* c) {
+          return (
+            c->bp_state.load(std::memory_order_acquire) & PriorityMask::High);
         });
       yield();
       return
 #ifdef USE_SYSTEMATIC_TESTING
         Systematic::coin(3) ||
 #endif
-        requires_unmute;
+        high_priority;
     }
 
     /// Update backpressure status based on the occurrence of a token message.
@@ -940,10 +893,12 @@ namespace verona::rt
         status.store(stat, std::memory_order_release);
 
         auto bp = bp_state.load(std::memory_order_acquire);
-        if (bp == BackpressureState::Unmutable)
-          backpressure_transition(BackpressureState::MaybeUnmutable);
-        else if (bp == BackpressureState::MaybeUnmutable)
-          backpressure_transition(BackpressureState::Normal);
+        if (stat.overloaded())
+          backpressure_transition(Priority::High);
+        else if (bp == Priority::High)
+          backpressure_transition(Priority::MaybeHigh);
+        else if (bp == Priority::MaybeHigh)
+          backpressure_transition(Priority::Normal);
 
         return true;
       }
@@ -962,15 +917,9 @@ namespace verona::rt
       }
       stat.inc_load();
       stat.set_has_token(true);
-#ifdef USE_SYSTEMATIC_TESTING
-      if (Systematic::coin(5) && !stat.overloaded())
-      {
-        stat.overload();
-        assert(stat.overloaded());
-        Systematic::cout() << "Cown " << this << " overloaded" << std::endl;
-      }
-#endif
       status.store(stat, std::memory_order_release);
+      if (stat.overloaded())
+        backpressure_transition(Priority::High);
 
       return false;
     }
@@ -1010,10 +959,13 @@ namespace verona::rt
       yield(); // Reading global state in peek_back().
 
       const auto stat = status.load(std::memory_order_acquire);
-      assert(
-        bp_state.load(std::memory_order_acquire) != BackpressureState::Muted);
+      const auto bp = bp_state.load(std::memory_order_acquire);
+      assert(bp != Priority::Low);
       // The batch limit is between 100 and 251, depending on the load.
       const auto batch_limit = (size_t)100 | ((size_t)stat.total_load() >> 3);
+
+      Systematic::cout() << "Cown " << this << " load: " << stat.total_load()
+                         << std::endl;
 
       auto notified_called = false;
       auto notify = false;
@@ -1065,18 +1017,18 @@ namespace verona::rt
           if (batch_size != 0)
             return true;
 
+          backpressure_transition(Priority::Normal, true);
+
           // Reschedule if cown does not go to sleep.
           if (!queue.mark_sleeping(notify))
           {
             if (notify)
             {
-              assert(
-                !notified_called); // We must have run something to get here.
+              // We must have run something to get here.
+              assert(!notified_called);
               cown_notified();
-              // Treat notification as a message and don't deschedule
-              return true;
+              // Treat notification as a message and don't deschedule.
             }
-
             return true;
           }
 
@@ -1095,7 +1047,7 @@ namespace verona::rt
 
         batch_size++;
 
-        Systematic::cout() << "Running Message " << curr << " on " << this
+        Systematic::cout() << "Running Message " << curr << " on cown " << this
                            << std::endl;
 
         auto* senders = curr->get_body()->cowns;
@@ -1141,17 +1093,12 @@ namespace verona::rt
       if (in_epoch(epoch))
         return false;
 
-      // Check if the Cown is already collected or is muted.
-      if (
-        !is_collected() &&
-        (bp_state.load(std::memory_order_acquire) != BackpressureState::Muted))
+      // Check if the Cown is already collected.
+      if (!is_collected())
       {
-#ifdef USE_SYSTEMATIC_TESTING
-        Scheduler::yield_my_turn();
-#endif
-
-        Systematic::cout() << "Collecting (sweep) " << this << std::endl;
-
+        yield();
+        assert(bp_state.load(std::memory_order_acquire) != Priority::Low);
+        Systematic::cout() << "Collecting (sweep) cown " << this << std::endl;
         collect(alloc);
       }
 
@@ -1211,7 +1158,7 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       flush_all(alloc);
 #endif
-      Systematic::cout() << "Collecting: " << this << std::endl;
+      Systematic::cout() << "Collecting cown " << this << std::endl;
 
       ObjectStack dummy(alloc);
       // Run finaliser before releasing our data.
@@ -1249,15 +1196,15 @@ namespace verona::rt
       }
 
       yield();
-      assert(
-        bp_state.load(std::memory_order_acquire) != BackpressureState::Muted);
+      assert(bp_state.load(std::memory_order_acquire) != Priority::Low);
 
       // Now we may run our destructor.
       destructor();
 
-      MultiMessage* stub = queue.destroy();
+      auto* stub = queue.destroy();
       // All messages must have been run by the time the cown is collected.
       assert(stub->next.load(std::memory_order_relaxed) == nullptr);
+
       alloc->dealloc<sizeof(MultiMessage)>(stub);
     }
 
