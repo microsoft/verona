@@ -201,3 +201,8 @@ namespace ast
     return index;
   }
 }
+
+void ast_dump(const ::ast::Ast& ast)
+{
+  std::cout << peg::ast_to_s(ast);
+}
