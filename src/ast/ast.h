@@ -97,3 +97,12 @@ namespace ast
     iteration_index() = prev_index;
   }
 }
+
+extern "C"
+{
+  /// This method is for debug only,
+  /// when needing to dump ast trees inside a debugger.
+  /// This is needed because `peg::ast_to_s` is templated.
+  /// Needs to be in the global namespace to be found by LLDB
+  void ast_dump(const ast::Ast& ast);
+}
