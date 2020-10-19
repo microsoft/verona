@@ -534,8 +534,9 @@ namespace verona::rt
                            << next << ", index " << body->index << std::endl;
 
         {
-          if (high_priority)
-            next->unmute(true);
+          // Hold epoch in case priority needs to be raised after message is
+          // placed in queue. TODO: only hold if `high_priority` is true
+          Epoch e(alloc);
 
           bool needs_scheduling = next->send<YesTransfer, YesTryFast>(m);
           if (!needs_scheduling)
@@ -543,11 +544,11 @@ namespace verona::rt
             // Case 1: target cown was already scheduled.
             Systematic::cout()
               << "MultiMessage " << m << ": fast send interrupted" << std::endl;
+
+            if (high_priority)
+              next->backpressure_transition(Priority::High);
+
             return;
-          }
-          else
-          {
-            next->backpressure_transition(Priority::Normal, true);
           }
         }
 
@@ -801,29 +802,26 @@ namespace verona::rt
 
       Systematic::cout() << "Cown " << this << ": backpressure state " << prev
                          << " -> " << state << std::endl;
-
       yield();
-      return prev;
-    }
 
-    /// Unmute a cown if it is muted.
-    inline void unmute(bool high_priority = false)
-    {
-      auto state = (high_priority) ? Priority::High : Priority::Normal;
-      auto prev = backpressure_transition(state);
       if (prev != Priority::Low)
-        return;
+        return prev;
 
-      queue.wake();
+      auto sleeping = queue.wake();
+      UNUSED(sleeping);
+      assert(!sleeping);
       schedule();
+
+      return prev;
     }
 
     /// Return true if a sender to this cown should become low priority.
     inline bool triggers_muting()
     {
       auto bp = bp_state.load(std::memory_order_acquire);
+      auto sleeping = queue.is_sleeping();
       yield();
-      return !(bp == Priority::Normal);
+      return (bp != Priority::Normal) && !sleeping;
     }
 
     /// Set the `mutor` field of the current scheduler thread if the senders
@@ -1198,7 +1196,7 @@ namespace verona::rt
       }
 
       yield();
-      assert(bp_state.load(std::memory_order_acquire) == Priority::Normal);
+      assert(bp_state.load(std::memory_order_acquire) != Priority::Low);
 
       // Now we may run our destructor.
       destructor();

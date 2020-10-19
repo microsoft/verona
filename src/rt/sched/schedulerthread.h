@@ -275,7 +275,7 @@ namespace verona::rt
           {
             Systematic::cout()
               << "Mute map remove cown " << it.key() << std::endl;
-            it.key()->unmute();
+            it.key()->backpressure_transition(Priority::Normal);
             T::release(alloc, it.key());
             mute_set.erase(it);
           }
