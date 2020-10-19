@@ -4,6 +4,7 @@
 #include "CLI/CLI.hpp"
 #include "ast/module.h"
 #include "ast/parser.h"
+#include "ast/pass.h"
 #include "ast/path.h"
 #include "ast/prec.h"
 #include "ast/ref.h"
@@ -125,8 +126,10 @@ int main(int argc, char** argv)
     {
       // Parse the file
       err::Errors err;
-      module::Passes passes = {sym::build, ref::build, prec::build};
-      auto m = module::build(grammarFile, passes, inputFile, "verona", err);
+      pass::Passes passes = {
+        {"sym", sym::build}, {"ref", ref::build}, {"prec", prec::build}};
+      auto m = module::build(
+        grammarFile, /*stopAt*/ "", passes, inputFile, "verona", err);
       if (!err.empty())
       {
         std::cerr << "ERROR: cannot parse Verona file " << inputFile
