@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "module.h"
 
+#include "cli.h"
 #include "path.h"
 
 using namespace peg::udl;
@@ -187,11 +188,15 @@ namespace
     }
   }
 
-  bool run_passes(ModulePtr& m, const Passes& passes, err::Errors& err)
+  bool run_passes(
+    ModulePtr& m,
+    const std::string& stopAt,
+    const pass::Passes& passes,
+    err::Errors& err)
   {
     return dfs::post(
       m,
-      [](auto& m, auto& passes, auto& err) {
+      [&stopAt](auto& m, auto& passes, auto& err) {
         // Stop running passes when we get errors on this module, then add those
         // errors to the main error list.
         if (!m->ast)
@@ -210,6 +215,10 @@ namespace
             ok = false;
             break;
           }
+
+          // If asked to stop after this pass, return now.
+          if (!stopAt.empty() && stopAt == pass.name)
+            return ok;
         }
 
         return ok;
@@ -223,7 +232,8 @@ namespace module
 {
   ModulePtr build(
     peg::parser& parser,
-    const Passes& passes,
+    const std::string& stopAt,
+    const pass::Passes& passes,
     const std::string& path,
     const std::string& ext,
     err::Errors& err)
@@ -233,15 +243,21 @@ namespace module
     if (err.empty())
       detect_cycles(m, err);
 
+    // If asked to stop before any pass, return now.
+    if (!stopAt.empty() && stopAt == cli::stopAtGen)
+      return m;
+
+    // Otherwise, run the passes
     if (err.empty())
-      run_passes(m, passes, err);
+      run_passes(m, stopAt, passes, err);
 
     return m;
   }
 
   ModulePtr build(
     const std::string& grammar,
-    const Passes& passes,
+    const std::string& stopAt,
+    const pass::Passes& passes,
     const std::string& path,
     const std::string& ext,
     err::Errors& err)
@@ -251,6 +267,6 @@ namespace module
     if (!err.empty())
       return {};
 
-    return build(parser, passes, path, ext, err);
+    return build(parser, stopAt, passes, path, ext, err);
   }
 }

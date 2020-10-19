@@ -6,12 +6,10 @@
 #include "dfs.h"
 #include "err.h"
 #include "parser.h"
+#include "pass.h"
 
 namespace module
 {
-  using Pass = void (*)(ast::Ast& ast, err::Errors& err);
-  using Passes = std::vector<Pass>;
-
   struct Module
   {
     std::string name;
@@ -27,14 +25,15 @@ namespace module
 
   ModulePtr build(
     peg::parser& parser,
-    const Passes& passes,
+    const pass::Passes& passes,
     const std::string& path,
     const std::string& ext,
     err::Errors& err);
 
   ModulePtr build(
     const std::string& grammar,
-    const Passes& passes,
+    const std::string& stopAt,
+    const pass::Passes& passes,
     const std::string& path,
     const std::string& ext,
     err::Errors& err);
