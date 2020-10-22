@@ -267,10 +267,10 @@ namespace verona::rt
       for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
       {
         auto* m = entry.key();
+        auto& mute_set = *entry.value();
         if (force || !m->triggers_muting())
         {
           yield();
-          auto& mute_set = *entry.value();
           for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
           {
             Systematic::cout()
@@ -279,6 +279,13 @@ namespace verona::rt
             T::release(alloc, it.key());
             mute_set.erase(it);
           }
+          m->weak_release(alloc);
+          mute_map.erase(entry);
+          mute_set.dealloc(alloc);
+          alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
+        }
+        else if (mute_set.size() == 0)
+        {
           m->weak_release(alloc);
           mute_map.erase(entry);
           mute_set.dealloc(alloc);
@@ -580,7 +587,13 @@ namespace verona::rt
 #endif
           if (mute_map.size() != 0)
         {
+#ifndef USE_SYSTEMATIC_TESTING
           mute_map_scan(true);
+#else
+          const auto last = Scheduler::get().active_thread_count == 1;
+          mute_map_scan(!last);
+          assert(!(last && (mute_map.size() > 0) && q.is_empty()));
+#endif
           continue;
         }
         // Enter sleep only when the queue doesn't contain any real cowns.

@@ -917,6 +917,12 @@ namespace verona::rt
       }
       stat.inc_load();
       stat.set_has_token(true);
+
+#ifdef USE_SYSTEMATIC_TESTING
+      if (Systematic::coin(5))
+        stat.set_overloaded(!stat.overloaded());
+#endif
+
       status.store(stat, std::memory_order_release);
       if (stat.overloaded())
         backpressure_transition(Priority::High);
