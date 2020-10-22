@@ -338,6 +338,7 @@ namespace mlir::verona
       case AST::NodeKind::Assign:
         return parseAssign(ast);
       case AST::NodeKind::Call:
+      case AST::NodeKind::Invoke:
       case AST::NodeKind::StaticCall:
         return parseCall(ast);
       case AST::NodeKind::Return:
@@ -439,8 +440,10 @@ namespace mlir::verona
   llvm::Expected<ReturnValue> Generator::parseCall(const ::ast::Ast& ast)
   {
     // All operations are calls, including arithmetic, comparison, casts
-    // but they're either `call` or `static-call`.
-    assert((AST::isCall(ast) || AST::isStaticCall(ast)) && "Bad node");
+    // but they can be: `invoke`, `call` or `static-call`.
+    assert(
+      (AST::isCall(ast) || AST::isInvoke(ast) || AST::isStaticCall(ast)) &&
+      "Bad node");
     auto name = AST::getID(ast);
     auto loc = getLocation(ast);
 
@@ -475,7 +478,7 @@ namespace mlir::verona
     // argument.
     // Both need a descriptor, to know where to find the function to call.
     mlir::Value descriptor;
-    if (AST::isCall(ast))
+    if (AST::isCall(ast) || AST::isInvoke(ast))
     {
       // Dynamic call: `a op b` | `a.op(b...)`
       assert(args.size() >= 1 && "Too few arguments for dynamic call");
