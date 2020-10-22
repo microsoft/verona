@@ -8,6 +8,7 @@
 #include "ast/path.h"
 #include "ast/prec.h"
 #include "ast/ref.h"
+#include "ast/sugar.h"
 #include "ast/sym.h"
 #include "driver.h"
 #include "mlir/InitAllDialects.h"
@@ -126,8 +127,10 @@ int main(int argc, char** argv)
     {
       // Parse the file
       err::Errors err;
-      pass::Passes passes = {
-        {"sym", sym::build}, {"ref", ref::build}, {"prec", prec::build}};
+      pass::Passes passes = {{"sugar", sugar::build},
+                             {"sym", sym::build},
+                             {"ref", ref::build},
+                             {"prec", prec::build}};
       auto m = module::build(
         grammarFile, /*stopAt*/ "", passes, inputFile, "verona", err);
       if (!err.empty())
