@@ -79,6 +79,7 @@ namespace mlir::verona
       Assign = peg::str2tag("assign"), // = 3930587681
       Let = peg::str2tag("let"), // = 114397
       Call = peg::str2tag("call"), // = 3519010
+      Invoke = peg::str2tag("invoke"), // = 4219878096
       StaticCall = peg::str2tag("static-call"), // = 1256961527
       Return = peg::str2tag("return"), // = 210835850
       Args = peg::str2tag("args"), // = 3609031
@@ -244,6 +245,12 @@ namespace mlir::verona
       return isA(ast, NodeKind::Call);
     }
 
+    /// Return true if node is a direct invoke (obj.method)
+    static bool isInvoke(::ast::Ast ast)
+    {
+      return isA(ast, NodeKind::Invoke);
+    }
+
     /// Return true if node is a static call
     static bool isStaticCall(::ast::Ast ast)
     {
@@ -396,10 +403,12 @@ namespace mlir::verona
     {
       if (isAny(ast, {NodeKind::Call, NodeKind::StaticCall}))
         return getTokenValue(findNode(ast, NodeKind::Function));
-      if (isA(ast, NodeKind::Member))
+      if (isMember(ast))
         return getTokenValue(findNode(ast, NodeKind::Lookup));
-      if (isA(ast, NodeKind::QualType))
+      if (isQualType(ast))
         return getTokenValue(findNode(ast, NodeKind::Typeref));
+      if (isInvoke(ast))
+        return getID(findNode(ast, NodeKind::Member));
       return getTokenValue(findNode(ast, NodeKind::ID));
     }
 
@@ -595,12 +604,15 @@ namespace mlir::verona
     /// Return the number of operands in an operation
     static size_t numOperands(::ast::Ast ast)
     {
-      assert((isCall(ast) || isStaticCall(ast)) && "Bad node");
+      assert((isCall(ast) || isInvoke(ast) || isStaticCall(ast)) && "Bad node");
       // Dynamic calls must have descriptor
       if (isCall(ast))
         assert(isValue(ast->nodes[2]) && "No descriptor for dynamic call");
+      // Invokes must have a member
+      if (isInvoke(ast))
+        findNode(ast, NodeKind::Member);
       // Dynamic call's first argument is separate (descriptor), bool to int
-      size_t firstArg = isCall(ast);
+      size_t firstArg = isCall(ast) || isInvoke(ast);
       auto args = findNode(ast, NodeKind::Args);
       return args->nodes.size() + firstArg;
     }
@@ -631,9 +643,14 @@ namespace mlir::verona
       // Static calls don't have special first argument
       if (isStaticCall(ast))
         return args->nodes[n];
-      // Calls have the first operand as 'localref'
+      // Invoke/Calls have the first operand as 'localref'
       if (n == 0)
-        return findNode(ast, NodeKind::Localref);
+      {
+        auto node = ast;
+        if (isInvoke(ast))
+          node = findNode(ast, NodeKind::Member);
+        return findNode(node, NodeKind::Localref);
+      }
       // All others in 'args'
       return args->nodes[n - 1];
     }

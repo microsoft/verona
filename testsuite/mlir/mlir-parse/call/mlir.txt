@@ -28,11 +28,25 @@ module @"$module" {
     %21 = "verona.cast"(%20) : (!verona.unknown) -> !verona.meet<class<"U64">, imm>
     return %21 : !verona.meet<class<"U64">, imm>
   ^bb2:  // pred: ^bb0
-    %22 = "verona.load"(%7) : (!verona.unknown) -> !verona.unknown
-    %23 = "verona.load"(%12) : (!verona.unknown) -> !verona.unknown
-    %24 = verona.call "+"[%22 : !verona.unknown] (%23 : !verona.unknown) : !verona.unknown
-    %25 = "verona.cast"(%24) : (!verona.unknown) -> !verona.meet<class<"U64">, imm>
-    return %25 : !verona.meet<class<"U64">, imm>
+    %22 = "verona.load"(%0) : (!verona.imm) -> !verona.unknown
+    %23 = "verona.constant(0)"() : () -> !verona.class<"int">
+    %24 = verona.call "!="[%22 : !verona.unknown] (%23 : !verona.class<"int">) : !verona.unknown
+    %25 = "verona.cast"(%24) : (!verona.unknown) -> i1
+    cond_br %25, ^bb4, ^bb5
+  ^bb3:  // pred: ^bb5
+    %26 = "verona.load"(%7) : (!verona.unknown) -> !verona.unknown
+    %27 = "verona.load"(%12) : (!verona.unknown) -> !verona.unknown
+    %28 = verona.call "+"[%26 : !verona.unknown] (%27 : !verona.unknown) : !verona.unknown
+    %29 = "verona.cast"(%28) : (!verona.unknown) -> !verona.meet<class<"U64">, imm>
+    return %29 : !verona.meet<class<"U64">, imm>
+  ^bb4:  // pred: ^bb2
+    %30 = "verona.load"(%0) : (!verona.imm) -> !verona.unknown
+    %31 = "verona.load"(%2) : (!verona.meet<class<"U64">, imm>) -> !verona.unknown
+    %32 = verona.call "method"[%30 : !verona.unknown] (%31 : !verona.unknown) : !verona.unknown
+    %33 = "verona.cast"(%32) : (!verona.unknown) -> !verona.meet<class<"U64">, imm>
+    return %33 : !verona.meet<class<"U64">, imm>
+  ^bb5:  // pred: ^bb2
+    br ^bb3
   }
   func @apply() attributes {class = !verona.class<"$module">} {
     %0 = "verona.constant(10)"() : () -> !verona.class<"int">
