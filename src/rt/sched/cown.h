@@ -115,6 +115,8 @@ namespace verona::rt
 
     std::atomic<Status> status{};
     std::atomic<Priority> bp_state = Priority::Normal;
+    // TODO: combine into `bp_state` field
+    Cown* blocker = nullptr;
 
     static Cown* create_token_cown()
     {
@@ -528,26 +530,38 @@ namespace verona::rt
       const auto high_priority = behaviour_requires_high_priority(body);
       for (; body->index < body->count; body->index++)
       {
-        MultiMessage* m = MultiMessage::make_message(alloc, body, epoch);
+        auto* m = MultiMessage::make_message(alloc, body, epoch);
         auto* next = body->cowns[body->index];
         Systematic::cout() << "MultiMessage " << m << ": fast requesting "
                            << next << ", index " << body->index << std::endl;
 
-        {
-          // Hold epoch in case priority needs to be raised after message is
-          // placed in queue. TODO: only hold if `high_priority` is true
-          Epoch e(alloc);
+        if (body->index > 0)
+          body->cowns[body->index - 1]->blocker = next;
 
+        // Send the message to the next cown. Return false if the fast send has
+        // been interrupted (the cown is already scheduled).
+        auto try_fast_send = [next, m]() -> bool {
           bool needs_scheduling = next->send<YesTransfer, YesTryFast>(m);
           if (!needs_scheduling)
-          {
-            // Case 1: target cown was already scheduled.
             Systematic::cout()
               << "MultiMessage " << m << ": fast send interrupted" << std::endl;
 
-            if (high_priority)
-              next->backpressure_transition(Priority::High);
+          return needs_scheduling;
+        };
 
+        if (!high_priority)
+        {
+          if (!try_fast_send())
+            return;
+        }
+        else
+        {
+          // Hold epoch in case priority needs to be raised after message is
+          // placed in queue.
+          Epoch e(alloc);
+          if (!try_fast_send())
+          {
+            next->backpressure_transition(Priority::High);
             return;
           }
         }
@@ -693,6 +707,9 @@ namespace verona::rt
 
       Scheduler::local()->message_body = &body;
 
+      for (size_t i = 0; i < body.count; i++)
+        body.cowns[i]->blocker = nullptr;
+
       // Run the behaviour.
       body.behaviour->f();
 
@@ -804,13 +821,18 @@ namespace verona::rt
                          << " -> " << state << std::endl;
       yield();
 
-      if (prev != Priority::Low)
-        return prev;
-
-      auto sleeping = queue.wake();
-      UNUSED(sleeping);
-      assert(!sleeping);
-      schedule();
+      if (prev == Priority::Low)
+      {
+        auto sleeping = queue.wake();
+        UNUSED(sleeping);
+        assert(!sleeping);
+        schedule();
+      }
+      else if ((state == Priority::High) && (blocker != nullptr))
+      {
+        Systematic::cout() << "Unblock cown " << blocker << std::endl;
+        blocker->backpressure_transition(Priority::High);
+      }
 
       return prev;
     }
