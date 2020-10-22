@@ -347,8 +347,6 @@ namespace mlir::verona
         return parseCondition(ast);
       case AST::NodeKind::While:
         return parseWhileLoop(ast);
-      case AST::NodeKind::For:
-        return parseForLoop(ast);
       case AST::NodeKind::Continue:
         return parseContinue(ast);
       case AST::NodeKind::Break:
@@ -676,85 +674,6 @@ namespace mlir::verona
       return std::move(err);
     if (!hasTerminator(builder.getBlock()))
       builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
-
-    // Move to exit block, where the remaining instructions will be lowered.
-    builder.setInsertionPointToEnd(exitBB);
-
-    // No values to return from lexical constructs.
-    return ReturnValue();
-  }
-
-  llvm::Expected<ReturnValue> Generator::parseForLoop(const ::ast::Ast& ast)
-  {
-    assert(AST::isFor(ast) && "Bad node");
-
-    // For loops are of the shape (item in list), which need to initialise
-    // the item, take the next from the list and exit if there is none.
-    // All of that is within the scope of the loop, so we need to create a
-    // scope now, to drop them from future ops.
-    SymbolScopeT var_scope{symbolTable};
-
-    // First, we identify the iterator. Nested loops will have their own
-    // iterators, of the same name, but within their own lexical blocks.
-    auto seqNode = AST::getLoopSeq(ast);
-    auto list = parseNode(seqNode);
-    if (auto err = list.takeError())
-      return std::move(err);
-    auto handler = symbolTable.insert("$iter", list->get());
-    llvm::SmallVector<mlir::Value, 1> iter{handler};
-    auto iterTy = list->get().getType();
-
-    // Create the head basic-block, which will check the condition
-    // and dispatch the loop to the body block or exit.
-    auto region = builder.getInsertionBlock()->getParent();
-    mlir::ValueRange empty{};
-    auto nextBB = addBlock(region);
-    auto headBB = addBlock(region);
-    auto bodyBB = addBlock(region);
-    auto exitBB = addBlock(region);
-    builder.create<mlir::BranchOp>(getLocation(ast), headBB, empty);
-
-    // First node is a check if the list has value, returns boolean.
-    builder.setInsertionPointToEnd(headBB);
-    auto condLoc = getLocation(seqNode);
-    auto hasValueCall = builder.create<CallOp>(
-      condLoc, unkTy, handler, StringAttr::get("has_value", context), empty);
-    auto hasValue = hasValueCall.getResult();
-    if (
-      auto err =
-        generateCondBranch(condLoc, hasValue, bodyBB, empty, exitBB, empty))
-      return std::move(err);
-
-    // Create local head/tail basic-block context for continue/break
-    BasicBlockScopeT loop_scope{loopTable};
-    loopTable.insert("head", nextBB);
-    loopTable.insert("tail", exitBB);
-
-    // Preamble for the loop body is:
-    //  val = $iter.apply();
-    // val must have been declared in outer scope
-    builder.setInsertionPointToEnd(bodyBB);
-    auto applyCall = builder.create<CallOp>(
-      condLoc, unkTy, handler, StringAttr::get("apply", context), empty);
-    auto apply = applyCall.getResult();
-    auto indVarName = AST::getTokenValue(AST::getLoopInd(ast));
-    symbolTable.insert(indVarName, apply);
-
-    // Loop body, branch back to head node which will decide exit criteria
-    auto bodyNode = AST::getLoopBlock(ast);
-    auto bodyLoc = getLocation(bodyNode);
-    auto bodyBlock = parseNode(bodyNode);
-    if (auto err = bodyBlock.takeError())
-      return std::move(err);
-    if (!hasTerminator(builder.getBlock()))
-      builder.create<mlir::BranchOp>(bodyLoc, nextBB, empty);
-
-    //  %iter.next();
-    builder.setInsertionPointToEnd(nextBB);
-    auto nextCall = builder.create<CallOp>(
-      condLoc, iterTy, handler, StringAttr::get("next", context), empty);
-    auto next = nextCall.getResult();
-    builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
 
     // Move to exit block, where the remaining instructions will be lowered.
     builder.setInsertionPointToEnd(exitBB);
