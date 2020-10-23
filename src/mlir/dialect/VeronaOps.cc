@@ -56,8 +56,7 @@ namespace mlir::verona
   {
     return lookupFieldType(origin().getType(), field());
   }
+} // namespace mlir::verona
 
 #define GET_OP_CLASSES
 #include "dialect/VeronaOps.cpp.inc"
-
-} // namespace mlir::verona

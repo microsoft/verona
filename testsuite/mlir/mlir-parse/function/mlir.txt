@@ -1,5 +1,3 @@
-
-
 module @"$module" {
   module @A {
     func @foo() -> !verona.class<"bool"> attributes {class = !verona.class<"A", "$parent" : class<"$module">>, qualifiers = ["static"]} {

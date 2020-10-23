@@ -1,5 +1,3 @@
-
-
 module @"$module" {
   func @f() attributes {class = !verona.class<"$module">} {
     %0 = "verona.constant(42)"() : () -> !verona.class<"int">

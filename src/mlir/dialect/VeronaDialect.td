@@ -13,7 +13,7 @@ include "mlir/IR/OpBase.td"
 def Verona_Dialect : Dialect {
     let name = "verona";
     let summary = "A prototype Verona language MLIR dialect.";
-    let cppNamespace = "verona";
+    let cppNamespace = "::mlir::verona";
 }
 
 //===----------------------------------------------------------------------===//
