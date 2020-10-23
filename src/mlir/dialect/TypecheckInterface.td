@@ -30,10 +30,11 @@ def TypecheckInterface : OpInterface<"TypecheckInterface"> {
     that don't are considered always valid. In the future, we will most likely 
     require all statement-like operations to implement this interface.
   }];
+  let cppNamespace = "::mlir::verona";
   let methods = [
     InterfaceMethod<
       "Check the types of this operation against typing rules.",
-      "LogicalResult", "typecheck"
+      "::mlir::LogicalResult", "typecheck"
     >,
   ];
 }

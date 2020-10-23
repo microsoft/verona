@@ -11,9 +11,5 @@
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 
-namespace mlir::verona
-{
 #define GET_OP_CLASSES
 #include "dialect/VeronaOps.h.inc"
-
-} // namespace mlir::verona

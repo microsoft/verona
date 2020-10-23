@@ -4,42 +4,39 @@
 #include "VeronaDialect.h"
 
 #include "VeronaOps.h"
+#include "VeronaTypes.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/StandardTypes.h"
 
-using namespace mlir;
-using namespace mlir::verona;
-
-//===----------------------------------------------------------------------===//
-// Verona dialect.
-//===----------------------------------------------------------------------===//
-
-void VeronaDialect::initialize()
+namespace mlir::verona
 {
-  addOperations<
+  void VeronaDialect::initialize()
+  {
+    addOperations<
 #define GET_OP_LIST
 #include "dialect/VeronaOps.cpp.inc"
-    >();
+      >();
 
-  addTypes<
-    MeetType,
-    JoinType,
-    UnknownType,
-    DescriptorType,
-    CapabilityType,
-    ClassType,
-    ViewpointType>();
+    addTypes<
+      MeetType,
+      JoinType,
+      UnknownType,
+      DescriptorType,
+      CapabilityType,
+      ClassType,
+      ViewpointType>();
 
-  allowUnknownOperations();
-  allowUnknownTypes();
-}
+    allowUnknownOperations();
+    allowUnknownTypes();
+  }
 
-Type VeronaDialect::parseType(DialectAsmParser& parser) const
-{
-  return parseVeronaType(parser);
-}
+  Type VeronaDialect::parseType(DialectAsmParser& parser) const
+  {
+    return parseVeronaType(parser);
+  }
 
-void VeronaDialect::printType(Type type, DialectAsmPrinter& os) const
-{
-  return printVeronaType(type, os);
+  void VeronaDialect::printType(Type type, DialectAsmPrinter& os) const
+  {
+    return printVeronaType(type, os);
+  }
 }

@@ -1,5 +1,3 @@
-
-
 module @"$module" {
   func @foo(%arg0: !verona.meet<class<"S32">, iso>, %arg1: !verona.meet<class<"U64">, imm>) -> !verona.class<"S64"> attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !verona.meet<class<"S32">, iso>

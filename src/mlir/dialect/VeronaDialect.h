@@ -3,11 +3,8 @@
 
 #pragma once
 
-#include "dialect/VeronaTypes.h"
 #include "mlir/IR/Dialect.h"
 
-namespace mlir::verona
-{
+// This line must come after "normal" includes.
+// Having this comment prevents clang-format from re-ordering it.
 #include "dialect/VeronaOpsDialect.h.inc"
-
-} // namespace mlir::verona

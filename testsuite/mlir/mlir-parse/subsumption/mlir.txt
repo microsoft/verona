@@ -1,5 +1,3 @@
-
-
 module {
   func @test1(%arg0: !verona.meet<class<"U64">, imm>) {
     %0 = verona.copy %arg0 : !verona.meet<class<"U64">, imm> -> !verona.class<"U64">

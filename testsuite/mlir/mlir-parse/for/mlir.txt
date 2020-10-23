@@ -1,5 +1,3 @@
-
-
 module @"$module" {
   func @foo(!verona.class<"S32">) attributes {class = !verona.class<"$module">}
   func @f(%arg0: !verona.class<"U64">) attributes {class = !verona.class<"$module">} {
