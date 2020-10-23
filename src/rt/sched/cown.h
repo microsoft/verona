@@ -530,7 +530,7 @@ namespace verona::rt
       const auto high_priority = behaviour_requires_high_priority(body);
       for (; body->index < body->count; body->index++)
       {
-        auto* m = MultiMessage::make_message(alloc, body, epoch);
+        auto m = MultiMessage::make_message(alloc, body, epoch);
         auto* next = body->cowns[body->index];
         Systematic::cout() << "MultiMessage " << m << ": fast requesting "
                            << next << ", index " << body->index << std::endl;

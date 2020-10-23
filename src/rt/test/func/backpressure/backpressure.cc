@@ -2,6 +2,21 @@
 // SPDX-License-Identifier: MIT
 #include <test/harness.h>
 
+/**
+ * This test creates a possible deadlock between cowns c1, c2, and c3 where the
+ * acquisition order of these cowns is c1 before c2 before c3. The following
+ * order of events may occur:
+ *  1. c1 is overloaded
+ *  2. c3 creates a behaviour {c1}. c1 mutes c3.
+ *  3. c2 creates a behaviour {c2, c3}. c2 is acquired and blocked on c3 until
+ *     c3 is unmuted and c3 runs this behaviour.
+ *  4. c1 creates a behaviour {c1, c2}. c1 is acquired and blocked on c2 until
+ *     c2 is rescheduled and runs this behaviour. The priority of c2 is raised.
+ *
+ * In this scenario, it is possible for all three cowns to be deadlocked, unless
+ * c2 is unblocked when its priority is raised by unmuting c1.
+ */
+
 /*
 class C {}
 class Main
