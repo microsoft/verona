@@ -420,10 +420,15 @@ namespace verona::rt
 
     ~Epoch()
     {
+      if (local_epoch == nullptr)
+        return;
+
       yield();
       local_epoch->release_epoch(alloc);
       yield();
     }
+
+    Epoch(const Epoch&) : alloc(nullptr), local_epoch(nullptr) {}
 
     void add_pressure()
     {

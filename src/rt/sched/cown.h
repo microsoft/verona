@@ -561,7 +561,7 @@ namespace verona::rt
           Epoch e(alloc);
           if (!try_fast_send())
           {
-            next->backpressure_transition(Priority::High);
+            backpressure_unblock(next, e);
             return;
           }
         }
@@ -797,6 +797,9 @@ namespace verona::rt
     /// state. An attempt to set the state to Normal may be preempted by
     /// another thread setting the cown to any state that isn't Muted. Normal
     /// priority may overwrite High priority when the exact flag is set.
+    ///
+    /// Transitioning cowns to High priority should be done through
+    /// `backpressure_unblock`.
     inline Priority backpressure_transition(Priority state, bool exact = false)
     {
       auto prev = bp_state.load(std::memory_order_acquire);
@@ -828,13 +831,20 @@ namespace verona::rt
         assert(!sleeping);
         schedule();
       }
-      else if ((state == Priority::High) && (blocker != nullptr))
-      {
-        Systematic::cout() << "Unblock cown " << blocker << std::endl;
-        blocker->backpressure_transition(Priority::High);
-      }
 
       return prev;
+    }
+
+    /// Recursively raise the priority of the given cown and its blocker.
+    static inline void
+    backpressure_unblock(Cown* cown, Epoch epoch = Epoch(ThreadAlloc::get()))
+    {
+      UNUSED(epoch);
+      for (; cown != nullptr; cown = cown->blocker)
+      {
+        Systematic::cout() << "Unblock cown " << cown << std::endl;
+        cown->backpressure_transition(Priority::High);
+      }
     }
 
     /// Return true if a sender to this cown should become low priority.
@@ -916,7 +926,7 @@ namespace verona::rt
 
         auto bp = bp_state.load(std::memory_order_acquire);
         if (stat.overloaded())
-          backpressure_transition(Priority::High);
+          backpressure_unblock(this);
         else if (bp == Priority::High)
           backpressure_transition(Priority::MaybeHigh);
         else if (bp == Priority::MaybeHigh)
@@ -947,7 +957,7 @@ namespace verona::rt
 
       status.store(stat, std::memory_order_release);
       if (stat.overloaded())
-        backpressure_transition(Priority::High);
+        backpressure_unblock(this);
 
       return false;
     }
