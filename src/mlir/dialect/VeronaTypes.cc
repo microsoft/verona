@@ -12,96 +12,6 @@
 
 namespace mlir::verona::detail
 {
-  struct MeetTypeStorage : public TypeStorage
-  {
-    using KeyTy = llvm::ArrayRef<Type>;
-
-    llvm::ArrayRef<Type> elements;
-
-    MeetTypeStorage(llvm::ArrayRef<Type> elements) : elements(elements) {}
-
-    bool operator==(const KeyTy& key) const
-    {
-      return key == elements;
-    }
-
-    static MeetTypeStorage*
-    construct(TypeStorageAllocator& allocator, const KeyTy& key)
-    {
-      llvm::ArrayRef<mlir::Type> elements = allocator.copyInto(key);
-      return new (allocator.allocate<MeetTypeStorage>())
-        MeetTypeStorage(elements);
-    }
-  };
-
-  struct JoinTypeStorage : public TypeStorage
-  {
-    using KeyTy = llvm::ArrayRef<Type>;
-
-    llvm::ArrayRef<Type> elements;
-
-    JoinTypeStorage(llvm::ArrayRef<Type> elements) : elements(elements) {}
-
-    bool operator==(const KeyTy& key) const
-    {
-      return key == elements;
-    }
-
-    static JoinTypeStorage*
-    construct(TypeStorageAllocator& allocator, const KeyTy& key)
-    {
-      llvm::ArrayRef<mlir::Type> elements = allocator.copyInto(key);
-      return new (allocator.allocate<JoinTypeStorage>())
-        JoinTypeStorage(elements);
-    }
-  };
-
-  struct DescriptorTypeStorage : public TypeStorage
-  {
-    Type describedType;
-
-    using KeyTy = Type;
-    DescriptorTypeStorage(const KeyTy& key) : describedType(key) {}
-
-    bool operator==(const KeyTy& key) const
-    {
-      return key == KeyTy(describedType);
-    }
-
-    static DescriptorTypeStorage*
-    construct(TypeStorageAllocator& allocator, const KeyTy& key)
-    {
-      return new (allocator.allocate<DescriptorTypeStorage>())
-        DescriptorTypeStorage(key);
-    }
-  };
-
-  struct CapabilityTypeStorage : public TypeStorage
-  {
-    Capability capability;
-
-    using KeyTy = Capability;
-
-    CapabilityTypeStorage(const KeyTy& key) : capability(key) {}
-
-    static llvm::hash_code hashKey(const KeyTy& key)
-    {
-      return llvm::hash_value(key);
-    }
-
-    bool operator==(const KeyTy& key) const
-    {
-      return key == capability;
-    }
-
-    static CapabilityTypeStorage*
-    construct(TypeStorageAllocator& allocator, const KeyTy& key)
-    {
-      return new (allocator.allocate<CapabilityTypeStorage>())
-        CapabilityTypeStorage(key);
-    }
-  };
-
   struct ClassTypeStorage : public ::mlir::TypeStorage
   {
     using FieldsRef = ClassType::FieldsRef;
@@ -109,12 +19,12 @@ namespace mlir::verona::detail
 
     // Only the class name is used to unique the type. The `isInitialized` flag
     // and `fields` array are part of the type's mutable component.
-    StringRef class_name;
+    StringRef name;
     bool isInitialized;
     FieldsRef fields;
 
-    ClassTypeStorage(StringRef class_name)
-    : class_name(class_name), isInitialized(false), fields()
+    ClassTypeStorage(StringRef name)
+    : name(name), isInitialized(false), fields()
     {}
 
     static llvm::hash_code hashKey(const KeyTy& key)
@@ -124,7 +34,7 @@ namespace mlir::verona::detail
 
     bool operator==(const KeyTy& key) const
     {
-      return key == class_name;
+      return key == name;
     }
 
     static ClassTypeStorage*
@@ -161,84 +71,10 @@ namespace mlir::verona::detail
       return success();
     }
   };
-
-  struct ViewpointTypeStorage : public ::mlir::TypeStorage
-  {
-    Type left;
-    Type right;
-
-    using KeyTy = std::tuple<Type, Type>;
-
-    ViewpointTypeStorage(Type left, Type right) : left(left), right(right) {}
-
-    static llvm::hash_code hashKey(const KeyTy& key)
-    {
-      return llvm::hash_value(key);
-    }
-
-    bool operator==(const KeyTy& key) const
-    {
-      return key == std::tie(left, right);
-    }
-
-    static ViewpointTypeStorage*
-    construct(TypeStorageAllocator& allocator, const KeyTy& key)
-    {
-      return new (allocator.allocate<ViewpointTypeStorage>())
-        ViewpointTypeStorage(std::get<0>(key), std::get<1>(key));
-    }
-  };
 } // namespace mlir::verona::detail
 
 namespace mlir::verona
 {
-  MeetType MeetType::get(MLIRContext* ctx, llvm::ArrayRef<mlir::Type> elements)
-  {
-    assert(areVeronaTypes(elements));
-    return Base::get(ctx, elements);
-  }
-
-  llvm::ArrayRef<mlir::Type> MeetType::getElements() const
-  {
-    return getImpl()->elements;
-  }
-
-  JoinType JoinType::get(MLIRContext* ctx, llvm::ArrayRef<mlir::Type> elements)
-  {
-    assert(areVeronaTypes(elements));
-    return Base::get(ctx, elements);
-  }
-
-  llvm::ArrayRef<mlir::Type> JoinType::getElements() const
-  {
-    return getImpl()->elements;
-  }
-
-  UnknownType UnknownType::get(MLIRContext* ctx)
-  {
-    return ::mlir::detail::TypeUniquer::get<UnknownType>(ctx);
-  }
-
-  DescriptorType DescriptorType::get(MLIRContext* ctx, Type describedType)
-  {
-    return Base::get(ctx, describedType);
-  }
-
-  Type DescriptorType::getDescribedType() const
-  {
-    return getImpl()->describedType;
-  }
-
-  CapabilityType CapabilityType::get(MLIRContext* ctx, Capability cap)
-  {
-    return Base::get(ctx, cap);
-  }
-
-  Capability CapabilityType::getCapability() const
-  {
-    return getImpl()->capability;
-  }
-
   ClassType ClassType::get(MLIRContext* ctx, StringRef name)
   {
     return Base::get(ctx, name);
@@ -261,7 +97,7 @@ namespace mlir::verona
 
   StringRef ClassType::getName() const
   {
-    return getImpl()->class_name;
+    return getImpl()->name;
   }
 
   ClassType::FieldsRef ClassType::getFields() const
@@ -284,19 +120,61 @@ namespace mlir::verona
     return nullptr;
   }
 
-  ViewpointType ViewpointType::get(MLIRContext* ctx, Type left, Type right)
+  LogicalResult
+  JoinType::verifyConstructionInvariants(Location loc, ArrayRef<Type> elements)
   {
-    return Base::get(ctx, std::make_tuple(left, right));
+    if (!areVeronaTypes(elements))
+    {
+      return emitError(loc, "Elements of join aren't Verona types: ")
+        << elements;
+    }
+
+    return success();
   }
 
-  Type ViewpointType::getLeftType() const
+  LogicalResult
+  MeetType::verifyConstructionInvariants(Location loc, ArrayRef<Type> elements)
   {
-    return getImpl()->left;
+    if (!areVeronaTypes(elements))
+    {
+      return emitError(loc, "Elements of meet aren't Verona types: ")
+        << elements;
+    }
+
+    return success();
   }
 
-  Type ViewpointType::getRightType() const
+  LogicalResult
+  DescriptorType::verifyConstructionInvariants(Location loc, Type describedType)
   {
-    return getImpl()->right;
+    if (!isaVeronaType(describedType))
+    {
+      return emitError(
+               loc, "Underlying type of descriptor isn't a Verona type: ")
+        << describedType;
+    }
+
+    return success();
+  }
+
+  LogicalResult ViewpointType::verifyConstructionInvariants(
+    Location loc, Type leftType, Type rightType)
+  {
+    if (!isaVeronaType(leftType))
+    {
+      return emitError(
+               loc, "Left hand side of a viewpoint isn't a Verona type: ")
+        << leftType;
+    }
+
+    if (!isaVeronaType(rightType))
+    {
+      return emitError(
+               loc, "Right hand side of viewpoint isn't a Verona type: ")
+        << rightType;
+    }
+
+    return success();
   }
 
   bool isaVeronaType(Type type)
@@ -536,3 +414,6 @@ namespace mlir::verona
       });
   }
 }
+
+#define GET_TYPEDEF_CLASSES
+#include "dialect/VeronaTypes.cpp.inc"

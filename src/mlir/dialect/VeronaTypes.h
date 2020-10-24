@@ -8,11 +8,21 @@
 
 namespace mlir::verona
 {
+  /// Describes properties of references, as part of their type.
+  /// This enum is embedded in a CapabilityType, as defined in ODS.
+  enum class Capability
+  {
+    Isolated,
+    Mutable,
+    Immutable,
+  };
+
   Type parseVeronaType(DialectAsmParser& parser);
   void printVeronaType(Type type, DialectAsmPrinter& os);
 
   /// Returns true if the type is one defined by the Verona dialect.
   bool isaVeronaType(Type type);
+
   /// Returns true if all types in the array are ones defined by the Verona
   /// dialect.
   bool areVeronaTypes(llvm::ArrayRef<Type> types);
@@ -37,90 +47,8 @@ namespace mlir::verona
 
   namespace detail
   {
-    struct MeetTypeStorage;
-    struct JoinTypeStorage;
-    struct IntegerTypeStorage;
-    struct FloatTypeStorage;
-    struct DescriptorTypeStorage;
-    struct CapabilityTypeStorage;
     struct ClassTypeStorage;
-    struct ViewpointTypeStorage;
   }
-
-  /**
-   * Meet types are intersections between types (A & B).
-   */
-  struct MeetType
-  : public Type::TypeBase<MeetType, Type, detail::MeetTypeStorage>
-  {
-    using Base::Base;
-    static MeetType
-    get(MLIRContext* ctx, llvm::ArrayRef<mlir::Type> elementTypes);
-    llvm::ArrayRef<mlir::Type> getElements() const;
-  };
-
-  /**
-   * Join types are unions between types (A | B).
-   */
-  struct JoinType
-  : public Type::TypeBase<JoinType, Type, detail::JoinTypeStorage>
-  {
-    using Base::Base;
-    static JoinType
-    get(MLIRContext* ctx, llvm::ArrayRef<mlir::Type> elementTypes);
-    llvm::ArrayRef<mlir::Type> getElements() const;
-  };
-
-  /**
-   * Unknown types are derived types from operations that cannot define the type
-   * at lowering stage, but will later be replaced by other types during type
-   * inference.
-   */
-  struct UnknownType : public Type::TypeBase<UnknownType, Type, TypeStorage>
-  {
-    using Base::Base;
-
-    static UnknownType get(MLIRContext* context);
-  };
-
-  /**
-   * A static class descriptor type, used for access to static members of the
-   * class, including fields and methods.
-   */
-  struct DescriptorType
-  : public Type::TypeBase<DescriptorType, Type, detail::DescriptorTypeStorage>
-  {
-    using Base::Base;
-
-    static DescriptorType get(MLIRContext* context, Type ref);
-    Type getDescribedType() const;
-  };
-
-  enum class Capability
-  {
-    Isolated,
-    Mutable,
-    Immutable,
-  };
-
-  /**
-   * Capability types represents properties of individual references eg.
-   * a `String & imm` and a `String & mut` could point to the same object.
-   *
-   * Isolated: An entry point to a new region. There can be more than one
-   * reference to the entrypoint, but only one of them can be Isolated ie.
-   * the others must be Mutable.
-   *
-   * Immutable: A stronger property than Read-Only. It guarantees that no
-   * mutable aliases to that object exist anywhere else.
-   */
-  struct CapabilityType
-  : public Type::TypeBase<CapabilityType, Type, detail::CapabilityTypeStorage>
-  {
-    using Base::Base;
-    static CapabilityType get(MLIRContext* ctx, Capability cap);
-    Capability getCapability() const;
-  };
 
   /**
    * A class is described both by its name and its list of fields. A class
@@ -155,8 +83,8 @@ namespace mlir::verona
    *   FieldsRef fields = { { "f", a } };
    *   a.setFields(a);
    *
-   * TODO: While recursive types can be constructed programmatically, they can
-   * neither be parsed nor printed yet.
+   * Because of these extra complications, this type cannot be generated using
+   * ODS yet, since ODS does not support types with a mutable component.
    */
   struct ClassType
   : public Type::TypeBase<ClassType, Type, detail::ClassTypeStorage>
@@ -191,23 +119,13 @@ namespace mlir::verona
     FieldsRef getFields() const;
     Type getFieldType(StringRef name) const;
   };
+}
 
-  /**
-   * Viewpoint is a view of a type through another type.
-   *
-   * For examples, reading a mut field from a imm object gives you a
-   * viewpoint<mut, imm> = imm reference.
-   */
-  struct ViewpointType
-  : public Type::TypeBase<ViewpointType, Type, detail::ViewpointTypeStorage>
-  {
-    using Base::Base;
-    static ViewpointType get(MLIRContext* ctx, Type left, Type right);
+#define GET_TYPEDEF_CLASSES
+#include "dialect/VeronaTypes.h.inc"
 
-    Type getLeftType() const;
-    Type getRightType() const;
-  };
-
+namespace mlir::verona
+{
   // Various convenience functions used to construct commonly used Verona types.
   // TODO: These should be constructed upfront and cached in some context
   // object.

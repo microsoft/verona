@@ -27,18 +27,9 @@ class Verona_Op<string mnemonic, list<OpTrait> traits = []> :
     let verifier = [{ return ::verify(*this); }];
 }
 
+class Verona_TypeDef<string name> : TypeDef<Verona_Dialect, name> { }
+
 def Verona_Type : DialectType<Verona_Dialect,
     CPred<"isaVeronaType($_self)">, "Verona type">;
-
-def Verona_TypeAttr :
-    Attr<And<
-      [CPred<"$_self.isa<TypeAttr>()">,
-       CPred<"isaVeronaType($_self.cast<TypeAttr>().getValue())">]>>
-{
-  let storageType = [{ TypeAttr }];
-  let returnType = [{ Type }];
-  let valueType = NoneType;
-  let convertFromStorage = "$_self.getValue().cast<Type>()";
-}
 
 #endif // VERONA_DIALECT
