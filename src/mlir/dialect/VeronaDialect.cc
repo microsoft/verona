@@ -18,13 +18,12 @@ namespace mlir::verona
       >();
 
     addTypes<
-      MeetType,
-      JoinType,
-      UnknownType,
-      DescriptorType,
-      CapabilityType,
-      ClassType,
-      ViewpointType>();
+#define GET_TYPEDEF_LIST
+#include "dialect/VeronaTypes.cpp.inc"
+      >();
+
+    // ClassType isn't defined by ODS yet.
+    addTypes<ClassType>();
 
     allowUnknownOperations();
     allowUnknownTypes();
