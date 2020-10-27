@@ -116,7 +116,7 @@ namespace verona::rt
     std::atomic<Status> status{};
     std::atomic<Priority> bp_state = Priority::Normal;
     // TODO: combine into `bp_state` field
-    Cown* blocker = nullptr;
+    std::atomic<Cown*> blocker = nullptr;
 
     static Cown* create_token_cown()
     {
@@ -538,7 +538,7 @@ namespace verona::rt
         if (body->index > 0)
         {
           auto* cur = body->cowns[body->index - 1];
-          cur->blocker = next;
+          cur->blocker.store(next, std::memory_order_release);
           yield();
           high_priority = high_priority ||
             (cur->bp_state.load(std::memory_order_acquire) & PriorityMask::High)
@@ -718,7 +718,7 @@ namespace verona::rt
       Scheduler::local()->message_body = &body;
 
       for (size_t i = 0; i < body.count; i++)
-        body.cowns[i]->blocker = nullptr;
+        body.cowns[i]->blocker.store(nullptr, std::memory_order_release);
 
       // Run the behaviour.
       body.behaviour->f();
@@ -850,7 +850,8 @@ namespace verona::rt
     backpressure_unblock(Cown* cown, Epoch epoch = Epoch(ThreadAlloc::get()))
     {
       UNUSED(epoch);
-      for (; cown != nullptr; cown = cown->blocker)
+      for (; cown != nullptr;
+           cown = cown->blocker.load(std::memory_order_acquire))
       {
         Systematic::cout() << "Unblock cown " << cown << std::endl;
         cown->backpressure_transition(Priority::High);
