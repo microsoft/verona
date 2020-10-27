@@ -1,0 +1,264 @@
+resources:
+  repositories:
+  - repository: llvm
+    type: github
+    endpoint: AnyBuildVeronaLLVM
+    name: llvm/llvm-project
+    trigger: none
+
+jobs:
+############################################# Linux Builds
+- job:
+  displayName: LLVM Linux Build
+  pool: AnyBuild-Verona-SelfHosted-LLVM
+  timeoutInMinutes: 120
+  strategy:
+    matrix:
+      Clang Release:
+        CC: clang
+        CXX: clang++
+        CXXFLAGS: -stdlib=libstdc++
+        BuildType: Release
+        BuildName: release
+        Sanitizer:
+      Clang Debug+ASAN:
+        CC: clang
+        CXX: clang++
+        CXXFLAGS: -stdlib=libstdc++
+        BuildType: Debug
+        BuildName: debug
+        Sanitizer: Address
+  variables:
+  - name: AbClientDirectory
+    value: $HOME/.local/share/Microsoft/AnyBuild
+  - name: AbDeploymentJson
+    value: $HOME/.local/share/AnyBuildDeployment.json
+  - name: AbLogsRootDir
+    value: $(Build.StagingDirectory)/ab_logs
+  - name: LlvmSourceDirRelativePath
+    value: s
+  - name: LlvmSourceDir
+    value: $(Agent.BuildDirectory)/$(LlvmSourceDirRelativePath)
+  - name: LlvmBuildDir
+    value: $(LlvmSourceDir)/build
+  - name: PKG_NAME
+    value: verona-llvm-install-x86_64-linux-$(BuildName)-$(GOOD_HASH)
+  
+  # Variables settable at queue time (DEFAULTS MUST BE SET IN THE PIPELINE EDITOR GUI)
+  #
+  # AbShimFilter       = @(clang|clang++|*/clang|*/clang++)
+  #                 (or) @(clang|clang++|*/clang|*/clang++|*/mlir-tblgen|*/llvm-tblgen)
+  # AbExpName          = LLVMVna
+  # AbEnvironmentName  = LLVMVna
+  # CmakeJobs          = 32
+  # CmakeBuildToolArgs = install
+  # GOOD_HASH          = ...
+  # PublishPackage     = yes
+
+  steps:
+  - checkout: llvm
+    path: $(LlvmSourceDirRelativePath)
+
+  - script: |
+      set -euo pipefail
+      git checkout $(GOOD_HASH)
+    workingDirectory: $(LlvmSourceDir)
+    displayName: 'Move tree to known good LLVM commit for Verona'
+
+  - script: |
+      set -euo pipefail
+
+      sudo apt-get update
+      sudo apt-get install -y clang ninja-build lld jq tree
+
+      # Install latest CMake from snap (must first remove the pre-installed one)
+      sudo apt remove -y --purge cmake
+      hash -r
+      sudo snap install cmake --classic 
+
+    displayName: 'Install build dependencies'
+    workingDirectory: $(Build.StagingDirectory)
+
+  - bash: |
+      set -euo pipefail
+
+      declare AnyBuildSource=https://anybuild$(AbEnvironmentName)neurope.blob.core.windows.net/clientreleases
+      declare Ring=Dogfood
+
+      rm -rf $(AbClientDirectory)
+      wget -O /tmp/bootstrapper.sh ${AnyBuildSource}/bootstrapper.sh
+      chmod +x /tmp/bootstrapper.sh
+
+      /tmp/bootstrapper.sh ${AnyBuildSource} ${Ring}
+
+      echo ==== Content of $(AbClientDirectory) =====
+      tree $(AbClientDirectory)
+
+    displayName: Install AnyBuild client
+    workingDirectory: $(Build.StagingDirectory)
+
+  - bash: |
+      # Validate agent's deployment by requesting its IP from AgentCoordinator service
+      set -euo pipefail
+
+      declare anyBuildExe=$(AbClientDirectory)/AnyBuild.sh
+      declare ExpectedAgentCount=4 # Minimum number of agents
+      declare AnyBuildEnvironmentUri=anybuild-$(AbEnvironmentName).northeurope.cloudapp.azure.com
+
+      if [[ ! -x $anyBuildExe ]]; then
+          anyBuildExe=$(AbClientDirectory)/AnyBuild
+          if [[ ! -x $anyBuildExe ]]; then
+              echo "Neither AnyBuild.sh nor AnyBuild executable found in $(AbClientDirectory)"
+              exit 1
+          fi
+      fi
+
+      declare attempt_num=0
+      until $anyBuildExe -b ${AnyBuildEnvironmentUri} --OnlyGetAgentsPublicIps -- /bin/ls
+      do
+          attempt_num=$((attempt_num+1))
+          if ((attempt_num==5))
+          then
+            echo "ERROR: Failed to obtain deployment manifest"
+            echo "===== ifconfig on this machine ======"
+            ifconfig
+            exit 1
+          fi
+          sleep 3
+      done
+
+      echo "Content of $(AbDeploymentJson)"
+      cat "$(AbDeploymentJson)"
+
+      declare reportedAgentCount=`grep NameOrIp $(AbDeploymentJson) | wc -l`
+      if [[ ${reportedAgentCount} -lt ${ExpectedAgentCount} ]]; then 
+          echo "Expected ${ExpectedAgentCount} agent(s) but AgentCoordinator reported only ${reportedAgentCount}"
+          exit 1
+      fi
+
+    displayName: Validate Linux Agent(s) Public IPs
+    workingDirectory: $(Build.StagingDirectory)
+
+  - task: CMake@1
+    displayName: 'CMake'
+    inputs:
+      workingDirectory: $(LlvmBuildDir)
+      cmakeArgs: |
+        $(LlvmSourceDir)/llvm -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DLLVM_USE_SANITIZER=$(Sanitizer) -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_EH=ON -DLLVM_ENABLE_RTTI=ON -DCMAKE_INSTALL_PREFIX=install
+
+  - bash: |
+      function extract_logs {
+        local buildDir="$1"
+        local logsDir="$2"
+
+        echo 
+        echo "====== Extracting logs from '${buildDir}' into '${logsDir}'"
+        echo
+
+        rm -rf "$logsDir"
+        mkdir "$logsDir"
+        mv "$buildDir"/*log "$logsDir"
+      }
+
+      function build {
+        local time_limit="$1"
+        local NumAgents=`cat $(AbDeploymentJson) | jq '.Agents | length'`
+        local NumAgentCores=`cat $(AbDeploymentJson) | jq '.Agents[0].NumCores'`
+        local AgentLeaseCount=`cat $(AbDeploymentJson) | jq '.Agents[0].MaxLeases'`
+
+        if [[ -z "$(AbExpName)" ]]; then
+          echo "ERROR: Variable 'AbExpName' not set"
+          return 1
+        fi
+
+        if [[ -z "$(CmakeJobs)" ]]; then
+          echo "ERROR: Variable 'CmakeJobs' not set"
+          return 1
+        fi
+
+        echo
+        echo "===== Running build ($(CmakeJobs) CMake jobs) up to ${time_limit} from $(pwd) with ${NumAgents} agent(s), ${NumAgentCores} core(s) per agent, ${AgentLeaseCount} lease(s) per agent"
+        echo
+
+        timeout "$time_limit" time $(AbClientDirectory)/AnyBuild.sh \
+          --ExperimentName "$(AbExpName)_b:$(Build.BuildId)_a:${NumAgents}_c:${NumAgentCores}_l:${AgentLeaseCount}_j:$(CmakeJobs)_n:$(BuildName)" \
+          --NoCheckForUpdates \
+          --DisableDriveTypeCheck \
+          --WaitForAgentForever \
+          --DoNotUseMachineUtilizationForScheduling \
+          --Verbose \
+          --RemoteAll \
+          --ShimProcessFilter '$(AbShimFilter)' \
+          -- \
+          cmake --build . -- -j $(CmakeJobs) $(CmakeBuildToolArgs)
+      }
+
+      declare failed=0
+      build 60m || failed=$?
+
+      extract_logs "$(pwd)" "$(AbLogsRootDir)"
+
+      exit $failed
+
+    workingDirectory: $(LlvmBuildDir)
+    displayName: Build LLVM with AnyBuild
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Artifact: Logs'
+    inputs:
+      PathToPublish: $(AbLogsRootDir)
+      ArtifactName: Logs_$(BuildName)
+    continueOnError: true
+    condition: always()
+
+  - bash: |
+      set -euo pipefail
+
+      declare numErrors=0
+
+      for abLogFile in $(find "$(AbLogsRootDir)" -name AnyBuild.log); do
+
+          sed -n '/Session telemetry: Finished/,/^$/ p' "$abLogFile"
+          grep "NumAnyBuildProcesses=0" "$abLogFile" && (
+              echo "ERROR: AnyBuild process count was zero, possible Detours failure. Check AnyBuild.log for problems"
+              ((numErrors++))
+          )
+
+          grep "Run locally=0" "$abLogFile" || (
+              echo "ERROR: Run locally count was non-zero, check AnyBuild.log for problems with agent communication or other exceptions"
+              ((numErrors++))
+          )
+
+      done
+
+      exit $numErrors
+
+    workingDirectory: $(LlvmBuildDir)
+    continueOnError: true
+    displayName: Validate all remoted
+  
+  - script: |
+      set -euo pipefail
+      rm -f $(PKG_NAME).tar.gz
+      tar zcf $(PKG_NAME).tar.gz build/install
+      md5sum $(PKG_NAME).tar.gz | awk '{print $1}' > $(PKG_NAME).tar.gz.md5
+      mkdir $(PKG_NAME)
+      mv $(PKG_NAME).tar.gz $(PKG_NAME)/ 
+      mv $(PKG_NAME).tar.gz.md5 $(PKG_NAME)/
+    continueOnError: false
+    condition: and(succeeded(), eq(variables['PublishPackage'], 'yes'))
+    displayName: 'Create package'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Artifact: Package'
+    condition: and(succeeded(), eq(variables['PublishPackage'], 'yes'))
+    inputs:
+      PathToPublish: $(PKG_NAME)
+      ArtifactName: $(PKG_NAME)
+
+  - script: |
+      set -euo pipefail
+      echo "Deleting $(LlvmBuildDir)"
+      rm -rf "$(LlvmBuildDir)"
+    continueOnError: false
+    displayName: 'Clean'
