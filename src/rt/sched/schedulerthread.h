@@ -268,7 +268,7 @@ namespace verona::rt
       {
         auto* m = entry.key();
         auto& mute_set = *entry.value();
-        if (force || !m->triggers_muting())
+        if (force || !m->triggers_muting() || m->is_collected())
         {
           yield();
           for (auto it = mute_set.begin(); it != mute_set.end(); ++it)

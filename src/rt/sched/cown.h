@@ -527,7 +527,7 @@ namespace verona::rt
       const auto last = body->count - 1;
       assert(body->index <= last);
 
-      const auto high_priority = behaviour_requires_high_priority(body);
+      auto high_priority = false;
       for (; body->index < body->count; body->index++)
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
@@ -536,7 +536,17 @@ namespace verona::rt
                            << next << ", index " << body->index << std::endl;
 
         if (body->index > 0)
-          body->cowns[body->index - 1]->blocker = next;
+        {
+          auto* cur = body->cowns[body->index - 1];
+          cur->blocker = next;
+          yield();
+          high_priority = high_priority ||
+            (cur->bp_state.load(std::memory_order_acquire) & PriorityMask::High)
+#ifdef USE_SYSTEMATIC_TESTING
+            || Systematic::coin(3)
+#endif
+            ;
+        }
 
         // Send the message to the next cown. Return false if the fast send has
         // been interrupted (the cown is already scheduled).
@@ -892,22 +902,6 @@ namespace verona::rt
           return;
         }
       }
-    }
-
-    /// Return true if any multimessage cowns have a high priority.
-    static inline bool behaviour_requires_high_priority(MessageBody* body)
-    {
-      bool high_priority = std::any_of(
-        &body->cowns[0], &body->cowns[body->count], [](const auto* c) {
-          return (
-            c->bp_state.load(std::memory_order_acquire) & PriorityMask::High);
-        });
-      yield();
-      return
-#ifdef USE_SYSTEMATIC_TESTING
-        Systematic::coin(3) ||
-#endif
-        high_priority;
     }
 
     /// Update backpressure status based on the occurrence of a token message.
