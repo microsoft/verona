@@ -2,7 +2,7 @@ resources:
   repositories:
   - repository: llvm
     type: github
-    endpoint: AnyBuildVeronaLLVM
+    Noint: LLVMServiceComnection
     name: llvm/llvm-project
     trigger: none
 
@@ -10,7 +10,7 @@ jobs:
 ############################################# Linux Builds
 - job:
   displayName: LLVM Linux Build
-  pool: AnyBuild-Verona-SelfHosted-LLVM
+  pool: AnyBuild
   timeoutInMinutes: 120
   strategy:
     matrix:
