@@ -2,7 +2,7 @@ resources:
   repositories:
   - repository: llvm
     type: github
-    Noint: LLVMServiceComnection
+    endpoint: LLVMServiceComnection
     name: llvm/llvm-project
     trigger: none
 
