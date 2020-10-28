@@ -528,6 +528,15 @@ namespace verona::rt
       assert(body->index <= last);
 
       auto high_priority = false;
+      if (body->index == 0)
+      {
+        high_priority = std::any_of(
+          &body->cowns[0], &body->cowns[body->count], [](const auto* c) {
+            return (
+              c->bp_state.load(std::memory_order_acquire) & PriorityMask::High);
+          });
+      }
+
       for (; body->index < body->count; body->index++)
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
