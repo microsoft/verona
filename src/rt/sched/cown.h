@@ -530,6 +530,9 @@ namespace verona::rt
       auto high_priority = false;
       if (body->index == 0)
       {
+        // If priority is needed for any cown in this message, start unmuting
+        // cowns in the body so that they can start running messages in their
+        // queue.
         high_priority = std::any_of(
           &body->cowns[0], &body->cowns[body->count], [](const auto* c) {
             return (
@@ -546,15 +549,18 @@ namespace verona::rt
 
         if (body->index > 0)
         {
+          // Double check the priority of the most recently acquired cown to
+          // prevent deadlock.
           auto* cur = body->cowns[body->index - 1];
-          cur->blocker.store(next, std::memory_order_release);
-          yield();
           high_priority = high_priority ||
             (cur->bp_state.load(std::memory_order_acquire) & PriorityMask::High)
 #ifdef USE_SYSTEMATIC_TESTING
             || Systematic::coin(3)
 #endif
             ;
+          yield();
+          if (!high_priority)
+            cur->blocker.store(next, std::memory_order_release);
         }
 
         // Send the message to the next cown. Return false if the fast send has
@@ -1001,8 +1007,8 @@ namespace verona::rt
       yield(); // Reading global state in peek_back().
 
       const auto stat = status.load(std::memory_order_acquire);
-      const auto bp = bp_state.load(std::memory_order_acquire);
-      assert(bp != Priority::Low);
+      assert(bp_state.load(std::memory_order_acquire) != Priority::Low);
+
       // The batch limit is between 100 and 251, depending on the load.
       const auto batch_limit = (size_t)100 | ((size_t)stat.total_load() >> 3);
 
