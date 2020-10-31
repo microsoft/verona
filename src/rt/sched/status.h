@@ -33,6 +33,11 @@ namespace verona::rt
     High = 0b10,
   };
 
+  inline uintptr_t operator|(Cown* blocker, Priority p)
+  {
+    return (uintptr_t)blocker | (uintptr_t)p;
+  }
+
   constexpr inline bool operator&(Priority p, PriorityMask m)
   {
     return (uint8_t)p & (uint8_t)m;

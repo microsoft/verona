@@ -217,11 +217,13 @@ namespace verona::rt
       {
         auto* cown = cowns[i];
         auto bp = cown->bp_state.load(std::memory_order_relaxed);
+        auto blocker = (Cown*)(bp & ~(uintptr_t)PriorityMask::All);
+        auto p = (Priority)(bp & (uintptr_t)PriorityMask::All);
         yield();
-        assert(bp != Priority::Low);
+        assert(p != Priority::Low);
 
         if (
-          (bp & PriorityMask::High) || (state == ThreadState::PreScan) ||
+          (p & PriorityMask::High) || (state == ThreadState::PreScan) ||
           (state == ThreadState::Scan) || (state == ThreadState::AllInScan))
         { // Messages in this cown's queue must be scanned.
           cown->schedule();
@@ -239,10 +241,11 @@ namespace verona::rt
           Systematic::coin(9) ||
 #endif
           !cown->bp_state.compare_exchange_weak(
-            bp, Priority::Low, std::memory_order_acq_rel))
+            bp, blocker | Priority::Low, std::memory_order_acq_rel))
         {
+          p = (Priority)(bp & (uintptr_t)PriorityMask::All);
+          assert(p != Priority::Low);
           yield();
-          assert(bp != Priority::Low);
           cown->schedule();
           mute_set.erase(ins.second);
           T::release(alloc, cown);
@@ -251,7 +254,7 @@ namespace verona::rt
         }
         Systematic::cout() << "Cown " << cown << ": backpressure state " << bp
                            << " -> Low" << std::endl;
-        assert(!(bp & PriorityMask::High));
+        assert(!(p & PriorityMask::High));
       }
 
       alloc->dealloc(cowns, count * sizeof(T*));
