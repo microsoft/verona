@@ -2,7 +2,7 @@
 
 ## Abstract
 
-This document is a thought experiment in how runtime support can reduce the complexity of the type system.  The key insight is to delay certain operations to a point where we can trivially know that there is no aliasing.  Alias into a region is difficult to track accurately at compile time.
+This document is a thought experiment in how runtime support can reduce the complexity of the type system.  The key insight is to delay certain operations to a point where we can trivially know that there is no aliasing.  Aliases into a region are difficult to track accurately at compile time, by relaxing the semantics of when a programmer can assume an event occurs allows for a simpler type system.
 
 ## Motivation
 
@@ -29,23 +29,27 @@ The same is true for sending a region, we must also invalidate the references in
 
 This leads to us having to track subregion information precisely.  We have explored various restrictions to reduce the required precision, but not found a solution that we can agree upon.  A key requirement is any subregion information must be expressible as a method signature otherwise we will not be able to outline code.  This however makes the design visible and constrains future extensions.
 
-The core reason for tracking this information precisely is that dropping a region and sending a message happen immediately.  If we alter the semantics to dropping a region or sending a message happen once there are no interior pointers into the region or subregions of that region, then we have a different programming model.
+The core reason for tracking this information precisely is that dropping a region, or sending a message, happens immediately.  If we alter the semantics to dropping a region or sending a message to happen once there are no interior pointers into the region or subregions of that region, then we have a different programming model.
 
 We know that once a behaviour completes then it will have no interior references and thus it can send all its messages, and deallocate all the dropped regions.
 Delaying until the end of a behaviour may reduce concurrency and increase memory pressure.
 This does not require any clever type system or analysis to make this work, and we would not have to track subregion information.
-
 We could specify the semantics as messages are only sent at the end of a behaviour, but that would constrain future optimisations.
 If the semantics simple states that messages can be sent once a behaviour is guaranteed not to access the region (and subregions), then we open the possibility of adding a better static type system, or compiler optimisation passes at a future point.
 
+## Proposal
+
+We change the semantics of the language in the following two ways:
+
 >  Message send happens after all the internal references to the region tree have been removed.
 
+and
 
-> Deallocation of a region happens afterall internal references to the region have been removed.
+> Deallocation of a region happens after all internal references to the region have been removed.
 
-The slight difference allows for a region to be deallocate, but for the sub-region to remain 
+The slight difference allows for a region to be deallocated, but for the sub-regions deallocation to be delayed longer.
 
-
+**[Luke, Paul, This might lead to an interesting formal semantics. I think it breaks the current thinking on keeping the region structure and the cown concurrency separate.]**
 
 ## Type system
 
@@ -58,15 +62,18 @@ where `I` are interfaces
    `r` are region variables
    `X` are type variables
 
-So the semantics of types are
+We restrict types on fields and generic parameters to not mention `r`, i.e. they cannot contain `r`, `tau ~>_r tau` and `tau <~_r tau`.
+
+**[Sylvan is this too restrictive]**
+
+We interpret the semantics of types with 
 ```
 [[ _ ]] : 
     (region var -> region) 
         -> (type var -> P(C, region, cap)) 
             -> P(C, region, cap)
 ```
-
-So
+where
 ```
   [[ iso ]](R,T) = { C,r,iso | C \in Class, r \in region}
   [[ r ]](R,T) = { C,R(r),cap | C \in Class, cap \in Caps }
@@ -90,6 +97,7 @@ C1,r1,mut ~>_r C2,_,imm = C2,r1,imm
 C1,r1,iso ~>_r C2,_,imm = C2,r1,imm
 C1,r1,imm ~>_r C2,_,imm = C2,r1,imm
 ```
+**[Could be a relational definition to allow for unrestricted r on the right hand side.]**
 
 Extracting viewpoint adaptation
 ```
@@ -105,14 +113,16 @@ C1,r1,imm <~_r C2,_,imm = C2,r1,imm
 ```
 
 The most important difference between extracting and aliasing
-viewpoint adaption is how they behave on `iso` fields.
+viewpoint adaption is how they behave on `iso` fields. Extracting provides an `iso` in the supplied region, and aliasing provides a `mut` in the supplied region.
+
+The definitions take a region parameter so that "freshness" can be suitably defined. 
 
 ### Type Rules
 
 Aliasing assignment generates a fresh region
 if it follows an `iso`, if it follows an `imm` then it is in the immutable region, otherwise it is in the same region. 
 
-[TODO:  Read versus Write types for a field
+Read versus Write types for a field
 ```
    field_r(tau1 | tau2, f) = field_r(tau1, f) | field_r(tau2, f)
    field_r(tau1 & tau2, f) = field_r(tau1, f) & field_r(tau2, f)
@@ -157,14 +167,14 @@ No longer has to invalidate any regions, may consume locals of type `iso`.
 
 ##  Work required
 
-* Runtime support for delaying collection
+* Runtime support for delaying reclaimation
 * Runtime support for delaying message send
 * Feasability work for optimisations 
     - What can we optimise?
     - What user annotation might we provide?
     - 
 * Type system implementation 
-* Optimisation 
+* Optimisation
 
 ## Concerns
 
@@ -180,6 +190,8 @@ Not tracking regions and subregions precisely means we may need to be more caref
   r2.remove_root(b)
 ```
 Is not allowed as if r1 and r2 are the same region, then we will not be following the stack discipline.
+
+**[This may already be the case with cown aliasing, where we don't know if two cowns are the same or different.]**
 
 ### Performance
 
