@@ -114,7 +114,7 @@ namespace verona::rt
     std::atomic<size_t> weak_count = 1;
 
     std::atomic<Status> status{};
-    std::atomic<uintptr_t> bp_state = (Cown*)nullptr | Priority::Normal;
+    std::atomic<uintptr_t> bp_state{(Cown*)nullptr | Priority::Normal};
 
     static Cown* create_token_cown()
     {
@@ -557,7 +557,7 @@ namespace verona::rt
             ;
           yield();
           if (!high_priority)
-            cur->set_blocker(next);
+            high_priority = cur->set_blocker(next);
         }
 
         // Send the message to the next cown. Return false if the fast send has
@@ -889,29 +889,18 @@ namespace verona::rt
       return b;
     }
 
-    inline void set_blocker(Cown* blocker)
+    /// Attempt to set the blocker for this cown. Return true if the priority is
+    /// high. The blocker will not be set on a failed exchange due to another
+    /// thread raising the priority of this cown.
+    inline bool set_blocker(Cown* b)
     {
-      uintptr_t bp = bp_state.load(std::memory_order_acquire);
-      Cown* prev;
-      Priority p;
-      do
-      {
-        prev = (Cown*)(bp & ~(uintptr_t)PriorityMask::All);
-        p = (Priority)(bp & (uintptr_t)PriorityMask::All);
-        yield();
-        if (blocker == prev)
-          return;
-
-      } while (
-#ifdef USE_SYSTEMATIC_TESTING
-        Systematic::coin(9) ||
-#endif
-        !bp_state.compare_exchange_weak(
-          bp, blocker | p, std::memory_order_acq_rel));
-      Systematic::cout() << "set blocker of cown " << this << ": cown "
-                         << (blocker == nullptr ? 0 : blocker->id())
-                         << std::endl;
+      auto bp = bp_state.load(std::memory_order_relaxed);
       yield();
+      auto p = (Priority)(bp & (uintptr_t)PriorityMask::All);
+      bp_state.compare_exchange_strong(bp, b | p, std::memory_order_acq_rel);
+      yield();
+      p = (Priority)(bp & (uintptr_t)PriorityMask::All);
+      return (p & PriorityMask::High);
     }
 
     /// Return true if a sender to this cown should become low priority.
