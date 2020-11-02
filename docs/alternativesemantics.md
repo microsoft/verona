@@ -23,19 +23,33 @@ var y = x.f;
 ```
 then we need to track that `y` has come from a subregion of `x`.
 Certain operations on `x`'s region must also invalidate `y`.
-If we drop the region containing `x`, then that will also deallocate the subregion, and thus `y` would be dangling if did not invalidate it.
+If we drop the region containing `x`, then that will also deallocate the subregion, and thus `y` would be dangling if we did not invalidate it.
 
-The same is true for sending a region, we must also invalidate the references into subregions.
+The same is true for a `when` that captures a region in its closure:
+```
+var a = new C
+a.next = new D
+// a : iso & C
+var b = a.next;
+// a : iso & C, b : mut & D
+when (c) {
+    //do something with a 
+}
+// Use b
+```
+Here `a` is sent to the `cown` `c` by the runtime.  Once that message is sent, we must also invalidate the references into subregions. The `use b` after the
+`when` is invalid as it could be in parallel with the `do something with a`.
+This leads to us having to track subregion information precisely, so that we know that `a` being captured by the `when` invalidates `b`.
 
-This leads to us having to track subregion information precisely.  We have explored various restrictions to reduce the required precision, but not found a solution that we can agree upon.  A key requirement is any subregion information must be expressible as a method signature otherwise we will not be able to outline code.  This however makes the design visible and constrains future extensions.
+We have explored various restrictions to reduce the required precision, but not found a solution that we can agree upon.  A key requirement is any subregion information must be expressible as a method signature otherwise we will not be able to outline code.  This however makes the design visible and constrains future extensions.
 
 The core reason for tracking this information precisely is that dropping a region, or sending a message, happens immediately.  If we alter the semantics to dropping a region or sending a message to happen once there are no interior pointers into the region or subregions of that region, then we have a different programming model.
 
-We know that once a behaviour completes then it will have no interior references and thus it can send all its messages, and deallocate all the dropped regions.
-Delaying until the end of a behaviour may reduce concurrency and increase memory pressure.
-This does not require any clever type system or analysis to make this work, and we would not have to track subregion information.
+We know that once a behaviour completes then it will have no interior references and thus it can send all its messages, and deallocate all the dropped regions, thus it will be safe to deallocate the regions and send the messages. 
+Delaying message send and deallocation until the behaviour completes may reduce concurrency and increase memory pressure.
+However, this does not require any clever type system or analysis to make this work, and we would not have to track subregion information.
 We could specify the semantics as messages are only sent at the end of a behaviour, but that would constrain future optimisations.
-If the semantics simple states that messages can be sent once a behaviour is guaranteed not to access the region (and subregions), then we open the possibility of adding a better static type system, or compiler optimisation passes at a future point.
+If the semantics simply states that messages can be sent once a behaviour is guaranteed not to access the region (and subregions), then we open the possibility of adding a better static type system, or compiler optimisation passes at a future point.
 
 ## Proposal
 
@@ -58,9 +72,13 @@ The slight difference allows for a region to be deallocated, but for the sub-reg
    tau : Types ::= iso  |  mut  |  imm  |  tau|tau  |  tau&tau  |  r  |  I  |  C
      |  tau ~>_r tau  |  tau <~_r tau  |  X
 ```
-where `I` are interfaces
+where 
+   `C` are class names
+   `I` are interfaces
    `r` are region variables
    `X` are type variables
+
+Most of the syntax of types is standard, but  `tau ~>_r tau` and `tau <~_r tau` are special region operations, known as "view point adapation"s.  There are two types aliasing, `~>`, and extracting `<~`.
 
 We restrict types on fields and generic parameters to not mention `r`, i.e. they cannot contain `r`, `tau ~>_r tau` and `tau <~_r tau`.
 
@@ -119,31 +137,31 @@ The definitions take a region parameter so that "freshness" can be suitably defi
 
 ### Type Rules
 
-Aliasing assignment generates a fresh region
-if it follows an `iso`, if it follows an `imm` then it is in the immutable region, otherwise it is in the same region. 
-
-Read versus Write types for a field
+### Read versus Write types for a field
 ```
-   field_r(tau1 | tau2, f) = field_r(tau1, f) | field_r(tau2, f)
-   field_r(tau1 & tau2, f) = field_r(tau1, f) & field_r(tau2, f)
-   field_w(tau1 | tau2, f) = field_r(tau1, f) & field_r(tau2, f)
-   field_w(tau1 & tau2, f) = field_r(tau1, f) & field_r(tau2, f)
+   field_read(tau1 | tau2, f) = field_read(tau1, f) | field_read(tau2, f)
+   field_read(tau1 & tau2, f) = field_read(tau1, f) & field_read(tau2, f)
+   field_write(tau1 | tau2, f) = field_write(tau1, f) & field_write(tau2, f)
+   field_write(tau1 & tau2, f) = field_write(tau1, f) & field_write(tau2, f)
 ```
 ]
 
+### Aliasing assignment generates a fresh region
+if it follows an `iso`. If it follows an `imm` then it is in the immutable space, otherwise it is in the same region. 
+
 ```
-field_R(f, tau_x) = tau_f
+field_read(f, tau_x) = tau_f
 fresh r
 -------------------------------------
 G |- z = x.f -| G, z: tau_x ->r tau_f
 ```
 
-Extraction uses a fresh region
+### Extraction uses a fresh region
 ```
 G(x) : tau_x
 G(y) : tau_y
-field_w(f, tau_x) = tau_f_w
-field_r(f, tau_x) = tau_f_r
+field_write(f, tau_x) = tau_f_w
+field_read(f, tau_x) = tau_f_r
 exists r'. tau_y <: tau_x <~r' tau_f_w
 fresh r
 --------------------------------------
@@ -152,7 +170,7 @@ G |- z = (x.f = y) -| G, z: tau_x <~r tau_f_r
 Is y still accessible?  If it was an iso, then no.  But otherwise, yes.  So remove y, if we can prove it was not an iso?
 
 
-Method call?
+### Method call?
 
 No longer has to invalidate any regions, may consume locals of type `iso`.
 ```
@@ -163,7 +181,7 @@ No longer has to invalidate any regions, may consume locals of type `iso`.
   foo (y) /// Error `y` was invalidate by previous line.
 ```
 
-
+**[Type rule goes here]**
 
 ##  Work required
 
@@ -195,8 +213,11 @@ Is not allowed as if r1 and r2 are the same region, then we will not be followin
 
 ### Performance
 
-This approach can cause more memory and less concurrency of messages.  This may be bad for performance.
+This approach can cause higher memory usage and less concurrency of messages.  This may be bad for performance.
 
 Using compiler optimisations and global analysis could mitigate the default performance by finding cases where messages can be sent promptly.
 
 This however leads to hard to predict performance for the programmer.  We can mitigate this by providing annotations the programmer provides to guarantee certain properties must be true for optimisation, but then we are effectively implementing the complex type system.  This may still be acceptable as the barrier to entry is lower, and the performance work will require a more specialist view.  We can also potentially forbid more in the perf setting, allowing programmers to trade off flexibity of implementation with performance.
+
+A correct design here will take time and experience.
+This proposal can be adopted without resolving this design, but we should be careful not to restrict future optimisations and annotations.
