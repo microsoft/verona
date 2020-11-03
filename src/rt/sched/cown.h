@@ -114,7 +114,7 @@ namespace verona::rt
     std::atomic<size_t> weak_count = 1;
 
     std::atomic<Status> status{};
-    std::atomic<Priority> bp_state = Priority::Normal;
+    std::atomic<uintptr_t> bp_state{(Cown*)nullptr | Priority::Normal};
 
     static Cown* create_token_cown()
     {
@@ -525,29 +525,65 @@ namespace verona::rt
       const auto last = body->count - 1;
       assert(body->index <= last);
 
-      const auto high_priority = behaviour_requires_high_priority(body);
+      auto high_priority = false;
+      if (body->index == 0)
+      {
+        // If priority is needed for any cown in this message, start unmuting
+        // cowns in the body so that they can start running messages in their
+        // queue.
+        high_priority = std::any_of(
+          &body->cowns[0], &body->cowns[body->count], [](const auto* c) {
+            return (c->priority() & PriorityMask::High);
+          });
+      }
+
       for (; body->index < body->count; body->index++)
       {
-        MultiMessage* m = MultiMessage::make_message(alloc, body, epoch);
+        auto m = MultiMessage::make_message(alloc, body, epoch);
         auto* next = body->cowns[body->index];
         Systematic::cout() << "MultiMessage " << m << ": fast requesting "
                            << next << ", index " << body->index << std::endl;
 
+        if (body->index > 0)
         {
-          // Hold epoch in case priority needs to be raised after message is
-          // placed in queue. TODO: only hold if `high_priority` is true
-          Epoch e(alloc);
+          // Double check the priority of the most recently acquired cown to
+          // prevent deadlock.
+          auto* cur = body->cowns[body->index - 1];
+          high_priority = high_priority ||
+            (cur->priority() & PriorityMask::High)
+#ifdef USE_SYSTEMATIC_TESTING
+            || Systematic::coin(3)
+#endif
+            ;
+          yield();
+          if (!high_priority)
+            high_priority = cur->set_blocker(next);
+        }
 
+        // Send the message to the next cown. Return false if the fast send has
+        // been interrupted (the cown is already scheduled).
+        auto try_fast_send = [next, m]() -> bool {
           bool needs_scheduling = next->send<YesTransfer, YesTryFast>(m);
           if (!needs_scheduling)
-          {
-            // Case 1: target cown was already scheduled.
             Systematic::cout()
               << "MultiMessage " << m << ": fast send interrupted" << std::endl;
 
-            if (high_priority)
-              next->backpressure_transition(Priority::High);
+          return needs_scheduling;
+        };
 
+        if (!high_priority)
+        {
+          if (!try_fast_send())
+            return;
+        }
+        else
+        {
+          // Hold epoch in case priority needs to be raised after message is
+          // placed in queue.
+          Epoch e(alloc);
+          if (!try_fast_send())
+          {
+            backpressure_unblock(next, e);
             return;
           }
         }
@@ -693,6 +729,9 @@ namespace verona::rt
 
       Scheduler::local()->message_body = &body;
 
+      for (size_t i = 0; i < body.count; i++)
+        body.cowns[i]->set_blocker(nullptr);
+
       // Run the behaviour.
       body.behaviour->f();
 
@@ -780,12 +819,19 @@ namespace verona::rt
     /// state. An attempt to set the state to Normal may be preempted by
     /// another thread setting the cown to any state that isn't Muted. Normal
     /// priority may overwrite High priority when the exact flag is set.
+    ///
+    /// Transitioning cowns to High priority should be done through
+    /// `backpressure_unblock`.
     inline Priority backpressure_transition(Priority state, bool exact = false)
     {
-      auto prev = bp_state.load(std::memory_order_acquire);
+      uintptr_t bp = bp_state.load(std::memory_order_acquire);
+      Cown* blocker;
+      Priority prev;
       do
       {
         yield();
+        blocker = (Cown*)(bp & ~(uintptr_t)PriorityMask::All);
+        prev = (Priority)(bp & (uintptr_t)PriorityMask::All);
 
         if ((state == Priority::Normal) && (prev != Priority::Low) && !exact)
           return prev;
@@ -798,30 +844,72 @@ namespace verona::rt
         Systematic::coin(9) ||
 #endif
         !bp_state.compare_exchange_weak(
-          prev, state, std::memory_order_acq_rel));
+          bp, blocker | state, std::memory_order_acq_rel));
 
       Systematic::cout() << "Cown " << this << ": backpressure state " << prev
                          << " -> " << state << std::endl;
       yield();
 
-      if (prev != Priority::Low)
-        return prev;
-
-      auto sleeping = queue.wake();
-      UNUSED(sleeping);
-      assert(!sleeping);
-      schedule();
+      if (prev == Priority::Low)
+      {
+        auto sleeping = queue.wake();
+        UNUSED(sleeping);
+        assert(!sleeping);
+        schedule();
+      }
 
       return prev;
+    }
+
+    /// Recursively raise the priority of the given cown and its blocker.
+    static inline void
+    backpressure_unblock(Cown* cown, Epoch epoch = Epoch(ThreadAlloc::get()))
+    {
+      UNUSED(epoch);
+      for (; cown != nullptr; cown = cown->blocker())
+      {
+        Systematic::cout() << "Unblock cown " << cown << std::endl;
+        cown->backpressure_transition(Priority::High);
+      }
+    }
+
+    inline Priority priority(Cown** blocker = nullptr) const
+    {
+      const auto bp = bp_state.load(std::memory_order_acquire);
+      if (blocker != nullptr)
+        *blocker = (Cown*)(bp & ~(uintptr_t)PriorityMask::All);
+
+      return (Priority)(bp & (uintptr_t)PriorityMask::All);
+    }
+
+    inline Cown* blocker() const
+    {
+      Cown* b;
+      priority(&b);
+      return b;
+    }
+
+    /// Attempt to set the blocker for this cown. Return true if the priority is
+    /// high. The blocker will not be set on a failed exchange due to another
+    /// thread raising the priority of this cown.
+    inline bool set_blocker(Cown* b)
+    {
+      auto bp = bp_state.load(std::memory_order_relaxed);
+      yield();
+      auto p = (Priority)(bp & (uintptr_t)PriorityMask::All);
+      bp_state.compare_exchange_strong(bp, b | p, std::memory_order_acq_rel);
+      yield();
+      p = (Priority)(bp & (uintptr_t)PriorityMask::All);
+      return (p & PriorityMask::High);
     }
 
     /// Return true if a sender to this cown should become low priority.
     inline bool triggers_muting()
     {
-      auto bp = bp_state.load(std::memory_order_acquire);
+      auto p = priority();
       auto sleeping = queue.is_sleeping();
       yield();
-      return (bp != Priority::Normal) && !sleeping;
+      return (p != Priority::Normal) && !sleeping;
     }
 
     /// Set the `mutor` field of the current scheduler thread if the senders
@@ -862,22 +950,6 @@ namespace verona::rt
       }
     }
 
-    /// Return true if any multimessage cowns have a high priority.
-    static inline bool behaviour_requires_high_priority(MessageBody* body)
-    {
-      bool high_priority = std::any_of(
-        &body->cowns[0], &body->cowns[body->count], [](const auto* c) {
-          return (
-            c->bp_state.load(std::memory_order_acquire) & PriorityMask::High);
-        });
-      yield();
-      return
-#ifdef USE_SYSTEMATIC_TESTING
-        Systematic::coin(3) ||
-#endif
-        high_priority;
-    }
-
     /// Update backpressure status based on the occurrence of a token message.
     /// Return true if the current message is a token.
     inline bool check_message_token(Alloc* alloc, MessageBody* curr)
@@ -892,12 +964,12 @@ namespace verona::rt
         stat.set_has_token(false);
         status.store(stat, std::memory_order_release);
 
-        auto bp = bp_state.load(std::memory_order_acquire);
+        auto p = priority();
         if (stat.overloaded())
-          backpressure_transition(Priority::High);
-        else if (bp == Priority::High)
+          backpressure_unblock(this);
+        else if (p == Priority::High)
           backpressure_transition(Priority::MaybeHigh);
-        else if (bp == Priority::MaybeHigh)
+        else if (p == Priority::MaybeHigh)
           backpressure_transition(Priority::Normal);
 
         return true;
@@ -917,9 +989,15 @@ namespace verona::rt
       }
       stat.inc_load();
       stat.set_has_token(true);
+
+#ifdef USE_SYSTEMATIC_TESTING
+      if (Systematic::coin(5))
+        stat.set_overloaded(!stat.overloaded());
+#endif
+
       status.store(stat, std::memory_order_release);
       if (stat.overloaded())
-        backpressure_transition(Priority::High);
+        backpressure_unblock(this);
 
       return false;
     }
@@ -959,8 +1037,8 @@ namespace verona::rt
       yield(); // Reading global state in peek_back().
 
       const auto stat = status.load(std::memory_order_acquire);
-      const auto bp = bp_state.load(std::memory_order_acquire);
-      assert(bp != Priority::Low);
+      assert(priority() != Priority::Low);
+
       // The batch limit is between 100 and 251, depending on the load.
       const auto batch_limit = (size_t)100 | ((size_t)stat.total_load() >> 3);
 
@@ -1097,7 +1175,7 @@ namespace verona::rt
       if (!is_collected())
       {
         yield();
-        assert(bp_state.load(std::memory_order_acquire) != Priority::Low);
+        assert(priority() != Priority::Low);
         Systematic::cout() << "Collecting (sweep) cown " << this << std::endl;
         collect(alloc);
       }
@@ -1196,7 +1274,7 @@ namespace verona::rt
       }
 
       yield();
-      assert(bp_state.load(std::memory_order_acquire) != Priority::Low);
+      assert(priority() != Priority::Low);
 
       // Now we may run our destructor.
       destructor();

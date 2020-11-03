@@ -33,6 +33,11 @@ namespace verona::rt
     High = 0b10,
   };
 
+  inline uintptr_t operator|(Cown* blocker, Priority p)
+  {
+    return (uintptr_t)blocker | (uintptr_t)p;
+  }
+
   constexpr inline bool operator&(Priority p, PriorityMask m)
   {
     return (uint8_t)p & (uint8_t)m;
@@ -70,10 +75,20 @@ namespace verona::rt
     /// the token message falls out, the `reset_load()` function will push the
     /// upper nibble of the current load into the `load_hist` ring buffer.
     uint8_t _current_load = 0;
-    /// Other miscellaneous bits. 7 bits are reserved for future use.
+    /// Other miscellaneous bits. 6 bits are reserved for future use.
     /// Bit 0 indicates if the token message is in a cown's queue. If zero, a
     /// new token message should be added if the cown runs another message.
+    /// Bit 1 indicates if a cown is held in an overloaded state regardless of
+    /// its `total_load()`.
     uint8_t _misc = 0;
+
+    template<uint8_t i>
+    inline void set_misc(bool value)
+    {
+      static_assert(i < 8);
+      const auto mask = ~((uint8_t)1 << i);
+      _misc = (_misc & mask) | ((uint8_t)value << i);
+    }
 
   public:
     /// Return the count of messages processed since the last token message fell
@@ -98,7 +113,7 @@ namespace verona::rt
     /// Return true if this cown is overloaded.
     inline bool overloaded() const
     {
-      return total_load() > overload_threshold;
+      return bits::extract<1, 1>(_misc) || (total_load() > overload_threshold);
     }
 
     /// Increment the current load. This increment will become saturated at 255.
@@ -115,13 +130,11 @@ namespace verona::rt
       _current_load = 0;
     }
 
-    /// Artificially overload a cown.
-    /// TODO: In the future, this will require a bit to remain overloaded after
-    /// the load drops.
-    inline void overload()
+    /// Set the bit value that holds the overloaded state regardless of the
+    /// `total_load()` on a cown.
+    inline void set_overloaded(bool value)
     {
-      _load_hist = (uint16_t)-1;
-      _current_load = (uint8_t)-1;
+      set_misc<1>(value);
     }
 
     /// Indicates if the token message is in a cown's queue. If zero, a
@@ -131,10 +144,10 @@ namespace verona::rt
       return bits::extract<0, 0>(_misc) == 1;
     }
 
-    /// Set whether the cown has a token in its queue.
+    /// Set whether the cown has a token message in its queue.
     inline void set_has_token(bool value)
     {
-      _misc = (_misc & 0xFE) | (uint8_t)value;
+      set_misc<0>(value);
     }
   };
 }

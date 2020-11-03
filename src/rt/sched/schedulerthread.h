@@ -217,11 +217,13 @@ namespace verona::rt
       {
         auto* cown = cowns[i];
         auto bp = cown->bp_state.load(std::memory_order_relaxed);
+        auto blocker = (Cown*)(bp & ~(uintptr_t)PriorityMask::All);
+        auto p = (Priority)(bp & (uintptr_t)PriorityMask::All);
         yield();
-        assert(bp != Priority::Low);
+        assert(p != Priority::Low);
 
         if (
-          (bp & PriorityMask::High) || (state == ThreadState::PreScan) ||
+          (p & PriorityMask::High) || (state == ThreadState::PreScan) ||
           (state == ThreadState::Scan) || (state == ThreadState::AllInScan))
         { // Messages in this cown's queue must be scanned.
           cown->schedule();
@@ -239,10 +241,11 @@ namespace verona::rt
           Systematic::coin(9) ||
 #endif
           !cown->bp_state.compare_exchange_weak(
-            bp, Priority::Low, std::memory_order_acq_rel))
+            bp, blocker | Priority::Low, std::memory_order_acq_rel))
         {
+          p = (Priority)(bp & (uintptr_t)PriorityMask::All);
+          assert(p != Priority::Low);
           yield();
-          assert(bp != Priority::Low);
           cown->schedule();
           mute_set.erase(ins.second);
           T::release(alloc, cown);
@@ -251,7 +254,7 @@ namespace verona::rt
         }
         Systematic::cout() << "Cown " << cown << ": backpressure state " << bp
                            << " -> Low" << std::endl;
-        assert(!(bp & PriorityMask::High));
+        assert(!(p & PriorityMask::High));
       }
 
       alloc->dealloc(cowns, count * sizeof(T*));
@@ -267,10 +270,10 @@ namespace verona::rt
       for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
       {
         auto* m = entry.key();
-        if (force || !m->triggers_muting())
+        auto& mute_set = *entry.value();
+        if (force || !m->triggers_muting() || m->is_collected())
         {
           yield();
-          auto& mute_set = *entry.value();
           for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
           {
             Systematic::cout()
@@ -279,6 +282,13 @@ namespace verona::rt
             T::release(alloc, it.key());
             mute_set.erase(it);
           }
+          m->weak_release(alloc);
+          mute_map.erase(entry);
+          mute_set.dealloc(alloc);
+          alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
+        }
+        else if (mute_set.size() == 0)
+        {
           m->weak_release(alloc);
           mute_map.erase(entry);
           mute_set.dealloc(alloc);
@@ -580,7 +590,13 @@ namespace verona::rt
 #endif
           if (mute_map.size() != 0)
         {
+#ifndef USE_SYSTEMATIC_TESTING
           mute_map_scan(true);
+#else
+          const auto last = Scheduler::get().active_thread_count == 1;
+          mute_map_scan(!last);
+          assert(!(last && (mute_map.size() > 0) && q.is_empty()));
+#endif
           continue;
         }
         // Enter sleep only when the queue doesn't contain any real cowns.
