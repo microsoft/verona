@@ -2,7 +2,7 @@
 
 ## Abstract
 
-This document is a thought experiment in how runtime support can reduce the complexity of the type system.  The key insight is to delay certain operations to a point where we can trivially know that there is no aliasing.  Aliases into a region are difficult to track accurately at compile time, by relaxing the semantics of when a programmer can assume an event occurs allows for a simpler type system.
+This document is a thought experiment in how runtime support can reduce the complexity of the type system.  The key insight is to delay certain operations to a point where we can trivially know that there is no aliasing.  Aliases into a region are difficult to track accurately at compile time.  We propose relaxing the semantics of when a programmer can assume an event occurs, which allows for a simpler type system.
 
 ## Motivation
 
@@ -221,3 +221,149 @@ This however leads to hard to predict performance for the programmer.  We can mi
 
 A correct design here will take time and experience.
 This proposal can be adopted without resolving this design, but we should be careful not to restrict future optimisations and annotations.
+
+## Optimisations
+
+For this proposal to be successful, it must be possible to optimise code predictably. There are different constraints on optimising deallocation of regions to allowing early message sends.
+
+### Deallocation of regions
+
+Deallocation of regions is easier to optimise, as we can make the semantics less deterministic in the order that regions are deallocated. Consider the following code that creates to regions:
+```
+  var a = new C
+  var b = new C
+  a.f = new D in a
+  b.f = new D in b
+  var y = a.f;
+  drop a
+  drop b
+  // do something with y.
+```
+Now, the `drop a` will need to be delayed as `y` is keeping the region live, but `b` can be dropped instantly.  We can specify in the semantics that no particular order is guaranteed.  We could even extend systematic testing to delay non-deterministically deallocation any time it is valid to do so.
+
+#### Mechanisms for deciding.
+
+* Track potential internal pointers statically through abstract interpretation.
+  *  Keep set of pointers that may point into a particular region, and once that set is empty, can deallocate the region.
+  *  Taint regions, if we ever lose precision on if a region is still live, then mark region to be deallocated at the end of the scope/behaviour.
+* Track internal pointers dynamically.  We already have an additional root set that is used to enable tidy.  This set can be used to specify that there is an internal reference into the region associated to `a`, and once `y` goes away that could be removed.  This set is not expected to track references into sub-regions, but we could delay subregion deallocation further using the same mechanism.
+
+### Message Send
+
+Message send is much more complex as we are not allowed to reorder behaviours
+```
+when (a)
+{
+   // Captures something that is still live due to sub-reference
+}
+when (a)
+{
+  // Does not capture anything.
+}
+```
+It is tempting to immediately dispatch the second `when`, and only dispatch the first once it is safe to do so.  However, this breaks the causality guarantees of the language.
+
+Once we have delayed one `when`, then all subsequent `when`s must be delayed until we can dispatch the first.
+
+We could potentially attempt to track if we are break causality, but that requires us to be able to accurately determine may not alias on cowns:
+```
+when (a)
+{
+   // Captures something that is still live due to sub-reference
+}
+when (b)
+{
+  // Does not capture anything.
+}
+```
+It is sound to dispatch the second before the first, if `a` and `b` are different cowns, but otherwise it is not.
+
+The runtime if any message has been delayed, and if so, all subsequent messages in the behaviour are delayed until the end of the behaviour.  This is the simplist solution, and would probably work well in practice.
+
+### Potential annotations
+
+* This region has no interior pointers in any stack frame
+* The outbound message queue has not been delayed
+* This function does not return new interior pointers.
+
+### Potential warnings
+
+* This `when` captures state that the compiler cannot guarantee is still live, this and all subsequents `when`s may be delayed.
+* This function loses access to a region, but is not able to deallocate immediately, deallocation may be delayed.
+
+Based on the analysis, we can point at where the static analysis loses track of information, and point the programmer at the code.  But I am not sure they will be able to action this information.
+
+## Freeze
+
+Another place where the runtime needs to be strict currently is when freezing an object graph.  We can convert an `iso` into an immutable object graph. We are then allowed to pass this to multiple other behaviours
+
+```
+var x = // build an object graph
+//  x: iso & ...
+Builtin.freeze(x)
+//  x: imm & ...
+when (a)
+{
+  // do something using x
+}
+when (b)
+{
+  // do something using x
+}
+```
+Here the two behaviours can access `x` potentially at the same time.  As they can only read from the structure, there are no concurrency issues, and memory management is handled by the SCC algorithm.
+
+This however is complex to get right, if we allow the freezeing to be delayed. Consider this slightly different example
+```
+//  x: imm & ...
+var y = new C
+y.i = x
+var z = new C
+z.i = x.f;
+when (a)
+{
+  // do something using y
+}
+when (b)
+{
+  // do something using z
+}
+```
+This builds two regions that both refer to the immutable object graph.  To delay this, would require us to keep track of places where we need to add reference counts once the graph is frozen.
+
+It also means when manipulating things of type `imm`, we would need dynamic tests for whether they are actually `imm` or haven't been frozen yet, and thus operations need doing differently.  This would lead to worse codegen, if we cannot eliminate those possibilities.
+
+
+
+## Interesting examples
+This example is trying to think up places where accessing inside regions would be interesting. 
+```
+recv_packet(packet: Array[byte] & iso)
+{
+    when (assembler)
+    {
+        header = get_header(packet);
+        // Header could either parse eagily out of packet into a fresh data structure.
+        // or maintain a pointer into the array and parse lazily.
+        // The later is considerably more challenging for the type system.
+        var packet_list = assembler.packet_map(header.id)
+        // We are adding to the list, so only need an alias at this point
+        // packet_list : mut & List[Array[byte] & iso]
+        packet_list.append(packet);
+
+        // If header is pointing into packet, then the following is challenging.
+        // The ownership has been transferred into packet_list.
+        if (header.final())
+        {
+            // We are about to send so need the iso.alias at this point
+            // final_packet_list : iso & List[Array[byte] & iso]
+            var final_packet_list = assembler.packet_map.extract(header.id)
+            when () {
+                process_message(final_packet_list)
+            }
+            // Using packet_list now is very bad in a strict semantics.
+            // Delaying isn't too bad in this example, as the `when` is the last thing.
+        }
+    }
+}
+```
