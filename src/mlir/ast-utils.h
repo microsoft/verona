@@ -91,7 +91,6 @@ namespace mlir::verona
       If = peg::str2tag("if"), // = 3567
       Else = peg::str2tag("else"), // = 3742303
       While = peg::str2tag("while"), // = 140358143
-      For = peg::str2tag("for"), // = 112155
       Continue = peg::str2tag("continue"), // = 2929012833
       Break = peg::str2tag("break"), // = 117842911
       New = peg::str2tag("new"), // = 120796
@@ -293,22 +292,10 @@ namespace mlir::verona
       return isA(ast, NodeKind::Else);
     }
 
-    /// Return true if node is a while loop
-    static bool isWhile(::ast::Ast ast)
-    {
-      return isA(ast, NodeKind::While);
-    }
-
-    /// Return true if node is a for loop
-    static bool isFor(::ast::Ast ast)
-    {
-      return isA(ast, NodeKind::For);
-    }
-
     /// Return true if node is any kind of loop
     static bool isLoop(::ast::Ast ast)
     {
-      return isWhile(ast) || isFor(ast);
+      return isA(ast, NodeKind::While);
     }
 
     /// Return true if node is a loop continue
@@ -716,20 +703,6 @@ namespace mlir::verona
     {
       assert(isLoop(ast) && "Bad node");
       return findNode(ast, NodeKind::Block);
-    }
-
-    /// Return the sequence generator from a `for` loop
-    static ::ast::Ast getLoopSeq(::ast::Ast ast)
-    {
-      assert(isFor(ast) && "Bad node");
-      return findNode(findNode(ast, NodeKind::Seq), NodeKind::Localref);
-    }
-
-    /// Return the induction variable from a `for` loop
-    static ::ast::Ast getLoopInd(::ast::Ast ast)
-    {
-      assert(isFor(ast) && "Bad node");
-      return findNode(ast, NodeKind::Localref);
     }
   };
 }

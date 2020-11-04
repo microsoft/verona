@@ -93,7 +93,6 @@ namespace mlir::verona
       {
         case AST::NodeKind::If:
         case AST::NodeKind::While:
-        case AST::NodeKind::For:
           return true;
       }
       return false;

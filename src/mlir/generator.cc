@@ -638,7 +638,7 @@ namespace mlir::verona
 
   llvm::Expected<ReturnValue> Generator::parseWhileLoop(const ::ast::Ast& ast)
   {
-    assert(AST::isWhile(ast) && "Bad node");
+    assert(AST::isLoop(ast) && "Bad node");
 
     // Create the head basic-block, which will check the condition
     // and dispatch the loop to the body block or exit.
