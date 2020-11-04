@@ -1,19 +1,127 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-f(x : U16) : S16
+// Simple if updating a variable inside and a variable bypass
+// to show the basic block arguments are correctly chosen
+// for the update and not for the bypass
+
+simple_with_bypass(a : U16, x : U16) : S16
 {
+  // Args:  a  x
+  // Rets:  x
+  if (a == x)
+  {
+    // x(1)
+    x = 42;
+  }
+  // x(2) = PHI(x, x(1))
+  // a(1) = a
+  a + x;
+}
+
+// Checks a simple if/else/if chain
+// Only x propagates through the chain
+// No need for arguments, only in the last two
+// merging basic blocks, which need one argument,
+// the local updated valus of x.
+
+chain(x : U16) : S16
+{
+  // Args:  x
+  // Rets:  x
   if (x < 2)
   {
+    // x(1)
     x = x + 1;
   }
+  // Args:  x
+  // Rets:  x
   else if (true)
   {
+    // x(2)
     x = x - 1;
   }
   else
   {
+    // x(3)
     x = 0;
   }
+  // x(4) = PHI(x(2), x(3))
+  // x(5) = PHI(x(1), x(4))
   x;
+}
+
+// Checks that two values (x, y) are carried correctly
+// through the diamond CFG, with each side modifying a
+// different variable, and the final block with an
+// argument for both. In each side, the values used are
+// the original plus the modified one.
+
+diamond(x : U16, y : U16) : S16
+{
+  // Args:  x  y
+  // Rets:  x  y
+  if (x > y)
+  {
+    // x(1), y
+    x = 10;
+  }
+  else
+  {
+    // x, y(1)
+    y = 20;
+  }
+  // x(2) = PHI(x(1), x)
+  // y(2) = PHI(y, y(1))
+  x + y;
+}
+
+// Double diamond, to make sure the PHI nodes that are created in
+// the inner diamonds are correctly connected to the final PHI nodes
+// in the last block, which should have all four variables.
+
+double_diamond(flag : bool, a : U16, b : U16, x : U16, y : U16) : S16
+{
+  // Args:  a  b  flag  x  y
+  // Rets:  a  b  x  y
+  if (flag)
+  {
+    // Args:  a  b
+    // Rets:  a  b
+    if (a == b)
+    {
+      // a(1)
+      a = 1;
+    }
+    else
+    {
+      // b(1)
+      b = 2;
+    }
+    // a(2) = PHI(a(1), a)
+    // b(2) = PHI(b, b(1))
+  }
+  else
+  {
+    // Args:  x  y
+    // Rets:  x  y
+    if (x == y)
+    {
+      // x(1)
+      x = 3;
+    }
+    else
+    {
+      // y(1)
+      y = 4;
+    }
+    // x(2) = PHI(x(1), x)
+    // y(2) = PHI(y, y(1))
+  }
+  // a(3) = PHI(a(2), a)
+  // b(3) = PHI(b(2), b)
+  a + b;
+  // x(3) = PHI(x, x(2))
+  // y(3) = PHI(y, y(2))
+  x + y;
 }

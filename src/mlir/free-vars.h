@@ -187,6 +187,19 @@ namespace mlir::verona
       return argRet->second;
     }
 
+    /// Append returns to a list, for building basic-block arguments.
+    /// TODO: This may be all we need from this entire class, so maybe we
+    /// could ignore reads and the sets above.
+    /// T must be a list<StringRef> type with push_back.
+    template <class T>
+    void appendReturnsTo(::ast::Ast node, T& list)
+    {
+      auto argRet = freeVars.find(node);
+      assert(argRet != freeVars.end() && "Node doesn't have associated ArgRet");
+      for (auto ret : argRet->second.rets)
+        list.push_back(ret);
+    }
+
     /// Dumps the whole map, per function.
     void dump()
     {

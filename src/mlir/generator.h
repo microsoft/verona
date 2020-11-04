@@ -21,7 +21,9 @@
 #include "llvm/Support/Error.h"
 
 #include <peglib.h>
+#include <stack>
 #include <string>
+#include <vector>
 
 namespace mlir::verona
 {
@@ -54,7 +56,7 @@ namespace mlir::verona
       values.push_back(value);
     }
     /// Multiple value constructor.
-    ReturnValue(mlir::ResultRange& range)
+    ReturnValue(llvm::ArrayRef<mlir::Value> range)
     {
       values.insert(values.begin(), range.begin(), range.end());
     }
@@ -98,6 +100,26 @@ namespace mlir::verona
       values.push_back(value);
     }
   };
+
+  /**
+   * Loop control structures.
+   *
+   * Adds the following fields to each loop's context:
+   *  - Head basic block: the back edge, for continue
+   *  - Tail basic block: the forward edge, for break
+   *  - Basic block arguments: a list of the basic block arguments
+   *
+   * There's one of these structures for each loop, and nested loops have
+   * additional ones, so that when nodes looking for which block to jump to
+   * and which arguments to use will pick the right one.
+   */
+  struct LoopFlowControl
+  {
+    mlir::Block* head;
+    mlir::Block* tail;
+    std::vector<llvm::StringRef> args;
+  };
+  using LoopFCStack = std::stack<LoopFlowControl>;
 
   /**
    * MLIR Generator.
@@ -147,8 +169,8 @@ namespace mlir::verona
     FunctionTableT functionTable;
     /// Symbol tables for classes.
     TypeTableT typeTable;
-    /// Nested reference for head/exit blocks in loops.
-    BasicBlockTableT loopTable;
+    /// Nested reference for head/exit blocks and args in loops.
+    LoopFCStack loopScope;
 
     /// Unknown types, will be defined during type inference.
     mlir::Type unkTy;
@@ -193,9 +215,11 @@ namespace mlir::verona
     /// Parses function calls and native operations.
     llvm::Expected<ReturnValue> parseCall(const ::ast::Ast& ast);
     /// Parses an if/else block.
-    llvm::Expected<ReturnValue> parseCondition(const ::ast::Ast& ast);
+    llvm::Expected<ReturnValue>
+    parseCondition(const ::ast::Ast& ast, llvm::ArrayRef<llvm::StringRef> args);
     /// Parses a 'while' loop block.
-    llvm::Expected<ReturnValue> parseWhileLoop(const ::ast::Ast& ast);
+    llvm::Expected<ReturnValue>
+    parseWhileLoop(const ::ast::Ast& ast, llvm::ArrayRef<llvm::StringRef> args);
     /// Parses a 'for' loop block.
     llvm::Expected<ReturnValue> parseForLoop(const ::ast::Ast& ast);
     /// Parses a 'continue' statement.
@@ -231,17 +255,13 @@ namespace mlir::verona
       llvm::ArrayRef<llvm::StringRef> args,
       llvm::ArrayRef<mlir::Type> types,
       llvm::ArrayRef<mlir::Type> retTy);
-    /// Generates a conditional branch, casting to i1 if necessary
-    llvm::Error generateCondBranch(
-      mlir::Location loc,
-      mlir::Value cond,
-      mlir::Block* ifBB,
-      mlir::ValueRange ifArgs,
-      mlir::Block* elseBB,
-      mlir::ValueRange elseArgs);
-    /// Generates an unconditional loop branch (continue, creak)
-    llvm::Error
-    generateLoopBranch(mlir::Location loc, llvm::StringRef blockName);
+    /// Update symbol table with new values (to build PHI nodes)
+    void updateSymbolTable(
+      llvm::ArrayRef<llvm::StringRef> vars, llvm::ArrayRef<mlir::Value> vals);
+    /// Create a basic-block argument list from a variable name list
+    template<class T>
+    void generateBBArgList(
+      mlir::Location loc, llvm::ArrayRef<llvm::StringRef> names, T& vars);
 
     // ======================================================= Generator Helpers
     // These are helpers for the generators, creating simple recurrent patterns
@@ -254,13 +274,6 @@ namespace mlir::verona
     /// Generates a verona constant with opaque type
     mlir::Value generateConstant(
       mlir::Location loc, llvm::StringRef value, llvm::StringRef typeName);
-    /// Generates a verona alloca with specific type
-    mlir::Value generateAlloca(mlir::Location loc, mlir::Type type);
-    /// Generates a verona load (using address' type, or unkTy)
-    mlir::Value generateLoad(mlir::Location loc, mlir::Value addr);
-    /// Generates a verona store (using value's type, or unkTy)
-    mlir::Value
-    generateStore(mlir::Location loc, mlir::Value value, mlir::Value addr);
 
     // =============================================================== Temporary
     // These methods should disappear once the Verona dialect is more advanced.

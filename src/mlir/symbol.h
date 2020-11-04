@@ -55,6 +55,15 @@ namespace mlir::verona
       return getOrAdd(key, value, /* insert= */ true);
     }
 
+    /// Update the value of an existing entry on the current scope.
+    /// If one doesn't exist already, shadow the previous declaration
+    /// with a new one in the current scope.
+    void update(llvm::StringRef key, T value)
+    {
+      auto& frame = stack.back();
+      frame[key.str()] = value;
+    }
+
     /// Fetch or insert the entry in the last scope
     /// Returns the inserted/fetched element
     /// If insert=true, asserts if element already exist
@@ -103,17 +112,21 @@ namespace mlir::verona
     }
   };
 
-  // FIXME: This is a hack to control scope. We can do better.
+  /// Uses stack variable scope to create and destroy symbol scopes.
+  /// If the scope needs to be more dynamically controled, use pushScope and
+  /// popScope directly.
   template<class T>
   class ScopedTableScope
   {
     ScopedTable<T>& table;
 
   public:
+    /// Creates a new scope
     ScopedTableScope(ScopedTable<T>& table) : table(table)
     {
       table.pushScope();
     }
+    /// Destroys the inner-most scope
     ~ScopedTableScope()
     {
       table.popScope();
@@ -140,11 +153,4 @@ namespace mlir::verona
    */
   using TypeTableT = ScopedTable<mlir::Type>;
   using TypeScopeT = ScopedTableScope<mlir::Type>;
-
-  /**
-   * Basic Block Symbols. New scopes should be created when entering loops
-   * to determine what is the head/exit block for 'break'/'continue'.
-   */
-  using BasicBlockTableT = ScopedTable<mlir::Block*>;
-  using BasicBlockScopeT = ScopedTableScope<mlir::Block*>;
 }

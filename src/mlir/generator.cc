@@ -20,19 +20,16 @@ namespace
     return !bb->getOperations().empty() && bb->back().isKnownTerminator();
   }
 
-  /// Check if value is from an alloca operation
-  /// TODO: This will probably disappear entirely once we have free var analisys
-  bool isAlloca(mlir::Value val)
-  {
-    // For now, allocas are opaque operations
-    return val.getDefiningOp()->getName().stripDialect() == "alloca";
-  }
-
   /// Add a new basic block into a region and return it
-  mlir::Block* addBlock(mlir::Region* region)
+  mlir::Block* addBlock(
+    mlir::Region* region, size_t numArgs = 0, mlir::Type type = mlir::Type())
   {
     region->push_back(new mlir::Block());
-    return &region->back();
+    auto block = &region->back();
+    llvm::SmallVector<mlir::Type, 2> bbTypes(numArgs, type);
+    mlir::TypeRange bbArgs(bbTypes);
+    block->addArguments(bbArgs);
+    return block;
   }
 }
 
@@ -157,8 +154,6 @@ namespace mlir::verona
     // Runs the free variable analysis on the function to help build all
     // arguments and return values of each basic block inside it
     freeVars.runOnFunction(ast);
-    // TODO: This is temporary!
-    freeVars.dump();
 
     // Parse 'where' clause
     TypeScopeT alias_scope(typeTable);
@@ -349,9 +344,47 @@ namespace mlir::verona
       case AST::NodeKind::Return:
         return parseReturn(ast);
       case AST::NodeKind::If:
-        return parseCondition(ast);
+      {
+        // Get PHI nodes from block
+        auto vars = freeVars.getArgRet(ast).rets;
+        llvm::SmallVector<llvm::StringRef, 2> args;
+        for (auto var : vars)
+          args.push_back(var);
+
+        // Parse and get the updated values
+        auto rets = parseCondition(ast, args);
+        if (auto err = rets.takeError())
+          return std::move(err);
+
+        // Update the symbol table with the updated values
+        if (rets->hasValues())
+        {
+          for (auto ret_val : llvm::zip(vars, rets->getAll()))
+            symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
+        }
+        return rets;
+      }
       case AST::NodeKind::While:
-        return parseWhileLoop(ast);
+      {
+        // Get PHI nodes from block
+        auto vars = freeVars.getArgRet(ast).rets;
+        llvm::SmallVector<llvm::StringRef, 2> args;
+        for (auto var : vars)
+          args.push_back(var);
+
+        // Parse and get the updated values
+        auto rets = parseWhileLoop(ast, args);
+        if (auto err = rets.takeError())
+          return std::move(err);
+
+        // Update the symbol table with the updated values
+        if (rets->hasValues())
+        {
+          for (auto ret_val : llvm::zip(vars, rets->getAll()))
+            symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
+        }
+        return rets;
+      }
       case AST::NodeKind::Continue:
         return parseContinue(ast);
       case AST::NodeKind::Break:
@@ -378,8 +411,6 @@ namespace mlir::verona
       auto name = AST::getTokenValue(ast);
       auto var = symbolTable.lookup(name);
       assert(var && "Undeclared variable lookup, broken ast");
-      if (isAlloca(var))
-        return generateLoad(getLocation(ast), var);
       return var;
     }
 
@@ -401,6 +432,7 @@ namespace mlir::verona
   llvm::Expected<ReturnValue> Generator::parseAssign(const ::ast::Ast& ast)
   {
     assert(AST::isAssign(ast) && "Bad node");
+    auto loc = getLocation(ast);
 
     // The right-hand side can be any expression
     // This is the value and we update the variable
@@ -408,12 +440,13 @@ namespace mlir::verona
     auto rhs = parseNode(AST::getRHS(ast));
     if (auto err = rhs.takeError())
       return std::move(err);
+    auto value = rhs->get();
 
     auto lhs = AST::getLHS(ast);
     // If the LHS is a field member, we have a Verona operation to represent
     // writing to a field without an explicit alloca/store.
     if (AST::isMember(lhs))
-      return parseFieldWrite(lhs, rhs->get());
+      return parseFieldWrite(lhs, value);
 
     // Else, it can either be a let (new variable)
     // or localref (existing variable).
@@ -422,22 +455,27 @@ namespace mlir::verona
     // If the variable wasn't declared yet in this context, create an alloca
     if (AST::isLet(lhs))
     {
-      auto type = unkTy;
       // If type was declared, use it
+      auto type = unkTy;
       auto declType = AST::getType(lhs);
       if (AST::hasType(declType))
+      {
         type = parseType(declType);
-      auto alloca = generateAlloca(getLocation(ast), type);
-      symbolTable.insert(name, alloca);
-    }
-    auto store = symbolTable.lookup(name);
-    if (!store)
-      return parsingError(
-        "Variable " + name.str() + " not declared before use",
-        getLocation(lhs));
+        value = generateAutoCast(loc, value, type);
+      }
 
-    // Store the value in the alloca
-    return generateStore(getLocation(ast), rhs->get(), store);
+      // Insert the value in the symbol table
+      symbolTable.insert(name, value);
+
+      // No previous value to return
+      return ReturnValue();
+    }
+
+    // Other assigns (on existing variables) return the previous stored value
+    // after updating the current value
+    auto prev = symbolTable.lookup(name);
+    symbolTable.update(name, rhs->get());
+    return prev;
   }
 
   llvm::Expected<ReturnValue> Generator::parseCall(const ::ast::Ast& ast)
@@ -559,7 +597,8 @@ namespace mlir::verona
     return ReturnValue();
   }
 
-  llvm::Expected<ReturnValue> Generator::parseCondition(const ::ast::Ast& ast)
+  llvm::Expected<ReturnValue> Generator::parseCondition(
+    const ::ast::Ast& ast, llvm::ArrayRef<llvm::StringRef> args)
   {
     assert(AST::isIf(ast) && "Bad node");
 
@@ -573,28 +612,40 @@ namespace mlir::verona
     auto cond = parseNode(condNode);
     if (auto err = cond.takeError())
       return std::move(err);
+    // Cast to i1 if necessary
+    auto castCond = generateAutoCast(condLoc, cond->get(), builder.getI1Type());
+
+    // Exit blocks have PHI nodes on any re-defined value on both if and else
+    // blocks. MLIR tracks PHI nodes as block arguments.
+    // For if/else blocks, no arguments.
+    mlir::ValueRange empty{};
+    // For exit block, any change in either if/else must be a PHI node.
+    llvm::SmallVector<llvm::StringRef, 2> names;
+    freeVars.appendReturnsTo(ast, names);
+    llvm::SmallVector<mlir::Value, 2> vars;
+    generateBBArgList(condLoc, names, vars);
+    mlir::ValueRange exitArgs{vars};
 
     // Create basic-blocks, conditionally branch to if/else
     auto region = builder.getInsertionBlock()->getParent();
-    mlir::ValueRange empty{};
     auto ifBB = addBlock(region);
     mlir::Block* elseBB = nullptr;
     if (AST::hasElse(ast))
       elseBB = addBlock(region);
-    auto exitBB = addBlock(region);
+
+    // We only need to add arguments to the last block because the reads on both
+    // if and else blocks work out from variable scope and basic-block
+    // dominance.
+    auto exitBB = addBlock(region, vars.size(), unkTy);
     if (AST::hasElse(ast))
     {
-      if (
-        auto err =
-          generateCondBranch(condLoc, cond->get(), ifBB, empty, elseBB, empty))
-        return std::move(err);
+      builder.create<mlir::CondBranchOp>(
+        condLoc, castCond, ifBB, empty, elseBB, empty);
     }
     else
     {
-      if (
-        auto err =
-          generateCondBranch(condLoc, cond->get(), ifBB, empty, exitBB, empty))
-        return std::move(err);
+      builder.create<mlir::CondBranchOp>(
+        condLoc, castCond, ifBB, empty, exitBB, exitArgs);
     }
 
     {
@@ -608,8 +659,15 @@ namespace mlir::verona
       auto ifBlock = parseNode(ifNode);
       if (auto err = ifBlock.takeError())
         return std::move(err);
+
+      // Recreate exit arguments (from local context)
+      vars.clear();
+      generateBBArgList(condLoc, names, vars);
+      mlir::ValueRange exitArgs{vars};
+
+      // Branch to exit if not returned yet
       if (!hasTerminator(builder.getBlock()))
-        builder.create<mlir::BranchOp>(ifLoc, exitBB, empty);
+        builder.create<mlir::BranchOp>(ifLoc, exitBB, exitArgs);
     }
 
     // Else block
@@ -625,29 +683,51 @@ namespace mlir::verona
       auto elseBlock = parseNode(elseNode);
       if (auto err = elseBlock.takeError())
         return std::move(err);
+
+      // Recreate exit arguments (from local context)
+      vars.clear();
+      generateBBArgList(condLoc, names, vars);
+      mlir::ValueRange exitArgs{vars};
+
+      // Branch to exit if not returned yet
       if (!hasTerminator(builder.getBlock()))
-        builder.create<mlir::BranchOp>(elseLoc, exitBB, empty);
+        builder.create<mlir::BranchOp>(elseLoc, exitBB, exitArgs);
     }
 
     // Move to exit block, where the remaining instructions will be lowered.
     builder.setInsertionPointToEnd(exitBB);
 
-    // No values to return from lexical constructs.
-    return ReturnValue();
+    // Rerurn the updated values from the exitBB's arguments
+    auto updatedValues = exitBB->getArguments();
+    auto list = ReturnValue();
+    for (auto val : updatedValues)
+      list.push_back(val);
+    return list;
   }
 
-  llvm::Expected<ReturnValue> Generator::parseWhileLoop(const ::ast::Ast& ast)
+  llvm::Expected<ReturnValue> Generator::parseWhileLoop(
+    const ::ast::Ast& ast, llvm::ArrayRef<llvm::StringRef> args)
   {
     assert(AST::isLoop(ast) && "Bad node");
+    auto loc = getLocation(ast);
+
+    // All blocks have the same number of arguments. This is an over
+    // simplification that can be optimised later. Symbols declared in the head
+    // or body blocks don't survive into the exit block, and those declared in
+    // the body block don't propagate to the head block through the back edge.
+    std::vector<llvm::StringRef> names;
+    freeVars.appendReturnsTo(ast, names);
+    llvm::SmallVector<mlir::Value, 2> vars;
+    generateBBArgList(loc, names, vars);
+    mlir::ValueRange entryArgs{vars};
 
     // Create the head basic-block, which will check the condition
     // and dispatch the loop to the body block or exit.
     auto region = builder.getInsertionBlock()->getParent();
-    mlir::ValueRange empty{};
-    auto headBB = addBlock(region);
-    auto bodyBB = addBlock(region);
-    auto exitBB = addBlock(region);
-    builder.create<mlir::BranchOp>(getLocation(ast), headBB, empty);
+    auto headBB = addBlock(region, vars.size(), unkTy);
+    auto bodyBB = addBlock(region, vars.size(), unkTy);
+    auto exitBB = addBlock(region, vars.size(), unkTy);
+    builder.create<mlir::BranchOp>(getLocation(ast), headBB, entryArgs);
 
     // Create local context for loop variables
     SymbolScopeT var_scope{symbolTable};
@@ -656,43 +736,74 @@ namespace mlir::verona
     // lower in the head basic block, with the conditional branch.
     auto condNode = AST::getCond(ast);
     auto condLoc = getLocation(condNode);
+
+    // Update symbol table with basic block argument
     builder.setInsertionPointToEnd(headBB);
+    for (auto ret_val : llvm::zip(names, headBB->getArguments()))
+      symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
+
     auto cond = parseNode(condNode);
     if (auto err = cond.takeError())
       return std::move(err);
-    if (
-      auto err =
-        generateCondBranch(condLoc, cond->get(), bodyBB, empty, exitBB, empty))
-      return std::move(err);
+    // Cast to i1 if necessary
+    auto castCond = generateAutoCast(condLoc, cond->get(), builder.getI1Type());
+
+    // Re-generate arguments, as condition may have changed something.
+    vars.clear();
+    generateBBArgList(condLoc, names, vars);
+    mlir::ValueRange condArgs{vars};
+    builder.create<mlir::CondBranchOp>(
+      condLoc, castCond, bodyBB, condArgs, exitBB, condArgs);
 
     // Create local head/tail basic-block context for continue/break
-    BasicBlockScopeT loop_scope{loopTable};
-    loopTable.insert("head", headBB);
-    loopTable.insert("tail", exitBB);
+    LoopFlowControl fc = {headBB, exitBB, names};
+    loopScope.push(fc);
 
     // Loop body, branch back to head node which will decide exit criteria
     auto bodyNode = AST::getLoopBlock(ast);
     auto bodyLoc = getLocation(bodyNode);
+
+    // Update symbol table with basic block argument
     builder.setInsertionPointToEnd(bodyBB);
+    for (auto ret_val : llvm::zip(names, bodyBB->getArguments()))
+      symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
+
     auto bodyBlock = parseNode(bodyNode);
     if (auto err = bodyBlock.takeError())
       return std::move(err);
+
+    // Re-generate arguments, as condition may have changed something.
+    vars.clear();
+    generateBBArgList(condLoc, names, vars);
+    mlir::ValueRange bodyArgs{vars};
     if (!hasTerminator(builder.getBlock()))
-      builder.create<mlir::BranchOp>(bodyLoc, headBB, empty);
+      builder.create<mlir::BranchOp>(bodyLoc, headBB, bodyArgs);
 
     // Move to exit block, where the remaining instructions will be lowered.
     builder.setInsertionPointToEnd(exitBB);
 
-    // No values to return from lexical constructs.
-    return ReturnValue();
+    // Pop local loop context
+    loopScope.pop();
+
+    // Rerurn the updated values from the exitBB's arguments
+    auto updatedValues = exitBB->getArguments();
+    auto list = ReturnValue();
+    for (auto val : updatedValues)
+      list.push_back(val);
+    return list;
   }
 
   llvm::Expected<ReturnValue> Generator::parseContinue(const ::ast::Ast& ast)
   {
     assert(AST::isContinue(ast) && "Bad node");
+    auto loc = getLocation(ast);
+
     // Nested loops have multiple heads, we only care about the last one
-    if (auto err = generateLoopBranch(getLocation(ast), "head"))
-      return std::move(err);
+    auto fc = loopScope.top();
+    llvm::SmallVector<mlir::Value, 2> vars;
+    generateBBArgList(loc, fc.args, vars);
+    mlir::ValueRange args{vars};
+    builder.create<mlir::BranchOp>(loc, fc.head, args);
 
     // No values to return, basic block is terminated.
     return ReturnValue();
@@ -701,9 +812,14 @@ namespace mlir::verona
   llvm::Expected<ReturnValue> Generator::parseBreak(const ::ast::Ast& ast)
   {
     assert(AST::isBreak(ast) && "Bad node");
+    auto loc = getLocation(ast);
+
     // Nested loops have multiple tails, we only care about the last one
-    if (auto err = generateLoopBranch(getLocation(ast), "tail"))
-      return std::move(err);
+    auto fc = loopScope.top();
+    llvm::SmallVector<mlir::Value, 2> vars;
+    generateBBArgList(loc, fc.args, vars);
+    mlir::ValueRange args{vars};
+    builder.create<mlir::BranchOp>(loc, fc.tail, args);
 
     // No values to return, basic block is terminated.
     return ReturnValue();
@@ -744,8 +860,6 @@ namespace mlir::verona
       // If there's an `inreg`, allocate object on existing region
       auto regionName = AST::getID(AST::getInRegion(ast));
       auto regionObj = symbolTable.lookup(regionName);
-      if (isAlloca(regionObj))
-        regionObj = generateLoad(loc, regionObj);
       auto alloc = builder.create<AllocateObjectOp>(
         loc, type, nameAttr, fieldNameAttr, inits, regionObj);
       return alloc.getResult();
@@ -853,42 +967,30 @@ namespace mlir::verona
       // Get the argument name/value
       auto name = std::get<0>(var_val);
       auto value = std::get<1>(var_val);
-      // Allocate space in the stack & store the argument value
-      auto alloca = generateAlloca(loc, value.getType());
-      generateStore(loc, value, alloca);
       // Associate the name with the alloca SSA value
-      symbolTable.insert(name, alloca);
+      symbolTable.insert(name, value);
     }
 
     return func;
   }
 
-  llvm::Error Generator::generateCondBranch(
-    mlir::Location loc,
-    mlir::Value cond,
-    mlir::Block* ifBB,
-    mlir::ValueRange ifArgs,
-    mlir::Block* elseBB,
-    mlir::ValueRange elseArgs)
+  void Generator::updateSymbolTable(
+    llvm::ArrayRef<llvm::StringRef> vars, llvm::ArrayRef<mlir::Value> vals)
   {
-    // Cast to i1 if necessary
-    auto cast = generateAutoCast(loc, cond, builder.getI1Type());
-    builder.create<mlir::CondBranchOp>(
-      loc, cast, ifBB, ifArgs, elseBB, elseArgs);
-    return llvm::Error::success();
+    for (auto ret_val : llvm::zip(vars, vals))
+      symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
   }
 
-  llvm::Error
-  Generator::generateLoopBranch(mlir::Location loc, llvm::StringRef blockName)
+  template<class T>
+  void Generator::generateBBArgList(
+    mlir::Location loc, llvm::ArrayRef<llvm::StringRef> names, T& vars)
   {
-    if (!loopTable.inScope(blockName))
-      return parsingError("Loop branch without a loop", loc);
-    auto block = loopTable.lookup(blockName);
-    mlir::ValueRange empty{};
-    // We assume the branch is the last operation in its basic block
-    // and that was checked by the parser
-    builder.create<mlir::BranchOp>(loc, block, empty);
-    return llvm::Error::success();
+    for (auto name : names)
+    {
+      auto value = symbolTable.lookup(name);
+      auto cast = generateAutoCast(loc, value, unkTy);
+      vars.push_back(cast);
+    }
   }
 
   // ======================================================= Generator Helpers
@@ -915,24 +1017,6 @@ namespace mlir::verona
     if (!typeName.empty())
       type = generateType(typeName);
     return genOperation(loc, "verona.constant(" + value.str() + ")", {}, type);
-  }
-
-  mlir::Value Generator::generateAlloca(mlir::Location loc, mlir::Type type)
-  {
-    return genOperation(loc, "verona.alloca", {}, type);
-  }
-
-  mlir::Value Generator::generateLoad(mlir::Location loc, mlir::Value addr)
-  {
-    // We let the future type inference pass determine the type of loads/stores
-    return genOperation(loc, "verona.load", {addr}, unkTy);
-  }
-
-  mlir::Value Generator::generateStore(
-    mlir::Location loc, mlir::Value value, mlir::Value addr)
-  {
-    // We let the future type inference pass determine the type of loads/stores
-    return genOperation(loc, "verona.store", {value, addr}, unkTy);
   }
 
   // =============================================================== Temporary
