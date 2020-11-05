@@ -267,33 +267,43 @@ namespace verona::rt
      */
     void mute_map_scan(bool force = false)
     {
-      for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
+      while (true)
       {
-        auto* m = entry.key();
-        auto& mute_set = *entry.value();
-        if (force || !m->triggers_muting() || m->is_collected())
+        bool scan_again = false;
+        for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
         {
-          yield();
-          for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
+          auto* m = entry.key();
+          auto& mute_set = *entry.value();
+          if (force || !m->triggers_muting() || m->is_collected())
           {
-            Systematic::cout()
-              << "Mute map remove cown " << it.key() << std::endl;
-            it.key()->backpressure_transition(Priority::Normal);
-            T::release(alloc, it.key());
-            mute_set.erase(it);
+            yield();
+            for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
+            {
+              assert(m != it.key());
+              Systematic::cout()
+                << "Mute map remove cown " << it.key() << std::endl;
+              it.key()->backpressure_transition(Priority::Normal);
+              T::release(alloc, it.key());
+              scan_again =
+                scan_again || (mute_map.find(it.key()) != mute_map.end());
+              mute_set.erase(it);
+            }
+            m->weak_release(alloc);
+            mute_map.erase(entry);
+            mute_set.dealloc(alloc);
+            alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
           }
-          m->weak_release(alloc);
-          mute_map.erase(entry);
-          mute_set.dealloc(alloc);
-          alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
+          else if (mute_set.size() == 0)
+          {
+            m->weak_release(alloc);
+            mute_map.erase(entry);
+            mute_set.dealloc(alloc);
+            alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
+          }
         }
-        else if (mute_set.size() == 0)
-        {
-          m->weak_release(alloc);
-          mute_map.erase(entry);
-          mute_set.dealloc(alloc);
-          alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
-        }
+
+        if (!scan_again)
+          break;
       }
 
       if (mute_map.size() == 0)
