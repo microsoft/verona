@@ -222,10 +222,13 @@ namespace verona::rt
         yield();
         assert(p != Priority::Low);
 
+        // The cown may only be muted if its priority is normal and its epoch
+        // mark is not `SCANNED`. Muting a scanned cown may result in the leak
+        // detector collecting the cown while it is muted.
         if (
-          (p & PriorityMask::High) || (state == ThreadState::PreScan) ||
-          (state == ThreadState::Scan) || (state == ThreadState::AllInScan))
-        { // Messages in this cown's queue must be scanned.
+          (p & PriorityMask::High) ||
+          (cown->get_epoch_mark() == EpochMark::SCANNED))
+        {
           cown->schedule();
           continue;
         }
@@ -267,32 +270,45 @@ namespace verona::rt
      */
     void mute_map_scan(bool force = false)
     {
-      for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
+      // Scan the mute map, removing entries where the key no longer triggers
+      // muting. Rescan while unmuted cowns are also keys in the map since their
+      // entries become invalid as well.
+      bool scan_again = true;
+      while (scan_again)
       {
-        auto* m = entry.key();
-        auto& mute_set = *entry.value();
-        if (force || !m->triggers_muting() || m->is_collected())
+        scan_again = false;
+        for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
         {
-          yield();
-          for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
+          auto* m = entry.key();
+          auto& mute_set = *entry.value();
+          if (force || !m->triggers_muting() || m->is_collected())
           {
-            Systematic::cout()
-              << "Mute map remove cown " << it.key() << std::endl;
-            it.key()->backpressure_transition(Priority::Normal);
-            T::release(alloc, it.key());
-            mute_set.erase(it);
+            yield();
+            for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
+            {
+              assert(m != it.key());
+              Systematic::cout()
+                << "Mute map remove cown " << it.key() << std::endl;
+              it.key()->backpressure_transition(Priority::Normal);
+              T::release(alloc, it.key());
+
+              if (!force && !scan_again)
+                scan_again = (mute_map.find(it.key()) != mute_map.end());
+
+              mute_set.erase(it);
+            }
+            m->weak_release(alloc);
+            mute_map.erase(entry);
+            mute_set.dealloc(alloc);
+            alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
           }
-          m->weak_release(alloc);
-          mute_map.erase(entry);
-          mute_set.dealloc(alloc);
-          alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
-        }
-        else if (mute_set.size() == 0)
-        {
-          m->weak_release(alloc);
-          mute_map.erase(entry);
-          mute_set.dealloc(alloc);
-          alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
+          else if (mute_set.size() == 0)
+          {
+            m->weak_release(alloc);
+            mute_map.erase(entry);
+            mute_set.dealloc(alloc);
+            alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
+          }
         }
       }
 

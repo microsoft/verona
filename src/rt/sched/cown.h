@@ -897,9 +897,12 @@ namespace verona::rt
       auto bp = bp_state.load(std::memory_order_relaxed);
       yield();
       auto p = (Priority)(bp & (uintptr_t)PriorityMask::All);
-      bp_state.compare_exchange_strong(bp, b | p, std::memory_order_acq_rel);
+      const auto success =
+        bp_state.compare_exchange_strong(bp, b | p, std::memory_order_acq_rel);
       yield();
       p = (Priority)(bp & (uintptr_t)PriorityMask::All);
+      assert(success || (p & PriorityMask::High));
+      UNUSED(success);
       return (p & PriorityMask::High);
     }
 
