@@ -222,6 +222,9 @@ namespace verona::rt
         yield();
         assert(p != Priority::Low);
 
+        // The cown may only be muted if its priority is normal and its epoch
+        // mark is not `SCANNED`. Muting a scanned cown may result in the leak
+        // detector collecting the cown while it is muted.
         if (
           (p & PriorityMask::High) ||
           (cown->get_epoch_mark() == EpochMark::SCANNED))
@@ -267,9 +270,13 @@ namespace verona::rt
      */
     void mute_map_scan(bool force = false)
     {
-      while (true)
+      // Scan the mute map, removing entries where the key no longer triggers
+      // muting. Rescan while unmuted cowns are also keys in the map since their
+      // entries become invalid as well.
+      bool scan_again = true;
+      while (scan_again)
       {
-        bool scan_again = false;
+        scan_again = false;
         for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
         {
           auto* m = entry.key();
@@ -284,8 +291,10 @@ namespace verona::rt
                 << "Mute map remove cown " << it.key() << std::endl;
               it.key()->backpressure_transition(Priority::Normal);
               T::release(alloc, it.key());
-              scan_again =
-                scan_again || (mute_map.find(it.key()) != mute_map.end());
+
+              if (!force && !scan_again)
+                scan_again = (mute_map.find(it.key()) != mute_map.end());
+
               mute_set.erase(it);
             }
             m->weak_release(alloc);
@@ -301,9 +310,6 @@ namespace verona::rt
             alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
           }
         }
-
-        if (!scan_again)
-          break;
       }
 
       if (mute_map.size() == 0)
