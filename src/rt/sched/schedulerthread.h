@@ -223,9 +223,9 @@ namespace verona::rt
         assert(p != Priority::Low);
 
         if (
-          (p & PriorityMask::High) || (state == ThreadState::PreScan) ||
-          (state == ThreadState::Scan) || (state == ThreadState::AllInScan))
-        { // Messages in this cown's queue must be scanned.
+          (p & PriorityMask::High) ||
+          (cown->get_epoch_mark() == EpochMark::SCANNED))
+        {
           cown->schedule();
           continue;
         }
