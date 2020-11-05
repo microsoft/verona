@@ -35,8 +35,8 @@ The compiler is responsible for ensuring that no bits other than the least-signi
 ### Integers
 
 Power-of-two-sized integers in Verona can be used for arithmetic and so are expected to use the representation that the target architecture uses for integer operations.
-The types `U8`, `U16`, `U32`, `U64`, and `U128 are all unsigned fixed-width integers with the platform's native endian.
-The types `S8`, `S16`, `S32`, `S64`, and `S128 are all signed fixed-width integers represented as twos complement numbers with the platform's native endian.
+The types `U8`, `U16`, `U32`, `U64`, and `U128` are all unsigned fixed-width integers with the platform's native endian.
+The types `S8`, `S16`, `S32`, `S64`, and `S128` are all signed fixed-width integers represented as twos complement numbers with the platform's native endian.
 These types are always stored naturally aligned.
 For example, a `U64` is always stored on an 8-byte boundary.
 
