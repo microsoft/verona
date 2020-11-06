@@ -32,6 +32,8 @@ This is a slightly tighter set of requirements than the C specification but is l
 Boolean values are stored as bytes, with the bit pattern 0 or 1 in the platform's native endian.
 The compiler is responsible for ensuring that no bits other than the least-significant bit in a boolean are ever non-zero.
 
+The alignment of booleans is 1 byte.
+
 ### Integers
 
 Power-of-two-sized integers in Verona can be used for arithmetic and so are expected to use the representation that the target architecture uses for integer operations.
@@ -42,8 +44,8 @@ For example, a `U64` is always stored on an 8-byte boundary.
 
 Other integer types, for example `U56` are *storage-only* types.
 These must be extended to a power-of-two sized type for arithmetic.
-When stored on the stack, these should also be sign- or zero-extended (for signed and unsigned types, respectively) to the next native integer type.
-The value of these types is primarily for use in structures or union types, where special layout rules apply.
+The value of these types is primarily for use in structures or union types, where special layout rules apply. Their storage semantics are explained below.
+When stored on the stack, however, these should also be sign- or zero-extended (for signed and unsigned types, respectively) to the next native integer type.
 
 ### Floating-point values
 
@@ -88,7 +90,7 @@ Union types
 
 Variables or fields of union types are *discriminated unions*.
 The simplest representation would be to store a buffer of the largest type and an integer large enough to store a unique value for each type.
-For example, a `U8 | Float64 | Foo*` could be represented as a 64-bit buffer followed by a 2-bit integer.
+For example, a `U8 | Float64 | Foo*` could be represented as a 64-bit buffer for the values followed by a 2-bit integer for the discriminator.
 At an abstract level, the Verona internal ABI does exactly that, with two observations that allow denser packing:
 
  - Singleton types (equivalent to Pony primitives [*note:* do we have a name for these yet]) have a single instance and so the body can be elided in some cases and the value stored entirely in the tag discriminator.
