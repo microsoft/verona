@@ -142,9 +142,13 @@ The definitions take a region parameter so that "freshness" can be suitably defi
    field_read(tau1 | tau2, f) = field_read(tau1, f) | field_read(tau2, f)
    field_read(tau1 & tau2, f) = field_read(tau1, f) & field_read(tau2, f)
    field_write(tau1 | tau2, f) = field_write(tau1, f) & field_write(tau2, f)
-   field_write(tau1 & tau2, f) = field_write(tau1, f) & field_write(tau2, f)
+   field_write(tau1 & tau2, f) = field_write(tau1, f) | field_write(tau2, f)   // Need to think about this.
+
+   field_write(tau1 & tau2, f) = field_write(tau1, f) & field_write(tau2, f)   // Need to think about this.
 ```
 ]
+
+
 
 ### Aliasing assignment generates a fresh region
 if it follows an `iso`. If it follows an `imm` then it is in the immutable space, otherwise it is in the same region. 
@@ -336,6 +340,7 @@ It also means when manipulating things of type `imm`, we would need dynamic test
 
 
 ## Interesting examples
+
 This example is trying to think up places where accessing inside regions would be interesting. 
 ```
 recv_packet(packet: Array[byte] & iso)
@@ -367,3 +372,16 @@ recv_packet(packet: Array[byte] & iso)
     }
 }
 ```
+
+So discussing this examples led to a a question from Renato:
+```
+// z: iso
+y = (x.fiso = z);
+// y: iso, z: mut 
+// or 
+// y: iso, z: no access
+```
+I think the first makes the most sense.  But the second might be easier to implement.
+
+The first is closer to the semantics of `::insert` in C++ that returns an iterator to the inserted element.  `mut` is kind of like an iterator of a region.
+
