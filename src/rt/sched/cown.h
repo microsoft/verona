@@ -113,8 +113,8 @@ namespace verona::rt
      **/
     std::atomic<size_t> weak_count = 1;
 
-    std::atomic<Status> status{};
     std::atomic<uintptr_t> bp_state{(Cown*)nullptr | Priority::Normal};
+    std::atomic<Status> status{};
 
     static Cown* create_token_cown()
     {
@@ -526,16 +526,6 @@ namespace verona::rt
       assert(body->index <= last);
 
       auto high_priority = false;
-      if (body->index == 0)
-      {
-        // If priority is needed for any cown in this message, start unmuting
-        // cowns in the body so that they can start running messages in their
-        // queue.
-        high_priority = std::any_of(
-          &body->cowns[0], &body->cowns[body->count], [](const auto* c) {
-            return (c->priority() & PriorityMask::High);
-          });
-      }
 
       for (; body->index < body->count; body->index++)
       {
@@ -570,6 +560,9 @@ namespace verona::rt
 
           return needs_scheduling;
         };
+
+        if (next->overloaded())
+          high_priority = true;
 
         if (!high_priority)
         {
@@ -978,19 +971,12 @@ namespace verona::rt
         return true;
       }
 
-      if (
-        (!stat.has_token() && (curr->index == 0)) ||
-        (stat.current_load() == 0xff))
-      {
-        stat.reset_load();
-      }
       if (!stat.has_token())
       {
         Systematic::cout() << "Cown " << this << ": enqueue message token"
                            << std::endl;
         queue.enqueue(stub_msg(alloc));
       }
-      stat.inc_load();
       stat.set_has_token(true);
 
 #ifdef USE_SYSTEMATIC_TESTING
@@ -1018,6 +1004,19 @@ namespace verona::rt
       return true;
     }
 
+    /// Return true if this cown's message queue is growing faster than the
+    /// messages are being processed. This is based on an approximation for the
+    /// length of this cown's message queue.
+    inline bool overloaded() const
+    {
+      static constexpr size_t overload_rc = 800;
+      const auto rc = get_header().rc.load(std::memory_order_relaxed);
+      assert(rc != 0);
+      const auto marked = status.load(std::memory_order_acquire).overloaded();
+      yield();
+      return (rc >= overload_rc) || marked;
+    }
+
     /**
      * This processes a batch of messages on a cown.
      *
@@ -1039,18 +1038,9 @@ namespace verona::rt
       auto until = queue.peek_back();
       yield(); // Reading global state in peek_back().
 
-      const auto stat = status.load(std::memory_order_acquire);
-      assert(priority() != Priority::Low);
-
-      // The batch limit is between 100 and 251, depending on the load.
-      const auto batch_limit = (size_t)100 | ((size_t)stat.total_load() >> 3);
-
-      Systematic::cout() << "Cown " << this << " load: " << stat.total_load()
-                         << std::endl;
-
+      static constexpr size_t batch_limit = 100;
       auto notified_called = false;
       auto notify = false;
-
       MultiMessage* curr = nullptr;
       size_t batch_size = 0;
       do
