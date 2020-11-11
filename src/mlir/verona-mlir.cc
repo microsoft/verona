@@ -54,8 +54,8 @@ namespace
   // Output file
   cl::opt<std::string> outputFile("o", cl::init(""), cl::desc("Output file"));
 
-  // Grammar file is not optional
-  std::string grammarFile;
+  // Grammar file
+  cl::opt<std::string> grammarFile("g", cl::init(""), cl::desc("Grammar file"));
 
   // Set defaults form command line arguments
   void cmdLineDefaults()
@@ -97,7 +97,8 @@ namespace
 
     // Default grammar
     // FIXME: Move to llvm::sys::path, but LLVM's GetMainExecutable is horrible
-    grammarFile = path::directory(path::executable()).append("/grammar.peg");
+    if (grammarFile.empty())
+      grammarFile = path::directory(path::executable()).append("/grammar.peg");
   }
 } // namespace
 
