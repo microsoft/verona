@@ -31,6 +31,10 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 set(LLVM_REQUIRES_EH ON)
 set(LLVM_REQUIRES_RTTI ON)
 
+# LLVM was accidentally defaulting this to OFF.
+# TODO: this has been fixed upstream already. Remove when updating.
+set(LLVM_ENABLE_WARNINGS ON)
+
 set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
 set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
 set(MLIR_BINARY_DIR ${CMAKE_BINARY_DIR})

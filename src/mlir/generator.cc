@@ -11,8 +11,6 @@
 #include "mlir/IR/StandardTypes.h"
 #include "mlir/IR/Types.h"
 
-#include "llvm/ADT/StringSwitch.h"
-
 namespace
 {
   /// Helper to make sure the basic block has a terminator
@@ -64,7 +62,7 @@ namespace mlir::verona
     // Modules are nothing but global classes
     auto global = parseClass(ast);
     if (auto err = global.takeError())
-      return std::move(err);
+      return err;
     module = *global;
 
     return llvm::Error::success();
@@ -715,7 +713,6 @@ namespace mlir::verona
 
     // Type to allocate
     auto type = parseType(ast);
-    auto typeAttr = TypeAttr::get(type);
 
     // Initializer list
     llvm::SmallVector<::ast::Ast, 4> nodes;
@@ -765,7 +762,6 @@ namespace mlir::verona
 
     // Get the field name
     auto field = AST::getID(ast);
-    auto fieldAttr = StringAttr::get(field, context);
 
     // Find the field type, if any
     auto fieldType = unkTy;
@@ -789,7 +785,6 @@ namespace mlir::verona
 
     // Get the field name
     auto field = AST::getID(ast);
-    auto fieldAttr = StringAttr::get(field, context);
 
     // Find the field type
     auto fieldType = unkTy;
@@ -853,7 +848,7 @@ namespace mlir::verona
       auto value = std::get<1>(var_val);
       // Allocate space in the stack & store the argument value
       auto alloca = generateAlloca(loc, value.getType());
-      auto store = generateStore(loc, value, alloca);
+      generateStore(loc, value, alloca);
       // Associate the name with the alloca SSA value
       symbolTable.insert(name, alloca);
     }
