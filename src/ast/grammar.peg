@@ -50,7 +50,8 @@ expr <- blockexpr / atom+ blockexpr?
 
 blockexpr <- block / when / while / match / if / for / classdef / typedef
 block <- '{' seq '}'
-when <- 'when' tuple block
+when <- 'when' whenargs block
+whenargs <- '(' list(expr) ')'
 while <- 'while' cond block
 match <- 'match' cond '{' case* '}'
 if <- 'if' cond block else
