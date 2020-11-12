@@ -117,7 +117,7 @@ The rules for determining the correct encoding for a union type begins by identi
    - Each type requires one state in the discriminator but no bits to encode the value.
    - Each type requires one pointer's worth of state to encode the value but no bits in the discriminator.
    We choose the former, to maximise our ability to use the CPU's branch-on-zero instructions.
- - Each integer requires one state in the discriminator and as many bits as its width defines for the payload.
+ - Each integer requires one state in the discriminator and as many bits as its width defines for the payload.  Integer types are assumed to range over all values permitted by their bit width, and so, unlike aligned pointers, must be externally discriminated.
    For example, in the union `U8 | U16`, each requires one state in the discriminator (giving a 1-bit discriminator to represent both state) and 8 and 16 bits of payload, respectively.
  - Floating point types follow the same rules as integers, with special handling if a floating point type is the type with the largest payload in a union type, described below.
  - Pointers to object types (including external reference types) require as many bits as are required for an unambiguous pointer; however, all pointer types require only a single discriminator state because all pointees can be discriminated by inspecting their descriptor.
