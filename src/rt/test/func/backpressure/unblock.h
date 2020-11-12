@@ -35,35 +35,19 @@ overload(sender: C & imm, receiver: C & imm)
 */
 
 #include "../../../verona.h"
+#include "backpressure.h"
 
-#include <functional>
-
-namespace backpressure_unblock
+namespace backpressure::unblock
 {
   using namespace verona::rt;
-
-  struct C : public VCown<C>
-  {};
-
-  struct B : public VBehaviour<B>
-  {
-    std::function<void()> closure;
-
-    B(std::function<void()> closure_) : closure(closure_) {}
-
-    void f()
-    {
-      closure();
-    }
-  };
 
   void test()
   {
     auto* alloc = ThreadAlloc::get();
-    auto* sender1 = new (alloc) C();
-    auto* sender2 = new (alloc) C();
-    auto* receiver1 = new (alloc) C();
-    auto* receiver2 = new (alloc) C();
+    auto* sender1 = new (alloc) EmptyCown();
+    auto* sender2 = new (alloc) EmptyCown();
+    auto* receiver1 = new (alloc) EmptyCown();
+    auto* receiver2 = new (alloc) EmptyCown();
 
     Cown::acquire(sender1);
     Cown::acquire(receiver2);
@@ -72,22 +56,22 @@ namespace backpressure_unblock
       for (size_t i = 0; i < 100; i++)
       {
         Cown::acquire(receiver);
-        Cown::schedule<B>(sender, [receiver] {
-          Cown::schedule<B, YesTransfer>(receiver, [] {});
+        Cown::schedule<TestBehaviour>(sender, [receiver] {
+          Cown::schedule<TestBehaviour, YesTransfer>(receiver, [] {});
         });
       }
       Cown::release(ThreadAlloc::get_noncachable(), sender);
       Cown::release(ThreadAlloc::get_noncachable(), receiver);
     };
 
-    auto* anon1 = new (alloc) C();
-    Cown::schedule<B, YesTransfer>(
+    auto* anon1 = new (alloc) EmptyCown();
+    Cown::schedule<TestBehaviour, YesTransfer>(
       anon1, [=] { overload(sender1, receiver1); });
-    auto* anon2 = new (alloc) C();
-    Cown::schedule<B, YesTransfer>(
+    auto* anon2 = new (alloc) EmptyCown();
+    Cown::schedule<TestBehaviour, YesTransfer>(
       anon2, [=] { overload(sender2, receiver2); });
 
     Cown* receivers[2] = {sender1, receiver2};
-    Cown::schedule<B, YesTransfer>(2, receivers, [] {});
+    Cown::schedule<TestBehaviour, YesTransfer>(2, receivers, [] {});
   }
 }

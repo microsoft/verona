@@ -43,26 +43,26 @@ class Main
 */
 
 #include "../../../verona.h"
+#include "backpressure.h"
 
-namespace backpressure_deadlock
+namespace backpressure::deadlock
 {
   using namespace verona::rt;
 
-  struct C : public VCown<C>
-  {};
-
   struct B : public VBehaviour<B>
   {
-    std::vector<C*> receivers;
+    std::vector<EmptyCown*> receivers;
 
-    B(std::vector<C*> receivers_) : receivers(receivers_) {}
+    B(std::vector<EmptyCown*> receivers_) : receivers(receivers_) {}
 
     void f()
     {
       if (!receivers.empty())
       {
         Cown::schedule<B, YesTransfer>(
-          receivers.size(), (Cown**)receivers.data(), std::vector<C*>{});
+          receivers.size(),
+          (Cown**)receivers.data(),
+          std::vector<EmptyCown*>{});
       }
     }
   };
@@ -70,24 +70,24 @@ namespace backpressure_deadlock
   void test()
   {
     auto* alloc = ThreadAlloc::get();
-    auto* c1 = new (alloc) C();
-    auto* c2 = new (alloc) C();
-    auto* c3 = new (alloc) C();
+    auto* c1 = new (alloc) EmptyCown();
+    auto* c2 = new (alloc) EmptyCown();
+    auto* c3 = new (alloc) EmptyCown();
 
     // overload c1
     for (size_t i = 0; i < 100; i++)
-      Cown::schedule<B, NoTransfer, std::vector<C*>>(c1, {});
+      Cown::schedule<B, NoTransfer, std::vector<EmptyCown*>>(c1, {});
 
     // c3 send {c1}
     Cown::acquire(c1);
-    Cown::schedule<B, YesTransfer, std::vector<C*>>(c3, {c1});
+    Cown::schedule<B, YesTransfer, std::vector<EmptyCown*>>(c3, {c1});
     // c2 send {c2, c3}
     Cown::acquire(c2);
     Cown::acquire(c3);
-    Cown::schedule<B, YesTransfer, std::vector<C*>>(c2, {c2, c3});
+    Cown::schedule<B, YesTransfer, std::vector<EmptyCown*>>(c2, {c2, c3});
     // c1 send {c1, c2}
     Cown::acquire(c1);
     Cown::acquire(c2);
-    Cown::schedule<B, YesTransfer, std::vector<C*>>(c1, {c1, c2});
+    Cown::schedule<B, YesTransfer, std::vector<EmptyCown*>>(c1, {c1, c2});
   }
 }

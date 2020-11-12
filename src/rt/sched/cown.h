@@ -114,6 +114,7 @@ namespace verona::rt
     std::atomic<size_t> weak_count = 1;
 
     std::atomic<uintptr_t> bp_state{(Cown*)nullptr | Priority::Normal};
+    // TODO: stash the token bit somewhere else
     std::atomic<Status> status{};
 
     static Cown* create_token_cown()
