@@ -46,21 +46,23 @@
       + block
         + seq
           + when
-            - localref (a)
+            + whenargs
+              - localref (a)
             + block
               + seq
           + when
-            + tuple
+            + whenargs
               - localref (a)
               - localref (b)
             + block
               + seq
                 + when
-                  + call
-                    - function (bar)
-                    + typeargs
-                    + tuple
-                    + args
+                  + whenargs
+                    + call
+                      - function (bar)
+                      + typeargs
+                      + tuple
+                      + args
                   + block
                     + seq
                 + return
