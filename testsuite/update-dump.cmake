@@ -22,7 +22,7 @@ foreach(TEST_FOLDER ${TEST_FOLDERS})
       set(OUT_FILE ${TEST_FOLDER}/mlir-parse/${TEST_NAME}/mlir.txt)
       message(STATUS "Regenerating ${OUT_FILE}")
       execute_process(
-        COMMAND ${VERONA_MLIR} -g ${GRAMMAR} ${MLIR_TEST} -o ${OUT_FILE})
+        COMMAND ${VERONA_MLIR} ${MLIR_TEST} -o ${OUT_FILE})
     endforeach()
   else()
     execute_process(COMMAND ${PYTHON_EXECUTABLE}
