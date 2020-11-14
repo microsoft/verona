@@ -14,6 +14,7 @@
 #include "region/freeze.h"
 #include "region/immutable.h"
 #include "region/region.h"
+#include "sched/backpressure.h"
 #include "sched/cown.h"
 #include "sched/epoch.h"
 #include "sched/multimessage.h"
