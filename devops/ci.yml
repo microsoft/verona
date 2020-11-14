@@ -231,3 +231,19 @@ jobs:
       grep -L "SPDX-License-Identifier: MIT" $files | tee header_missing
       [ ! -s header_missing ]
     displayName: 'Check Copyright and License'
+
+  - script: |
+      set -eo pipefail
+      status=0
+      for f in $(git ls-files); do
+        ftype=$(git cat-file HEAD:$f | file - | awk '{ print $1 }')
+        if echo $ftype | grep CRLF; then
+          status=1
+          echo "$f has invalid file type: $ftype"
+        done
+      done
+
+      exit $status
+
+    displayName: 'Check line endings'
+
