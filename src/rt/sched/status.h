@@ -33,11 +33,6 @@ namespace verona::rt
     High = 0b10,
   };
 
-  inline uintptr_t operator|(Cown* blocker, Priority p)
-  {
-    return (uintptr_t)blocker | (uintptr_t)p;
-  }
-
   constexpr inline bool operator&(Priority p, PriorityMask m)
   {
     return (uint8_t)p & (uint8_t)m;
@@ -59,6 +54,60 @@ namespace verona::rt
         abort();
     }
   }
+
+  class BackpressureState
+  {
+    static constexpr uintptr_t priority_mask = (uintptr_t)0b011;
+    static constexpr uintptr_t token_mask = (uintptr_t)0b100;
+    static constexpr uintptr_t blocker_mask = ~(token_mask | priority_mask);
+
+    static_assert(priority_mask == (uintptr_t)PriorityMask::All);
+
+    uintptr_t bits = 0;
+
+    BackpressureState(uintptr_t bits_) : bits(bits_) {}
+
+  public:
+    BackpressureState() {}
+
+    Cown* blocker() const
+    {
+      return (Cown*)(bits & blocker_mask);
+    }
+
+    Priority priority() const
+    {
+      return (Priority)(bits & priority_mask);
+    }
+
+    bool priority(PriorityMask mask) const
+    {
+      return priority() & mask;
+    }
+
+    bool token() const
+    {
+      return (bool)(bits & token_mask);
+    }
+
+    BackpressureState with_blocker(const Cown* blocker) const
+    {
+      return BackpressureState(
+        ((uintptr_t)blocker & blocker_mask) | (bits & ~blocker_mask));
+    }
+
+    BackpressureState with_priority(Priority priority) const
+    {
+      return BackpressureState(
+        ((uintptr_t)priority & priority_mask) | (bits & ~priority_mask));
+    }
+
+    BackpressureState with_token(bool token) const
+    {
+      return BackpressureState(
+        ((uintptr_t)token & token_mask) | (bits & ~token_mask));
+    }
+  };
 
   /// Tracks status information for a cown. This class may only be modified by
   /// the scheduler thread running a cown.

@@ -217,16 +217,14 @@ namespace verona::rt
       {
         auto* cown = cowns[i];
         auto bp = cown->bp_state.load(std::memory_order_relaxed);
-        auto blocker = (Cown*)(bp & ~(uintptr_t)PriorityMask::All);
-        auto p = (Priority)(bp & (uintptr_t)PriorityMask::All);
         yield();
-        assert(p != Priority::Low);
+        assert(bp.priority() != Priority::Low);
 
         // The cown may only be muted if its priority is normal and its epoch
         // mark is not `SCANNED`. Muting a scanned cown may result in the leak
         // detector collecting the cown while it is muted.
         if (
-          (p & PriorityMask::High) ||
+          bp.priority(PriorityMask::High) ||
           (cown->get_epoch_mark() == EpochMark::SCANNED))
         {
           cown->schedule();
@@ -244,10 +242,9 @@ namespace verona::rt
           Systematic::coin(9) ||
 #endif
           !cown->bp_state.compare_exchange_weak(
-            bp, blocker | Priority::Low, std::memory_order_acq_rel))
+            bp, bp.with_priority(Priority::Low), std::memory_order_acq_rel))
         {
-          p = (Priority)(bp & (uintptr_t)PriorityMask::All);
-          assert(p != Priority::Low);
+          assert(bp.priority() != Priority::Low);
           yield();
           cown->schedule();
           mute_set.erase(ins.second);
@@ -255,9 +252,9 @@ namespace verona::rt
 
           continue;
         }
-        Systematic::cout() << "Cown " << cown << ": backpressure state " << bp
+        Systematic::cout() << "Cown " << cown << ": priority " << bp.priority()
                            << " -> Low" << std::endl;
-        assert(!(p & PriorityMask::High));
+        assert(!bp.priority(PriorityMask::High));
       }
 
       alloc->dealloc(cowns, count * sizeof(T*));
