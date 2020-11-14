@@ -561,7 +561,11 @@ namespace verona::rt
           return needs_scheduling;
         };
 
-        if (next->overloaded())
+        if (next->overloaded()
+#ifdef USE_SYSTEMATIC_TESTING
+              Systematic::coin(5)
+#endif
+        )
           high_priority = true;
 
         if (!high_priority)
@@ -942,9 +946,7 @@ namespace verona::rt
         status.store(stat, std::memory_order_release);
 
         auto p = bp_state.load(std::memory_order_acquire).priority();
-        if (stat.overloaded())
-          backpressure_unblock(this);
-        else if (p == Priority::High)
+        if (p == Priority::High)
           backpressure_transition(Priority::MaybeHigh);
         else if (p == Priority::MaybeHigh)
           backpressure_transition(Priority::Normal);
@@ -959,15 +961,7 @@ namespace verona::rt
         queue.enqueue(stub_msg(alloc));
       }
       stat.set_has_token(true);
-
-#ifdef USE_SYSTEMATIC_TESTING
-      if (Systematic::coin(5))
-        stat.set_overloaded(!stat.overloaded());
-#endif
-
       status.store(stat, std::memory_order_release);
-      if (stat.overloaded())
-        backpressure_unblock(this);
 
       return false;
     }
@@ -993,9 +987,8 @@ namespace verona::rt
       static constexpr size_t overload_rc = 800;
       const auto rc = get_header().rc.load(std::memory_order_relaxed);
       assert(rc != 0);
-      const auto marked = status.load(std::memory_order_acquire).overloaded();
       yield();
-      return (rc >= overload_rc) || marked;
+      return rc >= overload_rc;
     }
 
     /**

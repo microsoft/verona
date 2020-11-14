@@ -130,19 +130,6 @@ namespace verona::rt
     }
 
   public:
-    /// Return true if this cown is overloaded.
-    inline bool overloaded() const
-    {
-      return bits::extract<1, 1>(_misc);
-    }
-
-    /// Set the bit value that holds the overloaded state regardless of the
-    /// `total_load()` on a cown.
-    inline void set_overloaded(bool value)
-    {
-      set_misc<1>(value);
-    }
-
     /// Indicates if the token message is in a cown's queue. If zero, a
     /// new token message should be added if the cown runs another message.
     inline bool has_token()
