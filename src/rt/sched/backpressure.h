@@ -68,7 +68,7 @@ namespace verona::rt
     BackpressureState(uintptr_t bits_) : bits(bits_) {}
 
   public:
-    BackpressureState() {}
+    BackpressureState() noexcept {}
 
     Cown* blocker() const
     {
