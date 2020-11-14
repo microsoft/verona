@@ -114,7 +114,6 @@ namespace verona::rt
     std::atomic<size_t> weak_count = 1;
 
     std::atomic<BackpressureState> bp_state{};
-    std::atomic<Status> status{};
 
     static Cown* create_token_cown()
     {
@@ -561,9 +560,10 @@ namespace verona::rt
           return needs_scheduling;
         };
 
-        if (next->overloaded()
+        if (
+          next->overloaded()
 #ifdef USE_SYSTEMATIC_TESTING
-              Systematic::coin(5)
+          || Systematic::coin(5)
 #endif
         )
           high_priority = true;
@@ -819,7 +819,8 @@ namespace verona::rt
     ///
     /// Transitioning cowns to High priority should be done through
     /// `backpressure_unblock`.
-    inline Priority backpressure_transition(Priority state, bool exact = false)
+    inline Priority
+    backpressure_transition(Priority priority, bool exact = false)
     {
       auto bp = bp_state.load(std::memory_order_acquire);
       Priority prev;
@@ -828,10 +829,10 @@ namespace verona::rt
         yield();
         prev = bp.priority();
 
-        if ((state == Priority::Normal) && (prev != Priority::Low) && !exact)
+        if ((priority == Priority::Normal) && (prev != Priority::Low) && !exact)
           return prev;
 
-        if (prev == state)
+        if (prev == priority)
           return prev;
 
       } while (
@@ -839,10 +840,10 @@ namespace verona::rt
         Systematic::coin(9) ||
 #endif
         !bp_state.compare_exchange_weak(
-          bp, bp.with_priority(state), std::memory_order_acq_rel));
+          bp, bp.with_priority(priority), std::memory_order_acq_rel));
 
       Systematic::cout() << "Cown " << this << ": priority " << prev << " -> "
-                         << state << std::endl;
+                         << priority << std::endl;
       yield();
 
       if (prev == Priority::Low)
@@ -935,33 +936,44 @@ namespace verona::rt
     /// Return true if the current message is a token.
     inline bool check_message_token(Alloc* alloc, MessageBody* curr)
     {
-      auto stat = status.load(std::memory_order_acquire);
+      auto bp = bp_state.load(std::memory_order_acquire);
+      auto set_token_state = [&bp, this](bool token) {
+        while (
+#ifdef USE_SYSTEMATIC_TESTING
+          Systematic::coin(9) ||
+#endif
+          !bp_state.compare_exchange_weak(
+            bp, bp.with_token(token), std::memory_order_acq_rel))
+        {
+          yield();
+          Aal::pause();
+        };
+        assert(bp.token() == !token);
+      };
+
       yield();
       if (curr == nullptr)
       {
         Systematic::cout() << "Reached message token on cown " << this
                            << std::endl;
-        assert(stat.has_token());
-        stat.set_has_token(false);
-        status.store(stat, std::memory_order_release);
+        assert(bp.token());
+        set_token_state(false);
 
-        auto p = bp_state.load(std::memory_order_acquire).priority();
-        if (p == Priority::High)
+        if (bp.priority() == Priority::High)
           backpressure_transition(Priority::MaybeHigh);
-        else if (p == Priority::MaybeHigh)
+        else if (bp.priority() == Priority::MaybeHigh)
           backpressure_transition(Priority::Normal);
 
         return true;
       }
 
-      if (!stat.has_token())
+      if (!bp.token())
       {
-        Systematic::cout() << "Cown " << this << ": enqueue message token"
+        set_token_state(true);
+        Systematic::cout() << "Enqueue token message on cown " << this
                            << std::endl;
         queue.enqueue(stub_msg(alloc));
       }
-      stat.set_has_token(true);
-      status.store(stat, std::memory_order_release);
 
       return false;
     }
