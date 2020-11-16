@@ -346,10 +346,8 @@ namespace mlir::verona
       case AST::NodeKind::If:
       {
         // Get PHI nodes from block
-        auto vars = freeVars.getArgRet(ast).rets;
         llvm::SmallVector<llvm::StringRef, 2> args;
-        for (auto var : vars)
-          args.push_back(var);
+        freeVars.appendArguments(ast, args);
 
         // Parse and get the updated values
         auto rets = parseCondition(ast, args);
@@ -359,7 +357,7 @@ namespace mlir::verona
         // Update the symbol table with the updated values
         if (rets->hasValues())
         {
-          for (auto ret_val : llvm::zip(vars, rets->getAll()))
+          for (auto ret_val : llvm::zip(args, rets->getAll()))
             symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
         }
         return rets;
@@ -367,10 +365,8 @@ namespace mlir::verona
       case AST::NodeKind::While:
       {
         // Get PHI nodes from block
-        auto vars = freeVars.getArgRet(ast).rets;
         llvm::SmallVector<llvm::StringRef, 2> args;
-        for (auto var : vars)
-          args.push_back(var);
+        freeVars.appendArguments(ast, args);
 
         // Parse and get the updated values
         auto rets = parseWhileLoop(ast, args);
@@ -380,7 +376,7 @@ namespace mlir::verona
         // Update the symbol table with the updated values
         if (rets->hasValues())
         {
-          for (auto ret_val : llvm::zip(vars, rets->getAll()))
+          for (auto ret_val : llvm::zip(args, rets->getAll()))
             symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
         }
         return rets;
@@ -620,10 +616,8 @@ namespace mlir::verona
     // For if/else blocks, no arguments.
     mlir::ValueRange empty{};
     // For exit block, any change in either if/else must be a PHI node.
-    llvm::SmallVector<llvm::StringRef, 2> names;
-    freeVars.appendReturnsTo(ast, names);
     llvm::SmallVector<mlir::Value, 2> vars;
-    generateBBArgList(condLoc, names, vars);
+    generateBBArgList(condLoc, args, vars);
     mlir::ValueRange exitArgs{vars};
 
     // Create basic-blocks, conditionally branch to if/else
@@ -662,7 +656,7 @@ namespace mlir::verona
 
       // Recreate exit arguments (from local context)
       vars.clear();
-      generateBBArgList(condLoc, names, vars);
+      generateBBArgList(condLoc, args, vars);
       mlir::ValueRange exitArgs{vars};
 
       // Branch to exit if not returned yet
@@ -686,7 +680,7 @@ namespace mlir::verona
 
       // Recreate exit arguments (from local context)
       vars.clear();
-      generateBBArgList(condLoc, names, vars);
+      generateBBArgList(condLoc, args, vars);
       mlir::ValueRange exitArgs{vars};
 
       // Branch to exit if not returned yet
@@ -715,10 +709,8 @@ namespace mlir::verona
     // simplification that can be optimised later. Symbols declared in the head
     // or body blocks don't survive into the exit block, and those declared in
     // the body block don't propagate to the head block through the back edge.
-    std::vector<llvm::StringRef> names;
-    freeVars.appendReturnsTo(ast, names);
     llvm::SmallVector<mlir::Value, 2> vars;
-    generateBBArgList(loc, names, vars);
+    generateBBArgList(loc, args, vars);
     mlir::ValueRange entryArgs{vars};
 
     // Create the head basic-block, which will check the condition
@@ -739,7 +731,7 @@ namespace mlir::verona
 
     // Update symbol table with basic block argument
     builder.setInsertionPointToEnd(headBB);
-    for (auto ret_val : llvm::zip(names, headBB->getArguments()))
+    for (auto ret_val : llvm::zip(args, headBB->getArguments()))
       symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
 
     auto cond = parseNode(condNode);
@@ -750,13 +742,13 @@ namespace mlir::verona
 
     // Re-generate arguments, as condition may have changed something.
     vars.clear();
-    generateBBArgList(condLoc, names, vars);
+    generateBBArgList(condLoc, args, vars);
     mlir::ValueRange condArgs{vars};
     builder.create<mlir::CondBranchOp>(
       condLoc, castCond, bodyBB, condArgs, exitBB, condArgs);
 
     // Create local head/tail basic-block context for continue/break
-    LoopFlowControl fc = {headBB, exitBB, names};
+    LoopFlowControl fc = {headBB, exitBB, args};
     loopScope.push(fc);
 
     // Loop body, branch back to head node which will decide exit criteria
@@ -765,7 +757,7 @@ namespace mlir::verona
 
     // Update symbol table with basic block argument
     builder.setInsertionPointToEnd(bodyBB);
-    for (auto ret_val : llvm::zip(names, bodyBB->getArguments()))
+    for (auto ret_val : llvm::zip(args, bodyBB->getArguments()))
       symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
 
     auto bodyBlock = parseNode(bodyNode);
@@ -774,7 +766,7 @@ namespace mlir::verona
 
     // Re-generate arguments, as condition may have changed something.
     vars.clear();
-    generateBBArgList(condLoc, names, vars);
+    generateBBArgList(condLoc, args, vars);
     mlir::ValueRange bodyArgs{vars};
     if (!hasTerminator(builder.getBlock()))
       builder.create<mlir::BranchOp>(bodyLoc, headBB, bodyArgs);

@@ -21,72 +21,60 @@
 namespace mlir::verona
 {
   /**
-   * Free Variable Analysis: scans nodes for new definitions, reads and writes
+   * Free Variable Analysis: scans nodes for new definitions and writes
    * to variables to identify which blocks or regions will need for return
    * values and arguments.
    *
    * The algorithm is recursive, using an intermediate block information to
-   * allow collection of read/write/def variables (by name) and annotate the
+   * allow collection of write/def variables (by name) and annotate the
    * nodes that define new basic blocks or regions to help the generator
    * define arguments and return values without having to back-track.
    *
    * Those names will only be associated with SSA values once lowering start,
    * and can be used directly to associate the arguments in each block.
+   *
+   * We don't consider reading of variables directly because in Verona every
+   * write is also a read, and read-only operations use the variable scope
+   * that will be updated by the basic block arguments, so keeping that
+   * information up-to-date is irrelevant in the AST.
    */
 
   class FreeVariableAnalysis
   {
+    /// Simple struct with writes and defs.
     using Vars = std::set<llvm::StringRef>;
-
-    /// Simple struct with reads, writes and defs.
     struct BlockInfo
     {
-      Vars read;
       Vars write;
       Vars def;
     };
 
-    /// Simple struct to hold args and rets for each region.
-    struct ArgRet
-    {
-      Vars args; // read minus def
-      Vars rets; // write minus def
-    };
-
-  private:
     /// The map that will contain all arguments and returns, by name.
     /// Verona forbids shadowing, and the context of this analysis is within
     /// a function, so there is no context to worry about and no risk of
     /// having two different variables with the same name.
-    std::map<::ast::Ast, ArgRet> freeVars;
-
-    /// Cache of the function being evaluated (for dumping purposes)
-    ::ast::Ast function;
+    std::map<::ast::Ast, Vars> freeVars;
 
     /// Merge variables from one block onto another.
     void mergeInfo(BlockInfo& base, BlockInfo&& sub)
     {
-      base.read.insert(sub.read.begin(), sub.read.end());
       base.write.insert(sub.write.begin(), sub.write.end());
       base.def.insert(sub.def.begin(), sub.def.end());
     }
 
-    /// Get arguments and return values from read/write/def.
-    ArgRet getArgsRets(BlockInfo& block)
+    /// Get arguments from BlockInfo.
+    /// Subtracting defs from writes gives us the block arguments.
+    Vars getArgs(BlockInfo& block)
     {
-      ArgRet ar;
-      ar.args = block.read;
-      ar.rets = block.write;
-      // TODO: this is inefficient but will do for now
+      Vars args = block.write;
       for (auto def : block.def)
-      {
-        ar.args.erase(def);
-        ar.rets.erase(def);
-      }
-      return ar;
+        args.erase(def);
+      return args;
     }
 
-    /// Return true if the node is a block (and needs arguments, rets).
+    /// Return true if the node is a block.
+    /// These are the merge points that will be cached in the freeVars map
+    /// for the generator to query the list of arguments.
     bool isBlockNode(::ast::Ast node)
     {
       switch (node->tag)
@@ -112,7 +100,6 @@ namespace mlir::verona
       }
 
       // Then see if there's any info this node can give
-      // TODO: This may be incomplete.
       switch (node->tag)
       {
         // Nodes that define new variables
@@ -134,35 +121,13 @@ namespace mlir::verona
           info.write.insert(AST::getLocalName(node->nodes[0]));
           break;
         }
-        // Nodes that access existing variables.
-        case AST::NodeKind::Localref:
-        {
-          // All reads are localref at some (nested) level, and since we're
-          // recursing earlier (and merging the data) we don't need to search
-          // for them here.
-          info.read.insert(AST::getLocalName(node));
-          break;
-        }
       }
 
       // Finally, update the map if need args/rets.
       if (isBlockNode(node))
-        freeVars.insert({node, getArgsRets(info)});
+        freeVars.insert({node, getArgs(info)});
 
       return info;
-    }
-
-    /// Dump an ArgRet structure.
-    void dump(ArgRet& ar)
-    {
-      std::cerr << "    Args:";
-      for (auto var : ar.args)
-        std::cerr << "  " << var.str();
-      std::cerr << std::endl;
-      std::cerr << "    Rets:";
-      for (auto var : ar.rets)
-        std::cerr << "  " << var.str();
-      std::cerr << std::endl;
     }
 
   public:
@@ -171,48 +136,20 @@ namespace mlir::verona
     void runOnFunction(::ast::Ast func)
     {
       assert(AST::isFunction(func) && "Bad node");
-      // Cache for debug purposes, get rid once we're happy with the impl.
-      function = func;
       // Clear any previous data and scan the whole function.
       freeVars.clear();
       runOnNode(func);
     }
 
-    /// Return the ArgsRet information from an Ast node
-    const ArgRet& getArgRet(::ast::Ast node)
-    {
-      assert(!freeVars.empty() && "Not in a function");
-      auto argRet = freeVars.find(node);
-      assert(argRet != freeVars.end() && "Node doesn't have associated ArgRet");
-      return argRet->second;
-    }
-
     /// Append returns to a list, for building basic-block arguments.
-    /// TODO: This may be all we need from this entire class, so maybe we
-    /// could ignore reads and the sets above.
     /// T must be a list<StringRef> type with push_back.
     template <class T>
-    void appendReturnsTo(::ast::Ast node, T& list)
+    void appendArguments(::ast::Ast node, T& list)
     {
-      auto argRet = freeVars.find(node);
-      assert(argRet != freeVars.end() && "Node doesn't have associated ArgRet");
-      for (auto ret : argRet->second.rets)
+      auto args = freeVars.find(node);
+      assert(args != freeVars.end() && "Node doesn't have associated Vars");
+      for (auto ret : args->second)
         list.push_back(ret);
-    }
-
-    /// Dumps the whole map, per function.
-    void dump()
-    {
-      auto funcName = AST::getFunctionName(function);
-      std::cerr << "Free Var Map: " << funcName.str() << std::endl;
-      for (auto pair : freeVars)
-      {
-        auto node = pair.first;
-        std::cerr << "Node: " << node->name << std::endl;
-        auto ar = pair.second;
-        dump(ar);
-      }
-      std::cerr << std::endl;
     }
   };
 }
