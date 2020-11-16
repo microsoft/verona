@@ -57,12 +57,6 @@ namespace mlir::verona
     {
       values.insert(values.begin(), range.begin(), range.end());
     }
-    /// Assignment operator for ReturnValue.
-    ReturnValue& operator=(ReturnValue& other)
-    {
-      values = other.values;
-      return *this;
-    }
     /// Assignment operator for mlir::Value.
     ReturnValue& operator=(mlir::Value& value)
     {
