@@ -344,43 +344,9 @@ namespace mlir::verona
       case AST::NodeKind::Return:
         return parseReturn(ast);
       case AST::NodeKind::If:
-      {
-        // Get PHI nodes from block
-        llvm::SmallVector<llvm::StringRef, 2> args;
-        freeVars.appendArguments(ast, args);
-
-        // Parse and get the updated values
-        auto rets = parseCondition(ast, args);
-        if (auto err = rets.takeError())
-          return std::move(err);
-
-        // Update the symbol table with the updated values
-        if (rets->hasValues())
-        {
-          for (auto ret_val : llvm::zip(args, rets->getAll()))
-            symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
-        }
-        return rets;
-      }
+        return parseCondition(ast);
       case AST::NodeKind::While:
-      {
-        // Get PHI nodes from block
-        llvm::SmallVector<llvm::StringRef, 2> args;
-        freeVars.appendArguments(ast, args);
-
-        // Parse and get the updated values
-        auto rets = parseWhileLoop(ast, args);
-        if (auto err = rets.takeError())
-          return std::move(err);
-
-        // Update the symbol table with the updated values
-        if (rets->hasValues())
-        {
-          for (auto ret_val : llvm::zip(args, rets->getAll()))
-            symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
-        }
-        return rets;
-      }
+        return parseWhileLoop(ast);
       case AST::NodeKind::Continue:
         return parseContinue(ast);
       case AST::NodeKind::Break:
@@ -593,13 +559,17 @@ namespace mlir::verona
     return ReturnValue();
   }
 
-  llvm::Expected<ReturnValue> Generator::parseCondition(
-    const ::ast::Ast& ast, llvm::ArrayRef<llvm::StringRef> args)
+  llvm::Expected<ReturnValue> Generator::parseCondition(const ::ast::Ast& ast)
   {
     assert(AST::isIf(ast) && "Bad node");
 
+    // Get PHI nodes from block
+    auto args = freeVars.getArguments(ast);
+
     // Create local context for condition variables (valid for both if/else)
-    SymbolScopeT var_scope{symbolTable};
+    // We use pushScope directly because we want to drop the scope before we
+    // update the block arguments as the new values (PHI nodes).
+    symbolTable.pushScope();
 
     // First node is a sequence of conditions
     // lower in the current basic block.
@@ -611,14 +581,15 @@ namespace mlir::verona
     // Cast to i1 if necessary
     auto castCond = generateAutoCast(condLoc, cond->get(), builder.getI1Type());
 
-    // Exit blocks have PHI nodes on any re-defined value on both if and else
-    // blocks. MLIR tracks PHI nodes as block arguments.
-    // For if/else blocks, no arguments.
+    // Neither if/else blocks have arguments.
     mlir::ValueRange empty{};
-    // For exit block, any change in either if/else must be a PHI node.
+
+    // In the exit block, any change in either if/else must be a PHI node.
+    // MLIR tracks PHI nodes as block arguments. We detect those via free
+    // variable analysis done at the ast level.
     llvm::SmallVector<mlir::Value, 2> vars;
     generateBBArgList(condLoc, args, vars);
-    mlir::ValueRange exitArgs{vars};
+    mlir::ValueRange condArgs{vars};
 
     // Create basic-blocks, conditionally branch to if/else
     auto region = builder.getInsertionBlock()->getParent();
@@ -627,9 +598,9 @@ namespace mlir::verona
     if (AST::hasElse(ast))
       elseBB = addBlock(region);
 
-    // We only need to add arguments to the last block because the reads on both
-    // if and else blocks work out from variable scope and basic-block
-    // dominance.
+    // We only need to add arguments to the last block due to writes on either
+    // if or else blocks. The reads on both if and else blocks work out from
+    // variable scope and basic-block dominance.
     auto exitBB = addBlock(region, vars.size(), unkTy);
     if (AST::hasElse(ast))
     {
@@ -638,8 +609,9 @@ namespace mlir::verona
     }
     else
     {
+      // From here, exitArgs are the unmodified values (pre-condition)
       builder.create<mlir::CondBranchOp>(
-        condLoc, castCond, ifBB, empty, exitBB, exitArgs);
+        condLoc, castCond, ifBB, empty, exitBB, condArgs);
     }
 
     {
@@ -654,14 +626,13 @@ namespace mlir::verona
       if (auto err = ifBlock.takeError())
         return std::move(err);
 
-      // Recreate exit arguments (from local context)
-      vars.clear();
+      // Recreate exit arguments (from local context of all modified variables)
       generateBBArgList(condLoc, args, vars);
-      mlir::ValueRange exitArgs{vars};
+      mlir::ValueRange ifArgs{vars};
 
       // Branch to exit if not returned yet
       if (!hasTerminator(builder.getBlock()))
-        builder.create<mlir::BranchOp>(ifLoc, exitBB, exitArgs);
+        builder.create<mlir::BranchOp>(ifLoc, exitBB, ifArgs);
     }
 
     // Else block
@@ -678,37 +649,44 @@ namespace mlir::verona
       if (auto err = elseBlock.takeError())
         return std::move(err);
 
-      // Recreate exit arguments (from local context)
-      vars.clear();
+      // Recreate exit arguments (from local context of all modified variables)
       generateBBArgList(condLoc, args, vars);
-      mlir::ValueRange exitArgs{vars};
+      mlir::ValueRange elseArgs{vars};
 
       // Branch to exit if not returned yet
       if (!hasTerminator(builder.getBlock()))
-        builder.create<mlir::BranchOp>(elseLoc, exitBB, exitArgs);
+        builder.create<mlir::BranchOp>(elseLoc, exitBB, elseArgs);
     }
 
     // Move to exit block, where the remaining instructions will be lowered.
     builder.setInsertionPointToEnd(exitBB);
 
-    // Rerurn the updated values from the exitBB's arguments
-    auto updatedValues = exitBB->getArguments();
-    auto list = ReturnValue();
-    for (auto val : updatedValues)
-      list.push_back(val);
-    return list;
+    // Pop the variable scope, to update the values from the exit block's
+    // arguments (PHI nodes)
+    symbolTable.popScope();
+    for (auto ret_val : llvm::zip(args, exitBB->getArguments()))
+    {
+      symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
+    }
+
+    // No values to return from lexical blocks.
+    return ReturnValue();
   }
 
-  llvm::Expected<ReturnValue> Generator::parseWhileLoop(
-    const ::ast::Ast& ast, llvm::ArrayRef<llvm::StringRef> args)
+  llvm::Expected<ReturnValue> Generator::parseWhileLoop(const ::ast::Ast& ast)
   {
     assert(AST::isLoop(ast) && "Bad node");
     auto loc = getLocation(ast);
+
+    // Get PHI nodes from block
+    auto args = freeVars.getArguments(ast);
 
     // All blocks have the same number of arguments. This is an over
     // simplification that can be optimised later. Symbols declared in the head
     // or body blocks don't survive into the exit block, and those declared in
     // the body block don't propagate to the head block through the back edge.
+    // But those declared before or in the head body are visible, through
+    // dominance, in the body block.
     llvm::SmallVector<mlir::Value, 2> vars;
     generateBBArgList(loc, args, vars);
     mlir::ValueRange entryArgs{vars};
@@ -722,18 +700,19 @@ namespace mlir::verona
     builder.create<mlir::BranchOp>(getLocation(ast), headBB, entryArgs);
 
     // Create local context for loop variables
-    SymbolScopeT var_scope{symbolTable};
-
-    // First node is a sequence of conditions
-    // lower in the head basic block, with the conditional branch.
-    auto condNode = AST::getCond(ast);
-    auto condLoc = getLocation(condNode);
+    // We use pushScope directly because we want to drop the scope before we
+    // update the block arguments as the new values (PHI nodes).
+    symbolTable.pushScope();
 
     // Update symbol table with basic block argument
     builder.setInsertionPointToEnd(headBB);
     for (auto ret_val : llvm::zip(args, headBB->getArguments()))
       symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
 
+    // First node is a sequence of conditions
+    // lower in the head basic block, with the conditional branch.
+    auto condNode = AST::getCond(ast);
+    auto condLoc = getLocation(condNode);
     auto cond = parseNode(condNode);
     if (auto err = cond.takeError())
       return std::move(err);
@@ -741,7 +720,6 @@ namespace mlir::verona
     auto castCond = generateAutoCast(condLoc, cond->get(), builder.getI1Type());
 
     // Re-generate arguments, as condition may have changed something.
-    vars.clear();
     generateBBArgList(condLoc, args, vars);
     mlir::ValueRange condArgs{vars};
     builder.create<mlir::CondBranchOp>(
@@ -751,38 +729,39 @@ namespace mlir::verona
     LoopFlowControl fc = {headBB, exitBB, args};
     loopScope.push(fc);
 
-    // Loop body, branch back to head node which will decide exit criteria
-    auto bodyNode = AST::getLoopBlock(ast);
-    auto bodyLoc = getLocation(bodyNode);
-
     // Update symbol table with basic block argument
     builder.setInsertionPointToEnd(bodyBB);
     for (auto ret_val : llvm::zip(args, bodyBB->getArguments()))
       symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
 
+    // Loop body, branch back to head node which will decide exit criteria
+    auto bodyNode = AST::getLoopBlock(ast);
+    auto bodyLoc = getLocation(bodyNode);
     auto bodyBlock = parseNode(bodyNode);
     if (auto err = bodyBlock.takeError())
       return std::move(err);
 
     // Re-generate arguments, as condition may have changed something.
-    vars.clear();
     generateBBArgList(condLoc, args, vars);
     mlir::ValueRange bodyArgs{vars};
+    // No explicit terminator means back-edge to head block.
     if (!hasTerminator(builder.getBlock()))
       builder.create<mlir::BranchOp>(bodyLoc, headBB, bodyArgs);
 
-    // Move to exit block, where the remaining instructions will be lowered.
-    builder.setInsertionPointToEnd(exitBB);
-
-    // Pop local loop context
+    // Pop local loop context (break/continue/args)
     loopScope.pop();
 
-    // Rerurn the updated values from the exitBB's arguments
-    auto updatedValues = exitBB->getArguments();
-    auto list = ReturnValue();
-    for (auto val : updatedValues)
-      list.push_back(val);
-    return list;
+    // Pop the variable scope, to update the values (PHI nodes)
+    symbolTable.popScope();
+
+    // Move to exit block, where the remaining instructions will be lowered
+    // and rerurn the updated values from the exitBB's arguments.
+    builder.setInsertionPointToEnd(exitBB);
+    for (auto ret_val : llvm::zip(args, exitBB->getArguments()))
+      symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
+
+    // No values to return from lexical blocks.
+    return ReturnValue();
   }
 
   llvm::Expected<ReturnValue> Generator::parseContinue(const ::ast::Ast& ast)
@@ -977,6 +956,8 @@ namespace mlir::verona
   void Generator::generateBBArgList(
     mlir::Location loc, llvm::ArrayRef<llvm::StringRef> names, T& vars)
   {
+    // This creates a new list, not append to an existing one
+    vars.clear();
     for (auto name : names)
     {
       auto value = symbolTable.lookup(name);

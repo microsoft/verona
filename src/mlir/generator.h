@@ -119,7 +119,6 @@ namespace mlir::verona
     mlir::Block* tail;
     std::vector<llvm::StringRef> args;
   };
-  using LoopFCStack = std::stack<LoopFlowControl>;
 
   /**
    * MLIR Generator.
@@ -170,7 +169,7 @@ namespace mlir::verona
     /// Symbol tables for classes.
     TypeTableT typeTable;
     /// Nested reference for head/exit blocks and args in loops.
-    LoopFCStack loopScope;
+    std::stack<LoopFlowControl> loopScope;
 
     /// Unknown types, will be defined during type inference.
     mlir::Type unkTy;
@@ -215,11 +214,9 @@ namespace mlir::verona
     /// Parses function calls and native operations.
     llvm::Expected<ReturnValue> parseCall(const ::ast::Ast& ast);
     /// Parses an if/else block.
-    llvm::Expected<ReturnValue>
-    parseCondition(const ::ast::Ast& ast, llvm::ArrayRef<llvm::StringRef> args);
+    llvm::Expected<ReturnValue> parseCondition(const ::ast::Ast& ast);
     /// Parses a 'while' loop block.
-    llvm::Expected<ReturnValue>
-    parseWhileLoop(const ::ast::Ast& ast, llvm::ArrayRef<llvm::StringRef> args);
+    llvm::Expected<ReturnValue> parseWhileLoop(const ::ast::Ast& ast);
     /// Parses a 'for' loop block.
     llvm::Expected<ReturnValue> parseForLoop(const ::ast::Ast& ast);
     /// Parses a 'continue' statement.
@@ -258,7 +255,8 @@ namespace mlir::verona
     /// Update symbol table with new values (to build PHI nodes)
     void updateSymbolTable(
       llvm::ArrayRef<llvm::StringRef> vars, llvm::ArrayRef<mlir::Value> vals);
-    /// Create a basic-block argument list from a variable name list
+    /// Create a basic-block argument list from a variable name list,
+    /// clearing the list before inserting the values.
     template<class T>
     void generateBBArgList(
       mlir::Location loc, llvm::ArrayRef<llvm::StringRef> names, T& vars);

@@ -11,9 +11,9 @@
 #include "ast/sym.h"
 #include "error.h"
 
-#include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 // Only for debug, remove later
 #include <iostream>
@@ -41,8 +41,10 @@ namespace mlir::verona
 
   class FreeVariableAnalysis
   {
-    /// Simple struct with writes and defs.
     using Vars = std::set<llvm::StringRef>;
+    using Args = std::vector<llvm::StringRef>;
+
+    /// Simple struct with writes and defs.
     struct BlockInfo
     {
       Vars write;
@@ -141,15 +143,13 @@ namespace mlir::verona
       runOnNode(func);
     }
 
-    /// Append returns to a list, for building basic-block arguments.
-    /// T must be a list<StringRef> type with push_back.
-    template <class T>
-    void appendArguments(::ast::Ast node, T& list)
+    /// Returns the arguments list of (cond/loop) nodes.
+    Args getArguments(::ast::Ast node)
     {
-      auto args = freeVars.find(node);
-      assert(args != freeVars.end() && "Node doesn't have associated Vars");
-      for (auto ret : args->second)
-        list.push_back(ret);
+      auto vars = freeVars.find(node);
+      assert(vars != freeVars.end() && "Node doesn't have associated Vars");
+      Args args(vars->second.begin(), vars->second.end());
+      return args;
     }
   };
 }
