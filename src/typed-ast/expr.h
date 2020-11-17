@@ -4,6 +4,7 @@
 #pragma once
 
 #include "typed-ast/node.h"
+#include "typed-ast/print.h"
 
 #include <memory>
 #include <optional>
@@ -80,6 +81,11 @@ namespace verona::ast
     {
       return E->getKind() == Kind::LocalDecl;
     }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("decl").field(name).finish();
+    }
   };
 
   /// This represents a local variable, e.g. `x`.
@@ -100,6 +106,11 @@ namespace verona::ast
     static bool classof(const Expr* E)
     {
       return E->getKind() == Kind::LocalRef;
+    }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("local").field(name).finish();
     }
   };
 
@@ -129,6 +140,11 @@ namespace verona::ast
     {
       return E->getKind() == Kind::MemberRef;
     }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("member").field(origin).field(name).finish();
+    }
   };
 
   /// This represents an assignment, e.g. `E1 = E2`.
@@ -157,6 +173,11 @@ namespace verona::ast
     {
       return E->getKind() == Kind::Assignment;
     }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("assign").field(lhs).field(rhs).finish();
+    }
   };
 
   /// This represents a sequence of multiple expressions, e.g. `E1; E2; E3`.
@@ -181,6 +202,11 @@ namespace verona::ast
     static bool classof(const Expr* E)
     {
       return E->getKind() == Kind::Sequence;
+    }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("seq").field(elements).finish();
     }
   };
 
@@ -227,6 +253,15 @@ namespace verona::ast
     {
       return E->getKind() == Kind::If;
     }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("if")
+        .field(condition)
+        .field(then_branch)
+        .optional_field(else_branch)
+        .finish();
+    }
   };
 
   /// This represents a while loop expression, e.g. `while(C) { E }`.
@@ -257,6 +292,11 @@ namespace verona::ast
     {
       return E->getKind() == Kind::While;
     }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("while").field(condition).field(body).finish();
+    }
   };
 
   /// This represents a `continue` statement.
@@ -271,6 +311,11 @@ namespace verona::ast
     {
       return E->getKind() == Kind::Continue;
     }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("continue").finish();
+    }
   };
 
   /// This represents a `break` statement.
@@ -282,6 +327,11 @@ namespace verona::ast
     static bool classof(const Expr* E)
     {
       return E->getKind() == Kind::Break;
+    }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("break").finish();
     }
   };
 
@@ -304,6 +354,11 @@ namespace verona::ast
     {
       return E->getKind() == Kind::Return;
     }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("return").optional_field(value).finish();
+    }
   };
 
   /// This represents a `yield` statement.
@@ -324,6 +379,11 @@ namespace verona::ast
     static bool classof(const Expr* E)
     {
       return E->getKind() == Kind::Yield;
+    }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("yield").field(value).finish();
     }
   };
 
@@ -361,6 +421,11 @@ namespace verona::ast
     {
       return E->getKind() == Kind::Invoke;
     }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("invoke").field(receiver).field(arguments).finish();
+    }
   };
 
   /// This represents a static method call, e.g. `T.m(E1, E2)`.
@@ -394,6 +459,11 @@ namespace verona::ast
     static bool classof(const Expr* E)
     {
       return E->getKind() == Kind::StaticCall;
+    }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("static-call").field(arguments).finish();
     }
   };
 
@@ -442,6 +512,11 @@ namespace verona::ast
     {
       return E->getKind() == Kind::MethodCall;
     }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("call").field(name).field(receiver).field(arguments).finish();
+    }
   };
 
   /// This represents an integer literal, e.g. 345
@@ -463,6 +538,11 @@ namespace verona::ast
     static bool classof(const Expr* E)
     {
       return E->getKind() == Kind::IntegerLiteral;
+    }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("int-literal").field(value).finish();
     }
   };
 
@@ -486,6 +566,11 @@ namespace verona::ast
     {
       return E->getKind() == Kind::FloatLiteral;
     }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("float-literal").field(value).finish();
+    }
   };
 
   /// This represents a boolean literal, i.e. 'true' or 'false'.
@@ -506,6 +591,11 @@ namespace verona::ast
     static bool classof(const Expr* E)
     {
       return E->getKind() == Kind::BooleanLiteral;
+    }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("bool-literal").field(value).finish();
     }
   };
 
@@ -529,6 +619,11 @@ namespace verona::ast
     static bool classof(const Expr* E)
     {
       return E->getKind() == Kind::StringLiteral;
+    }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("string-literal").field(value).finish();
     }
   };
 
@@ -554,6 +649,11 @@ namespace verona::ast
     static bool classof(const Expr* E)
     {
       return E->getKind() == Kind::Interpolate;
+    }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("interpolate").field(elements).finish();
     }
   };
 
@@ -581,6 +681,11 @@ namespace verona::ast
     static bool classof(const Expr* E)
     {
       return E->getKind() == Kind::Tuple;
+    }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("tuple").field(elements).finish();
     }
   };
 
@@ -613,6 +718,11 @@ namespace verona::ast
     static bool classof(const Expr* E)
     {
       return E->getKind() == Kind::When;
+    }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("when").field(arguments).field(body).finish();
     }
   };
 
@@ -647,6 +757,10 @@ namespace verona::ast
     {
       return E->getKind() == Kind::New;
     }
+
+    // The implementation needs MemberDef to be complete, therefore it is moved
+    // to `print.cc`.
+    void print(NodePrinter& out) const override;
   };
 
   /// This represents a lambda expression, e.g. `(x, y) { E }`.
@@ -668,6 +782,11 @@ namespace verona::ast
     static bool classof(const Expr* E)
     {
       return E->getKind() == Kind::Lambda;
+    }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("lambda").field(body).finish();
     }
   };
 }

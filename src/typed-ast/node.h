@@ -7,6 +7,8 @@
 
 namespace verona::ast
 {
+  class NodePrinter;
+
   /// This represents identifiers that appear in the source code.
   typedef std::string Symbol;
 
@@ -39,6 +41,12 @@ namespace verona::ast
     {
       return location;
     }
+
+    /// Print the contents of the node, using the given printer. Nodes should
+    /// call the printer's `begin` method once, the `field` methods zero or more
+    /// times, and finally end with the `finish` method.
+    virtual void print(NodePrinter& out) const = 0;
+    virtual ~Node() = default;
 
   protected:
     explicit Node(SourceLocation location) : location(location) {}
