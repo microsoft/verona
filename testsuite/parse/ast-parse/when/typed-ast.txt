@@ -1,0 +1,20 @@
+(entity
+  "$module"
+  [
+    (function
+      "foo"
+      (seq
+        [
+          (when [(local "a")] (seq []))
+          (when
+            [
+              (local "a")
+              (local "b")
+            ])
+            (seq
+              [
+                (when [(call "bar" (tuple []) [])] (seq []))
+                (return (local "b"))
+              ])))
+        ])))
+  ]))

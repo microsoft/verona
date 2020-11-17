@@ -1,0 +1,32 @@
+(entity
+  "$module"
+  [
+    (function
+      "f"
+      (seq
+        [
+          (assign (decl "a") (int-literal 0))
+          (while
+            (seq [(call "<" (local "a") [(int-literal 5)])])
+            (seq
+              [
+                (assign (local "a") (call "+" (local "a") [(int-literal 1)]))
+                (if
+                  (seq [(call "<" (local "a") [(int-literal 2)])])
+                  (seq [(continue)])
+                  (seq [(break)]))
+              ])))
+          (assign (decl "iter$0") (local "x"))
+          (while
+            (seq [(invoke (member (local "iter$0") "has_value") [])])
+            (seq
+              [
+                (assign
+                  (local "a")
+                  (invoke (member (local "iter$0") "apply") []))
+                (invoke (member (local "iter$0") "next") [])
+                (call "foo" (local "a") [])
+              ])))
+          (yield (local "a"))
+        ])))
+  ]))

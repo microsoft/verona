@@ -1,0 +1,27 @@
+(entity
+  "$module"
+  [
+    (entity "Empty" [])
+    (entity "One" [(field "a" ())])
+    (entity "Two" [(field "a" ()) (field "b" ())])
+    (function
+      "foo"
+      (seq
+        [
+          (assign (decl "r1") (new [] ()))
+          (assign
+            (decl "f")
+            (lambda (seq [(call "+" (local "a") [(int-literal 42)])])))
+          (assign (decl "e") (new [] ()))
+          (assign (decl "e1") (new [] "e"))
+          (assign (decl "one") (new [(field "a" (int-literal 42))] ()))
+          (assign
+            (decl "two")
+            (new
+              [
+                (field "a" (int-literal 42))
+                (field "b" (float-literal 3.14))
+              ])
+              "one"))
+        ])))
+  ]))

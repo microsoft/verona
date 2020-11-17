@@ -1,0 +1,7 @@
+(entity
+  "$module"
+  [
+    (typedef "UInt")
+    (entity "Foo" [])
+    (entity "Bar" [(typedef "A") (field "a" ()) (function "f" (seq []))])
+  ]))
