@@ -661,10 +661,7 @@ namespace mlir::verona
     // Pop the variable scope, to update the values from the exit block's
     // arguments (PHI nodes)
     symbolTable.popScope();
-    for (auto ret_val : llvm::zip(args, exitBB->getArguments()))
-    {
-      symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
-    }
+    updateSymbolTable(args, exitBB->getArguments());
 
     // No values to return from lexical blocks.
     return ReturnValue();
@@ -703,8 +700,7 @@ namespace mlir::verona
 
     // Update symbol table with basic block argument
     builder.setInsertionPointToEnd(headBB);
-    for (auto ret_val : llvm::zip(args, headBB->getArguments()))
-      symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
+    updateSymbolTable(args, headBB->getArguments());
 
     // First node is a sequence of conditions
     // lower in the head basic block, with the conditional branch.
@@ -728,8 +724,7 @@ namespace mlir::verona
 
     // Update symbol table with basic block argument
     builder.setInsertionPointToEnd(bodyBB);
-    for (auto ret_val : llvm::zip(args, bodyBB->getArguments()))
-      symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
+    updateSymbolTable(args, bodyBB->getArguments());
 
     // Loop body, branch back to head node which will decide exit criteria
     auto bodyNode = AST::getLoopBlock(ast);
@@ -754,8 +749,7 @@ namespace mlir::verona
     // Move to exit block, where the remaining instructions will be lowered
     // and rerurn the updated values from the exitBB's arguments.
     builder.setInsertionPointToEnd(exitBB);
-    for (auto ret_val : llvm::zip(args, exitBB->getArguments()))
-      symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));
+    updateSymbolTable(args, exitBB->getArguments());
 
     // No values to return from lexical blocks.
     return ReturnValue();
@@ -943,7 +937,8 @@ namespace mlir::verona
   }
 
   void Generator::updateSymbolTable(
-    llvm::ArrayRef<llvm::StringRef> vars, llvm::ArrayRef<mlir::Value> vals)
+    llvm::ArrayRef<llvm::StringRef> vars,
+    llvm::ArrayRef<mlir::BlockArgument> vals)
   {
     for (auto ret_val : llvm::zip(vars, vals))
       symbolTable.update(std::get<0>(ret_val), std::get<1>(ret_val));

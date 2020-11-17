@@ -254,7 +254,8 @@ namespace mlir::verona
       llvm::ArrayRef<mlir::Type> retTy);
     /// Update symbol table with new values (to build PHI nodes)
     void updateSymbolTable(
-      llvm::ArrayRef<llvm::StringRef> vars, llvm::ArrayRef<mlir::Value> vals);
+      llvm::ArrayRef<llvm::StringRef> vars,
+      llvm::ArrayRef<mlir::BlockArgument> vals);
     /// Create a basic-block argument list from a variable name list,
     /// clearing the list before inserting the values.
     template<class T>
