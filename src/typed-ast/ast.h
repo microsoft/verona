@@ -91,6 +91,11 @@ namespace verona::ast
     {
       return M->getKind() == Kind::Entity;
     }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("entity").field(getName()).field(elements).finish();
+    }
   };
 
   /// This represents a field definition.
@@ -115,6 +120,11 @@ namespace verona::ast
     {
       return M->getKind() == Kind::Field;
     }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("field").field(getName()).optional_field(initializer).finish();
+    }
   };
 
   /// This represents a method definition.
@@ -138,6 +148,11 @@ namespace verona::ast
     {
       return M->getKind() == Kind::Method;
     }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("function").field(getName()).optional_field(body).finish();
+    }
   };
 
   /// This represents a type alias definition, of the form `type Foo = T`.
@@ -151,6 +166,11 @@ namespace verona::ast
     static bool classof(const MemberDef* M)
     {
       return M->getKind() == Kind::TypeAlias;
+    }
+
+    void print(NodePrinter& out) const override
+    {
+      out.begin("typedef").field(getName()).finish();
     }
   };
 }
