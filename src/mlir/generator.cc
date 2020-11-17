@@ -565,6 +565,8 @@ namespace mlir::verona
 
     // Get PHI nodes from block
     auto args = freeVars.getArguments(ast);
+    // Place holder for arguments gathered from scope before each branch.
+    llvm::SmallVector<mlir::Value, 2> vars;
 
     // Create local context for condition variables (valid for both if/else)
     // We use pushScope directly because we want to drop the scope before we
@@ -584,13 +586,6 @@ namespace mlir::verona
     // Neither if/else blocks have arguments.
     mlir::ValueRange empty{};
 
-    // In the exit block, any change in either if/else must be a PHI node.
-    // MLIR tracks PHI nodes as block arguments. We detect those via free
-    // variable analysis done at the ast level.
-    llvm::SmallVector<mlir::Value, 2> vars;
-    generateBBArgList(condLoc, args, vars);
-    mlir::ValueRange condArgs{vars};
-
     // Create basic-blocks, conditionally branch to if/else
     auto region = builder.getInsertionBlock()->getParent();
     auto ifBB = addBlock(region);
@@ -601,7 +596,7 @@ namespace mlir::verona
     // We only need to add arguments to the last block due to writes on either
     // if or else blocks. The reads on both if and else blocks work out from
     // variable scope and basic-block dominance.
-    auto exitBB = addBlock(region, vars.size(), unkTy);
+    auto exitBB = addBlock(region, args.size(), unkTy);
     if (AST::hasElse(ast))
     {
       builder.create<mlir::CondBranchOp>(
@@ -610,6 +605,8 @@ namespace mlir::verona
     else
     {
       // From here, exitArgs are the unmodified values (pre-condition)
+      generateBBArgList(condLoc, args, vars);
+      mlir::ValueRange condArgs{vars};
       builder.create<mlir::CondBranchOp>(
         condLoc, castCond, ifBB, empty, exitBB, condArgs);
     }
@@ -694,9 +691,9 @@ namespace mlir::verona
     // Create the head basic-block, which will check the condition
     // and dispatch the loop to the body block or exit.
     auto region = builder.getInsertionBlock()->getParent();
-    auto headBB = addBlock(region, vars.size(), unkTy);
-    auto bodyBB = addBlock(region, vars.size(), unkTy);
-    auto exitBB = addBlock(region, vars.size(), unkTy);
+    auto headBB = addBlock(region, args.size(), unkTy);
+    auto bodyBB = addBlock(region, args.size(), unkTy);
+    auto exitBB = addBlock(region, args.size(), unkTy);
     builder.create<mlir::BranchOp>(getLocation(ast), headBB, entryArgs);
 
     // Create local context for loop variables
