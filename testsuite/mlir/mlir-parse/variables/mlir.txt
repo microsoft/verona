@@ -3,7 +3,9 @@ module @"$module" {
     %0 = verona.call "+"[%arg0 : !verona.meet<class<"S32">, iso>] (%arg1 : !verona.meet<class<"U64">, imm>) : !verona.unknown
     %1 = verona.call "*"[%arg0 : !verona.meet<class<"S32">, iso>] (%arg1 : !verona.meet<class<"U64">, imm>) : !verona.unknown
     %2 = verona.call "-"[%arg0 : !verona.meet<class<"S32">, iso>] (%arg1 : !verona.meet<class<"U64">, imm>) : !verona.unknown
-    %3 = "verona.cast"(%0) : (!verona.unknown) -> !verona.class<"S64">
-    return %3 : !verona.class<"S64">
+    %3 = "verona.constant(1)"() : () -> !verona.class<"int">
+    %4 = verona.call "+"[%2 : !verona.unknown] (%3 : !verona.class<"int">) : !verona.unknown
+    %5 = "verona.cast"(%4) : (!verona.unknown) -> !verona.class<"S64">
+    return %5 : !verona.class<"S64">
   }
 }

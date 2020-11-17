@@ -4,11 +4,15 @@
 foo(a: S32 & iso, b: U64 & imm): S64
 {
   // New variable, new name
-  let var = a + b;
+  let x = a + b;
   {
     // New scope, different variable
-    let var = a * b;
+    let x = a * b;
   }
-  // Re-assignment of the first variable
-  var = a - b;
+  // Re-assignment of the first variable, update SSA value
+  x = a - b;
+  // Re-assignment again, using the new SSA value
+  x = x + 1;
+  // Returns the new value (updated again)
+  x;
 }
