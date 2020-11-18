@@ -37,6 +37,14 @@ namespace verona::rt
     size_t systematic_id = 0;
     size_t systematic_speed_mask = 1;
 
+    void register_socket(int fd, int flags, long cookie)
+    {
+      UNUSED(fd);
+      UNUSED(flags);
+      UNUSED(cookie);
+      assert(0);
+    }
+
   private:
     using Scheduler = ThreadPool<SchedulerThread<T>>;
     friend Scheduler;
