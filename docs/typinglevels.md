@@ -46,8 +46,7 @@ imm         ~> mut          = imm
 *           ~> lifetime(r)  = undefined // lifetime not part of field annotations
 
 mut             ~> iso          = mut
-lifetime(r)     ~> iso          = derived_from(r)
-derived_from(r) ~> iso          = derived_from(r)
+lifetime(r)     ~> iso          = Top
 iso             ~> iso          = mut
 imm             ~> iso          = imm
 
@@ -58,18 +57,17 @@ and reading an `iso` field does not.
 
 This is the same for extracting.  The key difference is whether you get an `iso` or a `mut` when you read an `iso` field:
 ```
-mut         <~ mut          = mut
-lifetime(r) <~ mut          = lifetime(r)
-iso         <~ mut          = mut
-imm         <~ mut          = imm
+mut             <~ mut          = mut
+lifetime(r)     <~ mut          = lifetime(r)
+iso             <~ mut          = mut
+imm             <~ mut          = imm
 
 *           <~ lifetime(r)  = undefined // lifetime not part of field annotations
 
-mut         <~ iso          = iso
-lifetime(r) <~ iso          = Top
-derived_from(r) <~ iso      = Top
-iso         <~ iso          = iso
-imm         <~ iso          = imm
+mut             <~ iso          = iso
+lifetime(r)     <~ iso          = Top
+iso             <~ iso          = iso
+imm             <~ iso          = imm
 
 *           <~ imm          = imm
 ```
@@ -161,150 +159,110 @@ Need to be careful about this, but I think it works.
 
 **[Thinking required to fill in this section]**
 
-Paul's example:
+We have two core concepts,
+* A type annotation `dervied_from(r)` meaning that this mutable reference is under the region `r`.
+* Aliasing relation, Eq, that represents which variables can potentially alias the same region.
 
-```ts 
-m(x: mut)
-
-// x: mut & lifetime(r)
-{
-  var y = new B;
-  // y : iso & B & lifetime(r')
-  // r' : ~r
-  // r # r'
-  var z = y.f_mut;
-  // z: mut & C & lifetime(r')
-  drop y
-  // drop r'
-  // use x okay
-  // use z bad
-}
-
+We extend the previous operations to add `derived_from` facts, when we follow `iso` fields with 
+the aliasing viewpoint adapation. 
 ```
-
-
-{ Eq  }
-var x = (y.f = z);
-{ Eq + y~z~x }
-
-{ Eq }
-var x = y.f;
-{ Eq + x~y }
-
-{ Gamma, Eq }
-  filter_mut (y)
-{ Gamma', Eq' }
-  Gamma' = { x |-> Gamma(x)[noaccess/mut] | x~y\in Eq }  u { x |-> Gamma(x) | x~y\notin Eq }
-  Eq' = Eq \ { x~y | x~y \in Eq}
-
-filter_mut y
-
-
-
-drop y
-
-// x: lifetime(r), 
-pin (r)
-{
-  
-}
-
-// y : mut & lifetime(r) & derived_from(r1)
-var x_mut = y.f_iso;
-// x_mut: mut & lifetime(r') & derived_from(r)
-var z_mut = y.f_mut;
-// z_mut: mut & lifetime(r)
-var w_mut = y.f_iso1;
-// w_mut: mut & lifetime(r'') & derived_from(r)
-var x_iso = (y.f_iso = z)
-// x_iso: iso & derived_from(r)
-- invalidate:
-  - x_mut: yes
-    - x_mut~y and x_iso~y therefore x_mut~x_iso
-    - x_mut: lifetime(r'), r' \notin {r}
-  - z_mut: no
-    - z_mut: lifetime(r), r \in {r}
-  - y: no
-    - y: lifetime(r), r \in {r}
-  - w_mut: yes, unnecessarily
-    - w_mut~y and x_iso~y therefore w_mut~x_iso
-    - w_mut: lifetime(r''), r'' \notin {r}
-    - but really, r'' guaranteed not to be r', but we don't know this
-
-// x: derived_from(rbar)
-filter(x)
-  - Invalidate any y, y~x \in Eq unless y:lifetime(r) /\ r \in rbar
-  - Invalidate means G[y |-> G(y)[true/mut]]
-  - Not quite right: invalidate disjunctions separately
-
-
-// x_mut: mut & lifetime(r) & derived_from(r')
-// y_mut: mut & lifetime(r')
-f(x_mut)
-// `filter` each argument 
-
-// y: lifetime(r0)
-// y': lifetime(r1)
-// x_mut: mut & lifetime(r2) & derived_from(r0)
-var x_mut = y.f_iso;
-// x: iso
-var x = y.f_iso = z;
-y'.f_iso_or_imm = x;
-  // x_mut is now a cursor into something derived from r1, not r0
-
-  // Only drop mut, in other regions, lifetime(r)
-var x = (y.f_iso = z);
-  // z is 
-
-        Gamma, y:mut |- e -| Gamma'
-------------------------------------
-Gamma, x: iso , y~x \in Eq |- e -| x:iso, Gamma'
-
-
-So Eq, is actually may alias on regions...  
-
-But also need iso?
-
-
-### Formal strict
-
-They interact with the view point operations as follows:
-```
-mut(rbar_d; rbar_c)   ~> mut          = mut(rbar_d; rbar_c)
-iso(rbar)             ~> mut          = mut(rbar; emptyset)
-imm                   ~> mut          = imm
+mut         ~> mut          = mut
+lifetime(r) ~> mut          = lifetime(r)
+iso         ~> mut          = mut
+imm         ~> mut          = imm
 
 *           ~> lifetime(r)  = undefined // lifetime not part of field annotations
 
-mut(rbar_d; rbar_c) ~> iso          = mut(rbar_d u rbar_c; emptyset)
-iso(rbar_d)         ~> iso          = mut(rbar_d; emptyset)
-imm                 ~> iso          = imm
+mut             ~> iso          = mut
+lifetime(r)     ~> iso          = derived_from(r)
+derived_from(r) ~> iso          = derived_from(r)
+iso             ~> iso          = mut
+imm             ~> iso          = imm
 
 *           ~> imm          = imm
 ```
-The two most important operations are reading a `mut` fields preserves the lifetime, 
-and reading an `iso` field does not.
-
-This is the same for extracting.  The key difference is whether you get an `iso` or a `mut` when you read an `iso` field:
+The extracting adaptation throws away the `derived_from` information
+as it severs the link.
 ```
-mut         <~ mut          = mut
-lifetime(r) <~ mut          = lifetime(r)
-iso         <~ mut          = mut
-imm         <~ mut          = imm
+mut             <~ mut          = mut
+lifetime(r)     <~ mut          = lifetime(r)
+derived_from(r) <~ iso          = derived_from(r)
+iso             <~ mut          = mut
+imm             <~ mut          = imm
 
 *           <~ lifetime(r)  = undefined // lifetime not part of field annotations
 
-mut         <~ iso          = iso
-lifetime(r) <~ iso          = Top
-derived_from(r) <~ iso      = Top
-iso         <~ iso          = iso
-imm         <~ iso          = imm
+mut             <~ iso          = iso
+lifetime(r)     <~ iso          = Top
+derived_from(r) <~ iso          = Top
+iso             <~ iso          = iso
+imm             <~ iso          = imm
 
 *           <~ imm          = imm
 ```
+We define a concept `filter` that removes `mut`able references that could be a problem for consuming.
+```
+filter(x, Gamma)  = Gamma'
+  Define rs_x s.t. Gamma(x) <: derived_from(rs)
+  Define r_x s.t. Gamma(x) <: lifetime(r)
+  Where forall y, Gamma'(y) = Gamma(y)[(~lifetime(r) & ~lifetime(rs_x_1) & ... & ~lifetime(rs_x_n)) | mut)/mut] 
+```
 
-[Paul: needs two forms of extracting view point adaptation :-( ]
+Predicate form:
+```
+filter(x, Gamma)  = 
+  Define rs_x s.t. Gamma(x) <: lifetime(r) & derived_from(r_1) & ... & derived_from(r_n)
+  Define r_x s.t. Gamma(x) <: 
+  Requires forall y, 
+    Gamma(y) & mut <: lifetime(r) | lifetime(rs_x_1) | ... | lifetime(rs_x_n)
+```
 
+Filtering is used to ensure that internal references to a region that could be consumed are removed before that point.
+
+```
+filter(x,Gamma)
+Gamma(x) <: iso
+-------------------------------
+Gamma |- drop(x) -| Gamma \ x
+```
+
+This is however very restrictive as it means completely unrelated regions mutable references must be dropped.
+
+We track an over-aproximation of the may-alias set in the system to account for this.
+[TODO - How does this relate to types.  Can types improve it?]
+
+The second core aspect is the potential aliasing relation: MayBeSameRegionTree. If x~y in MayBeSameRegionTree, and 
+'x' is an iso or mut, and 'y' is a mut, then 'x' and 'y' can refer to the same region.
+```
+{ MayBeSameRegionTree  }
+var x = (y.f = z);
+{ MayBeSameRegionTree + y~z~x }
+
+{ MayBeSameRegionTree }
+var x = y.f;
+{ MayBeSameRegionTree + x~y }
+```
+We always close MayBeSameRegionTree with reflexivity, sym, and trans to form an equivalence relationship.
+
+
+We can adapt filter to this
+Predicate form:
+```
+filter(x, Gamma, MayBeSameRegionTree)  = 
+  Define rs_x s.t. Gamma(x) <: lifetime(r) & derived_from(r_1) & ... & derived_from(r_n)
+  Define r_x s.t. Gamma(x) <: 
+  Requires forall y, y~x\in MayBeSameRegionTree => 
+    Gamma(y) & mut <: lifetime(r) | lifetime(rs_x_1) | ... | lifetime(rs_x_n)
+```
+
+
+We can drop
+```
+filter(x, Gamma, MayBeSameRegionTree)
+Gamma(x) <: iso
+-------------------------------
+MayBeSameRegionTree; Gamma |- drop(x) -| MayBeSameRegionTree \ x; Gamma \ x
+```
 
 Field extraction requires same `lifetime`.
 ```
@@ -314,10 +272,165 @@ field_write(f, tau_x) = tau_f_w
 field_read(f, tau_x) = tau_f_r
 tau_y <: (tau_x & lifetime(r)) <~ tau_f_w     (fresh r)
 tau_x <: mut | iso
+filter(x, Gamma, MayBeSameRegionTree)
+MayBeSameRegionTree(x,y) => filter(y, Gamma, MayBeSameRegionTree)
+tau_z =  tau_x <~ tau_f_r
+If (tau_z <: iso) then MayBeSameRegionTree' = MayBeSameRegionTree + (x~y) else MayBeSameRegionTree' = MayBeSameRegionTree+(x~y~z)
 --------------------------------------
-G |- z = (x.f = y) -| G, z: tau_x <~ tau_f_r, y: tau_x ~> tau_y
+MayBeSameRegionTree; G |- z = (x.f = y) -| G, z: tau_x <~ tau_f_r, y: tau_x ~> tau_y; MayBeSameRegionTree' 
 
 ```
+
+If y is mut, then must have the same liftime, so filter will keep them both.
+
+If y is iso and x is a mut under y, then y and x must MayBeSameRegionTree.
+This means that `filter(y, Gamma, MayBeSameRegionTree)` will remove `x`. So we can't create a cycle.
+
+We only need to say `z` aliases `x` and `y` if it is not guaranteed to be an iso.
+
+Field Alias
+```
+G(x) : tau_x
+field_read(f, tau_x) = tau_f_r
+tau_x <: iso|mut|imm               // alright to read
+------------------------------------------
+MayBeSameRegionTree, G |- z = x.f -| G, z : tau_x ~> tau_f_r;  MayBeSameRegionTree + (z~x)
+```
+
+Thinking through some uses:
+```
+// y : mut & lifetime(r) & derived_from(r1)    ;  
+var x_mut = y.f_iso;
+// x_mut: mut & lifetime(r') & derived_from(r) & derived_from(r1)   ;  y~x_mut
+var z_mut = y.f_mut;
+// z_mut: mut & lifetime(r) & derived_from(r1)                      ;  y~x_mut~z_mut
+var w_mut = y.f_iso1;
+// w_mut: mut & lifetime(r'') & derived_from(r) & derived_from(r1)  ;  y~x_mut~z_mut~w_mut
+var x_iso = (y.f_iso = z)
+// x_iso: iso & derived_from(r)                                     ;   y~x_mut~z_mut~w_mut,   x_iso
+- invalidate:
+  - x_mut: yes
+    - x_mut~y 
+    - x_mut: lifetime(r'), r' \notin {r,r1}
+  - z_mut: no
+    - z_mut: lifetime(r), r \in {r,r1}
+  - y: no
+    - y: lifetime(r), r \in {r,r1}
+  - w_mut: yes, unnecessarily
+    - w_mut~y
+    - w_mut: lifetime(r''), r'' \notin {r,r1}
+    - but really, r'' guaranteed not to be r', but we don't know this
+```
+
+So what does function call do? filter each argument?
+```
+// x_mut: mut & lifetime(r) & derived_from(r')
+// y_mut: mut & lifetime(r')
+f(x_mut)
+// `filter` each argument 
+``
+
+## Packet example
+This example is a simpler approach to combining a bunch of packets into a single message and processing it.
+```
+recv_packet(packet: Array[byte] & iso)
+{
+    when (assembler)
+    {
+        // packet: Array[byte] & iso
+        // assembler: mut & lifetime(r)     ; assembler,   packet
+        header = get_header(packet);
+        // header: mut ;  header~packet
+
+        var packet_list = assembler.packet_map(header.id)
+        // packet_list: mut & derived_from(r) & List[Array[byte] & iso] ; header~packet, assembler~packet_list
+        packet_list.append(packet);
+        // filters packet_list,  we don't need to filter packet.
+        // So example where we want both possibilities in a signature.
+        // packet: Array[byte] & mut ;  header~packet~packet_list~assembler
+
+        if (header.final())
+        {
+            // We are about to send so need the iso.alias at this point
+            var final_packet_list = assembler.packet_map.extract(header.id)
+            // This filters based on `assembler` which removes `header`, `packet`, `packet_list` but not `assembler` 
+            // final_packet_list : iso & List[Array[byte] & iso] ;  assembler  ,  final_packet_list
+            when () {
+                process_message(final_packet_list)
+            }
+        }
+    }
+}
+```
+
+
+
+**[File dump from this point on]**
+
+## Itertools
+
+```ts
+
+class Option[T]
+{
+  class EmptyMarker
+  {
+    static create(): Empty { new () }
+  }
+
+  type Empty = EmptyMarker & imm;
+
+  private value: T | Empty;
+
+  ?(self: Option[T] & (mut | imm)): Bool
+  {
+    // ?opt, opt ? (), opt.?(), ?(opt)
+    match (self.value)
+    {
+      let v: S~>T { true }
+      _ { false }
+    }
+  }
+
+  *[S](self: S): S~>T throws Empty
+    where S: Option[T] & (mut | imm)
+  {
+    // *opt, opt * (), opt.*() *(opt)
+    match (self.value)
+    {
+      let v: S~>T { v }
+      _ { throw Empty }
+    }
+  }
+
+  |[S, U](self: S, def: U): S~>T | U
+    where S: Option[T] & (mut | imm)
+  {
+    // opt | def, opt.|(def), |(opt, def)
+    match (self.value)
+    {
+      let v: S~>T { v }
+      _ { def }
+    }
+  }
+
+  <-[S, U](self: S, value: S<~T | Empty = Empty, def: U = Empty): S<~T | U
+    where S: Option[T] & mut
+  {
+    // <-opt, opt <- (), opt.<-(), <-(opt)
+    // opt <- val, opt.<-(val) <-(opt, val)
+    // opt <- (val, def), opt.<-(val, def), <-(opt, val, def)
+    match (self.value = value)
+    {
+      let v: S<~T { v }
+      _ { def }
+    }
+  }
+}
+
+```
+
+
 
 
 ##  Example
@@ -380,111 +493,23 @@ D |- mutable (owned_r | free_r)
 
 ```
 
-## Silly Generic Example
+Paul's example:
 
-```ts
+```ts 
+m(x: mut)
 
-f[T](x: T & imm)
-  where T: I
+// x: mut & lifetime(r)
 {
-  // send x
-}
-
-f[C & mut](x);
-
-```
-
-
-
-
-
-// w: iso
-x = w.f_mut
-// x: lifetime(r) & mut
-y = x.f_iso
-// y : derived_from(r)
-z = (y.f_iso = w)
-// y : derived_from(r)
-// z : derived_from(r)
-
-
-We need to `filter` on `w` and `y` I think.  
-  `w` is required to prevent cycles?  It would drop `x` and `y`, so can't keep cursor into it. Only required if the Eq says they may be in the same region.
-
-
-
-So need to lose derived_from facts too
-
-x1 = x0.f_iso
-r1 = open x1
-x2 = x1.f_iso
-r2 = open x2
-x3 = (x2.f_iso = None)
-// x3 : df(r1,r2) 
-x4 = x3.f_iso
-// x4 : df(r1,r2)
-_ = (x4.f_iso = x1)
-// x3: df(r1,r2) and x4: df(r1, r2)  should not still be true
-
-## Itertools
-
-```ts
-
-class Option[T]
-{
-  class EmptyMarker
-  {
-    static create(): Empty { new () }
-  }
-
-  type Empty = EmptyMarker & imm;
-
-  private value: T | Empty;
-
-  ?(self: Option[T] & (mut | imm)): Bool
-  {
-    // ?opt, opt ? (), opt.?(), ?(opt)
-    match (self.value)
-    {
-      let v: S~>T { true }
-      _ { false }
-    }
-  }
-
-  *[S](self: S): S~>T throws Empty
-    where S: Option[T] & (mut | imm)
-  {
-    // *opt, opt * (), opt.*() *(opt)
-    match (self.value)
-    {
-      let v: S~>T { v }
-      _ { throw Empty }
-    }
-  }
-
-  |[S, U](self: S, def: U): S~>T | U
-    where S: Option[T] & (mut | imm)
-  {
-    // opt | def, opt.|(def), |(opt, def)
-    match (self.value)
-    {
-      let v: S~>T { v }
-      _ { def }
-    }
-  }
-
-  <-[S, U](self: S, value: S<~T | Empty = Empty, def: U = Empty): S<~T | U
-    where S: Option[T] & mut
-  {
-    // <-opt, opt <- (), opt.<-(), <-(opt)
-    // opt <- val, opt.<-(val) <-(opt, val)
-    // opt <- (val, def), opt.<-(val, def), <-(opt, val, def)
-    match (self.value = value)
-    {
-      let v: S<~T { v }
-      _ { def }
-    }
-  }
+  var y = new B;
+  // y : iso & B & lifetime(r')
+  // r' : ~r
+  // r # r'
+  var z = y.f_mut;
+  // z: mut & C & lifetime(r')
+  drop y
+  // drop r'
+  // use x okay
+  // use z bad
 }
 
 ```
