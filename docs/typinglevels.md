@@ -328,7 +328,7 @@ So what does function call do? filter each argument?
 // y_mut: mut & lifetime(r')
 f(x_mut)
 // `filter` each argument 
-``
+```
 
 ## Packet example
 This example is a simpler approach to combining a bunch of packets into a single message and processing it.
