@@ -21,8 +21,8 @@ module @"$module" {
     cond_br %13, ^bb5(%10 : !verona.unknown), ^bb6(%10 : !verona.unknown)
   ^bb5(%14: !verona.unknown):  // pred: ^bb4
     %15 = verona.call "+"[%14 : !verona.unknown] (%5 : !verona.unknown) : !verona.unknown
-    br ^bb4(%14 : !verona.unknown)
+    br ^bb4(%15 : !verona.unknown)
   ^bb6(%16: !verona.unknown):  // pred: ^bb4
-    br ^bb1(%5 : !verona.unknown)
+    br ^bb1(%16 : !verona.unknown)
   }
 }

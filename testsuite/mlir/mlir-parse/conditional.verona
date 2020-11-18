@@ -125,3 +125,19 @@ double_diamond(flag : bool, a : U16, b : U16, x : U16, y : U16) : S16
   // y(3) = PHI(y, y(2))
   x + y;
 }
+
+// Testing calls and field access, to make sure the right value is propagated.
+
+class A
+{
+  x : U32;
+  m() : A;
+}
+
+method_test(a : A & mut) : U32
+{
+  if (true) {
+    a = a.m();
+  }
+  a.x;
+}

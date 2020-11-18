@@ -397,7 +397,11 @@ namespace mlir::verona
 
   std::pair<Type, Type> lookupFieldType(Type origin, StringRef name)
   {
+    MLIRContext* ctx = origin.getContext();
     return TypeSwitch<Type, std::pair<Type, Type>>(origin)
+      .Case<UnknownType>([&ctx](Type origin) -> std::pair<Type, Type> {
+        return {UnknownType::get(ctx), UnknownType::get(ctx)};
+      })
       .Case<MeetType>(
         [&](MeetType origin) { return lookupMeetFieldType(origin, name); })
       .Case<JoinType>(

@@ -13,7 +13,7 @@ module @"$module" {
     %8 = verona.call "apply"[%2 : !verona.unknown] ( : ) : !verona.unknown
     %9 = verona.call "next"[%2 : !verona.unknown] ( : ) : !verona.unknown
     %10 = verona.call "+"[%7 : !verona.unknown] (%8 : !verona.unknown) : !verona.unknown
-    br ^bb1(%7 : !verona.unknown)
+    br ^bb1(%10 : !verona.unknown)
   ^bb3(%11: !verona.unknown):  // pred: ^bb1
     %12 = "verona.cast"(%11) : (!verona.unknown) -> !verona.class<"U32">
     return %12 : !verona.class<"U32">
@@ -32,7 +32,7 @@ module @"$module" {
     %8 = verona.call "apply"[%2 : !verona.unknown] ( : ) : !verona.unknown
     %9 = verona.call "next"[%2 : !verona.unknown] ( : ) : !verona.unknown
     %10 = verona.call "+"[%7 : !verona.unknown] (%8 : !verona.unknown) : !verona.unknown
-    br ^bb1(%7 : !verona.unknown)
+    br ^bb1(%10 : !verona.unknown)
   ^bb3(%11: !verona.unknown):  // pred: ^bb1
     %12 = "verona.cast"(%11) : (!verona.unknown) -> !verona.class<"U32">
     return %12 : !verona.class<"U32">

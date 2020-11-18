@@ -357,6 +357,16 @@ namespace mlir::verona
       nodes.insert(nodes.end(), ast->nodes.begin(), ast->nodes.end());
     }
 
+    /// Return the sequence of a block ast, in case we don't want to
+    /// push to the variable scope (when it needs to exist for longer).
+    /// If not a block, just return the ast.
+    static ::ast::Ast skipBlock(::ast::Ast ast)
+    {
+      if (isBlock(ast))
+        return findNode(ast, NodeKind::Seq);
+      return ast;
+    }
+
     // ================================================= Value Helpers
     /// Get the string value of a token
     static llvm::StringRef getTokenValue(::ast::Ast ast)
@@ -662,7 +672,7 @@ namespace mlir::verona
     }
 
     // ================================================= Condition Helpers
-    /// Return the condition from an if statement
+    /// Return true if the 'if' node has an else block
     static bool hasElse(::ast::Ast ast)
     {
       // Else nodes always exist inside `if` nodes, but if there was no `else`
@@ -671,7 +681,7 @@ namespace mlir::verona
         hasSubs(findNode(ast, NodeKind::Else));
     }
 
-    /// Return the block from an if statement
+    /// Return the condition from an if statement
     static ::ast::Ast getCond(::ast::Ast ast)
     {
       // These are the nodes that could have conditions as subnodes
@@ -681,7 +691,7 @@ namespace mlir::verona
       return findNode(cond, NodeKind::Seq);
     }
 
-    /// Return true if the 'if' node has an else block
+    /// Return the if block from an if statement
     static ::ast::Ast getIfBlock(::ast::Ast ast)
     {
       assert(isIf(ast) && "Bad node");

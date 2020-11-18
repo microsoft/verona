@@ -17,8 +17,8 @@ module @"$module" {
   ^bb4:  // pred: ^bb2
     %10 = "verona.constant(1)"() : () -> !verona.class<"int">
     %11 = verona.call "+"[%5 : !verona.unknown] (%10 : !verona.class<"int">) : !verona.unknown
-    br ^bb5(%5 : !verona.unknown)
+    br ^bb5(%11 : !verona.unknown)
   ^bb5(%12: !verona.unknown):  // 2 preds: ^bb2, ^bb4
-    br ^bb1(%5 : !verona.unknown)
+    br ^bb1(%12 : !verona.unknown)
   }
 }

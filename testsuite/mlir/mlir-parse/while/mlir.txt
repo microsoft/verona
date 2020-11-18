@@ -10,7 +10,7 @@ module @"$module" {
   ^bb2(%5: !verona.unknown):  // pred: ^bb1
     %6 = "verona.constant(1)"() : () -> !verona.class<"int">
     %7 = verona.call "+"[%5 : !verona.unknown] (%6 : !verona.class<"int">) : !verona.unknown
-    br ^bb1(%5 : !verona.unknown)
+    br ^bb1(%7 : !verona.unknown)
   ^bb3(%8: !verona.unknown):  // pred: ^bb1
     br ^bb4(%8 : !verona.unknown)
   ^bb4(%9: !verona.unknown):  // 2 preds: ^bb3, ^bb5
@@ -20,7 +20,7 @@ module @"$module" {
   ^bb5(%12: !verona.unknown):  // pred: ^bb4
     %13 = "verona.constant(1)"() : () -> !verona.class<"int">
     %14 = verona.call "-"[%12 : !verona.unknown] (%13 : !verona.class<"int">) : !verona.unknown
-    br ^bb4(%12 : !verona.unknown)
+    br ^bb4(%14 : !verona.unknown)
   ^bb6(%15: !verona.unknown):  // pred: ^bb4
     %16 = "verona.cast"(%15) : (!verona.unknown) -> !verona.class<"U32">
     return %16 : !verona.class<"U32">

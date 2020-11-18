@@ -13,7 +13,7 @@ module @"$module" {
     %7 = verona.call "apply"[%arg0 : !verona.class<"U64">] ( : ) : !verona.unknown
     %8 = verona.call "next"[%arg0 : !verona.class<"U64">] ( : ) : !verona.unknown
     %9 = verona.call "foo"[%7 : !verona.unknown] ( : ) : !verona.unknown
-    br ^bb1(%6 : !verona.unknown)
+    br ^bb1(%7 : !verona.unknown)
   ^bb3(%10: !verona.unknown):  // pred: ^bb1
     return
   }
@@ -44,7 +44,7 @@ module @"$module" {
     %16 = "verona.cast"(%15) : (!verona.unknown) -> i1
     cond_br %16, ^bb7, ^bb8
   ^bb6:  // pred: ^bb9
-    br ^bb1(%6 : !verona.unknown)
+    br ^bb1(%7 : !verona.unknown)
   ^bb7:  // pred: ^bb5
     br ^bb1(%7 : !verona.unknown)
   ^bb8:  // pred: ^bb5

@@ -313,8 +313,12 @@ namespace mlir::verona
   llvm::Expected<ReturnValue> Generator::parseBlock(const ::ast::Ast& ast)
   {
     // Blocks add lexical context
-    SymbolScopeT var_scope{symbolTable};
+    SymbolScopeT scope{symbolTable};
+    return parseSeq(ast);
+  }
 
+  llvm::Expected<ReturnValue> Generator::parseSeq(const ::ast::Ast& ast)
+  {
     ReturnValue last;
     llvm::SmallVector<::ast::Ast, 4> nodes;
     AST::getSubNodes(nodes, ast);
@@ -333,8 +337,9 @@ namespace mlir::verona
     switch (AST::getKind(ast))
     {
       case AST::NodeKind::Block:
-      case AST::NodeKind::Seq:
         return parseBlock(ast);
+      case AST::NodeKind::Seq:
+        return parseSeq(ast);
       case AST::NodeKind::Assign:
         return parseAssign(ast);
       case AST::NodeKind::Call:
@@ -414,7 +419,7 @@ namespace mlir::verona
     // or localref (existing variable).
     auto name = AST::getLocalName(lhs);
 
-    // If the variable wasn't declared yet in this context, create an alloca
+    // If the variable wasn't declared yet in this context
     if (AST::isLet(lhs))
     {
       // If type was declared, use it
@@ -436,7 +441,7 @@ namespace mlir::verona
     // Other assigns (on existing variables) return the previous stored value
     // after updating the current value
     auto prev = symbolTable.lookup(name);
-    symbolTable.update(name, rhs->get());
+    symbolTable.update(name, value);
     return prev;
   }
 
@@ -615,21 +620,23 @@ namespace mlir::verona
       // Create local context for the if block variables
       SymbolScopeT if_scope{symbolTable};
 
-      // If block
-      auto ifNode = AST::getIfBlock(ast);
+      // If block (skip the block to avoid creating a new scope).
+      auto ifNode = AST::skipBlock(AST::getIfBlock(ast));
       auto ifLoc = getLocation(ifNode);
       builder.setInsertionPointToEnd(ifBB);
       auto ifBlock = parseNode(ifNode);
       if (auto err = ifBlock.takeError())
         return std::move(err);
 
-      // Recreate exit arguments (from local context of all modified variables)
-      generateBBArgList(condLoc, args, vars);
-      mlir::ValueRange ifArgs{vars};
-
       // Branch to exit if not returned yet
       if (!hasTerminator(builder.getBlock()))
+      {
+        // Recreate exit arguments (from local context of all modified
+        // variables)
+        generateBBArgList(condLoc, args, vars);
+        mlir::ValueRange ifArgs{vars};
         builder.create<mlir::BranchOp>(ifLoc, exitBB, ifArgs);
+      }
     }
 
     // Else block
@@ -639,20 +646,23 @@ namespace mlir::verona
       // Create local context for the else block variables
       SymbolScopeT else_scope{symbolTable};
 
-      auto elseNode = AST::getElseBlock(ast);
+      // Else block (skip the block to avoid creating a new scope).
+      auto elseNode = AST::skipBlock(AST::getElseBlock(ast));
       auto elseLoc = getLocation(elseNode);
       builder.setInsertionPointToEnd(elseBB);
       auto elseBlock = parseNode(elseNode);
       if (auto err = elseBlock.takeError())
         return std::move(err);
 
-      // Recreate exit arguments (from local context of all modified variables)
-      generateBBArgList(condLoc, args, vars);
-      mlir::ValueRange elseArgs{vars};
-
       // Branch to exit if not returned yet
       if (!hasTerminator(builder.getBlock()))
+      {
+        // Recreate exit arguments (from local context of all modified
+        // variables)
+        generateBBArgList(condLoc, args, vars);
+        mlir::ValueRange elseArgs{vars};
         builder.create<mlir::BranchOp>(elseLoc, exitBB, elseArgs);
+      }
     }
 
     // Move to exit block, where the remaining instructions will be lowered.
@@ -727,18 +737,21 @@ namespace mlir::verona
     updateSymbolTable(args, bodyBB->getArguments());
 
     // Loop body, branch back to head node which will decide exit criteria
-    auto bodyNode = AST::getLoopBlock(ast);
+    // Skip the block to avoid creating a new scope.
+    auto bodyNode = AST::skipBlock(AST::getLoopBlock(ast));
     auto bodyLoc = getLocation(bodyNode);
     auto bodyBlock = parseNode(bodyNode);
     if (auto err = bodyBlock.takeError())
       return std::move(err);
 
-    // Re-generate arguments, as condition may have changed something.
-    generateBBArgList(condLoc, args, vars);
-    mlir::ValueRange bodyArgs{vars};
     // No explicit terminator means back-edge to head block.
     if (!hasTerminator(builder.getBlock()))
+    {
+      // Re-generate arguments, as condition may have changed something.
+      generateBBArgList(condLoc, args, vars);
+      mlir::ValueRange bodyArgs{vars};
       builder.create<mlir::BranchOp>(bodyLoc, headBB, bodyArgs);
+    }
 
     // Pop local loop context (break/continue/args)
     loopScope.pop();

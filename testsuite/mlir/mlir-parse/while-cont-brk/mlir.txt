@@ -25,6 +25,6 @@ module @"$module" {
   ^bb6:  // pred: ^bb5
     br ^bb3(%7 : !verona.unknown)
   ^bb7:  // pred: ^bb5
-    br ^bb1(%5 : !verona.unknown)
+    br ^bb1(%7 : !verona.unknown)
   }
 }

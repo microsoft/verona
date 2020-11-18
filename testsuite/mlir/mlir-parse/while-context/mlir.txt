@@ -13,7 +13,7 @@ module @"$module" {
     %8 = "verona.constant(3)"() : () -> !verona.class<"int">
     %9 = verona.call "+"[%7 : !verona.class<"int">] (%8 : !verona.class<"int">) : !verona.unknown
     %10 = verona.call "+"[%6 : !verona.unknown] (%9 : !verona.unknown) : !verona.unknown
-    br ^bb1(%6 : !verona.unknown)
+    br ^bb1(%10 : !verona.unknown)
   ^bb3(%11: !verona.unknown):  // pred: ^bb1
     %12 = "verona.cast"(%11) : (!verona.unknown) -> !verona.class<"F64">
     return %12 : !verona.class<"F64">

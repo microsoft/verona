@@ -205,8 +205,10 @@ namespace mlir::verona
     /// individual type.
     llvm::Expected<ReturnValue> parseNode(const ::ast::Ast& ast);
 
-    /// Parses a block (multiple statements), return last value.
+    /// Parses a block (multiple statements), return last value, add scope.
     llvm::Expected<ReturnValue> parseBlock(const ::ast::Ast& ast);
+    /// Parses a seq (multiple statements), return last value.
+    llvm::Expected<ReturnValue> parseSeq(const ::ast::Ast& ast);
     /// Parses a value (constants, variables).
     llvm::Expected<ReturnValue> parseValue(const ::ast::Ast& ast);
     /// Parses an assign statement.
