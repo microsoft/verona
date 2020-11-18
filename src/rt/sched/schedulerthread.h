@@ -39,10 +39,7 @@ namespace verona::rt
 
     void register_socket(int fd, int flags, long cookie)
     {
-      UNUSED(fd);
-      UNUSED(flags);
-      UNUSED(cookie);
-      assert(0);
+      token_cown->register_socket(fd, flags, cookie);
     }
 
   private:
