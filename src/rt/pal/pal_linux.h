@@ -10,6 +10,7 @@
 #  include <sys/socket.h>
 
 #  define BACKLOG 8192
+#  define MAX_EVENTS 128
 
 namespace verona::rt
 {
@@ -99,6 +100,41 @@ namespace verona::rt
         return -1;
       }
       return sock;
+    }
+  };
+
+  class LinuxPoller
+  {
+  public:
+    static int create_poll_fd()
+    {
+      return epoll_create1(0);
+    }
+
+    static int register_socket(int efd, int fd, int flags, long cookie)
+    {
+      int ret;
+      struct epoll_event ev;
+      UNUSED(flags);
+
+      ev.events = EPOLLIN;
+      ev.data.ptr = (void*)cookie;
+      ret = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
+      assert(!ret);
+
+      return 0;
+    }
+
+    static int check_network_io(int efd, void** ptrs)
+    {
+      struct epoll_event events[MAX_EVENTS];
+      int nfds, i;
+
+      nfds = epoll_wait(efd, events, MAX_EVENTS, 0);
+      for (i = 0; i < nfds; i++)
+        ptrs[i] = events[i].data.ptr;
+
+      return nfds;
     }
   };
 }

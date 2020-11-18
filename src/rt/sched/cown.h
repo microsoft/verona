@@ -4,6 +4,7 @@
 
 #include "../ds/forward_list.h"
 #include "../ds/mpscq.h"
+#include "../pal/pal.h"
 #include "../region/region.h"
 #include "../test/systematic.h"
 #include "base_noticeboard.h"
@@ -146,6 +147,8 @@ namespace verona::rt
       auto a = new (o) Cown(false);
 
       a->cown_mark_scanned();
+      a->io_fd = DefaultPoller::create_poll_fd();
+
       return a;
     }
 
@@ -727,6 +730,23 @@ namespace verona::rt
       alloc->dealloc<sizeof(MultiMessage::MultiMessageBody)>(m->get_body());
 
       return true;
+    }
+
+    void check_io()
+    {
+      Cown* ready_cowns[MAX_EVENTS];
+      int nre, i;
+
+      nre = DefaultPoller::check_network_io(io_fd, (void**)ready_cowns);
+      for (i = 0; i < nre; i++)
+      {
+        // FIXME: Schedule cowns that should be schedulled
+      }
+    }
+
+    void register_socket(int fd, int flags, long cookie)
+    {
+      DefaultPoller::register_socket(io_fd, fd, flags, cookie);
     }
 
   public:
