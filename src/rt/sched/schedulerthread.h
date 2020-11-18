@@ -370,6 +370,8 @@ namespace verona::rt
         }
         else
         {
+          cown->is_scheduled.store(false, std::memory_order_relaxed);
+          Systematic::cout() << "Unschedule cown " << cown << std::endl;
           // Don't reschedule.
           cown = nullptr;
         }
@@ -473,6 +475,7 @@ namespace verona::rt
         if (q.is_empty())
         {
           n_ld_tokens = 0;
+          token_cown->check_io();
         }
 
         // Participate in the cown LD protocol.
@@ -566,6 +569,11 @@ namespace verona::rt
         auto unmasked = clear_thread_bit(cown);
         SchedulerThread* sched = unmasked->owning_thread();
         assert(!sched->debug_is_token_consumed());
+
+        // FIXME: Don't check only locally
+        if (sched == this)
+          unmasked->check_io();
+
         sched->set_token_consumed(true);
 
         if (sched != this)
