@@ -136,6 +136,7 @@ namespace verona::rt
     int io_fd;
 
     bool would_io_block = false;
+    std::atomic<bool> is_scheduled = false;
 
     static Cown* create_token_cown()
     {
@@ -378,6 +379,7 @@ namespace verona::rt
       // This should only be called if the cown is known to have been
       // unscheduled, for example when detecting a previously empty message
       // queue on send, or when rescheduling after a multi-message.
+      is_scheduled.store(true, std::memory_order_relaxed);
       CownThread* t = Scheduler::local();
 
       if (t != nullptr)
@@ -740,7 +742,12 @@ namespace verona::rt
       nre = DefaultPoller::check_network_io(io_fd, (void**)ready_cowns);
       for (i = 0; i < nre; i++)
       {
-        // FIXME: Schedule cowns that should be schedulled
+        auto pref = true;
+        auto expected = false;
+        if (!ready_cowns[i]->is_scheduled.compare_exchange_strong(
+              expected, pref))
+          continue;
+        ready_cowns[i]->schedule();
       }
     }
 
@@ -1225,6 +1232,11 @@ namespace verona::rt
 
         alloc->dealloc(senders, senders_count * sizeof(Cown*));
 
+        if (would_io_block)
+        {
+          would_io_block = false;
+          return false;
+        }
       } while ((curr != until) && (batch_size < batch_limit));
 
       return true;
