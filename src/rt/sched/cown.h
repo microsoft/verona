@@ -147,6 +147,8 @@ namespace verona::rt
       auto o = Object::register_object(p, &desc);
       auto a = new (o) Cown(false);
 
+      // Will need to mark notify the token cown
+      a->queue.init(stub_msg(alloc));
       a->cown_mark_scanned();
       a->io_fd = DefaultPoller::create_poll_fd();
 

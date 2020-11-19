@@ -97,9 +97,10 @@ namespace verona::rt
       UNUSED(alloc);
       auto cmp = front.read();
 
+      auto unmasked_node = unmask(node);
       do
       {
-        node->next_in_queue = cmp.ptr();
+        unmasked_node->next_in_queue = cmp.ptr();
       } while (!cmp.store_conditional(node));
     }
 
