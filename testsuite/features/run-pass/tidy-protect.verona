@@ -36,7 +36,7 @@ class Main
     // CHECK-L: Before: Node { 1 }, Node { 2 }, Node { 3 }, Node { 4 }, Node { 5 }
     Builtin.print5("Before: {:#}, {:#}, {:#}, {:#}, {:#}\n", mut-view o1, o2, o3, o4, o5);
 
-    // o1, o2 and o3 are live at this point, due to their use in the next print
+    // o1, o3 and o5 are live at this point, due to their use in the next print
     // call. In contrast, o2 and o4 are unreachable, both from the stack and
     // from the heap, and therefore are garbage collected by the call to
     // Builtin.trace.
