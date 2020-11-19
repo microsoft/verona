@@ -87,7 +87,13 @@ namespace verona::rt
     // token is not there, this must mean a real cown is stuck there.
     // Accordingly, the `is_empty` returns true iff token is the only item
     // left in the queue.
-    std::atomic<bool> token_consumed = false;
+    enum TokenState
+    {
+      ACTIVE,
+      CONSUMED_LOCALLY,
+      STOLEN,
+    };
+    std::atomic<TokenState> token_state = ACTIVE;
     bool should_steal_for_fairness = false;
 
     std::atomic<bool> scheduled_unscanned_cown = false;
@@ -184,7 +190,7 @@ namespace verona::rt
 
     void check_token_cown()
     {
-      if (is_token_consumed())
+      if (is_token_consumed_locally())
       {
         Systematic::cout() << "Put token " << get_token_cown()
                            << " in scheduler queue." << std::endl;
@@ -192,7 +198,7 @@ namespace verona::rt
         {
           dec_n_ld_tokens();
         }
-        set_token_consumed(false);
+        set_token_state(ACTIVE);
         enqueue_token();
 
         if (Scheduler::get().fair)
@@ -200,6 +206,10 @@ namespace verona::rt
           Systematic::cout() << "Should steal for fairness!" << std::endl;
           should_steal_for_fairness = true;
         }
+      }
+      else if (is_token_stolen())
+      {
+        get_token_cown()->mark_notify();
       }
     }
 
@@ -442,23 +452,36 @@ namespace verona::rt
       n_ld_tokens--;
     }
 
-    bool is_token_consumed()
+    bool is_token_consumed_locally()
     {
-      auto res = token_consumed.load(std::memory_order_relaxed);
+      auto res = token_state.load(std::memory_order_relaxed);
       yield();
-      return res;
+      return res == CONSUMED_LOCALLY;
     }
 
-    bool debug_is_token_consumed()
+    bool is_token_stolen()
     {
-      auto res = token_consumed.load(std::memory_order_relaxed);
-      return res;
+      auto res = token_state.load(std::memory_order_relaxed);
+      yield();
+      return res == STOLEN;
     }
 
-    void set_token_consumed(bool res)
+    bool debug_is_token_active()
+    {
+      auto res = token_state.load(std::memory_order_relaxed);
+      return res == ACTIVE;
+    }
+
+    bool debug_is_token_stolen()
+    {
+      auto res = token_state.load(std::memory_order_relaxed);
+      return res == STOLEN;
+    }
+
+    void set_token_state(TokenState res)
     {
       yield();
-      token_consumed.store(res, std::memory_order_relaxed);
+      token_state.store(res, std::memory_order_relaxed);
     }
 
     T* steal()
@@ -568,22 +591,35 @@ namespace verona::rt
       {
         auto unmasked = clear_thread_bit(cown);
         SchedulerThread* sched = unmasked->owning_thread();
-        assert(!sched->debug_is_token_consumed());
 
-        // FIXME: Don't check only locally
-        if (sched == this)
-          unmasked->check_io();
+        unmasked->check_io();
 
-        sched->set_token_consumed(true);
+        assert(
+          sched->debug_is_token_active() || sched->debug_is_token_stolen());
 
         if (sched != this)
         {
           Systematic::cout() << "Reached token: stolen from "
                              << sched->systematic_id << std::endl;
+
+          sched->set_token_state(STOLEN);
+          // Home scheduler thread will send a notification to return
+          // its token cown. If there's no such notification schedule fifo
+          // on the remote thread, else schedule lifo on the home thread.
+          if (unmasked->queue.is_sleeping())
+            q.enqueue(alloc, cown);
+          else
+            sched->schedule_lifo(cown);
         }
         else
         {
           Systematic::cout() << "Reached token" << std::endl;
+
+          auto notify = false;
+          if (is_token_stolen())
+            unmasked->queue.mark_sleeping(notify);
+
+          set_token_state(CONSUMED_LOCALLY);
         }
 
         return false;
@@ -763,7 +799,7 @@ namespace verona::rt
     void enqueue_token()
     {
       // Must set the flag before pushing due to work stealing.
-      assert(!debug_is_token_consumed());
+      assert(debug_is_token_active());
       q.enqueue(alloc, (T*)((uintptr_t)get_token_cown() | 1));
     }
 
