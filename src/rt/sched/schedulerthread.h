@@ -249,7 +249,6 @@ namespace verona::rt
     template<typename... Args>
     void run(void (*startup)(Args...), Args... args)
     {
-      startup(args...);
       // Don't use affinity with systematic testing.  We're only ever running
       // one thread at a time in systematic testing mode and by pinning each
       // thread to a core we massively increase contention.
@@ -262,6 +261,8 @@ namespace verona::rt
       victim = next;
       T* cown = nullptr;
 
+      // Move this after setting local()
+      startup(args...);
 #ifdef USE_SYSTEMATIC_TESTING
       Scheduler::wait_for_my_first_turn();
 #endif
