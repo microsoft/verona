@@ -26,8 +26,13 @@ namespace verona::parser
 
     Location() = default;
 
-    Location(Source& source, size_t start, size_t end) :
-      source(source), start(static_cast<Position>(start)), end(static_cast<Position>(end)) {}
+    Location(Source& source, size_t start, size_t end)
+    : source(source),
+      start(static_cast<Position>(start)),
+      end(static_cast<Position>(end))
+    {}
+
+    bool is(const char* text);
   };
 
   Source load_source(const std::string& file, err::Errors& err);

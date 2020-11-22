@@ -19,7 +19,7 @@ namespace verona::parser
     ViewType,
     ExtractType,
     TypeRef,
-    TypeParam,
+    Constraint,
     Open,
     TypeAlias,
     Interface,
@@ -30,7 +30,7 @@ namespace verona::parser
     Method,
   };
 
-  using ID = std::string;
+  using ID = Location;
 
   struct NodeDef;
 
@@ -141,7 +141,7 @@ namespace verona::parser
     }
   };
 
-  struct TypeParam : NodeDef
+  struct Constraint : NodeDef
   {
     // TODO: value-dependent types
     ID id;
@@ -150,7 +150,7 @@ namespace verona::parser
 
     Kind kind()
     {
-      return Kind::TypeParam;
+      return Kind::Constraint;
     }
   };
 
@@ -170,8 +170,9 @@ namespace verona::parser
   struct Entity : Member
   {
     ID id;
-    List<TypeParam> typeparams;
+    std::vector<ID> typeparams;
     Node<Type> inherits;
+    List<Constraint> constraints;
   };
 
   struct TypeAlias : Entity
@@ -216,10 +217,11 @@ namespace verona::parser
 
   struct Signature : NodeDef
   {
-    List<TypeParam> typeparams;
+    std::vector<ID> typeparams;
     List<Field> params;
     Node<Type> result;
     Node<Type> throws;
+    List<Constraint> constraints;
 
     Kind kind()
     {

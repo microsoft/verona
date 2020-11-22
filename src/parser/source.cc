@@ -6,6 +6,12 @@
 
 namespace verona::parser
 {
+  bool Location::is(const char* text)
+  {
+    return this->source->contents.compare(
+             this->start, this->end - this->start + 1, text) == 0;
+  }
+
   Source load_source(const std::string& file, err::Errors& err)
   {
     std::ifstream f(file.c_str(), std::ios::binary | std::ios::ate);
