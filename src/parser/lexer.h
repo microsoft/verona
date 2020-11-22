@@ -9,24 +9,56 @@ namespace verona::parser
   enum class TokenKind
   {
     Invalid,
+
+    // Builtin symbols
     Dot,
     Comma,
     LParen,
     RParen,
     LSquare,
     RSquare,
-    LBracket,
-    RBracket,
+    LBrace,
+    RBrace,
     Semicolon,
     Colon,
     DoubleColon,
-    Symbol,
+    Equal,
+
+    // Constants
     String,
     Int,
     Float,
     Hex,
     Binary,
+    True,
+    False,
+
+    // Keywords
+    Module,
+    Class,
+    Interface,
+    Type,
+    Where,
+    Static,
+    If,
+    Else,
+    While,
+    For,
+    In,
+    Match,
+    When,
+    Break,
+    Continue,
+    Return,
+    Yield,
+    Let,
+    Var,
+    New,
+
+    // Symbols and identifiers
+    Symbol,
     Ident,
+
     End
   };
 
@@ -36,5 +68,5 @@ namespace verona::parser
     Location location;
   };
 
-  Token lex(Source& source, size_t& i, err::Errors& err);
+  Token lex(Source& source, size_t& i);
 }

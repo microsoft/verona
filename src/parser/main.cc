@@ -8,7 +8,8 @@ int main(int argc, char** argv)
 
   // auto opt = cli::parse(argc, argv);
   // auto m =
-  //   module::build(opt.grammar, opt.stopAt, passes, opt.filename, "verona", err);
+  //   module::build(opt.grammar, opt.stopAt, passes, opt.filename, "verona",
+  //   err);
 
   // if (opt.ast)
   //   std::cout << m;

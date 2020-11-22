@@ -41,6 +41,9 @@ namespace path
   // If path is a directory, returns the files (not subdirectories), if any.
   std::vector<std::string> files(const std::string& path);
 
+  // If path is a directory, returns the subdirectories (not files), if any.
+  std::vector<std::string> directories(const std::string& path);
+
   bool is_relative(const std::string& path);
   bool is_directory(const std::string& path);
   bool is_file(const std::string& path);

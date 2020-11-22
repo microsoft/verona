@@ -167,7 +167,7 @@ namespace path
     return from_platform(std::string(resolved));
   }
 
-  std::vector<std::string> files(const std::string& path)
+  std::vector<std::string> contents(const std::string& path, bool files)
   {
     if (!is_directory(path))
       return {};
@@ -188,7 +188,15 @@ namespace path
       {
         case DT_REG:
         {
-          r.push_back(e->d_name);
+          if (files)
+            r.push_back(e->d_name);
+          break;
+        }
+
+        case DT_DIR:
+        {
+          if (!files)
+            r.push_back(e->d_name);
           break;
         }
 
@@ -197,7 +205,9 @@ namespace path
         {
           auto name = join(path, e->d_name);
 
-          if (is_file(name))
+          if (files && is_file(name))
+            r.push_back(name);
+          else if (!files && is_directory(name))
             r.push_back(name);
           break;
         }
@@ -208,16 +218,18 @@ namespace path
 #elif defined(_WIN32)
     constexpr auto mask = FILE_ATTRIBUTE_DEVICE | FILE_ATTRIBUTE_DIRECTORY |
       FILE_ATTRIBUTE_REPARSE_POINT;
+
     WIN32_FIND_DATAA ffd;
     auto search = path + "*";
     auto handle = FindFirstFileA(search.c_str(), &ffd);
+    auto att = files ? 0 : FILE_ATTRIBUTE_DIRECTORY;
 
     while (handle != INVALID_HANDLE_VALUE)
     {
-      if ((ffd.dwFileAttributes & mask) == 0)
+      if ((ffd.dwFileAttributes & mask) == att)
         r.push_back(ffd.cFileName);
 
-      if (!FindNextFile(handle, &ffd))
+      if (!FindNextFileA(handle, &ffd))
       {
         FindClose(handle);
         handle = INVALID_HANDLE_VALUE;
@@ -251,6 +263,16 @@ namespace path
 #endif
 
     return true;
+  }
+
+  std::vector<std::string> files(const std::string& path)
+  {
+    return contents(path, true);
+  }
+
+  std::vector<std::string> directories(const std::string& path)
+  {
+    return contents(path, false);
   }
 
   bool is_directory(const std::string& path)

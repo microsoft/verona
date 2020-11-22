@@ -1,25 +1,27 @@
 #include "lexer.h"
+
 #include "source.h"
 
 namespace verona::parser
 {
-  const uint8_t X = 0; // Invalid
-  const uint8_t W = 1; // Whitespace
-  const uint8_t Y = 2; // Symbol
-  const uint8_t S = 3; // String "
-  const uint8_t Z = 4; // Builtin symbol .,()[]{};
-  const uint8_t L = 5; // Slash /
-  const uint8_t N = 6; // Number start 0123456789
-  const uint8_t I = 7; // Ident start
-  const uint8_t C = 8; // Colon :
+  constexpr uint8_t X = 0; // Invalid
+  constexpr uint8_t W = 1; // Whitespace
+  constexpr uint8_t Y = 2; // Symbol
+  constexpr uint8_t Q = 3; // Quote "
+  constexpr uint8_t Z = 4; // Builtin symbol .,()[]{};
+  constexpr uint8_t L = 5; // Slash /
+  constexpr uint8_t N = 6; // Number start 0123456789
+  constexpr uint8_t I = 7; // Ident start
+  constexpr uint8_t C = 8; // Colon :
+  constexpr uint8_t E = 9; // Equal =
+  constexpr uint8_t Eof = 255; // End of file
 
-  const uint8_t lookup[] =
-  {
+  constexpr uint8_t lookup[] = {
     X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X,
     X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X,
 
-    W, Y, S, Y, Y, Y, Y, Y, Z, Z, Y, Y, Z, Y, Z, L,
-    N, N, N, N, N, N, N, N, N, N, C, Z, Y, Y, Y, Y,
+    W, Y, Q, Y, Y, Y, Y, Y, Z, Z, Y, Y, Z, Y, Z, L,
+    N, N, N, N, N, N, N, N, N, N, C, Z, Y, E, Y, Y,
 
     Y, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I,
     Y, I, I, I, I, I, I, I, I, I, I, Z, Y, Z, Y, I,
@@ -40,38 +42,62 @@ namespace verona::parser
     X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X,
   };
 
+  struct Keyword
+  {
+    const char* text;
+    TokenKind kind;
+  };
+
+  constexpr Keyword keywords[] = {{"module", TokenKind::Module},
+                                  {"class", TokenKind::Class},
+                                  {"interface", TokenKind::Interface},
+                                  {"type", TokenKind::Type},
+                                  {"where", TokenKind::Where},
+                                  {"static", TokenKind::Static},
+                                  {"if", TokenKind::If},
+                                  {"else", TokenKind::Else},
+                                  {"while", TokenKind::While},
+                                  {"for", TokenKind::For},
+                                  {"in", TokenKind::In},
+                                  {"match", TokenKind::Match},
+                                  {"when", TokenKind::When},
+                                  {"break", TokenKind::Break},
+                                  {"continue", TokenKind::Continue},
+                                  {"return", TokenKind::Return},
+                                  {"yield", TokenKind::Yield},
+                                  {"let", TokenKind::Let},
+                                  {"var", TokenKind::Var},
+                                  {"new", TokenKind::New},
+                                  {nullptr, TokenKind::Invalid}};
+
   bool is_digit(char c)
   {
-    return
-      ((c >= '0') && (c <= '9')) ||
-      (c == '_');
+    return ((c >= '0') && (c <= '9')) || (c == '_');
   }
 
   bool is_hex(char c)
   {
-    return
-      ((c >= 'a') && (c <= 'f')) ||
-      ((c >= 'A') && (c <= 'F')) ||
+    return ((c >= 'a') && (c <= 'f')) || ((c >= 'A') && (c <= 'F')) ||
       is_digit(c);
   }
 
   bool is_binary(char c)
   {
-    return
-      ((c >= '0') && (c <= '1')) ||
-      (c == '_');
+    return ((c >= '0') && (c <= '1')) || (c == '_');
+  }
+
+  uint8_t next(Source& source, size_t& i)
+  {
+    if ((i + 1) < source->contents.size())
+      return lookup[source->contents[++i]];
+
+    return Eof;
   }
 
   Token consume_invalid(Source& source, size_t& i)
   {
     auto start = i;
-
-    while (++i < source->contents.size())
-    {
-      if (lookup[source->contents[i]] != X)
-        break;
-    }
-
+    while (next(source, i) == X) {}
     return {TokenKind::Invalid, {source, start, i - 1}};
   }
 
@@ -79,16 +105,21 @@ namespace verona::parser
   {
     auto start = i;
 
-    while (++i < source->contents.size())
+    while (true)
     {
-      auto c = lookup[source->contents[i]];
+      // Colons, slashes, and equals are valid symbol continuations.
+      switch (next(source, i))
+      {
+        case Y:
+        case L:
+        case C:
+        case E:
+          break;
 
-      // Colons and slashes are valid symbol continuations.
-      if ((c != Y) && (c != C) && (c != L))
-        break;
+        default:
+          return {TokenKind::Symbol, {source, start, i - 1}};
+      }
     }
-
-    return {TokenKind::Symbol, {source, start, i - 1}};
   }
 
   Token consume_builtin_symbol(Source& source, size_t& i)
@@ -135,13 +166,13 @@ namespace verona::parser
 
       case '{':
       {
-        kind = TokenKind::LBracket;
+        kind = TokenKind::LBrace;
         break;
       }
 
       case '}':
       {
-        kind = TokenKind::RBracket;
+        kind = TokenKind::RBrace;
         break;
       }
     }
@@ -260,9 +291,11 @@ namespace verona::parser
     {
       LeadingZero,
       Int,
+      HasDot,
       Float,
       Exponent1,
       Exponent2,
+      Exponent3,
       Hex,
       Binary,
     };
@@ -293,9 +326,23 @@ namespace verona::parser
       else if (state == State::Int)
       {
         if (c == '.')
-          state = State::Float;
+          state = State::HasDot;
         else if (!is_digit(c))
           break;
+      }
+      else if (state == State::HasDot)
+      {
+        if (is_digit(c))
+        {
+          state = State::Float;
+        }
+        else
+        {
+          // Don't consume the dot.
+          --i;
+          state = State::Int;
+          break;
+        }
       }
       else if (state == State::Float)
       {
@@ -306,12 +353,33 @@ namespace verona::parser
       }
       else if (state == State::Exponent1)
       {
-        if (is_digit(c) || (c == '-') || (c == '+'))
+        if ((c == '-') || (c == '+'))
           state = State::Exponent2;
+        else if (is_digit(c))
+          state = State::Exponent3;
         else
+        {
+          // Don't consume the e.
+          --i;
+          state = State::Float;
           break;
+        }
       }
       else if (state == State::Exponent2)
+      {
+        if (is_digit(c))
+        {
+          state = State::Exponent3;
+        }
+        else
+        {
+          // Don't consume the e or the +/-.
+          i -= 2;
+          state = State::Float;
+          break;
+        }
+      }
+      else if (state == State::Exponent3)
       {
         if (!is_digit(c))
           break;
@@ -338,8 +406,7 @@ namespace verona::parser
         break;
 
       case State::Float:
-      case State::Exponent1:
-      case State::Exponent2:
+      case State::Exponent3:
         kind = TokenKind::Float;
         break;
 
@@ -349,6 +416,10 @@ namespace verona::parser
 
       case State::Binary:
         kind = TokenKind::Binary;
+        break;
+
+      default:
+        // Shouldn't reach this, leave it as an invalid token.
         break;
     }
 
@@ -367,12 +438,23 @@ namespace verona::parser
       if ((c != I) && (c != N))
       {
         // Prime is the only symbol that's a valid ident continuation.
-        if ((c != S) || (source->contents[i] != '\''))
+        if ((c != Y) || (source->contents[i] != '\''))
           break;
       }
     }
 
-    return {TokenKind::Ident, {source, start, i - 1}};
+    Token tok{TokenKind::Ident, {source, start, i - 1}};
+
+    for (auto kw = &keywords[0]; kw->text; kw++)
+    {
+      if (tok.location.is(kw->text))
+      {
+        tok.kind = kw->kind;
+        break;
+      }
+    }
+
+    return tok;
   }
 
   Token consume_colon(Source& source, size_t& i)
@@ -380,24 +462,45 @@ namespace verona::parser
     auto kind = TokenKind::Colon;
     auto start = i;
 
-    while (++i < source->contents.size())
+    if (++i < source->contents.size())
     {
-      auto c = source->contents[i];
-
-      if (lookup[c] == C)
+      switch (lookup[source->contents[i]])
       {
-        kind = TokenKind::DoubleColon;
-        ++i;
-        break;
+        case C:
+          return {TokenKind::DoubleColon, {source, start, ++i - 1}};
+
+        case Y:
+        case E:
+          return consume_symbol(source, --i);
+
+        default:
+          break;
       }
-
-      if (lookup[c] != S)
-        break;
-
-      kind = TokenKind::Symbol;
     }
 
-    return {kind, {source, start, i - 1}};
+    return {TokenKind::Colon, {source, start, i - 1}};
+  }
+
+  Token consume_equal(Source& source, size_t& i)
+  {
+    auto kind = TokenKind::Equal;
+    auto start = i;
+
+    if (++i < source->contents.size())
+    {
+      switch (lookup[source->contents[i]])
+      {
+        case C:
+        case Y:
+        case E:
+          return consume_symbol(source, --i);
+
+        default:
+          break;
+      }
+    }
+
+    return {TokenKind::Equal, {source, start, i - 1}};
   }
 
   Token lex(Source& source, size_t& i)
@@ -421,7 +524,7 @@ namespace verona::parser
         case Y:
           return consume_symbol(source, i);
 
-        case S:
+        case Q:
         {
           // TODO: string - how to do interpolated strings
           break;
@@ -446,6 +549,9 @@ namespace verona::parser
 
         case C:
           return consume_colon(source, i);
+
+        case E:
+          return consume_equal(source, i);
       }
     }
 
