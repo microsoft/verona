@@ -40,6 +40,7 @@ namespace verona::parser
     Type,
     Where,
     Static,
+    Throws,
     If,
     Else,
     While,
