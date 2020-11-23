@@ -4,91 +4,107 @@
 #include "lexer.h"
 #include "source.h"
 
-#include <fstream>
+#include <deque>
 
 namespace verona::parser
 {
-  struct Parse;
-  using parse_fn = bool (*)(Parse&);
-
-  // TODO: restart mechanism
-
   enum Result
   {
     Skip,
     Success,
-    Fail,
+    Error,
   };
 
   struct Parse
   {
     Source source;
     size_t pos;
-    err::Errors& err;
-    std::vector<Token> lookahead;
-    std::vector<size_t> rewind;
+    std::deque<Token> lookahead;
     size_t la;
+    err::Errors& err;
 
     Parse(Source& source, err::Errors& err)
-    : source(source), pos(0), err(err), la(0)
+    : source(source), pos(0), la(0), err(err)
     {}
 
-    void start()
-    {
-      rewind.push_back(la);
-    }
-
-    void success()
-    {
-      la = rewind.back();
-      lookahead.resize(la);
-      rewind.pop_back();
-    }
-
-    void fail()
-    {
-      la = rewind.back();
-      rewind.pop_back();
-    }
-
-    Token& token()
+    Result peek(TokenKind kind)
     {
       if (la >= lookahead.size())
         lookahead.push_back(lex(source, pos));
 
       assert(la < lookahead.size());
-      auto& tok = lookahead[la];
-      la++;
+
+      if (lookahead[la].kind == kind)
+      {
+        la++;
+        return Success;
+      }
+
+      return Error;
+    }
+
+    Token take()
+    {
+      assert(la == 0);
+
+      if (lookahead.size() == 0)
+        return lex(source, pos);
+
+      auto tok = lookahead.front();
+      lookahead.pop_front();
       return tok;
     }
 
-    void backup(size_t n = 1)
+    void rewind()
     {
-      assert(n <= la);
-      la -= n;
+      la = 0;
     }
 
-    Result skip(TokenKind kind)
+    Result has(TokenKind kind)
     {
-      if (token().kind == kind)
-        return Success;
+      assert(la == 0);
 
-      backup();
-      return Skip;
+      if (peek(kind))
+      {
+        rewind();
+        take();
+        return Success;
+      }
+
+      return Error;
     }
 
     Result ident(ID& id)
     {
-      auto& tok = token();
-
-      if (tok.kind != TokenKind::Ident)
+      if (peek(TokenKind::Ident) == Error)
       {
         err << "Expected identifier" << err::end;
-        return Fail;
+        return Error;
       }
 
-      id = tok.location;
+      rewind();
+      id = take().location;
       return Success;
+    }
+
+    Result block(Node<Expr>& block)
+    {
+      // TODO:
+      return Success;
+    }
+
+    Result expression(Node<Expr>& expr)
+    {
+      // TODO:
+      return Success;
+    }
+
+    Result initexpr(Node<Expr>& expr)
+    {
+      if (has(TokenKind::Equals) != Success)
+        return Skip;
+
+      return expression(expr);
     }
 
     Result typeexpr(Node<Type>& type)
@@ -99,7 +115,7 @@ namespace verona::parser
 
     Result inittype(Node<Type>& type)
     {
-      if (skip(TokenKind::Equals) != Success)
+      if (has(TokenKind::Equals) != Success)
         return Skip;
 
       return typeexpr(type);
@@ -107,29 +123,188 @@ namespace verona::parser
 
     Result oftype(Node<Type>& type)
     {
-      if (skip(TokenKind::Colon) != Success)
+      if (has(TokenKind::Colon) != Success)
         return Skip;
 
       return typeexpr(type);
+    }
+
+    Result params(List<Field>& params)
+    {
+      if (has(TokenKind::LParen) != Success)
+      {
+        err << "Expected (" << err::end;
+        return Error;
+      }
+
+      if (has(TokenKind::RParen) == Success)
+        return Success;
+
+      do
+      {
+        auto param = std::make_shared<Field>();
+
+        if (ident(param->id) == Error)
+          return Error;
+
+        if (oftype(param->type) == Error)
+          return Error;
+
+        if (initexpr(param->init) == Error)
+          return Error;
+      } while (has(TokenKind::Comma) == Success);
+
+      if (has(TokenKind::RParen) != Success)
+      {
+        err << "Expected , or )" << err::end;
+        return Error;
+      }
+
+      return Success;
+    }
+
+    Result signature(Node<Signature>& sig)
+    {
+      sig = std::make_shared<Signature>();
+
+      if (typeparams(sig->typeparams) == Error)
+        return Error;
+
+      if (params(sig->params) == Error)
+        return Error;
+
+      if (typeexpr(sig->result) == Error)
+        return Error;
+
+      if (has(TokenKind::Throws))
+      {
+        if (typeexpr(sig->throws) == Error)
+          return Error;
+      }
+
+      if (constraints(sig->constraints) == Error)
+        return Error;
+
+      return Success;
+    }
+
+    Result field(List<Member>& members)
+    {
+      auto field = std::make_shared<Field>();
+
+      if (ident(field->id) == Error)
+        return Error;
+
+      if (oftype(field->type) == Error)
+        return Error;
+
+      if (initexpr(field->init) == Error)
+        return Error;
+
+      if (has(TokenKind::Semicolon) != Success)
+      {
+        err << "Expected ;" << err::end;
+        return Error;
+      }
+
+      return Success;
+    }
+
+    Result function(Function& func)
+    {
+      if (peek(TokenKind::Ident))
+      {
+        rewind();
+        func.id = take().location;
+      }
+      else if (peek(TokenKind::Symbol))
+      {
+        rewind();
+        func.id = take().location;
+      }
+
+      if (signature(func.signature) == Error)
+        return Error;
+
+      if (has(TokenKind::Semicolon) == Success)
+        return Success;
+
+      if (block(func.body) == Error)
+        return Error;
+
+      return Success;
+    }
+
+    Result static_function(List<Member>& members)
+    {
+      auto func = std::make_shared<Function>();
+      members.push_back(func);
+      return function(*func);
+    }
+
+    Result method(List<Member>& members)
+    {
+      auto method = std::make_shared<Method>();
+      members.push_back(method);
+      return function(*method);
+    }
+
+    Result field_or_function(List<Member>& members)
+    {
+      if (has(TokenKind::Static) != Success)
+      {
+        // It's a static function.
+        return static_function(members);
+      }
+
+      // field <- id oftype? initexpr? `;`
+      // method <- (id / sym)? sig (block / `;`)
+      // sig <- typeparams? params oftype? constraints?
+      if (peek(TokenKind::Ident))
+      {
+        if (peek(TokenKind::LSquare) || peek(TokenKind::LParen))
+        {
+          // It's a method.
+          rewind();
+          method(members);
+        }
+        else
+        {
+          // It's a field.
+          rewind();
+          field(members);
+        }
+      }
+      else if (
+        peek(TokenKind::Symbol) || peek(TokenKind::LSquare) ||
+        peek(TokenKind::LParen))
+      {
+        // It's a method.
+        rewind();
+        method(members);
+      }
+
+      // It's not a field, function, or method.
+      return Skip;
     }
 
     Result constraints(List<Constraint>& constraints)
     {
       while (true)
       {
-        if (skip(TokenKind::Where) != Success)
+        if (has(TokenKind::Where) != Success)
           return Success;
 
         auto constraint = std::make_shared<Constraint>();
 
-        if (ident(constraint->id) == Fail)
-          return Fail;
+        if (ident(constraint->id) == Error)
+          return Error;
 
-        if (oftype(constraint->type) == Fail)
-          return Fail;
+        if (oftype(constraint->type) == Error)
+          return Error;
 
-        if (inittype(constraint->init) == Fail)
-          return Fail;
+        if (inittype(constraint->init) == Error)
+          return Error;
 
         constraints.push_back(constraint);
       }
@@ -137,69 +312,77 @@ namespace verona::parser
 
     Result typeparams(std::vector<ID>& typeparams)
     {
-      if (skip(TokenKind::LSquare) != Success)
+      if (has(TokenKind::LSquare) != Success)
         return Skip;
 
       while (true)
       {
         ID id;
 
-        if (ident(id) == Fail)
-          return Fail;
+        if (ident(id) == Error)
+          return Error;
 
         typeparams.push_back(id);
 
-        if (skip(TokenKind::RSquare) == Success)
+        if (has(TokenKind::RSquare) == Success)
           return Success;
 
-        if (skip(TokenKind::Comma) != Success)
+        if (has(TokenKind::Comma) != Success)
         {
           err << "Expected , or ]" << err::end;
-          return Fail;
+          return Error;
         }
       }
     }
 
-    Result entity(Entity& entity)
+    Result entity(Entity& ent)
     {
-      if (ident(entity.id) == Fail)
-        return Fail;
+      if (typeparams(ent.typeparams) == Error)
+        return Error;
 
-      if (typeparams(entity.typeparams) == Fail)
-        return Fail;
+      if (oftype(ent.inherits) == Error)
+        return Error;
 
-      if (oftype(entity.inherits) == Fail)
-        return Fail;
+      if (constraints(ent.constraints) == Error)
+        return Error;
 
-      if (constraints(entity.constraints) == Fail)
-        return Fail;
+      return Success;
+    }
+
+    Result namedentity(NamedEntity& ent)
+    {
+      if (ident(ent.id) == Error)
+        return Error;
+
+      if (entity(ent) == Error)
+        return Error;
 
       return Success;
     }
 
     Result typealias(List<Member>& members)
     {
-      if (skip(TokenKind::Type) != Success)
+      if (has(TokenKind::Type) != Success)
         return Skip;
 
       auto alias = std::make_shared<TypeAlias>();
 
-      if (entity(*alias) == Fail)
-        return Fail;
+      if (namedentity(*alias) == Error)
+        return Error;
 
-      if (skip(TokenKind::Equals) != Success)
+      if (has(TokenKind::Equals) != Success)
       {
         err << "Expected =" << err::end;
-        return Fail;
+        return Error;
       }
 
-      if (typeexpr(alias->type) == Fail)
-        return Fail;
+      if (typeexpr(alias->type) == Error)
+        return Error;
 
-      if (skip(TokenKind::Semicolon) != Success)
+      if (has(TokenKind::Semicolon) != Success)
       {
         err << "Expected ;" << err::end;
-        return Fail;
+        return Error;
       }
 
       members.push_back(alias);
@@ -208,16 +391,16 @@ namespace verona::parser
 
     Result interface(List<Member>& members)
     {
-      if (skip(TokenKind::Interface) != Success)
+      if (has(TokenKind::Interface) != Success)
         return Skip;
 
       auto iface = std::make_shared<Interface>();
 
-      if (entity(*iface) == Fail)
-        return Fail;
+      if (namedentity(*iface) == Error)
+        return Error;
 
-      if (typebody(iface->members) == Fail)
-        return Fail;
+      if (typebody(iface->members) == Error)
+        return Error;
 
       members.push_back(iface);
       return Success;
@@ -225,54 +408,99 @@ namespace verona::parser
 
     Result classdef(List<Member>& members)
     {
-      if (skip(TokenKind::Class) != Success)
+      if (has(TokenKind::Class) != Success)
         return Skip;
 
       auto cls = std::make_shared<Class>();
 
-      if (entity(*cls) == Fail)
-        return Fail;
+      if (namedentity(*cls) == Error)
+        return Error;
 
-      if (typebody(cls->members) == Fail)
-        return Fail;
+      if (typebody(cls->members) == Error)
+        return Error;
 
       members.push_back(cls);
       return Success;
     }
 
-    Result memberlist(List<Member>& members)
+    Result moduledef(List<Member>& members)
     {
-      if (classdef(members) == Fail)
-        return Fail;
+      if (has(TokenKind::Module) != Success)
+        return Skip;
 
-      if (interface(members) == Fail)
-        return Fail;
+      auto module = std::make_shared<Module>();
 
-      if (typealias(members) == Fail)
-        return Fail;
+      if (entity(*module) == Error)
+        return Error;
 
-      // TODO: moduledef, field, function
+      if (has(TokenKind::RBrace) != Success)
+      {
+        err << "Expected ;" << err::end;
+        return Error;
+      }
 
-      err
-        << "Expected a module, class, interface, type alias, field, or function"
-        << err::end;
-      return Fail;
+      members.push_back(module);
+      return Success;
+    }
+
+    Result member(List<Member>& members, bool& printerror)
+    {
+      Result r;
+
+      if ((r = moduledef(members)) != Skip)
+        return r;
+
+      if ((r = classdef(members)) != Skip)
+        return r;
+
+      if ((r = interface(members)) != Skip)
+        return r;
+
+      if ((r = typealias(members)) != Skip)
+        return r;
+
+      if ((r = field_or_function(members)) != Skip)
+        return r;
+
+      if (printerror)
+      {
+        printerror = false;
+        err << "Expected a module, class, interface, type alias, field, or "
+               "function"
+            << err::end;
+      }
+
+      return Error;
     }
 
     Result typebody(List<Member>& members)
     {
-      if (skip(TokenKind::LBrace) != Success)
+      if (has(TokenKind::LBrace) != Success)
       {
         err << "Expected {" << err::end;
-        return Fail;
+        return Error;
       }
 
-      while (skip(TokenKind::RBrace) != Success)
-      {
-        if (memberlist(members) == Fail)
-          return Fail;
+      auto result = Success;
+      auto printerror = true;
 
-        // TODO: skip ahead and restart unless we're at the end of the file
+      while (has(TokenKind::RBrace) != Success)
+      {
+        if (has(TokenKind::End) == Success)
+        {
+          err << "Expected }" << err::end;
+          return Error;
+        }
+
+        if (member(members, printerror) == Error)
+        {
+          result = Error;
+          take();
+        }
+        else
+        {
+          printerror = true;
+        }
       }
 
       return Success;
@@ -280,15 +508,23 @@ namespace verona::parser
 
     Result module(List<Member>& members)
     {
-      while (skip(TokenKind::End) != Success)
-      {
-        if (memberlist(members) == Fail)
-          return Fail;
+      auto result = Success;
+      auto printerror = true;
 
-        // TODO: discard until we recognise something
+      while (has(TokenKind::End) != Success)
+      {
+        if (member(members, printerror) == Error)
+        {
+          result = Error;
+          take();
+        }
+        else
+        {
+          printerror = true;
+        }
       }
 
-      return Success;
+      return result;
     }
   };
 
@@ -298,7 +534,7 @@ namespace verona::parser
     auto source = load_source(file, err);
 
     if (!source)
-      return Fail;
+      return Error;
 
     Parse parse(source, err);
     return parse.module(module->members);
@@ -314,7 +550,7 @@ namespace verona::parser
     if (files.empty())
     {
       err << "No " << ext << " files found in " << path << err::end;
-      return Fail;
+      return Error;
     }
 
     for (auto& file : files)
@@ -324,8 +560,8 @@ namespace verona::parser
 
       auto filename = path::join(path, file);
 
-      if (parse_file(filename, module, err) == Fail)
-        result = Fail;
+      if (parse_file(filename, module, err) == Error)
+        result = Error;
     }
 
     return result;
