@@ -76,223 +76,221 @@ namespace verona::parser
       backup();
       return Skip;
     }
-  };
 
-  Result parse_typebody(Parse& parse, List<Member>& members);
-
-  Result parse_id(Parse& parse, ID& id)
-  {
-    auto& tok = parse.token();
-
-    if (tok.kind != TokenKind::Ident)
+    Result ident(ID& id)
     {
-      parse.err << "Expected identifier" << err::end;
-      return Fail;
-    }
+      auto& tok = token();
 
-    id = tok.location;
-    return Success;
-  }
-
-  Result parse_type(Parse& parse, Node<Type>& type)
-  {
-    // TODO:
-    return Success;
-  }
-
-  Result parse_inittype(Parse& parse, Node<Type>& type)
-  {
-    if (parse.skip(TokenKind::Equals) != Success)
-      return Skip;
-
-    return parse_type(parse, type);
-  }
-
-  Result parse_oftype(Parse& parse, Node<Type>& type)
-  {
-    if (parse.skip(TokenKind::Colon) != Success)
-      return Skip;
-
-    return parse_type(parse, type);
-  }
-
-  Result parse_constraints(Parse& parse, List<Constraint>& constraints)
-  {
-    while (true)
-    {
-      if (parse.skip(TokenKind::Where) != Success)
-        return Success;
-
-      auto constraint = std::make_shared<Constraint>();
-
-      if (parse_id(parse, constraint->id) == Fail)
-        return Fail;
-
-      if (parse_oftype(parse, constraint->type) == Fail)
-        return Fail;
-
-      if (parse_inittype(parse, constraint->init) == Fail)
-        return Fail;
-
-      constraints.push_back(constraint);
-    }
-  }
-
-  Result parse_typeparams(Parse& parse, std::vector<ID>& typeparams)
-  {
-    if (parse.skip(TokenKind::LSquare) != Success)
-      return Skip;
-
-    while (true)
-    {
-      ID id;
-
-      if (parse_id(parse, id) == Fail)
-        return Fail;
-
-      typeparams.push_back(id);
-
-      if (parse.skip(TokenKind::RSquare) == Success)
-        return Success;
-
-      if (parse.skip(TokenKind::Comma) != Success)
+      if (tok.kind != TokenKind::Ident)
       {
-        parse.err << "Expected , or ]" << err::end;
+        err << "Expected identifier" << err::end;
         return Fail;
       }
-    }
-  }
 
-  Result parse_entity(Parse& parse, Entity& entity)
-  {
-    if (parse_id(parse, entity.id) == Fail)
-      return Fail;
-
-    if (parse_typeparams(parse, entity.typeparams) == Fail)
-      return Fail;
-
-    if (parse_oftype(parse, entity.inherits) == Fail)
-      return Fail;
-
-    if (parse_constraints(parse, entity.constraints) == Fail)
-      return Fail;
-
-    return Success;
-  }
-
-  Result parse_typealias(Parse& parse, List<Member>& members)
-  {
-    if (parse.skip(TokenKind::Type) != Success)
-      return Skip;
-
-    auto alias = std::make_shared<TypeAlias>();
-
-    if (parse_entity(parse, *alias) == Fail)
-      return Fail;
-
-    if (parse.skip(TokenKind::Equals) != Success)
-    {
-      parse.err << "Expected =" << err::end;
-      return Fail;
+      id = tok.location;
+      return Success;
     }
 
-    if (parse_type(parse, alias->type) == Fail)
-      return Fail;
-
-    if (parse.skip(TokenKind::Semicolon) != Success)
+    Result typeexpr(Node<Type>& type)
     {
-      parse.err << "Expected ;" << err::end;
-      return Fail;
+      // TODO:
+      return Success;
     }
 
-    members.push_back(alias);
-    return Success;
-  }
-
-  Result parse_interface(Parse& parse, List<Member>& members)
-  {
-    if (parse.skip(TokenKind::Interface) != Success)
-      return Skip;
-
-    auto iface = std::make_shared<Interface>();
-
-    if (parse_entity(parse, *iface) == Fail)
-      return Fail;
-
-    if (parse_typebody(parse, iface->members) == Fail)
-      return Fail;
-
-    members.push_back(iface);
-    return Success;
-  }
-
-  Result parse_class(Parse& parse, List<Member>& members)
-  {
-    if (parse.skip(TokenKind::Class) != Success)
-      return Skip;
-
-    auto cls = std::make_shared<Class>();
-
-    if (parse_entity(parse, *cls) == Fail)
-      return Fail;
-
-    if (parse_typebody(parse, cls->members) == Fail)
-      return Fail;
-
-    members.push_back(cls);
-    return Success;
-  }
-
-  Result parse_members(Parse& parse, List<Member>& members)
-  {
-    if (parse_class(parse, members) == Fail)
-      return Fail;
-
-    if (parse_interface(parse, members) == Fail)
-      return Fail;
-
-    if (parse_typealias(parse, members) == Fail)
-      return Fail;
-
-    // TODO: moduledef, field, function
-
-    parse.err
-      << "Expected a module, class, interface, type alias, field, or function"
-      << err::end;
-    return Fail;
-  }
-
-  Result parse_typebody(Parse& parse, List<Member>& members)
-  {
-    if (parse.skip(TokenKind::LBrace) != Success)
+    Result inittype(Node<Type>& type)
     {
-      parse.err << "Expected {" << err::end;
-      return Fail;
+      if (skip(TokenKind::Equals) != Success)
+        return Skip;
+
+      return typeexpr(type);
     }
 
-    while (parse.skip(TokenKind::RBrace) != Success)
+    Result oftype(Node<Type>& type)
     {
-      if (parse_members(parse, members) == Fail)
+      if (skip(TokenKind::Colon) != Success)
+        return Skip;
+
+      return typeexpr(type);
+    }
+
+    Result constraints(List<Constraint>& constraints)
+    {
+      while (true)
+      {
+        if (skip(TokenKind::Where) != Success)
+          return Success;
+
+        auto constraint = std::make_shared<Constraint>();
+
+        if (ident(constraint->id) == Fail)
+          return Fail;
+
+        if (oftype(constraint->type) == Fail)
+          return Fail;
+
+        if (inittype(constraint->init) == Fail)
+          return Fail;
+
+        constraints.push_back(constraint);
+      }
+    }
+
+    Result typeparams(std::vector<ID>& typeparams)
+    {
+      if (skip(TokenKind::LSquare) != Success)
+        return Skip;
+
+      while (true)
+      {
+        ID id;
+
+        if (ident(id) == Fail)
+          return Fail;
+
+        typeparams.push_back(id);
+
+        if (skip(TokenKind::RSquare) == Success)
+          return Success;
+
+        if (skip(TokenKind::Comma) != Success)
+        {
+          err << "Expected , or ]" << err::end;
+          return Fail;
+        }
+      }
+    }
+
+    Result entity(Entity& entity)
+    {
+      if (ident(entity.id) == Fail)
         return Fail;
 
-      // TODO: skip ahead and restart unless we're at the end of the file
-    }
-
-    return Success;
-  }
-
-  Result parse_module(Parse& parse, List<Member>& members)
-  {
-    while (parse.skip(TokenKind::End) != Success)
-    {
-      if (parse_members(parse, members) == Fail)
+      if (typeparams(entity.typeparams) == Fail)
         return Fail;
 
-      // TODO: discard until we recognise something
+      if (oftype(entity.inherits) == Fail)
+        return Fail;
+
+      if (constraints(entity.constraints) == Fail)
+        return Fail;
+
+      return Success;
     }
 
-    return Success;
-  }
+    Result typealias(List<Member>& members)
+    {
+      if (skip(TokenKind::Type) != Success)
+        return Skip;
+
+      auto alias = std::make_shared<TypeAlias>();
+
+      if (entity(*alias) == Fail)
+        return Fail;
+
+      if (skip(TokenKind::Equals) != Success)
+      {
+        err << "Expected =" << err::end;
+        return Fail;
+      }
+
+      if (typeexpr(alias->type) == Fail)
+        return Fail;
+
+      if (skip(TokenKind::Semicolon) != Success)
+      {
+        err << "Expected ;" << err::end;
+        return Fail;
+      }
+
+      members.push_back(alias);
+      return Success;
+    }
+
+    Result interface(List<Member>& members)
+    {
+      if (skip(TokenKind::Interface) != Success)
+        return Skip;
+
+      auto iface = std::make_shared<Interface>();
+
+      if (entity(*iface) == Fail)
+        return Fail;
+
+      if (typebody(iface->members) == Fail)
+        return Fail;
+
+      members.push_back(iface);
+      return Success;
+    }
+
+    Result classdef(List<Member>& members)
+    {
+      if (skip(TokenKind::Class) != Success)
+        return Skip;
+
+      auto cls = std::make_shared<Class>();
+
+      if (entity(*cls) == Fail)
+        return Fail;
+
+      if (typebody(cls->members) == Fail)
+        return Fail;
+
+      members.push_back(cls);
+      return Success;
+    }
+
+    Result memberlist(List<Member>& members)
+    {
+      if (classdef(members) == Fail)
+        return Fail;
+
+      if (interface(members) == Fail)
+        return Fail;
+
+      if (typealias(members) == Fail)
+        return Fail;
+
+      // TODO: moduledef, field, function
+
+      err
+        << "Expected a module, class, interface, type alias, field, or function"
+        << err::end;
+      return Fail;
+    }
+
+    Result typebody(List<Member>& members)
+    {
+      if (skip(TokenKind::LBrace) != Success)
+      {
+        err << "Expected {" << err::end;
+        return Fail;
+      }
+
+      while (skip(TokenKind::RBrace) != Success)
+      {
+        if (memberlist(members) == Fail)
+          return Fail;
+
+        // TODO: skip ahead and restart unless we're at the end of the file
+      }
+
+      return Success;
+    }
+
+    Result module(List<Member>& members)
+    {
+      while (skip(TokenKind::End) != Success)
+      {
+        if (memberlist(members) == Fail)
+          return Fail;
+
+        // TODO: discard until we recognise something
+      }
+
+      return Success;
+    }
+  };
 
   Result
   parse_file(const std::string& file, Node<Class>& module, err::Errors& err)
@@ -303,7 +301,7 @@ namespace verona::parser
       return Fail;
 
     Parse parse(source, err);
-    return parse_module(parse, module->members);
+    return parse.module(module->members);
   }
 
   Result parse_directory(
