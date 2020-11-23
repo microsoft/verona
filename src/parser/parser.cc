@@ -87,10 +87,138 @@ namespace verona::parser
       return Success;
     }
 
-    Result block(Node<Expr>& block)
+    // TODO: while, for, match, try, atom sequence
+    // TODO: storing a location for all ast nodes?
+
+    Result atoms(Node<Expr>& expr)
     {
-      // TODO:
+      // TODO: atoms
       return Success;
+    }
+
+    Result when(Node<Expr>& expr)
+    {
+      // when <- `when` tuple block
+      if (has(TokenKind::When) != Success)
+        return Skip;
+
+      auto when = std::make_shared<When>();
+      expr = when;
+
+      if (tuple(when->waitfor) != Success)
+      {
+        err << "Expected a tuple" << err::end;
+        return Error;
+      }
+
+      if (block(when->behaviour) != Success)
+      {
+        err << "Expected a block" << err::end;
+        return Error;
+      }
+
+      return Success;
+    }
+
+    Result conditional(Node<Expr>& expr)
+    {
+      // if <- `if` tuple block (`else` block)?
+      if (has(TokenKind::If) != Success)
+        return Skip;
+
+      auto cond = std::make_shared<Conditional>();
+      expr = cond;
+
+      if (tuple(cond->cond) != Success)
+      {
+        err << "Expected a condition" << err::end;
+        return Error;
+      }
+
+      if (block(cond->on_true) != Success)
+      {
+        err << "Expected a block" << err::end;
+        return Error;
+      }
+
+      if (has(TokenKind::Else) != Success)
+        return Success;
+
+      if (block(cond->on_false) != Success)
+      {
+        err << "Expected a block" << err::end;
+        return Error;
+      }
+
+      return Success;
+    }
+
+    Result tuple(Node<Tuple>& expr)
+    {
+      // tuple <- `(` expr* `)`
+      if (has(TokenKind::LParen) != Success)
+      {
+        err << "Expected (" << err::end;
+        return Error;
+      }
+
+      if (has(TokenKind::RParen) == Success)
+        return Success;
+
+      do
+      {
+        expr->seq.push_back({});
+
+        if (expression(expr->seq.back()) == Error)
+          return Error;
+      } while (has(TokenKind::Comma) == Success);
+
+      if (has(TokenKind::RParen) != Success)
+      {
+        err << "Expected , or )" << err::end;
+        return Error;
+      }
+
+      return Success;
+    }
+
+    Result opttuple(Node<Expr>& expr)
+    {
+      if (peek(TokenKind::LParen) != Success)
+        return Skip;
+
+      rewind();
+      auto tup = std::make_shared<Tuple>();
+      expr = tup;
+      return tuple(tup);
+    }
+
+    Result block(Node<Block>& expr)
+    {
+      // block <- `{` expr* `}`
+      if (has(TokenKind::LBrace) != Success)
+      {
+        err << "Expected {" << err::end;
+        return Error;
+      }
+
+      while (has(TokenKind::RBrace) != Success)
+      {
+        // TODO:
+      }
+
+      return Success;
+    }
+
+    Result optblock(Node<Expr>& expr)
+    {
+      if (peek(TokenKind::LBrace) != Success)
+        return Skip;
+
+      rewind();
+      auto blk = std::make_shared<Block>();
+      expr = blk;
+      return block(blk);
     }
 
     Result expression(Node<Expr>& expr)
@@ -129,7 +257,21 @@ namespace verona::parser
       return typeexpr(type);
     }
 
-    Result params(List<Field>& params)
+    Result parameter(Param& param)
+    {
+      if (ident(param.id) == Error)
+        return Error;
+
+      if (oftype(param.type) == Error)
+        return Error;
+
+      if (initexpr(param.init) == Error)
+        return Error;
+
+      return Success;
+    }
+
+    Result parameters(List<Param>& params)
     {
       if (has(TokenKind::LParen) != Success)
       {
@@ -142,15 +284,10 @@ namespace verona::parser
 
       do
       {
-        auto param = std::make_shared<Field>();
+        auto param = std::make_shared<Param>();
+        params.push_back(param);
 
-        if (ident(param->id) == Error)
-          return Error;
-
-        if (oftype(param->type) == Error)
-          return Error;
-
-        if (initexpr(param->init) == Error)
+        if (parameter(*param) == Error)
           return Error;
       } while (has(TokenKind::Comma) == Success);
 
@@ -170,10 +307,10 @@ namespace verona::parser
       if (typeparams(sig->typeparams) == Error)
         return Error;
 
-      if (params(sig->params) == Error)
+      if (parameters(sig->params) == Error)
         return Error;
 
-      if (typeexpr(sig->result) == Error)
+      if (oftype(sig->result) == Error)
         return Error;
 
       if (has(TokenKind::Throws))
@@ -226,13 +363,10 @@ namespace verona::parser
       if (signature(func.signature) == Error)
         return Error;
 
-      if (has(TokenKind::Semicolon) == Success)
+      if (block(func.body) == Success)
         return Success;
 
-      if (block(func.body) == Error)
-        return Error;
-
-      return Success;
+      return has(TokenKind::Semicolon);
     }
 
     Result static_function(List<Member>& members)
@@ -290,11 +424,8 @@ namespace verona::parser
 
     Result constraints(List<Constraint>& constraints)
     {
-      while (true)
+      while (has(TokenKind::Where) == Success)
       {
-        if (has(TokenKind::Where) != Success)
-          return Success;
-
         auto constraint = std::make_shared<Constraint>();
 
         if (ident(constraint->id) == Error)
@@ -308,6 +439,8 @@ namespace verona::parser
 
         constraints.push_back(constraint);
       }
+
+      return Success;
     }
 
     Result typeparams(std::vector<ID>& typeparams)
@@ -315,7 +448,7 @@ namespace verona::parser
       if (has(TokenKind::LSquare) != Success)
         return Skip;
 
-      while (true)
+      do
       {
         ID id;
 
@@ -323,16 +456,15 @@ namespace verona::parser
           return Error;
 
         typeparams.push_back(id);
+      } while (has(TokenKind::Comma) == Success);
 
-        if (has(TokenKind::RSquare) == Success)
-          return Success;
-
-        if (has(TokenKind::Comma) != Success)
-        {
-          err << "Expected , or ]" << err::end;
-          return Error;
-        }
+      if (has(TokenKind::RSquare) != Success)
+      {
+        err << "Expected , or ]" << err::end;
+        return Error;
       }
+
+      return Success;
     }
 
     Result entity(Entity& ent)
@@ -433,7 +565,7 @@ namespace verona::parser
       if (entity(*module) == Error)
         return Error;
 
-      if (has(TokenKind::RBrace) != Success)
+      if (has(TokenKind::Semicolon) != Success)
       {
         err << "Expected ;" << err::end;
         return Error;
@@ -443,7 +575,7 @@ namespace verona::parser
       return Success;
     }
 
-    Result member(List<Member>& members, bool& printerror)
+    Result member(List<Member>& members, bool printerr)
     {
       Result r;
 
@@ -462,9 +594,8 @@ namespace verona::parser
       if ((r = field_or_function(members)) != Skip)
         return r;
 
-      if (printerror)
+      if (printerr)
       {
-        printerror = false;
         err << "Expected a module, class, interface, type alias, field, or "
                "function"
             << err::end;
@@ -482,7 +613,7 @@ namespace verona::parser
       }
 
       auto result = Success;
-      auto printerror = true;
+      auto printerr = true;
 
       while (has(TokenKind::RBrace) != Success)
       {
@@ -492,14 +623,15 @@ namespace verona::parser
           return Error;
         }
 
-        if (member(members, printerror) == Error)
+        if (member(members, printerr) == Error)
         {
+          printerr = false;
           result = Error;
           take();
         }
         else
         {
-          printerror = true;
+          printerr = true;
         }
       }
 
@@ -509,18 +641,19 @@ namespace verona::parser
     Result module(List<Member>& members)
     {
       auto result = Success;
-      auto printerror = true;
+      auto printerr = true;
 
       while (has(TokenKind::End) != Success)
       {
-        if (member(members, printerror) == Error)
+        if (member(members, printerr) == Error)
         {
+          printerr = false;
           result = Error;
           take();
         }
         else
         {
-          printerror = true;
+          printerr = true;
         }
       }
 
