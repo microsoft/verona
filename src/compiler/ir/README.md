@@ -99,9 +99,10 @@ When writing a reference counted value to an object in a region that is
 equipped with a RememberedSet, the value should be inserted into the RS.
 Otherwise, the reference count should be incremented.
 
-## `StringLiteralStmt`
+## `IntegerLiteralStmt`, `StringLiteralStmt`, `UnitStmt`
 
-The IR and compiler currently have hard-coded support for string literals,
+These create values from a literal. The support for strings is very special
+cased for demonstration purposes.
 
 ## `MatchBindStmt`
 
@@ -149,3 +150,13 @@ Note that an SSA value that has been overwritten is never passed to an
 ## Branch Terminator
 ## If Terminator
 ## Match Terminator
+
+# Builtins
+
+A number of language features don't need special syntax, but are instead
+exposed as builtin methods, defined in `stdlib/builtin.verona`. This includes
+arithmetic operations and some region operations such as freeze and trace.
+
+The language features they represent isn't even expressible in the IR. Instead,
+`codegen/builtins.cc` provides hardcoded lowerings into bytecode.
+
