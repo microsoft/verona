@@ -10,7 +10,20 @@ namespace verona::parser
 {
   enum class Kind
   {
-    Expr,
+    // Definitions
+    Constraint,
+    Open,
+    TypeAlias,
+    Interface,
+    Class,
+    Module,
+    Field,
+    Param,
+    Signature,
+    Function,
+    Method,
+
+    // Types
     Type,
     UnionType,
     IsectType,
@@ -19,16 +32,12 @@ namespace verona::parser
     ViewType,
     ExtractType,
     TypeRef,
-    Constraint,
-    Open,
-    TypeAlias,
-    Interface,
-    Class,
-    Module,
-    Field,
-    Signature,
-    Function,
-    Method,
+
+    // Expressions
+    Tuple,
+    Block,
+    When,
+    Conditional,
   };
 
   using ID = Location;
@@ -50,11 +59,49 @@ namespace verona::parser
   };
 
   struct Expr : NodeDef
+  {};
+
+  struct Atom : Expr
+  {};
+
+  struct Tuple : Expr
   {
-    // TODO: expr
+    List<Expr> seq;
+
     Kind kind()
     {
-      return Kind::Expr;
+      return Kind::Tuple;
+    }
+  };
+
+  struct Block : Tuple
+  {
+    Kind kind()
+    {
+      return Kind::Block;
+    }
+  };
+
+  struct When : Expr
+  {
+    Node<Tuple> waitfor;
+    Node<Block> behaviour;
+
+    Kind kind()
+    {
+      return Kind::When;
+    }
+  };
+
+  struct Conditional : Expr
+  {
+    Node<Tuple> cond;
+    Node<Block> on_true;
+    Node<Block> on_false;
+
+    Kind kind()
+    {
+      return Kind::Conditional;
     }
   };
 
@@ -228,10 +275,18 @@ namespace verona::parser
     }
   };
 
+  struct Param : Field
+  {
+    Kind kind()
+    {
+      return Kind::Param;
+    }
+  };
+
   struct Signature : NodeDef
   {
     std::vector<ID> typeparams;
-    List<Field> params;
+    List<Param> params;
     Node<Type> result;
     Node<Type> throws;
     List<Constraint> constraints;
@@ -246,7 +301,7 @@ namespace verona::parser
   {
     ID id;
     Node<Signature> signature;
-    Node<Expr> body;
+    Node<Block> body;
 
     Kind kind()
     {
