@@ -24,6 +24,7 @@ namespace verona::parser
     TypeAlias,
     Interface,
     Class,
+    Module,
     Field,
     Signature,
     Function,
@@ -169,13 +170,17 @@ namespace verona::parser
 
   struct Entity : Member
   {
-    ID id;
     std::vector<ID> typeparams;
     Node<Type> inherits;
     List<Constraint> constraints;
   };
 
-  struct TypeAlias : Entity
+  struct NamedEntity : Entity
+  {
+    ID id;
+  };
+
+  struct TypeAlias : NamedEntity
   {
     Node<Type> type;
 
@@ -185,7 +190,7 @@ namespace verona::parser
     }
   };
 
-  struct Interface : Entity
+  struct Interface : NamedEntity
   {
     List<Member> members;
 
@@ -200,6 +205,14 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::Class;
+    }
+  };
+
+  struct Module : Entity
+  {
+    Kind kind()
+    {
+      return Kind::Module;
     }
   };
 
