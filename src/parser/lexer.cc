@@ -97,7 +97,9 @@ namespace verona::parser
   Token consume_invalid(Source& source, size_t& i)
   {
     auto start = i;
-    while (next(source, i) == X) {}
+    while (next(source, i) == X)
+    {
+    }
     return {TokenKind::Invalid, {source, start, i - 1}};
   }
 
@@ -483,7 +485,7 @@ namespace verona::parser
 
   Token consume_equal(Source& source, size_t& i)
   {
-    auto kind = TokenKind::Equal;
+    auto kind = TokenKind::Equals;
     auto start = i;
 
     if (++i < source->contents.size())
@@ -500,7 +502,7 @@ namespace verona::parser
       }
     }
 
-    return {TokenKind::Equal, {source, start, i - 1}};
+    return {TokenKind::Equals, {source, start, i - 1}};
   }
 
   Token lex(Source& source, size_t& i)
