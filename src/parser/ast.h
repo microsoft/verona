@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "lexer.h"
 #include "source.h"
 
 #include <vector>
@@ -37,7 +38,26 @@ namespace verona::parser
     Tuple,
     Block,
     When,
+    While,
+    For,
+    Case,
+    Match,
     Conditional,
+    Break,
+    Continue,
+    Return,
+    Yield,
+    Assign,
+    Infix,
+    Prefix,
+    Preblock,
+    Select,
+    Specialise,
+    Apply,
+    Ref,
+    SymRef,
+    StaticRef,
+    Constant,
   };
 
   using ID = Location;
@@ -59,9 +79,6 @@ namespace verona::parser
   };
 
   struct Expr : NodeDef
-  {};
-
-  struct Atom : Expr
   {};
 
   struct Tuple : Expr
@@ -93,6 +110,52 @@ namespace verona::parser
     }
   };
 
+  struct While : Expr
+  {
+    Node<Tuple> cond;
+    Node<Block> body;
+
+    Kind kind()
+    {
+      return Kind::While;
+    }
+  };
+
+  struct For : Expr
+  {
+    Node<Expr> left;
+    Node<Expr> right;
+    Node<Block> body;
+
+    Kind kind()
+    {
+      return Kind::For;
+    }
+  };
+
+  struct Case : NodeDef
+  {
+    Node<Expr> pattern;
+    Node<Expr> guard;
+    Node<Block> body;
+
+    Kind kind()
+    {
+      return Kind::Case;
+    }
+  };
+
+  struct Match : Expr
+  {
+    Node<Tuple> cond;
+    List<Case> cases;
+
+    Kind kind()
+    {
+      return Kind::Match;
+    }
+  };
+
   struct Conditional : Expr
   {
     Node<Tuple> cond;
@@ -102,6 +165,149 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::Conditional;
+    }
+  };
+
+  struct Break : Expr
+  {
+    Kind kind()
+    {
+      return Kind::Break;
+    }
+  };
+
+  struct Continue : Expr
+  {
+    Kind kind()
+    {
+      return Kind::Continue;
+    }
+  };
+
+  struct Return : Expr
+  {
+    Node<Expr> expr;
+
+    Kind kind()
+    {
+      return Kind::Return;
+    }
+  };
+
+  struct Yield : Return
+  {
+    Kind kind()
+    {
+      return Kind::Yield;
+    }
+  };
+
+  struct Assign : Expr
+  {
+    Node<Expr> left;
+    Node<Expr> right;
+
+    Kind kind()
+    {
+      return Kind::Assign;
+    }
+  };
+
+  struct Infix : Expr
+  {
+    Node<Expr> op;
+    Node<Expr> left;
+    Node<Expr> right;
+
+    Kind kind()
+    {
+      return Kind::Infix;
+    }
+  };
+
+  struct Prefix : Expr
+  {
+    Node<Expr> op;
+    Node<Expr> expr;
+
+    Kind kind()
+    {
+      return Kind::Prefix;
+    }
+  };
+
+  struct Preblock : Prefix
+  {
+    Kind kind()
+    {
+      return Kind::Preblock;
+    }
+  };
+
+  struct Select : Expr
+  {
+    Node<Expr> expr;
+    Token member;
+
+    Kind kind()
+    {
+      return Kind::Select;
+    }
+  };
+
+  struct Specialise : Expr
+  {
+    Node<Expr> expr;
+    List<Expr> args;
+
+    Kind kind()
+    {
+      return Kind::Specialise;
+    }
+  };
+
+  struct Apply : Expr
+  {
+    Node<Expr> expr;
+    Node<Tuple> args;
+
+    Kind kind()
+    {
+      return Kind::Apply;
+    }
+  };
+
+  struct Ref : Expr
+  {
+    Kind kind()
+    {
+      return Kind::Ref;
+    }
+  };
+
+  struct SymRef : Expr
+  {
+    Kind kind()
+    {
+      return Kind::SymRef;
+    }
+  };
+
+  struct StaticRef : Expr
+  {
+    std::vector<Token> ref;
+
+    Kind kind()
+    {
+      return Kind::StaticRef;
+    }
+  };
+
+  struct Constant : Expr
+  {
+    Kind kind()
+    {
+      return Kind::Constant;
     }
   };
 
@@ -299,7 +505,7 @@ namespace verona::parser
 
   struct Function : Member
   {
-    ID id;
+    Token name;
     Node<Signature> signature;
     Node<Block> body;
 

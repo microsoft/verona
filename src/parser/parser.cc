@@ -1,8 +1,6 @@
 #include "parser.h"
 
 #include "../ast/path.h"
-#include "lexer.h"
-#include "source.h"
 
 #include <deque>
 
@@ -19,6 +17,7 @@ namespace verona::parser
   {
     Source source;
     size_t pos;
+    Token consumed;
     std::deque<Token> lookahead;
     size_t la;
     err::Errors& err;
@@ -27,7 +26,7 @@ namespace verona::parser
     : source(source), pos(0), la(0), err(err)
     {}
 
-    Result peek(TokenKind kind)
+    bool peek(TokenKind kind)
     {
       if (la >= lookahead.size())
         lookahead.push_back(lex(source, pos));
@@ -37,10 +36,10 @@ namespace verona::parser
       if (lookahead[la].kind == kind)
       {
         la++;
-        return Success;
+        return true;
       }
 
-      return Error;
+      return false;
     }
 
     Token take()
@@ -50,9 +49,9 @@ namespace verona::parser
       if (lookahead.size() == 0)
         return lex(source, pos);
 
-      auto tok = lookahead.front();
+      consumed = lookahead.front();
       lookahead.pop_front();
-      return tok;
+      return consumed;
     }
 
     void rewind()
@@ -60,7 +59,7 @@ namespace verona::parser
       la = 0;
     }
 
-    Result has(TokenKind kind)
+    bool has(TokenKind kind)
     {
       assert(la == 0);
 
@@ -68,41 +67,57 @@ namespace verona::parser
       {
         rewind();
         take();
-        return Success;
+        return true;
       }
 
-      return Error;
+      return false;
     }
 
-    Result ident(ID& id)
+    Token previous()
     {
-      if (peek(TokenKind::Ident) == Error)
+      return consumed;
+    }
+
+    Location location()
+    {
+      return consumed.location;
+    }
+
+    bool is_blockexpr(Node<Expr>& expr)
+    {
+      switch (expr->kind())
       {
-        err << "Expected identifier" << err::end;
-        return Error;
+        case Kind::Block:
+        case Kind::When:
+        case Kind::While:
+        case Kind::For:
+        case Kind::Match:
+        case Kind::Conditional:
+        case Kind::Preblock:
+          return true;
+
+        default:
+          return false;
       }
-
-      rewind();
-      id = take().location;
-      return Success;
     }
 
-    // TODO: while, for, match, try, atom sequence
-    // TODO: storing a location for all ast nodes?
-
-    Result atoms(Node<Expr>& expr)
+    Result optident(ID& id)
     {
-      // TODO: atoms
+      if (!has(TokenKind::Ident))
+        return Skip;
+
+      id = location();
       return Success;
     }
 
-    Result when(Node<Expr>& expr)
+    Result optwhen(Node<Expr>& expr)
     {
       // when <- `when` tuple block
-      if (has(TokenKind::When) != Success)
+      if (!has(TokenKind::When))
         return Skip;
 
       auto when = std::make_shared<When>();
+      when->location = location();
       expr = when;
 
       if (tuple(when->waitfor) != Success)
@@ -120,13 +135,137 @@ namespace verona::parser
       return Success;
     }
 
-    Result conditional(Node<Expr>& expr)
+    Result optforloop(Node<Expr>& expr)
+    {
+      // for <- `for` `(` expr `in` expr `)` body
+      if (!has(TokenKind::For))
+        return Skip;
+
+      auto fr = std::make_shared<For>();
+      fr->location = location();
+      expr = fr;
+
+      if (!has(TokenKind::LParen))
+      {
+        err << "Expected (" << err::end;
+        return Error;
+      }
+
+      if (optexpr(fr->left) != Success)
+      {
+        err << "Expected for-loop state" << err::end;
+        return Error;
+      }
+
+      if (!has(TokenKind::In))
+      {
+        err << "Expected 'in'" << err::end;
+        return Error;
+      }
+
+      if (optexpr(fr->right) != Success)
+      {
+        err << "Expected for-loop iterator" << err::end;
+        return Error;
+      }
+
+      if (!has(TokenKind::RParen))
+      {
+        err << "Expected )" << err::end;
+        return Error;
+      }
+
+      if (block(fr->body) != Success)
+      {
+        err << "Expected for-loop body" << err::end;
+        return Error;
+      }
+
+      return Success;
+    }
+
+    Result optwhileloop(Node<Expr>& expr)
+    {
+      // while <- `while` tuple block
+      if (!has(TokenKind::While))
+        return Skip;
+
+      auto wh = std::make_shared<While>();
+      wh->location = location();
+      expr = wh;
+
+      if (tuple(wh->cond) != Success)
+      {
+        err << "Expected while-loop condition" << err::end;
+        return Error;
+      }
+
+      if (block(wh->body) != Success)
+      {
+        err << "Expected while-loop body" << err::end;
+        return Error;
+      }
+
+      return Success;
+    }
+
+    Result matchcase(Node<Case>& expr)
+    {
+      // case <- ???
+      // TODO: case
+      return Error;
+    }
+
+    Result optmatch(Node<Expr>& expr)
+    {
+      // match <- `match` tuple `{` case* `}`
+      if (!has(TokenKind::Match))
+        return Skip;
+
+      auto match = std::make_shared<Match>();
+      match->location = location();
+      expr = match;
+
+      if (tuple(match->cond) != Success)
+      {
+        err << "Expected match condition" << err::end;
+        return Error;
+      }
+
+      if (!has(TokenKind::LBrace))
+      {
+        err << "Expected {" << err::end;
+        return Error;
+      }
+
+      while (true)
+      {
+        match->cases.push_back({});
+        Result r = matchcase(match->cases.back());
+
+        if (r == Error)
+          return Error;
+        else if (r == Skip)
+          break;
+      }
+
+      if (!has(TokenKind::RBrace))
+      {
+        err << "Expected a case or }" << err::end;
+        return Error;
+      }
+
+      return Success;
+    }
+
+    Result optconditional(Node<Expr>& expr)
     {
       // if <- `if` tuple block (`else` block)?
-      if (has(TokenKind::If) != Success)
+      if (!has(TokenKind::If))
         return Skip;
 
       auto cond = std::make_shared<Conditional>();
+      cond->location = location();
       expr = cond;
 
       if (tuple(cond->cond) != Success)
@@ -141,7 +280,7 @@ namespace verona::parser
         return Error;
       }
 
-      if (has(TokenKind::Else) != Success)
+      if (!has(TokenKind::Else))
         return Success;
 
       if (block(cond->on_false) != Success)
@@ -153,27 +292,33 @@ namespace verona::parser
       return Success;
     }
 
-    Result tuple(Node<Tuple>& expr)
+    Result tuple(Node<Tuple>& tup)
     {
       // tuple <- `(` expr* `)`
-      if (has(TokenKind::LParen) != Success)
+      if (!has(TokenKind::LParen))
       {
         err << "Expected (" << err::end;
         return Error;
       }
 
-      if (has(TokenKind::RParen) == Success)
+      tup = std::make_shared<Tuple>();
+      tup->location = location();
+
+      if (has(TokenKind::RParen))
         return Success;
 
       do
       {
-        expr->seq.push_back({});
+        tup->seq.push_back({});
 
-        if (expression(expr->seq.back()) == Error)
+        if (optexpr(tup->seq.back()) != Success)
+        {
+          err << "Expected an expression" << err::end;
           return Error;
-      } while (has(TokenKind::Comma) == Success);
+        }
+      } while (has(TokenKind::Comma));
 
-      if (has(TokenKind::RParen) != Success)
+      if (!has(TokenKind::RParen))
       {
         err << "Expected , or )" << err::end;
         return Error;
@@ -184,27 +329,71 @@ namespace verona::parser
 
     Result opttuple(Node<Expr>& expr)
     {
-      if (peek(TokenKind::LParen) != Success)
+      if (!peek(TokenKind::LParen))
         return Skip;
 
       rewind();
-      auto tup = std::make_shared<Tuple>();
-      expr = tup;
-      return tuple(tup);
+      Node<Tuple> tup;
+      Result r = tuple(tup);
+
+      if (tup->seq.size() == 1)
+        expr = tup->seq.front();
+      else
+        expr = tup;
+
+      return r;
     }
 
-    Result block(Node<Block>& expr)
+    Result block(Node<Block>& blk)
     {
-      // block <- `{` expr* `}`
-      if (has(TokenKind::LBrace) != Success)
+      // block <- `{` (`}` / (preblock / expr ';')* controlflow? `}`)
+      if (!has(TokenKind::LBrace))
       {
         err << "Expected {" << err::end;
         return Error;
       }
 
-      while (has(TokenKind::RBrace) != Success)
+      blk = std::make_shared<Block>();
+      blk->location = location();
+
+      if (has(TokenKind::RBrace))
+        return Success;
+
+      Node<Expr> expr;
+      Result r;
+      bool check_controlflow = false;
+
+      do
       {
-        // TODO:
+        r = optexpr(expr);
+
+        if (r == Skip)
+        {
+          check_controlflow = true;
+          break;
+        }
+
+        if (r == Error)
+          return Error;
+
+        blk->seq.push_back(expr);
+      } while (is_blockexpr(expr) || has(TokenKind::Semicolon));
+
+      if (check_controlflow)
+      {
+        r = optcontrolflow(expr);
+
+        if (r == Error)
+          return Error;
+
+        if (r == Success)
+          blk->seq.push_back(expr);
+      }
+
+      if (!has(TokenKind::RBrace))
+      {
+        err << "Expected an expression or }" << err::end;
+        return Error;
       }
 
       return Success;
@@ -212,38 +401,461 @@ namespace verona::parser
 
     Result optblock(Node<Expr>& expr)
     {
-      if (peek(TokenKind::LBrace) != Success)
+      if (!peek(TokenKind::LBrace))
         return Skip;
 
       rewind();
-      auto blk = std::make_shared<Block>();
+      Node<Block> blk;
+      Result r = block(blk);
       expr = blk;
-      return block(blk);
+      return r;
     }
 
-    Result expression(Node<Expr>& expr)
+    Result optblockexpr(Node<Expr>& expr)
     {
-      // TODO:
+      // blockexpr <-
+      //  block / when / conditional / match / whileloop / forloop
+      Result r;
+
+      if ((r = optblock(expr)) != Skip)
+        return r;
+
+      if ((r = optwhen(expr)) != Skip)
+        return r;
+
+      if ((r = optconditional(expr)) != Skip)
+        return r;
+
+      if ((r = optmatch(expr)) != Skip)
+        return r;
+
+      if ((r = optwhileloop(expr)) != Skip)
+        return r;
+
+      if ((r = optforloop(expr)) != Skip)
+        return r;
+
+      return Skip;
+    }
+
+    Result optbreak(Node<Expr>& expr)
+    {
+      // break <- `break`
+      if (!has(TokenKind::Break))
+        return Skip;
+
+      auto brk = std::make_shared<Break>();
+      brk->location = location();
+      expr = brk;
       return Success;
+    }
+
+    Result optcontinue(Node<Expr>& expr)
+    {
+      // continue <- `continue`
+      if (!has(TokenKind::Continue))
+        return Skip;
+
+      auto cont = std::make_shared<Continue>();
+      cont->location = location();
+      expr = cont;
+      return Success;
+    }
+
+    Result optreturn(Node<Expr>& expr)
+    {
+      // return <- `return` expr?
+      if (!has(TokenKind::Return))
+        return Skip;
+
+      auto ret = std::make_shared<Return>();
+      ret->location = location();
+      expr = ret;
+
+      if (optexpr(ret->expr) == Error)
+        return Error;
+
+      return Success;
+    }
+
+    Result optyield(Node<Expr>& expr)
+    {
+      // yield <- `yield` expr
+      if (!has(TokenKind::Yield))
+        return Skip;
+
+      auto yield = std::make_shared<Yield>();
+      yield->location = location();
+      expr = yield;
+
+      if (optexpr(yield->expr) == Error)
+        return Error;
+
+      return Success;
+    }
+
+    Result optref(Node<Expr>& expr)
+    {
+      if (!has(TokenKind::Ident))
+        return Skip;
+
+      auto ref = std::make_shared<Ref>();
+      ref->location = location();
+      expr = ref;
+      return Success;
+    }
+
+    Result optsymref(Node<Expr>& expr)
+    {
+      if (!has(TokenKind::Symbol))
+        return Skip;
+
+      auto ref = std::make_shared<SymRef>();
+      ref->location = location();
+      expr = ref;
+      return Success;
+    }
+
+    Result optconstant(Node<Expr>& expr)
+    {
+      if (
+        !has(TokenKind::String) && !has(TokenKind::Int) &&
+        !has(TokenKind::Hex) && !has(TokenKind::Binary) &&
+        !has(TokenKind::True) && !has(TokenKind::False))
+      {
+        return Skip;
+      }
+
+      auto con = std::make_shared<Constant>();
+      con->location = location();
+      expr = con;
+      return Success;
+    }
+
+    Result optstaticref(Node<Expr>& expr)
+    {
+      // staticref <- id (`::` id)* `::` (id / sym)
+      bool ok = peek(TokenKind::Ident) && peek(TokenKind::DoubleColon);
+      rewind();
+
+      if (!ok)
+        return Skip;
+
+      auto stat = std::make_shared<StaticRef>();
+      stat->ref.push_back(take());
+
+      while (has(TokenKind::DoubleColon))
+      {
+        if (has(TokenKind::Ident))
+        {
+          stat->ref.push_back(previous());
+        }
+        else if (has(TokenKind::Symbol))
+        {
+          stat->ref.push_back(previous());
+          return Success;
+        }
+      }
+
+      return Success;
+    }
+
+    Result optatom(Node<Expr>& expr)
+    {
+      // atom <- staticref / ref / symref / constant / lambda / new / tuple
+      Result r;
+
+      if ((r = optstaticref(expr)) != Skip)
+        return r;
+
+      if ((r = optref(expr)) != Skip)
+        return r;
+
+      if ((r = optsymref(expr)) != Skip)
+        return r;
+
+      if ((r = optconstant(expr)) != Skip)
+        return r;
+
+      // TODO: lambda, new
+
+      if ((r = opttuple(expr)) != Skip)
+        return r;
+
+      return Skip;
+    }
+
+    Result optselect(Node<Expr>& expr)
+    {
+      // select <- expr `.` (id / sym)
+      if (!has(TokenKind::Dot))
+        return Skip;
+
+      if (!has(TokenKind::Ident) && !has(TokenKind::Symbol))
+      {
+        err << "Expected an identifier or a symbol" << err::end;
+        return Error;
+      }
+
+      auto sel = std::make_shared<Select>();
+      sel->location = location();
+      sel->expr = expr;
+      sel->member = previous();
+      expr = sel;
+      return Success;
+    }
+
+    Result optspecialise(Node<Expr>& expr)
+    {
+      // specialise <- expr `[` (expr (`,` expr)*)?) `]`
+      if (!has(TokenKind::LSquare))
+        return Skip;
+
+      auto spec = std::make_shared<Specialise>();
+      spec->location = location();
+      spec->expr = expr;
+      expr = spec;
+
+      if (has(TokenKind::RSquare))
+        return Success;
+
+      do
+      {
+        spec->args.push_back({});
+
+        if (optexpr(spec->args.back()) != Success)
+        {
+          err << "Expected an expression" << err::end;
+          return Error;
+        }
+      } while (has(TokenKind::Comma));
+
+      if (!has(TokenKind::RSquare))
+      {
+        err << "Expected , or ]" << err::end;
+        return Error;
+      }
+
+      return Success;
+    }
+
+    Result optapply(Node<Expr>& expr)
+    {
+      // apply <- expr tuple
+      if (!peek(TokenKind::LParen))
+        return Skip;
+
+      rewind();
+      auto app = std::make_shared<Apply>();
+      app->expr = expr;
+      expr = app;
+
+      if (tuple(app->args) != Success)
+        return Error;
+
+      app->location = app->args->location;
+      return Success;
+    }
+
+    Result onepostfix(Node<Expr>& expr)
+    {
+      Result r;
+
+      if ((r = optselect(expr)) != Skip)
+        return r;
+
+      if ((r = optspecialise(expr)) != Skip)
+        return r;
+
+      if ((r = optapply(expr)) != Skip)
+        return r;
+
+      return Skip;
+    }
+
+    Result optpostfix(Node<Expr>& expr)
+    {
+      // postfix <- atom (`.` (id / sym) / typeargs / tuple)*
+      Result r;
+
+      if ((r = optatom(expr)) != Success)
+        return r;
+
+      while (true)
+      {
+        switch (onepostfix(expr))
+        {
+          case Success:
+            break;
+
+          case Error:
+            return Error;
+
+          case Skip:
+            return Success;
+        }
+      }
+    }
+
+    Result optpostorblock(Node<Expr>& expr)
+    {
+      Result r;
+
+      if ((r = optpostfix(expr)) != Skip)
+        return r;
+
+      if ((r = optblockexpr(expr)) != Skip)
+        return r;
+
+      return Skip;
+    }
+
+    template <typename T>
+    void buildpre(List<Expr>& list, Node<Expr>& last)
+    {
+      while (list.size() > 0)
+      {
+        auto pre = std::make_shared<T>();
+        pre->op = list.back();
+        pre->location = pre->op->location;
+        pre->expr = last;
+
+        list.pop_back();
+        last = pre;
+      }
+    }
+
+    Result optprefix(Node<Expr>& expr)
+    {
+      // prefix <- (ref / symref) prefix / postfix
+      // preblock <- (ref / symref) preblock / blockexpr
+      List<Expr> list;
+      Node<Expr> last;
+      Result r;
+
+      while (true)
+      {
+        Node<Expr> next;
+
+        if ((r = optpostorblock(next)) != Success)
+          break;
+
+        if (last)
+          list.push_back(last);
+
+        last = next;
+      } while ((last->kind() == Kind::Ref) || (last->kind() == Kind::SymRef));
+
+      if (r == Error)
+        return Error;
+
+      if (is_blockexpr(last))
+        buildpre<Preblock>(list, last);
+      else
+        buildpre<Prefix>(list, last);
+
+      expr = last;
+      return Success;
+    }
+
+    Result optinfix(Node<Expr>& expr)
+    {
+      // infix <- prefix ((ref / symref) infix)? / preblock
+      Result r;
+
+      if ((r = optprefix(expr)) != Success)
+        return r;
+
+      if (!peek(TokenKind::Ident) && !peek(TokenKind::Symbol))
+        return Success;
+
+      rewind();
+      auto inf = std::make_shared<Infix>();
+
+      if (optatom(inf->op) != Success)
+        return Error;
+
+      inf->location = inf->op->location;
+      inf->left = expr;
+      expr = inf;
+
+      if (optinfix(inf->right) != Success)
+      {
+        err << "Expected an expression after an infix operator" << err::end;
+        return Error;
+      }
+
+      return Success;
+    }
+
+    Result optexpr(Node<Expr>& expr)
+    {
+      // expr <- preblock / infix (`=` assign)?
+      Result r;
+
+      if ((r = optinfix(expr)) != Success)
+        return r;
+
+      if (is_blockexpr(expr))
+        return Success;
+
+      if (!has(TokenKind::Equals))
+        return Success;
+
+      auto asgn = std::make_shared<Assign>();
+      asgn->location = location();
+      asgn->left = expr;
+      expr = asgn;
+
+      return optexpr(asgn->right);
+    }
+
+    Result optcontrolflow(Node<Expr>& expr)
+    {
+      // controlflow <- break / continue / return / yield / expr
+      Result r;
+
+      if ((r = optbreak(expr)) != Skip)
+        return r;
+
+      if ((r = optcontinue(expr)) != Skip)
+        return r;
+
+      if ((r = optreturn(expr)) != Skip)
+        return r;
+
+      if ((r = optyield(expr)) != Skip)
+        return r;
+
+      if ((r = optexpr(expr)) != Skip)
+        return r;
+
+      return Skip;
     }
 
     Result initexpr(Node<Expr>& expr)
     {
-      if (has(TokenKind::Equals) != Success)
+      if (!has(TokenKind::Equals))
         return Skip;
 
-      return expression(expr);
+      if (optexpr(expr) != Success)
+      {
+        err << "Expected an initialiser expression" << err::end;
+        return Error;
+      }
+
+      return Success;
     }
 
     Result typeexpr(Node<Type>& type)
     {
-      // TODO:
+      // TODO: type expression
       return Success;
     }
 
     Result inittype(Node<Type>& type)
     {
-      if (has(TokenKind::Equals) != Success)
+      if (!has(TokenKind::Equals))
         return Skip;
 
       return typeexpr(type);
@@ -251,7 +863,7 @@ namespace verona::parser
 
     Result oftype(Node<Type>& type)
     {
-      if (has(TokenKind::Colon) != Success)
+      if (!has(TokenKind::Colon))
         return Skip;
 
       return typeexpr(type);
@@ -259,8 +871,13 @@ namespace verona::parser
 
     Result parameter(Param& param)
     {
-      if (ident(param.id) == Error)
+      if (optident(param.id) != Success)
+      {
+        err << "Expected a parameter name" << err::end;
         return Error;
+      }
+
+      param.location = param.id;
 
       if (oftype(param.type) == Error)
         return Error;
@@ -271,44 +888,42 @@ namespace verona::parser
       return Success;
     }
 
-    Result parameters(List<Param>& params)
-    {
-      if (has(TokenKind::LParen) != Success)
-      {
-        err << "Expected (" << err::end;
-        return Error;
-      }
-
-      if (has(TokenKind::RParen) == Success)
-        return Success;
-
-      do
-      {
-        auto param = std::make_shared<Param>();
-        params.push_back(param);
-
-        if (parameter(*param) == Error)
-          return Error;
-      } while (has(TokenKind::Comma) == Success);
-
-      if (has(TokenKind::RParen) != Success)
-      {
-        err << "Expected , or )" << err::end;
-        return Error;
-      }
-
-      return Success;
-    }
-
     Result signature(Node<Signature>& sig)
     {
+      // sig <- typeparams params oftype (`throws` type)? constraints
       sig = std::make_shared<Signature>();
 
       if (typeparams(sig->typeparams) == Error)
         return Error;
 
-      if (parameters(sig->params) == Error)
+      if (!has(TokenKind::LParen))
+      {
+        err << "Expected (" << err::end;
         return Error;
+      }
+
+      sig->location = location();
+
+      if (has(TokenKind::RParen))
+        return Success;
+
+      do
+      {
+        auto param = std::make_shared<Param>();
+        sig->params.push_back(param);
+
+        if (parameter(*param) != Success)
+        {
+          err << "Expected a parameter" << err::end;
+          return Error;
+        }
+      } while (has(TokenKind::Comma));
+
+      if (!has(TokenKind::RParen))
+      {
+        err << "Expected , or )" << err::end;
+        return Error;
+      }
 
       if (oftype(sig->result) == Error)
         return Error;
@@ -327,10 +942,13 @@ namespace verona::parser
 
     Result field(List<Member>& members)
     {
-      auto field = std::make_shared<Field>();
+      // field <- ident oftype initexpr `;`
+      if (!has(TokenKind::Ident))
+        return Skip;
 
-      if (ident(field->id) == Error)
-        return Error;
+      auto field = std::make_shared<Field>();
+      field->location = location();
+      field->id = location();
 
       if (oftype(field->type) == Error)
         return Error;
@@ -338,7 +956,7 @@ namespace verona::parser
       if (initexpr(field->init) == Error)
         return Error;
 
-      if (has(TokenKind::Semicolon) != Success)
+      if (!has(TokenKind::Semicolon))
       {
         err << "Expected ;" << err::end;
         return Error;
@@ -349,87 +967,71 @@ namespace verona::parser
 
     Result function(Function& func)
     {
-      if (peek(TokenKind::Ident))
+      // function <- (ident / symbol)? signature (block / `;`)
+      if (has(TokenKind::Ident) || has(TokenKind::Symbol))
       {
-        rewind();
-        func.id = take().location;
-      }
-      else if (peek(TokenKind::Symbol))
-      {
-        rewind();
-        func.id = take().location;
+        func.location = location();
+        func.name = previous();
       }
 
       if (signature(func.signature) == Error)
         return Error;
 
+      if (!func.location.source)
+        func.location = func.signature->location;
+
       if (block(func.body) == Success)
         return Success;
 
-      return has(TokenKind::Semicolon);
-    }
+      if (has(TokenKind::Semicolon))
+        return Success;
 
-    Result static_function(List<Member>& members)
-    {
-      auto func = std::make_shared<Function>();
-      members.push_back(func);
-      return function(*func);
+      err << "Expected a block or ;" << err::end;
+      return Error;
     }
 
     Result method(List<Member>& members)
     {
+      // method <- function
+      bool ok = peek(TokenKind::Symbol) ||
+        (peek(TokenKind::Ident) &&
+         (peek(TokenKind::LSquare) || peek(TokenKind::LParen))) ||
+        (peek(TokenKind::LSquare) || peek(TokenKind::LParen));
+
+      rewind();
+
+      if (!ok)
+        return Skip;
+
       auto method = std::make_shared<Method>();
       members.push_back(method);
       return function(*method);
     }
 
-    Result field_or_function(List<Member>& members)
+    Result static_function(List<Member>& members)
     {
-      if (has(TokenKind::Static) != Success)
-      {
-        // It's a static function.
-        return static_function(members);
-      }
+      // static_function <- `static` function
+      if (!has(TokenKind::Static))
+        return Skip;
 
-      // field <- id oftype? initexpr? `;`
-      // method <- (id / sym)? sig (block / `;`)
-      // sig <- typeparams? params oftype? constraints?
-      if (peek(TokenKind::Ident))
-      {
-        if (peek(TokenKind::LSquare) || peek(TokenKind::LParen))
-        {
-          // It's a method.
-          rewind();
-          method(members);
-        }
-        else
-        {
-          // It's a field.
-          rewind();
-          field(members);
-        }
-      }
-      else if (
-        peek(TokenKind::Symbol) || peek(TokenKind::LSquare) ||
-        peek(TokenKind::LParen))
-      {
-        // It's a method.
-        rewind();
-        method(members);
-      }
-
-      // It's not a field, function, or method.
-      return Skip;
+      auto func = std::make_shared<Function>();
+      members.push_back(func);
+      return function(*func);
     }
 
     Result constraints(List<Constraint>& constraints)
     {
-      while (has(TokenKind::Where) == Success)
+      // constraints <- (`where` ident oftype inittype)*
+      while (has(TokenKind::Where))
       {
         auto constraint = std::make_shared<Constraint>();
+        constraint->location = location();
 
-        if (ident(constraint->id) == Error)
+        if (optident(constraint->id) != Success)
+        {
+          err << "Expected a constraint name" << err::end;
           return Error;
+        }
 
         if (oftype(constraint->type) == Error)
           return Error;
@@ -445,20 +1047,24 @@ namespace verona::parser
 
     Result typeparams(std::vector<ID>& typeparams)
     {
-      if (has(TokenKind::LSquare) != Success)
+      // typeparams <- (`[` ident (`,` ident)* `]`)?
+      if (!has(TokenKind::LSquare))
         return Skip;
 
       do
       {
         ID id;
 
-        if (ident(id) == Error)
+        if (optident(id) != Success)
+        {
+          err << "Expected a type parameter name" << err::end;
           return Error;
+        }
 
         typeparams.push_back(id);
-      } while (has(TokenKind::Comma) == Success);
+      } while (has(TokenKind::Comma));
 
-      if (has(TokenKind::RSquare) != Success)
+      if (!has(TokenKind::RSquare))
       {
         err << "Expected , or ]" << err::end;
         return Error;
@@ -469,6 +1075,7 @@ namespace verona::parser
 
     Result entity(Entity& ent)
     {
+      // entity <- typeparams oftype constraints
       if (typeparams(ent.typeparams) == Error)
         return Error;
 
@@ -483,8 +1090,12 @@ namespace verona::parser
 
     Result namedentity(NamedEntity& ent)
     {
-      if (ident(ent.id) == Error)
+      // namedentity <- ident entity
+      if (optident(ent.id) != Success)
+      {
+        err << "Expected an entity name" << err::end;
         return Error;
+      }
 
       if (entity(ent) == Error)
         return Error;
@@ -494,15 +1105,17 @@ namespace verona::parser
 
     Result typealias(List<Member>& members)
     {
-      if (has(TokenKind::Type) != Success)
+      // typealias <- `type` namedentity `=` type `;`
+      if (!has(TokenKind::Type))
         return Skip;
 
       auto alias = std::make_shared<TypeAlias>();
+      alias->location = location();
 
       if (namedentity(*alias) == Error)
         return Error;
 
-      if (has(TokenKind::Equals) != Success)
+      if (!has(TokenKind::Equals))
       {
         err << "Expected =" << err::end;
         return Error;
@@ -511,7 +1124,7 @@ namespace verona::parser
       if (typeexpr(alias->type) == Error)
         return Error;
 
-      if (has(TokenKind::Semicolon) != Success)
+      if (!has(TokenKind::Semicolon))
       {
         err << "Expected ;" << err::end;
         return Error;
@@ -523,10 +1136,12 @@ namespace verona::parser
 
     Result interface(List<Member>& members)
     {
-      if (has(TokenKind::Interface) != Success)
+      // interface <- `interface` namedentity typebody
+      if (!has(TokenKind::Interface))
         return Skip;
 
       auto iface = std::make_shared<Interface>();
+      iface->location = location();
 
       if (namedentity(*iface) == Error)
         return Error;
@@ -540,10 +1155,12 @@ namespace verona::parser
 
     Result classdef(List<Member>& members)
     {
-      if (has(TokenKind::Class) != Success)
+      // classdef <- `class` namedentity typebody
+      if (!has(TokenKind::Class))
         return Skip;
 
       auto cls = std::make_shared<Class>();
+      cls->location = location();
 
       if (namedentity(*cls) == Error)
         return Error;
@@ -557,15 +1174,17 @@ namespace verona::parser
 
     Result moduledef(List<Member>& members)
     {
-      if (has(TokenKind::Module) != Success)
+      // moduledef <- `module` entity `;`
+      if (!has(TokenKind::Module))
         return Skip;
 
       auto module = std::make_shared<Module>();
+      module->location = location();
 
       if (entity(*module) == Error)
         return Error;
 
-      if (has(TokenKind::Semicolon) != Success)
+      if (!has(TokenKind::Semicolon))
       {
         err << "Expected ;" << err::end;
         return Error;
@@ -577,6 +1196,9 @@ namespace verona::parser
 
     Result member(List<Member>& members, bool printerr)
     {
+      // member <-
+      //  moduledef / classdef / interface / typealias /
+      //  field / method / function
       Result r;
 
       if ((r = moduledef(members)) != Skip)
@@ -591,12 +1213,19 @@ namespace verona::parser
       if ((r = typealias(members)) != Skip)
         return r;
 
-      if ((r = field_or_function(members)) != Skip)
+      if ((r = static_function(members)) != Skip)
+        return r;
+
+      if ((r = method(members)) != Skip)
+        return r;
+
+      if ((r = field(members)) != Skip)
         return r;
 
       if (printerr)
       {
-        err << "Expected a module, class, interface, type alias, field, or "
+        err << "Expected a module, class, interface, type alias, field, "
+               "method, or "
                "function"
             << err::end;
       }
@@ -606,24 +1235,28 @@ namespace verona::parser
 
     Result typebody(List<Member>& members)
     {
-      if (has(TokenKind::LBrace) != Success)
+      // typebody <- `{` member* `}`
+      if (!has(TokenKind::LBrace))
       {
         err << "Expected {" << err::end;
         return Error;
       }
 
+      if (has(TokenKind::RBrace))
+        return Success;
+
       auto result = Success;
       auto printerr = true;
 
-      while (has(TokenKind::RBrace) != Success)
+      while (!has(TokenKind::RBrace))
       {
-        if (has(TokenKind::End) == Success)
+        if (has(TokenKind::End))
         {
           err << "Expected }" << err::end;
           return Error;
         }
 
-        if (member(members, printerr) == Error)
+        if (member(members, printerr) != Success)
         {
           printerr = false;
           result = Error;
@@ -640,12 +1273,13 @@ namespace verona::parser
 
     Result module(List<Member>& members)
     {
+      // module <- member*
       auto result = Success;
       auto printerr = true;
 
-      while (has(TokenKind::End) != Success)
+      while (!has(TokenKind::End))
       {
-        if (member(members, printerr) == Error)
+        if (member(members, printerr) != Success)
         {
           printerr = false;
           result = Error;
