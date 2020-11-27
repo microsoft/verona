@@ -22,6 +22,7 @@ namespace verona::parser
     Semicolon,
     Colon,
     DoubleColon,
+    FatArrow,
     Equals,
 
     // Constants
