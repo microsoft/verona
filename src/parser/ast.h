@@ -39,7 +39,6 @@ namespace verona::parser
     Block,
     When,
     While,
-    For,
     Case,
     Match,
     If,
@@ -177,18 +176,6 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::While;
-    }
-  };
-
-  struct For : Expr
-  {
-    Node<Expr> left;
-    Node<Expr> right;
-    Node<Block> body;
-
-    Kind kind()
-    {
-      return Kind::For;
     }
   };
 
