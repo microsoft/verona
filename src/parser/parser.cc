@@ -22,9 +22,49 @@ namespace verona::parser
     size_t la;
     err::Errors& err;
 
+    Source rewrite;
+    size_t hygienic;
+    Token token_has_value;
+    Token token_next;
+
     Parse(Source& source, err::Errors& err)
-    : source(source), pos(0), la(0), err(err)
-    {}
+    : source(source), pos(0), la(0), err(err), hygienic(0)
+    {
+      rewrite = std::make_shared<SourceDef>();
+      token_has_value = ident("has_value");
+      token_next = ident("next");
+    }
+
+    Token ident(const char* text = "")
+    {
+      auto len = strlen(text);
+
+      if (len == 0)
+      {
+        auto h = "$" + std::to_string(hygienic++);
+        auto pos = rewrite->contents.size();
+        rewrite->contents.append(h);
+        len = h.size();
+        return {TokenKind::Ident, {rewrite, pos, pos + len - 1}};
+      }
+
+      auto pos = rewrite->contents.find(text);
+
+      if (pos == std::string::npos)
+      {
+        pos = rewrite->contents.size();
+        rewrite->contents.append(text);
+      }
+
+      return {TokenKind::Ident, {rewrite, pos, pos + len - 1}};
+    }
+
+    Node<Ref> ref(Token id)
+    {
+      auto ref = std::make_shared<Ref>();
+      ref->location = id.location;
+      return ref;
+    }
 
     bool peek(TokenKind kind)
     {
@@ -142,9 +182,12 @@ namespace verona::parser
       if (!has(TokenKind::For))
         return Skip;
 
-      auto fr = std::make_shared<For>();
-      fr->location = location();
-      expr = fr;
+      auto blk = std::make_shared<Block>();
+      blk->location = location();
+      expr = blk;
+
+      auto wh = std::make_shared<While>();
+      wh->location = location();
 
       if (!has(TokenKind::LParen))
       {
@@ -152,7 +195,15 @@ namespace verona::parser
         return Error;
       }
 
-      if (optexpr(fr->left) != Success)
+      auto init = std::make_shared<Assign>();
+      auto cond = std::make_shared<Tuple>();
+      auto begin = std::make_shared<Assign>();
+      auto end = std::make_shared<Apply>();
+
+      Node<Expr> state;
+      Node<Expr> iter;
+
+      if (optexpr(state) != Success)
       {
         err << "Expected for-loop state" << err::end;
         return Error;
@@ -164,7 +215,9 @@ namespace verona::parser
         return Error;
       }
 
-      if (optexpr(fr->right) != Success)
+      begin->location = location();
+
+      if (optexpr(iter) != Success)
       {
         err << "Expected for-loop iterator" << err::end;
         return Error;
@@ -176,11 +229,53 @@ namespace verona::parser
         return Error;
       }
 
-      if (block(fr->body) != Success)
+      if (block(wh->body) != Success)
       {
         err << "Expected for-loop body" << err::end;
         return Error;
       }
+
+      end->location = location();
+
+      // init = (assign (let (ref $0)) $iter)
+      init->location = iter->location;
+      auto id = ident();
+
+      auto decl = std::make_shared<Let>();
+      decl->decl = ref(id);
+      init->left = decl;
+      init->right = iter;
+
+      // cond = (tuple (apply (select (ref $0) (ident has_value)) (tuple)))
+      auto select_has_value = std::make_shared<Select>();
+      select_has_value->expr = ref(id);
+      select_has_value->member = token_has_value;
+      auto apply_has_value = std::make_shared<Apply>();
+      apply_has_value->expr = select_has_value;
+      apply_has_value->args = std::make_shared<Tuple>();
+      cond->seq.push_back(apply_has_value);
+
+      // begin = (assign $state (apply (ref $0) (tuple))
+      auto apply = std::make_shared<Apply>();
+      apply->expr = ref(id);
+      apply->args = std::make_shared<Tuple>();
+      begin->left = state;
+      begin->right = apply;
+
+      // end = (apply (select (ref $0) (ident next)) (tuple))
+      auto select_next = std::make_shared<Select>();
+      select_next->location = end->location;
+      select_next->expr = ref(id);
+      select_next->member = token_next;
+      end->expr = select_next;
+      end->args = std::make_shared<Tuple>();
+
+      // (block init wh)
+      blk->seq.push_back(init);
+      blk->seq.push_back(wh);
+
+      wh->body->seq.insert(wh->body->seq.begin(), begin);
+      wh->body->seq.push_back(end);
 
       return Success;
     }
