@@ -56,6 +56,8 @@ namespace verona::parser
     Specialise,
     Apply,
     Ref,
+    Let,
+    Var,
     SymRef,
     StaticRef,
     Constant,
@@ -196,7 +198,7 @@ namespace verona::parser
   {
     Node<Expr> pattern;
     Node<Expr> guard;
-    Node<Block> body;
+    Node<Expr> body;
 
     Kind kind()
     {
@@ -380,6 +382,24 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::Constant;
+    }
+  };
+
+  struct Let : Expr
+  {
+    Node<Expr> decl;
+
+    Kind kind()
+    {
+      return Kind::Let;
+    }
+  };
+
+  struct Var : Let
+  {
+    Kind kind()
+    {
+      return Kind::Var;
     }
   };
 

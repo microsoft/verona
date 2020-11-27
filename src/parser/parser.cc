@@ -113,7 +113,7 @@ namespace verona::parser
 
     Result optwhen(Node<Expr>& expr)
     {
-      // when <- `when` tuple block
+      // when <- 'when' tuple block
       if (!has(TokenKind::When))
         return Skip;
 
@@ -138,7 +138,7 @@ namespace verona::parser
 
     Result optfor(Node<Expr>& expr)
     {
-      // for <- `for` `(` expr `in` expr `)` block
+      // for <- 'for' '(' expr 'in' expr ')' block
       if (!has(TokenKind::For))
         return Skip;
 
@@ -187,7 +187,7 @@ namespace verona::parser
 
     Result optwhile(Node<Expr>& expr)
     {
-      // while <- `while` tuple block
+      // while <- 'while' tuple block
       if (!has(TokenKind::While))
         return Skip;
 
@@ -212,14 +212,44 @@ namespace verona::parser
 
     Result matchcase(Node<Case>& expr)
     {
-      // case <- ???
-      // TODO: case
-      return Error;
+      // case <- expr ('if' expr)? '=>' expr
+      expr = std::make_shared<Case>();
+
+      if (optexpr(expr->pattern) != Success)
+      {
+        err << "Expected a case pattern" << err::end;
+        return Error;
+      }
+
+      if (has(TokenKind::If))
+      {
+        if (optexpr(expr->guard) != Success)
+        {
+          err << "Expected a guard expression" << err::end;
+          return Error;
+        }
+      }
+
+      if (!has(TokenKind::FatArrow))
+      {
+        err << "Expected =>" << err::end;
+        return Error;
+      }
+
+      expr->location = location();
+
+      if (optexpr(expr->body) != Success)
+      {
+        err << "Expected a case expression" << err::end;
+        return Error;
+      }
+
+      return Success;
     }
 
     Result optmatch(Node<Expr>& expr)
     {
-      // match <- `match` tuple `{` case* `}`
+      // match <- 'match' tuple '{' case* '}'
       if (!has(TokenKind::Match))
         return Skip;
 
@@ -261,7 +291,7 @@ namespace verona::parser
 
     Result optif(Node<Expr>& expr)
     {
-      // if <- `if` tuple block (`else` block)?
+      // if <- 'if' tuple block ('else' block)?
       if (!has(TokenKind::If))
         return Skip;
 
@@ -295,7 +325,7 @@ namespace verona::parser
 
     Result tuple(Node<Tuple>& tup)
     {
-      // tuple <- `(` expr* `)`
+      // tuple <- '(' expr* ')'
       if (!has(TokenKind::LParen))
       {
         err << "Expected (" << err::end;
@@ -350,7 +380,7 @@ namespace verona::parser
 
     Result block(Node<Block>& blk)
     {
-      // block <- `{` (`}` / (preblock / expr ';')* controlflow? `}`)
+      // block <- '{' ('}' / (preblock / expr ';')* controlflow? '}')
       if (!has(TokenKind::LBrace))
       {
         err << "Expected {" << err::end;
@@ -425,7 +455,7 @@ namespace verona::parser
 
     Result optlambda(Node<Expr>& expr)
     {
-      // lambda <- signature `=>` expr
+      // lambda <- signature '=>' expr
       auto lambda = std::make_shared<Lambda>();
 
       if (has(TokenKind::LSquare))
@@ -539,7 +569,7 @@ namespace verona::parser
 
     Result optbreak(Node<Expr>& expr)
     {
-      // break <- `break`
+      // break <- 'break'
       if (!has(TokenKind::Break))
         return Skip;
 
@@ -551,7 +581,7 @@ namespace verona::parser
 
     Result optcontinue(Node<Expr>& expr)
     {
-      // continue <- `continue`
+      // continue <- 'continue'
       if (!has(TokenKind::Continue))
         return Skip;
 
@@ -563,7 +593,7 @@ namespace verona::parser
 
     Result optreturn(Node<Expr>& expr)
     {
-      // return <- `return` expr?
+      // return <- 'return' expr?
       if (!has(TokenKind::Return))
         return Skip;
 
@@ -579,7 +609,7 @@ namespace verona::parser
 
     Result optyield(Node<Expr>& expr)
     {
-      // yield <- `yield` expr
+      // yield <- 'yield' expr
       if (!has(TokenKind::Yield))
         return Skip;
 
@@ -595,7 +625,7 @@ namespace verona::parser
 
     Result optref(Node<Expr>& expr)
     {
-      // ref <- ident (`:` type)?
+      // ref <- ident (':' type)?
       if (!has(TokenKind::Ident))
         return Skip;
 
@@ -638,9 +668,62 @@ namespace verona::parser
       return Success;
     }
 
+    Result declelem(Node<Expr>& decl)
+    {
+      Result r;
+
+      if ((r = optref(decl)) != Skip)
+        return r;
+
+      if (!has(TokenKind::LParen))
+      {
+        err << "Expected a ref or (" << err::end;
+        return Error;
+      }
+
+      auto tup = std::make_shared<Tuple>();
+
+      do
+      {
+        tup->seq.push_back({});
+
+        if (declelem(tup->seq.back()) != Success)
+          return Error;
+      } while (has(TokenKind::Comma));
+
+      if (!has(TokenKind::RParen))
+      {
+        err << "Expected a )" << err::end;
+        return Error;
+      }
+
+      if (oftype(tup->type) == Error)
+        return Error;
+
+      decl = tup;
+      return Success;
+    }
+
+    Result optdecl(Node<Expr>& expr)
+    {
+      // decl <- ('let' / 'var') declelem
+      // declelem <- ref / '(' declelem (',' declelem)* ')' oftype?
+      Node<Let> let;
+
+      if (has(TokenKind::Let))
+        let = std::make_shared<Let>();
+      else if(has(TokenKind::Var))
+        let = std::make_shared<Var>();
+      else
+        return Skip;
+
+      expr = let;
+      return declelem(let->decl);
+    }
+
     Result optstaticref(Node<Expr>& expr)
     {
-      // staticref <- ident (`::` ident)* `::` (ident / symbol)
+      // staticref <- ident ('::' ident)* '::' (ident / symbol)
       bool ok = peek(TokenKind::Ident) && peek(TokenKind::DoubleColon);
       rewind();
 
@@ -683,7 +766,10 @@ namespace verona::parser
       if ((r = optconstant(expr)) != Skip)
         return r;
 
-      // TODO: decl, new
+      if ((r = optdecl(expr)) != Skip)
+        return r;
+
+      // TODO: new
 
       // We will have already found a tuple when trying to find a lambda, so
       // this will always Skip.
@@ -695,7 +781,7 @@ namespace verona::parser
 
     Result optselect(Node<Expr>& expr)
     {
-      // select <- expr `.` (ident / symbol)
+      // select <- expr '.' (ident / symbol)
       if (!has(TokenKind::Dot))
         return Skip;
 
@@ -715,7 +801,7 @@ namespace verona::parser
 
     Result optspecialise(Node<Expr>& expr)
     {
-      // specialise <- expr `[` (expr (`,` expr)*)?) `]`
+      // specialise <- expr '[' (expr (',' expr)*)?) ']'
       if (!has(TokenKind::LSquare))
         return Skip;
 
@@ -800,7 +886,7 @@ namespace verona::parser
           return r;
       }
 
-      // postfix <- atom (`.` (ident / symbol) / typeargs / tuple)*
+      // postfix <- atom ('.' (ident / symbol) / typeargs / tuple)*
       while (true)
       {
         switch (onepostfix(expr))
@@ -905,7 +991,7 @@ namespace verona::parser
 
     Result optexpr(Node<Expr>& expr)
     {
-      // expr <- preblock / infix (`=` assign)?
+      // expr <- preblock / infix ('=' assign)?
       Result r;
 
       if ((r = optinfix(expr)) != Success)
@@ -1005,7 +1091,7 @@ namespace verona::parser
 
     Result signature(Node<Signature>& sig)
     {
-      // sig <- typeparams params oftype (`throws` type)? constraints
+      // sig <- typeparams params oftype ('throws' type)? constraints
       sig = std::make_shared<Signature>();
 
       if (typeparams(sig->typeparams) == Error)
@@ -1054,7 +1140,7 @@ namespace verona::parser
 
     Result field(List<Member>& members)
     {
-      // field <- ident oftype initexpr `;`
+      // field <- ident oftype initexpr ';'
       if (!has(TokenKind::Ident))
         return Skip;
 
@@ -1079,7 +1165,7 @@ namespace verona::parser
 
     Result function(Function& func)
     {
-      // function <- (ident / symbol)? signature (block / `;`)
+      // function <- (ident / symbol)? signature (block / ';')
       if (has(TokenKind::Ident) || has(TokenKind::Symbol))
       {
         func.location = location();
@@ -1122,7 +1208,7 @@ namespace verona::parser
 
     Result static_function(List<Member>& members)
     {
-      // static_function <- `static` function
+      // static_function <- 'static' function
       if (!has(TokenKind::Static))
         return Skip;
 
@@ -1141,7 +1227,7 @@ namespace verona::parser
 
     Result constraints(List<Constraint>& constraints)
     {
-      // constraints <- (`where` ident oftype inittype)*
+      // constraints <- ('where' ident oftype inittype)*
       while (has(TokenKind::Where))
       {
         auto constraint = std::make_shared<Constraint>();
@@ -1167,7 +1253,7 @@ namespace verona::parser
 
     Result typeparams(std::vector<ID>& typeparams)
     {
-      // typeparams <- (`[` ident (`,` ident)* `]`)?
+      // typeparams <- ('[' ident (',' ident)* ']')?
       if (!has(TokenKind::LSquare))
         return Skip;
 
@@ -1225,7 +1311,7 @@ namespace verona::parser
 
     Result typealias(List<Member>& members)
     {
-      // typealias <- `type` namedentity `=` type `;`
+      // typealias <- 'type' namedentity '=' type ';'
       if (!has(TokenKind::Type))
         return Skip;
 
@@ -1256,7 +1342,7 @@ namespace verona::parser
 
     Result interface(List<Member>& members)
     {
-      // interface <- `interface` namedentity typebody
+      // interface <- 'interface' namedentity typebody
       if (!has(TokenKind::Interface))
         return Skip;
 
@@ -1275,7 +1361,7 @@ namespace verona::parser
 
     Result classdef(List<Member>& members)
     {
-      // classdef <- `class` namedentity typebody
+      // classdef <- 'class' namedentity typebody
       if (!has(TokenKind::Class))
         return Skip;
 
@@ -1294,7 +1380,7 @@ namespace verona::parser
 
     Result moduledef(List<Member>& members)
     {
-      // moduledef <- `module` entity `;`
+      // moduledef <- 'module' entity ';'
       if (!has(TokenKind::Module))
         return Skip;
 
@@ -1355,7 +1441,7 @@ namespace verona::parser
 
     Result typebody(List<Member>& members)
     {
-      // typebody <- `{` member* `}`
+      // typebody <- '{' member* '}'
       if (!has(TokenKind::LBrace))
       {
         err << "Expected {" << err::end;
