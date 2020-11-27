@@ -130,7 +130,6 @@ namespace verona::parser
         case Kind::Block:
         case Kind::When:
         case Kind::While:
-        case Kind::For:
         case Kind::Match:
         case Kind::If:
         case Kind::Lambda:
