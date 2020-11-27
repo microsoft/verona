@@ -83,9 +83,7 @@ namespace verona::parser
     template<typename T>
     T& as()
     {
-      if (T().kind() != kind())
-        abort();
-
+      assert(T().kind() == kind());
       return static_cast<T&>(*this);
     }
   };
