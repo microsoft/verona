@@ -1,6 +1,6 @@
 #include "source.h"
 
-#include "../ast/path.h"
+#include "path.h"
 
 #include <fstream>
 

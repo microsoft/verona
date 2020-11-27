@@ -42,7 +42,8 @@ namespace verona::parser
     For,
     Case,
     Match,
-    Conditional,
+    If,
+    Lambda,
     Break,
     Continue,
     Return,
@@ -76,14 +77,72 @@ namespace verona::parser
 
     virtual ~NodeDef() = default;
     virtual Kind kind() = 0;
+
+    template<typename T>
+    T& as()
+    {
+      if (T().kind() != kind())
+        abort();
+
+      return static_cast<T&>(*this);
+    }
+  };
+
+  struct Type : NodeDef
+  {
+    // TODO: module ref, anonymous interface
+    Kind kind()
+    {
+      return Kind::Type;
+    }
   };
 
   struct Expr : NodeDef
   {};
 
+  struct Constraint : NodeDef
+  {
+    // TODO: value-dependent types
+    ID id;
+    Node<Type> type;
+    Node<Type> init;
+
+    Kind kind()
+    {
+      return Kind::Constraint;
+    }
+  };
+
+  struct Param : NodeDef
+  {
+    ID id;
+    Node<Type> type;
+    Node<Expr> init;
+
+    Kind kind()
+    {
+      return Kind::Param;
+    }
+  };
+
+  struct Signature : NodeDef
+  {
+    std::vector<ID> typeparams;
+    List<Param> params;
+    Node<Type> result;
+    Node<Type> throws;
+    List<Constraint> constraints;
+
+    Kind kind()
+    {
+      return Kind::Signature;
+    }
+  };
+
   struct Tuple : Expr
   {
     List<Expr> seq;
+    Node<Type> type;
 
     Kind kind()
     {
@@ -156,7 +215,7 @@ namespace verona::parser
     }
   };
 
-  struct Conditional : Expr
+  struct If : Expr
   {
     Node<Tuple> cond;
     Node<Block> on_true;
@@ -164,7 +223,18 @@ namespace verona::parser
 
     Kind kind()
     {
-      return Kind::Conditional;
+      return Kind::If;
+    }
+  };
+
+  struct Lambda : Expr
+  {
+    Node<Signature> signature;
+    Node<Expr> body;
+
+    Kind kind()
+    {
+      return Kind::Lambda;
     }
   };
 
@@ -279,6 +349,8 @@ namespace verona::parser
 
   struct Ref : Expr
   {
+    Node<Type> type;
+
     Kind kind()
     {
       return Kind::Ref;
@@ -308,15 +380,6 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::Constant;
-    }
-  };
-
-  struct Type : NodeDef
-  {
-    // TODO: module ref, anonymous interface
-    Kind kind()
-    {
-      return Kind::Type;
     }
   };
 
@@ -395,19 +458,6 @@ namespace verona::parser
     }
   };
 
-  struct Constraint : NodeDef
-  {
-    // TODO: value-dependent types
-    ID id;
-    Node<Type> type;
-    Node<Type> init;
-
-    Kind kind()
-    {
-      return Kind::Constraint;
-    }
-  };
-
   struct Member : NodeDef
   {};
 
@@ -478,28 +528,6 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::Field;
-    }
-  };
-
-  struct Param : Field
-  {
-    Kind kind()
-    {
-      return Kind::Param;
-    }
-  };
-
-  struct Signature : NodeDef
-  {
-    std::vector<ID> typeparams;
-    List<Param> params;
-    Node<Type> result;
-    Node<Type> throws;
-    List<Constraint> constraints;
-
-    Kind kind()
-    {
-      return Kind::Signature;
     }
   };
 

@@ -491,10 +491,13 @@ namespace verona::parser
 
     if (++i < source->contents.size())
     {
+      if (source->contents[i] == '>')
+        return {TokenKind::FatArrow, {source, start, ++i - 1}};
+
       switch (lookup[source->contents[i]])
       {
-        case C:
         case Y:
+        case C:
         case E:
           return consume_symbol(source, --i);
 
