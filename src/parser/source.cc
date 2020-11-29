@@ -1,3 +1,5 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 #include "source.h"
 
 #include "path.h"
@@ -6,7 +8,7 @@
 
 namespace verona::parser
 {
-  bool Location::is(const char* text)
+  bool Location::operator==(const char* text)
   {
     return this->source->contents.compare(
              this->start, this->end - this->start + 1, text) == 0;

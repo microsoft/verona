@@ -1,3 +1,5 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 #include "parser.h"
 
 #include "path.h"
@@ -758,6 +760,7 @@ namespace verona::parser
 
       auto con = std::make_shared<Constant>();
       con->location = location();
+      con->value = previous();
       expr = con;
       return Success;
     }
@@ -806,7 +809,7 @@ namespace verona::parser
 
       if (has(TokenKind::Let))
         let = std::make_shared<Let>();
-      else if(has(TokenKind::Var))
+      else if (has(TokenKind::Var))
         let = std::make_shared<Var>();
       else
         return Skip;

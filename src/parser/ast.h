@@ -25,7 +25,6 @@ namespace verona::parser
     Method,
 
     // Types
-    Type,
     UnionType,
     IsectType,
     TupleType,
@@ -55,10 +54,10 @@ namespace verona::parser
     Specialise,
     Apply,
     Ref,
-    Let,
-    Var,
     SymRef,
     StaticRef,
+    Let,
+    Var,
     Constant,
   };
 
@@ -87,14 +86,10 @@ namespace verona::parser
     }
   };
 
+  // TODO: anonymous interface
+
   struct Type : NodeDef
-  {
-    // TODO: module ref, anonymous interface
-    Kind kind()
-    {
-      return Kind::Type;
-    }
-  };
+  {};
 
   struct Expr : NodeDef
   {};
@@ -149,8 +144,10 @@ namespace verona::parser
     }
   };
 
-  struct Block : Tuple
+  struct Block : Expr
   {
+    List<Expr> seq;
+
     Kind kind()
     {
       return Kind::Block;
@@ -364,6 +361,8 @@ namespace verona::parser
 
   struct Constant : Expr
   {
+    Token value;
+
     Kind kind()
     {
       return Kind::Constant;
