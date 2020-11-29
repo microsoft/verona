@@ -460,6 +460,9 @@ namespace verona::parser
       case Kind::Prefix:
         return out << node->as<Prefix>();
 
+      case Kind::Inblock:
+        return out << node->as<Inblock>();
+
       case Kind::Preblock:
         return out << node->as<Preblock>();
 
@@ -576,14 +579,14 @@ namespace verona::parser
     while (true)
     {
       // Find the beginning of the next node.
-      pos = view.find_first_not_of(" ");
+      pos = view.find_first_not_of(' ');
       view = view.substr(pos);
 
       if (view[0] == end)
       {
         // Terminate the node.
         out << std::string(indent, ' ') << end << std::endl;
-        pos = view.find_first_not_of(" ", 1);
+        pos = view.find_first_not_of(' ', 1);
 
         if (pos != std::string::npos)
           view = view.substr(pos);
@@ -603,7 +606,7 @@ namespace verona::parser
     auto sexpr = ss.str();
     std::string_view view{sexpr};
 
-    auto pos = view.find_first_not_of(" ");
+    auto pos = view.find_first_not_of(' ');
     view = view.substr(pos);
 
     print_node(out, view, 0, pret.width);

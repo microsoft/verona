@@ -6,5 +6,5 @@
 
 namespace verona::parser
 {
-  Node<NodeDef> parse(const std::string& path, err::Errors& err);
+  std::pair<bool, Node<NodeDef>> parse(const std::string& path);
 }

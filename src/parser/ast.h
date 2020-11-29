@@ -5,6 +5,7 @@
 #include "lexer.h"
 #include "source.h"
 
+#include <cassert>
 #include <vector>
 
 namespace verona::parser
@@ -50,6 +51,7 @@ namespace verona::parser
     Assign,
     Infix,
     Prefix,
+    Inblock,
     Preblock,
     Select,
     Specialise,
@@ -288,6 +290,14 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::Prefix;
+    }
+  };
+
+  struct Inblock : Infix
+  {
+    Kind kind()
+    {
+      return Kind::Inblock;
     }
   };
 
