@@ -4,23 +4,100 @@
 
 #include "path.h"
 
+#include <algorithm>
 #include <fstream>
+#include <iostream>
+#include <string_view>
 
 namespace verona::parser
 {
-  bool Location::operator==(const char* text)
+  std::pair<size_t, size_t> Location::linecol() const
+  {
+    std::string_view view{this->source->contents};
+    view = view.substr(0, this->start);
+    size_t line = std::count(view.begin(), view.end(), '\n') + 1;
+    size_t col;
+
+    if (line > 1)
+    {
+      auto pos = view.find_last_of('\n');
+      col = this->start - pos;
+    }
+    else
+    {
+      col = this->start + 1;
+    }
+
+    return {line, col};
+  }
+
+  bool Location::operator==(const char* text) const
   {
     return this->source->contents.compare(
              this->start, this->end - this->start + 1, text) == 0;
   }
 
-  Source load_source(const std::string& file, err::Errors& err)
+  bool Location::operator==(const Location& that) const
+  {
+    return this->source->contents.compare(
+             this->start,
+             this->end - this->start + 1,
+             &that.source->contents[that.start],
+             that.end - that.start + 1) == 0;
+  }
+
+  std::ostream& operator<<(std::ostream& out, const Location& loc)
+  {
+    auto linecol = loc.linecol();
+    return out << loc.source->origin << ":" << linecol.first << ":"
+               << linecol.second << ": ";
+  }
+
+  std::ostream& operator<<(std::ostream& out, const text& text)
+  {
+    auto& loc = text.loc;
+    auto& contents = loc.source->contents;
+
+    std::string_view view{contents};
+    auto before = view.substr(0, loc.start);
+    auto start = before.find_last_of('\n');
+
+    if (start == std::string::npos)
+      start = 0;
+    else
+      start++;
+
+    auto after = view.substr(loc.start);
+    auto end = after.find_first_of('\n');
+
+    if (end == std::string::npos)
+      end = contents.size();
+    else
+      end += loc.start;
+
+    auto line = view.substr(start, end - start);
+    auto col = loc.start - start;
+    auto lead = contents.substr(start, col);
+
+    for (auto i = 0; i < lead.size(); i++)
+    {
+      if (lead[i] != '\t')
+        lead[i] = ' ';
+    }
+
+    return out << std::endl
+               << line << std::endl
+               << lead << std::string(loc.end - loc.start + 1, '^') << std::endl
+               << std::endl;
+  }
+
+  Source load_source(const std::string& file)
   {
     std::ifstream f(file.c_str(), std::ios::binary | std::ios::ate);
 
     if (!f)
     {
-      err << "Couldn't open file " << file << err::end;
+      std::cerr << "Couldn't open file " << file << std::endl;
       return {};
     }
 
@@ -34,7 +111,7 @@ namespace verona::parser
 
     if (!f)
     {
-      err << "Couldn't read file " << file << err::end;
+      std::cerr << "Couldn't read file " << file << std::endl;
       return {};
     }
 
