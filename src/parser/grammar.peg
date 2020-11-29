@@ -23,8 +23,7 @@ signature <- typeparams? params oftype? ('throws' type)? constraints?
 
 declelem <- ref / '(' declelem (',' declelem)* ')' oftype?
 decl <- ('let' / 'var') declelem
-new <- 'new' (tuple / type? typebody)
-  # TODO: new...in
+new <- 'new' (tuple / type? typebody) ('in' id)?
 staticref <- id ('::' id)* ('::' (id / sym))
 ref <- id oftype?
 symref <- sym

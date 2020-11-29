@@ -162,10 +162,8 @@ namespace verona::parser
 
   std::ostream& operator<<(std::ostream& out, Signature& sig)
   {
-    return out << start("signature") << start("typeparams") << sig.typeparams
-               << end << start("params") << sig.params << end << sig.result
-               << sig.throws << start("constraints") << sig.constraints << end
-               << end;
+    return out << start("signature") << sig.typeparams << sig.params
+               << sig.result << sig.throws << sig.constraints << end;
   }
 
   std::ostream& operator<<(std::ostream& out, Function& func)
@@ -197,33 +195,26 @@ namespace verona::parser
 
   std::ostream& operator<<(std::ostream& out, TypeAlias& alias)
   {
-    return out << start("typealias") << alias.id << start("typeparams")
-               << alias.typeparams << end << start("inherits") << alias.inherits
-               << end << start("constraints") << alias.constraints << end
-               << alias.type << end;
+    return out << start("typealias") << alias.id << alias.typeparams
+               << alias.inherits << alias.constraints << alias.type << end;
   }
 
   std::ostream& operator<<(std::ostream& out, Interface& iface)
   {
-    return out << start("interface") << iface.id << start("typeparams")
-               << iface.typeparams << end << start("inherits") << iface.inherits
-               << end << start("constraints") << iface.constraints << end
-               << start("members") << iface.members << end << end;
+    return out << start("interface") << iface.id << iface.typeparams
+               << iface.inherits << iface.constraints << iface.members << end;
   }
 
   std::ostream& operator<<(std::ostream& out, Class& cls)
   {
-    return out << start("class") << cls.id << start("typeparams")
-               << cls.typeparams << end << start("inherits") << cls.inherits
-               << end << start("constraints") << cls.constraints << end
-               << start("members") << cls.members << end << end;
+    return out << start("class") << cls.id << cls.typeparams << cls.inherits
+               << cls.constraints << cls.members << end;
   }
 
   std::ostream& operator<<(std::ostream& out, Module& module)
   {
-    return out << start("module") << start("typeparams") << module.typeparams
-               << end << start("inherits") << module.inherits << end
-               << start("constraints") << module.constraints << end;
+    return out << start("module") << module.typeparams << module.inherits
+               << module.constraints << end;
   }
 
   std::ostream& operator<<(std::ostream& out, Tuple& tuple)
@@ -346,6 +337,17 @@ namespace verona::parser
   std::ostream& operator<<(std::ostream& out, Constant& con)
   {
     return out << con.value;
+  }
+
+  std::ostream& operator<<(std::ostream& out, New& n)
+  {
+    return out << start("new") << n.args << n.in << end;
+  }
+
+  std::ostream& operator<<(std::ostream& out, ObjectLiteral& obj)
+  {
+    return out << start("object") << obj.inherits << obj.members << obj.in
+               << end;
   }
 
   std::ostream& operator<<(std::ostream& out, const Node<NodeDef>& node)
@@ -492,6 +494,12 @@ namespace verona::parser
 
       case Kind::Constant:
         return out << node->as<Constant>();
+
+      case Kind::New:
+        return out << node->as<New>();
+
+      case Kind::ObjectLiteral:
+        return out << node->as<ObjectLiteral>();
     }
 
     return out;
