@@ -32,7 +32,7 @@ namespace verona::parser
       end(static_cast<Position>(end))
     {}
 
-    bool is(const char* text);
+    bool operator==(const char* text);
   };
 
   Source load_source(const std::string& file, err::Errors& err);

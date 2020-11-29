@@ -1,3 +1,5 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 #include "lexer.h"
 
 #include "source.h"
@@ -450,7 +452,7 @@ namespace verona::parser
 
     for (auto kw = &keywords[0]; kw->text; kw++)
     {
-      if (tok.location.is(kw->text))
+      if (tok.location == kw->text)
       {
         tok.kind = kw->kind;
         break;
