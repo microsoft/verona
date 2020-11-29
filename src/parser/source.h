@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "../ast/err.h"
-
 #include <memory>
 #include <string>
 
@@ -32,8 +30,32 @@ namespace verona::parser
       end(static_cast<Position>(end))
     {}
 
-    bool operator==(const char* text);
+    std::pair<size_t, size_t> linecol() const;
+    std::pair<std::string_view, size_t> line() const;
+
+    bool operator==(const char* text) const;
+    bool operator==(const Location& that) const;
+
+    bool operator!=(const char* text) const
+    {
+      return !(*this == text);
+    }
+
+    bool operator!=(const Location& that) const
+    {
+      return !(*this == that);
+    }
   };
 
-  Source load_source(const std::string& file, err::Errors& err);
+  struct text
+  {
+    Location loc;
+
+    text(const Location& loc) : loc(loc) {}
+  };
+
+  std::ostream& operator<<(std::ostream& out, const Location& loc);
+  std::ostream& operator<<(std::ostream& out, const text& text);
+
+  Source load_source(const std::string& file);
 }

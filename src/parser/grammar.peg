@@ -7,8 +7,11 @@
 # 3. infix
 # 4. assign
 
-type <-
-  # TODO: type
+typename <- id typeargs?
+typeref <- typename ('::' typename)*
+tupletype <- '(' (type (',' type)*)? ')'
+type <- tupletype / typeref
+  # TODO: union, isect, function, view, extract
 
 oftype <- ':' type
 initexpr <- '=' expr
@@ -20,6 +23,7 @@ declelem <- ref / '(' declelem (',' declelem)* ')' oftype?
 decl <- ('let' / 'var') declelem
 new <- 'new' (tuple / type? typebody)
   # TODO: separate syntax for object literals?
+  # TODO: new...in
 staticref <- id ('::' id)* ('::' (id / sym))
 ref <- id oftype?
 symref <- sym
@@ -42,7 +46,7 @@ tuple <- '(' expr (',' expr)* ')' oftype?
 postfix <- atom (dot (sym / id) / typeargs / tuple)*
 prefix <- (ref / symref) prefix / postfix
 preblock <- (ref / symref) preblock / blockexpr
-infix <- preblock / prefix (ref / symref) infix / prefix
-assign <- infix equals expr
+infix <- prefix ((ref / symref) prefix)*
+inblock <- preblock / infix ((ref / symref) preblock)?
 
-expr <- preblock / assign / infix
+expr <- inblock / infix ('=' expr)

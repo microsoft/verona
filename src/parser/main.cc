@@ -22,11 +22,8 @@ int main(int argc, char** argv)
     return app.exit(e);
   }
 
-  err::Errors err;
+  auto r = parse(path);
+  std::cout << pretty(r.second) << std::endl;
 
-  auto ast = parse(path, err);
-  std::cout << pretty(ast) << std::endl;
-
-  std::cerr << err;
-  return err.empty() ? 0 : -1;
+  return r.first ? 0 : -1;
 }
