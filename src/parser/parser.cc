@@ -833,6 +833,50 @@ namespace verona::parser
       return declelem(let->decl);
     }
 
+    Result optnew(Node<Expr>& expr)
+    {
+      // new <- 'new' (tuple / type? typebody) ('in' ident)?
+      if (!has(TokenKind::New))
+        return Skip;
+
+      if (peek(TokenKind::LParen))
+      {
+        rewind();
+        auto n = std::make_shared<New>();
+        n->location = previous.location;
+        expr = n;
+
+        if (tuple(n->args) != Success)
+          return Error;
+
+        if (has(TokenKind::In))
+        {
+          if (optident(n->in) != Success)
+            return Error;
+        }
+      }
+
+      auto obj = std::make_shared<ObjectLiteral>();
+      obj->location = previous.location;
+      expr = obj;
+
+      Result r;
+
+      if ((r = typeexpr(obj->inherits)) != Skip)
+        return r;
+
+      if (typebody(obj->members) == Error)
+        return Error;
+
+      if (has(TokenKind::In))
+      {
+        if (optident(obj->in) != Success)
+          return Error;
+      }
+
+      return Success;
+    }
+
     Result optstaticref(Node<Expr>& expr)
     {
       // staticref <- ident ('::' ident)* '::' (ident / symbol)
@@ -881,7 +925,8 @@ namespace verona::parser
       if ((r = optdecl(expr)) != Skip)
         return r;
 
-      // TODO: new
+      if ((r = optnew(expr)) != Skip)
+        return r;
 
       // We will have already found a tuple when trying to find a lambda, so
       // this will always Skip.

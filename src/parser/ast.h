@@ -62,6 +62,8 @@ namespace verona::parser
     Let,
     Var,
     Constant,
+    New,
+    ObjectLiteral,
   };
 
   using ID = Location;
@@ -398,6 +400,17 @@ namespace verona::parser
     }
   };
 
+  struct New : Expr
+  {
+    Node<Tuple> args;
+    ID in;
+
+    Kind kind()
+    {
+      return Kind::New;
+    }
+  };
+
   struct TypeOp : Type
   {
     List<Type> types;
@@ -568,6 +581,18 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::Method;
+    }
+  };
+
+  struct ObjectLiteral : Expr
+  {
+    Node<Type> inherits;
+    List<Member> members;
+    ID in;
+
+    Kind kind()
+    {
+      return Kind::ObjectLiteral;
     }
   };
 }
