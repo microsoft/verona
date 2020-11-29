@@ -323,7 +323,7 @@ namespace verona::parser
   struct Specialise : Expr
   {
     Node<Expr> expr;
-    List<Expr> args;
+    List<Expr> typeargs;
 
     Kind kind()
     {

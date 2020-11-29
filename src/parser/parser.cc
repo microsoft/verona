@@ -81,7 +81,7 @@ namespace verona::parser
       return text(loc());
     }
 
-    bool peek(TokenKind kind)
+    bool peek(TokenKind kind, const char* text = nullptr)
     {
       if (la >= lookahead.size())
         lookahead.push_back(lex(source, pos));
@@ -90,8 +90,11 @@ namespace verona::parser
 
       if (lookahead[la].kind == kind)
       {
-        la++;
-        return true;
+        if (!text || (lookahead[la].location == text))
+        {
+          la++;
+          return true;
+        }
       }
 
       return false;
@@ -114,11 +117,11 @@ namespace verona::parser
       la = 0;
     }
 
-    bool has(TokenKind kind)
+    bool has(TokenKind kind, const char* text = nullptr)
     {
       assert(la == 0);
 
-      if (peek(kind))
+      if (peek(kind, text))
       {
         rewind();
         take();
@@ -279,6 +282,7 @@ namespace verona::parser
       blk->seq.push_back(init);
       blk->seq.push_back(wh);
 
+      wh->cond = cond;
       wh->body->seq.insert(wh->body->seq.begin(), begin);
       wh->body->seq.push_back(end);
 
@@ -374,6 +378,9 @@ namespace verona::parser
         match->cases.push_back({});
         Result r = matchcase(match->cases.back());
 
+        if (r != Success)
+          match->cases.pop_back();
+
         if (r == Error)
           return Error;
         else if (r == Skip)
@@ -444,6 +451,7 @@ namespace verona::parser
 
         if (optexpr(tup->seq.back()) != Success)
         {
+          tup->seq.pop_back();
           std::cerr << loc() << "Expected an expression" << line();
           return Error;
         }
@@ -789,7 +797,10 @@ namespace verona::parser
         tup->seq.push_back({});
 
         if (declelem(tup->seq.back()) != Success)
+        {
+          tup->seq.pop_back();
           return Error;
+        }
       } while (has(TokenKind::Comma));
 
       if (!has(TokenKind::RParen))
@@ -900,27 +911,20 @@ namespace verona::parser
       return Success;
     }
 
-    Result optspecialise(Node<Expr>& expr)
+    Result typeargs(List<Expr>& typeargs)
     {
-      // specialise <- expr '[' (expr (',' expr)*)?) ']'
+      // typeargs <- '[' (expr (',' expr)*)?) ']'
       if (!has(TokenKind::LSquare))
-        return Skip;
-
-      auto spec = std::make_shared<Specialise>();
-      spec->location = previous.location;
-      spec->expr = expr;
-      expr = spec;
-
-      if (has(TokenKind::RSquare))
-        return Success;
+        return Error;
 
       do
       {
-        spec->args.push_back({});
+        typeargs.push_back({});
 
-        if (optexpr(spec->args.back()) != Success)
+        if (optexpr(typeargs.back()) != Success)
         {
-          std::cerr << loc() << "Expected an expression" << line();
+          typeargs.pop_back();
+          std::cerr << loc() << "Expected a type argument" << line();
           return Error;
         }
       } while (has(TokenKind::Comma));
@@ -932,6 +936,20 @@ namespace verona::parser
       }
 
       return Success;
+    }
+
+    Result optspecialise(Node<Expr>& expr)
+    {
+      // specialise <- expr typeargs
+      if (!has(TokenKind::LSquare))
+        return Skip;
+
+      auto spec = std::make_shared<Specialise>();
+      spec->location = previous.location;
+      spec->expr = expr;
+      expr = spec;
+
+      return typeargs(spec->typeargs);
     }
 
     Result optapply(Node<Expr>& expr)
@@ -1168,6 +1186,7 @@ namespace verona::parser
 
     Result initexpr(Node<Expr>& expr)
     {
+      // initexpr <- '=' expr
       if (!has(TokenKind::Equals))
         return Skip;
 
@@ -1180,14 +1199,205 @@ namespace verona::parser
       return Success;
     }
 
+    Result opttupletype(Node<Type>& type)
+    {
+      // tupletype <- '(' (type (',' type)*)? ')'
+      if (!has(TokenKind::LParen))
+        return Skip;
+
+      auto tup = std::make_shared<TupleType>();
+      tup->location = previous.location;
+      type = tup;
+
+      if (has(TokenKind::RParen))
+        return Success;
+
+      do
+      {
+        tup->types.push_back({});
+
+        if (typeexpr(tup->types.back()) != Success)
+        {
+          tup->types.pop_back();
+          return Error;
+        }
+      } while (has(TokenKind::Comma));
+
+      if (!has(TokenKind::RParen))
+      {
+        std::cerr << loc() << "Expected )" << line();
+        return Error;
+      }
+
+      return Success;
+    }
+
+    Result opttyperef(Node<Type>& type)
+    {
+      // typeref <- ident typeargs? ('::' ident typeargs?)*
+      if (!peek(TokenKind::Ident))
+        return Skip;
+
+      rewind();
+      auto typeref = std::make_shared<TypeRef>();
+      typeref->location = previous.location;
+      type = typeref;
+
+      do
+      {
+        if (!has(TokenKind::Ident))
+        {
+          std::cerr << loc() << "Expected a type name" << line();
+          return Error;
+        }
+
+        auto name = std::make_shared<TypeName>();
+        name->location = previous.location;
+        name->id = previous.location;
+        typeref->typenames.push_back(name);
+
+        if (peek(TokenKind::LSquare))
+        {
+          rewind();
+
+          if (typeargs(name->typeargs) != Success)
+            return Error;
+        }
+      } while (has(TokenKind::DoubleColon));
+
+      return Success;
+    }
+
+    Result viewtype(Node<Type>& type)
+    {
+      // viewtype <- (typeref ('~>' / '<~'))* (typeref / tupletype)
+      // Left associative.
+      Result r;
+
+      if ((r = opttupletype(type)) != Skip)
+        return r;
+
+      if (opttyperef(type) != Success)
+        return Error;
+
+      Node<Type>& next = type;
+
+      while (true)
+      {
+        if (has(TokenKind::Symbol, "~>"))
+        {
+          auto view = std::make_shared<ViewType>();
+          view->location = previous.location;
+          view->left = type;
+          type = view;
+          next = view->right;
+        }
+        else if (has(TokenKind::Symbol, "<~"))
+        {
+          auto extract = std::make_shared<ExtractType>();
+          extract->location = previous.location;
+          extract->left = type;
+          type = extract;
+          next = extract->right;
+        }
+        else
+        {
+          return Success;
+        }
+
+        if ((r = opttupletype(next)) != Skip)
+          return r;
+
+        if (opttyperef(next) != Success)
+          return Error;
+      }
+    }
+
+    Result functiontype(Node<Type>& type)
+    {
+      // functiontype <- viewtype ('->' functiontype)?
+      // Right associative.
+      if (viewtype(type) != Success)
+        return Error;
+
+      if (!has(TokenKind::Symbol, "->"))
+        return Success;
+
+      auto functype = std::make_shared<FunctionType>();
+      functype->location = previous.location;
+      functype->left = type;
+      type = functype;
+
+      return functiontype(functype->right);
+    }
+
+    Result isecttype(Node<Type>& type)
+    {
+      // isecttype <- functiontype ('&' functiontype)*
+      if (functiontype(type) != Success)
+        return Error;
+
+      if (!has(TokenKind::Symbol, "&"))
+        return Success;
+
+      auto isect = std::make_shared<IsectType>();
+      isect->location = previous.location;
+      isect->types.push_back(type);
+      type = isect;
+
+      do
+      {
+        isect->types.push_back({});
+
+        if (functiontype(isect->types.back()) != Success)
+        {
+          isect->types.pop_back();
+          std::cerr << loc() << "Expected a type" << line();
+          return Error;
+        }
+      } while (has(TokenKind::Symbol, "&"));
+
+      return Success;
+    }
+
+    Result uniontype(Node<Type>& type)
+    {
+      // uniontype <- isecttype ('|' isecttype)*
+      if (isecttype(type) != Success)
+        return Error;
+
+      if (!has(TokenKind::Symbol, "|"))
+        return Success;
+
+      auto un = std::make_shared<UnionType>();
+      un->location = previous.location;
+      un->types.push_back(type);
+      type = un;
+
+      do
+      {
+        un->types.push_back({});
+
+        if (isecttype(un->types.back()) != Success)
+        {
+          un->types.pop_back();
+          std::cerr << loc() << "Expected a type" << line();
+          return Error;
+        }
+      } while (has(TokenKind::Symbol, "|"));
+
+      return Success;
+    }
+
     Result typeexpr(Node<Type>& type)
     {
-      // TODO: type expression
-      return Success;
+      // typeexpr <- uniontype
+      return uniontype(type);
     }
 
     Result inittype(Node<Type>& type)
     {
+      // inittype <- '=' type
       if (!has(TokenKind::Equals))
         return Skip;
 
