@@ -7,7 +7,7 @@
 namespace verona::parser
 {
   constexpr uint8_t X = 0; // Invalid
-  constexpr uint8_t W = 1; // Whitespace
+  constexpr uint8_t W = 1; // Whitespace sp\t\r\n
   constexpr uint8_t Y = 2; // Symbol
   constexpr uint8_t Q = 3; // Quote "
   constexpr uint8_t Z = 4; // Builtin symbol .,()[]{};
@@ -19,7 +19,7 @@ namespace verona::parser
   constexpr uint8_t Eof = 255; // End of file
 
   constexpr uint8_t lookup[] = {
-    X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X,
+    X, X, X, X, X, X, X, X, X, W, W, X, X, W, X, X,
     X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X,
 
     W, Y, Q, Y, Y, Y, Y, Y, Z, Z, Y, Y, Z, Y, Z, L,
@@ -182,7 +182,7 @@ namespace verona::parser
       }
     }
 
-    return {kind, {source, i, i}};
+    return {kind, {source, i, i++}};
   }
 
   void consume_line_comment(Source& source, size_t& i)

@@ -92,7 +92,7 @@ namespace verona::parser
         return lex(source, pos);
 
       consumed = lookahead.front();
-      lookahead.pop_front();
+      lookahead.erase(lookahead.begin());
       return consumed;
     }
 

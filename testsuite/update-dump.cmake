@@ -21,6 +21,12 @@ foreach(TEST_FOLDER ${TEST_FOLDERS})
       execute_process(
         COMMAND ${VERONA_TYPED_AST} -a -g ${GRAMMAR} ${PARSE_TEST}
         OUTPUT_FILE ${OUT_DIR}/typed-ast.txt)
+
+      message(STATUS "Regenerating ${OUT_DIR}/parser.txt")
+      message(STATUS "${VERONA_PARSER} ${PARSE_TEST}")
+      execute_process(
+        COMMAND ${VERONA_PARSER} ${PARSE_TEST}
+        OUTPUT_FILE ${OUT_DIR}/parser.txt)
     endforeach()
   elseif(${TEST_FOLDER} MATCHES ".*/mlir")
     file(GLOB MLIR_TESTS "${TEST_FOLDER}/mlir-parse/*.verona" "${TEST_FOLDER}/mlir-parse/*.mlir")

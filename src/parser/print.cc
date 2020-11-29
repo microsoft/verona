@@ -39,6 +39,30 @@ namespace verona::parser
   }
 
   template<typename T>
+  std::ostream& operator<<(std::ostream& out, Node<T>& node)
+  {
+    return out << static_cast<Node<NodeDef>>(node);
+  }
+
+  template<typename T>
+  std::ostream& operator<<(std::ostream& out, std::vector<Node<T>>& vec)
+  {
+    out << sep << '[';
+
+    if (vec.size() > 0)
+    {
+      out << static_cast<Node<NodeDef>>(vec[0]);
+
+      for (size_t i = 1; i < vec.size(); i++)
+        out << sep << static_cast<Node<NodeDef>>(vec[i]);
+
+      out << sep;
+    }
+
+    return out << ']';
+  }
+
+  template<typename T>
   std::ostream& operator<<(std::ostream& out, std::vector<T>& vec)
   {
     out << sep << '[';
@@ -49,6 +73,8 @@ namespace verona::parser
 
       for (size_t i = 1; i < vec.size(); i++)
         out << sep << vec[i];
+
+      out << sep;
     }
 
     return out << ']';
@@ -56,6 +82,9 @@ namespace verona::parser
 
   std::ostream& operator<<(std::ostream& out, Location& loc)
   {
+    if (!loc.source)
+      return out << sep << "()";
+
     std::string_view v{loc.source->contents};
     return out << sep << v.substr(loc.start, loc.end - loc.start + 1);
   }
@@ -319,10 +348,10 @@ namespace verona::parser
     return out << con.value;
   }
 
-  std::ostream& operator<<(std::ostream& out, Node<NodeDef>& node)
+  std::ostream& operator<<(std::ostream& out, const Node<NodeDef>& node)
   {
     if (!node)
-      return out << "()";
+      return out << sep << "()";
 
     switch (node->kind())
     {
@@ -378,6 +407,9 @@ namespace verona::parser
 
       case Kind::ExtractType:
         return out << node->as<ExtractType>();
+
+      case Kind::TypeName:
+        return out << node->as<TypeName>();
 
       case Kind::TypeRef:
         return out << node->as<TypeRef>();
@@ -469,11 +501,22 @@ namespace verona::parser
     const char* delim;
 
     if (view[0] == '(')
+    {
       delim = "()";
+    }
     else if (view[0] == '[')
+    {
       delim = "[]";
+    }
     else
-      return view.find(' ');
+    {
+      auto pos = view.find(' ');
+
+      if (pos == std::string::npos)
+        return view.size();
+
+      return pos;
+    }
 
     auto current = view.substr(1);
 
@@ -486,7 +529,7 @@ namespace verona::parser
         return len + current.size();
 
       // Handle nesting.
-      if (view[pos] == delim[0])
+      if (current[pos] == delim[0])
         depth++;
       else
         depth--;
@@ -509,18 +552,18 @@ namespace verona::parser
 
     if (view[0] == '(')
       end = ')';
-    else if (view[0] == ']')
+    else if (view[0] == '[')
       end = ']';
     else
       end = '\0';
 
-    out << std::string(' ', indent);
+    out << std::string(indent, ' ');
     auto len = length(view, indent, width);
 
-    if (!end || ((indent + len) <= width))
+    if ((len != -1) && (!end || ((indent + len) <= width)))
     {
       // Print on a single line if it's a leaf or it's short enough.
-      out << view.substr(0, len);
+      out << view.substr(0, len) << std::endl;
       view = view.substr(len);
       return;
     }
@@ -528,19 +571,22 @@ namespace verona::parser
     // Print the header.
     auto pos = view.find(' ');
     out << view.substr(0, pos) << std::endl;
+    view = view.substr(pos);
 
     while (true)
     {
       // Find the beginning of the next node.
-      pos = view.find_first_not_of(" ", pos + 1);
+      pos = view.find_first_not_of(" ");
       view = view.substr(pos);
 
       if (view[0] == end)
       {
         // Terminate the node.
-        out << end << std::endl;
-        pos = view.find_first_not_of(" ", pos + 1);
-        view = view.substr(pos);
+        out << std::string(indent, ' ') << end << std::endl;
+        pos = view.find_first_not_of(" ", 1);
+
+        if (pos != std::string::npos)
+          view = view.substr(pos);
         return;
       }
 
