@@ -31,6 +31,7 @@ namespace verona::parser
     FunctionType,
     ViewType,
     ExtractType,
+    TypeName,
     TypeRef,
 
     // Expressions
@@ -446,15 +447,20 @@ namespace verona::parser
     }
   };
 
-  struct TypeName
+  struct TypeName : NodeDef
   {
     ID id;
     List<Expr> typeargs;
+
+    Kind kind()
+    {
+      return Kind::TypeName;
+    }
   };
 
   struct TypeRef : Type
   {
-    std::vector<TypeName> typenames;
+    List<TypeName> typenames;
 
     Kind kind()
     {
