@@ -310,7 +310,7 @@ namespace verona::parser
 
   std::ostream& operator<<(std::ostream& out, Specialise& spec)
   {
-    return out << start("specialise") << spec.expr << spec.args << end;
+    return out << start("specialise") << spec.expr << spec.typeargs << end;
   }
 
   std::ostream& operator<<(std::ostream& out, Apply& apply)

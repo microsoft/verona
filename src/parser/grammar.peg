@@ -7,11 +7,13 @@
 # 3. infix
 # 4. assign
 
-typename <- id typeargs?
-typeref <- typename ('::' typename)*
 tupletype <- '(' (type (',' type)*)? ')'
-type <- tupletype / typeref
-  # TODO: union, isect, function, view, extract
+typeref <- ident typeargs? ('::' ident typeargs?)*
+viewtype <- (typeref ('~>' / '<~'))* (typeref / tupletype)
+functiontype <- viewtype ('->' functiontype)?
+isecttype <- functiontype ('&' functiontype)*
+uniontype <- isecttype ('|' isecttype)*
+type <- uniontype
 
 oftype <- ':' type
 initexpr <- '=' expr
@@ -22,7 +24,6 @@ signature <- typeparams? params oftype? ('throws' type)? constraints?
 declelem <- ref / '(' declelem (',' declelem)* ')' oftype?
 decl <- ('let' / 'var') declelem
 new <- 'new' (tuple / type? typebody)
-  # TODO: separate syntax for object literals?
   # TODO: new...in
 staticref <- id ('::' id)* ('::' (id / sym))
 ref <- id oftype?
