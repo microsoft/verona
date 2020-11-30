@@ -22,7 +22,7 @@ namespace verona::parser
     Source source;
     size_t pos;
     Token previous;
-    std::deque<Token> lookahead;
+    std::vector<Token> lookahead;
     size_t la;
 
     Source rewrite;
@@ -169,7 +169,7 @@ namespace verona::parser
       when->location = previous.location;
       expr = when;
 
-      if (tuple(when->waitfor) != Success)
+      if (opttuple(when->waitfor) != Success)
       {
         std::cerr << loc() << "Expected a tuple" << line();
         return Error;
@@ -299,7 +299,7 @@ namespace verona::parser
       wh->location = previous.location;
       expr = wh;
 
-      if (tuple(wh->cond) != Success)
+      if (opttuple(wh->cond) != Success)
       {
         std::cerr << loc() << "Expected while-loop condition" << line();
         return Error;
@@ -361,7 +361,7 @@ namespace verona::parser
       match->location = previous.location;
       expr = match;
 
-      if (tuple(match->cond) != Success)
+      if (opttuple(match->cond) != Success)
       {
         std::cerr << loc() << "Expected match condition" << line();
         return Error;
@@ -406,7 +406,7 @@ namespace verona::parser
       cond->location = previous.location;
       expr = cond;
 
-      if (tuple(cond->cond) != Success)
+      if (opttuple(cond->cond) != Success)
       {
         std::cerr << loc() << "Expected a condition" << line();
         return Error;
@@ -430,17 +430,15 @@ namespace verona::parser
       return Success;
     }
 
-    Result tuple(Node<Tuple>& tup)
+    Result opttuple(Node<Expr>& expr)
     {
       // tuple <- '(' expr* ')'
       if (!has(TokenKind::LParen))
-      {
-        std::cerr << loc() << "Expected (" << line();
-        return Error;
-      }
+        return Skip;
 
-      tup = std::make_shared<Tuple>();
+      auto tup = std::make_shared<Tuple>();
       tup->location = previous.location;
+      expr = tup;
 
       if (has(TokenKind::RParen))
         return Success;
@@ -466,24 +464,11 @@ namespace verona::parser
       if (oftype(tup->type) == Error)
         return Error;
 
+      // TODO: collapse if we're not looking for a lambda signature
+      // if (!tup->type && (tup->seq.size() == 1))
+      //   expr = tup->seq.front();
+
       return Success;
-    }
-
-    Result opttuple(Node<Expr>& expr)
-    {
-      if (!peek(TokenKind::LParen))
-        return Skip;
-
-      rewind();
-      Node<Tuple> tup;
-      Result r = tuple(tup);
-
-      if (!tup->type && (tup->seq.size() == 1))
-        expr = tup->seq.front();
-      else
-        expr = tup;
-
-      return r;
     }
 
     Result block(Node<Block>& blk)
@@ -529,7 +514,11 @@ namespace verona::parser
           return Error;
 
         if (r == Success)
+        {
+          // Swallow a trailing ; if there is one.
+          has(TokenKind::Semicolon);
           blk->seq.push_back(expr);
+        }
       }
 
       if (!has(TokenKind::RBrace))
@@ -563,18 +552,20 @@ namespace verona::parser
 
     Result optlambda(Node<Expr>& expr)
     {
-      // lambda <- signature '=>' expr
+      // lambda <- (signature / ident) '=>' expr
       auto lambda = std::make_shared<Lambda>();
 
-      if (has(TokenKind::LSquare))
+      if (peek(TokenKind::LSquare))
       {
+        rewind();
+
         if (signature(lambda->signature) != Success)
           return Error;
       }
       else if (opttuple(expr) == Success)
       {
         if (
-          !peek(TokenKind::Throws) && peek(TokenKind::Where) &&
+          !peek(TokenKind::Throws) && !peek(TokenKind::Where) &&
           !peek(TokenKind::FatArrow))
         {
           // Return a successful tuple instead of a lambda.
@@ -622,8 +613,25 @@ namespace verona::parser
         if (constraints(sig->constraints) == Error)
           return Error;
       }
+      else if (peek(TokenKind::Ident) && peek(TokenKind::FatArrow))
+      {
+        rewind();
+
+        has(TokenKind::Ident);
+
+        auto param = std::make_shared<Param>();
+        param->location = previous.location;
+        param->id = previous.location;
+
+        auto sig = std::make_shared<Signature>();
+        sig->location = previous.location;
+        sig->params.push_back(param);
+
+        lambda->signature = sig;
+      }
       else
       {
+        rewind();
         return Skip;
       }
 
@@ -761,11 +769,12 @@ namespace verona::parser
 
     Result optconstant(Node<Expr>& expr)
     {
-      // constant <- string / int / hex / binary / true / false
+      // constant <- string / float / int / hex / binary / true / false
       if (
-        !has(TokenKind::String) && !has(TokenKind::Int) &&
-        !has(TokenKind::Hex) && !has(TokenKind::Binary) &&
-        !has(TokenKind::True) && !has(TokenKind::False))
+        !has(TokenKind::String) && !has(TokenKind::Float) &&
+        !has(TokenKind::Int) && !has(TokenKind::Hex) &&
+        !has(TokenKind::Binary) && !has(TokenKind::True) &&
+        !has(TokenKind::False))
       {
         return Skip;
       }
@@ -846,7 +855,7 @@ namespace verona::parser
         n->location = previous.location;
         expr = n;
 
-        if (tuple(n->args) != Success)
+        if (opttuple(n->args) != Success)
           return Error;
 
         if (has(TokenKind::In))
@@ -854,18 +863,25 @@ namespace verona::parser
           if (optident(n->in) != Success)
             return Error;
         }
+
+        return Success;
       }
 
       auto obj = std::make_shared<ObjectLiteral>();
       obj->location = previous.location;
       expr = obj;
 
-      Result r;
+      if (!peek(TokenKind::LBrace))
+      {
+        if (typeexpr(obj->inherits) == Error)
+          return Error;
+      }
+      else
+      {
+        rewind();
+      }
 
-      if ((r = typeexpr(obj->inherits)) != Skip)
-        return r;
-
-      if (typebody(obj->members) == Error)
+      if (typebody(obj->members) != Success)
         return Error;
 
       if (has(TokenKind::In))
@@ -956,11 +972,11 @@ namespace verona::parser
       return Success;
     }
 
-    Result typeargs(List<Expr>& typeargs)
+    Result opttypeargs(List<Expr>& typeargs)
     {
       // typeargs <- '[' (expr (',' expr)*)?) ']'
       if (!has(TokenKind::LSquare))
-        return Error;
+        return Skip;
 
       do
       {
@@ -986,15 +1002,19 @@ namespace verona::parser
     Result optspecialise(Node<Expr>& expr)
     {
       // specialise <- expr typeargs
-      if (!has(TokenKind::LSquare))
+      if (!peek(TokenKind::LSquare))
         return Skip;
 
+      rewind();
       auto spec = std::make_shared<Specialise>();
       spec->location = previous.location;
       spec->expr = expr;
       expr = spec;
 
-      return typeargs(spec->typeargs);
+      if (opttypeargs(spec->typeargs) != Success)
+        return Error;
+
+      return Success;
     }
 
     Result optapply(Node<Expr>& expr)
@@ -1008,7 +1028,7 @@ namespace verona::parser
       app->expr = expr;
       expr = app;
 
-      if (tuple(app->args) != Success)
+      if (opttuple(app->args) != Success)
         return Error;
 
       app->location = app->args->location;
@@ -1107,6 +1127,9 @@ namespace verona::parser
 
       if (r == Error)
         return Error;
+
+      if (!last)
+        return Skip;
 
       if (is_blockexpr(last))
         buildpre<Preblock>(list, last);
@@ -1301,13 +1324,8 @@ namespace verona::parser
         name->id = previous.location;
         typeref->typenames.push_back(name);
 
-        if (peek(TokenKind::LSquare))
-        {
-          rewind();
-
-          if (typeargs(name->typeargs) != Success)
-            return Error;
-        }
+        if (opttypeargs(name->typeargs) == Error)
+          return Error;
       } while (has(TokenKind::DoubleColon));
 
       return Success;
@@ -1544,6 +1562,7 @@ namespace verona::parser
         return Error;
       }
 
+      members.push_back(field);
       return Success;
     }
 
