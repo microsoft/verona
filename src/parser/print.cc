@@ -521,7 +521,7 @@ namespace verona::parser
     }
     else
     {
-      auto pos = view.find(' ');
+      auto pos = view.find_first_of(" )]");
 
       if (pos == std::string::npos)
         return view.size();
@@ -556,15 +556,20 @@ namespace verona::parser
     return len;
   }
 
-  void print_node(
+  bool print_node(
     std::ostream& out, std::string_view& view, size_t indent, size_t width)
   {
     char end;
+
+    auto pos = view.find_first_not_of(' ');
+    view = view.substr(pos);
 
     if (view[0] == '(')
       end = ')';
     else if (view[0] == '[')
       end = ']';
+    else if ((view[0] == ')') || (view[0] == ']'))
+      return false;
     else
       end = '\0';
 
@@ -576,34 +581,22 @@ namespace verona::parser
       // Print on a single line if it's a leaf or it's short enough.
       out << view.substr(0, len) << std::endl;
       view = view.substr(len);
-      return;
+      return true;
     }
 
     // Print the header.
-    auto pos = view.find(' ');
+    pos = view.find(' ');
     out << view.substr(0, pos) << std::endl;
-    view = view.substr(pos);
+    view = view.substr(pos + 1);
 
-    while (true)
-    {
-      // Find the beginning of the next node.
-      pos = view.find_first_not_of(' ');
-      view = view.substr(pos);
+    // Print the nodes.
+    while (print_node(out, view, indent + indent_count, width))
+      ;
 
-      if (view[0] == end)
-      {
-        // Terminate the node.
-        out << std::string(indent, ' ') << end << std::endl;
-        pos = view.find_first_not_of(' ', 1);
-
-        if (pos != std::string::npos)
-          view = view.substr(pos);
-        return;
-      }
-
-      // Print the next node.
-      print_node(out, view, indent + indent_count, width);
-    }
+    // Print the terminator.
+    out << std::string(indent, ' ') << end << std::endl;
+    view = view.substr(1);
+    return true;
   }
 
   std::ostream& operator<<(std::ostream& out, const pretty& pret)
@@ -613,11 +606,8 @@ namespace verona::parser
 
     auto sexpr = ss.str();
     std::string_view view{sexpr};
-
-    auto pos = view.find_first_not_of(' ');
-    view = view.substr(pos);
-
     print_node(out, view, 0, pret.width);
+
     return out;
   }
 }

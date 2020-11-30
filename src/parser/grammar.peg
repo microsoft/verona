@@ -15,28 +15,23 @@ isecttype <- functiontype ('&' functiontype)*
 uniontype <- isecttype ('|' isecttype)*
 type <- uniontype
 
-oftype <- ':' type
-initexpr <- '=' expr
-param <- id oftype? initexpr?
-params <- '(' param* ')'
-signature <- typeparams? params oftype? ('throws' type)? constraints?
-
 declelem <- ref / '(' declelem (',' declelem)* ')' oftype?
 decl <- ('let' / 'var') declelem
 new <- 'new' (tuple / type? typebody) ('in' id)?
 staticref <- id ('::' id)* ('::' (id / sym))
 ref <- id oftype?
 symref <- sym
+constant <- string / float / int / hex / binary / 'true' / 'false'
 atom <- staticref / ref / symref / constant / new / decl / tuple
 
-case <- expr '=>' expr
+case <- expr ('if' expr)? '=>' expr
 
 for <- 'for' '(' expr 'in' expr ')' block
 while <- 'while' tuple block
 if <- 'if' tuple block ('else' block)?
 match <- 'match' tuple '{' case* '}'
 when <- 'when' tuple block
-lambda <- signature '=>' expr
+lambda <- (signature / ident) '=>' expr
 block <- '{' ('}' / (preblock / expr ';')* controlflow? '}')
 blockexpr <- block / when / match / if / while / for / try
 
@@ -50,3 +45,28 @@ infix <- prefix ((ref / symref) prefix)*
 inblock <- preblock / infix ((ref / symref) preblock)?
 
 expr <- inblock / infix ('=' expr)
+
+param <- id oftype? initexpr?
+params <- '(' param* ')'
+throws <- 'throws' type
+signature <- typeparams? params oftype? throws? constraint*
+
+initexpr <- '=' expr
+inittype <- '=' type
+oftype <- ':' type
+constraint <- 'where' ident oftype? inittype?
+typeparams <- '[' ident (',' ident)* ']'
+typebody <- '{' member* '}'
+
+field <- ident oftype? initexpr? ';'
+function <- 'static' signature (block / ';')
+method <- signature (block / ';')
+member <- module / class / interface / typealias / field / function / method
+
+entity <- typeparams? oftype? constraint*
+namedentity <- ident entity
+
+typealias <- 'type' namedentity '=' type ';'
+interface <- 'interface' namedentity typebody
+class <- 'class' namedentity typebody
+module <- 'module' entity ';'
