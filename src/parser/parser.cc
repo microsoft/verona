@@ -179,6 +179,23 @@ namespace verona::parser
       return false;
     }
 
+    bool peekop()
+    {
+      if (peek(TokenKind::Symbol))
+        return true;
+
+      if (!peek(TokenKind::Ident))
+        return false;
+
+      assert(la > 0);
+
+      if (!is_localref(lookahead[la - 1].location))
+        return true;
+
+      la--;
+      return false;
+    }
+
     Token take()
     {
       assert(la == 0);
@@ -208,6 +225,29 @@ namespace verona::parser
       }
 
       return false;
+    }
+
+    bool is_localref(ID id)
+    {
+      auto def = get_sym(id);
+
+      return def &&
+        ((def->kind() == Kind::Param) || (def->kind() == Kind::Ref));
+    }
+
+    bool is_localref(Node<Expr>& expr)
+    {
+      if (expr->kind() != Kind::Ref)
+        return false;
+
+      auto& ref = expr->as<Ref>();
+      return is_localref(ref.location);
+    }
+
+    bool is_op(Node<Expr>& expr)
+    {
+      return ((expr->kind() == Kind::Ref) && !is_localref(expr)) ||
+        (expr->kind() == Kind::SymRef);
     }
 
     bool is_blockexpr(Node<Expr>& expr)
@@ -1205,8 +1245,9 @@ namespace verona::parser
 
     Result optprefix(Node<Expr>& expr)
     {
-      // prefix <- (ref / symref) prefix / postfix
-      // preblock <- (ref / symref) preblock / blockexpr
+      // op <- nonlocalref / symref
+      // prefix <- op prefix / postfix
+      // preblock <- op preblock / blockexpr
       List<Expr> list;
       Node<Expr> last;
       Result r;
@@ -1222,7 +1263,7 @@ namespace verona::parser
           list.push_back(last);
 
         last = next;
-      } while ((last->kind() == Kind::Ref) || (last->kind() == Kind::SymRef));
+      } while (is_op(last));
 
       if (r == Error)
         return Error;
@@ -1241,8 +1282,8 @@ namespace verona::parser
 
     Result optinfix(Node<Expr>& expr)
     {
-      // infix <- prefix ((ref / symref) prefix)*
-      // inblock <- preblock / infix ((ref / symref) preblock)?
+      // infix <- prefix (op prefix)*
+      // inblock <- preblock / infix (op preblock)?
       Result r;
 
       if ((r = optprefix(expr)) != Success)
@@ -1255,17 +1296,14 @@ namespace verona::parser
 
       while (true)
       {
-        bool ok = (peek(TokenKind::Ident) && !peek(TokenKind::DoubleColon)) ||
-          peek(TokenKind::Symbol);
-        rewind();
-
-        if (!ok)
+        if (!peekop())
           return Success;
 
+        rewind();
         Node<Expr> op;
         Node<Expr> rhs;
 
-        // This will only fetch a Ref or a SymRef.
+        // This will only fetch a localref or a symref.
         if (optatom(op) != Success)
           return Error;
 

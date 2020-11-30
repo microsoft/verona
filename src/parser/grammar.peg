@@ -32,17 +32,19 @@ if <- 'if' tuple block ('else' block)?
 match <- 'match' tuple '{' case* '}'
 when <- 'when' tuple block
 lambda <- (signature / ident) '=>' expr
-block <- '{' ('}' / (preblock / expr ';')* controlflow? '}')
+block <- '{' ('}' / (inblock / expr ';')* controlflow? '}')
 blockexpr <- block / when / match / if / while / for / try
 
 controlflow <- 'break' / 'continue' / 'return' expr? / 'yield' expr? / expr
 typeargs <- '[' expr (',' expr)* ']'
 tuple <- '(' expr (',' expr)* ')' oftype?
+
+op <- nonlocalref / symref
 postfix <- atom (dot (sym / id) / typeargs / tuple)*
-prefix <- (ref / symref) prefix / postfix
-preblock <- (ref / symref) preblock / blockexpr
-infix <- prefix ((ref / symref) prefix)*
-inblock <- preblock / infix ((ref / symref) preblock)?
+prefix <- op prefix / postfix
+preblock <- op preblock / blockexpr
+infix <- prefix (op prefix)*
+inblock <- preblock / infix (op preblock)?
 
 expr <- inblock / infix ('=' expr)
 
