@@ -76,6 +76,8 @@ namespace verona::parser
   template<typename T>
   using List = std::vector<Node<T>>;
 
+  struct SymbolTable;
+
   struct NodeDef
   {
     Location location;
@@ -83,12 +85,22 @@ namespace verona::parser
     virtual ~NodeDef() = default;
     virtual Kind kind() = 0;
 
+    virtual SymbolTable* symbol_table()
+    {
+      return nullptr;
+    }
+
     template<typename T>
     T& as()
     {
       assert(T().kind() == kind());
       return static_cast<T&>(*this);
     }
+  };
+
+  struct SymbolTable
+  {
+    std::unordered_map<ID, Node<NodeDef>> map;
   };
 
   // TODO: anonymous interface
@@ -149,7 +161,17 @@ namespace verona::parser
     }
   };
 
-  struct Block : Expr
+  struct BlockExpr : Expr
+  {
+    SymbolTable st;
+
+    SymbolTable* symbol_table()
+    {
+      return &st;
+    }
+  };
+
+  struct Block : BlockExpr
   {
     List<Expr> seq;
 
@@ -159,7 +181,7 @@ namespace verona::parser
     }
   };
 
-  struct When : Expr
+  struct When : BlockExpr
   {
     Node<Expr> waitfor;
     Node<Block> behaviour;
@@ -170,7 +192,7 @@ namespace verona::parser
     }
   };
 
-  struct While : Expr
+  struct While : BlockExpr
   {
     Node<Expr> cond;
     Node<Block> body;
@@ -181,7 +203,7 @@ namespace verona::parser
     }
   };
 
-  struct Case : NodeDef
+  struct Case : BlockExpr
   {
     Node<Expr> pattern;
     Node<Expr> guard;
@@ -193,7 +215,7 @@ namespace verona::parser
     }
   };
 
-  struct Match : Expr
+  struct Match : BlockExpr
   {
     Node<Expr> cond;
     List<Case> cases;
@@ -204,7 +226,7 @@ namespace verona::parser
     }
   };
 
-  struct If : Expr
+  struct If : BlockExpr
   {
     Node<Expr> cond;
     Node<Block> on_true;
@@ -216,7 +238,7 @@ namespace verona::parser
     }
   };
 
-  struct Lambda : Expr
+  struct Lambda : BlockExpr
   {
     Node<Signature> signature;
     Node<Expr> body;
@@ -528,7 +550,13 @@ namespace verona::parser
 
   struct Interface : NamedEntity
   {
+    SymbolTable st;
     List<Member> members;
+
+    SymbolTable* symbol_table()
+    {
+      return &st;
+    }
 
     Kind kind()
     {
@@ -566,9 +594,15 @@ namespace verona::parser
 
   struct Function : Member
   {
+    SymbolTable st;
     Token name;
     Node<Signature> signature;
     Node<Block> body;
+
+    SymbolTable* symbol_table()
+    {
+      return &st;
+    }
 
     Kind kind()
     {
@@ -584,8 +618,9 @@ namespace verona::parser
     }
   };
 
-  struct ObjectLiteral : Expr
+  struct ObjectLiteral : BlockExpr
   {
+    // TODO: put a Class in here?
     Node<Type> inherits;
     List<Member> members;
     ID in;

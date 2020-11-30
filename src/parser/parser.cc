@@ -25,18 +25,97 @@ namespace verona::parser
     std::vector<Token> lookahead;
     size_t la;
 
+    List<NodeDef> symbol_stack;
+
     Source rewrite;
     size_t hygienic;
     Token token_apply;
     Token token_has_value;
     Token token_next;
 
-    Parse(Source& source) : source(source), pos(0), la(0), hygienic(0)
+    Result final_result;
+
+    struct SymbolPush
+    {
+      Parse& parser;
+
+      SymbolPush(Parse& parser) : parser(parser) {}
+
+      ~SymbolPush()
+      {
+        parser.pop();
+      }
+    };
+
+    Parse(Source& source)
+    : source(source), pos(0), la(0), hygienic(0), final_result(Success)
     {
       rewrite = std::make_shared<SourceDef>();
       token_apply = ident("apply");
       token_has_value = ident("has_value");
       token_next = ident("next");
+    }
+
+    ~Parse()
+    {
+      assert(symbol_stack.size() == 0);
+    }
+
+    SymbolPush push(Node<NodeDef> node)
+    {
+      assert(node->symbol_table() != nullptr);
+      symbol_stack.push_back(node);
+      return SymbolPush(*this);
+    }
+
+    void pop()
+    {
+      symbol_stack.pop_back();
+    }
+
+    Node<NodeDef> get_sym(ID id)
+    {
+      for (int i = symbol_stack.size() - 1; i >= 0; i--)
+      {
+        auto st = symbol_stack[i]->symbol_table();
+        assert(st != nullptr);
+        auto find = st->map.find(id);
+
+        if (find != st->map.end())
+          return find->second;
+      }
+
+      return nullptr;
+    }
+
+    void set_sym(ID id, Node<NodeDef> node, SymbolTable& st)
+    {
+      auto find = st.map.find(id);
+
+      if (find != st.map.end())
+      {
+        final_result = Error;
+        std::cerr << id << "There is a previous definition of \"" << id.view()
+                  << "\"" << text(id) << find->first
+                  << "The previous definition is here" << text(find->first);
+        return;
+      }
+
+      st.map.emplace(id, node);
+    }
+
+    void set_sym(ID id, Node<NodeDef> node)
+    {
+      assert(symbol_stack.size() > 0);
+      auto st = symbol_stack.back()->symbol_table();
+      set_sym(id, node, *st);
+    }
+
+    void set_sym_parent(ID id, Node<NodeDef> node)
+    {
+      assert(symbol_stack.size() > 1);
+      auto st = symbol_stack[symbol_stack.size() - 2]->symbol_table();
+      set_sym(id, node, *st);
     }
 
     Token ident(const char* text = "")
@@ -166,6 +245,7 @@ namespace verona::parser
         return Skip;
 
       auto when = std::make_shared<When>();
+      auto st = push(when);
       when->location = previous.location;
       expr = when;
 
@@ -195,6 +275,7 @@ namespace verona::parser
       expr = blk;
 
       auto wh = std::make_shared<While>();
+      auto st = push(wh);
       wh->location = previous.location;
 
       if (!has(TokenKind::LParen))
@@ -251,6 +332,7 @@ namespace verona::parser
 
       auto decl = std::make_shared<Let>();
       decl->decl = ref(id);
+      set_sym(id.location, decl->decl);
       init->left = decl;
       init->right = iter;
 
@@ -296,6 +378,7 @@ namespace verona::parser
         return Skip;
 
       auto wh = std::make_shared<While>();
+      auto st = push(wh);
       wh->location = previous.location;
       expr = wh;
 
@@ -318,6 +401,7 @@ namespace verona::parser
     {
       // case <- expr ('if' expr)? '=>' expr
       expr = std::make_shared<Case>();
+      auto st = push(expr);
 
       if (optexpr(expr->pattern) != Success)
       {
@@ -358,6 +442,7 @@ namespace verona::parser
         return Skip;
 
       auto match = std::make_shared<Match>();
+      auto st = push(match);
       match->location = previous.location;
       expr = match;
 
@@ -403,6 +488,7 @@ namespace verona::parser
         return Skip;
 
       auto cond = std::make_shared<If>();
+      auto st = push(cond);
       cond->location = previous.location;
       expr = cond;
 
@@ -481,6 +567,7 @@ namespace verona::parser
       }
 
       blk = std::make_shared<Block>();
+      auto st = push(blk);
       blk->location = previous.location;
 
       if (has(TokenKind::RBrace))
@@ -548,6 +635,7 @@ namespace verona::parser
       param->location = ref.location;
       param->id = ref.location;
       param->type = ref.type;
+      set_sym(param->id, param);
     }
 
     Result optlambda(Node<Expr>& expr)
@@ -558,6 +646,7 @@ namespace verona::parser
       if (peek(TokenKind::LSquare))
       {
         rewind();
+        auto st = push(lambda);
 
         if (signature(lambda->signature) != Success)
           return Error;
@@ -573,6 +662,7 @@ namespace verona::parser
         }
 
         rewind();
+        auto st = push(lambda);
         auto tup = expr->as<Tuple>();
         auto sig = std::make_shared<Signature>();
         sig->location = tup.location;
@@ -616,12 +706,13 @@ namespace verona::parser
       else if (peek(TokenKind::Ident) && peek(TokenKind::FatArrow))
       {
         rewind();
-
         has(TokenKind::Ident);
 
+        auto st = push(lambda);
         auto param = std::make_shared<Param>();
         param->location = previous.location;
         param->id = previous.location;
+        set_sym(param->id, param);
 
         auto sig = std::make_shared<Signature>();
         sig->location = previous.location;
@@ -635,6 +726,7 @@ namespace verona::parser
         return Skip;
       }
 
+      auto st = push(lambda);
       expr = lambda;
 
       if (!has(TokenKind::FatArrow))
@@ -788,10 +880,17 @@ namespace verona::parser
 
     Result declelem(Node<Expr>& decl)
     {
+      // declelem <- ref / '(' declelem (',' declelem)* ')' oftype?
       Result r;
 
       if ((r = optref(decl)) != Skip)
+      {
+        // If this is successful, the ref location is also the ident location.
+        if (r == Success)
+          set_sym(decl->location, decl);
+
         return r;
+      }
 
       if (!has(TokenKind::LParen))
       {
@@ -828,7 +927,6 @@ namespace verona::parser
     Result optdecl(Node<Expr>& expr)
     {
       // decl <- ('let' / 'var') declelem
-      // declelem <- ref / '(' declelem (',' declelem)* ')' oftype?
       Node<Let> let;
 
       if (has(TokenKind::Let))
@@ -868,6 +966,7 @@ namespace verona::parser
       }
 
       auto obj = std::make_shared<ObjectLiteral>();
+      auto st = push(obj);
       obj->location = previous.location;
       expr = obj;
 
@@ -1520,6 +1619,8 @@ namespace verona::parser
 
         if (parameter(*param) != Success)
           return Error;
+
+        set_sym(param->id, param);
       } while (has(TokenKind::Comma));
 
       if (!has(TokenKind::RParen))
@@ -1563,6 +1664,7 @@ namespace verona::parser
       }
 
       members.push_back(field);
+      set_sym(field->id, field);
       return Success;
     }
 
@@ -1619,8 +1721,14 @@ namespace verona::parser
         return Skip;
 
       auto method = std::make_shared<Method>();
+      auto st = push(method);
+
+      if (function(*method) != Success)
+        return Error;
+
       members.push_back(method);
-      return function(*method);
+      set_sym_parent(method->name.location, method);
+      return Success;
     }
 
     Result static_function(List<Member>& members)
@@ -1630,8 +1738,14 @@ namespace verona::parser
         return Skip;
 
       auto func = std::make_shared<Function>();
+      auto st = push(func);
+
+      if (function(*func) != Success)
+        return Error;
+
       members.push_back(func);
-      return function(*func);
+      set_sym_parent(func->name.location, func);
+      return Success;
     }
 
     Result throws(Node<Type>& type)
@@ -1754,6 +1868,7 @@ namespace verona::parser
       }
 
       members.push_back(alias);
+      set_sym(alias->id, alias);
       return Success;
     }
 
@@ -1764,6 +1879,7 @@ namespace verona::parser
         return Skip;
 
       auto iface = std::make_shared<Interface>();
+      auto st = push(iface);
       iface->location = previous.location;
 
       if (namedentity(*iface) == Error)
@@ -1773,6 +1889,7 @@ namespace verona::parser
         return Error;
 
       members.push_back(iface);
+      set_sym_parent(iface->id, iface);
       return Success;
     }
 
@@ -1783,6 +1900,7 @@ namespace verona::parser
         return Skip;
 
       auto cls = std::make_shared<Class>();
+      auto st = push(cls);
       cls->location = previous.location;
 
       if (namedentity(*cls) == Error)
@@ -1792,6 +1910,7 @@ namespace verona::parser
         return Error;
 
       members.push_back(cls);
+      set_sym_parent(cls->id, cls);
       return Success;
     }
 
@@ -1868,7 +1987,7 @@ namespace verona::parser
       if (has(TokenKind::RBrace))
         return Success;
 
-      auto result = Success;
+      auto r = Success;
       auto printerr = true;
 
       while (!has(TokenKind::RBrace))
@@ -1882,7 +2001,7 @@ namespace verona::parser
         if (member(members, printerr) != Success)
         {
           printerr = false;
-          result = Error;
+          r = Error;
           take();
         }
         else
@@ -1891,13 +2010,13 @@ namespace verona::parser
         }
       }
 
-      return Success;
+      return r;
     }
 
     Result module(List<Member>& members)
     {
       // module <- member*
-      auto result = Success;
+      auto r = Success;
       auto printerr = true;
 
       while (!has(TokenKind::End))
@@ -1905,7 +2024,7 @@ namespace verona::parser
         if (member(members, printerr) != Success)
         {
           printerr = false;
-          result = Error;
+          r = Error;
           take();
         }
         else
@@ -1914,7 +2033,7 @@ namespace verona::parser
         }
       }
 
-      return result;
+      return r;
     }
   };
 
@@ -1926,7 +2045,12 @@ namespace verona::parser
       return Error;
 
     Parse parse(source);
-    return parse.module(module->members);
+    auto st = parse.push(module);
+
+    if (parse.module(module->members) != Success)
+      return Error;
+
+    return parse.final_result;
   }
 
   Result parse_directory(const std::string& path, Node<Class>& module)
