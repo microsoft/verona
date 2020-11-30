@@ -73,9 +73,9 @@ continue <- 'continue'
 return <- 'return'
 yield <- 'yield'
 let <- 'let' (id / '(' list(id)? ')') oftype
-new <- 'new' type? typebody? inregion?
+new <- 'new' (tuple / type? typebody) inregion?
 inregion <- 'in' id
-lambda <- sig block
+lambda <- (id / sig) '=>' block
 tuple <- '(' list(expr)? ')'
 
 keyword <-

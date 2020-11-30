@@ -129,7 +129,7 @@ namespace verona::parser
 
   Token consume_builtin_symbol(Source& source, size_t& i)
   {
-    auto kind = TokenKind::End;
+    TokenKind kind;
 
     switch (source->contents[i])
     {
@@ -180,6 +180,15 @@ namespace verona::parser
         kind = TokenKind::RBrace;
         break;
       }
+
+      case ';':
+      {
+        kind = TokenKind::Semicolon;
+        break;
+      }
+
+      default:
+        abort();
     }
 
     return {kind, {source, i, i++}};

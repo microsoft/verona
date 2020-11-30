@@ -161,7 +161,7 @@ namespace verona::parser
 
   struct When : Expr
   {
-    Node<Tuple> waitfor;
+    Node<Expr> waitfor;
     Node<Block> behaviour;
 
     Kind kind()
@@ -172,7 +172,7 @@ namespace verona::parser
 
   struct While : Expr
   {
-    Node<Tuple> cond;
+    Node<Expr> cond;
     Node<Block> body;
 
     Kind kind()
@@ -195,7 +195,7 @@ namespace verona::parser
 
   struct Match : Expr
   {
-    Node<Tuple> cond;
+    Node<Expr> cond;
     List<Case> cases;
 
     Kind kind()
@@ -206,7 +206,7 @@ namespace verona::parser
 
   struct If : Expr
   {
-    Node<Tuple> cond;
+    Node<Expr> cond;
     Node<Block> on_true;
     Node<Block> on_false;
 
@@ -336,7 +336,7 @@ namespace verona::parser
   struct Apply : Expr
   {
     Node<Expr> expr;
-    Node<Tuple> args;
+    Node<Expr> args;
 
     Kind kind()
     {
@@ -402,7 +402,7 @@ namespace verona::parser
 
   struct New : Expr
   {
-    Node<Tuple> args;
+    Node<Expr> args;
     ID in;
 
     Kind kind()
