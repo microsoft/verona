@@ -7,25 +7,30 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <string_view>
 
 namespace verona::parser
 {
+  std::string_view Location::view() const
+  {
+    auto view = std::string_view{source->contents};
+    return view.substr(start, end - start + 1);
+  }
+
   std::pair<size_t, size_t> Location::linecol() const
   {
-    std::string_view view{this->source->contents};
-    view = view.substr(0, this->start);
+    std::string_view view{source->contents};
+    view = view.substr(0, start);
     size_t line = std::count(view.begin(), view.end(), '\n') + 1;
     size_t col;
 
     if (line > 1)
     {
       auto pos = view.find_last_of('\n');
-      col = this->start - pos;
+      col = start - pos;
     }
     else
     {
-      col = this->start + 1;
+      col = start + 1;
     }
 
     return {line, col};
@@ -33,17 +38,12 @@ namespace verona::parser
 
   bool Location::operator==(const char* text) const
   {
-    return this->source->contents.compare(
-             this->start, this->end - this->start + 1, text) == 0;
+    return view() == text;
   }
 
   bool Location::operator==(const Location& that) const
   {
-    return this->source->contents.compare(
-             this->start,
-             this->end - this->start + 1,
-             &that.source->contents[that.start],
-             that.end - that.start + 1) == 0;
+    return view() == that.view();
   }
 
   std::ostream& operator<<(std::ostream& out, const Location& loc)

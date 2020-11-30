@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace verona::parser
 {
@@ -30,6 +32,7 @@ namespace verona::parser
       end(static_cast<Position>(end))
     {}
 
+    std::string_view view() const;
     std::pair<size_t, size_t> linecol() const;
     std::pair<std::string_view, size_t> line() const;
 
@@ -58,4 +61,16 @@ namespace verona::parser
   std::ostream& operator<<(std::ostream& out, const text& text);
 
   Source load_source(const std::string& file);
+}
+
+namespace std
+{
+  template<>
+  struct hash<verona::parser::Location>
+  {
+    size_t operator()(const verona::parser::Location& loc) const
+    {
+      return std::hash<std::string_view>()(loc.view());
+    }
+  };
 }
