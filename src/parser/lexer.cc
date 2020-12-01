@@ -281,9 +281,16 @@ namespace verona::parser
 
   Token consume_unescaped_string(Source& source, size_t& i, size_t len)
   {
+    enum class State
+    {
+      Nesting,
+      Terminating,
+    };
+
     auto start = i - len;
+    auto state = State::Nesting;
     size_t count = 0;
-    bool terminating = false;
+    size_t depth = 1;
 
     while (++i < source->contents.size())
     {
@@ -291,23 +298,32 @@ namespace verona::parser
       {
         case '\"':
         {
-          if (!terminating)
+          if (state == State::Nesting)
           {
-            terminating = true;
+            if (count == len)
+              depth++;
+            else
+              state = State::Terminating;
           }
           else
           {
-            terminating = false;
-            count = 0;
+            state = State::Nesting;
           }
+
+          count = 0;
           break;
         }
 
         case '\'':
         {
-          if (terminating)
+          count++;
+
+          if ((count == len) && (state == State::Terminating))
           {
-            if (++count == len)
+            depth--;
+            count = 0;
+
+            if (depth == 0)
             {
               Location loc{source, start + len + 1, i++ - len - 1};
 
@@ -322,7 +338,7 @@ namespace verona::parser
 
         default:
         {
-          terminating = false;
+          state = State::Nesting;
           count = 0;
           break;
         }

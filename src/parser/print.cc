@@ -104,15 +104,16 @@ namespace verona::parser
     {
       case TokenKind::EscapedString:
         return out << start("string") << sep << q
-                   << escape(unescape(token.location.view())) << q << end;
+                   << escape(escapedstring(token.location.view())) << q << end;
 
       case TokenKind::UnescapedString:
         return out << start("string") << sep << q
-                   << escape(token.location.view()) << q << end;
+                   << escape(unescapedstring(token.location.view())) << q
+                   << end;
 
       case TokenKind::Character:
         return out << start("char") << sep << q
-                   << escape(unescape(token.location.view())) << q << end;
+                   << escape(escapedstring(token.location.view())) << q << end;
 
       case TokenKind::Int:
         return out << start("int") << token.location << end;
@@ -368,6 +369,11 @@ namespace verona::parser
                << end;
   }
 
+  std::ostream& operator<<(std::ostream& out, Concat& con)
+  {
+    return out << start("concat") << con.list << end;
+  }
+
   std::ostream& operator<<(std::ostream& out, const Node<NodeDef>& node)
   {
     if (!node)
@@ -518,6 +524,9 @@ namespace verona::parser
 
       case Kind::ObjectLiteral:
         return out << node->as<ObjectLiteral>();
+
+      case Kind::Concat:
+        return out << node->as<Concat>();
     }
 
     return out;

@@ -179,23 +179,6 @@ namespace verona::parser
       return false;
     }
 
-    bool peekop()
-    {
-      if (peek(TokenKind::Symbol))
-        return true;
-
-      if (!peek(TokenKind::Ident))
-        return false;
-
-      assert(la > 0);
-
-      if (!is_localref(lookahead[la - 1].location))
-        return true;
-
-      la--;
-      return false;
-    }
-
     Token take()
     {
       assert(la == 0);
@@ -500,16 +483,16 @@ namespace verona::parser
 
       while (true)
       {
-        match->cases.push_back({});
-        Result r = matchcase(match->cases.back());
+        Node<Case> ca;
+        Result r = matchcase(ca);
 
-        if (r != Success)
-          match->cases.pop_back();
+        if (r == Skip)
+          break;
+
+        match->cases.push_back(ca);
 
         if (r == Error)
           return Error;
-        else if (r == Skip)
-          break;
       }
 
       if (!has(TokenKind::RBrace))
@@ -571,14 +554,15 @@ namespace verona::parser
 
       do
       {
-        tup->seq.push_back({});
+        Node<Expr> elem;
 
-        if (optexpr(tup->seq.back()) != Success)
+        if (optexpr(elem) != Success)
         {
-          tup->seq.pop_back();
           std::cerr << loc() << "Expected an expression" << line();
           return Error;
         }
+
+        tup->seq.push_back(elem);
       } while (has(TokenKind::Comma));
 
       if (!has(TokenKind::RParen))
@@ -887,6 +871,25 @@ namespace verona::parser
       return Success;
     }
 
+    Result optlocalref(Node<Expr>& expr, bool wantlocal = true)
+    {
+      if (!peek(TokenKind::Ident))
+        return Skip;
+
+      bool local = is_localref(lookahead[la - 1].location);
+      rewind();
+
+      if (local != wantlocal)
+        return Skip;
+
+      return optref(expr);
+    }
+
+    Result optnonlocalref(Node<Expr>& expr)
+    {
+      return optlocalref(expr, false);
+    }
+
     Result optsymref(Node<Expr>& expr)
     {
       // symref <- symbol
@@ -905,7 +908,6 @@ namespace verona::parser
       //  escapedstring / unescapedstring / character /
       //  float / int / hex / binary / 'true' / 'false'
       if (
-        !has(TokenKind::EscapedString) && !has(TokenKind::UnescapedString) &&
         !has(TokenKind::Character) && !has(TokenKind::Float) &&
         !has(TokenKind::Int) && !has(TokenKind::Hex) &&
         !has(TokenKind::Binary) && !has(TokenKind::True) &&
@@ -919,6 +921,64 @@ namespace verona::parser
       con->value = previous;
       expr = con;
       return Success;
+    }
+
+    Result optstring(Node<Expr>& expr)
+    {
+      // string <- escapedstring / unescapedstring
+      if (!has(TokenKind::EscapedString) && !has(TokenKind::UnescapedString))
+        return Skip;
+
+      auto con = std::make_shared<Constant>();
+      con->location = previous.location;
+      con->value = previous;
+      expr = con;
+      return Success;
+    }
+
+    Result optconcatelem(Node<Expr>& expr)
+    {
+      Result r;
+
+      if ((r = optstring(expr)) != Skip)
+        return r;
+
+      if ((r = optlocalref(expr)) != Skip)
+        return r;
+
+      if ((r = opttuple(expr)) != Skip)
+        return r;
+
+      return Skip;
+    }
+
+    Result optconcat(Node<Expr>& expr)
+    {
+      // concat <- string (string / localref / tuple)*
+      Result r;
+
+      if ((r = optstring(expr)) != Success)
+        return r;
+
+      auto concat = std::make_shared<Concat>();
+      concat->list.push_back(expr);
+      expr = concat;
+
+      while (true)
+      {
+        Node<Expr> elem;
+        r = optconcatelem(elem);
+
+        if (r == Skip)
+        {
+          if (concat->list.size() == 1)
+            expr = concat->list.front();
+
+          return Success;
+        }
+
+        concat->list.push_back(elem);
+      }
     }
 
     Result declelem(Node<Expr>& decl)
@@ -945,13 +1005,12 @@ namespace verona::parser
 
       do
       {
-        tup->seq.push_back({});
+        Node<Expr> elem;
 
-        if (declelem(tup->seq.back()) != Success)
-        {
-          tup->seq.pop_back();
+        if (declelem(elem) != Success)
           return Error;
-        }
+
+        tup->seq.push_back(elem);
       } while (has(TokenKind::Comma));
 
       if (!has(TokenKind::RParen))
@@ -1080,6 +1139,9 @@ namespace verona::parser
       if ((r = optconstant(expr)) != Skip)
         return r;
 
+      if ((r = optconcat(expr)) != Skip)
+        return r;
+
       if ((r = optdecl(expr)) != Skip)
         return r;
 
@@ -1122,14 +1184,15 @@ namespace verona::parser
 
       do
       {
-        typeargs.push_back({});
+        Node<Expr> arg;
 
-        if (optexpr(typeargs.back()) != Success)
+        if (optexpr(arg) != Success)
         {
-          typeargs.pop_back();
           std::cerr << loc() << "Expected a type argument" << line();
           return Error;
         }
+
+        typeargs.push_back(arg);
       } while (has(TokenKind::Comma));
 
       if (!has(TokenKind::RSquare))
@@ -1207,7 +1270,7 @@ namespace verona::parser
 
       if (r == Skip)
       {
-        // If we haven't got a tuple, try to read an atom.
+        // If we haven't already got a tuple, try to read an atom.
         if ((r = optatom(expr)) != Success)
           return r;
       }
@@ -1299,16 +1362,18 @@ namespace verona::parser
 
       while (true)
       {
-        if (!peekop())
-          return Success;
-
-        rewind();
         Node<Expr> op;
         Node<Expr> rhs;
 
-        // This will only fetch a localref or a symref.
-        if (optatom(op) != Success)
+        // Fetch a nonlocalref or a symref.
+        if ((r = optnonlocalref(op)) == Skip)
+          r = optsymref(op);
+
+        if (r == Error)
           return Error;
+
+        if (r == Skip)
+          return Success;
 
         if (
           prev &&
@@ -1422,13 +1487,12 @@ namespace verona::parser
 
       do
       {
-        tup->types.push_back({});
+        Node<Type> elem;
 
-        if (typeexpr(tup->types.back()) != Success)
-        {
-          tup->types.pop_back();
+        if (typeexpr(elem) != Success)
           return Error;
-        }
+
+        tup->types.push_back(elem);
       } while (has(TokenKind::Comma));
 
       if (!has(TokenKind::RParen))
@@ -1550,14 +1614,15 @@ namespace verona::parser
 
       do
       {
-        isect->types.push_back({});
+        Node<Type> elem;
 
-        if (functiontype(isect->types.back()) != Success)
+        if (functiontype(elem) != Success)
         {
-          isect->types.pop_back();
           std::cerr << loc() << "Expected a type" << line();
           return Error;
         }
+
+        isect->types.push_back(elem);
       } while (has(TokenKind::Symbol, "&"));
 
       return Success;
@@ -1579,14 +1644,15 @@ namespace verona::parser
 
       do
       {
-        un->types.push_back({});
+        Node<Type> elem;
 
-        if (isecttype(un->types.back()) != Success)
+        if (isecttype(elem) != Success)
         {
-          un->types.pop_back();
           std::cerr << loc() << "Expected a type" << line();
           return Error;
         }
+
+        un->types.push_back(elem);
       } while (has(TokenKind::Symbol, "|"));
 
       return Success;
