@@ -234,6 +234,129 @@ namespace
 
     return out;
   }
+
+  std::string crlf2lf(const std::string_view& src)
+  {
+    std::ostringstream ss;
+    std::string_view s = src;
+
+    while (true)
+    {
+      auto pos = s.find("\r\n");
+      ss << s.substr(0, pos);
+
+      if (pos == std::string::npos)
+        break;
+
+      ss << '\n';
+      s = s.substr(pos + 2);
+    }
+
+    return ss.str();
+  }
+
+  std::string unescape(const std::string_view& s)
+  {
+    std::ostringstream ss;
+    auto backslash = false;
+
+    for (size_t i = 0; i < s.size(); i++)
+    {
+      auto c = s[i];
+
+      if (!backslash)
+      {
+        if (c == '\\')
+          backslash = true;
+        else
+          ss << c;
+      }
+      else
+      {
+        backslash = false;
+
+        switch (c)
+        {
+          case '\'':
+          case '\"':
+          case '\\':
+            ss << c;
+            break;
+
+          case 'a':
+            ss << '\a';
+            break;
+
+          case 'b':
+            ss << '\b';
+            break;
+
+          case 'e':
+            ss << char(0x1B);
+            break;
+
+          case 'f':
+            ss << '\f';
+            break;
+
+          case 'n':
+            ss << '\n';
+            break;
+
+          case 'r':
+            ss << '\r';
+            break;
+
+          case 't':
+            ss << '\t';
+            break;
+
+          case 'v':
+            ss << '\v';
+            break;
+
+          case '0':
+            ss << '\0';
+            break;
+
+          case 'x':
+          case 'u':
+          case 'U':
+          {
+            ss << utf8(s, i);
+            break;
+          }
+
+          default:
+          {
+            ss << c;
+            break;
+          }
+        }
+      }
+    }
+
+    return ss.str();
+  }
+
+  std::string trimindent(const std::string_view& src)
+  {
+    // Remove leading blank line.
+    std::string_view s = src;
+    auto pos = s.find_first_not_of(" \f\r\t\v");
+
+    if ((pos != std::string::npos) && (s[pos] == '\n'))
+      s = s.substr(pos + 1);
+
+    // Remove trailing blank line.
+    pos = s.find_last_not_of(" \f\r\t\v");
+
+    if ((pos != std::string::npos) && (s[pos] == '\n'))
+      s = s.substr(0, pos);
+
+    // TODO:
+    return std::string{s};
+  }
 }
 
 namespace verona::parser
@@ -260,6 +383,16 @@ namespace verona::parser
     }
 
     return true;
+  }
+
+  std::string escapedstring(const std::string_view& s)
+  {
+    return trimindent(unescape(crlf2lf(s)));
+  }
+
+  std::string unescapedstring(const std::string_view& s)
+  {
+    return trimindent(crlf2lf(s));
   }
 
   std::string escape(const std::string_view& s)
@@ -349,90 +482,6 @@ namespace verona::parser
             i += 3;
           }
           break;
-        }
-      }
-    }
-
-    return ss.str();
-  }
-
-  std::string unescape(const std::string_view& s)
-  {
-    std::ostringstream ss;
-    auto backslash = false;
-
-    for (size_t i = 0; i < s.size(); i++)
-    {
-      auto c = s[i];
-
-      if (!backslash)
-      {
-        if (c == '\\')
-          backslash = true;
-        else
-          ss << c;
-      }
-      else
-      {
-        backslash = false;
-
-        switch (c)
-        {
-          case '\'':
-          case '\"':
-          case '\\':
-            ss << c;
-            break;
-
-          case 'a':
-            ss << '\a';
-            break;
-
-          case 'b':
-            ss << '\b';
-            break;
-
-          case 'e':
-            ss << char(0x1B);
-            break;
-
-          case 'f':
-            ss << '\f';
-            break;
-
-          case 'n':
-            ss << '\n';
-            break;
-
-          case 'r':
-            ss << '\r';
-            break;
-
-          case 't':
-            ss << '\t';
-            break;
-
-          case 'v':
-            ss << '\v';
-            break;
-
-          case '0':
-            ss << '\0';
-            break;
-
-          case 'x':
-          case 'u':
-          case 'U':
-          {
-            ss << utf8(s, i);
-            break;
-          }
-
-          default:
-          {
-            ss << c;
-            break;
-          }
         }
       }
     }
