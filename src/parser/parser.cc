@@ -901,9 +901,12 @@ namespace verona::parser
 
     Result optconstant(Node<Expr>& expr)
     {
-      // constant <- string / float / int / hex / binary / true / false
+      // constant <-
+      //  escapedstring / unescapedstring / character /
+      //  float / int / hex / binary / 'true' / 'false'
       if (
-        !has(TokenKind::String) && !has(TokenKind::Float) &&
+        !has(TokenKind::EscapedString) && !has(TokenKind::UnescapedString) &&
+        !has(TokenKind::Character) && !has(TokenKind::Float) &&
         !has(TokenKind::Int) && !has(TokenKind::Hex) &&
         !has(TokenKind::Binary) && !has(TokenKind::True) &&
         !has(TokenKind::False))

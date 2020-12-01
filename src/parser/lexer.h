@@ -26,7 +26,9 @@ namespace verona::parser
     Equals,
 
     // Constants
-    String,
+    EscapedString,
+    UnescapedString,
+    Character,
     Int,
     Float,
     Hex,
