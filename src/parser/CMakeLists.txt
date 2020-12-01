@@ -1,6 +1,12 @@
 find_package(Threads REQUIRED)
 
-add_library(verona-parser-lib lexer.cc parser.cc path.cc print.cc source.cc)
+add_library(verona-parser-lib
+  escaping.cc
+  lexer.cc
+  parser.cc
+  path.cc
+  print.cc
+  source.cc)
 
 add_executable(verona-parser main.cc)
 target_link_libraries(verona-parser-lib CLI11::CLI11)

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "lexer.h"
 
+#include "escaping.h"
 #include "source.h"
 
 namespace verona::parser
@@ -9,7 +10,7 @@ namespace verona::parser
   constexpr uint8_t X = 0; // Invalid
   constexpr uint8_t W = 1; // Whitespace sp\t\r\n
   constexpr uint8_t Y = 2; // Symbol
-  constexpr uint8_t Q = 3; // Quote "
+  constexpr uint8_t Q = 3; // Quote '"
   constexpr uint8_t Z = 4; // Builtin symbol .,()[]{};
   constexpr uint8_t L = 5; // Slash /
   constexpr uint8_t N = 6; // Number start 0123456789
@@ -22,7 +23,7 @@ namespace verona::parser
     X, X, X, X, X, X, X, X, X, W, W, X, X, W, X, X,
     X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X,
 
-    W, Y, Q, Y, Y, Y, Y, Y, Z, Z, Y, Y, Z, Y, Z, L,
+    W, Y, Q, Y, Y, Y, Y, Q, Z, Z, Y, Y, Z, Y, Z, L,
     N, N, N, N, N, N, N, N, N, N, C, Z, Y, E, Y, Y,
 
     Y, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I,
@@ -192,6 +193,174 @@ namespace verona::parser
     }
 
     return {kind, {source, i, i++}};
+  }
+
+  Token consume_character_literal(Source& source, size_t& i)
+  {
+    auto start = i;
+    bool backslash = false;
+
+    while (++i < source->contents.size())
+    {
+      switch (source->contents[i])
+      {
+        case '\\':
+        {
+          backslash = true;
+          break;
+        }
+
+        case '\'':
+        {
+          if (!backslash)
+          {
+            Location loc{source, start + 1, i++ - 1};
+
+            if (!is_escaped(loc.view()))
+              return {TokenKind::Invalid, {source, start, i - 1}};
+
+            return {TokenKind::Character, loc};
+          }
+
+          backslash = false;
+          break;
+        }
+
+        default:
+        {
+          backslash = false;
+          break;
+        }
+      }
+    }
+
+    return {TokenKind::Invalid, {source, start, i - 1}};
+  }
+
+  Token consume_escaped_string(Source& source, size_t& i)
+  {
+    auto start = i;
+    bool backslash = false;
+
+    while (++i < source->contents.size())
+    {
+      switch (source->contents[i])
+      {
+        case '\\':
+        {
+          backslash = true;
+          break;
+        }
+
+        case '\"':
+        {
+          if (!backslash)
+          {
+            Location loc{source, start + 1, i++ - 1};
+
+            if (!is_escaped(loc.view()))
+              return {TokenKind::Invalid, {source, start, i - 1}};
+
+            return {TokenKind::EscapedString, loc};
+          }
+
+          backslash = false;
+          break;
+        }
+
+        default:
+        {
+          backslash = false;
+          break;
+        }
+      }
+    }
+
+    return {TokenKind::Invalid, {source, start, i - 1}};
+  }
+
+  Token consume_unescaped_string(Source& source, size_t& i, size_t len)
+  {
+    auto start = i - len;
+    size_t count = 0;
+    bool terminating = false;
+
+    while (++i < source->contents.size())
+    {
+      switch (source->contents[i])
+      {
+        case '\"':
+        {
+          if (!terminating)
+          {
+            terminating = true;
+          }
+          else
+          {
+            terminating = false;
+            count = 0;
+          }
+          break;
+        }
+
+        case '\'':
+        {
+          if (terminating)
+          {
+            if (++count == len)
+            {
+              Location loc{source, start + len + 1, i++ - len - 1};
+
+              if (!is_unescaped(loc.view()))
+                return {TokenKind::Invalid, {source, start, i - 1}};
+
+              return {TokenKind::UnescapedString, loc};
+            }
+          }
+          break;
+        }
+
+        default:
+        {
+          terminating = false;
+          count = 0;
+          break;
+        }
+      }
+    }
+
+    return {TokenKind::Invalid, {source, start, i - 1}};
+  }
+
+  Token consume_string(Source& source, size_t& i)
+  {
+    // '* " is an unescaped string
+    // " is an escaped string
+    // ' is a character literal
+    if (source->contents[i] == '\"')
+      return consume_escaped_string(source, i);
+
+    auto start = i;
+
+    while (++i < source->contents.size())
+    {
+      switch (source->contents[i])
+      {
+        case '\'':
+          continue;
+
+        case '\"':
+          return consume_unescaped_string(source, i, i - start);
+      }
+      break;
+    }
+
+    if ((i - start) == 1)
+      return consume_character_literal(source, --i);
+
+    // It's an empty character literal.
+    i = start + 2;
+    return {TokenKind::Invalid, {source, start, i - 1}};
   }
 
   void consume_line_comment(Source& source, size_t& i)
@@ -451,8 +620,8 @@ namespace verona::parser
       // Idents and numbers are valid ident continuations.
       if ((c != I) && (c != N))
       {
-        // Prime is the only symbol that's a valid ident continuation.
-        if ((c != Y) || (source->contents[i] != '\''))
+        // Prime is the only other thing that's a valid ident continuation.
+        if ((c != Q) || (source->contents[i] != '\''))
           break;
       }
     }
@@ -542,10 +711,7 @@ namespace verona::parser
           return consume_symbol(source, i);
 
         case Q:
-        {
-          // TODO: string - how to do interpolated strings
-          break;
-        }
+          return consume_string(source, i);
 
         case Z:
           return consume_builtin_symbol(source, i);

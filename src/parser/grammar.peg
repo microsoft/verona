@@ -21,7 +21,9 @@ new <- 'new' (tuple / type? typebody) ('in' id)?
 staticref <- id ('::' id)* ('::' (id / sym))
 ref <- id oftype?
 symref <- sym
-constant <- string / float / int / hex / binary / 'true' / 'false'
+constant <-
+  escapedstring / unescapedstring / character /
+  float / int / hex / binary / 'true' / 'false'
 atom <- staticref / ref / symref / constant / new / decl / tuple
 
 case <- expr ('if' expr)? '=>' expr
@@ -72,3 +74,8 @@ typealias <- 'type' namedentity '=' type ';'
 interface <- 'interface' namedentity typebody
 class <- 'class' namedentity typebody
 module <- 'module' entity ';'
+
+escape <- '\\' ('"' / '\'' / ...)
+escapedstring <- '"' (escape / !'"' .)* '"'
+unescapedstring <- '\''n '"' (!('"' '\''n) .)* '"' '\''n
+character <- '\'' (!'\'' .)* '\''
