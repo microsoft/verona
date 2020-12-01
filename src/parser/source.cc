@@ -78,6 +78,7 @@ namespace verona::parser
     auto line = view.substr(start, end - start);
     auto col = loc.start - start;
     auto lead = contents.substr(start, col);
+    auto locend = loc.end > end ? end : loc.end;
 
     for (auto i = 0; i < lead.size(); i++)
     {
@@ -87,7 +88,7 @@ namespace verona::parser
 
     return out << std::endl
                << line << std::endl
-               << lead << std::string(loc.end - loc.start + 1, '^') << std::endl
+               << lead << std::string(locend - loc.start + 1, '^') << std::endl
                << std::endl;
   }
 

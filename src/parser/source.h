@@ -34,7 +34,6 @@ namespace verona::parser
 
     std::string_view view() const;
     std::pair<size_t, size_t> linecol() const;
-    std::pair<std::string_view, size_t> line() const;
 
     bool operator==(const char* text) const;
     bool operator==(const Location& that) const;

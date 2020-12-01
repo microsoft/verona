@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 #include "print.h"
 
+#include "escaping.h"
+
 #include <sstream>
 
 namespace verona::parser
@@ -15,6 +17,15 @@ namespace verona::parser
   std::ostream& operator<<(std::ostream& out, const separator& sep)
   {
     return out << ' ';
+  }
+
+  struct quote
+  {};
+  constexpr quote q;
+
+  std::ostream& operator<<(std::ostream& out, const quote& q)
+  {
+    return out << '\"';
   }
 
   struct endtoken
@@ -84,16 +95,24 @@ namespace verona::parser
     if (!loc.source)
       return out << sep << "()";
 
-    std::string_view v{loc.source->contents};
-    return out << sep << v.substr(loc.start, loc.end - loc.start + 1);
+    return out << sep << loc.view();
   }
 
   std::ostream& operator<<(std::ostream& out, Token& token)
   {
     switch (token.kind)
     {
-      case TokenKind::String:
-        return out << start("string") << token.location << end;
+      case TokenKind::EscapedString:
+        return out << start("string") << sep << q
+                   << escape(unescape(token.location.view())) << q << end;
+
+      case TokenKind::UnescapedString:
+        return out << start("string") << sep << q
+                   << escape(token.location.view()) << q << end;
+
+      case TokenKind::Character:
+        return out << start("char") << sep << q
+                   << escape(unescape(token.location.view())) << q << end;
 
       case TokenKind::Int:
         return out << start("int") << token.location << end;
@@ -517,6 +536,23 @@ namespace verona::parser
     else if (view[0] == '[')
     {
       delim = "[]";
+    }
+    else if (view[0] == '\"')
+    {
+      auto current = view.substr(1);
+
+      while (true)
+      {
+        auto pos = current.find_first_of('\"');
+
+        if (pos == std::string::npos)
+          return view.size();
+
+        if ((pos == 0) || (current[pos - 1] != '\\'))
+          return pos;
+
+        current = current.substr(pos + 1);
+      }
     }
     else
     {
