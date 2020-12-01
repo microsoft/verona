@@ -617,20 +617,20 @@ namespace verona::parser
     else
       end = '\0';
 
-    out << std::string(indent, ' ');
+    out << std::endl << std::string(indent, ' ');
     auto len = length(view, indent, width);
 
     if ((len != -1) && (!end || ((indent + len) <= width)))
     {
       // Print on a single line if it's a leaf or it's short enough.
-      out << view.substr(0, len) << std::endl;
+      out << view.substr(0, len);
       view = view.substr(len);
       return true;
     }
 
     // Print the header.
     pos = view.find(' ');
-    out << view.substr(0, pos) << std::endl;
+    out << view.substr(0, pos);
     view = view.substr(pos + 1);
 
     // Print the nodes.
@@ -638,7 +638,11 @@ namespace verona::parser
       ;
 
     // Print the terminator.
-    out << std::string(indent, ' ') << end << std::endl;
+    if (end == ']')
+      out << std::endl << std::string(indent, ' ') << end;
+    else
+      out << end;
+
     view = view.substr(1);
     return true;
   }

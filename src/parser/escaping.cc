@@ -339,7 +339,7 @@ namespace
     return ss.str();
   }
 
-  std::string trimindent(const std::string_view& src)
+  std::string_view trimblanklines(const std::string_view& src)
   {
     // Remove leading blank line.
     std::string_view s = src;
@@ -354,7 +354,14 @@ namespace
     if ((pos != std::string::npos) && (s[pos] == '\n'))
       s = s.substr(0, pos);
 
+    return s;
+  }
+
+  std::string trimindent(const std::string_view& src)
+  {
+    std::string_view s = src;
     // TODO:
+
     return std::string{s};
   }
 }
@@ -387,12 +394,12 @@ namespace verona::parser
 
   std::string escapedstring(const std::string_view& s)
   {
-    return trimindent(unescape(crlf2lf(s)));
+    return trimindent(unescape(trimblanklines(crlf2lf(s))));
   }
 
   std::string unescapedstring(const std::string_view& s)
   {
-    return trimindent(crlf2lf(s));
+    return trimindent(trimblanklines(crlf2lf(s)));
   }
 
   std::string escape(const std::string_view& s)
