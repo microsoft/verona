@@ -17,14 +17,16 @@ type <- uniontype
 
 declelem <- ref / '(' declelem (',' declelem)* ')' oftype?
 decl <- ('let' / 'var') declelem
-new <- 'new' (tuple / type? typebody) ('in' id)?
-staticref <- id ('::' id)* ('::' (id / sym))
-ref <- id oftype?
+new <- 'new' (tuple / type? typebody) ('in' ident)?
+# TODO: this is wrong, can have typeparams
+staticref <- ident ('::' ident)* ('::' (ident / sym))
+ref <- ident oftype?
 symref <- sym
-constant <-
-  escapedstring / unescapedstring / character /
-  float / int / hex / binary / 'true' / 'false'
-atom <- staticref / ref / symref / constant / new / decl / tuple
+
+stringlit <- escapedstring / unescapedstring
+string <- stringlit (localref / tuple / stringlit)*
+constant <- character / float / int / hex / binary / 'true' / 'false'
+atom <- staticref / ref / symref / constant / string / new / decl / tuple
 
 case <- expr ('if' expr)? '=>' expr
 
@@ -35,14 +37,14 @@ match <- 'match' tuple '{' case* '}'
 when <- 'when' tuple block
 lambda <- (signature / ident) '=>' expr
 block <- '{' ('}' / (inblock / expr ';')* controlflow? '}')
-blockexpr <- block / when / match / if / while / for / try
+blockexpr <- block / when / match / if / while / for / try / lambda
 
 controlflow <- 'break' / 'continue' / 'return' expr? / 'yield' expr? / expr
 typeargs <- '[' expr (',' expr)* ']'
 tuple <- '(' expr (',' expr)* ')' oftype?
 
 op <- nonlocalref / symref
-postfix <- atom (dot (sym / id) / typeargs / tuple)*
+postfix <- atom (dot (sym / ident) / typeargs / tuple)*
 prefix <- op prefix / postfix
 preblock <- op preblock / blockexpr
 infix <- prefix (op prefix)*
@@ -50,7 +52,7 @@ inblock <- preblock / infix (op preblock)?
 
 expr <- inblock / infix ('=' expr)
 
-param <- id oftype? initexpr?
+param <- ident oftype? initexpr?
 params <- '(' param* ')'
 throws <- 'throws' type
 signature <- typeparams? params oftype? throws? constraint*
@@ -77,5 +79,5 @@ module <- 'module' entity ';'
 
 escape <- '\\' ('"' / '\'' / ...)
 escapedstring <- '"' (escape / !'"' .)* '"'
-unescapedstring <- '\''n '"' (!('"' '\''n) .)* '"' '\''n
+unescapedstring <- '\'[n]"' (unescapedstring[n] / !('"\'[n]') .)* '"\'[n]'
 character <- '\'' (!'\'' .)* '\''

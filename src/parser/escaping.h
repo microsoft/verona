@@ -11,7 +11,9 @@ namespace verona::parser
 
   bool is_unescaped(const std::string_view& s);
 
-  std::string escape(const std::string_view& s);
+  std::string escapedstring(const std::string_view& s);
 
-  std::string unescape(const std::string_view& s);
+  std::string unescapedstring(const std::string_view& s);
+
+  std::string escape(const std::string_view& s);
 }
