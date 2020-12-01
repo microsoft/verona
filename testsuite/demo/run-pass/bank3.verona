@@ -13,7 +13,7 @@
  **/
 class Log 
 {
-  print(fmt: String, v1: U64 & imm, v2: U64 & imm)
+  print(fmt: String & imm, v1: U64 & imm, v2: U64 & imm)
   {
     Builtin.print2(fmt, v1, v2);
   }

@@ -315,8 +315,7 @@ namespace verona::compiler
       type->dyncast<DelayedFieldViewType>() || type->dyncast<EntityOfType>() ||
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
-      type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
-      type->dyncast<UnitType>())
+      type->dyncast<IsEntityType>() || type->dyncast<UnitType>())
       return type;
 
     if (type->dyncast<TypeParameter>() || type->dyncast<InferType>())
@@ -397,8 +396,7 @@ namespace verona::compiler
       type->dyncast<DelayedFieldViewType>() || type->dyncast<EntityOfType>() ||
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
-      type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
-      type->dyncast<UnitType>())
+      type->dyncast<IsEntityType>() || type->dyncast<UnitType>())
       return type;
 
     // TODO: We never actually create UnapplyRegionType anymore, so we could
@@ -416,7 +414,7 @@ namespace verona::compiler
     if (left->dyncast<EntityType>() || left->dyncast<EntityOfType>())
       return mk_top();
 
-    if (right->dyncast<EntityType>() || right->dyncast<StringType>())
+    if (right->dyncast<EntityType>())
       return right;
 
     if (auto isect = left->dyncast<IntersectionType>())
@@ -668,11 +666,6 @@ namespace verona::compiler
     return intern(IsEntityType());
   }
 
-  StringTypePtr TypeInterner::mk_string_type()
-  {
-    return intern(StringType());
-  }
-
   FixpointTypePtr TypeInterner::mk_fixpoint(TypePtr inner)
   {
     assert(is_interned(inner));
@@ -747,9 +740,9 @@ namespace verona::compiler
 
     // These are all entity-like types already.
     if (
-      inner->dyncast<EntityType>() || inner->dyncast<StringType>() ||
-      inner->dyncast<UnitType>() || inner->dyncast<EntityOfType>() ||
-      inner->dyncast<HasFieldType>() || inner->dyncast<HasMethodType>() ||
+      inner->dyncast<EntityType>() || inner->dyncast<UnitType>() ||
+      inner->dyncast<EntityOfType>() || inner->dyncast<HasFieldType>() ||
+      inner->dyncast<HasMethodType>() ||
       inner->dyncast<HasAppliedMethodType>() ||
       inner->dyncast<DelayedFieldViewType>())
       return inner;
@@ -845,9 +838,8 @@ namespace verona::compiler
       type->dyncast<DelayedFieldViewType>() || type->dyncast<EntityOfType>() ||
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
-      type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
-      type->dyncast<StaticType>() || type->dyncast<UnitType>() ||
-      type->dyncast<TypeParameter>())
+      type->dyncast<IsEntityType>() || type->dyncast<StaticType>() ||
+      type->dyncast<UnitType>() || type->dyncast<TypeParameter>())
       return type;
 
     if (
@@ -948,9 +940,8 @@ namespace verona::compiler
       type->dyncast<DelayedFieldViewType>() || type->dyncast<EntityOfType>() ||
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
-      type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
-      type->dyncast<StaticType>() || type->dyncast<UnitType>() ||
-      type->dyncast<TypeParameter>())
+      type->dyncast<IsEntityType>() || type->dyncast<StaticType>() ||
+      type->dyncast<UnitType>() || type->dyncast<TypeParameter>())
       return type;
 
     if (
@@ -1147,7 +1138,6 @@ namespace verona::compiler
     DISPATCH(PathCompressionType);
     DISPATCH(RangeType);
     DISPATCH(StaticType);
-    DISPATCH(StringType);
     DISPATCH(TypeParameter);
     DISPATCH(UnapplyRegionType);
     DISPATCH(UnionType);

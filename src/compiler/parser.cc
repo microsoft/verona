@@ -83,9 +83,8 @@ namespace verona::compiler
 
     Rule keyword = term(
       "while"_E | "if" | "class" | "interface" | "primitive" | "var" | "unit" |
-      "match" | "String" | "iso" | "mut" | "imm" | "mut-view" | "in" |
-      "static_assert" | "not" | "subtype" | "when" | "from" | "where" | "else" |
-      "builtin");
+      "match" | "iso" | "mut" | "imm" | "mut-view" | "in" | "static_assert" |
+      "not" | "subtype" | "when" | "from" | "where" | "else" | "builtin");
 
     Rule self = term("self");
     Rule self_def = self;
@@ -186,13 +185,12 @@ namespace verona::compiler
 
     Rule capability_kind = isolated | mutable_ | immutable;
     Rule capability_type = capability_kind;
-    Rule string_type = "String"_E;
     Rule symbol_type = ref_ident >> -brackets(comma_sep(type));
     Rule union_type = sep_by2(type1, "|");
     Rule intersection_type = sep_by2(type1, "&");
     Rule viewpoint_type = type1 >> "->" >> (viewpoint_type | type1);
 
-    Rule type1 = parens(type) | symbol_type | capability_type | string_type;
+    Rule type1 = parens(type) | symbol_type | capability_type;
     Rule type = union_type | intersection_type | viewpoint_type | type1;
 
     Rule type_param_kind_class = "class"_E;
@@ -335,7 +333,6 @@ namespace verona::compiler
     BindAST<BinaryOperatorExpr> binary_operator_expr = g.binary_operator_expr;
 
     BindAST<CapabilityTypeExpr> capability_type = g.capability_type;
-    BindAST<StringTypeExpr> string_type = g.string_type;
     BindAST<IntersectionTypeExpr> intersection_type = g.intersection_type;
     BindAST<SymbolTypeExpr> symbol_type = g.symbol_type;
     BindAST<UnionTypeExpr> union_type = g.union_type;

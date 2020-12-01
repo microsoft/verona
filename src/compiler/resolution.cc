@@ -468,11 +468,6 @@ namespace verona::compiler
       push_scope([&]() { visit_expr(*expr.inner); });
     }
 
-    TypePtr visit_string_type_expr(StringTypeExpr& te)
-    {
-      return context_.mk_string_type();
-    }
-
     TypePtr visit_symbol_type_expr(SymbolTypeExpr& te)
     {
       te.symbol = resolve(te.name);

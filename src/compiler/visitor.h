@@ -214,11 +214,7 @@ namespace verona::compiler
   public:
     virtual Return visit_type_expression(TypeExpression& te, Args... args)
     {
-      if (auto expr_ = dynamic_cast<StringTypeExpr*>(&te))
-      {
-        return visit_string_type_expr(*expr_, std::forward<Args>(args)...);
-      }
-      else if (auto expr_ = dynamic_cast<SymbolTypeExpr*>(&te))
+      if (auto expr_ = dynamic_cast<SymbolTypeExpr*>(&te))
       {
         return visit_symbol_type_expr(*expr_, std::forward<Args>(args)...);
       }
@@ -257,10 +253,6 @@ namespace verona::compiler
         typeid(te).name(),
         typeid(*this).name());
       abort();
-    }
-    virtual Return visit_string_type_expr(StringTypeExpr& te, Args... args)
-    {
-      return visit_base_type_expression(te, std::forward<Args>(args)...);
     }
     virtual Return visit_symbol_type_expr(SymbolTypeExpr& te, Args... args)
     {

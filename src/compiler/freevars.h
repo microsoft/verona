@@ -198,11 +198,6 @@ namespace verona::compiler
       return FreeVariables();
     }
 
-    FreeVariables visit_string_type(const StringTypePtr& ty) final
-    {
-      return FreeVariables();
-    }
-
     FreeVariables visit_fixpoint_type(const FixpointTypePtr& ty) final
     {
       FreeVariables result = free_variables(ty->inner);

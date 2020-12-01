@@ -7,6 +7,7 @@
 
 #include <fmt/ostream.h>
 #include <iostream>
+
 /**
  * Visitors for the Type representation.
  *
@@ -116,10 +117,6 @@ namespace verona::compiler
       else if (auto ty_ = ty->dyncast<IsEntityType>())
       {
         return visit_is_entity_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<StringType>())
-      {
-        return visit_string_type(ty_, std::forward<Args>(args)...);
       }
       else if (auto ty_ = ty->dyncast<FixpointType>())
       {
@@ -248,10 +245,6 @@ namespace verona::compiler
     {
       return visit_base_type(ty, std::forward<Args>(args)...);
     }
-    virtual Return visit_string_type(const StringTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
     virtual Return visit_fixpoint_type(const FixpointTypePtr& ty, Args... args)
     {
       return visit_base_type(ty, std::forward<Args>(args)...);
@@ -342,7 +335,6 @@ namespace verona::compiler
       this->visit_type(ty->inner, args...);
     }
 
-    void visit_string_type(const StringTypePtr& ty, Args... args) override {}
     void visit_type_parameter(const TypeParameterPtr& ty, Args... args) override
     {}
     void visit_unit_type(const UnitTypePtr& ty, Args... args) override {}
