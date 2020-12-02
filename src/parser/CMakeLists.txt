@@ -4,6 +4,7 @@ add_library(verona-parser-lib
   escaping.cc
   lexer.cc
   parser.cc
+  pretty.cc
   path.cc
   print.cc
   source.cc)

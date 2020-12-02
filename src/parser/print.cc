@@ -3,94 +3,45 @@
 #include "print.h"
 
 #include "escaping.h"
+#include "pretty.h"
 
+#include <deque>
 #include <sstream>
+#include <variant>
 
 namespace verona::parser
 {
-  constexpr size_t indent_count = 2;
-
-  struct separator
-  {};
-  constexpr separator sep;
-
-  std::ostream& operator<<(std::ostream& out, const separator& sep)
-  {
-    return out << ' ';
-  }
-
-  struct quote
-  {};
-  constexpr quote q;
-
-  std::ostream& operator<<(std::ostream& out, const quote& q)
-  {
-    return out << '\"';
-  }
-
-  struct endtoken
-  {};
-  constexpr endtoken end;
-
-  std::ostream& operator<<(std::ostream& out, const endtoken& end)
-  {
-    return out << ')';
-  }
-
-  struct start
-  {
-    std::string_view view;
-    start(const char* text) : view(text) {}
-  };
-
-  std::ostream& operator<<(std::ostream& out, const start& st)
-  {
-    return out << sep << '(' << st.view;
-  }
+  // Forward reference to break cycles.
+  PrettyStream& operator<<(PrettyStream& out, const Node<NodeDef>& node);
 
   template<typename T>
-  std::ostream& operator<<(std::ostream& out, Node<T>& node)
+  PrettyStream& operator<<(PrettyStream& out, Node<T>& node)
   {
     return out << static_cast<Node<NodeDef>>(node);
   }
 
   template<typename T>
-  std::ostream& operator<<(std::ostream& out, std::vector<Node<T>>& vec)
+  PrettyStream& operator<<(PrettyStream& out, std::vector<T>& vec)
   {
-    out << sep << '[';
-
     if (vec.size() > 0)
     {
-      out << static_cast<Node<NodeDef>>(vec[0]);
-
-      for (size_t i = 1; i < vec.size(); i++)
-        out << sep << static_cast<Node<NodeDef>>(vec[i]);
-
-      out << sep;
-    }
-
-    return out << ']';
-  }
-
-  template<typename T>
-  std::ostream& operator<<(std::ostream& out, std::vector<T>& vec)
-  {
-    out << sep << '[';
-
-    if (vec.size() > 0)
-    {
+      out << sep << start("", '[');
       out << vec[0];
 
       for (size_t i = 1; i < vec.size(); i++)
         out << sep << vec[i];
 
-      out << sep;
+      out << sep << endtoken(']');
+    }
+    else
+    {
+      out << sep << "[]";
     }
 
-    return out << ']';
+    return out;
   }
 
-  std::ostream& operator<<(std::ostream& out, Location& loc)
+  PrettyStream& operator<<(PrettyStream& out, Location& loc)
   {
     if (!loc.source)
       return out << sep << "()";
@@ -98,7 +49,7 @@ namespace verona::parser
     return out << sep << loc.view();
   }
 
-  std::ostream& operator<<(std::ostream& out, Token& token)
+  PrettyStream& operator<<(PrettyStream& out, Token& token)
   {
     switch (token.kind)
     {
@@ -134,247 +85,247 @@ namespace verona::parser
     return out << token.location;
   }
 
-  std::ostream& operator<<(std::ostream& out, Param& param)
+  PrettyStream& operator<<(PrettyStream& out, Param& param)
   {
     return out << start("param") << param.id << param.type << param.init << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, UnionType& un)
+  PrettyStream& operator<<(PrettyStream& out, UnionType& un)
   {
     return out << start("uniontype") << un.types << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, IsectType& isect)
+  PrettyStream& operator<<(PrettyStream& out, IsectType& isect)
   {
     return out << start("isecttype") << isect.types << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, TupleType& tuple)
+  PrettyStream& operator<<(PrettyStream& out, TupleType& tuple)
   {
     return out << start("tupletype") << tuple.types << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, FunctionType& func)
+  PrettyStream& operator<<(PrettyStream& out, FunctionType& func)
   {
     return out << start("functiontype") << func.left << func.right << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, ViewType& view)
+  PrettyStream& operator<<(PrettyStream& out, ViewType& view)
   {
     return out << start("viewtype") << view.left << view.right << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, ExtractType& extract)
+  PrettyStream& operator<<(PrettyStream& out, ExtractType& extract)
   {
     return out << start("extracttype") << extract.left << extract.right << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, TypeName& name)
+  PrettyStream& operator<<(PrettyStream& out, TypeName& name)
   {
     return out << start("typename") << name.id << name.typeargs << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, TypeRef& typeref)
+  PrettyStream& operator<<(PrettyStream& out, TypeRef& typeref)
   {
     return out << start("typeref") << typeref.typenames << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Signature& sig)
+  PrettyStream& operator<<(PrettyStream& out, Signature& sig)
   {
     return out << start("signature") << sig.typeparams << sig.params
                << sig.result << sig.throws << sig.constraints << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Function& func)
+  PrettyStream& operator<<(PrettyStream& out, Function& func)
   {
     return out << start("function") << func.name.location << func.signature
                << func.body << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Method& meth)
+  PrettyStream& operator<<(PrettyStream& out, Method& meth)
   {
     return out << start("method") << meth.name.location << meth.signature
                << meth.body << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Field& field)
+  PrettyStream& operator<<(PrettyStream& out, Field& field)
   {
     return out << start("field") << field.id << field.type << field.init << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Constraint& con)
+  PrettyStream& operator<<(PrettyStream& out, Constraint& con)
   {
     return out << start("constraint") << con.id << con.type << con.init << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Open& open)
+  PrettyStream& operator<<(PrettyStream& out, Open& open)
   {
     return out << start("open") << open.type << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, TypeAlias& alias)
+  PrettyStream& operator<<(PrettyStream& out, TypeAlias& alias)
   {
     return out << start("typealias") << alias.id << alias.typeparams
                << alias.inherits << alias.constraints << alias.type << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Interface& iface)
+  PrettyStream& operator<<(PrettyStream& out, Interface& iface)
   {
     return out << start("interface") << iface.id << iface.typeparams
                << iface.inherits << iface.constraints << iface.members << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Class& cls)
+  PrettyStream& operator<<(PrettyStream& out, Class& cls)
   {
     return out << start("class") << cls.id << cls.typeparams << cls.inherits
                << cls.constraints << cls.members << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Module& module)
+  PrettyStream& operator<<(PrettyStream& out, Module& module)
   {
     return out << start("module") << module.typeparams << module.inherits
                << module.constraints << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Tuple& tuple)
+  PrettyStream& operator<<(PrettyStream& out, Tuple& tuple)
   {
     return out << start("tuple") << tuple.seq << tuple.type << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Block& block)
+  PrettyStream& operator<<(PrettyStream& out, Block& block)
   {
     return out << start("block") << block.seq << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, When& when)
+  PrettyStream& operator<<(PrettyStream& out, When& when)
   {
     return out << start("when") << when.waitfor << when.behaviour << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, While& wh)
+  PrettyStream& operator<<(PrettyStream& out, While& wh)
   {
     return out << start("while") << wh.cond << wh.body << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Case& c)
+  PrettyStream& operator<<(PrettyStream& out, Case& c)
   {
     return out << start("case") << c.pattern << c.guard << c.body << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Match& match)
+  PrettyStream& operator<<(PrettyStream& out, Match& match)
   {
     return out << start("match") << match.cond << match.cases << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, If& cond)
+  PrettyStream& operator<<(PrettyStream& out, If& cond)
   {
     return out << start("if") << cond.cond << cond.on_true << cond.on_false
                << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Lambda& lambda)
+  PrettyStream& operator<<(PrettyStream& out, Lambda& lambda)
   {
     return out << start("lambda") << lambda.signature << lambda.body << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Break& br)
+  PrettyStream& operator<<(PrettyStream& out, Break& br)
   {
     return out << start("break") << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Continue& cont)
+  PrettyStream& operator<<(PrettyStream& out, Continue& cont)
   {
     return out << start("continue") << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Return& ret)
+  PrettyStream& operator<<(PrettyStream& out, Return& ret)
   {
     return out << start("return") << ret.expr << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Yield& yield)
+  PrettyStream& operator<<(PrettyStream& out, Yield& yield)
   {
     return out << start("yield") << yield.expr << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Assign& assign)
+  PrettyStream& operator<<(PrettyStream& out, Assign& assign)
   {
     return out << start("assign") << assign.left << assign.right << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Infix& infix)
+  PrettyStream& operator<<(PrettyStream& out, Infix& infix)
   {
     return out << start("infix") << infix.op << infix.left << infix.right
                << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Prefix& prefix)
+  PrettyStream& operator<<(PrettyStream& out, Prefix& prefix)
   {
     return out << start("prefix") << prefix.op << prefix.expr << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Select& select)
+  PrettyStream& operator<<(PrettyStream& out, Select& select)
   {
     return out << start("select") << select.expr << select.member << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Specialise& spec)
+  PrettyStream& operator<<(PrettyStream& out, Specialise& spec)
   {
     return out << start("specialise") << spec.expr << spec.typeargs << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Apply& apply)
+  PrettyStream& operator<<(PrettyStream& out, Apply& apply)
   {
     return out << start("apply") << apply.expr << apply.args << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Ref& ref)
+  PrettyStream& operator<<(PrettyStream& out, Ref& ref)
   {
     return out << start("ref") << ref.location << ref.type << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, SymRef& symref)
+  PrettyStream& operator<<(PrettyStream& out, SymRef& symref)
   {
     return out << start("symref") << symref.location << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, StaticRef& staticref)
+  PrettyStream& operator<<(PrettyStream& out, StaticRef& staticref)
   {
     return out << start("staticref") << staticref.path << staticref.ref << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Let& let)
+  PrettyStream& operator<<(PrettyStream& out, Let& let)
   {
     return out << start("let") << let.decl << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Var& var)
+  PrettyStream& operator<<(PrettyStream& out, Var& var)
   {
     return out << start("var") << var.decl << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Constant& con)
+  PrettyStream& operator<<(PrettyStream& out, Constant& con)
   {
     return out << con.value;
   }
 
-  std::ostream& operator<<(std::ostream& out, New& n)
+  PrettyStream& operator<<(PrettyStream& out, New& n)
   {
     return out << start("new") << n.args << n.in << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, ObjectLiteral& obj)
+  PrettyStream& operator<<(PrettyStream& out, ObjectLiteral& obj)
   {
     return out << start("object") << obj.inherits << obj.members << obj.in
                << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, Concat& con)
+  PrettyStream& operator<<(PrettyStream& out, Concat& con)
   {
     return out << start("concat") << con.list << end;
   }
 
-  std::ostream& operator<<(std::ostream& out, const Node<NodeDef>& node)
+  PrettyStream& operator<<(PrettyStream& out, const Node<NodeDef>& node)
   {
     if (!node)
       return out << sep << "()";
@@ -532,130 +483,11 @@ namespace verona::parser
     return out;
   }
 
-  size_t length(const std::string_view& view, size_t indent, size_t width)
-  {
-    size_t depth = 1;
-    size_t len = 1;
-    const char* delim;
-
-    if (view[0] == '(')
-    {
-      delim = "()";
-    }
-    else if (view[0] == '[')
-    {
-      delim = "[]";
-    }
-    else if (view[0] == '\"')
-    {
-      auto current = view.substr(1);
-
-      while (true)
-      {
-        auto pos = current.find_first_of('\"');
-
-        if (pos == std::string::npos)
-          return view.size();
-
-        if ((pos == 0) || (current[pos - 1] != '\\'))
-          return pos;
-
-        current = current.substr(pos + 1);
-      }
-    }
-    else
-    {
-      auto pos = view.find_first_of(" )]");
-
-      if (pos == std::string::npos)
-        return view.size();
-
-      return pos;
-    }
-
-    auto current = view.substr(1);
-
-    while (depth > 0)
-    {
-      auto pos = current.find_first_of(delim);
-
-      // We've reached the end of the input.
-      if (pos == std::string::npos)
-        return len + current.size();
-
-      // Handle nesting.
-      if (current[pos] == delim[0])
-        depth++;
-      else
-        depth--;
-
-      current = current.substr(pos + 1);
-      len += pos + 1;
-
-      // Return early if we've exceeded the available space.
-      if ((indent + len) > width)
-        return -1;
-    }
-
-    return len;
-  }
-
-  bool print_node(
-    std::ostream& out, std::string_view& view, size_t indent, size_t width)
-  {
-    char end;
-
-    auto pos = view.find_first_not_of(' ');
-    view = view.substr(pos);
-
-    if (view[0] == '(')
-      end = ')';
-    else if (view[0] == '[')
-      end = ']';
-    else if ((view[0] == ')') || (view[0] == ']'))
-      return false;
-    else
-      end = '\0';
-
-    out << std::endl << std::string(indent, ' ');
-    auto len = length(view, indent, width);
-
-    if ((len != -1) && (!end || ((indent + len) <= width)))
-    {
-      // Print on a single line if it's a leaf or it's short enough.
-      out << view.substr(0, len);
-      view = view.substr(len);
-      return true;
-    }
-
-    // Print the header.
-    pos = view.find(' ');
-    out << view.substr(0, pos);
-    view = view.substr(pos + 1);
-
-    // Print the nodes.
-    while (print_node(out, view, indent + indent_count, width))
-      ;
-
-    // Print the terminator.
-    if (end == ']')
-      out << std::endl << std::string(indent, ' ') << end;
-    else
-      out << end;
-
-    view = view.substr(1);
-    return true;
-  }
-
   std::ostream& operator<<(std::ostream& out, const pretty& pret)
   {
-    std::ostringstream ss;
+    PrettyStream ss(out);
     ss << pret.node;
-
-    auto sexpr = ss.str();
-    std::string_view view{sexpr};
-    print_node(out, view, 0, pret.width);
-
+    ss.flush();
     return out;
   }
 }
