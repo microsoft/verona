@@ -385,16 +385,6 @@ namespace verona::parser
     }
   };
 
-  struct StaticRef : Expr
-  {
-    std::vector<Token> ref;
-
-    Kind kind()
-    {
-      return Kind::StaticRef;
-    }
-  };
-
   struct Constant : Expr
   {
     Token value;
@@ -639,6 +629,17 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::Concat;
+    }
+  };
+
+  struct StaticRef : Expr
+  {
+    Node<Type> path;
+    Token ref;
+
+    Kind kind()
+    {
+      return Kind::StaticRef;
     }
   };
 }

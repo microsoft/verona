@@ -142,10 +142,10 @@ namespace verona::parser
       return {TokenKind::Ident, {rewrite, pos, pos + len - 1}};
     }
 
-    Node<Ref> ref(Token id)
+    Node<Ref> ref(Location loc)
     {
       auto ref = std::make_shared<Ref>();
-      ref->location = id.location;
+      ref->location = loc;
       return ref;
     }
 
@@ -354,14 +354,14 @@ namespace verona::parser
       auto id = ident();
 
       auto decl = std::make_shared<Let>();
-      decl->decl = ref(id);
+      decl->decl = ref(id.location);
       set_sym(id.location, decl->decl);
       init->left = decl;
       init->right = iter;
 
       // cond = (tuple (apply (select (ref $0) (ident has_value)) (tuple)))
       auto select_has_value = std::make_shared<Select>();
-      select_has_value->expr = ref(id);
+      select_has_value->expr = ref(id.location);
       select_has_value->member = token_has_value;
       auto apply_has_value = std::make_shared<Apply>();
       apply_has_value->expr = select_has_value;
@@ -370,7 +370,7 @@ namespace verona::parser
 
       // begin = (assign $state (apply (ref $0) (tuple))
       auto apply = std::make_shared<Apply>();
-      apply->expr = ref(id);
+      apply->expr = ref(id.location);
       apply->args = std::make_shared<Tuple>();
       begin->left = state;
       begin->right = apply;
@@ -378,7 +378,7 @@ namespace verona::parser
       // end = (apply (select (ref $0) (ident next)) (tuple))
       auto select_next = std::make_shared<Select>();
       select_next->location = end->location;
-      select_next->expr = ref(id);
+      select_next->expr = ref(id.location);
       select_next->member = token_next;
       end->expr = select_next;
       end->args = std::make_shared<Tuple>();
@@ -665,6 +665,7 @@ namespace verona::parser
     Result optlambda(Node<Expr>& expr)
     {
       // lambda <- (signature / ident) '=>' expr
+      // This can also return a Tuple node.
       auto lambda = std::make_shared<Lambda>();
 
       if (peek(TokenKind::LSquare))
@@ -773,6 +774,7 @@ namespace verona::parser
     Result optblockexpr(Node<Expr>& expr)
     {
       // blockexpr <- block / when / if / match / while / for / lambda
+      // This can also return a Tuple node, because optlambda may do so.
       Result r;
 
       if ((r = optblock(expr)) != Skip)
@@ -1044,7 +1046,7 @@ namespace verona::parser
 
     Result optnew(Node<Expr>& expr)
     {
-      // new <- 'new' (tuple / type? typebody) ('in' ident)?
+      // new <- 'new' (tuple / typebody / type typebody) ('in' ident)?
       if (!has(TokenKind::New))
         return Skip;
 
@@ -1096,26 +1098,66 @@ namespace verona::parser
 
     Result optstaticref(Node<Expr>& expr)
     {
-      // staticref <- ident ('::' ident)* '::' (ident / symbol)
-      bool ok = peek(TokenKind::Ident) && peek(TokenKind::DoubleColon);
+      // staticref <- typeref ('::' ident / symbol)
+      // This can also return a Specialise node.
+      bool ok = peek(TokenKind::Ident) &&
+        (peek(TokenKind::LSquare) || peek(TokenKind::DoubleColon));
       rewind();
 
       if (!ok)
         return Skip;
 
-      auto stat = std::make_shared<StaticRef>();
-      stat->ref.push_back(take());
+      Node<Type> typeref;
+      Result r;
 
-      while (has(TokenKind::DoubleColon))
+      if ((r = opttyperef(typeref)) != Success)
+        return r;
+
+      Token trailing;
+
+      if (has(TokenKind::DoubleColon))
       {
-        if (has(TokenKind::Ident))
+        if (!has(TokenKind::Symbol))
         {
-          stat->ref.push_back(previous);
+          std::cerr << "Expected a or symbol" << std::endl;
+          return Error;
         }
-        else if (has(TokenKind::Symbol))
+
+        trailing = previous;
+      }
+
+      TypeRef& t = typeref->as<TypeRef>();
+
+      if (!trailing.location.source && (t.typenames.size() == 1))
+      {
+        // Turn this into a Specialise node instead.
+        auto& name = t.typenames.front();
+        auto spec = std::make_shared<Specialise>();
+        spec->location = name->location;
+        spec->expr = ref(name->id);
+        spec->typeargs = name->typeargs;
+        expr = spec;
+      }
+      else
+      {
+        auto stat = std::make_shared<StaticRef>();
+        stat->path = typeref;
+        stat->ref = trailing;
+        expr = stat;
+
+        // If we have no trailing symbol, use the last entry as the trailing
+        // ident and turn its typeargs into a Specialise node.
+        if (!trailing.location.source)
         {
-          stat->ref.push_back(previous);
-          return Success;
+          auto last = t.typenames.back();
+          t.typenames.pop_back();
+          stat->ref = {TokenKind::Ident, last->id};
+
+          auto spec = std::make_shared<Specialise>();
+          spec->location = last->location;
+          spec->expr = stat;
+          spec->typeargs = last->typeargs;
+          expr = spec;
         }
       }
 
@@ -1125,6 +1167,7 @@ namespace verona::parser
     Result optatom(Node<Expr>& expr)
     {
       // atom <- staticref / ref / symref / constant / new / tuple
+      // This can also return a Specialise, as staticref can do so.
       Result r;
 
       if ((r = optstaticref(expr)) != Skip)
@@ -1517,11 +1560,14 @@ namespace verona::parser
 
       do
       {
-        if (!has(TokenKind::Ident))
-        {
-          std::cerr << loc() << "Expected a type name" << line();
-          return Error;
-        }
+        bool ok = peek(TokenKind::Ident);
+        rewind();
+
+        if (!ok)
+          return Success;
+
+        has(TokenKind::DoubleColon);
+        has(TokenKind::Ident);
 
         auto name = std::make_shared<TypeName>();
         name->location = previous.location;
@@ -1530,7 +1576,7 @@ namespace verona::parser
 
         if (opttypeargs(name->typeargs) == Error)
           return Error;
-      } while (has(TokenKind::DoubleColon));
+      } while (peek(TokenKind::DoubleColon));
 
       return Success;
     }

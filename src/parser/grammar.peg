@@ -8,7 +8,8 @@
 # 4. assign
 
 tupletype <- '(' (type (',' type)*)? ')'
-typeref <- ident typeargs? ('::' ident typeargs?)*
+typename <- ident typeargs?
+typeref <- typename ('::' typename)*
 viewtype <- (typeref ('~>' / '<~'))* (typeref / tupletype)
 functiontype <- viewtype ('->' functiontype)?
 isecttype <- functiontype ('&' functiontype)*
@@ -17,11 +18,10 @@ type <- uniontype
 
 declelem <- ref / '(' declelem (',' declelem)* ')' oftype?
 decl <- ('let' / 'var') declelem
-new <- 'new' (tuple / type? typebody) ('in' ident)?
-# TODO: this is wrong, can have typeparams
-staticref <- ident ('::' ident)* ('::' (ident / sym))
+new <- 'new' (tuple / typebody / type typebody) ('in' ident)?
+staticref <- typeref ('::' ident / symbol)?
 ref <- ident oftype?
-symref <- sym
+symref <- symbol
 
 stringlit <- escapedstring / unescapedstring
 string <- stringlit (localref / tuple / stringlit)*
@@ -44,7 +44,7 @@ typeargs <- '[' expr (',' expr)* ']'
 tuple <- '(' expr (',' expr)* ')' oftype?
 
 op <- nonlocalref / symref
-postfix <- atom (dot (sym / ident) / typeargs / tuple)*
+postfix <- atom (dot (symbol / ident) / typeargs / tuple)*
 prefix <- op prefix / postfix
 preblock <- op preblock / blockexpr
 infix <- prefix (op prefix)*
