@@ -201,24 +201,25 @@ namespace verona::parser
       // printing code below.
       underlying_output.set_ignore_new_lines(!break_lines);
 
-      if (std::holds_alternative<separator>(token))
-      {
-        underlying_output << std::endl;
-        if (!break_lines)
-          underlying_output << ' ';
-      }
-      else if (auto e = std::get_if<endtoken>(&token))
-        underlying_output << undent << e->bracket;
-      else if (auto s = std::get_if<start>(&token))
-        underlying_output << std::endl
-                          << s->bracket << s->label << std::endl
-                          << indent;
-      else if (auto c = std::get_if<char>(&token))
-        underlying_output << *c;
-      else if (auto sv = std::get_if<std::string_view>(&token))
-        underlying_output << *sv;
-      else if (auto s = std::get_if<std::string>(&token))
-        underlying_output << *sv;
+      std::visit(
+        [this, break_lines](auto&& token) {
+          using T = std::decay_t<decltype(token)>;
+          if constexpr (std::is_same_v<T, separator>)
+          {
+            underlying_output << std::endl;
+            if (!break_lines)
+              underlying_output << ' ';
+          }
+          else if constexpr (std::is_same_v<T, endtoken>)
+            underlying_output << undent << token.bracket;
+          else if constexpr (std::is_same_v<T, start>)
+            underlying_output << std::endl
+                              << token.bracket << token.label << std::endl
+                              << indent;
+          else
+            underlying_output << token;
+        },
+        token);
     }
 
   public:
