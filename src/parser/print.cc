@@ -340,7 +340,7 @@ namespace verona::parser
 
   std::ostream& operator<<(std::ostream& out, StaticRef& staticref)
   {
-    return out << start("staticref") << staticref.ref << end;
+    return out << start("staticref") << staticref.path << staticref.ref << end;
   }
 
   std::ostream& operator<<(std::ostream& out, Let& let)
