@@ -1,0 +1,51 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+// Test matching of primitives values, such as cowns, strings and integers.
+
+interface Add[class T] {
+  add(self: imm, other: T & imm): U64 & imm;
+}
+
+class A { }
+class B { }
+class C { }
+interface Any { }
+
+class Main
+{
+  do_match(x: Any & imm)
+  {
+    // Note that due to type parameter invariance, `cown[A]` is not a subtype
+    // `cown[Any]`. Therefore, matching on a cown[A] prints the expected
+    // output, even though cown[Any] is above in the matching order.  An actual
+    // `cown[Any]` can be created, using eg. the any_cown method.
+    Builtin.print1("{}\n", match x {
+      var _: Add[U64] => "Add[U64]",
+      var _: cown[Any] => "cown[Any]",
+      var _: cown[A] => "cown[A]",
+      var _: cown[B] => "cown[B]",
+      var _: Any => "Any",
+    });
+  }
+
+  any_cown(x: Any & iso) : cown[Any] & imm
+  {
+    cown.create(x)
+  }
+
+  main() {
+    // CHECK-L: Add[U64]
+    // CHECK-L: cown[A]
+    // CHECK-L: cown[B]
+    // CHECK-L: Any
+    // CHECK-L: cown[Any]
+    // CHECK-L: Any
+    Main.do_match(123);
+    Main.do_match(cown.create(new A));
+    Main.do_match(cown.create(new B));
+    Main.do_match(cown.create(new C));
+    Main.do_match(Main.any_cown(new A));
+    Main.do_match("Hello");
+  }
+}

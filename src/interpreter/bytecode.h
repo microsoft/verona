@@ -20,6 +20,7 @@
  * - 32-bit descriptor index of Main class
  * - 32-bit selector index of main method
  * - 32-bit descriptor index of U64 class (optional)
+ * - 32-bit descriptor index of String class (optional)
  *
  * Descriptor:
  * - 16-bit name length, followed by the name bytes

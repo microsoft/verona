@@ -158,9 +158,8 @@ namespace verona::interpreter
     stack_.at(frame().base + reg.index).overwrite(alloc_, std::move(value));
   }
 
-  const VMDescriptor* VM::find_dispatch_descriptor(Register receiver) const
+  const VMDescriptor* VM::find_dispatch_descriptor(const Value& value) const
   {
-    const Value& value = read(receiver);
     switch (value.tag)
     {
       case Value::MUT:
@@ -174,8 +173,37 @@ namespace verona::interpreter
         return value->cown->descriptor;
       case Value::U64:
         return code_.special_descriptors().u64;
+      case Value::STRING:
+        return code_.special_descriptors().string;
       default:
-        fatal("Cannot call method on {}={}", receiver, value);
+        fatal("Cannot call method on {}", value);
+    }
+  }
+
+  const VMDescriptor* VM::find_match_descriptor(const Value& value) const
+  {
+    switch (value.tag)
+    {
+      case Value::MUT:
+      case Value::IMM:
+      case Value::ISO:
+        return value->object->descriptor();
+
+      case Value::COWN:
+        return value->cown->descriptor;
+
+      case Value::U64:
+        return code_.special_descriptors().u64;
+
+      case Value::STRING:
+        return code_.special_descriptors().string;
+
+      case Value::DESCRIPTOR:
+      case Value::UNINIT:
+        return nullptr;
+
+      default:
+        fatal("Invalid match operand: {}", value);
     }
   }
 
@@ -251,8 +279,8 @@ namespace verona::interpreter
       fatal("Call space does not fit in current frame");
 
     // Dispatch on the receiver, which is the first value in the callspace.
-    const VMDescriptor* descriptor =
-      find_dispatch_descriptor(Register(frame().locals - callspace));
+    const Value& receiver = read(Register(frame().locals - callspace));
+    const VMDescriptor* descriptor = find_dispatch_descriptor(receiver);
 
     size_t addr = descriptor->methods[selector];
     size_t base = frame().base + frame().locals - callspace;
@@ -347,33 +375,17 @@ namespace verona::interpreter
 
   Value VM::opcode_match(const Value& src, const VMDescriptor* descriptor)
   {
+    const VMDescriptor* src_descriptor = find_match_descriptor(src);
+
     uint64_t result;
-    switch (src.tag)
-    {
-      case Value::UNINIT:
-      case Value::U64:
-      case Value::STRING:
-      case Value::DESCRIPTOR:
-      case Value::COWN:
-        result = false;
-        break;
 
-      case Value::ISO:
-      case Value::IMM:
-      case Value::MUT:
-      {
-        auto it = descriptor->subtypes.find(src->object->descriptor()->index);
-        result = (it != descriptor->subtypes.end());
-        break;
-      }
-
-      case Value::COWN_UNOWNED:
-        // This type should only appear in message.
-        abort();
-    }
+    // Some values are unmatchable, in which case their descriptor is null.
+    if (src_descriptor == nullptr)
+      result = 0;
+    else
+      result = descriptor->subtypes.count(src_descriptor->index) > 0;
 
     trace(" Matching {} against {} = {}", src, descriptor->name, result);
-
     return Value::u64(result);
   }
 

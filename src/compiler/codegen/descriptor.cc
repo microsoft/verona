@@ -177,6 +177,7 @@ namespace verona::compiler
       gen.u32(selectors.get(Selector::method("main", TypeList())));
 
       emit_optional_special_descriptor("U64");
+      emit_optional_special_descriptor("String");
     }
 
   private:

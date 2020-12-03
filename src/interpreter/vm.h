@@ -142,7 +142,23 @@ namespace verona::interpreter
      */
     void write(Register reg, Value value);
 
-    const VMDescriptor* find_dispatch_descriptor(Register receiver) const;
+    /**
+     * Find the descriptor used to invoke methods. Generally, this is the same
+     * as the "match descriptor". However, if `value` is itself a descriptor
+     * pointer, we allow methods to be called on it (ie. static method calls),
+     * but matching will always fail.
+     *
+     * Aborts the VM if methods may not be invoked on this kind of value.
+     */
+    const VMDescriptor* find_dispatch_descriptor(const Value& value) const;
+
+    /**
+     * Find the descriptor of the value, for use in pattern matching.
+     *
+     * Returns null if the given value does not have a suitable descriptor (eg.
+     * descriptors themselves don't have descriptors).
+     */
+    const VMDescriptor* find_match_descriptor(const Value& value) const;
 
     template<typename... Args>
     void trace(std::string_view fmt, Args&&... args) const

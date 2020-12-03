@@ -27,6 +27,7 @@ namespace verona::interpreter
     const VMDescriptor* main;
     SelectorIdx main_selector;
     const VMDescriptor* u64;
+    const VMDescriptor* string;
   };
 
   class Code
@@ -150,6 +151,8 @@ namespace verona::interpreter
       special_descriptors_.main = get_descriptor(load<DescriptorIdx>(ip));
       special_descriptors_.main_selector = load<SelectorIdx>(ip);
       special_descriptors_.u64 =
+        get_optional_descriptor(load<DescriptorIdx>(ip));
+      special_descriptors_.string =
         get_optional_descriptor(load<DescriptorIdx>(ip));
     }
 
