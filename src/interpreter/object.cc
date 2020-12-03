@@ -9,12 +9,14 @@
 namespace verona::interpreter
 {
   VMDescriptor::VMDescriptor(
+    bytecode::DescriptorIdx index,
     std::string_view name,
     size_t method_slots,
     size_t field_slots,
     size_t field_count,
     uint32_t finaliser_ip)
-  : name(name),
+  : index(index),
+    name(name),
     methods(std::make_unique<uint32_t[]>(method_slots)),
     fields(std::make_unique<uint32_t[]>(field_slots)),
     field_count(field_count),
@@ -36,6 +38,10 @@ namespace verona::interpreter
     // TODO: Can be optimised if we look at the types of all the fields
     rt::Descriptor::finaliser =
       finaliser_ip > 0 ? VMObject::finaliser_fn : VMObject::collect_iso_fields;
+
+    // Make sure `subtypes` is reflexive. This simplifies code that uses the
+    // set, by removing special casing.
+    subtypes.insert(index);
   }
 
   VMObject::VMObject(VMObject* region, const VMDescriptor* desc)

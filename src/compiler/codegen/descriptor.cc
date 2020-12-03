@@ -46,7 +46,7 @@ namespace verona::compiler
           break;
 
         case Entity::Interface:
-          emit_interface_descriptor(entity);
+          emit_interface_descriptor(entity, info);
           break;
 
           EXHAUSTIVE_SWITCH;
@@ -65,6 +65,7 @@ namespace verona::compiler
       gen.u32(truncate<uint32_t>(info.methods.size()));
       gen.u32(rel_field_slots);
       gen.u32(rel_field_count);
+      gen.u32(info.subtypes.size());
 
       // Output label for finaliser for this class, if it has one.
       if (info.finaliser.label.has_value())
@@ -72,6 +73,58 @@ namespace verona::compiler
       else
         gen.u32(0);
 
+      uint32_t method_slots = emit_methods(info);
+      auto [field_slots, field_count] = emit_fields(entity);
+      emit_subtypes(info);
+
+      gen.define_relocatable(rel_method_slots, method_slots);
+      gen.define_relocatable(rel_field_slots, field_slots);
+      gen.define_relocatable(rel_field_count, field_count);
+    }
+
+    void emit_interface_descriptor(
+      const CodegenItem<Entity>& entity, const EntityReachability& info)
+    {
+      gen.str(entity.instantiated_path());
+      gen.u32(0); // method_slots
+      gen.u32(0); // method_count
+      gen.u32(0); // field_slots
+      gen.u32(0); // field_count
+      gen.u32(info.subtypes.size());
+      gen.u32(0); // finaliser
+      emit_subtypes(info);
+    }
+
+    /// For each field in the class, emit it's selector index. This is used by
+    /// the VM to construct the field VTable.
+    ///
+    /// Return the size of the vtable and the number of fields.
+    std::pair<uint32_t, uint32_t> emit_fields(const CodegenItem<Entity>& entity)
+    {
+      uint32_t field_slots = 0;
+      uint32_t field_count = 0;
+
+      for (const auto& member : entity.definition->members)
+      {
+        if (const Field* fld = member->get_as<Field>())
+        {
+          SelectorIdx index = selectors.get(Selector::field(fld->name));
+          gen.selector(index);
+          field_slots = std::max((uint32_t)(index + 1), field_slots);
+          field_count++;
+        }
+      }
+
+      return {field_slots, field_count};
+    }
+
+    /// For each instantiation of a method in the class, emit it's selector
+    /// index and offset into the program. This is used by the VM to construct
+    /// the field VTable.
+    ///
+    /// Return the size of the vtable.
+    uint32_t emit_methods(const EntityReachability& info)
+    {
       uint32_t method_slots = 0;
       for (const auto& [method, info] : info.methods)
       {
@@ -88,33 +141,17 @@ namespace verona::compiler
         gen.u32(info.label.value());
         method_slots = std::max((uint32_t)(index + 1), method_slots);
       }
-
-      uint32_t field_count = 0;
-      uint32_t field_slots = 0;
-      for (const auto& member : entity.definition->members)
-      {
-        if (const Field* fld = member->get_as<Field>())
-        {
-          SelectorIdx index = selectors.get(Selector::field(fld->name));
-          gen.selector(index);
-          field_slots = std::max((uint32_t)(index + 1), field_slots);
-          field_count++;
-        }
-      }
-
-      gen.define_relocatable(rel_method_slots, method_slots);
-      gen.define_relocatable(rel_field_slots, field_slots);
-      gen.define_relocatable(rel_field_count, field_count);
+      return method_slots;
     }
 
-    void emit_interface_descriptor(const CodegenItem<Entity>& entity)
+    /// For each subtype of the entity, emit the corresponding descriptor index.
+    void emit_subtypes(const EntityReachability& info)
     {
-      gen.str(entity.instantiated_path());
-      gen.u32(0);
-      gen.u32(0);
-      gen.u32(0);
-      gen.u32(0);
-      gen.u32(0);
+      for (const auto& subtype : info.subtypes)
+      {
+        const auto& subtype_info = reachability.entities.at(subtype);
+        gen.descriptor(subtype_info.descriptor);
+      }
     }
 
     void emit_optional_special_descriptor(const std::string& name)
