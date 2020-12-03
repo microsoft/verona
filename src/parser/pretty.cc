@@ -1,13 +1,13 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+#include "pretty.h"
+
+#include <cassert>
+#include <cstdint>
 #include <deque>
 #include <ostream>
 #include <variant>
-#include <cassert>
-#include <cstdint>
-
-#include "pretty.h"
 
 namespace verona::parser
 {
@@ -115,7 +115,7 @@ namespace verona::parser
 
   /**
    * Implementation of pretty printing.
-   * 
+   *
    * This uses a queue of tokens that are to be printed with special
    *  - start
    *  - separator
@@ -129,27 +129,28 @@ namespace verona::parser
 
     /// output stream to print to
     IndentStream underlying_output;
-    
+
     /// Currently unprinted tokens. We need a buffer of these to decide how
     /// to pring the brackets, i.e. whether it can fit on a single line or not.
     std::deque<Tokens> tokens;
-    
+
     /// Is the last token a separator, as we ignore repeated separators.
     bool last_separator = false;
 
-    /// Current length of underlying_output in characters when printed on a single line.
+    /// Current length of underlying_output in characters when printed on a
+    /// single line.
     uint16_t length = 0;
 
     /// Returns the length of a particular token in characters.
     size_t token_length(Tokens t)
     {
-        return std::visit(
+      return std::visit(
         overload{[](start& s) { return s.label.length() + 1; },
-                [](endtoken& _) { return (size_t)1; },
-                [](separator& _) { return (size_t)1; },
-                [](std::string_view& s) { return s.length(); },
-                [](std::string& s) { return s.size(); },
-                [](char& _) { return (size_t)1; }},
+                 [](endtoken& _) { return (size_t)1; },
+                 [](separator& _) { return (size_t)1; },
+                 [](std::string_view& s) { return s.length(); },
+                 [](std::string& s) { return s.size(); },
+                 [](char& _) { return (size_t)1; }},
         t);
     }
 
@@ -288,6 +289,12 @@ namespace verona::parser
   }
 
   PrettyStream& PrettyStream::operator<<(const std::string_view& st)
+  {
+    impl->append(st);
+    return *this;
+  }
+
+  PrettyStream& PrettyStream::operator<<(const std::string& st)
   {
     impl->append(st);
     return *this;

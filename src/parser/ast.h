@@ -185,7 +185,7 @@ namespace verona::parser
   struct When : BlockExpr
   {
     Node<Expr> waitfor;
-    Node<Block> behaviour;
+    Node<Expr> behaviour;
 
     Kind kind()
     {
@@ -196,7 +196,7 @@ namespace verona::parser
   struct While : BlockExpr
   {
     Node<Expr> cond;
-    Node<Block> body;
+    Node<Expr> body;
 
     Kind kind()
     {
@@ -230,8 +230,8 @@ namespace verona::parser
   struct If : BlockExpr
   {
     Node<Expr> cond;
-    Node<Block> on_true;
-    Node<Block> on_false;
+    Node<Expr> on_true;
+    Node<Expr> on_false;
 
     Kind kind()
     {
@@ -588,7 +588,7 @@ namespace verona::parser
     SymbolTable st;
     Token name;
     Node<Signature> signature;
-    Node<Block> body;
+    Node<Expr> body;
 
     SymbolTable* symbol_table()
     {
