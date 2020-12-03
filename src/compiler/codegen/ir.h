@@ -356,15 +356,16 @@ namespace verona::compiler
     void visit_term(const MatchTerminator& term)
     {
       Register input = variable(term.input);
+      Register match_result = allocator_.get();
 
       for (const auto& arm : term.arms)
       {
         TypePtr reified_pattern = reify(arm.type);
-        Register result = EmitMatch(this).visit_type(reified_pattern, input);
+        EmitMatch(this, input).visit_type(reified_pattern, match_result);
 
         size_t opcode_start = gen_.current_offset();
         gen_.opcode(Opcode::JumpIf);
-        gen_.reg(result);
+        gen_.reg(match_result);
         reference_basic_block(arm.target, opcode_start);
       }
       gen_.opcode(Opcode::Unreachable);
@@ -451,33 +452,30 @@ namespace verona::compiler
      * value being matched on is located. It returns a register which holds the
      * boolean result.
      */
-    struct EmitMatch : public TypeVisitor<Register, Register>
+    struct EmitMatch : public TypeVisitor<void, Register>
     {
-      EmitMatch(IRGenerator* parent) : parent(parent) {}
+      EmitMatch(IRGenerator* parent, Register input)
+      : parent(parent), input(input)
+      {}
 
-      Register
-      visit_entity_type(const EntityTypePtr& entity, Register input) override
+      void
+      visit_entity_type(const EntityTypePtr& entity, Register output) override
       {
-        Register result = parent->allocator_.get();
         Register descriptor = parent->allocator_.get();
 
         Descriptor index =
           parent->entity_descriptor(entity->definition, entity->arguments);
         parent->emit_load_descriptor(descriptor, index);
         parent->gen_.opcode(Opcode::MatchDescriptor);
-        parent->gen_.reg(result);
+        parent->gen_.reg(output);
         parent->gen_.reg(input);
         parent->gen_.reg(descriptor);
-
-        return result;
       }
 
-      Register visit_capability(
-        const CapabilityTypePtr& capability, Register input) override
+      void visit_capability(
+        const CapabilityTypePtr& capability, Register output) override
       {
-        Register result = parent->allocator_.get();
         bytecode::Capability kind;
-
         switch (capability->kind)
         {
           case CapabilityKind::Isolated:
@@ -500,21 +498,86 @@ namespace verona::compiler
         }
 
         parent->gen_.opcode(Opcode::MatchCapability);
-        parent->gen_.reg(result);
+        parent->gen_.reg(output);
         parent->gen_.reg(input);
         parent->gen_.u8(static_cast<uint8_t>(kind));
-        return result;
       }
 
-      Register visit_base_type(const TypePtr& type, Register input) override
+      void visit_union(const UnionTypePtr& type, Register output) override
+      {
+        emit_connective_match(
+          output, type->elements, 0, bytecode::BinaryOperator::Or);
+      }
+
+      void visit_intersection(
+        const IntersectionTypePtr& type, Register output) override
+      {
+        emit_connective_match(
+          output, type->elements, 0, bytecode::BinaryOperator::And);
+      }
+
+      void visit_base_type(const TypePtr& type, Register input) override
       {
         fmt::print(
           std::cerr, "Matching against type {} is not supported\n", *type);
         abort();
       }
 
+      /**
+       * Emit the match code for a union or intersection type. This matches the
+       * input against every elements of the connective, and combines the
+       * results using `op`. If the connective is empty, we directly produce
+       * `identity` as the result.
+       *
+       * TODO: this could generate more efficient code by short-circuting the
+       * process. For instance when matching on (A & B), if the A match fails
+       * there is no point in trying to match against B.
+       *
+       * Additionally this makes very inefficient use of register allocation,
+       * just like the rest of the code generator.
+       */
+      void emit_connective_match(
+        Register output,
+        const TypeSet& elements,
+        uint64_t identity,
+        bytecode::BinaryOperator op)
+      {
+        if (elements.empty())
+        {
+          parent->gen_.opcode(Opcode::Int64);
+          parent->gen_.reg(output);
+          parent->gen_.u64(identity);
+        }
+        else
+        {
+          // Unions and intersections are always normalised such that they are
+          // elided when they only have a single component.
+          assert(elements.size() > 1);
+
+          // We evaluate the first element and place the result in `output`.
+          // We then evaluate each subsequent element into `rhs`, and fold the
+          // results into `output` using the specified boolean operator.
+          auto it = elements.begin();
+          visit_type(*it, output);
+          it++;
+
+          Register rhs = parent->allocator_.get();
+          for (; it != elements.end(); it++)
+          {
+            visit_type(*it, rhs);
+
+            parent->gen_.opcode(Opcode::BinOp);
+            parent->gen_.reg(output);
+            parent->gen_.u8(static_cast<uint8_t>(op));
+            parent->gen_.reg(output);
+            parent->gen_.reg(rhs);
+          }
+        }
+      }
+
     private:
       IRGenerator* parent;
+      Register input;
     };
 
     const Reachability& reachability_;
