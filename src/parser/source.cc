@@ -88,8 +88,7 @@ namespace verona::parser
 
     return out << std::endl
                << line << std::endl
-               << lead << std::string(locend - loc.start + 1, '^') << std::endl
-               << std::endl;
+               << lead << std::string(locend - loc.start + 1, '^') << std::endl;
   }
 
   Source load_source(const std::string& file)

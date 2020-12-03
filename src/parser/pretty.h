@@ -70,21 +70,23 @@ namespace verona::parser
 
     /// Output a quote.
     PrettyStream& operator<<(const quote& q);
-    
+
     /// Output a separator, may be a line break or a space.
     PrettyStream& operator<<(const separator& sep);
-    
+
     /// Close a bracketed expression
     PrettyStream& operator<<(const endtoken& end);
-    
+
     /// Output a string view
     PrettyStream& operator<<(const std::string_view& st);
-    
+
+    /// Output a string
+    PrettyStream& operator<<(const std::string& st);
+
     /// Output a c-string
     PrettyStream& operator<<(const char* st);
-    
+
     /// Flush the output of this stream
     void flush();
   };
-
 }
