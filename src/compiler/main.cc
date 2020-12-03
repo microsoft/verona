@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 
 #include "compiler/analysis.h"
-#include "compiler/ast.h"
 #include "compiler/codegen/codegen.h"
 #include "compiler/context.h"
 #include "compiler/elaboration.h"

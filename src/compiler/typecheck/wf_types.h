@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "compiler/ast.h"
-#include "compiler/context.h"
-
 namespace verona::compiler
 {
+  struct Program;
+  class Context;
   bool check_wf_types(Context& context, Program* program);
 }

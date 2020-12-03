@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 #include "compiler/typecheck/constraint.h"
 
-#include "compiler/ast.h"
 #include "compiler/fixpoint.h"
 #include "compiler/instantiation.h"
 #include "compiler/polarize.h"

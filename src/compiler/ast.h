@@ -3,17 +3,13 @@
 #pragma once
 
 #include "compiler/context.h"
+#include "compiler/instantiation.h"
 #include "compiler/local_id.h"
 #include "compiler/pegmatite-extra.h"
-#include "compiler/source_manager.h"
 #include "compiler/type.h"
-#include "pegmatite.hh"
 
-#include <algorithm>
 #include <map>
 #include <optional>
-#include <pegmatite.hh>
-#include <set>
 #include <variant>
 
 using pegmatite::ASTChild;
@@ -27,7 +23,6 @@ namespace verona::compiler
   struct Expression;
   struct Type;
   struct Name;
-  struct Instantiation;
 
   struct TypeExpression;
   struct StaticAssertion;

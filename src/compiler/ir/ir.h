@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "compiler/ast.h"
 #include "compiler/ir/point.h"
 #include "compiler/ir/type_arguments.h"
 #include "compiler/ir/variable.h"
+#include "compiler/source_manager.h"
 #include "compiler/type.h"
 
 #include <deque>

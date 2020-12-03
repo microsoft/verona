@@ -7,7 +7,6 @@
 #include "compiler/mapper.h"
 #include "compiler/printing.h"
 #include "compiler/recursive_visitor.h"
-#include "compiler/substitution.h"
 #include "compiler/visitor.h"
 #include "compiler/zip.h"
 

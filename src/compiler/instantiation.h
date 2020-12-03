@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "compiler/ast.h"
 #include "compiler/mapper.h"
 
 namespace verona::compiler
@@ -21,6 +20,8 @@ namespace verona::compiler
    */
   struct Instantiation
   {
+    friend class Applier;
+
   public:
     explicit Instantiation(TypeList types) : types_(types) {}
     explicit Instantiation(TypeList types, const TypeList& more_types)
@@ -67,10 +68,7 @@ namespace verona::compiler
       : RecursiveTypeMapper(context), instance_(instance)
       {}
 
-      TypePtr visit_type_parameter(const TypeParameterPtr& ty) final
-      {
-        return instance_.types_.at(ty->definition->index);
-      }
+      TypePtr visit_type_parameter(const TypeParameterPtr& ty) final;
 
     private:
       const Instantiation& instance_;

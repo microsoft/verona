@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "compiler/mapper.h"
 
+#include "compiler/context.h"
 #include "ds/helpers.h"
 
 namespace verona::compiler
