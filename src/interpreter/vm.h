@@ -71,7 +71,8 @@ namespace verona::interpreter
     void opcode_jump_if(uint64_t condition, int16_t offset);
     Value opcode_load(const Value& base, SelectorIdx selector);
     Value opcode_load_descriptor(DescriptorIdx desc_idx);
-    Value opcode_match(const Value& src, const VMDescriptor* descriptor);
+    Value opcode_match_descriptor(const Value& src, const VMDescriptor* desc);
+    Value opcode_match_capability(const Value& src, bytecode::Capability cap);
     Value opcode_move(Register src);
     Value opcode_mut_view(const Value& src);
     Value
@@ -86,8 +87,7 @@ namespace verona::interpreter
     Value opcode_store(const Value& base, SelectorIdx selector, Value src);
     Value opcode_string(std::string_view imm);
     void opcode_trace_region(const Value& region);
-    void
-    opcode_when(CodePtr selector, uint8_t cown_count, uint8_t capture_count);
+    void opcode_when(CodePtr offset, uint8_t cown_count, uint8_t capture_count);
     void opcode_unreachable();
 
     enum class OnReturn

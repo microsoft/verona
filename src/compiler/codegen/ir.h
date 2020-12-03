@@ -86,6 +86,10 @@ namespace verona::compiler
     {
       return method_.instantiation.apply(context_, arguments);
     }
+    TypePtr reify(const TypePtr& type)
+    {
+      return method_.instantiation.apply(context_, type);
+    }
     TypeList reify(TypeArgumentsId id)
     {
       return reify(typecheck_.type_arguments.at(id));
@@ -352,15 +356,15 @@ namespace verona::compiler
     void visit_term(const MatchTerminator& term)
     {
       Register input = variable(term.input);
-      Register match_result = allocator_.get();
 
       for (const auto& arm : term.arms)
       {
-        emit_match(match_result, input, arm.type);
+        TypePtr reified_pattern = reify(arm.type);
+        Register result = EmitMatch(this).visit_type(reified_pattern, input);
 
         size_t opcode_start = gen_.current_offset();
         gen_.opcode(Opcode::JumpIf);
-        gen_.reg(match_result);
+        gen_.reg(result);
         reference_basic_block(arm.target, opcode_start);
       }
       gen_.opcode(Opcode::Unreachable);
@@ -440,33 +444,78 @@ namespace verona::compiler
     }
 
     /**
-     * Emit instructions that compute the result of matching `input` against
-     * `pattern`. The instructions generate an integer value in `output`.
+     * Type visitor used to emit the right bytecode sequence to match a value
+     * against a given type.
+     *
+     * The visitor takes as an additional argument the register in which the
+     * value being matched on is located. It returns a register which holds the
+     * boolean result.
      */
-    void emit_match(Register output, Register input, const TypePtr& pattern)
+    struct EmitMatch : public TypeVisitor<Register, Register>
     {
-      auto reified_pattern = method_.instantiation.apply(context_, pattern);
+      EmitMatch(IRGenerator* parent) : parent(parent) {}
 
-      EntityTypePtr entity = reified_pattern->dyncast<EntityType>();
-      if (!entity)
+      Register
+      visit_entity_type(const EntityTypePtr& entity, Register input) override
+      {
+        Register result = parent->allocator_.get();
+        Register descriptor = parent->allocator_.get();
+
+        Descriptor index =
+          parent->entity_descriptor(entity->definition, entity->arguments);
+        parent->emit_load_descriptor(descriptor, index);
+        parent->gen_.opcode(Opcode::MatchDescriptor);
+        parent->gen_.reg(result);
+        parent->gen_.reg(input);
+        parent->gen_.reg(descriptor);
+
+        return result;
+      }
+
+      Register visit_capability(
+        const CapabilityTypePtr& capability, Register input) override
+      {
+        Register result = parent->allocator_.get();
+        bytecode::Capability kind;
+
+        switch (capability->kind)
+        {
+          case CapabilityKind::Isolated:
+            assert(std::holds_alternative<RegionHole>(capability->region));
+            kind = bytecode::Capability::Iso;
+            break;
+
+          case CapabilityKind::Immutable:
+            assert(std::holds_alternative<RegionNone>(capability->region));
+            kind = bytecode::Capability::Imm;
+            break;
+
+          case CapabilityKind::Mutable:
+            assert(std::holds_alternative<RegionHole>(capability->region));
+            kind = bytecode::Capability::Mut;
+            break;
+
+          case CapabilityKind::Subregion:
+            abort();
+        }
+
+        parent->gen_.opcode(Opcode::MatchCapability);
+        parent->gen_.reg(result);
+        parent->gen_.reg(input);
+        parent->gen_.u8(static_cast<uint8_t>(kind));
+        return result;
+      }
+
+      Register visit_base_type(const TypePtr& type, Register input) override
       {
         fmt::print(
-          std::cerr,
-          "Only entity types can be used in pattern matching, found {}\n",
-          *reified_pattern);
+          std::cerr, "Matching against type {} is not supported\n", *type);
         abort();
       }
 
-      Descriptor index =
-        entity_descriptor(entity->definition, reify(entity->arguments));
-      Register descriptor = allocator_.get();
-      emit_load_descriptor(descriptor, index);
-
-      gen_.opcode(Opcode::Match);
-      gen_.reg(output);
-      gen_.reg(input);
-      gen_.reg(descriptor);
-    }
+    private:
+      IRGenerator* parent;
+    };
 
     const Reachability& reachability_;
     const SelectorTable& selectors_;

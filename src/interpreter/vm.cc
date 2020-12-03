@@ -373,7 +373,7 @@ namespace verona::interpreter
     return Value::descriptor(descriptor);
   }
 
-  Value VM::opcode_match(const Value& src, const VMDescriptor* descriptor)
+  Value VM::opcode_match_descriptor(const Value& src, const VMDescriptor* desc)
   {
     const VMDescriptor* src_descriptor = find_match_descriptor(src);
 
@@ -383,9 +383,40 @@ namespace verona::interpreter
     if (src_descriptor == nullptr)
       result = 0;
     else
-      result = descriptor->subtypes.count(src_descriptor->index) > 0;
+      result = desc->subtypes.count(src_descriptor->index) > 0;
 
-    trace(" Matching {} against {} = {}", src, descriptor->name, result);
+    trace(" Matching {} against {} = {}", src, desc->name, result);
+    return Value::u64(result);
+  }
+
+  Value VM::opcode_match_capability(const Value& src, bytecode::Capability cap)
+  {
+    uint64_t result;
+    switch (src.tag)
+    {
+      case Value::ISO:
+        result = (cap == bytecode::Capability::Iso);
+        break;
+
+      case Value::MUT:
+        result = (cap == bytecode::Capability::Mut);
+        break;
+
+      // These are all represented as immutables in the source language, even if
+      // we don't actually implement them as immutable objects in the VM.
+      case Value::IMM:
+      case Value::COWN:
+      case Value::U64:
+      case Value::STRING:
+        result = (cap == bytecode::Capability::Imm);
+        break;
+
+      default:
+        result = 0;
+        break;
+    }
+
+    trace(" Matching {} against {} = {}", src, cap, result);
     return Value::u64(result);
   }
 
@@ -514,8 +545,8 @@ namespace verona::interpreter
     return std::move(old_value);
   }
 
-  void VM::opcode_when(
-    CodePtr closure_body, uint8_t cown_count, uint8_t capture_count)
+  void
+  VM::opcode_when(CodePtr offset, uint8_t cown_count, uint8_t capture_count)
   {
     // One added for unused receiver
     // TODO-Better-Static-codegen
@@ -523,7 +554,7 @@ namespace verona::interpreter
     if (callspace > frame().locals)
       fatal("Call space does not fit in current frame");
 
-    size_t entry_addr = closure_body;
+    size_t entry_addr = offset;
     size_t addr = entry_addr;
     FunctionHeader header = code_.function_header(addr);
 
@@ -648,7 +679,8 @@ namespace verona::interpreter
       OP(JumpIf, opcode_jump_if);
       OP(Load, opcode_load);
       OP(LoadDescriptor, opcode_load_descriptor);
-      OP(Match, opcode_match);
+      OP(MatchCapability, opcode_match_capability);
+      OP(MatchDescriptor, opcode_match_descriptor);
       OP(Move, opcode_move);
       OP(MutView, opcode_mut_view);
       OP(NewObject, opcode_new_object);

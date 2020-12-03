@@ -211,7 +211,8 @@ namespace verona::bytecode
     JumpIf, // src(u8), target(u16)
     Load, // dst(u8), base(u8), selector(u32)
     LoadDescriptor, // dst(u8), descriptor_id(u32)
-    Match, // dst(u8), src(u8), descriptor(u8)
+    MatchCapability, // dst(u8), src(u8), cap(u8)
+    MatchDescriptor, // dst(u8), src(u8), descriptor(u8)
     Merge, // into(u8), src(u8)
     Move, // dst(u8), src(u8)
     MutView, // dst(u8), src(u8)
@@ -250,6 +251,15 @@ namespace verona::bytecode
     Or,
 
     maximum_value = Or,
+  };
+
+  enum class Capability : uint8_t
+  {
+    Iso,
+    Mut,
+    Imm,
+
+    maximum_value = Imm,
   };
 
   template<typename... Args>
@@ -350,10 +360,17 @@ namespace verona::bytecode
   };
 
   template<>
-  struct OpcodeSpec<Opcode::Match>
+  struct OpcodeSpec<Opcode::MatchCapability>
+  {
+    using Operands = OpcodeOperands<Register, Register, Capability>;
+    constexpr static std::string_view format = "MATCH_CAPABILITY {}, {}, {}";
+  };
+
+  template<>
+  struct OpcodeSpec<Opcode::MatchDescriptor>
   {
     using Operands = OpcodeOperands<Register, Register, Register>;
-    constexpr static std::string_view format = "MATCH {}, {}, {}";
+    constexpr static std::string_view format = "MATCH_DESCRIPTOR {}, {}, {}";
   };
 
   template<>
@@ -463,4 +480,5 @@ namespace verona::bytecode
 
   std::ostream& operator<<(std::ostream& out, const Register& self);
   std::ostream& operator<<(std::ostream& out, const BinaryOperator& self);
+  std::ostream& operator<<(std::ostream& out, const Capability& self);
 }
