@@ -361,8 +361,12 @@ namespace verona::interpreter
       case Value::ISO:
       case Value::IMM:
       case Value::MUT:
-        result = (src->object->descriptor() == descriptor);
+      {
+        auto it = descriptor->subtypes.find(src->object->descriptor()->index);
+        result = (it != descriptor->subtypes.end());
         break;
+      }
+
       case Value::COWN_UNOWNED:
         // This type should only appear in message.
         abort();

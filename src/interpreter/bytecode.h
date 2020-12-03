@@ -27,9 +27,11 @@
  * - 32-bit number of fields
  * - 32-bit size of the methods vtables
  * - 32-bit number of methods
+ * - 32-bit number of subtypes
  * - 32-bit offset to finaliser
  * - For each field, 32-bit selector index
  * - For each method, 32-bit selector index and 32-bit absolute offset
+ * - For each subtype, 32-bit descriptor index.
  *
  * Methods:
  * - 16-bit name length, followed by the name bytes
