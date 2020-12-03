@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "compiler/typevisitor.h"
+#include "compiler/type_visitor.h"
 
 namespace verona::compiler
 {
