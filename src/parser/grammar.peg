@@ -47,8 +47,8 @@ op <- nonlocalref / symref
 postfix <- atom (dot (symbol / ident) / typeargs / tuple)*
 prefix <- op prefix / postfix
 preblock <- op preblock / blockexpr
-infix <- prefix (op prefix)*
-inblock <- preblock / infix (op preblock)?
+infix <- prefix (op prefix / postfix)*
+inblock <- preblock / infix (op preblock / blockexpr)?
 
 expr <- inblock / infix ('=' expr)
 
