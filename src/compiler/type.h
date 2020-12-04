@@ -12,6 +12,7 @@
 #include <set>
 #include <string>
 #include <variant>
+#include <vector>
 
 namespace verona::compiler
 {
