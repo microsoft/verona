@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <sstream>
-#include <algorithm>
 
 namespace verona::compiler
 {
