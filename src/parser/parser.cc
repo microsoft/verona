@@ -5,7 +5,6 @@
 #include "path.h"
 
 #include <cstring>
-#include <deque>
 #include <iostream>
 
 namespace verona::parser
