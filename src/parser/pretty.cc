@@ -4,9 +4,7 @@
 #include "pretty.h"
 
 #include <cassert>
-#include <cstdint>
 #include <deque>
-#include <ostream>
 #include <variant>
 
 namespace verona::parser

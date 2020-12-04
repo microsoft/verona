@@ -3,10 +3,8 @@
 #pragma once
 
 #include "lexer.h"
-#include "source.h"
 
 #include <cassert>
-#include <vector>
 
 namespace verona::parser
 {

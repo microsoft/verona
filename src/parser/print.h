@@ -4,8 +4,6 @@
 
 #include "ast.h"
 
-#include <iostream>
-
 namespace verona::parser
 {
   struct pretty

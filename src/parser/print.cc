@@ -5,10 +5,6 @@
 #include "escaping.h"
 #include "pretty.h"
 
-#include <deque>
-#include <sstream>
-#include <variant>
-
 namespace verona::parser
 {
   // Forward reference to break cycles.
