@@ -144,7 +144,7 @@ namespace verona::interpreter
       uint32_t descriptors_count = u32(ip);
       for (uint32_t i = 0; i < descriptors_count; i++)
       {
-        descriptors_.push_back(load_descriptor(ip));
+        descriptors_.push_back(load_descriptor(i, ip));
       }
 
       special_descriptors_.main = get_descriptor(load<DescriptorIdx>(ip));
@@ -203,33 +203,40 @@ namespace verona::interpreter
       }
     }
 
-    std::unique_ptr<VMDescriptor> load_descriptor(size_t& ip)
+    std::unique_ptr<VMDescriptor>
+    load_descriptor(DescriptorIdx index, size_t& ip)
     {
       std::string_view name = str(ip);
       uint32_t method_slots = u32(ip);
       uint32_t method_count = u32(ip);
       uint32_t field_slots = u32(ip);
       uint32_t field_count = u32(ip);
+      uint32_t subtype_count = u32(ip);
       uint32_t finaliser_ip = u32(ip);
 
-      auto descriptor = std::make_unique<VMDescriptor>(
-        name, method_slots, field_slots, field_count, finaliser_ip);
+      auto result = std::make_unique<VMDescriptor>(
+        index, name, method_slots, field_slots, field_count, finaliser_ip);
 
       for (uint32_t i = 0; i < method_count; i++)
       {
         SelectorIdx index = selector(ip);
         uint32_t offset = u32(ip);
         assert(index < method_slots);
-        descriptor->methods[index] = offset;
+        result->methods[index] = offset;
       }
       for (uint32_t i = 0; i < field_count; i++)
       {
         SelectorIdx index = selector(ip);
         assert(index < field_slots);
-        descriptor->fields[index] = i;
+        result->fields[index] = i;
+      }
+      for (uint32_t i = 0; i < subtype_count; i++)
+      {
+        DescriptorIdx subtype = descriptor(ip);
+        result->subtypes.insert(subtype);
       }
 
-      return descriptor;
+      return result;
     }
 
     /**

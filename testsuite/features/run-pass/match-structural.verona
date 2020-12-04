@@ -1,0 +1,46 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+// Test pattern matching against interface types.
+// Classes A and B implement I, but C does not.
+// All of A, B and C implement Any.
+
+interface I {
+  m(self: mut);
+}
+class A {
+  m(self: mut) { }
+}
+class B {
+  m(self: mut) { }
+}
+class C { }
+interface Any { }
+
+class Main
+{
+  do_match(x: Any & mut)
+  {
+    match x {
+      var _: A => Builtin.print("A\n"),
+      var _: I => Builtin.print("I\n"),
+      var _: Any => Builtin.print("Any\n"),
+    }
+  }
+
+  main() {
+    // CHECK-L: A
+    // CHECK-L: I
+    // CHECK-L: Any
+    Main.do_match(mut-view (new A));
+    Main.do_match(mut-view (new B));
+    Main.do_match(mut-view (new C));
+  }
+}
+
+static_assert(A subtype I);
+static_assert(B subtype I);
+static_assert(C not subtype I);
+static_assert(A subtype Any);
+static_assert(B subtype Any);
+static_assert(C subtype Any);
