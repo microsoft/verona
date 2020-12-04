@@ -86,6 +86,11 @@ namespace verona::parser
     return out << start("param") << param.id << param.type << param.init << end;
   }
 
+  PrettyStream& operator<<(PrettyStream& out, TypeParam& tp)
+  {
+    return out << start("typeparam") << tp.id << tp.type << tp.init << end;
+  }
+
   PrettyStream& operator<<(PrettyStream& out, UnionType& un)
   {
     return out << start("uniontype") << un.types << end;
@@ -118,7 +123,12 @@ namespace verona::parser
 
   PrettyStream& operator<<(PrettyStream& out, TypeName& name)
   {
-    return out << start("typename") << name.id << name.typeargs << end;
+    return out << start("typename") << name.value << name.typeargs << end;
+  }
+
+  PrettyStream& operator<<(PrettyStream& out, ModuleName& name)
+  {
+    return out << start("modulename") << name.value << name.typeargs << end;
   }
 
   PrettyStream& operator<<(PrettyStream& out, TypeRef& typeref)
@@ -129,7 +139,7 @@ namespace verona::parser
   PrettyStream& operator<<(PrettyStream& out, Signature& sig)
   {
     return out << start("signature") << sig.typeparams << sig.params
-               << sig.result << sig.throws << sig.constraints << end;
+               << sig.result << sig.throws << end;
   }
 
   PrettyStream& operator<<(PrettyStream& out, Function& func)
@@ -149,11 +159,6 @@ namespace verona::parser
     return out << start("field") << field.id << field.type << field.init << end;
   }
 
-  PrettyStream& operator<<(PrettyStream& out, Constraint& con)
-  {
-    return out << start("constraint") << con.id << con.type << con.init << end;
-  }
-
   PrettyStream& operator<<(PrettyStream& out, Open& open)
   {
     return out << start("open") << open.type << end;
@@ -162,25 +167,25 @@ namespace verona::parser
   PrettyStream& operator<<(PrettyStream& out, TypeAlias& alias)
   {
     return out << start("typealias") << alias.id << alias.typeparams
-               << alias.inherits << alias.constraints << alias.type << end;
+               << alias.inherits << alias.type << end;
   }
 
   PrettyStream& operator<<(PrettyStream& out, Interface& iface)
   {
     return out << start("interface") << iface.id << iface.typeparams
-               << iface.inherits << iface.constraints << iface.members << end;
+               << iface.inherits << iface.members << end;
   }
 
   PrettyStream& operator<<(PrettyStream& out, Class& cls)
   {
     return out << start("class") << cls.id << cls.typeparams << cls.inherits
-               << cls.constraints << cls.members << end;
+               << cls.members << end;
   }
 
   PrettyStream& operator<<(PrettyStream& out, Module& module)
   {
     return out << start("module") << module.typeparams << module.inherits
-               << module.constraints << end;
+               << end;
   }
 
   PrettyStream& operator<<(PrettyStream& out, Tuple& tuple)
@@ -324,9 +329,6 @@ namespace verona::parser
     switch (node->kind())
     {
       // Definitions
-      case Kind::Constraint:
-        return out << node->as<Constraint>();
-
       case Kind::Open:
         return out << node->as<Open>();
 
@@ -347,6 +349,9 @@ namespace verona::parser
 
       case Kind::Param:
         return out << node->as<Param>();
+
+      case Kind::TypeParam:
+        return out << node->as<TypeParam>();
 
       case Kind::Signature:
         return out << node->as<Signature>();
@@ -378,6 +383,9 @@ namespace verona::parser
 
       case Kind::TypeName:
         return out << node->as<TypeName>();
+
+      case Kind::ModuleName:
+        return out << node->as<ModuleName>();
 
       case Kind::TypeRef:
         return out << node->as<TypeRef>();

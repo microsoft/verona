@@ -9,7 +9,8 @@
 
 tupletype <- '(' (type (',' type)*)? ')'
 typename <- ident typeargs?
-typeref <- typename ('::' typename)*
+modulename <- string typeargs?
+typeref <- (modulename / typename) ('::' typename)*
 viewtype <- (typeref ('~>' / '<~'))* (typeref / tupletype)
 functiontype <- viewtype ('->' functiontype)?
 isecttype <- functiontype ('&' functiontype)*
@@ -23,10 +24,8 @@ staticref <- typeref ('::' ident / symbol)?
 ref <- ident oftype?
 symref <- symbol
 
-stringlit <- escapedstring / unescapedstring
-string <- stringlit (localref / tuple / stringlit)*
-constant <- character / float / int / hex / binary / 'true' / 'false'
-atom <- staticref / ref / symref / constant / string / new / decl / tuple
+constant <- string / character / float / int / hex / binary / 'true' / 'false'
+atom <- staticref / ref / symref / constant / new / decl / tuple
 
 case <- expr ('if' expr)? '=>' expr
 
@@ -40,7 +39,7 @@ block <- '{' ('}' / (inblock / expr ';')* controlflow? '}')
 blockexpr <- block / when / match / if / while / for / try / lambda
 
 controlflow <- 'break' / 'continue' / 'return' expr? / 'yield' expr? / expr
-typeargs <- '[' expr (',' expr)* ']'
+typeargs <- '[' type (',' type)* ']'
 tuple <- '(' expr (',' expr)* ')' oftype?
 
 op <- nonlocalref / symref
@@ -55,13 +54,13 @@ expr <- inblock / infix ('=' expr)
 param <- ident oftype? initexpr?
 params <- '(' param* ')'
 throws <- 'throws' type
-signature <- typeparams? params oftype? throws? constraint*
+signature <- typeparams? params oftype? throws?
 
 initexpr <- '=' expr
 inittype <- '=' type
 oftype <- ':' type
-constraint <- 'where' ident oftype? inittype?
-typeparams <- '[' ident (',' ident)* ']'
+typeparam <- ident ofttype? inittype?
+typeparams <- '[' typeparam (',' typeparam)* ']'
 typebody <- '{' member* '}'
 
 field <- ident oftype? initexpr? ';'
@@ -69,7 +68,7 @@ function <- 'static' signature (block / ';')
 method <- signature (block / ';')
 member <- module / class / interface / typealias / field / function / method
 
-entity <- typeparams? oftype? constraint*
+entity <- typeparams? oftype?
 namedentity <- ident entity
 
 typealias <- 'type' namedentity '=' type ';'
@@ -77,6 +76,7 @@ interface <- 'interface' namedentity typebody
 class <- 'class' namedentity typebody
 module <- 'module' entity ';'
 
+string <- escapedstring / unescapedstring
 escape <- '\\' ('"' / '\'' / ...)
 escapedstring <- '"' (escape / !'"' .)* '"'
 unescapedstring <- '\'[n]"' (unescapedstring[n] / !('"\'[n]') .)* '"\'[n]'
