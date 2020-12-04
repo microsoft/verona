@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <sstream>
+#include <algorithm>
 
 namespace verona::compiler
 {
