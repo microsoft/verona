@@ -4,6 +4,8 @@
 
 #include "compiler/type_visitor.h"
 
+#include <unordered_map>
+
 namespace verona::compiler
 {
   struct FreeVariables
