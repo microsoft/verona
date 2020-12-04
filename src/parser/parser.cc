@@ -1000,6 +1000,7 @@ namespace verona::parser
       //  escapedstring / unescapedstring / character /
       //  float / int / hex / binary / 'true' / 'false'
       if (
+        !has(TokenKind::EscapedString) && !has(TokenKind::UnescapedString) &&
         !has(TokenKind::Character) && !has(TokenKind::Float) &&
         !has(TokenKind::Int) && !has(TokenKind::Hex) &&
         !has(TokenKind::Binary) && !has(TokenKind::True) &&
@@ -1013,64 +1014,6 @@ namespace verona::parser
       con->value = previous;
       expr = con;
       return Success;
-    }
-
-    Result optstring(Node<Expr>& expr)
-    {
-      // string <- escapedstring / unescapedstring
-      if (!has(TokenKind::EscapedString) && !has(TokenKind::UnescapedString))
-        return Skip;
-
-      auto con = std::make_shared<Constant>();
-      con->location = previous.location;
-      con->value = previous;
-      expr = con;
-      return Success;
-    }
-
-    Result optconcatelem(Node<Expr>& expr)
-    {
-      Result r;
-
-      if ((r = optstring(expr)) != Skip)
-        return r;
-
-      if ((r = optlocalref(expr)) != Skip)
-        return r;
-
-      if ((r = opttuple(expr)) != Skip)
-        return r;
-
-      return Skip;
-    }
-
-    Result optconcat(Node<Expr>& expr)
-    {
-      // concat <- string (string / localref / tuple)*
-      Result r;
-
-      if ((r = optstring(expr)) != Success)
-        return r;
-
-      auto concat = std::make_shared<Concat>();
-      concat->list.push_back(expr);
-      expr = concat;
-
-      while (true)
-      {
-        Node<Expr> elem;
-        r = optconcatelem(elem);
-
-        if (r == Skip)
-        {
-          if (concat->list.size() == 1)
-            expr = concat->list.front();
-
-          return Success;
-        }
-
-        concat->list.push_back(elem);
-      }
     }
 
     Result declelem(Node<Expr>& decl)
@@ -1276,9 +1219,6 @@ namespace verona::parser
       if ((r = optconstant(expr)) != Skip)
         return r;
 
-      if ((r = optconcat(expr)) != Skip)
-        return r;
-
       if ((r = optdecl(expr)) != Skip)
         return r;
 
@@ -1403,6 +1343,7 @@ namespace verona::parser
 
     Result optpostorblock(Node<Expr>& expr)
     {
+      // postfix <- atom ('.' (ident / symbol) / typeargs / tuple)*
       Result r;
 
       // If we already have an error, we're done.
@@ -1420,23 +1361,18 @@ namespace verona::parser
           return r;
       }
 
-      // postfix <- atom ('.' (ident / symbol) / typeargs / tuple)*
       while (true)
       {
-        switch (onepostfix(expr))
-        {
-          case Success:
-            break;
+        Result r2 = onepostfix(expr);
 
-          case Error:
-            return Error;
+        if (r2 == Skip)
+          break;
 
-          case Skip:
-            return Success;
-        }
+        if (r2 == Error)
+          r = Error;
       }
 
-      return Skip;
+      return r;
     }
 
     template<typename T>
@@ -1496,8 +1432,8 @@ namespace verona::parser
 
     Result optinfix(Node<Expr>& expr)
     {
-      // infix <- prefix (op prefix)*
-      // inblock <- preblock / infix (op preblock)?
+      // infix <- prefix (op prefix / postfix)*
+      // inblock <- preblock / infix (op preblock / blockexpr)?
       Result r = Success;
 
       if ((r = optprefix(expr)) != Success)
@@ -1510,51 +1446,68 @@ namespace verona::parser
 
       while (true)
       {
-        Node<Expr> op;
-        Node<Expr> rhs;
+        Node<Expr> next;
         Result r2;
 
-        // Fetch a nonlocalref or a symref.
-        if ((r2 = optop(op)) == Skip)
-          return r;
-
-        if (r2 == Error)
-          r = Error;
-
-        if (
-          prev &&
-          ((op->kind() != prev->kind()) || (op->location != prev->location)))
+        if ((r2 = optop(next)) != Skip)
         {
-          error() << op->location << "Use parentheses to indicate precedence"
-                  << text(op->location);
-        }
+          // We have a nonlocalref or a symref, use it as an infix operator.
+          if (r2 == Error)
+            r = Error;
 
-        prev = op;
+          if (
+            prev &&
+            ((next->kind() != prev->kind()) || (next->location != prev->location)))
+          {
+            error() << next->location << "Use parentheses to indicate precedence"
+                    << text(next->location);
+          }
 
-        if (optprefix(rhs) != Success)
-        {
-          error() << loc() << "Expected an expression after an infix operator"
-                  << line();
-          r = Error;
-        }
+          prev = next;
+          Node<Expr> rhs;
 
-        if (is_blockexpr(rhs))
-        {
-          auto inf = std::make_shared<Inblock>();
-          inf->location = op->location;
-          inf->op = op;
+          if (optprefix(rhs) != Success)
+          {
+            error() << loc() << "Expected an expression after an infix operator"
+                    << line();
+            r = Error;
+          }
+
+          Node<Infix> inf;
+
+          if (is_blockexpr(rhs))
+            inf = std::make_shared<Inblock>();
+          else
+            inf = std::make_shared<Infix>();
+
+          inf->location = next->location;
+          inf->op = next;
           inf->left = expr;
           inf->right = rhs;
           expr = inf;
+
+          if (is_blockexpr(rhs))
+            return r;
+        }
+        else if ((r2 = optpostorblock(next)) != Skip)
+        {
+          // We have a postfix, use adjacency to mean apply.
+          if (r2 == Error)
+            r = Error;
+
+          auto apply = std::make_shared<Apply>();
+          apply->location = next->location;
+          apply->expr = expr;
+          apply->args = next;
+          expr = apply;
+
+          if (is_blockexpr(next))
+            return r;
+        }
+        else
+        {
           return r;
         }
-
-        auto inf = std::make_shared<Infix>();
-        inf->location = op->location;
-        inf->op = op;
-        inf->left = expr;
-        inf->right = rhs;
-        expr = inf;
       }
     }
 

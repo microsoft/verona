@@ -320,11 +320,6 @@ namespace verona::parser
                << end;
   }
 
-  PrettyStream& operator<<(PrettyStream& out, Concat& con)
-  {
-    return out << start("concat") << con.list << end;
-  }
-
   PrettyStream& operator<<(PrettyStream& out, const Node<NodeDef>& node)
   {
     if (!node)
@@ -475,9 +470,6 @@ namespace verona::parser
 
       case Kind::ObjectLiteral:
         return out << node->as<ObjectLiteral>();
-
-      case Kind::Concat:
-        return out << node->as<Concat>();
     }
 
     return out;

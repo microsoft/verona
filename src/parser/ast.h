@@ -64,7 +64,6 @@ namespace verona::parser
     Constant,
     New,
     ObjectLiteral,
-    Concat,
   };
 
   using ID = Location;
@@ -619,16 +618,6 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::ObjectLiteral;
-    }
-  };
-
-  struct Concat : Expr
-  {
-    List<Expr> list;
-
-    Kind kind()
-    {
-      return Kind::Concat;
     }
   };
 
