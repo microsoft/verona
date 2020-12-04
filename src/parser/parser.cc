@@ -153,6 +153,24 @@ namespace verona::parser
       return ref;
     }
 
+    Node<Constant> constant(Token tok)
+    {
+      if (
+        (tok.kind != TokenKind::EscapedString) && (tok.kind != TokenKind::UnescapedString) &&
+        (tok.kind != TokenKind::Character) && (tok.kind != TokenKind::Float) &&
+        (tok.kind != TokenKind::Int) && (tok.kind != TokenKind::Hex) &&
+        (tok.kind != TokenKind::Binary) && (tok.kind != TokenKind::True) &&
+        (tok.kind != TokenKind::False))
+      {
+        return {};
+      }
+
+      auto con = std::make_shared<Constant>();
+      con->location = tok.location;
+      con->value = tok;
+      return con;
+    }
+
     Location loc()
     {
       assert(lookahead.size() > 0);
@@ -755,9 +773,7 @@ namespace verona::parser
       }
       else if (opttuple(expr) == Success)
       {
-        if (
-          !peek(TokenKind::Throws) && !peek(TokenKind::Where) &&
-          !peek(TokenKind::FatArrow))
+        if (!peek(TokenKind::Throws) && !peek(TokenKind::FatArrow))
         {
           // Return a successful tuple instead of a lambda.
           return Success;
@@ -802,9 +818,6 @@ namespace verona::parser
         }
 
         if (optthrows(sig->throws) == Error)
-          r = Error;
-
-        if (optconstraints(sig->constraints) == Error)
           r = Error;
       }
       else if (peek(TokenKind::Ident) && peek(TokenKind::FatArrow))
@@ -1008,10 +1021,7 @@ namespace verona::parser
         return Skip;
       }
 
-      auto con = std::make_shared<Constant>();
-      con->location = previous.location;
-      con->value = previous;
-      expr = con;
+      expr = constant(previous);
       return Success;
     }
 
@@ -1134,7 +1144,8 @@ namespace verona::parser
     {
       // staticref <- typeref ('::' ident / symbol)
       // This can also return a Specialise node.
-      bool ok = peek(TokenKind::Ident) &&
+      bool ok = (peek(TokenKind::Ident) || peek(TokenKind::EscapedString) ||
+                 peek(TokenKind::UnescapedString)) &&
         (peek(TokenKind::LSquare) || peek(TokenKind::DoubleColon));
       rewind();
 
@@ -1170,7 +1181,12 @@ namespace verona::parser
         auto& name = t.typenames.front();
         auto spec = std::make_shared<Specialise>();
         spec->location = name->location;
-        spec->expr = ref(name->id);
+
+        if (name->value.kind == TokenKind::Ident)
+          spec->expr = ref(name->value.location);
+        else
+          spec->expr = constant(name->value);
+
         spec->typeargs = name->typeargs;
         expr = spec;
       }
@@ -1187,7 +1203,7 @@ namespace verona::parser
         {
           auto last = t.typenames.back();
           t.typenames.pop_back();
-          stat->ref = {TokenKind::Ident, last->id};
+          stat->ref = last->value;
 
           auto spec = std::make_shared<Specialise>();
           spec->location = last->location;
@@ -1253,7 +1269,7 @@ namespace verona::parser
       return Error;
     }
 
-    Result opttypeargs(List<Expr>& typeargs)
+    Result opttypeargs(List<Type>& typeargs)
     {
       // typeargs <- '[' (expr (',' expr)*)?) ']'
       if (!has(TokenKind::LSquare))
@@ -1263,18 +1279,16 @@ namespace verona::parser
 
       do
       {
-        Node<Expr> arg;
+        Node<Type> arg;
 
-        if (optexpr(arg) == Success)
-        {
-          typeargs.push_back(arg);
-        }
-        else
+        if (typeexpr(arg) != Success)
         {
           error() << loc() << "Expected a type argument" << line();
           restart_before({TokenKind::Comma, TokenKind::RSquare});
           r = Error;
         }
+
+        typeargs.push_back(arg);
       } while (has(TokenKind::Comma));
 
       if (!has(TokenKind::RSquare))
@@ -1456,17 +1470,22 @@ namespace verona::parser
 
           if (
             prev &&
-            ((next->kind() != prev->kind()) || (next->location != prev->location)))
+            ((next->kind() != prev->kind()) ||
+             (next->location != prev->location)))
           {
-            error() << next->location << "Use parentheses to indicate precedence"
+            error() << next->location
+                    << "Use parentheses to indicate precedence"
                     << text(next->location);
           }
 
           prev = next;
           Node<Expr> rhs;
 
-          if (optprefix(rhs) != Success)
+          if ((r2 = optprefix(rhs)) != Success)
           {
+            if (r2 == Skip)
+              return r;
+
             error() << loc() << "Expected an expression after an infix operator"
                     << line();
             r = Error;
@@ -1616,8 +1635,12 @@ namespace verona::parser
 
     Result opttyperef(Node<Type>& type)
     {
-      // typeref <- ident typeargs? ('::' ident typeargs?)*
-      if (!peek(TokenKind::Ident))
+      // typename <- ident typeargs?
+      // modulename <- string typeargs?
+      // typeref <- (modulename / typename) ('::' typename)*
+      if (
+        !peek(TokenKind::Ident) && !peek(TokenKind::EscapedString) &&
+        !peek(TokenKind::UnescapedString))
         return Skip;
 
       rewind();
@@ -1627,25 +1650,37 @@ namespace verona::parser
 
       Result r = Success;
 
-      do
+      // A typeref can start with a module name.
+      if (has(TokenKind::EscapedString) || has(TokenKind::UnescapedString))
       {
-        bool ok = peek(TokenKind::Ident);
-        rewind();
-
-        if (!ok)
-          return r;
-
-        has(TokenKind::DoubleColon);
-        has(TokenKind::Ident);
-
-        auto name = std::make_shared<TypeName>();
+        auto name = std::make_shared<ModuleName>();
         name->location = previous.location;
-        name->id = previous.location;
+        name->value = previous;
         typeref->typenames.push_back(name);
 
         if (opttypeargs(name->typeargs) == Error)
           r = Error;
-      } while (peek(TokenKind::DoubleColon));
+
+        if (!has(TokenKind::DoubleColon))
+          return r;
+      }
+
+      do
+      {
+        if (!has(TokenKind::Ident))
+        {
+          error() << loc() << "Expected a type identifier" << line();
+          return Error;
+        }
+
+        auto name = std::make_shared<TypeName>();
+        name->location = previous.location;
+        name->value = previous;
+        typeref->typenames.push_back(name);
+
+        if (opttypeargs(name->typeargs) == Error)
+          r = Error;
+      } while (has(TokenKind::DoubleColon));
 
       return r;
     }
@@ -1836,7 +1871,7 @@ namespace verona::parser
 
     Result signature(Node<Signature>& sig)
     {
-      // sig <- typeparams params oftype ('throws' type)? constraints
+      // sig <- typeparams params oftype ('throws' type)?
       Result r = Success;
       sig = std::make_shared<Signature>();
 
@@ -1877,9 +1912,6 @@ namespace verona::parser
         r = Error;
 
       if (optthrows(sig->throws) == Error)
-        r = Error;
-
-      if (optconstraints(sig->constraints) == Error)
         r = Error;
 
       return r;
@@ -2011,37 +2043,30 @@ namespace verona::parser
       return typeexpr(type);
     }
 
-    Result optconstraints(List<Constraint>& constraints)
+    Result typeparam(Node<TypeParam>& tp)
     {
-      // constraints <- ('where' ident oftype inittype)*
+      // typeparam <- ident oftype inittype
       Result r = Success;
+      tp = std::make_shared<TypeParam>();
 
-      while (has(TokenKind::Where))
+      if (optident(tp->id) != Success)
       {
-        auto constraint = std::make_shared<Constraint>();
-        constraint->location = previous.location;
-
-        if (optident(constraint->id) != Success)
-        {
-          error() << loc() << "Expected a constraint name" << line();
-          r = Error;
-        }
-
-        if (oftype(constraint->type) == Error)
-          r = Error;
-
-        if (inittype(constraint->init) == Error)
-          r = Error;
-
-        constraints.push_back(constraint);
+        error() << loc() << "Expected a type parameter name" << line();
+        r = Error;
       }
+
+      if (oftype(tp->type) == Error)
+        r = Error;
+
+      if (inittype(tp->init) == Error)
+        r = Error;
 
       return r;
     }
 
-    Result typeparams(std::vector<ID>& typeparams)
+    Result typeparams(List<TypeParam>& typeparams)
     {
-      // typeparams <- ('[' ident (',' ident)* ']')?
+      // typeparams <- ('[' typeparam (',' typeparam)* ']')?
       if (!has(TokenKind::LSquare))
         return Skip;
 
@@ -2049,18 +2074,15 @@ namespace verona::parser
 
       do
       {
-        ID id;
+        Node<TypeParam> tp;
 
-        if (optident(id) != Success)
+        if (typeparam(tp) == Error)
         {
-          error() << loc() << "Expected a type parameter name" << line();
-          restart_before({TokenKind::Comma, TokenKind::RSquare});
           r = Error;
+          restart_before({TokenKind::Comma, TokenKind::RSquare});
         }
-        else
-        {
-          typeparams.push_back(id);
-        }
+
+        typeparams.push_back(tp);
       } while (has(TokenKind::Comma));
 
       if (!has(TokenKind::RSquare))
@@ -2074,16 +2096,13 @@ namespace verona::parser
 
     Result entity(Entity& ent)
     {
-      // entity <- typeparams oftype constraints
+      // entity <- typeparams oftype
       Result r = Success;
 
       if (typeparams(ent.typeparams) == Error)
         r = Error;
 
       if (oftype(ent.inherits) == Error)
-        r = Error;
-
-      if (optconstraints(ent.constraints) == Error)
         r = Error;
 
       return r;
@@ -2202,7 +2221,11 @@ namespace verona::parser
         r = Error;
       }
 
-      if (module)
+      if (!module)
+      {
+        module = mod;
+      }
+      else
       {
         error() << mod->location << "The module has already been defined"
                 << text(mod->location) << module->location
@@ -2330,6 +2353,16 @@ namespace verona::parser
     Parse parse(source);
     auto st = parse.push(top);
     parse.module(module, top->members);
+
+    if (module)
+    {
+      top->typeparams = std::move(module->typeparams);
+      top->inherits = module->inherits;
+
+      for (auto& tp : top->typeparams)
+        parse.set_sym(tp->id, tp);
+    }
+
     return parse.final_result;
   }
 
@@ -2365,7 +2398,6 @@ namespace verona::parser
       }
     }
 
-    // TODO: put module stuff in top
     return result;
   }
 

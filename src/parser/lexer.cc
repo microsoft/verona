@@ -54,7 +54,6 @@ namespace verona::parser
                                   {"class", TokenKind::Class},
                                   {"interface", TokenKind::Interface},
                                   {"type", TokenKind::Type},
-                                  {"where", TokenKind::Where},
                                   {"static", TokenKind::Static},
                                   {"throws", TokenKind::Throws},
                                   {"if", TokenKind::If},

@@ -11,7 +11,6 @@ namespace verona::parser
   enum class Kind
   {
     // Definitions
-    Constraint,
     Open,
     TypeAlias,
     Interface,
@@ -19,6 +18,7 @@ namespace verona::parser
     Module,
     Field,
     Param,
+    TypeParam,
     Signature,
     Function,
     Method,
@@ -31,6 +31,7 @@ namespace verona::parser
     ViewType,
     ExtractType,
     TypeName,
+    ModuleName,
     TypeRef,
 
     // Expressions
@@ -109,19 +110,6 @@ namespace verona::parser
   struct Expr : NodeDef
   {};
 
-  struct Constraint : NodeDef
-  {
-    // TODO: value-dependent types
-    ID id;
-    Node<Type> type;
-    Node<Type> init;
-
-    Kind kind()
-    {
-      return Kind::Constraint;
-    }
-  };
-
   struct Param : NodeDef
   {
     ID id;
@@ -134,13 +122,25 @@ namespace verona::parser
     }
   };
 
+  struct TypeParam : NodeDef
+  {
+    // TODO: value-dependent types
+    ID id;
+    Node<Type> type;
+    Node<Type> init;
+
+    Kind kind()
+    {
+      return Kind::TypeParam;
+    }
+  };
+
   struct Signature : NodeDef
   {
-    std::vector<ID> typeparams;
+    List<TypeParam> typeparams;
     List<Param> params;
     Node<Type> result;
     Node<Type> throws;
-    List<Constraint> constraints;
 
     Kind kind()
     {
@@ -345,7 +345,7 @@ namespace verona::parser
   struct Specialise : Expr
   {
     Node<Expr> expr;
-    List<Expr> typeargs;
+    List<Type> typeargs;
 
     Kind kind()
     {
@@ -482,12 +482,20 @@ namespace verona::parser
 
   struct TypeName : NodeDef
   {
-    ID id;
-    List<Expr> typeargs;
+    Token value;
+    List<Type> typeargs;
 
     Kind kind()
     {
       return Kind::TypeName;
+    }
+  };
+
+  struct ModuleName : TypeName
+  {
+    Kind kind()
+    {
+      return Kind::ModuleName;
     }
   };
 
@@ -516,9 +524,8 @@ namespace verona::parser
 
   struct Entity : Member
   {
-    std::vector<ID> typeparams;
+    List<TypeParam> typeparams;
     Node<Type> inherits;
-    List<Constraint> constraints;
   };
 
   struct NamedEntity : Entity
