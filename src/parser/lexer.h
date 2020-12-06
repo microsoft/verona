@@ -41,6 +41,7 @@ namespace verona::parser
     Class,
     Interface,
     Type,
+    Open,
     Static,
     Throws,
     If,

@@ -71,6 +71,7 @@ member <- module / class / interface / typealias / field / function / method
 entity <- typeparams? oftype?
 namedentity <- ident? entity
 
+open <- 'open' type ';'
 typealias <- 'type' namedentity '=' type ';'
 interface <- 'interface' namedentity typebody
 class <- 'class' namedentity typebody

@@ -2182,6 +2182,30 @@ namespace verona::parser
       return r;
     }
 
+    Result optopen(List<Member>& members)
+    {
+      // open <- 'open' type ';'
+      if (!has(TokenKind::Open))
+        return Skip;
+
+      auto open = std::make_shared<Open>();
+      open->location = previous.location;
+
+      Result r = Success;
+
+      if (typeexpr(open->type) == Error)
+        r = Error;
+
+      if (!has(TokenKind::Semicolon))
+      {
+        error() << loc() << "Expected ;" << line();
+        r = Error;
+      }
+
+      members.push_back(open);
+      return r;
+    }
+
     Result typealias(List<Member>& members)
     {
       // typealias <- 'type' namedentity '=' type ';'
@@ -2295,7 +2319,8 @@ namespace verona::parser
 
     Result optmember(List<Member>& members)
     {
-      // member <- classdef / interface / typealias / field / method / function
+      // member <-
+      //  classdef / interface / typealias / open / field / method / function
       Result r;
 
       if ((r = classdef(members)) != Skip)
@@ -2305,6 +2330,9 @@ namespace verona::parser
         return r;
 
       if ((r = typealias(members)) != Skip)
+        return r;
+
+      if ((r = optopen(members)) != Skip)
         return r;
 
       if ((r = optstaticfunction(members)) != Skip)
@@ -2466,6 +2494,8 @@ namespace verona::parser
           set_sym(tp->id, tp);
       }
 
+      // Reset hygienic for the next module.
+      hygienic = 0;
       return r;
     }
   };
