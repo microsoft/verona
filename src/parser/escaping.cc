@@ -356,14 +356,6 @@ namespace
 
     return s;
   }
-
-  std::string trimindent(const std::string_view& src)
-  {
-    std::string_view s = src;
-    // TODO:
-
-    return std::string{s};
-  }
 }
 
 namespace verona::parser
@@ -394,12 +386,12 @@ namespace verona::parser
 
   std::string escapedstring(const std::string_view& s)
   {
-    return trimindent(unescape(trimblanklines(crlf2lf(s))));
+    return unescape(trimblanklines(crlf2lf(s)));
   }
 
   std::string unescapedstring(const std::string_view& s)
   {
-    return trimindent(trimblanklines(crlf2lf(s)));
+    return std::string(trimblanklines(crlf2lf(s)));
   }
 
   std::string escape(const std::string_view& s)
