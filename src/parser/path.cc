@@ -205,9 +205,9 @@ namespace path
         {
           auto name = join(path, e->d_name);
 
-          if (files && is_file(name))
+          if (files && (type(name) == Type::File))
             r.push_back(name);
-          else if (!files && is_directory(name))
+          else if (!files && (type(name) == Type::Directory))
             r.push_back(name);
           break;
         }
@@ -289,25 +289,38 @@ namespace path
     return false;
   }
 
-  bool is_file(const std::string& path)
-  {
-    if (is_directory(path))
-      return false;
-
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
-    struct stat sb;
-    return (stat(path.c_str(), &sb) == 0) && S_ISREG(sb.st_mode);
-#elif defined(_WIN32)
-    struct _stat sb;
-    return (_stat(path.c_str(), &sb) == 0) &&
-      (((sb.st_mode) & _S_IFMT) == _S_IFREG);
-#else
-#  error "path::is_file not supported on this target."
-#endif
-  }
-
   bool is_hidden(const std::string& path)
   {
     return path.empty() || (path.front() == '.');
+  }
+
+  Type type(const std::string& path)
+  {
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+    struct stat sb;
+
+    if (stat(path.c_str(), &sb) != 0)
+      return Type::NotFound;
+
+    if (S_ISREG(sb.st_mode))
+      return Type::File;
+
+    if (S_ISDIR(sb.st_mode))
+      return Type::Directory;
+#elif defined(_WIN32)
+    struct _stat sb;
+
+    if (_stat(path.c_str(), &sb) != 0)
+      return Type::NotFound;
+
+    if (((sb.st_mode) & _S_IFMT) == _S_IFREG)
+      return Type::File;
+
+    if (((sb.st_mode) & _S_IFMT) == _S_IFDIR)
+      return Type::Directory;
+#else
+#  error "path::type not supported on this target."
+#endif
+    return Type::Other;
   }
 }

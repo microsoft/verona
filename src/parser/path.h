@@ -46,6 +46,15 @@ namespace path
 
   bool is_relative(const std::string& path);
   bool is_directory(const std::string& path);
-  bool is_file(const std::string& path);
   bool is_hidden(const std::string& path);
+
+  enum class Type
+  {
+    NotFound,
+    File,
+    Directory,
+    Other,
+  };
+
+  Type type(const std::string& path);
 }

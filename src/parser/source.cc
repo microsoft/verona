@@ -5,18 +5,23 @@
 #include "path.h"
 
 #include <fstream>
-#include <iostream>
 
 namespace verona::parser
 {
   std::string_view Location::view() const
   {
+    if (!source)
+      return {};
+
     auto view = std::string_view{source->contents};
     return view.substr(start, end - start + 1);
   }
 
   std::pair<size_t, size_t> Location::linecol() const
   {
+    if (!source)
+      return {0, 0};
+
     std::string_view view{source->contents};
     view = view.substr(0, start);
     size_t line = std::count(view.begin(), view.end(), '\n') + 1;
@@ -47,6 +52,9 @@ namespace verona::parser
 
   std::ostream& operator<<(std::ostream& out, const Location& loc)
   {
+    if (!loc.source)
+      return out;
+
     auto linecol = loc.linecol();
     return out << loc.source->origin << ":" << linecol.first << ":"
                << linecol.second << ": ";
@@ -55,8 +63,11 @@ namespace verona::parser
   std::ostream& operator<<(std::ostream& out, const text& text)
   {
     auto& loc = text.loc;
-    auto& contents = loc.source->contents;
 
+    if (!loc.source)
+      return out << std::endl;
+
+    auto& contents = loc.source->contents;
     std::string_view view{contents};
     auto before = view.substr(0, loc.start);
     auto start = before.find_last_of('\n');
@@ -95,10 +106,7 @@ namespace verona::parser
     std::ifstream f(file.c_str(), std::ios::binary | std::ios::ate);
 
     if (!f)
-    {
-      std::cerr << "Couldn't open file " << file << std::endl;
       return {};
-    }
 
     auto size = f.tellg();
     f.seekg(0, std::ios::beg);
@@ -109,10 +117,7 @@ namespace verona::parser
     f.read(&source->contents[0], size);
 
     if (!f)
-    {
-      std::cerr << "Couldn't read file " << file << std::endl;
       return {};
-    }
 
     return source;
   }

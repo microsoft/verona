@@ -2,13 +2,17 @@
 // SPDX-License-Identifier: MIT
 #include "parser.h"
 
+#include "escaping.h"
 #include "path.h"
 
 #include <cstring>
 #include <iostream>
+#include <set>
 
 namespace verona::parser
 {
+  constexpr auto ext = "verona";
+
   enum Result
   {
     Skip,
@@ -20,9 +24,9 @@ namespace verona::parser
   {
     Source source;
     size_t pos;
+    size_t la;
     Token previous;
     std::vector<Token> lookahead;
-    size_t la;
 
     List<NodeDef> symbol_stack;
 
@@ -33,6 +37,8 @@ namespace verona::parser
     Token token_next;
 
     Result final_result;
+    std::set<std::string> imports;
+    std::string stdlib;
 
     struct SymbolPush
     {
@@ -46,8 +52,8 @@ namespace verona::parser
       }
     };
 
-    Parse(Source& source)
-    : source(source), pos(0), la(0), hygienic(0), final_result(Success)
+    Parse(const std::string& stdlib)
+    : pos(0), la(0), hygienic(0), final_result(Success), stdlib(stdlib)
     {
       rewrite = std::make_shared<SourceDef>();
       token_apply = ident("apply");
@@ -58,6 +64,15 @@ namespace verona::parser
     ~Parse()
     {
       assert(symbol_stack.size() == 0);
+    }
+
+    void start(Source& src)
+    {
+      source = src;
+      pos = 0;
+      la = 0;
+      previous = {};
+      lookahead.clear();
     }
 
     std::ostream& error()
@@ -78,7 +93,7 @@ namespace verona::parser
       symbol_stack.pop_back();
     }
 
-    Node<NodeDef> get_sym(ID id)
+    Node<NodeDef> get_sym(const ID& id)
     {
       for (int i = symbol_stack.size() - 1; i >= 0; i--)
       {
@@ -90,10 +105,10 @@ namespace verona::parser
           return find->second;
       }
 
-      return nullptr;
+      return {};
     }
 
-    void set_sym(ID id, Node<NodeDef> node, SymbolTable& st)
+    void set_sym(const ID& id, Node<NodeDef> node, SymbolTable& st)
     {
       auto find = st.map.find(id);
 
@@ -108,14 +123,14 @@ namespace verona::parser
       st.map.emplace(id, node);
     }
 
-    void set_sym(ID id, Node<NodeDef> node)
+    void set_sym(const ID& id, Node<NodeDef> node)
     {
       assert(symbol_stack.size() > 0);
       auto st = symbol_stack.back()->symbol_table();
       set_sym(id, node, *st);
     }
 
-    void set_sym_parent(ID id, Node<NodeDef> node)
+    void set_sym_parent(const ID& id, Node<NodeDef> node)
     {
       assert(symbol_stack.size() > 1);
       auto st = symbol_stack[symbol_stack.size() - 2]->symbol_table();
@@ -146,17 +161,23 @@ namespace verona::parser
       return {TokenKind::Ident, {rewrite, pos, pos + len - 1}};
     }
 
-    Node<Ref> ref(Location loc)
+    Token ident(const std::string& s)
+    {
+      return ident(s.c_str());
+    }
+
+    Node<Ref> ref(const Location& loc)
     {
       auto ref = std::make_shared<Ref>();
       ref->location = loc;
       return ref;
     }
 
-    Node<Constant> constant(Token tok)
+    Node<Constant> constant(const Token& tok)
     {
       if (
-        (tok.kind != TokenKind::EscapedString) && (tok.kind != TokenKind::UnescapedString) &&
+        (tok.kind != TokenKind::EscapedString) &&
+        (tok.kind != TokenKind::UnescapedString) &&
         (tok.kind != TokenKind::Character) && (tok.kind != TokenKind::Float) &&
         (tok.kind != TokenKind::Int) && (tok.kind != TokenKind::Hex) &&
         (tok.kind != TokenKind::Binary) && (tok.kind != TokenKind::True) &&
@@ -182,7 +203,7 @@ namespace verona::parser
       return text(loc());
     }
 
-    bool peek(TokenKind kind, const char* text = nullptr)
+    bool peek(const TokenKind& kind, const char* text = nullptr)
     {
       if (la >= lookahead.size())
         lookahead.push_back(lex(source, pos));
@@ -232,7 +253,7 @@ namespace verona::parser
       return false;
     }
 
-    bool is_localref(ID id)
+    bool is_localref(const ID& id)
     {
       auto def = get_sym(id);
 
@@ -1107,7 +1128,10 @@ namespace verona::parser
         if (has(TokenKind::In))
         {
           if (optident(n->in) != Success)
+          {
+            error() << loc() << "Expected an identifier" << line();
             r = Error;
+          }
         }
 
         return r;
@@ -1134,7 +1158,10 @@ namespace verona::parser
       if (has(TokenKind::In))
       {
         if (optident(obj->in) != Success)
+        {
+          error() << loc() << "Expected an identifier" << line();
           r = Error;
+        }
       }
 
       return r;
@@ -1633,6 +1660,43 @@ namespace verona::parser
       return r;
     }
 
+    Result optmodulename(Node<TypeName>& name)
+    {
+      if (!has(TokenKind::EscapedString))
+        return Skip;
+
+      Result r = Success;
+
+      name = std::make_shared<ModuleName>();
+      name->location = previous.location;
+      name->value = previous;
+
+      // Look for a module relative to the current source file first.
+      auto base =
+        path::to_directory(escapedstring(name->value.location.view()));
+      auto find = path::canonical(path::join(source->origin, base));
+
+      // Otherwise, look for a module relative to the standard library.
+      if (find.empty())
+        find = path::canonical(path::join(stdlib, base));
+
+      if (!find.empty())
+      {
+        imports.insert(find);
+      }
+      else
+      {
+        error() << name->value.location << "Couldn't locate module \"" << base
+                << "\"" << text(name->value.location);
+        r = Error;
+      }
+
+      if (opttypeargs(name->typeargs) == Error)
+        r = Error;
+
+      return r;
+    }
+
     Result opttyperef(Node<Type>& type)
     {
       // typename <- ident typeargs?
@@ -1651,15 +1715,11 @@ namespace verona::parser
       Result r = Success;
 
       // A typeref can start with a module name.
-      if (has(TokenKind::EscapedString) || has(TokenKind::UnescapedString))
-      {
-        auto name = std::make_shared<ModuleName>();
-        name->location = previous.location;
-        name->value = previous;
-        typeref->typenames.push_back(name);
+      Node<TypeName> name;
 
-        if (opttypeargs(name->typeargs) == Error)
-          r = Error;
+      if (optmodulename(name) != Skip)
+      {
+        typeref->typenames.push_back(name);
 
         if (!has(TokenKind::DoubleColon))
           return r;
@@ -2110,14 +2170,11 @@ namespace verona::parser
 
     Result namedentity(NamedEntity& ent)
     {
-      // namedentity <- ident entity
+      // namedentity <- ident? entity
       Result r = Success;
 
-      if (optident(ent.id) != Success)
-      {
-        error() << loc() << "Expected an entity name" << line();
-        r = Error;
-      }
+      if (optident(ent.id) == Skip)
+        ent.id = ident().location;
 
       if (entity(ent) == Error)
         r = Error;
@@ -2311,15 +2368,26 @@ namespace verona::parser
       return r;
     }
 
-    void module(Node<Module>& module, List<Member>& members)
+    Result sourcefile(
+      const std::string& file, Node<Class>& module, Node<Module>& moduledef)
     {
+      auto source = load_source(file);
+
+      if (!source)
+      {
+        error() << "Couldn't read file " << file << std::endl;
+        return Error;
+      }
+
+      start(source);
+
       // module <- (moduledef / member)*
       while (!has(TokenKind::End))
       {
         Result r;
 
-        if ((r = optmoduledef(module)) == Skip)
-          r = optmember(members);
+        if ((r = optmoduledef(moduledef)) == Skip)
+          r = optmember(module->members);
 
         if (r == Skip)
         {
@@ -2339,72 +2407,83 @@ namespace verona::parser
                           TokenKind::LParen});
         }
       }
+
+      return final_result;
+    }
+
+    Result module(const std::string& path, Node<Class>& program)
+    {
+      auto modulename = ident(path).location;
+
+      if (get_sym(modulename))
+        return final_result;
+
+      Node<Module> moduledef;
+      auto r = Success;
+
+      auto module = std::make_shared<Class>();
+      auto st0 = push(program);
+      auto st1 = push(module);
+      module->id = modulename;
+      program->members.push_back(module);
+      set_sym_parent(module->id, module);
+
+      if (!path::is_directory(path))
+      {
+        // This is only for testing.
+        r = sourcefile(path, module, moduledef);
+      }
+      else
+      {
+        auto files = path::files(path);
+
+        if (files.empty())
+        {
+          error() << "No " << ext << " files found in " << path << std::endl;
+          r = Error;
+        }
+        else
+        {
+          for (auto& file : files)
+          {
+            if (ext != path::extension(file))
+              continue;
+
+            auto filename = path::join(path, file);
+
+            if (sourcefile(filename, module, moduledef) == Error)
+              r = Error;
+          }
+        }
+      }
+
+      if (moduledef)
+      {
+        module->typeparams = std::move(moduledef->typeparams);
+        module->inherits = moduledef->inherits;
+
+        for (auto& tp : module->typeparams)
+          set_sym(tp->id, tp);
+      }
+
+      return r;
     }
   };
 
-  Result
-  parse_file(const std::string& file, Node<Class>& top, Node<Module>& module)
+  std::pair<bool, Node<NodeDef>>
+  parse(const std::string& path, const std::string& stdlib)
   {
-    auto source = load_source(file);
+    Parse parse(stdlib);
+    auto program = std::make_shared<Class>();
+    parse.imports.insert(path::canonical(path));
 
-    if (!source)
-      return Error;
-
-    Parse parse(source);
-    auto st = parse.push(top);
-    parse.module(module, top->members);
-
-    if (module)
+    while (!parse.imports.empty())
     {
-      top->typeparams = std::move(module->typeparams);
-      top->inherits = module->inherits;
-
-      for (auto& tp : top->typeparams)
-        parse.set_sym(tp->id, tp);
+      auto module = parse.imports.begin();
+      parse.module(*module, program);
+      parse.imports.erase(module);
     }
 
-    return parse.final_result;
-  }
-
-  Result parse_directory(const std::string& path, Node<Class>& top)
-  {
-    Node<Module> module;
-    auto result = Success;
-
-    if (!path::is_directory(path))
-    {
-      result = parse_file(path, top, module);
-    }
-    else
-    {
-      constexpr auto ext = "verona";
-      auto files = path::files(path);
-
-      if (files.empty())
-      {
-        std::cerr << "No " << ext << " files found in " << path << std::endl;
-        return Error;
-      }
-
-      for (auto& file : files)
-      {
-        if (ext != path::extension(file))
-          continue;
-
-        auto filename = path::join(path, file);
-
-        if (parse_file(filename, top, module) == Error)
-          result = Error;
-      }
-    }
-
-    return result;
-  }
-
-  std::pair<bool, Node<NodeDef>> parse(const std::string& path)
-  {
-    auto top = std::make_shared<Class>();
-    Result r = parse_directory(path, top);
-    return {r == Success, top};
+    return {parse.final_result == Success, program};
   }
 }
