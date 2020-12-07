@@ -214,12 +214,22 @@ namespace verona::parser
       {
         if (!text || (lookahead[la].location == text))
         {
-          la++;
+          next();
           return true;
         }
       }
 
       return false;
+    }
+
+    void next()
+    {
+      la++;
+    }
+
+    void rewind()
+    {
+      la = 0;
     }
 
     Token take()
@@ -232,11 +242,6 @@ namespace verona::parser
       previous = lookahead.front();
       lookahead.erase(lookahead.begin());
       return previous;
-    }
-
-    void rewind()
-    {
-      la = 0;
     }
 
     bool has(TokenKind kind, const char* text = nullptr)
@@ -272,8 +277,9 @@ namespace verona::parser
 
     bool is_op(Node<Expr>& expr)
     {
-      return ((expr->kind() == Kind::Ref) && !is_localref(expr)) ||
-        (expr->kind() == Kind::SymRef);
+      return (expr->kind() == Kind::StaticRef) ||
+              (expr->kind() == Kind::SymRef) ||
+              ((expr->kind() == Kind::Ref) && !is_localref(expr));
     }
 
     bool is_blockexpr(Node<Expr>& expr)
@@ -295,10 +301,38 @@ namespace verona::parser
       }
     }
 
+    void peek_matching(TokenKind kind)
+    {
+      // Skip over balanced () [] {}
+      while (!peek(TokenKind::End))
+      {
+        if (peek(kind))
+          return;
+
+        if (peek(TokenKind::LParen))
+        {
+          next();
+          peek_matching(TokenKind::RParen);
+        }
+        else if (peek(TokenKind::LSquare))
+        {
+          next();
+          peek_matching(TokenKind::RSquare);
+        }
+        else if (peek(TokenKind::LBrace))
+        {
+          next();
+          peek_matching(TokenKind::RBrace);
+        }
+
+        next();
+      }
+    }
+
     void restart_before(const std::initializer_list<TokenKind>& kinds)
     {
       // Skip over balanced () [] {}
-      while (true)
+      while (!has(TokenKind::End))
       {
         for (auto& kind : kinds)
         {
@@ -1018,6 +1052,9 @@ namespace verona::parser
     {
       Result r;
 
+      if ((r = optstaticref(expr)) != Skip)
+        return r;
+
       if ((r = optnonlocalref(expr)) != Skip)
         return r;
 
@@ -1169,76 +1206,72 @@ namespace verona::parser
 
     Result optstaticref(Node<Expr>& expr)
     {
-      // staticref <- typeref ('::' ident / symbol)
+      // staticname <- ident typeargs?
+      // staticref <- staticname ('::' staticname)* ('::' ident / symbol)
       // This can also return a Specialise node.
-      bool ok = (peek(TokenKind::Ident) || peek(TokenKind::EscapedString) ||
-                 peek(TokenKind::UnescapedString)) &&
-        (peek(TokenKind::LSquare) || peek(TokenKind::DoubleColon));
+      if (!peek(TokenKind::Ident))
+        return Skip;
+
+      if (peek(TokenKind::LSquare))
+        peek_matching(TokenKind::RSquare);
+
+      bool ok = peek(TokenKind::DoubleColon);
       rewind();
 
       if (!ok)
         return Skip;
 
-      Node<Type> typeref;
+      auto stat = std::make_shared<StaticRef>();
+      auto typeref = std::make_shared<TypeRef>();
+      stat->path = typeref;
+      expr = stat;
+
       Result r = Success;
 
-      if ((r = opttyperef(typeref)) != Success)
-        return r;
-
-      Token trailing;
-
-      if (has(TokenKind::DoubleColon))
+      while (true)
       {
-        if (has(TokenKind::Symbol))
+        // Use the location of the last DoubleColon.
+        stat->location = previous.location;
+        bool more = false;
+
+        if (peek(TokenKind::Ident))
         {
-          trailing = previous;
+          // Figure out if we have another DoubleColon.
+          if (peek(TokenKind::LSquare))
+            peek_matching(TokenKind::RSquare);
+
+          more = peek(TokenKind::DoubleColon);
+          rewind();
         }
-        else
+
+        if (!has(TokenKind::Ident) && !has(TokenKind::Symbol))
         {
-          error() << loc() << "Expected symbol" << line();
+          error() << loc() << "Expected an identifier or symbol" << line();
           r = Error;
+          break;
         }
-      }
 
-      TypeRef& t = typeref->as<TypeRef>();
-
-      if (!trailing.location.source && (t.typenames.size() == 1))
-      {
-        // Turn this into a Specialise node instead.
-        auto& name = t.typenames.front();
-        auto spec = std::make_shared<Specialise>();
-        spec->location = name->location;
-
-        if (name->value.kind == TokenKind::Ident)
-          spec->expr = ref(name->value.location);
-        else
-          spec->expr = constant(name->value);
-
-        spec->typeargs = name->typeargs;
-        expr = spec;
-      }
-      else
-      {
-        auto stat = std::make_shared<StaticRef>();
-        stat->path = typeref;
-        stat->ref = trailing;
-        expr = stat;
-
-        // If we have no trailing symbol, use the last entry as the trailing
-        // ident and turn its typeargs into a Specialise node.
-        if (!trailing.location.source)
+        if (!more)
         {
-          auto last = t.typenames.back();
-          t.typenames.pop_back();
-          stat->ref = last->value;
-
-          auto spec = std::make_shared<Specialise>();
-          spec->location = last->location;
-          spec->expr = stat;
-          spec->typeargs = last->typeargs;
-          expr = spec;
+          stat->ref = previous;
+          break;
         }
-      }
+
+        auto name = std::make_shared<TypeName>();
+        name->location = previous.location;
+        name->value = previous;
+        typeref->typenames.push_back(name);
+
+        if (opttypeargs(name->typeargs) == Error)
+          r = Error;
+
+        if (!has(TokenKind::DoubleColon))
+        {
+          error() << loc() << "Expected ::" << line();
+          r = Error;
+          break;
+        }
+      };
 
       return r;
     }
@@ -1246,7 +1279,6 @@ namespace verona::parser
     Result optatom(Node<Expr>& expr)
     {
       // atom <- staticref / ref / symref / constant / new / tuple
-      // This can also return a Specialise, as staticref can do so.
       Result r;
 
       if ((r = optstaticref(expr)) != Skip)
@@ -1432,7 +1464,7 @@ namespace verona::parser
 
     Result optprefix(Node<Expr>& expr)
     {
-      // op <- nonlocalref / symref
+      // op <- staticref / nonlocalref / symref
       // prefix <- op prefix / postfix
       // preblock <- op preblock / blockexpr
       List<Expr> list;
@@ -1491,7 +1523,6 @@ namespace verona::parser
 
         if ((r2 = optop(next)) != Skip)
         {
-          // We have a nonlocalref or a symref, use it as an infix operator.
           if (r2 == Error)
             r = Error;
 

@@ -7,7 +7,7 @@
 * try/catch
 * create sugar
 * update sugar
-  should we instead have Ref[T]?
+  should we instead have Ref[T] or Ref[T, U]?
 * distinguishing value parameters from type parameters
 * constant expressions
 
@@ -18,6 +18,7 @@
   needs free variable analysis
   could do the same thing for lambdas
   might not want to do either as they have type checking implications
+* `where` might need to have non-type constraints
 
 ## Public/Private
 
@@ -43,12 +44,26 @@ trim indent
 strings are whitespace sensitive
   indent trimming is about reducing that sensitivity
 
-## Operators
+## Resolving Names
 
-if op is not a static function in scope
-  (prefix op expr) -> (apply (select expr op) ())
-  (infix op expr0 expr1) -> (apply (select expr0 op) (tuple <unpack>expr1))
+typeref
+  type or error
+staticref
+  type, function, or error
+ref
+  type, function, or member
+symref
+  function or member
 
-if op is a static function in scope
-  (prefix op expr) -> (call op (tuple expr))
-  (infix op expr0 expr1) -> (call op (tuple expr0 <unpack>expr1))
+(prefix ? expr)
+  type -> (apply (call ?::create ()) expr)
+  function -> (call ? expr)
+  member -> (apply (select expr method) ())
+(infix ? expr0 expr1)
+  type -> (apply (apply expr0 (call ?::create ())) expr1)
+  function -> (call ? (tuple expr0 <unpack>expr1))
+  member -> (apply (select expr0 ?) expr1)
+
+TODO:
+* arguments to create sugar
+* can we use apply for functions instead of call
