@@ -1,3 +1,7 @@
+---
+layout: default
+title: Debugging Project Verona
+---
 # Debugging Project Verona
 
 We have built several features into the codebase to aid debugging.

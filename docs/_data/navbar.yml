@@ -1,0 +1,10 @@
+- name: Build
+  file: /building.html
+- name: Debug
+  file: /debugging.html
+- name: Expore
+  file: /explore.html
+- name: News
+  file: /news.html
+- name: FAQ
+  file: /faq.html
