@@ -311,21 +311,20 @@ namespace verona::parser
 
         if (peek(TokenKind::LParen))
         {
-          next();
           peek_matching(TokenKind::RParen);
         }
         else if (peek(TokenKind::LSquare))
         {
-          next();
           peek_matching(TokenKind::RSquare);
         }
         else if (peek(TokenKind::LBrace))
         {
-          next();
           peek_matching(TokenKind::RBrace);
         }
-
-        next();
+        else
+        {
+          next();
+        }
       }
     }
 
@@ -355,13 +354,8 @@ namespace verona::parser
         {
           restart_before(TokenKind::RBrace);
         }
-        else if (has(TokenKind::End))
-        {
-          return;
-        }
         else
         {
-          rewind();
           take();
         }
       }
@@ -826,13 +820,11 @@ namespace verona::parser
         if (signature(lambda->signature) != Success)
           r = Error;
       }
-      else if (opttuple(expr) == Success)
+      else if ((r = opttuple(expr)) != Skip)
       {
+        // Return a tuple instead of a lambda.
         if (!peek(TokenKind::Throws) && !peek(TokenKind::FatArrow))
-        {
-          // Return a successful tuple instead of a lambda.
-          return Success;
-        }
+          return r;
 
         rewind();
         lambda = std::make_shared<Lambda>();
@@ -893,6 +885,7 @@ namespace verona::parser
         sig->params.push_back(param);
 
         lambda->signature = sig;
+        r = Success;
       }
 
       auto st = push(lambda);
