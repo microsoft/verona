@@ -48,7 +48,7 @@ class Main
   main() {
     // CHECK-L: 2
     // CHECK-L: 1
-    // CHECK-L: 1 
+    // CHECK-L: 1
     // CHECK-L: 0
     Main.do_match1(mut-view (new A));
     Main.do_match1(mut-view (new B));
