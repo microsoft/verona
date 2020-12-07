@@ -1,3 +1,7 @@
+---
+layout: default
+title: Explore project Verona
+---
 # Systems programming
 
 The term system programming language is used to cover a wide range of problems from high-level performance-critical systems going down the stack to low-level memory managers and kernel modules.
