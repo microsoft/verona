@@ -42,7 +42,7 @@ controlflow <- 'break' / 'continue' / 'return' expr? / 'yield' expr? / expr
 typeargs <- '[' type (',' type)* ']'
 tuple <- '(' expr (',' expr)* ')' oftype?
 
-op <- nonlocalref / symref
+op <- staticref / symref / nonlocalref
 postfix <- atom (dot (symbol / ident) / typeargs / tuple)*
 prefix <- op prefix / postfix
 preblock <- op preblock / blockexpr
