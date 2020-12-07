@@ -8,6 +8,9 @@
 
 namespace verona::compiler
 {
+  class Context;
+  struct Method;
+
   /**
    * The region graph is a directed graph that tracks the relationship between
    * regions inside a function body. It is used during region checking to

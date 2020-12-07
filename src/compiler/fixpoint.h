@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "compiler/mapper.h"
+#include "type.h"
 
 /**
  * Recursive types, of the form (μX. T), are represented using De Bruijn

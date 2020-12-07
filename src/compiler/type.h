@@ -10,7 +10,9 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <string>
 #include <variant>
+#include <vector>
 
 namespace verona::compiler
 {

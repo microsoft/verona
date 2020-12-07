@@ -4,6 +4,7 @@
 
 #include "compiler/type.h"
 
+#include <algorithm>
 #include <optional>
 #include <set>
 

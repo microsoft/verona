@@ -6,7 +6,6 @@
 #include "compiler/format.h"
 #include "compiler/instantiation.h"
 #include "compiler/printing.h"
-#include "compiler/substitution.h"
 #include "compiler/typecheck/constraint.h"
 #include "compiler/typecheck/solver.h"
 #include "compiler/zip.h"

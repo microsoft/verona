@@ -6,7 +6,6 @@
 #include "compiler/instantiation.h"
 #include "compiler/intern.h"
 #include "compiler/printing.h"
-#include "compiler/substitution.h"
 #include "compiler/zip.h"
 
 namespace verona::compiler

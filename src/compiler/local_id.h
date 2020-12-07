@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "pegmatite.hh"
+#include <memory>
 
 namespace verona::compiler
 {
