@@ -1,7 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-f(x: T)
+f(x)
 {
   let a = 0;
   while (a < 5)
