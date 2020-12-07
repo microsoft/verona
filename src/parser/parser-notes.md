@@ -46,24 +46,42 @@ strings are whitespace sensitive
 
 ## Resolving Names
 
+No rewrites if a ref resolves to a localref.
+Ignore fields and methods when resolving.
+
 typeref
   type or error
 staticref
   type, function, or error
 ref
-  type, function, or member
+  type, function, or unknown
 symref
-  function or member
+  function or unknown
 
 (prefix ? expr)
-  type -> (apply (call ?::create ()) expr)
+  type -> (call ?::create expr)
   function -> (call ? expr)
-  member -> (apply (select expr method) ())
+  unknown -> (apply (select expr ?) ())
 (infix ? expr0 expr1)
   type -> (apply (apply expr0 (call ?::create ())) expr1)
   function -> (call ? (tuple expr0 <unpack>expr1))
-  member -> (apply (select expr0 ?) expr1)
+  unknown -> (apply (select expr0 ?) expr1)
+(select ? op)
+  type -> (select (call ?::create ()) op)
+  > or an error?
+  function -> (select (call ? ()) op)
+  > or an error?
+  unknown -> ERROR
+  > if this is always an error, only allow select on a localref
+(apply ? expr)
+  type -> (call ?::create expr)
+  function -> (call ? expr)
+  unknown -> (apply (select expr ?) ())
+(specialise ? typeargs)
+  type ->
+  function ->
+  unknown ->
 
 TODO:
-* arguments to create sugar
-* can we use apply for functions instead of call
+* bubble up rewrites?
+* (apply e0 e1) -> (call (select e0 apply) (tuple e0 <unpack>e1))  ?
