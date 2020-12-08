@@ -597,18 +597,6 @@ namespace verona::rt
       get_header().bits &= ~(size_t)RegionMD::MARKED;
     }
 
-    inline void mark_pending()
-    {
-      assert(get_class() == RegionMD::UNMARKED);
-      get_header().bits |= (uint8_t)RegionMD::PENDING;
-    }
-
-    inline void unmark_pending()
-    {
-      assert(get_class() == RegionMD::PENDING);
-      get_header().bits &= ~(size_t)RegionMD::PENDING;
-    }
-
   public:
     inline EpochMark get_epoch_mark()
     {
