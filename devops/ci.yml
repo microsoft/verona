@@ -90,7 +90,7 @@ jobs:
       set -eo pipefail
       export ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer
       export ASAN_OPTIONS="alloc_dealloc_mismatch=0 symbolize=1"
-      ninja check
+      ctest -C $(BuildType) -j $(nproc) --output-on-failure --timeout 400 --interactive-debug-mode 0
     workingDirectory: build
     displayName: 'Tests'
 
@@ -129,10 +129,15 @@ jobs:
     displayName: 'CMake'
 
   - task: MSBuild@1
-    displayName: 'Compile and Tests'
+    displayName: 'Compile'
     inputs:
       solution: build/verona.sln
       msbuildArguments: '/m /p:Configuration=$(BuildType)'
+
+  - script: |
+      ctest -C $(BuildType) -j %NUMBER_OF_PROCESSORS% --output-on-failure --timeout 400 --interactive-debug-mode 0
+    workingDirectory: build/
+    displayName: 'Tests'
 
   - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
     displayName: 'Component Detection'
@@ -183,7 +188,8 @@ jobs:
 
   - script: |
       set -eo pipefail
-      make check
+      N=$(sysctl -n hw.ncpu)
+      ctest -C $(BuildType) -j $N --output-on-failure --timeout 400 --interactive-debug-mode 0
     workingDirectory: build/
     displayName: 'Tests'
 
