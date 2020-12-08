@@ -19,6 +19,47 @@ Once created by the `ir/builder` pass, the IR is immutable. All new information
 is represented in external side structures, as part of the `FnAnalysis`
 structure.
 
+# Values
+
+We call "value" the contents of a program variable or field. Note that this
+differs from MLIR, which call `Value` SSA variables.
+
+Values are generally divided in a handful of categories:
+
+- *Owned references* hold a pointer to a region's entry object. For a given
+  region, there can be only one owned reference to it. This is represented by
+  the capability `iso` in the type system.
+
+- *Unowned references* hold a pointer to any object inside a region, which may
+  or may not be the region's entrypoint. If a field contains an unowned
+  reference, then that reference must point to an object in the same region as
+  the object which contains the field. This is represented by the capability
+  `mut` in the type system.
+
+- *Reference counted values* hold a pointer to either an immutable object or a
+  cown. While the API used to manipulate the two differ, at the IR level, they
+  have very similar semantics. This is represented by the capability `imm` in
+  the type system.
+
+- *Primitives* are values that do not reference the heap at all, such as
+  integers. This is also represented by the capability `imm` in the type
+  system, despite not being references to any kind of object. Strings are
+  currently represented as primitives, although this will change in the future
+  (they will become regular objects). 
+
+Many IR operations have different behaviours depending on the kind of value:
+for instance, if a variable `x` holds an owned reference when it goes out of
+scope, the referenced region must be deallocated. If instead it held an unowned
+reference, nothing needs to be done.
+
+While type information may help narrow down the set of possible values a
+variable or field holds, it is, on its own, not sufficient. For instance, a
+variable could have type `x: iso | mut`, in which case it could hold either an
+owned or unowned reference. The underlying implementation must therefore have a
+mechanism for deciding the kind of value. In the VM, this is achieved very
+wastefully by including a tag in every value. In practice, we'll want to combine
+type information and more specialized encodings to achieve this efficiently.
+
 # Type information
 
 The IR itself contains almost no type information. Only types which appear in
@@ -218,6 +259,144 @@ are part of the same region
 The type system will ensure that `x1` and `x2` have the same
 lifetime type (assuming we go that way).
 
+# IR Invariants
+
+*Note: this section mixes properties that are guaranteed by construction, and
+properties that should be enforced by the type system. A violation of the
+former is compiler bug, a violation of the latter is a programmer error. From
+the perspective of lowering, this is irrelevant since we assume only correct
+programs are lowered.*
+
+In addition to the typical requirements imposed by SSA, the IR has strong
+invariants about how and when variables may be used. We split uses of variables
+into different categories, described below.
+
+## Regular uses
+
+Regular uses are those which inspect the contents of a variables. This includes
+field reads, the origin of a field assignement (ie. `x` in `x.f = y`), pattern
+matching, ...
+
+## Consuming uses
+
+Consuming uses are a subset of regular uses, in which, if the variable held an
+owned reference, that value is *moved* to another location. In this situation,
+the original variable's must not be the subject of a regular use ever again.
+
+Consuming uses include the right hand side of a field assignement (ie. the `y`
+in `x.f = y`), arguments to method calls, a copy from one variable to another
+(ie. the `y` in `x = y`).
+
+## Destructive uses
+
+A destructive use is one that releases the contents of the variable, if it
+hadn't been moved, by eg.  deallocating the region pointed at by an owned
+reference. Destructive uses occur when a source level variable goes out of
+scope, or when it is being overwritten. For example, `{ var x = f(); x = g();
+var y = h(); }` lowers to an IR of the form:
+
+```
+  %x0 = call f()
+  %x1 = call g()
+  overwrite(%x0) // Destructive use of %x0
+  %y = call h()
+  end-scope(%y, %x1)  // Destructive use of %x1 and %y
+```
+
+Every variable must encounter exactly one destructive use on every execution
+path. Conversely, after a destructive use, a variable must not be used again.
+This requirement applies regardless of the kind of value held by the variable:
+even an integer value must be the subject of a destructive use, albeit this
+will lower to a no-op.
+
+A destructive use is not considered a regular use. Therefore, a variable may
+(and must) be destroyed after a consuming use. This implies that `%x = ...; %y
+= call f(%x)` on its own is not a valid IR. It should instead have the form `%x
+= ...; %y = call f(%x); end-scope(%x)`. If `%x` holds an owned value, the
+consuming use in the call to `f` will have moved the value. The `end-scope`
+statement is therefore a no-op.
+
+## Forwarding uses
+
+When a variable is passed as an argument to another basic block, we should
+treat this use differently based on how the target basic block uses its
+parameter. For this reason, we consider arguments passed to basic blocks
+**forwarding uses**.
+
+Consider the following IR:
+```
+BB0:
+  %x0 = ...
+  %y0 = ...
+  goto BB1(%x0, %y0)
+
+BB1(%x1, %y1):
+  use(%1)  // Regular use of %1
+  end-scope(%x1, %y1)
+```
+
+In this example, `%x1` is the subject of a regular use, whereas `%y1` is not.
+Therefore, due to the forwarding nature of the `goto` statement, `%x0` is the
+subject of a regular use but `%y0` is not.
+
+Because all variables must eventually be the subject of a destructive use, here
+the `end-scope(%x1, %y1)` statement, forwarding uses are themselves always
+considered destructive uses. This has an important consequence: if a variable
+is passed as basic block argument, it may not be used again. In the example
+above, it would be illegal to use `%x0` or `%y0` in `BB1`. Additionally, such a
+variable does not need any additional destructive use: note the absence of a
+`end-scope(%x0, %y0)`.
+
+TODO: we actually use the word "destructive use" for two things, `(overwrite +
+end-scope)` and `(overwrite + end-scope + block arguments)`. The latter
+includes forwarding uses, since these "act like" a destructive use in many
+aspects.
+
+TODO: Should variable uses be evaluated as a least or greatest fixed point?. In
+other words, in `BB0(%x): goto BB0(%x)`, is `%x` ever the subject of a regular,
+consuming or destructive use?  While an interesting theoretical question, I
+don't think we need to worry too much about this in practice.
+
+# Conditionally moved values
+
+As mentioned earlier, if a value is moved, its destructive use has no effect.
+Determining at the destructive use site whether or not to release a value may
+require tracking additional information at runtime, in at least two ways.
+
+Firstly, a consuming use may have occurred inside a branch. The value would
+have been moved only if the branch is taken. In this case, the final
+`end-scope` effect should only release the value was not taken.
+
+```
+BB0:
+  %x = ...
+  %y = ... // %y holds an owned value
+  if %x then goto BB1 else goto BB2
+
+BB1:
+  call foo(%y) // Consuming use of %y, its value is moved
+  goto BB2
+
+BB2:
+  // %y has been moved conditionally, we need to release it only if the
+  // branch was not taken.
+  end-scope(%y) 
+```
+
+Secondly, a consuming use moves the value **only if** the value is an owned
+reference. If a variable `%x: iso | imm` may contain either an owned reference
+or a reference counted value, a call to `foo(%x)` would move the value only in
+the first case, not if the value is a reference counted value. Therefore, a
+subsequent `end-scope(%x)` statement should release the value only if it holds
+a reference counted value, not an owned reference.
+
+Note that in both cases, the conditionally moved value may not be the subject
+of a regular use. However, destructive uses are not considered regular uses.
+
+In order to correctly implement these semantics, we need to add special markers
+during lowering to track whether a variable's contents have been moved or not.
+The markers can be optimized away in cases where we know the answer statically.
+
 # Statements
 ## `NewStmt`
 
@@ -226,7 +405,7 @@ which designates the region in which the object should be allocated. If no
 parent is specified, the object is allocated in a new region.
 
 This will correspond to either a `rt::RegionTrace::create` or
-`rt::RegionTrace::alloc` call, dependending on whether a new region needs to be
+`rt::RegionTrace::alloc` call, depending on whether a new region needs to be
 allocated.
 
 The `parent` specified in the statement could be any object in the target
