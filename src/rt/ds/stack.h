@@ -296,7 +296,7 @@ namespace verona::rt
     ALWAYSINLINE
     void forall(snmalloc::function_ref<void(T*)> apply)
     {
-      stack.template forall(apply);
+      stack.forall(apply);
     }
 
     ~Stack()
