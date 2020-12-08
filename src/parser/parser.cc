@@ -194,7 +194,7 @@ namespace verona::parser
 
     Location loc()
     {
-      if(lookahead.size() > 0)
+      if (lookahead.size() > 0)
         return lookahead[0].location;
       else
         return previous.location;
@@ -280,8 +280,8 @@ namespace verona::parser
     bool is_op(Node<Expr>& expr)
     {
       return (expr->kind() == Kind::StaticRef) ||
-              (expr->kind() == Kind::SymRef) ||
-              ((expr->kind() == Kind::Ref) && !is_localref(expr));
+        (expr->kind() == Kind::SymRef) ||
+        ((expr->kind() == Kind::Ref) && !is_localref(expr));
     }
 
     bool is_blockexpr(Node<Expr>& expr)

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "print.h"
 
+#include "dispatch.h"
 #include "escaping.h"
 #include "pretty.h"
 
@@ -321,162 +322,23 @@ namespace verona::parser
                << end;
   }
 
-  PrettyStream& operator<<(PrettyStream& out, const Node<NodeDef>& node)
+  struct Print
   {
-    if (!node)
-      return out << sep << "()";
-
-    switch (node->kind())
+    PrettyStream& operator()(PrettyStream& out)
     {
-      // Definitions
-      case Kind::Open:
-        return out << node->as<Open>();
-
-      case Kind::TypeAlias:
-        return out << node->as<TypeAlias>();
-
-      case Kind::Interface:
-        return out << node->as<Interface>();
-
-      case Kind::Class:
-        return out << node->as<Class>();
-
-      case Kind::Module:
-        return out << node->as<Module>();
-
-      case Kind::Field:
-        return out << node->as<Field>();
-
-      case Kind::Param:
-        return out << node->as<Param>();
-
-      case Kind::TypeParam:
-        return out << node->as<TypeParam>();
-
-      case Kind::Signature:
-        return out << node->as<Signature>();
-
-      case Kind::Function:
-        return out << node->as<Function>();
-
-      case Kind::Method:
-        return out << node->as<Method>();
-
-      // Types
-      case Kind::UnionType:
-        return out << node->as<UnionType>();
-
-      case Kind::IsectType:
-        return out << node->as<IsectType>();
-
-      case Kind::TupleType:
-        return out << node->as<TupleType>();
-
-      case Kind::FunctionType:
-        return out << node->as<FunctionType>();
-
-      case Kind::ViewType:
-        return out << node->as<ViewType>();
-
-      case Kind::ExtractType:
-        return out << node->as<ExtractType>();
-
-      case Kind::TypeName:
-        return out << node->as<TypeName>();
-
-      case Kind::ModuleName:
-        return out << node->as<ModuleName>();
-
-      case Kind::TypeRef:
-        return out << node->as<TypeRef>();
-
-      // Expressions
-      case Kind::Tuple:
-        return out << node->as<Tuple>();
-
-      case Kind::Block:
-        return out << node->as<Block>();
-
-      case Kind::When:
-        return out << node->as<When>();
-
-      case Kind::While:
-        return out << node->as<While>();
-
-      case Kind::Case:
-        return out << node->as<Case>();
-
-      case Kind::Match:
-        return out << node->as<Match>();
-
-      case Kind::If:
-        return out << node->as<If>();
-
-      case Kind::Lambda:
-        return out << node->as<Lambda>();
-
-      case Kind::Break:
-        return out << node->as<Break>();
-
-      case Kind::Continue:
-        return out << node->as<Continue>();
-
-      case Kind::Return:
-        return out << node->as<Return>();
-
-      case Kind::Yield:
-        return out << node->as<Yield>();
-
-      case Kind::Assign:
-        return out << node->as<Assign>();
-
-      case Kind::Infix:
-        return out << node->as<Infix>();
-
-      case Kind::Prefix:
-        return out << node->as<Prefix>();
-
-      case Kind::Inblock:
-        return out << node->as<Inblock>();
-
-      case Kind::Preblock:
-        return out << node->as<Preblock>();
-
-      case Kind::Select:
-        return out << node->as<Select>();
-
-      case Kind::Specialise:
-        return out << node->as<Specialise>();
-
-      case Kind::Apply:
-        return out << node->as<Apply>();
-
-      case Kind::Ref:
-        return out << node->as<Ref>();
-
-      case Kind::SymRef:
-        return out << node->as<SymRef>();
-
-      case Kind::StaticRef:
-        return out << node->as<StaticRef>();
-
-      case Kind::Let:
-        return out << node->as<Let>();
-
-      case Kind::Var:
-        return out << node->as<Var>();
-
-      case Kind::Constant:
-        return out << node->as<Constant>();
-
-      case Kind::New:
-        return out << node->as<New>();
-
-      case Kind::ObjectLiteral:
-        return out << node->as<ObjectLiteral>();
+      return out << sep << "()";
     }
 
-    return out;
+    template<typename T>
+    PrettyStream& operator()(T& node, PrettyStream& out)
+    {
+      return out << node;
+    }
+  };
+
+  PrettyStream& operator<<(PrettyStream& out, const Node<NodeDef>& node)
+  {
+    return dispatch(Print(), node, out);
   }
 
   std::ostream& operator<<(std::ostream& out, const pretty& pret)
