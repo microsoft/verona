@@ -255,10 +255,6 @@ namespace verona::compiler
     {
       print("(is-entity)");
     }
-    void visit_string_type(const StringTypePtr& ty) final
-    {
-      print("(string)");
-    }
     void visit_fixpoint_type(const FixpointTypePtr& ty) final
     {
       print("(fixpoint {})", *ty->inner);
@@ -332,11 +328,6 @@ namespace verona::compiler
     void visit_type_sequence(const BoundedTypeSequence& seq)
     {
       print("[{}]", comma_sep(seq.types));
-    }
-
-    void visit_string_type_expr(StringTypeExpr& te)
-    {
-      print("(string)");
     }
 
     void visit_symbol_type_expr(SymbolTypeExpr& te)

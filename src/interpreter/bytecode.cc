@@ -68,4 +68,23 @@ namespace verona::bytecode
     }
     return out;
   }
+
+  std::ostream& operator<<(std::ostream& out, const Capability& self)
+  {
+    switch (self)
+    {
+      case Capability::Iso:
+        fmt::print(out, "ISO");
+        break;
+      case Capability::Mut:
+        fmt::print(out, "MUT");
+        break;
+      case Capability::Imm:
+        fmt::print(out, "IMM");
+        break;
+
+        EXHAUSTIVE_SWITCH;
+    }
+    return out;
+  }
 }

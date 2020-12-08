@@ -158,9 +158,8 @@ namespace verona::interpreter
     stack_.at(frame().base + reg.index).overwrite(alloc_, std::move(value));
   }
 
-  const VMDescriptor* VM::find_dispatch_descriptor(Register receiver) const
+  const VMDescriptor* VM::find_dispatch_descriptor(const Value& value) const
   {
-    const Value& value = read(receiver);
     switch (value.tag)
     {
       case Value::MUT:
@@ -174,8 +173,37 @@ namespace verona::interpreter
         return value->cown->descriptor;
       case Value::U64:
         return code_.special_descriptors().u64;
+      case Value::STRING:
+        return code_.special_descriptors().string;
       default:
-        fatal("Cannot call method on {}={}", receiver, value);
+        fatal("Cannot call method on {}", value);
+    }
+  }
+
+  const VMDescriptor* VM::find_match_descriptor(const Value& value) const
+  {
+    switch (value.tag)
+    {
+      case Value::MUT:
+      case Value::IMM:
+      case Value::ISO:
+        return value->object->descriptor();
+
+      case Value::COWN:
+        return value->cown->descriptor;
+
+      case Value::U64:
+        return code_.special_descriptors().u64;
+
+      case Value::STRING:
+        return code_.special_descriptors().string;
+
+      case Value::DESCRIPTOR:
+      case Value::UNINIT:
+        return nullptr;
+
+      default:
+        fatal("Invalid match operand: {}", value);
     }
   }
 
@@ -251,8 +279,8 @@ namespace verona::interpreter
       fatal("Call space does not fit in current frame");
 
     // Dispatch on the receiver, which is the first value in the callspace.
-    const VMDescriptor* descriptor =
-      find_dispatch_descriptor(Register(frame().locals - callspace));
+    const Value& receiver = read(Register(frame().locals - callspace));
+    const VMDescriptor* descriptor = find_dispatch_descriptor(receiver);
 
     size_t addr = descriptor->methods[selector];
     size_t base = frame().base + frame().locals - callspace;
@@ -345,35 +373,50 @@ namespace verona::interpreter
     return Value::descriptor(descriptor);
   }
 
-  Value VM::opcode_match(const Value& src, const VMDescriptor* descriptor)
+  Value VM::opcode_match_descriptor(const Value& src, const VMDescriptor* desc)
+  {
+    const VMDescriptor* src_descriptor = find_match_descriptor(src);
+
+    uint64_t result;
+
+    // Some values are unmatchable, in which case their descriptor is null.
+    if (src_descriptor == nullptr)
+      result = 0;
+    else
+      result = desc->subtypes.count(src_descriptor->index) > 0;
+
+    trace(" Matching {} against {} = {}", src, desc->name, result);
+    return Value::u64(result);
+  }
+
+  Value VM::opcode_match_capability(const Value& src, bytecode::Capability cap)
   {
     uint64_t result;
     switch (src.tag)
     {
-      case Value::UNINIT:
+      case Value::ISO:
+        result = (cap == bytecode::Capability::Iso);
+        break;
+
+      case Value::MUT:
+        result = (cap == bytecode::Capability::Mut);
+        break;
+
+      // These are all represented as immutables in the source language, even if
+      // we don't actually implement them as immutable objects in the VM.
+      case Value::IMM:
+      case Value::COWN:
       case Value::U64:
       case Value::STRING:
-      case Value::DESCRIPTOR:
-      case Value::COWN:
-        result = false;
+        result = (cap == bytecode::Capability::Imm);
         break;
 
-      case Value::ISO:
-      case Value::IMM:
-      case Value::MUT:
-      {
-        auto it = descriptor->subtypes.find(src->object->descriptor()->index);
-        result = (it != descriptor->subtypes.end());
+      default:
+        result = 0;
         break;
-      }
-
-      case Value::COWN_UNOWNED:
-        // This type should only appear in message.
-        abort();
     }
 
-    trace(" Matching {} against {} = {}", src, descriptor->name, result);
-
+    trace(" Matching {} against {} = {}", src, cap, result);
     return Value::u64(result);
   }
 
@@ -502,8 +545,8 @@ namespace verona::interpreter
     return std::move(old_value);
   }
 
-  void VM::opcode_when(
-    CodePtr closure_body, uint8_t cown_count, uint8_t capture_count)
+  void
+  VM::opcode_when(CodePtr offset, uint8_t cown_count, uint8_t capture_count)
   {
     // One added for unused receiver
     // TODO-Better-Static-codegen
@@ -511,7 +554,7 @@ namespace verona::interpreter
     if (callspace > frame().locals)
       fatal("Call space does not fit in current frame");
 
-    size_t entry_addr = closure_body;
+    size_t entry_addr = offset;
     size_t addr = entry_addr;
     FunctionHeader header = code_.function_header(addr);
 
@@ -636,7 +679,8 @@ namespace verona::interpreter
       OP(JumpIf, opcode_jump_if);
       OP(Load, opcode_load);
       OP(LoadDescriptor, opcode_load_descriptor);
-      OP(Match, opcode_match);
+      OP(MatchCapability, opcode_match_capability);
+      OP(MatchDescriptor, opcode_match_descriptor);
       OP(Move, opcode_move);
       OP(MutView, opcode_mut_view);
       OP(NewObject, opcode_new_object);

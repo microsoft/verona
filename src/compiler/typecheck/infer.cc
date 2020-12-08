@@ -491,7 +491,9 @@ namespace verona::compiler
       std::vector<Variable>& dead_variables,
       const StringLiteralStmt& stmt)
     {
-      set_type(assignment, stmt.output, context_.mk_string_type());
+      TypePtr u64 = get_entity("String");
+      TypePtr type = context_.mk_intersection(u64, context_.mk_immutable());
+      set_type(assignment, stmt.output, type);
     }
 
     void visit_stmt(

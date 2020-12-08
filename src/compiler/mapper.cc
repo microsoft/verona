@@ -120,11 +120,6 @@ namespace verona::compiler
     return context().mk_is_entity();
   }
 
-  TypePtr RecursiveTypeMapper::visit_string_type(const StringTypePtr& ty)
-  {
-    return context().mk_string_type();
-  }
-
   TypePtr RecursiveTypeMapper::visit_fixpoint_type(const FixpointTypePtr& ty)
   {
     return context().mk_fixpoint(apply(ty->inner));

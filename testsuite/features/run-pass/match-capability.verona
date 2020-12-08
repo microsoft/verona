@@ -1,0 +1,24 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+class A { }
+class Main
+{
+  do_match(x: A & (mut | iso | imm))
+  {
+    match x {
+      var _: mut => Builtin.print("mut\n"),
+      var _: iso => Builtin.print("iso\n"),
+      var _: imm => Builtin.print("imm\n"),
+    }
+  }
+
+  main() {
+    // CHECK-L: mut
+    // CHECK-L: iso
+    // CHECK-L: imm
+    Main.do_match(mut-view (new A));
+    Main.do_match(new A);
+    Main.do_match(Builtin.freeze(new A));
+  }
+}

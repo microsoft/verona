@@ -583,9 +583,6 @@ namespace verona::compiler
   struct TypeExpression : public SourceLocatableMixin<ASTContainer>
   {};
 
-  struct StringTypeExpr final : public TypeExpression
-  {};
-
   struct SymbolTypeExpr final : public TypeExpression
   {
     ASTChild<Name> name;

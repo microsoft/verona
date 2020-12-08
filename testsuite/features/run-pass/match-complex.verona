@@ -1,0 +1,71 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+// Test matching against complex types, involving classes, interfaces,
+// capabilities, unions and intersections.
+
+interface I1 { m1(self: mut); }
+interface I2 { m2(self: mut); }
+interface Any { }
+
+class A {
+  m1(self: mut) {}
+  m2(self: mut) {}
+}
+class B {
+  m1(self: mut) {}
+}
+class C {
+  m2(self: mut) {}
+}
+class D { }
+
+class Main
+{
+  // Prints the number of interfaces out of I1 or I2 that the
+  // argument matches against.
+  do_match1(x: Any & mut)
+  {
+    Builtin.print1("{}\n", match x {
+      var _: I1 & I2 => 2,
+      var _: I1 | I2 => 1,
+      var _: Any => 0,
+    })
+  }
+
+  // Prints a description of the argument's type.
+  do_match2(x: (A | B) & (mut | iso | imm))
+  {
+    Builtin.print1("{}\n", match x {
+      var x: A & iso => "A & iso",
+      var x: A & (imm | mut) => "A & (imm | mut)",
+      var x: B & mut => "B & mut",
+      var x: B & (iso | imm) => "B & (iso | imm)",
+    });
+  }
+
+
+  main() {
+    // CHECK-L: 2
+    // CHECK-L: 1
+    // CHECK-L: 1
+    // CHECK-L: 0
+    Main.do_match1(mut-view (new A));
+    Main.do_match1(mut-view (new B));
+    Main.do_match1(mut-view (new C));
+    Main.do_match1(mut-view (new D));
+
+    // CHECK-L: A & iso
+    // CHECK-L: B & (iso | imm)
+    // CHECK-L: A & (imm | mut)
+    // CHECK-L: B & mut
+    // CHECK-L: A & (imm | mut)
+    // CHECK-L: B & (iso | imm)
+    Main.do_match2(new A);
+    Main.do_match2(new B);
+    Main.do_match2(mut-view (new A));
+    Main.do_match2(mut-view (new B));
+    Main.do_match2(Builtin.freeze (new A));
+    Main.do_match2(Builtin.freeze (new B));
+  }
+}
