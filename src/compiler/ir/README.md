@@ -73,11 +73,11 @@ Then on the line marked with `(B)` we will generate,
 ```
    Foo[int]::map[double]
 ```
-as this is the instiation for the class that has been inferred by type inference, and 
+as this is the instantiation for the class that has been inferred by type inference, and 
 ```
    Foo[double]
 ```
-as this is the inferred return type.  For the method, we will look into there bodies to see what types they use,
+as this is the inferred return type.  For the method, we will look into their bodies to see what types they use,
 and for the classes, we generate a layout for the fields, add the type of each field as reachable, and also add the
 `finaliser` as a reachable method.
 
