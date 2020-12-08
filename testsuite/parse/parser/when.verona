@@ -1,0 +1,11 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+foo(a: Cown[A], b: Cown[B])
+{
+  when (a) {}
+  when (a, b) {
+    when (bar()) {}
+    return b
+  }
+}

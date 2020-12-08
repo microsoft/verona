@@ -1,0 +1,64 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      /home/syclebsc/dev/verona/testsuite/parse/parser/staticcall.verona
+      []
+      ()
+      [
+        (class
+          B
+          []
+          ()
+          [
+            (class C [] () [ (method bar (signature [] [] () ()) (block [])) ])
+            (method foo (signature [] [] () ()) (block []))
+          ])
+        (method
+          f
+          (signature
+            []
+            [
+              (param x (typeref [ (typename A []) ]) ())
+              (param y (typeref [ (typename A []) ]) ())
+            ]
+            ()
+            ())
+          (block
+            [
+              (ref B ())
+              (staticref (typeref [ (typename B []) ]) foo)
+              (apply
+                (staticref (typeref [ (typename B []) ]) foo)
+                (tuple [] ()))
+              (staticref (typeref [ (typename B []) ]) C)
+              (staticref
+                (typeref [ (typename B [ (typeref [ (typename X []) ]) ]) ])
+                C)
+              (specialise
+                (staticref
+                  (typeref [ (typename B [ (typeref [ (typename X []) ]) ]) ])
+                  C)
+                [ (typeref [ (typename X []) ]) ])
+              (apply
+                (specialise
+                  (staticref
+                    (typeref
+                      [
+                        (typename B [ (typeref [ (typename X []) ]) ])
+                        (typename C [ (typeref [ (typename X []) ]) ])
+                      ])
+                    bar)
+                  [ (typeref [ (typename X []) ]) ])
+                (tuple
+                  [
+                    (ref x ())
+                    (tuple [ (ref y ()) ] ())
+                    (tuple [ (ref x ()) (ref y ()) ] ())
+                  ]
+                  ()))
+            ]))
+      ])
+  ])

@@ -1,0 +1,34 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      /home/syclebsc/dev/verona/testsuite/parse/parser/strings.verona
+      []
+      ()
+      [
+        (method
+          apply
+          (signature
+            []
+            [
+              (param x (typeref [ (typename U64 []) ]) ())
+              (param y (typeref [ (typename U64 []) ]) ())
+            ]
+            ()
+            ())
+          (block
+            [
+              (string " c-string \" 😄 -> 😄 ")
+              (string
+                "    no indent $x + ${y} = ${x + y} $1\n      indent 2 spaces \"{no interp: $x}\"")
+              (string "\n    hi\n")
+              (char "{\n  }")
+              (assign (let (ref tab ())) (string "\t"))
+              (apply
+                (apply (string "    look, a ") (ref tab ()))
+                (string " in my string"))
+            ]))
+      ])
+  ])

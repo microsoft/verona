@@ -1,0 +1,39 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      /home/syclebsc/dev/verona/testsuite/parse/parser/import.verona
+      []
+      ()
+      [
+        (typealias
+          Foo
+          []
+          ()
+          (typeref
+            [
+              (modulename
+                (string "module_foo")
+                [ (typeref [ (typename A []) ]) (typeref [ (typename B []) ]) ])
+            ]))
+        (method
+          main
+          (signature [] [] () ())
+          (block
+            [
+              (apply
+                (staticref (typeref [ (typename Foo []) ]) foo)
+                (tuple [] ()))
+            ]))
+      ])
+    (class
+      /home/syclebsc/dev/verona/testsuite/parse/parser/module_foo/
+      [ (typeparam A () ()) (typeparam B () ()) ]
+      (typeref [ (typename C []) ])
+      [
+        (method foo (signature [] [] () ()) (block []))
+        (method _foo (signature [] [] () ()) (block []))
+      ])
+  ])

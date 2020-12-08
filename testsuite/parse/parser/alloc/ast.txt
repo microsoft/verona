@@ -1,0 +1,134 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      /home/syclebsc/dev/verona/testsuite/parse/parser/alloc.verona
+      []
+      ()
+      [
+        (class
+          C
+          []
+          ()
+          [
+            (field
+              f
+              (isecttype
+                [
+                  (typeref [ (typename A []) ])
+                  (typeref [ (typename mut []) ])
+                ])
+              ())
+            (function
+              create
+              (signature
+                [ (typeparam S (typeref [ (typename Self []) ]) ()) ]
+                [
+                  (param
+                    a
+                    (tupletype
+                      [
+                        (isecttype
+                          [
+                            (typeref [ (typename A []) ])
+                            (typeref [ (typename mut []) ])
+                          ])
+                      ])
+                    ())
+                ]
+                (typeref [ (typename S []) ])
+                ())
+              (block [ (new (tuple [ (ref a ()) ] ()) a) ]))
+          ])
+        (interface Any [] () [])
+        (class
+          Empty
+          []
+          ()
+          [
+            (function
+              create
+              (signature [] [] (typeref [ (typename Empty []) ]) ())
+              (block [ (new (tuple [] ()) ()) ]))
+            (function
+              apply
+              (signature [] [] (typeref [ (typename Empty []) ]) ())
+              (block [ (new (tuple [] ()) ()) ]))
+          ])
+        (class
+          One
+          []
+          ()
+          [
+            (field a (typeref [ (typename U32 []) ]) ())
+            (function
+              create
+              (signature
+                []
+                [ (param a (typeref [ (typename U32 []) ]) ()) ]
+                (typeref [ (typename One []) ])
+                ())
+              (block [ (new (tuple [ (ref a ()) ] ()) ()) ]))
+          ])
+        (class
+          Two
+          []
+          ()
+          [
+            (field a (typeref [ (typename U32 []) ]) ())
+            (field b (typeref [ (typename F64 []) ]) ())
+            (function
+              create
+              (signature
+                []
+                [
+                  (param a (typeref [ (typename U32 []) ]) ())
+                  (param b (typeref [ (typename F64 []) ]) ())
+                ]
+                (typeref [ (typename Two []) ])
+                ())
+              (block [ (new (tuple [ (ref a ()) (ref b ()) ] ()) ()) ]))
+          ])
+        (method
+          foo
+          (signature [] [] () ())
+          (block
+            [
+              (assign
+                (let (ref f ()))
+                (lambda
+                  (signature
+                    [ (typeparam A (typeref [ (typename U64 []) ]) ()) ]
+                    [ (param a () ()) ]
+                    ()
+                    ())
+                  (infix (symref +) (ref a ()) (int 42))))
+              (assign
+                (let (ref e0 ()))
+                (apply
+                  (staticref (typeref [ (typename Empty []) ]) create)
+                  (tuple [] ())))
+              (assign (let (ref e1 ())) (ref Empty ()))
+              (assign
+                (let (ref e2 ()))
+                (object (typeref [ (typename Empty []) ]) [] e))
+              (assign
+                (let (ref one ()))
+                (object
+                  (typeref [ (typename One []) ])
+                  [ (field a (typeref [ (typename U32 []) ]) (int 42)) ]
+                  ()))
+              (assign
+                (let (ref two ()))
+                (object
+                  (typeref [ (typename Two []) ])
+                  [
+                    (field a (typeref [ (typename U32 []) ]) (int 42))
+                    (field b (typeref [ (typename F64 []) ]) (float 3.14))
+                  ]
+                  one))
+            ]))
+      ])
+  ])

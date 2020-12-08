@@ -1,0 +1,41 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      /home/syclebsc/dev/verona/testsuite/parse/parser/when.verona
+      []
+      ()
+      [
+        (method
+          foo
+          (signature
+            []
+            [
+              (param
+                a
+                (typeref [ (typename Cown [ (typeref [ (typename A []) ]) ]) ])
+                ())
+              (param
+                b
+                (typeref [ (typename Cown [ (typeref [ (typename B []) ]) ]) ])
+                ())
+            ]
+            ()
+            ())
+          (block
+            [
+              (when (tuple [ (ref a ()) ] ()) (block []))
+              (when
+                (tuple [ (ref a ()) (ref b ()) ] ())
+                (block
+                  [
+                    (when
+                      (tuple [ (apply (ref bar ()) (tuple [] ())) ] ())
+                      (block []))
+                    (return (ref b ()))
+                  ]))
+            ]))
+      ])
+  ])

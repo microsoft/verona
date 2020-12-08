@@ -194,8 +194,10 @@ namespace verona::parser
 
     Location loc()
     {
-      assert(lookahead.size() > 0);
-      return lookahead[0].location;
+      if(lookahead.size() > 0)
+        return lookahead[0].location;
+      else
+        return previous.location;
     }
 
     text line()
@@ -1638,13 +1640,15 @@ namespace verona::parser
       if (!has(TokenKind::Equals))
         return Skip;
 
-      if (optexpr(expr) != Success)
+      Result r;
+
+      if ((r = optexpr(expr)) == Skip)
       {
         error() << loc() << "Expected an initialiser expression" << line();
-        return Error;
+        r = Error;
       }
 
-      return Success;
+      return r;
     }
 
     Result opttupletype(Node<Type>& type)

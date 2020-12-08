@@ -1,0 +1,46 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      /home/syclebsc/dev/verona/testsuite/parse/parser/function.verona
+      []
+      ()
+      [
+        (method
+          foo
+          (signature
+            [
+              (typeparam N (typeref [ (typename imm []) ]) ())
+              (typeparam
+                R
+                (isecttype
+                  [
+                    (typeref [ (typename U64 []) ])
+                    (typeref [ (typename imm []) ])
+                  ])
+                ())
+            ]
+            [
+              (param a (typeref [ (typename N []) ]) ())
+              (param
+                b
+                (isecttype
+                  [
+                    (typeref [ (typename U64 []) ])
+                    (typeref [ (typename imm []) ])
+                  ])
+                ())
+            ]
+            (typeref [ (typename R []) ])
+            ())
+          (block
+            [
+              (assign (let (ref x ())) (infix (symref +) (ref a ()) (ref b ())))
+              (assign (let (ref r (typeref [ (typename R []) ]))) (ref x ()))
+              (ref x ())
+            ]))
+        (method apply (signature [] [] () ()) (block []))
+      ])
+  ])
