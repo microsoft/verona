@@ -65,6 +65,8 @@ namespace verona::parser
     ObjectLiteral,
   };
 
+  const char* kindname(Kind kind);
+
   using ID = Location;
 
   struct NodeDef;
