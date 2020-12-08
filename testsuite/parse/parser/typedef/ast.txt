@@ -1,0 +1,28 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      /home/syclebsc/dev/verona/testsuite/parse/parser/typedef.verona
+      []
+      ()
+      [
+        (typealias
+          UInt
+          []
+          ()
+          (isecttype
+            [ (typeref [ (typename U64 []) ]) (typeref [ (typename imm []) ]) ]))
+        (class Foo [] () [])
+        (class
+          Bar
+          []
+          ()
+          [
+            (typealias A [] () (typeref [ (typename U64 []) ]))
+            (field a (typeref [ (typename A []) ]) ())
+            (method f (signature [] [] () ()) (block []))
+          ])
+      ])
+  ])

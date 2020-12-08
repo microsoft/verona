@@ -1,0 +1,73 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      /home/syclebsc/dev/verona/testsuite/parse/parser/for-sugar.verona
+      []
+      ()
+      [
+        (method
+          for_sum
+          (signature
+            []
+            [ (param x (typeref [ (typename List []) ]) ()) ]
+            (typeref [ (typename U32 []) ])
+            ())
+          (block
+            [
+              (assign (let (ref sum (typeref [ (typename U32 []) ]))) (int 0))
+              (block
+                [
+                  (assign
+                    (let (ref $0 ()))
+                    (apply (select (ref x ()) values) (tuple [] ())))
+                  (while
+                    (tuple
+                      [ (apply (select (ref $0 ()) has_value) (tuple [] ())) ]
+                      ())
+                    (block
+                      [
+                        (assign
+                          (let (ref a ()))
+                          (apply (ref $0 ()) (tuple [] ())))
+                        (assign
+                          (ref sum ())
+                          (infix (symref +) (ref sum ()) (ref a ())))
+                        (apply (select (ref $0 ()) next) (tuple [] ()))
+                      ]))
+                ])
+              (return (ref sum ()))
+            ]))
+        (method
+          while_sum
+          (signature
+            []
+            [ (param x (typeref [ (typename List []) ]) ()) ]
+            (typeref [ (typename U32 []) ])
+            ())
+          (block
+            [
+              (assign (let (ref sum (typeref [ (typename U32 []) ]))) (int 0))
+              (assign
+                (let (ref iter ()))
+                (apply (select (ref x ()) values) (tuple [] ())))
+              (while
+                (tuple
+                  [ (apply (select (ref iter ()) has_value) (tuple [] ())) ]
+                  ())
+                (block
+                  [
+                    (assign
+                      (let (ref a ()))
+                      (apply (select (ref iter ()) apply) (tuple [] ())))
+                    (apply (select (ref iter ()) next) (tuple [] ()))
+                    (assign
+                      (ref sum ())
+                      (infix (symref +) (ref sum ()) (ref a ())))
+                  ]))
+              (return (ref sum ()))
+            ]))
+      ])
+  ])

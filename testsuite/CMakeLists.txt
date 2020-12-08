@@ -81,6 +81,7 @@ foreach(TEST_FOLDER ${TEST_FOLDERS})
   add_tests(compile-fail ${TEST_FOLDER})
   add_tests(run-pass ${TEST_FOLDER})
   add_tests(ast-parse ${TEST_FOLDER})
+  add_tests(parser ${TEST_FOLDER})
   add_tests(mlir-parse ${TEST_FOLDER})
   add_tests(mlir-fail ${TEST_FOLDER})
 endforeach()
@@ -103,6 +104,7 @@ add_custom_target(update-dump COMMAND ${CMAKE_COMMAND}
   -DPYTHON_EXECUTABLE=${Python3_EXECUTABLE}
   -DVERONAC=${VERONAC}
   -DVERONA_AST=${VERONA_AST}
+  -DVERONA_PARSER=${VERONA_PARSER}
   -DVERONA_TYPED_AST=${VERONA_TYPED_AST}
   -DVERONA_MLIR=${VERONA_MLIR}
   -DGRAMMAR=${VERONA_LOCAL_DIST}/grammar.peg

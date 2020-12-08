@@ -1,0 +1,59 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+class C
+{
+  f: A & mut;
+
+  static create[S: Self](a: S<~(A & mut)): S
+  {
+    new (a) in a
+  }
+}
+
+interface Any {}
+
+class Empty
+{
+  static create(): Empty
+  {
+    new ()
+  }
+
+  static (): Empty
+  {
+    new ()
+  }
+}
+
+class One
+{
+  a: U32;
+
+  static create(a: U32): One
+  {
+    new (a)
+  }
+}
+
+class Two
+{
+  a: U32;
+  b: F64;
+
+  static create(a: U32, b: F64): Two
+  {
+    new (a, b)
+  }
+}
+
+foo()
+{
+  let f = [A: U64](a) => a + 42;
+
+  let e0 = Empty::create();
+  let e1 = Empty;
+  let e2 = new Empty {} in e;
+  let one = new One { a: U32 = 42; };
+  let two = new Two { a: U32 = 42; b: F64 = 3.14; } in one;
+}

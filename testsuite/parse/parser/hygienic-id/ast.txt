@@ -1,0 +1,148 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      /home/syclebsc/dev/verona/testsuite/parse/parser/hygienic-id.verona
+      []
+      ()
+      [
+        (method
+          for_sum
+          (signature
+            []
+            [ (param x (typeref [ (typename List []) ]) ()) ]
+            (typeref [ (typename U32 []) ])
+            ())
+          (block
+            [
+              (assign (let (ref sum (typeref [ (typename U32 []) ]))) (int 0))
+              (block
+                [
+                  (assign
+                    (let (ref $0 ()))
+                    (apply (select (ref x ()) values) (tuple [] ())))
+                  (while
+                    (tuple
+                      [ (apply (select (ref $0 ()) has_value) (tuple [] ())) ]
+                      ())
+                    (block
+                      [
+                        (assign
+                          (let (ref a ()))
+                          (apply (ref $0 ()) (tuple [] ())))
+                        (assign
+                          (ref sum ())
+                          (infix (symref +) (ref sum ()) (ref a ())))
+                        (apply (select (ref $0 ()) next) (tuple [] ()))
+                      ]))
+                ])
+              (block
+                [
+                  (assign
+                    (let (ref $2 ()))
+                    (apply (select (ref x ()) values) (tuple [] ())))
+                  (while
+                    (tuple
+                      [ (apply (select (ref $2 ()) has_value) (tuple [] ())) ]
+                      ())
+                    (block
+                      [
+                        (assign
+                          (let (ref a ()))
+                          (apply (ref $2 ()) (tuple [] ())))
+                        (assign
+                          (ref sum ())
+                          (infix (symref +) (ref sum ()) (ref a ())))
+                        (block
+                          [
+                            (assign
+                              (let (ref $1 ()))
+                              (apply (select (ref x ()) values) (tuple [] ())))
+                            (while
+                              (tuple
+                                [
+                                  (apply
+                                    (select (ref $1 ()) has_value)
+                                    (tuple [] ()))
+                                ]
+                                ())
+                              (block
+                                [
+                                  (assign
+                                    (let (ref a ()))
+                                    (apply (ref $1 ()) (tuple [] ())))
+                                  (assign
+                                    (ref sum ())
+                                    (infix (symref +) (ref sum ()) (ref a ())))
+                                  (apply
+                                    (select (ref $1 ()) next)
+                                    (tuple [] ()))
+                                ]))
+                          ])
+                        (apply (select (ref $2 ()) next) (tuple [] ()))
+                      ]))
+                ])
+              (if
+                (tuple
+                  [ (apply (select (ref x ()) has_values) (tuple [] ())) ]
+                  ())
+                (block
+                  [
+                    (block
+                      [
+                        (assign
+                          (let (ref $3 ()))
+                          (apply (select (ref x ()) values) (tuple [] ())))
+                        (while
+                          (tuple
+                            [
+                              (apply
+                                (select (ref $3 ()) has_value)
+                                (tuple [] ()))
+                            ]
+                            ())
+                          (block
+                            [
+                              (assign
+                                (let (ref a ()))
+                                (apply (ref $3 ()) (tuple [] ())))
+                              (assign
+                                (ref sum ())
+                                (infix (symref +) (ref sum ()) (ref a ())))
+                              (apply (select (ref $3 ()) next) (tuple [] ()))
+                            ]))
+                      ])
+                  ])
+                (block
+                  [
+                    (block
+                      [
+                        (assign
+                          (let (ref $4 ()))
+                          (apply (select (ref x ()) values) (tuple [] ())))
+                        (while
+                          (tuple
+                            [
+                              (apply
+                                (select (ref $4 ()) has_value)
+                                (tuple [] ()))
+                            ]
+                            ())
+                          (block
+                            [
+                              (assign
+                                (let (ref a ()))
+                                (apply (ref $4 ()) (tuple [] ())))
+                              (assign
+                                (ref sum ())
+                                (infix (symref +) (ref sum ()) (ref a ())))
+                              (apply (select (ref $4 ()) next) (tuple [] ()))
+                            ]))
+                      ])
+                  ]))
+              (return (ref sum ()))
+            ]))
+      ])
+  ])
