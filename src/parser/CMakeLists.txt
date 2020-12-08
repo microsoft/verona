@@ -1,6 +1,7 @@
 find_package(Threads REQUIRED)
 
 add_library(verona-parser-lib
+  ast.cc
   escaping.cc
   lexer.cc
   parser.cc
