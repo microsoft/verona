@@ -46,6 +46,14 @@ strings are whitespace sensitive
 
 ## Resolving Names
 
+> TODO: need to resolve through type aliases
+~> <~ : right-most
+-> : fail
+, : fail
+& : lookup on all entity types, succeed if one and only one success
+| : fail
+for typeparams, check the bounds
+
 eliminates: infix, prefix, staticref
 introduces: function
 

@@ -24,7 +24,7 @@
 #  include <windows.h>
 #endif
 
-namespace path
+namespace verona::parser::path
 {
   constexpr size_t length(const char* str)
   {

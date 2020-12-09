@@ -6,54 +6,83 @@ namespace verona::parser
 {
   void Resolve::post(TypeRef& tr)
   {
-    auto& tn = tr.typenames.front();
-    auto def = get_sym(stack, tn->value.location);
+    Node<NodeDef> def;
+
+    for (auto& name : tr.typenames)
+    {
+      if (!def)
+        def = get_sym(stack, name->value.location);
+      else
+        def = def->get_sym(name->value.location);
+
+      if (!is_type(def, name))
+        return;
+    }
+  }
+
+  void Resolve::post(StaticRef& sr)
+  {
+    Node<NodeDef> def;
+
+    for (size_t i = 0; i < sr.typenames.size() - 1; i++)
+    {
+      auto& tn = sr.typenames[i];
+
+      if (!def)
+        def = get_sym(stack, tn->value.location);
+      else
+        def = def->get_sym(tn->value.location);
+
+      if (!is_type(def, tn))
+        return;
+    }
+
+    auto& tn = sr.typenames.back();
+
+    if (!def)
+      def = get_sym(stack, tn->value.location);
+    else
+      def = def->get_sym(tn->value.location);
 
     if (!def)
     {
-      error() << tn->location << "Couldn't resolve type \""
-              << tn->value.location.view() << "\"" << text(tn->location);
+      error() << tn->location << "Couldn't resolve static reference"
+              << text(tn->location);
       return;
     }
 
-    if (!is_type(def, tn))
-      return;
-
-    for (size_t i = 1; i < tr.typenames.size(); i++)
+    if (is_kind(def->kind(), {Kind::Class, Kind::Interface, Kind::TypeAlias}))
     {
-      tn = tr.typenames[i];
-      auto sub = def->get_sym(tn->value.location);
-
-      if (!sub)
-      {
-        error() << tn->location << "Couldn't resolve type \""
-                << tn->value.location.view() << "\"" << text(tn->location);
-        return;
-      }
-
-      if (!is_type(sub, tn))
-        return;
-
-      def = sub;
+      // TODO: it's a type
+    }
+    else if (is_kind(def->kind(), {Kind::Function}))
+    {
+      // TODO: it's a static function
+    }
+    else
+    {
+      error() << tn->location
+              << "Expected a type or a static function, but got a "
+              << kindname(def->kind()) << text(tn->location) << def->location
+              << "Definition is here" << text(def->location);
     }
   }
 
   bool Resolve::is_type(Node<NodeDef>& def, Node<NodeDef> ref)
   {
-    switch (def->kind())
+    if (!def)
     {
-      case Kind::Class:
-      case Kind::Interface:
-      case Kind::TypeAlias:
-        return true;
-
-      default:
-      {
-        error() << ref->location << "Expected a type, but got a "
-                << kindname(def->kind()) << text(ref->location)
-                << def->location << "Definition is here" << text(def->location);
-        return false;
-      }
+      error() << ref->location << "Couldn't resolve type"
+              << text(ref->location);
+      return false;
     }
+
+    if (is_kind(def->kind(), {Kind::Class, Kind::Interface, Kind::TypeAlias}))
+      return true;
+
+    error() << ref->location << "Expected a type, but got a "
+            << kindname(def->kind()) << text(ref->location) << def->location
+            << "Definition is here" << text(def->location);
+    return false;
   }
 }

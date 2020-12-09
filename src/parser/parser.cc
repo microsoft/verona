@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "parser.h"
 
+#include "dnf.h"
 #include "escaping.h"
 #include "path.h"
 
@@ -256,7 +257,7 @@ namespace verona::parser
 
       return def &&
         ((def->kind() == Kind::Param) || (def->kind() == Kind::Let) ||
-        (def->kind() == Kind::Var));
+         (def->kind() == Kind::Var));
     }
 
     bool is_blockexpr(Node<Expr>& expr)
@@ -1584,6 +1585,9 @@ namespace verona::parser
         r = Error;
       }
 
+      if (tup->types.size() == 1)
+        type = tup->types.front();
+
       return r;
     }
 
@@ -1753,22 +1757,18 @@ namespace verona::parser
       if (!has(TokenKind::Symbol, "&"))
         return r;
 
-      auto isect = std::make_shared<IsectType>();
-      isect->location = previous.location;
-      isect->types.push_back(type);
-      type = isect;
-
       do
       {
-        Node<Type> elem;
+        auto amploc = previous.location;
+        Node<Type> next;
 
-        if (optfunctiontype(elem) != Success)
+        if (optfunctiontype(next) != Success)
         {
           error() << loc() << "Expected a type" << line();
           r = Error;
         }
 
-        isect->types.push_back(elem);
+        type = intersect(type, next, amploc);
       } while (has(TokenKind::Symbol, "&"));
 
       return r;
@@ -1800,7 +1800,15 @@ namespace verona::parser
           r = Error;
         }
 
-        un->types.push_back(elem);
+        if (elem->kind() == Kind::UnionType)
+        {
+          auto& rhs = elem->as<UnionType>().types;
+          un->types.insert(un->types.end(), rhs.begin(), rhs.end());
+        }
+        else
+        {
+          un->types.push_back(elem);
+        }
       } while (has(TokenKind::Symbol, "|"));
 
       return r;
@@ -1815,6 +1823,7 @@ namespace verona::parser
         return Error;
       }
 
+      assert(wellformed(type));
       return Success;
     }
 

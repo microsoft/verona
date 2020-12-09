@@ -2,6 +2,7 @@ find_package(Threads REQUIRED)
 
 add_library(verona-parser-lib
   ast.cc
+  dnf.cc
   escaping.cc
   lexer.cc
   parser.cc
