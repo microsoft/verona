@@ -1,12 +1,7 @@
 include_directories(.)
 
-# Main target does not test runtime, build subdirectory for that
-if (RT_TESTS)
-else()
-  set (VERONA_RT_ONLY_HEADER_LIBRARY ON)
-endif()
+set (VERONA_RT_ONLY_HEADER_LIBRARY ON)
 add_subdirectory(rt)
-
 
 # Should go to stricter warnings 
 #   warnings_high()

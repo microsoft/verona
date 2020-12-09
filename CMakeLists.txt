@@ -62,6 +62,7 @@ if (NOT MSVC)
   option(CMAKE_EXPORT_COMPILE_COMMANDS "Export compilation commands" ON)
 endif ()
 
+SET(VERONA_LOCAL_DIST ${CMAKE_BINARY_DIR}/dist CACHE PATH "Default to installing inside build dir" FORCE)
 
 # This is to trick the CMake into building LLVM before Verona.
 # We use two External Projects, so that the LLVM build can complete and install
@@ -130,7 +131,7 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
   # Use top-level install directory when building
   # as a subproject.
   list (APPEND VERONA_EXTRA_CMAKE_ARGS
-    -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/dist)
+    -DCMAKE_INSTALL_PREFIX=${VERONA_LOCAL_DIST})
   list (APPEND VERONA_DONT_PASS CMAKE_INSTALL_PREFIX)
 
   get_cmake_property(CACHE_VARS CACHE_VARIABLES)
@@ -143,25 +144,10 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
     endif()
   endforeach ()
 
-  # Current the ExternalProject_Add_StepTargets seems to be generating something
-  # that is breaking CI for MSVC. So on MSVC with have a single build and test
-  # target. On other platforms we keep them separate.
-  if (MSVC)
-    set (SEPARATE_TEST_TARGET false)
-  else ()
-    set (SEPARATE_TEST_TARGET true)
-  endif()
-
-  # We use ctest directly as test command, pass it -j
-  include(ProcessorCount)
-  ProcessorCount(N)
 
   ExternalProject_Add(verona
     SOURCE_DIR ${CMAKE_SOURCE_DIR}
     DEPENDS external
-    TEST_COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> -j ${N} --timeout 400 --output-on-failure --interactive-debug-mode 0
-    TEST_AFTER_INSTALL true
-    TEST_EXCLUDE_FROM_MAIN ${SEPARATE_TEST_TARGET}
     BUILD_ALWAYS true
     USES_TERMINAL_BUILD true
     USES_TERMINAL_CONFIGURE true
@@ -169,11 +155,24 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
     USES_TERMINAL_TEST true
     CMAKE_ARGS ${VERONA_EXTRA_CMAKE_ARGS})
 
-  if (${SEPARATE_TEST_TARGET})
-    ExternalProject_Add_StepTargets(verona test)
+  enable_testing()
 
-    add_custom_target(check DEPENDS verona-test)
-  endif ()
+  add_subdirectory(testsuite)
+
+  # Main target does not test runtime, build subdirectory for that
+  if (RT_TESTS)
+    add_subdirectory(src/rt)
+  endif()
+
+  include(ProcessorCount)
+  ProcessorCount(N)
+
+  # Adds a target check that runs the tests.
+  add_custom_target(check DEPENDS verona rt_tests)
+  add_custom_command(TARGET check 
+    COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> -j ${N} --output-on-failure --timeout 400 --interactive-debug-mode 0
+    USES_TERMINAL
+  )
   return ()
 endif()
 
@@ -188,12 +187,6 @@ if (VERONA_CI_BUILD)
   set (CMAKE_POLICY_DEFAULT_CMP0077 NEW)
   set (SNMALLOC_CI_BUILD ON)
 endif ()
-
-IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  SET(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/dist CACHE PATH "Default to installing inside build dir" FORCE)
-ENDIF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-
-enable_testing()
 
 # Copied from LLVM, handling release builds with assertions isn't trivial as
 # CMake defines -DNDEBUG automatically and we have to clear it.
@@ -239,4 +232,3 @@ add_library(cpp-peglib INTERFACE)
 target_include_directories(cpp-peglib INTERFACE external/cpp-peglib)
 
 add_subdirectory(src)
-add_subdirectory(testsuite)
