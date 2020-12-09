@@ -1,0 +1,59 @@
+---
+---
+@import "{{ site.theme }}";
+
+nav.navbar
+{
+	margin: 0 auto;
+	width: fit-content;
+}
+
+nav.navbar a
+{
+	float:left;
+	background-image: linear-gradient(White, LightGrey);
+	display: inline-block;
+	color: Black;
+	font-weight: bold;
+	padding: 1em;
+	border-style: solid;
+	border-width: 1px;
+	border-right-style: none;
+	border-color: LightGrey;
+	margin: 0px;
+}
+nav.navbar a:first-child
+{
+	border-top-left-radius: 1em;
+	border-bottom-left-radius: 1em;
+}
+nav.navbar a:last-child
+{
+	border-right-style: solid;
+	border-right-width: 1px;
+	border-top-right-radius: 1em;
+	border-bottom-right-radius: 1em;
+}
+
+div.blognav
+{
+	font-size: 14px;
+	display: block;
+	width: 100%;
+	overflow: hidden;
+}
+
+div.blognav a
+{
+	display: block;
+	width: 50%;
+	float: left;
+	margin: 1em 0;
+}
+
+div.blognav a.next
+{
+	float: right;
+	text-align: right;
+}
+
