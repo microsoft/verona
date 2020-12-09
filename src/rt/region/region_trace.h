@@ -471,7 +471,7 @@ namespace verona::rt
       Alloc* alloc,
       Object* p,
       Object* region,
-      Object** gc,
+      LinkedObjectStack* gc,
       ObjectStack& sub_regions)
     {
       assert(
@@ -501,8 +501,7 @@ namespace verona::rt
         // We can't deallocate the object yet, as other objects' finalisers may
         // look at it. We build up a linked list of all objects to delete, we'll
         // deallocate them after sweeping through the entire ring.
-        p->init_next(*gc);
-        *gc = p;
+        gc->push(p);
       }
     }
 
@@ -512,7 +511,7 @@ namespace verona::rt
     {
       Object* prev = this;
       Object* p = ring == primary_ring ? get_next() : next_not_root;
-      Object* gc = nullptr;
+      LinkedObjectStack gc;
 
       // Note: we don't use the iterator because we need to remove and
       // deallocate objects from the rings.
@@ -577,13 +576,11 @@ namespace verona::rt
       // Deallocate the objects, if not done in first pass.
       if constexpr (ring == NonTrivialRing)
       {
-        p = gc;
-        while (p != nullptr)
+        while (!gc.empty())
         {
-          Object* q = p->get_next();
-          p->destructor();
-          p->dealloc(alloc);
-          p = q;
+          Object* q = gc.pop();
+          q->destructor();
+          q->dealloc(alloc);
         }
       }
       else
