@@ -5,9 +5,11 @@ add_library(verona-parser-lib
   escaping.cc
   lexer.cc
   parser.cc
-  pretty.cc
+  pass.cc
   path.cc
+  pretty.cc
   print.cc
+  resolve.cc
   source.cc)
 
 add_executable(verona-parser main.cc)

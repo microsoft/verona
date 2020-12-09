@@ -17,15 +17,15 @@ isecttype <- functiontype ('&' functiontype)*
 uniontype <- isecttype ('|' isecttype)*
 type <- uniontype
 
-declelem <- ref / '(' declelem (',' declelem)* ')' oftype?
+declelem <- (ident / '(' declelem (',' declelem)* ')') oftype?
 decl <- ('let' / 'var') declelem
 new <- 'new' (tuple / typebody / type typebody) ('in' ident)?
-staticref <- typeref ('::' ident / symbol)?
-ref <- ident oftype?
-symref <- symbol
+staticname <- (ident / symbol) typeargs?
+staticref <- [nonlocal] staticname ('::' staticname)*
+ref <- [local] ident oftype?
 
 constant <- string / character / float / int / hex / binary / 'true' / 'false'
-atom <- staticref / ref / symref / constant / new / decl / tuple
+atom <- staticref / ref / constant / new / decl / tuple
 
 case <- expr ('if' expr)? '=>' expr
 
@@ -42,12 +42,11 @@ controlflow <- 'break' / 'continue' / 'return' expr? / 'yield' expr? / expr
 typeargs <- '[' type (',' type)* ']'
 tuple <- '(' expr (',' expr)* ')' oftype?
 
-op <- staticref / symref / nonlocalref
 postfix <- atom (dot (symbol / ident) / typeargs / tuple)*
-prefix <- op prefix / postfix
-preblock <- op preblock / blockexpr
-infix <- prefix (op prefix / postfix)*
-inblock <- preblock / infix (op preblock / blockexpr)?
+prefix <- staticref prefix / postfix
+preblock <- staticref preblock / blockexpr
+infix <- prefix (staticref prefix / postfix)*
+inblock <- preblock / infix (staticref preblock / blockexpr)?
 
 expr <- inblock / infix ('=' expr)
 

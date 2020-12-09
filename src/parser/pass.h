@@ -3,31 +3,48 @@
 #pragma once
 
 #include "dispatch.h"
+#include "fields.h"
+
+#include <iostream>
 
 namespace verona::parser
 {
-  enum class Order
-  {
-    Pre,
-    Post,
-  };
+#define AST_PASS \
+  void pre(NodeDef& node) {} \
+  void post(NodeDef& node) {}
 
-  template<typename F, Order order>
+  template<typename F>
   struct Pass
   {
     List<NodeDef> stack;
+    bool ok;
 
-    Pre(Node<NodeDef>& node)
+    Pass() : ok(true) {}
+
+    operator bool() const
     {
-      stack.push_back(node);
+      return ok;
     }
 
-    ~Pre()
+    std::ostream& error()
     {
-      assert(stack.size() == 1);
+      ok = false;
+      return std::cerr;
     }
 
-    Pre<F>& operator<<(Node<NodeDef>& node)
+    Pass& operator<<(Token& tok)
+    {
+      // Handle token fields from the node handling functions.
+      return *this;
+    }
+
+    Pass& operator<<(Location& loc)
+    {
+      // Handle location fields from the node handling functions.
+      return *this;
+    }
+
+    Pass& operator<<(Node<NodeDef> node)
     {
       stack.push_back(node);
       dispatch(*this, node);
@@ -36,7 +53,7 @@ namespace verona::parser
     }
 
     template<typename T>
-    Pre<F> operator<<(List<NodeDef>& nodes)
+    Pass& operator<<(List<T>& nodes)
     {
       for (auto& node : nodes)
         *this << node;
@@ -49,25 +66,9 @@ namespace verona::parser
     template<typename T>
     void operator()(T& node)
     {
-      if constexpr (order == Pre)
-        F(stack, node);
-
+      static_cast<F*>(this)->pre(node);
       *this << fields(node);
-
-      if constexpr (order == Post)
-        F(stack, node);
-    }
-
-    template<>
-    void operator()(Token& tok)
-    {
-      F(stack, tok);
-    }
-
-    template<>
-    void operator()(Location& loc)
-    {
-      F(stack, loc);
+      static_cast<F*>(this)->post(node);
     }
   };
 }

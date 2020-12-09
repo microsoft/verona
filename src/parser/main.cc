@@ -1,8 +1,10 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "parser.h"
+#include "pass.h"
 #include "path.h"
 #include "print.h"
+#include "resolve.h"
 
 #include <CLI/CLI.hpp>
 
@@ -26,8 +28,11 @@ int main(int argc, char** argv)
   }
 
   auto stdlibpath = path::canonical(path::join(path::executable(), stdlib));
-  auto r = parse(path, stdlibpath);
-  std::cout << pretty(r.second) << std::endl;
+  auto [ok, ast] = parse(path, stdlibpath);
 
-  return r.first ? 0 : -1;
+  if (ok)
+    ok = Resolve() << ast;
+
+  std::cout << pretty(ast) << std::endl;
+  return ok ? 0 : -1;
 }

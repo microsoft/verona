@@ -1,6 +1,11 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+class U32 {}
+class U64 {}
+class F64 {}
+class A {}
+
 class C
 {
   f: A & mut;

@@ -56,7 +56,6 @@ namespace verona::parser
     Specialise,
     Apply,
     Ref,
-    SymRef,
     StaticRef,
     Let,
     Var,
@@ -64,8 +63,6 @@ namespace verona::parser
     New,
     ObjectLiteral,
   };
-
-  const char* kindname(Kind kind);
 
   using ID = Location;
 
@@ -79,6 +76,10 @@ namespace verona::parser
 
   struct SymbolTable;
 
+  const char* kindname(Kind kind);
+
+  Node<NodeDef> get_sym(const List<NodeDef>& stack, const ID& id);
+
   struct NodeDef
   {
     Location location;
@@ -90,6 +91,8 @@ namespace verona::parser
     {
       return nullptr;
     }
+
+    Node<NodeDef> get_sym(const ID& id);
 
     template<typename T>
     T& as()
@@ -376,14 +379,6 @@ namespace verona::parser
     }
   };
 
-  struct SymRef : Expr
-  {
-    Kind kind()
-    {
-      return Kind::SymRef;
-    }
-  };
-
   struct Constant : Expr
   {
     Token value;
@@ -396,7 +391,7 @@ namespace verona::parser
 
   struct Let : Expr
   {
-    Node<Expr> decl;
+    Node<Type> type;
 
     Kind kind()
     {
@@ -630,8 +625,7 @@ namespace verona::parser
 
   struct StaticRef : Expr
   {
-    Node<Type> path;
-    Token ref;
+    List<TypeName> typenames;
 
     Kind kind()
     {
