@@ -1,0 +1,20 @@
+---
+title: Verona project news
+layout: default
+---
+
+<h1>Recent news</h1>
+
+{% for post in site.posts limit:5 %}
+<h2><a href="{{ post.url | relative_url }}">{{ post.date | date: "%Y %b %d" }}: {{ post.title }}</a></h2>
+{{ post.excerpt }}
+{% endfor %}
+
+<h1>All news</h1>
+
+<ul>
+{% for post in site.posts %}
+<li><a href="{{ post.url | relative_url }}">{{ post.date | date: "%Y %b %d" }}: {{ post.title }}</a></ul>
+{% endfor %}
+<ul>
+

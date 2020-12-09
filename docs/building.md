@@ -1,3 +1,7 @@
+---
+layout: default
+title: Building project Verona
+---
 # Cloning
 
 To clone this repo, you need to pull in the submodules:

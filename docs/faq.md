@@ -1,3 +1,7 @@
+---
+layout: default
+title: Frequently asked questions
+---
 # FAQ
 
 ## What is Project Verona?
