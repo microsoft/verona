@@ -1,7 +1,7 @@
 # Parser Notes
 
+* special types: iso, mut, imm, Self
 * multiple definitions of `apply` produces a poor error message
-* tests need rewriting for the new syntax rules
 * transform prefix and infix to apply
   this needs to know if operators are free functions or not
 * try/catch
@@ -46,42 +46,67 @@ strings are whitespace sensitive
 
 ## Resolving Names
 
-No rewrites if a ref resolves to a localref.
-Ignore fields and methods when resolving.
+eliminates: infix, prefix, staticref
+introduces: function
 
-typeref
-  type or error
 staticref
-  type, function, or error
-ref
-  type, function, or unknown
-symref
-  function or unknown
+  type
+  function
+  error
 
-(prefix ? expr)
-  type -> (call ?::create expr)
-  function -> (call ? expr)
-  unknown -> (apply (select expr ?) ())
-(infix ? expr0 expr1)
-  type -> (apply (apply expr0 (call ?::create ())) expr1)
-  function -> (call ? (tuple expr0 <unpack>expr1))
-  unknown -> (apply (select expr0 ?) expr1)
-(select ? op)
-  type -> (select (call ?::create ()) op)
-  > or an error?
-  function -> (select (call ? ()) op)
-  > or an error?
-  unknown -> ERROR
-  > if this is always an error, only allow select on a localref
-(apply ? expr)
-  type -> (call ?::create expr)
-  function -> (call ? expr)
-  unknown -> (apply (select expr ?) ())
-(specialise ? typeargs)
+staticref can appear here:
+  alone
+  (select X op)
+  (apply X tuple) [no-rewrite]
+  (prefix X X)
+  (infix X X X)
+
+expr
   type ->
-  function ->
-  unknown ->
+    lookup ...::create
+    if it is 0 args
+      (apply (function ...::create) ())
+    else
+      (function ...::create)
+  function -> (function ...)
 
-TODO:
-* bubble up rewrites?
-* (apply e0 e1) -> (call (select e0 apply) (tuple e0 <unpack>e1))  ?
+(select function member)
+  ->
+  (select (apply function ()) member)
+
+(prefix unknown expr)
+  ->
+  (apply (select expr unknown) ())
+(prefix _ expr)
+  ->
+  (apply _ expr)
+
+(prefix op function)
+  ->
+  (prefix op function)
+(prefix op unknown)
+  -> ERROR
+
+(infix function expr1 expr2)
+  ->
+  (apply function (tuple <unpack>expr1 <unpack>expr2))
+(infix unknown expr1 expr2)
+  ->
+  (apply (select expr1 unknown) expr2)
+
+TODO: from here
+(infix op expr1 expr2)
+  op = type -> (apply (function type::create) (tuple expr1 expr 2))
+    x T y -> T::create(x, y)
+  op = function -> (apply function (tuple expr1 expr2))
+  op = unknown -> (apply (select expr1 op) expr2)
+
+(infix op expr1 expr2)
+  expr1 = type -> (infix op (apply (function type::create) ()) expr2)
+  expr1 = function -> (infix op function expr2)
+  expr1 = unknown -> ERROR
+
+(infix op expr1 expr2)
+  expr2 = type -> (infix op expr1 (apply (function type::create) ()))
+  expr2 = function -> (infix op expr1 function)
+  expr2 = unknown -> ERROR

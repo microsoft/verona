@@ -199,21 +199,15 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, SymRef& sym)
-  {
-    target << sym.location;
-  }
-
-  template<typename T>
   void fieldsof(T& target, StaticRef& sr)
   {
-    target << sr.path << sr.ref;
+    target << sr.typenames;
   }
 
   template<typename T>
   void fieldsof(T& target, Let& let)
   {
-    target << let.decl;
+    target << let.location << let.type;
   }
 
   template<typename T>

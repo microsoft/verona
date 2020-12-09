@@ -110,7 +110,8 @@ namespace verona::parser
 
   PrettyStream& operator<<(PrettyStream& out, const Node<NodeDef>& node)
   {
-    return dispatch(Print(), node, out);
+    Print print;
+    return dispatch(print, node, out);
   }
 
   std::ostream& operator<<(std::ostream& out, const pretty& pret)

@@ -7,7 +7,7 @@
 namespace verona::parser
 {
   template<typename F, typename... Args>
-  auto dispatch(F f, const Node<NodeDef>& node, Args&... args)
+  auto dispatch(F& f, const Node<NodeDef>& node, Args&... args)
     -> decltype(f(args...))
   {
     if (!node)
@@ -140,9 +140,6 @@ namespace verona::parser
 
       case Kind::Ref:
         return f(node->as<Ref>(), args...);
-
-      case Kind::SymRef:
-        return f(node->as<SymRef>(), args...);
 
       case Kind::StaticRef:
         return f(node->as<StaticRef>(), args...);

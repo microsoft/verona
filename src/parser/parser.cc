@@ -95,17 +95,7 @@ namespace verona::parser
 
     Node<NodeDef> get_sym(const ID& id)
     {
-      for (int i = symbol_stack.size() - 1; i >= 0; i--)
-      {
-        auto st = symbol_stack[i]->symbol_table();
-        assert(st != nullptr);
-        auto find = st->map.find(id);
-
-        if (find != st->map.end())
-          return find->second;
-      }
-
-      return {};
+      return parser::get_sym(symbol_stack, id);
     }
 
     void set_sym(const ID& id, Node<NodeDef> node, SymbolTable& st)
@@ -265,23 +255,8 @@ namespace verona::parser
       auto def = get_sym(id);
 
       return def &&
-        ((def->kind() == Kind::Param) || (def->kind() == Kind::Ref));
-    }
-
-    bool is_localref(Node<Expr>& expr)
-    {
-      if (expr->kind() != Kind::Ref)
-        return false;
-
-      auto& ref = expr->as<Ref>();
-      return is_localref(ref.location);
-    }
-
-    bool is_op(Node<Expr>& expr)
-    {
-      return (expr->kind() == Kind::StaticRef) ||
-        (expr->kind() == Kind::SymRef) ||
-        ((expr->kind() == Kind::Ref) && !is_localref(expr));
+        ((def->kind() == Kind::Param) || (def->kind() == Kind::Let) ||
+        (def->kind() == Kind::Var));
     }
 
     bool is_blockexpr(Node<Expr>& expr)
@@ -489,8 +464,8 @@ namespace verona::parser
       auto id = ident();
 
       auto decl = std::make_shared<Let>();
-      decl->decl = ref(id.location);
-      set_sym(id.location, decl->decl);
+      decl->location = id.location;
+      set_sym(id.location, decl);
       init->left = decl;
       init->right = iter;
 
@@ -998,7 +973,16 @@ namespace verona::parser
 
     Result optref(Node<Expr>& expr)
     {
-      // ref <- ident (':' type)?
+      // ref <- [local] ident oftype?
+      if (!peek(TokenKind::Ident))
+        return Skip;
+
+      bool local = is_localref(lookahead[la - 1].location);
+      rewind();
+
+      if (!local)
+        return Skip;
+
       if (!has(TokenKind::Ident))
         return Skip;
 
@@ -1010,53 +994,6 @@ namespace verona::parser
         return Error;
 
       return Success;
-    }
-
-    Result optlocalref(Node<Expr>& expr, bool wantlocal = true)
-    {
-      if (!peek(TokenKind::Ident))
-        return Skip;
-
-      bool local = is_localref(lookahead[la - 1].location);
-      rewind();
-
-      if (local != wantlocal)
-        return Skip;
-
-      return optref(expr);
-    }
-
-    Result optnonlocalref(Node<Expr>& expr)
-    {
-      return optlocalref(expr, false);
-    }
-
-    Result optsymref(Node<Expr>& expr)
-    {
-      // symref <- symbol
-      if (!has(TokenKind::Symbol))
-        return Skip;
-
-      auto ref = std::make_shared<SymRef>();
-      ref->location = previous.location;
-      expr = ref;
-      return Success;
-    }
-
-    Result optop(Node<Expr>& expr)
-    {
-      Result r;
-
-      if ((r = optstaticref(expr)) != Skip)
-        return r;
-
-      if ((r = optnonlocalref(expr)) != Skip)
-        return r;
-
-      if ((r = optsymref(expr)) != Skip)
-        return r;
-
-      return Skip;
     }
 
     Result optconstant(Node<Expr>& expr)
@@ -1078,65 +1015,67 @@ namespace verona::parser
       return Success;
     }
 
+    template<typename Decl>
     Result declelem(Node<Expr>& decl)
     {
-      // declelem <- ref / '(' declelem (',' declelem)* ')' oftype?
-      Result r;
-
-      if ((r = optref(decl)) != Skip)
+      // declelem <- (ident / '(' declelem (',' declelem)* ')') oftype?
+      if (has(TokenKind::Ident))
       {
-        // If this is successful, the ref location is also the ident location.
-        if (r == Success)
-          set_sym(decl->location, decl);
+        auto elem = std::make_shared<Decl>();
+        elem->location = previous.location;
+        set_sym(elem->location, elem);
+        decl = elem;
 
-        return r;
+        if (oftype(elem->type) == Error)
+          return Error;
+
+        return Success;
       }
 
       if (!has(TokenKind::LParen))
       {
-        error() << loc() << "Expected a ref or (" << line();
+        error() << loc() << "Expected an identifier or (" << line();
         return Error;
       }
 
       auto tup = std::make_shared<Tuple>();
+      tup->location = previous.location;
+      decl = tup;
+      Result r = Success;
 
       do
       {
         Node<Expr> elem;
 
-        if (declelem(elem) != Success)
-          return Error;
-
-        tup->seq.push_back(elem);
+        if (declelem<Decl>(elem) == Error)
+        {
+          restart_before({TokenKind::Comma, TokenKind::RParen});
+          r = Error;
+        }
       } while (has(TokenKind::Comma));
 
       if (!has(TokenKind::RParen))
       {
         error() << loc() << "Expected a )" << line();
-        return Error;
+        r = Error;
       }
 
       if (oftype(tup->type) == Error)
-        return Error;
+        r = Error;
 
-      decl = tup;
-      return Success;
+      return r;
     }
 
     Result optdecl(Node<Expr>& expr)
     {
       // decl <- ('let' / 'var') declelem
-      Node<Let> let;
-
       if (has(TokenKind::Let))
-        let = std::make_shared<Let>();
-      else if (has(TokenKind::Var))
-        let = std::make_shared<Var>();
-      else
-        return Skip;
+        return declelem<Let>(expr);
 
-      expr = let;
-      return declelem(let->decl);
+      if (has(TokenKind::Var))
+        return declelem<Var>(expr);
+
+      return Skip;
     }
 
     Result optnew(Node<Expr>& expr)
@@ -1201,44 +1140,24 @@ namespace verona::parser
 
     Result optstaticref(Node<Expr>& expr)
     {
-      // staticname <- ident typeargs?
-      // staticref <- staticname ('::' staticname)* ('::' ident / symbol)
-      // This can also return a Specialise node.
-      if (!peek(TokenKind::Ident))
+      // staticname <- (ident / symbol) typeargs?
+      // staticref <- [nonlocal] staticname ('::' staticname)*
+      if (!peek(TokenKind::Ident) && !peek(TokenKind::Symbol))
         return Skip;
 
-      if (peek(TokenKind::LSquare))
-        peek_matching(TokenKind::RSquare);
-
-      bool ok = peek(TokenKind::DoubleColon);
+      bool local = is_localref(lookahead[la - 1].location);
       rewind();
 
-      if (!ok)
+      if (local)
         return Skip;
 
       auto stat = std::make_shared<StaticRef>();
-      auto typeref = std::make_shared<TypeRef>();
-      stat->path = typeref;
       expr = stat;
 
       Result r = Success;
 
-      while (true)
+      do
       {
-        // Use the location of the last DoubleColon.
-        stat->location = previous.location;
-        bool more = false;
-
-        if (peek(TokenKind::Ident))
-        {
-          // Figure out if we have another DoubleColon.
-          if (peek(TokenKind::LSquare))
-            peek_matching(TokenKind::RSquare);
-
-          more = peek(TokenKind::DoubleColon);
-          rewind();
-        }
-
         if (!has(TokenKind::Ident) && !has(TokenKind::Symbol))
         {
           error() << loc() << "Expected an identifier or symbol" << line();
@@ -1246,43 +1165,30 @@ namespace verona::parser
           break;
         }
 
-        if (!more)
-        {
-          stat->ref = previous;
-          break;
-        }
+        // Use the location of the last ident or symbol.
+        stat->location = previous.location;
 
         auto name = std::make_shared<TypeName>();
         name->location = previous.location;
         name->value = previous;
-        typeref->typenames.push_back(name);
+        stat->typenames.push_back(name);
 
         if (opttypeargs(name->typeargs) == Error)
           r = Error;
-
-        if (!has(TokenKind::DoubleColon))
-        {
-          error() << loc() << "Expected ::" << line();
-          r = Error;
-          break;
-        }
-      };
+      } while (has(TokenKind::DoubleColon));
 
       return r;
     }
 
     Result optatom(Node<Expr>& expr)
     {
-      // atom <- staticref / ref / symref / constant / new / tuple
+      // atom <- staticref / ref / constant / new / tuple
       Result r;
 
       if ((r = optstaticref(expr)) != Skip)
         return r;
 
       if ((r = optref(expr)) != Skip)
-        return r;
-
-      if ((r = optsymref(expr)) != Skip)
         return r;
 
       if ((r = optconstant(expr)) != Skip)
@@ -1459,9 +1365,8 @@ namespace verona::parser
 
     Result optprefix(Node<Expr>& expr)
     {
-      // op <- staticref / nonlocalref / symref
-      // prefix <- op prefix / postfix
-      // preblock <- op preblock / blockexpr
+      // prefix <- staticref prefix / postfix
+      // preblock <- staticref preblock / blockexpr
       List<Expr> list;
       Node<Expr> last;
       Result r = Success;
@@ -1483,7 +1388,7 @@ namespace verona::parser
           list.push_back(last);
 
         last = next;
-      } while (is_op(last));
+      } while (last->kind() == Kind::StaticRef);
 
       if (!last)
         return Skip;
@@ -1499,8 +1404,8 @@ namespace verona::parser
 
     Result optinfix(Node<Expr>& expr)
     {
-      // infix <- prefix (op prefix / postfix)*
-      // inblock <- preblock / infix (op preblock / blockexpr)?
+      // infix <- prefix (staticref prefix / postfix)*
+      // inblock <- preblock / infix (staticref preblock / blockexpr)?
       Result r = Success;
 
       if ((r = optprefix(expr)) != Success)
@@ -1516,20 +1421,21 @@ namespace verona::parser
         Node<Expr> next;
         Result r2;
 
-        if ((r2 = optop(next)) != Skip)
+        if ((r2 = optstaticref(next)) != Skip)
         {
           if (r2 == Error)
             r = Error;
 
-          if (
-            prev &&
-            ((next->kind() != prev->kind()) ||
-             (next->location != prev->location)))
-          {
-            error() << next->location
-                    << "Use parentheses to indicate precedence"
-                    << text(next->location);
-          }
+          // TODO: how do we check precedence over staticref?
+          // if (
+          //   prev &&
+          //   ((next->kind() != prev->kind()) ||
+          //    (next->location != prev->location)))
+          // {
+          //   error() << next->location
+          //           << "Use parentheses to indicate precedence"
+          //           << text(next->location);
+          // }
 
           prev = next;
           Node<Expr> rhs;

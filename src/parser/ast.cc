@@ -134,9 +134,6 @@ namespace verona::parser
       case Kind::Ref:
         return "ref";
 
-      case Kind::SymRef:
-        return "symref";
-
       case Kind::StaticRef:
         return "staticref";
 
@@ -155,5 +152,33 @@ namespace verona::parser
       case Kind::ObjectLiteral:
         return "object";
     }
+  }
+
+  Node<NodeDef> get_sym(const List<NodeDef>& stack, const ID& id)
+  {
+    for (int i = stack.size() - 1; i >= 0; i--)
+    {
+      auto r = stack[i]->get_sym(id);
+
+      if (r)
+        return r;
+    }
+
+    return {};
+  }
+
+  Node<NodeDef> NodeDef::get_sym(const ID& id)
+  {
+    auto st = symbol_table();
+
+    if (st != nullptr)
+    {
+      auto find = st->map.find(id);
+
+      if (find != st->map.end())
+        return find->second;
+    }
+
+    return {};
   }
 }
