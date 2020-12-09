@@ -269,9 +269,13 @@ namespace verona::parser
         case Kind::Match:
         case Kind::If:
         case Kind::Lambda:
-        case Kind::Preblock:
-        case Kind::Inblock:
           return true;
+
+        case Kind::Prefix:
+          return expr->as<Prefix>().block;
+
+        case Kind::Infix:
+          return expr->as<Infix>().block;
 
         default:
           return false;
@@ -1348,21 +1352,6 @@ namespace verona::parser
       return r;
     }
 
-    template<typename T>
-    void buildpre(List<Expr>& list, Node<Expr>& last)
-    {
-      while (list.size() > 0)
-      {
-        auto pre = std::make_shared<T>();
-        pre->op = list.back();
-        pre->location = pre->op->location;
-        pre->expr = last;
-
-        list.pop_back();
-        last = pre;
-      }
-    }
-
     Result optprefix(Node<Expr>& expr)
     {
       // prefix <- staticref prefix / postfix
@@ -1393,10 +1382,19 @@ namespace verona::parser
       if (!last)
         return Skip;
 
-      if (is_blockexpr(last))
-        buildpre<Preblock>(list, last);
-      else
-        buildpre<Prefix>(list, last);
+      auto block = is_blockexpr(last);
+
+      while (list.size() > 0)
+      {
+        auto pre = std::make_shared<Prefix>();
+        pre->op = list.back();
+        pre->location = pre->op->location;
+        pre->expr = last;
+        pre->block = block;
+
+        list.pop_back();
+        last = pre;
+      }
 
       expr = last;
       return r;
@@ -1450,20 +1448,15 @@ namespace verona::parser
             r = Error;
           }
 
-          Node<Infix> inf;
-
-          if (is_blockexpr(rhs))
-            inf = std::make_shared<Inblock>();
-          else
-            inf = std::make_shared<Infix>();
-
+          auto inf = std::make_shared<Infix>();
           inf->location = next->location;
           inf->op = next;
           inf->left = expr;
           inf->right = rhs;
+          inf->block = is_blockexpr(rhs);
           expr = inf;
 
-          if (is_blockexpr(rhs))
+          if (inf->block)
             return r;
         }
         else if ((r2 = optpostorblock(next)) != Skip)

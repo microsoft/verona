@@ -123,12 +123,6 @@ namespace verona::parser
       case Kind::Prefix:
         return f(node->as<Prefix>(), args...);
 
-      case Kind::Inblock:
-        return f(node->as<Inblock>(), args...);
-
-      case Kind::Preblock:
-        return f(node->as<Preblock>(), args...);
-
       case Kind::Select:
         return f(node->as<Select>(), args...);
 

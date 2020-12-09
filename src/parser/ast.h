@@ -50,8 +50,6 @@ namespace verona::parser
     Assign,
     Infix,
     Prefix,
-    Inblock,
-    Preblock,
     Select,
     Specialise,
     Apply,
@@ -302,6 +300,7 @@ namespace verona::parser
     Node<Expr> op;
     Node<Expr> left;
     Node<Expr> right;
+    bool block;
 
     Kind kind()
     {
@@ -313,26 +312,11 @@ namespace verona::parser
   {
     Node<Expr> op;
     Node<Expr> expr;
+    bool block;
 
     Kind kind()
     {
       return Kind::Prefix;
-    }
-  };
-
-  struct Inblock : Infix
-  {
-    Kind kind()
-    {
-      return Kind::Inblock;
-    }
-  };
-
-  struct Preblock : Prefix
-  {
-    Kind kind()
-    {
-      return Kind::Preblock;
     }
   };
 
