@@ -164,8 +164,15 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
     add_subdirectory(src/rt)
   endif()
 
+  include(ProcessorCount)
+  ProcessorCount(N)
+
   # Adds a target check that runs the tests.
-  add_custom_target(check DEPENDS test)
+  add_custom_target(check DEPENDS verona rt_tests)
+  add_custom_command(TARGET check 
+    COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> -j ${N} --output-on-failure --timeout 400 --interactive-debug-mode 0
+    USES_TERMINAL
+  )
   return ()
 endif()
 

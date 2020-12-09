@@ -105,6 +105,8 @@ if(NOT DEFINED VERONA_RT_ONLY_HEADER_LIBRARY)
 
   enable_testing()
 
+  add_custom_target(rt_tests)
+
   set(TESTDIR ${CMAKE_CURRENT_SOURCE_DIR}/test)
   subdirlist(TEST_CATEGORIES ${TESTDIR})
   foreach(TEST_CATEGORY ${TEST_CATEGORIES})
@@ -115,6 +117,7 @@ if(NOT DEFINED VERONA_RT_ONLY_HEADER_LIBRARY)
         aux_source_directory(${TESTDIR}/${TEST_CATEGORY}/${TEST} SRC)
         set(TESTNAME "${TEST_CATEGORY}-${TEST_MODE}-${TEST}")
         add_executable(${TESTNAME} ${SRC})
+        add_dependencies(rt_tests ${TESTNAME})
         target_link_libraries(${TESTNAME} verona_rt)
         if (${TEST_MODE} STREQUAL "sys")
           target_compile_definitions(${TESTNAME} PRIVATE USE_SYSTEMATIC_TESTING)
