@@ -116,12 +116,6 @@ namespace verona::parser
       case Kind::Prefix:
         return "prefix";
 
-      case Kind::Inblock:
-        return "infix";
-
-      case Kind::Preblock:
-        return "prefix";
-
       case Kind::Select:
         return "select";
 
