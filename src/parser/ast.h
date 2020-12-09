@@ -75,7 +75,7 @@ namespace verona::parser
   struct SymbolTable;
 
   const char* kindname(Kind kind);
-
+  bool is_kind(Kind kind, const std::initializer_list<Kind>& kinds);
   Node<NodeDef> get_sym(const List<NodeDef>& stack, const ID& id);
 
   struct NodeDef

@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace path
+namespace verona::parser::path
 {
   // All path names use / as the delimiter, regardless of platform. Windows
   // absolute paths (returned by path::executable() and path::canonical() have a

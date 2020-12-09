@@ -148,6 +148,17 @@ namespace verona::parser
     }
   }
 
+  bool is_kind(Kind kind, const std::initializer_list<Kind>& kinds)
+  {
+    for (auto k : kinds)
+    {
+      if (kind == k)
+        return true;
+    }
+
+    return false;
+  }
+
   Node<NodeDef> get_sym(const List<NodeDef>& stack, const ID& id)
   {
     for (int i = stack.size() - 1; i >= 0; i--)

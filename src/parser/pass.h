@@ -32,6 +32,19 @@ namespace verona::parser
       return std::cerr;
     }
 
+    Location loc()
+    {
+      if (stack.size() > 0)
+        return stack.back()->location;
+
+      return {};
+    }
+
+    text line()
+    {
+      return text(loc());
+    }
+
     Pass& operator<<(Token& tok)
     {
       // Handle token fields from the node handling functions.
