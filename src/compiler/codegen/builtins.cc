@@ -139,7 +139,7 @@ namespace verona::compiler
 
     // This is a static method, therefore register 0 contains the descriptor for
     // cown[T]. We use that to initialize the cown.
-    emit<Opcode::NewCown>(Register(0), Register(1), Register(1));
+    emit<Opcode::NewCown>(Register(0), Register(0), Register(1));
     emit<Opcode::Clear>(Register(1));
     emit<Opcode::Return>();
   }

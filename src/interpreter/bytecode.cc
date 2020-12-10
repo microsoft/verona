@@ -8,12 +8,6 @@
 
 namespace verona::bytecode
 {
-  std::ostream& operator<<(std::ostream& out, const Register& self)
-  {
-    fmt::print(out, "r{:d}", self.value);
-    return out;
-  }
-
   std::ostream& operator<<(std::ostream& out, const BinaryOperator& self)
   {
     switch (self)

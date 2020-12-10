@@ -156,7 +156,15 @@ namespace verona::compiler
      * caller the specify the integer type explicitly.
      */
     template<typename T>
-    std::enable_if_t<std::is_integral_v<T>> write(std::common_type_t<T> value);
+    std::enable_if_t<std::is_integral_v<T>> write(std::common_type_t<T> value)
+    {
+      size_t offset = code_.size();
+      code_.reserve(offset + sizeof(T));
+      for (size_t i = 0; i < sizeof(T) * 8; i += 8)
+      {
+        code_.push_back((value >> i) & 0xff);
+      }
+    }
 
     void add_relocation(
       size_t offset,

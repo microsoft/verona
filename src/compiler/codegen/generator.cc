@@ -74,18 +74,6 @@ namespace verona::compiler
     u64(0);
   }
 
-  template<typename T>
-  std::enable_if_t<std::is_integral_v<T>>
-  Generator::write(std::common_type_t<T> value)
-  {
-    size_t offset = code_.size();
-    code_.reserve(offset + sizeof(T));
-    for (size_t i = 0; i < sizeof(T) * 8; i += 8)
-    {
-      code_.push_back((value >> i) & 0xff);
-    }
-  }
-
   void Generator::finish()
   {
     for (const auto& rel : relocations_)

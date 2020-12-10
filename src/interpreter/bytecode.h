@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <fmt/format.h>
 #include <limits>
 #include <ostream>
 #include <string_view>
@@ -554,16 +555,8 @@ namespace verona::bytecode
     constexpr static std::string_view format = "UNREACHABLE";
   };
 
-  std::ostream& operator<<(std::ostream& out, const Register& self);
   std::ostream& operator<<(std::ostream& out, const BinaryOperator& self);
   std::ostream& operator<<(std::ostream& out, const Capability& self);
-
-  template<typename T>
-  std::enable_if_t<bytecode::is_wrapper_v<T>, std::ostream&>
-  operator<<(std::ostream& out, const T& self)
-  {
-    return out << self.value;
-  }
 
   template<typename T>
   std::enable_if_t<bytecode::is_wrapper_v<T>, bool>
@@ -575,6 +568,9 @@ namespace verona::bytecode
 
 namespace std
 {
+  // Allow DescriptorIdx to be hashed, using the underlying value. Ideally we
+  // would do this for all wrapper types at once, but std::hash cannot be
+  // conditionally specialized with an enable_if.
   template<>
   struct hash<verona::bytecode::DescriptorIdx>
   {
@@ -582,6 +578,44 @@ namespace std
     {
       using underlying_type = verona::bytecode::DescriptorIdx::underlying_type;
       return std::hash<underlying_type>()(idx.value);
+    }
+  };
+}
+
+namespace fmt
+{
+  // Allow wrapper types to be formatted, by forwarding to the formatter for
+  // the underlying type. Doing this, rather than overloading operator<<,
+  // enables fmtlib format specifiers to work.
+  template<typename T>
+  struct formatter<T, char, std::enable_if_t<verona::bytecode::is_wrapper_v<T>>>
+  {
+    constexpr auto parse(format_parse_context& ctx)
+    {
+      return underlying.parse(ctx);
+    }
+
+    auto format(const T& wrapper, format_context& ctx)
+    {
+      return underlying.format(wrapper.value, ctx);
+    }
+
+    formatter<typename T::underlying_type> underlying;
+  };
+
+  // Override the above formatter for the Register type: as a convention, we
+  // always print them as rX, where X is the register's index.
+  template<>
+  struct formatter<verona::bytecode::Register>
+  {
+    constexpr auto parse(format_parse_context& ctx)
+    {
+      return ctx.begin();
+    }
+
+    auto format(const verona::bytecode::Register& reg, format_context& ctx)
+    {
+      return format_to(ctx.out(), "r{}", reg.value);
     }
   };
 }
