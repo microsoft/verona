@@ -55,7 +55,7 @@ strings are whitespace sensitive
 for typeparams, check the bounds
 
 eliminates: infix, prefix, staticref
-introduces: function
+introduces: function (or use staticref for this)
 
 staticref
   type

@@ -1122,6 +1122,9 @@ namespace verona::parser
       {
         if (typeexpr(obj->inherits) == Error)
           r = Error;
+
+        if (checkinherit(obj->inherits) == Error)
+          r = Error;
       }
       else
       {
@@ -2090,6 +2093,33 @@ namespace verona::parser
       return r;
     }
 
+    Result checkinherit(Node<Type>& inherit)
+    {
+      if (!inherit)
+        return Skip;
+
+      Result r = Success;
+
+      if (inherit->kind() == Kind::IsectType)
+      {
+        auto& isect = inherit->as<IsectType>();
+
+        for (auto& type : isect.types)
+        {
+          if (checkinherit(type) == Error)
+            r = Error;
+        }
+      }
+      else if (inherit->kind() != Kind::TypeRef)
+      {
+        error() << inherit->location << "A type can't inherit from a "
+                << kindname(inherit->kind()) << text(inherit->location);
+        r = Error;
+      }
+
+      return r;
+    }
+
     Result entity(Entity& ent)
     {
       // entity <- typeparams oftype
@@ -2099,6 +2129,9 @@ namespace verona::parser
         r = Error;
 
       if (oftype(ent.inherits) == Error)
+        r = Error;
+
+      if (checkinherit(ent.inherits) == Error)
         r = Error;
 
       return r;
