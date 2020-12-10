@@ -1,0 +1,12 @@
+---
+layout: default
+---
+<h1>The Verona team</h1>
+Verona is a collaboration between Microsoft Research, Imperial College London, and other individuals.
+
+{% assign msfolk = site.data.people | where: 'affiliation', 'Microsoft Research' %}
+{% assign iclfolk = site.data.people | where: 'affiliation', 'Imperial College London' %}
+{% assign otherfolk = site.data.people | where: 'affiliation', nil %}
+{% include person.html title="Microsoft Research" people=msfolk %}
+{% include person.html title="Imperial College London" people=iclfolk %}
+{% include person.html title="Other contributors" people=otherfolk %}

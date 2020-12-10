@@ -57,3 +57,45 @@ div.blognav a.next
 	text-align: right;
 }
 
+div.person
+{
+	display: inline-block;
+	margin-left: 2em;
+	margin-right: 2em;
+}
+
+div.person img.face
+{
+	max-width: 120px;
+	max-height: 100%;
+	overflow: hidden;
+	border-radius: 50%;
+	box-shadow: 5px 5px 8px #888;
+}
+div.person span.no-face
+{
+	width: 120px;
+	height: 120px;
+	display: block;
+	font-size: 72px;
+	text-align: center;
+	max-width: 120px;
+	max-height: 100%;
+	overflow: hidden;
+	border-radius: 50%;
+	color: black;
+	box-shadow: 5px 5px 8px #888;
+}
+div.person span.no-face:hover
+{
+	box-shadow: 10px 10px 8px #888;
+}
+div.person img.face:hover
+{
+	box-shadow: 10px 10px 8px #888;
+}
+div.person a.person-name
+{
+	display: block;
+	text-align: center;
+}
