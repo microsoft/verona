@@ -49,12 +49,27 @@ div.blognav a
 	width: 50%;
 	float: left;
 	margin: 1em 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+div.blognav a:hover
+{
+	overflow: visible;
 }
 
 div.blognav a.next
 {
 	float: right;
 	text-align: right;
+}
+div.blognav a.prev::before
+{
+	content: "\00AB ";
+}
+div.blognav a.next::after
+{
+	content: " \00BB";
 }
 
 div.person
@@ -98,4 +113,20 @@ div.person a.person-name
 {
 	display: block;
 	text-align: center;
+}
+
+h1.blog
+{
+	margin-bottom: 0px;
+}
+p.author
+{
+	margin-top: 0px;
+	text-align: right;
+	width: 100%;
+}
+p.author::before
+{
+	content: 'by ';
+	font-style: italic;
 }
