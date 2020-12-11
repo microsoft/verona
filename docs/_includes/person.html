@@ -1,5 +1,27 @@
 <h2>{{ include.title }}</h2>
-{% assign sorted_people = include.people | sort: 'name' %}
+{% comment %}
+We want to sort people by surname.
+This is surprisingly difficult with Jekyll (ignoring all of the localisation issues that I'm completely skipping over as I pretend that the last name written in left-to-right order is the correct sort key).
+We do this by first reversing the word order of all of the names in an array, then sorting that array, then reversing the word order again.
+We then use that sorted list to find the entries in the people array.
+For anyone confused by the weird constant split lines, apparently this really is the canonical way of initialising an empty array with liquid:
+{% assign empty_array = '' | split '' %}
+{% endcomment %}
+
+{% assign names = include.people | map: 'name' %}
+{% assign names_array = '' | split: '' %}
+{% for name in names %}
+  {% assign reversed_name = name | split: ' ' | reverse | join: ' ' %}
+  {% assign names_array = names_array | push: reversed_name %}
+{% endfor %}
+
+{% assign names = names_array | sort %}
+{% assign sorted_people = '' | split: '' %}
+{% for n in names %}
+  {% assign n1 = n | split: ' ' | reverse | join: ' ' %}
+  {% assign person = include.people | find: 'name', n1 %}
+  {% assign sorted_people = sorted_people | push: person %}
+{% endfor %}
 {% for person in sorted_people %}
 <div class="person">
 <a class="person-name" href={{ person.url | relative_url }}>
