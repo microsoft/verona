@@ -1,5 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+#include "dnf.h"
 #include "parser.h"
 #include "pass.h"
 #include "path.h"
@@ -16,9 +17,12 @@ int main(int argc, char** argv)
 
   CLI::App app{"Verona Parser"};
   bool emit_ast = false;
+  bool validate = false;
   std::string path;
+
   app.add_flag("-a,--ast", emit_ast, "Emit an abstract syntax tree.");
-  app.add_option("path", path, "Path to module to compile.")->required();
+  app.add_flag("-v,--validate", validate, "Run validation passes.");
+  app.add_option("path", path, "Path to the module to compile.")->required();
 
   try
   {
@@ -31,9 +35,10 @@ int main(int argc, char** argv)
 
   auto stdlibpath = path::canonical(path::join(path::executable(), stdlib));
   auto [ok, ast] = parse(path, stdlibpath);
+  ok = ok && (!validate || dnf::wellformed(ast));
 
-  if (ok)
-    ok = resolve_pass(ast);
+  ok = ok && resolve::run(ast);
+  ok = ok && (!validate || resolve::wellformed(ast));
 
   if (emit_ast)
     std::cout << ast << std::endl;

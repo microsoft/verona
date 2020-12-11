@@ -6,8 +6,6 @@
 
 namespace verona::parser
 {
-  using AstPaths = std::vector<AstPath>;
-
   enum class Find
   {
     First,

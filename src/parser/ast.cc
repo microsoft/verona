@@ -176,14 +176,14 @@ namespace verona::parser
   {
     auto st = symbol_table();
 
-    if (st != nullptr)
-    {
-      auto find = st->map.find(id);
+    if (!st)
+      return {};
 
-      if (find != st->map.end())
-        return find->second;
-    }
+    auto find = st->map.find(id);
 
-    return {};
+    if (find == st->map.end())
+      return {};
+
+    return find->second;
   }
 }

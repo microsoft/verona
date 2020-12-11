@@ -45,6 +45,14 @@ namespace verona::parser
       return text(loc());
     }
 
+    Ast parent()
+    {
+      if (stack.size() > 1)
+        return stack[stack.size() - 2];
+
+      return {};
+    }
+
     Pass& operator<<(Token& tok)
     {
       // Handle token fields from the node handling functions.
@@ -57,7 +65,8 @@ namespace verona::parser
       return *this;
     }
 
-    Pass& operator<<(Ast node)
+    template<typename T>
+    Pass& operator<<(Node<T>& node)
     {
       stack.push_back(node);
       dispatch(*this, node);
@@ -79,7 +88,13 @@ namespace verona::parser
     template<typename T>
     void operator()(T& node)
     {
+      auto& check = stack.back();
       static_cast<F*>(this)->pre(node);
+
+      // Don't continue if this node was replaced.
+      if (stack.back() != check)
+        return;
+
       *this << fields(node);
       static_cast<F*>(this)->post(node);
     }

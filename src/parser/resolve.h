@@ -4,7 +4,8 @@
 
 #include "pass.h"
 
-namespace verona::parser
+namespace verona::parser::resolve
 {
-  bool resolve_pass(Ast& ast);
+  bool run(Ast& ast);
+  bool wellformed(Ast& ast);
 }

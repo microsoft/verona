@@ -1,11 +1,12 @@
 # Parser Notes
 
+* eliminate uses of Token in the ast
+  select can have a location for the member
+  separate ast types for different constant types
+  typename and function can use a location
 * special types: iso, mut, imm, Self
 * multiple definitions of `apply` produces a poor error message
-* transform prefix and infix to apply
-  this needs to know if operators are free functions or not
 * try/catch
-* create sugar
 * update sugar
   should we instead have Ref[T] or Ref[T, U]?
 * distinguishing value parameters from type parameters
@@ -42,6 +43,15 @@
 allow std::cerr to be replaced
 delimit errors to distinguish suberrors
 
+## Autogenerate Create
+
+static create(): Self & iso
+{
+  // This will only type-check if all fields have default values
+  // But how do default values work with other calls to new?
+  new ()
+}
+
 ## Strings
 
 trim indent
@@ -49,76 +59,6 @@ trim indent
 
 strings are whitespace sensitive
   indent trimming is about reducing that sensitivity
-
-## Resolving Names
-
-> TODO: need to resolve through complex types
-> appears to find multiple definitions in an isect when it shouldn't
-
-eliminates: infix, prefix, staticref
-introduces: function (or use staticref for this)
-
-staticref
-  type
-  function
-  error
-
-staticref can appear here:
-  alone
-  (select X op)
-  (apply X tuple) [no-rewrite]
-  (prefix X X)
-  (infix X X X)
-
-expr
-  type ->
-    lookup ...::create
-    if it is 0 args
-      (apply (function ...::create) ())
-    else
-      (function ...::create)
-  function -> (function ...)
-
-(select function member)
-  ->
-  (select (apply function ()) member)
-
-(prefix unknown expr)
-  ->
-  (apply (select expr unknown) ())
-(prefix _ expr)
-  ->
-  (apply _ expr)
-
-(prefix op function)
-  ->
-  (prefix op function)
-(prefix op unknown)
-  -> ERROR
-
-(infix function expr1 expr2)
-  ->
-  (apply function (tuple <unpack>expr1 <unpack>expr2))
-(infix unknown expr1 expr2)
-  ->
-  (apply (select expr1 unknown) expr2)
-
-TODO: from here
-(infix op expr1 expr2)
-  op = type -> (apply (function type::create) (tuple expr1 expr 2))
-    x T y -> T::create(x, y)
-  op = function -> (apply function (tuple expr1 expr2))
-  op = unknown -> (apply (select expr1 op) expr2)
-
-(infix op expr1 expr2)
-  expr1 = type -> (infix op (apply (function type::create) ()) expr2)
-  expr1 = function -> (infix op function expr2)
-  expr1 = unknown -> ERROR
-
-(infix op expr1 expr2)
-  expr2 = type -> (infix op expr1 (apply (function type::create) ()))
-  expr2 = function -> (infix op expr1 function)
-  expr2 = unknown -> ERROR
 
 ## Overload Resolution
 
@@ -130,19 +70,3 @@ find all candidate functions
   member functions on the receiver
   must have the same name
   must have a compatible arity, accounting for default parameter values
-
-## Lookup
-
-looking up A (no ::)
-  find all visible A
-
-looking up A::B
-  find closest visible A
-  find all possible B in A
-    can be more than one if A is an alias of an intersection type
-
-looking up A::B::C
-  find all possible B
-  in each B, find all possible C
-
-is finding more than one result in an intersection ever ok?

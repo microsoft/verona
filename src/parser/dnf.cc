@@ -153,7 +153,7 @@ namespace verona::parser::dnf
     }
   }
 
-  bool wellformed(Node<Type>& type)
+  bool wellformed(Ast& ast)
   {
     struct WF : Pass<WF>
     {
@@ -195,6 +195,6 @@ namespace verona::parser::dnf
       }
     };
 
-    return WF() << type;
+    return WF() << ast;
   }
 }
