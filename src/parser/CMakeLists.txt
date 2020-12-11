@@ -5,6 +5,7 @@ add_library(verona-parser-lib
   dnf.cc
   escaping.cc
   lexer.cc
+  lookup.cc
   parser.cc
   pass.cc
   path.cc

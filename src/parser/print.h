@@ -4,17 +4,24 @@
 
 #include "ast.h"
 
+#include <iostream>
+
 namespace verona::parser
 {
   struct pretty
   {
-    Node<NodeDef> node;
+    Ast node;
     size_t width;
 
-    pretty(Node<NodeDef>& node) : node(node), width(80) {}
-    pretty(Node<NodeDef>& node, size_t width) : node(node), width(width) {}
+    pretty(const Ast& node) : node(node), width(80) {}
+    pretty(const Ast& node, size_t width) : node(node), width(width) {}
   };
 
-  std::ostream& operator<<(std::ostream& out, const Node<NodeDef>& node);
   std::ostream& operator<<(std::ostream& out, const pretty& node);
+
+  template<typename T>
+  std::ostream& operator<<(std::ostream& out, const Node<T>& node)
+  {
+    return out << pretty(node);
+  }
 }

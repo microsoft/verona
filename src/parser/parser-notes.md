@@ -10,6 +10,7 @@
   should we instead have Ref[T] or Ref[T, U]?
 * distinguishing value parameters from type parameters
 * constant expressions
+* yield transformation
 
 ## Open Questions
 
@@ -36,6 +37,11 @@
 * `'interface' tupletype` where a type is expected
   meaning extract an interface from the type
 
+## Toolchain Errors
+
+allow std::cerr to be replaced
+delimit errors to distinguish suberrors
+
 ## Strings
 
 trim indent
@@ -46,13 +52,8 @@ strings are whitespace sensitive
 
 ## Resolving Names
 
-> TODO: need to resolve through type aliases
-~> <~ : right-most
--> : fail
-, : fail
-& : lookup on all entity types, succeed if one and only one success
-| : fail
-for typeparams, check the bounds
+> TODO: need to resolve through complex types
+> appears to find multiple definitions in an isect when it shouldn't
 
 eliminates: infix, prefix, staticref
 introduces: function (or use staticref for this)
@@ -118,3 +119,30 @@ TODO: from here
   expr2 = type -> (infix op expr1 (apply (function type::create) ()))
   expr2 = function -> (infix op expr1 function)
   expr2 = unknown -> ERROR
+
+## Overload Resolution
+
+https://en.cppreference.com/w/cpp/language/overload_resolution
+https://en.cppreference.com/w/cpp/language/constraints
+
+find all candidate functions
+  static functions in scope
+  member functions on the receiver
+  must have the same name
+  must have a compatible arity, accounting for default parameter values
+
+## Lookup
+
+looking up A (no ::)
+  find all visible A
+
+looking up A::B
+  find closest visible A
+  find all possible B in A
+    can be more than one if A is an alias of an intersection type
+
+looking up A::B::C
+  find all possible B
+  in each B, find all possible C
+
+is finding more than one result in an intersection ever ok?

@@ -7,8 +7,7 @@
 namespace verona::parser
 {
   template<typename F, typename... Args>
-  auto dispatch(F& f, const Node<NodeDef>& node, Args&... args)
-    -> decltype(f(args...))
+  auto dispatch(F& f, const Ast& node, Args&... args) -> decltype(f(args...))
   {
     if (!node)
       return f(args...);

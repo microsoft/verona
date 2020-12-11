@@ -29,7 +29,7 @@ namespace verona::parser
     Token previous;
     std::vector<Token> lookahead;
 
-    List<NodeDef> symbol_stack;
+    AstPath symbol_stack;
 
     Source rewrite;
     size_t hygienic;
@@ -82,7 +82,7 @@ namespace verona::parser
       return std::cerr;
     }
 
-    SymbolPush push(Node<NodeDef> node)
+    SymbolPush push(Ast node)
     {
       assert(node->symbol_table() != nullptr);
       symbol_stack.push_back(node);
@@ -94,12 +94,12 @@ namespace verona::parser
       symbol_stack.pop_back();
     }
 
-    Node<NodeDef> get_sym(const ID& id)
+    Ast get_sym(const ID& id)
     {
-      return parser::get_sym(symbol_stack, id);
+      return parser::get_sym(symbol_stack, id).second;
     }
 
-    void set_sym(const ID& id, Node<NodeDef> node, SymbolTable& st)
+    void set_sym(const ID& id, Ast node, SymbolTable& st)
     {
       auto find = st.map.find(id);
 
@@ -114,14 +114,14 @@ namespace verona::parser
       st.map.emplace(id, node);
     }
 
-    void set_sym(const ID& id, Node<NodeDef> node)
+    void set_sym(const ID& id, Ast node)
     {
       assert(symbol_stack.size() > 0);
       auto st = symbol_stack.back()->symbol_table();
       set_sym(id, node, *st);
     }
 
-    void set_sym_parent(const ID& id, Node<NodeDef> node)
+    void set_sym_parent(const ID& id, Ast node)
     {
       assert(symbol_stack.size() > 1);
       auto st = symbol_stack[symbol_stack.size() - 2]->symbol_table();
@@ -1771,7 +1771,7 @@ namespace verona::parser
           r = Error;
         }
 
-        type = intersect(type, next, amploc);
+        type = dnf::intersect(type, next, amploc);
       } while (has(TokenKind::Symbol, "&"));
 
       return r;
@@ -1826,7 +1826,7 @@ namespace verona::parser
         return Error;
       }
 
-      assert(wellformed(type));
+      assert(dnf::wellformed(type));
       return Success;
     }
 
@@ -2469,8 +2469,7 @@ namespace verona::parser
     }
   };
 
-  std::pair<bool, Node<NodeDef>>
-  parse(const std::string& path, const std::string& stdlib)
+  std::pair<bool, Ast> parse(const std::string& path, const std::string& stdlib)
   {
     Parse parse(stdlib);
     auto program = std::make_shared<Class>();

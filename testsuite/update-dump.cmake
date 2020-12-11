@@ -30,9 +30,9 @@ foreach(TEST_FOLDER ${TEST_FOLDERS})
       set(OUT_DIR ${TEST_FOLDER}/parser/${TEST_NAME})
 
       message(STATUS "Regenerating ${OUT_DIR}/ast.txt")
-      message(STATUS "${VERONA_PARSER} ${PARSE_TEST}")
+      message(STATUS "${VERONA_PARSER} --ast ${PARSE_TEST}")
       execute_process(
-        COMMAND ${VERONA_PARSER} ${PARSE_TEST}
+        COMMAND ${VERONA_PARSER} --ast ${PARSE_TEST}
         OUTPUT_FILE ${OUT_DIR}/ast.txt)
     endforeach()
   elseif(${TEST_FOLDER} MATCHES ".*/mlir")

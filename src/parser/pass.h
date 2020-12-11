@@ -16,7 +16,7 @@ namespace verona::parser
   template<typename F>
   struct Pass
   {
-    List<NodeDef> stack;
+    AstPath stack;
     bool ok;
 
     Pass() : ok(true) {}
@@ -57,7 +57,7 @@ namespace verona::parser
       return *this;
     }
 
-    Pass& operator<<(Node<NodeDef> node)
+    Pass& operator<<(Ast node)
     {
       stack.push_back(node);
       dispatch(*this, node);

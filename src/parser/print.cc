@@ -10,12 +10,12 @@
 namespace verona::parser
 {
   // Forward reference to break cycles.
-  PrettyStream& operator<<(PrettyStream& out, const Node<NodeDef>& node);
+  PrettyStream& operator<<(PrettyStream& out, const Ast& node);
 
   template<typename T>
   PrettyStream& operator<<(PrettyStream& out, Node<T>& node)
   {
-    return out << static_cast<Node<NodeDef>>(node);
+    return out << static_cast<Ast>(node);
   }
 
   template<typename T>
@@ -108,7 +108,7 @@ namespace verona::parser
     }
   };
 
-  PrettyStream& operator<<(PrettyStream& out, const Node<NodeDef>& node)
+  PrettyStream& operator<<(PrettyStream& out, const Ast& node)
   {
     Print print;
     return dispatch(print, node, out);
@@ -116,7 +116,7 @@ namespace verona::parser
 
   std::ostream& operator<<(std::ostream& out, const pretty& pret)
   {
-    PrettyStream ss(out);
+    PrettyStream ss(out, pret.width);
     ss << pret.node;
     ss.flush();
     return out;

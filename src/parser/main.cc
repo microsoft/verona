@@ -15,7 +15,9 @@ int main(int argc, char** argv)
   using namespace verona::parser;
 
   CLI::App app{"Verona Parser"};
+  bool emit_ast = false;
   std::string path;
+  app.add_flag("-a,--ast", emit_ast, "Emit an abstract syntax tree.");
   app.add_option("path", path, "Path to module to compile.")->required();
 
   try
@@ -31,8 +33,10 @@ int main(int argc, char** argv)
   auto [ok, ast] = parse(path, stdlibpath);
 
   if (ok)
-    ok = Resolve() << ast;
+    ok = resolve_pass(ast);
 
-  std::cout << pretty(ast) << std::endl;
+  if (emit_ast)
+    std::cout << ast << std::endl;
+
   return ok ? 0 : -1;
 }
