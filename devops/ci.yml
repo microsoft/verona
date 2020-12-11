@@ -115,6 +115,12 @@ jobs:
       Release:
         CXXFLAGS: '/EHsc'
         BuildType: Release
+      Debug:
+        CXXFLAGS: '/EHsc'
+        BuildType: Debug
+      RelWithDebInfo:
+        CXXFLAGS: '/EHsc'
+        BuildType: RelWithDebInfo
 
   steps:
   - checkout: self
