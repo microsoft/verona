@@ -89,7 +89,7 @@ else ()
       -DOUTPUT_DIR=${LLVM_BASE}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/download-llvm.cmake)
 
-  ExternalProject_Add(build-llvm-internal
+  ExternalProject_Add(build-llvm
     PREFIX ${LLVM_BASE}
     BINARY_DIR ${LLVM_BASE}/build
     STAMP_DIR ${LLVM_BASE}/stamp
@@ -109,9 +109,10 @@ else ()
     BUILD_ALWAYS true
   )
 
-  add_custom_target(build-llvm
+  add_custom_command(
+    TARGET build-llvm
+    POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E touch ${LLVM_BASE}/llvm-stamp)
-  add_dependencies(build-llvm build-llvm-internal)
 endif ()
 
 if (VERONA_CI_BUILD)
@@ -141,4 +142,17 @@ add_subdirectory(external/pegmatite EXCLUDE_FROM_ALL)
 add_library(cpp-peglib INTERFACE)
 target_include_directories(cpp-peglib INTERFACE external/cpp-peglib)
 
+enable_testing()
+
 add_subdirectory(src)
+add_subdirectory(testsuite)
+
+# Adds a target check that runs the tests.
+add_custom_target(check
+  COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> --output-on-failure --timeout 400 --interactive-debug-mode 0
+  USES_TERMINAL
+  DEPENDS install)
+
+if (RT_TESTS)
+  add_dependencies(check rt_tests)
+endif ()

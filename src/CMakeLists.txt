@@ -1,6 +1,8 @@
 include_directories(.)
 
-set (VERONA_RT_ONLY_HEADER_LIBRARY ON)
+if (NOT RT_TESTS)
+  set (VERONA_RT_ONLY_HEADER_LIBRARY ON)
+endif ()
 add_subdirectory(rt)
 
 # Should go to stricter warnings 
