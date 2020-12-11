@@ -4,9 +4,9 @@
 
 #include "dnf.h"
 #include "escaping.h"
+#include "ident.h"
 #include "path.h"
 
-#include <cstring>
 #include <iostream>
 #include <set>
 
@@ -31,8 +31,7 @@ namespace verona::parser
 
     AstPath symbol_stack;
 
-    Source rewrite;
-    size_t hygienic;
+    Ident ident;
     Token token_apply;
     Token token_has_value;
     Token token_next;
@@ -54,9 +53,8 @@ namespace verona::parser
     };
 
     Parse(const std::string& stdlib)
-    : pos(0), la(0), hygienic(0), final_result(Success), stdlib(stdlib)
+    : pos(0), la(0), final_result(Success), stdlib(stdlib)
     {
-      rewrite = std::make_shared<SourceDef>();
       token_apply = ident("apply");
       token_has_value = ident("has_value");
       token_next = ident("next");
@@ -126,35 +124,6 @@ namespace verona::parser
       assert(symbol_stack.size() > 1);
       auto st = symbol_stack[symbol_stack.size() - 2]->symbol_table();
       set_sym(id, node, *st);
-    }
-
-    Token ident(const char* text = "")
-    {
-      auto len = strlen(text);
-
-      if (len == 0)
-      {
-        auto h = "$" + std::to_string(hygienic++);
-        auto pos = rewrite->contents.size();
-        rewrite->contents.append(h);
-        len = h.size();
-        return {TokenKind::Ident, {rewrite, pos, pos + len - 1}};
-      }
-
-      auto pos = rewrite->contents.find(text);
-
-      if (pos == std::string::npos)
-      {
-        pos = rewrite->contents.size();
-        rewrite->contents.append(text);
-      }
-
-      return {TokenKind::Ident, {rewrite, pos, pos + len - 1}};
-    }
-
-    Token ident(const std::string& s)
-    {
-      return ident(s.c_str());
     }
 
     Node<Ref> ref(const Location& loc)
@@ -1826,7 +1795,6 @@ namespace verona::parser
         return Error;
       }
 
-      assert(dnf::wellformed(type));
       return Success;
     }
 
@@ -2463,8 +2431,6 @@ namespace verona::parser
           set_sym(tp->id, tp);
       }
 
-      // Reset hygienic for the next module.
-      hygienic = 0;
       return r;
     }
   };

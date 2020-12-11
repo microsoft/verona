@@ -74,6 +74,7 @@ namespace verona::parser
 
   using Ast = Node<NodeDef>;
   using AstPath = List<NodeDef>;
+  using AstPaths = std::vector<AstPath>;
 
   struct SymbolTable;
 
@@ -614,6 +615,7 @@ namespace verona::parser
   struct StaticRef : Expr
   {
     List<TypeName> typenames;
+    bool maybe_member = false;
 
     Kind kind()
     {

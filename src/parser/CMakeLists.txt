@@ -7,11 +7,11 @@ add_library(verona-parser-lib
   lexer.cc
   lookup.cc
   parser.cc
-  pass.cc
   path.cc
   pretty.cc
   print.cc
   resolve.cc
+  rewrite.cc
   source.cc)
 
 add_executable(verona-parser main.cc)

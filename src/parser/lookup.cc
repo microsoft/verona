@@ -1,9 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "lookup.h"
-#include "print.h"
-
-#include <iostream>
 
 namespace verona::parser
 {

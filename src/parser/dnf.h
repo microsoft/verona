@@ -11,6 +11,6 @@ namespace verona::parser::dnf
   // intersection type together.
   Node<Type> intersect(Node<Type>& left, Node<Type>& right, Location& loc);
 
-  // This checks if a type is in disjunctive normal form.
-  bool wellformed(Node<Type>& type);
+  // This checks if types are in disjunctive normal form.
+  bool wellformed(Ast& ast);
 }
