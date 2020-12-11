@@ -61,7 +61,7 @@ namespace verona::parser
   public:
     /// out - is the underlying output stream to pretty print to
     /// width - is the maximum output width.
-    PrettyStream(std::ostream& out, uint16_t width = 80);
+    PrettyStream(std::ostream& out, uint16_t width);
 
     ~PrettyStream();
 

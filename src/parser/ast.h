@@ -72,11 +72,16 @@ namespace verona::parser
   template<typename T>
   using List = std::vector<Node<T>>;
 
+  using Ast = Node<NodeDef>;
+  using AstPath = List<NodeDef>;
+
   struct SymbolTable;
 
   const char* kindname(Kind kind);
+
   bool is_kind(Kind kind, const std::initializer_list<Kind>& kinds);
-  Node<NodeDef> get_sym(const List<NodeDef>& stack, const ID& id);
+
+  std::pair<AstPath::iterator, Ast> get_sym(AstPath& stack, const ID& id);
 
   struct NodeDef
   {
@@ -90,19 +95,18 @@ namespace verona::parser
       return nullptr;
     }
 
-    Node<NodeDef> get_sym(const ID& id);
+    Ast get_sym(const ID& id);
 
     template<typename T>
     T& as()
     {
-      assert(T().kind() == kind());
       return static_cast<T&>(*this);
     }
   };
 
   struct SymbolTable
   {
-    std::unordered_map<ID, Node<NodeDef>> map;
+    std::unordered_map<ID, Ast> map;
   };
 
   // TODO: anonymous interface

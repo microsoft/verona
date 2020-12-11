@@ -6,6 +6,6 @@
 
 namespace verona::parser
 {
-  std::pair<bool, Node<NodeDef>>
+  std::pair<bool, Ast>
   parse(const std::string& path, const std::string& stdlib);
 }

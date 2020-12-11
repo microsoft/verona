@@ -4,12 +4,13 @@
 
 #include "ast.h"
 
-namespace verona::parser
+namespace verona::parser::dnf
 {
   // This distributes & over | in the type system, producing a disjunctive
   // normal form type. The two types are any two types that are in an
   // intersection type together.
   Node<Type> intersect(Node<Type>& left, Node<Type>& right, Location& loc);
 
+  // This checks if a type is in disjunctive normal form.
   bool wellformed(Node<Type>& type);
 }

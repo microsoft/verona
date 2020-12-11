@@ -77,10 +77,7 @@ namespace verona::parser::dnf
 
     return un;
   }
-}
 
-namespace verona::parser
-{
   Node<Type> intersect(Node<Type>& left, Node<Type>& right, Location& loc)
   {
     switch (left->kind())
@@ -168,8 +165,9 @@ namespace verona::parser
         {
           if (ty->kind() == Kind::UnionType)
           {
-            error() << loc() << "Union type should not contain another union type"
-            << line();
+            error() << loc()
+                    << "Union type should not contain another union type"
+                    << line();
             return;
           }
         }
@@ -182,14 +180,15 @@ namespace verona::parser
           if (ty->kind() == Kind::UnionType)
           {
             error() << loc() << "Isect type should not contain a union type"
-            << line();
+                    << line();
             return;
           }
 
           if (ty->kind() == Kind::IsectType)
           {
-            error() << loc() << "Isect type should not contain another isect type"
-            << line();
+            error() << loc()
+                    << "Isect type should not contain another isect type"
+                    << line();
             return;
           }
         }

@@ -2,87 +2,99 @@
 // SPDX-License-Identifier: MIT
 #include "resolve.h"
 
+#include "lookup.h"
+
 namespace verona::parser
 {
-  void Resolve::post(TypeRef& tr)
+  struct Resolve : Pass<Resolve>
   {
-    Node<NodeDef> def;
+    AST_PASS;
 
-    for (auto& name : tr.typenames)
+    void post(TypeRef& tr)
     {
-      if (!def)
-        def = get_sym(stack, name->value.location);
-      else
-        def = def->get_sym(name->value.location);
+      auto paths = look_up(stack, tr.typenames);
 
-      if (!is_type(def, name))
+      if (paths.empty())
+      {
+        error() << tr.location << "Couldn't find a definition of this type."
+                << text(tr.location);
         return;
-    }
-  }
+      }
 
-  void Resolve::post(StaticRef& sr)
-  {
-    Node<NodeDef> def;
+      if (paths.size() > 1)
+      {
+        auto& out = error()
+          << tr.location << "Found multiple definitions of this type."
+          << text(tr.location);
 
-    for (size_t i = 0; i < sr.typenames.size() - 1; i++)
-    {
-      auto& tn = sr.typenames[i];
-
-      if (!def)
-        def = get_sym(stack, tn->value.location);
-      else
-        def = def->get_sym(tn->value.location);
-
-      if (!is_type(def, tn))
+        for (auto& path : paths)
+        {
+          auto& loc = path.back()->location;
+          out << loc << "Found a definition here." << text(loc);
+        }
         return;
+      }
+
+      auto& def = paths.front().back();
+
+      if (!is_kind(
+            def->kind(),
+            {Kind::Class, Kind::Interface, Kind::TypeAlias, Kind::TypeParam}))
+      {
+        error() << tr.location << "Expected a type, but got a "
+                << kindname(def->kind()) << text(tr.location) << def->location
+                << "Definition is here" << text(def->location);
+      }
     }
 
-    auto& tn = sr.typenames.back();
-
-    if (!def)
-      def = get_sym(stack, tn->value.location);
-    else
-      def = def->get_sym(tn->value.location);
-
-    if (!def)
+    void post(StaticRef& sr)
     {
-      error() << tn->location << "Couldn't resolve static reference"
-              << text(tn->location);
-      return;
-    }
+      auto paths = look_up(stack, sr.typenames);
 
-    if (is_kind(def->kind(), {Kind::Class, Kind::Interface, Kind::TypeAlias}))
-    {
-      // TODO: it's a type
-    }
-    else if (is_kind(def->kind(), {Kind::Function}))
-    {
-      // TODO: it's a static function
-    }
-    else
-    {
-      error() << tn->location
-              << "Expected a type or a static function, but got a "
-              << kindname(def->kind()) << text(tn->location) << def->location
-              << "Definition is here" << text(def->location);
-    }
-  }
+      if (paths.empty())
+      {
+        error() << sr.location
+                << "Couldn't find a definition for this reference."
+                << text(sr.location);
+        return;
+      }
 
-  bool Resolve::is_type(Node<NodeDef>& def, Node<NodeDef> ref)
+      if (paths.size() > 1)
+      {
+        auto& out = error()
+          << sr.location << "Found multiple definitions of this reference."
+          << text(sr.location);
+
+        for (auto& path : paths)
+        {
+          auto& loc = path.back()->location;
+          out << loc << "Found a definition here." << text(loc);
+        }
+        return;
+      }
+
+      auto& def = paths.front().back();
+
+      if (is_kind(def->kind(), {Kind::Class, Kind::Interface, Kind::TypeAlias}))
+      {
+        // TODO: it's a type
+      }
+      else if (is_kind(def->kind(), {Kind::Function}))
+      {
+        // TODO: it's a static function
+      }
+      else
+      {
+        error() << sr.location
+                << "Expected a type or a static function, but got a "
+                << kindname(def->kind()) << text(sr.location) << def->location
+                << "Definition is here" << text(def->location);
+      }
+    }
+  };
+
+  bool resolve_pass(Ast& ast)
   {
-    if (!def)
-    {
-      error() << ref->location << "Couldn't resolve type"
-              << text(ref->location);
-      return false;
-    }
-
-    if (is_kind(def->kind(), {Kind::Class, Kind::Interface, Kind::TypeAlias}))
-      return true;
-
-    error() << ref->location << "Expected a type, but got a "
-            << kindname(def->kind()) << text(ref->location) << def->location
-            << "Definition is here" << text(def->location);
-    return false;
+    return Resolve() << ast;
   }
 }

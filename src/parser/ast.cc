@@ -159,20 +159,20 @@ namespace verona::parser
     return false;
   }
 
-  Node<NodeDef> get_sym(const List<NodeDef>& stack, const ID& id)
+  std::pair<AstPath::iterator, Ast> get_sym(AstPath& stack, const ID& id)
   {
-    for (int i = stack.size() - 1; i >= 0; i--)
+    for (auto it = stack.rbegin(); it != stack.rend(); ++it)
     {
-      auto r = stack[i]->get_sym(id);
+      auto r = (*it)->get_sym(id);
 
       if (r)
-        return r;
+        return {it.base(), r};
     }
 
     return {};
   }
 
-  Node<NodeDef> NodeDef::get_sym(const ID& id)
+  Ast NodeDef::get_sym(const ID& id)
   {
     auto st = symbol_table();
 
