@@ -18,4 +18,7 @@ add_subdirectory(typed-ast)
 add_subdirectory(compiler)
 add_subdirectory(interpreter)
 add_subdirectory(stdlib)
-add_subdirectory(mlir)
+
+if (MLIR_FOUND)
+  add_subdirectory(mlir)
+endif ()

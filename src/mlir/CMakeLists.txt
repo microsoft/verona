@@ -1,8 +1,5 @@
 find_package(Threads REQUIRED)
 
-# We're not building LLVM, but downloading the build dir from an artefact
-set(LLVM_BUILD ${VERONA_LLVM_LOCATION})
-
 # std::iterator is used by MLIR/LLVM
 # This is deprecated and causes warnings in MSVC.
 # Once fixed in LLVM, the following three lines can be removed.
@@ -13,16 +10,6 @@ endif ()
 # LLVM requires CMake 3.13+ and this policy is for 3.12-, so we force new to
 # avoid the CMake warnings on LLVM CMake files that we can't change
 cmake_policy(SET CMP0077 NEW)
-
-# Find MLIR_DIR and LLVM_EXTERNAL_LIT from LLVM_BUILD
-set(LLVM_DIR ${LLVM_BUILD}/lib/cmake/llvm)
-message(STATUS "Setting LLVM_DIR as ${LLVM_DIR}")
-set(MLIR_DIR ${LLVM_BUILD}/lib/cmake/mlir)
-message(STATUS "Setting MLIR_DIR as ${MLIR_DIR}")
-set(LLVM_EXTERNAL_LIT ${LLVM_BUILD}/bin/llvm-lit CACHE STRING "Command used to spawn lit")
-message(STATUS "Setting LLVM_EXTERNAL_LIT as ${LLVM_EXTERNAL_LIT}")
-
-find_package(MLIR REQUIRED CONFIG)
 
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")

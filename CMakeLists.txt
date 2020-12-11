@@ -1,55 +1,10 @@
 cmake_minimum_required(VERSION 3.10.0)
+project(verona-lang CXX)
 
-# CMAKE_HOME_DIRECTORY should not be passed down to another project.
-set (VERONA_DONT_PASS CMAKE_HOME_DIRECTORY)
-macro (option_top VAR HELP DEFAULT)
-  option (${VAR} ${HELP} ${DEFAULT})
-  list (APPEND VERONA_DONT_PASS ${VAR})
-endmacro ()
+include(cmake/clangformat.cmake)
+include(cmake/enable-asserts.cmake)
 
-option_top (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM" ON)
-option_top (VERBOSE_LLVM_DOWNLOAD "Verbose LLVM/MLIR download step" OFF)
-
-message (STATUS "Download LLVM: ${VERONA_DOWNLOAD_LLVM}")
-# Lifted from snmalloc. Hard to include with external projects, so copied
-macro(clangformat_targets)
-  # The clang-format tool is installed under a variety of different names.  Try
-  # to find a sensible one.  Only look for versions 9 explicitly - we don't
-  # know whether our clang-format file will work with newer versions of the
-  # tool.  It does not work with older versions as AfterCaseLabel is not supported
-  # in earlier versions.
-  #
-  # This can always be overriden with `-DCLANG_FORMAT=/path/to/clang-format` if
-  # need be.
-  find_program(CLANG_FORMAT NAMES
-    clang-format-9)
-
-  # If we've found a clang-format tool, generate a target for it, otherwise emit
-  # a warning.
-  if (${CLANG_FORMAT} STREQUAL "CLANG_FORMAT-NOTFOUND")
-    message(WARNING "Not generating clangformat target, must have clang-format-9 in the PATH")
-  else ()
-    message(STATUS "Generating clangformat target using ${CLANG_FORMAT}")
-    find_package(Git)
-    execute_process(
-      COMMAND ${GIT_EXECUTABLE} ls-files *.cc *.h
-      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
-      OUTPUT_VARIABLE ALL_SOURCE_FILES_STRING
-    )
-
-    string(REPLACE "\n" ";" ALL_SOURCE_FILES ${ALL_SOURCE_FILES_STRING})
-
-    add_custom_target(
-      clangformat
-      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
-      COMMAND ${CLANG_FORMAT}
-      -i
-      ${ALL_SOURCE_FILES})
-  endif()
-endmacro()
-
-clangformat_targets()
-
+option(VERONA_LLVM_LOCATION "Location of LLVM/MLIR installation")
 option(ENABLE_ASSERTS "Enable asserts even in release builds" OFF)
 option(RT_TESTS "Including unit tests for the runtime" OFF)
 option(USE_SCHED_STATS "Track scheduler stats" OFF)
@@ -62,125 +17,102 @@ if (NOT MSVC)
   option(CMAKE_EXPORT_COMPILE_COMMANDS "Export compilation commands" ON)
 endif ()
 
-SET(VERONA_LOCAL_DIST ${CMAKE_BINARY_DIR}/dist CACHE PATH "Default to installing inside build dir" FORCE)
+IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  SET(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/dist CACHE PATH "Default to installing inside build dir" FORCE)
+ENDIF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
-# This is to trick the CMake into building LLVM before Verona.
-# We use two External Projects, so that the LLVM build can complete and install
-# before we start the Verona one.  This is required as we consume CMake
-# artifacts, which are not available otherwise.
-include(ExternalProject)
-if (NOT DEFINED VERONA_LLVM_LOCATION)
-  project(verona CXX)
-  set(DEFAULT_BUILD_TYPE "Release")
-  if (NOT CMAKE_BUILD_TYPE)
-    message(STATUS "Setting build type to '${DEFAULT_BUILD_TYPE}' as none was specified.")
-    set(CMAKE_BUILD_TYPE "${DEFAULT_BUILD_TYPE}" CACHE STRING "Choose the type of build." FORCE)
-  endif()
-
-  set (MLIR_INSTALL ${CMAKE_BINARY_DIR}/$<CONFIG>/mlir)
-
-  set (EXTERNAL_EXTRA_CMAKE_ARGS)
-  list (APPEND EXTERNAL_EXTRA_CMAKE_ARGS 
-    -DVERONA_DOWNLOAD_LLVM=${VERONA_DOWNLOAD_LLVM}
-    -DMLIR_INSTALL=${MLIR_INSTALL}
-    -DCMAKE_BUILD_TYPE=$<CONFIG>)
-
-  if (VERONA_DOWNLOAD_LLVM AND DEFINED LLVM_EXTRA_CMAKE_ARGS)
-    message (WARNING "Ignoring LLVM_EXTRA_CMAKE_ARGS as cached LLVM.")
-  endif ()
-
-  if (NOT VERONA_DOWNLOAD_LLVM)
-    if (NOT DEFINED LLVM_EXTRA_CMAKE_ARGS)
-      set (LLVM_EXTRA_CMAKE_ARGS)
-    endif ()
-
-    list (APPEND EXTERNAL_EXTRA_CMAKE_ARGS
-      -DLLVM_EXTRA_CMAKE_ARGS=${LLVM_EXTRA_CMAKE_ARGS}
-    )
-  else ()
-    list (APPEND EXTERNAL_EXTRA_CMAKE_ARGS
-      -DVERBOSE_LLVM_DOWNLOAD=${VERBOSE_LLVM_DOWNLOAD}
-    )
-  endif ()
-
-
-  ExternalProject_Add(external
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/external
-    CMAKE_ARGS ${EXTERNAL_EXTRA_CMAKE_ARGS} 
-    BUILD_ALWAYS true
-    INSTALL_COMMAND ""
-    TEST_COMMAND ""
-    USES_TERMINAL_BUILD true
-    USES_TERMINAL_CONFIGURE true
-  )
-
-  if (DEFINED VERONA_EXTRA_CMAKE_ARGS)
-    message (WARNING "Do not use VERONA_EXTRA_CMAKE_ARGS! Value ignored")
-  endif ()
-  set (VERONA_EXTRA_CMAKE_ARGS)
-
-  # Point Verona at the MLIR
-  list (APPEND VERONA_EXTRA_CMAKE_ARGS
-    -DVERONA_LLVM_LOCATION=${MLIR_INSTALL}/install
-  )
-
-  # Define project level defaults
-  list (APPEND VERONA_EXTRA_CMAKE_ARGS
-    -DCMAKE_CXX_STANDARD=17)
-
-  # Use top-level install directory when building
-  # as a subproject.
-  list (APPEND VERONA_EXTRA_CMAKE_ARGS
-    -DCMAKE_INSTALL_PREFIX=${VERONA_LOCAL_DIST})
-  list (APPEND VERONA_DONT_PASS CMAKE_INSTALL_PREFIX)
-
-  get_cmake_property(CACHE_VARS CACHE_VARIABLES)
-  foreach (CACHE_VAR ${CACHE_VARS})
-    list (FIND VERONA_DONT_PASS ${CACHE_VAR} INDEX)
-    if (${INDEX} EQUAL -1)
-      list(APPEND VERONA_EXTRA_CMAKE_ARGS
-        -D${CACHE_VAR}=${${CACHE_VAR}}
-      )
-    endif()
-  endforeach ()
-
-
-  ExternalProject_Add(verona
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}
-    DEPENDS external
-    BUILD_ALWAYS true
-    USES_TERMINAL_BUILD true
-    USES_TERMINAL_CONFIGURE true
-    USES_TERMINAL_INSTALL true
-    USES_TERMINAL_TEST true
-    CMAKE_ARGS ${VERONA_EXTRA_CMAKE_ARGS})
-
-  enable_testing()
-
-  add_subdirectory(testsuite)
-
-  # Main target does not test runtime, build subdirectory for that
-  if (RT_TESTS)
-    add_subdirectory(src/rt)
-  endif()
-
-  include(ProcessorCount)
-  ProcessorCount(N)
-
-  # Adds a target check that runs the tests.
-  add_custom_target(check DEPENDS verona rt_tests)
-  add_custom_command(TARGET check 
-    COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> -j ${N} --output-on-failure --timeout 400 --interactive-debug-mode 0
-    USES_TERMINAL
-  )
-  return ()
+set(DEFAULT_BUILD_TYPE "Release")
+if (NOT CMAKE_BUILD_TYPE)
+  message(STATUS "Setting build type to '${DEFAULT_BUILD_TYPE}' as none was specified.")
+  set(CMAKE_BUILD_TYPE "${DEFAULT_BUILD_TYPE}" CACHE STRING "Choose the type of build." FORCE)
 endif()
-
-project(verona-lang CXX)
 
 message(STATUS "Build Type for Verona ${CMAKE_BUILD_TYPE}")
 set(CMAKE_CONFIGURATION_TYPES  Release Debug RelWithDebInfo)
 message(STATUS "Build types ${CMAKE_CONFIGURATION_TYPES}")
+
+if (VERONA_LLVM_LOCATION)
+  message(STATUS "Using LLVM/MLIR in ${VERONA_LLVM_LOCATION}")
+  set(MLIR_DIR ${VERONA_LLVM_LOCATION}/lib/cmake/mlir)
+  find_package(MLIR REQUIRED CONFIG)
+else ()
+  include(ExternalProject)
+
+  find_package(Git REQUIRED)
+
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} rev-parse --short=11 HEAD
+    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/external/llvm-project"
+    OUTPUT_VARIABLE LLVM_PACKAGE_GIT_VERSION)
+  string(STRIP ${LLVM_PACKAGE_GIT_VERSION} LLVM_PACKAGE_GIT_VERSION)
+  message (STATUS "Detected LLVM GIT commit: ${LLVM_PACKAGE_GIT_VERSION}")
+
+  if (${CMAKE_BUILD_TYPE} STREQUAL RelWithDebInfo)
+    # RelWithDebInfo should use release LLVM.
+    set(LLVM_BUILD_TYPE Release)
+  elseif (WIN32)
+    set(LLVM_BUILD_TYPE ${CMAKE_BUILD_TYPE})
+  else ()
+    # Use release everywhere it works.
+    set(LLVM_BUILD_TYPE Release)
+  endif ()
+
+  set (LLVM_BASE ${CMAKE_BINARY_DIR}/llvm/${LLVM_BUILD_TYPE}/${LLVM_PACKAGE_GIT_VERSION})
+
+  # If LLVM isn't present, and the user runs download-llvm/build-llvm targets,
+  # we need to re-run cmake to take into load MLIR and enable the right targets.
+  #
+  # We use an llvm-stamp file as configure dependency to automatically run cmake
+  # when that happens. Both the download-llvm and build-llvm targets touch that
+  # stamp file.
+  file(MAKE_DIRECTORY ${LLVM_BASE})
+  file(TOUCH ${LLVM_BASE}/llvm-stamp)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${LLVM_BASE}/llvm-stamp)
+
+  if (EXISTS "${LLVM_BASE}/install/lib/cmake/mlir/AddMLIR.cmake")
+    message(STATUS "Using LLVM/MLIR in ${LLVM_BASE}/install/")
+    set(MLIR_DIR ${LLVM_BASE}/install/lib/cmake/mlir)
+    find_package(MLIR REQUIRED CONFIG)
+  else ()
+    message(WARNING "Could not find an LLVM installation. The MLIR backend will not be compiled.\nEither define VERONA_LLVM_LOCATION, use the `download-llvm` target to download a prebuilt LLVM blob or use the `build-llvm` to built it from source.")
+    set (MLIR_FOUND FALSE)
+  endif ()
+
+  add_custom_target(download-llvm
+    USES_TERMINAL # This allows us to print progress
+    COMMAND
+      ${CMAKE_COMMAND}
+      -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
+      -DLLVM_BUILD_TYPE=${LLVM_BUILD_TYPE}
+      -DLLVM_PACKAGE_GIT_VERSION=${LLVM_PACKAGE_GIT_VERSION}
+      -DVERBOSE_LLVM_DOWNLOAD=${VERBOSE_LLVM_DOWNLOAD}
+      -DOUTPUT_DIR=${LLVM_BASE}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/download-llvm.cmake)
+
+  ExternalProject_Add(build-llvm-internal
+    PREFIX ${LLVM_BASE}
+    BINARY_DIR ${LLVM_BASE}/build
+    STAMP_DIR ${LLVM_BASE}/stamp
+    SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/llvm-project/llvm
+    CMAKE_ARGS
+      -DCMAKE_INSTALL_PREFIX=${LLVM_BASE}/install
+      -DCMAKE_BUILD_TYPE=${LLVM_BUILD_TYPE}
+      -DLLVM_ENABLE_PROJECTS=mlir
+      -DLLVM_TARGETS_TO_BUILD=X86
+      -DLLVM_ENABLE_ASSERTIONS=On
+      -DLLVM_ENABLE_RTTI=ON
+      -DLLVM_ENABLE_EH=ON
+      ${LLVM_EXTRA_CMAKE_ARGS}
+    USES_TERMINAL_BUILD true
+    USES_TERMINAL_CONFIGURE true
+    EXCLUDE_FROM_ALL true
+    BUILD_ALWAYS true
+  )
+
+  add_custom_target(build-llvm
+    COMMAND ${CMAKE_COMMAND} -E touch ${LLVM_BASE}/llvm-stamp)
+  add_dependencies(build-llvm build-llvm-internal)
+endif ()
 
 if (VERONA_CI_BUILD)
   # Specify policy to go into child projects.
@@ -188,41 +120,19 @@ if (VERONA_CI_BUILD)
   set (SNMALLOC_CI_BUILD ON)
 endif ()
 
-# Copied from LLVM, handling release builds with assertions isn't trivial as
-# CMake defines -DNDEBUG automatically and we have to clear it.
-if( ENABLE_ASSERTS )
-  # MSVC doesn't like _DEBUG on release builds.
-  if( NOT MSVC )
-    message(STATUS "Enabling asserts")
-    add_definitions( -D_DEBUG )
-  endif()
-  # On non-Debug builds cmake automatically defines NDEBUG, so we
-  # explicitly undefine it:
-  if( NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" )
-    message(STATUS "Removing NDEBUG from existing flags to enable asserts")
-    # NOTE: use `add_compile_options` rather than `add_definitions` since
-    # `add_definitions` does not support generator expressions.
-    add_compile_options($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:-UNDEBUG>)
+clangformat_targets()
 
-    # Also remove /D NDEBUG to avoid MSVC warnings about conflicting defines.
-    foreach (flags_var_to_scrub
-        CMAKE_CXX_FLAGS_RELEASE
-        CMAKE_CXX_FLAGS_RELWITHDEBINFO
-        CMAKE_CXX_FLAGS_MINSIZEREL
-        CMAKE_C_FLAGS_RELEASE
-        CMAKE_C_FLAGS_RELWITHDEBINFO
-        CMAKE_C_FLAGS_MINSIZEREL)
-      string (REGEX REPLACE "(^| )[/-]D *NDEBUG($| )" " "
-        "${flags_var_to_scrub}" "${${flags_var_to_scrub}}")
-    endforeach()
-  endif()
+if (ENABLE_ASSERTS)
+  enable_asserts()
 endif()
 
-if(MSVC)
+if (MSVC)
   add_compile_options(/permissive-)
   add_compile_options(/utf-8)
   add_compile_options(/wd4307)
 endif()
+
+set(CMAKE_CXX_STANDARD 17)
 
 add_subdirectory(external/CLI11 EXCLUDE_FROM_ALL)
 add_subdirectory(external/fmt EXCLUDE_FROM_ALL)

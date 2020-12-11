@@ -82,6 +82,12 @@ jobs:
 
   - script: |
       set -eo pipefail
+      ninja download-llvm
+    workingDirectory: build
+    displayName: 'Download LLVM'
+
+  - script: |
+      set -eo pipefail
       ninja
     workingDirectory: build
     displayName: 'Compile'
@@ -127,6 +133,12 @@ jobs:
       cd build
       cmake .. -G"Visual Studio 16 2019" -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=$(RTTests) -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
     displayName: 'CMake'
+
+  - task: MSBuild@1
+    displayName: 'Download LLVM'
+    inputs:
+      solution: build/download-llvm.sln
+      msbuildArguments: '/m /p:Configuration=$(BuildType)'
 
   - task: MSBuild@1
     displayName: 'Compile'
@@ -179,6 +191,13 @@ jobs:
     inputs:
       cmakeArgs: |
         .. -DCMAKE_BUILD_TYPE=$(BuildType) -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=$(RTTests)
+
+  - script: |
+      set -eo pipefail
+      N=$(sysctl -n hw.ncpu)
+      make -j $N download-llvm
+    workingDirectory: build
+    displayName: 'Download LLVM'
 
   - script: |
       set -eo pipefail
