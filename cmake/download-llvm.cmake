@@ -50,6 +50,6 @@ endif ()
 file(RENAME ${OUTPUT_DIR}/${PKG_NAME}/build ${OUTPUT_DIR}/install)
 file(REMOVE ${OUTPUT_DIR}/${PKG_NAME})
 
-file(TOUCH ${LLVM_BASE}/llvm-stamp)
+file(TOUCH ${OUTPUT_DIR}/llvm-stamp)
 
 message(STATUS "Done.")
