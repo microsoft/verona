@@ -138,8 +138,8 @@ jobs:
   - task: MSBuild@1
     displayName: 'Download LLVM'
     inputs:
-      solution: build/verona-lang.sln
-      msbuildArguments: '/m /t:download-llvm /p:Configuration=$(BuildType)'
+      solution: build/download-llvm.vcxproj
+      msbuildArguments: '/m /p:Configuration=$(BuildType)'
 
   - task: MSBuild@1
     displayName: 'Compile'
