@@ -130,3 +130,15 @@ p.author::before
 	content: 'by ';
 	font-style: italic;
 }
+p.author span.author::after
+{
+	content: ', ';
+}
+p.author span.author:last-child::after
+{
+	content: '';
+}
+p.author span.author:last-child::before
+{
+	content: 'and ';
+}

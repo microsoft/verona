@@ -19,5 +19,17 @@ layout: default
 {{ page.author }}
   {% endif %}
 </p>
+{% elsif page.authors %}
+<p class="author">
+  {% assign authors = page.authors | sort %}
+  {% for author_name in authors %}
+    {% assign author = site.data.people | find: 'name', author_name %}
+    {% if author.url %}
+<span class="author"><a href="{{author.url}}">{{author_name}}</a></span>
+    {% else %}
+<span class="author">{{ author_name }}</span>
+    {% endif %}
+  {% endfor %}
+</p>
 {% endif %}
 {{ content }}
