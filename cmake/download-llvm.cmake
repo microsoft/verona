@@ -47,7 +47,7 @@ file(ARCHIVE_EXTRACT
 if (EXISTS ${OUTPUT_DIR}/install)
   file(REMOVE_RECURSE ${OUTPUT_DIR}/install)
 endif ()
-file(RENAME ${OUTPUT_DIR}/${PKG_NAME}/build ${OUTPUT_DIR}/install)
+file(RENAME ${OUTPUT_DIR}/${PKG_NAME}/build/install ${OUTPUT_DIR}/install)
 file(REMOVE ${OUTPUT_DIR}/${PKG_NAME})
 
 file(TOUCH ${OUTPUT_DIR}/llvm-stamp)

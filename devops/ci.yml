@@ -113,7 +113,7 @@ jobs:
   strategy:
     matrix:
       Release:
-        CXXFLAGS: '/EHsc /D _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING=1'
+        CXXFLAGS: '/EHsc'
         BuildType: Release
 
   steps:
@@ -137,8 +137,8 @@ jobs:
   - task: MSBuild@1
     displayName: 'Download LLVM'
     inputs:
-      solution: build/download-llvm.sln
-      msbuildArguments: '/m /p:Configuration=$(BuildType)'
+      solution: build/verona.sln
+      msbuildArguments: '/m /t:download-llvm /p:Configuration=$(BuildType)'
 
   - task: MSBuild@1
     displayName: 'Compile'
