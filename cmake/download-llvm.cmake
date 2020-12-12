@@ -74,7 +74,11 @@ endif ()
 file(RENAME ${OUTPUT_DIR}/${PKG_NAME}/build/install ${OUTPUT_DIR}/install)
 file(REMOVE_RECURSE ${OUTPUT_DIR}/${PKG_NAME})
 
+# TODO: This is only temporary; it can be removed by rebuilding the LLVM blobs
+# with -DCMAKE_DEBUG_POSTFIX="-debug".
 if (BUILD_TYPE STREQUAL "debug")
+  message(STATUS "Patching debug configuration.")
+
   file(GLOB LIBS ${OUTPUT_DIR}/install/lib/*.a)
   foreach(original_name ${LIBS})
     string(REGEX REPLACE "\\.(a|lib|dylib|dll|so)$" "-debug.\\1" patched_name ${original_name})
