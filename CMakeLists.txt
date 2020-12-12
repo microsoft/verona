@@ -1,7 +1,4 @@
-cmake_minimum_required(VERSION 3.19.0)
-
-# Need this to enable update-dump target.
-cmake_policy(SET CMP0114 NEW)
+cmake_minimum_required(VERSION 3.17.0)
 
 project(verona CXX)
 

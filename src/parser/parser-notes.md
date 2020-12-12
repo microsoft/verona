@@ -1,11 +1,9 @@
 # Parser Notes
 
-* eliminate uses of Token in the ast
-  select can have a location for the member
-  separate ast types for different constant types
-  typename and function can use a location
 * special types: iso, mut, imm, Self
 * multiple definitions of `apply` produces a poor error message
+* open
+* inheritance
 * try/catch
 * update sugar
   should we instead have Ref[T] or Ref[T, U]?
@@ -21,6 +19,21 @@
   could do the same thing for lambdas
   might not want to do either as they have type checking implications
 * `where` might need to have non-type constraints
+
+## Function vs Method
+
+```ts
+class Foo
+{
+  static f(a: Foo, b: X) {}
+  m(a: Foo, b: X) {}
+}
+```
+
+what's the difference?
+
+x.m(b) -> x::m(x, b)
+
 
 ## Public/Private
 

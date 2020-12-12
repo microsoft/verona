@@ -53,12 +53,6 @@ namespace verona::parser
       return {};
     }
 
-    Pass& operator<<(Token& tok)
-    {
-      // Handle token fields from the node handling functions.
-      return *this;
-    }
-
     Pass& operator<<(Location& loc)
     {
       // Handle location fields from the node handling functions.

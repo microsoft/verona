@@ -18,7 +18,7 @@ namespace verona::parser
       store = std::make_shared<SourceDef>();
     }
 
-    Token operator()(const char* text = "")
+    Location operator()(const char* text = "")
     {
       auto len = std::strlen(text);
 
@@ -28,7 +28,7 @@ namespace verona::parser
         auto pos = store->contents.size();
         store->contents.append(h);
         len = h.size();
-        return {TokenKind::Ident, {store, pos, pos + len - 1}};
+        return {store, pos, pos + len - 1};
       }
 
       auto pos = store->contents.find(text);
@@ -39,10 +39,10 @@ namespace verona::parser
         store->contents.append(text);
       }
 
-      return {TokenKind::Ident, {store, pos, pos + len - 1}};
+      return {store, pos, pos + len - 1};
     }
 
-    Token operator()(const std::string& s)
+    Location operator()(const std::string& s)
     {
       return (*this)(s.c_str());
     }

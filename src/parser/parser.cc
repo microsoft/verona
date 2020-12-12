@@ -32,9 +32,9 @@ namespace verona::parser
     AstPath symbol_stack;
 
     Ident ident;
-    Token token_apply;
-    Token token_has_value;
-    Token token_next;
+    Location token_apply;
+    Location token_has_value;
+    Location token_next;
 
     Result final_result;
     std::set<std::string> imports;
@@ -92,12 +92,12 @@ namespace verona::parser
       symbol_stack.pop_back();
     }
 
-    Ast get_sym(const ID& id)
+    Ast get_sym(const Location& id)
     {
       return parser::get_sym(symbol_stack, id).second;
     }
 
-    void set_sym(const ID& id, Ast node, SymbolTable& st)
+    void set_sym(const Location& id, Ast node, SymbolTable& st)
     {
       auto find = st.map.find(id);
 
@@ -112,14 +112,14 @@ namespace verona::parser
       st.map.emplace(id, node);
     }
 
-    void set_sym(const ID& id, Ast node)
+    void set_sym(const Location& id, Ast node)
     {
       assert(symbol_stack.size() > 0);
       auto st = symbol_stack.back()->symbol_table();
       set_sym(id, node, *st);
     }
 
-    void set_sym_parent(const ID& id, Ast node)
+    void set_sym_parent(const Location& id, Ast node)
     {
       assert(symbol_stack.size() > 1);
       auto st = symbol_stack[symbol_stack.size() - 2]->symbol_table();
@@ -131,25 +131,6 @@ namespace verona::parser
       auto ref = std::make_shared<Ref>();
       ref->location = loc;
       return ref;
-    }
-
-    Node<Constant> constant(const Token& tok)
-    {
-      if (
-        (tok.kind != TokenKind::EscapedString) &&
-        (tok.kind != TokenKind::UnescapedString) &&
-        (tok.kind != TokenKind::Character) && (tok.kind != TokenKind::Float) &&
-        (tok.kind != TokenKind::Int) && (tok.kind != TokenKind::Hex) &&
-        (tok.kind != TokenKind::Binary) && (tok.kind != TokenKind::True) &&
-        (tok.kind != TokenKind::False))
-      {
-        return {};
-      }
-
-      auto con = std::make_shared<Constant>();
-      con->location = tok.location;
-      con->value = tok;
-      return con;
     }
 
     Location loc()
@@ -220,7 +201,7 @@ namespace verona::parser
       return false;
     }
 
-    bool is_localref(const ID& id)
+    bool is_localref(const Location& id)
     {
       auto def = get_sym(id);
 
@@ -328,7 +309,7 @@ namespace verona::parser
       restart_after({kind});
     }
 
-    Result optident(ID& id)
+    Result optident(Location& id)
     {
       if (!has(TokenKind::Ident))
         return Skip;
@@ -438,15 +419,15 @@ namespace verona::parser
       auto id = ident();
 
       auto decl = std::make_shared<Let>();
-      decl->location = id.location;
-      set_sym(id.location, decl);
+      decl->location = id;
+      set_sym(id, decl);
       init->left = decl;
       init->right = iter;
 
       // cond = (tuple (apply (select (ref $0) (ident has_value)) (tuple)))
       auto cond = std::make_shared<Tuple>();
       auto select_has_value = std::make_shared<Select>();
-      select_has_value->expr = ref(id.location);
+      select_has_value->expr = ref(id);
       select_has_value->member = token_has_value;
       auto apply_has_value = std::make_shared<Apply>();
       apply_has_value->expr = select_has_value;
@@ -455,7 +436,7 @@ namespace verona::parser
 
       // begin = (assign $state (apply (ref $0) (tuple))
       auto apply = std::make_shared<Apply>();
-      apply->expr = ref(id.location);
+      apply->expr = ref(id);
       apply->args = std::make_shared<Tuple>();
 
       auto begin = std::make_shared<Assign>();
@@ -466,7 +447,7 @@ namespace verona::parser
       // end = (apply (select (ref $0) (ident next)) (tuple))
       auto select_next = std::make_shared<Select>();
       select_next->location = wh->body->location;
-      select_next->expr = ref(id.location);
+      select_next->expr = ref(id);
       select_next->member = token_next;
 
       auto end = std::make_shared<Apply>();
@@ -975,17 +956,65 @@ namespace verona::parser
       // constant <-
       //  escapedstring / unescapedstring / character /
       //  float / int / hex / binary / 'true' / 'false'
-      if (
-        !has(TokenKind::EscapedString) && !has(TokenKind::UnescapedString) &&
-        !has(TokenKind::Character) && !has(TokenKind::Float) &&
-        !has(TokenKind::Int) && !has(TokenKind::Hex) &&
-        !has(TokenKind::Binary) && !has(TokenKind::True) &&
-        !has(TokenKind::False))
+      if (has(TokenKind::EscapedString))
+      {
+        auto con = std::make_shared<EscapedString>();
+        con->location = previous.location;
+        expr = con;
+      }
+      else if (has(TokenKind::UnescapedString))
+      {
+        auto con = std::make_shared<UnescapedString>();
+        con->location = previous.location;
+        expr = con;
+      }
+      else if (has(TokenKind::Character))
+      {
+        auto con = std::make_shared<Character>();
+        con->location = previous.location;
+        expr = con;
+      }
+      else if (has(TokenKind::Int))
+      {
+        auto con = std::make_shared<Int>();
+        con->location = previous.location;
+        expr = con;
+      }
+      else if (has(TokenKind::Float))
+      {
+        auto con = std::make_shared<Float>();
+        con->location = previous.location;
+        expr = con;
+      }
+      else if (has(TokenKind::Hex))
+      {
+        auto con = std::make_shared<Hex>();
+        con->location = previous.location;
+        expr = con;
+      }
+      else if (has(TokenKind::Binary))
+      {
+        auto con = std::make_shared<Binary>();
+        con->location = previous.location;
+        expr = con;
+      }
+      else if (has(TokenKind::True))
+      {
+        auto con = std::make_shared<True>();
+        con->location = previous.location;
+        expr = con;
+      }
+      else if (has(TokenKind::False))
+      {
+        auto con = std::make_shared<False>();
+        con->location = previous.location;
+        expr = con;
+      }
+      else
       {
         return Skip;
       }
 
-      expr = constant(previous);
       return Success;
     }
 
@@ -1147,7 +1176,6 @@ namespace verona::parser
 
         auto name = std::make_shared<TypeName>();
         name->location = previous.location;
-        name->value = previous;
         stat->typenames.push_back(name);
 
         if (opttypeargs(name->typeargs) == Error)
@@ -1198,7 +1226,7 @@ namespace verona::parser
 
       if (has(TokenKind::Ident) || has(TokenKind::Symbol))
       {
-        sel->member = previous;
+        sel->member = previous.location;
         return Success;
       }
 
@@ -1572,11 +1600,9 @@ namespace verona::parser
 
       name = std::make_shared<ModuleName>();
       name->location = previous.location;
-      name->value = previous;
 
       // Look for a module relative to the current source file first.
-      auto base =
-        path::to_directory(escapedstring(name->value.location.view()));
+      auto base = path::to_directory(escapedstring(name->location.view()));
       auto find = path::canonical(path::join(source->origin, base));
 
       // Otherwise, look for a module relative to the standard library.
@@ -1589,8 +1615,8 @@ namespace verona::parser
       }
       else
       {
-        error() << name->value.location << "Couldn't locate module \"" << base
-                << "\"" << text(name->value.location);
+        error() << name->location << "Couldn't locate module \"" << base << "\""
+                << text(name->location);
         r = Error;
       }
 
@@ -1638,7 +1664,6 @@ namespace verona::parser
 
         auto name = std::make_shared<TypeName>();
         name->location = previous.location;
-        name->value = previous;
         typeref->typenames.push_back(name);
 
         if (opttypeargs(name->typeargs) == Error)
@@ -1920,7 +1945,7 @@ namespace verona::parser
       if (has(TokenKind::Ident) || has(TokenKind::Symbol))
       {
         func.location = previous.location;
-        func.name = previous;
+        func.name = previous.location;
       }
       else
       {
@@ -1980,7 +2005,7 @@ namespace verona::parser
         r = Error;
 
       members.push_back(method);
-      set_sym_parent(method->name.location, method);
+      set_sym_parent(method->name, method);
       return r;
     }
 
@@ -1998,7 +2023,7 @@ namespace verona::parser
         r = Error;
 
       members.push_back(func);
-      set_sym_parent(func->name.location, func);
+      set_sym_parent(func->name, func);
       return r;
     }
 
@@ -2111,7 +2136,7 @@ namespace verona::parser
       Result r = Success;
 
       if (optident(ent.id) == Skip)
-        ent.id = ident().location;
+        ent.id = ident();
 
       if (entity(ent) == Error)
         r = Error;
@@ -2378,7 +2403,7 @@ namespace verona::parser
 
     Result module(const std::string& path, Node<Class>& program)
     {
-      auto modulename = ident(path).location;
+      auto modulename = ident(path);
 
       if (get_sym(modulename))
         return final_result;

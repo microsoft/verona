@@ -13,7 +13,7 @@ namespace verona::parser::resolve
     AST_PASS;
 
     Ident ident;
-    Token token_create;
+    Location token_create;
 
     Resolve()
     {
@@ -23,7 +23,7 @@ namespace verona::parser::resolve
     void create_sugar(StaticRef& sr, Ast& def)
     {
       // We found a type as an expression, so we'll turn it into a constructor.
-      auto find = def->get_sym(token_create.location);
+      auto find = def->get_sym(token_create);
       bool has_params = false;
 
       // Assume it's a zero argument create unless we can discover otherwise.
@@ -31,8 +31,7 @@ namespace verona::parser::resolve
         has_params = find->as<Function>().signature->params.size() > 0;
 
       auto create = std::make_shared<TypeName>();
-      create->location = sr.typenames.back()->location;
-      create->value = token_create;
+      create->location = token_create;
 
       auto sref = std::make_shared<StaticRef>();
       sref->location = sr.location;
@@ -213,7 +212,7 @@ namespace verona::parser::resolve
           auto select = std::make_shared<Select>();
           select->location = sr.location;
           select->expr = prefix.expr;
-          select->member = sr.typenames.back()->value;
+          select->member = sr.typenames.back()->location;
 
           if (!sr.typenames.back()->typeargs.empty())
           {
@@ -262,7 +261,7 @@ namespace verona::parser::resolve
           auto select = std::make_shared<Select>();
           select->location = sr.location;
           select->expr = infix.left;
-          select->member = sr.typenames.back()->value;
+          select->member = sr.typenames.back()->location;
 
           if (!sr.typenames.back()->typeargs.empty())
           {

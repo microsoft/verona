@@ -57,12 +57,20 @@ namespace verona::parser
     StaticRef,
     Let,
     Var,
-    Constant,
     New,
     ObjectLiteral,
-  };
 
-  using ID = Location;
+    // Constants
+    EscapedString,
+    UnescapedString,
+    Character,
+    Int,
+    Float,
+    Hex,
+    Binary,
+    True,
+    False,
+  };
 
   struct NodeDef;
 
@@ -82,7 +90,7 @@ namespace verona::parser
 
   bool is_kind(Kind kind, const std::initializer_list<Kind>& kinds);
 
-  std::pair<AstPath::iterator, Ast> get_sym(AstPath& stack, const ID& id);
+  std::pair<AstPath::iterator, Ast> get_sym(AstPath& stack, const Location& id);
 
   struct NodeDef
   {
@@ -96,7 +104,7 @@ namespace verona::parser
       return nullptr;
     }
 
-    Ast get_sym(const ID& id);
+    Ast get_sym(const Location& id);
 
     template<typename T>
     T& as()
@@ -107,7 +115,7 @@ namespace verona::parser
 
   struct SymbolTable
   {
-    std::unordered_map<ID, Ast> map;
+    std::unordered_map<Location, Ast> map;
   };
 
   // TODO: anonymous interface
@@ -120,7 +128,7 @@ namespace verona::parser
 
   struct Param : NodeDef
   {
-    ID id;
+    Location id;
     Node<Type> type;
     Node<Expr> init;
 
@@ -133,7 +141,7 @@ namespace verona::parser
   struct TypeParam : NodeDef
   {
     // TODO: value-dependent types
-    ID id;
+    Location id;
     Node<Type> type;
     Node<Type> init;
 
@@ -328,7 +336,7 @@ namespace verona::parser
   struct Select : Expr
   {
     Node<Expr> expr;
-    Token member;
+    Location member;
 
     Kind kind()
     {
@@ -368,16 +376,6 @@ namespace verona::parser
     }
   };
 
-  struct Constant : Expr
-  {
-    Token value;
-
-    Kind kind()
-    {
-      return Kind::Constant;
-    }
-  };
-
   struct Let : Expr
   {
     Node<Type> type;
@@ -399,7 +397,7 @@ namespace verona::parser
   struct New : Expr
   {
     Node<Expr> args;
-    ID in;
+    Location in;
 
     Kind kind()
     {
@@ -468,7 +466,6 @@ namespace verona::parser
 
   struct TypeName : NodeDef
   {
-    Token value;
     List<Type> typeargs;
 
     Kind kind()
@@ -516,7 +513,7 @@ namespace verona::parser
 
   struct NamedEntity : Entity
   {
-    ID id;
+    Location id;
   };
 
   struct TypeAlias : NamedEntity
@@ -563,7 +560,7 @@ namespace verona::parser
 
   struct Field : Member
   {
-    ID id;
+    Location id;
     Node<Type> type;
     Node<Expr> init;
 
@@ -576,7 +573,7 @@ namespace verona::parser
   struct Function : Member
   {
     SymbolTable st;
-    Token name;
+    Location name;
     Node<Signature> signature;
     Node<Expr> body;
 
@@ -604,7 +601,7 @@ namespace verona::parser
     // TODO: put a Class in here?
     Node<Type> inherits;
     List<Member> members;
-    ID in;
+    Location in;
 
     Kind kind()
     {
@@ -620,6 +617,81 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::StaticRef;
+    }
+  };
+
+  struct Constant : Expr
+  {};
+
+  struct EscapedString : Constant
+  {
+    Kind kind()
+    {
+      return Kind::EscapedString;
+    }
+  };
+
+  struct UnescapedString : Constant
+  {
+    Kind kind()
+    {
+      return Kind::UnescapedString;
+    }
+  };
+
+  struct Character : Constant
+  {
+    Kind kind()
+    {
+      return Kind::Character;
+    }
+  };
+
+  struct Int : Constant
+  {
+    Kind kind()
+    {
+      return Kind::Int;
+    }
+  };
+
+  struct Float : Constant
+  {
+    Kind kind()
+    {
+      return Kind::Float;
+    }
+  };
+
+  struct Hex : Constant
+  {
+    Kind kind()
+    {
+      return Kind::Hex;
+    }
+  };
+
+  struct Binary : Constant
+  {
+    Kind kind()
+    {
+      return Kind::Binary;
+    }
+  };
+
+  struct True : Constant
+  {
+    Kind kind()
+    {
+      return Kind::True;
+    }
+  };
+
+  struct False : Constant
+  {
+    Kind kind()
+    {
+      return Kind::False;
     }
   };
 }
