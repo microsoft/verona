@@ -1640,7 +1640,6 @@ namespace verona::parser
 
       rewind();
       auto typeref = std::make_shared<TypeRef>();
-      typeref->location = previous.location;
       type = typeref;
 
       Result r = Success;
@@ -1650,6 +1649,7 @@ namespace verona::parser
 
       if (optmodulename(name) != Skip)
       {
+        typeref->location = name->location;
         typeref->typenames.push_back(name);
 
         if (!has(TokenKind::DoubleColon))
@@ -1666,6 +1666,8 @@ namespace verona::parser
 
         auto name = std::make_shared<TypeName>();
         name->location = previous.location;
+
+        typeref->location = name->location;
         typeref->typenames.push_back(name);
 
         if (opttypeargs(name->typeargs) == Error)

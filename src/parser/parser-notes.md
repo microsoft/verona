@@ -1,9 +1,7 @@
 # Parser Notes
 
-* remove unnecessary Locations from ast
 * put precedence paren forcing back in
 * special types: iso, mut, imm, Self
-* multiple definitions of `apply` produces a poor error message
 * open
 * inheritance
 * try/catch
@@ -36,6 +34,8 @@ what's the difference?
 
 x.m(b) -> x::m(x, b)
 
+allow ref::m
+  means "we expect a method and don't bind the receiver as the first param"
 
 ## Public/Private
 
