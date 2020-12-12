@@ -104,9 +104,12 @@ namespace verona::parser
 
       if (find != st.map.end())
       {
-        error() << id << "There is a previous definition of \"" << id.view()
-                << "\"" << text(id) << find->first
-                << "The previous definition is here" << text(find->first);
+        auto& loc = node->location;
+        auto& prev = find->second->location;
+
+        error() << loc << "There is a previous definition of \"" << id.view()
+                << "\"" << text(loc) << prev
+                << "The previous definition is here" << text(prev);
         return;
       }
 
@@ -725,9 +728,8 @@ namespace verona::parser
     {
       auto& ref = e->as<Ref>();
       param->location = ref.location;
-      param->id = ref.location;
       param->type = ref.type;
-      set_sym(param->id, param);
+      set_sym(param->location, param);
     }
 
     Result optlambda(Node<Expr>& expr)
@@ -810,8 +812,7 @@ namespace verona::parser
 
         auto param = std::make_shared<Param>();
         param->location = previous.location;
-        param->id = previous.location;
-        set_sym(param->id, param);
+        set_sym(param->location, param);
 
         auto sig = std::make_shared<Signature>();
         sig->location = previous.location;
@@ -1841,24 +1842,22 @@ namespace verona::parser
       return typeexpr(type);
     }
 
-    Result parameter(Param& param)
+    Result optparam(Node<Param>& param)
     {
+      if (!has(TokenKind::Ident))
+        return Skip;
+
       Result r = Success;
+      param = std::make_shared<Param>();
+      param->location = previous.location;
 
-      if (optident(param.id) != Success)
-      {
-        error() << loc() << "Expected a parameter name" << line();
-        r = Error;
-      }
-
-      param.location = param.id;
-
-      if (oftype(param.type) == Error)
+      if (oftype(param->type) == Error)
         r = Error;
 
-      if (initexpr(param.init) == Error)
+      if (initexpr(param->init) == Error)
         r = Error;
 
+      set_sym(param->location, param);
       return r;
     }
 
@@ -1879,13 +1878,18 @@ namespace verona::parser
         {
           do
           {
-            auto param = std::make_shared<Param>();
-            sig->params.push_back(param);
+            Node<Param> param;
+            Result r2;
 
-            if (parameter(*param) != Success)
-              return Error;
+            if ((r2 = optparam(param)) != Success)
+            {
+              error() << loc() << "Expected a parameter" << line();
+              r = Error;
+              restart_before({TokenKind::Comma, TokenKind::RParen});
+            }
 
-            set_sym(param->id, param);
+            if (r2 != Skip)
+              sig->params.push_back(param);
           } while (has(TokenKind::Comma));
 
           if (!has(TokenKind::RParen))
@@ -1918,7 +1922,6 @@ namespace verona::parser
 
       auto field = std::make_shared<Field>();
       field->location = previous.location;
-      field->id = previous.location;
       Result r = Success;
 
       if (oftype(field->type) == Error)
@@ -1934,7 +1937,7 @@ namespace verona::parser
       }
 
       members.push_back(field);
-      set_sym(field->id, field);
+      set_sym(field->location, field);
       return r;
     }
 
@@ -2036,17 +2039,15 @@ namespace verona::parser
       return typeexpr(type);
     }
 
-    Result typeparam(Node<TypeParam>& tp)
+    Result opttypeparam(Node<TypeParam>& tp)
     {
       // typeparam <- ident oftype inittype
+      if (!has(TokenKind::Ident))
+        return Skip;
+
       Result r = Success;
       tp = std::make_shared<TypeParam>();
-
-      if (optident(tp->id) != Success)
-      {
-        error() << loc() << "Expected a type parameter name" << line();
-        r = Error;
-      }
+      tp->location = previous.location;
 
       if (oftype(tp->type) == Error)
         r = Error;
@@ -2054,6 +2055,7 @@ namespace verona::parser
       if (inittype(tp->init) == Error)
         r = Error;
 
+      set_sym(tp->location, tp);
       return r;
     }
 
@@ -2068,14 +2070,17 @@ namespace verona::parser
       do
       {
         Node<TypeParam> tp;
+        Result r2;
 
-        if (typeparam(tp) == Error)
+        if ((r2 = opttypeparam(tp)) != Success)
         {
+          error() << loc() << "Expected a type parameter" << line();
           r = Error;
           restart_before({TokenKind::Comma, TokenKind::RSquare});
         }
 
-        typeparams.push_back(tp);
+        if (r2 != Skip)
+          typeparams.push_back(tp);
       } while (has(TokenKind::Comma));
 
       if (!has(TokenKind::RSquare))
@@ -2454,7 +2459,7 @@ namespace verona::parser
         module->inherits = moduledef->inherits;
 
         for (auto& tp : module->typeparams)
-          set_sym(tp->id, tp);
+          set_sym(tp->location, tp);
       }
 
       return r;

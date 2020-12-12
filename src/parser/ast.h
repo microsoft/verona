@@ -126,7 +126,6 @@ namespace verona::parser
 
   struct Param : NodeDef
   {
-    Location id;
     Node<Type> type;
     Node<Expr> init;
 
@@ -139,7 +138,6 @@ namespace verona::parser
   struct TypeParam : NodeDef
   {
     // TODO: value-dependent types
-    Location id;
     Node<Type> type;
     Node<Type> init;
 
@@ -558,7 +556,6 @@ namespace verona::parser
 
   struct Field : Member
   {
-    Location id;
     Node<Type> type;
     Node<Expr> init;
 

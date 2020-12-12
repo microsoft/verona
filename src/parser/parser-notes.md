@@ -1,5 +1,6 @@
 # Parser Notes
 
+* remove unnecessary Locations from ast
 * put precedence paren forcing back in
 * special types: iso, mut, imm, Self
 * multiple definitions of `apply` produces a poor error message
