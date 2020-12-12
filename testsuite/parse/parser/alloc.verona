@@ -9,7 +9,7 @@ class C[A]
 {
   f: A & mut;
 
-  static create[S: Self](a: S<~(A & mut)): S
+  static create[S: C[A] & mut](a: S<~(A & mut)): S
   {
     new (a) in a
   }
@@ -61,6 +61,3 @@ foo()
   let one = new One { a: U32 = 42; };
   let two = new Two { a: U32 = 42; b: F64 = 3.14; } in one;
 }
-
-(a: U32) {}
-(b: U32) {}
