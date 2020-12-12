@@ -18,23 +18,28 @@ if (NOT MSVC)
 endif ()
 
 IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  SET(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/dist CACHE PATH "Default to installing inside build dir" FORCE)
+  SET(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/dist CACHE
+    PATH "Default to installing inside build dir" FORCE)
 ENDIF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
-set(DEFAULT_BUILD_TYPE "Release")
-if (NOT CMAKE_BUILD_TYPE)
-  message(STATUS "Setting build type to '${DEFAULT_BUILD_TYPE}' as none was specified.")
-  set(CMAKE_BUILD_TYPE "${DEFAULT_BUILD_TYPE}" CACHE STRING "Choose the type of build." FORCE)
-endif()
+get_property(IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if (IS_MULTI_CONFIG)
+  message(STATUS "Build types for Verona: ${CMAKE_CONFIGURATION_TYPES}")
+else()
+  set(DEFAULT_BUILD_TYPE "Release")
+  if (NOT CMAKE_BUILD_TYPE)
+    message(STATUS "Setting build type to '${DEFAULT_BUILD_TYPE}' as none was specified.")
+    set(CMAKE_BUILD_TYPE "${DEFAULT_BUILD_TYPE}" CACHE STRING "Choose the type of build." FORCE)
+  endif()
+  message(STATUS "Build Type for Verona: ${CMAKE_BUILD_TYPE}")
+endif ()
 
-message(STATUS "Build Type for Verona ${CMAKE_BUILD_TYPE}")
-set(CMAKE_CONFIGURATION_TYPES  Release Debug RelWithDebInfo)
-message(STATUS "Build types ${CMAKE_CONFIGURATION_TYPES}")
-
+unset(MLIR_DIR CACHE)
+unset(LLVM_DIR CACHE)
 if (VERONA_LLVM_LOCATION)
-  message(STATUS "Using LLVM/MLIR in ${VERONA_LLVM_LOCATION}")
-  set(MLIR_DIR ${VERONA_LLVM_LOCATION}/lib/cmake/mlir)
-  find_package(MLIR REQUIRED CONFIG)
+  find_package(MLIR REQUIRED CONFIG
+    PATHS ${VERONA_LLVM_LOCATION}
+    NO_DEFAULT_PATH)
 else ()
   include(ExternalProject)
 
@@ -43,24 +48,24 @@ else ()
   execute_process(
     COMMAND ${GIT_EXECUTABLE} rev-parse --short=11 HEAD
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/external/llvm-project"
-    OUTPUT_VARIABLE LLVM_PACKAGE_GIT_VERSION)
-  string(STRIP ${LLVM_PACKAGE_GIT_VERSION} LLVM_PACKAGE_GIT_VERSION)
-  message (STATUS "Detected LLVM GIT commit: ${LLVM_PACKAGE_GIT_VERSION}")
+    OUTPUT_VARIABLE LLVM_GIT_REVISION)
+  string(STRIP ${LLVM_GIT_REVISION} LLVM_GIT_REVISION)
+  message (STATUS "Detected LLVM GIT commit: ${LLVM_GIT_REVISION}")
 
-  if (${CMAKE_BUILD_TYPE} STREQUAL RelWithDebInfo)
-    # RelWithDebInfo should use release LLVM.
-    set(LLVM_BUILD_TYPE Release)
-  elseif (WIN32)
-    set(LLVM_BUILD_TYPE ${CMAKE_BUILD_TYPE})
-  else ()
-    # Use release everywhere it works.
-    set(LLVM_BUILD_TYPE Release)
-  endif ()
+  # if (${CMAKE_BUILD_TYPE} STREQUAL RelWithDebInfo)
+  #   # RelWithDebInfo should use release LLVM.
+  #   set(LLVM_BUILD_TYPE Release)
+  # elseif (WIN32)
+  #   set(LLVM_BUILD_TYPE ${CMAKE_BUILD_TYPE})
+  # else ()
+  #   # Use release everywhere it works.
+  # endif ()
 
-  set (LLVM_BASE ${CMAKE_BINARY_DIR}/llvm/${LLVM_BUILD_TYPE}/${LLVM_PACKAGE_GIT_VERSION})
+  set(LLVM_BUILD_TYPE Combined)
+  set(LLVM_BASE ${CMAKE_BINARY_DIR}/llvm/${LLVM_BUILD_TYPE}/${LLVM_GIT_REVISION})
 
   # If LLVM isn't present, and the user runs download-llvm/build-llvm targets,
-  # we need to re-run cmake to take into load MLIR and enable the right targets.
+  # we need to re-run cmake to load MLIR and enable the right targets.
   #
   # We use an llvm-stamp file as configure dependency to automatically run cmake
   # when that happens. Both the download-llvm and build-llvm targets touch that
@@ -69,10 +74,11 @@ else ()
   file(TOUCH ${LLVM_BASE}/llvm-stamp)
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${LLVM_BASE}/llvm-stamp)
 
-  if (EXISTS "${LLVM_BASE}/install/lib/cmake/mlir/AddMLIR.cmake")
+  if (EXISTS "${LLVM_BASE}/install/lib/cmake/mlir/MLIRConfig.cmake")
     message(STATUS "Using LLVM/MLIR in ${LLVM_BASE}/install/")
-    set(MLIR_DIR ${LLVM_BASE}/install/lib/cmake/mlir)
-    find_package(MLIR REQUIRED CONFIG)
+    find_package(MLIR REQUIRED CONFIG
+      PATHS ${LLVM_BASE}/install
+      NO_DEFAULT_PATH)
   else ()
     message(WARNING "Could not find an LLVM installation. The MLIR backend will not be compiled.\nEither define VERONA_LLVM_LOCATION, use the `download-llvm` target to download a prebuilt LLVM blob or use the `build-llvm` to built it from source.")
     set (MLIR_FOUND FALSE)
@@ -83,11 +89,27 @@ else ()
     COMMAND
       ${CMAKE_COMMAND}
       -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
-      -DLLVM_BUILD_TYPE=${LLVM_BUILD_TYPE}
-      -DLLVM_PACKAGE_GIT_VERSION=${LLVM_PACKAGE_GIT_VERSION}
+      -DLLVM_BUILD_TYPE=Debug
+      -DLLVM_GIT_REVISION=${LLVM_GIT_REVISION}
       -DVERBOSE_LLVM_DOWNLOAD=${VERBOSE_LLVM_DOWNLOAD}
-      -DOUTPUT_DIR=${LLVM_BASE}
-      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/download-llvm.cmake)
+      -DOUTPUT_DIR=${CMAKE_BINARY_DIR}/llvm/Debug/${LLVM_GIT_REVISION}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/download-llvm.cmake
+    
+    COMMAND
+      ${CMAKE_COMMAND}
+      -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
+      -DLLVM_BUILD_TYPE=Release
+      -DLLVM_GIT_REVISION=${LLVM_GIT_REVISION}
+      -DVERBOSE_LLVM_DOWNLOAD=${VERBOSE_LLVM_DOWNLOAD}
+      -DOUTPUT_DIR=${CMAKE_BINARY_DIR}/llvm/Release/${LLVM_GIT_REVISION}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/download-llvm.cmake
+
+    COMMAND ${CMAKE_COMMAND} -E copy_directory 
+      ${CMAKE_BINARY_DIR}/llvm/Release/${LLVM_GIT_REVISION}/install
+      ${CMAKE_BINARY_DIR}/llvm/Debug/${LLVM_GIT_REVISION}/install
+      ${CMAKE_BINARY_DIR}/llvm/Combined/${LLVM_GIT_REVISION}/install
+
+    COMMAND ${CMAKE_COMMAND} -E touch ${LLVM_BASE}/llvm-stamp)
 
   ExternalProject_Add(build-llvm
     PREFIX ${LLVM_BASE}
@@ -113,6 +135,12 @@ else ()
     TARGET build-llvm
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E touch ${LLVM_BASE}/llvm-stamp)
+
+endif ()
+
+if (MLIR_FOUND)
+  message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
+  message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 endif ()
 
 if (VERONA_CI_BUILD)
