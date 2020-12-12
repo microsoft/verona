@@ -45,19 +45,19 @@ namespace verona::parser
   template<typename T>
   void fieldsof(T& target, Field& field)
   {
-    target << field.id << field.type << field.init;
+    target << field.location << field.type << field.init;
   }
 
   template<typename T>
   void fieldsof(T& target, Param& param)
   {
-    target << param.id << param.type << param.init;
+    target << param.location << param.type << param.init;
   }
 
   template<typename T>
   void fieldsof(T& target, TypeParam& tp)
   {
-    target << tp.id << tp.type << tp.init;
+    target << tp.location << tp.type << tp.init;
   }
 
   template<typename T>
