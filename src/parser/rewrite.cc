@@ -31,11 +31,6 @@ namespace verona::parser
       return ok;
     }
 
-    Rewrite& operator<<(Token& tok)
-    {
-      return *this;
-    }
-
     Rewrite& operator<<(Location& loc)
     {
       return *this;

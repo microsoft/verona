@@ -93,7 +93,7 @@ namespace verona::parser
   template<typename T>
   void fieldsof(T& target, TypeName& tn)
   {
-    target << tn.value << tn.typeargs;
+    target << tn.location << tn.typeargs;
   }
 
   template<typename T>
@@ -211,12 +211,6 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, Constant& constant)
-  {
-    target << constant.value;
-  }
-
-  template<typename T>
   void fieldsof(T& target, New& n)
   {
     target << n.args << n.in;
@@ -226,6 +220,12 @@ namespace verona::parser
   void fieldsof(T& target, ObjectLiteral& obj)
   {
     target << obj.inherits << obj.members << obj.in;
+  }
+
+  template<typename T>
+  void fieldsof(T& target, Constant& constant)
+  {
+    target << constant.location;
   }
 
   template<typename T>

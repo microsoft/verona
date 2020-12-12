@@ -143,14 +143,38 @@ namespace verona::parser
       case Kind::Var:
         return f(node->as<Var>(), args...);
 
-      case Kind::Constant:
-        return f(node->as<Constant>(), args...);
-
       case Kind::New:
         return f(node->as<New>(), args...);
 
       case Kind::ObjectLiteral:
         return f(node->as<ObjectLiteral>(), args...);
+
+      case Kind::EscapedString:
+        return f(node->as<EscapedString>(), args...);
+
+      case Kind::UnescapedString:
+        return f(node->as<UnescapedString>(), args...);
+
+      case Kind::Character:
+        return f(node->as<Character>(), args...);
+
+      case Kind::Int:
+        return f(node->as<Int>(), args...);
+
+      case Kind::Float:
+        return f(node->as<Float>(), args...);
+
+      case Kind::Hex:
+        return f(node->as<Hex>(), args...);
+
+      case Kind::Binary:
+        return f(node->as<Binary>(), args...);
+
+      case Kind::True:
+        return f(node->as<True>(), args...);
+
+      case Kind::False:
+        return f(node->as<False>(), args...);
     }
   }
 }

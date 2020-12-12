@@ -47,51 +47,28 @@ namespace verona::parser
     return out << sep << loc.view();
   }
 
-  PrettyStream& operator<<(PrettyStream& out, Token& token)
-  {
-    switch (token.kind)
-    {
-      case TokenKind::EscapedString:
-        return out << start("string") << sep << q
-                   << escape(escapedstring(token.location.view())) << q << end;
-
-      case TokenKind::UnescapedString:
-        return out << start("string") << sep << q
-                   << escape(unescapedstring(token.location.view())) << q
-                   << end;
-
-      case TokenKind::Character:
-        return out << start("char") << sep << q
-                   << escape(escapedstring(token.location.view())) << q << end;
-
-      case TokenKind::Int:
-        return out << start("int") << token.location << end;
-
-      case TokenKind::Float:
-        return out << start("float") << token.location << end;
-
-      case TokenKind::Hex:
-        return out << start("hex") << token.location << end;
-
-      case TokenKind::Binary:
-        return out << start("binary") << token.location << end;
-
-      default:
-        break;
-    }
-
-    return out << token.location;
-  }
-
   template<typename T>
   PrettyStream& operator<<(PrettyStream& out, T& node)
   {
     return out << start(kindname(node.kind())) << fields(node) << end;
   }
 
-  PrettyStream& operator<<(PrettyStream& out, Constant& node)
+  PrettyStream& operator<<(PrettyStream& out, EscapedString& node)
   {
-    return out << fields(node);
+    return out << start(kindname(node.kind())) << sep << q
+               << escape(escapedstring(node.location.view())) << q << end;
+  }
+
+  PrettyStream& operator<<(PrettyStream& out, UnescapedString& node)
+  {
+    return out << start(kindname(node.kind())) << sep << q
+               << escape(unescapedstring(node.location.view())) << q << end;
+  }
+
+  PrettyStream& operator<<(PrettyStream& out, Character& node)
+  {
+    return out << start(kindname(node.kind())) << sep << q
+               << escape(escapedstring(node.location.view())) << q << end;
   }
 
   struct Print

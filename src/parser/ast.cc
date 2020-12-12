@@ -137,14 +137,39 @@ namespace verona::parser
       case Kind::Var:
         return "var";
 
-      case Kind::Constant:
-        return "constant";
-
       case Kind::New:
         return "new";
 
       case Kind::ObjectLiteral:
         return "object";
+
+      // Constants
+      case Kind::EscapedString:
+        return "string";
+
+      case Kind::UnescapedString:
+        return "string";
+
+      case Kind::Character:
+        return "char";
+
+      case Kind::Int:
+        return "int";
+
+      case Kind::Float:
+        return "float";
+
+      case Kind::Hex:
+        return "hex";
+
+      case Kind::Binary:
+        return "binary";
+
+      case Kind::True:
+        return "true";
+
+      case Kind::False:
+        return "false";
     }
   }
 
@@ -159,7 +184,7 @@ namespace verona::parser
     return false;
   }
 
-  std::pair<AstPath::iterator, Ast> get_sym(AstPath& stack, const ID& id)
+  std::pair<AstPath::iterator, Ast> get_sym(AstPath& stack, const Location& id)
   {
     for (auto it = stack.rbegin(); it != stack.rend(); ++it)
     {
@@ -172,7 +197,7 @@ namespace verona::parser
     return {};
   }
 
-  Ast NodeDef::get_sym(const ID& id)
+  Ast NodeDef::get_sym(const Location& id)
   {
     auto st = symbol_table();
 

@@ -142,7 +142,7 @@ namespace verona::parser
     if (names.empty())
       return {};
 
-    auto& name = names.front()->value.location;
+    auto& name = names.front()->location;
 
     // If `names` has a single element, find all visible definitions of that
     // element.
@@ -158,7 +158,7 @@ namespace verona::parser
     // For each element, find all possible definitions and look inside them.
     for (size_t i = 1; i < names.size(); i++)
     {
-      paths = look_down(paths, names[i]->value.location);
+      paths = look_down(paths, names[i]->location);
 
       if (paths.empty())
         return {};
