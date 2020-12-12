@@ -1,5 +1,6 @@
 # Parser Notes
 
+* put precedence paren forcing back in
 * special types: iso, mut, imm, Self
 * multiple definitions of `apply` produces a poor error message
 * open
@@ -50,11 +51,6 @@ x.m(b) -> x::m(x, b)
   meaning the type of the expression
 * `'interface' tupletype` where a type is expected
   meaning extract an interface from the type
-
-## Toolchain Errors
-
-allow std::cerr to be replaced
-delimit errors to distinguish suberrors
 
 ## Autogenerate Create
 

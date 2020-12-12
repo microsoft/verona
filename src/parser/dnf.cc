@@ -153,7 +153,7 @@ namespace verona::parser::dnf
     }
   }
 
-  bool wellformed(Ast& ast)
+  bool wellformed(Ast& ast, std::ostream& out)
   {
     struct WF : Pass<WF>
     {
@@ -195,6 +195,8 @@ namespace verona::parser::dnf
       }
     };
 
-    return WF() << ast;
+    WF wf;
+    wf.set_error(out);
+    return wf << ast;
   }
 }

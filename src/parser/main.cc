@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 #include "dnf.h"
 #include "parser.h"
-#include "pass.h"
 #include "path.h"
 #include "print.h"
 #include "resolve.h"

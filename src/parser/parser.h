@@ -4,8 +4,12 @@
 
 #include "ast.h"
 
+#include <iostream>
+
 namespace verona::parser
 {
-  std::pair<bool, Ast>
-  parse(const std::string& path, const std::string& stdlib);
+  std::pair<bool, Ast> parse(
+    const std::string& path,
+    const std::string& stdlib,
+    std::ostream& out = std::cerr);
 }
