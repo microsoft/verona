@@ -4,8 +4,6 @@
 
 #include "lexer.h"
 
-#include <cassert>
-
 namespace verona::parser
 {
   enum class Kind

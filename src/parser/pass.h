@@ -18,18 +18,24 @@ namespace verona::parser
   {
     AstPath stack;
     bool ok;
+    std::ostream out;
 
-    Pass() : ok(true) {}
+    Pass() : ok(true), out(std::cerr.rdbuf()) {}
 
     operator bool() const
     {
       return ok;
     }
 
+    void set_error(std::ostream& s)
+    {
+      out.rdbuf(s.rdbuf());
+    }
+
     std::ostream& error()
     {
       ok = false;
-      return std::cerr;
+      return out << "--------" << std::endl;
     }
 
     Location loc()

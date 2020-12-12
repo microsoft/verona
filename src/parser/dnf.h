@@ -4,6 +4,8 @@
 
 #include "ast.h"
 
+#include <iostream>
+
 namespace verona::parser::dnf
 {
   // This distributes & over | in the type system, producing a disjunctive
@@ -12,5 +14,5 @@ namespace verona::parser::dnf
   Node<Type> intersect(Node<Type>& left, Node<Type>& right, Location& loc);
 
   // This checks if types are in disjunctive normal form.
-  bool wellformed(Ast& ast);
+  bool wellformed(Ast& ast, std::ostream& out = std::cerr);
 }

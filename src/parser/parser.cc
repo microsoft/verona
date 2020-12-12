@@ -7,7 +7,7 @@
 #include "ident.h"
 #include "path.h"
 
-#include <iostream>
+#include <cassert>
 #include <set>
 
 namespace verona::parser
@@ -39,6 +39,7 @@ namespace verona::parser
     Result final_result;
     std::set<std::string> imports;
     std::string stdlib;
+    std::ostream& out;
 
     struct SymbolPush
     {
@@ -52,8 +53,8 @@ namespace verona::parser
       }
     };
 
-    Parse(const std::string& stdlib)
-    : pos(0), la(0), final_result(Success), stdlib(stdlib)
+    Parse(const std::string& stdlib, std::ostream& out)
+    : pos(0), la(0), final_result(Success), stdlib(stdlib), out(out)
     {
       token_apply = ident("apply");
       token_has_value = ident("has_value");
@@ -77,7 +78,7 @@ namespace verona::parser
     std::ostream& error()
     {
       final_result = Error;
-      return std::cerr;
+      return out << "--------" << std::endl;
     }
 
     SymbolPush push(Ast node)
@@ -2460,9 +2461,10 @@ namespace verona::parser
     }
   };
 
-  std::pair<bool, Ast> parse(const std::string& path, const std::string& stdlib)
+  std::pair<bool, Ast>
+  parse(const std::string& path, const std::string& stdlib, std::ostream& out)
   {
-    Parse parse(stdlib);
+    Parse parse(stdlib, out);
     auto program = std::make_shared<Class>();
     parse.imports.insert(path::canonical(path));
 

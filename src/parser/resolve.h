@@ -6,6 +6,6 @@
 
 namespace verona::parser::resolve
 {
-  bool run(Ast& ast);
-  bool wellformed(Ast& ast);
+  bool run(Ast& ast, std::ostream& out = std::cerr);
+  bool wellformed(Ast& ast, std::ostream& out = std::cerr);
 }
