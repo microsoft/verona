@@ -104,10 +104,10 @@ else ()
       -DOUTPUT_DIR=${CMAKE_BINARY_DIR}/llvm/Release/${LLVM_GIT_REVISION}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/download-llvm.cmake
 
-    COMMAND ${CMAKE_COMMAND} -E copy_directory 
-      ${CMAKE_BINARY_DIR}/llvm/Release/${LLVM_GIT_REVISION}/install
-      ${CMAKE_BINARY_DIR}/llvm/Debug/${LLVM_GIT_REVISION}/install
-      ${CMAKE_BINARY_DIR}/llvm/Combined/${LLVM_GIT_REVISION}/install
+    COMMAND ${CMAKE_COMMAND}
+      -DSOURCES="${CMAKE_BINARY_DIR}/llvm/Release/${LLVM_GIT_REVISION}/install\;${CMAKE_BINARY_DIR}/llvm/Debug/${LLVM_GIT_REVISION}/install"
+      -DDESTINATION=${CMAKE_BINARY_DIR}/llvm/Combined/${LLVM_GIT_REVISION}/install
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/copy-llvm-libs.cmake
 
     COMMAND ${CMAKE_COMMAND} -E touch ${LLVM_BASE}/llvm-stamp)
 
