@@ -21,22 +21,19 @@ layout: default
 </p>
 {% elsif page.authors %}
 <p class="author">
-  {% assign names = page.authors | sort %}
-  {% assign names_array = '' | split: '' %}
-  {% for name in names %}
-    {% assign reversed_name = name | split: ' ' | reverse | join: ' ' %}
-    {% assign names_array = names_array | push: reversed_name %}
+  {% assign authors = '' | split: '' %}
+  {% for name in page.authors %}
+    {% assign author = site.data.people | find: 'name', name %}
+    {% assign authors = authors | push: author %}
   {% endfor %}
 
-  {% assign sorted_authors = names_array | sort %}
+  {% assign sorted_authors = authors | sort: 'sort-key' %}
 
-  {% for name in sorted_authors %}
-    {% assign author_name = name | split: ' ' | reverse | join: ' '%}
-    {% assign author = site.data.people | find: 'name', author_name %}
+  {% for author in sorted_authors %}
     {% if author.url %}
-<span class="author"><a href="{{author.url}}">{{author_name}}</a></span>
+<span class="author"><a href="{{author.url}}">{{author.name}}</a></span>
     {% else %}
-<span class="author">{{ author_name }}</span>
+<span class="author">{{ author.name }}</span>
     {% endif %}
   {% endfor %}
 </p>
