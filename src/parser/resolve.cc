@@ -13,17 +13,17 @@ namespace verona::parser::resolve
     AST_PASS;
 
     Ident ident;
-    Location token_create;
+    Location name_create;
 
     Resolve()
     {
-      token_create = ident("create");
+      name_create = ident("create");
     }
 
     void create_sugar(StaticRef& sr, Ast& def)
     {
       // We found a type as an expression, so we'll turn it into a constructor.
-      auto find = def->get_sym(token_create);
+      auto find = look_in(def, name_create);
       bool has_params = false;
 
       // Assume it's a zero argument create unless we can discover otherwise.
@@ -31,7 +31,7 @@ namespace verona::parser::resolve
         has_params = find->as<Function>().signature->params.size() > 0;
 
       auto create = std::make_shared<TypeName>();
-      create->location = token_create;
+      create->location = name_create;
 
       auto sref = std::make_shared<StaticRef>();
       sref->location = sr.location;
@@ -77,7 +77,8 @@ namespace verona::parser::resolve
     void post(TypeRef& tr)
     {
       // This checks that the type exists but doesn't rewrite the AST.
-      auto paths = look_up(stack, tr.typenames);
+      bool from_using = (parent()->kind() == Kind::Using);
+      auto paths = look_up(stack, tr.typenames, from_using);
 
       if (paths.empty())
       {
@@ -103,7 +104,7 @@ namespace verona::parser::resolve
       auto& def = paths.front().back();
 
       if (!is_kind(
-            def->kind(),
+            def,
             {Kind::Class, Kind::Interface, Kind::TypeAlias, Kind::TypeParam}))
       {
         error() << tr.location << "Expected a type, but got a "
@@ -161,14 +162,14 @@ namespace verona::parser::resolve
 
       auto& def = paths.front().back();
 
-      if (is_kind(def->kind(), {Kind::Class, Kind::Interface, Kind::TypeAlias}))
+      if (is_kind(def, {Kind::Class, Kind::Interface, Kind::TypeAlias}))
       {
         create_sugar(sr, def);
       }
-      else if (!is_kind(def->kind(), {Kind::Function}))
+      else if (def->kind() != Kind::Function)
       {
         error() << sr.location
-                << "Expected a type or a static function, but got a "
+                << "Expected a type or a function, but got a "
                 << kindname(def->kind()) << text(sr.location) << def->location
                 << "Definition is here" << text(def->location);
       }

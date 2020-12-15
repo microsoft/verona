@@ -9,8 +9,8 @@ namespace verona::parser
     switch (kind)
     {
       // Definitions
-      case Kind::Open:
-        return "open";
+      case Kind::Using:
+        return "using";
 
       case Kind::TypeAlias:
         return "typealias";
@@ -173,42 +173,14 @@ namespace verona::parser
     }
   }
 
-  bool is_kind(Kind kind, const std::initializer_list<Kind>& kinds)
+  bool is_kind(Ast ast, const std::initializer_list<Kind>& kinds)
   {
-    for (auto k : kinds)
+    for (auto kind : kinds)
     {
-      if (kind == k)
+      if (ast->kind() == kind)
         return true;
     }
 
     return false;
-  }
-
-  std::pair<AstPath::iterator, Ast> get_sym(AstPath& stack, const Location& id)
-  {
-    for (auto it = stack.rbegin(); it != stack.rend(); ++it)
-    {
-      auto r = (*it)->get_sym(id);
-
-      if (r)
-        return {it.base(), r};
-    }
-
-    return {};
-  }
-
-  Ast NodeDef::get_sym(const Location& id)
-  {
-    auto st = symbol_table();
-
-    if (!st)
-      return {};
-
-    auto find = st->map.find(id);
-
-    if (find == st->map.end())
-      return {};
-
-    return find->second;
   }
 }

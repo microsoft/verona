@@ -13,9 +13,9 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, Open& open)
+  void fieldsof(T& target, Using& use)
   {
-    target << open.type;
+    target << use.type;
   }
 
   template<typename T>

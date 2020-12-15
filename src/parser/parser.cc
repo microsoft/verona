@@ -5,6 +5,7 @@
 #include "dnf.h"
 #include "escaping.h"
 #include "ident.h"
+#include "lookup.h"
 #include "path.h"
 
 #include <cassert>
@@ -32,9 +33,9 @@ namespace verona::parser
     AstPath symbol_stack;
 
     Ident ident;
-    Location token_apply;
-    Location token_has_value;
-    Location token_next;
+    Location name_apply;
+    Location name_has_value;
+    Location name_next;
 
     Result final_result;
     std::set<std::string> imports;
@@ -56,9 +57,9 @@ namespace verona::parser
     Parse(const std::string& stdlib, std::ostream& out)
     : pos(0), la(0), final_result(Success), stdlib(stdlib), out(out)
     {
-      token_apply = ident("apply");
-      token_has_value = ident("has_value");
-      token_next = ident("next");
+      name_apply = ident("apply");
+      name_has_value = ident("has_value");
+      name_next = ident("next");
     }
 
     ~Parse()
@@ -91,11 +92,6 @@ namespace verona::parser
     void pop()
     {
       symbol_stack.pop_back();
-    }
-
-    Ast get_sym(const Location& id)
-    {
-      return parser::get_sym(symbol_stack, id).second;
     }
 
     void set_sym(const Location& id, Ast node, SymbolTable& st)
@@ -207,11 +203,10 @@ namespace verona::parser
 
     bool is_localref(const Location& id)
     {
-      auto def = get_sym(id);
+      if (look_up_local(symbol_stack, id))
+        return true;
 
-      return def &&
-        ((def->kind() == Kind::Param) || (def->kind() == Kind::Let) ||
-         (def->kind() == Kind::Var));
+      return false;
     }
 
     bool is_blockexpr(Node<Expr>& expr)
@@ -432,7 +427,7 @@ namespace verona::parser
       auto cond = std::make_shared<Tuple>();
       auto select_has_value = std::make_shared<Select>();
       select_has_value->expr = ref(id);
-      select_has_value->member = token_has_value;
+      select_has_value->member = name_has_value;
       auto apply_has_value = std::make_shared<Apply>();
       apply_has_value->expr = select_has_value;
       apply_has_value->args = std::make_shared<Tuple>();
@@ -452,7 +447,7 @@ namespace verona::parser
       auto select_next = std::make_shared<Select>();
       select_next->location = wh->body->location;
       select_next->expr = ref(id);
-      select_next->member = token_next;
+      select_next->member = name_next;
 
       auto end = std::make_shared<Apply>();
       end->location = wh->body->location;
@@ -1956,7 +1951,7 @@ namespace verona::parser
       else
       {
         // Replace an empy name with 'apply'.
-        func.name = token_apply;
+        func.name = name_apply;
       }
 
       if (signature(func.signature) == Error)
@@ -2152,19 +2147,24 @@ namespace verona::parser
       return r;
     }
 
-    Result optopen(List<Member>& members)
+    Result optusing(List<Member>& members)
     {
-      // open <- 'open' type ';'
-      if (!has(TokenKind::Open))
+      // using <- 'using' typeref ';'
+      if (!has(TokenKind::Using))
         return Skip;
 
-      auto open = std::make_shared<Open>();
-      open->location = previous.location;
+      auto use = std::make_shared<Using>();
+      use->location = previous.location;
 
-      Result r = Success;
+      Result r;
 
-      if (typeexpr(open->type) == Error)
+      if ((r = opttyperef(use->type)) != Success)
+      {
+        if (r == Skip)
+          error() << loc() << "Expected a type reference" << line();
+
         r = Error;
+      }
 
       if (!has(TokenKind::Semicolon))
       {
@@ -2172,7 +2172,8 @@ namespace verona::parser
         r = Error;
       }
 
-      members.push_back(open);
+      members.push_back(use);
+      symbol_stack.back()->symbol_table()->use.push_back(use);
       return r;
     }
 
@@ -2290,7 +2291,7 @@ namespace verona::parser
     Result optmember(List<Member>& members)
     {
       // member <-
-      //  classdef / interface / typealias / open / field / method / function
+      //  classdef / interface / typealias / using / field / method / function
       Result r;
 
       if ((r = classdef(members)) != Skip)
@@ -2302,7 +2303,7 @@ namespace verona::parser
       if ((r = typealias(members)) != Skip)
         return r;
 
-      if ((r = optopen(members)) != Skip)
+      if ((r = optusing(members)) != Skip)
         return r;
 
       if ((r = optstaticfunction(members)) != Skip)
@@ -2413,15 +2414,14 @@ namespace verona::parser
     {
       auto modulename = ident(path);
 
-      if (get_sym(modulename))
+      if (look_in(symbol_stack.front(), modulename))
         return final_result;
 
       Node<Module> moduledef;
       auto r = Success;
 
       auto module = std::make_shared<Class>();
-      auto st0 = push(program);
-      auto st1 = push(module);
+      auto st = push(module);
       module->id = modulename;
       program->members.push_back(module);
       set_sym_parent(module->id, module);
@@ -2459,9 +2459,6 @@ namespace verona::parser
       {
         module->typeparams = std::move(moduledef->typeparams);
         module->inherits = moduledef->inherits;
-
-        for (auto& tp : module->typeparams)
-          set_sym(tp->location, tp);
       }
 
       return r;
@@ -2473,6 +2470,7 @@ namespace verona::parser
   {
     Parse parse(stdlib, out);
     auto program = std::make_shared<Class>();
+    auto st = parse.push(program);
     parse.imports.insert(path::canonical(path));
 
     while (!parse.imports.empty())

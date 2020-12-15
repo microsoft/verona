@@ -15,8 +15,8 @@ namespace verona::parser
     switch (node->kind())
     {
       // Definitions
-      case Kind::Open:
-        return f(node->as<Open>(), args...);
+      case Kind::Using:
+        return f(node->as<Using>(), args...);
 
       case Kind::TypeAlias:
         return f(node->as<TypeAlias>(), args...);
