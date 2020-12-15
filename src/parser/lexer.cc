@@ -71,6 +71,11 @@ namespace verona::parser
                                   {"let", TokenKind::Let},
                                   {"var", TokenKind::Var},
                                   {"new", TokenKind::New},
+                                  {"iso", TokenKind::Iso},
+                                  {"mut", TokenKind::Mut},
+                                  {"imm", TokenKind::Imm},
+                                  {"true", TokenKind::True},
+                                  {"false", TokenKind::False},
                                   {nullptr, TokenKind::Invalid}};
 
   bool is_digit(char c)

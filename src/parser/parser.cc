@@ -1620,6 +1620,7 @@ namespace verona::parser
 
       if (!find.empty())
       {
+        name->location = ident(find);
         imports.insert(find);
       }
       else
@@ -1684,16 +1685,48 @@ namespace verona::parser
       return r;
     }
 
+    Result optcaptype(Node<Type>& type)
+    {
+      // captype <- 'iso' / 'mut' / 'imm' / typeref
+      Result r = Success;
+
+      if (has(TokenKind::Iso))
+      {
+        auto cap = std::make_shared<Iso>();
+        cap->location = previous.location;
+        type = cap;
+        return Success;
+      }
+
+      if (has(TokenKind::Mut))
+      {
+        auto cap = std::make_shared<Mut>();
+        cap->location = previous.location;
+        type = cap;
+        return Success;
+      }
+
+      if (has(TokenKind::Imm))
+      {
+        auto cap = std::make_shared<Imm>();
+        cap->location = previous.location;
+        type = cap;
+        return Success;
+      }
+
+      return opttyperef(type);
+    }
+
     Result optviewtype(Node<Type>& type)
     {
-      // viewtype <- (typeref ('~>' / '<~'))* (typeref / tupletype)
+      // viewtype <- (captype ('~>' / '<~'))* (captype / tupletype)
       // Left associative.
       Result r = Success;
 
       if ((r = opttupletype(type)) != Skip)
         return r;
 
-      if ((r = opttyperef(type)) != Success)
+      if ((r = optcaptype(type)) != Success)
         return r;
 
       Node<Type>& next = type;
@@ -1729,7 +1762,7 @@ namespace verona::parser
         if (r2 == Error)
           return Error;
 
-        if (opttyperef(next) != Success)
+        if (optcaptype(next) != Success)
           r = Error;
       }
     }
@@ -1769,14 +1802,16 @@ namespace verona::parser
       {
         auto amploc = previous.location;
         Node<Type> next;
+        Result r2;
 
-        if (optfunctiontype(next) != Success)
+        if ((r2 = optfunctiontype(next)) != Success)
         {
           error() << loc() << "Expected a type" << line();
           r = Error;
         }
 
-        type = dnf::intersect(type, next, amploc);
+        if (r2 != Skip)
+          type = dnf::intersect(type, next, amploc);
       } while (has(TokenKind::Symbol, "&"));
 
       return r;

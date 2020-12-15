@@ -11,7 +11,8 @@ tupletype <- '(' (type (',' type)*)? ')'
 typename <- ident typeargs?
 modulename <- string typeargs?
 typeref <- (modulename / typename) ('::' typename)*
-viewtype <- (typeref ('~>' / '<~'))* (typeref / tupletype)
+captype <- 'iso' / 'mut' / 'imm' / typeref
+viewtype <- (captype ('~>' / '<~'))* (captype / tupletype)
 functiontype <- viewtype ('->' functiontype)?
 isecttype <- functiontype ('&' functiontype)*
 uniontype <- isecttype ('|' isecttype)*

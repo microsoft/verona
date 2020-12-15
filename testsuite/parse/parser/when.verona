@@ -1,6 +1,12 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+class Cown[T] {}
+class A {}
+class B {}
+
+static bar() {}
+
 foo(a: Cown[A], b: Cown[B])
 {
   when (a) {}

@@ -4,10 +4,11 @@
   ()
   [
     (class
-      /home/syclebsc/dev/verona/testsuite/parse/parser/strings.verona
+      /home/sylvanc/dev/verona/testsuite/parse/parser/strings.verona
       []
       ()
       [
+        (class U64 [] () [])
         (method
           apply
           (signature
@@ -25,7 +26,7 @@
                 "    no indent $x + ${y} = ${x + y} $1\n      indent 2 spaces \"{no interp: $x}\"")
               (string "\n    hi\n")
               (char "{\n  }")
-              (assign (let (ref tab ())) (string "\t"))
+              (assign (let tab ()) (string "\t"))
               (apply
                 (apply (string "    look, a ") (ref tab ()))
                 (string " in my string"))

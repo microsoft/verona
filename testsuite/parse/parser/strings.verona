@@ -1,6 +1,8 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+class U64 {}
+
 (x: U64, y: U64)
 {
   " c-string \" \U01f604 -> 😄 ";

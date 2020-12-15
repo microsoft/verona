@@ -4,24 +4,32 @@
   ()
   [
     (class
-      /home/syclebsc/dev/verona/testsuite/parse/parser/hygienic-id.verona
+      /home/sylvanc/dev/verona/testsuite/parse/parser/hygienic-id.verona
       []
       ()
       [
+        (class U32 [] () [])
+        (class List [ (typeparam T () ()) ] () [])
         (method
           for_sum
           (signature
             []
-            [ (param x (typeref [ (typename List []) ]) ()) ]
+            [
+              (param
+                x
+                (typeref
+                  [ (typename List [ (typeref [ (typename U32 []) ]) ]) ])
+                ())
+            ]
             (typeref [ (typename U32 []) ])
             ())
           (block
             [
-              (assign (let (ref sum (typeref [ (typename U32 []) ]))) (int 0))
+              (assign (let sum (typeref [ (typename U32 []) ])) (int 0))
               (block
                 [
                   (assign
-                    (let (ref $0 ()))
+                    (let $0 ())
                     (apply (select (ref x ()) values) (tuple [] ())))
                   (while
                     (tuple
@@ -29,19 +37,17 @@
                       ())
                     (block
                       [
-                        (assign
-                          (let (ref a ()))
-                          (apply (ref $0 ()) (tuple [] ())))
+                        (assign (let a ()) (apply (ref $0 ()) (tuple [] ())))
                         (assign
                           (ref sum ())
-                          (infix (symref +) (ref sum ()) (ref a ())))
+                          (apply (select (ref sum ()) +) (ref a ())))
                         (apply (select (ref $0 ()) next) (tuple [] ()))
                       ]))
                 ])
               (block
                 [
                   (assign
-                    (let (ref $2 ()))
+                    (let $2 ())
                     (apply (select (ref x ()) values) (tuple [] ())))
                   (while
                     (tuple
@@ -49,16 +55,14 @@
                       ())
                     (block
                       [
-                        (assign
-                          (let (ref a ()))
-                          (apply (ref $2 ()) (tuple [] ())))
+                        (assign (let a ()) (apply (ref $2 ()) (tuple [] ())))
                         (assign
                           (ref sum ())
-                          (infix (symref +) (ref sum ()) (ref a ())))
+                          (apply (select (ref sum ()) +) (ref a ())))
                         (block
                           [
                             (assign
-                              (let (ref $1 ()))
+                              (let $1 ())
                               (apply (select (ref x ()) values) (tuple [] ())))
                             (while
                               (tuple
@@ -71,11 +75,11 @@
                               (block
                                 [
                                   (assign
-                                    (let (ref a ()))
+                                    (let a ())
                                     (apply (ref $1 ()) (tuple [] ())))
                                   (assign
                                     (ref sum ())
-                                    (infix (symref +) (ref sum ()) (ref a ())))
+                                    (apply (select (ref sum ()) +) (ref a ())))
                                   (apply
                                     (select (ref $1 ()) next)
                                     (tuple [] ()))
@@ -93,7 +97,7 @@
                     (block
                       [
                         (assign
-                          (let (ref $3 ()))
+                          (let $3 ())
                           (apply (select (ref x ()) values) (tuple [] ())))
                         (while
                           (tuple
@@ -106,11 +110,11 @@
                           (block
                             [
                               (assign
-                                (let (ref a ()))
+                                (let a ())
                                 (apply (ref $3 ()) (tuple [] ())))
                               (assign
                                 (ref sum ())
-                                (infix (symref +) (ref sum ()) (ref a ())))
+                                (apply (select (ref sum ()) +) (ref a ())))
                               (apply (select (ref $3 ()) next) (tuple [] ()))
                             ]))
                       ])
@@ -120,7 +124,7 @@
                     (block
                       [
                         (assign
-                          (let (ref $4 ()))
+                          (let $4 ())
                           (apply (select (ref x ()) values) (tuple [] ())))
                         (while
                           (tuple
@@ -133,11 +137,11 @@
                           (block
                             [
                               (assign
-                                (let (ref a ()))
+                                (let a ())
                                 (apply (ref $4 ()) (tuple [] ())))
                               (assign
                                 (ref sum ())
-                                (infix (symref +) (ref sum ()) (ref a ())))
+                                (apply (select (ref sum ()) +) (ref a ())))
                               (apply (select (ref $4 ()) next) (tuple [] ()))
                             ]))
                       ])

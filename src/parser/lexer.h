@@ -59,6 +59,11 @@ namespace verona::parser
     Var,
     New,
 
+    // Capabilities
+    Iso,
+    Mut,
+    Imm,
+
     // Symbols and identifiers
     Symbol,
     Ident,

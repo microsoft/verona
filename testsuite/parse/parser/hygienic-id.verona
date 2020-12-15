@@ -3,7 +3,10 @@
 
 // Test hygienic ids are module-wide
 
-for_sum(x: List) : U32
+class U32 {}
+class List[T] {}
+
+for_sum(x: List[U32]) : U32
 {
   let sum: U32 = 0;
   // $0
