@@ -168,8 +168,7 @@ namespace verona::parser::resolve
       }
       else if (def->kind() != Kind::Function)
       {
-        error() << sr.location
-                << "Expected a type or a function, but got a "
+        error() << sr.location << "Expected a type or a function, but got a "
                 << kindname(def->kind()) << text(sr.location) << def->location
                 << "Definition is here" << text(def->location);
       }
