@@ -1,6 +1,5 @@
 # Parser Notes
 
-* put a block around initexprs to avoid symbol leakage
 * put precedence paren forcing back in
 * special types: iso, mut, imm, Self
 * inheritance

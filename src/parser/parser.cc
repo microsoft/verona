@@ -392,10 +392,11 @@ namespace verona::parser
 
       auto blk = std::make_shared<Block>();
       blk->location = previous.location;
+      auto st0 = push(blk);
       expr = blk;
 
       auto wh = std::make_shared<While>();
-      auto st = push(wh);
+      auto st1 = push(wh);
       wh->location = previous.location;
 
       Node<Expr> state;
@@ -419,7 +420,7 @@ namespace verona::parser
 
       auto decl = std::make_shared<Let>();
       decl->location = id;
-      set_sym(id, decl);
+      set_sym_parent(id, decl);
       init->left = decl;
       init->right = iter;
 
@@ -1539,7 +1540,18 @@ namespace verona::parser
 
       Result r;
 
-      if ((r = optexpr(expr)) == Skip)
+      auto blk = std::make_shared<Block>();
+      auto st = push(blk);
+      blk->location = previous.location;
+      expr = blk;
+
+      Node<Expr> init;
+
+      if ((r = optexpr(init)) != Skip)
+      {
+        blk->seq.push_back(init);
+      }
+      else
       {
         error() << loc() << "Expected an initialiser expression" << line();
         r = Error;
