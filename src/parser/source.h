@@ -14,20 +14,19 @@ namespace verona::parser
   };
 
   using Source = std::shared_ptr<SourceDef>;
-  using Position = uint32_t;
 
   struct Location
   {
     Source source;
-    Position start;
-    Position end;
+    uint32_t start;
+    uint32_t end;
 
     Location() = default;
 
     Location(Source& source, size_t start, size_t end)
     : source(source),
-      start(static_cast<Position>(start)),
-      end(static_cast<Position>(end))
+      start(static_cast<uint32_t>(start)),
+      end(static_cast<uint32_t>(end))
     {}
 
     std::string_view view() const;

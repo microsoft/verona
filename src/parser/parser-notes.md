@@ -1,8 +1,8 @@
 # Parser Notes
 
+* put a block around initexprs to avoid symbol leakage
 * put precedence paren forcing back in
 * special types: iso, mut, imm, Self
-* open
 * inheritance
 * try/catch
 * update sugar
@@ -10,6 +10,7 @@
 * distinguishing value parameters from type parameters
 * constant expressions
 * yield transformation
+  https://csharpindepth.com/Articles/IteratorBlockImplementation
 
 ## Open Questions
 
@@ -19,6 +20,7 @@
   could do the same thing for lambdas
   might not want to do either as they have type checking implications
 * `where` might need to have non-type constraints
+* do we need default capabilities for types
 
 ## Function vs Method
 
@@ -80,3 +82,12 @@ find all candidate functions
   member functions on the receiver
   must have the same name
   must have a compatible arity, accounting for default parameter values
+
+## Standard Library
+
+env doesn't need stdin, stdout, stderr
+  can use a capability to get access to them
+use a capability to set the global exit code
+use a capability to fetch args
+use a capability to read and write envvars
+main() gets ambient authority and nothing else

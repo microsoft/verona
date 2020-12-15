@@ -9,7 +9,7 @@ namespace verona::parser
   enum class Kind
   {
     // Definitions
-    Open,
+    Using,
     TypeAlias,
     Interface,
     Class,
@@ -86,9 +86,7 @@ namespace verona::parser
 
   const char* kindname(Kind kind);
 
-  bool is_kind(Kind kind, const std::initializer_list<Kind>& kinds);
-
-  std::pair<AstPath::iterator, Ast> get_sym(AstPath& stack, const Location& id);
+  bool is_kind(Ast ast, const std::initializer_list<Kind>& kinds);
 
   struct NodeDef
   {
@@ -102,8 +100,6 @@ namespace verona::parser
       return nullptr;
     }
 
-    Ast get_sym(const Location& id);
-
     template<typename T>
     T& as()
     {
@@ -111,15 +107,57 @@ namespace verona::parser
     }
   };
 
-  struct SymbolTable
-  {
-    std::unordered_map<Location, Ast> map;
-  };
-
   // TODO: anonymous interface
 
   struct Type : NodeDef
   {};
+
+  struct TypeName : NodeDef
+  {
+    List<Type> typeargs;
+
+    Kind kind()
+    {
+      return Kind::TypeName;
+    }
+  };
+
+  struct ModuleName : TypeName
+  {
+    Kind kind()
+    {
+      return Kind::ModuleName;
+    }
+  };
+
+  struct TypeRef : Type
+  {
+    List<TypeName> typenames;
+
+    Kind kind()
+    {
+      return Kind::TypeRef;
+    }
+  };
+
+  struct Member : NodeDef
+  {};
+
+  struct Using : Member
+  {
+    Node<Type> type;
+
+    Kind kind()
+    {
+      return Kind::Using;
+    }
+  };
+
+  struct SymbolTable
+  {
+    std::unordered_map<Location, Ast> map;
+    std::vector<Node<Using>> use;
+  };
 
   struct Expr : NodeDef
   {};
@@ -457,47 +495,6 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::ExtractType;
-    }
-  };
-
-  struct TypeName : NodeDef
-  {
-    List<Type> typeargs;
-
-    Kind kind()
-    {
-      return Kind::TypeName;
-    }
-  };
-
-  struct ModuleName : TypeName
-  {
-    Kind kind()
-    {
-      return Kind::ModuleName;
-    }
-  };
-
-  struct TypeRef : Type
-  {
-    List<TypeName> typenames;
-
-    Kind kind()
-    {
-      return Kind::TypeRef;
-    }
-  };
-
-  struct Member : NodeDef
-  {};
-
-  struct Open : Member
-  {
-    Node<Type> type;
-
-    Kind kind()
-    {
-      return Kind::Open;
     }
   };
 
