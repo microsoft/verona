@@ -7,8 +7,11 @@
 
 namespace verona::parser
 {
-  AstPaths look_down_all(AstPaths& paths, const Location& name, bool from_using);
-  AstPaths look_in_with_using(AstPath& path, const Location& name, bool from_using);
+  AstPaths
+  look_down_all(AstPaths& paths, const Location& name, bool from_using);
+
+  AstPaths
+  look_in_with_using(AstPath& path, const Location& name, bool from_using);
 
   void add(AstPaths& rs, AstPath& r)
   {
@@ -35,7 +38,8 @@ namespace verona::parser
       add(rs1, r);
   }
 
-  AstPaths look_in_definition(AstPath& path, Node<Type>& type, const Location& name, bool from_using)
+  AstPaths look_in_definition(
+    AstPath& path, Node<Type>& type, const Location& name, bool from_using)
   {
     // We have a type which is the definition of a type alias or the upper
     // bounds of a type parameter. We want to look inside that type for a
@@ -49,7 +53,8 @@ namespace verona::parser
       case Kind::ViewType:
       {
         // Lookup through the right-hand side of the type pair.
-        return look_in_definition(path, type->as<TypePair>().right, name, from_using);
+        return look_in_definition(
+          path, type->as<TypePair>().right, name, from_using);
       }
 
       case Kind::TypeRef:
@@ -144,7 +149,8 @@ namespace verona::parser
     return find->second;
   }
 
-  AstPaths look_in_with_using(AstPath& path, const Location& name, bool from_using)
+  AstPaths
+  look_in_with_using(AstPath& path, const Location& name, bool from_using)
   {
     if (path.empty())
       return {};
