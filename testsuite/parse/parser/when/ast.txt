@@ -4,10 +4,14 @@
   ()
   [
     (class
-      /home/syclebsc/dev/verona/testsuite/parse/parser/when.verona
+      /home/sylvanc/dev/verona/testsuite/parse/parser/when.verona
       []
       ()
       [
+        (class Cown [ (typeparam T () ()) ] () [])
+        (class A [] () [])
+        (class B [] () [])
+        (function bar (signature [] [] () ()) (block []))
         (method
           foo
           (signature
@@ -32,7 +36,13 @@
                 (block
                   [
                     (when
-                      (tuple [ (apply (ref bar ()) (tuple [] ())) ] ())
+                      (tuple
+                        [
+                          (apply
+                            (staticref [ (typename bar []) ])
+                            (tuple [] ()))
+                        ]
+                        ())
                       (block []))
                     (return (ref b ()))
                   ]))

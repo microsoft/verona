@@ -31,6 +31,9 @@ namespace verona::parser
     TypeName,
     ModuleName,
     TypeRef,
+    Iso,
+    Mut,
+    Imm,
 
     // Expressions
     Tuple,
@@ -127,6 +130,33 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::ModuleName;
+    }
+  };
+
+  struct CapType : Type
+  {};
+
+  struct Iso : CapType
+  {
+    Kind kind()
+    {
+      return Kind::Iso;
+    }
+  };
+
+  struct Mut : CapType
+  {
+    Kind kind()
+    {
+      return Kind::Mut;
+    }
+  };
+
+  struct Imm : CapType
+  {
+    Kind kind()
+    {
+      return Kind::Imm;
     }
   };
 

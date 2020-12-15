@@ -4,59 +4,71 @@
   ()
   [
     (class
-      /home/syclebsc/dev/verona/testsuite/parse/parser/literal.verona
+      /home/sylvanc/dev/verona/testsuite/parse/parser/literal.verona
       []
       ()
       [
+        (interface Foo [] () [])
+        (class Bool [] () [])
+        (class U8 [] () [])
+        (class U16 [] () [])
+        (class U64 [] () [])
+        (class I32 [] () [])
+        (class F32 [] () [])
         (method
           f
           (signature [] [] () ())
           (block
             [
-              (assign (let (ref bool1 ())) (ref true ()))
-              (assign (let (ref bool2 ())) (ref false ()))
-              (assign (let (ref int1 ())) (int 00_42))
-              (assign (let (ref int2 ())) (hex 0xc0_FFeE))
-              (assign (let (ref int3 ())) (binary 0b10_10_10))
-              (assign (let (ref float1 ())) (float 27.18e-1))
+              (assign (let bool1 ()) (true true))
+              (assign (let bool2 ()) (false false))
+              (assign (let int1 ()) (int 00_42))
+              (assign (let int2 ()) (hex 0xc0_FFeE))
+              (assign (let int3 ()) (binary 0b10_10_10))
+              (assign (let float1 ()) (float 27.18e-1))
               (assign
-                (let (ref precedence1 ()))
-                (infix (symref +) (infix (symref +) (int 1) (int 2)) (int 3)))
+                (let precedence1 ())
+                (apply (select (apply (select (int 1) +) (int 2)) +) (int 3)))
               (assign
-                (let (ref precedence2 ()))
-                (infix
-                  (symref +)
-                  (int 1)
-                  (tuple [ (infix (symref +) (int 2) (int 3)) ] ())))
+                (let precedence2 ())
+                (apply
+                  (select (int 1) +)
+                  (tuple [ (apply (select (int 2) +) (int 3)) ] ())))
               (assign
-                (let (ref object1 ()))
+                (let object1 ())
                 (object
                   ()
-                  [ (field x (typeref [ (typename U64 []) ]) (int 0)) ]
+                  [
+                    (field
+                      x
+                      (typeref [ (typename U64 []) ])
+                      (block [ (int 0) ]))
+                  ]
                   ()))
               (assign
-                (let (ref object2 ()))
+                (let object2 ())
                 (object
                   (typeref [ (typename Foo []) ])
-                  [ (field x (typeref [ (typename U64 []) ]) (int 0)) ]
+                  [
+                    (field
+                      x
+                      (typeref [ (typename U64 []) ])
+                      (block [ (int 0) ]))
+                  ]
                   ()))
+              (assign (let bool3 (typeref [ (typename Bool []) ])) (true true))
               (assign
-                (let (ref bool3 (typeref [ (typename bool []) ])))
-                (ref true ()))
+                (let bool4 (typeref [ (typename Bool []) ]))
+                (false false))
+              (assign (let int4 (typeref [ (typename U16 []) ])) (int 00_420))
               (assign
-                (let (ref bool4 (typeref [ (typename bool []) ])))
-                (ref false ()))
-              (assign
-                (let (ref int4 (typeref [ (typename U16 []) ])))
-                (int 00_420))
-              (assign
-                (let (ref int5 (typeref [ (typename S32 []) ])))
+                (let int5 (typeref [ (typename I32 []) ]))
                 (hex 0xc0_FFeE))
               (assign
-                (let (ref int6 (typeref [ (typename U8 []) ])))
+                (let int6 (typeref [ (typename U8 []) ]))
                 (binary 0b100_10_10))
               (assign
-                (let (ref float2 (typeref [ (typename F32 []) ])))
+                (let float2 (typeref [ (typename F32 []) ]))
                 (float 207.18e-1))
             ]))
       ])

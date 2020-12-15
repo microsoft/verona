@@ -1,7 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-module [A, B] : C;
+module [A, B];
 
-foo() {}
-_foo() {}
+static foo() {}
+static _foo() {}

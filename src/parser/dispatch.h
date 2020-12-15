@@ -76,6 +76,15 @@ namespace verona::parser
       case Kind::TypeRef:
         return f(node->as<TypeRef>(), args...);
 
+      case Kind::Iso:
+        return f(node->as<Iso>(), args...);
+
+      case Kind::Mut:
+        return f(node->as<Mut>(), args...);
+
+      case Kind::Imm:
+        return f(node->as<Imm>(), args...);
+
       // Expressions
       case Kind::Tuple:
         return f(node->as<Tuple>(), args...);

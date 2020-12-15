@@ -4,16 +4,16 @@
   ()
   [
     (class
-      /home/syclebsc/dev/verona/testsuite/parse/parser/typedef.verona
+      /home/sylvanc/dev/verona/testsuite/parse/parser/typedef.verona
       []
       ()
       [
+        (class U64 [] () [])
         (typealias
           UInt
           []
           ()
-          (isecttype
-            [ (typeref [ (typename U64 []) ]) (typeref [ (typename imm []) ]) ]))
+          (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ]))
         (class Foo [] () [])
         (class
           Bar

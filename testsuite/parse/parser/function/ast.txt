@@ -4,41 +4,34 @@
   ()
   [
     (class
-      /home/syclebsc/dev/verona/testsuite/parse/parser/function.verona
+      /home/sylvanc/dev/verona/testsuite/parse/parser/function.verona
       []
       ()
       [
+        (class U64 [] () [])
         (method
           foo
           (signature
             [
-              (typeparam N (typeref [ (typename imm []) ]) ())
+              (typeparam N (imm ) ())
               (typeparam
                 R
-                (isecttype
-                  [
-                    (typeref [ (typename U64 []) ])
-                    (typeref [ (typename imm []) ])
-                  ])
+                (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ])
                 ())
             ]
             [
               (param a (typeref [ (typename N []) ]) ())
               (param
                 b
-                (isecttype
-                  [
-                    (typeref [ (typename U64 []) ])
-                    (typeref [ (typename imm []) ])
-                  ])
+                (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ])
                 ())
             ]
             (typeref [ (typename R []) ])
             ())
           (block
             [
-              (assign (let (ref x ())) (infix (symref +) (ref a ()) (ref b ())))
-              (assign (let (ref r (typeref [ (typename R []) ]))) (ref x ()))
+              (assign (let x ()) (apply (select (ref a ()) +) (ref b ())))
+              (assign (let r (typeref [ (typename R []) ])) (ref x ()))
               (ref x ())
             ]))
         (method apply (signature [] [] () ()) (block []))

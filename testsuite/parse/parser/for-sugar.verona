@@ -1,9 +1,12 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+class U32 {}
+class List[T] {}
+
 // This for loop
 
-for_sum(x: List) : U32
+for_sum(x: List[U32]) : U32
 {
   let sum: U32 = 0;
   // `a` is a local variable in the loop's context
@@ -16,7 +19,7 @@ for_sum(x: List) : U32
 
 // maps to this while loop
 
-while_sum(x: List) : U32
+while_sum(x: List[U32]) : U32
 {
   let sum: U32 = 0;
   // The iterator will have a hygienic name in the compiler

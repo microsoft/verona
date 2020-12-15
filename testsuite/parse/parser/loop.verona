@@ -1,7 +1,9 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-f(x: T)
+static foo[T](a: T) {}
+
+f[T](x: T)
 {
   let a = 0;
   while (a < 5)

@@ -1,17 +1,19 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+class A {}
+
 class B
 {
   class C
   {
-    bar() {}
+    static bar() {}
   }
 
-  foo() {}
+  static foo() {}
 }
 
-f(x: A, y: A)
+f[X](x: A, y: A)
 {
   B;
   B::foo;

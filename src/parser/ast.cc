@@ -70,6 +70,15 @@ namespace verona::parser
       case Kind::TypeRef:
         return "typeref";
 
+      case Kind::Iso:
+        return "iso";
+
+      case Kind::Mut:
+        return "mut";
+
+      case Kind::Imm:
+        return "imm";
+
       // Expressions
       case Kind::Tuple:
         return "tuple";

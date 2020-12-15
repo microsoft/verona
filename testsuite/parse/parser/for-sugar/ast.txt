@@ -4,24 +4,32 @@
   ()
   [
     (class
-      /home/syclebsc/dev/verona/testsuite/parse/parser/for-sugar.verona
+      /home/sylvanc/dev/verona/testsuite/parse/parser/for-sugar.verona
       []
       ()
       [
+        (class U32 [] () [])
+        (class List [ (typeparam T () ()) ] () [])
         (method
           for_sum
           (signature
             []
-            [ (param x (typeref [ (typename List []) ]) ()) ]
+            [
+              (param
+                x
+                (typeref
+                  [ (typename List [ (typeref [ (typename U32 []) ]) ]) ])
+                ())
+            ]
             (typeref [ (typename U32 []) ])
             ())
           (block
             [
-              (assign (let (ref sum (typeref [ (typename U32 []) ]))) (int 0))
+              (assign (let sum (typeref [ (typename U32 []) ])) (int 0))
               (block
                 [
                   (assign
-                    (let (ref $0 ()))
+                    (let $0 ())
                     (apply (select (ref x ()) values) (tuple [] ())))
                   (while
                     (tuple
@@ -29,12 +37,10 @@
                       ())
                     (block
                       [
-                        (assign
-                          (let (ref a ()))
-                          (apply (ref $0 ()) (tuple [] ())))
+                        (assign (let a ()) (apply (ref $0 ()) (tuple [] ())))
                         (assign
                           (ref sum ())
-                          (infix (symref +) (ref sum ()) (ref a ())))
+                          (apply (select (ref sum ()) +) (ref a ())))
                         (apply (select (ref $0 ()) next) (tuple [] ()))
                       ]))
                 ])
@@ -44,14 +50,20 @@
           while_sum
           (signature
             []
-            [ (param x (typeref [ (typename List []) ]) ()) ]
+            [
+              (param
+                x
+                (typeref
+                  [ (typename List [ (typeref [ (typename U32 []) ]) ]) ])
+                ())
+            ]
             (typeref [ (typename U32 []) ])
             ())
           (block
             [
-              (assign (let (ref sum (typeref [ (typename U32 []) ]))) (int 0))
+              (assign (let sum (typeref [ (typename U32 []) ])) (int 0))
               (assign
-                (let (ref iter ()))
+                (let iter ())
                 (apply (select (ref x ()) values) (tuple [] ())))
               (while
                 (tuple
@@ -60,12 +72,12 @@
                 (block
                   [
                     (assign
-                      (let (ref a ()))
+                      (let a ())
                       (apply (select (ref iter ()) apply) (tuple [] ())))
                     (apply (select (ref iter ()) next) (tuple [] ()))
                     (assign
                       (ref sum ())
-                      (infix (symref +) (ref sum ()) (ref a ())))
+                      (apply (select (ref sum ()) +) (ref a ())))
                   ]))
               (return (ref sum ()))
             ]))

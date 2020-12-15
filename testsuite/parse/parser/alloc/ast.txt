@@ -4,38 +4,37 @@
   ()
   [
     (class
-      /home/syclebsc/dev/verona/testsuite/parse/parser/alloc.verona
+      /home/sylvanc/dev/verona/testsuite/parse/parser/alloc.verona
       []
       ()
       [
+        (class U32 [] () [])
+        (class U64 [] () [])
+        (class F64 [] () [])
         (class
           C
-          []
+          [ (typeparam A () ()) ]
           ()
           [
-            (field
-              f
-              (isecttype
-                [
-                  (typeref [ (typename A []) ])
-                  (typeref [ (typename mut []) ])
-                ])
-              ())
+            (field f (isecttype [ (typeref [ (typename A []) ]) (mut ) ]) ())
             (function
               create
               (signature
-                [ (typeparam S (typeref [ (typename Self []) ]) ()) ]
+                [
+                  (typeparam
+                    S
+                    (isecttype
+                      [
+                        (typeref
+                          [ (typename C [ (typeref [ (typename A []) ]) ]) ])
+                        (mut )
+                      ])
+                    ())
+                ]
                 [
                   (param
                     a
-                    (tupletype
-                      [
-                        (isecttype
-                          [
-                            (typeref [ (typename A []) ])
-                            (typeref [ (typename mut []) ])
-                          ])
-                      ])
+                    (isecttype [ (typeref [ (typename A []) ]) (mut ) ])
                     ())
                 ]
                 (typeref [ (typename S []) ])
@@ -97,36 +96,51 @@
           (block
             [
               (assign
-                (let (ref f ()))
+                (let f ())
                 (lambda
                   (signature
                     [ (typeparam A (typeref [ (typename U64 []) ]) ()) ]
                     [ (param a () ()) ]
                     ()
                     ())
-                  (infix (symref +) (ref a ()) (int 42))))
+                  (apply (select (ref a ()) +) (int 42))))
               (assign
-                (let (ref e0 ()))
+                (let e0 ())
                 (apply
-                  (staticref (typeref [ (typename Empty []) ]) create)
+                  (staticref [ (typename Empty []) (typename create []) ])
                   (tuple [] ())))
-              (assign (let (ref e1 ())) (ref Empty ()))
               (assign
-                (let (ref e2 ()))
-                (object (typeref [ (typename Empty []) ]) [] e))
-              (assign
-                (let (ref one ()))
-                (object
-                  (typeref [ (typename One []) ])
-                  [ (field a (typeref [ (typename U32 []) ]) (int 42)) ]
+                (let e1 ())
+                (apply
+                  (staticref [ (typename Empty []) (typename create []) ])
                   ()))
               (assign
-                (let (ref two ()))
+                (let e2 ())
+                (object (typeref [ (typename Empty []) ]) [] e))
+              (assign
+                (let one ())
+                (object
+                  (typeref [ (typename One []) ])
+                  [
+                    (field
+                      a
+                      (typeref [ (typename U32 []) ])
+                      (block [ (int 42) ]))
+                  ]
+                  ()))
+              (assign
+                (let two ())
                 (object
                   (typeref [ (typename Two []) ])
                   [
-                    (field a (typeref [ (typename U32 []) ]) (int 42))
-                    (field b (typeref [ (typename F64 []) ]) (float 3.14))
+                    (field
+                      a
+                      (typeref [ (typename U32 []) ])
+                      (block [ (int 42) ]))
+                    (field
+                      b
+                      (typeref [ (typename F64 []) ])
+                      (block [ (float 3.14) ]))
                   ]
                   one))
             ]))

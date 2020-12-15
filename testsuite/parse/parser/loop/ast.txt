@@ -4,29 +4,41 @@
   ()
   [
     (class
-      /home/syclebsc/dev/verona/testsuite/parse/parser/loop.verona
+      /home/sylvanc/dev/verona/testsuite/parse/parser/loop.verona
       []
       ()
       [
+        (function
+          foo
+          (signature
+            [ (typeparam T () ()) ]
+            [ (param a (typeref [ (typename T []) ]) ()) ]
+            ()
+            ())
+          (block []))
         (method
           f
-          (signature [] [ (param x (typeref [ (typename T []) ]) ()) ] () ())
+          (signature
+            [ (typeparam T () ()) ]
+            [ (param x (typeref [ (typename T []) ]) ()) ]
+            ()
+            ())
           (block
             [
-              (assign (let (ref a ())) (int 0))
+              (assign (let a ()) (int 0))
               (while
-                (tuple [ (infix (symref <) (ref a ()) (int 5)) ] ())
+                (tuple [ (apply (select (ref a ()) <) (int 5)) ] ())
                 (block
                   [
-                    (assign (ref a ()) (infix (symref +) (ref a ()) (int 1)))
+                    (assign (ref a ()) (apply (select (ref a ()) +) (int 1)))
                     (if
-                      (tuple [ (infix (symref <) (ref a ()) (int 2)) ] ())
+                      (tuple [ (apply (select (ref a ()) <) (int 2)) ] ())
                       (block [ (continue ) ])
                       (block [ (break ) ]))
                   ]))
               (block
                 [
-                  (assign (let (ref $0 ())) (ref x ()))
+                  (assign (let $0 ()) (ref x ()))
                   (while
                     (tuple
                       [ (apply (select (ref $0 ()) has_value) (tuple [] ())) ]
@@ -34,7 +46,9 @@
                     (block
                       [
                         (assign (ref a ()) (apply (ref $0 ()) (tuple [] ())))
-                        (apply (ref foo ()) (tuple [ (ref a ()) ] ()))
+                        (apply
+                          (staticref [ (typename foo []) ])
+                          (tuple [ (ref a ()) ] ()))
                         (apply (select (ref $0 ()) next) (tuple [] ()))
                       ]))
                 ])
