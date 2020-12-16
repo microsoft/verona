@@ -57,6 +57,15 @@ make sure they come from disjoint memory. These can come from:
  * class fields, which could have been modified by a previous step, depending on
    runtime behaviour, and are therefore very hard to prove either way.
 
+### IR state afterwards
+
+After the alias analysis step, the IR shouldn't change much in structure.
+
+If we found opportunities for optimisation at the MLIR level, then some code may
+have simplified, but not changed in dialect support. For the rest of the alias
+information, we should annotate the operations to carry on TBAA info into the
+LLVM IR and allow LLVM to optimise on its own.
+
 ## Dynamic vs static calls
 
 Static calls are cheaper than dynamic calls. The former is represented in MLIR
@@ -74,6 +83,12 @@ containing only the methods that might be called via an interface.
 
 This minimises the size and complexity of the vtables and improve runtime
 performance avoiding unnecessary indirect calls.
+
+### IR state afterwards
+
+At this stage, all static calls should have moved to a direct `std.call` to
+named (and possibly mangled) names that exist as functions in the IR, with the
+appropriate lexical context (module name, etc).
 
 ## Virtual table colouring
 
@@ -136,6 +151,11 @@ compile times.
 A greedy example in the Pony language:
 https://github.com/ponylang/ponyc/blob/master/src/libponyc/reach/paint.c
 
+### IR state afterwards
+
+Here, dynamic calls should have been moved to a vtable lookup (compiler-generated
+code) plus a `std.call.indirect` call into that address. This can be directly
+lowered into LLVM dialect.
 
 ## Arithmetic lowering
 
@@ -168,3 +188,20 @@ instructions of not and make the appropriate calls to the runtime library if not
 
 For more advanced functionality, we may have to resort to some runtime library
 specific to Verona.
+
+### IR state afterwards
+
+After this pass, calls to arithmetic functions on native types should have been
+converted to calls to either LLVM builtins (for special arithmetic semantics) or
+"native functions" on Verona "arithmetic" types, that will be directly converted
+to LLVM native types later on.
+
+For example:
+```
+  // Verona dialect
+  %0 = verona.call "+" [%obj] (%num) : !verona.S32
+  // Standard dialect
+  %0 = "llvm.add" (%obj, %num) : s32
+  // LLVM dialect
+  %0 = llvm.add i32 %obj, %num
+```
