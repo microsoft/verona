@@ -121,17 +121,14 @@ from/to fields in LLVM are just direct access to struct fields (ie. via GEP).
 ### numeric literals
 
 All numeric literals, including compiler generated ones, can be represented
-directly in LLVM. However, in MLIR, they have been lowered as an `imm` anonymous
-class, wich access control (ex. reference count) and thus calls to the runtime
+directly in LLVM. However, in MLIR, they have been lowered as `Type & imm`
+objects, with access control (ex. reference count) and thus calls to the runtime
 library or lowered directly as code.
 
-If we want to optimise some literals over others, we may need to do so before
-the lowering to LLVM, or it would create the arduous work of cleaning up
-previously lowered code.
-
-Their values, however, would have a constant initialisation that will be lowered
-as a global value of the same type, with the name mangled via the anonymous
-class' name.
+However, the MLIR `constant`s are still numeric literals and will be lowered as
+LLVM literals in the exact same way. We just need to make sure we create the
+right native type for the `std.constant` operation, and rely on the standard's
+lowering.
 
 ### string literals
 
