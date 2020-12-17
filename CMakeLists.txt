@@ -168,11 +168,17 @@ if (NOT DEFINED VERONA_LLVM_LOCATION)
   ProcessorCount(N)
 
   # Adds a target check that runs the tests.
-  add_custom_target(check DEPENDS verona rt_tests)
-  add_custom_command(TARGET check 
+  add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> -j ${N} --output-on-failure --timeout 400 --interactive-debug-mode 0
     USES_TERMINAL
   )
+
+  # If RT_TESTS are enabled, we need to make sure they are
+  # up-to-date before we run tests.
+  if (RT_TESTS)
+    add_dependencies(check rt_tests)
+  endif()
+
   return ()
 endif()
 
