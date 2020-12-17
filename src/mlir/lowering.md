@@ -176,13 +176,8 @@ So far, there is only two constructs that create new basic blocks: conditionals
 and loops. Both will end with a tail block that will be the main block of the
 subsequent operations.
 
-The main issue when lowering basic blocks is figuring out their arguments. For
-this we need free variable and liveness analysis, which will have already been
-done by the 1IR passes. That information is in the `FnAnalysis` structure for
-now and it should be trivial to use it for arguments without having to backtrack.
-
-Once the 1IR becomes more complete (with less side structures), we'll need some
-information in the IR itself (condition/loop nodes).
+Basic block arguments will have already been constructed by the `1IR`, so we
+just need to lower them in the same fashion.
 
 ## Types
 
