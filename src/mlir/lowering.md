@@ -366,8 +366,8 @@ will depend on how they're used and therefore will depend on type inference and
 reachability analysis, which should have been completed by the time the 1IR is
 ready to be converted in the 2IR.
 
-Literals are lowered as immutable objects of the specified concrete type,
-initialised with the literal value.
+Literals are immutable objects of the specified concrete type, initialised with
+the literal value.
 
 Example:
 ```
@@ -421,9 +421,11 @@ In the case above, if all variables are already compile-time constant strings
 at the time of lowering, the compiler has the ability to fuse the strings,
 creating a simple string (or at least less splits).
 
-### UnitStmt
+### Other literals
 
-No idea.
+Non native literals (ex. Interface types) will need to be packed into an `imm`
+object, constructed with the initialisation values. This can later be optimised
+to native types if possible.
 
 ### MatchBindStmt
 
