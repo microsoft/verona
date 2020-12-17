@@ -171,7 +171,7 @@ jobs:
 
   - script: |
       set -eo pipefail
-      sudo pip install wheel OutputCheck
+      sudo pip3 install wheel OutputCheck
     displayName:  'Dependencies'
 
   - task: CMake@1
