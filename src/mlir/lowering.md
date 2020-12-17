@@ -112,7 +112,7 @@ All the remaining matches are dynamic and may need a dialec operation until it
 can be lowered to the appropriate reflection calls to check the type, when it
 will turn into a simple if/else block.
 
-### Excplicit runtime library entrypoints
+### Explicit runtime library entrypoints
 
 Part of the language semantics will be implemented by the runtime library. Some
 of it will be known at the high-level scope (AST, 1IR) while some of it only
@@ -186,7 +186,7 @@ information in the IR itself (condition/loop nodes).
 
 ## Types
 
-All types in 1IR should already be concrete at the time of conversion, so all
+All types in 1IR should already be known at the time of conversion, so all
 Verona types in the 2IR must validate using standard MLIR checks, which only
 check for equality, not similarity or sub-types.
 
@@ -232,14 +232,11 @@ an `iso` reference of the same region).
 
 ### drop
 
-Dropping (deallocating) regions need to know that there are no more active users
-of that region (ex. reference counting) and also need to find which region it is.
-If we're dropping an `iso`, it's straight forward, if it's a `mut`, we simply
-follow the annotation to find the `iso`.
+Dropping calls for deallocating regions are insereted when the `iso` goes out
+of context. `mut` objects don't need deallocating when they go out of context,
+so no `drop` statements are added for them.
 
-The actual deallocation will be a call to the runtime library if the region is
-gone (ie. equals `nullptr`). This is a simple check that can be lowered by the
-translation directly.
+The actual deallocation will be a call to the runtime library.
 
 ## Statements
 
@@ -258,13 +255,13 @@ for example).
 The operation has two semantics plus the merge:
 ```
   // new object in a new region
-  %0 = verona.new_region @Class [initialiser]
+  %0 = verona.new_region @Class [initialiser] : !verona.join<Class, iso>
 
   // new object in an existing region
-  %1 = verona.new_object @Class [initialiser] in @Other
+  %1 = verona.new_object @Class [initialiser] in %0 : !verona.join<Class, mut>
 
   // Merge two regions
-  verona.merge %0, %1
+  %2 = verona.merge %0, %1 : !verona.join<Class, iso>
 ```
 
 ### CallStmt / StaticTypeStmt
@@ -480,14 +477,14 @@ Created a mutable reference to an object. The validity of the type system has
 already been checked by the compiler at this point, so all reads and writes to
 those values are valid.
 
-At the 2IR level, there is no need to represent this statement as an operation
-and the only implementation detail is to add the previous value to the new
-symbol.
+At the 2IR level, we cna represent this as a simple `cast`, creating a new
+SSA variable with the new type but with the previous value. The correctness
+of the semantics is assumed valid.
 
 ### EndScopeStmt / OverwriteStmt
 
 When variables go out of scope, either lexical or type related (ex. move
-semantics). We need to call `release` on owned region types (region, iso, imm)
+semantics). We need to call `release` on owned types (region, iso, imm)
 but not on unowned types (mut).
 
 Example:
@@ -503,6 +500,9 @@ Example:
 
 This will do what's necessary depending on the type of region, for example,
 decrease the counter or deallocate the object altogether.
+
+On union type (ex. `iso | mut`), we need to match the type of the runtime
+object's type an call the correct `release` method.
 
 `OverwriteStmt` has the exact same semantics but identifies an object which
 ownership has been moved, not killed. This distinction is irrelevant to 2IR.

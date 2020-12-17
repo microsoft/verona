@@ -8,7 +8,8 @@ Long term, we want the following passes to run in MLIR:
  * Dynamic call optimisation (vtable packing, dyn-to-static type-based conversion)
 
 However, in the interest of parallel development, the current `1IR` will do all
-type based transformations and the `2IR` (MLIR based) will do the final steps.
+type based (correctness) transformations and the `2IR` (MLIR based) will do the
+final (perfornmance) steps.
 
 Here, we describe the MLIR passes. Once we move `1IR` passes down to the `2IR`,
 we should add the description of the passes here.
