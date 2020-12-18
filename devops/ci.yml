@@ -13,21 +13,22 @@ jobs:
     vmImage: 'ubuntu-18.04'
   steps:
   - script: |
-      echo " - PR Build"
-      if  git diff --ignore-submodules=dirty origin/master --name-only | grep -v "^doc" | grep -v "^experiments" | grep -v "\.md$"; then
-        echo Src changes;
-        echo "##vso[task.setvariable variable=docOnly;isOutput=true]false" #set variable to testRuntime to On
-        echo "Determine if runtime changed."
-        if git diff --ignore-submodules=dirty --quiet origin/master -- src/rt; then
-          echo " - Runtime unchanged!"
-          echo "##vso[task.setvariable variable=testRuntime;isOutput=true]Off" #set variable to testRuntime to Off
-        else
-          echo " - Runtime changed!"
-          echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable to testRuntime to On
-        fi
+      echo "Determine if any code has changed."
+      if git diff --ignore-submodules=dirty --quiet origin/master -- ':!docs' ':!experiments' ':!*.md'; then
+        echo " - Documentation change only"
+        echo "##vso[task.setvariable variable=docOnly;isOutput=true]true" #set variable docOnly to true
       else
-        echo Doc changes only;
-        echo "##vso[task.setvariable variable=docOnly;isOutput=true]true" #set variable to testRuntime to On
+        echo " - Source has changed"
+        echo "##vso[task.setvariable variable=docOnly;isOutput=true]false" #set variable docOnly to false
+      fi
+
+      echo "Determine if runtime changed."
+      if git diff --ignore-submodules=dirty --quiet origin/master -- src/rt; then
+        echo " - Runtime is unchanged!"
+        echo "##vso[task.setvariable variable=testRuntime;isOutput=true]Off" #set variable testRuntime to Off
+      else
+        echo " - Runtime has changed!"
+        echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable testRuntime to On
       fi
     displayName: 'Check for runtime changes'
     name: setVarStep
@@ -171,7 +172,7 @@ jobs:
 
   - script: |
       set -eo pipefail
-      sudo pip install wheel OutputCheck
+      sudo pip3 install wheel OutputCheck
     displayName: 'Dependencies'
 
   - task: CMake@1
