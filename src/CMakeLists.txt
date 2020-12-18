@@ -4,6 +4,8 @@ include_directories(.)
 
 project(verona-lang CXX)
 
+set(CMAKE_CXX_STANDARD 17)
+
 message(STATUS "Build Type for Verona ${CMAKE_BUILD_TYPE}")
 set(CMAKE_CONFIGURATION_TYPES  Release Debug RelWithDebInfo)
 message(STATUS "Build types ${CMAKE_CONFIGURATION_TYPES}")

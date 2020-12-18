@@ -61,7 +61,7 @@ if (DEFINED VERONA_EXTERNAL_LLVM_DIR)
   add_custom_target(external)
 else()
   #  Build or Download MLIR installation
-  set (MLIR_INSTALL ${CMAKE_BINARY_DIR}/$<CONFIG>/mlir)
+  set (MLIR_INSTALL ${CMAKE_BINARY_DIR}/$<CONFIG>/mlir/install)
   set (EXTERNAL_EXTRA_CMAKE_ARGS)
   list (APPEND EXTERNAL_EXTRA_CMAKE_ARGS 
     -DVERONA_DOWNLOAD_LLVM=${VERONA_DOWNLOAD_LLVM}
@@ -99,12 +99,8 @@ set (VERONA_EXTRA_CMAKE_ARGS)
 
 # Point Verona at the MLIR
 list (APPEND VERONA_EXTRA_CMAKE_ARGS
-  -DVERONA_LLVM_LOCATION=${MLIR_INSTALL}/install
+  -DVERONA_LLVM_LOCATION=${MLIR_INSTALL}
 )
-
-# Define project level defaults
-list (APPEND VERONA_EXTRA_CMAKE_ARGS
-  -DCMAKE_CXX_STANDARD=17)
 
 # Use top-level install directory required for tests.
 list (APPEND VERONA_EXTRA_CMAKE_ARGS
