@@ -69,10 +69,6 @@ else()
     -DCMAKE_BUILD_TYPE=$<CONFIG>)
 
   if (NOT VERONA_DOWNLOAD_LLVM)
-    if (NOT DEFINED LLVM_EXTRA_CMAKE_ARGS)
-      set (LLVM_EXTRA_CMAKE_ARGS)
-    endif ()
-
     list (APPEND EXTERNAL_EXTRA_CMAKE_ARGS
       -DLLVM_EXTRA_CMAKE_ARGS=${LLVM_EXTRA_CMAKE_ARGS}
     )
@@ -158,5 +154,3 @@ add_custom_command(TARGET check
 if (RT_TESTS)
   add_subdirectory(src/rt)
 endif()
-
-return ()
