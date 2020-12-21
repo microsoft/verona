@@ -11,7 +11,6 @@
 
 namespace verona::interpreter
 {
-  using bytecode::CodePtr;
   using bytecode::DescriptorIdx;
   using bytecode::FunctionHeader;
   using bytecode::Opcode;
@@ -25,7 +24,7 @@ namespace verona::interpreter
   struct SpecialDescriptors
   {
     const VMDescriptor* main;
-    SelectorIdx main_selector;
+    SelectorIdx main_selector = SelectorIdx(0);
     const VMDescriptor* u64;
     const VMDescriptor* string;
   };
@@ -98,21 +97,6 @@ namespace verona::interpreter
       return load<uint64_t>(ip);
     }
 
-    DescriptorIdx descriptor(size_t& ip) const
-    {
-      return load<DescriptorIdx>(ip);
-    }
-
-    SelectorIdx selector(size_t& ip) const
-    {
-      return load<SelectorIdx>(ip);
-    }
-
-    Opcode opcode(size_t& ip) const
-    {
-      return load<Opcode>(ip);
-    }
-
     std::string_view str(size_t& ip) const
     {
       return load<std::string_view>(ip);
@@ -145,7 +129,7 @@ namespace verona::interpreter
       uint32_t descriptors_count = u32(ip);
       for (uint32_t i = 0; i < descriptors_count; i++)
       {
-        descriptors_.push_back(load_descriptor(i, ip));
+        descriptors_.push_back(load_descriptor(DescriptorIdx(i), ip));
       }
 
       special_descriptors_.main = get_descriptor(load<DescriptorIdx>(ip));
@@ -169,23 +153,23 @@ namespace verona::interpreter
     size_t entrypoint() const
     {
       SelectorIdx selector = special_descriptors_.main_selector;
-      return special_descriptors_.main->methods[selector];
+      return special_descriptors_.main->methods[selector.value];
     }
 
     const VMDescriptor* get_descriptor(DescriptorIdx desc) const
     {
-      if (desc >= descriptors_.size())
+      if (desc.value >= descriptors_.size())
       {
         std::stringstream s;
-        s << "Invalid descriptor id " << (int)desc;
+        s << "Invalid descriptor id " << (int)desc.value;
         throw std::logic_error(s.str());
       }
-      return descriptors_.at(desc).get();
+      return descriptors_.at(desc.value).get();
     }
 
     const VMDescriptor* get_optional_descriptor(DescriptorIdx desc) const
     {
-      if (desc == bytecode::INVALID_DESCRIPTOR)
+      if (desc == DescriptorIdx::invalid())
         return nullptr;
       else
         return get_descriptor(desc);
@@ -217,29 +201,29 @@ namespace verona::interpreter
       uint32_t subtype_count = u32(ip);
       uint32_t finaliser_ip = u32(ip);
 
-      auto result = std::make_unique<VMDescriptor>(
+      auto descriptor = std::make_unique<VMDescriptor>(
         index, name, method_slots, field_slots, field_count, finaliser_ip);
 
       for (uint32_t i = 0; i < method_count; i++)
       {
-        SelectorIdx index = selector(ip);
+        SelectorIdx selector = load<SelectorIdx>(ip);
         uint32_t offset = u32(ip);
-        assert(index < method_slots);
-        result->methods[index] = offset;
+        assert(selector.value < method_slots);
+        descriptor->methods[selector.value] = offset;
       }
       for (uint32_t i = 0; i < field_count; i++)
       {
-        SelectorIdx index = selector(ip);
-        assert(index < field_slots);
-        result->fields[index] = i;
+        SelectorIdx selector = load<SelectorIdx>(ip);
+        assert(selector.value < field_slots);
+        descriptor->fields[selector.value] = i;
       }
       for (uint32_t i = 0; i < subtype_count; i++)
       {
-        DescriptorIdx subtype = descriptor(ip);
-        result->subtypes.insert(subtype);
+        DescriptorIdx subtype = load<DescriptorIdx>(ip);
+        descriptor->subtypes.insert(subtype);
       }
 
-      return result;
+      return descriptor;
     }
 
     /**
@@ -267,12 +251,14 @@ namespace verona::interpreter
         bits |= code.data_[ip++] << i;
       }
 
-      return (T)bits;
+      return static_cast<T>(bits);
     }
   };
 
   template<typename T>
-  struct Code::load_helper<T, std::enable_if_t<std::is_enum_v<T>>>
+  struct Code::load_helper<
+    T,
+    std::enable_if_t<std::is_enum_v<T> && !std::is_convertible_v<T, int>>>
   {
     static T load(const Code& code, size_t& ip)
     {
@@ -284,6 +270,15 @@ namespace verona::interpreter
           fmt::format("Invalid value {:d} for {}", value, typeid(T).name()));
       }
       return static_cast<T>(value);
+    };
+  };
+
+  template<typename T>
+  struct Code::load_helper<T, std::enable_if_t<bytecode::is_wrapper_v<T>>>
+  {
+    static T load(const Code& code, size_t& ip)
+    {
+      return T(code.load<typename T::underlying_type>(ip));
     }
   };
 
@@ -311,15 +306,6 @@ namespace verona::interpreter
         reinterpret_cast<const bytecode::Register*>(&code.data_[ip]);
       ip += size;
       return bytecode::RegisterSpan(data, size);
-    }
-  };
-
-  template<>
-  struct Code::load_helper<bytecode::Register>
-  {
-    static bytecode::Register load(const Code& code, size_t& ip)
-    {
-      return bytecode::Register(code.load<uint8_t>(ip));
     }
   };
 }
