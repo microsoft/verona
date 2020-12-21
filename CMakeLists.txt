@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.10.0)
 
+project(verona CXX)
+
 # Option that doesn't get passed to the VeronaC ExternalProject
+set (VERONA_DONT_PASS)
 macro (option_top VAR HELP DEFAULT)
   option (${VAR} ${HELP} ${DEFAULT})
   list (APPEND VERONA_DONT_PASS ${VAR})
@@ -27,7 +30,7 @@ endif ()
 # Pass parameters to subbuild.
 ##########################################################
 # CMAKE_HOME_DIRECTORY should not be passed down to another project.
-set (VERONA_DONT_PASS CMAKE_HOME_DIRECTORY)
+list (APPEND VERONA_DONT_PASS CMAKE_HOME_DIRECTORY)
 # We override the Verona Install prefix to build a local distribution for tests.
 list (APPEND VERONA_DONT_PASS CMAKE_INSTALL_PREFIX)
 
@@ -60,7 +63,6 @@ clangformat_targets()
 # artifacts, which are not available otherwise.
 include(ExternalProject)
 
-project(verona CXX)
 set(DEFAULT_BUILD_TYPE "Release")
 if (NOT CMAKE_BUILD_TYPE)
   message(STATUS "Setting build type to '${DEFAULT_BUILD_TYPE}' as none was specified.")
