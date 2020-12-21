@@ -17,6 +17,9 @@ if (VERONA_CI_BUILD)
 endif ()
 
 include(../cmake/enable-asserts.cmake)
+if (ENABLE_ASSERTS)
+  enable_asserts()
+endif()
 
 add_subdirectory(../external/CLI11 ./external/CLI11 EXCLUDE_FROM_ALL)
 add_subdirectory(../external/fmt ./external/fmt EXCLUDE_FROM_ALL)

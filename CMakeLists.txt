@@ -148,6 +148,11 @@ ExternalProject_Add(verona
 ######################################################
 enable_testing()
 
+include(cmake/enable-asserts.cmake)
+if (ENABLE_ASSERTS)
+  enable_asserts()
+endif()
+
 include(ProcessorCount)
 ProcessorCount(N)
 
