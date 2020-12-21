@@ -30,6 +30,11 @@ endif ()
 
 SET(VERONA_LOCAL_DIST ${CMAKE_BINARY_DIR}/dist CACHE PATH "Default to installing inside build dir" FORCE)
 
+if (DEFINED VERONA_EXTRA_CMAKE_ARGS)
+  message (WARNING "Do not use VERONA_EXTRA_CMAKE_ARGS! Value ignored")
+endif ()
+set (VERONA_EXTRA_CMAKE_ARGS)
+
 # This is to trick the CMake into building LLVM before Verona.
 # We use two External Projects, so that the LLVM build can complete and install
 # before we start the Verona one.  This is required as we consume CMake
@@ -55,13 +60,15 @@ endif ()
 #  Configure MLIR installation
 ##########################################################
 if (DEFINED VERONA_EXTERNAL_LLVM_DIR)
-  # Use existing installation from system
-  set (MLIR_INSTALL ${VERONA_EXTERNAL_LLVM_DIR})
   # Fake target for MLIR, it is built externally.
   add_custom_target(external)
+  # Use existing installation from system
+  list (APPEND VERONA_EXTRA_CMAKE_ARGS
+    -DVERONA_LLVM_LOCATION=${VERONA_EXTERNAL_LLVM_DIR}
+  )
 else()
+  set (MLIR_INSTALL ${CMAKE_BINARY_DIR}/$<CONFIG>/mlir)
   #  Build or Download MLIR installation
-  set (MLIR_INSTALL ${CMAKE_BINARY_DIR}/$<CONFIG>/mlir/install)
   set (EXTERNAL_EXTRA_CMAKE_ARGS)
   list (APPEND EXTERNAL_EXTRA_CMAKE_ARGS 
     -DVERONA_DOWNLOAD_LLVM=${VERONA_DOWNLOAD_LLVM}
@@ -87,20 +94,19 @@ else()
     USES_TERMINAL_BUILD true
     USES_TERMINAL_CONFIGURE true
   )
+
+  # Point Verona at the MLIR install, we just built/downloaded
+  list (APPEND VERONA_EXTRA_CMAKE_ARGS
+    -DVERONA_LLVM_LOCATION=${CMAKE_BINARY_DIR}/$<CONFIG>/mlir/install
+  )
 endif()
+
+message(STATUS "Using MLIR Install from: ${MLIR_INSTALL}.")
 
 ##########################################################
 #  Build Verona subproject
 ##########################################################
-if (DEFINED VERONA_EXTRA_CMAKE_ARGS)
-  message (WARNING "Do not use VERONA_EXTRA_CMAKE_ARGS! Value ignored")
-endif ()
-set (VERONA_EXTRA_CMAKE_ARGS)
 
-# Point Verona at the MLIR
-list (APPEND VERONA_EXTRA_CMAKE_ARGS
-  -DVERONA_LLVM_LOCATION=${MLIR_INSTALL}
-)
 
 # Use top-level install directory required for tests.
 list (APPEND VERONA_EXTRA_CMAKE_ARGS

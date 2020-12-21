@@ -56,16 +56,15 @@ if (VERONA_DOWNLOAD_LLVM)
     DOWNLOAD_NO_PROGRESS NOT ${VERBOSE_LLVM_DOWNLOAD}
     CONFIGURE_COMMAND ""
     PREFIX mlir-${LLVM_BUILD_TYPE}
-    SOURCE_DIR ${MLIR_INSTALL}/..  #Remove the `install` directory as tar uses that already
+    SOURCE_DIR ${MLIR_INSTALL}
     BUILD_COMMAND ""
     INSTALL_COMMAND ""
     TEST_COMMAND ""
     USES_TERMINAL_DOWNLOAD true
   )
-
 else()
   list (APPEND LLVM_EXTRA_CMAKE_ARGS
-    -DCMAKE_INSTALL_PREFIX=${MLIR_INSTALL}
+    -DCMAKE_INSTALL_PREFIX=${MLIR_INSTALL}/install  # Add install as tar has install prefix. Outer project knows about this.
     -DLLVM_ENABLE_PROJECTS=mlir
     -DLLVM_TARGETS_TO_BUILD=X86
     -DLLVM_ENABLE_ASSERTIONS=On
