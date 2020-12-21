@@ -125,10 +125,11 @@ message(STATUS "Using MLIR Install from: ${MLIR_INSTALL}.")
 ##########################################################
 #  Build Verona subproject
 ##########################################################
+SET(VERONA_LOCAL_DIST ${CMAKE_BINARY_DIR}/dist)
 
 # Use top-level install directory required for tests.
 list (APPEND VERONA_EXTRA_CMAKE_ARGS
-  -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/dist)
+  -DCMAKE_INSTALL_PREFIX=${VERONA_LOCAL_DIST}/)
 
 ExternalProject_Add(verona
   SOURCE_DIR ${CMAKE_SOURCE_DIR}/src
