@@ -8,9 +8,15 @@ macro (option_top VAR HELP DEFAULT)
   option (${VAR} ${HELP} ${DEFAULT})
   list (APPEND VERONA_DONT_PASS ${VAR})
 endmacro ()
+macro (set_cache_top VAR HELP TYPE DEFAULT)
+  set (${VAR} ${DEFAULT} CACHE ${TYPE} ${HELP})
+  list (APPEND VERONA_DONT_PASS ${VAR})
+endmacro()
 
-option_top (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM" ON)
+option_top (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM. Do not set with LLVM_EXTRA_CMAKE_ARGS or VERONS_EXTERNAL_LLVM_DIR" ON)
 option_top (VERBOSE_LLVM_DOWNLOAD "Verbose LLVM/MLIR download step" OFF)
+set_cache_top(VERONA_EXTERNAL_LLVM_DIR "Location of an external LLVM installation to use. Do not set with VERONA_DOWNLOAD_LLVM or LLVM_EXTRA_CMAKE_ARGS" PATH "")
+set_cache_top(LLVM_EXTRA_CMAKE_ARGS "Additional options to pass to LLVM submodule. Do not set with VERONA_DOWNLOAD_LLVM or VERONS_EXTERNAL_LLVM_DIR" STRING "")
 
 message (STATUS "Download LLVM: ${VERONA_DOWNLOAD_LLVM}")
 
@@ -69,12 +75,16 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "${DEFAULT_BUILD_TYPE}" CACHE STRING "Choose the type of build." FORCE)
 endif()
 
-if (VERONA_DOWNLOAD_LLVM AND DEFINED LLVM_EXTRA_CMAKE_ARGS)
-  message (WARNING "Ignoring LLVM_EXTRA_CMAKE_ARGS as using downloaded LLVM.")
+if (VERONA_DOWNLOAD_LLVM AND LLVM_EXTRA_CMAKE_ARGS)
+  message (SEND_ERROR "Incompatible options LLVM_EXTRA_CMAKE_ARGS and VERONA_DOWNLOAD_LLVM.")
 endif ()
 
-if (VERONA_DOWNLOAD_LLVM AND DEFINED VERONA_EXTERNAL_LLVM_DIR)
-  message (WARNING "Ignoring VERONA_EXTERNAL_LLVM_DIR as using downloaded LLVM.")
+if (VERONA_DOWNLOAD_LLVM AND VERONA_EXTERNAL_LLVM_DIR)
+  message (SEND_ERROR "Incompatible options VERONA_DOWNLOAD_LLVM and VERONA_EXTERNAL_LLVM_DIR.")
+endif ()
+
+if (DEFINED VERONA_EXTERNAL_LLVM_DIR AND LLVM_EXTRA_CMAKE_ARGS)
+  message (SEND_ERROR "Incompatible options LLVM_EXTRA_CMAKE_ARGS and VERONA_EXTERNAL_LLVM_DIR.")
 endif ()
 
 ##########################################################
@@ -122,7 +132,6 @@ else()
   )
 endif()
 
-message(STATUS "Using MLIR Install from: ${MLIR_INSTALL}.")
 
 ##########################################################
 #  Build Verona subproject
@@ -169,4 +178,5 @@ add_custom_command(TARGET check
 # and add to check target.
 if (RT_TESTS)
   add_subdirectory(src/rt)
+  add_dependencies(check rt_tests)
 endif()
