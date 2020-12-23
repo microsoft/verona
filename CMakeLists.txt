@@ -83,14 +83,14 @@ if (VERONA_DOWNLOAD_LLVM AND VERONA_EXTERNAL_LLVM_DIR)
   message (SEND_ERROR "Incompatible options VERONA_DOWNLOAD_LLVM and VERONA_EXTERNAL_LLVM_DIR.")
 endif ()
 
-if (DEFINED VERONA_EXTERNAL_LLVM_DIR AND LLVM_EXTRA_CMAKE_ARGS)
+if (VERONA_EXTERNAL_LLVM_DIR AND LLVM_EXTRA_CMAKE_ARGS)
   message (SEND_ERROR "Incompatible options LLVM_EXTRA_CMAKE_ARGS and VERONA_EXTERNAL_LLVM_DIR.")
 endif ()
 
 ##########################################################
 #  Configure MLIR installation
 ##########################################################
-if (DEFINED VERONA_EXTERNAL_LLVM_DIR)
+if (VERONA_EXTERNAL_LLVM_DIR)
   # Fake target for MLIR, it is built externally.
   add_custom_target(external)
   # Use existing installation from system
