@@ -110,7 +110,7 @@ namespace verona::compiler
         {
           SelectorIdx index = selectors.get(Selector::field(fld->name));
           gen.selector(index);
-          field_slots = std::max((uint32_t)(index + 1), field_slots);
+          field_slots = std::max((uint32_t)(index.value + 1), field_slots);
           field_count++;
         }
       }
@@ -139,8 +139,9 @@ namespace verona::compiler
         SelectorIdx index = selectors.get(selector);
         gen.selector(index);
         gen.u32(info.label.value());
-        method_slots = std::max((uint32_t)(index + 1), method_slots);
+        method_slots = std::max((uint32_t)(index.value + 1), method_slots);
       }
+
       return method_slots;
     }
 
@@ -150,7 +151,7 @@ namespace verona::compiler
       for (const auto& subtype : info.subtypes)
       {
         const auto& subtype_info = reachability.entities.at(subtype);
-        gen.descriptor(subtype_info.descriptor);
+        gen.u32(subtype_info.descriptor);
       }
     }
 
@@ -166,7 +167,7 @@ namespace verona::compiler
       if (entity_info)
         gen.u32(entity_info->descriptor);
       else
-        gen.u32(bytecode::INVALID_DESCRIPTOR);
+        gen.u32(bytecode::DescriptorIdx::invalid().value);
     }
 
     void emit_special_descriptors(const CodegenItem<Entity>& main_class)
@@ -174,7 +175,7 @@ namespace verona::compiler
       // Index of the main descriptor
       gen.u32(reachability.find_entity(main_class).descriptor);
       // Index of the main selector
-      gen.u32(selectors.get(Selector::method("main", TypeList())));
+      gen.selector(selectors.get(Selector::method("main", TypeList())));
 
       emit_optional_special_descriptor("U64");
       emit_optional_special_descriptor("String");

@@ -61,43 +61,6 @@ namespace verona::compiler
     gen_.define_relocatable(frame_size_, allocator_.frame_size());
   }
 
-  void FunctionGenerator::emit_copy(Register dst, Register src)
-  {
-    gen_.opcode(Opcode::Copy);
-    gen_.reg(dst);
-    gen_.reg(src);
-  }
-
-  void FunctionGenerator::emit_copy_to_child(
-    const FunctionABI& child_abi, Register dst, Register src)
-  {
-    gen_.opcode(Opcode::Copy);
-    gen_.child_register(child_abi.callspace(), frame_size_, dst);
-    gen_.reg(src);
-  }
-
-  void FunctionGenerator::emit_move(Register dst, Register src)
-  {
-    gen_.opcode(Opcode::Move);
-    gen_.reg(dst);
-    gen_.reg(src);
-  }
-
-  void FunctionGenerator::emit_move_from_child(
-    const FunctionABI& child_abi, Register dst, Register src)
-  {
-    gen_.opcode(Opcode::Move);
-    gen_.reg(dst);
-    gen_.child_register(child_abi.callspace(), frame_size_, src);
-  }
-
-  void FunctionGenerator::emit_load_descriptor(Register dst, Descriptor desc)
-  {
-    gen_.opcode(Opcode::LoadDescriptor);
-    gen_.reg(dst);
-    gen_.descriptor(desc);
-  }
-
   void emit_function(
     Context& context,
     const Reachability& reachability,
