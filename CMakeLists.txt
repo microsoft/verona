@@ -4,14 +4,13 @@ project(verona CXX)
 
 # Option that doesn't get passed to the VeronaC ExternalProject
 set (VERONA_DONT_PASS)
-macro (option_top VAR HELP DEFAULT)
-  option (${VAR} ${HELP} ${DEFAULT})
-  list (APPEND VERONA_DONT_PASS ${VAR})
-endmacro ()
 macro (set_cache_top VAR HELP TYPE DEFAULT)
   set (${VAR} ${DEFAULT} CACHE ${TYPE} ${HELP})
   list (APPEND VERONA_DONT_PASS ${VAR})
 endmacro()
+macro (option_top VAR HELP DEFAULT)
+  set_cache_top(${VAR} ${HELP} BOOL ${DEFAULT})
+endmacro ()
 
 option_top (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM. Do not set with LLVM_EXTRA_CMAKE_ARGS or VERONS_EXTERNAL_LLVM_DIR" ON)
 option_top (VERBOSE_LLVM_DOWNLOAD "Verbose LLVM/MLIR download step" OFF)
