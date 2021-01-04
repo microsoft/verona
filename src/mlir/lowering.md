@@ -15,7 +15,7 @@ risen design issues that are hard to solve concurrently on the same dialect. So
 we are delaying the construction of a complete dialect in favour of having two
 IRs (high-level and low-level) for the time being.
 
-The high-level IR is described here: src/compiler/ir/README.md
+The high-level IR is described in `src/compiler/ir/README.md`.
 
 This document is about the low-level IR, which will be converted from that
 high-level IR for now. In time, that IR will be converted to operations in the
@@ -23,6 +23,9 @@ Verona dialect that will be partially lowered to the onces defined here in order
 to be further lowered into LLVM IR.
 
 In this document, we'll call the high-level IR "1IR" and the low-level IR "2IR".
+
+The output of this stage is a mix of high-level Verona MLIR and other select
+dialects, which will be the input of the optimisation passes in `pass.md`.
 
 ## Assumptions
 
@@ -172,9 +175,9 @@ context, so to guarantee no external user can access it by mistake.
 
 ## Basic Blocks
 
-So far, there is only two constructs that create new basic blocks: conditionals
-and loops. Both will end with a tail block that will be the main block of the
-subsequent operations.
+So far, there is only three constructs that create new basic blocks: matches,
+conditionals and loops. Each will end with a tail block that will be the main
+block of the subsequent operations.
 
 Basic block arguments will have already been constructed by the `1IR`, so we
 just need to lower them in the same fashion.
@@ -189,9 +192,25 @@ If there are any cases where this is not true (in != out), we can add casts in
 expectation that the type check in 1IR was successful and therefore the cast is
 valid.
 
-Class types should be lowered to a `!verona.class<fields:types>`. We don't need
+Class types should be lowered to a `!verona.class<...>`. We don't need
 a similar struct representation, since every field read/write should have the
 class type and the field name, with the concrete field type as a result.
+
+```
+  // Verona
+  class B { }
+  class A { B b; }
+  main() {
+    A a;
+    return a.b;
+  }
+
+  // MLIR
+  func main() : !verona.class<B> {
+    %a = verona.new_object @A : !verona.class<A ...>
+    return verona.field_read "b" [%a] : !verona.class<A ...> -> !verona.class<B>
+  }
+```
 
 ## Regions
 
@@ -425,41 +444,48 @@ creating a simple string (or at least less splits).
 
 Non native literals (ex. Interface types) will need to be packed into an `imm`
 object, constructed with the initialisation values. This can later be optimised
-to native types if possible.
+to native types if possible (for example, via scalar replacement).
 
 ### MatchBindStmt
 
 An unchecked cast for runtime `match` statements. If the type of the runtime
-object isn't compatible with the cast, an invalid object returns?
+object isn't compatible with any match/cast, the code continues.
+
+If `match` is open-world, we need a `match-all` clause (like `default` in
+`switch`) to catch non-matches. If it's closed-world, then we assume the 1IR has
+already checked that the `match` block already handles all possible states.
 
 A simple way to lower `match` statements is to chain basic blocks with
 conditional branches.
 
 ```
   %val = the runtime value passed to the `match` statement
-  %0, %val0 = verona.match @Type1 [ %val ]
-  cond_br %0, ^bb1(%val0), ^bb2
-^bb1(%local_val : Type1):
+  %1 = verona.match !verona.class<Type1> [ %val ]
+  cond_br %0, ^bb1, ^bb2
+^bb1:
+  %val1 = verona.cast !verona.type<Type1> (%val)
   // Implement `case Type1`
   br ^lastbb
 
 ^bb2:
-  %1, %val1 = verona.match @Type2 [ %val ]
-  cond_br %1, ^bb3(%val1), ^bb4
-^bb3(%local_val : Type2):
+  %2 = verona.match !verona.class<Type2> [ %val ]
+  cond_br %1, ^bb3, ^bb4
+^bb3:
+  %val2 = verona.cast !verona.type<Type2> (%val)
   // Implement `case Type2`
   br ^lastbb
 
   ...
 
 ^bbX:
-  %y, %valy = verona.match @TypeY [ %val ]
-  cond_br %y, ^bbY(%valy), ^lastbb
-^bbY(%local_val : TypeY):
+  %y = verona.match !verona.class<TypeY> [ %val ]
+  cond_br %y, ^bbY, ^lastbb
+^bbY:
+  %valy = verona.cast !verona.type<TypeY> (%val)
   // Implement `case TypeY`
   br ^lastbb
 
-^lastbb: // no args
+^lastbb:
 
 ```
 
@@ -474,9 +500,13 @@ Created a mutable reference to an object. The validity of the type system has
 already been checked by the compiler at this point, so all reads and writes to
 those values are valid.
 
-At the 2IR level, we cna represent this as a simple `cast`, creating a new
+At the 2IR level, we can represent this as a simple `cast`, creating a new
 SSA variable with the new type but with the previous value. The correctness
 of the semantics is assumed valid.
+
+Any additional semantics, for example specific conversion function calls, should
+have been lowered by now to library calls, so we don't need to worry about them
+at this level.
 
 ### EndScopeStmt / OverwriteStmt
 
@@ -498,7 +528,7 @@ Example:
 This will do what's necessary depending on the type of region, for example,
 decrease the counter or deallocate the object altogether.
 
-On union type (ex. `iso | mut`), we need to match the type of the runtime
+On union types (ex. `iso | mut`), we need to match the type of the runtime
 object's type an call the correct `release` method.
 
 `OverwriteStmt` has the exact same semantics but identifies an object which

@@ -14,6 +14,12 @@ final (perfornmance) steps.
 Here, we describe the MLIR passes. Once we move `1IR` passes down to the `2IR`,
 we should add the description of the passes here.
 
+The input of this pipeline is an MLIR mix of high-level Verona and other dialects
+described in `lowering.md`.
+
+The output of this pipeline is an MLIR mix of high- and low-level Verona dialect
+and other dialects. This will be consumed by the stage described in `llvm.md`.
+
 ## Region based alias analysis
 
 Different regions never alias. Regions are never accessed by more than one

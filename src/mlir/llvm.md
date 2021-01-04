@@ -1,9 +1,22 @@
 # LLVM Lowering
 
+This is the stage where we convert all remaining high-level Verona dialect
+constructs into either low-level or other dialects, all of which can be
+trivially converted into the LLVM dialect.
+
+Previous passes could have already done some of that work (as an optimisation
+strategy), but this is the stage where we *guarantees* it has been done.
+
 After the last MLIR pass, the IR will only have standard dialects operations
 and Verona dialect operations that cannot be lowered to other dialects. The
 final full conversion to the LLVM dialect will therefore have a number of
 special lowering from specific Verona operations.
+
+The input of this stage is an MLIR mix of high- and low-level Verona dialect
+and other dialects, described in `pass.md`.
+
+The output of this stage is *pure* LLVM dialect, which will then be converted
+into LLVM IR and machine code by the remaining stages.
 
 ## Assumptions
 
