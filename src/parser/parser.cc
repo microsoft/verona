@@ -38,7 +38,7 @@ namespace verona::parser
     Location name_next;
 
     Result final_result;
-    std::set<std::string> imports;
+    std::vector<std::string> imports;
     std::string stdlib;
     std::ostream& out;
 
@@ -1620,8 +1620,16 @@ namespace verona::parser
 
       if (!find.empty())
       {
-        name->location = ident(find);
-        imports.insert(find);
+        auto it = std::find(imports.begin(), imports.end(), find);
+        size_t i = it - imports.begin();
+
+        if (it == imports.end())
+        {
+          i = imports.size();
+          imports.push_back(find);
+        }
+
+        name->location = ident("$module-" + std::to_string(i));
       }
       else
       {
@@ -2457,9 +2465,10 @@ namespace verona::parser
       return final_result;
     }
 
-    Result module(const std::string& path, Node<Class>& program)
+    Result
+    module(const std::string& path, size_t module_index, Node<Class>& program)
     {
-      auto modulename = ident(path);
+      auto modulename = ident("$module-" + std::to_string(module_index));
 
       if (look_in(symbol_stack.front(), modulename))
         return final_result;
@@ -2518,14 +2527,10 @@ namespace verona::parser
     Parse parse(stdlib, out);
     auto program = std::make_shared<Class>();
     auto st = parse.push(program);
-    parse.imports.insert(path::canonical(path));
+    parse.imports.push_back(path::canonical(path));
 
-    while (!parse.imports.empty())
-    {
-      auto module = parse.imports.begin();
-      parse.module(*module, program);
-      parse.imports.erase(module);
-    }
+    for (size_t i = 0; i < parse.imports.size(); i++)
+      parse.module(parse.imports[i], i, program);
 
     return {parse.final_result == Success, program};
   }
