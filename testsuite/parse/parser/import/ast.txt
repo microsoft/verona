@@ -4,7 +4,7 @@
   ()
   [
     (class
-      /home/sylvanc/dev/verona/testsuite/parse/parser/import.verona
+      $module-0
       []
       ()
       [
@@ -17,7 +17,7 @@
           (typeref
             [
               (modulename
-                /home/sylvanc/dev/verona/testsuite/parse/parser/module_foo/
+                $module-1
                 [ (typeref [ (typename A []) ]) (typeref [ (typename B []) ]) ])
             ]))
         (method
@@ -31,7 +31,7 @@
             ]))
       ])
     (class
-      /home/sylvanc/dev/verona/testsuite/parse/parser/module_foo/
+      $module-1
       [ (typeparam A () ()) (typeparam B () ()) ]
       ()
       [

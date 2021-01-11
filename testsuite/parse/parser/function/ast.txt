@@ -4,7 +4,7 @@
   ()
   [
     (class
-      /home/sylvanc/dev/verona/testsuite/parse/parser/function.verona
+      $module-0
       []
       ()
       [
