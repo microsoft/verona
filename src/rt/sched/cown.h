@@ -25,6 +25,16 @@ namespace verona::rt
 #endif
   }
 
+  static bool coin(size_t range_bits = 1)
+  {
+#ifdef USE_SYSTEMATIC_TESTING
+    return Systematic::coin(range_bits);
+#else
+    UNUSED(range_bits);
+    return false;
+#endif
+  }
+
   /**
    * A cown, or concurrent owner, encapsulates a set of resources that may be
    * accessed by a single (scheduler) thread at a time. A cown can only be in
@@ -494,26 +504,15 @@ namespace verona::rt
           // Double check the priority of the most recently acquired cown to
           // prevent deadlock.
           auto* cur = body->cowns[body->index - 1];
-          high_priority = high_priority ||
-            (cur->priority() & PriorityMask::High)
-#ifdef USE_SYSTEMATIC_TESTING
-            || Systematic::coin(3)
-#endif
-            ;
+          high_priority =
+            high_priority || (cur->priority() & PriorityMask::High) || coin(3);
           yield();
           if (!high_priority)
             high_priority = cur->set_blocker(next);
         }
 
-        if (
-          next->overloaded()
-#ifdef USE_SYSTEMATIC_TESTING
-          || Systematic::coin(3)
-#endif
-        )
-        {
+        if (next->overloaded() || coin(3))
           high_priority = true;
-        }
 
         if (!high_priority)
         {
@@ -812,12 +811,9 @@ namespace verona::rt
         if (prev == state)
           return prev;
 
-      } while (
-#ifdef USE_SYSTEMATIC_TESTING
-        Systematic::coin(9) ||
-#endif
-        !bp_state.compare_exchange_weak(
-          bp, blocker | state, std::memory_order_acq_rel));
+      } while (coin(9) ||
+               !bp_state.compare_exchange_weak(
+                 bp, blocker | state, std::memory_order_acq_rel));
 
       Systematic::cout() << "Cown " << this << ": backpressure state " << prev
                          << " -> " << state << std::endl;
@@ -911,12 +907,7 @@ namespace verona::rt
       for (size_t r = 0; r < receivers.count; r++)
       {
         auto* receiver = receivers.cowns[r];
-        if (
-          receiver->triggers_muting()
-#ifdef USE_SYSTEMATIC_TESTING
-          || Systematic::coin(5)
-#endif
-        )
+        if (receiver->triggers_muting() || coin(5))
         {
           assert(Scheduler::local()->mutor == nullptr);
           Scheduler::local()->mutor = receiver;
