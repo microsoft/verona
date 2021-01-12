@@ -6,9 +6,9 @@
 #include "ds/hashmap.h"
 #include "ds/mpscq.h"
 #include "object/object.h"
+#include "priority.h"
 #include "schedulerstats.h"
 #include "spmcq.h"
-#include "status.h"
 #include "threadpool.h"
 
 #include <snmalloc.h>

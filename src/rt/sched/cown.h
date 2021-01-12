@@ -8,8 +8,8 @@
 #include "../test/systematic.h"
 #include "base_noticeboard.h"
 #include "multimessage.h"
+#include "priority.h"
 #include "schedulerthread.h"
-#include "status.h"
 
 namespace verona::rt
 {
