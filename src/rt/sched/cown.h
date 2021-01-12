@@ -1068,10 +1068,7 @@ namespace verona::rt
             return true;
           }
 
-          Systematic::cout()
-            << "Cown " << this << " has no work this time" << std::endl;
-
-          // Deschedule the cown.
+          Systematic::cout() << "Unschedule cown " << this << std::endl;
           Cown::release(alloc, this);
           return false;
         }
