@@ -113,8 +113,8 @@ namespace verona::rt
      **/
     std::atomic<size_t> weak_count = 1;
 
-    std::atomic<Status> status{};
     std::atomic<uintptr_t> bp_state{(Cown*)nullptr | Priority::Normal};
+    bool has_token = false;
 
     static Cown* create_token_cown()
     {
@@ -503,6 +503,16 @@ namespace verona::rt
           yield();
           if (!high_priority)
             high_priority = cur->set_blocker(next);
+        }
+
+        if (
+          next->overloaded()
+#ifdef USE_SYSTEMATIC_TESTING
+          || Systematic::coin(3)
+#endif
+        )
+        {
+          high_priority = true;
         }
 
         if (!high_priority)
@@ -916,24 +926,34 @@ namespace verona::rt
       }
     }
 
-    /// Update backpressure status based on the occurrence of a token message.
-    /// Return true if the current message is a token.
+    /// Return true if this cown's message queue is growing faster than the
+    /// messages are being processed. This is based on an approximation for the
+    /// length of this cown's message queue.
+    inline bool overloaded() const
+    {
+      static constexpr size_t overload_rc = 800;
+      const auto rc = get_header().rc.load(std::memory_order_relaxed);
+      assert(rc != 0);
+      yield();
+      return rc >= overload_rc;
+    }
+
+    /// Update priority based on the occurrence of a token message, or replace
+    /// the token if it is not in the queue. Return true if the current message
+    /// is a token.
     inline bool check_message_token(Alloc* alloc, MessageBody* curr)
     {
-      auto stat = status.load(std::memory_order_acquire);
-      yield();
       if (curr == nullptr)
       {
         Systematic::cout() << "Reached message token on cown " << this
                            << std::endl;
-        assert(stat.has_token());
-        stat.set_has_token(false);
-        status.store(stat, std::memory_order_release);
+        assert(has_token);
+        has_token = false;
+        if (overloaded())
+          return true;
 
         auto p = priority();
-        if (stat.overloaded())
-          backpressure_unblock(this);
-        else if (p == Priority::High)
+        if (p == Priority::High)
           backpressure_transition(Priority::MaybeHigh);
         else if (p == Priority::MaybeHigh)
           backpressure_transition(Priority::Normal);
@@ -941,29 +961,13 @@ namespace verona::rt
         return true;
       }
 
-      if (
-        (!stat.has_token() && (curr->index == 0)) ||
-        (stat.current_load() == 0xff))
-      {
-        stat.reset_load();
-      }
-      if (!stat.has_token())
+      if (!has_token)
       {
         Systematic::cout() << "Cown " << this << ": enqueue message token"
                            << std::endl;
         queue.enqueue(stub_msg(alloc));
+        has_token = true;
       }
-      stat.inc_load();
-      stat.set_has_token(true);
-
-#ifdef USE_SYSTEMATIC_TESTING
-      if (Systematic::coin(5))
-        stat.set_overloaded(!stat.overloaded());
-#endif
-
-      status.store(stat, std::memory_order_release);
-      if (stat.overloaded())
-        backpressure_unblock(this);
 
       return false;
     }
@@ -1001,16 +1005,9 @@ namespace verona::rt
     {
       auto until = queue.peek_back();
       yield(); // Reading global state in peek_back().
-
-      const auto stat = status.load(std::memory_order_acquire);
       assert(priority() != Priority::Low);
 
-      // The batch limit is between 100 and 251, depending on the load.
-      const auto batch_limit = (size_t)100 | ((size_t)stat.total_load() >> 3);
-
-      Systematic::cout() << "Cown " << this << " load: " << stat.total_load()
-                         << std::endl;
-
+      static constexpr size_t batch_limit = 100;
       auto notified_called = false;
       auto notify = false;
 
