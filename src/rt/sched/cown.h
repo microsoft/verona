@@ -25,6 +25,10 @@ namespace verona::rt
 #endif
   }
 
+  /**
+   * Return output of `Systematic::coin` when systematic testing is enabled;
+   * always return false otherwise.
+   **/
   static bool coin(size_t range_bits = 1)
   {
 #ifdef USE_SYSTEMATIC_TESTING
@@ -124,7 +128,7 @@ namespace verona::rt
     std::atomic<size_t> weak_count = 1;
 
     std::atomic<uintptr_t> bp_state{(Cown*)nullptr | Priority::Normal};
-    bool has_token = false;
+    bool has_token = false; // TODO: pack into bp_state
 
     static Cown* create_token_cown()
     {
