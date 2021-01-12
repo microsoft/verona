@@ -182,61 +182,6 @@ namespace verona::rt
 
 #endif
 
-    /**
-     * This method implements sending a Message to a Cown. Returns true if the
-     * Cown was asleep and needs scheduling; returns false otherwise.
-     *
-     * Pass `transfer = YesTransfer` as a template argument if the caller is
-     * transfering ownership of a reference count on the cown.
-     *
-     * By default, the template parameter `try_fast` is NoTryFast, which means
-     * this method will schedule the Cown if it was asleep. In an optimized
-     * multi-message send, we want to avoid scheduling, because we want to
-     * immediately acquire the cown without going through the scheduler queue.
-     * In this case, pass `try_fast = YesTryFast` as the second template
-     * argument.
-     **/
-    template<
-      TransferOwnership transfer = NoTransfer,
-      TryFastSend try_fast = NoTryFast>
-    bool send(MultiMessage* m)
-    {
-#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
-      flush_all(ThreadAlloc::get());
-
-      Scheduler::yield_my_turn();
-#endif
-
-      bool needs_scheduling = queue.enqueue(m);
-
-      yield();
-
-      if (needs_scheduling)
-      {
-        if constexpr (transfer == NoTransfer)
-        {
-          // The scheduler thread needs to take a reference count on the Cown
-          // The sending Cown must have had a reference count for this Cown
-          // already
-          Cown::acquire(this);
-        }
-
-        if constexpr (try_fast == NoTryFast)
-        {
-          // The cown's queue was previously empty, schedule it, but only if
-          // this is not an optimized multi-message send.
-          schedule();
-        }
-      }
-      else if constexpr (transfer == YesTransfer)
-      {
-        // Maybe the last rc.
-        Cown::release(ThreadAlloc::get(), this);
-      }
-
-      return needs_scheduling;
-    }
-
     void reschedule()
     {
       if (queue.wake())
@@ -560,20 +505,9 @@ namespace verona::rt
             high_priority = cur->set_blocker(next);
         }
 
-        // Send the message to the next cown. Return false if the fast send has
-        // been interrupted (the cown is already scheduled).
-        auto try_fast_send = [next, m]() -> bool {
-          bool needs_scheduling = next->send<YesTransfer, YesTryFast>(m);
-          if (!needs_scheduling)
-            Systematic::cout()
-              << "MultiMessage " << m << ": fast send interrupted" << std::endl;
-
-          return needs_scheduling;
-        };
-
         if (!high_priority)
         {
-          if (!try_fast_send())
+          if (!next->try_fast_send(m))
             return;
         }
         else
@@ -581,7 +515,7 @@ namespace verona::rt
           // Hold epoch in case priority needs to be raised after message is
           // placed in queue.
           Epoch e(alloc);
-          if (!try_fast_send())
+          if (!next->try_fast_send(m))
           {
             backpressure_unblock(next, e);
             return;
@@ -610,6 +544,32 @@ namespace verona::rt
         assert(m == m2);
         UNUSED(m2);
       }
+    }
+
+    /**
+     * This method implements an optimized multi-message send to a cown. A
+     * sleeping cown will not be reschdeuled because we want to immediately
+     * acquire the cown without going through the scheduler queue. Returns true
+     * if the cown was asleep and needs scheduling; returns false otherwise.
+     **/
+    bool try_fast_send(MultiMessage* m)
+    {
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
+      flush_all(ThreadAlloc::get());
+      yield();
+#endif
+      bool needs_scheduling = queue.enqueue(m);
+      yield();
+      if (needs_scheduling)
+      {
+        Cown::acquire(this);
+      }
+      else
+      {
+        Systematic::cout() << "MultiMessage " << m << ": fast send interrupted"
+                           << std::endl;
+      }
+      return needs_scheduling;
     }
 
     /**
@@ -734,6 +694,9 @@ namespace verona::rt
 
       // Run the behaviour.
       body.behaviour->f();
+
+      for (size_t i = 0; i < body.count; i++)
+        Cown::release(alloc, body.cowns[i]);
 
       Systematic::cout() << "MultiMessage " << m << " completed and running on "
                          << cown << std::endl;
