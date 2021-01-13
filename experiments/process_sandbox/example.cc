@@ -90,15 +90,15 @@ int main(int argc, char** argv)
         {
           write(outfd, zs->next_out, out_buffer_size - avail_out);
         }
-        free(zs);
-        free(in);
-        free(out);
+        sandbox.lib.free(zs);
+        sandbox.lib.free(in);
+        sandbox.lib.free(out);
         close(outfd);
         close(fd);
       }
     }
   }
-  catch (std::runtime_error e)
+  catch (std::runtime_error& e)
   {
     printf("Sandbox exception: %s while running zlib compress\n", e.what());
     return -1;
@@ -110,7 +110,7 @@ int main(int argc, char** argv)
       "crash...\n");
     sandbox.crash();
   }
-  catch (std::runtime_error e)
+  catch (std::runtime_error& e)
   {
     printf("Sandbox exception: %s\n", e.what());
     printf("Parent process continuing happily...\n");

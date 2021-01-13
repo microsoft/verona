@@ -11,7 +11,7 @@ set(EXAMPLE_LIB_SOURCES lib.cc)
 set(LIBSANDBOX_SOURCES libsandbox.cc)
 set(LIBSANDBOX_HEADERS sandbox.hh)
 
-include_directories(AFTER "${CMAKE_SOURCE_DIR}/../../external/snmalloc/src")
+include_directories(AFTER "${CMAKE_SOURCE_DIR}/../../src/rt/external/snmalloc/src")
 set(CMAKE_CXX_STANDARD 17)
 
 
@@ -19,10 +19,10 @@ if (MSVC)
 else ()
 	add_compile_options(-mcx16 -Wall -Wextra -Werror "$<$<CONFIG:DEBUG>:-fno-inline>")
 	set(LLD_NAMES
-		lld70
-		lld60
-		lld-7.0
-		lld-70
+		lld12
+		lld11
+		lld-12
+		lld-11
 		lld)
 	# Loop over each of the possible names of clang-format and try to find one.
 	set(LLD LLD-NOTFOUND)

@@ -12,11 +12,23 @@
 #  include <sys/capsicum.h>
 #endif
 #include <aal/aal.h>
+#include <ds/bits.h>
+#include <pal/pal.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 using address_t = snmalloc::Aal::address_t;
+
+#ifdef __FreeBSD__
+// On FreeBSD, libc interposes on some system calls and does so in a way that
+// causes them to segfault if they are invoked before libc is fully
+// initialised.  We must instead call the raw system call versions.
+extern "C" ssize_t __sys_write(int fd, const void* buf, size_t nbytes);
+extern "C" ssize_t __sys_read(int fd, void* buf, size_t nbytes);
+#  define write __sys_write
+#  define read __sys_read
+#endif
 
 namespace snmalloc
 {
@@ -24,6 +36,7 @@ namespace snmalloc
   struct SuperslabMap;
   class Superslab;
   class Mediumslab;
+  class Largeslab;
 }
 
 namespace sandbox
@@ -58,7 +71,7 @@ namespace sandbox
      * change as a message to the parent process and spins waiting for the
      * parent to make the required update.
      */
-    void set(uintptr_t p, uint8_t x, uint8_t big);
+    void set(uintptr_t p, uint8_t x);
     /**
      * Get the pagemap entry for a specific address. This queries the default
      * pagemap.
@@ -100,10 +113,92 @@ namespace sandbox
      */
     void clear_large_size(void* p, size_t size);
   };
+
+  /**
+   * The proxy memory provider.  This uses a simple RPC protocol to forward all
+   * requests to the parent process, which validates the arguments and forwards
+   * them to the trusted address-space manager for the sandbox.
+   */
+  struct MemoryProviderProxy
+  {
+    /**
+     * The PAL that we use inside the sandbox.  This is incapable of
+     * allocating memory.
+     */
+    typedef snmalloc::PALNoAlloc<snmalloc::DefaultPal> Pal;
+
+    /**
+     * Pop a large allocation from the stack to the address space manager in
+     * the parent process corresponding to a large size class.
+     */
+    void* pop_large_stack(size_t large_class);
+
+    /**
+     * Push a large allocation to the address space manager in the parent
+     * process.
+     */
+    void push_large_stack(snmalloc::Largeslab* slab, size_t large_class);
+
+    /**
+     * Reserve committed memory of a large size class size by calling into the
+     * parent to request address space in the shared region.
+     */
+    void* reserve_committed(size_t large_class) noexcept;
+
+    /**
+     * Reserve a range of memory identified by a size, not a size class.  This
+     * is used only in `alloc_chunk` and is not inlined because its
+     * implementation needs to refer to snmalloc size classes, which are
+     * defined only in a header inclusion that requires this class to be
+     * defined.
+     */
+    void* reserve_committed_size(size_t size) noexcept;
+
+    /**
+     * Public interface to reserve memory.  Ignores the `committed` argument,
+     * the shared memory is always committed.
+     */
+    template<bool committed>
+    void* reserve(size_t large_class) noexcept
+    {
+      return reserve_committed(large_class);
+    }
+
+    /**
+     * Factory method, used by the `Singleton` helper.
+     */
+    static MemoryProviderProxy* make() noexcept
+    {
+      static MemoryProviderProxy singleton;
+      return &singleton;
+    }
+
+    /**
+     * Allocate a chunk.  This implementation is wasteful, rounding the
+     * requested sizes up to the smallest large size class (typically one MiB).
+     * This is called only twice in normal use for a sandbox, so wasting a bit
+     * of address space is not the highest priority fix yet.  Given how little
+     * this is actually needed, a better implementation would reserve some
+     * space in the non-heap shared memory region for these requests.
+     */
+    template<typename T, size_t alignment, typename... Args>
+    T* alloc_chunk(Args&&... args)
+    {
+      // Cache line align
+      size_t size = snmalloc::bits::align_up(sizeof(T), 64);
+      size = snmalloc::bits::next_pow2(snmalloc::bits::max(size, alignment));
+      void* p = reserve_committed_size(size);
+      if (p == nullptr)
+        return nullptr;
+
+      return new (p) T(std::forward<Args...>(args)...);
+    }
+  };
 }
 sandbox::ProxyPageMap sandbox::ProxyPageMap::p;
 
 #define SNMALLOC_DEFAULT_CHUNKMAP sandbox::ProxyPageMap
+#define SNMALLOC_DEFAULT_MEMORY_PROVIDER struct sandbox::MemoryProviderProxy
 #define SNMALLOC_USE_THREAD_CLEANUP 1
 #include "libsandbox.cc"
 #include "override/malloc.cc"
@@ -146,12 +241,31 @@ namespace
 #endif
 
   /**
-   * The file descriptor that will be used to communicate with the pagemap.
-   * This is set to a constant after the proxy pagemap is safe to use, the
-   * initial -1 value ensures that we don't try to use it before the memory
-   * manager is set up.
+   * Flag indicating that bootstrapping has finished.  Note that we cannot
+   * create any threads until after malloc is set up and so this does not need
+   * to be atomic: It is never modified after the second thread is created.
    */
-  int pagemap_socket = -1;
+  bool done_bootstrapping = false;
+
+  /**
+   * Bootstrap function.  Map the shared memory region and configure everything
+   * needed for malloc.
+   */
+  SNMALLOC_SLOW_PATH
+  void bootstrap();
+
+  /**
+   * Always-inlined wrapper to call `bootstrap` if bootstrapping is still
+   * needed.
+   */
+  SNMALLOC_FAST_PATH
+  void bootstrap_if_needed()
+  {
+    if (unlikely(!done_bootstrapping))
+    {
+      bootstrap();
+    }
+  }
 
   /**
    * A pointer to the object that manages the vtable exported by this library.
@@ -169,6 +283,13 @@ namespace
   void* shared_memory_end = 0;
 
   /**
+   * Pointer to the shared memory region.  This will be equal to
+   * `shared_memory_start` and is simply a convenience to have a pointer of the
+   * correct type.
+   */
+  SharedMemoryRegion* shared = nullptr;
+
+  /**
    * The exported function that returns the type encoding of an exported
    * function.  This is used by the library caller for type checking.
    */
@@ -176,34 +297,45 @@ namespace
   {
     return library->type_encoding(idx);
   }
+
+  /**
+   * Synchronous RPC call to the parent environment.  This sends a message to
+   * the parent and waits for a response.  These calls should never return an
+   * error and so this aborts the process if they do.
+   *
+   * This function is called during early bootstrapping and so cannot use any
+   * libc features that either depend on library initialisation or which
+   * allocate memory.
+   */
+  uintptr_t
+  requestHostService(HostServiceCallID id, uintptr_t arg0, uintptr_t arg1 = 0)
+  {
+    static std::atomic_flag lock;
+    FlagLock g(lock);
+    HostServiceRequest req{id, arg0, arg1};
+    auto written_bytes = write(PageMapUpdates, &req, sizeof(req));
+    assert(written_bytes == sizeof(req));
+    HostServiceResponse response;
+    auto read_bytes = read(PageMapUpdates, &response, sizeof(response));
+    assert(read_bytes == sizeof(response));
+
+    if (response.error)
+    {
+      DefaultPal::error("Host returned an error.");
+    }
+    return response.ret;
+  }
 }
 
 namespace sandbox
 {
-  void ProxyPageMap::set(uintptr_t p, uint8_t x, uint8_t big = 0)
+  void ProxyPageMap::set(uintptr_t p, uint8_t x)
   {
-    if (
+    assert(
       (p >= reinterpret_cast<uintptr_t>(shared_memory_start)) &&
-      (p < reinterpret_cast<uintptr_t>(shared_memory_end)))
-    {
-      assert(pagemap_socket > 0);
-      auto msg = static_cast<uint64_t>(p);
-      // Make sure that the low 16 bytes are clear
-      assert((msg & 0xffff) == 0);
-      msg &= ~0xffff;
-      msg |= x;
-      msg |= big << 8;
-      write(pagemap_socket, static_cast<void*>(&msg), sizeof(msg));
-      while (GlobalPagemap::pagemap().get(p) != x)
-      {
-        // write(fileno(stderr), "Child spinning\n", 15);
-        std::atomic_thread_fence(std::memory_order_seq_cst);
-      }
-    }
-    else
-    {
-      GlobalPagemap::pagemap().set(p, x);
-    }
+      (p < reinterpret_cast<uintptr_t>(shared_memory_end)));
+    requestHostService(
+      ChunkMapSet, reinterpret_cast<uintptr_t>(p), static_cast<uintptr_t>(x));
   }
 
   uint8_t ProxyPageMap::get(address_t p)
@@ -239,34 +371,52 @@ namespace sandbox
   void ProxyPageMap::set_large_size(void* p, size_t size)
   {
     size_t size_bits = bits::next_pow2_bits(size);
-    if ((p >= shared_memory_start) && (p < shared_memory_end))
-    {
-      set(reinterpret_cast<uintptr_t>(p), (uint8_t)size_bits, 1);
-      return;
-    }
-    set(reinterpret_cast<uintptr_t>(p), size_bits);
-    // Set redirect slide
-    uintptr_t ss = (uintptr_t)((size_t)p + SUPERSLAB_SIZE);
-    for (size_t i = 0; i < size_bits - SUPERSLAB_BITS; i++)
-    {
-      size_t run = 1ULL << i;
-      GlobalPagemap::pagemap().set_range(
-        ss, (uint8_t)(64 + i + SUPERSLAB_BITS), run);
-      ss = ss + SUPERSLAB_SIZE * run;
-    }
+    assert((p >= shared_memory_start) && (p < shared_memory_end));
+    requestHostService(
+      ChunkMapSetRange,
+      reinterpret_cast<uintptr_t>(p),
+      static_cast<uintptr_t>(size_bits));
   }
 
   void ProxyPageMap::clear_large_size(void* p, size_t size)
   {
-    if ((p >= shared_memory_start) && (p < shared_memory_end))
-    {
-      size_t size_bits = bits::next_pow2_bits(size);
-      set(reinterpret_cast<uintptr_t>(p), (uint8_t)size_bits, 2);
-      return;
-    }
-    auto range = (size + SUPERSLAB_SIZE - 1) >> SUPERSLAB_BITS;
-    GlobalPagemap::pagemap().set_range(
-      reinterpret_cast<uintptr_t>(p), CMNotOurs, range);
+    assert((p >= shared_memory_start) && (p < shared_memory_end));
+    size_t size_bits = bits::next_pow2_bits(size);
+    requestHostService(
+      ChunkMapClearRange,
+      reinterpret_cast<uintptr_t>(p),
+      static_cast<uintptr_t>(size_bits));
+  }
+
+  void* MemoryProviderProxy::pop_large_stack(size_t large_class)
+  {
+    bootstrap_if_needed();
+    return reinterpret_cast<void*>(requestHostService(
+      MemoryProviderPopLargeStack, static_cast<uintptr_t>(large_class)));
+  }
+
+  void
+  MemoryProviderProxy::push_large_stack(Largeslab* slab, size_t large_class)
+  {
+    bootstrap_if_needed();
+    requestHostService(
+      MemoryProviderPushLargeStack,
+      reinterpret_cast<uintptr_t>(slab),
+      static_cast<uintptr_t>(large_class));
+  }
+
+  void* MemoryProviderProxy::reserve_committed_size(size_t size) noexcept
+  {
+    bootstrap_if_needed();
+    size_t size_bits = snmalloc::bits::next_pow2_bits(size);
+    size_t large_class = std::max(size_bits, SUPERSLAB_BITS) - SUPERSLAB_BITS;
+    return reserve_committed(large_class);
+  }
+  void* MemoryProviderProxy::reserve_committed(size_t large_class) noexcept
+  {
+    bootstrap_if_needed();
+    return reinterpret_cast<void*>(requestHostService(
+      MemoryProviderReserve, static_cast<uintptr_t>(large_class)));
   }
 
   /**
@@ -335,6 +485,7 @@ namespace sandbox
       }
     }
   };
+
 }
 
 char* ExportedLibrary::type_encoding(int idx)
@@ -342,66 +493,115 @@ char* ExportedLibrary::type_encoding(int idx)
   return functions.at(idx)->type_encoding();
 }
 
-int main(int, char** argv)
+namespace
 {
-#ifdef USE_CAPSICUM
-  cap_enter();
-#endif
-  void* addr = (void*)strtoull(argv[1], nullptr, 0);
-  size_t length = strtoull(argv[2], nullptr, 0);
-  // fprintf(stderr, "Child starting\n");
-  // printf(
-  //"Child trying to map fd %d at addr %p (0x%zx)\n", SharedMemRegion, addr,
-  // length);
-  void* ptr = mmap(
-    addr,
-    length,
-    PROT_READ | PROT_WRITE,
-    MAP_FIXED | MAP_ALIGNED(35) | MAP_SHARED | MAP_NOCORE,
-    SharedMemRegion,
-    0);
-  // printf("%p\n", ptr);
-  if (ptr == MAP_FAILED)
+  SNMALLOC_SLOW_PATH
+  void bootstrap()
   {
-    err(1, "Mapping shared heap failed");
+#ifdef USE_CAPSICUM
+    cap_enter();
+#endif
+    void* addr = nullptr;
+    size_t length = 0;
+    // Find the correct environment variables.  Note that libc is not fully
+    // initialised when this is called and so we have to be very careful about
+    // the libc function that we call.  We use the `environ` variable directly,
+    // rather than `getenv`, which may allocate memory.
+    for (char** e = environ; *e != nullptr; e++)
+    {
+      char* ev = *e;
+      const char ev_name[] = "SANDBOX_LOCATION=";
+      const size_t name_length = sizeof(ev_name) - 1;
+      if (strncmp(ev_name, ev, name_length) == 0)
+      {
+        ev += name_length;
+        char* end;
+        addr = reinterpret_cast<void*>(strtoull(ev, &end, 16));
+        assert(end[0] == ':');
+        length = strtoull(end + 1, nullptr, 16);
+        break;
+      }
+    }
+    // Abort if we weren't able to find the correct lengths.
+    if ((addr == nullptr) || (length == 0))
+    {
+      DefaultPal::error("Unable to find memory location");
+    }
+
+    // fprintf(stderr, "Child starting\n");
+    // printf(
+    //"Child trying to map fd %d at addr %p (0x%zx)\n", SharedMemRegion, addr,
+    // length);
+    void* ptr = mmap(
+      addr,
+      length,
+      PROT_READ | PROT_WRITE,
+      MAP_FIXED | MAP_SHARED | MAP_NOCORE,
+      SharedMemRegion,
+      0);
+
+    // printf("%p\n", ptr);
+    if (ptr == MAP_FAILED)
+    {
+      err(1, "Mapping shared heap failed");
+    }
+
+    shared = reinterpret_cast<SharedMemoryRegion*>(ptr);
+    // Splice the pagemap page inherited from the parent into the pagemap.
+    void* pagemap_chunk = GlobalPagemap::pagemap().page_for_address(
+      reinterpret_cast<uintptr_t>(ptr));
+    munmap(pagemap_chunk, 4096);
+    void* shared_pagemap = mmap(
+      pagemap_chunk, 4096, PROT_READ, MAP_SHARED | MAP_FIXED, PageMapPage, 0);
+    if (shared_pagemap == MAP_FAILED)
+    {
+      err(1, "Mapping shared pagemap page failed");
+    }
+    shared_memory_start = shared->start;
+    shared_memory_end = shared->end;
+    assert(shared_pagemap == pagemap_chunk);
+    (void)shared_pagemap;
+
+    done_bootstrapping = true;
   }
+}
+
+int main()
+{
+  bootstrap_if_needed();
   // Close the shared memory region file descriptor before we call untrusted
   // code.
   close(SharedMemRegion);
-
-  auto shared = reinterpret_cast<SharedMemoryRegion*>(ptr);
-  // Splice the pagemap page inherited from the parent into the pagemap.
-  void* pagemap_chunk =
-    GlobalPagemap::pagemap().page_for_address(reinterpret_cast<uintptr_t>(ptr));
-  munmap(pagemap_chunk, 4096);
-  void* shared_pagemap = mmap(
-    pagemap_chunk, 4096, PROT_READ, MAP_SHARED | MAP_FIXED, PageMapPage, 0);
-  if (shared_pagemap == MAP_FAILED)
-  {
-    err(1, "Mapping shared pagemap page failed");
-  }
-  SharedMemoryProvider* global_virtual = &shared->memory_provider;
-  shared_memory_start =
-    reinterpret_cast<void*>(global_virtual->shared_heap_range_start.load());
-  shared_memory_end =
-    reinterpret_cast<void*>(global_virtual->shared_heap_range_end);
-  assert(shared_pagemap == pagemap_chunk);
-  (void)shared_pagemap;
   close(PageMapPage);
-  pagemap_socket = PageMapUpdates;
 
-  // Replace the current thread allocator with a new one in the shared region.
-  // After this point, all new memory allocations are shared with the parent.
-  current_alloc_pool() =
-    snmalloc::make_alloc_pool<GlobalVirtual, Alloc>(*global_virtual);
-  ThreadAlloc::get_reference() = current_alloc_pool()->acquire();
+#ifndef NDEBUG
+  // Check that our bootstrapping actually did the right thing and that
+  // allocated objects are in the shared region.
+  auto check_is_in_shared_range = [](void* ptr) {
+    assert((ptr >= shared_memory_start) && (ptr < shared_memory_end));
+  };
+  check_is_in_shared_range(current_alloc_pool());
+  check_is_in_shared_range(ThreadAlloc::get_reference());
+  void* obj = malloc(42);
+  check_is_in_shared_range(obj);
+  free(obj);
+  fprintf(stderr, "Sandbox: %p--%p\n", shared_memory_start, shared_memory_end);
+#endif
 
-  void* handle = fdlopen(MainLibrary, RTLD_GLOBAL);
+  // Load the library using the file descriptor that the parent opened.  This
+  // allows a Capsicum sandbox to prevent any access to the global namespace.
+  // It is hopefully possible to implement something similar with seccomp-bpf,
+  // though this may require calling into the parent to request additional file
+  // descriptors and proxying all open / openat calls.
+  void* handle = fdlopen(MainLibrary, RTLD_GLOBAL | RTLD_LAZY);
   if (handle == nullptr)
   {
     fprintf(stderr, "dlopen failed: %s\n", dlerror());
     return 1;
   }
+
+  // Find the library initialisation function.  This function will generate the
+  // vtable.
   void (*sandbox_init)(ExportedLibrary*) =
     reinterpret_cast<void (*)(ExportedLibrary*)>(
       dlfunc(handle, "sandbox_init"));
@@ -410,12 +610,14 @@ int main(int, char** argv)
     fprintf(stderr, "dlfunc failed: %s\n", dlerror());
     return 1;
   }
+  // Set up the exported functions
   ExportedLibraryPrivate* libPrivate;
   libPrivate = new ExportedLibraryPrivate(FDSocket, shared);
   library = new ExportedLibrary();
   library->export_function(exported_types);
   sandbox_init(library);
 
+  // Enter the run loop, waiting for calls from trusted code.
   libPrivate->runloop(library);
 
   return 0;

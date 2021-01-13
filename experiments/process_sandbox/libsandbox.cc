@@ -7,6 +7,7 @@
 #include <thread>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #ifdef __unix__
 #  include <dlfcn.h>
@@ -43,6 +44,7 @@
 #    define MAP_NOCORE 0
 #  endif
 #endif
+#include "host_service_calls.h"
 #include "sandbox.hh"
 
 extern "C"
@@ -56,184 +58,8 @@ extern "C"
   extern char** environ;
 }
 
-#include "pal/pal_consts.h"
-#include "pal/pal_freebsd.h"
-#include "pal/pal_linux.h"
-#include "pal/pal_windows.h"
-
 namespace sandbox
 {
-  using DefaultPal =
-#if defined(_WIN32)
-    snmalloc::PALWindows;
-#elif defined(__linux__)
-    snmalloc::PALLinux;
-#elif defined(__FreeBSD__)
-    snmalloc::PALFreeBSD;
-#else
-#  error No platform abstraction layer available.
-#endif
-
-  struct MemoryProviderBumpPointerState
-  {
-    /**
-     * Features that we provide.  We do alignment here rather than using the
-     * more general code because this lets us pack the allocations a little bit
-     * more densely.  Most of the time we'll be asked for the same sized
-     * aligned chunks, so we don't need to insert padding.  The general code
-     * assumes that address space is cheap so asking for twice as much as you
-     * need and returning half of it is fine.
-     */
-    static constexpr uint64_t pal_features =
-      snmalloc::AlignedAllocation | snmalloc::LazyCommit;
-    /**
-     * Flag indicating whether it's safe to use virtual memory functions for
-     * zeroing.
-     */
-    static const bool UsePageZeroing = false;
-    /**
-     * Flag indicating whether our version of reserve should be used in place
-     * of the default.
-     */
-    static const bool CustomReserve = true;
-    /**
-     * The pointer to the start of the shared heap range.  This is updated by
-     * allocators inside and outside of the shared region and so must be
-     * atomic.
-     */
-    std::atomic<uintptr_t> shared_heap_range_start;
-    /**
-     * The end of the shared heap range.
-     *
-     * FIXME: This is fixed when the shared memory region is created and so
-     * shouldn't be mutable by the code in the sandbox, but is currently.
-     */
-    uintptr_t shared_heap_range_end;
-    /**
-     * Flag indicating that this memory provider is initialised.  If it is not
-     * yet initialised, then it should request some memory for its buffer.
-     *
-     * Note: We depend on the fact that this is zero-initialised in globals.
-     * The constructor for this class does nothing, but during process start
-     * this can be called before the constructor for the enclosing class has
-     * run.  We then fill in the value of the other fields.
-     */
-    bool isInitialised;
-    /**
-     * Inherit the default page size from the system PAL.
-     */
-    static constexpr size_t page_size = DefaultPal::page_size;
-    /**
-     * Initialise with a specific range.  If this has been called, then the
-     */
-    void set_range(uintptr_t start, uintptr_t end)
-    {
-      shared_heap_range_start = start;
-      shared_heap_range_end = end;
-      isInitialised = true;
-    }
-    /**
-     * Custom replacement for reserve.  Allocates using a simple
-     * bump-the-pointer algorithm and relies on the allocator code to handle
-     * address-space reuse.
-     */
-    template<bool committed>
-    void* reserve(size_t size, size_t align)
-    {
-      if (!isInitialised)
-      {
-        static size_t bootstrap_heap_size = 1024 * 1024 * 512;
-        void* bootstrap_heap =
-          DefaultPal().reserve<true>(bootstrap_heap_size, page_size);
-        shared_heap_range_start = reinterpret_cast<uintptr_t>(bootstrap_heap);
-        shared_heap_range_end =
-          reinterpret_cast<uintptr_t>(bootstrap_heap) + bootstrap_heap_size;
-        isInitialised = true;
-      }
-      size_t align1 = align - 1;
-      size_t mask = ~align1;
-
-      uintptr_t start = shared_heap_range_start.load(std::memory_order_relaxed);
-      uintptr_t rounded_start;
-      uintptr_t end;
-      do
-      {
-        rounded_start = start;
-        if ((rounded_start & align1) != 0)
-        {
-          rounded_start += align;
-          rounded_start &= mask;
-        }
-        end = rounded_start + size;
-      } while (!shared_heap_range_start.compare_exchange_strong(start, end));
-      if (end > shared_heap_range_end)
-      {
-        return nullptr;
-      }
-      return reinterpret_cast<void*>(rounded_start);
-    }
-    /**
-     * Zero some memory.  Ideally, we'd ask the kernel to replace these pages
-     * with fresh zeroed ones, but unfortunately we can't do that with shared
-     * memory pages.
-     */
-    template<bool page_aligned = false>
-    void zero(void* p, size_t size) noexcept
-    {
-      bzero(p, size);
-    }
-
-    /**
-     * Report an error.
-     */
-    [[noreturn]] static void error(const char* const str)
-    {
-      puts(str);
-      abort();
-    }
-
-    /**
-     * Notify the kernel that we're not using these pages and don't care if it
-     * discards the contents, until the next store to these pages.
-     */
-    void notify_not_using(void* p, size_t size) noexcept
-    {
-      madvise(p, size, MADV_FREE);
-    }
-
-    /**
-     * Notify the kernel that we are using these pages.  This is a no-op on
-     * FreeBSD - the next store provides the notification.
-     */
-    template<snmalloc::ZeroMem zero_mem>
-    void notify_using(void* p, size_t size) noexcept
-    {
-      if (zero_mem == snmalloc::YesZero)
-        zero(p, size);
-    }
-  };
-}
-
-#define SNMALLOC_MEMORY_PROVIDER sandbox::MemoryProviderBumpPointerState
-#include "pal/pal.h"
-#pragma mark -
-#include "mem/allocconfig.h"
-#include "snmalloc.h"
-
-/**
- * Check that the superslab size is what we expect.  If this changes, then we
- * may need to modify how we interact with the pagemap.
- */
-static_assert(snmalloc::SUPERSLAB_SIZE == 1 << 24);
-
-namespace
-{
-  /**
-   * The memory provider for the shared region.  This bump allocates from the
-   * shared memory segment.
-   */
-  using SharedMemoryProvider = snmalloc::MemoryProviderStateMixin<
-    snmalloc::PALPlainMixin<sandbox::MemoryProviderBumpPointerState>>;
   /**
    * Singleton class that handles pagemap updates from children.  This listens
    * on a socket for updates, validates that they correspond to the memory that
@@ -243,9 +69,9 @@ namespace
    * This class creates a new thread in the background that waits for pagemap
    * updates and processes them.
    */
-  class PagemapOwner
+  class MemoryServiceProvider
   {
-    snmalloc::DefaultChunkMap<snmalloc::ExternalGlobalPagemap> pm;
+    snmalloc::DefaultChunkMap<> pm;
 #ifdef USE_KQUEUE
     /**
      * The kqueue used to wait for pagemap updates from the child.  Multiple
@@ -294,12 +120,7 @@ namespace
     /**
      * Vector of all file descriptors that we're waiting for.
      */
-    std::vector<int> fds;
-    /**
-     * Map from file descriptor number to index in the vector.  This is used to
-     * quickly find the correct entry in the vector for deletion.
-     */
-    std::unordered_map<int, int> fd_indexes;
+    std::unordered_set<int> fds;
     /**
      * Wrapper around a pair of fie descriptors defining endpoints of a pipe.
      * We use this to fall out of a `poll` call when the file descriptors
@@ -320,10 +141,10 @@ namespace
        */
       pipepair()
       {
-        int p[2];
+        int p[2] = {-1, -1};
         pipe(p);
-        in = p[1];
-        out = p[0];
+        in = p[0];
+        out = p[1];
       }
       /**
        * Destroy the pipe by closing both descriptors.
@@ -342,8 +163,7 @@ namespace
       // With the lock held, add this to our bookkeeping metadata.
       {
         std::lock_guard g(fds_lock);
-        fd_indexes[socket_fd] = fds.size();
-        fds.push_back(socket_fd);
+        fds.insert(socket_fd);
       }
       // Prod the polling end to wake up.
       write(pipes.out, " ", 1);
@@ -413,10 +233,7 @@ namespace
           if (pfd.revents & POLLHUP)
           {
             std::lock_guard g(fds_lock);
-            int idx = fd_indexes[pfd.fd];
-            fd_indexes.erase(pfd.fd);
-            assert(fds[idx] == pfd.fd);
-            fds.erase(fds.begin() + idx);
+            fds.erase(pfd.fd);
           }
         }
         if (check_ready())
@@ -441,9 +258,9 @@ namespace
     struct Sandbox
     {
       /**
-       * The range of address space owned by this sandbox.
+       * The memory provider that owns the above range.
        */
-      std::pair<size_t, size_t> range;
+      SharedMemoryProvider* memory_provider;
       /**
        * The shared pagemap page that we need to update on behalf of this
        * process.
@@ -475,16 +292,88 @@ namespace
           close(fd);
           continue;
         }
-        uint64_t update;
-        if (read(fd, static_cast<void*>(&update), sizeof(uint64_t)) != 8)
+        HostServiceRequest rpc;
+        if (
+          read(fd, static_cast<void*>(&rpc), sizeof(HostServiceRequest)) !=
+          sizeof(HostServiceRequest))
         {
-          err(1, "Read from pagemap update socket %d failed", fd);
+          err(1, "Read from host service pipe %d failed", fd);
+          // FIXME: We should kill the sandbox at this point.  It is doing
+          // something bad.  For now, we kill the host process, which is safe
+          // but slightly misses the point of fault isolation.
         }
-        size_t position = update & ~0xffff;
-        char value = update & 0xff;
-        uint8_t isBig = (update & 0xff00) >> 8;
-        validate_and_insert(fd, position, isBig, value);
-        std::atomic_thread_fence(std::memory_order_seq_cst);
+        HostServiceResponse reply{1, 0};
+        Sandbox s;
+        {
+          decltype(ranges)::iterator r;
+          std::lock_guard g(m);
+          r = ranges.find(fd);
+          if (r == ranges.end())
+          {
+            continue;
+          }
+          s = r->second;
+        }
+        auto is_large_sizeclass = [](auto large_size) {
+          return (large_size < snmalloc::NUM_LARGE_CLASSES);
+        };
+        // No default so we get range checking.  Fallthrough returns the error
+        // result.
+        switch (rpc.kind)
+        {
+          case MemoryProviderPushLargeStack:
+          {
+            // This may truncate, but only if the sandbox is doing
+            // something bad.  We'll catch that on the range check (or get
+            // some in-sandbox corruption that the sandbox could do
+            // anyway), so don't bother checking it now.
+            void* base = reinterpret_cast<void*>(rpc.arg0);
+            uint8_t large_size = static_cast<uint8_t>(rpc.arg1);
+            if (
+              !is_large_sizeclass(large_size) ||
+              !s.memory_provider->contains(
+                base, snmalloc::large_sizeclass_to_size(large_size)))
+            {
+              break;
+            }
+            s.memory_provider->push_large_stack(
+              static_cast<snmalloc::Largeslab*>(base), large_size);
+            reply = {0, 0};
+            break;
+          }
+          case MemoryProviderPopLargeStack:
+          {
+            uint8_t large_size = static_cast<uint8_t>(rpc.arg1);
+            if (!is_large_sizeclass(large_size))
+            {
+              break;
+            }
+            reply = {0,
+                     reinterpret_cast<uintptr_t>(
+                       s.memory_provider->pop_large_stack(large_size))};
+            break;
+          }
+          case MemoryProviderReserve:
+          {
+            uint8_t large_size = static_cast<uint8_t>(rpc.arg1);
+            if (!is_large_sizeclass(large_size))
+            {
+              break;
+            }
+            reply = {0,
+                     reinterpret_cast<uintptr_t>(
+                       s.memory_provider->template reserve<true>(large_size))};
+            break;
+          }
+          case ChunkMapSet:
+          case ChunkMapSetRange:
+          case ChunkMapClearRange:
+          {
+            reply.error = !validate_and_insert(s, rpc);
+            break;
+          }
+        }
+        write(fd, static_cast<void*>(&reply), sizeof(HostServiceResponse));
       }
       err(1, "Waiting for pagetable updates failed");
     }
@@ -502,80 +391,59 @@ namespace
      * which is either being set or cleared (`isBig` values of 1 and 2,
      * respectively).
      */
-    void validate_and_insert(
-      int sender, size_t position, uint8_t isBig, uint8_t value)
+    bool validate_and_insert(Sandbox& s, HostServiceRequest rpc)
     {
-      decltype(ranges)::iterator r;
-      Sandbox s;
-      {
-        std::lock_guard g(m);
-        r = ranges.find(sender);
-        if (r == ranges.end())
-        {
-          return;
-        }
-        s = r->second;
-      }
-      auto range = s.range;
-      if ((position < range.first) || (position >= range.second))
-      {
-        return;
-      }
-      auto p = reinterpret_cast<uintptr_t>(position);
-      snmalloc::ChunkmapPagemap& cpm =
-        snmalloc::ExternalGlobalPagemap::pagemap();
-      size_t index = cpm.index_for_address(p);
+      void* address = reinterpret_cast<void*>(rpc.arg0);
+      snmalloc::ChunkmapPagemap& cpm = snmalloc::GlobalPagemap::pagemap();
+      size_t index = cpm.index_for_address(rpc.arg0);
       size_t entries = 1;
       bool safe = true;
       auto check_large_update = [&]() {
-        size_t alloc_size = (1ULL << value);
+        size_t alloc_size = (1ULL << rpc.arg1);
         entries = alloc_size / snmalloc::SUPERSLAB_SIZE;
-        // FIXME: Check this for off-by-one errors!
-        return (alloc_size + position <= range.second);
+        return s.memory_provider->contains(address, alloc_size);
       };
-      switch (isBig)
+      switch (rpc.kind)
       {
         default:
-          fprintf(
-            stderr,
-            "Invalid pagemap update received from sandbox %d\n",
-            sender);
+          // Should be unreachable
+          assert(0);
           break;
-        case 0:
-          // FIXME: Check that this is a valid small update size
-          cpm.set(p, value);
-          break;
-        case 1:
-          if ((safe = check_large_update()))
+        case ChunkMapSet:
+          if ((safe = s.memory_provider->contains(
+                 address, snmalloc::SUPERSLAB_SIZE)))
           {
-            pm.set_large_size(reinterpret_cast<void*>(p), 1ULL << value);
+            cpm.set(rpc.arg0, rpc.arg1);
           }
           break;
-        case 2:
+        case ChunkMapSetRange:
           if ((safe = check_large_update()))
           {
-            pm.clear_large_size(reinterpret_cast<void*>(p), 1ULL << value);
+            pm.set_large_size(address, 1ULL << rpc.arg1);
+          }
+          break;
+        case ChunkMapClearRange:
+          if ((safe = check_large_update()))
+          {
+            pm.clear_large_size(address, 1ULL << rpc.arg1);
           }
       }
       if (safe)
       {
         for (size_t i = 0; i < entries; i++)
         {
-          s.shared_page[index + i] = pm.get(
-            reinterpret_cast<void*>(position + (i * snmalloc::SUPERSLAB_SIZE)));
+          s.shared_page[index + i] =
+            pm.get(pointer_offset(address, i * snmalloc::SUPERSLAB_SIZE));
         }
       }
-      else
-      {
-        printf("Rejecting page map update\n");
-      }
+      return safe;
     }
 
   public:
     /**
      * Constructor.  Spawns a background thread to run and process updates.
      */
-    PagemapOwner()
+    MemoryServiceProvider()
     {
 #ifdef USE_KQUEUE
       assert(kq >= 0);
@@ -590,7 +458,8 @@ namespace
      * sandbox will send update requests.  `pagemap_fd` is the shared pagemap
      * page.
      */
-    uint8_t* add_range(size_t start, size_t end, int socket_fd, int pagemap_fd)
+    uint8_t* add_range(
+      SharedMemoryProvider* memory_provider, int socket_fd, int pagemap_fd)
     {
       uint8_t* shared_pagemap = static_cast<uint8_t*>(mmap(
         nullptr,
@@ -605,7 +474,7 @@ namespace
       }
       {
         std::lock_guard g(m);
-        ranges[socket_fd] = {{start, end}, shared_pagemap};
+        ranges[socket_fd] = {memory_provider, shared_pagemap};
       }
       register_fd(socket_fd);
       return shared_pagemap;
@@ -614,16 +483,13 @@ namespace
   /**
    * Return a singleton instance of the pagemap owner.
    */
-  PagemapOwner& pagemap_owner()
+  MemoryServiceProvider& pagemap_owner()
   {
     // Leaks.  No need to run the destructor!
-    static PagemapOwner* p = new PagemapOwner();
+    static MemoryServiceProvider* p = new MemoryServiceProvider();
     return *p;
   }
-}
 
-namespace sandbox
-{
   /**
    * Adaptor for allocators in the shared region to update the pagemap.
    * These treat the global pagemap in the process as canonical but also
@@ -636,7 +502,7 @@ namespace sandbox
      * Interface to the global pagemap.  Used to update the global pagemap and
      * to query values to propagate to the child process.
      */
-    snmalloc::DefaultChunkMap<snmalloc::ExternalGlobalPagemap> global_pagemap;
+    snmalloc::DefaultChunkMap<> global_pagemap;
     /**
      * The page in the child process that will be mapped into its pagemap.  Any
      * slab allocations by the parent must be propagated into this page.
@@ -655,8 +521,7 @@ namespace sandbox
      */
     void update_child(uintptr_t p, size_t entries = 1)
     {
-      snmalloc::ChunkmapPagemap& cpm =
-        snmalloc::ExternalGlobalPagemap::pagemap();
+      snmalloc::ChunkmapPagemap& cpm = snmalloc::GlobalPagemap::pagemap();
       size_t index = cpm.index_for_address(p);
       for (size_t i = 0; i < entries; i++)
       {
@@ -740,12 +605,17 @@ namespace sandbox
     // regions.  We should explicitly mask all pointers against the size of the
     // allocation when we use them from outside.
     /**
-     * The memory provider associated with this region.  This is responsible
-     * for allocating pages within the shared range.  It lives within the
-     * shared region because it can be called from both inside and outside of
-     * the sandbox.
+     * The start of the sandbox region.  Note: This is writeable from within
+     * the sandbox and should not be trusted outside.
      */
-    SharedMemoryProvider memory_provider;
+    void* start;
+
+    /**
+     * The end of the sandbox region.  Note: This is writeable from within
+     * the sandbox and should not be trusted outside.
+     */
+    void* end;
+
     /**
      * A flag indicating that the parent has instructed the sandbox to exit.
      */
@@ -942,7 +812,7 @@ namespace sandbox
     const char* librunnerpath,
     const void* sharedmem_addr,
     int pagemap_mem,
-    int pagemap_pipe,
+    int malloc_rpc_socket,
     int fd_socket)
   {
     // The library load paths.  We're going to pass all of these to the
@@ -967,7 +837,7 @@ namespace sandbox
     shm_fd = move_fd(shm_fd);
     pagemap_mem = move_fd(pagemap_mem);
     fd_socket = move_fd(fd_socket);
-    pagemap_pipe = move_fd(pagemap_pipe);
+    malloc_rpc_socket = move_fd(malloc_rpc_socket);
     // Open the library binary.  If this fails, kill the child process.  Note
     // that we do this *before* dropping privilege - we don't have to give
     // the child the right to look in the directory that contains this
@@ -989,7 +859,7 @@ namespace sandbox
     assert(library);
     library = dup2(library, MainLibrary);
     assert(library == MainLibrary);
-    pagemap_pipe = dup2(pagemap_pipe, PageMapUpdates);
+    malloc_rpc_socket = dup2(malloc_rpc_socket, PageMapUpdates);
     // These are passed in by environment variable, so we don't need to put
     // them in a fixed place, just after all of the others.
     int rtldfd = OtherLibraries;
@@ -1012,8 +882,9 @@ namespace sandbox
     // Standard out and error are write only
     limit_fd(STDOUT_FILENO, CAP_WRITE);
     limit_fd(STDERR_FILENO, CAP_WRITE);
-    // The pagemap socket is used only to send pagemap updates to the parent
-    limit_fd(pagemap_pipe, CAP_WRITE);
+    // The socket is used with a call-return protocol for requesting services
+    // for malloc.
+    limit_fd(malloc_rpc_socket, CAP_WRITE, CAP_READ);
     // The shared heap can be mapped read-write, but can't be truncated.
     limit_fd(shm_fd, CAP_MMAP_RW);
     limit_fd(pagemap_mem, CAP_MMAP_R);
@@ -1039,50 +910,54 @@ namespace sandbox
     // asprintf, because (if we used vfork) we're still in the same address
     // space as the parent, so if we allocate memory here then it will leak in
     // the parent.
-    char* args[4];
+    char* args[2];
     args[0] = (char*)"library_runner";
-    char address[24];
-    char length[24];
-    snprintf(address, sizeof(address), "%zd", (size_t)sharedmem_addr);
-    args[1] = address;
-    snprintf(length, sizeof(length), "%zd", shared_size);
-    args[2] = length;
-    args[3] = 0;
+    args[1] = nullptr;
+    char location[52];
+    size_t loc_len = snprintf(
+      location,
+      sizeof(location),
+      "SANDBOX_LOCATION=%zx:%zx",
+      (size_t)sharedmem_addr,
+      (size_t)shared_size);
+    assert(loc_len < sizeof(location));
     static_assert(
       OtherLibraries == 8, "First entry in LD_LIBRARY_PATH_FDS is incorrect");
     static_assert(
       libdirfds.size() == 3,
       "Number of entries in LD_LIBRARY_PATH_FDS is incorrect");
-    const char* const env[] = {"LD_LIBRARY_PATH_FDS=8:9:10", nullptr};
+    const char* const env[] = {"LD_LIBRARY_PATH_FDS=8:9:10", location, nullptr};
     execve(librunnerpath, args, const_cast<char* const*>(env));
     // Should be unreachable, but just in case we failed to exec, don't return
     // from here (returning from a vfork context is very bad!).
     _exit(EXIT_FAILURE);
   }
 
-  SandboxedLibrary::SandboxedLibrary(const char* library_name, size_t size)
-  : shared_size(1024ULL * 1024ULL * 1024ULL * size)
-  {
 #  ifdef __FreeBSD__
-    auto mk_shm = [](const char*) {
-      return shm_open(SHM_ANON, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-    };
+  SandboxedLibrary::handle_t SandboxedLibrary::mk_shm(const char*)
+  {
+    return shm_open(SHM_ANON, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+  };
 #  elif defined(__linux__)
-    auto mk_shm = [](const char* debug_name) {
-      int ret = memfd_create(debug_name, 0);
-      // WSL doesn't support memfd, so do something ugly with temp files.
-      if (ret == -1)
-      {
-        char name[] = "/tmp/sandbox.shmXXXXXX";
-        ret = mkstemp(name);
-        // unlink(name);
-        assert(ret != -1);
-      }
-      return ret;
-    };
+  SandboxedLibrary::handle_t SandboxedLibrary::mk_shm(const char* debug_name)
+  {
+    int ret = memfd_create(debug_name, 0);
+    // WSL doesn't support memfd, so do something ugly with temp files.
+    if (ret == -1)
+    {
+      char name[] = "/tmp/sandbox.shmXXXXXX";
+      ret = mkstemp(name);
+      // unlink(name);
+      assert(ret != -1);
+    }
+    return ret;
+  };
 #  else
 #    error Anonymous shared memory not implemented for your platform
 #  endif
+
+  void* SandboxedLibrary::allocate_shm()
+  {
     shm_fd = mk_shm("sandbox");
     // Set the size of the shared memory region.
     ftruncate(shm_fd, shared_size);
@@ -1099,8 +974,18 @@ namespace sandbox
     if (ptr == MAP_FAILED)
     {
       err(1, "Map failed");
+      abort();
     }
+    return ptr;
+  }
 
+  SandboxedLibrary::SandboxedLibrary(const char* library_name, size_t size)
+  : shared_size(1024ULL * 1024ULL * 1024ULL * size),
+    shm_base(allocate_shm()),
+    memory_provider(
+      pointer_offset(shm_base, sizeof(SharedMemoryRegion)),
+      shared_size - sizeof(SharedMemoryRegion))
+  {
     // Create a single page for the shared pagemap page.  The parent process
     // will write to this directly, the child will send messages through a pipe
     // to ask the parent to update it, but will read it directly.
@@ -1109,20 +994,18 @@ namespace sandbox
 
     // Allocate the shared memory region and set its memory provider to use all
     // of the space after the end of the header for subsequent allocations.
-    shared_mem = new (ptr) SharedMemoryRegion();
-    shared_mem->memory_provider.set_range(
-      reinterpret_cast<uintptr_t>(ptr) + sizeof(SharedMemoryRegion),
-      reinterpret_cast<uintptr_t>(ptr) + shared_size);
+    shared_mem = new (shm_base) SharedMemoryRegion();
+    shared_mem->start = shm_base;
+    shared_mem->end = pointer_offset(shm_base, shared_size);
 
     // Create a pair of sockets that we can use to
-    int pagemap_pipes[2];
-    // socketpair(AF_UNIX, SOCK_STREAM, 0, pagemap_pipes);
-    pipe(pagemap_pipes);
+    int malloc_rpc_sockets[2];
+    if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, malloc_rpc_sockets))
+    {
+      err(1, "Failed to create socket pair");
+    }
     uint8_t* shared_pagemap_page = pagemap_owner().add_range(
-      reinterpret_cast<size_t>(ptr),
-      reinterpret_cast<size_t>(ptr) + shared_size,
-      pagemap_pipes[0],
-      pagemap_fd);
+      &memory_provider, malloc_rpc_sockets[0], pagemap_fd);
     // Construct a UNIX domain socket.  This will eventually be used to send
     // file descriptors from the parent to the child, but isn't yet.
     int socks[2];
@@ -1171,9 +1054,9 @@ namespace sandbox
       start_child(
         library_name,
         librunnerpath,
-        ptr,
+        shm_base,
         pagemap_fd,
-        pagemap_pipes[1],
+        malloc_rpc_sockets[1],
         socks[1]);
     }
     // Only reachable in the parent process
@@ -1191,13 +1074,12 @@ namespace sandbox
 #  endif
     // Close all of the file descriptors that only the child should have.
     close(socks[1]);
-    close(pagemap_pipes[1]);
+    close(malloc_rpc_sockets[1]);
     close(pagemap_fd);
     socket_fd = socks[0];
     // Allocate an allocator in the shared memory region.
     allocator = new SharedAlloc(
-      // FIXME: Add adaptor that does range checking on memory_provider.
-      shared_mem->memory_provider,
+      memory_provider,
       SharedPagemapAdaptor(shared_pagemap_page),
       &shared_mem->allocator_state);
   }
@@ -1255,7 +1137,7 @@ namespace sandbox
     }
     return (ret == 1);
 #  else
-    auto [ret, status] = waitpid(child_proc, WEXITED | WNOHANG);
+    auto [ret, status] = waitpid(child_proc, WNOHANG);
     if (ret == -1)
     {
       err(1, "Waiting for child failed");
@@ -1290,7 +1172,7 @@ namespace sandbox
 #  else
     // FIXME: Timeout and increase the aggression with which we kill the child
     // process (SIGTERM, SIGKILL)
-    auto [ret, status] = waitpid(child_proc, WEXITED);
+    auto [ret, status] = waitpid(child_proc, 0);
     if (ret == -1)
     {
       err(1, "Waiting for child failed");

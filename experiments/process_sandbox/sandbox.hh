@@ -13,7 +13,7 @@
 #  include <unistd.h>
 #endif
 
-#include <ds/helpers.h>
+#include <snmalloc.h>
 
 #ifndef SANDBOX_PAGEMAP
 #  ifdef SNMALLOC_DEFAULT_PAGEMAP
@@ -46,6 +46,51 @@ namespace sandbox
   struct SharedMemoryRegion;
   struct SharedPagemapAdaptor;
   struct MemoryProviderBumpPointerState;
+
+  /**
+   * A PAL that cannot be used to allocate memory.  This is used for sandboxes,
+   * where all memory comes from a pre-defined shared region.
+   */
+  using NoOpPal = snmalloc::PALNoAlloc<snmalloc::DefaultPal>;
+  using snmalloc::pointer_offset;
+
+  /**
+   * The memory provider for the shared region.  This manages a single
+   * contiguous address range.
+   */
+  class SharedMemoryProvider
+  : public snmalloc::MemoryProviderStateMixin<NoOpPal>
+  {
+    /**
+     * Base address of the shared memory region.
+     */
+    void* base;
+
+    /**
+     * Top of the shared memory region.
+     */
+    void* top;
+
+  public:
+    /**
+     * Constructor.  Takes the memory range allocated for the sandbox heap as
+     * arguments.
+     */
+    SharedMemoryProvider(void* base_address, size_t length)
+    : MemoryProviderStateMixin<NoOpPal>(base_address, length),
+      base(base_address),
+      top(pointer_offset(base, length))
+    {}
+
+    /**
+     * Predicate to test whether an object of size `sz` starting at `ptr`
+     * is within the region managed by this memory provider.
+     */
+    bool contains(void* ptr, size_t sz)
+    {
+      return (ptr >= base) && (pointer_offset(ptr, sz) < top);
+    }
+  };
   /**
    * Class encapsulating an instance of a shared library in a sandbox.
    * Instances of this class will create a sandbox and load a specified library
@@ -78,13 +123,6 @@ namespace sandbox
     using process_handle_t = pid_t;
 #  endif
 #endif
-    /**
-     * The type of the memory provider that is used to manage the shared
-     * memory.  This is a bump-the-pointer allocator that allocates from a
-     * shared-memory region.
-     */
-    using SharedVirtual = snmalloc::MemoryProviderStateMixin<
-      snmalloc::PALPlainMixin<MemoryProviderBumpPointerState>>;
     SNMALLOC_FAST_PATH static bool needs_initialisation(void*)
     {
       return false;
@@ -103,7 +141,7 @@ namespace sandbox
     using SharedAlloc = snmalloc::Allocator<
       needs_initialisation,
       init_thread_allocator,
-      SharedVirtual,
+      SharedMemoryProvider,
       SharedPagemapAdaptor,
       false>;
     /**
@@ -160,6 +198,30 @@ namespace sandbox
      * The size of the shared-memory region.
      */
     size_t shared_size;
+
+    /**
+     * The base address of the shared memory region.
+     */
+    void* shm_base;
+
+    /**
+     * The (trusted) memory provider that is used to allocate large regions to
+     * memory allocators.  This is used directly from outside of the sandbox
+     * and via an RPC mechanism that checks arguments from inside.
+     */
+    SharedMemoryProvider memory_provider;
+
+    /**
+     * Helper that allocates a shared memory object.
+     */
+    handle_t mk_shm(const char* debug_name);
+
+    /**
+     * Helper that sets up the shared memory region.  Returns a pointer that is
+     * used to initialise `shm_base`.
+     */
+    void* allocate_shm();
+
     /**
      * Allocate some memory in the sandbox.  Returns `nullptr` if the
      * allocation failed.
@@ -368,7 +430,7 @@ namespace sandbox
     /**
      * The correct argument frame type for this specific instantiation.
      */
-    using argframe = argframe<Ret, Args...>;
+    using CallFrame = argframe<Ret, Args...>;
     /**
      * The index of this function in the library's vtable.
      */
@@ -400,7 +462,7 @@ namespace sandbox
       {
         exit(EXIT_FAILURE);
       }
-      free(exported);
+      lib.free(exported);
 #endif
     }
     /**
@@ -409,7 +471,7 @@ namespace sandbox
      */
     Ret operator()(Args... args)
     {
-      argframe* callframe = lib.alloc<argframe>();
+      CallFrame* callframe = lib.alloc<CallFrame>();
       callframe->args = std::forward_as_tuple(args...);
       lib.send(vtable_index, callframe);
       if constexpr (!std::is_void_v<Ret>)
@@ -462,7 +524,7 @@ namespace sandbox
      * The type of the structure containing the arguments and the return
      * value for this function.
      */
-    using argframe = argframe<Ret, Args...>;
+    using CallFrame = argframe<Ret, Args...>;
     /**
      * A pointer to the function that will be called by this class.
      */
@@ -481,7 +543,7 @@ namespace sandbox
     void operator()(void* callframe) override
     {
       assert(callframe != nullptr);
-      auto frame = (static_cast<argframe*>(callframe));
+      auto frame = (static_cast<CallFrame*>(callframe));
       if constexpr (!std::is_void_v<Ret>)
       {
         frame->ret = std::apply(function, frame->args);
