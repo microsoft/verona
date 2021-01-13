@@ -1,7 +1,8 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-#include <assert.h>
+#pragma once
+
 #include <memory>
 #include <string.h>
 #include <tuple>
@@ -13,7 +14,11 @@
 #  include <unistd.h>
 #endif
 
-#include <ds/helpers.h>
+#include "helpers.h"
+#include "platform/platform.h"
+#include "sandbox_fd_numbers.h"
+
+#include <snmalloc.h>
 
 #ifndef SANDBOX_PAGEMAP
 #  ifdef SNMALLOC_DEFAULT_PAGEMAP
@@ -46,6 +51,67 @@ namespace sandbox
   struct SharedMemoryRegion;
   struct SharedPagemapAdaptor;
   struct MemoryProviderBumpPointerState;
+  class SandboxUpcallHandler;
+  class ExportedFileTree;
+  struct UpcallHandlerBase;
+
+  /**
+   * An snmalloc Platform Abstraction Layer (PAL) that cannot be used to
+   * allocate memory.  This is used for sandboxes, where all memory comes from a
+   * pre-defined shared region.
+   */
+  using NoOpPal = snmalloc::PALNoAlloc<snmalloc::DefaultPal>;
+  using snmalloc::pointer_offset;
+
+  /**
+   * The memory provider for the shared region.  This manages a single
+   * contiguous address range.
+   */
+  class SharedMemoryProvider
+  : public snmalloc::MemoryProviderStateMixin<NoOpPal>
+  {
+    /**
+     * Base address of the shared memory region.
+     */
+    void* base;
+
+    /**
+     * Top of the shared memory region.
+     */
+    void* top;
+
+  public:
+    /**
+     * Constructor.  Takes the memory range allocated for the sandbox heap as
+     * arguments.
+     */
+    SharedMemoryProvider(void* base_address, size_t length)
+    : MemoryProviderStateMixin<NoOpPal>(base_address, length),
+      base(base_address),
+      top(pointer_offset(base, length))
+    {}
+
+    /**
+     * Predicate to test whether an object of size `sz` starting at `ptr`
+     * is within the region managed by this memory provider.
+     */
+    bool contains(const void* ptr, size_t sz)
+    {
+      // We shouldn't need the const cast here, but pointer_offset doesn't
+      // correctly handle const pointers yet.
+      return (ptr >= base) &&
+        (pointer_offset(const_cast<void*>(ptr), sz) < top);
+    }
+
+    /**
+     * Read the top of the sandbox.
+     */
+    void* top_address()
+    {
+      return top;
+    }
+  };
+
   /**
    * Class encapsulating an instance of a shared library in a sandbox.
    * Instances of this class will create a sandbox and load a specified library
@@ -55,36 +121,13 @@ namespace sandbox
    */
   class SandboxedLibrary
   {
-#ifdef __unix__
     /**
      * `handle_t` is the type used by the OS for handles to operating system
      * resources.  On *NIX systems, file descriptors are represented as
      * `int`s.
      */
-    using handle_t = int;
-#  ifdef __FreeBSD__
-    /**
-     * A handle to a process.  On FreeBSD, we spawn child processes using
-     * `pdfork` and so we have a process descriptor as the handle to a child
-     * process.
-     */
-    using process_handle_t = handle_t;
-#  else
-    /**
-     * A handle to a process.  On most *NIX systems, we use vfork to create the
-     * child and then use a pid (an index in a global namespace, not a local
-     * handle) to refer to it.
-     */
-    using process_handle_t = pid_t;
-#  endif
-#endif
-    /**
-     * The type of the memory provider that is used to manage the shared
-     * memory.  This is a bump-the-pointer allocator that allocates from a
-     * shared-memory region.
-     */
-    using SharedVirtual = snmalloc::MemoryProviderStateMixin<
-      snmalloc::PALPlainMixin<MemoryProviderBumpPointerState>>;
+    using handle_t = platform::handle_t;
+
     SNMALLOC_FAST_PATH static bool needs_initialisation(void*)
     {
       return false;
@@ -103,7 +146,7 @@ namespace sandbox
     using SharedAlloc = snmalloc::Allocator<
       needs_initialisation,
       init_thread_allocator,
-      SharedVirtual,
+      SharedMemoryProvider,
       SharedPagemapAdaptor,
       false>;
     /**
@@ -111,26 +154,14 @@ namespace sandbox
      */
     SharedAlloc* allocator;
     /**
-     * The handle to the shared memory region that backs the sandboxed
-     * process's heap.
-     */
-    handle_t shm_fd;
-    /**
      * The handle to the socket that is used to pass file descriptors to the
      * sandboxed process.
      */
-    handle_t socket_fd;
+    platform::SocketPair::Socket socket;
     /**
-     * The process ID or handle of the child process.  This is either a process
-     * descriptor (handle / capability) or a process ID in a global namespace.
+     * The platform-specific child process.
      */
-    process_handle_t child_proc;
-#ifdef USE_KQUEUE_PROCDESC
-    /**
-     * The queue used to watch for child exit.
-     */
-    int kq;
-#endif
+    std::unique_ptr<platform::ChildProcess> child_proc;
     /**
      * A pointer to the shared-memory region.  The start of this is structured,
      * the rest is an untyped region of memory that can be used to allocate
@@ -156,10 +187,24 @@ namespace sandbox
      * The exit code of the child.  This is set when the child process exits.
      */
     int child_status;
+
     /**
-     * The size of the shared-memory region.
+     * The shared memory object that contains the child process's heap.
      */
-    size_t shared_size;
+    platform::SharedMemoryMap shm;
+
+    /**
+     * The shared pagemap page.
+     */
+    platform::SharedMemoryMap shared_pagemap;
+
+    /**
+     * The (trusted) memory provider that is used to allocate large regions to
+     * memory allocators.  This is used directly from outside of the sandbox
+     * and via an RPC mechanism that checks arguments from inside.
+     */
+    SharedMemoryProvider memory_provider;
+
     /**
      * Allocate some memory in the sandbox.  Returns `nullptr` if the
      * allocation failed.
@@ -197,9 +242,14 @@ namespace sandbox
       const char* library_name,
       const char* librunnerpath,
       const void* sharedmem_addr,
-      int pagemap_mem,
-      int pagemap_pipe,
-      int fd_socket);
+      platform::Handle& pagemap_mem,
+      platform::Handle&& pagemap_pipe,
+      platform::Handle&& fd_socket);
+
+    /**
+     * The delegate that handles upcalls for this sandbox.
+     */
+    std::unique_ptr<SandboxUpcallHandler> upcall_handler;
 
   public:
     /**
@@ -242,6 +292,19 @@ namespace sandbox
       }
       return array;
     }
+
+    /**
+     * Returns the filesystem abstraction exported to this sandbox.
+     */
+    ExportedFileTree& filetree();
+
+    /**
+     * Register a handler for an upcall from this sandbox.  The return value
+     * the index of this that should be passed to the `invoke_user_callback`
+     * function.
+     */
+    int register_callback(std::unique_ptr<UpcallHandlerBase>&&);
+
     /**
      * Allocate space for a fixed-sized array of `Count` instances of `T`.
      * Objects in the array will be default constructed.
@@ -300,7 +363,45 @@ namespace sandbox
       return ptr;
     }
 
+    /**
+     * Copy a string out of the sandbox.  It's easy to introduce TOCTOU bugs
+     * when you use C strings that are stored in untrusted memory, this
+     * provides an easy way of defensively copying them out.
+     */
+    unique_c_ptr<char> strdup_out(const char* str)
+    {
+      if (!contains(str, 1))
+      {
+        return nullptr;
+      }
+      auto maxlen = static_cast<char*>(memory_provider.top_address()) - str;
+      auto len = strnlen(str, maxlen);
+      if (len == static_cast<size_t>(maxlen))
+      {
+        return nullptr;
+      }
+      unique_c_ptr<char> ptr;
+      ptr.reset(static_cast<char*>(malloc(len + 1)));
+      memcpy(ptr.get(), str, len);
+      ptr.get()[len] = '\0';
+      return ptr;
+    }
+
+    /**
+     * Predicate to test whether an object of size `sz` starting at `ptr`
+     * is within this sandbox.
+     */
+    bool contains(const void* ptr, size_t sz)
+    {
+      return memory_provider.contains(ptr, sz);
+    }
+
   private:
+    /**
+     * Is this the first time that we've invoked a sandbox?  If so, we will
+     * need to wait for it to be ready before we invoke it.
+     */
+    bool is_first_call = true;
     /**
      * SandboxedFunction is allowed to call the following methods in this class.
      */
@@ -327,313 +428,20 @@ namespace sandbox
   };
 
   /**
-   * The argument frame for a sandboxed function.  This contains space for the
-   * return value and the arguments.
-   */
-  template<typename Ret, typename... Args>
-  struct argframe
-  {
-    /**
-     * The return value of this function.  If the return value is void, uses
-     * char as an unused placeholder.
-     */
-    std::conditional_t<std::is_void_v<Ret>, char, Ret> ret;
-    /**
-     * The arguments to the function.
-     */
-    std::tuple<std::remove_reference_t<Args>...> args;
-    // FIXME: This strips references, so we copy arguments, but should probably
-    // turn references into pointers.
-  };
-
-  /**
-   * A wrapper for invoking a function exported from a sandbox.
-   */
-  template<typename Ret, typename... Args>
-  class SandboxedFunction
-  {
-    /**
-     * When constructed with the public constructor, this function uses the
-     * private constructor to create a sandboxed function that calls into the
-     * child to confirm type signature agreement.  All instances of this
-     * template must therefore be allowed to call the private constructor, so
-     * are all friends.
-     */
-    template<typename R, typename... A>
-    friend class SandboxedFunction;
-    /**
-     * The library that exports the function around which this is a wrapper.
-     */
-    SandboxedLibrary& lib;
-    /**
-     * The correct argument frame type for this specific instantiation.
-     */
-    using argframe = argframe<Ret, Args...>;
-    /**
-     * The index of this function in the library's vtable.
-     */
-    int vtable_index;
-    /**
-     * Designated constructor.  The public constructor both delegates to this
-     * and calls it when construction a new temporary sandboxed function to
-     * perform type checking.
-     */
-    SandboxedFunction(SandboxedLibrary& l, int idx) : lib(l), vtable_index(idx)
-    {}
-
-  public:
-    /**
-     * Public constructor.  Called with a sandboxed library as an argument and
-     * registers itself as the function in the next vtable slot.  Instances of
-     * this class should be created as fields of a structure representing an
-     * interface to a sandboxed library, where each exported function field is
-     * declared in the same order that it is exported from the library.
-     */
-    SandboxedFunction(SandboxedLibrary& l)
-    : SandboxedFunction(l, l.next_vtable_entry())
-    {
-#ifndef NDEBUG
-      SandboxedFunction<char*, int> get_type(l, 0);
-      char* exported = get_type(vtable_index);
-      Ret (*fn)(Args...);
-      if ((exported == nullptr) || (strcmp(exported, typeid(fn).name()) != 0))
-      {
-        exit(EXIT_FAILURE);
-      }
-      free(exported);
-#endif
-    }
-    /**
-     * call operator.  Passes the arguments into the sandbox, signals it to
-     * invoke the method, and waits for the return value to be propagated.
-     */
-    Ret operator()(Args... args)
-    {
-      argframe* callframe = lib.alloc<argframe>();
-      callframe->args = std::forward_as_tuple(args...);
-      lib.send(vtable_index, callframe);
-      if constexpr (!std::is_void_v<Ret>)
-      {
-        Ret r = callframe->ret;
-        lib.free(callframe);
-        return r;
-      }
-      else
-      {
-        lib.free(callframe);
-      }
-    }
-  };
-
-  /**
-   * Interface for a function exported from a sandbox.  This is used to provide
-   * a single set of virtual functions that can invoke all of the specialised
-   * versions defined in the templated subclass.
-   */
-  struct SandboxExportedFunctionBase
-  {
-    /**
-     * Call the function.  The `callframe` parameter is a pointer to an
-     * `argframe<Ret, Args...>` corresponding to the return and argument types
-     * of the function.
-     */
-    virtual void operator()(void* callframe) = 0;
-    /**
-     * Virtual destructor.  This class and its subclasses have trivial
-     * destructors, so this is completely unnecessary, but this silences some
-     * compiler warnings.
-     */
-    virtual ~SandboxExportedFunctionBase() {}
-    /**
-     * Return the type encoding string of the function.  This is used to detect
-     * type mismatches between exported and imported functions.
-     */
-    virtual char* type_encoding() = 0;
-  };
-
-  /**
-   * Concrete implementation of an exported function.  This template generates
-   * the trampoline required to call a function with the specified signature.
-   */
-  template<typename Ret, typename... Args>
-  class SandboxExportedFunction : public SandboxExportedFunctionBase
-  {
-    /**
-     * The type of the structure containing the arguments and the return
-     * value for this function.
-     */
-    using argframe = argframe<Ret, Args...>;
-    /**
-     * A pointer to the function that will be called by this class.
-     */
-    Ret (*function)(Args...);
-    /**
-     * The type encoding string for this function.
-     */
-    char* type_encoding() override
-    {
-      return strdup(typeid(function).name());
-    }
-    /**
-     * Call the function and, if it returns a non-void type, store the result
-     * into the frame.
-     */
-    void operator()(void* callframe) override
-    {
-      assert(callframe != nullptr);
-      auto frame = (static_cast<argframe*>(callframe));
-      if constexpr (!std::is_void_v<Ret>)
-      {
-        frame->ret = std::apply(function, frame->args);
-      }
-      else
-      {
-        std::apply(function, frame->args);
-      }
-    }
-
-  public:
-    /**
-     * Construct a new sandbox-exported function.  This should be called only by
-     * the `export_function` in `ExportedLibrary`, but that calls it indirectly
-     * and so we can't sensibly do this via a friend definition.
-     */
-    SandboxExportedFunction(Ret (*fn)(Args...)) : function(fn) {}
-  };
-
-  /**
-   * Class wrapping a set of functions that are exported from a library.  This
-   * class should never be instantiated directly.  A library that is intended
-   * to be used in a sandboxed context should implement a function with the
-   * following name and signature:
+   * Function to invoke a callback from within a sandbox.  This takes the
+   * number of the callback, which must be a number previously returned from
+   * `register_callback` on the `SandboxedLibrary` that encapsulates the
+   * sandbox from which this is being called.
    *
-   * ```
-   * extern "C" void sandbox_init(sandbox::ExportedLibrary* library);
-   * ```
+   * The next two arguments specify the data and size.  The size must be
+   * non-zero, even if the callback does not need any state.  The `data`
+   * argument will be copied to the heap if it is not already there.
    *
-   * The sandbox runner process will call this function, providing it with a
-   * pointer to an instance of this class, during setup.
+   * If the `fd` argument is not negative, the file descriptor will also be
+   * passed along with the upcall.  There is not currently a mechanism for
+   * passing more than one file descriptor to a callback though this would be
+   * easy to add if required.
    */
-  class ExportedLibrary
-  {
-    /**
-     * Class that implements the runloop behaviour for this class and manages
-     * the shared memory.
-     */
-    friend class ExportedLibraryPrivate;
-    /**
-     * The vtable for this library: map from integers to functions that can be
-     * invoked.
-     */
-    std::vector<std::unique_ptr<SandboxExportedFunctionBase>> functions;
+  int invoke_user_callback(int idx, void* data, size_t size, int fd = -1);
 
-  public:
-    /**
-     * Returns the type encoding string (in a C++ ABI-specific format) of the
-     * function at the specified vtable index.
-     */
-    char* type_encoding(int idx);
-    /**
-     * Export a function to consumers of this sandboxed library.  The function
-     * is inserted in the next vtable entry so the order of calls to this
-     * method from inside the sandbox must match the order of
-     * `SandboxedFunction` objects created for a `SandboxedLibrary` that
-     * corresponds to the outside of this sandbox.
-     */
-    template<typename Ret, typename... Args>
-    void export_function(Ret (*fn)(Args...))
-    {
-      functions.emplace_back(new SandboxExportedFunction(fn));
-    }
-  };
-
-  /**
-   * Helpers that assist with type deduction for `SandboxedFunction` objects.
-   *
-   * Nothing in this namespace should be used outside of this library.
-   */
-  namespace internal
-  {
-    /**
-     * Template that deduces the return type and argument types for a function
-     * `signature<void(int, float)>::return_type` is `void` and
-     * `signature<void(int, float)>::argument_type` is `std::tuple<int, float>`.
-     */
-    template<typename T>
-    struct signature;
-    /**
-     * Specialisation for when the callee is a value.
-     */
-    template<typename R, typename... Args>
-    struct signature<R(Args...)>
-    {
-      /**
-       * The return type of the function whose type is being extracted.
-       */
-      using return_type = R;
-      /**
-       * A tuple type containing all of the argument types of the function
-       * whose type is being extracted.
-       */
-      using argument_type = std::tuple<Args...>;
-    };
-    /**
-     * Specification for when the callee is a reference.
-     */
-    template<typename R, typename... Args>
-    struct signature<R (&)(Args...)>
-    {
-      /**
-       * The return type of the function whose type is being extracted.
-       */
-      using return_type = R;
-      /**
-       * A tuple type containing all of the argument types of the function
-       * whose type is being extracted.
-       */
-      using argument_type = std::tuple<Args...>;
-    };
-
-    /**
-     * Given the types deduced by `signature`, construct the type of a
-     * `SandboxedFunction` that corresponds to the type of the original
-     * function.
-     */
-    template<typename Ret, typename T>
-    struct extract_args;
-    /**
-     * Explicit specialisation.  This is the only version that actually exists,
-     * but C++17 doesn't let us declare the generic version with these
-     * constraints.
-     */
-    template<typename Ret, typename... T>
-    struct extract_args<Ret, std::tuple<T...>>
-    {
-      /**
-       * The wrapper function type for the exported function type provided by
-       * the template arguments.
-       */
-      using wrapper = SandboxedFunction<Ret, T...>;
-    };
-  }
-
-  /**
-   * Construct a sandboxed function proxy that corresponds to the type
-   * signature of the function given in the template parameter.
-   *
-   * Note that this intentionally does not take the function as an argument.
-   * The code outside the sandbox does not need to be linked to the library
-   * that implements the function (and, ideally, won't be!).  As such, this
-   * function can't ever depend on a concrete definition of the function
-   * existing, but can depend on its type signature.  This is intended to be
-   * used with `decltype(someFunction)` as an explicit template argument.
-   */
-  template<typename Fn>
-  inline auto make_sandboxed_function(SandboxedLibrary& l)
-  {
-    using sig = internal::signature<Fn>;
-    return typename internal::extract_args<
-      typename sig::return_type,
-      typename sig::argument_type>::wrapper{l};
-  }
 }

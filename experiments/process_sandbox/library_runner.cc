@@ -1,120 +1,49 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-#include <assert.h>
+#include "child_malloc.h"
+#include "helpers.h"
+#include "host_service_calls.h"
+#include "platform/platform.h"
+#include "privilege_elevation_upcalls.h"
+#include "sandbox.hh"
+#include "shared.h"
+#include "shared_memory_region.h"
+
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <stdint.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef USE_CAPSICUM
-#  include <sys/capsicum.h>
-#endif
-#include <aal/aal.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <ucontext.h>
 #include <unistd.h>
+
+#ifndef MAP_FIXED_NOREPLACE
+#  ifdef MAP_EXCL
+#    define MAP_FIXED_NOREPLACE MAP_FIXED | MAP_EXCL
+#  else
+#    define MAP_FIXED_NOREPLACE MAP_FIXED
+#  endif
+#endif
 
 using address_t = snmalloc::Aal::address_t;
 
-namespace snmalloc
-{
-  template<typename T>
-  struct SuperslabMap;
-  class Superslab;
-  class Mediumslab;
-}
-
-namespace sandbox
-{
-  /**
-   * The proxy pagemap.  In the sandboxed process, there are two parts of the
-   * pagemap.  The process maintains a private pagemap for process-local
-   * memory, the parent process maintains a fragment of this pagemap
-   * corresponding to the shared memory region.
-   *
-   * This class is responsible for managing the composition of the two page
-   * maps.  All queries are local but updates must be forwarded to either the
-   * parent process or the private pagemap.
-   */
-  struct ProxyPageMap
-  {
-    /**
-     * Singleton instance of this class.
-     */
-    static ProxyPageMap p;
-    /**
-     * Accessor, returns the singleton instance of this class.
-     */
-    static ProxyPageMap& pagemap()
-    {
-      return p;
-    }
-    /**
-     * Helper function used by the set methods that are part of the page map
-     * interface.  If the address (`p`) is not in the shared region then this
-     * delegates to the default page map.  Otherwise, this writes the required
-     * change as a message to the parent process and spins waiting for the
-     * parent to make the required update.
-     */
-    void set(uintptr_t p, uint8_t x, uint8_t big);
-    /**
-     * Get the pagemap entry for a specific address. This queries the default
-     * pagemap.
-     */
-    static uint8_t get(address_t p);
-    /**
-     * Get the pagemap entry for a specific address. This queries the default
-     * pagemap.
-     */
-    static uint8_t get(void* p);
-    /**
-     * Type-safe interface for setting that a particular memory region contains
-     * a superslab. This calls `set`.
-     */
-    void set_slab(snmalloc::Superslab* slab);
-    /**
-     * Type-safe interface for notifying that a region no longer contains a
-     * superslab.  Calls `set`.
-     */
-    void clear_slab(snmalloc::Superslab* slab);
-    /**
-     * Type-safe interface for notifying that a region no longer contains a
-     * medium slab.  Calls `set`.
-     */
-    void clear_slab(snmalloc::Mediumslab* slab);
-    /**
-     * Type-safe interface for setting that a particular memory region contains
-     * a medium slab. This calls `set`.
-     */
-    void set_slab(snmalloc::Mediumslab* slab);
-    /**
-     * Type-safe interface for setting the pagemap values for a region to
-     * indicate a large allocation.
-     */
-    void set_large_size(void* p, size_t size);
-    /**
-     * The inverse operation of `set_large_size`, updates a range to indicate
-     * that it is not in use.
-     */
-    void clear_large_size(void* p, size_t size);
-  };
-}
-sandbox::ProxyPageMap sandbox::ProxyPageMap::p;
-
-#define SNMALLOC_DEFAULT_CHUNKMAP sandbox::ProxyPageMap
-#define SNMALLOC_USE_THREAD_CLEANUP 1
-#include "libsandbox.cc"
-#include "override/malloc.cc"
-#include "shared.h"
-
-using namespace snmalloc;
-using namespace sandbox;
-
+// A few small platform-specific tweaks that aren't yet worth adding to the
+// platform abstraction layer.
+#ifdef __FreeBSD__
+// On FreeBSD, libc interposes on some system calls and does so in a way that
+// causes them to segfault if they are invoked before libc is fully
+// initialised.  We must instead call the raw system call versions.
+extern "C" ssize_t __sys_write(int fd, const void* buf, size_t nbytes);
+extern "C" ssize_t __sys_read(int fd, void* buf, size_t nbytes);
+#  define write __sys_write
+#  define read __sys_read
+#elif defined(__linux__)
 namespace
 {
-#ifdef __linux__
   /**
    * Linux run-time linkers do not currently support fdlopen, but it can be
    * emulated with a wrapper that relies on procfs.  Each fd open in a
@@ -143,20 +72,39 @@ namespace
   {
     return (dlfunc_t)dlsym(handle, symbol);
   }
+}
 #endif
 
+extern "C"
+{
   /**
-   * The file descriptor that will be used to communicate with the pagemap.
-   * This is set to a constant after the proxy pagemap is safe to use, the
-   * initial -1 value ensures that we don't try to use it before the memory
-   * manager is set up.
+   * The `environ` symbol is exported by libc, but not exposed in any header.
+   *  We need to access this directly during bootstrap, when the libc functions
+   *  that access it may not yet be ready.
    */
-  int pagemap_socket = -1;
+  extern char** environ;
+}
+
+sandbox::ProxyPageMap sandbox::ProxyPageMap::p;
+
+using namespace snmalloc;
+using namespace sandbox;
+
+namespace
+{
+  /**
+   * Flag indicating that bootstrapping has finished.  Note that we cannot
+   * create any threads until after malloc is set up and so this does not need
+   * to be atomic: It is never modified after the second thread is created.
+   */
+  bool done_bootstrapping = false;
 
   /**
-   * A pointer to the object that manages the vtable exported by this library.
+   * Bootstrap function.  Map the shared memory region and configure everything
+   * needed for malloc.
    */
-  ExportedLibrary* library;
+  SNMALLOC_SLOW_PATH
+  void bootstrap();
 
   /**
    * The start of the shared memory region.  Passed as a command-line argument.
@@ -169,41 +117,73 @@ namespace
   void* shared_memory_end = 0;
 
   /**
-   * The exported function that returns the type encoding of an exported
-   * function.  This is used by the library caller for type checking.
+   * Pointer to the shared memory region.  This will be equal to
+   * `shared_memory_start` and is simply a convenience to have a pointer of the
+   * correct type.
    */
-  char* exported_types(int idx)
+  SharedMemoryRegion* shared = nullptr;
+
+  /**
+   * Synchronous RPC call to the parent environment.  This sends a message to
+   * the parent and waits for a response.  These calls should never return an
+   * error and so this aborts the process if they do.
+   *
+   * This function is called during early bootstrapping and so cannot use any
+   * libc features that either depend on library initialisation or which
+   * allocate memory.
+   */
+  uintptr_t
+  requestHostService(HostServiceCallID id, uintptr_t arg0, uintptr_t arg1 = 0)
   {
-    return library->type_encoding(idx);
+    static std::atomic_flag lock;
+    FlagLock g(lock);
+    HostServiceRequest req{id, arg0, arg1};
+    auto written_bytes = write(PageMapUpdates, &req, sizeof(req));
+    SANDBOX_INVARIANT(
+      written_bytes == sizeof(req),
+      "Wrote {} bytes, expected {}",
+      written_bytes,
+      sizeof(req));
+    HostServiceResponse response;
+    auto read_bytes = read(PageMapUpdates, &response, sizeof(response));
+    SANDBOX_INVARIANT(
+      read_bytes == sizeof(response),
+      "Read {} bytes, expected {}",
+      read_bytes,
+      sizeof(response));
+
+    if (response.error)
+    {
+      DefaultPal::error("Host returned an error.");
+    }
+    return response.ret;
   }
+}
+
+MemoryProviderProxy* MemoryProviderProxy::make() noexcept
+{
+  if (unlikely(!done_bootstrapping))
+  {
+    bootstrap();
+  }
+  static MemoryProviderProxy singleton;
+  return &singleton;
 }
 
 namespace sandbox
 {
-  void ProxyPageMap::set(uintptr_t p, uint8_t x, uint8_t big = 0)
+  void ProxyPageMap::set(uintptr_t p, uint8_t x)
   {
-    if (
+    SANDBOX_DEBUG_INVARIANT(
       (p >= reinterpret_cast<uintptr_t>(shared_memory_start)) &&
-      (p < reinterpret_cast<uintptr_t>(shared_memory_end)))
-    {
-      assert(pagemap_socket > 0);
-      auto msg = static_cast<uint64_t>(p);
-      // Make sure that the low 16 bytes are clear
-      assert((msg & 0xffff) == 0);
-      msg &= ~0xffff;
-      msg |= x;
-      msg |= big << 8;
-      write(pagemap_socket, static_cast<void*>(&msg), sizeof(msg));
-      while (GlobalPagemap::pagemap().get(p) != x)
-      {
-        // write(fileno(stderr), "Child spinning\n", 15);
-        std::atomic_thread_fence(std::memory_order_seq_cst);
-      }
-    }
-    else
-    {
-      GlobalPagemap::pagemap().set(p, x);
-    }
+        (p < reinterpret_cast<uintptr_t>(shared_memory_end)),
+      "Setting metadata pointer {} in pagemap that is outside of the sandbox "
+      "range {}--{}",
+      p,
+      shared_memory_start,
+      shared_memory_end);
+    requestHostService(
+      ChunkMapSet, reinterpret_cast<uintptr_t>(p), static_cast<uintptr_t>(x));
   }
 
   uint8_t ProxyPageMap::get(address_t p)
@@ -239,184 +219,531 @@ namespace sandbox
   void ProxyPageMap::set_large_size(void* p, size_t size)
   {
     size_t size_bits = bits::next_pow2_bits(size);
-    if ((p >= shared_memory_start) && (p < shared_memory_end))
-    {
-      set(reinterpret_cast<uintptr_t>(p), (uint8_t)size_bits, 1);
-      return;
-    }
-    set(reinterpret_cast<uintptr_t>(p), size_bits);
-    // Set redirect slide
-    uintptr_t ss = (uintptr_t)((size_t)p + SUPERSLAB_SIZE);
-    for (size_t i = 0; i < size_bits - SUPERSLAB_BITS; i++)
-    {
-      size_t run = 1ULL << i;
-      GlobalPagemap::pagemap().set_range(
-        ss, (uint8_t)(64 + i + SUPERSLAB_BITS), run);
-      ss = ss + SUPERSLAB_SIZE * run;
-    }
+    SANDBOX_DEBUG_INVARIANT(
+      (p >= shared_memory_start) && (p < shared_memory_end),
+      "Setting large size for pointer {} in pagemap that is outside of the "
+      "sandbox range {}--{}",
+      p,
+      shared_memory_start,
+      shared_memory_end);
+    requestHostService(
+      ChunkMapSetRange,
+      reinterpret_cast<uintptr_t>(p),
+      static_cast<uintptr_t>(size_bits));
   }
 
   void ProxyPageMap::clear_large_size(void* p, size_t size)
   {
-    if ((p >= shared_memory_start) && (p < shared_memory_end))
-    {
-      size_t size_bits = bits::next_pow2_bits(size);
-      set(reinterpret_cast<uintptr_t>(p), (uint8_t)size_bits, 2);
-      return;
-    }
-    auto range = (size + SUPERSLAB_SIZE - 1) >> SUPERSLAB_BITS;
-    GlobalPagemap::pagemap().set_range(
-      reinterpret_cast<uintptr_t>(p), CMNotOurs, range);
+    SANDBOX_DEBUG_INVARIANT(
+      (p >= shared_memory_start) && (p < shared_memory_end),
+      "Clearing large size for pointer {} in pagemap that is outside of the "
+      "sandbox range {}--{}",
+      p,
+      shared_memory_start,
+      shared_memory_end);
+    size_t size_bits = bits::next_pow2_bits(size);
+    requestHostService(
+      ChunkMapClearRange,
+      reinterpret_cast<uintptr_t>(p),
+      static_cast<uintptr_t>(size_bits));
   }
 
-  /**
-   * The class that represents the internal side of an exported library.  This
-   * manages a run loop that waits for calls, invokes them, and returns the
-   * result.
-   */
-  class ExportedLibraryPrivate
+  void* MemoryProviderProxy::pop_large_stack(size_t large_class)
   {
-    friend class ExportedLibrary;
-#ifdef __unix__
-    /**
-     * The type used for handles to operating system resources.  On POSIX
-     * systems, file descriptors are `int`s (and everything is a file).
-     */
-    using handle_t = int;
-#endif
+    return reinterpret_cast<void*>(requestHostService(
+      MemoryProviderPopLargeStack, static_cast<uintptr_t>(large_class)));
+  }
 
-    /**
-     * The socket that should be used for passing new file descriptors into
-     * this process.
-     *
-     * Not implemented yet.
-     */
-    __attribute__((unused)) handle_t socket_fd;
+  void
+  MemoryProviderProxy::push_large_stack(Largeslab* slab, size_t large_class)
+  {
+    requestHostService(
+      MemoryProviderPushLargeStack,
+      reinterpret_cast<uintptr_t>(slab),
+      static_cast<uintptr_t>(large_class));
+  }
 
-    /**
-     * The shared memory region owned by this sandboxed library.
-     */
-    struct SharedMemoryRegion* shared_mem;
+  void* MemoryProviderProxy::reserve_committed_size(size_t size) noexcept
+  {
+    size_t size_bits = snmalloc::bits::next_pow2_bits(size);
+    size_t large_class = std::max(size_bits, SUPERSLAB_BITS) - SUPERSLAB_BITS;
+    return reserve_committed(large_class);
+  }
+  void* MemoryProviderProxy::reserve_committed(size_t large_class) noexcept
+  {
+    return reinterpret_cast<void*>(requestHostService(
+      MemoryProviderReserve, static_cast<uintptr_t>(large_class)));
+  }
 
-  public:
-    /**
-     * Constructor.  Takes the socket over which this process should receive
-     * additional file descriptors and the shared memory region.
-     */
-    ExportedLibraryPrivate(handle_t sock, SharedMemoryRegion* region)
-    : socket_fd(sock), shared_mem(region)
-    {}
+}
 
-    /**
-     * The run loop.  Takes the public interface of this library (effectively,
-     * the library's vtable) as an argument.
-     */
-    void runloop(ExportedLibrary* library)
+namespace
+{
+  /**
+   * The function from the loaded library that provides the vtable dispatch
+   * for functions that we invoke.
+   */
+  void (*sandbox_invoke)(int, void*);
+
+  /**
+   * The run loop.  Takes the public interface of this library (effectively,
+   * the library's vtable) as an argument.  Exits when the upcall depth changes
+   * after executing the helper function.  This provides a nested runloop
+   * abstraction similar to OpenStep's modal runloop. Each recursion depth in
+   * an upcall has its own runloop that handles recursive invocations from the
+   * parent in response to the upcall.
+   */
+  void runloop(int upcall_depth = 0)
+  {
+    int new_depth;
+    do
     {
-      while (1)
+      do
       {
-        shared_mem->wait(true);
-        if (shared_mem->should_exit)
+        if (shared->should_exit)
         {
           exit(0);
         }
-        assert(shared_mem->is_child_executing);
-        try
-        {
-          (*library->functions[shared_mem->function_index])(
-            shared_mem->msg_buffer);
-        }
-        catch (...)
-        {
-          // FIXME: Report error in some useful way.
-          printf("Exception!\n");
-        }
-        shared_mem->signal(false);
+      } while (!shared->token.child.wait(INT_MAX));
+      SANDBOX_DEBUG_INVARIANT(
+        shared->token.is_child_executing,
+        "Child is executing when the parent thinks is is not");
+      int idx = shared->function_index;
+      void* buf = shared->msg_buffer;
+      shared->msg_buffer = nullptr;
+      try
+      {
+        if ((buf != nullptr) && (sandbox_invoke != nullptr))
+          sandbox_invoke(idx, buf);
+      }
+      catch (...)
+      {
+        // FIXME: Report error in some useful way.
+        printf("Exception!\n");
+      }
+      new_depth = shared->token.upcall_depth;
+      // Wake up the parent if it's expecting a wakeup for this upcall depth.
+      // The `upcall` function has a wake but not a wait because it is using
+      // the `wait` in this function, we need to ensure that we don't unbalance
+      // the wakes and waits.
+      if (new_depth == upcall_depth)
+      {
+        shared->token.is_child_executing = false;
+        shared->token.parent.wake();
+      }
+    } while (new_depth == upcall_depth);
+  }
+
+  SNMALLOC_SLOW_PATH
+  void bootstrap()
+  {
+    void* addr = nullptr;
+    size_t length = 0;
+    // Find the correct environment variables.  Note that libc is not fully
+    // initialised when this is called and so we have to be very careful about
+    // the libc function that we call.  We use the `environ` variable directly,
+    // rather than `getenv`, which may allocate memory.
+    //
+    // The parent process provides the shared memory object in the file
+    // descriptor with the number given by `SharedMemRegion` and the location
+    // where it should be mapped in an environment variable.  The child has to
+    // map this as the first step in bootstrapping (before most of libc
+    // initialises itself) to get a working heap.
+    for (char** e = environ; *e != nullptr; e++)
+    {
+      char* ev = *e;
+      const char ev_name[] = "SANDBOX_LOCATION=";
+      const size_t name_length = sizeof(ev_name) - 1;
+      if (strncmp(ev_name, ev, name_length) == 0)
+      {
+        ev += name_length;
+        char* end;
+        addr = reinterpret_cast<void*>(strtoull(ev, &end, 16));
+        SANDBOX_INVARIANT(
+          end[0] == ':',
+          "Expected ':' separator in environment variable, got '{}'",
+          end[0]);
+        length = strtoull(end + 1, nullptr, 16);
+        break;
       }
     }
-  };
-}
+    // Abort if we weren't able to find the correct lengths.
+    if ((addr == nullptr) || (length == 0))
+    {
+      DefaultPal::error("Unable to find memory location");
+    }
 
-char* ExportedLibrary::type_encoding(int idx)
-{
-  return functions.at(idx)->type_encoding();
-}
+    // fprintf(stderr, "Child starting\n");
+    // printf(
+    //"Child trying to map fd %d at addr %p (0x%zx)\n", SharedMemRegion, addr,
+    // length);
+    void* ptr = mmap(
+      addr,
+      length,
+      PROT_READ | PROT_WRITE,
+      MAP_FIXED_NOREPLACE | MAP_SHARED | platform::detail::map_nocore,
+      SharedMemRegion,
+      0);
 
-int main(int, char** argv)
-{
-#ifdef USE_CAPSICUM
-  cap_enter();
-#endif
-  void* addr = (void*)strtoull(argv[1], nullptr, 0);
-  size_t length = strtoull(argv[2], nullptr, 0);
-  // fprintf(stderr, "Child starting\n");
-  // printf(
-  //"Child trying to map fd %d at addr %p (0x%zx)\n", SharedMemRegion, addr,
-  // length);
-  void* ptr = mmap(
-    addr,
-    length,
-    PROT_READ | PROT_WRITE,
-    MAP_FIXED | MAP_ALIGNED(35) | MAP_SHARED | MAP_NOCORE,
-    SharedMemRegion,
-    0);
-  // printf("%p\n", ptr);
-  if (ptr == MAP_FAILED)
-  {
-    err(1, "Mapping shared heap failed");
+    // printf("%p\n", ptr);
+    if (ptr == MAP_FAILED)
+    {
+      err(1, "Mapping shared heap failed");
+    }
+
+    shared = reinterpret_cast<SharedMemoryRegion*>(ptr);
+    // Splice the pagemap page inherited from the parent into the pagemap.
+    void* pagemap_chunk = GlobalPagemap::pagemap().page_for_address(
+      reinterpret_cast<uintptr_t>(ptr));
+    munmap(pagemap_chunk, 4096);
+    void* shared_pagemap = mmap(
+      pagemap_chunk, 4096, PROT_READ, MAP_SHARED | MAP_FIXED, PageMapPage, 0);
+    if (shared_pagemap == MAP_FAILED)
+    {
+      err(1, "Mapping shared pagemap page failed");
+    }
+    shared_memory_start = shared->start;
+    shared_memory_end = shared->end;
+    SANDBOX_INVARIANT(
+      shared_pagemap == pagemap_chunk,
+      "Mapping pagmemap chunk failed.  Expected {}, got {}",
+      pagemap_chunk,
+      shared_pagemap);
+    (void)shared_pagemap;
+
+    done_bootstrapping = true;
   }
+
+  using sandbox::platform::Handle;
+  using Socket = sandbox::platform::SocketPair::Socket;
+
+  /**
+   * The socket that is used for upcalls to the parent process.
+   */
+  Socket upcallSocket;
+
+  /**
+   * Perform an upcall.  This takes the kind of upcall, the data to be sent,
+   * and the file descriptor to send as arguments.  The file descriptor may be
+   * -1, in which case the it is not sent.
+   *
+   *  The return value is the integer result of the upcall and a `Handle` that
+   *  is either invalid or the returned file descriptor.
+   *
+   *  This function should not be called directly, it should be invoked via the
+   *  wrapper.
+   */
+  std::pair<uintptr_t, Handle>
+  upcall(sandbox::UpcallKind k, void* buffer, size_t size, int fd)
+  {
+    Handle out_fd(fd);
+    UpcallRequest req{k, size, reinterpret_cast<uintptr_t>(buffer)};
+    upcallSocket.send(&req, sizeof(req), out_fd);
+    out_fd.take();
+    int depth = ++shared->token.upcall_depth;
+    (void)depth;
+    shared->token.is_child_executing = false;
+    shared->token.parent.wake();
+    runloop(depth);
+    Handle in_fd;
+    UpcallResponse response;
+    upcallSocket.receive(&response, sizeof(response), in_fd);
+    return {response.response, std::move(in_fd)};
+  }
+
+  /**
+   * Perform an upcall, of the specified kind, passing `data`.  The `data`
+   * argument must point to the shared heap.
+   *
+   * If the optional `fd` parameter is passed, then this file descriptor
+   * accompanies the upcall.  This is used for calls such as `openat`.
+   */
+  template<typename T>
+  std::pair<uintptr_t, Handle>
+  upcall(sandbox::UpcallKind k, T* data, int fd = -1)
+  {
+    return upcall(k, data, sizeof(T), fd);
+  }
+
+  /**
+   * Emulate the `stat` system call by performing an upcall to the parent.
+   */
+  int upcall_stat(const char* pathname, struct stat* statbuf)
+  {
+    auto args = std::make_unique<sandbox::UpcallArgs::Stat>();
+    unique_c_ptr<char> copy;
+    if ((pathname < shared_memory_start) || (pathname >= shared_memory_end))
+    {
+      copy.reset(strdup(pathname));
+      pathname = copy.get();
+    }
+    args->path = reinterpret_cast<uintptr_t>(pathname);
+    args->statbuf = reinterpret_cast<uintptr_t>(statbuf);
+    auto ret = upcall(sandbox::UpcallKind::Stat, args.get());
+    return static_cast<int>(ret.first);
+  }
+
+  /**
+   * Emulate the `open` system call by performing an upcall to the parent.
+   */
+  int upcall_open(const char* pathname, int flags, mode_t mode)
+  {
+    auto args = std::make_unique<sandbox::UpcallArgs::Open>();
+    unique_c_ptr<char> copy;
+    if ((pathname < shared_memory_start) || (pathname >= shared_memory_end))
+    {
+      copy.reset(strdup(pathname));
+      pathname = copy.get();
+    }
+    args->path = reinterpret_cast<uintptr_t>(pathname);
+    args->flags = flags;
+    args->mode = mode;
+    auto ret = upcall(sandbox::UpcallKind::Open, args.get());
+    int result = static_cast<int>(ret.first);
+    if (ret.second.is_valid())
+    {
+      result = ret.second.take();
+    }
+    return result;
+  }
+
+  /**
+   * The upcall functions use the Linux convention for system call returns:
+   * non-negative numbers indicate success, negative numbers indicate valuesw
+   * that should be stored in `errno`.  The `syscall_return` function unwraps
+   * this into the return value from the POSIX function, setting `errno` if
+   * appropriate.
+   */
+  int syscall_return(int x)
+  {
+    if (x < 0)
+    {
+      errno = -x;
+      return -1;
+    }
+    return x;
+  }
+
+  /**
+   * Emulate the `openat` system call by performing an upcall to the parent.
+   */
+  int upcall_openat(int dirfd, const char* pathname, int flags, mode_t mode)
+  {
+    (void)dirfd;
+#ifdef __linux__
+    // Special case for Linux's /proc/{pid}/fd filesystem.  This is necessary
+    // for fdlopen on Linux.
+    char buf[128];
+    pid_t pid = getpid();
+    sprintf(buf, "/proc/%d/fd/%%d", (int)pid);
+    int fd = -1;
+    if (sscanf(pathname, buf, &fd) == 1)
+    {
+      return dup(fd);
+    }
+#endif
+    if (pathname == nullptr)
+    {
+      return -EINVAL;
+    }
+    if (pathname[0] == '/')
+    {
+      return upcall_open(pathname, flags, mode);
+    }
+    // TODO: Perform an upcall for the openat emulation.
+    return -EINVAL;
+  }
+
+  using SyscallFrame = sandbox::platform::SyscallFrame;
+
+  /**
+   * Helper template that extracts arguments from a system call register dump
+   * passed into a signal handler.  This can then be passed to `std::apply` to
+   * pass the arguments to a function.
+   */
+  template<typename Tuple, int Arg = std::tuple_size_v<Tuple> - 1>
+  __attribute__((always_inline)) void extract_args(Tuple& args, SyscallFrame& c)
+  {
+    get<Arg>(args) = c.get_arg<
+      Arg,
+      std::tuple_element_t<Arg, std::remove_reference_t<Tuple>>>();
+    if constexpr (Arg > 0)
+    {
+      extract_args<Tuple, Arg - 1>(args, c);
+    }
+  }
+
+  /**
+   * Signal handler function.  For system calls that are emulated after a trap,
+   * this extracts the arguments from the trap frame, calls the correct upcall
+   * function, and then injects the return address into the syscall frame.
+   */
+  void emulate(int, siginfo_t* info, ucontext_t* ctx)
+  {
+    SyscallFrame c(*info, *ctx);
+    if (c.is_sandbox_policy_violation())
+    {
+      int syscall = c.get_syscall_number();
+      auto call = [&](auto&& fn) {
+        typename sandbox::internal::signature<decltype(fn)>::argument_type args;
+        extract_args(args, c);
+        return std::apply(fn, args);
+      };
+      auto syscall_upcall = [&](int number, auto&& fn) {
+        if ((number != -1) && (number == syscall))
+        {
+          uintptr_t result = call(fn);
+          if (result < 0)
+          {
+            c.set_error_return(-result);
+          }
+          else
+          {
+            c.set_success_return(result);
+          }
+          return;
+        }
+      };
+      syscall_upcall(SyscallFrame::Open, upcall_open);
+      syscall_upcall(SyscallFrame::OpenAt, upcall_openat);
+      syscall_upcall(SyscallFrame::Stat, upcall_stat);
+    }
+  }
+
+}
+
+/**
+ * POSIX `open` function, performs an upcall to the host rather than a system
+ * call.
+ */
+extern "C" int open(const char* pathname, int flags, ...)
+{
+  mode_t mode = 0;
+  if ((flags & O_CREAT) == O_CREAT)
+  {
+    va_list ap;
+    va_start(ap, flags);
+    mode = va_arg(ap, int);
+    va_end(ap);
+  }
+  return syscall_return(upcall_open(pathname, flags, mode));
+}
+
+#ifndef USE_CAPSICUM
+/**
+ * POSIX `openat` function, performs an upcall to the host rather than a system
+ * call.  In a Capsicum world, this is safe to allow the untrusted process to
+ * do directly, so we don't bother interposing here.
+ *
+ * TODO: We should still interpose on this with Capsicum to handle things like
+ * `openat(-100, "some/path", O_WHATEVER)`
+ */
+extern "C" int openat(int dirfd, const char* pathname, int flags, ...)
+{
+  va_list ap;
+  va_start(ap, flags);
+  mode_t mode = va_arg(ap, int);
+  va_end(ap);
+  int ret = upcall_openat(dirfd, pathname, flags, mode);
+  if (ret < 0)
+  {
+    errno = -ret;
+    return -1;
+  }
+  return ret;
+}
+#endif
+
+/**
+ * Exported function to allow the loaded code to invoke a callback to the
+ * parent.
+ */
+int sandbox::invoke_user_callback(int idx, void* data, size_t size, int fd)
+{
+  unique_c_ptr<void> copy;
+  if (
+    (data < shared_memory_start) ||
+    ((static_cast<char*>(data) + size) >= shared_memory_end))
+  {
+    copy.reset(malloc(size));
+    memcpy(copy.get(), data, size);
+    data = copy.get();
+  }
+  auto ret = upcall(static_cast<sandbox::UpcallKind>(idx), data, size, fd);
+  int result = static_cast<int>(ret.first);
+  if (ret.second.is_valid())
+  {
+    result = ret.second.take();
+  }
+  return result;
+}
+
+int main()
+{
+  sandbox::platform::Sandbox::apply_sandboxing_policy_postexec();
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(sa));
+  sa.sa_flags = SA_SIGINFO;
+  sa.sa_sigaction = (void (*)(int, siginfo_t*, void*))emulate;
+  sigaction(SyscallFrame::syscall_signal, &sa, nullptr);
   // Close the shared memory region file descriptor before we call untrusted
   // code.
   close(SharedMemRegion);
-
-  auto shared = reinterpret_cast<SharedMemoryRegion*>(ptr);
-  // Splice the pagemap page inherited from the parent into the pagemap.
-  void* pagemap_chunk =
-    GlobalPagemap::pagemap().page_for_address(reinterpret_cast<uintptr_t>(ptr));
-  munmap(pagemap_chunk, 4096);
-  void* shared_pagemap = mmap(
-    pagemap_chunk, 4096, PROT_READ, MAP_SHARED | MAP_FIXED, PageMapPage, 0);
-  if (shared_pagemap == MAP_FAILED)
-  {
-    err(1, "Mapping shared pagemap page failed");
-  }
-  SharedMemoryProvider* global_virtual = &shared->memory_provider;
-  shared_memory_start =
-    reinterpret_cast<void*>(global_virtual->shared_heap_range_start.load());
-  shared_memory_end =
-    reinterpret_cast<void*>(global_virtual->shared_heap_range_end);
-  assert(shared_pagemap == pagemap_chunk);
-  (void)shared_pagemap;
   close(PageMapPage);
-  pagemap_socket = PageMapUpdates;
+  upcallSocket.reset(FDSocket);
 
-  // Replace the current thread allocator with a new one in the shared region.
-  // After this point, all new memory allocations are shared with the parent.
-  current_alloc_pool() =
-    snmalloc::make_alloc_pool<GlobalVirtual, Alloc>(*global_virtual);
-  ThreadAlloc::get_reference() = current_alloc_pool()->acquire();
+#ifndef NDEBUG
+  // Check that our bootstrapping actually did the right thing and that
+  // allocated objects are in the shared region.
+  auto check_is_in_shared_range = [](void* ptr) {
+    SANDBOX_DEBUG_INVARIANT(
+      (ptr >= shared_memory_start) && (ptr < shared_memory_end),
+      "Pointer {} is out of the sandbox range {}--{}",
+      ptr,
+      shared_memory_start,
+      shared_memory_end);
+  };
+  check_is_in_shared_range(current_alloc_pool());
+  check_is_in_shared_range(ThreadAlloc::get_reference());
+  void* obj = malloc(42);
+  check_is_in_shared_range(obj);
+  free(obj);
+  fprintf(stderr, "Sandbox: %p--%p\n", shared_memory_start, shared_memory_end);
+#endif
 
-  void* handle = fdlopen(MainLibrary, RTLD_GLOBAL);
+  // Load the library using the file descriptor that the parent opened.  This
+  // allows a Capsicum sandbox to prevent any access to the global namespace.
+  // It is hopefully possible to implement something similar with seccomp-bpf,
+  // though this may require calling into the parent to request additional file
+  // descriptors and proxying all open / openat calls.
+  void* handle = fdlopen(MainLibrary, RTLD_GLOBAL | RTLD_LAZY);
   if (handle == nullptr)
   {
     fprintf(stderr, "dlopen failed: %s\n", dlerror());
     return 1;
   }
-  void (*sandbox_init)(ExportedLibrary*) =
-    reinterpret_cast<void (*)(ExportedLibrary*)>(
-      dlfunc(handle, "sandbox_init"));
+
+  // Find the library initialisation function.  This function will generate the
+  // vtable.
+  auto sandbox_init =
+    reinterpret_cast<void (*)()>(dlfunc(handle, "sandbox_init"));
   if (sandbox_init == nullptr)
   {
     fprintf(stderr, "dlfunc failed: %s\n", dlerror());
     return 1;
   }
-  ExportedLibraryPrivate* libPrivate;
-  libPrivate = new ExportedLibraryPrivate(FDSocket, shared);
-  library = new ExportedLibrary();
-  library->export_function(exported_types);
-  sandbox_init(library);
+  // Set up the sandbox
+  sandbox_init();
+  sandbox_invoke =
+    reinterpret_cast<decltype(sandbox_invoke)>(dlfunc(handle, "sandbox_call"));
+  SANDBOX_INVARIANT(
+    sandbox_invoke, "Sandbox invoke invoke function not found {}", dlerror());
 
-  libPrivate->runloop(library);
+  shared->token.is_child_executing = false;
+  shared->token.is_child_loaded = true;
+
+  // Enter the run loop, waiting for calls from trusted code.
+  runloop();
 
   return 0;
 }
