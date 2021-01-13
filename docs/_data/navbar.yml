@@ -8,3 +8,5 @@
   file: /building.html
 - name: Debug
   file: /debugging.html
+- name: People
+  file: /people.html

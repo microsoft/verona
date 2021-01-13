@@ -49,6 +49,13 @@ div.blognav a
 	width: 50%;
 	float: left;
 	margin: 1em 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+div.blognav a:hover
+{
+	overflow: visible;
 }
 
 div.blognav a.next
@@ -56,4 +63,82 @@ div.blognav a.next
 	float: right;
 	text-align: right;
 }
+div.blognav a.prev::before
+{
+	content: "\00AB ";
+}
+div.blognav a.next::after
+{
+	content: " \00BB";
+}
 
+div.person
+{
+	display: inline-block;
+	margin-left: 2em;
+	margin-right: 2em;
+}
+
+div.person img.face
+{
+	max-width: 120px;
+	max-height: 100%;
+	overflow: hidden;
+	border-radius: 50%;
+	box-shadow: 5px 5px 8px #888;
+}
+div.person span.no-face
+{
+	width: 120px;
+	height: 120px;
+	display: block;
+	font-size: 72px;
+	text-align: center;
+	max-width: 120px;
+	max-height: 100%;
+	overflow: hidden;
+	border-radius: 50%;
+	color: black;
+	box-shadow: 5px 5px 8px #888;
+}
+div.person span.no-face:hover
+{
+	box-shadow: 10px 10px 8px #888;
+}
+div.person img.face:hover
+{
+	box-shadow: 10px 10px 8px #888;
+}
+div.person a.person-name
+{
+	display: block;
+	text-align: center;
+}
+
+h1.blog
+{
+	margin-bottom: 0px;
+}
+p.author
+{
+	margin-top: 0px;
+	text-align: right;
+	width: 100%;
+}
+p.author::before
+{
+	content: 'by ';
+	font-style: italic;
+}
+p.author span.author::after
+{
+	content: ', ';
+}
+p.author span.author:last-child::after
+{
+	content: '';
+}
+p.author span.author:last-child::before
+{
+	content: 'and ';
+}
