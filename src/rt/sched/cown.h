@@ -815,6 +815,8 @@ namespace verona::rt
         if (prev == state)
           return prev;
 
+        // When testing spurious failure, simulated by the `coin` returning
+        // false, the exchange must not occur.
       } while (coin(9) ||
                !bp_state.compare_exchange_weak(
                  bp, blocker | state, std::memory_order_acq_rel));
