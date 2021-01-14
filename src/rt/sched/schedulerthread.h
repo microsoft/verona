@@ -6,9 +6,9 @@
 #include "ds/hashmap.h"
 #include "ds/mpscq.h"
 #include "object/object.h"
+#include "priority.h"
 #include "schedulerstats.h"
 #include "spmcq.h"
-#include "status.h"
 #include "threadpool.h"
 
 #include <snmalloc.h>
@@ -290,11 +290,11 @@ namespace verona::rt
               Systematic::cout()
                 << "Mute map remove cown " << it.key() << std::endl;
               it.key()->backpressure_transition(Priority::Normal);
-              T::release(alloc, it.key());
 
               if (!force && !scan_again)
                 scan_again = (mute_map.find(it.key()) != mute_map.end());
 
+              T::release(alloc, it.key());
               mute_set.erase(it);
             }
             m->weak_release(alloc);
@@ -458,7 +458,6 @@ namespace verona::rt
         }
         else
         {
-          Systematic::cout() << "Unschedule cown " << cown << std::endl;
           // Don't reschedule.
           cown = nullptr;
         }

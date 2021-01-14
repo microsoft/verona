@@ -8,8 +8,8 @@
 #include "../test/systematic.h"
 #include "base_noticeboard.h"
 #include "multimessage.h"
+#include "priority.h"
 #include "schedulerthread.h"
-#include "status.h"
 
 namespace verona::rt
 {
@@ -22,6 +22,20 @@ namespace verona::rt
   {
 #ifdef USE_SYSTEMATIC_TESTING
     Scheduler::yield_my_turn();
+#endif
+  }
+
+  /**
+   * Return output of `Systematic::coin` when systematic testing is enabled;
+   * always return false otherwise.
+   **/
+  static bool coin(size_t range_bits = 1)
+  {
+#ifdef USE_SYSTEMATIC_TESTING
+    return Systematic::coin(range_bits);
+#else
+    UNUSED(range_bits);
+    return false;
 #endif
   }
 
@@ -113,8 +127,8 @@ namespace verona::rt
      **/
     std::atomic<size_t> weak_count = 1;
 
-    std::atomic<Status> status{};
     std::atomic<uintptr_t> bp_state{(Cown*)nullptr | Priority::Normal};
+    bool has_token = false; // TODO: pack into bp_state
 
     static Cown* create_token_cown()
     {
@@ -181,61 +195,6 @@ namespace verona::rt
     }
 
 #endif
-
-    /**
-     * This method implements sending a Message to a Cown. Returns true if the
-     * Cown was asleep and needs scheduling; returns false otherwise.
-     *
-     * Pass `transfer = YesTransfer` as a template argument if the caller is
-     * transfering ownership of a reference count on the cown.
-     *
-     * By default, the template parameter `try_fast` is NoTryFast, which means
-     * this method will schedule the Cown if it was asleep. In an optimized
-     * multi-message send, we want to avoid scheduling, because we want to
-     * immediately acquire the cown without going through the scheduler queue.
-     * In this case, pass `try_fast = YesTryFast` as the second template
-     * argument.
-     **/
-    template<
-      TransferOwnership transfer = NoTransfer,
-      TryFastSend try_fast = NoTryFast>
-    bool send(MultiMessage* m)
-    {
-#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
-      flush_all(ThreadAlloc::get());
-
-      Scheduler::yield_my_turn();
-#endif
-
-      bool needs_scheduling = queue.enqueue(m);
-
-      yield();
-
-      if (needs_scheduling)
-      {
-        if constexpr (transfer == NoTransfer)
-        {
-          // The scheduler thread needs to take a reference count on the Cown
-          // The sending Cown must have had a reference count for this Cown
-          // already
-          Cown::acquire(this);
-        }
-
-        if constexpr (try_fast == NoTryFast)
-        {
-          // The cown's queue was previously empty, schedule it, but only if
-          // this is not an optimized multi-message send.
-          schedule();
-        }
-      }
-      else if constexpr (transfer == YesTransfer)
-      {
-        // Maybe the last rc.
-        Cown::release(ThreadAlloc::get(), this);
-      }
-
-      return needs_scheduling;
-    }
 
     void reschedule()
     {
@@ -549,31 +508,19 @@ namespace verona::rt
           // Double check the priority of the most recently acquired cown to
           // prevent deadlock.
           auto* cur = body->cowns[body->index - 1];
-          high_priority = high_priority ||
-            (cur->priority() & PriorityMask::High)
-#ifdef USE_SYSTEMATIC_TESTING
-            || Systematic::coin(3)
-#endif
-            ;
+          high_priority =
+            high_priority || (cur->priority() & PriorityMask::High) || coin(3);
           yield();
           if (!high_priority)
             high_priority = cur->set_blocker(next);
         }
 
-        // Send the message to the next cown. Return false if the fast send has
-        // been interrupted (the cown is already scheduled).
-        auto try_fast_send = [next, m]() -> bool {
-          bool needs_scheduling = next->send<YesTransfer, YesTryFast>(m);
-          if (!needs_scheduling)
-            Systematic::cout()
-              << "MultiMessage " << m << ": fast send interrupted" << std::endl;
-
-          return needs_scheduling;
-        };
+        if (next->overloaded() || coin(3))
+          high_priority = true;
 
         if (!high_priority)
         {
-          if (!try_fast_send())
+          if (!next->try_fast_send(m))
             return;
         }
         else
@@ -581,7 +528,7 @@ namespace verona::rt
           // Hold epoch in case priority needs to be raised after message is
           // placed in queue.
           Epoch e(alloc);
-          if (!try_fast_send())
+          if (!next->try_fast_send(m))
           {
             backpressure_unblock(next, e);
             return;
@@ -610,6 +557,32 @@ namespace verona::rt
         assert(m == m2);
         UNUSED(m2);
       }
+    }
+
+    /**
+     * This method implements an optimized multi-message send to a cown. A
+     * sleeping cown will not be reschdeuled because we want to immediately
+     * acquire the cown without going through the scheduler queue. Returns true
+     * if the cown was asleep and needs scheduling; returns false otherwise.
+     **/
+    bool try_fast_send(MultiMessage* m)
+    {
+#ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
+      flush_all(ThreadAlloc::get());
+      yield();
+#endif
+      bool needs_scheduling = queue.enqueue(m);
+      yield();
+      if (needs_scheduling)
+      {
+        Cown::acquire(this);
+      }
+      else
+      {
+        Systematic::cout() << "MultiMessage " << m << ": fast send interrupted"
+                           << std::endl;
+      }
+      return needs_scheduling;
     }
 
     /**
@@ -735,6 +708,9 @@ namespace verona::rt
       // Run the behaviour.
       body.behaviour->f();
 
+      for (size_t i = 0; i < body.count; i++)
+        Cown::release(alloc, body.cowns[i]);
+
       Systematic::cout() << "MultiMessage " << m << " completed and running on "
                          << cown << std::endl;
 
@@ -839,12 +815,11 @@ namespace verona::rt
         if (prev == state)
           return prev;
 
-      } while (
-#ifdef USE_SYSTEMATIC_TESTING
-        Systematic::coin(9) ||
-#endif
-        !bp_state.compare_exchange_weak(
-          bp, blocker | state, std::memory_order_acq_rel));
+        // When testing spurious failure, simulated by the `coin` returning
+        // false, the exchange must not occur.
+      } while (coin(9) ||
+               !bp_state.compare_exchange_weak(
+                 bp, blocker | state, std::memory_order_acq_rel));
 
       Systematic::cout() << "Cown " << this << ": backpressure state " << prev
                          << " -> " << state << std::endl;
@@ -938,12 +913,7 @@ namespace verona::rt
       for (size_t r = 0; r < receivers.count; r++)
       {
         auto* receiver = receivers.cowns[r];
-        if (
-          receiver->triggers_muting()
-#ifdef USE_SYSTEMATIC_TESTING
-          || Systematic::coin(5)
-#endif
-        )
+        if (receiver->triggers_muting() || coin(5))
         {
           assert(Scheduler::local()->mutor == nullptr);
           Scheduler::local()->mutor = receiver;
@@ -953,24 +923,34 @@ namespace verona::rt
       }
     }
 
-    /// Update backpressure status based on the occurrence of a token message.
-    /// Return true if the current message is a token.
+    /// Return true if this cown's message queue is growing faster than the
+    /// messages are being processed. This is based on an approximation for the
+    /// length of this cown's message queue.
+    inline bool overloaded() const
+    {
+      static constexpr size_t overload_rc = 800;
+      const auto rc = get_header().rc.load(std::memory_order_relaxed);
+      assert(rc != 0);
+      yield();
+      return rc >= overload_rc;
+    }
+
+    /// Update priority based on the occurrence of a token message, or replace
+    /// the token if it is not in the queue. Return true if the current message
+    /// is a token.
     inline bool check_message_token(Alloc* alloc, MessageBody* curr)
     {
-      auto stat = status.load(std::memory_order_acquire);
-      yield();
       if (curr == nullptr)
       {
         Systematic::cout() << "Reached message token on cown " << this
                            << std::endl;
-        assert(stat.has_token());
-        stat.set_has_token(false);
-        status.store(stat, std::memory_order_release);
+        assert(has_token);
+        has_token = false;
+        if (overloaded())
+          return true;
 
         auto p = priority();
-        if (stat.overloaded())
-          backpressure_unblock(this);
-        else if (p == Priority::High)
+        if (p == Priority::High)
           backpressure_transition(Priority::MaybeHigh);
         else if (p == Priority::MaybeHigh)
           backpressure_transition(Priority::Normal);
@@ -978,29 +958,13 @@ namespace verona::rt
         return true;
       }
 
-      if (
-        (!stat.has_token() && (curr->index == 0)) ||
-        (stat.current_load() == 0xff))
-      {
-        stat.reset_load();
-      }
-      if (!stat.has_token())
+      if (!has_token)
       {
         Systematic::cout() << "Cown " << this << ": enqueue message token"
                            << std::endl;
         queue.enqueue(stub_msg(alloc));
+        has_token = true;
       }
-      stat.inc_load();
-      stat.set_has_token(true);
-
-#ifdef USE_SYSTEMATIC_TESTING
-      if (Systematic::coin(5))
-        stat.set_overloaded(!stat.overloaded());
-#endif
-
-      status.store(stat, std::memory_order_release);
-      if (stat.overloaded())
-        backpressure_unblock(this);
 
       return false;
     }
@@ -1038,16 +1002,9 @@ namespace verona::rt
     {
       auto until = queue.peek_back();
       yield(); // Reading global state in peek_back().
-
-      const auto stat = status.load(std::memory_order_acquire);
       assert(priority() != Priority::Low);
 
-      // The batch limit is between 100 and 251, depending on the load.
-      const auto batch_limit = (size_t)100 | ((size_t)stat.total_load() >> 3);
-
-      Systematic::cout() << "Cown " << this << " load: " << stat.total_load()
-                         << std::endl;
-
+      static constexpr size_t batch_limit = 100;
       auto notified_called = false;
       auto notify = false;
 
@@ -1113,10 +1070,7 @@ namespace verona::rt
             return true;
           }
 
-          Systematic::cout()
-            << "Cown " << this << " has no work this time" << std::endl;
-
-          // Deschedule the cown.
+          Systematic::cout() << "Unschedule cown " << this << std::endl;
           Cown::release(alloc, this);
           return false;
         }
