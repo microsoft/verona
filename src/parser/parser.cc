@@ -505,6 +505,8 @@ namespace verona::parser
       if ((r = optatom(expr->pattern)) == Skip)
         return r;
 
+      expr->location = expr->pattern->location;
+
       if (r == Error)
         error() << loc() << "Expected a case pattern" << line();
 
@@ -517,17 +519,7 @@ namespace verona::parser
         }
       }
 
-      if (has(TokenKind::FatArrow))
-      {
-        expr->location = previous.location;
-      }
-      else
-      {
-        error() << loc() << "Expected =>" << line();
-        r = Error;
-      }
-
-      if (optexpr(expr->body) != Success)
+      if (optblock(expr->body) != Success)
       {
         error() << loc() << "Expected a case expression" << line();
         r = Error;
