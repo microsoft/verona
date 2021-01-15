@@ -388,7 +388,10 @@ namespace verona::parser
     while (++i < source->contents.size())
     {
       if (source->contents[i] == '\n')
+      {
+        i++;
         break;
+      }
     }
   }
 
@@ -408,53 +411,44 @@ namespace verona::parser
     {
       auto c = source->contents[i];
 
-      switch (state)
+      switch (c)
       {
-        case State::Slash:
+        case '/':
         {
-          state = State::Other;
-
-          switch (c)
+          if (state == State::Star)
           {
-            case '*':
+            state = State::Other;
+
+            if (--depth == 0)
             {
-              depth++;
-              break;
+              i++;
+              return;
             }
           }
+          else
+          {
+            state = State::Slash;
+          }
+          break;
         }
 
-        case State::Star:
+        case '*':
         {
-          state = State::Other;
-
-          switch (c)
+          if (state == State::Slash)
           {
-            case '/':
-            {
-              if (--depth == 0)
-                return;
-              break;
-            }
+            state = State::Other;
+            depth++;
           }
+          else
+          {
+            state = State::Star;
+          }
+          break;
         }
 
-        case State::Other:
+        default:
         {
-          switch (c)
-          {
-            case '/':
-            {
-              state = State::Slash;
-              break;
-            }
-
-            case '*':
-            {
-              state = State::Star;
-              break;
-            }
-          }
+          state = State::Other;
           break;
         }
       }
@@ -473,13 +467,13 @@ namespace verona::parser
     {
       case '/':
       {
-        consume_line_comment(source, i);
+        consume_line_comment(source, ++i);
         return true;
       }
 
       case '*':
       {
-        consume_nested_comment(source, i);
+        consume_nested_comment(source, ++i);
         return true;
       }
     }

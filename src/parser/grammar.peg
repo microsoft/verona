@@ -28,7 +28,7 @@ ref <- [local] ident oftype?
 constant <- string / character / float / int / hex / binary / 'true' / 'false'
 atom <- staticref / ref / constant / new / decl / tuple
 
-case <- expr ('if' expr)? '=>' expr
+case <- atom ('if' expr)? '=>' expr
 
 for <- 'for' '(' expr 'in' expr ')' block
 while <- 'while' tuple block
