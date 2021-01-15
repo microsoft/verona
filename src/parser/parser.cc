@@ -497,16 +497,16 @@ namespace verona::parser
 
     Result matchcase(Node<Case>& expr)
     {
-      // case <- expr ('if' expr)? '=>' expr
+      // case <- atom ('if' expr)? '=>' expr
       Result r = Success;
       expr = std::make_shared<Case>();
       auto st = push(expr);
 
-      if (optexpr(expr->pattern) != Success)
-      {
+      if ((r = optatom(expr->pattern)) == Skip)
+        return r;
+
+      if (r == Error)
         error() << loc() << "Expected a case pattern" << line();
-        r = Error;
-      }
 
       if (has(TokenKind::If))
       {
@@ -560,8 +560,16 @@ namespace verona::parser
         return Error;
       }
 
-      while (true)
+      while (!has(TokenKind::RBrace))
       {
+        if (has(TokenKind::End))
+        {
+          error() << loc() << "Expected a case or } to end match cases"
+                  << line();
+          r = Error;
+          break;
+        }
+
         Node<Case> ca;
         Result r2 = matchcase(ca);
 
@@ -572,12 +580,6 @@ namespace verona::parser
 
         if (r2 == Error)
           r = Error;
-      }
-
-      if (!has(TokenKind::RBrace))
-      {
-        error() << loc() << "Expected a case or } to end match cases" << line();
-        r = Error;
       }
 
       return r;
