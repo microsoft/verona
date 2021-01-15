@@ -26,7 +26,7 @@ namespace verona::parser
     N, N, N, N, N, N, N, N, N, N, C, Z, Y, E, Y, Y,
 
     Y, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I,
-    Y, I, I, I, I, I, I, I, I, I, I, Z, Y, Z, Y, I,
+    I, I, I, I, I, I, I, I, I, I, I, Z, Y, Z, Y, I,
 
     Y, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I,
     I, I, I, I, I, I, I, I, I, I, I, Z, Y, Z, Y, X,
