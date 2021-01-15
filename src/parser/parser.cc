@@ -497,7 +497,7 @@ namespace verona::parser
 
     Result matchcase(Node<Case>& expr)
     {
-      // case <- atom ('if' expr)? '=>' expr
+      // case <- atom ('if' tuple) block
       Result r = Success;
       expr = std::make_shared<Case>();
       auto st = push(expr);
@@ -512,7 +512,7 @@ namespace verona::parser
 
       if (has(TokenKind::If))
       {
-        if (optexpr(expr->guard) != Success)
+        if (opttuple(expr->guard) != Success)
         {
           error() << loc() << "Expected a guard expression" << line();
           r = Error;
