@@ -127,7 +127,7 @@ namespace verona::rt
      **/
     std::atomic<size_t> weak_count = 1;
 
-    std::atomic<uintptr_t> bp_state{(Cown*)nullptr | Priority::Normal};
+    std::atomic<BPState> bp_state{};
     bool has_token = false; // TODO: pack into bp_state
 
     static Cown* create_token_cown()
@@ -492,7 +492,7 @@ namespace verona::rt
         // queue.
         high_priority = std::any_of(
           &body->cowns[0], &body->cowns[body->count], [](const auto* c) {
-            return (c->priority() & PriorityMask::High);
+            return c->bp_state.load(std::memory_order_acquire).high_priority();
           });
       }
 
@@ -508,8 +508,9 @@ namespace verona::rt
           // Double check the priority of the most recently acquired cown to
           // prevent deadlock.
           auto* cur = body->cowns[body->index - 1];
-          high_priority =
-            high_priority || (cur->priority() & PriorityMask::High) || coin(3);
+          high_priority = high_priority ||
+            cur->bp_state.load(std::memory_order_acquire).high_priority() ||
+            coin(3);
           yield();
           if (!high_priority)
             high_priority = cur->set_blocker(next);
@@ -800,14 +801,16 @@ namespace verona::rt
     /// `backpressure_unblock`.
     inline Priority backpressure_transition(Priority state, bool exact = false)
     {
-      uintptr_t bp = bp_state.load(std::memory_order_acquire);
+      auto bp = bp_state.load(std::memory_order_acquire);
       Cown* blocker;
       Priority prev;
+      bool token;
       do
       {
         yield();
-        blocker = (Cown*)(bp & ~(uintptr_t)PriorityMask::All);
-        prev = (Priority)(bp & (uintptr_t)PriorityMask::All);
+        blocker = bp.blocker();
+        prev = bp.priority();
+        token = bp.has_token();
 
         if ((state == Priority::Normal) && (prev != Priority::Low) && !exact)
           return prev;
@@ -817,9 +820,10 @@ namespace verona::rt
 
         // When testing spurious failure, simulated by the `coin` returning
         // false, the exchange must not occur.
-      } while (coin(9) ||
-               !bp_state.compare_exchange_weak(
-                 bp, blocker | state, std::memory_order_acq_rel));
+      } while (
+        coin(9) ||
+        !bp_state.compare_exchange_weak(
+          bp, BPState() | blocker | state | token, std::memory_order_acq_rel));
 
       Systematic::cout() << "Cown " << this << ": backpressure state " << prev
                          << " -> " << state << std::endl;
@@ -841,27 +845,12 @@ namespace verona::rt
     backpressure_unblock(Cown* cown, Epoch epoch = Epoch(ThreadAlloc::get()))
     {
       UNUSED(epoch);
-      for (; cown != nullptr; cown = cown->blocker())
+      for (; cown != nullptr;
+           cown = cown->bp_state.load(std::memory_order_acquire).blocker())
       {
         Systematic::cout() << "Unblock cown " << cown << std::endl;
         cown->backpressure_transition(Priority::High);
       }
-    }
-
-    inline Priority priority(Cown** blocker = nullptr) const
-    {
-      const auto bp = bp_state.load(std::memory_order_acquire);
-      if (blocker != nullptr)
-        *blocker = (Cown*)(bp & ~(uintptr_t)PriorityMask::All);
-
-      return (Priority)(bp & (uintptr_t)PriorityMask::All);
-    }
-
-    inline Cown* blocker() const
-    {
-      Cown* b;
-      priority(&b);
-      return b;
     }
 
     /// Attempt to set the blocker for this cown. Return true if the priority is
@@ -871,20 +860,20 @@ namespace verona::rt
     {
       auto bp = bp_state.load(std::memory_order_relaxed);
       yield();
-      auto p = (Priority)(bp & (uintptr_t)PriorityMask::All);
-      const auto success =
-        bp_state.compare_exchange_strong(bp, b | p, std::memory_order_acq_rel);
+      const auto success = bp_state.compare_exchange_strong(
+        bp,
+        BPState() | b | bp.priority() | bp.has_token(),
+        std::memory_order_acq_rel);
       yield();
-      p = (Priority)(bp & (uintptr_t)PriorityMask::All);
-      assert(success || (p & PriorityMask::High));
+      assert(success || bp.high_priority());
       UNUSED(success);
-      return (p & PriorityMask::High);
+      return bp.high_priority();
     }
 
     /// Return true if a sender to this cown should become low priority.
     inline bool triggers_muting()
     {
-      auto p = priority();
+      auto p = bp_state.load(std::memory_order_acquire).priority();
       auto sleeping = queue.is_sleeping();
       yield();
       return (p != Priority::Normal) && !sleeping;
@@ -944,15 +933,15 @@ namespace verona::rt
       {
         Systematic::cout() << "Reached message token on cown " << this
                            << std::endl;
+        const auto bp = bp_state.load(std::memory_order_acquire);
         assert(has_token);
         has_token = false;
         if (overloaded())
           return true;
 
-        auto p = priority();
-        if (p == Priority::High)
+        if (bp.priority() == Priority::High)
           backpressure_transition(Priority::MaybeHigh);
-        else if (p == Priority::MaybeHigh)
+        else if (bp.priority() == Priority::MaybeHigh)
           backpressure_transition(Priority::Normal);
 
         return true;
@@ -1002,7 +991,8 @@ namespace verona::rt
     {
       auto until = queue.peek_back();
       yield(); // Reading global state in peek_back().
-      assert(priority() != Priority::Low);
+      assert(
+        bp_state.load(std::memory_order_acquire).priority() != Priority::Low);
 
       static constexpr size_t batch_limit = 100;
       auto notified_called = false;
@@ -1132,7 +1122,8 @@ namespace verona::rt
       if (!is_collected())
       {
         yield();
-        assert(priority() != Priority::Low);
+        assert(
+          bp_state.load(std::memory_order_acquire).priority() != Priority::Low);
         Systematic::cout() << "Collecting (sweep) cown " << this << std::endl;
         collect(alloc);
       }
@@ -1231,7 +1222,8 @@ namespace verona::rt
       }
 
       yield();
-      assert(priority() != Priority::Low);
+      assert(
+        bp_state.load(std::memory_order_acquire).priority() != Priority::Low);
 
       // Now we may run our destructor.
       destructor();
