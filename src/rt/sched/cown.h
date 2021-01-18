@@ -128,7 +128,6 @@ namespace verona::rt
     std::atomic<size_t> weak_count = 1;
 
     std::atomic<BPState> bp_state{};
-    bool has_token = false; // TODO: pack into bp_state
 
     static Cown* create_token_cown()
     {
@@ -802,15 +801,11 @@ namespace verona::rt
     inline Priority backpressure_transition(Priority state, bool exact = false)
     {
       auto bp = bp_state.load(std::memory_order_acquire);
-      Cown* blocker;
       Priority prev;
-      bool token;
       do
       {
         yield();
-        blocker = bp.blocker();
         prev = bp.priority();
-        token = bp.has_token();
 
         if ((state == Priority::Normal) && (prev != Priority::Low) && !exact)
           return prev;
@@ -820,10 +815,11 @@ namespace verona::rt
 
         // When testing spurious failure, simulated by the `coin` returning
         // false, the exchange must not occur.
-      } while (
-        coin(9) ||
-        !bp_state.compare_exchange_weak(
-          bp, BPState() | blocker | state | token, std::memory_order_acq_rel));
+      } while (coin(9) ||
+               !bp_state.compare_exchange_weak(
+                 bp,
+                 BPState() | bp.blocker() | state | bp.has_token(),
+                 std::memory_order_acq_rel));
 
       Systematic::cout() << "Cown " << this << ": backpressure state " << prev
                          << " -> " << state << std::endl;
@@ -929,13 +925,25 @@ namespace verona::rt
     /// is a token.
     inline bool check_message_token(Alloc* alloc, MessageBody* curr)
     {
+      auto bp = bp_state.load(std::memory_order_acquire);
+
+      auto set_has_token = [this, &bp](bool t) mutable {
+        BPState next;
+        do
+        {
+          assert(bp.has_token() != t);
+          next = BPState() | bp.blocker() | bp.priority() | t;
+          // When testing spurious failure, simulated by the `coin` returning
+          // false, the exchange must not occur.
+        } while (
+          coin(9) ||
+          !bp_state.compare_exchange_weak(bp, next, std::memory_order_acq_rel));
+      };
+
       if (curr == nullptr)
       {
         Systematic::cout() << "Reached message token on cown " << this
                            << std::endl;
-        const auto bp = bp_state.load(std::memory_order_acquire);
-        assert(has_token);
-        has_token = false;
         if (overloaded())
           return true;
 
@@ -944,15 +952,16 @@ namespace verona::rt
         else if (bp.priority() == Priority::MaybeHigh)
           backpressure_transition(Priority::Normal);
 
+        set_has_token(false);
         return true;
       }
 
-      if (!has_token)
+      if (!bp.has_token())
       {
         Systematic::cout() << "Cown " << this << ": enqueue message token"
                            << std::endl;
         queue.enqueue(stub_msg(alloc));
-        has_token = true;
+        set_has_token(true);
       }
 
       return false;
