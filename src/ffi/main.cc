@@ -5,7 +5,7 @@
 
 using namespace verona::ffi::compiler;
 
-int main(void)
+int main(int argc, char **argv)
 {
   using CXXType = CXXInterface::CXXType;
 
@@ -29,7 +29,17 @@ int main(void)
   };
   // FIXME: Verona compiler should be able to find the path and pass include
   // paths to this interface.
-  CXXInterface interface("/usr/local/llvm80/include/llvm/IR/IRBuilder.h");
+  std::string file;
+  if (argc > 1 && argv[1] != 0)
+  {
+    file = argv[1];
+  }
+  else
+  {
+    puts("Syntax: verona-ffi <cxx-filename>");
+    exit(1);
+  }
+  CXXInterface interface(file);
 
   test(interface, "llvm::Value");
   test(interface, "llvm::Type::TypeID");
