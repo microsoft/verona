@@ -3,5 +3,5 @@
 
 #include "compiler.h"
 
-namespace verona::ffi::compiler {
-} // namespace verona::ffi::compiler
+namespace verona::ffi::compiler
+{} // namespace verona::ffi::compiler
