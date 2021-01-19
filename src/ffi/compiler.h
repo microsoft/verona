@@ -122,7 +122,8 @@ namespace
     }
   };
 }
-namespace verona::ffi::compiler {
+namespace verona::ffi::compiler
+{
   class CXXInterface
   {
     // FIXME: delete public
@@ -194,8 +195,8 @@ namespace verona::ffi::compiler {
     std::unique_ptr<llvm::MemoryBuffer> pchBuffer;
     struct CompilerState
     {
-      std::shared_ptr<Preprocessor> Preprocessor;
-      std::unique_ptr<HeaderSearch> HeaderSearch;
+      std::shared_ptr<Preprocessor> PreprocessorPtr;
+      std::unique_ptr<HeaderSearch> HeaderSearchPtr;
       std::unique_ptr<CompilerInstance> Clang;
     };
     std::unique_ptr<CompilerState> queryCompilerState;
@@ -230,22 +231,22 @@ namespace verona::ffi::compiler {
       State->Clang->setDiagnostics(Diags);
       auto PPOpts = std::make_shared<PreprocessorOptions>();
       TrivialModuleLoader TML;
-      State->HeaderSearch = std::make_unique<HeaderSearch>(
+      State->HeaderSearchPtr = std::make_unique<HeaderSearch>(
         std::make_shared<HeaderSearchOptions>(),
         *sourceMgr,
         *Diags,
         State->Clang->getLangOpts(),
         nullptr);
-      State->Preprocessor = std::make_shared<Preprocessor>(
+      State->PreprocessorPtr = std::make_shared<Preprocessor>(
         PPOpts,
         *Diags,
         State->Clang->getLangOpts(),
         *sourceMgr,
-        *State->HeaderSearch,
+        *State->HeaderSearchPtr,
         TML,
         nullptr,
         false);
-      State->Clang->setPreprocessor(State->Preprocessor);
+      State->Clang->setPreprocessor(State->PreprocessorPtr);
       State->Clang->getPreprocessor().enableIncrementalProcessing();
       // FIXME: Do something more sensible with the diagnostics engine so
       // that we can propagate errors to Verona
@@ -386,6 +387,7 @@ namespace verona::ffi::compiler {
           case Kind::Builtin:
             return "Builtin";
         }
+        return nullptr;
       }
 
       bool isTemplate()
@@ -542,6 +544,7 @@ namespace verona::ffi::compiler {
         case CXXType::Kind::Builtin:
           return clang::TemplateArgument{typeForBuiltin(t.builtTypeKind)};
       }
+      return nullptr;
     }
 
     clang::TemplateArgument createTemplateArgumentForIntegerValue(
@@ -647,6 +650,9 @@ namespace verona::ffi::compiler {
         case CXXType::BuiltinTypeKinds::ULongLong:
           return ast->UnsignedLongLongTy;
       }
+      // TODO: This is wrong but silences a warning, need to know what's the
+      // correct behaviour here.
+      return ast->VoidTy;
     }
   };
 } // namespace verona::ffi::compiler
