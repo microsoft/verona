@@ -149,6 +149,34 @@ namespace verona::ffi::compiler
     // std::unique_ptr<CompilerInstance> Clang =
     // std::make_unique<CompilerInstance>();
 
+    /// Simple wrapper for calling clang with arguments on different files.
+    class ClangArgs
+    {
+      std::vector<const char*> args;
+      size_t file_pos;
+
+    public:
+      ClangArgs(SourceLanguage sourceLang = CXX)
+      {
+        const char* langName = source_language_string(sourceLang);
+        // FIXME: Don't hard code include paths!
+        args = {"clang",
+                "-x",
+                langName,
+                "-I",
+                "/usr/include/",
+                "-I",
+                "/usr/local/include/",
+                ""};
+        file_pos = args.size() - 1;
+      }
+      llvm::ArrayRef<const char*> getArgs(const char* filename)
+      {
+        args[file_pos] = filename;
+        return args;
+      }
+    };
+
     static constexpr const char* cu_name = "verona_interface.cc";
 
     struct ASTConsumerFactory
@@ -270,24 +298,15 @@ namespace verona::ffi::compiler
     CXXInterface(std::string headerFile, SourceLanguage sourceLang = CXX)
     : sourceFile(headerFile), factory(this)
     {
-      const char* langName = source_language_string(sourceLang);
-      // FIXME: Don't hard code include paths!
-      const char* pchArgs[] = {"clang",
-                               "-x",
-                               langName,
-                               "-I",
-                               "/usr/local/llvm80/include/",
-                               headerFile.c_str()};
+      ClangArgs args(sourceLang);
 
-      fprintf(stderr, "Computing precompiled preamble\n");
+      fprintf(stderr, "\nParsing preamble\n");
       {
-        auto t = TimeReport("Building PCH");
-        pchBuffer = generatePCH(headerFile, pchArgs);
+        auto t = TimeReport("Computing precompiled headers");
+        pchBuffer = generatePCH(headerFile, args.getArgs(headerFile.c_str()));
       }
 
-      fprintf(stderr, "Parsing fake CU\n");
-      const char* args[] = {
-        "clang", "-x", langName, "-I", "/usr/local/llvm80/include/", cu_name};
+      fprintf(stderr, "\nParsing fake CU\n");
       std::string Code = "#include \"" + headerFile +
         "\"\n"
         "namespace verona { namespace __ffi_internal { \n"
@@ -301,9 +320,10 @@ namespace verona::ffi::compiler
       inMemoryVFS->addFile(
         headerFile + ".gch", time(nullptr), std::move(pchDataRef));
 
-      queryCompilerState = createClangInstance(args, VFS);
+      queryCompilerState = createClangInstance(args.getArgs(cu_name), VFS);
       auto collectAST = tooling::newFrontendActionFactory(&factory)->create();
-      fprintf(stderr, "Parsing stub (no AST: %p)\n", ast);
+
+      fprintf(stderr, "\nParsing stub (no AST: %p)\n", ast);
       {
         auto t = TimeReport("Reconstructing AST");
         queryCompilerState->Clang->ExecuteAction(*collectAST);
@@ -313,7 +333,8 @@ namespace verona::ffi::compiler
       queryCompilerState->Clang->setASTConsumer(factory.newASTConsumer());
       queryCompilerState->Clang->setASTContext(ast);
       queryCompilerState->Clang->createSema(TU_Complete, nullptr);
-      fprintf(stderr, "AST: %p\n", ast);
+
+      fprintf(stderr, "\nAST: %p\n\n", ast);
     }
 
     std::unique_ptr<llvm::LLVMContext> llvmContext{new llvm::LLVMContext};
