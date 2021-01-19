@@ -300,13 +300,16 @@ namespace verona::ffi::compiler
     {
       ClangArgs args(sourceLang);
 
-      fprintf(stderr, "\nParsing preamble\n");
+      // Pre-compiles the file requested by the user
+      fprintf(stderr, "\nParsing file\n");
       {
         auto t = TimeReport("Computing precompiled headers");
         pchBuffer = generatePCH(headerFile, args.getArgs(headerFile.c_str()));
       }
 
-      fprintf(stderr, "\nParsing fake CU\n");
+      // Creating a fake compile unit to include the target file
+      // in an in-memory file system.
+      fprintf(stderr, "\nCreating in-memory file system\n");
       std::string Code = "#include \"" + headerFile +
         "\"\n"
         "namespace verona { namespace __ffi_internal { \n"
@@ -315,19 +318,24 @@ namespace verona::ffi::compiler
       auto PCHBuf = llvm::MemoryBuffer::getMemBufferCopy(Code);
       auto [VFS, inMemoryVFS] = createOverlayFilesystem(std::move(Buf));
 
+      // Adding the pre-compiler header file to the file system.
       auto pchDataRef = llvm::MemoryBuffer::getMemBuffer(
         llvm::MemoryBufferRef{*pchBuffer}, false);
       inMemoryVFS->addFile(
         headerFile + ".gch", time(nullptr), std::move(pchDataRef));
 
-      queryCompilerState = createClangInstance(args.getArgs(cu_name), VFS);
+      // Parse the fake compile unit with the user file included inside.
+      fprintf(stderr, "\nParsing wrapping unit\n");
+      {
+        auto t = TimeReport("Creating clang instance");
+        queryCompilerState = createClangInstance(args.getArgs(cu_name), VFS);
+      }
       auto collectAST = tooling::newFrontendActionFactory(&factory)->create();
-
-      fprintf(stderr, "\nParsing stub (no AST: %p)\n", ast);
       {
         auto t = TimeReport("Reconstructing AST");
         queryCompilerState->Clang->ExecuteAction(*collectAST);
       }
+
       // Executing the action consumes the AST.  Reset the compiler instance to
       // refer to the AST that it just parsed and create a Sema instance.
       queryCompilerState->Clang->setASTConsumer(factory.newASTConsumer());
