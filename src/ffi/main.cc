@@ -9,7 +9,7 @@ using CXXType = CXXInterface::CXXType;
 /// Looks up a symbol from a CXX interface by name
 void test(CXXInterface& interface, std::string& name)
 {
-  auto t = TimeReport(std::string("Looking up") + name);
+  auto t = TimeReport(std::string("Lookup time"));
   auto decl = interface.getType(name);
   auto* d = decl.decl;
   if (decl.kind != CXXType::Kind::Invalid)
