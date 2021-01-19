@@ -4,46 +4,67 @@
 #include "compiler.h"
 
 using namespace verona::ffi::compiler;
+using CXXType = CXXInterface::CXXType;
 
-int main(int argc, char **argv)
+/// Looks up a symbol from a CXX interface by name
+void test(CXXInterface& interface, std::string& name)
 {
-  using CXXType = CXXInterface::CXXType;
+  auto t = TimeReport(std::string("Looking up") + name);
+  auto decl = interface.getType(name);
+  auto* d = decl.decl;
+  if (decl.kind != CXXType::Kind::Invalid)
+  {
+    fprintf(
+      stderr,
+      "Found: (%p) %s : %s\n",
+      d,
+      decl.kindName(),
+      d->getName().str().c_str());
+  }
+  else
+  {
+    fprintf(stderr, "Not found: %s\n", name.c_str());
+  }
+}
 
-  auto test = [](auto& interface, const char* name) {
-    auto t = TimeReport(std::string("Looking up") + name);
-    auto decl = interface.getType(name);
-    auto* d = decl.decl;
-    if (decl.kind != CXXType::Kind::Invalid)
-    {
-      fprintf(
-        stderr,
-        "Found: (%p) %s : %s\n",
-        d,
-        decl.kindName(),
-        d->getName().str().c_str());
-    }
-    else
-    {
-      fprintf(stderr, "Not found: %s\n", name);
-    }
-  };
-  // FIXME: Verona compiler should be able to find the path and pass include
-  // paths to this interface.
+/// Simple syntax error
+void syntax_and_die()
+{
+  puts("Syntax: verona-ffi <cxx-filename> <symbol1> <symbol2> ... <symbolN>");
+  exit(1);
+}
+
+int main(int argc, char** argv)
+{
+  // For now, the command line arguments are simple, so we keep it stupid.
   std::string file;
   if (argc > 1 && argv[1] != 0)
   {
     file = argv[1];
   }
-  else
+  std::vector<std::string> symbols;
+  if (argc > 2)
   {
-    puts("Syntax: verona-ffi <cxx-filename>");
-    exit(1);
+    for (size_t i=2; i<argc; i++)
+      symbols.push_back(argv[i]);
   }
+  if (file.empty() || symbols.empty())
+  {
+    syntax_and_die();
+  }
+
+  // FIXME: Verona compiler should be able to find the path and pass include
+  // paths to this interface.
   CXXInterface interface(file);
 
-  test(interface, "llvm::Value");
-  test(interface, "llvm::Type::TypeID");
-  test(interface, "llvm::IRBuilder");
+  for (auto symbol: symbols)
+    test(interface, symbol);
+
+  exit(0);
+
+  // The remaining of this file will be slowly moved up when functionality is
+  // available for each one of them. Most of it was assuming the file in the
+  // interface was IRBuilder.h in the LLVM repo.
   auto irb = interface.getType("llvm::IRBuilder");
   auto params = dyn_cast<ClassTemplateDecl>(irb.decl)->getTemplateParameters();
   std::vector<TemplateArgument> args;
