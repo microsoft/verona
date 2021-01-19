@@ -742,23 +742,6 @@ namespace sandbox
   SandboxedLibrary::~SandboxedLibrary()
   {
     wait_for_child_exit();
-#  if 0
-    void* shared_pagemap_chunk =
-      snmalloc::global_pagemap.page_for_address(shared_mem);
-    // Reset our pagemap entries to be on-shared zeroes.  This is done before
-    // destroying the sandbox, because at this point we should not have any
-    // pointers into the shared memory region, but we can potentially assign to
-    // this pagemap region as soon as the main region is unmapped.
-    void* shared_pagemap = mmap(
-      shared_pagemap_chunk,
-      4096,
-      PROT_READ | PROT_WRITE,
-      MAP_PRIVATE | MAP_ANON | MAP_FIXED | MAP_NOCORE,
-      -1,
-      0);
-    assert(shared_pagemap != MAP_FAILED);
-    (void)shared_pagemap;
-#  endif
     shared_mem->destroy(shared_size);
     close(shm_fd);
     close(socket_fd);

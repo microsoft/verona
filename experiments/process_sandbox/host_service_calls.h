@@ -1,3 +1,6 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
 #pragma once
 /**
  * This file includes all of the types used for forwarding memory-provider
@@ -21,12 +24,17 @@ namespace sandbox
     /**
      * Push a large allocation to the stack.  The first argument is the address
      * of the slab, the second the large sizeclass.  The return value is unused.
+     *
+     * The slab must be within the shared memory region for the sandbox and so
+     * must have been previously returned with a call to either
+     * `MemoryProviderPopLargeStack` or `MemoryProviderReserve`.
      */
     MemoryProviderPushLargeStack,
     /**
      * Pop a large allocation from the stack.  The first argument is the large
-     * sizeclass, the second is unused.  The return value is the address of
-     * popped from the stack, 0 indicates that the stack was empty.
+     * sizeclass, the second is unused.  The return value is the address of the
+     * large allocation that was popped from the stack, 0 indicates that the
+     * stack was empty.
      */
     MemoryProviderPopLargeStack,
     /**

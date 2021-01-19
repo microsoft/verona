@@ -48,8 +48,9 @@ namespace sandbox
   struct MemoryProviderBumpPointerState;
 
   /**
-   * A PAL that cannot be used to allocate memory.  This is used for sandboxes,
-   * where all memory comes from a pre-defined shared region.
+   * An snmalloc Platform Abstraction Layer (PAL) that cannot be used to
+   * allocate memory.  This is used for sandboxes, where all memory comes from a
+   * pre-defined shared region.
    */
   using NoOpPal = snmalloc::PALNoAlloc<snmalloc::DefaultPal>;
   using snmalloc::pointer_offset;

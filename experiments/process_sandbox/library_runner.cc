@@ -507,6 +507,12 @@ namespace
     // initialised when this is called and so we have to be very careful about
     // the libc function that we call.  We use the `environ` variable directly,
     // rather than `getenv`, which may allocate memory.
+    //
+    // The parent process provides the shared memory object in the file
+    // descriptor with the number given by `SharedMemRegion` and the location
+    // where it should be mapped in an environment variable.  The child has to
+    // map this as the first step in bootstrapping (before most of libc
+    // initialises itself) to get a working heap.
     for (char** e = environ; *e != nullptr; e++)
     {
       char* ev = *e;
