@@ -288,8 +288,8 @@ namespace verona::ffi::compiler
       fprintf(stderr, "Parsing fake CU\n");
       const char* args[] = {
         "clang", "-x", langName, "-I", "/usr/local/llvm80/include/", cu_name};
-      std::string Code = "#include <" + headerFile +
-        ">\n"
+      std::string Code = "#include \"" + headerFile +
+        "\"\n"
         "namespace verona { namespace __ffi_internal { \n"
         "}}\n";
       auto Buf = llvm::MemoryBuffer::getMemBufferCopy(Code);
