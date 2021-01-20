@@ -1,7 +1,11 @@
 
 #define SOME_MACRO
 
+class Foo { };
+
+enum EFoo { };
+
 void foo() {
 }
 
-int GLOBAL = 0;
+int FOO = 0;
