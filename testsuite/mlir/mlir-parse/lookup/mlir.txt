@@ -1,4 +1,4 @@
-module {
+module  {
   func @test_class_mut(%arg0: !verona.meet<class<"C1", "f" : meet<class<"D1">, mut>>, mut>) -> !verona.meet<class<"D1">, mut> {
     %0 = verona.field_read %arg0["f"] : !verona.meet<class<"C1", "f" : meet<class<"D1">, mut>>, mut> -> !verona.meet<class<"D1">, mut>
     return %0 : !verona.meet<class<"D1">, mut>

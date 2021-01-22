@@ -6,7 +6,6 @@
 #include "VeronaOps.h"
 #include "VeronaTypes.h"
 #include "mlir/IR/DialectImplementation.h"
-#include "mlir/IR/StandardTypes.h"
 
 namespace mlir::verona
 {
