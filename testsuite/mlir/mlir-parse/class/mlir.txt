@@ -1,23 +1,23 @@
-module @"$module" {
-  module @C {
+module @"$module"  {
+  module @C  {
   }
-  module @D {
+  module @D  {
   }
-  module @E {
-    module @NestE {
+  module @E  {
+    module @NestE  {
     }
   }
-  module @F {
+  module @F  {
   }
-  module @G {
-    func @foo(%arg0: !verona.class<"U32">) -> !verona.class<"F32"> attributes {class = !verona.class<"G", "$parent" : class<"$module">>, qualifiers = ["static"]} {
+  module @G  {
+    func private @foo(%arg0: !verona.class<"U32">) -> !verona.class<"F32"> attributes {class = !verona.class<"G", "$parent" : class<"$module">>, qualifiers = ["static"]} {
       %0 = "verona.alloca"() : () -> !verona.class<"U32">
       %1 = "verona.store"(%arg0, %0) : (!verona.class<"U32">, !verona.class<"U32">) -> !verona.unknown
       %2 = "verona.constant(3.14)"() : () -> !verona.class<"float">
       %3 = "verona.cast"(%2) : (!verona.class<"float">) -> !verona.class<"F32">
       return %3 : !verona.class<"F32">
     }
-    func @baz(%arg0: !verona.class<"F32">) -> !verona.class<"F32"> attributes {class = !verona.class<"G", "$parent" : class<"$module">>, qualifiers = ["static"]} {
+    func private @baz(%arg0: !verona.class<"F32">) -> !verona.class<"F32"> attributes {class = !verona.class<"G", "$parent" : class<"$module">>, qualifiers = ["static"]} {
       %0 = "verona.alloca"() : () -> !verona.class<"F32">
       %1 = "verona.store"(%arg0, %0) : (!verona.class<"F32">, !verona.class<"F32">) -> !verona.unknown
       %2 = "verona.load"(%0) : (!verona.class<"F32">) -> !verona.unknown
@@ -29,9 +29,9 @@ module @"$module" {
       return %7 : !verona.class<"F32">
     }
   }
-  module @POD {
+  module @POD  {
   }
-  func @bar(%arg0: !verona.class<"C", "$parent" : class<"$module">>, %arg1: !verona.class<"D", "$parent" : class<"$module">, "f" : meet<class<"U64">, imm>, "g" : meet<class<"C", "$parent" : class<"$module">>, mut>, "h" : class<"F32">, "i" : class<"F64">, "j" : class<"bool">>, %arg2: !verona.class<"E", "$parent" : class<"$module">, "a" : class<"D", "$parent" : class<"$module">, "f" : meet<class<"U64">, imm>, "g" : meet<class<"C", "$parent" : class<"$module">>, mut>, "h" : class<"F32">, "i" : class<"F64">, "j" : class<"bool">>, "b" : class<"E">, "c" : class<"F", "$parent" : class<"$module">, "e" : class<"G", "$parent" : class<"$module">>>, "d" : class<"G", "$parent" : class<"$module">>>, %arg3: !verona.class<"NestE", "$parent" : class<"E", "$parent" : class<"$module">, "a" : class<"D", "$parent" : class<"$module">, "f" : meet<class<"U64">, imm>, "g" : meet<class<"C", "$parent" : class<"$module">>, mut>, "h" : class<"F32">, "i" : class<"F64">, "j" : class<"bool">>, "b" : class<"E">, "c" : class<"F", "$parent" : class<"$module">, "e" : class<"G", "$parent" : class<"$module">>>, "d" : class<"G", "$parent" : class<"$module">>>, "x" : class<"G", "$parent" : class<"$module">>>, %arg4: !verona.class<"F", "$parent" : class<"$module">, "e" : class<"G", "$parent" : class<"$module">>>, %arg5: !verona.class<"G", "$parent" : class<"$module">>) attributes {class = !verona.class<"$module">} {
+  func private @bar(%arg0: !verona.class<"C", "$parent" : class<"$module">>, %arg1: !verona.class<"D", "$parent" : class<"$module">, "f" : meet<class<"U64">, imm>, "g" : meet<class<"C", "$parent" : class<"$module">>, mut>, "h" : class<"F32">, "i" : class<"F64">, "j" : class<"bool">>, %arg2: !verona.class<"E", "$parent" : class<"$module">, "a" : class<"D", "$parent" : class<"$module">, "f" : meet<class<"U64">, imm>, "g" : meet<class<"C", "$parent" : class<"$module">>, mut>, "h" : class<"F32">, "i" : class<"F64">, "j" : class<"bool">>, "b" : class<"E">, "c" : class<"F", "$parent" : class<"$module">, "e" : class<"G", "$parent" : class<"$module">>>, "d" : class<"G", "$parent" : class<"$module">>>, %arg3: !verona.class<"NestE", "$parent" : class<"E", "$parent" : class<"$module">, "a" : class<"D", "$parent" : class<"$module">, "f" : meet<class<"U64">, imm>, "g" : meet<class<"C", "$parent" : class<"$module">>, mut>, "h" : class<"F32">, "i" : class<"F64">, "j" : class<"bool">>, "b" : class<"E">, "c" : class<"F", "$parent" : class<"$module">, "e" : class<"G", "$parent" : class<"$module">>>, "d" : class<"G", "$parent" : class<"$module">>>, "x" : class<"G", "$parent" : class<"$module">>>, %arg4: !verona.class<"F", "$parent" : class<"$module">, "e" : class<"G", "$parent" : class<"$module">>>, %arg5: !verona.class<"G", "$parent" : class<"$module">>) attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !verona.class<"C", "$parent" : class<"$module">>
     %1 = "verona.store"(%arg0, %0) : (!verona.class<"C", "$parent" : class<"$module">>, !verona.class<"C", "$parent" : class<"$module">>) -> !verona.unknown
     %2 = "verona.alloca"() : () -> !verona.class<"D", "$parent" : class<"$module">, "f" : meet<class<"U64">, imm>, "g" : meet<class<"C", "$parent" : class<"$module">>, mut>, "h" : class<"F32">, "i" : class<"F64">, "j" : class<"bool">>

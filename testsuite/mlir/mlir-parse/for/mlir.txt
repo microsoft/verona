@@ -1,6 +1,6 @@
-module @"$module" {
-  func @foo(!verona.class<"S32">) attributes {class = !verona.class<"$module">}
-  func @f(%arg0: !verona.class<"U64">) attributes {class = !verona.class<"$module">} {
+module @"$module"  {
+  func private @foo(!verona.class<"S32">) attributes {class = !verona.class<"$module">}
+  func private @f(%arg0: !verona.class<"U64">) attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !verona.class<"U64">
     %1 = "verona.store"(%arg0, %0) : (!verona.class<"U64">, !verona.class<"U64">) -> !verona.unknown
     %2 = "verona.constant(0)"() : () -> !verona.class<"int">
@@ -27,7 +27,7 @@ module @"$module" {
   ^bb3:  // pred: ^bb1
     return
   }
-  func @f2(%arg0: !verona.class<"U64">) attributes {class = !verona.class<"$module">} {
+  func private @f2(%arg0: !verona.class<"U64">) attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !verona.class<"U64">
     %1 = "verona.store"(%arg0, %0) : (!verona.class<"U64">, !verona.class<"U64">) -> !verona.unknown
     %2 = "verona.constant(0)"() : () -> !verona.class<"int">

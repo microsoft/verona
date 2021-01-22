@@ -1,4 +1,4 @@
-module {
+module  {
   func @test1(%arg0: !verona.meet<class<"U64">, imm>) {
     %0 = verona.copy %arg0 : !verona.meet<class<"U64">, imm> -> !verona.class<"U64">
     %1 = verona.copy %0 : !verona.class<"U64"> -> !verona.join<class<"U64">, class<"S64">>

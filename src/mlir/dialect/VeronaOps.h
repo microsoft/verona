@@ -5,7 +5,6 @@
 
 #include "dialect/TypecheckInterface.h"
 #include "mlir/IR/Dialect.h"
-#include "mlir/IR/Function.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
