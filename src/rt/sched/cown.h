@@ -110,7 +110,7 @@ namespace verona::rt
       uint64_t epoch_when_popped = NO_EPOCH_SET;
     };
 
-    // Five pointer overhead compared to an object.
+    // Seven pointer overhead compared to an object.
     verona::rt::MPSCQ<MultiMessage> queue;
 
     // Used for garbage collection of cyclic cowns only.
@@ -571,16 +571,12 @@ namespace verona::rt
       flush_all(ThreadAlloc::get());
       yield();
 #endif
+      Systematic::cout() << "Enqueue MultiMessage " << m << std::endl;
       bool needs_scheduling = queue.enqueue(m);
       yield();
       if (needs_scheduling)
       {
         Cown::acquire(this);
-      }
-      else
-      {
-        Systematic::cout() << "MultiMessage " << m << ": fast send interrupted"
-                           << std::endl;
       }
       return needs_scheduling;
     }
@@ -923,7 +919,7 @@ namespace verona::rt
     /// Update priority based on the occurrence of a token message, or replace
     /// the token if it is not in the queue. Return true if the current message
     /// is a token.
-    inline bool check_message_token(Alloc* alloc, MessageBody* curr)
+    inline bool check_token_message(Alloc* alloc, MessageBody* curr)
     {
       auto bp = bp_state.load(std::memory_order_acquire);
 
@@ -967,15 +963,104 @@ namespace verona::rt
       return false;
     }
 
+    inline bool check_unmute_message(Alloc* alloc, MessageBody* msg)
+    {
+      if (msg->behaviour != nullptr)
+        return false;
+
+      for (size_t i = 0; i < msg->count; i++)
+      {
+        auto* cown = msg->cowns[i];
+        if (cown == nullptr)
+          break;
+
+        Systematic::cout() << "Unmute cown " << cown << std::endl;
+        cown->backpressure_transition(Priority::Normal);
+        Cown::release(alloc, cown);
+      }
+
+      alloc->dealloc(msg->cowns, msg->count * sizeof(Cown*));
+      alloc->dealloc<sizeof(MessageBody)>(msg);
+
+      return true;
+    }
+
     /// Mute the senders participating in this message if a backpressure scan
     /// set the mutor during the behaviour. If false is returned, the caller
     /// must reschedule the senders and deallocate the senders array.
-    inline bool apply_backpressure(Cown** senders, size_t count)
+    inline bool apply_backpressure(
+      Alloc* alloc, EpochMark epoch, Cown** senders, size_t count)
     {
       if (Scheduler::local()->mutor == nullptr)
         return false;
 
-      Scheduler::local()->mute(senders, count);
+      auto* muting = (Cown**)alloc->alloc(count * sizeof(Cown*));
+      size_t muting_count = 0;
+
+      for (size_t i = 0; i < count; i++)
+      {
+        auto* cown = senders[i];
+        auto bp = cown->bp_state.load(std::memory_order_relaxed);
+        const bool high_priority = bp.high_priority();
+        yield();
+        assert(bp.priority() != Priority::Low);
+
+        // The cown may only be muted if its priority is normal and its epoch
+        // mark is not `SCANNED`. Muting a scanned cown may result in the leak
+        // detector collecting the cown while it is muted.
+        if (high_priority || (cown->get_epoch_mark() == EpochMark::SCANNED))
+        {
+          cown->schedule();
+          continue;
+        }
+
+        yield();
+        Cown::acquire(cown);
+
+        if (
+#ifdef USE_SYSTEMATIC_TESTING
+          Systematic::coin(9) ||
+#endif
+          !cown->bp_state.compare_exchange_weak(
+            bp,
+            BPState() | bp.blocker() | Priority::Low | bp.has_token(),
+            std::memory_order_acq_rel))
+        {
+          assert(bp.priority() != Priority::Low);
+          yield();
+          cown->schedule();
+          Cown::release(alloc, cown);
+          continue;
+        }
+
+        Systematic::cout() << "Cown " << cown << ": backpressure state "
+                           << bp.priority() << " -> Low" << std::endl;
+        assert(!high_priority);
+        muting[muting_count++] = cown;
+        Systematic::cout() << "Mute cown " << cown << std::endl;
+      }
+
+      if (muting_count > 0)
+      {
+        if (muting_count < count)
+          muting[muting_count] = nullptr;
+
+        // TODO: schedule unmute, is mutor alive?
+        auto* body = MultiMessage::make_body(alloc, count, muting, nullptr);
+        auto* msg = MultiMessage::make_message(alloc, body, epoch);
+
+        bool needs_scheduling = Scheduler::local()->mutor->try_fast_send(msg);
+        if (needs_scheduling)
+          Scheduler::local()->mutor->schedule();
+      }
+      else
+      {
+        alloc->dealloc(muting, count * sizeof(Cown*));
+      }
+
+      // TODO: reuse allocation
+      alloc->dealloc(senders, count * sizeof(Cown*));
+      Scheduler::local()->mutor->weak_release(alloc);
       Scheduler::local()->mutor = nullptr;
       return true;
     }
@@ -996,7 +1081,7 @@ namespace verona::rt
      * called, and it is guaranteed to return true, so it will be rescheduled
      * or false if it is part of a multi-message acquire.
      **/
-    bool run(Alloc* alloc, ThreadState::State, EpochMark)
+    bool run(Alloc* alloc, ThreadState::State, EpochMark epoch)
     {
       auto until = queue.peek_back();
       yield(); // Reading global state in peek_back().
@@ -1075,8 +1160,12 @@ namespace verona::rt
         }
 
         assert(!queue.is_sleeping());
+        auto* body = curr->get_body();
 
-        if (check_message_token(alloc, curr->get_body()))
+        if (check_token_message(alloc, body))
+          return true;
+
+        if (check_unmute_message(alloc, body))
           return true;
 
         batch_size++;
@@ -1084,8 +1173,8 @@ namespace verona::rt
         Systematic::cout() << "Running Message " << curr << " on cown " << this
                            << std::endl;
 
-        auto* senders = curr->get_body()->cowns;
-        const size_t senders_count = curr->get_body()->count;
+        auto* senders = body->cowns;
+        const size_t senders_count = body->count;
 
         // A function that returns false indicates that the cown should not
         // be rescheduled, even if it has pending work. This also means the
@@ -1093,7 +1182,7 @@ namespace verona::rt
         if (!run_step(curr))
           return false;
 
-        if (apply_backpressure(senders, senders_count))
+        if (apply_backpressure(alloc, epoch, senders, senders_count))
           return false;
 
         // Reschedule the other cowns.
