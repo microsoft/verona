@@ -29,6 +29,14 @@
 using namespace clang;
 namespace
 {
+  /// Reports time elapsed between creation and destruction.
+  ///
+  /// Use:
+  ///  {
+  ///    auto T = TimeReport("My action");
+  ///    ... some action ...
+  ///  }
+  ///  // Here prints "My action: 12ms" to stderr
   class TimeReport
   {
     timespec start;
@@ -68,6 +76,14 @@ namespace
 
   using namespace clang::ast_matchers;
 
+  /// Simple handler for indirect dispatch on a Clang AST matcher.
+  ///
+  /// Use:
+  ///  void myfunc(MatchFinder::MatchResult &);
+  ///  MatchFinder f;
+  ///  f.addMatcher(new HandleMatch(myfunc));
+  ///  f.matchAST(*ast);
+  ///  // If matches, runs `myfunc` on the matched AST node.
   class HandleMatch : public MatchFinder::MatchCallback
   {
     std::function<void(const MatchFinder::MatchResult& Result)> handler;
@@ -86,24 +102,38 @@ namespace
     {}
   };
 
+  /// Pre-compiled header action, to create the PCH consumers for PCH generation
   struct GenerateMemoryPCHAction : GeneratePCHAction
   {
-    llvm::SmallVectorImpl<char>& vec;
-    GenerateMemoryPCHAction(llvm::SmallVectorImpl<char>& vec) : vec(vec) {}
+    /// Actual buffer for the PCH, owned externally
+    llvm::SmallVectorImpl<char>& outBuffer;
+    /// C-tor
+    GenerateMemoryPCHAction(llvm::SmallVectorImpl<char>& outBuffer)
+    : outBuffer(outBuffer)
+    {}
+    /// Adds PCH generator, called by Clang->ExecuteAction
     std::unique_ptr<ASTConsumer>
     CreateASTConsumer(CompilerInstance& CI, StringRef InFile)
     {
+      // Check arguments (CI must exist and be initialised)
       std::string Sysroot;
       if (!ComputeASTConsumerArguments(CI, /*ref*/ Sysroot))
       {
         return nullptr;
       }
-
-      std::string OutputFile;
-      auto OS = std::make_unique<llvm::raw_svector_ostream>(vec);
       const auto& FrontendOpts = CI.getFrontendOpts();
+
+      // Empty filename as we're not reading from disk
+      std::string OutputFile;
+      // Connect the output stream
+      auto OS = std::make_unique<llvm::raw_svector_ostream>(outBuffer);
+      // create a buffer
       auto Buffer = std::make_shared<PCHBuffer>();
+
+      // MultiplexConsumer needs a list of consumers
       std::vector<std::unique_ptr<ASTConsumer>> Consumers;
+
+      // PCH generator
       Consumers.push_back(std::make_unique<PCHGenerator>(
         CI.getPreprocessor(),
         CI.getModuleCache(),
@@ -114,6 +144,8 @@ namespace
         false /* Allow errors */,
         FrontendOpts.IncludeTimestamps,
         +CI.getLangOpts().CacheGeneratedPCH));
+
+      // PCH container
       Consumers.push_back(
         CI.getPCHContainerWriter().CreatePCHContainerGenerator(
           CI, InFile.str(), OutputFile, std::move(OS), Buffer));
@@ -124,14 +156,32 @@ namespace
 }
 namespace verona::ffi::compiler
 {
+  /**
+   * C++ Clang Interface.
+   *
+   * This is the main class for the Clang driver. It collects the needs for
+   * reading a source/header file and parsing its AST into a usable format, so
+   * that we can use match handlers to find the elements we need from it.
+   *
+   * There are two main stages:
+   *  1. Initialisation: reads the file, parses and generates the pre-compiled
+   *     header info, including all necessary headers and files.
+   *  2. Query: using match handlers, searches the AST for specific constructs
+   *     such as class types, function names, etc.
+   *
+   */
   class CXXInterface
   {
     // FIXME: delete public
   public:
+    /// Source file name (can be a header, too)
     std::string sourceFile;
+    /// The AST root
     clang::ASTContext* ast = nullptr;
+    /// Pre-compiled header
     llvm::Optional<clang::PrecompiledPreamble> preamble;
 
+    /// Source languages Clang supports
     enum SourceLanguage
     {
       C,
@@ -140,6 +190,7 @@ namespace verona::ffi::compiler
       ObjCXX,
       SOURCE_LANGAUGE_ENUM_SIZE
     };
+    /// Converts SourceLanguage into string
     static const char* source_language_string(SourceLanguage sl)
     {
       static std::array<const char*, SOURCE_LANGAUGE_ENUM_SIZE> names = {
@@ -152,59 +203,88 @@ namespace verona::ffi::compiler
     /// Simple wrapper for calling clang with arguments on different files.
     class ClangArgs
     {
+      /// All arguments, including empty last one that is replaced evey call
       std::vector<const char*> args;
+      /// Position of last argument (filename)
       size_t file_pos;
 
     public:
+      /// C-tor, initialises default arguments + file pos
       ClangArgs(SourceLanguage sourceLang = CXX)
       {
         const char* langName = source_language_string(sourceLang);
         // FIXME: Don't hard code include paths!
-        args = {"clang",
-                "-x",
-                langName,
-                "-I",
-                "/usr/include/",
-                "-I",
-                "/usr/local/include/",
-                ""};
+        args = {
+          "clang",
+          "-x",
+          langName,
+          "-I",
+          "/usr/include/",
+          "-I",
+          "/usr/local/include/",
+          ""};
         file_pos = args.size() - 1;
+        fprintf(stderr, "Clang args created\n");
       }
+      /// Returns the array with the filename as the last arg
       llvm::ArrayRef<const char*> getArgs(const char* filename)
       {
+        fprintf(stderr, "Clang called for %s\n", filename);
         args[file_pos] = filename;
         return args;
       }
     };
 
+    /// Name of the internal compilation unit that includes the filename
     static constexpr const char* cu_name = "verona_interface.cc";
 
+    /**
+     * Creates new AST consumers to add the AST back into the interface.
+     *
+     * Each traversal consumes the AST, so we need this to add them back
+     * for the next operation on the same AST. This is the way to expose
+     * the interface pointer so that we can update it again when needed.
+     *
+     * Use:
+     *  CompilerInstance->setASTConsumer(factory.newASTConsumer());
+     *  CompilerInstance->setASTContext(ast);
+     */
     struct ASTConsumerFactory
     {
-      CXXInterface* consumer;
+      /// CXX interface
+      CXXInterface* interface;
+      /// Actual consumer that will be executed.
       struct Collector : public clang::ASTConsumer
       {
-        CXXInterface* consumer;
-        Collector(CXXInterface* c) : consumer(c) {}
+        /// CXX interface
+        CXXInterface* interface;
+        /// Collector C-tor
+        Collector(CXXInterface* i) : interface(i) {}
+        /// Reassociates the AST back into the interface.
         void HandleTranslationUnit(ASTContext& Ctx) override
         {
           fprintf(stderr, "AST consumer %p received AST %p\n", this, &Ctx);
-          consumer->ast = &Ctx;
+          interface->ast = &Ctx;
         }
         ~Collector()
         {
           fprintf(stderr, "AST consumer %p destroyed\n", this);
         }
       };
-      ASTConsumerFactory(CXXInterface* c) : consumer(c) {}
+      /// Factory C-tor
+      ASTConsumerFactory(CXXInterface* i) : interface(i) {}
+      /// Returns a new unique Collector consumer.
       std::unique_ptr<clang::ASTConsumer> newASTConsumer()
       {
-        return std::make_unique<Collector>(consumer);
+        return std::make_unique<Collector>(interface);
       }
     } factory;
 
-    friend struct ASTConsumerFactory::Collector;
-
+    /**
+     * Creates an in-memory overlay file-system, so we can create the interim
+     * compile unit (that includes the user file) alongside the necessary
+     * headers to include (built-in, etc).
+     */
     std::pair<
       IntrusiveRefCntPtr<llvm::vfs::FileSystem>,
       IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem>>
@@ -220,7 +300,14 @@ namespace verona::ffi::compiler
       return {IntrusiveRefCntPtr<llvm::vfs::FileSystem>{Overlay}, inMemoryVFS};
     }
 
-    std::unique_ptr<llvm::MemoryBuffer> pchBuffer;
+    /**
+     * Compiler state just collates pointers to preprocessor, header search and
+     * compiler instance.
+     *
+     * TODO: Seems neither pre-processor not header search are used on their own
+     * so we maybe can leave that as an implementation detail of
+     * `createClangInstance` and avoid the need for this structure.
+     */
     struct CompilerState
     {
       std::shared_ptr<Preprocessor> PreprocessorPtr;
@@ -229,6 +316,9 @@ namespace verona::ffi::compiler
     };
     std::unique_ptr<CompilerState> queryCompilerState;
 
+    /**
+     * Creates the Clang instance, with preprocessor and header search support.
+     */
     std::unique_ptr<CompilerState> createClangInstance(
       llvm::ArrayRef<const char*> args,
       llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS)
@@ -281,6 +371,10 @@ namespace verona::ffi::compiler
       return State;
     }
 
+    /// Pre-compiled memory buffer.
+    std::unique_ptr<llvm::MemoryBuffer> pchBuffer;
+
+    /// Generates the pre-compile header into the memory buffer.
     std::unique_ptr<llvm::MemoryBuffer>
     generatePCH(std::string headerFile, ArrayRef<const char*> args)
     {
@@ -295,6 +389,11 @@ namespace verona::ffi::compiler
     }
 
   public:
+    /**
+     * CXXInterface c-tor. Creates the internal compile unit, include the
+     * user file (and all dependencies), generates the pre-compiled headers,
+     * creates the compiler instance and re-attaches the AST to the interface.
+     */
     CXXInterface(std::string headerFile, SourceLanguage sourceLang = CXX)
     : sourceFile(headerFile), factory(this)
     {
@@ -345,8 +444,12 @@ namespace verona::ffi::compiler
       fprintf(stderr, "\nAST: %p\n\n", ast);
     }
 
+    /// LLVMContext for LLVM lowering.
     std::unique_ptr<llvm::LLVMContext> llvmContext{new llvm::LLVMContext};
 
+    /**
+     * Lowers each top-level declaration to LLVM IR and dumps the module.
+     */
     std::unique_ptr<llvm::Module> emitLLVM()
     {
       auto& CI = queryCompilerState->Clang;
@@ -369,8 +472,12 @@ namespace verona::ffi::compiler
       return M;
     }
 
+    /**
+     * C++ types that can be queried from the AST matchers.
+     */
     struct CXXType
     {
+      /// Match kinds.
       enum class Kind
       {
         Invalid,
@@ -381,6 +488,7 @@ namespace verona::ffi::compiler
         Builtin
       } kind = Kind::Invalid;
 
+      /// C++ builtin types.
       enum class BuiltinTypeKinds
       {
         Bool,
@@ -399,6 +507,7 @@ namespace verona::ffi::compiler
         Double
       };
 
+      /// Converts kind name to string.
       const char* kindName()
       {
         switch (kind)
@@ -419,22 +528,30 @@ namespace verona::ffi::compiler
         return nullptr;
       }
 
+      /// Returns true if the type is templated.
       bool isTemplate()
       {
         return kind == Kind::TemplateClass;
       }
 
+      /// CXXType builtin c-tor
       CXXType(BuiltinTypeKinds t)
       : kind(Kind::Builtin), decl(nullptr), builtTypeKind(t)
       {}
+      /// CXXType class c-tor
       CXXType(const CXXRecordDecl* d) : kind(Kind::Class), decl(d) {}
+      /// CXXType template class c-tor
       CXXType(const ClassTemplateDecl* d) : kind(Kind::TemplateClass), decl(d)
       {}
+      /// CXXType template specialisation class c-tor
       CXXType(const ClassTemplateSpecializationDecl* d)
       : kind(Kind::SpecializedTemplateClass), decl(d)
       {}
+      /// CXXType enum c-tor
       CXXType(const EnumDecl* d) : kind(Kind::Enum), decl(d) {}
+      /// CXXType empty c-tor (Invalid)
       CXXType() = default;
+      /// Returns the number of template parameter, if class is a template.
       int numberOfTemplateParameters()
       {
         if (!isTemplate())
@@ -473,10 +590,17 @@ namespace verona::ffi::compiler
       clang::TypeInfo sizeAndAlign;
     };
 
+    /// Returns the CXXType if a builtin type.
+    /// FIXME: Should this be static?
     CXXType getBuiltinType(CXXType::BuiltinTypeKinds k)
     {
       return CXXType{k};
     }
+    /**
+     * Gets an {class | template | enum} type from the source AST by name.
+     * The name must exist and be fully qualified and it will match in the
+     * order specified above.
+     */
     CXXType getType(std::string name)
     {
       name = "::" + name;
@@ -515,6 +639,7 @@ namespace verona::ffi::compiler
         }));
       finder.matchAST(*ast);
 
+      // Should onlyt match one, so this is fine.
       if (foundTemplateClass)
       {
         return CXXType(foundTemplateClass);
@@ -527,9 +652,12 @@ namespace verona::ffi::compiler
       {
         return CXXType(foundEnum);
       }
+
+      // Return empty type if nothing found.
       return CXXType();
     }
 
+    /// Return the size in bytes of the specified type.
     uint64_t getTypeSize(CXXType& t)
     {
       assert(t.kind != CXXType::Kind::Invalid);
@@ -557,6 +685,7 @@ namespace verona::ffi::compiler
       return t.sizeAndAlign.Width / 8;
     }
 
+    /// Returns the type as a template argument.
     clang::TemplateArgument createTemplateArgumentForType(CXXType& t)
     {
       switch (t.kind)
@@ -576,6 +705,8 @@ namespace verona::ffi::compiler
       return nullptr;
     }
 
+    /// Returns the integral literal as a template value.
+    /// Floats are returned as empty template arguments.
     clang::TemplateArgument createTemplateArgumentForIntegerValue(
       CXXType::BuiltinTypeKinds ty, uint64_t value)
     {
@@ -592,6 +723,8 @@ namespace verona::ffi::compiler
         IntegerLiteral::Create(*ast, val, qualTy, SourceLocation{});
       return TemplateArgument(literal);
     }
+
+    /// Instantiate the class template specialisation if not yet done.
     CXXType instantiateClassTemplate(
       CXXType& classTemplate, llvm::ArrayRef<TemplateArgument> args)
     {
@@ -602,6 +735,8 @@ namespace verona::ffi::compiler
 
       auto& S = queryCompilerState->Clang->getSema();
 
+      // Check if this specialisation is already present in the AST
+      // (declaration, definition, used).
       ClassTemplateDecl* ClassTemplate =
         classTemplate.getAs<ClassTemplateDecl>();
       void* InsertPos = nullptr;
@@ -623,6 +758,8 @@ namespace verona::ffi::compiler
           nullptr);
         ClassTemplate->AddSpecialization(Decl, InsertPos);
       }
+      // If specialisation hasn't been directly declared yet (by the user),
+      // instantiate the declaration.
       if (Decl->getSpecializationKind() == TSK_Undeclared)
       {
         MultiLevelTemplateArgumentList TemplateArgLists;
@@ -630,6 +767,8 @@ namespace verona::ffi::compiler
         S.InstantiateAttrsForDecl(
           TemplateArgLists, ClassTemplate->getTemplatedDecl(), Decl);
       }
+      // If specialisation hasn't been defined yet, create its definition at the
+      // end of the file.
       ClassTemplateSpecializationDecl* Def =
         cast_or_null<ClassTemplateSpecializationDecl>(Decl->getDefinition());
       if (!Def)
@@ -646,6 +785,7 @@ namespace verona::ffi::compiler
     }
 
   private:
+    /// Maps between CXXType and Clang's types.
     QualType typeForBuiltin(CXXType::BuiltinTypeKinds ty)
     {
       switch (ty)
