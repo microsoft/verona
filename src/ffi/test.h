@@ -1,11 +1,18 @@
 
 #define SOME_MACRO
 
+int FOO = 0;
+
 class Foo { };
 
 enum EFoo { };
 
-void foo() {
-}
+template<class T>
+struct TFoo {
+  T innerFoo;
+};
 
-int FOO = 0;
+int foo() {
+  TFoo<int> TF;
+  return TF.innerFoo;
+}
