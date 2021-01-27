@@ -74,6 +74,22 @@ namespace verona::parser::resolve
       }
     }
 
+    Node<Tuple> first_rest(Node<Expr>& expr)
+    {
+      if (expr->kind() != Kind::Tuple)
+        return {};
+
+      auto tuple = std::make_shared<Tuple>();
+      tuple->location = expr->location;
+      auto& pack = expr->as<Tuple>();
+
+      for (size_t i = 1; i < pack.seq.size(); i++)
+        tuple->seq.push_back(pack.seq[i]);
+
+      expr = pack.seq[0];
+      return tuple;
+    }
+
     void post(TypeRef& tr)
     {
       // This checks that the type exists but doesn't rewrite the AST.
@@ -206,28 +222,37 @@ namespace verona::parser::resolve
 
         if (sr.maybe_member)
         {
+          auto tuple = first_rest(app.args);
+
+          // (apply maybe-member args)
+          // ->
+          // (select args[0] member)
           auto select = std::make_shared<Select>();
           select->location = sr.location;
           select->expr = app.args;
           select->member = sr.typenames.back()->location;
+          Node<Expr> left = select;
 
           if (!sr.typenames.back()->typeargs.empty())
           {
-            // (apply maybe-member[T] args)
+            // (select args[0] member[T])
             // ->
-            // (specialise (select args member) [T])
+            // (specialise (select args[0] member) [T])
             auto spec = std::make_shared<Specialise>();
             spec->location = sr.location;
             spec->expr = select;
             spec->typeargs = sr.typenames.back()->typeargs;
-            rewrite(stack, spec);
+            left = spec;
+          }
+
+          if (tuple)
+          {
+            app.expr = left;
+            app.args = tuple;
           }
           else
           {
-            // (apply maybe-member args)
-            // ->
-            // (select args member)
-            rewrite(stack, select);
+            rewrite(stack, left);
           }
         }
       }
@@ -244,31 +269,32 @@ namespace verona::parser::resolve
 
         if (sr.maybe_member)
         {
+          // (infix maybe-member expr1 expr2)
+          // ->
+          // (apply (select expr1[0] member)
+          //  (tuple <unpack>expr1[1..] <unpack>expr2))
+          auto tuple = first_rest(infix.left);
+
+          if (!tuple)
+            tuple = std::make_shared<Tuple>();
+
+          unpack(tuple, infix.right);
+
           auto select = std::make_shared<Select>();
           select->location = sr.location;
           select->expr = infix.left;
           select->member = sr.typenames.back()->location;
+          apply->expr = select;
+          apply->args = tuple;
 
           if (!sr.typenames.back()->typeargs.empty())
           {
-            // (infix maybe-member[T] expr1 expr2)
-            // ->
-            // (apply (specialise (select expr1 member) T) expr2)
             auto spec = std::make_shared<Specialise>();
             spec->location = sr.location;
             spec->expr = select;
             spec->typeargs = sr.typenames.back()->typeargs;
             apply->expr = spec;
           }
-          else
-          {
-            // (infix maybe-member expr1 expr2)
-            // ->
-            // (apply (select expr1 member) expr2)
-            apply->expr = select;
-          }
-
-          apply->args = infix.right;
         }
       }
 
