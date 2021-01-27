@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "CXXType.h"
+
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 #include <clang/ASTMatchers/ASTMatchers.h>
 #include <clang/CodeGen/ModuleBuilder.h>
@@ -301,7 +303,7 @@ namespace verona::ffi::compiler
     }
 
     /// Compiler instance.
-      std::unique_ptr<CompilerInstance> Clang;
+    std::unique_ptr<CompilerInstance> Clang;
 
     /**
      * Creates the Clang instance, with preprocessor and header search support.
@@ -456,130 +458,6 @@ namespace verona::ffi::compiler
     }
 
     /**
-     * C++ types that can be queried from the AST matchers.
-     */
-    struct CXXType
-    {
-      /// Match kinds.
-      enum class Kind
-      {
-        Invalid,
-        TemplateClass,
-        SpecializedTemplateClass,
-        Class,
-        Enum,
-        Builtin
-      } kind = Kind::Invalid;
-
-      /// C++ builtin types.
-      enum class BuiltinTypeKinds
-      {
-        Bool,
-        SChar,
-        Char,
-        UChar,
-        Short,
-        UShort,
-        Int,
-        UInt,
-        Long,
-        ULong,
-        LongLong,
-        ULongLong,
-        Float,
-        Double
-      };
-
-      /// Converts kind name to string.
-      const char* kindName()
-      {
-        switch (kind)
-        {
-          case Kind::Invalid:
-            return "Invalid";
-          case Kind::SpecializedTemplateClass:
-            return "Specialized Class Template";
-          case Kind::TemplateClass:
-            return "Class Template";
-          case Kind::Class:
-            return "Class";
-          case Kind::Enum:
-            return "Enum";
-          case Kind::Builtin:
-            return "Builtin";
-        }
-        return nullptr;
-      }
-
-      /// Returns true if the type is templated.
-      bool isTemplate()
-      {
-        return kind == Kind::TemplateClass;
-      }
-
-      /// CXXType builtin c-tor
-      CXXType(BuiltinTypeKinds t)
-      : kind(Kind::Builtin), decl(nullptr), builtTypeKind(t)
-      {}
-      /// CXXType class c-tor
-      CXXType(const CXXRecordDecl* d) : kind(Kind::Class), decl(d) {}
-      /// CXXType template class c-tor
-      CXXType(const ClassTemplateDecl* d) : kind(Kind::TemplateClass), decl(d)
-      {}
-      /// CXXType template specialisation class c-tor
-      CXXType(const ClassTemplateSpecializationDecl* d)
-      : kind(Kind::SpecializedTemplateClass), decl(d)
-      {}
-      /// CXXType enum c-tor
-      CXXType(const EnumDecl* d) : kind(Kind::Enum), decl(d) {}
-      /// CXXType empty c-tor (Invalid)
-      CXXType() = default;
-      /// Returns the number of template parameter, if class is a template.
-      int numberOfTemplateParameters()
-      {
-        if (!isTemplate())
-        {
-          return 0;
-        }
-        return getAs<ClassTemplateDecl>()->getTemplateParameters()->size();
-      }
-
-      // private:
-
-      /**
-       * Access the underlying decl as the specified type.  This removes the
-       * `const` qualification, allowing the AST to be modified, and should be
-       * used only by the Clang AST interface classes.
-       */
-      template<class T>
-      T* getAs()
-      {
-        return dyn_cast<T>(const_cast<NamedDecl*>(decl));
-      }
-      /**
-       * The declaration that corresponds to this type.
-       */
-      const NamedDecl* decl = nullptr;
-      /**
-       * The kind if this is a builtin.
-       * FIXME: This and `decl` should be a union, only one is ever present at
-       * a time.
-       */
-      BuiltinTypeKinds builtTypeKind;
-      /**
-       * The size and alignment of this type.  Note that this is not valid for
-       * templated types that are not fully specified.
-       */
-      clang::TypeInfo sizeAndAlign;
-    };
-
-    /// Returns the CXXType if a builtin type.
-    /// FIXME: Should this be static?
-    CXXType getBuiltinType(CXXType::BuiltinTypeKinds k)
-    {
-      return CXXType{k};
-    }
-    /**
      * Gets an {class | template | enum} type from the source AST by name.
      * The name must exist and be fully qualified and it will match in the
      * order specified above.
@@ -641,6 +519,7 @@ namespace verona::ffi::compiler
     }
 
     /// Return the size in bytes of the specified type.
+    /// TODO: Move this to CXXType?
     uint64_t getTypeSize(CXXType& t)
     {
       assert(t.kind != CXXType::Kind::Invalid);
@@ -769,6 +648,7 @@ namespace verona::ffi::compiler
 
   private:
     /// Maps between CXXType and Clang's types.
+    /// TODO: Move this to CXXType?
     QualType typeForBuiltin(CXXType::BuiltinTypeKinds ty)
     {
       switch (ty)

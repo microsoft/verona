@@ -4,7 +4,6 @@
 #include "compiler.h"
 
 using namespace verona::ffi::compiler;
-using CXXType = CXXInterface::CXXType;
 
 /// Looks up a symbol from a CXX interface by name
 void test(CXXInterface& interface, std::string& name)
@@ -90,7 +89,7 @@ int main(int argc, char** argv)
     stderr,
     "std::array has %d template parameters\n",
     arr.numberOfTemplateParameters());
-  auto IntTy = stdarray.getBuiltinType(CXXType::BuiltinTypeKinds::Int);
+  auto IntTy = CXXType{CXXType::BuiltinTypeKinds::Int};
   auto TypeArg = stdarray.createTemplateArgumentForType(IntTy);
   auto ValueArg = stdarray.createTemplateArgumentForIntegerValue(
     CXXType::BuiltinTypeKinds::Int, 4);
