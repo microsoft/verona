@@ -105,7 +105,7 @@ int main(int argc, char** argv)
     stdarray.getTypeSize(arrIntFour));
 
   auto* DC = stdarray.ast->getTranslationUnitDecl();
-  auto& SM = stdarray.queryCompilerState->Clang->getSourceManager();
+  auto& SM = stdarray.Clang->getSourceManager();
   auto mainFile = SM.getMainFileID();
   SourceLocation loc = SM.getLocForEndOfFile(mainFile);
   IdentifierInfo& fnNameIdent = stdarray.ast->Idents.get("verona_wrapper_fn_1");
