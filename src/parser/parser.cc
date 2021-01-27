@@ -654,10 +654,6 @@ namespace verona::parser
       if (oftype(tup->type) == Error)
         r = Error;
 
-      // TODO: collapse if we're not looking for a lambda signature
-      // if (!tup->type && (tup->seq.size() == 1))
-      //   expr = tup->seq.front();
-
       return r;
     }
 

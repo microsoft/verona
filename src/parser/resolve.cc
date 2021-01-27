@@ -318,6 +318,15 @@ namespace verona::parser::resolve
 
       rewrite(stack, apply);
     }
+
+    void post(Tuple& tuple)
+    {
+      // Collapse unnecessary tuple nodes.
+      if (tuple.type || (tuple.seq.size() != 1))
+        return;
+
+      rewrite(stack, tuple.seq.front());
+    }
   };
 
   bool run(Ast& ast, std::ostream& out)

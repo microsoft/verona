@@ -27,12 +27,12 @@
             [
               (assign (let a ()) (int 0))
               (while
-                (tuple [ (apply (select (ref a ()) <) (int 5)) ] ())
+                (apply (select (ref a ()) <) (int 5))
                 (block
                   [
                     (assign (ref a ()) (apply (select (ref a ()) +) (int 1)))
                     (if
-                      (tuple [ (apply (select (ref a ()) <) (int 2)) ] ())
+                      (apply (select (ref a ()) <) (int 2))
                       (block [ (continue ) ])
                       (block [ (break ) ]))
                   ]))
@@ -40,15 +40,11 @@
                 [
                   (assign (let $0 ()) (ref x ()))
                   (while
-                    (tuple
-                      [ (apply (select (ref $0 ()) has_value) (tuple [] ())) ]
-                      ())
+                    (apply (select (ref $0 ()) has_value) (tuple [] ()))
                     (block
                       [
                         (assign (ref a ()) (apply (ref $0 ()) (tuple [] ())))
-                        (apply
-                          (staticref [ (typename foo []) ])
-                          (tuple [ (ref a ()) ] ()))
+                        (apply (staticref [ (typename foo []) ]) (ref a ()))
                         (apply (select (ref $0 ()) next) (tuple [] ()))
                       ]))
                 ])

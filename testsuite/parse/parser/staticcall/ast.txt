@@ -66,11 +66,7 @@
                     (typename bar [ (typeref [ (typename X []) ]) ])
                   ])
                 (tuple
-                  [
-                    (ref x ())
-                    (tuple [ (ref y ()) ] ())
-                    (tuple [ (ref x ()) (ref y ()) ] ())
-                  ]
+                  [ (ref x ()) (ref y ()) (tuple [ (ref x ()) (ref y ()) ] ()) ]
                   ()))
             ]))
       ])
