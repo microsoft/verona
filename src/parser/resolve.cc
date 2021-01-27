@@ -208,26 +208,26 @@ namespace verona::parser::resolve
         {
           auto select = std::make_shared<Select>();
           select->location = sr.location;
-          select->expr = app.expr;
+          select->expr = app.args;
           select->member = sr.typenames.back()->location;
 
           if (!sr.typenames.back()->typeargs.empty())
           {
-            // (apply maybe-member[T] expr)
+            // (apply maybe-member[T] args)
             // ->
-            // (apply (specialise (select expr member) T) ())
+            // (specialise (select args member) [T])
             auto spec = std::make_shared<Specialise>();
             spec->location = sr.location;
             spec->expr = select;
             spec->typeargs = sr.typenames.back()->typeargs;
-            app.expr = spec;
+            rewrite(stack, spec);
           }
           else
           {
-            // (apply maybe-member expr)
+            // (apply maybe-member args)
             // ->
-            // (apply (select expr member) ())
-            app.expr = select;
+            // (select args member)
+            rewrite(stack, select);
           }
         }
       }
