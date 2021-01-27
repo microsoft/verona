@@ -32,9 +32,7 @@
                     (let $0 ())
                     (apply (select (ref x ()) values) (tuple [] ())))
                   (while
-                    (tuple
-                      [ (apply (select (ref $0 ()) has_value) (tuple [] ())) ]
-                      ())
+                    (apply (select (ref $0 ()) has_value) (tuple [] ()))
                     (block
                       [
                         (assign (let a ()) (apply (ref $0 ()) (tuple [] ())))
@@ -50,9 +48,7 @@
                     (let $2 ())
                     (apply (select (ref x ()) values) (tuple [] ())))
                   (while
-                    (tuple
-                      [ (apply (select (ref $2 ()) has_value) (tuple [] ())) ]
-                      ())
+                    (apply (select (ref $2 ()) has_value) (tuple [] ()))
                     (block
                       [
                         (assign (let a ()) (apply (ref $2 ()) (tuple [] ())))
@@ -65,13 +61,9 @@
                               (let $1 ())
                               (apply (select (ref x ()) values) (tuple [] ())))
                             (while
-                              (tuple
-                                [
-                                  (apply
-                                    (select (ref $1 ()) has_value)
-                                    (tuple [] ()))
-                                ]
-                                ())
+                              (apply
+                                (select (ref $1 ()) has_value)
+                                (tuple [] ()))
                               (block
                                 [
                                   (assign
@@ -89,9 +81,7 @@
                       ]))
                 ])
               (if
-                (tuple
-                  [ (apply (select (ref x ()) has_values) (tuple [] ())) ]
-                  ())
+                (apply (select (ref x ()) has_values) (tuple [] ()))
                 (block
                   [
                     (block
@@ -100,13 +90,7 @@
                           (let $3 ())
                           (apply (select (ref x ()) values) (tuple [] ())))
                         (while
-                          (tuple
-                            [
-                              (apply
-                                (select (ref $3 ()) has_value)
-                                (tuple [] ()))
-                            ]
-                            ())
+                          (apply (select (ref $3 ()) has_value) (tuple [] ()))
                           (block
                             [
                               (assign
@@ -127,13 +111,7 @@
                           (let $4 ())
                           (apply (select (ref x ()) values) (tuple [] ())))
                         (while
-                          (tuple
-                            [
-                              (apply
-                                (select (ref $4 ()) has_value)
-                                (tuple [] ()))
-                            ]
-                            ())
+                          (apply (select (ref $4 ()) has_value) (tuple [] ()))
                           (block
                             [
                               (assign

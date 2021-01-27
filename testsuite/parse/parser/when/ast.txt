@@ -30,19 +30,13 @@
             ())
           (block
             [
-              (when (tuple [ (ref a ()) ] ()) (block []))
+              (when (ref a ()) (block []))
               (when
                 (tuple [ (ref a ()) (ref b ()) ] ())
                 (block
                   [
                     (when
-                      (tuple
-                        [
-                          (apply
-                            (staticref [ (typename bar []) ])
-                            (tuple [] ()))
-                        ]
-                        ())
+                      (apply (staticref [ (typename bar []) ]) (tuple [] ()))
                       (block []))
                     (return (ref b ()))
                   ]))

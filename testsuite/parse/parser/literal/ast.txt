@@ -31,9 +31,7 @@
                 (apply (select (apply (select (int 1) +) (int 2)) +) (int 3)))
               (assign
                 (let precedence2 ())
-                (apply
-                  (select (int 1) +)
-                  (tuple [ (apply (select (int 2) +) (int 3)) ] ())))
+                (apply (select (int 1) +) (apply (select (int 2) +) (int 3))))
               (assign
                 (let object1 ())
                 (object

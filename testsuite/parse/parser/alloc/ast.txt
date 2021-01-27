@@ -39,7 +39,7 @@
                 ]
                 (typeref [ (typename S []) ])
                 ())
-              (block [ (new (tuple [ (ref a ()) ] ()) a) ]))
+              (block [ (new (ref a ()) a) ]))
           ])
         (interface Any [] () [])
         (class
@@ -69,7 +69,7 @@
                 [ (param a (typeref [ (typename U32 []) ]) ()) ]
                 (typeref [ (typename One []) ])
                 ())
-              (block [ (new (tuple [ (ref a ()) ] ()) ()) ]))
+              (block [ (new (ref a ()) ()) ]))
           ])
         (class
           Two
