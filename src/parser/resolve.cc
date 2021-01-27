@@ -275,17 +275,21 @@ namespace verona::parser::resolve
           //  (tuple <unpack>expr1[1..] <unpack>expr2))
           auto tuple = first_rest(infix.left);
 
-          if (!tuple)
-            tuple = std::make_shared<Tuple>();
-
-          unpack(tuple, infix.right);
+          if (tuple)
+          {
+            unpack(tuple, infix.right);
+            apply->args = tuple;
+          }
+          else
+          {
+            apply->args = infix.right;
+          }
 
           auto select = std::make_shared<Select>();
           select->location = sr.location;
           select->expr = infix.left;
           select->member = sr.typenames.back()->location;
           apply->expr = select;
-          apply->args = tuple;
 
           if (!sr.typenames.back()->typeargs.empty())
           {
