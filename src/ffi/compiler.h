@@ -300,31 +300,17 @@ namespace verona::ffi::compiler
       return {IntrusiveRefCntPtr<llvm::vfs::FileSystem>{Overlay}, inMemoryVFS};
     }
 
-    /**
-     * Compiler state just collates pointers to preprocessor, header search and
-     * compiler instance.
-     *
-     * TODO: Seems neither pre-processor not header search are used on their own
-     * so we maybe can leave that as an implementation detail of
-     * `createClangInstance` and avoid the need for this structure.
-     */
-    struct CompilerState
-    {
-      std::shared_ptr<Preprocessor> PreprocessorPtr;
-      std::unique_ptr<HeaderSearch> HeaderSearchPtr;
+    /// Compiler instance.
       std::unique_ptr<CompilerInstance> Clang;
-    };
-    std::unique_ptr<CompilerState> queryCompilerState;
 
     /**
      * Creates the Clang instance, with preprocessor and header search support.
      */
-    std::unique_ptr<CompilerState> createClangInstance(
+    void createClangInstance(
       llvm::ArrayRef<const char*> args,
       llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS)
     {
-      auto State = std::make_unique<CompilerState>();
-      State->Clang = std::make_unique<CompilerInstance>();
+      Clang = std::make_unique<CompilerInstance>();
       // TODO: Wire up diagnostics so that we can spot invalid template
       // instantiations.
       IntrusiveRefCntPtr<DiagnosticIDs> DiagID = new DiagnosticIDs();
@@ -337,38 +323,37 @@ namespace verona::ffi::compiler
         args, Diags, llvm::vfs::getRealFileSystem());
       Diags = new DiagnosticsEngine(DiagID, DiagOpts, DiagsPrinter, false);
       fprintf(stderr, "CI: %p\n", CI.get());
-      fprintf(stderr, "Clang: %p\n", State->Clang.get());
+      fprintf(stderr, "Clang: %p\n", Clang.get());
       auto* fileManager = new FileManager(FileSystemOptions{}, VFS);
       auto* sourceMgr = new SourceManager(
         *Diags,
         *fileManager,
         /*UserFilesAreVolatile*/ false);
-      State->Clang->setFileManager(fileManager);
-      State->Clang->setSourceManager(sourceMgr);
-      State->Clang->setInvocation(std::move(CI));
-      State->Clang->setDiagnostics(Diags);
+      Clang->setFileManager(fileManager);
+      Clang->setSourceManager(sourceMgr);
+      Clang->setInvocation(std::move(CI));
+      Clang->setDiagnostics(Diags);
       auto PPOpts = std::make_shared<PreprocessorOptions>();
       TrivialModuleLoader TML;
-      State->HeaderSearchPtr = std::make_unique<HeaderSearch>(
+      auto HeaderSearchPtr = std::make_unique<HeaderSearch>(
         std::make_shared<HeaderSearchOptions>(),
         *sourceMgr,
         *Diags,
-        State->Clang->getLangOpts(),
+        Clang->getLangOpts(),
         nullptr);
-      State->PreprocessorPtr = std::make_shared<Preprocessor>(
+      auto PreprocessorPtr = std::make_shared<Preprocessor>(
         PPOpts,
         *Diags,
-        State->Clang->getLangOpts(),
+        Clang->getLangOpts(),
         *sourceMgr,
-        *State->HeaderSearchPtr,
+        *HeaderSearchPtr,
         TML,
         nullptr,
         false);
-      State->Clang->setPreprocessor(State->PreprocessorPtr);
-      State->Clang->getPreprocessor().enableIncrementalProcessing();
+      Clang->setPreprocessor(PreprocessorPtr);
+      Clang->getPreprocessor().enableIncrementalProcessing();
       // FIXME: Do something more sensible with the diagnostics engine so
       // that we can propagate errors to Verona
-      return State;
     }
 
     /// Pre-compiled memory buffer.
@@ -378,11 +363,10 @@ namespace verona::ffi::compiler
     std::unique_ptr<llvm::MemoryBuffer>
     generatePCH(std::string headerFile, ArrayRef<const char*> args)
     {
-      auto pchCompilerState =
-        createClangInstance(args, llvm::vfs::getRealFileSystem());
+      createClangInstance(args, llvm::vfs::getRealFileSystem());
       llvm::SmallVector<char, 0> pchOutBuffer;
       auto action = std::make_unique<GenerateMemoryPCHAction>(pchOutBuffer);
-      pchCompilerState->Clang->ExecuteAction(*action);
+      Clang->ExecuteAction(*action);
       fprintf(stderr, "PCH is %zu bytes\n", pchOutBuffer.size());
       return std::unique_ptr<llvm::MemoryBuffer>(
         new llvm::SmallVectorMemoryBuffer(std::move(pchOutBuffer)));
@@ -427,19 +411,19 @@ namespace verona::ffi::compiler
       fprintf(stderr, "\nParsing wrapping unit\n");
       {
         auto t = TimeReport("Creating clang instance");
-        queryCompilerState = createClangInstance(args.getArgs(cu_name), VFS);
+        createClangInstance(args.getArgs(cu_name), VFS);
       }
       auto collectAST = tooling::newFrontendActionFactory(&factory)->create();
       {
         auto t = TimeReport("Reconstructing AST");
-        queryCompilerState->Clang->ExecuteAction(*collectAST);
+        Clang->ExecuteAction(*collectAST);
       }
 
       // Executing the action consumes the AST.  Reset the compiler instance to
       // refer to the AST that it just parsed and create a Sema instance.
-      queryCompilerState->Clang->setASTConsumer(factory.newASTConsumer());
-      queryCompilerState->Clang->setASTContext(ast);
-      queryCompilerState->Clang->createSema(TU_Complete, nullptr);
+      Clang->setASTConsumer(factory.newASTConsumer());
+      Clang->setASTContext(ast);
+      Clang->createSema(TU_Complete, nullptr);
 
       fprintf(stderr, "\nAST: %p\n\n", ast);
     }
@@ -452,13 +436,12 @@ namespace verona::ffi::compiler
      */
     std::unique_ptr<llvm::Module> emitLLVM()
     {
-      auto& CI = queryCompilerState->Clang;
       std::unique_ptr<CodeGenerator> CodeGen{CreateLLVMCodeGen(
-        CI->getDiagnostics(),
+        Clang->getDiagnostics(),
         cu_name,
-        CI->getHeaderSearchOpts(),
-        CI->getPreprocessorOpts(),
-        CI->getCodeGenOpts(),
+        Clang->getHeaderSearchOpts(),
+        Clang->getPreprocessorOpts(),
+        Clang->getCodeGenOpts(),
         *llvmContext)};
       fprintf(stderr, "Generating LLVM IR...\n");
       CodeGen->Initialize(*ast);
@@ -733,7 +716,7 @@ namespace verona::ffi::compiler
         return CXXType{};
       }
 
-      auto& S = queryCompilerState->Clang->getSema();
+      auto& S = Clang->getSema();
 
       // Check if this specialisation is already present in the AST
       // (declaration, definition, used).
@@ -773,7 +756,7 @@ namespace verona::ffi::compiler
         cast_or_null<ClassTemplateSpecializationDecl>(Decl->getDefinition());
       if (!Def)
       {
-        auto& SM = queryCompilerState->Clang->getSourceManager();
+        auto& SM = Clang->getSourceManager();
         auto mainFile = SM.getMainFileID();
         SourceLocation InstantiationLoc = SM.getLocForEndOfFile(mainFile);
         assert(InstantiationLoc.isValid());
