@@ -7,10 +7,10 @@ class B
 {
   class C
   {
-    static bar() {}
+    bar() {}
   }
 
-  static foo() {}
+  foo() {}
 }
 
 f[X](x: A, y: A)

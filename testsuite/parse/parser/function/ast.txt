@@ -9,7 +9,7 @@
       ()
       [
         (class U64 [] () [])
-        (method
+        (function
           foo
           (signature
             [
@@ -34,6 +34,6 @@
               (assign (let r (typeref [ (typename R []) ])) (ref x ()))
               (ref x ())
             ]))
-        (method apply (signature [] [] () ()) (block []))
+        (function apply (signature [] [] () ()) (block []))
       ])
   ])

@@ -39,9 +39,6 @@ namespace verona::parser
       case Kind::Function:
         return "function";
 
-      case Kind::Method:
-        return "method";
-
       // Types
       case Kind::UnionType:
         return "uniontype";
@@ -122,11 +119,11 @@ namespace verona::parser
       case Kind::Infix:
         return "infix";
 
-      case Kind::Prefix:
-        return "prefix";
-
       case Kind::Select:
         return "select";
+
+      case Kind::StaticSelect:
+        return "staticselect";
 
       case Kind::Specialise:
         return "specialise";

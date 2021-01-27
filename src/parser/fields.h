@@ -21,7 +21,7 @@ namespace verona::parser
   template<typename T>
   void fieldsof(T& target, TypeAlias& alias)
   {
-    target << alias.id << alias.typeparams << alias.inherits << alias.type;
+    target << alias.id << alias.typeparams << alias.type;
   }
 
   template<typename T>
@@ -70,12 +70,6 @@ namespace verona::parser
   void fieldsof(T& target, Function& func)
   {
     target << func.name << func.signature << func.body;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, Method& meth)
-  {
-    target << meth.name << meth.signature << meth.body;
   }
 
   template<typename T>
@@ -169,15 +163,15 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, Prefix& prefix)
-  {
-    target << prefix.op << prefix.expr;
-  }
-
-  template<typename T>
   void fieldsof(T& target, Select& select)
   {
     target << select.expr << select.member;
+  }
+
+  template<typename T>
+  void fieldsof(T& target, StaticSelect& select)
+  {
+    target << select.expr << select.typenames;
   }
 
   template<typename T>

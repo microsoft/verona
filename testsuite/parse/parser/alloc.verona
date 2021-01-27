@@ -9,7 +9,7 @@ class C[A]
 {
   f: A & mut;
 
-  static create[S: C[A] & mut](a: S<~(A & mut)): S
+  create[S: C[A] & mut](a: S<~(A & mut)): S
   {
     new (a) in a
   }
@@ -19,12 +19,12 @@ interface Any {}
 
 class Empty
 {
-  static create(): Empty
+  create(): Empty
   {
     new ()
   }
 
-  static (): Empty
+  (): Empty
   {
     new ()
   }
@@ -34,7 +34,7 @@ class One
 {
   a: U32;
 
-  static create(a: U32): One
+  create(a: U32): One
   {
     new (a)
   }
@@ -45,7 +45,7 @@ class Two
   a: U32;
   b: F64;
 
-  static create(a: U32, b: F64): Two
+  create(a: U32, b: F64): Two
   {
     new (a, b)
   }

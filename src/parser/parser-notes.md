@@ -1,7 +1,8 @@
 # Parser Notes
 
+* allow `using` inside a function
 * put precedence paren forcing back in
-* special types: iso, mut, imm, Self
+* special type: Self
 * inheritance
 * try/catch
 * update sugar
@@ -10,6 +11,7 @@
 * constant expressions
 * yield transformation
   https://csharpindepth.com/Articles/IteratorBlockImplementation
+* trim indented strings
 
 ## Open Questions
 
@@ -20,29 +22,14 @@
   might not want to do either as they have type checking implications
 * `where` might need to have non-type constraints
 * do we need default capabilities for types
-
-## Function vs Method
-
-```ts
-class Foo
-{
-  static f(a: Foo, b: X) {}
-  m(a: Foo, b: X) {}
-}
-```
-
-what's the difference?
-
-x.m(b) -> x::m(x, b)
-
-allow ref::m
-  means "we expect a method and don't bind the receiver as the first param"
+* short-circuiting
+  lazy type, or lambdas
 
 ## Public/Private
 
 * Public access only if the imported module path is not a prefix of the current module path (private access from submodules).
 * Perhaps also allow private access if the current module path is a prefix of the imported module path (private access to submodules).
-* do we want to be able to have private methods with symbol names?
+* do we want to be able to have private functions with symbol names?
 
 ## Anonymous Types
 
@@ -56,20 +43,12 @@ allow ref::m
 
 ## Autogenerate Create
 
-static create(): Self & iso
+create(): Self & iso
 {
   // This will only type-check if all fields have default values
   // But how do default values work with other calls to new?
   new ()
 }
-
-## Strings
-
-trim indent
-  look at multiple elements of an apply?
-
-strings are whitespace sensitive
-  indent trimming is about reducing that sensitivity
 
 ## Overload Resolution
 
@@ -77,8 +56,8 @@ https://en.cppreference.com/w/cpp/language/overload_resolution
 https://en.cppreference.com/w/cpp/language/constraints
 
 find all candidate functions
-  static functions in scope
-  member functions on the receiver
+  functions in scope
+  functions on the receiver
   must have the same name
   must have a compatible arity, accounting for default parameter values
 
@@ -90,3 +69,9 @@ use a capability to set the global exit code
 use a capability to fetch args
 use a capability to read and write envvars
 main() gets ambient authority and nothing else
+
+> incomplete infix -> postfix operator
+>   maybe not. doesn't seem to give new ways to express stuff.
+> instead of (specialise (select x foo) T) -> (select x foo[T])
+>   maybe not. x.y[T](z) where y is a field.
+> instead of ref and tuple having oftype, put it on expr

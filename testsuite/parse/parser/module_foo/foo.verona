@@ -3,5 +3,5 @@
 
 module [A, B];
 
-static foo() {}
-static _foo() {}
+foo() {}
+_foo() {}

@@ -5,7 +5,7 @@ class Cown[T] {}
 class A {}
 class B {}
 
-static bar() {}
+bar() {}
 
 foo(a: Cown[A], b: Cown[B])
 {

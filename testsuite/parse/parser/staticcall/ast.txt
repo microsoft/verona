@@ -21,7 +21,7 @@
               [ (function bar (signature [] [] () ()) (block [])) ])
             (function foo (signature [] [] () ()) (block []))
           ])
-        (method
+        (function
           f
           (signature
             [ (typeparam X () ()) ]

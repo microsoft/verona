@@ -19,7 +19,6 @@ namespace verona::parser
     TypeParam,
     Signature,
     Function,
-    Method,
 
     // Types
     UnionType,
@@ -50,10 +49,10 @@ namespace verona::parser
     Yield,
     Assign,
     Infix,
-    Prefix,
+    Apply,
     Select,
     Specialise,
-    Apply,
+    StaticSelect,
     Ref,
     StaticRef,
     Let,
@@ -377,7 +376,6 @@ namespace verona::parser
     Node<Expr> op;
     Node<Expr> left;
     Node<Expr> right;
-    bool block;
 
     Kind kind()
     {
@@ -385,15 +383,14 @@ namespace verona::parser
     }
   };
 
-  struct Prefix : Expr
+  struct Apply : Expr
   {
-    Node<Expr> op;
     Node<Expr> expr;
-    bool block;
+    Node<Expr> args;
 
     Kind kind()
     {
-      return Kind::Prefix;
+      return Kind::Apply;
     }
   };
 
@@ -408,6 +405,17 @@ namespace verona::parser
     }
   };
 
+  struct StaticSelect : Expr
+  {
+    Node<Expr> expr;
+    List<TypeName> typenames;
+
+    Kind kind()
+    {
+      return Kind::StaticSelect;
+    }
+  };
+
   struct Specialise : Expr
   {
     Node<Expr> expr;
@@ -416,17 +424,6 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::Specialise;
-    }
-  };
-
-  struct Apply : Expr
-  {
-    Node<Expr> expr;
-    Node<Expr> args;
-
-    Kind kind()
-    {
-      return Kind::Apply;
     }
   };
 
@@ -528,6 +525,18 @@ namespace verona::parser
     }
   };
 
+  struct TypeAlias : Member
+  {
+    Location id;
+    List<TypeParam> typeparams;
+    Node<Type> type;
+
+    Kind kind()
+    {
+      return Kind::TypeAlias;
+    }
+  };
+
   struct Entity : Member
   {
     List<TypeParam> typeparams;
@@ -537,16 +546,6 @@ namespace verona::parser
   struct NamedEntity : Entity
   {
     Location id;
-  };
-
-  struct TypeAlias : NamedEntity
-  {
-    Node<Type> type;
-
-    Kind kind()
-    {
-      return Kind::TypeAlias;
-    }
   };
 
   struct Interface : NamedEntity
@@ -607,14 +606,6 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::Function;
-    }
-  };
-
-  struct Method : Function
-  {
-    Kind kind()
-    {
-      return Kind::Method;
     }
   };
 

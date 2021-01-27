@@ -13,14 +13,13 @@
         (typealias
           Foo
           []
-          ()
           (typeref
             [
               (modulename
                 $module-1
                 [ (typeref [ (typename A []) ]) (typeref [ (typename B []) ]) ])
             ]))
-        (method
+        (function
           main
           (signature [] [] () ())
           (block

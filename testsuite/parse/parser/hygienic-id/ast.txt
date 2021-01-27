@@ -10,7 +10,7 @@
       [
         (class U32 [] () [])
         (class List [ (typeparam T () ()) ] () [])
-        (method
+        (function
           for_sum
           (signature
             []
