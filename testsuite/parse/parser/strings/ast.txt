@@ -9,7 +9,7 @@
       ()
       [
         (class U64 [] () [])
-        (method
+        (function
           apply
           (signature
             []

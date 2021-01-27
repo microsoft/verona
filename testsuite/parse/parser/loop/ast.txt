@@ -16,7 +16,7 @@
             ()
             ())
           (block []))
-        (method
+        (function
           f
           (signature
             [ (typeparam T () ()) ]

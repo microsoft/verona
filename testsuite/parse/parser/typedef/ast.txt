@@ -12,7 +12,6 @@
         (typealias
           UInt
           []
-          ()
           (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ]))
         (class Foo [] () [])
         (class
@@ -20,9 +19,9 @@
           []
           ()
           [
-            (typealias A [] () (typeref [ (typename U64 []) ]))
+            (typealias A [] (typeref [ (typename U64 []) ]))
             (field a (typeref [ (typename A []) ]) ())
-            (method f (signature [] [] () ()) (block []))
+            (function f (signature [] [] () ()) (block []))
           ])
       ])
   ])

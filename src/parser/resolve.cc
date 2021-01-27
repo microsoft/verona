@@ -130,9 +130,9 @@ namespace verona::parser::resolve
             if (ast->as<Infix>().op == stack.back())
               sr.maybe_member = true;
           }
-          else if (ast->kind() == Kind::Prefix)
+          else if (ast->kind() == Kind::Apply)
           {
-            if (ast->as<Prefix>().op == stack.back())
+            if (ast->as<Apply>().expr == stack.back())
               sr.maybe_member = true;
           }
         }
@@ -198,53 +198,39 @@ namespace verona::parser::resolve
       }
     }
 
-    void post(Prefix& prefix)
+    void post(Apply& app)
     {
-      auto apply = std::make_shared<Apply>();
-      apply->location = prefix.location;
-
-      if (prefix.op->kind() == Kind::StaticRef)
+      if (app.expr->kind() == Kind::StaticRef)
       {
-        auto& sr = prefix.op->as<StaticRef>();
+        auto& sr = app.expr->as<StaticRef>();
 
         if (sr.maybe_member)
         {
           auto select = std::make_shared<Select>();
           select->location = sr.location;
-          select->expr = prefix.expr;
+          select->expr = app.expr;
           select->member = sr.typenames.back()->location;
 
           if (!sr.typenames.back()->typeargs.empty())
           {
-            // (prefix maybe-member[T] expr)
+            // (apply maybe-member[T] expr)
             // ->
             // (apply (specialise (select expr member) T) ())
             auto spec = std::make_shared<Specialise>();
             spec->location = sr.location;
             spec->expr = select;
             spec->typeargs = sr.typenames.back()->typeargs;
-            apply->expr = spec;
+            app.expr = spec;
           }
           else
           {
-            // (prefix maybe-member expr)
+            // (apply maybe-member expr)
             // ->
             // (apply (select expr member) ())
-            apply->expr = select;
+            app.expr = select;
           }
         }
       }
-
-      if (!apply->expr)
-      {
-        // (prefix op expr)
-        // ->
-        // (apply op expr)
-        apply->expr = prefix.op;
-        apply->args = prefix.expr;
-      }
-
-      rewrite(stack, apply);
     }
 
     void post(Infix& infix)
@@ -314,12 +300,6 @@ namespace verona::parser::resolve
   struct WF : Pass<WF>
   {
     AST_PASS;
-
-    void post(Prefix& node)
-    {
-      error() << node.location << "Unexpected " << kindname(node.kind())
-              << " after resolve pass." << text(node.location);
-    }
 
     void post(Infix& node)
     {

@@ -12,7 +12,7 @@
         (class A [] () [])
         (class B [] () [])
         (function bar (signature [] [] () ()) (block []))
-        (method
+        (function
           foo
           (signature
             []

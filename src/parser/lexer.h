@@ -42,7 +42,6 @@ namespace verona::parser
     Interface,
     Type,
     Using,
-    Static,
     Throws,
     If,
     Else,

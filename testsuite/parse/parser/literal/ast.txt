@@ -15,7 +15,7 @@
         (class U64 [] () [])
         (class I32 [] () [])
         (class F32 [] () [])
-        (method
+        (function
           f
           (signature [] [] () ())
           (block

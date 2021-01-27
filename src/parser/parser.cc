@@ -211,6 +211,9 @@ namespace verona::parser
 
     bool is_blockexpr(Node<Expr>& expr)
     {
+      if (!expr)
+        return false;
+
       switch (expr->kind())
       {
         case Kind::Block:
@@ -221,11 +224,11 @@ namespace verona::parser
         case Kind::Lambda:
           return true;
 
-        case Kind::Prefix:
-          return expr->as<Prefix>().block;
-
         case Kind::Infix:
-          return expr->as<Infix>().block;
+          return is_blockexpr(expr->as<Infix>().right);
+
+        case Kind::Apply:
+          return is_blockexpr(expr->as<Apply>().args);
 
         default:
           return false;
@@ -1179,7 +1182,7 @@ namespace verona::parser
 
     Result optatom(Node<Expr>& expr)
     {
-      // atom <- staticref / ref / constant / new / tuple
+      // atom <- staticref / ref / constant / tuple / new / decl
       Result r;
 
       if ((r = optstaticref(expr)) != Skip)
@@ -1207,7 +1210,7 @@ namespace verona::parser
 
     Result optselect(Node<Expr>& expr)
     {
-      // select <- expr '.' (ident / symbol)
+      // select <- postfix '.' (ident / symbol)
       if (!has(TokenKind::Dot))
         return Skip;
 
@@ -1224,6 +1227,42 @@ namespace verona::parser
 
       error() << loc() << "Expected an identifier or a symbol" << line();
       return Error;
+    }
+
+    Result optstaticselect(Node<Expr>& expr)
+    {
+      // staticselect <- postfix ('::' (ident / symbol) typeargs?)+
+      if (!has(TokenKind::DoubleColon))
+        return Skip;
+
+      auto sel = std::make_shared<StaticSelect>();
+      sel->location = previous.location;
+      sel->expr = expr;
+      expr = sel;
+
+      Result r = Success;
+
+      while (has(TokenKind::DoubleColon))
+      {
+        if (!has(TokenKind::Ident) && !has(TokenKind::Symbol))
+        {
+          error() << loc() << "Expected an identifier or symbol" << line();
+          r = Error;
+          break;
+        }
+
+        // Use the location of the last ident or symbol.
+        sel->location = previous.location;
+
+        auto name = std::make_shared<TypeName>();
+        name->location = previous.location;
+        sel->typenames.push_back(name);
+
+        if (opttypeargs(name->typeargs) == Error)
+          r = Error;
+      }
+
+      return r;
     }
 
     Result opttypeargs(List<Type>& typeargs)
@@ -1259,7 +1298,7 @@ namespace verona::parser
 
     Result optspecialise(Node<Expr>& expr)
     {
-      // specialise <- expr typeargs
+      // specialise <- postfix typeargs
       if (!peek(TokenKind::LSquare))
         return Skip;
 
@@ -1275,29 +1314,12 @@ namespace verona::parser
       return Success;
     }
 
-    Result optapply(Node<Expr>& expr)
-    {
-      // apply <- expr tuple
-      if (!peek(TokenKind::LParen))
-        return Skip;
-
-      rewind();
-      auto app = std::make_shared<Apply>();
-      app->expr = expr;
-      expr = app;
-
-      Result r = Success;
-
-      if (opttuple(app->args) != Success)
-        r = Error;
-
-      app->location = app->args->location;
-      return r;
-    }
-
     Result onepostfix(Node<Expr>& expr)
     {
       Result r;
+
+      if ((r = optstaticselect(expr)) != Skip)
+        return r;
 
       if ((r = optselect(expr)) != Skip)
         return r;
@@ -1305,15 +1327,12 @@ namespace verona::parser
       if ((r = optspecialise(expr)) != Skip)
         return r;
 
-      if ((r = optapply(expr)) != Skip)
-        return r;
-
       return Skip;
     }
 
     Result optpostorblock(Node<Expr>& expr)
     {
-      // postfix <- atom ('.' (ident / symbol) / typeargs / tuple)*
+      // postfix <- atom ('.' (ident / symbol) / typeargs)*
       Result r;
 
       // If we already have an error, we're done.
@@ -1345,15 +1364,22 @@ namespace verona::parser
       return r;
     }
 
-    Result optprefix(Node<Expr>& expr)
+    Result optapply(Node<Expr>& expr)
     {
-      // prefix <- staticref prefix / postfix
-      // preblock <- staticref preblock / blockexpr
-      List<Expr> list;
-      Node<Expr> last;
+      // This may return an incomplete infix node.
+      // apply <- op+ postfix* / postfix+
+      // applyblock <- apply? blockexpr
       Result r = Success;
 
-      do
+      if ((r = optpostorblock(expr)) == Skip)
+        return r;
+
+      if (is_blockexpr(expr))
+        return r;
+
+      bool ops = is_kind(expr, {Kind::StaticRef, Kind::StaticSelect});
+
+      while (true)
       {
         Node<Expr> next;
         Result r2;
@@ -1366,117 +1392,81 @@ namespace verona::parser
           r = Error;
         }
 
-        if (last)
-          list.push_back(last);
+        bool nextop = is_kind(next, {Kind::StaticRef, Kind::StaticSelect});
 
-        last = next;
-      } while (last->kind() == Kind::StaticRef);
+        if (!ops && nextop)
+        {
+          auto inf = std::make_shared<Infix>();
+          inf->location = next->location;
+          inf->op = next;
+          inf->left = expr;
+          expr = inf;
+          return r;
+        }
+        else
+        {
+          ops = nextop;
+          auto app = std::make_shared<Apply>();
+          app->location = expr->location;
+          app->expr = expr;
+          app->args = next;
+          expr = app;
 
-      if (!last)
-        return Skip;
-
-      auto block = is_blockexpr(last);
-
-      while (list.size() > 0)
-      {
-        auto pre = std::make_shared<Prefix>();
-        pre->op = list.back();
-        pre->location = pre->op->location;
-        pre->expr = last;
-        pre->block = block;
-
-        list.pop_back();
-        last = pre;
+          if (is_blockexpr(next))
+            return r;
+        }
       }
 
-      expr = last;
       return r;
     }
 
     Result optinfix(Node<Expr>& expr)
     {
-      // infix <- prefix (staticref prefix / postfix)*
-      // inblock <- preblock / infix (staticref preblock / blockexpr)?
-      Result r = Success;
+      // infix <- apply (op apply)*
+      // inblock <- applyblock / infix (op applyblock)?
+      Result r;
 
-      if ((r = optprefix(expr)) != Success)
+      if ((r = optapply(expr)) != Success)
         return r;
 
       if (is_blockexpr(expr))
         return r;
 
-      Node<Expr> prev;
-
-      while (true)
+      while (expr->kind() == Kind::Infix)
       {
         Node<Expr> next;
         Result r2;
 
-        if ((r2 = optstaticref(next)) != Skip)
+        if ((r2 = optapply(next)) == Skip)
         {
-          if (r2 == Error)
-            r = Error;
-
-          // TODO: how do we check precedence over staticref?
-          // if (
-          //   prev &&
-          //   ((next->kind() != prev->kind()) ||
-          //    (next->location != prev->location)))
-          // {
-          //   error() << next->location
-          //           << "Use parentheses to indicate precedence"
-          //           << text(next->location);
-          // }
-
-          prev = next;
-          Node<Expr> rhs;
-
-          if ((r2 = optprefix(rhs)) != Success)
-          {
-            if (r2 == Skip)
-              return r;
-
-            error() << loc() << "Expected an expression after an infix operator"
-                    << line();
-            r = Error;
-          }
-
-          auto inf = std::make_shared<Infix>();
-          inf->location = next->location;
-          inf->op = next;
-          inf->left = expr;
-          inf->right = rhs;
-          inf->block = is_blockexpr(rhs);
-          expr = inf;
-
-          if (inf->block)
-            return r;
+          error() << loc() << "Expected an expression after an infix operator"
+                  << line();
+          return Error;
         }
-        else if ((r2 = optpostorblock(next)) != Skip)
+
+        if (r2 == Error)
+          r = Error;
+
+        if (next->kind() == Kind::Infix)
         {
-          // We have a postfix, use adjacency to mean apply.
-          if (r2 == Error)
-            r = Error;
-
-          auto apply = std::make_shared<Apply>();
-          apply->location = next->location;
-          apply->expr = expr;
-          apply->args = next;
-          expr = apply;
-
-          if (is_blockexpr(next))
-            return r;
+          expr->as<Infix>().right = next->as<Infix>().left;
+          next->as<Infix>().left = expr;
+          expr = next;
         }
         else
         {
+          expr->as<Infix>().right = next;
           return r;
         }
       }
+
+      return r;
     }
 
     Result optexpr(Node<Expr>& expr)
     {
-      // expr <- inblock / infix ('=' expr)?
+      // assign <- infix ('=' expr)?
+      // expr <- inblock / assign
       Result r;
 
       if ((r = optinfix(expr)) == Skip)
@@ -1913,7 +1903,7 @@ namespace verona::parser
       Result r = Success;
       sig = std::make_shared<Signature>();
 
-      if (typeparams(sig->typeparams) == Error)
+      if (opttypeparams(sig->typeparams) == Error)
         r = Error;
 
       if (has(TokenKind::LParen))
@@ -1987,56 +1977,9 @@ namespace verona::parser
       return r;
     }
 
-    Result function(Function& func)
+    Result optfunction(List<Member>& members)
     {
       // function <- (ident / symbol)? signature (block / ';')
-      Result r = Success;
-
-      if (has(TokenKind::Ident) || has(TokenKind::Symbol))
-      {
-        func.location = previous.location;
-        func.name = previous.location;
-      }
-      else
-      {
-        // Replace an empy name with 'apply'.
-        func.name = name_apply;
-      }
-
-      if (signature(func.signature) == Error)
-        r = Error;
-
-      for (auto& param : func.signature->params)
-      {
-        if (!param->type)
-        {
-          error() << param->location << "Function parameters must have types"
-                  << text(param->location);
-        }
-      }
-
-      if (!func.location.source)
-        func.location = func.signature->location;
-
-      Result r2;
-
-      if ((r2 = optblock(func.body)) != Skip)
-      {
-        if (r2 == Error)
-          r = Error;
-      }
-      else if (!has(TokenKind::Semicolon))
-      {
-        error() << loc() << "Expected a block or ;" << line();
-        r = Error;
-      }
-
-      return r;
-    }
-
-    Result optmethod(List<Member>& members)
-    {
-      // method <- function
       bool ok = peek(TokenKind::Symbol) ||
         (peek(TokenKind::Ident) &&
          (peek(TokenKind::LSquare) || peek(TokenKind::LParen))) ||
@@ -2047,30 +1990,48 @@ namespace verona::parser
       if (!ok)
         return Skip;
 
-      auto method = std::make_shared<Method>();
-      auto st = push(method);
-      Result r = Success;
-
-      if (function(*method) != Success)
-        r = Error;
-
-      members.push_back(method);
-      set_sym_parent(method->name, method);
-      return r;
-    }
-
-    Result optstaticfunction(List<Member>& members)
-    {
-      // optstaticfunction <- 'static' function
-      if (!has(TokenKind::Static))
-        return Skip;
-
       auto func = std::make_shared<Function>();
       auto st = push(func);
       Result r = Success;
 
-      if (function(*func) != Success)
+      if (has(TokenKind::Ident) || has(TokenKind::Symbol))
+      {
+        func->location = previous.location;
+        func->name = previous.location;
+      }
+      else
+      {
+        // Replace an empy name with 'apply'.
+        func->name = name_apply;
+      }
+
+      if (signature(func->signature) == Error)
         r = Error;
+
+      for (auto& param : func->signature->params)
+      {
+        if (!param->type)
+        {
+          error() << param->location << "Function parameters must have types"
+                  << text(param->location);
+        }
+      }
+
+      if (!func->location.source)
+        func->location = func->signature->location;
+
+      Result r2;
+
+      if ((r2 = optblock(func->body)) != Skip)
+      {
+        if (r2 == Error)
+          r = Error;
+      }
+      else if (!has(TokenKind::Semicolon))
+      {
+        error() << loc() << "Expected a block or ;" << line();
+        r = Error;
+      }
 
       members.push_back(func);
       set_sym_parent(func->name, func);
@@ -2105,7 +2066,7 @@ namespace verona::parser
       return r;
     }
 
-    Result typeparams(List<TypeParam>& typeparams)
+    Result opttypeparams(List<TypeParam>& typeparams)
     {
       // typeparams <- ('[' typeparam (',' typeparam)* ']')?
       if (!has(TokenKind::LSquare))
@@ -2170,7 +2131,7 @@ namespace verona::parser
       // entity <- typeparams oftype
       Result r = Success;
 
-      if (typeparams(ent.typeparams) == Error)
+      if (opttypeparams(ent.typeparams) == Error)
         r = Error;
 
       if (oftype(ent.inherits) == Error)
@@ -2184,11 +2145,14 @@ namespace verona::parser
 
     Result namedentity(NamedEntity& ent)
     {
-      // namedentity <- ident? entity
+      // namedentity <- ident entity
       Result r = Success;
 
       if (optident(ent.id) == Skip)
-        ent.id = ident();
+      {
+        error() << loc() << "Expected an identifier" << line();
+        r = Error;
+      }
 
       if (entity(ent) == Error)
         r = Error;
@@ -2228,7 +2192,7 @@ namespace verona::parser
 
     Result typealias(List<Member>& members)
     {
-      // typealias <- 'type' namedentity '=' type ';'
+      // typealias <- 'type' ident typeparams? '=' type ';'
       if (!has(TokenKind::Type))
         return Skip;
 
@@ -2236,7 +2200,17 @@ namespace verona::parser
       alias->location = previous.location;
       Result r = Success;
 
-      if (namedentity(*alias) == Error)
+      if (has(TokenKind::Ident))
+      {
+        alias->id = previous.location;
+      }
+      else
+      {
+        error() << loc() << "Expected an identifier" << line();
+        r = Error;
+      }
+
+      if (opttypeparams(alias->typeparams) == Error)
         r = Error;
 
       if (!has(TokenKind::Equals))
@@ -2340,7 +2314,7 @@ namespace verona::parser
     Result optmember(List<Member>& members)
     {
       // member <-
-      //  classdef / interface / typealias / using / field / method / function
+      //  classdef / interface / typealias / using / field / function
       Result r;
 
       if ((r = classdef(members)) != Skip)
@@ -2355,10 +2329,7 @@ namespace verona::parser
       if ((r = optusing(members)) != Skip)
         return r;
 
-      if ((r = optstaticfunction(members)) != Skip)
-        return r;
-
-      if ((r = optmethod(members)) != Skip)
+      if ((r = optfunction(members)) != Skip)
         return r;
 
       if ((r = optfield(members)) != Skip)
@@ -2395,7 +2366,7 @@ namespace verona::parser
         {
           error() << loc()
                   << "Expected a class, interface, type alias, field, "
-                     "method, or function"
+                     "or function"
                   << line();
 
           restart_before({TokenKind::RBrace,
@@ -2404,7 +2375,6 @@ namespace verona::parser
                           TokenKind::Type,
                           TokenKind::Ident,
                           TokenKind::Symbol,
-                          TokenKind::Static,
                           TokenKind::LSquare,
                           TokenKind::LParen});
         }
@@ -2441,7 +2411,7 @@ namespace verona::parser
         {
           error() << loc()
                   << "Expected a module, class, interface, type alias, field, "
-                     "method, or function"
+                     "or function"
                   << line();
 
           restart_before({TokenKind::Module,
@@ -2450,7 +2420,6 @@ namespace verona::parser
                           TokenKind::Type,
                           TokenKind::Ident,
                           TokenKind::Symbol,
-                          TokenKind::Static,
                           TokenKind::LSquare,
                           TokenKind::LParen});
         }

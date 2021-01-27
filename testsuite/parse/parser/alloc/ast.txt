@@ -90,7 +90,7 @@
                 ())
               (block [ (new (tuple [ (ref a ()) (ref b ()) ] ()) ()) ]))
           ])
-        (method
+        (function
           foo
           (signature [] [] () ())
           (block

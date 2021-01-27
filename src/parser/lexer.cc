@@ -55,7 +55,6 @@ namespace verona::parser
                                   {"interface", TokenKind::Interface},
                                   {"type", TokenKind::Type},
                                   {"using", TokenKind::Using},
-                                  {"static", TokenKind::Static},
                                   {"throws", TokenKind::Throws},
                                   {"if", TokenKind::If},
                                   {"else", TokenKind::Else},

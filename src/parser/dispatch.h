@@ -45,9 +45,6 @@ namespace verona::parser
       case Kind::Function:
         return f(node->as<Function>(), args...);
 
-      case Kind::Method:
-        return f(node->as<Method>(), args...);
-
       // Types
       case Kind::UnionType:
         return f(node->as<UnionType>(), args...);
@@ -128,11 +125,11 @@ namespace verona::parser
       case Kind::Infix:
         return f(node->as<Infix>(), args...);
 
-      case Kind::Prefix:
-        return f(node->as<Prefix>(), args...);
-
       case Kind::Select:
         return f(node->as<Select>(), args...);
+
+      case Kind::StaticSelect:
+        return f(node->as<StaticSelect>(), args...);
 
       case Kind::Specialise:
         return f(node->as<Specialise>(), args...);
