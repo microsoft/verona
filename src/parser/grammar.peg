@@ -33,7 +33,7 @@ blockexpr <- block / when / match / if / while / for / match / lambda
 declelem <- (ident / '(' declelem (',' declelem)* ')') oftype?
 decl <- ('let' / 'var') declelem
 new <- 'new' (tuple / typebody / type typebody) ('in' ident)?
-tuple <- '(' expr (',' expr)* ')' oftype?
+tuple <- '(' (expr (',' expr)*)? ')' oftype?
 constant <- string / character / float / int / hex / binary / 'true' / 'false'
 ref <- [local] ident oftype?
 ### TODO: new and decl probably shouldn't be here
