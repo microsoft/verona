@@ -1,9 +1,9 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-#include "compiler.h"
+#include "CXXInterface.h"
 
-using namespace verona::ffi::compiler;
+using namespace verona::ffi;
 
 /// Looks up a symbol from a CXX interface by name
 void test(CXXInterface& interface, std::string& name)
@@ -44,7 +44,7 @@ int main(int argc, char** argv)
   std::vector<std::string> symbols;
   if (argc > 2)
   {
-    for (size_t i=2; i<argc; i++)
+    for (size_t i = 2; i < argc; i++)
       symbols.push_back(argv[i]);
   }
   if (file.empty() || symbols.empty())
@@ -56,7 +56,7 @@ int main(int argc, char** argv)
   // paths to this interface.
   CXXInterface interface(file);
 
-  for (auto symbol: symbols)
+  for (auto symbol : symbols)
     test(interface, symbol);
 
   exit(0);
@@ -64,6 +64,7 @@ int main(int argc, char** argv)
   // The remaining of this file will be slowly moved up when functionality is
   // available for each one of them. Most of it was assuming the file in the
   // interface was IRBuilder.h in the LLVM repo.
+  /*
   auto irb = interface.getType("llvm::IRBuilder");
   auto params = dyn_cast<ClassTemplateDecl>(irb.decl)->getTemplateParameters();
   std::vector<TemplateArgument> args;
@@ -161,4 +162,6 @@ int main(int argc, char** argv)
   stdarray.ast
     ->getCanonicalTemplateSpecializationType(arrName, {TypeArg, TypeArg})
     .dump();
+  */
+  return 0;
 }
