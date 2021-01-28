@@ -70,8 +70,4 @@ use a capability to fetch args
 use a capability to read and write envvars
 main() gets ambient authority and nothing else
 
-> incomplete infix -> postfix operator
->   maybe not. doesn't seem to give new ways to express stuff.
-> instead of (specialise (select x foo) T) -> (select x foo[T])
->   maybe not. x.y[T](z) where y is a field.
 > instead of ref and tuple having oftype, put it on expr
