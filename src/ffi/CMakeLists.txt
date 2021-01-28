@@ -20,9 +20,7 @@ link_directories(${LLVM_BUILD_LIBRARY_DIR})
 add_definitions(${LLVM_DEFINITIONS})
 add_definitions(${CLANG_DEFINITIONS})
 
-add_llvm_executable(verona-ffi
-  main.cc
-  compiler.cc)
+add_llvm_executable(verona-ffi main.cc)
 llvm_update_compile_flags(verona-ffi)
 
 target_link_libraries(verona-ffi PRIVATE

@@ -4,6 +4,9 @@
 #pragma once
 
 #include "CXXType.h"
+#include "Compiler.h"
+#include "FS.h"
+#include "Timer.h"
 
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 #include <clang/ASTMatchers/ASTMatchers.h>
@@ -26,84 +29,12 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Support/SmallVectorMemoryBuffer.h>
-#include <llvm/Support/VirtualFileSystem.h>
 
 using namespace clang;
+using namespace clang::ast_matchers;
+
 namespace
 {
-  /// Reports time elapsed between creation and destruction.
-  ///
-  /// Use:
-  ///  {
-  ///    auto T = TimeReport("My action");
-  ///    ... some action ...
-  ///  }
-  ///  // Here prints "My action: 12ms" to stderr
-  class TimeReport
-  {
-    timespec start;
-    std::string name;
-#ifdef CLOCK_PROF
-    static const clockid_t clock = CLOCK_PROF;
-#else
-    const clockid_t clock = CLOCK_PROCESS_CPUTIME_ID;
-#endif
-
-  public:
-    TimeReport(std::string n) : name(n)
-    {
-      std::atomic_signal_fence(std::memory_order::memory_order_seq_cst);
-      clock_gettime(clock, &start);
-    }
-    ~TimeReport()
-    {
-      using namespace std::chrono;
-      timespec end;
-      std::atomic_signal_fence(std::memory_order::memory_order_seq_cst);
-      clock_gettime(clock, &end);
-      std::atomic_signal_fence(std::memory_order::memory_order_seq_cst);
-      auto interval_from_timespec = [](timespec t) {
-        return seconds{t.tv_sec} + nanoseconds{t.tv_nsec};
-      };
-      auto elapsed =
-        interval_from_timespec(end) - interval_from_timespec(start);
-
-      fprintf(
-        stderr,
-        "%s: %ldms\n",
-        name.c_str(),
-        duration_cast<milliseconds>(elapsed).count());
-    }
-  };
-
-  using namespace clang::ast_matchers;
-
-  /// Simple handler for indirect dispatch on a Clang AST matcher.
-  ///
-  /// Use:
-  ///  void myfunc(MatchFinder::MatchResult &);
-  ///  MatchFinder f;
-  ///  f.addMatcher(new HandleMatch(myfunc));
-  ///  f.matchAST(*ast);
-  ///  // If matches, runs `myfunc` on the matched AST node.
-  class HandleMatch : public MatchFinder::MatchCallback
-  {
-    std::function<void(const MatchFinder::MatchResult& Result)> handler;
-    void run(const MatchFinder::MatchResult& Result) override
-    {
-      handler(Result);
-    }
-    ~HandleMatch()
-    {
-      fprintf(stderr, "HandleMatch destroyed\n");
-    }
-
-  public:
-    HandleMatch(std::function<void(const MatchFinder::MatchResult& Result)> h)
-    : handler(h)
-    {}
-  };
-
   /// Pre-compiled header action, to create the PCH consumers for PCH generation
   struct GenerateMemoryPCHAction : GeneratePCHAction
   {
@@ -155,8 +86,9 @@ namespace
       return std::make_unique<MultiplexConsumer>(std::move(Consumers));
     }
   };
-}
-namespace verona::ffi::compiler
+} // namespace anonymous
+
+namespace verona::ffi
 {
   /**
    * C++ Clang Interface.
@@ -174,71 +106,14 @@ namespace verona::ffi::compiler
    */
   class CXXInterface
   {
-    // FIXME: delete public
-  public:
-    /// Source file name (can be a header, too)
-    std::string sourceFile;
-    /// The AST root
-    clang::ASTContext* ast = nullptr;
-    /// Pre-compiled header
-    llvm::Optional<clang::PrecompiledPreamble> preamble;
-
-    /// Source languages Clang supports
-    enum SourceLanguage
-    {
-      C,
-      CXX,
-      ObjC,
-      ObjCXX,
-      SOURCE_LANGAUGE_ENUM_SIZE
-    };
-    /// Converts SourceLanguage into string
-    static const char* source_language_string(SourceLanguage sl)
-    {
-      static std::array<const char*, SOURCE_LANGAUGE_ENUM_SIZE> names = {
-        "c", "c++", "objective-c", "objective-c++"};
-      return names.at(static_cast<int>(sl));
-    }
-    // std::unique_ptr<CompilerInstance> Clang =
-    // std::make_unique<CompilerInstance>();
-
-    /// Simple wrapper for calling clang with arguments on different files.
-    class ClangArgs
-    {
-      /// All arguments, including empty last one that is replaced evey call
-      std::vector<const char*> args;
-      /// Position of last argument (filename)
-      size_t file_pos;
-
-    public:
-      /// C-tor, initialises default arguments + file pos
-      ClangArgs(SourceLanguage sourceLang = CXX)
-      {
-        const char* langName = source_language_string(sourceLang);
-        // FIXME: Don't hard code include paths!
-        args = {
-          "clang",
-          "-x",
-          langName,
-          "-I",
-          "/usr/include/",
-          "-I",
-          "/usr/local/include/",
-          ""};
-        file_pos = args.size() - 1;
-        fprintf(stderr, "Clang args created\n");
-      }
-      /// Returns the array with the filename as the last arg
-      llvm::ArrayRef<const char*> getArgs(const char* filename)
-      {
-        fprintf(stderr, "Clang called for %s\n", filename);
-        args[file_pos] = filename;
-        return args;
-      }
-    };
-
     /// Name of the internal compilation unit that includes the filename
     static constexpr const char* cu_name = "verona_interface.cc";
+    /// The AST root
+    clang::ASTContext* ast = nullptr;
+    /// Compiler
+    std::unique_ptr<Compiler> Clang;
+    /// Virtual file system (compiler unit, pch, headers)
+    FileSystem FS;
 
     /**
      * Creates new AST consumers to add the AST back into the interface.
@@ -283,92 +158,48 @@ namespace verona::ffi::compiler
     } factory;
 
     /**
-     * Creates an in-memory overlay file-system, so we can create the interim
-     * compile unit (that includes the user file) alongside the necessary
-     * headers to include (built-in, etc).
+     * Simple handler for indirect dispatch on a Clang AST matcher.
+     *
+     * Use:
+     *  void myfunc(MatchFinder::MatchResult &);
+     *  MatchFinder f;
+     *  f.addMatcher(new HandleMatch(myfunc));
+     *  f.matchAST(*ast);
+     *  // If matches, runs `myfunc` on the matched AST node.
      */
-    std::pair<
-      IntrusiveRefCntPtr<llvm::vfs::FileSystem>,
-      IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem>>
-    createOverlayFilesystem(std::unique_ptr<llvm::MemoryBuffer> Buf)
+    class HandleMatch : public MatchFinder::MatchCallback
     {
-      IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem> inMemoryVFS =
-        new llvm::vfs::InMemoryFileSystem();
-      IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> Overlay =
-        new llvm::vfs::OverlayFileSystem(llvm::vfs::getRealFileSystem());
-      Overlay->pushOverlay(inMemoryVFS);
-      inMemoryVFS->addFile(cu_name, time(nullptr), std::move(Buf));
-      // FIXME: We should also add Clang's built-in headers.
-      return {IntrusiveRefCntPtr<llvm::vfs::FileSystem>{Overlay}, inMemoryVFS};
-    }
+      std::function<void(const MatchFinder::MatchResult& Result)> handler;
+      void run(const MatchFinder::MatchResult& Result) override
+      {
+        handler(Result);
+      }
+      ~HandleMatch()
+      {
+        fprintf(stderr, "HandleMatch destroyed\n");
+      }
 
-    /// Compiler instance.
-    std::unique_ptr<CompilerInstance> Clang;
+    public:
+      HandleMatch(std::function<void(const MatchFinder::MatchResult& Result)> h)
+      : handler(h)
+      {}
+    };
 
     /**
-     * Creates the Clang instance, with preprocessor and header search support.
+     * Generates the pre-compile header into the memory buffer.
+     *
+     * This method creates a new local Clang just for the pre-compiled headers
+     * and returns a memory buffer with the contents, to be inserted in a
+     * "file" inside the virtual file system.
      */
-    void createClangInstance(
-      llvm::ArrayRef<const char*> args,
-      llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS)
-    {
-      Clang = std::make_unique<CompilerInstance>();
-      // TODO: Wire up diagnostics so that we can spot invalid template
-      // instantiations.
-      IntrusiveRefCntPtr<DiagnosticIDs> DiagID = new DiagnosticIDs();
-      IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
-      auto* DiagsPrinter = new TextDiagnosticPrinter{llvm::errs(), &*DiagOpts};
-      auto* Diags =
-        new DiagnosticsEngine(DiagID, DiagOpts, DiagsPrinter, false);
-      fprintf(stderr, "Diags: %p\n", Diags);
-      auto CI = createInvocationFromCommandLine(
-        args, Diags, llvm::vfs::getRealFileSystem());
-      Diags = new DiagnosticsEngine(DiagID, DiagOpts, DiagsPrinter, false);
-      fprintf(stderr, "CI: %p\n", CI.get());
-      fprintf(stderr, "Clang: %p\n", Clang.get());
-      auto* fileManager = new FileManager(FileSystemOptions{}, VFS);
-      auto* sourceMgr = new SourceManager(
-        *Diags,
-        *fileManager,
-        /*UserFilesAreVolatile*/ false);
-      Clang->setFileManager(fileManager);
-      Clang->setSourceManager(sourceMgr);
-      Clang->setInvocation(std::move(CI));
-      Clang->setDiagnostics(Diags);
-      auto PPOpts = std::make_shared<PreprocessorOptions>();
-      TrivialModuleLoader TML;
-      auto HeaderSearchPtr = std::make_unique<HeaderSearch>(
-        std::make_shared<HeaderSearchOptions>(),
-        *sourceMgr,
-        *Diags,
-        Clang->getLangOpts(),
-        nullptr);
-      auto PreprocessorPtr = std::make_shared<Preprocessor>(
-        PPOpts,
-        *Diags,
-        Clang->getLangOpts(),
-        *sourceMgr,
-        *HeaderSearchPtr,
-        TML,
-        nullptr,
-        false);
-      Clang->setPreprocessor(PreprocessorPtr);
-      Clang->getPreprocessor().enableIncrementalProcessing();
-      // FIXME: Do something more sensible with the diagnostics engine so
-      // that we can propagate errors to Verona
-    }
-
-    /// Pre-compiled memory buffer.
-    std::unique_ptr<llvm::MemoryBuffer> pchBuffer;
-
-    /// Generates the pre-compile header into the memory buffer.
     std::unique_ptr<llvm::MemoryBuffer>
-    generatePCH(std::string headerFile, ArrayRef<const char*> args)
+    generatePCH(const char* headerFile, SourceLanguage sourceLang)
     {
-      createClangInstance(args, llvm::vfs::getRealFileSystem());
+      Compiler LocalClang(
+        llvm::vfs::getRealFileSystem(), headerFile, sourceLang);
       llvm::SmallVector<char, 0> pchOutBuffer;
       auto action = std::make_unique<GenerateMemoryPCHAction>(pchOutBuffer);
-      Clang->ExecuteAction(*action);
+      LocalClang.ExecuteAction(*action);
       fprintf(stderr, "PCH is %zu bytes\n", pchOutBuffer.size());
       return std::unique_ptr<llvm::MemoryBuffer>(
         new llvm::SmallVectorMemoryBuffer(std::move(pchOutBuffer)));
@@ -380,40 +211,40 @@ namespace verona::ffi::compiler
      * user file (and all dependencies), generates the pre-compiled headers,
      * creates the compiler instance and re-attaches the AST to the interface.
      */
-    CXXInterface(std::string headerFile, SourceLanguage sourceLang = CXX)
-    : sourceFile(headerFile), factory(this)
+    CXXInterface(
+      std::string headerFile, SourceLanguage sourceLang = SourceLanguage::CXX)
+    : factory(this)
     {
-      ClangArgs args(sourceLang);
-
       // Pre-compiles the file requested by the user
-      fprintf(stderr, "\nParsing file\n");
+      std::unique_ptr<llvm::MemoryBuffer> pchBuffer;
+      fprintf(stderr, "\nParsing file %s\n", headerFile.c_str());
       {
         auto t = TimeReport("Computing precompiled headers");
-        pchBuffer = generatePCH(headerFile, args.getArgs(headerFile.c_str()));
+        pchBuffer = generatePCH(headerFile.c_str(), sourceLang);
       }
 
       // Creating a fake compile unit to include the target file
       // in an in-memory file system.
-      fprintf(stderr, "\nCreating in-memory file system\n");
+      fprintf(stderr, "\nCreating fake compile unit\n");
       std::string Code = "#include \"" + headerFile +
         "\"\n"
         "namespace verona { namespace __ffi_internal { \n"
         "}}\n";
       auto Buf = llvm::MemoryBuffer::getMemBufferCopy(Code);
       auto PCHBuf = llvm::MemoryBuffer::getMemBufferCopy(Code);
-      auto [VFS, inMemoryVFS] = createOverlayFilesystem(std::move(Buf));
+      FS.addFile(cu_name, std::move(Buf));
 
       // Adding the pre-compiler header file to the file system.
       auto pchDataRef = llvm::MemoryBuffer::getMemBuffer(
         llvm::MemoryBufferRef{*pchBuffer}, false);
-      inMemoryVFS->addFile(
-        headerFile + ".gch", time(nullptr), std::move(pchDataRef));
+      FS.addFile(headerFile + ".gch", std::move(pchDataRef));
 
       // Parse the fake compile unit with the user file included inside.
       fprintf(stderr, "\nParsing wrapping unit\n");
       {
         auto t = TimeReport("Creating clang instance");
-        createClangInstance(args.getArgs(cu_name), VFS);
+        // Create the compiler
+        Clang = std::make_unique<Compiler>(FS.get(), cu_name, sourceLang);
       }
       auto collectAST = tooling::newFrontendActionFactory(&factory)->create();
       {
@@ -423,38 +254,9 @@ namespace verona::ffi::compiler
 
       // Executing the action consumes the AST.  Reset the compiler instance to
       // refer to the AST that it just parsed and create a Sema instance.
-      Clang->setASTConsumer(factory.newASTConsumer());
-      Clang->setASTContext(ast);
-      Clang->createSema(TU_Complete, nullptr);
+      Clang->setASTMachinery(factory.newASTConsumer(), ast);
 
       fprintf(stderr, "\nAST: %p\n\n", ast);
-    }
-
-    /// LLVMContext for LLVM lowering.
-    std::unique_ptr<llvm::LLVMContext> llvmContext{new llvm::LLVMContext};
-
-    /**
-     * Lowers each top-level declaration to LLVM IR and dumps the module.
-     */
-    std::unique_ptr<llvm::Module> emitLLVM()
-    {
-      std::unique_ptr<CodeGenerator> CodeGen{CreateLLVMCodeGen(
-        Clang->getDiagnostics(),
-        cu_name,
-        Clang->getHeaderSearchOpts(),
-        Clang->getPreprocessorOpts(),
-        Clang->getCodeGenOpts(),
-        *llvmContext)};
-      fprintf(stderr, "Generating LLVM IR...\n");
-      CodeGen->Initialize(*ast);
-      CodeGen->HandleTranslationUnit(*ast);
-      for (auto& D : ast->getTranslationUnitDecl()->decls())
-        CodeGen->HandleTopLevelDecl(DeclGroupRef{D});
-      std::unique_ptr<llvm::Module> M{CodeGen->ReleaseModule()};
-      fprintf(stderr, "M: %p\n", M.get());
-      M->dump();
-      // Note: `M` must be freed before `this`
-      return M;
     }
 
     /**
@@ -635,9 +437,7 @@ namespace verona::ffi::compiler
         cast_or_null<ClassTemplateSpecializationDecl>(Decl->getDefinition());
       if (!Def)
       {
-        auto& SM = Clang->getSourceManager();
-        auto mainFile = SM.getMainFileID();
-        SourceLocation InstantiationLoc = SM.getLocForEndOfFile(mainFile);
+        SourceLocation InstantiationLoc = Clang->getEndOfFileLocation();
         assert(InstantiationLoc.isValid());
         S.InstantiateClassTemplateSpecialization(
           InstantiationLoc, Decl, TSK_ExplicitInstantiationDefinition);
@@ -687,4 +487,4 @@ namespace verona::ffi::compiler
       return ast->VoidTy;
     }
   };
-} // namespace verona::ffi::compiler
+} // namespace verona::ffi

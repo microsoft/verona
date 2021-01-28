@@ -6,7 +6,7 @@
 #include <clang/Sema/Sema.h>
 
 using namespace clang;
-namespace verona::ffi::compiler
+namespace verona::ffi
 {
   /**
    * C++ types that can be queried from the AST matchers.
@@ -138,4 +138,4 @@ namespace verona::ffi::compiler
       BuiltinTypeKinds builtTypeKind;
     };
   };
-} // namespace verona::ffi::compiler
+} // namespace verona::ffi
