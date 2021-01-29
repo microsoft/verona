@@ -47,11 +47,12 @@ namespace verona::compiler
 
     void exit(int error_code)
     {
-      if (error_code != 0)
+      if (has_error_stream())
       {
-        error_stream << "Error Code: " << error_code << std::endl;
+        get_error_stream() << "Error Code: " << error_code << std::endl;
+        std::exit(0);
       }
-      std::exit(0);
+      std::exit(error_code);
     }
 
     Context(const Context&) = delete;

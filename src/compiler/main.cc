@@ -71,6 +71,7 @@ namespace verona::compiler
     if (options.dump_path)
     {
       context.set_dump_path(*options.dump_path);
+      context.set_error_stream(context.dump_with_name("stderr"));
     }
     for (const auto& pattern : options.print_patterns)
     {

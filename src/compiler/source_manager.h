@@ -5,6 +5,7 @@
 
 #include <array>
 #include <climits>
+#include <memory>
 #include <fmt/color.h>
 #include <fmt/core.h>
 #include <fmt/ostream.h>
@@ -16,7 +17,31 @@ namespace verona::compiler
 {
   struct SourceManager
   {
-    std::ostream& error_stream = std::cerr;
+  private:
+    std::unique_ptr<std::ostream> _error_stream;
+
+  public:
+    void set_error_stream(std::unique_ptr<std::ostream> out)
+    {
+      _error_stream = std::move(out);
+    }
+
+    std::ostream& get_error_stream()
+    {
+      if (_error_stream == nullptr)
+      {
+        return std::cerr;
+      }
+      else
+      {
+        return *_error_stream;
+      }
+    }
+
+    bool has_error_stream()
+    {
+      return _error_stream != nullptr;
+    }
 
     /**
      * Location in the source file.  This is an opaque value that can be
@@ -424,7 +449,7 @@ namespace verona::compiler
       Diagnostic d,
       Args&&... args)
     {
-      auto& s = error_stream;
+      auto& s = get_error_stream();
       diagnostic_counter(k)++;
       auto loc = expand_source_location(l);
       s << format(
@@ -444,7 +469,7 @@ namespace verona::compiler
     template<typename... Args>
     void print_global_diagnostic(DiagnosticKind k, Diagnostic d, Args&&... args)
     {
-      auto& s = error_stream;
+      auto& s = get_error_stream();
       diagnostic_counter(k)++;
       s << format(style_for_diagnostic_kind(k), "{}: ", k);
       s << format(
@@ -459,7 +484,7 @@ namespace verona::compiler
      */
     void print_line_diagnostic(SourceRange r)
     {
-      auto& s = error_stream;
+      auto& s = get_error_stream();
       auto loc = expand_source_location(r.first);
       auto endloc = expand_source_location(r.last);
       std::string buffer;
@@ -504,7 +529,7 @@ namespace verona::compiler
      */
     void print_diagnostic_summary()
     {
-      auto& s = error_stream;
+      auto& s = get_error_stream();
 
       int warns = diagnostic_counter(DiagnosticKind::Warning);
       int errors = diagnostic_counter(DiagnosticKind::Error);
