@@ -37,24 +37,21 @@ namespace verona::compiler
       switch (assertion.kind->value())
       {
         case AssertionKind::Subtype:
-          context.print_diagnostic(
-            assertion.source_range.first,
+          report(context,
+            assertion.source_range,
             DiagnosticKind::Error,
             Diagnostic::SubtypeAssertionFailed,
             *assertion.left_type,
             *assertion.right_type);
-          context.print_line_diagnostic(assertion.source_range);
           break;
 
         case AssertionKind::NotSubtype:
-          context.print_diagnostic(
-            assertion.source_range.first,
+          report(context,
+            assertion.source_range,
             DiagnosticKind::Error,
             Diagnostic::NotSubtypeAssertionFailed,
             *assertion.left_type,
             *assertion.right_type);
-
-          context.print_line_diagnostic(assertion.source_range);
           break;
 
           EXHAUSTIVE_SWITCH;

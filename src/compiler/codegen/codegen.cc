@@ -37,49 +37,45 @@ namespace verona::compiler
     const Entity* main_class = program.find_entity("Main");
     if (!main_class)
     {
-      context.print_global_diagnostic(
+      report(context, std::nullopt,
         DiagnosticKind::Error, Diagnostic::NoMainClass);
       return std::nullopt;
     }
 
     if (main_class->kind->value() != Entity::Class)
     {
-      context.print_diagnostic(
-        main_class->name.source_range.first,
+      report(context,
+        main_class->name.source_range,
         DiagnosticKind::Error,
         Diagnostic::MainNotAClass);
-      context.print_line_diagnostic(main_class->name.source_range);
       return std::nullopt;
     }
 
     if (!main_class->generics->types.empty())
     {
-      context.print_diagnostic(
-        main_class->name.source_range.first,
+      report(context,
+        main_class->name.source_range,
         DiagnosticKind::Error,
         Diagnostic::MainClassIsGeneric);
-      context.print_line_diagnostic(main_class->name.source_range);
       return std::nullopt;
     }
 
     const Method* main_method = lookup_member<Method>(main_class, "main");
     if (!main_method)
     {
-      context.print_diagnostic(
-        main_class->name.source_range.first,
+      report(context,
+        main_class->name.source_range,
         DiagnosticKind::Error,
         Diagnostic::NoMainMethod);
-      context.print_line_diagnostic(main_class->name.source_range);
       return std::nullopt;
     }
 
     if (!is_valid_main_signature(context, *main_method->signature))
     {
-      context.print_diagnostic(
-        main_method->name.source_range.first,
+      report(context,
+        main_method->name.source_range,
         DiagnosticKind::Error,
         Diagnostic::InvalidMainSignature);
-      context.print_line_diagnostic(main_method->name.source_range);
       return std::nullopt;
     }
 
