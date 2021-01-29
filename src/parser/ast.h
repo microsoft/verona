@@ -4,6 +4,9 @@
 
 #include "lexer.h"
 
+#include <vector>
+#include <unordered_map>
+
 namespace verona::parser
 {
   enum class Kind
