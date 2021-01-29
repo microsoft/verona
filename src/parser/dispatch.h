@@ -182,5 +182,8 @@ namespace verona::parser
       case Kind::False:
         return f(node->as<False>(), args...);
     }
+
+    // This is unreachable, and is only to suppress an MSVC error.
+    return f(args...);
   }
 }

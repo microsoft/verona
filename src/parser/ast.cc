@@ -177,6 +177,9 @@ namespace verona::parser
       case Kind::False:
         return "false";
     }
+
+    // This is unreachable, and is only to suppress an MSVC error.
+    return "ERROR";
   }
 
   bool is_kind(Ast ast, const std::initializer_list<Kind>& kinds)
