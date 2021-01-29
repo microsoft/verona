@@ -4,8 +4,8 @@
 
 #include "compiler/traits.h"
 #include "compiler/type.h"
+#include <compiler/error.h>
 
-#include <fmt/ostream.h>
 #include <iostream>
 
 /**
@@ -150,11 +150,9 @@ namespace verona::compiler
       {
         // Silence a warning about typeid(*ty) having a potential side-effect
         const Type& ty_ref = *ty;
-        fmt::print(
-          std::cerr,
+        InternalError().print(
           "TypeVisitor dispatch failed on {}\n",
           typeid(ty_ref).name());
-        abort();
       }
     }
 
@@ -163,11 +161,10 @@ namespace verona::compiler
     {
       // Silence a warning about typeid(*ty) having a potential side-effect
       const Type& ty_ref = *ty;
-      fmt::print(
+      InternalError().print(
         "Unhandled case {} in visitor {}.\n",
         typeid(ty_ref).name(),
         typeid(*this).name());
-      abort();
     }
     virtual Return visit_entity_type(const EntityTypePtr& ty, Args... args)
     {

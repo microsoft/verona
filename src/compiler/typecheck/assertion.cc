@@ -38,25 +38,23 @@ namespace verona::compiler
       {
         case AssertionKind::Subtype:
           context.print_diagnostic(
-            std::cerr,
             assertion.source_range.first,
             DiagnosticKind::Error,
             Diagnostic::SubtypeAssertionFailed,
             *assertion.left_type,
             *assertion.right_type);
-          context.print_line_diagnostic(std::cerr, assertion.source_range);
+          context.print_line_diagnostic(assertion.source_range);
           break;
 
         case AssertionKind::NotSubtype:
           context.print_diagnostic(
-            std::cerr,
             assertion.source_range.first,
             DiagnosticKind::Error,
             Diagnostic::NotSubtypeAssertionFailed,
             *assertion.left_type,
             *assertion.right_type);
 
-          context.print_line_diagnostic(std::cerr, assertion.source_range);
+          context.print_line_diagnostic(assertion.source_range);
           break;
 
           EXHAUSTIVE_SWITCH;

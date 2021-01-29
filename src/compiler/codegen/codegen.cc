@@ -38,29 +38,27 @@ namespace verona::compiler
     if (!main_class)
     {
       context.print_global_diagnostic(
-        std::cerr, DiagnosticKind::Error, Diagnostic::NoMainClass);
+        DiagnosticKind::Error, Diagnostic::NoMainClass);
       return std::nullopt;
     }
 
     if (main_class->kind->value() != Entity::Class)
     {
       context.print_diagnostic(
-        std::cerr,
         main_class->name.source_range.first,
         DiagnosticKind::Error,
         Diagnostic::MainNotAClass);
-      context.print_line_diagnostic(std::cerr, main_class->name.source_range);
+      context.print_line_diagnostic(main_class->name.source_range);
       return std::nullopt;
     }
 
     if (!main_class->generics->types.empty())
     {
       context.print_diagnostic(
-        std::cerr,
         main_class->name.source_range.first,
         DiagnosticKind::Error,
         Diagnostic::MainClassIsGeneric);
-      context.print_line_diagnostic(std::cerr, main_class->name.source_range);
+      context.print_line_diagnostic(main_class->name.source_range);
       return std::nullopt;
     }
 
@@ -68,22 +66,20 @@ namespace verona::compiler
     if (!main_method)
     {
       context.print_diagnostic(
-        std::cerr,
         main_class->name.source_range.first,
         DiagnosticKind::Error,
         Diagnostic::NoMainMethod);
-      context.print_line_diagnostic(std::cerr, main_class->name.source_range);
+      context.print_line_diagnostic(main_class->name.source_range);
       return std::nullopt;
     }
 
     if (!is_valid_main_signature(context, *main_method->signature))
     {
       context.print_diagnostic(
-        std::cerr,
         main_method->name.source_range.first,
         DiagnosticKind::Error,
         Diagnostic::InvalidMainSignature);
-      context.print_line_diagnostic(std::cerr, main_method->name.source_range);
+      context.print_line_diagnostic(main_method->name.source_range);
       return std::nullopt;
     }
 

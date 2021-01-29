@@ -114,22 +114,19 @@ namespace verona::compiler
       }
       else
       {
-        fmt::print(
-          std::cerr,
+        InternalError().print(
           "ExprVisitor dispatch failed on {}\n",
           typeid(expr).name());
-        abort();
       }
     }
 
   private:
     virtual Return visit_base_expr(Expression& expr, Args... args)
     {
-      fmt::print(
+      InternalError().print(
         "Unhandled case {} in visitor {}.\n",
         typeid(expr).name(),
         typeid(*this).name());
-      abort();
     }
     virtual Return visit_symbol(SymbolExpr& expr, Args... args)
     {
@@ -237,22 +234,19 @@ namespace verona::compiler
       }
       else
       {
-        fmt::print(
-          std::cerr,
+        InternalError().print(
           "TypeExpressionVisitor dispatch failed on {}\n",
           typeid(te).name());
-        abort();
       }
     }
 
   private:
     virtual Return visit_base_type_expression(TypeExpression& te, Args... args)
     {
-      fmt::print(
+      InternalError().print(
         "Unhandled case {} in visitor {}.\n",
         typeid(te).name(),
         typeid(*this).name());
-      abort();
     }
     virtual Return visit_symbol_type_expr(SymbolTypeExpr& te, Args... args)
     {

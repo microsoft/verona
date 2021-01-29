@@ -463,9 +463,9 @@ namespace verona::compiler
 
       void visit_base_type(const TypePtr& type, Register input) override
       {
-        fmt::print(
-          std::cerr, "Matching against type {} is not supported\n", *type);
-        abort();
+        // TODO: Should this be a user facing error, that is surfaced more nicely?
+        InternalError().print(
+          "Matching against type {} is not supported\n", *type);
       }
 
       /**

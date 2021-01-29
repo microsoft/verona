@@ -45,6 +45,15 @@ namespace verona::compiler
       print_patterns_.push_back(pattern);
     }
 
+    void exit(int error_code)
+    {
+      if (error_code != 0)
+      {
+        error_stream << "Error Code: " << error_code << std::endl;
+      }
+      std::exit(0);
+    }
+
     Context(const Context&) = delete;
     Context& operator=(const Context&) = delete;
 

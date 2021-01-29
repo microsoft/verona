@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "compiler/polarize.h"
 
+#include "compiler/error.h"
 #include "compiler/freevars.h"
 #include "compiler/printing.h"
 #include "ds/helpers.h"
@@ -25,11 +26,10 @@ namespace verona::compiler
 
       if (normalized != repeat)
       {
-        std::cerr << "Not idempotent for" << std::endl;
-        std::cerr << " " << *type << std::endl;
-        std::cerr << " " << *normalized << std::endl;
-        std::cerr << " " << *repeat << std::endl;
-        abort();
+        InternalError() << "Not idempotent for" << std::endl
+          << " " << *type << std::endl
+          << " " << *normalized << std::endl
+          << " " << *repeat << std::endl;
       }
 
       cache.insert({type, normalized});

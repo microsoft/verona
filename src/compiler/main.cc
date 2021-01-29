@@ -78,17 +78,13 @@ namespace verona::compiler
     }
   }
 
-  bool compile(const Options& options, std::vector<uint8_t>* output)
+  bool compile(Context& context, const Options& options, std::vector<uint8_t>* output)
   {
     using filepath = fs::path;
 
-    Context context;
-
     // Print a diagnostic summary when we exit, along any path.
     AtFunctionExit print_diagnostic(
-      [&]() { return context.print_diagnostic_summary(std::cerr); });
-
-    setup_context(context, options);
+      [&]() { return context.print_diagnostic_summary(); });
 
     std::unique_ptr<Program> program = std::make_unique<Program>();
 
@@ -204,33 +200,15 @@ namespace verona::compiler
     return std::string(buf);
   }
 
-  int main(int argc, const char** argv)
+  void main(Context& context, Options& options)
   {
-    enable_colour_console();
-    setup();
-
-    Options options;
-
-    CLI::App app{"Verona compiler"};
-    app.add_option("input", options.input_files, "Input file")->required();
-    app.add_option("--output", options.output_file, "Output file");
-    app.add_option("--dump-path", options.dump_path);
-    app.add_option("--print", options.print_patterns);
-    app.add_flag("--disable-colors{false}", options.enable_colors);
-    app.add_flag("--disable-builtin{false}", options.enable_builtin);
-
-    interpreter::add_arguments(app, options, "run");
-
-    CLI11_PARSE(app, argc, argv);
-
-    interpreter::validate_args(options);
 
     if (options.enable_builtin)
       options.input_files.push_back(get_builtin_library());
 
     std::vector<uint8_t> bytecode;
-    if (!compile(options, &bytecode))
-      return 1;
+    if (!compile(context, options, &bytecode))
+      context.exit(1);
 
     if (options.output_file)
     {
@@ -240,7 +218,7 @@ namespace verona::compiler
       if (!output.is_open())
       {
         std::cerr << "Cannot open file " << *options.output_file << std::endl;
-        return 1;
+        context.exit(1);
       }
 
       output.write(
@@ -253,11 +231,35 @@ namespace verona::compiler
       interpreter::instantiate(options, code);
     }
 
-    return 0;
+    context.exit(0);
   }
 }
 
 int main(int argc, const char** argv)
 {
-  return verona::compiler::main(argc, argv);
+    enable_colour_console();
+    setup();
+
+    verona::compiler::Options options;
+
+    CLI::App app{"Verona compiler"};
+    app.add_option("input", options.input_files, "Input file")->required();
+    app.add_option("--output", options.output_file, "Output file");
+    app.add_option("--dump-path", options.dump_path);
+    app.add_option("--print", options.print_patterns);
+    app.add_flag("--disable-colors{false}", options.enable_colors);
+    app.add_flag("--disable-builtin{false}", options.enable_builtin);
+
+    verona::interpreter::add_arguments(app, options, "run");
+
+    CLI11_PARSE(app, argc, argv);
+
+    verona::interpreter::validate_args(options);
+    
+    verona::compiler::Context context;
+    setup_context(context, options);
+
+    verona::compiler::main(context, options);
+
+    InternalError() << "Programming error.  Should call `context.exit(error_code)`" << std::endl;
 }

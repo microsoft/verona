@@ -3,6 +3,7 @@
 #include "compiler/typecheck/infer.h"
 
 #include "compiler/ast.h"
+#include "compiler/error.h"
 #include "compiler/format.h"
 #include "compiler/instantiation.h"
 #include "compiler/printing.h"
@@ -581,8 +582,7 @@ namespace verona::compiler
       auto it = results_->type_arguments.insert({id, types});
       if (!it.second)
       {
-        std::cerr << "TypeArguments already exist" << std::endl;
-        abort();
+        InternalError() << "TypeArguments already exist" << std::endl;
       }
     }
 

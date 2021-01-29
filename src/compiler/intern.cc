@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "compiler/intern.h"
 
+#include "compiler/error.h"
 #include "compiler/format.h"
 #include "compiler/ir/print.h"
 #include "compiler/printing.h"
@@ -321,8 +322,7 @@ namespace verona::compiler
     if (type->dyncast<TypeParameter>() || type->dyncast<InferType>())
       return intern(ApplyRegionType(mode, region, type));
 
-    fmt::print(std::cerr, "Bad ApplyRegionType({}, {})\n", region, *type);
-    abort();
+    InternalError().print("Bad ApplyRegionType({}, {})\n", region, *type);
   }
 
   TypePtr TypeInterner::mk_unapply_region(TypePtr type)
@@ -402,8 +402,8 @@ namespace verona::compiler
     // TODO: We never actually create UnapplyRegionType anymore, so we could
     // delete the underlying class.
 
-    std::cerr << "Bad UnapplyRegionType(" << *type << ")" << std::endl;
-    abort();
+    InternalError()
+      << "Bad UnapplyRegionType(" << *type << ")" << std::endl;
   }
 
   TypePtr TypeInterner::mk_viewpoint(TypePtr left, TypePtr right)
@@ -537,9 +537,8 @@ namespace verona::compiler
       }
     }
 
-    std::cerr << "Bad Viewpoint(" << *left << ", " << *right << ")"
+    InternalError() << "Bad Viewpoint(" << *left << ", " << *right << ")"
               << std::endl;
-    abort();
   }
 
   template<typename T>
@@ -752,8 +751,7 @@ namespace verona::compiler
       inner->dyncast<FixpointType>())
       return intern(EntityOfType(inner));
 
-    std::cerr << "Bad EntityOfType(" << *inner << ")" << std::endl;
-    abort();
+    InternalError() << "Bad EntityOfType(" << *inner << ")" << std::endl;
   }
 
   TypePtr
@@ -848,8 +846,7 @@ namespace verona::compiler
       type->dyncast<IndirectType>())
       return intern(VariableRenamingType(renaming, type));
 
-    fmt::print(std::cerr, "Bad VariableRenamingType({})\n", *type);
-    abort();
+    InternalError().print("Bad VariableRenamingType({})\n", *type);
   }
 
   TypePtr TypeInterner::mk_path_compression(
@@ -958,8 +955,7 @@ namespace verona::compiler
       return unfold_compression(compression, apply_region->region, type);
     }
 
-    fmt::print(
-      std::cerr,
+    InternalError().print(
       "Bad PathCompression([{}], {})\n",
       format::comma_sep(
         compression,
@@ -967,8 +963,6 @@ namespace verona::compiler
           return fmt::format("{}: {}", x.first, *x.second);
         }),
       *type);
-
-    abort();
   }
 
   TypePtr TypeInterner::unfold_compression(
@@ -1146,8 +1140,7 @@ namespace verona::compiler
     DISPATCH(ViewpointType);
 #undef DISPATCH
 
-    fmt::print(std::cerr, "TypeInterner dispatch failed on {}\n", info.name());
-    abort();
+    InternalError().print("TypeInterner dispatch failed on {}\n", info.name());
   }
 
   bool TypeInterner::LessTypes::operator()(
