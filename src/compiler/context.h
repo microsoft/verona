@@ -50,9 +50,6 @@ namespace verona::compiler
       if (has_error_stream())
       {
         get_error_stream() << "Error Code: " << error_code << std::endl;
-        // TODO: Switch to success error code for all dump builds once test
-        // harness is updated.
-        // std::exit(0);
         std::exit(0);
       }
       std::exit(error_code);
