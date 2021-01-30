@@ -20,20 +20,20 @@
           (signature [] [] () ())
           (block
             [
-              (assign (let bool1 ()) (true true))
-              (assign (let bool2 ()) (false false))
-              (assign (let int1 ()) (int 00_42))
-              (assign (let int2 ()) (hex 0xc0_FFeE))
-              (assign (let int3 ()) (binary 0b10_10_10))
-              (assign (let float1 ()) (float 27.18e-1))
+              (assign (let bool1) (true true))
+              (assign (let bool2) (false false))
+              (assign (let int1) (int 00_42))
+              (assign (let int2) (hex 0xc0_FFeE))
+              (assign (let int3) (binary 0b10_10_10))
+              (assign (let float1) (float 27.18e-1))
               (assign
-                (let precedence1 ())
+                (let precedence1)
                 (apply (select (apply (select (int 1) +) (int 2)) +) (int 3)))
               (assign
-                (let precedence2 ())
+                (let precedence2)
                 (apply (select (int 1) +) (apply (select (int 2) +) (int 3))))
               (assign
-                (let object1 ())
+                (let object1)
                 (object
                   ()
                   [
@@ -44,7 +44,7 @@
                   ]
                   ()))
               (assign
-                (let object2 ())
+                (let object2)
                 (object
                   (typeref [ (typename Foo []) ])
                   [
@@ -54,19 +54,23 @@
                       (block [ (int 0) ]))
                   ]
                   ()))
-              (assign (let bool3 (typeref [ (typename Bool []) ])) (true true))
               (assign
-                (let bool4 (typeref [ (typename Bool []) ]))
+                (oftype (let bool3) (typeref [ (typename Bool []) ]))
+                (true true))
+              (assign
+                (oftype (let bool4) (typeref [ (typename Bool []) ]))
                 (false false))
-              (assign (let int4 (typeref [ (typename U16 []) ])) (int 00_420))
               (assign
-                (let int5 (typeref [ (typename I32 []) ]))
+                (oftype (let int4) (typeref [ (typename U16 []) ]))
+                (int 00_420))
+              (assign
+                (oftype (let int5) (typeref [ (typename I32 []) ]))
                 (hex 0xc0_FFeE))
               (assign
-                (let int6 (typeref [ (typename U8 []) ]))
+                (oftype (let int6) (typeref [ (typename U8 []) ]))
                 (binary 0b100_10_10))
               (assign
-                (let float2 (typeref [ (typename F32 []) ]))
+                (oftype (let float2) (typeref [ (typename F32 []) ]))
                 (float 207.18e-1))
             ]))
       ])

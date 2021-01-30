@@ -25,24 +25,22 @@
             ())
           (block
             [
-              (assign (let sum (typeref [ (typename U32 []) ])) (int 0))
+              (assign
+                (oftype (let sum) (typeref [ (typename U32 []) ]))
+                (int 0))
               (block
                 [
-                  (assign
-                    (let $0 ())
-                    (apply (select (ref x ()) values) (tuple [] ())))
+                  (assign (let $0) (apply (select (ref x) values) (tuple [])))
                   (while
-                    (apply (select (ref $0 ()) has_value) (tuple [] ()))
+                    (apply (select (ref $0) has_value) (tuple []))
                     (block
                       [
-                        (assign (let a ()) (apply (ref $0 ()) (tuple [] ())))
-                        (assign
-                          (ref sum ())
-                          (apply (select (ref sum ()) +) (ref a ())))
-                        (apply (select (ref $0 ()) next) (tuple [] ()))
+                        (assign (let a) (apply (ref $0) (tuple [])))
+                        (assign (ref sum) (apply (select (ref sum) +) (ref a)))
+                        (apply (select (ref $0) next) (tuple []))
                       ]))
                 ])
-              (return (ref sum ()))
+              (return (ref sum))
             ]))
         (function
           while_sum
@@ -59,23 +57,21 @@
             ())
           (block
             [
-              (assign (let sum (typeref [ (typename U32 []) ])) (int 0))
               (assign
-                (let iter ())
-                (apply (select (ref x ()) values) (tuple [] ())))
+                (oftype (let sum) (typeref [ (typename U32 []) ]))
+                (int 0))
+              (assign (let iter) (apply (select (ref x) values) (tuple [])))
               (while
-                (apply (select (ref iter ()) has_value) (tuple [] ()))
+                (apply (select (ref iter) has_value) (tuple []))
                 (block
                   [
                     (assign
-                      (let a ())
-                      (apply (select (ref iter ()) apply) (tuple [] ())))
-                    (apply (select (ref iter ()) next) (tuple [] ()))
-                    (assign
-                      (ref sum ())
-                      (apply (select (ref sum ()) +) (ref a ())))
+                      (let a)
+                      (apply (select (ref iter) apply) (tuple [])))
+                    (apply (select (ref iter) next) (tuple []))
+                    (assign (ref sum) (apply (select (ref sum) +) (ref a)))
                   ]))
-              (return (ref sum ()))
+              (return (ref sum))
             ]))
       ])
   ])

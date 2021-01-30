@@ -322,7 +322,7 @@ namespace verona::parser::resolve
     void post(Tuple& tuple)
     {
       // Collapse unnecessary tuple nodes.
-      if (tuple.type || (tuple.seq.size() != 1))
+      if (tuple.seq.size() != 1)
         return;
 
       rewrite(stack, tuple.seq.front());
