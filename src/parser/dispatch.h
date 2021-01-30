@@ -83,6 +83,9 @@ namespace verona::parser
         return f(node->as<Imm>(), args...);
 
       // Expressions
+      case Kind::Oftype:
+        return f(node->as<Oftype>(), args...);
+
       case Kind::Tuple:
         return f(node->as<Tuple>(), args...);
 

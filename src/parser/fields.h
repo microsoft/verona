@@ -102,9 +102,15 @@ namespace verona::parser
   }
 
   template<typename T>
+  void fieldsof(T& target, Oftype& oftype)
+  {
+    target << oftype.expr << oftype.type;
+  }
+
+  template<typename T>
   void fieldsof(T& target, Tuple& tuple)
   {
-    target << tuple.seq << tuple.type;
+    target << tuple.seq;
   }
 
   template<typename T>
@@ -194,7 +200,7 @@ namespace verona::parser
   template<typename T>
   void fieldsof(T& target, Ref& ref)
   {
-    target << ref.location << ref.type;
+    target << ref.location;
   }
 
   template<typename T>
@@ -206,7 +212,7 @@ namespace verona::parser
   template<typename T>
   void fieldsof(T& target, Let& let)
   {
-    target << let.location << let.type;
+    target << let.location;
   }
 
   template<typename T>
