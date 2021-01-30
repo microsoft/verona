@@ -39,7 +39,7 @@
                 ]
                 (typeref [ (typename S []) ])
                 ())
-              (block [ (new (ref a ()) a) ]))
+              (block [ (new (ref a) a) ]))
           ])
         (interface Any [] () [])
         (class
@@ -50,11 +50,11 @@
             (function
               create
               (signature [] [] (typeref [ (typename Empty []) ]) ())
-              (block [ (new (tuple [] ()) ()) ]))
+              (block [ (new (tuple []) ()) ]))
             (function
               apply
               (signature [] [] (typeref [ (typename Empty []) ]) ())
-              (block [ (new (tuple [] ()) ()) ]))
+              (block [ (new (tuple []) ()) ]))
           ])
         (class
           One
@@ -69,7 +69,7 @@
                 [ (param a (typeref [ (typename U32 []) ]) ()) ]
                 (typeref [ (typename One []) ])
                 ())
-              (block [ (new (ref a ()) ()) ]))
+              (block [ (new (ref a) ()) ]))
           ])
         (class
           Two
@@ -88,7 +88,7 @@
                 ]
                 (typeref [ (typename Two []) ])
                 ())
-              (block [ (new (tuple [ (ref a ()) (ref b ()) ] ()) ()) ]))
+              (block [ (new (tuple [ (ref a) (ref b) ]) ()) ]))
           ])
         (function
           foo
@@ -96,29 +96,27 @@
           (block
             [
               (assign
-                (let f ())
+                (let f)
                 (lambda
                   (signature
                     [ (typeparam A (typeref [ (typename U64 []) ]) ()) ]
                     [ (param a () ()) ]
                     ()
                     ())
-                  (apply (select (ref a ()) +) (int 42))))
+                  (apply (select (ref a) +) (int 42))))
               (assign
-                (let e0 ())
+                (let e0)
                 (apply
                   (staticref [ (typename Empty []) (typename create []) ])
-                  (tuple [] ())))
+                  (tuple [])))
               (assign
-                (let e1 ())
+                (let e1)
                 (apply
                   (staticref [ (typename Empty []) (typename create []) ])
                   ()))
+              (assign (let e2) (object (typeref [ (typename Empty []) ]) [] e))
               (assign
-                (let e2 ())
-                (object (typeref [ (typename Empty []) ]) [] e))
-              (assign
-                (let one ())
+                (let one)
                 (object
                   (typeref [ (typename One []) ])
                   [
@@ -129,7 +127,7 @@
                   ]
                   ()))
               (assign
-                (let two ())
+                (let two)
                 (object
                   (typeref [ (typename Two []) ])
                   [

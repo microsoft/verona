@@ -69,5 +69,3 @@ use a capability to set the global exit code
 use a capability to fetch args
 use a capability to read and write envvars
 main() gets ambient authority and nothing else
-
-> instead of ref and tuple having oftype, put it on expr

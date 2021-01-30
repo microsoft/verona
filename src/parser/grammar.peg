@@ -30,12 +30,11 @@ block <- '{' (expr ';'*)* controlflow? '}'
 blockexpr <- block / when / match / if / while / for / match / lambda
 
 # Atoms
-declelem <- (ident / '(' declelem (',' declelem)* ')') oftype?
-decl <- ('let' / 'var') declelem
+decl <- ('let' / 'var') ident
 new <- 'new' (tuple / typebody / type typebody) ('in' ident)?
-tuple <- '(' (expr (',' expr)*)? ')' oftype?
+tuple <- '(' (expr (',' expr)*)? ')'
 constant <- string / character / float / int / hex / binary / 'true' / 'false'
-ref <- [local] ident oftype?
+ref <- [local] ident
 ### TODO: new and decl probably shouldn't be here
 atom <- staticref / ref / constant / tuple / new / decl
 
@@ -52,8 +51,7 @@ apply <- op+ postfix* / postfix+
 applyblock <- apply? blockexpr
 infix <- apply (op apply)*
 inblock <- applyblock / infix (op applyblock)?
-assign <- infix ('=' expr)?
-expr <- inblock / assign
+expr <- inblock / infix oftype? ('=' expr)?
 
 # Definitions
 param <- ident oftype? initexpr?

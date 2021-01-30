@@ -37,7 +37,7 @@
               (staticref [ (typename B []) (typename foo []) ])
               (apply
                 (staticref [ (typename B []) (typename foo []) ])
-                (tuple [] ()))
+                (tuple []))
               (apply
                 (staticref
                   [ (typename B []) (typename C []) (typename create []) ])
@@ -65,9 +65,7 @@
                     (typename C [ (typeref [ (typename X []) ]) ])
                     (typename bar [ (typeref [ (typename X []) ]) ])
                   ])
-                (tuple
-                  [ (ref x ()) (ref y ()) (tuple [ (ref x ()) (ref y ()) ] ()) ]
-                  ()))
+                (tuple [ (ref x) (ref y) (tuple [ (ref x) (ref y) ]) ]))
             ]))
       ])
   ])

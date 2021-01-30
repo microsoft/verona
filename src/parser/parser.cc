@@ -29,6 +29,7 @@ namespace verona::parser
     size_t la;
     Token previous;
     std::vector<Token> lookahead;
+    std::vector<size_t> pos_stack;
 
     AstPath symbol_stack;
 
@@ -42,6 +43,17 @@ namespace verona::parser
     std::string stdlib;
     std::ostream& out;
 
+    struct NullBuffer : public std::streambuf
+    {
+      int overflow(int c)
+      {
+        return c;
+      }
+    };
+
+    NullBuffer null_buffer;
+    std::ostream null_stream;
+
     struct SymbolPush
     {
       Parse& parser;
@@ -54,8 +66,31 @@ namespace verona::parser
       }
     };
 
+    struct Try
+    {
+      Parse& parser;
+      bool success;
+
+      Try(Parse& parser) : parser(parser), success(false) {}
+
+      ~Try()
+      {
+        parser.try_pop(success);
+      }
+
+      void ok()
+      {
+        success = true;
+      }
+    };
+
     Parse(const std::string& stdlib, std::ostream& out)
-    : pos(0), la(0), final_result(Success), stdlib(stdlib), out(out)
+    : pos(0),
+      la(0),
+      final_result(Success),
+      stdlib(stdlib),
+      out(out),
+      null_stream(&null_buffer)
     {
       name_apply = ident("apply");
       name_has_value = ident("has_value");
@@ -78,6 +113,9 @@ namespace verona::parser
 
     std::ostream& error()
     {
+      if (pos_stack.size() > 0)
+        return null_stream;
+
       final_result = Error;
       return out << "--------" << std::endl;
     }
@@ -92,6 +130,32 @@ namespace verona::parser
     void pop()
     {
       symbol_stack.pop_back();
+    }
+
+    Try try_rule()
+    {
+      assert(la == 0);
+
+      if (lookahead.size() > 0)
+        pos_stack.push_back(lookahead.front().location.start);
+      else
+        pos_stack.push_back(pos);
+
+      return Try(*this);
+    }
+
+    void try_pop(bool success)
+    {
+      assert(pos_stack.size() > 0);
+
+      if (!success)
+      {
+        la = 0;
+        lookahead.clear();
+        pos = pos_stack.back();
+      }
+
+      pos_stack.pop_back();
     }
 
     void set_sym(const Location& id, Ast node, SymbolTable& st)
@@ -651,9 +715,6 @@ namespace verona::parser
         r = Error;
       }
 
-      if (oftype(tup->type) == Error)
-        r = Error;
-
       return r;
     }
 
@@ -713,18 +774,9 @@ namespace verona::parser
       return r;
     }
 
-    void reftoparam(Node<Expr>& e, Node<Param>& param)
-    {
-      auto& ref = e->as<Ref>();
-      param->location = ref.location;
-      param->type = ref.type;
-      set_sym(param->location, param);
-    }
-
     Result optlambda(Node<Expr>& expr)
     {
       // lambda <- (signature / ident) '=>' expr
-      // This can also return a Tuple node.
       bool ok = peek(TokenKind::LSquare) || peek(TokenKind::LParen) ||
         (peek(TokenKind::Ident) && peek(TokenKind::FatArrow));
       rewind();
@@ -733,71 +785,13 @@ namespace verona::parser
         return Skip;
 
       Result r = Success;
-      Node<Lambda> lambda;
+      auto lambda = std::make_shared<Lambda>();
+      auto st = push(lambda);
 
-      if (peek(TokenKind::LSquare))
-      {
-        rewind();
-        lambda = std::make_shared<Lambda>();
-        auto st = push(lambda);
-
-        if (signature(lambda->signature) != Success)
-          r = Error;
-      }
-      else if ((r = opttuple(expr)) != Skip)
-      {
-        // Return a tuple instead of a lambda.
-        if (!peek(TokenKind::Throws) && !peek(TokenKind::FatArrow))
-          return r;
-
-        rewind();
-        lambda = std::make_shared<Lambda>();
-        auto st = push(lambda);
-
-        auto tup = expr->as<Tuple>();
-        auto sig = std::make_shared<Signature>();
-        sig->location = tup.location;
-        sig->result = tup.type;
-        lambda->signature = sig;
-
-        // Each element must be: ref / (assign ref expr)
-        for (auto& e : tup.seq)
-        {
-          auto param = std::make_shared<Param>();
-          sig->params.push_back(param);
-
-          if (e->kind() == Kind::Ref)
-          {
-            reftoparam(e, param);
-            continue;
-          }
-
-          if (e->kind() == Kind::Assign)
-          {
-            auto& asgn = e->as<Assign>();
-
-            if (asgn.left->kind() == Kind::Ref)
-            {
-              reftoparam(asgn.left, param);
-              param->init = asgn.right;
-              continue;
-            }
-          }
-
-          error() << loc() << "Expected a lambda parameter" << line();
-          r = Error;
-        }
-
-        if (optthrows(sig->throws) == Error)
-          r = Error;
-      }
-      else if (peek(TokenKind::Ident) && peek(TokenKind::FatArrow))
+      if (peek(TokenKind::Ident) && peek(TokenKind::FatArrow))
       {
         rewind();
         has(TokenKind::Ident);
-
-        lambda = std::make_shared<Lambda>();
-        auto st = push(lambda);
 
         auto param = std::make_shared<Param>();
         param->location = previous.location;
@@ -808,10 +802,23 @@ namespace verona::parser
         sig->params.push_back(param);
 
         lambda->signature = sig;
-        r = Success;
+      }
+      else
+      {
+        auto t = try_rule();
+
+        if (optsignature(lambda->signature) != Success)
+          return Skip;
+
+        bool ok = peek(TokenKind::FatArrow);
+        rewind();
+
+        if (!ok)
+          return Skip;
+
+        t.ok();
       }
 
-      auto st = push(lambda);
       expr = lambda;
 
       if (!has(TokenKind::FatArrow))
@@ -834,7 +841,6 @@ namespace verona::parser
     Result optblockexpr(Node<Expr>& expr)
     {
       // blockexpr <- block / when / if / match / while / for / lambda
-      // This can also return a Tuple node, because optlambda may do so.
       Result r;
 
       if ((r = optblock(expr)) != Skip)
@@ -935,10 +941,6 @@ namespace verona::parser
       auto ref = std::make_shared<Ref>();
       ref->location = previous.location;
       expr = ref;
-
-      if (oftype(ref->type) == Error)
-        return Error;
-
       return Success;
     }
 
@@ -1009,67 +1011,40 @@ namespace verona::parser
       return Success;
     }
 
-    template<typename Decl>
-    Result declelem(Node<Expr>& decl)
+    Result optlet(Node<Expr>& expr)
     {
-      // declelem <- (ident / '(' declelem (',' declelem)* ')') oftype?
-      if (has(TokenKind::Ident))
+      if (!has(TokenKind::Let))
+        return Skip;
+
+      if (!has(TokenKind::Ident))
       {
-        auto elem = std::make_shared<Decl>();
-        elem->location = previous.location;
-        set_sym(elem->location, elem);
-        decl = elem;
-
-        if (oftype(elem->type) == Error)
-          return Error;
-
-        return Success;
-      }
-
-      if (!has(TokenKind::LParen))
-      {
-        error() << loc() << "Expected an identifier or (" << line();
+        error() << loc() << "Expected an identifier" << line();
         return Error;
       }
 
-      auto tup = std::make_shared<Tuple>();
-      tup->location = previous.location;
-      decl = tup;
-      Result r = Success;
-
-      do
-      {
-        Node<Expr> elem;
-
-        if (declelem<Decl>(elem) == Error)
-        {
-          restart_before({TokenKind::Comma, TokenKind::RParen});
-          r = Error;
-        }
-      } while (has(TokenKind::Comma));
-
-      if (!has(TokenKind::RParen))
-      {
-        error() << loc() << "Expected a )" << line();
-        r = Error;
-      }
-
-      if (oftype(tup->type) == Error)
-        r = Error;
-
-      return r;
+      auto let = std::make_shared<Let>();
+      let->location = previous.location;
+      set_sym(let->location, let);
+      expr = let;
+      return Success;
     }
 
-    Result optdecl(Node<Expr>& expr)
+    Result optvar(Node<Expr>& expr)
     {
-      // decl <- ('let' / 'var') declelem
-      if (has(TokenKind::Let))
-        return declelem<Let>(expr);
+      if (!has(TokenKind::Var))
+        return Skip;
 
-      if (has(TokenKind::Var))
-        return declelem<Var>(expr);
+      if (!has(TokenKind::Ident))
+      {
+        error() << loc() << "Expected an identifier" << line();
+        return Error;
+      }
 
-      return Skip;
+      auto var = std::make_shared<Var>();
+      var->location = previous.location;
+      set_sym(var->location, var);
+      expr = var;
+      return Success;
     }
 
     Result optnew(Node<Expr>& expr)
@@ -1190,19 +1165,17 @@ namespace verona::parser
       if ((r = optconstant(expr)) != Skip)
         return r;
 
-      if ((r = optdecl(expr)) != Skip)
+      if ((r = optlet(expr)) != Skip)
+        return r;
+
+      if ((r = optvar(expr)) != Skip)
         return r;
 
       if ((r = optnew(expr)) != Skip)
         return r;
 
-      // We will have already found a tuple when trying to find a lambda, so
-      // this will always Skip.
       if ((r = opttuple(expr)) != Skip)
-      {
-        assert(0);
         return r;
-      }
 
       return Skip;
     }
@@ -1338,19 +1311,11 @@ namespace verona::parser
       Result r;
 
       // If we already have an error, we're done.
-      if ((r = optblockexpr(expr)) == Error)
-        return Error;
+      if ((r = optblockexpr(expr)) != Skip)
+        return r;
 
-      // If we got something other than a tuple, we're done.
-      if ((r == Success) && (expr->kind() != Kind::Tuple))
-        return Success;
-
-      if (r == Skip)
-      {
-        // If we haven't already got a tuple, try to read an atom.
-        if ((r = optatom(expr)) != Success)
-          return r;
-      }
+      if ((r = optatom(expr)) != Success)
+        return r;
 
       while (true)
       {
@@ -1467,8 +1432,7 @@ namespace verona::parser
 
     Result optexpr(Node<Expr>& expr)
     {
-      // assign <- infix ('=' expr)?
-      // expr <- inblock / assign
+      // expr <- inblock / infix oftype? ('=' expr)?
       Result r;
 
       if ((r = optinfix(expr)) == Skip)
@@ -1477,19 +1441,30 @@ namespace verona::parser
       if (is_blockexpr(expr))
         return r;
 
-      if (!has(TokenKind::Equals))
-        return r;
-
-      auto asgn = std::make_shared<Assign>();
-      asgn->location = previous.location;
-      asgn->left = expr;
-      expr = asgn;
-
-      if (optexpr(asgn->right) != Success)
+      if (peek(TokenKind::Colon))
       {
-        error() << loc() << "Expected an expression on the right-hand side"
-                << line();
-        r = Error;
+        rewind();
+        auto ot = std::make_shared<Oftype>();
+        ot->expr = expr;
+        expr = ot;
+
+        if (oftype(ot->type) != Success)
+          r = Error;
+      }
+
+      if (has(TokenKind::Equals))
+      {
+        auto asgn = std::make_shared<Assign>();
+        asgn->location = previous.location;
+        asgn->left = expr;
+        expr = asgn;
+
+        if (optexpr(asgn->right) != Success)
+        {
+          error() << loc() << "Expected an expression on the right-hand side"
+                  << line();
+          r = Error;
+        }
       }
 
       return r;
@@ -1889,48 +1864,54 @@ namespace verona::parser
       return r;
     }
 
-    Result signature(Node<Signature>& sig)
+    Result optsignature(Node<Signature>& sig)
     {
-      // sig <- typeparams params oftype ('throws' type)?
+      // signature <- typeparams? params oftype? ('throws' type)?
       Result r = Success;
+
+      bool ok = peek(TokenKind::LSquare) || peek(TokenKind::LParen);
+      rewind();
+
+      if (!ok)
+        return Skip;
+
       sig = std::make_shared<Signature>();
+      r = opttypeparams(sig->typeparams);
 
-      if (opttypeparams(sig->typeparams) == Error)
-        r = Error;
-
-      if (has(TokenKind::LParen))
+      if (!has(TokenKind::LParen))
       {
-        sig->location = previous.location;
+        if (r == Skip)
+          return Skip;
+
+        error() << loc() << "Expected (" << line();
+        return Error;
+      }
+
+      sig->location = previous.location;
+
+      if (!has(TokenKind::RParen))
+      {
+        do
+        {
+          Node<Param> param;
+          Result r2;
+
+          if ((r2 = optparam(param)) != Success)
+          {
+            error() << loc() << "Expected a parameter" << line();
+            r = Error;
+            restart_before({TokenKind::Comma, TokenKind::RParen});
+          }
+
+          if (r2 != Skip)
+            sig->params.push_back(param);
+        } while (has(TokenKind::Comma));
 
         if (!has(TokenKind::RParen))
         {
-          do
-          {
-            Node<Param> param;
-            Result r2;
-
-            if ((r2 = optparam(param)) != Success)
-            {
-              error() << loc() << "Expected a parameter" << line();
-              r = Error;
-              restart_before({TokenKind::Comma, TokenKind::RParen});
-            }
-
-            if (r2 != Skip)
-              sig->params.push_back(param);
-          } while (has(TokenKind::Comma));
-
-          if (!has(TokenKind::RParen))
-          {
-            error() << loc() << "Expected , or )" << line();
-            return Error;
-          }
+          error() << loc() << "Expected , or )" << line();
+          return Error;
         }
-      }
-      else
-      {
-        error() << loc() << "Expected (" << line();
-        r = Error;
       }
 
       if (oftype(sig->result) == Error)
@@ -1997,20 +1978,23 @@ namespace verona::parser
         func->name = name_apply;
       }
 
-      if (signature(func->signature) == Error)
+      if (optsignature(func->signature) != Success)
         r = Error;
 
-      for (auto& param : func->signature->params)
+      if (func->signature)
       {
-        if (!param->type)
+        for (auto& param : func->signature->params)
         {
-          error() << param->location << "Function parameters must have types"
-                  << text(param->location);
+          if (!param->type)
+          {
+            error() << param->location << "Function parameters must have types"
+                    << text(param->location);
+          }
         }
-      }
 
-      if (!func->location.source)
-        func->location = func->signature->location;
+        if (!func->location.source)
+          func->location = func->signature->location;
+      }
 
       Result r2;
 

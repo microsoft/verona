@@ -26,9 +26,9 @@
                 "    no indent $x + ${y} = ${x + y} $1\n      indent 2 spaces \"{no interp: $x}\"")
               (string "\n    hi\n")
               (char "{\n  }")
-              (assign (let tab ()) (string "\t"))
+              (assign (let tab) (string "\t"))
               (apply
-                (apply (string "    look, a ") (ref tab ()))
+                (apply (string "    look, a ") (ref tab))
                 (string " in my string"))
             ]))
       ])
