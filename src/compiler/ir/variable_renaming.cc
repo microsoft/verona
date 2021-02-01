@@ -91,7 +91,7 @@ namespace verona::compiler
     {
       if (!inverse.insert({to, from}).second)
       {
-        InternalError().print(
+        InternalError::print(
           "invert([{}])\n"
           "SSA variable mapped multiple times when inverting",
           *this);
@@ -111,7 +111,7 @@ namespace verona::compiler
 
     if (domain_ != other.range_)
     {
-      InternalError().print(
+      InternalError::print(
         "Mismatch in range and domain of VariableRenaming composition:"
         " ({} -> {}) ∘ ({} -> {})\n",
         *domain_,

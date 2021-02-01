@@ -26,10 +26,8 @@ namespace verona::compiler
 
       if (normalized != repeat)
       {
-        InternalError() << "Not idempotent for" << std::endl
-                        << " " << *type << std::endl
-                        << " " << *normalized << std::endl
-                        << " " << *repeat << std::endl;
+        InternalError::print(
+          "Not idempotent for\n{}\n{}\n{}\n", *type, *normalized, *repeat);
       }
 
       cache.insert({type, normalized});

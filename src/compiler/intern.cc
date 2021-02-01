@@ -322,7 +322,7 @@ namespace verona::compiler
     if (type->dyncast<TypeParameter>() || type->dyncast<InferType>())
       return intern(ApplyRegionType(mode, region, type));
 
-    InternalError().print("Bad ApplyRegionType({}, {})\n", region, *type);
+    InternalError::print("Bad ApplyRegionType({}, {})\n", region, *type);
   }
 
   TypePtr TypeInterner::mk_unapply_region(TypePtr type)
@@ -402,7 +402,7 @@ namespace verona::compiler
     // TODO: We never actually create UnapplyRegionType anymore, so we could
     // delete the underlying class.
 
-    InternalError() << "Bad UnapplyRegionType(" << *type << ")" << std::endl;
+    InternalError::print("Bad UnapplyRegionType({})\n", *type);
   }
 
   TypePtr TypeInterner::mk_viewpoint(TypePtr left, TypePtr right)
@@ -536,8 +536,7 @@ namespace verona::compiler
       }
     }
 
-    InternalError() << "Bad Viewpoint(" << *left << ", " << *right << ")"
-                    << std::endl;
+    InternalError::print("Bad Viewpoint({},{})\n", *left, *right);
   }
 
   template<typename T>
@@ -750,7 +749,7 @@ namespace verona::compiler
       inner->dyncast<FixpointType>())
       return intern(EntityOfType(inner));
 
-    InternalError() << "Bad EntityOfType(" << *inner << ")" << std::endl;
+    InternalError::print("Bad EntityOfType({})\n", *inner);
   }
 
   TypePtr
@@ -845,7 +844,7 @@ namespace verona::compiler
       type->dyncast<IndirectType>())
       return intern(VariableRenamingType(renaming, type));
 
-    InternalError().print("Bad VariableRenamingType({})\n", *type);
+    InternalError::print("Bad VariableRenamingType({})\n", *type);
   }
 
   TypePtr TypeInterner::mk_path_compression(
@@ -954,7 +953,7 @@ namespace verona::compiler
       return unfold_compression(compression, apply_region->region, type);
     }
 
-    InternalError().print(
+    InternalError::print(
       "Bad PathCompression([{}], {})\n",
       format::comma_sep(
         compression,
@@ -1139,7 +1138,7 @@ namespace verona::compiler
     DISPATCH(ViewpointType);
 #undef DISPATCH
 
-    InternalError().print("TypeInterner dispatch failed on {}\n", info.name());
+    InternalError::print("TypeInterner dispatch failed on {}\n", info.name());
   }
 
   bool TypeInterner::LessTypes::operator()(

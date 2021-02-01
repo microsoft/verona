@@ -150,7 +150,7 @@ namespace verona::compiler
       {
         // Silence a warning about typeid(*ty) having a potential side-effect
         const Type& ty_ref = *ty;
-        InternalError().print(
+        InternalError::print(
           "TypeVisitor dispatch failed on {}\n", typeid(ty_ref).name());
       }
     }
@@ -160,7 +160,7 @@ namespace verona::compiler
     {
       // Silence a warning about typeid(*ty) having a potential side-effect
       const Type& ty_ref = *ty;
-      InternalError().print(
+      InternalError::print(
         "Unhandled case {} in visitor {}.\n",
         typeid(ty_ref).name(),
         typeid(*this).name());

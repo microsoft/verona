@@ -114,7 +114,7 @@ namespace verona::compiler
       }
       else
       {
-        InternalError().print(
+        InternalError::print(
           "ExprVisitor dispatch failed on {}\n", typeid(expr).name());
       }
     }
@@ -122,7 +122,7 @@ namespace verona::compiler
   private:
     virtual Return visit_base_expr(Expression& expr, Args... args)
     {
-      InternalError().print(
+      InternalError::print(
         "Unhandled case {} in visitor {}.\n",
         typeid(expr).name(),
         typeid(*this).name());
@@ -233,7 +233,7 @@ namespace verona::compiler
       }
       else
       {
-        InternalError().print(
+        InternalError::print(
           "TypeExpressionVisitor dispatch failed on {}\n", typeid(te).name());
       }
     }
@@ -241,7 +241,7 @@ namespace verona::compiler
   private:
     virtual Return visit_base_type_expression(TypeExpression& te, Args... args)
     {
-      InternalError().print(
+      InternalError::print(
         "Unhandled case {} in visitor {}.\n",
         typeid(te).name(),
         typeid(*this).name());

@@ -465,7 +465,7 @@ namespace verona::compiler
       void visit_base_type(const TypePtr& type, Register input) override
       {
         // TODO: Ultimately, this should be a non-user facing error.
-        // InternalError().print(
+        // InternalError::print(
         //   "Matching against type {} is not supported\n", *type);
         // However, currently the earlier phases do not catch this.
         report(

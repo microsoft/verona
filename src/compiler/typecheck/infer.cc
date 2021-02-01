@@ -582,7 +582,7 @@ namespace verona::compiler
       auto it = results_->type_arguments.insert({id, types});
       if (!it.second)
       {
-        InternalError() << "TypeArguments already exist" << std::endl;
+        InternalError::print("TypeArguments already exist\n");
       }
     }
 

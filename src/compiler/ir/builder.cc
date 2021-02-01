@@ -288,7 +288,7 @@ namespace verona::compiler
 
       if (bb->predecessors.empty())
       {
-        InternalError() << "cannot find symbol " << local << std::endl;
+        InternalError::print("cannot find symbol {}\n", local);
       }
 
       if (bb->predecessors.size() == 1 && !has_pending(bb))

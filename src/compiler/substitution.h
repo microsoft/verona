@@ -33,8 +33,8 @@ namespace verona::compiler
       bool inserted = types_.insert({infer, ty}).second;
       if (!inserted)
       {
-        InternalError() << "infer variable already in substitution: " << *infer
-                        << std::endl;
+        InternalError::print(
+          "infer variable already in substitution: {}\n", *infer);
       }
     }
 
@@ -43,8 +43,7 @@ namespace verona::compiler
       bool inserted = sequences_.insert({unbounded, bounded}).second;
       if (!inserted)
       {
-        InternalError() << "unbounded sequence already in substitution"
-                        << std::endl;
+        InternalError::print("unbounded sequence already in substitution\n");
       }
     }
 
