@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "interpreter/value.h"
 
-#include "compiler/error.h"
+#include "ds/error.h"
 #include "ds/helpers.h"
 #include "interpreter/object.h"
 

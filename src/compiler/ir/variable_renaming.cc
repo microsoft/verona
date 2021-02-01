@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: MIT
 #include "compiler/ir/variable_renaming.h"
 
-#include "compiler/error.h"
 #include "compiler/format.h"
 #include "compiler/ir/ir.h"
 #include "compiler/zip.h"
+#include "ds/error.h"
 #include "ds/helpers.h"
 
 #include <cassert>

@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT
 #include "compiler/polarize.h"
 
-#include "compiler/error.h"
 #include "compiler/freevars.h"
 #include "compiler/printing.h"
+#include "ds/error.h"
 #include "ds/helpers.h"
 
 namespace verona::compiler

@@ -3,13 +3,13 @@
 #include "compiler/typecheck/infer.h"
 
 #include "compiler/ast.h"
-#include "compiler/error.h"
 #include "compiler/format.h"
 #include "compiler/instantiation.h"
 #include "compiler/printing.h"
 #include "compiler/typecheck/constraint.h"
 #include "compiler/typecheck/solver.h"
 #include "compiler/zip.h"
+#include "ds/error.h"
 
 #include <fmt/ostream.h>
 #include <iostream>

@@ -4,7 +4,7 @@
 
 #include "compiler/traits.h"
 #include "compiler/type.h"
-#include <compiler/error.h>
+#include "ds/error.h"
 
 #include <iostream>
 

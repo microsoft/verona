@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: MIT
 #include "compiler/intern.h"
 
-#include "compiler/error.h"
 #include "compiler/format.h"
 #include "compiler/ir/print.h"
 #include "compiler/printing.h"
+#include "ds/error.h"
 #include "ds/helpers.h"
 
 #include <fmt/ostream.h>
