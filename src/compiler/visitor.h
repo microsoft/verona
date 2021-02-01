@@ -115,8 +115,7 @@ namespace verona::compiler
       else
       {
         InternalError().print(
-          "ExprVisitor dispatch failed on {}\n",
-          typeid(expr).name());
+          "ExprVisitor dispatch failed on {}\n", typeid(expr).name());
       }
     }
 
@@ -235,8 +234,7 @@ namespace verona::compiler
       else
       {
         InternalError().print(
-          "TypeExpressionVisitor dispatch failed on {}\n",
-          typeid(te).name());
+          "TypeExpressionVisitor dispatch failed on {}\n", typeid(te).name());
       }
     }
 

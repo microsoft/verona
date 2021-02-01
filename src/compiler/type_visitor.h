@@ -151,8 +151,7 @@ namespace verona::compiler
         // Silence a warning about typeid(*ty) having a potential side-effect
         const Type& ty_ref = *ty;
         InternalError().print(
-          "TypeVisitor dispatch failed on {}\n",
-          typeid(ty_ref).name());
+          "TypeVisitor dispatch failed on {}\n", typeid(ty_ref).name());
       }
     }
 

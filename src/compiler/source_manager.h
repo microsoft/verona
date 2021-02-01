@@ -5,12 +5,12 @@
 
 #include <array>
 #include <climits>
-#include <memory>
 #include <fmt/color.h>
 #include <fmt/core.h>
 #include <fmt/ostream.h>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <pegmatite.hh>
 
 namespace verona::compiler
@@ -302,7 +302,6 @@ namespace verona::compiler
        */
       PatternMatchOnUnsupportedType,
 
-
       CannotUseVariable,
       WasPreviouslyConsumedHere,
       ParentWasConsumedHere,
@@ -451,10 +450,7 @@ namespace verona::compiler
      */
     template<typename... Args>
     void print_diagnostic(
-      SourceLocation l,
-      DiagnosticKind k,
-      Diagnostic d,
-      Args&&... args)
+      SourceLocation l, DiagnosticKind k, Diagnostic d, Args&&... args)
     {
       auto& s = get_error_stream();
       diagnostic_counter(k)++;

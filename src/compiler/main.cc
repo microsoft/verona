@@ -79,7 +79,8 @@ namespace verona::compiler
     }
   }
 
-  bool compile(Context& context, const Options& options, std::vector<uint8_t>* output)
+  bool compile(
+    Context& context, const Options& options, std::vector<uint8_t>* output)
   {
     using filepath = fs::path;
 
@@ -203,7 +204,6 @@ namespace verona::compiler
 
   void main(Context& context, Options& options)
   {
-
     if (options.enable_builtin)
       options.input_files.push_back(get_builtin_library());
 
@@ -238,29 +238,31 @@ namespace verona::compiler
 
 int main(int argc, const char** argv)
 {
-    enable_colour_console();
-    setup();
+  enable_colour_console();
+  setup();
 
-    verona::compiler::Options options;
+  verona::compiler::Options options;
 
-    CLI::App app{"Verona compiler"};
-    app.add_option("input", options.input_files, "Input file")->required();
-    app.add_option("--output", options.output_file, "Output file");
-    app.add_option("--dump-path", options.dump_path);
-    app.add_option("--print", options.print_patterns);
-    app.add_flag("--disable-colors{false}", options.enable_colors);
-    app.add_flag("--disable-builtin{false}", options.enable_builtin);
+  CLI::App app{"Verona compiler"};
+  app.add_option("input", options.input_files, "Input file")->required();
+  app.add_option("--output", options.output_file, "Output file");
+  app.add_option("--dump-path", options.dump_path);
+  app.add_option("--print", options.print_patterns);
+  app.add_flag("--disable-colors{false}", options.enable_colors);
+  app.add_flag("--disable-builtin{false}", options.enable_builtin);
 
-    verona::interpreter::add_arguments(app, options, "run");
+  verona::interpreter::add_arguments(app, options, "run");
 
-    CLI11_PARSE(app, argc, argv);
+  CLI11_PARSE(app, argc, argv);
 
-    verona::interpreter::validate_args(options);
-    
-    verona::compiler::Context context;
-    setup_context(context, options);
+  verona::interpreter::validate_args(options);
 
-    verona::compiler::main(context, options);
+  verona::compiler::Context context;
+  setup_context(context, options);
 
-    InternalError() << "Programming error.  Should call `context.exit(error_code)`" << std::endl;
+  verona::compiler::main(context, options);
+
+  InternalError()
+    << "Programming error.  Should call `context.exit(error_code)`"
+    << std::endl;
 }

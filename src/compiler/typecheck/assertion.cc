@@ -37,7 +37,8 @@ namespace verona::compiler
       switch (assertion.kind->value())
       {
         case AssertionKind::Subtype:
-          report(context,
+          report(
+            context,
             assertion.source_range,
             DiagnosticKind::Error,
             Diagnostic::SubtypeAssertionFailed,
@@ -46,7 +47,8 @@ namespace verona::compiler
           break;
 
         case AssertionKind::NotSubtype:
-          report(context,
+          report(
+            context,
             assertion.source_range,
             DiagnosticKind::Error,
             Diagnostic::NotSubtypeAssertionFailed,

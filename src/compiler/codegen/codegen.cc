@@ -37,14 +37,15 @@ namespace verona::compiler
     const Entity* main_class = program.find_entity("Main");
     if (!main_class)
     {
-      report(context, std::nullopt,
-        DiagnosticKind::Error, Diagnostic::NoMainClass);
+      report(
+        context, std::nullopt, DiagnosticKind::Error, Diagnostic::NoMainClass);
       return std::nullopt;
     }
 
     if (main_class->kind->value() != Entity::Class)
     {
-      report(context,
+      report(
+        context,
         main_class->name.source_range,
         DiagnosticKind::Error,
         Diagnostic::MainNotAClass);
@@ -53,7 +54,8 @@ namespace verona::compiler
 
     if (!main_class->generics->types.empty())
     {
-      report(context,
+      report(
+        context,
         main_class->name.source_range,
         DiagnosticKind::Error,
         Diagnostic::MainClassIsGeneric);
@@ -63,7 +65,8 @@ namespace verona::compiler
     const Method* main_method = lookup_member<Method>(main_class, "main");
     if (!main_method)
     {
-      report(context,
+      report(
+        context,
         main_class->name.source_range,
         DiagnosticKind::Error,
         Diagnostic::NoMainMethod);
@@ -72,7 +75,8 @@ namespace verona::compiler
 
     if (!is_valid_main_signature(context, *main_method->signature))
     {
-      report(context,
+      report(
+        context,
         main_method->name.source_range,
         DiagnosticKind::Error,
         Diagnostic::InvalidMainSignature);

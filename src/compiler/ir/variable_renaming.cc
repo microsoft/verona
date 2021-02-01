@@ -93,7 +93,8 @@ namespace verona::compiler
       {
         InternalError().print(
           "invert([{}])\n"
-          "SSA variable mapped multiple times when inverting", *this);
+          "SSA variable mapped multiple times when inverting",
+          *this);
       }
     }
 

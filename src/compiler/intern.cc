@@ -402,8 +402,7 @@ namespace verona::compiler
     // TODO: We never actually create UnapplyRegionType anymore, so we could
     // delete the underlying class.
 
-    InternalError()
-      << "Bad UnapplyRegionType(" << *type << ")" << std::endl;
+    InternalError() << "Bad UnapplyRegionType(" << *type << ")" << std::endl;
   }
 
   TypePtr TypeInterner::mk_viewpoint(TypePtr left, TypePtr right)
@@ -538,7 +537,7 @@ namespace verona::compiler
     }
 
     InternalError() << "Bad Viewpoint(" << *left << ", " << *right << ")"
-              << std::endl;
+                    << std::endl;
   }
 
   template<typename T>
