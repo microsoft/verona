@@ -297,6 +297,11 @@ namespace verona::compiler
        * required bound.
        */
       TypeArgumentDoesNotSatisfyBound,
+      /**
+       * Pattern match on unsupported type.
+       */
+      PatternMatchOnUnsupportedType,
+
 
       CannotUseVariable,
       WasPreviouslyConsumedHere,
@@ -390,6 +395,8 @@ namespace verona::compiler
           return "Its parent, '{}', went out of scope here";
         case Diagnostic::ParentWasOverwrittenHere:
           return "Its parent, '{}', was overwitten here";
+        case Diagnostic::PatternMatchOnUnsupportedType:
+          return "Pattern match on unsupported type: {}";
 
           EXHAUSTIVE_SWITCH;
       }

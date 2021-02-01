@@ -98,8 +98,7 @@ namespace verona::interpreter
   {
     if (tag != UNINIT)
     {
-      // TODO: Should this be an internal error?
-      InternalError() << "Dropped an initialized Value" << std::endl;
+      InternalError() << "Dropped an initialized Value. Codegen issue!" << std::endl;
     }
   }
 
