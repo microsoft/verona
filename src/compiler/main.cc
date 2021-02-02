@@ -262,5 +262,6 @@ int main(int argc, const char** argv)
 
   verona::compiler::main(context, options);
 
-  InternalError::print("Programming error.  Should call `context.exit(error_code)`\n");
+  InternalError::print(
+    "Programming error.  Should call `context.exit(error_code)`\n");
 }
