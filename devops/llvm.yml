@@ -28,7 +28,7 @@ jobs:
 
   - script: |
       set -eo pipefail
-      git checkout master
+      git checkout main
       git pull
       git checkout $(GOOD_HASH)
     displayName: 'Move tree to known good LLVM commit for Verona'
@@ -96,7 +96,7 @@ jobs:
     displayName: 'Install CMake'
 
   - script: |
-      git checkout master
+      git checkout main
       git pull
       git checkout $(GOOD_HASH)
     displayName: 'Prepare tree'
@@ -151,7 +151,7 @@ jobs:
 
   - script: |
       set -eo pipefail
-      git checkout master
+      git checkout main
       git pull
       git checkout $(GOOD_HASH)
     displayName: 'Move tree to known good LLVM commit for Verona'
