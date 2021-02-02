@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "interpreter/value.h"
 
+#include "ds/error.h"
 #include "ds/helpers.h"
 #include "interpreter/object.h"
 
@@ -97,8 +98,7 @@ namespace verona::interpreter
   {
     if (tag != UNINIT)
     {
-      std::cerr << "Dropped an initialized Value" << std::endl;
-      abort();
+      InternalError::print("Dropped an initialized Value. Codegen issue!\n");
     }
   }
 

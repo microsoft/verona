@@ -337,7 +337,8 @@ namespace verona::compiler
       for (const auto& arm : term.arms)
       {
         TypePtr reified_pattern = reify(arm.type);
-        EmitMatch(this, input).visit_type(reified_pattern, match_result);
+        EmitMatch(this, input, context_)
+          .visit_type(reified_pattern, match_result);
         emit<Opcode::JumpIf>(match_result, basic_block_label(arm.target));
       }
       emit<Opcode::Unreachable>();
@@ -406,8 +407,8 @@ namespace verona::compiler
      */
     struct EmitMatch : public TypeVisitor<void, Register>
     {
-      EmitMatch(IRGenerator* parent, Register input)
-      : parent(parent), input(input)
+      EmitMatch(IRGenerator* parent, Register input, Context& context)
+      : parent(parent), input(input), context_(context)
       {}
 
       void
@@ -463,9 +464,16 @@ namespace verona::compiler
 
       void visit_base_type(const TypePtr& type, Register input) override
       {
-        fmt::print(
-          std::cerr, "Matching against type {} is not supported\n", *type);
-        abort();
+        // TODO: Ultimately, this should be a non-user facing error.
+        // InternalError::print(
+        //   "Matching against type {} is not supported\n", *type);
+        // However, currently the earlier phases do not catch this.
+        report(
+          context_,
+          std::nullopt,
+          DiagnosticKind::Error,
+          Diagnostic::PatternMatchOnUnsupportedType,
+          type);
       }
 
       /**
@@ -517,6 +525,7 @@ namespace verona::compiler
     private:
       IRGenerator* parent;
       Register input;
+      Context& context_;
     };
 
     const Reachability& reachability_;
