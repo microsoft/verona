@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <cassert>
 #include <functional>
 #include <memory>
 #include <string>
@@ -45,6 +46,16 @@ namespace verona::parser
     bool operator!=(const Location& that) const
     {
       return !(*this == that);
+    }
+
+    Location range(const Location& that)
+    {
+      // Create a synthetic location that includes both locations.
+      assert(this->source == that.source);
+      return Location(
+        this->source,
+        std::min(this->start, that.start),
+        std::max(this->end, that.end));
     }
   };
 

@@ -33,6 +33,7 @@ namespace verona::parser::dnf
     for (auto& type : right.types)
     {
       auto isect = std::make_shared<IsectType>();
+      isect->location = left.location.range(right.location);
       isect->location = type->location;
       isect->types = left.types;
       isect->types.push_back(type);
@@ -50,10 +51,12 @@ namespace verona::parser::dnf
 
     for (auto& ltype : left.types)
     {
+      assert(ltype->kind() != Kind::UnionType);
+
       for (auto& rtype : right.types)
       {
         auto isect = std::make_shared<IsectType>();
-        isect->location = ltype->location;
+        isect->location = ltype->location.range(rtype->location);
         auto& types = isect->types;
 
         if (ltype->kind() == Kind::IsectType)
@@ -78,7 +81,7 @@ namespace verona::parser::dnf
     return un;
   }
 
-  Node<Type> intersect(Node<Type>& left, Node<Type>& right, Location& loc)
+  Node<Type> conjunction(Node<Type>& left, Node<Type>& right, Location& loc)
   {
     switch (left->kind())
     {
@@ -151,6 +154,39 @@ namespace verona::parser::dnf
         }
       }
     }
+  }
+
+  Node<Type> disjunction(Node<Type>& left, Node<Type>& right, Location& loc)
+  {
+    if (left->kind() == Kind::UnionType)
+    {
+      auto& lhs = left->as<UnionType>().types;
+
+      if (right->kind() == Kind::UnionType)
+      {
+        auto& rhs = right->as<UnionType>().types;
+        lhs.insert(lhs.end(), rhs.begin(), rhs.end());
+      }
+      else
+      {
+        lhs.push_back(right);
+      }
+
+      return left;
+    }
+
+    if (right->kind() == Kind::UnionType)
+    {
+      auto& rhs = right->as<UnionType>().types;
+      rhs.push_back(left);
+      return right;
+    }
+
+    auto un = std::make_shared<UnionType>();
+    un->location = loc;
+    un->types.push_back(left);
+    un->types.push_back(right);
+    return un;
   }
 
   bool wellformed(Ast& ast, std::ostream& out)

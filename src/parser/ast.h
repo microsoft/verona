@@ -297,7 +297,7 @@ namespace verona::parser
 
   struct Match : BlockExpr
   {
-    Node<Expr> cond;
+    Node<Expr> test;
     List<Case> cases;
 
     Kind kind()

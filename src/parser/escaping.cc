@@ -362,7 +362,6 @@ namespace verona::parser
 {
   bool is_escaped(const std::string_view& s)
   {
-    // This checks if the string is valid utf-8 and all the escapes are valid.
     for (size_t i = 0; i < s.size(); i++)
     {
       if (!is_escape(s, i) && !is_utf8(s, i))
@@ -374,7 +373,6 @@ namespace verona::parser
 
   bool is_unescaped(const std::string_view& s)
   {
-    // This checks if the string is valid utf-8.
     for (size_t i = 0; i < s.size(); i++)
     {
       if (!is_utf8(s, i))
