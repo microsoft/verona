@@ -6,6 +6,11 @@
 
 namespace verona::parser
 {
+  // This header allows the << operator to be used over AST types, with the
+  // result being that the fields of the AST node are forwarded to the <<
+  // operator over the target. This is not for Verona fields, but for AST
+  // fields.
+
   template<typename T>
   void fieldsof(T& target, NodeDef& node)
   {
@@ -129,7 +134,7 @@ namespace verona::parser
   template<typename T>
   void fieldsof(T& target, Match& match)
   {
-    target << match.cond << match.cases;
+    target << match.test << match.cases;
   }
 
   template<typename T>

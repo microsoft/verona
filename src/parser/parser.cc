@@ -543,9 +543,9 @@ namespace verona::parser
       match->location = previous.location;
       expr = match;
 
-      if (opttuple(match->cond) != Success)
+      if (opttuple(match->test) != Success)
       {
-        error() << loc() << "Expected a match condition" << line();
+        error() << loc() << "Expected a match test-expression" << line();
         r = Error;
       }
 
@@ -1199,7 +1199,10 @@ namespace verona::parser
       // We will have already found a tuple when trying to find a lambda, so
       // this will always Skip.
       if ((r = opttuple(expr)) != Skip)
+      {
+        assert(0);
         return r;
+      }
 
       return Skip;
     }
@@ -1328,6 +1331,9 @@ namespace verona::parser
 
     Result optpostorblock(Node<Expr>& expr)
     {
+      // This may return a blockexpr. This is handled in optapply by the
+      // applyblock rule. Otherwise, this is handled in optapply by the apply
+      // rule.
       // postfix <- atom ('.' (ident / symbol) / typeargs)*
       Result r;
 
@@ -1799,7 +1805,7 @@ namespace verona::parser
         }
 
         if (r2 != Skip)
-          type = dnf::intersect(type, next, amploc);
+          type = dnf::conjunction(type, next, amploc);
       } while (has(TokenKind::Symbol, "&"));
 
       return r;
@@ -1816,30 +1822,20 @@ namespace verona::parser
       if (!has(TokenKind::Symbol, "|"))
         return r;
 
-      auto un = std::make_shared<UnionType>();
-      un->location = previous.location;
-      un->types.push_back(type);
-      type = un;
-
       do
       {
-        Node<Type> elem;
+        auto pipeloc = previous.location;
+        Node<Type> next;
+        Result r2;
 
-        if (optisecttype(elem) != Success)
+        if ((r2 = optisecttype(next)) != Success)
         {
           error() << loc() << "Expected a type" << line();
           r = Error;
         }
 
-        if (elem->kind() == Kind::UnionType)
-        {
-          auto& rhs = elem->as<UnionType>().types;
-          un->types.insert(un->types.end(), rhs.begin(), rhs.end());
-        }
-        else
-        {
-          un->types.push_back(elem);
-        }
+        if (r2 != Skip)
+          type = dnf::disjunction(type, next, pipeloc);
       } while (has(TokenKind::Symbol, "|"));
 
       return r;
