@@ -50,6 +50,7 @@ jobs:
   #                 (or) @(clang|clang++|*/clang|*/clang++|*/mlir-tblgen|*/llvm-tblgen)
   # AbExpName          = LLVMVna
   # AbEnvironmentName  = LLVMVna
+  # AbClusterId        = 0310c9eb-18d0-4a58-bc85-bdc02a4d764a
   # CmakeJobs          = 32
   # CmakeBuildToolArgs = install
   # GOOD_HASH          = ...
@@ -103,7 +104,7 @@ jobs:
 
       declare anyBuildExe=$(AbClientDirectory)/AnyBuild.sh
       declare ExpectedAgentCount=4 # Minimum number of agents
-      declare AnyBuildEnvironmentUri=anybuild-$(AbEnvironmentName).northeurope.cloudapp.azure.com
+      declare AnyBuildEnvironmentUri=https://northeurope.anybuild-test.microsoft.com/api/clusters/$(AbClusterId)/agents
 
       if [[ ! -x $anyBuildExe ]]; then
           anyBuildExe=$(AbClientDirectory)/AnyBuild
