@@ -1,3 +1,7 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+// Test with: verona-ffi test.h Foo TFoo EFoo
 
 #define SOME_MACRO
 
