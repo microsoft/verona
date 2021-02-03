@@ -446,6 +446,15 @@ namespace verona::ffi
       return CXXType{Def};
     }
 
+    // Exposing some functionality to make this work
+    // TODO: Fix the layering issues
+
+    /// Get AST pointer
+    const clang::ASTContext* getAST()
+    {
+      return ast;
+    }
+
   private:
     /// Maps between CXXType and Clang's types.
     /// TODO: Move this to CXXType?

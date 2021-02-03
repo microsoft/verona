@@ -24,6 +24,35 @@ void test(CXXInterface& interface, std::string& name)
   {
     fprintf(stderr, "Not found: %s\n", name.c_str());
   }
+
+  // For template types, try to find their default arguments
+  if (decl.kind == CXXType::Kind::TemplateClass)
+  {
+    auto irb = interface.getType(name);
+    auto params =
+      dyn_cast<ClassTemplateDecl>(irb.decl)->getTemplateParameters();
+    std::vector<TemplateArgument> args;
+    for (auto param : *params)
+    {
+      if (auto typeParam = dyn_cast<TemplateTypeParmDecl>(param))
+      {
+        if (typeParam->hasDefaultArgument())
+          args.push_back(typeParam->getDefaultArgument());
+      }
+      else if (auto nontypeParam = dyn_cast<NonTypeTemplateParmDecl>(param))
+      {
+        if (nontypeParam->hasDefaultArgument())
+          args.push_back(nontypeParam->getDefaultArgument());
+      }
+    }
+    if (args.size())
+    {
+      TemplateName irbName{
+        dyn_cast<TemplateDecl>(const_cast<NamedDecl*>(irb.decl))};
+
+      interface.getAST()->getTemplateSpecializationType(irbName, args).dump();
+    }
+  }
 }
 
 /// Simple syntax error
@@ -56,6 +85,7 @@ int main(int argc, char** argv)
   // paths to this interface.
   CXXInterface interface(file);
 
+  // FIXME: We should be able to pass a list and get a list back.
   for (auto symbol : symbols)
     test(interface, symbol);
 
@@ -65,24 +95,6 @@ int main(int argc, char** argv)
   // available for each one of them. Most of it was assuming the file in the
   // interface was IRBuilder.h in the LLVM repo.
   /*
-  auto irb = interface.getType("llvm::IRBuilder");
-  auto params = dyn_cast<ClassTemplateDecl>(irb.decl)->getTemplateParameters();
-  std::vector<TemplateArgument> args;
-  for (auto param : *params)
-  {
-    if (auto typeParam = dyn_cast<TemplateTypeParmDecl>(param))
-    {
-      args.push_back(typeParam->getDefaultArgument());
-    }
-    else if (auto nontypeParam = dyn_cast<NonTypeTemplateParmDecl>(param))
-    {
-      args.push_back(nontypeParam->getDefaultArgument());
-    }
-  }
-  TemplateName irbName{
-    dyn_cast<TemplateDecl>(const_cast<NamedDecl*>(irb.decl))};
-  interface.ast->getTemplateSpecializationType(irbName, args).dump();
-
   CXXInterface stdarray("/usr/include/c++/v1/array");
   auto t = TimeReport("Instantiating std::array");
   auto arr = stdarray.getType("std::array");
