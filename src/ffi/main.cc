@@ -6,6 +6,7 @@
 using namespace verona::ffi;
 
 /// Looks up a symbol from a CXX interface by name
+/// Tested on <array> looking for type "std::array"
 void test(CXXInterface& interface, std::string& name)
 {
   auto t = TimeReport(std::string("Lookup time"));
@@ -23,34 +24,63 @@ void test(CXXInterface& interface, std::string& name)
   else
   {
     fprintf(stderr, "Not found: %s\n", name.c_str());
+    return;
   }
 
-  // For template types, try to find their default arguments
+  // For template types, try to find their parameters and default arguments
   if (decl.kind == CXXType::Kind::TemplateClass)
   {
-    auto irb = interface.getType(name);
+    fprintf(
+      stderr,
+      "%s has %d template parameters\n",
+      name.c_str(),
+      decl.numberOfTemplateParameters());
+
+    // Try to fit `int` to the parameter
+    auto IntTy = CXXType{CXXType::BuiltinTypeKinds::Int};
+    auto TypeArg = interface.createTemplateArgumentForType(IntTy);
+    auto ValueArg = interface.createTemplateArgumentForIntegerValue(
+      CXXType::BuiltinTypeKinds::Int, 4);
+
+    // Find any default parameter
     auto params =
-      dyn_cast<ClassTemplateDecl>(irb.decl)->getTemplateParameters();
+      dyn_cast<ClassTemplateDecl>(decl.decl)->getTemplateParameters();
     std::vector<TemplateArgument> args;
+    std::vector<TemplateArgument> defaultArgs;
     for (auto param : *params)
     {
       if (auto typeParam = dyn_cast<TemplateTypeParmDecl>(param))
       {
+        args.push_back(TypeArg);
         if (typeParam->hasDefaultArgument())
-          args.push_back(typeParam->getDefaultArgument());
+          defaultArgs.push_back(typeParam->getDefaultArgument());
       }
       else if (auto nontypeParam = dyn_cast<NonTypeTemplateParmDecl>(param))
       {
+        args.push_back(ValueArg);
         if (nontypeParam->hasDefaultArgument())
-          args.push_back(nontypeParam->getDefaultArgument());
+          defaultArgs.push_back(nontypeParam->getDefaultArgument());
       }
+    }
+    if (defaultArgs.size())
+    {
+      // Shows the default arguments, if any
+      TemplateName irbName{
+        dyn_cast<TemplateDecl>(const_cast<NamedDecl*>(decl.decl))};
+      interface.getAST()
+        ->getTemplateSpecializationType(irbName, defaultArgs)
+        .dump();
     }
     if (args.size())
     {
-      TemplateName irbName{
-        dyn_cast<TemplateDecl>(const_cast<NamedDecl*>(irb.decl))};
-
-      interface.getAST()->getTemplateSpecializationType(irbName, args).dump();
+      // Tries to instantiate a full specialisation
+      // NOTE: This only works for integer type/arguments
+      CXXType spec = interface.instantiateClassTemplate(decl, args);
+      fprintf(
+        stderr,
+        "%s<int> is %lu bytes\n",
+        name.c_str(),
+        interface.getTypeSize(spec));
     }
   }
 }
@@ -95,27 +125,6 @@ int main(int argc, char** argv)
   // available for each one of them. Most of it was assuming the file in the
   // interface was IRBuilder.h in the LLVM repo.
   /*
-  CXXInterface stdarray("/usr/include/c++/v1/array");
-  auto t = TimeReport("Instantiating std::array");
-  auto arr = stdarray.getType("std::array");
-  fprintf(
-    stderr,
-    "std::array has %d template parameters\n",
-    arr.numberOfTemplateParameters());
-  auto IntTy = CXXType{CXXType::BuiltinTypeKinds::Int};
-  auto TypeArg = stdarray.createTemplateArgumentForType(IntTy);
-  auto ValueArg = stdarray.createTemplateArgumentForIntegerValue(
-    CXXType::BuiltinTypeKinds::Int, 4);
-
-  CXXType arrIntFour =
-    stdarray.instantiateClassTemplate(arr, {TypeArg, ValueArg});
-  arr.decl->dump();
-  arrIntFour.decl->dump();
-  fprintf(
-    stderr,
-    "std::array<int, 4> is %lu bytes\n",
-    stdarray.getTypeSize(arrIntFour));
-
   auto* DC = stdarray.ast->getTranslationUnitDecl();
   auto& SM = stdarray.Clang->getSourceManager();
   auto mainFile = SM.getMainFileID();
