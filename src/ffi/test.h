@@ -7,7 +7,7 @@ class Foo { };
 
 enum EFoo { };
 
-template<class T>
+template<class T = int>
 struct TFoo {
   T innerFoo;
 };
