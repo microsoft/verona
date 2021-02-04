@@ -177,7 +177,7 @@ namespace verona::ffi
      * FIXME: This came from CXXInterface c-tor and should probably be more
      * factored around the corners.
      */
-    SourceLocation getEndOfFileLocation()
+    SourceLocation getEndOfFileLocation() const
     {
       auto mainFile = Clang->getSourceManager().getMainFileID();
       return Clang->getSourceManager().getLocForEndOfFile(mainFile);

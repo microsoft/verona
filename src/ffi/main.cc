@@ -125,31 +125,29 @@ int main(int argc, char** argv)
   // available for each one of them. Most of it was assuming the file in the
   // interface was IRBuilder.h in the LLVM repo.
   /*
-  auto* DC = stdarray.ast->getTranslationUnitDecl();
-  auto& SM = stdarray.Clang->getSourceManager();
-  auto mainFile = SM.getMainFileID();
-  SourceLocation loc = SM.getLocForEndOfFile(mainFile);
-  IdentifierInfo& fnNameIdent = stdarray.ast->Idents.get("verona_wrapper_fn_1");
+  SourceLocation loc = interface.getCompiler()->getEndOfFileLocation();
+  IdentifierInfo& fnNameIdent =
+    interface.getAST()->Idents.get("verona_wrapper_fn_1");
   DeclarationName fnName{&fnNameIdent};
-  QualType retTy = stdarray.ast->IntTy;
-  QualType argTy = stdarray.ast->IntTy;
+  QualType retTy = interface.getAST()->IntTy;
+  QualType argTy = interface.getAST()->IntTy;
   FunctionProtoType::ExtProtoInfo EPI;
-  QualType fnTy = stdarray.ast->getFunctionType(retTy, {argTy}, EPI);
+  QualType fnTy = interface.getAST()->getFunctionType(retTy, {argTy}, EPI);
 
   auto newFunction = FunctionDecl::Create(
-    *stdarray.ast,
+    *interface.getAST(),
     DC,
     loc,
     loc,
     fnName,
     fnTy,
-    stdarray.ast->getTrivialTypeSourceInfo(fnTy),
+    interface.getAST()->getTrivialTypeSourceInfo(fnTy),
     StorageClass::SC_None);
   newFunction->setLexicalDeclContext(DC);
 
-  IdentifierInfo& arg1Ident = stdarray.ast->Idents.get("arg1");
+  IdentifierInfo& arg1Ident = interface.getAST()->Idents.get("arg1");
   ParmVarDecl* arg1Decl = ParmVarDecl::Create(
-    *stdarray.ast,
+    *interface.getAST(),
     newFunction,
     loc,
     loc,
@@ -162,9 +160,9 @@ int main(int argc, char** argv)
 
   llvm::APInt four{32, 4};
   auto* fourLiteral = IntegerLiteral::Create(
-    *stdarray.ast, four, stdarray.ast->IntTy, SourceLocation{});
-  auto retStmt = ReturnStmt::Create(*stdarray.ast, loc, fourLiteral, nullptr);
-  newFunction->setBody(retStmt);
+    *interface.getAST(), four, interface.getAST()->IntTy, SourceLocation{});
+  auto retStmt = ReturnStmt::Create(*interface.getAST(), loc, fourLiteral,
+  nullptr); newFunction->setBody(retStmt);
 
   newFunction->dump();
   DC->addDecl(newFunction);
@@ -174,13 +172,13 @@ int main(int argc, char** argv)
   // Decl->dump();
   // Def->dump();
 
-  stdarray.emitLLVM();
+  interface.emitLLVM();
 
   TemplateName arrName{arr.getAs<TemplateDecl>()};
-  stdarray.ast
+  interface.getAST()
     ->getCanonicalTemplateSpecializationType(arrName, {TypeArg, ValueArg})
     .dump();
-  stdarray.ast
+  interface.getAST()->
     ->getCanonicalTemplateSpecializationType(arrName, {TypeArg, TypeArg})
     .dump();
   */

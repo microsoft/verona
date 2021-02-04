@@ -450,9 +450,15 @@ namespace verona::ffi
     // TODO: Fix the layering issues
 
     /// Get AST pointer
-    const clang::ASTContext* getAST()
+    const clang::ASTContext* getAST() const
     {
       return ast;
+    }
+
+    /// Get compiler
+    const Compiler* getCompiler() const
+    {
+      return Clang.get();
     }
 
   private:
