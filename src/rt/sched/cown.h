@@ -991,12 +991,12 @@ namespace verona::rt
     inline bool apply_backpressure(
       Alloc* alloc, EpochMark epoch, Cown** senders, size_t count)
     {
-      if (Scheduler::local()->mutor == nullptr)
+      auto* mutor = Scheduler::local()->mutor;
+      if (mutor == nullptr)
         return false;
 
-      auto* muting = (Cown**)alloc->alloc(count * sizeof(Cown*));
+      Scheduler::local()->mutor = nullptr;
       size_t muting_count = 0;
-
       for (size_t i = 0; i < count; i++)
       {
         auto* cown = senders[i];
@@ -1036,33 +1036,30 @@ namespace verona::rt
         Systematic::cout() << "Cown " << cown << ": backpressure state "
                            << bp.priority() << " -> Low" << std::endl;
         assert(!high_priority);
-        muting[muting_count++] = cown;
-        Systematic::cout() << "Mute cown " << cown << " (mutor: cown "
-                           << Scheduler::local()->mutor << ")" << std::endl;
+        senders[muting_count++] = cown;
+        Systematic::cout() << "Mute cown " << cown << " (mutor: cown " << mutor
+                           << ")" << std::endl;
 
         Scheduler::local()->mute_set_add(cown);
       }
 
-      if (muting_count > 0)
+      if (muting_count == 0)
       {
-        if (muting_count < count)
-          muting[muting_count] = nullptr;
-
-        auto* body = MultiMessage::make_body(alloc, count, muting, nullptr);
-        auto* msg = MultiMessage::make_message(alloc, body, epoch);
-        bool needs_scheduling = Scheduler::local()->mutor->try_fast_send(msg);
-        if (needs_scheduling)
-          Scheduler::local()->mutor->schedule();
-      }
-      else
-      {
-        alloc->dealloc(muting, count * sizeof(Cown*));
+        alloc->dealloc(senders, count * sizeof(Cown*));
+        Cown::release(alloc, mutor);
+        return true;
       }
 
-      // TODO: reuse allocation
-      alloc->dealloc(senders, count * sizeof(Cown*));
-      Cown::release(alloc, Scheduler::local()->mutor);
-      Scheduler::local()->mutor = nullptr;
+      if (muting_count < count)
+        senders[muting_count] = nullptr;
+
+      auto* body = MultiMessage::make_body(alloc, count, senders, nullptr);
+      auto* msg = MultiMessage::make_message(alloc, body, epoch);
+      bool needs_scheduling = mutor->try_fast_send(msg);
+      if (needs_scheduling)
+        mutor->schedule();
+
+      Cown::release(alloc, mutor);
       return true;
     }
 

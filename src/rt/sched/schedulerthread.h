@@ -812,8 +812,7 @@ namespace verona::rt
         {
           if (c->weak_count != 0)
           {
-            Systematic::cout() << "Leaking cown " << c << ", " << c->debug_rc()
-                               << ", " << c->weak_count << std::endl;
+            Systematic::cout() << "Leaking cown " << c << std::endl;
             if (Scheduler::get_detect_leaks())
             {
               *p = c->next;
