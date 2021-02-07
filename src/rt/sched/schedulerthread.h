@@ -99,9 +99,9 @@ namespace verona::rt
     size_t total_cowns = 0;
     std::atomic<size_t> free_cowns = 0;
 
-    ObjectMap<std::pair<T*, ObjectMap<T*>*>> mute_map;
     typename T::MessageBody* message_body = nullptr;
     T* mutor = nullptr;
+    ObjectMap<T*> mute_set;
 
     T* get_token_cown()
     {
@@ -112,7 +112,7 @@ namespace verona::rt
     SchedulerThread()
     : token_cown{T::create_token_cown()},
       q{token_cown},
-      mute_map{ThreadAlloc::get()}
+      mute_set{ThreadAlloc::get()}
     {
       token_cown->set_owning_thread(this);
     }
@@ -122,7 +122,7 @@ namespace verona::rt
       if (t.joinable())
         t.join();
 
-      assert(mute_map.size() == 0);
+      assert(mute_set.size() == 0);
     }
 
     template<typename... Args>
@@ -194,124 +194,30 @@ namespace verona::rt
     }
 
     /**
-     * Mute a set of cowns. This will add the cowns to the mute set of the
-     * mutor.
+     * Track a cown muted on this thread so that it may be unmuted prior to
+     * shutdown.
      */
-    void mute(T** cowns, size_t count)
+    void mute_set_add(T* cown)
     {
-      assert(mutor != nullptr);
-
-      auto it = mute_map.find(mutor);
-      if (it == mute_map.end())
-      {
-        auto* set = ObjectMap<T*>::create(alloc);
-        it = mute_map.insert(alloc, std::make_pair(mutor, set)).second;
-      }
-      else
-      {
-        mutor->weak_release(alloc);
-      }
-      auto& mute_set = *it.value();
-
-      for (size_t i = 0; i < count; i++)
-      {
-        auto* cown = cowns[i];
-        auto bp = cown->bp_state.load(std::memory_order_relaxed);
-        const bool high_priority = bp.high_priority();
-        yield();
-        assert(bp.priority() != Priority::Low);
-
-        // The cown may only be muted if its priority is normal and its epoch
-        // mark is not `SCANNED`. Muting a scanned cown may result in the leak
-        // detector collecting the cown while it is muted.
-        if (high_priority || (cown->get_epoch_mark() == EpochMark::SCANNED))
-        {
-          cown->schedule();
-          continue;
-        }
-
-        yield();
-
-        auto ins = mute_set.insert(alloc, cown);
-        if (ins.first)
-          T::acquire(cown);
-
-        if (
-#ifdef USE_SYSTEMATIC_TESTING
-          Systematic::coin(9) ||
-#endif
-          !cown->bp_state.compare_exchange_weak(
-            bp,
-            BPState() | bp.blocker() | Priority::Low | bp.has_token(),
-            std::memory_order_acq_rel))
-        {
-          assert(bp.priority() != Priority::Low);
-          yield();
-          cown->schedule();
-          mute_set.erase(ins.second);
-          T::release(alloc, cown);
-
-          continue;
-        }
-        Systematic::cout() << "Cown " << cown << ": backpressure state "
-                           << bp.priority() << " -> Low" << std::endl;
-        assert(!high_priority);
-      }
-
-      alloc->dealloc(cowns, count * sizeof(T*));
+      bool inserted = mute_set.insert(alloc, cown).first;
+      if (inserted)
+        cown->weak_acquire();
     }
 
     /**
-     * Unmute all mute sets where the mutor is in a state that triggers
-     * unmuting. If `force` is true, then all mute sets in the map will be
-     * unmuted.
+     * Clear the mute set and unmute any muted cowns in the set.
      */
-    void mute_map_scan(bool force = false)
+    void mute_set_clear()
     {
-      // Scan the mute map, removing entries where the key no longer triggers
-      // muting. Rescan while unmuted cowns are also keys in the map since their
-      // entries become invalid as well.
-      bool scan_again = true;
-      while (scan_again)
+      Systematic::cout() << "Clear mute set" << std::endl;
+      for (auto entry = mute_set.begin(); entry != mute_set.end(); ++entry)
       {
-        scan_again = false;
-        for (auto entry = mute_map.begin(); entry != mute_map.end(); ++entry)
-        {
-          auto* m = entry.key();
-          auto& mute_set = *entry.value();
-          if (force || !m->triggers_muting() || m->is_collected())
-          {
-            yield();
-            for (auto it = mute_set.begin(); it != mute_set.end(); ++it)
-            {
-              assert(m != it.key());
-              Systematic::cout()
-                << "Mute map remove cown " << it.key() << std::endl;
-              it.key()->backpressure_transition(Priority::Normal);
-
-              if (!force && !scan_again)
-                scan_again = (mute_map.find(it.key()) != mute_map.end());
-
-              T::release(alloc, it.key());
-              mute_set.erase(it);
-            }
-            m->weak_release(alloc);
-            mute_map.erase(entry);
-            mute_set.dealloc(alloc);
-            alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
-          }
-          else if (mute_set.size() == 0)
-          {
-            m->weak_release(alloc);
-            mute_map.erase(entry);
-            mute_set.dealloc(alloc);
-            alloc->dealloc<sizeof(ObjectMap<T*>)>(&mute_set);
-          }
-        }
+        // This operation should be safe if the cown has been collected but the
+        // stub exists.
+        entry.key()->backpressure_transition(Priority::Normal);
+        entry.key()->weak_release(alloc);
       }
-
-      if (mute_map.size() == 0)
-        mute_map.clear(alloc);
+      mute_set.clear(alloc);
     }
 
     /**
@@ -360,8 +266,6 @@ namespace verona::rt
         }
 
         check_token_cown();
-
-        mute_map_scan();
 
         if (cown == nullptr)
         {
@@ -465,7 +369,7 @@ namespace verona::rt
 #endif
       }
 
-      assert(mute_map.size() == 0);
+      assert(mute_set.size() == 0);
 
       Systematic::cout() << "Begin teardown (phase 1)" << std::endl;
 
@@ -601,15 +505,9 @@ namespace verona::rt
           UNUSED(tsc);
         }
 #endif
-          if (mute_map.size() != 0)
+          if (mute_set.size() != 0)
         {
-#ifndef USE_SYSTEMATIC_TESTING
-          mute_map_scan(true);
-#else
-          const auto last = Scheduler::get().active_thread_count == 1;
-          mute_map_scan(!last);
-          assert(!(last && (mute_map.size() > 0) && q.is_empty()));
-#endif
+          mute_set_clear();
           continue;
         }
         // Enter sleep only when the queue doesn't contain any real cowns.
@@ -859,7 +757,7 @@ namespace verona::rt
 
       // Send empty messages to all cowns that can be LIFO scheduled.
 
-      mute_map_scan(true);
+      mute_set_clear(); // TODO: is this necesary?
 
       T* p = list;
       while (p != nullptr)
@@ -914,7 +812,8 @@ namespace verona::rt
         {
           if (c->weak_count != 0)
           {
-            Systematic::cout() << "Leaking cown " << c << std::endl;
+            Systematic::cout() << "Leaking cown " << c << ", " << c->debug_rc()
+                               << ", " << c->weak_count << std::endl;
             if (Scheduler::get_detect_leaks())
             {
               *p = c->next;

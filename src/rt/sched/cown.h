@@ -898,7 +898,7 @@ namespace verona::rt
         {
           assert(Scheduler::local()->mutor == nullptr);
           Scheduler::local()->mutor = receiver;
-          receiver->weak_acquire();
+          Cown::acquire(receiver);
           return;
         }
       }
@@ -1037,7 +1037,10 @@ namespace verona::rt
                            << bp.priority() << " -> Low" << std::endl;
         assert(!high_priority);
         muting[muting_count++] = cown;
-        Systematic::cout() << "Mute cown " << cown << std::endl;
+        Systematic::cout() << "Mute cown " << cown << " (mutor: cown "
+                           << Scheduler::local()->mutor << ")" << std::endl;
+
+        Scheduler::local()->mute_set_add(cown);
       }
 
       if (muting_count > 0)
@@ -1045,10 +1048,8 @@ namespace verona::rt
         if (muting_count < count)
           muting[muting_count] = nullptr;
 
-        // TODO: schedule unmute, is mutor alive?
         auto* body = MultiMessage::make_body(alloc, count, muting, nullptr);
         auto* msg = MultiMessage::make_message(alloc, body, epoch);
-
         bool needs_scheduling = Scheduler::local()->mutor->try_fast_send(msg);
         if (needs_scheduling)
           Scheduler::local()->mutor->schedule();
@@ -1060,7 +1061,7 @@ namespace verona::rt
 
       // TODO: reuse allocation
       alloc->dealloc(senders, count * sizeof(Cown*));
-      Scheduler::local()->mutor->weak_release(alloc);
+      Cown::release(alloc, Scheduler::local()->mutor);
       Scheduler::local()->mutor = nullptr;
       return true;
     }
@@ -1320,6 +1321,8 @@ namespace verona::rt
       }
 
       yield();
+      // Systematic::cout() << "Collect cown " << this << " rc: " << debug_rc()
+      //                    << ", weak: " << weak_count << std::endl;
       assert(
         bp_state.load(std::memory_order_acquire).priority() != Priority::Low);
 
