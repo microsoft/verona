@@ -995,6 +995,11 @@ namespace verona::rt
       if (mutor == nullptr)
         return false;
 
+      // The array of senders is reused for the unmute message. Since fewer than
+      // the original count of cowns may be muted, a null terminator may be
+      // added before the end of the allocation to mark the end of the muted
+      // set.
+
       Scheduler::local()->mutor = nullptr;
       size_t muting_count = 0;
       for (size_t i = 0; i < count; i++)
