@@ -369,28 +369,35 @@ namespace verona::ffi
     uint64_t getTypeSize(CXXType& t)
     {
       assert(t.kind != CXXType::Kind::Invalid);
-      QualType ty;
       if (t.sizeAndAlign.Width == 0)
       {
-        switch (t.kind)
-        {
-          case CXXType::Kind::Invalid:
-          case CXXType::Kind::TemplateClass:
-            return 0;
-          case CXXType::Kind::SpecializedTemplateClass:
-          case CXXType::Kind::Class:
-            ty = ast->getRecordType(t.getAs<CXXRecordDecl>());
-            break;
-          case CXXType::Kind::Enum:
-            ty = ast->getEnumType(t.getAs<EnumDecl>());
-            break;
-          case CXXType::Kind::Builtin:
-            ty = typeForBuiltin(t.builtTypeKind);
-            break;
-        }
+        QualType ty = getQualType(t);
         t.sizeAndAlign = ast->getTypeInfo(ty);
       }
       return t.sizeAndAlign.Width / 8;
+    }
+
+    /// Return the qualified type for a CXXType
+    /// FIXME: Do we really need to expose this?
+    QualType getQualType(CXXType ty)
+    {
+      switch (ty.kind)
+      {
+        case CXXType::Kind::Invalid:
+        case CXXType::Kind::TemplateClass:
+          // TODO: Fix template class
+          return QualType{};
+        case CXXType::Kind::SpecializedTemplateClass:
+        case CXXType::Kind::Class:
+          return ast->getRecordType(ty.getAs<CXXRecordDecl>());
+        case CXXType::Kind::Enum:
+          return ast->getEnumType(ty.getAs<EnumDecl>());
+        case CXXType::Kind::Builtin:
+          return typeForBuiltin(ty.builtTypeKind);
+      }
+      // TODO: This is wrong but silences a warning, need to know what's the
+      // correct behaviour here.
+      return ast->VoidTy;
     }
 
     /// Returns the type as a template argument.
@@ -427,7 +434,10 @@ namespace verona::ffi
       return TemplateArgument(literal);
     }
 
-    /// Instantiate the class template specialisation if not yet done.
+    /**
+     * Instantiate the class template specialisation at the end of the main
+     * file, if not yet done.
+     */
     CXXType instantiateClassTemplate(
       CXXType& classTemplate, llvm::ArrayRef<TemplateArgument> args)
     {
@@ -495,11 +505,96 @@ namespace verona::ffi
       return ast->getTemplateSpecializationType(templ, args);
     }
 
+    /**
+     * Instantiate a new function at the end of the main file, if not yet done.
+     */
+    clang::FunctionDecl* instantiateFunction(
+      const char* name, llvm::ArrayRef<CXXType> args, CXXType ret)
+    {
+      auto* DC = ast->getTranslationUnitDecl();
+      SourceLocation loc = Clang->getEndOfFileLocation();
+      IdentifierInfo& fnNameIdent = ast->Idents.get(name);
+      DeclarationName fnName{&fnNameIdent};
+      FunctionProtoType::ExtProtoInfo EPI;
+
+      // Get type of args/ret, function
+      llvm::SmallVector<QualType> argTys;
+      for (auto argTy : args)
+        argTys.push_back(getQualType(argTy));
+      auto retTy = getQualType(ret);
+      QualType fnTy = ast->getFunctionType(retTy, argTys, EPI);
+
+      // Create a new function
+      auto func = FunctionDecl::Create(
+        *ast,
+        DC,
+        loc,
+        loc,
+        fnName,
+        fnTy,
+        ast->getTrivialTypeSourceInfo(fnTy),
+        StorageClass::SC_None);
+      func->setLexicalDeclContext(DC);
+
+      return func;
+    }
+
+    /**
+     * Create a function argument
+     *
+     * FIXME: Do we want to have this as part of instantiateFunction?
+     */
+    clang::ParmVarDecl* createFunctionArgument(
+      const char* name, CXXType& ty, clang::FunctionDecl* func)
+    {
+      SourceLocation loc = func->getLocation();
+      IdentifierInfo& ident = ast->Idents.get(name);
+      ParmVarDecl* arg = ParmVarDecl::Create(
+        *ast,
+        func,
+        loc,
+        loc,
+        &ident,
+        getQualType(ty),
+        nullptr,
+        StorageClass::SC_None,
+        nullptr);
+      func->setParams({arg});
+      return arg;
+    }
+
+    /**
+     * Create integer constant literal
+     *
+     * TODO: Can we have a generic literal creator or do we need one each?
+     */
+    clang::IntegerLiteral*
+    createIntegerLiteral(unsigned int len, unsigned long val)
+    {
+      llvm::APInt num{len, val};
+      auto* lit = IntegerLiteral::Create(
+        *ast, num, getQualType(CXXType::getInt()), SourceLocation{});
+      return lit;
+    }
+
+    /**
+     * Create a return instruction
+     *
+     * TODO: Can we have a generic instruction creator or do we need one each?
+     */
+    clang::ReturnStmt* createReturn(clang::Expr* val, clang::FunctionDecl* func)
+    {
+      auto retStmt =
+        ReturnStmt::Create(*ast, func->getLocation(), val, nullptr);
+      func->setBody(retStmt);
+      return retStmt;
+    }
+
     // Exposing some functionality to make this work
     // TODO: Fix the layering issues
 
     /// Get AST pointer
-    const clang::ASTContext* getAST() const
+    clang::ASTContext* getAST() const
     {
       return ast;
     }

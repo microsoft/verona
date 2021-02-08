@@ -19,7 +19,7 @@ void printType(CXXType& ty)
 
 /// Looks up a symbol from a CXX interface by name
 /// Tested on <array> looking for type "std::array"
-void test(CXXInterface& interface, std::string& name)
+void test_type(CXXInterface& interface, std::string& name)
 {
   auto t = TimeReport(std::string("Lookup time"));
   auto decl = interface.getType(name);
@@ -91,6 +91,28 @@ void test(CXXInterface& interface, std::string& name)
   }
 }
 
+clang::FunctionDecl* test_function(CXXInterface& interface)
+{
+  // Create a new function on the main file
+  auto intTy = CXXType::getInt();
+  llvm::SmallVector<CXXType, 1> args{intTy};
+
+  // Create new function
+  auto func = interface.instantiateFunction("verona_wrapper_fn_1", args, intTy);
+
+  // Set first argument
+  auto arg = interface.createFunctionArgument("arg1", intTy, func);
+
+  // Create constant literal
+  auto* fourLiteral = interface.createIntegerLiteral(32, 4);
+
+  // Return statement
+  interface.createReturn(fourLiteral, func);
+
+  func->dump();
+  return func;
+}
+
 /// Simple syntax error
 void syntax_and_die()
 {
@@ -123,54 +145,15 @@ int main(int argc, char** argv)
 
   // FIXME: We should be able to pass a list and get a list back.
   for (auto symbol : symbols)
-    test(interface, symbol);
+    test_type(interface, symbol);
 
-  exit(0);
+  // Test function creation
+  test_function(interface);
 
   // The remaining of this file will be slowly moved up when functionality is
   // available for each one of them. Most of it was assuming the file in the
   // interface was IRBuilder.h in the LLVM repo.
   /*
-  SourceLocation loc = interface.getCompiler()->getEndOfFileLocation();
-  IdentifierInfo& fnNameIdent =
-    interface.getAST()->Idents.get("verona_wrapper_fn_1");
-  DeclarationName fnName{&fnNameIdent};
-  QualType retTy = interface.getAST()->IntTy;
-  QualType argTy = interface.getAST()->IntTy;
-  FunctionProtoType::ExtProtoInfo EPI;
-  QualType fnTy = interface.getAST()->getFunctionType(retTy, {argTy}, EPI);
-
-  auto newFunction = FunctionDecl::Create(
-    *interface.getAST(),
-    DC,
-    loc,
-    loc,
-    fnName,
-    fnTy,
-    interface.getAST()->getTrivialTypeSourceInfo(fnTy),
-    StorageClass::SC_None);
-  newFunction->setLexicalDeclContext(DC);
-
-  IdentifierInfo& arg1Ident = interface.getAST()->Idents.get("arg1");
-  ParmVarDecl* arg1Decl = ParmVarDecl::Create(
-    *interface.getAST(),
-    newFunction,
-    loc,
-    loc,
-    &arg1Ident,
-    argTy,
-    nullptr,
-    StorageClass::SC_None,
-    nullptr);
-  newFunction->setParams({arg1Decl});
-
-  llvm::APInt four{32, 4};
-  auto* fourLiteral = IntegerLiteral::Create(
-    *interface.getAST(), four, interface.getAST()->IntTy, SourceLocation{});
-  auto retStmt = ReturnStmt::Create(*interface.getAST(), loc, fourLiteral,
-  nullptr); newFunction->setBody(retStmt);
-
-  newFunction->dump();
   DC->addDecl(newFunction);
 
   // DC->dump();
