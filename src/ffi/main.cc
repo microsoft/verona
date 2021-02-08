@@ -45,8 +45,7 @@ void test(CXXInterface& interface, std::string& name)
       decl.numberOfTemplateParameters());
 
     // Try to fit `int` to the parameter
-    auto IntTy = CXXType{CXXType::BuiltinTypeKinds::Int};
-    auto TypeArg = interface.createTemplateArgumentForType(IntTy);
+    auto TypeArg = interface.createTemplateArgumentForType(CXXType::getInt());
     auto ValueArg = interface.createTemplateArgumentForIntegerValue(
       CXXType::BuiltinTypeKinds::Int, 4);
 
@@ -70,19 +69,18 @@ void test(CXXInterface& interface, std::string& name)
           defaultArgs.push_back(nontypeParam->getDefaultArgument());
       }
     }
-    if (defaultArgs.size())
+    // If all args have a default, instantiate the default implementation
+    if (defaultArgs.size() && defaultArgs.size() == args.size())
     {
       // Shows the default arguments, if any
-      TemplateName irbName{
-        dyn_cast<TemplateDecl>(const_cast<NamedDecl*>(decl.decl))};
-      interface.getAST()
-        ->getTemplateSpecializationType(irbName, defaultArgs)
-        .dump();
+      QualType spec =
+        interface.getTemplateSpecializationType(decl.decl, defaultArgs);
+      spec.dump();
     }
+    // Tries to instantiate a full specialisation
+    // NOTE: This only works for integer type/arguments
     if (args.size())
     {
-      // Tries to instantiate a full specialisation
-      // NOTE: This only works for integer type/arguments
       CXXType spec = interface.instantiateClassTemplate(decl, args);
       fprintf(
         stderr,

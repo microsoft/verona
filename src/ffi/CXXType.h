@@ -180,5 +180,77 @@ namespace verona::ffi
        */
       BuiltinTypeKinds builtTypeKind;
     };
+
+    // ================================ Builtin helpers
+    /// Return a boolean type
+    static CXXType getBoolean()
+    {
+      return CXXType{BuiltinTypeKinds::Bool};
+    }
+    /// Return an unsigned char type
+    static CXXType getUnsignedChar()
+    {
+      return CXXType{BuiltinTypeKinds::UChar};
+    }
+    /// Return a char type
+    static CXXType getChar()
+    {
+      return CXXType{BuiltinTypeKinds::Char};
+    }
+    /// Return a signed char type
+    static CXXType getSignedChar()
+    {
+      return CXXType{BuiltinTypeKinds::SChar};
+    }
+    /// Return a signed short type
+    static CXXType getShort()
+    {
+      return CXXType{BuiltinTypeKinds::Short};
+    }
+    /// Return an unsigned short type
+    static CXXType getUnsignedShort()
+    {
+      return CXXType{BuiltinTypeKinds::UShort};
+    }
+    /// Return a signed int type
+    static CXXType getInt()
+    {
+      return CXXType{BuiltinTypeKinds::Int};
+    }
+    /// Return an unsigned int type
+    static CXXType getUnsignedInt()
+    {
+      return CXXType{BuiltinTypeKinds::UInt};
+    }
+    /// Return a signed long type
+    static CXXType getLong()
+    {
+      return CXXType{BuiltinTypeKinds::Long};
+    }
+    /// Return an unsigned long type
+    static CXXType getUnsignedLong()
+    {
+      return CXXType{BuiltinTypeKinds::ULong};
+    }
+    /// Return a signed long long type
+    static CXXType getLongLong()
+    {
+      return CXXType{BuiltinTypeKinds::LongLong};
+    }
+    /// Return an unsigned long long type
+    static CXXType getUnsignedLongLong()
+    {
+      return CXXType{BuiltinTypeKinds::ULongLong};
+    }
+    /// Return a float type
+    static CXXType getFloat()
+    {
+      return CXXType{BuiltinTypeKinds::Float};
+    }
+    /// Return a double type
+    static CXXType getDouble()
+    {
+      return CXXType{BuiltinTypeKinds::Double};
+    }
   };
 } // namespace verona::ffi

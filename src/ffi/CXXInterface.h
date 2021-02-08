@@ -33,61 +33,6 @@
 using namespace clang;
 using namespace clang::ast_matchers;
 
-namespace
-{
-  /// Pre-compiled header action, to create the PCH consumers for PCH generation
-  struct GenerateMemoryPCHAction : GeneratePCHAction
-  {
-    /// Actual buffer for the PCH, owned externally
-    llvm::SmallVectorImpl<char>& outBuffer;
-    /// C-tor
-    GenerateMemoryPCHAction(llvm::SmallVectorImpl<char>& outBuffer)
-    : outBuffer(outBuffer)
-    {}
-    /// Adds PCH generator, called by Clang->ExecuteAction
-    std::unique_ptr<ASTConsumer>
-    CreateASTConsumer(CompilerInstance& CI, StringRef InFile)
-    {
-      // Check arguments (CI must exist and be initialised)
-      std::string Sysroot;
-      if (!ComputeASTConsumerArguments(CI, /*ref*/ Sysroot))
-      {
-        return nullptr;
-      }
-      const auto& FrontendOpts = CI.getFrontendOpts();
-
-      // Empty filename as we're not reading from disk
-      std::string OutputFile;
-      // Connect the output stream
-      auto OS = std::make_unique<llvm::raw_svector_ostream>(outBuffer);
-      // create a buffer
-      auto Buffer = std::make_shared<PCHBuffer>();
-
-      // MultiplexConsumer needs a list of consumers
-      std::vector<std::unique_ptr<ASTConsumer>> Consumers;
-
-      // PCH generator
-      Consumers.push_back(std::make_unique<PCHGenerator>(
-        CI.getPreprocessor(),
-        CI.getModuleCache(),
-        OutputFile,
-        Sysroot,
-        Buffer,
-        FrontendOpts.ModuleFileExtensions,
-        false /* Allow errors */,
-        FrontendOpts.IncludeTimestamps,
-        +CI.getLangOpts().CacheGeneratedPCH));
-
-      // PCH container
-      Consumers.push_back(
-        CI.getPCHContainerWriter().CreatePCHContainerGenerator(
-          CI, InFile.str(), OutputFile, std::move(OS), Buffer));
-
-      return std::make_unique<MultiplexConsumer>(std::move(Consumers));
-    }
-  };
-} // namespace anonymous
-
 namespace verona::ffi
 {
   /**
@@ -186,6 +131,61 @@ namespace verona::ffi
     };
 
     /**
+     * Pre-compiled header action, to create the PCH consumers for PCH
+     * generation.
+     */
+    struct GenerateMemoryPCHAction : GeneratePCHAction
+    {
+      /// Actual buffer for the PCH, owned externally
+      llvm::SmallVectorImpl<char>& outBuffer;
+      /// C-tor
+      GenerateMemoryPCHAction(llvm::SmallVectorImpl<char>& outBuffer)
+      : outBuffer(outBuffer)
+      {}
+      /// Adds PCH generator, called by Clang->ExecuteAction
+      std::unique_ptr<ASTConsumer>
+      CreateASTConsumer(CompilerInstance& CI, StringRef InFile)
+      {
+        // Check arguments (CI must exist and be initialised)
+        std::string Sysroot;
+        if (!ComputeASTConsumerArguments(CI, /*ref*/ Sysroot))
+        {
+          return nullptr;
+        }
+        const auto& FrontendOpts = CI.getFrontendOpts();
+
+        // Empty filename as we're not reading from disk
+        std::string OutputFile;
+        // Connect the output stream
+        auto OS = std::make_unique<llvm::raw_svector_ostream>(outBuffer);
+        // create a buffer
+        auto Buffer = std::make_shared<PCHBuffer>();
+
+        // MultiplexConsumer needs a list of consumers
+        std::vector<std::unique_ptr<ASTConsumer>> Consumers;
+
+        // PCH generator
+        Consumers.push_back(std::make_unique<PCHGenerator>(
+          CI.getPreprocessor(),
+          CI.getModuleCache(),
+          OutputFile,
+          Sysroot,
+          Buffer,
+          FrontendOpts.ModuleFileExtensions,
+          false /* Allow errors */,
+          FrontendOpts.IncludeTimestamps,
+          +CI.getLangOpts().CacheGeneratedPCH));
+
+        // PCH container
+        Consumers.push_back(
+          CI.getPCHContainerWriter().CreatePCHContainerGenerator(
+            CI, InFile.str(), OutputFile, std::move(OS), Buffer));
+
+        return std::make_unique<MultiplexConsumer>(std::move(Consumers));
+      }
+    };
+
+    /**
      * Generates the pre-compile header into the memory buffer.
      *
      * This method creates a new local Clang just for the pre-compiled headers
@@ -203,6 +203,45 @@ namespace verona::ffi
       fprintf(stderr, "PCH is %zu bytes\n", pchOutBuffer.size());
       return std::unique_ptr<llvm::MemoryBuffer>(
         new llvm::SmallVectorMemoryBuffer(std::move(pchOutBuffer)));
+    }
+
+    /// Maps between CXXType and Clang's types.
+    QualType typeForBuiltin(CXXType::BuiltinTypeKinds ty)
+    {
+      switch (ty)
+      {
+        case CXXType::BuiltinTypeKinds::Float:
+          return ast->FloatTy;
+        case CXXType::BuiltinTypeKinds::Double:
+          return ast->DoubleTy;
+        case CXXType::BuiltinTypeKinds::Bool:
+          return ast->BoolTy;
+        case CXXType::BuiltinTypeKinds::SChar:
+          return ast->SignedCharTy;
+        case CXXType::BuiltinTypeKinds::Char:
+          return ast->CharTy;
+        case CXXType::BuiltinTypeKinds::UChar:
+          return ast->UnsignedCharTy;
+        case CXXType::BuiltinTypeKinds::Short:
+          return ast->ShortTy;
+        case CXXType::BuiltinTypeKinds::UShort:
+          return ast->UnsignedShortTy;
+        case CXXType::BuiltinTypeKinds::Int:
+          return ast->IntTy;
+        case CXXType::BuiltinTypeKinds::UInt:
+          return ast->UnsignedIntTy;
+        case CXXType::BuiltinTypeKinds::Long:
+          return ast->LongTy;
+        case CXXType::BuiltinTypeKinds::ULong:
+          return ast->UnsignedLongTy;
+        case CXXType::BuiltinTypeKinds::LongLong:
+          return ast->LongLongTy;
+        case CXXType::BuiltinTypeKinds::ULongLong:
+          return ast->UnsignedLongLongTy;
+      }
+      // TODO: This is wrong but silences a warning, need to know what's the
+      // correct behaviour here.
+      return ast->VoidTy;
     }
 
   public:
@@ -263,6 +302,12 @@ namespace verona::ffi
      * Gets an {class | template | enum} type from the source AST by name.
      * The name must exist and be fully qualified and it will match in the
      * order specified above.
+     *
+     * We don't need to find builtin types because they're pre-defined in the
+     * language and represented in CXXType directly.
+     *
+     * TODO: Change this method to receive a list of names and return a list
+     * of types (or some variation over mutliple types at the same time).
      */
     CXXType getType(std::string name)
     {
@@ -321,7 +366,6 @@ namespace verona::ffi
     }
 
     /// Return the size in bytes of the specified type.
-    /// TODO: Move this to CXXType?
     uint64_t getTypeSize(CXXType& t)
     {
       assert(t.kind != CXXType::Kind::Invalid);
@@ -350,7 +394,7 @@ namespace verona::ffi
     }
 
     /// Returns the type as a template argument.
-    clang::TemplateArgument createTemplateArgumentForType(CXXType& t)
+    clang::TemplateArgument createTemplateArgumentForType(CXXType t)
     {
       switch (t.kind)
       {
@@ -370,6 +414,7 @@ namespace verona::ffi
     }
 
     /// Returns the integral literal as a template value.
+    /// TODO: C++20 accepts floating point too
     clang::TemplateArgument createTemplateArgumentForIntegerValue(
       CXXType::BuiltinTypeKinds ty, uint64_t value)
     {
@@ -440,6 +485,16 @@ namespace verona::ffi
       return CXXType{Def};
     }
 
+    /**
+     * Get the template especialization.
+     */
+    clang::QualType getTemplateSpecializationType(
+      const NamedDecl* decl, llvm::ArrayRef<TemplateArgument> args)
+    {
+      TemplateName templ{dyn_cast<TemplateDecl>(const_cast<NamedDecl*>(decl))};
+      return ast->getTemplateSpecializationType(templ, args);
+    }
+
     // Exposing some functionality to make this work
     // TODO: Fix the layering issues
 
@@ -453,47 +508,6 @@ namespace verona::ffi
     const Compiler* getCompiler() const
     {
       return Clang.get();
-    }
-
-  private:
-    /// Maps between CXXType and Clang's types.
-    /// TODO: Move this to CXXType?
-    QualType typeForBuiltin(CXXType::BuiltinTypeKinds ty)
-    {
-      switch (ty)
-      {
-        case CXXType::BuiltinTypeKinds::Float:
-          return ast->FloatTy;
-        case CXXType::BuiltinTypeKinds::Double:
-          return ast->DoubleTy;
-        case CXXType::BuiltinTypeKinds::Bool:
-          return ast->BoolTy;
-        case CXXType::BuiltinTypeKinds::SChar:
-          return ast->SignedCharTy;
-        case CXXType::BuiltinTypeKinds::Char:
-          return ast->CharTy;
-        case CXXType::BuiltinTypeKinds::UChar:
-          return ast->UnsignedCharTy;
-        case CXXType::BuiltinTypeKinds::Short:
-          return ast->ShortTy;
-        case CXXType::BuiltinTypeKinds::UShort:
-          return ast->UnsignedShortTy;
-        case CXXType::BuiltinTypeKinds::Int:
-          return ast->IntTy;
-        case CXXType::BuiltinTypeKinds::UInt:
-          return ast->UnsignedIntTy;
-        case CXXType::BuiltinTypeKinds::Long:
-          return ast->LongTy;
-        case CXXType::BuiltinTypeKinds::ULong:
-          return ast->UnsignedLongTy;
-        case CXXType::BuiltinTypeKinds::LongLong:
-          return ast->LongLongTy;
-        case CXXType::BuiltinTypeKinds::ULongLong:
-          return ast->UnsignedLongLongTy;
-      }
-      // TODO: This is wrong but silences a warning, need to know what's the
-      // correct behaviour here.
-      return ast->VoidTy;
     }
   };
 } // namespace verona::ffi
