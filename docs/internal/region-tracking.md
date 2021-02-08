@@ -1,6 +1,6 @@
 # Region Tracking
 
-We need the provenance of each mutable reference to an object to its 
+We need the provenance of each mutable reference to an object to its
 region to be represented in the code.
 This is only required for variable that can contain a mutable reference into region tree.
 We need this because we support certain operations on a region that can be done by having
@@ -9,7 +9,7 @@ a reference to any particular object in that region.
 An `iso` reference is both a handle on an object, and can cheaply access its region
 information.
 
-A `mut` reference does not cheaply know its owning region, 
+A `mut` reference does not cheaply know its owning region,
 so we need the compiler to have a second
 reference associate with each `mut` that refers to its region.
 
@@ -22,7 +22,7 @@ we need translate this to
 y = // Read field described below.
 if (y->rt::Object::get_class() == RegionMD::ISO)
   y_region = y
-else 
+else
   y_region = x_region
 ```
 
@@ -97,7 +97,7 @@ needs to be made into two arguments, the region entry point and the object itsel
 return types that can contain `mut` must be double width to encode the region entry point
 of the returned values.
 
-Many places the region associated with a variable will not be required, and dead code elimination 
+Many places the region associated with a variable will not be required, and dead code elimination
 can be used.
 A global analysis could also be implemented to remove unneeded region parameter and returns for functions/methods.
 
@@ -108,7 +108,7 @@ variable. The front-end will perform sufficient work such that
   x = new C in y
 ```
 will guarantee that `y` is not an `iso` by adding coercions to
-`mut` such that all accesses in a function will determine they 
+`mut` such that all accesses in a function will determine they
 are part of the same region
 ```
   let x1 = new C in y

@@ -15,7 +15,7 @@ analysis.  This determines which classes and methods are being accessed in the p
   {
       var x = Foo[int].bar()   // (A)
       ...
-      
+
       // f: Fun[int, double]
       var y = x.map(f);  // (B)
   }
@@ -35,7 +35,7 @@ Then on the line marked with `(B)` we will generate,
 ```
    Foo[int]::map[double]
 ```
-as this is the instantiation for the class that has been inferred by type inference, and 
+as this is the instantiation for the class that has been inferred by type inference, and
 ```
    Foo[double]
 ```
@@ -53,10 +53,10 @@ The situation is slightly more complex for dispatch on an interface type:
   f(i: HasIterator[X])
   {
     ...
-    
+
     i.getIterator();
   }
 ```
-Here reachability will mean that any class that satisfies a `HasIterator` interface, then its `getIterator` method will be considered reachable. 
+Here reachability will mean that any class that satisfies a `HasIterator` interface, then its `getIterator` method will be considered reachable.
 
 This could be refined by considering, which classes could reach `i`.  For instance, classes that are never allocated, do not need this method, or more precise flow analysis could be applied, or we could track weakening to an interface type.

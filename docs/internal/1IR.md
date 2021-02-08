@@ -208,7 +208,7 @@ BB1:
 BB2:
   // %y has been moved conditionally, we need to release it only if the
   // branch was not taken.
-  end-scope(%y) 
+  end-scope(%y)
 ```
 
 Secondly, a consuming use moves the value **only if** the value is an owned
