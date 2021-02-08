@@ -534,7 +534,10 @@ namespace verona::ffi
         fnTy,
         ast->getTrivialTypeSourceInfo(fnTy),
         StorageClass::SC_None);
+
+      // Associate with the translation unit
       func->setLexicalDeclContext(DC);
+      DC->addDecl(func);
 
       return func;
     }
@@ -588,6 +591,16 @@ namespace verona::ffi
         ReturnStmt::Create(*ast, func->getLocation(), val, nullptr);
       func->setBody(retStmt);
       return retStmt;
+    }
+
+    /**
+     * Emit the LLVM code on all generated files
+     *
+     * FIXME: Make sure we're actually emitting all files
+     */
+    std::unique_ptr<llvm::Module> emitLLVM()
+    {
+      return Clang->emitLLVM(ast, cu_name);
     }
 
     // Exposing some functionality to make this work

@@ -210,15 +210,11 @@ namespace verona::ffi
         Clang->getPreprocessorOpts(),
         Clang->getCodeGenOpts(),
         *llvmContext)};
-      fprintf(stderr, "Generating LLVM IR...\n");
       CodeGen->Initialize(*ast);
       CodeGen->HandleTranslationUnit(*ast);
       for (auto& D : ast->getTranslationUnitDecl()->decls())
         CodeGen->HandleTopLevelDecl(DeclGroupRef{D});
       std::unique_ptr<llvm::Module> M{CodeGen->ReleaseModule()};
-      fprintf(stderr, "M: %p\n", M.get());
-      M->dump();
-      // Note: `M` must be freed before `this`
       return M;
     }
 
