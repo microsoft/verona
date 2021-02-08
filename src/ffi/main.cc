@@ -5,6 +5,18 @@
 
 using namespace verona::ffi;
 
+void printType(CXXType& ty)
+{
+  assert(ty.kind != CXXType::Kind::Invalid);
+  auto* d = ty.decl;
+  auto kind = ty.kindName();
+  auto name = d->getName().str();
+  fprintf(stderr, "%s (@%p) %s", name.c_str(), d, kind);
+  if (ty.kind == CXXType::Kind::Builtin)
+    fprintf(stderr, "(%s)", ty.builtinKindName());
+  fprintf(stderr, "\n");
+}
+
 /// Looks up a symbol from a CXX interface by name
 /// Tested on <array> looking for type "std::array"
 void test(CXXInterface& interface, std::string& name)
@@ -14,12 +26,8 @@ void test(CXXInterface& interface, std::string& name)
   auto* d = decl.decl;
   if (decl.kind != CXXType::Kind::Invalid)
   {
-    fprintf(
-      stderr,
-      "Found: (%p) %s : %s\n",
-      d,
-      decl.kindName(),
-      d->getName().str().c_str());
+    fprintf(stderr, "Found: ");
+    printType(decl);
   }
   else
   {

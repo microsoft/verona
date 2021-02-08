@@ -14,9 +14,8 @@ namespace verona::ffi
    * These are not all types and may not even be the right way to represent it
    * but they'll do for the time being.
    */
-  class CXXType
+  struct CXXType
   {
-  public:
     /// Match kinds.
     enum class Kind
     {
@@ -45,7 +44,7 @@ namespace verona::ffi
       ULongLong,
       Float,
       Double
-    };
+    }; // builtTypeKind
 
     /// Converts kind name to string.
     const char* kindName()
@@ -68,6 +67,44 @@ namespace verona::ffi
       return nullptr;
     }
 
+    /// Converts builtin kind name to string.
+    const char* builtinKindName()
+    {
+      assert(kind == Kind::Builtin);
+      switch (builtTypeKind)
+      {
+        case BuiltinTypeKinds::Bool:
+          return "bool";
+        case BuiltinTypeKinds::SChar:
+          return "signed char";
+        case BuiltinTypeKinds::Char:
+          return "char";
+        case BuiltinTypeKinds::UChar:
+          return "unsigned char";
+        case BuiltinTypeKinds::Short:
+          return "short";
+        case BuiltinTypeKinds::UShort:
+          return "unsigned short";
+        case BuiltinTypeKinds::Int:
+          return "int";
+        case BuiltinTypeKinds::UInt:
+          return "unsigned int";
+        case BuiltinTypeKinds::Long:
+          return "long";
+        case BuiltinTypeKinds::ULong:
+          return "unsigned long";
+        case BuiltinTypeKinds::LongLong:
+          return "long long";
+        case BuiltinTypeKinds::ULongLong:
+          return "unsigned long long";
+        case BuiltinTypeKinds::Float:
+          return "float";
+        case BuiltinTypeKinds::Double:
+          return "double";
+      }
+      return nullptr;
+    }
+
     /// Returns true if the type has a name declaration
     bool hasNameDecl()
     {
@@ -78,6 +115,12 @@ namespace verona::ffi
     bool isTemplate()
     {
       return kind == Kind::TemplateClass;
+    }
+
+    /// Returns true if type is integral
+    static bool isIntegral(BuiltinTypeKinds ty)
+    {
+      return ty != BuiltinTypeKinds::Float && ty != BuiltinTypeKinds::Double;
     }
 
     /// CXXType builtin c-tor

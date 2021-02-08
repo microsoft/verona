@@ -370,16 +370,10 @@ namespace verona::ffi
     }
 
     /// Returns the integral literal as a template value.
-    /// Floats are returned as empty template arguments.
     clang::TemplateArgument createTemplateArgumentForIntegerValue(
       CXXType::BuiltinTypeKinds ty, uint64_t value)
     {
-      if (
-        (ty == CXXType::BuiltinTypeKinds::Float) ||
-        (ty == CXXType::BuiltinTypeKinds::Double))
-      {
-        return clang::TemplateArgument{};
-      }
+      assert(CXXType::isIntegral(ty));
       QualType qualTy = typeForBuiltin(ty);
       auto info = ast->getTypeInfo(qualTy);
       llvm::APInt val{static_cast<unsigned int>(info.Width), value};
