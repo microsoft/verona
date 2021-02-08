@@ -113,13 +113,6 @@ clang::FunctionDecl* test_function(CXXInterface& interface)
   return func;
 }
 
-/// Simple syntax error
-void syntax_and_die()
-{
-  puts("Syntax: verona-ffi <cxx-filename> <symbol1> <symbol2> ... <symbolN>");
-  exit(1);
-}
-
 int main(int argc, char** argv)
 {
   // For now, the command line arguments are simple, so we keep it stupid.
@@ -134,9 +127,10 @@ int main(int argc, char** argv)
     for (size_t i = 2; i < argc; i++)
       symbols.push_back(argv[i]);
   }
-  if (file.empty() || symbols.empty())
+  if (file.empty())
   {
-    syntax_and_die();
+    puts("Syntax: verona-ffi <cxx-filename> <symbol1> <symbol2> ... <symbolN>");
+    exit(1);
   }
 
   // FIXME: Verona compiler should be able to find the path and pass include
@@ -144,25 +138,26 @@ int main(int argc, char** argv)
   CXXInterface interface(file);
 
   // FIXME: We should be able to pass a list and get a list back.
-  for (auto symbol : symbols)
-    test_type(interface, symbol);
+  if (symbols.size())
+  {
+    fprintf(stderr, "\nQuerying some types...\n");
+    for (auto symbol : symbols)
+      test_type(interface, symbol);
+  }
 
   // Test function creation
+  fprintf(stderr, "\nCreating a new function...\n");
   test_function(interface);
+
+  // Emit whatever is left on the main file
+  fprintf(stderr, "\nGenerating LLVM IR...\n");
+  auto mod = interface.emitLLVM();
+  mod->dump();
 
   // The remaining of this file will be slowly moved up when functionality is
   // available for each one of them. Most of it was assuming the file in the
   // interface was IRBuilder.h in the LLVM repo.
   /*
-  DC->addDecl(newFunction);
-
-  // DC->dump();
-
-  // Decl->dump();
-  // Def->dump();
-
-  interface.emitLLVM();
-
   TemplateName arrName{arr.getAs<TemplateDecl>()};
   interface.getAST()
     ->getCanonicalTemplateSpecializationType(arrName, {TypeArg, ValueArg})
