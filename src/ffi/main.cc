@@ -69,13 +69,20 @@ void test_type(CXXInterface& interface, std::string& name)
           defaultArgs.push_back(nontypeParam->getDefaultArgument());
       }
     }
-    // If all args have a default, instantiate the default implementation
+    // If all args have a default, get the default specialisation
     if (defaultArgs.size() && defaultArgs.size() == args.size())
     {
-      // Shows the default arguments, if any
+      // Using detected default arguments
+      fprintf(stderr, "Template specialisation:\n");
       QualType spec =
         interface.getTemplateSpecializationType(decl.decl, defaultArgs);
       spec.dump();
+
+      // Canonical representation
+      fprintf(stderr, "Canonical Template specialisation:\n");
+      QualType canon = interface.getCanonicalTemplateSpecializationType(
+        decl.decl, defaultArgs);
+      canon.dump();
     }
     // Tries to instantiate a full specialisation
     // NOTE: This only works for integer type/arguments
@@ -137,10 +144,10 @@ int main(int argc, char** argv)
   // paths to this interface.
   CXXInterface interface(file);
 
-  // FIXME: We should be able to pass a list and get a list back.
   if (symbols.size())
   {
     fprintf(stderr, "\nQuerying some types...\n");
+    // FIXME: We should be able to pass a list and get a list back.
     for (auto symbol : symbols)
       test_type(interface, symbol);
   }
@@ -154,17 +161,5 @@ int main(int argc, char** argv)
   auto mod = interface.emitLLVM();
   mod->dump();
 
-  // The remaining of this file will be slowly moved up when functionality is
-  // available for each one of them. Most of it was assuming the file in the
-  // interface was IRBuilder.h in the LLVM repo.
-  /*
-  TemplateName arrName{arr.getAs<TemplateDecl>()};
-  interface.getAST()
-    ->getCanonicalTemplateSpecializationType(arrName, {TypeArg, ValueArg})
-    .dump();
-  interface.getAST()->
-    ->getCanonicalTemplateSpecializationType(arrName, {TypeArg, TypeArg})
-    .dump();
-  */
   return 0;
 }

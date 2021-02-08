@@ -496,13 +496,23 @@ namespace verona::ffi
     }
 
     /**
-     * Get the template especialization.
+     * Get the template especialization with args.
      */
     clang::QualType getTemplateSpecializationType(
       const NamedDecl* decl, llvm::ArrayRef<TemplateArgument> args)
     {
       TemplateName templ{dyn_cast<TemplateDecl>(const_cast<NamedDecl*>(decl))};
       return ast->getTemplateSpecializationType(templ, args);
+    }
+
+    /**
+     * Get the canonical template especialization with args.
+     */
+    clang::QualType getCanonicalTemplateSpecializationType(
+      const NamedDecl* decl, llvm::ArrayRef<TemplateArgument> args)
+    {
+      TemplateName templ{dyn_cast<TemplateDecl>(const_cast<NamedDecl*>(decl))};
+      return ast->getCanonicalTemplateSpecializationType(templ, args);
     }
 
     /**
