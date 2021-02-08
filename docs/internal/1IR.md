@@ -335,9 +335,7 @@ Note that an SSA value that has been overwritten is never passed to an
 
 ## Terminators
 
-### Branch Terminator
-### If Terminator
-### Match Terminator
+TODO: Describe terminators (Branch, If, Match)
 
 ## Builtins
 
