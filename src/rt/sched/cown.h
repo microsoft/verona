@@ -1323,8 +1323,6 @@ namespace verona::rt
       }
 
       yield();
-      // Systematic::cout() << "Collect cown " << this << " rc: " << debug_rc()
-      //                    << ", weak: " << weak_count << std::endl;
       assert(
         bp_state.load(std::memory_order_acquire).priority() != Priority::Low);
 

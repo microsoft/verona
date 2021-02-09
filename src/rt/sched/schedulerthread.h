@@ -99,8 +99,13 @@ namespace verona::rt
     size_t total_cowns = 0;
     std::atomic<size_t> free_cowns = 0;
 
+    /// The MessageBody of a running behaviour.
     typename T::MessageBody* message_body = nullptr;
+    /// The mutor is the first high priority cown that receives a message from a
+    /// set of cowns running a behaviour on this scheduler thread.
     T* mutor = nullptr;
+    /// The set of cowns muted on this scheduler thread. These are unmuted and
+    /// cleared before scheduler sleep, or in some stages of the LD protocol.
     ObjectMap<T*> mute_set;
 
     T* get_token_cown()
