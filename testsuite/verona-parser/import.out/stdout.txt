@@ -21,7 +21,7 @@
             ]))
         (function
           main
-          (signature [] [] () ())
+          (signature [] [] ())
           (block
             [
               (apply
@@ -34,7 +34,7 @@
       [ (typeparam A () ()) (typeparam B () ()) ]
       ()
       [
-        (function foo (signature [] [] () ()) (block []))
-        (function _foo (signature [] [] () ()) (block []))
+        (function foo (signature [] [] ()) (block []))
+        (function _foo (signature [] [] ()) (block []))
       ])
   ])

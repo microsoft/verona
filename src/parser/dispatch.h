@@ -46,6 +46,9 @@ namespace verona::parser
         return f(node->as<Function>(), args...);
 
       // Types
+      case Kind::ThrowType:
+        return f(node->as<ThrowType>(), args...);
+
       case Kind::UnionType:
         return f(node->as<UnionType>(), args...);
 

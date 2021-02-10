@@ -6,126 +6,162 @@
 
 namespace verona::parser::dnf
 {
-  Node<Type> single_union(Node<Type>& left, UnionType& right, Location& loc)
+  Location range(Node<Type>& left, Node<Type>& right)
   {
-    // A & (B | C) -> (A & B) | (A & C)
-    auto un = std::make_shared<UnionType>();
-    un->location = loc;
+    return left->location.range(right->location);
+  }
 
-    for (auto& type : right.types)
+  Node<Type> single_single(Node<Type>& left, Node<Type>& right)
+  {
+    // A & B
+    auto isect = std::make_shared<IsectType>();
+    isect->location = range(left, right);
+    isect->types.push_back(left);
+    isect->types.push_back(right);
+    return isect;
+  }
+
+  Node<Type> throws_throws(Node<Type>& left, Node<Type>& right)
+  {
+    // throws A & throws B -> throws (A & B)
+    auto& lhs = left->as<ThrowType>();
+    auto& rhs = right->as<ThrowType>();
+
+    auto isect = std::make_shared<IsectType>();
+    isect->location = range(left, right);
+    isect->types.push_back(lhs.type);
+    isect->types.push_back(rhs.type);
+
+    auto throws = std::make_shared<ThrowType>();
+    throws->location = isect->location;
+    throws->type = isect;
+    return throws;
+  }
+
+  Node<Type> isect_single(Node<Type>& left, Node<Type>& right)
+  {
+    // (A & B) & C -> A & B & C
+    auto& lhs = left->as<IsectType>();
+
+    auto isect = std::make_shared<IsectType>();
+    isect->location = range(left, right);
+    isect->types = lhs.types;
+    isect->types.push_back(right);
+    return isect;
+  }
+
+  Node<Type> isect_isect(Node<Type>& left, Node<Type>& right)
+  {
+    // (A & B) & (C & D) -> A & B & C & D
+    auto& lhs = left->as<IsectType>();
+    auto& rhs = right->as<IsectType>();
+
+    auto isect = std::make_shared<IsectType>();
+    isect->location = range(left, right);
+    isect->types = lhs.types;
+    isect->types.insert(isect->types.end(), rhs.types.begin(), rhs.types.end());
+    return isect;
+  }
+
+  Node<Type> union_other(Node<Type>& left, Node<Type>& right)
+  {
+    // (A | B) & C -> (A & B) | (A & C)
+    auto& lhs = left->as<UnionType>();
+    auto un = std::make_shared<UnionType>();
+    un->location = range(left, right);
+
+    for (auto& type : lhs.types)
     {
-      auto isect = std::make_shared<IsectType>();
-      isect->location = type->location;
-      isect->types.push_back(left);
-      isect->types.push_back(type);
-      un->types.push_back(isect);
+      auto conj = conjunction(type, right);
+
+      if (conj)
+        un->types.push_back(conj);
     }
+
+    if (un->types.empty())
+      return {};
 
     return un;
   }
 
-  Node<Type> isect_union(IsectType& left, UnionType& right, Location& loc)
-  {
-    // (A & B) & (C | D) -> (A & B & C) | (A & B & D)
-    auto un = std::make_shared<UnionType>();
-    un->location = loc;
-
-    for (auto& type : right.types)
-    {
-      auto isect = std::make_shared<IsectType>();
-      isect->location = left.location.range(right.location);
-      isect->location = type->location;
-      isect->types = left.types;
-      isect->types.push_back(type);
-      un->types.push_back(isect);
-    }
-
-    return un;
-  }
-
-  Node<Type> union_union(UnionType& left, UnionType& right, Location& loc)
+  Node<Type> union_union(Node<Type>& left, Node<Type>& right)
   {
     // (A | B) & (C | D) -> (A & C) | (A & D) | (B & C) | (B & D)
+    auto& lhs = left->as<UnionType>();
+    auto& rhs = right->as<UnionType>();
+
     auto un = std::make_shared<UnionType>();
-    un->location = loc;
+    un->location = range(left, right);
 
-    for (auto& ltype : left.types)
+    for (auto& ltype : lhs.types)
     {
-      assert(ltype->kind() != Kind::UnionType);
-
-      for (auto& rtype : right.types)
+      for (auto& rtype : rhs.types)
       {
-        auto isect = std::make_shared<IsectType>();
-        isect->location = ltype->location.range(rtype->location);
-        auto& types = isect->types;
+        auto conj = conjunction(ltype, rtype);
 
-        if (ltype->kind() == Kind::IsectType)
-          types = ltype->as<IsectType>().types;
-        else
-          types.push_back(ltype);
-
-        if (rtype->kind() == Kind::IsectType)
-        {
-          auto& rtypes = rtype->as<IsectType>().types;
-          types.insert(types.end(), rtypes.begin(), rtypes.end());
-        }
-        else
-        {
-          types.push_back(rtype);
-        }
-
-        un->types.push_back(isect);
+        if (conj)
+          un->types.push_back(conj);
       }
     }
 
+    if (un->types.empty())
+      return {};
+
     return un;
   }
 
-  Node<Type> conjunction(Node<Type>& left, Node<Type>& right, Location& loc)
+  Node<Type> conjunction(Node<Type>& left, Node<Type>& right)
   {
+    if (!left)
+      return right;
+
+    if (!right)
+      return left;
+
     switch (left->kind())
     {
       case Kind::IsectType:
       {
-        auto lhs = left->as<IsectType>();
-
         switch (right->kind())
         {
           case Kind::IsectType:
-          {
-            auto rhs = right->as<IsectType>();
+            return isect_isect(left, right);
 
-            for (auto& type : rhs.types)
-              lhs.types.push_back(type);
-
-            return left;
-          }
+          case Kind::ThrowType:
+            return {};
 
           case Kind::UnionType:
-            return dnf::isect_union(lhs, right->as<UnionType>(), loc);
+            return union_other(right, left);
 
           default:
-          {
-            lhs.types.push_back(right);
-            return left;
-          }
+            return isect_single(left, right);
+        }
+      }
+
+      case Kind::ThrowType:
+      {
+        switch (right->kind())
+        {
+          case Kind::ThrowType:
+            return throws_throws(left, right);
+
+          case Kind::UnionType:
+            return union_other(right, left);
+
+          default:
+            return {};
         }
       }
 
       case Kind::UnionType:
       {
-        auto lhs = left->as<UnionType>();
-
         switch (right->kind())
         {
-          case Kind::IsectType:
-            return dnf::isect_union(right->as<IsectType>(), lhs, loc);
-
           case Kind::UnionType:
-            return dnf::union_union(lhs, right->as<UnionType>(), loc);
+            return union_union(left, right);
 
           default:
-            return dnf::single_union(right, lhs, loc);
+            return union_other(left, right);
         }
       }
 
@@ -134,58 +170,52 @@ namespace verona::parser::dnf
         switch (right->kind())
         {
           case Kind::IsectType:
-          {
-            auto rhs = right->as<IsectType>();
-            rhs.types.push_back(left);
-            return right;
-          }
+            return isect_single(right, left);
+
+          case Kind::ThrowType:
+            return {};
 
           case Kind::UnionType:
-            return dnf::single_union(left, right->as<UnionType>(), loc);
+            return union_other(right, left);
 
           default:
-          {
-            auto isect = std::make_shared<IsectType>();
-            isect->location = loc;
-            isect->types.push_back(left);
-            isect->types.push_back(right);
-            return isect;
-          }
+            return single_single(left, right);
         }
       }
     }
   }
 
-  Node<Type> disjunction(Node<Type>& left, Node<Type>& right, Location& loc)
+  Node<Type> disjunction(Node<Type>& left, Node<Type>& right)
   {
+    if (!left)
+      return right;
+
+    if (!right)
+      return left;
+
+    auto un = std::make_shared<UnionType>();
+    un->location = range(left, right);
+
     if (left->kind() == Kind::UnionType)
     {
       auto& lhs = left->as<UnionType>().types;
-
-      if (right->kind() == Kind::UnionType)
-      {
-        auto& rhs = right->as<UnionType>().types;
-        lhs.insert(lhs.end(), rhs.begin(), rhs.end());
-      }
-      else
-      {
-        lhs.push_back(right);
-      }
-
-      return left;
+      un->types.insert(un->types.end(), lhs.begin(), lhs.end());
+    }
+    else
+    {
+      un->types.push_back(left);
     }
 
     if (right->kind() == Kind::UnionType)
     {
       auto& rhs = right->as<UnionType>().types;
-      rhs.push_back(left);
-      return right;
+      un->types.insert(un->types.end(), rhs.begin(), rhs.end());
+    }
+    else
+    {
+      un->types.push_back(right);
     }
 
-    auto un = std::make_shared<UnionType>();
-    un->location = loc;
-    un->types.push_back(left);
-    un->types.push_back(right);
     return un;
   }
 
@@ -209,6 +239,25 @@ namespace verona::parser::dnf
         }
       }
 
+      void pre(ThrowType& tt)
+      {
+        if (tt.type->kind() == Kind::UnionType)
+        {
+          error() << loc()
+                  << "Throw type should not contain a union type"
+                  << line();
+          return;
+        }
+
+        if (tt.type->kind() == Kind::ThrowType)
+        {
+          error() << loc()
+                  << "Throw type should not contain another throw type"
+                  << line();
+          return;
+        }
+      }
+
       void pre(IsectType& isect)
       {
         for (auto& ty : isect.types)
@@ -216,6 +265,14 @@ namespace verona::parser::dnf
           if (ty->kind() == Kind::UnionType)
           {
             error() << loc() << "Isect type should not contain a union type"
+                    << line();
+            return;
+          }
+
+          if (ty->kind() == Kind::ThrowType)
+          {
+            error() << loc()
+                    << "Isect type should not contain a throw type"
                     << line();
             return;
           }

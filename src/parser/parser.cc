@@ -1239,7 +1239,7 @@ namespace verona::parser
 
     Result opttypeargs(List<Type>& typeargs)
     {
-      // typeargs <- '[' (expr (',' expr)*)?) ']'
+      // typeargs <- '[' type (',' type)* ']'
       if (!has(TokenKind::LSquare))
         return Skip;
 
@@ -1769,7 +1769,6 @@ namespace verona::parser
 
       do
       {
-        auto amploc = previous.location;
         Node<Type> next;
         Result r2;
 
@@ -1780,7 +1779,7 @@ namespace verona::parser
         }
 
         if (r2 != Skip)
-          type = dnf::conjunction(type, next, amploc);
+          type = dnf::conjunction(type, next);
       } while (has(TokenKind::Symbol, "&"));
 
       return r;
@@ -1799,7 +1798,6 @@ namespace verona::parser
 
       do
       {
-        auto pipeloc = previous.location;
         Node<Type> next;
         Result r2;
 
@@ -1810,21 +1808,71 @@ namespace verona::parser
         }
 
         if (r2 != Skip)
-          type = dnf::disjunction(type, next, pipeloc);
+          type = dnf::disjunction(type, next);
       } while (has(TokenKind::Symbol, "|"));
 
       return r;
     }
 
+    void makethrowtype(Node<Type>& type)
+    {
+      if (!type)
+        return;
+
+      if (type->kind() == Kind::UnionType)
+      {
+        auto& un = type->as<UnionType>();
+
+        for (size_t i = 0; i < un.types.size(); i++)
+        {
+          if (un.types[i]->kind() != Kind::ThrowType)
+          {
+            auto th = std::make_shared<ThrowType>();
+            th->location = un.types[i]->location;
+            th->type = un.types[i];
+            un.types[i] = th;
+          }
+        }
+      }
+      else if (type->kind() != Kind::ThrowType)
+      {
+        auto th = std::make_shared<ThrowType>();
+        th->location = type->location;
+        th->type = type;
+        type = th;
+      }
+    }
+
     Result typeexpr(Node<Type>& type)
     {
-      // typeexpr <- uniontype
+      // typeexpr <- 'throws' uniontype / uniontype ('throws' uniontype)?
+      bool throwing = has(TokenKind::Throws);
+
       if (optuniontype(type) != Success)
       {
         error() << loc() << "Expected a type" << line();
         return Error;
       }
 
+      if (throwing)
+      {
+        makethrowtype(type);
+        return Success;
+      }
+
+      if (!has(TokenKind::Throws))
+        return Success;
+
+      Node<Type> throws;
+
+      if (optuniontype(throws) != Success)
+      {
+        error() << loc() << "Expected a type" << line();
+        return Error;
+      }
+
+      makethrowtype(throws);
+      type = dnf::disjunction(type, throws);
       return Success;
     }
 
@@ -1834,7 +1882,10 @@ namespace verona::parser
       if (!has(TokenKind::Equals))
         return Skip;
 
-      return typeexpr(type);
+      if (typeexpr(type) != Success)
+        return Error;
+
+      return Success;
     }
 
     Result oftype(Node<Type>& type)
@@ -1866,7 +1917,7 @@ namespace verona::parser
 
     Result optsignature(Node<Signature>& sig)
     {
-      // signature <- typeparams? params oftype? ('throws' type)?
+      // signature <- typeparams? params oftype?
       Result r = Success;
 
       bool ok = peek(TokenKind::LSquare) || peek(TokenKind::LParen);
@@ -1915,9 +1966,6 @@ namespace verona::parser
       }
 
       if (oftype(sig->result) == Error)
-        r = Error;
-
-      if (optthrows(sig->throws) == Error)
         r = Error;
 
       return r;
@@ -2012,14 +2060,6 @@ namespace verona::parser
       members.push_back(func);
       set_sym_parent(func->name, func);
       return r;
-    }
-
-    Result optthrows(Node<Type>& type)
-    {
-      if (!has(TokenKind::Throws))
-        return Skip;
-
-      return typeexpr(type);
     }
 
     Result opttypeparam(Node<TypeParam>& tp)

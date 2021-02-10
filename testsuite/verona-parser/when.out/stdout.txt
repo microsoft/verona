@@ -11,7 +11,7 @@
         (class Cown [ (typeparam T () ()) ] () [])
         (class A [] () [])
         (class B [] () [])
-        (function bar (signature [] [] () ()) (block []))
+        (function bar (signature [] [] ()) (block []))
         (function
           foo
           (signature
@@ -26,7 +26,6 @@
                 (typeref [ (typename Cown [ (typeref [ (typename B []) ]) ]) ])
                 ())
             ]
-            ()
             ())
           (block
             [

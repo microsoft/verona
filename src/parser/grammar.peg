@@ -5,7 +5,7 @@
 typeargs <- '[' type (',' type)* ']'
 
 # Types
-# Binding is: ref, tuple, view, function, isect, union
+# Binding is: ref, tuple, view, function, isect, union, throws
 tupletype <- '(' (type (',' type)*)? ')'
 typename <- ident typeargs?
 modulename <- string typeargs?
@@ -15,28 +15,21 @@ viewtype <- (captype ('~>' / '<~'))* (captype / tupletype)
 functiontype <- viewtype ('->' functiontype)?
 isecttype <- functiontype ('&' functiontype)*
 uniontype <- isecttype ('|' isecttype)*
-type <- uniontype
-
-# Block Expressions
-lambda <- (signature / ident) '=>' expr
-case <- atom ('if' tuple)? block
-match <- 'match' tuple '{' case* '}'
-for <- 'for' '(' expr 'in' expr ')' block
-while <- 'while' tuple block
-if <- 'if' tuple block ('else' block)?
-when <- 'when' tuple block
-controlflow <- 'break' / 'continue' / 'return' expr? / 'yield' expr? / expr
-block <- '{' (expr ';'*)* controlflow? '}'
-blockexpr <- block / when / match / if / while / for / match / lambda
+type <- 'throws' uniontype / uniontype ('throws' uniontype)?
 
 # Atoms
+### TODO: lambda, try, case, when, atom, function
+lambda <- '{' (typeparams? (param (',' param)*)? '=>')? (expr ';'*)* '}'
+try <- 'try' lambda 'catch' '{' case* '}'
+case <- atom ('if' tuple)? '=>' lambda
+match <- 'match' tuple '{' case* '}'
+when <- 'when' tuple lambda
 decl <- ('let' / 'var') ident
 new <- 'new' (tuple / typebody / type typebody) ('in' ident)?
 tuple <- '(' (expr (',' expr)*)? ')'
 constant <- string / character / float / int / hex / binary / 'true' / 'false'
 ref <- [local] ident
-### TODO: new and decl probably shouldn't be here
-atom <- staticref / ref / constant / tuple / new / decl
+atom <- staticref / ref / constant / tuple / new / decl / when / match / lambda
 
 # Operators
 staticname <- name typeargs?
@@ -48,16 +41,13 @@ op <- staticref / staticselect
 # Binding is: postfix, apply, infix, assign
 postfix <- atom ('.' name / typeargs)*
 apply <- op+ postfix* / postfix+
-applyblock <- apply? blockexpr
 infix <- apply (op apply)*
-inblock <- applyblock / infix (op applyblock)?
-expr <- inblock / infix oftype? ('=' expr)?
+expr <- infix oftype? ('=' expr)?
 
 # Definitions
 param <- ident oftype? initexpr?
-params <- '(' param* ')'
-throws <- 'throws' type
-signature <- typeparams? params oftype? throws?
+params <- '(' (param (',' param)*)? ')'
+signature <- typeparams? params oftype?
 
 initexpr <- '=' expr
 inittype <- '=' type
@@ -69,7 +59,7 @@ typebody <- '{' member* '}'
 # Members
 name <- symbol / ident
 field <- ident oftype? initexpr? ';'
-function <- name? signature (block / ';')
+function <- name? signature (lambda / ';')
 using <- 'using' typeref ';'
 typealias <- 'type' ident typeparams? '=' type ';'
 entity <- typeparams? oftype?

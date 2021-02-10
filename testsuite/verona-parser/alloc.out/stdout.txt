@@ -37,8 +37,7 @@
                     (isecttype [ (typeref [ (typename A []) ]) (mut ) ])
                     ())
                 ]
-                (typeref [ (typename S []) ])
-                ())
+                (typeref [ (typename S []) ]))
               (block [ (new (ref a) a) ]))
           ])
         (interface Any [] () [])
@@ -49,11 +48,11 @@
           [
             (function
               create
-              (signature [] [] (typeref [ (typename Empty []) ]) ())
+              (signature [] [] (typeref [ (typename Empty []) ]))
               (block [ (new (tuple []) ()) ]))
             (function
               apply
-              (signature [] [] (typeref [ (typename Empty []) ]) ())
+              (signature [] [] (typeref [ (typename Empty []) ]))
               (block [ (new (tuple []) ()) ]))
           ])
         (class
@@ -67,8 +66,7 @@
               (signature
                 []
                 [ (param a (typeref [ (typename U32 []) ]) ()) ]
-                (typeref [ (typename One []) ])
-                ())
+                (typeref [ (typename One []) ]))
               (block [ (new (ref a) ()) ]))
           ])
         (class
@@ -86,13 +84,12 @@
                   (param a (typeref [ (typename U32 []) ]) ())
                   (param b (typeref [ (typename F64 []) ]) ())
                 ]
-                (typeref [ (typename Two []) ])
-                ())
+                (typeref [ (typename Two []) ]))
               (block [ (new (tuple [ (ref a) (ref b) ]) ()) ]))
           ])
         (function
           foo
-          (signature [] [] () ())
+          (signature [] [] ())
           (block
             [
               (assign
@@ -101,7 +98,6 @@
                   (signature
                     [ (typeparam A (typeref [ (typename U64 []) ]) ()) ]
                     [ (param a () ()) ]
-                    ()
                     ())
                   (apply (select (ref a) +) (int 42))))
               (assign

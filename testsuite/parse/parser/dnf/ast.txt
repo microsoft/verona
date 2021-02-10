@@ -1,0 +1,138 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      $module-0
+      []
+      ()
+      [
+        (class A [] () [])
+        (class B [] () [])
+        (class C [] () [])
+        (class D [] () [])
+        (class E [] () [])
+        (function
+          f
+          (signature
+            []
+            [
+              (param
+                x
+                (uniontype
+                  [
+                    (isecttype
+                      [
+                        (typeref [ (typename A []) ])
+                        (typeref [ (typename C []) ])
+                      ])
+                    (isecttype
+                      [
+                        (typeref [ (typename A []) ])
+                        (typeref [ (typename D []) ])
+                      ])
+                    (isecttype
+                      [
+                        (typeref [ (typename B []) ])
+                        (typeref [ (typename C []) ])
+                      ])
+                    (isecttype
+                      [
+                        (typeref [ (typename B []) ])
+                        (typeref [ (typename D []) ])
+                      ])
+                  ])
+                ())
+            ]
+            (uniontype
+              [
+                (isecttype
+                  [
+                    (typeref [ (typename A []) ])
+                    (typeref [ (typename C []) ])
+                  ])
+                (isecttype
+                  [
+                    (typeref [ (typename A []) ])
+                    (typeref [ (typename D []) ])
+                  ])
+                (isecttype
+                  [
+                    (typeref [ (typename B []) ])
+                    (typeref [ (typename C []) ])
+                  ])
+                (isecttype
+                  [
+                    (typeref [ (typename B []) ])
+                    (typeref [ (typename D []) ])
+                  ])
+                (throwtype
+                  (isecttype
+                    [
+                      (typeref [ (typename B []) ])
+                      (typeref [ (typename C []) ])
+                    ]))
+                (throwtype (typeref [ (typename D []) ]))
+              ]))
+          (block
+            [
+              (oftype
+                (ref x)
+                (uniontype
+                  [
+                    (isecttype
+                      [
+                        (typeref [ (typename A []) ])
+                        (typeref [ (typename C []) ])
+                      ])
+                    (isecttype
+                      [
+                        (typeref [ (typename A []) ])
+                        (typeref [ (typename D []) ])
+                      ])
+                    (isecttype
+                      [
+                        (typeref [ (typename B []) ])
+                        (typeref [ (typename C []) ])
+                      ])
+                    (isecttype
+                      [
+                        (typeref [ (typename B []) ])
+                        (typeref [ (typename D []) ])
+                      ])
+                  ]))
+            ]))
+        (function
+          g
+          (signature
+            []
+            [
+              (param x (typeref [ (typename A []) ]) ())
+              (param
+                f
+                (functiontype
+                  (typeref [ (typename A []) ])
+                  (uniontype
+                    [
+                      (typeref [ (typename B []) ])
+                      (typeref [ (typename C []) ])
+                      (throwtype (typeref [ (typename D []) ]))
+                      (throwtype (typeref [ (typename E []) ]))
+                    ]))
+                ())
+            ]
+            (uniontype
+              [
+                (typeref [ (typename B []) ])
+                (typeref [ (typename C []) ])
+                (throwtype (typeref [ (typename D []) ]))
+                (throwtype (typeref [ (typename E []) ]))
+              ]))
+          (block [ (apply (ref f) (ref x)) ]))
+        (function
+          h
+          (signature [] [] (throwtype (typeref [ (typename E []) ])))
+          (block []))
+      ])
+  ])
