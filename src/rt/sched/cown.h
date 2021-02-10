@@ -1058,8 +1058,7 @@ namespace verona::rt
       if (muting_count < count)
         senders[muting_count] = nullptr;
 
-      auto* body = MultiMessage::make_body(alloc, count, senders, nullptr);
-      auto* msg = MultiMessage::make_message(alloc, body, epoch);
+      auto* msg = unmute_msg(alloc, count, senders, epoch);
       bool needs_scheduling = mutor->try_fast_send(msg);
       if (needs_scheduling)
         mutor->schedule();
@@ -1336,10 +1335,24 @@ namespace verona::rt
       alloc->dealloc<sizeof(MultiMessage)>(stub);
     }
 
+    /**
+     * Creates a `MultiMessage` that is never sent or processed.
+     */
     static MultiMessage* stub_msg(Alloc* alloc)
     {
-      // This is not a real message it is never sent or processed.
       return MultiMessage::make_message(alloc, nullptr, EpochMark::EPOCH_NONE);
+    }
+
+    /**
+     * Creates a `MultiMessage` with no behaviour. The given array of cowns may
+     * be null terminated, but the count must always be count of pointers that
+     * indicates the size of the allocation.
+     */
+    static MultiMessage*
+    unmute_msg(Alloc* alloc, size_t count, Cown** cowns, EpochMark epoch)
+    {
+      auto* body = MultiMessage::make_body(alloc, count, cowns, nullptr);
+      return MultiMessage::make_message(alloc, body, epoch);
     }
   };
 
