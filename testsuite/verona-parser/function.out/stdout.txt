@@ -26,14 +26,13 @@
                 (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ])
                 ())
             ]
-            (typeref [ (typename R []) ])
-            ())
+            (typeref [ (typename R []) ]))
           (block
             [
               (assign (let x) (apply (select (ref a) +) (ref b)))
               (assign (oftype (let r) (typeref [ (typename R []) ])) (ref x))
               (ref x)
             ]))
-        (function apply (signature [] [] () ()) (block []))
+        (function apply (signature [] [] ()) (block []))
       ])
   ])

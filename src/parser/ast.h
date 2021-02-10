@@ -24,6 +24,7 @@ namespace verona::parser
     Function,
 
     // Types
+    ThrowType,
     UnionType,
     IsectType,
     TupleType,
@@ -223,7 +224,6 @@ namespace verona::parser
     List<TypeParam> typeparams;
     List<Param> params;
     Node<Type> result;
-    Node<Type> throws;
 
     Kind kind()
     {
@@ -479,6 +479,16 @@ namespace verona::parser
   struct TypeOp : Type
   {
     List<Type> types;
+  };
+
+  struct ThrowType : Type
+  {
+    Node<Type> type;
+
+    Kind kind()
+    {
+      return Kind::ThrowType;
+    }
   };
 
   struct UnionType : TypeOp

@@ -68,13 +68,19 @@ namespace verona::parser
   template<typename T>
   void fieldsof(T& target, Signature& sig)
   {
-    target << sig.typeparams << sig.params << sig.result << sig.throws;
+    target << sig.typeparams << sig.params << sig.result;
   }
 
   template<typename T>
   void fieldsof(T& target, Function& func)
   {
     target << func.name << func.signature << func.body;
+  }
+
+  template<typename T>
+  void fieldsof(T& target, ThrowType& tt)
+  {
+    target << tt.type;
   }
 
   template<typename T>

@@ -17,7 +17,7 @@
         (class F32 [] () [])
         (function
           f
-          (signature [] [] () ())
+          (signature [] [] ())
           (block
             [
               (assign (let bool1) (true true))

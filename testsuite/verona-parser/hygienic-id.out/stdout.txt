@@ -21,8 +21,7 @@
                   [ (typename List [ (typeref [ (typename U32 []) ]) ]) ])
                 ())
             ]
-            (typeref [ (typename U32 []) ])
-            ())
+            (typeref [ (typename U32 []) ]))
           (block
             [
               (assign

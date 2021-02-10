@@ -40,6 +40,9 @@ namespace verona::parser
         return "function";
 
       // Types
+      case Kind::ThrowType:
+        return "throwtype";
+
       case Kind::UnionType:
         return "uniontype";
 

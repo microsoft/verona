@@ -1,10 +1,16 @@
 # Parser Notes
 
+* pony-like lambda syntax, all blocks are lambdas
+  * how do object literals work?
+  * can `case` be lambda-like?
+    * if we can put a `pattern` instead of a parameter list in a lambda, then any lambda can be used as a case, and `match` takes a value and a sequence of lambdas
+    * a pattern fail returns a special value
+    * `match` still has to be builtin
+* try/catch
 * allow `using` inside a function
 * put precedence paren forcing back in
 * special type: Self
 * inheritance
-* try/catch
 * update sugar
   should we instead have Ref[T] or Ref[T, U]?
 * distinguishing value parameters from type parameters
@@ -15,15 +21,13 @@
 
 ## Open Questions
 
-* lambdas and object literals: are they ever block expressions?
+* optional arguments and left-associative apply seem to interact badly
 * transform an object literal into an anonymous class and a create call
   needs free variable analysis
   could do the same thing for lambdas
   might not want to do either as they have type checking implications
 * `where` might need to have non-type constraints
-* do we need default capabilities for types
-* short-circuiting
-  lazy type, or lambdas
+* default capabilities for types
 
 ## Public/Private
 

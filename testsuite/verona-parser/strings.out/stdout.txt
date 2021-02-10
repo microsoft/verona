@@ -17,7 +17,6 @@
               (param x (typeref [ (typename U64 []) ]) ())
               (param y (typeref [ (typename U64 []) ]) ())
             ]
-            ()
             ())
           (block
             [

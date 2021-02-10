@@ -13,7 +13,6 @@
           (signature
             [ (typeparam T () ()) ]
             [ (param a (typeref [ (typename T []) ]) ()) ]
-            ()
             ())
           (block []))
         (function
@@ -21,7 +20,6 @@
           (signature
             [ (typeparam T () ()) ]
             [ (param x (typeref [ (typename T []) ]) ()) ]
-            ()
             ())
           (block
             [
