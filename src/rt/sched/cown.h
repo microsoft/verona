@@ -39,6 +39,8 @@ namespace verona::rt
 #endif
   }
 
+  static Behaviour unmute_behaviour{Behaviour::Descriptor::empty()};
+
   /**
    * A cown, or concurrent owner, encapsulates a set of resources that may be
    * accessed by a single (scheduler) thread at a time. A cown can only be in
@@ -965,7 +967,7 @@ namespace verona::rt
 
     inline bool check_unmute_message(Alloc* alloc, MessageBody* msg)
     {
-      if (msg->behaviour != nullptr)
+      if (msg->behaviour != &unmute_behaviour)
         return false;
 
       for (size_t i = 0; i < msg->count; i++)
@@ -1336,7 +1338,7 @@ namespace verona::rt
     }
 
     /**
-     * Creates a `MultiMessage` that is never sent or processed.
+     * Create a `MultiMessage` that is never sent or processed.
      */
     static MultiMessage* stub_msg(Alloc* alloc)
     {
@@ -1344,14 +1346,15 @@ namespace verona::rt
     }
 
     /**
-     * Creates a `MultiMessage` with no behaviour. The given array of cowns may
-     * be null terminated, but the count must always be count of pointers that
-     * indicates the size of the allocation.
+     * Create an unmute message using an empty behaviour. The given array of
+     * cowns may be null terminated, but the count must always be count of
+     * pointers that indicates the size of the allocation.
      */
     static MultiMessage*
     unmute_msg(Alloc* alloc, size_t count, Cown** cowns, EpochMark epoch)
     {
-      auto* body = MultiMessage::make_body(alloc, count, cowns, nullptr);
+      auto* body =
+        MultiMessage::make_body(alloc, count, cowns, &unmute_behaviour);
       return MultiMessage::make_message(alloc, body, epoch);
     }
   };
