@@ -85,12 +85,7 @@ namespace verona::ffi
         /// Reassociates the AST back into the interface.
         void HandleTranslationUnit(ASTContext& Ctx) override
         {
-          fprintf(stderr, "AST consumer %p received AST %p\n", this, &Ctx);
           interface->ast = &Ctx;
-        }
-        ~Collector()
-        {
-          fprintf(stderr, "AST consumer %p destroyed\n", this);
         }
       };
       /// Factory C-tor
@@ -118,10 +113,6 @@ namespace verona::ffi
       void run(const MatchFinder::MatchResult& Result) override
       {
         handler(Result);
-      }
-      ~HandleMatch()
-      {
-        fprintf(stderr, "HandleMatch destroyed\n");
       }
 
     public:
@@ -200,7 +191,6 @@ namespace verona::ffi
       llvm::SmallVector<char, 0> pchOutBuffer;
       auto action = std::make_unique<GenerateMemoryPCHAction>(pchOutBuffer);
       LocalClang.ExecuteAction(*action);
-      fprintf(stderr, "PCH is %zu bytes\n", pchOutBuffer.size());
       return std::unique_ptr<llvm::MemoryBuffer>(
         new llvm::SmallVectorMemoryBuffer(std::move(pchOutBuffer)));
     }
@@ -256,7 +246,6 @@ namespace verona::ffi
     {
       // Pre-compiles the file requested by the user
       std::unique_ptr<llvm::MemoryBuffer> pchBuffer;
-      fprintf(stderr, "\nParsing file %s\n", headerFile.c_str());
       {
         auto t = TimeReport("Computing precompiled headers");
         pchBuffer = generatePCH(headerFile.c_str(), sourceLang);
@@ -264,7 +253,6 @@ namespace verona::ffi
 
       // Creating a fake compile unit to include the target file
       // in an in-memory file system.
-      fprintf(stderr, "\nCreating fake compile unit\n");
       std::string Code = "#include \"" + headerFile +
         "\"\n"
         "namespace verona { namespace __ffi_internal { \n"
@@ -279,7 +267,6 @@ namespace verona::ffi
       FS.addFile(headerFile + ".gch", std::move(pchDataRef));
 
       // Parse the fake compile unit with the user file included inside.
-      fprintf(stderr, "\nParsing wrapping unit\n");
       {
         auto t = TimeReport("Creating clang instance");
         // Create the compiler
@@ -294,8 +281,6 @@ namespace verona::ffi
       // Executing the action consumes the AST.  Reset the compiler instance to
       // refer to the AST that it just parsed and create a Sema instance.
       Clang->setASTMachinery(factory.newASTConsumer(), ast);
-
-      fprintf(stderr, "\nAST: %p\n\n", ast);
     }
 
     /**

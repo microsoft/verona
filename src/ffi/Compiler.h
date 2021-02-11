@@ -68,7 +68,6 @@ namespace verona::ffi
     /// Returns the array with the filename as the last arg
     llvm::ArrayRef<const char*> getArgs(const char* filename)
     {
-      fprintf(stderr, "Clang called for %s\n", filename);
       args[args.size() - 1] = filename;
       return args;
     }
@@ -100,7 +99,6 @@ namespace verona::ffi
 
       // Compiler Instance
       Clang = std::make_unique<CompilerInstance>();
-      fprintf(stderr, "Clang: %p\n", Clang.get());
 
       // Diagnostics
       // TODO: Wire up diagnostics so that we can spot invalid template
@@ -110,12 +108,10 @@ namespace verona::ffi
       auto* DiagsPrinter = new TextDiagnosticPrinter{llvm::errs(), &*DiagOpts};
       auto* Diags =
         new DiagnosticsEngine(DiagID, DiagOpts, DiagsPrinter, false);
-      fprintf(stderr, "Diags: %p\n", Diags);
 
       // Compiler invocation
       auto CI = createInvocationFromCommandLine(
         getArgs(sourceName), Diags, llvm::vfs::getRealFileSystem());
-      fprintf(stderr, "CI: %p\n", CI.get());
 
       // File and source manager
       // FIXME: A new Diags is needed here because the invocation takes
