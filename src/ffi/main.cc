@@ -11,10 +11,10 @@ void printType(CXXType& ty)
   auto* d = ty.decl;
   auto kind = ty.kindName();
   auto name = d->getName().str();
-  fprintf(stderr, "%s (@%p) %s", name.c_str(), d, kind);
+  printf("%s (@%p) %s", name.c_str(), d, kind);
   if (ty.kind == CXXType::Kind::Builtin)
-    fprintf(stderr, "(%s)", ty.builtinKindName());
-  fprintf(stderr, "\n");
+    printf("(%s)", ty.builtinKindName());
+  printf("\n");
 }
 
 /// Looks up a symbol from a CXX interface by name
@@ -26,20 +26,19 @@ void test_type(CXXInterface& interface, std::string& name)
   auto* d = decl.decl;
   if (decl.kind != CXXType::Kind::Invalid)
   {
-    fprintf(stderr, "Found: ");
+    printf("Found: ");
     printType(decl);
   }
   else
   {
-    fprintf(stderr, "Not found: %s\n", name.c_str());
+    printf("Not found: %s\n", name.c_str());
     return;
   }
 
   // For template types, try to find their parameters and default arguments
   if (decl.kind == CXXType::Kind::TemplateClass)
   {
-    fprintf(
-      stderr,
+    printf(
       "%s has %d template parameters\n",
       name.c_str(),
       decl.numberOfTemplateParameters());
@@ -73,13 +72,13 @@ void test_type(CXXInterface& interface, std::string& name)
     if (defaultArgs.size() && defaultArgs.size() == args.size())
     {
       // Using detected default arguments
-      fprintf(stderr, "Template specialisation:\n");
+      printf("Template specialisation:\n");
       QualType spec =
         interface.getTemplateSpecializationType(decl.decl, defaultArgs);
       spec.dump();
 
       // Canonical representation
-      fprintf(stderr, "Canonical Template specialisation:\n");
+      printf("Canonical Template specialisation:\n");
       QualType canon = interface.getCanonicalTemplateSpecializationType(
         decl.decl, defaultArgs);
       canon.dump();
@@ -89,11 +88,8 @@ void test_type(CXXInterface& interface, std::string& name)
     if (args.size())
     {
       CXXType spec = interface.instantiateClassTemplate(decl, args);
-      fprintf(
-        stderr,
-        "%s<int> is %lu bytes\n",
-        name.c_str(),
-        interface.getTypeSize(spec));
+      printf(
+        "%s<int> is %lu bytes\n", name.c_str(), interface.getTypeSize(spec));
     }
   }
 }
@@ -146,18 +142,18 @@ int main(int argc, char** argv)
 
   if (symbols.size())
   {
-    fprintf(stderr, "\nQuerying some types...\n");
+    printf("\nQuerying some types...\n");
     // FIXME: We should be able to pass a list and get a list back.
     for (auto symbol : symbols)
       test_type(interface, symbol);
   }
 
   // Test function creation
-  fprintf(stderr, "\nCreating a new function...\n");
+  printf("\nCreating a new function...\n");
   test_function(interface);
 
   // Emit whatever is left on the main file
-  fprintf(stderr, "\nGenerating LLVM IR...\n");
+  printf("\nGenerating LLVM IR...\n");
   auto mod = interface.emitLLVM();
   mod->dump();
 
