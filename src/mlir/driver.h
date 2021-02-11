@@ -6,7 +6,7 @@
 #include "ast/ast.h"
 #include "dialect/VeronaDialect.h"
 #include "error.h"
-#include "mlir/IR/Module.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"
 
 #include "llvm/Support/SourceMgr.h"

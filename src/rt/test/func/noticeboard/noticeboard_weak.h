@@ -78,7 +78,7 @@ namespace noticeboard_weak
 
       // expected assertion failure; write to c_1 was picked up before c_0
       // if (c_1->x == 2) {
-      //   assert(c_0->x == 1);
+      //   check(c_0->x == 1);
       // }
 
       // out of scope

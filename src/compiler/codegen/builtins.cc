@@ -85,27 +85,21 @@ namespace verona::compiler
     assert(abi_.arguments >= 2);
     assert(abi_.returns == 1);
 
-    size_t value_count = abi_.arguments - 2;
-    uint8_t value_count_trunc = truncate<uint8_t>(value_count);
-    gen_.opcode(Opcode::Print);
-    gen_.reg(Register(1));
-    gen_.u8(value_count_trunc);
-    for (uint8_t i = 0; i < value_count_trunc; i++)
+    std::vector<Register> args;
+    for (uint8_t i = 0; i < abi_.arguments - 2; i++)
     {
-      gen_.reg(Register(2 + i));
+      args.push_back(Register(2 + i));
     }
 
-    gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(1));
-    for (uint8_t i = 0; i < value_count_trunc; i++)
-    {
-      gen_.opcode(Opcode::Clear);
-      gen_.reg(Register(2 + i));
-    }
+    emit<Opcode::Print>(Register(1), args);
 
-    gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(0));
-    gen_.opcode(Opcode::Return);
+    // Re-use the args vector for the clear OP, but this time we want to include
+    // the first two parameters.
+    args.push_back(Register(1));
+    args.push_back(Register(0));
+
+    emit<Opcode::ClearList>(args);
+    emit<Opcode::Return>();
   }
 
   void BuiltinGenerator::builtin_freeze()
@@ -113,12 +107,9 @@ namespace verona::compiler
     assert(abi_.arguments == 2);
     assert(abi_.returns == 1);
 
-    gen_.opcode(Opcode::Freeze);
-    gen_.reg(Register(0));
-    gen_.reg(Register(1));
-    gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(1));
-    gen_.opcode(Opcode::Return);
+    emit<Opcode::Freeze>(Register(0), Register(1));
+    emit<Opcode::Clear>(Register(1));
+    emit<Opcode::Return>();
   }
 
   void BuiltinGenerator::builtin_trace_region()
@@ -126,13 +117,9 @@ namespace verona::compiler
     assert(abi_.arguments == 2);
     assert(abi_.returns == 1);
 
-    gen_.opcode(Opcode::TraceRegion);
-    gen_.reg(Register(1));
-    gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(0));
-    gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(1));
-    gen_.opcode(Opcode::Return);
+    emit<Opcode::TraceRegion>(Register(1));
+    emit<Opcode::ClearList>(bytecode::RegisterSpan{Register(0), Register(1)});
+    emit<Opcode::Return>();
   }
 
   void BuiltinGenerator::builtin_binop(bytecode::BinaryOperator op)
@@ -140,14 +127,9 @@ namespace verona::compiler
     assert(abi_.arguments == 2);
     assert(abi_.returns == 1);
 
-    gen_.opcode(Opcode::BinOp);
-    gen_.reg(Register(0));
-    gen_.u8(static_cast<uint8_t>(op));
-    gen_.reg(Register(0));
-    gen_.reg(Register(1));
-    gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(1));
-    gen_.opcode(Opcode::Return);
+    emit<Opcode::BinOp>(Register(0), op, Register(0), Register(1));
+    emit<Opcode::Clear>(Register(1));
+    emit<Opcode::Return>();
   }
 
   void BuiltinGenerator::builtin_cown_create()
@@ -157,14 +139,9 @@ namespace verona::compiler
 
     // This is a static method, therefore register 0 contains the descriptor for
     // cown[T]. We use that to initialize the cown.
-    gen_.opcode(Opcode::NewCown);
-    gen_.reg(Register(0));
-    gen_.reg(Register(0));
-    gen_.reg(Register(1));
-
-    gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(1));
-    gen_.opcode(Opcode::Return);
+    emit<Opcode::NewCown>(Register(0), Register(0), Register(1));
+    emit<Opcode::Clear>(Register(1));
+    emit<Opcode::Return>();
   }
 
   void BuiltinGenerator::builtin_cown_create_sleeping()
@@ -174,10 +151,8 @@ namespace verona::compiler
 
     // This is a static method, therefore register 0 contains the descriptor for
     // cown[T]. We use that to initialize the cown.
-    gen_.opcode(Opcode::NewSleepingCown);
-    gen_.reg(Register(0));
-    gen_.reg(Register(0));
-    gen_.opcode(Opcode::Return);
+    emit<Opcode::NewSleepingCown>(Register(0), Register(0));
+    emit<Opcode::Return>();
   }
 
   void BuiltinGenerator::builtin_cown_fulfill_sleeping()
@@ -185,13 +160,8 @@ namespace verona::compiler
     assert(abi_.arguments == 2);
     assert(abi_.returns == 1);
 
-    gen_.opcode(Opcode::FulfillSleepingCown);
-    gen_.reg(Register(0));
-    gen_.reg(Register(1));
-    gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(0));
-    gen_.opcode(Opcode::Clear);
-    gen_.reg(Register(1));
-    gen_.opcode(Opcode::Return);
+    emit<Opcode::FulfillSleepingCown>(Register(0), Register(1));
+    emit<Opcode::ClearList>(bytecode::RegisterSpan{Register(0), Register(1)});
+    emit<Opcode::Return>();
   }
 }

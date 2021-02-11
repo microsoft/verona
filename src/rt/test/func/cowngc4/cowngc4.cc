@@ -227,9 +227,9 @@ struct RCown : public VCown<RCown<region_type>>
       Cown::release(alloc, r2->f1->cown);
 
       // Want to make sure one of the objects is RC and the other is SCC_PTR.
-      assert(
+      check(
         reg_with_imm->imm1->debug_is_rc() || reg_with_imm->imm2->debug_is_rc());
-      assert(
+      check(
         reg_with_imm->imm1->debug_is_rc() != reg_with_imm->imm2->debug_is_rc());
     }
 
@@ -255,7 +255,7 @@ struct RCown : public VCown<RCown<region_type>>
     if (reg_with_imm != nullptr)
       fields.push(reg_with_imm);
 
-    assert(next != nullptr);
+    check(next != nullptr);
     fields.push(next);
   }
 };

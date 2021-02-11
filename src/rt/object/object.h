@@ -77,7 +77,7 @@ namespace verona::rt
   class Object;
   class RegionBase;
 
-  using ObjectStack = Stack<Object*, Alloc>;
+  using ObjectStack = Stack<Object, Alloc>;
   static constexpr size_t descriptor_alignment =
     snmalloc::bits::min<size_t>(8, alignof(void*));
 
@@ -282,6 +282,8 @@ namespace verona::rt
       }
 
       previous = value;
+#else
+      UNUSED(value);
 #endif
     }
 
@@ -593,18 +595,6 @@ namespace verona::rt
     {
       assert(get_class() == RegionMD::MARKED);
       get_header().bits &= ~(size_t)RegionMD::MARKED;
-    }
-
-    inline void mark_pending()
-    {
-      assert(get_class() == RegionMD::UNMARKED);
-      get_header().bits |= (uint8_t)RegionMD::PENDING;
-    }
-
-    inline void unmark_pending()
-    {
-      assert(get_class() == RegionMD::PENDING);
-      get_header().bits &= ~(size_t)RegionMD::PENDING;
     }
 
   public:

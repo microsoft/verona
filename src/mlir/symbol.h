@@ -4,7 +4,7 @@
 #pragma once
 
 #include "ast/ast.h"
-#include "mlir/IR/Function.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Types.h"
 #include "mlir/IR/Value.h"
 
@@ -48,15 +48,35 @@ namespace mlir::verona
     }
 
     /// Insert entry on the last scope only
-    bool insert(llvm::StringRef key, T value)
+    /// Returns the inserted element
+    /// Asserts if element already exist
+    T insert(llvm::StringRef key, T value)
+    {
+      return getOrAdd(key, value, /* insert= */ true);
+    }
+
+    /// Fetch or insert the entry in the last scope
+    /// Returns the inserted/fetched element
+    /// If insert=true, asserts if element already exist
+    T getOrAdd(llvm::StringRef key, T value, bool insert = false)
     {
       auto& frame = stack.back();
       auto res = frame.emplace(key, value);
-      return res.second;
+      if (insert)
+        assert(res.second && "Redeclaration");
+      return std::get<1>(*res.first);
     }
 
-    /// Lookup from the last scope to the first
-    T lookup(llvm::StringRef key)
+    /// Return the entry if it is in the last scope
+    T inScope(llvm::StringRef key)
+    {
+      return lookup(key, /* lastContextOnly= */ true);
+    }
+
+    /// Lookup for the entry on all scopes, from the last to first
+    /// Returns the element or nullptr if none found
+    /// `lastContextOnly=true` only looks up in the local scope
+    T lookup(llvm::StringRef key, bool lastContextOnly = false)
     {
       for (auto it = stack.rbegin(), end = stack.rend(); it != end; it++)
       {
@@ -64,24 +84,10 @@ namespace mlir::verona
         auto val = frame.find(key.str());
         if (val != frame.end())
           return val->second;
+        if (lastContextOnly)
+          return nullptr;
       }
       return nullptr;
-    }
-
-    /// Check that the entry is in the last scope
-    bool inScope(llvm::StringRef key)
-    {
-      auto frame = stack.back();
-      return frame.count(key.str());
-    }
-
-    /// Update the entry in the last scope, or create new
-    bool update(llvm::StringRef key, T value)
-    {
-      auto& frame = stack.back();
-      // FIXME: Check types are compatible
-      frame[key.str()] = value;
-      return true;
     }
 
     /// Creates a new scope

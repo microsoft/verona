@@ -1,6 +1,10 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+
 #include "compiler/fixpoint.h"
+
+#include "compiler/context.h"
+#include "compiler/mapper.h"
 
 namespace verona::compiler
 {

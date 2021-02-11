@@ -4,7 +4,6 @@
 #pragma once
 #include "mlir/IR/OpDefinition.h"
 
-namespace mlir::verona
-{
+// This line must come after "normal" includes.
+// Having this comment prevents clang-format from re-ordering it.
 #include "dialect/TypecheckInterface.h.inc"
-}

@@ -117,7 +117,10 @@ namespace mlir::verona
   /// `RULES` is a callable object, which takes two Type values and returns a
   /// boolean.
   static constexpr auto RULES = detail::combineRules(
-    [](Type left, Type right) { return left == right; },
+    [](Type left, Type right) {
+      return left == right || left.isa<UnknownType>() ||
+        right.isa<UnknownType>();
+    },
     [](JoinType left, Type right) {
       return llvm::all_of(left.getElements(), [&](Type element) {
         return isSubtype(element, right);
@@ -137,11 +140,6 @@ namespace mlir::verona
       return llvm::any_of(right.getElements(), [&](Type element) {
         return isSubtype(left, element);
       });
-    },
-    [](ViewpointType left, IntegerType right) {
-      auto ctx = left.getContext();
-      return isSubtype(left.getLeftType(), getAnyCapability(ctx)) &&
-        isSubtype(left.getRightType(), right);
     },
     [](ViewpointType left, ClassType right) {
       auto ctx = left.getContext();

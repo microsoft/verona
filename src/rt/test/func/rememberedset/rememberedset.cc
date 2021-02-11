@@ -1,6 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+#include <test/harness.h>
 #include <verona.h>
 
 using namespace snmalloc;
@@ -43,10 +44,10 @@ void basic_test()
   // Right now, we can only freeze RegionTrace objects.
   auto* o2 = new (alloc) C1<RegionType::Trace>;
   Freeze::apply(alloc, o2);
-  assert(o2->debug_is_rc());
+  check(o2->debug_is_rc());
   auto* o3 = new (alloc) C1<RegionType::Trace>;
   Freeze::apply(alloc, o3);
-  assert(o3->debug_is_rc());
+  check(o3->debug_is_rc());
 
   // f1 and f2 need to be of type C1<RegionType::Trace>, and this is only
   // used for the GC part of the test.
@@ -58,23 +59,23 @@ void basic_test()
 
   // Move from the stack to o1.
   RegionClass::template insert<YesTransfer>(alloc, o1, o2);
-  assert(o2->debug_rc() == 1 && o3->debug_rc() == 1);
+  check(o2->debug_rc() == 1 && o3->debug_rc() == 1);
   RegionClass::template insert<NoTransfer>(alloc, o1, o3);
-  assert(o2->debug_rc() == 1 && o3->debug_rc() == 2);
+  check(o2->debug_rc() == 1 && o3->debug_rc() == 2);
 
   Immutable::release(alloc, o3);
-  assert(o2->debug_rc() == 1 && o3->debug_rc() == 1);
+  check(o2->debug_rc() == 1 && o3->debug_rc() == 1);
 
   if constexpr (region_type == RegionType::Trace)
   {
     RegionTrace::gc(alloc, o1);
-    assert(o2->debug_rc() == 1 && o3->debug_rc() == 1);
+    check(o2->debug_rc() == 1 && o3->debug_rc() == 1);
 
     Immutable::acquire(o2);
-    assert(o2->debug_rc() == 2 && o3->debug_rc() == 1);
+    check(o2->debug_rc() == 2 && o3->debug_rc() == 1);
     o1->f1 = nullptr;
     RegionTrace::gc(alloc, o1);
-    assert(o2->debug_rc() == 1 && o3->debug_rc() == 1);
+    check(o2->debug_rc() == 1 && o3->debug_rc() == 1);
 
     Immutable::release(alloc, o2);
     // o2 is now gone.
@@ -103,7 +104,7 @@ void merge_test()
   auto create_imm = [alloc]() {
     auto* o = new (alloc) C1<RegionType::Trace>;
     Freeze::apply(alloc, o);
-    assert(o->debug_is_rc());
+    check(o->debug_is_rc());
     return o;
   };
   auto* o1 = create_imm();
@@ -121,24 +122,24 @@ void merge_test()
   }
 
   RegionClass::template insert<YesTransfer>(alloc, r1, o1);
-  assert(o1->debug_rc() == 1 && o2->debug_rc() == 1 && o3->debug_rc() == 1);
+  check(o1->debug_rc() == 1 && o2->debug_rc() == 1 && o3->debug_rc() == 1);
   RegionClass::insert(alloc, r1, o3);
-  assert(o1->debug_rc() == 1 && o2->debug_rc() == 1 && o3->debug_rc() == 2);
+  check(o1->debug_rc() == 1 && o2->debug_rc() == 1 && o3->debug_rc() == 2);
 
   RegionClass::template insert<YesTransfer>(alloc, r2, o2);
-  assert(o1->debug_rc() == 1 && o2->debug_rc() == 1 && o3->debug_rc() == 2);
+  check(o1->debug_rc() == 1 && o2->debug_rc() == 1 && o3->debug_rc() == 2);
   RegionClass::insert(alloc, r2, o3);
-  assert(o1->debug_rc() == 1 && o2->debug_rc() == 1 && o3->debug_rc() == 3);
+  check(o1->debug_rc() == 1 && o2->debug_rc() == 1 && o3->debug_rc() == 3);
 
   RegionClass::merge(alloc, r1, r2);
-  assert(o1->debug_rc() == 1 && o2->debug_rc() == 1 && o3->debug_rc() == 2);
+  check(o1->debug_rc() == 1 && o2->debug_rc() == 1 && o3->debug_rc() == 2);
 
   if constexpr (region_type == RegionType::Trace)
   {
     r1->f2 = nullptr;
     RegionTrace::gc(alloc, r1);
     // o2 is now gone
-    assert(o1->debug_rc() == 1 && o3->debug_rc() == 1);
+    check(o1->debug_rc() == 1 && o3->debug_rc() == 1);
   }
 
   Immutable::release(alloc, o3);

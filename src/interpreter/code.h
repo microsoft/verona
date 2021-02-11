@@ -11,7 +11,6 @@
 
 namespace verona::interpreter
 {
-  using bytecode::CodePtr;
   using bytecode::DescriptorIdx;
   using bytecode::FunctionHeader;
   using bytecode::Opcode;
@@ -25,8 +24,9 @@ namespace verona::interpreter
   struct SpecialDescriptors
   {
     const VMDescriptor* main;
-    SelectorIdx main_selector;
+    SelectorIdx main_selector = SelectorIdx(0);
     const VMDescriptor* u64;
+    const VMDescriptor* string;
   };
 
   class Code
@@ -97,21 +97,6 @@ namespace verona::interpreter
       return load<uint64_t>(ip);
     }
 
-    DescriptorIdx descriptor(size_t& ip) const
-    {
-      return load<DescriptorIdx>(ip);
-    }
-
-    SelectorIdx selector(size_t& ip) const
-    {
-      return load<SelectorIdx>(ip);
-    }
-
-    Opcode opcode(size_t& ip) const
-    {
-      return load<Opcode>(ip);
-    }
-
     std::string_view str(size_t& ip) const
     {
       return load<std::string_view>(ip);
@@ -144,12 +129,14 @@ namespace verona::interpreter
       uint32_t descriptors_count = u32(ip);
       for (uint32_t i = 0; i < descriptors_count; i++)
       {
-        descriptors_.push_back(load_descriptor(ip));
+        descriptors_.push_back(load_descriptor(DescriptorIdx(i), ip));
       }
 
       special_descriptors_.main = get_descriptor(load<DescriptorIdx>(ip));
       special_descriptors_.main_selector = load<SelectorIdx>(ip);
       special_descriptors_.u64 =
+        get_optional_descriptor(load<DescriptorIdx>(ip));
+      special_descriptors_.string =
         get_optional_descriptor(load<DescriptorIdx>(ip));
     }
 
@@ -166,23 +153,23 @@ namespace verona::interpreter
     size_t entrypoint() const
     {
       SelectorIdx selector = special_descriptors_.main_selector;
-      return special_descriptors_.main->methods[selector];
+      return special_descriptors_.main->methods[selector.value];
     }
 
     const VMDescriptor* get_descriptor(DescriptorIdx desc) const
     {
-      if (desc >= descriptors_.size())
+      if (desc.value >= descriptors_.size())
       {
         std::stringstream s;
-        s << "Invalid descriptor id " << (int)desc;
+        s << "Invalid descriptor id " << (int)desc.value;
         throw std::logic_error(s.str());
       }
-      return descriptors_.at(desc).get();
+      return descriptors_.at(desc.value).get();
     }
 
     const VMDescriptor* get_optional_descriptor(DescriptorIdx desc) const
     {
-      if (desc == bytecode::INVALID_DESCRIPTOR)
+      if (desc == DescriptorIdx::invalid())
         return nullptr;
       else
         return get_descriptor(desc);
@@ -203,89 +190,122 @@ namespace verona::interpreter
       }
     }
 
-    std::unique_ptr<VMDescriptor> load_descriptor(size_t& ip)
+    std::unique_ptr<VMDescriptor>
+    load_descriptor(DescriptorIdx index, size_t& ip)
     {
       std::string_view name = str(ip);
       uint32_t method_slots = u32(ip);
       uint32_t method_count = u32(ip);
       uint32_t field_slots = u32(ip);
       uint32_t field_count = u32(ip);
+      uint32_t subtype_count = u32(ip);
       uint32_t finaliser_ip = u32(ip);
 
       auto descriptor = std::make_unique<VMDescriptor>(
-        name, method_slots, field_slots, field_count, finaliser_ip);
+        index, name, method_slots, field_slots, field_count, finaliser_ip);
 
       for (uint32_t i = 0; i < method_count; i++)
       {
-        SelectorIdx index = selector(ip);
+        SelectorIdx selector = load<SelectorIdx>(ip);
         uint32_t offset = u32(ip);
-        assert(index < method_slots);
-        descriptor->methods[index] = offset;
+        assert(selector.value < method_slots);
+        descriptor->methods[selector.value] = offset;
       }
       for (uint32_t i = 0; i < field_count; i++)
       {
-        SelectorIdx index = selector(ip);
-        assert(index < field_slots);
-        descriptor->fields[index] = i;
+        SelectorIdx selector = load<SelectorIdx>(ip);
+        assert(selector.value < field_slots);
+        descriptor->fields[selector.value] = i;
+      }
+      for (uint32_t i = 0; i < subtype_count; i++)
+      {
+        DescriptorIdx subtype = load<DescriptorIdx>(ip);
+        descriptor->subtypes.insert(subtype);
       }
 
       return descriptor;
     }
 
+    /**
+     * Helper class that allows us to override the behaviour based on the type
+     * of the operand we want to load.
+     *
+     * Different specializations are provided below for various types T. Every
+     * specialization provides a `static T load(const Code& code, size_t& ip)`
+     * method.
+     */
     template<typename T, typename = void>
     struct load_helper;
+  };
 
-    template<typename T>
-    struct load_helper<T, std::enable_if_t<std::is_integral_v<T>>>
+  template<typename T>
+  struct Code::load_helper<T, std::enable_if_t<std::is_integral_v<T>>>
+  {
+    static T load(const Code& code, size_t& ip)
     {
-      static T load(const Code& code, size_t& ip)
+      code.check(ip, sizeof(T));
+      uint64_t bits = 0;
+
+      for (size_t i = 0; i < (sizeof(T) * 8); i += 8)
       {
-        code.check(ip, sizeof(T));
-        uint64_t bits = 0;
-
-        for (size_t i = 0; i < (sizeof(T) * 8); i += 8)
-        {
-          bits |= code.data_[ip++] << i;
-        }
-
-        return (T)bits;
+        bits |= code.data_[ip++] << i;
       }
-    };
 
-    template<typename T>
-    struct load_helper<T, std::enable_if_t<std::is_enum_v<T>>>
+      return static_cast<T>(bits);
+    }
+  };
+
+  template<typename T>
+  struct Code::load_helper<
+    T,
+    std::enable_if_t<std::is_enum_v<T> && !std::is_convertible_v<T, int>>>
+  {
+    static T load(const Code& code, size_t& ip)
     {
-      static T load(const Code& code, size_t& ip)
+      typedef std::underlying_type_t<T> wire_type;
+      wire_type value = code.load<wire_type>(ip);
+      if (value > static_cast<wire_type>(T::maximum_value))
       {
-        typedef std::underlying_type_t<T> wire_type;
-        wire_type value = code.load<wire_type>(ip);
-        if (value > static_cast<wire_type>(T::maximum_value))
-        {
-          throw std::logic_error(
-            fmt::format("Invalid value {:d} for {}", value, typeid(T).name()));
-        }
-        return static_cast<T>(value);
+        throw std::logic_error(
+          fmt::format("Invalid value {:d} for {}", value, typeid(T).name()));
       }
-    };
-
-    template<typename Dummy>
-    struct load_helper<std::string_view, Dummy>
-    {
-      static std::string_view load(const Code& code, size_t& ip)
-      {
-        uint16_t size = code.u16(ip);
-        code.check(ip, size);
-        std::string_view s(
-          reinterpret_cast<const char*>(&code.data_[ip]), size);
-        ip += size;
-        return s;
-      }
+      return static_cast<T>(value);
     };
   };
 
-  template<>
-  inline bytecode::Register Code::load<bytecode::Register>(size_t& ip) const
+  template<typename T>
+  struct Code::load_helper<T, std::enable_if_t<bytecode::is_wrapper_v<T>>>
   {
-    return bytecode::Register(load<uint8_t>(ip));
-  }
+    static T load(const Code& code, size_t& ip)
+    {
+      return T(code.load<typename T::underlying_type>(ip));
+    }
+  };
+
+  template<>
+  struct Code::load_helper<std::string_view>
+  {
+    static std::string_view load(const Code& code, size_t& ip)
+    {
+      uint16_t size = code.u16(ip);
+      code.check(ip, size);
+      std::string_view s(reinterpret_cast<const char*>(&code.data_[ip]), size);
+      ip += size;
+      return s;
+    }
+  };
+
+  template<>
+  struct Code::load_helper<bytecode::RegisterSpan>
+  {
+    static bytecode::RegisterSpan load(const Code& code, size_t& ip)
+    {
+      uint8_t size = code.u8(ip);
+      code.check(ip, size);
+      const bytecode::Register* data =
+        reinterpret_cast<const bytecode::Register*>(&code.data_[ip]);
+      ip += size;
+      return bytecode::RegisterSpan(data, size);
+    }
+  };
 }

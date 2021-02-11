@@ -8,11 +8,21 @@
 
 namespace mlir::verona
 {
+  /// Describes properties of references, as part of their type.
+  /// This enum is embedded in a CapabilityType, as defined in ODS.
+  enum class Capability
+  {
+    Isolated,
+    Mutable,
+    Immutable,
+  };
+
   Type parseVeronaType(DialectAsmParser& parser);
   void printVeronaType(Type type, DialectAsmPrinter& os);
 
   /// Returns true if the type is one defined by the Verona dialect.
   bool isaVeronaType(Type type);
+
   /// Returns true if all types in the array are ones defined by the Verona
   /// dialect.
   bool areVeronaTypes(llvm::ArrayRef<Type> types);
@@ -37,75 +47,8 @@ namespace mlir::verona
 
   namespace detail
   {
-    struct MeetTypeStorage;
-    struct JoinTypeStorage;
-    struct IntegerTypeStorage;
-    struct FloatTypeStorage;
-    struct CapabilityTypeStorage;
     struct ClassTypeStorage;
-    struct ViewpointTypeStorage;
   }
-
-  struct MeetType
-  : public Type::TypeBase<MeetType, Type, detail::MeetTypeStorage>
-  {
-    using Base::Base;
-    static MeetType
-    get(MLIRContext* ctx, llvm::ArrayRef<mlir::Type> elementTypes);
-    llvm::ArrayRef<mlir::Type> getElements() const;
-  };
-
-  struct JoinType
-  : public Type::TypeBase<JoinType, Type, detail::JoinTypeStorage>
-  {
-    using Base::Base;
-    static JoinType
-    get(MLIRContext* ctx, llvm::ArrayRef<mlir::Type> elementTypes);
-    llvm::ArrayRef<mlir::Type> getElements() const;
-  };
-
-  struct IntegerType
-  : public Type::TypeBase<IntegerType, Type, detail::IntegerTypeStorage>
-  {
-    using Base::Base;
-
-    static IntegerType get(MLIRContext* context, size_t width, unsigned sign);
-
-    size_t getWidth() const;
-    bool getSign() const;
-  };
-
-  struct FloatType
-  : public Type::TypeBase<FloatType, Type, detail::FloatTypeStorage>
-  {
-    using Base::Base;
-
-    static FloatType get(MLIRContext* context, size_t width);
-
-    size_t getWidth() const;
-  };
-
-  struct BoolType : public Type::TypeBase<BoolType, Type, TypeStorage>
-  {
-    using Base::Base;
-
-    static BoolType get(MLIRContext* context);
-  };
-
-  enum class Capability
-  {
-    Isolated,
-    Mutable,
-    Immutable,
-  };
-
-  struct CapabilityType
-  : public Type::TypeBase<CapabilityType, Type, detail::CapabilityTypeStorage>
-  {
-    using Base::Base;
-    static CapabilityType get(MLIRContext* ctx, Capability cap);
-    Capability getCapability() const;
-  };
 
   /**
    * A class is described both by its name and its list of fields. A class
@@ -140,8 +83,8 @@ namespace mlir::verona
    *   FieldsRef fields = { { "f", a } };
    *   a.setFields(a);
    *
-   * TODO: While recursive types can be constructed programmatically, they can
-   * neither be parsed nor printed yet.
+   * Because of these extra complications, this type cannot be generated using
+   * ODS yet, since ODS does not support types with a mutable component.
    */
   struct ClassType
   : public Type::TypeBase<ClassType, Type, detail::ClassTypeStorage>
@@ -176,17 +119,13 @@ namespace mlir::verona
     FieldsRef getFields() const;
     Type getFieldType(StringRef name) const;
   };
+}
 
-  struct ViewpointType
-  : public Type::TypeBase<ViewpointType, Type, detail::ViewpointTypeStorage>
-  {
-    using Base::Base;
-    static ViewpointType get(MLIRContext* ctx, Type left, Type right);
+#define GET_TYPEDEF_CLASSES
+#include "dialect/VeronaTypes.h.inc"
 
-    Type getLeftType() const;
-    Type getRightType() const;
-  };
-
+namespace mlir::verona
+{
   // Various convenience functions used to construct commonly used Verona types.
   // TODO: These should be constructed upfront and cached in some context
   // object.

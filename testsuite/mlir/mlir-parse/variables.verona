@@ -1,0 +1,14 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+foo(a: S32 & iso, b: U64 & imm): S64
+{
+  // New variable, new name
+  let var = a + b;
+  {
+    // New scope, different variable
+    let var = a * b;
+  }
+  // Re-assignment of the first variable
+  var = a - b;
+}

@@ -342,7 +342,7 @@ namespace verona
       {
         Invalid,
         TemplateClass,
-		SpecializedTemplateClass,
+        SpecializedTemplateClass,
         Class,
         Enum,
         Builtin
@@ -372,7 +372,7 @@ namespace verona
         {
           case Kind::Invalid:
             return "Invalid";
-		  case Kind::SpecializedTemplateClass:
+          case Kind::SpecializedTemplateClass:
             return "Specialized Class Template";
           case Kind::TemplateClass:
             return "Class Template";
@@ -396,7 +396,8 @@ namespace verona
       CXXType(const CXXRecordDecl* d) : kind(Kind::Class), decl(d) {}
       CXXType(const ClassTemplateDecl* d) : kind(Kind::TemplateClass), decl(d)
       {}
-      CXXType(const ClassTemplateSpecializationDecl* d) : kind(Kind::SpecializedTemplateClass), decl(d)
+      CXXType(const ClassTemplateSpecializationDecl* d)
+      : kind(Kind::SpecializedTemplateClass), decl(d)
       {}
       CXXType(const EnumDecl* d) : kind(Kind::Enum), decl(d) {}
       CXXType() = default;
@@ -566,8 +567,8 @@ namespace verona
 
       auto& S = queryCompilerState->Clang->getSema();
 
-      ClassTemplateDecl* ClassTemplate = 
-				classTemplate.getAs<ClassTemplateDecl>();
+      ClassTemplateDecl* ClassTemplate =
+        classTemplate.getAs<ClassTemplateDecl>();
       void* InsertPos = nullptr;
       ClassTemplateSpecializationDecl* Decl =
         ClassTemplate->findSpecialization(args, InsertPos);
@@ -606,7 +607,7 @@ namespace verona
           InstantiationLoc, Decl, TSK_ExplicitInstantiationDefinition);
         Def = cast<ClassTemplateSpecializationDecl>(Decl->getDefinition());
       }
-	  return CXXType{Def};
+      return CXXType{Def};
     }
 
   private:
@@ -671,29 +672,30 @@ int main(void)
       fprintf(stderr, "Not found: %s\n", name);
     }
   };
-	// FIXME: Verona compiler should be able to find the path and pass include
-	// paths to this interface.
-	CXXInterface interface("/usr/local/llvm80/include/llvm/IR/IRBuilder.h");
+  // FIXME: Verona compiler should be able to find the path and pass include
+  // paths to this interface.
+  CXXInterface interface("/usr/local/llvm80/include/llvm/IR/IRBuilder.h");
 
-	test(interface, "llvm::Value");
-	test(interface, "llvm::Type::TypeID");
-	test(interface, "llvm::IRBuilder");
-	auto irb = interface.getType("llvm::IRBuilder");
-	auto params = dyn_cast<ClassTemplateDecl>(irb.decl)->getTemplateParameters();
-	std::vector<TemplateArgument> args;
-	for (auto param : *params)
-	{
-		if (auto typeParam = dyn_cast<TemplateTypeParmDecl>(param))
-		{
-			args.push_back(typeParam->getDefaultArgument());
-		}
-		else if (auto nontypeParam = dyn_cast<NonTypeTemplateParmDecl>(param))
-		{
-			args.push_back(nontypeParam->getDefaultArgument());
-		}
-	}
-	TemplateName irbName{dyn_cast<TemplateDecl>(const_cast<NamedDecl*>(irb.decl))};
-	interface.ast->getTemplateSpecializationType(irbName, args).dump();
+  test(interface, "llvm::Value");
+  test(interface, "llvm::Type::TypeID");
+  test(interface, "llvm::IRBuilder");
+  auto irb = interface.getType("llvm::IRBuilder");
+  auto params = dyn_cast<ClassTemplateDecl>(irb.decl)->getTemplateParameters();
+  std::vector<TemplateArgument> args;
+  for (auto param : *params)
+  {
+    if (auto typeParam = dyn_cast<TemplateTypeParmDecl>(param))
+    {
+      args.push_back(typeParam->getDefaultArgument());
+    }
+    else if (auto nontypeParam = dyn_cast<NonTypeTemplateParmDecl>(param))
+    {
+      args.push_back(nontypeParam->getDefaultArgument());
+    }
+  }
+  TemplateName irbName{
+    dyn_cast<TemplateDecl>(const_cast<NamedDecl*>(irb.decl))};
+  interface.ast->getTemplateSpecializationType(irbName, args).dump();
 
   CXXInterface stdarray("/usr/include/c++/v1/array");
   auto t = TimeReport("Instantiating std::array");
@@ -707,10 +709,14 @@ int main(void)
   auto ValueArg = stdarray.createTemplateArgumentForIntegerValue(
     CXXType::BuiltinTypeKinds::Int, 4);
 
-  CXXType arrIntFour = stdarray.instantiateClassTemplate(arr, {TypeArg, ValueArg});
+  CXXType arrIntFour =
+    stdarray.instantiateClassTemplate(arr, {TypeArg, ValueArg});
   arr.decl->dump();
   arrIntFour.decl->dump();
-  fprintf(stderr, "std::array<int, 4> is %lu bytes\n", stdarray.getTypeSize(arrIntFour));
+  fprintf(
+    stderr,
+    "std::array<int, 4> is %lu bytes\n",
+    stdarray.getTypeSize(arrIntFour));
 
   auto* DC = stdarray.ast->getTranslationUnitDecl();
   auto& SM = stdarray.queryCompilerState->Clang->getSourceManager();
@@ -770,5 +776,4 @@ int main(void)
   stdarray.ast
     ->getCanonicalTemplateSpecializationType(arrName, {TypeArg, TypeArg})
     .dump();
-
 }

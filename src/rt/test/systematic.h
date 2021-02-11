@@ -107,7 +107,7 @@ namespace Systematic
   public:
     LocalLog()
     {
-      if (flight_recorder)
+      if constexpr (flight_recorder)
       {
         reset();
       }
@@ -219,14 +219,15 @@ namespace Systematic
   private:
     friend class SysLog;
 
-    LocalLog* log;
-
+    LocalLog* log = nullptr;
+#ifdef USE_FLIGHT_RECORDER
     ThreadLocalLog() : log(global_logs().acquire()) {}
 
     ~ThreadLocalLog()
     {
       global_logs().release(log);
     }
+#endif
 
   public:
     static ThreadLocalLog& get()
@@ -303,8 +304,8 @@ namespace Systematic
 #endif
 
   private:
-    std::ostream& o;
-    bool first = true;
+    std::ostream* o;
+    bool first;
 
     inline static bool& get_logging()
     {
@@ -317,23 +318,26 @@ namespace Systematic
     {
       static_assert(sizeof(T) <= sizeof(size_t));
 
-      if (systematic && get_logging())
+      if constexpr (systematic)
       {
-        if (first)
+        if (get_logging())
         {
-          auto id = get_systematic_id();
-          auto offset = static_cast<int>(id % 9);
-          if (offset != 0)
-            o << std::setw(offset) << " ";
-          o << id;
-          o << std::setw(9 - offset) << " ";
-          first = false;
-        }
+          if (first)
+          {
+            auto id = get_systematic_id();
+            auto offset = static_cast<int>(id % 9);
+            if (offset != 0)
+              *o << std::setw(offset) << " ";
+            *o << id;
+            *o << std::setw(9 - offset) << " ";
+            first = false;
+          }
 
-        o << value;
+          *o << value;
+        }
       }
 
-      if (flight_recorder)
+      if constexpr (flight_recorder)
       {
         std::ostream& (*pp)(std::ostream & os, T const& e) = &(pretty_printer);
 
@@ -347,7 +351,16 @@ namespace Systematic
     }
 
   public:
-    SysLog(std::ostream& o) : o(o) {}
+#ifdef USE_SYSTEMATIC_TESTING
+    SysLog()
+    {
+      if constexpr (systematic)
+      {
+        o = &std::cout;
+        first = true;
+      }
+    }
+#endif
 
     static void dump_flight_recorder(size_t id = 0)
     {
@@ -380,13 +393,16 @@ namespace Systematic
 
     inline SysLog& operator<<(std::ostream& (*f)(std::ostream&))
     {
-      if (systematic && get_logging())
+      if constexpr (systematic)
       {
-        o << f;
-        o.flush();
-        first = true;
+        if (get_logging())
+        {
+          *o << f;
+          o->flush();
+          first = true;
+        }
       }
-      if (flight_recorder)
+      if constexpr (flight_recorder)
       {
         ThreadLocalLog::get().log->eject();
       }
@@ -593,7 +609,7 @@ namespace Systematic
 
   inline SysLog& cout()
   {
-    static SysLog cout_log(std::cout);
+    static SysLog cout_log;
     return cout_log;
   }
 } // namespace Systematic

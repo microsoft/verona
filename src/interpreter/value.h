@@ -78,6 +78,7 @@ namespace verona::interpreter
     static Value imm(VMObject* object);
     // Takes ownership of the reference count.
     static Value cown(VMCown* cown);
+    static Value unowned_cown(VMCown* cown);
 
     static Value descriptor(const VMDescriptor* descriptor);
 
@@ -92,6 +93,9 @@ namespace verona::interpreter
      * Clear the Value, making it UNINIT.
      *
      * It will release any ownership of regions or reference counts it may have.
+     *
+     * Note that this may cause a re-entrant call onto the VM if an object with
+     * a finaliser is deallocated.
      */
     void clear(rt::Alloc* alloc);
 
@@ -101,6 +105,9 @@ namespace verona::interpreter
      * This moves the contents of `other` into this Value, and releases the old
      * one. It's essentially a move assignment operator, but with access to the
      * memory allocator.
+     *
+     * Note that this may cause a re-entrant call onto the VM if an object with
+     * a finaliser is deallocated.
      */
     void overwrite(rt::Alloc* alloc, Value&& other);
 
@@ -124,17 +131,23 @@ namespace verona::interpreter
     VMObject* consume_iso();
 
     /**
-     * Consume a COWN value, making it unowned. Ownership is released to the
-     * caller.  But the cown is still intact.  This is used when ownership of a
-     * cown is passed to the runtime in a multi-message.
+     * Consume a COWN value, extracting the underlying VMCown*. Ownership is
+     * transferred with the return value.
+     *
+     * This Value is cleared to UNINIT.
      */
-    void consume_cown();
+    VMCown* consume_cown();
 
     /**
-     * On an unowned cown, this converts it to a reference to the underlying
-     * object.
+     * Given a COWN value, get an equivalent COWN_UNOWNED value. This is
      */
-    void switch_to_cown_body();
+    Value as_unowned_cown() const;
+
+    /**
+     * Given a COWN or COWN_UNOWNED value, get a MUT Value referring to the
+     * contents.
+     */
+    Value cown_body() const;
 
     Inner* operator->()
     {

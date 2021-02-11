@@ -10,11 +10,13 @@ namespace verona::compiler
   {
     SelectorTable table;
 
+    using selector_type = bytecode::SelectorIdx::underlying_type;
     for (const auto& selector : reachability.selectors)
     {
       size_t index = table.selectors_.size();
-      assert(index <= std::numeric_limits<bytecode::SelectorIdx>::max());
-      table.selectors_[selector] = truncate<uint32_t>(index);
+      assert(index <= std::numeric_limits<selector_type>::max());
+      table.selectors_.insert(
+        {selector, bytecode::SelectorIdx(truncate<selector_type>(index))});
     }
     return table;
   }

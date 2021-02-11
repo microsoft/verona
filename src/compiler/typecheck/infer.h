@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "compiler/ast.h"
 #include "compiler/context.h"
 #include "compiler/dataflow/liveness.h"
 #include "compiler/ir/ir.h"
@@ -10,6 +9,9 @@
 
 namespace verona::compiler
 {
+  struct Method;
+  struct Program;
+
   typedef std::unordered_map<Variable, TypePtr> TypeAssignment;
 
   template<typename T>

@@ -20,7 +20,7 @@
 
 void test_alloc_pool()
 {
-#ifndef USE_MALLOC
+#ifndef SNMALLOC_PASS_THROUGH
   auto* a1 = current_alloc_pool()->acquire();
   auto* a2 = current_alloc_pool()->acquire();
   check(a1 != a2);
@@ -59,6 +59,15 @@ int main(int argc, char** argv)
 //  default_memory_provider().systematic_bump_ptr() += seed << 17;
 #  endif
 #endif
+
+#ifdef CI_BUILD
+  auto log = true;
+#else
+  auto log = opt.has("--log-all");
+#endif
+
+  if (log)
+    Systematic::enable_logging();
 
   memory_alloc::run_test();
   memory_iterator::run_test();

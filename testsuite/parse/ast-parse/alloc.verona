@@ -1,8 +1,24 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+class Empty { }
+class One
+{
+  a: U32;
+}
+class Two
+{
+  a: U32;
+  b: F64;
+}
+
 foo()
 {
   let r1 = new Foo;
   let f = [A](a) where A: U64 { a + 42 };
+
+  let e = new Empty;
+  let e1 = new Empty {} in e;
+  let one = new One { a: U32 = 42; };
+  let two = new Two { a: U32 = 42; b: F64 = 3.14; } in one;
 }

@@ -1,0 +1,1 @@
+(entity "$module" [(typedef "Foo") (function "main" (seq [(static-call [])]))])

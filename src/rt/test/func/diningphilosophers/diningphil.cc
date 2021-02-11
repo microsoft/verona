@@ -13,7 +13,7 @@ struct Fork : public VCown<Fork>
 
   ~Fork()
   {
-    assert(uses_expected == uses);
+    check(uses_expected == uses);
   }
 };
 

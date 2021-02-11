@@ -1,5 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+#include <test/harness.h>
 #include <verona.h>
 
 using namespace snmalloc;
@@ -41,7 +42,7 @@ namespace ext_ref_merge
 
     r1->f1->f1 = r2;
 
-    assert(!r2->debug_is_iso());
+    check(!r2->debug_is_iso());
 
     Immutable::release(alloc, wref1);
     Immutable::release(alloc, wref2);

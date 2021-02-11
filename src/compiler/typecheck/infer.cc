@@ -6,10 +6,10 @@
 #include "compiler/format.h"
 #include "compiler/instantiation.h"
 #include "compiler/printing.h"
-#include "compiler/substitution.h"
 #include "compiler/typecheck/constraint.h"
 #include "compiler/typecheck/solver.h"
 #include "compiler/zip.h"
+#include "ds/error.h"
 
 #include <fmt/ostream.h>
 #include <iostream>
@@ -492,7 +492,9 @@ namespace verona::compiler
       std::vector<Variable>& dead_variables,
       const StringLiteralStmt& stmt)
     {
-      set_type(assignment, stmt.output, context_.mk_string_type());
+      TypePtr u64 = get_entity("String");
+      TypePtr type = context_.mk_intersection(u64, context_.mk_immutable());
+      set_type(assignment, stmt.output, type);
     }
 
     void visit_stmt(
@@ -580,8 +582,7 @@ namespace verona::compiler
       auto it = results_->type_arguments.insert({id, types});
       if (!it.second)
       {
-        std::cerr << "TypeArguments already exist" << std::endl;
-        abort();
+        InternalError::print("TypeArguments already exist\n");
       }
     }
 

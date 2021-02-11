@@ -1,0 +1,62 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+// This test checks that live variables are added to their region's shadow
+// stack, preventing reachable objects from being garbage collected.
+
+class Node
+{
+  id: U64;
+
+  // Self should really be read-only, but not implemented yet.
+  // This is called when the runtime deallocates this object.
+  final(self: mut)
+  {
+    Builtin.print1("Deallocating: {:#}\n", self);
+  }
+}
+
+class Main
+{
+  drop(x: Node & iso) {}
+  main()
+  {
+    var o1 = new Node;
+    var o2 = new Node in o1;
+    var o3 = new Node in o1;
+    var o4 = new Node in o1;
+    var o5 = new Node in o1;
+
+    o1.id = 1;
+    o2.id = 2;
+    o3.id = 3;
+    o4.id = 4;
+    o5.id = 5;
+
+    // CHECK-L: Before: Node { 1 }, Node { 2 }, Node { 3 }, Node { 4 }, Node { 5 }
+    Builtin.print5("Before: {:#}, {:#}, {:#}, {:#}, {:#}\n", mut-view o1, o2, o3, o4, o5);
+
+    // o1, o3 and o5 are live at this point, due to their use in the next print
+    // call. In contrast, o2 and o4 are unreachable, both from the stack and
+    // from the heap, and therefore are garbage collected by the call to
+    // Builtin.trace.
+
+    // CHECK-L: Deallocating: Node { 4 }
+    // CHECK-L: Deallocating: Node { 2 }
+    Builtin.trace(mut-view o1);
+
+    // CHECK-L: After: Node { 1 }, Node { 3 }, Node { 5 }
+    Builtin.print3("After: {:#}, {:#}, {:#}\n", mut-view o1, o3, o5);
+
+    // Prompt deallocation of the region causes the rest of the objects to be
+    // collected.
+
+    // CHECK-L: Deallocating: Node { 5 }
+    // CHECK-L: Deallocating: Node { 3 }
+    // CHECK-L: Deallocating: Node { 1 }
+    Main.drop(o1);
+
+    // CHECK-L: Done
+    Builtin.print("Done");
+  }
+}

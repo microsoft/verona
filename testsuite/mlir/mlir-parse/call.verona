@@ -11,6 +11,10 @@ foo(a: N, b: U64 & imm): R
   {
     return foo(x, y);
   }
+  else if (a != 0)
+  {
+    return a.method(b);
+  }
   return x + y;
 }
 

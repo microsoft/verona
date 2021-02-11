@@ -37,6 +37,7 @@ add_library(veronac-lib
   elaboration.cc
   fixpoint.cc
   intern.cc
+  instantiation.cc
   ir/builder.cc
   ir/dominance.cc
   ir/ir.cc

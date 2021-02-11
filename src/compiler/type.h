@@ -10,7 +10,9 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <string>
 #include <variant>
+#include <vector>
 
 namespace verona::compiler
 {
@@ -474,19 +476,6 @@ namespace verona::compiler
     friend TypeInterner;
   };
   typedef std::shared_ptr<const IsEntityType> IsEntityTypePtr;
-
-  struct StringType final : public Type
-  {
-    bool operator<(const StringType& other) const
-    {
-      return false;
-    }
-
-  private:
-    StringType() {}
-    friend TypeInterner;
-  };
-  typedef std::shared_ptr<const StringType> StringTypePtr;
 
   struct FixpointType : public Type
   {

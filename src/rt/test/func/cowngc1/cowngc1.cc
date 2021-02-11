@@ -201,8 +201,8 @@ struct RCown : public VCown<RCown>
       Cown::release(alloc, r2->f1->cown);
 
       // Want to make sure one of the objects is RC and the other is SCC_PTR.
-      assert(imm1->debug_is_rc() || imm2->debug_is_rc());
-      assert(imm1->debug_is_rc() != imm2->debug_is_rc());
+      check(imm1->debug_is_rc() || imm2->debug_is_rc());
+      check(imm1->debug_is_rc() != imm2->debug_is_rc());
     }
 
     // Release our (RCown's) refcount on the shared_child.
@@ -236,7 +236,7 @@ struct RCown : public VCown<RCown>
     if (imm2 != nullptr)
       fields.push(imm2);
 
-    assert(next != nullptr);
+    check(next != nullptr);
     fields.push(next);
   }
 };

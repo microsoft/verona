@@ -1,5 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+#include <test/harness.h>
 #include <verona.h>
 
 using namespace snmalloc;
@@ -46,9 +47,9 @@ namespace ext_ref_basic
 
     void trace(ObjectStack& st) const
     {
-      assert(ext_node);
+      check(ext_node);
       st.push(ext_node);
-      assert(ext_node_alias);
+      check(ext_node_alias);
       st.push(ext_node_alias);
     }
   };
@@ -104,7 +105,7 @@ namespace ext_ref_basic
 
     void trace(ObjectStack& st) const
     {
-      assert(list);
+      check(list);
       st.push(list);
     }
   };
@@ -125,7 +126,7 @@ namespace ext_ref_basic
       auto alloc = ThreadAlloc::get();
 
       auto list = a->list;
-      assert(ext_node->is_in(Region::get(g_list)));
+      check(ext_node->is_in(Region::get(g_list)));
       auto node = get();
 
       node->prev->next = node->next;
@@ -134,7 +135,7 @@ namespace ext_ref_basic
       node->element = nullptr;
       RegionTrace::gc(alloc, list);
 
-      assert(!ext_node->is_in(Region::get(g_list)));
+      check(!ext_node->is_in(Region::get(g_list)));
       Immutable::release(alloc, ext_node);
     }
 
@@ -184,8 +185,8 @@ namespace ext_ref_basic
     auto r = new (alloc) R<region_type>;
     auto region = Region::get(r);
     auto ext_ref = ExternalRef::create(region, r);
-    assert(ext_ref->is_in(region));
-    assert(ext_ref->get() == r);
+    check(ext_ref->is_in(region));
+    check(ext_ref->get() == r);
 
     Immutable::release(alloc, ext_ref);
     Region::release(alloc, r);

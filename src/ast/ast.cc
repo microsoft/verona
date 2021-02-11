@@ -2,8 +2,19 @@
 // SPDX-License-Identifier: MIT
 #include "ast.h"
 
+namespace
+{
+  auto child_pos(::ast::Ast& parent, ::ast::Ast& child)
+  {
+    auto pos = std::find(parent->nodes.begin(), parent->nodes.end(), child);
+    assert(pos != parent->nodes.end());
+    return pos;
+  }
+}
+
 namespace ast
 {
+  // Include PEG's ""_ operator for string-switches
   using namespace peg::udl;
 
   Ast token(const Ast& ast, const char* name, const std::string& token)
@@ -38,6 +49,39 @@ namespace ast
   {
     ast->nodes.push_back(child);
     child->parent = ast;
+  }
+
+  void insert_before(Ast& child, Ast& before)
+  {
+    auto parent = before->parent.lock();
+    assert(parent);
+    parent->nodes.insert(child_pos(parent, before), child);
+    child->parent = parent;
+  }
+
+  void move_back(Ast& ast, Ast& child)
+  {
+    auto prev = child->parent.lock();
+    assert(ast);
+    push_back(ast, child);
+    if (prev)
+      prev->nodes.erase(child_pos(prev, child));
+  }
+
+  void move_before(Ast& child, Ast& before)
+  {
+    auto prev = child->parent.lock();
+    assert(prev);
+    insert_before(child, before);
+    if (prev)
+      prev->nodes.erase(child_pos(prev, child));
+  }
+
+  void move_children(Ast& from, Ast& to)
+  {
+    for (auto node : from->nodes)
+      push_back(to, node);
+    from->nodes.clear();
   }
 
   void replace(Ast& prev, Ast next)
@@ -184,6 +228,14 @@ namespace ast
     return {};
   }
 
+  std::string hygienic_id(Ast ast, const char* prefix)
+  {
+    auto scope = get_closest(ast, "classdef"_);
+    std::string id{prefix};
+    id += "$" + std::to_string(scope->id++);
+    return id;
+  }
+
   Ast& iteration_parent()
   {
     // This is only used as a helper in ast::for_each to allow removing child
@@ -199,4 +251,9 @@ namespace ast
     thread_local size_t index;
     return index;
   }
+}
+
+void ast_dump(const ::ast::Ast& ast)
+{
+  std::cout << peg::ast_to_s(ast);
 }

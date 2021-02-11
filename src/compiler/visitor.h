@@ -3,9 +3,7 @@
 #pragma once
 
 #include "compiler/ast.h"
-#include "compiler/context.h"
 #include "compiler/traits.h"
-#include "compiler/type.h"
 
 #include <fmt/ostream.h>
 #include <iostream>
@@ -116,22 +114,18 @@ namespace verona::compiler
       }
       else
       {
-        fmt::print(
-          std::cerr,
-          "ExprVisitor dispatch failed on {}\n",
-          typeid(expr).name());
-        abort();
+        InternalError::print(
+          "ExprVisitor dispatch failed on {}\n", typeid(expr).name());
       }
     }
 
   private:
     virtual Return visit_base_expr(Expression& expr, Args... args)
     {
-      fmt::print(
+      InternalError::print(
         "Unhandled case {} in visitor {}.\n",
         typeid(expr).name(),
         typeid(*this).name());
-      abort();
     }
     virtual Return visit_symbol(SymbolExpr& expr, Args... args)
     {
@@ -211,270 +205,12 @@ namespace verona::compiler
   };
 
   template<typename Return = void, typename... Args>
-  class TypeVisitor
-  {
-  public:
-    template<typename Ts>
-    void visit_types(const Ts& types, Args... args)
-    {
-      static_assert(std::is_void_v<Return>);
-      for (const auto& ty : types)
-      {
-        visit_type(ty, args...);
-      }
-    }
-
-  public:
-    virtual Return visit_type(const TypePtr& ty, Args... args)
-    {
-      if (auto ty_ = ty->dyncast<EntityType>())
-      {
-        return visit_entity_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<TypeParameter>())
-      {
-        return visit_type_parameter(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<StaticType>())
-      {
-        return visit_static_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<CapabilityType>())
-      {
-        return visit_capability(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<ApplyRegionType>())
-      {
-        return visit_apply_region(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<UnapplyRegionType>())
-      {
-        return visit_unapply_region(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<UnionType>())
-      {
-        return visit_union(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<IntersectionType>())
-      {
-        return visit_intersection(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<InferType>())
-      {
-        return visit_infer(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<UnitType>())
-      {
-        return visit_unit_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<RangeType>())
-      {
-        return visit_range_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<ViewpointType>())
-      {
-        return visit_viewpoint_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<HasFieldType>())
-      {
-        return visit_has_field_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<DelayedFieldViewType>())
-      {
-        return visit_delayed_field_view_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<HasMethodType>())
-      {
-        return visit_has_method_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<HasAppliedMethodType>())
-      {
-        return visit_has_applied_method_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<IsEntityType>())
-      {
-        return visit_is_entity_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<StringType>())
-      {
-        return visit_string_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<FixpointType>())
-      {
-        return visit_fixpoint_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<FixpointVariableType>())
-      {
-        return visit_fixpoint_variable_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<EntityOfType>())
-      {
-        return visit_entity_of_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<VariableRenamingType>())
-      {
-        return visit_variable_renaming_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<PathCompressionType>())
-      {
-        return visit_path_compression_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<IndirectType>())
-      {
-        return visit_indirect_type(ty_, std::forward<Args>(args)...);
-      }
-      else if (auto ty_ = ty->dyncast<NotChildOfType>())
-      {
-        return visit_not_child_of_type(ty_, std::forward<Args>(args)...);
-      }
-      else
-      {
-        // Silence a warning about typeid(*ty) having a potential side-effect
-        const Type& ty_ref = *ty;
-        fmt::print(
-          std::cerr,
-          "TypeVisitor dispatch failed on {}\n",
-          typeid(ty_ref).name());
-        abort();
-      }
-    }
-
-  private:
-    virtual Return visit_base_type(const TypePtr& ty, Args... args)
-    {
-      // Silence a warning about typeid(*ty) having a potential side-effect
-      const Type& ty_ref = *ty;
-      fmt::print(
-        "Unhandled case {} in visitor {}.\n",
-        typeid(ty_ref).name(),
-        typeid(*this).name());
-      abort();
-    }
-    virtual Return visit_entity_type(const EntityTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return
-    visit_type_parameter(const TypeParameterPtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_static_type(const StaticTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_capability(const CapabilityTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return
-    visit_apply_region(const ApplyRegionTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return
-    visit_unapply_region(const UnapplyRegionTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_union(const UnionTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return
-    visit_intersection(const IntersectionTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_infer(const InferTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_unit_type(const UnitTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_range_type(const RangeTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return
-    visit_viewpoint_type(const ViewpointTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_has_field_type(const HasFieldTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_delayed_field_view_type(
-      const DelayedFieldViewTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return
-    visit_has_method_type(const HasMethodTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_has_applied_method_type(
-      const HasAppliedMethodTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_is_entity_type(const IsEntityTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_string_type(const StringTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_fixpoint_type(const FixpointTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_fixpoint_variable_type(
-      const FixpointVariableTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_entity_of_type(const EntityOfTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_variable_renaming_type(
-      const VariableRenamingTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return
-    visit_path_compression_type(const PathCompressionTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return visit_indirect_type(const IndirectTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-    virtual Return
-    visit_not_child_of_type(const NotChildOfTypePtr& ty, Args... args)
-    {
-      return visit_base_type(ty, std::forward<Args>(args)...);
-    }
-  };
-
-  template<typename Return = void, typename... Args>
   class TypeExpressionVisitor
   {
   public:
     virtual Return visit_type_expression(TypeExpression& te, Args... args)
     {
-      if (auto expr_ = dynamic_cast<StringTypeExpr*>(&te))
-      {
-        return visit_string_type_expr(*expr_, std::forward<Args>(args)...);
-      }
-      else if (auto expr_ = dynamic_cast<SymbolTypeExpr*>(&te))
+      if (auto expr_ = dynamic_cast<SymbolTypeExpr*>(&te))
       {
         return visit_symbol_type_expr(*expr_, std::forward<Args>(args)...);
       }
@@ -497,26 +233,18 @@ namespace verona::compiler
       }
       else
       {
-        fmt::print(
-          std::cerr,
-          "TypeExpressionVisitor dispatch failed on {}\n",
-          typeid(te).name());
-        abort();
+        InternalError::print(
+          "TypeExpressionVisitor dispatch failed on {}\n", typeid(te).name());
       }
     }
 
   private:
     virtual Return visit_base_type_expression(TypeExpression& te, Args... args)
     {
-      fmt::print(
+      InternalError::print(
         "Unhandled case {} in visitor {}.\n",
         typeid(te).name(),
         typeid(*this).name());
-      abort();
-    }
-    virtual Return visit_string_type_expr(StringTypeExpr& te, Args... args)
-    {
-      return visit_base_type_expression(te, std::forward<Args>(args)...);
     }
     virtual Return visit_symbol_type_expr(SymbolTypeExpr& te, Args... args)
     {

@@ -88,7 +88,7 @@ namespace noticeboard_basic
       {
         fields.push(alive);
       }
-      assert(db);
+      check(db);
       fields.push(db);
     }
   };
@@ -160,7 +160,7 @@ namespace noticeboard_basic
           }
           else
           {
-            assert(o->alive);
+            check(o->alive);
             Cown::acquire(o->alive);
             peeker->alive = o->alive;
             peeker->state = WAITFORCOLLECTION;
@@ -195,7 +195,7 @@ namespace noticeboard_basic
           return;
         }
       }
-      assert(false);
+      check(false);
     }
   };
 

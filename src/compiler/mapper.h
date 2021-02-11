@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "compiler/visitor.h"
+#include "compiler/type_visitor.h"
 
 namespace verona::compiler
 {
@@ -181,7 +181,6 @@ namespace verona::compiler
     TypePtr
     visit_has_applied_method_type(const HasAppliedMethodTypePtr& ty) override;
     TypePtr visit_is_entity_type(const IsEntityTypePtr& ty) override;
-    TypePtr visit_string_type(const StringTypePtr& ty) override;
     TypePtr visit_fixpoint_type(const FixpointTypePtr& ty) override;
     TypePtr
     visit_fixpoint_variable_type(const FixpointVariableTypePtr& ty) override;

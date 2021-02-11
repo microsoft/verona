@@ -5,12 +5,12 @@
 
 #include "ast/ast.h"
 #include "dialect/VeronaOps.h"
+#include "dialect/VeronaTypes.h"
 #include "error.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/Function.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/MLIRContext.h"
-#include "mlir/IR/Module.h"
-#include "mlir/IR/StandardTypes.h"
 #include "mlir/Target/LLVMIR.h"
 #include "symbol.h"
 
@@ -55,12 +55,6 @@ namespace mlir::verona
     ReturnValue(mlir::ResultRange& range)
     {
       values.insert(values.begin(), range.begin(), range.end());
-    }
-    /// Assignment operator for ReturnValue.
-    ReturnValue& operator=(ReturnValue& other)
-    {
-      values = other.values;
-      return *this;
     }
     /// Assignment operator for mlir::Value.
     ReturnValue& operator=(mlir::Value& value)
@@ -123,10 +117,8 @@ namespace mlir::verona
     Generator(MLIRContext* context)
     : context(context), builder(context), unkLoc(builder.getUnknownLoc())
     {
-      // Initialise known opaque types, for comparison.
-      // TODO: Use Verona dialect types directly and isA<>.
-      allocaTy = genOpaqueType("alloca");
-      unkTy = genOpaqueType("unk");
+      // Initialise boolean / unknown types for convenience coding
+      unkTy = UnknownType::get(context);
       boolTy = builder.getI1Type();
     }
 
@@ -153,8 +145,6 @@ namespace mlir::verona
     /// Nested reference for head/exit blocks in loops.
     BasicBlockTableT loopTable;
 
-    /// Alloca types, before we start using Verona types with known sizes.
-    mlir::Type allocaTy;
     /// Unknown types, will be defined during type inference.
     mlir::Type unkTy;
     /// MLIR boolean type (int1).
@@ -167,17 +157,6 @@ namespace mlir::verona
     /// Get location of an ast node.
     mlir::Location getLocation(const ::ast::Ast& ast);
 
-    /// Declares a new variable.
-    void declareVariable(llvm::StringRef name, mlir::Value val);
-    /// Updates an existing variable in the local context.
-    void updateVariable(llvm::StringRef name, mlir::Value val);
-    /// Get a (compiler generated) function.
-    /// Will declare the prototype if it has not already been defined.
-    FuncOp getFunction(
-      llvm::StringRef name,
-      llvm::ArrayRef<llvm::StringRef> types,
-      llvm::StringRef retTy);
-
     // ================================================================= Parsers
     // These methods parse the AST into MLIR constructs, then either return the
     // expected MLIR value or call the generators (see below) to do that for
@@ -189,7 +168,8 @@ namespace mlir::verona
     /// Parses a function, from a top-level (module) view.
     llvm::Expected<mlir::FuncOp> parseFunction(const ::ast::Ast& ast);
     /// Parse a class declaration
-    llvm::Expected<mlir::verona::ClassOp> parseClass(const ::ast::Ast& ast);
+    llvm::Expected<ModuleOp>
+    parseClass(const ::ast::Ast& ast, mlir::Type parent = mlir::Type());
 
     /// Recursive type parser, gathers all available information on the type
     /// and sub-types, modifiers, annotations, etc.
@@ -219,6 +199,13 @@ namespace mlir::verona
     llvm::Expected<ReturnValue> parseBreak(const ::ast::Ast& ast);
     /// Parses a 'return' statement.
     llvm::Expected<ReturnValue> parseReturn(const ::ast::Ast& ast);
+    /// Parses a 'new' statement.
+    llvm::Expected<ReturnValue> parseNew(const ::ast::Ast& ast);
+    /// Parses a '.' statement for reading.
+    llvm::Expected<ReturnValue> parseFieldRead(const ::ast::Ast& ast);
+    /// Parses a '.' statement for writing.
+    llvm::Expected<ReturnValue>
+    parseFieldWrite(const ::ast::Ast& ast, mlir::Value value);
 
     // ============================================================== Generators
     // These methods build complex MLIR constructs from parameters either
@@ -262,10 +249,8 @@ namespace mlir::verona
     /// Generates a verona constant with opaque type
     mlir::Value generateConstant(
       mlir::Location loc, llvm::StringRef value, llvm::StringRef typeName);
-    /// Generates a verona alloca with special type (or allocaTy if none)
-    // TODO: use defining operation instead of a special type, default to unkTy
-    mlir::Value
-    generateAlloca(mlir::Location loc, llvm::StringRef typeName = "");
+    /// Generates a verona alloca with specific type
+    mlir::Value generateAlloca(mlir::Location loc, mlir::Type type);
     /// Generates a verona load (using address' type, or unkTy)
     mlir::Value generateLoad(mlir::Location loc, mlir::Value addr);
     /// Generates a verona store (using value's type, or unkTy)
@@ -281,8 +266,5 @@ namespace mlir::verona
       llvm::StringRef name,
       llvm::ArrayRef<mlir::Value> ops,
       mlir::Type retTy);
-
-    /// Wrappers for opaque types before we use actual Verona dialect.
-    mlir::OpaqueType genOpaqueType(llvm::StringRef name);
   };
 }

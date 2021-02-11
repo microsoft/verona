@@ -20,18 +20,18 @@ function(PrepareTest _VERONAC_FLAGS _EXPECTED_DUMP _ACTUAL_DUMP)
   set(EXPECTED_DUMP ${SOURCE_DIR}/${TEST_NAME})
   set(ACTUAL_DUMP ${CMAKE_CURRENT_BINARY_DIR}/${TEST_NAME}.dump)
 
-  if(IS_DIRECTORY "${EXPECTED_DUMP}")
-    # Create the dump directory (if it doesn't yet exist) and cleanup any file
-    # from previous runs.
-    file(MAKE_DIRECTORY ${ACTUAL_DUMP})
-    file(GLOB old_dump_files ${ACTUAL_DUMP}/*)
-    if(old_dump_files)
-      file(REMOVE ${old_dump_files})
-    endif()
+  # Create the dump directory (if it doesn't yet exist) and cleanup any file
+  # from previous runs.
+  file(MAKE_DIRECTORY ${ACTUAL_DUMP})
+  file(GLOB old_dump_files ${ACTUAL_DUMP}/*)
+  if(old_dump_files)
+    file(REMOVE ${old_dump_files})
+  endif()
+  set(${_ACTUAL_DUMP} ${ACTUAL_DUMP} PARENT_SCOPE)
+  set(${_VERONAC_FLAGS} ${${_VERONAC_FLAGS}} --dump-path=${ACTUAL_DUMP} PARENT_SCOPE)
 
+  if(IS_DIRECTORY "${EXPECTED_DUMP}")
     set(${_EXPECTED_DUMP} ${EXPECTED_DUMP} PARENT_SCOPE)
-    set(${_ACTUAL_DUMP} ${ACTUAL_DUMP} PARENT_SCOPE)
-    set(${_VERONAC_FLAGS} ${${_VERONAC_FLAGS}} --dump-path=${ACTUAL_DUMP} PARENT_SCOPE)
   endif()
 endfunction()
 

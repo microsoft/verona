@@ -4,6 +4,51 @@
   + oftype
   + constraints
   + typebody
+    + classdef
+      - id (Empty)
+      + typeparams
+      + oftype
+      + constraints
+      + typebody
+    + classdef
+      - id (One)
+      + typeparams
+      + oftype
+      + constraints
+      + typebody
+        + field
+          + qualifier
+          - id (a)
+          + oftype
+            + type
+              + type_one/1
+                + type_ref
+                  - id (U32)
+          + initexpr
+    + classdef
+      - id (Two)
+      + typeparams
+      + oftype
+      + constraints
+      + typebody
+        + field
+          + qualifier
+          - id (a)
+          + oftype
+            + type
+              + type_one/1
+                + type_ref
+                  - id (U32)
+          + initexpr
+        + field
+          + qualifier
+          - id (b)
+          + oftype
+            + type
+              + type_one/1
+                + type_ref
+                  - id (F64)
+          + initexpr
     + function
       + qualifier
       + funcname
@@ -57,3 +102,76 @@
                     - localref (a)
                     + args
                       - int (42)
+          + assign
+            + let
+              - local (e)
+              + oftype
+            + new
+              + type
+                + type_one/1
+                  + type_ref
+                    - id (Empty)
+          + assign
+            + let
+              - local (e1)
+              + oftype
+            + new
+              + type
+                + type_one/1
+                  + type_ref
+                    - id (Empty)
+              + typebody
+              + inregion
+                - id (e)
+          + assign
+            + let
+              - local (one)
+              + oftype
+            + new
+              + type
+                + type_one/1
+                  + type_ref
+                    - id (One)
+              + typebody
+                + field
+                  + qualifier
+                  - id (a)
+                  + oftype
+                    + type
+                      + type_one/1
+                        + type_ref
+                          - id (U32)
+                  + initexpr
+                    - int (42)
+          + assign
+            + let
+              - local (two)
+              + oftype
+            + new
+              + type
+                + type_one/1
+                  + type_ref
+                    - id (Two)
+              + typebody
+                + field
+                  + qualifier
+                  - id (a)
+                  + oftype
+                    + type
+                      + type_one/1
+                        + type_ref
+                          - id (U32)
+                  + initexpr
+                    - int (42)
+                + field
+                  + qualifier
+                  - id (b)
+                  + oftype
+                    + type
+                      + type_one/1
+                        + type_ref
+                          - id (F64)
+                  + initexpr
+                    - float (3.14)
+              + inregion
+                - id (one)

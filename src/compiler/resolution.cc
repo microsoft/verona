@@ -7,7 +7,6 @@
 #include "compiler/mapper.h"
 #include "compiler/printing.h"
 #include "compiler/recursive_visitor.h"
-#include "compiler/substitution.h"
 #include "compiler/visitor.h"
 #include "compiler/zip.h"
 
@@ -467,11 +466,6 @@ namespace verona::compiler
     void visit_block(BlockExpr& expr) final
     {
       push_scope([&]() { visit_expr(*expr.inner); });
-    }
-
-    TypePtr visit_string_type_expr(StringTypeExpr& te)
-    {
-      return context_.mk_string_type();
     }
 
     TypePtr visit_symbol_type_expr(SymbolTypeExpr& te)

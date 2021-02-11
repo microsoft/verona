@@ -136,6 +136,12 @@ jobs:
       solution: build/verona.sln
       msbuildArguments: '/m /p:Configuration=$(BuildType)'
 
+  - task: MSBuild@1
+    displayName: 'Test'
+    inputs:
+      solution: build/check.vcxproj
+      msbuildArguments: '/m /p:Configuration=$(BuildType)'
+
   - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
     displayName: 'Component Detection'
     inputs:
@@ -165,7 +171,7 @@ jobs:
 
   - script: |
       set -eo pipefail
-      sudo pip install wheel OutputCheck
+      sudo pip3 install wheel OutputCheck
     displayName:  'Dependencies'
 
   - task: CMake@1

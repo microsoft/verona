@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "compiler/visitor.h"
+#include "compiler/type_visitor.h"
+
+#include <unordered_map>
 
 namespace verona::compiler
 {
@@ -192,11 +194,6 @@ namespace verona::compiler
     }
 
     FreeVariables visit_unit_type(const UnitTypePtr& ty) final
-    {
-      return FreeVariables();
-    }
-
-    FreeVariables visit_string_type(const StringTypePtr& ty) final
     {
       return FreeVariables();
     }

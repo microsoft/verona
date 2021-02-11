@@ -4,6 +4,7 @@
 
 #include "interpreter/convert.h"
 #include "interpreter/format.h"
+#include "interpreter/value_list.h"
 
 #include <fmt/ranges.h>
 
@@ -21,16 +22,19 @@ namespace verona::interpreter
     // First argument is the receiver, followed by cown_count cowns that are
     // being acquired, followed by captures. The cowns need to be transformed
     // so we actually pass their contents to the behaviour instead.
-    size_t index = 0;
-    for (auto& a : args)
+    for (size_t i = 0; i < args.size(); i++)
     {
-      if (index > 0 && index <= cown_count)
+      Register reg(truncate<uint8_t>(i));
+      Value& value = args[i];
+      if (i > 0 && i <= cown_count)
       {
-        a.switch_to_cown_body();
+        write(reg, value.cown_body());
+        value.clear(alloc_);
       }
-      stack_.at(index).overwrite(alloc_, std::move(a));
-
-      index++;
+      else
+      {
+        write(reg, std::move(value));
+      }
     }
 
     dispatch_loop();
@@ -66,7 +70,7 @@ namespace verona::interpreter
     while (!halt_)
     {
       start_ip_ = frame().ip;
-      Opcode op = code_.opcode(frame().ip);
+      Opcode op = code_.load<Opcode>(frame().ip);
       dispatch_opcode(op);
     }
   }
@@ -130,33 +134,32 @@ namespace verona::interpreter
 
   Value& VM::read(Register reg)
   {
-    if (reg.index >= frame().locals)
+    if (reg.value >= frame().locals)
     {
-      fatal("Out of bounds stack access (register {})", reg.index);
+      fatal("Out of bounds stack access (register {})", reg.value);
     }
-    return stack_.at(frame().base + reg.index);
+    return stack_.at(frame().base + reg.value);
   }
 
   const Value& VM::read(Register reg) const
   {
-    if (reg.index >= frame().locals)
+    if (reg.value >= frame().locals)
     {
-      fatal("Out of bounds stack access (register {})", reg.index);
+      fatal("Out of bounds stack access (register {})", reg.value);
     }
-    return stack_.at(frame().base + reg.index);
+    return stack_.at(frame().base + reg.value);
   }
 
   void VM::write(Register reg, Value value)
   {
-    if (reg.index >= frame().locals)
-      fatal("Out of bounds stack access (register {})", reg.index);
+    if (reg.value >= frame().locals)
+      fatal("Out of bounds stack access (register {})", reg.value);
 
-    stack_.at(frame().base + reg.index).overwrite(alloc_, std::move(value));
+    stack_.at(frame().base + reg.value).overwrite(alloc_, std::move(value));
   }
 
-  const VMDescriptor* VM::find_dispatch_descriptor(Register receiver) const
+  const VMDescriptor* VM::find_dispatch_descriptor(const Value& value) const
   {
-    const Value& value = read(receiver);
     switch (value.tag)
     {
       case Value::MUT:
@@ -170,8 +173,37 @@ namespace verona::interpreter
         return value->cown->descriptor;
       case Value::U64:
         return code_.special_descriptors().u64;
+      case Value::STRING:
+        return code_.special_descriptors().string;
       default:
-        fatal("Cannot call method on {}={}", receiver, value);
+        fatal("Cannot call method on {}", value);
+    }
+  }
+
+  const VMDescriptor* VM::find_match_descriptor(const Value& value) const
+  {
+    switch (value.tag)
+    {
+      case Value::MUT:
+      case Value::IMM:
+      case Value::ISO:
+        return value->object->descriptor();
+
+      case Value::COWN:
+        return value->cown->descriptor;
+
+      case Value::U64:
+        return code_.special_descriptors().u64;
+
+      case Value::STRING:
+        return code_.special_descriptors().string;
+
+      case Value::DESCRIPTOR:
+      case Value::UNINIT:
+        return nullptr;
+
+      default:
+        fatal("Invalid match operand: {}", value);
     }
   }
 
@@ -247,10 +279,10 @@ namespace verona::interpreter
       fatal("Call space does not fit in current frame");
 
     // Dispatch on the receiver, which is the first value in the callspace.
-    const VMDescriptor* descriptor =
-      find_dispatch_descriptor(Register(frame().locals - callspace));
+    const Value& receiver = read(Register(frame().locals - callspace));
+    const VMDescriptor* descriptor = find_dispatch_descriptor(receiver);
 
-    size_t addr = descriptor->methods[selector];
+    size_t addr = descriptor->methods[selector.value];
     size_t base = frame().base + frame().locals - callspace;
 
     push_frame(addr, base, OnReturn::Continue);
@@ -268,6 +300,14 @@ namespace verona::interpreter
   Value VM::opcode_clear()
   {
     return Value();
+  }
+
+  void VM::opcode_clear_list(ValueList values)
+  {
+    for (Value& value : values)
+    {
+      value.clear(alloc_);
+    }
   }
 
   void VM::opcode_fulfill_sleeping_cown(const Value& cown, Value result)
@@ -304,15 +344,15 @@ namespace verona::interpreter
     return Value::string(imm);
   }
 
-  void VM::opcode_jump(int16_t offset)
+  void VM::opcode_jump(RelativeOffset offset)
   {
-    frame().ip = start_ip_ + offset;
+    frame().ip = start_ip_ + offset.value;
   }
 
-  void VM::opcode_jump_if(uint64_t condition, int16_t offset)
+  void VM::opcode_jump_if(uint64_t condition, RelativeOffset offset)
   {
     if (condition > 0)
-      frame().ip = start_ip_ + offset;
+      frame().ip = start_ip_ + offset.value;
   }
 
   Value VM::opcode_load(const Value& base, SelectorIdx selector)
@@ -321,7 +361,7 @@ namespace verona::interpreter
 
     VMObject* object = base->object;
     const VMDescriptor* descriptor = object->descriptor();
-    size_t index = descriptor->fields[selector];
+    size_t index = descriptor->fields[selector.value];
 
     Value value = object->fields[index].read(base.tag);
     return std::move(value);
@@ -333,31 +373,50 @@ namespace verona::interpreter
     return Value::descriptor(descriptor);
   }
 
-  Value VM::opcode_match(const Value& src, const VMDescriptor* descriptor)
+  Value VM::opcode_match_descriptor(const Value& src, const VMDescriptor* desc)
+  {
+    const VMDescriptor* src_descriptor = find_match_descriptor(src);
+
+    uint64_t result;
+
+    // Some values are unmatchable, in which case their descriptor is null.
+    if (src_descriptor == nullptr)
+      result = 0;
+    else
+      result = desc->subtypes.count(src_descriptor->index) > 0;
+
+    trace(" Matching {} against {} = {}", src, desc->name, result);
+    return Value::u64(result);
+  }
+
+  Value VM::opcode_match_capability(const Value& src, bytecode::Capability cap)
   {
     uint64_t result;
     switch (src.tag)
     {
-      case Value::UNINIT:
+      case Value::ISO:
+        result = (cap == bytecode::Capability::Iso);
+        break;
+
+      case Value::MUT:
+        result = (cap == bytecode::Capability::Mut);
+        break;
+
+      // These are all represented as immutables in the source language, even if
+      // we don't actually implement them as immutable objects in the VM.
+      case Value::IMM:
+      case Value::COWN:
       case Value::U64:
       case Value::STRING:
-      case Value::DESCRIPTOR:
-      case Value::COWN:
-        result = false;
+        result = (cap == bytecode::Capability::Imm);
         break;
 
-      case Value::ISO:
-      case Value::IMM:
-      case Value::MUT:
-        result = (src->object->descriptor() == descriptor);
+      default:
+        result = 0;
         break;
-      case Value::COWN_UNOWNED:
-        // This type should only appear in message.
-        abort();
     }
 
-    trace(" Matching {} against {} = {}", src, descriptor->name, result);
-
+    trace(" Matching {} against {} = {}", src, cap, result);
     return Value::u64(result);
   }
 
@@ -414,13 +473,12 @@ namespace verona::interpreter
     rt::RegionTrace::gc(alloc_, region);
   }
 
-  void VM::opcode_print(std::string_view fmt, uint8_t argc)
+  void VM::opcode_print(std::string_view fmt, ConstValueList values)
   {
     fmt::dynamic_format_arg_store<fmt::format_context> store;
-    for (uint8_t i = 0; i < argc; i++)
+    for (const Value& value : values)
     {
-      Register reg = code_.load<Register>(frame().ip);
-      store.push_back(std::cref(read(reg)));
+      store.push_back(std::cref(value));
     }
     fmt::vprint(fmt, store);
   }
@@ -475,7 +533,7 @@ namespace verona::interpreter
 
     VMObject* object = base->object;
     const VMDescriptor* desc = object->descriptor();
-    size_t index = desc->fields[selector];
+    size_t index = desc->fields[selector.value];
 
     if (src.tag == Value::Tag::MUT && object->region() != src->object->region())
     {
@@ -488,7 +546,7 @@ namespace verona::interpreter
   }
 
   void VM::opcode_when(
-    CodePtr closure_body, uint8_t cown_count, uint8_t capture_count)
+    AbsoluteOffset offset, uint8_t cown_count, uint8_t capture_count)
   {
     // One added for unused receiver
     // TODO-Better-Static-codegen
@@ -496,8 +554,7 @@ namespace verona::interpreter
     if (callspace > frame().locals)
       fatal("Call space does not fit in current frame");
 
-    size_t entry_addr = closure_body;
-    size_t addr = entry_addr;
+    size_t addr = offset.value;
     FunctionHeader header = code_.function_header(addr);
 
     if (callspace > header.argc)
@@ -508,8 +565,9 @@ namespace verona::interpreter
         header.argc);
     }
 
-    size_t top = frame().base + frame().locals;
-    Value* values = &stack_[top - callspace + 1];
+    // Compute the base of the new "frame", relative to the current frame.
+    // We use this to copy these values into the message
+    size_t base = frame().locals - callspace;
 
     // Prepare the cowns and the arguments for the method invocation.
     std::vector<Value> args;
@@ -523,23 +581,28 @@ namespace verona::interpreter
     // The rest are the cowns
     for (size_t i = 0; i < cown_count; i++)
     {
-      Value& v = values[i];
+      Value& v = read(Register(truncate<uint8_t>(base + 1 + i)));
       trace("Capturing cown {:d}: {}", i, v);
       check_type(v, Value::COWN);
 
-      // Multimessage will take increfs on all the cowns, so don't need to
-      // protect them here.
-      cowns.push_back(v->cown);
-      // Releases reference count to caller, so we can use it inside
-      // multi-message.
-      v.consume_cown();
-      args.push_back(std::move(v));
+      // Push the body of the cown into the message, as an unowned cown. The
+      // runtime will be holding a reference to the cown for us, so no need to
+      // have our own.
+      //
+      // We can't look up the pointer to the cown's contents, since for promise
+      // cowns it is not set until the promise is fulfilled.
+      args.push_back(v.as_unowned_cown());
+
+      // Transfer ownership of the cown from `v` into the `cowns` vector. The
+      // runtime will hold on to the references until after the message is
+      // executed.
+      cowns.push_back(v.consume_cown());
     }
 
     // The rest are the captured values
     for (size_t i = 0; i < capture_count; i++)
     {
-      Value& v = values[i + cown_count];
+      Value& v = read(Register(truncate<uint8_t>(base + 1 + cown_count + i)));
       trace("Capturing variable {:d}: {}", i + cown_count, v);
       args.push_back(std::move(v));
     }
@@ -554,7 +617,39 @@ namespace verona::interpreter
     }
 
     rt::Cown::schedule<ExecuteMessage, rt::YesTransfer>(
-      cowns.size(), cowns.data(), entry_addr, std::move(args), cown_count);
+      cowns.size(), cowns.data(), offset.value, std::move(args), cown_count);
+  }
+
+  void VM::opcode_protect(ConstValueList values)
+  {
+    for (const Value& value : values)
+    {
+      // Only MUTs need to be protected against GC. ISOs are the entrypoint to
+      // the region, hence are always traced. IMM and COWNs hold reference
+      // counts to their object. The rest aren't managed by the runtime.
+      if (value.tag == Value::MUT)
+      {
+        VMObject* object = value->object;
+        VMObject* region = object->region();
+        rt::RegionTrace::push_additional_root(region, object, alloc_);
+      }
+    }
+  }
+
+  void VM::opcode_unprotect(ConstValueList values)
+  {
+    // We iterate over the values in reverse order, in accordance with the stack
+    // API exposed by the runtime.
+    for (auto it = values.rbegin(); it != values.rend(); ++it)
+    {
+      const Value& value = *it;
+      if (value.tag == Value::MUT)
+      {
+        VMObject* object = value->object;
+        VMObject* region = object->region();
+        rt::RegionTrace::pop_additional_root(region, object, alloc_);
+      }
+    }
   }
 
   void VM::opcode_unreachable()
@@ -574,6 +669,7 @@ namespace verona::interpreter
       OP(BinOp, opcode_binop);
       OP(Call, opcode_call);
       OP(Clear, opcode_clear);
+      OP(ClearList, opcode_clear_list);
       OP(Copy, opcode_copy);
       OP(FulfillSleepingCown, opcode_fulfill_sleeping_cown);
       OP(Freeze, opcode_freeze);
@@ -582,7 +678,8 @@ namespace verona::interpreter
       OP(JumpIf, opcode_jump_if);
       OP(Load, opcode_load);
       OP(LoadDescriptor, opcode_load_descriptor);
-      OP(Match, opcode_match);
+      OP(MatchCapability, opcode_match_capability);
+      OP(MatchDescriptor, opcode_match_descriptor);
       OP(Move, opcode_move);
       OP(MutView, opcode_mut_view);
       OP(NewObject, opcode_new_object);
@@ -590,11 +687,13 @@ namespace verona::interpreter
       OP(NewSleepingCown, opcode_new_sleeping_cown);
       OP(NewCown, opcode_new_cown);
       OP(Print, opcode_print);
+      OP(Protect, opcode_protect);
       OP(Return, opcode_return);
       OP(Store, opcode_store);
       OP(String, opcode_string);
       OP(TraceRegion, opcode_trace_region);
       OP(When, opcode_when);
+      OP(Unprotect, opcode_unprotect);
       OP(Unreachable, opcode_unreachable);
 
 #undef OP

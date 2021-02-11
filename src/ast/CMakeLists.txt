@@ -11,6 +11,7 @@ add_library(verona-ast-lib
   prec.cc
   ref.cc
   path.cc
+  sugar.cc
   sym.cc
   )
 

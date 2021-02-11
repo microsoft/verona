@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "compiler/ast.h"
-
 namespace verona::compiler
 {
+  struct Program;
+  class Context;
+
   /**
    * The elaboration pass desugars the `where ... in ...` clauses by modifying
    * the types in method signatures.

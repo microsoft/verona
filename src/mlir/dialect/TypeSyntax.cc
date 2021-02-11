@@ -50,19 +50,7 @@ namespace mlir::verona::detail
     void printVeronaType(Type type)
     {
       TypeSwitch<Type>(type)
-        .Case<IntegerType>([&](IntegerType type) {
-          if (type.getSign())
-          {
-            os << "S";
-          }
-          else
-          {
-            os << "U";
-          }
-          os << type.getWidth();
-        })
-        .Case<FloatType>([&](FloatType type) { os << "F" << type.getWidth(); })
-        .Case<BoolType>([&](BoolType type) { os << "bool"; })
+        .Case<UnknownType>([&](UnknownType type) { os << "unknown"; })
         .Case<MeetType>([&](MeetType type) {
           if (type.getElements().empty())
           {
@@ -163,31 +151,6 @@ namespace mlir::verona::detail
       return JoinType::get(context, elements);
     }
 
-    Type parseIntegerType(StringRef keyword)
-    {
-      size_t width = 0;
-      if (keyword.substr(1).getAsInteger(10, width))
-      {
-        parser.emitError(parser.getNameLoc(), "unknown verona type: ")
-          << keyword;
-        return Type();
-      }
-      bool sign = keyword.startswith("S");
-      return IntegerType::get(context, width, sign);
-    }
-
-    Type parseFloatType(StringRef keyword)
-    {
-      size_t width = 0;
-      if (keyword.substr(1).getAsInteger(10, width))
-      {
-        parser.emitError(parser.getNameLoc(), "unknown verona type: ")
-          << keyword;
-        return Type();
-      }
-      return FloatType::get(context, width);
-    }
-
     // Annoyingly, DialectAsmParser only exposes `parseOptionalString`, no
     // `parseString`. This method implements the latter based on the former.
     ParseResult parseString(StringRef* value)
@@ -286,12 +249,8 @@ namespace mlir::verona::detail
         return CapabilityType::get(context, Capability::Mutable);
       else if (keyword == "imm")
         return CapabilityType::get(context, Capability::Immutable);
-      else if (keyword == "bool")
-        return BoolType::get(context);
-      else if (keyword.startswith("U") || keyword.startswith("S"))
-        return parseIntegerType(keyword);
-      else if (keyword.startswith("F"))
-        return parseFloatType(keyword);
+      else if (keyword == "unknown")
+        return UnknownType::get(context);
 
       parser.emitError(parser.getNameLoc(), "unknown verona type: ") << keyword;
       return Type();

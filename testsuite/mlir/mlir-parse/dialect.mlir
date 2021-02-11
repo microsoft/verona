@@ -26,31 +26,20 @@
 // }
 // ```
 
-!C = type !verona.class<"C">
-!D = type !verona.class<"D", "f" : meet<U64, imm>, "g" : meet<!C, mut>>
+!C = type !verona.class<"C", "$parent" : class<"$module">>
+!D = type !verona.class<"D", "$parent" : class<"$module">, "f" : meet<class<"U64">, imm>, "g" : meet<!C, mut>, "h" : meet<class<"S32">, mut>, "h" : class<"F32">, "i" : class<"F64">, "j" : class<"bool">>
 module {
-  verona.class @C {
-  }
-
-  verona.class @D {
-    verona.field "f" : !verona.meet<U64, imm>
-    verona.field "g" : !verona.meet<!C, mut>
-    verona.field "h" : !verona.F32
-    verona.field "i" : !verona.F64
-    verona.field "j" : !verona.bool
-  }
-
-  func @bar(%x: !verona.meet<U64, imm>, %y: !verona.meet<U64, imm>) {
+  func @bar(%x: !verona.meet<class<"U64">, imm>, %y: !verona.meet<class<"U64">, imm>) {
     %a = verona.new_region @C [ ] : !verona.meet<!C, iso>
     %b = verona.view %a : !verona.meet<!C, iso> -> !verona.meet<!C, mut>
 
-    %c = verona.new_object @D [ "f", "g" ] (%x, %b : !verona.meet<U64, imm>, !verona.meet<!C, mut>)
+    %c = verona.new_object @D [ "f", "g" ] (%x, %b : !verona.meet<class<"U64">, imm>, !verona.meet<!C, mut>)
       in (%a : !verona.meet<!C, iso>)
       : !verona.meet<!D, mut>
 
     %d = verona.field_read %c["f"]
        : !verona.meet<!D, mut>
-      -> !verona.meet<U64, imm>
+      -> !verona.meet<class<"U64">, imm>
 
     %e = verona.field_read %c["g"]
        : !verona.meet<!D, mut>
@@ -58,8 +47,8 @@ module {
 
     %f = verona.field_write %c["f"], %y
        : !verona.meet<!D, mut>
-      -> !verona.meet<U64, imm>
-      -> !verona.meet<U64, imm>
+      -> !verona.meet<class<"U64">, imm>
+      -> !verona.meet<class<"U64">, imm>
 
      verona.tidy %a : !verona.meet<!C, iso>
      verona.drop %a : !verona.meet<!C, iso>

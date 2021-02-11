@@ -5,6 +5,7 @@
 #include "compiler/format.h"
 #include "compiler/ir/print.h"
 #include "compiler/printing.h"
+#include "ds/error.h"
 #include "ds/helpers.h"
 
 #include <fmt/ostream.h>
@@ -315,15 +316,13 @@ namespace verona::compiler
       type->dyncast<DelayedFieldViewType>() || type->dyncast<EntityOfType>() ||
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
-      type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
-      type->dyncast<UnitType>())
+      type->dyncast<IsEntityType>() || type->dyncast<UnitType>())
       return type;
 
     if (type->dyncast<TypeParameter>() || type->dyncast<InferType>())
       return intern(ApplyRegionType(mode, region, type));
 
-    fmt::print(std::cerr, "Bad ApplyRegionType({}, {})\n", region, *type);
-    abort();
+    InternalError::print("Bad ApplyRegionType({}, {})\n", region, *type);
   }
 
   TypePtr TypeInterner::mk_unapply_region(TypePtr type)
@@ -397,15 +396,13 @@ namespace verona::compiler
       type->dyncast<DelayedFieldViewType>() || type->dyncast<EntityOfType>() ||
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
-      type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
-      type->dyncast<UnitType>())
+      type->dyncast<IsEntityType>() || type->dyncast<UnitType>())
       return type;
 
     // TODO: We never actually create UnapplyRegionType anymore, so we could
     // delete the underlying class.
 
-    std::cerr << "Bad UnapplyRegionType(" << *type << ")" << std::endl;
-    abort();
+    InternalError::print("Bad UnapplyRegionType({})\n", *type);
   }
 
   TypePtr TypeInterner::mk_viewpoint(TypePtr left, TypePtr right)
@@ -416,7 +413,7 @@ namespace verona::compiler
     if (left->dyncast<EntityType>() || left->dyncast<EntityOfType>())
       return mk_top();
 
-    if (right->dyncast<EntityType>() || right->dyncast<StringType>())
+    if (right->dyncast<EntityType>())
       return right;
 
     if (auto isect = left->dyncast<IntersectionType>())
@@ -539,9 +536,7 @@ namespace verona::compiler
       }
     }
 
-    std::cerr << "Bad Viewpoint(" << *left << ", " << *right << ")"
-              << std::endl;
-    abort();
+    InternalError::print("Bad Viewpoint({},{})\n", *left, *right);
   }
 
   template<typename T>
@@ -668,11 +663,6 @@ namespace verona::compiler
     return intern(IsEntityType());
   }
 
-  StringTypePtr TypeInterner::mk_string_type()
-  {
-    return intern(StringType());
-  }
-
   FixpointTypePtr TypeInterner::mk_fixpoint(TypePtr inner)
   {
     assert(is_interned(inner));
@@ -747,9 +737,9 @@ namespace verona::compiler
 
     // These are all entity-like types already.
     if (
-      inner->dyncast<EntityType>() || inner->dyncast<StringType>() ||
-      inner->dyncast<UnitType>() || inner->dyncast<EntityOfType>() ||
-      inner->dyncast<HasFieldType>() || inner->dyncast<HasMethodType>() ||
+      inner->dyncast<EntityType>() || inner->dyncast<UnitType>() ||
+      inner->dyncast<EntityOfType>() || inner->dyncast<HasFieldType>() ||
+      inner->dyncast<HasMethodType>() ||
       inner->dyncast<HasAppliedMethodType>() ||
       inner->dyncast<DelayedFieldViewType>())
       return inner;
@@ -759,8 +749,7 @@ namespace verona::compiler
       inner->dyncast<FixpointType>())
       return intern(EntityOfType(inner));
 
-    std::cerr << "Bad EntityOfType(" << *inner << ")" << std::endl;
-    abort();
+    InternalError::print("Bad EntityOfType({})\n", *inner);
   }
 
   TypePtr
@@ -845,9 +834,8 @@ namespace verona::compiler
       type->dyncast<DelayedFieldViewType>() || type->dyncast<EntityOfType>() ||
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
-      type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
-      type->dyncast<StaticType>() || type->dyncast<UnitType>() ||
-      type->dyncast<TypeParameter>())
+      type->dyncast<IsEntityType>() || type->dyncast<StaticType>() ||
+      type->dyncast<UnitType>() || type->dyncast<TypeParameter>())
       return type;
 
     if (
@@ -856,8 +844,7 @@ namespace verona::compiler
       type->dyncast<IndirectType>())
       return intern(VariableRenamingType(renaming, type));
 
-    fmt::print(std::cerr, "Bad VariableRenamingType({})\n", *type);
-    abort();
+    InternalError::print("Bad VariableRenamingType({})\n", *type);
   }
 
   TypePtr TypeInterner::mk_path_compression(
@@ -948,9 +935,8 @@ namespace verona::compiler
       type->dyncast<DelayedFieldViewType>() || type->dyncast<EntityOfType>() ||
       type->dyncast<EntityType>() || type->dyncast<HasAppliedMethodType>() ||
       type->dyncast<HasFieldType>() || type->dyncast<HasMethodType>() ||
-      type->dyncast<StringType>() || type->dyncast<IsEntityType>() ||
-      type->dyncast<StaticType>() || type->dyncast<UnitType>() ||
-      type->dyncast<TypeParameter>())
+      type->dyncast<IsEntityType>() || type->dyncast<StaticType>() ||
+      type->dyncast<UnitType>() || type->dyncast<TypeParameter>())
       return type;
 
     if (
@@ -967,8 +953,7 @@ namespace verona::compiler
       return unfold_compression(compression, apply_region->region, type);
     }
 
-    fmt::print(
-      std::cerr,
+    InternalError::print(
       "Bad PathCompression([{}], {})\n",
       format::comma_sep(
         compression,
@@ -976,8 +961,6 @@ namespace verona::compiler
           return fmt::format("{}: {}", x.first, *x.second);
         }),
       *type);
-
-    abort();
   }
 
   TypePtr TypeInterner::unfold_compression(
@@ -1147,7 +1130,6 @@ namespace verona::compiler
     DISPATCH(PathCompressionType);
     DISPATCH(RangeType);
     DISPATCH(StaticType);
-    DISPATCH(StringType);
     DISPATCH(TypeParameter);
     DISPATCH(UnapplyRegionType);
     DISPATCH(UnionType);
@@ -1156,8 +1138,7 @@ namespace verona::compiler
     DISPATCH(ViewpointType);
 #undef DISPATCH
 
-    fmt::print(std::cerr, "TypeInterner dispatch failed on {}\n", info.name());
-    abort();
+    InternalError::print("TypeInterner dispatch failed on {}\n", info.name());
   }
 
   bool TypeInterner::LessTypes::operator()(

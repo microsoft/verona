@@ -4,6 +4,7 @@
 // Harness must come before tests.
 #include "./notify_basic.h"
 #include "./notify_coalesce.h"
+#include "./notify_empty_queue.h"
 #include "./notify_interleave.h"
 
 int main(int argc, char** argv)
@@ -14,7 +15,8 @@ int main(int argc, char** argv)
 
   harness.run(notify_interleave::run_test);
 
-  // Here we ensure single-core so that we can assert the number of times
+  harness.run(notify_empty_queue::run_test);
+  // Here we ensure single-core so that we can check the number of times
   // `notified` is called.
   if (harness.cores == 1)
     harness.run(notify_coalesce::run_test);

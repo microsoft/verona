@@ -1,0 +1,68 @@
+module @"$module"  {
+  func private @for_sum(%arg0: !verona.class<"List">) -> !verona.class<"U32"> attributes {class = !verona.class<"$module">} {
+    %0 = "verona.alloca"() : () -> !verona.class<"List">
+    %1 = "verona.store"(%arg0, %0) : (!verona.class<"List">, !verona.class<"List">) -> !verona.unknown
+    %2 = "verona.constant(0)"() : () -> !verona.class<"int">
+    %3 = "verona.alloca"() : () -> !verona.class<"U32">
+    %4 = "verona.store"(%2, %3) : (!verona.class<"int">, !verona.class<"U32">) -> !verona.unknown
+    %5 = "verona.load"(%0) : (!verona.class<"List">) -> !verona.unknown
+    %6 = verona.call "values"[%5 : !verona.unknown] ( : ) : !verona.unknown
+    %7 = "verona.alloca"() : () -> !verona.unknown
+    %8 = "verona.store"(%6, %7) : (!verona.unknown, !verona.unknown) -> !verona.unknown
+    br ^bb1
+  ^bb1:  // 2 preds: ^bb0, ^bb2
+    %9 = "verona.load"(%7) : (!verona.unknown) -> !verona.unknown
+    %10 = verona.call "has_value"[%9 : !verona.unknown] ( : ) : !verona.unknown
+    %11 = "verona.cast"(%10) : (!verona.unknown) -> i1
+    cond_br %11, ^bb2, ^bb3
+  ^bb2:  // pred: ^bb1
+    %12 = "verona.load"(%7) : (!verona.unknown) -> !verona.unknown
+    %13 = verona.call "apply"[%12 : !verona.unknown] ( : ) : !verona.unknown
+    %14 = "verona.alloca"() : () -> !verona.unknown
+    %15 = "verona.store"(%13, %14) : (!verona.unknown, !verona.unknown) -> !verona.unknown
+    %16 = "verona.load"(%7) : (!verona.unknown) -> !verona.unknown
+    %17 = verona.call "next"[%16 : !verona.unknown] ( : ) : !verona.unknown
+    %18 = "verona.load"(%3) : (!verona.class<"U32">) -> !verona.unknown
+    %19 = "verona.load"(%14) : (!verona.unknown) -> !verona.unknown
+    %20 = verona.call "+"[%18 : !verona.unknown] (%19 : !verona.unknown) : !verona.unknown
+    %21 = "verona.store"(%20, %3) : (!verona.unknown, !verona.class<"U32">) -> !verona.unknown
+    br ^bb1
+  ^bb3:  // pred: ^bb1
+    %22 = "verona.load"(%3) : (!verona.class<"U32">) -> !verona.unknown
+    %23 = "verona.cast"(%22) : (!verona.unknown) -> !verona.class<"U32">
+    return %23 : !verona.class<"U32">
+  }
+  func private @while_sum(%arg0: !verona.class<"List">) -> !verona.class<"U32"> attributes {class = !verona.class<"$module">} {
+    %0 = "verona.alloca"() : () -> !verona.class<"List">
+    %1 = "verona.store"(%arg0, %0) : (!verona.class<"List">, !verona.class<"List">) -> !verona.unknown
+    %2 = "verona.constant(0)"() : () -> !verona.class<"int">
+    %3 = "verona.alloca"() : () -> !verona.class<"U32">
+    %4 = "verona.store"(%2, %3) : (!verona.class<"int">, !verona.class<"U32">) -> !verona.unknown
+    %5 = "verona.load"(%0) : (!verona.class<"List">) -> !verona.unknown
+    %6 = verona.call "values"[%5 : !verona.unknown] ( : ) : !verona.unknown
+    %7 = "verona.alloca"() : () -> !verona.unknown
+    %8 = "verona.store"(%6, %7) : (!verona.unknown, !verona.unknown) -> !verona.unknown
+    br ^bb1
+  ^bb1:  // 2 preds: ^bb0, ^bb2
+    %9 = "verona.load"(%7) : (!verona.unknown) -> !verona.unknown
+    %10 = verona.call "has_value"[%9 : !verona.unknown] ( : ) : !verona.unknown
+    %11 = "verona.cast"(%10) : (!verona.unknown) -> i1
+    cond_br %11, ^bb2, ^bb3
+  ^bb2:  // pred: ^bb1
+    %12 = "verona.load"(%7) : (!verona.unknown) -> !verona.unknown
+    %13 = verona.call "apply"[%12 : !verona.unknown] ( : ) : !verona.unknown
+    %14 = "verona.alloca"() : () -> !verona.unknown
+    %15 = "verona.store"(%13, %14) : (!verona.unknown, !verona.unknown) -> !verona.unknown
+    %16 = "verona.load"(%7) : (!verona.unknown) -> !verona.unknown
+    %17 = verona.call "next"[%16 : !verona.unknown] ( : ) : !verona.unknown
+    %18 = "verona.load"(%3) : (!verona.class<"U32">) -> !verona.unknown
+    %19 = "verona.load"(%14) : (!verona.unknown) -> !verona.unknown
+    %20 = verona.call "+"[%18 : !verona.unknown] (%19 : !verona.unknown) : !verona.unknown
+    %21 = "verona.store"(%20, %3) : (!verona.unknown, !verona.class<"U32">) -> !verona.unknown
+    br ^bb1
+  ^bb3:  // pred: ^bb1
+    %22 = "verona.load"(%3) : (!verona.class<"U32">) -> !verona.unknown
+    %23 = "verona.cast"(%22) : (!verona.unknown) -> !verona.class<"U32">
+    return %23 : !verona.class<"U32">
+  }
+}

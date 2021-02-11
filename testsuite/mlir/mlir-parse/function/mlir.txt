@@ -1,30 +1,40 @@
-
-
-module {
-  func @empty_declaration()
-  func @single_arg(!verona.S16)
-  func @args_and_ret(!verona.U32, !verona.S32) -> !verona.F64
-  func @empty_return() {
+module @"$module"  {
+  module @A  {
+    func private @foo() -> !verona.class<"bool"> attributes {class = !verona.class<"A", "$parent" : class<"$module">>, qualifiers = ["static"]} {
+      %0 = "verona.constant(true)"() : () -> !verona.class<"bool">
+      return %0 : !verona.class<"bool">
+    }
+  }
+  module @B  {
+    func private @foo() -> !verona.class<"bool"> attributes {class = !verona.class<"B", "$parent" : class<"$module">>, qualifiers = ["static"]} {
+      %0 = "verona.constant(false)"() : () -> !verona.class<"bool">
+      return %0 : !verona.class<"bool">
+    }
+  }
+  func private @empty_declaration() attributes {class = !verona.class<"$module">}
+  func private @single_arg(!verona.class<"S16">) attributes {class = !verona.class<"$module">}
+  func private @args_and_ret(!verona.class<"U32">, !verona.class<"S32">) -> !verona.class<"F64"> attributes {class = !verona.class<"$module">}
+  func private @empty_return() attributes {class = !verona.class<"$module">} {
     return
   }
-  func @foo(%arg0: !verona.imm, %arg1: !verona.meet<U64, imm>) -> !verona.meet<U64, imm> {
-    %0 = "verona.alloca"() : () -> !type.alloca
-    %1 = "verona.store"(%arg0, %0) : (!verona.imm, !type.alloca) -> !type.unk
-    %2 = "verona.alloca"() : () -> !type.alloca
-    %3 = "verona.store"(%arg1, %2) : (!verona.meet<U64, imm>, !type.alloca) -> !type.unk
-    %4 = "verona.alloca"() : () -> !type.alloca
-    %5 = "verona.load"(%0) : (!type.alloca) -> !type.unk
-    %6 = "verona.load"(%2) : (!type.alloca) -> !type.unk
-    %7 = "verona.add"(%5, %6) : (!type.unk, !type.unk) -> !type.unk
-    %8 = "verona.store"(%7, %4) : (!type.unk, !type.alloca) -> !type.unk
-    %9 = "verona.alloca"() : () -> !type.alloca
-    %10 = "verona.load"(%4) : (!type.alloca) -> !type.unk
-    %11 = "verona.store"(%10, %9) : (!type.unk, !type.alloca) -> !type.unk
-    %12 = "verona.load"(%4) : (!type.alloca) -> !type.unk
-    %13 = "verona.cast"(%12) : (!type.unk) -> !verona.meet<U64, imm>
-    return %13 : !verona.meet<U64, imm>
+  func private @foo(%arg0: !verona.imm, %arg1: !verona.meet<class<"U64">, imm>) -> !verona.meet<class<"U64">, imm> attributes {class = !verona.class<"$module">} {
+    %0 = "verona.alloca"() : () -> !verona.imm
+    %1 = "verona.store"(%arg0, %0) : (!verona.imm, !verona.imm) -> !verona.unknown
+    %2 = "verona.alloca"() : () -> !verona.meet<class<"U64">, imm>
+    %3 = "verona.store"(%arg1, %2) : (!verona.meet<class<"U64">, imm>, !verona.meet<class<"U64">, imm>) -> !verona.unknown
+    %4 = "verona.load"(%0) : (!verona.imm) -> !verona.unknown
+    %5 = "verona.load"(%2) : (!verona.meet<class<"U64">, imm>) -> !verona.unknown
+    %6 = verona.call "+"[%4 : !verona.unknown] (%5 : !verona.unknown) : !verona.unknown
+    %7 = "verona.alloca"() : () -> !verona.unknown
+    %8 = "verona.store"(%6, %7) : (!verona.unknown, !verona.unknown) -> !verona.unknown
+    %9 = "verona.load"(%7) : (!verona.unknown) -> !verona.unknown
+    %10 = "verona.alloca"() : () -> !verona.meet<class<"U64">, imm>
+    %11 = "verona.store"(%9, %10) : (!verona.unknown, !verona.meet<class<"U64">, imm>) -> !verona.unknown
+    %12 = "verona.load"(%7) : (!verona.unknown) -> !verona.unknown
+    %13 = "verona.cast"(%12) : (!verona.unknown) -> !verona.meet<class<"U64">, imm>
+    return %13 : !verona.meet<class<"U64">, imm>
   }
-  func @apply() {
+  func private @apply() attributes {class = !verona.class<"$module">} {
     return
   }
 }

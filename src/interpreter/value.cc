@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "interpreter/value.h"
 
+#include "ds/error.h"
 #include "ds/helpers.h"
 #include "interpreter/object.h"
 
@@ -63,6 +64,14 @@ namespace verona::interpreter
     return v;
   }
 
+  Value Value::unowned_cown(VMCown* cown)
+  {
+    Value v;
+    v.tag = COWN_UNOWNED;
+    v.inner.cown = cown;
+    return v;
+  }
+
   Value Value::descriptor(const VMDescriptor* descriptor)
   {
     Value v;
@@ -89,8 +98,7 @@ namespace verona::interpreter
   {
     if (tag != UNINIT)
     {
-      std::cerr << "Dropped an initialized Value" << std::endl;
-      abort();
+      InternalError::print("Dropped an initialized Value. Codegen issue!\n");
     }
   }
 
@@ -124,26 +132,37 @@ namespace verona::interpreter
     tag = UNINIT;
   }
 
-  void Value::consume_cown()
+  VMCown* Value::consume_cown()
   {
     switch (tag)
     {
       case COWN:
-        tag = COWN_UNOWNED;
-        return;
+        tag = UNINIT;
+        return inner.cown;
       default:
         abort();
     }
   }
 
-  void Value::switch_to_cown_body()
+  Value Value::as_unowned_cown() const
   {
     switch (tag)
     {
+      case COWN:
+        return Value::unowned_cown(inner.cown);
+
+      default:
+        abort();
+    }
+  }
+
+  Value Value::cown_body() const
+  {
+    switch (tag)
+    {
+      case COWN:
       case COWN_UNOWNED:
-        tag = MUT;
-        inner.object = inner.cown->contents;
-        return;
+        return Value::mut(inner.cown->contents);
       default:
         abort();
     }

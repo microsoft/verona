@@ -4,6 +4,7 @@
 
 #include "compiler/freevars.h"
 #include "compiler/printing.h"
+#include "ds/error.h"
 #include "ds/helpers.h"
 
 namespace verona::compiler
@@ -25,11 +26,8 @@ namespace verona::compiler
 
       if (normalized != repeat)
       {
-        std::cerr << "Not idempotent for" << std::endl;
-        std::cerr << " " << *type << std::endl;
-        std::cerr << " " << *normalized << std::endl;
-        std::cerr << " " << *repeat << std::endl;
-        abort();
+        InternalError::print(
+          "Not idempotent for\n{}\n{}\n{}\n", *type, *normalized, *repeat);
       }
 
       cache.insert({type, normalized});

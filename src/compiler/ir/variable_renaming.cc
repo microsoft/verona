@@ -5,6 +5,7 @@
 #include "compiler/format.h"
 #include "compiler/ir/ir.h"
 #include "compiler/zip.h"
+#include "ds/error.h"
 #include "ds/helpers.h"
 
 #include <cassert>
@@ -90,9 +91,10 @@ namespace verona::compiler
     {
       if (!inverse.insert({to, from}).second)
       {
-        fmt::print(std::cerr, "invert([{}])\n", *this);
-        throw std::logic_error(
-          "SSA variable mapped multiple times when inverting");
+        InternalError::print(
+          "invert([{}])\n"
+          "SSA variable mapped multiple times when inverting",
+          *this);
       }
     }
 
@@ -109,15 +111,13 @@ namespace verona::compiler
 
     if (domain_ != other.range_)
     {
-      fmt::print(
-        std::cerr,
+      InternalError::print(
         "Mismatch in range and domain of VariableRenaming composition:"
         " ({} -> {}) ∘ ({} -> {})\n",
         *domain_,
         *range_,
         *other.domain_,
         *other.range_);
-      abort();
     }
 
     VariableRenaming other_inverse = other.invert();
