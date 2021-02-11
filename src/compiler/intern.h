@@ -4,6 +4,7 @@
 
 #include "compiler/type.h"
 
+#include <algorithm>
 #include <optional>
 #include <set>
 
@@ -92,7 +93,6 @@ namespace verona::compiler
     IsEntityTypePtr mk_is_entity();
 
     UnitTypePtr mk_unit();
-    StringTypePtr mk_string_type();
 
     FixpointTypePtr mk_fixpoint(TypePtr inner);
     FixpointVariableTypePtr mk_fixpoint_variable(uint64_t depth);

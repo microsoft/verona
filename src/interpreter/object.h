@@ -5,6 +5,7 @@
 #include "interpreter/bytecode.h"
 #include "interpreter/value.h"
 
+#include <unordered_set>
 #include <verona.h>
 
 namespace verona::interpreter
@@ -12,16 +13,19 @@ namespace verona::interpreter
   struct VMDescriptor : public rt::Descriptor
   {
     VMDescriptor(
+      bytecode::DescriptorIdx index,
       std::string_view name,
       size_t method_slots,
       size_t field_slots,
       size_t field_count,
       uint32_t finaliser_ip);
 
+    const bytecode::DescriptorIdx index;
     const std::string name;
     const size_t field_count;
     std::unique_ptr<uint32_t[]> fields;
     std::unique_ptr<uint32_t[]> methods;
+    std::unordered_set<bytecode::DescriptorIdx> subtypes;
     const uint32_t finaliser_ip;
   };
 

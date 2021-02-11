@@ -34,34 +34,14 @@ namespace verona::compiler
     code_.insert(code_.end(), s.data(), s.data() + s.size());
   }
 
-  void Generator::reg(bytecode::Register reg)
-  {
-    u8(reg.index);
-  }
-
-  void Generator::reglist(bytecode::RegisterSpan regs)
-  {
-    size_t size = regs.size();
-    u8(truncate<uint8_t>(size));
-    for (bytecode::Register r : regs)
-    {
-      reg(r);
-    }
-  }
-
   void Generator::opcode(bytecode::Opcode opcode)
   {
     u8((uint8_t)opcode);
   }
 
-  void Generator::selector(bytecode::SelectorIdx index)
+  void Generator::selector(bytecode::SelectorIdx selector)
   {
-    u32(index);
-  }
-
-  void Generator::descriptor(Descriptor descriptor)
-  {
-    u32(descriptor);
+    u32(selector.value);
   }
 
   void Generator::u8(Relocatable relocatable, size_t relative_to)
@@ -92,28 +72,6 @@ namespace verona::compiler
   {
     add_relocation(current_offset(), 8, relocatable, relative_to, false);
     u64(0);
-  }
-
-  void Generator::child_register(
-    size_t child_callspace, Relocatable frame_size, bytecode::Register reg)
-  {
-    if (reg.index >= child_callspace)
-      throw std::logic_error("Cannot access child argument beyond call space");
-
-    u8(frame_size, child_callspace - reg.index);
-  }
-
-  template<typename T>
-  void Generator::write(std::common_type_t<T> value)
-  {
-    static_assert(std::is_integral_v<T>);
-
-    size_t offset = code_.size();
-    code_.reserve(offset + sizeof(T));
-    for (size_t i = 0; i < sizeof(T) * 8; i += 8)
-    {
-      code_.push_back((value >> i) & 0xff);
-    }
   }
 
   void Generator::finish()

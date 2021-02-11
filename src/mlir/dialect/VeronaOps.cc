@@ -8,7 +8,6 @@
 #include "VeronaTypes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/OpImplementation.h"
-#include "mlir/IR/StandardTypes.h"
 
 #include "llvm/ADT/StringSet.h"
 
@@ -56,8 +55,7 @@ namespace mlir::verona
   {
     return lookupFieldType(origin().getType(), field());
   }
+} // namespace mlir::verona
 
 #define GET_OP_CLASSES
 #include "dialect/VeronaOps.cpp.inc"
-
-} // namespace mlir::verona

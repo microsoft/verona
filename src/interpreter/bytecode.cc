@@ -8,12 +8,6 @@
 
 namespace verona::bytecode
 {
-  std::ostream& operator<<(std::ostream& out, const Register& self)
-  {
-    fmt::print(out, "r{:d}", self.index);
-    return out;
-  }
-
   std::ostream& operator<<(std::ostream& out, const BinaryOperator& self)
   {
     switch (self)
@@ -62,6 +56,25 @@ namespace verona::bytecode
         break;
       case BinaryOperator::Or:
         fmt::print(out, "OR");
+        break;
+
+        EXHAUSTIVE_SWITCH;
+    }
+    return out;
+  }
+
+  std::ostream& operator<<(std::ostream& out, const Capability& self)
+  {
+    switch (self)
+    {
+      case Capability::Iso:
+        fmt::print(out, "ISO");
+        break;
+      case Capability::Mut:
+        fmt::print(out, "MUT");
+        break;
+      case Capability::Imm:
+        fmt::print(out, "IMM");
         break;
 
         EXHAUSTIVE_SWITCH;

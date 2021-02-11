@@ -140,47 +140,36 @@ namespace verona::compiler
      */
     void finish();
 
-    /**
-     * Emit a copy instruction between two local registers.
-     */
-    void emit_copy(Register dst, Register src);
+    CalleeRegister callee_register(const FunctionABI& abi, uint8_t index)
+    {
+      return CalleeRegister(abi.callspace(), frame_size_, Register(index));
+    }
 
-    /**
-     * Emit a copy instruction from a local register to a child-relative
-     * register.
-     *
-     * This is used to pass arguments before calling a function.
-     */
-    void emit_copy_to_child(
-      const FunctionABI& child_abi, Register dst, Register src);
+    template<bytecode::Opcode Op, typename... Ts>
+    void emit(Ts&&... ts)
+    {
+      gen_.emit<Op>(std::forward<Ts>(ts)...);
+    }
 
-    /**
-     * Emit a move instruction between two local registers.
-     */
-    void emit_move(Register dst, Register src);
+    Label create_label()
+    {
+      return gen_.create_label();
+    }
 
-    /**
-     * Emit a move instruction from a child-relative register to a local
-     * register.
-     *
-     * This is used to copy return values after calling a function.
-     */
-    void emit_move_from_child(
-      const FunctionABI& child_abi, Register dst, Register src);
-
-    /**
-     * Emit instructions to load the given descriptor in register `dst`.
-     */
-    void emit_load_descriptor(Register dst, Descriptor desc);
+    void define_label(Label label)
+    {
+      gen_.define_label(label);
+    }
 
   protected:
     Context& context_;
-    Generator& gen_;
     FunctionABI abi_;
 
     RegisterAllocator allocator_ = RegisterAllocator(abi_);
 
   private:
+    Generator& gen_;
+
     /**
      * Total number of registers used by the function.
      * This is used in the function header, and when accessing child-relative

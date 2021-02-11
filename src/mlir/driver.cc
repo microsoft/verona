@@ -20,9 +20,7 @@
 namespace mlir::verona
 {
   Driver::Driver(unsigned optLevel)
-  : context(/*loadAllDialects=*/false),
-    passManager(&context),
-    diagnosticHandler(sourceManager, &context)
+  : passManager(&context), diagnosticHandler(sourceManager, &context)
   {
     context.getOrLoadDialect<mlir::StandardOpsDialect>();
     context.getOrLoadDialect<mlir::verona::VeronaDialect>();

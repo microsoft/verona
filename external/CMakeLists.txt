@@ -62,10 +62,9 @@ if (VERONA_DOWNLOAD_LLVM)
     TEST_COMMAND ""
     USES_TERMINAL_DOWNLOAD true
   )
-
 else()
   list (APPEND LLVM_EXTRA_CMAKE_ARGS
-    -DCMAKE_INSTALL_PREFIX=${MLIR_INSTALL}/install
+    -DCMAKE_INSTALL_PREFIX=${MLIR_INSTALL}/install  # Add install as tar has install prefix. Outer project knows about this.
     -DLLVM_ENABLE_PROJECTS=mlir
     -DLLVM_TARGETS_TO_BUILD=X86
     -DLLVM_ENABLE_ASSERTIONS=On

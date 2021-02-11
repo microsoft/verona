@@ -31,6 +31,10 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 set(LLVM_REQUIRES_EH ON)
 set(LLVM_REQUIRES_RTTI ON)
 
+# LLVM was accidentally defaulting this to OFF.
+# TODO: this has been fixed upstream already. Remove when updating.
+set(LLVM_ENABLE_WARNINGS ON)
+
 set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
 set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
 set(MLIR_BINARY_DIR ${CMAKE_BINARY_DIR})
@@ -44,10 +48,10 @@ include(HandleLLVMOptions)
 
 include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${MLIR_INCLUDE_DIRS})
-include_directories(${PROJECT_SOURCE_DIR}/src/mlir)
-include_directories(${PROJECT_BINARY_DIR}/src/mlir)
-include_directories(${PROJECT_SOURCE_DIR}/external/CLI11/include)
-include_directories(${PROJECT_SOURCE_DIR}/external/cpp-peglib)
+include_directories(${PROJECT_SOURCE_DIR}/mlir)
+include_directories(${PROJECT_BINARY_DIR}/mlir)
+include_directories(../../external/CLI11/include)
+include_directories(../../external/cpp-peglib)
 link_directories(${LLVM_BUILD_LIBRARY_DIR})
 add_definitions(${LLVM_DEFINITIONS})
 

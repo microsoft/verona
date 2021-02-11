@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "ds/helpers.h"
 #include "interpreter/bytecode.h"
 
 #include <functional>
@@ -13,6 +14,18 @@ namespace verona::compiler
 {
   struct Label;
   struct Descriptor;
+  struct CalleeRegister;
+
+  namespace detail
+  {
+    template<typename T>
+    struct is_enum_class
+    : public std::
+        conjunction<std::is_enum<T>, std::negation<std::is_convertible<T, int>>>
+    {};
+    template<typename T>
+    static constexpr bool is_enum_class_v = is_enum_class<T>::value;
+  }
 
   /**
    * Bytecode generation primitives.
@@ -50,15 +63,8 @@ namespace verona::compiler
      */
     void str(std::string_view s);
 
-    void reg(bytecode::Register reg);
     void opcode(bytecode::Opcode opcode);
     void selector(bytecode::SelectorIdx index);
-    void descriptor(Descriptor descriptor);
-
-    /**
-     * Emit a list of registers, prefixed by an 8-bit length.
-     */
-    void reglist(bytecode::RegisterSpan regs);
 
     /**
      * Write relocatable integer values in little endian format, with an
@@ -72,16 +78,6 @@ namespace verona::compiler
     void s16(Relocatable relocatable, size_t relative_to = 0);
     void u32(Relocatable relocatable, size_t relative_to = 0);
     void u64(Relocatable relocatable, size_t relative_to = 0);
-
-    /**
-     * Write a child-relative register index.
-     *
-     * This depends on the call space of the child function, and the size of the
-     * current frame. Since the latter is not usually known until the function
-     * is fully generated, a relocatable value is used instead.
-     */
-    void child_register(
-      size_t child_callspace, Relocatable frame_size, bytecode::Register reg);
 
     /**
      * Create a new relocatable handle.
@@ -116,7 +112,43 @@ namespace verona::compiler
       return code_.size();
     }
 
+    /**
+     * Emit an instruction to the bytecode.
+     *
+     * The arguments passed to this function should match the type of the
+     * opcode's operands, as defined in the opcode spec in
+     * `interpreter/bytecode.h`.
+     */
+    template<bytecode::Opcode Op, typename... Args>
+    void emit(Args&&... args)
+    {
+      using Operands = typename bytecode::OpcodeSpec<Op>::Operands;
+      emit_impl<Op>(Operands{}, std::forward<Args>(args)...);
+    }
+
   private:
+    template<
+      bytecode::Opcode Op,
+      typename... Operands,
+      typename... Args,
+      typename = std::enable_if_t<sizeof...(Operands) == sizeof...(Args)>>
+    void emit_impl(bytecode::OpcodeOperands<Operands...>, Args&&... args)
+    {
+      size_t opcode_start = current_offset();
+      opcode(Op);
+      std::initializer_list<int> x{
+        (emit_helper<Operands>::write(
+           this, opcode_start, std::forward<Args>(args)),
+         0)...};
+    }
+
+    /**
+     * Specialization hook, used to emit values based on the expected type
+     * listed in the opcode specification.
+     */
+    template<typename T, typename = void>
+    struct emit_helper;
+
     /**
      * Write an integer value in little endian format.
      *
@@ -124,7 +156,15 @@ namespace verona::compiler
      * caller the specify the integer type explicitly.
      */
     template<typename T>
-    void write(std::common_type_t<T> value);
+    std::enable_if_t<std::is_integral_v<T>> write(std::common_type_t<T> value)
+    {
+      size_t offset = code_.size();
+      code_.reserve(offset + sizeof(T));
+      for (size_t i = 0; i < sizeof(T) * 8; i += 8)
+      {
+        code_.push_back((value >> i) & 0xff);
+      }
+    }
 
     void add_relocation(
       size_t offset,
@@ -187,6 +227,123 @@ namespace verona::compiler
     operator Generator::Relocatable() const
     {
       return relocatable;
+    }
+  };
+
+  struct CalleeRegister
+  {
+    CalleeRegister(
+      size_t callspace,
+      Generator::Relocatable frame_size,
+      bytecode::Register reg)
+    : callspace(callspace), frame_size(frame_size), reg(reg)
+    {
+      if (reg.value >= callspace)
+        throw std::logic_error(
+          "Cannot access callee argument beyond call space");
+    }
+
+    size_t callspace;
+    Generator::Relocatable frame_size;
+    bytecode::Register reg;
+  };
+
+  template<typename T>
+  struct Generator::emit_helper<T, std::enable_if_t<std::is_integral_v<T>>>
+  {
+    template<typename U>
+    static void write(Generator* gen, size_t opcode_start, U value)
+    {
+      static_assert(
+        std::is_same_v<T, U>, "Attempting to convert types implicitely");
+      gen->write<T>(value);
+    }
+  };
+
+  template<typename T>
+  struct Generator::emit_helper<T, std::enable_if_t<detail::is_enum_class_v<T>>>
+  {
+    static void write(Generator* gen, size_t opcode_start, T value)
+    {
+      using wire_type = std::underlying_type_t<T>;
+      gen->write<wire_type>(static_cast<wire_type>(value));
+    }
+  };
+
+  template<typename T>
+  struct Generator::emit_helper<T, std::enable_if_t<bytecode::is_wrapper_v<T>>>
+  {
+    static void write(Generator* gen, size_t opcode_start, T value)
+    {
+      gen->write<typename T::underlying_type>(value.value);
+    }
+  };
+
+  template<>
+  struct Generator::emit_helper<bytecode::Register>
+  {
+    static void
+    write(Generator* gen, size_t opcode_start, bytecode::Register value)
+    {
+      gen->u8(value.value);
+    }
+
+    static void
+    write(Generator* gen, size_t opcode_start, const CalleeRegister& value)
+    {
+      gen->u8(value.frame_size, value.callspace - value.reg.value);
+    }
+  };
+
+  template<>
+  struct Generator::emit_helper<bytecode::DescriptorIdx>
+  {
+    static void write(Generator* gen, size_t opcode_start, Descriptor value)
+    {
+      gen->u32(value);
+    }
+  };
+
+  template<>
+  struct Generator::emit_helper<std::string_view>
+  {
+    static void
+    write(Generator* gen, size_t opcode_start, std::string_view value)
+    {
+      gen->str(value);
+    }
+  };
+
+  template<>
+  struct Generator::emit_helper<bytecode::RegisterSpan>
+  {
+    static void
+    write(Generator* gen, size_t opcode_start, bytecode::RegisterSpan value)
+    {
+      size_t size = value.size();
+      gen->u8(truncate<uint8_t>(size));
+      for (bytecode::Register reg : value)
+      {
+        gen->u8(reg.value);
+      }
+    }
+  };
+
+  template<>
+  struct Generator::emit_helper<bytecode::RelativeOffset>
+  {
+    static void write(Generator* gen, size_t opcode_start, Label value)
+    {
+      gen->s16(value, opcode_start);
+    }
+  };
+
+  template<>
+  struct Generator::emit_helper<bytecode::AbsoluteOffset>
+  {
+    static void write(Generator* gen, size_t opcode_start, Label value)
+    {
+      gen->u32(value);
     }
   };
 }

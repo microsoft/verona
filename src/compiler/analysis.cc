@@ -8,6 +8,7 @@
 #include "compiler/source_manager.h"
 #include "compiler/typecheck/assertion.h"
 #include "compiler/typecheck/permission_check.h"
+#include "compiler/visitor.h"
 
 #include <fmt/ostream.h>
 
@@ -105,7 +106,7 @@ namespace verona::compiler
 
       FnAnalysis& analysis = results_->functions[method];
 
-      analysis.ir = IRBuilder::build(*method->signature, *method->body);
+      analysis.ir = build_ir(*method->signature, *method->body);
       IRPrinter(*context_.dump(path, "ir")).print("IR", *method, *analysis.ir);
 
       analysis.liveness = compute_liveness(*analysis.ir);

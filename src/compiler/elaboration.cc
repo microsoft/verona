@@ -5,8 +5,6 @@
 #include "compiler/visitor.h"
 #include "compiler/zip.h"
 
-#include <fmt/ostream.h>
-
 namespace verona::compiler
 {
   class ElaborationVisitor : public MemberVisitor<>

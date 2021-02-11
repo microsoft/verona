@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "compiler/mapper.h"
 
+#include "compiler/context.h"
 #include "ds/helpers.h"
 
 namespace verona::compiler
@@ -117,11 +118,6 @@ namespace verona::compiler
   TypePtr RecursiveTypeMapper::visit_is_entity_type(const IsEntityTypePtr& ty)
   {
     return context().mk_is_entity();
-  }
-
-  TypePtr RecursiveTypeMapper::visit_string_type(const StringTypePtr& ty)
-  {
-    return context().mk_string_type();
   }
 
   TypePtr RecursiveTypeMapper::visit_fixpoint_type(const FixpointTypePtr& ty)

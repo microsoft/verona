@@ -12,6 +12,7 @@
 namespace verona::compiler
 {
   using bytecode::Opcode;
+  using bytecode::SelectorIdx;
 
   /**
    * Class for generating the body of methods from their IR.
@@ -47,7 +48,7 @@ namespace verona::compiler
       // which is what we want here.
       while (BasicBlock* bb = traversal.next())
       {
-        gen_.define_label(basic_block_label(bb));
+        define_label(basic_block_label(bb));
 
         std::vector<Liveness> live_out = liveness_.statements_out(bb);
         for (const auto& [stmt, stmt_live_out] :
@@ -86,6 +87,10 @@ namespace verona::compiler
     {
       return method_.instantiation.apply(context_, arguments);
     }
+    TypePtr reify(const TypePtr& type)
+    {
+      return method_.instantiation.apply(context_, type);
+    }
     TypeList reify(TypeArgumentsId id)
     {
       return reify(typecheck_.type_arguments.at(id));
@@ -97,13 +102,12 @@ namespace verona::compiler
       return reachability_.find_entity(item).descriptor;
     }
 
-    bytecode::SelectorIdx
-    method_selector_index(const std::string& name, TypeList arguments)
+    SelectorIdx method_selector(const std::string& name, TypeList arguments)
     {
       return selectors_.get(Selector::method(name, arguments));
     }
 
-    bytecode::SelectorIdx field_selector_index(const std::string& name)
+    SelectorIdx field_selector(const std::string& name)
     {
       return selectors_.get(Selector::field(name));
     }
@@ -134,44 +138,42 @@ namespace verona::compiler
 
       if (!registers.empty())
       {
-        gen_.opcode(Opcode::Protect);
-        gen_.reglist(registers);
+        emit<Opcode::Protect>(registers);
       }
 
       std::forward<Fn>(fn)();
 
       if (!registers.empty())
       {
-        gen_.opcode(Opcode::Unprotect);
-        gen_.reglist(registers);
+        emit<Opcode::Unprotect>(registers);
       }
     }
 
     void visit_stmt(const CallStmt& stmt, const Liveness& live_out)
     {
-      bytecode::SelectorIdx selector =
-        method_selector_index(stmt.method, reify(stmt.type_arguments));
+      SelectorIdx selector =
+        method_selector(stmt.method, reify(stmt.type_arguments));
 
       FunctionABI abi(stmt);
       allocator_.reserve_child_callspace(abi);
 
       size_t index = 0;
-      emit_copy_to_child(
-        abi, Register(truncate<uint8_t>(index++)), variable(stmt.receiver));
+
+      emit<Opcode::Copy>(
+        callee_register(abi, truncate<uint8_t>(index++)),
+        variable(stmt.receiver));
       for (const auto& var : stmt.arguments)
       {
-        Register reg = variable(var);
-        emit_copy_to_child(abi, Register(truncate<uint8_t>(index++)), reg);
+        Register src = variable(var);
+        CalleeRegister dst = callee_register(abi, truncate<uint8_t>(index++));
+        emit<Opcode::Copy>(dst, src);
       }
 
       protect_live_registers(stmt, live_out, [&]() {
-        gen_.opcode(Opcode::Call);
-        gen_.selector(selector);
-        gen_.u8(truncate<uint8_t>(abi.callspace()));
+        emit<Opcode::Call>(selector, truncate<uint8_t>(abi.callspace()));
       });
 
-      Register output = variable(stmt.output);
-      emit_move_from_child(abi, output, Register(0));
+      emit<Opcode::Move>(variable(stmt.output), callee_register(abi, 0));
     }
 
     void visit_stmt(const WhenStmt& stmt, const Liveness& live_out)
@@ -189,20 +191,22 @@ namespace verona::compiler
       size_t index = 1;
       for (const auto& var : stmt.cowns)
       {
-        Register reg = variable(var);
-        emit_copy_to_child(abi, Register(truncate<uint8_t>(index++)), reg);
+        Register src = variable(var);
+        CalleeRegister dst = callee_register(abi, truncate<uint8_t>(index++));
+        emit<Opcode::Copy>(dst, src);
       }
       for (const auto& var : stmt.captures)
       {
-        Register reg = variable(var);
-        emit_copy_to_child(abi, Register(truncate<uint8_t>(index++)), reg);
+        Register src = variable(var);
+        CalleeRegister dst = callee_register(abi, truncate<uint8_t>(index++));
+        emit<Opcode::Copy>(dst, src);
       }
 
       // Gen when opcode with closure
-      gen_.opcode(Opcode::When);
-      gen_.u32(closure_labels_[stmt.closure_index]);
-      gen_.u8(truncate<uint8_t>(stmt.cowns.size()));
-      gen_.u8(truncate<uint8_t>(stmt.captures.size()));
+      emit<Opcode::When>(
+        closure_labels_[stmt.closure_index],
+        truncate<uint8_t>(stmt.cowns.size()),
+        truncate<uint8_t>(stmt.captures.size()));
 
       // No output for now TODO-PROMISE
     }
@@ -212,30 +216,26 @@ namespace verona::compiler
       Register output = variable(stmt.output);
       Descriptor index =
         entity_descriptor(stmt.definition, reify(stmt.type_arguments));
-      emit_load_descriptor(output, index);
+      emit<Opcode::LoadDescriptor>(output, index);
     }
 
     void visit_stmt(const NewStmt& stmt, const Liveness& live_out)
     {
       Descriptor index =
         entity_descriptor(stmt.definition, reify(stmt.type_arguments));
+
       Register descriptor = allocator_.get();
-      emit_load_descriptor(descriptor, index);
+      emit<Opcode::LoadDescriptor>(descriptor, index);
 
       Register output = variable(stmt.output);
       if (stmt.parent)
       {
         Register parent = variable(*stmt.parent);
-        gen_.opcode(Opcode::NewObject);
-        gen_.reg(output);
-        gen_.reg(parent);
-        gen_.reg(descriptor);
+        emit<Opcode::NewObject>(output, parent, descriptor);
       }
       else
       {
-        gen_.opcode(Opcode::NewRegion);
-        gen_.reg(output);
-        gen_.reg(descriptor);
+        emit<Opcode::NewRegion>(output, descriptor);
       }
     }
 
@@ -243,18 +243,16 @@ namespace verona::compiler
     {
       Register input = variable(stmt.input);
       Register output = variable(stmt.output);
-      emit_copy(output, input);
+      emit<Opcode::Copy>(output, input);
     }
 
     void visit_stmt(const ReadFieldStmt& stmt, const Liveness& live_out)
     {
       Register base = variable(stmt.base);
       Register output = variable(stmt.output);
+      SelectorIdx selector = field_selector(stmt.name);
 
-      gen_.opcode(Opcode::Load);
-      gen_.reg(output);
-      gen_.reg(base);
-      gen_.selector(field_selector_index(stmt.name));
+      emit<Opcode::Load>(output, base, selector);
     }
 
     void visit_stmt(const WriteFieldStmt& stmt, const Liveness& live_out)
@@ -262,53 +260,41 @@ namespace verona::compiler
       Register base = variable(stmt.base);
       Register output = variable(stmt.output);
       Register right = variable(stmt.right);
+      SelectorIdx selector = field_selector(stmt.name);
 
-      gen_.opcode(Opcode::Store);
-      gen_.reg(output);
-      gen_.reg(base);
-      gen_.selector(field_selector_index(stmt.name));
-      gen_.reg(right);
+      emit<Opcode::Store>(output, base, selector, right);
     }
 
     void visit_stmt(const CopyStmt& stmt, const Liveness& live_out)
     {
       Register input = variable(stmt.input);
       Register output = variable(stmt.output);
-      emit_copy(output, input);
+      emit<Opcode::Copy>(output, input);
     }
 
     void visit_stmt(const IntegerLiteralStmt& stmt, const Liveness& live_out)
     {
       Register output = variable(stmt.output);
-
-      gen_.opcode(Opcode::Int64);
-      gen_.reg(output);
-      gen_.u64(stmt.value);
+      emit<Opcode::Int64>(output, stmt.value);
     }
 
     void visit_stmt(const StringLiteralStmt& stmt, const Liveness& live_out)
     {
       Register output = variable(stmt.output);
-
-      gen_.opcode(Opcode::String);
-      gen_.reg(output);
-      gen_.str(stmt.value);
+      emit<Opcode::String>(output, stmt.value);
     }
 
     void visit_stmt(const ViewStmt& stmt, const Liveness& live_out)
     {
       Register input = variable(stmt.input);
       Register output = variable(stmt.output);
-      gen_.opcode(Opcode::MutView);
-      gen_.reg(output);
-      gen_.reg(input);
+      emit<Opcode::MutView>(output, input);
     }
 
     void visit_stmt(const UnitStmt& stmt, const Liveness& live_out)
     {
       Register output = variable(stmt.output);
-      gen_.opcode(Opcode::Clear);
-      gen_.reg(output);
+      emit<Opcode::Clear>(output);
     }
 
     void visit_stmt(const EndScopeStmt& stmt, const Liveness& live_out)
@@ -322,15 +308,13 @@ namespace verona::compiler
 
       if (!regs.empty())
       {
-        gen_.opcode(Opcode::ClearList);
-        gen_.reglist(regs);
+        emit<Opcode::ClearList>(regs);
       }
     }
 
     void visit_stmt(const OverwriteStmt& stmt, const Liveness& live_out)
     {
-      gen_.opcode(Opcode::Clear);
-      gen_.reg(variable(stmt.dead_variable));
+      emit<Opcode::Clear>(variable(stmt.dead_variable));
     }
 
     void visit_term(const BranchTerminator& term)
@@ -339,14 +323,10 @@ namespace verona::compiler
       const auto& outputs = term.target->phi_nodes;
       for (auto [in_var, out_var] : safe_zip(inputs, outputs))
       {
-        Register input = variable(in_var);
-        Register output = variable(out_var);
-        emit_move(output, input);
+        emit<Opcode::Move>(variable(out_var), variable(in_var));
       }
 
-      size_t opcode_start = gen_.current_offset();
-      gen_.opcode(Opcode::Jump);
-      reference_basic_block(term.target, opcode_start);
+      emit<Opcode::Jump>(basic_block_label(term.target));
     }
 
     void visit_term(const MatchTerminator& term)
@@ -356,42 +336,32 @@ namespace verona::compiler
 
       for (const auto& arm : term.arms)
       {
-        emit_match(match_result, input, arm.type);
-
-        size_t opcode_start = gen_.current_offset();
-        gen_.opcode(Opcode::JumpIf);
-        gen_.reg(match_result);
-        reference_basic_block(arm.target, opcode_start);
+        TypePtr reified_pattern = reify(arm.type);
+        EmitMatch(this, input, context_)
+          .visit_type(reified_pattern, match_result);
+        emit<Opcode::JumpIf>(match_result, basic_block_label(arm.target));
       }
-      gen_.opcode(Opcode::Unreachable);
+      emit<Opcode::Unreachable>();
     }
 
     void visit_term(const IfTerminator& term)
     {
       Register input = variable(term.input);
-
-      size_t opcode_start = gen_.current_offset();
-      gen_.opcode(Opcode::JumpIf);
-      gen_.reg(input);
-      reference_basic_block(term.true_target, opcode_start);
-
-      opcode_start = gen_.current_offset();
-      gen_.opcode(Opcode::Jump);
-      reference_basic_block(term.false_target, opcode_start);
+      emit<Opcode::JumpIf>(input, basic_block_label(term.true_target));
+      emit<Opcode::Jump>(basic_block_label(term.false_target));
     }
 
     void visit_term(const ReturnTerminator& term)
     {
       Register input = variable(term.input);
 
-      if (input.index != 0)
+      if (input.value != 0)
       {
-        emit_copy(Register(0), input);
-        gen_.opcode(Opcode::Clear);
-        gen_.reg(input);
+        emit<Opcode::Copy>(Register(0), input);
+        emit<Opcode::Clear>(input);
       }
 
-      gen_.opcode(Opcode::Return);
+      emit<Opcode::Return>();
     }
 
     /**
@@ -423,50 +393,140 @@ namespace verona::compiler
       // not have a dummy value.
       auto it = basic_block_labels_.find(bb);
       if (it == basic_block_labels_.end())
-        it = basic_block_labels_.insert({bb, gen_.create_label()}).first;
+        it = basic_block_labels_.insert({bb, create_label()}).first;
       return it->second;
     }
 
     /**
-     * Write a 2-byte relative offset to a basic block.
+     * Type visitor used to emit the right bytecode sequence to match a value
+     * against a given type.
      *
-     * This offset is relative to the start of the current instruction, as
-     * specified in `opcode_start`, which would be a few bytes earlier than the
-     * current position.
+     * The visitor takes as an additional argument the register in which the
+     * value being matched on is located. It returns a register which holds the
+     * boolean result.
      */
-    void reference_basic_block(const BasicBlock* bb, size_t opcode_start)
+    struct EmitMatch : public TypeVisitor<void, Register>
     {
-      gen_.s16(basic_block_label(bb), opcode_start);
-    }
+      EmitMatch(IRGenerator* parent, Register input, Context& context)
+      : parent(parent), input(input), context_(context)
+      {}
 
-    /**
-     * Emit instructions that compute the result of matching `input` against
-     * `pattern`. The instructions generate an integer value in `output`.
-     */
-    void emit_match(Register output, Register input, const TypePtr& pattern)
-    {
-      auto reified_pattern = method_.instantiation.apply(context_, pattern);
-
-      EntityTypePtr entity = reified_pattern->dyncast<EntityType>();
-      if (!entity)
+      void
+      visit_entity_type(const EntityTypePtr& entity, Register output) override
       {
-        fmt::print(
-          std::cerr,
-          "Only entity types can be used in pattern matching, found {}\n",
-          *reified_pattern);
-        abort();
+        Descriptor index =
+          parent->entity_descriptor(entity->definition, entity->arguments);
+        Register descriptor = parent->allocator_.get();
+        parent->emit<Opcode::LoadDescriptor>(descriptor, index);
+        parent->emit<Opcode::MatchDescriptor>(output, input, descriptor);
       }
 
-      Descriptor index =
-        entity_descriptor(entity->definition, reify(entity->arguments));
-      Register descriptor = allocator_.get();
-      emit_load_descriptor(descriptor, index);
+      void visit_capability(
+        const CapabilityTypePtr& capability, Register output) override
+      {
+        switch (capability->kind)
+        {
+          case CapabilityKind::Isolated:
+            assert(std::holds_alternative<RegionHole>(capability->region));
+            parent->emit<Opcode::MatchCapability>(
+              output, input, bytecode::Capability::Iso);
+            break;
 
-      gen_.opcode(Opcode::Match);
-      gen_.reg(output);
-      gen_.reg(input);
-      gen_.reg(descriptor);
-    }
+          case CapabilityKind::Immutable:
+            assert(std::holds_alternative<RegionNone>(capability->region));
+            parent->emit<Opcode::MatchCapability>(
+              output, input, bytecode::Capability::Imm);
+            break;
+
+          case CapabilityKind::Mutable:
+            assert(std::holds_alternative<RegionHole>(capability->region));
+            parent->emit<Opcode::MatchCapability>(
+              output, input, bytecode::Capability::Mut);
+            break;
+
+          case CapabilityKind::Subregion:
+            abort();
+        }
+      }
+
+      void visit_union(const UnionTypePtr& type, Register output) override
+      {
+        emit_connective_match(
+          output, type->elements, 0, bytecode::BinaryOperator::Or);
+      }
+
+      void visit_intersection(
+        const IntersectionTypePtr& type, Register output) override
+      {
+        emit_connective_match(
+          output, type->elements, 0, bytecode::BinaryOperator::And);
+      }
+
+      void visit_base_type(const TypePtr& type, Register input) override
+      {
+        // TODO: Ultimately, this should be a non-user facing error.
+        // InternalError::print(
+        //   "Matching against type {} is not supported\n", *type);
+        // However, currently the earlier phases do not catch this.
+        report(
+          context_,
+          std::nullopt,
+          DiagnosticKind::Error,
+          Diagnostic::PatternMatchOnUnsupportedType,
+          type);
+      }
+
+      /**
+       * Emit the match code for a union or intersection type. This matches the
+       * input against every elements of the connective, and combines the
+       * results using `op`. If the connective is empty, we directly produce
+       * `identity` as the result.
+       *
+       * TODO: this could generate more efficient code by short-circuting the
+       * process. For instance when matching on (A & B), if the A match fails
+       * there is no point in trying to match against B.
+       *
+       * Additionally this makes very inefficient use of register allocation,
+       * just like the rest of the code generator.
+       */
+      void emit_connective_match(
+        Register output,
+        const TypeSet& elements,
+        uint64_t identity,
+        bytecode::BinaryOperator op)
+      {
+        if (elements.empty())
+        {
+          parent->emit<Opcode::Int64>(output, identity);
+        }
+        else
+        {
+          // Unions and intersections are always normalised such that they are
+          // elided when they only have a single component.
+          assert(elements.size() > 1);
+
+          // We evaluate the first element and place the result in `output`.
+          // We then evaluate each subsequent element into `rhs`, and fold the
+          // results into `output` using the specified boolean operator.
+          auto it = elements.begin();
+          visit_type(*it, output);
+          it++;
+
+          Register rhs = parent->allocator_.get();
+          for (; it != elements.end(); it++)
+          {
+            visit_type(*it, rhs);
+
+            parent->emit<Opcode::BinOp>(output, op, output, rhs);
+          }
+        }
+      }
+
+    private:
+      IRGenerator* parent;
+      Register input;
+      Context& context_;
+    };
 
     const Reachability& reachability_;
     const SelectorTable& selectors_;

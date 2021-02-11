@@ -1,0 +1,27 @@
+(entity
+  "$module"
+  [
+    (entity
+      "B"
+      [
+        (entity "C" [(function "bar" (seq []))])
+        (function "foo" (seq []))
+      ]))
+    (function
+      "f"
+      (seq
+        [
+          (static-call [])
+          (static-call [])
+          (static-call [])
+          (static-call [])
+          (static-call [])
+          (static-call [])
+          (static-call
+            [
+              (local "x")
+              (local "y")
+              (tuple [(local "x") (local "y")])
+            ]))
+        ])))
+  ]))

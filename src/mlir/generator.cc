@@ -8,10 +8,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Dialect.h"
-#include "mlir/IR/StandardTypes.h"
 #include "mlir/IR/Types.h"
-
-#include "llvm/ADT/StringSwitch.h"
 
 namespace
 {
@@ -64,7 +61,7 @@ namespace mlir::verona
     // Modules are nothing but global classes
     auto global = parseClass(ast);
     if (auto err = global.takeError())
-      return std::move(err);
+      return err;
     module = *global;
 
     return llvm::Error::success();
@@ -125,7 +122,7 @@ namespace mlir::verona
         if (auto err = func.takeError())
           return std::move(err);
         // Associate function with module (late mangling)
-        func->setAttr("class", TypeAttr::get(type));
+        func->getOperation()->setAttr("class", TypeAttr::get(type));
         // Add qualifiers as attributes
         llvm::SmallVector<::ast::Ast, 4> quals;
         AST::getFunctionQualifiers(quals, node);
@@ -135,7 +132,8 @@ namespace mlir::verona
           for (auto qual : quals)
             qualAttrs.push_back(
               StringAttr::get(AST::getTokenValue(qual), context));
-          func->setAttr("qualifiers", ArrayAttr::get(qualAttrs, context));
+          func->getOperation()->setAttr(
+            "qualifiers", ArrayAttr::get(qualAttrs, context));
         }
         // Push function to scope
         scope.push_back(*func);
@@ -715,7 +713,6 @@ namespace mlir::verona
 
     // Type to allocate
     auto type = parseType(ast);
-    auto typeAttr = TypeAttr::get(type);
 
     // Initializer list
     llvm::SmallVector<::ast::Ast, 4> nodes;
@@ -765,7 +762,6 @@ namespace mlir::verona
 
     // Get the field name
     auto field = AST::getID(ast);
-    auto fieldAttr = StringAttr::get(field, context);
 
     // Find the field type, if any
     auto fieldType = unkTy;
@@ -789,7 +785,6 @@ namespace mlir::verona
 
     // Get the field name
     auto field = AST::getID(ast);
-    auto fieldAttr = StringAttr::get(field, context);
 
     // Find the field type
     auto fieldType = unkTy;
@@ -816,6 +811,7 @@ namespace mlir::verona
     // Create function
     auto funcTy = builder.getFunctionType(types, retTy);
     auto func = mlir::FuncOp::create(loc, name, funcTy);
+    func.setVisibility(mlir::SymbolTable::Visibility::Private);
     return functionTable.insert(name, func);
   }
 
@@ -853,7 +849,7 @@ namespace mlir::verona
       auto value = std::get<1>(var_val);
       // Allocate space in the stack & store the argument value
       auto alloca = generateAlloca(loc, value.getType());
-      auto store = generateStore(loc, value, alloca);
+      generateStore(loc, value, alloca);
       // Associate the name with the alloca SSA value
       symbolTable.insert(name, alloca);
     }

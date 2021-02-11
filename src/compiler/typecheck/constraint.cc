@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 #include "compiler/typecheck/constraint.h"
 
-#include "compiler/ast.h"
 #include "compiler/fixpoint.h"
 #include "compiler/instantiation.h"
 #include "compiler/polarize.h"
@@ -355,18 +354,6 @@ namespace verona::compiler
     }
 
     /*
-     * --------------------
-     *   String <: String
-     */
-    if (auto left = c.left->dyncast<StringType>())
-    {
-      if (auto right = c.right->dyncast<StringType>())
-      {
-        return Trivial();
-      }
-    }
-
-    /*
      * We define rules on intersections rather than rely on backtracking,
      * because we want a single solution that includes all elements of the
      * conjunction, rather than one solution per conjunction.
@@ -535,18 +522,10 @@ namespace verona::compiler
      * -------------------
      *  C[T] <: is-entity
      *
-     * ---------------------
-     *  String <: is-entity
-     *
      */
-    if (c.right->dyncast<IsEntityType>())
+    if (c.right->dyncast<IsEntityType>() && c.left->dyncast<EntityType>())
     {
-      // TODO: the definition of what an "entity-like" type is is kind of
-      // scattered around the code-base.
-      if (c.left->dyncast<EntityType>() || c.left->dyncast<StringType>())
-      {
-        return Trivial();
-      }
+      return Trivial();
     }
 
     /**
@@ -735,9 +714,7 @@ namespace verona::compiler
       if (auto not_child_of = c.right->dyncast<NotChildOfType>())
       {
         // These are types that are used without any capability.
-        if (
-          c.left->dyncast<StaticType>() || c.left->dyncast<StringType>() ||
-          c.left->dyncast<UnitType>())
+        if (c.left->dyncast<StaticType>() || c.left->dyncast<UnitType>())
           return Trivial();
 
         if (auto left_cap = c.left->dyncast<CapabilityType>())

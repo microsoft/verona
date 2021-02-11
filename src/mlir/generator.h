@@ -8,10 +8,9 @@
 #include "dialect/VeronaTypes.h"
 #include "error.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/Function.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/MLIRContext.h"
-#include "mlir/IR/Module.h"
-#include "mlir/IR/StandardTypes.h"
 #include "mlir/Target/LLVMIR.h"
 #include "symbol.h"
 
@@ -56,12 +55,6 @@ namespace mlir::verona
     ReturnValue(mlir::ResultRange& range)
     {
       values.insert(values.begin(), range.begin(), range.end());
-    }
-    /// Assignment operator for ReturnValue.
-    ReturnValue& operator=(ReturnValue& other)
-    {
-      values = other.values;
-      return *this;
     }
     /// Assignment operator for mlir::Value.
     ReturnValue& operator=(mlir::Value& value)

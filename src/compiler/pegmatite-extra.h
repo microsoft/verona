@@ -1,6 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #pragma once
+#include <ast.hh>
 #include <pegmatite.hh>
 
 namespace pegmatite

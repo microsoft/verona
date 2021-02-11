@@ -9,7 +9,9 @@
 
 namespace verona::interpreter
 {
+  using bytecode::AbsoluteOffset;
   using bytecode::Register;
+  using bytecode::RelativeOffset;
 
   template<bool Const>
   class BaseValueList;
@@ -67,11 +69,12 @@ namespace verona::interpreter
     void opcode_fulfill_sleeping_cown(const Value& cown, Value result);
     Value opcode_freeze(Value src);
     Value opcode_int64(uint64_t imm);
-    void opcode_jump(int16_t offset);
-    void opcode_jump_if(uint64_t condition, int16_t offset);
+    void opcode_jump(RelativeOffset offset);
+    void opcode_jump_if(uint64_t condition, RelativeOffset offset);
     Value opcode_load(const Value& base, SelectorIdx selector);
     Value opcode_load_descriptor(DescriptorIdx desc_idx);
-    Value opcode_match(const Value& src, const VMDescriptor* descriptor);
+    Value opcode_match_descriptor(const Value& src, const VMDescriptor* desc);
+    Value opcode_match_capability(const Value& src, bytecode::Capability cap);
     Value opcode_move(Register src);
     Value opcode_mut_view(const Value& src);
     Value
@@ -86,8 +89,8 @@ namespace verona::interpreter
     Value opcode_store(const Value& base, SelectorIdx selector, Value src);
     Value opcode_string(std::string_view imm);
     void opcode_trace_region(const Value& region);
-    void
-    opcode_when(CodePtr selector, uint8_t cown_count, uint8_t capture_count);
+    void opcode_when(
+      AbsoluteOffset offset, uint8_t cown_count, uint8_t capture_count);
     void opcode_unreachable();
 
     enum class OnReturn
@@ -142,7 +145,23 @@ namespace verona::interpreter
      */
     void write(Register reg, Value value);
 
-    const VMDescriptor* find_dispatch_descriptor(Register receiver) const;
+    /**
+     * Find the descriptor used to invoke methods. Generally, this is the same
+     * as the "match descriptor". However, if `value` is itself a descriptor
+     * pointer, we allow methods to be called on it (ie. static method calls),
+     * but matching will always fail.
+     *
+     * Aborts the VM if methods may not be invoked on this kind of value.
+     */
+    const VMDescriptor* find_dispatch_descriptor(const Value& value) const;
+
+    /**
+     * Find the descriptor of the value, for use in pattern matching.
+     *
+     * Returns null if the given value does not have a suitable descriptor (eg.
+     * descriptors themselves don't have descriptors).
+     */
+    const VMDescriptor* find_match_descriptor(const Value& value) const;
 
     template<typename... Args>
     void trace(std::string_view fmt, Args&&... args) const

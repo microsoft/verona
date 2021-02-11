@@ -89,24 +89,24 @@ namespace ubench
 
       pinger->count++;
 
-      size_t cowns = 1;
-      recipients[1] = pinger;
-      recipients[0] =
-        pinger->pingers[pinger->rng.next() % pinger->pingers.size()];
-
-      if ((pinger->pingers.size() > 1) && (pinger->select_mod != 0))
+      recipients[0] = pinger;
+      const bool send_multimessage = (pinger->pingers.size() > 1) &&
+        (pinger->select_mod != 0) &&
+        ((pinger->rng.next() % pinger->select_mod) == 0);
+      if (!send_multimessage)
       {
-        while (recipients[0] == pinger)
-        {
-          recipients[0] =
-            pinger->pingers[pinger->rng.next() % pinger->pingers.size()];
-        }
-        if ((pinger->rng.next() % pinger->select_mod) == 0)
-          cowns = 2;
+        rt::Cown::schedule<Ping>(recipients[0], recipients[0]);
+        return;
       }
 
-      rt::Cown::schedule<Ping>(
-        cowns, (rt::Cown**)recipients.data(), recipients[0]);
+      // select another recipient
+      do
+      {
+        recipients[1] =
+          pinger->pingers[pinger->rng.next() % pinger->pingers.size()];
+      } while (recipients[1] == pinger);
+
+      rt::Cown::schedule<Ping>(2, (rt::Cown**)recipients.data(), recipients[0]);
     }
   };
 
@@ -236,8 +236,9 @@ int main(int argc, char** argv)
   const auto percent_multimessage = opt.is<size_t>("--percent_multimessage", 5);
   check(percent_multimessage <= 100);
 
-  logger::cout() << "cores: " << cores << ", pingers: " << pingers
+  logger::cout() << "cores: " << cores
                  << ", report_interval: " << report_interval.count()
+                 << ", pingers: " << pingers
                  << ", initial_pings: " << initial_pings
                  << ", percent_mutlimessage: " << percent_multimessage
                  << std::endl;
