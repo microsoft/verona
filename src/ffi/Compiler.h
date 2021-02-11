@@ -28,8 +28,6 @@
 #include <llvm/IR/Module.h>
 #include <llvm/Support/SmallVectorMemoryBuffer.h>
 
-using namespace clang;
-
 namespace verona::ffi
 {
   /// Source languages Clang supports
@@ -43,8 +41,10 @@ namespace verona::ffi
   };
 
   /**
-   * Compiler wrapper. Boilerplate for Clang specific logic to simplify
-   * CXXInterface to only AST logic.
+   * Compiler wrapper.
+   *
+   * Boilerplate for Clang specific logic to simplify CXXInterface to only AST
+   * logic.
    */
   class Compiler
   {
@@ -53,7 +53,7 @@ namespace verona::ffi
     /// LLVMContext for LLVM lowering.
     std::unique_ptr<llvm::LLVMContext> llvmContext{new llvm::LLVMContext};
     /// Compiler instance.
-    std::unique_ptr<CompilerInstance> Clang;
+    std::unique_ptr<clang::CompilerInstance> Clang;
     /// All arguments, including empty last one that is replaced evey call
     std::vector<const char*> args;
 
@@ -98,16 +98,19 @@ namespace verona::ffi
         ""};
 
       // Compiler Instance
-      Clang = std::make_unique<CompilerInstance>();
+      Clang = std::make_unique<clang::CompilerInstance>();
 
       // Diagnostics
       // TODO: Wire up diagnostics so that we can spot invalid template
       // instantiations.
-      IntrusiveRefCntPtr<DiagnosticIDs> DiagID = new DiagnosticIDs();
-      IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
-      auto* DiagsPrinter = new TextDiagnosticPrinter{llvm::errs(), &*DiagOpts};
+      clang::IntrusiveRefCntPtr<clang::DiagnosticIDs> DiagID =
+        new clang::DiagnosticIDs();
+      clang::IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts =
+        new clang::DiagnosticOptions();
+      auto* DiagsPrinter =
+        new clang::TextDiagnosticPrinter{llvm::errs(), &*DiagOpts};
       auto* Diags =
-        new DiagnosticsEngine(DiagID, DiagOpts, DiagsPrinter, false);
+        new clang::DiagnosticsEngine(DiagID, DiagOpts, DiagsPrinter, false);
 
       // Compiler invocation
       auto CI = createInvocationFromCommandLine(
@@ -116,7 +119,8 @@ namespace verona::ffi
       // File and source manager
       // FIXME: A new Diags is needed here because the invocation takes
       // ownership. Can we make this more obvious?
-      Diags = new DiagnosticsEngine(DiagID, DiagOpts, DiagsPrinter, false);
+      Diags =
+        new clang::DiagnosticsEngine(DiagID, DiagOpts, DiagsPrinter, false);
 
       // Create the file manager
       // NOTE: Both managers pointers will be owned by CompilerInstance
@@ -132,15 +136,15 @@ namespace verona::ffi
       Clang->setDiagnostics(Diags);
 
       // Pre-processor and header search
-      auto PPOpts = std::make_shared<PreprocessorOptions>();
-      TrivialModuleLoader TML;
-      auto HeaderSearchPtr = std::make_unique<HeaderSearch>(
-        std::make_shared<HeaderSearchOptions>(),
+      auto PPOpts = std::make_shared<clang::PreprocessorOptions>();
+      clang::TrivialModuleLoader TML;
+      auto HeaderSearchPtr = std::make_unique<clang::HeaderSearch>(
+        std::make_shared<clang::HeaderSearchOptions>(),
         Clang->getSourceManager(),
         *Diags,
         Clang->getLangOpts(),
         nullptr);
-      auto PreprocessorPtr = std::make_shared<Preprocessor>(
+      auto PreprocessorPtr = std::make_shared<clang::Preprocessor>(
         PPOpts,
         *Diags,
         Clang->getLangOpts(),
@@ -164,7 +168,7 @@ namespace verona::ffi
     {
       Clang->setASTConsumer(std::move(consumer));
       Clang->setASTContext(ast);
-      Clang->createSema(TU_Complete, nullptr);
+      Clang->createSema(clang::TU_Complete, nullptr);
     }
 
     /**
@@ -173,7 +177,7 @@ namespace verona::ffi
      * FIXME: This came from CXXInterface c-tor and should probably be more
      * factored around the corners.
      */
-    SourceLocation getEndOfFileLocation() const
+    clang::SourceLocation getEndOfFileLocation() const
     {
       auto mainFile = Clang->getSourceManager().getMainFileID();
       return Clang->getSourceManager().getLocForEndOfFile(mainFile);
@@ -185,9 +189,9 @@ namespace verona::ffi
      * FIXME: This came from CXXInterface c-tor and should probably be more
      * factored around the corners.
      */
-    void ExecuteAction(clang::FrontendAction& action)
+    bool ExecuteAction(clang::FrontendAction& action)
     {
-      Clang->ExecuteAction(action);
+      return Clang->ExecuteAction(action);
     }
 
     /**
@@ -199,7 +203,7 @@ namespace verona::ffi
     std::unique_ptr<llvm::Module>
     emitLLVM(clang::ASTContext* ast, const char* cu_name)
     {
-      std::unique_ptr<CodeGenerator> CodeGen{CreateLLVMCodeGen(
+      std::unique_ptr<clang::CodeGenerator> CodeGen{CreateLLVMCodeGen(
         Clang->getDiagnostics(),
         cu_name,
         Clang->getHeaderSearchOpts(),
@@ -209,7 +213,7 @@ namespace verona::ffi
       CodeGen->Initialize(*ast);
       CodeGen->HandleTranslationUnit(*ast);
       for (auto& D : ast->getTranslationUnitDecl()->decls())
-        CodeGen->HandleTopLevelDecl(DeclGroupRef{D});
+        CodeGen->HandleTopLevelDecl(clang::DeclGroupRef{D});
       std::unique_ptr<llvm::Module> M{CodeGen->ReleaseModule()};
       return M;
     }

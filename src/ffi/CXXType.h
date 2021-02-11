@@ -5,11 +5,15 @@
 
 #include <clang/Sema/Sema.h>
 
-using namespace clang;
 namespace verona::ffi
 {
   /**
    * C++ types that can be queried from the AST matchers.
+   *
+   * This is basically a structure to hold type information rather than a type
+   * on its own right. Some type logic (ex. type size & alignment) need the
+   * compiler to know the ABI (sizes, layout, packing). That logic is currently
+   * in CXXInterface, which creates the compiler calls and has other type logic.
    *
    * These are not all types and may not even be the right way to represent it
    * but they'll do for the time being.
@@ -108,6 +112,7 @@ namespace verona::ffi
     /// Returns true if the type has a name declaration
     bool hasNameDecl()
     {
+      assert(decl);
       return kind != Kind::Invalid && kind != Kind::Builtin;
     }
 
@@ -118,6 +123,7 @@ namespace verona::ffi
     }
 
     /// Returns true if type is integral
+    /// TODO: Should we make all these helpers static?
     static bool isIntegral(BuiltinTypeKinds ty)
     {
       return ty != BuiltinTypeKinds::Float && ty != BuiltinTypeKinds::Double;
@@ -126,15 +132,17 @@ namespace verona::ffi
     /// CXXType builtin c-tor
     CXXType(BuiltinTypeKinds t) : kind(Kind::Builtin), builtTypeKind(t) {}
     /// CXXType class c-tor
-    CXXType(const CXXRecordDecl* d) : kind(Kind::Class), decl(d) {}
+    CXXType(const clang::CXXRecordDecl* d) : kind(Kind::Class), decl(d) {}
     /// CXXType template class c-tor
-    CXXType(const ClassTemplateDecl* d) : kind(Kind::TemplateClass), decl(d) {}
+    CXXType(const clang::ClassTemplateDecl* d)
+    : kind(Kind::TemplateClass), decl(d)
+    {}
     /// CXXType template specialisation class c-tor
-    CXXType(const ClassTemplateSpecializationDecl* d)
+    CXXType(const clang::ClassTemplateSpecializationDecl* d)
     : kind(Kind::SpecializedTemplateClass), decl(d)
     {}
     /// CXXType enum c-tor
-    CXXType(const EnumDecl* d) : kind(Kind::Enum), decl(d) {}
+    CXXType(const clang::EnumDecl* d) : kind(Kind::Enum), decl(d) {}
     /// CXXType empty c-tor (kind = Invalid)
     CXXType() = default;
 
@@ -145,7 +153,7 @@ namespace verona::ffi
       {
         return 0;
       }
-      return getAs<ClassTemplateDecl>()->getTemplateParameters()->size();
+      return getAs<clang::ClassTemplateDecl>()->getTemplateParameters()->size();
     }
 
     /**
@@ -157,7 +165,7 @@ namespace verona::ffi
     T* getAs()
     {
       assert(hasNameDecl());
-      return dyn_cast<T>(const_cast<NamedDecl*>(decl));
+      return clang::dyn_cast<T>(const_cast<clang::NamedDecl*>(decl));
     }
 
     /**
@@ -174,7 +182,7 @@ namespace verona::ffi
       /**
        * The declaration that corresponds to this type.
        */
-      const NamedDecl* decl = nullptr;
+      const clang::NamedDecl* decl = nullptr;
       /**
        * The kind if this is a builtin.
        */

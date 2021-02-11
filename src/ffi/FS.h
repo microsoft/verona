@@ -17,7 +17,9 @@ namespace verona::ffi
    * headers to include (built-in, etc).
    *
    * This will expand to lookup for built-in headers, potentially using
-   * the driver's logic to find them.
+   * the driver's logic to find them. We may also want to use the real file
+   * system for writing temporaries (upon user request), so that we can cache
+   * certain pre-compiled headers.
    */
   struct FileSystem
   {
@@ -27,6 +29,8 @@ namespace verona::ffi
     llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem> inMemory;
 
   public:
+    /// Creates the overlay file system with the real file system + a temporary
+    /// memory-only FS for temporaries.
     FileSystem()
     : inMemory(new llvm::vfs::InMemoryFileSystem()),
       overlay(new llvm::vfs::OverlayFileSystem(llvm::vfs::getRealFileSystem()))
