@@ -30,9 +30,6 @@
 #include <llvm/IR/Module.h>
 #include <llvm/Support/SmallVectorMemoryBuffer.h>
 
-using namespace clang;
-using namespace clang::ast_matchers;
-
 namespace verona::ffi
 {
   /**
@@ -83,7 +80,7 @@ namespace verona::ffi
         /// Collector C-tor
         Collector(CXXInterface* i) : interface(i) {}
         /// Reassociates the AST back into the interface.
-        void HandleTranslationUnit(ASTContext& Ctx) override
+        void HandleTranslationUnit(clang::ASTContext& Ctx) override
         {
           interface->ast = &Ctx;
         }
@@ -107,16 +104,21 @@ namespace verona::ffi
      *  f.matchAST(*ast);
      *  // If matches, runs `myfunc` on the matched AST node.
      */
-    class HandleMatch : public MatchFinder::MatchCallback
+    class HandleMatch : public clang::ast_matchers::MatchFinder::MatchCallback
     {
-      std::function<void(const MatchFinder::MatchResult& Result)> handler;
-      void run(const MatchFinder::MatchResult& Result) override
+      std::function<void(
+        const clang::ast_matchers::MatchFinder::MatchResult& Result)>
+        handler;
+      void
+      run(const clang::ast_matchers::MatchFinder::MatchResult& Result) override
       {
         handler(Result);
       }
 
     public:
-      HandleMatch(std::function<void(const MatchFinder::MatchResult& Result)> h)
+      HandleMatch(
+        std::function<
+          void(const clang::ast_matchers::MatchFinder::MatchResult& Result)> h)
       : handler(h)
       {}
     };
@@ -125,7 +127,7 @@ namespace verona::ffi
      * Pre-compiled header action, to create the PCH consumers for PCH
      * generation.
      */
-    struct GenerateMemoryPCHAction : GeneratePCHAction
+    struct GenerateMemoryPCHAction : clang::GeneratePCHAction
     {
       /// Actual buffer for the PCH, owned externally
       llvm::SmallVectorImpl<char>& outBuffer;
@@ -134,8 +136,8 @@ namespace verona::ffi
       : outBuffer(outBuffer)
       {}
       /// Adds PCH generator, called by Clang->ExecuteAction
-      std::unique_ptr<ASTConsumer>
-      CreateASTConsumer(CompilerInstance& CI, StringRef InFile)
+      std::unique_ptr<clang::ASTConsumer>
+      CreateASTConsumer(clang::CompilerInstance& CI, llvm::StringRef InFile)
       {
         // Check arguments (CI must exist and be initialised)
         std::string Sysroot;
@@ -150,13 +152,13 @@ namespace verona::ffi
         // Connect the output stream
         auto OS = std::make_unique<llvm::raw_svector_ostream>(outBuffer);
         // create a buffer
-        auto Buffer = std::make_shared<PCHBuffer>();
+        auto Buffer = std::make_shared<clang::PCHBuffer>();
 
         // MultiplexConsumer needs a list of consumers
-        std::vector<std::unique_ptr<ASTConsumer>> Consumers;
+        std::vector<std::unique_ptr<clang::ASTConsumer>> Consumers;
 
         // PCH generator
-        Consumers.push_back(std::make_unique<PCHGenerator>(
+        Consumers.push_back(std::make_unique<clang::PCHGenerator>(
           CI.getPreprocessor(),
           CI.getModuleCache(),
           OutputFile,
@@ -172,7 +174,7 @@ namespace verona::ffi
           CI.getPCHContainerWriter().CreatePCHContainerGenerator(
             CI, InFile.str(), OutputFile, std::move(OS), Buffer));
 
-        return std::make_unique<MultiplexConsumer>(std::move(Consumers));
+        return std::make_unique<clang::MultiplexConsumer>(std::move(Consumers));
       }
     };
 
@@ -196,7 +198,7 @@ namespace verona::ffi
     }
 
     /// Maps between CXXType and Clang's types.
-    QualType typeForBuiltin(CXXType::BuiltinTypeKinds ty)
+    clang::QualType typeForBuiltin(CXXType::BuiltinTypeKinds ty)
     {
       switch (ty)
       {
@@ -272,7 +274,8 @@ namespace verona::ffi
         // Create the compiler
         Clang = std::make_unique<Compiler>(FS.get(), cu_name, sourceLang);
       }
-      auto collectAST = tooling::newFrontendActionFactory(&factory)->create();
+      auto collectAST =
+        clang::tooling::newFrontendActionFactory(&factory)->create();
       {
         auto t = TimeReport("Reconstructing AST");
         Clang->ExecuteAction(*collectAST);
@@ -297,39 +300,46 @@ namespace verona::ffi
     CXXType getType(std::string name)
     {
       name = "::" + name;
-      MatchFinder finder;
-      const EnumDecl* foundEnum = nullptr;
-      const CXXRecordDecl* foundClass = nullptr;
-      const ClassTemplateDecl* foundTemplateClass = nullptr;
+      clang::ast_matchers::MatchFinder finder;
+      const clang::EnumDecl* foundEnum = nullptr;
+      const clang::CXXRecordDecl* foundClass = nullptr;
+      const clang::ClassTemplateDecl* foundTemplateClass = nullptr;
 
       finder.addMatcher(
-        cxxRecordDecl(hasName(name)).bind("id"),
-        new HandleMatch([&](const MatchFinder::MatchResult& Result) {
-          auto* decl =
-            Result.Nodes.getNodeAs<CXXRecordDecl>("id")->getDefinition();
-          if (decl)
-          {
-            foundClass = decl;
-          }
-        }));
+        clang::ast_matchers::cxxRecordDecl(clang::ast_matchers::hasName(name))
+          .bind("id"),
+        new HandleMatch(
+          [&](const clang::ast_matchers::MatchFinder::MatchResult& Result) {
+            auto* decl = Result.Nodes.getNodeAs<clang::CXXRecordDecl>("id")
+                           ->getDefinition();
+            if (decl)
+            {
+              foundClass = decl;
+            }
+          }));
       finder.addMatcher(
-        classTemplateDecl(hasName(name)).bind("id"),
-        new HandleMatch([&](const MatchFinder::MatchResult& Result) {
-          auto* decl = Result.Nodes.getNodeAs<ClassTemplateDecl>("id");
-          if (decl)
-          {
-            foundTemplateClass = decl;
-          }
-        }));
+        clang::ast_matchers::classTemplateDecl(
+          clang::ast_matchers::hasName(name))
+          .bind("id"),
+        new HandleMatch(
+          [&](const clang::ast_matchers::MatchFinder::MatchResult& Result) {
+            auto* decl = Result.Nodes.getNodeAs<clang::ClassTemplateDecl>("id");
+            if (decl)
+            {
+              foundTemplateClass = decl;
+            }
+          }));
       finder.addMatcher(
-        enumDecl(hasName(name)).bind("id"),
-        new HandleMatch([&](const MatchFinder::MatchResult& Result) {
-          auto* decl = Result.Nodes.getNodeAs<EnumDecl>("id");
-          if (decl)
-          {
-            foundEnum = decl;
-          }
-        }));
+        clang::ast_matchers::enumDecl(clang::ast_matchers::hasName(name))
+          .bind("id"),
+        new HandleMatch(
+          [&](const clang::ast_matchers::MatchFinder::MatchResult& Result) {
+            auto* decl = Result.Nodes.getNodeAs<clang::EnumDecl>("id");
+            if (decl)
+            {
+              foundEnum = decl;
+            }
+          }));
       finder.matchAST(*ast);
 
       // Should onlyt match one, so this is fine.
@@ -356,7 +366,7 @@ namespace verona::ffi
       assert(t.kind != CXXType::Kind::Invalid);
       if (t.sizeAndAlign.Width == 0)
       {
-        QualType ty = getQualType(t);
+        clang::QualType ty = getQualType(t);
         t.sizeAndAlign = ast->getTypeInfo(ty);
       }
       return t.sizeAndAlign.Width / 8;
@@ -364,19 +374,19 @@ namespace verona::ffi
 
     /// Return the qualified type for a CXXType
     /// FIXME: Do we really need to expose this?
-    QualType getQualType(CXXType ty)
+    clang::QualType getQualType(CXXType ty)
     {
       switch (ty.kind)
       {
         case CXXType::Kind::Invalid:
         case CXXType::Kind::TemplateClass:
           // TODO: Fix template class
-          return QualType{};
+          return clang::QualType{};
         case CXXType::Kind::SpecializedTemplateClass:
         case CXXType::Kind::Class:
-          return ast->getRecordType(ty.getAs<CXXRecordDecl>());
+          return ast->getRecordType(ty.getAs<clang::CXXRecordDecl>());
         case CXXType::Kind::Enum:
-          return ast->getEnumType(ty.getAs<EnumDecl>());
+          return ast->getEnumType(ty.getAs<clang::EnumDecl>());
         case CXXType::Kind::Builtin:
           return typeForBuiltin(ty.builtTypeKind);
       }
@@ -396,9 +406,10 @@ namespace verona::ffi
         case CXXType::Kind::SpecializedTemplateClass:
         case CXXType::Kind::Class:
           return clang::TemplateArgument{
-            ast->getRecordType(t.getAs<CXXRecordDecl>())};
+            ast->getRecordType(t.getAs<clang::CXXRecordDecl>())};
         case CXXType::Kind::Enum:
-          return clang::TemplateArgument{ast->getEnumType(t.getAs<EnumDecl>())};
+          return clang::TemplateArgument{
+            ast->getEnumType(t.getAs<clang::EnumDecl>())};
         case CXXType::Kind::Builtin:
           return clang::TemplateArgument{typeForBuiltin(t.builtTypeKind)};
       }
@@ -411,12 +422,12 @@ namespace verona::ffi
       CXXType::BuiltinTypeKinds ty, uint64_t value)
     {
       assert(CXXType::isIntegral(ty));
-      QualType qualTy = typeForBuiltin(ty);
+      clang::QualType qualTy = typeForBuiltin(ty);
       auto info = ast->getTypeInfo(qualTy);
       llvm::APInt val{static_cast<unsigned int>(info.Width), value};
-      auto* literal =
-        IntegerLiteral::Create(*ast, val, qualTy, SourceLocation{});
-      return TemplateArgument(literal);
+      auto* literal = clang::IntegerLiteral::Create(
+        *ast, val, qualTy, clang::SourceLocation{});
+      return clang::TemplateArgument(literal);
     }
 
     /**
@@ -424,7 +435,7 @@ namespace verona::ffi
      * file, if not yet done.
      */
     CXXType instantiateClassTemplate(
-      CXXType& classTemplate, llvm::ArrayRef<TemplateArgument> args)
+      CXXType& classTemplate, llvm::ArrayRef<clang::TemplateArgument> args)
     {
       if (classTemplate.kind != CXXType::Kind::TemplateClass)
       {
@@ -435,17 +446,17 @@ namespace verona::ffi
 
       // Check if this specialisation is already present in the AST
       // (declaration, definition, used).
-      ClassTemplateDecl* ClassTemplate =
-        classTemplate.getAs<ClassTemplateDecl>();
+      clang::ClassTemplateDecl* ClassTemplate =
+        classTemplate.getAs<clang::ClassTemplateDecl>();
       void* InsertPos = nullptr;
-      ClassTemplateSpecializationDecl* Decl =
+      clang::ClassTemplateSpecializationDecl* Decl =
         ClassTemplate->findSpecialization(args, InsertPos);
       if (!Decl)
       {
         // This is the first time we have referenced this class template
         // specialization. Create the canonical declaration and add it to
         // the set of specializations.
-        Decl = ClassTemplateSpecializationDecl::Create(
+        Decl = clang::ClassTemplateSpecializationDecl::Create(
           *ast,
           ClassTemplate->getTemplatedDecl()->getTagKind(),
           ClassTemplate->getDeclContext(),
@@ -458,24 +469,26 @@ namespace verona::ffi
       }
       // If specialisation hasn't been directly declared yet (by the user),
       // instantiate the declaration.
-      if (Decl->getSpecializationKind() == TSK_Undeclared)
+      if (Decl->getSpecializationKind() == clang::TSK_Undeclared)
       {
-        MultiLevelTemplateArgumentList TemplateArgLists;
+        clang::MultiLevelTemplateArgumentList TemplateArgLists;
         TemplateArgLists.addOuterTemplateArguments(args);
         S.InstantiateAttrsForDecl(
           TemplateArgLists, ClassTemplate->getTemplatedDecl(), Decl);
       }
       // If specialisation hasn't been defined yet, create its definition at the
       // end of the file.
-      ClassTemplateSpecializationDecl* Def =
-        cast_or_null<ClassTemplateSpecializationDecl>(Decl->getDefinition());
+      clang::ClassTemplateSpecializationDecl* Def =
+        clang::cast_or_null<clang::ClassTemplateSpecializationDecl>(
+          Decl->getDefinition());
       if (!Def)
       {
-        SourceLocation InstantiationLoc = Clang->getEndOfFileLocation();
+        clang::SourceLocation InstantiationLoc = Clang->getEndOfFileLocation();
         assert(InstantiationLoc.isValid());
         S.InstantiateClassTemplateSpecialization(
-          InstantiationLoc, Decl, TSK_ExplicitInstantiationDefinition);
-        Def = cast<ClassTemplateSpecializationDecl>(Decl->getDefinition());
+          InstantiationLoc, Decl, clang::TSK_ExplicitInstantiationDefinition);
+        Def = clang::cast<clang::ClassTemplateSpecializationDecl>(
+          Decl->getDefinition());
       }
       return CXXType{Def};
     }
@@ -484,9 +497,11 @@ namespace verona::ffi
      * Get the template especialization with args.
      */
     clang::QualType getTemplateSpecializationType(
-      const NamedDecl* decl, llvm::ArrayRef<TemplateArgument> args)
+      const clang::NamedDecl* decl,
+      llvm::ArrayRef<clang::TemplateArgument> args)
     {
-      TemplateName templ{dyn_cast<TemplateDecl>(const_cast<NamedDecl*>(decl))};
+      clang::TemplateName templ{clang::dyn_cast<clang::TemplateDecl>(
+        const_cast<clang::NamedDecl*>(decl))};
       return ast->getTemplateSpecializationType(templ, args);
     }
 
@@ -494,9 +509,11 @@ namespace verona::ffi
      * Get the canonical template especialization with args.
      */
     clang::QualType getCanonicalTemplateSpecializationType(
-      const NamedDecl* decl, llvm::ArrayRef<TemplateArgument> args)
+      const clang::NamedDecl* decl,
+      llvm::ArrayRef<clang::TemplateArgument> args)
     {
-      TemplateName templ{dyn_cast<TemplateDecl>(const_cast<NamedDecl*>(decl))};
+      clang::TemplateName templ{clang::dyn_cast<clang::TemplateDecl>(
+        const_cast<clang::NamedDecl*>(decl))};
       return ast->getCanonicalTemplateSpecializationType(templ, args);
     }
 
@@ -507,20 +524,20 @@ namespace verona::ffi
       const char* name, llvm::ArrayRef<CXXType> args, CXXType ret)
     {
       auto* DC = ast->getTranslationUnitDecl();
-      SourceLocation loc = Clang->getEndOfFileLocation();
-      IdentifierInfo& fnNameIdent = ast->Idents.get(name);
-      DeclarationName fnName{&fnNameIdent};
-      FunctionProtoType::ExtProtoInfo EPI;
+      clang::SourceLocation loc = Clang->getEndOfFileLocation();
+      clang::IdentifierInfo& fnNameIdent = ast->Idents.get(name);
+      clang::DeclarationName fnName{&fnNameIdent};
+      clang::FunctionProtoType::ExtProtoInfo EPI;
 
       // Get type of args/ret, function
-      llvm::SmallVector<QualType> argTys;
+      llvm::SmallVector<clang::QualType> argTys;
       for (auto argTy : args)
         argTys.push_back(getQualType(argTy));
       auto retTy = getQualType(ret);
-      QualType fnTy = ast->getFunctionType(retTy, argTys, EPI);
+      clang::QualType fnTy = ast->getFunctionType(retTy, argTys, EPI);
 
       // Create a new function
-      auto func = FunctionDecl::Create(
+      auto func = clang::FunctionDecl::Create(
         *ast,
         DC,
         loc,
@@ -528,7 +545,7 @@ namespace verona::ffi
         fnName,
         fnTy,
         ast->getTrivialTypeSourceInfo(fnTy),
-        StorageClass::SC_None);
+        clang::StorageClass::SC_None);
 
       // Associate with the translation unit
       func->setLexicalDeclContext(DC);
@@ -545,9 +562,9 @@ namespace verona::ffi
     clang::ParmVarDecl* createFunctionArgument(
       const char* name, CXXType& ty, clang::FunctionDecl* func)
     {
-      SourceLocation loc = func->getLocation();
-      IdentifierInfo& ident = ast->Idents.get(name);
-      ParmVarDecl* arg = ParmVarDecl::Create(
+      clang::SourceLocation loc = func->getLocation();
+      clang::IdentifierInfo& ident = ast->Idents.get(name);
+      clang::ParmVarDecl* arg = clang::ParmVarDecl::Create(
         *ast,
         func,
         loc,
@@ -555,7 +572,7 @@ namespace verona::ffi
         &ident,
         getQualType(ty),
         nullptr,
-        StorageClass::SC_None,
+        clang::StorageClass::SC_None,
         nullptr);
       func->setParams({arg});
       return arg;
@@ -570,8 +587,8 @@ namespace verona::ffi
     createIntegerLiteral(unsigned int len, unsigned long val)
     {
       llvm::APInt num{len, val};
-      auto* lit = IntegerLiteral::Create(
-        *ast, num, getQualType(CXXType::getInt()), SourceLocation{});
+      auto* lit = clang::IntegerLiteral::Create(
+        *ast, num, getQualType(CXXType::getInt()), clang::SourceLocation{});
       return lit;
     }
 
@@ -583,7 +600,7 @@ namespace verona::ffi
     clang::ReturnStmt* createReturn(clang::Expr* val, clang::FunctionDecl* func)
     {
       auto retStmt =
-        ReturnStmt::Create(*ast, func->getLocation(), val, nullptr);
+        clang::ReturnStmt::Create(*ast, func->getLocation(), val, nullptr);
       func->setBody(retStmt);
       return retStmt;
     }

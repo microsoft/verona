@@ -4,6 +4,7 @@
 #include "CXXInterface.h"
 
 using namespace verona::ffi;
+using namespace clang;
 
 void printType(CXXType& ty)
 {
