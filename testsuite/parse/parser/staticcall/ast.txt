@@ -1,0 +1,71 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      $module-0
+      []
+      ()
+      [
+        (class A [] () [])
+        (class
+          B
+          []
+          ()
+          [
+            (class
+              C
+              []
+              ()
+              [ (function bar (signature [] [] () ()) (block [])) ])
+            (function foo (signature [] [] () ()) (block []))
+          ])
+        (function
+          f
+          (signature
+            [ (typeparam X () ()) ]
+            [
+              (param x (typeref [ (typename A []) ]) ())
+              (param y (typeref [ (typename A []) ]) ())
+            ]
+            ()
+            ())
+          (block
+            [
+              (apply (staticref [ (typename B []) (typename create []) ]) ())
+              (staticref [ (typename B []) (typename foo []) ])
+              (apply
+                (staticref [ (typename B []) (typename foo []) ])
+                (tuple []))
+              (apply
+                (staticref
+                  [ (typename B []) (typename C []) (typename create []) ])
+                ())
+              (apply
+                (staticref
+                  [
+                    (typename B [ (typeref [ (typename X []) ]) ])
+                    (typename C [])
+                    (typename create [])
+                  ])
+                ())
+              (apply
+                (staticref
+                  [
+                    (typename B [ (typeref [ (typename X []) ]) ])
+                    (typename C [ (typeref [ (typename X []) ]) ])
+                    (typename create [])
+                  ])
+                ())
+              (apply
+                (staticref
+                  [
+                    (typename B [ (typeref [ (typename X []) ]) ])
+                    (typename C [ (typeref [ (typename X []) ]) ])
+                    (typename bar [ (typeref [ (typename X []) ]) ])
+                  ])
+                (tuple [ (ref x) (ref y) (tuple [ (ref x) (ref y) ]) ]))
+            ]))
+      ])
+  ])

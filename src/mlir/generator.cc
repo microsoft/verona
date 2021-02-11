@@ -8,7 +8,6 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Dialect.h"
-#include "mlir/IR/StandardTypes.h"
 #include "mlir/IR/Types.h"
 
 namespace
@@ -123,7 +122,7 @@ namespace mlir::verona
         if (auto err = func.takeError())
           return std::move(err);
         // Associate function with module (late mangling)
-        func->setAttr("class", TypeAttr::get(type));
+        func->getOperation()->setAttr("class", TypeAttr::get(type));
         // Add qualifiers as attributes
         llvm::SmallVector<::ast::Ast, 4> quals;
         AST::getFunctionQualifiers(quals, node);
@@ -133,7 +132,8 @@ namespace mlir::verona
           for (auto qual : quals)
             qualAttrs.push_back(
               StringAttr::get(AST::getTokenValue(qual), context));
-          func->setAttr("qualifiers", ArrayAttr::get(qualAttrs, context));
+          func->getOperation()->setAttr(
+            "qualifiers", ArrayAttr::get(qualAttrs, context));
         }
         // Push function to scope
         scope.push_back(*func);
@@ -811,6 +811,7 @@ namespace mlir::verona
     // Create function
     auto funcTy = builder.getFunctionType(types, retTy);
     auto func = mlir::FuncOp::create(loc, name, funcTy);
+    func.setVisibility(mlir::SymbolTable::Visibility::Private);
     return functionTable.insert(name, func);
   }
 

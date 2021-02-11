@@ -1,0 +1,54 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      $module-0
+      []
+      ()
+      [
+        (function
+          foo
+          (signature
+            [ (typeparam T () ()) ]
+            [ (param a (typeref [ (typename T []) ]) ()) ]
+            ()
+            ())
+          (block []))
+        (function
+          f
+          (signature
+            [ (typeparam T () ()) ]
+            [ (param x (typeref [ (typename T []) ]) ()) ]
+            ()
+            ())
+          (block
+            [
+              (assign (let a) (int 0))
+              (while
+                (apply (select (ref a) <) (int 5))
+                (block
+                  [
+                    (assign (ref a) (apply (select (ref a) +) (int 1)))
+                    (if
+                      (apply (select (ref a) <) (int 2))
+                      (block [ (continue ) ])
+                      (block [ (break ) ]))
+                  ]))
+              (block
+                [
+                  (assign (let $0) (ref x))
+                  (while
+                    (apply (select (ref $0) has_value) (tuple []))
+                    (block
+                      [
+                        (assign (ref a) (apply (ref $0) (tuple [])))
+                        (apply (staticref [ (typename foo []) ]) (ref a))
+                        (apply (select (ref $0) next) (tuple []))
+                      ]))
+                ])
+              (yield (ref a))
+            ]))
+      ])
+  ])

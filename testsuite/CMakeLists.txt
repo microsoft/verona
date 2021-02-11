@@ -34,6 +34,7 @@ set(VERONAC ${VERONA_LOCAL_DIST}/veronac${CMAKE_EXECUTABLE_SUFFIX})
 set(VERONAI ${VERONA_LOCAL_DIST}/interpreter${CMAKE_EXECUTABLE_SUFFIX})
 set(VERONA_AST ${VERONA_LOCAL_DIST}/verona-ast${CMAKE_EXECUTABLE_SUFFIX})
 set(VERONA_TYPED_AST ${VERONA_LOCAL_DIST}/verona-typed-ast${CMAKE_EXECUTABLE_SUFFIX})
+set(VERONA_PARSER ${VERONA_LOCAL_DIST}/verona-parser${CMAKE_EXECUTABLE_SUFFIX})
 set(VERONA_MLIR ${VERONA_LOCAL_DIST}/verona-mlir${CMAKE_EXECUTABLE_SUFFIX})
 
 function(subdirlist result curdir)
@@ -61,6 +62,7 @@ function(add_tests mode dir)
       -DVERONAC=${VERONAC}
       -DINTERPRETER=${VERONAI}
       -DVERONA_AST=${VERONA_AST}
+      -DVERONA_PARSER=${VERONA_PARSER}
       -DVERONA_TYPED_AST=${VERONA_TYPED_AST}
       -DVERONA_MLIR=${VERONA_MLIR}
       -DGRAMMAR=${VERONA_LOCAL_DIST}/grammar.peg
@@ -79,6 +81,7 @@ foreach(TEST_FOLDER ${TEST_FOLDERS})
   add_tests(compile-fail ${TEST_FOLDER})
   add_tests(run-pass ${TEST_FOLDER})
   add_tests(ast-parse ${TEST_FOLDER})
+  add_tests(parser ${TEST_FOLDER})
   add_tests(mlir-parse ${TEST_FOLDER})
   add_tests(mlir-fail ${TEST_FOLDER})
 endforeach()
@@ -101,6 +104,7 @@ add_custom_target(update-dump COMMAND ${CMAKE_COMMAND}
   -DPYTHON_EXECUTABLE=${Python3_EXECUTABLE}
   -DVERONAC=${VERONAC}
   -DVERONA_AST=${VERONA_AST}
+  -DVERONA_PARSER=${VERONA_PARSER}
   -DVERONA_TYPED_AST=${VERONA_TYPED_AST}
   -DVERONA_MLIR=${VERONA_MLIR}
   -DGRAMMAR=${VERONA_LOCAL_DIST}/grammar.peg

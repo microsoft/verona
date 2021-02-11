@@ -1,23 +1,23 @@
-module @"$module" {
-  module @A {
-    func @foo() -> !verona.class<"bool"> attributes {class = !verona.class<"A", "$parent" : class<"$module">>, qualifiers = ["static"]} {
+module @"$module"  {
+  module @A  {
+    func private @foo() -> !verona.class<"bool"> attributes {class = !verona.class<"A", "$parent" : class<"$module">>, qualifiers = ["static"]} {
       %0 = "verona.constant(true)"() : () -> !verona.class<"bool">
       return %0 : !verona.class<"bool">
     }
   }
-  module @B {
-    func @foo() -> !verona.class<"bool"> attributes {class = !verona.class<"B", "$parent" : class<"$module">>, qualifiers = ["static"]} {
+  module @B  {
+    func private @foo() -> !verona.class<"bool"> attributes {class = !verona.class<"B", "$parent" : class<"$module">>, qualifiers = ["static"]} {
       %0 = "verona.constant(false)"() : () -> !verona.class<"bool">
       return %0 : !verona.class<"bool">
     }
   }
-  func @empty_declaration() attributes {class = !verona.class<"$module">}
-  func @single_arg(!verona.class<"S16">) attributes {class = !verona.class<"$module">}
-  func @args_and_ret(!verona.class<"U32">, !verona.class<"S32">) -> !verona.class<"F64"> attributes {class = !verona.class<"$module">}
-  func @empty_return() attributes {class = !verona.class<"$module">} {
+  func private @empty_declaration() attributes {class = !verona.class<"$module">}
+  func private @single_arg(!verona.class<"S16">) attributes {class = !verona.class<"$module">}
+  func private @args_and_ret(!verona.class<"U32">, !verona.class<"S32">) -> !verona.class<"F64"> attributes {class = !verona.class<"$module">}
+  func private @empty_return() attributes {class = !verona.class<"$module">} {
     return
   }
-  func @foo(%arg0: !verona.imm, %arg1: !verona.meet<class<"U64">, imm>) -> !verona.meet<class<"U64">, imm> attributes {class = !verona.class<"$module">} {
+  func private @foo(%arg0: !verona.imm, %arg1: !verona.meet<class<"U64">, imm>) -> !verona.meet<class<"U64">, imm> attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !verona.imm
     %1 = "verona.store"(%arg0, %0) : (!verona.imm, !verona.imm) -> !verona.unknown
     %2 = "verona.alloca"() : () -> !verona.meet<class<"U64">, imm>
@@ -34,7 +34,7 @@ module @"$module" {
     %13 = "verona.cast"(%12) : (!verona.unknown) -> !verona.meet<class<"U64">, imm>
     return %13 : !verona.meet<class<"U64">, imm>
   }
-  func @apply() attributes {class = !verona.class<"$module">} {
+  func private @apply() attributes {class = !verona.class<"$module">} {
     return
   }
 }

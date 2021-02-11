@@ -58,9 +58,11 @@ endforeach ()
 
 ## Clang-format target
 include(cmake/clangformat.cmake)
-
 clangformat_targets()
 
+## Check copyright/license target
+include(cmake/copyright.cmake)
+copyright_targets()
 
 # ExternalProject is used to trick the CMake into building LLVM before Verona.
 # We use two External Projects, so that the LLVM build can complete and install

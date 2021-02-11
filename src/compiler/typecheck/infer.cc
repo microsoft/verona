@@ -9,6 +9,7 @@
 #include "compiler/typecheck/constraint.h"
 #include "compiler/typecheck/solver.h"
 #include "compiler/zip.h"
+#include "ds/error.h"
 
 #include <fmt/ostream.h>
 #include <iostream>
@@ -581,8 +582,7 @@ namespace verona::compiler
       auto it = results_->type_arguments.insert({id, types});
       if (!it.second)
       {
-        std::cerr << "TypeArguments already exist" << std::endl;
-        abort();
+        InternalError::print("TypeArguments already exist\n");
       }
     }
 

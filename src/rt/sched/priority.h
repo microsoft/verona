@@ -27,20 +27,65 @@ namespace verona::rt
     MaybeHigh = 0b11,
   };
 
-  enum struct PriorityMask : uint8_t
+  class BPState
   {
-    All = 0b11,
-    High = 0b10,
+    uintptr_t bits = (uintptr_t)Priority::Normal;
+
+    BPState(uintptr_t bits_) noexcept : bits(bits_) {}
+
+    friend inline BPState operator|(BPState, Priority);
+    friend inline BPState operator|(BPState, Cown*);
+    friend inline BPState operator|(BPState, bool);
+
+  public:
+    enum struct Mask : uint8_t
+    {
+      Priority = 0b11,
+      PriorityHigh = 0b10,
+      HasToken = bits::next_pow2_const((size_t)Priority),
+      All = (HasToken << 1) - 1,
+    };
+
+    BPState() noexcept {}
+
+    Cown* blocker() const
+    {
+      return (Cown*)(bits & ~(uintptr_t)Mask::All);
+    }
+
+    Priority priority() const
+    {
+      return (Priority)(bits & (uintptr_t)Mask::Priority);
+    }
+
+    bool high_priority() const
+    {
+      return (bool)(bits & (uintptr_t)Mask::PriorityHigh);
+    }
+
+    bool has_token() const
+    {
+      return (bool)(bits & (uintptr_t)Mask::HasToken);
+    }
   };
 
-  inline uintptr_t operator|(Cown* blocker, Priority p)
+  inline BPState operator|(BPState state, Priority priority)
   {
-    return (uintptr_t)blocker | (uintptr_t)p;
+    return BPState(state.bits | (uintptr_t)priority);
   }
 
-  constexpr inline bool operator&(Priority p, PriorityMask m)
+  inline BPState operator|(BPState state, Cown* blocker)
   {
-    return (uint8_t)p & (uint8_t)m;
+    assert((state.bits & ~(uintptr_t)BPState::Mask::All) == 0);
+    assert(((uintptr_t)blocker & (uintptr_t)BPState::Mask::All) == 0);
+    return BPState(state.bits | (uintptr_t)blocker);
+  }
+
+  inline BPState operator|(BPState state, bool has_token)
+  {
+    const size_t shift =
+      bits::next_pow2_bits_const((size_t)BPState::Mask::Priority);
+    return state.bits | ((uintptr_t)has_token << shift);
   }
 
   inline std::ostream& operator<<(std::ostream& os, Priority p)

@@ -1,5 +1,5 @@
-module @"$module" {
-  func @for_sum(%arg0: !verona.class<"List">) -> !verona.class<"U32"> attributes {class = !verona.class<"$module">} {
+module @"$module"  {
+  func private @for_sum(%arg0: !verona.class<"List">) -> !verona.class<"U32"> attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !verona.class<"List">
     %1 = "verona.store"(%arg0, %0) : (!verona.class<"List">, !verona.class<"List">) -> !verona.unknown
     %2 = "verona.constant(0)"() : () -> !verona.class<"int">
@@ -32,7 +32,7 @@ module @"$module" {
     %23 = "verona.cast"(%22) : (!verona.unknown) -> !verona.class<"U32">
     return %23 : !verona.class<"U32">
   }
-  func @while_sum(%arg0: !verona.class<"List">) -> !verona.class<"U32"> attributes {class = !verona.class<"$module">} {
+  func private @while_sum(%arg0: !verona.class<"List">) -> !verona.class<"U32"> attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !verona.class<"List">
     %1 = "verona.store"(%arg0, %0) : (!verona.class<"List">, !verona.class<"List">) -> !verona.unknown
     %2 = "verona.constant(0)"() : () -> !verona.class<"int">

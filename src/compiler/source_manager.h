@@ -10,12 +10,39 @@
 #include <fmt/ostream.h>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <pegmatite.hh>
 
 namespace verona::compiler
 {
   struct SourceManager
   {
+  private:
+    std::unique_ptr<std::ostream> _error_stream;
+
+  public:
+    void set_error_stream(std::unique_ptr<std::ostream> out)
+    {
+      _error_stream = std::move(out);
+    }
+
+    std::ostream& get_error_stream()
+    {
+      if (_error_stream == nullptr)
+      {
+        return std::cerr;
+      }
+      else
+      {
+        return *_error_stream;
+      }
+    }
+
+    bool has_error_stream()
+    {
+      return _error_stream != nullptr;
+    }
+
     /**
      * Location in the source file.  This is an opaque value that can be
      * translated back to a source address by the context.
@@ -270,6 +297,10 @@ namespace verona::compiler
        * required bound.
        */
       TypeArgumentDoesNotSatisfyBound,
+      /**
+       * Pattern match on unsupported type.
+       */
+      PatternMatchOnUnsupportedType,
 
       CannotUseVariable,
       WasPreviouslyConsumedHere,
@@ -363,6 +394,8 @@ namespace verona::compiler
           return "Its parent, '{}', went out of scope here";
         case Diagnostic::ParentWasOverwrittenHere:
           return "Its parent, '{}', was overwitten here";
+        case Diagnostic::PatternMatchOnUnsupportedType:
+          return "Pattern match on unsupported type: {}";
 
           EXHAUSTIVE_SWITCH;
       }
@@ -415,14 +448,11 @@ namespace verona::compiler
      * GCC-style prefixes (which most *NIX tools can parse), it could be
      * extended to provide cl.exe-style diagnostics for Visual Studio.
      */
-    template<typename Stream, typename... Args>
+    template<typename... Args>
     void print_diagnostic(
-      Stream& s,
-      SourceLocation l,
-      DiagnosticKind k,
-      Diagnostic d,
-      Args&&... args)
+      SourceLocation l, DiagnosticKind k, Diagnostic d, Args&&... args)
     {
+      auto& s = get_error_stream();
       diagnostic_counter(k)++;
       auto loc = expand_source_location(l);
       s << format(
@@ -439,10 +469,10 @@ namespace verona::compiler
      * Print the preamble of a diagnostic which does not have associated
      * location.
      */
-    template<typename Stream, typename... Args>
-    void print_global_diagnostic(
-      Stream& s, DiagnosticKind k, Diagnostic d, Args&&... args)
+    template<typename... Args>
+    void print_global_diagnostic(DiagnosticKind k, Diagnostic d, Args&&... args)
     {
+      auto& s = get_error_stream();
       diagnostic_counter(k)++;
       s << format(style_for_diagnostic_kind(k), "{}: ", k);
       s << format(
@@ -455,9 +485,9 @@ namespace verona::compiler
     /**
      * Print the line containing an error.
      */
-    template<typename Stream>
-    void print_line_diagnostic(Stream& s, SourceRange r)
+    void print_line_diagnostic(SourceRange r)
     {
+      auto& s = get_error_stream();
       auto loc = expand_source_location(r.first);
       auto endloc = expand_source_location(r.last);
       std::string buffer;
@@ -500,9 +530,10 @@ namespace verona::compiler
     /**
      * Print a summary of the diagnostics that have been generated.
      */
-    template<typename Stream>
-    void print_diagnostic_summary(Stream& s)
+    void print_diagnostic_summary()
     {
+      auto& s = get_error_stream();
+
       int warns = diagnostic_counter(DiagnosticKind::Warning);
       int errors = diagnostic_counter(DiagnosticKind::Error);
       const char* ws = warns > 1 ? "warnings" : "warning";
@@ -929,14 +960,12 @@ namespace verona::compiler
     {
       if (sr)
       {
-        sm.print_diagnostic(
-          std::cerr, sr->first, kind, d, std::forward<Args>(args)...);
-        sm.print_line_diagnostic(std::cerr, *sr);
+        sm.print_diagnostic(sr->first, kind, d, std::forward<Args>(args)...);
+        sm.print_line_diagnostic(*sr);
       }
       else
       {
-        sm.print_global_diagnostic(
-          std::cerr, kind, d, std::forward<Args>(args)...);
+        sm.print_global_diagnostic(kind, d, std::forward<Args>(args)...);
       }
     }
   }

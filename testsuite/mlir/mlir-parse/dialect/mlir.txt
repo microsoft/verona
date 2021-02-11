@@ -1,4 +1,4 @@
-module {
+module  {
   func @bar(%arg0: !verona.meet<class<"U64">, imm>, %arg1: !verona.meet<class<"U64">, imm>) {
     %0 = verona.new_region @C [] : !verona.meet<class<"C", "$parent" : class<"$module">>, iso>
     %1 = verona.view %0 : !verona.meet<class<"C", "$parent" : class<"$module">>, iso> -> !verona.meet<class<"C", "$parent" : class<"$module">>, mut>
