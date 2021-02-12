@@ -43,11 +43,13 @@ class TestFile:
         self.output = os.path.realpath(os.path.join(os.path.join(os.path.join(
                         self.name, os.pardir), 'output'), name+'.out'))
 
-    """Return a list of RUN lines, split like a command line and with %s
+    """Return a list of RUN lines, each a list of pipe commands,
+       if more than one, split like a command line and with %s
        substituted with the file name"""
     def runners(self):
         lines = list()
         pattern = re.compile(r'[\/#]+ RUN: (.*)')
+        pipe = re.compile(r' *\| *')
         space = re.compile(r' +')
         repl = re.compile(r'%s')
 
@@ -60,8 +62,12 @@ class TestFile:
                 cmd = match.group(1)
                 # Replace %s with file name
                 cmd = repl.sub(self.name, cmd);
+                # Split by pipe, then by space
+                commands = list()
+                for cmd in pipe.split(cmd):
+                    commands.append(space.split(cmd))
                 # Append
-                lines.append(space.split(cmd))
+                lines.append(commands)
 
         return lines
 
@@ -72,40 +78,79 @@ class TestFile:
 """
 class TestRunner:
     def __init__(self, args, golden, output, index):
+        # List of lists of command lines (pipes)
         self.args = args
+        # Location of golden files (out, err)
         self.golden = golden + '.' + repr(index)
-        self.output = output + '.' + repr(index)
-        self.index = index
-        output_dir = os.path.realpath(os.path.dirname(self.output))
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
-        self.status = 0
+        self.golden_error = golden + '.' + repr(index) + '.err'
+        # Final output and error
+        self.stdout = list()
+        self.stderr = list()
 
-    """Run the command line, returning the exit status"""
+    """Run a single command line, piping the output to the next command,
+       if any, or to the final output, if none"""
+    def _run(self, cmd, stdin):
+        process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = process.communicate(memoryview(stdin))
+        # We combine stderr from all sub-processes into one
+        if err:
+            self.stderr.append(err.decode())
+        # Return the CompletedProcess
+        return process.returncode, out
+
+    """Run the command lines, returning the exit status of the last
+       piped command"""
     def run(self):
-        with open(self.output, 'w') as out:
-            process = subprocess.Popen(self.args, stdout=out, stderr=out)
-            self.status = process.wait()
-            return self.status
+        stdin = b''
+        # For each command line in args (list of lists)
+        for cmd in self.args:
+            # Run the program, accumulating stderr and piping stdout
+            result, out = self._run(cmd, stdin)
+            # On error, bail
+            if result:
+                return result
+            # Otherwise, pass output to input
+            stdin = out
+
+        # Write final output to output file
+        self.stdout = stdin.decode()
+
+        return 0
 
     """Compare the output with the golden file,
        returning the difference if any"""
     def diff(self):
-        if not os.path.exists(self.golden):
-            print("Invalid path to golden file for comparison", self.golden)
-            return
-        if not os.path.exists(self.output):
-            print("Invalid path to output file for comparison", self.output)
-            return
+        # Dump is a human readable list that combines out/err into one text
+        out = list()
+        err = list()
 
-        with open(self.output, 'r') as out, open(self.golden, 'r') as gold:
-            left = gold.readlines()
-            right = out.readlines()
-            if left != right:
-                d = difflib.Differ()
-                return list(d.compare(left, right))
+        # Check stdout
+        if self.stdout:
+            if not os.path.exists(self.golden):
+                print("Invalid path to stdout file for comparison", self.golden)
+                return
+            with open(self.golden, 'r') as gold:
+                expected = gold.readlines()
+                split = self.stdout.splitlines(True)
+                if not frozenset(split).intersection(expected):
+                    d = difflib.Differ()
+                    out = list(d.compare(expected, split))
 
-        return None
+        # Check stderr
+        if self.stderr:
+            if not os.path.exists(self.golden_error):
+                print("Invalid path to stderr file for comparison", self.golden_error)
+                return
+            with open(self.golden_error, 'r') as gold:
+                expected = gold.readlines()
+                split = self.stderr.splitlines(True)
+                if not frozenset(split).intersection(expected):
+                    d = difflib.Differ()
+                    err = list(d.compare(expected, split))
+
+        # Set return status
+        status = out or err
+        return status, out, err
 
 if __name__ == "__main__":
     # There is only one argument, the test file
@@ -127,20 +172,25 @@ if __name__ == "__main__":
 
         # Run the test, if errors (return is non-zero on error)
         if runner.run():
-            print(test.name, "test", index, "FAIL", runner.args)
-            with open(runner.output, 'r') as out:
-                sys.stdout.writelines(out)
+            print(test.name, "test", index, "RUN FAILED", runner.args)
+            sys.stdout.writelines(runner.stderr)
             status = -1
             continue
 
         # Show the diff, if any
-        diff = runner.diff()
-        if diff is None:
-            print(test.name, "test", index, "PASS")
+        failed, out, err = runner.diff()
+        if failed:
+            print(test.name, "test", index, "FAILED", runner.args)
+            print("OUT:")
+            sys.stdout.writelines(out)
+            print("ERR:")
+            sys.stdout.writelines(err)
+            status = -1
         else:
-            print(test.name, "test", index, "FAIL", runner.args)
-            sys.stdout.writelines(diff)
+            print(test.name, "test", index, "PASSED")
+
+        # Increment to next RUN line
         index += 1
 
-    # Return non-zero on error
+    # Return non-zero on any error
     sys.exit(status)

@@ -1,5 +1,5 @@
 // RUN: grep foo %s
-# RUN: cat %s
+# RUN: cat %s | grep this
 # RUN: bash %s
 RUN: don't match this
 # Nor this: RUN:
