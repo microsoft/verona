@@ -1,6 +1,8 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+// RUN: verona-mlir %s -o -
+
 // This is a simple example to demonstrate the Verona MLIR dialect.
 //
 // ```verona

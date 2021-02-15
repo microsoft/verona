@@ -1,6 +1,8 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+// RUN: verona-mlir %s -o -
+
 // These two classes should be able to declare "foo" even though they
 // have the same name as each other and the last function in this file
 class A {

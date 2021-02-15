@@ -1,6 +1,8 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+// RUN: verona-mlir %s -o -
+
 f(a : U32, x : S32) : F16
 {
   while (a < 5)

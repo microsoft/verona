@@ -1,6 +1,8 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+// RUN: verona-mlir %s -o -
+
 !D1 = type !verona.class<"D1">
 !D2 = type !verona.class<"D2">
 !C1 = type !verona.class<"C1", "f": meet<!D1, mut>>

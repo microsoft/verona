@@ -1,6 +1,8 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+// RUN: verona-mlir %s -o -
+
 // This test checks that Verona operations allow subsumption in their arguments.
 // For instance, we can copy a value from type A & B to a value of type A.
 
