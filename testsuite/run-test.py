@@ -30,6 +30,23 @@ import subprocess
 import difflib
 
 """
+    PathFinder
+
+    Finds binaries on specific path (used for build paths)
+"""
+class PathFinder:
+    def __init__(self, path):
+        self.path = path
+
+    """Takes a command line list and replaces the first argument (executable)
+       with a version with its path, if the file exists in the path."""
+    def fixPath(self, args):
+        first = args[0]
+        executable = os.path.join(self.path, first)
+        if os.path.exists(executable):
+            args[0] = executable
+
+"""
     TestFile
 
     Simple wrapper to a test file, collects all RUN lines and prepares both
@@ -38,10 +55,9 @@ import difflib
 class TestFile:
     def __init__(self, name):
         self.name = os.path.realpath(name)
+        filename = os.path.basename(name)
         self.golden = os.path.realpath(os.path.join(os.path.join(os.path.join(
-                        self.name, os.pardir), 'golden'), name+'.out'))
-        self.output = os.path.realpath(os.path.join(os.path.join(os.path.join(
-                        self.name, os.pardir), 'output'), name+'.out'))
+                        self.name, os.pardir), 'golden'), filename+'.out'))
 
     """Return a list of RUN lines, each a list of pipe commands,
        if more than one, split like a command line and with %s
@@ -69,7 +85,10 @@ class TestFile:
                 # Append
                 lines.append(commands)
 
-        return lines
+        if lines:
+            return lines
+        else:
+            return None
 
 """
     TestRunner
@@ -77,9 +96,11 @@ class TestFile:
     Runs the test and diffs the output for error reporting.
 """
 class TestRunner:
-    def __init__(self, args, golden, output, index):
+    def __init__(self, args, path, golden, index):
         # List of lists of command lines (pipes)
         self.args = args
+        # Path finder (for binaries in build directories)
+        self.path = path
         # Location of golden files (out, err)
         self.golden = golden + '.' + repr(index)
         self.golden_error = golden + '.' + repr(index) + '.err'
@@ -104,6 +125,8 @@ class TestRunner:
         stdin = b''
         # For each command line in args (list of lists)
         for cmd in self.args:
+            # Fix the path, if the binary is in the build path
+            path.fixPath(cmd)
             # Run the program, accumulating stderr and piping stdout
             result, out = self._run(cmd, stdin)
             # On error, bail
@@ -128,7 +151,7 @@ class TestRunner:
         if self.stdout:
             if not os.path.exists(self.golden):
                 print("Invalid path to stdout file for comparison", self.golden)
-                return
+                return True, out, err
             with open(self.golden, 'r') as gold:
                 expected = gold.readlines()
                 split = self.stdout.splitlines(True)
@@ -140,7 +163,7 @@ class TestRunner:
         if self.stderr:
             if not os.path.exists(self.golden_error):
                 print("Invalid path to stderr file for comparison", self.golden_error)
-                return
+                return True, out, err
             with open(self.golden_error, 'r') as gold:
                 expected = gold.readlines()
                 split = self.stderr.splitlines(True)
@@ -155,20 +178,26 @@ class TestRunner:
 if __name__ == "__main__":
     # There is only one argument, the test file
     parser = argparse.ArgumentParser()
-    parser.add_argument('test',
-        help='Test file'
-    )
+    parser.add_argument('path', help='Binary path')
+    parser.add_argument('test', help='Test file')
     args = parser.parse_args()
 
     # Creates the test file, with output and golden paths
-    test = TestFile(args.test);
+    path = PathFinder(args.path)
+    test = TestFile(args.test)
     index = 1
     status = 0
 
+    # Check that there are tests at all in the file
+    runs = test.runners()
+    if not runs:
+        print("ERROR: No tests in file")
+        sys.exit(-1)
+
     # For each RUN line
-    for run in test.runners():
+    for run in runs:
         # Create a runner with file, output and golden locations
-        runner = TestRunner(run, test.golden, test.output, index)
+        runner = TestRunner(run, path, test.golden, index)
 
         # Run the test, if errors (return is non-zero on error)
         if runner.run():
