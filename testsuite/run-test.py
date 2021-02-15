@@ -210,10 +210,12 @@ if __name__ == "__main__":
         failed, out, err = runner.diff()
         if failed:
             print(test.name, "test", index, "FAILED", runner.args)
-            print("OUT:")
-            sys.stdout.writelines(out)
-            print("ERR:")
-            sys.stdout.writelines(err)
+            if out:
+                print("OUT:")
+                sys.stdout.writelines(out)
+            if err:
+                print("ERR:")
+                sys.stdout.writelines(err)
             status = -1
         else:
             print(test.name, "test", index, "PASSED")
