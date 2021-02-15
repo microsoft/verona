@@ -35,7 +35,6 @@ set(VERONAI ${VERONA_LOCAL_DIST}/interpreter${CMAKE_EXECUTABLE_SUFFIX})
 set(VERONA_AST ${VERONA_LOCAL_DIST}/verona-ast${CMAKE_EXECUTABLE_SUFFIX})
 set(VERONA_TYPED_AST ${VERONA_LOCAL_DIST}/verona-typed-ast${CMAKE_EXECUTABLE_SUFFIX})
 set(VERONA_PARSER ${VERONA_LOCAL_DIST}/verona-parser${CMAKE_EXECUTABLE_SUFFIX})
-set(VERONA_MLIR ${VERONA_LOCAL_DIST}/verona-mlir${CMAKE_EXECUTABLE_SUFFIX})
 
 function(subdirlist result curdir)
   file(GLOB children LIST_DIRECTORIES true RELATIVE ${curdir}  ${curdir}/*)
@@ -48,6 +47,7 @@ function(subdirlist result curdir)
   set(${result} ${dirlist} PARENT_SCOPE)
 endfunction()
 
+# Old style test, using CMake files to call specific binaries
 function(add_tests mode dir)
   set(testdir ${CMAKE_CURRENT_SOURCE_DIR}/${dir}/${mode})
   file(GLOB filenames RELATIVE ${testdir} ${testdir}/*.verona ${testdir}/*.mlir)
@@ -64,7 +64,6 @@ function(add_tests mode dir)
       -DVERONA_AST=${VERONA_AST}
       -DVERONA_PARSER=${VERONA_PARSER}
       -DVERONA_TYPED_AST=${VERONA_TYPED_AST}
-      -DVERONA_MLIR=${VERONA_MLIR}
       -DGRAMMAR=${VERONA_LOCAL_DIST}/grammar.peg
       -DFILECHECK=${FILECHECK}
       -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
@@ -75,6 +74,7 @@ function(add_tests mode dir)
   endforeach()
 endfunction()
 
+
 subdirlist(TEST_FOLDERS ${CMAKE_CURRENT_SOURCE_DIR})
 foreach(TEST_FOLDER ${TEST_FOLDERS})
   add_tests(compile-pass ${TEST_FOLDER})
@@ -82,8 +82,6 @@ foreach(TEST_FOLDER ${TEST_FOLDERS})
   add_tests(run-pass ${TEST_FOLDER})
   add_tests(ast-parse ${TEST_FOLDER})
   add_tests(parser ${TEST_FOLDER})
-  add_tests(mlir-parse ${TEST_FOLDER})
-  add_tests(mlir-fail ${TEST_FOLDER})
 endforeach()
 
 set_tests_properties(
@@ -106,7 +104,20 @@ add_custom_target(update-dump COMMAND ${CMAKE_COMMAND}
   -DVERONA_AST=${VERONA_AST}
   -DVERONA_PARSER=${VERONA_PARSER}
   -DVERONA_TYPED_AST=${VERONA_TYPED_AST}
-  -DVERONA_MLIR=${VERONA_MLIR}
   -DGRAMMAR=${VERONA_LOCAL_DIST}/grammar.peg
   -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
   -P ${CMAKE_CURRENT_SOURCE_DIR}/update-dump.cmake)
+
+# New style tests, using run-test.py to run each test
+set(VERONA_TEST_RUNNER ${CMAKE_CURRENT_SOURCE_DIR}/run-test.py)
+function(add_tests_new dir)
+  set(testdir ${CMAKE_CURRENT_SOURCE_DIR}/${dir})
+  file(GLOB_RECURSE filenames RELATIVE ${testdir} *.verona *.mlir)
+  foreach(filename ${filenames})
+    get_filename_component(realfile ${filename} REALPATH)
+    message(${VERONA_TEST_RUNNER} " " ${realfile})
+    add_test(NAME ${filename} COMMAND ${VERONA_TEST_RUNNER} ${realfile})
+  endforeach()
+endfunction()
+
+add_subdirectory(mlir)
