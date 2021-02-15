@@ -28,7 +28,7 @@ namespace verona::parser::resolve
 
       // Assume it's a zero argument create unless we can discover otherwise.
       if (find && (find->kind() == Kind::Function))
-        has_params = find->as<Function>().signature->params.size() > 0;
+        has_params = find->as<Function>().params.size() > 0;
 
       auto create = std::make_shared<TypeName>();
       create->location = name_create;

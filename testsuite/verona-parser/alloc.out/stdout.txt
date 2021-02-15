@@ -19,26 +19,25 @@
             (field f (isecttype [ (typeref [ (typename A []) ]) (mut ) ]) ())
             (function
               create
-              (signature
-                [
-                  (typeparam
-                    S
-                    (isecttype
-                      [
-                        (typeref
-                          [ (typename C [ (typeref [ (typename A []) ]) ]) ])
-                        (mut )
-                      ])
-                    ())
-                ]
-                [
-                  (param
-                    a
-                    (isecttype [ (typeref [ (typename A []) ]) (mut ) ])
-                    ())
-                ]
-                (typeref [ (typename S []) ]))
-              (block [ (new (ref a) a) ]))
+              [
+                (typeparam
+                  S
+                  (isecttype
+                    [
+                      (typeref
+                        [ (typename C [ (typeref [ (typename A []) ]) ]) ])
+                      (mut )
+                    ])
+                  ())
+              ]
+              [
+                (param
+                  a
+                  (isecttype [ (typeref [ (typename A []) ]) (mut ) ])
+                  ())
+              ]
+              (typeref [ (typename S []) ])
+              (lambda [] [] [ (new a (ref a)) ]))
           ])
         (interface Any [] () [])
         (class
@@ -48,12 +47,16 @@
           [
             (function
               create
-              (signature [] [] (typeref [ (typename Empty []) ]))
-              (block [ (new (tuple []) ()) ]))
+              []
+              []
+              (typeref [ (typename Empty []) ])
+              (lambda [] [] [ (new () (tuple [])) ]))
             (function
               apply
-              (signature [] [] (typeref [ (typename Empty []) ]))
-              (block [ (new (tuple []) ()) ]))
+              []
+              []
+              (typeref [ (typename Empty []) ])
+              (lambda [] [] [ (new () (tuple [])) ]))
           ])
         (class
           One
@@ -63,11 +66,10 @@
             (field a (typeref [ (typename U32 []) ]) ())
             (function
               create
-              (signature
-                []
-                [ (param a (typeref [ (typename U32 []) ]) ()) ]
-                (typeref [ (typename One []) ]))
-              (block [ (new (ref a) ()) ]))
+              []
+              [ (param a (typeref [ (typename U32 []) ]) ()) ]
+              (typeref [ (typename One []) ])
+              (lambda [] [] [ (new () (ref a)) ]))
           ])
         (class
           Two
@@ -78,28 +80,29 @@
             (field b (typeref [ (typename F64 []) ]) ())
             (function
               create
-              (signature
-                []
-                [
-                  (param a (typeref [ (typename U32 []) ]) ())
-                  (param b (typeref [ (typename F64 []) ]) ())
-                ]
-                (typeref [ (typename Two []) ]))
-              (block [ (new (tuple [ (ref a) (ref b) ]) ()) ]))
+              []
+              [
+                (param a (typeref [ (typename U32 []) ]) ())
+                (param b (typeref [ (typename F64 []) ]) ())
+              ]
+              (typeref [ (typename Two []) ])
+              (lambda [] [] [ (new () (tuple [ (ref a) (ref b) ])) ]))
           ])
         (function
           foo
-          (signature [] [] ())
-          (block
+          []
+          []
+          ()
+          (lambda
+            []
+            []
             [
               (assign
                 (let f)
                 (lambda
-                  (signature
-                    [ (typeparam A (typeref [ (typename U64 []) ]) ()) ]
-                    [ (param a () ()) ]
-                    ())
-                  (apply (select (ref a) +) (int 42))))
+                  [ (typeparam A (typeref [ (typename U64 []) ]) ()) ]
+                  [ (param a () ()) ]
+                  [ (apply (select (ref a) +) (int 42)) ]))
               (assign
                 (let e0)
                 (apply
@@ -110,33 +113,33 @@
                 (apply
                   (staticref [ (typename Empty []) (typename create []) ])
                   ()))
-              (assign (let e2) (object (typeref [ (typename Empty []) ]) [] e))
+              (assign (let e2) (object e (typeref [ (typename Empty []) ]) []))
               (assign
                 (let one)
                 (object
+                  ()
                   (typeref [ (typename One []) ])
                   [
                     (field
                       a
                       (typeref [ (typename U32 []) ])
-                      (block [ (int 42) ]))
-                  ]
-                  ()))
+                      (lambda [] [] [ (int 42) ]))
+                  ]))
               (assign
                 (let two)
                 (object
+                  one
                   (typeref [ (typename Two []) ])
                   [
                     (field
                       a
                       (typeref [ (typename U32 []) ])
-                      (block [ (int 42) ]))
+                      (lambda [] [] [ (int 42) ]))
                     (field
                       b
                       (typeref [ (typename F64 []) ])
-                      (block [ (float 3.14) ]))
-                  ]
-                  one))
+                      (lambda [] [] [ (float 3.14) ]))
+                  ]))
             ]))
       ])
   ])

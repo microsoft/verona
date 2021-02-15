@@ -10,7 +10,7 @@ tupletype <- '(' (type (',' type)*)? ')'
 typename <- ident typeargs?
 modulename <- string typeargs?
 typeref <- (modulename / typename) ('::' typename)*
-captype <- 'iso' / 'mut' / 'imm' / typeref
+captype <- 'iso' / 'mut' / 'imm' / 'Self' / typeref
 viewtype <- (captype ('~>' / '<~'))* (captype / tupletype)
 functiontype <- viewtype ('->' functiontype)?
 isecttype <- functiontype ('&' functiontype)*
@@ -18,18 +18,15 @@ uniontype <- isecttype ('|' isecttype)*
 type <- 'throws' uniontype / uniontype ('throws' uniontype)?
 
 # Atoms
-### TODO: lambda, try, case, when, atom, function
 lambda <- '{' (typeparams? (param (',' param)*)? '=>')? (expr ';'*)* '}'
-try <- 'try' lambda 'catch' '{' case* '}'
-case <- atom ('if' tuple)? '=>' lambda
-match <- 'match' tuple '{' case* '}'
-when <- 'when' tuple lambda
-decl <- ('let' / 'var') ident
-new <- 'new' (tuple / typebody / type typebody) ('in' ident)?
+try <- 'try' lambda 'catch' '{' lambda* '}'
+match <- 'match' postfix '{' lambda* '}'
+when <- 'when' postfix lambda
+new <- 'new' ('@' ident)? (tuple / typebody / type typebody)
 tuple <- '(' (expr (',' expr)*)? ')'
 constant <- string / character / float / int / hex / binary / 'true' / 'false'
 ref <- [local] ident
-atom <- staticref / ref / constant / tuple / new / decl / when / match / lambda
+atom <- staticref / ref / constant / tuple / new / when / try / match / lambda
 
 # Operators
 staticname <- name typeargs?
@@ -42,12 +39,13 @@ op <- staticref / staticselect
 postfix <- atom ('.' name / typeargs)*
 apply <- op+ postfix* / postfix+
 infix <- apply (op apply)*
-expr <- infix oftype? ('=' expr)?
+throw <- 'throw' expr
+decl <- ('let' / 'var') ident
+expr <- (decl / throw / infix) oftype? ('=' expr)?
 
 # Definitions
-param <- ident oftype? initexpr?
+param <- ident oftype? initexpr? / expr
 params <- '(' (param (',' param)*)? ')'
-signature <- typeparams? params oftype?
 
 initexpr <- '=' expr
 inittype <- '=' type
@@ -59,7 +57,7 @@ typebody <- '{' member* '}'
 # Members
 name <- symbol / ident
 field <- ident oftype? initexpr? ';'
-function <- name? signature (lambda / ';')
+function <- name? typeparams? params oftype? (lambda / ';')
 using <- 'using' typeref ';'
 typealias <- 'type' ident typeparams? '=' type ';'
 entity <- typeparams? oftype?

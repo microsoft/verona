@@ -1,0 +1,47 @@
+class FalseBranch {}
+
+// if a
+// {
+//   e0
+// }
+// else case { b }
+// {
+//   e1
+// }
+// else case { c }
+// {
+//   e2
+// }
+// else
+// {
+//   e3
+// }
+
+if[T](cond: Bool, ontrue: ()->T): T | FalseBranch
+{
+  match cond
+  {
+    { true => ontrue() }
+    { false => FalseBranch }
+  }
+}
+
+// If FalseBranch <: U, this can cause a following `else` to execute even
+// though this `else` already executed.
+else[T, U](prev: T | FalseBranch, onfalse: ()->U): T | U
+{
+  match prev
+  {
+    { (FalseBranch) => onfalse() }
+    { v: T => v }
+  }
+}
+
+// `case` returns an `if` wrapped in a lambda. This can be passed to `else`
+// such that neither the condition nor the branch is evaluated unless
+// it is needed. This makes `if (a) {e0} else case {b} {e1} else {e2}`
+// equivalent to `if (a) {e0} else {if (b) {e1}} else {e2}`.
+case[T](cond: ()->Bool, ontrue: ()->T): ()->(T | FalseBranch)
+{
+  { if (cond()) ontrue }
+}

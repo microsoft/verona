@@ -8,68 +8,1206 @@
       []
       ()
       [
+        (using (typeref [ (modulename $module-1 []) ]))
         (class U32 [] () [])
         (class List [ (typeparam T () ()) ] () [])
         (function
           for_sum
-          (signature
+          []
+          [
+            (param
+              x
+              (typeref [ (typename List [ (typeref [ (typename U32 []) ]) ]) ])
+              ())
+          ]
+          (typeref [ (typename U32 []) ])
+          (lambda
+            []
             []
             [
-              (param
-                x
-                (typeref
-                  [ (typename List [ (typeref [ (typename U32 []) ]) ]) ])
-                ())
-            ]
-            (typeref [ (typename U32 []) ]))
-          (block
-            [
               (assign
-                (oftype (let sum) (typeref [ (typename U32 []) ]))
+                (oftype (var sum) (typeref [ (typename U32 []) ]))
                 (int 0))
-              (block
-                [
-                  (assign (let $0) (apply (select (ref x) values) (tuple [])))
-                  (while
-                    (apply (select (ref $0) has_value) (tuple []))
-                    (block
-                      [
-                        (assign (let a) (apply (ref $0) (tuple [])))
-                        (assign (ref sum) (apply (select (ref sum) +) (ref a)))
-                        (apply (select (ref $0) next) (tuple []))
-                      ]))
-                ])
-              (return (ref sum))
+              (apply
+                (apply
+                  (staticref [ (typename for []) ])
+                  (select (ref x) values))
+                (lambda
+                  []
+                  [ (param a () ()) ]
+                  [ (assign (ref sum) (apply (select (ref sum) +) (ref a))) ]))
+              (ref sum)
             ]))
         (function
           while_sum
-          (signature
+          []
+          [
+            (param
+              x
+              (typeref [ (typename List [ (typeref [ (typename U32 []) ]) ]) ])
+              ())
+          ]
+          (typeref [ (typename U32 []) ])
+          (lambda
+            []
             []
             [
-              (param
-                x
-                (typeref
-                  [ (typename List [ (typeref [ (typename U32 []) ]) ]) ])
-                ())
-            ]
-            (typeref [ (typename U32 []) ]))
-          (block
-            [
               (assign
-                (oftype (let sum) (typeref [ (typename U32 []) ]))
+                (oftype (var sum) (typeref [ (typename U32 []) ]))
                 (int 0))
               (assign (let iter) (apply (select (ref x) values) (tuple [])))
-              (while
-                (apply (select (ref iter) has_value) (tuple []))
-                (block
+              (apply
+                (select
+                  (lambda
+                    []
+                    []
+                    [ (apply (select (ref iter) has_value) (tuple [])) ])
+                  while)
+                (lambda
+                  []
+                  []
                   [
-                    (assign
-                      (let a)
-                      (apply (select (ref iter) apply) (tuple [])))
-                    (apply (select (ref iter) next) (tuple []))
+                    (assign (let a) (apply (ref iter) (tuple [])))
+                    (select (ref iter) next)
                     (assign (ref sum) (apply (select (ref sum) +) (ref a)))
                   ]))
-              (return (ref sum))
+              (ref sum)
             ]))
+      ])
+    (class
+      $module-1
+      []
+      ()
+      [
+        (using (typeref [ (modulename $module-2 []) ]))
+        (using (typeref [ (modulename $module-3 []) ]))
+        (class Empty [] () [])
+        (interface
+          Iterator
+          [ (typeparam T () ()) ]
+          ()
+          [
+            (function ? [] [] (typeref [ (typename Bool []) ]) ())
+            (function
+              apply
+              []
+              [ (param self (isecttype [ (Self ) (mut ) ]) ()) ]
+              (uniontype
+                [
+                  (typeref [ (typename T []) ])
+                  (throwtype (typeref [ (typename Empty []) ]))
+                ])
+              ())
+            (function
+              next
+              []
+              [ (param self (isecttype [ (Self ) (mut ) ]) ()) ]
+              ()
+              ())
+          ])
+        (function
+          for
+          [
+            (typeparam L () (typeref [ (typename NoLabel []) ]))
+            (typeparam T () ())
+            (typeparam U () ())
+            (typeparam V () ())
+          ]
+          [
+            (param
+              iter
+              (typeref
+                [ (typename Iterator [ (typeref [ (typename T []) ]) ]) ])
+              ())
+            (param
+              body
+              (functiontype
+                (typeref [ (typename T []) ])
+                (uniontype
+                  [
+                    (typeref [ (typename U []) ])
+                    (throwtype (typeref [ (typename V []) ]))
+                  ]))
+              ())
+          ]
+          (throwtype (typeref [ (typename V []) ]))
+          (lambda
+            []
+            []
+            [
+              (apply
+                (apply
+                  (staticref [ (typename while []) ])
+                  (lambda [] [] [ (select (ref iter) ?) ]))
+                (lambda
+                  []
+                  []
+                  [
+                    (try
+                      (lambda
+                        []
+                        []
+                        [
+                          (apply (ref body) (apply (ref iter) (tuple [])))
+                          (apply
+                            (staticref
+                              [ (typename continue []) (typename create []) ])
+                            ())
+                        ])
+                      [
+                        (lambda
+                          []
+                          [
+                            (apply
+                              (apply
+                                (apply
+                                  (staticref
+                                    [
+                                      (typename
+                                        Break
+                                        [ (typeref [ (typename L []) ]) ])
+                                      (typename create [])
+                                    ])
+                                  ())
+                                (staticref [ (typename | []) ]))
+                              (apply
+                                (staticref
+                                  [ (typename Empty []) (typename create []) ])
+                                ()))
+                          ]
+                          [
+                            (apply
+                              (staticref
+                                [ (typename break []) (typename create []) ])
+                              ())
+                          ])
+                        (lambda
+                          []
+                          [
+                            (apply
+                              (apply
+                                (apply
+                                  (staticref
+                                    [
+                                      (typename
+                                        Continue
+                                        [ (typeref [ (typename NoLabel []) ]) ])
+                                      (typename create [])
+                                    ])
+                                  ())
+                                (staticref [ (typename | []) ]))
+                              (apply
+                                (staticref
+                                  [
+                                    (typename
+                                      Continue
+                                      [ (typeref [ (typename L []) ]) ])
+                                    (typename create [])
+                                  ])
+                                ()))
+                          ]
+                          [ (select (ref iter) next) ])
+                      ])
+                  ]))
+            ]))
+        (class
+          Option
+          [ (typeparam T () ()) ]
+          (typeref [ (typename Iterator [ (typeref [ (typename T []) ]) ]) ])
+          [
+            (field
+              v
+              (uniontype
+                [
+                  (typeref [ (typename T []) ])
+                  (typeref [ (typename None []) ])
+                ])
+              ())
+            (function
+              create
+              [
+                (typeparam
+                  S
+                  (typeref
+                    [ (typename Option [ (typeref [ (typename T []) ]) ]) ])
+                  ())
+              ]
+              [
+                (param
+                  v
+                  (uniontype
+                    [
+                      (typeref [ (typename T []) ])
+                      (typeref [ (typename None []) ])
+                    ])
+                  (lambda
+                    []
+                    []
+                    [
+                      (apply
+                        (staticref [ (typename None []) (typename create []) ])
+                        ())
+                    ]))
+              ]
+              (typeref [ (typename S []) ])
+              (lambda [] [] [ (new () (ref v)) ]))
+            (function
+              has_value
+              []
+              [
+                (param
+                  self
+                  (typeref
+                    [ (typename Option [ (typeref [ (typename T []) ]) ]) ])
+                  ())
+              ]
+              (typeref [ (typename Bool []) ])
+              (lambda
+                []
+                []
+                [
+                  (match
+                    (select (ref self) v)
+                    [
+                      (lambda [] [ (param None () ()) ] [ (false false) ])
+                      (lambda [] [] [ (true true) ])
+                    ])
+                ]))
+            (function
+              apply
+              [
+                (typeparam
+                  S
+                  (typeref
+                    [ (typename Option [ (typeref [ (typename T []) ]) ]) ])
+                  ())
+              ]
+              [ (param self (typeref [ (typename S []) ]) ()) ]
+              (uniontype
+                [
+                  (typeref [ (typename T []) ])
+                  (throwtype (typeref [ (typename Empty []) ]))
+                ])
+              (lambda
+                []
+                []
+                [
+                  (match
+                    (select (ref self) v)
+                    [
+                      (lambda
+                        []
+                        [ (param v (typeref [ (typename T []) ]) ()) ]
+                        [ (ref v) ])
+                      (lambda
+                        []
+                        []
+                        [
+                          (throw
+                            (apply
+                              (staticref
+                                [ (typename Empty []) (typename create []) ])
+                              ()))
+                        ])
+                    ])
+                ]))
+            (function
+              value_or
+              [
+                (typeparam
+                  S
+                  (typeref
+                    [ (typename Option [ (typeref [ (typename T []) ]) ]) ])
+                  ())
+                (typeparam U () ())
+              ]
+              [
+                (param self (typeref [ (typename S []) ]) ())
+                (param default (typeref [ (typename U []) ]) ())
+              ]
+              (uniontype
+                [ (typeref [ (typename T []) ]) (typeref [ (typename U []) ]) ])
+              (lambda
+                []
+                []
+                [
+                  (match
+                    (select (ref self) v)
+                    [
+                      (lambda
+                        []
+                        [ (param v (typeref [ (typename T []) ]) ()) ]
+                        [ (ref v) ])
+                      (lambda [] [] [ (ref default) ])
+                    ])
+                ]))
+            (function
+              extract
+              [
+                (typeparam
+                  S
+                  (isecttype
+                    [
+                      (typeref
+                        [ (typename Option [ (typeref [ (typename T []) ]) ]) ])
+                      (mut )
+                    ])
+                  ())
+              ]
+              [ (param self (typeref [ (typename S []) ]) ()) ]
+              (uniontype
+                [
+                  (typeref [ (typename T []) ])
+                  (throwtype (typeref [ (typename Empty []) ]))
+                ])
+              (lambda
+                []
+                []
+                [
+                  (match
+                    (select (ref self) v)
+                    [
+                      (lambda
+                        []
+                        [ (param v (typeref [ (typename T []) ]) ()) ]
+                        [
+                          (assign
+                            (select (ref self) v)
+                            (apply
+                              (staticref
+                                [ (typename None []) (typename create []) ])
+                              ()))
+                        ])
+                      (lambda
+                        []
+                        []
+                        [
+                          (throw
+                            (apply
+                              (staticref
+                                [ (typename Empty []) (typename create []) ])
+                              ()))
+                        ])
+                    ])
+                ]))
+            (function
+              extract_or
+              [
+                (typeparam
+                  S
+                  (isecttype
+                    [
+                      (typeref
+                        [ (typename Option [ (typeref [ (typename T []) ]) ]) ])
+                      (mut )
+                    ])
+                  ())
+                (typeparam U () ())
+              ]
+              [
+                (param self (typeref [ (typename S []) ]) ())
+                (param default (typeref [ (typename U []) ]) ())
+              ]
+              (uniontype
+                [ (typeref [ (typename T []) ]) (typeref [ (typename U []) ]) ])
+              (lambda
+                []
+                []
+                [
+                  (match
+                    (select (ref self) v)
+                    [
+                      (lambda
+                        []
+                        [ (param v (typeref [ (typename T []) ]) ()) ]
+                        [
+                          (assign
+                            (select (ref self) v)
+                            (apply
+                              (staticref
+                                [ (typename None []) (typename create []) ])
+                              ()))
+                        ])
+                      (lambda [] [] [ (ref default) ])
+                    ])
+                ]))
+          ])
+      ])
+    (class
+      $module-2
+      []
+      ()
+      [
+        (class
+          Bool
+          []
+          ()
+          [
+            (function
+              apply
+              []
+              [ (param self (typeref [ (typename Bool []) ]) ()) ]
+              (typeref [ (typename Bool []) ])
+              (lambda [] [] [ (ref self) ]))
+            (function
+              bool
+              []
+              [ (param self (typeref [ (typename Bool []) ]) ()) ]
+              (typeref [ (typename Bool []) ])
+              (lambda [] [] [ (ref self) ]))
+          ])
+        (interface
+          ToBool
+          []
+          ()
+          [
+            (function
+              bool
+              []
+              [ (param self (Self ) ()) ]
+              (typeref [ (typename Bool []) ])
+              ())
+          ])
+        (function
+          and
+          [
+            (typeparam T (typeref [ (typename ToBool []) ]) ())
+            (typeparam U () ())
+          ]
+          [
+            (param a (typeref [ (typename T []) ]) ())
+            (param
+              b
+              (functiontype (tupletype []) (typeref [ (typename U []) ]))
+              ())
+          ]
+          (uniontype
+            [ (typeref [ (typename T []) ]) (typeref [ (typename U []) ]) ])
+          (lambda
+            []
+            []
+            [
+              (match
+                (select (ref a) bool)
+                [
+                  (lambda [] [ (false false) ] [ (ref a) ])
+                  (lambda [] [ (true true) ] [ (apply (ref b) (tuple [])) ])
+                ])
+            ]))
+        (function
+          or
+          [
+            (typeparam T (typeref [ (typename ToBool []) ]) ())
+            (typeparam U () ())
+          ]
+          [
+            (param a (typeref [ (typename T []) ]) ())
+            (param
+              b
+              (functiontype (tupletype []) (typeref [ (typename U []) ]))
+              ())
+          ]
+          (uniontype
+            [ (typeref [ (typename T []) ]) (typeref [ (typename U []) ]) ])
+          (lambda
+            []
+            []
+            [
+              (match
+                (select (ref a) bool)
+                [
+                  (lambda [] [ (true true) ] [ (ref a) ])
+                  (lambda [] [ (false false) ] [ (apply (ref b) (tuple [])) ])
+                ])
+            ]))
+        (function
+          not
+          [ (typeparam T (typeref [ (typename ToBool []) ]) ()) ]
+          [ (param a (typeref [ (typename T []) ]) ()) ]
+          (typeref [ (typename Bool []) ])
+          (lambda
+            []
+            []
+            [
+              (match
+                (select (ref a) bool)
+                [
+                  (lambda [] [ (true true) ] [ (false false) ])
+                  (lambda [] [ (false false) ] [ (true true) ])
+                ])
+            ]))
+        (class Less [] () [])
+        (class Equal [] () [])
+        (class Greater [] () [])
+        (typealias
+          Compare
+          []
+          (uniontype
+            [
+              (typeref [ (typename Less []) ])
+              (typeref [ (typename Equal []) ])
+              (typeref [ (typename Greater []) ])
+            ]))
+        (interface
+          Equatable
+          [ (typeparam T () ()) ]
+          ()
+          [
+            (function
+              ==
+              []
+              [
+                (param self (Self ) ())
+                (param other (typeref [ (typename T []) ]) ())
+              ]
+              (typeref [ (typename Bool []) ])
+              ())
+            (function
+              !=
+              []
+              [
+                (param self (Self ) ())
+                (param other (typeref [ (typename T []) ]) ())
+              ]
+              (typeref [ (typename Bool []) ])
+              (lambda
+                []
+                []
+                [
+                  (apply
+                    (staticref [ (typename not []) ])
+                    (apply
+                      (staticref [ (typename == []) ])
+                      (tuple [ (ref self) (ref other) ])))
+                ]))
+          ])
+        (interface
+          Comparable
+          [ (typeparam T () ()) ]
+          (typeref [ (typename Equatable [ (typeref [ (typename T []) ]) ]) ])
+          [
+            (function
+              <
+              []
+              [
+                (param self (Self ) ())
+                (param other (typeref [ (typename T []) ]) ())
+              ]
+              (typeref [ (typename Bool []) ])
+              ())
+            (function
+              <=
+              []
+              [
+                (param self (Self ) ())
+                (param other (typeref [ (typename T []) ]) ())
+              ]
+              (typeref [ (typename Bool []) ])
+              (lambda
+                []
+                []
+                [
+                  (apply
+                    (staticref [ (typename or []) ])
+                    (tuple
+                      [
+                        (apply
+                          (staticref [ (typename < []) ])
+                          (tuple [ (ref self) (ref other) ]))
+                        (apply (select (ref self) ==) (ref other))
+                      ]))
+                ]))
+            (function
+              >=
+              []
+              [
+                (param self (Self ) ())
+                (param other (typeref [ (typename T []) ]) ())
+              ]
+              (typeref [ (typename Bool []) ])
+              (lambda
+                []
+                []
+                [
+                  (apply
+                    (staticref [ (typename not []) ])
+                    (apply
+                      (staticref [ (typename < []) ])
+                      (tuple [ (ref self) (ref other) ])))
+                ]))
+            (function
+              >
+              []
+              [
+                (param self (Self ) ())
+                (param other (typeref [ (typename T []) ]) ())
+              ]
+              (typeref [ (typename Bool []) ])
+              (lambda
+                []
+                []
+                [
+                  (apply
+                    (staticref [ (typename not []) ])
+                    (apply
+                      (staticref [ (typename <= []) ])
+                      (tuple [ (ref self) (ref other) ])))
+                ]))
+            (function
+              <=>
+              []
+              [
+                (param self (Self ) ())
+                (param other (typeref [ (typename T []) ]) ())
+              ]
+              (typeref [ (typename Compare []) ])
+              (lambda
+                []
+                []
+                [
+                  (apply
+                    (select
+                      (apply
+                        (select
+                          (apply
+                            (select
+                              (apply
+                                (staticref [ (typename < []) ])
+                                (tuple [ (ref self) (ref other) ]))
+                              if)
+                            (lambda
+                              []
+                              []
+                              [
+                                (apply
+                                  (staticref
+                                    [ (typename Less []) (typename create []) ])
+                                  ())
+                              ]))
+                          elseif)
+                        (apply
+                          (apply (select (ref self) ==) (ref other))
+                          (lambda
+                            []
+                            []
+                            [
+                              (apply
+                                (staticref
+                                  [ (typename Equal []) (typename create []) ])
+                                ())
+                            ])))
+                      else)
+                    (lambda
+                      []
+                      []
+                      [
+                        (apply
+                          (staticref
+                            [ (typename Greater []) (typename create []) ])
+                          ())
+                      ]))
+                ]))
+          ])
+      ])
+    (class
+      $module-3
+      []
+      ()
+      [
+        (class FalseBranch [] () [])
+        (function
+          if
+          [ (typeparam T () ()) ]
+          [
+            (param cond (typeref [ (typename Bool []) ]) ())
+            (param
+              ontrue
+              (functiontype (tupletype []) (typeref [ (typename T []) ]))
+              ())
+          ]
+          (uniontype
+            [
+              (typeref [ (typename T []) ])
+              (typeref [ (typename FalseBranch []) ])
+            ])
+          (lambda
+            []
+            []
+            [
+              (match
+                (ref cond)
+                [
+                  (lambda
+                    []
+                    [ (true true) ]
+                    [ (apply (ref ontrue) (tuple [])) ])
+                  (lambda
+                    []
+                    [ (false false) ]
+                    [
+                      (apply
+                        (staticref
+                          [ (typename FalseBranch []) (typename create []) ])
+                        ())
+                    ])
+                ])
+            ]))
+        (function
+          else
+          [ (typeparam T () ()) (typeparam U () ()) ]
+          [
+            (param
+              prev
+              (uniontype
+                [
+                  (typeref [ (typename T []) ])
+                  (typeref [ (typename FalseBranch []) ])
+                ])
+              ())
+            (param
+              onfalse
+              (functiontype (tupletype []) (typeref [ (typename U []) ]))
+              ())
+          ]
+          (uniontype
+            [ (typeref [ (typename T []) ]) (typeref [ (typename U []) ]) ])
+          (lambda
+            []
+            []
+            [
+              (match
+                (ref prev)
+                [
+                  (lambda
+                    []
+                    [
+                      (apply
+                        (staticref
+                          [ (typename FalseBranch []) (typename create []) ])
+                        ())
+                    ]
+                    [ (apply (ref onfalse) (tuple [])) ])
+                  (lambda
+                    []
+                    [ (param v (typeref [ (typename T []) ]) ()) ]
+                    [ (ref v) ])
+                ])
+            ]))
+        (function
+          case
+          [ (typeparam T () ()) ]
+          [
+            (param
+              cond
+              (functiontype (tupletype []) (typeref [ (typename Bool []) ]))
+              ())
+            (param
+              ontrue
+              (functiontype (tupletype []) (typeref [ (typename T []) ]))
+              ())
+          ]
+          (functiontype
+            (tupletype [])
+            (uniontype
+              [
+                (typeref [ (typename T []) ])
+                (typeref [ (typename FalseBranch []) ])
+              ]))
+          (lambda
+            []
+            []
+            [
+              (lambda
+                []
+                []
+                [
+                  (apply
+                    (apply
+                      (staticref [ (typename if []) ])
+                      (apply (ref cond) (tuple [])))
+                    (ref ontrue))
+                ])
+            ]))
+        (using (typeref [ (modulename $module-2 []) ]))
+        (interface Any [] () [])
+        (class None [] () [])
+        (class NoCatch [] () [])
+        (class NoLabel [] () [])
+        (class Break [ (typeparam L () ()) ] () [])
+        (class Continue [ (typeparam L () ()) ] () [])
+        (class
+          break
+          [ (typeparam L () (typeref [ (typename NoLabel []) ])) ]
+          ()
+          [
+            (function
+              create
+              []
+              []
+              (throwtype
+                (typeref [ (typename Break [ (typeref [ (typename L []) ]) ]) ]))
+              (lambda
+                []
+                []
+                [
+                  (throw
+                    (apply
+                      (staticref
+                        [
+                          (typename Break [ (typeref [ (typename L []) ]) ])
+                          (typename create [])
+                        ])
+                      ()))
+                ]))
+          ])
+        (class
+          continue
+          [ (typeparam L () (typeref [ (typename NoLabel []) ])) ]
+          ()
+          [
+            (function
+              create
+              []
+              []
+              (throwtype
+                (typeref
+                  [ (typename Continue [ (typeref [ (typename L []) ]) ]) ]))
+              (lambda
+                []
+                []
+                [
+                  (throw
+                    (apply
+                      (staticref
+                        [
+                          (typename Continue [ (typeref [ (typename L []) ]) ])
+                          (typename create [])
+                        ])
+                      ()))
+                ]))
+          ])
+        (function
+          while
+          [
+            (typeparam L () (typeref [ (typename NoLabel []) ]))
+            (typeparam T () ())
+            (typeparam U () ())
+          ]
+          [
+            (param
+              cond
+              (functiontype (tupletype []) (typeref [ (typename Bool []) ]))
+              ())
+            (param
+              body
+              (functiontype
+                (tupletype [])
+                (uniontype
+                  [
+                    (typeref [ (typename T []) ])
+                    (throwtype (typeref [ (typename U []) ]))
+                  ]))
+              ())
+          ]
+          (throwtype (typeref [ (typename U []) ]))
+          (lambda
+            []
+            []
+            [
+              (match
+                (apply (ref cond) (tuple []))
+                [
+                  (lambda
+                    []
+                    [ (true true) ]
+                    [
+                      (try
+                        (lambda
+                          []
+                          []
+                          [
+                            (apply (ref body) (tuple []))
+                            (apply
+                              (staticref
+                                [ (typename continue []) (typename create []) ])
+                              ())
+                          ])
+                        [
+                          (lambda
+                            []
+                            [
+                              (apply
+                                (apply
+                                  (apply
+                                    (staticref
+                                      [
+                                        (typename
+                                          Break
+                                          [
+                                            (typeref [ (typename NoLabel []) ])
+                                          ])
+                                        (typename create [])
+                                      ])
+                                    ())
+                                  (staticref [ (typename | []) ]))
+                                (apply
+                                  (staticref
+                                    [
+                                      (typename
+                                        Break
+                                        [ (typeref [ (typename L []) ]) ])
+                                      (typename create [])
+                                    ])
+                                  ()))
+                            ]
+                            [])
+                          (lambda
+                            []
+                            [
+                              (apply
+                                (apply
+                                  (apply
+                                    (staticref
+                                      [
+                                        (typename
+                                          Continue
+                                          [
+                                            (typeref [ (typename NoLabel []) ])
+                                          ])
+                                        (typename create [])
+                                      ])
+                                    ())
+                                  (staticref [ (typename | []) ]))
+                                (apply
+                                  (staticref
+                                    [
+                                      (typename
+                                        Continue
+                                        [ (typeref [ (typename L []) ]) ])
+                                      (typename create [])
+                                    ])
+                                  ()))
+                            ]
+                            [
+                              (apply
+                                (apply
+                                  (staticref
+                                    [
+                                      (typename
+                                        while
+                                        [ (typeref [ (typename L []) ]) ])
+                                    ])
+                                  (ref cond))
+                                (ref body))
+                            ])
+                        ])
+                    ])
+                  (lambda [] [] [])
+                ])
+            ]))
+        (class NoMatch [] () [])
+        (function
+          as
+          [ (typeparam T () ()) (typeparam U () ()) ]
+          [ (param value (typeref [ (typename U []) ]) ()) ]
+          (uniontype
+            [
+              (typeref [ (typename T []) ])
+              (throwtype (typeref [ (typename NoMatch []) ]))
+            ])
+          (lambda
+            []
+            []
+            [
+              (match
+                (ref value)
+                [
+                  (lambda
+                    []
+                    [ (param x (typeref [ (typename T []) ]) ()) ]
+                    [ (ref x) ])
+                  (lambda
+                    []
+                    []
+                    [
+                      (throw
+                        (apply
+                          (staticref
+                            [ (typename NoMatch []) (typename create []) ])
+                          ()))
+                    ])
+                ])
+            ]))
+        (function
+          requires
+          []
+          [ (param pred (typeref [ (typename Bool []) ]) ()) ]
+          (throwtype (typeref [ (typename NoMatch []) ]))
+          (lambda
+            []
+            []
+            [
+              (apply
+                (apply
+                  (staticref [ (typename if []) ])
+                  (apply (staticref [ (typename not []) ]) (ref pred)))
+                (lambda
+                  []
+                  []
+                  [
+                    (throw
+                      (apply
+                        (staticref
+                          [ (typename NoMatch []) (typename create []) ])
+                        ()))
+                  ]))
+            ]))
+        (class
+          OrEquals
+          [ (typeparam T1 () ()) (typeparam T2 () ()) ]
+          ()
+          [
+            (field
+              a
+              (typeref
+                [ (typename Equatable [ (typeref [ (typename T1 []) ]) ]) ])
+              ())
+            (field
+              b
+              (typeref
+                [ (typename Equatable [ (typeref [ (typename T2 []) ]) ]) ])
+              ())
+            (function
+              ==
+              []
+              [
+                (param
+                  self
+                  (typeref
+                    [
+                      (typename
+                        OrEquals
+                        [
+                          (typeref [ (typename T1 []) ])
+                          (typeref [ (typename T2 []) ])
+                        ])
+                    ])
+                  ())
+                (param
+                  x
+                  (uniontype
+                    [
+                      (typeref [ (typename T1 []) ])
+                      (typeref [ (typename T2 []) ])
+                    ])
+                  ())
+              ]
+              (typeref [ (typename Bool []) ])
+              (lambda
+                []
+                []
+                [
+                  (match
+                    (ref x)
+                    [
+                      (lambda
+                        []
+                        [ (param y (typeref [ (typename T1 []) ]) ()) ]
+                        [
+                          (apply
+                            (staticref [ (typename == []) ])
+                            (tuple [ (select (ref self) a) (ref y) ]))
+                        ])
+                      (lambda
+                        []
+                        [ (param y (typeref [ (typename T2 []) ]) ()) ]
+                        [
+                          (apply
+                            (staticref [ (typename == []) ])
+                            (tuple [ (select (ref self) b) (ref y) ]))
+                        ])
+                      (lambda [] [] [ (false false) ])
+                    ])
+                ]))
+          ])
+        (function
+          |
+          [ (typeparam T1 () ()) (typeparam T2 () ()) ]
+          [
+            (param
+              e1
+              (typeref
+                [ (typename Equatable [ (typeref [ (typename T1 []) ]) ]) ])
+              ())
+            (param
+              e2
+              (typeref
+                [ (typename Equatable [ (typeref [ (typename T2 []) ]) ]) ])
+              ())
+          ]
+          (typeref
+            [
+              (typename
+                OrEquals
+                [
+                  (typeref [ (typename T1 []) ])
+                  (typeref [ (typename T2 []) ])
+                ])
+            ])
+          (lambda
+            []
+            []
+            [
+              (apply
+                (apply
+                  (staticref [ (typename OrEquals []) (typename create []) ])
+                  ())
+                (tuple [ (ref e1) (ref e2) ]))
+            ]))
+        (class
+          Return
+          [ (typeparam T () ()) ]
+          ()
+          [ (field value (typeref [ (typename T []) ]) ()) ])
+        (class
+          return
+          [ (typeparam T () (typeref [ (typename None []) ])) ]
+          ()
+          [
+            (function
+              create
+              []
+              [
+                (param
+                  x
+                  (typeref [ (typename T []) ])
+                  (lambda
+                    []
+                    []
+                    [
+                      (apply
+                        (staticref [ (typename None []) (typename create []) ])
+                        ())
+                    ]))
+              ]
+              (throwtype
+                (typeref
+                  [ (typename Return [ (typeref [ (typename T []) ]) ]) ]))
+              (lambda
+                []
+                []
+                [
+                  (throw
+                    (apply
+                      (apply
+                        (staticref
+                          [
+                            (typename Return [ (typeref [ (typename T []) ]) ])
+                            (typename create [])
+                          ])
+                        ())
+                      (ref x)))
+                ]))
+          ])
       ])
   ])

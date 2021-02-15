@@ -21,8 +21,12 @@
             ]))
         (function
           main
-          (signature [] [] ())
-          (block
+          []
+          []
+          ()
+          (lambda
+            []
+            []
             [
               (apply
                 (staticref [ (typename Foo []) (typename foo []) ])
@@ -34,7 +38,7 @@
       [ (typeparam A () ()) (typeparam B () ()) ]
       ()
       [
-        (function foo (signature [] [] ()) (block []))
-        (function _foo (signature [] [] ()) (block []))
+        (function foo [] [] () (lambda [] [] []))
+        (function _foo [] [] () (lambda [] [] []))
       ])
   ])

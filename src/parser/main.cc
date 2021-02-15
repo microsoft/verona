@@ -8,7 +8,7 @@
 
 #include <CLI/CLI.hpp>
 
-constexpr auto stdlib = "stdlib";
+constexpr auto stdlib = "stdlib/";
 
 int main(int argc, char** argv)
 {

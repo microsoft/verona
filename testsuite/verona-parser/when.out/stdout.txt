@@ -11,33 +11,39 @@
         (class Cown [ (typeparam T () ()) ] () [])
         (class A [] () [])
         (class B [] () [])
-        (function bar (signature [] [] ()) (block []))
+        (function bar [] [] () (lambda [] [] []))
         (function
           foo
-          (signature
+          []
+          [
+            (param
+              a
+              (typeref [ (typename Cown [ (typeref [ (typename A []) ]) ]) ])
+              ())
+            (param
+              b
+              (typeref [ (typename Cown [ (typeref [ (typename B []) ]) ]) ])
+              ())
+          ]
+          ()
+          (lambda
+            []
             []
             [
-              (param
-                a
-                (typeref [ (typename Cown [ (typeref [ (typename A []) ]) ]) ])
-                ())
-              (param
-                b
-                (typeref [ (typename Cown [ (typeref [ (typename B []) ]) ]) ])
-                ())
-            ]
-            ())
-          (block
-            [
-              (when (ref a) (block []))
+              (when (ref a) (lambda [] [] []))
               (when
                 (tuple [ (ref a) (ref b) ])
-                (block
+                (lambda
+                  []
+                  []
                   [
-                    (when
-                      (apply (staticref [ (typename bar []) ]) (tuple []))
-                      (block []))
-                    (return (ref b))
+                    (apply
+                      (select
+                        (when
+                          (apply (staticref [ (typename bar []) ]) (tuple []))
+                          (lambda [] [] []))
+                        return)
+                      (ref b))
                   ]))
             ]))
       ])

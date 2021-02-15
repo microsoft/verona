@@ -14,19 +14,20 @@
           []
           ()
           [
-            (class C [] () [ (function bar (signature [] [] ()) (block [])) ])
-            (function foo (signature [] [] ()) (block []))
+            (class C [] () [ (function bar [] [] () (lambda [] [] [])) ])
+            (function foo [] [] () (lambda [] [] []))
           ])
         (function
           f
-          (signature
-            [ (typeparam X () ()) ]
-            [
-              (param x (typeref [ (typename A []) ]) ())
-              (param y (typeref [ (typename A []) ]) ())
-            ]
-            ())
-          (block
+          [ (typeparam X () ()) ]
+          [
+            (param x (typeref [ (typename A []) ]) ())
+            (param y (typeref [ (typename A []) ]) ())
+          ]
+          ()
+          (lambda
+            []
+            []
             [
               (apply (staticref [ (typename B []) (typename create []) ]) ())
               (staticref [ (typename B []) (typename foo []) ])

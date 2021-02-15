@@ -17,8 +17,12 @@
         (class F32 [] () [])
         (function
           f
-          (signature [] [] ())
-          (block
+          []
+          []
+          ()
+          (lambda
+            []
+            []
             [
               (assign (let bool1) (true true))
               (assign (let bool2) (false false))
@@ -36,24 +40,24 @@
                 (let object1)
                 (object
                   ()
+                  ()
                   [
                     (field
                       x
                       (typeref [ (typename U64 []) ])
-                      (block [ (int 0) ]))
-                  ]
-                  ()))
+                      (lambda [] [] [ (int 0) ]))
+                  ]))
               (assign
                 (let object2)
                 (object
+                  ()
                   (typeref [ (typename Foo []) ])
                   [
                     (field
                       x
                       (typeref [ (typename U64 []) ])
-                      (block [ (int 0) ]))
-                  ]
-                  ()))
+                      (lambda [] [] [ (int 0) ]))
+                  ]))
               (assign
                 (oftype (let bool3) (typeref [ (typename Bool []) ]))
                 (true true))
