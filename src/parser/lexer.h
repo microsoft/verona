@@ -43,25 +43,20 @@ namespace verona::parser
     Type,
     Using,
     Throws,
-    If,
-    Else,
-    While,
-    For,
-    In,
+    Try,
+    Catch,
+    Throw,
     Match,
     When,
-    Break,
-    Continue,
-    Return,
-    Yield,
     Let,
     Var,
     New,
 
-    // Capabilities
+    // Types
     Iso,
     Mut,
     Imm,
+    Self,
 
     // Symbols and identifiers
     Symbol,

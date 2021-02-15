@@ -44,10 +44,10 @@ add_subdirectory(rt)
 #   warnings_high()
 # But for now, just add some to stop the Windows build breaking
 if(MSVC)
-    add_compile_options(/WX)
+  add_compile_options(/WX)
 endif()
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    add_compile_options(-Wmismatched-tags)
+  add_compile_options(-Wmismatched-tags)
 endif()
 
 add_subdirectory(ast)
@@ -55,6 +55,11 @@ add_subdirectory(parser)
 add_subdirectory(typed-ast)
 add_subdirectory(compiler)
 add_subdirectory(interpreter)
-add_subdirectory(stdlib)
 add_subdirectory(mlir)
 add_subdirectory(interop)
+
+install(CODE [[
+  file(REMOVE_RECURSE ${CMAKE_INSTALL_PREFIX})
+  ]])
+install(DIRECTORY stdlib/ DESTINATION stdlib
+  PATTERN "CMakeLists.txt" EXCLUDE)

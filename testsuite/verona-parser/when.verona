@@ -9,7 +9,7 @@ bar() {}
 
 foo(a: Cown[A], b: Cown[B])
 {
-  when (a) {}
+  when (a) {};
   when (a, b) {
     when (bar()) {}
     return b

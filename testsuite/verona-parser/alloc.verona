@@ -11,7 +11,7 @@ class C[A]
 
   create[S: C[A] & mut](a: S<~(A & mut)): S
   {
-    new (a) in a
+    new @a (a)
   }
 }
 
@@ -53,11 +53,11 @@ class Two
 
 foo()
 {
-  let f = [A: U64](a) => a + 42;
+  let f = { [A: U64] a => a + 42 };
 
   let e0 = Empty::create();
   let e1 = Empty;
-  let e2 = new Empty {} in e;
+  let e2 = new @e Empty {};
   let one = new One { a: U32 = 42; };
-  let two = new Two { a: U32 = 42; b: F64 = 3.14; } in one;
+  let two = new @one Two { a: U32 = 42; b: F64 = 3.14; };
 }

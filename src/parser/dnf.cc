@@ -243,16 +243,14 @@ namespace verona::parser::dnf
       {
         if (tt.type->kind() == Kind::UnionType)
         {
-          error() << loc()
-                  << "Throw type should not contain a union type"
+          error() << loc() << "Throw type should not contain a union type"
                   << line();
           return;
         }
 
         if (tt.type->kind() == Kind::ThrowType)
         {
-          error() << loc()
-                  << "Throw type should not contain another throw type"
+          error() << loc() << "Throw type should not contain another throw type"
                   << line();
           return;
         }
@@ -271,8 +269,7 @@ namespace verona::parser::dnf
 
           if (ty->kind() == Kind::ThrowType)
           {
-            error() << loc()
-                    << "Isect type should not contain a throw type"
+            error() << loc() << "Isect type should not contain a throw type"
                     << line();
             return;
           }

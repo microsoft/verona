@@ -1,0 +1,59 @@
+using "boolean";
+using "controlflow";
+
+class Empty {}
+
+interface Iterator[T]
+{
+  ?(): Bool;
+  (self: Self & mut): self~>T throws Empty;
+  next(self: Self & mut);
+}
+
+for[L = NoLabel, T, U, V](iter: Iterator[T], body: T->(U throws V))
+  : throws V // TODO: \ (Break[NoLabel] | Break[L] | Continue[NoLabel] | Continue[L])
+{
+  while { ?iter }
+  {
+    try
+    {
+      body(iter());
+      continue
+    }
+    catch
+    {
+      // Propagate Break[NoLabel] to the enclosing while. Turn a break to this
+      // label into a break from the while loop.
+      { Break[L] | Empty => break }
+
+      // An unlabelled continue or a continue to this label 
+      { Continue[NoLabel] | Continue[L] => next iter }
+    }
+  }
+}
+
+/*
+maybe[T](value: T | ())
+{
+}
+
+chain[T]()
+
+repeat[T, U: Iterator[T]](value: U~>T): U
+{
+  new Iterator[T]
+  {
+    value: T = value;
+    has_next(): Bool { true }
+    (self: Self & mut): self~>T { self.value }
+  }
+}
+
+filter[T](it: Iterator[T] & mut, f: (it~>T)->Bool): it~>Iterator[T]
+{
+  new @it Iterator[T]
+  {
+    
+  }
+}
+*/

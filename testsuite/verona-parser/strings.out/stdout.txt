@@ -11,14 +11,15 @@
         (class U64 [] () [])
         (function
           apply
-          (signature
+          []
+          [
+            (param x (typeref [ (typename U64 []) ]) ())
+            (param y (typeref [ (typename U64 []) ]) ())
+          ]
+          ()
+          (lambda
             []
-            [
-              (param x (typeref [ (typename U64 []) ]) ())
-              (param y (typeref [ (typename U64 []) ]) ())
-            ]
-            ())
-          (block
+            []
             [
               (string " c-string \" 😄 -> 😄 ")
               (string

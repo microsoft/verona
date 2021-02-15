@@ -2,177 +2,14 @@
 
 New language features:
 
-* Lambda syntax.
+* Lambda parameters can be values, which turns the lambda into a case.
+  * The parameter position takes a type that can be the right-hand side in an `==` operator with the pattern value. When the lambda executes, it first checks all such equalities, throwing `NoMatch` if any aren't satisfied.
 * Negation in types to indicate that some type won't be thrown.
 * Automatically convert an exception that we don't allow in the function signature to a local return value and type check against the return value.
   * Or enclose all bodies with a try/catch that catches Return[$ResultType] and returns the value
   * May be better to catch each Return[T] exception that's not in the `throws` signature and unwrap it
-
-> TODO: `else if` doesn't actually work, as the `if` produces a value, not a lambda.
-
-## Control Flow
-
-```ts
-// Control flow module
-class NoLabel {}
-class TrueBranch {}
-class FalseBranch {}
-class Break[L] {}
-class Continue[L] {}
-
-class Return[T]
-{
-  value: T;
-}
-
-class return[T = None]
-{
-  create(x: T = None) throws Return[T]
-  {
-    throw Return[T](x)
-  }
-}
-
-class break[L = NoLabel]
-{
-  create() throws Break[L]
-  {
-    throw Break[L]
-  }
-}
-
-class continue[L = NoLabel]
-{
-  create() throws Continue[L]
-  {
-    throw Continue[L]
-  }
-}
-
-if[T](cond: Bool, ontrue: ()->T): T | TrueBranch | FalseBranch
-{
-  match (cond)
-  {
-    true =>
-    {
-      match (ontrue())
-      {
-        FalseBranch =>
-        {
-          // If the body returns FalseBranch, intercept it and return
-          // TrueBranch instead. This allows a following `else` to distinguish
-          // between a branch that wasn't taken and a branch that was taken
-          // but itself ended in an `if` with no taken branch.
-          TrueBranch
-        }
-
-        let v: T => { v }
-      }
-    }
-
-    false => { FalseBranch }
-  }
-}
-
-else[T, U](prev: T | TrueBranch | FalseBranch, onfalse: ()->U): T | U
-{
-  match (prev)
-  {
-    TrueBranch => { TrueBranch }
-
-    FalseBranch =>
-    {
-      match (onfalse())
-      {
-        FalseBranch =>
-        {
-          // Intercept a FalseBranch result in the same way that `if` does.
-          TrueBranch
-        }
-
-        let v: U => { v }
-      }
-    }
-
-    let v: T => { v }
-  }
-}
-
-while[L = NoLabel, T, U](cond: ()->Bool, body: ()->(T throws U))
-  : throws U \ (Break[NoLabel] | Break[L] | Continue[NoLabel] | Continue[L])
-{
-  match (cond())
-  {
-    true =>
-    {
-      try
-      {
-        body()
-        continue
-      }
-      catch
-      {
-        Break[NoLabel] | Break[L] => {}
-        Continue[NoLabel] | Continue[L] => { while[L] cond body }
-      }
-    }
-
-    false => {}
-  }
-}
-
-for[L = NoLabel, T, U, V](iter: Iterator[T], body: T->(U throws V))
-  : throws V \ (Break[NoLabel] | Break[L] | Continue[NoLabel] | Continue[L])
-{
-  while {has_next iter}
-  {
-    try
-    {
-      body(iter())
-      continue
-    }
-    catch
-    {
-      // Propagate Break[NoLabel] to the enclosing while.
-      Break[L] => { break }
-      Continue[NoLabel] | Continue[L] => { next iter }
-    }
-  }
-}
-```
-
-## Boolean Logic
-
-```ts
-// Boolean logic module
-interface ToBool
-{
-  bool(self): Bool;
-}
-
-// `and` and `or` take lambdas for the rhs to allow short-circuiting, i.e. lazy
-// evaluation. However, any type that has an apply method that returns itself
-// can be passed as well, allowing strict evaluation.
-and[T: ToBool, U](a: T, b: ()->U): T | U
-{
-  match (bool a)
-  {
-    // Because `a` is "falsey", return it directly.
-    false => { a }
-    true => { b() }
-  }
-}
-
-or[T: ToBool, U](a: T, b: ()->U): T | U
-{
-  match (bool a)
-  {
-    // Because `a` is "truthey", return it directly.
-    true => { a }
-    false => { b() }
-  }
-}
-```
+* Throw `NoCatch` in a catch clause to backtrack
+  * A catch that doesn't execute anything rethrows the exception
 
 ## Example Usage
 
@@ -181,38 +18,38 @@ or[T: ToBool, U](a: T, b: ()->U): T | U
 // return of U64.
 f(iter: Iterator[U64], accum: U64): U64
 {
-  try
+  // try
+  // {
+  for iter
   {
-    for iter
+    x =>
+    accum = accum + x;
+
+    match x
     {
-      x =>
-      accum = accum + x;
+      // non-local return, `for` returns 0
+      { 0 => return 0 }
 
-      match (x)
-      {
-        // non-local return, `for` returns 0
-        0 => { return 0 }
+      // `for` should finish
+      { 1 => break }
 
-        // `for` should finish
-        1 => { break }
-
-        // `for` should move to the next element
-        2 => { continue }
-      }
-
-      // local return
-      accum = accum + 1
+      // `for` should move to the next element
+      { 2 => continue }
     }
 
-    accum
+    // local return
+    accum = accum + 1
   }
-  catch
-  {
-    let $0: Return[$ReturnType] => { $0.value }
-  }
+
+  accum
+  // }
+  // catch
+  // {
+  //   { $0: Return[$ReturnType] => $0.value }
+  // }
 }
 
-if (a) { e1 } else if (b) { e2 } else { e3 }
+if (a) { e1 } else case {b} { e2 } else { e3 }
 // (apply `else`
 //  (tuple
 //    [
@@ -220,9 +57,89 @@ if (a) { e1 } else if (b) { e2 } else { e3 }
 //        (tuple
 //          [
 //            (apply `if` (tuple [a (lambda e1)]))
-//            (apply `if` (tuple [b (lambda e2)]))
+//            (apply `case` (tuple [(lambda b) (lambda e2)]))
 //          ]))
 //      (lambda e3)
 //    ]))
+
+```
+
+## Cases
+
+A case can can backtrack by throwing `NoMatch`.
+Labelled `NoMatch` gets multi-level backtrack.
+A match that doesn't match anything throws `NoMatch`.
+`match` can't be written in the source language because we want to detect exhaustive matches.
+
+> TODO: destructure in patterns
+> TODO: function level pattern matching?
+> TODO: labelled match?
+
+```ts
+
+class Even[T: Number]
+{
+  ==(self, x: T): Bool
+  {
+    (x mod 2) == 0
+  }
+}
+
+class Odd[T: Number]
+{
+  ==(self, x: T): Bool
+  {
+    (x mod 2) == 1
+  }
+}
+
+match x
+{
+  // { $0: $typeof x => requires(Even[$typeof x] == $0); ... }
+  { (Even) => ... }
+  // { $0: $typeof x => requires(Odd[$typeof x] == $0); ... }
+  { (Odd) => ... }
+  // { $0: $typeof x =>
+  //   requires((Even[$typeof x] | Odd[$typeof x]) == $0); ...
+  // }
+  { (Even | Odd) => ... }
+  { ... }
+}
+
+match x
+{
+  { true, z: String => ... }
+  { false, z: U32 => ... }
+  { ... }
+}
+
+class C
+{
+  f(true, x: U32): String { ... }
+  // ->
+  f$0($1: Bool, x: U32): String throws NoMatch
+  {
+    requires (true == $1);
+    ...
+  }
+
+  f(false, x: F32): String { ... }
+  // ->
+  f$2($3: Bool, x: F32): String throws NoMatch
+  {
+    requires (false == $3);
+    ...
+  }
+
+  // ->
+  f[T: (Bool, U32) | (Bool, F32)](x: T): String throws NoMatch
+  {
+    match x
+    {
+      { $4: Bool, $5: U32 => f$0($4, $5) }
+      { $6: Bool, $7: F32 => f$2($6, $7) }
+    }
+  }
+}
 
 ```

@@ -33,9 +33,6 @@ namespace verona::parser
       case Kind::TypeParam:
         return "typeparam";
 
-      case Kind::Signature:
-        return "signature";
-
       case Kind::Function:
         return "function";
 
@@ -79,6 +76,9 @@ namespace verona::parser
       case Kind::Imm:
         return "imm";
 
+      case Kind::Self:
+        return "Self";
+
       // Expressions
       case Kind::Oftype:
         return "oftype";
@@ -86,38 +86,17 @@ namespace verona::parser
       case Kind::Tuple:
         return "tuple";
 
-      case Kind::Block:
-        return "block";
-
       case Kind::When:
         return "when";
 
-      case Kind::While:
-        return "while";
-
-      case Kind::Case:
-        return "case";
+      case Kind::Try:
+        return "try";
 
       case Kind::Match:
         return "match";
 
-      case Kind::If:
-        return "if";
-
       case Kind::Lambda:
         return "lambda";
-
-      case Kind::Break:
-        return "break";
-
-      case Kind::Continue:
-        return "continue";
-
-      case Kind::Return:
-        return "return";
-
-      case Kind::Yield:
-        return "yield";
 
       case Kind::Assign:
         return "assign";
@@ -148,6 +127,9 @@ namespace verona::parser
 
       case Kind::Var:
         return "var";
+
+      case Kind::Throw:
+        return "throw";
 
       case Kind::New:
         return "new";

@@ -66,15 +66,10 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, Signature& sig)
-  {
-    target << sig.typeparams << sig.params << sig.result;
-  }
-
-  template<typename T>
   void fieldsof(T& target, Function& func)
   {
-    target << func.name << func.signature << func.body;
+    target << func.name << func.typeparams << func.params << func.result
+           << func.body;
   }
 
   template<typename T>
@@ -120,27 +115,15 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, Block& block)
-  {
-    target << block.seq;
-  }
-
-  template<typename T>
   void fieldsof(T& target, When& when)
   {
     target << when.waitfor << when.behaviour;
   }
 
   template<typename T>
-  void fieldsof(T& target, While& wh)
+  void fieldsof(T& target, Try& tr)
   {
-    target << wh.cond << wh.body;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, Case& c)
-  {
-    target << c.pattern << c.guard << c.body;
+    target << tr.body << tr.catches;
   }
 
   template<typename T>
@@ -150,21 +133,9 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, If& cond)
-  {
-    target << cond.cond << cond.on_true << cond.on_false;
-  }
-
-  template<typename T>
   void fieldsof(T& target, Lambda& lambda)
   {
-    target << lambda.signature << lambda.body;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, Return& ret)
-  {
-    target << ret.expr;
+    target << lambda.typeparams << lambda.params << lambda.body;
   }
 
   template<typename T>
@@ -222,15 +193,21 @@ namespace verona::parser
   }
 
   template<typename T>
+  void fieldsof(T& target, Throw& thr)
+  {
+    target << thr.expr;
+  }
+
+  template<typename T>
   void fieldsof(T& target, New& n)
   {
-    target << n.args << n.in;
+    target << n.in << n.args;
   }
 
   template<typename T>
   void fieldsof(T& target, ObjectLiteral& obj)
   {
-    target << obj.inherits << obj.members << obj.in;
+    target << obj.in << obj.inherits << obj.members;
   }
 
   template<typename T>

@@ -1,0 +1,52 @@
+class NoLabel {}
+class Break[L] {}
+class Continue[L] {}
+
+// `break` uses create sugar to throw a Break exception.
+class break[L = NoLabel]
+{
+  create(): throws Break[L]
+  {
+    throw Break[L]
+  }
+}
+
+// `continue` uses create sugar to throw a Continue exception.
+class continue[L = NoLabel]
+{
+  create(): throws Continue[L]
+  {
+    throw Continue[L]
+  }
+}
+
+while[L = NoLabel, T, U](cond: ()->Bool, body: ()->(T throws U))
+  : throws U // TODO: \ (Break[NoLabel] | Break[L] | Continue[NoLabel] | Continue[L])
+{
+  match (cond())
+  {
+    { true =>
+      try
+      {
+        // Run the body, discarding the result. If the body doesn't throw an
+        // exception, `continue` will throw Continue[NoLabel], which will be
+        // caught below.
+        body();
+        continue
+      }
+      catch
+      {
+        // An unlabelled break or a break to this label ends the loop,
+        // returning unit. A break to another label will be rethrown.
+        { Break[NoLabel] | Break[L] => }
+
+        // An unlabelled continue or a continue to this label ends the body
+        // early but runs the loop again. A continue to another label will be
+        // rethrown.
+        { Continue[NoLabel] | Continue[L] => while[L] cond body }
+      }
+    }
+
+    {} // Default branch does nothing, returning unit.
+  }
+}

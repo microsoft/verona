@@ -1,0 +1,5 @@
+using "boolean";
+
+interface Any {}
+class None {}
+class NoCatch {}

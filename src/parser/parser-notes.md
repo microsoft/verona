@@ -1,15 +1,8 @@
 # Parser Notes
 
-* pony-like lambda syntax, all blocks are lambdas
-  * how do object literals work?
-  * can `case` be lambda-like?
-    * if we can put a `pattern` instead of a parameter list in a lambda, then any lambda can be used as a case, and `match` takes a value and a sequence of lambdas
-    * a pattern fail returns a special value
-    * `match` still has to be builtin
-* try/catch
+* `\` for "without" types
 * allow `using` inside a function
 * put precedence paren forcing back in
-* special type: Self
 * inheritance
 * update sugar
   should we instead have Ref[T] or Ref[T, U]?
@@ -21,12 +14,20 @@
 
 ## Open Questions
 
+* control flow expressions that end with a lambda need to return the right thing such that a following expression starts a new expression
+  * `let x = if a { e0 } else { e1 }` wants a real return though
+  * same applies to `match`
+  * `while` and `for` could return something special, but it won't cope well with the lhs of an assignment operator
+  * could have a return type marker that splits the expression?
+  * that doesn't work
+    * `if a { e0 } not b` should stop after the `}`
+    * `if a { e0 } else { e1 }` shouldn't
 * optional arguments and left-associative apply seem to interact badly
 * transform an object literal into an anonymous class and a create call
   needs free variable analysis
   could do the same thing for lambdas
   might not want to do either as they have type checking implications
-* `where` might need to have non-type constraints
+* type parameters might need to have non-type constraints
 * default capabilities for types
 
 ## Public/Private
