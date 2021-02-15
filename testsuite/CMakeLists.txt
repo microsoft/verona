@@ -115,7 +115,7 @@ function(add_tests_new dir)
   file(GLOB_RECURSE filenames RELATIVE ${testdir} *.verona *.mlir)
   foreach(filename ${filenames})
     get_filename_component(realfile ${filename} REALPATH)
-    add_test(NAME ${filename} COMMAND ${VERONA_TEST_RUNNER} ${VERONA_LOCAL_DIST} ${realfile})
+    add_test(NAME ${filename} COMMAND ${Python_EXECUTABLE} ${VERONA_TEST_RUNNER} ${VERONA_LOCAL_DIST} ${realfile})
   endforeach()
 endfunction()
 
