@@ -247,11 +247,8 @@ namespace verona::ffi
     : factory(this)
     {
       // Pre-compiles the file requested by the user
-      std::unique_ptr<llvm::MemoryBuffer> pchBuffer;
-      {
-        auto t = TimeReport("Computing precompiled headers");
-        pchBuffer = generatePCH(headerFile.c_str(), sourceLang);
-      }
+      std::unique_ptr<llvm::MemoryBuffer> pchBuffer =
+        generatePCH(headerFile.c_str(), sourceLang);
 
       // Creating a fake compile unit to include the target file
       // in an in-memory file system.
@@ -269,17 +266,11 @@ namespace verona::ffi
       FS.addFile(headerFile + ".gch", std::move(pchDataRef));
 
       // Parse the fake compile unit with the user file included inside.
-      {
-        auto t = TimeReport("Creating clang instance");
-        // Create the compiler
-        Clang = std::make_unique<Compiler>(FS.get(), cu_name, sourceLang);
-      }
+      Clang = std::make_unique<Compiler>(FS.get(), cu_name, sourceLang);
+
       auto collectAST =
         clang::tooling::newFrontendActionFactory(&factory)->create();
-      {
-        auto t = TimeReport("Reconstructing AST");
-        Clang->ExecuteAction(*collectAST);
-      }
+      Clang->ExecuteAction(*collectAST);
 
       // Executing the action consumes the AST.  Reset the compiler instance to
       // refer to the AST that it just parsed and create a Sema instance.
@@ -356,8 +347,25 @@ namespace verona::ffi
         return CXXType(foundEnum);
       }
 
-      // Return empty type if nothing found.
-      return CXXType();
+      // If didn't match any type, check for builtins
+      return llvm::StringSwitch<CXXType>(name)
+        .Case("::bool", CXXType::getBoolean())
+        .Case("::unsigned char", CXXType::getUnsignedChar())
+        .Case("::char", CXXType::getChar())
+        .Case("::signed char", CXXType::getSignedChar())
+        .Case("::short", CXXType::getShort())
+        .Case("::unsigned short", CXXType::getUnsignedShort())
+        .Case("::int", CXXType::getInt())
+        .Case("::unsigned int", CXXType::getUnsignedInt())
+        .Case("::long", CXXType::getLong())
+        .Case("::unsigned long", CXXType::getUnsignedLong())
+        .Case("::long long", CXXType::getLongLong())
+        .Case("::unsigned long long", CXXType::getUnsignedLongLong())
+        .Case("::float", CXXType::getFloat())
+        .Case("::double", CXXType::getDouble())
+        .
+        // Otherwise, just return empty invalid type
+        Default(CXXType());
     }
 
     /// Return the size in bytes of the specified type.
