@@ -3,6 +3,9 @@
 
 #include "CXXInterface.h"
 
+#include <fstream>
+
+using namespace std;
 using namespace verona::ffi;
 using namespace clang;
 namespace cl = llvm::cl;
@@ -10,29 +13,25 @@ namespace cl = llvm::cl;
 namespace
 {
   // Test function (TODO: make this more generic)
-  cl::opt<bool> function(
+  cl::opt<bool> testFunction(
     "function",
     cl::desc("Creates a test function"),
     cl::Optional,
     cl::init(false));
 
-  // Extra arguments in config file, append to these args
-  cl::opt<std::string>
-    config("config", cl::desc("Additional arguments in file"), cl::Optional);
-
-  cl::opt<std::string> inputFile(
+  cl::opt<string> inputFile(
     cl::Positional,
     cl::desc("<input file>"),
     cl::init("-"),
     cl::value_desc("filename"));
 
-  cl::opt<std::string> symbol(
+  cl::opt<string> symbol(
     cl::Positional,
     cl::desc("<symbol>"),
     cl::init(""),
     cl::value_desc("symbol"));
 
-  cl::list<std::string> specialization(
+  cl::list<string> specialization(
     cl::Positional,
     cl::desc("<template specialization parameters>"),
     cl::CommaSeparated,
@@ -51,8 +50,8 @@ namespace
   }
 
   /// Looks up a symbol from a CXX interface by name
-  /// Tested on <array> looking for type "std::array"
-  CXXType get_type(CXXInterface& interface, std::string& name)
+  /// Tested on <array> looking for type "array"
+  CXXType get_type(CXXInterface& interface, string& name)
   {
     auto ty = interface.getType(name);
     if (ty.valid())
@@ -68,16 +67,16 @@ namespace
   }
 
   /// Create the parameters of a template class from type names or values
-  std::vector<TemplateArgument> create_template_args(
-    CXXInterface& interface, llvm::ArrayRef<std::string> args)
+  vector<TemplateArgument>
+  create_template_args(CXXInterface& interface, llvm::ArrayRef<string> args)
   {
-    std::vector<TemplateArgument> templateArgs;
+    vector<TemplateArgument> templateArgs;
     for (auto arg : args)
     {
-      if (std::isdigit(arg[0]))
+      if (isdigit(arg[0]))
       {
         // Numbers default to int parameter
-        auto num = std::atol(arg.c_str());
+        auto num = atol(arg.c_str());
         templateArgs.push_back(interface.createTemplateArgumentForIntegerValue(
           CXXType::BuiltinTypeKinds::Int, num));
       }
@@ -136,25 +135,66 @@ namespace
     return func;
   }
 
-  /// Parse config file adding args to the args globals
-  void parseConfigFile(std::string config)
+  /// Add new option to arguments array
+  void addArgOption(vector<char*>& args, char* arg, size_t len)
   {
-    // TODO: Implement this
+    args.push_back(new char[len + 1]);
+    auto& inplace = args[args.size() - 1];
+    copy(arg, arg + len, inplace);
+    inplace[len] = 0;
+  }
+
+  /// Parse config file adding args to the args globals
+  void parseCommandLine(int argc, char** argv, const char* name)
+  {
+    // Replace "--config file" with the contents of file
+    vector<char*> args;
+    string configFileName;
+    StringRef flag("--config");
+    for (int i = 0; i < argc; i++)
+    {
+      auto arg = argv[i];
+      // If not config, just copy the argv as is
+      if (!flag.equals(arg))
+      {
+        addArgOption(args, arg, strlen(arg));
+        continue;
+      }
+
+      // Else, append all arguments from the file to args
+      string configFile(argv[++i]);
+      ifstream file(configFile);
+      if (!file.good())
+      {
+        fprintf(stderr, "Error opening config file %s\n", configFile.c_str());
+        exit(1);
+      }
+
+      // For each arg, append the options to the command line
+      string buffer;
+      while (file >> buffer)
+      {
+        addArgOption(args, buffer.data(), buffer.size());
+      }
+      file.close();
+    }
+
+    // Parse the command line
+    cl::ParseCommandLineOptions(args.size(), args.data(), "Verona FFI test\n");
   }
 } // namespace
 
 int main(int argc, char** argv)
 {
   // Parse cmd-line options
-  cl::ParseCommandLineOptions(argc, argv, "Verona FFI test\n");
-  parseConfigFile(config);
+  parseCommandLine(argc, argv, "Verona FFI test\n");
 
   // FIXME: Verona compiler should be able to find the path and pass include
   // paths to this interface.
   CXXInterface interface(inputFile);
 
   // Test function creation
-  if (function)
+  if (testFunction)
   {
     test_function(interface);
   }
