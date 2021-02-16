@@ -109,15 +109,21 @@ namespace verona::ffi
       return nullptr;
     }
 
+    /// Return false if the type is invalid
+    bool valid() const
+    {
+      return kind != Kind::Invalid;
+    }
+
     /// Returns true if the type has a name declaration
-    bool hasNameDecl()
+    bool hasNameDecl() const
     {
       assert(decl);
       return kind != Kind::Invalid && kind != Kind::Builtin;
     }
 
     /// Returns true if the type is templated.
-    bool isTemplate()
+    bool isTemplate() const
     {
       return kind == Kind::TemplateClass;
     }
@@ -145,6 +151,13 @@ namespace verona::ffi
     CXXType(const clang::EnumDecl* d) : kind(Kind::Enum), decl(d) {}
     /// CXXType empty c-tor (kind = Invalid)
     CXXType() = default;
+
+    /// Get a reference to the type name
+    llvm::StringRef getName() const
+    {
+      assert(hasNameDecl());
+      return decl->getName();
+    }
 
     /// Returns the number of template parameter, if class is a template.
     int numberOfTemplateParameters()
