@@ -8,6 +8,7 @@
 #  include <netinet/tcp.h>
 #  include <sys/epoll.h>
 #  include <sys/socket.h>
+#include <arpa/inet.h>
 
 #  define BACKLOG 8192
 #  define MAX_EVENTS 128
@@ -16,7 +17,7 @@ namespace verona::rt
 {
   class LinuxTCPSocket
   {
-  public:
+  private:
     static void make_nonblocking(int sock)
     {
       int flags;
@@ -27,6 +28,7 @@ namespace verona::rt
       assert(flags >= 0);
     }
 
+  public:
     static int socket_config(int fd)
     {
       int one = 1;
@@ -99,6 +101,39 @@ namespace verona::rt
         perror("listen");
         return -1;
       }
+      return sock;
+    }
+
+    static int client_dial(char *ip, uint16_t port)
+    {
+      struct sockaddr_in sa;
+      int ret, sock;
+
+      ret = inet_pton(AF_INET, ip, &(sa.sin_addr));
+      if (ret < 1)
+      {
+        perror("inet_pton");
+        return -1;
+      }
+
+      sa.sin_family = AF_INET;
+      sa.sin_port = htons(port);
+
+      sock = socket(AF_INET, SOCK_STREAM, 0);
+      if (!sock)
+      {
+        perror("socket");
+        return -1;
+      }
+
+      make_nonblocking(sock);
+
+      if(connect(sock, (struct sockaddr *)&sa, sizeof(struct sockaddr)) == -1)
+      {
+        perror("connect()");
+        exit(1);
+      }
+
       return sock;
     }
   };
