@@ -62,11 +62,15 @@ function(CheckStatus)
   endif()
 endfunction()
 
-# Run the check_dump.py script, comparing two directories
+# Check every file in the expected directory is in the actual directory.
 function(CheckDump expected actual)
-  CheckStatus(
-    COMMAND ${PYTHON_EXECUTABLE} ${CHECK_DUMP_PY} ${expected} ${actual}
+  FILE(GLOB gold_files ${expected}/*.txt)
+  FOREACH(gold_file ${gold_files})
+    get_filename_component(filename ${gold_file} NAME)
+    CheckStatus(
+    COMMAND ${CMAKE_COMMAND} -E compare_files --ignore-eol ${gold_file} ${actual}/${filename}
     EXPECTED_STATUS 0)
+  ENDFOREACH()
 endfunction()
 
 # Run LLVM's FileCheck
