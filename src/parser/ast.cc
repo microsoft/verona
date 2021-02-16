@@ -77,6 +77,9 @@ namespace verona::parser
         return "imm";
 
       // Expressions
+      case Kind::Oftype:
+        return "oftype";
+
       case Kind::Tuple:
         return "tuple";
 

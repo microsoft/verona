@@ -1,5 +1,5 @@
-module @"$module" {
-  func @foo(%arg0: !verona.meet<class<"S32">, iso>, %arg1: !verona.meet<class<"U64">, imm>) -> !verona.join<meet<class<"S32">, iso>, meet<class<"U64">, imm>, meet<class<"U32">, mut>> attributes {class = !verona.class<"$module">} {
+module @"$module"  {
+  func private @foo(%arg0: !verona.meet<class<"S32">, iso>, %arg1: !verona.meet<class<"U64">, imm>) -> !verona.join<meet<class<"S32">, iso>, meet<class<"U64">, imm>, meet<class<"U32">, mut>> attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !verona.meet<class<"S32">, iso>
     %1 = "verona.store"(%arg0, %0) : (!verona.meet<class<"S32">, iso>, !verona.meet<class<"S32">, iso>) -> !verona.unknown
     %2 = "verona.alloca"() : () -> !verona.meet<class<"U64">, imm>

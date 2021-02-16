@@ -1,5 +1,5 @@
-module @"$module" {
-  func @foo(%arg0: !verona.imm, %arg1: !verona.meet<class<"U64">, imm>) -> !verona.meet<class<"U64">, imm> attributes {class = !verona.class<"$module">} {
+module @"$module"  {
+  func private @foo(%arg0: !verona.imm, %arg1: !verona.meet<class<"U64">, imm>) -> !verona.meet<class<"U64">, imm> attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !verona.imm
     %1 = "verona.store"(%arg0, %0) : (!verona.imm, !verona.imm) -> !verona.unknown
     %2 = "verona.alloca"() : () -> !verona.meet<class<"U64">, imm>
@@ -46,7 +46,7 @@ module @"$module" {
   ^bb5:  // pred: ^bb2
     br ^bb3
   }
-  func @apply() attributes {class = !verona.class<"$module">} {
+  func private @apply() attributes {class = !verona.class<"$module">} {
     %0 = "verona.constant(10)"() : () -> !verona.class<"int">
     %1 = "verona.alloca"() : () -> !verona.imm
     %2 = "verona.store"(%0, %1) : (!verona.class<"int">, !verona.imm) -> !verona.unknown

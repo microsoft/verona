@@ -1,5 +1,5 @@
-module @"$module" {
-  func @f(%arg0: !verona.class<"U16">) -> !verona.class<"S16"> attributes {class = !verona.class<"$module">} {
+module @"$module"  {
+  func private @f(%arg0: !verona.class<"U16">) -> !verona.class<"S16"> attributes {class = !verona.class<"$module">} {
     %0 = "verona.alloca"() : () -> !verona.class<"U16">
     %1 = "verona.store"(%arg0, %0) : (!verona.class<"U16">, !verona.class<"U16">) -> !verona.unknown
     %2 = "verona.load"(%0) : (!verona.class<"U16">) -> !verona.unknown

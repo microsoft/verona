@@ -26,7 +26,7 @@
             [
               (apply
                 (staticref [ (typename Foo []) (typename foo []) ])
-                (tuple [] ()))
+                (tuple []))
             ]))
       ])
     (class

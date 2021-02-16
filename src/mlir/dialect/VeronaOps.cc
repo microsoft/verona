@@ -8,7 +8,6 @@
 #include "VeronaTypes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/OpImplementation.h"
-#include "mlir/IR/StandardTypes.h"
 
 #include "llvm/ADT/StringSet.h"
 

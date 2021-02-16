@@ -38,6 +38,7 @@ namespace verona::parser
     Imm,
 
     // Expressions
+    Oftype,
     Tuple,
     Block,
     When,
@@ -230,10 +231,20 @@ namespace verona::parser
     }
   };
 
+  struct Oftype : Expr
+  {
+    Node<Expr> expr;
+    Node<Type> type;
+
+    Kind kind()
+    {
+      return Kind::Oftype;
+    }
+  };
+
   struct Tuple : Expr
   {
     List<Expr> seq;
-    Node<Type> type;
 
     Kind kind()
     {
@@ -432,8 +443,6 @@ namespace verona::parser
 
   struct Ref : Expr
   {
-    Node<Type> type;
-
     Kind kind()
     {
       return Kind::Ref;
@@ -442,8 +451,6 @@ namespace verona::parser
 
   struct Let : Expr
   {
-    Node<Type> type;
-
     Kind kind()
     {
       return Kind::Let;
