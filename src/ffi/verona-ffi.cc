@@ -4,6 +4,7 @@
 #include "CXXInterface.h"
 
 #include <fstream>
+#include <iomanip>
 
 using namespace std;
 using namespace verona::ffi;
@@ -145,7 +146,7 @@ namespace
   }
 
   /// Parse config file adding args to the args globals
-  void parseCommandLine(int argc, char** argv, const char* name)
+  void parseCommandLine(int argc, char** argv)
   {
     // Replace "--config file" with the contents of file
     vector<char*> args;
@@ -172,7 +173,7 @@ namespace
 
       // For each arg, append the options to the command line
       string buffer;
-      while (file >> buffer)
+      while (file >> quoted(buffer))
       {
         addArgOption(args, buffer.data(), buffer.size());
       }
@@ -187,13 +188,14 @@ namespace
 int main(int argc, char** argv)
 {
   // Parse cmd-line options
-  parseCommandLine(argc, argv, "Verona FFI test\n");
+  parseCommandLine(argc, argv);
 
   // FIXME: Verona compiler should be able to find the path and pass include
   // paths to this interface.
   CXXInterface interface(inputFile);
 
   // Test function creation
+  // TODO: Make this more parametric
   if (testFunction)
   {
     test_function(interface);
