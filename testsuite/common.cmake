@@ -23,7 +23,7 @@ function(PrepareTest _VERONAC_FLAGS _EXPECTED_DUMP _ACTUAL_DUMP)
   # Create the dump directory (if it doesn't yet exist) and cleanup any file
   # from previous runs.
   file(MAKE_DIRECTORY ${ACTUAL_DUMP})
-  file(GLOB old_dump_files ${ACTUAL_DUMP}/*)
+  file(GLOB old_dump_files CONFIGURE_DEPENDS ${ACTUAL_DUMP}/*)
   if(old_dump_files)
     file(REMOVE ${old_dump_files})
   endif()
@@ -64,7 +64,7 @@ endfunction()
 
 # Check every file in the expected directory is in the actual directory.
 function(CheckDump expected actual)
-  FILE(GLOB gold_files ${expected}/*.txt)
+  FILE(GLOB gold_files CONFIGURE_DEPENDS ${expected}/*.txt)
   FOREACH(gold_file ${gold_files})
     get_filename_component(filename ${gold_file} NAME)
     CheckStatus(
