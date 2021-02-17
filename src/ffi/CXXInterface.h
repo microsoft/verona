@@ -185,11 +185,13 @@ namespace verona::ffi
      * and returns a memory buffer with the contents, to be inserted in a
      * "file" inside the virtual file system.
      */
-    std::unique_ptr<llvm::MemoryBuffer>
-    generatePCH(const char* headerFile, SourceLanguage sourceLang)
+    std::unique_ptr<llvm::MemoryBuffer> generatePCH(
+      const char* headerFile,
+      llvm::ArrayRef<std::string> includePath,
+      SourceLanguage sourceLang)
     {
       Compiler LocalClang(
-        llvm::vfs::getRealFileSystem(), headerFile, sourceLang);
+        llvm::vfs::getRealFileSystem(), headerFile, includePath, sourceLang);
       llvm::SmallVector<char, 0> pchOutBuffer;
       auto action = std::make_unique<GenerateMemoryPCHAction>(pchOutBuffer);
       LocalClang.ExecuteAction(*action);
@@ -243,12 +245,14 @@ namespace verona::ffi
      * creates the compiler instance and re-attaches the AST to the interface.
      */
     CXXInterface(
-      std::string headerFile, SourceLanguage sourceLang = SourceLanguage::CXX)
+      std::string headerFile,
+      llvm::ArrayRef<std::string> includePath,
+      SourceLanguage sourceLang = SourceLanguage::CXX)
     : factory(this)
     {
       // Pre-compiles the file requested by the user
       std::unique_ptr<llvm::MemoryBuffer> pchBuffer =
-        generatePCH(headerFile.c_str(), sourceLang);
+        generatePCH(headerFile.c_str(), includePath, sourceLang);
 
       // Creating a fake compile unit to include the target file
       // in an in-memory file system.
@@ -266,7 +270,8 @@ namespace verona::ffi
       FS.addFile(headerFile + ".gch", std::move(pchDataRef));
 
       // Parse the fake compile unit with the user file included inside.
-      Clang = std::make_unique<Compiler>(FS.get(), cu_name, sourceLang);
+      Clang =
+        std::make_unique<Compiler>(FS.get(), cu_name, includePath, sourceLang);
 
       auto collectAST =
         clang::tooling::newFrontendActionFactory(&factory)->create();

@@ -14,9 +14,11 @@ enum EFoo { };
 template<class T = int>
 struct TFoo {
   T innerFoo;
+  T add(T arg) { return arg + innerFoo; }
 };
 
 int foo() {
   TFoo<int> TF;
-  return TF.innerFoo;
+  TF.innerFoo = 3;
+  return TF.add(4);
 }

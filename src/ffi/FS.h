@@ -50,5 +50,23 @@ namespace verona::ffi
     {
       inMemory->addFile(name, time(nullptr), std::move(Buf));
     }
+
+    /**
+     * Resolves a path and returns its absolute canonical path
+     */
+    static std::string getRealPath(const llvm::Twine path)
+    {
+      llvm::SmallVector<char, 16> out;
+      llvm::sys::fs::real_path(path, out, /*expand_tilde*/ true);
+      return out.data();
+    }
+
+    /**
+     * Returns the directory name that contains this path
+     */
+    static std::string getDirName(const llvm::StringRef path)
+    {
+      return llvm::sys::path::parent_path(path).str();
+    }
   };
 } // namespace verona::ffi
