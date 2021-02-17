@@ -146,7 +146,7 @@ namespace
   }
 
   /// Parse config file adding args to the args globals
-  void parseCommandLine(int argc, char** argv)
+  void parseCommandLine(int argc, char** argv, vector<string>& includePath)
   {
     // Replace "--config file" with the contents of file
     vector<char*> args;
@@ -178,6 +178,11 @@ namespace
         addArgOption(args, buffer.data(), buffer.size());
       }
       file.close();
+
+      // Add the path to the config file to the include path
+      auto conf = FileSystem::getRealPath(configFile);
+      auto dir = FileSystem::getDirName(conf);
+      includePath.push_back(dir);
     }
 
     // Parse the command line
@@ -188,11 +193,11 @@ namespace
 int main(int argc, char** argv)
 {
   // Parse cmd-line options
-  parseCommandLine(argc, argv);
+  vector<string> includePath;
+  parseCommandLine(argc, argv, includePath);
 
-  // FIXME: Verona compiler should be able to find the path and pass include
-  // paths to this interface.
-  CXXInterface interface(inputFile);
+  // Create the C++ interface
+  CXXInterface interface(inputFile, includePath);
 
   // Test function creation
   // TODO: Make this more parametric

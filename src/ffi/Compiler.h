@@ -82,11 +82,12 @@ namespace verona::ffi
     Compiler(
       llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
       const char* sourceName,
+      llvm::ArrayRef<std::string> includePath,
       SourceLanguage sourceLang = SourceLanguage::CXX)
     {
       // Initilise the default arguments plus space for the filename
       const char* langName = source_language_string(sourceLang);
-      // FIXME: Don't hard code include paths!
+      // Create base command-line
       args = {
         "clang",
         "-x",
@@ -94,8 +95,15 @@ namespace verona::ffi
         "-I",
         "/usr/include/",
         "-I",
-        "/usr/local/include/",
-        ""};
+        "/usr/local/include/"};
+      // Add user include paths
+      for (auto& dir : includePath)
+      {
+        args.push_back("-I");
+        args.push_back(dir.c_str());
+      }
+      // Add final space for the compile unit name
+      args.push_back("");
 
       // Compiler Instance
       Clang = std::make_unique<clang::CompilerInstance>();
