@@ -363,9 +363,8 @@ namespace verona::ffi
         .Case("::unsigned long long", CXXType::getUnsignedLongLong())
         .Case("::float", CXXType::getFloat())
         .Case("::double", CXXType::getDouble())
-        .
         // Otherwise, just return empty invalid type
-        Default(CXXType());
+        .Default(CXXType());
     }
 
     /// Return the size in bytes of the specified type.
