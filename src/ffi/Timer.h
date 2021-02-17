@@ -3,9 +3,9 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <string>
-#include <atomic>
 
 namespace verona::ffi
 {

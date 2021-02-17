@@ -7,17 +7,25 @@
 
 int FOO = 0;
 
-class Foo { };
+class Foo
+{};
 
-enum EFoo { };
-
-template<class T = int>
-struct TFoo {
-  T innerFoo;
-  T add(T arg) { return arg + innerFoo; }
+enum EFoo
+{
 };
 
-int foo() {
+template<class T = int>
+struct TFoo
+{
+  T innerFoo;
+  T add(T arg)
+  {
+    return arg + innerFoo;
+  }
+};
+
+int foo()
+{
   TFoo<int> TF;
   TF.innerFoo = 3;
   return TF.add(4);
