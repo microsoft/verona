@@ -88,14 +88,13 @@ namespace verona::ffi
       // Initilise the default arguments plus space for the filename
       const char* langName = source_language_string(sourceLang);
       // Create base command-line
-      args = {
-        "clang",
-        "-x",
-        langName,
-        "-I",
-        "/usr/include/",
-        "-I",
-        "/usr/local/include/"};
+      args = {"clang",
+              "-x",
+              langName,
+              "-I",
+              "/usr/include/",
+              "-I",
+              "/usr/local/include/"};
       // Add user include paths
       for (auto& dir : includePath)
       {
