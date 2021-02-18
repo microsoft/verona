@@ -9,7 +9,7 @@
 #include <llvm/ADT/IntrusiveRefCntPtr.h>
 #include <llvm/Support/VirtualFileSystem.h>
 
-namespace verona::ffi
+namespace verona::interop
 {
   /**
    * Creates an in-memory overlay file-system, so we can create the interim
@@ -69,4 +69,4 @@ namespace verona::ffi
       return llvm::sys::path::parent_path(path).str();
     }
   };
-} // namespace verona::ffi
+} // namespace verona::interop

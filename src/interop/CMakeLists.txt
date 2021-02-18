@@ -20,10 +20,10 @@ link_directories(${LLVM_BUILD_LIBRARY_DIR})
 add_definitions(${LLVM_DEFINITIONS})
 add_definitions(${CLANG_DEFINITIONS})
 
-add_llvm_executable(verona-ffi verona-ffi.cc)
-llvm_update_compile_flags(verona-ffi)
+add_llvm_executable(verona-interop verona-interop.cc)
+llvm_update_compile_flags(verona-interop)
 
-target_link_libraries(verona-ffi PRIVATE
+target_link_libraries(verona-interop PRIVATE
     clangAST
     clangASTMatchers
     clangAnalysis
@@ -42,4 +42,4 @@ target_link_libraries(verona-ffi PRIVATE
     clangTooling
     clangCodeGen)
 
-install(TARGETS verona-ffi RUNTIME DESTINATION .)
+install(TARGETS verona-interop RUNTIME DESTINATION .)

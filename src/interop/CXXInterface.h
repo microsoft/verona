@@ -30,7 +30,7 @@
 #include <llvm/IR/Module.h>
 #include <llvm/Support/SmallVectorMemoryBuffer.h>
 
-namespace verona::ffi
+namespace verona::interop
 {
   /**
    * C++ Clang Interface.
@@ -642,4 +642,4 @@ namespace verona::ffi
       return Clang.get();
     }
   };
-} // namespace verona::ffi
+} // namespace verona::interop
