@@ -6,7 +6,6 @@
 #include "CXXType.h"
 #include "Compiler.h"
 #include "FS.h"
-#include "Timer.h"
 
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 #include <clang/ASTMatchers/ASTMatchers.h>
