@@ -28,7 +28,7 @@
 #include <llvm/IR/Module.h>
 #include <llvm/Support/SmallVectorMemoryBuffer.h>
 
-namespace verona::ffi
+namespace verona::interop
 {
   /// Source languages Clang supports
   enum SourceLanguage
@@ -234,4 +234,4 @@ namespace verona::ffi
       return Clang->getSema();
     }
   };
-} // namespace verona::ffi
+} // namespace verona::interop

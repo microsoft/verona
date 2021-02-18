@@ -7,7 +7,7 @@
 #include <iomanip>
 
 using namespace std;
-using namespace verona::ffi;
+using namespace verona::interop;
 using namespace clang;
 namespace cl = llvm::cl;
 
@@ -186,7 +186,8 @@ namespace
     }
 
     // Parse the command line
-    cl::ParseCommandLineOptions(args.size(), args.data(), "Verona FFI test\n");
+    cl::ParseCommandLineOptions(
+      args.size(), args.data(), "Verona Interop test\n");
   }
 } // namespace
 

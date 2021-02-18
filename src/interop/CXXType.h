@@ -5,7 +5,7 @@
 
 #include <clang/Sema/Sema.h>
 
-namespace verona::ffi
+namespace verona::interop
 {
   /**
    * C++ types that can be queried from the AST matchers.
@@ -274,4 +274,4 @@ namespace verona::ffi
       return CXXType{BuiltinTypeKinds::Double};
     }
   };
-} // namespace verona::ffi
+} // namespace verona::interop
