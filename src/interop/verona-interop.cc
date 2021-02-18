@@ -5,6 +5,7 @@
 
 #include <fstream>
 #include <iomanip>
+#include <iostream>
 
 using namespace std;
 using namespace verona::interop;
@@ -44,10 +45,10 @@ namespace
     assert(ty.valid());
     auto kind = ty.kindName();
     auto name = ty.getName().str();
-    printf("%s (@%p) %s", name.c_str(), ty.decl, kind);
+    cout << name << "(@" << ty.decl << ") " << kind;
     if (ty.kind == CXXType::Kind::Builtin)
-      printf("(%s)", ty.builtinKindName());
-    printf("\n");
+      cout << "(" << ty.builtinKindName() << ")";
+    cout << endl;
   }
 
   /// Looks up a symbol from a CXX interface by name
@@ -57,12 +58,12 @@ namespace
     auto ty = interface.getType(name);
     if (ty.valid())
     {
-      printf("Found: ");
+      cout << "Found: ";
       printType(ty);
     }
     else
     {
-      printf("Not found: %s\n", name.c_str());
+      cout << "Not found: " << name.c_str() << endl;
     }
     return ty;
   }
@@ -87,8 +88,8 @@ namespace
         auto decl = interface.getType(arg);
         if (!decl.valid())
         {
-          fprintf(
-            stderr, "Invalid template specialization type %s\n", arg.c_str());
+          cerr << "Invalid template specialization type " << arg.c_str()
+               << endl;
           exit(1);
         }
         templateArgs.push_back(interface.createTemplateArgumentForType(decl));
@@ -102,7 +103,7 @@ namespace
     CXXInterface& interface, CXXType& ty, llvm::ArrayRef<TemplateArgument> args)
   {
     // Canonical representation
-    printf("Canonical Template specialisation:\n");
+    cout << "Canonical Template specialisation:" << endl;
     QualType canon =
       interface.getCanonicalTemplateSpecializationType(ty.decl, args);
     canon.dump();
@@ -118,7 +119,7 @@ namespace
     auto intTy = CXXType::getInt();
     llvm::SmallVector<CXXType, 1> args{intTy};
 
-    printf("Simple function:\n");
+    cout << "Simple function:" << endl;
     // Create new function
     auto func =
       interface.instantiateFunction("verona_wrapper_fn_1", args, intTy);
@@ -167,7 +168,7 @@ namespace
       ifstream file(configFile);
       if (!file.good())
       {
-        fprintf(stderr, "Error opening config file %s\n", configFile.c_str());
+        cerr << "Error opening config file " << configFile.c_str() << endl;
         exit(1);
       }
 
@@ -213,16 +214,14 @@ int main(int argc, char** argv)
     auto decl = get_type(interface, symbol);
 
     // Try and specialize a template
-    auto req = specialization.size();
+    uint64_t req = specialization.size();
     if (req)
     {
       // Make sure this is a template class
       if (!decl.isTemplate())
       {
-        fprintf(
-          stderr,
-          "Class %s is not a template class, can't specialize",
-          symbol.c_str());
+        cerr << "Class " << symbol.c_str()
+             << " is not a template class, can't specialize" << endl;
         exit(1);
       }
 
@@ -230,23 +229,16 @@ int main(int argc, char** argv)
       auto has = decl.numberOfTemplateParameters();
       if (req != has)
       {
-        fprintf(
-          stderr,
-          "Requested %ld template arguments but class %s only has "
-          "%d\n",
-          req,
-          symbol.c_str(),
-          has);
+        cerr << "Requested " << req << " template arguments but class "
+             << symbol.c_str() << " only has " << has << endl;
         exit(1);
       }
 
       // Specialize the template with the arguments
       auto args = create_template_args(interface, specialization);
       auto spec = specialize_template(interface, decl, args);
-      printf(
-        "Size of %s is %lu bytes\n",
-        spec.getName().str().c_str(),
-        interface.getTypeSize(spec));
+      cout << "Size of " << spec.getName().str().c_str() << " is "
+           << interface.getTypeSize(spec) << " bytes" << endl;
     }
   }
 
