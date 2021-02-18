@@ -14,8 +14,8 @@
 
 ## Open Questions
 
-* control flow expressions that end with a lambda need to return the right thing such that a following expression starts a new expression
-  * `let x = if a { e0 } else { e1 }` wants a real return though
+* can control flow expressions end without a `;`?
+  * `let x = if a { e0 } else { e1 }` wants a return value
   * same applies to `match`
   * `while` and `for` could return something special, but it won't cope well with the lhs of an assignment operator
   * could have a return type marker that splits the expression?
