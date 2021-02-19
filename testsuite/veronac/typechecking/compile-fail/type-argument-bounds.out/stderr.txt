@@ -1,0 +1,19 @@
+[1mtype-argument-bounds.verona:13:7: [0m[38;2;255;000;000merror: [0m[1mType argument '(U64 & imm(none))' for 'A' does not satisfy its bound 'IHasFoo'[0m
+  f1: A[U64 & imm];
+      [1m[38;2;000;255;000m^~~~~~~~~~~~
+[0m[1mtype-argument-bounds.verona:15:7: [0m[38;2;255;000;000merror: [0m[1mType argument 'X' for 'A' does not satisfy its bound 'IHasFoo'[0m
+  f2: A[X];
+      [1m[38;2;000;255;000m^~~~
+[0m[1mtype-argument-bounds.verona:19:9: [0m[38;2;255;000;000merror: [0m[1mType argument '(U64 & imm(none))' for 'A' does not satisfy its bound 'IHasFoo'[0m
+  m1(x: A[U64 & imm]) { }
+        [1m[38;2;000;255;000m^~~~~~~~~~~~
+[0m[1mtype-argument-bounds.verona:21:9: [0m[38;2;255;000;000merror: [0m[1mType argument 'X' for 'A' does not satisfy its bound 'IHasFoo'[0m
+  m2(x: A[X]) { }
+        [1m[38;2;000;255;000m^~~~
+[0m[1mtype-argument-bounds.verona:23:12: [0m[38;2;255;000;000merror: [0m[1mType argument 'Y' for 'A' does not satisfy its bound 'IHasFoo'[0m
+  m3[Y](x: A[Y]) { }
+           [1m[38;2;000;255;000m^~~~
+[0m[1mtype-argument-bounds.verona:25:9: [0m[38;2;255;000;000merror: [0m[1mType argument '(U64 & imm(none))' for 'A' does not satisfy its bound 'IHasFoo'[0m
+  m4[Y: A[U64 & imm]]() { }
+        [1m[38;2;000;255;000m^~~~~~~~~~~~
+[0m6 errors generated

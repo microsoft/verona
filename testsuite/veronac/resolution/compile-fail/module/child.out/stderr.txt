@@ -1,0 +1,4 @@
+[1mchild.verona:5:8: [0m[38;2;255;000;000merror: [0m[1mCannot find value for symbol 'T'[0m
+  m(x: T) {}
+       [1m[38;2;000;255;000m^
+[0m1 error generated

@@ -1,0 +1,13 @@
+[1mfreeze.verona:10:3: [0m[38;2;255;000;000merror: [0m[1mInference failed for method test1[0m
+  test1(x: A & imm) {
+  [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~
+[0m[1mfreeze.verona:15:3: [0m[38;2;255;000;000merror: [0m[1mInference failed for method test2[0m
+  test2[X](x: X) {
+  [1m[38;2;000;255;000m^~~~~~~~~~~~~~~
+[0m[1mfreeze.verona:20:3: [0m[38;2;255;000;000merror: [0m[1mInference failed for method test3[0m
+  test3(x: A & (iso | imm)) {
+  [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~
+[0m[1mfreeze.verona:25:3: [0m[38;2;255;000;000merror: [0m[1mInference failed for method test4[0m
+  test4(x: A & mut) {
+  [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~
+[0m4 errors generated

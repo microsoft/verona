@@ -1,0 +1,4 @@
+[1mmain-bad-return-type.verona:5:3: [0m[38;2;255;000;000merror: [0m[1mMethod 'main' has an invalid signature[0m
+  main(): U64 { 0 }
+  [1m[38;2;000;255;000m^~~~
+[0m1 error generated

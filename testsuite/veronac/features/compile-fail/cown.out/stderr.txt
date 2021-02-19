@@ -1,0 +1,4 @@
+[1mcown.verona:16:3: [0m[38;2;255;000;000merror: [0m[1mInference failed for method cown_fail[0m
+  cown_fail(x: None & imm): None & imm
+  [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[0m1 error generated

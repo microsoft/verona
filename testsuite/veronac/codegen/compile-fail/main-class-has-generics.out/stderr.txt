@@ -1,0 +1,4 @@
+[1mmain-class-has-generics.verona:4:7: [0m[38;2;255;000;000merror: [0m[1mClass 'Main' must not be generic[0m
+class Main[X] {
+      [1m[38;2;000;255;000m^~~~
+[0m1 error generated

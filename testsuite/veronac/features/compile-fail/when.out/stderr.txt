@@ -1,0 +1,13 @@
+[1mwhen.verona:36:3: [0m[38;2;255;000;000merror: [0m[1mInference failed for method test1[0m
+  test1(r: cown[Log] & imm, m: LogMessage & mut)
+  [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[0m[1mwhen.verona:42:3: [0m[38;2;255;000;000merror: [0m[1mInference failed for method test2[0m
+  test2(r: cown[NotLog] & imm, m: LogMessage & iso)
+  [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[0m[1mwhen.verona:56:5: [0m[38;2;255;000;000merror: [0m[1mCannot use variable 'm'[0m
+    when (var a = r) { m.run(a) };
+    [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[0m[1mwhen.verona:55:5: [0mnote: [1m'm' was previously consumed here[0m
+    when (var a = r) { m.run(a) };
+    [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[0m3 errors generated

@@ -1,0 +1,25 @@
+[1minvalid-number-of-type-arguments.verona:9:6: [0m[38;2;255;000;000merror: [0m[1mThe wrong number of type arguments were specified for 'N0', expected 0, got 1.[0m
+  a: N0[U64];
+     [1m[38;2;000;255;000m^~~~~~~
+[0m[1minvalid-number-of-type-arguments.verona:12:7: [0m[38;2;255;000;000merror: [0m[1mThe wrong number of type arguments were specified for 'N1', expected 1, got 0.[0m
+  b1: N1;
+      [1m[38;2;000;255;000m^~
+[0m[1minvalid-number-of-type-arguments.verona:14:7: [0m[38;2;255;000;000merror: [0m[1mThe wrong number of type arguments were specified for 'N1', expected 1, got 0.[0m
+  b2: N1[];
+      [1m[38;2;000;255;000m^~~~
+[0m[1minvalid-number-of-type-arguments.verona:16:7: [0m[38;2;255;000;000merror: [0m[1mThe wrong number of type arguments were specified for 'N1', expected 1, got 2.[0m
+  b3: N1[U64, U64];
+      [1m[38;2;000;255;000m^~~~~~~~~~~~
+[0m[1minvalid-number-of-type-arguments.verona:19:7: [0m[38;2;255;000;000merror: [0m[1mThe wrong number of type arguments were specified for 'N2', expected 2, got 0.[0m
+  c1: N2;
+      [1m[38;2;000;255;000m^~
+[0m[1minvalid-number-of-type-arguments.verona:21:7: [0m[38;2;255;000;000merror: [0m[1mThe wrong number of type arguments were specified for 'N2', expected 2, got 0.[0m
+  c2: N2[];
+      [1m[38;2;000;255;000m^~~~
+[0m[1minvalid-number-of-type-arguments.verona:23:7: [0m[38;2;255;000;000merror: [0m[1mThe wrong number of type arguments were specified for 'N2', expected 2, got 1.[0m
+  c3: N2[U64];
+      [1m[38;2;000;255;000m^~~~~~~
+[0m[1minvalid-number-of-type-arguments.verona:25:7: [0m[38;2;255;000;000merror: [0m[1mThe wrong number of type arguments were specified for 'N2', expected 2, got 3.[0m
+  c4: N2[U64, U64, U64];
+      [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~
+[0m8 errors generated

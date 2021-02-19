@@ -1,0 +1,19 @@
+[1mwhere-clause.verona:8:11: [0m[38;2;255;000;000merror: [0m[1mCannot find value for symbol 'y'[0m
+    where y in x
+          [1m[38;2;000;255;000m^
+[0m[1mwhere-clause.verona:13:16: [0m[38;2;255;000;000merror: [0m[1mCannot find value for symbol 'y'[0m
+    where x in y
+               [1m[38;2;000;255;000m^
+[0m[1mwhere-clause.verona:18:11: [0m[38;2;255;000;000merror: [0m[1mCannot find value for symbol 'self'[0m
+    where self in x
+          [1m[38;2;000;255;000m^~~~
+[0m[1mwhere-clause.verona:23:16: [0m[38;2;255;000;000merror: [0m[1mCannot find value for symbol 'self'[0m
+    where x in self
+               [1m[38;2;000;255;000m^~~~
+[0m[1mwhere-clause.verona:28:11: [0m[38;2;255;000;000merror: [0m[1mA is not a local variable[0m
+    where A in x
+          [1m[38;2;000;255;000m^
+[0m[1mwhere-clause.verona:33:16: [0m[38;2;255;000;000merror: [0m[1mA is not a local variable[0m
+    where x in A
+               [1m[38;2;000;255;000m^
+[0m6 errors generated

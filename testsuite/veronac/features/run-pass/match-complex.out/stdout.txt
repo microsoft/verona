@@ -1,0 +1,10 @@
+2
+1
+1
+0
+A & iso
+B & (iso | imm)
+A & (imm | mut)
+B & mut
+A & (imm | mut)
+B & (iso | imm)

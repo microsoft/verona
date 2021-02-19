@@ -1,0 +1,12 @@
+Value { 3 }
+Value { 5 }
+Value { 7 }
+Value { 12 }
+Tree[(Value & iso(•))] { Node[(Value & iso(•))] { Node[(Value & iso(•))] { Empty, Value { 3 }, Empty }, Value { 5 }, Node[(Value & iso(•))] { Node[(Value & iso(•))] { Empty, Value { 7 }, Empty }, Value { 12 }, Empty } } }
+Value { 4 }
+Value { 6 }
+Value { 8 }
+Value { 100 }
+Done1
+Tree[(Value & mut(•))] { Node[(Value & mut(•))] { Empty, Value { 4 }, Node[(Value & mut(•))] { Node[(Value & mut(•))] { Empty, Value { 6 }, Empty }, Value { 8 }, Node[(Value & mut(•))] { Empty, Value { 100 }, Empty } } } }
+Done2

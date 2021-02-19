@@ -1,0 +1,13 @@
+[1mfinalisers.verona:10:3: [0m[38;2;255;000;000merror: [0m[1mFinaliser should have no parameters in class Generic[0m
+  final(self: mut, fail: Value)
+  [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[0m[1mfinalisers.verona:22:3: [0m[38;2;255;000;000merror: [0m[1mFinaliser should have no parameters in class NonGeneric[0m
+  final(self: mut, fail: U64)
+  [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~
+[0m[1mfinalisers.verona:34:3: [0m[38;2;255;000;000merror: [0m[1mFinaliser should not take generic parameters in class Generic2[0m
+  final[Value2](self : mut)
+  [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~
+[0m[1mfinalisers.verona:46:3: [0m[38;2;255;000;000merror: [0m[1mFinaliser should not take generic parameters in class NonGeneric2[0m
+  final[Value2](self: mut)
+  [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~
+[0m4 errors generated
