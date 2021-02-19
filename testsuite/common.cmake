@@ -7,11 +7,6 @@
 # - TEST_NAME: Full name of the test (e.g. resolution/compile-pass/circular)
 # - TEST_FILE: Path to the test source file
 
-if (NOT EXISTS ${VERONAC})
-  message(FATAL_ERROR " To run tests you must build the install target." ${VERONAC})
-endif ()
-
-
 # Do some discovery about auxiliary files, setup a few directories
 function(PrepareTest _VERONAC_FLAGS _EXPECTED_DUMP _ACTUAL_DUMP)
   get_filename_component(parentdir ${CMAKE_CURRENT_BINARY_DIR}/${TEST_NAME} DIRECTORY)
