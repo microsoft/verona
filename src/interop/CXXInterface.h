@@ -59,13 +59,11 @@ namespace verona::interop
     /**
      * Creates new AST consumers to add the AST back into the interface.
      *
-     * Each traversal consumes the AST, so we need this to add them back
-     * for the next operation on the same AST. This is the way to expose
-     * the interface pointer so that we can update it again when needed.
-     *
      * Use:
+     * ```
      *  CompilerInstance->setASTConsumer(factory.newASTConsumer());
      *  CompilerInstance->setASTContext(ast);
+     * ```
      */
     struct ASTConsumerFactory
     {
@@ -97,11 +95,13 @@ namespace verona::interop
      * Simple handler for indirect dispatch on a Clang AST matcher.
      *
      * Use:
+     * ```
      *  void myfunc(MatchFinder::MatchResult &);
      *  MatchFinder f;
      *  f.addMatcher(new HandleMatch(myfunc));
      *  f.matchAST(*ast);
      *  // If matches, runs `myfunc` on the matched AST node.
+     * ```
      */
     class HandleMatch : public clang::ast_matchers::MatchFinder::MatchCallback
     {
@@ -592,7 +592,7 @@ namespace verona::interop
     /**
      * Create integer constant literal
      *
-     * TODO: Can we have a generic literal creator or do we need one each?
+     * TODO: Create all the ones we use in the template specialisation
      */
     clang::IntegerLiteral*
     createIntegerLiteral(unsigned int len, unsigned long val)
@@ -606,7 +606,7 @@ namespace verona::interop
     /**
      * Create a return instruction
      *
-     * TODO: Can we have a generic instruction creator or do we need one each?
+     * TODO: Create all the ones we use in code generation
      */
     clang::ReturnStmt* createReturn(clang::Expr* val, clang::FunctionDecl* func)
     {

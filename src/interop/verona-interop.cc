@@ -12,6 +12,15 @@ using namespace verona::interop;
 using namespace clang;
 namespace cl = llvm::cl;
 
+/**
+ * This file is a helper for a few tests, not the aim of an actual
+ * interoperability driver, which will actually be hidden inside the compiler.
+ *
+ * We should move this into a bunch of unit tests andn run them directly from
+ * ctest, with all the functionality we'll need from the sandbox code inside
+ * the compiler.
+ */
+
 namespace
 {
   // Test function (TODO: make this more generic)
@@ -112,7 +121,7 @@ namespace
     return interface.instantiateClassTemplate(ty, args);
   }
 
-  /// Creates a test function (TODO: make this more generic)
+  /// Creates a test function
   clang::FunctionDecl* test_function(CXXInterface& interface)
   {
     // Create a new function on the main file
@@ -202,7 +211,6 @@ int main(int argc, char** argv)
   CXXInterface interface(inputFile, includePath);
 
   // Test function creation
-  // TODO: Make this more parametric
   if (testFunction)
   {
     test_function(interface);
