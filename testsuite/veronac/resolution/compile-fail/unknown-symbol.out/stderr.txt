@@ -1,10 +1,10 @@
-[1munknown-symbol.verona:5:6: [0m[38;2;255;000;000merror: [0m[1mCannot find value for symbol 'Foo'[0m
+unknown-symbol.verona:5:6: error: Cannot find value for symbol 'Foo'
   f: Foo;
-     [1m[38;2;000;255;000m^~~
-[0m[1munknown-symbol.verona:8:11: [0m[38;2;255;000;000merror: [0m[1mCannot find value for symbol 'Bar'[0m
+     ^~~
+unknown-symbol.verona:8:11: error: Cannot find value for symbol 'Bar'
   main(): Bar {
-          [1m[38;2;000;255;000m^~~
-[0m[1munknown-symbol.verona:10:5: [0m[38;2;255;000;000merror: [0m[1mCannot find value for symbol 'baz'[0m
+          ^~~
+unknown-symbol.verona:10:5: error: Cannot find value for symbol 'baz'
     baz
-    [1m[38;2;000;255;000m^~~
-[0m3 errors generated
+    ^~~
+3 errors generated

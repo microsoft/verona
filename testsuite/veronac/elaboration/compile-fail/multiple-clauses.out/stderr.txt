@@ -1,37 +1,37 @@
-[1mmultiple-clauses.verona:11:7: [0m[38;2;255;000;000merror: [0m[1mFound multiple where clauses for 'x'[0m
+multiple-clauses.verona:11:7: error: Found multiple where clauses for 'x'
       x in self
-      [1m[38;2;000;255;000m^~~~~~~~~
-[0m[1mmultiple-clauses.verona:10:7: [0mnote: [1mPrevious where clause for 'x' was here[0m
+      ^~~~~~~~~
+multiple-clauses.verona:10:7: note: Previous where clause for 'x' was here
       x in self,
-      [1m[38;2;000;255;000m^~~~~~~~~
-[0m[1mmultiple-clauses.verona:19:7: [0m[38;2;255;000;000merror: [0m[1mFound multiple where clauses for 'x'[0m
+      ^~~~~~~~~
+multiple-clauses.verona:19:7: error: Found multiple where clauses for 'x'
       x in y
-      [1m[38;2;000;255;000m^~~~~~
-[0m[1mmultiple-clauses.verona:18:7: [0mnote: [1mPrevious where clause for 'x' was here[0m
+      ^~~~~~
+multiple-clauses.verona:18:7: note: Previous where clause for 'x' was here
       x in self,
-      [1m[38;2;000;255;000m^~~~~~~~~
-[0m[1mmultiple-clauses.verona:28:7: [0m[38;2;255;000;000merror: [0m[1mFound multiple where clauses for 'x'[0m
+      ^~~~~~~~~
+multiple-clauses.verona:28:7: error: Found multiple where clauses for 'x'
       x in self
-      [1m[38;2;000;255;000m^~~~~~~~~
-[0m[1mmultiple-clauses.verona:26:7: [0mnote: [1mPrevious where clause for 'x' was here[0m
+      ^~~~~~~~~
+multiple-clauses.verona:26:7: note: Previous where clause for 'x' was here
       x in self,
-      [1m[38;2;000;255;000m^~~~~~~~~
-[0m[1mmultiple-clauses.verona:36:7: [0m[38;2;255;000;000merror: [0m[1mFound multiple where clauses for 'return'[0m
+      ^~~~~~~~~
+multiple-clauses.verona:36:7: error: Found multiple where clauses for 'return'
       return in self
-      [1m[38;2;000;255;000m^~~~~~~~~~~~~~
-[0m[1mmultiple-clauses.verona:35:7: [0mnote: [1mPrevious where clause for 'return' was here[0m
+      ^~~~~~~~~~~~~~
+multiple-clauses.verona:35:7: note: Previous where clause for 'return' was here
       return in self,
-      [1m[38;2;000;255;000m^~~~~~~~~~~~~~
-[0m[1mmultiple-clauses.verona:44:7: [0m[38;2;255;000;000merror: [0m[1mFound multiple where clauses for 'return'[0m
+      ^~~~~~~~~~~~~~
+multiple-clauses.verona:44:7: error: Found multiple where clauses for 'return'
       return from self
-      [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~
-[0m[1mmultiple-clauses.verona:43:7: [0mnote: [1mPrevious where clause for 'return' was here[0m
+      ^~~~~~~~~~~~~~~~
+multiple-clauses.verona:43:7: note: Previous where clause for 'return' was here
       return in self,
-      [1m[38;2;000;255;000m^~~~~~~~~~~~~~
-[0m[1mmultiple-clauses.verona:52:7: [0m[38;2;255;000;000merror: [0m[1mFound multiple where clauses for 'return'[0m
+      ^~~~~~~~~~~~~~
+multiple-clauses.verona:52:7: error: Found multiple where clauses for 'return'
       return in x
-      [1m[38;2;000;255;000m^~~~~~~~~~~
-[0m[1mmultiple-clauses.verona:51:7: [0mnote: [1mPrevious where clause for 'return' was here[0m
+      ^~~~~~~~~~~
+multiple-clauses.verona:51:7: note: Previous where clause for 'return' was here
       return in self,
-      [1m[38;2;000;255;000m^~~~~~~~~~~~~~
-[0m6 errors generated
+      ^~~~~~~~~~~~~~
+6 errors generated

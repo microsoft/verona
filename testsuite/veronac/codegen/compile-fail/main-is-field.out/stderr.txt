@@ -1,4 +1,4 @@
-[1mmain-is-field.verona:4:7: [0m[38;2;255;000;000merror: [0m[1mClass 'Main' does not have a 'main' method[0m
+main-is-field.verona:4:7: error: Class 'Main' does not have a 'main' method
 class Main {
-      [1m[38;2;000;255;000m^~~~
-[0m1 error generated
+      ^~~~
+1 error generated

@@ -1,4 +1,4 @@
-[1mprimitive-field.verona:6:3: [0m[38;2;255;000;000merror: [0m[1mPrimitives cannot have fields[0m
+primitive-field.verona:6:3: error: Primitives cannot have fields
   f: None & imm;
-  [1m[38;2;000;255;000m^~~~~~~~~~~~~~
-[0m1 error generated
+  ^~~~~~~~~~~~~~
+1 error generated

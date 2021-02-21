@@ -1,22 +1,22 @@
-[1massertion.verona:10:1: [0m[38;2;255;000;000merror: [0m[1mStatic assertion failed, 'A' is a subtype of 'A'[0m
+assertion.verona:10:1: error: Static assertion failed, 'A' is a subtype of 'A'
 static_assert(A not subtype A);
-[1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[0m[1massertion.verona:13:1: [0m[38;2;255;000;000merror: [0m[1mStatic assertion failed, 'A' is not a subtype of 'B'[0m
+^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+assertion.verona:13:1: error: Static assertion failed, 'A' is not a subtype of 'B'
 static_assert(A subtype B);
-[1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~
-[0m[1massertion.verona:16:1: [0m[38;2;255;000;000merror: [0m[1mStatic assertion failed, 'A' is a subtype of '(A | B)'[0m
+^~~~~~~~~~~~~~~~~~~~~~~~~~~
+assertion.verona:16:1: error: Static assertion failed, 'A' is a subtype of '(A | B)'
 static_assert(A not subtype (A | B));
-[1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[0m[1massertion.verona:19:1: [0m[38;2;255;000;000merror: [0m[1mStatic assertion failed, 'X' is a subtype of 'X'[0m
+^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+assertion.verona:19:1: error: Static assertion failed, 'X' is a subtype of 'X'
 static_assert[X](X not subtype X);
-[1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[0m[1massertion.verona:22:1: [0m[38;2;255;000;000merror: [0m[1mStatic assertion failed, 'Cell[X]' is a subtype of 'Cell[X]'[0m
+^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+assertion.verona:22:1: error: Static assertion failed, 'Cell[X]' is a subtype of 'Cell[X]'
 static_assert[X](Cell[X] not subtype Cell[X]);
-[1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[0m[1massertion.verona:25:1: [0m[38;2;255;000;000merror: [0m[1mStatic assertion failed, 'Cell[X]' is not a subtype of 'Cell[A]'[0m
+^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+assertion.verona:25:1: error: Static assertion failed, 'Cell[X]' is not a subtype of 'Cell[A]'
 static_assert[X](Cell[X] subtype Cell[A]);
-[1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[0m[1massertion.verona:28:1: [0m[38;2;255;000;000merror: [0m[1mStatic assertion failed, 'X' is not a subtype of 'Y'[0m
+^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+assertion.verona:28:1: error: Static assertion failed, 'X' is not a subtype of 'Y'
 static_assert[X, Y](X subtype Y);
-[1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[0m7 errors generated
+^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+7 errors generated

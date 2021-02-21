@@ -1,2 +1,2 @@
-[38;2;255;000;000merror: [0m[1mClass 'Main' is missing[0m
+error: Class 'Main' is missing
 1 error generated

@@ -1,40 +1,40 @@
-[1mnew-expr.verona:13:9: [0m[38;2;255;000;000merror: [0m[1mx is not a class[0m
+new-expr.verona:13:9: error: x is not a class
     new x;
-        [1m[38;2;000;255;000m^
-[0m[1mnew-expr.verona:16:9: [0m[38;2;255;000;000merror: [0m[1mx is not a class[0m
+        ^
+new-expr.verona:16:9: error: x is not a class
     new x in x;
-        [1m[38;2;000;255;000m^
-[0m[1mnew-expr.verona:19:14: [0m[38;2;255;000;000merror: [0m[1mA is not a local variable[0m
+        ^
+new-expr.verona:19:14: error: A is not a local variable
     new A in A;
-             [1m[38;2;000;255;000m^
-[0m[1mnew-expr.verona:23:9: [0m[38;2;255;000;000merror: [0m[1mx is not a class[0m
+             ^
+new-expr.verona:23:9: error: x is not a class
     new x in A;
-        [1m[38;2;000;255;000m^
-[0m[1mnew-expr.verona:23:14: [0m[38;2;255;000;000merror: [0m[1mA is not a local variable[0m
+        ^
+new-expr.verona:23:14: error: A is not a local variable
     new x in A;
-             [1m[38;2;000;255;000m^
-[0m[1mnew-expr.verona:26:9: [0m[38;2;255;000;000merror: [0m[1mCannot find value for symbol 'B'[0m
+             ^
+new-expr.verona:26:9: error: Cannot find value for symbol 'B'
     new B;
-        [1m[38;2;000;255;000m^
-[0m[1mnew-expr.verona:29:14: [0m[38;2;255;000;000merror: [0m[1mCannot find value for symbol 'y'[0m
+        ^
+new-expr.verona:29:14: error: Cannot find value for symbol 'y'
     new A in y;
-             [1m[38;2;000;255;000m^
-[0m[1mnew-expr.verona:33:9: [0m[38;2;255;000;000merror: [0m[1mCannot find value for symbol 'B'[0m
+             ^
+new-expr.verona:33:9: error: Cannot find value for symbol 'B'
     new B in y;
-        [1m[38;2;000;255;000m^
-[0m[1mnew-expr.verona:33:14: [0m[38;2;255;000;000merror: [0m[1mCannot find value for symbol 'y'[0m
+        ^
+new-expr.verona:33:14: error: Cannot find value for symbol 'y'
     new B in y;
-             [1m[38;2;000;255;000m^
-[0m[1mnew-expr.verona:36:9: [0m[38;2;255;000;000merror: [0m[1mI is not a class[0m
+             ^
+new-expr.verona:36:9: error: I is not a class
     new I;
-        [1m[38;2;000;255;000m^
-[0m[1mnew-expr.verona:39:9: [0m[38;2;255;000;000merror: [0m[1mI is not a class[0m
+        ^
+new-expr.verona:39:9: error: I is not a class
     new I in x;
-        [1m[38;2;000;255;000m^
-[0m[1mnew-expr.verona:42:9: [0m[38;2;255;000;000merror: [0m[1mP is not a class[0m
+        ^
+new-expr.verona:42:9: error: P is not a class
     new P;
-        [1m[38;2;000;255;000m^
-[0m[1mnew-expr.verona:45:9: [0m[38;2;255;000;000merror: [0m[1mP is not a class[0m
+        ^
+new-expr.verona:45:9: error: P is not a class
     new P in x;
-        [1m[38;2;000;255;000m^
-[0m13 errors generated
+        ^
+13 errors generated

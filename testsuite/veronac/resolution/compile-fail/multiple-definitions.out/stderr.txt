@@ -1,55 +1,55 @@
-[1mmultiple-definitions.verona:6:7: [0m[38;2;255;000;000merror: [0m[1mSymbol 'SameClass' is already defined in this scope[0m
+multiple-definitions.verona:6:7: error: Symbol 'SameClass' is already defined in this scope
 class SameClass {}
-      [1m[38;2;000;255;000m^~~~~~~~~
-[0m[1mmultiple-definitions.verona:5:7: [0mnote: [1m'SameClass' was previously defined here[0m
+      ^~~~~~~~~
+multiple-definitions.verona:5:7: note: 'SameClass' was previously defined here
 class SameClass {}
-      [1m[38;2;000;255;000m^~~~~~~~~
-[0m[1mmultiple-definitions.verona:10:24: [0m[38;2;255;000;000merror: [0m[1mSymbol 'X' is already defined in this scope[0m
+      ^~~~~~~~~
+multiple-definitions.verona:10:24: error: Symbol 'X' is already defined in this scope
 class SameTypeParam[X, X] {}
-                       [1m[38;2;000;255;000m^
-[0m[1mmultiple-definitions.verona:10:21: [0mnote: [1m'X' was previously defined here[0m
+                       ^
+multiple-definitions.verona:10:21: note: 'X' was previously defined here
 class SameTypeParam[X, X] {}
-                    [1m[38;2;000;255;000m^
-[0m[1mmultiple-definitions.verona:15:28: [0m[38;2;255;000;000merror: [0m[1mSymbol 'x' is already defined in this scope[0m
+                    ^
+multiple-definitions.verona:15:28: error: Symbol 'x' is already defined in this scope
   same_param(x: U64 & imm, x: U64 & imm) { }
-                           [1m[38;2;000;255;000m^
-[0m[1mmultiple-definitions.verona:15:14: [0mnote: [1m'x' was previously defined here[0m
+                           ^
+multiple-definitions.verona:15:14: note: 'x' was previously defined here
   same_param(x: U64 & imm, x: U64 & imm) { }
-             [1m[38;2;000;255;000m^
-[0m[1mmultiple-definitions.verona:21:9: [0m[38;2;255;000;000merror: [0m[1mSymbol 'x' is already defined in this scope[0m
+             ^
+multiple-definitions.verona:21:9: error: Symbol 'x' is already defined in this scope
     var x;
-        [1m[38;2;000;255;000m^
-[0m[1mmultiple-definitions.verona:20:9: [0mnote: [1m'x' was previously defined here[0m
+        ^
+multiple-definitions.verona:20:9: note: 'x' was previously defined here
     var x;
-        [1m[38;2;000;255;000m^
-[0m[1mmultiple-definitions.verona:27:9: [0m[38;2;255;000;000merror: [0m[1mSymbol 'x' is already defined in this scope[0m
+        ^
+multiple-definitions.verona:27:9: error: Symbol 'x' is already defined in this scope
     var x;
-        [1m[38;2;000;255;000m^
-[0m[1mmultiple-definitions.verona:26:13: [0mnote: [1m'x' was previously defined here[0m
+        ^
+multiple-definitions.verona:26:13: note: 'x' was previously defined here
   param_var(x: U64 & imm) {
-            [1m[38;2;000;255;000m^
-[0m[1mmultiple-definitions.verona:35:3: [0m[38;2;255;000;000merror: [0m[1mClass 'SameField' already has a member named 'field'[0m
+            ^
+multiple-definitions.verona:35:3: error: Class 'SameField' already has a member named 'field'
   field: U64 & imm;
-  [1m[38;2;000;255;000m^~~~~
-[0m[1mmultiple-definitions.verona:34:3: [0mnote: [1m'field' was previously defined here[0m
+  ^~~~~
+multiple-definitions.verona:34:3: note: 'field' was previously defined here
   field: U64 & imm;
-  [1m[38;2;000;255;000m^~~~~
-[0m[1mmultiple-definitions.verona:42:3: [0m[38;2;255;000;000merror: [0m[1mClass 'SameMethod' already has a member named 'method'[0m
+  ^~~~~
+multiple-definitions.verona:42:3: error: Class 'SameMethod' already has a member named 'method'
   method() {}
-  [1m[38;2;000;255;000m^~~~~~
-[0m[1mmultiple-definitions.verona:41:3: [0mnote: [1m'method' was previously defined here[0m
+  ^~~~~~
+multiple-definitions.verona:41:3: note: 'method' was previously defined here
   method() {}
-  [1m[38;2;000;255;000m^~~~~~
-[0m[1mmultiple-definitions.verona:49:3: [0m[38;2;255;000;000merror: [0m[1mClass 'SameFieldMethod1' already has a member named 'name'[0m
+  ^~~~~~
+multiple-definitions.verona:49:3: error: Class 'SameFieldMethod1' already has a member named 'name'
   name() {}
-  [1m[38;2;000;255;000m^~~~
-[0m[1mmultiple-definitions.verona:48:3: [0mnote: [1m'name' was previously defined here[0m
+  ^~~~
+multiple-definitions.verona:48:3: note: 'name' was previously defined here
   name: U64 & imm;
-  [1m[38;2;000;255;000m^~~~
-[0m[1mmultiple-definitions.verona:56:3: [0m[38;2;255;000;000merror: [0m[1mClass 'SameFieldMethod2' already has a member named 'name'[0m
+  ^~~~
+multiple-definitions.verona:56:3: error: Class 'SameFieldMethod2' already has a member named 'name'
   name: U64 & imm;
-  [1m[38;2;000;255;000m^~~~
-[0m[1mmultiple-definitions.verona:55:3: [0mnote: [1m'name' was previously defined here[0m
+  ^~~~
+multiple-definitions.verona:55:3: note: 'name' was previously defined here
   name() {}
-  [1m[38;2;000;255;000m^~~~
-[0m9 errors generated
+  ^~~~
+9 errors generated

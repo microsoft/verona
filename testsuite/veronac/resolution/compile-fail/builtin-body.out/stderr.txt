@@ -1,4 +1,4 @@
-[1mbuiltin-body.verona:6:11: [0m[38;2;255;000;000merror: [0m[1mBuiltin method 'foo' in 'Main' must not have a body[0m
+builtin-body.verona:6:11: error: Builtin method 'foo' in 'Main' must not have a body
   builtin foo() { }
-          [1m[38;2;000;255;000m^~~
-[0m1 error generated
+          ^~~
+1 error generated

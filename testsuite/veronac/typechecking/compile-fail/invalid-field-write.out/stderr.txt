@@ -1,10 +1,10 @@
-[1minvalid-field-write.verona:10:5: [0m[38;2;255;000;000merror: [0m[1mType '(Cell & imm(none))' is not writable[0m
+invalid-field-write.verona:10:5: error: Type '(Cell & imm(none))' is not writable
     cell.value = new A;
-    [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~
-[0m[1minvalid-field-write.verona:15:5: [0m[38;2;255;000;000merror: [0m[1mType '((Cell & imm(none)) | (Cell & mut(external 0)))' is not writable[0m
+    ^~~~~~~~~~~~~~~~~~
+invalid-field-write.verona:15:5: error: Type '((Cell & imm(none)) | (Cell & mut(external 0)))' is not writable
     cell.value = new A;
-    [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~
-[0m[1minvalid-field-write.verona:20:5: [0m[38;2;255;000;000merror: [0m[1mType 'Cell' is not writable[0m
+    ^~~~~~~~~~~~~~~~~~
+invalid-field-write.verona:20:5: error: Type 'Cell' is not writable
     cell.value = new A;
-    [1m[38;2;000;255;000m^~~~~~~~~~~~~~~~~~
-[0m3 errors generated
+    ^~~~~~~~~~~~~~~~~~
+3 errors generated
