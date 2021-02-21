@@ -32,9 +32,10 @@ subdirlist(TOOL_FOLDERS ${CMAKE_CURRENT_SOURCE_DIR})
 foreach(TOOL ${TOOL_FOLDERS})
   set(TOOLCMD ${VERONA_LOCAL_DIST}/${TOOL}${CMAKE_EXECUTABLE_SUFFIX})
   set(TOOL_FOLDER ${CMAKE_CURRENT_SOURCE_DIR}/${TOOL})
-  if (${TOOL} STREQUAL veronac)  # Remove this then we can use multiple tools when we are there
+#  if (${TOOL} STREQUAL veronac)  # Remove this then we can use multiple tools when we are there
     include(${CMAKE_CURRENT_LIST_DIR}/${TOOL}.cmake)
-    file(GLOB_RECURSE tests CONFIGURE_DEPENDS  RELATIVE ${TOOL_FOLDER} ${TOOL_FOLDER}/*.${TEST_EXTENSION})
+    list(TRANSFORM TEST_EXTENSION PREPEND ${TOOL_FOLDER}/*.)
+    file(GLOB_RECURSE tests CONFIGURE_DEPENDS  RELATIVE ${TOOL_FOLDER} ${TEST_EXTENSION})
     foreach(test ${tests})
       get_filename_component(test_name ${test} NAME_WE)
       get_filename_component(test_file ${test} NAME)
@@ -75,7 +76,7 @@ foreach(TOOL ${TOOL_FOLDERS})
       file (GLOB_RECURSE results CONFIGURE_DEPENDS RELATIVE ${golden_dir} ${golden_dir}/*)
       list(LENGTH results res_length)
       if(res_length EQUAL 0)
-        message(WARNING "Test does not have tests of results. ${CMAKE_CURRENT_SOURCE_DIR}/${golden_dir}")
+        message(WARNING "Test does not have tests of results. ${golden_dir}")
         # Add to generate golden output target
         add_custom_command(OUTPUT ${test_path}
           COMMAND
@@ -111,9 +112,19 @@ foreach(TOOL ${TOOL_FOLDERS})
             APPEND
           )
         endforeach()
+        # All tests require an error_code.
+        add_custom_command(OUTPUT ${test_path}
+          COMMAND
+            ${CMAKE_COMMAND}
+            -E copy_if_different
+            ${output_dir}/error_code.txt
+            ${golden_dir}/error_code.txt
+          APPEND
+        )
+
       endif()
     endforeach()
-  endif()
+#  endif()
 endforeach()
 
 add_custom_target(update DEPENDS ${test_set})
