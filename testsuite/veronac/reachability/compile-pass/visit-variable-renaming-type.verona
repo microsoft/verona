@@ -10,11 +10,15 @@ class B {
 }
 
 class Main {
-  main() {
+  test()
+  {
     var b = new B;
     var mutb = mut-view b;
     while (1) {
       mutb.foo();
     };
+  }
+
+  main() {
   }
 }
