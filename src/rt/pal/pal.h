@@ -2,7 +2,7 @@
 
 #include "pal_linux.h"
 
-namespace verona::rt
+namespace verona::rt::io
 {
 #if defined(__linux__)
   using DefaultTCPSocket = LinuxTCPSocket;

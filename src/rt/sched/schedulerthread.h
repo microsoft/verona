@@ -37,11 +37,6 @@ namespace verona::rt
     size_t systematic_id = 0;
     size_t systematic_speed_mask = 1;
 
-    void register_socket(int fd, int flags, long cookie)
-    {
-      token_cown->register_socket(fd, flags, cookie);
-    }
-
   private:
     using Scheduler = ThreadPool<SchedulerThread<T>>;
     friend Scheduler;
@@ -240,6 +235,46 @@ namespace verona::rt
       mute_set.clear(alloc);
     }
 
+    void poll_io(T* token)
+    {
+      T* ready_cowns[io::max_events];
+      auto count = io::DefaultPoller::poll(token->io_state.fd, ready_cowns);
+      for (size_t i = 0; i < count; i++)
+      {
+        auto* cown = ready_cowns[i];
+        auto pref = true;
+        auto expected = false;
+        if (!cown->is_scheduled.compare_exchange_strong(expected, pref))
+          continue;
+
+        cown->schedule();
+      }
+    }
+
+  public:
+    int io_fd()
+    {
+      return get_token_cown()->io_state.fd;
+    }
+
+    void add_io_source()
+    {
+      get_token_cown()->io_state.count++;
+      Systematic::cout() << "Add IO event source (now "
+                         << (size_t)get_token_cown()->io_state.count << ")"
+                         << std::endl;
+    }
+
+    void remove_io_source()
+    {
+      assert(get_token_cown()->io_state.count != 0);
+      get_token_cown()->io_state.count--;
+      Systematic::cout() << "Remove IO event source (now "
+                         << (size_t)get_token_cown()->io_state.count << ")"
+                         << std::endl;
+    }
+
+  private:
     /**
      * Startup is supplied to initialise thread local state before the runtime
      * starts.
@@ -301,8 +336,7 @@ namespace verona::rt
 
           // If we can't steal, we are done.
           if (cown == nullptr)
-            continue;
-            //break;
+            break;
         }
 
         // Administrative work before handling messages.
@@ -418,6 +452,7 @@ namespace verona::rt
 
       Systematic::cout() << "End teardown (phase 2)" << std::endl;
 
+      token_cown->destroy(alloc);
       q.destroy(alloc);
     }
 
@@ -500,7 +535,7 @@ namespace verona::rt
         if (q.is_empty())
         {
           n_ld_tokens = 0;
-          token_cown->check_io();
+          poll_io(token_cown);
         }
 
         // Participate in the cown LD protocol.
@@ -529,7 +564,6 @@ namespace verona::rt
         // We were unable to steal, move to the next victim thread.
         victim = victim->next;
 
-#if 0
         // Wait until a minimum timeout has passed.
         uint64_t tsc2 = Aal::tick();
 
@@ -544,7 +578,11 @@ namespace verona::rt
           UNUSED(tsc);
         }
 #endif
-          if (mute_set.size() != 0)
+          if (get_token_cown()->io_state.count != 0)
+        {
+          continue;
+        }
+        else if (mute_set.size() != 0)
         {
           mute_set_clear();
           continue;
@@ -562,7 +600,6 @@ namespace verona::rt
         {
           yield();
         }
-#endif
 #endif
       }
 
@@ -593,10 +630,10 @@ namespace verona::rt
       // It may not be this one.
       if (has_thread_bit(cown))
       {
-        auto unmasked = clear_thread_bit(cown);
-        SchedulerThread* sched = unmasked->owning_thread();
+        auto token = clear_thread_bit(cown);
+        SchedulerThread* sched = token->owning_thread();
 
-        unmasked->check_io();
+        poll_io(token);
 
         assert(
           sched->debug_is_token_active() || sched->debug_is_token_stolen());
@@ -610,7 +647,7 @@ namespace verona::rt
           // Home scheduler thread will send a notification to return
           // its token cown. If there's no such notification schedule fifo
           // on the remote thread, else schedule lifo on the home thread.
-          if (unmasked->queue.is_sleeping())
+          if (token->queue.is_sleeping())
             q.enqueue(alloc, cown);
           else
             sched->schedule_lifo(cown);
@@ -621,7 +658,7 @@ namespace verona::rt
 
           auto notify = false;
           if (is_token_stolen())
-            unmasked->queue.mark_sleeping(notify);
+            token->queue.mark_sleeping(notify);
 
           set_token_state(CONSUMED_LOCALLY);
         }

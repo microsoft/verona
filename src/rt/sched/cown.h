@@ -132,11 +132,13 @@ namespace verona::rt
 
     std::atomic<BPState> bp_state{};
 
-    // IO fd is used only in the token cown
-    int io_fd;
-
-    bool would_io_block = false;
     std::atomic<bool> is_scheduled = false;
+    struct
+    {
+      int fd = 0;
+      bool would_block = false;
+      uint8_t count = 0;
+    } io_state;
 
     static Cown* create_token_cown()
     {
@@ -145,14 +147,14 @@ namespace verona::rt
       auto alloc = ThreadAlloc::get();
       auto p = alloc->alloc<desc.size>();
       auto o = Object::register_object(p, &desc);
-      auto a = new (o) Cown(false);
+      auto t = new (o) Cown(false);
 
       // Will need to mark notify the token cown
-      a->queue.init(stub_msg(alloc));
-      a->cown_mark_scanned();
-      a->io_fd = DefaultPoller::create_poll_fd();
+      t->queue.init(stub_msg(alloc));
+      t->cown_mark_scanned();
+      t->io_state.fd = io::DefaultPoller::create_poll_fd();
 
-      return a;
+      return t;
     }
 
     static constexpr uintptr_t collected_mask = 1;
@@ -372,7 +374,7 @@ namespace verona::rt
 
     void would_block_in_io()
     {
-      would_io_block = true;
+      io_state.would_block = true;
     }
 
   protected:
@@ -726,36 +728,15 @@ namespace verona::rt
       for (size_t i = 0; i < body.count; i++)
         Cown::release(alloc, body.cowns[i]);
 
-      Systematic::cout() << "MultiMessage " << m << " completed and running on "
-                         << cown << std::endl;
+      Systematic::cout() << "MultiMessage " << m
+                         << " completed and running on cown " << cown
+                         << std::endl;
 
       // Free the body and the behaviour.
       alloc->dealloc(body.behaviour, body.behaviour->size());
       alloc->dealloc<sizeof(MultiMessage::MultiMessageBody)>(m->get_body());
 
       return true;
-    }
-
-    void check_io()
-    {
-      Cown* ready_cowns[MAX_EVENTS];
-      int nre, i;
-
-      nre = DefaultPoller::check_network_io(io_fd, (void**)ready_cowns);
-      for (i = 0; i < nre; i++)
-      {
-        auto pref = true;
-        auto expected = false;
-        if (!ready_cowns[i]->is_scheduled.compare_exchange_strong(
-              expected, pref))
-          continue;
-        ready_cowns[i]->schedule();
-      }
-    }
-
-    void register_socket(int fd, int flags, long cookie)
-    {
-      DefaultPoller::register_socket(io_fd, fd, flags, cookie);
     }
 
   public:
@@ -1036,6 +1017,10 @@ namespace verona::rt
       if (mutor == nullptr)
         return false;
 
+      // TODO: re-enable muting
+      Scheduler::local()->mutor = nullptr;
+      return false;
+
       // The array of senders is reused for the unmute message. Since fewer than
       // the original count of cowns may be muted, a null terminator may be
       // added before the end of the allocation to mark the end of the muted
@@ -1234,9 +1219,9 @@ namespace verona::rt
 
         alloc->dealloc(senders, senders_count * sizeof(Cown*));
 
-        if (would_io_block)
+        if (io_state.would_block)
         {
-          would_io_block = false;
+          io_state.would_block = false;
           return false;
         }
       } while ((curr != until) && (batch_size < batch_limit));
@@ -1374,10 +1359,14 @@ namespace verona::rt
       // Now we may run our destructor.
       destructor();
 
+      destroy(alloc);
+    }
+
+    void destroy(Alloc* alloc)
+    {
       auto* stub = queue.destroy();
       // All messages must have been run by the time the cown is collected.
       assert(stub->next.load(std::memory_order_relaxed) == nullptr);
-
       alloc->dealloc<sizeof(MultiMessage)>(stub);
     }
 

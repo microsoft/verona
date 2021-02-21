@@ -2,6 +2,7 @@
 
 #if defined(__linux__)
 
+#  include <cassert>
 #  include <fcntl.h>
 #  include <netinet/in.h>
 #  include <netinet/ip.h>
@@ -9,11 +10,11 @@
 #  include <sys/epoll.h>
 #  include <sys/socket.h>
 
-#  define BACKLOG 8192
-#  define MAX_EVENTS 128
-
-namespace verona::rt
+namespace verona::rt::io
 {
+  static constexpr size_t backlog = 8192;
+  static constexpr size_t max_events = 128;
+
   class LinuxTCPSocket
   {
   public:
@@ -46,12 +47,12 @@ namespace verona::rt
       return accept(fd, nullptr, nullptr);
     }
 
-    static int socket_read(int fd, char* buf, int len)
+    static int socket_read(int fd, char* buf, size_t len)
     {
       return recv(fd, buf, len, 0);
     }
 
-    static int socket_write(int fd, char* buf, int len)
+    static int socket_write(int fd, char* buf, size_t len)
     {
       return send(fd, buf, len, MSG_NOSIGNAL);
     }
@@ -94,7 +95,7 @@ namespace verona::rt
         return -1;
       }
 
-      if (listen(sock, BACKLOG))
+      if (listen(sock, backlog))
       {
         perror("listen");
         return -1;
@@ -111,30 +112,43 @@ namespace verona::rt
       return epoll_create1(0);
     }
 
-    static int register_socket(int efd, int fd, int flags, long cookie)
+    static void register_socket(int efd, int fd, int flags, Cown* cown)
     {
-      int ret;
-      struct epoll_event ev;
       UNUSED(flags);
 
-      ev.events = EPOLLIN;
-      ev.data.ptr = (void*)cookie;
-      ret = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
+      struct epoll_event ev;
+      ev.events = EPOLLIN | EPOLLRDHUP;
+      ev.data.ptr = cown;
+      int ret = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
       assert(!ret);
-
-      return 0;
+      UNUSED(ret);
     }
 
-    static int check_network_io(int efd, void** ptrs)
+    static void unregister_socket(int efd, int fd)
     {
-      struct epoll_event events[MAX_EVENTS];
-      int nfds, i;
+      int ret = epoll_ctl(efd, EPOLL_CTL_DEL, fd, nullptr);
+      if (ret == -1)
+      {
+        perror("epoll_ctl(EPOLL_CTL_DEL)");
+        assert(false);
+      }
+    }
 
-      nfds = epoll_wait(efd, events, MAX_EVENTS, 0);
-      for (i = 0; i < nfds; i++)
-        ptrs[i] = events[i].data.ptr;
+    static size_t poll(int efd, Cown** cowns)
+    {
+      struct epoll_event events[max_events];
+      const auto count = (size_t)epoll_wait(efd, events, max_events, 0);
+      if (count == -(size_t)1)
+      {
+        perror("epoll_wait");
+        assert(false);
+        return 0;
+      }
 
-      return nfds;
+      for (size_t i = 0; i < count; i++)
+        cowns[i] = (Cown*)events[i].data.ptr;
+
+      return count;
     }
   };
 }
