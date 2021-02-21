@@ -33,7 +33,8 @@ foreach(TOOL ${TOOL_FOLDERS})
   set(TOOLCMD ${VERONA_LOCAL_DIST}/${TOOL}${CMAKE_EXECUTABLE_SUFFIX})
   set(TOOL_FOLDER ${CMAKE_CURRENT_SOURCE_DIR}/${TOOL})
   if (${TOOL} STREQUAL veronac)  # Remove this then we can use multiple tools when we are there
-    file(GLOB_RECURSE tests CONFIGURE_DEPENDS  RELATIVE ${TOOL_FOLDER} ${TOOL_FOLDER}/*.verona)
+    include(${CMAKE_CURRENT_LIST_DIR}/${TOOL}.cmake)
+    file(GLOB_RECURSE tests CONFIGURE_DEPENDS  RELATIVE ${TOOL_FOLDER} ${TOOL_FOLDER}/*.${TEST_EXTENSION})
     foreach(test ${tests})
       get_filename_component(test_name ${test} NAME_WE)
       get_filename_component(test_file ${test} NAME)
@@ -52,6 +53,7 @@ foreach(TOOL ${TOOL_FOLDERS})
           -DTESTFILE=${test_file}
           -DWORKING_DIR=${TOOL_FOLDER}/${test_dir}
           -DTOOLCMD=${TOOLCMD}
+          -DTOOLNAME=${TOOL}
           -DOUTPUT_DIR=${output_dir}
           -P ${CMAKE_CURRENT_SOURCE_DIR}/run_command.cmake
       )
