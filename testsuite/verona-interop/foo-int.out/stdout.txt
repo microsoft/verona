@@ -1,3 +1,0 @@
-Found: TFoo(@0x49b9d30) Class Template
-Canonical Template specialisation:
-Size of TFoo is 4 bytes
