@@ -40,10 +40,15 @@ foreach(TOOL ${TOOL_FOLDERS})
     get_filename_component(test_file ${test} NAME)
     get_filename_component(test_dir ${test} DIRECTORY)
 
-    set (test_path ${TOOL}/${test_dir}/${test_name})
+    if (test_dir STREQUAL "")
+      set (test_path ${TOOL}/${test_name})
+    else()
+      set (test_path ${TOOL}/${test_dir}/${test_name})
+    endif()
 
     list (FIND DISABLED_TESTS ${test_path} INDEX)
     if (NOT ${INDEX} EQUAL -1)
+      message("Test currently disabled ${test_path}")
       continue()
     endif()
 
@@ -97,7 +102,10 @@ foreach(TOOL ${TOOL_FOLDERS})
         # Check each file is correct as a test target
         add_test (NAME ${test_path}.out/${result}
           COMMAND 
-            ${CMAKE_COMMAND} -E compare_files --ignore-eol ${golden_dir}/${result} ${output_dir}/${result}
+            ${CMAKE_COMMAND}
+              -Doriginal_file=${golden_dir}/${result} 
+              -Dnew_file=${output_dir}/${result}
+              -P ${CMAKE_CURRENT_SOURCE_DIR}/compare.cmake
         )
         set_tests_properties(${test_path}.out/${result} PROPERTIES DEPENDS ${test_path}.out)
 
