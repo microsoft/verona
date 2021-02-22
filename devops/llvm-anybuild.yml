@@ -114,8 +114,9 @@ jobs:
           fi
       fi
 
+      export llvmPassword=$(LLVMPrincipalPassword)
       declare attempt_num=0
-      until $anyBuildExe -b ${AnyBuildEnvironmentUri} --OnlyGetAgentsPublicIps -- /bin/ls
+      until $anyBuildExe -b ${AnyBuildEnvironmentUri} --OnlyGetAgentsPublicIps --ClientApplicationId $(LLVMPrincipalAppId) --ClientSecretEnvironmentVariable llvmPassword -- /bin/ls
       do
           attempt_num=$((attempt_num+1))
           if ((attempt_num==5))
@@ -181,6 +182,7 @@ jobs:
         echo "===== Running build ($(CmakeJobs) CMake jobs) up to ${time_limit} from $(pwd) with ${NumAgents} agent(s), ${NumAgentCores} core(s) per agent, ${AgentLeaseCount} lease(s) per agent"
         echo
 
+        export llvmPassword=$(LLVMPrincipalPassword)
         timeout "$time_limit" time $(AbClientDirectory)/AnyBuild.sh \
           --ExperimentName "$(AbExpName)_b:$(Build.BuildId)_a:${NumAgents}_c:${NumAgentCores}_l:${AgentLeaseCount}_j:$(CmakeJobs)_n:$(BuildName)" \
           --NoCheckForUpdates \
@@ -189,6 +191,8 @@ jobs:
           --DoNotUseMachineUtilizationForScheduling \
           --Verbose \
           --RemoteAll \
+          --ClientApplicationId $(LLVMPrincipalAppId) \
+          --ClientSecretEnvironmentVariable llvmPassword \ 
           --ShimProcessFilter '$(AbShimFilter)' \
           -- \
           cmake --build . -- -j $(CmakeJobs) $(CmakeBuildToolArgs)
