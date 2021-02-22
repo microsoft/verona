@@ -46,6 +46,15 @@ namespace verona::rt
        * Trace the reachable objects from this behaviour.
        **/
       TraceFunction trace;
+
+      static void empty_behaviour_f(Behaviour*) {}
+      static void empty_behaviour_trace(const Behaviour*, ObjectStack&) {}
+      static const Descriptor* empty()
+      {
+        static const Descriptor desc = {
+          sizeof(Behaviour), empty_behaviour_f, empty_behaviour_trace};
+        return &desc;
+      }
     };
 
   protected:

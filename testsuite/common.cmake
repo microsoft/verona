@@ -7,11 +7,6 @@
 # - TEST_NAME: Full name of the test (e.g. resolution/compile-pass/circular)
 # - TEST_FILE: Path to the test source file
 
-if (NOT EXISTS ${VERONAC})
-  message(FATAL_ERROR " To run tests you must build the install target." ${VERONAC})
-endif ()
-
-
 # Do some discovery about auxiliary files, setup a few directories
 function(PrepareTest _VERONAC_FLAGS _EXPECTED_DUMP _ACTUAL_DUMP)
   get_filename_component(parentdir ${CMAKE_CURRENT_BINARY_DIR}/${TEST_NAME} DIRECTORY)
@@ -62,11 +57,15 @@ function(CheckStatus)
   endif()
 endfunction()
 
-# Run the check_dump.py script, comparing two directories
+# Check every file in the expected directory is in the actual directory.
 function(CheckDump expected actual)
-  CheckStatus(
-    COMMAND ${PYTHON_EXECUTABLE} ${CHECK_DUMP_PY} ${expected} ${actual}
+  FILE(GLOB gold_files ${expected}/*.txt)
+  FOREACH(gold_file ${gold_files})
+    get_filename_component(filename ${gold_file} NAME)
+    CheckStatus(
+    COMMAND ${CMAKE_COMMAND} -E compare_files --ignore-eol ${gold_file} ${actual}/${filename}
     EXPECTED_STATUS 0)
+  ENDFOREACH()
 endfunction()
 
 # Run LLVM's FileCheck
