@@ -7,7 +7,7 @@ resources:
     trigger: none
 
 jobs:
-############################################# Linux Builds
+############################################ Linux Builds
 - job:
   displayName: LLVM Linux Build
   pool: AnyBuild
