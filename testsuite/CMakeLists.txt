@@ -32,9 +32,15 @@ foreach(TOOL ${TOOL_FOLDERS})
   set (test_set)
   set(TOOLCMD ${VERONA_LOCAL_DIST}/${TOOL}${CMAKE_EXECUTABLE_SUFFIX})
   set(TOOL_FOLDER ${CMAKE_CURRENT_SOURCE_DIR}/${TOOL})
+  
+  # Grab specific settings for this tool
   include(${CMAKE_CURRENT_LIST_DIR}/${TOOL}.cmake)
+
+  # Use transform to support multiple extension for tests,
+  # and find all the files with these extensions.
   list(TRANSFORM TEST_EXTENSION PREPEND ${TOOL_FOLDER}/*.)
   file(GLOB_RECURSE tests CONFIGURE_DEPENDS  RELATIVE ${TOOL_FOLDER} ${TEST_EXTENSION})
+
   foreach(test ${tests})
     get_filename_component(test_name ${test} NAME_WE)
     get_filename_component(test_file ${test} NAME)
@@ -52,6 +58,7 @@ foreach(TOOL ${TOOL_FOLDERS})
       continue()
     endif()
 
+    # Create command to create the output for this test.
     set (output_dir ${CMAKE_CURRENT_BINARY_DIR}/${test_path}.out)
     set (test_output_cmd 
       ${CMAKE_COMMAND}
@@ -75,12 +82,13 @@ foreach(TOOL ${TOOL_FOLDERS})
     set_source_files_properties(${test_path} PROPERTIES SYMBOLIC "true")
     list(APPEND test_set ${test_path})
 
-    set (golden_dir  ${CMAKE_CURRENT_SOURCE_DIR}/${test_path}.out )
     # Add tests for each golden file
+    set (golden_dir  ${CMAKE_CURRENT_SOURCE_DIR}/${test_path}.out )
     file (GLOB_RECURSE results CONFIGURE_DEPENDS RELATIVE ${golden_dir} ${golden_dir}/*)
+    # Check if there are any files to compare for this test.
     list(LENGTH results res_length)
     if(res_length EQUAL 0)
-      message(WARNING "Test does not have tests of results. ${golden_dir}")
+      message(WARNING "Test does not have results directory: ${golden_dir}")
       # Add to generate golden output target
       add_custom_command(OUTPUT ${test_path}
         COMMAND
