@@ -1,5 +1,11 @@
 enable_testing()
 
+find_program(DIFF_TOOL NAMES
+  diff)
+
+if (DIFF_TOOL STREQUAL DIFF_TOOL-NOTFOUND)
+  set(DIFF_TOOL "")
+endif()
 
 set(
   DISABLED_TESTS
@@ -113,6 +119,7 @@ foreach(TOOL ${TOOL_FOLDERS})
             ${CMAKE_COMMAND}
               -Doriginal_file=${golden_dir}/${result} 
               -Dnew_file=${output_dir}/${result}
+              -Ddiff_tool=${DIFF_TOOL}
               -P ${CMAKE_CURRENT_SOURCE_DIR}/compare.cmake
         )
         set_tests_properties(${test_path}.out/${result} PROPERTIES DEPENDS ${test_path}.out)
