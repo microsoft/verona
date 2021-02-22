@@ -82,7 +82,7 @@ foreach(TOOL ${TOOL_FOLDERS})
     set_source_files_properties(${test_path} PROPERTIES SYMBOLIC "true")
     list(APPEND test_set ${test_path})
 
-    # Add tests for each golden file
+    # Add output comparison for each golden / output file
     set (golden_dir  ${CMAKE_CURRENT_SOURCE_DIR}/${test_path}.out )
     file (GLOB_RECURSE results CONFIGURE_DEPENDS RELATIVE ${golden_dir} ${golden_dir}/*)
     # Check if there are any files to compare for this test.
