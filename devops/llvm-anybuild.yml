@@ -192,7 +192,7 @@ jobs:
           --Verbose \
           --RemoteAll \
           --ClientApplicationId $(LLVMPrincipalAppId) \
-          --ClientSecretEnvironmentVariable llvmPassword \ 
+          --ClientSecretEnvironmentVariable llvmPassword \
           --ShimProcessFilter '$(AbShimFilter)' \
           -- \
           cmake --build . -- -j $(CmakeJobs) $(CmakeBuildToolArgs)
