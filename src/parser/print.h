@@ -11,10 +11,10 @@ namespace verona::parser
   struct pretty
   {
     Ast node;
-    size_t width;
+    uint16_t width;
 
     pretty(const Ast& node) : node(node), width(80) {}
-    pretty(const Ast& node, size_t width) : node(node), width(width) {}
+    pretty(const Ast& node, uint16_t width) : node(node), width(width) {}
   };
 
   std::ostream& operator<<(std::ostream& out, const pretty& node);

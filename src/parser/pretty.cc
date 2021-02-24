@@ -137,7 +137,7 @@ namespace verona::parser
 
     /// Current length of underlying_output in characters when printed on a
     /// single line.
-    uint16_t length = 0;
+    size_t length = 0;
 
     /// Returns the length of a particular token in characters.
     size_t token_length(Tokens t)
@@ -158,7 +158,7 @@ namespace verona::parser
      */
     uint16_t tokens_to_print()
     {
-      int line_budget = underlying_output.line_width();
+      size_t line_budget = underlying_output.line_width();
       int nesting = 0;
       uint16_t count = 0;
 
@@ -167,11 +167,11 @@ namespace verona::parser
 
       for (auto token : tokens)
       {
-        line_budget -= token_length(token);
         count++;
-        if (line_budget < 0)
+        if (line_budget < token_length(token))
           // We cannot print this as a whole term, so print just it.
           return 1;
+        line_budget -= token_length(token);
 
         if (std::holds_alternative<endtoken>(token))
           nesting--;
