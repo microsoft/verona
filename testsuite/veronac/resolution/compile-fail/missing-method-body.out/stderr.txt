@@ -1,0 +1,4 @@
+missing-method-body.verona:6:3: error: Method 'foo' in class 'Test' must have a body
+  foo();
+  ^~~
+1 error generated

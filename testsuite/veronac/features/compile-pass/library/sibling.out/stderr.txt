@@ -1,0 +1,2 @@
+error: Class 'Main' is missing
+1 error generated

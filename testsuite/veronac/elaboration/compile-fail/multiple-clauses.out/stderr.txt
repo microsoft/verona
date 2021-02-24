@@ -1,0 +1,37 @@
+multiple-clauses.verona:11:7: error: Found multiple where clauses for 'x'
+      x in self
+      ^~~~~~~~~
+multiple-clauses.verona:10:7: note: Previous where clause for 'x' was here
+      x in self,
+      ^~~~~~~~~
+multiple-clauses.verona:19:7: error: Found multiple where clauses for 'x'
+      x in y
+      ^~~~~~
+multiple-clauses.verona:18:7: note: Previous where clause for 'x' was here
+      x in self,
+      ^~~~~~~~~
+multiple-clauses.verona:28:7: error: Found multiple where clauses for 'x'
+      x in self
+      ^~~~~~~~~
+multiple-clauses.verona:26:7: note: Previous where clause for 'x' was here
+      x in self,
+      ^~~~~~~~~
+multiple-clauses.verona:36:7: error: Found multiple where clauses for 'return'
+      return in self
+      ^~~~~~~~~~~~~~
+multiple-clauses.verona:35:7: note: Previous where clause for 'return' was here
+      return in self,
+      ^~~~~~~~~~~~~~
+multiple-clauses.verona:44:7: error: Found multiple where clauses for 'return'
+      return from self
+      ^~~~~~~~~~~~~~~~
+multiple-clauses.verona:43:7: note: Previous where clause for 'return' was here
+      return in self,
+      ^~~~~~~~~~~~~~
+multiple-clauses.verona:52:7: error: Found multiple where clauses for 'return'
+      return in x
+      ^~~~~~~~~~~
+multiple-clauses.verona:51:7: note: Previous where clause for 'return' was here
+      return in self,
+      ^~~~~~~~~~~~~~
+6 errors generated

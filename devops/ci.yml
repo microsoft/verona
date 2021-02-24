@@ -72,7 +72,6 @@ jobs:
       sudo apt-get install -y ninja-build
       sudo apt-get remove --purge cmake
       sudo snap install cmake --classic
-      sudo pip install wheel OutputCheck
     displayName: 'Dependencies'
 
   - task: CMake@1
@@ -118,10 +117,6 @@ jobs:
       git submodule init
       git submodule update --depth 1 --recursive
     displayName: 'Checkout submodules'
-
-  - script:
-      pip install OutputCheck
-    displayName: 'Dependencies'
 
   - script: |
       call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
@@ -170,11 +165,6 @@ jobs:
       git submodule init
       git submodule update --depth 1 --recursive
     displayName: 'Checkout submodules'
-
-  - script: |
-      set -eo pipefail
-      sudo pip3 install wheel OutputCheck
-    displayName: 'Dependencies'
 
   - task: CMake@1
     displayName: 'CMake'

@@ -5,7 +5,7 @@ set(SNMALLOC_ONLY_HEADER_LIBRARY ON)
 add_subdirectory(external/snmalloc EXCLUDE_FROM_ALL)
 
 macro(subdirlist result curdir)
-  file(GLOB children LIST_DIRECTORIES true RELATIVE ${curdir} ${curdir}/*)
+  file(GLOB children LIST_DIRECTORIES true CONFIGURE_DEPENDS RELATIVE ${curdir} ${curdir}/*)
   set(dirlist "")
   foreach(child ${children})
     if(IS_DIRECTORY ${curdir}/${child})

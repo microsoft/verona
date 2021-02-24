@@ -1,0 +1,25 @@
+invalid-number-of-type-arguments.verona:9:6: error: The wrong number of type arguments were specified for 'N0', expected 0, got 1.
+  a: N0[U64];
+     ^~~~~~~
+invalid-number-of-type-arguments.verona:12:7: error: The wrong number of type arguments were specified for 'N1', expected 1, got 0.
+  b1: N1;
+      ^~
+invalid-number-of-type-arguments.verona:14:7: error: The wrong number of type arguments were specified for 'N1', expected 1, got 0.
+  b2: N1[];
+      ^~~~
+invalid-number-of-type-arguments.verona:16:7: error: The wrong number of type arguments were specified for 'N1', expected 1, got 2.
+  b3: N1[U64, U64];
+      ^~~~~~~~~~~~
+invalid-number-of-type-arguments.verona:19:7: error: The wrong number of type arguments were specified for 'N2', expected 2, got 0.
+  c1: N2;
+      ^~
+invalid-number-of-type-arguments.verona:21:7: error: The wrong number of type arguments were specified for 'N2', expected 2, got 0.
+  c2: N2[];
+      ^~~~
+invalid-number-of-type-arguments.verona:23:7: error: The wrong number of type arguments were specified for 'N2', expected 2, got 1.
+  c3: N2[U64];
+      ^~~~~~~
+invalid-number-of-type-arguments.verona:25:7: error: The wrong number of type arguments were specified for 'N2', expected 2, got 3.
+  c4: N2[U64, U64, U64];
+      ^~~~~~~~~~~~~~~~~
+8 errors generated

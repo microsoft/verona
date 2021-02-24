@@ -1,0 +1,4 @@
+main-bad-return-type.verona:5:3: error: Method 'main' has an invalid signature
+  main(): U64 { 0 }
+  ^~~~
+1 error generated

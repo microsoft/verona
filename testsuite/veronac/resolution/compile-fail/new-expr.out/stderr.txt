@@ -1,0 +1,40 @@
+new-expr.verona:13:9: error: x is not a class
+    new x;
+        ^
+new-expr.verona:16:9: error: x is not a class
+    new x in x;
+        ^
+new-expr.verona:19:14: error: A is not a local variable
+    new A in A;
+             ^
+new-expr.verona:23:9: error: x is not a class
+    new x in A;
+        ^
+new-expr.verona:23:14: error: A is not a local variable
+    new x in A;
+             ^
+new-expr.verona:26:9: error: Cannot find value for symbol 'B'
+    new B;
+        ^
+new-expr.verona:29:14: error: Cannot find value for symbol 'y'
+    new A in y;
+             ^
+new-expr.verona:33:9: error: Cannot find value for symbol 'B'
+    new B in y;
+        ^
+new-expr.verona:33:14: error: Cannot find value for symbol 'y'
+    new B in y;
+             ^
+new-expr.verona:36:9: error: I is not a class
+    new I;
+        ^
+new-expr.verona:39:9: error: I is not a class
+    new I in x;
+        ^
+new-expr.verona:42:9: error: P is not a class
+    new P;
+        ^
+new-expr.verona:45:9: error: P is not a class
+    new P in x;
+        ^
+13 errors generated

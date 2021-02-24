@@ -1,0 +1,4 @@
+main-is-field.verona:4:7: error: Class 'Main' does not have a 'main' method
+class Main {
+      ^~~~
+1 error generated

@@ -1,0 +1,4 @@
+main-method-has-generics.verona:5:3: error: Method 'main' has an invalid signature
+  main[X]() { }
+  ^~~~
+1 error generated

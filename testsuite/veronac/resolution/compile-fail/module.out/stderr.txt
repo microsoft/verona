@@ -1,0 +1,4 @@
+./module/child.verona:5:8: error: Cannot find value for symbol 'T'
+  m(x: T) {}
+       ^
+1 error generated

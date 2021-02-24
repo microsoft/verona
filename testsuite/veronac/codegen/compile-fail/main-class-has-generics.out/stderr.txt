@@ -1,0 +1,4 @@
+main-class-has-generics.verona:4:7: error: Class 'Main' must not be generic
+class Main[X] {
+      ^~~~
+1 error generated
