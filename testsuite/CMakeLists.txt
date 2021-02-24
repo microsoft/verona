@@ -139,8 +139,8 @@ foreach(TOOL ${TOOL_FOLDERS})
         COMMAND
           ${CMAKE_COMMAND}
           -E copy_if_different
-          ${output_dir}/error_code.txt
-          ${golden_dir}/error_code.txt
+          ${output_dir}/exit_code.txt
+          ${golden_dir}/exit_code.txt
         APPEND
       )
 

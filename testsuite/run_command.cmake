@@ -20,5 +20,5 @@ execute_process(
     RESULT_VARIABLE status
 )
 
-# Push error code into dump
-file(WRITE ${OUTPUT_DIR}/error_code.txt ${status})
+# Push exit code into dump
+file(WRITE ${OUTPUT_DIR}/exit_code.txt ${status})
