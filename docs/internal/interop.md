@@ -11,8 +11,8 @@ We want to abstract away the entirety of the sandbox functionality, the foreign 
 The syntax is still largely undefined, but this is an example of using the C++ `std::vector` class inside Verona as pseudo-Verona code:
 
 ```c
-// include/import the c++ code as a Verona module
-type StdVec = "c++::vector";
+// import a module in ./extern/vec with a JSON file exposing the includes and libraries.
+type StdVec = extern.vec;
 
 // Create a new region (we know it's foreign, so it's a sandbox)
 reg = new StdVec;
@@ -72,7 +72,7 @@ Definition (and implementation in object code) will be done later by the compile
 5. A bi-directional RPC layer is created between the Verona code and the sandbox, where calls to external functions go one way, and calls to allocation, system calls, etc. go the other way.
 6. The appropriate object files are created and linked with the main executable.
 
-Not all functions will be representable in Verona, not all structure layouts will be easily known at the Verona level (special hardware ABI), so errors may still occur here.
+Not all functions will be representable in Verona, not all structure layouts will be easily known at the Verona level (special hardware ABI), so as supports for the foreign language evolves, the compiler may still report errors (lack of support).
 
 The compiler is responsible for emitting errors that inform the programmer what type/function cannot be represented and potentially why.
 
@@ -167,7 +167,7 @@ obj = new std::vector[int] in reg
 2. Assemble the foreign call signature (namespace, template args): `std::vector<int> std::vector<int>::vector<int>()`
 3. Instantiate the signature as a template specialisation in the AST, using the query interface to validate the code and get an actual implementation.
 4. If available, create the Verona equivalent inside the `StdVec` class and Lower call to that function. Otherwise emit an error and stop processing.
-5. The Verona signature would be something like `create() : StdVec::std::vector[S32]`.
+5. The Verona signature would be something like `create() : StdVec::std::vector[Sandbox::int]`, with `Sandbox::int` being a Verona type and potentially different for each sandbox/architecture combinations.
 6. Generate the wrapper function from memory buffer to return value.
 7. Add that function to the sandbox dispatcher's table and associate the index with this particular specialisation, increment the index.
 8. On the recently created `StdVec` Verona function, lower Verona code to call the dispatcher with the index and the buffer and to extract the return value.
@@ -181,7 +181,7 @@ obj.push_back(42)
 1. The parser tries to call a function on the foreign module.
 2. Assemble the foreign call signature (namespace, template args): `void std::vector<int>::push_back(int)`
 3. Same as above, creates a new Verona function in the `StdVec` class that will serialise arguments and return value and call the dispatcher.
-4. The Verona signature would be something like `StdVec::std::vector[S32]::push_back(S32)`.
+4. The Verona signature would be something like `StdVec::std::vector[Sandbox::int]::push_back(Sandbox::int)`.
 5. Same as above, lowers C++ implementations of the functions on the foreign object file and append the function pointer to the dispatcher's table.
 6. Associate the Verona call to the newly created in `StdVec` class.
 
@@ -192,7 +192,7 @@ print(obj.at(0))
 1. The parser tries to call a function on the foreign module.
 2. Assemble the foreign call signature (namespace, template args): `int& std::vector<int>::at(size_t)`
 3. Same as above, creates a new Verona function in the `StdVec` class that will serialise arguments and return value and call the dispatcher.
-4. The Verona signature would be something like `StdVec::std::vector[S32]::at(U64) : S32`.
+4. The Verona signature would be something like `StdVec::std::vector[Sandbox::int]::at(Sandbox::size_t) : Sandbox::int`.
 5. Same as above, lowers C++ implementations of the functions on the foreign object file and append the function pointer to the dispatcher's table.
 6. Associate the Verona call to the newly created in `StdVec` class.
 7. Uses the returned value to pass as an argument to the `print` function.
@@ -237,7 +237,7 @@ obj = new std::vector[int] in reg
 obj.push_back(42)
 ```
 
-1. Calls `obj.push_back(int)`, which calls the dispatcher for `reg` with index `1` and serialised `S32(42)`.
+1. Calls `obj.push_back(int)`, which calls the dispatcher for `reg` with index `1` and serialised `Sandbox::int(42)`, for example, a 32-bit signed integer.
 2. Sandbox dispatcher calls the function, which is from a template object that has the actual function pointer plus the templated argument/return handling.
 3. There is no return value, so `obj.push_back(int)` returns.
 
@@ -245,10 +245,10 @@ obj.push_back(42)
 print(obj.at(0))
 ```
 
-1. Calls `obj.at(size_t)`, which calls the dispatcher for `reg` with index `2` and serialised `U64(0)`.
+1. Calls `obj.at(size_t)`, which calls the dispatcher for `reg` with index `2` and serialised `size_t(0)`, for example, an unsigned 64-bit integer.
 2. Sandbox dispatcher calls the function, which is from a template object that has the actual function pointer plus the templated argument/return handling.
 3. Dispatcher returns, with the return value in the memory buffer.
-4. De-serialisation code reconstructs a Verona type from the return value in the buffer and returns from `obj.at(size_t)` as `S32(42)`.
+4. De-serialisation code reconstructs a Verona type from the return value in the buffer and returns from `obj.at(size_t)` as `Sandbox::int(42)`.
 5. Calls the function `print` with the argument from the return value.
 
 Again, all functions are largely similar:
