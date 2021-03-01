@@ -1,5 +1,5 @@
 [submodule "src/rt/external/snmalloc"]
-	path = src/rt/external/snmalloc
+	path = external/snmalloc
 	url = https://github.com/Microsoft/snmalloc
 	branch = master
 	shallow = true
