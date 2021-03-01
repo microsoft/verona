@@ -137,11 +137,11 @@ jobs:
       ninja check
     displayName: 'Test'
 
-- task: ComponentGovernanceComponentDetection@0
-  inputs:
-    scanType: 'LogOnly'
-    verbosity: 'Verbose'
-    alertWarningLevel: 'High'
+  - task: ComponentGovernanceComponentDetection@0
+    inputs:
+      scanType: 'LogOnly'
+      verbosity: 'Verbose'
+      alertWarningLevel: 'High'
 
 ############################################## MacOS Builds
 - job: 
