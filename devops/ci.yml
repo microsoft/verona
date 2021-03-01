@@ -137,10 +137,11 @@ jobs:
       ninja check
     displayName: 'Test'
 
-  - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
-    displayName: 'Component Detection'
+  - task: ComponentGovernanceComponentDetection@0
     inputs:
-      failOnAlert: true
+      scanType: 'LogOnly'
+      verbosity: 'Verbose'
+      alertWarningLevel: 'High'
 
 ############################################## MacOS Builds
 - job: 
