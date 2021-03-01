@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(verona C CXX)
 
 set(SNMALLOC_ONLY_HEADER_LIBRARY ON)
-add_subdirectory(external/snmalloc EXCLUDE_FROM_ALL)
+add_subdirectory(../../external/snmalloc ./external/snmalloc EXCLUDE_FROM_ALL)
 
 macro(subdirlist result curdir)
   file(GLOB children LIST_DIRECTORIES true CONFIGURE_DEPENDS RELATIVE ${curdir} ${curdir}/*)
