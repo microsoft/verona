@@ -12,7 +12,7 @@ toolargs(TOOLARGS ${TESTFILE} ${OUTPUT_DIR})
 
 list(JOIN TOOLARGS " " TOOLARGS_SEP)
 message ("Running")
-message ("   ${TOOLCMD} "${TOOLARGS_SEP})
+message ("   ${TOOLCMD} " ${TOOLARGS_SEP})
 message ("in working directory")
 message ("   ${WORKING_DIR}")
 message ("output sent to")
