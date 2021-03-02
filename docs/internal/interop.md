@@ -141,7 +141,7 @@ All auto-generated foreign code has already been statically linked to the main o
 
 When the sandbox is initialised, its allocator sets up a new isolated heap that is used for all allocations in the sandbox (including Verona foreign objects that belong to that region).
 
-Verona passes the heap to `snmalloc` on the sandbox size as its memory to manage. All calls to allocate and free are local but done on that region only.
+Verona passes the heap to `snmalloc` on the sandbox side as its memory to manage. All calls to allocate and free are local but done on that region only.
 
 Other sandbox code calls may be done directly (if safe, like reading from an already open file descriptor) or redirected to the sandbox driver (upcall) to decide what to do.
 
@@ -178,8 +178,6 @@ This means that all possible template instantiations that a Verona generic may u
 
 Our initial implementation is to separate the sandbox execution by creating a child process. This is not strictly speaking a sandbox, but gives us an easy way to test the rest of the framework without much additional work.
 
-The sandbox creation forks the process with a special sandbox library that will forward all calls to the parent process, which will control where the memory actually lives (see below). A local heap is created per sandbox for the child to use in its allocations.
-
 Calls will be forwarded across the parent/child barrier via the dispatcher, by means of a function pointer table, where the position is the index in the code generation stage above, and the buffer is the contents of the arguments and a place for the return value.
 
 Argument decomposition will be done by the sandbox code that will call the actual function with the actual arguments and, if there is a return value, set it on the right place of the buffer and return.
@@ -188,7 +186,7 @@ Argument decomposition will be done by the sandbox code that will call the actua
 
 To avoid the sandbox from requesting memory in the wrong places (accidentally or maliciously), we use `snmalloc`'s ability to allocate memory in slabs that aren't managed by themselves.
 
-The allocator in the Verona side manages the slabs and pass ownership of them to the sandbox allocator, which then allocates directly on their reserved heap.
+The allocator in the Verona side manages the slabs and pass their ownership to the sandbox allocator, which then allocates directly on their reserved heap.
 
 This is part of the sandbox library's functionality, which is passed along on the creation of the sandbox.
 
