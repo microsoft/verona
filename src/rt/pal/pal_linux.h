@@ -129,18 +129,7 @@ namespace verona::rt::io
       return LinuxPoller();
     }
 
-    void socket_register(int fd, T* cown)
-    {
-      auto ev = socket_event(cown);
-      const int ret = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
-      if (ret != 0)
-      {
-        perror("epoll_ctl(EPOLL_CTL_ADD)");
-        assert(false);
-      }
-    }
-
-    void socket_rearm(int fd, T* cown)
+    void socket_notify(int fd, T* cown)
     {
       auto ev = socket_event(cown);
       int ret = epoll_ctl(efd, EPOLL_CTL_MOD, fd, &ev);

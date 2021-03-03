@@ -250,6 +250,7 @@ namespace verona::rt
         if (!cown->is_scheduled.compare_exchange_strong(expected, true))
           continue;
 
+        // TODO: what should we do if the cown is sleeping (has an empty queue)?
         cown->schedule();
       }
       remove_io_sources(count);
@@ -306,8 +307,8 @@ namespace verona::rt
       victim = next;
       T* cown = nullptr;
 
-      // Move this after setting local()
       startup(args...);
+
 #ifdef USE_SYSTEMATIC_TESTING
       Scheduler::wait_for_my_first_turn();
 #endif

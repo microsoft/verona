@@ -17,7 +17,7 @@ namespace verona::rt::io
     void would_block()
     {
       auto& io_poller = Scheduler::local()->get_io_poller();
-      io_poller.socket_rearm(fd, this);
+      io_poller.socket_notify(fd, this);
       Scheduler::local()->add_io_source();
       would_block_on_io();
     }
@@ -56,8 +56,6 @@ namespace verona::rt::io
 
       auto* alloc = rt::ThreadAlloc::get();
       auto* cown = new (alloc) TCPSock(sock);
-      auto& io_poller = Scheduler::local()->get_io_poller();
-      io_poller.socket_register(sock, cown);
       Systematic::cout() << "New TCP connection cown " << cown << std::endl;
       return cown;
     }
@@ -69,8 +67,6 @@ namespace verona::rt::io
         return nullptr;
 
       auto* cown = new (alloc) TCPSock(sock);
-      auto& io_poller = Scheduler::local()->get_io_poller();
-      io_poller.socket_register(sock, cown);
       Systematic::cout() << "New TCP listener cown " << cown << std::endl;
       return cown;
     }
