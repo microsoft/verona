@@ -114,6 +114,9 @@ namespace verona::rt
     /// cleared before scheduler sleep, or in some stages of the LD protocol.
     ObjectMap<T*> mute_set;
 
+    io::DefaultPoller<T> io_poller;
+    size_t io_count = 0;
+
     T* get_token_cown()
     {
       assert(token_cown);
@@ -123,7 +126,8 @@ namespace verona::rt
     SchedulerThread()
     : token_cown{T::create_token_cown()},
       q{token_cown},
-      mute_set{ThreadAlloc::get()}
+      mute_set{ThreadAlloc::get()},
+      io_poller{io::DefaultPoller<T>::create()}
     {
       token_cown->set_owning_thread(this);
     }
@@ -235,43 +239,49 @@ namespace verona::rt
       mute_set.clear(alloc);
     }
 
-    void poll_io(T* token)
+    void poll_io()
     {
       T* ready_cowns[io::max_events];
-      auto count = io::DefaultPoller::poll(token->io_state.fd, ready_cowns);
+      const auto count = io_poller.poll(ready_cowns);
       for (size_t i = 0; i < count; i++)
       {
         auto* cown = ready_cowns[i];
-        auto pref = true;
         auto expected = false;
-        if (!cown->is_scheduled.compare_exchange_strong(expected, pref))
+        if (!cown->is_scheduled.compare_exchange_strong(expected, true))
           continue;
 
         cown->schedule();
       }
+      remove_io_sources(count);
     }
 
   public:
-    int io_fd()
+    // TODO: rethink API
+    io::DefaultPoller<T>& get_io_poller()
     {
-      return get_token_cown()->io_state.fd;
+      return io_poller;
     }
 
     void add_io_source()
     {
-      get_token_cown()->io_state.count++;
-      Systematic::cout() << "Add IO event source (now "
-                         << (size_t)get_token_cown()->io_state.count << ")"
+      io_count++;
+      Systematic::cout() << "Add IO event source (now " << io_count << ")"
                          << std::endl;
+      if (io_count == 1)
+        Scheduler::add_external_event_source();
     }
 
-    void remove_io_source()
+    void remove_io_sources(size_t count)
     {
-      assert(get_token_cown()->io_state.count != 0);
-      get_token_cown()->io_state.count--;
-      Systematic::cout() << "Remove IO event source (now "
-                         << (size_t)get_token_cown()->io_state.count << ")"
+      if (count == 0)
+        return;
+
+      assert(count <= io_count);
+      io_count -= count;
+      Systematic::cout() << "Remove IO event source (now " << io_count << ")"
                          << std::endl;
+      if (io_count == 0)
+        Scheduler::remove_external_event_source();
     }
 
   private:
@@ -422,9 +432,7 @@ namespace verona::rt
           cown = nullptr;
         }
 
-#ifdef USE_SYSTEMATIC_TESTING
-        Scheduler::yield_my_turn();
-#endif
+        yield();
       }
 
       assert(mute_set.size() == 0);
@@ -535,7 +543,7 @@ namespace verona::rt
         if (q.is_empty())
         {
           n_ld_tokens = 0;
-          poll_io(token_cown);
+          poll_io();
         }
 
         // Participate in the cown LD protocol.
@@ -578,7 +586,7 @@ namespace verona::rt
           UNUSED(tsc);
         }
 #endif
-          if (get_token_cown()->io_state.count != 0)
+          if (io_count != 0)
         {
           continue;
         }
@@ -633,7 +641,8 @@ namespace verona::rt
         auto token = clear_thread_bit(cown);
         SchedulerThread* sched = token->owning_thread();
 
-        poll_io(token);
+        // TODO: would it be worth polling for the other thread here?
+        // poll_io(token);
 
         assert(
           sched->debug_is_token_active() || sched->debug_is_token_stolen());
@@ -661,6 +670,8 @@ namespace verona::rt
             token->queue.mark_sleeping(notify);
 
           set_token_state(CONSUMED_LOCALLY);
+
+          poll_io();
         }
 
         return false;

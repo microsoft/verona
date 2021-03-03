@@ -21,7 +21,6 @@ struct Echo : public VBehaviour<Echo>
     else if (ret == 0)
     {
       std::cout << "Connection closed: " << conn << std::endl;
-      conn->dispose();
       Cown::release(ThreadAlloc::get_noncachable(), conn);
       return;
     }

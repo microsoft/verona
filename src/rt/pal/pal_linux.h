@@ -3,6 +3,7 @@
 #if defined(__linux__)
 
 #  include <cassert>
+#  include <cstdio>
 #  include <fcntl.h>
 #  include <netinet/in.h>
 #  include <netinet/ip.h>
@@ -104,51 +105,70 @@ namespace verona::rt::io
     }
   };
 
+  template<typename T>
   class LinuxPoller
   {
-  public:
-    static int create_poll_fd()
+    int efd;
+
+    LinuxPoller()
     {
-      return epoll_create1(0);
+      efd = epoll_create1(0);
     }
 
-    static void register_socket(int efd, int fd, int flags, Cown* cown)
+    static struct epoll_event socket_event(T* cown)
     {
-      UNUSED(flags);
-
       struct epoll_event ev;
-      ev.events = EPOLLIN | EPOLLRDHUP;
+      ev.events = EPOLLONESHOT | EPOLLIN | EPOLLRDHUP;
       ev.data.ptr = cown;
-      int ret = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
-      assert(!ret);
-      UNUSED(ret);
+      return ev;
     }
 
-    static void unregister_socket(int efd, int fd)
+  public:
+    static LinuxPoller create()
     {
-      int ret = epoll_ctl(efd, EPOLL_CTL_DEL, fd, nullptr);
-      if (ret == -1)
+      return LinuxPoller();
+    }
+
+    void socket_register(int fd, T* cown)
+    {
+      auto ev = socket_event(cown);
+      const int ret = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
+      if (ret != 0)
       {
-        perror("epoll_ctl(EPOLL_CTL_DEL)");
+        perror("epoll_ctl(EPOLL_CTL_ADD)");
         assert(false);
       }
     }
 
-    static size_t poll(int efd, Cown** cowns)
+    void socket_rearm(int fd, T* cown)
+    {
+      auto ev = socket_event(cown);
+      int ret = epoll_ctl(efd, EPOLL_CTL_MOD, fd, &ev);
+      if (ret != 0)
+        ret = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
+
+      if (ret != 0)
+      {
+        perror("epoll_ctl(EPOLL_CTL_ADD)");
+        assert(false);
+      }
+    }
+
+    size_t poll(T** cowns)
     {
       struct epoll_event events[max_events];
-      const auto count = (size_t)epoll_wait(efd, events, max_events, 0);
-      if (count == -(size_t)1)
+      const int count = epoll_wait(efd, events, max_events, 0);
+      if (count == -1)
       {
         perror("epoll_wait");
         assert(false);
         return 0;
       }
 
-      for (size_t i = 0; i < count; i++)
-        cowns[i] = (Cown*)events[i].data.ptr;
+      for (size_t i = 0; i < (size_t)count; i++)
+        cowns[i] = (T*)events[i].data.ptr;
 
-      return count;
+      return (size_t)count;
     }
   };
 }

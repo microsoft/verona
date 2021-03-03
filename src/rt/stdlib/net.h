@@ -2,6 +2,8 @@
 
 #include "../cpp/vobject.h"
 #include "../pal/pal.h"
+#include "../sched/cown.h"
+#include "../sched/schedulerthread.h"
 
 namespace verona::rt::io
 {
@@ -10,23 +12,22 @@ namespace verona::rt::io
   private:
     int fd;
 
-    TCPSock(int fd_) : fd(fd_)
+    TCPSock(int fd_) : fd(fd_) {}
+
+    void would_block()
     {
+      auto& io_poller = Scheduler::local()->get_io_poller();
+      io_poller.socket_rearm(fd, this);
       Scheduler::local()->add_io_source();
+      would_block_on_io();
     }
 
   public:
-    void dispose()
-    {
-      DefaultPoller::unregister_socket(Scheduler::local()->io_fd(), fd);
-      Scheduler::local()->remove_io_source();
-    }
-
     int socket_read(char* buf, uint32_t len)
     {
       int res = DefaultTCPSocket::socket_read(fd, buf, len);
       if (res == -1)
-        would_block_in_io();
+        would_block();
 
       return res;
     }
@@ -35,7 +36,7 @@ namespace verona::rt::io
     {
       int res = DefaultTCPSocket::socket_write(fd, buf, len);
       if (res == -1)
-        would_block_in_io();
+        would_block();
 
       assert(static_cast<uint32_t>(res) == len);
       return res;
@@ -46,16 +47,17 @@ namespace verona::rt::io
       int sock = DefaultTCPSocket::server_accept(fd);
       if (sock == -1)
       {
-        Systematic::cout() << "TCP accept: " << strerror(errno) << std::endl;
-        would_block_in_io();
+        Systematic::cout() << "TCP accept error: " << strerror(errno)
+                           << std::endl;
+        would_block();
         return nullptr;
       }
       DefaultTCPSocket::socket_config(sock);
 
       auto* alloc = rt::ThreadAlloc::get();
-      const auto io_fd = Scheduler::local()->io_fd();
       auto* cown = new (alloc) TCPSock(sock);
-      DefaultPoller::register_socket(io_fd, sock, 0, cown);
+      auto& io_poller = Scheduler::local()->get_io_poller();
+      io_poller.socket_register(sock, cown);
       Systematic::cout() << "New TCP connection cown " << cown << std::endl;
       return cown;
     }
@@ -66,9 +68,9 @@ namespace verona::rt::io
       if (sock < 0)
         return nullptr;
 
-      const auto io_fd = Scheduler::local()->io_fd();
       auto* cown = new (alloc) TCPSock(sock);
-      DefaultPoller::register_socket(io_fd, sock, 0, cown);
+      auto& io_poller = Scheduler::local()->get_io_poller();
+      io_poller.socket_register(sock, cown);
       Systematic::cout() << "New TCP listener cown " << cown << std::endl;
       return cown;
     }

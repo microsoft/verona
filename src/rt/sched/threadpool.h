@@ -545,6 +545,7 @@ namespace verona::rt
 
     bool unpause()
     {
+      Systematic::cout() << "unpause" << std::endl;
       Barrier::compiler();
 
       uint32_t pausing = runtime_pausing;

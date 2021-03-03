@@ -132,13 +132,9 @@ namespace verona::rt
 
     std::atomic<BPState> bp_state{};
 
+    // TODO: stash these somewhere
     std::atomic<bool> is_scheduled = false;
-    struct
-    {
-      int fd = 0;
-      bool would_block = false;
-      uint8_t count = 0;
-    } io_state;
+    bool io_would_block = false;
 
     static Cown* create_token_cown()
     {
@@ -152,7 +148,6 @@ namespace verona::rt
       // Will need to mark notify the token cown
       t->queue.init(stub_msg(alloc));
       t->cown_mark_scanned();
-      t->io_state.fd = io::DefaultPoller::create_poll_fd();
 
       return t;
     }
@@ -372,9 +367,10 @@ namespace verona::rt
       yield();
     }
 
-    void would_block_in_io()
+    void would_block_on_io()
     {
-      io_state.would_block = true;
+      Systematic::cout() << "Cown " << this << "would block on IO" << std::endl;
+      io_would_block = true;
     }
 
   protected:
@@ -1219,9 +1215,9 @@ namespace verona::rt
 
         alloc->dealloc(senders, senders_count * sizeof(Cown*));
 
-        if (io_state.would_block)
+        if (io_would_block)
         {
-          io_state.would_block = false;
+          io_would_block = false;
           return false;
         }
       } while ((curr != until) && (batch_size < batch_limit));
