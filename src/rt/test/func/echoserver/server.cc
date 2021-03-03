@@ -48,12 +48,22 @@ struct Listen : public VBehaviour<Listen>
   }
 };
 
-void verona_main(uint16_t port)
+struct Main : public VCown<Main>
+{};
+
+struct Init : public VBehaviour<Init>
 {
-  auto* alloc = ThreadAlloc::get();
-  auto* listener = io::TCPSock::server_listen(alloc, port);
-  Cown::schedule<Listen>(listener, listener);
-}
+  uint16_t port;
+
+  Init(uint16_t port_) : port(port_) {}
+
+  void f()
+  {
+    auto* alloc = ThreadAlloc::get_noncachable();
+    auto* listener = io::TCPSock::server_listen(alloc, port);
+    Cown::schedule<Listen>(listener, listener);
+  }
+};
 
 int main(int argc, char** argv)
 {
@@ -74,5 +84,10 @@ int main(int argc, char** argv)
   sched.set_fair(true);
   sched.init(cores);
 
-  sched.run_with_startup(&verona_main, port);
+  auto* alloc = ThreadAlloc::get();
+  auto* entrypoint = new (alloc) Main();
+  Cown::schedule<Init>(entrypoint, port);
+  Cown::release(alloc, entrypoint);
+
+  sched.run();
 }

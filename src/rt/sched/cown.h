@@ -369,7 +369,8 @@ namespace verona::rt
 
     void would_block_on_io()
     {
-      Systematic::cout() << "Cown " << this << "would block on IO" << std::endl;
+      Systematic::cout() << "Cown " << this << " would block on IO"
+                         << std::endl;
       io_would_block = true;
     }
 
