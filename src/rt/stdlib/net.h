@@ -10,64 +10,77 @@ namespace verona::rt::io
   class TCPSock : public rt::VCown<TCPSock>
   {
   private:
+    io::DefaultPoller<Cown>& poller;
     int fd;
 
-    TCPSock(int fd_) : fd(fd_) {}
-
-    void would_block()
+    TCPSock(io::DefaultPoller<Cown>& poller_, int fd_)
+    : poller(poller_), fd(fd_)
     {
-      auto& io_poller = Scheduler::local()->get_io_poller();
-      io_poller.socket_notify(fd, this);
       Scheduler::local()->add_io_source();
+    }
+
+    void would_block(Alloc* alloc)
+    {
+      const auto local = &Scheduler::local()->get_io_poller() == &poller;
+      poller.socket_rearm(alloc, fd, this, local);
       would_block_on_io();
     }
 
   public:
-    int socket_read(char* buf, uint32_t len)
+    ~TCPSock()
+    {
+      const auto local = &Scheduler::local()->get_io_poller() == &poller;
+      poller.socket_deregister(ThreadAlloc::get(), fd, local);
+      Scheduler::local()->remove_io_source();
+    }
+
+    int socket_read(Alloc* alloc, char* buf, uint32_t len)
     {
       int res = DefaultTCPSocket::socket_read(fd, buf, len);
       if (res == -1)
-        would_block();
+        would_block(alloc);
 
       return res;
     }
 
-    int socket_write(char* buf, uint32_t len)
+    int socket_write(Alloc* alloc, char* buf, uint32_t len)
     {
       int res = DefaultTCPSocket::socket_write(fd, buf, len);
       if (res == -1)
-        would_block();
+        would_block(alloc);
 
       assert(static_cast<uint32_t>(res) == len);
       return res;
     }
 
-    TCPSock* server_accept()
+    TCPSock* server_accept(Alloc* alloc)
     {
-      int sock = DefaultTCPSocket::server_accept(fd);
-      if (sock == -1)
+      int socket = DefaultTCPSocket::server_accept(fd);
+      if (socket == -1)
       {
         Systematic::cout() << "TCP accept error: " << strerror(errno)
                            << std::endl;
-        would_block();
+        would_block(alloc);
         return nullptr;
       }
-      DefaultTCPSocket::socket_config(sock);
+      DefaultTCPSocket::socket_config(socket);
 
-      auto* alloc = rt::ThreadAlloc::get();
-      auto* cown = new (alloc) TCPSock(sock);
+      auto* cown = new (alloc) TCPSock(poller, socket);
       Systematic::cout() << "New TCP connection cown " << cown << std::endl;
+      poller.socket_register(socket, cown);
       return cown;
     }
 
     static TCPSock* server_listen(Alloc* alloc, uint16_t port)
     {
-      int sock = DefaultTCPSocket::server_listen(port);
-      if (sock < 0)
+      int socket = DefaultTCPSocket::server_listen(port);
+      if (socket < 0)
         return nullptr;
 
-      auto* cown = new (alloc) TCPSock(sock);
+      auto& poller = Scheduler::local()->get_io_poller();
+      auto* cown = new (alloc) TCPSock(poller, socket);
       Systematic::cout() << "New TCP listener cown " << cown << std::endl;
+      poller.socket_register(socket, cown);
       return cown;
     }
   };

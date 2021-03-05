@@ -12,11 +12,12 @@ struct Echo : public VBehaviour<Echo>
 
   void f()
   {
+    auto* alloc = ThreadAlloc::get();
     char buf[64];
-    int ret = conn->socket_read(buf, 64);
+    int ret = conn->socket_read(alloc, buf, 64);
     if (ret > 0)
     {
-      conn->socket_write(buf, (uint32_t)ret);
+      conn->socket_write(alloc, buf, (uint32_t)ret);
     }
     else if (ret == 0)
     {
@@ -37,11 +38,13 @@ struct Listen : public VBehaviour<Listen>
 
   void f()
   {
-    auto* conn = listener->server_accept();
+    auto* conn = listener->server_accept(ThreadAlloc::get_noncachable());
     if (conn != nullptr)
     {
       std::cout << "Received new connection: " << conn << std::endl;
       Cown::schedule<Echo>(conn, conn);
+      Cown::release(ThreadAlloc::get(), listener);
+      return;
     }
 
     Cown::schedule<Listen>(listener, listener);

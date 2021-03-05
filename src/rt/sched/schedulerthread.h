@@ -126,8 +126,7 @@ namespace verona::rt
     SchedulerThread()
     : token_cown{T::create_token_cown()},
       q{token_cown},
-      mute_set{ThreadAlloc::get()},
-      io_poller{io::DefaultPoller<T>::create()}
+      mute_set{ThreadAlloc::get()}
     {
       token_cown->set_owning_thread(this);
     }
@@ -242,7 +241,7 @@ namespace verona::rt
     void poll_io()
     {
       T* ready_cowns[io::max_events];
-      const auto count = io_poller.poll(ready_cowns);
+      const auto count = io_poller.poll(alloc, ready_cowns);
       for (size_t i = 0; i < count; i++)
       {
         auto* cown = ready_cowns[i];
@@ -253,7 +252,6 @@ namespace verona::rt
         // TODO: what should we do if the cown is sleeping (has an empty queue)?
         cown->schedule();
       }
-      remove_io_sources(count);
     }
 
   public:
@@ -272,13 +270,10 @@ namespace verona::rt
         Scheduler::add_external_event_source();
     }
 
-    void remove_io_sources(size_t count)
+    void remove_io_source()
     {
-      if (count == 0)
-        return;
-
-      assert(count <= io_count);
-      io_count -= count;
+      assert(io_count > 0);
+      io_count--;
       Systematic::cout() << "Remove IO event source (now " << io_count << ")"
                          << std::endl;
       if (io_count == 0)

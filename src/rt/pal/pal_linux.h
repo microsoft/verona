@@ -2,6 +2,8 @@
 
 #if defined(__linux__)
 
+#  include "../ds/mpscq.h"
+
 #  include <cassert>
 #  include <cstdio>
 #  include <fcntl.h>
@@ -108,12 +110,21 @@ namespace verona::rt::io
   template<typename T>
   class LinuxPoller
   {
-    int efd;
-
-    LinuxPoller()
+    struct Msg
     {
-      efd = epoll_create1(0);
-    }
+      std::atomic<Msg*> next = nullptr;
+      struct epoll_event ev = {};
+      int fd = 0;
+      bool cancel = false;
+
+      static constexpr size_t size()
+      {
+        return sizeof(Msg);
+      }
+    };
+
+    MPSCQ<Msg> q;
+    int efd;
 
     static struct epoll_event socket_event(T* cown)
     {
@@ -123,19 +134,66 @@ namespace verona::rt::io
       return ev;
     }
 
-  public:
-    static LinuxPoller create()
+    void epoll_event_modify(int fd, struct epoll_event* ev)
     {
-      return LinuxPoller();
+      int ret = epoll_ctl(efd, EPOLL_CTL_MOD, fd, ev);
+      if (ret != 0)
+      {
+        perror("epoll_ctl(EPOLL_CTL_MOD)");
+        assert(false);
+      }
     }
 
-    void socket_notify(int fd, T* cown)
+    void epoll_event_delete(int fd)
+    {
+      int ret = epoll_ctl(efd, EPOLL_CTL_DEL, fd, nullptr);
+      if (ret != 0)
+      {
+        perror("epoll_ctl(EPOLL_CTL_DEL)");
+        assert(false);
+      }
+    }
+
+    void send_msg(Alloc* alloc, int fd, struct epoll_event ev, bool cancel)
+    {
+      auto* msg =
+        new (alloc->alloc<sizeof(Msg)>()) Msg{nullptr, ev, fd, cancel};
+      q.enqueue(msg);
+    }
+
+    void handle_msgs(Alloc* alloc)
+    {
+      while (true)
+      {
+        auto* msg = q.dequeue(alloc);
+        if (msg == nullptr)
+          break;
+
+        if (msg->cancel)
+          epoll_event_delete(msg->fd);
+        else
+          epoll_event_modify(msg->fd, &msg->ev);
+      }
+    }
+
+  public:
+    LinuxPoller()
+    {
+      efd = epoll_create1(0);
+      auto* stub = new (ThreadAlloc::get()->alloc<sizeof(Msg)>()) Msg();
+      q.init(stub);
+    }
+
+    ~LinuxPoller()
+    {
+      auto* stub = q.destroy();
+      ThreadAlloc::get_noncachable()->dealloc<sizeof(*stub)>(stub);
+    }
+
+    void socket_register(int fd, T* cown)
     {
       auto ev = socket_event(cown);
-      int ret = epoll_ctl(efd, EPOLL_CTL_MOD, fd, &ev);
-      if (ret != 0)
-        ret = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
-
+      int ret = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
       if (ret != 0)
       {
         perror("epoll_ctl(EPOLL_CTL_ADD)");
@@ -143,8 +201,27 @@ namespace verona::rt::io
       }
     }
 
-    size_t poll(T** cowns)
+    inline void socket_rearm(Alloc* alloc, int fd, T* cown, bool local)
     {
+      auto ev = socket_event(cown);
+      if (local)
+        epoll_event_modify(fd, &ev);
+      else
+        send_msg(alloc, fd, ev, false);
+    }
+
+    inline void socket_deregister(Alloc* alloc, int fd, bool local)
+    {
+      if (local)
+        epoll_event_delete(fd);
+      else
+        send_msg(alloc, fd, {}, true);
+    }
+
+    size_t poll(Alloc* alloc, T** cowns)
+    {
+      handle_msgs(alloc);
+
       struct epoll_event events[max_events];
       const int count = epoll_wait(efd, events, max_events, 0);
       if (count == -1)
