@@ -1,14 +1,56 @@
-#include <iostream>
 #include <test/opt.h>
 #include <verona.h>
 
 using namespace verona::rt;
 
-struct Echo : public VBehaviour<Echo>
+struct Ping : public VBehaviour<Ping>
+{
+  io::TCPSocket* conn;
+  bool start = true;
+
+  Ping(io::TCPSocket* conn_) : conn(conn_) {}
+
+  void f()
+  {
+    auto* alloc = ThreadAlloc::get();
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%s", "ping");
+    if (start)
+    {
+      int ret = conn->socket_write(alloc, buf, strlen(buf) + 1);
+      if (ret == -1)
+      {
+        perror("ping start");
+        std::cout << "Connection closed: " << conn << std::endl;
+        Cown::release(alloc, conn);
+        return;
+      }
+      Cown::schedule<Ping>(conn, conn);
+      return;
+    }
+
+    // char buf[64];
+    // int ret = conn->socket_read(alloc, buf, 64);
+    // if (ret > 0)
+    // {
+    //   conn->socket_write(alloc, ping, strlen(ping));
+    // }
+    // else if (ret == 0)
+    // {
+    //   std::cout << "Connection closed: " << conn << std::endl;
+    //   Cown::release(alloc, conn);
+    //   return;
+    // }
+
+    // Cown::schedule<Ping>(conn, conn);
+  }
+};
+
+struct Pong : public VBehaviour<Pong>
 {
   io::TCPSocket* conn;
 
-  Echo(io::TCPSocket* conn_) : conn(conn_) {}
+  Pong(io::TCPSocket* conn_) : conn(conn_) {}
 
   void f()
   {
@@ -26,7 +68,7 @@ struct Echo : public VBehaviour<Echo>
       return;
     }
 
-    Cown::schedule<Echo>(conn, conn);
+    Cown::schedule<Pong>(conn, conn);
   }
 };
 
@@ -42,7 +84,7 @@ struct Listen : public VBehaviour<Listen>
     if (conn != nullptr)
     {
       std::cout << "Received new connection: " << conn << std::endl;
-      Cown::schedule<Echo>(conn, conn);
+      Cown::schedule<Pong>(conn, conn);
       Cown::release(ThreadAlloc::get(), listener);
       return;
     }
@@ -56,15 +98,19 @@ struct Main : public VCown<Main>
 
 struct Init : public VBehaviour<Init>
 {
-  uint16_t port;
+  uint16_t server_port;
 
-  Init(uint16_t port_) : port(port_) {}
+  Init(uint16_t server_port_) : server_port(server_port_) {}
 
   void f()
   {
     auto* alloc = ThreadAlloc::get_noncachable();
-    auto* listener = io::TCPSocket::listen(alloc, "0.0.0.0", port);
-    Cown::schedule<Listen>(listener, listener);
+
+    // auto* listener = io::TCPSocket::listen(alloc, "", server_port);
+    // Cown::schedule<Listen>(listener, listener);
+
+    auto* client = io::TCPSocket::connect(alloc, "", server_port);
+    Cown::schedule<Ping>(client, client);
   }
 };
 

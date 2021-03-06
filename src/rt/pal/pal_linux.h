@@ -4,6 +4,7 @@
 
 #  include "../ds/mpscq.h"
 
+#  include <arpa/inet.h>
 #  include <cassert>
 #  include <cstdio>
 #  include <fcntl.h>
@@ -25,25 +26,10 @@ namespace verona::rt::io
     static void make_nonblocking(int sock)
     {
       int flags;
-
       flags = fcntl(sock, F_GETFL, 0);
       assert(flags >= 0);
       flags = fcntl(sock, F_SETFL, flags | O_NONBLOCK);
       assert(flags >= 0);
-    }
-
-    static int socket_config(int fd)
-    {
-      int one = 1;
-
-      make_nonblocking(fd);
-      if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (void*)&one, sizeof(one)))
-      {
-        perror("setsockopt(TCP_NODELAY)");
-        return -1;
-      }
-
-      return 0;
     }
 
     static int server_accept(int fd)
@@ -61,98 +47,121 @@ namespace verona::rt::io
       return send(fd, buf, len, MSG_NOSIGNAL);
     }
 
-    static int server_listen(uint16_t port)
+    static int socket_listen(const char* host, uint16_t port)
     {
-      int one, sock;
-      struct sockaddr_in sin;
+      struct sockaddr_in addr;
+      get_address(&addr, host, port);
 
-      sin.sin_family = AF_INET;
-      sin.sin_addr.s_addr = htonl(0);
-      sin.sin_port = htons(port);
-
-      sock = socket(AF_INET, SOCK_STREAM, 0);
+      int sock = open_socket();
       if (!sock)
       {
         perror("socket");
         return -1;
       }
 
-      make_nonblocking(sock);
-
-      one = 1;
-      if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (void*)&one, sizeof(one)))
-      {
-        perror("setsockopt(SO_REUSEPORT)");
-        return -1;
-      }
-
-      one = 1;
-      if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void*)&one, sizeof(one)))
-      {
-        perror("setsockopt(SO_REUSEADDR)");
-        return -1;
-      }
-
-      if (bind(sock, (struct sockaddr*)&sin, sizeof(sin)))
+      int res = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
+      if (res == -1)
       {
         perror("bind");
         return -1;
       }
 
-      if (listen(sock, backlog))
+      res = listen(sock, backlog);
+      if (res == -1)
       {
         perror("listen");
         return -1;
       }
+
       return sock;
     }
 
-    /* TODO: remove
-      1. os_socket_connect(owner, host, service, from, AF_UNSPEC, SOCK_STREAM,
-      IPPROTO_TCP, asio_flags);
-
-      os_socket_connect(pony_actor_t* owner, const char* host,
-  const char* service, const char* from, int family, int socktype, int proto,
-  uint32_t asio_flags)
-
-      TODO: handle Happy Eyeballs connection count
-    */
-
-    static int client_connect(const char* host, const char* port)
+    static int socket_connect(const char* host, uint16_t port)
     {
+      auto* info = get_address_info(host, port);
+      if (info == nullptr)
+        return -1;
+
+      /// TODO: Happy Eyeballs
+      int sock = -1;
+      for (auto* p = info; p != nullptr; p = p->ai_next)
+      {
+        sock = open_socket(p);
+        if (sock == -1)
+          continue;
+
+        auto res = connect(sock, p->ai_addr, p->ai_addrlen);
+        if (res == 0)
+          break;
+
+        sock = -1;
+      }
+
+      freeaddrinfo(info);
+      return sock;
+    }
+
+  private:
+    inline static int
+    get_address(struct sockaddr_in* addr, const char* host, uint16_t port)
+    {
+      memset(addr, 0, sizeof(*addr));
+      addr->sin_family = AF_INET;
+      addr->sin_port = htons(port);
+
+      if ((host == nullptr) || (host[0] == '\0'))
+        addr->sin_addr.s_addr = htonl(0);
+      else
+        inet_pton(AF_INET, host, &addr->sin_addr.s_addr);
+
+      return 0;
+    }
+
+    inline static struct addrinfo*
+    get_address_info(const char* host, uint16_t port)
+    {
+      // TODO: map any to loopback
       struct addrinfo hints;
       memset(&hints, 0, sizeof(hints));
       hints.ai_flags = AI_ADDRCONFIG;
       hints.ai_family = AF_UNSPEC;
       hints.ai_socktype = SOCK_STREAM;
       hints.ai_protocol = IPPROTO_TCP;
-
-      if ((host != nullptr) && (host[0] == '\0'))
-        host = nullptr;
-
+      char port_str[16];
+      snprintf(port_str, sizeof(port_str), "%u", port);
       struct addrinfo* info;
-      int res = getaddrinfo(host, port, &hints, &info);
+      int res = getaddrinfo(host, port_str, &hints, &info);
       if (res != 0)
+        return nullptr;
+
+      return info;
+    }
+
+    inline static int open_socket(struct addrinfo* info = nullptr)
+    {
+      int domain = AF_INET;
+      int type = SOCK_STREAM;
+      int protocol = 0;
+      if (info != nullptr)
+      {
+        domain = info->ai_family;
+        type = info->ai_socktype;
+        protocol = info->ai_protocol;
+      }
+      int sock = socket(domain, type | SOCK_NONBLOCK, protocol);
+      if (sock == -1)
         return -1;
 
-      // TODO: Happy Eyeballs
-      int sock = socket(
-        info->ai_family, info->ai_socktype | SOCK_NONBLOCK, info->ai_protocol);
-      if (sock < 0)
-        return -1;
-
-      int reuse_addr = 1;
-      res = setsockopt(
-        sock, SOL_SOCKET, SO_REUSEADDR, &reuse_addr, sizeof(reuse_addr));
-      if (res != 0)
+      int opt_val = 1;
+      int res =
+        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt_val, sizeof(opt_val));
+      if (res == -1)
       {
         perror("setsockopt(SO_REUSEADDR)");
-        close(sock);
         return -1;
       }
 
-      // TODO
-      return -1;
+      return sock;
     }
   };
 
