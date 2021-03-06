@@ -22,7 +22,7 @@ struct Echo : public VBehaviour<Echo>
     else if (ret == 0)
     {
       std::cout << "Connection closed: " << conn << std::endl;
-      Cown::release(ThreadAlloc::get_noncachable(), conn);
+      Cown::release(alloc, conn);
       return;
     }
 

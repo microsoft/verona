@@ -7,6 +7,7 @@
 #  include <cassert>
 #  include <cstdio>
 #  include <fcntl.h>
+#  include <netdb.h>
 #  include <netinet/in.h>
 #  include <netinet/ip.h>
 #  include <netinet/tcp.h>
@@ -104,6 +105,54 @@ namespace verona::rt::io
         return -1;
       }
       return sock;
+    }
+
+    /* TODO: remove
+      1. os_socket_connect(owner, host, service, from, AF_UNSPEC, SOCK_STREAM,
+      IPPROTO_TCP, asio_flags);
+
+      os_socket_connect(pony_actor_t* owner, const char* host,
+  const char* service, const char* from, int family, int socktype, int proto,
+  uint32_t asio_flags)
+
+      TODO: handle Happy Eyeballs connection count
+    */
+
+    static int client_connect(const char* host, const char* port)
+    {
+      struct addrinfo hints;
+      memset(&hints, 0, sizeof(hints));
+      hints.ai_flags = AI_ADDRCONFIG;
+      hints.ai_family = AF_UNSPEC;
+      hints.ai_socktype = SOCK_STREAM;
+      hints.ai_protocol = IPPROTO_TCP;
+
+      if ((host != nullptr) && (host[0] == '\0'))
+        host = nullptr;
+
+      struct addrinfo* info;
+      int res = getaddrinfo(host, port, &hints, &info);
+      if (res != 0)
+        return -1;
+
+      // TODO: Happy Eyeballs
+      int sock = socket(
+        info->ai_family, info->ai_socktype | SOCK_NONBLOCK, info->ai_protocol);
+      if (sock < 0)
+        return -1;
+
+      int reuse_addr = 1;
+      res = setsockopt(
+        sock, SOL_SOCKET, SO_REUSEADDR, &reuse_addr, sizeof(reuse_addr));
+      if (res != 0)
+      {
+        perror("setsockopt(SO_REUSEADDR)");
+        close(sock);
+        return -1;
+      }
+
+      // TODO
+      return -1;
     }
   };
 
