@@ -12,11 +12,14 @@ namespace verona::rt::io
   private:
     io::DefaultPoller<Cown>& poller;
     int fd;
+    bool closed = false;
 
     TCPSocket(io::DefaultPoller<Cown>& poller_, int fd_)
     : poller(poller_), fd(fd_)
     {
-      Scheduler::local()->add_io_source();
+      const auto prev = poller.add_event_source();
+      if (prev == 0)
+        Scheduler::add_external_event_source();
     }
 
     void would_block(Alloc* alloc)
@@ -29,9 +32,8 @@ namespace verona::rt::io
   public:
     ~TCPSocket()
     {
-      const auto local = &Scheduler::local()->get_io_poller() == &poller;
-      poller.socket_deregister(ThreadAlloc::get(), fd, local);
-      Scheduler::local()->remove_io_source();
+      if (!closed)
+        close();
     }
 
     static TCPSocket* connect(Alloc* alloc, const char* host, uint16_t port)
@@ -60,7 +62,7 @@ namespace verona::rt::io
       return cown;
     }
 
-    TCPSocket* server_accept(Alloc* alloc)
+    TCPSocket* accept(Alloc* alloc)
     {
       int socket = DefaultTCPSocket::server_accept(fd);
       if (socket == -1)
@@ -78,7 +80,7 @@ namespace verona::rt::io
       return cown;
     }
 
-    int socket_read(Alloc* alloc, char* buf, uint32_t len)
+    int read(Alloc* alloc, char* buf, uint32_t len)
     {
       int res = DefaultTCPSocket::socket_read(fd, buf, len);
       if (res == -1)
@@ -87,15 +89,35 @@ namespace verona::rt::io
       return res;
     }
 
-    int socket_write(Alloc* alloc, char* buf, uint32_t len)
+    int write(Alloc* alloc, char* buf, uint32_t len)
     {
       int res = DefaultTCPSocket::socket_write(fd, buf, len);
       if (res == -1)
         would_block(alloc);
       else
-        assert((uint32_t)res == len);
+        assert(static_cast<uint32_t>(res) == len);
 
       return res;
+    }
+
+    int close()
+    {
+      assert(!closed);
+
+      closed = true;
+      Systematic::cout() << "Close on IO cown " << this << std::endl;
+      auto ret = DefaultTCPSocket::close(fd);
+      if (ret == -1)
+      {
+        Systematic::cout() << "Socket close error: " << strerrorname_np(errno)
+                           << std::endl;
+      }
+
+      const auto prev = poller.remove_event_source();
+      if (prev == 1)
+        Scheduler::remove_external_event_source();
+
+      return ret;
     }
   };
 }

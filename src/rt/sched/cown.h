@@ -725,9 +725,8 @@ namespace verona::rt
       for (size_t i = 0; i < body.count; i++)
         Cown::release(alloc, body.cowns[i]);
 
-      Systematic::cout() << "MultiMessage " << m
-                         << " completed and running on cown " << cown
-                         << std::endl;
+      Systematic::cout() << "MultiMessage " << m << " completed on cown "
+                         << cown << std::endl;
 
       // Free the body and the behaviour.
       alloc->dealloc(body.behaviour, body.behaviour->size());
@@ -1015,6 +1014,7 @@ namespace verona::rt
         return false;
 
       // TODO: re-enable muting
+      Cown::release(alloc, mutor);
       Scheduler::local()->mutor = nullptr;
       return false;
 

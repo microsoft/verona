@@ -115,7 +115,6 @@ namespace verona::rt
     ObjectMap<T*> mute_set;
 
     io::DefaultPoller<T> io_poller;
-    size_t io_count = 0;
 
     T* get_token_cown()
     {
@@ -259,25 +258,6 @@ namespace verona::rt
     io::DefaultPoller<T>& get_io_poller()
     {
       return io_poller;
-    }
-
-    void add_io_source()
-    {
-      io_count++;
-      Systematic::cout() << "Add IO event source (now " << io_count << ")"
-                         << std::endl;
-      if (io_count == 1)
-        Scheduler::add_external_event_source();
-    }
-
-    void remove_io_source()
-    {
-      assert(io_count > 0);
-      io_count--;
-      Systematic::cout() << "Remove IO event source (now " << io_count << ")"
-                         << std::endl;
-      if (io_count == 0)
-        Scheduler::remove_external_event_source();
     }
 
   private:
@@ -582,7 +562,7 @@ namespace verona::rt
           UNUSED(tsc);
         }
 #endif
-          if (io_count != 0)
+          if (io_poller.get_event_count() != 0)
         {
           continue;
         }

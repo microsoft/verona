@@ -1,3 +1,4 @@
+#include <test/harness.h>
 #include <test/opt.h>
 #include <verona.h>
 
@@ -6,43 +7,49 @@ using namespace verona::rt;
 struct Ping : public VBehaviour<Ping>
 {
   io::TCPSocket* conn;
-  bool start = true;
+  bool start;
 
-  Ping(io::TCPSocket* conn_) : conn(conn_) {}
+  Ping(io::TCPSocket* conn_, bool start_ = true) : conn(conn_), start(start_) {}
 
   void f()
   {
     auto* alloc = ThreadAlloc::get();
-    char buf[64];
+    static constexpr size_t buf_len = 64;
+    char buf[buf_len];
     snprintf(buf, sizeof(buf), "%s", "ping");
     if (start)
     {
-      int ret = conn->socket_write(alloc, buf, strlen(buf) + 1);
-      if (ret == -1)
-      {
-        perror("ping start");
-        std::cout << "Connection closed: " << conn << std::endl;
-        Cown::release(alloc, conn);
-        return;
-      }
-      Cown::schedule<Ping>(conn, conn);
+      int ret = conn->write(alloc, buf, strlen(buf) + 1);
+      assert(ret > 0);
+      Cown::schedule<Ping>(conn, conn, false);
       return;
     }
 
-    // char buf[64];
-    // int ret = conn->socket_read(alloc, buf, 64);
-    // if (ret > 0)
-    // {
-    //   conn->socket_write(alloc, ping, strlen(ping));
-    // }
-    // else if (ret == 0)
-    // {
-    //   std::cout << "Connection closed: " << conn << std::endl;
-    //   Cown::release(alloc, conn);
-    //   return;
-    // }
+    int ret = conn->read(alloc, buf, buf_len);
+    if (ret == 0)
+    {
+      std::cout << "Server connection closed: " << conn << std::endl;
+      return;
+    }
+    else if ((ret == -1) && (errno != EAGAIN) && (errno != EWOULDBLOCK))
+    {
+      std::cout << "Client read error: " << strerrorname_np(errno) << std::endl;
+      return;
+    }
+    else if (ret > 0)
+    {
+      std::cout << "Client recv: " << buf << std::endl;
+      std::string ping = "ping";
+      ret = conn->write(alloc, (char*)ping.c_str(), ping.length() + 1);
+      assert(ret > 0);
 
-    // Cown::schedule<Ping>(conn, conn);
+      if (Systematic::coin(3))
+      {
+        conn->close();
+        return;
+      }
+    }
+    Cown::schedule<Ping>(conn, conn, false);
   }
 };
 
@@ -55,19 +62,28 @@ struct Pong : public VBehaviour<Pong>
   void f()
   {
     auto* alloc = ThreadAlloc::get();
-    char buf[64];
-    int ret = conn->socket_read(alloc, buf, 64);
-    if (ret > 0)
+    static constexpr size_t buf_len = 64;
+    char buf[buf_len];
+    auto ret = conn->read(alloc, buf, buf_len);
+    if (ret == 0)
     {
-      conn->socket_write(alloc, buf, (uint32_t)ret);
-    }
-    else if (ret == 0)
-    {
-      std::cout << "Connection closed: " << conn << std::endl;
-      Cown::release(alloc, conn);
+      std::cout << "Client connection closed: " << conn << std::endl;
+      // TODO: Is this close necessary to decrement the poller's counter?
+      conn->close();
       return;
     }
-
+    else if ((ret == -1) && (errno != EAGAIN) && (errno != EWOULDBLOCK))
+    {
+      std::cout << "Server read error: " << strerrorname_np(errno) << std::endl;
+      return;
+    }
+    else if (ret > 0)
+    {
+      std::cout << "Server recv: " << buf << std::endl;
+      std::string pong = "pong";
+      ret = conn->write(alloc, (char*)pong.c_str(), pong.length() + 1);
+      assert(ret > 0);
+    }
     Cown::schedule<Pong>(conn, conn);
   }
 };
@@ -75,21 +91,39 @@ struct Pong : public VBehaviour<Pong>
 struct Listen : public VBehaviour<Listen>
 {
   io::TCPSocket* listener;
+  uint16_t port;
+  bool first_run = true;
 
-  Listen(io::TCPSocket* listener_) : listener(listener_) {}
+  Listen(io::TCPSocket* listener_, uint16_t port_)
+  : listener(listener_), port(port_)
+  {}
 
   void f()
   {
-    auto* conn = listener->server_accept(ThreadAlloc::get_noncachable());
+    if (first_run)
+    {
+      std::cout << "Server listening" << std::endl;
+      first_run = false;
+
+      auto* alloc = ThreadAlloc::get();
+      auto* client = io::TCPSocket::connect(alloc, "0.0.0.0", port);
+      if (client == nullptr)
+      {
+        std::cout << "Unable to connect" << std::endl;
+        return;
+      }
+      Cown::schedule<Ping, YesTransfer>(client, client);
+    }
+
+    auto* conn = listener->accept(ThreadAlloc::get_noncachable());
     if (conn != nullptr)
     {
       std::cout << "Received new connection: " << conn << std::endl;
-      Cown::schedule<Pong>(conn, conn);
-      Cown::release(ThreadAlloc::get(), listener);
+      Cown::schedule<Pong, YesTransfer>(conn, conn);
       return;
     }
 
-    Cown::schedule<Listen>(listener, listener);
+    Cown::schedule<Listen>(listener, listener, port);
   }
 };
 
@@ -98,45 +132,28 @@ struct Main : public VCown<Main>
 
 struct Init : public VBehaviour<Init>
 {
-  uint16_t server_port;
+  uint16_t port;
 
-  Init(uint16_t server_port_) : server_port(server_port_) {}
+  Init(uint16_t port_) : port(port_) {}
 
   void f()
   {
     auto* alloc = ThreadAlloc::get_noncachable();
-
-    // auto* listener = io::TCPSocket::listen(alloc, "", server_port);
-    // Cown::schedule<Listen>(listener, listener);
-
-    auto* client = io::TCPSocket::connect(alloc, "", server_port);
-    Cown::schedule<Ping>(client, client);
+    auto* listener = io::TCPSocket::listen(alloc, "0.0.0.0", port);
+    Cown::schedule<Listen, YesTransfer>(listener, listener, port);
   }
 };
 
-int main(int argc, char** argv)
+void test(uint16_t port)
 {
-  opt::Opt opt(argc, argv);
-  const auto seed = opt.is<size_t>("--seed", 5489);
-  const auto cores = opt.is<size_t>("--cores", 4);
-  const auto port = opt.is<uint16_t>("--port", 8080);
-
-#ifdef USE_SYSTEMATIC_TESTING
-  Systematic::enable_logging();
-  Systematic::set_seed(seed);
-#else
-  UNUSED(seed);
-#endif
-
-  auto& sched = Scheduler::get();
-  Scheduler::set_detect_leaks(true);
-  sched.set_fair(true);
-  sched.init(cores);
-
   auto* alloc = ThreadAlloc::get();
   auto* entrypoint = new (alloc) Main();
-  Cown::schedule<Init>(entrypoint, port);
-  Cown::release(alloc, entrypoint);
+  Cown::schedule<Init, YesTransfer>(entrypoint, port);
+}
 
-  sched.run();
+int main(int argc, char** argv)
+{
+  SystematicTestHarness h(argc, argv);
+  const auto port = h.opt.is<uint16_t>("--port", 8080);
+  h.run(test, port);
 }

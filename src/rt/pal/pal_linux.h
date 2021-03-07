@@ -3,6 +3,7 @@
 #if defined(__linux__)
 
 #  include "../ds/mpscq.h"
+#  include "../test/systematic.h"
 
 #  include <arpa/inet.h>
 #  include <cassert>
@@ -45,6 +46,11 @@ namespace verona::rt::io
     static int socket_write(int fd, char* buf, size_t len)
     {
       return send(fd, buf, len, MSG_NOSIGNAL);
+    }
+
+    static int close(int fd)
+    {
+      return ::close(fd);
     }
 
     static int socket_listen(const char* host, uint16_t port)
@@ -91,8 +97,11 @@ namespace verona::rt::io
           continue;
 
         auto res = connect(sock, p->ai_addr, p->ai_addrlen);
-        if (res == 0)
+        if ((res == 0) || (errno == EINPROGRESS))
           break;
+
+        res = close(sock);
+        assert(res == 0);
 
         sock = -1;
       }
@@ -129,6 +138,9 @@ namespace verona::rt::io
       hints.ai_protocol = IPPROTO_TCP;
       char port_str[16];
       snprintf(port_str, sizeof(port_str), "%u", port);
+      if ((host != nullptr) && (host[0] == '\0'))
+        host = nullptr;
+
       struct addrinfo* info;
       int res = getaddrinfo(host, port_str, &hints, &info);
       if (res != 0)
@@ -182,6 +194,7 @@ namespace verona::rt::io
     };
 
     MPSCQ<Msg> q;
+    std::atomic<size_t> event_count = 0;
     int efd;
 
     static struct epoll_event socket_event(T* cown)
@@ -197,8 +210,8 @@ namespace verona::rt::io
       int ret = epoll_ctl(efd, EPOLL_CTL_MOD, fd, ev);
       if (ret != 0)
       {
-        perror("epoll_ctl(EPOLL_CTL_MOD)");
-        assert(false);
+        Systematic::cout() << "error: epoll_ctl(EPOLL_CTL_MOD, " << fd << ") "
+                           << strerrorname_np(errno) << std::endl;
       }
     }
 
@@ -207,8 +220,8 @@ namespace verona::rt::io
       int ret = epoll_ctl(efd, EPOLL_CTL_DEL, fd, nullptr);
       if (ret != 0)
       {
-        perror("epoll_ctl(EPOLL_CTL_DEL)");
-        assert(false);
+        Systematic::cout() << "error: epoll_ctl(EPOLL_CTL_DEL, " << fd << ") "
+                           << strerrorname_np(errno) << std::endl;
       }
     }
 
@@ -246,6 +259,23 @@ namespace verona::rt::io
     {
       auto* stub = q.destroy();
       ThreadAlloc::get_noncachable()->dealloc<sizeof(*stub)>(stub);
+    }
+
+    inline size_t get_event_count()
+    {
+      return event_count.load(std::memory_order_seq_cst);
+    }
+
+    inline size_t add_event_source()
+    {
+      return event_count.fetch_add(1, std::memory_order_seq_cst);
+    }
+
+    inline size_t remove_event_source()
+    {
+      const auto prev = event_count.fetch_sub(1, std::memory_order_seq_cst);
+      assert(prev > 0);
+      return prev;
     }
 
     void socket_register(int fd, T* cown)

@@ -14,16 +14,21 @@ struct Echo : public VBehaviour<Echo>
   {
     auto* alloc = ThreadAlloc::get();
     char buf[64];
-    int ret = conn->socket_read(alloc, buf, 64);
-    if (ret > 0)
-    {
-      conn->socket_write(alloc, buf, (uint32_t)ret);
-    }
-    else if (ret == 0)
+    int ret = conn->read(alloc, buf, 64);
+    if (ret == 0)
     {
       std::cout << "Connection closed: " << conn << std::endl;
-      Cown::release(alloc, conn);
       return;
+    }
+    else if ((ret == -1) && (errno != EAGAIN) && (errno != EWOULDBLOCK))
+    {
+      std::cout << "Read error: " << strerrorname_np(errno) << std::endl;
+      return;
+    }
+    else if (ret > 0)
+    {
+      ret = conn->write(alloc, buf, (uint32_t)ret);
+      assert(ret > 0);
     }
 
     Cown::schedule<Echo>(conn, conn);
@@ -38,12 +43,11 @@ struct Listen : public VBehaviour<Listen>
 
   void f()
   {
-    auto* conn = listener->server_accept(ThreadAlloc::get_noncachable());
+    auto* conn = listener->accept(ThreadAlloc::get_noncachable());
     if (conn != nullptr)
     {
       std::cout << "Received new connection: " << conn << std::endl;
-      Cown::schedule<Echo>(conn, conn);
-      Cown::release(ThreadAlloc::get(), listener);
+      Cown::schedule<Echo, YesTransfer>(conn, conn);
       return;
     }
 
@@ -63,8 +67,8 @@ struct Init : public VBehaviour<Init>
   void f()
   {
     auto* alloc = ThreadAlloc::get_noncachable();
-    auto* listener = io::TCPSocket::listen(alloc, "0.0.0.0", port);
-    Cown::schedule<Listen>(listener, listener);
+    auto* listener = io::TCPSocket::listen(alloc, "", port);
+    Cown::schedule<Listen, YesTransfer>(listener, listener);
   }
 };
 
@@ -89,8 +93,7 @@ int main(int argc, char** argv)
 
   auto* alloc = ThreadAlloc::get();
   auto* entrypoint = new (alloc) Main();
-  Cown::schedule<Init>(entrypoint, port);
-  Cown::release(alloc, entrypoint);
+  Cown::schedule<Init, YesTransfer>(entrypoint, port);
 
   sched.run();
 }
