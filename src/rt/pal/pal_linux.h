@@ -39,22 +39,15 @@ namespace verona::rt::io
 
     LinuxEvent(int fd_, Cown* cown, uint32_t flags) : fd(fd_)
     {
-      memset(&ev, 0, sizeof(ev));
+      assert(fd != -1);
       ev.events = flags | EPOLLONESHOT;
       ev.data.ptr = cown;
     }
 
-    static inline LinuxEvent*
-    create(Alloc* alloc, int fd_, Cown* cown_, uint32_t flags_)
-    {
-      return new (alloc->alloc<sizeof(LinuxEvent)>())
-        LinuxEvent(fd_, cown_, flags_);
-    }
-
   public:
-    static constexpr size_t size()
+    void set_cown(Cown* cown)
     {
-      return sizeof(LinuxEvent);
+      ev.data.ptr = cown;
     }
 
     Cown* cown()
@@ -68,6 +61,7 @@ namespace verona::rt::io
   public:
     class Msg
     {
+    private:
       friend MPSCQ<Msg>;
       friend LinuxPoller;
 
@@ -96,7 +90,7 @@ namespace verona::rt::io
     std::atomic<size_t> event_count = 0;
     int efd;
 
-    void epoll_event_modify(LinuxEvent& event)
+    inline void epoll_event_modify(LinuxEvent& event)
     {
       int ret = epoll_ctl(efd, EPOLL_CTL_MOD, event.fd, &event.ev);
       if (ret != 0)
@@ -107,7 +101,7 @@ namespace verona::rt::io
       }
     }
 
-    void handle_msgs(Alloc* alloc)
+    inline void handle_msgs(Alloc* alloc)
     {
       while (true)
       {
@@ -150,7 +144,7 @@ namespace verona::rt::io
       return prev;
     }
 
-    void register_event(LinuxEvent& event)
+    inline void register_event(LinuxEvent& event)
     {
       int ret = epoll_ctl(efd, EPOLL_CTL_ADD, event.fd, &event.ev);
       if (ret != 0)
@@ -163,10 +157,11 @@ namespace verona::rt::io
 
     inline Msg* create_msg(Alloc* alloc, LinuxEvent& event)
     {
+      assert(event.cown() != nullptr);
       return new (alloc->alloc<Msg::size()>()) Msg(&q, event);
     }
 
-    void handle_blocking_io(Stack<Msg, Alloc>& stack)
+    inline void handle_blocking_io(Stack<Msg, Alloc>& stack)
     {
       while (!stack.empty())
       {
@@ -220,66 +215,39 @@ namespace verona::rt::io
   class LinuxTCP
   {
   public:
-    static LinuxEvent* event(Alloc* alloc, int fd, Cown* cown)
-    {
-      return LinuxEvent::create(alloc, fd, cown, socket_flags);
-    }
-
-    static LinuxEvent event(int fd, Cown* cown)
-    {
-      return LinuxEvent(fd, cown, socket_flags);
-    }
-
-    // static LinuxEvent* accept(Alloc* alloc, Cown* cown, LinuxEvent* event)
-    // {
-    //   int ret = ::accept(event->fd, nullptr, nullptr);
-    //   if (ret == -1)
-    //   {
-    //     if (!would_block(ret))
-    //       Systematic::cout() << "error: accept " << errno_str() <<
-    //       std::endl;
-
-    //     return nullptr;
-    //   }
-
-    //   make_nonblocking(ret);
-    //   return LinuxEvent::create(alloc, ret, cown, socket_flags);
-    // }
-    static int accept(int socket)
-    {
-      int ret = ::accept(socket, nullptr, nullptr);
-      if (ret == -1)
-      {
-        if (!would_block(ret))
-          Systematic::cout() << "error: accept " << errno_str() << std::endl;
-
-        return -1;
-      }
-
-      make_nonblocking(ret);
-      return ret;
-    }
-
-    static int read(int fd, char* buf, size_t len)
-    {
-      return ::recv(fd, buf, len, 0);
-    }
-
-    static int write(int fd, const char* buf, size_t len)
-    {
-      return ::send(fd, buf, len, MSG_NOSIGNAL);
-    }
-
-    static int close(int fd)
-    {
-      return ::close(fd);
-    }
-
-    static int socket_listen(const char* host, uint16_t port)
+    static std::optional<LinuxEvent> connect(const char* host, uint16_t port)
     {
       auto* info = get_address_info(host, port);
       if (info == nullptr)
-        return -1;
+        return {};
+
+      // TODO: Happy Eyeballs
+      int sock = -1;
+      for (auto* p = info; p != nullptr; p = p->ai_next)
+      {
+        sock = open_socket(p);
+        if (sock == -1)
+          continue;
+
+        auto res = ::connect(sock, p->ai_addr, p->ai_addrlen);
+        if ((res == 0) || (errno == EINPROGRESS))
+          break;
+
+        res = ::close(sock);
+        assert(res == 0);
+
+        sock = -1;
+      }
+
+      freeaddrinfo(info);
+      return LinuxEvent(sock, nullptr, socket_flags);
+    }
+
+    static std::optional<LinuxEvent> listen(const char* host, uint16_t port)
+    {
+      auto* info = get_address_info(host, port);
+      if (info == nullptr)
+        return {};
 
       int sock = -1;
       struct addrinfo* addr = info;
@@ -290,54 +258,56 @@ namespace verona::rt::io
           break;
       }
       if (sock == -1)
-        return -1;
+        return {};
 
       int res = bind(sock, addr->ai_addr, addr->ai_addrlen);
       if (res == -1)
       {
         Systematic::cout() << "error: bind " << strerrorname_np(errno)
                            << std::endl;
-        return -1;
+        return {};
       }
 
-      res = listen(sock, backlog);
+      res = ::listen(sock, backlog);
       if (res == -1)
       {
         Systematic::cout() << "error: listen " << strerrorname_np(errno)
                            << std::endl;
-        return -1;
+        return {};
       }
 
       freeaddrinfo(info);
-      return sock;
+      return LinuxEvent(sock, nullptr, socket_flags);
     }
 
-    static int socket_connect(const char* host, uint16_t port)
+    static std::optional<LinuxEvent> accept(LinuxEvent& listener, Cown* cown)
     {
-      auto* info = get_address_info(host, port);
-      if (info == nullptr)
-        return -1;
-
-      /// TODO: Happy Eyeballs
-      int sock = -1;
-      for (auto* p = info; p != nullptr; p = p->ai_next)
+      int ret = ::accept(listener.fd, nullptr, nullptr);
+      if (ret == -1)
       {
-        sock = open_socket(p);
-        if (sock == -1)
-          continue;
+        if (!would_block(ret))
+          Systematic::cout() << "error: accept " << errno_str() << std::endl;
 
-        auto res = connect(sock, p->ai_addr, p->ai_addrlen);
-        if ((res == 0) || (errno == EINPROGRESS))
-          break;
-
-        res = close(sock);
-        assert(res == 0);
-
-        sock = -1;
+        return {};
       }
 
-      freeaddrinfo(info);
-      return sock;
+      make_nonblocking(ret);
+      return LinuxEvent(ret, cown, socket_flags);
+    }
+
+    static int read(LinuxEvent& event, char* buf, size_t len)
+    {
+      return ::recv(event.fd, buf, len, 0);
+    }
+
+    static int write(LinuxEvent& event, const char* buf, size_t len)
+    {
+      return ::send(event.fd, buf, len, MSG_NOSIGNAL);
+    }
+
+    static int close(LinuxEvent& event)
+    {
+      return ::close(event.fd);
     }
 
   private:

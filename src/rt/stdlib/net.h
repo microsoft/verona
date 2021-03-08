@@ -11,11 +11,13 @@ namespace verona::rt::io
   {
   private:
     Poller& poller;
-    int fd;
+    Event event;
     bool closed = false;
 
-    TCPSocket(Poller& poller_, int fd_) : poller(poller_), fd(fd_)
+    TCPSocket(Poller& poller_, Event event_) : poller(poller_), event(event_)
     {
+      event.set_cown(this);
+
       const auto prev = poller.add_event_source();
       if (prev == 0)
         Scheduler::add_external_event_source();
@@ -23,18 +25,15 @@ namespace verona::rt::io
 
     void would_block()
     {
-      auto event = TCP::event(fd, this);
       Scheduler::local()->add_blocking_io(event);
       would_block_on_io();
     }
 
-    static TCPSocket* create(Alloc* alloc, Poller& poller, int socket)
+    static inline TCPSocket* create(Alloc* alloc, Poller& poller, Event event)
     {
-      assert(socket != -1);
-      auto* cown = new (alloc) TCPSocket(poller, socket);
+      auto* cown = new (alloc) TCPSocket(poller, std::move(event));
       Systematic::cout() << "New TCPSocket cown " << cown << std::endl;
-      auto event = TCP::event(socket, cown);
-      poller.register_event(event);
+      poller.register_event(cown->event);
       return cown;
     }
 
@@ -47,37 +46,36 @@ namespace verona::rt::io
 
     static TCPSocket* connect(Alloc* alloc, const char* host, uint16_t port)
     {
-      int socket = TCP::socket_connect(host, port);
-      if (socket == -1)
+      auto res = TCP::connect(host, port);
+      if (!res)
         return nullptr;
 
-      return create(alloc, Scheduler::local()->get_io_poller(), socket);
+      return create(alloc, Scheduler::local()->get_io_poller(), *res);
     }
 
     static TCPSocket* listen(Alloc* alloc, const char* host, uint16_t port)
     {
-      int socket = TCP::socket_listen(host, port);
-      if (socket == -1)
+      auto res = TCP::listen(host, port);
+      if (!res)
         return nullptr;
 
-      return create(alloc, Scheduler::local()->get_io_poller(), socket);
+      return create(alloc, Scheduler::local()->get_io_poller(), *res);
     }
 
     TCPSocket* accept(Alloc* alloc)
     {
-      auto socket = TCP::accept(fd);
-      if (socket == -1)
+      auto res = TCP::accept(event, nullptr);
+      if (!res)
       {
         would_block();
         return nullptr;
       }
-
-      return create(alloc, poller, socket);
+      return create(alloc, poller, *res);
     }
 
     int read(char* buf, uint32_t len)
     {
-      int res = TCP::read(fd, buf, len);
+      int res = TCP::read(event, buf, len);
       if (res == -1)
         would_block();
 
@@ -86,7 +84,7 @@ namespace verona::rt::io
 
     int write(char* buf, uint32_t len)
     {
-      int res = TCP::write(fd, buf, len);
+      int res = TCP::write(event, buf, len);
       if (res == -1)
         would_block();
       else
@@ -101,8 +99,8 @@ namespace verona::rt::io
 
       closed = true;
       Systematic::cout() << "Close on IO cown " << this << std::endl;
-      auto ret = TCP::close(fd);
-      if (ret == -1)
+      auto res = TCP::close(event);
+      if (res == -1)
       {
         Systematic::cout() << "Socket close error: " << strerrorname_np(errno)
                            << std::endl;
@@ -112,7 +110,7 @@ namespace verona::rt::io
       if (prev == 1)
         Scheduler::remove_external_event_source();
 
-      return ret;
+      return res;
     }
   };
 }
