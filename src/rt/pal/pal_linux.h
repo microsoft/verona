@@ -26,14 +26,10 @@ namespace verona::rt::io
 {
   using namespace snmalloc;
 
-  static constexpr size_t backlog = 8192;
-  static constexpr size_t max_events = 128;
-
   class LinuxEvent
   {
     friend class LinuxPoller;
     friend class LinuxTCP;
-
     struct epoll_event ev;
     int fd;
 
@@ -59,6 +55,8 @@ namespace verona::rt::io
   class LinuxPoller
   {
   public:
+    static constexpr size_t max_events = 128;
+
     class Msg
     {
     private:
@@ -95,8 +93,9 @@ namespace verona::rt::io
       int ret = epoll_ctl(efd, EPOLL_CTL_MOD, event.fd, &event.ev);
       if (ret != 0)
       {
-        Systematic::cout() << "error: epoll_ctl(EPOLL_CTL_MOD, " << event.fd
-                           << ") " << strerrorname_np(errno) << std::endl;
+        Systematic::cout() << "error: epoll_ctl(EPOLL_CTL_MOD) "
+                           << strerrorname_np(errno) << " (cown "
+                           << event.cown() << ")" << std::endl;
         assert(false);
       }
     }
@@ -150,7 +149,8 @@ namespace verona::rt::io
       if (ret != 0)
       {
         Systematic::cout() << "error: epoll_ctl(EPOLL_CTL_ADD) "
-                           << strerrorname_np(errno) << std::endl;
+                           << strerrorname_np(errno) << " (cown "
+                           << event.cown() << ")" << std::endl;
         assert(false);
       }
     }
@@ -200,26 +200,62 @@ namespace verona::rt::io
     assert(flags >= 0);
   }
 
-  static const char* errno_str()
-  {
-    return strerrorname_np(errno);
-  }
-
-  static bool would_block(int err)
+  static inline bool error_would_block(int err)
   {
     return (err == EWOULDBLOCK) || (err == EAGAIN);
   }
 
-  static constexpr uint32_t socket_flags = EPOLLIN | EPOLLRDHUP;
+  template<typename T>
+  class LinuxResult
+  {
+    friend class LinuxTCP;
+
+    std::optional<T> value = {};
+    int err = 0;
+
+  public:
+    LinuxResult(T v) : value(v) {}
+    LinuxResult(int e) : err(e) {}
+
+    T operator*()
+    {
+      return *value;
+    }
+
+    bool ok() const
+    {
+      return value.has_value();
+    }
+
+    const char* error() const
+    {
+      return strerrorname_np(err);
+    }
+
+    bool would_block() const
+    {
+      return error_would_block(err);
+    }
+
+    template<typename U>
+    LinuxResult<U> forward_err()
+    {
+      assert(!ok());
+      return LinuxResult<U>(err);
+    }
+  };
 
   class LinuxTCP
   {
+    static constexpr size_t backlog = 8192;
+    static constexpr uint32_t socket_flags = EPOLLIN | EPOLLRDHUP;
+
   public:
-    static std::optional<LinuxEvent> connect(const char* host, uint16_t port)
+    static LinuxResult<LinuxEvent> connect(const char* host, uint16_t port)
     {
       auto* info = get_address_info(host, port);
       if (info == nullptr)
-        return {};
+        return errno;
 
       // TODO: Happy Eyeballs
       int sock = -1;
@@ -243,11 +279,11 @@ namespace verona::rt::io
       return LinuxEvent(sock, nullptr, socket_flags);
     }
 
-    static std::optional<LinuxEvent> listen(const char* host, uint16_t port)
+    static LinuxResult<LinuxEvent> listen(const char* host, uint16_t port)
     {
       auto* info = get_address_info(host, port);
       if (info == nullptr)
-        return {};
+        return errno;
 
       int sock = -1;
       struct addrinfo* addr = info;
@@ -258,56 +294,56 @@ namespace verona::rt::io
           break;
       }
       if (sock == -1)
-        return {};
+        return errno;
 
       int res = bind(sock, addr->ai_addr, addr->ai_addrlen);
       if (res == -1)
-      {
-        Systematic::cout() << "error: bind " << strerrorname_np(errno)
-                           << std::endl;
-        return {};
-      }
+        return errno;
 
       res = ::listen(sock, backlog);
       if (res == -1)
-      {
-        Systematic::cout() << "error: listen " << strerrorname_np(errno)
-                           << std::endl;
-        return {};
-      }
+        return errno;
 
       freeaddrinfo(info);
       return LinuxEvent(sock, nullptr, socket_flags);
     }
 
-    static std::optional<LinuxEvent> accept(LinuxEvent& listener, Cown* cown)
+    static LinuxResult<LinuxEvent> accept(LinuxEvent& listener, Cown* cown)
     {
       int ret = ::accept(listener.fd, nullptr, nullptr);
       if (ret == -1)
-      {
-        if (!would_block(ret))
-          Systematic::cout() << "error: accept " << errno_str() << std::endl;
-
-        return {};
-      }
+        return errno;
 
       make_nonblocking(ret);
       return LinuxEvent(ret, cown, socket_flags);
     }
 
-    static int read(LinuxEvent& event, char* buf, size_t len)
+    static LinuxResult<size_t> read(LinuxEvent& event, char* buf, size_t len)
     {
-      return ::recv(event.fd, buf, len, 0);
+      auto res = ::recv(event.fd, buf, len, 0);
+      if (res == -1)
+        return errno;
+
+      return (size_t)res;
     }
 
-    static int write(LinuxEvent& event, const char* buf, size_t len)
+    static LinuxResult<size_t>
+    write(LinuxEvent& event, const char* buf, size_t len)
     {
-      return ::send(event.fd, buf, len, MSG_NOSIGNAL);
+      auto res = ::send(event.fd, buf, len, MSG_NOSIGNAL);
+      if (res == -1)
+        return errno;
+
+      return (size_t)res;
     }
 
-    static int close(LinuxEvent& event)
+    static LinuxResult<bool> close(LinuxEvent& event)
     {
-      return ::close(event.fd);
+      auto res = ::close(event.fd);
+      if (res == -1)
+        return errno;
+
+      return true;
     }
 
   private:
@@ -347,21 +383,13 @@ namespace verona::rt::io
       }
       int sock = socket(domain, type | SOCK_NONBLOCK, protocol);
       if (sock == -1)
-      {
-        Systematic::cout() << "error: socket " << strerrorname_np(errno)
-                           << std::endl;
         return -1;
-      }
 
       int opt_val = 1;
       int res =
         setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt_val, sizeof(opt_val));
       if (res == -1)
-      {
-        Systematic::cout() << "error: setsockopt(SO_REUSEADDR) "
-                           << strerrorname_np(errno) << std::endl;
         return -1;
-      }
 
       return sock;
     }

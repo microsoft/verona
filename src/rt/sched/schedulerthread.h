@@ -241,7 +241,7 @@ namespace verona::rt
 
     void poll_io()
     {
-      T* ready_cowns[io::max_events];
+      T* ready_cowns[io::Poller::max_events];
       const auto count = io_poller.poll(alloc, ready_cowns);
       for (size_t i = 0; i < count; i++)
       {
@@ -261,11 +261,9 @@ namespace verona::rt
       return io_poller;
     }
 
-    void add_blocking_io(io::Event& event)
+    void add_blocking_io(io::Poller::Msg* msg)
     {
-      // assert(event->destination != nullptr);
       // TODO: avoid adding duplicate events
-      auto* msg = io_poller.create_msg(alloc, event);
       blocking_io.push(msg);
     }
 

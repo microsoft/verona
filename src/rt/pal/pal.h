@@ -8,6 +8,8 @@ namespace verona::rt::io
   using Event = LinuxEvent;
   using Poller = LinuxPoller;
   using TCP = LinuxTCP;
+  template<typename T>
+  using Result = LinuxResult<T>;
 #else
   error Unsupported platform
 #endif

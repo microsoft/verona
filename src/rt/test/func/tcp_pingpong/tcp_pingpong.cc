@@ -18,29 +18,33 @@ struct Ping : public VBehaviour<Ping>
     snprintf(buf, sizeof(buf), "%s", "ping");
     if (start)
     {
-      int ret = conn->write(buf, strlen(buf) + 1);
-      assert(ret > 0);
+      const auto res = conn->write(buf, strlen(buf) + 1);
+      assert(res.ok());
       Cown::schedule<Ping>(conn, conn, false);
       return;
     }
 
-    int ret = conn->read(buf, buf_len);
-    if (ret == 0)
+    auto res = conn->read(buf, buf_len);
+    if (!res.ok())
+    {
+      if (!res.would_block())
+      {
+        std::cout << "Client read error: " << res.error() << std::endl;
+        conn->close();
+        return;
+      }
+    }
+    else if (*res == 0)
     {
       std::cout << "Server connection closed: " << conn << std::endl;
       return;
     }
-    else if ((ret == -1) && (errno != EAGAIN) && (errno != EWOULDBLOCK))
-    {
-      std::cout << "Client read error: " << strerrorname_np(errno) << std::endl;
-      return;
-    }
-    else if (ret > 0)
+    else
     {
       std::cout << "Client recv: " << buf << std::endl;
       std::string ping = "ping";
-      ret = conn->write((char*)ping.c_str(), ping.length() + 1);
-      assert(ret > 0);
+      res = conn->write((char*)ping.c_str(), ping.length() + 1);
+      assert(res.ok());
 
       if (Systematic::coin(4))
       {
@@ -62,23 +66,27 @@ struct Pong : public VBehaviour<Pong>
   {
     static constexpr size_t buf_len = 64;
     char buf[buf_len];
-    auto ret = conn->read(buf, buf_len);
-    if (ret == 0)
+    auto res = conn->read(buf, buf_len);
+    if (!res.ok())
+    {
+      if (!res.would_block())
+      {
+        std::cout << "Server read error: " << res.error() << std::endl;
+        conn->close();
+        return;
+      }
+    }
+    else if (*res == 0)
     {
       std::cout << "Client connection closed: " << conn << std::endl;
       return;
     }
-    else if ((ret == -1) && (errno != EAGAIN) && (errno != EWOULDBLOCK))
-    {
-      std::cout << "Server read error: " << strerrorname_np(errno) << std::endl;
-      return;
-    }
-    else if (ret > 0)
+    else
     {
       std::cout << "Server recv: " << buf << std::endl;
       std::string pong = "pong";
-      ret = conn->write((char*)pong.c_str(), pong.length() + 1);
-      assert(ret > 0);
+      res = conn->write((char*)pong.c_str(), pong.length() + 1);
+      assert(res.ok());
       if (Systematic::coin(4))
       {
         conn->close();
@@ -101,24 +109,26 @@ struct Listen : public VBehaviour<Listen>
 
   void f()
   {
+    auto* alloc = ThreadAlloc::get();
     if (first_run)
     {
       std::cout << "Server listening" << std::endl;
       first_run = false;
 
-      auto* alloc = ThreadAlloc::get_noncachable();
-      auto* client = io::TCPSocket::connect(alloc, "", port);
-      if (client == nullptr)
+      auto res = io::TCPSocket::connect(alloc, "", port);
+      if (!res.ok())
       {
-        std::cout << "Unable to connect" << std::endl;
+        std::cout << "Unable to connect: " << res.error() << std::endl;
         abort();
       }
+      auto* client = *res;
       Cown::schedule<Ping, YesTransfer>(client, client);
     }
 
-    auto* conn = listener->accept(ThreadAlloc::get_noncachable());
-    if (conn != nullptr)
+    auto res = listener->accept(alloc);
+    if (res.ok())
     {
+      auto* conn = *res;
       std::cout << "Received new connection: " << conn << std::endl;
       Cown::schedule<Pong, YesTransfer>(conn, conn);
       return;
@@ -140,12 +150,13 @@ struct Init : public VBehaviour<Init>
   void f()
   {
     auto* alloc = ThreadAlloc::get_noncachable();
-    auto* listener = io::TCPSocket::listen(alloc, "", port);
-    if (listener == nullptr)
+    auto res = io::TCPSocket::listen(alloc, "", port);
+    if (!res.ok())
     {
-      std::cout << "Unable to listen" << std::endl;
+      std::cout << "Unable to listen: " << res.error() << std::endl;
       return;
     }
+    auto* listener = *res;
     Cown::schedule<Listen, YesTransfer>(listener, listener, port);
   }
 };

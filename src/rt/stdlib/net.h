@@ -25,7 +25,8 @@ namespace verona::rt::io
 
     void would_block()
     {
-      Scheduler::local()->add_blocking_io(event);
+      auto* msg = poller.create_msg(ThreadAlloc::get(), event);
+      Scheduler::local()->add_blocking_io(msg);
       would_block_on_io();
     }
 
@@ -44,65 +45,67 @@ namespace verona::rt::io
         close();
     }
 
-    static TCPSocket* connect(Alloc* alloc, const char* host, uint16_t port)
+    static Result<TCPSocket*>
+    connect(Alloc* alloc, const char* host, uint16_t port)
     {
       auto res = TCP::connect(host, port);
-      if (!res)
-        return nullptr;
+      if (!res.ok())
+        return res.forward_err<TCPSocket*>();
 
       return create(alloc, Scheduler::local()->get_io_poller(), *res);
     }
 
-    static TCPSocket* listen(Alloc* alloc, const char* host, uint16_t port)
+    static Result<TCPSocket*>
+    listen(Alloc* alloc, const char* host, uint16_t port)
     {
       auto res = TCP::listen(host, port);
-      if (!res)
-        return nullptr;
+      if (!res.ok())
+        return res.forward_err<TCPSocket*>();
 
       return create(alloc, Scheduler::local()->get_io_poller(), *res);
     }
 
-    TCPSocket* accept(Alloc* alloc)
+    Result<TCPSocket*> accept(Alloc* alloc)
     {
       auto res = TCP::accept(event, nullptr);
-      if (!res)
+      if (!res.ok())
       {
         would_block();
-        return nullptr;
+        return res.forward_err<TCPSocket*>();
       }
       return create(alloc, poller, *res);
     }
 
-    int read(char* buf, uint32_t len)
+    Result<size_t> read(char* buf, size_t len)
     {
-      int res = TCP::read(event, buf, len);
-      if (res == -1)
+      auto res = TCP::read(event, buf, len);
+      if (!res.ok())
         would_block();
 
       return res;
     }
 
-    int write(char* buf, uint32_t len)
+    Result<size_t> write(char* buf, size_t len)
     {
-      int res = TCP::write(event, buf, len);
-      if (res == -1)
+      auto res = TCP::write(event, buf, len);
+      if (!res.ok())
         would_block();
       else
-        assert(static_cast<uint32_t>(res) == len);
+        assert(*res == len);
 
       return res;
     }
 
-    int close()
+    Result<bool> close()
     {
       assert(!closed);
 
       closed = true;
       Systematic::cout() << "Close on IO cown " << this << std::endl;
       auto res = TCP::close(event);
-      if (res == -1)
+      if (!res.ok())
       {
-        Systematic::cout() << "Socket close error: " << strerrorname_np(errno)
+        Systematic::cout() << "Socket close error: " << res.error()
                            << std::endl;
       }
 
