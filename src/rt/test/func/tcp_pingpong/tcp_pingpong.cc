@@ -108,9 +108,8 @@ struct Listen : public VBehaviour<Listen>
       std::cout << "Server listening" << std::endl;
       first_run = false;
 
-      auto* alloc = ThreadAlloc::get();
-      // TODO: host "" should work
-      auto* client = io::TCPSocket::connect(alloc, "0.0.0.0", port);
+      auto* alloc = ThreadAlloc::get_noncachable();
+      auto* client = io::TCPSocket::connect(alloc, "", port);
       if (client == nullptr)
       {
         std::cout << "Unable to connect" << std::endl;
@@ -143,7 +142,7 @@ struct Init : public VBehaviour<Init>
   void f()
   {
     auto* alloc = ThreadAlloc::get_noncachable();
-    auto* listener = io::TCPSocket::listen(alloc, "0.0.0.0", port);
+    auto* listener = io::TCPSocket::listen(alloc, "", port);
     if (listener == nullptr)
     {
       std::cout << "Unable to listen" << std::endl;
@@ -170,6 +169,11 @@ void test(uint16_t port, bool increment_port)
 
 int main(int argc, char** argv)
 {
+#ifndef USE_SYSTEMATIC_TESTING
+  std::cout << "This test requires systematic testing" << std::endl;
+  return 1;
+#endif
+
   SystematicTestHarness h(argc, argv);
   const auto port = h.opt.is<uint16_t>("--port", 8080);
   const auto increment_port = h.opt.has("--increment_port");

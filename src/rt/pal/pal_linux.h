@@ -58,14 +58,22 @@ namespace verona::rt::io
 
     static int socket_listen(const char* host, uint16_t port)
     {
-      struct sockaddr_in addr;
-      get_address(&addr, host, port);
-
-      int sock = open_socket();
-      if (!sock)
+      auto* info = get_address_info(host, port);
+      if (info == nullptr)
         return -1;
 
-      int res = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
+      int sock = -1;
+      struct addrinfo* addr = info;
+      for (; addr != nullptr; addr = addr->ai_next)
+      {
+        sock = open_socket(addr);
+        if (sock != -1)
+          break;
+      }
+      if (sock == -1)
+        return -1;
+
+      int res = bind(sock, addr->ai_addr, addr->ai_addrlen);
       if (res == -1)
       {
         Systematic::cout() << "error: bind " << strerrorname_np(errno)
@@ -81,6 +89,7 @@ namespace verona::rt::io
         return -1;
       }
 
+      freeaddrinfo(info);
       return sock;
     }
 
@@ -113,21 +122,6 @@ namespace verona::rt::io
     }
 
   private:
-    inline static int
-    get_address(struct sockaddr_in* addr, const char* host, uint16_t port)
-    {
-      memset(addr, 0, sizeof(*addr));
-      addr->sin_family = AF_INET;
-      addr->sin_port = htons(port);
-
-      if ((host == nullptr) || (host[0] == '\0'))
-        addr->sin_addr.s_addr = htonl(0);
-      else
-        inet_pton(AF_INET, host, &addr->sin_addr.s_addr);
-
-      return 0;
-    }
-
     inline static struct addrinfo*
     get_address_info(const char* host, uint16_t port)
     {
