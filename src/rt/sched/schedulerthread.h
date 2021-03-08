@@ -115,7 +115,7 @@ namespace verona::rt
     ObjectMap<T*> mute_set;
 
     io::Poller io_poller;
-    Stack<io::Event, Alloc> blocking_io;
+    Stack<io::Poller::Msg, Alloc> blocking_io;
 
     T* get_token_cown()
     {
@@ -261,11 +261,12 @@ namespace verona::rt
       return io_poller;
     }
 
-    void add_blocking_io(io::Event* event)
+    void add_blocking_io(io::Event& event)
     {
       // assert(event->destination != nullptr);
       // TODO: avoid adding duplicate events
-      blocking_io.push(event);
+      auto* msg = io_poller.create_msg(alloc, event);
+      blocking_io.push(msg);
     }
 
   private:

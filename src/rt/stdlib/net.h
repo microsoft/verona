@@ -21,10 +21,9 @@ namespace verona::rt::io
         Scheduler::add_external_event_source();
     }
 
-    void would_block(Alloc* alloc)
+    void would_block()
     {
-      auto* event = TCP::event(alloc, fd, this);
-      poller.set_destination(*event);
+      auto event = TCP::event(fd, this);
       Scheduler::local()->add_blocking_io(event);
       would_block_on_io();
     }
@@ -69,27 +68,27 @@ namespace verona::rt::io
       auto socket = TCP::accept(fd);
       if (socket == -1)
       {
-        would_block(alloc);
+        would_block();
         return nullptr;
       }
 
       return create(alloc, poller, socket);
     }
 
-    int read(Alloc* alloc, char* buf, uint32_t len)
+    int read(char* buf, uint32_t len)
     {
       int res = TCP::read(fd, buf, len);
       if (res == -1)
-        would_block(alloc);
+        would_block();
 
       return res;
     }
 
-    int write(Alloc* alloc, char* buf, uint32_t len)
+    int write(char* buf, uint32_t len)
     {
       int res = TCP::write(fd, buf, len);
       if (res == -1)
-        would_block(alloc);
+        would_block();
       else
         assert(static_cast<uint32_t>(res) == len);
 

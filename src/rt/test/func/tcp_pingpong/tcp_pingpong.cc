@@ -13,19 +13,18 @@ struct Ping : public VBehaviour<Ping>
 
   void f()
   {
-    auto* alloc = ThreadAlloc::get();
     static constexpr size_t buf_len = 64;
     char buf[buf_len];
     snprintf(buf, sizeof(buf), "%s", "ping");
     if (start)
     {
-      int ret = conn->write(alloc, buf, strlen(buf) + 1);
+      int ret = conn->write(buf, strlen(buf) + 1);
       assert(ret > 0);
       Cown::schedule<Ping>(conn, conn, false);
       return;
     }
 
-    int ret = conn->read(alloc, buf, buf_len);
+    int ret = conn->read(buf, buf_len);
     if (ret == 0)
     {
       std::cout << "Server connection closed: " << conn << std::endl;
@@ -40,7 +39,7 @@ struct Ping : public VBehaviour<Ping>
     {
       std::cout << "Client recv: " << buf << std::endl;
       std::string ping = "ping";
-      ret = conn->write(alloc, (char*)ping.c_str(), ping.length() + 1);
+      ret = conn->write((char*)ping.c_str(), ping.length() + 1);
       assert(ret > 0);
 
       if (Systematic::coin(4))
@@ -61,10 +60,9 @@ struct Pong : public VBehaviour<Pong>
 
   void f()
   {
-    auto* alloc = ThreadAlloc::get();
     static constexpr size_t buf_len = 64;
     char buf[buf_len];
-    auto ret = conn->read(alloc, buf, buf_len);
+    auto ret = conn->read(buf, buf_len);
     if (ret == 0)
     {
       std::cout << "Client connection closed: " << conn << std::endl;
@@ -79,7 +77,7 @@ struct Pong : public VBehaviour<Pong>
     {
       std::cout << "Server recv: " << buf << std::endl;
       std::string pong = "pong";
-      ret = conn->write(alloc, (char*)pong.c_str(), pong.length() + 1);
+      ret = conn->write((char*)pong.c_str(), pong.length() + 1);
       assert(ret > 0);
       if (Systematic::coin(4))
       {
