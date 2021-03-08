@@ -63,22 +63,21 @@ namespace verona::rt::io
 
       int sock = open_socket();
       if (!sock)
-      {
-        perror("socket");
         return -1;
-      }
 
       int res = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
       if (res == -1)
       {
-        perror("bind");
+        Systematic::cout() << "error: bind " << strerrorname_np(errno)
+                           << std::endl;
         return -1;
       }
 
       res = listen(sock, backlog);
       if (res == -1)
       {
-        perror("listen");
+        Systematic::cout() << "error: listen " << strerrorname_np(errno)
+                           << std::endl;
         return -1;
       }
 
@@ -165,14 +164,19 @@ namespace verona::rt::io
       }
       int sock = socket(domain, type | SOCK_NONBLOCK, protocol);
       if (sock == -1)
+      {
+        Systematic::cout() << "error: socket " << strerrorname_np(errno)
+                           << std::endl;
         return -1;
+      }
 
       int opt_val = 1;
       int res =
         setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt_val, sizeof(opt_val));
       if (res == -1)
       {
-        perror("setsockopt(SO_REUSEADDR)");
+        Systematic::cout() << "error: setsockopt(SO_REUSEADDR) "
+                           << strerrorname_np(errno) << std::endl;
         return -1;
       }
 
@@ -239,6 +243,7 @@ namespace verona::rt::io
       {
         Systematic::cout() << "error: epoll_ctl(EPOLL_CTL_MOD, " << event->fd
                            << ") " << strerrorname_np(errno) << std::endl;
+        assert(false);
       }
     }
 
@@ -292,7 +297,8 @@ namespace verona::rt::io
       int ret = epoll_ctl(efd, EPOLL_CTL_ADD, event.fd, &event.ev);
       if (ret != 0)
       {
-        perror("epoll_ctl(EPOLL_CTL_ADD)");
+        Systematic::cout() << "error: epoll_ctl(EPOLL_CTL_ADD) "
+                           << strerrorname_np(errno) << std::endl;
         assert(false);
       }
     }
@@ -310,8 +316,8 @@ namespace verona::rt::io
       const int count = epoll_wait(efd, events, max_events, 0);
       if (count == -1)
       {
-        perror("epoll_wait");
-        assert(false);
+        Systematic::cout() << "error: epoll_wait " << strerrorname_np(errno)
+                           << std::endl;
         return 0;
       }
 

@@ -43,7 +43,7 @@ struct Ping : public VBehaviour<Ping>
       ret = conn->write(alloc, (char*)ping.c_str(), ping.length() + 1);
       assert(ret > 0);
 
-      if (Systematic::coin(3))
+      if (Systematic::coin(4))
       {
         conn->close();
         return;
@@ -68,8 +68,6 @@ struct Pong : public VBehaviour<Pong>
     if (ret == 0)
     {
       std::cout << "Client connection closed: " << conn << std::endl;
-      // TODO: Is this close necessary to decrement the poller's counter?
-      conn->close();
       return;
     }
     else if ((ret == -1) && (errno != EAGAIN) && (errno != EWOULDBLOCK))
@@ -83,6 +81,11 @@ struct Pong : public VBehaviour<Pong>
       std::string pong = "pong";
       ret = conn->write(alloc, (char*)pong.c_str(), pong.length() + 1);
       assert(ret > 0);
+      if (Systematic::coin(4))
+      {
+        conn->close();
+        return;
+      }
     }
     Cown::schedule<Pong>(conn, conn);
   }
@@ -106,11 +109,12 @@ struct Listen : public VBehaviour<Listen>
       first_run = false;
 
       auto* alloc = ThreadAlloc::get();
+      // TODO: host "" should work
       auto* client = io::TCPSocket::connect(alloc, "0.0.0.0", port);
       if (client == nullptr)
       {
         std::cout << "Unable to connect" << std::endl;
-        return;
+        abort();
       }
       Cown::schedule<Ping, YesTransfer>(client, client);
     }
@@ -140,12 +144,25 @@ struct Init : public VBehaviour<Init>
   {
     auto* alloc = ThreadAlloc::get_noncachable();
     auto* listener = io::TCPSocket::listen(alloc, "0.0.0.0", port);
+    if (listener == nullptr)
+    {
+      std::cout << "Unable to listen" << std::endl;
+      return;
+    }
     Cown::schedule<Listen, YesTransfer>(listener, listener, port);
   }
 };
 
-void test(uint16_t port)
+void test(uint16_t port, bool increment_port)
 {
+  static uint16_t port_inc = 0;
+  if (increment_port)
+  {
+    port_inc++;
+    port += port_inc;
+  }
+
+  std::cout << "port: " << port << std::endl;
   auto* alloc = ThreadAlloc::get();
   auto* entrypoint = new (alloc) Main();
   Cown::schedule<Init, YesTransfer>(entrypoint, port);
@@ -155,5 +172,6 @@ int main(int argc, char** argv)
 {
   SystematicTestHarness h(argc, argv);
   const auto port = h.opt.is<uint16_t>("--port", 8080);
-  h.run(test, port);
+  const auto increment_port = h.opt.has("--increment_port");
+  h.run(test, port, increment_port);
 }
