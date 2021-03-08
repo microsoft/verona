@@ -571,6 +571,7 @@ namespace verona::rt
 #endif
           if (io_poller.get_event_count() != 0)
         {
+          // TODO: we should block on IO for some time here
           continue;
         }
         else if (mute_set.size() != 0)
@@ -623,9 +624,6 @@ namespace verona::rt
       {
         auto token = clear_thread_bit(cown);
         SchedulerThread* sched = token->owning_thread();
-
-        // TODO: would it be worth polling for the other thread here?
-        // poll_io(token);
 
         assert(
           sched->debug_is_token_active() || sched->debug_is_token_stolen());

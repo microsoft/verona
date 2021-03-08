@@ -4,15 +4,6 @@
 
 using namespace verona::rt;
 
-static bool coin(size_t n)
-{
-#ifdef USE_SYSTEMATIC_TESTING
-  return Systematic::coin(n);
-#else
-  abort();
-#endif
-}
-
 struct Ping : public VBehaviour<Ping>
 {
   io::TCPSocket* conn;
