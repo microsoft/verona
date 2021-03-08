@@ -114,8 +114,8 @@ namespace verona::rt
     /// cleared before scheduler sleep, or in some stages of the LD protocol.
     ObjectMap<T*> mute_set;
 
-    io::Poller<T> io_poller;
-    Stack<io::Event<T>, Alloc> blocking_io;
+    io::Poller io_poller;
+    Stack<io::Event, Alloc> blocking_io;
 
     T* get_token_cown()
     {
@@ -255,23 +255,13 @@ namespace verona::rt
       }
     }
 
-    void handle_blocking_io()
-    {
-      while (!blocking_io.empty())
-      {
-        auto* event = blocking_io.pop();
-        event->destination->enqueue(event);
-      }
-      assert(blocking_io.empty());
-    }
-
   public:
-    io::Poller<T>& get_io_poller()
+    io::Poller& get_io_poller()
     {
       return io_poller;
     }
 
-    void add_blocking_io(io::Event<T>* event)
+    void add_blocking_io(io::Event* event)
     {
       // assert(event->destination != nullptr);
       // TODO: avoid adding duplicate events
@@ -372,7 +362,7 @@ namespace verona::rt
 
         bool reschedule = cown->run(alloc, state, send_epoch);
 
-        handle_blocking_io();
+        io_poller.handle_blocking_io(blocking_io);
 
         if (reschedule)
         {

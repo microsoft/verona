@@ -10,11 +10,11 @@ namespace verona::rt::io
   class TCPSocket : public rt::VCown<TCPSocket>
   {
   private:
-    Poller<Cown>& poller;
+    Poller& poller;
     int fd;
     bool closed = false;
 
-    TCPSocket(Poller<Cown>& poller_, int fd_) : poller(poller_), fd(fd_)
+    TCPSocket(Poller& poller_, int fd_) : poller(poller_), fd(fd_)
     {
       const auto prev = poller.add_event_source();
       if (prev == 0)
@@ -23,18 +23,18 @@ namespace verona::rt::io
 
     void would_block(Alloc* alloc)
     {
-      auto* event = Event<Cown>::tcp_socket(alloc, fd, this);
+      auto* event = TCP::event(alloc, fd, this);
       poller.set_destination(*event);
       Scheduler::local()->add_blocking_io(event);
       would_block_on_io();
     }
 
-    static TCPSocket* create(Alloc* alloc, Poller<Cown>& poller, int socket)
+    static TCPSocket* create(Alloc* alloc, Poller& poller, int socket)
     {
       assert(socket != -1);
       auto* cown = new (alloc) TCPSocket(poller, socket);
       Systematic::cout() << "New TCPSocket cown " << cown << std::endl;
-      auto event = Event<Cown>::tcp_socket(socket, cown);
+      auto event = TCP::event(socket, cown);
       poller.register_event(event);
       return cown;
     }
@@ -66,22 +66,19 @@ namespace verona::rt::io
 
     TCPSocket* accept(Alloc* alloc)
     {
-      int socket = TCP::server_accept(fd);
+      auto socket = TCP::accept(fd);
       if (socket == -1)
       {
-        Systematic::cout() << "TCP accept error: " << strerror(errno)
-                           << std::endl;
         would_block(alloc);
         return nullptr;
       }
-      TCP::make_nonblocking(socket);
 
       return create(alloc, poller, socket);
     }
 
     int read(Alloc* alloc, char* buf, uint32_t len)
     {
-      int res = TCP::socket_read(fd, buf, len);
+      int res = TCP::read(fd, buf, len);
       if (res == -1)
         would_block(alloc);
 
@@ -90,7 +87,7 @@ namespace verona::rt::io
 
     int write(Alloc* alloc, char* buf, uint32_t len)
     {
-      int res = TCP::socket_write(fd, buf, len);
+      int res = TCP::write(fd, buf, len);
       if (res == -1)
         would_block(alloc);
       else

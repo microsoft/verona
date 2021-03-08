@@ -5,11 +5,9 @@
 namespace verona::rt::io
 {
 #if defined(__linux__)
+  using Event = LinuxEvent;
+  using Poller = LinuxPoller;
   using TCP = LinuxTCP;
-  template<typename T>
-  using Event = LinuxEvent<T>;
-  template<typename T>
-  using Poller = LinuxPoller<T>;
 #else
   error Unsupported platform
 #endif
