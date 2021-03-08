@@ -114,7 +114,8 @@ namespace verona::rt
     /// cleared before scheduler sleep, or in some stages of the LD protocol.
     ObjectMap<T*> mute_set;
 
-    io::DefaultPoller<T> io_poller;
+    io::Poller<T> io_poller;
+    Stack<io::Event<T>, Alloc> blocking_io;
 
     T* get_token_cown()
     {
@@ -125,7 +126,8 @@ namespace verona::rt
     SchedulerThread()
     : token_cown{T::create_token_cown()},
       q{token_cown},
-      mute_set{ThreadAlloc::get()}
+      mute_set{ThreadAlloc::get()},
+      blocking_io{ThreadAlloc::get()}
     {
       token_cown->set_owning_thread(this);
     }
@@ -253,11 +255,27 @@ namespace verona::rt
       }
     }
 
+    void handle_blocking_io()
+    {
+      while (!blocking_io.empty())
+      {
+        auto* event = blocking_io.pop();
+        event->destination->enqueue(event);
+      }
+      assert(blocking_io.empty());
+    }
+
   public:
-    // TODO: rethink API
-    io::DefaultPoller<T>& get_io_poller()
+    io::Poller<T>& get_io_poller()
     {
       return io_poller;
+    }
+
+    void add_blocking_io(io::Event<T>* event)
+    {
+      // assert(event->destination != nullptr);
+      // TODO: avoid adding duplicate events
+      blocking_io.push(event);
     }
 
   private:
@@ -353,6 +371,8 @@ namespace verona::rt
         Systematic::cout() << "Running cown " << cown << std::endl;
 
         bool reschedule = cown->run(alloc, state, send_epoch);
+
+        handle_blocking_io();
 
         if (reschedule)
         {

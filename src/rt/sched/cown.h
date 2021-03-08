@@ -1210,9 +1210,14 @@ namespace verona::rt
         if (apply_backpressure(alloc, epoch, senders, senders_count))
           return false;
 
-        // Reschedule the other cowns.
+        // Reschedule the other cowns, unless they are blocked on IO.
         for (size_t s = 0; s < (senders_count - 1); s++)
-          senders[s]->schedule();
+        {
+          if (senders[s]->io_would_block)
+            senders[s]->io_would_block = false;
+          else
+            senders[s]->schedule();
+        }
 
         alloc->dealloc(senders, senders_count * sizeof(Cown*));
 
