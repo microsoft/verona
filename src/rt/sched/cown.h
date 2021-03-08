@@ -1013,11 +1013,6 @@ namespace verona::rt
       if (mutor == nullptr)
         return false;
 
-      // TODO: re-enable muting
-      Cown::release(alloc, mutor);
-      Scheduler::local()->mutor = nullptr;
-      return false;
-
       // The array of senders is reused for the unmute message. Since fewer than
       // the original count of cowns may be muted, a null terminator may be
       // added before the end of the allocation to mark the end of the muted
