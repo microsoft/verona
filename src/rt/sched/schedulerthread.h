@@ -411,8 +411,6 @@ namespace verona::rt
         }
         else
         {
-          cown->is_scheduled.store(false, std::memory_order_relaxed);
-          Systematic::cout() << "Unschedule cown " << cown << std::endl;
           // Don't reschedule.
           cown = nullptr;
         }

@@ -4,6 +4,15 @@
 
 using namespace verona::rt;
 
+static bool coin(size_t n)
+{
+#ifdef USE_SYSTEMATIC_TESTING
+  return Systematic::coin(n);
+#else
+  abort();
+#endif
+}
+
 struct Ping : public VBehaviour<Ping>
 {
   io::TCPSocket* conn;
@@ -46,7 +55,7 @@ struct Ping : public VBehaviour<Ping>
       res = conn->write((char*)ping.c_str(), ping.length() + 1);
       assert(res.ok());
 
-      if (Systematic::coin(4))
+      if (coin(4))
       {
         conn->close();
         return;
@@ -87,7 +96,7 @@ struct Pong : public VBehaviour<Pong>
       std::string pong = "pong";
       res = conn->write((char*)pong.c_str(), pong.length() + 1);
       assert(res.ok());
-      if (Systematic::coin(4))
+      if (coin(4))
       {
         conn->close();
         return;

@@ -1174,6 +1174,7 @@ namespace verona::rt
             return true;
           }
 
+          is_scheduled.store(false, std::memory_order_relaxed);
           Systematic::cout() << "Unschedule cown " << this << std::endl;
           Cown::release(alloc, this);
           return false;
