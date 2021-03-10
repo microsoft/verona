@@ -22,11 +22,11 @@ vec = new StdVec[ProcessSandbox]::std::vector[int]();
 
 // Use the object as if it was native
 // "42" is "int", since it comes from the template parameter above
-vec.push_back(42)
+vec.push_back(int(42))
 
 // The result will be used by a native Verona function directly, as it's an alias to a known Verona type
 // "0" is "size_t" as defined by std::vector, which alias a known Verona type
-print(vec.at(0))
+print(vec.at(size_t(0)))
 ```
 
 ## Overall architecture
@@ -249,7 +249,7 @@ At run time:
    5. Stores the return value in the memory pointed by the variable `vec`.
 
 ```c
-obj.push_back(42)
+obj.push_back(int(42))
 ```
 
 The compiler will:
@@ -266,11 +266,11 @@ At run time:
 3. There is no return value, so `obj.push_back(int)` just returns.
 
 ```c
-print(obj.at(0))
+print(obj.at(size_t(0)))
 ```
 
 The compiler will:
-1. Validate the type of `0` (something like `size_t`) and the return type (`int`).
+1. Validate the type of `0` (something like `C::size_t`) and the return type (`C::int`).
 2. Try to call a function on the foreign module.
 3. Assemble the foreign call signature: `int& std::vector<int>::at(size_t)`
 4. Same as above, creates a new Verona function in the `StdVec` class that will marshall arguments and return value and call the dispatcher.
