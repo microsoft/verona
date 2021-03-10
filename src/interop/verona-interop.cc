@@ -30,6 +30,12 @@ namespace
     cl::Optional,
     cl::init(false));
 
+  cl::opt<bool> dumpIR(
+    "dump",
+    cl::desc("Dumps the whole IR at the end"),
+    cl::Optional,
+    cl::init(false));
+
   cl::opt<string> inputFile(
     cl::Positional,
     cl::desc("<input file>"),
@@ -54,7 +60,7 @@ namespace
     assert(ty.valid());
     auto kind = ty.kindName();
     auto name = ty.getName().str();
-    cout << name << "(@" << ty.decl << ") " << kind;
+    cout << name << " " << kind;
     if (ty.kind == CXXType::Kind::Builtin)
       cout << "(" << ty.builtinKindName() << ")";
     cout << endl;
@@ -112,29 +118,23 @@ namespace
     CXXInterface& interface, CXXType& ty, llvm::ArrayRef<TemplateArgument> args)
   {
     // Canonical representation
-    cout << "Canonical Template specialisation:" << endl;
     QualType canon =
       interface.getCanonicalTemplateSpecializationType(ty.decl, args);
-    canon.dump();
 
     // Tries to instantiate a full specialisation
     return interface.instantiateClassTemplate(ty, args);
   }
 
   /// Creates a test function
-  clang::FunctionDecl* test_function(CXXInterface& interface)
+  clang::FunctionDecl* test_function(CXXInterface& interface, const char* name)
   {
     // Create a new function on the main file
     auto intTy = CXXType::getInt();
     llvm::SmallVector<CXXType, 1> args{intTy};
 
-    cout << "Simple function:" << endl;
     // Create new function
     auto func =
-      interface.instantiateFunction("verona_wrapper_fn_1", args, intTy);
-
-    // Set first argument
-    auto arg = interface.createFunctionArgument("arg1", intTy, func);
+      interface.instantiateFunction(name, args, intTy);
 
     // Create constant literal
     auto* fourLiteral = interface.createIntegerLiteral(32, 4);
@@ -142,7 +142,6 @@ namespace
     // Return statement
     interface.createReturn(fourLiteral, func);
 
-    func->dump();
     return func;
   }
 
@@ -213,7 +212,7 @@ int main(int argc, char** argv)
   // Test function creation
   if (testFunction)
   {
-    test_function(interface);
+    test_function(interface, "verona_wrapper_fn_1");
   }
 
   if (!symbol.empty())
@@ -233,26 +232,30 @@ int main(int argc, char** argv)
         exit(1);
       }
 
-      // Make sure the number of arguments is the same
-      auto has = decl.numberOfTemplateParameters();
-      if (req != has)
-      {
-        cerr << "Requested " << req << " template arguments but class "
-             << symbol.c_str() << " only has " << has << endl;
-        exit(1);
-      }
-
       // Specialize the template with the arguments
       auto args = create_template_args(interface, specialization);
       auto spec = specialize_template(interface, decl, args);
-      cout << "Size of " << spec.getName().str().c_str() << " is "
+      cout << "Size of " << spec.getName().str() << " is "
            << interface.getTypeSize(spec) << " bytes" << endl;
     }
   }
 
   // Emit whatever is left on the main file
+  // This is silent, just to make sure nothing breaks here
   auto mod = interface.emitLLVM();
-  mod->dump();
+
+  // This just dumps the function generated, for testing purposes
+  if (testFunction)
+  {
+    auto func = mod->getFunction("_Z19verona_wrapper_fn_1i");
+    func->dump();
+  }
+
+  // This just dumps everything, for debugging purposes
+  if (dumpIR)
+  {
+    mod->dump();
+  }
 
   return 0;
 }

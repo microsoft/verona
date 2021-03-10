@@ -1,0 +1,2 @@
+Found: TFoo Class Template
+Size of TFoo is 8 bytes

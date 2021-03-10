@@ -1,0 +1,8 @@
+; Function Attrs: noinline nounwind optnone uwtable mustprogress
+define dso_local i32 @_Z19verona_wrapper_fn_1i(i32 %arg0) #0 {
+entry:
+  %arg0.addr = alloca i32, align 4
+  store i32 %arg0, i32* %arg0.addr, align 4
+  ret i32 4
+}
+

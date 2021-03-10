@@ -1,30 +1,71 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-#define SOME_MACRO
-
-int FOO = 0;
-
-class Foo
-{};
-
-enum EFoo
-{
-};
-
-template<class T = int>
+// Simple test, with default argument
+template<class T, class U = int>
 struct TFoo
 {
   T innerFoo;
-  T add(T arg)
+  T add(U arg)
   {
     return arg + innerFoo;
   }
 };
 
+namespace One {
+// Inheritance test, with required + default argument
+template<class A, class B = int>
+struct TestDefaultArgsBase {
+  A a;
+  B b;
+  virtual A cast(B from) = 0;
+  A convert(B from) { return cast(from); }
+  virtual ~TestDefaultArgsBase() {}
+};
+
+namespace InnerOne {
+// Test using the default argument
+template <class T>
+struct TestDefaultArgsInt : public TestDefaultArgsBase<T> {
+  T cast(int from) { return (T)from; }
+};
+}
+}
+
+namespace Two {
+// Test not using the default argument
+template <class T>
+struct TestDefaultArgsFloat : public One::TestDefaultArgsBase<T, float> {
+  T cast(float from) { return (T)from; }
+};
+}
+
+/*
+// The code below isn't part of the test, but it helps check the
+// generated LLVM IR for comparison.
 int foo()
 {
-  TFoo<int> TF;
-  TF.innerFoo = 3;
-  return TF.add(4);
+  int isum = 0;
+  float fsum = 0.0;
+
+  // with default argument
+  TFoo<int, long> TFdef;
+  TFdef.innerFoo = 3;
+  isum += TFdef.add(4);
+
+  // without default argument
+  TFoo<long> TFarg;
+  TFarg.innerFoo = 3;
+  isum += TFarg.add(4);
+
+  // inheritance with default argument
+  One::TestDefaultArgsBase<float> *T1 = new One::InnerOne::TestDefaultArgsInt<float>();
+  fsum += T1->convert(42);
+
+  // inheritance without default argument
+  One::TestDefaultArgsBase<float, float> *T2 = new Two::TestDefaultArgsFloat<float>();
+  fsum += T2->convert(42);
+
+  return isum + (int)fsum;
 }
+// */

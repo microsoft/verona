@@ -558,6 +558,29 @@ namespace verona::interop
         ast->getTrivialTypeSourceInfo(fnTy),
         clang::StorageClass::SC_None);
 
+      // Define all arguments
+      llvm::SmallVector<clang::ParmVarDecl*, 4> argDecls;
+      size_t argID = 0;
+      for (auto argTy : argTys)
+      {
+        std::string argName = "arg" + std::to_string(argID++);
+        clang::IdentifierInfo& ident = ast->Idents.get(argName);
+        clang::ParmVarDecl* arg = clang::ParmVarDecl::Create(
+          *ast,
+          func,
+          loc,
+          loc,
+          &ident,
+          argTy,
+          nullptr,
+          clang::StorageClass::SC_None,
+          nullptr);
+        argDecls.push_back(arg);
+      }
+
+      // Set function argument list
+      func->setParams(argDecls);
+
       // Associate with the translation unit
       func->setLexicalDeclContext(DC);
       DC->addDecl(func);
