@@ -68,9 +68,9 @@ namespace
 
   /// Looks up a symbol from a CXX interface by name
   /// Tested on <array> looking for type "array"
-  CXXType get_type(CXXInterface& interface, string& name)
+  CXXType get_type(const CXXQuery* query, string& name)
   {
-    auto ty = interface.getType(name);
+    auto ty = query->getType(name);
     if (ty.valid())
     {
       cout << "Found: ";
@@ -83,87 +83,22 @@ namespace
     return ty;
   }
 
-  /// Create the parameters of a template class from type names or values
-  vector<TemplateArgument> create_template_args(
-    CXXInterface& interface, CXXType& ty, llvm::ArrayRef<string> args)
-  {
-    vector<TemplateArgument> templateArgs;
-
-    // First, detect all user declared arguments, overriding default arguments.
-    for (auto arg : args)
-    {
-      if (isdigit(arg[0]))
-      {
-        // Numbers default to int parameter
-        auto num = atol(arg.c_str());
-        templateArgs.push_back(interface.createTemplateArgumentForIntegerValue(
-          CXXType::BuiltinTypeKinds::Int, num));
-      }
-      else
-      {
-        // Try to find the type name
-        auto decl = interface.getType(arg);
-        if (!decl.valid())
-        {
-          cerr << "Invalid template specialization type " << arg.c_str()
-               << endl;
-          exit(1);
-        }
-        templateArgs.push_back(interface.createTemplateArgumentForType(decl));
-      }
-    }
-
-    // If there are any remaining arguments, get their default values and add
-    // to the list. We want to create all template classes fully defined, to
-    // make sure there are no dependent types left.
-    auto actual = llvm::dyn_cast<clang::ClassTemplateDecl>(ty.decl)
-                    ->getTemplateParameters();
-    auto skip = args.size();
-    auto all = actual->size();
-    for (auto i = skip; i < all; i++)
-    {
-      auto param = actual->getParam(i);
-      if (auto typeParam = llvm::dyn_cast<clang::TemplateTypeParmDecl>(param))
-      {
-        if (!typeParam->hasDefaultArgument())
-        {
-          cerr << "Type " << ty.getName().str() << " template argument " << i+1
-               << " has no default argument and no type was specified" << endl;
-          exit(1);
-        }
-        templateArgs.push_back(typeParam->getDefaultArgument());
-      }
-      else if (
-        auto nontypeParam =
-          llvm::dyn_cast<clang::NonTypeTemplateParmDecl>(param))
-      {
-        if (!typeParam->hasDefaultArgument())
-        {
-          cerr << "Type " << ty.getName().str() << " template argument " << i+1
-               << " has no default argument and no type was specified" << endl;
-          exit(1);
-        }
-        templateArgs.push_back(nontypeParam->getDefaultArgument());
-      }
-    }
-    return templateArgs;
-  }
-
   /// Creates a test function
-  clang::FunctionDecl* test_function(CXXInterface& interface, const char* name)
+  clang::FunctionDecl*
+  test_function(const CXXBuilder* builder, const char* name)
   {
     // Create a new function on the main file
     auto intTy = CXXType::getInt();
     llvm::SmallVector<CXXType, 1> args{intTy};
 
     // Create new function
-    auto func = interface.instantiateFunction(name, args, intTy);
+    auto func = builder->instantiateFunction(name, args, intTy);
 
     // Create constant literal
-    auto* fourLiteral = interface.createIntegerLiteral(32, 4);
+    auto* fourLiteral = builder->createIntegerLiteral(32, 4);
 
     // Return statement
-    interface.createReturn(fourLiteral, func);
+    builder->createReturn(fourLiteral, func);
 
     return func;
   }
@@ -231,18 +166,14 @@ int main(int argc, char** argv)
 
   // Create the C++ interface
   CXXInterface interface(inputFile, includePath);
-
-  // Test function creation
-  if (testFunction)
-  {
-    test_function(interface, "verona_wrapper_fn_1");
-  }
+  const CXXQuery* query = interface.getQuery();
+  const CXXBuilder* builder = interface.getBuilder();
 
   // Test type query
   if (!symbol.empty())
   {
     // Query the requested symbol
-    auto ty = get_type(interface, symbol);
+    auto ty = get_type(query, symbol);
 
     // Try and specialize a template
     uint64_t req = specialization.size();
@@ -257,17 +188,23 @@ int main(int argc, char** argv)
       }
 
       // Specialize the template with the arguments
-      auto args = create_template_args(interface, ty, specialization);
+      auto args = query->gatherTemplateArguments(ty, specialization);
       // Canonical representation
       QualType canon =
-        interface.getCanonicalTemplateSpecializationType(ty.decl, args);
+        query->getCanonicalTemplateSpecializationType(ty.decl, args);
 
       // Tries to instantiate a full specialisation
-      auto spec = interface.instantiateClassTemplate(ty, args);
+      auto spec = builder->instantiateClassTemplate(ty, args);
 
       cout << "Size of " << spec.getName().str() << " is "
-           << interface.getTypeSize(spec) << " bytes" << endl;
+           << query->getTypeSize(spec) << " bytes" << endl;
     }
+  }
+
+  // Test function creation
+  if (testFunction)
+  {
+    test_function(builder, "verona_wrapper_fn_1");
   }
 
   // Emit whatever is left on the main file
