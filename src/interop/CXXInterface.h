@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "CXXType.h"
-#include "CXXQuery.h"
 #include "CXXBuilder.h"
+#include "CXXQuery.h"
+#include "CXXType.h"
 #include "Compiler.h"
 #include "FS.h"
 
