@@ -84,10 +84,12 @@ namespace
   }
 
   /// Create the parameters of a template class from type names or values
-  vector<TemplateArgument>
-  create_template_args(CXXInterface& interface, llvm::ArrayRef<string> args)
+  vector<TemplateArgument> create_template_args(
+    CXXInterface& interface, CXXType& ty, llvm::ArrayRef<string> args)
   {
     vector<TemplateArgument> templateArgs;
+
+    // First, detect all user declared arguments, overriding default arguments.
     for (auto arg : args)
     {
       if (isdigit(arg[0]))
@@ -110,19 +112,41 @@ namespace
         templateArgs.push_back(interface.createTemplateArgumentForType(decl));
       }
     }
+
+    // If there are any remaining arguments, get their default values and add
+    // to the list. We want to create all template classes fully defined, to
+    // make sure there are no dependent types left.
+    auto actual = llvm::dyn_cast<clang::ClassTemplateDecl>(ty.decl)
+                    ->getTemplateParameters();
+    auto skip = args.size();
+    auto all = actual->size();
+    for (auto i = skip; i < all; i++)
+    {
+      auto param = actual->getParam(i);
+      if (auto typeParam = llvm::dyn_cast<clang::TemplateTypeParmDecl>(param))
+      {
+        if (!typeParam->hasDefaultArgument())
+        {
+          cerr << "Type " << ty.getName().str() << " template argument " << i+1
+               << " has no default argument and no type was specified" << endl;
+          exit(1);
+        }
+        templateArgs.push_back(typeParam->getDefaultArgument());
+      }
+      else if (
+        auto nontypeParam =
+          llvm::dyn_cast<clang::NonTypeTemplateParmDecl>(param))
+      {
+        if (!typeParam->hasDefaultArgument())
+        {
+          cerr << "Type " << ty.getName().str() << " template argument " << i+1
+               << " has no default argument and no type was specified" << endl;
+          exit(1);
+        }
+        templateArgs.push_back(nontypeParam->getDefaultArgument());
+      }
+    }
     return templateArgs;
-  }
-
-  /// Specialize the template into a CXXType
-  CXXType specialize_template(
-    CXXInterface& interface, CXXType& ty, llvm::ArrayRef<TemplateArgument> args)
-  {
-    // Canonical representation
-    QualType canon =
-      interface.getCanonicalTemplateSpecializationType(ty.decl, args);
-
-    // Tries to instantiate a full specialisation
-    return interface.instantiateClassTemplate(ty, args);
   }
 
   /// Creates a test function
@@ -133,8 +157,7 @@ namespace
     llvm::SmallVector<CXXType, 1> args{intTy};
 
     // Create new function
-    auto func =
-      interface.instantiateFunction(name, args, intTy);
+    auto func = interface.instantiateFunction(name, args, intTy);
 
     // Create constant literal
     auto* fourLiteral = interface.createIntegerLiteral(32, 4);
@@ -215,17 +238,18 @@ int main(int argc, char** argv)
     test_function(interface, "verona_wrapper_fn_1");
   }
 
+  // Test type query
   if (!symbol.empty())
   {
     // Query the requested symbol
-    auto decl = get_type(interface, symbol);
+    auto ty = get_type(interface, symbol);
 
     // Try and specialize a template
     uint64_t req = specialization.size();
-    if (req)
+    if (req || ty.isTemplate())
     {
       // Make sure this is a template class
-      if (!decl.isTemplate())
+      if (!ty.isTemplate())
       {
         cerr << "Class " << symbol.c_str()
              << " is not a template class, can't specialize" << endl;
@@ -233,8 +257,14 @@ int main(int argc, char** argv)
       }
 
       // Specialize the template with the arguments
-      auto args = create_template_args(interface, specialization);
-      auto spec = specialize_template(interface, decl, args);
+      auto args = create_template_args(interface, ty, specialization);
+      // Canonical representation
+      QualType canon =
+        interface.getCanonicalTemplateSpecializationType(ty.decl, args);
+
+      // Tries to instantiate a full specialisation
+      auto spec = interface.instantiateClassTemplate(ty, args);
+
       cout << "Size of " << spec.getName().str() << " is "
            << interface.getTypeSize(spec) << " bytes" << endl;
     }
