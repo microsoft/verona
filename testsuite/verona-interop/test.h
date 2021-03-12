@@ -12,6 +12,13 @@ struct TFoo
   }
 };
 
+// Simple test, with single default argument
+template<class T = int>
+struct SFoo
+{
+  T innerFoo;
+};
+
 namespace One {
 // Inheritance test, with required + default argument
 template<class A, class B = int>

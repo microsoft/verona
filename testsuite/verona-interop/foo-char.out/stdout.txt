@@ -1,2 +1,2 @@
-Found: TFoo Class Template
-Size of TFoo is 1 bytes
+Found: SFoo Class Template
+Size of SFoo is 1 bytes
