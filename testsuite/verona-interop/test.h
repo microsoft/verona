@@ -19,32 +19,47 @@ struct SFoo
   T innerFoo;
 };
 
-namespace One {
-// Inheritance test, with required + default argument
-template<class A, class B = int>
-struct TestDefaultArgsBase {
-  A a;
-  B b;
-  virtual A cast(B from) = 0;
-  A convert(B from) { return cast(from); }
-  virtual ~TestDefaultArgsBase() {}
-};
+namespace One
+{
+  // Inheritance test, with required + default argument
+  template<class A, class B = int>
+  struct TestDefaultArgsBase
+  {
+    A a;
+    B b;
+    virtual A cast(B from) = 0;
+    A convert(B from)
+    {
+      return cast(from);
+    }
+    virtual ~TestDefaultArgsBase() {}
+  };
 
-namespace InnerOne {
-// Test using the default argument
-template <class T>
-struct TestDefaultArgsInt : public TestDefaultArgsBase<T> {
-  T cast(int from) { return (T)from; }
-};
-}
+  namespace InnerOne
+  {
+    // Test using the default argument
+    template<class T>
+    struct TestDefaultArgsInt : public TestDefaultArgsBase<T>
+    {
+      T cast(int from)
+      {
+        return (T)from;
+      }
+    };
+  }
 }
 
-namespace Two {
-// Test not using the default argument
-template <class T>
-struct TestDefaultArgsFloat : public One::TestDefaultArgsBase<T, float> {
-  T cast(float from) { return (T)from; }
-};
+namespace Two
+{
+  // Test not using the default argument
+  template<class T>
+  struct TestDefaultArgsFloat : public One::TestDefaultArgsBase<T, float>
+  {
+    T cast(float from)
+    {
+      return (T)from;
+    }
+  };
 }
 
 /*
@@ -66,12 +81,12 @@ int foo()
   isum += TFarg.add(4);
 
   // inheritance with default argument
-  One::TestDefaultArgsBase<float> *T1 = new One::InnerOne::TestDefaultArgsInt<float>();
-  fsum += T1->convert(42);
+  One::TestDefaultArgsBase<float> *T1 = new
+One::InnerOne::TestDefaultArgsInt<float>(); fsum += T1->convert(42);
 
   // inheritance without default argument
-  One::TestDefaultArgsBase<float, float> *T2 = new Two::TestDefaultArgsFloat<float>();
-  fsum += T2->convert(42);
+  One::TestDefaultArgsBase<float, float> *T2 = new
+Two::TestDefaultArgsFloat<float>(); fsum += T2->convert(42);
 
   return isum + (int)fsum;
 }
