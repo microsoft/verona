@@ -96,8 +96,8 @@ namespace verona::rt::io
       if (ret != 0)
       {
         Systematic::cout() << "error: epoll_ctl(EPOLL_CTL_MOD) "
-                           << strerrorname_np(errno) << " (cown "
-                           << event.cown() << ")" << std::endl;
+                           << strerror(errno) << " (cown " << event.cown()
+                           << ")" << std::endl;
         assert(false);
       }
     }
@@ -151,8 +151,8 @@ namespace verona::rt::io
       if (ret != 0)
       {
         Systematic::cout() << "error: epoll_ctl(EPOLL_CTL_ADD) "
-                           << strerrorname_np(errno) << " (cown "
-                           << event.cown() << ")" << std::endl;
+                           << strerror(errno) << " (cown " << event.cown()
+                           << ")" << std::endl;
         assert(false);
       }
     }
@@ -181,7 +181,7 @@ namespace verona::rt::io
       const int count = epoll_wait(efd, events, max_events, 0);
       if (count == -1)
       {
-        Systematic::cout() << "error: epoll_wait " << strerrorname_np(errno)
+        Systematic::cout() << "error: epoll_wait " << strerror(errno)
                            << std::endl;
         return 0;
       }
@@ -231,7 +231,7 @@ namespace verona::rt::io
 
     const char* error() const
     {
-      return strerrorname_np(err);
+      return strerror(err);
     }
 
     bool would_block() const
