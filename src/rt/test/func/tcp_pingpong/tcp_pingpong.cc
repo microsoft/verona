@@ -1,3 +1,5 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 #include <test/harness.h>
 #include <test/opt.h>
 #include <verona.h>
