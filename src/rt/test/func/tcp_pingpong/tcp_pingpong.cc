@@ -4,6 +4,7 @@
 #include <test/opt.h>
 #include <verona.h>
 
+#ifdef PLATFORM_SUPPORTS_IO
 using namespace verona::rt;
 
 struct Ping : public VBehaviour<Ping>
@@ -180,13 +181,20 @@ void test(uint16_t port, bool increment_port)
 
 int main(int argc, char** argv)
 {
-#ifndef USE_SYSTEMATIC_TESTING
+#  ifndef USE_SYSTEMATIC_TESTING
   std::cout << "This test requires systematic testing" << std::endl;
   return 1;
-#endif
+#  endif
 
   SystematicTestHarness h(argc, argv);
   const auto port = h.opt.is<uint16_t>("--port", 8080);
   const auto increment_port = h.opt.has("--increment_port");
   h.run(test, port, increment_port);
 }
+#else
+int main()
+{
+  std::cout << "platform does not support IO" << std::endl;
+  return 0;
+}
+#endif

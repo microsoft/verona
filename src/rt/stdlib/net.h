@@ -7,6 +7,7 @@
 #include "../sched/cown.h"
 #include "../sched/schedulerthread.h"
 
+#ifdef PLATFORM_SUPPORTS_IO
 namespace verona::rt::io
 {
   class TCPSocket : public rt::VCown<TCPSocket>
@@ -119,3 +120,4 @@ namespace verona::rt::io
     }
   };
 }
+#endif

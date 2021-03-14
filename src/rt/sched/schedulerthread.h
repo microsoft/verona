@@ -114,8 +114,10 @@ namespace verona::rt
     /// cleared before scheduler sleep, or in some stages of the LD protocol.
     ObjectMap<T*> mute_set;
 
+#ifdef PLATFORM_SUPPORTS_IO
     io::Poller io_poller;
-    Stack<io::Poller::Msg, Alloc> blocking_io;
+    Stack<io::Poller::Msg, Alloc> blocking_io{ThreadAlloc::get()};
+#endif
 
     T* get_token_cown()
     {
@@ -126,8 +128,7 @@ namespace verona::rt
     SchedulerThread()
     : token_cown{T::create_token_cown()},
       q{token_cown},
-      mute_set{ThreadAlloc::get()},
-      blocking_io{ThreadAlloc::get()}
+      mute_set{ThreadAlloc::get()}
     {
       token_cown->set_owning_thread(this);
     }
@@ -241,6 +242,7 @@ namespace verona::rt
 
     void poll_io()
     {
+#ifdef PLATFORM_SUPPORTS_IO
       T* ready_cowns[io::Poller::max_events];
       const auto count = io_poller.poll(alloc, ready_cowns);
       for (size_t i = 0; i < count; i++)
@@ -253,9 +255,11 @@ namespace verona::rt
         // TODO: what should we do if the cown is sleeping (has an empty queue)?
         cown->schedule();
       }
+#endif
     }
 
   public:
+#ifdef PLATFORM_SUPPORTS_IO
     io::Poller& get_io_poller()
     {
       return io_poller;
@@ -266,6 +270,7 @@ namespace verona::rt
       // TODO: avoid adding duplicate events
       blocking_io.push(msg);
     }
+#endif
 
   private:
     /**
@@ -361,7 +366,9 @@ namespace verona::rt
 
         bool reschedule = cown->run(alloc, state, send_epoch);
 
+#ifdef PLATFORM_SUPPORTS_IO
         io_poller.handle_blocking_io(blocking_io);
+#endif
 
         if (reschedule)
         {
@@ -569,12 +576,15 @@ namespace verona::rt
           UNUSED(tsc);
         }
 #endif
+#ifdef PLATFORM_SUPPORTS_IO
           if (io_poller.get_event_count() != 0)
         {
           // TODO: we should block on IO for some time here
           continue;
         }
-        else if (mute_set.size() != 0)
+        else
+#endif
+          if (mute_set.size() != 0)
         {
           mute_set_clear();
           continue;
