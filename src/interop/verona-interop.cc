@@ -54,55 +54,6 @@ namespace
     cl::CommaSeparated,
     cl::value_desc("specialization"));
 
-  /// Prints a type to stdout
-  void printType(CXXType& ty)
-  {
-    assert(ty.valid());
-    auto kind = ty.kindName();
-    auto name = ty.getName().str();
-    cout << name << " " << kind;
-    if (ty.kind == CXXType::Kind::Builtin)
-      cout << "(" << ty.builtinKindName() << ")";
-    cout << endl;
-  }
-
-  /// Looks up a symbol from a CXX interface by name
-  /// Tested on <array> looking for type "array"
-  CXXType get_type(const CXXQuery* query, string& name)
-  {
-    auto ty = query->getType(name);
-    if (ty.valid())
-    {
-      cout << "Found: ";
-      printType(ty);
-    }
-    else
-    {
-      cout << "Not found: " << name.c_str() << endl;
-    }
-    return ty;
-  }
-
-  /// Creates a test function
-  clang::FunctionDecl*
-  test_function(const CXXBuilder* builder, const char* name)
-  {
-    // Create a new function on the main file
-    auto intTy = CXXType::getInt();
-    llvm::SmallVector<CXXType, 1> args{intTy};
-
-    // Create new function
-    auto func = builder->instantiateFunction(name, args, intTy);
-
-    // Create constant literal
-    auto* fourLiteral = builder->createIntegerLiteral(32, 4);
-
-    // Return statement
-    builder->createReturn(fourLiteral, func);
-
-    return func;
-  }
-
   /// Add new option to arguments array
   void addArgOption(vector<char*>& args, char* arg, size_t len)
   {
@@ -156,6 +107,68 @@ namespace
     cl::ParseCommandLineOptions(
       args.size(), args.data(), "Verona Interop test\n");
   }
+
+  /// Prints a type to stdout
+  void printType(CXXType& ty)
+  {
+    assert(ty.valid());
+    auto kind = ty.kindName();
+    auto name = ty.getName().str();
+    cout << name << " " << kind;
+    if (ty.kind == CXXType::Kind::Builtin)
+      cout << "(" << ty.builtinKindName() << ")";
+    cout << endl;
+  }
+
+  /// Test a type
+  void test_type(
+    llvm::StringRef name,
+    llvm::ArrayRef<std::string> args,
+    const CXXQuery* query,
+    const CXXBuilder* builder)
+  {
+    // Find type
+    CXXType ty = query->getType(symbol);
+    if (!ty.valid())
+    {
+      cerr << "Invalid type '" << ty.getName().str() << "'" << endl;
+      exit(1);
+    }
+
+    // Print type name and kind
+    cout << "Found: ";
+    printType(ty);
+
+    // Try and specialize a template
+    // TODO: Should this be part of getType()?
+    // Do we need a complete type for template parameters?
+    if (ty.isTemplate())
+    {
+      // Tries to instantiate a full specialisation
+      ty = builder->buildTemplateType(ty, specialization);
+    }
+
+    // If all goes well, this returns a platform-dependent size
+    cout << "Size of " << ty.getName().str() << " is " << query->getTypeSize(ty)
+         << " bytes" << endl;
+  }
+
+  /// Creates a test function
+  void test_function(const char* name, const CXXBuilder* builder)
+  {
+    // Create a new function on the main file
+    auto intTy = CXXType::getInt();
+    llvm::SmallVector<CXXType, 1> args{intTy};
+
+    // Create new function
+    auto func = builder->buildFunction(name, args, intTy);
+
+    // Create constant literal
+    auto* fourLiteral = builder->createIntegerLiteral(32, 4);
+
+    // Return statement
+    builder->createReturn(fourLiteral, func);
+  }
 } // namespace
 
 int main(int argc, char** argv)
@@ -172,39 +185,13 @@ int main(int argc, char** argv)
   // Test type query
   if (!symbol.empty())
   {
-    // Query the requested symbol
-    auto ty = get_type(query, symbol);
-
-    // Try and specialize a template
-    uint64_t req = specialization.size();
-    if (req || ty.isTemplate())
-    {
-      // Make sure this is a template class
-      if (!ty.isTemplate())
-      {
-        cerr << "Class " << symbol.c_str()
-             << " is not a template class, can't specialize" << endl;
-        exit(1);
-      }
-
-      // Specialize the template with the arguments
-      auto args = query->gatherTemplateArguments(ty, specialization);
-      // Canonical representation
-      QualType canon =
-        query->getCanonicalTemplateSpecializationType(ty.decl, args);
-
-      // Tries to instantiate a full specialisation
-      auto spec = builder->instantiateClassTemplate(ty, args);
-
-      cout << "Size of " << spec.getName().str() << " is "
-           << query->getTypeSize(spec) << " bytes" << endl;
-    }
+    test_type(symbol, specialization, query, builder);
   }
 
   // Test function creation
   if (testFunction)
   {
-    test_function(builder, "verona_wrapper_fn_1");
+    test_function("verona_wrapper_fn_1", builder);
   }
 
   // Emit whatever is left on the main file
@@ -212,6 +199,7 @@ int main(int argc, char** argv)
   auto mod = interface.emitLLVM();
 
   // This just dumps everything, for debugging purposes
+  // NOTE: Output is not stable, don't use it for tests
   if (dumpIR)
   {
     mod->dump();

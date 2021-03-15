@@ -218,36 +218,23 @@ namespace verona::interop
 
     /**
      * Emit the LLVM code on all generated files
-     *
-     * FIXME: Make sure we're actually emitting all files
      */
     std::unique_ptr<llvm::Module> emitLLVM()
     {
       return Clang->emitLLVM(ast, cu_name);
     }
 
-    // Exposing some functionality to make this work
-    // TODO: Fix the layering issues
-
-    /// Get AST pointer
-    clang::ASTContext* getAST() const
-    {
-      return ast;
-    }
-
-    /// Get compiler
-    const Compiler* getCompiler() const
-    {
-      return Clang.get();
-    }
-
-    /// Get query system
+    /**
+     * Get query system
+     */
     const CXXQuery* getQuery() const
     {
       return query.get();
     }
 
-    /// Get builder system
+    /**
+     * Get builder system
+     */
     const CXXBuilder* getBuilder() const
     {
       return builder.get();

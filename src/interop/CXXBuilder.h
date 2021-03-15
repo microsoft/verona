@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "CXXType.h"
 #include "CXXQuery.h"
 #include "Compiler.h"
 
@@ -22,16 +23,6 @@ namespace verona::interop
     const Compiler* Clang;
     /// Query system
     const CXXQuery* query;
-
-  public:
-    /**
-     * CXXInterface c-tor. Creates the internal compile unit, include the
-     * user file (and all dependencies), generates the pre-compiled headers,
-     * creates the compiler instance and re-attaches the AST to the interface.
-     */
-    CXXBuilder(clang::ASTContext* ast, Compiler* Clang, const CXXQuery* query)
-    : ast(ast), Clang(Clang), query(query)
-    {}
 
     /**
      * Instantiate the class template specialisation at the end of the main
@@ -156,6 +147,50 @@ namespace verona::interop
 
       return func;
     }
+
+  public:
+    /**
+     * CXXInterface c-tor. Creates the internal compile unit, include the
+     * user file (and all dependencies), generates the pre-compiled headers,
+     * creates the compiler instance and re-attaches the AST to the interface.
+     */
+    CXXBuilder(clang::ASTContext* ast, Compiler* Clang, const CXXQuery* query)
+    : ast(ast), Clang(Clang), query(query)
+    {}
+
+    /**
+     * Build a template class from a CXXType template and a list of type
+     * parameters by name.
+     *
+     * FIXME: Recursively scan the params for template parameters and define
+     * them too.
+     */
+    CXXType
+    buildTemplateType(CXXType& ty, llvm::ArrayRef<std::string> params) const
+    {
+      // Gather all arguments, passed and default
+      auto args = query->gatherTemplateArguments(ty, params);
+
+      // Build the canonical representation
+      clang::QualType canon =
+        query->getCanonicalTemplateSpecializationType(ty.decl, args);
+
+      // Instantiate and return the definition
+      return instantiateClassTemplate(ty, args);
+    }
+
+    /**
+     * Build a function from name, args and return type, if the function
+     * does not yet exist. Return the existing one if it does.
+     *
+     * FIXME: Should check for template parameters, too.
+     */
+    clang::FunctionDecl* buildFunction(
+      const char* name, llvm::ArrayRef<CXXType> args, CXXType ret) const
+    {
+      return instantiateFunction(name, args, ret);
+    }
+
     /**
      * Create integer constant literal
      *
