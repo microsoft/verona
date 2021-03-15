@@ -69,7 +69,9 @@ namespace verona::interop
       {}
     };
 
-    /// Maps between CXXType and Clang's types.
+    /**
+     * Maps between CXXType and Clang's types.
+     */
     clang::QualType typeForBuiltin(CXXType::BuiltinTypeKinds ty) const
     {
       switch (ty)
@@ -106,6 +108,46 @@ namespace verona::interop
       // TODO: This is wrong but silences a warning, need to know what's the
       // correct behaviour here.
       return ast->VoidTy;
+    }
+
+    /**
+     * Returns the type as a template argument.
+     */
+    clang::TemplateArgument getTemplateArgument(CXXType t) const
+    {
+      switch (t.kind)
+      {
+        case CXXType::Kind::Invalid:
+        case CXXType::Kind::TemplateClass:
+          // TODO: Fix template class
+          return clang::TemplateArgument{};
+        case CXXType::Kind::SpecializedTemplateClass:
+        case CXXType::Kind::Class:
+          return clang::TemplateArgument{
+            ast->getRecordType(t.getAs<clang::CXXRecordDecl>())};
+        case CXXType::Kind::Enum:
+          return clang::TemplateArgument{
+            ast->getEnumType(t.getAs<clang::EnumDecl>())};
+        case CXXType::Kind::Builtin:
+          return clang::TemplateArgument{typeForBuiltin(t.builtTypeKind)};
+      }
+      return nullptr;
+    }
+
+    /**
+     * Returns the integral literal as a template argument.
+     * TODO: C++20 accepts floating point too
+     */
+    clang::TemplateArgument
+    getTemplateArgument(CXXType::BuiltinTypeKinds ty, uint64_t value) const
+    {
+      assert(CXXType::isIntegral(ty));
+      clang::QualType qualTy = typeForBuiltin(ty);
+      auto info = ast->getTypeInfo(qualTy);
+      llvm::APInt val{static_cast<unsigned int>(info.Width), value};
+      auto* literal = clang::IntegerLiteral::Create(
+        *ast, val, qualTy, clang::SourceLocation{});
+      return clang::TemplateArgument(literal);
     }
 
   public:
@@ -207,7 +249,9 @@ namespace verona::interop
         .Default(CXXType());
     }
 
-    /// Return the size in bytes of the specified type.
+    /**
+     * Return the size in bytes of the specified type
+     */
     uint64_t getTypeSize(CXXType& t) const
     {
       assert(t.kind != CXXType::Kind::Invalid);
@@ -219,8 +263,10 @@ namespace verona::interop
       return t.sizeAndAlign.Width / 8;
     }
 
-    /// Return the qualified type for a CXXType
-    /// FIXME: Do we really need to expose this?
+    /**
+     * Return the qualified type for a CXXType
+     * CXXBuilder uses this for creating AST nodes
+     */
     clang::QualType getQualType(CXXType ty) const
     {
       switch (ty.kind)
@@ -242,41 +288,6 @@ namespace verona::interop
       return ast->VoidTy;
     }
 
-    /// Returns the type as a template argument.
-    clang::TemplateArgument createTemplateArgumentForType(CXXType t) const
-    {
-      switch (t.kind)
-      {
-        case CXXType::Kind::Invalid:
-        case CXXType::Kind::TemplateClass:
-          return clang::TemplateArgument{};
-        case CXXType::Kind::SpecializedTemplateClass:
-        case CXXType::Kind::Class:
-          return clang::TemplateArgument{
-            ast->getRecordType(t.getAs<clang::CXXRecordDecl>())};
-        case CXXType::Kind::Enum:
-          return clang::TemplateArgument{
-            ast->getEnumType(t.getAs<clang::EnumDecl>())};
-        case CXXType::Kind::Builtin:
-          return clang::TemplateArgument{typeForBuiltin(t.builtTypeKind)};
-      }
-      return nullptr;
-    }
-
-    /// Returns the integral literal as a template value.
-    /// TODO: C++20 accepts floating point too
-    clang::TemplateArgument createTemplateArgumentForIntegerValue(
-      CXXType::BuiltinTypeKinds ty, uint64_t value) const
-    {
-      assert(CXXType::isIntegral(ty));
-      clang::QualType qualTy = typeForBuiltin(ty);
-      auto info = ast->getTypeInfo(qualTy);
-      llvm::APInt val{static_cast<unsigned int>(info.Width), value};
-      auto* literal = clang::IntegerLiteral::Create(
-        *ast, val, qualTy, clang::SourceLocation{});
-      return clang::TemplateArgument(literal);
-    }
-
     /**
      * Create the parameters of a template class from type names or values
      */
@@ -293,15 +304,15 @@ namespace verona::interop
         {
           // Numbers default to int parameter
           auto num = atol(arg.c_str());
-          templateArgs.push_back(createTemplateArgumentForIntegerValue(
-            CXXType::BuiltinTypeKinds::Int, num));
+          templateArgs.push_back(
+            getTemplateArgument(CXXType::BuiltinTypeKinds::Int, num));
         }
         else
         {
           // Try to find the type name
           auto decl = getType(arg);
           assert(decl.valid());
-          templateArgs.push_back(createTemplateArgumentForType(decl));
+          templateArgs.push_back(getTemplateArgument(decl));
         }
       }
 
@@ -315,11 +326,13 @@ namespace verona::interop
       for (auto i = skip; i < all; i++)
       {
         auto param = actual->getParam(i);
+        // Type parameter
         if (auto typeParam = llvm::dyn_cast<clang::TemplateTypeParmDecl>(param))
         {
           assert(typeParam->hasDefaultArgument());
           templateArgs.push_back(typeParam->getDefaultArgument());
         }
+        // Non-type parameter
         else if (
           auto nontypeParam =
             llvm::dyn_cast<clang::NonTypeTemplateParmDecl>(param))
@@ -328,6 +341,8 @@ namespace verona::interop
           templateArgs.push_back(nontypeParam->getDefaultArgument());
         }
       }
+
+      // All args, passed and default, of the template declaration
       return templateArgs;
     }
 
