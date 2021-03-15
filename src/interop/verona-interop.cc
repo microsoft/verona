@@ -211,12 +211,6 @@ int main(int argc, char** argv)
   // This is silent, just to make sure nothing breaks here
   auto mod = interface.emitLLVM();
 
-  // This just checks that the function was generated
-  if (testFunction)
-  {
-    assert(mod->getFunction("_Z19verona_wrapper_fn_1i"));
-  }
-
   // This just dumps everything, for debugging purposes
   if (dumpIR)
   {
