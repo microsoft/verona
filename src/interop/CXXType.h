@@ -122,6 +122,13 @@ namespace verona::interop
       return kind != Kind::Invalid && kind != Kind::Builtin;
     }
 
+    /// Returns true if the type is a class.
+    bool isClass() const
+    {
+      return kind == Kind::TemplateClass || kind == Kind::Class ||
+        kind == Kind::SpecializedTemplateClass;
+    }
+
     /// Returns true if the type is templated.
     bool isTemplate() const
     {

@@ -215,7 +215,7 @@ namespace verona::interop
           }));
       finder.matchAST(*ast);
 
-      // Should onlyt match one, so this is fine.
+      // Should only match one, so this is fine.
       if (foundTemplateClass)
       {
         return CXXType(foundTemplateClass);
@@ -286,6 +286,25 @@ namespace verona::interop
       // TODO: This is wrong but silences a warning, need to know what's the
       // correct behaviour here.
       return ast->VoidTy;
+    }
+
+    /**
+     * Get field by name from a (template) class type. Returns nullptr if
+     * the field doesn't exist or type isn't class/struct.
+     */
+    clang::FieldDecl* getField(CXXType& ty, llvm::StringRef name) const
+    {
+      if (!ty.isClass())
+        return nullptr;
+
+      auto decl = ty.getAs<clang::CXXRecordDecl>();
+      for (auto field : decl->fields())
+      {
+        if (field->getName() == name)
+          return field;
+      }
+
+      return nullptr;
     }
 
     /**
