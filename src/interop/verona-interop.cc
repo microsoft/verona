@@ -23,6 +23,13 @@ namespace cl = llvm::cl;
 
 namespace
 {
+  // For help's sake, will never be parsed, as we intercept
+  cl::opt<string> config(
+    "config",
+    cl::desc("<config file>"),
+    cl::Optional,
+    cl::value_desc("config"));
+
   // Test function (TODO: make this more generic)
   cl::opt<bool> testFunction(
     "function",
@@ -75,7 +82,7 @@ namespace
     // Replace "--config file" with the contents of file
     vector<char*> args;
     string configFileName;
-    StringRef flag("--config");
+    StringRef flag("-config");
     for (int i = 0; i < argc; i++)
     {
       auto arg = argv[i];
