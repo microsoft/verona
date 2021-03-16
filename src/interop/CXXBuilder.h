@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "CXXType.h"
 #include "CXXQuery.h"
+#include "CXXType.h"
 #include "Compiler.h"
 
 namespace verona::interop

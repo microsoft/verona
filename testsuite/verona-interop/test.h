@@ -1,6 +1,14 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+// Non-template struct
+struct NoTemp
+{
+  char a;
+  short b;
+  float c;
+};
+
 // Simple test, with default argument
 template<class T, class U = int>
 struct TFoo

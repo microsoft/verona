@@ -49,10 +49,16 @@ namespace
     cl::value_desc("symbol"));
 
   cl::list<string> specialization(
-    cl::Positional,
+    "params",
     cl::desc("<template specialization parameters>"),
     cl::CommaSeparated,
     cl::value_desc("specialization"));
+
+  cl::list<string> fields(
+    "fields",
+    cl::desc("<list of filed to query>"),
+    cl::CommaSeparated,
+    cl::value_desc("fields"));
 
   /// Add new option to arguments array
   void addArgOption(vector<char*>& args, char* arg, size_t len)
@@ -124,6 +130,7 @@ namespace
   void test_type(
     llvm::StringRef name,
     llvm::ArrayRef<std::string> args,
+    llvm::ArrayRef<std::string> fields,
     const CXXQuery* query,
     const CXXBuilder* builder)
   {
@@ -151,6 +158,22 @@ namespace
     // If all goes well, this returns a platform-dependent size
     cout << "Size of " << ty.getName().str() << " is " << query->getTypeSize(ty)
          << " bytes" << endl;
+
+    for (auto f : fields)
+    {
+      auto field = query->getField(ty, f);
+      if (!field)
+      {
+        cerr << "Invalid field '" << f << "' on type '" << ty.getName().str()
+             << "'" << endl;
+        exit(1);
+      }
+      auto fieldTy = field->getType();
+      auto tyClass = fieldTy->getTypeClassName();
+      auto tyName = fieldTy.getAsString();
+      cout << "Field '" << field->getName().str() << "' has " << tyClass
+           << " type '" << tyName << "'" << endl;
+    }
   }
 
   /// Creates a test function
@@ -185,7 +208,7 @@ int main(int argc, char** argv)
   // Test type query
   if (!symbol.empty())
   {
-    test_type(symbol, specialization, query, builder);
+    test_type(symbol, specialization, fields, query, builder);
   }
 
   // Test function creation
