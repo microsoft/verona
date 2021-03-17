@@ -63,9 +63,21 @@ namespace
 
   cl::list<string> fields(
     "fields",
-    cl::desc("<list of filed to query>"),
+    cl::desc("<list of fields to query>"),
     cl::CommaSeparated,
     cl::value_desc("fields"));
+
+  cl::opt<string> method(
+    "method",
+    cl::desc("<single method to query>"),
+    cl::Optional,
+    cl::value_desc("method"));
+
+  cl::list<string> argTys(
+    "argTys",
+    cl::desc("<list of method's argument types to query>"),
+    cl::CommaSeparated,
+    cl::value_desc("argTys"));
 
   /// Add new option to arguments array
   void addArgOption(vector<char*>& args, char* arg, size_t len)
@@ -121,18 +133,6 @@ namespace
       args.size(), args.data(), "Verona Interop test\n");
   }
 
-  /// Prints a type to stdout
-  void printType(CXXType& ty)
-  {
-    assert(ty.valid());
-    auto kind = ty.kindName();
-    auto name = ty.getName().str();
-    cout << name << " " << kind;
-    if (ty.kind == CXXType::Kind::Builtin)
-      cout << "(" << ty.builtinKindName() << ")";
-    cout << endl;
-  }
-
   /// Test a type
   void test_type(
     llvm::StringRef name,
@@ -150,8 +150,10 @@ namespace
     }
 
     // Print type name and kind
-    cout << "Found: ";
-    printType(ty);
+    cout << "Type '" << ty.getName().str() << "' as " << ty.kindName();
+    if (ty.kind == CXXType::Kind::Builtin)
+      cout << " (" << ty.builtinKindName() << ")";
+    cout << endl;
 
     // Try and specialize a template
     // TODO: Should this be part of getType()?
@@ -166,6 +168,7 @@ namespace
     cout << "Size of " << ty.getName().str() << " is " << query->getTypeSize(ty)
          << " bytes" << endl;
 
+    // If requested any field to lookup, by name
     for (auto f : fields)
     {
       auto field = query->getField(ty, f);
@@ -180,6 +183,27 @@ namespace
       auto tyName = fieldTy.getAsString();
       cout << "Field '" << field->getName().str() << "' has " << tyClass
            << " type '" << tyName << "'" << endl;
+    }
+
+    // If requested any method to lookup, by name and arg types
+    if (!method.empty())
+    {
+      auto func = query->getMethod(ty, method, argTys);
+      if (!func)
+      {
+        cerr << "Invalid method '" << method << "' on type '"
+             << ty.getName().str() << "'" << endl;
+        exit(1);
+      }
+
+      cout << "Method '" << func->getName().str() << "' with signature: (";
+      for (auto arg : func->parameters())
+      {
+        if (arg != *func->param_begin())
+          cout << ", ";
+        cout << arg->getType().getAsString() << " " << arg->getName().str();
+      }
+      cout << ") -> " << func->getType().getAsString() << endl;
     }
   }
 
