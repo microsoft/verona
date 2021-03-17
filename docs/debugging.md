@@ -93,7 +93,7 @@ produces
 
 Both the interpreter, and the compiler's run option, can also provide systematic testing for concurrency:
 ```
-  veronac-sys --run testsuite/demo/run-pass/dining_phil.verona --run-seed 100 --run-seed_upper 200
+  veronac-sys --run testsuite/veronac/demo/run-pass/dining_phil.verona --run-seed 100 --run-seed_upper 200
 ```
 runs 100 seeds sequentially, but testing various interleavings of the runtime. The seeds are replayable.
 
