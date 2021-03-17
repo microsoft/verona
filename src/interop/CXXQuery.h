@@ -259,12 +259,16 @@ namespace verona::interop
     /**
      * Get field by name from a (template) class type. Returns nullptr if
      * the field doesn't exist or type isn't class/struct.
+     *
+     * FIXME: Do we also need to pass the type?
      */
     clang::FieldDecl* getField(CXXType& ty, llvm::StringRef name) const
     {
+      // Type must be a class (TODO: should this be an assert?)
       if (!ty.isClass())
         return nullptr;
 
+      // Compare the name, maybe we need to compare the types, too?
       auto decl = ty.getAs<clang::CXXRecordDecl>();
       for (auto field : decl->fields())
       {
@@ -272,6 +276,51 @@ namespace verona::interop
           return field;
       }
 
+      // We couldn't find anything
+      return nullptr;
+    }
+
+    /**
+     * Get function by name and signature from a (template) class type.
+     * Returns nullptr if the function doesn't exist or type isn't class/struct.
+     */
+    clang::FunctionDecl* getMethod(
+      CXXType& ty, llvm::StringRef name, llvm::ArrayRef<std::string> args) const
+    {
+      // Type must be a class (TODO: should this be an assert?)
+      if (!ty.isClass())
+        return nullptr;
+
+      auto decl = ty.getAs<clang::CXXRecordDecl>();
+      for (auto m : decl->methods())
+      {
+        auto func = llvm::dyn_cast<clang::FunctionDecl>(m);
+        // First, compare the function name, must be the same
+        if (func->getName() != name)
+          continue;
+
+        // Quick fail for number of arguments
+        if (args.size() != func->parameters().size())
+          continue;
+
+        // Then make sure the argument types are the same, too
+        auto compare =
+          [this](const clang::ParmVarDecl* parm, const std::string& str) {
+            auto parmTy = parm->getOriginalType();
+            auto argTy = getQualType(getType(str));
+            // FIXME: there's got to be a better way than that
+            return parmTy.getAsString() == argTy.getAsString();
+          };
+        if (std::equal(
+              func->param_begin(), func->param_end(), args.begin(), compare))
+        {
+          return func;
+        }
+
+        // Otherwise, just continue and try the next
+      }
+
+      // We couldn't find anything
       return nullptr;
     }
 
