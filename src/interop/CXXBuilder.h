@@ -82,9 +82,13 @@ namespace verona::interop
         assert(InstantiationLoc.isValid());
         S.InstantiateClassTemplateSpecialization(
           InstantiationLoc, Decl, clang::TSK_ExplicitInstantiationDefinition);
+        S.InstantiateClassTemplateSpecializationMembers(
+          InstantiationLoc, Decl, clang::TSK_ExplicitInstantiationDefinition);
         Def = clang::cast<clang::ClassTemplateSpecializationDecl>(
           Decl->getDefinition());
       }
+      auto* DC = ast->getTranslationUnitDecl();
+      DC->addDecl(Def);
       return CXXType{Def};
     }
 
@@ -92,7 +96,9 @@ namespace verona::interop
      * Instantiate a new function at the end of the main file, if not yet done.
      */
     clang::FunctionDecl* instantiateFunction(
-      const char* name, llvm::ArrayRef<CXXType> args, CXXType ret) const
+      llvm::StringRef name,
+      llvm::ArrayRef<clang::QualType> argTys,
+      clang::QualType retTy) const
     {
       auto* DC = ast->getTranslationUnitDecl();
       clang::SourceLocation loc = Clang->getEndOfFileLocation();
@@ -101,10 +107,6 @@ namespace verona::interop
       clang::FunctionProtoType::ExtProtoInfo EPI;
 
       // Get type of args/ret, function
-      llvm::SmallVector<clang::QualType> argTys;
-      for (auto argTy : args)
-        argTys.push_back(query->getQualType(argTy));
-      auto retTy = query->getQualType(ret);
       clang::QualType fnTy = ast->getFunctionType(retTy, argTys, EPI);
 
       // Create a new function
@@ -186,7 +188,9 @@ namespace verona::interop
      * FIXME: Should check for template parameters, too.
      */
     clang::FunctionDecl* buildFunction(
-      const char* name, llvm::ArrayRef<CXXType> args, CXXType ret) const
+      llvm::StringRef name,
+      llvm::ArrayRef<clang::QualType> args,
+      clang::QualType ret) const
     {
       return instantiateFunction(name, args, ret);
     }
