@@ -133,6 +133,47 @@ namespace
       args.size(), args.data(), "Verona Interop test\n");
   }
 
+  /// Test call
+  void test_call(
+    CXXType& context,
+    clang::CXXMethodDecl* func,
+    llvm::ArrayRef<clang::QualType> argTys,
+    clang::QualType retTy,
+    const CXXInterface& interface)
+  {
+    const CXXQuery* query = interface.getQuery();
+    const CXXBuilder* builder = interface.getBuilder();
+
+    // Build a unique name (per class/method)
+    string fqName = context.getName().str();
+    if (context.isTemplate())
+    {
+      auto params = context.getTemplateParameters();
+      if (params)
+      {
+        for (auto* decl : *params)
+        {
+          fqName += "_" + decl->getNameAsString();
+        }
+      }
+      fqName += "_";
+    }
+    fqName += func->getName().str();
+    string wrapperName = "__call_to_" + fqName;
+
+    // Create a function with a hygienic name and the same args
+    auto caller = builder->buildFunction(wrapperName, argTys, retTy);
+
+    // Collect arguments
+    auto args = caller->parameters();
+
+    // Create the call to the actual function
+    auto call = builder->createMemberCall(func, args, retTy, caller);
+
+    // Return the call's value
+    builder->createReturn(call, caller);
+  }
+
   /// Test a type
   void test_type(
     llvm::StringRef name,
@@ -208,8 +249,11 @@ namespace
         argTys.push_back(argTy);
         cout << argTy.getAsString() << " " << arg->getName().str();
       }
-      auto retTy = func->getType();
+      auto retTy = func->getReturnType();
       cout << ") -> " << retTy.getAsString() << endl;
+
+      // Instantiate function in AST that calls this method
+      test_call(ty, func, argTys, retTy, interface);
     }
   }
 
@@ -255,15 +299,21 @@ int main(int argc, char** argv)
     test_function("verona_wrapper_fn_1", interface);
   }
 
-  // Emit whatever is left on the main file
-  // This is silent, just to make sure nothing breaks here
-  auto mod = interface.emitLLVM();
-
-  // This just dumps everything, for debugging purposes
+  // Dumps the AST before trying to emit LLVM for debugging purposes
   // NOTE: Output is not stable, don't use it for tests
   if (dumpIR)
   {
     interface.dumpAST();
+  }
+
+  // Emit whatever is left on the main file
+  // This is silent, just to make sure nothing breaks here
+  auto mod = interface.emitLLVM();
+
+  // Dump LLVM IR for debugging purposes
+  // NOTE: Output is not stable, don't use it for tests
+  if (dumpIR)
+  {
     mod->dump();
   }
 

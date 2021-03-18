@@ -284,7 +284,7 @@ namespace verona::interop
      * Get function by name and signature from a (template) class type.
      * Returns nullptr if the function doesn't exist or type isn't class/struct.
      */
-    clang::FunctionDecl* getMethod(
+    clang::CXXMethodDecl* getMethod(
       CXXType& ty, llvm::StringRef name, llvm::ArrayRef<std::string> args) const
     {
       // Type must be a class (TODO: should this be an assert?)
@@ -306,15 +306,14 @@ namespace verona::interop
         // Then make sure the argument types are the same, too
         auto compare =
           [this](const clang::ParmVarDecl* parm, const std::string& str) {
-            auto parmTy = parm->getOriginalType();
-            auto argTy = getQualType(getType(str));
-            // FIXME: there's got to be a better way than that
-            return parmTy.getAsString() == argTy.getAsString();
+            auto parmTy = parm->getOriginalType()->getPointeeType();
+            auto argTy = getQualType(getType(str))->getPointeeType();
+            return parmTy == argTy;
           };
         if (std::equal(
               func->param_begin(), func->param_end(), args.begin(), compare))
         {
-          return func;
+          return m;
         }
 
         // Otherwise, just continue and try the next

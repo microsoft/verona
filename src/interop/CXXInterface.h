@@ -216,7 +216,8 @@ namespace verona::interop
     /**
      * Dump AST for debug purposes
      */
-    void dumpAST() const {
+    void dumpAST() const
+    {
       auto* DC = ast->getTranslationUnitDecl();
       DC->dump();
     }

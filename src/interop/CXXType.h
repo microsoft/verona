@@ -125,14 +125,14 @@ namespace verona::interop
     /// Returns true if the type is a class.
     bool isClass() const
     {
-      return kind == Kind::TemplateClass || kind == Kind::Class ||
-        kind == Kind::SpecializedTemplateClass;
+      return kind == Kind::Class || isTemplate();
     }
 
     /// Returns true if the type is templated.
     bool isTemplate() const
     {
-      return kind == Kind::TemplateClass;
+      return kind == Kind::TemplateClass ||
+        kind == Kind::SpecializedTemplateClass;
     }
 
     /// Returns true if type is integral
@@ -166,14 +166,15 @@ namespace verona::interop
       return decl->getName();
     }
 
-    /// Returns the number of template parameter, if class is a template.
-    int numberOfTemplateParameters()
+    /// Return the template parameters, if class is a template.
+    const clang::TemplateParameterList* getTemplateParameters()
     {
-      if (!isTemplate())
-      {
-        return 0;
-      }
-      return getAs<clang::ClassTemplateDecl>()->getTemplateParameters()->size();
+      assert(isTemplate());
+      if (auto ty = getAs<clang::ClassTemplateDecl>())
+        return ty->getTemplateParameters();
+      if (auto ty = getAs<clang::ClassTemplateSpecializationDecl>())
+        return ty->getDescribedTemplateParams();
+      return nullptr;
     }
 
     /**

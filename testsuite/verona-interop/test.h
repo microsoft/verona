@@ -25,8 +25,23 @@ template<class T = int>
 struct SFoo
 {
   T innerFoo;
+  static T id(T arg)
+  {
+    return arg;
+  }
 };
 
+int call_to_TFoo_add(TFoo<int>& obj, int arg)
+{
+  return obj.add(arg);
+}
+
+int call_to_SFoo_id(int arg)
+{
+  return SFoo<int>::id(arg);
+}
+
+/* These test namespaces and will be dealt with later
 namespace One
 {
   // Inheritance test, with required + default argument
@@ -69,6 +84,7 @@ namespace Two
     }
   };
 }
+*/
 
 /*
 // The code below isn't part of the test, but it helps check the
