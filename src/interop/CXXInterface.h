@@ -186,10 +186,8 @@ namespace verona::interop
 
       // Creating a fake compile unit to include the target file
       // in an in-memory file system.
-      std::string Code = "#include \"" + headerFile +
-        "\"\n"
-        "namespace verona { namespace __ffi_internal { \n"
-        "}}\n";
+      std::string Code = "#include \"" + headerFile + "\"\n";
+      Code += "namespace verona { namespace __ffi_internal {\n}}\n";
       auto Buf = llvm::MemoryBuffer::getMemBufferCopy(Code);
       auto PCHBuf = llvm::MemoryBuffer::getMemBufferCopy(Code);
       FS.addFile(cu_name, std::move(Buf));
@@ -199,21 +197,28 @@ namespace verona::interop
         llvm::MemoryBufferRef{*pchBuffer}, false);
       FS.addFile(headerFile + ".gch", std::move(pchDataRef));
 
-      // Parse the fake compile unit with the user file included inside.
+      // Create the compiler instance and compiles the files
       Clang =
         std::make_unique<Compiler>(FS.get(), cu_name, includePath, sourceLang);
 
+      // Executing the action consumes the AST.  Reset the compiler instance to
+      // refer to the AST that it just parsed and create a Sema instance.
       auto collectAST =
         clang::tooling::newFrontendActionFactory(&factory)->create();
       Clang->ExecuteAction(*collectAST);
-
-      // Executing the action consumes the AST.  Reset the compiler instance to
-      // refer to the AST that it just parsed and create a Sema instance.
       Clang->setASTMachinery(factory.newASTConsumer(), ast);
 
       // Setup query/build system from AST
       query = std::make_unique<CXXQuery>(ast, Clang.get());
       builder = std::make_unique<CXXBuilder>(ast, Clang.get(), query.get());
+    }
+
+    /**
+     * Dump AST for debug purposes
+     */
+    void dumpAST() const {
+      auto* DC = ast->getTranslationUnitDecl();
+      DC->dump();
     }
 
     /**

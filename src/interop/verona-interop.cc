@@ -138,9 +138,11 @@ namespace
     llvm::StringRef name,
     llvm::ArrayRef<std::string> args,
     llvm::ArrayRef<std::string> fields,
-    const CXXQuery* query,
-    const CXXBuilder* builder)
+    const CXXInterface& interface)
   {
+    const CXXQuery* query = interface.getQuery();
+    const CXXBuilder* builder = interface.getBuilder();
+
     // Find type
     CXXType ty = query->getType(symbol);
     if (!ty.valid())
@@ -195,24 +197,31 @@ namespace
              << ty.getName().str() << "'" << endl;
         exit(1);
       }
-
-      cout << "Method '" << func->getName().str() << "' with signature: (";
+      auto fName = func->getName().str();
+      cout << "Method '" << fName << "' with signature: (";
+      llvm::SmallVector<clang::QualType, 1> argTys;
       for (auto arg : func->parameters())
       {
         if (arg != *func->param_begin())
           cout << ", ";
-        cout << arg->getType().getAsString() << " " << arg->getName().str();
+        auto argTy = arg->getType();
+        argTys.push_back(argTy);
+        cout << argTy.getAsString() << " " << arg->getName().str();
       }
-      cout << ") -> " << func->getType().getAsString() << endl;
+      auto retTy = func->getType();
+      cout << ") -> " << retTy.getAsString() << endl;
     }
   }
 
   /// Creates a test function
-  void test_function(const char* name, const CXXBuilder* builder)
+  void test_function(const char* name, const CXXInterface& interface)
   {
+    const CXXQuery* query = interface.getQuery();
+    const CXXBuilder* builder = interface.getBuilder();
+
     // Create a new function on the main file
-    auto intTy = CXXType::getInt();
-    llvm::SmallVector<CXXType, 1> args{intTy};
+    auto intTy = query->getQualType(CXXType::getInt());
+    llvm::SmallVector<clang::QualType, 1> args{intTy};
 
     // Create new function
     auto func = builder->buildFunction(name, args, intTy);
@@ -233,19 +242,17 @@ int main(int argc, char** argv)
 
   // Create the C++ interface
   CXXInterface interface(inputFile, includePath);
-  const CXXQuery* query = interface.getQuery();
-  const CXXBuilder* builder = interface.getBuilder();
 
   // Test type query
   if (!symbol.empty())
   {
-    test_type(symbol, specialization, fields, query, builder);
+    test_type(symbol, specialization, fields, interface);
   }
 
   // Test function creation
   if (testFunction)
   {
-    test_function("verona_wrapper_fn_1", builder);
+    test_function("verona_wrapper_fn_1", interface);
   }
 
   // Emit whatever is left on the main file
@@ -256,6 +263,7 @@ int main(int argc, char** argv)
   // NOTE: Output is not stable, don't use it for tests
   if (dumpIR)
   {
+    interface.dumpAST();
     mod->dump();
   }
 
