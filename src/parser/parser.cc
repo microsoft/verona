@@ -34,8 +34,6 @@ namespace verona::parser
 
     Ident ident;
     Location name_apply;
-    Location name_has_value;
-    Location name_next;
 
     Result final_result;
     std::vector<std::string> imports;
@@ -58,8 +56,6 @@ namespace verona::parser
     : pos(0), la(0), final_result(Success), stdlib(stdlib), out(out)
     {
       name_apply = ident("apply");
-      name_has_value = ident("has_value");
-      name_next = ident("next");
     }
 
     ~Parse()
@@ -301,7 +297,7 @@ namespace verona::parser
 
     Result optwhen(Node<Expr>& expr)
     {
-      // when <- 'when' postfix block
+      // when <- 'when' postfix lambda
       if (!has(TokenKind::When))
         return Skip;
 
@@ -448,7 +444,7 @@ namespace verona::parser
 
     Result opttuple(Node<Expr>& expr)
     {
-      // tuple <- '(' expr* ')'
+      // tuple <- '(' (expr (',' expr)*)? ')'
       if (!has(TokenKind::LParen))
         return Skip;
 
@@ -464,8 +460,12 @@ namespace verona::parser
       do
       {
         Node<Expr> elem;
+        Result r2;
 
-        if (optexpr(elem) != Success)
+        if ((r2 = optexpr(elem)) == Skip)
+          break;
+
+        if (r2 == Error)
         {
           error() << loc() << "Expected an expression" << line();
           restart_before({TokenKind::Comma, TokenKind::RParen});
@@ -704,63 +704,15 @@ namespace verona::parser
       return r;
     }
 
-    Result optstaticref(Node<Expr>& expr)
-    {
-      // staticname <- (ident / symbol) typeargs?
-      // staticref <- [nonlocal] staticname ('::' staticname)*
-      if (!peek(TokenKind::Ident) && !peek(TokenKind::Symbol))
-        return Skip;
-
-      bool local = is_localref(lookahead[la - 1].location);
-      rewind();
-
-      if (local)
-        return Skip;
-
-      auto stat = std::make_shared<StaticRef>();
-      expr = stat;
-
-      Result r = Success;
-
-      do
-      {
-        if (!has(TokenKind::Ident) && !has(TokenKind::Symbol))
-        {
-          error() << loc() << "Expected an identifier or symbol" << line();
-          r = Error;
-          break;
-        }
-
-        // Use the location of the last ident or symbol.
-        stat->location = previous.location;
-
-        auto name = std::make_shared<TypeName>();
-        name->location = previous.location;
-        stat->typenames.push_back(name);
-
-        if (opttypeargs(name->typeargs) == Error)
-          r = Error;
-      } while (has(TokenKind::DoubleColon));
-
-      return r;
-    }
-
     Result optatom(Node<Expr>& expr)
     {
-      // atom <-
-      //  staticref / ref / constant / tuple / new / when / try / match / lambda
+      // atom <- tuple / constant / new / when / try / match / lambda
       Result r;
 
-      if ((r = optstaticref(expr)) != Skip)
-        return r;
-
-      if ((r = optref(expr)) != Skip)
+      if ((r = opttuple(expr)) != Skip)
         return r;
 
       if ((r = optconstant(expr)) != Skip)
-        return r;
-
-      if ((r = opttuple(expr)) != Skip)
         return r;
 
       if ((r = optnew(expr)) != Skip)
@@ -779,63 +731,6 @@ namespace verona::parser
         return r;
 
       return Skip;
-    }
-
-    Result optselect(Node<Expr>& expr)
-    {
-      // select <- postfix '.' (ident / symbol)
-      if (!has(TokenKind::Dot))
-        return Skip;
-
-      auto sel = std::make_shared<Select>();
-      sel->location = previous.location;
-      sel->expr = expr;
-      expr = sel;
-
-      if (has(TokenKind::Ident) || has(TokenKind::Symbol))
-      {
-        sel->member = previous.location;
-        return Success;
-      }
-
-      error() << loc() << "Expected an identifier or a symbol" << line();
-      return Error;
-    }
-
-    Result optstaticselect(Node<Expr>& expr)
-    {
-      // staticselect <- postfix ('::' (ident / symbol) typeargs?)+
-      if (!has(TokenKind::DoubleColon))
-        return Skip;
-
-      auto sel = std::make_shared<StaticSelect>();
-      sel->location = previous.location;
-      sel->expr = expr;
-      expr = sel;
-
-      Result r = Success;
-
-      while (has(TokenKind::DoubleColon))
-      {
-        if (!has(TokenKind::Ident) && !has(TokenKind::Symbol))
-        {
-          error() << loc() << "Expected an identifier or symbol" << line();
-          r = Error;
-          break;
-        }
-
-        // Use the location of the last ident or symbol.
-        sel->location = previous.location;
-
-        auto name = std::make_shared<TypeName>();
-        name->location = previous.location;
-        sel->typenames.push_back(name);
-
-        if (opttypeargs(name->typeargs) == Error)
-          r = Error;
-      }
-
-      return r;
     }
 
     Result opttypeargs(List<Type>& typeargs)
@@ -869,35 +764,102 @@ namespace verona::parser
       return r;
     }
 
-    Result optspecialise(Node<Expr>& expr)
+    Result optselector(Node<Expr>& expr)
     {
-      // specialise <- postfix typeargs
-      if (!peek(TokenKind::LSquare))
+      // selector <- name typeargs? ('::' name typeargs?)*
+      bool ok = peek(TokenKind::Ident) || peek(TokenKind::Symbol);
+      rewind();
+
+      if (!ok)
         return Skip;
 
-      rewind();
-      auto spec = std::make_shared<Specialise>();
-      spec->location = previous.location;
-      spec->expr = expr;
-      expr = spec;
+      Result r = Success;
 
-      if (opttypeargs(spec->typeargs) != Success)
-        return Error;
+      auto sel = std::make_shared<Select>();
+      sel->location = previous.location;
+      sel->expr = expr;
+      expr = sel;
 
-      return Success;
+      do
+      {
+        if (!has(TokenKind::Ident) && !has(TokenKind::Symbol))
+        {
+          error() << loc() << "Expected a selector name" << line();
+          return Error;
+        }
+
+        auto name = std::make_shared<TypeName>();
+        name->location = previous.location;
+        sel->typenames.push_back(name);
+
+        if (opttypeargs(name->typeargs) == Error)
+          r = Error;
+      } while (has(TokenKind::DoubleColon));
+
+      return r;
     }
 
-    Result onepostfix(Node<Expr>& expr)
+    Result optselect(Node<Expr>& expr)
     {
+      // select <- '.' selector tuple?
+      if (!has(TokenKind::Dot))
+        return Skip;
+
+      Result r = Success;
+
+      if (optselector(expr) != Success)
+      {
+        error() << loc() << "Expected a selector" << line();
+        r = Error;
+      }
+
+      if (opttuple(expr->as<Select>().args) == Error)
+        r = Error;
+
+      return r;
+    }
+
+    Result optapplysugar(Node<Expr>& expr)
+    {
+      // applysugar <- ref typeargs? tuple?
       Result r;
 
-      if ((r = optstaticselect(expr)) != Skip)
+      if ((r = optref(expr)) == Skip)
         return r;
 
-      if ((r = optselect(expr)) != Skip)
+      bool ok = peek(TokenKind::LSquare) || peek(TokenKind::LParen);
+      rewind();
+
+      if (!ok)
         return r;
 
-      if ((r = optspecialise(expr)) != Skip)
+      auto sel = std::make_shared<Select>();
+      sel->expr = expr;
+      sel->location = expr->location;
+      expr = sel;
+
+      auto name = std::make_shared<TypeName>();
+      name->location = name_apply;
+      sel->typenames.push_back(name);
+
+      if (opttypeargs(name->typeargs) == Error)
+        r = Error;
+
+      if (opttuple(sel->args) == Error)
+        r = Error;
+
+      return r;
+    }
+
+    Result optpostfixstart(Node<Expr>& expr)
+    {
+      // postfixstart <- atom / applysugar
+      Result r;
+
+      if ((r = optatom(expr)) != Skip)
+        return r;
+
+      if ((r = optapplysugar(expr)) != Skip)
         return r;
 
       return Skip;
@@ -905,70 +867,17 @@ namespace verona::parser
 
     Result optpostfix(Node<Expr>& expr)
     {
-      // postfix <- atom ('.' (ident / symbol) / typeargs)*
+      // postfix <- postfixstart select*
       Result r;
+      Result r2;
 
-      if ((r = optatom(expr)) != Success)
-        return r;
+      if ((r = optpostfixstart(expr)) == Skip)
+        return Skip;
 
-      while (true)
+      while ((r2 = optselect(expr)) != Skip)
       {
-        Result r2 = onepostfix(expr);
-
-        if (r2 == Skip)
-          break;
-
         if (r2 == Error)
           r = Error;
-      }
-
-      return r;
-    }
-
-    Result optapply(Node<Expr>& expr)
-    {
-      // This may return an incomplete infix node.
-      // apply <- op+ postfix* / postfix+
-      Result r = Success;
-
-      if ((r = optpostfix(expr)) == Skip)
-        return r;
-
-      bool ops = is_kind(expr, {Kind::StaticRef, Kind::StaticSelect});
-
-      while (true)
-      {
-        Node<Expr> next;
-        Result r2;
-
-        if ((r2 = optpostfix(next)) != Success)
-        {
-          if (r2 == Skip)
-            break;
-
-          r = Error;
-        }
-
-        bool nextop = is_kind(next, {Kind::StaticRef, Kind::StaticSelect});
-
-        if (!ops && nextop)
-        {
-          auto inf = std::make_shared<Infix>();
-          inf->location = next->location;
-          inf->op = next;
-          inf->left = expr;
-          expr = inf;
-          return r;
-        }
-        else
-        {
-          ops = nextop;
-          auto app = std::make_shared<Apply>();
-          app->location = expr->location;
-          app->expr = expr;
-          app->args = next;
-          expr = app;
-        }
       }
 
       return r;
@@ -976,39 +885,55 @@ namespace verona::parser
 
     Result optinfix(Node<Expr>& expr)
     {
-      // infix <- apply (op apply)*
-      Result r;
+      // infix <- (postfix / selector)+
+      Result r = Success;
+      Result r2;
+      Node<Expr> next;
+      Node<Select> sel;
 
-      if ((r = optapply(expr)) != Success)
-        return r;
-
-      while (expr->kind() == Kind::Infix)
+      while (true)
       {
-        Node<Expr> next;
-        Result r2;
-
-        if ((r2 = optapply(next)) == Skip)
+        if ((r2 = optpostfix(next)) != Skip)
         {
-          error() << loc() << "Expected an expression after an infix operator"
-                  << line();
-          return Error;
+          if (!expr)
+          {
+            // This is the first element in an expression.
+            expr = next;
+          }
+          else if ((expr->kind() == Kind::Select) && !expr->as<Select>().args)
+          {
+            // This is the right-hand side of an infix operator.
+            expr->as<Select>().args = next;
+          }
+          else
+          {
+            // Adjacency means `expr.apply(next)`
+            auto sel = std::make_shared<Select>();
+            sel->location = expr->location;
+            sel->expr = expr;
+
+            auto name = std::make_shared<TypeName>();
+            name->location = name_apply;
+            sel->typenames.push_back(name);
+
+            sel->args = next;
+            expr = sel;
+          }
         }
-
-        if (r2 == Error)
-          r = Error;
-
-        if (next->kind() == Kind::Infix)
+        else if ((r2 = optselector(expr)) != Skip)
         {
-          expr->as<Infix>().right = next->as<Infix>().left;
-          next->as<Infix>().left = expr;
-          expr = next;
+          // This is an infix operator.
+          if (r2 == Error)
+            r = Error;
         }
         else
         {
-          expr->as<Infix>().right = next;
-          return r;
+          break;
         }
       }
+
+      if (!expr)
+        return Skip;
 
       return r;
     }
@@ -1293,9 +1218,7 @@ namespace verona::parser
 
     Result optcaptype(Node<Type>& type)
     {
-      // captype <- 'iso' / 'mut' / 'imm' / 'Self' / typeref
-      Result r = Success;
-
+      // captype <- 'iso' / 'mut' / 'imm' / 'Self' / typeref / tupletype
       if (has(TokenKind::Iso))
       {
         auto cap = std::make_shared<Iso>();
@@ -1328,57 +1251,51 @@ namespace verona::parser
         return Success;
       }
 
-      return opttyperef(type);
-    }
-
-    Result optviewtype(Node<Type>& type)
-    {
-      // viewtype <- (captype ('~>' / '<~'))* (captype / tupletype)
-      // Left associative.
-      Result r = Success;
+      Result r;
 
       if ((r = opttupletype(type)) != Skip)
         return r;
 
-      if ((r = optcaptype(type)) != Success)
+      if ((r = opttyperef(type)) != Skip)
         return r;
 
-      Node<Type>& next = type;
+      return Skip;
+    }
+
+    Result optviewtype(Node<Type>& type)
+    {
+      // viewtype <- captype (('~>' / '<~') captype)*
+      Result r;
+
+      if ((r = optcaptype(type)) == Skip)
+        return r;
+
+      Node<TypePair> pair;
 
       while (true)
       {
         if (has(TokenKind::Symbol, "~>"))
-        {
-          auto view = std::make_shared<ViewType>();
-          view->location = previous.location;
-          view->left = type;
-          type = view;
-          next = view->right;
-        }
+          pair = std::make_shared<ViewType>();
         else if (has(TokenKind::Symbol, "<~"))
-        {
-          auto extract = std::make_shared<ExtractType>();
-          extract->location = previous.location;
-          extract->left = type;
-          type = extract;
-          next = extract->right;
-        }
+          pair = std::make_shared<ExtractType>();
         else
-        {
-          return r;
-        }
+          break;
+
+        pair->location = previous.location;
+        pair->left = type;
+        type = pair;
 
         Result r2;
 
-        if ((r2 = opttupletype(next)) == Success)
-          return r;
-
-        if (r2 == Error)
-          return Error;
-
-        if (optcaptype(next) != Success)
+        if ((r2 = optcaptype(pair->right)) != Success)
+        {
+          error() << loc() << "Expected a type" << line();
           r = Error;
+          break;
+        }
       }
+
+      return r;
     }
 
     Result optfunctiontype(Node<Type>& type)

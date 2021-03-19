@@ -107,26 +107,11 @@ namespace verona::parser
       case Kind::Assign:
         return f(node->as<Assign>(), args...);
 
-      case Kind::Infix:
-        return f(node->as<Infix>(), args...);
-
       case Kind::Select:
         return f(node->as<Select>(), args...);
 
-      case Kind::StaticSelect:
-        return f(node->as<StaticSelect>(), args...);
-
-      case Kind::Specialise:
-        return f(node->as<Specialise>(), args...);
-
-      case Kind::Apply:
-        return f(node->as<Apply>(), args...);
-
       case Kind::Ref:
         return f(node->as<Ref>(), args...);
-
-      case Kind::StaticRef:
-        return f(node->as<StaticRef>(), args...);
 
       case Kind::Let:
         return f(node->as<Let>(), args...);

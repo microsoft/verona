@@ -27,11 +27,7 @@
           (lambda
             []
             []
-            [
-              (apply
-                (staticref [ (typename Foo []) (typename foo []) ])
-                (tuple []))
-            ]))
+            [ (select () [ (typename Foo []) (typename foo []) ] (tuple [])) ]))
       ])
     (class
       $module-1

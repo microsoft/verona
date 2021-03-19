@@ -101,26 +101,11 @@ namespace verona::parser
       case Kind::Assign:
         return "assign";
 
-      case Kind::Infix:
-        return "infix";
-
       case Kind::Select:
         return "select";
 
-      case Kind::StaticSelect:
-        return "staticselect";
-
-      case Kind::Specialise:
-        return "specialise";
-
-      case Kind::Apply:
-        return "apply";
-
       case Kind::Ref:
         return "ref";
-
-      case Kind::StaticRef:
-        return "staticref";
 
       case Kind::Let:
         return "let";

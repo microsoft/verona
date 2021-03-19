@@ -17,7 +17,7 @@ for_sum(x: List[U32]) : U32
   {
     a =>
     sum = sum + a
-  };
+  }
 
   sum
 }
@@ -38,8 +38,8 @@ while_sum(x: List[U32]) : U32
     next iter;
 
     // This is the body of the for loop
-    sum = sum + a;
-  };
+    sum = sum + a
+  }
 
   sum
 }

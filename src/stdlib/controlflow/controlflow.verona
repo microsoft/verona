@@ -3,3 +3,18 @@ using "boolean";
 interface Any {}
 class None {}
 class NoCatch {}
+
+class Done[T]
+{
+  result: T;
+
+  create[R: Done[T]](from: R~>T): R
+  {
+    new (from)
+  }
+
+  [U](x: U): U
+  {
+    x
+  }
+}

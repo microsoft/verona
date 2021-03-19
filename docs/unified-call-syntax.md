@@ -11,6 +11,14 @@ There are multiple ways to refer to functions:
 * Fully-qualified infix
 * Unqualified infix
 
+## Arity
+
+1. If there's a version with the right arity, use that.
+2. Try with just the right-hand side. If there's a version with the right arity now, use that.
+3. If there is one version with a higher arity, curry it and use that.
+   1. *with or without the left-hand side?*
+4. If there is no version, or more than one version, with a higher arity, it's a type error.
+
 ## Dynamic Unbound Selection
 
 The syntactic form `object::identifier` looks up a function on a dynamic value. The identifier can have type arguments. The function is looked up on the dynamic (concrete) type of the of the object, which may be more precise than the static type. No arguments are bound.
@@ -121,4 +129,64 @@ f(a, (b, c));
 
 ## Default Arguments
 
-> TODO
+> TODO: default arguments are equivalent to arity-based overloading
+
+```ts
+f(g: I23->I32, a: I32 = 4): I32->I32 
+{
+  { x => g (x + a) }
+}
+
+// Greedy or not?
+f (+ ~ 5) 3
+
+f(a: T, b: U = ...): V { ... }
+let g = f a;
+// g: V or g: U->V ?
+
+class Window
+{
+  class Args
+  {
+    _title: String;
+    _width: USize;
+    _height: USize;
+
+    create(): Args
+    {
+      new ("none", 640, 480)
+    }
+
+    title(self: Args & mut, t: String): Args & mut
+    {
+      self._title = t;
+      self
+    }
+
+    ...
+  }
+
+  create(args: Args): Window { ... }
+}
+
+let w = Window Args.width(1000).title("My Application");
+
+```
+
+## Variable Length Arguments
+
+There is no language support for variable length arguments. Instead, use an iterator.
+
+```ts
+sum[T: Addable](x: T, it: Iterator[T] & mut): T
+{
+  for it
+  {
+    y => x = x + y
+  };
+  x
+}
+
+let x = sum(4, values [1, 2, 3]); // x == 10
+
+```

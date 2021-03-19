@@ -5,30 +5,13 @@ class Empty {}
 
 interface Iterator[T]
 {
-  ?(): Bool;
-  (self: Self & mut): self~>T throws Empty;
+  [S: Self & mut](self: S): S~>T throws Empty;
   next(self: Self & mut);
-}
 
-for[L = NoLabel, T, U, V](iter: Iterator[T], body: T->(U throws V))
-  : throws V // TODO: \ (Break[NoLabel] | Break[L] | Continue[NoLabel] | Continue[L])
-{
-  while { ?iter }
+  filter[S: Iterator[T] & mut, R: Filter[T] & mut]
+    (self: R~>S, f: (R~>S~>T)->Bool): R
   {
-    try
-    {
-      body(iter());
-      continue
-    }
-    catch
-    {
-      // Propagate Break[NoLabel] to the enclosing while. Turn a break to this
-      // label into a break from the while loop.
-      { Break[L] | Empty => break }
-
-      // An unlabelled continue or a continue to this label 
-      { Continue[NoLabel] | Continue[L] => next iter }
-    }
+    Filter(self, f)
   }
 }
 
@@ -38,22 +21,91 @@ maybe[T](value: T | ())
 }
 
 chain[T]()
-
-repeat[T, U: Iterator[T]](value: U~>T): U
-{
-  new Iterator[T]
-  {
-    value: T = value;
-    has_next(): Bool { true }
-    (self: Self & mut): self~>T { self.value }
-  }
-}
-
-filter[T](it: Iterator[T] & mut, f: (it~>T)->Bool): it~>Iterator[T]
-{
-  new @it Iterator[T]
-  {
-    
-  }
-}
 */
+
+class Repeat[T]: Iterator[T]
+{
+  value: T;
+
+  create[R: Repeat[T]](value: R~>T): R
+  {
+    new (value)
+  }
+
+  [S: Repeat[T] & mut](self: S): S~>T
+  {
+    self.value
+  }
+
+  next(self: Repeat[T] & mut) {}
+}
+
+class Chain[T]: Iterator[T]
+{
+  value: Iterator[Iterator[T] & mut] & mut;
+
+  create[R: Chain[T]](value: R~>(Iterator[Iterator[T] & mut] & mut)): R
+  {
+    new (value)
+  }
+
+  [S: Chain[T] & mut](self: S): S~>T throws Empty
+  {
+    value()()
+  }
+
+  next(self: Chain[T] & mut)
+  {
+    // TODO: can we do dots like this in the parser?
+    // how do we know the inner iterator is done?
+    value().next();
+  }
+}
+
+class Filter[T]: Iterator[T]
+{
+  it: Iterator[T] & mut;
+  f: T->Bool;
+  ok: Bool;
+
+  create(it: Iterator[T] & mut, f: T->Bool): Filter[T] & mut
+  {
+    new (it, f, false)
+  }
+
+  [S: Filter[T] & mut](self: S): S~>T throws Empty
+  {
+    self._advance();
+    self.it()
+  }
+
+  next(self: Filter[T] & mut)
+  {
+    self.it.next();
+    self.ok = false;
+    self._advance()
+  }
+
+  _advance(self: Self & mut)
+  {
+    // Skip ahead until we have something that passes the filter or we have
+    // nothing left. Cache the result to avoid running the filter multiple
+    // times for the same element.
+    if (not self.ok)
+    {
+      self.ok = true;
+
+      try
+      {
+        while { not self.f(self.it()) }
+        {
+          self.it.next()
+        }
+      }
+      catch
+      {
+        { Empty => }
+      }
+    }
+  }
+}

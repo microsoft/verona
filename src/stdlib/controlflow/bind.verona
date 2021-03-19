@@ -1,0 +1,16 @@
+// `~` implements explicit partial application.
+// f ~x rewrites to { y => f(x, y) }
+~[T, U, V, R: U->V](f: R~>((T, U)->V), x: R~>T): R
+{
+  { y => f x y }
+}
+
+|>[T, U](x: T, y: T->U): U
+{
+  y x
+}
+
+// ;[T](_: T): Done[None]
+// {
+//   Done(None)
+// }

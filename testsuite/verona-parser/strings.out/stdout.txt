@@ -27,8 +27,12 @@
               (string "\n    hi\n")
               (char "{\n  }")
               (assign (let tab) (string "\t"))
-              (apply
-                (apply (string "    look, a ") (ref tab))
+              (select
+                (select
+                  (string "    look, a ")
+                  [ (typename apply []) ]
+                  (ref tab))
+                [ (typename apply []) ]
                 (string " in my string"))
             ]))
       ])

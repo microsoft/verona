@@ -20,76 +20,6 @@ namespace verona::parser::resolve
       name_create = ident("create");
     }
 
-    void create_sugar(StaticRef& sr, Ast& def)
-    {
-      // We found a type as an expression, so we'll turn it into a constructor.
-      auto find = look_in(def, name_create);
-      bool has_params = false;
-
-      // Assume it's a zero argument create unless we can discover otherwise.
-      if (find && (find->kind() == Kind::Function))
-        has_params = find->as<Function>().params.size() > 0;
-
-      auto create = std::make_shared<TypeName>();
-      create->location = name_create;
-
-      auto sref = std::make_shared<StaticRef>();
-      sref->location = sr.location;
-      sref->typenames = sr.typenames;
-      sref->typenames.push_back(create);
-
-      if (has_params)
-      {
-        // If create takes parameters, leave it as a static function reference.
-        // (staticref typename...)
-        // ->
-        // (staticref typename...::create)
-        rewrite(stack, sref);
-      }
-      else
-      {
-        // If create takes no parameters, apply it now.
-        // (staticref typename...)
-        // ->
-        // (apply (staticref typename...::create) ())
-        auto apply = std::make_shared<Apply>();
-        apply->location = sr.location;
-        apply->expr = sref;
-        rewrite(stack, apply);
-      }
-    }
-
-    void unpack(Node<Tuple>& tuple, Node<Expr>& expr)
-    {
-      if (expr->kind() == Kind::Tuple)
-      {
-        auto& pack = expr->as<Tuple>();
-
-        for (auto& expr : pack.seq)
-          tuple->seq.push_back(expr);
-      }
-      else
-      {
-        tuple->seq.push_back(expr);
-      }
-    }
-
-    Node<Tuple> first_rest(Node<Expr>& expr)
-    {
-      if (expr->kind() != Kind::Tuple)
-        return {};
-
-      auto tuple = std::make_shared<Tuple>();
-      tuple->location = expr->location;
-      auto& pack = expr->as<Tuple>();
-
-      for (size_t i = 1; i < pack.seq.size(); i++)
-        tuple->seq.push_back(pack.seq[i]);
-
-      expr = pack.seq[0];
-      return tuple;
-    }
-
     void post(TypeRef& tr)
     {
       // This checks that the type exists but doesn't rewrite the AST.
@@ -129,44 +59,29 @@ namespace verona::parser::resolve
       }
     }
 
-    void post(StaticRef& sr)
+    void post(Select& select)
     {
-      auto paths = look_up(stack, sr.typenames);
+      // If it's a single element name with a left-hand side, it will be
+      // treated as a member selection.
+      if ((select.expr || select.args) && (select.typenames.size() == 1))
+        return;
+
+      // Find all definitions of the selector.
+      auto paths = look_up(stack, select.typenames);
 
       if (paths.empty())
       {
-        // If it's a single element name in an operator position, it will be
-        // treated as a member selection.
-        if (sr.typenames.size() == 1)
-        {
-          auto ast = parent();
-
-          if (ast->kind() == Kind::Infix)
-          {
-            if (ast->as<Infix>().op == stack.back())
-              sr.maybe_member = true;
-          }
-          else if (ast->kind() == Kind::Apply)
-          {
-            if (ast->as<Apply>().expr == stack.back())
-              sr.maybe_member = true;
-          }
-        }
-
-        if (!sr.maybe_member)
-        {
-          error() << sr.location
-                  << "Couldn't find a definition for this reference."
-                  << text(sr.location);
-        }
+        error() << select.typenames.front()->location
+                << "Couldn't find a definition for this."
+                << text(select.typenames.front()->location);
         return;
       }
 
       if (paths.size() > 1)
       {
-        auto& out = error()
-          << sr.location << "Found multiple definitions of this reference."
-          << text(sr.location);
+        auto& out = error() << select.typenames.front()->location
+                            << "Found multiple definitions of this."
+                            << text(select.typenames.front()->location);
 
         for (auto& path : paths)
         {
@@ -180,147 +95,24 @@ namespace verona::parser::resolve
 
       if (is_kind(def, {Kind::Class, Kind::Interface, Kind::TypeAlias}))
       {
-        create_sugar(sr, def);
+        // We found a type as a selector, so we'll turn it into a constructor.
+        auto create = std::make_shared<TypeName>();
+        create->location = name_create;
+        select.typenames.push_back(create);
       }
-      else if (def->kind() != Kind::Function)
+      else if (!is_kind(def, {Kind::Function}))
       {
-        error() << sr.location << "Expected a type or a function, but got a "
-                << kindname(def->kind()) << text(sr.location) << def->location
+        error() << select.typenames.front()->location
+                << "Expected a type or function, but got a "
+                << kindname(def->kind())
+                << text(select.typenames.front()->location) << def->location
                 << "Definition is here" << text(def->location);
       }
     }
 
-    void post(Specialise& spec)
-    {
-      // (specialise staticref typeargs)
-      // ->
-      // (specialise (apply staticref ()) typeargs)
-      if (spec.expr->kind() == Kind::StaticRef)
-      {
-        auto apply = std::make_shared<Apply>();
-        apply->location = spec.expr->location;
-        apply->expr = spec.expr;
-        spec.expr = apply;
-      }
-    }
-
-    void post(Select& select)
-    {
-      if (select.expr->kind() == Kind::StaticRef)
-      {
-        error() << select.expr->location
-                << "Can't select a member on a static function"
-                << text(select.expr->location);
-      }
-    }
-
-    void post(Apply& app)
-    {
-      if (app.expr->kind() == Kind::StaticRef)
-      {
-        auto& sr = app.expr->as<StaticRef>();
-
-        if (sr.maybe_member)
-        {
-          auto tuple = first_rest(app.args);
-
-          // (apply maybe-member args)
-          // ->
-          // (select args[0] member)
-          auto select = std::make_shared<Select>();
-          select->location = sr.location;
-          select->expr = app.args;
-          select->member = sr.typenames.back()->location;
-          Node<Expr> left = select;
-
-          if (!sr.typenames.back()->typeargs.empty())
-          {
-            // (select args[0] member[T])
-            // ->
-            // (specialise (select args[0] member) [T])
-            auto spec = std::make_shared<Specialise>();
-            spec->location = sr.location;
-            spec->expr = select;
-            spec->typeargs = sr.typenames.back()->typeargs;
-            left = spec;
-          }
-
-          if (tuple)
-          {
-            app.expr = left;
-            app.args = tuple;
-          }
-          else
-          {
-            rewrite(stack, left);
-          }
-        }
-      }
-    }
-
-    void post(Infix& infix)
-    {
-      auto apply = std::make_shared<Apply>();
-      apply->location = infix.location;
-
-      if (infix.op->kind() == Kind::StaticRef)
-      {
-        auto& sr = infix.op->as<StaticRef>();
-
-        if (sr.maybe_member)
-        {
-          // (infix maybe-member expr1 expr2)
-          // ->
-          // (apply (select expr1[0] member)
-          //  (tuple <unpack>expr1[1..] <unpack>expr2))
-          auto tuple = first_rest(infix.left);
-
-          if (tuple)
-          {
-            unpack(tuple, infix.right);
-            apply->args = tuple;
-          }
-          else
-          {
-            apply->args = infix.right;
-          }
-
-          auto select = std::make_shared<Select>();
-          select->location = sr.location;
-          select->expr = infix.left;
-          select->member = sr.typenames.back()->location;
-          apply->expr = select;
-
-          if (!sr.typenames.back()->typeargs.empty())
-          {
-            auto spec = std::make_shared<Specialise>();
-            spec->location = sr.location;
-            spec->expr = select;
-            spec->typeargs = sr.typenames.back()->typeargs;
-            apply->expr = spec;
-          }
-        }
-      }
-
-      if (!apply->expr)
-      {
-        // (infix _ expr1 expr2)
-        // ->
-        // (apply _ (tuple <unpack>expr1 <unpack>expr2))
-        auto tuple = std::make_shared<Tuple>();
-        tuple->location = infix.left->location;
-        unpack(tuple, infix.left);
-        unpack(tuple, infix.right);
-
-        apply->expr = infix.op;
-        apply->args = tuple;
-      }
-
-      rewrite(stack, apply);
-    }
-
     void post(Tuple& tuple)
     {
+      // TODO: delete if size = 0 ?
       // Collapse unnecessary tuple nodes.
       if (tuple.seq.size() != 1)
         return;
@@ -339,12 +131,6 @@ namespace verona::parser::resolve
   struct WF : Pass<WF>
   {
     AST_PASS;
-
-    void post(Infix& node)
-    {
-      error() << node.location << "Unexpected " << kindname(node.kind())
-              << " after resolve pass." << text(node.location);
-    }
   };
 
   bool wellformed(Ast& ast, std::ostream& out)

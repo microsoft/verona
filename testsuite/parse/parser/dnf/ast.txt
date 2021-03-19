@@ -117,7 +117,7 @@
               (throwtype (typeref [ (typename D []) ]))
               (throwtype (typeref [ (typename E []) ]))
             ])
-          (lambda [] [] [ (apply (ref f) (ref x)) ]))
+          (lambda [] [] [ (select (ref f) [ (typename apply []) ] (ref x)) ]))
         (function
           h
           []

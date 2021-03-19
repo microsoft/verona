@@ -33,7 +33,9 @@
               [
                 (param
                   a
-                  (isecttype [ (typeref [ (typename A []) ]) (mut ) ])
+                  (extracttype
+                    (typeref [ (typename S []) ])
+                    (isecttype [ (typeref [ (typename A []) ]) (mut ) ]))
                   ())
               ]
               (typeref [ (typename S []) ])
@@ -102,17 +104,16 @@
                 (lambda
                   [ (typeparam A (typeref [ (typename U64 []) ]) ()) ]
                   [ (param a () ()) ]
-                  [ (apply (select (ref a) +) (int 42)) ]))
+                  [ (select (ref a) [ (typename + []) ] (int 42)) ]))
               (assign
                 (let e0)
-                (apply
-                  (staticref [ (typename Empty []) (typename create []) ])
+                (select
+                  ()
+                  [ (typename Empty []) (typename create []) ]
                   (tuple [])))
               (assign
                 (let e1)
-                (apply
-                  (staticref [ (typename Empty []) (typename create []) ])
-                  ()))
+                (select () [ (typename Empty []) (typename create []) ] ()))
               (assign (let e2) (object e (typeref [ (typename Empty []) ]) []))
               (assign
                 (let one)
