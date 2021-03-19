@@ -4,8 +4,7 @@
 * allow `using` inside a function
 * put precedence paren forcing back in
 * inheritance
-* update sugar
-  should we instead have Ref[T] or Ref[T, U]?
+* Ref[T] instead of update sugar
 * distinguishing value parameters from type parameters
 * constant expressions
 * yield transformation
@@ -14,15 +13,6 @@
 
 ## Open Questions
 
-* can control flow expressions end without a `;`?
-  * `let x = if a { e0 } else { e1 }` wants a return value
-  * same applies to `match`
-  * `while` and `for` could return something special, but it won't cope well with the lhs of an assignment operator
-  * could have a return type marker that splits the expression?
-  * that doesn't work
-    * `if a { e0 } not b` should stop after the `}`
-    * `if a { e0 } else { e1 }` shouldn't
-* optional arguments and left-associative apply seem to interact badly
 * transform an object literal into an anonymous class and a create call
   needs free variable analysis
   could do the same thing for lambdas

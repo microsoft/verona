@@ -29,38 +29,36 @@
             []
             []
             [
-              (apply (staticref [ (typename B []) (typename create []) ]) ())
-              (staticref [ (typename B []) (typename foo []) ])
-              (apply
-                (staticref [ (typename B []) (typename foo []) ])
-                (tuple []))
-              (apply
-                (staticref
-                  [ (typename B []) (typename C []) (typename create []) ])
+              (select () [ (typename B []) (typename create []) ] ())
+              (select () [ (typename B []) (typename foo []) ] ())
+              (select () [ (typename B []) (typename foo []) ] (tuple []))
+              (select
+                ()
+                [ (typename B []) (typename C []) (typename create []) ]
                 ())
-              (apply
-                (staticref
-                  [
-                    (typename B [ (typeref [ (typename X []) ]) ])
-                    (typename C [])
-                    (typename create [])
-                  ])
+              (select
+                ()
+                [
+                  (typename B [ (typeref [ (typename X []) ]) ])
+                  (typename C [])
+                  (typename create [])
+                ]
                 ())
-              (apply
-                (staticref
-                  [
-                    (typename B [ (typeref [ (typename X []) ]) ])
-                    (typename C [ (typeref [ (typename X []) ]) ])
-                    (typename create [])
-                  ])
+              (select
+                ()
+                [
+                  (typename B [ (typeref [ (typename X []) ]) ])
+                  (typename C [ (typeref [ (typename X []) ]) ])
+                  (typename create [])
+                ]
                 ())
-              (apply
-                (staticref
-                  [
-                    (typename B [ (typeref [ (typename X []) ]) ])
-                    (typename C [ (typeref [ (typename X []) ]) ])
-                    (typename bar [ (typeref [ (typename X []) ]) ])
-                  ])
+              (select
+                ()
+                [
+                  (typename B [ (typeref [ (typename X []) ]) ])
+                  (typename C [ (typeref [ (typename X []) ]) ])
+                  (typename bar [ (typeref [ (typename X []) ]) ])
+                ]
                 (tuple [ (ref x) (ref y) (tuple [ (ref x) (ref y) ]) ]))
             ]))
       ])

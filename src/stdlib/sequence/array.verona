@@ -1,0 +1,23 @@
+using "controlflow";
+
+class Array[T]
+{
+  class OutOfBounds {}
+  class _Pointer[T] {}
+
+  _pointer: _Pointer[T];
+  _count: USize;
+  _space: USize;
+
+  [S: Array[T]](self: S, i: USize): S~>T throws OutOfBounds
+  {
+    if (i < _count)
+    {
+      _pointer(i)
+    }
+    else
+    {
+      throw OutOfBounds
+    }
+  }
+}

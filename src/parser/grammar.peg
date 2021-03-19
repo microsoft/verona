@@ -10,8 +10,8 @@ tupletype <- '(' (type (',' type)*)? ')'
 typename <- ident typeargs?
 modulename <- string typeargs?
 typeref <- (modulename / typename) ('::' typename)*
-captype <- 'iso' / 'mut' / 'imm' / 'Self' / typeref
-viewtype <- (captype ('~>' / '<~'))* (captype / tupletype)
+captype <- 'iso' / 'mut' / 'imm' / 'Self' / typeref / tupletype
+viewtype <- captype (('~>' / '<~') captype)*
 functiontype <- viewtype ('->' functiontype)?
 isecttype <- functiontype ('&' functiontype)*
 uniontype <- isecttype ('|' isecttype)*
@@ -26,19 +26,13 @@ new <- 'new' ('@' ident)? (tuple / typebody / type typebody)
 tuple <- '(' (expr (',' expr)*)? ')'
 constant <- string / character / float / int / hex / binary / 'true' / 'false'
 ref <- [local] ident
-atom <- staticref / ref / constant / tuple / new / when / try / match / lambda
-
-# Operators
-staticname <- name typeargs?
-staticselect <- postfix ('::' staticname)+
-staticref <- [nonlocal] staticname ('::' staticname)*
-op <- staticref / staticselect
 
 # Expressions
-# Binding is: postfix, apply, infix, assign
-postfix <- atom ('.' name / typeargs)*
-apply <- op+ postfix* / postfix+
-infix <- apply (op apply)*
+atom <- tuple / constant / new / when / try / match / lambda
+selector <- name typeargs? ('::' name typeargs?)*
+select <- ('.' selector / typeargs) tuple?
+postfix <- (atom / ref typeargs? tuple?) select*
+infix <- (postfix / selector)+
 throw <- 'throw' expr
 decl <- ('let' / 'var') ident
 expr <- (decl / throw / infix) oftype? ('=' expr)?

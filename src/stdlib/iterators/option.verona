@@ -6,9 +6,14 @@ class Option[T]: Iterator[T]
   // T: r -> S: r
   // T: iso -> T: iso
   // T: imm -> T: iso
-  create[S: Option[T]](v: S<~T | None = None): S
+  create[S: Option[T]](v: S<~T): S
   {
     new (v)
+  }
+
+  empty[S: Option[T]](): S
+  {
+    new (None)
   }
 
   has_value(self: Option[T]): Bool

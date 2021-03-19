@@ -30,21 +30,22 @@
             []
             []
             [
-              (when (ref a) (lambda [] [] []))
-              (when
-                (tuple [ (ref a) (ref b) ])
-                (lambda
-                  []
-                  []
-                  [
-                    (apply
+              (select
+                (when (ref a) (lambda [] [] []))
+                [ (typename apply []) ]
+                (when
+                  (tuple [ (ref a) (ref b) ])
+                  (lambda
+                    []
+                    []
+                    [
                       (select
                         (when
-                          (apply (staticref [ (typename bar []) ]) (tuple []))
+                          (select () [ (typename bar []) ] (tuple []))
                           (lambda [] [] []))
-                        return)
-                      (ref b))
-                  ]))
+                        [ (typename return []) ]
+                        (ref b))
+                    ])))
             ]))
       ])
   ])

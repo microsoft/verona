@@ -46,13 +46,8 @@ namespace verona::parser
     Match,
     Lambda,
     Assign,
-    Infix,
-    Apply,
     Select,
-    Specialise,
-    StaticSelect,
     Ref,
-    StaticRef,
     Let,
     Var,
     Throw,
@@ -305,59 +300,15 @@ namespace verona::parser
     }
   };
 
-  struct Infix : Expr
-  {
-    Node<Expr> op;
-    Node<Expr> left;
-    Node<Expr> right;
-
-    Kind kind()
-    {
-      return Kind::Infix;
-    }
-  };
-
-  struct Apply : Expr
+  struct Select : Expr
   {
     Node<Expr> expr;
+    List<TypeName> typenames;
     Node<Expr> args;
 
     Kind kind()
     {
-      return Kind::Apply;
-    }
-  };
-
-  struct Select : Expr
-  {
-    Node<Expr> expr;
-    Location member;
-
-    Kind kind()
-    {
       return Kind::Select;
-    }
-  };
-
-  struct StaticSelect : Expr
-  {
-    Node<Expr> expr;
-    List<TypeName> typenames;
-
-    Kind kind()
-    {
-      return Kind::StaticSelect;
-    }
-  };
-
-  struct Specialise : Expr
-  {
-    Node<Expr> expr;
-    List<Type> typeargs;
-
-    Kind kind()
-    {
-      return Kind::Specialise;
     }
   };
 
@@ -571,17 +522,6 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::ObjectLiteral;
-    }
-  };
-
-  struct StaticRef : Expr
-  {
-    List<TypeName> typenames;
-    bool maybe_member = false;
-
-    Kind kind()
-    {
-      return Kind::StaticRef;
     }
   };
 

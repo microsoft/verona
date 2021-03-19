@@ -20,13 +20,13 @@ f[T](x: T)
     {
       break
     }
-  };
+  }
 
   for x
   {
     a =>
-    foo(a);
-  };
+    foo(a)
+  }
 
   return a
 }

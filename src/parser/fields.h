@@ -145,45 +145,15 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, Infix& infix)
-  {
-    target << infix.op << infix.left << infix.right;
-  }
-
-  template<typename T>
   void fieldsof(T& target, Select& select)
   {
-    target << select.expr << select.member;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, StaticSelect& select)
-  {
-    target << select.expr << select.typenames;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, Specialise& spec)
-  {
-    target << spec.expr << spec.typeargs;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, Apply& apply)
-  {
-    target << apply.expr << apply.args;
+    target << select.expr << select.typenames << select.args;
   }
 
   template<typename T>
   void fieldsof(T& target, Ref& ref)
   {
     target << ref.location;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, StaticRef& sr)
-  {
-    target << sr.typenames;
   }
 
   template<typename T>
