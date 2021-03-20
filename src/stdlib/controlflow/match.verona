@@ -1,3 +1,5 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 class NoMatch {}
 
 // `as` returns `value` as type T if that's possible. Otherwise, it throws
