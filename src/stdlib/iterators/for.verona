@@ -1,3 +1,5 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 for[L = NoLabel, T, U, V](iter: Iterator[T], body: T->(U throws V))
   : Done[None] throws V // TODO: \ (Break[NoLabel] | Break[L] | Continue[NoLabel] | Continue[L])
 {
