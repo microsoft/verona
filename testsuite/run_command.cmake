@@ -28,5 +28,7 @@ execute_process(
     RESULT_VARIABLE status
 )
 
-# Push exit code into dump
+# Push exit code into dump and make sure both stdout and stderr exist
 file(WRITE ${OUTPUT_DIR}/exit_code.txt ${status})
+file(TOUCH ${OUTPUT_DIR}/stdout.txt)
+file(TOUCH ${OUTPUT_DIR}/stderr.txt)

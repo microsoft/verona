@@ -1132,14 +1132,12 @@ namespace verona::parser
       // Look for a module relative to the current source file first.
       auto base = path::to_directory(escapedstring(name->location.view()));
       auto relative = path::join(source->origin, base);
+      auto std = path::join(stdlib, base);
       auto find = path::canonical(relative);
 
       // Otherwise, look for a module relative to the standard library.
       if (find.empty())
-      {
-        auto std = path::join(stdlib, base);
         find = path::canonical(std);
-      }
 
       if (!find.empty())
       {
@@ -1156,8 +1154,10 @@ namespace verona::parser
       }
       else
       {
-        error() << name->location << "Couldn't locate module \"" << base << "\""
-                << text(name->location);
+        auto& out = error() << name->location << "Couldn't locate module \""
+                            << base << "\"" << text(name->location);
+        out << "Tried " << relative << std::endl;
+        out << "Tried " << std << std::endl;
         r = Error;
       }
 
@@ -2040,24 +2040,24 @@ namespace verona::parser
       else
       {
         auto files = path::files(path);
+        size_t count = 0;
 
-        if (files.empty())
+        for (auto& file : files)
+        {
+          if (ext != path::extension(file))
+            continue;
+
+          auto filename = path::join(path, file);
+          count++;
+
+          if (sourcefile(filename, module, moduledef) == Error)
+            r = Error;
+        }
+
+        if (!count)
         {
           error() << "No " << ext << " files found in " << path << std::endl;
           r = Error;
-        }
-        else
-        {
-          for (auto& file : files)
-          {
-            if (ext != path::extension(file))
-              continue;
-
-            auto filename = path::join(path, file);
-
-            if (sourcefile(filename, module, moduledef) == Error)
-              r = Error;
-          }
         }
       }
 
