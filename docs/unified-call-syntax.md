@@ -1,192 +1,49 @@
 # Unified Call Syntax
 
-Verona does not distinguish between functions, static functions, or methods. All functions are defined within some class (possibly the module class), and all functions can be used in any of the three roles.
+Verona does not distinguish between functions, static functions, and methods. All functions are defined within some class (possibly the module class), and all functions can be used in any of the three roles.
 
 There are multiple ways to refer to functions:
 
-* Dynamic unbound selection
-* Dynamic bound selection
-* Fully-qualified reference
-* Unqualified reference
-* Fully-qualified infix
-* Unqualified infix
+* Dot notation
+* Application-like sequences
+* Infix-like sequences
 
-## Arity
+## Dot Notation
 
-1. If there's a version with the right arity, use that.
-2. Try with just the right-hand side. If there's a version with the right arity now, use that.
-3. If there is one version with a higher arity, curry it and use that.
-   1. *with or without the left-hand side?*
-4. If there is no version, or more than one version, with a higher arity, it's a type error.
+The syntactic form `e0.name` looks up `name` on the dynamic value of `e0`, and `e0` is the "left-hand side" of the expression. If it's followed by a tuple, i.e. `e0.name(e1, e2)`, then the tuple is the "right-hand side" of the expression. If there is no tuple, then the right-hand side is empty. Dot notation is the tightest bounds.
 
-## Dynamic Unbound Selection
+## Application-like Sequences
 
-The syntactic form `object::identifier` looks up a function on a dynamic value. The identifier can have type arguments. The function is looked up on the dynamic (concrete) type of the of the object, which may be more precise than the static type. No arguments are bound.
+The syntactic form `e0 e1` is syntactic sugar for `e0.apply(e1)`. It binds less tightly than dot notation, so `e0 e1.f(e2)` treats `e1.f(e2)` as the right-hand side, i.e. `e0.apply(e1.f(e2))`.
 
-The static type of `object` must indicate that look-up on the dynamic type will succeed.
+## Infix-like Sequences
 
-```ts
-// This looks up `foo` with no type arguments on the dynamic type of `x` and
-// stores the resulting function in `f`.
-let f = x::foo;
+If an element in a sequence is a selector, rather than a value, it's treated differently. A selector is an optional sequence of `::` separated type references, followed by a function reference, for example `Foo[Bar]::Quex::some_function[U64]`, or simply `f` where `f` is not a local identifier.
 
-// This calls `x::foo` with the argument `4`.
-f 4;
+Such a selector acts as loosely bound dot notation. If there is no preceding value, then the left-hand side is empty, and if there's no following value, then the right-hand side is empty. For example, `e0 selector e1` is `e0.selector(e1)`, `selector e0` is `().selector(e0)`, and `e0 selector` is `e0.selector()`. This binds at the same tightness as application, i.e. more loosely than dot notation, so `e0.f selector e1.g(e2)` is `e0.f.selector(e1.g(e2))`.
 
-// This also calls `x::foo` with the argument `4`.
-x::foo(4);
-```
+## Overload Resolution
 
-## Dynamic Bound Selection
+Functions are first-round candidates if:
+1. They have an arity that matches the concatenation of the left-hand and right-hand side arguments.
+2. The static types of all arguments match.
 
-The syntactic form `object.identifier` works like dynamic unbound selection, but with one additional step: the `object` is bound as the first argument to the function. That is, after look-up, the function is partially applied.
+Functions are second-round candidates if:
+1. They have an arity that matches the right-hand side arguments.
+2. The static types of all arguments match.
 
-```ts
-// This looks up `bar` on the dynamic type of `x` and binds `x` as the first
-// argument.
-let f = x.bar;
+In each round, a static function is preferred if one is available, otherwise a dynamic function is selected. If no function is available in a round, resolution moves on to the next round. Dynamic look up type checks based on the static type of the first argument and resolves at run-time based on the dynamic type of the first argument.
 
-// This calls x::bar(x, "hi")
-f "hi";
+Open question: if more than one function is available in a round, is this always an error, or do we provide a resolution order for the "most specific" static types?
 
-// This also calls x::bar(x, "hi")
-x.bar("hi");
-```
+## Named Arguments
 
-## Fully-Qualified Reference
-
-The syntactic form `type::identifier` is a direct reference to a function defined in a type. The type can itself be fully qualified, and the function may optionally have type arguments. No arguments are bound, and the function must be defined in that type, not just declared. That is, if the type is an interface, it must provide a default implementation of the function.
-
-The function reference can be stored, or can be used in application in the same way as any other value.
-
-```ts
-// This stores a statically known function in `f`.
-let f = Foo::bar;
-
-// This calls Foo::bar(4).
-f 4;
-
-// This also calls Foo::bar(4).
-Foo::bar(4);
-```
-
-## Unqualified Reference
-
-An unqualified function name `identifier` (as distinct from a qualified name such as `ident1::ident2`) can be used. If there is a function in the current scope (either defined in the current class or made available without qualification with a `using` directive), this will resolve as if it were a fully-qualified reference.
-
-If there is no static resolution to a function, this will instead resolve as if it were a dynamic unbound selection on the first argument. It's a compile-time error to try to use an undefined function with no arguments.
-
-```ts
-// The function `foo` must be in scope.
-let f = foo;
-
-// If `foo` is in scope, this calls `foo(x)`. If `foo` is not in scope, this
-// calls `x::foo(x)`.
-foo x;
-```
-
-## Fully-Qualified Infix
-
-A fully-qualified reference used in an infix position receives arguments from both the left-hand side and the right-hand side. If either or both arguments are tuples, the tuples are concatenated into a single tuple.
-
-```ts
-// These are all equivalent.
-Foo::bar(w, x, y, z);
-w Foo::bar (x, y, z);
-(w, x) Foo::bar (y, z);
-(w, x, y) Foo::bar z;
-```
-
-## Unqualified Infix
-
-An unqualified reference used in an infix position receives arguments from both sides in the same way as a fully-qualified reference used in an infix position. The unqualified reference is then either resolved in the current scope or looked up on the first argument.
-
-```ts
-// These are all equivalent. If `foo` is in scope, it is used. Otherwise,
-// `w::foo` must exist and is used.
-foo(w, x, y, z);
-w foo (x, y, z);
-(w, x) foo (y, z);
-(w, x, y) foo z;
-```
-
-## Tuples as Arguments
-
-A tuple as an argument to a function is unpacked into a sequence of arguments. In order to pass a tuple in a specific argument position, nest the tuple.
-
-```ts
-// These are equivalent
-f a b c;
-f(a, b) c;
-f a (b, c);
-a f (b, c)
-(a, b) f c;
-a f b c;
-
-// If the second argument is a tuple, nest it.
-f(a, (b, c));
-```
+Open question: should named arguments be supported?
 
 ## Default Arguments
 
-> TODO: default arguments are equivalent to arity-based overloading
-
-```ts
-f(g: I23->I32, a: I32 = 4): I32->I32 
-{
-  { x => g (x + a) }
-}
-
-// Greedy or not?
-f (+ ~ 5) 3
-
-f(a: T, b: U = ...): V { ... }
-let g = f a;
-// g: V or g: U->V ?
-
-class Window
-{
-  class Args
-  {
-    _title: String;
-    _width: USize;
-    _height: USize;
-
-    create(): Args
-    {
-      new ("none", 640, 480)
-    }
-
-    title(self: Args & mut, t: String): Args & mut
-    {
-      self._title = t;
-      self
-    }
-
-    ...
-  }
-
-  create(args: Args): Window { ... }
-}
-
-let w = Window Args.width(1000).title("My Application");
-
-```
+Default arguments are equivalent to arity-based overloading. For example, with two parameters, one of which has a default, a function can be used as arity/1 or arity/2. Similarly, a function with 8 parameters, all of which have defaults, can be used for any arity between 0 and 8.
 
 ## Variable Length Arguments
 
-There is no language support for variable length arguments. Instead, use an iterator.
-
-```ts
-sum[T: Addable](x: T, it: Iterator[T] & mut): T
-{
-  for it
-  {
-    y => x = x + y
-  };
-  x
-}
-
-let x = sum(4, values [1, 2, 3]); // x == 10
-
-```
+Use type lists to write functions with a variable number of arguments.
