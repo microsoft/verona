@@ -133,9 +133,9 @@
                 [ (param y () ()) ]
                 [
                   (select
-                    (select (ref f) [ (typename apply []) ] (ref x))
+                    (ref f)
                     [ (typename apply []) ]
-                    (ref y))
+                    (tuple [ (ref x) (ref y) ]))
                 ])
             ]))
         (function
