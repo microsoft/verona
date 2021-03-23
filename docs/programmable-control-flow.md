@@ -3,6 +3,7 @@
 New language features:
 
 * Lambda parameters can be values, which turns the lambda into a case.
+  * If it can be a parameter, it is. Otherwise, it is interpreted as a pattern.
   * The parameter position takes a type that can be the right-hand side in an `==` operator with the pattern value. When the lambda executes, it first checks all such equalities, throwing `NoMatch` if any aren't satisfied.
 * Negation in types to indicate that some type won't be thrown.
 * Automatically convert an exception that we don't allow in the function signature to a local return value and type check against the return value.
