@@ -8,7 +8,9 @@
 
 Function parameters and results may have type annotations containing type lists. Calling a function does a destructuring bind of the tuple argument. Using the result also does a destructuring bind.
 
-Tuple flattening also happens at the value level. This flattening is type-directed: given `x: A...`, uses of `x` are expanded to a sequence of values within the enclosing tuple. For example, given `x: A, y: B...`, if `B...` is bound to a tuple of length 2, `(x, y)` is a tuple of length 3. If instead `B...` is bound to a tuple of length 1, then `(x, y)` and `(x, (y))` are identical.
+Tuple flattening also happens at the value level. This flattening is type-directed: given `x: A...`, uses of `x` are expanded to a sequence of values within the enclosing tuple. For example, given `x: A, y: B...`, if `B...` is bound to a tuple of length 2, `(x, y)` is a tuple of length 3, whereas `(x, (y))` is a tuple of length 2, where the second element is another tuple of length 2. If instead `B...` is bound to a tuple of length 1, then `(x, y)` and `(x, (y))` are identical.
+
+When destructuring a type list, variables are bound to single elements until there is only one variable left, which then is bound to the remainder of the type list. This applies when pattern matching as well.
 
 ```ts
 papply[A, B..., C, R: B->C](f: R~>((A, B...)->C), x: R~>A): R
@@ -16,7 +18,7 @@ papply[A, B..., C, R: B->C](f: R~>((A, B...)->C), x: R~>A): R
   { y: B... => f(x, y) }
 }
 
-curry_one[A, B..., C, R: A->B...->C](f: R~>(A, B...)->C): R
+curry_one[A, B..., C, R: A->B...->C](f: R~>((A, B...)->C)): R
 {
   { x: A => papply(f, x) }
 }
@@ -26,12 +28,12 @@ uncurry[A, B..., C, R: (A, B...)->C](f: R~>(A->B...-->C)): R
   { x: A, y: B... => f x y }
 }
 
-curry_all[A, B..., C, R: A->B...-->C](f: R~>(A, B...)->C): R
+curry_all[A, B..., C, R: A->B...-->C](f: R~>((A, B...)->C)): R
 {
   { x: A =>
     match f
     {
-      { g: R~>A->C => papply(g, x) }
+      { g: R~>(A->C) => papply(g, x) }
       { _ => curry_all(papply(f, x) }
     }
   }
