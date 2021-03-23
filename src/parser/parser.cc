@@ -90,36 +90,30 @@ namespace verona::parser
       symbol_stack.pop_back();
     }
 
-    void set_sym(const Location& id, Ast node, SymbolTable& st)
+    void set_sym(SymbolTable* st, const Location& id, Ast node)
     {
-      auto find = st.map.find(id);
+      auto prev = st->set(id, node);
 
-      if (find != st.map.end())
+      if (prev)
       {
         auto& loc = node->location;
-        auto& prev = find->second->location;
 
         error() << loc << "There is a previous definition of \"" << id.view()
-                << "\"" << text(loc) << prev
-                << "The previous definition is here" << text(prev);
-        return;
+                << "\"" << text(loc) << prev.value()
+                << "The previous definition is here" << text(prev.value());
       }
-
-      st.map.emplace(id, node);
     }
 
     void set_sym(const Location& id, Ast node)
     {
       assert(symbol_stack.size() > 0);
-      auto st = symbol_stack.back()->symbol_table();
-      set_sym(id, node, *st);
+      set_sym(symbol_stack.back()->symbol_table(), id, node);
     }
 
     void set_sym_parent(const Location& id, Ast node)
     {
       assert(symbol_stack.size() > 1);
-      auto st = symbol_stack[symbol_stack.size() - 2]->symbol_table();
-      set_sym(id, node, *st);
+      set_sym(symbol_stack[symbol_stack.size() - 2]->symbol_table(), id, node);
     }
 
     Node<Ref> ref(const Location& loc)
@@ -613,15 +607,9 @@ namespace verona::parser
         con->location = previous.location;
         expr = con;
       }
-      else if (has(TokenKind::True))
+      else if (has(TokenKind::Bool))
       {
-        auto con = std::make_shared<True>();
-        con->location = previous.location;
-        expr = con;
-      }
-      else if (has(TokenKind::False))
-      {
-        auto con = std::make_shared<False>();
+        auto con = std::make_shared<Bool>();
         con->location = previous.location;
         expr = con;
       }

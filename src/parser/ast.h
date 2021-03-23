@@ -62,8 +62,7 @@ namespace verona::parser
     Float,
     Hex,
     Binary,
-    True,
-    False,
+    Bool,
   };
 
   struct NodeDef;
@@ -185,6 +184,17 @@ namespace verona::parser
   {
     std::unordered_map<Location, Ast> map;
     std::vector<Node<Using>> use;
+
+    std::optional<Location> set(const Location& id, Ast node)
+    {
+      auto find = map.find(id);
+
+      if (find != map.end())
+        return find->second->location;
+
+      map.emplace(id, node);
+      return {};
+    }
   };
 
   struct Expr : NodeDef
@@ -584,19 +594,11 @@ namespace verona::parser
     }
   };
 
-  struct True : Constant
+  struct Bool : Constant
   {
     Kind kind()
     {
-      return Kind::True;
-    }
-  };
-
-  struct False : Constant
-  {
-    Kind kind()
-    {
-      return Kind::False;
+      return Kind::Bool;
     }
   };
 }

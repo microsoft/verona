@@ -27,7 +27,7 @@
           (lambda
             []
             []
-            [ (select () [ (typename Foo []) (typename foo []) ] (tuple [])) ]))
+            [ (select () [ (typename Foo []) (typename foo []) ] ()) ]))
       ])
     (class
       $module-1

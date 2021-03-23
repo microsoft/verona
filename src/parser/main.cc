@@ -1,5 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+#include "anf.h"
 #include "dnf.h"
 #include "parser.h"
 #include "path.h"
@@ -38,6 +39,9 @@ int main(int argc, char** argv)
 
   ok = ok && resolve::run(ast);
   ok = ok && (!validate || resolve::wellformed(ast));
+
+  ok = ok && anf::run(ast);
+  ok = ok && (!validate || anf::wellformed(ast));
 
   if (emit_ast)
     std::cout << ast << std::endl;

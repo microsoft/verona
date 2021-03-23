@@ -1,0 +1,7 @@
+--------
+/home/sylvanc/dev/verona/build/dist/stdlib/iterators/iterator.verona:56:5: Expected a type or function, but got a field
+    value()()
+    ^^^^^
+/home/sylvanc/dev/verona/build/dist/stdlib/iterators/iterator.verona:47:3: Definition is here
+  value: Iterator[Iterator[T] & mut] & mut;
+  ^^^^^

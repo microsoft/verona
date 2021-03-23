@@ -144,11 +144,8 @@ namespace verona::parser
       case Kind::Binary:
         return "binary";
 
-      case Kind::True:
-        return "true";
-
-      case Kind::False:
-        return "false";
+      case Kind::Bool:
+        return "bool";
     }
 
     // This is unreachable, and is only to suppress an MSVC error.

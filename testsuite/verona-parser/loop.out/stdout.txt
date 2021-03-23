@@ -24,65 +24,74 @@
             []
             []
             [
-              (assign (let a) (int 0))
-              (select
-                (select
-                  (select
-                    (select
-                      (select
-                        ()
-                        [ (typename while []) ]
-                        (lambda
-                          []
-                          []
-                          [ (select (ref a) [ (typename < []) ] (int 5)) ]))
-                      [ (typename apply []) ]
+              (let a)
+              (assign (ref a) (int 0))
+              (assign
+                (let $0)
+                (lambda
+                  []
+                  []
+                  [
+                    (assign (let $0) (int 5))
+                    (select (ref a) [ (typename < []) ] (ref $0))
+                  ]))
+              (assign (let $1) (select () [ (typename while []) ] (ref $0)))
+              (assign
+                (let $2)
+                (lambda
+                  []
+                  []
+                  [
+                    (assign (let $0) (int 1))
+                    (assign
+                      (ref a)
+                      (select (ref a) [ (typename + []) ] (ref $0)))
+                    (assign (let $1) (int 2))
+                    (assign
+                      (let $2)
+                      (select (ref a) [ (typename < []) ] (ref $1)))
+                    (assign (let $3) (select () [ (typename if []) ] (ref $2)))
+                    (assign
+                      (let $4)
                       (lambda
                         []
                         []
                         [
-                          (assign
-                            (ref a)
-                            (select (ref a) [ (typename + []) ] (int 1)))
                           (select
-                            (select
-                              (select
-                                ()
-                                [ (typename if []) ]
-                                (select (ref a) [ (typename < []) ] (int 2)))
-                              [ (typename apply []) ]
-                              (lambda
-                                []
-                                []
-                                [
-                                  (select
-                                    ()
-                                    [
-                                      (typename continue [])
-                                      (typename create [])
-                                    ]
-                                    ())
-                                ]))
-                            [ (typename else []) ]
-                            (lambda
-                              []
-                              []
-                              [
-                                (select
-                                  ()
-                                  [ (typename break []) (typename create []) ]
-                                  ())
-                              ]))
+                            ()
+                            [ (typename continue []) (typename create []) ]
+                            ())
                         ]))
-                    [ (typename for []) ]
-                    (ref x))
-                  [ (typename apply []) ]
-                  (lambda
-                    []
-                    [ (param a () ()) ]
-                    [ (select () [ (typename foo []) ] (ref a)) ]))
-                [ (typename return []) ]
-                (ref a))
+                    (assign
+                      (let $5)
+                      (select (ref $3) [ (typename apply []) ] (ref $4)))
+                    (assign
+                      (let $6)
+                      (lambda
+                        []
+                        []
+                        [
+                          (select
+                            ()
+                            [ (typename break []) (typename create []) ]
+                            ())
+                        ]))
+                    (select (ref $5) [ (typename else []) ] (ref $6))
+                  ]))
+              (assign
+                (let $3)
+                (select (ref $1) [ (typename apply []) ] (ref $2)))
+              (assign (let $4) (select (ref $3) [ (typename for []) ] (ref x)))
+              (assign
+                (let $5)
+                (lambda
+                  []
+                  [ (param a () ()) ]
+                  [ (param a () ()) (select () [ (typename foo []) ] (ref a)) ]))
+              (assign
+                (let $6)
+                (select (ref $4) [ (typename apply []) ] (ref $5)))
+              (select (ref $6) [ (typename return []) ] (ref a))
             ]))
       ])
     (class
@@ -132,10 +141,9 @@
                 []
                 [ (param y () ()) ]
                 [
-                  (select
-                    (ref f)
-                    [ (typename apply []) ]
-                    (tuple [ (ref x) (ref y) ]))
+                  (param y () ())
+                  (assign (let $0) (tuple [ (ref x) (ref y) ]))
+                  (select (ref f) [ (typename apply []) ] (ref $0))
                 ])
             ]))
         (function
@@ -183,34 +191,35 @@
                     []
                     [ (param ontrue () ()) ]
                     [
-                      (match
-                        (select (ref cond) [ (typename apply []) ] (tuple []))
-                        [
-                          (lambda
-                            []
-                            [ (true true) ]
-                            [
-                              (select
-                                ()
-                                [ (typename Done []) ]
-                                (select
-                                  (ref ontrue)
-                                  [ (typename apply []) ]
-                                  (tuple [])))
-                            ])
-                          (lambda
-                            []
-                            [ (false false) ]
-                            [
-                              (select
-                                ()
-                                [
-                                  (typename FalseBranch [])
-                                  (typename create [])
-                                ]
-                                ())
-                            ])
-                        ])
+                      (param ontrue () ())
+                      (assign
+                        (let $0)
+                        (select (ref cond) [ (typename apply []) ] ()))
+                      (assign
+                        (let $1)
+                        (lambda
+                          []
+                          [ (bool true) ]
+                          [
+                            (bool true)
+                            (assign
+                              (let $0)
+                              (select (ref ontrue) [ (typename apply []) ] ()))
+                            (select () [ (typename Done []) ] (ref $0))
+                          ]))
+                      (assign
+                        (let $2)
+                        (lambda
+                          []
+                          [ (bool false) ]
+                          [
+                            (bool false)
+                            (select
+                              ()
+                              [ (typename FalseBranch []) (typename create []) ]
+                              ())
+                          ]))
+                      (match (ref $0) [ (ref $1) (ref $2) ])
                     ])
                 ]))
           ])
@@ -247,18 +256,19 @@
                 []
                 [ (param ontrue () ()) ]
                 [
-                  (select
-                    (ref prev)
-                    [ (typename else []) ]
+                  (param ontrue () ())
+                  (assign
+                    (let $0)
                     (lambda
                       []
                       []
                       [
-                        (select
-                          (select () [ (typename if []) ] (ref cond))
-                          [ (typename apply []) ]
-                          (ref ontrue))
+                        (assign
+                          (let $0)
+                          (select () [ (typename if []) ] (ref cond)))
+                        (select (ref $0) [ (typename apply []) ] (ref ontrue))
                       ]))
+                  (select (ref prev) [ (typename else []) ] (ref $0))
                 ])
             ]))
         (function
@@ -288,37 +298,45 @@
             []
             []
             [
-              (match
-                (ref prev)
-                [
-                  (lambda
-                    []
-                    [
-                      (select
-                        ()
-                        [ (typename FalseBranch []) (typename create []) ]
-                        ())
-                    ]
-                    [
-                      (select
-                        ()
-                        [ (typename Done []) ]
-                        (select
-                          (ref onfalse)
-                          [ (typename apply []) ]
-                          (tuple [])))
-                    ])
-                  (lambda
-                    []
-                    [
-                      (param
-                        v
-                        (typeref
-                          [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
-                        ())
-                    ]
-                    [ (ref v) ])
-                ])
+              (assign
+                (let $0)
+                (lambda
+                  []
+                  [
+                    (select
+                      ()
+                      [ (typename FalseBranch []) (typename create []) ]
+                      ())
+                  ]
+                  [
+                    (select
+                      ()
+                      [ (typename FalseBranch []) (typename create []) ]
+                      ())
+                    (assign
+                      (let $0)
+                      (select (ref onfalse) [ (typename apply []) ] ()))
+                    (select () [ (typename Done []) ] (ref $0))
+                  ]))
+              (assign
+                (let $1)
+                (lambda
+                  []
+                  [
+                    (param
+                      v
+                      (typeref
+                        [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
+                      ())
+                  ]
+                  [
+                    (param
+                      v
+                      (typeref
+                        [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
+                      ())
+                  ]))
+              (match (ref prev) [ (ref $0) (ref $1) ])
             ]))
         (using (typeref [ (modulename $module-2 []) ]))
         (interface Any [] () [])
@@ -354,7 +372,7 @@
               [ (typeparam U () ()) ]
               [ (param x (typeref [ (typename U []) ]) ()) ]
               (typeref [ (typename U []) ])
-              (lambda [] [] [ (ref x) ]))
+              (lambda [] [] []))
           ])
         (class NoLabel [] () [])
         (class Break [ (typeparam L () ()) ] () [])
@@ -374,7 +392,8 @@
                 []
                 []
                 [
-                  (throw
+                  (assign
+                    (let $0)
                     (select
                       ()
                       [
@@ -382,6 +401,7 @@
                         (typename create [])
                       ]
                       ()))
+                  (throw (ref $0))
                 ]))
           ])
         (class
@@ -400,7 +420,8 @@
                 []
                 []
                 [
-                  (throw
+                  (assign
+                    (let $0)
                     (select
                       ()
                       [
@@ -408,6 +429,7 @@
                         (typename create [])
                       ]
                       ()))
+                  (throw (ref $0))
                 ]))
           ])
         (function
@@ -442,100 +464,120 @@
             []
             []
             [
-              (match
-                (select (ref cond) [ (typename apply []) ] (tuple []))
-                [
-                  (lambda
-                    []
-                    [ (true true) ]
-                    [
-                      (try
-                        (lambda
-                          []
-                          []
-                          [
-                            (select
-                              (ref body)
-                              [ (typename apply []) ]
-                              (tuple []))
+              (assign (let $0) (select (ref cond) [ (typename apply []) ] ()))
+              (assign
+                (let $1)
+                (lambda
+                  []
+                  [ (bool true) ]
+                  [
+                    (bool true)
+                    (assign
+                      (let $0)
+                      (lambda
+                        []
+                        []
+                        [
+                          (select (ref body) [ (typename apply []) ] ())
+                          (select
+                            ()
+                            [ (typename continue []) (typename create []) ]
+                            ())
+                        ]))
+                    (assign
+                      (let $1)
+                      (lambda
+                        []
+                        [
+                          (select
+                            (ref $1)
+                            [
+                              (typename Break [ (typeref [ (typename L []) ]) ])
+                            ]
+                            ())
+                        ]
+                        [
+                          (assign
+                            (let $0)
                             (select
                               ()
-                              [ (typename continue []) (typename create []) ]
-                              ())
-                          ])
+                              [
+                                (typename
+                                  Break
+                                  [ (typeref [ (typename NoLabel []) ]) ])
+                                (typename create [])
+                              ]
+                              ()))
+                          (assign
+                            (let $1)
+                            (select (ref $0) [ (typename | []) ] ()))
+                          (select
+                            (ref $1)
+                            [
+                              (typename Break [ (typeref [ (typename L []) ]) ])
+                            ]
+                            ())
+                          (assign
+                            (let $2)
+                            (select
+                              ()
+                              [ (typename None []) (typename create []) ]
+                              ()))
+                          (select () [ (typename Done []) ] (ref $2))
+                        ]))
+                    (assign
+                      (let $2)
+                      (lambda
+                        []
                         [
-                          (lambda
-                            []
+                          (select
+                            (ref $1)
                             [
-                              (select
-                                (select
-                                  (select
-                                    ()
-                                    [
-                                      (typename
-                                        Break
-                                        [ (typeref [ (typename NoLabel []) ]) ])
-                                      (typename create [])
-                                    ]
-                                    ())
-                                  [ (typename | []) ]
-                                  ())
-                                [
-                                  (typename
-                                    Break
-                                    [ (typeref [ (typename L []) ]) ])
-                                ]
-                                ())
+                              (typename
+                                Continue
+                                [ (typeref [ (typename L []) ]) ])
                             ]
+                            ())
+                        ]
+                        [
+                          (assign
+                            (let $0)
+                            (select
+                              ()
+                              [
+                                (typename
+                                  Continue
+                                  [ (typeref [ (typename NoLabel []) ]) ])
+                                (typename create [])
+                              ]
+                              ()))
+                          (assign
+                            (let $1)
+                            (select (ref $0) [ (typename | []) ] ()))
+                          (select
+                            (ref $1)
                             [
-                              (select
-                                ()
-                                [ (typename Done []) ]
-                                (select
-                                  ()
-                                  [ (typename None []) (typename create []) ]
-                                  ()))
-                            ])
-                          (lambda
-                            []
-                            [
-                              (select
-                                (select
-                                  (select
-                                    ()
-                                    [
-                                      (typename
-                                        Continue
-                                        [ (typeref [ (typename NoLabel []) ]) ])
-                                      (typename create [])
-                                    ]
-                                    ())
-                                  [ (typename | []) ]
-                                  ())
-                                [
-                                  (typename
-                                    Continue
-                                    [ (typeref [ (typename L []) ]) ])
-                                ]
-                                ())
+                              (typename
+                                Continue
+                                [ (typeref [ (typename L []) ]) ])
                             ]
-                            [
-                              (select
-                                (select
-                                  ()
-                                  [
-                                    (typename
-                                      while
-                                      [ (typeref [ (typename L []) ]) ])
-                                  ]
-                                  (ref cond))
-                                [ (typename apply []) ]
-                                (ref body))
-                            ])
-                        ])
-                    ])
-                  (lambda [] [] [])
-                ])
+                            ())
+                          (assign
+                            (let $2)
+                            (select
+                              ()
+                              [
+                                (typename
+                                  while
+                                  [ (typeref [ (typename L []) ]) ])
+                              ]
+                              (ref cond)))
+                          (select (ref $2) [ (typename apply []) ] (ref body))
+                        ]))
+                    (try (ref $0) [ (ref $1) (ref $2) ])
+                  ]))
+              (assign (let $2) (lambda [] [] []))
+              (match (ref $0) [ (ref $1) (ref $2) ])
             ]))
         (class NoMatch [] () [])
         (function
@@ -551,24 +593,27 @@
             []
             []
             [
-              (match
-                (ref value)
-                [
-                  (lambda
-                    []
-                    [ (param x (typeref [ (typename T []) ]) ()) ]
-                    [ (ref x) ])
-                  (lambda
-                    []
-                    []
-                    [
-                      (throw
-                        (select
-                          ()
-                          [ (typename NoMatch []) (typename create []) ]
-                          ()))
-                    ])
-                ])
+              (assign
+                (let $0)
+                (lambda
+                  []
+                  [ (param x (typeref [ (typename T []) ]) ()) ]
+                  [ (param x (typeref [ (typename T []) ]) ()) ]))
+              (assign
+                (let $1)
+                (lambda
+                  []
+                  []
+                  [
+                    (assign
+                      (let $0)
+                      (select
+                        ()
+                        [ (typename NoMatch []) (typename create []) ]
+                        ()))
+                    (throw (ref $0))
+                  ]))
+              (match (ref value) [ (ref $0) (ref $1) ])
             ]))
         (function
           requires
@@ -583,22 +628,23 @@
             []
             []
             [
-              (select
-                (select
-                  ()
-                  [ (typename if []) ]
-                  (select () [ (typename not []) ] (ref pred)))
-                [ (typename apply []) ]
+              (assign (let $0) (select () [ (typename not []) ] (ref pred)))
+              (assign (let $1) (select () [ (typename if []) ] (ref $0)))
+              (assign
+                (let $2)
                 (lambda
                   []
                   []
                   [
-                    (throw
+                    (assign
+                      (let $0)
                       (select
                         ()
                         [ (typename NoMatch []) (typename create []) ]
                         ()))
+                    (throw (ref $0))
                   ]))
+              (select (ref $1) [ (typename apply []) ] (ref $2))
             ]))
         (class
           OrEquals
@@ -645,29 +691,32 @@
                 []
                 []
                 [
-                  (match
-                    (ref x)
-                    [
-                      (lambda
-                        []
-                        [ (param y (typeref [ (typename T1 []) ]) ()) ]
-                        [
-                          (select
-                            (select (ref self) [ (typename a []) ] ())
-                            [ (typename == []) ]
-                            (ref y))
-                        ])
-                      (lambda
-                        []
-                        [ (param y (typeref [ (typename T2 []) ]) ()) ]
-                        [
-                          (select
-                            (select (ref self) [ (typename b []) ] ())
-                            [ (typename == []) ]
-                            (ref y))
-                        ])
-                      (lambda [] [] [ (false false) ])
-                    ])
+                  (assign
+                    (let $0)
+                    (lambda
+                      []
+                      [ (param y (typeref [ (typename T1 []) ]) ()) ]
+                      [
+                        (param y (typeref [ (typename T1 []) ]) ())
+                        (assign
+                          (let $0)
+                          (select (ref self) [ (typename a []) ] ()))
+                        (select (ref $0) [ (typename == []) ] (ref y))
+                      ]))
+                  (assign
+                    (let $1)
+                    (lambda
+                      []
+                      [ (param y (typeref [ (typename T2 []) ]) ()) ]
+                      [
+                        (param y (typeref [ (typename T2 []) ]) ())
+                        (assign
+                          (let $0)
+                          (select (ref self) [ (typename b []) ] ()))
+                        (select (ref $0) [ (typename == []) ] (ref y))
+                      ]))
+                  (assign (let $2) (lambda [] [] [ (bool false) ]))
+                  (match (ref x) [ (ref $0) (ref $1) (ref $2) ])
                 ]))
           ])
         (function
@@ -698,10 +747,8 @@
             []
             []
             [
-              (select
-                ()
-                [ (typename OrEquals []) ]
-                (tuple [ (ref e1) (ref e2) ]))
+              (assign (let $0) (tuple [ (ref e1) (ref e2) ]))
+              (select () [ (typename OrEquals []) ] (ref $0))
             ]))
         (class
           Return
@@ -734,11 +781,13 @@
                 []
                 []
                 [
-                  (throw
+                  (assign
+                    (let $0)
                     (select
                       ()
                       [ (typename Return [ (typeref [ (typename T []) ]) ]) ]
                       (ref x)))
+                  (throw (ref $0))
                 ]))
           ])
       ])
@@ -757,13 +806,13 @@
               []
               [ (param self (typeref [ (typename Bool []) ]) ()) ]
               (typeref [ (typename Bool []) ])
-              (lambda [] [] [ (ref self) ]))
+              (lambda [] [] []))
             (function
               bool
               []
               [ (param self (typeref [ (typename Bool []) ]) ()) ]
               (typeref [ (typename Bool []) ])
-              (lambda [] [] [ (ref self) ]))
+              (lambda [] [] []))
           ])
         (interface
           ToBool
@@ -796,15 +845,15 @@
             []
             []
             [
-              (match
-                (select () [ (typename bool []) ] (ref a))
-                [
-                  (lambda [] [ (false false) ] [ (ref a) ])
-                  (lambda
-                    []
-                    [ (true true) ]
-                    [ (select (ref b) [ (typename apply []) ] (tuple [])) ])
-                ])
+              (assign (let $0) (select () [ (typename bool []) ] (ref a)))
+              (assign (let $1) (lambda [] [ (bool false) ] [ (bool false) ]))
+              (assign
+                (let $2)
+                (lambda
+                  []
+                  [ (bool true) ]
+                  [ (bool true) (select (ref b) [ (typename apply []) ] ()) ]))
+              (match (ref $0) [ (ref $1) (ref $2) ])
             ]))
         (function
           or
@@ -825,15 +874,15 @@
             []
             []
             [
-              (match
-                (select () [ (typename bool []) ] (ref a))
-                [
-                  (lambda [] [ (true true) ] [ (ref a) ])
-                  (lambda
-                    []
-                    [ (false false) ]
-                    [ (select (ref b) [ (typename apply []) ] (tuple [])) ])
-                ])
+              (assign (let $0) (select () [ (typename bool []) ] (ref a)))
+              (assign (let $1) (lambda [] [ (bool true) ] [ (bool true) ]))
+              (assign
+                (let $2)
+                (lambda
+                  []
+                  [ (bool false) ]
+                  [ (bool false) (select (ref b) [ (typename apply []) ] ()) ]))
+              (match (ref $0) [ (ref $1) (ref $2) ])
             ]))
         (function
           not
@@ -844,12 +893,14 @@
             []
             []
             [
-              (match
-                (select () [ (typename bool []) ] (ref a))
-                [
-                  (lambda [] [ (true true) ] [ (false false) ])
-                  (lambda [] [ (false false) ] [ (true true) ])
-                ])
+              (assign (let $0) (select () [ (typename bool []) ] (ref a)))
+              (assign
+                (let $1)
+                (lambda [] [ (bool true) ] [ (bool true) (bool false) ]))
+              (assign
+                (let $2)
+                (lambda [] [ (bool false) ] [ (bool false) (bool true) ]))
+              (match (ref $0) [ (ref $1) (ref $2) ])
             ]))
         (class Less [] () [])
         (class Equal [] () [])
@@ -889,10 +940,10 @@
                 []
                 []
                 [
-                  (select
-                    ()
-                    [ (typename not []) ]
+                  (assign
+                    (let $0)
                     (select (ref self) [ (typename == []) ] (ref other)))
+                  (select () [ (typename not []) ] (ref $0))
                 ]))
           ])
         (interface
@@ -921,10 +972,13 @@
                 []
                 []
                 [
-                  (select
-                    (select (ref self) [ (typename < []) ] (ref other))
-                    [ (typename or []) ]
+                  (assign
+                    (let $0)
+                    (select (ref self) [ (typename < []) ] (ref other)))
+                  (assign
+                    (let $1)
                     (select (ref self) [ (typename == []) ] (ref other)))
+                  (select (ref $0) [ (typename or []) ] (ref $1))
                 ]))
             (function
               >=
@@ -938,10 +992,10 @@
                 []
                 []
                 [
-                  (select
-                    ()
-                    [ (typename not []) ]
+                  (assign
+                    (let $0)
                     (select (ref self) [ (typename < []) ] (ref other)))
+                  (select () [ (typename not []) ] (ref $0))
                 ]))
             (function
               >
@@ -955,10 +1009,10 @@
                 []
                 []
                 [
-                  (select
-                    ()
-                    [ (typename not []) ]
+                  (assign
+                    (let $0)
                     (select (ref self) [ (typename <= []) ] (ref other)))
+                  (select () [ (typename not []) ] (ref $0))
                 ]))
             (function
               <=>
@@ -972,37 +1026,46 @@
                 []
                 []
                 [
-                  (select
-                    (select
-                      (select
+                  (assign
+                    (let $0)
+                    (select (ref self) [ (typename < []) ] (ref other)))
+                  (assign (let $1) (select () [ (typename if []) ] (ref $0)))
+                  (assign
+                    (let $2)
+                    (lambda
+                      []
+                      []
+                      [
                         (select
-                          (select
-                            ()
-                            [ (typename if []) ]
-                            (select (ref self) [ (typename < []) ] (ref other)))
-                          [ (typename apply []) ]
-                          (lambda
-                            []
-                            []
-                            [
-                              (select
-                                ()
-                                [ (typename Less []) (typename create []) ]
-                                ())
-                            ]))
-                        [ (typename elseif []) ]
-                        (select (ref self) [ (typename == []) ] (ref other)))
-                      [ (typename apply []) ]
-                      (lambda
-                        []
-                        []
-                        [
-                          (select
-                            ()
-                            [ (typename Equal []) (typename create []) ]
-                            ())
-                        ]))
-                    [ (typename else []) ]
+                          ()
+                          [ (typename Less []) (typename create []) ]
+                          ())
+                      ]))
+                  (assign
+                    (let $3)
+                    (select (ref $1) [ (typename apply []) ] (ref $2)))
+                  (assign
+                    (let $4)
+                    (select (ref self) [ (typename == []) ] (ref other)))
+                  (assign
+                    (let $5)
+                    (select (ref $3) [ (typename elseif []) ] (ref $4)))
+                  (assign
+                    (let $6)
+                    (lambda
+                      []
+                      []
+                      [
+                        (select
+                          ()
+                          [ (typename Equal []) (typename create []) ]
+                          ())
+                      ]))
+                  (assign
+                    (let $7)
+                    (select (ref $5) [ (typename apply []) ] (ref $6)))
+                  (assign
+                    (let $8)
                     (lambda
                       []
                       []
@@ -1012,6 +1075,7 @@
                           [ (typename Greater []) (typename create []) ]
                           ())
                       ]))
+                  (select (ref $7) [ (typename else []) ] (ref $8))
                 ]))
           ])
       ])

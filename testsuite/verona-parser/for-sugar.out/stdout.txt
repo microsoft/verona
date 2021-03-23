@@ -63,9 +63,7 @@
               (assign
                 (oftype (var sum) (typeref [ (typename U32 []) ]))
                 (int 0))
-              (assign
-                (let iter)
-                (select (ref x) [ (typename values []) ] (tuple [])))
+              (assign (let iter) (select (ref x) [ (typename values []) ] ()))
               (select
                 (select
                   (select
@@ -74,12 +72,7 @@
                     (lambda
                       []
                       []
-                      [
-                        (select
-                          (ref iter)
-                          [ (typename has_value []) ]
-                          (tuple []))
-                      ]))
+                      [ (select (ref iter) [ (typename has_value []) ] ()) ]))
                   [ (typename apply []) ]
                   (lambda
                     []
@@ -87,7 +80,7 @@
                     [
                       (assign
                         (let a)
-                        (select (ref iter) [ (typename apply []) ] (tuple [])))
+                        (select (ref iter) [ (typename apply []) ] ()))
                       (select () [ (typename next []) ] (ref iter))
                       (assign
                         (ref sum)
@@ -140,7 +133,7 @@
                 (select
                   ()
                   [ (typename while []) ]
-                  (lambda [] [] [ (true true) ]))
+                  (lambda [] [] [ (bool true) ]))
                 [ (typename apply []) ]
                 (lambda
                   []
@@ -154,10 +147,7 @@
                           (select
                             (ref body)
                             [ (typename apply []) ]
-                            (select
-                              (ref iter)
-                              [ (typename apply []) ]
-                              (tuple [])))
+                            (select (ref iter) [ (typename apply []) ] ()))
                           (select
                             ()
                             [ (typename continue []) (typename create []) ]
@@ -449,9 +439,9 @@
                 []
                 [
                   (select
-                    (select () [ (typename value []) ] (tuple []))
+                    (select () [ (typename value []) ] ())
                     [ (typename apply []) ]
-                    (tuple []))
+                    ())
                 ]))
             (function
               next
@@ -475,7 +465,7 @@
                   (select
                     ()
                     [ (typename value []) ]
-                    (select (tuple []) [ (typename next []) ] (tuple [])))
+                    (select () [ (typename next []) ] ()))
                 ]))
           ])
         (class
@@ -530,7 +520,7 @@
               (lambda
                 []
                 []
-                [ (new () (tuple [ (ref it) (ref f) (false false) ])) ]))
+                [ (new () (tuple [ (ref it) (ref f) (bool false) ])) ]))
             (function
               apply
               [
@@ -556,8 +546,8 @@
                 []
                 []
                 [
-                  (select (ref self) [ (typename _advance []) ] (tuple []))
-                  (select (ref self) [ (typename it []) ] (tuple []))
+                  (select (ref self) [ (typename _advance []) ] ())
+                  (select (ref self) [ (typename it []) ] ())
                 ]))
             (function
               next
@@ -581,11 +571,11 @@
                   (select
                     (select (ref self) [ (typename it []) ] ())
                     [ (typename next []) ]
-                    (tuple []))
+                    ())
                   (assign
                     (select (ref self) [ (typename ok []) ] ())
-                    (false false))
-                  (select (ref self) [ (typename _advance []) ] (tuple []))
+                    (bool false))
+                  (select (ref self) [ (typename _advance []) ] ())
                 ]))
             (function
               _advance
@@ -611,7 +601,7 @@
                       [
                         (assign
                           (select (ref self) [ (typename ok []) ] ())
-                          (true true))
+                          (bool true))
                         (try
                           (lambda
                             []
@@ -634,7 +624,7 @@
                                           (select
                                             (ref self)
                                             [ (typename it []) ]
-                                            (tuple []))))
+                                            ())))
                                     ]))
                                 [ (typename apply []) ]
                                 (lambda
@@ -647,7 +637,7 @@
                                         [ (typename it []) ]
                                         ())
                                       [ (typename next []) ]
-                                      (tuple []))
+                                      ())
                                   ]))
                             ])
                           [ (lambda [] [ (param Empty () ()) ] []) ])
@@ -723,8 +713,8 @@
                   (match
                     (select (ref self) [ (typename v []) ] ())
                     [
-                      (lambda [] [ (param None () ()) ] [ (false false) ])
-                      (lambda [] [] [ (true true) ])
+                      (lambda [] [ (param None () ()) ] [ (bool false) ])
+                      (lambda [] [] [ (bool true) ])
                     ])
                 ]))
             (function
@@ -986,11 +976,11 @@
               (match
                 (select () [ (typename bool []) ] (ref a))
                 [
-                  (lambda [] [ (false false) ] [ (ref a) ])
+                  (lambda [] [ (bool false) ] [ (ref a) ])
                   (lambda
                     []
-                    [ (true true) ]
-                    [ (select (ref b) [ (typename apply []) ] (tuple [])) ])
+                    [ (bool true) ]
+                    [ (select (ref b) [ (typename apply []) ] ()) ])
                 ])
             ]))
         (function
@@ -1015,11 +1005,11 @@
               (match
                 (select () [ (typename bool []) ] (ref a))
                 [
-                  (lambda [] [ (true true) ] [ (ref a) ])
+                  (lambda [] [ (bool true) ] [ (ref a) ])
                   (lambda
                     []
-                    [ (false false) ]
-                    [ (select (ref b) [ (typename apply []) ] (tuple [])) ])
+                    [ (bool false) ]
+                    [ (select (ref b) [ (typename apply []) ] ()) ])
                 ])
             ]))
         (function
@@ -1034,8 +1024,8 @@
               (match
                 (select () [ (typename bool []) ] (ref a))
                 [
-                  (lambda [] [ (true true) ] [ (false false) ])
-                  (lambda [] [ (false false) ] [ (true true) ])
+                  (lambda [] [ (bool true) ] [ (bool false) ])
+                  (lambda [] [ (bool false) ] [ (bool true) ])
                 ])
             ]))
         (class Less [] () [])
@@ -1301,23 +1291,20 @@
                     [ (param ontrue () ()) ]
                     [
                       (match
-                        (select (ref cond) [ (typename apply []) ] (tuple []))
+                        (select (ref cond) [ (typename apply []) ] ())
                         [
                           (lambda
                             []
-                            [ (true true) ]
+                            [ (bool true) ]
                             [
                               (select
                                 ()
                                 [ (typename Done []) ]
-                                (select
-                                  (ref ontrue)
-                                  [ (typename apply []) ]
-                                  (tuple [])))
+                                (select (ref ontrue) [ (typename apply []) ] ()))
                             ])
                           (lambda
                             []
-                            [ (false false) ]
+                            [ (bool false) ]
                             [
                               (select
                                 ()
@@ -1420,10 +1407,7 @@
                       (select
                         ()
                         [ (typename Done []) ]
-                        (select
-                          (ref onfalse)
-                          [ (typename apply []) ]
-                          (tuple [])))
+                        (select (ref onfalse) [ (typename apply []) ] ()))
                     ])
                   (lambda
                     []
@@ -1560,21 +1544,18 @@
             []
             [
               (match
-                (select (ref cond) [ (typename apply []) ] (tuple []))
+                (select (ref cond) [ (typename apply []) ] ())
                 [
                   (lambda
                     []
-                    [ (true true) ]
+                    [ (bool true) ]
                     [
                       (try
                         (lambda
                           []
                           []
                           [
-                            (select
-                              (ref body)
-                              [ (typename apply []) ]
-                              (tuple []))
+                            (select (ref body) [ (typename apply []) ] ())
                             (select
                               ()
                               [ (typename continue []) (typename create []) ]
@@ -1783,7 +1764,7 @@
                             [ (typename == []) ]
                             (ref y))
                         ])
-                      (lambda [] [] [ (false false) ])
+                      (lambda [] [] [ (bool false) ])
                     ])
                 ]))
           ])

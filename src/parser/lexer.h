@@ -33,8 +33,7 @@ namespace verona::parser
     Float,
     Hex,
     Binary,
-    True,
-    False,
+    Bool,
 
     // Keywords
     Module,
