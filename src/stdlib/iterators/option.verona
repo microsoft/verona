@@ -35,7 +35,7 @@ class Option[T]: Iterator[T]
   // S: iso, T: mut -> return iso (new sentinal for region)
   // S: iso, T: iso -> return iso (different region)
   // S: imm, T: _ -> return imm
-  apply[S: Option[T]](self: S): S~>T throws Empty
+  [S: Option[T]](self: S): S~>T | throw Empty
   {
     match (self.v)
     {
@@ -57,7 +57,7 @@ class Option[T]: Iterator[T]
   // S: r, T: imm -> return imm
   // S: r, T: mut -> return r
   // S: r, T: iso -> return iso
-  extract[S: Option[T] & mut](self: S): S<~T throws Empty
+  extract[S: Option[T] & mut](self: S): S<~T | throw Empty
   {
     match (self.v)
     {

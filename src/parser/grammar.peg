@@ -5,7 +5,7 @@
 typeargs <- '[' type (',' type)* ']'
 
 # Types
-# Binding is: ref, tuple, view, function, isect, union, throws
+# Binding is: ref, tuple, view, function, isect, throw, union
 tupletype <- '(' (type (',' type)*)? ')'
 typename <- ident typeargs?
 modulename <- string typeargs?
@@ -14,8 +14,9 @@ captype <- 'iso' / 'mut' / 'imm' / 'Self' / typeref / tupletype
 viewtype <- captype (('~>' / '<~') captype)*
 functiontype <- viewtype ('->' functiontype)?
 isecttype <- functiontype ('&' functiontype)*
-uniontype <- isecttype ('|' isecttype)*
-type <- 'throws' uniontype / uniontype ('throws' uniontype)?
+throwtype <- 'throw'? isecttype
+uniontype <- throwtype ('|' throwtype)*
+type <- uniontype
 
 # Atoms
 lambda <- '{' (typeparams? (param (',' param)*)? '=>')? (expr ';'*)* '}'

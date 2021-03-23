@@ -13,6 +13,8 @@
   y x
 }
 
+// TODO: when type lists work, use these better implementations.
+
 // ~[T, U..., V, R: U...->V](f: R~>((T, U...)->V), x: R~>T): R
 // {
 //   { y: U... => f(x, y) }
@@ -21,9 +23,4 @@
 // |>[T..., U](x: T..., y: T...->U): U
 // {
 //   y x
-// }
-
-// ;[T](_: T): Done[None]
-// {
-//   Done(None)
 // }

@@ -7,7 +7,7 @@ class Continue[L] {}
 // `break` uses create sugar to throw a Break exception.
 class break[L = NoLabel]
 {
-  create(): throws Break[L]
+  create(): throw Break[L]
   {
     throw Break[L]
   }
@@ -16,14 +16,14 @@ class break[L = NoLabel]
 // `continue` uses create sugar to throw a Continue exception.
 class continue[L = NoLabel]
 {
-  create(): throws Continue[L]
+  create(): throw Continue[L]
   {
     throw Continue[L]
   }
 }
 
-while[L = NoLabel, T, U](cond: ()->Bool, body: ()->(T throws U))
-  : Done[None] throws U // TODO: \ (Break[NoLabel] | Break[L] | Continue[NoLabel] | Continue[L])
+while[L = NoLabel, T, U](cond: ()->Bool, body: ()->(T | throw U))
+  : Done[None] | throw U // TODO: \ (Break[NoLabel] | Break[L] | Continue[NoLabel] | Continue[L])
 {
   match (cond())
   {

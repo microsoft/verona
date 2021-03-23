@@ -1326,10 +1326,7 @@ namespace verona::parser
       if ((r = optfunctiontype(type)) != Success)
         return r;
 
-      if (!has(TokenKind::Symbol, "&"))
-        return r;
-
-      do
+      while (has(TokenKind::Symbol, "&"))
       {
         Node<Type> next;
         Result r2;
@@ -1342,28 +1339,40 @@ namespace verona::parser
 
         if (r2 != Skip)
           type = dnf::conjunction(type, next);
-      } while (has(TokenKind::Symbol, "&"));
+      }
+
+      return r;
+    }
+
+    Result optthrowtype(Node<Type>& type)
+    {
+      // throwtype <- 'throw'? isecttype
+      bool throwing = has(TokenKind::Throw);
+      Result r;
+
+      if ((r = optisecttype(type)) == Skip)
+        return Skip;
+
+      if (throwing)
+        type = dnf::throwtype(type);
 
       return r;
     }
 
     Result optuniontype(Node<Type>& type)
     {
-      // uniontype <- isecttype ('|' isecttype)*
+      // uniontype <- throwtype ('|' throwtype)*
       Result r = Success;
 
-      if ((r = optisecttype(type)) != Success)
+      if ((r = optthrowtype(type)) != Success)
         return r;
 
-      if (!has(TokenKind::Symbol, "|"))
-        return r;
-
-      do
+      while (has(TokenKind::Symbol, "|"))
       {
         Node<Type> next;
         Result r2;
 
-        if ((r2 = optisecttype(next)) != Success)
+        if ((r2 = optthrowtype(next)) != Success)
         {
           error() << loc() << "Expected a type" << line();
           r = Error;
@@ -1371,70 +1380,20 @@ namespace verona::parser
 
         if (r2 != Skip)
           type = dnf::disjunction(type, next);
-      } while (has(TokenKind::Symbol, "|"));
+      }
 
       return r;
     }
 
-    void makethrowtype(Node<Type>& type)
-    {
-      if (!type)
-        return;
-
-      if (type->kind() == Kind::UnionType)
-      {
-        auto& un = type->as<UnionType>();
-
-        for (size_t i = 0; i < un.types.size(); i++)
-        {
-          if (un.types[i]->kind() != Kind::ThrowType)
-          {
-            auto th = std::make_shared<ThrowType>();
-            th->location = un.types[i]->location;
-            th->type = un.types[i];
-            un.types[i] = th;
-          }
-        }
-      }
-      else if (type->kind() != Kind::ThrowType)
-      {
-        auto th = std::make_shared<ThrowType>();
-        th->location = type->location;
-        th->type = type;
-        type = th;
-      }
-    }
-
     Result typeexpr(Node<Type>& type)
     {
-      // typeexpr <- 'throws' uniontype / uniontype ('throws' uniontype)?
-      bool throwing = has(TokenKind::Throws);
-
+      // typeexpr <- uniontype
       if (optuniontype(type) != Success)
       {
         error() << loc() << "Expected a type" << line();
         return Error;
       }
 
-      if (throwing)
-      {
-        makethrowtype(type);
-        return Success;
-      }
-
-      if (!has(TokenKind::Throws))
-        return Success;
-
-      Node<Type> throws;
-
-      if (optuniontype(throws) != Success)
-      {
-        error() << loc() << "Expected a type" << line();
-        return Error;
-      }
-
-      makethrowtype(throws);
-      type = dnf::disjunction(type, throws);
       return Success;
     }
 

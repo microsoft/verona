@@ -4,7 +4,7 @@ class NoMatch {}
 
 // `as` returns `value` as type T if that's possible. Otherwise, it throws
 // NoMatch.
-as[T, U](value: U): T throws NoMatch
+as[T, U](value: U): T | throw NoMatch
 {
   match value
   {
@@ -15,7 +15,7 @@ as[T, U](value: U): T throws NoMatch
 
 // `requires` throws NoMatch if the predicate isn't satisfied. This can be
 // used to write arbitrary guard predicates when pattern matching.
-requires(pred: Bool): throws NoMatch
+requires(pred: Bool): None | throw NoMatch
 {
   if (not pred) { throw NoMatch }
 }

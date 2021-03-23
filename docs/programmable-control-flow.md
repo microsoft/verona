@@ -8,7 +8,7 @@ New language features:
 * Negation in types to indicate that some type won't be thrown.
 * Automatically convert an exception that we don't allow in the function signature to a local return value and type check against the return value.
   * Or enclose all bodies with a try/catch that catches Return[$ResultType] and returns the value
-  * May be better to catch each Return[T] exception that's not in the `throws` signature and unwrap it
+  * May be better to catch each Return[T] exception that's not in the signature and unwrap it
 * Throw `NoCatch` in a catch clause to backtrack
   * A catch that doesn't execute anything rethrows the exception
 
@@ -118,7 +118,7 @@ class C
 {
   f(true, x: U32): String { ... }
   // ->
-  f$0($1: Bool, x: U32): String throws NoMatch
+  f$0($1: Bool, x: U32): String | throw NoMatch
   {
     requires (true == $1);
     ...
@@ -126,14 +126,14 @@ class C
 
   f(false, x: F32): String { ... }
   // ->
-  f$2($3: Bool, x: F32): String throws NoMatch
+  f$2($3: Bool, x: F32): String | throw NoMatch
   {
     requires (false == $3);
     ...
   }
 
   // ->
-  f[T: (Bool, U32) | (Bool, F32)](x: T): String throws NoMatch
+  f[T: (Bool, U32) | (Bool, F32)](x: T): String | throw NoMatch
   {
     match x
     {
