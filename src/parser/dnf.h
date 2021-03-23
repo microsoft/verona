@@ -13,7 +13,7 @@ namespace verona::parser::dnf
   // intersection type together.
   Node<Type> conjunction(Node<Type>& left, Node<Type>& right);
 
-  // This distributes 
+  // This distributes `throw` over |.
   Node<Type> throwtype(Node<Type>& type);
 
   // This applies | to any two types that are in a union type together. If one
