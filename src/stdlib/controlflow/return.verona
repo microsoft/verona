@@ -9,7 +9,7 @@ class Return[T]
 // function that doesn't throw Return[T] but does return T 
 class return[T = None]
 {
-  create(x: T = None): throws Return[T]
+  create(x: T = None): throw Return[T]
   {
     throw Return[T](x)
   }

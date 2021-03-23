@@ -23,7 +23,7 @@ namespace verona::parser::dnf
 
   Node<Type> throws_throws(Node<Type>& left, Node<Type>& right)
   {
-    // throws A & throws B -> throws (A & B)
+    // throw A & throw B -> throw (A & B)
     auto& lhs = left->as<ThrowType>();
     auto& rhs = right->as<ThrowType>();
 
@@ -32,10 +32,10 @@ namespace verona::parser::dnf
     isect->types.push_back(lhs.type);
     isect->types.push_back(rhs.type);
 
-    auto throws = std::make_shared<ThrowType>();
-    throws->location = isect->location;
-    throws->type = isect;
-    return throws;
+    auto th = std::make_shared<ThrowType>();
+    th->location = isect->location;
+    th->type = isect;
+    return th;
   }
 
   Node<Type> isect_single(Node<Type>& left, Node<Type>& right)
@@ -183,6 +183,48 @@ namespace verona::parser::dnf
         }
       }
     }
+  }
+
+  Node<Type> throwtype(Node<Type>& type)
+  {
+    if (!type)
+      return {};
+
+    if (type->kind() == Kind::UnionType)
+    {
+      auto& un = type->as<UnionType>();
+      auto res = std::make_shared<UnionType>();
+      res->location = type->location;
+
+      for (size_t i = 0; i < un.types.size(); i++)
+      {
+        auto& ty = un.types[i];
+
+        if (ty->kind() != Kind::ThrowType)
+        {
+          auto th = std::make_shared<ThrowType>();
+          th->location = ty->location;
+          th->type = ty;
+          res->types.push_back(th);
+        }
+        else
+        {
+          res->types.push_back(ty);
+        }
+      }
+
+      return res;
+    }
+
+    if (type->kind() != Kind::ThrowType)
+    {
+      auto th = std::make_shared<ThrowType>();
+      th->location = type->location;
+      th->type = type;
+      return th;
+    }
+
+    return type;
   }
 
   Node<Type> disjunction(Node<Type>& left, Node<Type>& right)

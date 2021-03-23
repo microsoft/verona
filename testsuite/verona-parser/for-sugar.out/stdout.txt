@@ -1691,7 +1691,11 @@
           requires
           []
           [ (param pred (typeref [ (typename Bool []) ]) ()) ]
-          (throwtype (typeref [ (typename NoMatch []) ]))
+          (uniontype
+            [
+              (typeref [ (typename None []) ])
+              (throwtype (typeref [ (typename NoMatch []) ]))
+            ])
           (lambda
             []
             []

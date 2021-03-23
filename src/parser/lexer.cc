@@ -55,7 +55,6 @@ namespace verona::parser
                                   {"interface", TokenKind::Interface},
                                   {"type", TokenKind::Type},
                                   {"using", TokenKind::Using},
-                                  {"throws", TokenKind::Throws},
                                   {"try", TokenKind::Try},
                                   {"catch", TokenKind::Catch},
                                   {"throw", TokenKind::Throw},

@@ -7,7 +7,7 @@ class Empty {}
 
 interface Iterator[T]
 {
-  [S: Self & mut](self: S): S~>T throws Empty;
+  [S: Self & mut](self: S): S~>T | throw Empty;
   next(self: Self & mut);
 
   filter[S: Iterator[T] & mut, R: Filter[T] & mut]
@@ -51,7 +51,7 @@ class Chain[T]: Iterator[T]
     new (value)
   }
 
-  [S: Chain[T] & mut](self: S): S~>T throws Empty
+  [S: Chain[T] & mut](self: S): S~>T | throw Empty
   {
     value()()
   }
@@ -75,7 +75,7 @@ class Filter[T]: Iterator[T]
     new (it, f, false)
   }
 
-  [S: Filter[T] & mut](self: S): S~>T throws Empty
+  [S: Filter[T] & mut](self: S): S~>T | throw Empty
   {
     self._advance();
     self.it()

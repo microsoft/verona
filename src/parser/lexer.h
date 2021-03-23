@@ -42,7 +42,6 @@ namespace verona::parser
     Interface,
     Type,
     Using,
-    Throws,
     Try,
     Catch,
     Throw,

@@ -11,7 +11,7 @@ class Array[T]
   _count: USize;
   _space: USize;
 
-  [S: Array[T]](self: S, i: USize): S~>T throws OutOfBounds
+  [S: Array[T]](self: S, i: USize): S~>T | throw OutOfBounds
   {
     if (i < _count)
     {
