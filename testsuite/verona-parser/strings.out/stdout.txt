@@ -26,14 +26,14 @@
                 "    no indent $x + ${y} = ${x + y} $1\n      indent 2 spaces \"{no interp: $x}\"")
               (string "\n    hi\n")
               (char "{\n  }")
-              (assign (let tab) (string "\t"))
-              (select
-                (select
-                  (string "    look, a ")
-                  [ (typename apply []) ]
-                  (ref tab))
-                [ (typename apply []) ]
-                (string " in my string"))
+              (let tab)
+              (assign (ref tab) (string "\t"))
+              (assign (let $0) (string "    look, a "))
+              (assign
+                (let $1)
+                (select (ref $0) [ (typename apply []) ] (ref tab)))
+              (assign (let $2) (string " in my string"))
+              (select (ref $1) [ (typename apply []) ] (ref $2))
             ]))
       ])
   ])

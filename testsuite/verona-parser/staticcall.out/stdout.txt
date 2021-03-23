@@ -31,7 +31,7 @@
             [
               (select () [ (typename B []) (typename create []) ] ())
               (select () [ (typename B []) (typename foo []) ] ())
-              (select () [ (typename B []) (typename foo []) ] (tuple []))
+              (select () [ (typename B []) (typename foo []) ] ())
               (select
                 ()
                 [ (typename B []) (typename C []) (typename create []) ]
@@ -52,6 +52,8 @@
                   (typename create [])
                 ]
                 ())
+              (assign (let $0) (tuple [ (ref x) (ref y) ]))
+              (assign (let $1) (tuple [ (ref x) (ref y) (ref $0) ]))
               (select
                 ()
                 [
@@ -59,7 +61,7 @@
                   (typename C [ (typeref [ (typename X []) ]) ])
                   (typename bar [ (typeref [ (typename X []) ]) ])
                 ]
-                (tuple [ (ref x) (ref y) (tuple [ (ref x) (ref y) ]) ]))
+                (ref $1))
             ]))
       ])
   ])

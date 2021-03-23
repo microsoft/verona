@@ -27,9 +27,11 @@
             []
             []
             [
-              (assign (let x) (select (ref a) [ (typename + []) ] (ref b)))
-              (assign (oftype (let r) (typeref [ (typename R []) ])) (ref x))
-              (ref x)
+              (let x)
+              (assign (ref x) (select (ref a) [ (typename + []) ] (ref b)))
+              (let r)
+              (oftype (ref r) (typeref [ (typename R []) ]))
+              (assign (ref r) (ref x))
             ]))
         (function apply [] [] () (lambda [] [] []))
       ])

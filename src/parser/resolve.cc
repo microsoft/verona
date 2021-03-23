@@ -112,12 +112,11 @@ namespace verona::parser::resolve
 
     void post(Tuple& tuple)
     {
-      // TODO: delete if size = 0 ?
       // Collapse unnecessary tuple nodes.
-      if (tuple.seq.size() != 1)
-        return;
-
-      rewrite(stack, tuple.seq.front());
+      if (tuple.seq.size() == 0)
+        rewrite(stack, {});
+      else if (tuple.seq.size() == 1)
+        rewrite(stack, tuple.seq.front());
     }
   };
 

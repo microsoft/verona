@@ -149,11 +149,8 @@ namespace verona::parser
       case Kind::Binary:
         return f(node->as<Binary>(), args...);
 
-      case Kind::True:
-        return f(node->as<True>(), args...);
-
-      case Kind::False:
-        return f(node->as<False>(), args...);
+      case Kind::Bool:
+        return f(node->as<Bool>(), args...);
     }
 
     // This is unreachable, and is only to suppress an MSVC error.
