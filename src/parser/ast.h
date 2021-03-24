@@ -21,6 +21,7 @@ namespace verona::parser
     Field,
     Param,
     TypeParam,
+    TypeParamList,
     Function,
 
     // Types
@@ -34,6 +35,7 @@ namespace verona::parser
     TypeName,
     ModuleName,
     TypeRef,
+    TypeList,
     Iso,
     Mut,
     Imm,
@@ -168,6 +170,14 @@ namespace verona::parser
     }
   };
 
+  struct TypeList : Type
+  {
+    Kind kind()
+    {
+      return Kind::TypeList;
+    }
+  };
+
   struct Member : NodeDef
   {};
 
@@ -210,6 +220,14 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::TypeParam;
+    }
+  };
+
+  struct TypeParamList : TypeParam
+  {
+    Kind kind()
+    {
+      return Kind::TypeParamList;
     }
   };
 

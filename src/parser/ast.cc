@@ -33,6 +33,9 @@ namespace verona::parser
       case Kind::TypeParam:
         return "typeparam";
 
+      case Kind::TypeParamList:
+        return "typeparamlist";
+
       case Kind::Function:
         return "function";
 
@@ -66,6 +69,9 @@ namespace verona::parser
 
       case Kind::TypeRef:
         return "typeref";
+
+      case Kind::TypeList:
+        return "typelist";
 
       case Kind::Iso:
         return "iso";

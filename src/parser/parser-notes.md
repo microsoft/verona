@@ -1,8 +1,8 @@
 # Parser Notes
 
+* type lists
 * `\` for "without" types
 * allow `using` inside a function
-* put precedence paren forcing back in
 * inheritance
 * Ref[T] instead of update sugar
 * distinguishing value parameters from type parameters
