@@ -134,9 +134,9 @@ namespace verona::parser
     {
       case '.':
       {
-        if (((i + 2) < source->contents.size()) &&
-          (source->contents[i + 1] == '.') &&
-          (source->contents[i + 2] == '.'))
+        if (
+          ((i + 2) < source->contents.size()) &&
+          (source->contents[i + 1] == '.') && (source->contents[i + 2] == '.'))
         {
           kind = TokenKind::Ellipsis;
           i += 2;
