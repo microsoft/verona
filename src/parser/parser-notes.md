@@ -1,6 +1,5 @@
 # Parser Notes
 
-* type lists
 * `\` for "without" types
 * allow `using` inside a function
 * inheritance

@@ -6,7 +6,7 @@ interface Any {}
 class None {}
 class NoCatch {}
 
-class Done[T]
+class Done[T = None]
 {
   result: T;
 
