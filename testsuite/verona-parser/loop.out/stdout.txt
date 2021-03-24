@@ -111,13 +111,11 @@
           ~
           [
             (typeparam T () ())
-            (typeparam U () ())
+            (typeparamlist U () ())
             (typeparam V () ())
             (typeparam
               R
-              (functiontype
-                (typeref [ (typename U []) ])
-                (typeref [ (typename V []) ]))
+              (functiontype (typelist U) (typeref [ (typename V []) ]))
               ())
           ]
           [
@@ -126,11 +124,7 @@
               (viewtype
                 (typeref [ (typename R []) ])
                 (functiontype
-                  (tupletype
-                    [
-                      (typeref [ (typename T []) ])
-                      (typeref [ (typename U []) ])
-                    ])
+                  (tupletype [ (typeref [ (typename T []) ]) (typelist U) ])
                   (typeref [ (typename V []) ])))
               ())
             (param
@@ -147,7 +141,7 @@
             [
               (lambda
                 []
-                [ (param y () ()) ]
+                [ (param y (typelist U) ()) ]
                 [
                   (assign (let $0) (tuple [ (ref x) (ref y) ]))
                   (select (ref f) [ (typename apply []) ] (ref $0))
@@ -155,14 +149,12 @@
             ]))
         (function
           |>
-          [ (typeparam T () ()) (typeparam U () ()) ]
+          [ (typeparamlist T () ()) (typeparam U () ()) ]
           [
-            (param x (typeref [ (typename T []) ]) ())
+            (param x (typelist T) ())
             (param
               y
-              (functiontype
-                (typeref [ (typename T []) ])
-                (typeref [ (typename U []) ]))
+              (functiontype (typelist T) (typeref [ (typename U []) ]))
               ())
           ]
           (typeref [ (typename U []) ])

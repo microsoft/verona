@@ -39,6 +39,9 @@ namespace verona::parser
       case Kind::TypeParam:
         return f(node->as<TypeParam>(), args...);
 
+      case Kind::TypeParamList:
+        return f(node->as<TypeParamList>(), args...);
+
       case Kind::Function:
         return f(node->as<Function>(), args...);
 
@@ -72,6 +75,9 @@ namespace verona::parser
 
       case Kind::TypeRef:
         return f(node->as<TypeRef>(), args...);
+
+      case Kind::TypeList:
+        return f(node->as<TypeList>(), args...);
 
       case Kind::Iso:
         return f(node->as<Iso>(), args...);

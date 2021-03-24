@@ -12,6 +12,7 @@ namespace verona::parser
 
     // Builtin symbols
     Dot,
+    Ellipsis,
     Comma,
     LParen,
     RParen,

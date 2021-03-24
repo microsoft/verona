@@ -1204,9 +1204,32 @@ namespace verona::parser
       return r;
     }
 
+    Result opttypelist(Node<Type>& type)
+    {
+      bool ok = peek(TokenKind::Ident) && peek(TokenKind::Ellipsis);
+      rewind();
+
+      if (!ok)
+        return Skip;
+
+      auto tl = std::make_shared<TypeList>();
+      type = tl;
+
+      if (!has(TokenKind::Ident))
+        return Error;
+
+      tl->location = previous.location;
+
+      if (!has(TokenKind::Ellipsis))
+        return Error;
+
+      return Success;
+    }
+
     Result optcaptype(Node<Type>& type)
     {
-      // captype <- 'iso' / 'mut' / 'imm' / 'Self' / typeref / tupletype
+      // captype <-
+      //  'iso' / 'mut' / 'imm' / 'Self' / tupletype / typelist / typeref
       if (has(TokenKind::Iso))
       {
         auto cap = std::make_shared<Iso>();
@@ -1242,6 +1265,9 @@ namespace verona::parser
       Result r;
 
       if ((r = opttupletype(type)) != Skip)
+        return r;
+
+      if ((r = opttypelist(type)) != Skip)
         return r;
 
       if ((r = opttyperef(type)) != Skip)
@@ -1585,8 +1611,14 @@ namespace verona::parser
         return Skip;
 
       Result r = Success;
-      tp = std::make_shared<TypeParam>();
-      tp->location = previous.location;
+      auto loc = previous.location;
+
+      if (has(TokenKind::Ellipsis))
+        tp = std::make_shared<TypeParamList>();
+      else
+        tp = std::make_shared<TypeParam>();
+
+      tp->location = loc;
 
       if (oftype(tp->type) == Error)
         r = Error;

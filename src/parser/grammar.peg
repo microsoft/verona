@@ -1,5 +1,4 @@
-# This is not (yet) a full grammar. The parser is not auto-generated from this
-# grammar.
+# The parser is not auto-generated from this grammar.
 
 # Type Arguments
 typeargs <- '[' type (',' type)* ']'
@@ -7,10 +6,11 @@ typeargs <- '[' type (',' type)* ']'
 # Types
 # Binding is: ref, tuple, view, function, isect, throw, union
 tupletype <- '(' (type (',' type)*)? ')'
+typelist <- ident '...'
 typename <- ident typeargs?
 modulename <- string typeargs?
 typeref <- (modulename / typename) ('::' typename)*
-captype <- 'iso' / 'mut' / 'imm' / 'Self' / typeref / tupletype
+captype <- 'iso' / 'mut' / 'imm' / 'Self' / tupletype / typelist / typeref
 viewtype <- captype (('~>' / '<~') captype)*
 functiontype <- viewtype ('->' functiontype)?
 isecttype <- functiontype ('&' functiontype)*
@@ -45,7 +45,7 @@ params <- '(' (param (',' param)*)? ')'
 initexpr <- '=' expr
 inittype <- '=' type
 oftype <- ':' type
-typeparam <- ident ofttype? inittype?
+typeparam <- ident '...'? ofttype? inittype?
 typeparams <- '[' typeparam (',' typeparam)* ']'
 typebody <- '{' member* '}'
 

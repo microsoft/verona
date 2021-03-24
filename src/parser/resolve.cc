@@ -59,6 +59,28 @@ namespace verona::parser::resolve
       }
     }
 
+    void post(TypeList& tl)
+    {
+      // This checks that the type exists but doesn't rewrite the AST.
+      auto paths = look_up(stack, tl.location);
+
+      if (paths.empty())
+      {
+        error() << tl.location
+                << "Couldn't find a definition of this type list."
+                << text(tl.location);
+        return;
+      }
+      auto& def = paths.front().back();
+
+      if (!is_kind(def, {Kind::TypeParamList}))
+      {
+        error() << tl.location << "Expected a type list, but got a "
+                << kindname(def->kind()) << text(tl.location) << def->location
+                << "Definition is here" << text(def->location);
+      }
+    }
+
     void post(Select& select)
     {
       // If it's a single element name with any arguments, it can be a dynamic

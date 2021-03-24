@@ -103,6 +103,12 @@ namespace verona::parser
   }
 
   template<typename T>
+  void fieldsof(T& target, TypeList& tl)
+  {
+    target << tl.location;
+  }
+
+  template<typename T>
   void fieldsof(T& target, Oftype& oftype)
   {
     target << oftype.expr << oftype.type;

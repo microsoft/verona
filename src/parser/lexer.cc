@@ -128,12 +128,23 @@ namespace verona::parser
   Token consume_builtin_symbol(Source& source, size_t& i)
   {
     TokenKind kind;
+    auto start = i;
 
     switch (source->contents[i])
     {
       case '.':
       {
-        kind = TokenKind::Dot;
+        if (((i + 2) < source->contents.size()) &&
+          (source->contents[i + 1] == '.') &&
+          (source->contents[i + 2] == '.'))
+        {
+          kind = TokenKind::Ellipsis;
+          i += 2;
+        }
+        else
+        {
+          kind = TokenKind::Dot;
+        }
         break;
       }
 
@@ -189,7 +200,7 @@ namespace verona::parser
         abort();
     }
 
-    return {kind, {source, i, i++}};
+    return {kind, {source, start, i++}};
   }
 
   Token consume_character_literal(Source& source, size_t& i)
