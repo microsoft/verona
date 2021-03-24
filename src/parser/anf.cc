@@ -20,6 +20,14 @@ namespace verona::parser::anf
 
     std::vector<State> state_stack;
     Ident ident;
+    Location name_eq;
+    Location name_requires;
+
+    ANF()
+    {
+      name_eq = ident("==");
+      name_requires = ident("requires");
+    }
 
     void make_trivial()
     {
@@ -31,8 +39,8 @@ namespace verona::parser::anf
       auto& state = state_stack.back();
       auto expr = std::static_pointer_cast<Expr>(stack.back());
 
-      // Don't change refs.
-      if (expr->kind() == Kind::Ref)
+      // Don't change params or refs.
+      if (is_kind(expr, {Kind::Param, Kind::Ref}))
         return;
 
       if (parent()->kind() == Kind::Lambda)
@@ -98,6 +106,46 @@ namespace verona::parser::anf
       state_stack.push_back(
         {std::static_pointer_cast<Lambda>(stack.back()), {}, ident.hygienic});
       ident.hygienic = 0;
+
+      // Turn patterns into parameters.
+      auto& state = state_stack.back();
+
+      for (auto& expr : lambda.params)
+      {
+        if (expr->kind() == Kind::Param)
+          continue;
+
+        auto param = std::make_shared<Param>();
+        param->location = ident();
+        lambda.symbol_table()->set(param->location, param);
+
+        auto ref = std::make_shared<Ref>();
+        ref->location = param->location;
+
+        auto eq = std::make_shared<TypeName>();
+        eq->location = name_eq;
+
+        auto eq_sel = std::make_shared<Select>();
+        eq_sel->expr = expr;
+        eq_sel->location = expr->location;
+        eq_sel->typenames.push_back(eq);
+        eq_sel->args = ref;
+
+        auto req = std::make_shared<TypeName>();
+        req->location = name_requires;
+
+        auto req_sel = std::make_shared<Select>();
+        req_sel->location = expr->location;
+        req_sel->typenames.push_back(req);
+        req_sel->args = eq_sel;
+        state.anf.push_back(req_sel);
+
+        expr = param;
+      }
+
+      lambda.body.insert(
+        lambda.body.begin(), state.anf.begin(), state.anf.end());
+      state.anf.clear();
     }
 
     void post(Lambda& lambda)

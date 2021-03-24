@@ -10,7 +10,7 @@ class Done[T]
 {
   result: T;
 
-  create[R: Done[T]](from: R~>T): R
+  create[R: Done[T]](from: R~>T = None): R
   {
     new (from)
   }

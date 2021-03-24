@@ -112,7 +112,6 @@
                   [ (typeparam A (typeref [ (typename U64 []) ]) ()) ]
                   [ (param a () ()) ]
                   [
-                    (param a () ())
                     (assign (let $0) (int 42))
                     (select (ref a) [ (typename + []) ] (ref $0))
                   ]))

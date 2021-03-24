@@ -61,32 +61,38 @@ namespace verona::parser::resolve
 
     void post(Select& select)
     {
-      // If it's a single element name with a left-hand side, it will be
-      // treated as a member selection.
-      if ((select.expr || select.args) && (select.typenames.size() == 1))
-        return;
+      // If it's a single element name with any arguments, it can be a dynamic
+      // member select.
+      bool dynamic =
+        (select.expr || select.args) && (select.typenames.size() == 1);
 
       // Find all definitions of the selector.
       auto paths = look_up(stack, select.typenames);
 
       if (paths.empty())
       {
-        error() << select.typenames.front()->location
-                << "Couldn't find a definition for this."
-                << text(select.typenames.front()->location);
+        if (!dynamic)
+        {
+          error() << select.typenames.front()->location
+                  << "Couldn't find a definition for this."
+                  << text(select.typenames.front()->location);
+        }
         return;
       }
 
       if (paths.size() > 1)
       {
-        auto& out = error() << select.typenames.front()->location
-                            << "Found multiple definitions of this."
-                            << text(select.typenames.front()->location);
-
-        for (auto& path : paths)
+        if (!dynamic)
         {
-          auto& loc = path.back()->location;
-          out << loc << "Found a definition here." << text(loc);
+          auto& out = error() << select.typenames.front()->location
+                              << "Found multiple definitions of this."
+                              << text(select.typenames.front()->location);
+
+          for (auto& path : paths)
+          {
+            auto& loc = path.back()->location;
+            out << loc << "Found a definition here." << text(loc);
+          }
         }
         return;
       }
@@ -99,14 +105,36 @@ namespace verona::parser::resolve
         auto create = std::make_shared<TypeName>();
         create->location = name_create;
         select.typenames.push_back(create);
+
+        // If this was a selector after a selector, rewrite it to be the
+        // right-hand side of the previous selector.
+        auto expr = select.expr;
+
+        if (expr && (expr->kind() == Kind::Select))
+        {
+          auto& lhs = expr->as<Select>();
+
+          if (!lhs.args)
+          {
+            auto sel = std::make_shared<Select>();
+            sel->location = select.location;
+            sel->typenames = select.typenames;
+            sel->args = select.args;
+            lhs.args = sel;
+            rewrite(stack, expr);
+          }
+        }
       }
       else if (!is_kind(def, {Kind::Function}))
       {
-        error() << select.typenames.front()->location
-                << "Expected a type or function, but got a "
-                << kindname(def->kind())
-                << text(select.typenames.front()->location) << def->location
-                << "Definition is here" << text(def->location);
+        if (!dynamic)
+        {
+          error() << select.typenames.front()->location
+                  << "Expected a type or function, but got a "
+                  << kindname(def->kind())
+                  << text(select.typenames.front()->location) << def->location
+                  << "Definition is here" << text(def->location);
+        }
       }
     }
 

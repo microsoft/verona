@@ -159,19 +159,19 @@
                           [
                             (select
                               (select
-                                (select
-                                  ()
-                                  [
-                                    (typename
-                                      Break
-                                      [ (typeref [ (typename L []) ]) ])
-                                    (typename create [])
-                                  ]
-                                  ())
-                                [ (typename | []) ]
+                                ()
+                                [
+                                  (typename
+                                    Break
+                                    [ (typeref [ (typename L []) ]) ])
+                                  (typename create [])
+                                ]
                                 ())
-                              [ (typename Empty []) ]
-                              ())
+                              [ (typename | []) ]
+                              (select
+                                ()
+                                [ (typename Empty []) (typename create []) ]
+                                ()))
                           ]
                           [
                             (select
@@ -184,23 +184,24 @@
                           [
                             (select
                               (select
-                                (select
-                                  ()
-                                  [
-                                    (typename
-                                      Continue
-                                      [ (typeref [ (typename NoLabel []) ]) ])
-                                    (typename create [])
-                                  ]
-                                  ())
-                                [ (typename | []) ]
+                                ()
+                                [
+                                  (typename
+                                    Continue
+                                    [ (typeref [ (typename NoLabel []) ]) ])
+                                  (typename create [])
+                                ]
                                 ())
-                              [
-                                (typename
-                                  Continue
-                                  [ (typeref [ (typename L []) ]) ])
-                              ]
-                              ())
+                              [ (typename | []) ]
+                              (select
+                                ()
+                                [
+                                  (typename
+                                    Continue
+                                    [ (typeref [ (typename L []) ]) ])
+                                  (typename create [])
+                                ]
+                                ()))
                           ]
                           [ (select () [ (typename next []) ] (ref iter)) ])
                       ])
@@ -281,7 +282,7 @@
                 [
                   (select
                     ()
-                    [ (typename Filter []) ]
+                    [ (typename Filter []) (typename create []) ]
                     (tuple [ (ref self) (ref f) ]))
                 ]))
           ])
@@ -589,7 +590,7 @@
                   (select
                     (select
                       ()
-                      [ (typename if []) ]
+                      [ (typename if []) (typename create []) ]
                       (select
                         ()
                         [ (typename not []) ]
@@ -1299,7 +1300,7 @@
                             [
                               (select
                                 ()
-                                [ (typename Done []) ]
+                                [ (typename Done []) (typename create []) ]
                                 (select (ref ontrue) [ (typename apply []) ] ()))
                             ])
                           (lambda
@@ -1359,7 +1360,10 @@
                       []
                       [
                         (select
-                          (select () [ (typename if []) ] (ref cond))
+                          (select
+                            ()
+                            [ (typename if []) (typename create []) ]
+                            (ref cond))
                           [ (typename apply []) ]
                           (ref ontrue))
                       ]))
@@ -1406,7 +1410,7 @@
                     [
                       (select
                         ()
-                        [ (typename Done []) ]
+                        [ (typename Done []) (typename create []) ]
                         (select (ref onfalse) [ (typename apply []) ] ()))
                     ])
                   (lambda
@@ -1446,7 +1450,12 @@
                   (viewtype
                     (typeref [ (typename R []) ])
                     (typeref [ (typename T []) ]))
-                  ())
+                  (lambda
+                    []
+                    []
+                    [
+                      (select () [ (typename None []) (typename create []) ] ())
+                    ]))
               ]
               (typeref [ (typename R []) ])
               (lambda [] [] [ (new () (ref from)) ]))
@@ -1567,55 +1576,54 @@
                             [
                               (select
                                 (select
-                                  (select
-                                    ()
-                                    [
-                                      (typename
-                                        Break
-                                        [ (typeref [ (typename NoLabel []) ]) ])
-                                      (typename create [])
-                                    ]
-                                    ())
-                                  [ (typename | []) ]
+                                  ()
+                                  [
+                                    (typename
+                                      Break
+                                      [ (typeref [ (typename NoLabel []) ]) ])
+                                    (typename create [])
+                                  ]
                                   ())
-                                [
-                                  (typename
-                                    Break
-                                    [ (typeref [ (typename L []) ]) ])
-                                ]
-                                ())
+                                [ (typename | []) ]
+                                (select
+                                  ()
+                                  [
+                                    (typename
+                                      Break
+                                      [ (typeref [ (typename L []) ]) ])
+                                    (typename create [])
+                                  ]
+                                  ()))
                             ]
                             [
                               (select
                                 ()
-                                [ (typename Done []) ]
-                                (select
-                                  ()
-                                  [ (typename None []) (typename create []) ]
-                                  ()))
+                                [ (typename Done []) (typename create []) ]
+                                ())
                             ])
                           (lambda
                             []
                             [
                               (select
                                 (select
-                                  (select
-                                    ()
-                                    [
-                                      (typename
-                                        Continue
-                                        [ (typeref [ (typename NoLabel []) ]) ])
-                                      (typename create [])
-                                    ]
-                                    ())
-                                  [ (typename | []) ]
+                                  ()
+                                  [
+                                    (typename
+                                      Continue
+                                      [ (typeref [ (typename NoLabel []) ]) ])
+                                    (typename create [])
+                                  ]
                                   ())
-                                [
-                                  (typename
-                                    Continue
-                                    [ (typeref [ (typename L []) ]) ])
-                                ]
-                                ())
+                                [ (typename | []) ]
+                                (select
+                                  ()
+                                  [
+                                    (typename
+                                      Continue
+                                      [ (typeref [ (typename L []) ]) ])
+                                    (typename create [])
+                                  ]
+                                  ()))
                             ]
                             [
                               (select
@@ -1684,7 +1692,7 @@
               (select
                 (select
                   ()
-                  [ (typename if []) ]
+                  [ (typename if []) (typename create []) ]
                   (select () [ (typename not []) ] (ref pred)))
                 [ (typename apply []) ]
                 (lambda
@@ -1798,7 +1806,7 @@
             [
               (select
                 ()
-                [ (typename OrEquals []) ]
+                [ (typename OrEquals []) (typename create []) ]
                 (tuple [ (ref e1) (ref e2) ]))
             ]))
         (class
@@ -1835,7 +1843,10 @@
                   (throw
                     (select
                       ()
-                      [ (typename Return [ (typeref [ (typename T []) ]) ]) ]
+                      [
+                        (typename Return [ (typeref [ (typename T []) ]) ])
+                        (typename create [])
+                      ]
                       (ref x)))
                 ]))
           ])

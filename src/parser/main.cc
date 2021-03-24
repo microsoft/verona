@@ -18,10 +18,12 @@ int main(int argc, char** argv)
   CLI::App app{"Verona Parser"};
   bool emit_ast = false;
   bool validate = false;
+  bool anf = false;
   std::string path;
 
   app.add_flag("-a,--ast", emit_ast, "Emit an abstract syntax tree.");
   app.add_flag("-v,--validate", validate, "Run validation passes.");
+  app.add_flag("-n,--anf", anf, "Transform to ANF.");
   app.add_option("path", path, "Path to the module to compile.")->required();
 
   try
@@ -40,8 +42,11 @@ int main(int argc, char** argv)
   ok = ok && resolve::run(ast);
   ok = ok && (!validate || resolve::wellformed(ast));
 
-  ok = ok && anf::run(ast);
-  ok = ok && (!validate || anf::wellformed(ast));
+  if (anf)
+  {
+    ok = ok && anf::run(ast);
+    ok = ok && (!validate || anf::wellformed(ast));
+  }
 
   if (emit_ast)
     std::cout << ast << std::endl;
