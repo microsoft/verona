@@ -53,14 +53,14 @@ class Chain[T]: Iterator[T]
 
   [S: Chain[T] & mut](self: S): S~>T | throw Empty
   {
-    value()()
+    self.value()()
   }
 
   next(self: Chain[T] & mut)
   {
     // TODO: can we do dots like this in the parser?
     // how do we know the inner iterator is done?
-    value().next();
+    self.value().next();
   }
 }
 
