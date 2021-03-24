@@ -22,33 +22,36 @@ class continue[L = NoLabel]
   }
 }
 
-while[L = NoLabel, T, U](cond: ()->Bool, body: ()->(T | throw U))
-  : Done[None] | throw U // TODO: \ (Break[NoLabel] | Break[L] | Continue[NoLabel] | Continue[L])
+while[L = NoLabel, T, U](cond: ()->Bool)
+  : (()->(T | throw U))->(Done | throw U)
+  // TODO: \ (Break[NoLabel] | Break[L] | Continue[NoLabel] | Continue[L])
 {
-  match (cond())
-  {
-    { true =>
-      try
-      {
-        // Run the body, discarding the result. If the body doesn't throw an
-        // exception, `continue` will throw Continue[NoLabel], which will be
-        // caught below.
-        body();
-        continue
-      }
-      catch
-      {
-        // An unlabelled break or a break to this label ends the loop.
-        // A break to another label will be rethrown.
-        { Break[NoLabel] | Break[L] => Done }
+  { body =>
+    match (cond())
+    {
+      { true =>
+        try
+        {
+          // Run the body, discarding the result. If the body doesn't throw an
+          // exception, `continue` will throw Continue[NoLabel], which will be
+          // caught below.
+          body();
+          continue
+        }
+        catch
+        {
+          // An unlabelled break or a break to this label ends the loop.
+          // A break to another label will be rethrown.
+          { Break[NoLabel] | Break[L] => Done }
 
-        // An unlabelled continue or a continue to this label ends the body
-        // early but runs the loop again. A continue to another label will be
-        // rethrown.
-        { Continue[NoLabel] | Continue[L] => while[L] cond body }
+          // An unlabelled continue or a continue to this label ends the body
+          // early but runs the loop again. A continue to another label will be
+          // rethrown.
+          { Continue[NoLabel] | Continue[L] => while[L] cond body }
+        }
       }
+
+      {} // Default branch does nothing, returning unit.
     }
-
-    {} // Default branch does nothing, returning unit.
   }
 }

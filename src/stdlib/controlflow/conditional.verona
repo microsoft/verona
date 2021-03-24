@@ -2,16 +2,13 @@
 // SPDX-License-Identifier: MIT
 class FalseBranch {}
 
-class if
+if[T](cond: ()->Bool): (()->T)->(Done[T] | FalseBranch)
 {
-  [T](cond: ()->Bool): (()->T)->(Done[T] | FalseBranch)
-  {
-    { ontrue =>
-      match (cond())
-      {
-        { true => Done(ontrue()) }
-        { false => FalseBranch }
-      }
+  { ontrue =>
+    match (cond())
+    {
+      { true => Done(ontrue()) }
+      { false => FalseBranch }
     }
   }
 }
@@ -32,13 +29,3 @@ else[T, U](prev: Done[T] | FalseBranch, onfalse: ()->U): Done[T] | Done[U]
     { v: Done[T] => v }
   }
 }
-
-// else[T, U](prev: Done[T] | FalseBranch, _: if):
-//   (()->Bool)->(()->U)->(Done[T] | Done[U])
-// {
-//   { cond =>
-//     { ontrue =>
-//       prev else { if cond ontrue }
-//     }
-//   }
-// }
