@@ -1,0 +1,10 @@
+using "numbers";
+
+length[T...](x: T...): USize
+{
+  match x
+  {
+    { () => 0 }
+    { _, tl => 1 + length(tl) }
+  }
+}

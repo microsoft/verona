@@ -9,7 +9,7 @@
       ()
       [
         (using (typeref [ (modulename $module-1 []) ]))
-        (class U32 [] () [])
+        (using (typeref [ (modulename $module-2 []) ]))
         (class List [ (typeparam T () ()) ] () [])
         (function
           for_sum
@@ -236,8 +236,8 @@
                   (select (ref $1) [ (typename apply []) ] (ref $2))
                 ])
             ]))
-        (using (typeref [ (modulename $module-2 []) ]))
         (using (typeref [ (modulename $module-3 []) ]))
+        (using (typeref [ (modulename $module-4 []) ]))
         (class Empty [] () [])
         (interface
           Iterator
@@ -977,6 +977,26 @@
       []
       ()
       [
+        (class I8 [] () [])
+        (class I16 [] () [])
+        (class I32 [] () [])
+        (class I64 [] () [])
+        (class I128 [] () [])
+        (class ISize [] () [])
+        (class U8 [] () [])
+        (class U16 [] () [])
+        (class U32 [] () [])
+        (class U64 [] () [])
+        (class U128 [] () [])
+        (class USize [] () [])
+        (class F32 [] () [])
+        (class F64 [] () [])
+      ])
+    (class
+      $module-3
+      []
+      ()
+      [
         (class
           Bool
           []
@@ -1317,7 +1337,7 @@
           ])
       ])
     (class
-      $module-3
+      $module-4
       []
       ()
       [
@@ -1551,7 +1571,7 @@
                   []))
               (match (ref prev) [ (ref $0) (ref $1) ])
             ]))
-        (using (typeref [ (modulename $module-2 []) ]))
+        (using (typeref [ (modulename $module-3 []) ]))
         (interface Any [] () [])
         (class None [] () [])
         (class NoCatch [] () [])

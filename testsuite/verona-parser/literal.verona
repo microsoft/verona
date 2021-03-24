@@ -1,13 +1,9 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+using "boolean";
+using "numbers";
 
 interface Foo {}
-class Bool {}
-class U8 {}
-class U16 {}
-class U64 {}
-class I32 {}
-class F32 {}
 
 f()
 {
@@ -24,10 +20,10 @@ f()
   let object2 = new Foo { x : U64 = 0; };
 
   // Type declared
-  let bool3 : Bool = true;
-  let bool4 : Bool = false;
-  let int4 : U16 = 00_420;
-  let int5 : I32 = 0xc0_FFeE;
-  let int6 : U8 = 0b100_10_10;
-  let float2 : F32 = 207.18e-1;
+  let bool3: Bool = true;
+  let bool4: Bool = false;
+  let int4: U16 = 00_420;
+  let int5: I32 = 0xc0_FFeE;
+  let int6: U8 = 0b100_10_10;
+  let float2: F32 = 207.18e-1;
 }

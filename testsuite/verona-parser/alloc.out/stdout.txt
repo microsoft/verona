@@ -8,9 +8,7 @@
       []
       ()
       [
-        (class U32 [] () [])
-        (class U64 [] () [])
-        (class F64 [] () [])
+        (using (typeref [ (modulename $module-1 []) ]))
         (class
           C
           [ (typeparam A () ()) ]
@@ -146,5 +144,25 @@
                     (field b (typeref [ (typename F64 []) ]) (ref $2))
                   ]))
             ]))
+      ])
+    (class
+      $module-1
+      []
+      ()
+      [
+        (class I8 [] () [])
+        (class I16 [] () [])
+        (class I32 [] () [])
+        (class I64 [] () [])
+        (class I128 [] () [])
+        (class ISize [] () [])
+        (class U8 [] () [])
+        (class U16 [] () [])
+        (class U32 [] () [])
+        (class U64 [] () [])
+        (class U128 [] () [])
+        (class USize [] () [])
+        (class F32 [] () [])
+        (class F64 [] () [])
       ])
   ])
