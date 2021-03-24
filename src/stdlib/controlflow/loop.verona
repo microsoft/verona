@@ -40,7 +40,7 @@ while[L = NoLabel, T, U](cond: ()->Bool, body: ()->(T | throw U))
       {
         // An unlabelled break or a break to this label ends the loop.
         // A break to another label will be rethrown.
-        { Break[NoLabel] | Break[L] => Done(None) }
+        { Break[NoLabel] | Break[L] => Done }
 
         // An unlabelled continue or a continue to this label ends the body
         // early but runs the loop again. A continue to another label will be
