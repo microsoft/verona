@@ -4,6 +4,7 @@
 
 #include "dispatch.h"
 #include "fields.h"
+#include "rewrite.h"
 
 #include <iostream>
 
@@ -17,10 +18,11 @@ namespace verona::parser
   struct Pass
   {
     AstPath stack;
+    size_t index;
     bool ok;
     std::ostream out;
 
-    Pass() : ok(true), out(std::cerr.rdbuf()) {}
+    Pass() : index(0), ok(true), out(std::cerr.rdbuf()) {}
 
     operator bool() const
     {
@@ -77,9 +79,16 @@ namespace verona::parser
     template<typename T>
     Pass& operator<<(List<T>& nodes)
     {
-      for (auto& node : nodes)
-        *this << node;
+      auto prev = index;
+      index = 0;
 
+      for (auto& node : nodes)
+      {
+        *this << node;
+        index++;
+      }
+
+      index = prev;
       return *this;
     }
 
@@ -97,6 +106,11 @@ namespace verona::parser
 
       *this << fields(node);
       static_cast<F*>(this)->post(node);
+    }
+
+    bool rewrite(Ast next)
+    {
+      return parser::rewrite(stack, index, next);
     }
   };
 }

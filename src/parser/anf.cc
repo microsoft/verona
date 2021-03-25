@@ -1,8 +1,9 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+#include "anf.h"
+
 #include "ident.h"
 #include "lookup.h"
-#include "resolve.h"
 #include "rewrite.h"
 
 namespace verona::parser::anf
@@ -45,7 +46,7 @@ namespace verona::parser::anf
       {
         // Lift oftype nodes and leave their contents in place.
         state.anf.push_back(expr);
-        rewrite(stack, expr->as<Oftype>().expr);
+        rewrite(expr->as<Oftype>().expr);
         return;
       }
 
@@ -55,7 +56,7 @@ namespace verona::parser::anf
         state.anf.push_back(expr);
         auto ref = std::make_shared<Ref>();
         ref->location = expr->location;
-        rewrite(stack, ref);
+        rewrite(ref);
         return;
       }
 
@@ -84,7 +85,7 @@ namespace verona::parser::anf
       auto ref = std::make_shared<Ref>();
       ref->location = let->location;
 
-      rewrite(stack, ref);
+      rewrite(ref);
     }
 
     void post(Param& param)

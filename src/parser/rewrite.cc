@@ -9,20 +9,22 @@ namespace verona::parser
 {
   struct Rewrite
   {
+    size_t index;
     Ast prev;
     Ast next;
     bool ok;
 
     Rewrite() : ok(false) {}
 
-    bool operator()(Ast& ast, Ast& with)
+    bool operator()(size_t index, Ast& prev, Ast& next)
     {
       return false;
     }
 
     template<typename T>
-    bool operator()(T& parent, Ast& prev, Ast& next)
+    bool operator()(T& parent, size_t index, Ast& prev, Ast& next)
     {
+      this->index = index;
       this->prev = prev;
       this->next = next;
       ok = false;
@@ -51,24 +53,17 @@ namespace verona::parser
     template<typename T>
     Rewrite& operator<<(List<T>& list)
     {
-      if (!ok)
+      if (!ok && (index < list.size()) && (list.at(index) == prev))
       {
-        for (auto& node : list)
-        {
-          if (node == prev)
-          {
-            node = std::static_pointer_cast<T>(next);
-            ok = true;
-            break;
-          }
-        }
+        list[index] = std::static_pointer_cast<T>(next);
+        ok = true;
       }
 
       return *this;
     }
   };
 
-  bool rewrite(AstPath& path, Ast node)
+  bool rewrite(AstPath& path, size_t index, Ast next)
   {
     if (path.size() < 2)
       return false;
@@ -77,13 +72,13 @@ namespace verona::parser
     auto& prev = path.back();
 
     Rewrite rewrite;
-    dispatch(rewrite, parent, prev, node);
+    dispatch(rewrite, parent, index, prev, next);
 
     if (!rewrite.ok)
       return false;
 
     path.pop_back();
-    path.push_back(node);
+    path.push_back(next);
     return true;
   }
 }

@@ -143,7 +143,7 @@ namespace verona::parser::resolve
             sel->typenames = select.typenames;
             sel->args = select.args;
             lhs.args = sel;
-            rewrite(stack, expr);
+            rewrite(expr);
           }
         }
       }
@@ -164,9 +164,9 @@ namespace verona::parser::resolve
     {
       // Collapse unnecessary tuple nodes.
       if (tuple.seq.size() == 0)
-        rewrite(stack, {});
+        rewrite({});
       else if (tuple.seq.size() == 1)
-        rewrite(stack, tuple.seq.front());
+        rewrite(tuple.seq.front());
     }
   };
 
