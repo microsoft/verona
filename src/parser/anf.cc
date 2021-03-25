@@ -31,17 +31,8 @@ namespace verona::parser::anf
 
     void make_trivial()
     {
-      // Do nothing if the expression occurs outside of a lambda.
-      // TODO: these are initexprs, need to account for them somehow.
-      if (state_stack.empty())
-        return;
-
       auto& state = state_stack.back();
       auto expr = std::static_pointer_cast<Expr>(stack.back());
-
-      // Don't change params or refs.
-      if (is_kind(expr, {Kind::Param, Kind::Ref}))
-        return;
 
       if (parent()->kind() == Kind::Lambda)
       {
@@ -94,6 +85,52 @@ namespace verona::parser::anf
       ref->location = let->location;
 
       rewrite(stack, ref);
+    }
+
+    void post(Param& param)
+    {
+      // No changes.
+    }
+
+    void post(Ref& ref)
+    {
+      // Do nothing if it's a top level reference. This removes it.
+      if (parent()->kind() == Kind::Lambda)
+        return;
+
+      // Check if it's a local variable or parameter.
+      auto& state = state_stack.back();
+      auto def = state.lambda->st.get(ref.location);
+
+      if (def)
+        return;
+
+      // Insert free variable declarations.
+      auto defs = look_up(stack, ref.location);
+      Node<Expr> fr;
+
+      switch (defs.front().back()->kind())
+      {
+        case Kind::Param:
+        case Kind::Let:
+        {
+          fr = std::make_shared<FreeLet>();
+          break;
+        }
+
+        case Kind::Var:
+        {
+          fr = std::make_shared<FreeVar>();
+          break;
+        }
+
+        default:
+          return;
+      }
+
+      fr->location = ref.location;
+      state.anf.push_back(fr);
+      state.lambda->symbol_table()->set(fr->location, fr);
     }
 
     void post(Expr& expr)
@@ -154,7 +191,9 @@ namespace verona::parser::anf
       lambda.body = state.anf;
       ident.hygienic = state.hygienic;
       state_stack.pop_back();
-      make_trivial();
+
+      if (!state_stack.empty())
+        make_trivial();
     }
   };
 

@@ -141,12 +141,7 @@ namespace verona::parser
     if (!st)
       return {};
 
-    auto find = st->map.find(name);
-
-    if (find == st->map.end())
-      return {};
-
-    return find->second;
+    return st->get(name);
   }
 
   AstPaths
@@ -211,10 +206,20 @@ namespace verona::parser
 
       if (def)
       {
-        if (is_kind(def, {Kind::Param, Kind::Let, Kind::Var}))
+        if (is_kind(
+              def,
+              {Kind::Param,
+               Kind::Let,
+               Kind::Var,
+               Kind::FreeLet,
+               Kind::FreeVar}))
+        {
           return def;
+        }
         else
+        {
           return {};
+        }
       }
     }
 

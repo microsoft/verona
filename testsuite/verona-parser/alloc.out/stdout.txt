@@ -37,7 +37,7 @@
                   ())
               ]
               (typeref [ (typename S []) ])
-              (lambda [] [] [ (new a (ref a)) ]))
+              (lambda [] [] [ (freelet a) (new a (ref a)) ]))
           ])
         (interface Any [] () [])
         (class
@@ -69,7 +69,7 @@
               []
               [ (param a (typeref [ (typename U32 []) ]) ()) ]
               (typeref [ (typename One []) ])
-              (lambda [] [] [ (new () (ref a)) ]))
+              (lambda [] [] [ (freelet a) (new () (ref a)) ]))
           ])
         (class
           Two
@@ -90,6 +90,8 @@
                 []
                 []
                 [
+                  (freelet a)
+                  (freelet b)
                   (assign (let $0) (tuple [ (ref a) (ref b) ]))
                   (new () (ref $0))
                 ]))

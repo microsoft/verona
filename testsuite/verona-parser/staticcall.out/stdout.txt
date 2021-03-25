@@ -52,6 +52,8 @@
                   (typename create [])
                 ]
                 ())
+              (freelet x)
+              (freelet y)
               (assign (let $0) (tuple [ (ref x) (ref y) ]))
               (assign (let $1) (tuple [ (ref x) (ref y) (ref $0) ]))
               (select

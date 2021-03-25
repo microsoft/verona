@@ -66,6 +66,10 @@ namespace verona::parser
     Hex,
     Binary,
     Bool,
+
+    // Free variables
+    FreeLet,
+    FreeVar,
   };
 
   struct NodeDef;
@@ -195,6 +199,16 @@ namespace verona::parser
   {
     std::unordered_map<Location, Ast> map;
     std::vector<Node<Using>> use;
+
+    Ast get(const Location& id)
+    {
+      auto find = map.find(id);
+
+      if (find == map.end())
+        return {};
+
+      return find->second;
+    }
 
     std::optional<Location> set(const Location& id, Ast node)
     {
@@ -618,6 +632,22 @@ namespace verona::parser
     Kind kind() override
     {
       return Kind::Bool;
+    }
+  };
+
+  struct FreeLet : Let
+  {
+    Kind kind()
+    {
+      return Kind::FreeLet;
+    }
+  };
+
+  struct FreeVar : Let
+  {
+    Kind kind()
+    {
+      return Kind::FreeVar;
     }
   };
 }

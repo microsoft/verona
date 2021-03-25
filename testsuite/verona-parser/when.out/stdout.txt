@@ -30,8 +30,10 @@
             []
             []
             [
+              (freelet a)
               (assign (let $0) (lambda [] [] []))
               (assign (let $1) (when (ref a) (ref $0)))
+              (freelet b)
               (assign (let $2) (tuple [ (ref a) (ref b) ]))
               (assign
                 (let $3)

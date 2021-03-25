@@ -28,6 +28,8 @@
             []
             [
               (let x)
+              (freelet a)
+              (freelet b)
               (assign (ref x) (select (ref a) [ (typename + []) ] (ref b)))
               (let r)
               (oftype (ref r) (typeref [ (typename R []) ]))

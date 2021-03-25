@@ -66,6 +66,7 @@
             []
             []
             [
+              (freelet x)
               (oftype
                 (ref x)
                 (uniontype
@@ -117,7 +118,14 @@
               (throwtype (typeref [ (typename D []) ]))
               (throwtype (typeref [ (typename E []) ]))
             ])
-          (lambda [] [] [ (select (ref f) [ (typename apply []) ] (ref x)) ]))
+          (lambda
+            []
+            []
+            [
+              (freelet f)
+              (freelet x)
+              (select (ref f) [ (typename apply []) ] (ref x))
+            ]))
         (function
           h
           []

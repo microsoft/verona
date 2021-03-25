@@ -7,13 +7,14 @@ foo[T](a: T) {}
 
 f[T](x: T)
 {
-  let a = 0;
+  var a = 0;
   while {a < 5}
   {
     a = a + 1;
 
     if (a < 2)
     {
+      a = a + 1;
       continue
     }
     else

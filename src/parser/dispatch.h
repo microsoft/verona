@@ -157,6 +157,12 @@ namespace verona::parser
 
       case Kind::Bool:
         return f(node->as<Bool>(), args...);
+
+      case Kind::FreeLet:
+        return f(node->as<FreeLet>(), args...);
+
+      case Kind::FreeVar:
+        return f(node->as<FreeVar>(), args...);
     }
 
     // This is unreachable, and is only to suppress an MSVC error.

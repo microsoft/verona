@@ -24,7 +24,7 @@
             []
             []
             [
-              (let a)
+              (var a)
               (assign (ref a) (int 0))
               (assign
                 (let $0)
@@ -32,6 +32,7 @@
                   []
                   []
                   [
+                    (freevar a)
                     (assign (let $0) (int 5))
                     (select (ref a) [ (typename < []) ] (ref $0))
                   ]))
@@ -42,6 +43,7 @@
                   []
                   []
                   [
+                    (freevar a)
                     (assign (let $0) (int 1))
                     (assign
                       (ref a)
@@ -57,6 +59,10 @@
                         []
                         []
                         [
+                          (assign (let $0) (int 1))
+                          (assign
+                            (ref a)
+                            (select (ref a) [ (typename + []) ] (ref $0)))
                           (select
                             ()
                             [ (typename continue []) (typename create []) ]
@@ -81,6 +87,7 @@
               (assign
                 (let $3)
                 (select (ref $1) [ (typename apply []) ] (ref $2)))
+              (freelet x)
               (assign (let $4) (select (ref $3) [ (typename for []) ] (ref x)))
               (assign
                 (let $5)
@@ -138,6 +145,8 @@
                 []
                 [ (param y (typelist U) ()) ]
                 [
+                  (freelet f)
+                  (freelet x)
                   (assign (let $0) (tuple [ (ref x) (ref y) ]))
                   (select (ref f) [ (typename apply []) ] (ref $0))
                 ])
@@ -153,7 +162,14 @@
               ())
           ]
           (typeref [ (typename U []) ])
-          (lambda [] [] [ (select (ref y) [ (typename apply []) ] (ref x)) ]))
+          (lambda
+            []
+            []
+            [
+              (freelet y)
+              (freelet x)
+              (select (ref y) [ (typename apply []) ] (ref x))
+            ]))
         (class FalseBranch [] () [])
         (function
           if
@@ -179,6 +195,7 @@
                 []
                 [ (param ontrue () ()) ]
                 [
+                  (freelet cond)
                   (assign
                     (let $0)
                     (select (ref cond) [ (typename apply []) ] ()))
@@ -193,6 +210,7 @@
                           (let $2)
                           (select (ref $1) [ (typename == []) ] (ref $0)))
                         (select () [ (typename requires []) ] (ref $2))
+                        (freelet ontrue)
                         (assign
                           (let $3)
                           (select (ref ontrue) [ (typename apply []) ] ()))
@@ -253,15 +271,18 @@
                 []
                 [ (param ontrue () ()) ]
                 [
+                  (freelet prev)
                   (assign
                     (let $0)
                     (lambda
                       []
                       []
                       [
+                        (freelet cond)
                         (assign
                           (let $0)
                           (select () [ (typename if []) ] (ref cond)))
+                        (freelet ontrue)
                         (select (ref $0) [ (typename apply []) ] (ref ontrue))
                       ]))
                   (select (ref prev) [ (typename else []) ] (ref $0))
@@ -294,6 +315,7 @@
             []
             []
             [
+              (freelet prev)
               (assign
                 (let $0)
                 (lambda
@@ -310,6 +332,7 @@
                       (let $2)
                       (select (ref $1) [ (typename == []) ] (ref $0)))
                     (select () [ (typename requires []) ] (ref $2))
+                    (freelet onfalse)
                     (assign
                       (let $3)
                       (select (ref onfalse) [ (typename apply []) ] ()))
@@ -365,7 +388,7 @@
                     ]))
               ]
               (typeref [ (typename R []) ])
-              (lambda [] [] [ (new () (ref from)) ]))
+              (lambda [] [] [ (freelet from) (new () (ref from)) ]))
             (function
               apply
               [ (typeparam U () ()) ]
@@ -465,6 +488,7 @@
                 []
                 [ (param body () ()) ]
                 [
+                  (freelet cond)
                   (assign
                     (let $0)
                     (select (ref cond) [ (typename apply []) ] ()))
@@ -485,6 +509,7 @@
                             []
                             []
                             [
+                              (freelet body)
                               (select (ref body) [ (typename apply []) ] ())
                               (select
                                 ()
@@ -576,6 +601,7 @@
                                       [ (typeref [ (typename L []) ]) ])
                                   ]
                                   (ref cond)))
+                              (freelet body)
                               (select
                                 (ref $5)
                                 [ (typename apply []) ]
@@ -601,6 +627,7 @@
             []
             []
             [
+              (freelet value)
               (assign
                 (let $0)
                 (lambda [] [ (param x (typeref [ (typename T []) ]) ()) ] []))
@@ -633,6 +660,7 @@
             []
             []
             [
+              (freelet pred)
               (assign (let $0) (select () [ (typename not []) ] (ref pred)))
               (assign (let $1) (select () [ (typename if []) ] (ref $0)))
               (assign
@@ -696,12 +724,14 @@
                 []
                 []
                 [
+                  (freelet x)
                   (assign
                     (let $0)
                     (lambda
                       []
                       [ (param y (typeref [ (typename T1 []) ]) ()) ]
                       [
+                        (freelet self)
                         (assign
                           (let $0)
                           (select (ref self) [ (typename a []) ] ()))
@@ -713,6 +743,7 @@
                       []
                       [ (param y (typeref [ (typename T2 []) ]) ()) ]
                       [
+                        (freelet self)
                         (assign
                           (let $0)
                           (select (ref self) [ (typename b []) ] ()))
@@ -750,6 +781,8 @@
             []
             []
             [
+              (freelet e1)
+              (freelet e2)
               (assign (let $0) (tuple [ (ref e1) (ref e2) ]))
               (select
                 ()
@@ -787,6 +820,7 @@
                 []
                 []
                 [
+                  (freelet x)
                   (assign
                     (let $0)
                     (select
@@ -854,6 +888,7 @@
             []
             []
             [
+              (freelet a)
               (assign (let $0) (select () [ (typename bool []) ] (ref a)))
               (assign
                 (let $1)
@@ -878,6 +913,7 @@
                       (let $2)
                       (select (ref $1) [ (typename == []) ] (ref $0)))
                     (select () [ (typename requires []) ] (ref $2))
+                    (freelet b)
                     (select (ref b) [ (typename apply []) ] ())
                   ]))
               (match (ref $0) [ (ref $1) (ref $2) ])
@@ -901,6 +937,7 @@
             []
             []
             [
+              (freelet a)
               (assign (let $0) (select () [ (typename bool []) ] (ref a)))
               (assign
                 (let $1)
@@ -925,6 +962,7 @@
                       (let $2)
                       (select (ref $1) [ (typename == []) ] (ref $0)))
                     (select () [ (typename requires []) ] (ref $2))
+                    (freelet b)
                     (select (ref b) [ (typename apply []) ] ())
                   ]))
               (match (ref $0) [ (ref $1) (ref $2) ])
@@ -938,6 +976,7 @@
             []
             []
             [
+              (freelet a)
               (assign (let $0) (select () [ (typename bool []) ] (ref a)))
               (assign
                 (let $1)
@@ -1005,6 +1044,8 @@
                 []
                 []
                 [
+                  (freelet self)
+                  (freelet other)
                   (assign
                     (let $0)
                     (select (ref self) [ (typename == []) ] (ref other)))
@@ -1037,6 +1078,8 @@
                 []
                 []
                 [
+                  (freelet self)
+                  (freelet other)
                   (assign
                     (let $0)
                     (select (ref self) [ (typename < []) ] (ref other)))
@@ -1057,6 +1100,8 @@
                 []
                 []
                 [
+                  (freelet self)
+                  (freelet other)
                   (assign
                     (let $0)
                     (select (ref self) [ (typename < []) ] (ref other)))
@@ -1074,6 +1119,8 @@
                 []
                 []
                 [
+                  (freelet self)
+                  (freelet other)
                   (assign
                     (let $0)
                     (select (ref self) [ (typename <= []) ] (ref other)))
@@ -1091,6 +1138,8 @@
                 []
                 []
                 [
+                  (freelet self)
+                  (freelet other)
                   (assign
                     (let $0)
                     (select (ref self) [ (typename < []) ] (ref other)))
