@@ -327,7 +327,7 @@ namespace
       catch (...)
       {
         // FIXME: Report error in some useful way.
-        printf("Exception!\n");
+        SANDBOX_INVARIANT(0, "Uncaught exception");
       }
       new_depth = shared->token.upcall_depth;
       // Wake up the parent if it's expecting a wakeup for this upcall depth.
