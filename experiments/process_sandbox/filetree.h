@@ -178,7 +178,7 @@ namespace sandbox
       }
 
       /**
-       * Add a file, represented by a directory handle.  Takes ownership of the
+       * Add a file, represented by a file handle. Takes ownership of the
        * handle.
        */
       void add_file(const std::string& name, platform::Handle&& h)
