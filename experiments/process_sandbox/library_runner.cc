@@ -304,6 +304,8 @@ namespace
     int new_depth;
     do
     {
+      // If `wait` spuriously fails, try again unless the parent has asked us
+      // to exit.
       do
       {
         if (shared->should_exit)
