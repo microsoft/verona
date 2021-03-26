@@ -11,10 +11,22 @@ namespace sandbox
   enum SandboxFileDescriptors
   {
     /**
+     * C standard in.
+     */
+    StandardIn = STDIN_FILENO,
+    /**
+     * C standard out.
+     */
+    StandardOut = STDOUT_FILENO,
+    /**
+     * C standard error.
+     */
+    StandardErr = STDERR_FILENO,
+    /**
      * The file descriptor used for the shared memory object that contains the
      * shared heap.
      */
-    SharedMemRegion = 3,
+    SharedMemRegion,
     /**
      * The file descriptor for the shared memory object that contains the
      * shared pagemap page.  This is mapped read-only in the child and updated
@@ -43,4 +55,14 @@ namespace sandbox
      */
     OtherLibraries
   };
+  // POSIX does not mandate that these are 0, 1, and 2, but this composes with
+  // the requirement that new file descriptors are always created with the
+  // lowest unused number to make almost any other option infeasible, so we
+  // assume this.  If anyone implements a POSIX system that does makes a
+  // different choice that we care about then we will have to refactor some
+  // code.
+  static_assert(StandardIn == 0, "Standard in file descriptor is unexpected");
+  static_assert(StandardOut == 1, "Standard out file descriptor is unexpected");
+  static_assert(
+    StandardErr == 2, "Standard error file descriptor is unexpected");
 }

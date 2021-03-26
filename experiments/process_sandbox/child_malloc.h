@@ -43,20 +43,17 @@ namespace sandbox
     }
     /**
      * Helper function used by the set methods that are part of the page map
-     * interface.  If the address (`p`) is not in the shared region then this
-     * delegates to the default page map.  Otherwise, this writes the required
-     * change as a message to the parent process and spins waiting for the
-     * parent to make the required update.
+     * interface.  Requires that the address (`p`) is in the shared region.
+     * This writes the required change as a message to the parent process and
+     * spins waiting for the parent to make the required update.
      */
-    void set(uintptr_t p, uint8_t x);
+    void set(snmalloc::address_t p, uint8_t x);
     /**
-     * Get the pagemap entry for a specific address. This queries the default
-     * pagemap.
+     * Get the pagemap entry for a specific address.
      */
     static uint8_t get(snmalloc::address_t p);
     /**
-     * Get the pagemap entry for a specific address. This queries the default
-     * pagemap.
+     * Get the pagemap entry for a specific address.
      */
     static uint8_t get(void* p);
     /**

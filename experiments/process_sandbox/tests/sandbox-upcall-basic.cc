@@ -26,6 +26,7 @@ struct UpcallSandbox
 
 UpcallHandlerBase::Result upcall(SandboxedLibrary&, int val)
 {
+  // 12 is an arbitrary number, used by the caller of this in the other file.
   SANDBOX_INVARIANT(val == 12, "Upcall argument is {}, expected 12", val);
   return 42;
 }

@@ -18,7 +18,7 @@ template<typename Sem>
 void test_sem()
 {
   Sem sem;
-  std::atomic<bool> passed;
+  std::atomic<bool> passed{0};
   // Check that we time out without acquiring the semaphore.
   bool acquired = sem.wait(100);
   SANDBOX_INVARIANT(!acquired, "Failed to acquire semaphore");

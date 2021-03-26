@@ -292,7 +292,7 @@ namespace sandbox
   /**
    * Return a singleton instance of the pagemap owner.
    */
-  MemoryServiceProvider& pagemap_owner()
+  MemoryServiceProvider& memory_service_provider()
   {
     // Leaks.  No need to run the destructor!
     static MemoryServiceProvider* p = new MemoryServiceProvider();
@@ -782,7 +782,7 @@ namespace sandbox
 
     // Create a pair of sockets that we can use to
     auto malloc_rpc_sockets = platform::SocketPair::create();
-    pagemap_owner().add_range(
+    memory_service_provider().add_range(
       &memory_provider, std::move(malloc_rpc_sockets.first), shared_pagemap);
     // Construct a UNIX domain socket.  This will eventually be used to send
     // file descriptors from the parent to the child, but isn't yet.

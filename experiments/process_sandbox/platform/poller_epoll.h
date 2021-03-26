@@ -71,7 +71,6 @@ namespace sandbox
         }
         if (ret == 0)
         {
-          sleep(1);
           return poll(fd, eof);
         }
         fd = static_cast<handle_t>(event.data.fd);

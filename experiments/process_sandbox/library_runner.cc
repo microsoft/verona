@@ -116,6 +116,12 @@ namespace
    */
   void* shared_memory_end = 0;
 
+  bool is_inside_shared_memory(const void* ptr, size_t size = 1)
+  {
+    return (ptr >= shared_memory_start) &&
+      ((static_cast<const char*>(ptr) + size) < shared_memory_end);
+  }
+
   /**
    * Pointer to the shared memory region.  This will be equal to
    * `shared_memory_start` and is simply a convenience to have a pointer of the
@@ -175,8 +181,8 @@ namespace sandbox
   void ProxyPageMap::set(uintptr_t p, uint8_t x)
   {
     SANDBOX_DEBUG_INVARIANT(
-      (p >= reinterpret_cast<uintptr_t>(shared_memory_start)) &&
-        (p < reinterpret_cast<uintptr_t>(shared_memory_end)),
+      is_inside_shared_memory(
+        reinterpret_cast<void*>(p), snmalloc::OS_PAGE_SIZE),
       "Setting metadata pointer {} in pagemap that is outside of the sandbox "
       "range {}--{}",
       p,
@@ -206,21 +212,21 @@ namespace sandbox
     set(reinterpret_cast<uintptr_t>(slab), (size_t)CMNotOurs);
   }
 
-  void ProxyPageMap::clear_slab(snmalloc::Mediumslab* slab)
-  {
-    set(reinterpret_cast<uintptr_t>(slab), (size_t)CMNotOurs);
-  }
-
   void ProxyPageMap::set_slab(snmalloc::Mediumslab* slab)
   {
     set(reinterpret_cast<uintptr_t>(slab), (size_t)CMMediumslab);
+  }
+
+  void ProxyPageMap::clear_slab(snmalloc::Mediumslab* slab)
+  {
+    set(reinterpret_cast<uintptr_t>(slab), (size_t)CMNotOurs);
   }
 
   void ProxyPageMap::set_large_size(void* p, size_t size)
   {
     size_t size_bits = bits::next_pow2_bits(size);
     SANDBOX_DEBUG_INVARIANT(
-      (p >= shared_memory_start) && (p < shared_memory_end),
+      is_inside_shared_memory(p, size),
       "Setting large size for pointer {} in pagemap that is outside of the "
       "sandbox range {}--{}",
       p,
@@ -235,7 +241,7 @@ namespace sandbox
   void ProxyPageMap::clear_large_size(void* p, size_t size)
   {
     SANDBOX_DEBUG_INVARIANT(
-      (p >= shared_memory_start) && (p < shared_memory_end),
+      is_inside_shared_memory(p, size),
       "Clearing large size for pointer {} in pagemap that is outside of the "
       "sandbox range {}--{}",
       p,
@@ -395,9 +401,14 @@ namespace
     // Splice the pagemap page inherited from the parent into the pagemap.
     void* pagemap_chunk = GlobalPagemap::pagemap().page_for_address(
       reinterpret_cast<uintptr_t>(ptr));
-    munmap(pagemap_chunk, 4096);
+    munmap(pagemap_chunk, snmalloc::OS_PAGE_SIZE);
     void* shared_pagemap = mmap(
-      pagemap_chunk, 4096, PROT_READ, MAP_SHARED | MAP_FIXED, PageMapPage, 0);
+      pagemap_chunk,
+      snmalloc::OS_PAGE_SIZE,
+      PROT_READ,
+      MAP_SHARED | MAP_FIXED,
+      PageMapPage,
+      0);
     if (shared_pagemap == MAP_FAILED)
     {
       err(1, "Mapping shared pagemap page failed");
@@ -441,7 +452,6 @@ namespace
     upcallSocket.send(&req, sizeof(req), out_fd);
     out_fd.take();
     int depth = ++shared->token.upcall_depth;
-    (void)depth;
     shared->token.is_child_executing = false;
     shared->token.parent.wake();
     runloop(depth);
@@ -472,7 +482,7 @@ namespace
   {
     auto args = std::make_unique<sandbox::UpcallArgs::Stat>();
     unique_c_ptr<char> copy;
-    if ((pathname < shared_memory_start) || (pathname >= shared_memory_end))
+    if (!is_inside_shared_memory(pathname))
     {
       copy.reset(strdup(pathname));
       pathname = copy.get();
@@ -490,7 +500,7 @@ namespace
   {
     auto args = std::make_unique<sandbox::UpcallArgs::Open>();
     unique_c_ptr<char> copy;
-    if ((pathname < shared_memory_start) || (pathname >= shared_memory_end))
+    if (!is_inside_shared_memory(pathname))
     {
       copy.reset(strdup(pathname));
       pathname = copy.get();
@@ -661,9 +671,7 @@ extern "C" int openat(int dirfd, const char* pathname, int flags, ...)
 int sandbox::invoke_user_callback(int idx, void* data, size_t size, int fd)
 {
   unique_c_ptr<void> copy;
-  if (
-    (data < shared_memory_start) ||
-    ((static_cast<char*>(data) + size) >= shared_memory_end))
+  if (!is_inside_shared_memory(data, size))
   {
     copy.reset(malloc(size));
     memcpy(copy.get(), data, size);
@@ -697,7 +705,7 @@ int main()
   // allocated objects are in the shared region.
   auto check_is_in_shared_range = [](void* ptr) {
     SANDBOX_DEBUG_INVARIANT(
-      (ptr >= shared_memory_start) && (ptr < shared_memory_end),
+      is_inside_shared_memory(ptr),
       "Pointer {} is out of the sandbox range {}--{}",
       ptr,
       shared_memory_start,
