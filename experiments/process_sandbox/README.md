@@ -65,7 +65,7 @@ The attacker must not be able to:
 
 The current implementation assumes that the snmalloc `Alloc` instance at the boundary of the sandbox validates all pointers that it follows within the sandbox.
 This is a trivial check to add (a simple range check), but is not currently implemented.
-As such, an attacker can corrupt allocator metadata in such a way that causes snmalloc to 
+As such, an attacker can corrupt allocator metadata in such a way that causes snmalloc in the parent to corrupt arbitrary memory.
 
 The original design assumed that the child cannot modify the shared pagemap page.
 In the Capsicum implementation, the child does not have the capability to map the shared pagemap page read-write and so this is safe.
@@ -338,4 +338,3 @@ Code layout
  - [shared_memory_region.h](shared_memory_region.h) defines the part of the shared memory region, not including the heap.
  - [tests](tests) contains tests.
    Some are stand-alone unit tests, the files that start `sandbox-` and `sandboxlib-` are the parent / child parts of tests that use the complete sandboxing framework.
-
