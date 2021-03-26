@@ -23,10 +23,23 @@ namespace cl = llvm::cl;
 
 namespace
 {
+  // For help's sake, will never be parsed, as we intercept
+  cl::opt<string> config(
+    "config",
+    cl::desc("<config file>"),
+    cl::Optional,
+    cl::value_desc("config"));
+
   // Test function (TODO: make this more generic)
   cl::opt<bool> testFunction(
     "function",
     cl::desc("Creates a test function"),
+    cl::Optional,
+    cl::init(false));
+
+  cl::opt<bool> dumpIR(
+    "dump",
+    cl::desc("Dumps the whole IR at the end"),
     cl::Optional,
     cl::init(false));
 
@@ -43,108 +56,16 @@ namespace
     cl::value_desc("symbol"));
 
   cl::list<string> specialization(
-    cl::Positional,
+    "params",
     cl::desc("<template specialization parameters>"),
     cl::CommaSeparated,
     cl::value_desc("specialization"));
 
-  /// Prints a type to stdout
-  void printType(CXXType& ty)
-  {
-    assert(ty.valid());
-    auto kind = ty.kindName();
-    auto name = ty.getName().str();
-    cout << name << "(@" << ty.decl << ") " << kind;
-    if (ty.kind == CXXType::Kind::Builtin)
-      cout << "(" << ty.builtinKindName() << ")";
-    cout << endl;
-  }
-
-  /// Looks up a symbol from a CXX interface by name
-  /// Tested on <array> looking for type "array"
-  CXXType get_type(CXXInterface& interface, string& name)
-  {
-    auto ty = interface.getType(name);
-    if (ty.valid())
-    {
-      cout << "Found: ";
-      printType(ty);
-    }
-    else
-    {
-      cout << "Not found: " << name.c_str() << endl;
-    }
-    return ty;
-  }
-
-  /// Create the parameters of a template class from type names or values
-  vector<TemplateArgument>
-  create_template_args(CXXInterface& interface, llvm::ArrayRef<string> args)
-  {
-    vector<TemplateArgument> templateArgs;
-    for (auto arg : args)
-    {
-      if (isdigit(arg[0]))
-      {
-        // Numbers default to int parameter
-        auto num = atol(arg.c_str());
-        templateArgs.push_back(interface.createTemplateArgumentForIntegerValue(
-          CXXType::BuiltinTypeKinds::Int, num));
-      }
-      else
-      {
-        // Try to find the type name
-        auto decl = interface.getType(arg);
-        if (!decl.valid())
-        {
-          cerr << "Invalid template specialization type " << arg.c_str()
-               << endl;
-          exit(1);
-        }
-        templateArgs.push_back(interface.createTemplateArgumentForType(decl));
-      }
-    }
-    return templateArgs;
-  }
-
-  /// Specialize the template into a CXXType
-  CXXType specialize_template(
-    CXXInterface& interface, CXXType& ty, llvm::ArrayRef<TemplateArgument> args)
-  {
-    // Canonical representation
-    cout << "Canonical Template specialisation:" << endl;
-    QualType canon =
-      interface.getCanonicalTemplateSpecializationType(ty.decl, args);
-    canon.dump();
-
-    // Tries to instantiate a full specialisation
-    return interface.instantiateClassTemplate(ty, args);
-  }
-
-  /// Creates a test function
-  clang::FunctionDecl* test_function(CXXInterface& interface)
-  {
-    // Create a new function on the main file
-    auto intTy = CXXType::getInt();
-    llvm::SmallVector<CXXType, 1> args{intTy};
-
-    cout << "Simple function:" << endl;
-    // Create new function
-    auto func =
-      interface.instantiateFunction("verona_wrapper_fn_1", args, intTy);
-
-    // Set first argument
-    auto arg = interface.createFunctionArgument("arg1", intTy, func);
-
-    // Create constant literal
-    auto* fourLiteral = interface.createIntegerLiteral(32, 4);
-
-    // Return statement
-    interface.createReturn(fourLiteral, func);
-
-    func->dump();
-    return func;
-  }
+  cl::list<string> fields(
+    "fields",
+    cl::desc("<list of filed to query>"),
+    cl::CommaSeparated,
+    cl::value_desc("fields"));
 
   /// Add new option to arguments array
   void addArgOption(vector<char*>& args, char* arg, size_t len)
@@ -161,7 +82,7 @@ namespace
     // Replace "--config file" with the contents of file
     vector<char*> args;
     string configFileName;
-    StringRef flag("--config");
+    StringRef flag("-config");
     for (int i = 0; i < argc; i++)
     {
       auto arg = argv[i];
@@ -199,6 +120,85 @@ namespace
     cl::ParseCommandLineOptions(
       args.size(), args.data(), "Verona Interop test\n");
   }
+
+  /// Prints a type to stdout
+  void printType(CXXType& ty)
+  {
+    assert(ty.valid());
+    auto kind = ty.kindName();
+    auto name = ty.getName().str();
+    cout << name << " " << kind;
+    if (ty.kind == CXXType::Kind::Builtin)
+      cout << "(" << ty.builtinKindName() << ")";
+    cout << endl;
+  }
+
+  /// Test a type
+  void test_type(
+    llvm::StringRef name,
+    llvm::ArrayRef<std::string> args,
+    llvm::ArrayRef<std::string> fields,
+    const CXXQuery* query,
+    const CXXBuilder* builder)
+  {
+    // Find type
+    CXXType ty = query->getType(symbol);
+    if (!ty.valid())
+    {
+      cerr << "Invalid type '" << ty.getName().str() << "'" << endl;
+      exit(1);
+    }
+
+    // Print type name and kind
+    cout << "Found: ";
+    printType(ty);
+
+    // Try and specialize a template
+    // TODO: Should this be part of getType()?
+    // Do we need a complete type for template parameters?
+    if (ty.isTemplate())
+    {
+      // Tries to instantiate a full specialisation
+      ty = builder->buildTemplateType(ty, specialization);
+    }
+
+    // If all goes well, this returns a platform-dependent size
+    cout << "Size of " << ty.getName().str() << " is " << query->getTypeSize(ty)
+         << " bytes" << endl;
+
+    for (auto f : fields)
+    {
+      auto field = query->getField(ty, f);
+      if (!field)
+      {
+        cerr << "Invalid field '" << f << "' on type '" << ty.getName().str()
+             << "'" << endl;
+        exit(1);
+      }
+      auto fieldTy = field->getType();
+      auto tyClass = fieldTy->getTypeClassName();
+      auto tyName = fieldTy.getAsString();
+      cout << "Field '" << field->getName().str() << "' has " << tyClass
+           << " type '" << tyName << "'" << endl;
+    }
+  }
+
+  /// Creates a test function
+  void test_function(const char* name, const CXXBuilder* builder)
+  {
+    // Create a new function on the main file
+    auto intTy = CXXType::getInt();
+    llvm::SmallVector<CXXType, 1> args{intTy};
+
+    // Create new function
+    auto func = builder->buildFunction(name, args, intTy);
+
+    // Create constant literal
+    auto* fourLiteral = builder->createIntegerLiteral(32, 4);
+
+    // Return statement
+    builder->createReturn(fourLiteral, func);
+  }
 } // namespace
 
 int main(int argc, char** argv)
@@ -209,50 +209,31 @@ int main(int argc, char** argv)
 
   // Create the C++ interface
   CXXInterface interface(inputFile, includePath);
+  const CXXQuery* query = interface.getQuery();
+  const CXXBuilder* builder = interface.getBuilder();
+
+  // Test type query
+  if (!symbol.empty())
+  {
+    test_type(symbol, specialization, fields, query, builder);
+  }
 
   // Test function creation
   if (testFunction)
   {
-    test_function(interface);
-  }
-
-  if (!symbol.empty())
-  {
-    // Query the requested symbol
-    auto decl = get_type(interface, symbol);
-
-    // Try and specialize a template
-    uint64_t req = specialization.size();
-    if (req)
-    {
-      // Make sure this is a template class
-      if (!decl.isTemplate())
-      {
-        cerr << "Class " << symbol.c_str()
-             << " is not a template class, can't specialize" << endl;
-        exit(1);
-      }
-
-      // Make sure the number of arguments is the same
-      auto has = decl.numberOfTemplateParameters();
-      if (req != has)
-      {
-        cerr << "Requested " << req << " template arguments but class "
-             << symbol.c_str() << " only has " << has << endl;
-        exit(1);
-      }
-
-      // Specialize the template with the arguments
-      auto args = create_template_args(interface, specialization);
-      auto spec = specialize_template(interface, decl, args);
-      cout << "Size of " << spec.getName().str().c_str() << " is "
-           << interface.getTypeSize(spec) << " bytes" << endl;
-    }
+    test_function("verona_wrapper_fn_1", builder);
   }
 
   // Emit whatever is left on the main file
+  // This is silent, just to make sure nothing breaks here
   auto mod = interface.emitLLVM();
-  mod->dump();
+
+  // This just dumps everything, for debugging purposes
+  // NOTE: Output is not stable, don't use it for tests
+  if (dumpIR)
+  {
+    mod->dump();
+  }
 
   return 0;
 }

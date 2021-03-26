@@ -107,15 +107,15 @@ when (c)
 }
 ```
 
-The test suite contains a simple example of using a `cown`, [bank1](../testsuite/demo/run-pass/bank1.verona).
+The test suite contains a simple example of using a `cown`, [bank1](../testsuite/veronac/demo/run-pass/bank1.verona).
 This example adds an amount to a balance on a bank account. 
 
 The concurrent owners add to the expressiveness of other approaches by enabling acquiring multiple cowns in one go.
-Reading the demo examples [bank2](../testsuite/demo/run-pass/bank2.verona) and [bank3](../testsuite/demo/run-pass/bank3.verona) can help illustrate this.
+Reading the demo examples [bank2](../testsuite/veronac/demo/run-pass/bank2.verona) and [bank3](../testsuite/veronac/demo/run-pass/bank3.verona) can help illustrate this.
 
 There are two other slightly more advanced examples of concurrency that are well documented:
-  * [Dining Philosophers](../testsuite/demo/run-pass/dining_phil.verona), which illustrates a slightly more elaborate concurrent protocol.
-  * [Parallel Fibonacci](../testsuite/demo/run-pass/fib.verona), which illustrates fork/join parallism using `when` and `promises`.
+  * [Dining Philosophers](../testsuite/veronac/demo/run-pass/dining_phil.verona), which illustrates a slightly more elaborate concurrent protocol.
+  * [Parallel Fibonacci](../testsuite/veronac/demo/run-pass/fib.verona), which illustrates fork/join parallism using `when` and `promises`.
 
 
 # Regions
@@ -147,10 +147,10 @@ Regions can be nested, and form a forest, where the roots are either on the
 stack or in cowns. 
 
 We have a collection of simple examples to understand how the mechanism works.
-We recommend looking at [region101](../testsuite/demo/run-pass/region101.verona) first to understand the basics,
-and then the implementation of a [queue](../testsuite/demo/run-pass/library/queue.verona),
-and its uses in [queue harness](../testsuite/demo/run-pass/queue_harness.verona)
-and a [simple scheduler](../testsuite/demo/run-pass/scheduler.verona).
+We recommend looking at [region101](../testsuite/veronac/demo/run-pass/region101.verona) first to understand the basics,
+and then the implementation of a [queue](../testsuite/veronac/demo/run-pass/library/queue.verona),
+and its uses in [queue harness](../testsuite/veronac/demo/run-pass/queue_harness.verona)
+and a [simple scheduler](../testsuite/veronac/demo/run-pass/scheduler.verona).
 
 
 
@@ -169,7 +169,7 @@ This is built in the `veronac-sys` and `interpeter-sys`. These take additional p
 ```
 So 
 ```
-  veronac-sys.exe --run testsuite/demo/run-pass/dining_phil.verona --run-seed 100 --run-seed_upper 200
+  veronac-sys.exe --run testsuite/veronac/demo/run-pass/dining_phil.verona --run-seed 100 --run-seed_upper 200
 ```
 will run 100 example interleavings of the program.  If you replace the line in the program
 ```
@@ -203,7 +203,7 @@ That is because for seed 122 some of the forks aren't used enough times before t
 We can now replay the example adding additional logging to understand and debug the problem.
 Running a particular seed can be done as:
 ```
-  veronac-sys.exe --run testsuite/demo/run-pass/dining_phil.verona --run-seed 122
+  veronac-sys.exe --run testsuite/veronac/demo/run-pass/dining_phil.verona --run-seed 122
 ```
 
 Note: the seed is consistent across platforms, 

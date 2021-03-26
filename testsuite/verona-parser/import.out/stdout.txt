@@ -21,20 +21,20 @@
             ]))
         (function
           main
-          (signature [] [] () ())
-          (block
-            [
-              (apply
-                (staticref [ (typename Foo []) (typename foo []) ])
-                (tuple []))
-            ]))
+          []
+          []
+          ()
+          (lambda
+            []
+            []
+            [ (select () [ (typename Foo []) (typename foo []) ] ()) ]))
       ])
     (class
       $module-1
       [ (typeparam A () ()) (typeparam B () ()) ]
       ()
       [
-        (function foo (signature [] [] () ()) (block []))
-        (function _foo (signature [] [] () ()) (block []))
+        (function foo [] [] () (lambda [] [] []))
+        (function _foo [] [] () (lambda [] [] []))
       ])
   ])

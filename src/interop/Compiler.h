@@ -229,7 +229,7 @@ namespace verona::interop
     // TODO: Fix the layering issues
 
     /// Get Semantic analysis
-    clang::Sema& getSema()
+    clang::Sema& getSema() const
     {
       return Clang->getSema();
     }

@@ -33,13 +33,16 @@ namespace verona::parser
       case Kind::TypeParam:
         return "typeparam";
 
-      case Kind::Signature:
-        return "signature";
+      case Kind::TypeParamList:
+        return "typeparamlist";
 
       case Kind::Function:
         return "function";
 
       // Types
+      case Kind::ThrowType:
+        return "throwtype";
+
       case Kind::UnionType:
         return "uniontype";
 
@@ -67,6 +70,9 @@ namespace verona::parser
       case Kind::TypeRef:
         return "typeref";
 
+      case Kind::TypeList:
+        return "typelist";
+
       case Kind::Iso:
         return "iso";
 
@@ -76,6 +82,9 @@ namespace verona::parser
       case Kind::Imm:
         return "imm";
 
+      case Kind::Self:
+        return "Self";
+
       // Expressions
       case Kind::Oftype:
         return "oftype";
@@ -83,68 +92,35 @@ namespace verona::parser
       case Kind::Tuple:
         return "tuple";
 
-      case Kind::Block:
-        return "block";
-
       case Kind::When:
         return "when";
 
-      case Kind::While:
-        return "while";
-
-      case Kind::Case:
-        return "case";
+      case Kind::Try:
+        return "try";
 
       case Kind::Match:
         return "match";
 
-      case Kind::If:
-        return "if";
-
       case Kind::Lambda:
         return "lambda";
-
-      case Kind::Break:
-        return "break";
-
-      case Kind::Continue:
-        return "continue";
-
-      case Kind::Return:
-        return "return";
-
-      case Kind::Yield:
-        return "yield";
 
       case Kind::Assign:
         return "assign";
 
-      case Kind::Infix:
-        return "infix";
-
       case Kind::Select:
         return "select";
 
-      case Kind::StaticSelect:
-        return "staticselect";
-
-      case Kind::Specialise:
-        return "specialise";
-
-      case Kind::Apply:
-        return "apply";
-
       case Kind::Ref:
         return "ref";
-
-      case Kind::StaticRef:
-        return "staticref";
 
       case Kind::Let:
         return "let";
 
       case Kind::Var:
         return "var";
+
+      case Kind::Throw:
+        return "throw";
 
       case Kind::New:
         return "new";
@@ -174,11 +150,8 @@ namespace verona::parser
       case Kind::Binary:
         return "binary";
 
-      case Kind::True:
-        return "true";
-
-      case Kind::False:
-        return "false";
+      case Kind::Bool:
+        return "bool";
     }
 
     // This is unreachable, and is only to suppress an MSVC error.

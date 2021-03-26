@@ -153,6 +153,19 @@ namespace verona::parser::path
 
     if (GetFullPathNameA(path.c_str(), FILENAME_MAX, resolved, NULL) == 0)
       return {};
+
+    // Check that this file or directory exists.
+    DWORD attrib = GetFileAttributes(resolved);
+
+    if (attrib == INVALID_FILE_ATTRIBUTES)
+      return {};
+
+    // Check that the trailing delimiter for `path` matches whether or not the
+    // actual filesystem item is a directory or not.
+    auto is_dir = (attrib & FILE_ATTRIBUTE_DIRECTORY) != 0;
+
+    if (is_dir != is_directory(path))
+      return {};
 #elif defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
     char resolved[PATH_MAX];
 

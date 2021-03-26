@@ -1,0 +1,21 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+class A {}
+class B {}
+class C {}
+class D {}
+class E {}
+
+f(x: (A | B) & (C | D)): (A | B) & (C | D) | throw (B & C | D)
+{
+  x: (A | B) & (C | D);
+}
+
+g(x: A, f: A->(B | C | throw (D | E))): B | C | throw (D | E)
+{
+  f(x)
+}
+
+h(): throw E
+{
+}

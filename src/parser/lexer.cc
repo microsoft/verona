@@ -55,26 +55,20 @@ namespace verona::parser
                                   {"interface", TokenKind::Interface},
                                   {"type", TokenKind::Type},
                                   {"using", TokenKind::Using},
-                                  {"throws", TokenKind::Throws},
-                                  {"if", TokenKind::If},
-                                  {"else", TokenKind::Else},
-                                  {"while", TokenKind::While},
-                                  {"for", TokenKind::For},
-                                  {"in", TokenKind::In},
+                                  {"try", TokenKind::Try},
+                                  {"catch", TokenKind::Catch},
+                                  {"throw", TokenKind::Throw},
                                   {"match", TokenKind::Match},
                                   {"when", TokenKind::When},
-                                  {"break", TokenKind::Break},
-                                  {"continue", TokenKind::Continue},
-                                  {"return", TokenKind::Return},
-                                  {"yield", TokenKind::Yield},
                                   {"let", TokenKind::Let},
                                   {"var", TokenKind::Var},
                                   {"new", TokenKind::New},
                                   {"iso", TokenKind::Iso},
                                   {"mut", TokenKind::Mut},
                                   {"imm", TokenKind::Imm},
-                                  {"true", TokenKind::True},
-                                  {"false", TokenKind::False},
+                                  {"Self", TokenKind::Self},
+                                  {"true", TokenKind::Bool},
+                                  {"false", TokenKind::Bool},
                                   {nullptr, TokenKind::Invalid}};
 
   bool is_digit(char c)
@@ -134,12 +128,23 @@ namespace verona::parser
   Token consume_builtin_symbol(Source& source, size_t& i)
   {
     TokenKind kind;
+    auto start = i;
 
     switch (source->contents[i])
     {
       case '.':
       {
-        kind = TokenKind::Dot;
+        if (
+          ((i + 2) < source->contents.size()) &&
+          (source->contents[i + 1] == '.') && (source->contents[i + 2] == '.'))
+        {
+          kind = TokenKind::Ellipsis;
+          i += 2;
+        }
+        else
+        {
+          kind = TokenKind::Dot;
+        }
         break;
       }
 
@@ -195,7 +200,7 @@ namespace verona::parser
         abort();
     }
 
-    return {kind, {source, i, i++}};
+    return {kind, {source, start, i++}};
   }
 
   Token consume_character_literal(Source& source, size_t& i)

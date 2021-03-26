@@ -39,13 +39,16 @@ namespace verona::parser
       case Kind::TypeParam:
         return f(node->as<TypeParam>(), args...);
 
-      case Kind::Signature:
-        return f(node->as<Signature>(), args...);
+      case Kind::TypeParamList:
+        return f(node->as<TypeParamList>(), args...);
 
       case Kind::Function:
         return f(node->as<Function>(), args...);
 
       // Types
+      case Kind::ThrowType:
+        return f(node->as<ThrowType>(), args...);
+
       case Kind::UnionType:
         return f(node->as<UnionType>(), args...);
 
@@ -73,6 +76,9 @@ namespace verona::parser
       case Kind::TypeRef:
         return f(node->as<TypeRef>(), args...);
 
+      case Kind::TypeList:
+        return f(node->as<TypeList>(), args...);
+
       case Kind::Iso:
         return f(node->as<Iso>(), args...);
 
@@ -82,6 +88,9 @@ namespace verona::parser
       case Kind::Imm:
         return f(node->as<Imm>(), args...);
 
+      case Kind::Self:
+        return f(node->as<Self>(), args...);
+
       // Expressions
       case Kind::Oftype:
         return f(node->as<Oftype>(), args...);
@@ -89,68 +98,35 @@ namespace verona::parser
       case Kind::Tuple:
         return f(node->as<Tuple>(), args...);
 
-      case Kind::Block:
-        return f(node->as<Block>(), args...);
-
       case Kind::When:
         return f(node->as<When>(), args...);
 
-      case Kind::While:
-        return f(node->as<While>(), args...);
-
-      case Kind::Case:
-        return f(node->as<Case>(), args...);
+      case Kind::Try:
+        return f(node->as<Try>(), args...);
 
       case Kind::Match:
         return f(node->as<Match>(), args...);
 
-      case Kind::If:
-        return f(node->as<If>(), args...);
-
       case Kind::Lambda:
         return f(node->as<Lambda>(), args...);
-
-      case Kind::Break:
-        return f(node->as<Break>(), args...);
-
-      case Kind::Continue:
-        return f(node->as<Continue>(), args...);
-
-      case Kind::Return:
-        return f(node->as<Return>(), args...);
-
-      case Kind::Yield:
-        return f(node->as<Yield>(), args...);
 
       case Kind::Assign:
         return f(node->as<Assign>(), args...);
 
-      case Kind::Infix:
-        return f(node->as<Infix>(), args...);
-
       case Kind::Select:
         return f(node->as<Select>(), args...);
 
-      case Kind::StaticSelect:
-        return f(node->as<StaticSelect>(), args...);
-
-      case Kind::Specialise:
-        return f(node->as<Specialise>(), args...);
-
-      case Kind::Apply:
-        return f(node->as<Apply>(), args...);
-
       case Kind::Ref:
         return f(node->as<Ref>(), args...);
-
-      case Kind::StaticRef:
-        return f(node->as<StaticRef>(), args...);
 
       case Kind::Let:
         return f(node->as<Let>(), args...);
 
       case Kind::Var:
         return f(node->as<Var>(), args...);
+
+      case Kind::Throw:
+        return f(node->as<Throw>(), args...);
 
       case Kind::New:
         return f(node->as<New>(), args...);
@@ -179,11 +155,8 @@ namespace verona::parser
       case Kind::Binary:
         return f(node->as<Binary>(), args...);
 
-      case Kind::True:
-        return f(node->as<True>(), args...);
-
-      case Kind::False:
-        return f(node->as<False>(), args...);
+      case Kind::Bool:
+        return f(node->as<Bool>(), args...);
     }
 
     // This is unreachable, and is only to suppress an MSVC error.
