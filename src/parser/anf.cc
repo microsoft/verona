@@ -55,15 +55,6 @@ namespace verona::parser::anf
 
     void make_trivial()
     {
-      // If this expression is the right-hand side of an assignment, leave
-      // it in place.
-      auto e = expr();
-
-      if ((parent()->kind() == Kind::Assign) && (parent<Assign>()->right == e))
-      {
-        return;
-      }
-
       // Append (let $x) (assign (ref $x) expr) to the body.
       auto let = std::make_shared<Let>();
       let->location = ident();
@@ -72,6 +63,7 @@ namespace verona::parser::anf
       auto ref = std::make_shared<Ref>();
       ref->location = let->location;
 
+      auto e = expr();
       auto asn = std::make_shared<Assign>();
       asn->location = e->location;
       asn->left = ref;
@@ -115,11 +107,34 @@ namespace verona::parser::anf
 
     void post(Assign& asn)
     {
-      // Keep assign at the top level or make it trivial.
       if (top())
+      {
+        // Keep this assign at the top level.
         add();
-      else
-        make_trivial();
+        return;
+      }
+
+      // (assign (ref x) e) ->
+      // (let $0)
+      // (assign (ref $0) (ref x))
+      // (assign (ref x) e)
+      // rewrite (ref $0)
+      auto let = std::make_shared<Let>();
+      let->location = ident();
+      add(let);
+
+      auto ref = std::make_shared<Ref>();
+      ref->location = let->location;
+
+      auto e = expr();
+      auto asn2 = std::make_shared<Assign>();
+      asn2->location = asn.location;
+      asn2->left = ref;
+      asn2->right = asn.left;
+      add(asn2);
+
+      add();
+      rewrite(ref);
     }
 
     void post(Ref& ref)
@@ -168,9 +183,16 @@ namespace verona::parser::anf
         add();
     }
 
-    void post(Expr& expr)
+    void post(Expr&)
     {
-      make_trivial();
+      // If this expression isn't the right-hand side of an assignment, make it
+      // trivial.
+      if (
+        (parent()->kind() != Kind::Assign) ||
+        (parent<Assign>()->right != expr()))
+      {
+        make_trivial();
+      }
     }
 
     void pre(Lambda& lambda)
@@ -256,8 +278,13 @@ namespace verona::parser::anf
         }
       }
 
-      if (!state_stack.empty())
+      if (
+        !state_stack.empty() &&
+        ((parent()->kind() != Kind::Assign) ||
+         (parent<Assign>()->right != expr())))
+      {
         make_trivial();
+      }
     }
   };
 
