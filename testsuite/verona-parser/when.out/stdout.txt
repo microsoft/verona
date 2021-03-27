@@ -31,23 +31,39 @@
             []
             [
               (freelet a)
-              (assign (let $0) (lambda [] [] []))
-              (assign (let $1) (when (ref a) (ref $0)))
+              (let $0)
+              (assign (ref $0) (lambda [] [] []))
+              (let $1)
+              (assign (ref $1) (when (ref a) (ref $0)))
               (freelet b)
-              (assign (let $2) (tuple [ (ref a) (ref b) ]))
+              (let $2)
+              (assign (ref $2) (tuple [ (ref a) (ref b) ]))
+              (let $3)
               (assign
-                (let $3)
+                (ref $3)
                 (lambda
                   []
                   []
                   [
-                    (assign (let $0) (select () [ (typename bar []) ] ()))
-                    (assign (let $1) (lambda [] [] []))
-                    (assign (let $2) (when (ref $0) (ref $1)))
-                    (select (ref $2) [ (typename return []) ] (ref b))
+                    (let $0)
+                    (assign (ref $0) (select () [ (typename bar []) ] ()))
+                    (let $1)
+                    (assign (ref $1) (lambda [] [] []))
+                    (let $2)
+                    (assign (ref $2) (when (ref $0) (ref $1)))
+                    (let $3)
+                    (assign
+                      (ref $3)
+                      (select (ref $2) [ (typename return []) ] (ref b)))
+                    (ref $3)
                   ]))
-              (assign (let $4) (when (ref $2) (ref $3)))
-              (select (ref $1) [ (typename apply []) ] (ref $4))
+              (let $4)
+              (assign (ref $4) (when (ref $2) (ref $3)))
+              (let $5)
+              (assign
+                (ref $5)
+                (select (ref $1) [ (typename apply []) ] (ref $4)))
+              (ref $5)
             ]))
       ])
   ])

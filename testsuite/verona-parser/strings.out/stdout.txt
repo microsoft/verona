@@ -21,19 +21,32 @@
             []
             []
             [
-              (string " c-string \" 😄 -> 😄 ")
-              (string
-                "    no indent $x + ${y} = ${x + y} $1\n      indent 2 spaces \"{no interp: $x}\"")
-              (string "\n    hi\n")
-              (char "{\n  }")
+              (let $0)
+              (assign (ref $0) (string " c-string \" 😄 -> 😄 "))
+              (let $1)
+              (assign
+                (ref $1)
+                (string
+                  "    no indent $x + ${y} = ${x + y} $1\n      indent 2 spaces \"{no interp: $x}\""))
+              (let $2)
+              (assign (ref $2) (string "\n    hi\n"))
+              (let $3)
+              (assign (ref $3) (char "{\n  }"))
               (let tab)
               (assign (ref tab) (string "\t"))
-              (assign (let $0) (string "    look, a "))
+              (let $4)
+              (assign (ref $4) (string "    look, a "))
+              (let $5)
               (assign
-                (let $1)
-                (select (ref $0) [ (typename apply []) ] (ref tab)))
-              (assign (let $2) (string " in my string"))
-              (select (ref $1) [ (typename apply []) ] (ref $2))
+                (ref $5)
+                (select (ref $4) [ (typename apply []) ] (ref tab)))
+              (let $6)
+              (assign (ref $6) (string " in my string"))
+              (let $7)
+              (assign
+                (ref $7)
+                (select (ref $5) [ (typename apply []) ] (ref $6)))
+              (ref $7)
             ]))
       ])
     (class

@@ -42,7 +42,7 @@ namespace verona::parser
 
     Location loc()
     {
-      if (stack.size() > 0)
+      if (!stack.empty())
         return stack.back()->location;
 
       return {};
@@ -53,10 +53,20 @@ namespace verona::parser
       return text(loc());
     }
 
-    Ast parent()
+    template<typename T = NodeDef>
+    Node<T> current()
+    {
+      if (!stack.empty())
+        return std::static_pointer_cast<T>(stack.back());
+
+      return {};
+    }
+
+    template<typename T = NodeDef>
+    Node<T> parent()
     {
       if (stack.size() > 1)
-        return stack[stack.size() - 2];
+        return std::static_pointer_cast<T>(stack[stack.size() - 2]);
 
       return {};
     }

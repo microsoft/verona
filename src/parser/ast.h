@@ -67,7 +67,7 @@ namespace verona::parser
     Binary,
     Bool,
 
-    // Free variables
+    // Free variables are introduced in the ANF pass.
     FreeLet,
     FreeVar,
   };
@@ -643,7 +643,7 @@ namespace verona::parser
     }
   };
 
-  struct FreeVar : Let
+  struct FreeVar : Var
   {
     Kind kind()
     {

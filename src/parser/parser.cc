@@ -1592,6 +1592,23 @@ namespace verona::parser
       {
         if (r2 == Error)
           r = Error;
+
+        auto& lambda = func->body->as<Lambda>();
+
+        if (!lambda.typeparams.empty())
+        {
+          error()
+            << lambda.typeparams.front()->location
+            << "Function type parameters can't be placed in lambda position."
+            << text(lambda.typeparams.front()->location);
+        }
+
+        if (!lambda.params.empty())
+        {
+          error() << lambda.params.front()->location
+                  << "Function parameters can't be placed in lambda position."
+                  << text(lambda.params.front()->location);
+        }
       }
       else if (!has(TokenKind::Semicolon))
       {

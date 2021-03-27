@@ -27,7 +27,13 @@
           (lambda
             []
             []
-            [ (select () [ (typename Foo []) (typename foo []) ] ()) ]))
+            [
+              (let $0)
+              (assign
+                (ref $0)
+                (select () [ (typename Foo []) (typename foo []) ] ()))
+              (ref $0)
+            ]))
       ])
     (class
       $module-1

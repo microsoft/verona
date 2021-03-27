@@ -29,41 +29,65 @@
             []
             []
             [
-              (select () [ (typename B []) (typename create []) ] ())
-              (select () [ (typename B []) (typename foo []) ] ())
-              (select () [ (typename B []) (typename foo []) ] ())
-              (select
-                ()
-                [ (typename B []) (typename C []) (typename create []) ]
-                ())
-              (select
-                ()
-                [
-                  (typename B [ (typeref [ (typename X []) ]) ])
-                  (typename C [])
-                  (typename create [])
-                ]
-                ())
-              (select
-                ()
-                [
-                  (typename B [ (typeref [ (typename X []) ]) ])
-                  (typename C [ (typeref [ (typename X []) ]) ])
-                  (typename create [])
-                ]
-                ())
+              (let $0)
+              (assign
+                (ref $0)
+                (select () [ (typename B []) (typename create []) ] ()))
+              (let $1)
+              (assign
+                (ref $1)
+                (select () [ (typename B []) (typename foo []) ] ()))
+              (let $2)
+              (assign
+                (ref $2)
+                (select () [ (typename B []) (typename foo []) ] ()))
+              (let $3)
+              (assign
+                (ref $3)
+                (select
+                  ()
+                  [ (typename B []) (typename C []) (typename create []) ]
+                  ()))
+              (let $4)
+              (assign
+                (ref $4)
+                (select
+                  ()
+                  [
+                    (typename B [ (typeref [ (typename X []) ]) ])
+                    (typename C [])
+                    (typename create [])
+                  ]
+                  ()))
+              (let $5)
+              (assign
+                (ref $5)
+                (select
+                  ()
+                  [
+                    (typename B [ (typeref [ (typename X []) ]) ])
+                    (typename C [ (typeref [ (typename X []) ]) ])
+                    (typename create [])
+                  ]
+                  ()))
               (freelet x)
               (freelet y)
-              (assign (let $0) (tuple [ (ref x) (ref y) ]))
-              (assign (let $1) (tuple [ (ref x) (ref y) (ref $0) ]))
-              (select
-                ()
-                [
-                  (typename B [ (typeref [ (typename X []) ]) ])
-                  (typename C [ (typeref [ (typename X []) ]) ])
-                  (typename bar [ (typeref [ (typename X []) ]) ])
-                ]
-                (ref $1))
+              (let $6)
+              (assign (ref $6) (tuple [ (ref x) (ref y) ]))
+              (let $7)
+              (assign (ref $7) (tuple [ (ref x) (ref y) (ref $6) ]))
+              (let $8)
+              (assign
+                (ref $8)
+                (select
+                  ()
+                  [
+                    (typename B [ (typeref [ (typename X []) ]) ])
+                    (typename C [ (typeref [ (typename X []) ]) ])
+                    (typename bar [ (typeref [ (typename X []) ]) ])
+                  ]
+                  (ref $7)))
+              (ref $8)
             ]))
       ])
   ])

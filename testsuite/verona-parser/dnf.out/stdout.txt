@@ -92,6 +92,7 @@
                         (typeref [ (typename D []) ])
                       ])
                   ]))
+              (ref x)
             ]))
         (function
           g
@@ -124,7 +125,9 @@
             [
               (freelet f)
               (freelet x)
-              (select (ref f) [ (typename apply []) ] (ref x))
+              (let $0)
+              (assign (ref $0) (select (ref f) [ (typename apply []) ] (ref x)))
+              (ref $0)
             ]))
         (function
           h
