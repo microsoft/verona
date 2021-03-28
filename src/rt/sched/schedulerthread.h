@@ -37,6 +37,11 @@ namespace verona::rt
     size_t systematic_id = 0;
     size_t systematic_speed_mask = 1;
 
+    void register_socket(int fd, int flags, long cookie)
+    {
+      token_cown->register_socket(fd, flags, cookie);
+    }
+
   private:
     using Scheduler = ThreadPool<SchedulerThread<T>>;
     friend Scheduler;
@@ -82,7 +87,13 @@ namespace verona::rt
     // token is not there, this must mean a real cown is stuck there.
     // Accordingly, the `is_empty` returns true iff token is the only item
     // left in the queue.
-    std::atomic<bool> token_consumed = false;
+    enum TokenState
+    {
+      ACTIVE,
+      CONSUMED_LOCALLY,
+      STOLEN,
+    };
+    std::atomic<TokenState> token_state = ACTIVE;
     bool should_steal_for_fairness = false;
 
     std::atomic<bool> scheduled_unscanned_cown = false;
@@ -179,7 +190,7 @@ namespace verona::rt
 
     void check_token_cown()
     {
-      if (is_token_consumed())
+      if (is_token_consumed_locally())
       {
         Systematic::cout() << "Put token " << get_token_cown()
                            << " in scheduler queue." << std::endl;
@@ -187,7 +198,7 @@ namespace verona::rt
         {
           dec_n_ld_tokens();
         }
-        set_token_consumed(false);
+        set_token_state(ACTIVE);
         enqueue_token();
 
         if (Scheduler::get().fair)
@@ -195,6 +206,10 @@ namespace verona::rt
           Systematic::cout() << "Should steal for fairness!" << std::endl;
           should_steal_for_fairness = true;
         }
+      }
+      else if (is_token_stolen())
+      {
+        get_token_cown()->mark_notify();
       }
     }
 
@@ -234,7 +249,6 @@ namespace verona::rt
     template<typename... Args>
     void run(void (*startup)(Args...), Args... args)
     {
-      startup(args...);
       // Don't use affinity with systematic testing.  We're only ever running
       // one thread at a time in systematic testing mode and by pinning each
       // thread to a core we massively increase contention.
@@ -247,6 +261,8 @@ namespace verona::rt
       victim = next;
       T* cown = nullptr;
 
+      // Move this after setting local()
+      startup(args...);
 #ifdef USE_SYSTEMATIC_TESTING
       Scheduler::wait_for_my_first_turn();
 #endif
@@ -285,7 +301,8 @@ namespace verona::rt
 
           // If we can't steal, we are done.
           if (cown == nullptr)
-            break;
+            continue;
+            //break;
         }
 
         // Administrative work before handling messages.
@@ -365,6 +382,8 @@ namespace verona::rt
         }
         else
         {
+          cown->is_scheduled.store(false, std::memory_order_relaxed);
+          Systematic::cout() << "Unschedule cown " << cown << std::endl;
           // Don't reschedule.
           cown = nullptr;
         }
@@ -435,23 +454,36 @@ namespace verona::rt
       n_ld_tokens--;
     }
 
-    bool is_token_consumed()
+    bool is_token_consumed_locally()
     {
-      auto res = token_consumed.load(std::memory_order_relaxed);
+      auto res = token_state.load(std::memory_order_relaxed);
       yield();
-      return res;
+      return res == CONSUMED_LOCALLY;
     }
 
-    bool debug_is_token_consumed()
+    bool is_token_stolen()
     {
-      auto res = token_consumed.load(std::memory_order_relaxed);
-      return res;
+      auto res = token_state.load(std::memory_order_relaxed);
+      yield();
+      return res == STOLEN;
     }
 
-    void set_token_consumed(bool res)
+    bool debug_is_token_active()
+    {
+      auto res = token_state.load(std::memory_order_relaxed);
+      return res == ACTIVE;
+    }
+
+    bool debug_is_token_stolen()
+    {
+      auto res = token_state.load(std::memory_order_relaxed);
+      return res == STOLEN;
+    }
+
+    void set_token_state(TokenState res)
     {
       yield();
-      token_consumed.store(res, std::memory_order_relaxed);
+      token_state.store(res, std::memory_order_relaxed);
     }
 
     T* steal()
@@ -468,6 +500,7 @@ namespace verona::rt
         if (q.is_empty())
         {
           n_ld_tokens = 0;
+          token_cown->check_io();
         }
 
         // Participate in the cown LD protocol.
@@ -496,6 +529,7 @@ namespace verona::rt
         // We were unable to steal, move to the next victim thread.
         victim = victim->next;
 
+#if 0
         // Wait until a minimum timeout has passed.
         uint64_t tsc2 = Aal::tick();
 
@@ -529,6 +563,7 @@ namespace verona::rt
           yield();
         }
 #endif
+#endif
       }
 
       return nullptr;
@@ -560,17 +595,35 @@ namespace verona::rt
       {
         auto unmasked = clear_thread_bit(cown);
         SchedulerThread* sched = unmasked->owning_thread();
-        assert(!sched->debug_is_token_consumed());
-        sched->set_token_consumed(true);
+
+        unmasked->check_io();
+
+        assert(
+          sched->debug_is_token_active() || sched->debug_is_token_stolen());
 
         if (sched != this)
         {
           Systematic::cout() << "Reached token: stolen from "
                              << sched->systematic_id << std::endl;
+
+          sched->set_token_state(STOLEN);
+          // Home scheduler thread will send a notification to return
+          // its token cown. If there's no such notification schedule fifo
+          // on the remote thread, else schedule lifo on the home thread.
+          if (unmasked->queue.is_sleeping())
+            q.enqueue(alloc, cown);
+          else
+            sched->schedule_lifo(cown);
         }
         else
         {
           Systematic::cout() << "Reached token" << std::endl;
+
+          auto notify = false;
+          if (is_token_stolen())
+            unmasked->queue.mark_sleeping(notify);
+
+          set_token_state(CONSUMED_LOCALLY);
         }
 
         return false;
@@ -750,7 +803,7 @@ namespace verona::rt
     void enqueue_token()
     {
       // Must set the flag before pushing due to work stealing.
-      assert(!debug_is_token_consumed());
+      assert(debug_is_token_active());
       q.enqueue(alloc, (T*)((uintptr_t)get_token_cown() | 1));
     }
 

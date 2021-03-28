@@ -20,6 +20,7 @@
 #include "sched/noticeboard.h"
 #include "sched/schedulerthread.h"
 #include "sched/spmcq.h"
+#include "stdlib/net.h"
 #include "test/systematic.h"
 
 #include <snmalloc.h>
