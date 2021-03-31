@@ -186,7 +186,6 @@ jobs:
         timeout "$time_limit" time $(AbClientDirectory)/AnyBuild.sh \
           --ExperimentName "$(AbExpName)_b:$(Build.BuildId)_a:${NumAgents}_c:${NumAgentCores}_l:${AgentLeaseCount}_j:$(CmakeJobs)_n:$(BuildName)" \
           --NoCheckForUpdates \
-          --DisableDriveTypeCheck \
           --WaitForAgentForever \
           --DoNotUseMachineUtilizationForScheduling \
           --Verbose \
