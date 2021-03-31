@@ -237,7 +237,7 @@ namespace verona::rt
      **/
     static void gc(Alloc* alloc, Object* o)
     {
-      Systematic::cout() << "Region GC called for: " << o << std::endl;
+      Systematic::cout() << "Region GC called for: " << o << Systematic::endl;
       assert(o->debug_is_iso());
       assert(is_trace_region(o->get_region()));
 
@@ -247,7 +247,7 @@ namespace verona::rt
 
       // Copy additional roots into f.
       reg->additional_entry_points.forall([&f](Object* o) {
-        Systematic::cout() << "Additional root: " << o << std::endl;
+        Systematic::cout() << "Additional root: " << o << Systematic::endl;
         f.push(o);
       });
 
@@ -261,7 +261,7 @@ namespace verona::rt
         o = collect.pop();
         assert(o->debug_is_iso());
         Systematic::cout() << "Region GC: releasing unreachable subregion: "
-                           << o << std::endl;
+                           << o << Systematic::endl;
 
         // Note that we need to dispatch because `r` is a different region
         // metadata object.
@@ -410,7 +410,7 @@ namespace verona::rt
             break;
 
           case Object::UNMARKED:
-            Systematic::cout() << "Mark" << p << std::endl;
+            Systematic::cout() << "Mark" << p << Systematic::endl;
             p->mark();
             p->trace(dfs);
             break;
@@ -553,7 +553,7 @@ namespace verona::rt
           case Object::UNMARKED:
           {
             Object* q = p->get_next();
-            Systematic::cout() << "Sweep " << p << std::endl;
+            Systematic::cout() << "Sweep " << p << Systematic::endl;
             sweep_object<ring>(alloc, p, o, &gc, collect);
 
             if (ring != primary_ring && prev == this)
@@ -604,13 +604,13 @@ namespace verona::rt
       if (!additional_entry_points.empty())
       {
         Systematic::cout() << "Region release failed due to additional roots"
-                           << std::endl;
+                           << Systematic::endl;
         additional_entry_points.forall(
-          [](Object* o) { Systematic::cout() << " root" << o << std::endl; });
+          [](Object* o) { Systematic::cout() << " root" << o << Systematic::endl; });
         abort();
       }
 
-      Systematic::cout() << "Region release: trace region: " << o << std::endl;
+      Systematic::cout() << "Region release: trace region: " << o << Systematic::endl;
 
       // Sweep everything, including the entrypoint.
       sweep<SweepAll::Yes>(alloc, o, collect);

@@ -617,7 +617,7 @@ namespace verona::rt
     {
       Systematic::cout() << "Object epoch: " << this << " (" << get_class()
                          << ") " << get_epoch_mark() << " -> " << e
-                         << std::endl;
+                         << Systematic::endl;
 
       // We only require relaxed consistency here as we can perfectly see old
       // values as we know that we will only need up-to-date values once we have

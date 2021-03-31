@@ -79,7 +79,7 @@ namespace verona::rt
     static void record_inflight_message()
     {
       Systematic::cout() << "Increase inflight count: "
-                         << get().inflight_count + 1 << std::endl;
+                         << get().inflight_count + 1 << Systematic::endl;
       local()->scheduled_unscanned_cown = true;
       get().inflight_count++;
     }
@@ -87,14 +87,14 @@ namespace verona::rt
     static void recv_inflight_message()
     {
       Systematic::cout() << "Decrease inflight count: "
-                         << get().inflight_count - 1 << std::endl;
+                         << get().inflight_count - 1 << Systematic::endl;
       get().inflight_count--;
     }
 
     static bool no_inflight_messages()
     {
       Systematic::cout() << "Check inflight count: " << get().inflight_count
-                         << std::endl;
+                         << Systematic::endl;
       return get().inflight_count == 0;
     }
 
@@ -106,7 +106,7 @@ namespace verona::rt
       auto prev_count =
         s.external_event_sources.fetch_add(1, std::memory_order_seq_cst);
       Systematic::cout() << "Add external event source (now "
-                         << (prev_count + 1) << ")" << std::endl;
+                         << (prev_count + 1) << ")" << Systematic::endl;
     }
 
     /// Decrement the external event source count. This will allow runtime
@@ -118,14 +118,14 @@ namespace verona::rt
         s.external_event_sources.fetch_sub(1, std::memory_order_seq_cst);
       assert(prev_count != 0);
       Systematic::cout() << "Remove external event source (now "
-                         << (prev_count - 1) << ")" << std::endl;
+                         << (prev_count - 1) << ")" << Systematic::endl;
       if (prev_count == 1)
         s.unpause();
     }
 
     static void set_fair(bool fair)
     {
-      Systematic::cout() << "Set fair: " << fair << std::endl;
+      Systematic::cout() << "Set fair: " << fair << Systematic::endl;
       auto& s = get();
       s.fair = fair;
     }
@@ -279,7 +279,7 @@ namespace verona::rt
       if (in_prescan())
       {
         // During pre-scan alloc in previous epoch.
-        Systematic::cout() << "Alloc cown during pre-scan" << std::endl;
+        Systematic::cout() << "Alloc cown during pre-scan" << Systematic::endl;
         return t->prev_epoch;
       }
 
@@ -391,7 +391,7 @@ namespace verona::rt
       size_t i = 0;
       T* t = first_thread;
 
-      Systematic::cout() << "Starting all threads" << std::endl;
+      Systematic::cout() << "Starting all threads" << Systematic::endl;
 
       do
       {
@@ -407,7 +407,7 @@ namespace verona::rt
         delete t;
         t = next;
       } while (t != first_thread);
-      Systematic::cout() << "All threads stopped" << std::endl;
+      Systematic::cout() << "All threads stopped" << Systematic::endl;
 
       first_thread = nullptr;
       incarnation++;
@@ -444,7 +444,7 @@ namespace verona::rt
 
       {
         std::unique_lock<std::mutex> lock(m);
-        Systematic::cout() << "Pausing" << std::endl;
+        Systematic::cout() << "Pausing" << Systematic::endl;
         if (active_thread_count > 1)
         {
           active_thread_count--;
@@ -456,7 +456,7 @@ namespace verona::rt
           cv.wait(lock);
 #endif
           active_thread_count++;
-          Systematic::cout() << "Unpausing" << std::endl;
+          Systematic::cout() << "Unpausing" << Systematic::endl;
           return true;
         }
 
@@ -490,7 +490,7 @@ namespace verona::rt
           {
             if (!t->q.is_empty())
             {
-              Systematic::cout() << "Still work left" << std::endl;
+              Systematic::cout() << "Still work left" << Systematic::endl;
               runtime_pausing++;
 #ifdef USE_SYSTEMATIC_TESTING
               cv_notify_all();
@@ -502,10 +502,10 @@ namespace verona::rt
             t = t->next;
           } while (t != first_thread);
 
-          Systematic::cout() << "Runtime pausing" << std::endl;
+          Systematic::cout() << "Runtime pausing" << Systematic::endl;
           cv.wait(lock);
 
-          Systematic::cout() << "Runtime unpausing" << std::endl;
+          Systematic::cout() << "Runtime unpausing" << Systematic::endl;
           runtime_pausing++;
           cv.notify_all();
 
@@ -513,7 +513,7 @@ namespace verona::rt
         }
 
         // Used to handle deallocating all the state of the threads.
-        Systematic::cout() << "Teardown beginning" << std::endl;
+        Systematic::cout() << "Teardown beginning" << Systematic::endl;
         teardown_in_progress = true;
 
         t = first_thread;
@@ -525,9 +525,9 @@ namespace verona::rt
           t->stop();
           t = t->next;
         } while (t != first_thread);
-        Systematic::cout() << "Teardown: all threads stopped" << std::endl;
+        Systematic::cout() << "Teardown: all threads stopped" << Systematic::endl;
       }
-      Systematic::cout() << "cv_notify_all() for teardown" << std::endl;
+      Systematic::cout() << "cv_notify_all() for teardown" << Systematic::endl;
 #ifdef USE_SYSTEMATIC_TESTING
       T* t = first_thread;
       do
@@ -539,7 +539,7 @@ namespace verona::rt
       cv.notify_all();
 #endif
       Systematic::cout() << "Teardown: all threads beginning teardown"
-                         << std::endl;
+                         << Systematic::endl;
       return true;
     }
 
@@ -560,7 +560,7 @@ namespace verona::rt
           cv.notify_all();
 #endif
         } while (runtime_pausing == pausing);
-        Systematic::cout() << "Unpausing other threads." << std::endl;
+        Systematic::cout() << "Unpausing other threads." << Systematic::endl;
 
         return true;
       }
@@ -586,7 +586,7 @@ namespace verona::rt
 #else
       cv.notify_all();
 #endif
-      Systematic::cout() << "Unpausing other threads." << std::endl;
+      Systematic::cout() << "Unpausing other threads." << Systematic::endl;
 
       return true;
     }

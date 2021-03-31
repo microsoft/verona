@@ -10,10 +10,12 @@
 using namespace verona::rt;
 using namespace std::chrono;
 
+#ifdef USE_FLIGHT_RECORDER
 extern "C" void dump_flight_recorder()
 {
   Systematic::SysLog::dump_flight_recorder();
 }
+#endif
 
 #define check(x) \
   if (!(x)) \

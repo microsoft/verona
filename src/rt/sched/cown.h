@@ -220,14 +220,14 @@ namespace verona::rt
 
     static void acquire(Object* o)
     {
-      Systematic::cout() << "Cown " << o << " acquire" << std::endl;
+      Systematic::cout() << "Cown " << o << " acquire" << Systematic::endl;
       assert(o->debug_is_cown());
       o->incref();
     }
 
     static void release(Alloc* alloc, Cown* o)
     {
-      Systematic::cout() << "Cown " << o << " release" << std::endl;
+      Systematic::cout() << "Cown " << o << " release" << Systematic::endl;
       assert(o->debug_is_cown());
       Cown* a = ((Cown*)o);
 
@@ -241,7 +241,7 @@ namespace verona::rt
       // All paths from this point must release the weak count owned by the
       // strong count.
 
-      Systematic::cout() << "Cown " << o << " dealloc" << std::endl;
+      Systematic::cout() << "Cown " << o << " dealloc" << Systematic::endl;
 
       // During teardown don't recursively delete.
       if (Scheduler::is_teardown_in_progress())
@@ -261,7 +261,7 @@ namespace verona::rt
         if (!o->is_live(Scheduler::epoch()))
         {
           Systematic::cout()
-            << "Not performing recursive deallocation on: " << o << std::endl;
+            << "Not performing recursive deallocation on: " << o << Systematic::endl;
           // The cown may have already been swept, just remove weak count, let
           // sweeping/cown stub collection deal with the rest.
           a->weak_count.fetch_sub(1);
@@ -282,7 +282,7 @@ namespace verona::rt
      **/
     void weak_release(Alloc* alloc)
     {
-      Systematic::cout() << "Cown " << this << " weak release" << std::endl;
+      Systematic::cout() << "Cown " << this << " weak release" << Systematic::endl;
       if (weak_count.fetch_sub(1) == 1)
       {
         auto* t = owning_thread();
@@ -292,7 +292,7 @@ namespace verona::rt
           // Deallocate an unowned cown
           Systematic::cout()
             << "Not allocated on a Verona thread, so deallocating: " << this
-            << std::endl;
+            << Systematic::endl;
           assert(epoch_when_popped == NO_EPOCH_SET);
           dealloc(alloc);
           return;
@@ -310,7 +310,7 @@ namespace verona::rt
 
     void weak_acquire()
     {
-      Systematic::cout() << "Cown " << this << " weak acquire" << std::endl;
+      Systematic::cout() << "Cown " << this << " weak acquire" << Systematic::endl;
       assert(weak_count > 0);
       weak_count++;
     }
@@ -334,7 +334,7 @@ namespace verona::rt
       if (cown->cown_marked_for_scan(epoch))
       {
         Systematic::cout() << "Already marked " << cown << " ("
-                           << cown->get_epoch_mark() << ")" << std::endl;
+                           << cown->get_epoch_mark() << ")" << Systematic::endl;
         return;
       }
 
@@ -422,20 +422,20 @@ namespace verona::rt
         {
           case RegionMD::ISO:
             Systematic::cout()
-              << "Object Scan: reaches region: " << o << std::endl;
+              << "Object Scan: reaches region: " << o << Systematic::endl;
             Region::cown_scan(alloc, o, epoch);
             break;
 
           case RegionMD::RC:
           case RegionMD::SCC_PTR:
             Systematic::cout()
-              << "Object Scan: reaches immutable: " << o << std::endl;
+              << "Object Scan: reaches immutable: " << o << Systematic::endl;
             Immutable::mark_and_scan(alloc, o, epoch);
             break;
 
           case RegionMD::COWN:
             Systematic::cout()
-              << "Object Scan: reaches cown " << o << std::endl;
+              << "Object Scan: reaches cown " << o << Systematic::endl;
             Cown::mark_for_scan(o, epoch);
             break;
 
@@ -502,7 +502,7 @@ namespace verona::rt
         auto m = MultiMessage::make_message(alloc, body, epoch);
         auto* next = body->cowns[body->index];
         Systematic::cout() << "MultiMessage " << m << ": fast requesting "
-                           << next << ", index " << body->index << std::endl;
+                           << next << ", index " << body->index << Systematic::endl;
 
         if (body->index > 0)
         {
@@ -538,13 +538,13 @@ namespace verona::rt
         }
 
         Systematic::cout() << "MultiMessage " << m << ": fast acquire cown "
-                           << next << std::endl;
+                           << next << Systematic::endl;
         if (body->index == last)
         {
           // Case 2: acquired the last cown.
           Systematic::cout()
             << "MultiMessage " << m
-            << ": fast send complete, reschedule last cown" << std::endl;
+            << ": fast send complete, reschedule last cown" << Systematic::endl;
           next->schedule();
           return;
         }
@@ -573,7 +573,7 @@ namespace verona::rt
       flush_all(ThreadAlloc::get());
       yield();
 #endif
-      Systematic::cout() << "Enqueue MultiMessage " << m << std::endl;
+      Systematic::cout() << "Enqueue MultiMessage " << m << Systematic::endl;
       bool needs_scheduling = queue.enqueue(m);
       yield();
       if (needs_scheduling)
@@ -602,7 +602,7 @@ namespace verona::rt
       EpochMark e = m->get_epoch();
 
       Systematic::cout() << "MultiMessage " << m << " index " << body.index
-                         << " acquired " << cown << " epoch " << e << std::endl;
+                         << " acquired " << cown << " epoch " << e << Systematic::endl;
 
       // If we are in should_scan, and we observe a message in this epoch,
       // then all future messages must have been sent while in pre-scan or
@@ -622,7 +622,7 @@ namespace verona::rt
       {
         if (e != Scheduler::local()->send_epoch)
         {
-          Systematic::cout() << "Message not in current epoch" << std::endl;
+          Systematic::cout() << "Message not in current epoch" << Systematic::endl;
           // We can only see messages from other epochs during the prescan and
           // scan phases.  The message epochs must be up-to-date in all other
           // phases.  We can also see messages sent by threads that have made
@@ -633,7 +633,7 @@ namespace verona::rt
 
           if (e != EpochMark::EPOCH_NONE)
           {
-            Systematic::cout() << "Message old" << std::endl;
+            Systematic::cout() << "Message old" << Systematic::endl;
 
             // Count message as this must be an old message being resent for a
             // further acquisition.
@@ -647,7 +647,7 @@ namespace verona::rt
         {
           if (cown->get_epoch_mark() != Scheduler::local()->send_epoch)
           {
-            Systematic::cout() << "Contains unscanned cown." << std::endl;
+            Systematic::cout() << "Contains unscanned cown." << Systematic::endl;
 
             // Count message as this contains a cown, that has a message queue
             // that could potentially have old messages in.
@@ -675,14 +675,14 @@ namespace verona::rt
       {
         if (e != Scheduler::local()->send_epoch)
         {
-          Systematic::cout() << "Trace message: " << m << std::endl;
+          Systematic::cout() << "Trace message: " << m << Systematic::endl;
 
           // Scan cowns for this message, as they may not have been scanned
           // yet.
           for (size_t i = 0; i < body.count; i++)
           {
             Systematic::cout()
-              << "Scanning cown " << body.cowns[i] << std::endl;
+              << "Scanning cown " << body.cowns[i] << Systematic::endl;
             body.cowns[i]->scan(alloc, Scheduler::local()->send_epoch);
           }
 
@@ -694,7 +694,7 @@ namespace verona::rt
         else
         {
           Systematic::cout() << "Trace message not required: " << m << " (" << e
-                             << ")" << std::endl;
+                             << ")" << Systematic::endl;
         }
       }
 
@@ -710,7 +710,7 @@ namespace verona::rt
         Cown::release(alloc, body.cowns[i]);
 
       Systematic::cout() << "MultiMessage " << m << " completed and running on "
-                         << cown << std::endl;
+                         << cown << Systematic::endl;
 
       // Free the body and the behaviour.
       alloc->dealloc(body.behaviour, body.behaviour->size());
@@ -744,8 +744,10 @@ namespace verona::rt
     static void schedule(size_t count, Cown** cowns, Args&&... args)
     {
       static_assert(std::is_base_of_v<Behaviour, Be>);
+#ifdef USE_SYSTEMATIC_TESTING
       Systematic::cout() << "Schedule behaviour of type: " << typeid(Be).name()
-                         << std::endl;
+                         << Systematic::endl;
+#endif
 
       auto* alloc = ThreadAlloc::get();
       auto* be =
@@ -820,7 +822,7 @@ namespace verona::rt
                  std::memory_order_acq_rel));
 
       Systematic::cout() << "Cown " << this << ": backpressure state " << prev
-                         << " -> " << state << std::endl;
+                         << " -> " << state << Systematic::endl;
       yield();
 
       if (prev == Priority::Low)
@@ -842,7 +844,7 @@ namespace verona::rt
       for (; cown != nullptr;
            cown = cown->bp_state.load(std::memory_order_acquire).blocker())
       {
-        Systematic::cout() << "Unblock cown " << cown << std::endl;
+        Systematic::cout() << "Unblock cown " << cown << Systematic::endl;
         cown->backpressure_transition(Priority::High);
       }
     }
@@ -941,7 +943,7 @@ namespace verona::rt
       if (curr == nullptr)
       {
         Systematic::cout() << "Reached message token on cown " << this
-                           << std::endl;
+                           << Systematic::endl;
         if (overloaded())
           return true;
 
@@ -957,7 +959,7 @@ namespace verona::rt
       if (!bp.has_token())
       {
         Systematic::cout() << "Cown " << this << ": enqueue message token"
-                           << std::endl;
+                           << Systematic::endl;
         queue.enqueue(stub_msg(alloc));
         set_has_token(true);
       }
@@ -976,7 +978,7 @@ namespace verona::rt
         if (cown == nullptr)
           break;
 
-        Systematic::cout() << "Unmute cown " << cown << std::endl;
+        Systematic::cout() << "Unmute cown " << cown << Systematic::endl;
         cown->backpressure_transition(Priority::Normal);
         Cown::release(alloc, cown);
       }
@@ -1041,11 +1043,11 @@ namespace verona::rt
         }
 
         Systematic::cout() << "Cown " << cown << ": backpressure state "
-                           << bp.priority() << " -> Low" << std::endl;
+                           << bp.priority() << " -> Low" << Systematic::endl;
         assert(!high_priority);
         senders[muting_count++] = cown;
         Systematic::cout() << "Mute cown " << cown << " (mutor: cown " << mutor
-                           << ")" << std::endl;
+                           << ")" << Systematic::endl;
 
         Scheduler::local()->mute_set_add(cown);
       }
@@ -1158,7 +1160,7 @@ namespace verona::rt
             return true;
           }
 
-          Systematic::cout() << "Unschedule cown " << this << std::endl;
+          Systematic::cout() << "Unschedule cown " << this << Systematic::endl;
           Cown::release(alloc, this);
           return false;
         }
@@ -1175,7 +1177,7 @@ namespace verona::rt
         batch_size++;
 
         Systematic::cout() << "Running Message " << curr << " on cown " << this
-                           << std::endl;
+                           << Systematic::endl;
 
         auto* senders = body->cowns;
         const size_t senders_count = body->count;
@@ -1203,12 +1205,12 @@ namespace verona::rt
     bool try_collect(Alloc* alloc, EpochMark epoch)
     {
       Systematic::cout() << "try_collect: " << this << " (" << get_epoch_mark()
-                         << ")" << std::endl;
+                         << ")" << Systematic::endl;
 
       if (in_epoch(EpochMark::SCHEDULED_FOR_SCAN))
       {
         Systematic::cout() << "Clearing SCHEDULED_FOR_SCAN state: " << this
-                           << std::endl;
+                           << Systematic::endl;
         // There is a race, when multiple threads may attempt to
         // schedule a Cown for tracing.  In this case, we can
         // get a stale descriptor mark. Update it here, for the
@@ -1226,7 +1228,7 @@ namespace verona::rt
         yield();
         assert(
           bp_state.load(std::memory_order_acquire).priority() != Priority::Low);
-        Systematic::cout() << "Collecting (sweep) cown " << this << std::endl;
+        Systematic::cout() << "Collecting (sweep) cown " << this << Systematic::endl;
         collect(alloc);
       }
 
@@ -1286,7 +1288,7 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       flush_all(alloc);
 #endif
-      Systematic::cout() << "Collecting cown " << this << std::endl;
+      Systematic::cout() << "Collecting cown " << this << Systematic::endl;
 
       ObjectStack dummy(alloc);
       // Run finaliser before releasing our data.
@@ -1314,7 +1316,7 @@ namespace verona::rt
 
           case RegionMD::COWN:
             Systematic::cout()
-              << "DecRef from " << this << " to " << o << std::endl;
+              << "DecRef from " << this << " to " << o << Systematic::endl;
             Cown::release(alloc, (Cown*)o);
             break;
 
