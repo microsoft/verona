@@ -21,12 +21,10 @@
             ]))
         (function
           main
-          []
-          []
-          ()
           (lambda
             []
             []
+            ()
             [
               (let $0)
               (assign
@@ -40,7 +38,7 @@
       [ (typeparam A () ()) (typeparam B () ()) ]
       ()
       [
-        (function foo [] [] () (lambda [] [] []))
-        (function _foo [] [] () (lambda [] [] []))
+        (function foo (lambda [] [] () []))
+        (function _foo (lambda [] [] () []))
       ])
   ])

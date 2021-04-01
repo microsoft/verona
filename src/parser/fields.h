@@ -26,19 +26,14 @@ namespace verona::parser
   template<typename T>
   void fieldsof(T& target, TypeAlias& alias)
   {
-    target << alias.id << alias.typeparams << alias.type;
+    target << alias.location << alias.typeparams << alias.type;
   }
 
   template<typename T>
   void fieldsof(T& target, Interface& iface)
   {
-    target << iface.id << iface.typeparams << iface.inherits << iface.members;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, Class& cls)
-  {
-    target << cls.id << cls.typeparams << cls.inherits << cls.members;
+    target << iface.location << iface.typeparams << iface.inherits
+           << iface.members;
   }
 
   template<typename T>
@@ -68,8 +63,7 @@ namespace verona::parser
   template<typename T>
   void fieldsof(T& target, Function& func)
   {
-    target << func.name << func.typeparams << func.params << func.result
-           << func.body;
+    target << func.name << func.lambda;
   }
 
   template<typename T>
@@ -141,7 +135,8 @@ namespace verona::parser
   template<typename T>
   void fieldsof(T& target, Lambda& lambda)
   {
-    target << lambda.typeparams << lambda.params << lambda.body;
+    target << lambda.typeparams << lambda.params << lambda.result
+           << lambda.body;
   }
 
   template<typename T>

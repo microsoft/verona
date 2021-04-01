@@ -11,15 +11,13 @@
         (using (typeref [ (modulename $module-1 []) ]))
         (function
           apply
-          []
-          [
-            (param x (typeref [ (typename U64 []) ]) ())
-            (param y (typeref [ (typename U64 []) ]) ())
-          ]
-          ()
           (lambda
             []
-            []
+            [
+              (param x (typeref [ (typename U64 []) ]) ())
+              (param y (typeref [ (typename U64 []) ]) ())
+            ]
+            ()
             [
               (let $0)
               (assign (ref $0) (string " c-string \" 😄 -> 😄 "))
@@ -33,20 +31,22 @@
               (let $3)
               (assign (ref $3) (char "{\n  }"))
               (let tab)
-              (assign (ref tab) (string "\t"))
               (let $4)
-              (assign (ref $4) (string "    look, a "))
+              (assign (ref $4) (string "\t"))
+              (assign (ref tab) (ref $4))
               (let $5)
-              (assign
-                (ref $5)
-                (select (ref $4) [ (typename apply []) ] (ref tab)))
+              (assign (ref $5) (string "    look, a "))
               (let $6)
-              (assign (ref $6) (string " in my string"))
-              (let $7)
               (assign
-                (ref $7)
-                (select (ref $5) [ (typename apply []) ] (ref $6)))
-              (ref $7)
+                (ref $6)
+                (select (ref $5) [ (typename apply []) ] (ref tab)))
+              (let $7)
+              (assign (ref $7) (string " in my string"))
+              (let $8)
+              (assign
+                (ref $8)
+                (select (ref $6) [ (typename apply []) ] (ref $7)))
+              (ref $8)
             ]))
       ])
     (class

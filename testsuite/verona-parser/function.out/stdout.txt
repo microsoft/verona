@@ -11,31 +11,32 @@
         (class U64 [] () [])
         (function
           foo
-          [
-            (typeparam N (imm ) ())
-            (typeparam
-              R
-              (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ])
-              ())
-          ]
-          [
-            (param a (typeref [ (typename N []) ]) ())
-            (param b (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ]) ())
-          ]
-          (typeref [ (typename R []) ])
           (lambda
-            []
-            []
+            [
+              (typeparam N (imm ) ())
+              (typeparam
+                R
+                (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ])
+                ())
+            ]
+            [
+              (param a (typeref [ (typename N []) ]) ())
+              (param
+                b
+                (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ])
+                ())
+            ]
+            (typeref [ (typename R []) ])
             [
               (let x)
-              (freelet a)
-              (freelet b)
-              (assign (ref x) (select (ref a) [ (typename + []) ] (ref b)))
+              (let $0)
+              (assign (ref $0) (select (ref a) [ (typename + []) ] (ref b)))
+              (assign (ref x) (ref $0))
               (let r)
               (oftype (ref r) (typeref [ (typename R []) ]))
               (assign (ref r) (ref x))
               (ref x)
             ]))
-        (function apply [] [] () (lambda [] [] []))
+        (function apply (lambda [] [] () []))
       ])
   ])

@@ -43,12 +43,20 @@ namespace verona::parser
     struct SymbolPush
     {
       Parse& parser;
+      bool is_done = false;
 
       SymbolPush(Parse& parser) : parser(parser) {}
 
       ~SymbolPush()
       {
+        if (!is_done)
+          parser.pop();
+      }
+
+      void done()
+      {
         parser.pop();
+        is_done = true;
       }
     };
 
@@ -90,30 +98,21 @@ namespace verona::parser
       symbol_stack.pop_back();
     }
 
-    void set_sym(SymbolTable* st, const Location& id, Ast node)
+    void set_sym(const Location& id, Ast node)
     {
-      auto prev = st->set(id, node);
+      assert(symbol_stack.size() > 0);
+      auto prev = look_up_local(symbol_stack, id);
 
       if (prev)
       {
         auto& loc = node->location;
 
         error() << loc << "There is a previous definition of \"" << id.view()
-                << "\"" << text(loc) << prev.value()
-                << "The previous definition is here" << text(prev.value());
+                << "\"" << text(loc) << prev->location
+                << "The previous definition is here" << text(prev->location);
       }
-    }
 
-    void set_sym(const Location& id, Ast node)
-    {
-      assert(symbol_stack.size() > 0);
-      set_sym(symbol_stack.back()->symbol_table(), id, node);
-    }
-
-    void set_sym_parent(const Location& id, Ast node)
-    {
-      assert(symbol_stack.size() > 1);
-      set_sym(symbol_stack[symbol_stack.size() - 2]->symbol_table(), id, node);
+      symbol_stack.back()->symbol_table()->set(id, node);
     }
 
     Node<Ref> ref(const Location& loc)
@@ -280,15 +279,6 @@ namespace verona::parser
       restart_after({kind});
     }
 
-    Result optident(Location& id)
-    {
-      if (!has(TokenKind::Ident))
-        return Skip;
-
-      id = previous.location;
-      return Success;
-    }
-
     Result optwhen(Node<Expr>& expr)
     {
       // when <- 'when' postfix lambda
@@ -297,7 +287,6 @@ namespace verona::parser
 
       Result r = Success;
       auto when = std::make_shared<When>();
-      auto st = push(when);
       when->location = previous.location;
       expr = when;
 
@@ -324,7 +313,6 @@ namespace verona::parser
 
       Result r = Success;
       auto tr = std::make_shared<Try>();
-      auto st = push(tr);
       tr->location = previous.location;
       expr = tr;
 
@@ -395,7 +383,6 @@ namespace verona::parser
 
       Result r = Success;
       auto match = std::make_shared<Match>();
-      auto st = push(match);
       match->location = previous.location;
       expr = match;
 
@@ -478,31 +465,55 @@ namespace verona::parser
       return r;
     }
 
-    Result optlambda(Node<Expr>& expr)
+    Result optlambda(Node<Expr>& expr, bool is_func = false)
     {
       // lambda <-
       //  '{' (typeparams? (param (',' param)*)? '=>')? (expr ';'*)* '}'
       if (!has(TokenKind::LBrace))
         return Skip;
 
-      auto lambda = std::make_shared<Lambda>();
+      Node<Lambda> lambda;
+
+      if (is_func)
+        lambda = std::static_pointer_cast<Lambda>(expr);
+      else
+        lambda = std::make_shared<Lambda>();
+
       auto st = push(lambda);
       lambda->location = previous.location;
       expr = lambda;
 
       Result r = opttypeparams(lambda->typeparams);
-      bool has_params = true;
+
+      if (is_func && (r != Skip))
+      {
+        error()
+          << lambda->typeparams.back()->location
+          << "Function type parameters can't be placed in lambda position."
+          << text(lambda->typeparams.back()->location);
+      }
+
+      bool has_fatarrow = true;
 
       if (r == Skip)
       {
-        has_params = peek_delimited(TokenKind::FatArrow, TokenKind::RBrace);
+        has_fatarrow = peek_delimited(TokenKind::FatArrow, TokenKind::RBrace);
         r = Success;
         rewind();
       }
 
-      if (has_params)
+      if (has_fatarrow)
       {
-        if (optparamlist(lambda->params, TokenKind::FatArrow) == Error)
+        Result r2 = optparamlist(lambda->params, TokenKind::FatArrow);
+
+        if (is_func && (r2 != Skip))
+        {
+          error() << lambda->params.back()->location
+                  << "Function parameters can't be placed in lambda position."
+                  << text(lambda->params.back()->location);
+        }
+
+        if (r2 == Error)
           r = Error;
 
         if (!has(TokenKind::FatArrow))
@@ -632,7 +643,11 @@ namespace verona::parser
 
       if (has(TokenKind::Symbol, "@"))
       {
-        if (optident(obj->in) != Success)
+        if (has(TokenKind::Ident))
+        {
+          obj->in = previous.location;
+        }
+        else
         {
           error() << loc() << "Expected an identifier" << line();
           r = Error;
@@ -679,7 +694,11 @@ namespace verona::parser
 
       if (has(TokenKind::Symbol, "@"))
       {
-        if (optident(n->in) != Success)
+        if (has(TokenKind::Ident))
+        {
+          n->in = previous.location;
+        }
+        else
         {
           error() << loc() << "Expected an identifier" << line();
           r = Error;
@@ -1502,7 +1521,7 @@ namespace verona::parser
       return r;
     }
 
-    Result optfield(List<Member>& members)
+    Result optfield(Node<Member>& member)
     {
       // field <- ident oftype initexpr ';'
       if (!has(TokenKind::Ident))
@@ -1510,6 +1529,8 @@ namespace verona::parser
 
       auto field = std::make_shared<Field>();
       field->location = previous.location;
+      member = field;
+
       Result r = Success;
 
       if (oftype(field->type) == Error)
@@ -1524,12 +1545,11 @@ namespace verona::parser
         r = Error;
       }
 
-      members.push_back(field);
       set_sym(field->location, field);
       return r;
     }
 
-    Result optfunction(List<Member>& members)
+    Result optfunction(Node<Member>& member)
     {
       // function <- (ident / symbol)? typeparams? params oftype? (block / ';')
       bool ok = peek(TokenKind::Symbol) ||
@@ -1543,7 +1563,7 @@ namespace verona::parser
         return Skip;
 
       auto func = std::make_shared<Function>();
-      auto st = push(func);
+      member = func;
       Result r = Success;
 
       if (has(TokenKind::Ident) || has(TokenKind::Symbol))
@@ -1558,13 +1578,19 @@ namespace verona::parser
         func->name = name_apply;
       }
 
-      if (opttypeparams(func->typeparams) == Error)
+      set_sym(func->name, func);
+
+      auto lambda = std::make_shared<Lambda>();
+      auto st = push(lambda);
+      func->lambda = lambda;
+
+      if (opttypeparams(lambda->typeparams) == Error)
         r = Error;
 
-      if (optparams(func->params) != Success)
+      if (optparams(lambda->params) != Success)
         r = Error;
 
-      for (auto& param : func->params)
+      for (auto& param : lambda->params)
       {
         if (param->kind() != Kind::Param)
         {
@@ -1583,32 +1609,16 @@ namespace verona::parser
         }
       }
 
-      if (oftype(func->result) == Error)
+      if (oftype(lambda->result) == Error)
         r = Error;
 
+      st.done();
       Result r2;
 
-      if ((r2 = optlambda(func->body)) != Skip)
+      if ((r2 = optlambda(func->lambda, true)) != Skip)
       {
         if (r2 == Error)
           r = Error;
-
-        auto& lambda = func->body->as<Lambda>();
-
-        if (!lambda.typeparams.empty())
-        {
-          error()
-            << lambda.typeparams.front()->location
-            << "Function type parameters can't be placed in lambda position."
-            << text(lambda.typeparams.front()->location);
-        }
-
-        if (!lambda.params.empty())
-        {
-          error() << lambda.params.front()->location
-                  << "Function parameters can't be placed in lambda position."
-                  << text(lambda.params.front()->location);
-        }
       }
       else if (!has(TokenKind::Semicolon))
       {
@@ -1616,8 +1626,6 @@ namespace verona::parser
         r = Error;
       }
 
-      members.push_back(func);
-      set_sym_parent(func->name, func);
       return r;
     }
 
@@ -1707,41 +1715,7 @@ namespace verona::parser
       return r;
     }
 
-    Result entity(Entity& ent)
-    {
-      // entity <- typeparams oftype
-      Result r = Success;
-
-      if (opttypeparams(ent.typeparams) == Error)
-        r = Error;
-
-      if (oftype(ent.inherits) == Error)
-        r = Error;
-
-      if (checkinherit(ent.inherits) == Error)
-        r = Error;
-
-      return r;
-    }
-
-    Result namedentity(NamedEntity& ent)
-    {
-      // namedentity <- ident entity
-      Result r = Success;
-
-      if (optident(ent.id) == Skip)
-      {
-        error() << loc() << "Expected an identifier" << line();
-        r = Error;
-      }
-
-      if (entity(ent) == Error)
-        r = Error;
-
-      return r;
-    }
-
-    Result optusing(List<Member>& members)
+    Result optusing(Node<Member>& member)
     {
       // using <- 'using' typeref ';'
       if (!has(TokenKind::Using))
@@ -1749,6 +1723,7 @@ namespace verona::parser
 
       auto use = std::make_shared<Using>();
       use->location = previous.location;
+      member = use;
 
       Result r;
 
@@ -1766,30 +1741,28 @@ namespace verona::parser
         r = Error;
       }
 
-      members.push_back(use);
       symbol_stack.back()->symbol_table()->use.push_back(use);
       return r;
     }
 
-    Result typealias(List<Member>& members)
+    Result opttypealias(Node<Member>& member)
     {
       // typealias <- 'type' ident typeparams? '=' type ';'
       if (!has(TokenKind::Type))
         return Skip;
 
       auto alias = std::make_shared<TypeAlias>();
-      alias->location = previous.location;
+      member = alias;
+
       Result r = Success;
 
-      if (has(TokenKind::Ident))
-      {
-        alias->id = previous.location;
-      }
-      else
+      if (!has(TokenKind::Ident))
       {
         error() << loc() << "Expected an identifier" << line();
         r = Error;
       }
+
+      alias->location = previous.location;
 
       if (opttypeparams(alias->typeparams) == Error)
         r = Error;
@@ -1809,58 +1782,68 @@ namespace verona::parser
         r = Error;
       }
 
-      members.push_back(alias);
-      set_sym(alias->id, alias);
+      set_sym(alias->location, alias);
       return r;
     }
 
-    Result interface(List<Member>& members)
+    template<typename T>
+    Result entity(Node<Member>& member)
     {
-      // interface <- 'interface' namedentity typebody
+      auto ent = std::make_shared<T>();
+      member = ent;
+
+      Result r = Success;
+      auto st = push(ent);
+
+      if (has(TokenKind::Ident))
+      {
+        ent->location = previous.location;
+      }
+      else
+      {
+        error() << loc() << "Expected an identifier" << line();
+        r = Error;
+      }
+
+      if (opttypeparams(ent->typeparams) == Error)
+        r = Error;
+
+      if (oftype(ent->inherits) == Error)
+        r = Error;
+
+      if (typebody(ent->members) == Error)
+        r = Error;
+
+      st.done();
+      set_sym(ent->location, ent);
+
+      if (checkinherit(ent->inherits) == Error)
+        r = Error;
+
+      return r;
+    }
+
+    Result optinterface(Node<Member>& member)
+    {
+      // interface <- 'interface' ident typeparams oftype typebody
       if (!has(TokenKind::Interface))
         return Skip;
 
-      auto iface = std::make_shared<Interface>();
-      auto st = push(iface);
-      iface->location = previous.location;
-      Result r = Success;
-
-      if (namedentity(*iface) == Error)
-        r = Error;
-
-      if (typebody(iface->members) == Error)
-        r = Error;
-
-      members.push_back(iface);
-      set_sym_parent(iface->id, iface);
-      return r;
+      return entity<Interface>(member);
     }
 
-    Result classdef(List<Member>& members)
+    Result optclass(Node<Member>& member)
     {
-      // classdef <- 'class' namedentity typebody
+      // class <- 'class' ident typeparams oftype typebody
       if (!has(TokenKind::Class))
         return Skip;
 
-      auto cls = std::make_shared<Class>();
-      auto st = push(cls);
-      cls->location = previous.location;
-      Result r = Success;
-
-      if (namedentity(*cls) == Error)
-        r = Error;
-
-      if (typebody(cls->members) == Error)
-        r = Error;
-
-      members.push_back(cls);
-      set_sym_parent(cls->id, cls);
-      return r;
+      return entity<Class>(member);
     }
 
     Result optmoduledef(Node<Module>& module)
     {
-      // moduledef <- 'module' entity ';'
+      // moduledef <- 'module' typeparams oftype ';'
       if (!has(TokenKind::Module))
         return Skip;
 
@@ -1868,7 +1851,13 @@ namespace verona::parser
       mod->location = previous.location;
       Result r = Success;
 
-      if (entity(*mod) == Error)
+      if (opttypeparams(mod->typeparams) == Error)
+        r = Error;
+
+      if (oftype(mod->inherits) == Error)
+        r = Error;
+
+      if (checkinherit(mod->inherits) == Error)
         r = Error;
 
       if (!has(TokenKind::Semicolon))
@@ -1892,28 +1881,27 @@ namespace verona::parser
       return r;
     }
 
-    Result optmember(List<Member>& members)
+    Result optmember(Node<Member>& member)
     {
-      // member <-
-      //  classdef / interface / typealias / using / field / function
+      // member <- classdef / interface / typealias / using / field / function
       Result r;
 
-      if ((r = classdef(members)) != Skip)
+      if ((r = optclass(member)) != Skip)
         return r;
 
-      if ((r = interface(members)) != Skip)
+      if ((r = optinterface(member)) != Skip)
         return r;
 
-      if ((r = typealias(members)) != Skip)
+      if ((r = opttypealias(member)) != Skip)
         return r;
 
-      if ((r = optusing(members)) != Skip)
+      if ((r = optusing(member)) != Skip)
         return r;
 
-      if ((r = optfunction(members)) != Skip)
+      if ((r = optfunction(member)) != Skip)
         return r;
 
-      if ((r = optfield(members)) != Skip)
+      if ((r = optfield(member)) != Skip)
         return r;
 
       return Skip;
@@ -1941,24 +1929,28 @@ namespace verona::parser
           return Error;
         }
 
+        Node<Member> member;
         Result r2;
 
-        if ((r2 = optmember(members)) == Skip)
+        if ((r2 = optmember(member)) == Skip)
         {
           error() << loc()
                   << "Expected a class, interface, type alias, field, "
                      "or function"
                   << line();
 
-          restart_before({TokenKind::RBrace,
-                          TokenKind::Class,
-                          TokenKind::Interface,
-                          TokenKind::Type,
-                          TokenKind::Ident,
-                          TokenKind::Symbol,
-                          TokenKind::LSquare,
-                          TokenKind::LParen});
+          restart_before(
+            {TokenKind::RBrace,
+             TokenKind::Class,
+             TokenKind::Interface,
+             TokenKind::Type,
+             TokenKind::Ident,
+             TokenKind::Symbol,
+             TokenKind::LSquare,
+             TokenKind::LParen});
         }
+
+        members.push_back(member);
 
         if (r2 == Error)
           r = Error;
@@ -1983,10 +1975,14 @@ namespace verona::parser
       // module <- (moduledef / member)*
       while (!has(TokenKind::End))
       {
+        Node<Member> member;
         Result r;
 
         if ((r = optmoduledef(moduledef)) == Skip)
-          r = optmember(module->members);
+        {
+          if ((r = optmember(member)) != Skip)
+            module->members.push_back(member);
+        }
 
         if (r == Skip)
         {
@@ -1995,14 +1991,15 @@ namespace verona::parser
                      "or function"
                   << line();
 
-          restart_before({TokenKind::Module,
-                          TokenKind::Class,
-                          TokenKind::Interface,
-                          TokenKind::Type,
-                          TokenKind::Ident,
-                          TokenKind::Symbol,
-                          TokenKind::LSquare,
-                          TokenKind::LParen});
+          restart_before(
+            {TokenKind::Module,
+             TokenKind::Class,
+             TokenKind::Interface,
+             TokenKind::Type,
+             TokenKind::Ident,
+             TokenKind::Symbol,
+             TokenKind::LSquare,
+             TokenKind::LParen});
         }
       }
 
@@ -2023,10 +2020,10 @@ namespace verona::parser
       auto r = Success;
 
       auto module = std::make_shared<Class>();
+      module->location = modulename;
+      set_sym(module->location, module);
       auto st = push(module);
-      module->id = modulename;
       program->members.push_back(module);
-      set_sym_parent(module->id, module);
 
       if (!path::is_directory(path))
       {

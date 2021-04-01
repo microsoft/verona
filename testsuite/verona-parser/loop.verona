@@ -25,8 +25,8 @@ f[T](x: T)
 
   for x
   {
-    a =>
-    foo(a)
+    b =>
+    foo(b)
   }
 
   return a

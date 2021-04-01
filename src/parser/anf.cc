@@ -40,6 +40,11 @@ namespace verona::parser::anf
       return parent()->kind() == Kind::Lambda;
     }
 
+    bool last()
+    {
+      return parent<Lambda>()->body.back() == expr();
+    }
+
     void add()
     {
       add(expr());
@@ -82,7 +87,7 @@ namespace verona::parser::anf
 
     void post(Let& let)
     {
-      // This catches Let and Var.
+      // This handles Let and Var.
       add();
 
       // This is already ANF.
@@ -105,9 +110,29 @@ namespace verona::parser::anf
         rewrite(oftype.expr);
     }
 
+    void post(Throw& thr)
+    {
+      if (!top())
+      {
+        error() << thr.location
+                << "A throw can't be used as an intermediate value."
+                << text(thr.location);
+        return;
+      }
+      else if (!last())
+      {
+        error() << thr.location
+                << "A throw must be the last expression in a lambda."
+                << text(thr.location);
+        return;
+      }
+
+      add();
+    }
+
     void post(Assign& asn)
     {
-      if (top())
+      if (top() && !last())
       {
         // Keep this assign at the top level.
         add();
@@ -126,7 +151,6 @@ namespace verona::parser::anf
       auto ref = std::make_shared<Ref>();
       ref->location = let->location;
 
-      auto e = expr();
       auto asn2 = std::make_shared<Assign>();
       asn2->location = asn.location;
       asn2->left = ref;
@@ -134,12 +158,16 @@ namespace verona::parser::anf
       add(asn2);
 
       add();
-      rewrite(ref);
+
+      if (last())
+        add(ref);
+      else
+        rewrite(ref);
     }
 
     void post(Ref& ref)
     {
-      if (top() && (expr() != parent<Lambda>()->body.back()))
+      if (top() && !last())
       {
         error() << ref.location << "This is an unused reference."
                 << text(ref.location);
@@ -185,14 +213,7 @@ namespace verona::parser::anf
 
     void post(Expr&)
     {
-      // If this expression isn't the right-hand side of an assignment, make it
-      // trivial.
-      if (
-        (parent()->kind() != Kind::Assign) ||
-        (parent<Assign>()->right != expr()))
-      {
-        make_trivial();
-      }
+      make_trivial();
     }
 
     void pre(Lambda& lambda)
@@ -253,9 +274,8 @@ namespace verona::parser::anf
         switch (expr->kind())
         {
           case Kind::Ref:
-          {
+          case Kind::Throw:
             break;
-          }
 
           case Kind::Oftype:
           {
@@ -278,13 +298,8 @@ namespace verona::parser::anf
         }
       }
 
-      if (
-        !state_stack.empty() &&
-        ((parent()->kind() != Kind::Assign) ||
-         (parent<Assign>()->right != expr())))
-      {
+      if (!state_stack.empty())
         make_trivial();
-      }
     }
   };
 

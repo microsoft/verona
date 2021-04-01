@@ -21,7 +21,7 @@
           [
             (typealias A [] (typeref [ (typename U64 []) ]))
             (field a (typeref [ (typename A []) ]) ())
-            (function f [] [] () (lambda [] [] []))
+            (function f (lambda [] [] () []))
           ])
       ])
     (class

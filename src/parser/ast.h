@@ -210,15 +210,15 @@ namespace verona::parser
       return find->second;
     }
 
-    std::optional<Location> set(const Location& id, Ast node)
+    bool set(const Location& id, Ast node)
     {
       auto find = map.find(id);
 
       if (find != map.end())
-        return find->second->location;
+        return false;
 
       map.emplace(id, node);
-      return {};
+      return true;
     }
   };
 
@@ -277,17 +277,7 @@ namespace verona::parser
     }
   };
 
-  struct Scope : Expr
-  {
-    SymbolTable st;
-
-    SymbolTable* symbol_table() override
-    {
-      return &st;
-    }
-  };
-
-  struct When : Scope
+  struct When : Expr
   {
     Node<Expr> waitfor;
     Node<Expr> behaviour;
@@ -298,7 +288,7 @@ namespace verona::parser
     }
   };
 
-  struct Try : Scope
+  struct Try : Expr
   {
     Node<Expr> body;
     List<Expr> catches;
@@ -309,7 +299,7 @@ namespace verona::parser
     }
   };
 
-  struct Match : Scope
+  struct Match : Expr
   {
     Node<Expr> test;
     List<Expr> cases;
@@ -320,11 +310,19 @@ namespace verona::parser
     }
   };
 
-  struct Lambda : Scope
+  struct Lambda : Expr
   {
     List<TypeParam> typeparams;
     List<Expr> params;
+    Node<Type> result;
     List<Expr> body;
+
+    SymbolTable st;
+
+    SymbolTable* symbol_table()
+    {
+      return &st;
+    }
 
     Kind kind() override
     {
@@ -471,7 +469,6 @@ namespace verona::parser
 
   struct TypeAlias : Member
   {
-    Location id;
     List<TypeParam> typeparams;
     Node<Type> type;
 
@@ -481,21 +478,13 @@ namespace verona::parser
     }
   };
 
-  struct Entity : Member
+  struct Interface : Member
   {
     List<TypeParam> typeparams;
     Node<Type> inherits;
-  };
-
-  struct NamedEntity : Entity
-  {
-    Location id;
-  };
-
-  struct Interface : NamedEntity
-  {
-    SymbolTable st;
     List<Member> members;
+
+    SymbolTable st;
 
     SymbolTable* symbol_table() override
     {
@@ -516,8 +505,11 @@ namespace verona::parser
     }
   };
 
-  struct Module : Entity
+  struct Module : Member
   {
+    List<TypeParam> typeparams;
+    Node<Type> inherits;
+
     Kind kind() override
     {
       return Kind::Module;
@@ -537,17 +529,8 @@ namespace verona::parser
 
   struct Function : Member
   {
-    SymbolTable st;
     Location name;
-    List<TypeParam> typeparams;
-    List<Expr> params;
-    Node<Type> result;
-    Node<Expr> body;
-
-    SymbolTable* symbol_table() override
-    {
-      return &st;
-    }
+    Node<Expr> lambda;
 
     Kind kind() override
     {
@@ -555,12 +538,19 @@ namespace verona::parser
     }
   };
 
-  struct ObjectLiteral : Scope
+  struct ObjectLiteral : Expr
   {
     // TODO: put a Class in here?
     Location in;
     Node<Type> inherits;
     List<Member> members;
+
+    SymbolTable st;
+
+    SymbolTable* symbol_table()
+    {
+      return &st;
+    }
 
     Kind kind() override
     {

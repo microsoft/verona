@@ -11,31 +11,27 @@
         (class Cown [ (typeparam T () ()) ] () [])
         (class A [] () [])
         (class B [] () [])
-        (function bar [] [] () (lambda [] [] []))
+        (function bar (lambda [] [] () []))
         (function
           foo
-          []
-          [
-            (param
-              a
-              (typeref [ (typename Cown [ (typeref [ (typename A []) ]) ]) ])
-              ())
-            (param
-              b
-              (typeref [ (typename Cown [ (typeref [ (typename B []) ]) ]) ])
-              ())
-          ]
-          ()
           (lambda
             []
-            []
             [
-              (freelet a)
+              (param
+                a
+                (typeref [ (typename Cown [ (typeref [ (typename A []) ]) ]) ])
+                ())
+              (param
+                b
+                (typeref [ (typename Cown [ (typeref [ (typename B []) ]) ]) ])
+                ())
+            ]
+            ()
+            [
               (let $0)
-              (assign (ref $0) (lambda [] [] []))
+              (assign (ref $0) (lambda [] [] () []))
               (let $1)
               (assign (ref $1) (when (ref a) (ref $0)))
-              (freelet b)
               (let $2)
               (assign (ref $2) (tuple [ (ref a) (ref b) ]))
               (let $3)
@@ -44,13 +40,15 @@
                 (lambda
                   []
                   []
+                  ()
                   [
                     (let $0)
                     (assign (ref $0) (select () [ (typename bar []) ] ()))
                     (let $1)
-                    (assign (ref $1) (lambda [] [] []))
+                    (assign (ref $1) (lambda [] [] () []))
                     (let $2)
                     (assign (ref $2) (when (ref $0) (ref $1)))
+                    (freelet b)
                     (let $3)
                     (assign
                       (ref $3)

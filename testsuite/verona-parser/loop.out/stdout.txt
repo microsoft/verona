@@ -11,27 +11,29 @@
         (using (typeref [ (modulename $module-1 []) ]))
         (function
           foo
-          [ (typeparam T () ()) ]
-          [ (param a (typeref [ (typename T []) ]) ()) ]
-          ()
-          (lambda [] [] []))
+          (lambda
+            [ (typeparam T () ()) ]
+            [ (param a (typeref [ (typename T []) ]) ()) ]
+            ()
+            []))
         (function
           f
-          [ (typeparam T () ()) ]
-          [ (param x (typeref [ (typename T []) ]) ()) ]
-          ()
           (lambda
-            []
-            []
+            [ (typeparam T () ()) ]
+            [ (param x (typeref [ (typename T []) ]) ()) ]
+            ()
             [
               (var a)
-              (assign (ref a) (int 0))
               (let $0)
+              (assign (ref $0) (int 0))
+              (assign (ref a) (ref $0))
+              (let $1)
               (assign
-                (ref $0)
+                (ref $1)
                 (lambda
                   []
                   []
+                  ()
                   [
                     (freevar a)
                     (let $0)
@@ -42,60 +44,67 @@
                       (select (ref a) [ (typename < []) ] (ref $0)))
                     (ref $1)
                   ]))
-              (let $1)
-              (assign (ref $1) (select () [ (typename while []) ] (ref $0)))
               (let $2)
+              (assign (ref $2) (select () [ (typename while []) ] (ref $1)))
+              (let $3)
               (assign
-                (ref $2)
+                (ref $3)
                 (lambda
                   []
                   []
+                  ()
                   [
                     (freevar a)
                     (let $0)
                     (assign (ref $0) (int 1))
-                    (assign
-                      (ref a)
-                      (select (ref a) [ (typename + []) ] (ref $0)))
                     (let $1)
-                    (assign (ref $1) (int 2))
+                    (assign
+                      (ref $1)
+                      (select (ref a) [ (typename + []) ] (ref $0)))
+                    (assign (ref a) (ref $1))
                     (let $2)
-                    (assign
-                      (ref $2)
-                      (select (ref a) [ (typename < []) ] (ref $1)))
+                    (assign (ref $2) (int 2))
                     (let $3)
-                    (assign (ref $3) (select () [ (typename if []) ] (ref $2)))
-                    (let $4)
                     (assign
-                      (ref $4)
+                      (ref $3)
+                      (select (ref a) [ (typename < []) ] (ref $2)))
+                    (let $4)
+                    (assign (ref $4) (select () [ (typename if []) ] (ref $3)))
+                    (let $5)
+                    (assign
+                      (ref $5)
                       (lambda
                         []
                         []
+                        ()
                         [
                           (let $0)
                           (assign (ref $0) (int 1))
-                          (assign
-                            (ref a)
-                            (select (ref a) [ (typename + []) ] (ref $0)))
                           (let $1)
                           (assign
                             (ref $1)
+                            (select (ref a) [ (typename + []) ] (ref $0)))
+                          (assign (ref a) (ref $1))
+                          (let $2)
+                          (assign
+                            (ref $2)
                             (select
                               ()
                               [ (typename continue []) (typename create []) ]
                               ()))
-                          (ref $1)
+                          (ref $2)
                         ]))
-                    (let $5)
-                    (assign
-                      (ref $5)
-                      (select (ref $3) [ (typename apply []) ] (ref $4)))
                     (let $6)
                     (assign
                       (ref $6)
+                      (select (ref $4) [ (typename apply []) ] (ref $5)))
+                    (let $7)
+                    (assign
+                      (ref $7)
                       (lambda
                         []
                         []
+                        ()
                         [
                           (let $0)
                           (assign
@@ -106,42 +115,42 @@
                               ()))
                           (ref $0)
                         ]))
-                    (let $7)
+                    (let $8)
                     (assign
-                      (ref $7)
-                      (select (ref $5) [ (typename else []) ] (ref $6)))
-                    (ref $7)
+                      (ref $8)
+                      (select (ref $6) [ (typename else []) ] (ref $7)))
+                    (ref $8)
                   ]))
-              (let $3)
-              (assign
-                (ref $3)
-                (select (ref $1) [ (typename apply []) ] (ref $2)))
-              (freelet x)
               (let $4)
-              (assign (ref $4) (select (ref $3) [ (typename for []) ] (ref x)))
-              (let $5)
               (assign
-                (ref $5)
-                (lambda
-                  []
-                  [ (param a () ()) ]
-                  [
-                    (let $0)
-                    (assign (ref $0) (select () [ (typename foo []) ] (ref a)))
-                    (ref $0)
-                  ]))
+                (ref $4)
+                (select (ref $2) [ (typename apply []) ] (ref $3)))
+              (let $5)
+              (assign (ref $5) (select (ref $4) [ (typename for []) ] (ref x)))
               (let $6)
               (assign
                 (ref $6)
-                (select (ref $4) [ (typename apply []) ] (ref $5)))
+                (lambda
+                  []
+                  [ (param b () ()) ]
+                  ()
+                  [
+                    (let $0)
+                    (assign (ref $0) (select () [ (typename foo []) ] (ref b)))
+                    (ref $0)
+                  ]))
               (let $7)
               (assign
                 (ref $7)
+                (select (ref $5) [ (typename apply []) ] (ref $6)))
+              (let $8)
+              (assign
+                (ref $8)
                 (select
-                  (ref $6)
+                  (ref $7)
                   [ (typename return []) (typename create []) ]
                   (ref a)))
-              (ref $7)
+              (ref $8)
             ]))
       ])
     (class
@@ -151,35 +160,33 @@
       [
         (function
           ~
-          [
-            (typeparam T () ())
-            (typeparamlist U () ())
-            (typeparam V () ())
-            (typeparam
-              R
-              (functiontype (typelist U) (typeref [ (typename V []) ]))
-              ())
-          ]
-          [
-            (param
-              f
-              (viewtype
-                (typeref [ (typename R []) ])
-                (functiontype
-                  (tupletype [ (typeref [ (typename T []) ]) (typelist U) ])
-                  (typeref [ (typename V []) ])))
-              ())
-            (param
-              x
-              (viewtype
-                (typeref [ (typename R []) ])
-                (typeref [ (typename T []) ]))
-              ())
-          ]
-          (typeref [ (typename R []) ])
           (lambda
-            []
-            []
+            [
+              (typeparam T () ())
+              (typeparamlist U () ())
+              (typeparam V () ())
+              (typeparam
+                R
+                (functiontype (typelist U) (typeref [ (typename V []) ]))
+                ())
+            ]
+            [
+              (param
+                f
+                (viewtype
+                  (typeref [ (typename R []) ])
+                  (functiontype
+                    (tupletype [ (typeref [ (typename T []) ]) (typelist U) ])
+                    (typeref [ (typename V []) ])))
+                ())
+              (param
+                x
+                (viewtype
+                  (typeref [ (typename R []) ])
+                  (typeref [ (typename T []) ]))
+                ())
+            ]
+            (typeref [ (typename R []) ])
             [
               (let $0)
               (assign
@@ -187,6 +194,7 @@
                 (lambda
                   []
                   [ (param y (typelist U) ()) ]
+                  ()
                   [
                     (freelet f)
                     (freelet x)
@@ -202,21 +210,17 @@
             ]))
         (function
           |>
-          [ (typeparamlist T () ()) (typeparam U () ()) ]
-          [
-            (param x (typelist T) ())
-            (param
-              y
-              (functiontype (typelist T) (typeref [ (typename U []) ]))
-              ())
-          ]
-          (typeref [ (typename U []) ])
           (lambda
-            []
-            []
+            [ (typeparamlist T () ()) (typeparam U () ()) ]
             [
-              (freelet y)
-              (freelet x)
+              (param x (typelist T) ())
+              (param
+                y
+                (functiontype (typelist T) (typeref [ (typename U []) ]))
+                ())
+            ]
+            (typeref [ (typename U []) ])
+            [
               (let $0)
               (assign (ref $0) (select (ref y) [ (typename apply []) ] (ref x)))
               (ref $0)
@@ -224,23 +228,22 @@
         (class FalseBranch [] () [])
         (function
           if
-          [ (typeparam T () ()) ]
-          [
-            (param
-              cond
-              (functiontype (tupletype []) (typeref [ (typename Bool []) ]))
-              ())
-          ]
-          (functiontype
-            (functiontype (tupletype []) (typeref [ (typename T []) ]))
-            (uniontype
-              [
-                (typeref [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
-                (typeref [ (typename FalseBranch []) ])
-              ]))
           (lambda
-            []
-            []
+            [ (typeparam T () ()) ]
+            [
+              (param
+                cond
+                (functiontype (tupletype []) (typeref [ (typename Bool []) ]))
+                ())
+            ]
+            (functiontype
+              (functiontype (tupletype []) (typeref [ (typename T []) ]))
+              (uniontype
+                [
+                  (typeref
+                    [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
+                  (typeref [ (typename FalseBranch []) ])
+                ]))
             [
               (let $0)
               (assign
@@ -248,6 +251,7 @@
                 (lambda
                   []
                   [ (param ontrue () ()) ]
+                  ()
                   [
                     (freelet cond)
                     (let $0)
@@ -260,6 +264,7 @@
                       (lambda
                         []
                         [ (param $0 () ()) ]
+                        ()
                         [
                           (let $1)
                           (assign
@@ -292,6 +297,7 @@
                       (lambda
                         []
                         [ (param $0 () ()) ]
+                        ()
                         [
                           (let $1)
                           (assign
@@ -321,32 +327,32 @@
             ]))
         (function
           elseif
-          [ (typeparam T () ()) (typeparam U () ()) ]
-          [
-            (param
-              prev
+          (lambda
+            [ (typeparam T () ()) (typeparam U () ()) ]
+            [
+              (param
+                prev
+                (uniontype
+                  [
+                    (typeref
+                      [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
+                    (typeref [ (typename FalseBranch []) ])
+                  ])
+                ())
+              (param
+                cond
+                (functiontype (tupletype []) (typeref [ (typename Bool []) ]))
+                ())
+            ]
+            (functiontype
+              (functiontype (tupletype []) (typeref [ (typename U []) ]))
               (uniontype
                 [
                   (typeref
                     [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
-                  (typeref [ (typename FalseBranch []) ])
-                ])
-              ())
-            (param
-              cond
-              (functiontype (tupletype []) (typeref [ (typename Bool []) ]))
-              ())
-          ]
-          (functiontype
-            (functiontype (tupletype []) (typeref [ (typename U []) ]))
-            (uniontype
-              [
-                (typeref [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
-                (typeref [ (typename Done [ (typeref [ (typename U []) ]) ]) ])
-              ]))
-          (lambda
-            []
-            []
+                  (typeref
+                    [ (typename Done [ (typeref [ (typename U []) ]) ]) ])
+                ]))
             [
               (let $0)
               (assign
@@ -354,6 +360,7 @@
                 (lambda
                   []
                   [ (param ontrue () ()) ]
+                  ()
                   [
                     (freelet prev)
                     (let $0)
@@ -362,6 +369,7 @@
                       (lambda
                         []
                         []
+                        ()
                         [
                           (freelet cond)
                           (let $0)
@@ -388,38 +396,36 @@
             ]))
         (function
           else
-          [ (typeparam T () ()) (typeparam U () ()) ]
-          [
-            (param
-              prev
-              (uniontype
-                [
-                  (typeref
-                    [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
-                  (typeref [ (typename FalseBranch []) ])
-                ])
-              ())
-            (param
-              onfalse
-              (functiontype (tupletype []) (typeref [ (typename U []) ]))
-              ())
-          ]
-          (uniontype
-            [
-              (typeref [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
-              (typeref [ (typename Done [ (typeref [ (typename U []) ]) ]) ])
-            ])
           (lambda
-            []
-            []
+            [ (typeparam T () ()) (typeparam U () ()) ]
             [
-              (freelet prev)
+              (param
+                prev
+                (uniontype
+                  [
+                    (typeref
+                      [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
+                    (typeref [ (typename FalseBranch []) ])
+                  ])
+                ())
+              (param
+                onfalse
+                (functiontype (tupletype []) (typeref [ (typename U []) ]))
+                ())
+            ]
+            (uniontype
+              [
+                (typeref [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
+                (typeref [ (typename Done [ (typeref [ (typename U []) ]) ]) ])
+              ])
+            [
               (let $0)
               (assign
                 (ref $0)
                 (lambda
                   []
                   [ (param $0 () ()) ]
+                  ()
                   [
                     (let $1)
                     (assign
@@ -455,6 +461,7 @@
                         [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
                       ())
                   ]
+                  ()
                   [ (ref v) ]))
               (let $2)
               (assign (ref $2) (match (ref prev) [ (ref $0) (ref $1) ]))
@@ -472,49 +479,52 @@
             (field result (typeref [ (typename T []) ]) ())
             (function
               create
-              [
-                (typeparam
-                  R
-                  (typeref
-                    [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
-                  ())
-              ]
-              [
-                (param
-                  from
-                  (viewtype
-                    (typeref [ (typename R []) ])
-                    (typeref [ (typename T []) ]))
-                  (lambda
-                    []
-                    []
-                    [
-                      (let $0)
-                      (assign
-                        (ref $0)
-                        (select
-                          ()
-                          [ (typename None []) (typename create []) ]
-                          ()))
-                      (ref $0)
-                    ]))
-              ]
-              (typeref [ (typename R []) ])
               (lambda
-                []
-                []
                 [
-                  (freelet from)
+                  (typeparam
+                    R
+                    (typeref
+                      [ (typename Done [ (typeref [ (typename T []) ]) ]) ])
+                    ())
+                ]
+                [
+                  (param
+                    from
+                    (viewtype
+                      (typeref [ (typename R []) ])
+                      (typeref [ (typename T []) ]))
+                    (ref $0))
+                ]
+                (typeref [ (typename R []) ])
+                [
                   (let $0)
-                  (assign (ref $0) (new () (ref from)))
-                  (ref $0)
+                  (assign
+                    (ref $0)
+                    (lambda
+                      []
+                      []
+                      ()
+                      [
+                        (let $0)
+                        (assign
+                          (ref $0)
+                          (select
+                            ()
+                            [ (typename None []) (typename create []) ]
+                            ()))
+                        (ref $0)
+                      ]))
+                  (let $1)
+                  (assign (ref $1) (new () (ref from)))
+                  (ref $1)
                 ]))
             (function
               apply
-              [ (typeparam U () ()) ]
-              [ (param x (typeref [ (typename U []) ]) ()) ]
-              (typeref [ (typename U []) ])
-              (lambda [] [] [ (freelet x) (ref x) ]))
+              (lambda
+                [ (typeparam U () ()) ]
+                [ (param x (typeref [ (typename U []) ]) ()) ]
+                (typeref [ (typename U []) ])
+                [ (ref x) ]))
           ])
         (class NoLabel [] () [])
         (class Break [ (typeparam L () ()) ] () [])
@@ -526,13 +536,12 @@
           [
             (function
               create
-              []
-              []
-              (throwtype
-                (typeref [ (typename Break [ (typeref [ (typename L []) ]) ]) ]))
               (lambda
                 []
                 []
+                (throwtype
+                  (typeref
+                    [ (typename Break [ (typeref [ (typename L []) ]) ]) ]))
                 [
                   (let $0)
                   (assign
@@ -544,9 +553,7 @@
                         (typename create [])
                       ]
                       ()))
-                  (let $1)
-                  (assign (ref $1) (throw (ref $0)))
-                  (ref $1)
+                  (throw (ref $0))
                 ]))
           ])
         (class
@@ -556,14 +563,12 @@
           [
             (function
               create
-              []
-              []
-              (throwtype
-                (typeref
-                  [ (typename Continue [ (typeref [ (typename L []) ]) ]) ]))
               (lambda
                 []
                 []
+                (throwtype
+                  (typeref
+                    [ (typename Continue [ (typeref [ (typename L []) ]) ]) ]))
                 [
                   (let $0)
                   (assign
@@ -575,40 +580,36 @@
                         (typename create [])
                       ]
                       ()))
-                  (let $1)
-                  (assign (ref $1) (throw (ref $0)))
-                  (ref $1)
+                  (throw (ref $0))
                 ]))
           ])
         (function
           while
-          [
-            (typeparam L () (typeref [ (typename NoLabel []) ]))
-            (typeparam T () ())
-            (typeparam U () ())
-          ]
-          [
-            (param
-              cond
-              (functiontype (tupletype []) (typeref [ (typename Bool []) ]))
-              ())
-          ]
-          (functiontype
+          (lambda
+            [
+              (typeparam L () (typeref [ (typename NoLabel []) ]))
+              (typeparam T () ())
+              (typeparam U () ())
+            ]
+            [
+              (param
+                cond
+                (functiontype (tupletype []) (typeref [ (typename Bool []) ]))
+                ())
+            ]
             (functiontype
-              (tupletype [])
+              (functiontype
+                (tupletype [])
+                (uniontype
+                  [
+                    (typeref [ (typename T []) ])
+                    (throwtype (typeref [ (typename U []) ]))
+                  ]))
               (uniontype
                 [
-                  (typeref [ (typename T []) ])
+                  (typeref [ (typename Done []) ])
                   (throwtype (typeref [ (typename U []) ]))
                 ]))
-            (uniontype
-              [
-                (typeref [ (typename Done []) ])
-                (throwtype (typeref [ (typename U []) ]))
-              ]))
-          (lambda
-            []
-            []
             [
               (let $0)
               (assign
@@ -616,6 +617,7 @@
                 (lambda
                   []
                   [ (param body () ()) ]
+                  ()
                   [
                     (freelet cond)
                     (let $0)
@@ -628,6 +630,7 @@
                       (lambda
                         []
                         [ (param $0 () ()) ]
+                        ()
                         [
                           (let $1)
                           (assign
@@ -646,6 +649,7 @@
                             (lambda
                               []
                               []
+                              ()
                               [
                                 (freelet body)
                                 (let $0)
@@ -670,6 +674,7 @@
                             (lambda
                               []
                               [ (param $0 () ()) ]
+                              ()
                               [
                                 (let $1)
                                 (assign
@@ -700,6 +705,7 @@
                             (lambda
                               []
                               [ (param $0 () ()) ]
+                              ()
                               [
                                 (let $1)
                                 (assign
@@ -741,7 +747,7 @@
                           (ref $6)
                         ]))
                     (let $2)
-                    (assign (ref $2) (lambda [] [] []))
+                    (assign (ref $2) (lambda [] [] () []))
                     (let $3)
                     (assign (ref $3) (match (ref $0) [ (ref $1) (ref $2) ]))
                     (ref $3)
@@ -751,24 +757,22 @@
         (class NoMatch [] () [])
         (function
           as
-          [ (typeparam T () ()) (typeparam U () ()) ]
-          [ (param value (typeref [ (typename U []) ]) ()) ]
-          (uniontype
-            [
-              (typeref [ (typename T []) ])
-              (throwtype (typeref [ (typename NoMatch []) ]))
-            ])
           (lambda
-            []
-            []
+            [ (typeparam T () ()) (typeparam U () ()) ]
+            [ (param value (typeref [ (typename U []) ]) ()) ]
+            (uniontype
+              [
+                (typeref [ (typename T []) ])
+                (throwtype (typeref [ (typename NoMatch []) ]))
+              ])
             [
-              (freelet value)
               (let $0)
               (assign
                 (ref $0)
                 (lambda
                   []
                   [ (param x (typeref [ (typename T []) ]) ()) ]
+                  ()
                   [ (ref x) ]))
               (let $1)
               (assign
@@ -776,6 +780,7 @@
                 (lambda
                   []
                   []
+                  ()
                   [
                     (let $0)
                     (assign
@@ -784,9 +789,7 @@
                         ()
                         [ (typename NoMatch []) (typename create []) ]
                         ()))
-                    (let $1)
-                    (assign (ref $1) (throw (ref $0)))
-                    (ref $1)
+                    (throw (ref $0))
                   ]))
               (let $2)
               (assign (ref $2) (match (ref value) [ (ref $0) (ref $1) ]))
@@ -794,18 +797,15 @@
             ]))
         (function
           requires
-          []
-          [ (param pred (typeref [ (typename Bool []) ]) ()) ]
-          (uniontype
-            [
-              (typeref [ (typename None []) ])
-              (throwtype (typeref [ (typename NoMatch []) ]))
-            ])
           (lambda
             []
-            []
+            [ (param pred (typeref [ (typename Bool []) ]) ()) ]
+            (uniontype
+              [
+                (typeref [ (typename None []) ])
+                (throwtype (typeref [ (typename NoMatch []) ]))
+              ])
             [
-              (freelet pred)
               (let $0)
               (assign (ref $0) (select () [ (typename not []) ] (ref pred)))
               (let $1)
@@ -816,6 +816,7 @@
                 (lambda
                   []
                   []
+                  ()
                   [
                     (let $0)
                     (assign
@@ -824,9 +825,7 @@
                         ()
                         [ (typename NoMatch []) (typename create []) ]
                         ()))
-                    (let $1)
-                    (assign (ref $1) (throw (ref $0)))
-                    (ref $1)
+                    (throw (ref $0))
                   ]))
               (let $3)
               (assign
@@ -851,41 +850,39 @@
               ())
             (function
               ==
-              []
-              [
-                (param
-                  self
-                  (typeref
-                    [
-                      (typename
-                        OrEquals
-                        [
-                          (typeref [ (typename T1 []) ])
-                          (typeref [ (typename T2 []) ])
-                        ])
-                    ])
-                  ())
-                (param
-                  x
-                  (uniontype
-                    [
-                      (typeref [ (typename T1 []) ])
-                      (typeref [ (typename T2 []) ])
-                    ])
-                  ())
-              ]
-              (typeref [ (typename Bool []) ])
               (lambda
                 []
-                []
                 [
-                  (freelet x)
+                  (param
+                    self
+                    (typeref
+                      [
+                        (typename
+                          OrEquals
+                          [
+                            (typeref [ (typename T1 []) ])
+                            (typeref [ (typename T2 []) ])
+                          ])
+                      ])
+                    ())
+                  (param
+                    x
+                    (uniontype
+                      [
+                        (typeref [ (typename T1 []) ])
+                        (typeref [ (typename T2 []) ])
+                      ])
+                    ())
+                ]
+                (typeref [ (typename Bool []) ])
+                [
                   (let $0)
                   (assign
                     (ref $0)
                     (lambda
                       []
                       [ (param y (typeref [ (typename T1 []) ]) ()) ]
+                      ()
                       [
                         (freelet self)
                         (let $0)
@@ -904,6 +901,7 @@
                     (lambda
                       []
                       [ (param y (typeref [ (typename T2 []) ]) ()) ]
+                      ()
                       [
                         (freelet self)
                         (let $0)
@@ -922,6 +920,7 @@
                     (lambda
                       []
                       []
+                      ()
                       [ (let $0) (assign (ref $0) (bool false)) (ref $0) ]))
                   (let $3)
                   (assign
@@ -932,34 +931,30 @@
           ])
         (function
           |
-          [ (typeparam T1 () ()) (typeparam T2 () ()) ]
-          [
-            (param
-              e1
-              (typeref
-                [ (typename Equatable [ (typeref [ (typename T1 []) ]) ]) ])
-              ())
-            (param
-              e2
-              (typeref
-                [ (typename Equatable [ (typeref [ (typename T2 []) ]) ]) ])
-              ())
-          ]
-          (typeref
-            [
-              (typename
-                OrEquals
-                [
-                  (typeref [ (typename T1 []) ])
-                  (typeref [ (typename T2 []) ])
-                ])
-            ])
           (lambda
-            []
-            []
+            [ (typeparam T1 () ()) (typeparam T2 () ()) ]
             [
-              (freelet e1)
-              (freelet e2)
+              (param
+                e1
+                (typeref
+                  [ (typename Equatable [ (typeref [ (typename T1 []) ]) ]) ])
+                ())
+              (param
+                e2
+                (typeref
+                  [ (typename Equatable [ (typeref [ (typename T2 []) ]) ]) ])
+                ())
+            ]
+            (typeref
+              [
+                (typename
+                  OrEquals
+                  [
+                    (typeref [ (typename T1 []) ])
+                    (typeref [ (typename T2 []) ])
+                  ])
+              ])
+            [
               (let $0)
               (assign (ref $0) (tuple [ (ref e1) (ref e2) ]))
               (let $1)
@@ -983,36 +978,33 @@
           [
             (function
               create
-              []
-              [
-                (param
-                  x
-                  (typeref [ (typename T []) ])
-                  (lambda
-                    []
-                    []
-                    [
-                      (let $0)
-                      (assign
-                        (ref $0)
-                        (select
-                          ()
-                          [ (typename None []) (typename create []) ]
-                          ()))
-                      (ref $0)
-                    ]))
-              ]
-              (throwtype
-                (typeref
-                  [ (typename Return [ (typeref [ (typename T []) ]) ]) ]))
               (lambda
                 []
-                []
+                [ (param x (typeref [ (typename T []) ]) (ref $0)) ]
+                (throwtype
+                  (typeref
+                    [ (typename Return [ (typeref [ (typename T []) ]) ]) ]))
                 [
-                  (freelet x)
                   (let $0)
                   (assign
                     (ref $0)
+                    (lambda
+                      []
+                      []
+                      ()
+                      [
+                        (let $0)
+                        (assign
+                          (ref $0)
+                          (select
+                            ()
+                            [ (typename None []) (typename create []) ]
+                            ()))
+                        (ref $0)
+                      ]))
+                  (let $1)
+                  (assign
+                    (ref $1)
                     (select
                       ()
                       [
@@ -1020,9 +1012,7 @@
                         (typename create [])
                       ]
                       (ref x)))
-                  (let $1)
-                  (assign (ref $1) (throw (ref $0)))
-                  (ref $1)
+                  (throw (ref $1))
                 ]))
           ])
       ])
@@ -1038,16 +1028,18 @@
           [
             (function
               apply
-              []
-              [ (param self (typeref [ (typename Bool []) ]) ()) ]
-              (typeref [ (typename Bool []) ])
-              (lambda [] [] [ (freelet self) (ref self) ]))
+              (lambda
+                []
+                [ (param self (typeref [ (typename Bool []) ]) ()) ]
+                (typeref [ (typename Bool []) ])
+                [ (ref self) ]))
             (function
               bool
-              []
-              [ (param self (typeref [ (typename Bool []) ]) ()) ]
-              (typeref [ (typename Bool []) ])
-              (lambda [] [] [ (freelet self) (ref self) ]))
+              (lambda
+                []
+                [ (param self (typeref [ (typename Bool []) ]) ()) ]
+                (typeref [ (typename Bool []) ])
+                [ (ref self) ]))
           ])
         (interface
           ToBool
@@ -1056,31 +1048,29 @@
           [
             (function
               bool
-              []
-              [ (param self (Self ) ()) ]
-              (typeref [ (typename Bool []) ])
-              ())
+              (lambda
+                []
+                [ (param self (Self ) ()) ]
+                (typeref [ (typename Bool []) ])
+                []))
           ])
         (function
           and
-          [
-            (typeparam T (typeref [ (typename ToBool []) ]) ())
-            (typeparam U () ())
-          ]
-          [
-            (param a (typeref [ (typename T []) ]) ())
-            (param
-              b
-              (functiontype (tupletype []) (typeref [ (typename U []) ]))
-              ())
-          ]
-          (uniontype
-            [ (typeref [ (typename T []) ]) (typeref [ (typename U []) ]) ])
           (lambda
-            []
-            []
             [
-              (freelet a)
+              (typeparam T (typeref [ (typename ToBool []) ]) ())
+              (typeparam U () ())
+            ]
+            [
+              (param a (typeref [ (typename T []) ]) ())
+              (param
+                b
+                (functiontype (tupletype []) (typeref [ (typename U []) ]))
+                ())
+            ]
+            (uniontype
+              [ (typeref [ (typename T []) ]) (typeref [ (typename U []) ]) ])
+            [
               (let $0)
               (assign (ref $0) (select () [ (typename bool []) ] (ref a)))
               (let $1)
@@ -1089,6 +1079,7 @@
                 (lambda
                   []
                   [ (param $0 () ()) ]
+                  ()
                   [
                     (let $1)
                     (assign
@@ -1098,7 +1089,8 @@
                     (assign
                       (ref $2)
                       (select () [ (typename requires []) ] (ref $1)))
-                    (ref $2)
+                    (freelet a)
+                    (ref a)
                   ]))
               (let $2)
               (assign
@@ -1106,6 +1098,7 @@
                 (lambda
                   []
                   [ (param $0 () ()) ]
+                  ()
                   [
                     (let $1)
                     (assign
@@ -1128,24 +1121,21 @@
             ]))
         (function
           or
-          [
-            (typeparam T (typeref [ (typename ToBool []) ]) ())
-            (typeparam U () ())
-          ]
-          [
-            (param a (typeref [ (typename T []) ]) ())
-            (param
-              b
-              (functiontype (tupletype []) (typeref [ (typename U []) ]))
-              ())
-          ]
-          (uniontype
-            [ (typeref [ (typename T []) ]) (typeref [ (typename U []) ]) ])
           (lambda
-            []
-            []
             [
-              (freelet a)
+              (typeparam T (typeref [ (typename ToBool []) ]) ())
+              (typeparam U () ())
+            ]
+            [
+              (param a (typeref [ (typename T []) ]) ())
+              (param
+                b
+                (functiontype (tupletype []) (typeref [ (typename U []) ]))
+                ())
+            ]
+            (uniontype
+              [ (typeref [ (typename T []) ]) (typeref [ (typename U []) ]) ])
+            [
               (let $0)
               (assign (ref $0) (select () [ (typename bool []) ] (ref a)))
               (let $1)
@@ -1154,6 +1144,7 @@
                 (lambda
                   []
                   [ (param $0 () ()) ]
+                  ()
                   [
                     (let $1)
                     (assign
@@ -1163,7 +1154,8 @@
                     (assign
                       (ref $2)
                       (select () [ (typename requires []) ] (ref $1)))
-                    (ref $2)
+                    (freelet a)
+                    (ref a)
                   ]))
               (let $2)
               (assign
@@ -1171,6 +1163,7 @@
                 (lambda
                   []
                   [ (param $0 () ()) ]
+                  ()
                   [
                     (let $1)
                     (assign
@@ -1193,14 +1186,11 @@
             ]))
         (function
           not
-          [ (typeparam T (typeref [ (typename ToBool []) ]) ()) ]
-          [ (param a (typeref [ (typename T []) ]) ()) ]
-          (typeref [ (typename Bool []) ])
           (lambda
-            []
-            []
+            [ (typeparam T (typeref [ (typename ToBool []) ]) ()) ]
+            [ (param a (typeref [ (typename T []) ]) ()) ]
+            (typeref [ (typename Bool []) ])
             [
-              (freelet a)
               (let $0)
               (assign (ref $0) (select () [ (typename bool []) ] (ref a)))
               (let $1)
@@ -1209,6 +1199,7 @@
                 (lambda
                   []
                   [ (param $0 () ()) ]
+                  ()
                   [
                     (let $1)
                     (assign
@@ -1228,6 +1219,7 @@
                 (lambda
                   []
                   [ (param $0 () ()) ]
+                  ()
                   [
                     (let $1)
                     (assign
@@ -1264,27 +1256,24 @@
           [
             (function
               ==
-              []
-              [
-                (param self (Self ) ())
-                (param other (typeref [ (typename T []) ]) ())
-              ]
-              (typeref [ (typename Bool []) ])
-              ())
-            (function
-              !=
-              []
-              [
-                (param self (Self ) ())
-                (param other (typeref [ (typename T []) ]) ())
-              ]
-              (typeref [ (typename Bool []) ])
               (lambda
                 []
+                [
+                  (param self (Self ) ())
+                  (param other (typeref [ (typename T []) ]) ())
+                ]
+                (typeref [ (typename Bool []) ])
+                []))
+            (function
+              !=
+              (lambda
                 []
                 [
-                  (freelet self)
-                  (freelet other)
+                  (param self (Self ) ())
+                  (param other (typeref [ (typename T []) ]) ())
+                ]
+                (typeref [ (typename Bool []) ])
+                [
                   (let $0)
                   (assign
                     (ref $0)
@@ -1301,27 +1290,24 @@
           [
             (function
               <
-              []
-              [
-                (param self (Self ) ())
-                (param other (typeref [ (typename T []) ]) ())
-              ]
-              (typeref [ (typename Bool []) ])
-              ())
-            (function
-              <=
-              []
-              [
-                (param self (Self ) ())
-                (param other (typeref [ (typename T []) ]) ())
-              ]
-              (typeref [ (typename Bool []) ])
               (lambda
                 []
+                [
+                  (param self (Self ) ())
+                  (param other (typeref [ (typename T []) ]) ())
+                ]
+                (typeref [ (typename Bool []) ])
+                []))
+            (function
+              <=
+              (lambda
                 []
                 [
-                  (freelet self)
-                  (freelet other)
+                  (param self (Self ) ())
+                  (param other (typeref [ (typename T []) ]) ())
+                ]
+                (typeref [ (typename Bool []) ])
+                [
                   (let $0)
                   (assign
                     (ref $0)
@@ -1338,18 +1324,14 @@
                 ]))
             (function
               >=
-              []
-              [
-                (param self (Self ) ())
-                (param other (typeref [ (typename T []) ]) ())
-              ]
-              (typeref [ (typename Bool []) ])
               (lambda
                 []
-                []
                 [
-                  (freelet self)
-                  (freelet other)
+                  (param self (Self ) ())
+                  (param other (typeref [ (typename T []) ]) ())
+                ]
+                (typeref [ (typename Bool []) ])
+                [
                   (let $0)
                   (assign
                     (ref $0)
@@ -1360,18 +1342,14 @@
                 ]))
             (function
               >
-              []
-              [
-                (param self (Self ) ())
-                (param other (typeref [ (typename T []) ]) ())
-              ]
-              (typeref [ (typename Bool []) ])
               (lambda
                 []
-                []
                 [
-                  (freelet self)
-                  (freelet other)
+                  (param self (Self ) ())
+                  (param other (typeref [ (typename T []) ]) ())
+                ]
+                (typeref [ (typename Bool []) ])
+                [
                   (let $0)
                   (assign
                     (ref $0)
@@ -1382,18 +1360,14 @@
                 ]))
             (function
               <=>
-              []
-              [
-                (param self (Self ) ())
-                (param other (typeref [ (typename T []) ]) ())
-              ]
-              (typeref [ (typename Compare []) ])
               (lambda
                 []
-                []
                 [
-                  (freelet self)
-                  (freelet other)
+                  (param self (Self ) ())
+                  (param other (typeref [ (typename T []) ]) ())
+                ]
+                (typeref [ (typename Compare []) ])
+                [
                   (let $0)
                   (assign
                     (ref $0)
@@ -1406,6 +1380,7 @@
                     (lambda
                       []
                       []
+                      ()
                       [
                         (let $0)
                         (assign
@@ -1434,6 +1409,7 @@
                     (lambda
                       []
                       []
+                      ()
                       [
                         (let $0)
                         (assign
@@ -1454,6 +1430,7 @@
                     (lambda
                       []
                       []
+                      ()
                       [
                         (let $0)
                         (assign

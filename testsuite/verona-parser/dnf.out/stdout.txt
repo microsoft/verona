@@ -15,58 +15,67 @@
         (class E [] () [])
         (function
           f
-          []
-          [
-            (param
-              x
-              (uniontype
-                [
-                  (isecttype
-                    [
-                      (typeref [ (typename A []) ])
-                      (typeref [ (typename C []) ])
-                    ])
-                  (isecttype
-                    [
-                      (typeref [ (typename A []) ])
-                      (typeref [ (typename D []) ])
-                    ])
-                  (isecttype
-                    [
-                      (typeref [ (typename B []) ])
-                      (typeref [ (typename C []) ])
-                    ])
-                  (isecttype
-                    [
-                      (typeref [ (typename B []) ])
-                      (typeref [ (typename D []) ])
-                    ])
-                ])
-              ())
-          ]
-          (uniontype
+          (lambda
+            []
             [
-              (isecttype
-                [ (typeref [ (typename A []) ]) (typeref [ (typename C []) ]) ])
-              (isecttype
-                [ (typeref [ (typename A []) ]) (typeref [ (typename D []) ]) ])
-              (isecttype
-                [ (typeref [ (typename B []) ]) (typeref [ (typename C []) ]) ])
-              (isecttype
-                [ (typeref [ (typename B []) ]) (typeref [ (typename D []) ]) ])
-              (throwtype
+              (param
+                x
+                (uniontype
+                  [
+                    (isecttype
+                      [
+                        (typeref [ (typename A []) ])
+                        (typeref [ (typename C []) ])
+                      ])
+                    (isecttype
+                      [
+                        (typeref [ (typename A []) ])
+                        (typeref [ (typename D []) ])
+                      ])
+                    (isecttype
+                      [
+                        (typeref [ (typename B []) ])
+                        (typeref [ (typename C []) ])
+                      ])
+                    (isecttype
+                      [
+                        (typeref [ (typename B []) ])
+                        (typeref [ (typename D []) ])
+                      ])
+                  ])
+                ())
+            ]
+            (uniontype
+              [
+                (isecttype
+                  [
+                    (typeref [ (typename A []) ])
+                    (typeref [ (typename C []) ])
+                  ])
+                (isecttype
+                  [
+                    (typeref [ (typename A []) ])
+                    (typeref [ (typename D []) ])
+                  ])
                 (isecttype
                   [
                     (typeref [ (typename B []) ])
                     (typeref [ (typename C []) ])
-                  ]))
-              (throwtype (typeref [ (typename D []) ]))
-            ])
-          (lambda
-            []
-            []
+                  ])
+                (isecttype
+                  [
+                    (typeref [ (typename B []) ])
+                    (typeref [ (typename D []) ])
+                  ])
+                (throwtype
+                  (isecttype
+                    [
+                      (typeref [ (typename B []) ])
+                      (typeref [ (typename C []) ])
+                    ]))
+                (throwtype (typeref [ (typename D []) ]))
+              ])
             [
-              (freelet x)
               (oftype
                 (ref x)
                 (uniontype
@@ -96,44 +105,35 @@
             ]))
         (function
           g
-          []
-          [
-            (param x (typeref [ (typename A []) ]) ())
-            (param
-              f
-              (functiontype
-                (typeref [ (typename A []) ])
-                (uniontype
-                  [
-                    (typeref [ (typename B []) ])
-                    (typeref [ (typename C []) ])
-                    (throwtype (typeref [ (typename D []) ]))
-                    (throwtype (typeref [ (typename E []) ]))
-                  ]))
-              ())
-          ]
-          (uniontype
-            [
-              (typeref [ (typename B []) ])
-              (typeref [ (typename C []) ])
-              (throwtype (typeref [ (typename D []) ]))
-              (throwtype (typeref [ (typename E []) ]))
-            ])
           (lambda
             []
-            []
             [
-              (freelet f)
-              (freelet x)
+              (param x (typeref [ (typename A []) ]) ())
+              (param
+                f
+                (functiontype
+                  (typeref [ (typename A []) ])
+                  (uniontype
+                    [
+                      (typeref [ (typename B []) ])
+                      (typeref [ (typename C []) ])
+                      (throwtype (typeref [ (typename D []) ]))
+                      (throwtype (typeref [ (typename E []) ]))
+                    ]))
+                ())
+            ]
+            (uniontype
+              [
+                (typeref [ (typename B []) ])
+                (typeref [ (typename C []) ])
+                (throwtype (typeref [ (typename D []) ]))
+                (throwtype (typeref [ (typename E []) ]))
+              ])
+            [
               (let $0)
               (assign (ref $0) (select (ref f) [ (typename apply []) ] (ref x)))
               (ref $0)
             ]))
-        (function
-          h
-          []
-          []
-          (throwtype (typeref [ (typename E []) ]))
-          (lambda [] [] []))
+        (function h (lambda [] [] (throwtype (typeref [ (typename E []) ])) []))
       ])
   ])

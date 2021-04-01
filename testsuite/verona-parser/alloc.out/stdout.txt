@@ -17,35 +17,28 @@
             (field f (isecttype [ (typeref [ (typename A []) ]) (mut ) ]) ())
             (function
               create
-              [
-                (typeparam
-                  S
-                  (isecttype
-                    [
-                      (typeref
-                        [ (typename C [ (typeref [ (typename A []) ]) ]) ])
-                      (mut )
-                    ])
-                  ())
-              ]
-              [
-                (param
-                  a
-                  (extracttype
-                    (typeref [ (typename S []) ])
-                    (isecttype [ (typeref [ (typename A []) ]) (mut ) ]))
-                  ())
-              ]
-              (typeref [ (typename S []) ])
               (lambda
-                []
-                []
                 [
-                  (freelet a)
-                  (let $0)
-                  (assign (ref $0) (new a (ref a)))
-                  (ref $0)
-                ]))
+                  (typeparam
+                    S
+                    (isecttype
+                      [
+                        (typeref
+                          [ (typename C [ (typeref [ (typename A []) ]) ]) ])
+                        (mut )
+                      ])
+                    ())
+                ]
+                [
+                  (param
+                    a
+                    (extracttype
+                      (typeref [ (typename S []) ])
+                      (isecttype [ (typeref [ (typename A []) ]) (mut ) ]))
+                    ())
+                ]
+                (typeref [ (typename S []) ])
+                [ (let $0) (assign (ref $0) (new a (ref a))) (ref $0) ]))
           ])
         (interface Any [] () [])
         (class
@@ -55,16 +48,18 @@
           [
             (function
               create
-              []
-              []
-              (typeref [ (typename Empty []) ])
-              (lambda [] [] [ (let $0) (assign (ref $0) (new () ())) (ref $0) ]))
+              (lambda
+                []
+                []
+                (typeref [ (typename Empty []) ])
+                [ (let $0) (assign (ref $0) (new () ())) (ref $0) ]))
             (function
               apply
-              []
-              []
-              (typeref [ (typename Empty []) ])
-              (lambda [] [] [ (let $0) (assign (ref $0) (new () ())) (ref $0) ]))
+              (lambda
+                []
+                []
+                (typeref [ (typename Empty []) ])
+                [ (let $0) (assign (ref $0) (new () ())) (ref $0) ]))
           ])
         (class
           One
@@ -74,18 +69,11 @@
             (field a (typeref [ (typename U32 []) ]) ())
             (function
               create
-              []
-              [ (param a (typeref [ (typename U32 []) ]) ()) ]
-              (typeref [ (typename One []) ])
               (lambda
                 []
-                []
-                [
-                  (freelet a)
-                  (let $0)
-                  (assign (ref $0) (new () (ref a)))
-                  (ref $0)
-                ]))
+                [ (param a (typeref [ (typename U32 []) ]) ()) ]
+                (typeref [ (typename One []) ])
+                [ (let $0) (assign (ref $0) (new () (ref a))) (ref $0) ]))
           ])
         (class
           Two
@@ -96,18 +84,14 @@
             (field b (typeref [ (typename F64 []) ]) ())
             (function
               create
-              []
-              [
-                (param a (typeref [ (typename U32 []) ]) ())
-                (param b (typeref [ (typename F64 []) ]) ())
-              ]
-              (typeref [ (typename Two []) ])
               (lambda
                 []
-                []
                 [
-                  (freelet a)
-                  (freelet b)
+                  (param a (typeref [ (typename U32 []) ]) ())
+                  (param b (typeref [ (typename F64 []) ]) ())
+                ]
+                (typeref [ (typename Two []) ])
+                [
                   (let $0)
                   (assign (ref $0) (tuple [ (ref a) (ref b) ]))
                   (let $1)
@@ -117,19 +101,19 @@
           ])
         (function
           foo
-          []
-          []
-          ()
           (lambda
             []
             []
+            ()
             [
               (let f)
+              (let $0)
               (assign
-                (ref f)
+                (ref $0)
                 (lambda
                   [ (typeparam A (typeref [ (typename U64 []) ]) ()) ]
                   [ (param a () ()) ]
+                  ()
                   [
                     (let $0)
                     (assign (ref $0) (int 42))
@@ -139,49 +123,71 @@
                       (select (ref a) [ (typename + []) ] (ref $0)))
                     (ref $1)
                   ]))
+              (assign (ref f) (ref $0))
               (let e0)
-              (assign
-                (ref e0)
-                (select () [ (typename Empty []) (typename create []) ] ()))
-              (let e1)
-              (assign
-                (ref e1)
-                (select () [ (typename Empty []) (typename create []) ] ()))
-              (let e2)
-              (assign (ref e2) (object e (typeref [ (typename Empty []) ]) []))
-              (let one)
-              (let $0)
-              (assign
-                (ref $0)
-                (lambda [] [] [ (let $0) (assign (ref $0) (int 42)) (ref $0) ]))
-              (assign
-                (ref one)
-                (object
-                  ()
-                  (typeref [ (typename One []) ])
-                  [ (field a (typeref [ (typename U32 []) ]) (ref $0)) ]))
-              (let two)
               (let $1)
               (assign
                 (ref $1)
-                (lambda [] [] [ (let $0) (assign (ref $0) (int 42)) (ref $0) ]))
+                (select () [ (typename Empty []) (typename create []) ] ()))
+              (assign (ref e0) (ref $1))
+              (let e1)
               (let $2)
               (assign
                 (ref $2)
+                (select () [ (typename Empty []) (typename create []) ] ()))
+              (assign (ref e1) (ref $2))
+              (let e2)
+              (let $3)
+              (assign (ref $3) (object e (typeref [ (typename Empty []) ]) []))
+              (assign (ref e2) (ref $3))
+              (let one)
+              (let $4)
+              (assign
+                (ref $4)
                 (lambda
                   []
                   []
-                  [ (let $0) (assign (ref $0) (float 3.14)) (ref $0) ]))
+                  ()
+                  [ (let $0) (assign (ref $0) (int 42)) (ref $0) ]))
+              (let $5)
               (assign
-                (ref two)
+                (ref $5)
+                (object
+                  ()
+                  (typeref [ (typename One []) ])
+                  [ (field a (typeref [ (typename U32 []) ]) (ref $4)) ]))
+              (assign (ref one) (ref $5))
+              (let two)
+              (let $6)
+              (assign
+                (ref $6)
+                (lambda
+                  []
+                  []
+                  ()
+                  [ (let $0) (assign (ref $0) (int 42)) (ref $0) ]))
+              (let $7)
+              (assign
+                (ref $7)
+                (lambda
+                  []
+                  []
+                  ()
+                  [ (let $0) (assign (ref $0) (float 3.14)) (ref $0) ]))
+              (let $8)
+              (assign
+                (ref $8)
                 (object
                   one
                   (typeref [ (typename Two []) ])
                   [
-                    (field a (typeref [ (typename U32 []) ]) (ref $1))
-                    (field b (typeref [ (typename F64 []) ]) (ref $2))
+                    (field a (typeref [ (typename U32 []) ]) (ref $6))
+                    (field b (typeref [ (typename F64 []) ]) (ref $7))
                   ]))
-              (ref two)
+              (let $9)
+              (assign (ref $9) (ref two))
+              (assign (ref two) (ref $8))
+              (ref $9)
             ]))
       ])
     (class

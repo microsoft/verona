@@ -14,20 +14,18 @@
           []
           ()
           [
-            (class C [] () [ (function bar [] [] () (lambda [] [] [])) ])
-            (function foo [] [] () (lambda [] [] []))
+            (class C [] () [ (function bar (lambda [] [] () [])) ])
+            (function foo (lambda [] [] () []))
           ])
         (function
           f
-          [ (typeparam X () ()) ]
-          [
-            (param x (typeref [ (typename A []) ]) ())
-            (param y (typeref [ (typename A []) ]) ())
-          ]
-          ()
           (lambda
-            []
-            []
+            [ (typeparam X () ()) ]
+            [
+              (param x (typeref [ (typename A []) ]) ())
+              (param y (typeref [ (typename A []) ]) ())
+            ]
+            ()
             [
               (let $0)
               (assign
@@ -70,8 +68,6 @@
                     (typename create [])
                   ]
                   ()))
-              (freelet x)
-              (freelet y)
               (let $6)
               (assign (ref $6) (tuple [ (ref x) (ref y) ]))
               (let $7)
