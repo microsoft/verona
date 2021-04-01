@@ -153,11 +153,8 @@ namespace verona::parser
       case Kind::Bool:
         return "bool";
 
-      case Kind::FreeLet:
-        return "freelet";
-
-      case Kind::FreeVar:
-        return "freevar";
+      case Kind::Free:
+        return "free";
     }
 
     // This is unreachable, and is only to suppress an MSVC error.

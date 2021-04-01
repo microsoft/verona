@@ -84,7 +84,7 @@ class Filter[T]: Iterator[T]
   next(self: Filter[T] & mut)
   {
     self.it.next();
-    self.ok = false;
+    // self.ok = false;
     self._advance()
   }
 

@@ -55,6 +55,9 @@ namespace verona::parser
     if (!loc.source)
       return out;
 
+    if (loc.source->origin.empty())
+      return out << "Internal error: ";
+
     auto linecol = loc.linecol();
     return out << loc.source->origin << ":" << linecol.first << ":"
                << linecol.second << ": ";
@@ -66,6 +69,9 @@ namespace verona::parser
 
     if (!loc.source)
       return out << std::endl;
+
+    if (loc.source->origin.empty())
+      return out << std::endl << loc.view() << std::endl;
 
     auto& contents = loc.source->contents;
     std::string_view view{contents};

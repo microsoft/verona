@@ -16,7 +16,6 @@ namespace verona::parser::anf
     {
       Node<Lambda> lambda;
       List<Expr> anf;
-      size_t hygienic;
     };
 
     std::vector<State> state_stack;
@@ -54,21 +53,36 @@ namespace verona::parser::anf
     {
       state_stack.back().anf.push_back(expr);
 
-      if (is_kind(expr, {Kind::Let, Kind::Var, Kind::FreeLet, Kind::FreeVar}))
+      if (is_kind(expr, {Kind::Let, Kind::Var, Kind::Free}))
         state_stack.back().lambda->symbol_table()->set(expr->location, expr);
     }
 
     void make_trivial()
     {
-      // Append (let $x) (assign (ref $x) expr) to the body.
-      auto let = std::make_shared<Let>();
-      let->location = ident();
-      add(let);
-
-      auto ref = std::make_shared<Ref>();
-      ref->location = let->location;
-
       auto e = expr();
+      auto id = ident();
+
+      if (
+        (parent()->kind() == Kind::Assign) &&
+        (parent<Assign>()->left == e))
+      {
+        // (var $x) if this is an lvalue.
+        auto var = std::make_shared<Var>();
+        var->location = id;
+        add(var);
+      }
+      else
+      {
+        // (let $x) if this is an rvalue.
+        auto let = std::make_shared<Let>();
+        let->location = id;
+        add(let);
+      }
+
+      // (assign (ref $x) expr)
+      auto ref = std::make_shared<Ref>();
+      ref->location = id;
+
       auto asn = std::make_shared<Assign>();
       asn->location = e->location;
       asn->left = ref;
@@ -167,13 +181,6 @@ namespace verona::parser::anf
 
     void post(Ref& ref)
     {
-      if (top() && !last())
-      {
-        error() << ref.location << "This is an unused reference."
-                << text(ref.location);
-        return;
-      }
-
       // Check if it's a local variable or parameter.
       auto def = state_stack.back().lambda->st.get(ref.location);
 
@@ -181,34 +188,40 @@ namespace verona::parser::anf
       {
         // Insert a free variable declaration.
         auto defs = look_up(stack, ref.location);
-        Node<Expr> fr;
 
         switch (defs.front().back()->kind())
         {
           case Kind::Param:
           case Kind::Let:
-          {
-            fr = std::make_shared<FreeLet>();
-            break;
-          }
-
           case Kind::Var:
+          case Kind::Free:
           {
-            fr = std::make_shared<FreeVar>();
+            auto fr = std::make_shared<Free>();
+            fr->location = ref.location;
+            add(fr);
             break;
           }
 
           default:
-            return;
+          {
+            error() << ref.location << "Unexpected undefined reference."
+                    << text(ref.location);
+            break;
+          }
         }
-
-        fr->location = ref.location;
-        add(fr);
       }
 
       // Add it to the ANF if it's top level.
       if (top())
+      {
         add();
+
+        if (!last())
+        {
+          error() << ref.location << "This is an unused reference."
+                  << text(ref.location);
+        }
+      }
     }
 
     void post(Expr&)
@@ -218,8 +231,10 @@ namespace verona::parser::anf
 
     void pre(Lambda& lambda)
     {
-      state_stack.push_back({current<Lambda>(), {}, ident.hygienic});
-      ident.hygienic = 0;
+      if (state_stack.empty())
+        ident.hygienic = 0;
+
+      state_stack.push_back({current<Lambda>(), {}});
 
       // Turn patterns into parameters.
       for (auto& expr : lambda.params)
@@ -264,7 +279,6 @@ namespace verona::parser::anf
     {
       auto& state = state_stack.back();
       lambda.body = state.anf;
-      ident.hygienic = state.hygienic;
       state_stack.pop_back();
 
       if (!lambda.body.empty())
@@ -298,7 +312,7 @@ namespace verona::parser::anf
         }
       }
 
-      if (!state_stack.empty())
+      if (!state_stack.empty() && (parent()->kind() != Kind::Param))
         make_trivial();
     }
   };
@@ -313,6 +327,77 @@ namespace verona::parser::anf
   struct WF : Pass<WF>
   {
     AST_PASS;
+
+    void post(Oftype& oftype)
+    {
+      if (oftype.expr->kind() != Kind::Ref)
+      {
+        error() << oftype.expr->location << "Unexpected oftype LHS."
+                << text(oftype.expr->location);
+      }
+    }
+
+    void post(Throw& thr)
+    {
+      if (thr.expr->kind() != Kind::Ref)
+      {
+        error() << thr.expr->location << "Unexpected throw expression."
+                << text(thr.expr->location);
+      }
+    }
+
+    void post(Assign& asn)
+    {
+      if (asn.left->kind() != Kind::Ref)
+      {
+        error() << asn.left->location << "Unexpected assignment LHS."
+                << text(asn.left->location);
+      }
+
+      if (!is_kind(
+            asn.right,
+            {Kind::Ref,
+             Kind::Tuple,
+             Kind::Select,
+             Kind::New,
+             Kind::ObjectLiteral,
+             Kind::Lambda,
+             Kind::Match,
+             Kind::Try,
+             Kind::When,
+             Kind::Bool,
+             Kind::Binary,
+             Kind::Int,
+             Kind::Hex,
+             Kind::Float,
+             Kind::Character,
+             Kind::EscapedString,
+             Kind::UnescapedString}))
+      {
+        error() << asn.right->location << "Unexpected assignment RHS."
+                << text(asn.right->location);
+      }
+    }
+
+    void post(Lambda& lambda)
+    {
+      for (auto& e : lambda.body)
+      {
+        if (!is_kind(
+              e,
+              {Kind::Ref,
+               Kind::Assign,
+               Kind::Let,
+               Kind::Var,
+               Kind::Free,
+               Kind::Oftype,
+               Kind::Throw}))
+        {
+          error() << e->location << "Unexpected expression at the top level."
+                  << text(e->location);
+        }
+      }
+    }
   };
 
   bool wellformed(Ast& ast, std::ostream& out)

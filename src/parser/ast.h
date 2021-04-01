@@ -68,8 +68,7 @@ namespace verona::parser
     Bool,
 
     // Free variables are introduced in the ANF pass.
-    FreeLet,
-    FreeVar,
+    Free,
   };
 
   struct NodeDef;
@@ -625,19 +624,11 @@ namespace verona::parser
     }
   };
 
-  struct FreeLet : Let
+  struct Free : Let
   {
     Kind kind()
     {
-      return Kind::FreeLet;
-    }
-  };
-
-  struct FreeVar : Var
-  {
-    Kind kind()
-    {
-      return Kind::FreeVar;
+      return Kind::Free;
     }
   };
 }

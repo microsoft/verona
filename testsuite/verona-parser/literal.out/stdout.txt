@@ -71,72 +71,72 @@
                 (select (ref $11) [ (typename + []) ] (ref $14)))
               (assign (ref precedence2) (ref $15))
               (let object1)
-              (let $16)
-              (assign
-                (ref $16)
-                (lambda
-                  []
-                  []
-                  ()
-                  [ (let $0) (assign (ref $0) (int 0)) (ref $0) ]))
               (let $17)
               (assign
                 (ref $17)
-                (object
-                  ()
-                  ()
-                  [ (field x (typeref [ (typename U64 []) ]) (ref $16)) ]))
-              (assign (ref object1) (ref $17))
-              (let object2)
-              (let $18)
-              (assign
-                (ref $18)
                 (lambda
                   []
                   []
                   ()
-                  [ (let $0) (assign (ref $0) (int 0)) (ref $0) ]))
-              (let $19)
+                  [ (let $16) (assign (ref $16) (int 0)) (ref $16) ]))
+              (let $18)
               (assign
-                (ref $19)
+                (ref $18)
+                (object
+                  ()
+                  ()
+                  [ (field x (typeref [ (typename U64 []) ]) (ref $17)) ]))
+              (assign (ref object1) (ref $18))
+              (let object2)
+              (let $20)
+              (assign
+                (ref $20)
+                (lambda
+                  []
+                  []
+                  ()
+                  [ (let $19) (assign (ref $19) (int 0)) (ref $19) ]))
+              (let $21)
+              (assign
+                (ref $21)
                 (object
                   ()
                   (typeref [ (typename Foo []) ])
-                  [ (field x (typeref [ (typename U64 []) ]) (ref $18)) ]))
-              (assign (ref object2) (ref $19))
+                  [ (field x (typeref [ (typename U64 []) ]) (ref $20)) ]))
+              (assign (ref object2) (ref $21))
               (let bool3)
               (oftype (ref bool3) (typeref [ (typename Bool []) ]))
-              (let $20)
-              (assign (ref $20) (bool true))
-              (assign (ref bool3) (ref $20))
+              (let $22)
+              (assign (ref $22) (bool true))
+              (assign (ref bool3) (ref $22))
               (let bool4)
               (oftype (ref bool4) (typeref [ (typename Bool []) ]))
-              (let $21)
-              (assign (ref $21) (bool false))
-              (assign (ref bool4) (ref $21))
+              (let $23)
+              (assign (ref $23) (bool false))
+              (assign (ref bool4) (ref $23))
               (let int4)
               (oftype (ref int4) (typeref [ (typename U16 []) ]))
-              (let $22)
-              (assign (ref $22) (int 00_420))
-              (assign (ref int4) (ref $22))
+              (let $24)
+              (assign (ref $24) (int 00_420))
+              (assign (ref int4) (ref $24))
               (let int5)
               (oftype (ref int5) (typeref [ (typename I32 []) ]))
-              (let $23)
-              (assign (ref $23) (hex 0xc0_FFeE))
-              (assign (ref int5) (ref $23))
+              (let $25)
+              (assign (ref $25) (hex 0xc0_FFeE))
+              (assign (ref int5) (ref $25))
               (let int6)
               (oftype (ref int6) (typeref [ (typename U8 []) ]))
-              (let $24)
-              (assign (ref $24) (binary 0b100_10_10))
-              (assign (ref int6) (ref $24))
+              (let $26)
+              (assign (ref $26) (binary 0b100_10_10))
+              (assign (ref int6) (ref $26))
               (let float2)
               (oftype (ref float2) (typeref [ (typename F32 []) ]))
-              (let $25)
-              (assign (ref $25) (float 207.18e-1))
-              (let $26)
-              (assign (ref $26) (ref float2))
-              (assign (ref float2) (ref $25))
-              (ref $26)
+              (let $27)
+              (assign (ref $27) (float 207.18e-1))
+              (assign (ref float2) (ref $27))
+              (let $28)
+              (assign (ref $28) (bool false))
+              (ref $28)
             ]))
       ])
     (class
@@ -196,51 +196,51 @@
             [
               (let $0)
               (assign (ref $0) (select () [ (typename bool []) ] (ref a)))
-              (let $1)
+              (let $4)
               (assign
-                (ref $1)
+                (ref $4)
                 (lambda
                   []
-                  [ (param $0 () ()) ]
+                  [ (param $1 () ()) ]
                   ()
                   [
-                    (let $1)
-                    (assign
-                      (ref $1)
-                      (select (param $0 () ()) [ (typename == []) ] (ref $0)))
                     (let $2)
                     (assign
                       (ref $2)
-                      (select () [ (typename requires []) ] (ref $1)))
-                    (freelet a)
-                    (ref a)
-                  ]))
-              (let $2)
-              (assign
-                (ref $2)
-                (lambda
-                  []
-                  [ (param $0 () ()) ]
-                  ()
-                  [
-                    (let $1)
-                    (assign
-                      (ref $1)
-                      (select (param $0 () ()) [ (typename == []) ] (ref $0)))
-                    (let $2)
-                    (assign
-                      (ref $2)
-                      (select () [ (typename requires []) ] (ref $1)))
-                    (freelet b)
+                      (select (param $1 () ()) [ (typename == []) ] (ref $1)))
                     (let $3)
                     (assign
                       (ref $3)
-                      (select (ref b) [ (typename apply []) ] ()))
-                    (ref $3)
+                      (select () [ (typename requires []) ] (ref $2)))
+                    (free a)
+                    (ref a)
                   ]))
-              (let $3)
-              (assign (ref $3) (match (ref $0) [ (ref $1) (ref $2) ]))
-              (ref $3)
+              (let $9)
+              (assign
+                (ref $9)
+                (lambda
+                  []
+                  [ (param $5 () ()) ]
+                  ()
+                  [
+                    (let $6)
+                    (assign
+                      (ref $6)
+                      (select (param $5 () ()) [ (typename == []) ] (ref $5)))
+                    (let $7)
+                    (assign
+                      (ref $7)
+                      (select () [ (typename requires []) ] (ref $6)))
+                    (free b)
+                    (let $8)
+                    (assign
+                      (ref $8)
+                      (select (ref b) [ (typename apply []) ] ()))
+                    (ref $8)
+                  ]))
+              (let $10)
+              (assign (ref $10) (match (ref $0) [ (ref $4) (ref $9) ]))
+              (ref $10)
             ]))
         (function
           or
@@ -261,51 +261,51 @@
             [
               (let $0)
               (assign (ref $0) (select () [ (typename bool []) ] (ref a)))
-              (let $1)
+              (let $4)
               (assign
-                (ref $1)
+                (ref $4)
                 (lambda
                   []
-                  [ (param $0 () ()) ]
+                  [ (param $1 () ()) ]
                   ()
                   [
-                    (let $1)
-                    (assign
-                      (ref $1)
-                      (select (param $0 () ()) [ (typename == []) ] (ref $0)))
                     (let $2)
                     (assign
                       (ref $2)
-                      (select () [ (typename requires []) ] (ref $1)))
-                    (freelet a)
-                    (ref a)
-                  ]))
-              (let $2)
-              (assign
-                (ref $2)
-                (lambda
-                  []
-                  [ (param $0 () ()) ]
-                  ()
-                  [
-                    (let $1)
-                    (assign
-                      (ref $1)
-                      (select (param $0 () ()) [ (typename == []) ] (ref $0)))
-                    (let $2)
-                    (assign
-                      (ref $2)
-                      (select () [ (typename requires []) ] (ref $1)))
-                    (freelet b)
+                      (select (param $1 () ()) [ (typename == []) ] (ref $1)))
                     (let $3)
                     (assign
                       (ref $3)
-                      (select (ref b) [ (typename apply []) ] ()))
-                    (ref $3)
+                      (select () [ (typename requires []) ] (ref $2)))
+                    (free a)
+                    (ref a)
                   ]))
-              (let $3)
-              (assign (ref $3) (match (ref $0) [ (ref $1) (ref $2) ]))
-              (ref $3)
+              (let $9)
+              (assign
+                (ref $9)
+                (lambda
+                  []
+                  [ (param $5 () ()) ]
+                  ()
+                  [
+                    (let $6)
+                    (assign
+                      (ref $6)
+                      (select (param $5 () ()) [ (typename == []) ] (ref $5)))
+                    (let $7)
+                    (assign
+                      (ref $7)
+                      (select () [ (typename requires []) ] (ref $6)))
+                    (free b)
+                    (let $8)
+                    (assign
+                      (ref $8)
+                      (select (ref b) [ (typename apply []) ] ()))
+                    (ref $8)
+                  ]))
+              (let $10)
+              (assign (ref $10) (match (ref $0) [ (ref $4) (ref $9) ]))
+              (ref $10)
             ]))
         (function
           not
@@ -316,49 +316,49 @@
             [
               (let $0)
               (assign (ref $0) (select () [ (typename bool []) ] (ref a)))
-              (let $1)
+              (let $5)
               (assign
-                (ref $1)
+                (ref $5)
                 (lambda
                   []
-                  [ (param $0 () ()) ]
+                  [ (param $1 () ()) ]
                   ()
                   [
-                    (let $1)
-                    (assign
-                      (ref $1)
-                      (select (param $0 () ()) [ (typename == []) ] (ref $0)))
                     (let $2)
                     (assign
                       (ref $2)
-                      (select () [ (typename requires []) ] (ref $1)))
+                      (select (param $1 () ()) [ (typename == []) ] (ref $1)))
                     (let $3)
-                    (assign (ref $3) (bool false))
-                    (ref $3)
+                    (assign
+                      (ref $3)
+                      (select () [ (typename requires []) ] (ref $2)))
+                    (let $4)
+                    (assign (ref $4) (bool false))
+                    (ref $4)
                   ]))
-              (let $2)
+              (let $10)
               (assign
-                (ref $2)
+                (ref $10)
                 (lambda
                   []
-                  [ (param $0 () ()) ]
+                  [ (param $6 () ()) ]
                   ()
                   [
-                    (let $1)
+                    (let $7)
                     (assign
-                      (ref $1)
-                      (select (param $0 () ()) [ (typename == []) ] (ref $0)))
-                    (let $2)
+                      (ref $7)
+                      (select (param $6 () ()) [ (typename == []) ] (ref $6)))
+                    (let $8)
                     (assign
-                      (ref $2)
-                      (select () [ (typename requires []) ] (ref $1)))
-                    (let $3)
-                    (assign (ref $3) (bool true))
-                    (ref $3)
+                      (ref $8)
+                      (select () [ (typename requires []) ] (ref $7)))
+                    (let $9)
+                    (assign (ref $9) (bool true))
+                    (ref $9)
                   ]))
-              (let $3)
-              (assign (ref $3) (match (ref $0) [ (ref $1) (ref $2) ]))
-              (ref $3)
+              (let $11)
+              (assign (ref $11) (match (ref $0) [ (ref $5) (ref $10) ]))
+              (ref $11)
             ]))
         (class Less [] () [])
         (class Equal [] () [])
@@ -497,56 +497,35 @@
                     (select (ref self) [ (typename < []) ] (ref other)))
                   (let $1)
                   (assign (ref $1) (select () [ (typename if []) ] (ref $0)))
-                  (let $2)
+                  (let $3)
                   (assign
-                    (ref $2)
+                    (ref $3)
                     (lambda
                       []
                       []
                       ()
                       [
-                        (let $0)
+                        (let $2)
                         (assign
-                          (ref $0)
+                          (ref $2)
                           (select
                             ()
                             [ (typename Less []) (typename create []) ]
                             ()))
-                        (ref $0)
+                        (ref $2)
                       ]))
-                  (let $3)
-                  (assign
-                    (ref $3)
-                    (select (ref $1) [ (typename apply []) ] (ref $2)))
                   (let $4)
                   (assign
                     (ref $4)
-                    (select (ref self) [ (typename == []) ] (ref other)))
+                    (select (ref $1) [ (typename apply []) ] (ref $3)))
                   (let $5)
                   (assign
                     (ref $5)
-                    (select (ref $3) [ (typename elseif []) ] (ref $4)))
+                    (select (ref self) [ (typename == []) ] (ref other)))
                   (let $6)
                   (assign
                     (ref $6)
-                    (lambda
-                      []
-                      []
-                      ()
-                      [
-                        (let $0)
-                        (assign
-                          (ref $0)
-                          (select
-                            ()
-                            [ (typename Equal []) (typename create []) ]
-                            ()))
-                        (ref $0)
-                      ]))
-                  (let $7)
-                  (assign
-                    (ref $7)
-                    (select (ref $5) [ (typename apply []) ] (ref $6)))
+                    (select (ref $4) [ (typename elseif []) ] (ref $5)))
                   (let $8)
                   (assign
                     (ref $8)
@@ -555,20 +534,41 @@
                       []
                       ()
                       [
-                        (let $0)
+                        (let $7)
                         (assign
-                          (ref $0)
+                          (ref $7)
                           (select
                             ()
-                            [ (typename Greater []) (typename create []) ]
+                            [ (typename Equal []) (typename create []) ]
                             ()))
-                        (ref $0)
+                        (ref $7)
                       ]))
                   (let $9)
                   (assign
                     (ref $9)
-                    (select (ref $7) [ (typename else []) ] (ref $8)))
-                  (ref $9)
+                    (select (ref $6) [ (typename apply []) ] (ref $8)))
+                  (let $11)
+                  (assign
+                    (ref $11)
+                    (lambda
+                      []
+                      []
+                      ()
+                      [
+                        (let $10)
+                        (assign
+                          (ref $10)
+                          (select
+                            ()
+                            [ (typename Greater []) (typename create []) ]
+                            ()))
+                        (ref $10)
+                      ]))
+                  (let $12)
+                  (assign
+                    (ref $12)
+                    (select (ref $9) [ (typename else []) ] (ref $11)))
+                  (ref $12)
                 ]))
           ])
       ])

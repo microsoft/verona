@@ -26,4 +26,5 @@ f()
   let int5: I32 = 0xc0_FFeE;
   let int6: U8 = 0b100_10_10;
   let float2: F32 = 207.18e-1;
+  false
 }

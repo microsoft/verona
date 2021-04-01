@@ -22,7 +22,7 @@ class Option[T]: Iterator[T]
   {
     match self.v
     {
-      { None => false }
+      { (None) => false }
       { true }
     }
   }

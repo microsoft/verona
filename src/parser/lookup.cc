@@ -211,8 +211,7 @@ namespace verona::parser
               {Kind::Param,
                Kind::Let,
                Kind::Var,
-               Kind::FreeLet,
-               Kind::FreeVar}))
+               Kind::Free}))
         {
           return def;
         }
