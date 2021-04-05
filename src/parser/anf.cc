@@ -53,7 +53,7 @@ namespace verona::parser::anf
     {
       state_stack.back().anf.push_back(expr);
 
-      if (is_kind(expr, {Kind::Let, Kind::Var, Kind::Free}))
+      if (is_kind(expr, {Kind::Let, Kind::Var}))
         state_stack.back().lambda->symbol_table()->set(expr->location, expr);
     }
 
@@ -69,6 +69,7 @@ namespace verona::parser::anf
         // (var $x) if this is an lvalue.
         auto var = std::make_shared<Var>();
         var->location = id;
+        var->type = std::make_shared<InferType>();
         add(var);
       }
       else
@@ -76,6 +77,7 @@ namespace verona::parser::anf
         // (let $x) if this is an rvalue.
         auto let = std::make_shared<Let>();
         let->location = id;
+        let->type = std::make_shared<InferType>();
         add(let);
       }
 
@@ -133,7 +135,8 @@ namespace verona::parser::anf
                 << text(thr.location);
         return;
       }
-      else if (!last())
+
+      if (!last())
       {
         error() << thr.location
                 << "A throw must be the last expression in a lambda."
@@ -160,6 +163,7 @@ namespace verona::parser::anf
       // rewrite (ref $0)
       auto let = std::make_shared<Let>();
       let->location = ident();
+      let->type = std::make_shared<InferType>();
       add(let);
 
       auto ref = std::make_shared<Ref>();
@@ -187,28 +191,9 @@ namespace verona::parser::anf
       if (!def)
       {
         // Insert a free variable declaration.
-        auto defs = look_up(stack, ref.location);
-
-        switch (defs.front().back()->kind())
-        {
-          case Kind::Param:
-          case Kind::Let:
-          case Kind::Var:
-          case Kind::Free:
-          {
-            auto fr = std::make_shared<Free>();
-            fr->location = ref.location;
-            add(fr);
-            break;
-          }
-
-          default:
-          {
-            error() << ref.location << "Unexpected undefined reference."
-                    << text(ref.location);
-            break;
-          }
-        }
+        auto fr = std::make_shared<Free>();
+        fr->location = ref.location;
+        add(fr);
       }
 
       // Add it to the ANF if it's top level.

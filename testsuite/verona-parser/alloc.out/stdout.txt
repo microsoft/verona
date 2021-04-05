@@ -38,7 +38,11 @@
                     ())
                 ]
                 (typeref [ (typename S []) ])
-                [ (let $0) (assign (ref $0) (new a (ref a))) (ref $0) ]))
+                [
+                  (let $0 (infertype $11))
+                  (assign (ref $0) (new a (ref a)))
+                  (ref $0)
+                ]))
           ])
         (interface Any [] () [])
         (class
@@ -52,14 +56,22 @@
                 []
                 []
                 (typeref [ (typename Empty []) ])
-                [ (let $0) (assign (ref $0) (new () ())) (ref $0) ]))
+                [
+                  (let $0 (infertype $12))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
             (function
               apply
               (lambda
                 []
                 []
                 (typeref [ (typename Empty []) ])
-                [ (let $0) (assign (ref $0) (new () ())) (ref $0) ]))
+                [
+                  (let $0 (infertype $13))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
           ])
         (class
           One
@@ -73,7 +85,11 @@
                 []
                 [ (param a (typeref [ (typename U32 []) ]) ()) ]
                 (typeref [ (typename One []) ])
-                [ (let $0) (assign (ref $0) (new () (ref a))) (ref $0) ]))
+                [
+                  (let $0 (infertype $14))
+                  (assign (ref $0) (new () (ref a)))
+                  (ref $0)
+                ]))
           ])
         (class
           Two
@@ -92,9 +108,15 @@
                 ]
                 (typeref [ (typename Two []) ])
                 [
-                  (let $0)
+                  (let
+                    $0
+                    (tupletype
+                      [
+                        (typeref [ (typename U32 []) ])
+                        (typeref [ (typename F64 []) ])
+                      ]))
                   (assign (ref $0) (tuple [ (ref a) (ref b) ]))
-                  (let $1)
+                  (let $1 (infertype $16))
                   (assign (ref $1) (new () (ref $0)))
                   (ref $1)
                 ]))
@@ -106,50 +128,54 @@
             []
             ()
             [
-              (let f)
-              (let $2)
+              (let f (infertype $0))
+              (let $2 (infertype $19))
               (assign
                 (ref $2)
                 (lambda
                   [ (typeparam A (typeref [ (typename U64 []) ]) ()) ]
-                  [ (param a () ()) ]
-                  ()
+                  [ (param a (infertype $2) ()) ]
+                  (infertype $1)
                   [
-                    (let $0)
+                    (let $0 (infertype $17))
                     (assign (ref $0) (int 42))
-                    (let $1)
+                    (let $1 (infertype $18))
                     (assign
                       (ref $1)
                       (select (ref a) [ (typename + []) ] (ref $0)))
                     (ref $1)
                   ]))
               (assign (ref f) (ref $2))
-              (let e0)
-              (let $3)
+              (let e0 (infertype $3))
+              (let $3 (infertype $20))
               (assign
                 (ref $3)
                 (select () [ (typename Empty []) (typename create []) ] ()))
               (assign (ref e0) (ref $3))
-              (let e1)
-              (let $4)
+              (let e1 (infertype $4))
+              (let $4 (infertype $21))
               (assign
                 (ref $4)
                 (select () [ (typename Empty []) (typename create []) ] ()))
               (assign (ref e1) (ref $4))
-              (let e2)
-              (let $5)
+              (let e2 (infertype $5))
+              (let $5 (infertype $22))
               (assign (ref $5) (object e (typeref [ (typename Empty []) ]) []))
               (assign (ref e2) (ref $5))
-              (let one)
-              (let $7)
+              (let one (infertype $6))
+              (let $7 (infertype $24))
               (assign
                 (ref $7)
                 (lambda
                   []
                   []
-                  ()
-                  [ (let $6) (assign (ref $6) (int 42)) (ref $6) ]))
-              (let $8)
+                  (infertype $7)
+                  [
+                    (let $6 (infertype $23))
+                    (assign (ref $6) (int 42))
+                    (ref $6)
+                  ]))
+              (let $8 (infertype $25))
               (assign
                 (ref $8)
                 (object
@@ -157,24 +183,32 @@
                   (typeref [ (typename One []) ])
                   [ (field a (typeref [ (typename U32 []) ]) (ref $7)) ]))
               (assign (ref one) (ref $8))
-              (let two)
-              (let $10)
+              (let two (infertype $8))
+              (let $10 (infertype $27))
               (assign
                 (ref $10)
                 (lambda
                   []
                   []
-                  ()
-                  [ (let $9) (assign (ref $9) (int 42)) (ref $9) ]))
-              (let $12)
+                  (infertype $9)
+                  [
+                    (let $9 (infertype $26))
+                    (assign (ref $9) (int 42))
+                    (ref $9)
+                  ]))
+              (let $12 (infertype $29))
               (assign
                 (ref $12)
                 (lambda
                   []
                   []
-                  ()
-                  [ (let $11) (assign (ref $11) (float 3.14)) (ref $11) ]))
-              (let $13)
+                  (infertype $10)
+                  [
+                    (let $11 (infertype $28))
+                    (assign (ref $11) (float 3.14))
+                    (ref $11)
+                  ]))
+              (let $13 (infertype $30))
               (assign
                 (ref $13)
                 (object
@@ -185,7 +219,7 @@
                     (field b (typeref [ (typename F64 []) ]) (ref $12))
                   ]))
               (assign (ref two) (ref $13))
-              (let $14)
+              (let $14 (infertype $31))
               (assign (ref $14) (bool false))
               (ref $14)
             ]))
@@ -195,19 +229,284 @@
       []
       ()
       [
-        (class I8 [] () [])
-        (class I16 [] () [])
-        (class I32 [] () [])
-        (class I64 [] () [])
-        (class I128 [] () [])
-        (class ISize [] () [])
-        (class U8 [] () [])
-        (class U16 [] () [])
-        (class U32 [] () [])
-        (class U64 [] () [])
-        (class U128 [] () [])
-        (class USize [] () [])
-        (class F32 [] () [])
-        (class F64 [] () [])
+        (class
+          I8
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename I8 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $32))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          I16
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename I16 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $33))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          I32
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename I32 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $34))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          I64
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename I64 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $35))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          I128
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename I128 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $36))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          ISize
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename ISize []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $37))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (typealias
+          Signed
+          []
+          (uniontype
+            [
+              (typeref [ (typename I8 []) ])
+              (typeref [ (typename I16 []) ])
+              (typeref [ (typename I32 []) ])
+              (typeref [ (typename I64 []) ])
+              (typeref [ (typename I128 []) ])
+              (typeref [ (typename ISize []) ])
+            ])
+          [])
+        (class
+          U8
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename U8 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $38))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          U16
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename U16 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $39))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          U32
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename U32 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $40))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          U64
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $41))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          U128
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename U128 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $42))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          USize
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename USize []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $43))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (typealias
+          Unsigned
+          []
+          (uniontype
+            [
+              (typeref [ (typename U8 []) ])
+              (typeref [ (typename U16 []) ])
+              (typeref [ (typename U32 []) ])
+              (typeref [ (typename U64 []) ])
+              (typeref [ (typename U128 []) ])
+              (typeref [ (typename USize []) ])
+            ])
+          [])
+        (typealias
+          Integer
+          []
+          (uniontype
+            [
+              (typeref [ (typename Signed []) ])
+              (typeref [ (typename Unsigned []) ])
+            ])
+          [])
+        (class
+          F32
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename F32 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $44))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          F64
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename F64 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $45))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (typealias
+          Float
+          []
+          (uniontype
+            [ (typeref [ (typename F32 []) ]) (typeref [ (typename F64 []) ]) ])
+          [])
       ])
   ])

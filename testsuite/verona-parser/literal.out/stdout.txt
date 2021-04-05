@@ -18,68 +18,72 @@
             []
             ()
             [
-              (let bool1)
-              (let $0)
+              (let bool1 (infertype $0))
+              (let $0 (infertype $27))
               (assign (ref $0) (bool true))
               (assign (ref bool1) (ref $0))
-              (let bool2)
-              (let $1)
+              (let bool2 (infertype $1))
+              (let $1 (infertype $28))
               (assign (ref $1) (bool false))
               (assign (ref bool2) (ref $1))
-              (let int1)
-              (let $2)
+              (let int1 (infertype $2))
+              (let $2 (infertype $29))
               (assign (ref $2) (int 00_42))
               (assign (ref int1) (ref $2))
-              (let int2)
-              (let $3)
+              (let int2 (infertype $3))
+              (let $3 (infertype $30))
               (assign (ref $3) (hex 0xc0_FFeE))
               (assign (ref int2) (ref $3))
-              (let int3)
-              (let $4)
+              (let int3 (infertype $4))
+              (let $4 (infertype $31))
               (assign (ref $4) (binary 0b10_10_10))
               (assign (ref int3) (ref $4))
-              (let float1)
-              (let $5)
+              (let float1 (infertype $5))
+              (let $5 (infertype $32))
               (assign (ref $5) (float 27.18e-1))
               (assign (ref float1) (ref $5))
-              (let precedence1)
-              (let $6)
+              (let precedence1 (infertype $6))
+              (let $6 (infertype $33))
               (assign (ref $6) (int 1))
-              (let $7)
+              (let $7 (infertype $34))
               (assign (ref $7) (int 2))
-              (let $8)
+              (let $8 (infertype $35))
               (assign (ref $8) (select (ref $6) [ (typename + []) ] (ref $7)))
-              (let $9)
+              (let $9 (infertype $36))
               (assign (ref $9) (int 3))
-              (let $10)
+              (let $10 (infertype $37))
               (assign (ref $10) (select (ref $8) [ (typename + []) ] (ref $9)))
               (assign (ref precedence1) (ref $10))
-              (let precedence2)
-              (let $11)
+              (let precedence2 (infertype $7))
+              (let $11 (infertype $38))
               (assign (ref $11) (int 1))
-              (let $12)
+              (let $12 (infertype $39))
               (assign (ref $12) (int 2))
-              (let $13)
+              (let $13 (infertype $40))
               (assign (ref $13) (int 3))
-              (let $14)
+              (let $14 (infertype $41))
               (assign
                 (ref $14)
                 (select (ref $12) [ (typename + []) ] (ref $13)))
-              (let $15)
+              (let $15 (infertype $42))
               (assign
                 (ref $15)
                 (select (ref $11) [ (typename + []) ] (ref $14)))
               (assign (ref precedence2) (ref $15))
-              (let object1)
-              (let $17)
+              (let object1 (infertype $8))
+              (let $17 (infertype $44))
               (assign
                 (ref $17)
                 (lambda
                   []
                   []
-                  ()
-                  [ (let $16) (assign (ref $16) (int 0)) (ref $16) ]))
-              (let $18)
+                  (infertype $9)
+                  [
+                    (let $16 (infertype $43))
+                    (assign (ref $16) (int 0))
+                    (ref $16)
+                  ]))
+              (let $18 (infertype $45))
               (assign
                 (ref $18)
                 (object
@@ -87,16 +91,20 @@
                   ()
                   [ (field x (typeref [ (typename U64 []) ]) (ref $17)) ]))
               (assign (ref object1) (ref $18))
-              (let object2)
-              (let $20)
+              (let object2 (infertype $10))
+              (let $20 (infertype $47))
               (assign
                 (ref $20)
                 (lambda
                   []
                   []
-                  ()
-                  [ (let $19) (assign (ref $19) (int 0)) (ref $19) ]))
-              (let $21)
+                  (infertype $11)
+                  [
+                    (let $19 (infertype $46))
+                    (assign (ref $19) (int 0))
+                    (ref $19)
+                  ]))
+              (let $21 (infertype $48))
               (assign
                 (ref $21)
                 (object
@@ -104,37 +112,37 @@
                   (typeref [ (typename Foo []) ])
                   [ (field x (typeref [ (typename U64 []) ]) (ref $20)) ]))
               (assign (ref object2) (ref $21))
-              (let bool3)
+              (let bool3 (infertype $12))
               (oftype (ref bool3) (typeref [ (typename Bool []) ]))
-              (let $22)
+              (let $22 (infertype $49))
               (assign (ref $22) (bool true))
               (assign (ref bool3) (ref $22))
-              (let bool4)
+              (let bool4 (infertype $13))
               (oftype (ref bool4) (typeref [ (typename Bool []) ]))
-              (let $23)
+              (let $23 (infertype $50))
               (assign (ref $23) (bool false))
               (assign (ref bool4) (ref $23))
-              (let int4)
+              (let int4 (infertype $14))
               (oftype (ref int4) (typeref [ (typename U16 []) ]))
-              (let $24)
+              (let $24 (infertype $51))
               (assign (ref $24) (int 00_420))
               (assign (ref int4) (ref $24))
-              (let int5)
+              (let int5 (infertype $15))
               (oftype (ref int5) (typeref [ (typename I32 []) ]))
-              (let $25)
+              (let $25 (infertype $52))
               (assign (ref $25) (hex 0xc0_FFeE))
               (assign (ref int5) (ref $25))
-              (let int6)
+              (let int6 (infertype $16))
               (oftype (ref int6) (typeref [ (typename U8 []) ]))
-              (let $26)
+              (let $26 (infertype $53))
               (assign (ref $26) (binary 0b100_10_10))
               (assign (ref int6) (ref $26))
-              (let float2)
+              (let float2 (infertype $17))
               (oftype (ref float2) (typeref [ (typename F32 []) ]))
-              (let $27)
+              (let $27 (infertype $54))
               (assign (ref $27) (float 207.18e-1))
               (assign (ref float2) (ref $27))
-              (let $28)
+              (let $28 (infertype $55))
               (assign (ref $28) (bool false))
               (ref $28)
             ]))
@@ -163,6 +171,17 @@
                 [ (param self (typeref [ (typename Bool []) ]) ()) ]
                 (typeref [ (typename Bool []) ])
                 [ (ref self) ]))
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename Bool []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $56))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
           ])
         (interface
           ToBool
@@ -194,51 +213,51 @@
             (uniontype
               [ (typeref [ (typename T []) ]) (typeref [ (typename U []) ]) ])
             [
-              (let $0)
+              (let $0 (infertype $57))
               (assign (ref $0) (select () [ (typename bool []) ] (ref a)))
-              (let $4)
+              (let $4 (infertype $60))
               (assign
                 (ref $4)
                 (lambda
                   []
                   [ (param $1 () ()) ]
-                  ()
+                  (infertype $18)
                   [
-                    (let $2)
+                    (let $2 (infertype $58))
                     (assign
                       (ref $2)
                       (select (param $1 () ()) [ (typename == []) ] (ref $1)))
-                    (let $3)
+                    (let $3 (infertype $59))
                     (assign
                       (ref $3)
                       (select () [ (typename requires []) ] (ref $2)))
                     (free a)
                     (ref a)
                   ]))
-              (let $9)
+              (let $9 (infertype $64))
               (assign
                 (ref $9)
                 (lambda
                   []
                   [ (param $5 () ()) ]
-                  ()
+                  (infertype $19)
                   [
-                    (let $6)
+                    (let $6 (infertype $61))
                     (assign
                       (ref $6)
                       (select (param $5 () ()) [ (typename == []) ] (ref $5)))
-                    (let $7)
+                    (let $7 (infertype $62))
                     (assign
                       (ref $7)
                       (select () [ (typename requires []) ] (ref $6)))
                     (free b)
-                    (let $8)
+                    (let $8 (infertype $63))
                     (assign
                       (ref $8)
                       (select (ref b) [ (typename apply []) ] ()))
                     (ref $8)
                   ]))
-              (let $10)
+              (let $10 (infertype $65))
               (assign (ref $10) (match (ref $0) [ (ref $4) (ref $9) ]))
               (ref $10)
             ]))
@@ -259,51 +278,51 @@
             (uniontype
               [ (typeref [ (typename T []) ]) (typeref [ (typename U []) ]) ])
             [
-              (let $0)
+              (let $0 (infertype $66))
               (assign (ref $0) (select () [ (typename bool []) ] (ref a)))
-              (let $4)
+              (let $4 (infertype $69))
               (assign
                 (ref $4)
                 (lambda
                   []
                   [ (param $1 () ()) ]
-                  ()
+                  (infertype $20)
                   [
-                    (let $2)
+                    (let $2 (infertype $67))
                     (assign
                       (ref $2)
                       (select (param $1 () ()) [ (typename == []) ] (ref $1)))
-                    (let $3)
+                    (let $3 (infertype $68))
                     (assign
                       (ref $3)
                       (select () [ (typename requires []) ] (ref $2)))
                     (free a)
                     (ref a)
                   ]))
-              (let $9)
+              (let $9 (infertype $73))
               (assign
                 (ref $9)
                 (lambda
                   []
                   [ (param $5 () ()) ]
-                  ()
+                  (infertype $21)
                   [
-                    (let $6)
+                    (let $6 (infertype $70))
                     (assign
                       (ref $6)
                       (select (param $5 () ()) [ (typename == []) ] (ref $5)))
-                    (let $7)
+                    (let $7 (infertype $71))
                     (assign
                       (ref $7)
                       (select () [ (typename requires []) ] (ref $6)))
                     (free b)
-                    (let $8)
+                    (let $8 (infertype $72))
                     (assign
                       (ref $8)
                       (select (ref b) [ (typename apply []) ] ()))
                     (ref $8)
                   ]))
-              (let $10)
+              (let $10 (infertype $74))
               (assign (ref $10) (match (ref $0) [ (ref $4) (ref $9) ]))
               (ref $10)
             ]))
@@ -314,55 +333,103 @@
             [ (param a (typeref [ (typename T []) ]) ()) ]
             (typeref [ (typename Bool []) ])
             [
-              (let $0)
+              (let $0 (infertype $75))
               (assign (ref $0) (select () [ (typename bool []) ] (ref a)))
-              (let $5)
+              (let $5 (infertype $79))
               (assign
                 (ref $5)
                 (lambda
                   []
                   [ (param $1 () ()) ]
-                  ()
+                  (infertype $22)
                   [
-                    (let $2)
+                    (let $2 (infertype $76))
                     (assign
                       (ref $2)
                       (select (param $1 () ()) [ (typename == []) ] (ref $1)))
-                    (let $3)
+                    (let $3 (infertype $77))
                     (assign
                       (ref $3)
                       (select () [ (typename requires []) ] (ref $2)))
-                    (let $4)
+                    (let $4 (infertype $78))
                     (assign (ref $4) (bool false))
                     (ref $4)
                   ]))
-              (let $10)
+              (let $10 (infertype $83))
               (assign
                 (ref $10)
                 (lambda
                   []
                   [ (param $6 () ()) ]
-                  ()
+                  (infertype $23)
                   [
-                    (let $7)
+                    (let $7 (infertype $80))
                     (assign
                       (ref $7)
                       (select (param $6 () ()) [ (typename == []) ] (ref $6)))
-                    (let $8)
+                    (let $8 (infertype $81))
                     (assign
                       (ref $8)
                       (select () [ (typename requires []) ] (ref $7)))
-                    (let $9)
+                    (let $9 (infertype $82))
                     (assign (ref $9) (bool true))
                     (ref $9)
                   ]))
-              (let $11)
+              (let $11 (infertype $84))
               (assign (ref $11) (match (ref $0) [ (ref $5) (ref $10) ]))
               (ref $11)
             ]))
-        (class Less [] () [])
-        (class Equal [] () [])
-        (class Greater [] () [])
+        (class
+          Less
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename Less []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $85))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          Equal
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename Equal []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $86))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          Greater
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename Greater []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $87))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
         (typealias
           Compare
           []
@@ -371,7 +438,8 @@
               (typeref [ (typename Less []) ])
               (typeref [ (typename Equal []) ])
               (typeref [ (typename Greater []) ])
-            ]))
+            ])
+          [])
         (interface
           Equatable
           [ (typeparam T () ()) ]
@@ -397,11 +465,11 @@
                 ]
                 (typeref [ (typename Bool []) ])
                 [
-                  (let $0)
+                  (let $0 (infertype $88))
                   (assign
                     (ref $0)
                     (select (ref self) [ (typename == []) ] (ref other)))
-                  (let $1)
+                  (let $1 (infertype $89))
                   (assign (ref $1) (select () [ (typename not []) ] (ref $0)))
                   (ref $1)
                 ]))
@@ -431,15 +499,15 @@
                 ]
                 (typeref [ (typename Bool []) ])
                 [
-                  (let $0)
+                  (let $0 (infertype $90))
                   (assign
                     (ref $0)
                     (select (ref self) [ (typename < []) ] (ref other)))
-                  (let $1)
+                  (let $1 (infertype $91))
                   (assign
                     (ref $1)
                     (select (ref self) [ (typename == []) ] (ref other)))
-                  (let $2)
+                  (let $2 (infertype $92))
                   (assign
                     (ref $2)
                     (select (ref $0) [ (typename or []) ] (ref $1)))
@@ -455,11 +523,11 @@
                 ]
                 (typeref [ (typename Bool []) ])
                 [
-                  (let $0)
+                  (let $0 (infertype $93))
                   (assign
                     (ref $0)
                     (select (ref self) [ (typename < []) ] (ref other)))
-                  (let $1)
+                  (let $1 (infertype $94))
                   (assign (ref $1) (select () [ (typename not []) ] (ref $0)))
                   (ref $1)
                 ]))
@@ -473,11 +541,11 @@
                 ]
                 (typeref [ (typename Bool []) ])
                 [
-                  (let $0)
+                  (let $0 (infertype $95))
                   (assign
                     (ref $0)
                     (select (ref self) [ (typename <= []) ] (ref other)))
-                  (let $1)
+                  (let $1 (infertype $96))
                   (assign (ref $1) (select () [ (typename not []) ] (ref $0)))
                   (ref $1)
                 ]))
@@ -491,21 +559,21 @@
                 ]
                 (typeref [ (typename Compare []) ])
                 [
-                  (let $0)
+                  (let $0 (infertype $97))
                   (assign
                     (ref $0)
                     (select (ref self) [ (typename < []) ] (ref other)))
-                  (let $1)
+                  (let $1 (infertype $98))
                   (assign (ref $1) (select () [ (typename if []) ] (ref $0)))
-                  (let $3)
+                  (let $3 (infertype $100))
                   (assign
                     (ref $3)
                     (lambda
                       []
                       []
-                      ()
+                      (infertype $24)
                       [
-                        (let $2)
+                        (let $2 (infertype $99))
                         (assign
                           (ref $2)
                           (select
@@ -514,27 +582,27 @@
                             ()))
                         (ref $2)
                       ]))
-                  (let $4)
+                  (let $4 (infertype $101))
                   (assign
                     (ref $4)
                     (select (ref $1) [ (typename apply []) ] (ref $3)))
-                  (let $5)
+                  (let $5 (infertype $102))
                   (assign
                     (ref $5)
                     (select (ref self) [ (typename == []) ] (ref other)))
-                  (let $6)
+                  (let $6 (infertype $103))
                   (assign
                     (ref $6)
                     (select (ref $4) [ (typename elseif []) ] (ref $5)))
-                  (let $8)
+                  (let $8 (infertype $105))
                   (assign
                     (ref $8)
                     (lambda
                       []
                       []
-                      ()
+                      (infertype $25)
                       [
-                        (let $7)
+                        (let $7 (infertype $104))
                         (assign
                           (ref $7)
                           (select
@@ -543,19 +611,19 @@
                             ()))
                         (ref $7)
                       ]))
-                  (let $9)
+                  (let $9 (infertype $106))
                   (assign
                     (ref $9)
                     (select (ref $6) [ (typename apply []) ] (ref $8)))
-                  (let $11)
+                  (let $11 (infertype $108))
                   (assign
                     (ref $11)
                     (lambda
                       []
                       []
-                      ()
+                      (infertype $26)
                       [
-                        (let $10)
+                        (let $10 (infertype $107))
                         (assign
                           (ref $10)
                           (select
@@ -564,7 +632,7 @@
                             ()))
                         (ref $10)
                       ]))
-                  (let $12)
+                  (let $12 (infertype $109))
                   (assign
                     (ref $12)
                     (select (ref $9) [ (typename else []) ] (ref $11)))
@@ -577,19 +645,284 @@
       []
       ()
       [
-        (class I8 [] () [])
-        (class I16 [] () [])
-        (class I32 [] () [])
-        (class I64 [] () [])
-        (class I128 [] () [])
-        (class ISize [] () [])
-        (class U8 [] () [])
-        (class U16 [] () [])
-        (class U32 [] () [])
-        (class U64 [] () [])
-        (class U128 [] () [])
-        (class USize [] () [])
-        (class F32 [] () [])
-        (class F64 [] () [])
+        (class
+          I8
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename I8 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $110))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          I16
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename I16 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $111))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          I32
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename I32 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $112))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          I64
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename I64 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $113))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          I128
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename I128 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $114))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          ISize
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename ISize []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $115))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (typealias
+          Signed
+          []
+          (uniontype
+            [
+              (typeref [ (typename I8 []) ])
+              (typeref [ (typename I16 []) ])
+              (typeref [ (typename I32 []) ])
+              (typeref [ (typename I64 []) ])
+              (typeref [ (typename I128 []) ])
+              (typeref [ (typename ISize []) ])
+            ])
+          [])
+        (class
+          U8
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename U8 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $116))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          U16
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename U16 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $117))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          U32
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename U32 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $118))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          U64
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $119))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          U128
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename U128 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $120))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          USize
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename USize []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $121))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (typealias
+          Unsigned
+          []
+          (uniontype
+            [
+              (typeref [ (typename U8 []) ])
+              (typeref [ (typename U16 []) ])
+              (typeref [ (typename U32 []) ])
+              (typeref [ (typename U64 []) ])
+              (typeref [ (typename U128 []) ])
+              (typeref [ (typename USize []) ])
+            ])
+          [])
+        (typealias
+          Integer
+          []
+          (uniontype
+            [
+              (typeref [ (typename Signed []) ])
+              (typeref [ (typename Unsigned []) ])
+            ])
+          [])
+        (class
+          F32
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename F32 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $122))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          F64
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename F64 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $123))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (typealias
+          Float
+          []
+          (uniontype
+            [ (typeref [ (typename F32 []) ]) (typeref [ (typename F64 []) ]) ])
+          [])
       ])
   ])

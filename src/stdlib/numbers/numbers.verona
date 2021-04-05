@@ -7,6 +7,8 @@ class I64 {}
 class I128 {}
 class ISize {}
 
+type Signed = I8 | I16 | I32 | I64 | I128 | ISize;
+
 class U8 {}
 class U16 {}
 class U32 {}
@@ -14,5 +16,10 @@ class U64 {}
 class U128 {}
 class USize {}
 
+type Unsigned = U8 | U16 | U32 | U64 | U128 | USize;
+type Integer = Signed | Unsigned;
+
 class F32 {}
 class F64 {}
+
+type Float = F32 | F64;

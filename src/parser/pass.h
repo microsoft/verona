@@ -71,6 +71,17 @@ namespace verona::parser
       return {};
     }
 
+    Ast symbols()
+    {
+      for (auto it = stack.rbegin(); it != stack.rend(); ++it)
+      {
+        if ((*it)->symbol_table() != nullptr)
+          return *it;
+      }
+
+      return {};
+    }
+
     Pass& operator<<(Location& loc)
     {
       // Handle location fields from the node handling functions.

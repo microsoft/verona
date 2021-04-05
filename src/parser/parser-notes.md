@@ -1,5 +1,8 @@
 # Parser Notes
 
+* resolve typerefs differently
+  * map of typeparam to bound type?
+
 * `\` for "without" types
 * allow `using` inside a function
 * inheritance

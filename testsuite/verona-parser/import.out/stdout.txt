@@ -8,8 +8,40 @@
       []
       ()
       [
-        (class A [] () [])
-        (class B [] () [])
+        (class
+          A
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename A []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $0))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          B
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename B []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $1))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
         (typealias
           Foo
           []
@@ -18,7 +50,8 @@
               (modulename
                 $module-1
                 [ (typeref [ (typename A []) ]) (typeref [ (typename B []) ]) ])
-            ]))
+            ])
+          [])
         (function
           main
           (lambda
@@ -26,7 +59,7 @@
             []
             ()
             [
-              (let $0)
+              (let $0 (infertype $2))
               (assign
                 (ref $0)
                 (select () [ (typename Foo []) (typename foo []) ] ()))

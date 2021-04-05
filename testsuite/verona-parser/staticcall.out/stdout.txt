@@ -8,14 +8,58 @@
       []
       ()
       [
-        (class A [] () [])
+        (class
+          A
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename A []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $0))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
         (class
           B
           []
           ()
           [
-            (class C [] () [ (function bar (lambda [] [] () [])) ])
+            (class
+              C
+              []
+              ()
+              [
+                (function bar (lambda [] [] () []))
+                (function
+                  create
+                  (lambda
+                    []
+                    []
+                    (isecttype [ (typeref [ (typename C []) ]) (imm ) ])
+                    [
+                      (let $0 (infertype $1))
+                      (assign (ref $0) (new () ()))
+                      (ref $0)
+                    ]))
+              ])
             (function foo (lambda [] [] () []))
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename B []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $2))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
           ])
         (function
           f
@@ -27,26 +71,26 @@
             ]
             ()
             [
-              (let $0)
+              (let $0 (infertype $3))
               (assign
                 (ref $0)
                 (select () [ (typename B []) (typename create []) ] ()))
-              (let $1)
+              (let $1 (infertype $4))
               (assign
                 (ref $1)
                 (select () [ (typename B []) (typename foo []) ] ()))
-              (let $2)
+              (let $2 (infertype $5))
               (assign
                 (ref $2)
                 (select () [ (typename B []) (typename foo []) ] ()))
-              (let $3)
+              (let $3 (infertype $6))
               (assign
                 (ref $3)
                 (select
                   ()
                   [ (typename B []) (typename C []) (typename create []) ]
                   ()))
-              (let $4)
+              (let $4 (infertype $7))
               (assign
                 (ref $4)
                 (select
@@ -57,7 +101,7 @@
                     (typename create [])
                   ]
                   ()))
-              (let $5)
+              (let $5 (infertype $8))
               (assign
                 (ref $5)
                 (select
@@ -68,11 +112,28 @@
                     (typename create [])
                   ]
                   ()))
-              (let $6)
+              (let
+                $6
+                (tupletype
+                  [
+                    (typeref [ (typename A []) ])
+                    (typeref [ (typename A []) ])
+                  ]))
               (assign (ref $6) (tuple [ (ref x) (ref y) ]))
-              (let $7)
+              (let
+                $7
+                (tupletype
+                  [
+                    (typeref [ (typename A []) ])
+                    (typeref [ (typename A []) ])
+                    (tupletype
+                      [
+                        (typeref [ (typename A []) ])
+                        (typeref [ (typename A []) ])
+                      ])
+                  ]))
               (assign (ref $7) (tuple [ (ref x) (ref y) (ref $6) ]))
-              (let $8)
+              (let $8 (infertype $11))
               (assign
                 (ref $8)
                 (select

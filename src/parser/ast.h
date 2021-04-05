@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "ident.h"
 #include "lexer.h"
 
 #include <optional>
@@ -25,6 +26,7 @@ namespace verona::parser
     Function,
 
     // Types
+    InferType,
     ThrowType,
     UnionType,
     IsectType,
@@ -53,6 +55,7 @@ namespace verona::parser
     Ref,
     Let,
     Var,
+    Free,
     Throw,
     New,
     ObjectLiteral,
@@ -66,9 +69,6 @@ namespace verona::parser
     Hex,
     Binary,
     Bool,
-
-    // Free variables are introduced in the ANF pass.
-    Free,
   };
 
   struct NodeDef;
@@ -77,11 +77,14 @@ namespace verona::parser
   using Node = std::shared_ptr<T>;
 
   template<typename T>
+  using Weak = std::weak_ptr<T>;
+
+  template<typename T>
   using List = std::vector<Node<T>>;
 
   using Ast = Node<NodeDef>;
+  using AstWeak = Weak<NodeDef>;
   using AstPath = List<NodeDef>;
-  using AstPaths = std::vector<AstPath>;
 
   struct SymbolTable;
 
@@ -116,6 +119,7 @@ namespace verona::parser
   struct TypeName : NodeDef
   {
     List<Type> typeargs;
+    AstWeak def;
 
     Kind kind() override
     {
@@ -166,6 +170,7 @@ namespace verona::parser
   struct TypeRef : Type
   {
     List<TypeName> typenames;
+    AstWeak def;
 
     Kind kind() override
     {
@@ -175,6 +180,8 @@ namespace verona::parser
 
   struct TypeList : Type
   {
+    AstWeak def;
+
     Kind kind() override
     {
       return Kind::TypeList;
@@ -198,6 +205,7 @@ namespace verona::parser
   {
     std::unordered_map<Location, Ast> map;
     std::vector<Node<Using>> use;
+    AstWeak parent;
 
     Ast get(const Location& id)
     {
@@ -227,8 +235,8 @@ namespace verona::parser
   struct TypeParam : NodeDef
   {
     // TODO: value-dependent types
-    Node<Type> type;
-    Node<Type> init;
+    Node<Type> upper;
+    Node<Type> dflt;
 
     Kind kind() override
     {
@@ -244,10 +252,41 @@ namespace verona::parser
     }
   };
 
-  struct Param : Expr
+  struct Let : Expr
   {
     Node<Type> type;
-    Node<Expr> init;
+    bool assigned = false;
+
+    Kind kind()
+    {
+      return Kind::Let;
+    }
+  };
+
+  struct Var : Let
+  {
+    Kind kind()
+    {
+      return Kind::Var;
+    }
+  };
+
+  struct Free : Expr
+  {
+    Kind kind()
+    {
+      return Kind::Free;
+    }
+  };
+
+  struct Param : Let
+  {
+    Node<Expr> dflt;
+
+    Param()
+    {
+      assigned = true;
+    }
 
     Kind kind() override
     {
@@ -360,22 +399,6 @@ namespace verona::parser
     }
   };
 
-  struct Let : Expr
-  {
-    Kind kind() override
-    {
-      return Kind::Let;
-    }
-  };
-
-  struct Var : Let
-  {
-    Kind kind() override
-    {
-      return Kind::Var;
-    }
-  };
-
   struct Throw : Expr
   {
     Node<Expr> expr;
@@ -400,6 +423,21 @@ namespace verona::parser
   struct TypeOp : Type
   {
     List<Type> types;
+  };
+
+  struct InferType : Type
+  {
+    static Ident ident;
+
+    InferType()
+    {
+      location = ident();
+    }
+
+    Kind kind()
+    {
+      return Kind::InferType;
+    }
   };
 
   struct ThrowType : Type
@@ -466,17 +504,6 @@ namespace verona::parser
     }
   };
 
-  struct TypeAlias : Member
-  {
-    List<TypeParam> typeparams;
-    Node<Type> type;
-
-    Kind kind() override
-    {
-      return Kind::TypeAlias;
-    }
-  };
-
   struct Interface : Member
   {
     List<TypeParam> typeparams;
@@ -501,6 +528,14 @@ namespace verona::parser
     Kind kind() override
     {
       return Kind::Class;
+    }
+  };
+
+  struct TypeAlias : Interface
+  {
+    Kind kind()
+    {
+      return Kind::TypeAlias;
     }
   };
 
@@ -568,19 +603,11 @@ namespace verona::parser
     }
   };
 
-  struct UnescapedString : Constant
+  struct UnescapedString : EscapedString
   {
     Kind kind() override
     {
       return Kind::UnescapedString;
-    }
-  };
-
-  struct Character : Constant
-  {
-    Kind kind() override
-    {
-      return Kind::Character;
     }
   };
 
@@ -592,6 +619,30 @@ namespace verona::parser
     }
   };
 
+  struct Character : Int
+  {
+    Kind kind() override
+    {
+      return Kind::Character;
+    }
+  };
+
+  struct Hex : Int
+  {
+    Kind kind() override
+    {
+      return Kind::Hex;
+    }
+  };
+
+  struct Binary : Int
+  {
+    Kind kind() override
+    {
+      return Kind::Binary;
+    }
+  };
+
   struct Float : Constant
   {
     Kind kind() override
@@ -600,35 +651,11 @@ namespace verona::parser
     }
   };
 
-  struct Hex : Constant
-  {
-    Kind kind() override
-    {
-      return Kind::Hex;
-    }
-  };
-
-  struct Binary : Constant
-  {
-    Kind kind() override
-    {
-      return Kind::Binary;
-    }
-  };
-
   struct Bool : Constant
-  {
-    Kind kind() override
-    {
-      return Kind::Bool;
-    }
-  };
-
-  struct Free : Let
   {
     Kind kind()
     {
-      return Kind::Free;
+      return Kind::Bool;
     }
   };
 }

@@ -1,5 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+using "boolean";
+
 class FalseBranch {}
 
 if[T](cond: ()->Bool): (()->T)->(Done[T] | FalseBranch)

@@ -8,9 +8,62 @@
       []
       ()
       [
-        (class Cown [ (typeparam T () ()) ] () [])
-        (class A [] () [])
-        (class B [] () [])
+        (class
+          Cown
+          [ (typeparam T () ()) ]
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype
+                  [
+                    (typeref
+                      [ (typename Cown [ (typeref [ (typename T []) ]) ]) ])
+                    (imm )
+                  ])
+                [
+                  (let $0 (infertype $3))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          A
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename A []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $4))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          B
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename B []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $5))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
         (function bar (lambda [] [] () []))
         (function
           foo
@@ -28,36 +81,44 @@
             ]
             ()
             [
-              (let $0)
-              (assign (ref $0) (lambda [] [] () []))
-              (let $1)
+              (let $0 (infertype $6))
+              (assign (ref $0) (lambda [] [] (infertype $0) []))
+              (let $1 (infertype $7))
               (assign (ref $1) (when (ref a) (ref $0)))
-              (let $2)
+              (let
+                $2
+                (tupletype
+                  [
+                    (typeref
+                      [ (typename Cown [ (typeref [ (typename A []) ]) ]) ])
+                    (typeref
+                      [ (typename Cown [ (typeref [ (typename B []) ]) ]) ])
+                  ]))
               (assign (ref $2) (tuple [ (ref a) (ref b) ]))
-              (let $7)
+              (let $7 (infertype $13))
               (assign
                 (ref $7)
                 (lambda
                   []
                   []
-                  ()
+                  (infertype $1)
                   [
-                    (let $3)
+                    (let $3 (infertype $9))
                     (assign (ref $3) (select () [ (typename bar []) ] ()))
-                    (let $4)
-                    (assign (ref $4) (lambda [] [] () []))
-                    (let $5)
+                    (let $4 (infertype $10))
+                    (assign (ref $4) (lambda [] [] (infertype $2) []))
+                    (let $5 (infertype $11))
                     (assign (ref $5) (when (ref $3) (ref $4)))
                     (free b)
-                    (let $6)
+                    (let $6 (infertype $12))
                     (assign
                       (ref $6)
                       (select (ref $5) [ (typename return []) ] (ref b)))
                     (ref $6)
                   ]))
-              (let $8)
+              (let $8 (infertype $14))
               (assign (ref $8) (when (ref $2) (ref $7)))
-              (let $9)
+              (let $9 (infertype $15))
               (assign
                 (ref $9)
                 (select (ref $1) [ (typename apply []) ] (ref $8)))

@@ -13,41 +13,25 @@ namespace verona::parser::resolve
     AST_PASS;
 
     Ident ident;
-    Location name_create;
+    Location name_create = ident("create");
 
-    Resolve()
+    void post(Using& use)
     {
-      name_create = ident("create");
+      // The contained TypeRef node is fully resolved. Add it to the local
+      // scope as a resolve target.
+      parent()->symbol_table()->use.push_back(current<Using>());
     }
 
     void post(TypeRef& tr)
     {
-      // This checks that the type exists but doesn't rewrite the AST.
-      bool from_using = (parent()->kind() == Kind::Using);
-      auto paths = look_up(stack, tr.typenames, from_using);
+      auto def = lookup::typenames(symbols(), tr.typenames);
 
-      if (paths.empty())
+      if (!def)
       {
         error() << tr.location << "Couldn't find a definition of this type."
                 << text(tr.location);
         return;
       }
-
-      if (paths.size() > 1)
-      {
-        auto& out = error()
-          << tr.location << "Found multiple definitions of this type."
-          << text(tr.location);
-
-        for (auto& path : paths)
-        {
-          auto& loc = path.back()->location;
-          out << loc << "Found a definition here." << text(loc);
-        }
-        return;
-      }
-
-      auto& def = paths.front().back();
 
       if (!is_kind(
             def,
@@ -59,39 +43,19 @@ namespace verona::parser::resolve
       }
     }
 
-    void post(TypeList& tl)
-    {
-      // This checks that the type exists but doesn't rewrite the AST.
-      auto paths = look_up(stack, tl.location);
-
-      if (paths.empty())
-      {
-        error() << tl.location
-                << "Couldn't find a definition of this type list."
-                << text(tl.location);
-        return;
-      }
-      auto& def = paths.front().back();
-
-      if (!is_kind(def, {Kind::TypeParamList}))
-      {
-        error() << tl.location << "Expected a type list, but got a "
-                << kindname(def->kind()) << text(tl.location) << def->location
-                << "Definition is here" << text(def->location);
-      }
-    }
-
     void post(Select& select)
     {
+      // TODO: multiple definitions of functions for arity-based overloading
+
       // If it's a single element name with any arguments, it can be a dynamic
       // member select.
       bool dynamic =
         (select.expr || select.args) && (select.typenames.size() == 1);
 
       // Find all definitions of the selector.
-      auto paths = look_up(stack, select.typenames);
+      auto def = lookup::typenames(symbols(), select.typenames);
 
-      if (paths.empty())
+      if (!def)
       {
         if (!dynamic)
         {
@@ -102,60 +66,66 @@ namespace verona::parser::resolve
         return;
       }
 
-      if (paths.size() > 1)
+      switch (def->kind())
       {
-        if (!dynamic)
+        case Kind::Class:
+        case Kind::Interface:
+        case Kind::TypeAlias:
+        case Kind::TypeParam:
         {
-          auto& out = error() << select.typenames.front()->location
-                              << "Found multiple definitions of this."
-                              << text(select.typenames.front()->location);
+          // We found a type as a selector, so we'll turn it into a constructor.
+          auto create = std::make_shared<TypeName>();
+          create->location = name_create;
+          select.typenames.push_back(create);
 
-          for (auto& path : paths)
+          // Resolve this again as a function.
+          lookup::reset(select.typenames);
+          def = lookup::typenames(symbols(), select.typenames);
+
+          if (!def || (def->kind() != Kind::Function))
           {
-            auto& loc = path.back()->location;
-            out << loc << "Found a definition here." << text(loc);
+            error() << select.typenames.front()->location
+                    << "Couldn't find a create function for this."
+                    << text(select.typenames.front()->location);
+            return;
           }
-        }
-        return;
-      }
 
-      auto& def = paths.front().back();
+          // If this was a selector after a selector, rewrite it to be the
+          // right-hand side of the previous selector.
+          auto expr = select.expr;
 
-      if (is_kind(def, {Kind::Class, Kind::Interface, Kind::TypeAlias}))
-      {
-        // We found a type as a selector, so we'll turn it into a constructor.
-        auto create = std::make_shared<TypeName>();
-        create->location = name_create;
-        select.typenames.push_back(create);
-
-        // If this was a selector after a selector, rewrite it to be the
-        // right-hand side of the previous selector.
-        auto expr = select.expr;
-
-        if (expr && (expr->kind() == Kind::Select))
-        {
-          auto& lhs = expr->as<Select>();
-
-          if (!lhs.args)
+          if (expr && (expr->kind() == Kind::Select))
           {
-            auto sel = std::make_shared<Select>();
-            sel->location = select.location;
-            sel->typenames = select.typenames;
-            sel->args = select.args;
-            lhs.args = sel;
-            rewrite(expr);
+            auto& lhs = expr->as<Select>();
+
+            if (!lhs.args)
+            {
+              auto sel = std::make_shared<Select>();
+              sel->location = select.location;
+              sel->typenames = select.typenames;
+              sel->args = select.args;
+              lhs.args = sel;
+              rewrite(expr);
+            }
           }
+          break;
         }
-      }
-      else if (!is_kind(def, {Kind::Function}))
-      {
-        if (!dynamic)
+
+        case Kind::Field:
+        case Kind::Function:
+          break;
+
+        default:
         {
-          error() << select.typenames.front()->location
-                  << "Expected a type or function, but got a "
-                  << kindname(def->kind())
-                  << text(select.typenames.front()->location) << def->location
-                  << "Definition is here" << text(def->location);
+          if (!dynamic)
+          {
+            error() << select.typenames.front()->location
+                    << "Expected a field or a function, but got a "
+                    << kindname(def->kind())
+                    << text(select.typenames.front()->location) << def->location
+                    << "Definition is here" << text(def->location);
+          }
+          break;
         }
       }
     }

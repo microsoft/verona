@@ -1,5 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+using "boolean";
+
 class NoMatch {}
 
 // `as` returns `value` as type T if that's possible. Otherwise, it throws
@@ -25,6 +27,11 @@ class OrEquals[T1, T2]
 {
   a: Equatable[T1];
   b: Equatable[T2];
+
+  create[S: OrEquals[T1, T2]](a: S~>Equatable[T1], b: S~>Equatable[T2]): S
+  {
+    new (a, b)
+  }
 
   ==(self: OrEquals[T1, T2], x: T1 | T2): Bool
   {

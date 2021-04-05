@@ -3,6 +3,11 @@
 class Return[T]
 {
   value: T;
+
+  create[S: Return[T]](value: S~>T): S
+  {
+    new(value)
+  }
 }
 
 // `return` uses create sugar to throw a Return[T] exception. A lambda or

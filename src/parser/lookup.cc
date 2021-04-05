@@ -5,177 +5,112 @@
 #include <iostream>
 #include <unordered_set>
 
-namespace verona::parser
+namespace verona::parser::lookup
 {
-  AstPaths
-  look_down_all(AstPaths& paths, const Location& name, bool from_using);
-
-  AstPaths
-  look_in_with_using(AstPath& path, const Location& name, bool from_using);
-
-  void add(AstPaths& rs, AstPath& r)
+  // This looks up `name` as a member of `node`. If `node` is not a Class or an
+  // Interface, `node` is first resolved in the symbol context. If this
+  Ast member(Ast& symbols, Ast node, const Location& name)
   {
-    if (r.empty())
-      return;
-
-    auto& node = r.back();
-
-    for (auto& path : rs)
+    switch (node->kind())
     {
-      if (path.back() == node)
-        return;
-    }
+      case Kind::Class:
+      case Kind::Interface:
+      {
+        // Update the symbol context.
+        symbols = node;
 
-    rs.push_back(r);
-  }
+        // Look in the symbol table.
+        auto def = node->symbol_table()->get(name);
 
-  void add(AstPaths& rs1, AstPaths& rs2)
-  {
-    if (rs2.empty())
-      return;
+        if (def)
+          return def;
 
-    for (auto& r : rs2)
-      add(rs1, r);
-  }
+        return {};
+      }
 
-  AstPaths look_in_definition(
-    AstPath& path, Node<Type>& type, const Location& name, bool from_using)
-  {
-    // We have a type which is the definition of a type alias or the upper
-    // bounds of a type parameter. We want to look inside that type for a
-    // definition of `name`. That type is defined in the context of `path`.
-    if (!type)
-      return {};
+      case Kind::TypeAlias:
+      {
+        // Look in the type we are aliasing.
+        return member(symbols, node->as<TypeAlias>().inherits, name);
+      }
 
-    switch (type->kind())
-    {
+      case Kind::TypeParam:
+      {
+        // Look in our upper bounds.
+        return member(symbols, node->as<TypeParam>().upper, name);
+      }
+
       case Kind::ExtractType:
       case Kind::ViewType:
       {
-        // Lookup through the right-hand side of the type pair.
-        return look_in_definition(
-          path, type->as<TypePair>().right, name, from_using);
+        // This is the result of a `using`, a type alias, or a type parameter.
+        // Look in the right-hand side.
+        return member(symbols, node->as<TypePair>().right, name);
       }
 
       case Kind::TypeRef:
       {
-        // Look up this type and look down from there.
-        auto paths = look_up(path, type->as<TypeRef>().typenames, from_using);
-        return look_down_all(paths, name, from_using);
+        // This is the result of a `using`, a type alias, or a type parameter.
+        // Look in the resolved type.
+        auto def = typenames(symbols, node->as<TypeRef>().typenames);
+
+        // Update the symbol context.
+        if (is_kind(def, {Kind::Class, Kind::Interface, Kind::TypeAlias}))
+          symbols = def;
+
+        return member(symbols, def, name);
       }
 
       case Kind::IsectType:
       {
         // Look in all conjunctions.
-        auto& isect = type->as<IsectType>();
-        AstPaths rs;
+        // TODO: what if we find it more than once?
+        auto& isect = node->as<IsectType>();
 
         for (auto& type : isect.types)
         {
-          auto find = look_in_definition(path, type, name, from_using);
-          add(rs, find);
+          auto def = member(symbols, type, name);
+
+          if (def)
+            return def;
         }
 
-        return rs;
+        return {};
+      }
+
+      case Kind::UnionType:
+      {
+        // Look in all disjunctions.
+        // TODO: must be present everywhere
+        return {};
       }
 
       default:
+      {
+        // No lookup in Field, Function, ThrowType, FunctionType, TupleType,
+        // TypeList, or a capability.
+        // TODO: Self
         return {};
-    }
-  }
-
-  AstPaths look_down(AstPath& path, const Location& name, bool from_using)
-  {
-    // This looks for `name` in the last element of `path`.
-    if (path.empty())
-      return {};
-
-    auto& def = path.back();
-
-    switch (def->kind())
-    {
-      case Kind::Class:
-      case Kind::Interface:
-      {
-        // If we are looking up in an entity, expect to find the name in the
-        // entity's symbol table.
-        return look_in_with_using(path, name, from_using);
       }
-
-      case Kind::TypeAlias:
-      {
-        auto& type = def->as<TypeAlias>().type;
-        return look_in_definition(path, type, name, from_using);
-      }
-
-      case Kind::TypeParam:
-      {
-        auto& type = def->as<TypeParam>().type;
-        return look_in_definition(path, type, name, from_using);
-      }
-
-      default:
-        return {};
     }
   }
 
-  AstPaths look_down_all(AstPaths& paths, const Location& name, bool from_using)
+  Ast name(Ast symbols, const Location& name)
   {
-    // Find `name` by looking down from every path in `paths`.
-    // This will yield some number of new paths.
-    AstPaths rs;
-
-    for (auto& path : paths)
+    while (symbols)
     {
-      auto rs2 = look_down(path, name, from_using);
-      add(rs, rs2);
-    }
+      auto st = symbols->symbol_table();
+      assert(st != nullptr);
 
-    return rs;
-  }
+      auto def = st->get(name);
 
-  Ast look_in(Ast& ast, const Location& name)
-  {
-    auto st = ast->symbol_table();
+      if (def)
+        return def;
 
-    if (!st)
-      return {};
-
-    return st->get(name);
-  }
-
-  AstPaths
-  look_in_with_using(AstPath& path, const Location& name, bool from_using)
-  {
-    if (path.empty())
-      return {};
-
-    Ast ast = path.back();
-    auto st = ast->symbol_table();
-
-    if (!st)
-      return {};
-
-    // Look in this node's symbol table.
-    AstPaths rs;
-    auto find = st->map.find(name);
-
-    if (find != st->map.end())
-    {
-      AstPath r{path.begin(), path.end()};
-      r.push_back(find->second);
-      add(rs, r);
-    }
-
-    if (from_using)
-      return rs;
-
-    for (auto it = st->use.rbegin(); it != st->use.rend(); ++it)
-    {
-      auto use = *it;
-
-      if (!is_kind(ast, {Kind::Class, Kind::Interface}))
+      for (auto it = st->use.rbegin(); it != st->use.rend(); ++it)
       {
+        auto& use = *it;
+
         // Only accept `using` statements in the same file.
         if (use->location.source->origin != name.source->origin)
           continue;
@@ -183,84 +118,62 @@ namespace verona::parser
         // Only accept `using` statements that are earlier in scope.
         if (use->location.start > name.start)
           continue;
-      }
 
-      // Look in the type we are `using`. Accept all answers from that.
-      // Note that we don't follow `using` once we are following a `using`.
-      // A `using` statement doesn't export the names being used, it only
-      // imports them for use locally.
-      auto rs2 = look_up(path, use->type->as<TypeRef>().typenames, true);
-      rs2 = look_down_all(rs2, name, true);
-      add(rs, rs2);
-    }
+        // Find `name` in the used TypeRef, using the current symbol table.
+        def = member(symbols, use->type, name);
 
-    return rs;
-  }
-
-  Ast look_up_local(AstPath& path, const Location& name)
-  {
-    for (auto it = path.rbegin(); it != path.rend(); ++it)
-    {
-      auto& node = *it;
-      auto def = look_in(node, name);
-
-      if (def)
-      {
-        if (is_kind(
-              def,
-              {Kind::Param,
-               Kind::Let,
-               Kind::Var,
-               Kind::Free}))
-        {
+        if (def)
           return def;
-        }
-        else
-        {
-          return {};
-        }
       }
+
+      symbols = st->parent.lock();
     }
 
     return {};
   }
 
-  AstPaths look_up(AstPath& path, const Location& name, bool from_using)
+  Ast typenames(Ast symbols, List<TypeName>& names)
   {
-    if (path.empty())
+    // Each element will have a definition. This will point to a Class,
+    // Interface, TypeAlias, Field, or Function.
+
+    // This shouldn't happen.
+    if (names.empty())
       return {};
 
-    AstPaths rs;
-    auto begin = path.begin();
+    // Return the cached lookup.
+    auto def = names.back()->def.lock();
 
-    for (auto it = path.rbegin(); it != path.rend(); ++it)
+    if (def)
+      return def;
+
+    // Check if we failed previously and only partially resolved this.
+    def = names.front()->def.lock();
+
+    if (def)
+      return {};
+
+    // Lookup the first element in the current symbol context.
+    def = name(symbols, names.front()->location);
+
+    if (!def)
+      return {};
+
+    names.front()->def = def;
+
+    for (size_t i = 1; i < names.size(); i++)
     {
-      AstPath r{begin, it.base()};
-      auto rs2 = look_in_with_using(r, name, from_using);
-      add(rs, rs2);
+      // Look in the current definition for the next name.
+      def = member(symbols, def, names.at(i)->location);
+      names.at(i)->def = def;
     }
 
-    return rs;
+    return def;
   }
 
-  AstPaths look_up(AstPath& path, const Location& name)
+  void reset(List<TypeName>& names)
   {
-    return look_up(path, name, false);
-  }
-
-  AstPaths look_up(AstPath& path, List<TypeName>& names, bool from_using)
-  {
-    if (path.empty() || names.empty())
-      return {};
-
-    // Find all visible definitions of the first element.
-    auto rs = look_up(path, names.front()->location, from_using);
-
-    // For each following element, find all possible definitions in the paths
-    // we have so far.
-    for (size_t i = 1; i < names.size(); i++)
-      rs = look_down_all(rs, names[i]->location, from_using);
-
-    return rs;
+    for (auto& n : names)
+      n->def.reset();
   }
 }

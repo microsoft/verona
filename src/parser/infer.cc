@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: MIT
 #include "infer.h"
 
+#include "dnf.h"
 #include "ident.h"
 #include "lookup.h"
+#include "print.h"
 #include "rewrite.h"
 
 namespace verona::parser::infer
@@ -12,133 +14,48 @@ namespace verona::parser::infer
   {
     AST_PASS;
 
-    enum class TypeKind
-    {
-      Base,
-      Tuple,
-      Member,
-      Function,
-      TypeVar
-    };
-
-    struct TypeInfer
-    {
-      virtual TypeKind kind() = 0;
-    };
-
-    using TypePtr = std::shared_ptr<TypeInfer>;
-
-    struct TypeBase : TypeInfer
-    {
-      Node<Type> type;
-
-      TypeBase(Node<Type>& type) : type(type) {}
-
-      TypeKind kind()
-      {
-        return TypeKind::Base;
-      }
-    };
-
-    struct TypeVar : TypeInfer
-    {
-      // This is a constrained type variable.
-      // TODO: could store program point here and get flow typing
-      // vector[(index, Type)]
-      std::vector<TypePtr> lower;
-      std::vector<TypePtr> upper;
-
-      TypeKind kind()
-      {
-        return TypeKind::TypeVar;
-      }
-
-      void add_lower(TypePtr type)
-      {
-        lower.push_back(type);
-      }
-
-      void add_upper(TypePtr type)
-      {
-        upper.push_back(type);
-      }
-
-      void add_lower(Node<Type>& type)
-      {
-        if (type)
-          lower.push_back(std::make_shared<TypeBase>(type));
-      }
-
-      void add_upper(Node<Type>& type)
-      {
-        if (type)
-          upper.push_back(std::make_shared<TypeBase>(type));
-      }
-    };
-
-    using TypeVarPtr = std::shared_ptr<TypeVar>;
-
-    struct TypeTuple : TypeInfer
-    {
-      std::vector<TypeVarPtr> list;
-
-      TypeKind kind()
-      {
-        return TypeKind::Tuple;
-      }
-    };
-
-    struct TypeMember : TypeInfer
-    {
-      // This type must have a member with this name and type.
-      Location name;
-      TypePtr type;
-
-      TypeKind kind()
-      {
-        return TypeKind::Member;
-      }
-    };
-
-    struct TypeFunction : TypeInfer
-    {
-      TypePtr lhs;
-      TypePtr rhs;
-
-      TypeKind kind()
-      {
-        return TypeKind::Function;
-      }
-    };
-
-    struct Local
-    {
-      bool assigned;
-      bool reassign;
-      TypeVarPtr t;
-    };
-
-    struct Gamma
-    {
-      Node<Lambda> lambda;
-      std::unordered_map<Location, Local> map;
-    };
-
-    std::vector<Gamma> gamma_stack;
     Ident ident;
-    Location result = ident("$result");
+    Location name_imm = ident("imm");
+    Location name_bool = ident("Bool");
+    Location name_int = ident("Integer");
+    Location name_float = ident("Float");
 
-    Local& g(const Location& name)
+    Node<Imm> type_imm;
+    Node<Type> type_bool;
+    Node<Type> type_int;
+    Node<Type> type_float;
+
+    std::unordered_multimap<Node<Type>, Node<Type>> con;
+
+    Infer()
     {
-      auto& map = gamma_stack.back().map;
-      auto find = map.find(name);
+      type_imm = std::make_shared<Imm>();
+      type_imm->location = name_imm;
 
-      if (find != map.end())
-        return find->second;
+      type_bool = make_constant_type(name_bool);
+      type_int = make_constant_type(name_int);
+      type_float = make_constant_type(name_float);
+    }
 
-      auto t = std::make_shared<TypeVar>();
-      map.emplace(name, Local{false, false, t});
-      return map.at(name);
+    Node<Type> make_constant_type(const Location& name)
+    {
+      auto n = std::make_shared<TypeName>();
+      n->location = name;
+
+      auto t = std::make_shared<TypeRef>();
+      t->location = name;
+      t->typenames.push_back(n);
+
+      auto i = std::make_shared<IsectType>();
+      i->types.push_back(t);
+      i->types.push_back(type_imm);
+
+      return i;
+    }
+
+    Node<Let> g(const Location& name)
+    {
+      return std::static_pointer_cast<Let>(lookup::name(symbols(), name));
     }
 
     Location lhs()
@@ -146,52 +63,84 @@ namespace verona::parser::infer
       return parent<Assign>()->left->location;
     }
 
-    void post(Let& let)
+    void constraint(Node<Type> lhs, Node<Type> rhs)
     {
-      g(let.location).reassign = false;
+      if (!lhs || !rhs)
+        return;
+
+      auto [cur, end] = con.equal_range(lhs);
+
+      for (; cur != end; ++cur)
+      {
+        if (cur->second == rhs)
+          return;
+      }
+
+      // lhs <: rhs
+      // TODO:
+      // std::cout << "Constraint: " << lhs << " <: " << rhs << std::endl;
+      con.insert({lhs, rhs});
     }
 
-    void post(Var& var)
+    Node<FunctionType> function_type(Lambda& lambda)
     {
-      g(var.location).reassign = true;
+      auto f = std::make_shared<FunctionType>();
+      f->right = lambda.result;
+
+      if (lambda.params.size() == 1)
+      {
+        f->left = lambda.params.front()->as<Param>().type;
+      }
+      else if (lambda.params.size() > 1)
+      {
+        auto t = std::make_shared<TupleType>();
+        f->left = t;
+
+        for (auto& p : lambda.params)
+          t->types.push_back(p->as<Param>().type);
+      }
+
+      return f;
     }
 
     void post(Free& fr)
     {
-      for (auto it = gamma_stack.rbegin(); it != gamma_stack.rend(); ++it)
+      auto l = g(fr.location);
+
+      if (!l->assigned)
       {
-        auto find = it->map.find(fr.location);
-
-        if (find != it->map.end())
-        {
-          if (!find->second.assigned)
-          {
-            error() << fr.location
-                    << "Free variables can't be captured if they haven't been "
-                       "assigned to."
-                    << text(fr.location) << find->first << "Definition is here."
-                    << text(find->first);
-          }
-
-          g(fr.location) = find->second;
-          return;
-        }
+        error() << fr.location
+                << "Free variables can't be captured if they haven't been "
+                   "assigned to."
+                << text(fr.location) << l->location << "Definition is here."
+                << text(l->location);
       }
     }
 
     void post(Ref& ref)
     {
+      // Allow an unassigned ref in an Oftype node.
       if (parent()->kind() == Kind::Oftype)
         return;
 
-      if (
-        (parent()->kind() == Kind::Assign) &&
-        (parent<Assign>()->left == current<Expr>()))
+      auto l = g(ref.location);
+
+      if (parent()->kind() == Kind::Assign)
       {
-        return;
+        auto& asn = parent()->as<Assign>();
+
+        // Allow an unassigned ref on the left-hand side of an assignment.
+        if (asn.left == current<Expr>())
+          return;
+
+        constraint(l->type, g(asn.left->location)->type);
+      }
+      else if (parent()->kind() == Kind::Lambda)
+      {
+        constraint(l->type, parent<Lambda>()->result);
       }
 
-      if (!g(ref.location).assigned)
+      if (!l->assigned)
       {
         error() << ref.location << "Variable used before assignment"
                 << text(ref.location);
@@ -200,16 +149,22 @@ namespace verona::parser::infer
 
     void post(Oftype& oftype)
     {
-      g(oftype.expr->location).t->add_upper(oftype.type);
+      constraint(g(oftype.expr->location)->type, oftype.type);
+    }
+
+    void post(Throw& thr)
+    {
+      auto t = dnf::throwtype(g(thr.expr->location)->type);
+      constraint(t, parent<Lambda>()->result);
     }
 
     void post(Assign& asn)
     {
-      auto& l = g(asn.left->location);
+      auto l = g(asn.left->location);
 
-      if (!l.assigned || l.reassign)
+      if (!l->assigned || (l->kind() == Kind::Var))
       {
-        l.assigned = true;
+        l->assigned = true;
       }
       else
       {
@@ -222,37 +177,95 @@ namespace verona::parser::infer
 
     void post(Tuple& tuple)
     {
-      auto t = std::make_shared<TypeTuple>();
+      auto t = std::make_shared<TupleType>();
 
       for (auto& e : tuple.seq)
-        t->list.push_back(g(e->location).t);
+        t->types.push_back(g(e->location)->type);
 
-      g(lhs()).t->add_lower(t);
+      g(lhs())->type = t;
     }
 
-    // TODO: select, new, lambda, objectliteral, match, when, constant
-
-    void pre(Lambda& lambda)
+    void post(Select& sel)
     {
-      // TODO: don't overwrite parent typeparams
-      gamma_stack.push_back({current<Lambda>(), {}});
+      // TODO: a select with a result that is always a throw should only be
+      // allowed at the end of a lambda
 
-      for (auto& typeparam : lambda.typeparams)
-        g(typeparam->location).t->add_upper(typeparam->type);
+      auto def = lookup::typenames(symbols(), sel.typenames);
 
-      for (auto& param : lambda.params)
+      if (def)
       {
-        auto& x = g(param->location);
-        x.assigned = true;
-        x.t->add_upper(param->as<Param>().type);
+        // TODO: argument constraints, typearg constraints
+        // auto& lambda = def->as<Function>().lambda->as<Lambda>();
+        // auto f = function_type(lambda);
+        // g(lhs())->type = f->right;
+        // return;
       }
 
-      g(result).t->add_upper(lambda.result);
+      // TODO: dynamic dispatch
+    }
+
+    void post(New& nw)
+    {
+      // TODO:
+    }
+
+    void post(ObjectLiteral& obj)
+    {
+      // TODO:
+    }
+
+    void post(Match& match)
+    {
+      // TODO:
+    }
+
+    void post(When& when)
+    {
+      // TODO:
+    }
+
+    void post(EscapedString& s)
+    {
+      // TODO:
+    }
+
+    void post(Int& i)
+    {
+      constraint(g(lhs())->type, type_int);
+    }
+
+    void post(Float& f)
+    {
+      constraint(g(lhs())->type, type_float);
+    }
+
+    void post(Bool& b)
+    {
+      constraint(g(lhs())->type, type_bool);
     }
 
     void post(Lambda& lambda)
     {
-      gamma_stack.pop_back();
+      switch (parent()->kind())
+      {
+        case Kind::Assign:
+        {
+          constraint(function_type(lambda), g(lhs())->type);
+          break;
+        }
+
+        case Kind::Param:
+        {
+          constraint(lambda.result, parent<Param>()->type);
+          break;
+        }
+
+        default:
+        {
+          // Do nothing.
+          break;
+        }
+      }
     }
   };
 

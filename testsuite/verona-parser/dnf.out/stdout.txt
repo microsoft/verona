@@ -8,11 +8,91 @@
       []
       ()
       [
-        (class A [] () [])
-        (class B [] () [])
-        (class C [] () [])
-        (class D [] () [])
-        (class E [] () [])
+        (class
+          A
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename A []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $0))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          B
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename B []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $1))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          C
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename C []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $2))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          D
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename D []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $3))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
+        (class
+          E
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename E []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $4))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
         (function
           f
           (lambda
@@ -130,7 +210,7 @@
                 (throwtype (typeref [ (typename E []) ]))
               ])
             [
-              (let $0)
+              (let $0 (infertype $5))
               (assign (ref $0) (select (ref f) [ (typename apply []) ] (ref x)))
               (ref $0)
             ]))

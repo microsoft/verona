@@ -8,7 +8,23 @@
       []
       ()
       [
-        (class U64 [] () [])
+        (class
+          U64
+          []
+          ()
+          [
+            (function
+              create
+              (lambda
+                []
+                []
+                (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ])
+                [
+                  (let $0 (infertype $2))
+                  (assign (ref $0) (new () ()))
+                  (ref $0)
+                ]))
+          ])
         (function
           foo
           (lambda
@@ -28,11 +44,11 @@
             ]
             (typeref [ (typename R []) ])
             [
-              (let x)
-              (let $0)
+              (let x (infertype $0))
+              (let $0 (infertype $3))
               (assign (ref $0) (select (ref a) [ (typename + []) ] (ref b)))
               (assign (ref x) (ref $0))
-              (let r)
+              (let r (infertype $1))
               (oftype (ref r) (typeref [ (typename R []) ]))
               (assign (ref r) (ref x))
               (ref x)

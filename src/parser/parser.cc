@@ -25,17 +25,18 @@ namespace verona::parser
   struct Parse
   {
     Source source;
-    size_t pos;
-    size_t la;
+    size_t pos = 0;
+    size_t la = 0;
     Token previous;
     std::vector<Token> lookahead;
 
-    AstPath symbol_stack;
+    Ast symbols;
 
     Ident ident;
-    Location name_apply;
+    Location name_apply = ident("apply");
+    Location name_create = ident("create");
 
-    Result final_result;
+    Result final_result = Success;
     std::vector<std::string> imports;
     std::string stdlib;
     std::ostream& out;
@@ -61,15 +62,8 @@ namespace verona::parser
     };
 
     Parse(const std::string& stdlib, std::ostream& out)
-    : pos(0), la(0), final_result(Success), stdlib(stdlib), out(out)
-    {
-      name_apply = ident("apply");
-    }
-
-    ~Parse()
-    {
-      assert(symbol_stack.size() == 0);
-    }
+    : stdlib(stdlib), out(out)
+    {}
 
     void start(Source& src)
     {
@@ -89,30 +83,31 @@ namespace verona::parser
     SymbolPush push(Ast node)
     {
       assert(node->symbol_table() != nullptr);
-      symbol_stack.push_back(node);
+      node->symbol_table()->parent = symbols;
+      symbols = node;
       return SymbolPush(*this);
     }
 
     void pop()
     {
-      symbol_stack.pop_back();
+      symbols = symbols->symbol_table()->parent.lock();
     }
 
     void set_sym(const Location& id, Ast node)
     {
-      assert(symbol_stack.size() > 0);
-      auto prev = look_up_local(symbol_stack, id);
+      auto st = symbols->symbol_table();
+      auto prev = st->get(id);
 
-      if (prev)
+      if (!prev)
       {
-        auto& loc = node->location;
-
-        error() << loc << "There is a previous definition of \"" << id.view()
-                << "\"" << text(loc) << prev->location
+        st->set(id, node);
+      }
+      else
+      {
+        error() << node->location << "There is a previous definition of \""
+                << id.view() << "\"" << text(node->location) << prev->location
                 << "The previous definition is here" << text(prev->location);
       }
-
-      symbol_stack.back()->symbol_table()->set(id, node);
     }
 
     Node<Ref> ref(const Location& loc)
@@ -192,10 +187,8 @@ namespace verona::parser
 
     bool is_localref(const Location& id)
     {
-      if (look_up_local(symbol_stack, id))
-        return true;
-
-      return false;
+      auto def = lookup::name(symbols, id);
+      return def && is_kind(def, {Kind::Param, Kind::Let, Kind::Var});
     }
 
     bool peek_delimited(TokenKind kind, TokenKind terminator)
@@ -475,9 +468,14 @@ namespace verona::parser
       Node<Lambda> lambda;
 
       if (is_func)
+      {
         lambda = std::static_pointer_cast<Lambda>(expr);
+      }
       else
+      {
         lambda = std::make_shared<Lambda>();
+        lambda->result = std::make_shared<InferType>();
+      }
 
       auto st = push(lambda);
       lambda->location = previous.location;
@@ -538,6 +536,7 @@ namespace verona::parser
         if (r2 == Skip)
           break;
 
+        // TODO: `using`
         lambda->body.push_back(expr);
 
         if (r2 == Error)
@@ -945,22 +944,29 @@ namespace verona::parser
       return r;
     }
 
-    Result optlet(Node<Expr>& expr)
+    template<typename T>
+    Result decl(Node<Expr>& expr)
     {
-      if (!has(TokenKind::Let))
-        return Skip;
-
       if (!has(TokenKind::Ident))
       {
         error() << loc() << "Expected an identifier" << line();
         return Error;
       }
 
-      auto let = std::make_shared<Let>();
-      let->location = previous.location;
-      set_sym(let->location, let);
-      expr = let;
+      auto decl = std::make_shared<T>();
+      decl->location = previous.location;
+      decl->type = std::make_shared<InferType>();
+      set_sym(decl->location, decl);
+      expr = decl;
       return Success;
+    }
+
+    Result optlet(Node<Expr>& expr)
+    {
+      if (!has(TokenKind::Let))
+        return Skip;
+
+      return decl<Let>(expr);
     }
 
     Result optvar(Node<Expr>& expr)
@@ -968,17 +974,7 @@ namespace verona::parser
       if (!has(TokenKind::Var))
         return Skip;
 
-      if (!has(TokenKind::Ident))
-      {
-        error() << loc() << "Expected an identifier" << line();
-        return Error;
-      }
-
-      auto var = std::make_shared<Var>();
-      var->location = previous.location;
-      set_sym(var->location, var);
-      expr = var;
-      return Success;
+      return decl<Var>(expr);
     }
 
     Result optthrow(Node<Expr>& expr)
@@ -1067,10 +1063,11 @@ namespace verona::parser
 
       // Encode an initexpr as a zero-argument lambda
       auto lambda = std::make_shared<Lambda>();
-      auto st = push(lambda);
       lambda->location = previous.location;
+      lambda->result = std::make_shared<InferType>();
       expr = lambda;
 
+      auto st = push(lambda);
       Node<Expr> init;
 
       if ((r = optexpr(init)) != Skip)
@@ -1234,15 +1231,29 @@ namespace verona::parser
       auto tl = std::make_shared<TypeList>();
       type = tl;
 
-      if (!has(TokenKind::Ident))
-        return Error;
-
+      has(TokenKind::Ident);
       tl->location = previous.location;
+      has(TokenKind::Ellipsis);
 
-      if (!has(TokenKind::Ellipsis))
-        return Error;
+      Result r = Success;
+      auto def = lookup::name(symbols, tl->location);
 
-      return Success;
+      if (!def)
+      {
+        error() << tl->location
+                << "Couldn't find a definition of this type list."
+                << text(tl->location);
+        r = Error;
+      }
+      else if (def->kind() != Kind::TypeParamList)
+      {
+        error() << tl->location << "Expected a type list, but got a "
+                << kindname(def->kind()) << text(tl->location) << def->location
+                << "Definition is here" << text(def->location);
+        r = Error;
+      }
+
+      return r;
     }
 
     Result optcaptype(Node<Type>& type)
@@ -1469,8 +1480,11 @@ namespace verona::parser
           if (oftype(p->type) == Error)
             r = Error;
 
-          if (initexpr(p->init) == Error)
+          if (initexpr(p->dflt) == Error)
             r = Error;
+
+          if (!p->type)
+            p->type = std::make_shared<InferType>();
 
           set_sym(p->location, p);
           param = p;
@@ -1597,15 +1611,10 @@ namespace verona::parser
           error() << param->location << "Function parameters can't be patterns"
                   << text(param->location);
         }
-        else
+        else if (param->as<Param>().type->kind() == Kind::InferType)
         {
-          auto& p = param->as<Param>();
-
-          if (!p.type)
-          {
-            error() << param->location << "Function parameters must have types"
-                    << text(param->location);
-          }
+          error() << param->location << "Function parameters must have types"
+                  << text(param->location);
         }
       }
 
@@ -1645,10 +1654,10 @@ namespace verona::parser
 
       tp->location = loc;
 
-      if (oftype(tp->type) == Error)
+      if (oftype(tp->upper) == Error)
         r = Error;
 
-      if (inittype(tp->init) == Error)
+      if (inittype(tp->dflt) == Error)
         r = Error;
 
       set_sym(tp->location, tp);
@@ -1741,7 +1750,6 @@ namespace verona::parser
         r = Error;
       }
 
-      symbol_stack.back()->symbol_table()->use.push_back(use);
       return r;
     }
 
@@ -1751,10 +1759,8 @@ namespace verona::parser
       if (!has(TokenKind::Type))
         return Skip;
 
-      auto alias = std::make_shared<TypeAlias>();
-      member = alias;
-
       Result r = Success;
+      auto alias = std::make_shared<TypeAlias>();
 
       if (!has(TokenKind::Ident))
       {
@@ -1763,6 +1769,10 @@ namespace verona::parser
       }
 
       alias->location = previous.location;
+      set_sym(alias->location, alias);
+      member = alias;
+
+      auto st = push(alias);
 
       if (opttypeparams(alias->typeparams) == Error)
         r = Error;
@@ -1773,7 +1783,7 @@ namespace verona::parser
         r = Error;
       }
 
-      if (typeexpr(alias->type) == Error)
+      if (typeexpr(alias->inherits) == Error)
         r = Error;
 
       if (!has(TokenKind::Semicolon))
@@ -1782,7 +1792,6 @@ namespace verona::parser
         r = Error;
       }
 
-      set_sym(alias->location, alias);
       return r;
     }
 
@@ -1838,7 +1847,84 @@ namespace verona::parser
       if (!has(TokenKind::Class))
         return Skip;
 
-      return entity<Class>(member);
+      Result r = entity<Class>(member);
+      auto& cls = member->as<Class>();
+      bool trivial_create = !cls.symbol_table()->get(name_create);
+
+      if (trivial_create)
+      {
+        for (auto& m : cls.members)
+        {
+          if (m->kind() != Kind::Field)
+            continue;
+
+          auto& f = m->as<Field>();
+
+          if (!f.init)
+          {
+            trivial_create = false;
+            break;
+          }
+        }
+      }
+
+      if (trivial_create)
+      {
+        auto n = std::make_shared<New>();
+        n->location = cls.location;
+
+        auto tn = std::make_shared<TypeName>();
+        tn->location = cls.location;
+
+        for (auto& tp : cls.typeparams)
+        {
+          if (tp->kind() == Kind::TypeParamList)
+          {
+            auto tl = std::make_shared<TypeList>();
+            tl->location = tp->location;
+            tn->typeargs.push_back(tl);
+          }
+          else
+          {
+            auto ta = std::make_shared<TypeName>();
+            ta->location = tp->location;
+
+            auto tr = std::make_shared<TypeRef>();
+            tr->location = cls.location;
+            tr->typenames.push_back(ta);
+
+            tn->typeargs.push_back(tr);
+          }
+        }
+
+        auto tr = std::make_shared<TypeRef>();
+        tr->location = cls.location;
+        tr->typenames.push_back(tn);
+
+        auto imm = std::make_shared<Imm>();
+        imm->location = cls.location;
+
+        auto isect = std::make_shared<IsectType>();
+        isect->location = cls.location;
+        isect->types.push_back(tr);
+        isect->types.push_back(imm);
+
+        auto lambda = std::make_shared<Lambda>();
+        lambda->location = cls.location;
+        lambda->symbol_table()->parent = member;
+        lambda->result = isect;
+        lambda->body.push_back(n);
+
+        auto create = std::make_shared<Function>();
+        create->location = cls.location;
+        create->name = name_create;
+        create->lambda = lambda;
+
+        cls.members.push_back(create);
+        cls.symbol_table()->set(create->name, create);
+      }
+
+      return r;
     }
 
     Result optmoduledef(Node<Module>& module)
@@ -1847,34 +1933,32 @@ namespace verona::parser
       if (!has(TokenKind::Module))
         return Skip;
 
-      auto mod = std::make_shared<Module>();
-      mod->location = previous.location;
+      if (module)
+      {
+        error() << previous.location << "The module has already been defined"
+                << text(previous.location) << module->location
+                << "The previous definition is here" << text(module->location);
+
+        restart_after(TokenKind::Semicolon);
+        return Error;
+      }
+
+      module = std::make_shared<Module>();
+      module->location = previous.location;
       Result r = Success;
 
-      if (opttypeparams(mod->typeparams) == Error)
+      if (opttypeparams(module->typeparams) == Error)
         r = Error;
 
-      if (oftype(mod->inherits) == Error)
+      if (oftype(module->inherits) == Error)
         r = Error;
 
-      if (checkinherit(mod->inherits) == Error)
+      if (checkinherit(module->inherits) == Error)
         r = Error;
 
       if (!has(TokenKind::Semicolon))
       {
         error() << loc() << "Expected ;" << line();
-        r = Error;
-      }
-
-      if (!module)
-      {
-        module = mod;
-      }
-      else
-      {
-        error() << mod->location << "The module has already been defined"
-                << text(mod->location) << module->location
-                << "The previous definition is here" << text(module->location);
         r = Error;
       }
 
@@ -2013,7 +2097,8 @@ namespace verona::parser
     {
       auto modulename = ident("$module-" + std::to_string(module_index));
 
-      if (look_in(symbol_stack.front(), modulename))
+      // Check if this module has already been loaded.
+      if (symbols->symbol_table()->get(modulename))
         return final_result;
 
       Node<Module> moduledef;

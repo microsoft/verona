@@ -4,6 +4,8 @@
 
 namespace verona::parser
 {
+  Ident InferType::ident;
+
   const char* kindname(Kind kind)
   {
     switch (kind)
@@ -40,6 +42,9 @@ namespace verona::parser
         return "function";
 
       // Types
+      case Kind::InferType:
+        return "infertype";
+
       case Kind::ThrowType:
         return "throwtype";
 
