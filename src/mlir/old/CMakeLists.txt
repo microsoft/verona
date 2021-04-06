@@ -50,10 +50,12 @@ include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${MLIR_INCLUDE_DIRS})
 include_directories(${PROJECT_SOURCE_DIR}/mlir)
 include_directories(${PROJECT_BINARY_DIR}/mlir)
+include_directories(../../external/CLI11/include)
+include_directories(../../external/cpp-peglib)
 link_directories(${LLVM_BUILD_LIBRARY_DIR})
 add_definitions(${LLVM_DEFINITIONS})
 
-#add_subdirectory(dialect)
+add_subdirectory(dialect)
 
 ### Verona Opt (MLIR-to-MLIR/LLVM pipeline)
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
@@ -64,14 +66,17 @@ set(LIBS
         MLIROptLib
         MLIRVerona
         MLIRTargetLLVMIR
-        verona-parser-lib
+        verona-ast-lib
         )
-add_llvm_executable(verona-mlir
-  verona-mlir.cc)
+add_llvm_executable(verona-mlir-old
+  verona-mlir.cc
+  generator.cc
+  error.cc
+  driver.cc)
 
-llvm_update_compile_flags(verona-mlir)
-target_link_libraries(verona-mlir PRIVATE ${LIBS})
-install(TARGETS verona-mlir RUNTIME DESTINATION .)
+# Disable exception handling once we separated peglib from LLVM
+#target_compile_options(verona-mlir-old PRIVATE -fno-rtti -fno-exceptions)
 
-# For now, include the old one to continue testing until we're happy with the new
-add_subdirectory(old)
+llvm_update_compile_flags(verona-mlir-old)
+target_link_libraries(verona-mlir-old PRIVATE ${LIBS} CLI11::CLI11)
+install(TARGETS verona-mlir-old RUNTIME DESTINATION .)

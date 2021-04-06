@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "dialect/TypecheckInterface.h"
+#include "old/dialect/TypecheckInterface.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/SymbolTable.h"

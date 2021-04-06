@@ -6,4 +6,4 @@
 
 // This line must come after "normal" includes.
 // Having this comment prevents clang-format from re-ordering it.
-#include "dialect/TypecheckInterface.h.inc"
+#include "old/dialect/TypecheckInterface.h.inc"

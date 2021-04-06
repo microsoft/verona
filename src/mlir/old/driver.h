@@ -4,7 +4,7 @@
 #pragma once
 
 #include "ast/ast.h"
-#include "dialect/VeronaDialect.h"
+#include "old/dialect/VeronaDialect.h"
 #include "error.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"

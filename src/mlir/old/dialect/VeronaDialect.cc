@@ -13,12 +13,12 @@ namespace mlir::verona
   {
     addOperations<
 #define GET_OP_LIST
-#include "dialect/VeronaOps.cpp.inc"
+#include "old/dialect/VeronaOps.cpp.inc"
       >();
 
     addTypes<
 #define GET_TYPEDEF_LIST
-#include "dialect/VeronaTypes.cpp.inc"
+#include "old/dialect/VeronaTypes.cpp.inc"
       >();
 
     // ClassType isn't defined by ODS yet.

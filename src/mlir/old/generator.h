@@ -4,8 +4,8 @@
 #pragma once
 
 #include "ast/ast.h"
-#include "dialect/VeronaOps.h"
-#include "dialect/VeronaTypes.h"
+#include "old/dialect/VeronaOps.h"
+#include "old/dialect/VeronaTypes.h"
 #include "error.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"

@@ -4,7 +4,7 @@
 #include "generator.h"
 
 #include "ast-utils.h"
-#include "dialect/VeronaDialect.h"
+#include "old/dialect/VeronaDialect.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Dialect.h"
