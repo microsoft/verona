@@ -172,7 +172,7 @@ This has a field called `token` that contains a pair of one-bit semaphores and t
 The depth is incremented in the child before it invokes the parent and decremented in the parent when it returns.
 This allows each side to sit in a modal runloop in the stack frame responsible for waiting for the return and handle deeper invocations by local recursion.
 When a runloop is woken up in the child, it checks whether the depth has been decreased by the parent and, if so, returns, otherwise it handles a new invocation from the parent.
-When a runloops is woken up in the parent, it checks whether the depth has been increased by the child and, it so, invokes the correct callback function, otherwise it returns.
+When a runloops is woken up in the parent, it checks whether the depth has been increased by the child and, if so, invokes the correct callback function, otherwise it returns.
 
 The code for invoking the sandbox is in `SandboxedLibrary::send` in [libsandbox.cc](libsandbox.cc), the code for handling invocations in the child is in the `runloop` function in [library_runner.cc](library_runner.cc).
 
@@ -262,7 +262,7 @@ This has several limitations compared to Capsicum:
    - They cannot (for security reasons) read userspace memory and so cannot inspect any pointer arguments (e.g. paths, flags for `clone3` and so on).
    - The `libseccomp` library does not expose interfaces for comparing two arguments and so you cannot write filters of the form `base + length > sandbox_heap_start` without opting out of `libseccomp` entirely and writing raw eBPF scripts.
 
-The seccomp-bpf policy divides system calls into three categories:
+The seccomp-bpf policy divides system calls into four categories:
 
  - Safe to use in general (e.g. `read` / `write`)
  - Process-related state, safe to use only if the process ID refers to this process, blocked otherwise.
