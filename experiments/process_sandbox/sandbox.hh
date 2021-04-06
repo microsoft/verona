@@ -104,7 +104,7 @@ namespace sandbox
     }
 
     /**
-     * Read the top of the sandbox.
+     * Return the top of the sandbox.
      */
     void* top_address()
     {

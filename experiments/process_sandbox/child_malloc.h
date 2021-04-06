@@ -20,7 +20,7 @@ namespace sandbox
 {
   /**
    * The proxy pagemap.  In the sandboxed process, there are two parts of the
-   * pagemap.  The process maintains a private pagemap for process-local
+   * pagemap.  The child process maintains a private pagemap for process-local
    * memory, the parent process maintains a fragment of this pagemap
    * corresponding to the shared memory region.
    *

@@ -20,7 +20,7 @@
  * bool wait(int milliseconds);
  * ```
  *
- * Blocks for either the specified number of milliseconds have elapsed or until
+ * Blocks for either the specified number of milliseconds have elapsed or
  * until `wake` is called.  Returns true if the return is in response to a wake
  * event, false if it is in response to a timeout.
  */
