@@ -1,9 +1,9 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-#include "dialect/VeronaTypes.h"
+#include "old/dialect/VeronaTypes.h"
 
-#include "dialect/VeronaOps.h"
+#include "old/dialect/VeronaOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/DialectImplementation.h"
 

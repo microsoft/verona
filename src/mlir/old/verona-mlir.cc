@@ -1,14 +1,22 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+#include "CLI/CLI.hpp"
+#include "ast/module.h"
+#include "ast/parser.h"
+#include "ast/pass.h"
+#include "ast/path.h"
+#include "ast/prec.h"
+#include "ast/ref.h"
+#include "ast/sugar.h"
+#include "ast/sym.h"
+#include "driver.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/Path.h"
-
-#include <iostream>
 
 namespace
 {
@@ -46,8 +54,11 @@ namespace
   // Output file
   cl::opt<std::string> outputFile("o", cl::init(""), cl::desc("Output file"));
 
+  // Grammar file is not optional
+  std::string grammarFile;
+
   // Set defaults form command line arguments
-  void cmdLineDefaults(const char* execName)
+  void cmdLineDefaults()
   {
     // Default input is stdin
     if (inputFile.empty())
@@ -83,6 +94,10 @@ namespace
         outputFile = newName.c_str();
       }
     }
+
+    // Default grammar
+    // FIXME: Move to llvm::sys::path, but LLVM's GetMainExecutable is horrible
+    grammarFile = path::directory(path::executable()).append("/grammar.peg");
   }
 } // namespace
 
@@ -93,7 +108,7 @@ int main(int argc, char** argv)
 
   // Parse cmd-line options
   cl::ParseCommandLineOptions(argc, argv, "Verona MLIR Generator\n");
-  cmdLineDefaults(argv[0]);
+  cmdLineDefaults();
 
   if (inputKind == InputKind::None)
   {
@@ -102,6 +117,7 @@ int main(int argc, char** argv)
     return 1;
   }
 
+  mlir::verona::Driver driver(optLevel);
   llvm::ExitOnError check;
 
   // Parse the source file (verona/mlir)
@@ -110,23 +126,34 @@ int main(int argc, char** argv)
     case InputKind::Verona:
     {
       // Parse the file
-      bool error = false;
-      if (error)
+      err::Errors err;
+      pass::Passes passes = {{"sugar", sugar::build},
+                             {"sym", sym::build},
+                             {"ref", ref::build},
+                             {"prec", prec::build}};
+      auto m = module::build(
+        grammarFile, /*stopAt*/ "", passes, inputFile, "verona", err);
+      if (!err.empty())
       {
         std::cerr << "ERROR: cannot parse Verona file " << inputFile
-                  << std::endl;
+                  << std::endl
+                  << err.to_s() << std::endl;
         return 1;
       }
       // Parse AST file into MLIR
+      check(driver.readAST(m->ast));
     }
     break;
     case InputKind::MLIR:
       // Parse MLIR file
+      check(driver.readMLIR(inputFile));
       break;
     default:
       std::cerr << "ERROR: invalid source file type" << std::endl;
       return 1;
   }
+
+  check(driver.emitMLIR(outputFile));
 
   return 0;
 }

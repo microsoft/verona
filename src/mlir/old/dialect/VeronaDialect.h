@@ -7,4 +7,4 @@
 
 // This line must come after "normal" includes.
 // Having this comment prevents clang-format from re-ordering it.
-#include "dialect/VeronaDialect.h.inc"
+#include "old/dialect/VeronaDialect.h.inc"

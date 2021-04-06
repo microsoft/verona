@@ -3,7 +3,7 @@
 
 #include "driver.h"
 
-#include "dialect/Typechecker.h"
+#include "old/dialect/Typechecker.h"
 #include "generator.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
