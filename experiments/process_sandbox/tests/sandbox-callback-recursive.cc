@@ -1,9 +1,9 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+#include "process_sandbox/callbacks.h"
 #include "process_sandbox/cxxsandbox.h"
 #include "process_sandbox/filetree.h"
-#include "process_sandbox/callbacks.h"
 #include "process_sandbox/sandbox.h"
 
 #include <stdio.h>
@@ -18,7 +18,7 @@ struct CallbackSandbox
   /**
    * The library that defines the functions exposed by this sandbox.
    */
-  SandboxedLibrary lib = {SANDBOX_LIBRARY};
+  Library lib = {SANDBOX_LIBRARY};
   decltype(make_sandboxed_function<int(int, int)>(lib)) call_callback =
     make_sandboxed_function<int(int, int)>(lib);
 };
@@ -28,7 +28,7 @@ int main()
   CallbackSandbox sandbox;
   int callback_number;
   int expected = 11;
-  auto callback = [&](SandboxedLibrary&, int val) {
+  auto callback = [&](Library&, int val) {
     fprintf(stderr, "[h] Callback invoked %d\n", val);
     CallbackHandlerBase::Result r{0};
     assert(val == expected);
@@ -40,8 +40,8 @@ int main()
     }
     return r;
   };
-  callback_number =
-    sandbox.lib.register_callback(sandbox::make_callback_handler<int>(callback));
+  callback_number = sandbox.lib.register_callback(
+    sandbox::make_callback_handler<int>(callback));
   try
   {
     fprintf(stderr, "Asking sandbox to invoke callback %d\n", callback_number);

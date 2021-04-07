@@ -10,7 +10,7 @@
  */
 namespace sandbox
 {
-  class SandboxedLibrary;
+  class Library;
   /**
    * The kind of callback.  This is used to dispatch the callback to the
    * correct handler.
@@ -133,7 +133,7 @@ namespace sandbox
      * Invoke the handler.  This provides a type-safe interface that wraps the
      * templated version.
      */
-    virtual Result invoke(SandboxedLibrary&, struct CallbackRequest)
+    virtual Result invoke(Library&, struct CallbackRequest)
     {
       return -ENOSYS;
     }
@@ -157,14 +157,14 @@ namespace sandbox
     /**
      * The implementation of the handler.
      */
-    std::function<CallbackHandlerBase::Result(SandboxedLibrary&, T&)> fn;
+    std::function<CallbackHandlerBase::Result(Library&, T&)> fn;
 
     /**
      * Invoke the handler after checking that the arguments are of the correct
      * size and copying them out of the sandbox.
      */
     CallbackHandlerBase::Result
-    invoke(SandboxedLibrary& lib, struct CallbackRequest req) override
+    invoke(Library& lib, struct CallbackRequest req) override
     {
       if (req.size != sizeof(T))
       {
@@ -196,7 +196,7 @@ namespace sandbox
    */
   template<typename T>
   std::unique_ptr<CallbackHandlerBase> make_callback_handler(
-    std::function<CallbackHandlerBase::Result(SandboxedLibrary&, T&)> fn)
+    std::function<CallbackHandlerBase::Result(Library&, T&)> fn)
   {
     return std::make_unique<CallbackHandler<T>>(fn);
   }

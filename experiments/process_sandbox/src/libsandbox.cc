@@ -405,10 +405,10 @@ namespace sandbox
   };
 
   /**
-   * Class that handles callbacks.  Each `SandboxedLibrary` holds a single one
+   * Class that handles callbacks.  Each `Library` holds a single one
    * of these, its implementation is hidden from the public interface.
    */
-  class SandboxCallbackHandler
+  class CallbackDispatcher
   {
     /**
      * The file paths exported to this sandbox.
@@ -421,10 +421,10 @@ namespace sandbox
     std::vector<std::unique_ptr<CallbackHandlerBase>> handlers;
 
     /**
-     * This is an implementation detail of `SandboxedLibrary`,
-     * `SandboxedLibrary` may call any of it.
+     * This is an implementation detail of `Library`,
+     * `Library` may call any of it.
      */
-    friend class SandboxedLibrary;
+    friend class Library;
 
     /**
      * The handle to the socket that is used to pass file descriptors to the
@@ -463,7 +463,7 @@ namespace sandbox
     /**
      * Copy the path out of the sandbox.
      */
-    unique_c_ptr<char> get_path(SandboxedLibrary& lib, uintptr_t inSandboxPath)
+    unique_c_ptr<char> get_path(Library& lib, uintptr_t inSandboxPath)
     {
       return lib.strdup_out(reinterpret_cast<char*>(inSandboxPath));
     };
@@ -487,7 +487,7 @@ namespace sandbox
      * argument more than once or it will be subject to TOCTOU errors.
      */
     template<typename T>
-    T* check_pointer(SandboxedLibrary& lib, uintptr_t addr)
+    T* check_pointer(Library& lib, uintptr_t addr)
     {
       T* ptr = reinterpret_cast<T*>(addr);
       if (lib.contains(ptr, sizeof(T)))
@@ -501,7 +501,7 @@ namespace sandbox
      * Handle an `open` callback by reading the file from the exported file
      * tree.
      */
-    Result handle_open(SandboxedLibrary& lib, CallbackArgs::Open& args)
+    Result handle_open(Library& lib, CallbackArgs::Open& args)
     {
       auto path = get_path(lib, args.path);
       auto canonical_path = get_canonical_path(path);
@@ -534,7 +534,7 @@ namespace sandbox
      * exported file tree provides a file descriptor corresponding to this
      * path.
      */
-    Result handle_stat(SandboxedLibrary& lib, CallbackArgs::Stat& args)
+    Result handle_stat(Library& lib, CallbackArgs::Stat& args)
     {
       uintptr_t ret = -EINVAL;
       struct stat* sb = check_pointer<struct stat>(lib, args.statbuf);
@@ -579,8 +579,7 @@ namespace sandbox
      */
     template<typename Args>
     void register_handler(
-      CallbackKind k,
-      Result (SandboxCallbackHandler::*handler)(SandboxedLibrary&, Args&))
+      CallbackKind k, Result (CallbackDispatcher::*handler)(Library&, Args&))
     {
       enlarge_handlers(k + 1);
       handlers[k] = make_callback_handler<Args>(
@@ -590,7 +589,7 @@ namespace sandbox
     /**
      * Handle a request.
      */
-    void handle(SandboxedLibrary& lib)
+    void handle(Library& lib)
     {
       CallbackRequest req;
       platform::Handle in_fd;
@@ -626,7 +625,7 @@ namespace sandbox
     /**
      * Constructor.  Set up the default exported directories.
      */
-    SandboxCallbackHandler()
+    CallbackDispatcher()
     {
       for (auto libdir : libdirs)
       {
@@ -643,31 +642,29 @@ namespace sandbox
         vfs.add_file(ldsocache, platform::Handle(fd));
       }
       handlers.reserve(CallbackKind::BuiltInCallbackKindCount);
-      register_handler(
-        CallbackKind::Open, &SandboxCallbackHandler::handle_open);
-      register_handler(
-        CallbackKind::Stat, &SandboxCallbackHandler::handle_stat);
+      register_handler(CallbackKind::Open, &CallbackDispatcher::handle_open);
+      register_handler(CallbackKind::Stat, &CallbackDispatcher::handle_stat);
     };
   };
 
-  ExportedFileTree& SandboxedLibrary::filetree()
+  ExportedFileTree& Library::filetree()
   {
-    return callback_handler->vfs;
+    return callback_dispatcher->vfs;
   }
 
-  int SandboxedLibrary::register_callback(
+  int Library::register_callback(
     std::unique_ptr<CallbackHandlerBase>&& callback)
   {
-    return callback_handler->register_callback(std::move(callback));
+    return callback_dispatcher->register_callback(std::move(callback));
   }
 
-  SandboxedLibrary::~SandboxedLibrary()
+  Library::~Library()
   {
     wait_for_child_exit();
     shared_mem->destroy();
   }
 
-  void SandboxedLibrary::start_child(
+  void Library::start_child(
     const char* library_name,
     const char* librunnerpath,
     const void* sharedmem_addr,
@@ -743,13 +740,13 @@ namespace sandbox
     _exit(EXIT_FAILURE);
   }
 
-  SandboxedLibrary::SandboxedLibrary(const char* library_name, size_t size)
+  Library::Library(const char* library_name, size_t size)
   : shm(snmalloc::bits::next_pow2_bits(size << 30)),
     shared_pagemap(snmalloc::bits::next_pow2_bits(snmalloc::OS_PAGE_SIZE)),
     memory_provider(
       pointer_offset(shm.get_base(), sizeof(SharedMemoryRegion)),
       shm.get_size() - sizeof(SharedMemoryRegion)),
-    callback_handler(std::make_unique<SandboxCallbackHandler>())
+    callback_dispatcher(std::make_unique<CallbackDispatcher>())
   {
     void* shm_base = shm.get_base();
     // Allocate the shared memory region and set its memory provider to use all
@@ -803,7 +800,7 @@ namespace sandbox
         std::move(malloc_rpc_sockets.second),
         std::move(socks.second));
     });
-    callback_handler->socket = std::move(socks.first);
+    callback_dispatcher->socket = std::move(socks.first);
     // Allocate an allocator in the shared memory region.
     allocator = new SharedAlloc(
       memory_provider,
@@ -811,7 +808,7 @@ namespace sandbox
       &shared_mem->allocator_state);
   }
 
-  void SandboxedLibrary::send(int idx, void* ptr)
+  void Library::send(int idx, void* ptr)
   {
     // If this is the first call, we need to handle callbacks while the sandbox
     // initialises
@@ -822,7 +819,7 @@ namespace sandbox
         if (shared_mem->token.callback_depth > 0)
         {
           shared_mem->token.parent.wait(INT_MAX);
-          callback_handler->handle(*this);
+          callback_dispatcher->handle(*this);
           shared_mem->token.callback_depth--;
           shared_mem->token.is_child_executing = true;
           shared_mem->token.child.wake();
@@ -862,7 +859,7 @@ namespace sandbox
       // callbacks
       if (shared_mem->token.callback_depth.load() > callback_depth)
       {
-        callback_handler->handle(*this);
+        callback_dispatcher->handle(*this);
         shared_mem->token.callback_depth--;
         shared_mem->token.is_child_executing = true;
         shared_mem->token.child.wake();
@@ -870,11 +867,11 @@ namespace sandbox
       }
     } while (handled_callback);
   }
-  bool SandboxedLibrary::has_child_exited()
+  bool Library::has_child_exited()
   {
     return child_proc->exit_status().has_exited;
   }
-  int SandboxedLibrary::wait_for_child_exit()
+  int Library::wait_for_child_exit()
   {
     auto exit_status = child_proc->exit_status();
     if (exit_status.has_exited)
@@ -888,7 +885,7 @@ namespace sandbox
     return child_proc->wait_for_exit().exit_code;
   }
 
-  void* SandboxedLibrary::alloc_in_sandbox(size_t bytes, size_t count)
+  void* Library::alloc_in_sandbox(size_t bytes, size_t count)
   {
     bool overflow = false;
     size_t sz = snmalloc::bits::umul(bytes, count, overflow);
@@ -898,7 +895,7 @@ namespace sandbox
     }
     return allocator->alloc(sz);
   }
-  void SandboxedLibrary::dealloc_in_sandbox(void* ptr)
+  void Library::dealloc_in_sandbox(void* ptr)
   {
     allocator->dealloc(ptr);
   }

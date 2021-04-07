@@ -17,7 +17,7 @@ struct VFSSandbox
   /**
    * The library that defines the functions exposed by this sandbox.
    */
-  SandboxedLibrary lib = {SANDBOX_LIBRARY};
+  Library lib = {SANDBOX_LIBRARY};
   decltype(make_sandboxed_function<int(bool)>(lib)) test =
     make_sandboxed_function<int(bool)>(lib);
 };

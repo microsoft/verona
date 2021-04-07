@@ -18,7 +18,7 @@ struct AddSandbox
   /**
    * The library that defines the functions exposed by this sandbox.
    */
-  SandboxedLibrary lib = {SANDBOX_LIBRARY};
+  Library lib = {SANDBOX_LIBRARY};
 #define EXPORTED_FUNCTION(public_name, private_name) \
   decltype(make_sandboxed_function<decltype(private_name)>(lib)) public_name = \
     make_sandboxed_function<decltype(private_name)>(lib);

@@ -1,9 +1,9 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "process_sandbox/helpers.h"
+#include "process_sandbox/platform/platform.h"
 
 #include <future>
-#include "process_sandbox/platform/platform.h"
 #include <thread>
 #include <unordered_set>
 #include <vector>

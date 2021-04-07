@@ -8,7 +8,7 @@ namespace sandbox
    * The numbers for file descriptors passed into the child.  These must match
    * between libsandbox and the library runner child process.
    */
-  enum SandboxFileDescriptors
+  enum InheritedFileDescriptors
   {
     /**
      * C standard in.

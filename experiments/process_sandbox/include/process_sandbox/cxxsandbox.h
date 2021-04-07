@@ -41,7 +41,7 @@ namespace sandbox
    * A wrapper for invoking a function exported from a sandbox.
    */
   template<typename Ret, typename... Args>
-  class SandboxedFunction
+  class Function
   {
     /**
      * When constructed with the public constructor, this function uses the
@@ -51,11 +51,11 @@ namespace sandbox
      * are all friends.
      */
     template<typename R, typename... A>
-    friend class SandboxedFunction;
+    friend class Function;
     /**
      * The library that exports the function around which this is a wrapper.
      */
-    SandboxedLibrary& lib;
+    Library& lib;
     /**
      * The correct argument frame type for this specific instantiation.
      */
@@ -69,8 +69,7 @@ namespace sandbox
      * and calls it when construction a new temporary sandboxed function to
      * perform type checking.
      */
-    SandboxedFunction(SandboxedLibrary& l, int idx) : lib(l), vtable_index(idx)
-    {}
+    Function(Library& l, int idx) : lib(l), vtable_index(idx) {}
 
   public:
     /**
@@ -80,11 +79,10 @@ namespace sandbox
      * interface to a sandboxed library, where each exported function field is
      * declared in the same order that it is exported from the library.
      */
-    SandboxedFunction(SandboxedLibrary& l)
-    : SandboxedFunction(l, l.next_vtable_entry())
+    Function(Library& l) : Function(l, l.next_vtable_entry())
     {
 #ifndef NDEBUG
-      SandboxedFunction<char*, int> get_type(l, 0);
+      Function<char*, int> get_type(l, 0);
       char* exported = get_type(vtable_index);
       Ret (*fn)(Args...);
       if ((exported == nullptr) || (strcmp(exported, typeid(fn).name()) != 0))
@@ -121,7 +119,7 @@ namespace sandbox
    * a single set of virtual functions that can invoke all of the specialised
    * versions defined in the templated subclass.
    */
-  struct SandboxExportedFunctionBase
+  struct ExportedFunctionBase
   {
     /**
      * Call the function.  The `callframe` parameter is a pointer to an
@@ -134,7 +132,7 @@ namespace sandbox
      * destructors, so this is completely unnecessary, but this silences some
      * compiler warnings.
      */
-    virtual ~SandboxExportedFunctionBase() {}
+    virtual ~ExportedFunctionBase() {}
     /**
      * Return the type encoding string of the function.  This is used to detect
      * type mismatches between exported and imported functions.
@@ -147,7 +145,7 @@ namespace sandbox
    * the trampoline required to call a function with the specified signature.
    */
   template<typename Ret, typename... Args>
-  class SandboxExportedFunction : public SandboxExportedFunctionBase
+  class ExportedFunction : public ExportedFunctionBase
   {
     /**
      * The type of the structure containing the arguments and the return
@@ -189,7 +187,7 @@ namespace sandbox
      * the `export_function` in `ExportedLibrary`, but that calls it indirectly
      * and so we can't sensibly do this via a friend definition.
      */
-    SandboxExportedFunction(Ret (*fn)(Args...)) : function(fn) {}
+    ExportedFunction(Ret (*fn)(Args...)) : function(fn) {}
   };
 
   /**
@@ -212,8 +210,7 @@ namespace sandbox
      * invoked.
      */
   public:
-    inline static std::vector<std::unique_ptr<SandboxExportedFunctionBase>>
-      functions;
+    inline static std::vector<std::unique_ptr<ExportedFunctionBase>> functions;
 
     static void call(int idx, void* args)
     {
@@ -231,7 +228,7 @@ namespace sandbox
      * Export a function to consumers of this sandboxed library.  The function
      * is inserted in the next vtable entry so the order of calls to this
      * method from inside the sandbox must match the order of
-     * `SandboxedFunction` objects created for a `SandboxedLibrary` that
+     * `Function` objects created for a `Library` that
      * corresponds to the outside of this sandbox.
      */
     template<typename Ret, typename... Args>
@@ -243,7 +240,7 @@ namespace sandbox
       {
         export_function(type_encoding);
       }
-      functions.emplace_back(new SandboxExportedFunction(fn));
+      functions.emplace_back(new ExportedFunction(fn));
     }
   };
 
@@ -253,7 +250,7 @@ namespace sandbox
   }
 
   /**
-   * Helpers that assist with type deduction for `SandboxedFunction` objects.
+   * Helpers that assist with type deduction for `Function` objects.
    *
    * Nothing in this namespace should be used outside of this library.
    */
@@ -261,7 +258,7 @@ namespace sandbox
   {
     /**
      * Given the types deduced by `signature`, construct the type of a
-     * `SandboxedFunction` that corresponds to the type of the original
+     * `Function` that corresponds to the type of the original
      * function.
      */
     template<typename Ret, typename T>
@@ -278,7 +275,7 @@ namespace sandbox
        * The wrapper function type for the exported function type provided by
        * the template arguments.
        */
-      using wrapper = SandboxedFunction<Ret, T...>;
+      using wrapper = Function<Ret, T...>;
     };
   }
 
@@ -294,7 +291,7 @@ namespace sandbox
    * used with `decltype(someFunction)` as an explicit template argument.
    */
   template<typename Fn>
-  inline auto make_sandboxed_function(SandboxedLibrary& l)
+  inline auto make_sandboxed_function(Library& l)
   {
     using sig = internal::signature<Fn>;
     return typename internal::extract_args<

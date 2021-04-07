@@ -51,7 +51,7 @@ namespace sandbox
   struct SharedMemoryRegion;
   struct SharedPagemapAdaptor;
   struct MemoryProviderBumpPointerState;
-  class SandboxCallbackHandler;
+  class CallbackDispatcher;
   class ExportedFileTree;
   struct CallbackHandlerBase;
 
@@ -115,11 +115,11 @@ namespace sandbox
   /**
    * Class encapsulating an instance of a shared library in a sandbox.
    * Instances of this class will create a sandbox and load a specified library
-   * into it, but are useless in isolation.  The `SandboxedFunction` class
+   * into it, but are useless in isolation.  The `Function` class
    * provides a wrapper for calling an exported function in the specified
    * library.
    */
-  class SandboxedLibrary
+  class Library
   {
     /**
      * `handle_t` is the type used by the OS for handles to operating system
@@ -249,7 +249,7 @@ namespace sandbox
     /**
      * The delegate that handles callbacks for this sandbox.
      */
-    std::unique_ptr<SandboxCallbackHandler> callback_handler;
+    std::unique_ptr<CallbackDispatcher> callback_dispatcher;
 
   public:
     /**
@@ -266,12 +266,12 @@ namespace sandbox
      * Note that all pointers into memory owned by the library are invalid
      * after this has been deallocated.
      */
-    ~SandboxedLibrary();
+    ~Library();
     /**
      * Constructor.  Creates a new sandboxed instance of the library named by
      * `library_name`, with the heap size specified in GiBs.
      */
-    SandboxedLibrary(const char* library_name, size_t heap_size_in_GiBs = 1);
+    Library(const char* library_name, size_t heap_size_in_GiBs = 1);
     /**
      * Allocate space for an array of `count` instances of `T`.  Objects in the
      * array will be default constructed.
@@ -403,10 +403,10 @@ namespace sandbox
      */
     bool is_first_call = true;
     /**
-     * SandboxedFunction is allowed to call the following methods in this class.
+     * Function is allowed to call the following methods in this class.
      */
     template<typename Ret, typename... Args>
-    friend class SandboxedFunction;
+    friend class Function;
     /**
      * Sends a message to the child process, containing a vtable index and a
      * pointer to the argument frame (a tuple of arguments and space for the
@@ -430,7 +430,7 @@ namespace sandbox
   /**
    * Function to invoke a callback from within a sandbox.  This takes the
    * number of the callback, which must be a number previously returned from
-   * `register_callback` on the `SandboxedLibrary` that encapsulates the
+   * `register_callback` on the `Library` that encapsulates the
    * sandbox from which this is being called.
    *
    * The next two arguments specify the data and size.  The size must be

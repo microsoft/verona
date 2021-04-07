@@ -65,7 +65,7 @@ namespace sandbox
     snmalloc::Pal::error(final_msg.c_str());
   }
 
-  enum SandboxDebugOption
+  enum DebugOption
   {
     DebugOnly,
     DebugAndRelease,
@@ -82,10 +82,7 @@ namespace sandbox
    * allow arguments from a parameter pack in the middle of the argument list
    * and so we need to pack those into a tuple.
    */
-  template<
-    SandboxDebugOption Enable = DebugAndRelease,
-    typename Msg,
-    typename... Args>
+  template<DebugOption Enable = DebugAndRelease, typename Msg, typename... Args>
   __attribute__((always_inline)) void invariant(
     bool cond,
     Msg msg = "Assertion failure",

@@ -27,7 +27,7 @@ The process-sandbox code uses the following terminology:
  - *Sandbox allocator*: The snmalloc allocators that run inside a sandbox and allocate memory from the *sandbox heap*.
  - *Boundary allocator*: The per-sandbox instance of snmalloc that allocates memory in the *sandbox heap* on behalf of the *parent*.
  - *OS sandbox*: The kernel-specific functionality used to restrict the rights of the *child*.
- - *library runner*: The program (the `library_runner` binary, compiled from [library_runner.cc](library_runner.cc)) that the child process runs.
+ - *library runner*: The program (the `library_runner` binary, compiled from [library_runner.cc](src/library_runner.cc)) that the child process runs.
 
 High-level abstractions
 -----------------------
@@ -114,8 +114,8 @@ The memory provider resides in the parent because that is the only place where t
 The child sends pagemap updates and memory provider requests to the parent via a socket.
 Because all pagemap updates are done in the parent, allocators do not need to validate the pagemap values on read.
 
-The socket is inherited from the parent in the file descriptor identified by `PageMapUpdates` (defined in [sandbox_fd_numbers.h](sandbox_fd_numbers.h)).
-These updates are sent via the trivial RPC protocol described in [host_service_calls.h](host_service_calls.h).
+The socket is inherited from the parent in the file descriptor identified by `PageMapUpdates` (defined in [sandbox_fd_numbers.h](include/process_sandbox/sandbox_fd_numbers.h)).
+These updates are sent via the trivial RPC protocol described in [host_service_calls.h](src/host_service_calls.h).
 This is not a general protocol but is designed with the following constraints:
 
  - It must not require memory allocation because it is invoked during memory allocation.
@@ -167,14 +167,14 @@ When a child starts, both it and the parent are running.
 If the run-time linker does not natively support a sandboxing technology (e.g. seccomp-bpf and the glibc `ld-linux.so`) then the parent must be able to handle callbacks from the client to open shared libraries before it can call the first sandboxed function.
 This causes some slightly complex logic for the initial rendezvous, which will probably be simplified in a future version.
 
-The structure that defines the static (non-heap) part of the shared memory region is declared in [shared_memory_region.h](shared_memory_region.h).
+The structure that defines the static (non-heap) part of the shared memory region is declared in [shared_memory_region.h](include/process_sandbox/shared_memory_region.h).
 This has a field called `token` that contains a pair of one-bit semaphores and the stack depth of current callback.
 The depth is incremented in the child before it invokes the parent and decremented in the parent when it returns.
 This allows each side to sit in a modal runloop in the stack frame responsible for waiting for the return and handle deeper invocations by local recursion.
 When a runloop is woken up in the child, it checks whether the depth has been decreased by the parent and, if so, returns, otherwise it handles a new invocation from the parent.
 When a runloops is woken up in the parent, it checks whether the depth has been increased by the child and, if so, invokes the correct callback function, otherwise it returns.
 
-The code for invoking the sandbox is in `SandboxedLibrary::send` in [libsandbox.cc](libsandbox.cc), the code for handling invocations in the child is in the `runloop` function in [library_runner.cc](library_runner.cc).
+The code for invoking the sandbox is in `sandbox::Library::send` in [libsandbox.cc](src/libsandbox.cc), the code for handling invocations in the child is in the `runloop` function in [library_runner.cc](src/library_runner.cc).
 
 ### Data movement for calls
 
@@ -217,7 +217,7 @@ void sandbox_call(int idx, void *args)
 }
 ```
 
-The functions in [cxxapi/cxxsandbox.h](cxxapi/cxxsandbox.h) provide templates for generating this code directly from C++ function declarations.
+The functions in [cxxsandbox.h](include/process_sandbox/cxxsandbox.h) provide templates for generating this code directly from C++ function declarations.
 Note that the C++ APIs provide the same abstractions for sandbox code invocation that the Verona compiler is expected to use, but the C++ type system lacks viewpoint adaptation and so cannot help you avoid accidentally following pointers that the attacker is able to manipulate.
 
 Currently, the in-memory RPC mechanism used to invoke methods in the child is very high latency.
@@ -291,7 +291,7 @@ Portability
 The current code is expected to be easily portable to any POSIX system that has a process sandboxing framework.
 The core abstractions provided should be portable to Windows using the Isolated User Mode APIs, though interposing on Windows system calls for privilege elevation may not be possible and there are still a number of questions about how this can be implemented.
 
-The platform abstractions are all in the [platform](platform/) directory.
+The platform abstractions are all in the [platform](include/process_sandbox/platform/) directory.
 This currently provides several abstractions that have generic POSIX implementations:
 
  - Child processes, implemented via `vfork`, with a `pdfork` implementation available if supported.
@@ -326,7 +326,7 @@ Code layout
  - [include/process_sandbox](include/process_sandbox) contains the public interfaces.
    - [cxxsandbox.h](include/process_sandbox/cxxsandbox.h) contains the C++ API, which is primarily used for testing.
    - [filetree.h](include/process_sandbox/filetree.h) describes the interface for exporting a virtual file tree to the child.
-     This is accessed from the `SandboxedLibrary` class.
+     This is accessed from the `sandbox::Library` class.
    - [helpers.h](include/process_sandbox/helpers.h) provides some helpers for managing C memory, extracting argument types from functions, and so on.
    - [platform/](include/process_sandbox/platform) contains the platform abstraction code.
    - [callbacks.h](include/process_sandbox/callbacks.h) describes the callback mechanism.
