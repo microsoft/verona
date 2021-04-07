@@ -6,16 +6,16 @@
 
 #include <limits.h>
 /**
- * This file contains the mechanism for servicing upcalls from the sandbox.
+ * This file contains the mechanism for servicing callbacks from the sandbox.
  */
 namespace sandbox
 {
   class SandboxedLibrary;
   /**
-   * The kind of upcall.  This is used to dispatch the upcall to the correct
-   * handler.
+   * The kind of callback.  This is used to dispatch the callback to the
+   * correct handler.
    */
-  enum UpcallKind
+  enum CallbackKind
   {
     /**
      * Proxying an `open` system call.
@@ -34,18 +34,18 @@ namespace sandbox
      */
     OpenAt,
     /**
-     * Total number of built-in upcall kinds.
+     * Total number of built-in callback kinds.
      */
-    BuiltInUpcallKindCount,
+    BuiltInCallbackKindCount,
     /**
-     * User-defined callback numbers start here.  User for upcalls from the
+     * User-defined callback numbers start here.  User for callbacks from the
      * sandbox into Verona code and will itself be multiplexed.
      */
-    FirstUserFunction = BuiltInUpcallKindCount,
+    FirstUserFunction = BuiltInCallbackKindCount,
   };
 
   /**
-   * The body of the upcall request message.  This is sent over a UNIX domain
+   * The body of the callback request message.  This is sent over a UNIX domain
    * socket.  The privileged code has access to the sandbox's memory; however,
    * and so most of the message payload is in sandbox-owned memory within the
    * sandbox.  The payload sent over the socket is small enough that the kernel
@@ -54,12 +54,12 @@ namespace sandbox
    * avoid TOCTOU bugs, without needing to lock pages or any of the other
    * operations that make this expensive in an in-kernel implementation.
    */
-  struct UpcallRequest
+  struct CallbackRequest
   {
     /**
      * The kind of message.
      */
-    UpcallKind kind;
+    CallbackKind kind;
     /**
      * The size of the message payload (`data`).  All messages are fixed size,
      * and so it should be possible to deduce this from the `kind`, but this
@@ -78,12 +78,12 @@ namespace sandbox
   };
 
   /**
-   * The response to an upcall.
+   * The response to a callback.
    */
-  struct UpcallResponse
+  struct CallbackResponse
   {
     /**
-     * The result value.  Currently, all upcalls follow the POSIX system call
+     * The result value.  Currently, all callbacks follow the POSIX system call
      * model of returning a single integer.  Each response is optionally
      * accompanied by a file descriptor and most calls ignore this value if
      * they receive a file descriptor.
@@ -92,13 +92,13 @@ namespace sandbox
   };
 
   /**
-   * Base class for wrapping callbacks that handle upcalls.
+   * Base class for wrapping callbacks that handle callbacks.
    */
-  struct UpcallHandlerBase
+  struct CallbackHandlerBase
   {
     /**
-     * The result type for any upcall handler.  Note that upcalls are able to
-     * cheaply allocate memory in the sandbox and so have a simple mechanism
+     * The result type for any callback handler.  Note that callbacks are able
+     * to cheaply allocate memory in the sandbox and so have a simple mechanism
      * for passing richer return values indirectly.
      */
     struct Result
@@ -133,7 +133,7 @@ namespace sandbox
      * Invoke the handler.  This provides a type-safe interface that wraps the
      * templated version.
      */
-    virtual Result invoke(SandboxedLibrary&, struct UpcallRequest)
+    virtual Result invoke(SandboxedLibrary&, struct CallbackRequest)
     {
       return -ENOSYS;
     }
@@ -141,30 +141,30 @@ namespace sandbox
     /**
      * Virtual destructor.
      */
-    virtual ~UpcallHandlerBase() {}
+    virtual ~CallbackHandlerBase() {}
   };
 
   /**
-   * Upcall handler, wraps a callable object that actually handles the message.
-   * The wrapper is responsible for defensively copying the argument structure
-   * out so that the wrapped function does not have to worry about truncated
-   * arguments and can ignore TOCTOU issues unless it follows pointers in the
-   * argument frame.
+   * Callback handler, wraps a callable object that actually handles the
+   * message. The wrapper is responsible for defensively copying the argument
+   * structure out so that the wrapped function does not have to worry about
+   * truncated arguments and can ignore TOCTOU issues unless it follows pointers
+   * in the argument frame.
    */
   template<typename T>
-  class UpcallHandler : public UpcallHandlerBase
+  class CallbackHandler : public CallbackHandlerBase
   {
     /**
      * The implementation of the handler.
      */
-    std::function<UpcallHandlerBase::Result(SandboxedLibrary&, T&)> fn;
+    std::function<CallbackHandlerBase::Result(SandboxedLibrary&, T&)> fn;
 
     /**
      * Invoke the handler after checking that the arguments are of the correct
      * size and copying them out of the sandbox.
      */
-    UpcallHandlerBase::Result
-    invoke(SandboxedLibrary& lib, struct UpcallRequest req) override
+    CallbackHandlerBase::Result
+    invoke(SandboxedLibrary& lib, struct CallbackRequest req) override
     {
       if (req.size != sizeof(T))
       {
@@ -186,23 +186,23 @@ namespace sandbox
      * (or other callable object) of the right signature.
      */
     template<typename X>
-    UpcallHandler(X&& f) : fn(f)
+    CallbackHandler(X&& f) : fn(f)
     {}
   };
 
   /**
-   * Helper that constructs a unique pointer to an Upcall handler of the right
+   * Helper that constructs a unique pointer to a callback handler of the right
    * type for the callable argument as a pointer to the base class.
    */
   template<typename T>
-  std::unique_ptr<UpcallHandlerBase> make_upcall_handler(
-    std::function<UpcallHandlerBase::Result(SandboxedLibrary&, T&)> fn)
+  std::unique_ptr<CallbackHandlerBase> make_callback_handler(
+    std::function<CallbackHandlerBase::Result(SandboxedLibrary&, T&)> fn)
   {
-    return std::make_unique<UpcallHandler<T>>(fn);
+    return std::make_unique<CallbackHandler<T>>(fn);
   }
 
   /**
-   * Upcall argument structures.
+   * Callback argument structures.
    *
    * TODO: These currently assume the same ABI in and out of the sandbox.  This
    * may not always apply, for example if we run a 32-bit library on a 64-bit
@@ -211,10 +211,10 @@ namespace sandbox
    * This uses `uintptr_t` for pointers, to force an explicit cast before
    * access.
    */
-  namespace UpcallArgs
+  namespace CallbackArgs
   {
     /**
-     * Arguments for an open upcall.
+     * Arguments for an open callback.
      */
     struct Open
     {

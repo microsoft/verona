@@ -13,8 +13,8 @@ set(SANDBOX_TESTS
 	basic
 	crash
 	fake-open
-	upcall-basic
-	upcall-recursive
+	callback-basic
+	callback-recursive
 	zlib
 	)
 

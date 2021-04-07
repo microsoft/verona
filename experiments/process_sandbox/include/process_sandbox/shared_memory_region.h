@@ -69,15 +69,15 @@ namespace sandbox
       /**
        * Monotonic flag indicating that the child has finished loading.  This
        * is checked during the first call into a sandbox to process any pending
-       * upcalls before the first invocation.
+       * callbacks before the first invocation.
        */
       std::atomic<bool> is_child_loaded = false;
       /**
-       * The current depth of upcalls.
+       * The current depth of callbacks.
        *
        * FIXME: Rentrancy with multiple threads in the child is not working.
        */
-      std::atomic<int> upcall_depth = 0;
+      std::atomic<int> callback_depth = 0;
     } token;
 
     /**

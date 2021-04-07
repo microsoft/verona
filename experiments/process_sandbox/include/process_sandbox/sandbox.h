@@ -51,9 +51,9 @@ namespace sandbox
   struct SharedMemoryRegion;
   struct SharedPagemapAdaptor;
   struct MemoryProviderBumpPointerState;
-  class SandboxUpcallHandler;
+  class SandboxCallbackHandler;
   class ExportedFileTree;
-  struct UpcallHandlerBase;
+  struct CallbackHandlerBase;
 
   /**
    * An snmalloc Platform Abstraction Layer (PAL) that cannot be used to
@@ -247,9 +247,9 @@ namespace sandbox
       platform::Handle&& fd_socket);
 
     /**
-     * The delegate that handles upcalls for this sandbox.
+     * The delegate that handles callbacks for this sandbox.
      */
-    std::unique_ptr<SandboxUpcallHandler> upcall_handler;
+    std::unique_ptr<SandboxCallbackHandler> callback_handler;
 
   public:
     /**
@@ -299,11 +299,11 @@ namespace sandbox
     ExportedFileTree& filetree();
 
     /**
-     * Register a handler for an upcall from this sandbox.  The return value
+     * Register a handler for a callback from this sandbox.  The return value
      * the index of this that should be passed to the `invoke_user_callback`
      * function.
      */
-    int register_callback(std::unique_ptr<UpcallHandlerBase>&&);
+    int register_callback(std::unique_ptr<CallbackHandlerBase>&&);
 
     /**
      * Allocate space for a fixed-sized array of `Count` instances of `T`.
@@ -438,7 +438,7 @@ namespace sandbox
    * argument will be copied to the heap if it is not already there.
    *
    * If the `fd` argument is not negative, the file descriptor will also be
-   * passed along with the upcall.  There is not currently a mechanism for
+   * passed along with the callback.  There is not currently a mechanism for
    * passing more than one file descriptor to a callback though this would be
    * easy to add if required.
    */

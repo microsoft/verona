@@ -26,9 +26,9 @@
 #  endif
 #endif
 #include "host_service_calls.h"
+#include "process_sandbox/callbacks.h"
 #include "process_sandbox/filetree.h"
 #include "process_sandbox/platform/sandbox.h"
-#include "process_sandbox/privilege_elevation_upcalls.h"
 #include "process_sandbox/sandbox.h"
 #include "process_sandbox/shared_memory_region.h"
 
@@ -405,10 +405,10 @@ namespace sandbox
   };
 
   /**
-   * Class that handles upcalls.  Each `SandboxedLibrary` holds a single one of
-   * these, its implementation is hidden from the public interface.
+   * Class that handles callbacks.  Each `SandboxedLibrary` holds a single one
+   * of these, its implementation is hidden from the public interface.
    */
-  class SandboxUpcallHandler
+  class SandboxCallbackHandler
   {
     /**
      * The file paths exported to this sandbox.
@@ -416,9 +416,9 @@ namespace sandbox
     ExportedFileTree vfs;
 
     /**
-     * Vector of upcall handlers.
+     * Vector of callback handlers.
      */
-    std::vector<std::unique_ptr<UpcallHandlerBase>> handlers;
+    std::vector<std::unique_ptr<CallbackHandlerBase>> handlers;
 
     /**
      * This is an implementation detail of `SandboxedLibrary`,
@@ -433,9 +433,9 @@ namespace sandbox
     platform::SocketPair::Socket socket;
 
     /**
-     * Import the type used for upcall returns.
+     * Import the type used for callback returns.
      */
-    using Result = UpcallHandlerBase::Result;
+    using Result = CallbackHandlerBase::Result;
 
     /**
      * Convert a raw number from a system call return into either a file
@@ -498,9 +498,10 @@ namespace sandbox
     }
 
     /**
-     * Handle an `open` upcall by reading the file from the exported file tree.
+     * Handle an `open` callback by reading the file from the exported file
+     * tree.
      */
-    Result handle_open(SandboxedLibrary& lib, UpcallArgs::Open& args)
+    Result handle_open(SandboxedLibrary& lib, CallbackArgs::Open& args)
     {
       auto path = get_path(lib, args.path);
       auto canonical_path = get_canonical_path(path);
@@ -529,11 +530,11 @@ namespace sandbox
     }
 
     /**
-     * Handle a `stat` upcall by forwarding to a real `fstat` call if the
+     * Handle a `stat` callback by forwarding to a real `fstat` call if the
      * exported file tree provides a file descriptor corresponding to this
      * path.
      */
-    Result handle_stat(SandboxedLibrary& lib, UpcallArgs::Stat& args)
+    Result handle_stat(SandboxedLibrary& lib, CallbackArgs::Stat& args)
     {
       uintptr_t ret = -EINVAL;
       struct stat* sb = check_pointer<struct stat>(lib, args.statbuf);
@@ -566,23 +567,23 @@ namespace sandbox
         handlers.resize(size);
         for (size_t i = oldsize; i < size; i++)
         {
-          handlers[i] = std::make_unique<UpcallHandlerBase>();
+          handlers[i] = std::make_unique<CallbackHandlerBase>();
         }
       }
     }
 
     /**
-     * Register a handler for an upcall, with the specific index.  Note that,
-     * although `k` is an `UpcallKind`, this will be a value after the last
-     * statically defined upcall kind for any user-provided callbacks.
+     * Register a handler for an callback, with the specific index.  Note that,
+     * although `k` is an `CallbackKind`, this will be a value after the last
+     * statically defined callback kind for any user-provided callbacks.
      */
     template<typename Args>
     void register_handler(
-      UpcallKind k,
-      Result (SandboxUpcallHandler::*handler)(SandboxedLibrary&, Args&))
+      CallbackKind k,
+      Result (SandboxCallbackHandler::*handler)(SandboxedLibrary&, Args&))
     {
       enlarge_handlers(k + 1);
-      handlers[k] = make_upcall_handler<Args>(
+      handlers[k] = make_callback_handler<Args>(
         std::bind(handler, this, std::placeholders::_1, std::placeholders::_2));
     }
 
@@ -591,13 +592,13 @@ namespace sandbox
      */
     void handle(SandboxedLibrary& lib)
     {
-      UpcallRequest req;
+      CallbackRequest req;
       platform::Handle in_fd;
       // FIXME: This should not block, but it can if the sandbox doesn't write
       // anything into the socket.
       socket.receive(&req, sizeof(req), in_fd);
 
-      UpcallHandlerBase::Result ret;
+      CallbackHandlerBase::Result ret;
       if (req.kind < handlers.size())
       {
         ret = handlers[req.kind]->invoke(lib, req);
@@ -606,18 +607,18 @@ namespace sandbox
     }
 
     /**
-     * The next upcall number to use.
+     * The next callback number to use.
      */
-    int next_upcall_number = UpcallKind::FirstUserFunction;
+    int next_callback_number = CallbackKind::FirstUserFunction;
 
     /**
-     * Register an upcall for the next available user-defined callback number.
+     * Register an callback for the next available user-defined callback number.
      */
-    int register_callback(std::unique_ptr<UpcallHandlerBase>&& upcall)
+    int register_callback(std::unique_ptr<CallbackHandlerBase>&& callback)
     {
-      int n = next_upcall_number++;
+      int n = next_callback_number++;
       enlarge_handlers(n + 1);
-      handlers[n] = std::move(upcall);
+      handlers[n] = std::move(callback);
       return n;
     }
 
@@ -625,7 +626,7 @@ namespace sandbox
     /**
      * Constructor.  Set up the default exported directories.
      */
-    SandboxUpcallHandler()
+    SandboxCallbackHandler()
     {
       for (auto libdir : libdirs)
       {
@@ -641,21 +642,23 @@ namespace sandbox
       {
         vfs.add_file(ldsocache, platform::Handle(fd));
       }
-      handlers.reserve(UpcallKind::BuiltInUpcallKindCount);
-      register_handler(UpcallKind::Open, &SandboxUpcallHandler::handle_open);
-      register_handler(UpcallKind::Stat, &SandboxUpcallHandler::handle_stat);
+      handlers.reserve(CallbackKind::BuiltInCallbackKindCount);
+      register_handler(
+        CallbackKind::Open, &SandboxCallbackHandler::handle_open);
+      register_handler(
+        CallbackKind::Stat, &SandboxCallbackHandler::handle_stat);
     };
   };
 
   ExportedFileTree& SandboxedLibrary::filetree()
   {
-    return upcall_handler->vfs;
+    return callback_handler->vfs;
   }
 
   int SandboxedLibrary::register_callback(
-    std::unique_ptr<UpcallHandlerBase>&& callback)
+    std::unique_ptr<CallbackHandlerBase>&& callback)
   {
-    return upcall_handler->register_callback(std::move(callback));
+    return callback_handler->register_callback(std::move(callback));
   }
 
   SandboxedLibrary::~SandboxedLibrary()
@@ -746,7 +749,7 @@ namespace sandbox
     memory_provider(
       pointer_offset(shm.get_base(), sizeof(SharedMemoryRegion)),
       shm.get_size() - sizeof(SharedMemoryRegion)),
-    upcall_handler(std::make_unique<SandboxUpcallHandler>())
+    callback_handler(std::make_unique<SandboxCallbackHandler>())
   {
     void* shm_base = shm.get_base();
     // Allocate the shared memory region and set its memory provider to use all
@@ -800,7 +803,7 @@ namespace sandbox
         std::move(malloc_rpc_sockets.second),
         std::move(socks.second));
     });
-    upcall_handler->socket = std::move(socks.first);
+    callback_handler->socket = std::move(socks.first);
     // Allocate an allocator in the shared memory region.
     allocator = new SharedAlloc(
       memory_provider,
@@ -810,17 +813,17 @@ namespace sandbox
 
   void SandboxedLibrary::send(int idx, void* ptr)
   {
-    // If this is the first call, we need to handle upcalls while the sandbox
+    // If this is the first call, we need to handle callbacks while the sandbox
     // initialises
     if (is_first_call)
     {
       while (!shared_mem->token.is_child_loaded)
       {
-        if (shared_mem->token.upcall_depth > 0)
+        if (shared_mem->token.callback_depth > 0)
         {
           shared_mem->token.parent.wait(INT_MAX);
-          upcall_handler->handle(*this);
-          shared_mem->token.upcall_depth--;
+          callback_handler->handle(*this);
+          shared_mem->token.callback_depth--;
           shared_mem->token.is_child_executing = true;
           shared_mem->token.child.wake();
         }
@@ -830,13 +833,13 @@ namespace sandbox
         }
       }
     }
-    int upcall_depth = shared_mem->token.upcall_depth.load();
+    int callback_depth = shared_mem->token.callback_depth.load();
     shared_mem->function_index = idx;
     shared_mem->msg_buffer = ptr;
     assert(!shared_mem->token.is_child_executing);
     shared_mem->token.is_child_executing = true;
     shared_mem->token.child.wake();
-    bool handled_upcall;
+    bool handled_callback;
     // Wait for a second, see if the child has exited, if it's still going,
     // try again.
     // FIXME: We should probably allow the user to specify a maxmimum
@@ -844,7 +847,7 @@ namespace sandbox
     // exception if it's taking too long.
     do
     {
-      handled_upcall = false;
+      handled_callback = false;
       while (!shared_mem->token.parent.wait(100))
       {
         if (has_child_exited())
@@ -852,20 +855,20 @@ namespace sandbox
           throw std::runtime_error("Sandboxed library terminated abnormally");
         }
       }
-      // If we were woken up for an upcall, then handle it, wake up the
+      // If we were woken up for an callback, then handle it, wake up the
       // child, and then continue waiting.
-      // Note that we may be called recursively by the upcall handler to
+      // Note that we may be called recursively by the callback handler to
       // re-invoke something in the child.  That should only happen for user
       // callbacks
-      if (shared_mem->token.upcall_depth.load() > upcall_depth)
+      if (shared_mem->token.callback_depth.load() > callback_depth)
       {
-        upcall_handler->handle(*this);
-        shared_mem->token.upcall_depth--;
+        callback_handler->handle(*this);
+        shared_mem->token.callback_depth--;
         shared_mem->token.is_child_executing = true;
         shared_mem->token.child.wake();
-        handled_upcall = true;
+        handled_callback = true;
       }
-    } while (handled_upcall);
+    } while (handled_callback);
   }
   bool SandboxedLibrary::has_child_exited()
   {

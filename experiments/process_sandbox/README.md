@@ -151,14 +151,14 @@ After the library runner has found the entry points into the library, it enters 
 Calling sandbox functions
 -------------------------
 
-The call-return mechanism for invoking sandbox functions is richer than the upcall mechanism for the memory allocator.
+The call-return mechanism for invoking sandbox functions is richer than the host service call mechanism for the memory allocator.
 It is free to depend on a working memory allocator, because it is used only after snmalloc's bootstrapping completes and snmalloc does not, itself, use this mechanism.
 It also must support recursive calls with stack stitching.
 At a high level, the parent must be able to call into the sandbox, which may then invoke callbacks, which then may invoke the sandbox, and so on, with a single logical call stack.
 
 ### Flow control for calls
 
-When the parent thread invokes the child, it must sleep until the child either returns, or notifies it to invoke an upcall.
+When the parent thread invokes the child, it must sleep until the child either returns, or notifies it to invoke a callback.
 The core building block for signalling between the two is a one-bit semaphore in the shared memory region.
 This is used to implement a token-passing mechanism.
 At almost any time, the child will be blocked on its semaphore waiting for the parent or a parent thread will be blocked on its semaphore waiting for the child to complete.
@@ -318,7 +318,7 @@ These are:
  - Finally, and most importantly, the OS sandboxing policy code.
    Capsicum (FreeBSD) and seccomp-bpf (Linux) implementations are provided.
    The Capsicum implementation is the simplest, because the kernel provide exactly the policy required (no direct access to the global namespace, restrictions on the operations permitted on delegated file descriptors.
-   The seccomp-bpf policy blocks a number of things that should be safe most of the time and requires upcalls to implement them.
+   The seccomp-bpf policy blocks a number of things that should be safe most of the time and requires callbacks to implement them.
 
 Code layout
 -----------
@@ -329,7 +329,7 @@ Code layout
      This is accessed from the `SandboxedLibrary` class.
    - [helpers.h](include/process_sandbox/helpers.h) provides some helpers for managing C memory, extracting argument types from functions, and so on.
    - [platform/](include/process_sandbox/platform) contains the platform abstraction code.
-   - [privilege_elevation_upcalls.h](include/process_sandbox/privilege_elevation_upcalls.h) describes the callback mechanism.
+   - [callbacks.h](include/process_sandbox/callbacks.h) describes the callback mechanism.
    - [sandbox_fd_numbers.h](include/process_sandbox/sandbox_fd_numbers.h) contains the file descriptors that are set on child-process creation.
    - [sandbox.h](include/process_sandbox/sandbox.h) contains the definition of the sandbox library interface.
    - [shared_memory_region.h](include/process_sandbox/shared_memory_region.h) defines the part of the shared memory region, not including the heap.

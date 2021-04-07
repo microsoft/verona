@@ -3,9 +3,9 @@
 
 #include "child_malloc.h"
 #include "host_service_calls.h"
+#include "process_sandbox/callbacks.h"
 #include "process_sandbox/helpers.h"
 #include "process_sandbox/platform/platform.h"
-#include "process_sandbox/privilege_elevation_upcalls.h"
 #include "process_sandbox/sandbox.h"
 #include "process_sandbox/shared_memory_region.h"
 
@@ -293,13 +293,13 @@ namespace
 
   /**
    * The run loop.  Takes the public interface of this library (effectively,
-   * the library's vtable) as an argument.  Exits when the upcall depth changes
-   * after executing the helper function.  This provides a nested runloop
-   * abstraction similar to OpenStep's modal runloop. Each recursion depth in
-   * an upcall has its own runloop that handles recursive invocations from the
-   * parent in response to the upcall.
+   * the library's vtable) as an argument.  Exits when the callback depth
+   * changes after executing the helper function.  This provides a nested
+   * runloop abstraction similar to OpenStep's modal runloop. Each recursion
+   * depth in a callback has its own runloop that handles recursive invocations
+   * from the parent in response to the callback.
    */
-  void runloop(int upcall_depth = 0)
+  void runloop(int callback_depth = 0)
   {
     int new_depth;
     do
@@ -329,17 +329,17 @@ namespace
         // FIXME: Report error in some useful way.
         SANDBOX_INVARIANT(0, "Uncaught exception");
       }
-      new_depth = shared->token.upcall_depth;
-      // Wake up the parent if it's expecting a wakeup for this upcall depth.
-      // The `upcall` function has a wake but not a wait because it is using
+      new_depth = shared->token.callback_depth;
+      // Wake up the parent if it's expecting a wakeup for this callback depth.
+      // The `callback` function has a wake but not a wait because it is using
       // the `wait` in this function, we need to ensure that we don't unbalance
       // the wakes and waits.
-      if (new_depth == upcall_depth)
+      if (new_depth == callback_depth)
       {
         shared->token.is_child_executing = false;
         shared->token.parent.wake();
       }
-    } while (new_depth == upcall_depth);
+    } while (new_depth == callback_depth);
   }
 
   SNMALLOC_SLOW_PATH
@@ -431,58 +431,58 @@ namespace
   using Socket = sandbox::platform::SocketPair::Socket;
 
   /**
-   * The socket that is used for upcalls to the parent process.
+   * The socket that is used for callbacks to the parent process.
    */
-  Socket upcallSocket;
+  Socket callbackSocket;
 
   /**
-   * Perform an upcall.  This takes the kind of upcall, the data to be sent,
+   * Invoke a callback.  This takes the kind of callback, the data to be sent,
    * and the file descriptor to send as arguments.  The file descriptor may be
    * -1, in which case the it is not sent.
    *
-   *  The return value is the integer result of the upcall and a `Handle` that
+   *  The return value is the integer result of the callback and a `Handle` that
    *  is either invalid or the returned file descriptor.
    *
    *  This function should not be called directly, it should be invoked via the
    *  wrapper.
    */
   std::pair<uintptr_t, Handle>
-  upcall(sandbox::UpcallKind k, void* buffer, size_t size, int fd)
+  callback(sandbox::CallbackKind k, void* buffer, size_t size, int fd)
   {
     Handle out_fd(fd);
-    UpcallRequest req{k, size, reinterpret_cast<uintptr_t>(buffer)};
-    upcallSocket.send(&req, sizeof(req), out_fd);
+    CallbackRequest req{k, size, reinterpret_cast<uintptr_t>(buffer)};
+    callbackSocket.send(&req, sizeof(req), out_fd);
     out_fd.take();
-    int depth = ++shared->token.upcall_depth;
+    int depth = ++shared->token.callback_depth;
     shared->token.is_child_executing = false;
     shared->token.parent.wake();
     runloop(depth);
     Handle in_fd;
-    UpcallResponse response;
-    upcallSocket.receive(&response, sizeof(response), in_fd);
+    CallbackResponse response;
+    callbackSocket.receive(&response, sizeof(response), in_fd);
     return {response.response, std::move(in_fd)};
   }
 
   /**
-   * Perform an upcall, of the specified kind, passing `data`.  The `data`
+   * Invoke a callback, of the specified kind, passing `data`.  The `data`
    * argument must point to the shared heap.
    *
    * If the optional `fd` parameter is passed, then this file descriptor
-   * accompanies the upcall.  This is used for calls such as `openat`.
+   * accompanies the callback.  This is used for calls such as `openat`.
    */
   template<typename T>
   std::pair<uintptr_t, Handle>
-  upcall(sandbox::UpcallKind k, T* data, int fd = -1)
+  callback(sandbox::CallbackKind k, T* data, int fd = -1)
   {
-    return upcall(k, data, sizeof(T), fd);
+    return callback(k, data, sizeof(T), fd);
   }
 
   /**
-   * Emulate the `stat` system call by performing an upcall to the parent.
+   * Emulate the `stat` system call by performing a callback to the parent.
    */
-  int upcall_stat(const char* pathname, struct stat* statbuf)
+  int callback_stat(const char* pathname, struct stat* statbuf)
   {
-    auto args = std::make_unique<sandbox::UpcallArgs::Stat>();
+    auto args = std::make_unique<sandbox::CallbackArgs::Stat>();
     unique_c_ptr<char> copy;
     if (!is_inside_shared_memory(pathname))
     {
@@ -491,16 +491,16 @@ namespace
     }
     args->path = reinterpret_cast<uintptr_t>(pathname);
     args->statbuf = reinterpret_cast<uintptr_t>(statbuf);
-    auto ret = upcall(sandbox::UpcallKind::Stat, args.get());
+    auto ret = callback(sandbox::CallbackKind::Stat, args.get());
     return static_cast<int>(ret.first);
   }
 
   /**
-   * Emulate the `open` system call by performing an upcall to the parent.
+   * Emulate the `open` system call by performing a callback to the parent.
    */
-  int upcall_open(const char* pathname, int flags, mode_t mode)
+  int callback_open(const char* pathname, int flags, mode_t mode)
   {
-    auto args = std::make_unique<sandbox::UpcallArgs::Open>();
+    auto args = std::make_unique<sandbox::CallbackArgs::Open>();
     unique_c_ptr<char> copy;
     if (!is_inside_shared_memory(pathname))
     {
@@ -510,7 +510,7 @@ namespace
     args->path = reinterpret_cast<uintptr_t>(pathname);
     args->flags = flags;
     args->mode = mode;
-    auto ret = upcall(sandbox::UpcallKind::Open, args.get());
+    auto ret = callback(sandbox::CallbackKind::Open, args.get());
     int result = static_cast<int>(ret.first);
     if (ret.second.is_valid())
     {
@@ -520,7 +520,7 @@ namespace
   }
 
   /**
-   * The upcall functions use the Linux convention for system call returns:
+   * The callback functions use the Linux convention for system call returns:
    * non-negative numbers indicate success, negative numbers indicate valuesw
    * that should be stored in `errno`.  The `syscall_return` function unwraps
    * this into the return value from the POSIX function, setting `errno` if
@@ -537,9 +537,9 @@ namespace
   }
 
   /**
-   * Emulate the `openat` system call by performing an upcall to the parent.
+   * Emulate the `openat` system call by performing a callback to the parent.
    */
-  int upcall_openat(int dirfd, const char* pathname, int flags, mode_t mode)
+  int callback_openat(int dirfd, const char* pathname, int flags, mode_t mode)
   {
     (void)dirfd;
 #ifdef __linux__
@@ -560,9 +560,9 @@ namespace
     }
     if (pathname[0] == '/')
     {
-      return upcall_open(pathname, flags, mode);
+      return callback_open(pathname, flags, mode);
     }
-    // TODO: Perform an upcall for the openat emulation.
+    // TODO: Perform a callback for the openat emulation.
     return -EINVAL;
   }
 
@@ -587,7 +587,7 @@ namespace
 
   /**
    * Signal handler function.  For system calls that are emulated after a trap,
-   * this extracts the arguments from the trap frame, calls the correct upcall
+   * this extracts the arguments from the trap frame, calls the correct callback
    * function, and then injects the return address into the syscall frame.
    */
   void emulate(int, siginfo_t* info, ucontext_t* ctx)
@@ -601,7 +601,7 @@ namespace
         extract_args(args, c);
         return std::apply(fn, args);
       };
-      auto syscall_upcall = [&](int number, auto&& fn) {
+      auto syscall_callback = [&](int number, auto&& fn) {
         if ((number != -1) && (number == syscall))
         {
           uintptr_t result = call(fn);
@@ -616,16 +616,16 @@ namespace
           return;
         }
       };
-      syscall_upcall(SyscallFrame::Open, upcall_open);
-      syscall_upcall(SyscallFrame::OpenAt, upcall_openat);
-      syscall_upcall(SyscallFrame::Stat, upcall_stat);
+      syscall_callback(SyscallFrame::Open, callback_open);
+      syscall_callback(SyscallFrame::OpenAt, callback_openat);
+      syscall_callback(SyscallFrame::Stat, callback_stat);
     }
   }
 
 }
 
 /**
- * POSIX `open` function, performs an upcall to the host rather than a system
+ * POSIX `open` function, performs a callback to the host rather than a system
  * call.
  */
 extern "C" int open(const char* pathname, int flags, ...)
@@ -638,12 +638,12 @@ extern "C" int open(const char* pathname, int flags, ...)
     mode = va_arg(ap, int);
     va_end(ap);
   }
-  return syscall_return(upcall_open(pathname, flags, mode));
+  return syscall_return(callback_open(pathname, flags, mode));
 }
 
 #ifndef USE_CAPSICUM
 /**
- * POSIX `openat` function, performs an upcall to the host rather than a system
+ * POSIX `openat` function, performs a callback to the host rather than a system
  * call.  In a Capsicum world, this is safe to allow the untrusted process to
  * do directly, so we don't bother interposing here.
  *
@@ -656,7 +656,7 @@ extern "C" int openat(int dirfd, const char* pathname, int flags, ...)
   va_start(ap, flags);
   mode_t mode = va_arg(ap, int);
   va_end(ap);
-  int ret = upcall_openat(dirfd, pathname, flags, mode);
+  int ret = callback_openat(dirfd, pathname, flags, mode);
   if (ret < 0)
   {
     errno = -ret;
@@ -679,7 +679,7 @@ int sandbox::invoke_user_callback(int idx, void* data, size_t size, int fd)
     memcpy(copy.get(), data, size);
     data = copy.get();
   }
-  auto ret = upcall(static_cast<sandbox::UpcallKind>(idx), data, size, fd);
+  auto ret = callback(static_cast<sandbox::CallbackKind>(idx), data, size, fd);
   int result = static_cast<int>(ret.first);
   if (ret.second.is_valid())
   {
@@ -700,7 +700,7 @@ int main()
   // code.
   close(SharedMemRegion);
   close(PageMapPage);
-  upcallSocket.reset(FDSocket);
+  callbackSocket.reset(FDSocket);
 
 #ifndef NDEBUG
   // Check that our bootstrapping actually did the right thing and that
