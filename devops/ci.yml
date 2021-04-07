@@ -30,6 +30,15 @@ jobs:
         echo " - Runtime has changed!"
         echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable testRuntime to On
       fi
+
+      echo "Determine if process-based sandbox changed."
+      if git diff --ignore-submodules=dirty --quiet origin/master -- experiments/process_sandbox; then
+        echo " - Process-based sandbox is unchanged!"
+        echo "##vso[task.setvariable variable=testProcSandbox;isOutput=true]Off" #set variable testProcSandbox to Off
+      else
+        echo " - Process-based sandbox has changed!"
+        echo "##vso[task.setvariable variable=testProcSandbox;isOutput=true]On" #set variable testProcSandbox to On
+      fi
     displayName: 'Check for runtime changes'
     name: setVarStep
 
@@ -93,6 +102,64 @@ jobs:
       ninja check
     workingDirectory: build
     displayName: 'Tests'
+
+- job:
+  displayName: LinuxSandboxTests
+  dependsOn: ConfigureCIRun
+  condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.testProcSandbox'], 'On')
+  pool:
+    vmImage: 'ubuntu-20.04'
+  timeoutInMinutes: 120
+  strategy:
+    matrix:
+      Clang Release:
+        CC: clang
+        CXX: clang++
+        BuildType: Release
+      Clang Debug:
+        CC: clang
+        CXX: clang++
+        BuildType: Debug
+  steps:
+  - checkout: self
+
+  - script: |
+      set -eo pipefail
+      git submodule init
+      git submodule update --depth 1 --recursive
+    displayName: 'Checkout submodules'
+
+  - script: |
+      set -eo pipefail
+      sudo apt-get update
+      sudo apt-get install -y ninja-build libbsd-dev libseccomp-dev libfmt-dev
+      sudo apt-get remove --purge cmake
+      sudo snap install cmake --classic
+    displayName: 'Dependencies'
+
+  - task: CMake@1
+    displayName: 'CMake'
+    inputs:
+      cmakeArgs: |
+        ../experiments/process_sandbox -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX)
+
+  - script: |
+      set -eo pipefail
+      ninja
+    workingDirectory: build
+    displayName: 'Compile'
+
+  - script: |
+      ctest -j 4 --output-on-failure -T test
+    displayName: 'Test'
+    workingDirectory: build
+    failOnStderr: false
+
+  - task: PublishTestResults@2
+    inputs:
+        testResultsFormat: cTest
+        testResultsFiles: build/Testing/*/Test.xml
+
 
 ############################################## Windows Builds
 - job: 
