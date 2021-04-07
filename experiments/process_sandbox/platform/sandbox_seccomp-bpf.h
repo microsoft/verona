@@ -31,19 +31,27 @@ namespace sandbox
     struct SandboxSeccompBPF
     {
       /**
-       * Seccomp-pbf doesn't provide fine-grained permissions on file
-       * descriptors, so this is a no-op.
+       * Execute the child.  This forwards to the default implementation, no
+       * sandboxing is applied before the library runner starts.  The policy is
+       * applied after the program starts but before it loads any untrusted
+       * code.
        */
-      template<typename T, typename U>
-      bool restrict_file_descriptors(const T&, const U&)
+      template<size_t EnvSize, size_t LibDirSize>
+      static void execve(
+        const char* pathname,
+        const std::array<const char*, EnvSize>& envp,
+        const std::array<const char*, LibDirSize>& libdirs)
       {
-        return true;
+        SandboxNoOp(pathname, envp, libdirs);
       }
 
       /**
        * Apply the sandboxing policy.  This is done in the child after exec, to
        * avoid allowing it to be sufficiently permissive for the initial exec
-       * to work.
+       * to work.  The glibc run-time linker is not able to run with the
+       * sandboxing policy enforced and so we have to start the library runner
+       * and install the signal handlers that allow `open` to work before we
+       * can apply the sandboxing policy.
        */
       static void apply_sandboxing_policy_postexec()
       {
@@ -458,11 +466,6 @@ namespace sandbox
         seccomp_release(ctx);
         assert(ret);
       }
-
-      /**
-       * No sandboxing policy is applied before exec.
-       */
-      void apply_sandboxing_policy_preexec() {}
     };
   }
 }

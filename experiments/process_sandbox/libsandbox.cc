@@ -672,12 +672,7 @@ namespace sandbox
     platform::Handle&& malloc_rpc_socket,
     platform::Handle&& fd_socket)
   {
-    // The file descriptors for the directories in libdirs
-    std::array<platform::handle_t, libdirs.size()> libdirfds;
-    // The last file descriptor that we're going to use.  The `move_fd`
-    // lambda will copy all file descriptors above this line so they can then
-    // be copied into their desired location.
-    static const int last_fd = OtherLibraries + libdirs.size();
+    static const int last_fd = OtherLibraries;
     auto move_fd = [](int x) {
       assert(x >= 0);
       SANDBOX_DEBUG_INVARIANT(
@@ -704,10 +699,6 @@ namespace sandbox
       _exit(-1);
     }
     library = move_fd(library);
-    for (size_t i = 0; i < libdirs.size(); i++)
-    {
-      libdirfds.at(i) = move_fd(open(libdirs.at(i), O_DIRECTORY));
-    }
     // The child process expects to find these in fixed locations.
     shm_fd = dup2(shm_fd, SharedMemRegion);
     dup2(pagemap_mem.take(), PageMapPage);
@@ -716,15 +707,6 @@ namespace sandbox
     library = dup2(library, MainLibrary);
     assert(library == MainLibrary);
     dup2(malloc_rpc_socket.take(), PageMapUpdates);
-    // These are passed in by environment variable, so we don't need to put
-    // them in a fixed place, just after all of the others.
-    int rtldfd = OtherLibraries;
-    for (auto& libfd : libdirfds)
-    {
-      libfd = dup2(libfd, rtldfd++);
-    }
-    platform::Sandbox sb;
-    sb.restrict_file_descriptors(libdirs, libdirfds);
     closefrom(last_fd);
     // Prepare the arguments to main.  These are going to be the binary name,
     // the address of the shared memory region, the length of the shared
@@ -736,9 +718,6 @@ namespace sandbox
     // asprintf, because (if we used vfork) we're still in the same address
     // space as the parent, so if we allocate memory here then it will leak in
     // the parent.
-    char* args[2];
-    args[0] = (char*)"library_runner";
-    args[1] = nullptr;
     char location[52];
     size_t loc_len = snprintf(
       location,
@@ -753,13 +732,9 @@ namespace sandbox
       sizeof(location));
     static_assert(
       OtherLibraries == 8, "First entry in LD_LIBRARY_PATH_FDS is incorrect");
-    static_assert(
-      libdirfds.size() == 3,
-      "Number of entries in LD_LIBRARY_PATH_FDS is incorrect");
-    const char* const env[] = {"LD_LIBRARY_PATH_FDS=8:9:10", location, nullptr};
+    std::array<const char*, 2> env = {location, nullptr};
     platform::disable_aslr();
-    sb.apply_sandboxing_policy_preexec();
-    execve(librunnerpath, args, const_cast<char* const*>(env));
+    platform::Sandbox::execve(librunnerpath, env, libdirs);
     // Should be unreachable, but just in case we failed to exec, don't return
     // from here (returning from a vfork context is very bad!).
     _exit(EXIT_FAILURE);
