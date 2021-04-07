@@ -67,6 +67,9 @@ set(LIBS
         verona-parser-lib
         )
 add_llvm_executable(verona-mlir
+  driver.cc
+  error.cc
+  generator.cc
   verona-mlir.cc)
 
 llvm_update_compile_flags(verona-mlir)
