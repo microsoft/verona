@@ -1,6 +1,9 @@
 Straw-man proposal for Verona strings
 =====================================
 
+**NOTE:** Several parts of this document are currently under discussion.
+This is not the final design for strings in Verona but does capture the rationale for things in the design space.
+
 Strings are one of the core components of a standard library and a good design is one of the key factors for language usability.
 A good string API needs to balance several requirements:
 
