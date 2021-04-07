@@ -1,3 +1,16 @@
+parameters:
+  # whether to build the release configuration 
+  - name: BuildRelease
+    type: boolean
+    default: true
+  # whether to build the debug configuration
+  - name: BuildDebug
+    type: boolean
+    default: true
+  - name: ExtraAnyBuildArgs
+    type: string
+    default: ' '
+
 resources:
   repositories:
   - repository: llvm
@@ -14,20 +27,23 @@ jobs:
   timeoutInMinutes: 120
   strategy:
     matrix:
-      Clang Release:
-        CC: clang
-        CXX: clang++
-        CXXFLAGS: -stdlib=libstdc++
-        BuildType: Release
-        BuildName: release
-        Sanitizer:
-      Clang Debug+ASAN:
-        CC: clang
-        CXX: clang++
-        CXXFLAGS: -stdlib=libstdc++
-        BuildType: Debug
-        BuildName: debug
-        Sanitizer: Address
+      ${{ if eq(parameters.BuildRelease, true) }}:
+        Clang Release:
+          CC: clang
+          CXX: clang++
+          CXXFLAGS: -stdlib=libstdc++
+          BuildType: Release
+          BuildName: release
+          Sanitizer:
+
+      ${{ if eq(parameters.BuildDebug, true) }}:
+        Clang Debug+ASAN:
+          CC: clang
+          CXX: clang++
+          CXXFLAGS: -stdlib=libstdc++
+          BuildType: Debug
+          BuildName: debug
+          Sanitizer: Address
   variables:
   - name: AbClientDirectory
     value: $HOME/.local/share/Microsoft/AnyBuild
@@ -193,6 +209,7 @@ jobs:
           --ClientApplicationId $(LLVMPrincipalAppId) \
           --ClientSecretEnvironmentVariable llvmPassword \
           --ShimProcessFilter '$(AbShimFilter)' \
+          ${{ parameters.ExtraAnyBuildArgs }} \
           -- \
           cmake --build . -- -j $(CmakeJobs) $(CmakeBuildToolArgs)
       }
