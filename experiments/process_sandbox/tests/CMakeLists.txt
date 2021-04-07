@@ -22,7 +22,7 @@ find_package(Threads REQUIRED)
 
 function(setup_sandbox_test_properties TEST_NAME)
 	set_target_properties(${TEST_NAME} PROPERTIES
-		INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR};${CMAKE_SOURCE_DIR}/../../external/snmalloc/src"
+		INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include/;${CMAKE_SOURCE_DIR}/../../external/snmalloc/src"
 	)
 	target_link_libraries(${TEST_NAME} Threads::Threads)
 	target_link_libraries(${TEST_NAME} fmt)

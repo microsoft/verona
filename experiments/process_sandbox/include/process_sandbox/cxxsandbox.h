@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
-#include "sandbox.hh"
+#include "sandbox.h"
 /**
  * The generic sandbox code requires that libraries provide an initialisation
  * function and a dispatcher function, a vtable, and code for storing call

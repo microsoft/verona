@@ -1,13 +1,14 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-#include "cxxapi/cxxsandbox.h"
-#include "sandbox.hh"
-#include "shared.h"
+#include "process_sandbox/cxxsandbox.h"
+#include "process_sandbox/sandbox.h"
 
 #include <stdio.h>
 
 using namespace sandbox;
+
+int crash();
 
 /**
  * The structure that represents an instance of the sandbox.

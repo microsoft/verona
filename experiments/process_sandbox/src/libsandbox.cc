@@ -25,12 +25,12 @@
 #    include <bsd/unistd.h>
 #  endif
 #endif
-#include "filetree.h"
 #include "host_service_calls.h"
-#include "platform/sandbox.h"
-#include "privilege_elevation_upcalls.h"
-#include "sandbox.hh"
-#include "shared_memory_region.h"
+#include "process_sandbox/filetree.h"
+#include "process_sandbox/platform/sandbox.h"
+#include "process_sandbox/privilege_elevation_upcalls.h"
+#include "process_sandbox/sandbox.h"
+#include "process_sandbox/shared_memory_region.h"
 
 namespace
 {

@@ -1,11 +1,10 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-#include "cxxapi/cxxsandbox.h"
-#include "filetree.h"
-#include "privilege_elevation_upcalls.h"
-#include "sandbox.hh"
-#include "shared.h"
+#include "process_sandbox/cxxsandbox.h"
+#include "process_sandbox/filetree.h"
+#include "process_sandbox/privilege_elevation_upcalls.h"
+#include "process_sandbox/sandbox.h"
 
 #include <stdio.h>
 

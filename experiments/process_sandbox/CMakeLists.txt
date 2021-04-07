@@ -3,11 +3,11 @@ project(sandbox C CXX)
 
 INCLUDE (CheckCXXSourceCompiles)
 
-set(CHILD_SOURCES library_runner.cc)
-set(LIBSANDBOX_SOURCES libsandbox.cc)
-set(LIBSANDBOX_HEADERS sandbox.hh)
+set(CHILD_SOURCES src/library_runner.cc)
+set(LIBSANDBOX_SOURCES src/libsandbox.cc)
 
 include_directories(AFTER "${CMAKE_SOURCE_DIR}/../../external/snmalloc/src")
+include_directories(BEFORE "${CMAKE_SOURCE_DIR}/include")
 set(CMAKE_CXX_STANDARD 17)
 
 

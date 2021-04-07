@@ -2,18 +2,18 @@
 // SPDX-License-Identifier: MIT
 
 #include "child_malloc.h"
-#include "helpers.h"
 #include "host_service_calls.h"
-#include "platform/platform.h"
-#include "privilege_elevation_upcalls.h"
-#include "sandbox.hh"
-#include "shared.h"
-#include "shared_memory_region.h"
+#include "process_sandbox/helpers.h"
+#include "process_sandbox/platform/platform.h"
+#include "process_sandbox/privilege_elevation_upcalls.h"
+#include "process_sandbox/sandbox.h"
+#include "process_sandbox/shared_memory_region.h"
 
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>

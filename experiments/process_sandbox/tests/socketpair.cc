@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include <platform/platform.h>
+#include "process_sandbox/platform/platform.h"
 
 using namespace sandbox::platform;
 

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
-#include "sandbox.hh"
+#include "sandbox.h"
 
 #include <limits.h>
 /**
