@@ -7,6 +7,9 @@ parameters:
   - name: BuildDebug
     type: boolean
     default: true
+  - name: ExtraAnyBuildArgs
+    type: string
+    default: ' '
 
 resources:
   repositories:
@@ -206,6 +209,7 @@ jobs:
           --ClientApplicationId $(LLVMPrincipalAppId) \
           --ClientSecretEnvironmentVariable llvmPassword \
           --ShimProcessFilter '$(AbShimFilter)' \
+          ${{ parameters.ExtraAnyBuildArgs }} \
           -- \
           cmake --build . -- -j $(CmakeJobs) $(CmakeBuildToolArgs)
       }
