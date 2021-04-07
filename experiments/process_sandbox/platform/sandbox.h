@@ -38,50 +38,50 @@
  * preferred.
  */
 
+namespace sandbox::platform
+{
+  /**
+   * Trivial sandboxing policy, does not enforce any sandboxing.  This can be
+   * used for lightweight fault isolation on any POSIX platform, but does not
+   * restrict the child process's access to the global namespace.
+   * Memory-safety bugs in the child will not impact the parent directly but
+   * a vulnerability in the child can be exploited to gain ambient authority.
+   */
+  struct SandboxNoOp
+  {
+    /**
+     * Do nothing: no policy is enforced after exec.
+     */
+    static void apply_sandboxing_policy_postexec() {}
+
+    /**
+     * Execute the library runner.
+     */
+    template<size_t EnvSize, size_t LibDirSize>
+    static void execve(
+      const char* pathname,
+      const std::array<const char*, EnvSize>& envp,
+      const std::array<const char*, LibDirSize>&)
+    {
+      char* args[] = {const_cast<char*>(pathname), nullptr};
+      ::execve(pathname, args, const_cast<char**>(envp.data()));
+      SANDBOX_INVARIANT(0, "Execve failed: {}", strerror(errno));
+    }
+  };
+}
+
 #include "sandbox_capsicum.h"
 #include "sandbox_seccomp-bpf.h"
 
-namespace sandbox
+namespace sandbox::platform
 {
-  namespace platform
-  {
-    /**
-     * Trivial sandboxing policy, does not enforce any sandboxing.  This can be
-     * used for lightweight fault isolation on any POSIX platform, but does not
-     * restrict the child process's access to the global namespace.
-     * Memory-safety bugs in the child will not impact the parent directly but
-     * a vulnerability in the child can be exploited to gain ambient authority.
-     */
-    struct SandboxNoOp
-    {
-      /**
-       * Do nothing: no policy is enforced after exec.
-       */
-      static void apply_sandboxing_policy_postexec() {}
-
-      /**
-       * Execute the library runner.
-       */
-      template<size_t EnvSize, size_t LibDirSize>
-      static void execve(
-        const char* pathname,
-        const std::array<const char*, EnvSize>& envp,
-        const std::array<const char*, LibDirSize>&)
-      {
-        char* args[] = {const_cast<char*>(pathname), nullptr};
-        ::execve(pathname, args, const_cast<char**>(envp.data()));
-        SANDBOX_INVARIANT(0, "Execve failed: {}", strerror(errno));
-      }
-    };
-
-    using Sandbox =
+  using Sandbox =
 #ifdef USE_CAPSICUM
-      SandboxCapsicum
+    SandboxCapsicum
 #elif defined(__linux__)
-      SandboxSeccompBPF
+    SandboxSeccompBPF
 #else
-      SandboxNoOp
+    SandboxNoOp
 #endif
-      ;
-  }
+    ;
 }

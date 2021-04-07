@@ -42,7 +42,7 @@ namespace sandbox
         const std::array<const char*, EnvSize>& envp,
         const std::array<const char*, LibDirSize>& libdirs)
       {
-        SandboxNoOp(pathname, envp, libdirs);
+        SandboxNoOp::execve(pathname, envp, libdirs);
       }
 
       /**
