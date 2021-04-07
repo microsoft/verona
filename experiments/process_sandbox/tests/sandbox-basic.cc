@@ -4,6 +4,7 @@
 #include "process_sandbox/cxxsandbox.h"
 #include "process_sandbox/sandbox.h"
 
+#include <limits.h>
 #include <stdio.h>
 
 using namespace sandbox;
