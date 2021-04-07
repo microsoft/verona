@@ -114,7 +114,7 @@ namespace verona::parser
   {
     List<Type> typeargs;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::TypeName;
     }
@@ -122,7 +122,7 @@ namespace verona::parser
 
   struct ModuleName : TypeName
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::ModuleName;
     }
@@ -130,7 +130,7 @@ namespace verona::parser
 
   struct Iso : Type
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Iso;
     }
@@ -138,7 +138,7 @@ namespace verona::parser
 
   struct Mut : Type
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Mut;
     }
@@ -146,7 +146,7 @@ namespace verona::parser
 
   struct Imm : Type
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Imm;
     }
@@ -154,7 +154,7 @@ namespace verona::parser
 
   struct Self : Type
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Self;
     }
@@ -164,7 +164,7 @@ namespace verona::parser
   {
     List<TypeName> typenames;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::TypeRef;
     }
@@ -172,7 +172,7 @@ namespace verona::parser
 
   struct TypeList : Type
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::TypeList;
     }
@@ -185,7 +185,7 @@ namespace verona::parser
   {
     Node<Type> type;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Using;
     }
@@ -217,7 +217,7 @@ namespace verona::parser
     Node<Type> type;
     Node<Type> init;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::TypeParam;
     }
@@ -225,7 +225,7 @@ namespace verona::parser
 
   struct TypeParamList : TypeParam
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::TypeParamList;
     }
@@ -236,7 +236,7 @@ namespace verona::parser
     Node<Type> type;
     Node<Expr> init;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Param;
     }
@@ -247,7 +247,7 @@ namespace verona::parser
     Node<Expr> expr;
     Node<Type> type;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Oftype;
     }
@@ -257,7 +257,7 @@ namespace verona::parser
   {
     List<Expr> seq;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Tuple;
     }
@@ -267,7 +267,7 @@ namespace verona::parser
   {
     SymbolTable st;
 
-    SymbolTable* symbol_table()
+    SymbolTable* symbol_table() override
     {
       return &st;
     }
@@ -278,7 +278,7 @@ namespace verona::parser
     Node<Expr> waitfor;
     Node<Expr> behaviour;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::When;
     }
@@ -289,7 +289,7 @@ namespace verona::parser
     Node<Expr> body;
     List<Expr> catches;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Try;
     }
@@ -300,7 +300,7 @@ namespace verona::parser
     Node<Expr> test;
     List<Expr> cases;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Match;
     }
@@ -312,7 +312,7 @@ namespace verona::parser
     List<Expr> params;
     List<Expr> body;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Lambda;
     }
@@ -323,7 +323,7 @@ namespace verona::parser
     Node<Expr> left;
     Node<Expr> right;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Assign;
     }
@@ -335,7 +335,7 @@ namespace verona::parser
     List<TypeName> typenames;
     Node<Expr> args;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Select;
     }
@@ -343,7 +343,7 @@ namespace verona::parser
 
   struct Ref : Expr
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Ref;
     }
@@ -351,7 +351,7 @@ namespace verona::parser
 
   struct Let : Expr
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Let;
     }
@@ -359,7 +359,7 @@ namespace verona::parser
 
   struct Var : Let
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Var;
     }
@@ -369,7 +369,7 @@ namespace verona::parser
   {
     Node<Expr> expr;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Throw;
     }
@@ -380,7 +380,7 @@ namespace verona::parser
     Location in;
     Node<Expr> args;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::New;
     }
@@ -395,7 +395,7 @@ namespace verona::parser
   {
     Node<Type> type;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::ThrowType;
     }
@@ -403,7 +403,7 @@ namespace verona::parser
 
   struct UnionType : TypeOp
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::UnionType;
     }
@@ -411,7 +411,7 @@ namespace verona::parser
 
   struct IsectType : TypeOp
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::IsectType;
     }
@@ -419,7 +419,7 @@ namespace verona::parser
 
   struct TupleType : TypeOp
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::TupleType;
     }
@@ -433,7 +433,7 @@ namespace verona::parser
 
   struct FunctionType : TypePair
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::FunctionType;
     }
@@ -441,7 +441,7 @@ namespace verona::parser
 
   struct ViewType : TypePair
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::ViewType;
     }
@@ -449,7 +449,7 @@ namespace verona::parser
 
   struct ExtractType : TypePair
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::ExtractType;
     }
@@ -461,7 +461,7 @@ namespace verona::parser
     List<TypeParam> typeparams;
     Node<Type> type;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::TypeAlias;
     }
@@ -483,12 +483,12 @@ namespace verona::parser
     SymbolTable st;
     List<Member> members;
 
-    SymbolTable* symbol_table()
+    SymbolTable* symbol_table() override
     {
       return &st;
     }
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Interface;
     }
@@ -496,7 +496,7 @@ namespace verona::parser
 
   struct Class : Interface
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Class;
     }
@@ -504,7 +504,7 @@ namespace verona::parser
 
   struct Module : Entity
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Module;
     }
@@ -515,7 +515,7 @@ namespace verona::parser
     Node<Type> type;
     Node<Expr> init;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Field;
     }
@@ -530,12 +530,12 @@ namespace verona::parser
     Node<Type> result;
     Node<Expr> body;
 
-    SymbolTable* symbol_table()
+    SymbolTable* symbol_table() override
     {
       return &st;
     }
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Function;
     }
@@ -548,7 +548,7 @@ namespace verona::parser
     Node<Type> inherits;
     List<Member> members;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::ObjectLiteral;
     }
@@ -559,7 +559,7 @@ namespace verona::parser
 
   struct EscapedString : Constant
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::EscapedString;
     }
@@ -567,7 +567,7 @@ namespace verona::parser
 
   struct UnescapedString : Constant
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::UnescapedString;
     }
@@ -575,7 +575,7 @@ namespace verona::parser
 
   struct Character : Constant
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Character;
     }
@@ -583,7 +583,7 @@ namespace verona::parser
 
   struct Int : Constant
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Int;
     }
@@ -591,7 +591,7 @@ namespace verona::parser
 
   struct Float : Constant
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Float;
     }
@@ -599,7 +599,7 @@ namespace verona::parser
 
   struct Hex : Constant
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Hex;
     }
@@ -607,7 +607,7 @@ namespace verona::parser
 
   struct Binary : Constant
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Binary;
     }
@@ -615,7 +615,7 @@ namespace verona::parser
 
   struct Bool : Constant
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Bool;
     }
