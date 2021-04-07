@@ -59,9 +59,10 @@ Mutable and immutable strings
 -----------------------------
 
 A lot of programs depend on immutable strings.
-The Java security model depends on strings being immutable and the `SecurityManager` can be bypassed if a vulnerability allows immutable string objects to be modified.
 Strings are commonly used as keys in collections in most languages (including 'languages' such as POSIX, where they are used to define the filesystem namespace).
 Typically, keys in collections must be immutable for as long as they are being used as keys: modifying a key without notifying the collection will affect the hash or ordering of keys and cause lookup failures.
+String immutability can also be used as a building block for higher-level parts of security policies.
+For example, the Java security model depends on strings being immutable and the `SecurityManager` can be bypassed if a vulnerability allows immutable string objects to be modified.
 
 In Verona, mutability is a property of an instance, not a class.
 This allows a common class for mutable or immutable strings and provides some opportunities for string APIs.
@@ -263,6 +264,15 @@ The interface for strings would look roughly like this:
 
 ```verona
 /**
+ * Interface for string encodings.  Specifies the type used to store individual
+ * code units.
+ */
+interface StringEncoding
+{
+	typedef CodeUnitType;
+}
+
+/**
  * String contains only 7-bit ASCII characters and is stored with each code
  * point in an 8-bit integer.
  */
@@ -270,6 +280,7 @@ class StringEncodingASCII
 {
 	typedef CodeUnitType = U8;
 }
+
 /**
  * String is stored as UTF-8-encoded text.
  */
@@ -277,6 +288,7 @@ class StringEncodingUTF8
 {
 	typedef CodeUnitType = U8;
 }
+
 /**
  * String is stored as UTF-16-encoded text.
  */
@@ -284,21 +296,13 @@ class StringEncodingUTF16
 {
 	typedef CodeUnitType = U16;
 }
+
 /**
  * String is stored as UTF-32-encoded text.
  */
 class StringEncodingUTF32
 {
 	typedef CodeUnitType = U32;
-}
-/**
- * Interface for other string encodings.  Any other type can be used as a valid
- * string encoding but code that does not have any special cases for that
- * encoding will be able to treat is as unknown.
- */
-interface StringEncodingCustom
-{
-	typedef CodeUnitType;
 }
 
 /**
@@ -309,14 +313,6 @@ typedef UnicodeStringEncoding = StringEncodingASCII |
                                 StringEncodingUTF8 |
                                 StringEncodingUTF16 |
                                 StringEncodingUTF32;
-/**
- * The full set of possible string encodings, can be extended by third-party code.
- */
-typedef StringEncoding = StringEncodingASCII |
-                         StringEncodingUTF8 |
-                         StringEncodingUTF16 |
-                         StringEncodingUTF32 |
-                         StringEncodingCustom;
 
 /**
  * Character type, stores a unicode code point.
@@ -420,12 +416,12 @@ interface String
 	/**
 	 * Updates a specific character. 
 	 */
-	update(self: (mut | iso) & String, index: U64, c: Rune);
+	update(self: mut & String, index: USize, c: Rune);
 
 	/**
 	 * Replace the specified range in a string with another string.
 	 */
-	update_range[String Str](self: (mut | iso) & String,
+	update_range[String Str](self: mut  & String,
 	                         range: Range,
 	                         newString: Str & imm);
 }
