@@ -43,7 +43,9 @@ namespace sandbox
        * has been unlinked and all file descriptors to it have been closed.
        *
        * There is a small window in between creating and unlinking the file
-       * where it can leak.
+       * where it can leak.  This is unavoidable with the POSIX APIs: there is
+       * no way of atomically creating and unlinking any kind of file.
+       * Non-standard APIs for doing this should be used in preference.
        */
       struct SharedMemoryObjectPOSIX
       {
