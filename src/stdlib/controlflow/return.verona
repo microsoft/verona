@@ -1,0 +1,16 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+class Return[T]
+{
+  value: T;
+}
+
+// `return` uses create sugar to throw a Return[T] exception. A lambda or
+// function that doesn't throw Return[T] but does return T 
+class return[T = None]
+{
+  create(x: T = None): throw Return[T]
+  {
+    throw Return[T](x)
+  }
+}

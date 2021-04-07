@@ -4,6 +4,7 @@
 
 #include "lexer.h"
 
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -20,10 +21,11 @@ namespace verona::parser
     Field,
     Param,
     TypeParam,
-    Signature,
+    TypeParamList,
     Function,
 
     // Types
+    ThrowType,
     UnionType,
     IsectType,
     TupleType,
@@ -33,34 +35,25 @@ namespace verona::parser
     TypeName,
     ModuleName,
     TypeRef,
+    TypeList,
     Iso,
     Mut,
     Imm,
+    Self,
 
     // Expressions
     Oftype,
     Tuple,
-    Block,
     When,
-    While,
-    Case,
+    Try,
     Match,
-    If,
     Lambda,
-    Break,
-    Continue,
-    Return,
-    Yield,
     Assign,
-    Infix,
-    Apply,
     Select,
-    Specialise,
-    StaticSelect,
     Ref,
-    StaticRef,
     Let,
     Var,
+    Throw,
     New,
     ObjectLiteral,
 
@@ -72,8 +65,7 @@ namespace verona::parser
     Float,
     Hex,
     Binary,
-    True,
-    False,
+    Bool,
   };
 
   struct NodeDef;
@@ -136,10 +128,7 @@ namespace verona::parser
     }
   };
 
-  struct CapType : Type
-  {};
-
-  struct Iso : CapType
+  struct Iso : Type
   {
     Kind kind()
     {
@@ -147,7 +136,7 @@ namespace verona::parser
     }
   };
 
-  struct Mut : CapType
+  struct Mut : Type
   {
     Kind kind()
     {
@@ -155,11 +144,19 @@ namespace verona::parser
     }
   };
 
-  struct Imm : CapType
+  struct Imm : Type
   {
     Kind kind()
     {
       return Kind::Imm;
+    }
+  };
+
+  struct Self : Type
+  {
+    Kind kind()
+    {
+      return Kind::Self;
     }
   };
 
@@ -170,6 +167,14 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::TypeRef;
+    }
+  };
+
+  struct TypeList : Type
+  {
+    Kind kind()
+    {
+      return Kind::TypeList;
     }
   };
 
@@ -190,21 +195,21 @@ namespace verona::parser
   {
     std::unordered_map<Location, Ast> map;
     std::vector<Node<Using>> use;
+
+    std::optional<Location> set(const Location& id, Ast node)
+    {
+      auto find = map.find(id);
+
+      if (find != map.end())
+        return find->second->location;
+
+      map.emplace(id, node);
+      return {};
+    }
   };
 
   struct Expr : NodeDef
   {};
-
-  struct Param : NodeDef
-  {
-    Node<Type> type;
-    Node<Expr> init;
-
-    Kind kind()
-    {
-      return Kind::Param;
-    }
-  };
 
   struct TypeParam : NodeDef
   {
@@ -218,16 +223,22 @@ namespace verona::parser
     }
   };
 
-  struct Signature : NodeDef
+  struct TypeParamList : TypeParam
   {
-    List<TypeParam> typeparams;
-    List<Param> params;
-    Node<Type> result;
-    Node<Type> throws;
+    Kind kind()
+    {
+      return Kind::TypeParamList;
+    }
+  };
+
+  struct Param : Expr
+  {
+    Node<Type> type;
+    Node<Expr> init;
 
     Kind kind()
     {
-      return Kind::Signature;
+      return Kind::Param;
     }
   };
 
@@ -252,7 +263,7 @@ namespace verona::parser
     }
   };
 
-  struct BlockExpr : Expr
+  struct Scope : Expr
   {
     SymbolTable st;
 
@@ -262,17 +273,7 @@ namespace verona::parser
     }
   };
 
-  struct Block : BlockExpr
-  {
-    List<Expr> seq;
-
-    Kind kind()
-    {
-      return Kind::Block;
-    }
-  };
-
-  struct When : BlockExpr
+  struct When : Scope
   {
     Node<Expr> waitfor;
     Node<Expr> behaviour;
@@ -283,33 +284,21 @@ namespace verona::parser
     }
   };
 
-  struct While : BlockExpr
+  struct Try : Scope
   {
-    Node<Expr> cond;
     Node<Expr> body;
+    List<Expr> catches;
 
     Kind kind()
     {
-      return Kind::While;
+      return Kind::Try;
     }
   };
 
-  struct Case : BlockExpr
-  {
-    Node<Expr> pattern;
-    Node<Expr> guard;
-    Node<Expr> body;
-
-    Kind kind()
-    {
-      return Kind::Case;
-    }
-  };
-
-  struct Match : BlockExpr
+  struct Match : Scope
   {
     Node<Expr> test;
-    List<Case> cases;
+    List<Expr> cases;
 
     Kind kind()
     {
@@ -317,60 +306,15 @@ namespace verona::parser
     }
   };
 
-  struct If : BlockExpr
+  struct Lambda : Scope
   {
-    Node<Expr> cond;
-    Node<Expr> on_true;
-    Node<Expr> on_false;
-
-    Kind kind()
-    {
-      return Kind::If;
-    }
-  };
-
-  struct Lambda : BlockExpr
-  {
-    Node<Signature> signature;
-    Node<Expr> body;
+    List<TypeParam> typeparams;
+    List<Expr> params;
+    List<Expr> body;
 
     Kind kind()
     {
       return Kind::Lambda;
-    }
-  };
-
-  struct Break : Expr
-  {
-    Kind kind()
-    {
-      return Kind::Break;
-    }
-  };
-
-  struct Continue : Expr
-  {
-    Kind kind()
-    {
-      return Kind::Continue;
-    }
-  };
-
-  struct Return : Expr
-  {
-    Node<Expr> expr;
-
-    Kind kind()
-    {
-      return Kind::Return;
-    }
-  };
-
-  struct Yield : Return
-  {
-    Kind kind()
-    {
-      return Kind::Yield;
     }
   };
 
@@ -385,59 +329,15 @@ namespace verona::parser
     }
   };
 
-  struct Infix : Expr
-  {
-    Node<Expr> op;
-    Node<Expr> left;
-    Node<Expr> right;
-
-    Kind kind()
-    {
-      return Kind::Infix;
-    }
-  };
-
-  struct Apply : Expr
+  struct Select : Expr
   {
     Node<Expr> expr;
+    List<TypeName> typenames;
     Node<Expr> args;
 
     Kind kind()
     {
-      return Kind::Apply;
-    }
-  };
-
-  struct Select : Expr
-  {
-    Node<Expr> expr;
-    Location member;
-
-    Kind kind()
-    {
       return Kind::Select;
-    }
-  };
-
-  struct StaticSelect : Expr
-  {
-    Node<Expr> expr;
-    List<TypeName> typenames;
-
-    Kind kind()
-    {
-      return Kind::StaticSelect;
-    }
-  };
-
-  struct Specialise : Expr
-  {
-    Node<Expr> expr;
-    List<Type> typeargs;
-
-    Kind kind()
-    {
-      return Kind::Specialise;
     }
   };
 
@@ -465,10 +365,20 @@ namespace verona::parser
     }
   };
 
+  struct Throw : Expr
+  {
+    Node<Expr> expr;
+
+    Kind kind()
+    {
+      return Kind::Throw;
+    }
+  };
+
   struct New : Expr
   {
-    Node<Expr> args;
     Location in;
+    Node<Expr> args;
 
     Kind kind()
     {
@@ -479,6 +389,16 @@ namespace verona::parser
   struct TypeOp : Type
   {
     List<Type> types;
+  };
+
+  struct ThrowType : Type
+  {
+    Node<Type> type;
+
+    Kind kind()
+    {
+      return Kind::ThrowType;
+    }
   };
 
   struct UnionType : TypeOp
@@ -605,7 +525,9 @@ namespace verona::parser
   {
     SymbolTable st;
     Location name;
-    Node<Signature> signature;
+    List<TypeParam> typeparams;
+    List<Expr> params;
+    Node<Type> result;
     Node<Expr> body;
 
     SymbolTable* symbol_table()
@@ -619,27 +541,16 @@ namespace verona::parser
     }
   };
 
-  struct ObjectLiteral : BlockExpr
+  struct ObjectLiteral : Scope
   {
     // TODO: put a Class in here?
+    Location in;
     Node<Type> inherits;
     List<Member> members;
-    Location in;
 
     Kind kind()
     {
       return Kind::ObjectLiteral;
-    }
-  };
-
-  struct StaticRef : Expr
-  {
-    List<TypeName> typenames;
-    bool maybe_member = false;
-
-    Kind kind()
-    {
-      return Kind::StaticRef;
     }
   };
 
@@ -702,19 +613,11 @@ namespace verona::parser
     }
   };
 
-  struct True : Constant
+  struct Bool : Constant
   {
     Kind kind()
     {
-      return Kind::True;
-    }
-  };
-
-  struct False : Constant
-  {
-    Kind kind()
-    {
-      return Kind::False;
+      return Kind::Bool;
     }
   };
 }
