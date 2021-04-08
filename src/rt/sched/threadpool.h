@@ -525,7 +525,8 @@ namespace verona::rt
           t->stop();
           t = t->next;
         } while (t != first_thread);
-        Systematic::cout() << "Teardown: all threads stopped" << Systematic::endl;
+        Systematic::cout() << "Teardown: all threads stopped"
+                           << Systematic::endl;
       }
       Systematic::cout() << "cv_notify_all() for teardown" << Systematic::endl;
 #ifdef USE_SYSTEMATIC_TESTING

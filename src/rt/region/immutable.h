@@ -180,7 +180,8 @@ namespace verona::rt
 
         case Object::COWN:
         {
-          Systematic::cout() << "Immutable releasing cown: " << w << Systematic::endl;
+          Systematic::cout()
+            << "Immutable releasing cown: " << w << Systematic::endl;
           cown::release(alloc, (Cown*)w);
           break;
         }

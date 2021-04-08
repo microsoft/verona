@@ -261,7 +261,8 @@ namespace verona::rt
         if (!o->is_live(Scheduler::epoch()))
         {
           Systematic::cout()
-            << "Not performing recursive deallocation on: " << o << Systematic::endl;
+            << "Not performing recursive deallocation on: " << o
+            << Systematic::endl;
           // The cown may have already been swept, just remove weak count, let
           // sweeping/cown stub collection deal with the rest.
           a->weak_count.fetch_sub(1);
@@ -282,7 +283,8 @@ namespace verona::rt
      **/
     void weak_release(Alloc* alloc)
     {
-      Systematic::cout() << "Cown " << this << " weak release" << Systematic::endl;
+      Systematic::cout() << "Cown " << this << " weak release"
+                         << Systematic::endl;
       if (weak_count.fetch_sub(1) == 1)
       {
         auto* t = owning_thread();
@@ -310,7 +312,8 @@ namespace verona::rt
 
     void weak_acquire()
     {
-      Systematic::cout() << "Cown " << this << " weak acquire" << Systematic::endl;
+      Systematic::cout() << "Cown " << this << " weak acquire"
+                         << Systematic::endl;
       assert(weak_count > 0);
       weak_count++;
     }
@@ -502,7 +505,8 @@ namespace verona::rt
         auto m = MultiMessage::make_message(alloc, body, epoch);
         auto* next = body->cowns[body->index];
         Systematic::cout() << "MultiMessage " << m << ": fast requesting "
-                           << next << ", index " << body->index << Systematic::endl;
+                           << next << ", index " << body->index
+                           << Systematic::endl;
 
         if (body->index > 0)
         {
@@ -602,7 +606,8 @@ namespace verona::rt
       EpochMark e = m->get_epoch();
 
       Systematic::cout() << "MultiMessage " << m << " index " << body.index
-                         << " acquired " << cown << " epoch " << e << Systematic::endl;
+                         << " acquired " << cown << " epoch " << e
+                         << Systematic::endl;
 
       // If we are in should_scan, and we observe a message in this epoch,
       // then all future messages must have been sent while in pre-scan or
@@ -622,7 +627,8 @@ namespace verona::rt
       {
         if (e != Scheduler::local()->send_epoch)
         {
-          Systematic::cout() << "Message not in current epoch" << Systematic::endl;
+          Systematic::cout()
+            << "Message not in current epoch" << Systematic::endl;
           // We can only see messages from other epochs during the prescan and
           // scan phases.  The message epochs must be up-to-date in all other
           // phases.  We can also see messages sent by threads that have made
@@ -647,7 +653,8 @@ namespace verona::rt
         {
           if (cown->get_epoch_mark() != Scheduler::local()->send_epoch)
           {
-            Systematic::cout() << "Contains unscanned cown." << Systematic::endl;
+            Systematic::cout()
+              << "Contains unscanned cown." << Systematic::endl;
 
             // Count message as this contains a cown, that has a message queue
             // that could potentially have old messages in.
@@ -1228,7 +1235,8 @@ namespace verona::rt
         yield();
         assert(
           bp_state.load(std::memory_order_acquire).priority() != Priority::Low);
-        Systematic::cout() << "Collecting (sweep) cown " << this << Systematic::endl;
+        Systematic::cout() << "Collecting (sweep) cown " << this
+                           << Systematic::endl;
         collect(alloc);
       }
 

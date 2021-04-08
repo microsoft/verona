@@ -150,7 +150,8 @@ namespace verona::rt
       // Scheduling on this thread, from this thread.
       if (!a->scanned(send_epoch))
       {
-        Systematic::cout() << "Enqueue unscanned cown " << a << Systematic::endl;
+        Systematic::cout() << "Enqueue unscanned cown " << a
+                           << Systematic::endl;
         scheduled_unscanned_cown = true;
       }
       assert(!a->queue.is_sleeping());
@@ -192,7 +193,8 @@ namespace verona::rt
 
         if (Scheduler::get().fair)
         {
-          Systematic::cout() << "Should steal for fairness!" << Systematic::endl;
+          Systematic::cout()
+            << "Should steal for fairness!" << Systematic::endl;
           should_steal_for_fairness = true;
         }
       }
@@ -744,7 +746,8 @@ namespace verona::rt
       // scanning.
       send_epoch = EpochMark::EPOCH_NONE;
 
-      Systematic::cout() << "send_epoch (1): " << send_epoch << Systematic::endl;
+      Systematic::cout() << "send_epoch (1): " << send_epoch
+                         << Systematic::endl;
     }
 
     void enqueue_token()
@@ -758,7 +761,8 @@ namespace verona::rt
     {
       send_epoch = (prev_epoch == EpochMark::EPOCH_B) ? EpochMark::EPOCH_A :
                                                         EpochMark::EPOCH_B;
-      Systematic::cout() << "send_epoch (2): " << send_epoch << Systematic::endl;
+      Systematic::cout() << "send_epoch (2): " << send_epoch
+                         << Systematic::endl;
 
       // Send empty messages to all cowns that can be LIFO scheduled.
 
@@ -833,7 +837,8 @@ namespace verona::rt
           {
             count++;
             *p = c->next;
-            Systematic::cout() << "Stub collected cown " << c << Systematic::endl;
+            Systematic::cout()
+              << "Stub collected cown " << c << Systematic::endl;
             c->dealloc(alloc);
             continue;
           }

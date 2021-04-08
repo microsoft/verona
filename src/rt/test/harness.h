@@ -10,12 +10,10 @@
 using namespace verona::rt;
 using namespace std::chrono;
 
-#ifdef USE_FLIGHT_RECORDER
 extern "C" void dump_flight_recorder()
 {
   Systematic::SysLog::dump_flight_recorder();
 }
-#endif
 
 #define check(x) \
   if (!(x)) \
@@ -53,17 +51,17 @@ public:
 
     if (seed_upper < seed_lower)
     {
-      std::cout << "Seed_upper " << seed_upper << " seed_lower " << seed_lower
-                << std::endl;
+      Systematic::cout() << "Seed_upper " << seed_upper << " seed_lower "
+                         << seed_lower << Systematic::endl;
       abort();
     }
 
     cores = opt.is<size_t>("--cores", 4);
-    std::cout << " --cores " << cores << std::endl;
+    Systematic::cout() << " --cores " << cores << Systematic::endl;
 
     detect_leaks = !opt.has("--allow_leaks");
     if (!detect_leaks)
-      std::cout << " --allow_leaks " << std::endl;
+      Systematic::cout() << " --allow_leaks " << Systematic::endl;
     Scheduler::set_detect_leaks(detect_leaks);
 
 #if defined(_WIN32) && defined(CI_BUILD)
@@ -86,7 +84,7 @@ public:
 #endif
     for (seed = seed_lower + random; seed < seed_upper + random; seed++)
     {
-      std::cout << "Seed: " << seed << std::endl;
+      Systematic::cout() << "Seed: " << seed << Systematic::endl;
 
       Scheduler& sched = Scheduler::get();
 #ifdef USE_SYSTEMATIC_TESTING
@@ -110,9 +108,9 @@ public:
       if (detect_leaks)
         snmalloc::current_alloc_pool()->debug_check_empty();
       high_resolution_clock::time_point t1 = high_resolution_clock::now();
-      std::cout << "Time so far: "
-                << duration_cast<seconds>((t1 - start)).count() << " seconds"
-                << std::endl;
+      Systematic::cout() << "Time so far: "
+                         << duration_cast<seconds>((t1 - start)).count()
+                         << " seconds" << Systematic::endl;
     }
   }
 

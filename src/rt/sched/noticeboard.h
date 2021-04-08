@@ -86,8 +86,8 @@ namespace verona::rt
           // only protect incref with epoch
           Epoch e(alloc);
           local_content = get<T>();
-          Systematic::cout()
-            << "Inc ref from noticeboard peek" << local_content << Systematic::endl;
+          Systematic::cout() << "Inc ref from noticeboard peek" << local_content
+                             << Systematic::endl;
           local_content->incref();
         }
         // It's possible that the following three things happen:
@@ -99,8 +99,8 @@ namespace verona::rt
         // to be scanned.
         if (Scheduler::should_scan())
         {
-          Systematic::cout()
-            << "Scan from noticeboard peek" << local_content << Systematic::endl;
+          Systematic::cout() << "Scan from noticeboard peek" << local_content
+                             << Systematic::endl;
           ObjectStack f(alloc);
           local_content->trace(f);
           Cown::scan_stack(alloc, Scheduler::epoch(), f);

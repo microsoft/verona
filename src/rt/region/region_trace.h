@@ -605,12 +605,14 @@ namespace verona::rt
       {
         Systematic::cout() << "Region release failed due to additional roots"
                            << Systematic::endl;
-        additional_entry_points.forall(
-          [](Object* o) { Systematic::cout() << " root" << o << Systematic::endl; });
+        additional_entry_points.forall([](Object* o) {
+          Systematic::cout() << " root" << o << Systematic::endl;
+        });
         abort();
       }
 
-      Systematic::cout() << "Region release: trace region: " << o << Systematic::endl;
+      Systematic::cout() << "Region release: trace region: " << o
+                         << Systematic::endl;
 
       // Sweep everything, including the entrypoint.
       sweep<SweepAll::Yes>(alloc, o, collect);

@@ -57,9 +57,9 @@ namespace Systematic
 #endif
 
 #ifdef USE_SYSTEMATIC_TESTING
-    static constexpr bool systematic = true;
+  static constexpr bool systematic = true;
 #else
-    static constexpr bool systematic = false;
+  static constexpr bool systematic = false;
 #endif
 
 #ifdef USE_FLIGHT_RECORDER
@@ -295,7 +295,7 @@ namespace Systematic
 
       o.flush();
     }
-  #endif
+#endif
   };
 
   template<typename T>
@@ -364,19 +364,20 @@ namespace Systematic
     }
 #endif
 
-#ifdef USE_FLIGHT_RECORDER
     static void dump_flight_recorder(size_t id = 0)
     {
-      static std::atomic_flag dump_in_progress = ATOMIC_FLAG_INIT;
+      if constexpr (flight_recorder)
+      {
+        static std::atomic_flag dump_in_progress = ATOMIC_FLAG_INIT;
 
-      snmalloc::FlagLock f(dump_in_progress);
+        snmalloc::FlagLock f(dump_in_progress);
 
-      std::cerr << "Dump started by " << (id != 0 ? id : get_systematic_id())
-                << std::endl;
-      ThreadLocalLog::dump(std::cerr);
-      std::cerr << "Dump complete!" << std::endl;
+        std::cerr << "Dump started by " << (id != 0 ? id : get_systematic_id())
+                  << std::endl;
+        ThreadLocalLog::dump(std::cerr);
+        std::cerr << "Dump complete!" << std::endl;
+      }
     }
-#endif
 
     inline SysLog& operator<<(const char* value)
     {
@@ -619,11 +620,11 @@ namespace Systematic
 
   inline ostream& endl(ostream& os)
   {
-      if constexpr (systematic || flight_recorder)
-      {
-        os << std::endl;
-      }
+    if constexpr (systematic || flight_recorder)
+    {
+      os << std::endl;
+    }
 
-      return os;
+    return os;
   }
 } // namespace Systematic
