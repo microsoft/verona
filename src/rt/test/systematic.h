@@ -242,60 +242,61 @@ namespace Systematic
       return mine;
     }
 
-#ifdef USE_FLIGHT_RECORDER
     static void dump(std::ostream& o)
     {
-      o << "Crash log begins with most recent events" << std::endl;
-
-      o << "THIS IS BACKWARDS COMPARED TO THE NORMAL LOG!" << std::endl;
-
-      // Set up all logs for dumping
-      auto curr = global_logs().iterate();
-      auto mine = get().log;
-
-      while (curr != nullptr)
+      if constexpr (flight_recorder)
       {
-        curr->suspend_logging(curr != mine);
-        curr = global_logs().iterate(curr);
-      }
+        o << "Crash log begins with most recent events" << std::endl;
 
-      LocalLog* next = nullptr;
-      while (true)
-      {
-        next = nullptr;
-        size_t t1 = 0;
-        curr = global_logs().iterate();
+        o << "THIS IS BACKWARDS COMPARED TO THE NORMAL LOG!" << std::endl;
+
+        // Set up all logs for dumping
+        auto curr = global_logs().iterate();
+        auto mine = get().log;
 
         while (curr != nullptr)
         {
-          size_t t2;
-          if (curr->peek_time(t2))
-          {
-            if (next == nullptr || t1 < t2)
-            {
-              next = curr;
-              t1 = t2;
-            }
-          }
+          curr->suspend_logging(curr != mine);
           curr = global_logs().iterate(curr);
         }
 
-        if (next == nullptr)
-          break;
+        LocalLog* next = nullptr;
+        while (true)
+        {
+          next = nullptr;
+          size_t t1 = 0;
+          curr = global_logs().iterate();
 
-        next->pop_and_print(o);
+          while (curr != nullptr)
+          {
+            size_t t2;
+            if (curr->peek_time(t2))
+            {
+              if (next == nullptr || t1 < t2)
+              {
+                next = curr;
+                t1 = t2;
+              }
+            }
+            curr = global_logs().iterate(curr);
+          }
+
+          if (next == nullptr)
+            break;
+
+          next->pop_and_print(o);
+        }
+
+        curr = global_logs().iterate();
+        while (curr != nullptr)
+        {
+          curr->resume_logging(curr != mine);
+          curr = global_logs().iterate(curr);
+        }
+
+        o.flush();
       }
-
-      curr = global_logs().iterate();
-      while (curr != nullptr)
-      {
-        curr->resume_logging(curr != mine);
-        curr = global_logs().iterate(curr);
-      }
-
-      o.flush();
     }
-#endif
   };
 
   template<typename T>
