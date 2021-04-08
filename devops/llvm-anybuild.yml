@@ -7,9 +7,26 @@ parameters:
   - name: BuildDebug
     type: boolean
     default: true
+  # extra command-line args to pass to AnyBuild
   - name: ExtraAnyBuildArgs
     type: string
-    default: ' '
+    default: '--Epoch 1'
+  # LLVM commit hash to build
+  - name: GOOD_HASH
+    type: string
+    default: '73811d3'
+  # args to pass to cmake when building
+  - name: CmakeBuildToolArgs
+    type: string
+    default: 'install'
+  # number of parallel cmake jobs
+  - name: CmakeJobs
+    type: number
+    default: 32
+  # whether to publish installed LLVM binaries as a package
+  - name: PublishPackage
+    type: boolean
+    default: false
 
 resources:
   repositories:
@@ -58,19 +75,17 @@ jobs:
   - name: LlvmBuildDir
     value: $(LlvmSourceDir)/build
   - name: PKG_NAME
-    value: verona-llvm-install-x86_64-linux-$(BuildName)-$(GOOD_HASH)
-  
-  # Variables settable at queue time (DEFAULTS MUST BE SET IN THE PIPELINE EDITOR GUI)
-  #
-  # AbShimFilter       = @(clang|clang++|*/clang|*/clang++)
-  #                 (or) @(clang|clang++|*/clang|*/clang++|*/mlir-tblgen|*/llvm-tblgen)
-  # AbExpName          = LLVMVna
-  # AbEnvironmentName  = LLVMVna
-  # AbClusterId        = 0310c9eb-18d0-4a58-bc85-bdc02a4d764a
-  # CmakeJobs          = 32
-  # CmakeBuildToolArgs = install
-  # GOOD_HASH          = ...
-  # PublishPackage     = yes
+    value: verona-llvm-install-x86_64-linux-$(BuildName)-${{ parameters.GOOD_HASH }}
+  - name: AbExpName
+    value: LLVMVna
+  - name: AbEnvironmentName
+    value: LLVMVna
+  - name: AbClusterId
+    value: 0310c9eb-18d0-4a58-bc85-bdc02a4d764a
+  - name: AnyBuildEnvironmentUri
+    value: https://northeurope.anybuild-test.microsoft.com/api/clusters/$(AbClusterId)/agents
+  - name: AbShimFilter
+    value: '@(clang|clang++|*/clang|*/clang++|ar|*/ar|ranlib|*/ranlib|*/llvm-tblgen|*/mlir-tblgen)'
 
   steps:
   - checkout: llvm
@@ -78,7 +93,7 @@ jobs:
 
   - script: |
       set -euo pipefail
-      git checkout $(GOOD_HASH)
+      git checkout ${{ parameters.GOOD_HASH }}
     workingDirectory: $(LlvmSourceDir)
     displayName: 'Move tree to known good LLVM commit for Verona'
 
@@ -108,53 +123,7 @@ jobs:
 
       /tmp/bootstrapper.sh ${AnyBuildSource} ${Ring}
 
-      echo ==== Content of $(AbClientDirectory) =====
-      tree $(AbClientDirectory)
-
     displayName: Install AnyBuild client
-    workingDirectory: $(Build.StagingDirectory)
-
-  - bash: |
-      # Validate agent's deployment by requesting its IP from AgentCoordinator service
-      set -euo pipefail
-
-      declare anyBuildExe=$(AbClientDirectory)/AnyBuild.sh
-      declare ExpectedAgentCount=4 # Minimum number of agents
-      declare AnyBuildEnvironmentUri=https://northeurope.anybuild-test.microsoft.com/api/clusters/$(AbClusterId)/agents
-
-      if [[ ! -x $anyBuildExe ]]; then
-          anyBuildExe=$(AbClientDirectory)/AnyBuild
-          if [[ ! -x $anyBuildExe ]]; then
-              echo "Neither AnyBuild.sh nor AnyBuild executable found in $(AbClientDirectory)"
-              exit 1
-          fi
-      fi
-
-      export llvmPassword=$(LLVMPrincipalPassword)
-      declare attempt_num=0
-      until $anyBuildExe -b ${AnyBuildEnvironmentUri} --OnlyGetAgentsPublicIps --ClientApplicationId $(LLVMPrincipalAppId) --ClientSecretEnvironmentVariable llvmPassword -- /bin/ls
-      do
-          attempt_num=$((attempt_num+1))
-          if ((attempt_num==5))
-          then
-            echo "ERROR: Failed to obtain deployment manifest"
-            echo "===== ifconfig on this machine ======"
-            ifconfig
-            exit 1
-          fi
-          sleep 3
-      done
-
-      echo "Content of $(AbDeploymentJson)"
-      cat "$(AbDeploymentJson)"
-
-      declare reportedAgentCount=`grep NameOrIp $(AbDeploymentJson) | wc -l`
-      if [[ ${reportedAgentCount} -lt ${ExpectedAgentCount} ]]; then 
-          echo "Expected ${ExpectedAgentCount} agent(s) but AgentCoordinator reported only ${reportedAgentCount}"
-          exit 1
-      fi
-
-    displayName: Validate Linux Agent(s) Public IPs
     workingDirectory: $(Build.StagingDirectory)
 
   - task: CMake@1
@@ -189,18 +158,19 @@ jobs:
           return 1
         fi
 
-        if [[ -z "$(CmakeJobs)" ]]; then
+        if [[ -z "${{ parameters.CmakeJobs }}" ]]; then
           echo "ERROR: Variable 'CmakeJobs' not set"
           return 1
         fi
 
         echo
-        echo "===== Running build ($(CmakeJobs) CMake jobs) up to ${time_limit} from $(pwd) with ${NumAgents} agent(s), ${NumAgentCores} core(s) per agent, ${AgentLeaseCount} lease(s) per agent"
+        echo "===== Running build (${{ parameters.CmakeJobs }} CMake jobs) up to ${time_limit} from $(pwd) with ${NumAgents} agent(s), ${NumAgentCores} core(s) per agent, ${AgentLeaseCount} lease(s) per agent"
         echo
 
         export llvmPassword=$(LLVMPrincipalPassword)
         timeout "$time_limit" time $(AbClientDirectory)/AnyBuild.sh \
-          --ExperimentName "$(AbExpName)_b:$(Build.BuildId)_a:${NumAgents}_c:${NumAgentCores}_l:${AgentLeaseCount}_j:$(CmakeJobs)_n:$(BuildName)" \
+          --ExperimentName "$(AbExpName)_b:$(Build.BuildId)_a:${NumAgents}_c:${NumAgentCores}_l:${AgentLeaseCount}_j:${{ parameters.CmakeJobs }}_n:$(BuildName)" \
+          --RemoteExecServiceUri $(AnyBuildEnvironmentUri) \
           --NoCheckForUpdates \
           --WaitForAgentForever \
           --DoNotUseMachineUtilizationForScheduling \
@@ -211,7 +181,7 @@ jobs:
           --ShimProcessFilter '$(AbShimFilter)' \
           ${{ parameters.ExtraAnyBuildArgs }} \
           -- \
-          cmake --build . -- -j $(CmakeJobs) $(CmakeBuildToolArgs)
+          cmake --build . -- -j ${{ parameters.CmakeJobs }} ${{ parameters.CmakeBuildToolArgs }}
       }
 
       declare failed=0
@@ -235,28 +205,16 @@ jobs:
   - bash: |
       set -euo pipefail
 
-      declare numErrors=0
-
       for abLogFile in $(find "$(AbLogsRootDir)" -name AnyBuild.log); do
-
-          sed -n '/Session telemetry: Finished/,/^$/ p' "$abLogFile"
-          grep "NumAnyBuildProcesses=0" "$abLogFile" && (
-              echo "ERROR: AnyBuild process count was zero, possible Detours failure. Check AnyBuild.log for problems"
-              ((numErrors++))
-          )
-
-          grep "Run locally=0" "$abLogFile" || (
-              echo "ERROR: Run locally count was non-zero, check AnyBuild.log for problems with agent communication or other exceptions"
-              ((numErrors++))
-          )
-
+          echo "=== $abLogFile ==="
+          sed -n '/Session telemetry: Finished/,$ p' "$abLogFile"
+          echo
       done
-
-      exit $numErrors
 
     workingDirectory: $(LlvmBuildDir)
     continueOnError: true
-    displayName: Validate all remoted
+    condition: always()
+    displayName: Print out AnyBuild stats
   
   - script: |
       set -euo pipefail
@@ -267,12 +225,12 @@ jobs:
       mv $(PKG_NAME).tar.gz $(PKG_NAME)/ 
       mv $(PKG_NAME).tar.gz.md5 $(PKG_NAME)/
     continueOnError: false
-    condition: and(succeeded(), eq(variables['PublishPackage'], 'yes'))
+    condition: and(succeeded(), eq(${{ parameters.PublishPackage }}, true))
     displayName: 'Create package'
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish Artifact: Package'
-    condition: and(succeeded(), eq(variables['PublishPackage'], 'yes'))
+    condition: and(succeeded(), eq(${{ parameters.PublishPackage }}, true))
     inputs:
       PathToPublish: $(PKG_NAME)
       ArtifactName: $(PKG_NAME)
