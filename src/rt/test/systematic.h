@@ -367,12 +367,12 @@ namespace Systematic
 
     static void dump_flight_recorder(size_t id = 0)
     {
+      static std::atomic_flag dump_in_progress = ATOMIC_FLAG_INIT;
+
+      snmalloc::FlagLock f(dump_in_progress);
+
       if constexpr (flight_recorder)
       {
-        static std::atomic_flag dump_in_progress = ATOMIC_FLAG_INIT;
-
-        snmalloc::FlagLock f(dump_in_progress);
-
         std::cerr << "Dump started by " << (id != 0 ? id : get_systematic_id())
                   << std::endl;
         ThreadLocalLog::dump(std::cerr);
