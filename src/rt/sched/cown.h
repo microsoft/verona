@@ -751,10 +751,8 @@ namespace verona::rt
     static void schedule(size_t count, Cown** cowns, Args&&... args)
     {
       static_assert(std::is_base_of_v<Behaviour, Be>);
-#ifdef USE_SYSTEMATIC_TESTING
       Systematic::cout() << "Schedule behaviour of type: " << typeid(Be).name()
                          << Systematic::endl;
-#endif
 
       auto* alloc = ThreadAlloc::get();
       auto* be =
