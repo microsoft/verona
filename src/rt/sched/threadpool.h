@@ -195,7 +195,6 @@ namespace verona::rt
     static void wait_for_my_first_turn()
     {
       auto me = local();
-      get().enter_barrier();
       assert(me != nullptr);
       get().wait_for_my_turn_inner(me);
     }
