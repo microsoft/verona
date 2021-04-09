@@ -56,6 +56,12 @@ namespace Systematic
   }
 #endif
 
+#ifdef USE_SYSTEMATIC_TESTING
+  static constexpr bool systematic = true;
+#else
+  static constexpr bool systematic = false;
+#endif
+
 #ifdef USE_FLIGHT_RECORDER
   static constexpr bool flight_recorder = true;
 #else
@@ -238,71 +244,68 @@ namespace Systematic
 
     static void dump(std::ostream& o)
     {
-      o << "Crash log begins with most recent events" << std::endl;
-
-      o << "THIS IS BACKWARDS COMPARED TO THE NORMAL LOG!" << std::endl;
-
-      // Set up all logs for dumping
-      auto curr = global_logs().iterate();
-      auto mine = get().log;
-
-      while (curr != nullptr)
+      if constexpr (flight_recorder)
       {
-        curr->suspend_logging(curr != mine);
-        curr = global_logs().iterate(curr);
-      }
+        o << "Crash log begins with most recent events" << std::endl;
 
-      LocalLog* next = nullptr;
-      while (true)
-      {
-        next = nullptr;
-        size_t t1 = 0;
-        curr = global_logs().iterate();
+        o << "THIS IS BACKWARDS COMPARED TO THE NORMAL LOG!" << std::endl;
+
+        // Set up all logs for dumping
+        auto curr = global_logs().iterate();
+        auto mine = get().log;
 
         while (curr != nullptr)
         {
-          size_t t2;
-          if (curr->peek_time(t2))
-          {
-            if (next == nullptr || t1 < t2)
-            {
-              next = curr;
-              t1 = t2;
-            }
-          }
+          curr->suspend_logging(curr != mine);
           curr = global_logs().iterate(curr);
         }
 
-        if (next == nullptr)
-          break;
+        LocalLog* next = nullptr;
+        while (true)
+        {
+          next = nullptr;
+          size_t t1 = 0;
+          curr = global_logs().iterate();
 
-        next->pop_and_print(o);
+          while (curr != nullptr)
+          {
+            size_t t2;
+            if (curr->peek_time(t2))
+            {
+              if (next == nullptr || t1 < t2)
+              {
+                next = curr;
+                t1 = t2;
+              }
+            }
+            curr = global_logs().iterate(curr);
+          }
+
+          if (next == nullptr)
+            break;
+
+          next->pop_and_print(o);
+        }
+
+        curr = global_logs().iterate();
+        while (curr != nullptr)
+        {
+          curr->resume_logging(curr != mine);
+          curr = global_logs().iterate(curr);
+        }
+
+        o.flush();
       }
-
-      curr = global_logs().iterate();
-      while (curr != nullptr)
-      {
-        curr->resume_logging(curr != mine);
-        curr = global_logs().iterate(curr);
-      }
-
-      o.flush();
     }
   };
 
   template<typename T>
-  std::ostream& pretty_printer(std::ostream& os, T const& e)
+  static std::ostream& pretty_printer(std::ostream& os, T const& e)
   {
     return os << e;
   }
   class SysLog
   {
-#ifdef USE_SYSTEMATIC_TESTING
-    static constexpr bool systematic = true;
-#else
-    static constexpr bool systematic = false;
-#endif
-
   private:
     std::ostream* o;
     bool first;
@@ -368,10 +371,13 @@ namespace Systematic
 
       snmalloc::FlagLock f(dump_in_progress);
 
-      std::cerr << "Dump started by " << (id != 0 ? id : get_systematic_id())
-                << std::endl;
-      ThreadLocalLog::dump(std::cerr);
-      std::cerr << "Dump complete!" << std::endl;
+      if constexpr (flight_recorder)
+      {
+        std::cerr << "Dump started by " << (id != 0 ? id : get_systematic_id())
+                  << std::endl;
+        ThreadLocalLog::dump(std::cerr);
+        std::cerr << "Dump complete!" << std::endl;
+      }
     }
 
     inline SysLog& operator<<(const char* value)
@@ -611,5 +617,15 @@ namespace Systematic
   {
     static SysLog cout_log;
     return cout_log;
+  }
+
+  inline ostream& endl(ostream& os)
+  {
+    if constexpr (systematic || flight_recorder)
+    {
+      os << std::endl;
+    }
+
+    return os;
   }
 } // namespace Systematic

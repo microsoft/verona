@@ -60,7 +60,7 @@ namespace verona::rt
         (e == EpochMark::EPOCH_B));
 
       Systematic::cout() << "MultiMessage epoch: " << this << " " << get_epoch()
-                         << " -> " << e << std::endl;
+                         << " -> " << e << Systematic::endl;
 
       body = (MultiMessageBody*)((uintptr_t)get_body() | (size_t)e);
 
@@ -79,7 +79,7 @@ namespace verona::rt
     {
       MultiMessage* m = make(alloc, epoch, body);
       Systematic::cout() << "MultiMessage " << m << " payload " << body << " ("
-                         << epoch << ")" << std::endl;
+                         << epoch << ")" << Systematic::endl;
       return m;
     }
 
