@@ -1,0 +1,14 @@
+module @__  {
+  module @"$module-0"  {
+    module @Foo  {
+      module @Bar  {
+        module @Baz  {
+        }
+      }
+      module @Beep  {
+      }
+      module @Boop  {
+      }
+    }
+  }
+}
