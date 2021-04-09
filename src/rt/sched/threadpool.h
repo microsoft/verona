@@ -358,18 +358,25 @@ namespace verona::rt
       running_thread = first_thread;
 #endif
 
-      while (count > 1)
+      while (true)
       {
-        t->next = new T;
         t->systematic_id = count;
-        t = t->next;
-        count--;
-      }
-      t->systematic_id = count;
 #ifdef USE_SYSTEMATIC_TESTING
-      t->systematic_speed_mask = (1 << (Systematic::get_rng().next() % 16)) - 1;
+        t->systematic_speed_mask =
+          (1 << (Systematic::get_rng().next() % 16)) - 1;
 #endif
-      t->next = first_thread;
+        if (count > 1)
+        {
+          t->next = new T;
+          t = t->next;
+          count--;
+        }
+        else
+        {
+          t->next = first_thread;
+          return;
+        }
+      }
     }
 
     void run()
