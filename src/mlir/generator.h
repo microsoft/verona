@@ -166,8 +166,17 @@ namespace mlir::verona
     /// individual type.
     llvm::Expected<ReturnValue> parseNode(Ast ast);
 
-    /// Parses a function, from a top-level (module) view.
+    /// Parses a function definition.
     llvm::Expected<ReturnValue> parseFunction(Ast ast);
+
+    /// Parses a lambda (function body).
+    llvm::Expected<ReturnValue> parseLambda(Ast ast);
+
+    /// Parses a literal.
+    llvm::Expected<ReturnValue> parseLiteral(Ast ast);
+
+    /// Parses a type.
+    Type parseType(Ast ast);
 
     // ===================================================== MLIR Generators
     /// Generate a prototype, populating the symbol table

@@ -3,8 +3,14 @@
 
 class U64 {}
 
-// Apply
+// Empty function
 (){}
+
+// Return only function
+retOnly(): U64
+{
+  42
+}
 
 // Arg & return
 //foo(c: U64 & imm): U64 & imm
