@@ -44,20 +44,21 @@ namespace verona::rt
     {
       // Helper to issue the system call.
       static auto membarrier = [](int cmd, int flags) {
-        return syscall(__NR_membarrier, cmd, flags);
+        return (int)syscall(__NR_membarrier, cmd, flags);
       };
+
       static bool broken_membarrier = false;
       // If `USE_MEMBARRIER_EXPEDITED` is defined to one, then the first time
       // we enter this function try to register the command that we want
       // otherwise just use a shared barrier.
-      static int cmd = []() {
+      static int cmd = []() -> int {
         int r = membarrier(MEMBARRIER_CMD_QUERY, 0);
 
         if (r == -1)
         {
           if (membarrier(MEMBARRIER_CMD_SHARED, 0) != -1)
           {
-            return (int)MEMBARRIER_CMD_SHARED;
+            return MEMBARRIER_CMD_SHARED;
           }
           broken_membarrier = true;
           return -1;
@@ -65,20 +66,17 @@ namespace verona::rt
 
         if (r & MEMBARRIER_CMD_PRIVATE_EXPEDITED)
         {
-          r = MEMBARRIER_CMD_PRIVATE_EXPEDITED;
           membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED, 0);
-        }
-        else if (r & MEMBARRIER_CMD_SHARED)
-        {
-          r = MEMBARRIER_CMD_SHARED;
-        }
-        else
-        {
-          broken_membarrier = true;
-          return -1;
+          return MEMBARRIER_CMD_PRIVATE_EXPEDITED;
         }
 
-        return r;
+        if (r & MEMBARRIER_CMD_SHARED)
+        {
+          return MEMBARRIER_CMD_SHARED;
+        }
+
+        broken_membarrier = true;
+        return -1;
       }();
 
       if (broken_membarrier)
