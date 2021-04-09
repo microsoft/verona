@@ -91,17 +91,13 @@ namespace
     }
   }
 
-  /// Get executable path
-  std::string getExecutablePath()
-  {
-    return "";
-  }
-
   /// Get Verona std library path
-  std::string getStdLibPath()
+  std::string getStdLibPath(const char* progName)
   {
-    auto path = getExecutablePath();
-    path += "/stdlib/";
+    std::string exec = llvm::sys::fs::getMainExecutable(
+      progName, /*some function in this binary*/ (void*)getStdLibPath);
+    std::string path =
+      std::string(llvm::sys::path::parent_path(exec)) + "/stdlib/";
     return path;
   }
 } // namespace
@@ -136,7 +132,7 @@ int main(int argc, char** argv)
     case InputKind::Verona:
     {
       // Parse the file
-      auto stdlibpath = getStdLibPath();
+      auto stdlibpath = getStdLibPath(argv[0]);
       auto [ok, ast] = parse(inputFile, stdlibpath);
       ok = ok && dnf::wellformed(ast);
 

@@ -82,6 +82,10 @@ namespace mlir::verona
           scope.push_back(mem->get<ModuleOp>());
           break;
         }
+        case Kind::Using:
+          // Ignore for now as this is just a reference to the module name
+          // that will be lowered, but module names aren't being lowered now.
+          break;
         case Kind::Field:
         case Kind::Function:
         default:
