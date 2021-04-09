@@ -80,7 +80,7 @@ namespace mlir::verona
     }
 
     /// Access to the single value held, error if none or more than one.
-    template <class T>
+    template<class T>
     T get() const
     {
       assert(values.size() > 0 && "Access to empty return value");
@@ -89,7 +89,7 @@ namespace mlir::verona
     }
 
     /// Access a specific value held, error if none or not enough.
-    template <class T>
+    template<class T>
     T get(size_t n) const
     {
       assert(values.size() > 0 && "Access to empty return value");
@@ -116,12 +116,7 @@ namespace mlir::verona
    */
   class Generator
   {
-    Generator(MLIRContext* context)
-    : context(context), builder(context), unkLoc(builder.getUnknownLoc())
-    {
-      // Initialise boolean / unknown types for convenience coding
-      boolTy = builder.getI1Type();
-    }
+    Generator(MLIRContext* context) : context(context), builder(context) {}
 
     /// MLIR module.
     OwningModuleRef module;
@@ -132,9 +127,6 @@ namespace mlir::verona
     /// MLIR builder.
     OpBuilder builder;
 
-    /// Unknown location, for compiler generated stuff.
-    Location unkLoc;
-
     /// Symbol tables for variables.
     SymbolTableT symbolTable;
     /// Symbol tables for functions.
@@ -143,9 +135,6 @@ namespace mlir::verona
     TypeTableT typeTable;
     /// Nested reference for head/exit blocks in loops.
     BasicBlockTableT loopTable;
-
-    /// MLIR boolean type (int1).
-    Type boolTy;
 
     /// A list of types
     using Types = llvm::SmallVector<Type, 1>;
@@ -170,21 +159,30 @@ namespace mlir::verona
     /// Parses a module, the global context.
     llvm::Error parseModule(Ast ast);
 
-    /// Parses a function, from a top-level (module) view.
-    llvm::Expected<ReturnValue> parseFunction(Ast ast);
     /// Parse a class declaration
     llvm::Expected<ReturnValue> parseClass(Ast ast);
-
-    /// Recursive type parser, gathers all available information on the type
-    /// and sub-types, modifiers, annotations, etc.
-    Type parseType(Ast ast);
 
     /// Generic node parser, calls other parse functions to handle each
     /// individual type.
     llvm::Expected<ReturnValue> parseNode(Ast ast);
 
-    /// Parses a block (multiple statements), return last value.
-    llvm::Expected<ReturnValue> parseBlock(AstPath nodes);
+    /// Parses a function, from a top-level (module) view.
+    llvm::Expected<ReturnValue> parseFunction(Ast ast);
+
+    // ===================================================== MLIR Generators
+    /// Generate a prototype, populating the symbol table
+    llvm::Expected<mlir::FuncOp> generateProto(
+      mlir::Location loc,
+      llvm::StringRef name,
+      llvm::ArrayRef<mlir::Type> types,
+      llvm::ArrayRef<mlir::Type> retTy);
+    /// Generates an empty function (with the first basic block)
+    llvm::Expected<mlir::FuncOp> generateEmptyFunction(
+      mlir::Location loc,
+      llvm::StringRef name,
+      llvm::ArrayRef<llvm::StringRef> args,
+      llvm::ArrayRef<mlir::Type> types,
+      llvm::ArrayRef<mlir::Type> retTy);
 
   public:
     /**

@@ -1,0 +1,9 @@
+module @__  {
+  module @"$module-0"  {
+    module @U64  {
+    }
+    func private @apply() {
+      return
+    }
+  }
+}

@@ -21,6 +21,8 @@ namespace mlir::verona
   Driver::Driver(unsigned optLevel)
   : passManager(&context), diagnosticHandler(sourceManager, &context)
   {
+    context.getOrLoadDialect<mlir::StandardOpsDialect>();
+
     if (optLevel > 0)
     {
       passManager.addPass(mlir::createInlinerPass());

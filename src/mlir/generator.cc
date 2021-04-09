@@ -10,6 +10,15 @@
 
 using namespace verona::parser;
 
+namespace
+{
+  template<class T>
+  Node<T> nodeAs(Ast from)
+  {
+    return std::make_shared<T>(from->as<T>());
+  }
+}
+
 namespace mlir::verona
 {
   auto Generator::rootModuleName = "__";
@@ -30,7 +39,7 @@ namespace mlir::verona
   Location Generator::getLocation(Ast ast)
   {
     if (!ast->location.source)
-      return mlir::UnknownLoc::get(context);
+      return builder.getUnknownLoc();
 
     auto path = ast->location.source->origin;
     auto [line, column] = ast->location.linecol();
@@ -86,30 +95,21 @@ namespace mlir::verona
           // Ignore for now as this is just a reference to the module name
           // that will be lowered, but module names aren't being lowered now.
           break;
-        case Kind::Field:
         case Kind::Function:
+        {
+          auto func = parseFunction(sub);
+          if (auto err = func.takeError())
+            return std::move(err);
+          scope.push_back(func->get<FuncOp>());
+          break;
+        }
+        case Kind::Field:
         default:
           return runtimeError("Wrong member in class");
       }
     }
 
     return scope;
-  }
-
-  llvm::Expected<ReturnValue> Generator::parseBlock(AstPath nodes)
-  {
-    // Blocks add lexical context
-    SymbolScopeT var_scope{symbolTable};
-
-    ReturnValue last;
-    for (auto sub : nodes)
-    {
-      auto node = parseNode(sub);
-      if (auto err = node.takeError())
-        return std::move(err);
-      last = *node;
-    }
-    return last;
   }
 
   llvm::Expected<ReturnValue> Generator::parseNode(Ast ast)
@@ -125,5 +125,77 @@ namespace mlir::verona
 
     return runtimeError(
       "Node " + std::string(kindname(ast->kind())) + " not implemented yet");
+  }
+
+  llvm::Expected<ReturnValue> Generator::parseFunction(Ast ast)
+  {
+    auto func = nodeAs<Function>(ast);
+    assert(func && "Bad node");
+    auto loc = getLocation(ast);
+
+    // TODO: Lower arguments
+    llvm::SmallVector<llvm::StringRef, 1> argNames;
+    Types types;
+    llvm::SmallVector<mlir::Type, 1> retTy;
+
+    // Declare all arguments on current scope
+    SymbolScopeT var_scope(symbolTable);
+    auto name = func->name.view();
+    auto def =
+      generateEmptyFunction(getLocation(ast), name, argNames, types, retTy);
+    if (auto err = def.takeError())
+      return std::move(err);
+    auto& funcIR = *def;
+
+    // TODO: Lower body
+
+    // TODO: Lower return value
+    builder.create<mlir::ReturnOp>(loc);
+
+    return funcIR;
+  }
+
+  // ===================================================== MLIR Generators
+  llvm::Expected<mlir::FuncOp> Generator::generateProto(
+    mlir::Location loc,
+    llvm::StringRef name,
+    llvm::ArrayRef<mlir::Type> types,
+    llvm::ArrayRef<mlir::Type> retTy)
+  {
+    // Create function
+    auto funcTy = builder.getFunctionType(types, retTy);
+    auto func = mlir::FuncOp::create(loc, name, funcTy);
+    func.setVisibility(mlir::SymbolTable::Visibility::Private);
+    return functionTable.insert(name, func);
+  }
+
+  llvm::Expected<mlir::FuncOp> Generator::generateEmptyFunction(
+    mlir::Location loc,
+    llvm::StringRef name,
+    llvm::ArrayRef<llvm::StringRef> args,
+    llvm::ArrayRef<mlir::Type> types,
+    llvm::ArrayRef<mlir::Type> retTy)
+  {
+    assert(args.size() == types.size() && "Argument/type mismatch");
+
+    // If it's not declared yet, do so. This simplifies direct declaration of
+    // compiler functions. User functions should be checked at the parse level.
+    auto func = functionTable.inScope(name);
+    if (!func)
+    {
+      auto proto = generateProto(loc, name, types, retTy);
+      if (auto err = proto.takeError())
+        return std::move(err);
+      func = *proto;
+    }
+
+    // Create entry block, set builder entry point
+    auto& entryBlock = *func.addEntryBlock();
+    auto argVals = entryBlock.getArguments();
+    assert(args.size() == argVals.size() && "Argument/value mismatch");
+    builder.setInsertionPointToStart(&entryBlock);
+
+    // TODO: Declare all arguments
+    return func;
   }
 }
