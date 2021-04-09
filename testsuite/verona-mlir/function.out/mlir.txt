@@ -5,5 +5,9 @@ module @__  {
     func private @apply() {
       return
     }
+    func private @retOnly() -> i64 {
+      %c42_i64 = constant 42 : i64
+      return %c42_i64 : i64
+    }
   }
 }
