@@ -24,9 +24,11 @@ class continue[L = NoLabel]
   }
 }
 
-while[L = NoLabel, T, U](cond: ()->Bool)
-  : (()->(T | throw U))->(Done | throw U)
-  // TODO: \ (Break[NoLabel] | Break[L] | Continue[NoLabel] | Continue[L])
+type ControlFlow[L] =
+  Break[NoLabel] | Break[L] | Continue[NoLabel] | Continue[L];
+
+while[L = NoLabel, T, U](cond: ()->Bool):
+  (()->(T | throw U | throw ControlFlow[L]))->(None | throw U)
 {
   { body =>
     match (cond())
@@ -44,7 +46,7 @@ while[L = NoLabel, T, U](cond: ()->Bool)
         {
           // An unlabelled break or a break to this label ends the loop.
           // A break to another label will be rethrown.
-          { Break[NoLabel] | Break[L] => Done }
+          { Break[NoLabel] | Break[L] => None }
 
           // An unlabelled continue or a continue to this label ends the body
           // early but runs the loop again. A continue to another label will be

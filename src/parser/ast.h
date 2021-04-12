@@ -5,6 +5,7 @@
 #include "ident.h"
 #include "lexer.h"
 
+#include <map>
 #include <optional>
 #include <unordered_map>
 #include <vector>
@@ -119,7 +120,6 @@ namespace verona::parser
   struct TypeName : NodeDef
   {
     List<Type> typeargs;
-    AstWeak def;
 
     Kind kind() override
     {
@@ -167,10 +167,35 @@ namespace verona::parser
     }
   };
 
+  struct TypeParam : NodeDef
+  {
+    // TODO: value-dependent types
+    Node<Type> upper;
+    Node<Type> dflt;
+
+    Kind kind()
+    {
+      return Kind::TypeParam;
+    }
+  };
+
+  struct TypeParamList : TypeParam
+  {
+    Kind kind()
+    {
+      return Kind::TypeParamList;
+    }
+  };
+
+
+  using Substitutions =
+    std::map<Weak<TypeParam>, Node<Type>, std::owner_less<>>;
+
   struct TypeRef : Type
   {
     List<TypeName> typenames;
     AstWeak def;
+    Substitutions subs;
 
     Kind kind() override
     {
@@ -207,50 +232,45 @@ namespace verona::parser
     std::vector<Node<Using>> use;
     AstWeak parent;
 
-    Ast get(const Location& id)
+    Ast get(const Location& name)
     {
-      auto find = map.find(id);
+      auto find = map.find(name);
 
-      if (find == map.end())
-        return {};
+      if (find != map.end())
+        return find->second;
 
-      return find->second;
+      return {};
     }
 
-    bool set(const Location& id, Ast node)
+    Ast get_scope(const Location& name)
     {
-      auto find = map.find(id);
+      auto def = get(name);
+
+      if (def)
+        return def;
+
+      auto node = parent.lock();
+
+      if (node)
+        return node->symbol_table()->get_scope(name);
+
+      return {};
+    }
+
+    bool set(const Location& name, Ast node)
+    {
+      auto find = map.find(name);
 
       if (find != map.end())
         return false;
 
-      map.emplace(id, node);
+      map.emplace(name, node);
       return true;
     }
   };
 
   struct Expr : NodeDef
   {};
-
-  struct TypeParam : NodeDef
-  {
-    // TODO: value-dependent types
-    Node<Type> upper;
-    Node<Type> dflt;
-
-    Kind kind() override
-    {
-      return Kind::TypeParam;
-    }
-  };
-
-  struct TypeParamList : TypeParam
-  {
-    Kind kind() override
-    {
-      return Kind::TypeParamList;
-    }
-  };
 
   struct Let : Expr
   {
@@ -382,7 +402,7 @@ namespace verona::parser
   struct Select : Expr
   {
     Node<Expr> expr;
-    List<TypeName> typenames;
+    Node<TypeRef> typeref;
     Node<Expr> args;
 
     Kind kind() override

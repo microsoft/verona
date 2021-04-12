@@ -273,9 +273,9 @@ namespace verona::parser::dnf
         {
           if (ty->kind() == Kind::UnionType)
           {
-            error() << loc()
+            error() << un.location
                     << "Union type should not contain another union type"
-                    << line();
+                    << text(un.location);
             return;
           }
         }
@@ -285,15 +285,16 @@ namespace verona::parser::dnf
       {
         if (tt.type->kind() == Kind::UnionType)
         {
-          error() << loc() << "Throw type should not contain a union type"
-                  << line();
+          error() << tt.location << "Throw type should not contain a union type"
+                  << text(tt.location);
           return;
         }
 
         if (tt.type->kind() == Kind::ThrowType)
         {
-          error() << loc() << "Throw type should not contain another throw type"
-                  << line();
+          error() << tt.location
+                  << "Throw type should not contain another throw type"
+                  << text(tt.location);
           return;
         }
       }
@@ -304,23 +305,25 @@ namespace verona::parser::dnf
         {
           if (ty->kind() == Kind::UnionType)
           {
-            error() << loc() << "Isect type should not contain a union type"
-                    << line();
+            error() << isect.location
+                    << "Isect type should not contain a union type"
+                    << text(isect.location);
             return;
           }
 
           if (ty->kind() == Kind::ThrowType)
           {
-            error() << loc() << "Isect type should not contain a throw type"
-                    << line();
+            error() << isect.location
+                    << "Isect type should not contain a throw type"
+                    << text(isect.location);
             return;
           }
 
           if (ty->kind() == Kind::IsectType)
           {
-            error() << loc()
+            error() << isect.location
                     << "Isect type should not contain another isect type"
-                    << line();
+                    << text(isect.location);
             return;
           }
         }

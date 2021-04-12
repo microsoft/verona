@@ -3,11 +3,11 @@
 
 class A {}
 
-class B
+class B[T]
 {
-  class C
+  class C[T]
   {
-    bar() {}
+    bar[T, U]() {}
   }
 
   foo() {}

@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: MIT
 using "controlflow";
 
-for[L = NoLabel, T, U, V](iter: Iterator[T])
-  : (T->(U | throw V))->(Done | throw V)
-  // TODO: \ (Break[NoLabel] | Break[L] | Continue[NoLabel] | Continue[L])
+for[L = NoLabel, T, U, V](iter: Iterator[T]):
+  (T->(U | throw V | throw ControlFlow[L]))->(None | throw V)
 {
   { body =>
     while { true }

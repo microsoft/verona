@@ -57,6 +57,14 @@ namespace verona::parser
         std::min(this->start, that.start),
         std::max(this->end, that.end));
     }
+
+    void extend(const Location& that)
+    {
+      if (this->source)
+        *this = range(that);
+      else
+        *this = that;
+    }
   };
 
   struct text

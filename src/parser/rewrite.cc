@@ -12,9 +12,7 @@ namespace verona::parser
     size_t index;
     Ast prev;
     Ast next;
-    bool ok;
-
-    Rewrite() : ok(false) {}
+    bool ok = false;
 
     bool operator()(size_t index, Ast& prev, Ast& next)
     {
@@ -80,5 +78,72 @@ namespace verona::parser
     path.pop_back();
     path.push_back(next);
     return true;
+  }
+
+  struct Clone
+  {
+    Substitutions& subs;
+
+    Clone(Substitutions& subs) : subs(subs) {}
+
+    Ast operator()()
+    {
+      return {};
+    }
+
+    Ast operator()(TypeRef& tr)
+    {
+      auto def = tr.def.lock();
+
+      if (def->kind() == Kind::TypeParam)
+      {
+        auto tp = std::static_pointer_cast<TypeParam>(def);
+        auto find = subs.find(tr.def);
+
+        if (find != subs.end())
+          return find->second;
+      }
+
+      auto clone = std::make_shared<TypeRef>();
+      *clone = tr;
+      *this << fields(*clone);
+      return clone;
+    }
+
+    template<typename T>
+    Ast operator()(T& node)
+    {
+      auto clone = std::make_shared<T>();
+      *clone = node;
+      *this << fields(*clone);
+      return clone;
+    }
+
+    Clone& operator<<(Location& loc)
+    {
+      return *this;
+    }
+
+    template<typename T>
+    Clone& operator<<(Node<T>& node)
+    {
+      node = std::static_pointer_cast<T>(dispatch(*this, node));
+      return *this;
+    }
+
+    template<typename T>
+    Clone& operator<<(List<T>& list)
+    {
+      for (auto& node : list)
+        *this << node;
+
+      return *this;
+    }
+  };
+
+  Ast clone(Substitutions& subs, Ast node)
+  {
+    Clone clone(subs);
+    return dispatch(clone, node);
   }
 }

@@ -40,19 +40,6 @@ namespace verona::parser
       return out << "--------" << std::endl;
     }
 
-    Location loc()
-    {
-      if (!stack.empty())
-        return stack.back()->location;
-
-      return {};
-    }
-
-    text line()
-    {
-      return text(loc());
-    }
-
     template<typename T = NodeDef>
     Node<T> current()
     {

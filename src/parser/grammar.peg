@@ -7,7 +7,7 @@ typeargs <- '[' type (',' type)* ']'
 # Binding is: ref, tuple, view, function, isect, throw, union
 tupletype <- '(' (type (',' type)*)? ')'
 typelist <- ident '...'
-typename <- ident typeargs?
+typename <- name typeargs?
 modulename <- string typeargs?
 typeref <- (modulename / typename) ('::' typename)*
 captype <- 'iso' / 'mut' / 'imm' / 'Self' / tupletype / typelist / typeref

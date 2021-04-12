@@ -5,7 +5,6 @@
 #include "dnf.h"
 #include "escaping.h"
 #include "ident.h"
-#include "lookup.h"
 #include "path.h"
 
 #include <cassert>
@@ -183,12 +182,6 @@ namespace verona::parser
       }
 
       return false;
-    }
-
-    bool is_localref(const Location& id)
-    {
-      auto def = lookup::name(symbols, id);
-      return def && is_kind(def, {Kind::Param, Kind::Let, Kind::Var});
     }
 
     bool peek_delimited(TokenKind kind, TokenKind terminator)
@@ -455,6 +448,7 @@ namespace verona::parser
         r = Error;
       }
 
+      tup->location.extend(previous.location);
       return r;
     }
 
@@ -477,8 +471,8 @@ namespace verona::parser
         lambda->result = std::make_shared<InferType>();
       }
 
-      auto st = push(lambda);
       lambda->location = previous.location;
+      auto st = push(lambda);
       expr = lambda;
 
       Result r = opttypeparams(lambda->typeparams);
@@ -555,7 +549,8 @@ namespace verona::parser
       if (!peek(TokenKind::Ident))
         return Skip;
 
-      bool local = is_localref(lookahead[la - 1].location);
+      auto def = symbols->symbol_table()->get_scope(lookahead[la - 1].location);
+      bool local = def && is_kind(def, {Kind::Param, Kind::Let, Kind::Var});
       rewind();
 
       if (!local)
@@ -576,58 +571,25 @@ namespace verona::parser
       //  escapedstring / unescapedstring / character /
       //  float / int / hex / binary / 'true' / 'false'
       if (has(TokenKind::EscapedString))
-      {
-        auto con = std::make_shared<EscapedString>();
-        con->location = previous.location;
-        expr = con;
-      }
+        expr = std::make_shared<EscapedString>();
       else if (has(TokenKind::UnescapedString))
-      {
-        auto con = std::make_shared<UnescapedString>();
-        con->location = previous.location;
-        expr = con;
-      }
+        expr = std::make_shared<UnescapedString>();
       else if (has(TokenKind::Character))
-      {
-        auto con = std::make_shared<Character>();
-        con->location = previous.location;
-        expr = con;
-      }
+        expr = std::make_shared<Character>();
       else if (has(TokenKind::Int))
-      {
-        auto con = std::make_shared<Int>();
-        con->location = previous.location;
-        expr = con;
-      }
+        expr = std::make_shared<Int>();
       else if (has(TokenKind::Float))
-      {
-        auto con = std::make_shared<Float>();
-        con->location = previous.location;
-        expr = con;
-      }
+        expr = std::make_shared<Float>();
       else if (has(TokenKind::Hex))
-      {
-        auto con = std::make_shared<Hex>();
-        con->location = previous.location;
-        expr = con;
-      }
+        expr = std::make_shared<Hex>();
       else if (has(TokenKind::Binary))
-      {
-        auto con = std::make_shared<Binary>();
-        con->location = previous.location;
-        expr = con;
-      }
+        expr = std::make_shared<Binary>();
       else if (has(TokenKind::Bool))
-      {
-        auto con = std::make_shared<Bool>();
-        con->location = previous.location;
-        expr = con;
-      }
+        expr = std::make_shared<Bool>();
       else
-      {
         return Skip;
-      }
 
+      expr->location = previous.location;
       return Success;
     }
 
@@ -753,7 +715,6 @@ namespace verona::parser
 
         if (typeexpr(arg) != Success)
         {
-          error() << loc() << "Expected a type argument" << line();
           restart_before({TokenKind::Comma, TokenKind::RSquare});
           r = Error;
         }
@@ -781,27 +742,18 @@ namespace verona::parser
 
       Result r = Success;
 
+      // This keeps expr as the lhs of the selector.
       auto sel = std::make_shared<Select>();
-      sel->location = previous.location;
       sel->expr = expr;
       expr = sel;
 
-      do
-      {
-        if (!has(TokenKind::Ident) && !has(TokenKind::Symbol))
-        {
-          error() << loc() << "Expected a selector name" << line();
-          return Error;
-        }
+      Node<Type> type;
 
-        auto name = std::make_shared<TypeName>();
-        name->location = previous.location;
-        sel->typenames.push_back(name);
+      if (opttyperef(type) != Success)
+        r = Error;
 
-        if (opttypeargs(name->typeargs) == Error)
-          r = Error;
-      } while (has(TokenKind::DoubleColon));
-
+      sel->typeref = std::static_pointer_cast<TypeRef>(type);
+      sel->location = sel->typeref->location;
       return r;
     }
 
@@ -813,6 +765,7 @@ namespace verona::parser
 
       Result r = Success;
 
+      // This keeps expr as the lhs of the selector.
       if (optselector(expr) != Success)
       {
         error() << loc() << "Expected a selector" << line();
@@ -839,21 +792,25 @@ namespace verona::parser
       if (!ok)
         return r;
 
-      auto sel = std::make_shared<Select>();
-      sel->expr = expr;
-      sel->location = expr->location;
-      expr = sel;
+      auto apply = std::make_shared<TypeName>();
+      apply->location = name_apply;
 
-      auto name = std::make_shared<TypeName>();
-      name->location = name_apply;
-      sel->typenames.push_back(name);
-
-      if (opttypeargs(name->typeargs) == Error)
+      if (opttypeargs(apply->typeargs) == Error)
         r = Error;
+
+      auto tr_apply = std::make_shared<TypeRef>();
+      tr_apply->location = apply->location;
+      tr_apply->typenames.push_back(apply);
+
+      auto sel = std::make_shared<Select>();
+      sel->location = apply->location;
+      sel->expr = expr;
+      sel->typeref = tr_apply;
 
       if (opttuple(sel->args) == Error)
         r = Error;
 
+      expr = sel;
       return r;
     }
 
@@ -893,12 +850,12 @@ namespace verona::parser
     {
       // infix <- (postfix / selector)+
       Result r = Success;
-      Result r2;
-      Node<Expr> next;
-      Node<Select> sel;
 
       while (true)
       {
+        Result r2;
+        Node<Expr> next;
+
         if ((r2 = optpostfix(next)) != Skip)
         {
           if (!expr)
@@ -915,20 +872,24 @@ namespace verona::parser
           {
             // Adjacency means `expr.apply(next)`
             auto sel = std::make_shared<Select>();
-            sel->location = expr->location;
             sel->expr = expr;
-
-            auto name = std::make_shared<TypeName>();
-            name->location = name_apply;
-            sel->typenames.push_back(name);
-
             sel->args = next;
             expr = sel;
+
+            auto apply = std::make_shared<TypeName>();
+            apply->location = name_apply;
+
+            auto tr_apply = std::make_shared<TypeRef>();
+            tr_apply->location = expr->location;
+            tr_apply->typenames.push_back(apply);
+
+            sel->typeref = tr_apply;
+            sel->location = tr_apply->location;
           }
         }
         else if ((r2 = optselector(expr)) != Skip)
         {
-          // This is an infix operator.
+          // This keeps expr as the lhs of the selector.
           if (r2 == Error)
             r = Error;
         }
@@ -1117,6 +1078,8 @@ namespace verona::parser
         r = Error;
       }
 
+      tup->location.extend(previous.location);
+
       if (tup->types.size() == 1)
         type = tup->types.front();
 
@@ -1173,12 +1136,12 @@ namespace verona::parser
 
     Result opttyperef(Node<Type>& type)
     {
-      // typename <- ident typeargs?
+      // typename <- name typeargs?
       // modulename <- string typeargs?
       // typeref <- (modulename / typename) ('::' typename)*
       if (
-        !peek(TokenKind::Ident) && !peek(TokenKind::EscapedString) &&
-        !peek(TokenKind::UnescapedString))
+        !peek(TokenKind::Ident) && !peek(TokenKind::Symbol) &&
+        !peek(TokenKind::EscapedString) && !peek(TokenKind::UnescapedString))
         return Skip;
 
       rewind();
@@ -1201,7 +1164,7 @@ namespace verona::parser
 
       do
       {
-        if (!has(TokenKind::Ident))
+        if (!has(TokenKind::Ident) && !has(TokenKind::Symbol))
         {
           error() << loc() << "Expected a type identifier" << line();
           return Error;
@@ -1209,12 +1172,12 @@ namespace verona::parser
 
         auto name = std::make_shared<TypeName>();
         name->location = previous.location;
-
-        typeref->location = name->location;
         typeref->typenames.push_back(name);
 
         if (opttypeargs(name->typeargs) == Error)
           r = Error;
+
+        typeref->location.extend(previous.location);
       } while (has(TokenKind::DoubleColon));
 
       return r;
@@ -1236,7 +1199,7 @@ namespace verona::parser
       has(TokenKind::Ellipsis);
 
       Result r = Success;
-      auto def = lookup::name(symbols, tl->location);
+      auto def = symbols->symbol_table()->get_scope(tl->location);
 
       if (!def)
       {
@@ -1316,16 +1279,16 @@ namespace verona::parser
 
       Node<TypePair> pair;
 
-      while (true)
+      while (peek(TokenKind::Symbol, "~>") || peek(TokenKind::Symbol, "<~"))
       {
+        rewind();
+
         if (has(TokenKind::Symbol, "~>"))
           pair = std::make_shared<ViewType>();
         else if (has(TokenKind::Symbol, "<~"))
           pair = std::make_shared<ExtractType>();
-        else
-          break;
 
-        pair->location = previous.location;
+        pair->location = type->location.range(previous.location);
         pair->left = type;
         type = pair;
 
@@ -1333,12 +1296,17 @@ namespace verona::parser
 
         if ((r2 = optcaptype(pair->right)) != Success)
         {
-          error() << loc() << "Expected a type" << line();
+          if (r2 == Skip)
+            error() << loc() << "Expected a type" << line();
+
           r = Error;
           break;
         }
+
+        pair->location.extend(pair->right->location);
       }
 
+      rewind();
       return r;
     }
 
@@ -1355,11 +1323,15 @@ namespace verona::parser
         return Success;
 
       auto functype = std::make_shared<FunctionType>();
-      functype->location = previous.location;
+      functype->location = type->location.range(previous.location);
       functype->left = type;
       type = functype;
 
-      return optfunctiontype(functype->right);
+      if (optfunctiontype(functype->right) != Success)
+        return Error;
+
+      functype->location.extend(functype->right->location);
+      return Success;
     }
 
     Result optisecttype(Node<Type>& type)
@@ -1377,7 +1349,9 @@ namespace verona::parser
 
         if ((r2 = optfunctiontype(next)) != Success)
         {
-          error() << loc() << "Expected a type" << line();
+          if (r2 == Skip)
+            error() << loc() << "Expected a type" << line();
+
           r = Error;
         }
 
@@ -1418,7 +1392,9 @@ namespace verona::parser
 
         if ((r2 = optthrowtype(next)) != Success)
         {
-          error() << loc() << "Expected a type" << line();
+          if (r2 == Skip)
+            error() << loc() << "Expected a type" << line();
+
           r = Error;
         }
 
@@ -1432,13 +1408,15 @@ namespace verona::parser
     Result typeexpr(Node<Type>& type)
     {
       // typeexpr <- uniontype
-      if (optuniontype(type) != Success)
+      Result r = optuniontype(type);
+
+      if (r == Skip)
       {
         error() << loc() << "Expected a type" << line();
-        return Error;
+        r = Error;
       }
 
-      return Success;
+      return r;
     }
 
     Result inittype(Node<Type>& type)
@@ -1510,7 +1488,6 @@ namespace verona::parser
 
         if (r2 == Error)
         {
-          error() << loc() << "Expected a parameter" << line();
           r = Error;
           restart_before({TokenKind::Comma, terminator});
         }
@@ -1901,13 +1878,13 @@ namespace verona::parser
         tr->location = cls.location;
         tr->typenames.push_back(tn);
 
-        auto imm = std::make_shared<Imm>();
-        imm->location = cls.location;
+        auto iso = std::make_shared<Iso>();
+        iso->location = cls.location;
 
         auto isect = std::make_shared<IsectType>();
         isect->location = cls.location;
         isect->types.push_back(tr);
-        isect->types.push_back(imm);
+        isect->types.push_back(iso);
 
         auto lambda = std::make_shared<Lambda>();
         lambda->location = cls.location;

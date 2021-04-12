@@ -4,9 +4,9 @@
 
 #include "dnf.h"
 #include "ident.h"
-#include "lookup.h"
 #include "print.h"
 #include "rewrite.h"
+#include "subtype.h"
 
 namespace verona::parser::infer
 {
@@ -25,7 +25,7 @@ namespace verona::parser::infer
     Node<Type> type_int;
     Node<Type> type_float;
 
-    std::unordered_multimap<Node<Type>, Node<Type>> con;
+    Subtype subtype;
 
     Infer()
     {
@@ -47,6 +47,7 @@ namespace verona::parser::infer
       t->typenames.push_back(n);
 
       auto i = std::make_shared<IsectType>();
+      i->location = name;
       i->types.push_back(t);
       i->types.push_back(type_imm);
 
@@ -55,7 +56,8 @@ namespace verona::parser::infer
 
     Node<Let> g(const Location& name)
     {
-      return std::static_pointer_cast<Let>(lookup::name(symbols(), name));
+      return std::static_pointer_cast<Let>(
+        symbols()->symbol_table()->get_scope(name));
     }
 
     Location lhs()
@@ -63,29 +65,10 @@ namespace verona::parser::infer
       return parent<Assign>()->left->location;
     }
 
-    void constraint(Node<Type> lhs, Node<Type> rhs)
-    {
-      if (!lhs || !rhs)
-        return;
-
-      auto [cur, end] = con.equal_range(lhs);
-
-      for (; cur != end; ++cur)
-      {
-        if (cur->second == rhs)
-          return;
-      }
-
-      // lhs <: rhs
-      // TODO:
-      // std::cout << "Constraint: " << lhs << " <: " << rhs << std::endl;
-      con.insert({lhs, rhs});
-    }
-
     Node<FunctionType> function_type(Lambda& lambda)
     {
       auto f = std::make_shared<FunctionType>();
-      f->right = lambda.result;
+      f->location = lambda.location;
 
       if (lambda.params.size() == 1)
       {
@@ -94,13 +77,60 @@ namespace verona::parser::infer
       else if (lambda.params.size() > 1)
       {
         auto t = std::make_shared<TupleType>();
+        t->location = lambda.location;
         f->left = t;
 
         for (auto& p : lambda.params)
           t->types.push_back(p->as<Param>().type);
       }
 
+      f->right = lambda.result;
       return f;
+    }
+
+    void unpack_type(Node<TupleType>& to, Node<Type>& from)
+    {
+      if (!from)
+        return;
+
+      if (from->kind() == Kind::TupleType)
+      {
+        auto t = from->as<TupleType>();
+
+        for (auto& e : t.types)
+          to->types.push_back(e);
+      }
+      else
+      {
+        to->types.push_back(from);
+      }
+    }
+
+    Node<Type> args_type(Node<Expr>& lhs, Node<Expr>& rhs)
+    {
+      if (!lhs && !rhs)
+        return {};
+
+      if (lhs && !rhs)
+        return g(lhs->location)->type;
+
+      if (!lhs && rhs)
+        return g(rhs->location)->type;
+
+      auto lt = g(lhs->location)->type;
+      auto rt = g(rhs->location)->type;
+
+      if (!lt)
+        return rt;
+
+      if (!rt)
+        return lt;
+
+      auto t = std::make_shared<TupleType>();
+      t->location = lt->location;
+      unpack_type(t, lt);
+      unpack_type(t, rt);
+      return t;
     }
 
     void post(Free& fr)
@@ -114,6 +144,18 @@ namespace verona::parser::infer
                    "assigned to."
                 << text(fr.location) << l->location << "Definition is here."
                 << text(l->location);
+      }
+    }
+
+    void post(TypeRef& tr)
+    {
+      // Type arguments must be a subtype of the type parameter upper bounds.
+      for (auto& [wparam, arg] : tr.subs)
+      {
+        auto param = wparam.lock();
+
+        if (param)
+          subtype(arg, param->upper);
       }
     }
 
@@ -133,11 +175,11 @@ namespace verona::parser::infer
         if (asn.left == current<Expr>())
           return;
 
-        constraint(l->type, g(asn.left->location)->type);
+        subtype(l->type, g(asn.left->location)->type);
       }
       else if (parent()->kind() == Kind::Lambda)
       {
-        constraint(l->type, parent<Lambda>()->result);
+        subtype(l->type, parent<Lambda>()->result);
       }
 
       if (!l->assigned)
@@ -149,13 +191,13 @@ namespace verona::parser::infer
 
     void post(Oftype& oftype)
     {
-      constraint(g(oftype.expr->location)->type, oftype.type);
+      subtype(g(oftype.expr->location)->type, oftype.type);
     }
 
     void post(Throw& thr)
     {
       auto t = dnf::throwtype(g(thr.expr->location)->type);
-      constraint(t, parent<Lambda>()->result);
+      subtype(t, parent<Lambda>()->result);
     }
 
     void post(Assign& asn)
@@ -178,6 +220,7 @@ namespace verona::parser::infer
     void post(Tuple& tuple)
     {
       auto t = std::make_shared<TupleType>();
+      t->location = tuple.location;
 
       for (auto& e : tuple.seq)
         t->types.push_back(g(e->location)->type);
@@ -190,18 +233,23 @@ namespace verona::parser::infer
       // TODO: a select with a result that is always a throw should only be
       // allowed at the end of a lambda
 
-      auto def = lookup::typenames(symbols(), sel.typenames);
+      // TODO: prefer dynamic dispatch
+      auto def = sel.typeref->def.lock();
 
       if (def)
       {
-        // TODO: argument constraints, typearg constraints
-        // auto& lambda = def->as<Function>().lambda->as<Lambda>();
-        // auto f = function_type(lambda);
-        // g(lhs())->type = f->right;
-        // return;
-      }
+        auto& lambda = def->as<Function>().lambda->as<Lambda>();
+        auto f = function_type(lambda);
+        auto sub = clone(sel.typeref->subs, f);
 
-      // TODO: dynamic dispatch
+        assert(sub->kind() == Kind::FunctionType);
+        f = std::static_pointer_cast<FunctionType>(sub);
+
+        g(lhs())->type = f->right;
+        auto t = args_type(sel.expr, sel.args);
+        subtype(t, f->left);
+        return;
+      }
     }
 
     void post(New& nw)
@@ -231,17 +279,17 @@ namespace verona::parser::infer
 
     void post(Int& i)
     {
-      constraint(g(lhs())->type, type_int);
+      subtype(g(lhs())->type, type_int);
     }
 
     void post(Float& f)
     {
-      constraint(g(lhs())->type, type_float);
+      subtype(g(lhs())->type, type_float);
     }
 
     void post(Bool& b)
     {
-      constraint(g(lhs())->type, type_bool);
+      subtype(g(lhs())->type, type_bool);
     }
 
     void post(Lambda& lambda)
@@ -250,13 +298,23 @@ namespace verona::parser::infer
       {
         case Kind::Assign:
         {
-          constraint(function_type(lambda), g(lhs())->type);
+          subtype(function_type(lambda), g(lhs())->type);
           break;
         }
 
         case Kind::Param:
         {
-          constraint(lambda.result, parent<Param>()->type);
+          assert(lambda.typeparams.size() == 0);
+          assert(lambda.params.size() == 0);
+          subtype(lambda.result, parent<Param>()->type);
+          break;
+        }
+
+        case Kind::Field:
+        {
+          assert(lambda.typeparams.size() == 0);
+          assert(lambda.params.size() == 0);
+          subtype(lambda.result, parent<Field>()->type);
           break;
         }
 
@@ -279,6 +337,13 @@ namespace verona::parser::infer
   struct WF : Pass<WF>
   {
     AST_PASS;
+
+    void post(InferType& infer)
+    {
+      // TODO:
+      // error() << infer.location << "Unresolved type." <<
+      // text(infer.location);
+    }
   };
 
   bool wellformed(Ast& ast, std::ostream& out)

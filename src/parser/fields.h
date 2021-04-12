@@ -148,7 +148,7 @@ namespace verona::parser
   template<typename T>
   void fieldsof(T& target, Select& select)
   {
-    target << select.expr << select.typenames << select.args;
+    target << select.expr << select.typeref << select.args;
   }
 
   template<typename T>

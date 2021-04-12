@@ -4,30 +4,37 @@ using "boolean";
 
 class FalseBranch {}
 
-if[T](cond: ()->Bool): (()->T)->(Done[T] | FalseBranch)
+if[T](cond: ()->Bool): (()->T)->(T | FalseBranch)
 {
-  { ontrue =>
-    match (cond())
-    {
-      { true => Done(ontrue()) }
-      { false => FalseBranch }
-    }
+  match cond()
+  {
+    { true => { ontrue => ontrue() } }
+    { false => { ontrue => FalseBranch } }
   }
 }
 
-elseif[T, U](prev: Done[T] | FalseBranch, cond: ()->Bool):
-  (()->U)->(Done[T] | Done[U])
-{
-  { ontrue =>
-    prev else { if cond ontrue }
-  }
-}
-
-else[T, U](prev: Done[T] | FalseBranch, onfalse: ()->U): Done[T] | Done[U]
+// TODO: `prev` is captured in the return value
+elseif[T, U](prev: T | FalseBranch, cond: ()->Bool):
+  (()->U)->(T | U | FalseBranch)
 {
   match prev
   {
-    { (FalseBranch) => Done(onfalse()) }
-    { v: Done[T] => v }
+    { (FalseBranch) =>
+      match cond()
+      {
+        { true => { ontrue => ontrue() } }
+        { false => { ontrue => FalseBranch } }
+      }
+    }
+    { v: T => { ontrue => v } }
+  }
+}
+
+else[T, U](prev: T | FalseBranch, onfalse: ()->U): T | U
+{
+  match prev
+  {
+    { (FalseBranch) => onfalse() }
+    { v: T => v }
   }
 }

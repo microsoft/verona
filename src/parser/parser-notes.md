@@ -1,9 +1,8 @@
 # Parser Notes
 
-* resolve typerefs differently
-  * map of typeparam to bound type?
-
-* `\` for "without" types
+* default value expressions can't have free variables
+* can we call static methods on type parameters?
+  * like `create`
 * allow `using` inside a function
 * inheritance
 * Ref[T] instead of update sugar
@@ -37,15 +36,6 @@
   meaning the type of the expression
 * `'interface' tupletype` where a type is expected
   meaning extract an interface from the type
-
-## Autogenerate Create
-
-create(): Self & iso
-{
-  // This will only type-check if all fields have default values
-  // But how do default values work with other calls to new?
-  new ()
-}
 
 ## Overload Resolution
 

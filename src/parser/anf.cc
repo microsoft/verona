@@ -3,7 +3,6 @@
 #include "anf.h"
 
 #include "ident.h"
-#include "lookup.h"
 #include "rewrite.h"
 
 namespace verona::parser::anf
@@ -62,9 +61,7 @@ namespace verona::parser::anf
       auto e = expr();
       auto id = ident();
 
-      if (
-        (parent()->kind() == Kind::Assign) &&
-        (parent<Assign>()->left == e))
+      if ((parent()->kind() == Kind::Assign) && (parent<Assign>()->left == e))
       {
         // (var $x) if this is an lvalue.
         auto var = std::make_shared<Var>();
@@ -238,18 +235,26 @@ namespace verona::parser::anf
         auto eq = std::make_shared<TypeName>();
         eq->location = name_eq;
 
+        auto eq_tr = std::make_shared<TypeRef>();
+        eq_tr->location = expr->location;
+        eq_tr->typenames.push_back(eq);
+
         auto eq_sel = std::make_shared<Select>();
-        eq_sel->expr = expr;
         eq_sel->location = expr->location;
-        eq_sel->typenames.push_back(eq);
+        eq_sel->expr = expr;
+        eq_sel->typeref = eq_tr;
         eq_sel->args = ref;
 
         auto req = std::make_shared<TypeName>();
         req->location = name_requires;
 
+        auto req_tr = std::make_shared<TypeRef>();
+        req_tr->location = expr->location;
+        req_tr->typenames.push_back(req);
+
         auto req_sel = std::make_shared<Select>();
         req_sel->location = expr->location;
-        req_sel->typenames.push_back(req);
+        req_sel->typeref = req_tr;
         req_sel->args = eq_sel;
         add(req_sel);
       }
@@ -297,8 +302,11 @@ namespace verona::parser::anf
         }
       }
 
-      if (!state_stack.empty() && (parent()->kind() != Kind::Param))
+      if (
+        !state_stack.empty() && !is_kind(parent(), {Kind::Param, Kind::Field}))
+      {
         make_trivial();
+      }
     }
   };
 
