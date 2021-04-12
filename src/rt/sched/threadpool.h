@@ -487,6 +487,21 @@ namespace verona::rt
       return state.next(s, thread_count);
     }
 
+    bool check_for_work()
+    {
+      // TODO: check for pending async IO
+      T* t = first_thread;
+      do
+      {
+        if (!t->q.is_empty())
+        {
+          return true;
+        }
+        t = t->next;
+      } while (t != first_thread);
+      return false;
+    }
+
     bool pause(uint64_t tsc)
     {
 #ifndef USE_SYSTEMATIC_TESTING
@@ -514,49 +529,40 @@ namespace verona::rt
           return true;
         }
 
-        // TODO: check for pending async IO
-        T* t = first_thread;
-        do
-        {
-          if (!t->q.is_empty())
-          {
-// Something has been scheduled LIFO, and the unpause was missed,
-// restart everybody.
-#ifdef USE_SYSTEMATIC_TESTING
-            lock.unlock();
-            cv_notify_all();
-#else
-            cv.notify_all();
-#endif
-            return true;
-          }
-          t = t->next;
-        } while (t != first_thread);
-
+        bool has_external_sources = false;
         if (external_event_sources.load(std::memory_order_seq_cst) != 0)
         {
           assert((runtime_pausing & 1) == 0);
           runtime_pausing++;
           Barrier::memory();
+          has_external_sources = true;
+        }
 
-          t = first_thread;
-          do
+        if (check_for_work())
+        {
+          // Something has been scheduled LIFO, and the unpause was missed,
+          // restart everybody.
+          Systematic::cout()
+            << "Still work left, back out pause." << Systematic::endl;
+
+          if (has_external_sources)
           {
-            if (!t->q.is_empty())
-            {
-              Systematic::cout() << "Still work left" << Systematic::endl;
-              runtime_pausing++;
+            // Cancel pausing state
+            runtime_pausing++;
+          }
 #ifdef USE_SYSTEMATIC_TESTING
-              cv_notify_all();
+          lock.unlock();
+          cv_notify_all();
 #else
-              cv.notify_all();
+          cv.notify_all();
 #endif
-              return true;
-            }
-            t = t->next;
-          } while (t != first_thread);
+          return true;
+        }
 
+        if (has_external_sources)
+        {
           Systematic::cout() << "Runtime pausing" << Systematic::endl;
+          // Wait for external wake-up
           cv.wait(lock);
 
           Systematic::cout() << "Runtime unpausing" << Systematic::endl;
@@ -570,7 +576,7 @@ namespace verona::rt
         Systematic::cout() << "Teardown beginning" << Systematic::endl;
         teardown_in_progress = true;
 
-        t = first_thread;
+        T* t = first_thread;
         do
         {
           t->stop();
