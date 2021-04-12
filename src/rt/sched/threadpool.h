@@ -12,6 +12,13 @@
 
 namespace verona::rt
 {
+  enum class SystematicState
+  {
+    Active,
+    Waiting,
+    Finished
+  };
+
   /// Used for default prerun for a thread.
   inline void nop() {}
 
@@ -149,18 +156,18 @@ namespace verona::rt
       uint32_t i = Systematic::get_rng().next() % thread_count;
       auto result = running_thread;
 
-      while (i > 0 || result->sleeping)
+      while (i > 0 || (result->systematic_state != SystematicState::Active))
       {
         result = result->next;
         if (i != 0)
           i--;
         if (result == running_thread)
           continue;
-        if (result->sleeping)
+        if (result->systematic_state != SystematicState::Active)
           continue;
       }
       running_thread = result;
-      assert(!(running_thread->sleeping));
+      assert(result->systematic_state == SystematicState::Active);
       result->cv.notify_all();
     }
 
@@ -170,10 +177,10 @@ namespace verona::rt
       if (me == nullptr)
         return;
 
-      assert(running_thread == me || running_thread == nullptr);
+      assert(running_thread == me);
 
       uint32_t next = Systematic::get_rng().next() & me->systematic_speed_mask;
-      if (next == 0 && running_thread != nullptr)
+      if (next == 0)
       {
         choose_thread();
         wait_for_my_turn_inner(me);
@@ -188,7 +195,7 @@ namespace verona::rt
     void wait_for_my_turn_inner(T* me)
     {
       std::unique_lock<std::mutex> lock(m);
-      while (running_thread != nullptr && running_thread != me)
+      while (running_thread != me)
         me->cv.wait(lock);
     }
 
@@ -205,17 +212,22 @@ namespace verona::rt
     {
       auto& sched = get();
       auto me = local();
-      assert(!(me->sleeping));
-      me->sleeping = true;
+      assert(me->systematic_state != SystematicState::Waiting);
+      me->systematic_state = SystematicState::Waiting;
 
       assert(sched.running_thread == me);
 
+      // Confirm at least one other thread is running,
+      // otherwise we have deadlocked the system.
+      // Tests for external IO might fail on this check, and something might
+      // need adding.
       auto curr = me;
-      while (curr->sleeping)
+      while (curr->systematic_state != SystematicState::Active)
       {
         curr = curr->next;
         assert(curr != me);
       }
+
       sched.choose_thread();
       sched.wait_for_my_turn_inner(me);
     }
@@ -228,7 +240,8 @@ namespace verona::rt
       auto curr = head;
       do
       {
-        curr->sleeping = false;
+        if (curr->systematic_state == SystematicState::Waiting)
+          curr->systematic_state = SystematicState::Active;
         curr = curr->next;
       } while (curr != head);
 
@@ -236,6 +249,34 @@ namespace verona::rt
       // if this is a runtime thread, then yield.
       if (local() != nullptr)
         yield_my_turn();
+    }
+
+    static void thread_finished()
+    {
+      auto& sched = get();
+      auto me = local();
+      assert(me->systematic_state == SystematicState::Active);
+      me->systematic_state = SystematicState::Finished;
+
+      assert(sched.running_thread == me);
+
+      Systematic::cout() << "Thread finished." << Systematic::endl;
+
+      // Confirm at least one other thread is running,
+      auto curr = me;
+      while (curr->systematic_state != SystematicState::Active)
+      {
+        curr = curr->next;
+        if (curr == me)
+        {
+          Systematic::cout() << "Last thread finished." << Systematic::endl;
+          // No threads left
+          sched.running_thread = nullptr;
+          return;
+        }
+      }
+
+      sched.choose_thread();
     }
 #endif
 
@@ -398,22 +439,29 @@ namespace verona::rt
       T* t = first_thread;
 
       Systematic::cout() << "Starting all threads" << Systematic::endl;
-
       do
       {
         t->template start<Args...>(topology.get(i++), startup, args...);
         t = t->next;
       } while (t != first_thread);
+      Systematic::cout() << "All threads started" << Systematic::endl;
 
-      t = first_thread;
+      assert(t == first_thread);
+      do
+      {
+        t->block_until_finished();
+        t = t->next;
+      } while (t != first_thread);
+      Systematic::cout() << "All threads stopped" << Systematic::endl;
 
+      assert(t == first_thread);
       do
       {
         T* next = t->next;
         delete t;
         t = next;
       } while (t != first_thread);
-      Systematic::cout() << "All threads stopped" << Systematic::endl;
+      Systematic::cout() << "All threads deallocated" << Systematic::endl;
 
       first_thread = nullptr;
       incarnation++;
@@ -523,9 +571,6 @@ namespace verona::rt
         teardown_in_progress = true;
 
         t = first_thread;
-#ifdef USE_SYSTEMATIC_TESTING
-        running_thread = nullptr;
-#endif
         do
         {
           t->stop();
@@ -536,12 +581,7 @@ namespace verona::rt
       }
       Systematic::cout() << "cv_notify_all() for teardown" << Systematic::endl;
 #ifdef USE_SYSTEMATIC_TESTING
-      T* t = first_thread;
-      do
-      {
-        t->cv.notify_all();
-        t = t->next;
-      } while (t != first_thread);
+      cv_notify_all();
 #else
       cv.notify_all();
 #endif
@@ -610,12 +650,22 @@ namespace verona::rt
         barrier_count--;
         if (barrier_count != 0)
         {
+#ifdef USE_SYSTEMATIC_TESTING
+          lock.unlock();
+          cv_wait();
+          lock.lock();
+#else
           cv.wait(lock);
+#endif
           return;
         }
         barrier_count = thread_count;
       }
+#ifdef USE_SYSTEMATIC_TESTING
+      cv_notify_all();
+#else
       cv.notify_all();
+#endif
     }
   };
 } // namespace verona::rt
