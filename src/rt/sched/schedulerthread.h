@@ -57,10 +57,9 @@ namespace verona::rt
     T* token_cown = nullptr;
 
 #ifdef USE_SYSTEMATIC_TESTING
-    /// Used by systematic testing to implement the condition variable.
-    /// If true, then this thread is being simulated to be a sleep waiting for
-    /// an unpause of a thread.
-    bool sleeping = false;
+    /// Used by systematic testing to implement the condition variable,
+    /// and thread termination.
+    SystematicState systematic_state = SystematicState::Active;
 #endif
 
     SPMCQ<T> q;
@@ -122,7 +121,7 @@ namespace verona::rt
       token_cown->set_owning_thread(this);
     }
 
-    ~SchedulerThread()
+    void block_until_finished()
     {
       if (t.joinable())
         t.join();
@@ -402,6 +401,11 @@ namespace verona::rt
       Systematic::cout() << "End teardown (phase 2)" << Systematic::endl;
 
       q.destroy(alloc);
+
+#ifdef USE_SYSTEMATIC_TESTING
+      // Exit systematic testing
+      Scheduler::thread_finished();
+#endif
     }
 
     bool fast_steal(T*& result)
