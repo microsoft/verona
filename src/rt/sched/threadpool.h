@@ -107,9 +107,13 @@ namespace verona::rt
 
     /// Increment the external event source count. A non-zero count will prevent
     /// runtime teardown.
+    /// This should only be called before the runtime has started, or when the
+    /// caller can guarantee there is at least one other external_event_source
+    /// for the duration of this call.
     static void add_external_event_source()
     {
       auto& s = get();
+      assert((s.external_event_sources != 0) || (s.debug_not_running()));
       auto prev_count =
         s.external_event_sources.fetch_add(1, std::memory_order_seq_cst);
       Systematic::cout() << "Add external event source (now "
@@ -534,6 +538,8 @@ namespace verona::rt
         {
           assert((runtime_pausing & 1) == 0);
           runtime_pausing++;
+          // Ensure this is visible to `unpause` before we check for
+          // new work.
           Barrier::memory();
           has_external_sources = true;
         }
@@ -572,10 +578,11 @@ namespace verona::rt
           return true;
         }
 
-        // Used to handle deallocating all the state of the threads.
         Systematic::cout() << "Teardown beginning" << Systematic::endl;
+        // Used to handle deallocating all the state of the threads.
         teardown_in_progress = true;
 
+        // Tell all threads to stop looking for work.
         T* t = first_thread;
         do
         {
@@ -598,6 +605,7 @@ namespace verona::rt
 
     bool unpause()
     {
+      // Work should be added before checking for the runtime_pause.
       Barrier::compiler();
 
       uint32_t pausing = runtime_pausing;
