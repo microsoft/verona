@@ -131,6 +131,10 @@ namespace mlir::verona
         return parseFunction(ast);
       case Kind::Lambda:
         return parseLambda(ast);
+      case Kind::Select:
+        return parseSelect(ast);
+      case Kind::Ref:
+        return parseRef(ast);
       case Kind::Character:
       case Kind::Int:
       case Kind::Float:
@@ -153,9 +157,17 @@ namespace mlir::verona
     assert(func && "Bad node");
     auto loc = getLocation(ast);
 
-    // TODO: Lower arguments
+    // Find all arguments
     llvm::SmallVector<llvm::StringRef, 1> argNames;
     Types types;
+    for (auto p : func->params)
+    {
+      auto param = nodeAs<Param>(p);
+      assert(param && "Bad Node");
+      argNames.push_back(param->location.view());
+      types.push_back(parseType(param->type));
+      // TODO: Handle default init
+    }
 
     // Check return type (TODO: implement multiple returns)
     Types retTy;
@@ -220,6 +232,21 @@ namespace mlir::verona
     return last;
   }
 
+  llvm::Expected<ReturnValue> Generator::parseSelect(Ast ast)
+  {
+    auto select = nodeAs<Select>(ast);
+    assert(select && "Bad Node");
+    // TODO: Actually implement this
+    return parseNode(select->args);
+  }
+
+  llvm::Expected<ReturnValue> Generator::parseRef(Ast ast)
+  {
+    auto ref = nodeAs<Ref>(ast);
+    assert(ref && "Bad Node");
+    return symbolTable.lookup(ref->location.view());
+  }
+
   llvm::Expected<ReturnValue> Generator::parseLiteral(Ast ast)
   {
     auto loc = getLocation(ast);
@@ -271,7 +298,8 @@ namespace mlir::verona
         auto C = nodeAs<TypeName>(ast);
         assert(C && "Bad Node");
         auto name = C->location.view();
-        // TODO: differentiate between signed and unsigned
+        // FIXME: This is possibly too early to do this conversion, but helps us
+        // run lots of tests before actually implementing classes, etc.
         Type type = llvm::StringSwitch<Type>(name)
                       .Case("U32", builder.getI32Type())
                       .Case("U64", builder.getI64Type())
@@ -332,7 +360,12 @@ namespace mlir::verona
     assert(args.size() == argVals.size() && "Argument/value mismatch");
     builder.setInsertionPointToStart(&entryBlock);
 
-    // TODO: Declare all arguments
+    // Declare all arguments
+    for (auto arg_val : llvm::zip(args, argVals))
+    {
+      symbolTable.insert(std::get<0>(arg_val), std::get<1>(arg_val));
+    }
+
     return func;
   }
 }

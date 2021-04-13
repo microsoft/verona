@@ -172,6 +172,12 @@ namespace mlir::verona
     /// Parses a lambda (function body).
     llvm::Expected<ReturnValue> parseLambda(Ast ast);
 
+    /// Parses a select statement.
+    llvm::Expected<ReturnValue> parseSelect(Ast ast);
+
+    /// Parses a variable reference.
+    llvm::Expected<ReturnValue> parseRef(Ast ast);
+
     /// Parses a literal.
     llvm::Expected<ReturnValue> parseLiteral(Ast ast);
 
