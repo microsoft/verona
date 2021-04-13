@@ -56,6 +56,41 @@ namespace mlir::verona
       Identifier::get(path, context), line, column);
   }
 
+  mlir::Type Generator::compatibleArithmeticType(mlir::Type lhs, mlir::Type rhs)
+  {
+    // Shortcut for when both are the same
+    if (lhs == rhs)
+      return lhs;
+
+    auto lhsSize = lhs.getIntOrFloatBitWidth();
+    auto rhsSize = lhs.getIntOrFloatBitWidth();
+
+    // Check compatibility options
+    // TODO: This is overly simplistic.
+    if (lhs.isSignedInteger() && rhs.isSignedInteger())
+    {
+      return builder.getIntegerType(std::max(lhsSize, rhsSize));
+    }
+    if (lhs.isUnsignedInteger() && rhs.isUnsignedInteger())
+    {
+      return builder.getIntegerType(std::max(lhsSize, rhsSize));
+    }
+    // Ugly, there is no isFloat... :( but we know it's not int either here
+    if (lhs.isIntOrFloat() && rhs.isIntOrFloat())
+    {
+      switch (std::max(lhsSize, rhsSize))
+      {
+        case 32:
+          return builder.getF32Type();
+        case 64:
+          return builder.getF64Type();
+      }
+    }
+
+    // If not compatible, return empty type
+    return Type();
+  }
+
   // ===================================================== AST -> MLIR
   llvm::Error Generator::parseModule(Ast ast)
   {
@@ -135,6 +170,10 @@ namespace mlir::verona
         return parseSelect(ast);
       case Kind::Ref:
         return parseRef(ast);
+      case Kind::Let:
+        return parseLet(ast);
+      case Kind::Assign:
+        return parseAssign(ast);
       case Kind::Character:
       case Kind::Int:
       case Kind::Float:
@@ -236,8 +275,61 @@ namespace mlir::verona
   {
     auto select = nodeAs<Select>(ast);
     assert(select && "Bad Node");
-    // TODO: Actually implement this
-    return parseNode(select->args);
+    auto loc = getLocation(ast);
+
+    // FIXME: This is a hack to make arithmetic work. We'll have to add
+    // recognition of numeric types somewhere but it's probably not here.
+    // Though, before we move things from here, we need to know what to do when
+    // a select is in a numeric class that doesn't have those methods.
+    auto rhsNode = parseNode(select->args);
+    if (auto err = rhsNode.takeError())
+      return std::move(err);
+    auto rhs = rhsNode->get<Value>();
+    auto rhsTy = rhs.getType();
+
+    // FIXME: Multiple method names?
+    auto opName = select->typenames[0]->location.view();
+
+    // FIXME: "special case" return for now, to make it work without method call
+    // TODO: If this isn't wrong, we need to add other unary operators here, too
+    if (opName == "return")
+      return parseNode(select->args);
+
+    // Binary operators have the left hand side as well as right hand side
+    auto lhsNode = parseNode(select->expr);
+    if (auto err = lhsNode.takeError())
+      return std::move(err);
+    auto lhs = lhsNode->get<Value>();
+    auto lhsTy = lhs.getType();
+
+    // FIXME: We already converted U32 to i32 so this "works". But we need to
+    // make sure we want that conversion as early as it is, and if not, we need
+    // to implement this as a standard select and convert that later. However,
+    // that would only work if U32 has a method named "+", or if we declare it
+    // on the fly and then clean up when we remove the call.
+    auto compatibleTy = compatibleArithmeticType(lhsTy, rhsTy);
+    if (compatibleTy)
+    {
+      // Floating point arithmetic
+      if (compatibleTy.isF32() || compatibleTy.isF64())
+      {
+        auto op =
+          llvm::StringSwitch<Value>(opName)
+            .Case("+", builder.create<AddFOp>(loc, compatibleTy, lhs, rhs))
+            .Default({});
+        assert(op && "Unknown arithmetic operator");
+        return op;
+      }
+      // Integer arithmetic
+      auto op =
+        llvm::StringSwitch<Value>(opName)
+          .Case("+", builder.create<AddIOp>(loc, compatibleTy, lhs, rhs))
+          .Default({});
+      assert(op && "Unknown arithmetic operator");
+      return op;
+    }
+
+    return runtimeError("Select not implemented yet");
   }
 
   llvm::Expected<ReturnValue> Generator::parseRef(Ast ast)
@@ -245,6 +337,82 @@ namespace mlir::verona
     auto ref = nodeAs<Ref>(ast);
     assert(ref && "Bad Node");
     return symbolTable.lookup(ref->location.view());
+  }
+
+  llvm::Expected<ReturnValue> Generator::parseLet(Ast ast)
+  {
+    auto let = nodeAs<Let>(ast);
+    assert(let && "Bad Node");
+    // FIXME: Just binding an empty value for now. Later we'll have to make
+    // sure the value is only replaced if empty, unlike `var` that can be
+    // reassigned multiple times.
+    return symbolTable.insert(let->location.view(), mlir::Value());
+  }
+
+  llvm::Expected<ReturnValue> Generator::parseVar(Ast ast)
+  {
+    auto var = nodeAs<Var>(ast);
+    assert(var && "Bad Node");
+    // FIXME: Just binding an empty value for now. Var can be overriten as many
+    // times as needed.
+    return symbolTable.insert(var->location.view(), mlir::Value());
+  }
+
+  llvm::Expected<ReturnValue> Generator::parseAssign(Ast ast)
+  {
+    auto assign = nodeAs<Assign>(ast);
+    assert(assign && "Bad Node");
+
+    // Name to bind and old value to return
+    std::string_view bind;
+    mlir::Value old;
+    bool onlyIfEmpty;
+
+    // Grab lhs has to be an addressable expression
+    // FIXME: We still don't have the representation of an address, so we
+    // restrict assigns to work with let/ref and custom-lower it here.
+    if (auto ref = nodeAs<Ref>(assign->left))
+    {
+      bind = ref->location.view();
+      auto res = parseRef(ref);
+      if (auto err = res.takeError())
+        return std::move(err);
+      old = res->get<Value>();
+      // FIXME: How do we know this is a let or a var?
+      onlyIfEmpty = true;
+    }
+    else if (auto let = nodeAs<Let>(assign->left))
+    {
+      bind = let->location.view();
+      auto res = parseLet(assign->left);
+      if (auto err = res.takeError())
+        return std::move(err);
+      old = res->get<Value>();
+      onlyIfEmpty = true;
+    }
+    else if (auto let = nodeAs<Var>(assign->left))
+    {
+      bind = let->location.view();
+      auto res = parseVar(assign->left);
+      if (auto err = res.takeError())
+        return std::move(err);
+      old = res->get<Value>();
+      onlyIfEmpty = false;
+    }
+    else
+    {
+      return runtimeError("Invalid assign lhs");
+    }
+
+    // Evaluate the right hand side and assign to the binded name
+    auto rhsNode = parseNode(assign->right);
+    if (auto err = rhsNode.takeError())
+      return std::move(err);
+    auto rhs = rhsNode->get<Value>();
+    symbolTable.update(bind, rhs, onlyIfEmpty);
+
+    // BROKEN: Actually assign the value to the lhs name
+    return old;
   }
 
   llvm::Expected<ReturnValue> Generator::parseLiteral(Ast ast)

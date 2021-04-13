@@ -1,0 +1,10 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+using "numbers";
+
+simple(a: U32, b: U32): U32
+{
+  let x = a + b;
+  return x;
+}
