@@ -195,6 +195,7 @@ namespace verona::parser
     List<TypeName> typenames;
     AstWeak def;
     Substitutions subs;
+    Node<Type> resolved;
 
     Kind kind() override
     {
@@ -584,6 +585,7 @@ namespace verona::parser
   {
     Location name;
     Node<Expr> lambda;
+    Node<Type> type;
 
     Kind kind() override
     {

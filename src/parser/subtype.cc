@@ -78,9 +78,9 @@ namespace verona::parser
     }
 
     // Check ThrowTypes.
-    if ((lhs->kind() == Kind::ThrowType) || (rhs->kind() == Kind::ThrowType))
+    if (rhs->kind() == Kind::ThrowType)
     {
-      sub_throw(lhs, rhs);
+      t_sub_throw(lhs, rhs);
       return;
     }
 
@@ -99,43 +99,7 @@ namespace verona::parser
       return;
     }
 
-    // Check TupleTypes.
-    if ((lhs->kind() == Kind::TupleType) || (rhs->kind() == Kind::TupleType))
-    {
-      sub_tuple(lhs, rhs);
-      return;
-    }
-
-    // Check capability types.
-    auto types = {Kind::Iso, Kind::Mut, Kind::Imm};
-
-    if (is_kind(lhs, types) || is_kind(rhs, types))
-    {
-      sub_same(lhs, rhs);
-      return;
-    }
-
-    // TODO: view, extract, typelist.
-
-    // Check Self.
-    if ((lhs->kind() == Kind::Self) || (rhs->kind() == Kind::Self))
-    {
-      // TODO: receiver parameter in dynamic dispatch
-      sub_same(lhs, rhs);
-      return;
-    }
-
-    // Check FunctionTypes.
-    if (
-      (lhs->kind() == Kind::FunctionType) ||
-      (rhs->kind() == Kind::FunctionType))
-    {
-      // TODO: typeref can be if it is a typeparam or typealias
-      sub_function(lhs, rhs);
-      return;
-    }
-
-    // Check TypeRefs, lhs first.
+    // Expand TypeAlias and TypeParam on the lhs.
     if (lhs->kind() == Kind::TypeRef)
     {
       auto& tr = lhs->as<TypeRef>();
@@ -146,16 +110,24 @@ namespace verona::parser
         case Kind::TypeAlias:
         {
           // Check the aliased type.
-          result(constraint(def->as<TypeAlias>().inherits, rhs));
+          if (!tr.resolved)
+            tr.resolved = clone(tr.subs, def->as<TypeAlias>().inherits);
+
+          result(constraint(tr.resolved, rhs));
           return;
         }
 
         case Kind::TypeParam:
         {
-          // Treat this as (T & Bounds).
-          auto isect = dnf::conjunction(lhs, def->as<TypeParam>().upper);
-          result(constraint(isect, rhs));
-          return;
+          // Treat this as (T & Bounds) by checking the upper bounds first.
+          auto noshow = NoShow(this);
+
+          if (constraint(def->as<TypeParam>().upper, rhs))
+          {
+            result(true);
+            return;
+          }
+          break;
         }
 
         default:
@@ -164,9 +136,42 @@ namespace verona::parser
       }
     }
 
+    // Neither side is an inference variable, union, throw, or isect.
+    // The lhs is not a type alias or type param reference.
+
+    // Check TupleTypes.
+    if (rhs->kind() == Kind::TupleType)
+    {
+      t_sub_tuple(lhs, rhs);
+      return;
+    }
+
+    // Check capability types.
+    if (is_kind(rhs, {Kind::Iso, Kind::Mut, Kind::Imm}))
+    {
+      sub_same(lhs, rhs);
+      return;
+    }
+
+    // TODO: view, extract, typelist.
+
+    // Check Self.
+    if ((lhs->kind() == Kind::Self) || (rhs->kind() == Kind::Self))
+    {
+      sub_same(lhs, rhs);
+      return;
+    }
+
+    // Check FunctionTypes.
+    if (rhs->kind() == Kind::FunctionType)
+    {
+      t_sub_function(lhs, rhs);
+      return;
+    }
+
+    // Check TypeRefs.
     if (rhs->kind() == Kind::TypeRef)
     {
-      // The lhs is a TypeRef to a Class or Interface.
       t_sub_typeref(lhs, rhs);
       return;
     }
@@ -191,7 +196,6 @@ namespace verona::parser
     // TODO: If the lhs has multiple interfaces, they could combine to fulfill
     // an interface on the rhs.
     // could build a synthetic combination interface
-    // could also rule out uninhabitable types?
     auto& l = lhs->as<IsectType>();
 
     {
@@ -221,24 +225,6 @@ namespace verona::parser
     }
 
     result(false);
-  }
-
-  void Subtype::sub_function(Node<Type>& lhs, Node<Type>& rhs)
-  {
-    if (
-      (lhs->kind() != Kind::FunctionType) ||
-      (rhs->kind() != Kind::FunctionType))
-    {
-      kinderror(lhs, rhs);
-      return;
-    }
-
-    auto& l = lhs->as<FunctionType>();
-    auto& r = rhs->as<FunctionType>();
-
-    bool ok = constraint(r.left, l.left);
-    ok &= constraint(l.right, r.right);
-    result(ok);
   }
 
   void Subtype::union_sub_t(Node<Type>& lhs, Node<Type>& rhs)
@@ -298,6 +284,17 @@ namespace verona::parser
     result(false);
   }
 
+  void Subtype::t_sub_throw(Node<Type>& lhs, Node<Type>& rhs)
+  {
+    if (lhs->kind() != Kind::ThrowType)
+    {
+      kinderror(lhs, rhs);
+      return;
+    }
+
+    result(constraint(lhs->as<ThrowType>().type, rhs->as<ThrowType>().type));
+  }
+
   void Subtype::t_sub_isect(Node<Type>& lhs, Node<Type>& rhs)
   {
     // The lhs must be a subtype of every element of the rhs.
@@ -310,102 +307,9 @@ namespace verona::parser
     result(ok);
   }
 
-  void Subtype::t_sub_typeref(Node<Type>& lhs, Node<Type>& rhs)
+  void Subtype::t_sub_tuple(Node<Type>& lhs, Node<Type>& rhs)
   {
-    // The rhs is a Class, Interface, TypeAlias, or TypeParam.
-    auto& r = rhs->as<TypeRef>();
-    auto def = r.def.lock();
-
-    switch (def->kind())
-    {
-      case Kind::Class:
-      case Kind::TypeParam:
-      {
-        if (lhs->kind() == Kind::TypeRef)
-        {
-          auto& l = lhs->as<TypeRef>();
-          auto ldef = l.def.lock();
-
-          if (ldef == def)
-          {
-            if (l.subs.size() != r.subs.size())
-            {
-              error() << lhs->location << "Type argument count doesn't match."
-                      << text(lhs->location) << rhs->location
-                      << "The supertype is here." << text(rhs->location);
-              return;
-            }
-
-            bool ok = true;
-
-            for (auto& sub : r.subs)
-            {
-              auto def = sub.first.lock();
-              auto find = l.subs.find(def);
-
-              if (find == l.subs.end())
-              {
-                error() << def->location
-                        << "Type argument not present in the subtype."
-                        << text(def->location) << lhs->location
-                        << "The subtype is here." << text(lhs->location)
-                        << rhs->location << "The supertype is here."
-                        << text(rhs->location);
-                return;
-              }
-
-              // Invariant type args.
-              ok &= constraint(find->second, sub.second);
-              ok &= constraint(sub.second, find->second);
-            }
-
-            result(ok);
-            return;
-          }
-        }
-
-        error() << lhs->location
-                << "A class or type parameter must be an exact match."
-                << text(lhs->location) << rhs->location
-                << "The type being matched is here." << text(rhs->location);
-        break;
-      }
-
-      case Kind::Interface:
-      {
-        // TODO:
-        unexpected();
-        break;
-      }
-
-      case Kind::TypeAlias:
-      {
-        auto sub = std::static_pointer_cast<Type>(
-          clone(r.subs, def->as<TypeAlias>().inherits));
-        result(constraint(lhs, sub));
-        return;
-      }
-
-      default:
-        unexpected();
-        break;
-    }
-  }
-
-  void Subtype::sub_throw(Node<Type>& lhs, Node<Type>& rhs)
-  {
-    if ((lhs->kind() != Kind::ThrowType) || (rhs->kind() != Kind::ThrowType))
-    {
-      kinderror(lhs, rhs);
-      return;
-    }
-
-    result(constraint(lhs->as<ThrowType>().type, rhs->as<ThrowType>().type));
-  }
-
-  void Subtype::sub_tuple(Node<Type>& lhs, Node<Type>& rhs)
-  {
-    if ((lhs->kind() != Kind::TupleType) || (rhs->kind() != Kind::TupleType))
+    if (lhs->kind() != Kind::TupleType)
     {
       kinderror(lhs, rhs);
       return;
@@ -429,6 +333,232 @@ namespace verona::parser
       ok &= constraint(l.types.at(i), r.types.at(i));
 
     result(ok);
+  }
+
+  void Subtype::t_sub_function(Node<Type>& lhs, Node<Type>& rhs)
+  {
+    if (lhs->kind() == Kind::TypeRef)
+    {
+      // The lhs must be a class or interface. An alias or a typeparam has
+      // already been checked.
+      auto& l = lhs->as<TypeRef>();
+      auto def = l.def.lock();
+
+      if (is_kind(def, {Kind::Class, Kind::Interface}))
+      {
+        // Apply methods can fulfill function types.
+        auto apply = def->symbol_table()->get(name_apply);
+
+        if (!apply || (apply->kind() != Kind::Function))
+        {
+          error() << lhs->location
+                  << "This type doesn't have an apply function."
+                  << text(lhs->location) << rhs->location
+                  << "The supertype is here." << text(rhs->location);
+          return;
+        }
+
+        auto t = clone(l.subs, apply->as<Function>().type);
+        result(constraint(t, rhs));
+        return;
+      }
+    }
+
+    if (lhs->kind() != Kind::FunctionType)
+    {
+      kinderror(lhs, rhs);
+      return;
+    }
+
+    auto& l = lhs->as<FunctionType>();
+    auto& r = rhs->as<FunctionType>();
+
+    bool ok = constraint(r.left, l.left);
+    ok &= constraint(l.right, r.right);
+    result(ok);
+  }
+
+  void Subtype::t_sub_typeref(Node<Type>& lhs, Node<Type>& rhs)
+  {
+    // The rhs is a Class, Interface, TypeAlias, or TypeParam.
+    auto& r = rhs->as<TypeRef>();
+    auto def = r.def.lock();
+
+    switch (def->kind())
+    {
+      case Kind::Class:
+      case Kind::TypeParam:
+      {
+        t_sub_class(lhs, rhs);
+        return;
+      }
+
+      case Kind::Interface:
+      {
+        t_sub_iface(lhs, rhs);
+        return;
+      }
+
+      case Kind::TypeAlias:
+      {
+        if (!r.resolved)
+          r.resolved = clone(r.subs, def->as<TypeAlias>().inherits);
+
+        result(constraint(lhs, r.resolved));
+        return;
+      }
+
+      default:
+        unexpected();
+        return;
+    }
+  }
+
+  void Subtype::t_sub_class(Node<Type>& lhs, Node<Type>& rhs)
+  {
+    if (lhs->kind() != Kind::TypeRef)
+    {
+      kinderror(lhs, rhs);
+      return;
+    }
+
+    auto& l = lhs->as<TypeRef>();
+    auto ldef = l.def.lock();
+
+    auto& r = rhs->as<TypeRef>();
+    auto rdef = r.def.lock();
+
+    if (ldef != rdef)
+    {
+      error() << lhs->location
+              << "A class or type parameter must be an exact match."
+              << text(lhs->location) << rhs->location
+              << "The type being matched is here." << text(rhs->location);
+      return;
+    }
+
+    if (l.subs.size() != r.subs.size())
+    {
+      error() << lhs->location << "Type argument count doesn't match."
+              << text(lhs->location) << rhs->location
+              << "The supertype is here." << text(rhs->location);
+      return;
+    }
+
+    bool ok = true;
+
+    for (auto& sub : r.subs)
+    {
+      auto def = sub.first.lock();
+      auto find = l.subs.find(def);
+
+      if (find == l.subs.end())
+      {
+        error() << def->location << "Type argument not present in the subtype."
+                << text(def->location) << lhs->location
+                << "The subtype is here." << text(lhs->location)
+                << rhs->location << "The supertype is here."
+                << text(rhs->location);
+        return;
+      }
+
+      // Invariant type args.
+      ok &= constraint(find->second, sub.second);
+      ok &= constraint(sub.second, find->second);
+    }
+
+    result(ok);
+  }
+
+  void Subtype::t_sub_iface(Node<Type>& lhs, Node<Type>& rhs)
+  {
+    if (lhs->kind() != Kind::TypeRef)
+    {
+      kinderror(lhs, rhs);
+      return;
+    }
+
+    auto& l = lhs->as<TypeRef>();
+    auto ldef = l.def.lock();
+
+    auto& r = rhs->as<TypeRef>();
+    auto rdef = r.def.lock();
+    assert(rdef->kind() == Kind::Interface);
+
+    if (is_kind(ldef, {Kind::Class, Kind::Interface}))
+    {
+      bool ok = true;
+
+      for (auto& rm : rdef->symbol_table()->map)
+      {
+        // TODO: should we be skipping other members?
+        if (!is_kind(rm.second, {Kind::Field, Kind::Function}))
+          continue;
+
+        auto lm = ldef->symbol_table()->get(rm.first);
+
+        if (!lm)
+        {
+          error() << lhs->location << "This type doesn't have a member "
+                  << rm.first << text(lhs->location) << rhs->location
+                  << "The supertype is here." << text(rhs->location);
+          ok = false;
+          continue;
+        }
+
+        if (lm->kind() != rm.second->kind())
+        {
+          error() << lhs->location << "This type's member " << rm.first
+                  << " is a " << kindname(lm->kind())
+                  << " which is not a subtype of a "
+                  << kindname(rm.second->kind()) << "." << text(lhs->location)
+                  << rhs->location << "The supertype is here."
+                  << text(rhs->location);
+          ok = false;
+          continue;
+        }
+
+        switch (rm.second->kind())
+        {
+          case Kind::Field:
+          {
+            auto& lf = lm->as<Field>();
+            auto& rf = rm.second->as<Field>();
+            auto lt = clone(l.subs, lf.type, lhs);
+            auto rt = clone(r.subs, rf.type, lhs);
+            ok &= constraint(lt, rt);
+            break;
+          }
+
+          case Kind::Function:
+          {
+            auto& lf = lm->as<Function>();
+            auto& rf = rm.second->as<Function>();
+            auto lt = clone(l.subs, lf.type, lhs);
+            auto rt = clone(r.subs, rf.type, lhs);
+            ok &= constraint(lt, rt);
+            break;
+          }
+
+          default:
+          {
+            unexpected();
+            return;
+          }
+        }
+      }
+
+      if (!ok)
+      {
+        error() << lhs->location << "This isn't a subtype of this interface."
+                << text(lhs->location) << rhs->location
+                << "The supertype is here." << text(rhs->location);
+      }
+      return;
+    }
+
+    // TODO: what else can be a subtype of an interface?
+    kinderror(lhs, rhs);
   }
 
   void Subtype::sub_same(Node<Type>& lhs, Node<Type>& rhs)

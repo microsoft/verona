@@ -35,6 +35,8 @@ namespace verona::parser::infer
       type_bool = make_constant_type(name_bool);
       type_int = make_constant_type(name_int);
       type_float = make_constant_type(name_float);
+
+      subtype.name_apply = ident("apply");
     }
 
     Node<Type> make_constant_type(const Location& name)
@@ -63,29 +65,6 @@ namespace verona::parser::infer
     Location lhs()
     {
       return parent<Assign>()->left->location;
-    }
-
-    Node<FunctionType> function_type(Lambda& lambda)
-    {
-      auto f = std::make_shared<FunctionType>();
-      f->location = lambda.location;
-
-      if (lambda.params.size() == 1)
-      {
-        f->left = lambda.params.front()->as<Param>().type;
-      }
-      else if (lambda.params.size() > 1)
-      {
-        auto t = std::make_shared<TupleType>();
-        t->location = lambda.location;
-        f->left = t;
-
-        for (auto& p : lambda.params)
-          t->types.push_back(p->as<Param>().type);
-      }
-
-      f->right = lambda.result;
-      return f;
     }
 
     void unpack_type(Node<TupleType>& to, Node<Type>& from)
@@ -240,12 +219,16 @@ namespace verona::parser::infer
       {
         if (def->kind() == Kind::Function)
         {
-          auto& lambda = def->as<Function>().lambda->as<Lambda>();
-          auto f = function_type(lambda);
-          auto sub = clone(sel.typeref->subs, f);
+          if (!sel.typeref->resolved)
+          {
+            sel.typeref->resolved = clone(
+              sel.typeref->subs,
+              function_type(def->as<Function>().lambda->as<Lambda>()));
+          }
 
-          assert(sub->kind() == Kind::FunctionType);
-          f = std::static_pointer_cast<FunctionType>(sub);
+          assert(sel.typeref->resolved->kind() == Kind::FunctionType);
+          auto f =
+            std::static_pointer_cast<FunctionType>(sel.typeref->resolved);
 
           g(lhs())->type = f->right;
           auto t = args_type(sel.expr, sel.args);
@@ -334,6 +317,7 @@ namespace verona::parser::infer
   {
     Infer r;
     r.set_error(out);
+    r.subtype.set_error(out);
     return r << ast;
   }
 

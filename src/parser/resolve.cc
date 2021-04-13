@@ -149,6 +149,12 @@ namespace verona::parser::resolve
         rewrite(tuple.types.front());
     }
 
+    void post(Function& func)
+    {
+      // Cache a function type for use in type checking.
+      func.type = function_type(func.lambda->as<Lambda>());
+    }
+
     Ast typeref(Ast sym, TypeRef& tr)
     {
       // Each element will have a definition. This will point to a Class,

@@ -83,8 +83,9 @@ namespace verona::parser
   struct Clone
   {
     Substitutions& subs;
+    Ast& self;
 
-    Clone(Substitutions& subs) : subs(subs) {}
+    Clone(Substitutions& subs, Ast& self) : subs(subs), self(self) {}
 
     Ast operator()()
     {
@@ -123,6 +124,16 @@ namespace verona::parser
       return clone;
     }
 
+    Ast operator()(Self& s)
+    {
+      if (self)
+        return self;
+
+      auto clone = std::make_shared<Self>();
+      *clone = s;
+      return clone;
+    }
+
     template<typename T>
     Ast operator()(T& node)
     {
@@ -154,9 +165,32 @@ namespace verona::parser
     }
   };
 
-  Ast clone(Substitutions& subs, Ast node)
+  Ast clone_ast(Substitutions& subs, Ast node, Ast self)
   {
-    Clone clone(subs);
+    Clone clone(subs, self);
     return dispatch(clone, node);
+  }
+
+  Node<FunctionType> function_type(Lambda& lambda)
+  {
+    auto f = std::make_shared<FunctionType>();
+    f->location = lambda.location;
+
+    if (lambda.params.size() == 1)
+    {
+      f->left = lambda.params.front()->as<Param>().type;
+    }
+    else if (lambda.params.size() > 1)
+    {
+      auto t = std::make_shared<TupleType>();
+      t->location = lambda.location;
+      f->left = t;
+
+      for (auto& p : lambda.params)
+        t->types.push_back(p->as<Param>().type);
+    }
+
+    f->right = lambda.result;
+    return f;
   }
 }

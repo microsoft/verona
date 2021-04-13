@@ -11,5 +11,13 @@ namespace verona::parser
   bool rewrite(AstPath& path, size_t index, Ast node);
 
   // Clone this Ast.
-  Ast clone(Substitutions& subs, Ast node);
+  Ast clone_ast(Substitutions& subs, Ast node, Ast self);
+
+  template<typename T>
+  Node<T> clone(Substitutions& subs, Node<T> node, Ast self = {})
+  {
+    return std::static_pointer_cast<T>(clone_ast(subs, node, self));
+  }
+
+  Node<FunctionType> function_type(Lambda& lambda);
 }

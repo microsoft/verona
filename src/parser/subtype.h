@@ -27,6 +27,7 @@ namespace verona::parser
     BoundsMap bounds;
     std::ostream out;
 
+    Location name_apply;
     Cache::iterator current;
     bool show = true;
 
@@ -84,12 +85,14 @@ namespace verona::parser
 
     void t_sub_infer(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_union(Node<Type>& lhs, Node<Type>& rhs);
+    void t_sub_throw(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_isect(Node<Type>& lhs, Node<Type>& rhs);
+    void t_sub_tuple(Node<Type>& lhs, Node<Type>& rhs);
+    void t_sub_function(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_typeref(Node<Type>& lhs, Node<Type>& rhs);
+    void t_sub_class(Node<Type>& lhs, Node<Type>& rhs);
+    void t_sub_iface(Node<Type>& lhs, Node<Type>& rhs);
 
-    void sub_throw(Node<Type>& lhs, Node<Type>& rhs);
-    void sub_tuple(Node<Type>& lhs, Node<Type>& rhs);
-    void sub_function(Node<Type>& lhs, Node<Type>& rhs);
     void sub_same(Node<Type>& lhs, Node<Type>& rhs);
 
     bool returnval(Cache::iterator& it);
