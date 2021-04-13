@@ -1,9 +1,24 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-using "numbers";
+class U32 {}
+class U64 {}
+class F32 {}
+class F64 {}
 
 simple(a: U32, b: U32): U32
+{
+  let x = a + b;
+  return x;
+}
+
+int_upcast(a: U32, b: U64): U64
+{
+  let x = a + b;
+  return x;
+}
+
+fp_upcast(a: F64, b: F32): F64
 {
   let x = a + b;
   return x;

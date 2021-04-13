@@ -56,39 +56,47 @@ namespace mlir::verona
       Identifier::get(path, context), line, column);
   }
 
-  mlir::Type Generator::compatibleArithmeticType(mlir::Type lhs, mlir::Type rhs)
+  std::pair<mlir::Value, mlir::Value>
+  Generator::upcast(mlir::Value lhs, mlir::Value rhs)
   {
+    auto lhsType = lhs.getType();
+    auto rhsType = rhs.getType();
+
     // Shortcut for when both are the same
-    if (lhs == rhs)
-      return lhs;
+    if (lhsType == rhsType)
+      return {lhs, rhs};
 
-    auto lhsSize = lhs.getIntOrFloatBitWidth();
-    auto rhsSize = lhs.getIntOrFloatBitWidth();
+    auto lhsSize = lhsType.getIntOrFloatBitWidth();
+    auto rhsSize = rhsType.getIntOrFloatBitWidth();
 
-    // Check compatibility options
-    // TODO: This is overly simplistic.
-    if (lhs.isSignedInteger() && rhs.isSignedInteger())
+    // Integer upcasts
+    auto lhsInt = lhsType.dyn_cast<IntegerType>();
+    auto rhsInt = rhsType.dyn_cast<IntegerType>();
+    if (lhsInt && rhsInt)
     {
-      return builder.getIntegerType(std::max(lhsSize, rhsSize));
-    }
-    if (lhs.isUnsignedInteger() && rhs.isUnsignedInteger())
-    {
-      return builder.getIntegerType(std::max(lhsSize, rhsSize));
-    }
-    // Ugly, there is no isFloat... :( but we know it's not int either here
-    if (lhs.isIntOrFloat() && rhs.isIntOrFloat())
-    {
-      switch (std::max(lhsSize, rhsSize))
-      {
-        case 32:
-          return builder.getF32Type();
-        case 64:
-          return builder.getF64Type();
-      }
+      if (lhsSize < rhsSize)
+        lhs = builder.create<SignExtendIOp>(lhs.getLoc(), rhsType, lhs);
+      else
+        rhs = builder.create<SignExtendIOp>(rhs.getLoc(), lhsType, rhs);
+
+      return {lhs, rhs};
     }
 
-    // If not compatible, return empty type
-    return Type();
+    // Floating point casts
+    auto lhsFP = lhsType.dyn_cast<FloatType>();
+    auto rhsFP = rhsType.dyn_cast<FloatType>();
+    if (lhsFP && rhsFP)
+    {
+      if (lhsSize < rhsSize)
+        lhs = builder.create<FPExtOp>(lhs.getLoc(), rhsType, lhs);
+      else
+        rhs = builder.create<FPExtOp>(rhs.getLoc(), lhsType, rhs);
+
+      return {lhs, rhs};
+    }
+
+    // If not compatible, assert
+    assert(false && "Upcast between incompatible types");
   }
 
   // ===================================================== AST -> MLIR
@@ -285,7 +293,6 @@ namespace mlir::verona
     if (auto err = rhsNode.takeError())
       return std::move(err);
     auto rhs = rhsNode->get<Value>();
-    auto rhsTy = rhs.getType();
 
     // FIXME: Multiple method names?
     auto opName = select->typenames[0]->location.view();
@@ -300,34 +307,35 @@ namespace mlir::verona
     if (auto err = lhsNode.takeError())
       return std::move(err);
     auto lhs = lhsNode->get<Value>();
-    auto lhsTy = lhs.getType();
+
+    // Upcast types to be the same, or ops don't work, in the end, both types
+    // are identical and the same as the return type.
+    std::tie(lhs, rhs) = upcast(lhs, rhs);
+    auto retTy = lhs.getType();
 
     // FIXME: We already converted U32 to i32 so this "works". But we need to
     // make sure we want that conversion as early as it is, and if not, we need
     // to implement this as a standard select and convert that later. However,
     // that would only work if U32 has a method named "+", or if we declare it
     // on the fly and then clean up when we remove the call.
-    auto compatibleTy = compatibleArithmeticType(lhsTy, rhsTy);
-    if (compatibleTy)
+
+    // Floating point arithmetic
+    if (retTy.isF32() || retTy.isF64())
     {
-      // Floating point arithmetic
-      if (compatibleTy.isF32() || compatibleTy.isF64())
-      {
-        auto op =
-          llvm::StringSwitch<Value>(opName)
-            .Case("+", builder.create<AddFOp>(loc, compatibleTy, lhs, rhs))
-            .Default({});
-        assert(op && "Unknown arithmetic operator");
-        return op;
-      }
-      // Integer arithmetic
-      auto op =
-        llvm::StringSwitch<Value>(opName)
-          .Case("+", builder.create<AddIOp>(loc, compatibleTy, lhs, rhs))
-          .Default({});
+      auto op = llvm::StringSwitch<Value>(opName)
+                  .Case("+", builder.create<AddFOp>(loc, retTy, lhs, rhs))
+                  .Default({});
       assert(op && "Unknown arithmetic operator");
       return op;
     }
+
+    // Integer arithmetic
+    assert(retTy.dyn_cast<IntegerType>() && "Bad arithmetic types");
+    auto op = llvm::StringSwitch<Value>(opName)
+                .Case("+", builder.create<AddIOp>(loc, retTy, lhs, rhs))
+                .Default({});
+    assert(op && "Unknown arithmetic operator");
+    return op;
 
     return runtimeError("Select not implemented yet");
   }

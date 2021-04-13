@@ -151,9 +151,12 @@ namespace mlir::verona
     /// Get location of an ast node.
     Location getLocation(Ast ast);
 
-    /// Return the largest numeric type of the two if they're compatible, or an
-    /// empty type if not.
-    mlir::Type compatibleArithmeticType(mlir::Type lhs, mlir::Type rhs);
+    /// Upcast the smallest (compatible) type and return the values to be used
+    /// for arithmetic operations. If types are same, just return them, if not,
+    /// return the cast operations that make them the same. If types are
+    /// incompatible, assert.
+    std::pair<mlir::Value, mlir::Value>
+    upcast(mlir::Value lhs, mlir::Value rhs);
 
     // =================================================================
     // Parsers These methods parse the AST into MLIR constructs, then either

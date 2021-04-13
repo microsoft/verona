@@ -1,38 +1,26 @@
 module @__  {
   module @"$module-0"  {
-    func private @simple(%arg0: i32, %arg1: i32) -> i32 {
-      %0 = addi %arg0, %arg1 : i32
-      return %0 : i32
-    }
-  }
-  module @"$module-1"  {
-    module @I8  {
-    }
-    module @I16  {
-    }
-    module @I32  {
-    }
-    module @I64  {
-    }
-    module @I128  {
-    }
-    module @ISize  {
-    }
-    module @U8  {
-    }
-    module @U16  {
-    }
     module @U32  {
     }
     module @U64  {
     }
-    module @U128  {
-    }
-    module @USize  {
-    }
     module @F32  {
     }
     module @F64  {
+    }
+    func private @simple(%arg0: i32, %arg1: i32) -> i32 {
+      %0 = addi %arg0, %arg1 : i32
+      return %0 : i32
+    }
+    func private @int_upcast(%arg0: i32, %arg1: i64) -> i64 {
+      %0 = sexti %arg0 : i32 to i64
+      %1 = addi %0, %arg1 : i64
+      return %1 : i64
+    }
+    func private @fp_upcast(%arg0: f64, %arg1: f32) -> f64 {
+      %0 = fpext %arg1 : f32 to f64
+      %1 = addf %arg0, %0 : f64
+      return %1 : f64
     }
   }
 }
