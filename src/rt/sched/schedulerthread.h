@@ -226,6 +226,16 @@ namespace verona::rt
       mute_set.clear(alloc);
     }
 
+    void poll_io()
+    {
+      auto* poller = (T*)Scheduler::get().pollers.select();
+      if (poller == nullptr)
+        return;
+
+      Systematic::cout() << "Notify poller cown " << poller << Systematic::endl;
+      poller->mark_notify();
+    }
+
     /**
      * Startup is supplied to initialise thread local state before the runtime
      * starts.
@@ -282,6 +292,8 @@ namespace verona::rt
 
         if (cown == nullptr)
         {
+          poll_io();
+
           cown = steal();
 
           // If we can't steal, we are done.

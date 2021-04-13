@@ -3,6 +3,7 @@
 #pragma once
 
 #include "cpu.h"
+#include "pollers.h"
 #include "test/systematic.h"
 #include "threadstate.h"
 
@@ -66,6 +67,8 @@ namespace verona::rt
     ThreadState state;
     Topology topology;
 
+    Pollers pollers;
+
   public:
     static ThreadPool<T>& get()
     {
@@ -128,6 +131,16 @@ namespace verona::rt
                          << (prev_count - 1) << ")" << Systematic::endl;
       if (prev_count == 1)
         s.unpause();
+    }
+
+    static void add_poller(Object* poller)
+    {
+      get().pollers.add_poller(poller);
+    }
+
+    static void remove_poller(Object* poller)
+    {
+      get().pollers.remove_poller(poller);
     }
 
     static void set_fair(bool fair)
