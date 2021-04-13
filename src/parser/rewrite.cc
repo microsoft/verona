@@ -106,6 +106,19 @@ namespace verona::parser
 
       auto clone = std::make_shared<TypeRef>();
       *clone = tr;
+
+      for (auto& sub : clone->subs)
+      {
+        if (sub.second->kind() == Kind::TypeRef)
+        {
+          auto& tr = sub.second->as<TypeRef>();
+          auto find = subs.find(tr.def);
+
+          if (find != subs.end())
+            sub.second = find->second;
+        }
+      }
+
       *this << fields(*clone);
       return clone;
     }

@@ -4,6 +4,7 @@
 
 #include "dnf.h"
 #include "print.h"
+#include "rewrite.h"
 
 #include <iostream>
 
@@ -114,7 +115,15 @@ namespace verona::parser
       return;
     }
 
-    // TODO: view, extract, self, typelist.
+    // TODO: view, extract, typelist.
+
+    // Check Self.
+    if ((lhs->kind() == Kind::Self) || (rhs->kind() == Kind::Self))
+    {
+      // TODO: receiver parameter in dynamic dispatch
+      sub_same(lhs, rhs);
+      return;
+    }
 
     // Check FunctionTypes.
     if (
@@ -304,25 +313,61 @@ namespace verona::parser
   void Subtype::t_sub_typeref(Node<Type>& lhs, Node<Type>& rhs)
   {
     // The rhs is a Class, Interface, TypeAlias, or TypeParam.
-    auto def = rhs->as<TypeRef>().def.lock();
+    auto& r = rhs->as<TypeRef>();
+    auto def = r.def.lock();
 
     switch (def->kind())
     {
       case Kind::Class:
       case Kind::TypeParam:
       {
-        if (
-          (lhs->kind() != Kind::TypeRef) ||
-          (lhs->as<TypeRef>().def.lock() != def))
+        if (lhs->kind() == Kind::TypeRef)
         {
-          error() << lhs->location
-                  << "A class or type parameter must be an exact match."
-                  << text(lhs->location) << rhs->location
-                  << "The type being matched is here." << text(rhs->location);
-          return;
+          auto& l = lhs->as<TypeRef>();
+          auto ldef = l.def.lock();
+
+          if (ldef == def)
+          {
+            if (l.subs.size() != r.subs.size())
+            {
+              error() << lhs->location << "Type argument count doesn't match."
+                      << text(lhs->location) << rhs->location
+                      << "The supertype is here." << text(rhs->location);
+              return;
+            }
+
+            bool ok = true;
+
+            for (auto& sub : r.subs)
+            {
+              auto def = sub.first.lock();
+              auto find = l.subs.find(def);
+
+              if (find == l.subs.end())
+              {
+                error() << def->location
+                        << "Type argument not present in the subtype."
+                        << text(def->location) << lhs->location
+                        << "The subtype is here." << text(lhs->location)
+                        << rhs->location << "The supertype is here."
+                        << text(rhs->location);
+                return;
+              }
+
+              // Invariant type args.
+              ok &= constraint(find->second, sub.second);
+              ok &= constraint(sub.second, find->second);
+            }
+
+            result(ok);
+            return;
+          }
         }
 
-        result(true);
+        error() << lhs->location
+                << "A class or type parameter must be an exact match."
+                << text(lhs->location) << rhs->location
+                << "The type being matched is here." << text(rhs->location);
         break;
       }
 
@@ -334,8 +379,12 @@ namespace verona::parser
       }
 
       case Kind::TypeAlias:
-        result(constraint(lhs, def->as<TypeAlias>().inherits));
+      {
+        auto sub = std::static_pointer_cast<Type>(
+          clone(r.subs, def->as<TypeAlias>().inherits));
+        result(constraint(lhs, sub));
         return;
+      }
 
       default:
         unexpected();

@@ -187,7 +187,6 @@ namespace verona::parser
     }
   };
 
-
   using Substitutions =
     std::map<Weak<TypeParam>, Node<Type>, std::owner_less<>>;
 

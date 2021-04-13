@@ -238,17 +238,20 @@ namespace verona::parser::infer
 
       if (def)
       {
-        auto& lambda = def->as<Function>().lambda->as<Lambda>();
-        auto f = function_type(lambda);
-        auto sub = clone(sel.typeref->subs, f);
+        if (def->kind() == Kind::Function)
+        {
+          auto& lambda = def->as<Function>().lambda->as<Lambda>();
+          auto f = function_type(lambda);
+          auto sub = clone(sel.typeref->subs, f);
 
-        assert(sub->kind() == Kind::FunctionType);
-        f = std::static_pointer_cast<FunctionType>(sub);
+          assert(sub->kind() == Kind::FunctionType);
+          f = std::static_pointer_cast<FunctionType>(sub);
 
-        g(lhs())->type = f->right;
-        auto t = args_type(sel.expr, sel.args);
-        subtype(t, f->left);
-        return;
+          g(lhs())->type = f->right;
+          auto t = args_type(sel.expr, sel.args);
+          subtype(t, f->left);
+          return;
+        }
       }
     }
 

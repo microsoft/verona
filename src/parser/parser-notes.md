@@ -1,5 +1,10 @@
 # Parser Notes
 
+* typealias and DNF: expand typealias during subtyping? isect alias with def?
+  * do we need CNF on one side, DNF on the other?
+* params: infer & T, to help track regions?
+* results: do we need a lower bounds?
+
 * default value expressions can't have free variables
 * can we call static methods on type parameters?
   * like `create`
