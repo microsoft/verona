@@ -1,0 +1,38 @@
+module @__  {
+  module @"$module-0"  {
+    func private @simple(%arg0: i32, %arg1: i32) -> i32 {
+      %0 = addi %arg0, %arg1 : i32
+      return %0 : i32
+    }
+  }
+  module @"$module-1"  {
+    module @I8  {
+    }
+    module @I16  {
+    }
+    module @I32  {
+    }
+    module @I64  {
+    }
+    module @I128  {
+    }
+    module @ISize  {
+    }
+    module @U8  {
+    }
+    module @U16  {
+    }
+    module @U32  {
+    }
+    module @U64  {
+    }
+    module @U128  {
+    }
+    module @USize  {
+    }
+    module @F32  {
+    }
+    module @F64  {
+    }
+  }
+}

@@ -151,10 +151,14 @@ namespace mlir::verona
     /// Get location of an ast node.
     Location getLocation(Ast ast);
 
-    // ================================================================= Parsers
-    // These methods parse the AST into MLIR constructs, then either return the
-    // expected MLIR value or call the generators (see below) to do that for
-    // them.
+    /// Return the largest numeric type of the two if they're compatible, or an
+    /// empty type if not.
+    mlir::Type compatibleArithmeticType(mlir::Type lhs, mlir::Type rhs);
+
+    // =================================================================
+    // Parsers These methods parse the AST into MLIR constructs, then either
+    // return the expected MLIR value or call the generators (see below) to do
+    // that for them.
 
     /// Parses a module, the global context.
     llvm::Error parseModule(Ast ast);
@@ -177,6 +181,15 @@ namespace mlir::verona
 
     /// Parses a variable reference.
     llvm::Expected<ReturnValue> parseRef(Ast ast);
+
+    /// Parses a let binding.
+    llvm::Expected<ReturnValue> parseLet(Ast ast);
+
+    /// Parses a var binding.
+    llvm::Expected<ReturnValue> parseVar(Ast ast);
+
+    /// Parses a variable assignment.
+    llvm::Expected<ReturnValue> parseAssign(Ast ast);
 
     /// Parses a literal.
     llvm::Expected<ReturnValue> parseLiteral(Ast ast);
