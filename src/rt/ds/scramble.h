@@ -43,7 +43,7 @@ namespace verona
       }
     }
 
-    uintptr_t perm(uintptr_t p)
+    uintptr_t perm(uintptr_t p) const
     {
       uintptr_t l = p & MASK_BOTTOM;
       uintptr_t r = (p >> PTR_HALF_SHIFT);

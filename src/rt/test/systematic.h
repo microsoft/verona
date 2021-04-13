@@ -35,17 +35,27 @@ namespace Systematic
     return rng;
   }
 
-  static inline verona::Scramble& get_scrambler()
+  /// Return a mutable reference to the scrambler. It is assumed that the
+  /// scrambler will only be setup once via `set_seed`. After it is setup, the
+  /// scrambler must only be accessed via a const reference
+  /// (see `get_scrambler`).
+  static inline verona::Scramble& get_scrambler_for_setup()
   {
-    static thread_local verona::Scramble scrambler;
+    static verona::Scramble scrambler;
     return scrambler;
+  }
+
+  /// Return a const reference to the scrambler.
+  static inline const verona::Scramble& get_scrambler()
+  {
+    return get_scrambler_for_setup();
   }
 
   static inline void set_seed(uint64_t seed)
   {
     auto& rng = get_rng();
     rng.set_state(seed);
-    get_scrambler().setup(rng);
+    get_scrambler_for_setup().setup(rng);
   }
 
   /// 1/(2^range_bits) likelyhood of returning true
