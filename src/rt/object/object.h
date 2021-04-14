@@ -338,7 +338,14 @@ namespace verona::rt
       if constexpr (scramble)
         return Systematic::get_scrambler().perm(sys_id);
       else
+#  ifdef USE_FLIGHT_RECORDER
+        // If the flight recorder is enabled to debug systematic
+        // testing, then we cannot assume the object still exists
+        // at log time, and thus this needs to be the raw pointer.
+        return (uintptr_t)this;
+#  else
         return sys_id;
+#  endif
 #else
       return (uintptr_t)this;
 #endif
