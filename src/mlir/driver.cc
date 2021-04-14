@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "driver.h"
+#include "passes.h"
 
 #include "generator.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
@@ -101,6 +102,8 @@ namespace mlir::verona
     if (filename.empty())
       return runtimeError("No output filename provided");
 
+    // Required passes to shape the IR into an acceptable LLVM format
+    passManager.addPass(mlir::createVeronaManglingPass());
     // The lowering "pass manager"
     passManager.addPass(mlir::createLowerToLLVMPass());
 
