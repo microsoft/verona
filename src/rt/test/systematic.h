@@ -29,10 +29,22 @@
 namespace Systematic
 {
 #ifdef USE_SYSTEMATIC_TESTING
-  static inline xoroshiro::p128r32& get_rng()
+  /// Return a mutable reference to the pseudo random number generator (PRNG).
+  /// It is assumed that the PRNG will only be setup once via `set_seed`. After
+  /// it is setup, the PRNG must only be used via `get_prng_next`.
+  static inline xoroshiro::p128r32& get_prng_for_setup()
   {
-    static thread_local xoroshiro::p128r32 rng;
-    return rng;
+    static xoroshiro::p128r32 prng;
+    return prng;
+  }
+
+  /// Return the next pseudo random number.
+  static inline uint32_t get_prng_next()
+  {
+    auto& prng = get_prng_for_setup();
+    static std::atomic_flag lock;
+    snmalloc::FlagLock l{lock};
+    return prng.next();
   }
 
   /// Return a mutable reference to the scrambler. It is assumed that the
@@ -53,7 +65,7 @@ namespace Systematic
 
   static inline void set_seed(uint64_t seed)
   {
-    auto& rng = get_rng();
+    auto& rng = get_prng_for_setup();
     rng.set_state(seed);
     get_scrambler_for_setup().setup(rng);
   }
@@ -62,7 +74,7 @@ namespace Systematic
   static inline bool coin(size_t range_bits = 1)
   {
     assert(range_bits < 20);
-    return (get_rng().next() & ((1ULL << range_bits) - 1)) == 0;
+    return (get_prng_next() & ((1ULL << range_bits) - 1)) == 0;
   }
 #endif
 

@@ -153,7 +153,7 @@ namespace verona::rt
     {
       std::unique_lock<std::mutex> lock(m);
       assert(running_thread != nullptr);
-      uint32_t i = Systematic::get_rng().next() % thread_count;
+      uint32_t i = Systematic::get_prng_next() % thread_count;
       auto result = running_thread;
 
       while (i > 0 || (result->systematic_state != SystematicState::Active))
@@ -179,7 +179,7 @@ namespace verona::rt
 
       assert(running_thread == me);
 
-      uint32_t next = Systematic::get_rng().next() & me->systematic_speed_mask;
+      uint32_t next = Systematic::get_prng_next() & me->systematic_speed_mask;
       if (next == 0)
       {
         choose_thread();
@@ -403,7 +403,7 @@ namespace verona::rt
         t->systematic_id = count;
 #ifdef USE_SYSTEMATIC_TESTING
         t->systematic_speed_mask =
-          (1 << (Systematic::get_rng().next() % 16)) - 1;
+          (1 << (Systematic::get_prng_next() % 16)) - 1;
 #endif
         if (count > 1)
         {
