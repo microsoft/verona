@@ -95,4 +95,35 @@ namespace mlir::verona
     module->print(out);
     return llvm::Error::success();
   }
+
+  llvm::Error Driver::emitLLVM(llvm::StringRef filename)
+  {
+    if (filename.empty())
+      return runtimeError("No output filename provided");
+
+    // The lowering "pass manager"
+    passManager.addPass(mlir::createLowerToLLVMPass());
+
+    // First lower to LLVM dialect
+    if (mlir::failed(passManager.run(module.get())))
+    {
+      module->dump();
+      return runtimeError("Failed to lower to LLVM dialect");
+    }
+
+    // Then lower to LLVM IR
+    llvm::LLVMContext llvmContext;
+    auto llvm = mlir::translateModuleToLLVMIR(module.get(), llvmContext);
+    if (!llvm)
+      return runtimeError("Failed to lower to LLVM IR");
+
+    // Write to the file requested
+    std::error_code error;
+    auto out = llvm::raw_fd_ostream(filename, error);
+    if (error)
+      return runtimeError("Failed open output file");
+
+    llvm->print(out, nullptr);
+    return llvm::Error::success();
+  }
 }
