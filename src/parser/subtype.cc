@@ -472,6 +472,18 @@ namespace verona::parser
 
   void Subtype::t_sub_iface(Node<Type>& lhs, Node<Type>& rhs)
   {
+    {
+      // Check for an exact match first.
+      auto noshow = NoShow(this);
+      t_sub_class(lhs, rhs);
+
+      if (returnval(current))
+        return;
+
+      // No exact match, reset the return value and continue.
+      result(true);
+    }
+
     if (lhs->kind() != Kind::TypeRef)
     {
       kinderror(lhs, rhs);
@@ -522,16 +534,19 @@ namespace verona::parser
         {
           case Kind::Field:
           {
+            // Field types must be invariant for lhs to be a subtype of rhs.
             auto& lf = lm->as<Field>();
             auto& rf = rm.second->as<Field>();
             auto lt = clone(l.subs, lf.type, lhs);
             auto rt = clone(r.subs, rf.type, lhs);
             ok &= constraint(lt, rt);
+            ok &= constraint(rt, lt);
             break;
           }
 
           case Kind::Function:
           {
+            // A function in lhs must be a subtype of the function in rhs.
             auto& lf = lm->as<Function>();
             auto& rf = rm.second->as<Function>();
             auto lt = clone(l.subs, lf.type, lhs);

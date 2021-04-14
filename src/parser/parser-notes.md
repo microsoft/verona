@@ -1,5 +1,6 @@
 # Parser Notes
 
+* inheritance
 * typealias and DNF: expand typealias during subtyping? isect alias with def?
   * do we need CNF on one side, DNF on the other?
 * params: infer & T, to help track regions?

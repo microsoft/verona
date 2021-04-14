@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT
 #include "resolve.h"
 
+#include "dnf.h"
 #include "ident.h"
+#include "print.h"
 #include "rewrite.h"
 
 namespace verona::parser::resolve
@@ -153,6 +155,86 @@ namespace verona::parser::resolve
     {
       // Cache a function type for use in type checking.
       func.type = function_type(func.lambda->as<Lambda>());
+    }
+
+    void post(Self& self)
+    {
+      // If this occurs in a class, replace it with Class. If it occurs in
+      // an interface, replace it with (Self & Interface).
+      Ast type;
+
+      for (auto it = stack.rbegin(); it != stack.rend(); ++it)
+      {
+        if (is_kind(*it, {Kind::Class, Kind::Interface}))
+        {
+          type = *it;
+          break;
+        }
+      }
+
+      if (!type)
+      {
+        error() << self.location << "No enclosing type." << text(self.location);
+        return;
+      }
+
+      // Build a reference to the enclosing type.
+      auto& iface = type->as<Interface>();
+      auto tn = std::make_shared<TypeName>();
+      tn->location = iface.location;
+
+      for (auto& tp : iface.typeparams)
+      {
+        if (tp->kind() == Kind::TypeParamList)
+        {
+          auto tl = std::make_shared<TypeList>();
+          tl->location = tp->location;
+          tn->typeargs.push_back(tl);
+        }
+        else
+        {
+          auto tna = std::make_shared<TypeName>();
+          tna->location = tp->location;
+
+          auto ta = std::make_shared<TypeRef>();
+          ta->location = self.location;
+          ta->typenames.push_back(tna);
+          typeref(symbols(), *ta);
+
+          tn->typeargs.push_back(ta);
+        }
+      }
+
+      auto tr = std::make_shared<TypeRef>();
+      tr->location = self.location;
+      tr->typenames.push_back(tn);
+
+      typeref(symbols(), *tr);
+
+      if (type->kind() == Kind::Class)
+      {
+        // Replace Self with a reference to the enclosing type.
+        rewrite(tr);
+      }
+      else
+      {
+        // Replace Self with an intersection of Self and the enclosing type.
+        assert(current()->kind() == Kind::Self);
+        auto p = parent();
+
+        if (p->kind() == Kind::IsectType)
+        {
+          p->as<IsectType>().types.push_back(tr);
+        }
+        else
+        {
+          auto isect = std::make_shared<IsectType>();
+          isect->location = self.location;
+          isect->types.push_back(tr);
+          isect->types.push_back(current<Self>());
+          rewrite(isect);
+        }
+      }
     }
 
     Ast typeref(Ast sym, TypeRef& tr)

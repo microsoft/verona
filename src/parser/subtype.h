@@ -68,10 +68,7 @@ namespace verona::parser
 
     void result(bool ok)
     {
-      auto r = std::get_if<bool>(&current->second);
-
-      if (r)
-        *r = ok;
+      current->second = ok;
     }
 
     bool operator()(Node<Type> lhs, Node<Type> rhs);
