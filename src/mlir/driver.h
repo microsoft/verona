@@ -42,6 +42,9 @@ namespace mlir::verona
     /// Emit the module as textual MLIR.
     llvm::Error emitMLIR(const llvm::StringRef filename);
 
+    /// Emit the module as textual LLVM IR.
+    llvm::Error emitLLVM(const llvm::StringRef filename);
+
   private:
     /// MLIR context.
     mlir::MLIRContext context;

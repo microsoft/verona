@@ -49,6 +49,15 @@ namespace
     cl::ZeroOrMore,
     cl::init(0));
 
+  /// Which output to emit
+  static cl::opt<std::string> outputFmt(
+    "out",
+    cl::desc("Output format [mlir, llvm, asm, obj] "
+             "(default = 'mlir')"),
+    cl::Prefix,
+    cl::ZeroOrMore,
+    cl::init("mlir"));
+
   /// Output file name
   cl::opt<std::string> outputFile("o", cl::init(""), cl::desc("Output file"));
 
@@ -164,8 +173,21 @@ int main(int argc, char** argv)
       return 1;
   }
 
-  // Dumps the MLIR module
-  check(driver.emitMLIR(outputFile));
+  // Dumps the module in the chosen format
+  if (outputFmt == "mlir")
+  {
+    check(driver.emitMLIR(outputFile));
+  }
+  else if (outputFmt == "llvm")
+  {
+    check(driver.emitLLVM(outputFile));
+  }
+  else
+  {
+    std::cerr << "Output format " << outputFmt << " not yet supported"
+              << std::endl;
+    return 1;
+  }
 
   return 0;
 }
