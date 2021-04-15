@@ -1,0 +1,19 @@
+module @__  {
+  module @"$module-0"  {
+    module @U64  {
+    }
+    func private @foo() -> i64 {
+      %c42_i64 = constant 42 : i64
+      return %c42_i64 : i64
+    }
+    func private @bar(%arg0: i64) -> i64 {
+      %0 = call @foo() : () -> i64
+      %1 = addi %arg0, %0 : i64
+      return %1 : i64
+    }
+    func private @baz(%arg0: i64) -> i64 {
+      %0 = call @bar(%arg0) : (i64) -> i64
+      return %0 : i64
+    }
+  }
+}

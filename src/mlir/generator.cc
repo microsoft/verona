@@ -279,65 +279,69 @@ namespace mlir::verona
     return last;
   }
 
+  // FIXME: This is a hack to make arithmetic work. We'll have to add
+  // recognition of numeric types somewhere but it's probably not here.
+  // Though, before we move things from here, we need to know what to do when
+  // a select is in a numeric class that doesn't have those methods.
   llvm::Expected<ReturnValue> Generator::parseSelect(Ast ast)
   {
     auto select = nodeAs<Select>(ast);
     assert(select && "Bad Node");
     auto loc = getLocation(ast);
 
-    // FIXME: This is a hack to make arithmetic work. We'll have to add
-    // recognition of numeric types somewhere but it's probably not here.
-    // Though, before we move things from here, we need to know what to do when
-    // a select is in a numeric class that doesn't have those methods.
-    auto rhsNode = parseNode(select->args);
-    if (auto err = rhsNode.takeError())
-      return std::move(err);
-    auto rhs = rhsNode->get<Value>();
+    Value lhs, rhs;
+
+    // This is either:
+    //  * the RHS of a binary operator
+    //  * the argument of a unary operator
+    //  * the arguments of the function call as a tuple
+    if (select->args)
+    {
+      // TODO: Implement tuple for multiple argument
+      auto rhsNode = parseNode(select->args);
+      if (auto err = rhsNode.takeError())
+        return std::move(err);
+      rhs = rhsNode->get<Value>();
+    }
 
     // FIXME: Multiple method names?
     auto opName = select->typenames[0]->location.view();
 
     // FIXME: "special case" return for now, to make it work without method call
-    // TODO: If this isn't wrong, we need to add other unary operators here, too
     if (opName == "return")
-      return parseNode(select->args);
+      return rhs;
 
-    // Binary operators have the left hand side as well as right hand side
-    auto lhsNode = parseNode(select->expr);
-    if (auto err = lhsNode.takeError())
-      return std::move(err);
-    auto lhs = lhsNode->get<Value>();
-
-    // Upcast types to be the same, or ops don't work, in the end, both types
-    // are identical and the same as the return type.
-    std::tie(lhs, rhs) = upcast(lhs, rhs);
-    auto retTy = lhs.getType();
-
-    // FIXME: We already converted U32 to i32 so this "works". But we need to
-    // make sure we want that conversion as early as it is, and if not, we need
-    // to implement this as a standard select and convert that later. However,
-    // that would only work if U32 has a method named "+", or if we declare it
-    // on the fly and then clean up when we remove the call.
-
-    // Floating point arithmetic
-    if (retTy.isF32() || retTy.isF64())
+    // This is either:
+    //  * the LHS of a binary operator
+    //  * the selector for a static/dynamic call of a class member
+    if (select->expr)
     {
-      auto op = llvm::StringSwitch<Value>(opName)
-                  .Case("+", builder.create<AddFOp>(loc, retTy, lhs, rhs))
-                  .Default({});
-      assert(op && "Unknown arithmetic operator");
-      return op;
+      auto lhsNode = parseNode(select->expr);
+      if (auto err = lhsNode.takeError())
+        return std::move(err);
+      lhs = lhsNode->get<Value>();
     }
 
-    // Integer arithmetic
-    assert(retTy.dyn_cast<IntegerType>() && "Bad arithmetic types");
-    auto op = llvm::StringSwitch<Value>(opName)
-                .Case("+", builder.create<AddIOp>(loc, retTy, lhs, rhs))
-                .Default({});
-    assert(op && "Unknown arithmetic operator");
-    return op;
+    // Check the function table for a symbol that matches the opName
+    // TODO: Use scope to find the right function with the same name
+    if (auto funcOp = functionTable.lookup(opName))
+    {
+      // Handle arguments
+      // TODO: Handle tuples
+      llvm::SmallVector<Value,1> args;
+      if (rhs)
+        args.push_back(rhs);
+      auto res = generateCall(loc, funcOp, args);
+      if (auto err = res.takeError())
+        return std::move(err);
+      return *res;
+    }
 
-    return runtimeError("Select not implemented yet");
+    // If function does not exist, it's either arithmetic or an error
+    auto res = generateArithmetic(loc, opName, lhs, rhs);
+    if (auto err = res.takeError())
+      return std::move(err);
+    return *res;
   }
 
   llvm::Expected<ReturnValue> Generator::parseRef(Ast ast)
@@ -543,5 +547,49 @@ namespace mlir::verona
     }
 
     return func;
+  }
+
+  llvm::Expected<Value>
+  Generator::generateCall(Location loc, FuncOp func, llvm::ArrayRef<Value> args)
+  {
+    // TODO: Implement static/dynamic method calls
+    auto call = builder.create<CallOp>(loc, func, args);
+    // TODO: Implement multiple return values
+    return call->getOpResult(0);
+  }
+
+  llvm::Expected<Value> Generator::generateArithmetic(
+    Location loc, llvm::StringRef opName, Value lhs, Value rhs)
+  {
+    // FIXME: Implement all unary and binary operators
+
+    // Upcast types to be the same, or ops don't work, in the end, both types
+    // are identical and the same as the return type.
+    std::tie(lhs, rhs) = upcast(lhs, rhs);
+    auto retTy = lhs.getType();
+
+    // FIXME: We already converted U32 to i32 so this "works". But we need to
+    // make sure we want that conversion as early as it is, and if not, we need
+    // to implement this as a standard select and convert that later. However,
+    // that would only work if U32 has a method named "+", or if we declare it
+    // on the fly and then clean up when we remove the call.
+
+    // Floating point arithmetic
+    if (retTy.isF32() || retTy.isF64())
+    {
+      auto op = llvm::StringSwitch<Value>(opName)
+                  .Case("+", builder.create<AddFOp>(loc, retTy, lhs, rhs))
+                  .Default({});
+      assert(op && "Unknown arithmetic operator");
+      return op;
+    }
+
+    // Integer arithmetic
+    assert(retTy.dyn_cast<IntegerType>() && "Bad arithmetic types");
+    auto op = llvm::StringSwitch<Value>(opName)
+                .Case("+", builder.create<AddIOp>(loc, retTy, lhs, rhs))
+                .Default({});
+    assert(op && "Unknown arithmetic operator");
+    return op;
   }
 }

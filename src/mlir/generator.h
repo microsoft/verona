@@ -155,8 +155,7 @@ namespace mlir::verona
     /// for arithmetic operations. If types are same, just return them, if not,
     /// return the cast operations that make them the same. If types are
     /// incompatible, assert.
-    std::pair<mlir::Value, mlir::Value>
-    upcast(mlir::Value lhs, mlir::Value rhs);
+    std::pair<Value, Value> upcast(Value lhs, Value rhs);
 
     // =================================================================
     // Parsers These methods parse the AST into MLIR constructs, then either
@@ -202,18 +201,24 @@ namespace mlir::verona
 
     // ===================================================== MLIR Generators
     /// Generate a prototype, populating the symbol table
-    llvm::Expected<mlir::FuncOp> generateProto(
-      mlir::Location loc,
+    llvm::Expected<FuncOp> generateProto(
+      Location loc,
       llvm::StringRef name,
-      llvm::ArrayRef<mlir::Type> types,
-      llvm::ArrayRef<mlir::Type> retTy);
+      llvm::ArrayRef<Type> types,
+      llvm::ArrayRef<Type> retTy);
     /// Generates an empty function (with the first basic block)
-    llvm::Expected<mlir::FuncOp> generateEmptyFunction(
-      mlir::Location loc,
+    llvm::Expected<FuncOp> generateEmptyFunction(
+      Location loc,
       llvm::StringRef name,
       llvm::ArrayRef<llvm::StringRef> args,
-      llvm::ArrayRef<mlir::Type> types,
-      llvm::ArrayRef<mlir::Type> retTy);
+      llvm::ArrayRef<Type> types,
+      llvm::ArrayRef<Type> retTy);
+    /// Generates a call to a static/dynamic function
+    llvm::Expected<Value> generateCall(
+      Location loc, FuncOp func, llvm::ArrayRef<Value> args);
+    /// Generates arithmetic based on param types and op names
+    llvm::Expected<Value> generateArithmetic(
+      Location loc, llvm::StringRef opName, Value lhs, Value rhs);
 
   public:
     /**
