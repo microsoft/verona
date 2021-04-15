@@ -184,11 +184,11 @@ namespace mlir::verona
     /// Parses a variable reference.
     llvm::Expected<ReturnValue> parseRef(Ast ast);
 
-    /// Parses a let binding.
-    llvm::Expected<ReturnValue> parseLet(Ast ast);
+    /// Parses a let/var binding.
+    llvm::Expected<ReturnValue> parseLocalDecl(Ast ast);
 
-    /// Parses a var binding.
-    llvm::Expected<ReturnValue> parseVar(Ast ast);
+    /// Parses a type declaration.
+    llvm::Expected<ReturnValue> parseOfType(Ast ast);
 
     /// Parses a variable assignment.
     llvm::Expected<ReturnValue> parseAssign(Ast ast);
@@ -214,11 +214,19 @@ namespace mlir::verona
       llvm::ArrayRef<Type> types,
       llvm::ArrayRef<Type> retTy);
     /// Generates a call to a static/dynamic function
-    llvm::Expected<Value> generateCall(
-      Location loc, FuncOp func, llvm::ArrayRef<Value> args);
+    llvm::Expected<Value>
+    generateCall(Location loc, FuncOp func, llvm::ArrayRef<Value> args);
     /// Generates arithmetic based on param types and op names
     llvm::Expected<Value> generateArithmetic(
       Location loc, llvm::StringRef opName, Value lhs, Value rhs);
+    /// Generates an alloca (stack variable)
+    Value generateAlloca(Location loc, Type ty);
+    /// Generates a load of an address
+    Value generateLoad(Location loc, Value addr);
+    /// Generates a store into an address
+    void generateStore(Location loc, Value addr, Value val);
+    /// Generate a zero initialized value of a certain type
+    Value generateZero(Type ty);
 
   public:
     /**

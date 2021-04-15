@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 
 #include "driver.h"
-#include "passes.h"
 
 #include "generator.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
@@ -12,6 +11,7 @@
 #include "mlir/Parser.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
+#include "passes.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
@@ -129,4 +129,20 @@ namespace mlir::verona
     llvm->print(out, nullptr);
     return llvm::Error::success();
   }
+
+  llvm::Expected<Value> generateAlloca(Location loc, llvm::StringRef name)
+  {
+    return Value();
+  }
+
+  llvm::Expected<Value> generateLoad(Location loc, Value addr)
+  {
+    return Value();
+  }
+
+  llvm::Expected<Value> generateStore(Location loc, Value addr, Value val)
+  {
+    return Value();
+  }
+
 }

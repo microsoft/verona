@@ -92,9 +92,8 @@ namespace mlir::verona
       return nullptr;
     }
 
-    /// Update value, used for assignments. Let's can only update if the
-    /// existing value is empty, while vars can update any time.
-    T update(llvm::StringRef key, T newValue, bool onlyIfEmpty = true)
+    /// Update value, used for assignments.
+    T update(llvm::StringRef key, T newValue)
     {
       for (auto it = stack.rbegin(), end = stack.rend(); it != end; it++)
       {
@@ -102,7 +101,6 @@ namespace mlir::verona
         auto val = frame.find(key.str());
         if (val != frame.end())
         {
-          assert(onlyIfEmpty == !val->second && "Updating already existing value");
           auto old = val->second;
           val->second = newValue;
           return old;

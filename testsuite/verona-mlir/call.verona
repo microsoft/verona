@@ -10,13 +10,13 @@ foo(): U64
 
 bar(x: U64): U64
 {
-  let f = foo();
-  let res = x + f;
+  let f : U64 = foo();
+  let res : U64 = x + f;
   return res;
 }
 
 baz(x: U64): U64
 {
-  let res = bar(x);
+  let res : U64 = bar(x);
   return res;
 }
