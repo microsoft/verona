@@ -20,6 +20,14 @@ namespace
     return !bb->getOperations().empty() && bb->back().isKnownTerminator();
   }
 
+  /// Return true if the value was created by an alloca operation.
+  /// FIXME: So far, this is the only way to know if the value is an address
+  bool isAlloca(mlir::Value val)
+  {
+    return val.getDefiningOp() &&
+      llvm::isa<mlir::AllocaOp>(val.getDefiningOp());
+  }
+
   /// Get node as a shared pointer of a sub-type
   template<class T>
   Node<T> nodeAs(Ast from)
@@ -178,10 +186,13 @@ namespace mlir::verona
         return parseSelect(ast);
       case Kind::Ref:
         return parseRef(ast);
-      case Kind::Let:
-        return parseLet(ast);
       case Kind::Assign:
         return parseAssign(ast);
+      case Kind::Let:
+      case Kind::Var:
+        return parseLocalDecl(ast);
+      case Kind::Oftype:
+        return parseOfType(ast);
       case Kind::Character:
       case Kind::Int:
       case Kind::Float:
@@ -302,6 +313,8 @@ namespace mlir::verona
       if (auto err = rhsNode.takeError())
         return std::move(err);
       rhs = rhsNode->get<Value>();
+      if (isAlloca(rhs))
+        rhs = generateLoad(loc, rhs);
     }
 
     // FIXME: Multiple method names?
@@ -320,6 +333,8 @@ namespace mlir::verona
       if (auto err = lhsNode.takeError())
         return std::move(err);
       lhs = lhsNode->get<Value>();
+      if (isAlloca(lhs))
+        lhs = generateLoad(loc, lhs);
     }
 
     // Check the function table for a symbol that matches the opName
@@ -328,7 +343,7 @@ namespace mlir::verona
     {
       // Handle arguments
       // TODO: Handle tuples
-      llvm::SmallVector<Value,1> args;
+      llvm::SmallVector<Value, 1> args;
       if (rhs)
         args.push_back(rhs);
       auto res = generateCall(loc, funcOp, args);
@@ -351,23 +366,26 @@ namespace mlir::verona
     return symbolTable.lookup(ref->location.view());
   }
 
-  llvm::Expected<ReturnValue> Generator::parseLet(Ast ast)
+  llvm::Expected<ReturnValue> Generator::parseLocalDecl(Ast ast)
   {
-    auto let = nodeAs<Let>(ast);
-    assert(let && "Bad Node");
-    // FIXME: Just binding an empty value for now. Later we'll have to make
-    // sure the value is only replaced if empty, unlike `var` that can be
-    // reassigned multiple times.
-    return symbolTable.insert(let->location.view(), mlir::Value());
+    // FIXME: for now, just creates a new empty value that can be updated.
+    return symbolTable.insert(ast->location.view(), Value());
   }
 
-  llvm::Expected<ReturnValue> Generator::parseVar(Ast ast)
+  llvm::Expected<ReturnValue> Generator::parseOfType(Ast ast)
   {
-    auto var = nodeAs<Var>(ast);
-    assert(var && "Bad Node");
-    // FIXME: Just binding an empty value for now. Var can be overriten as many
-    // times as needed.
-    return symbolTable.insert(var->location.view(), mlir::Value());
+    auto ofty = nodeAs<Oftype>(ast);
+    assert(ofty && "Bad Node");
+    auto name = ofty->expr->location.view();
+
+    // Make sure the variable is uninitialized
+    auto val = symbolTable.lookup(name, /*local scope*/ true);
+    assert(!val);
+
+    // FIXME: for now, just updates the reference's type
+    auto newTy = parseType(ofty->type);
+    Value addr = generateAlloca(getLocation(ofty), newTy);
+    return symbolTable.update(name, addr);
   }
 
   llvm::Expected<ReturnValue> Generator::parseAssign(Ast ast)
@@ -375,55 +393,27 @@ namespace mlir::verona
     auto assign = nodeAs<Assign>(ast);
     assert(assign && "Bad Node");
 
-    // Name to bind and old value to return
-    std::string_view bind;
-    mlir::Value old;
-    bool onlyIfEmpty;
+    // lhs has to be an addressable expression (ref, let, var)
+    auto res = parseRef(assign->left);
+    if (auto err = res.takeError())
+      return std::move(err);
+    auto addr = res->get<Value>();
 
-    // Grab lhs has to be an addressable expression
-    // FIXME: We still don't have the representation of an address, so we
-    // restrict assigns to work with let/ref and custom-lower it here.
-    if (auto ref = nodeAs<Ref>(assign->left))
-    {
-      bind = ref->location.view();
-      auto res = parseRef(ref);
-      if (auto err = res.takeError())
-        return std::move(err);
-      old = res->get<Value>();
-      // FIXME: How do we know this is a let or a var?
-      onlyIfEmpty = true;
-    }
-    else if (auto let = nodeAs<Let>(assign->left))
-    {
-      bind = let->location.view();
-      auto res = parseLet(assign->left);
-      if (auto err = res.takeError())
-        return std::move(err);
-      old = res->get<Value>();
-      onlyIfEmpty = true;
-    }
-    else if (auto let = nodeAs<Var>(assign->left))
-    {
-      bind = let->location.view();
-      auto res = parseVar(assign->left);
-      if (auto err = res.takeError())
-        return std::move(err);
-      old = res->get<Value>();
-      onlyIfEmpty = false;
-    }
-    else
-    {
-      return runtimeError("Invalid assign lhs");
-    }
+    // Must be an address
+    if (!isAlloca(addr))
+      return runtimeError("Assign lhs not an address");
+
+    // Load the existing value to return
+    auto old = generateLoad(getLocation(assign), addr);
 
     // Evaluate the right hand side and assign to the binded name
     auto rhsNode = parseNode(assign->right);
     if (auto err = rhsNode.takeError())
       return std::move(err);
     auto rhs = rhsNode->get<Value>();
-    symbolTable.update(bind, rhs, onlyIfEmpty);
+    generateStore(getLocation(assign), addr, rhs);
 
-    // BROKEN: Actually assign the value to the lhs name
+    // Return the previous value
     return old;
   }
 
@@ -543,7 +533,11 @@ namespace mlir::verona
     // Declare all arguments
     for (auto arg_val : llvm::zip(args, argVals))
     {
-      symbolTable.insert(std::get<0>(arg_val), std::get<1>(arg_val));
+      auto name = std::get<0>(arg_val);
+      auto val = std::get<1>(arg_val);
+      auto addr = generateAlloca(val.getLoc(), val.getType());
+      generateStore(val.getLoc(), addr, val);
+      symbolTable.insert(name, addr);
     }
 
     return func;
@@ -591,5 +585,45 @@ namespace mlir::verona
                 .Default({});
     assert(op && "Unknown arithmetic operator");
     return op;
+  }
+
+  Value Generator::generateAlloca(Location loc, Type ty)
+  {
+    // FIXME: Get sizeof(). We probably will need alloc/load/store on our own
+    // dialect soon, not to have to depend on memref and its idiosyncrasies
+    auto memrefTy = mlir::MemRefType::get({1}, ty);
+    return builder.create<AllocaOp>(loc, memrefTy);
+  }
+
+  Value Generator::generateLoad(Location loc, Value addr)
+  {
+    ValueRange index(generateZero(builder.getIndexType()));
+    return builder.create<LoadOp>(loc, addr, index);
+  }
+
+  void Generator::generateStore(Location loc, Value addr, Value val)
+  {
+    ValueRange index(generateZero(builder.getIndexType()));
+    builder.create<StoreOp>(loc, val, addr, index);
+  }
+
+  Value Generator::generateZero(Type ty)
+  {
+    auto loc = builder.getUnknownLoc();
+    if (ty.isIndex())
+    {
+      return builder.create<ConstantIndexOp>(loc, 0);
+    }
+    else if (auto it = ty.dyn_cast<IntegerType>())
+    {
+      return builder.create<ConstantIntOp>(loc, 0, it);
+    }
+    else if (auto ft = ty.dyn_cast<FloatType>())
+    {
+      APFloat zero = APFloat(0.0);
+      return builder.create<ConstantFloatOp>(loc, zero, ft);
+    }
+
+    assert(0 && "Type not supported for zero");
   }
 }

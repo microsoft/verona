@@ -8,18 +8,18 @@ class F64 {}
 
 simple(a: U32, b: U32): U32
 {
-  let x = a + b;
+  let x : U32 = a + b;
   return x;
 }
 
 int_upcast(a: U32, b: U64): U64
 {
-  let x = a + b;
+  let x : U64 = a + b;
   return x;
 }
 
 fp_upcast(a: F64, b: F32): F64
 {
-  let x = a + b;
+  let x : F64 = a + b;
   return x;
 }
