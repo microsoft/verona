@@ -33,13 +33,15 @@ namespace mlir
       // For all functions
       for (auto func : region.getOps<FuncOp>())
       {
-        // If we're in a sub-module, and we find a function, mangle and move
-        // down, replace all users with new
-        auto mangledName = mangleName(func.getName());
+        // Calls aren't replaced with replaceAllUsersWith, certainly not across
+        // regions, so we need a better strategy. For now, we only handle
+        // functions with unique names and ignore the scope, but we'll need a
+        // better strategy soon.
         auto newFunc = func.clone();
-        newFunc.setName(mangledName);
+        // auto mangledName = mangleName(func.getName());
+        // newFunc.setName(mangledName);
         topModule.push_back(newFunc);
-        func->replaceAllUsesWith(newFunc);
+        // func->replaceAllUsesWith(newFunc);
       }
     }
 
