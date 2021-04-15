@@ -332,6 +332,12 @@ namespace Systematic
     std::ostream* o;
     bool first;
 
+    static stringstream& get_ss()
+    {
+      static thread_local stringstream ss;
+      return ss;
+    }
+
     inline static bool& get_logging()
     {
       static bool logging = false;
@@ -352,13 +358,13 @@ namespace Systematic
             auto id = get_systematic_id();
             auto offset = static_cast<int>(id % 9);
             if (offset != 0)
-              *o << std::setw(offset) << " ";
-            *o << id;
-            *o << std::setw(9 - offset) << " ";
+              get_ss() << std::setw(offset) << " ";
+            get_ss() << id;
+            get_ss() << std::setw(9 - offset) << " ";
             first = false;
           }
 
-          *o << value;
+          get_ss() << value;
         }
       }
 
@@ -425,7 +431,9 @@ namespace Systematic
       {
         if (get_logging())
         {
-          *o << f;
+          get_ss() << f;
+          *o << get_ss().str();
+          get_ss().str(""); // Clear the stream
           o->flush();
           first = true;
         }
