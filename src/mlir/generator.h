@@ -142,7 +142,7 @@ namespace mlir::verona
     using Ast = ::verona::parser::Ast;
     using AstPath = ::verona::parser::AstPath;
     /// Name of the root module
-    static const char* rootModuleName;
+    constexpr static const char* rootModuleName = "__";
 
     // ===================================================== Helpers
     // Methods for symbols, location and other helpers for building

@@ -38,8 +38,6 @@ namespace
 
 namespace mlir::verona
 {
-  auto Generator::rootModuleName = "__";
-
   // ===================================================== Public Interface
   llvm::Expected<OwningModuleRef>
   Generator::lower(MLIRContext* context, Ast ast)
