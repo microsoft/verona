@@ -130,6 +130,23 @@ struct Send : public VBehaviour<Send>
   }
 };
 
+struct Dummy : public VCown<Dummy>
+{};
+
+struct RemoveExternalEvent : public VBehaviour<RemoveExternalEvent>
+{
+  Cown* a;
+
+  RemoveExternalEvent(Cown* a) : a(a) {}
+
+  void f()
+  {
+    Systematic::cout() << "Remove external event source" << std::endl;
+    Scheduler::remove_external_event_source();
+    Cown::release(ThreadAlloc::get(), a);
+  }
+};
+
 int main(int argc, char** argv)
 {
   opt::Opt opt(argc, argv);
@@ -190,7 +207,8 @@ int main(int argc, char** argv)
         Cown::release(alloc, r);
     }
 
-    Scheduler::remove_external_event_source();
+    auto e = new Dummy;
+    Cown::schedule<RemoveExternalEvent>(e, e);
   });
 
   sched.run();

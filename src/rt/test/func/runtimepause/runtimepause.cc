@@ -1,6 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include <random>
+#include <test/harness.h>
 #include <test/opt.h>
 #include <verona.h>
 
@@ -28,53 +29,69 @@ struct M : public VBehaviour<M>
   }
 };
 
-void test_runtime_pause(size_t cores, size_t pauses)
+struct Dummy : public VCown<Dummy>
+{};
+
+struct RemoveExternalEvent : public VBehaviour<RemoveExternalEvent>
 {
-  Scheduler& sched = Scheduler::get();
-  sched.init(cores);
-  Scheduler::add_external_event_source();
+  Cown* a;
 
-  auto a = new A;
+  RemoveExternalEvent(Cown* a) : a(a) {}
 
-  auto thr = std::thread([pauses, &a]() mutable {
-    std::mt19937 rng;
-    rng.seed(1);
-    std::uniform_int_distribution<> dist(1, 1000);
-    for (size_t i = 1; i <= pauses; i++)
-    {
-      auto pause_time = std::chrono::milliseconds(dist(rng));
-      std::this_thread::sleep_for(pause_time);
-      Cown::schedule<M>(a, a, i, i == pauses);
-    }
-
-    auto pause_time = std::chrono::nanoseconds(dist(rng));
-    std::this_thread::sleep_for(pause_time);
-
+  void f()
+  {
+    Systematic::cout() << "Remove external event source" << std::endl;
     Scheduler::remove_external_event_source();
-  });
+    Cown::release(ThreadAlloc::get(), a);
+  }
+};
 
-  sched.run();
-  thr.join();
-  snmalloc::current_alloc_pool()->debug_check_empty();
+struct StartExternalThread : public VBehaviour<StartExternalThread>
+{
+  size_t pauses;
+
+  StartExternalThread(size_t pauses) : pauses(pauses) {}
+
+  void f()
+  {
+    auto a = new A;
+    auto pauses_ = pauses;
+    auto t = std::thread([pauses_, a]() mutable {
+      Systematic::cout() << "Started external thread" << Systematic::endl;
+      std::mt19937 rng;
+      rng.seed(1);
+      std::uniform_int_distribution<> dist(1, 1000);
+      for (size_t i = 1; i <= pauses_; i++)
+      {
+        auto pause_time = std::chrono::milliseconds(dist(rng));
+        std::this_thread::sleep_for(pause_time);
+        Systematic::cout() << "Scheduling Message" << Systematic::endl;
+        Cown::schedule<M>(a, a, i, i == pauses_);
+      }
+
+      auto e = new Dummy;
+      Cown::schedule<RemoveExternalEvent>(e, e);
+
+      Systematic::cout() << "External thread exiting" << Systematic::endl;
+    });
+    t.detach();
+  }
+};
+
+void test_runtime_pause(size_t pauses)
+{
+  Scheduler::add_external_event_source();
+  auto e = new Dummy;
+  Cown::schedule<StartExternalThread>(e, pauses);
+  Cown::release(ThreadAlloc::get(), e);
 }
 
 int main(int argc, char** argv)
 {
-#ifdef USE_SYSTEMATIC_TESTING
-  std::cout << "Testing external concurrency, so cannot use systematic testing."
-            << std::endl;
-  UNUSED(argc);
-  UNUSED(argv);
-#else
-  opt::Opt opt(argc, argv);
-  size_t cores = opt.is<size_t>("--cores", 4);
-  size_t pauses = opt.is<size_t>("--pauses", 3);
+  SystematicTestHarness harness(argc, argv);
 
-  for (size_t i = 0; i < 100; i++)
-  {
-    std::cout << "Repeat: " << i << std::endl;
-    test_runtime_pause(cores, pauses);
-  }
-#endif
+  size_t pauses = harness.opt.is<size_t>("--pauses", 3);
+
+  harness.run(test_runtime_pause, pauses);
   return 0;
 }
