@@ -3,6 +3,8 @@
 
 // `~` implements explicit partial application.
 // f ~x rewrites to { y => f(x, y) }
+// TODO: R should either have a lower bounds or show capture another way
+// also R<~T for will be captured by R
 ~[T, U..., V, R: U...->V](f: R~>((T, U...)->V), x: R~>T): R
 {
   { y: U... => f(x, y) }

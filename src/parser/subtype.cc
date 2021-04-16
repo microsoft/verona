@@ -23,7 +23,7 @@ namespace verona::parser
   {
     // lhs <: rhs
     if (!lhs || !rhs)
-      return false;
+      return true;
 
     // Don't repeat checks. Initially assume the check succeeds.
     auto [it, fresh] = checked.try_emplace(std::pair{lhs, rhs}, true);
@@ -153,12 +153,18 @@ namespace verona::parser
       return;
     }
 
-    // TODO: view, extract, typelist.
+    // TODO: view, extract.
 
     // Check Self.
     if ((lhs->kind() == Kind::Self) || (rhs->kind() == Kind::Self))
     {
       sub_same(lhs, rhs);
+      return;
+    }
+
+    if (rhs->kind() == Kind::TypeList)
+    {
+      t_sub_typelist(lhs, rhs);
       return;
     }
 
@@ -335,6 +341,23 @@ namespace verona::parser
     result(ok);
   }
 
+  void Subtype::t_sub_typelist(Node<Type>& lhs, Node<Type>& rhs)
+  {
+    if (lhs->kind() != Kind::TypeList)
+    {
+      kinderror(lhs, rhs);
+      return;
+    }
+
+    if (lhs->as<TypeList>().def.lock() != rhs->as<TypeList>().def.lock())
+    {
+      error() << lhs->location << "A type list must be an exact match."
+              << text(lhs->location) << rhs->location
+              << "The supertype is here." << text(rhs->location);
+      return;
+    }
+  }
+
   void Subtype::t_sub_function(Node<Type>& lhs, Node<Type>& rhs)
   {
     if (lhs->kind() == Kind::TypeRef)
@@ -484,6 +507,8 @@ namespace verona::parser
       result(true);
     }
 
+    // TODO: a function can be a subtype of an interface that only has an apply
+    // method
     if (lhs->kind() != Kind::TypeRef)
     {
       kinderror(lhs, rhs);
@@ -495,85 +520,112 @@ namespace verona::parser
 
     auto& r = rhs->as<TypeRef>();
     auto rdef = r.def.lock();
+    bool ok = true;
+
     assert(rdef->kind() == Kind::Interface);
+    assert(is_kind(ldef, {Kind::Class, Kind::Interface}));
 
-    if (is_kind(ldef, {Kind::Class, Kind::Interface}))
+    for (auto& rm : rdef->symbol_table()->map)
     {
-      bool ok = true;
+      // TODO: should we be skipping other members?
+      if (!is_kind(rm.second, {Kind::Field, Kind::Function}))
+        continue;
 
-      for (auto& rm : rdef->symbol_table()->map)
+      auto lm = ldef->symbol_table()->get(rm.first);
+
+      if (!lm)
       {
-        // TODO: should we be skipping other members?
-        if (!is_kind(rm.second, {Kind::Field, Kind::Function}))
-          continue;
-
-        auto lm = ldef->symbol_table()->get(rm.first);
-
-        if (!lm)
-        {
-          error() << lhs->location << "This type doesn't have a member "
-                  << rm.first << text(lhs->location) << rhs->location
-                  << "The supertype is here." << text(rhs->location);
-          ok = false;
-          continue;
-        }
-
-        if (lm->kind() != rm.second->kind())
-        {
-          error() << lhs->location << "This type's member " << rm.first
-                  << " is a " << kindname(lm->kind())
-                  << " which is not a subtype of a "
-                  << kindname(rm.second->kind()) << "." << text(lhs->location)
-                  << rhs->location << "The supertype is here."
-                  << text(rhs->location);
-          ok = false;
-          continue;
-        }
-
-        switch (rm.second->kind())
-        {
-          case Kind::Field:
-          {
-            // Field types must be invariant for lhs to be a subtype of rhs.
-            auto& lf = lm->as<Field>();
-            auto& rf = rm.second->as<Field>();
-            auto lt = clone(l.subs, lf.type, lhs);
-            auto rt = clone(r.subs, rf.type, lhs);
-            ok &= constraint(lt, rt);
-            ok &= constraint(rt, lt);
-            break;
-          }
-
-          case Kind::Function:
-          {
-            // A function in lhs must be a subtype of the function in rhs.
-            auto& lf = lm->as<Function>();
-            auto& rf = rm.second->as<Function>();
-            auto lt = clone(l.subs, lf.type, lhs);
-            auto rt = clone(r.subs, rf.type, lhs);
-            ok &= constraint(lt, rt);
-            break;
-          }
-
-          default:
-          {
-            unexpected();
-            return;
-          }
-        }
-      }
-
-      if (!ok)
-      {
-        error() << lhs->location << "This isn't a subtype of this interface."
-                << text(lhs->location) << rhs->location
+        error() << lhs->location << "This type doesn't have a member "
+                << rm.first << text(lhs->location) << rhs->location
                 << "The supertype is here." << text(rhs->location);
+        ok = false;
+        continue;
       }
-      return;
+
+      if (lm->kind() != rm.second->kind())
+      {
+        error() << lhs->location << "This type's member " << rm.first
+                << " is a " << kindname(lm->kind())
+                << " which is not a subtype of a "
+                << kindname(rm.second->kind()) << "." << text(lhs->location)
+                << rhs->location << "The supertype is here."
+                << text(rhs->location);
+        ok = false;
+        continue;
+      }
+
+      switch (rm.second->kind())
+      {
+        case Kind::Field:
+        {
+          // Field types must be invariant for lhs to be a subtype of rhs.
+          auto& lf = lm->as<Field>();
+          auto& rf = rm.second->as<Field>();
+          auto lt = clone(l.subs, lf.type, lhs);
+          auto rt = clone(r.subs, rf.type, lhs);
+          ok &= constraint(lt, rt);
+          ok &= constraint(rt, lt);
+          break;
+        }
+
+        case Kind::Function:
+        {
+          // A function in lhs must be a subtype of the function in rhs.
+          auto& lf = lm->as<Function>();
+          auto& rf = rm.second->as<Function>();
+
+          // Contravariant type parameters.
+          List<TypeParam>& ltp = lf.lambda->as<Lambda>().typeparams;
+          List<TypeParam>& rtp = rf.lambda->as<Lambda>().typeparams;
+
+          if (ltp.size() != rtp.size())
+          {
+            error() << lf.location
+                    << "This type's function has a different type parameter "
+                       "count than the supertype."
+                    << text(lf.location) << rf.location
+                    << "The supertype function is here." << text(rf.location);
+            ok = false;
+            break;
+          }
+
+          for (size_t i = 0; i < ltp.size(); i++)
+            ok &= constraint(rtp.at(i)->upper, ltp.at(i)->upper);
+
+          // Apply substitutions and replace Self with the lhs for both sides.
+          auto lt = clone(l.subs, lf.type, lhs);
+          auto rt = clone(r.subs, rf.type, lhs);
+
+          // Substitute a reference to the lhs typeparams for references to any
+          // rhs typeparams.
+          if (ltp.size() > 0)
+          {
+            Substitutions subs;
+
+            for (size_t i = 0; i < ltp.size(); i++)
+              subs.emplace(rtp.at(i), typeparamref(ltp.at(i)));
+
+            rt = clone(subs, rt);
+          }
+
+          ok &= constraint(lt, rt);
+          break;
+        }
+
+        default:
+        {
+          unexpected();
+          return;
+        }
+      }
     }
 
-    // TODO: what else can be a subtype of an interface?
-    kinderror(lhs, rhs);
+    if (!ok)
+    {
+      error() << lhs->location << "This isn't a subtype of this interface."
+              << text(lhs->location) << rhs->location
+              << "The supertype is here." << text(rhs->location);
+    }
   }
 
   void Subtype::sub_same(Node<Type>& lhs, Node<Type>& rhs)

@@ -19,5 +19,9 @@ namespace verona::parser
     return std::static_pointer_cast<T>(clone_ast(subs, node, self));
   }
 
+  // Create a function type for this lambda.
   Node<FunctionType> function_type(Lambda& lambda);
+
+  // Create a fully resolved typeref to this type parameter.
+  Node<TypeRef> typeparamref(Node<TypeParam>& typeparam);
 }

@@ -85,6 +85,7 @@ namespace verona::parser
     void t_sub_throw(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_isect(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_tuple(Node<Type>& lhs, Node<Type>& rhs);
+    void t_sub_typelist(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_function(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_typeref(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_class(Node<Type>& lhs, Node<Type>& rhs);

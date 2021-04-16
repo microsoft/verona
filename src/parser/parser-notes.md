@@ -1,8 +1,6 @@
 # Parser Notes
 
 * inheritance
-* typealias and DNF: expand typealias during subtyping? isect alias with def?
-  * do we need CNF on one side, DNF on the other?
 * params: infer & T, to help track regions?
 * results: do we need a lower bounds?
 
@@ -10,7 +8,6 @@
 * can we call static methods on type parameters?
   * like `create`
 * allow `using` inside a function
-* inheritance
 * Ref[T] instead of update sugar
 * distinguishing value parameters from type parameters
 * constant expressions

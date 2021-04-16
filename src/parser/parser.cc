@@ -1172,6 +1172,7 @@ namespace verona::parser
 
         auto name = std::make_shared<TypeName>();
         name->location = previous.location;
+        typeref->location.extend(previous.location);
         typeref->typenames.push_back(name);
 
         if (opttypeargs(name->typeargs) == Error)

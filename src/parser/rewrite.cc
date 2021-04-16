@@ -176,6 +176,8 @@ namespace verona::parser
     auto f = std::make_shared<FunctionType>();
     f->location = lambda.location;
 
+    // TODO: typeparams
+
     if (lambda.params.size() == 1)
     {
       f->left = lambda.params.front()->as<Param>().type;
@@ -192,5 +194,18 @@ namespace verona::parser
 
     f->right = lambda.result;
     return f;
+  }
+
+  Node<TypeRef> typeparamref(Node<TypeParam>& typeparam)
+  {
+    auto tn = std::make_shared<TypeName>();
+    tn->location = typeparam->location;
+
+    auto tr = std::make_shared<TypeRef>();
+    tr->location = typeparam->location;
+    tr->typenames.push_back(tn);
+    tr->def = typeparam;
+
+    return tr;
   }
 }
