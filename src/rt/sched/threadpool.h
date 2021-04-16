@@ -47,6 +47,8 @@ namespace verona::rt
     std::mutex m;
     std::condition_variable cv;
     std::atomic_uint64_t barrier_count = 0;
+    uint64_t barrier_incarnation = 0;
+
     T* first_thread = nullptr;
 #ifdef USE_SYSTEMATIC_TESTING
     T* running_thread = nullptr;
@@ -659,11 +661,14 @@ namespace verona::rt
 
     void enter_barrier()
     {
+      auto inc = barrier_incarnation;
       {
         std::unique_lock<std::mutex> lock(m);
         barrier_count--;
         if (barrier_count != 0)
         {
+          while (inc == barrier_incarnation)
+          {
 #ifdef USE_SYSTEMATIC_TESTING
           lock.unlock();
           cv_wait();
@@ -671,10 +676,13 @@ namespace verona::rt
 #else
           cv.wait(lock);
 #endif
+          }
           return;
         }
         barrier_count = thread_count;
       }
+
+      barrier_incarnation++;
 #ifdef USE_SYSTEMATIC_TESTING
       cv_notify_all();
 #else
