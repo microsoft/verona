@@ -208,4 +208,18 @@ namespace verona::parser
 
     return tr;
   }
+
+  Node<TypeRef> contextref(Ast context, Substitutions& subs)
+  {
+    auto tn = std::make_shared<TypeName>();
+    tn->location = context->location;
+
+    auto tr = std::make_shared<TypeRef>();
+    tr->location = context->location;
+    tr->typenames.push_back(tn);
+    tr->def = context;
+    tr->subs = subs;
+
+    return tr;
+  }
 }

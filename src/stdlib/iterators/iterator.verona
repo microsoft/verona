@@ -10,11 +10,11 @@ interface Iterator[T]
   [S: Self & mut](self: S): S~>T | throw Empty;
   next(self: Self & mut);
 
-  filter[S: Iterator[T] & mut, R: Filter[T] & mut]
-    (self: R~>S, f: (R~>S~>T)->Bool): R
-  {
-    Filter(self, f)
-  }
+  // filter[S: Iterator[T] & mut, R: Filter[T] & mut]
+  //   (self: R~>S, f: (R~>S~>T)->Bool): R
+  // {
+  //   Filter(self, f)
+  // }
 }
 
 /*
@@ -23,7 +23,6 @@ maybe[T](value: T | ())
 }
 
 chain[T]()
-*/
 
 class Repeat[T]: Iterator[T]
 {
@@ -111,3 +110,4 @@ class Filter[T]: Iterator[T]
     }
   }
 }
+*/

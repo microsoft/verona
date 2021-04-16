@@ -28,7 +28,7 @@ class OrEquals[T1, T2]
   a: Equatable[T1];
   b: Equatable[T2];
 
-  create[S: OrEquals[T1, T2]](a: S~>Equatable[T1], b: S~>Equatable[T2]): S
+  create[R: OrEquals[T1, T2]](a: R~>Equatable[T1], b: R~>Equatable[T2]): R
   {
     new (a, b)
   }

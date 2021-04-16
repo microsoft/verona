@@ -84,6 +84,7 @@ namespace verona::parser::resolve
           create->location = name_create;
           select.typeref->typenames.push_back(create);
           def = def->symbol_table()->get(name_create);
+          select.typeref->context = select.typeref->def;
           select.typeref->def = def;
 
           if (!def || (def->kind() != Kind::Function))
@@ -255,18 +256,22 @@ namespace verona::parser::resolve
       substitutions(tr.subs, def, tr.typenames.front()->typeargs);
 
       // Look in the current definition for the next name.
+      Ast context = sym;
+
       for (size_t i = 1; i < tr.typenames.size(); i++)
       {
+        context = def;
         def = member(sym, def, tr.typenames.at(i)->location);
         substitutions(tr.subs, def, tr.typenames.at(i)->typeargs);
       }
 
+      tr.context = context;
       tr.def = def;
       return def;
     }
 
     // This looks up `name` in the lexical scope, following `using` statements.
-    Ast name(Ast sym, const Location& name)
+    Ast name(Ast& sym, const Location& name)
     {
       while (sym)
       {

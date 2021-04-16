@@ -24,4 +24,8 @@ namespace verona::parser
 
   // Create a fully resolved typeref to this type parameter.
   Node<TypeRef> typeparamref(Node<TypeParam>& typeparam);
+
+  // Create a fully resolved typeref for this context type. This is used with
+  // static functions to provide a Self type.
+  Node<TypeRef> contextref(Ast context, Substitutions& subs);
 }

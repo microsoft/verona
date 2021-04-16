@@ -193,6 +193,7 @@ namespace verona::parser
   struct TypeRef : Type
   {
     List<TypeName> typenames;
+    AstWeak context;
     AstWeak def;
     Substitutions subs;
     Node<Type> resolved;

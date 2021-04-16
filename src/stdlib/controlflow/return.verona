@@ -4,14 +4,13 @@ class Return[T]
 {
   value: T;
 
-  create[S: Return[T]](value: S~>T): S
+  create[R: Return[T]](value: R~>T): R
   {
     new(value)
   }
 }
 
-// `return` uses create sugar to throw a Return[T] exception. A lambda or
-// function that doesn't throw Return[T] but does return T 
+// `return` uses create sugar to throw a Return[T] exception.
 class return[T = None]
 {
   create(x: T = None): throw Return[T]

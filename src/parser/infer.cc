@@ -221,9 +221,12 @@ namespace verona::parser::infer
         {
           if (!sel.typeref->resolved)
           {
-            sel.typeref->resolved = clone(
-              sel.typeref->subs,
-              function_type(def->as<Function>().lambda->as<Lambda>()));
+            // Resolve the static function, supplying all substitutions and a
+            // Self type.
+            auto f = function_type(def->as<Function>().lambda->as<Lambda>());
+            auto self =
+              contextref(sel.typeref->context.lock(), sel.typeref->subs);
+            sel.typeref->resolved = clone(sel.typeref->subs, f, self);
           }
 
           assert(sel.typeref->resolved->kind() == Kind::FunctionType);
