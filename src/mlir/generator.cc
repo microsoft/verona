@@ -103,6 +103,9 @@ namespace mlir::verona
 
     // If not compatible, assert
     assert(false && "Upcast between incompatible types");
+
+    // Appease MSVC warnings
+    return {lhs, rhs};
   }
 
   // ===================================================== AST -> MLIR
@@ -623,5 +626,8 @@ namespace mlir::verona
     }
 
     assert(0 && "Type not supported for zero");
+
+    // Appease MSVC warnings
+    return Value();
   }
 }
