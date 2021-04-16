@@ -18,7 +18,7 @@
 namespace
 {
   namespace cl = llvm::cl;
-  /// Input file name
+  /// Input file name (- means stdin)
   cl::opt<std::string> inputFile(
     cl::Positional,
     cl::desc("<input file>"),
@@ -58,7 +58,7 @@ namespace
     cl::ZeroOrMore,
     cl::init("mlir"));
 
-  /// Output file name
+  /// Output file name (- means stdout)
   cl::opt<std::string> outputFile("o", cl::init(""), cl::desc("Output file"));
 
   /// Set defaults form command line arguments
