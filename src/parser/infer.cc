@@ -295,7 +295,10 @@ namespace verona::parser::infer
         {
           assert(lambda.typeparams.size() == 0);
           assert(lambda.params.size() == 0);
-          subtype(lambda.result, parent<Param>()->type);
+          // TODO: check that there is some instantiation of the param type
+          // that this default argument would satisfy. This isn't necessary for
+          // soundness, but it would produce a useful early error message.
+          // subtype(lambda.result, parent<Param>()->type);
           break;
         }
 

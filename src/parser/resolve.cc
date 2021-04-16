@@ -83,7 +83,10 @@ namespace verona::parser::resolve
           auto create = std::make_shared<TypeName>();
           create->location = name_create;
           select.typeref->typenames.push_back(create);
-          def = def->symbol_table()->get(name_create);
+
+          auto sym = select.typeref->context.lock();
+          def = member(sym, def, name_create);
+
           select.typeref->context = select.typeref->def;
           select.typeref->def = def;
 
