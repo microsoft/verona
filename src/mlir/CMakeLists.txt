@@ -62,7 +62,6 @@ set(LIBS
         ${dialect_libs}
         ${conversion_libs}
         MLIROptLib
-        MLIRVerona
         MLIRTargetLLVMIR
         verona-parser-lib
         )
@@ -76,6 +75,3 @@ add_llvm_executable(verona-mlir
 llvm_update_compile_flags(verona-mlir)
 target_link_libraries(verona-mlir PRIVATE ${LIBS})
 install(TARGETS verona-mlir RUNTIME DESTINATION .)
-
-# For now, include the old one to continue testing until we're happy with the new
-add_subdirectory(old)
