@@ -3,6 +3,7 @@
 
 #include "generator.h"
 
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Dialect.h"
@@ -17,7 +18,8 @@ namespace
   /// Helper to make sure the basic block has a terminator
   bool hasTerminator(mlir::Block* bb)
   {
-    return !bb->getOperations().empty() && bb->back().isKnownTerminator();
+    return !bb->getOperations().empty() &&
+      bb->back().mightHaveTrait<mlir::OpTrait::IsTerminator>();
   }
 
   /// Return true if the value was created by an alloca operation.
@@ -25,7 +27,7 @@ namespace
   bool isAlloca(mlir::Value val)
   {
     return val.getDefiningOp() &&
-      llvm::isa<mlir::AllocaOp>(val.getDefiningOp());
+      llvm::isa<mlir::memref::AllocaOp>(val.getDefiningOp());
   }
 
   /// Get node as a shared pointer of a sub-type
@@ -58,8 +60,7 @@ namespace mlir::verona
 
     auto path = ast->location.source->origin;
     auto [line, column] = ast->location.linecol();
-    return builder.getFileLineColLoc(
-      Identifier::get(path, context), line, column);
+    return mlir::FileLineColLoc::get(builder.getIdentifier(path), line, column);
   }
 
   std::pair<mlir::Value, mlir::Value>
@@ -593,19 +594,21 @@ namespace mlir::verona
     // FIXME: Get sizeof(). We probably will need alloc/load/store on our own
     // dialect soon, not to have to depend on memref and its idiosyncrasies
     auto memrefTy = mlir::MemRefType::get({1}, ty);
-    return builder.create<AllocaOp>(loc, memrefTy);
+    return builder.create<memref::AllocaOp>(loc, memrefTy);
   }
 
   Value Generator::generateLoad(Location loc, Value addr)
   {
-    ValueRange index(generateZero(builder.getIndexType()));
-    return builder.create<LoadOp>(loc, addr, index);
+    auto zero = generateZero(builder.getIndexType());
+    ValueRange index(zero);
+    return builder.create<memref::LoadOp>(loc, addr, index);
   }
 
   void Generator::generateStore(Location loc, Value addr, Value val)
   {
-    ValueRange index(generateZero(builder.getIndexType()));
-    builder.create<StoreOp>(loc, val, addr, index);
+    auto zero = generateZero(builder.getIndexType());
+    ValueRange index(zero);
+    builder.create<memref::StoreOp>(loc, val, addr, index);
   }
 
   Value Generator::generateZero(Type ty)

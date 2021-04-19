@@ -8,7 +8,6 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/MLIRContext.h"
-#include "mlir/Target/LLVMIR.h"
 #include "parser/ast.h"
 #include "symbol.h"
 
@@ -116,13 +115,10 @@ namespace mlir::verona
    */
   class Generator
   {
-    Generator(MLIRContext* context) : context(context), builder(context) {}
+    Generator(MLIRContext* context) : builder(context) {}
 
     /// MLIR module.
     OwningModuleRef module;
-
-    /// MLIR context. This is owned by the caller of Generator::lower.
-    MLIRContext* context;
 
     /// MLIR builder.
     OpBuilder builder;

@@ -5,11 +5,13 @@
 
 #include "generator.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/Verifier.h"
 #include "mlir/Parser.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/Transforms/Passes.h"
 #include "passes.h"
 
@@ -23,6 +25,7 @@ namespace mlir::verona
   : passManager(&context), diagnosticHandler(sourceManager, &context)
   {
     context.getOrLoadDialect<mlir::StandardOpsDialect>();
+    context.getOrLoadDialect<mlir::memref::MemRefDialect>();
 
     if (optLevel > 0)
     {
