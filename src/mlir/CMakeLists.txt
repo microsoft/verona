@@ -62,7 +62,7 @@ set(LIBS
         ${dialect_libs}
         ${conversion_libs}
         MLIROptLib
-        MLIRTargetLLVMIR
+        MLIRTargetLLVMIRExport
         verona-parser-lib
         )
 add_llvm_executable(verona-mlir

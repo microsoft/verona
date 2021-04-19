@@ -12,44 +12,44 @@ module @__  {
       return %c42_i64 : i64
     }
     func private @retOneArg(%arg0: i64) -> i64 {
-      %0 = alloca() : memref<1xi64>
+      %0 = memref.alloca() : memref<1xi64>
       %c0 = constant 0 : index
-      store %arg0, %0[%c0] : memref<1xi64>
+      memref.store %arg0, %0[%c0] : memref<1xi64>
       %c0_0 = constant 0 : index
-      %1 = load %0[%c0_0] : memref<1xi64>
+      %1 = memref.load %0[%c0_0] : memref<1xi64>
       return %1 : i64
     }
     func private @retFirstArg(%arg0: i64, %arg1: i64) -> i64 {
-      %0 = alloca() : memref<1xi64>
+      %0 = memref.alloca() : memref<1xi64>
       %c0 = constant 0 : index
-      store %arg0, %0[%c0] : memref<1xi64>
-      %1 = alloca() : memref<1xi64>
+      memref.store %arg0, %0[%c0] : memref<1xi64>
+      %1 = memref.alloca() : memref<1xi64>
       %c0_0 = constant 0 : index
-      store %arg1, %1[%c0_0] : memref<1xi64>
+      memref.store %arg1, %1[%c0_0] : memref<1xi64>
       %c0_1 = constant 0 : index
-      %2 = load %0[%c0_1] : memref<1xi64>
+      %2 = memref.load %0[%c0_1] : memref<1xi64>
       return %2 : i64
     }
     func private @retSecondArg(%arg0: i64, %arg1: i64) -> i64 {
-      %0 = alloca() : memref<1xi64>
+      %0 = memref.alloca() : memref<1xi64>
       %c0 = constant 0 : index
-      store %arg0, %0[%c0] : memref<1xi64>
-      %1 = alloca() : memref<1xi64>
+      memref.store %arg0, %0[%c0] : memref<1xi64>
+      %1 = memref.alloca() : memref<1xi64>
       %c0_0 = constant 0 : index
-      store %arg1, %1[%c0_0] : memref<1xi64>
+      memref.store %arg1, %1[%c0_0] : memref<1xi64>
       %c0_1 = constant 0 : index
-      %2 = load %1[%c0_1] : memref<1xi64>
+      %2 = memref.load %1[%c0_1] : memref<1xi64>
       return %2 : i64
     }
     func private @retSecondArgDiff(%arg0: i64, %arg1: i32) -> i32 {
-      %0 = alloca() : memref<1xi64>
+      %0 = memref.alloca() : memref<1xi64>
       %c0 = constant 0 : index
-      store %arg0, %0[%c0] : memref<1xi64>
-      %1 = alloca() : memref<1xi32>
+      memref.store %arg0, %0[%c0] : memref<1xi64>
+      %1 = memref.alloca() : memref<1xi32>
       %c0_0 = constant 0 : index
-      store %arg1, %1[%c0_0] : memref<1xi32>
+      memref.store %arg1, %1[%c0_0] : memref<1xi32>
       %c0_1 = constant 0 : index
-      %2 = load %1[%c0_1] : memref<1xi32>
+      %2 = memref.load %1[%c0_1] : memref<1xi32>
       return %2 : i32
     }
   }
