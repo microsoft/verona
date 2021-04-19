@@ -210,6 +210,7 @@ namespace verona::interop
     std::unique_ptr<llvm::Module>
     emitLLVM(clang::ASTContext* ast, const char* cu_name)
     {
+      // Initialise codegen
       std::unique_ptr<clang::CodeGenerator> CodeGen{CreateLLVMCodeGen(
         Clang->getDiagnostics(),
         cu_name,
@@ -218,9 +219,13 @@ namespace verona::interop
         Clang->getCodeGenOpts(),
         *llvmContext)};
       CodeGen->Initialize(*ast);
-      CodeGen->HandleTranslationUnit(*ast);
+
+      // Parse all definitions, including template specialisations
       for (auto& D : ast->getTranslationUnitDecl()->decls())
         CodeGen->HandleTopLevelDecl(clang::DeclGroupRef{D});
+      CodeGen->HandleTranslationUnit(*ast);
+
+      // Release the module
       std::unique_ptr<llvm::Module> M{CodeGen->ReleaseModule()};
       return M;
     }

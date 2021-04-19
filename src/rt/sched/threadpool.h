@@ -12,6 +12,13 @@
 
 namespace verona::rt
 {
+  enum class SystematicState
+  {
+    Active,
+    Waiting,
+    Finished
+  };
+
   /// Used for default prerun for a thread.
   inline void nop() {}
 
@@ -40,9 +47,21 @@ namespace verona::rt
     std::mutex m;
     std::condition_variable cv;
     std::atomic_uint64_t barrier_count = 0;
+    uint64_t barrier_incarnation = 0;
+
     T* first_thread = nullptr;
 #ifdef USE_SYSTEMATIC_TESTING
+    /// Specifies which thread is currently executing in systematic testing
+    /// nullptr is used to mean no thread is currently running.
     T* running_thread = nullptr;
+    /// Used to prevent systematic testing attempt to access threads when the
+    /// runtime has been deallocated.
+    bool shutdown = true;
+    /// Mutex for manipulating systematic testing datastructures
+    ///  * running_thread
+    ///  * systematic_status
+    ///  * shutdown
+    std::mutex m_sys;
 #endif
 
     /// Count of external event sources, such as I/O, that will prevent
@@ -79,7 +98,7 @@ namespace verona::rt
     static void record_inflight_message()
     {
       Systematic::cout() << "Increase inflight count: "
-                         << get().inflight_count + 1 << std::endl;
+                         << get().inflight_count + 1 << Systematic::endl;
       local()->scheduled_unscanned_cown = true;
       get().inflight_count++;
     }
@@ -87,45 +106,69 @@ namespace verona::rt
     static void recv_inflight_message()
     {
       Systematic::cout() << "Decrease inflight count: "
-                         << get().inflight_count - 1 << std::endl;
+                         << get().inflight_count - 1 << Systematic::endl;
       get().inflight_count--;
     }
 
     static bool no_inflight_messages()
     {
       Systematic::cout() << "Check inflight count: " << get().inflight_count
-                         << std::endl;
+                         << Systematic::endl;
       return get().inflight_count == 0;
     }
 
     /// Increment the external event source count. A non-zero count will prevent
     /// runtime teardown.
+    /// This should only be called before the runtime has started, or when the
+    /// caller can guarantee there is at least one other external_event_source
+    /// for the duration of this call.
     static void add_external_event_source()
     {
       auto& s = get();
+      assert((s.external_event_sources != 0) || (s.debug_not_running()));
       auto prev_count =
         s.external_event_sources.fetch_add(1, std::memory_order_seq_cst);
       Systematic::cout() << "Add external event source (now "
-                         << (prev_count + 1) << ")" << std::endl;
+                         << (prev_count + 1) << ")" << Systematic::endl;
     }
 
     /// Decrement the external event source count. This will allow runtime
     /// teardown if the count drops to zero.
     static void remove_external_event_source()
     {
+      // Must be called from inside a scheduler thread,
+      // A message can be LIFO scheduled to call this.
+      // Note, if this is not called from a scheduler thread, then the following
+      // can happen
+      //   1. All scheduler threads decide to pause the runtime but stop just
+      //      before waiting on the condition variable.
+      //   2. This code runs and calls notify, but no threads see this.
+      //   3. All the scheduler threads go call wait on condition variables.
+      // This leads to the system becoming inactive, and will never wake up.
+      // Forcing this code to be injected onto a scheduler thread by a message
+      // means the runtime cannot be attempting to pause while this code is
+      // running.
+      assert(local() != nullptr);
+
       auto& s = get();
       auto prev_count =
         s.external_event_sources.fetch_sub(1, std::memory_order_seq_cst);
       assert(prev_count != 0);
       Systematic::cout() << "Remove external event source (now "
-                         << (prev_count - 1) << ")" << std::endl;
+                         << (prev_count - 1) << ")" << Systematic::endl;
       if (prev_count == 1)
-        s.unpause();
+      {
+#ifdef USE_SYSTEMATIC_TESTING
+        s.cv_notify_all();
+#else
+        s.cv.notify_all();
+#endif
+      }
     }
 
     static void set_fair(bool fair)
     {
-      Systematic::cout() << "Set fair: " << fair << std::endl;
+      Systematic::cout() << "Set fair: " << fair << Systematic::endl;
       auto& s = get();
       s.fair = fair;
     }
@@ -142,25 +185,39 @@ namespace verona::rt
     }
 
 #ifdef USE_SYSTEMATIC_TESTING
-    void choose_thread()
+    /// Must hold the systematic testing lock to call this.
+    /// External is used for calls from outside a scheduler thread.
+    void choose_thread(std::unique_lock<std::mutex>&, bool external = false)
     {
-      std::unique_lock<std::mutex> lock(m);
-      assert(running_thread != nullptr);
-      uint32_t i = Systematic::get_rng().next() % thread_count;
-      auto result = running_thread;
+      if (external && get().running_thread != nullptr)
+      {
+        // Runtime was not asleep, so don't try to wake up a thread.
+        return;
+      }
 
-      while (i > 0 || result->sleeping)
+      uint32_t i = Systematic::get_prng_next() % thread_count;
+      auto result = running_thread;
+      assert(local() == result);
+      if (result == nullptr)
+      {
+        // This is an external wake up
+        result = first_thread;
+      }
+
+      while (i > 0 || (result->systematic_state != SystematicState::Active))
       {
         result = result->next;
         if (i != 0)
           i--;
         if (result == running_thread)
           continue;
-        if (result->sleeping)
+        if (result->systematic_state != SystematicState::Active)
           continue;
       }
+      Systematic::cout() << "Set running thread:" << result->systematic_id
+                         << Systematic::endl;
       running_thread = result;
-      assert(!(running_thread->sleeping));
+      assert(result->systematic_state == SystematicState::Active);
       result->cv.notify_all();
     }
 
@@ -170,13 +227,14 @@ namespace verona::rt
       if (me == nullptr)
         return;
 
-      assert(running_thread == me || running_thread == nullptr);
+      assert(running_thread == me);
 
-      uint32_t next = Systematic::get_rng().next() & me->systematic_speed_mask;
-      if (next == 0 && running_thread != nullptr)
+      uint32_t next = Systematic::get_prng_next() & me->systematic_speed_mask;
+      if (next == 0)
       {
-        choose_thread();
-        wait_for_my_turn_inner(me);
+        std::unique_lock<std::mutex> lock(m_sys);
+        choose_thread(lock);
+        wait_for_my_turn_inner(lock, me);
       }
     }
 
@@ -185,19 +243,21 @@ namespace verona::rt
       get().yield_my_turn_inner();
     }
 
-    void wait_for_my_turn_inner(T* me)
+    void wait_for_my_turn_inner(std::unique_lock<std::mutex>& lock, T* me)
     {
-      std::unique_lock<std::mutex> lock(m);
-      while (running_thread != nullptr && running_thread != me)
+      Systematic::cout() << "Waiting for turn" << Systematic::endl;
+      while (running_thread != me)
         me->cv.wait(lock);
+      Systematic::cout() << "Now my turn" << Systematic::endl;
+      assert(me->systematic_state == SystematicState::Active);
     }
 
     static void wait_for_my_first_turn()
     {
       auto me = local();
-      get().enter_barrier();
       assert(me != nullptr);
-      get().wait_for_my_turn_inner(me);
+      std::unique_lock<std::mutex> lock(get().m_sys);
+      get().wait_for_my_turn_inner(lock, me);
     }
 
     /// Used to simulate waiting on the thread pools condition variable for more
@@ -206,37 +266,106 @@ namespace verona::rt
     {
       auto& sched = get();
       auto me = local();
-      assert(!(me->sleeping));
-      me->sleeping = true;
+
+      std::unique_lock<std::mutex> lock(sched.m_sys);
+      assert(me->systematic_state != SystematicState::Waiting);
+      Systematic::cout() << "Waiting state" << Systematic::endl;
+      me->systematic_state = SystematicState::Waiting;
 
       assert(sched.running_thread == me);
 
+      // Confirm at least one other thread is running,
+      // otherwise we may have deadlocked the system.
       auto curr = me;
-      while (curr->sleeping)
+      do
       {
         curr = curr->next;
-        assert(curr != me);
+      } while ((curr->systematic_state != SystematicState::Active) &&
+               (curr != me));
+      if (curr == me)
+      {
+        // If all threads are waiting, then there must be an external event
+        // source.
+        assert(sched.external_event_sources > 0);
+        sched.running_thread = nullptr;
+        Systematic::cout() << "Runtime sleeping!" << Systematic::endl;
       }
-      sched.choose_thread();
-      sched.wait_for_my_turn_inner(me);
+      else
+      {
+        sched.choose_thread(lock);
+      }
+
+      sched.wait_for_my_turn_inner(lock, me);
     }
 
     /// Used to simulate waking all waiting threads on the thread pools
     /// condition variable.
     static void cv_notify_all()
     {
-      auto head = get().first_thread;
-      auto curr = head;
-      do
+      auto& sched = get();
       {
-        curr->sleeping = false;
-        curr = curr->next;
-      } while (curr != head);
+        std::unique_lock<std::mutex> lock(sched.m_sys);
+        // Ignore wake up after shutdown.
+        // In normal execution it is fine to notify the condition variable once
+        // the runtime has stopped.  But the implementation for systematic
+        // testing can touch deallocated state, so we guard it with this check.
+        if (sched.shutdown)
+          return;
 
-      // Can be signalled from outside the runtime if external work is injected
-      // if this is a runtime thread, then yield.
+        auto head = sched.first_thread;
+        auto curr = head;
+        do
+        {
+          if (curr->systematic_state == SystematicState::Waiting)
+          {
+            Systematic::cout()
+              << "Activating " << curr->systematic_id << Systematic::endl;
+            curr->systematic_state = SystematicState::Active;
+          }
+          curr = curr->next;
+        } while (curr != head);
+
+        // Can be signalled from outside the runtime if external work is
+        // injected if this is a runtime thread, then yield.
+        if (local() == nullptr)
+        {
+          // This will wake a thread if none are currently running, otherwise
+          // does nothing.
+          get().choose_thread(lock, true);
+        }
+      }
+      // Treate as a yield pointer if thread under systematic testing control.
       if (local() != nullptr)
         yield_my_turn();
+    }
+
+    static void thread_finished()
+    {
+      auto& sched = get();
+      auto me = local();
+      std::unique_lock<std::mutex> lock(sched.m_sys);
+      assert(me->systematic_state == SystematicState::Active);
+      me->systematic_state = SystematicState::Finished;
+
+      assert(sched.running_thread == me);
+
+      Systematic::cout() << "Thread finished." << Systematic::endl;
+
+      // Confirm at least one other thread is running,
+      auto curr = me;
+      while (curr->systematic_state != SystematicState::Active)
+      {
+        curr = curr->next;
+        if (curr == me)
+        {
+          Systematic::cout() << "Last thread finished." << Systematic::endl;
+          // No threads left
+          sched.running_thread = nullptr;
+          sched.shutdown = true;
+          return;
+        }
+      }
+      sched.choose_thread(lock);
     }
 #endif
 
@@ -279,7 +408,7 @@ namespace verona::rt
       if (in_prescan())
       {
         // During pre-scan alloc in previous epoch.
-        Systematic::cout() << "Alloc cown during pre-scan" << std::endl;
+        Systematic::cout() << "Alloc cown during pre-scan" << Systematic::endl;
         return t->prev_epoch;
       }
 
@@ -345,6 +474,8 @@ namespace verona::rt
 
     void init(size_t count)
     {
+      Systematic::cout() << "Init runtime" << Systematic::endl;
+
       if ((thread_count != 0) || (count == 0))
         abort();
 
@@ -355,21 +486,30 @@ namespace verona::rt
       teardown_in_progress = false;
 
 #ifdef USE_SYSTEMATIC_TESTING
-      running_thread = first_thread;
+      running_thread = nullptr;
 #endif
 
-      while (count > 1)
+      while (true)
       {
-        t->next = new T;
         t->systematic_id = count;
-        t = t->next;
-        count--;
-      }
-      t->systematic_id = count;
 #ifdef USE_SYSTEMATIC_TESTING
-      t->systematic_speed_mask = (1 << (Systematic::get_rng().next() % 16)) - 1;
+        t->systematic_speed_mask =
+          (1 << (Systematic::get_prng_next() % 16)) - 1;
 #endif
-      t->next = first_thread;
+        if (count > 1)
+        {
+          t->next = new T;
+          t = t->next;
+          count--;
+        }
+        else
+        {
+          t->next = first_thread;
+
+          Systematic::cout() << "Runtime initialised" << Systematic::endl;
+          return;
+        }
+      }
     }
 
     void run()
@@ -385,29 +525,40 @@ namespace verona::rt
 
       init_barrier();
 #ifdef USE_SYSTEMATIC_TESTING
-      choose_thread();
+      {
+        std::unique_lock<std::mutex> lock(m_sys);
+        shutdown = false;
+        choose_thread(lock, true);
+      }
 #endif
 
       size_t i = 0;
       T* t = first_thread;
 
-      Systematic::cout() << "Starting all threads" << std::endl;
-
+      Systematic::cout() << "Starting all threads" << Systematic::endl;
       do
       {
         t->template start<Args...>(topology.get(i++), startup, args...);
         t = t->next;
       } while (t != first_thread);
+      Systematic::cout() << "All threads started" << Systematic::endl;
 
-      t = first_thread;
+      assert(t == first_thread);
+      do
+      {
+        t->block_until_finished();
+        t = t->next;
+      } while (t != first_thread);
+      Systematic::cout() << "All threads stopped" << Systematic::endl;
 
+      assert(t == first_thread);
       do
       {
         T* next = t->next;
         delete t;
         t = next;
       } while (t != first_thread);
-      Systematic::cout() << "All threads stopped" << std::endl;
+      Systematic::cout() << "All threads deallocated" << Systematic::endl;
 
       first_thread = nullptr;
       incarnation++;
@@ -433,6 +584,21 @@ namespace verona::rt
       return state.next(s, thread_count);
     }
 
+    bool check_for_work()
+    {
+      // TODO: check for pending async IO
+      T* t = first_thread;
+      do
+      {
+        if (!t->q.is_empty())
+        {
+          return true;
+        }
+        t = t->next;
+      } while (t != first_thread);
+      return false;
+    }
+
     bool pause(uint64_t tsc)
     {
 #ifndef USE_SYSTEMATIC_TESTING
@@ -444,7 +610,7 @@ namespace verona::rt
 
       {
         std::unique_lock<std::mutex> lock(m);
-        Systematic::cout() << "Pausing" << std::endl;
+        Systematic::cout() << "Pausing" << Systematic::endl;
         if (active_thread_count > 1)
         {
           active_thread_count--;
@@ -456,95 +622,90 @@ namespace verona::rt
           cv.wait(lock);
 #endif
           active_thread_count++;
-          Systematic::cout() << "Unpausing" << std::endl;
+          Systematic::cout() << "Unpausing" << Systematic::endl;
           return true;
         }
 
-        // TODO: check for pending async IO
-        T* t = first_thread;
-        do
-        {
-          if (!t->q.is_empty())
-          {
-// Something has been scheduled LIFO, and the unpause was missed,
-// restart everybody.
-#ifdef USE_SYSTEMATIC_TESTING
-            lock.unlock();
-            cv_notify_all();
-#else
-            cv.notify_all();
-#endif
-            return true;
-          }
-          t = t->next;
-        } while (t != first_thread);
-
-        if (external_event_sources.load(std::memory_order_seq_cst) != 0)
+        bool has_external_sources =
+          external_event_sources.load(std::memory_order_seq_cst) != 0;
+        if (has_external_sources)
         {
           assert((runtime_pausing & 1) == 0);
           runtime_pausing++;
+          // Ensure this is visible to `unpause` before we check for
+          // new work.
           Barrier::memory();
+        }
 
-          t = first_thread;
-          do
+        if (check_for_work())
+        {
+          // Something has been scheduled LIFO, and the unpause was missed,
+          // restart everybody.
+          Systematic::cout()
+            << "Still work left, back out pause." << Systematic::endl;
+
+          if (has_external_sources)
           {
-            if (!t->q.is_empty())
-            {
-              Systematic::cout() << "Still work left" << std::endl;
-              runtime_pausing++;
+            assert((runtime_pausing & 1) == 1);
+            // Cancel pausing state
+            runtime_pausing++;
+          }
 #ifdef USE_SYSTEMATIC_TESTING
-              cv_notify_all();
+          lock.unlock();
+          cv_notify_all();
 #else
-              cv.notify_all();
-#endif
-              return true;
-            }
-            t = t->next;
-          } while (t != first_thread);
-
-          Systematic::cout() << "Runtime pausing" << std::endl;
-          cv.wait(lock);
-
-          Systematic::cout() << "Runtime unpausing" << std::endl;
-          runtime_pausing++;
           cv.notify_all();
-
+#endif
           return true;
         }
 
+        if (has_external_sources)
+        {
+          Systematic::cout() << "Runtime pausing" << Systematic::endl;
+          // Wait for external wake-up
+#ifdef USE_SYSTEMATIC_TESTING
+          lock.unlock();
+          cv_wait();
+          lock.lock();
+#else
+          cv.wait(lock);
+#endif
+
+          Systematic::cout() << "Runtime unpausing" << Systematic::endl;
+          assert((runtime_pausing & 1) == 1);
+          runtime_pausing++;
+          return true;
+        }
+
+        Systematic::cout() << "Teardown beginning" << Systematic::endl;
         // Used to handle deallocating all the state of the threads.
-        Systematic::cout() << "Teardown beginning" << std::endl;
         teardown_in_progress = true;
 
-        t = first_thread;
-#ifdef USE_SYSTEMATIC_TESTING
-        running_thread = nullptr;
-#endif
+        // Tell all threads to stop looking for work.
+        T* t = first_thread;
         do
         {
           t->stop();
           t = t->next;
         } while (t != first_thread);
-        Systematic::cout() << "Teardown: all threads stopped" << std::endl;
+        Systematic::cout() << "Teardown: all threads stopped"
+                           << Systematic::endl;
       }
-      Systematic::cout() << "cv_notify_all() for teardown" << std::endl;
+      Systematic::cout() << "cv_notify_all() for teardown" << Systematic::endl;
 #ifdef USE_SYSTEMATIC_TESTING
-      T* t = first_thread;
-      do
-      {
-        t->cv.notify_all();
-        t = t->next;
-      } while (t != first_thread);
+      cv_notify_all();
 #else
       cv.notify_all();
 #endif
       Systematic::cout() << "Teardown: all threads beginning teardown"
-                         << std::endl;
+                         << Systematic::endl;
       return true;
     }
 
     bool unpause()
     {
+      Systematic::cout() << "unpause()" << Systematic::endl;
+      // Work should be added before checking for the runtime_pause.
       Barrier::compiler();
 
       uint32_t pausing = runtime_pausing;
@@ -560,7 +721,7 @@ namespace verona::rt
           cv.notify_all();
 #endif
         } while (runtime_pausing == pausing);
-        Systematic::cout() << "Unpausing other threads." << std::endl;
+        Systematic::cout() << "Unpausing other threads." << Systematic::endl;
 
         return true;
       }
@@ -586,7 +747,7 @@ namespace verona::rt
 #else
       cv.notify_all();
 #endif
-      Systematic::cout() << "Unpausing other threads." << std::endl;
+      Systematic::cout() << "Unpausing other threads." << Systematic::endl;
 
       return true;
     }
@@ -598,17 +759,33 @@ namespace verona::rt
 
     void enter_barrier()
     {
+      auto inc = barrier_incarnation;
       {
         std::unique_lock<std::mutex> lock(m);
         barrier_count--;
         if (barrier_count != 0)
         {
-          cv.wait(lock);
+          while (inc == barrier_incarnation)
+          {
+#ifdef USE_SYSTEMATIC_TESTING
+            lock.unlock();
+            cv_wait();
+            lock.lock();
+#else
+            cv.wait(lock);
+#endif
+          }
           return;
         }
         barrier_count = thread_count;
       }
+
+      barrier_incarnation++;
+#ifdef USE_SYSTEMATIC_TESTING
+      cv_notify_all();
+#else
       cv.notify_all();
+#endif
     }
   };
 } // namespace verona::rt

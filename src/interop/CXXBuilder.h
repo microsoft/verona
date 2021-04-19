@@ -82,17 +82,145 @@ namespace verona::interop
         assert(InstantiationLoc.isValid());
         S.InstantiateClassTemplateSpecialization(
           InstantiationLoc, Decl, clang::TSK_ExplicitInstantiationDefinition);
+        S.InstantiateClassTemplateSpecializationMembers(
+          InstantiationLoc, Decl, clang::TSK_ExplicitInstantiationDefinition);
         Def = clang::cast<clang::ClassTemplateSpecializationDecl>(
           Decl->getDefinition());
       }
+
+      auto* DC = ast->getTranslationUnitDecl();
+      DC->addDecl(Def);
       return CXXType{Def};
     }
 
     /**
-     * Instantiate a new function at the end of the main file, if not yet done.
+     * Get a CXXMethod expression as a function pointer
      */
-    clang::FunctionDecl* instantiateFunction(
-      const char* name, llvm::ArrayRef<CXXType> args, CXXType ret) const
+    clang::Expr* getCXXMethodPtr(
+      clang::CXXMethodDecl* method, clang::SourceLocation loc) const
+    {
+      clang::DeclarationNameInfo info;
+      clang::NestedNameSpecifierLoc spec;
+
+      // TODO: Implement dynamic calls (MemberExpr)
+      assert(method->isStatic());
+
+      // Create a method reference expression
+      auto funcTy = method->getFunctionType();
+      auto funcQualTy = clang::QualType(funcTy, 0);
+      auto expr = clang::DeclRefExpr::Create(
+        *ast,
+        spec,
+        loc,
+        method,
+        /*capture=*/false,
+        info,
+        funcQualTy,
+        clang::VK_LValue);
+
+      // Implicit cast to function pointer
+      auto implCast = clang::ImplicitCastExpr::Create(
+        *ast,
+        ast->getPointerType(funcQualTy),
+        clang::CK_FunctionToPointerDecay,
+        expr,
+        /*base path=*/nullptr,
+        clang::VK_RValue,
+        clang::FPOptionsOverride());
+
+      return implCast;
+    }
+
+    /**
+     * Call a CXXMethod (pointer or member)
+     */
+    clang::Expr* callCXXMethod(
+      clang::CXXMethodDecl* method,
+      clang::Expr* expr,
+      llvm::ArrayRef<clang::Expr*> args,
+      clang::QualType retTy,
+      clang::SourceLocation loc) const
+    {
+      if (method->isStatic())
+      {
+        // Static call to a member pointer
+        assert(llvm::dyn_cast<clang::ImplicitCastExpr>(expr));
+
+        return clang::CallExpr::Create(
+          *ast,
+          expr,
+          args,
+          retTy,
+          clang::VK_RValue,
+          loc,
+          clang::FPOptionsOverride());
+      }
+      else
+      {
+        // Dynamic call to MemberExpr
+        assert(llvm::dyn_cast<clang::MemberExpr>(expr));
+
+        return clang::CXXMemberCallExpr::Create(
+          *ast,
+          expr,
+          args,
+          retTy,
+          clang::VK_RValue,
+          loc,
+          clang::FPOptionsOverride());
+      }
+    }
+
+    /**
+     * Return the actual type from a template specialisation if the type
+     * is a substitution template type, otherwise just return the type itself.
+     */
+    clang::QualType getSpecialisedType(clang::QualType ty) const
+    {
+      if (auto tmplTy = ty->getAs<clang::SubstTemplateTypeParmType>())
+        return tmplTy->getReplacementType();
+      return ty;
+    }
+
+  public:
+    /**
+     * CXXInterface c-tor. Creates the internal compile unit, include the
+     * user file (and all dependencies), generates the pre-compiled headers,
+     * creates the compiler instance and re-attaches the AST to the interface.
+     */
+    CXXBuilder(clang::ASTContext* ast, Compiler* Clang, const CXXQuery* query)
+    : ast(ast), Clang(Clang), query(query)
+    {}
+
+    /**
+     * Build a template class from a CXXType template and a list of type
+     * parameters by name.
+     *
+     * FIXME: Recursively scan the params for template parameters and define
+     * them too.
+     */
+    CXXType
+    buildTemplateType(CXXType& ty, llvm::ArrayRef<std::string> params) const
+    {
+      // Gather all arguments, passed and default
+      auto args = query->gatherTemplateArguments(ty, params);
+
+      // Build the canonical representation
+      clang::QualType canon =
+        query->getCanonicalTemplateSpecializationType(ty.decl, args);
+
+      // Instantiate and return the definition
+      return instantiateClassTemplate(ty, args);
+    }
+
+    /**
+     * Build a function from name, args and return type, if the function
+     * does not yet exist. Return the existing one if it does.
+     */
+    clang::FunctionDecl* buildFunction(
+      llvm::StringRef name,
+      llvm::ArrayRef<clang::QualType> args,
+      clang::QualType retTy) const
     {
       auto* DC = ast->getTranslationUnitDecl();
       clang::SourceLocation loc = Clang->getEndOfFileLocation();
@@ -100,11 +228,15 @@ namespace verona::interop
       clang::DeclarationName fnName{&fnNameIdent};
       clang::FunctionProtoType::ExtProtoInfo EPI;
 
-      // Get type of args/ret, function
+      // Simplify argument types if template specialisation
       llvm::SmallVector<clang::QualType> argTys;
       for (auto argTy : args)
-        argTys.push_back(query->getQualType(argTy));
-      auto retTy = query->getQualType(ret);
+      {
+        argTys.push_back(getSpecialisedType(argTy));
+      }
+      retTy = getSpecialisedType(retTy);
+
+      // Get function type of args/ret
       clang::QualType fnTy = ast->getFunctionType(retTy, argTys, EPI);
 
       // Create a new function
@@ -148,49 +280,6 @@ namespace verona::interop
       return func;
     }
 
-  public:
-    /**
-     * CXXInterface c-tor. Creates the internal compile unit, include the
-     * user file (and all dependencies), generates the pre-compiled headers,
-     * creates the compiler instance and re-attaches the AST to the interface.
-     */
-    CXXBuilder(clang::ASTContext* ast, Compiler* Clang, const CXXQuery* query)
-    : ast(ast), Clang(Clang), query(query)
-    {}
-
-    /**
-     * Build a template class from a CXXType template and a list of type
-     * parameters by name.
-     *
-     * FIXME: Recursively scan the params for template parameters and define
-     * them too.
-     */
-    CXXType
-    buildTemplateType(CXXType& ty, llvm::ArrayRef<std::string> params) const
-    {
-      // Gather all arguments, passed and default
-      auto args = query->gatherTemplateArguments(ty, params);
-
-      // Build the canonical representation
-      clang::QualType canon =
-        query->getCanonicalTemplateSpecializationType(ty.decl, args);
-
-      // Instantiate and return the definition
-      return instantiateClassTemplate(ty, args);
-    }
-
-    /**
-     * Build a function from name, args and return type, if the function
-     * does not yet exist. Return the existing one if it does.
-     *
-     * FIXME: Should check for template parameters, too.
-     */
-    clang::FunctionDecl* buildFunction(
-      const char* name, llvm::ArrayRef<CXXType> args, CXXType ret) const
-    {
-      return instantiateFunction(name, args, ret);
-    }
-
     /**
      * Create integer constant literal
      *
@@ -206,6 +295,64 @@ namespace verona::interop
         query->getQualType(CXXType::getInt()),
         clang::SourceLocation{});
       return lit;
+    }
+
+    /**
+     * Create a call instruction
+     *
+     * TODO: Create all the ones we use in code generation
+     */
+    clang::Expr* createMemberCall(
+      clang::CXXMethodDecl* method,
+      llvm::ArrayRef<clang::ParmVarDecl*> args,
+      clang::QualType retTy,
+      clang::FunctionDecl* caller) const
+    {
+      clang::SourceLocation loc = caller->getLocation();
+      clang::DeclarationNameInfo info;
+      clang::NestedNameSpecifierLoc spec;
+      auto& S = Clang->getSema();
+
+      // Create an expression for each argument
+      llvm::SmallVector<clang::Expr*, 1> argExpr;
+      for (auto arg : args)
+      {
+        // Get expression from declaration
+        auto e = clang::DeclRefExpr::Create(
+          *ast,
+          spec,
+          loc,
+          arg,
+          /*capture=*/false,
+          info,
+          arg->getType(),
+          clang::VK_LValue);
+
+        // Implicit cast to r-value
+        auto cast = clang::ImplicitCastExpr::Create(
+          *ast,
+          e->getType(),
+          clang::CK_LValueToRValue,
+          e,
+          /*base path=*/nullptr,
+          clang::VK_RValue,
+          clang::FPOptionsOverride());
+
+        argExpr.push_back(cast);
+      }
+
+      // Create a call to the method
+      auto expr = getCXXMethodPtr(method, loc);
+      auto callStmt = callCXXMethod(method, expr, argExpr, retTy, loc);
+      auto compStmt = clang::CompoundStmt::Create(*ast, {callStmt}, loc, loc);
+
+      // Mark method as used
+      clang::AttributeCommonInfo CommonInfo = {clang::SourceRange{}};
+      method->addAttr(clang::UsedAttr::Create(S.Context, CommonInfo));
+
+      // Update the body and return
+      caller->setBody(callStmt);
+      return callStmt;
     }
 
     /**

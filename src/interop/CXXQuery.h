@@ -13,6 +13,9 @@
 #include <clang/Sema/TemplateDeduction.h>
 #include <llvm/Support/SmallVectorMemoryBuffer.h>
 
+// Makes matcher syntax so much clearer
+using namespace clang::ast_matchers;
+
 namespace verona::interop
 {
   class CXXInterface;
@@ -39,34 +42,35 @@ namespace verona::interop
     Compiler* Clang;
 
     /**
-     * Simple handler for indirect dispatch on a Clang AST matcher.
+     * Simple handler for indirect dispatch on a CXXType AST matcher.
      *
      * Use:
      * ```
-     *  void myfunc(MatchFinder::MatchResult &);
      *  MatchFinder f;
-     *  f.addMatcher(new HandleMatch(myfunc));
+     *  f.addMatcher(new CXXTypeMatch<clang::CXXRecordDecl>(cxxTy));
      *  f.matchAST(*ast);
-     *  // If matches, runs `myfunc` on the matched AST node.
+     *  // If matches, puts result in `cxxTy`
      * ```
      */
-    class HandleMatch : public clang::ast_matchers::MatchFinder::MatchCallback
+    template<class DeclTy>
+    class CXXTypeMatch : public MatchFinder::MatchCallback
     {
-      std::function<void(
-        const clang::ast_matchers::MatchFinder::MatchResult& Result)>
-        handler;
-      void
-      run(const clang::ast_matchers::MatchFinder::MatchResult& Result) override
+      /// Type store owned by caller
+      CXXType& store;
+
+      /// Store the match on the caller's CXXType if empty
+      void run(const MatchFinder::MatchResult& Result) override
       {
-        handler(Result);
+        auto* decl = Result.Nodes.getNodeAs<DeclTy>("id");
+        // Only store the first match (FIXME?)
+        if (decl && !store.valid())
+        {
+          store = CXXType(decl);
+        }
       }
 
     public:
-      HandleMatch(
-        std::function<
-          void(const clang::ast_matchers::MatchFinder::MatchResult& Result)> h)
-      : handler(h)
-      {}
+      CXXTypeMatch(CXXType& store) : store(store) {}
     };
 
     /**
@@ -172,81 +176,45 @@ namespace verona::interop
      */
     CXXType getType(std::string name) const
     {
-      name = "::" + name;
-      clang::ast_matchers::MatchFinder finder;
-      const clang::EnumDecl* foundEnum = nullptr;
-      const clang::CXXRecordDecl* foundClass = nullptr;
-      const clang::ClassTemplateDecl* foundTemplateClass = nullptr;
+      // Check for builtins first to avoid a trip down the AST
+      CXXType ty = llvm::StringSwitch<CXXType>(name)
+                     .Case("bool", CXXType::getBoolean())
+                     .Case("unsigned char", CXXType::getUnsignedChar())
+                     .Case("char", CXXType::getChar())
+                     .Case("signed char", CXXType::getSignedChar())
+                     .Case("short", CXXType::getShort())
+                     .Case("unsigned short", CXXType::getUnsignedShort())
+                     .Case("int", CXXType::getInt())
+                     .Case("unsigned int", CXXType::getUnsignedInt())
+                     .Case("long", CXXType::getLong())
+                     .Case("unsigned long", CXXType::getUnsignedLong())
+                     .Case("long long", CXXType::getLongLong())
+                     .Case("unsigned long long", CXXType::getUnsignedLongLong())
+                     .Case("float", CXXType::getFloat())
+                     .Case("double", CXXType::getDouble())
+                     .Default(CXXType());
 
+      // If type is builtin, early return
+      if (ty.valid())
+        return ty;
+
+      // Search for class, enum or template.
+      name = "::" + name;
+      MatchFinder finder;
       finder.addMatcher(
-        clang::ast_matchers::cxxRecordDecl(clang::ast_matchers::hasName(name))
-          .bind("id"),
-        new HandleMatch(
-          [&](const clang::ast_matchers::MatchFinder::MatchResult& Result) {
-            auto* decl = Result.Nodes.getNodeAs<clang::CXXRecordDecl>("id")
-                           ->getDefinition();
-            if (decl)
-            {
-              foundClass = decl;
-            }
-          }));
+        cxxRecordDecl(hasName(name)).bind("id"),
+        new CXXTypeMatch<clang::CXXRecordDecl>(ty));
       finder.addMatcher(
-        clang::ast_matchers::classTemplateDecl(
-          clang::ast_matchers::hasName(name))
-          .bind("id"),
-        new HandleMatch(
-          [&](const clang::ast_matchers::MatchFinder::MatchResult& Result) {
-            auto* decl = Result.Nodes.getNodeAs<clang::ClassTemplateDecl>("id");
-            if (decl)
-            {
-              foundTemplateClass = decl;
-            }
-          }));
+        classTemplateDecl(hasName(name)).bind("id"),
+        new CXXTypeMatch<clang::ClassTemplateDecl>(ty));
       finder.addMatcher(
-        clang::ast_matchers::enumDecl(clang::ast_matchers::hasName(name))
-          .bind("id"),
-        new HandleMatch(
-          [&](const clang::ast_matchers::MatchFinder::MatchResult& Result) {
-            auto* decl = Result.Nodes.getNodeAs<clang::EnumDecl>("id");
-            if (decl)
-            {
-              foundEnum = decl;
-            }
-          }));
+        enumDecl(hasName(name)).bind("id"),
+        new CXXTypeMatch<clang::EnumDecl>(ty));
       finder.matchAST(*ast);
 
-      // Should only match one, so this is fine.
-      if (foundTemplateClass)
-      {
-        return CXXType(foundTemplateClass);
-      }
-      if (foundClass)
-      {
-        return CXXType(foundClass);
-      }
-      if (foundEnum)
-      {
-        return CXXType(foundEnum);
-      }
-
-      // If didn't match any type, check for builtins
-      return llvm::StringSwitch<CXXType>(name)
-        .Case("::bool", CXXType::getBoolean())
-        .Case("::unsigned char", CXXType::getUnsignedChar())
-        .Case("::char", CXXType::getChar())
-        .Case("::signed char", CXXType::getSignedChar())
-        .Case("::short", CXXType::getShort())
-        .Case("::unsigned short", CXXType::getUnsignedShort())
-        .Case("::int", CXXType::getInt())
-        .Case("::unsigned int", CXXType::getUnsignedInt())
-        .Case("::long", CXXType::getLong())
-        .Case("::unsigned long", CXXType::getUnsignedLong())
-        .Case("::long long", CXXType::getLongLong())
-        .Case("::unsigned long long", CXXType::getUnsignedLongLong())
-        .Case("::float", CXXType::getFloat())
-        .Case("::double", CXXType::getDouble())
-        // Otherwise, just return empty invalid type
-        .Default(CXXType());
+      // Return the type matched directly.
+      // If there was no match, the type is still invalid
+      return ty;
     }
 
     /**
@@ -291,12 +259,16 @@ namespace verona::interop
     /**
      * Get field by name from a (template) class type. Returns nullptr if
      * the field doesn't exist or type isn't class/struct.
+     *
+     * FIXME: Do we also need to pass the type?
      */
     clang::FieldDecl* getField(CXXType& ty, llvm::StringRef name) const
     {
+      // Type must be a class (TODO: should this be an assert?)
       if (!ty.isClass())
         return nullptr;
 
+      // Compare the name, maybe we need to compare the types, too?
       auto decl = ty.getAs<clang::CXXRecordDecl>();
       for (auto field : decl->fields())
       {
@@ -304,6 +276,50 @@ namespace verona::interop
           return field;
       }
 
+      // We couldn't find anything
+      return nullptr;
+    }
+
+    /**
+     * Get function by name and signature from a (template) class type.
+     * Returns nullptr if the function doesn't exist or type isn't class/struct.
+     */
+    clang::CXXMethodDecl* getMethod(
+      CXXType& ty, llvm::StringRef name, llvm::ArrayRef<std::string> args) const
+    {
+      // Type must be a class (TODO: should this be an assert?)
+      if (!ty.isClass())
+        return nullptr;
+
+      auto decl = ty.getAs<clang::CXXRecordDecl>();
+      for (auto m : decl->methods())
+      {
+        auto func = llvm::dyn_cast<clang::FunctionDecl>(m);
+        // First, compare the function name, must be the same
+        if (func->getName() != name)
+          continue;
+
+        // Quick fail for number of arguments
+        if (args.size() != func->parameters().size())
+          continue;
+
+        // Then make sure the argument types are the same, too
+        auto compare =
+          [this](const clang::ParmVarDecl* parm, const std::string& str) {
+            auto parmTy = parm->getOriginalType()->getPointeeType();
+            auto argTy = getQualType(getType(str))->getPointeeType();
+            return parmTy == argTy;
+          };
+        if (std::equal(
+              func->param_begin(), func->param_end(), args.begin(), compare))
+        {
+          return m;
+        }
+
+        // Otherwise, just continue and try the next
+      }
+
+      // We couldn't find anything
       return nullptr;
     }
 

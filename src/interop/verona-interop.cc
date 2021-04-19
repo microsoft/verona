@@ -63,9 +63,21 @@ namespace
 
   cl::list<string> fields(
     "fields",
-    cl::desc("<list of filed to query>"),
+    cl::desc("<list of fields to query>"),
     cl::CommaSeparated,
     cl::value_desc("fields"));
+
+  cl::opt<string> method(
+    "method",
+    cl::desc("<single method to query>"),
+    cl::Optional,
+    cl::value_desc("method"));
+
+  cl::list<string> argTys(
+    "argTys",
+    cl::desc("<list of method's argument types to query>"),
+    cl::CommaSeparated,
+    cl::value_desc("argTys"));
 
   /// Add new option to arguments array
   void addArgOption(vector<char*>& args, char* arg, size_t len)
@@ -121,16 +133,45 @@ namespace
       args.size(), args.data(), "Verona Interop test\n");
   }
 
-  /// Prints a type to stdout
-  void printType(CXXType& ty)
+  /// Test call
+  void test_call(
+    CXXType& context,
+    clang::CXXMethodDecl* func,
+    llvm::ArrayRef<clang::QualType> argTys,
+    clang::QualType retTy,
+    const CXXInterface& interface)
   {
-    assert(ty.valid());
-    auto kind = ty.kindName();
-    auto name = ty.getName().str();
-    cout << name << " " << kind;
-    if (ty.kind == CXXType::Kind::Builtin)
-      cout << "(" << ty.builtinKindName() << ")";
-    cout << endl;
+    const CXXQuery* query = interface.getQuery();
+    const CXXBuilder* builder = interface.getBuilder();
+
+    // Build a unique name (per class/method)
+    string fqName = context.getName().str();
+    if (context.isTemplate())
+    {
+      auto params = context.getTemplateParameters();
+      if (params)
+      {
+        for (auto* decl : *params)
+        {
+          fqName += "_" + decl->getNameAsString();
+        }
+      }
+      fqName += "_";
+    }
+    fqName += func->getName().str();
+    string wrapperName = "__call_to_" + fqName;
+
+    // Create a function with a hygienic name and the same args
+    auto caller = builder->buildFunction(wrapperName, argTys, retTy);
+
+    // Collect arguments
+    auto args = caller->parameters();
+
+    // Create the call to the actual function
+    auto call = builder->createMemberCall(func, args, retTy, caller);
+
+    // Return the call's value
+    builder->createReturn(call, caller);
   }
 
   /// Test a type
@@ -138,9 +179,11 @@ namespace
     llvm::StringRef name,
     llvm::ArrayRef<std::string> args,
     llvm::ArrayRef<std::string> fields,
-    const CXXQuery* query,
-    const CXXBuilder* builder)
+    const CXXInterface& interface)
   {
+    const CXXQuery* query = interface.getQuery();
+    const CXXBuilder* builder = interface.getBuilder();
+
     // Find type
     CXXType ty = query->getType(symbol);
     if (!ty.valid())
@@ -150,8 +193,10 @@ namespace
     }
 
     // Print type name and kind
-    cout << "Found: ";
-    printType(ty);
+    cout << "Type '" << ty.getName().str() << "' as " << ty.kindName();
+    if (ty.kind == CXXType::Kind::Builtin)
+      cout << " (" << ty.builtinKindName() << ")";
+    cout << endl;
 
     // Try and specialize a template
     // TODO: Should this be part of getType()?
@@ -166,6 +211,7 @@ namespace
     cout << "Size of " << ty.getName().str() << " is " << query->getTypeSize(ty)
          << " bytes" << endl;
 
+    // If requested any field to lookup, by name
     for (auto f : fields)
     {
       auto field = query->getField(ty, f);
@@ -181,14 +227,45 @@ namespace
       cout << "Field '" << field->getName().str() << "' has " << tyClass
            << " type '" << tyName << "'" << endl;
     }
+
+    // If requested any method to lookup, by name and arg types
+    if (!method.empty())
+    {
+      auto func = query->getMethod(ty, method, argTys);
+      if (!func)
+      {
+        cerr << "Invalid method '" << method << "' on type '"
+             << ty.getName().str() << "'" << endl;
+        exit(1);
+      }
+      auto fName = func->getName().str();
+      cout << "Method '" << fName << "' with signature: (";
+      llvm::SmallVector<clang::QualType, 1> argTys;
+      for (auto arg : func->parameters())
+      {
+        if (arg != *func->param_begin())
+          cout << ", ";
+        auto argTy = arg->getType();
+        argTys.push_back(argTy);
+        cout << argTy.getAsString() << " " << arg->getName().str();
+      }
+      auto retTy = func->getReturnType();
+      cout << ") -> " << retTy.getAsString() << endl;
+
+      // Instantiate function in AST that calls this method
+      test_call(ty, func, argTys, retTy, interface);
+    }
   }
 
   /// Creates a test function
-  void test_function(const char* name, const CXXBuilder* builder)
+  void test_function(const char* name, const CXXInterface& interface)
   {
+    const CXXQuery* query = interface.getQuery();
+    const CXXBuilder* builder = interface.getBuilder();
+
     // Create a new function on the main file
-    auto intTy = CXXType::getInt();
-    llvm::SmallVector<CXXType, 1> args{intTy};
+    auto intTy = query->getQualType(CXXType::getInt());
+    llvm::SmallVector<clang::QualType, 1> args{intTy};
 
     // Create new function
     auto func = builder->buildFunction(name, args, intTy);
@@ -209,26 +286,31 @@ int main(int argc, char** argv)
 
   // Create the C++ interface
   CXXInterface interface(inputFile, includePath);
-  const CXXQuery* query = interface.getQuery();
-  const CXXBuilder* builder = interface.getBuilder();
 
   // Test type query
   if (!symbol.empty())
   {
-    test_type(symbol, specialization, fields, query, builder);
+    test_type(symbol, specialization, fields, interface);
   }
 
   // Test function creation
   if (testFunction)
   {
-    test_function("verona_wrapper_fn_1", builder);
+    test_function("verona_wrapper_fn_1", interface);
+  }
+
+  // Dumps the AST before trying to emit LLVM for debugging purposes
+  // NOTE: Output is not stable, don't use it for tests
+  if (dumpIR)
+  {
+    interface.dumpAST();
   }
 
   // Emit whatever is left on the main file
   // This is silent, just to make sure nothing breaks here
   auto mod = interface.emitLLVM();
 
-  // This just dumps everything, for debugging purposes
+  // Dump LLVM IR for debugging purposes
   // NOTE: Output is not stable, don't use it for tests
   if (dumpIR)
   {

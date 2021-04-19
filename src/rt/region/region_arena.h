@@ -549,7 +549,8 @@ namespace verona::rt
       // Don't trace or finalise o, we'll do it when looping over the large
       // object ring or the arena list.
 
-      Systematic::cout() << "Region release: arena region: " << o << std::endl;
+      Systematic::cout() << "Region release: arena region: " << o
+                         << Systematic::endl;
 
       // Clean up all the non-trivial objects, by running the finaliser and
       // destructor, and collecting iso regions.

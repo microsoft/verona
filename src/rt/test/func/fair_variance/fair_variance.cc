@@ -84,7 +84,8 @@ void assert_variance()
     {
       printf("cown[%d] took %f\n", i, elapsed_secs[i]);
     }
-    check(!"variance too large");
+    printf("variance too large");
+    check(false);
   }
   UNUSED(min);
   UNUSED(max);

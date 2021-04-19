@@ -1,0 +1,3 @@
+Type 'SFoo' as Class Template
+Size of SFoo is 4 bytes
+Method 'id' with signature: (int arg) -> int

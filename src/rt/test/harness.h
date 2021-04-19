@@ -38,6 +38,12 @@ public:
 
   SystematicTestHarness(int argc, char** argv) : opt(argc, argv)
   {
+    for (int i = 0; i < argc; i++)
+    {
+      std::cout << " " << argv[i];
+    }
+    std::cout << std::endl;
+
     start = high_resolution_clock::now();
     seed_lower = opt.is<size_t>("--seed", 5489);
     seed_upper = opt.is<size_t>("--seed_upper", seed_lower) + 1;
@@ -57,11 +63,8 @@ public:
     }
 
     cores = opt.is<size_t>("--cores", 4);
-    std::cout << " --cores " << cores << std::endl;
 
     detect_leaks = !opt.has("--allow_leaks");
-    if (!detect_leaks)
-      std::cout << " --allow_leaks " << std::endl;
     Scheduler::set_detect_leaks(detect_leaks);
 
 #if defined(_WIN32) && defined(CI_BUILD)
