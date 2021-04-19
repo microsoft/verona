@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "cpu.h"
+#include "../pal/threadpoolbuilder.h"
 #include "test/systematic.h"
 #include "threadstate.h"
 
@@ -76,7 +76,6 @@ namespace verona::rt
     bool fair = false;
 
     ThreadState state;
-    Topology topology;
 
   public:
     static ThreadPool<T>& get()
@@ -520,7 +519,6 @@ namespace verona::rt
     template<typename... Args>
     void run_with_startup(void (*startup)(Args...), Args... args)
     {
-      topology.acquire();
       active_thread_count = thread_count;
 
       init_barrier();
@@ -532,23 +530,19 @@ namespace verona::rt
       }
 #endif
 
-      size_t i = 0;
       T* t = first_thread;
-
-      Systematic::cout() << "Starting all threads" << Systematic::endl;
-      do
       {
-        t->template start<Args...>(topology.get(i++), startup, args...);
-        t = t->next;
-      } while (t != first_thread);
-      Systematic::cout() << "All threads started" << Systematic::endl;
+        ThreadPoolBuilder builder(thread_count);
 
-      assert(t == first_thread);
-      do
-      {
-        t->block_until_finished();
-        t = t->next;
-      } while (t != first_thread);
+        Systematic::cout() << "Starting all threads" << Systematic::endl;
+        do
+        {
+          builder.add_thread(&T::run, t, startup, args...);
+          t = t->next;
+        } while (t != first_thread);
+
+        Systematic::cout() << "All threads started" << Systematic::endl;
+      }
       Systematic::cout() << "All threads stopped" << Systematic::endl;
 
       assert(t == first_thread);
@@ -568,7 +562,6 @@ namespace verona::rt
       thread_count = 0;
       active_thread_count = 0;
       state.reset<ThreadState::NotInLD>();
-      topology.release();
 
       Epoch::flush(ThreadAlloc::get());
     }

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "cpu.h"
 #include "ds/hashmap.h"
 #include "ds/mpscq.h"
 #include "object/object.h"
@@ -88,9 +87,7 @@ namespace verona::rt
 
     EpochMark send_epoch = EpochMark::EPOCH_A;
     EpochMark prev_epoch = EpochMark::EPOCH_B;
-    size_t affinity = (size_t)-1;
 
-    std::thread t;
     ThreadState::State state = ThreadState::State::NotInLD;
     SchedulerStats stats;
 
@@ -121,19 +118,9 @@ namespace verona::rt
       token_cown->set_owning_thread(this);
     }
 
-    void block_until_finished()
+    ~SchedulerThread()
     {
-      if (t.joinable())
-        t.join();
-
       assert(mute_set.size() == 0);
-    }
-
-    template<typename... Args>
-    inline void start(size_t af, void (*startup)(Args...), Args... args)
-    {
-      affinity = af;
-      t = std::thread(&SchedulerThread::run<Args...>, this, startup, args...);
     }
 
     inline void stop()
@@ -226,6 +213,12 @@ namespace verona::rt
       mute_set.clear(alloc);
     }
 
+    template<typename... Args>
+    static void run(SchedulerThread* t, void (*startup)(Args...), Args... args)
+    {
+      t->run_inner(startup, args...);
+    }
+
     /**
      * Startup is supplied to initialise thread local state before the runtime
      * starts.
@@ -233,15 +226,9 @@ namespace verona::rt
      * This is used for initialising the interpreters per-thread data-structures
      **/
     template<typename... Args>
-    void run(void (*startup)(Args...), Args... args)
+    void run_inner(void (*startup)(Args...), Args... args)
     {
       startup(args...);
-      // Don't use affinity with systematic testing.  We're only ever running
-      // one thread at a time in systematic testing mode and by pinning each
-      // thread to a core we massively increase contention.
-#ifndef USE_SYSTEMATIC_TESTING
-      cpu::set_affinity(affinity);
-#endif
 
       Scheduler::local() = this;
       alloc = ThreadAlloc::get();
