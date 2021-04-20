@@ -7,22 +7,28 @@
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/ExecutionEngine/ExecutionEngine.h"
+#include "mlir/ExecutionEngine/OptUtils.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/Verifier.h"
 #include "mlir/Parser.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/Transforms/Passes.h"
 #include "passes.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 
 namespace mlir::verona
 {
   Driver::Driver(unsigned optLevel)
-  : passManager(&context), diagnosticHandler(sourceManager, &context)
+  : optLevel(optLevel),
+    passManager(&context),
+    diagnosticHandler(sourceManager, &context)
   {
     context.getOrLoadDialect<mlir::StandardOpsDialect>();
     context.getOrLoadDialect<mlir::memref::MemRefDialect>();
@@ -117,11 +123,31 @@ namespace mlir::verona
       return runtimeError("Failed to lower to LLVM dialect");
     }
 
+    // Register the translation to LLVM IR with the MLIR context.
+    mlir::registerLLVMDialectTranslation(*module->getContext());
+
     // Then lower to LLVM IR
     llvm::LLVMContext llvmContext;
     auto llvm = mlir::translateModuleToLLVMIR(module.get(), llvmContext);
     if (!llvm)
       return runtimeError("Failed to lower to LLVM IR");
+
+    // Optimise if requested
+    if (optLevel)
+    {
+      // Initialize LLVM targets.
+      llvm::InitializeNativeTarget();
+      llvm::InitializeNativeTargetAsmPrinter();
+      mlir::ExecutionEngine::setupTargetTriple(llvm.get());
+
+      /// Optionally run an optimization pipeline over the llvm module.
+      auto optPipeline = mlir::makeOptimizingTransformer(
+        optLevel,
+        /*sizeLevel=*/0,
+        /*targetMachine=*/nullptr);
+      if (auto err = optPipeline(llvm.get()))
+        return runtimeError("Failed to optimize LLVM IR");
+    }
 
     // Write to the file requested
     std::error_code error;

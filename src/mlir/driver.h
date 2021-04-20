@@ -53,6 +53,9 @@ namespace mlir::verona
     /// It gets modified as the driver progresses through its passes.
     mlir::OwningModuleRef module;
 
+    /// Optimisation level (for both MLIR and LLVM IRs)
+    unsigned optLevel;
+
     /// MLIR Pass Manager
     /// It gets configured by the constructor based on the provided arguments.
     mlir::PassManager passManager;
