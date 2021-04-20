@@ -2,11 +2,11 @@ module @__  {
   module @"$module-0"  {
     module @U64  {
     }
-    func private @foo() -> i64 {
+    func @foo() -> i64 {
       %c42_i64 = constant 42 : i64
       return %c42_i64 : i64
     }
-    func private @bar(%arg0: i64) -> i64 {
+    func @bar(%arg0: i64) -> i64 {
       %0 = memref.alloca() : memref<1xi64>
       %c0 = constant 0 : index
       memref.store %arg0, %0[%c0] : memref<1xi64>
@@ -30,7 +30,7 @@ module @__  {
       %9 = memref.load %4[%c0_6] : memref<1xi64>
       return %9 : i64
     }
-    func private @baz(%arg0: i64) -> i64 {
+    func @baz(%arg0: i64) -> i64 {
       %0 = memref.alloca() : memref<1xi64>
       %c0 = constant 0 : index
       memref.store %arg0, %0[%c0] : memref<1xi64>

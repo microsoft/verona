@@ -26,7 +26,7 @@ namespace
   /// FIXME: So far, this is the only way to know if the value is an address
   bool isAlloca(mlir::Value val)
   {
-    return val.getDefiningOp() &&
+    return val && val.getDefiningOp() &&
       llvm::isa<mlir::memref::AllocaOp>(val.getDefiningOp());
   }
 
@@ -396,7 +396,7 @@ namespace mlir::verona
     assert(assign && "Bad Node");
 
     // lhs has to be an addressable expression (ref, let, var)
-    auto res = parseRef(assign->left);
+    auto res = parseNode(assign->left);
     if (auto err = res.takeError())
       return std::move(err);
     auto addr = res->get<Value>();
@@ -502,7 +502,9 @@ namespace mlir::verona
     // Create function
     auto funcTy = builder.getFunctionType(types, {retTy});
     auto func = FuncOp::create(loc, name, funcTy);
-    func.setVisibility(SymbolTable::Visibility::Private);
+    // FIXME: This should be private unless we export, but for now we make it
+    // public to test IR generation before implementing public visibility
+    func.setVisibility(SymbolTable::Visibility::Public);
     return functionTable.insert(name, func);
   }
 
