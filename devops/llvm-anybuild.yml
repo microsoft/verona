@@ -14,7 +14,7 @@ parameters:
   # LLVM commit hash to build
   - name: GOOD_HASH
     type: string
-    default: 9f33943ee015
+    default: 9f33943ee01
   # args to pass to cmake when building
   - name: CmakeBuildToolArgs
     type: string
