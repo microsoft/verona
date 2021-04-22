@@ -158,20 +158,4 @@ namespace mlir::verona
     llvm->print(out, nullptr);
     return llvm::Error::success();
   }
-
-  llvm::Expected<Value> generateAlloca(Location loc, llvm::StringRef name)
-  {
-    return Value();
-  }
-
-  llvm::Expected<Value> generateLoad(Location loc, Value addr)
-  {
-    return Value();
-  }
-
-  llvm::Expected<Value> generateStore(Location loc, Value addr, Value val)
-  {
-    return Value();
-  }
-
 }

@@ -44,22 +44,22 @@ namespace mlir::verona
   public:
     /// Default constructor, builds an empty return value.
     ReturnValue() {}
-    /// Single value constructor.
+    /// Constructor for single valued Value
     ReturnValue(Value value)
     {
       values.push_back(value);
     }
-    /// Single value constructor.
+    /// Constructor for single valued ModuleOp
     ReturnValue(ModuleOp mod)
     {
       values.push_back(mod);
     }
-    /// Single value constructor.
+    /// Constructor for single valued FuncOp
     ReturnValue(FuncOp func)
     {
       values.push_back(func);
     }
-    /// Multiple value constructor.
+    /// Multiple value constructor (not necessarily same types)
     ReturnValue(ResultRange& range)
     {
       values.insert(values.begin(), range.begin(), range.end());
@@ -67,18 +67,24 @@ namespace mlir::verona
     /// Assignment operator for Value.
     ReturnValue& operator=(Value& value)
     {
+      values.clear();
       values.push_back(value);
       return *this;
     }
 
-    /// Returns true if this return value has exactly `n` values.
-    bool hasValue(size_t n = 1) const
+    /// Returns true if this return value has exactly one value.
+    bool hasValue() const
     {
-      assert(n != 0);
+      return hasValues(1);
+    }
+
+    /// Returns true if this return value has exactly `n` values.
+    bool hasValues(size_t n = 1) const
+    {
       return values.size() == n;
     }
 
-    /// Access to the single value held, error if none or more than one.
+    /// Access to the single value held, asserts if none or more than one.
     template<class T>
     T get() const
     {
@@ -87,7 +93,7 @@ namespace mlir::verona
       return std::get<T>(values[0]);
     }
 
-    /// Access a specific value held, error if none or not enough.
+    /// Access a specific value held, asserts if none or not enough values.
     template<class T>
     T get(size_t n) const
     {
@@ -147,11 +153,11 @@ namespace mlir::verona
     /// Get location of an ast node.
     Location getLocation(Ast ast);
 
-    /// Upcast the smallest (compatible) type and return the values to be used
+    /// Promote the smallest (compatible) type and return the values to be used
     /// for arithmetic operations. If types are same, just return them, if not,
     /// return the cast operations that make them the same. If types are
     /// incompatible, assert.
-    std::pair<Value, Value> upcast(Value lhs, Value rhs);
+    std::pair<Value, Value> typePromotion(Value lhs, Value rhs);
 
     // =================================================================
     // Parsers These methods parse the AST into MLIR constructs, then either
@@ -209,7 +215,7 @@ namespace mlir::verona
       llvm::ArrayRef<llvm::StringRef> args,
       llvm::ArrayRef<Type> types,
       llvm::ArrayRef<Type> retTy);
-    /// Generates a call to a static/dynamic function
+    /// Generates a call to a static function (FIXME: implement dynamic calls)
     llvm::Expected<Value>
     generateCall(Location loc, FuncOp func, llvm::ArrayRef<Value> args);
     /// Generates arithmetic based on param types and op names
