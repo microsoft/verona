@@ -64,7 +64,7 @@ namespace mlir::verona
   }
 
   std::pair<mlir::Value, mlir::Value>
-  Generator::upcast(mlir::Value lhs, mlir::Value rhs)
+  Generator::typePromotion(mlir::Value lhs, mlir::Value rhs)
   {
     auto lhsType = lhs.getType();
     auto rhsType = rhs.getType();
@@ -563,7 +563,7 @@ namespace mlir::verona
 
     // Upcast types to be the same, or ops don't work, in the end, both types
     // are identical and the same as the return type.
-    std::tie(lhs, rhs) = upcast(lhs, rhs);
+    std::tie(lhs, rhs) = typePromotion(lhs, rhs);
     auto retTy = lhs.getType();
 
     // FIXME: We already converted U32 to i32 so this "works". But we need to
