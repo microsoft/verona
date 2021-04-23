@@ -11,10 +11,6 @@ parameters:
   - name: ExtraAnyBuildArgs
     type: string
     default: '--Epoch 1 --WhyCacheMiss --WhyCacheMissOptions CacheDataStoreKey=LLVMVerona'
-  # LLVM commit hash to build
-  - name: GOOD_HASH
-    type: string
-    default: 9f33943ee01
   # args to pass to cmake when building
   - name: CmakeBuildToolArgs
     type: string
@@ -64,7 +60,10 @@ jobs:
           BuildType: Debug
           BuildName: debug
           Sanitizer: Address
+
   variables:
+  # - name: GOOD_HASH
+  #   value: Must be set in Azure DevOps
   - name: AbClientDirectory
     value: $HOME/.local/share/Microsoft/AnyBuild
   - name: AbDeploymentJson
@@ -78,7 +77,7 @@ jobs:
   - name: LlvmBuildDir
     value: $(LlvmSourceDir)/build
   - name: PKG_NAME
-    value: verona-llvm-install-x86_64-linux-$(BuildName)-${{ parameters.GOOD_HASH }}
+    value: verona-llvm-install-x86_64-linux-$(BuildName)-$(GOOD_HASH)
   - name: AbExpName
     value: LLVMVna
   - name: AbEnvironmentName
@@ -96,7 +95,7 @@ jobs:
 
   - script: |
       set -euo pipefail
-      git checkout ${{ parameters.GOOD_HASH }}
+      git checkout $(GOOD_HASH)
     workingDirectory: $(LlvmSourceDir)
     displayName: 'Move tree to known good LLVM commit for Verona'
 
@@ -225,7 +224,7 @@ jobs:
   - script: |
       set -euo pipefail
       rm -f $(PKG_NAME).tar
-      tar --sort=name --owner=root:0 --group=root:0 --mtime='UTC 2021-01-01' -cf $(PKG_NAME).tar build/install
+      tar --sort=name -cf $(PKG_NAME).tar build/install
       md5sum $(PKG_NAME).tar | awk '{print $1}' > $(PKG_NAME).tar.md5
       rm -rf "$(PKG_NAME)"
       mkdir $(PKG_NAME)
