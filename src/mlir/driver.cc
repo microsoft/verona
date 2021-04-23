@@ -16,7 +16,6 @@
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/Transforms/Passes.h"
-#include "passes.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
@@ -111,8 +110,6 @@ namespace mlir::verona
     if (filename.empty())
       return runtimeError("No output filename provided");
 
-    // Required passes to shape the IR into an acceptable LLVM format
-    passManager.addPass(mlir::createVeronaManglingPass());
     // The lowering "pass manager"
     passManager.addPass(mlir::createLowerToLLVMPass());
 
