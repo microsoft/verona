@@ -95,6 +95,10 @@ jobs:
 
   - script: |
       set -euo pipefail
+      if [[ -z $(GOOD_HASH) ]]; then
+        echo "[ERROR] Variable 'GOOD_HASH' not set in Azure DevOps pipeline"
+        exit 1
+      fi
       git checkout $(GOOD_HASH)
     workingDirectory: $(LlvmSourceDir)
     displayName: 'Move tree to known good LLVM commit for Verona'
