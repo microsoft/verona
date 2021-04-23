@@ -70,7 +70,6 @@ add_llvm_executable(verona-mlir
   driver.cc
   error.cc
   generator.cc
-  passes.cc
   verona-mlir.cc)
 
 llvm_update_compile_flags(verona-mlir)

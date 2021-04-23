@@ -1,77 +1,67 @@
 module @__  {
-  module @"$module-0"  {
-    module @U32  {
-    }
-    module @U64  {
-    }
-    module @F32  {
-    }
-    module @F64  {
-    }
-    func @simple(%arg0: i32, %arg1: i32) -> i32 {
-      %0 = memref.alloca() : memref<1xi32>
-      %c0 = constant 0 : index
-      memref.store %arg0, %0[%c0] : memref<1xi32>
-      %1 = memref.alloca() : memref<1xi32>
-      %c0_0 = constant 0 : index
-      memref.store %arg1, %1[%c0_0] : memref<1xi32>
-      %2 = memref.alloca() : memref<1xi32>
-      %c0_1 = constant 0 : index
-      %3 = memref.load %2[%c0_1] : memref<1xi32>
-      %c0_2 = constant 0 : index
-      %4 = memref.load %1[%c0_2] : memref<1xi32>
-      %c0_3 = constant 0 : index
-      %5 = memref.load %0[%c0_3] : memref<1xi32>
-      %6 = addi %5, %4 : i32
-      %c0_4 = constant 0 : index
-      memref.store %6, %2[%c0_4] : memref<1xi32>
-      %c0_5 = constant 0 : index
-      %7 = memref.load %2[%c0_5] : memref<1xi32>
-      return %7 : i32
-    }
-    func @int_upcast(%arg0: i32, %arg1: i64) -> i64 {
-      %0 = memref.alloca() : memref<1xi32>
-      %c0 = constant 0 : index
-      memref.store %arg0, %0[%c0] : memref<1xi32>
-      %1 = memref.alloca() : memref<1xi64>
-      %c0_0 = constant 0 : index
-      memref.store %arg1, %1[%c0_0] : memref<1xi64>
-      %2 = memref.alloca() : memref<1xi64>
-      %c0_1 = constant 0 : index
-      %3 = memref.load %2[%c0_1] : memref<1xi64>
-      %c0_2 = constant 0 : index
-      %4 = memref.load %1[%c0_2] : memref<1xi64>
-      %c0_3 = constant 0 : index
-      %5 = memref.load %0[%c0_3] : memref<1xi32>
-      %6 = sexti %5 : i32 to i64
-      %7 = addi %6, %4 : i64
-      %c0_4 = constant 0 : index
-      memref.store %7, %2[%c0_4] : memref<1xi64>
-      %c0_5 = constant 0 : index
-      %8 = memref.load %2[%c0_5] : memref<1xi64>
-      return %8 : i64
-    }
-    func @fp_upcast(%arg0: f64, %arg1: f32) -> f64 {
-      %0 = memref.alloca() : memref<1xf64>
-      %c0 = constant 0 : index
-      memref.store %arg0, %0[%c0] : memref<1xf64>
-      %1 = memref.alloca() : memref<1xf32>
-      %c0_0 = constant 0 : index
-      memref.store %arg1, %1[%c0_0] : memref<1xf32>
-      %2 = memref.alloca() : memref<1xf64>
-      %c0_1 = constant 0 : index
-      %3 = memref.load %2[%c0_1] : memref<1xf64>
-      %c0_2 = constant 0 : index
-      %4 = memref.load %1[%c0_2] : memref<1xf32>
-      %c0_3 = constant 0 : index
-      %5 = memref.load %0[%c0_3] : memref<1xf64>
-      %6 = fpext %4 : f32 to f64
-      %7 = addf %5, %6 : f64
-      %c0_4 = constant 0 : index
-      memref.store %7, %2[%c0_4] : memref<1xf64>
-      %c0_5 = constant 0 : index
-      %8 = memref.load %2[%c0_5] : memref<1xf64>
-      return %8 : f64
-    }
+  func @"____$module-0__simple"(%arg0: i32, %arg1: i32) -> i32 {
+    %0 = memref.alloca() : memref<1xi32>
+    %c0 = constant 0 : index
+    memref.store %arg0, %0[%c0] : memref<1xi32>
+    %1 = memref.alloca() : memref<1xi32>
+    %c0_0 = constant 0 : index
+    memref.store %arg1, %1[%c0_0] : memref<1xi32>
+    %2 = memref.alloca() : memref<1xi32>
+    %c0_1 = constant 0 : index
+    %3 = memref.load %2[%c0_1] : memref<1xi32>
+    %c0_2 = constant 0 : index
+    %4 = memref.load %1[%c0_2] : memref<1xi32>
+    %c0_3 = constant 0 : index
+    %5 = memref.load %0[%c0_3] : memref<1xi32>
+    %6 = addi %5, %4 : i32
+    %c0_4 = constant 0 : index
+    memref.store %6, %2[%c0_4] : memref<1xi32>
+    %c0_5 = constant 0 : index
+    %7 = memref.load %2[%c0_5] : memref<1xi32>
+    return %7 : i32
+  }
+  func @"____$module-0__int_upcast"(%arg0: i32, %arg1: i64) -> i64 {
+    %0 = memref.alloca() : memref<1xi32>
+    %c0 = constant 0 : index
+    memref.store %arg0, %0[%c0] : memref<1xi32>
+    %1 = memref.alloca() : memref<1xi64>
+    %c0_0 = constant 0 : index
+    memref.store %arg1, %1[%c0_0] : memref<1xi64>
+    %2 = memref.alloca() : memref<1xi64>
+    %c0_1 = constant 0 : index
+    %3 = memref.load %2[%c0_1] : memref<1xi64>
+    %c0_2 = constant 0 : index
+    %4 = memref.load %1[%c0_2] : memref<1xi64>
+    %c0_3 = constant 0 : index
+    %5 = memref.load %0[%c0_3] : memref<1xi32>
+    %6 = sexti %5 : i32 to i64
+    %7 = addi %6, %4 : i64
+    %c0_4 = constant 0 : index
+    memref.store %7, %2[%c0_4] : memref<1xi64>
+    %c0_5 = constant 0 : index
+    %8 = memref.load %2[%c0_5] : memref<1xi64>
+    return %8 : i64
+  }
+  func @"____$module-0__fp_upcast"(%arg0: f64, %arg1: f32) -> f64 {
+    %0 = memref.alloca() : memref<1xf64>
+    %c0 = constant 0 : index
+    memref.store %arg0, %0[%c0] : memref<1xf64>
+    %1 = memref.alloca() : memref<1xf32>
+    %c0_0 = constant 0 : index
+    memref.store %arg1, %1[%c0_0] : memref<1xf32>
+    %2 = memref.alloca() : memref<1xf64>
+    %c0_1 = constant 0 : index
+    %3 = memref.load %2[%c0_1] : memref<1xf64>
+    %c0_2 = constant 0 : index
+    %4 = memref.load %1[%c0_2] : memref<1xf32>
+    %c0_3 = constant 0 : index
+    %5 = memref.load %0[%c0_3] : memref<1xf64>
+    %6 = fpext %4 : f32 to f64
+    %7 = addf %5, %6 : f64
+    %c0_4 = constant 0 : index
+    memref.store %7, %2[%c0_4] : memref<1xf64>
+    %c0_5 = constant 0 : index
+    %8 = memref.load %2[%c0_5] : memref<1xf64>
+    return %8 : f64
   }
 }

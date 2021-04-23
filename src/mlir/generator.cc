@@ -45,7 +45,7 @@ namespace mlir::verona
   Generator::lower(MLIRContext* context, Ast ast)
   {
     Generator gen(context);
-    auto err = gen.parseModule(ast);
+    auto err = gen.parseRootModule(ast);
     if (err)
       return std::move(err);
 
@@ -109,48 +109,63 @@ namespace mlir::verona
     return {lhs, rhs};
   }
 
-  // ===================================================== AST -> MLIR
-  llvm::Error Generator::parseModule(Ast ast)
+  std::string Generator::mangleName(
+    llvm::StringRef name, llvm::ArrayRef<llvm::StringRef> scope)
   {
-    assert(ast->kind() == Kind::Class && "Bad node");
+    if (scope.empty())
+      scope = functionScope;
 
-    // Modules are just global classes
-    auto res = parseClass(ast);
-    if (auto err = res.takeError())
-      return err;
-
-    module = res->get<ModuleOp>();
-    return llvm::Error::success();
+    // TODO: This is inefficient but works for now
+    std::string fullName;
+    for (auto s : scope)
+    {
+      fullName += s.str() + "__";
+    }
+    fullName += name.str();
+    return fullName;
   }
 
-  llvm::Expected<ReturnValue> Generator::parseClass(Ast ast)
+  // ===================================================== AST -> MLIR
+  llvm::Error Generator::parseRootModule(Ast ast)
   {
-    assert(ast->kind() == Kind::Class && "Bad node");
-    auto node = ast->as<Class>();
+    auto node = nodeAs<Class>(ast);
+    assert(node && "Bad node");
+
+    // Modules are just global classes
+    return parseClass(ast);
+  }
+
+  llvm::Error Generator::parseClass(Ast ast)
+  {
+    auto node = nodeAs<Class>(ast);
+    assert(node && "Bad node");
     auto loc = getLocation(ast);
+
+    if (!module)
+    {
+      // Creates the global module
+      module = ModuleOp::create(loc, StringRef(rootModuleName));
+      functionScope.push_back(rootModuleName);
+    }
+    else
+    {
+      functionScope.push_back(node->id.view());
+    }
 
     // Push another scope for variables and functions
     SymbolScopeT var_scope(symbolTable);
-    FunctionScopeT func_scope(functionTable);
-
-    // Creates the scope, each class/module is a new sub-module.
-    auto name = node.id.view();
-    // Only one module is unnamed, the root one
-    if (name.empty())
-      name = rootModuleName;
-    auto scope = ModuleOp::create(loc, StringRef(name));
 
     // Lower members, types, functions
-    for (auto sub : node.members)
+    for (auto sub : node->members)
     {
       switch (sub->kind())
       {
         case Kind::Class:
         {
-          auto mem = parseNode(sub);
-          if (auto err = mem.takeError())
-            return std::move(err);
-          scope.push_back(mem->get<ModuleOp>());
+          auto err = parseClass(sub);
+          if (err)
+            return err;
+          functionScope.pop_back();
           break;
         }
         case Kind::Using:
@@ -161,25 +176,24 @@ namespace mlir::verona
         {
           auto func = parseNode(sub);
           if (auto err = func.takeError())
-            return std::move(err);
-          scope.push_back(func->get<FuncOp>());
+            return err;
+          module->push_back(func->get<FuncOp>());
           break;
         }
         case Kind::Field:
+          return runtimeError("Fileds not implemented yet");
         default:
           return runtimeError("Wrong member in class");
       }
     }
 
-    return scope;
+    return llvm::Error::success();
   }
 
   llvm::Expected<ReturnValue> Generator::parseNode(Ast ast)
   {
     switch (ast->kind())
     {
-      case Kind::Class:
-        return parseClass(ast);
       case Kind::Function:
         return parseFunction(ast);
       case Kind::Lambda:
@@ -219,7 +233,7 @@ namespace mlir::verona
 
     // Find all arguments
     llvm::SmallVector<llvm::StringRef, 1> argNames;
-    Types types;
+    llvm::SmallVector<Type, 1> types;
     for (auto p : func->params)
     {
       auto param = nodeAs<Param>(p);
@@ -230,7 +244,7 @@ namespace mlir::verona
     }
 
     // Check return type (TODO: implement multiple returns)
-    Types retTy;
+    llvm::SmallVector<Type, 1> retTy;
     if (func->result)
     {
       retTy.push_back(parseType(func->result));
@@ -238,7 +252,7 @@ namespace mlir::verona
 
     // Declare all arguments on current scope
     SymbolScopeT var_scope(symbolTable);
-    auto name = func->name.view();
+    auto name = mangleName(func->name.view());
     auto def =
       generateEmptyFunction(getLocation(ast), name, argNames, types, retTy);
     if (auto err = def.takeError())
@@ -319,12 +333,19 @@ namespace mlir::verona
         rhs = generateLoad(loc, rhs);
     }
 
-    // FIXME: Multiple method names?
-    auto opName = select->typenames[0]->location.view();
-
     // FIXME: "special case" return for now, to make it work without method call
-    if (opName == "return")
+    if (select->typenames[0]->location.view() == "return")
       return rhs;
+
+    // Typenames indicate the context and the function name
+    llvm::SmallVector<llvm::StringRef, 3> scope;
+    size_t end = select->typenames.size() - 1;
+    for (size_t i = 0; i < end; i++)
+    {
+      scope.push_back(select->typenames[i]->location.view());
+    }
+    std::string opName =
+      mangleName(select->typenames[end]->location.view(), scope);
 
     // This is either:
     //  * the LHS of a binary operator
@@ -341,7 +362,7 @@ namespace mlir::verona
 
     // Check the function table for a symbol that matches the opName
     // TODO: Use scope to find the right function with the same name
-    if (auto funcOp = functionTable.lookup(opName))
+    if (auto funcOp = module->lookupSymbol<FuncOp>(opName))
     {
       // Handle arguments
       // TODO: Handle tuples
@@ -355,6 +376,8 @@ namespace mlir::verona
     }
 
     // If function does not exist, it's either arithmetic or an error
+    // for arithmetic, we only take the op name, not the context
+    opName = select->typenames[end]->location.view();
     auto res = generateArithmetic(loc, opName, lhs, rhs);
     if (auto err = res.takeError())
       return std::move(err);
@@ -505,7 +528,7 @@ namespace mlir::verona
     // FIXME: This should be private unless we export, but for now we make it
     // public to test IR generation before implementing public visibility
     func.setVisibility(SymbolTable::Visibility::Public);
-    return functionTable.insert(name, func);
+    return func;
   }
 
   llvm::Expected<FuncOp> Generator::generateEmptyFunction(
@@ -519,7 +542,7 @@ namespace mlir::verona
 
     // If it's not declared yet, do so. This simplifies direct declaration of
     // compiler functions. User functions should be checked at the parse level.
-    auto func = functionTable.inScope(name);
+    auto func = module->lookupSymbol<FuncOp>(name);
     if (!func)
     {
       auto proto = generateProto(loc, name, types, retTy);

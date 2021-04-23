@@ -131,15 +131,11 @@ namespace mlir::verona
 
     /// Symbol tables for variables.
     SymbolTableT symbolTable;
-    /// Symbol tables for functions.
-    FunctionTableT functionTable;
-    /// Symbol tables for classes.
-    TypeTableT typeTable;
-    /// Nested reference for head/exit blocks in loops.
-    BasicBlockTableT loopTable;
 
-    /// A list of types
-    using Types = llvm::SmallVector<Type, 1>;
+    /// Function scope, for mangling names. 3 because there will always be the
+    /// root module, the current module and a class, at the very least.
+    llvm::SmallVector<llvm::StringRef, 3> functionScope;
+
     /// AST aliases
     using Ast = ::verona::parser::Ast;
     using AstPath = ::verona::parser::AstPath;
@@ -159,16 +155,20 @@ namespace mlir::verona
     /// incompatible, assert.
     std::pair<Value, Value> typePromotion(Value lhs, Value rhs);
 
+    /// Mangle function names. If scope is not passed, use functionScope.
+    std::string mangleName(
+      llvm::StringRef name, llvm::ArrayRef<llvm::StringRef> scope = {});
+
     // =================================================================
     // Parsers These methods parse the AST into MLIR constructs, then either
     // return the expected MLIR value or call the generators (see below) to do
     // that for them.
 
-    /// Parses a module, the global context.
-    llvm::Error parseModule(Ast ast);
+    /// Parses the top module.
+    llvm::Error parseRootModule(Ast ast);
 
     /// Parse a class declaration
-    llvm::Expected<ReturnValue> parseClass(Ast ast);
+    llvm::Error parseClass(Ast ast);
 
     /// Generic node parser, calls other parse functions to handle each
     /// individual type.
