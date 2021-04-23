@@ -10,11 +10,7 @@ parameters:
   # extra command-line args to pass to AnyBuild
   - name: ExtraAnyBuildArgs
     type: string
-    default: '--Epoch 1'
-  # LLVM commit hash to build
-  - name: GOOD_HASH
-    type: string
-    default: '73811d3'
+    default: '--Epoch 1 --WhyCacheMiss --WhyCacheMissOptions CacheDataStoreKey=LLVMVerona'
   # args to pass to cmake when building
   - name: CmakeBuildToolArgs
     type: string
@@ -22,7 +18,7 @@ parameters:
   # number of parallel cmake jobs
   - name: CmakeJobs
     type: number
-    default: 32
+    default: 48
   # whether to publish installed LLVM binaries as a package
   - name: PublishPackage
     type: boolean
@@ -40,7 +36,10 @@ jobs:
 ############################################# Linux Builds
 - job:
   displayName: LLVM Linux Build
-  pool: AnyBuild
+  pool:
+    name: AnyBuild
+    demands:
+    - Configuration -equals $(BuildType)
   timeoutInMinutes: 120
   strategy:
     matrix:
@@ -61,7 +60,10 @@ jobs:
           BuildType: Debug
           BuildName: debug
           Sanitizer: Address
+
   variables:
+  # - name: GOOD_HASH
+  #   value: Must be set in Azure DevOps
   - name: AbClientDirectory
     value: $HOME/.local/share/Microsoft/AnyBuild
   - name: AbDeploymentJson
@@ -75,7 +77,7 @@ jobs:
   - name: LlvmBuildDir
     value: $(LlvmSourceDir)/build
   - name: PKG_NAME
-    value: verona-llvm-install-x86_64-linux-$(BuildName)-${{ parameters.GOOD_HASH }}
+    value: verona-llvm-install-x86_64-linux-$(BuildName)-$(GOOD_HASH)
   - name: AbExpName
     value: LLVMVna
   - name: AbEnvironmentName
@@ -93,7 +95,11 @@ jobs:
 
   - script: |
       set -euo pipefail
-      git checkout ${{ parameters.GOOD_HASH }}
+      if [[ -z $(GOOD_HASH) ]]; then
+        echo "[ERROR] Variable 'GOOD_HASH' not set in Azure DevOps pipeline"
+        exit 1
+      fi
+      git checkout $(GOOD_HASH)
     workingDirectory: $(LlvmSourceDir)
     displayName: 'Move tree to known good LLVM commit for Verona'
 
@@ -126,12 +132,19 @@ jobs:
     displayName: Install AnyBuild client
     workingDirectory: $(Build.StagingDirectory)
 
-  - task: CMake@1
+  - bash: |
+      function log-and-run {
+        echo "Running "
+        echo "  CWD = $(pwd)"
+        echo "  CMD = $@"
+        "$@"
+      }
+
+      rm -rf "$(LlvmBuildDir)"
+      mkdir -p "$(LlvmBuildDir)"
+      cd "$(LlvmBuildDir)"
+      log-and-run cmake $(LlvmSourceDir)/llvm -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DLLVM_USE_SANITIZER=$(Sanitizer) -DLLVM_ENABLE_PROJECTS="clang;mlir" -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_EH=ON -DLLVM_ENABLE_RTTI=ON -DCMAKE_INSTALL_PREFIX=install -DMLIR_INCLUDE_TESTS=OFF
     displayName: 'CMake'
-    inputs:
-      workingDirectory: $(LlvmBuildDir)
-      cmakeArgs: |
-        $(LlvmSourceDir)/llvm -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DLLVM_USE_SANITIZER=$(Sanitizer) -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_EH=ON -DLLVM_ENABLE_RTTI=ON -DCMAKE_INSTALL_PREFIX=install
 
   - bash: |
       function extract_logs {
@@ -149,9 +162,6 @@ jobs:
 
       function build {
         local time_limit="$1"
-        local NumAgents=`cat $(AbDeploymentJson) | jq '.Agents | length'`
-        local NumAgentCores=`cat $(AbDeploymentJson) | jq '.Agents[0].NumCores'`
-        local AgentLeaseCount=`cat $(AbDeploymentJson) | jq '.Agents[0].MaxLeases'`
 
         if [[ -z "$(AbExpName)" ]]; then
           echo "ERROR: Variable 'AbExpName' not set"
@@ -164,12 +174,11 @@ jobs:
         fi
 
         echo
-        echo "===== Running build (${{ parameters.CmakeJobs }} CMake jobs) up to ${time_limit} from $(pwd) with ${NumAgents} agent(s), ${NumAgentCores} core(s) per agent, ${AgentLeaseCount} lease(s) per agent"
+        echo "===== Running build (${{ parameters.CmakeJobs }} CMake jobs) up to ${time_limit} from $(pwd)"
         echo
 
         export llvmPassword=$(LLVMPrincipalPassword)
         timeout "$time_limit" time $(AbClientDirectory)/AnyBuild.sh \
-          --ExperimentName "$(AbExpName)_b:$(Build.BuildId)_a:${NumAgents}_c:${NumAgentCores}_l:${AgentLeaseCount}_j:${{ parameters.CmakeJobs }}_n:$(BuildName)" \
           --RemoteExecServiceUri $(AnyBuildEnvironmentUri) \
           --NoCheckForUpdates \
           --WaitForAgentForever \
@@ -185,7 +194,7 @@ jobs:
       }
 
       declare failed=0
-      build 60m || failed=$?
+      build 90m || failed=$?
 
       extract_logs "$(pwd)" "$(AbLogsRootDir)"
 
@@ -218,12 +227,16 @@ jobs:
   
   - script: |
       set -euo pipefail
-      rm -f $(PKG_NAME).tar.gz
-      tar zcf $(PKG_NAME).tar.gz build/install
-      md5sum $(PKG_NAME).tar.gz | awk '{print $1}' > $(PKG_NAME).tar.gz.md5
+      rm -f $(PKG_NAME).tar
+      tar --sort=name -cf $(PKG_NAME).tar build/install
+      md5sum $(PKG_NAME).tar | awk '{print $1}' > $(PKG_NAME).tar.md5
+      rm -rf "$(PKG_NAME)"
       mkdir $(PKG_NAME)
-      mv $(PKG_NAME).tar.gz $(PKG_NAME)/ 
-      mv $(PKG_NAME).tar.gz.md5 $(PKG_NAME)/
+      mv "$(PKG_NAME).tar" "$(PKG_NAME)/"
+      mv "$(PKG_NAME).tar.md5" "$(PKG_NAME)/"
+      echo "Created '$(PKG_NAME).tar'"
+      ls -l "$(PKG_NAME)/"
+      cat "$(PKG_NAME)/$(PKG_NAME).tar.md5"
     continueOnError: false
     condition: and(succeeded(), eq(${{ parameters.PublishPackage }}, true))
     displayName: 'Create package'
@@ -239,5 +252,8 @@ jobs:
       set -euo pipefail
       echo "Deleting $(LlvmBuildDir)"
       rm -rf "$(LlvmBuildDir)"
+
+      echo "Deleting $(PKG_NAME)"
+      rm -rf "$(PKG_NAME)"
     continueOnError: false
     displayName: 'Clean'
