@@ -224,11 +224,13 @@ namespace verona::parser::anf
         if (expr->kind() == Kind::Param)
           continue;
 
+        // Replace the pattern with a parameter.
         auto param = std::make_shared<Param>();
+        param->type = std::make_shared<InferType>();
         param->location = ident();
         lambda.symbol_table()->set(param->location, param);
-        expr = param;
 
+        // (select () requires (select expr == (ref $param)))
         auto ref = std::make_shared<Ref>();
         ref->location = param->location;
 
@@ -257,6 +259,8 @@ namespace verona::parser::anf
         req_sel->typeref = req_tr;
         req_sel->args = eq_sel;
         add(req_sel);
+
+        expr = param;
       }
 
       auto& state = state_stack.back();

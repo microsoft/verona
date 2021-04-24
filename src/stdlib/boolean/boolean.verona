@@ -4,11 +4,28 @@ class Bool
 {
   (self: Bool): Bool { self }
   bool(self: Bool): Bool { self }
+  ==(a: Bool, b: Bool): Bool { a == b }
 }
 
 interface ToBool
 {
   bool(self: Self): Bool;
+}
+
+// These are here because of patterns in lambdas being transformed.
+class None {}
+class NoMatch {}
+
+// `requires` throws NoMatch if the predicate isn't satisfied. This can be
+// used to write arbitrary guard predicates when pattern matching.
+requires(pred: Bool): None | throw NoMatch
+{
+  // This implementation doesn't work, as it relies on `requires` itself.
+  match pred
+  {
+    { true => None }
+    { false => throw NoMatch }
+  }
 }
 
 // `and` and `or` take lambdas for the rhs to allow short-circuiting, i.e. lazy

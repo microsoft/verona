@@ -85,7 +85,6 @@ namespace verona::parser
 
   using Ast = Node<NodeDef>;
   using AstWeak = Weak<NodeDef>;
-  using AstPath = List<NodeDef>;
 
   struct SymbolTable;
 

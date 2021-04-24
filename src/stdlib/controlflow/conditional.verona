@@ -13,7 +13,7 @@ if[T](cond: ()->Bool): (()->T)->(T | FalseBranch)
   }
 }
 
-// TODO: `prev` is captured in the return value
+// TODO: `cond` is captured in the return value
 elseif[T, U](prev: T | FalseBranch, cond: ()->Bool):
   (()->U)->(T | U | FalseBranch)
 {

@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: MIT
 using "boolean";
 
-class NoMatch {}
-
 // `as` returns `value` as type T if that's possible. Otherwise, it throws
 // NoMatch.
 as[T, U](value: U): T | throw NoMatch
@@ -13,13 +11,6 @@ as[T, U](value: U): T | throw NoMatch
     { x: T => x }
     { throw NoMatch }
   }
-}
-
-// `requires` throws NoMatch if the predicate isn't satisfied. This can be
-// used to write arbitrary guard predicates when pattern matching.
-requires(pred: Bool): None | throw NoMatch
-{
-  if (not pred) { throw NoMatch }
 }
 
 // `OrEquals` is used by `|` to build a pattern that can match two things.

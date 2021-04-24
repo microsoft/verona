@@ -8,6 +8,7 @@ add_library(verona-parser-lib
   escaping.cc
   infer.cc
   lexer.cc
+  lookup.cc
   parser.cc
   path.cc
   pretty.cc

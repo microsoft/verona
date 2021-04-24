@@ -30,6 +30,7 @@ namespace verona::parser
     Location name_apply;
     Cache::iterator current;
     bool show = true;
+    bool ok = true;
 
     struct NoShow
     {
@@ -49,6 +50,11 @@ namespace verona::parser
 
     Subtype() : out(std::cerr.rdbuf()) {}
 
+    operator bool() const
+    {
+      return ok;
+    }
+
     void set_error(std::ostream& s)
     {
       out.rdbuf(s.rdbuf());
@@ -58,6 +64,7 @@ namespace verona::parser
     {
       if (show)
       {
+        ok = false;
         current->second = false;
         return out << "--------" << std::endl;
       }

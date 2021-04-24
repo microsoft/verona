@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 #include "subtype.h"
 
-#include "dnf.h"
 #include "print.h"
 #include "rewrite.h"
 
@@ -649,6 +648,7 @@ namespace verona::parser
         // then remove it from the cache.
         error() << errmsg->str();
         it->second = false;
+        ok = false;
       }
 
       return false;

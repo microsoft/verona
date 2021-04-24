@@ -17,7 +17,7 @@ namespace verona::parser
   template<typename F>
   struct Pass
   {
-    AstPath stack;
+    List<NodeDef> stack;
     size_t index;
     bool ok;
     std::ostream out;
@@ -118,7 +118,21 @@ namespace verona::parser
 
     bool rewrite(Ast next)
     {
-      return parser::rewrite(stack, index, next);
+      if (stack.size() < 2)
+        return false;
+
+      auto& parent = stack[stack.size() - 2];
+      auto& prev = stack.back();
+
+      bool ok = parser::rewrite(parent, index, prev, next);
+
+      if (ok)
+      {
+        stack.pop_back();
+        stack.push_back(next);
+      }
+
+      return ok;
     }
   };
 }

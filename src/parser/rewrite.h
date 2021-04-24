@@ -8,7 +8,7 @@ namespace verona::parser
 {
   // This tries to replace the last node in the path with a new node. This will
   // succeed if the second to last node contains the last node in the path.
-  bool rewrite(AstPath& path, size_t index, Ast node);
+  bool rewrite(Ast& parent, size_t index, Ast& prev, Ast next);
 
   // Clone this Ast.
   Ast clone_ast(Substitutions& subs, Ast node, Ast self);
@@ -24,8 +24,4 @@ namespace verona::parser
 
   // Create a fully resolved typeref to this type parameter.
   Node<TypeRef> typeparamref(Node<TypeParam>& typeparam);
-
-  // Create a fully resolved typeref for this context type. This is used with
-  // static functions to provide a Self type.
-  Node<TypeRef> contextref(Ast context, Substitutions& subs);
 }

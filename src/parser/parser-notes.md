@@ -4,9 +4,9 @@
 * params: infer & T, to help track regions?
 * results: do we need a lower bounds?
 
+* make a `create` for everything, taking args of "fields without initialisers"
+  * or make the initialisers the default values
 * default value expressions can't have free variables
-* can we call static methods on type parameters?
-  * like `create`
 * allow `using` inside a function
 * Ref[T] instead of update sugar
 * distinguishing value parameters from type parameters

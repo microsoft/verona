@@ -61,23 +61,11 @@ namespace verona::parser
     }
   };
 
-  bool rewrite(AstPath& path, size_t index, Ast next)
+  bool rewrite(Ast& parent, size_t index, Ast& prev, Ast next)
   {
-    if (path.size() < 2)
-      return false;
-
-    auto& parent = path[path.size() - 2];
-    auto& prev = path.back();
-
     Rewrite rewrite;
     dispatch(rewrite, parent, index, prev, next);
-
-    if (!rewrite.ok)
-      return false;
-
-    path.pop_back();
-    path.push_back(next);
-    return true;
+    return rewrite.ok;
   }
 
   struct Clone
@@ -96,7 +84,7 @@ namespace verona::parser
     {
       auto def = tr.def.lock();
 
-      if (def->kind() == Kind::TypeParam)
+      if (def && (def->kind() == Kind::TypeParam))
       {
         auto tp = std::static_pointer_cast<TypeParam>(def);
         auto find = subs.find(tr.def);
@@ -185,12 +173,18 @@ namespace verona::parser
     else if (lambda.params.size() > 1)
     {
       auto t = std::make_shared<TupleType>();
-      t->location = lambda.location;
       f->left = t;
 
       for (auto& p : lambda.params)
-        t->types.push_back(p->as<Param>().type);
+      {
+        auto& pt = p->as<Param>().type;
+        t->types.push_back(pt);
+        t->location.extend(pt->location);
+      }
     }
+
+    if (f->left)
+      f->location = f->left->location;
 
     f->right = lambda.result;
     return f;
@@ -205,20 +199,6 @@ namespace verona::parser
     tr->location = typeparam->location;
     tr->typenames.push_back(tn);
     tr->def = typeparam;
-
-    return tr;
-  }
-
-  Node<TypeRef> contextref(Ast context, Substitutions& subs)
-  {
-    auto tn = std::make_shared<TypeName>();
-    tn->location = context->location;
-
-    auto tr = std::make_shared<TypeRef>();
-    tr->location = context->location;
-    tr->typenames.push_back(tn);
-    tr->def = context;
-    tr->subs = subs;
 
     return tr;
   }

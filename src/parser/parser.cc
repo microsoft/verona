@@ -799,11 +799,11 @@ namespace verona::parser
         r = Error;
 
       auto tr_apply = std::make_shared<TypeRef>();
-      tr_apply->location = apply->location;
+      tr_apply->location = expr->location;
       tr_apply->typenames.push_back(apply);
 
       auto sel = std::make_shared<Select>();
-      sel->location = apply->location;
+      sel->location = expr->location;
       sel->expr = expr;
       sel->typeref = tr_apply;
 
@@ -874,7 +874,6 @@ namespace verona::parser
             auto sel = std::make_shared<Select>();
             sel->expr = expr;
             sel->args = next;
-            expr = sel;
 
             auto apply = std::make_shared<TypeName>();
             apply->location = name_apply;
@@ -885,6 +884,7 @@ namespace verona::parser
 
             sel->typeref = tr_apply;
             sel->location = tr_apply->location;
+            expr = sel;
           }
         }
         else if ((r2 = optselector(expr)) != Skip)
@@ -2001,15 +2001,14 @@ namespace verona::parser
                      "or function"
                   << line();
 
-          restart_before(
-            {TokenKind::RBrace,
-             TokenKind::Class,
-             TokenKind::Interface,
-             TokenKind::Type,
-             TokenKind::Ident,
-             TokenKind::Symbol,
-             TokenKind::LSquare,
-             TokenKind::LParen});
+          restart_before({TokenKind::RBrace,
+                          TokenKind::Class,
+                          TokenKind::Interface,
+                          TokenKind::Type,
+                          TokenKind::Ident,
+                          TokenKind::Symbol,
+                          TokenKind::LSquare,
+                          TokenKind::LParen});
         }
 
         members.push_back(member);
@@ -2053,15 +2052,14 @@ namespace verona::parser
                      "or function"
                   << line();
 
-          restart_before(
-            {TokenKind::Module,
-             TokenKind::Class,
-             TokenKind::Interface,
-             TokenKind::Type,
-             TokenKind::Ident,
-             TokenKind::Symbol,
-             TokenKind::LSquare,
-             TokenKind::LParen});
+          restart_before({TokenKind::Module,
+                          TokenKind::Class,
+                          TokenKind::Interface,
+                          TokenKind::Type,
+                          TokenKind::Ident,
+                          TokenKind::Symbol,
+                          TokenKind::LSquare,
+                          TokenKind::LParen});
         }
       }
 

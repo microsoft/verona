@@ -4,6 +4,7 @@
 
 #include "dnf.h"
 #include "ident.h"
+#include "lookup.h"
 #include "print.h"
 #include "rewrite.h"
 #include "subtype.h"
@@ -19,23 +20,15 @@ namespace verona::parser::infer
     Location name_bool = ident("Bool");
     Location name_int = ident("Integer");
     Location name_float = ident("Float");
-
     Node<Imm> type_imm;
-    Node<Type> type_bool;
-    Node<Type> type_int;
-    Node<Type> type_float;
 
     Subtype subtype;
+    Lookup lookup;
 
-    Infer()
+    Infer() : lookup([this]() -> std::ostream& { return error(); })
     {
       type_imm = std::make_shared<Imm>();
       type_imm->location = name_imm;
-
-      type_bool = make_constant_type(name_bool);
-      type_int = make_constant_type(name_int);
-      type_float = make_constant_type(name_float);
-
       subtype.name_apply = ident("apply");
     }
 
@@ -47,6 +40,9 @@ namespace verona::parser::infer
       auto t = std::make_shared<TypeRef>();
       t->location = name;
       t->typenames.push_back(n);
+
+      if (!lookup.typeref(symbols(), *t))
+        return {};
 
       auto i = std::make_shared<IsectType>();
       i->location = name;
@@ -112,6 +108,17 @@ namespace verona::parser::infer
       return t;
     }
 
+    Node<Type> receiver_type(Node<Type>& args)
+    {
+      if (!args)
+        return {};
+
+      if (args->kind() == Kind::TupleType)
+        return args->as<TupleType>().types.front();
+
+      return args;
+    }
+
     void post(Free& fr)
     {
       auto l = g(fr.location);
@@ -129,6 +136,7 @@ namespace verona::parser::infer
     void post(TypeRef& tr)
     {
       // Type arguments must be a subtype of the type parameter upper bounds.
+      // TODO: not in a dynamic dispatch node
       for (auto& [wparam, arg] : tr.subs)
       {
         auto param = wparam.lock();
@@ -212,33 +220,118 @@ namespace verona::parser::infer
       // TODO: a select with a result that is always a throw should only be
       // allowed at the end of a lambda
 
-      // TODO: prefer dynamic dispatch
-      auto def = sel.typeref->def.lock();
+      // TODO: rewrite the node to be static or dynamic dispatch
+      // include a precise reference to the selected function
+      assert(!sel.typeref->resolved);
+      auto args = args_type(sel.expr, sel.args);
 
-      if (def)
+      // TODO: apply on a functiontype receiver
+
+      // Dynamic dispatch.
+      if (args && (sel.typeref->typenames.size() == 1))
       {
-        if (def->kind() == Kind::Function)
+        // TODO: lookup on receiver
+        // need to check infertype
+        Ast receiver = receiver_type(args);
+        Ast def;
+
+        if (receiver->kind() == Kind::InferType)
         {
-          if (!sel.typeref->resolved)
+          auto find = subtype.bounds.find(receiver);
+
+          if (find == subtype.bounds.end())
           {
-            // Resolve the static function, supplying all substitutions and a
-            // Self type.
-            auto f = function_type(def->as<Function>().lambda->as<Lambda>());
-            auto self =
-              contextref(sel.typeref->context.lock(), sel.typeref->subs);
-            sel.typeref->resolved = clone(sel.typeref->subs, f, self);
+            error() << sel.location
+                    << "Can't look this up, no bounds for the receiver."
+                    << text(sel.location);
+            return;
           }
 
-          assert(sel.typeref->resolved->kind() == Kind::FunctionType);
-          auto f =
-            std::static_pointer_cast<FunctionType>(sel.typeref->resolved);
+          for (auto& upper : find->second.upper)
+          {
+            // TODO: union of parameters, isect of results
+            Ast context = upper;
+            def = lookup.member(
+              context, upper, sel.typeref->typenames.front()->location);
+          }
 
-          g(lhs())->type = f->right;
-          auto t = args_type(sel.expr, sel.args);
-          subtype(t, f->left);
-          return;
+          for (auto& lower : find->second.lower)
+          {
+            // TODO: isect of parameters, union of results
+            // must be present in every lower bound
+            Ast context = lower;
+            def = lookup.member(
+              context, lower, sel.typeref->typenames.front()->location);
+          }
+        }
+        else
+        {
+          Ast context = receiver;
+          def = lookup.member(
+            context, receiver, sel.typeref->typenames.front()->location);
+
+          if (context->kind() == Kind::Class)
+          {
+            // TODO: use static dispatch
+          }
+        }
+
+        lookup.substitutions(
+          sel.typeref->subs, def, sel.typeref->typenames.front()->typeargs);
+
+        if (def)
+        {
+          sel.typeref->context = receiver;
+          sel.typeref->def = def;
+
+          switch (def->kind())
+          {
+            case Kind::Field:
+            {
+              // TODO: view and extract types
+              // could have additional args, at which point it's an apply
+              // call on the field
+              error() << sel.location << "Fields not handled yet."
+                      << text(sel.location);
+              return;
+            }
+
+            case Kind::Function:
+            {
+              auto self = clone(sel.typeref->subs, receiver);
+              auto f = function_type(def->as<Function>().lambda->as<Lambda>());
+              f = clone(sel.typeref->subs, f, self);
+              sel.typeref->resolved = f;
+
+              g(lhs())->type = f->right;
+              subtype(args, f->left);
+              return;
+            }
+
+            default:
+              break;
+          }
         }
       }
+
+      // Static dispatch.
+      auto def = lookup.typeref(symbols(), sel.typeref->as<TypeRef>());
+
+      if (!def || (def->kind() != Kind::Function))
+      {
+        error() << sel.location << "Couldn't find this function."
+                << text(sel.location);
+        return;
+      }
+
+      // Resolve the static function, with substitutions and a Self type.
+      auto self = clone(sel.typeref->subs, sel.typeref->context.lock());
+      auto f = function_type(def->as<Function>().lambda->as<Lambda>());
+      f = clone(sel.typeref->subs, f, self);
+      sel.typeref->resolved = f;
+
+      g(lhs())->type = f->right;
+      subtype(args, f->left);
     }
 
     void post(New& nw)
@@ -268,17 +361,42 @@ namespace verona::parser::infer
 
     void post(Int& i)
     {
-      subtype(g(lhs())->type, type_int);
+      auto t = make_constant_type(name_int);
+
+      if (!t)
+      {
+        error() << i.location << "No type Integer in scope."
+                << text(i.location);
+        return;
+      }
+
+      subtype(g(lhs())->type, t);
     }
 
     void post(Float& f)
     {
-      subtype(g(lhs())->type, type_float);
+      auto t = make_constant_type(name_float);
+
+      if (!t)
+      {
+        error() << f.location << "No type Float in scope." << text(f.location);
+        return;
+      }
+
+      subtype(g(lhs())->type, t);
     }
 
     void post(Bool& b)
     {
-      subtype(g(lhs())->type, type_bool);
+      auto t = make_constant_type(name_bool);
+
+      if (!t)
+      {
+        error() << b.location << "No type Bool in scope." << text(b.location);
+        return;
+      }
+
+      subtype(t, g(lhs())->type);
     }
 
     void post(Lambda& lambda)
@@ -324,7 +442,8 @@ namespace verona::parser::infer
     Infer r;
     r.set_error(out);
     r.subtype.set_error(out);
-    return r << ast;
+    r << ast;
+    return r && r.subtype;
   }
 
   struct WF : Pass<WF>

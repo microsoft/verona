@@ -8,11 +8,10 @@ int main(int argc, char** argv)
 {
   using namespace verona::parser;
 
-  std::unordered_map<std::string, Limit> map{
-    {"parse", Limit::Parse},
-    {"resolve", Limit::Resolve},
-    {"anf", Limit::Anf},
-    {"infer", Limit::Infer}};
+  std::unordered_map<std::string, Limit> map{{"parse", Limit::Parse},
+                                             {"resolve", Limit::Resolve},
+                                             {"anf", Limit::Anf},
+                                             {"infer", Limit::Infer}};
 
   CLI::App app{"Verona Parser"};
   bool emit_ast = false;

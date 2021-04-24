@@ -26,17 +26,16 @@ interface Comparable[T]: Equatable[T]
 
   <=>(self: Self, other: T): Compare
   {
-    if (self < other)
+    match (self < other)
     {
-      Less
-    }
-    elseif (self == other)
-    {
-      Equal
-    }
-    else
-    {
-      Greater
+      { true => Less }
+      { false =>
+        match (self == other)
+        {
+          { true => Equal }
+          { false => Greater }
+        }
+      }
     }
   }
 }
