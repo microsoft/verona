@@ -8,21 +8,21 @@ module @__  {
     %c0 = constant 0 : index
     memref.store %arg0, %0[%c0] : memref<1xi64>
     %1 = memref.alloca() : memref<1xi64>
+    %2 = call @"____$module-0__foo"() : () -> i64
     %c0_0 = constant 0 : index
-    %2 = memref.load %1[%c0_0] : memref<1xi64>
-    %3 = call @"____$module-0__foo"() : () -> i64
+    %3 = memref.load %1[%c0_0] : memref<1xi64>
     %c0_1 = constant 0 : index
-    memref.store %3, %1[%c0_1] : memref<1xi64>
+    memref.store %2, %1[%c0_1] : memref<1xi64>
     %4 = memref.alloca() : memref<1xi64>
     %c0_2 = constant 0 : index
-    %5 = memref.load %4[%c0_2] : memref<1xi64>
+    %5 = memref.load %1[%c0_2] : memref<1xi64>
     %c0_3 = constant 0 : index
-    %6 = memref.load %1[%c0_3] : memref<1xi64>
+    %6 = memref.load %0[%c0_3] : memref<1xi64>
+    %7 = addi %6, %5 : i64
     %c0_4 = constant 0 : index
-    %7 = memref.load %0[%c0_4] : memref<1xi64>
-    %8 = addi %7, %6 : i64
+    %8 = memref.load %4[%c0_4] : memref<1xi64>
     %c0_5 = constant 0 : index
-    memref.store %8, %4[%c0_5] : memref<1xi64>
+    memref.store %7, %4[%c0_5] : memref<1xi64>
     %c0_6 = constant 0 : index
     %9 = memref.load %4[%c0_6] : memref<1xi64>
     return %9 : i64
@@ -33,12 +33,12 @@ module @__  {
     memref.store %arg0, %0[%c0] : memref<1xi64>
     %1 = memref.alloca() : memref<1xi64>
     %c0_0 = constant 0 : index
-    %2 = memref.load %1[%c0_0] : memref<1xi64>
+    %2 = memref.load %0[%c0_0] : memref<1xi64>
+    %3 = call @"____$module-0__bar"(%2) : (i64) -> i64
     %c0_1 = constant 0 : index
-    %3 = memref.load %0[%c0_1] : memref<1xi64>
-    %4 = call @"____$module-0__bar"(%3) : (i64) -> i64
+    %4 = memref.load %1[%c0_1] : memref<1xi64>
     %c0_2 = constant 0 : index
-    memref.store %4, %1[%c0_2] : memref<1xi64>
+    memref.store %3, %1[%c0_2] : memref<1xi64>
     %c0_3 = constant 0 : index
     %5 = memref.load %1[%c0_3] : memref<1xi64>
     return %5 : i64

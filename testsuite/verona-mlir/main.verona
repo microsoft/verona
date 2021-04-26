@@ -5,8 +5,7 @@ class U64 {}
 
 bar() : U64
 {
-  let ret : U64 = 21;
-  return ret;
+  return 21;
 }
 
 foo(a: U64) : U64
@@ -18,7 +17,6 @@ foo(a: U64) : U64
 
 main() : U64
 {
-let const : U64 = 21;
-  let ret : U64 = foo(const);
+  let ret : U64 = foo(21);
   return ret;
 }

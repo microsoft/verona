@@ -154,6 +154,10 @@ namespace mlir::verona
     if (scope.empty())
       scope = functionScope;
 
+    // FIXME: This is a hack to help running LLVM modules
+    if (name == "main")
+      return name.str();
+
     // TODO: This is inefficient but works for now
     std::string fullName;
     for (auto s : scope)
@@ -492,18 +496,28 @@ namespace mlir::verona
       return std::move(err);
     auto addr = res->get<Value>();
 
-    // Must be an address
-    if (!isAlloca(addr))
-      return runtimeError("Assign lhs not an address");
-
-    // Load the existing value to return
-    auto old = generateLoad(getLocation(assign), addr);
-
     // Evaluate the right hand side and assign to the binded name
     auto rhsNode = parseNode(assign->right);
     if (auto err = rhsNode.takeError())
       return std::move(err);
     auto rhs = rhsNode->get<Value>();
+
+    // No address means inline let/var (incl. temps), which has no type
+    // We evaluate the RHS first to get its type and create an address of the
+    // same type to store in.
+    if (!isAlloca(addr))
+    {
+      auto name = assign->left->location.view();
+      auto type = rhs.getType();
+      addr = generateAlloca(getLocation(ast), type);
+      symbolTable.update(name, addr);
+    }
+    assert(isAlloca(addr) && "Couldn't create an address for lhs in assign");
+
+    // Load the existing value to return (most of the time unused, elided)
+    auto old = generateLoad(getLocation(assign), addr);
+
+    // Store the new value in the same address
     generateStore(getLocation(assign), addr, rhs);
 
     // Return the previous value
