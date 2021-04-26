@@ -177,7 +177,9 @@ jobs:
         echo "===== Running build (${{ parameters.CmakeJobs }} CMake jobs) up to ${time_limit} from $(pwd)"
         echo
 
-        export llvmPassword=$(LLVMPrincipalPassword)
+        env -i \
+          llvmPassword=$(LLVMPrincipalPassword) \
+          HOME="$HOME" \
         timeout "$time_limit" time $(AbClientDirectory)/AnyBuild.sh \
           --RemoteExecServiceUri $(AnyBuildEnvironmentUri) \
           --NoCheckForUpdates \
@@ -190,7 +192,7 @@ jobs:
           --ShimProcessFilter '$(AbShimFilter)' \
           ${{ parameters.ExtraAnyBuildArgs }} \
           -- \
-          cmake --build . -- -j ${{ parameters.CmakeJobs }} ${{ parameters.CmakeBuildToolArgs }}
+          $(which cmake) --build . -- -j ${{ parameters.CmakeJobs }} ${{ parameters.CmakeBuildToolArgs }}
       }
 
       declare failed=0
@@ -202,6 +204,13 @@ jobs:
 
     workingDirectory: $(LlvmBuildDir)
     displayName: Build LLVM with AnyBuild
+
+  - bash: |
+      set -euo pipefail
+      cd "$(LlvmBuildDir)"
+      ninja clean
+    condition: and(succeeded(), eq(${{ parameters.PublishPackage }}, true))
+    displayName: Delete build outputs to free up space for 'Create package'
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish Artifact: Logs'
@@ -224,8 +233,8 @@ jobs:
     continueOnError: true
     condition: always()
     displayName: Print out AnyBuild stats
-  
-  - script: |
+
+  - bash: |
       set -euo pipefail
       rm -f $(PKG_NAME).tar
       tar --sort=name -cf $(PKG_NAME).tar build/install
@@ -239,7 +248,7 @@ jobs:
       cat "$(PKG_NAME)/$(PKG_NAME).tar.md5"
     continueOnError: false
     condition: and(succeeded(), eq(${{ parameters.PublishPackage }}, true))
-    displayName: 'Create package'
+    displayName: Create package
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish Artifact: Package'
