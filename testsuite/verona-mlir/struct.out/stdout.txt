@@ -1,0 +1,8 @@
+module @__  {
+  func @"____$module-0__foo"() {
+    %0 = memref.alloca() : memref<2xi64>
+    %1 = memref.alloca() : memref<1xf32>
+    %2 = memref.alloca() : memref<1xf64>
+    return
+  }
+}
