@@ -177,6 +177,9 @@ namespace mlir::verona
     /// Parses a function definition.
     llvm::Expected<ReturnValue> parseFunction(Ast ast);
 
+    /// Parses a field definition.
+    llvm::Expected<Type> parseField(Ast ast);
+
     /// Parses a lambda (function body).
     llvm::Expected<ReturnValue> parseLambda(Ast ast);
 

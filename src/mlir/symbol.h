@@ -145,25 +145,4 @@ namespace mlir::verona
    */
   using SymbolTableT = ScopedTable<mlir::Value>;
   using SymbolScopeT = ScopedTableScope<mlir::Value>;
-
-  /**
-   * Function Symbols. New scopes should be created when entering classes
-   * and sub-classes. Modules too, if we allow more than one per file.
-   */
-  using FunctionTableT = ScopedTable<mlir::FuncOp>;
-  using FunctionScopeT = ScopedTableScope<mlir::FuncOp>;
-
-  /**
-   * Type Symbols. New scopes should be created when entering classes
-   * sub-classes and functions, to be used with the 'where' keyword.
-   */
-  using TypeTableT = ScopedTable<mlir::Type>;
-  using TypeScopeT = ScopedTableScope<mlir::Type>;
-
-  /**
-   * Basic Block Symbols. New scopes should be created when entering loops
-   * to determine what is the head/exit block for 'break'/'continue'.
-   */
-  using BasicBlockTableT = ScopedTable<mlir::Block*>;
-  using BasicBlockScopeT = ScopedTableScope<mlir::Block*>;
 }

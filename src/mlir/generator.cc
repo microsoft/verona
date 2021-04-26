@@ -3,6 +3,7 @@
 
 #include "generator.h"
 
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
@@ -28,6 +29,44 @@ namespace
   {
     return val && val.getDefiningOp() &&
       llvm::isa<mlir::memref::AllocaOp>(val.getDefiningOp());
+  }
+
+  /// Return the type that needs to be allocated by the alloca instruction.
+  /// FIXME: Still using memref (largest type x num elms), should use LLVM's
+  /// own alloca on native types instead.
+  std::pair<mlir::Type, long> getAllocaSize(mlir::LLVM::LLVMStructType structTy)
+  {
+    mlir::Type largestTy;
+    unsigned int largestSize = 0;
+    unsigned int elms = 0;
+    for (auto elm : structTy.getBody())
+    {
+      if (elm.isIntOrFloat())
+      {
+        // "Native" checks size and increment span
+        auto size = elm.getIntOrFloatBitWidth();
+        if (size > largestSize)
+        {
+          largestSize = size;
+          largestTy = elm;
+        }
+        elms++;
+      }
+      else
+      {
+        // Class, recurse and update from nested info
+        auto structTy = elm.dyn_cast<mlir::LLVM::LLVMStructType>();
+        auto [subTy, subElms] = getAllocaSize(structTy);
+        auto size = subTy.getIntOrFloatBitWidth();
+        if (size > largestSize)
+        {
+          largestSize = size;
+          largestTy = subTy;
+        }
+        elms += subElms;
+      }
+    }
+    return std::make_pair(largestTy, elms);
   }
 
   /// Get node as a shared pointer of a sub-type
@@ -141,19 +180,24 @@ namespace mlir::verona
     assert(node && "Bad node");
     auto loc = getLocation(ast);
 
+    StringRef modName;
     if (!module)
     {
       // Creates the global module
       module = ModuleOp::create(loc, StringRef(rootModuleName));
-      functionScope.push_back(rootModuleName);
+      modName = rootModuleName;
     }
     else
     {
-      functionScope.push_back(node->id.view());
+      modName = node->id.view();
     }
 
-    // Push another scope for variables and functions
+    // Push another scope for variables, functions and types
     SymbolScopeT var_scope(symbolTable);
+    functionScope.push_back(modName);
+    auto type =
+      LLVM::LLVMStructType::getIdentified(builder.getContext(), modName);
+    llvm::SmallVector<Type, 4> fields;
 
     // Lower members, types, functions
     for (auto sub : node->members)
@@ -170,7 +214,8 @@ namespace mlir::verona
         }
         case Kind::Using:
           // Ignore for now as this is just a reference to the module name
-          // that will be lowered, but module names aren't being lowered now.
+          // that will be lowered, but module names aren't being lowered
+          // now.
           break;
         case Kind::Function:
         {
@@ -181,11 +226,19 @@ namespace mlir::verona
           break;
         }
         case Kind::Field:
-          return runtimeError("Fileds not implemented yet");
+        {
+          auto field = parseField(sub);
+          if (auto err = field.takeError())
+            return err;
+          fields.push_back(*field);
+          break;
+        }
         default:
           return runtimeError("Wrong member in class");
       }
     }
+    if (mlir::failed(type.setBody(fields, /*packed*/ false)))
+      return runtimeError("Error setting fields to class");
 
     return llvm::Error::success();
   }
@@ -271,10 +324,11 @@ namespace mlir::verona
 
     // Lower return value
     // (TODO: cast type if not the same)
-    bool hasLast = last->hasValue();
+    bool needsReturn = !retTy.empty();
 
-    if (hasLast)
+    if (needsReturn)
     {
+      assert(last->hasValue() && "No value to return");
       auto retVal = last->get<Value>();
       builder.create<ReturnOp>(loc, retVal);
     }
@@ -284,6 +338,18 @@ namespace mlir::verona
     }
 
     return funcIR;
+  }
+
+  llvm::Expected<Type> Generator::parseField(Ast ast)
+  {
+    auto field = nodeAs<Field>(ast);
+    assert(field && "Bad node");
+
+    auto type = parseType(field->type);
+    // TODO: Add names to a hash so we can access for field read/write.
+    // TODO: Implement initialiser
+
+    return type;
   }
 
   llvm::Expected<ReturnValue> Generator::parseLambda(Ast ast)
@@ -308,8 +374,8 @@ namespace mlir::verona
 
   // FIXME: This is a hack to make arithmetic work. We'll have to add
   // recognition of numeric types somewhere but it's probably not here.
-  // Though, before we move things from here, we need to know what to do when
-  // a select is in a numeric class that doesn't have those methods.
+  // Though, before we move things from here, we need to know what to do
+  // when a select is in a numeric class that doesn't have those methods.
   llvm::Expected<ReturnValue> Generator::parseSelect(Ast ast)
   {
     auto select = nodeAs<Select>(ast);
@@ -333,7 +399,8 @@ namespace mlir::verona
         rhs = generateLoad(loc, rhs);
     }
 
-    // FIXME: "special case" return for now, to make it work without method call
+    // FIXME: "special case" return for now, to make it work without method
+    // call
     if (select->typenames[0]->location.view() == "return")
       return rhs;
 
@@ -409,6 +476,7 @@ namespace mlir::verona
 
     // FIXME: for now, just updates the reference's type
     auto newTy = parseType(ofty->type);
+    // FIXME: This is probably the wrong place to do this
     Value addr = generateAlloca(getLocation(ofty), newTy);
     return symbolTable.update(name, addr);
   }
@@ -493,15 +561,24 @@ namespace mlir::verona
         auto C = nodeAs<TypeName>(ast);
         assert(C && "Bad Node");
         auto name = C->location.view();
-        // FIXME: This is possibly too early to do this conversion, but helps us
-        // run lots of tests before actually implementing classes, etc.
+        // FIXME: This is possibly too early to do this conversion, but
+        // helps us run lots of tests before actually implementing classes,
+        // etc.
         Type type = llvm::StringSwitch<Type>(name)
                       .Case("U32", builder.getI32Type())
                       .Case("U64", builder.getI64Type())
                       .Case("F32", builder.getF32Type())
                       .Case("F64", builder.getF64Type())
                       .Default(Type());
-        assert(type && "Classes not implemented yet");
+        // If type wasn't detected, it must be a class
+        // The order of declaration doesn't matter, so we create empty
+        // classes if they're not declared yet.
+        if (!type)
+        {
+          type =
+            LLVM::LLVMStructType::getIdentified(builder.getContext(), name);
+        }
+        assert(type && "Type not found");
         return type;
       }
       case Kind::Character:
@@ -525,8 +602,8 @@ namespace mlir::verona
     // Create function
     auto funcTy = builder.getFunctionType(types, {retTy});
     auto func = FuncOp::create(loc, name, funcTy);
-    // FIXME: This should be private unless we export, but for now we make it
-    // public to test IR generation before implementing public visibility
+    // FIXME: This should be private unless we export, but for now we make
+    // it public to test IR generation before implementing public visibility
     func.setVisibility(SymbolTable::Visibility::Public);
     return func;
   }
@@ -540,8 +617,9 @@ namespace mlir::verona
   {
     assert(args.size() == types.size() && "Argument/type mismatch");
 
-    // If it's not declared yet, do so. This simplifies direct declaration of
-    // compiler functions. User functions should be checked at the parse level.
+    // If it's not declared yet, do so. This simplifies direct declaration
+    // of compiler functions. User functions should be checked at the parse
+    // level.
     auto func = module->lookupSymbol<FuncOp>(name);
     if (!func)
     {
@@ -584,16 +662,17 @@ namespace mlir::verona
   {
     // FIXME: Implement all unary and binary operators
 
-    // Upcast types to be the same, or ops don't work, in the end, both types
-    // are identical and the same as the return type.
+    // Upcast types to be the same, or ops don't work, in the end, both
+    // types are identical and the same as the return type.
     std::tie(lhs, rhs) = typePromotion(lhs, rhs);
     auto retTy = lhs.getType();
 
-    // FIXME: We already converted U32 to i32 so this "works". But we need to
-    // make sure we want that conversion as early as it is, and if not, we need
-    // to implement this as a standard select and convert that later. However,
-    // that would only work if U32 has a method named "+", or if we declare it
-    // on the fly and then clean up when we remove the call.
+    // FIXME: We already converted U32 to i32 so this "works". But we need
+    // to make sure we want that conversion as early as it is, and if not,
+    // we need to implement this as a standard select and convert that
+    // later. However, that would only work if U32 has a method named "+",
+    // or if we declare it on the fly and then clean up when we remove the
+    // call.
 
     // Floating point arithmetic
     if (retTy.isF32() || retTy.isF64())
@@ -616,9 +695,19 @@ namespace mlir::verona
 
   Value Generator::generateAlloca(Location loc, Type ty)
   {
-    // FIXME: Get sizeof(). We probably will need alloc/load/store on our own
-    // dialect soon, not to have to depend on memref and its idiosyncrasies
-    auto memrefTy = mlir::MemRefType::get({1}, ty);
+    // FIXME: This is the wrong way of doing it but does allocate enough
+    // space for all elements.
+    mlir::MemRefType memrefTy;
+    if (ty.isIntOrFloat())
+    {
+      memrefTy = mlir::MemRefType::get({1}, ty);
+    }
+    else
+    {
+      auto structTy = ty.dyn_cast<LLVM::LLVMStructType>();
+      auto [largestTy, elms] = getAllocaSize(structTy);
+      memrefTy = mlir::MemRefType::get({elms}, largestTy);
+    }
     return builder.create<memref::AllocaOp>(loc, memrefTy);
   }
 
