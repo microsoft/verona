@@ -25,6 +25,7 @@ namespace
 
   /// Return true if the value was created by an alloca operation.
   /// FIXME: So far, this is the only way to know if the value is an address
+  /// We'll need a pointer type soon.
   bool isAlloca(mlir::Value val)
   {
     return val && val.getDefiningOp() &&
@@ -376,10 +377,6 @@ namespace mlir::verona
     return last;
   }
 
-  // FIXME: This is a hack to make arithmetic work. We'll have to add
-  // recognition of numeric types somewhere but it's probably not here.
-  // Though, before we move things from here, we need to know what to do
-  // when a select is in a numeric class that doesn't have those methods.
   llvm::Expected<ReturnValue> Generator::parseSelect(Ast ast)
   {
     auto select = nodeAs<Select>(ast);
@@ -432,7 +429,6 @@ namespace mlir::verona
     }
 
     // Check the function table for a symbol that matches the opName
-    // TODO: Use scope to find the right function with the same name
     if (auto funcOp = module->lookupSymbol<FuncOp>(opName))
     {
       // Handle arguments
@@ -491,24 +487,25 @@ namespace mlir::verona
     assert(assign && "Bad Node");
 
     // lhs has to be an addressable expression (ref, let, var)
-    auto res = parseNode(assign->left);
-    if (auto err = res.takeError())
+    auto lhsNode = parseNode(assign->left);
+    if (auto err = lhsNode.takeError())
       return std::move(err);
-    auto addr = res->get<Value>();
+    auto addr = lhsNode->get<Value>();
 
-    // Evaluate the right hand side and assign to the binded name
+    // Evaluate the right hand side to get type information
     auto rhsNode = parseNode(assign->right);
     if (auto err = rhsNode.takeError())
       return std::move(err);
-    auto rhs = rhsNode->get<Value>();
+    auto val = rhsNode->get<Value>();
 
     // No address means inline let/var (incl. temps), which has no type
-    // We evaluate the RHS first to get its type and create an address of the
-    // same type to store in.
+    // We evaluate the RHS first (above) to get its type and create an address
+    // of the same type to store in.
     if (!isAlloca(addr))
     {
+      assert(nodeAs<Let>(assign->left) || nodeAs<Var>(assign->left));
       auto name = assign->left->location.view();
-      auto type = rhs.getType();
+      auto type = val.getType();
       addr = generateAlloca(getLocation(ast), type);
       symbolTable.update(name, addr);
     }
@@ -518,7 +515,7 @@ namespace mlir::verona
     auto old = generateLoad(getLocation(assign), addr);
 
     // Store the new value in the same address
-    generateStore(getLocation(assign), addr, rhs);
+    generateStore(getLocation(assign), addr, val);
 
     // Return the previous value
     return old;
@@ -586,7 +583,8 @@ namespace mlir::verona
                       .Default(Type());
         // If type wasn't detected, it must be a class
         // The order of declaration doesn't matter, so we create empty
-        // classes if they're not declared yet.
+        // classes if they're not declared yet. Note: getIdentified below is a
+        // get-or-add function.
         if (!type)
         {
           type =
@@ -665,9 +663,9 @@ namespace mlir::verona
   llvm::Expected<Value>
   Generator::generateCall(Location loc, FuncOp func, llvm::ArrayRef<Value> args)
   {
-    // TODO: Implement static/dynamic method calls
+    // TODO: Implement dynamic method calls
     auto call = builder.create<CallOp>(loc, func, args);
-    // TODO: Implement multiple return values
+    // TODO: Implement multiple return values (tuples?)
     return call->getOpResult(0);
   }
 
@@ -678,6 +676,7 @@ namespace mlir::verona
 
     // Upcast types to be the same, or ops don't work, in the end, both
     // types are identical and the same as the return type.
+    assert(lhs && rhs && "No binary operation with less than two arguments");
     std::tie(lhs, rhs) = typePromotion(lhs, rhs);
     auto retTy = lhs.getType();
 
