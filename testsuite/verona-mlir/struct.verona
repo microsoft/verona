@@ -1,14 +1,14 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-class U32 {}
-class U64 {}
+class I32 {}
+class I64 {}
 class F32 {}
 class F64 {}
 
 class Bar {
-  a : U32;
-  b : U64;
+  a : I32;
+  b : I64;
 }
 class Beep {
   c : F32;
