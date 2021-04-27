@@ -32,44 +32,25 @@ namespace
     return val && val.getType().isa<PointerType>();
   }
 
-  /// Return the type that needs to be allocated by the alloca instruction.
-  /// FIXME: Still using memref (largest type x num elms), should use LLVM's
-  /// own alloca on native types instead.
-  std::pair<mlir::Type, int> getAllocaSize(StructType structTy)
+  /// Return the element type if val is a pointer.
+  mlir::Type getElementType(mlir::Value val)
   {
-    mlir::Type largestTy;
-    unsigned int largestSize = 0;
-    unsigned int elms = 0;
-    for (auto elm : structTy.getBody())
-    {
-      if (elm.isIntOrFloat())
-      {
-        // "Native" checks size and increment span
-        auto size = elm.getIntOrFloatBitWidth();
-        if (size > largestSize)
-        {
-          largestSize = size;
-          largestTy = elm;
-        }
-        elms++;
-      }
-      else
-      {
-        // Class, recurse and update from nested info
-        auto structTy = elm.dyn_cast<StructType>();
-        auto [subTy, subElms] = getAllocaSize(structTy);
-        auto size = subTy.getIntOrFloatBitWidth();
-        if (size > largestSize)
-        {
-          largestSize = size;
-          largestTy = subTy;
-        }
-        elms += subElms;
-      }
-    }
-    // FIXME: This is ugly, make sure we use the same integer type everywhere
-    assert((int)elms >= 0 && "Index too large for int");
-    return std::make_pair(largestTy, (int)elms);
+    assert(isPointer(val) && "Bad type");
+    return val.getType().dyn_cast<PointerType>().getElementType();
+  }
+
+  /// Return true if the value has a pointer to a structure type.
+  bool isStructPointer(mlir::Value val)
+  {
+    return isPointer(val) && getElementType(val).isa<StructType>();
+  }
+
+  /// Return the element type if val is a pointer.
+  mlir::Type getFieldType(StructType type, int offset)
+  {
+    auto field = type.getBody().begin();
+    std::advance(field, offset);
+    return PointerType::get(*field);
   }
 
   /// Get node as a shared pointer of a sub-type
@@ -168,21 +149,64 @@ namespace mlir::verona
   std::string Generator::mangleName(
     llvm::StringRef name, llvm::ArrayRef<llvm::StringRef> scope)
   {
-    if (scope.empty())
-      scope = functionScope;
-
     // FIXME: This is a hack to help running LLVM modules
     if (name == "main")
       return name.str();
 
     // TODO: This is inefficient but works for now
     std::string fullName;
+    // Prepend the function scope (module, etc)
+    for (auto s : functionScope)
+    {
+      fullName += s.str() + "__";
+    }
+    // Add the relative scope (class name, etc)
     for (auto s : scope)
     {
       fullName += s.str() + "__";
     }
+    // Append the actual function's name
     fullName += name.str();
     return fullName;
+  }
+
+  std::tuple<size_t, Type, bool>
+  Generator::getField(Type type, llvm::StringRef fieldName)
+  {
+    auto structTy = type.dyn_cast<LLVM::LLVMStructType>();
+    assert(structTy && "Bad type for field access");
+
+    auto name = structTy.getName();
+    auto& fieldMap = classFields[name];
+    size_t pos = 0;
+    for (auto f : fieldMap.fields)
+    {
+      // Always recurse into all class fields
+      auto classField = fieldMap.types[pos].dyn_cast<LLVM::LLVMStructType>();
+      if (classField)
+      {
+        auto [subPos, subTy, subFound] = getField(classField, fieldName);
+        pos += subPos;
+
+        if (subFound)
+          return {pos, subTy, true};
+        else
+          continue;
+      }
+
+      // Found the field, return position
+      if (f == fieldName)
+      {
+        auto ty = fieldMap.types[pos];
+        return {pos, ty, true};
+      }
+
+      // Not found, continue searching
+      pos++;
+    }
+
+    // Not found, return false
+    return {0, Type(), false};
   }
 
   // ===================================================== AST -> MLIR
@@ -210,6 +234,8 @@ namespace mlir::verona
     }
     else
     {
+      // FIXME: This may not come fully qualified, may break if two classes have
+      // the same name in different contexts.
       modName = node->id.view();
     }
 
@@ -218,7 +244,9 @@ namespace mlir::verona
     functionScope.push_back(modName);
     auto type =
       LLVM::LLVMStructType::getIdentified(builder.getContext(), modName);
-    llvm::SmallVector<Type, 4> fields;
+
+    // Create an entry for the fields
+    classFields.emplace(modName, FieldOffset());
 
     // Lower members, types, functions
     for (auto sub : node->members)
@@ -248,17 +276,23 @@ namespace mlir::verona
         }
         case Kind::Field:
         {
-          auto field = parseField(sub);
-          if (auto err = field.takeError())
+          auto res = parseField(sub);
+          if (auto err = res.takeError())
             return err;
-          fields.push_back(*field);
+
+          // Update class-field map
+          auto field = nodeAs<Field>(sub);
+          auto& fieldMap = classFields[modName];
+          fieldMap.fields.push_back(field->location.view());
+          fieldMap.types.push_back(*res);
           break;
         }
         default:
           return runtimeError("Wrong member in class");
       }
     }
-    if (mlir::failed(type.setBody(fields, /*packed*/ false)))
+    if (mlir::failed(
+          type.setBody(classFields[modName].types, /*packed*/ false)))
       return runtimeError("Error setting fields to class");
 
     return llvm::Error::success();
@@ -407,19 +441,53 @@ namespace mlir::verona
     //  * the arguments of the function call as a tuple
     if (select->args)
     {
-      // TODO: Implement tuple for multiple argument
+      // TODO: Implement tuple for multiple arguments
       auto rhsNode = parseNode(select->args);
       if (auto err = rhsNode.takeError())
         return std::move(err);
       rhs = rhsNode->get<Value>();
-      if (isPointer(rhs))
-        rhs = generateLoad(loc, rhs);
     }
 
     // FIXME: "special case" return for now, to make it work without method
-    // call
+    // call. There's a bug in the current AST that doesn't create a "last" value
+    // in some cases, so we add an explicit "return" to force it.
     if (select->typenames[0]->location.view() == "return")
+    {
+      auto thisFunc =
+        dyn_cast<FuncOp>(builder.getInsertionBlock()->getParentOp());
+      if (thisFunc.getType().getNumResults() > 0)
+        rhs = generateAutoLoad(loc, rhs, thisFunc.getType().getResult(0));
       return rhs;
+    }
+
+    // This is either:
+    //  * the LHS of a binary operator
+    //  * the selector for a static/dynamic call of a class member
+    if (select->expr)
+    {
+      auto lhsNode = parseNode(select->expr);
+      if (auto err = lhsNode.takeError())
+        return std::move(err);
+      lhs = lhsNode->get<Value>();
+    }
+
+    // Dynamic selector, for accessing a field or calling a method
+    if (isStructPointer(lhs))
+    {
+      auto structTy = getElementType(lhs);
+
+      // Loading fields, we calculate the offset to load based on the field name
+      auto [offset, elmTy, found] =
+        getField(structTy, select->typenames[0]->location.view());
+      if (found)
+      {
+        // Convert the address of the structure to the address of the element
+        return generateGEP(loc, lhs, offset);
+      }
+
+      // FIXME: Implement dynamic dispatch of methods
+      assert(false && "Dynamic method call not implemented yet");
+    }
 
     // Typenames indicate the context and the function name
     llvm::SmallVector<llvm::StringRef, 3> scope;
@@ -431,27 +499,17 @@ namespace mlir::verona
     std::string opName =
       mangleName(select->typenames[end]->location.view(), scope);
 
-    // This is either:
-    //  * the LHS of a binary operator
-    //  * the selector for a static/dynamic call of a class member
-    if (select->expr)
-    {
-      auto lhsNode = parseNode(select->expr);
-      if (auto err = lhsNode.takeError())
-        return std::move(err);
-      lhs = lhsNode->get<Value>();
-      if (isPointer(lhs))
-        lhs = generateLoad(loc, lhs);
-    }
-
     // Check the function table for a symbol that matches the opName
     if (auto funcOp = module->lookupSymbol<FuncOp>(opName))
     {
-      // Handle arguments
+      // If function takes a value and rhs is a pointer (alloca), load first
       // TODO: Handle tuples
       llvm::SmallVector<Value, 1> args;
       if (rhs)
+      {
+        rhs = generateAutoLoad(loc, rhs, funcOp.args_begin()->getType());
         args.push_back(rhs);
+      }
       auto res = generateCall(loc, funcOp, args);
       if (auto err = res.takeError())
         return std::move(err);
@@ -514,26 +572,42 @@ namespace mlir::verona
       return std::move(err);
     auto val = rhsNode->get<Value>();
 
-    // No address means inline let/var
-    // (incl. temps), which has no type We evaluate the RHS first (above) to get
-    // its type and create an address of the same type to store in.
-    if (!isPointer(addr))
+    // No address means inline let/var (incl. temps), which has no type.
+    // We evaluate the RHS first (above) to get its type and create an address
+    // of the same type to store in.
+    if (!addr)
     {
       assert(nodeAs<Let>(assign->left) || nodeAs<Var>(assign->left));
       auto name = assign->left->location.view();
-      auto type = val.getType();
-      addr = generateAlloca(getLocation(ast), type);
-      symbolTable.update(name, addr);
+
+      // If the value is a pointer, we just alias the temp with the SSA address
+      if (isPointer(val))
+      {
+        symbolTable.update(name, val);
+        return val;
+      }
+      // Else, allocate some space to store val into it
+      else
+      {
+        addr = generateAlloca(getLocation(ast), val.getType());
+        symbolTable.update(name, addr);
+      }
     }
     assert(isPointer(addr) && "Couldn't create an address for lhs in assign");
 
-    // If both LHS and RHS have types and they don't match, do type conversion
-    // to make them match. This is specially important in literals, which don't
-    // yet have specific types themselves.
-    auto addrType = addr.getType().dyn_cast<PointerType>().getElementType();
-    if (addrType != val.getType())
+    // If both are addresses, we need to load from the RHS to be able to store
+    // into the LHS
+    if (isPointer(val))
+      val = generateAutoLoad(val.getLoc(), val, getElementType(val));
+
+    // If LHS and RHS types don't match, do type conversion to make them match.
+    // This is specially important in literals, which still have largest types
+    // themselves (I64, F64).
+    auto addrTy = getElementType(addr);
+    auto valTy = val.getType();
+    if (addrTy != valTy)
     {
-      val = typeConversion(val, addrType);
+      val = typeConversion(val, addrTy);
     }
 
     // Load the existing value to return (most of the time unused, elided)
@@ -558,7 +632,7 @@ namespace mlir::verona
         auto str = I->location.view();
         auto val = std::stol(str.data());
         auto type = parseType(ast);
-        assert(type.dyn_cast<IntegerType>() && "Bad type for integer literal");
+        assert(type.isa<IntegerType>() && "Bad type for integer literal");
         auto op = builder.create<ConstantIntOp>(loc, val, type);
         return op->getOpResult(0);
         break;
@@ -613,7 +687,7 @@ namespace mlir::verona
         // FIXME: This gets the size of the host, not the target. We need a
         // target-info kind of class here to get this kinf of information, but
         // this will do for now.
-        auto size = sizeof(size_t)*8;
+        auto size = sizeof(size_t) * 8;
         // FIXME: This is possibly too early to do this conversion, but
         // helps us run lots of tests before actually implementing classes,
         // etc.
@@ -721,10 +795,17 @@ namespace mlir::verona
     Location loc, llvm::StringRef opName, Value lhs, Value rhs)
   {
     // FIXME: Implement all unary and binary operators
-
-    // Upcast types to be the same, or ops don't work, in the end, both
-    // types are identical and the same as the return type.
     assert(lhs && rhs && "No binary operation with less than two arguments");
+
+    // Make sure we're dealing with values, not pointers
+    // FIXME: This shouldn't be necessary at this point
+    if (isPointer(lhs))
+      lhs = generateLoad(loc, lhs);
+    if (isPointer(rhs))
+      rhs = generateLoad(loc, rhs);
+
+    // Promote types to be the same, or ops don't work, in the end, both
+    // types are identical and the same as the return type.
     std::tie(lhs, rhs) = typePromotion(lhs, rhs);
     auto retTy = lhs.getType();
 
@@ -746,7 +827,7 @@ namespace mlir::verona
     }
 
     // Integer arithmetic
-    assert(retTy.dyn_cast<IntegerType>() && "Bad arithmetic types");
+    assert(retTy.isa<IntegerType>() && "Bad arithmetic types");
     auto op = llvm::StringSwitch<Value>(opName)
                 .Case("+", builder.create<AddIOp>(loc, retTy, lhs, rhs))
                 .Default({});
@@ -757,39 +838,62 @@ namespace mlir::verona
   Value Generator::generateAlloca(Location loc, Type ty)
   {
     PointerType pointerTy;
-    Value len;
-    if (ty.isIntOrFloat())
-    {
-      pointerTy = PointerType::get(ty);
-      len = generateConstant(builder.getI32Type(), 1);
-    }
-    else
-    {
-      // FIXME: We should really only allocate enough space to fit, but this
-      // will work for now.
-      auto structTy = ty.dyn_cast<StructType>();
-      assert(structTy && "Invalid type");
-      auto [largestTy, elms] = getAllocaSize(structTy);
-      pointerTy = PointerType::get(largestTy);
-      len = generateConstant(builder.getI32Type(), elms);
-    }
+    Value len = generateConstant(builder.getI32Type(), 1);
+    pointerTy = PointerType::get(ty);
     return builder.create<LLVM::AllocaOp>(loc, pointerTy, len);
+  }
+
+  Value Generator::generateGEP(Location loc, Value addr, int offset)
+  {
+    llvm::SmallVector<Value> offsetList;
+    // First argument is always in context of a list
+    if (isStructPointer(addr))
+    {
+      auto zero = generateZero(builder.getI32Type());
+      offsetList.push_back(zero);
+    }
+    // Second argument is in context of the struct
+    auto len = generateConstant(builder.getI32Type(), offset);
+    offsetList.push_back(len);
+    ValueRange index(offsetList);
+    Type retTy = addr.getType();
+    if (auto structTy = getElementType(addr).dyn_cast<StructType>())
+      retTy = getFieldType(structTy, offset);
+    return builder.create<LLVM::GEPOp>(loc, retTy, addr, index);
   }
 
   Value Generator::generateLoad(Location loc, Value addr, int offset)
   {
-    auto len = generateConstant(builder.getI32Type(), offset);
-    ValueRange index(len);
-    auto gep = builder.create<LLVM::GEPOp>(loc, addr.getType(), addr, index);
-    return builder.create<LLVM::LoadOp>(loc, gep);
+    if (!isa<LLVM::GEPOp>(addr.getDefiningOp()))
+      addr = generateGEP(loc, addr, offset);
+    else
+      assert(offset == 0 && "Can't take an offset of a GEP");
+    return builder.create<LLVM::LoadOp>(loc, addr);
+  }
+
+  Value
+  Generator::generateAutoLoad(Location loc, Value addr, Type ty, int offset)
+  {
+    // If it's not an address, there's nothing to load
+    if (!isPointer(addr))
+      return addr;
+
+    // If the expected type is a pointer, we want the address, not the value
+    if (ty.isa<PointerType>())
+      return addr;
+
+    auto elmTy = getElementType(addr);
+    assert(elmTy == ty && "Invalid pointer load");
+    return generateLoad(loc, addr, offset);
   }
 
   void Generator::generateStore(Location loc, Value addr, Value val, int offset)
   {
-    auto len = generateConstant(builder.getI32Type(), offset);
-    ValueRange index(len);
-    auto gep = builder.create<LLVM::GEPOp>(loc, addr.getType(), addr, index);
-    builder.create<LLVM::StoreOp>(loc, val, gep);
+    if (!isa<LLVM::GEPOp>(addr.getDefiningOp()))
+      addr = generateGEP(loc, addr, offset);
+    else
+      assert(offset == 0 && "Can't take an offset of a GEP");
+    builder.create<LLVM::StoreOp>(loc, val, addr);
   }
 
   Value Generator::generateConstant(Type ty, std::variant<int, double> val)
@@ -811,7 +915,8 @@ namespace mlir::verona
 
     assert(0 && "Type not supported for zero");
 
-    // Appease MSVC warnings
+    // Return invalid value for release builds
+    // FIXME: Attach diagnostics engine here to report problems like these.
     return Value();
   }
 
