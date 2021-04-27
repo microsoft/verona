@@ -117,6 +117,15 @@ namespace mlir::verona
   };
 
   /**
+   * Field offset maps between field names, types and their relative position.
+   */
+  struct FieldOffset
+  {
+    llvm::SmallVector<llvm::StringRef, 1> fields;
+    llvm::SmallVector<Type, 1> types;
+  };
+
+  /**
    * MLIR Generator.
    */
   class Generator
@@ -131,6 +140,8 @@ namespace mlir::verona
 
     /// Symbol tables for variables.
     SymbolTableT symbolTable;
+    /// Map for each type which fields does it have.
+    std::map<llvm::StringRef, FieldOffset> classFields;
 
     /// Function scope, for mangling names. 3 because there will always be the
     /// root module, the current module and a class, at the very least.
@@ -162,6 +173,11 @@ namespace mlir::verona
     /// Mangle function names. If scope is not passed, use functionScope.
     std::string mangleName(
       llvm::StringRef name, llvm::ArrayRef<llvm::StringRef> scope = {});
+
+    /// Return the offset into the structure to load/store values into fields
+    /// and the type of the field's value (if stored in a different container).
+    std::tuple<size_t, Type, bool>
+    getField(Type type, llvm::StringRef fieldName);
 
     // =================================================================
     // Parsers These methods parse the AST into MLIR constructs, then either
@@ -230,8 +246,13 @@ namespace mlir::verona
       Location loc, llvm::StringRef opName, Value lhs, Value rhs);
     /// Generates an alloca (stack variable)
     Value generateAlloca(Location loc, Type ty);
+    /// Generates an element pointer
+    Value generateGEP(Location loc, Value addr, int offset = 0);
     /// Generates a load of an address
     Value generateLoad(Location loc, Value addr, int offset = 0);
+    /// Generates a load if the expected type is not a pointer and is compatible
+    /// with the element type (asserts if not)
+    Value generateAutoLoad(Location loc, Value addr, Type ty, int offset = 0);
     /// Generates a store into an address
     void generateStore(Location loc, Value addr, Value val, int offset = 0);
     /// Generate a constant value of a certain type

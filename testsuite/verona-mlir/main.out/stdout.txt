@@ -32,12 +32,12 @@ module @__  {
     %c1_i32_3 = constant 1 : i32
     %7 = llvm.alloca %c1_i32_3 x i64 : (i32) -> !llvm.ptr<i64>
     %c0_i32_4 = constant 0 : i32
-    %8 = llvm.getelementptr %0[%c0_i32_4] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %8 = llvm.getelementptr %2[%c0_i32_4] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %9 = llvm.load %8 : !llvm.ptr<i64>
     %c0_i32_5 = constant 0 : i32
-    %10 = llvm.getelementptr %2[%c0_i32_5] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %10 = llvm.getelementptr %0[%c0_i32_5] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %11 = llvm.load %10 : !llvm.ptr<i64>
-    %12 = addi %11, %9 : i64
+    %12 = addi %9, %11 : i64
     %c0_i32_6 = constant 0 : i32
     %13 = llvm.getelementptr %7[%c0_i32_6] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %14 = llvm.load %13 : !llvm.ptr<i64>

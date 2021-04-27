@@ -6,6 +6,11 @@ class I64 {}
 class F32 {}
 class F64 {}
 
+class Foo {
+  a : I32;
+  b : I64;
+}
+
 class Bar {
   a : I32;
   b : I64;
@@ -15,11 +20,34 @@ class Beep {
 }
 class Boop {
   d : F64;
+  // Static method
+  getPI() : F64
+  {
+    return 3.1415;
+  }
 }
 
-foo()
+foo() : I32
 {
+  // Test declaring (and allocating space for) class types
+  let foo : Foo;
   let bar : Bar;
   let beep : Beep;
   let boop : Boop;
+
+  // Test calling a static method
+  let PI : F64 = Boop::getPI();
+  boop.d = PI;
+
+  // Test reading / writing to fields
+  foo.a = 12;
+  bar.a = foo.a;
+  bar.b = 12;
+  return bar.a;
+}
+
+bar() : F64
+{
+  let PI : F64 = Boop::getPI();
+  return PI;
 }
