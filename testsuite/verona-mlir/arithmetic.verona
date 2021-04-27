@@ -1,20 +1,20 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-class U32 {}
-class U64 {}
+class I32 {}
+class I64 {}
 class F32 {}
 class F64 {}
 
-simple(a: U32, b: U32): U32
+simple(a: I32, b: I32): I32
 {
-  let x : U32 = a + b;
+  let x : I32 = a + b;
   return x;
 }
 
-int_upcast(a: U32, b: U64): U64
+int_upcast(a: I32, b: I64): I64
 {
-  let x : U64 = a + b;
+  let x : I64 = a + b;
   return x;
 }
 
@@ -26,8 +26,8 @@ fp_upcast(a: F64, b: F32): F64
 
 literals(): F64
 {
-  let x : U32 = 21;
-  let y : U64 = x + 21;
+  let x : I32 = 21;
+  let y : I64 = x + 21;
   let f : F32 = 3.14;
   let d : F64 = f + 0.0015;
   return d;

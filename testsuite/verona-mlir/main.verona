@@ -1,22 +1,22 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-class U64 {}
+class I64 {}
 
-bar() : U64
+bar() : I64
 {
   return 21;
 }
 
-foo(a: U64) : U64
+foo(a: I64) : I64
 {
-  let x : U64 = bar();
-  let ret : U64 = x + a;
+  let x : I64 = bar();
+  let ret : I64 = x + a;
   return ret;
 }
 
-main() : U64
+main() : I64
 {
-  let ret : U64 = foo(21);
+  let ret : I64 = foo(21);
   return ret;
 }

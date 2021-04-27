@@ -1,44 +1,44 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-class U64 {}
-class U32 {}
+class I64 {}
+class I32 {}
 
 // Empty function
 (){}
 
 // Return only function
-retOnly(): U64
+retOnly(): I64
 {
   42
 }
 
 // Arg & return
-retOneArg(x: U64): U64
+retOneArg(x: I64): I64
 {
   return x;
 }
 
 // Two Args & return
-retFirstArg(x: U64, y: U64): U64
+retFirstArg(x: I64, y: I64): I64
 {
   return x;
 }
 
 // Two Args & return
-retSecondArg(x: U64, y: U64): U64
+retSecondArg(x: I64, y: I64): I64
 {
   return y;
 }
 
 // Different type args & return
-retSecondArgDiff(x: U64, y: U32): U32
+retSecondArgDiff(x: I64, y: I32): I32
 {
   return y;
 }
 
 // Type params, args, arithmetic, auto return
-//bar[N: imm, R: U64 & imm](a: N, b: U64 & imm): R
+//bar[N: imm, R: I64 & imm](a: N, b: I64 & imm): R
 //{
 //  let x = a + b;
 //  let r: R = x;

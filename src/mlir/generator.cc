@@ -112,6 +112,7 @@ namespace mlir::verona
       return val;
 
     // Integer upcasts
+    // TODO: Consiger sign, too
     auto valInt = valTy.dyn_cast<IntegerType>();
     auto tyInt = ty.dyn_cast<IntegerType>();
     if (valInt && tyInt)
@@ -607,12 +608,23 @@ namespace mlir::verona
         auto C = nodeAs<TypeName>(ast);
         assert(C && "Bad Node");
         auto name = C->location.view();
+        // FIXME: This gets the size of the host, not the target. We need a
+        // target-info kind of class here to get this kinf of information, but
+        // this will do for now.
+        auto size = sizeof(size_t)*8;
         // FIXME: This is possibly too early to do this conversion, but
         // helps us run lots of tests before actually implementing classes,
         // etc.
+        // FIXME: Support unsigned values. The standard dialect only has
+        // signless operations, so we restrict current tests to I* and avoid U*
+        // integer types.
         Type type = llvm::StringSwitch<Type>(name)
-                      .Case("U32", builder.getI32Type())
-                      .Case("U64", builder.getI64Type())
+                      .Case("I8", builder.getIntegerType(8))
+                      .Case("I16", builder.getIntegerType(16))
+                      .Case("I32", builder.getIntegerType(32))
+                      .Case("I64", builder.getIntegerType(64))
+                      .Case("I128", builder.getIntegerType(128))
+                      .Case("ISize", builder.getIntegerType(size))
                       .Case("F32", builder.getF32Type())
                       .Case("F64", builder.getF64Type())
                       .Default(Type());

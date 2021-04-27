@@ -2,3 +2,16 @@
 // SPDX-License-Identifier: MIT
 
 using "numbers";
+
+foo()
+{
+  let i8 : I8 = 10;
+  let i16 : I16 = 123123;
+  let i32 : I32 = 2000000000;
+  let i64 : I64 = 4999999999;
+  let i128 : I128 = 1234567890;
+  // Testing ISize is platform dependent.
+  // let iSize : ISize = 12345;
+  let f32 : F32 = 3.1415e20;
+  let f64 : F64 = 3.1415e123;
+}
