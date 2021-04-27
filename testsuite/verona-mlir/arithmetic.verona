@@ -23,3 +23,12 @@ fp_upcast(a: F64, b: F32): F64
   let x : F64 = a + b;
   return x;
 }
+
+literals(): F64
+{
+  let x : U32 = 21;
+  let y : U64 = x + 21;
+  let f : F32 = 3.14;
+  let d : F64 = f + 0.0015;
+  return d;
+}

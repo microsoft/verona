@@ -149,6 +149,10 @@ namespace mlir::verona
     /// Get location of an ast node.
     Location getLocation(Ast ast);
 
+    /// Convert (promote/demote) the value to the specified type. This
+    /// automatically chooses promotion / demotion based on the types involved.
+    Value typeConversion(Value val, Type ty);
+
     /// Promote the smallest (compatible) type and return the values to be used
     /// for arithmetic operations. If types are same, just return them, if not,
     /// return the cast operations that make them the same. If types are
