@@ -103,6 +103,43 @@ namespace mlir::verona
     return mlir::FileLineColLoc::get(builder.getIdentifier(path), line, column);
   }
 
+  Value Generator::typeConversion(Value val, Type ty)
+  {
+    auto valTy = val.getType();
+    auto valSize = valTy.getIntOrFloatBitWidth();
+    auto tySize = ty.getIntOrFloatBitWidth();
+    if (valSize == tySize)
+      return val;
+
+    // Integer upcasts
+    auto valInt = valTy.dyn_cast<IntegerType>();
+    auto tyInt = ty.dyn_cast<IntegerType>();
+    if (valInt && tyInt)
+    {
+      if (valSize < tySize)
+        return builder.create<SignExtendIOp>(val.getLoc(), ty, val);
+      else
+        return builder.create<TruncateIOp>(val.getLoc(), ty, val);
+    }
+
+    // Floating point casts
+    auto valFP = valTy.dyn_cast<FloatType>();
+    auto tyFP = ty.dyn_cast<FloatType>();
+    if (valFP && tyFP)
+    {
+      if (valSize < tySize)
+        return builder.create<FPExtOp>(val.getLoc(), ty, val);
+      else
+        return builder.create<FPTruncOp>(val.getLoc(), ty, val);
+    }
+
+    // If not compatible, assert
+    assert(false && "Type casts between incompatible types");
+
+    // Appease MSVC warnings
+    return Value();
+  }
+
   std::pair<mlir::Value, mlir::Value>
   Generator::typePromotion(mlir::Value lhs, mlir::Value rhs)
   {
@@ -116,36 +153,12 @@ namespace mlir::verona
     auto lhsSize = lhsType.getIntOrFloatBitWidth();
     auto rhsSize = rhsType.getIntOrFloatBitWidth();
 
-    // Integer upcasts
-    auto lhsInt = lhsType.dyn_cast<IntegerType>();
-    auto rhsInt = rhsType.dyn_cast<IntegerType>();
-    if (lhsInt && rhsInt)
-    {
-      if (lhsSize < rhsSize)
-        lhs = builder.create<SignExtendIOp>(lhs.getLoc(), rhsType, lhs);
-      else
-        rhs = builder.create<SignExtendIOp>(rhs.getLoc(), lhsType, rhs);
+    // Promote the smallest to the largest
+    if (lhsSize < rhsSize)
+      lhs = typeConversion(lhs, rhsType);
+    else
+      rhs = typeConversion(rhs, lhsType);
 
-      return {lhs, rhs};
-    }
-
-    // Floating point casts
-    auto lhsFP = lhsType.dyn_cast<FloatType>();
-    auto rhsFP = rhsType.dyn_cast<FloatType>();
-    if (lhsFP && rhsFP)
-    {
-      if (lhsSize < rhsSize)
-        lhs = builder.create<FPExtOp>(lhs.getLoc(), rhsType, lhs);
-      else
-        rhs = builder.create<FPExtOp>(rhs.getLoc(), lhsType, rhs);
-
-      return {lhs, rhs};
-    }
-
-    // If not compatible, assert
-    assert(false && "Upcast between incompatible types");
-
-    // Appease MSVC warnings
     return {lhs, rhs};
   }
 
@@ -498,9 +511,9 @@ namespace mlir::verona
       return std::move(err);
     auto val = rhsNode->get<Value>();
 
-    // No address means inline let/var (incl. temps), which has no type
-    // We evaluate the RHS first (above) to get its type and create an address
-    // of the same type to store in.
+    // No address means inline let/var
+    // (incl. temps), which has no type We evaluate the RHS first (above) to get
+    // its type and create an address of the same type to store in.
     if (!isAlloca(addr))
     {
       assert(nodeAs<Let>(assign->left) || nodeAs<Var>(assign->left));
@@ -510,6 +523,15 @@ namespace mlir::verona
       symbolTable.update(name, addr);
     }
     assert(isAlloca(addr) && "Couldn't create an address for lhs in assign");
+
+    // If both LHS and RHS have types and they don't match, do type conversion
+    // to make them match. This is specially important in literals, which don't
+    // yet have specific types themselves.
+    if (addr.getType() != val.getType())
+    {
+      auto addrType = addr.getType().dyn_cast<MemRefType>().getElementType();
+      val = typeConversion(val, addrType);
+    }
 
     // Load the existing value to return (most of the time unused, elided)
     auto old = generateLoad(getLocation(assign), addr);
@@ -533,12 +555,25 @@ namespace mlir::verona
         auto str = I->location.view();
         auto val = std::stol(str.data());
         auto type = parseType(ast);
+        assert(type.dyn_cast<IntegerType>() && "Bad type for integer literal");
         auto op = builder.create<ConstantIntOp>(loc, val, type);
         return op->getOpResult(0);
         break;
       }
-      case Kind::Character:
       case Kind::Float:
+      {
+        auto F = nodeAs<Float>(ast);
+        assert(F && "Bad Node");
+        auto str = F->location.view();
+        auto val = llvm::APFloat(std::stod(str.data()));
+        auto type = parseType(ast);
+        auto floatType = type.dyn_cast<FloatType>();
+        assert(floatType && "Bad type for float literal");
+        auto op = builder.create<ConstantFloatOp>(loc, val, floatType);
+        return op->getOpResult(0);
+        break;
+      }
+      case Kind::Character:
       case Kind::Hex:
       case Kind::Binary:
       case Kind::Bool:
