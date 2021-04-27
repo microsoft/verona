@@ -59,6 +59,13 @@ namespace verona::rt
     /// Used by systematic testing to implement the condition variable,
     /// and thread termination.
     SystematicState systematic_state = SystematicState::Active;
+
+    /// Used to specify a condition when this thread should/could make
+    /// progress.  It is used to implement condition variables.
+    snmalloc::function_ref<bool()> guard = true_thunk;
+
+    /// How many uninterrupted steps this threads has been selected to run for.
+    size_t steps = 0;
 #endif
 
     SPMCQ<T> q;
