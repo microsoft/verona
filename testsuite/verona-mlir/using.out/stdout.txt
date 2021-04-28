@@ -22,8 +22,8 @@ module @__  {
     llvm.store %6, %9 : !llvm.ptr<i16>
     %c1_i32_4 = constant 1 : i32
     %10 = llvm.alloca %c1_i32_4 x i32 : (i32) -> !llvm.ptr<i32>
-    %c2000000000_i64 = constant 2000000000 : i64
-    %11 = trunci %c2000000000_i64 : i64 to i32
+    %c1000000000_i64 = constant 1000000000 : i64
+    %11 = trunci %c1000000000_i64 : i64 to i32
     %c0_i32_5 = constant 0 : i32
     %12 = llvm.getelementptr %10[%c0_i32_5] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
     %13 = llvm.load %12 : !llvm.ptr<i32>
@@ -32,13 +32,13 @@ module @__  {
     llvm.store %11, %14 : !llvm.ptr<i32>
     %c1_i32_7 = constant 1 : i32
     %15 = llvm.alloca %c1_i32_7 x i64 : (i32) -> !llvm.ptr<i64>
-    %c4999999999_i64 = constant 4999999999 : i64
+    %c2000000000_i64 = constant 2000000000 : i64
     %c0_i32_8 = constant 0 : i32
     %16 = llvm.getelementptr %15[%c0_i32_8] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %17 = llvm.load %16 : !llvm.ptr<i64>
     %c0_i32_9 = constant 0 : i32
     %18 = llvm.getelementptr %15[%c0_i32_9] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
-    llvm.store %c4999999999_i64, %18 : !llvm.ptr<i64>
+    llvm.store %c2000000000_i64, %18 : !llvm.ptr<i64>
     %c1_i32_10 = constant 1 : i32
     %19 = llvm.alloca %c1_i32_10 x i128 : (i32) -> !llvm.ptr<i128>
     %c1234567890_i64 = constant 1234567890 : i64
