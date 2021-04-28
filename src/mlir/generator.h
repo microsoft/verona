@@ -231,9 +231,11 @@ namespace mlir::verona
     /// Generates an alloca (stack variable)
     Value generateAlloca(Location loc, Type ty);
     /// Generates a load of an address
-    Value generateLoad(Location loc, Value addr);
+    Value generateLoad(Location loc, Value addr, int offset = 0);
     /// Generates a store into an address
-    void generateStore(Location loc, Value addr, Value val);
+    void generateStore(Location loc, Value addr, Value val, int offset = 0);
+    /// Generate a constant value of a certain type
+    Value generateConstant(Type ty, std::variant<int, double> val);
     /// Generate a zero initialized value of a certain type
     Value generateZero(Type ty);
 

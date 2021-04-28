@@ -1,8 +1,11 @@
 module @__  {
   func @"____$module-0__foo"() {
-    %0 = memref.alloca() : memref<2xi64>
-    %1 = memref.alloca() : memref<1xf32>
-    %2 = memref.alloca() : memref<1xf64>
+    %c2_i32 = constant 2 : i32
+    %0 = llvm.alloca %c2_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %c1_i32 = constant 1 : i32
+    %1 = llvm.alloca %c1_i32 x f32 : (i32) -> !llvm.ptr<f32>
+    %c1_i32_0 = constant 1 : i32
+    %2 = llvm.alloca %c1_i32_0 x f64 : (i32) -> !llvm.ptr<f64>
     return
   }
 }

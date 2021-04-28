@@ -4,7 +4,6 @@
 #include "generator.h"
 
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Dialect.h"
@@ -13,6 +12,10 @@
 #include <string>
 
 using namespace verona::parser;
+
+/// LLVM aliases
+using StructType = mlir::LLVM::LLVMStructType;
+using PointerType = mlir::LLVM::LLVMPointerType;
 
 namespace
 {
@@ -23,19 +26,16 @@ namespace
       bb->back().mightHaveTrait<mlir::OpTrait::IsTerminator>();
   }
 
-  /// Return true if the value was created by an alloca operation.
-  /// FIXME: So far, this is the only way to know if the value is an address
-  /// We'll need a pointer type soon.
-  bool isAlloca(mlir::Value val)
+  /// Return true if the value has a pointer type.
+  bool isPointer(mlir::Value val)
   {
-    return val && val.getDefiningOp() &&
-      llvm::isa<mlir::memref::AllocaOp>(val.getDefiningOp());
+    return val && val.getType().isa<PointerType>();
   }
 
   /// Return the type that needs to be allocated by the alloca instruction.
   /// FIXME: Still using memref (largest type x num elms), should use LLVM's
   /// own alloca on native types instead.
-  std::pair<mlir::Type, long> getAllocaSize(mlir::LLVM::LLVMStructType structTy)
+  std::pair<mlir::Type, int> getAllocaSize(StructType structTy)
   {
     mlir::Type largestTy;
     unsigned int largestSize = 0;
@@ -56,7 +56,7 @@ namespace
       else
       {
         // Class, recurse and update from nested info
-        auto structTy = elm.dyn_cast<mlir::LLVM::LLVMStructType>();
+        auto structTy = elm.dyn_cast<StructType>();
         auto [subTy, subElms] = getAllocaSize(structTy);
         auto size = subTy.getIntOrFloatBitWidth();
         if (size > largestSize)
@@ -67,7 +67,9 @@ namespace
         elms += subElms;
       }
     }
-    return std::make_pair(largestTy, elms);
+    // FIXME: This is ugly, make sure we use the same integer type everywhere
+    assert((int)elms >= 0 && "Index too large for int");
+    return std::make_pair(largestTy, (int)elms);
   }
 
   /// Get node as a shared pointer of a sub-type
@@ -410,7 +412,7 @@ namespace mlir::verona
       if (auto err = rhsNode.takeError())
         return std::move(err);
       rhs = rhsNode->get<Value>();
-      if (isAlloca(rhs))
+      if (isPointer(rhs))
         rhs = generateLoad(loc, rhs);
     }
 
@@ -438,7 +440,7 @@ namespace mlir::verona
       if (auto err = lhsNode.takeError())
         return std::move(err);
       lhs = lhsNode->get<Value>();
-      if (isAlloca(lhs))
+      if (isPointer(lhs))
         lhs = generateLoad(loc, lhs);
     }
 
@@ -515,7 +517,7 @@ namespace mlir::verona
     // No address means inline let/var
     // (incl. temps), which has no type We evaluate the RHS first (above) to get
     // its type and create an address of the same type to store in.
-    if (!isAlloca(addr))
+    if (!isPointer(addr))
     {
       assert(nodeAs<Let>(assign->left) || nodeAs<Var>(assign->left));
       auto name = assign->left->location.view();
@@ -523,14 +525,14 @@ namespace mlir::verona
       addr = generateAlloca(getLocation(ast), type);
       symbolTable.update(name, addr);
     }
-    assert(isAlloca(addr) && "Couldn't create an address for lhs in assign");
+    assert(isPointer(addr) && "Couldn't create an address for lhs in assign");
 
     // If both LHS and RHS have types and they don't match, do type conversion
     // to make them match. This is specially important in literals, which don't
     // yet have specific types themselves.
-    if (addr.getType() != val.getType())
+    auto addrType = addr.getType().dyn_cast<PointerType>().getElementType();
+    if (addrType != val.getType())
     {
-      auto addrType = addr.getType().dyn_cast<MemRefType>().getElementType();
       val = typeConversion(val, addrType);
     }
 
@@ -634,8 +636,7 @@ namespace mlir::verona
         // get-or-add function.
         if (!type)
         {
-          type =
-            LLVM::LLVMStructType::getIdentified(builder.getContext(), name);
+          type = StructType::getIdentified(builder.getContext(), name);
         }
         assert(type && "Type not found");
         return type;
@@ -755,56 +756,70 @@ namespace mlir::verona
 
   Value Generator::generateAlloca(Location loc, Type ty)
   {
-    // FIXME: This is the wrong way of doing it but does allocate enough
-    // space for all elements.
-    mlir::MemRefType memrefTy;
+    PointerType pointerTy;
+    Value len;
     if (ty.isIntOrFloat())
     {
-      memrefTy = mlir::MemRefType::get({1}, ty);
+      pointerTy = PointerType::get(ty);
+      len = generateConstant(builder.getI32Type(), 1);
     }
     else
     {
-      auto structTy = ty.dyn_cast<LLVM::LLVMStructType>();
+      // FIXME: We should really only allocate enough space to fit, but this
+      // will work for now.
+      auto structTy = ty.dyn_cast<StructType>();
+      assert(structTy && "Invalid type");
       auto [largestTy, elms] = getAllocaSize(structTy);
-      memrefTy = mlir::MemRefType::get({elms}, largestTy);
+      pointerTy = PointerType::get(largestTy);
+      len = generateConstant(builder.getI32Type(), elms);
     }
-    return builder.create<memref::AllocaOp>(loc, memrefTy);
+    return builder.create<LLVM::AllocaOp>(loc, pointerTy, len);
   }
 
-  Value Generator::generateLoad(Location loc, Value addr)
+  Value Generator::generateLoad(Location loc, Value addr, int offset)
   {
-    auto zero = generateZero(builder.getIndexType());
-    ValueRange index(zero);
-    return builder.create<memref::LoadOp>(loc, addr, index);
+    auto len = generateConstant(builder.getI32Type(), offset);
+    ValueRange index(len);
+    auto gep = builder.create<LLVM::GEPOp>(loc, addr.getType(), addr, index);
+    return builder.create<LLVM::LoadOp>(loc, gep);
   }
 
-  void Generator::generateStore(Location loc, Value addr, Value val)
+  void Generator::generateStore(Location loc, Value addr, Value val, int offset)
   {
-    auto zero = generateZero(builder.getIndexType());
-    ValueRange index(zero);
-    builder.create<memref::StoreOp>(loc, val, addr, index);
+    auto len = generateConstant(builder.getI32Type(), offset);
+    ValueRange index(len);
+    auto gep = builder.create<LLVM::GEPOp>(loc, addr.getType(), addr, index);
+    builder.create<LLVM::StoreOp>(loc, val, gep);
   }
 
-  Value Generator::generateZero(Type ty)
+  Value Generator::generateConstant(Type ty, std::variant<int, double> val)
   {
     auto loc = builder.getUnknownLoc();
     if (ty.isIndex())
     {
-      return builder.create<ConstantIndexOp>(loc, 0);
+      return builder.create<ConstantIndexOp>(loc, std::get<int>(val));
     }
     else if (auto it = ty.dyn_cast<IntegerType>())
     {
-      return builder.create<ConstantIntOp>(loc, 0, it);
+      return builder.create<ConstantIntOp>(loc, std::get<int>(val), it);
     }
     else if (auto ft = ty.dyn_cast<FloatType>())
     {
-      APFloat zero = APFloat(0.0);
-      return builder.create<ConstantFloatOp>(loc, zero, ft);
+      APFloat value = APFloat(std::get<double>(val));
+      return builder.create<ConstantFloatOp>(loc, value, ft);
     }
 
     assert(0 && "Type not supported for zero");
 
     // Appease MSVC warnings
     return Value();
+  }
+
+  Value Generator::generateZero(Type ty)
+  {
+    if (ty.isa<FloatType>())
+      return generateConstant(ty, 0.0);
+    else
+      return generateConstant(ty, 0);
   }
 }

@@ -7,44 +7,62 @@ module @__  {
     return %c42_i64 : i64
   }
   func @"____$module-0__retOneArg"(%arg0: i64) -> i64 {
-    %0 = memref.alloca() : memref<1xi64>
-    %c0 = constant 0 : index
-    memref.store %arg0, %0[%c0] : memref<1xi64>
-    %c0_0 = constant 0 : index
-    %1 = memref.load %0[%c0_0] : memref<1xi64>
-    return %1 : i64
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %c0_i32 = constant 0 : i32
+    %1 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %arg0, %1 : !llvm.ptr<i64>
+    %c0_i32_0 = constant 0 : i32
+    %2 = llvm.getelementptr %0[%c0_i32_0] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %3 = llvm.load %2 : !llvm.ptr<i64>
+    return %3 : i64
   }
   func @"____$module-0__retFirstArg"(%arg0: i64, %arg1: i64) -> i64 {
-    %0 = memref.alloca() : memref<1xi64>
-    %c0 = constant 0 : index
-    memref.store %arg0, %0[%c0] : memref<1xi64>
-    %1 = memref.alloca() : memref<1xi64>
-    %c0_0 = constant 0 : index
-    memref.store %arg1, %1[%c0_0] : memref<1xi64>
-    %c0_1 = constant 0 : index
-    %2 = memref.load %0[%c0_1] : memref<1xi64>
-    return %2 : i64
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %c0_i32 = constant 0 : i32
+    %1 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %arg0, %1 : !llvm.ptr<i64>
+    %c1_i32_0 = constant 1 : i32
+    %2 = llvm.alloca %c1_i32_0 x i64 : (i32) -> !llvm.ptr<i64>
+    %c0_i32_1 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32_1] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %arg1, %3 : !llvm.ptr<i64>
+    %c0_i32_2 = constant 0 : i32
+    %4 = llvm.getelementptr %0[%c0_i32_2] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %5 = llvm.load %4 : !llvm.ptr<i64>
+    return %5 : i64
   }
   func @"____$module-0__retSecondArg"(%arg0: i64, %arg1: i64) -> i64 {
-    %0 = memref.alloca() : memref<1xi64>
-    %c0 = constant 0 : index
-    memref.store %arg0, %0[%c0] : memref<1xi64>
-    %1 = memref.alloca() : memref<1xi64>
-    %c0_0 = constant 0 : index
-    memref.store %arg1, %1[%c0_0] : memref<1xi64>
-    %c0_1 = constant 0 : index
-    %2 = memref.load %1[%c0_1] : memref<1xi64>
-    return %2 : i64
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %c0_i32 = constant 0 : i32
+    %1 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %arg0, %1 : !llvm.ptr<i64>
+    %c1_i32_0 = constant 1 : i32
+    %2 = llvm.alloca %c1_i32_0 x i64 : (i32) -> !llvm.ptr<i64>
+    %c0_i32_1 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32_1] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %arg1, %3 : !llvm.ptr<i64>
+    %c0_i32_2 = constant 0 : i32
+    %4 = llvm.getelementptr %2[%c0_i32_2] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %5 = llvm.load %4 : !llvm.ptr<i64>
+    return %5 : i64
   }
   func @"____$module-0__retSecondArgDiff"(%arg0: i64, %arg1: i32) -> i32 {
-    %0 = memref.alloca() : memref<1xi64>
-    %c0 = constant 0 : index
-    memref.store %arg0, %0[%c0] : memref<1xi64>
-    %1 = memref.alloca() : memref<1xi32>
-    %c0_0 = constant 0 : index
-    memref.store %arg1, %1[%c0_0] : memref<1xi32>
-    %c0_1 = constant 0 : index
-    %2 = memref.load %1[%c0_1] : memref<1xi32>
-    return %2 : i32
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %c0_i32 = constant 0 : i32
+    %1 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %arg0, %1 : !llvm.ptr<i64>
+    %c1_i32_0 = constant 1 : i32
+    %2 = llvm.alloca %c1_i32_0 x i32 : (i32) -> !llvm.ptr<i32>
+    %c0_i32_1 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32_1] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    llvm.store %arg1, %3 : !llvm.ptr<i32>
+    %c0_i32_2 = constant 0 : i32
+    %4 = llvm.getelementptr %2[%c0_i32_2] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    %5 = llvm.load %4 : !llvm.ptr<i32>
+    return %5 : i32
   }
 }
