@@ -37,9 +37,12 @@ namespace mlir::verona
    */
   class ReturnValue
   {
+    /// MLIR generators can produce these values. We bundle into one variant to
+    /// allow methods to return non-locally while forcing specific templated get
+    /// methods to make sure we have the right type of value.
     using ResultTy = std::variant<Value, ModuleOp, FuncOp>;
-    using ValuesTy = llvm::SmallVector<ResultTy, 1>;
-    ValuesTy values;
+    /// The list of values returned. Usually one or zero but could be more.
+    llvm::SmallVector<ResultTy, 1> values;
 
   public:
     /// Default constructor, builds an empty return value.
@@ -102,7 +105,7 @@ namespace mlir::verona
       return std::get<T>(values[n - 1]);
     }
 
-    /// Returns a copy of the values.
+    /// Returns a reference to all the values.
     llvm::ArrayRef<ResultTy> getAll() const
     {
       assert(values.size() > 0 && "Access to empty return value");
@@ -118,6 +121,9 @@ namespace mlir::verona
 
   /**
    * Field offset maps between field names, types and their relative position.
+   *
+   * FIXME: This will need to be better encapsulated, but we'll expand it when
+   * we start implementing classes fully, and dynamic dispatch.
    */
   struct FieldOffset
   {
@@ -179,8 +185,8 @@ namespace mlir::verona
     std::tuple<size_t, Type, bool>
     getField(Type type, llvm::StringRef fieldName);
 
-    // =================================================================
-    // Parsers These methods parse the AST into MLIR constructs, then either
+    // ================================================================= Parsers
+    // These methods parse the AST into MLIR constructs, then either
     // return the expected MLIR value or call the generators (see below) to do
     // that for them.
 
