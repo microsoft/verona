@@ -237,7 +237,7 @@ jobs:
   - bash: |
       set -euo pipefail
       rm -f $(PKG_NAME).tar
-      tar --sort=name -cf $(PKG_NAME).tar build/install
+      tar --sort=name --owner=root:0 --group=root:0 --mtime='UTC 2021-01-01' -cf $(PKG_NAME).tar build/install
       md5sum $(PKG_NAME).tar | awk '{print $1}' > $(PKG_NAME).tar.md5
       rm -rf "$(PKG_NAME)"
       mkdir $(PKG_NAME)
