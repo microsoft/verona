@@ -180,6 +180,7 @@ jobs:
         env -i \
           llvmPassword=$(LLVMPrincipalPassword) \
           HOME="$HOME" \
+          PATH="$PATH" \
         timeout "$time_limit" time $(AbClientDirectory)/AnyBuild.sh \
           --RemoteExecServiceUri $(AnyBuildEnvironmentUri) \
           --NoCheckForUpdates \
