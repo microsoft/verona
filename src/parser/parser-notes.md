@@ -1,8 +1,13 @@
 # Parser Notes
 
+* union_sub_t should ignore uninhabited branches of the disjunction
+  * (U16 | U32) & (U32 | U64) -> U32
+* free functions are singleton types with an apply method?
 * inheritance
 * params: infer & T, to help track regions?
 * results: do we need a lower bounds?
+* create sugar: do we need a concrete type?
+  * related to static functions on interfaces
 
 * make a `create` for everything, taking args of "fields without initialisers"
   * or make the initialisers the default values

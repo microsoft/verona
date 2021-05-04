@@ -1,62 +1,53 @@
 # Object Algebras
 
+To make this statically exhaustive, we need to use closed world types for nodes in the graph instead of open world types.
+
 ```ts
 using "numbers";
 using "boolean";
 
 class NotAlg {}
 
-interface Alg[A, B]
+interface Alg[T, S, R]
 {
-  (self: Self, alg: Alg[A, B], some: A): B | throw NotAlg;
+  (self: Self, alg: Alg[T, T, R], some: S): R;
 }
 
 // Integer Expressions
-interface Exp {}
-
 class Lit
 {
   x: I32;
 }
 
-class Add
+class Add[T]
 {
-  left: Exp;
-  right: Exp;
+  left: T;
+  right: T;
 }
+
+type Exp1 = Lit | Add[Exp1];
 
 class IntEval[T]
 {
-  (self: Self, alg: Alg[Exp, T | I32], e: Exp): T | I32 | throw NotAlg
+  (self: Self, alg: Alg[T, T, I32], e: Lit | Add[T]): I32
   {
     match e
     {
       { e: Lit => e.x }
-      { e: Add =>
-        let left = alg(alg, e.left);
-        let right = alg(alg, e.right);
-
-        match (left, right)
-        {
-          { x: I32, y: I32 => x + y }
-          { throw NotAlg }
-        }
-      }
-      { throw NotAlg }
+      { e: Add[T] => alg(alg, e.left) + alg(alg, e.right) }
     }
   }
 }
 
 // Add a new operation
-class IntPrint
+class IntPrint[T]
 {
-  (self: Self, alg: Alg[Exp, String], e: Exp): String | throw NotAlg
+  (self: Self, alg: Alg[T, T, String], e: Lit | Add[T]): String
   {
     match e
     {
       { e: Lit => e.x.string() }
-      { e: Add => alg(e.left) " + " alg(e.right) }
-      { throw NotAlg }
+      { e: Add[T] => alg(alg, e.left) " + " alg(alg, e.right) }
     }
   }
 }
@@ -67,48 +58,58 @@ class Boolean
   x: Bool;
 }
 
-class Iff
+class Iff[T]
 {
-  cond: Exp;
-  ontrue: Exp;
-  onfalse: Exp;
+  cond: T;
+  ontrue: T;
+  onfalse: T;
 }
 
 // Add the operations for the new types
 class BoolEval[T]
 {
-  (self: Self, alg: Alg[Exp, T], e: Exp): T | Bool | throw NotAlg
+  (self: Self, alg: Alg[T, T, Bool], e: Boolean | Iff[T]): Bool
   {
     match e
     {
       { e: Boolean => e.x }
-      { e: Iff =>
-        match alg(e.cond)
-        {
-          { b: ToBool => if b { alg(e.ontrue) } else { alg(e.onfalse) } }
-          { throw NotAlg }
-        }
+      { e: Iff[T] =>
+        if alg(alg, e.cond) { alg(alg, e.ontrue) } else { alg(alg, e.onfalse) }
       }
-      { throw NotAlg }
     }
   }
 }
 
 class BoolPrint
 {
-  (self: Self, alg: Alg[Exp, String], e: Exp): String | throw NotAlg
+  (self: Self, alg: Alg[T, T, String], e: Boolean | Iff[T]): String
   {
     match e
     {
       { e: Boolean => e.x.string() }
-      { e: Iff =>
+      { e: Iff[T] =>
         "if " alg(e.cond) " then " alg(e.ontrue) " else " alg(e.onfalse)
       }
     }
   }
 }
 
-// Generic sequential combinator.
+// Generic combinator.
+class Merge[T, S1, S2, R]
+{
+  left: Alg[T, S1, R];
+  right: Alg[T, S2, R];
+
+  (self: Self, alg: Alg[T, T, R], e: S1 | S2): R
+  {
+    match e
+    {
+      { e: S1 => left(alg, e) }
+      { e: S2 => right(alg, e) }
+    }
+  }
+}
+
 class Seq[A, B]
 {
   seq: Array[Alg[A, B]];
@@ -150,4 +151,73 @@ print(e: Exp): String | throw NotAlg
   let alg = Seq(IntPrint, BoolPrint);
   alg(alg, e)
 }
+```
+
+## Pretty Print
+
+```ts
+
+class C1
+{
+  f1: C2;
+  f2: C1 | None;
+}
+
+class C2
+{
+  f1: I32;
+  f2: Bool;
+}
+
+class PrintC1
+{
+  (self: Self, alg: Alg[C1 | C2 | None, String], x: C1): String | throw NotAlg
+  {
+    "C1: " alg(alg, x.f1) ", " alg(alg, x.f2)
+  }
+}
+
+class PrintC2
+{
+  (self: Self, alg: Alg[I32 | Bool, String], x: C2): String | throw NotAlg
+  {
+    "C2: " alg(alg, x.f1) ", " alg(alg, x.f2)
+  }
+}
+
+class PrintNone
+{
+  (self: Self, alg: Alg[???, String], x: None): String | throw NotAlg
+  {
+    "None"
+  }
+}
+
+class PrintI32
+{
+  (self: Self, alg: Alg[???, String], x: I32): String | throw NotAlg
+  {
+    "I32: " x.string()
+  }
+}
+
+class PrintBool
+{
+  (self: Self, alg: Alg[???, String], x: Bool): String | throw NotAlg
+  {
+    "Bool: " x.string()
+  }
+}
+
+class Seq[]
+{
+  create(
+}
+
+print(x: C1 | C2): String | throw NotAlg
+{
+  let alg = Seq(PrintC1, PrintC2, PrintNone, PrintI32, PrintBool);
+  alg(alg, x)
+}
+
 ```

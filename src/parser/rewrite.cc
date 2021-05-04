@@ -164,8 +164,6 @@ namespace verona::parser
     auto f = std::make_shared<FunctionType>();
     f->location = lambda.location;
 
-    // TODO: typeparams
-
     if (lambda.params.size() == 1)
     {
       f->left = lambda.params.front()->as<Param>().type;

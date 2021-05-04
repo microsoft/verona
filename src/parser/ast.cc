@@ -160,6 +160,12 @@ namespace verona::parser
 
       case Kind::Free:
         return "free";
+
+      case Kind::LookupUnion:
+        return "lookupunion";
+
+      case Kind::LookupIsect:
+        return "lookupisect";
     }
 
     // This is unreachable, and is only to suppress an MSVC error.

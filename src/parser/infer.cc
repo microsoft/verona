@@ -25,7 +25,8 @@ namespace verona::parser::infer
     Subtype subtype;
     Lookup lookup;
 
-    Infer() : lookup([this]() -> std::ostream& { return error(); })
+    Infer()
+    : lookup([this]() -> std::ostream& { return error(); }, &subtype.bounds)
     {
       type_imm = std::make_shared<Imm>();
       type_imm->location = name_imm;
@@ -81,31 +82,33 @@ namespace verona::parser::infer
       }
     }
 
-    Node<Type> args_type(Node<Expr>& lhs, Node<Expr>& rhs)
+    Node<FunctionType> call_type(Node<Expr>& left, Node<Expr>& right)
     {
-      if (!lhs && !rhs)
-        return {};
+      auto f = std::make_shared<FunctionType>();
 
-      if (lhs && !rhs)
-        return g(lhs->location)->type;
+      if (left && !right)
+      {
+        f->left = g(left->location)->type;
+      }
+      else if (!left && right)
+      {
+        f->left = g(right->location)->type;
+      }
+      else if (left && right)
+      {
+        auto lt = g(left->location)->type;
+        auto rt = g(right->location)->type;
+        assert(lt && rt);
 
-      if (!lhs && rhs)
-        return g(rhs->location)->type;
+        auto t = std::make_shared<TupleType>();
+        t->location = lt->location;
+        unpack_type(t, lt);
+        unpack_type(t, rt);
+        f->left = t;
+      }
 
-      auto lt = g(lhs->location)->type;
-      auto rt = g(rhs->location)->type;
-
-      if (!lt)
-        return rt;
-
-      if (!rt)
-        return lt;
-
-      auto t = std::make_shared<TupleType>();
-      t->location = lt->location;
-      unpack_type(t, lt);
-      unpack_type(t, rt);
-      return t;
+      f->right = g(lhs())->type;
+      return f;
     }
 
     Node<Type> receiver_type(Node<Type>& args)
@@ -166,7 +169,15 @@ namespace verona::parser::infer
       }
       else if (parent()->kind() == Kind::Lambda)
       {
-        subtype(l->type, parent<Lambda>()->result);
+        auto& type = parent<Lambda>()->result;
+
+        if (!subtype(l->type, type))
+        {
+          error() << ref.location
+                  << "The return value is not a subtype of the result type."
+                  << text(ref.location) << type->location
+                  << "The result type is here." << text(type->location);
+        }
       }
 
       if (!l->assigned)
@@ -223,96 +234,13 @@ namespace verona::parser::infer
       // TODO: rewrite the node to be static or dynamic dispatch
       // include a precise reference to the selected function
       assert(!sel.typeref->resolved);
-      auto args = args_type(sel.expr, sel.args);
+      auto call = call_type(sel.expr, sel.args);
 
       // TODO: apply on a functiontype receiver
 
       // Dynamic dispatch.
-      if (args && (sel.typeref->typenames.size() == 1))
-      {
-        // TODO: lookup on receiver
-        // need to check infertype
-        Ast receiver = receiver_type(args);
-        Ast def;
-
-        if (receiver->kind() == Kind::InferType)
-        {
-          auto find = subtype.bounds.find(receiver);
-
-          if (find == subtype.bounds.end())
-          {
-            error() << sel.location
-                    << "Can't look this up, no bounds for the receiver."
-                    << text(sel.location);
-            return;
-          }
-
-          for (auto& upper : find->second.upper)
-          {
-            // TODO: union of parameters, isect of results
-            Ast context = upper;
-            def = lookup.member(
-              context, upper, sel.typeref->typenames.front()->location);
-          }
-
-          for (auto& lower : find->second.lower)
-          {
-            // TODO: isect of parameters, union of results
-            // must be present in every lower bound
-            Ast context = lower;
-            def = lookup.member(
-              context, lower, sel.typeref->typenames.front()->location);
-          }
-        }
-        else
-        {
-          Ast context = receiver;
-          def = lookup.member(
-            context, receiver, sel.typeref->typenames.front()->location);
-
-          if (context->kind() == Kind::Class)
-          {
-            // TODO: use static dispatch
-          }
-        }
-
-        lookup.substitutions(
-          sel.typeref->subs, def, sel.typeref->typenames.front()->typeargs);
-
-        if (def)
-        {
-          sel.typeref->context = receiver;
-          sel.typeref->def = def;
-
-          switch (def->kind())
-          {
-            case Kind::Field:
-            {
-              // TODO: view and extract types
-              // could have additional args, at which point it's an apply
-              // call on the field
-              error() << sel.location << "Fields not handled yet."
-                      << text(sel.location);
-              return;
-            }
-
-            case Kind::Function:
-            {
-              auto self = clone(sel.typeref->subs, receiver);
-              auto f = function_type(def->as<Function>().lambda->as<Lambda>());
-              f = clone(sel.typeref->subs, f, self);
-              sel.typeref->resolved = f;
-
-              g(lhs())->type = f->right;
-              subtype(args, f->left);
-              return;
-            }
-
-            default:
-              break;
-          }
-        }
-      }
+      if (dynamic_dispatch(sel, call))
+        return;
 
       // Static dispatch.
       auto def = lookup.typeref(symbols(), sel.typeref->as<TypeRef>());
@@ -329,9 +257,7 @@ namespace verona::parser::infer
       auto f = function_type(def->as<Function>().lambda->as<Lambda>());
       f = clone(sel.typeref->subs, f, self);
       sel.typeref->resolved = f;
-
-      g(lhs())->type = f->right;
-      subtype(args, f->left);
+      subtype(f, call);
     }
 
     void post(New& nw)
@@ -424,7 +350,16 @@ namespace verona::parser::infer
         {
           assert(lambda.typeparams.size() == 0);
           assert(lambda.params.size() == 0);
-          subtype(lambda.result, parent<Field>()->type);
+          auto& type = parent<Field>()->type;
+
+          if (!subtype(lambda.result, type))
+          {
+            error()
+              << lambda.location
+              << "The field initialiser is not a subtype of the field type."
+              << text(lambda.location) << type->location
+              << "Field type is here." << text(type->location);
+          }
           break;
         }
 
@@ -433,6 +368,105 @@ namespace verona::parser::infer
           // Do nothing.
           break;
         }
+      }
+    }
+
+    bool dynamic_dispatch(Select& sel, Node<FunctionType>& call)
+    {
+      if (!call || !call->left || (sel.typeref->typenames.size() != 1))
+        return false;
+
+      Ast receiver = receiver_type(call->left);
+      auto& tn = sel.typeref->typenames.front();
+      auto sym = receiver;
+      auto def = lookup.member(sym, receiver, tn->location);
+
+      if (!def)
+        return false;
+
+      lookup.substitutions(sel.typeref->subs, def, tn->typeargs);
+      sel.typeref->context = sym;
+      sel.typeref->def = def;
+
+      if (sym->kind() == Kind::Class)
+      {
+        // TODO: we know the method statically
+      }
+
+      return check_dispatch_type(receiver, call, def, sel.typeref->subs, sel);
+    }
+
+    bool check_dispatch_type(
+      Ast& receiver,
+      Node<FunctionType>& call,
+      Ast& def,
+      Substitutions& subs,
+      Select& sel)
+    {
+      switch (def->kind())
+      {
+        case Kind::Field:
+        {
+          // TODO: view and extract types
+          // could have additional args, at which point it's an apply
+          // call on the field
+          error() << sel.location << "Fields not handled yet."
+                  << text(sel.location);
+          return false;
+        }
+
+        case Kind::Function:
+        {
+          auto& lambda = def->as<Function>().lambda->as<Lambda>();
+          auto f = function_type(lambda);
+
+          // TODO: don't use whole receiver type as self?
+          // discard capabilities? specialise to the dispatch type?
+          // but when we check subtyping, `receiver & dispatch-type` for the
+          // first argument of `call`, instead of just `receiver`
+          // return clone(subs, f, receiver);
+          std::cerr << f << std::endl;
+          std::cerr << call << std::endl;
+          return subtype(f, call);
+        }
+
+        case Kind::LookupUnion:
+        {
+          auto& un = def->as<LookupUnion>();
+          bool ok = true;
+
+          for (auto& t : un.list)
+            ok &= check_dispatch_type(receiver, call, t, subs, sel);
+
+          return ok;
+        }
+
+        case Kind::LookupIsect:
+        {
+          auto& isect = def->as<LookupIsect>();
+          subtype.show = false;
+          size_t ok = 0;
+
+          for (auto& t : isect.list)
+          {
+            if (check_dispatch_type(receiver, call, t, subs, sel))
+              ok++;
+          }
+
+          subtype.show = true;
+
+          if (ok == 0)
+          {
+            // Do it again and show error messages.
+            for (auto& t : isect.list)
+              check_dispatch_type(receiver, call, t, subs, sel);
+          }
+
+          return ok > 0;
+        }
+
+        default:
+          return false;
       }
     }
   };

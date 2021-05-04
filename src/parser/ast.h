@@ -56,7 +56,7 @@ namespace verona::parser
     Ref,
     Let,
     Var,
-    Free,
+    Free, // Generated in the ANF pass
     Throw,
     New,
     ObjectLiteral,
@@ -70,6 +70,10 @@ namespace verona::parser
     Hex,
     Binary,
     Bool,
+
+    // Lookup
+    LookupUnion,
+    LookupIsect,
   };
 
   struct NodeDef;
@@ -677,6 +681,24 @@ namespace verona::parser
     Kind kind()
     {
       return Kind::Bool;
+    }
+  };
+
+  struct LookupUnion : NodeDef
+  {
+    List<NodeDef> list;
+
+    Kind kind()
+    {
+      return Kind::LookupUnion;
+    }
+  };
+
+  struct LookupIsect : LookupUnion
+  {
+    Kind kind()
+    {
+      return Kind::LookupIsect;
     }
   };
 }
