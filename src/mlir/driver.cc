@@ -29,9 +29,11 @@ namespace mlir::verona
     passManager(&context),
     diagnosticHandler(sourceManager, &context)
   {
+    // These are the dialects we emit directly
     context.getOrLoadDialect<mlir::StandardOpsDialect>();
     context.getOrLoadDialect<mlir::LLVM::LLVMDialect>();
 
+    // Some simple MLIR optimisations
     if (optLevel > 0)
     {
       passManager.addPass(mlir::createInlinerPass());
@@ -45,12 +47,13 @@ namespace mlir::verona
 
   llvm::Error Driver::readAST(::verona::parser::Ast ast)
   {
+    // Use the MLIR generator to lower the AST into MLIR
     auto result = Generator::lower(&context, ast);
     if (!result)
       return result.takeError();
-
     module = std::move(*result);
 
+    // Verify the module to make sure we didn't do anything silly
     if (failed(verify(*module)))
     {
       module->dump();
@@ -65,9 +68,8 @@ namespace mlir::verona
     if (filename.empty())
       return runtimeError("No input filename provided");
 
-    // Read an MLIR file
+    // Read an MLIR file into a buffer
     auto srcOrErr = llvm::MemoryBuffer::getFileOrSTDIN(filename);
-
     if (auto err = srcOrErr.getError())
       return runtimeError(
         "Cannot open file " + filename + ": " + err.message());
@@ -89,6 +91,7 @@ namespace mlir::verona
     if (filename.empty())
       return runtimeError("No output filename provided");
 
+    // If optimisation levels higher than 0, run some opts
     if (failed(passManager.run(module.get())))
     {
       module->dump();
@@ -100,8 +103,8 @@ namespace mlir::verona
     auto out = llvm::raw_fd_ostream(filename, error);
     if (error)
       return runtimeError("Cannot open output filename");
-
     module->print(out);
+
     return llvm::Error::success();
   }
 
@@ -113,17 +116,17 @@ namespace mlir::verona
     // The lowering "pass manager"
     passManager.addPass(mlir::createLowerToLLVMPass());
 
-    // First lower to LLVM dialect
+    // If optimisation levels higher than 0, run some opts
     if (mlir::failed(passManager.run(module.get())))
     {
       module->dump();
-      return runtimeError("Failed to lower to LLVM dialect");
+      return runtimeError("Failed to run some passes");
     }
 
     // Register the translation to LLVM IR with the MLIR context.
     mlir::registerLLVMDialectTranslation(*module->getContext());
 
-    // Then lower to LLVM IR
+    // Then lower to LLVM IR (via LLVM dialect)
     llvm::LLVMContext llvmContext;
     auto llvm = mlir::translateModuleToLLVMIR(module.get(), llvmContext);
     if (!llvm)
@@ -133,6 +136,7 @@ namespace mlir::verona
     if (optLevel)
     {
       // Initialize LLVM targets.
+      // TODO: Use target triples here, for cross-compilation
       llvm::InitializeNativeTarget();
       llvm::InitializeNativeTargetAsmPrinter();
       mlir::ExecutionEngine::setupTargetTriple(llvm.get());
@@ -143,7 +147,7 @@ namespace mlir::verona
         /*sizeLevel=*/0,
         /*targetMachine=*/nullptr);
       if (auto err = optPipeline(llvm.get()))
-        return runtimeError("Failed to optimize LLVM IR");
+        return runtimeError("Failed to generate LLVM IR");
     }
 
     // Write to the file requested
@@ -151,8 +155,8 @@ namespace mlir::verona
     auto out = llvm::raw_fd_ostream(filename, error);
     if (error)
       return runtimeError("Failed open output file");
-
     llvm->print(out, nullptr);
+
     return llvm::Error::success();
   }
 }
