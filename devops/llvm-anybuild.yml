@@ -31,10 +31,6 @@ parameters:
 resources:
   repositories:
   - repository: self
-  - repository: llvm
-    type: github
-    endpoint: LLVMServiceConnection
-    name: llvm/llvm-project
 
 schedules:
 - cron: "0 3 * * *" # this is 3am UTC
@@ -59,9 +55,9 @@ variables:
   value: https://github.com/llvm/llvm-project
 
 jobs:
-### Configure: Determine LLVM commit to build.
+### Determine LLVM commit to build.
 ###
-### Outputs the LLVM_COMMIT variable to contain the commit hash of the LLVM submodule in latest verona@master.
+### Output the LLVM_COMMIT variable to contain the commit hash of the LLVM submodule in latest verona@master.
 ### Can be overridden by setting a pipeline variable named GOOD_HASH.
 - job: Configure
   displayName: Configure LLVM commit to build
@@ -87,8 +83,6 @@ jobs:
     name: SetCommits
 
 ############################################# Windows Builds
-
-### Build LLVM with AnyBuild
 - job: LLVM_Windows
   displayName: LLVM Windows
   condition: and(succeeded(), ${{ eq(parameters.BuildOnWindows, true) }})
@@ -166,8 +160,6 @@ jobs:
         Md5Cmd: md5sum
 
 ############################################# Linux Builds
-
-### Build LLVM with AnyBuild first
 - job: LLVM_Linux
   displayName: LLVM Linux
   condition: and(succeeded(), ${{ eq(parameters.BuildOnLinux, true) }})
@@ -278,7 +270,7 @@ jobs:
         -- \
         cmake --build . -- -j ${{ parameters.CmakeJobsLinux }} install
     workingDirectory: $(LlvmBuildDir)
-    displayName: Build with AnyBuild
+    displayName: Compile
 
   - template: ./steps/print-anybuild-stats.yml
     parameters:
