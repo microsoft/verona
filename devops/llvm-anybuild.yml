@@ -11,7 +11,7 @@ parameters:
   - name: BuildOnMacOs
     type: boolean
     default: false
-  # whether to build Verona
+  # whether to upload LLVM installation tarballs to blob storage
   - name: UploadPackage
     type: boolean
     default: false
@@ -55,19 +55,16 @@ variables:
   value: https://anybuild$(AbEnvironmentName)neurope.blob.core.windows.net/clientreleases
 - name: AnyBuildRing
   value: Dogfood
-- name: VeronaRepoGitUri
-  value: https://github.com/microsoft/verona
 - name: LlvmRepoGitUri
   value: https://github.com/llvm/llvm-project
-# GOOD_HASH may be set in the pipeline in which case it overrides LLVM_COMMIT 
-# - name: GOOD_HASH
-#   value: ''
 
 jobs:
-### Configure: Determine commits to build
-###   - outputs VERONA_COMMIT and LLVM_COMMIT that correspond to the latest checked in change in verona@master
+### Configure: Determine LLVM commit to build.
+###
+### Outputs the LLVM_COMMIT variable to contain the commit hash of the LLVM submodule in latest verona@master.
+### Can be overridden by setting a pipeline variable named GOOD_HASH.
 - job: Configure
-  displayName: Configure LLVM/Verona commits to build
+  displayName: Configure LLVM commit to build
   pool:
     vmImage: ubuntu-18.04
   timeoutInMinutes: 5
@@ -77,7 +74,6 @@ jobs:
   - bash: |
       set -euo pipefail
 
-      VERONA_COMMIT=$(git rev-parse HEAD)
       if [[ -z "$(GOOD_HASH)" ]]; then
         LLVM_COMMIT=$(git submodule | grep llvm-project | cut -f1 -d\ | sed 's/^.//g')
       else
@@ -85,16 +81,14 @@ jobs:
       fi
 
       echo "Setting the following output variables:"
-      echo "  VERONA_COMMIT=$VERONA_COMMIT"
       echo "  LLVM_COMMIT=$LLVM_COMMIT"
-      echo "##vso[task.setvariable variable=VERONA_COMMIT;isOutput=true;]$VERONA_COMMIT"
       echo "##vso[task.setvariable variable=LLVM_COMMIT;isOutput=true;]$LLVM_COMMIT"
     displayName: SetCommits
     name: SetCommits
 
 ############################################# Windows Builds
 
-### Build LLVM with AnyBuild first
+### Build LLVM with AnyBuild
 - job: LLVM_Windows
   displayName: LLVM Windows
   condition: and(succeeded(), ${{ eq(parameters.BuildOnWindows, true) }})
@@ -128,14 +122,6 @@ jobs:
       CommitSha: $(LLVM_COMMIT)
 
   - powershell: |
-      Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-    displayName: Install Choco
-
-  - powershell: |
-      C:\ProgramData\chocolatey\bin\choco install --accept-license -y ninja
-    displayName: Install Ninja
-
-  - powershell: |
       Set-ExecutionPolicy Bypass -Scope Process -Force
 
       Remove-Item -Force -Recurse "$env:LOCALAPPDATA\Microsoft\AnyBuild" -ea SilentlyContinue
@@ -164,7 +150,7 @@ jobs:
       set "USERDOMAIN_ROAMINGPROFILE="
 
       set ServicePrincipalPassword=$(LLVMPrincipalPassword)
-      call "%LOCALAPPDATA%\Microsoft\AnyBuild\AnyBuild.cmd" --EnableActionCache ${{ parameters.ExtraAnyBuildArgs }} --RemoteExecServiceUri $(AnyBuildEnvironmentUri) --ClientApplicationId $(LLVMPrincipalAppId) --ClientSecretEnvironmentVariable ServicePrincipalPassword --WaitForAgentForever --DoNotUseMachineUtilizationForScheduling -- "C:\ProgramData\chocolatey\lib\ninja\tools\ninja.exe" -j ${{ parameters.CmakeJobsWindows }} install
+      call "%LOCALAPPDATA%\Microsoft\AnyBuild\AnyBuild.cmd" --EnableActionCache ${{ parameters.ExtraAnyBuildArgs }} --RemoteExecServiceUri $(AnyBuildEnvironmentUri) --ClientApplicationId $(LLVMPrincipalAppId) --ClientSecretEnvironmentVariable ServicePrincipalPassword --WaitForAgentForever --DoNotUseMachineUtilizationForScheduling -- ninja.exe -j ${{ parameters.CmakeJobsWindows }} install
     displayName: Compile
 
   - template: ./steps/print-anybuild-stats.yml

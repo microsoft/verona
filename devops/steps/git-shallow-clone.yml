@@ -21,8 +21,10 @@ steps:
     cd "${{ parameters.TargetDir }}"
     git init
 
-    echo "=== Initializing origin"
+    echo "=== Setting origin to ${{ parameters.RepoUri }}"
     git remote add origin ${{ parameters.RepoUri }}
+
+    echo "=== Checking out commit ${{ parameters.CommitSha }}"
     git fetch --depth 1 origin ${{ parameters.CommitSha }}
     git checkout FETCH_HEAD
 
@@ -32,4 +34,4 @@ steps:
 
     echo "=== Last commit"
     git log -1
-  displayName: Checkout ${{ parameters.RepoUri}} @ ${{ parameters.CommitSha }}
+  displayName: Shallow Checkout 
