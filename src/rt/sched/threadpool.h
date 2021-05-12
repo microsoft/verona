@@ -124,13 +124,13 @@ namespace verona::rt
 
     /// Increment the external event source count. A non-zero count will prevent
     /// runtime teardown.
-    /// This should only be called before the runtime has started, or when the
-    /// caller can guarantee there is at least one other external_event_source
-    /// for the duration of this call.
+    /// This should only be called from inside the runtime.
+    /// A message can be enqueued before the runtime is running if there is a external
+    /// event source from the start.
     static void add_external_event_source()
     {
       auto& s = get();
-      assert((s.external_event_sources != 0) || (s.debug_not_running()));
+      assert(local() != nullptr);
       auto prev_count =
         s.external_event_sources.fetch_add(1, std::memory_order_seq_cst);
       Systematic::cout() << "Add external event source (now "
@@ -481,7 +481,6 @@ namespace verona::rt
         abort();
 
       // Build a circular linked list of scheduler threads.
-      thread_count = count;
       first_thread = new T;
       T* t = first_thread;
       teardown_in_progress = false;
@@ -489,38 +488,30 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING
       running_thread = nullptr;
 #endif
-
+      size_t i = count;
       while (true)
       {
-        t->systematic_id = count;
+        t->systematic_id = i;
 #ifdef USE_SYSTEMATIC_TESTING
         t->systematic_speed_mask =
           (8ULL << (Systematic::get_prng_next() % 4)) - 1;
 #endif
-        if (count > 1)
+        if (i > 1)
         {
           t->next = new T;
           t = t->next;
-          count--;
+          i--;
         }
         else
         {
           t->next = first_thread;
 
           Systematic::cout() << "Runtime initialised" << Systematic::endl;
-          return;
+          break;
         }
       }
-    }
 
-    void run()
-    {
-      run_with_startup<>(&nop);
-    }
-
-    template<typename... Args>
-    void run_with_startup(void (*startup)(Args...), Args... args)
-    {
+      thread_count = count;
       active_thread_count = thread_count;
 
       init_barrier();
@@ -531,7 +522,16 @@ namespace verona::rt
         choose_thread(lock, true);
       }
 #endif
+    }
 
+    void run()
+    {
+      run_with_startup<>(&nop);
+    }
+
+    template<typename... Args>
+    void run_with_startup(void (*startup)(Args...), Args... args)
+    {
       T* t = first_thread;
       {
         ThreadPoolBuilder builder(thread_count);

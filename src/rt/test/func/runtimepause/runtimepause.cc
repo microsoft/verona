@@ -55,6 +55,7 @@ struct StartExternalThread : public VBehaviour<StartExternalThread>
   void f()
   {
     auto a = new A;
+    Scheduler::add_external_event_source();
     auto pauses_ = pauses;
     auto t = std::thread([pauses_, a]() mutable {
       Systematic::cout() << "Started external thread" << Systematic::endl;
@@ -80,7 +81,6 @@ struct StartExternalThread : public VBehaviour<StartExternalThread>
 
 void test_runtime_pause(size_t pauses)
 {
-  Scheduler::add_external_event_source();
   auto e = new Dummy;
   Cown::schedule<StartExternalThread>(e, pauses);
   Cown::release(ThreadAlloc::get(), e);

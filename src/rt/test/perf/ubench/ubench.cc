@@ -132,6 +132,7 @@ namespace ubench
 
     void f()
     {
+      rt::Scheduler::add_external_event_source();
       for (auto* p : monitor->pingers)
       {
         p->count = 0;
@@ -268,7 +269,6 @@ int main(int argc, char** argv)
   all_cowns = (rt::Cown**)alloc->alloc(all_cowns_count * sizeof(rt::Cown*));
   memcpy(all_cowns, pinger_set.data(), pinger_set.size() * sizeof(rt::Cown*));
   all_cowns[pinger_set.size()] = monitor;
-  rt::Scheduler::add_external_event_source();
   rt::Cown::schedule<ubench::Start>(all_cowns_count, all_cowns, monitor);
 
   sched.run();
