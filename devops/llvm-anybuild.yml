@@ -328,7 +328,7 @@ jobs:
       N=$(sysctl -n hw.ncpu)
       make -j $N install
     workingDirectory: build
-    displayName: 'Compile LLVM & MLIR'
+    displayName: Compile
 
   - ${{ if parameters.UploadPackage }}:
     - template: ./steps/tar-and-upload.yml
