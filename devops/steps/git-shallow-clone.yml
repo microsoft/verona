@@ -1,0 +1,35 @@
+###
+### Performs a shallow git clone at a given commit
+###
+
+parameters:
+# git url
+- name: RepoUri
+  type: string
+# directory where to clone
+- name: TargetDir
+  type: string
+# git commit to clone
+- name: CommitSha
+  type: string
+
+steps:
+- bash: |
+    set -euo pipefail
+
+    mkdir -p "${{ parameters.TargetDir }}"
+    cd "${{ parameters.TargetDir }}"
+    git init
+
+    echo "=== Initializing origin"
+    git remote add origin ${{ parameters.RepoUri }}
+    git fetch --depth 1 origin ${{ parameters.CommitSha }}
+    git checkout FETCH_HEAD
+
+    echo "=== Initializing submodules"
+    git submodule init
+    git submodule update --depth 1 --recursive
+
+    echo "=== Last commit"
+    git log -1
+  displayName: Checkout ${{ parameters.RepoUri}} @ ${{ parameters.CommitSha }}

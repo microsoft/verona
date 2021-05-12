@@ -1,0 +1,27 @@
+parameters:
+- name: WorkingDir
+  type: string
+- name: InstallDirRelativePath
+  type: string
+- name: PackageName
+  type: string
+- name: Md5Cmd
+  type: string
+
+steps:
+  - bash: |
+      set -euo pipefail
+      readonly PKG_NAME="${{ parameters.PackageName }}"
+      rm -f $PKG_NAME.tar.gz
+      tar zcf $PKG_NAME.tar.gz ${{ parameters.InstallDirRelativePath }}
+      ${{ parameters.Md5Cmd }} $PKG_NAME.tar.gz | awk '{print $1}' > $PKG_NAME.tar.gz.md5
+    workingDirectory: ${{ parameters.WorkingDir }}
+    displayName: Create Package
+
+  - bash: |
+      set -eo pipefail
+      readonly PKG_NAME="${{ parameters.PackageName }}"
+      az storage blob upload --container-name llvmbuild --file $PKG_NAME.tar.gz --name $PKG_NAME --connection-string "$(BLOB_CONNECTION_STRING)"
+      az storage blob upload --container-name llvmbuild --file $PKG_NAME.tar.gz.md5 --name $PKG_NAME.md5 --connection-string "$(BLOB_CONNECTION_STRING)"
+    workingDirectory: ${{ parameters.WorkingDir }}
+    displayName: Upload Package
