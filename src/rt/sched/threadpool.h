@@ -15,9 +15,10 @@ namespace verona::rt
   enum class SystematicState
   {
     Active,
-    Waiting,
     Finished
   };
+
+  inline snmalloc::function_ref<bool()> true_thunk{[]() { return true; }};
 
   /// Used for default prerun for a thread.
   inline void nop() {}
@@ -62,6 +63,11 @@ namespace verona::rt
     ///  * systematic_status
     ///  * shutdown
     std::mutex m_sys;
+
+    /// Notify incarnation
+    /// Complete wrap around will lead to lost wake-up.  This seems safe to
+    /// ignore.
+    std::atomic<uint64_t> cv_incarnation = 0;
 #endif
 
     /// Count of external event sources, such as I/O, that will prevent
@@ -155,14 +161,6 @@ namespace verona::rt
       assert(prev_count != 0);
       Systematic::cout() << "Remove external event source (now "
                          << (prev_count - 1) << ")" << Systematic::endl;
-      if (prev_count == 1)
-      {
-#ifdef USE_SYSTEMATIC_TESTING
-        s.cv_notify_all();
-#else
-        s.cv.notify_all();
-#endif
-      }
     }
 
     static void set_fair(bool fair)
@@ -195,55 +193,85 @@ namespace verona::rt
       }
 
       uint32_t i = Systematic::get_prng_next() % thread_count;
-      auto result = running_thread;
-      assert(local() == result);
-      if (result == nullptr)
+      auto start = running_thread;
+      assert(local() == start);
+      if (start == nullptr)
       {
         // This is an external wake up
-        result = first_thread;
+        start = first_thread;
       }
 
-      while (i > 0 || (result->systematic_state != SystematicState::Active))
+      // Skip to a first choice for selecting.
+      while (i > 0)
+      {
+        start = start->next;
+        i--;
+      }
+
+      auto result = start;
+      while ((result->systematic_state != SystematicState::Active) ||
+             !result->guard())
       {
         result = result->next;
-        if (i != 0)
-          i--;
-        if (result == running_thread)
-          continue;
-        if (result->systematic_state != SystematicState::Active)
-          continue;
+        if (result == start)
+        {
+          // If all threads are waiting, then there must be an external event
+          // source.  Or we are in a set up phase and the runtime is not running
+          // any threads yet.
+          assert((external_event_sources > 0) || (running_thread == nullptr));
+          running_thread = nullptr;
+          Systematic::cout() << "All threads sleeping!" << Systematic::endl;
+          return;
+        }
       }
       Systematic::cout() << "Set running thread:" << result->systematic_id
                          << Systematic::endl;
+      assert(result->guard());
+
       running_thread = result;
       assert(result->systematic_state == SystematicState::Active);
       result->cv.notify_all();
     }
 
-    void yield_my_turn_inner()
+    /// lock, must be holding the m_sys mutex.
+    /// Will only pass control back to this thread once the guard g has been
+    /// established.
+    void yield_until(
+      T*& me,
+      std::unique_lock<std::mutex>& lock,
+      snmalloc::function_ref<bool()> g)
+    {
+      assert(lock.mutex() == &m_sys);
+      me->guard = g;
+      choose_thread(lock);
+      wait_for_my_turn_inner(lock, me);
+      me->guard = true_thunk;
+    }
+
+    static void yield_my_turn()
     {
       auto me = local();
       if (me == nullptr)
         return;
 
-      assert(running_thread == me);
+      assert(get().running_thread == me);
 
-      uint32_t next = Systematic::get_prng_next() & me->systematic_speed_mask;
-      if (next == 0)
+      if (me->steps == 0)
       {
-        std::unique_lock<std::mutex> lock(m_sys);
-        choose_thread(lock);
-        wait_for_my_turn_inner(lock, me);
+        auto& sched = get();
+        std::unique_lock<std::mutex> lock(sched.m_sys);
+        sched.yield_until(me, lock, true_thunk);
+        me->steps = Systematic::get_prng_next() & me->systematic_speed_mask;
       }
-    }
-
-    static void yield_my_turn()
-    {
-      get().yield_my_turn_inner();
+      else
+      {
+        me->steps--;
+      }
     }
 
     void wait_for_my_turn_inner(std::unique_lock<std::mutex>& lock, T* me)
     {
+      assert(lock.mutex() == &m_sys);
       Systematic::cout() << "Waiting for turn" << Systematic::endl;
       while (running_thread != me)
         me->cv.wait(lock);
@@ -266,35 +294,21 @@ namespace verona::rt
       auto& sched = get();
       auto me = local();
 
-      std::unique_lock<std::mutex> lock(sched.m_sys);
-      assert(me->systematic_state != SystematicState::Waiting);
       Systematic::cout() << "Waiting state" << Systematic::endl;
-      me->systematic_state = SystematicState::Waiting;
+      assert(me->systematic_state == SystematicState::Active);
+      {
+        std::unique_lock<std::mutex> lock(sched.m_sys);
+        auto incarnation = sched.cv_incarnation.load();
+        auto guard = [incarnation]() {
+          return incarnation != get().cv_incarnation.load();
+        };
+        // Guard should not hold here.
+        assert(!guard());
+        sched.yield_until(me, lock, guard);
+      }
+      Systematic::cout() << "Notified" << Systematic::endl;
 
       assert(sched.running_thread == me);
-
-      // Confirm at least one other thread is running,
-      // otherwise we may have deadlocked the system.
-      auto curr = me;
-      do
-      {
-        curr = curr->next;
-      } while ((curr->systematic_state != SystematicState::Active) &&
-               (curr != me));
-      if (curr == me)
-      {
-        // If all threads are waiting, then there must be an external event
-        // source.
-        assert(sched.external_event_sources > 0);
-        sched.running_thread = nullptr;
-        Systematic::cout() << "Runtime sleeping!" << Systematic::endl;
-      }
-      else
-      {
-        sched.choose_thread(lock);
-      }
-
-      sched.wait_for_my_turn_inner(lock, me);
     }
 
     /// Used to simulate waking all waiting threads on the thread pools
@@ -302,40 +316,28 @@ namespace verona::rt
     static void cv_notify_all()
     {
       auto& sched = get();
+      if (sched.shutdown)
+        return;
+
+      // Treat as a yield pointer if thread is under systematic testing control.
+      if (local() != nullptr)
       {
-        std::unique_lock<std::mutex> lock(sched.m_sys);
-        // Ignore wake up after shutdown.
-        // In normal execution it is fine to notify the condition variable once
-        // the runtime has stopped.  But the implementation for systematic
-        // testing can touch deallocated state, so we guard it with this check.
-        if (sched.shutdown)
-          return;
-
-        auto head = sched.first_thread;
-        auto curr = head;
-        do
-        {
-          if (curr->systematic_state == SystematicState::Waiting)
-          {
-            Systematic::cout()
-              << "Activating " << curr->systematic_id << Systematic::endl;
-            curr->systematic_state = SystematicState::Active;
-          }
-          curr = curr->next;
-        } while (curr != head);
-
+        Systematic::cout() << "cv_notify_all internal" << Systematic::endl;
+        sched.cv_incarnation++;
+        yield_my_turn();
+      }
+      else
+      {
+        Systematic::cout() << "cv_notify_all external" << Systematic::endl;
         // Can be signalled from outside the runtime if external work is
         // injected if this is a runtime thread, then yield.
-        if (local() == nullptr)
-        {
-          // This will wake a thread if none are currently running, otherwise
-          // does nothing.
-          get().choose_thread(lock, true);
-        }
+        // This will wake a thread if none are currently running, otherwise
+        // does nothing.
+        // m_sys mutex is required to prevent lost wake-up
+        std::unique_lock<std::mutex> lock(sched.m_sys);
+        sched.cv_incarnation++;
+        sched.choose_thread(lock, true);
       }
-      // Treate as a yield pointer if thread under systematic testing control.
-      if (local() != nullptr)
-        yield_my_turn();
     }
 
     static void thread_finished()
@@ -493,7 +495,7 @@ namespace verona::rt
         t->systematic_id = count;
 #ifdef USE_SYSTEMATIC_TESTING
         t->systematic_speed_mask =
-          (1 << (Systematic::get_prng_next() % 16)) - 1;
+          (8ULL << (Systematic::get_prng_next() % 4)) - 1;
 #endif
         if (count > 1)
         {
