@@ -189,14 +189,13 @@ namespace ubench
 
       rt::Cown::schedule<Report>(all_cowns_count, all_cowns, monitor);
 
+      // Drop count, Start will reincrease if more external work is needed.
+      rt::Scheduler::remove_external_event_source();
+
       if (--monitor->report_count != 0)
         rt::Cown::schedule<Start>(all_cowns_count, all_cowns, monitor);
       else
-      {
-        // We have stopped pushing extra events in from an external thread.
-        rt::Scheduler::remove_external_event_source();
         rt::Cown::release(sn::ThreadAlloc::get(), monitor);
-      }
     }
   };
 

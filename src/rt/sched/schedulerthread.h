@@ -41,13 +41,6 @@ namespace verona::rt
     friend Scheduler;
     friend T;
 
-    static void yield()
-    {
-#ifdef USE_SYSTEMATIC_TESTING
-      Scheduler::yield_my_turn();
-#endif
-    }
-
     template<typename Owner>
     friend class Noticeboard;
 
@@ -56,6 +49,7 @@ namespace verona::rt
     T* token_cown = nullptr;
 
 #ifdef USE_SYSTEMATIC_TESTING
+    friend class ThreadSyncSystematic<SchedulerThread>;
     /// Used by systematic testing to implement the condition variable,
     /// and thread termination.
     SystematicState systematic_state = SystematicState::Active;
@@ -162,9 +156,12 @@ namespace verona::rt
     {
       // A lifo scheduled cown is coming from an external source, such as
       // asynchronous I/O.
-      Systematic::cout() << "LIFO schedule cown " << a << Systematic::endl;
-
+      Systematic::cout() << "LIFO scheduling cown " << a << " onto "
+                         << systematic_id << Systematic::endl;
       q.enqueue_front(ThreadAlloc::get(), a);
+      Systematic::cout() << "LIFO scheduled cown " << a << " onto "
+                         << systematic_id << Systematic::endl;
+
       stats.lifo();
 
       if (Scheduler::get().unpause())
@@ -242,9 +239,7 @@ namespace verona::rt
       victim = next;
       T* cown = nullptr;
 
-#ifdef USE_SYSTEMATIC_TESTING
-      Scheduler::wait_for_my_first_turn();
-#endif
+      Scheduler::get().sync.thread_start(this);
 
       while (true)
       {
@@ -364,9 +359,7 @@ namespace verona::rt
           cown = nullptr;
         }
 
-#ifdef USE_SYSTEMATIC_TESTING
-        Scheduler::yield_my_turn();
-#endif
+        yield();
       }
 
       assert(mute_set.size() == 0);
@@ -396,10 +389,7 @@ namespace verona::rt
 
       q.destroy(alloc);
 
-#ifdef USE_SYSTEMATIC_TESTING
-      // Exit systematic testing
-      Scheduler::thread_finished();
-#endif
+      Scheduler::get().sync.thread_finished(this);
     }
 
     bool fast_steal(T*& result)

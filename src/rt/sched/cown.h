@@ -20,9 +20,7 @@ namespace verona::rt
 
   static void yield()
   {
-#ifdef USE_SYSTEMATIC_TESTING
-    Scheduler::yield_my_turn();
-#endif
+    Scheduler::get().sync.yield(Scheduler::local());
   }
 
   /**
