@@ -1,0 +1,16 @@
+parameters:
+- name: LogsDir
+  type: string
+
+steps:
+- bash: |
+    set -euo pipefail
+
+    readonly logFile="${{ parameters.LogsDir }}/AnyBuild.log"
+    if [[ -f "$logFile" ]]; then
+      echo "=== AnyBuild stats ==="
+      sed -n '/Session telemetry: Finished/,$ p' "$logFile"
+    fi
+  continueOnError: true
+  condition: always()
+  displayName: Print AnyBuild Stats

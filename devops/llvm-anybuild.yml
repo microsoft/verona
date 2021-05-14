@@ -1,0 +1,339 @@
+parameters:
+  # whether to build on Linux
+  - name: BuildOnLinux
+    type: boolean
+    default: true
+  # whether to build on Windows
+  - name: BuildOnWindows
+    type: boolean
+    default: true
+  # whether to build on MacOS
+  - name: BuildOnMacOs
+    type: boolean
+    default: false
+  # whether to upload LLVM installation tarballs to blob storage
+  - name: UploadPackage
+    type: boolean
+    default: false
+  # extra command-line args to pass to AnyBuild
+  - name: ExtraAnyBuildArgs
+    type: string
+    default: --Verbose --WhyCacheMiss --WhyCacheMissOptions CacheDataStoreKey=LLVMVerona
+  # number of parallel cmake jobs when building LLVM on Linux
+  - name: CmakeJobsLinux
+    type: number
+    default: 48
+  # number of parallel cmake jobs when building LLVM on Windows
+  - name: CmakeJobsWindows
+    type: number
+    default: 24
+
+resources:
+  repositories:
+  - repository: self
+
+schedules:
+- cron: "0 3 * * *" # this is 3am UTC
+  displayName: Nightly AnyBuild LLVM Build
+  always: true
+  branches:
+    include:
+    - master
+
+variables:
+- name: AbEnvironmentName
+  value: LLVMVna
+- name: AbClusterId
+  value: 0310c9eb-18d0-4a58-bc85-bdc02a4d764a
+- name: AnyBuildEnvironmentUri
+  value: https://northeurope.anybuild-test.microsoft.com/api/clusters/$(AbClusterId)/agents
+- name: AnyBuildSource
+  value: https://anybuild$(AbEnvironmentName)neurope.blob.core.windows.net/clientreleases
+- name: AnyBuildRing
+  value: Dogfood
+- name: LlvmRepoGitUri
+  value: https://github.com/llvm/llvm-project
+
+jobs:
+### Determine LLVM commit to build.
+###
+### Output the LLVM_COMMIT variable to contain the commit hash of the LLVM submodule in latest verona@master.
+### Can be overridden by setting a pipeline variable named GOOD_HASH.
+- job: Configure
+  displayName: Configure LLVM commit to build
+  pool:
+    vmImage: ubuntu-18.04
+  timeoutInMinutes: 5
+  steps:
+  - checkout: self
+
+  - bash: |
+      set -euo pipefail
+
+      if [[ -z "$(GOOD_HASH)" ]]; then
+        LLVM_COMMIT=$(git submodule | grep llvm-project | cut -f1 -d\ | sed 's/^.//g')
+      else
+        LLVM_COMMIT="$(GOOD_HASH)"
+      fi
+
+      echo "Setting the following output variables:"
+      echo "  LLVM_COMMIT=$LLVM_COMMIT"
+      echo "##vso[task.setvariable variable=LLVM_COMMIT;isOutput=true;]$LLVM_COMMIT"
+    displayName: SetCommits
+    name: SetCommits
+
+############################################# Windows Builds
+- job: LLVM_Windows
+  displayName: LLVM Windows
+  condition: and(succeeded(), ${{ eq(parameters.BuildOnWindows, true) }})
+  dependsOn: [ Configure ]
+  pool:
+    vmImage: windows-2019
+  timeoutInMinutes: 120
+  strategy:
+    matrix:
+      Release:
+        BuildType: Release
+        BuildName: release
+  variables:
+  - name: AbLogsRootDir
+    value: $(Build.StagingDirectory)\ab_logs
+  - name: LlvmSourceDir
+    value: $(Agent.BuildDirectory)\s
+  - name: LlvmBuildDir
+    value: $(LlvmSourceDir)\build
+  - name: LLVM_COMMIT
+    value: $[ dependencies.Configure.outputs['SetCommits.LLVM_COMMIT'] ]
+  - name: PKG_NAME
+    value: verona-llvm-install-x86_64-windows-$(BuildName)-$(LLVM_COMMIT)
+
+  steps:
+  - checkout: none
+  - template: ./steps/git-shallow-clone.yml
+    parameters:
+      RepoUri: $(LlvmRepoGitUri)
+      TargetDir: $(LlvmSourceDir)
+      CommitSha: $(LLVM_COMMIT)
+
+  - powershell: |
+      Set-ExecutionPolicy Bypass -Scope Process -Force
+
+      Remove-Item -Force -Recurse "$env:LOCALAPPDATA\Microsoft\AnyBuild" -ea SilentlyContinue
+
+      Invoke-Command -ScriptBlock ([scriptblock]::Create((New-Object System.Net.WebClient).DownloadString("$(AnyBuildSource)/bootstrapper.ps1"))) -ArgumentList ("$(AnyBuildSource)", "$(AnyBuildRing)")
+    displayName: Install AnyBuild
+
+  - script: |
+      rd /s /q build
+      call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+      mkdir build
+      cd build
+      cmake ..\llvm -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DLLVM_ENABLE_PROJECTS="clang;mlir" -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_EH=ON -DLLVM_ENABLE_RTTI=ON -DCMAKE_INSTALL_PREFIX=install -DMLIR_INCLUDE_TESTS=OFF -Wno-dev
+    displayName: CMake
+
+  - script: |
+      call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+      cd build
+
+      set "COMPUTERNAME="
+      set "LOGONSERVER="
+      set "NUMBER_OF_PROCESSORS="
+      set "PROCESSOR_IDENTIFIER="
+      set "PROCESSOR_REVISION="
+      set "USERDOMAIN="
+      set "USERDOMAIN_ROAMINGPROFILE="
+
+      set ServicePrincipalPassword=$(LLVMPrincipalPassword)
+      call "%LOCALAPPDATA%\Microsoft\AnyBuild\AnyBuild.cmd" --EnableActionCache ${{ parameters.ExtraAnyBuildArgs }} --RemoteExecServiceUri $(AnyBuildEnvironmentUri) --ClientApplicationId $(LLVMPrincipalAppId) --ClientSecretEnvironmentVariable ServicePrincipalPassword --WaitForAgentForever --DoNotUseMachineUtilizationForScheduling -- ninja.exe -j ${{ parameters.CmakeJobsWindows }} install
+    displayName: Compile
+
+  - template: ./steps/print-anybuild-stats.yml
+    parameters:
+      LogsDir: $(LlvmBuildDir)
+
+  - ${{ if parameters.UploadPackage }}:
+    - template: ./steps/tar-and-upload.yml
+      parameters:
+        WorkingDir: $(LlvmSourceDir)
+        InstallDirRelativePath: build/install
+        PackageName: $(PKG_NAME)
+        Md5Cmd: md5sum
+
+############################################# Linux Builds
+- job: LLVM_Linux
+  displayName: LLVM Linux
+  condition: and(succeeded(), ${{ eq(parameters.BuildOnLinux, true) }})
+  dependsOn: [ Configure ]
+  pool:
+    vmImage: ubuntu-18.04
+  timeoutInMinutes: 120
+  strategy:
+    matrix:
+      Clang Release:
+        CC: clang
+        CXX: clang++
+        CXXFLAGS: -stdlib=libstdc++
+        BuildType: Release
+        BuildName: release
+        Sanitizer:
+
+  variables:
+  - name: AbClientDirectory
+    value: $HOME/.local/share/Microsoft/AnyBuild
+  - name: AbDeploymentJson
+    value: $HOME/.local/share/AnyBuildDeployment.json
+  - name: AbLogsRootDir
+    value: $(Build.StagingDirectory)/ab_logs
+  - name: LlvmSourceDir
+    value: $(Agent.BuildDirectory)/s
+  - name: LlvmBuildDir
+    value: $(LlvmSourceDir)/build
+  - name: LLVM_COMMIT
+    value: $[ dependencies.Configure.outputs['SetCommits.LLVM_COMMIT'] ]
+  - name: PKG_NAME
+    value: verona-llvm-install-x86_64-linux-$(BuildName)-$(LLVM_COMMIT)
+
+  steps:
+  - checkout: none
+  - template: ./steps/git-shallow-clone.yml
+    parameters:
+      RepoUri: $(LlvmRepoGitUri)
+      TargetDir: $(LlvmSourceDir)
+      CommitSha: $(LLVM_COMMIT)
+
+  - script: |
+      set -euo pipefail
+
+      sudo apt-get update
+      sudo apt-get install -y clang ninja-build lld jq tree
+
+      # Install latest CMake from snap (must first remove the pre-installed one)
+      sudo apt remove -y --purge cmake
+      sudo snap install cmake --classic
+    displayName: Install Prerequisites
+
+  - bash: |
+      set -euo pipefail
+
+      echo "=== Downloading AnyBuild from $(AnyBuildSource)"
+      wget -O- $(AnyBuildSource)/bootstrapper.sh | bash -s $(AnyBuildSource) $(AnyBuildRing)
+    displayName: Install AnyBuild Client
+
+  - bash: |
+      function log-and-run {
+        echo "Running "
+        echo "  CWD = $(pwd)"
+        echo "  CMD = $@"
+        "$@"
+      }
+
+      rm -rf "$(LlvmBuildDir)"
+      mkdir -p "$(LlvmBuildDir)"
+      cd "$(LlvmBuildDir)"
+      log-and-run cmake $(LlvmSourceDir)/llvm \
+        -GNinja                               \
+        -DCMAKE_BUILD_TYPE=$(BuildType)       \
+        -DCMAKE_C_COMPILER=$(CC)              \
+        -DCMAKE_CXX_COMPILER=$(CXX)           \
+        -DCMAKE_CXX_FLAGS=$(CXXFLAGS)         \
+        -DLLVM_USE_SANITIZER=$(Sanitizer)     \
+        -DLLVM_ENABLE_PROJECTS="clang;mlir"   \
+        -DLLVM_TARGETS_TO_BUILD="X86"         \
+        -DLLVM_ENABLE_ASSERTIONS=ON           \
+        -DLLVM_ENABLE_LLD=ON                  \
+        -DLLVM_ENABLE_EH=ON                   \
+        -DLLVM_ENABLE_RTTI=ON                 \
+        -DCMAKE_INSTALL_PREFIX=install        \
+        -DMLIR_INCLUDE_TESTS=OFF              \
+        -Wno-dev
+    workingDirectory: $(LlvmSourceDir)
+    displayName: CMake
+
+  - bash: |
+      declare time_limit="90m"
+
+      echo "===== Running build (${{ parameters.CmakeJobsLinux }} CMake jobs) up to ${time_limit} from $(pwd)"
+      echo
+
+      env -i                                                      \
+        llvmPassword=$(LLVMPrincipalPassword)                     \
+        HOME="$HOME"                                              \
+        PATH="$PATH"                                              \
+      timeout "$time_limit" time $(AbClientDirectory)/AnyBuild.sh \
+        --RemoteExecServiceUri $(AnyBuildEnvironmentUri)          \
+        --NoCheckForUpdates                                       \
+        --WaitForAgentForever                                     \
+        --DoNotUseMachineUtilizationForScheduling                 \
+        --ClientApplicationId $(LLVMPrincipalAppId)               \
+        --ClientSecretEnvironmentVariable llvmPassword            \
+        ${{ parameters.ExtraAnyBuildArgs }}                       \
+        -- \
+        cmake --build . -- -j ${{ parameters.CmakeJobsLinux }} install
+    workingDirectory: $(LlvmBuildDir)
+    displayName: Compile
+
+  - template: ./steps/print-anybuild-stats.yml
+    parameters:
+      LogsDir: $(LlvmBuildDir)
+
+  - bash: |
+      ninja clean
+    workingDirectory: $(LlvmBuildDir)
+    displayName: Delete Build Outputs (to free up space for 'Create package')
+
+  - ${{ if parameters.UploadPackage }}:
+    - template: ./steps/tar-and-upload.yml
+      parameters:
+        WorkingDir: $(LlvmSourceDir)
+        InstallDirRelativePath: build/install
+        PackageName: $(PKG_NAME)
+        Md5Cmd: md5sum
+
+############################################## MacOS Builds
+- job: LLVM_MacOs
+  displayName: LLVM MacOS Build
+  condition: and(succeeded(), ${{ eq(parameters.BuildOnMacOs, true) }})
+  dependsOn: [ Configure ]
+  pool:
+    vmImage: 'macOS-10.14'
+  timeoutInMinutes: 240
+  strategy:
+    matrix:
+      Release:
+        BuildType: Release
+        BuildName: release
+  variables:
+  - name: LlvmSourceDir
+    value: $(Agent.BuildDirectory)/s
+  - name: LLVM_COMMIT
+    value: $[ dependencies.Configure.outputs['SetCommits.LLVM_COMMIT'] ]
+  - name: PKG_NAME
+    value: verona-llvm-install-x86_64-darwin-$(BuildName)-$(LLVM_COMMIT)
+  steps:
+  - checkout: none
+  - template: ./steps/git-shallow-clone.yml
+    parameters:
+      RepoUri: $(LlvmRepoGitUri)
+      TargetDir: $(LlvmSourceDir)
+      CommitSha: $(LLVM_COMMIT)
+
+  - task: CMake@1
+    displayName: 'CMake'
+    inputs:
+      cmakeArgs: |
+        ../llvm -DCMAKE_BUILD_TYPE=$(BuildType) -DLLVM_ENABLE_PROJECTS="clang;mlir" -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_EH=ON -DLLVM_ENABLE_RTTI=ON -DCMAKE_INSTALL_PREFIX=install -DMLIR_INCLUDE_TESTS=OFF -Wno-dev
+
+  - script: |
+      set -eo pipefail
+      N=$(sysctl -n hw.ncpu)
+      make -j $N install
+    workingDirectory: build
+    displayName: Compile
+
+  - ${{ if parameters.UploadPackage }}:
+    - template: ./steps/tar-and-upload.yml
+      parameters:
+        WorkingDir: $(LlvmSourceDir)
+        InstallDirRelativePath: build/install
+        PackageName: $(PKG_NAME)
+        Md5Cmd: md5 -r
