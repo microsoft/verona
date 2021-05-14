@@ -18,7 +18,7 @@ jobs:
 - job:
   displayName: Linux
   pool:
-    vmImage: 'ubuntu-18.04'
+    vmImage: 'ubuntu-20.04'
   timeoutInMinutes: 120
   strategy:
     matrix:
