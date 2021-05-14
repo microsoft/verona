@@ -10,7 +10,7 @@ jobs:
 ############################################## Configure CI Run
 - job: ConfigureCIRun
   pool:
-    vmImage: 'ubuntu-18.04'
+    vmImage: 'ubuntu-20.04'
   steps:
   - script: |
       echo "Determine if any code has changed."
@@ -50,7 +50,7 @@ jobs:
   variables:
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
   pool:
-    vmImage: 'ubuntu-18.04'
+    vmImage: 'ubuntu-20.04'
   timeoutInMinutes: 120
   strategy:
     matrix:
@@ -257,7 +257,7 @@ jobs:
 - job: 
   displayName: Format
   pool:
-    vmImage: 'ubuntu-18.04'
+    vmImage: 'ubuntu-20.04'
   steps:
   - checkout: self
 
