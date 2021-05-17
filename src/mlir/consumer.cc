@@ -265,9 +265,7 @@ namespace mlir::verona
     {
       auto name = std::get<0>(arg_val);
       auto val = std::get<1>(arg_val);
-      auto addr = generator.generateAlloca(val.getLoc(), val.getType());
-      generator.generateStore(val.getLoc(), addr, val);
-      symbolTable().insert(name, addr);
+      symbolTable().insert(name, val);
     }
 
     // Lower body
