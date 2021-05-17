@@ -118,8 +118,8 @@ namespace mlir::verona
     return func;
   }
 
-  llvm::Expected<Value>
-  MLIRGenerator::generateCall(Location loc, FuncOp func, llvm::ArrayRef<Value> args)
+  llvm::Expected<Value> MLIRGenerator::generateCall(
+    Location loc, FuncOp func, llvm::ArrayRef<Value> args)
   {
     // TODO: Implement dynamic method calls
     auto call = builder.create<CallOp>(loc, func, args);
@@ -215,15 +215,20 @@ namespace mlir::verona
       return addr;
 
     // If the expected type is a pointer, we want the address, not the value
-    if (ty.isa<PointerType>())
+    if (ty && ty.isa<PointerType>())
       return addr;
 
     auto elmTy = getElementType(addr);
-    assert(elmTy == ty && "Invalid pointer load");
+
+    // If type was specified, check it matches the address type
+    if (ty)
+      assert(elmTy == ty && "Invalid pointer load");
+
     return generateLoad(loc, addr, offset);
   }
 
-  void MLIRGenerator::generateStore(Location loc, Value addr, Value val, int offset)
+  void
+  MLIRGenerator::generateStore(Location loc, Value addr, Value val, int offset)
   {
     if (!isa<LLVM::GEPOp>(addr.getDefiningOp()))
       addr = generateGEP(loc, addr, offset);

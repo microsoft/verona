@@ -419,9 +419,15 @@ namespace mlir::verona
       return *res;
     }
 
-    // If function does not exist, it's either arithmetic or an error
-    // for arithmetic, we only take the op name, not the context
+    // If function does not exist, it's either arithmetic or an error.
+    // For arithmetic, we must use values, not addresses.
+    lhs = generator.generateAutoLoad(loc, lhs);
+    rhs = generator.generateAutoLoad(loc, rhs);
+
+    // TODO: For now, we take the op name, not the context (auto-gen), soon
+    // we'll write arithmetic in the types themselves and this will go.
     opName = select->typenames[end]->location.view();
+
     auto res = generator.generateArithmetic(loc, opName, lhs, rhs);
     if (auto err = res.takeError())
       return std::move(err);
@@ -502,8 +508,7 @@ namespace mlir::verona
 
     // If both are addresses, we need to load from the RHS to be able to store
     // into the LHS
-    if (isPointer(val))
-      val = generator.generateAutoLoad(val.getLoc(), val, getElementType(val));
+    val = generator.generateAutoLoad(val.getLoc(), val);
 
     // If LHS and RHS types don't match, do type conversion to make them match.
     // This is specially important in literals, which still have largest types
