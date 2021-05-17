@@ -1,5 +1,5 @@
-module @__  {
-  func @"____$module-0__foo"() {
+module  {
+  func @"$module-0__foo"() {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i8 : (i32) -> !llvm.ptr<i8>
     %c10_i64 = constant 10 : i64

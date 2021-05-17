@@ -3,7 +3,7 @@
 
 #include "driver.h"
 
-#include "generator.h"
+#include "consumer.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -48,7 +48,7 @@ namespace mlir::verona
   llvm::Error Driver::readAST(::verona::parser::Ast ast)
   {
     // Use the MLIR generator to lower the AST into MLIR
-    auto result = Generator::lower(&context, ast);
+    auto result = ASTConsumer::lower(&context, ast);
     if (!result)
       return result.takeError();
     module = std::move(*result);
