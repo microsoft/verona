@@ -478,6 +478,7 @@ namespace mlir::verona
     // No address means inline let/var (incl. temps), which has no type.
     // We evaluate the RHS first (above) to get its type and create an address
     // of the same type to store in.
+    bool needsLoad = true;
     if (!addr)
     {
       assert(nodeAs<Let>(assign->left) || nodeAs<Var>(assign->left));
@@ -495,6 +496,7 @@ namespace mlir::verona
         addr = generator.generateAlloca(getLocation(ast), val.getType());
         symbolTable().update(name, addr);
       }
+      needsLoad = false;
     }
     assert(isPointer(addr) && "Couldn't create an address for lhs in assign");
 
@@ -513,8 +515,10 @@ namespace mlir::verona
       val = generator.typeConversion(val, addrTy);
     }
 
-    // Load the existing value to return (most of the time unused, elided)
-    auto old = generator.generateLoad(getLocation(assign), addr);
+    // Load the existing value to return (if addr existed before)
+    Value old;
+    if (needsLoad)
+      old = generator.generateLoad(getLocation(assign), addr);
 
     // Store the new value in the same address
     generator.generateStore(getLocation(assign), addr, val);

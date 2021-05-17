@@ -5,14 +5,11 @@ module  {
     %0 = llvm.alloca %c1_i32 x f64 : (i32) -> !llvm.ptr<f64>
     %c0_i32 = constant 0 : i32
     %1 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
-    %2 = llvm.load %1 : !llvm.ptr<f64>
+    llvm.store %cst, %1 : !llvm.ptr<f64>
     %c0_i32_0 = constant 0 : i32
-    %3 = llvm.getelementptr %0[%c0_i32_0] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
-    llvm.store %cst, %3 : !llvm.ptr<f64>
-    %c0_i32_1 = constant 0 : i32
-    %4 = llvm.getelementptr %0[%c0_i32_1] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
-    %5 = llvm.load %4 : !llvm.ptr<f64>
-    return %5 : f64
+    %2 = llvm.getelementptr %0[%c0_i32_0] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
+    %3 = llvm.load %2 : !llvm.ptr<f64>
+    return %3 : f64
   }
   func @"$module-0__foo"() -> i32 {
     %c1_i32 = constant 1 : i32
