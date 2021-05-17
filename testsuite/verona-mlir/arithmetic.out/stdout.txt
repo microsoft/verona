@@ -116,4 +116,38 @@ module  {
     %35 = llvm.load %34 : !llvm.ptr<f64>
     return %35 : f64
   }
+  func @"$module-0__update_value"() -> i64 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %c21_i64 = constant 21 : i64
+    %c0_i32 = constant 0 : i32
+    %1 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %2 = llvm.load %1 : !llvm.ptr<i64>
+    %c0_i32_0 = constant 0 : i32
+    %3 = llvm.getelementptr %0[%c0_i32_0] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %c21_i64, %3 : !llvm.ptr<i64>
+    %c21_i64_1 = constant 21 : i64
+    %c1_i32_2 = constant 1 : i32
+    %4 = llvm.alloca %c1_i32_2 x i64 : (i32) -> !llvm.ptr<i64>
+    %c0_i32_3 = constant 0 : i32
+    %5 = llvm.getelementptr %4[%c0_i32_3] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %c21_i64_1, %5 : !llvm.ptr<i64>
+    %c0_i32_4 = constant 0 : i32
+    %6 = llvm.getelementptr %0[%c0_i32_4] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %7 = llvm.load %6 : !llvm.ptr<i64>
+    %c0_i32_5 = constant 0 : i32
+    %8 = llvm.getelementptr %4[%c0_i32_5] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %9 = llvm.load %8 : !llvm.ptr<i64>
+    %10 = addi %7, %9 : i64
+    %c0_i32_6 = constant 0 : i32
+    %11 = llvm.getelementptr %0[%c0_i32_6] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %12 = llvm.load %11 : !llvm.ptr<i64>
+    %c0_i32_7 = constant 0 : i32
+    %13 = llvm.getelementptr %0[%c0_i32_7] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %10, %13 : !llvm.ptr<i64>
+    %c0_i32_8 = constant 0 : i32
+    %14 = llvm.getelementptr %0[%c0_i32_8] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %15 = llvm.load %14 : !llvm.ptr<i64>
+    return %15 : i64
+  }
 }

@@ -32,3 +32,10 @@ literals(): F64
   let d : F64 = f + 0.0015;
   return d;
 }
+
+update_value(): I64
+{
+  var a : I64 = 21;
+  a = a + 21;
+  return a;
+}

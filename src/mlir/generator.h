@@ -123,7 +123,8 @@ namespace mlir::verona
 
     /// Generates a load if the expected type is not a pointer and is compatible
     /// with the element type (asserts if not)
-    Value generateAutoLoad(Location loc, Value addr, Type ty, int offset = 0);
+    Value generateAutoLoad(
+      Location loc, Value addr, Type ty = Type(), int offset = 0);
 
     /// Generates a store into an address
     void generateStore(Location loc, Value addr, Value val, int offset = 0);
