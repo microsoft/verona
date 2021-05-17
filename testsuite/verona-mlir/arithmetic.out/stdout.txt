@@ -1,5 +1,5 @@
-module @__  {
-  func @"____$module-0__simple"(%arg0: i32, %arg1: i32) -> i32 {
+module  {
+  func @"$module-0__simple"(%arg0: i32, %arg1: i32) -> i32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
     %c0_i32 = constant 0 : i32
@@ -30,7 +30,7 @@ module @__  {
     %14 = llvm.load %13 : !llvm.ptr<i32>
     return %14 : i32
   }
-  func @"____$module-0__int_upcast"(%arg0: i32, %arg1: i64) -> i64 {
+  func @"$module-0__int_upcast"(%arg0: i32, %arg1: i64) -> i64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
     %c0_i32 = constant 0 : i32
@@ -62,7 +62,7 @@ module @__  {
     %15 = llvm.load %14 : !llvm.ptr<i64>
     return %15 : i64
   }
-  func @"____$module-0__fp_upcast"(%arg0: f64, %arg1: f32) -> f64 {
+  func @"$module-0__fp_upcast"(%arg0: f64, %arg1: f32) -> f64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f64 : (i32) -> !llvm.ptr<f64>
     %c0_i32 = constant 0 : i32
@@ -94,7 +94,7 @@ module @__  {
     %15 = llvm.load %14 : !llvm.ptr<f64>
     return %15 : f64
   }
-  func @"____$module-0__literals"() -> f64 {
+  func @"$module-0__literals"() -> f64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
     %c21_i64 = constant 21 : i64

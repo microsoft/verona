@@ -1,5 +1,5 @@
-module @__  {
-  func @"____$module-0__Boop__getPI"() -> f64 {
+module  {
+  func @"$module-0__Boop__getPI"() -> f64 {
     %cst = constant 3.141500e+00 : f64
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f64 : (i32) -> !llvm.ptr<f64>
@@ -14,7 +14,7 @@ module @__  {
     %5 = llvm.load %4 : !llvm.ptr<f64>
     return %5 : f64
   }
-  func @"____$module-0__foo"() -> i32 {
+  func @"$module-0__foo"() -> i32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x !llvm.struct<"Foo", (i32, i64)> : (i32) -> !llvm.ptr<struct<"Foo", (i32, i64)>>
     %c1_i32_0 = constant 1 : i32
@@ -25,7 +25,7 @@ module @__  {
     %3 = llvm.alloca %c1_i32_2 x !llvm.struct<"Boop", (f64)> : (i32) -> !llvm.ptr<struct<"Boop", (f64)>>
     %c1_i32_3 = constant 1 : i32
     %4 = llvm.alloca %c1_i32_3 x f64 : (i32) -> !llvm.ptr<f64>
-    %5 = call @"____$module-0__Boop__getPI"() : () -> f64
+    %5 = call @"$module-0__Boop__getPI"() : () -> f64
     %c0_i32 = constant 0 : i32
     %6 = llvm.getelementptr %4[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
     %7 = llvm.load %6 : !llvm.ptr<f64>
@@ -68,10 +68,10 @@ module @__  {
     %23 = llvm.load %22 : !llvm.ptr<i32>
     return %23 : i32
   }
-  func @"____$module-0__bar"() -> f64 {
+  func @"$module-0__bar"() -> f64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f64 : (i32) -> !llvm.ptr<f64>
-    %1 = call @"____$module-0__Boop__getPI"() : () -> f64
+    %1 = call @"$module-0__Boop__getPI"() : () -> f64
     %c0_i32 = constant 0 : i32
     %2 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
     %3 = llvm.load %2 : !llvm.ptr<f64>
