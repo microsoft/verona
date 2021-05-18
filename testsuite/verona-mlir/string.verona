@@ -1,0 +1,9 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+foo()
+{
+  // Strings don't have types yet, so we can't really parse "oftype" from them
+  let a = "hello";
+  let b = "world";
+}

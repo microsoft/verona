@@ -223,6 +223,9 @@ namespace mlir::verona
     /// Consumes a literal.
     llvm::Expected<ReturnValue> consumeLiteral(Ast ast);
 
+    /// Consumes a string literal.
+    llvm::Expected<ReturnValue> consumeString(Ast ast);
+
     /// Consumes a type.
     Type consumeType(Ast ast);
 

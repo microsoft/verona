@@ -215,6 +215,9 @@ namespace mlir::verona
       case Kind::Binary:
       case Kind::Bool:
         return consumeLiteral(ast);
+      case Kind::EscapedString:
+      case Kind::UnescapedString:
+        return consumeString(ast);
       default:
         // TODO: Implement all others
         break;
@@ -572,6 +575,21 @@ namespace mlir::verona
     }
 
     return Value();
+  }
+
+  llvm::Expected<ReturnValue> ASTConsumer::consumeString(Ast ast)
+  {
+    std::string_view str;
+
+    // TODO: Differentiate between escaped and unescaped
+    if (auto S = nodeAs<UnescapedString>(ast))
+      str = S->location.view();
+    else if (auto S = nodeAs<EscapedString>(ast))
+      str = S->location.view();
+    else
+      assert(false && "Unknown string type");
+
+    return generator.generateConstantString(str);
   }
 
   Type ASTConsumer::consumeType(Ast ast)
