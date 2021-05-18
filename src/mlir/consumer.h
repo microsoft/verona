@@ -37,12 +37,8 @@ namespace mlir::verona
    */
   class ReturnValue
   {
-    /// MLIR generators can produce these values. We bundle into one variant to
-    /// allow methods to return non-locally while forcing specific templated get
-    /// methods to make sure we have the right type of value.
-    using ResultTy = std::variant<Value, ModuleOp, FuncOp>;
     /// The list of values returned. Usually one or zero but could be more.
-    llvm::SmallVector<ResultTy, 1> values;
+    llvm::SmallVector<Value, 1> values;
 
   public:
     /// Default constructor, builds an empty return value.
@@ -51,16 +47,6 @@ namespace mlir::verona
     ReturnValue(Value value)
     {
       values.push_back(value);
-    }
-    /// Constructor for single valued ModuleOp
-    ReturnValue(ModuleOp mod)
-    {
-      values.push_back(mod);
-    }
-    /// Constructor for single valued FuncOp
-    ReturnValue(FuncOp func)
-    {
-      values.push_back(func);
     }
     /// Multiple value constructor (not necessarily same types)
     ReturnValue(ResultRange& range)
@@ -88,25 +74,23 @@ namespace mlir::verona
     }
 
     /// Access to the single value held, asserts if none or more than one.
-    template<class T>
-    T get() const
+    Value get() const
     {
       assert(values.size() > 0 && "Access to empty return value");
       assert(values.size() == 1 && "Direct access to multiple values");
-      return std::get<T>(values[0]);
+      return values[0];
     }
 
     /// Access a specific value held, asserts if none or not enough values.
-    template<class T>
-    T get(size_t n) const
+    Value get(size_t n) const
     {
       assert(values.size() > 0 && "Access to empty return value");
       assert(values.size() > n && "Not enough values");
-      return std::get<T>(values[n - 1]);
+      return values[n - 1];
     }
 
     /// Returns a reference to all the values.
-    llvm::ArrayRef<ResultTy> getAll() const
+    llvm::ArrayRef<Value> getAll() const
     {
       assert(values.size() > 0 && "Access to empty return value");
       return values;
@@ -181,23 +165,20 @@ namespace mlir::verona
     std::tuple<size_t, Type, bool>
     getField(Type type, llvm::StringRef fieldName);
 
-    // =============================================================== Consumers
-    // These methods parse the AST into MLIR constructs, then either
-    // return the expected MLIR value or call the generators (see below) to do
-    // that for them.
-
+    // ===================================================== Top-Level Consumers
     /// Consumes the top module.
     llvm::Error consumeRootModule(Ast ast);
 
     /// Consume a class declaration
     llvm::Error consumeClass(Ast ast);
 
+    /// Consumes a function definition.
+    llvm::Expected<FuncOp> consumeFunction(Ast ast);
+
+    // ======================================================= General Consumers
     /// Generic node consumer, calls other consumer functions to handle each
     /// individual type.
     llvm::Expected<ReturnValue> consumeNode(Ast ast);
-
-    /// Consumes a function definition.
-    llvm::Expected<ReturnValue> consumeFunction(Ast ast);
 
     /// Consumes a field definition.
     llvm::Expected<Type> consumeField(Ast ast);
