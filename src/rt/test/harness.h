@@ -48,7 +48,7 @@ public:
     seed_lower = opt.is<size_t>("--seed", 5489);
     seed_upper = opt.is<size_t>("--seed_upper", seed_lower) + 1;
 
-#ifdef USE_FLIGHT_RECORDER
+#if defined(USE_FLIGHT_RECORDER) || defined(CI_BUILD)
     Systematic::enable_crash_logging();
 #endif
 

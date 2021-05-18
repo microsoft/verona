@@ -451,7 +451,7 @@ namespace Systematic
     }
   };
 
-#if defined(USE_FLIGHT_RECORDER) && defined(_MSC_VER)
+#if defined(CI_BUILD) && defined(_MSC_VER)
   inline LONG ExceptionHandler(_EXCEPTION_POINTERS* ExceptionInfo)
   {
     // On any exception dump the flight recorder
@@ -517,7 +517,7 @@ namespace Systematic
     return EXCEPTION_CONTINUE_SEARCH;
   }
 
-#elif defined(USE_FLIGHT_RECORDER) && defined(USE_EXECINFO)
+#elif defined(CI_BUILD) && defined(USE_EXECINFO)
   static std::mutex mutx;
   static std::condition_variable cv;
   static void* stack_frames = nullptr;
@@ -526,6 +526,12 @@ namespace Systematic
 
   inline static void signal_handler(int sig, siginfo_t*, void*)
   {
+    static std::atomic<bool> run_already = false;
+
+    if (run_already)
+      abort();
+    run_already = true;
+
     auto str = strsignal(sig);
 
     // We're ignoring the result of write, as there's not much we can do if it
@@ -616,9 +622,9 @@ namespace Systematic
 
   inline static void enable_crash_logging()
   {
-#if defined(USE_FLIGHT_RECORDER) && defined(_MSC_VER)
+#if defined(CI_BUILD) && defined(_MSC_VER)
     AddVectoredExceptionHandler(0, &ExceptionHandler);
-#elif defined(USE_FLIGHT_RECORDER) && defined(USE_EXECINFO)
+#elif defined(CI_BUILD) && defined(USE_EXECINFO)
     static std::thread thr = std::thread(&crash_dump);
     thr.detach();
     std::atexit([] {
@@ -633,6 +639,8 @@ namespace Systematic
     sa.sa_flags = SA_SIGINFO;
     sigaction(SIGABRT, &sa, nullptr);
     sigaction(SIGILL, &sa, nullptr);
+    sigaction(SIGINT, &sa, nullptr);
+    sigaction(SIGTERM, &sa, nullptr);
     sigaction(SIGSEGV, &sa, nullptr);
     sigaction(SIGSYS, &sa, nullptr);
 #endif
