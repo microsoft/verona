@@ -80,6 +80,13 @@ namespace mlir::verona
     size_t pos = 0;
     for (auto f : fieldMap.fields)
     {
+      // Found the field, return position
+      if (f == fieldName)
+      {
+        auto ty = fieldMap.types[pos];
+        return {pos, ty, true};
+      }
+
       // Always recurse into all class fields
       auto classField = fieldMap.types[pos].dyn_cast<LLVM::LLVMStructType>();
       if (classField)
@@ -91,13 +98,6 @@ namespace mlir::verona
           return {pos, subTy, true};
         else
           continue;
-      }
-
-      // Found the field, return position
-      if (f == fieldName)
-      {
-        auto ty = fieldMap.types[pos];
-        return {pos, ty, true};
       }
 
       // Not found, continue searching
