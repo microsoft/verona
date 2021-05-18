@@ -159,10 +159,10 @@ namespace mlir::verona
           break;
         case Kind::Function:
         {
-          auto func = consumeNode(sub);
+          auto func = consumeFunction(sub);
           if (auto err = func.takeError())
             return err;
-          generator.push_back(func->get<FuncOp>());
+          generator.push_back(*func);
           break;
         }
         case Kind::Field:
@@ -193,8 +193,6 @@ namespace mlir::verona
   {
     switch (ast->kind())
     {
-      case Kind::Function:
-        return consumeFunction(ast);
       case Kind::Lambda:
         return consumeLambda(ast);
       case Kind::Select:
@@ -218,6 +216,12 @@ namespace mlir::verona
       case Kind::EscapedString:
       case Kind::UnescapedString:
         return consumeString(ast);
+      case Kind::Function:
+      case Kind::Class:
+      case Kind::Field:
+        return runtimeError(
+          "Top-level field " + std::string(kindname(ast->kind())) +
+          " cannot be consumed through generic recursion");
       default:
         // TODO: Implement all others
         break;
@@ -227,7 +231,7 @@ namespace mlir::verona
       "Node " + std::string(kindname(ast->kind())) + " not implemented yet");
   }
 
-  llvm::Expected<ReturnValue> ASTConsumer::consumeFunction(Ast ast)
+  llvm::Expected<FuncOp> ASTConsumer::consumeFunction(Ast ast)
   {
     auto func = nodeAs<Function>(ast);
     assert(func && "Bad node");
@@ -288,7 +292,7 @@ namespace mlir::verona
     if (needsReturn)
     {
       assert(last->hasValue() && "No value to return");
-      auto retVal = last->get<Value>();
+      auto retVal = last->get();
       builder().create<ReturnOp>(loc, retVal);
     }
     else
@@ -349,7 +353,7 @@ namespace mlir::verona
       auto rhsNode = consumeNode(select->args);
       if (auto err = rhsNode.takeError())
         return std::move(err);
-      rhs = rhsNode->get<Value>();
+      rhs = rhsNode->get();
     }
 
     // FIXME: "special case" return for now, to make it work without method
@@ -373,7 +377,7 @@ namespace mlir::verona
       auto lhsNode = consumeNode(select->expr);
       if (auto err = lhsNode.takeError())
         return std::move(err);
-      lhs = lhsNode->get<Value>();
+      lhs = lhsNode->get();
     }
 
     // Dynamic selector, for accessing a field or calling a method
@@ -476,13 +480,13 @@ namespace mlir::verona
     auto lhsNode = consumeNode(assign->left);
     if (auto err = lhsNode.takeError())
       return std::move(err);
-    auto addr = lhsNode->get<Value>();
+    auto addr = lhsNode->get();
 
     // Evaluate the right hand side to get type information
     auto rhsNode = consumeNode(assign->right);
     if (auto err = rhsNode.takeError())
       return std::move(err);
-    auto val = rhsNode->get<Value>();
+    auto val = rhsNode->get();
 
     // No address means inline let/var (incl. temps), which has no type.
     // We evaluate the RHS first (above) to get its type and create an address
