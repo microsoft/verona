@@ -134,5 +134,8 @@ namespace mlir::verona
 
     /// Generate a zero initialized value of a certain type
     Value generateZero(Type ty);
+
+    /// Generate a constant string as an LLVM global constant
+    Value generateConstantString(StringRef str, StringRef name = "");
   };
 }

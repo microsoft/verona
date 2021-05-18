@@ -1,0 +1,9 @@
+module  {
+  llvm.mlir.global private constant @_string0("hello")
+  llvm.mlir.global private constant @_string1("world")
+  func @"$module-0__foo"() {
+    %0 = llvm.mlir.addressof @_string0 : !llvm.ptr<array<5 x i8>>
+    %1 = llvm.mlir.addressof @_string1 : !llvm.ptr<array<5 x i8>>
+    return
+  }
+}

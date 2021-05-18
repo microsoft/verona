@@ -15,6 +15,7 @@
 /// LLVM aliases
 using StructType = mlir::LLVM::LLVMStructType;
 using PointerType = mlir::LLVM::LLVMPointerType;
+using ArrayType = mlir::LLVM::LLVMArrayType;
 
 namespace mlir::verona
 {
@@ -267,5 +268,37 @@ namespace mlir::verona
       return generateConstant(ty, 0.0);
     else
       return generateConstant(ty, 0);
+  }
+
+  Value MLIRGenerator::generateConstantString(StringRef str, StringRef name)
+  {
+    // Use auto-generated name if none provided
+    static size_t incr = 0;
+    std::string nameStr;
+    if (name.empty())
+      nameStr = "_string" + std::to_string(incr++);
+    else
+      nameStr = name.str();
+
+    // In LLVM, strings are arrays of i8 elements
+    auto i8 = builder.getIntegerType(8);
+    auto strTy = ArrayType::get(i8, str.size());
+    auto strAttr = builder.getStringAttr(str);
+
+    // In LLVM, constant strings are global objects
+    auto moduleBuilder = OpBuilder(*module);
+    auto global = moduleBuilder.create<LLVM::GlobalOp>(
+      builder.getUnknownLoc(),
+      strTy,
+      /*isConstant=*/true,
+      LLVM::Linkage::Private,
+      nameStr,
+      strAttr);
+    module->push_back(global);
+
+    // But their addresses are a local operation
+    auto addr =
+      builder.create<LLVM::AddressOfOp>(builder.getUnknownLoc(), global);
+    return addr->getResult(0);
   }
 }
