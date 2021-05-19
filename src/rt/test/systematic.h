@@ -109,7 +109,7 @@ namespace Systematic
   };
 
   // Filled in later by the scheduler thread
-  size_t get_systematic_id();
+  std::string get_systematic_id();
 
   class LocalLog : public snmalloc::Pooled<LocalLog>
   {
@@ -127,7 +127,7 @@ namespace Systematic
 #endif
     size_t index;
     size_t working_index;
-    size_t systematic_id = (size_t)-1;
+    std::string systematic_id = "";
     verona::rt::AsymmetricLock alock;
 
     Entry log[size];
@@ -215,11 +215,7 @@ namespace Systematic
 
       time = log[index % size].header.time;
 
-      auto offset = static_cast<int>(systematic_id % 9);
-      if (offset != 0)
-        o << std::setw(offset) << " ";
       o << systematic_id;
-      o << std::setw(9 - offset) << " ";
 
       index = (index - entry_size + size) % size;
       working_index = working_index - entry_size;
@@ -355,12 +351,7 @@ namespace Systematic
         {
           if (first)
           {
-            auto id = get_systematic_id();
-            auto offset = static_cast<int>(id % 9);
-            if (offset != 0)
-              get_ss() << std::setw(offset) << " ";
-            get_ss() << id;
-            get_ss() << std::setw(9 - offset) << " ";
+            get_ss() << get_systematic_id();
             first = false;
           }
 
@@ -393,7 +384,7 @@ namespace Systematic
     }
 #endif
 
-    static void dump_flight_recorder(size_t id = 0)
+    static void dump_flight_recorder(std::string id = "")
     {
       static std::atomic_flag dump_in_progress = ATOMIC_FLAG_INIT;
 
@@ -401,7 +392,7 @@ namespace Systematic
 
       if constexpr (flight_recorder)
       {
-        std::cerr << "Dump started by " << (id != 0 ? id : get_systematic_id())
+        std::cerr << "Dump started by " << (id != "" ? id : get_systematic_id())
                   << std::endl;
         ThreadLocalLog::dump(std::cerr);
         std::cerr << "Dump complete!" << std::endl;
@@ -451,7 +442,7 @@ namespace Systematic
     }
   };
 
-#if defined(USE_FLIGHT_RECORDER) && defined(_MSC_VER)
+#if defined(CI_BUILD) && defined(_MSC_VER)
   inline LONG ExceptionHandler(_EXCEPTION_POINTERS* ExceptionInfo)
   {
     // On any exception dump the flight recorder
@@ -517,15 +508,21 @@ namespace Systematic
     return EXCEPTION_CONTINUE_SEARCH;
   }
 
-#elif defined(USE_FLIGHT_RECORDER) && defined(USE_EXECINFO)
+#elif defined(CI_BUILD) && defined(USE_EXECINFO)
   static std::mutex mutx;
   static std::condition_variable cv;
   static void* stack_frames = nullptr;
   static int n_frames = 0;
-  static size_t systematic_id = 0;
+  static std::string systematic_id = "";
 
   inline static void signal_handler(int sig, siginfo_t*, void*)
   {
+    static std::atomic<bool> run_already = false;
+
+    if (run_already)
+      abort();
+    run_already = true;
+
     auto str = strsignal(sig);
 
     // We're ignoring the result of write, as there's not much we can do if it
@@ -616,9 +613,9 @@ namespace Systematic
 
   inline static void enable_crash_logging()
   {
-#if defined(USE_FLIGHT_RECORDER) && defined(_MSC_VER)
+#if defined(CI_BUILD) && defined(_MSC_VER)
     AddVectoredExceptionHandler(0, &ExceptionHandler);
-#elif defined(USE_FLIGHT_RECORDER) && defined(USE_EXECINFO)
+#elif defined(CI_BUILD) && defined(USE_EXECINFO)
     static std::thread thr = std::thread(&crash_dump);
     thr.detach();
     std::atexit([] {
@@ -633,6 +630,8 @@ namespace Systematic
     sa.sa_flags = SA_SIGINFO;
     sigaction(SIGABRT, &sa, nullptr);
     sigaction(SIGILL, &sa, nullptr);
+    sigaction(SIGINT, &sa, nullptr);
+    sigaction(SIGTERM, &sa, nullptr);
     sigaction(SIGSEGV, &sa, nullptr);
     sigaction(SIGSYS, &sa, nullptr);
 #endif

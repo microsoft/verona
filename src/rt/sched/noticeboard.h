@@ -52,7 +52,7 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       update_buffer_push(new_o);
       flush_some(alloc);
-      Scheduler::yield_my_turn();
+      yield();
 #else
       if constexpr (!std::is_fundamental_v<T>)
       {
