@@ -91,8 +91,8 @@ namespace verona::rt
           // Note, this could have zero external event sources, with the runtime
           // waking up from pausing.  The external thread that dropped the event
           // source, can still be `unpausing` the runtime.  So it appears all
-          // threads are going to sleep, but the external thread will continue to
-          // wake them until `runtime_pausing` is unset.
+          // threads are going to sleep, but the external thread will continue
+          // to wake them until `runtime_pausing` is unset.
 
           running_thread = nullptr;
           Systematic::cout() << "All threads sleeping!" << Systematic::endl;
