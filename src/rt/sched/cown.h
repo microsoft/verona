@@ -1381,7 +1381,7 @@ namespace verona::rt
 
 namespace Systematic
 {
-  inline string get_systematic_id()
+  inline std::string get_systematic_id()
   {
 #if defined(USE_SYSTEMATIC_TESTING) || defined(USE_FLIGHT_RECORDER)
     static std::atomic<size_t> external_id_source = 1;
@@ -1411,10 +1411,11 @@ namespace Systematic
     if (short_id)
       ss << (char)('a' + (external_id - 1));
     else
-      ss << 'e' << (external_id - 26);
+      ss << 'E' << (external_id - 26);
     ss << std::setw(offset) << " ";
     return ss.str();
+#else
+    return "";
 #endif
-    return 0;
   }
 }

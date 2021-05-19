@@ -75,11 +75,8 @@ namespace verona::rt
       }
 
       // Skip to a first choice for selecting.
-      while (i > 0)
-      {
+      for (; i > 0; i--)
         start = start->next;
-        i--;
-      }
 
       auto result = start;
       while ((result->systematic_state != SystematicState::Active) ||
@@ -88,14 +85,15 @@ namespace verona::rt
         result = result->next;
         if (result == start)
         {
-          // The following note is incase anyone tries to add an assertion about
+          // The following note is for anyone wanting to add an assertion about
           // the conditions that could be true at this point.
           //
           // Note, this could have zero external event sources, with the runtime
           // waking up from pausing.  The external thread that dropped the event
-          // source, can will still be `unpausing` the runtime.  So it appears
-          // all threads are going to sleep, but the external thread will
-          // continue to wake them. Until `runtime_pausing` is unset.
+          // source, can still be `unpausing` the runtime.  So it appears all
+          // threads are going to sleep, but the external thread will continue to
+          // wake them until `runtime_pausing` is unset.
+
           running_thread = nullptr;
           Systematic::cout() << "All threads sleeping!" << Systematic::endl;
           return;
@@ -227,7 +225,7 @@ namespace verona::rt
           {
             Systematic::cout() << "unpause external" << Systematic::endl;
             // Can be signalled from outside the runtime if external work is
-            // injected if this is a runtime thread, then yield.
+            // injected. If this is a runtime thread, then yield.
             // This will wake a thread if none are currently running, otherwise
             // does nothing.
             // m_sys mutex is required to prevent lost wake-up

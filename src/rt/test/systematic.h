@@ -513,7 +513,7 @@ namespace Systematic
   static std::condition_variable cv;
   static void* stack_frames = nullptr;
   static int n_frames = 0;
-  static string systematic_id = "";
+  static std::string systematic_id = "";
 
   inline static void signal_handler(int sig, siginfo_t*, void*)
   {
