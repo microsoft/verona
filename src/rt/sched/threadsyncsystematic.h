@@ -117,7 +117,7 @@ namespace verona::rt
       assert(me->systematic_state == SystematicState::Active);
     }
 
-    /// lock, must be holding the m_sys mutex.
+    /// Must hold the systematic testing lock to call this.
     /// Will only pass control back to this thread once the guard g has been
     /// established.
     void yield_until(
