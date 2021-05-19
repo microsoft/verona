@@ -109,7 +109,7 @@ namespace Systematic
   };
 
   // Filled in later by the scheduler thread
-  size_t get_systematic_id();
+  std::string get_systematic_id();
 
   class LocalLog : public snmalloc::Pooled<LocalLog>
   {
@@ -127,7 +127,7 @@ namespace Systematic
 #endif
     size_t index;
     size_t working_index;
-    size_t systematic_id = (size_t)-1;
+    std::string systematic_id = "";
     verona::rt::AsymmetricLock alock;
 
     Entry log[size];
@@ -215,11 +215,7 @@ namespace Systematic
 
       time = log[index % size].header.time;
 
-      auto offset = static_cast<int>(systematic_id % 9);
-      if (offset != 0)
-        o << std::setw(offset) << " ";
       o << systematic_id;
-      o << std::setw(9 - offset) << " ";
 
       index = (index - entry_size + size) % size;
       working_index = working_index - entry_size;
@@ -355,12 +351,7 @@ namespace Systematic
         {
           if (first)
           {
-            auto id = get_systematic_id();
-            auto offset = static_cast<int>(id % 9);
-            if (offset != 0)
-              get_ss() << std::setw(offset) << " ";
-            get_ss() << id;
-            get_ss() << std::setw(9 - offset) << " ";
+            get_ss() << get_systematic_id();
             first = false;
           }
 
@@ -393,7 +384,7 @@ namespace Systematic
     }
 #endif
 
-    static void dump_flight_recorder(size_t id = 0)
+    static void dump_flight_recorder(std::string id = "")
     {
       static std::atomic_flag dump_in_progress = ATOMIC_FLAG_INIT;
 
@@ -401,7 +392,7 @@ namespace Systematic
 
       if constexpr (flight_recorder)
       {
-        std::cerr << "Dump started by " << (id != 0 ? id : get_systematic_id())
+        std::cerr << "Dump started by " << (id != "" ? id : get_systematic_id())
                   << std::endl;
         ThreadLocalLog::dump(std::cerr);
         std::cerr << "Dump complete!" << std::endl;
@@ -522,7 +513,7 @@ namespace Systematic
   static std::condition_variable cv;
   static void* stack_frames = nullptr;
   static int n_frames = 0;
-  static size_t systematic_id = 0;
+  static string systematic_id = "";
 
   inline static void signal_handler(int sig, siginfo_t*, void*)
   {

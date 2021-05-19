@@ -1383,14 +1383,39 @@ namespace verona::rt
 
 namespace Systematic
 {
-  inline size_t get_systematic_id()
+  inline string get_systematic_id()
   {
 #if defined(USE_SYSTEMATIC_TESTING) || defined(USE_FLIGHT_RECORDER)
+    static std::atomic<size_t> external_id_source = 1;
+    static thread_local size_t external_id = 0;
     auto s = verona::rt::Scheduler::local();
     if (s != nullptr)
     {
-      return s->systematic_id;
+      std::stringstream ss;
+      auto offset = static_cast<int>(s->systematic_id % 9);
+      if (offset != 0)
+        ss << std::setw(offset) << " ";
+      ss << s->systematic_id;
+      ss << std::setw(9 - offset) << " ";
+      return ss.str();
     }
+    if (external_id == 0)
+    {
+      auto e = external_id_source.fetch_add(1);
+      external_id = e;
+    }
+    std::stringstream ss;
+    bool short_id = external_id <= 26;
+    size_t spaces = short_id ? 9 : 8;
+    size_t offset = (external_id - 1) % spaces;
+    if (offset != 0)
+      ss << std::setw(spaces - offset) << " ";
+    if (short_id)
+      ss << (char)('a' + (external_id - 1));
+    else
+      ss << 'e' << (external_id - 26);
+    ss << std::setw(offset) << " ";
+    return ss.str();
 #endif
     return 0;
   }
