@@ -129,6 +129,9 @@ namespace mlir::verona
     /// Generates a store into an address
     void generateStore(Location loc, Value addr, Value val, int offset = 0);
 
+    /// Mangle constant name to use the symbol table and avoid duplication
+    std::string mangleConstantName(Type ty, std::variant<int, double> val);
+
     /// Generate a constant value of a certain type
     Value generateConstant(Type ty, std::variant<int, double> val);
 
