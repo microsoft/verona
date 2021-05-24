@@ -7,8 +7,6 @@
 
 namespace verona::rt
 {
-  // using namespace snmalloc;
-
   class EmptyCown : public VCown<EmptyCown>
   {
   public:
@@ -28,9 +26,9 @@ namespace verona::rt
       auto t = static_cast<LambdaBehaviour<T>*>(msg);
       t->fn();
 
-      if constexpr (!std::is_trivially_destructible_v<T>)
+      if constexpr (!std::is_trivially_destructible_v<LambdaBehaviour<T>>)
       {
-        t->~T();
+        t->~LambdaBehaviour<T>();
       }
     }
 
@@ -55,20 +53,20 @@ namespace verona::rt
     void operator delete[](void* p, size_t sz) = delete;
 
   public:
-    LambdaBehaviour(T fn_) : Behaviour(desc()), fn(fn_) {}
+    LambdaBehaviour(T fn_) : Behaviour(desc()), fn(std::move(fn_)) {}
   };
 
   template<typename T>
   static void scheduleLambda(Cown* c, T f)
   {
-    Cown::schedule<LambdaBehaviour<T>>(c, f);
+    Cown::schedule<LambdaBehaviour<T>>(c, std::forward<T>(f));
   }
 
   template<typename T>
   static void scheduleLambda(T f)
   {
     Cown* c = new EmptyCown();
-    Cown::schedule<LambdaBehaviour<T>>(c, f);
+    Cown::schedule<LambdaBehaviour<T>>(c, std::forward<T>(f));
     Cown::release(ThreadAlloc::get(), c);
   }
 } // namespace verona::rt

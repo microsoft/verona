@@ -6,6 +6,36 @@
 struct TestCown : public VCown<TestCown>
 {};
 
+struct A
+{
+  int v;
+  TestCown* t;
+
+  A(int v_) : v(v_)
+  {
+    auto alloc = ThreadAlloc::get();
+    t = new (alloc) TestCown;
+  }
+
+  ~A()
+  {
+    Cown::release(ThreadAlloc::get(), t);
+  }
+};
+
+void lambda_smart()
+{
+  auto a = make_unique<A>(42);
+  scheduleLambda(
+    [a = move(a)]() { std::cout << "Hello " << a->v << std::endl; });
+}
+
+void lambda_args()
+{
+  int a = 42;
+  scheduleLambda([=]() { std::cout << "captured arg a = " << a << std::endl; });
+}
+
 void lambda_no_cown()
 {
   scheduleLambda([]() { std::cout << "Hello world!\n"; });
@@ -24,6 +54,8 @@ int main(int argc, char** argv)
 
   harness.run(lambda_no_cown);
   harness.run(lambda_cown);
+  harness.run(lambda_args);
+  harness.run(lambda_smart);
 
   return 0;
 }
