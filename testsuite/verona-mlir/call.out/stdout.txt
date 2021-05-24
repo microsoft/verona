@@ -10,23 +10,17 @@ module  {
     %c0_i32 = constant 0 : i32
     %2 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %3 = llvm.load %2 : !llvm.ptr<i64>
-    %c0_i32_0 = constant 0 : i32
-    %4 = llvm.getelementptr %0[%c0_i32_0] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %4 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     llvm.store %1, %4 : !llvm.ptr<i64>
-    %c1_i32_1 = constant 1 : i32
-    %5 = llvm.alloca %c1_i32_1 x i64 : (i32) -> !llvm.ptr<i64>
-    %c0_i32_2 = constant 0 : i32
-    %6 = llvm.getelementptr %0[%c0_i32_2] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %5 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %6 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %7 = llvm.load %6 : !llvm.ptr<i64>
     %8 = addi %arg0, %7 : i64
-    %c0_i32_3 = constant 0 : i32
-    %9 = llvm.getelementptr %5[%c0_i32_3] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %9 = llvm.getelementptr %5[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %10 = llvm.load %9 : !llvm.ptr<i64>
-    %c0_i32_4 = constant 0 : i32
-    %11 = llvm.getelementptr %5[%c0_i32_4] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %11 = llvm.getelementptr %5[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     llvm.store %8, %11 : !llvm.ptr<i64>
-    %c0_i32_5 = constant 0 : i32
-    %12 = llvm.getelementptr %5[%c0_i32_5] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %12 = llvm.getelementptr %5[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %13 = llvm.load %12 : !llvm.ptr<i64>
     return %13 : i64
   }
@@ -37,11 +31,9 @@ module  {
     %c0_i32 = constant 0 : i32
     %2 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %3 = llvm.load %2 : !llvm.ptr<i64>
-    %c0_i32_0 = constant 0 : i32
-    %4 = llvm.getelementptr %0[%c0_i32_0] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %4 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     llvm.store %1, %4 : !llvm.ptr<i64>
-    %c0_i32_1 = constant 0 : i32
-    %5 = llvm.getelementptr %0[%c0_i32_1] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %5 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %6 = llvm.load %5 : !llvm.ptr<i64>
     return %6 : i64
   }

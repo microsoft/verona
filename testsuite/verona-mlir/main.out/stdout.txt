@@ -6,8 +6,7 @@ module  {
     %c0_i32 = constant 0 : i32
     %1 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     llvm.store %c42_i64, %1 : !llvm.ptr<i64>
-    %c0_i32_0 = constant 0 : i32
-    %2 = llvm.getelementptr %0[%c0_i32_0] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %2 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %3 = llvm.load %2 : !llvm.ptr<i64>
     return %3 : i64
   }
@@ -18,8 +17,7 @@ module  {
     %c0_i32 = constant 0 : i32
     %1 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     llvm.store %c1_i64, %1 : !llvm.ptr<i64>
-    %c0_i32_0 = constant 0 : i32
-    %2 = llvm.getelementptr %0[%c0_i32_0] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %2 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %3 = llvm.load %2 : !llvm.ptr<i64>
     return %3 : i64
   }
@@ -30,11 +28,9 @@ module  {
     %c0_i32 = constant 0 : i32
     %2 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %3 = llvm.load %2 : !llvm.ptr<i64>
-    %c0_i32_0 = constant 0 : i32
-    %4 = llvm.getelementptr %0[%c0_i32_0] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %4 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     llvm.store %1, %4 : !llvm.ptr<i64>
-    %c0_i32_1 = constant 0 : i32
-    %5 = llvm.getelementptr %0[%c0_i32_1] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %5 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %6 = llvm.load %5 : !llvm.ptr<i64>
     return %6 : i64
   }
@@ -45,23 +41,17 @@ module  {
     %c0_i32 = constant 0 : i32
     %2 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %3 = llvm.load %2 : !llvm.ptr<i64>
-    %c0_i32_0 = constant 0 : i32
-    %4 = llvm.getelementptr %0[%c0_i32_0] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %4 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     llvm.store %1, %4 : !llvm.ptr<i64>
-    %c1_i32_1 = constant 1 : i32
-    %5 = llvm.alloca %c1_i32_1 x i64 : (i32) -> !llvm.ptr<i64>
-    %c0_i32_2 = constant 0 : i32
-    %6 = llvm.getelementptr %0[%c0_i32_2] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %5 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %6 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %7 = llvm.load %6 : !llvm.ptr<i64>
     %8 = addi %7, %arg0 : i64
-    %c0_i32_3 = constant 0 : i32
-    %9 = llvm.getelementptr %5[%c0_i32_3] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %9 = llvm.getelementptr %5[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %10 = llvm.load %9 : !llvm.ptr<i64>
-    %c0_i32_4 = constant 0 : i32
-    %11 = llvm.getelementptr %5[%c0_i32_4] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %11 = llvm.getelementptr %5[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     llvm.store %8, %11 : !llvm.ptr<i64>
-    %c0_i32_5 = constant 0 : i32
-    %12 = llvm.getelementptr %5[%c0_i32_5] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %12 = llvm.getelementptr %5[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %13 = llvm.load %12 : !llvm.ptr<i64>
     return %13 : i64
   }
@@ -69,83 +59,56 @@ module  {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x !llvm.struct<"Math", (i64, i64)> : (i32) -> !llvm.ptr<struct<"Math", (i64, i64)>>
     %1 = call @"$module-0__Math__getTruth"() : () -> i64
-    %c1_i32_0 = constant 1 : i32
-    %2 = llvm.alloca %c1_i32_0 x i64 : (i32) -> !llvm.ptr<i64>
+    %2 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
     %c0_i32 = constant 0 : i32
     %3 = llvm.getelementptr %2[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     llvm.store %1, %3 : !llvm.ptr<i64>
-    %c0_i32_1 = constant 0 : i32
-    %c0_i32_2 = constant 0 : i32
-    %4 = llvm.getelementptr %0[%c0_i32_1, %c0_i32_2] : (!llvm.ptr<struct<"Math", (i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
-    %c0_i32_3 = constant 0 : i32
-    %5 = llvm.getelementptr %2[%c0_i32_3] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %4 = llvm.getelementptr %0[%c0_i32, %c0_i32] : (!llvm.ptr<struct<"Math", (i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    %5 = llvm.getelementptr %2[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %6 = llvm.load %5 : !llvm.ptr<i64>
     %7 = llvm.load %4 : !llvm.ptr<i64>
     llvm.store %6, %4 : !llvm.ptr<i64>
-    %c0_i32_4 = constant 0 : i32
-    %c1_i32_5 = constant 1 : i32
-    %8 = llvm.getelementptr %0[%c0_i32_4, %c1_i32_5] : (!llvm.ptr<struct<"Math", (i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
-    %c0_i32_6 = constant 0 : i32
-    %9 = llvm.getelementptr %2[%c0_i32_6] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %8 = llvm.getelementptr %0[%c0_i32, %c1_i32] : (!llvm.ptr<struct<"Math", (i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    %9 = llvm.getelementptr %2[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %10 = llvm.load %9 : !llvm.ptr<i64>
-    %c0_i32_7 = constant 0 : i32
-    %11 = llvm.getelementptr %2[%c0_i32_7] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %11 = llvm.getelementptr %2[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %12 = llvm.load %11 : !llvm.ptr<i64>
     %13 = addi %10, %12 : i64
     %14 = llvm.load %8 : !llvm.ptr<i64>
     llvm.store %13, %8 : !llvm.ptr<i64>
-    %c1_i32_8 = constant 1 : i32
-    %15 = llvm.alloca %c1_i32_8 x i64 : (i32) -> !llvm.ptr<i64>
+    %15 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
     %c21_i64 = constant 21 : i64
-    %c1_i32_9 = constant 1 : i32
-    %16 = llvm.alloca %c1_i32_9 x i64 : (i32) -> !llvm.ptr<i64>
-    %c0_i32_10 = constant 0 : i32
-    %17 = llvm.getelementptr %16[%c0_i32_10] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %16 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %17 = llvm.getelementptr %16[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     llvm.store %c21_i64, %17 : !llvm.ptr<i64>
-    %c0_i32_11 = constant 0 : i32
-    %18 = llvm.getelementptr %16[%c0_i32_11] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %18 = llvm.getelementptr %16[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %19 = llvm.load %18 : !llvm.ptr<i64>
     %20 = call @"$module-0__foo"(%19) : (i64) -> i64
-    %c0_i32_12 = constant 0 : i32
-    %21 = llvm.getelementptr %15[%c0_i32_12] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %21 = llvm.getelementptr %15[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %22 = llvm.load %21 : !llvm.ptr<i64>
-    %c0_i32_13 = constant 0 : i32
-    %23 = llvm.getelementptr %15[%c0_i32_13] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %23 = llvm.getelementptr %15[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     llvm.store %20, %23 : !llvm.ptr<i64>
-    %c1_i32_14 = constant 1 : i32
-    %24 = llvm.alloca %c1_i32_14 x i64 : (i32) -> !llvm.ptr<i64>
-    %c0_i32_15 = constant 0 : i32
-    %c0_i32_16 = constant 0 : i32
-    %25 = llvm.getelementptr %0[%c0_i32_15, %c0_i32_16] : (!llvm.ptr<struct<"Math", (i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
-    %c0_i32_17 = constant 0 : i32
-    %26 = llvm.getelementptr %15[%c0_i32_17] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %24 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %25 = llvm.getelementptr %0[%c0_i32, %c0_i32] : (!llvm.ptr<struct<"Math", (i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    %26 = llvm.getelementptr %15[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %27 = llvm.load %26 : !llvm.ptr<i64>
     %28 = llvm.load %25 : !llvm.ptr<i64>
     %29 = addi %27, %28 : i64
-    %c0_i32_18 = constant 0 : i32
-    %30 = llvm.getelementptr %24[%c0_i32_18] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %30 = llvm.getelementptr %24[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %31 = llvm.load %30 : !llvm.ptr<i64>
-    %c0_i32_19 = constant 0 : i32
-    %32 = llvm.getelementptr %24[%c0_i32_19] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %32 = llvm.getelementptr %24[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     llvm.store %29, %32 : !llvm.ptr<i64>
-    %c1_i32_20 = constant 1 : i32
-    %33 = llvm.alloca %c1_i32_20 x i64 : (i32) -> !llvm.ptr<i64>
-    %c0_i32_21 = constant 0 : i32
-    %c1_i32_22 = constant 1 : i32
-    %34 = llvm.getelementptr %0[%c0_i32_21, %c1_i32_22] : (!llvm.ptr<struct<"Math", (i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
-    %c0_i32_23 = constant 0 : i32
-    %35 = llvm.getelementptr %24[%c0_i32_23] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %33 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %34 = llvm.getelementptr %0[%c0_i32, %c1_i32] : (!llvm.ptr<struct<"Math", (i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    %35 = llvm.getelementptr %24[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %36 = llvm.load %35 : !llvm.ptr<i64>
     %37 = llvm.load %34 : !llvm.ptr<i64>
     %38 = addi %36, %37 : i64
-    %c0_i32_24 = constant 0 : i32
-    %39 = llvm.getelementptr %33[%c0_i32_24] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %39 = llvm.getelementptr %33[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %40 = llvm.load %39 : !llvm.ptr<i64>
-    %c0_i32_25 = constant 0 : i32
-    %41 = llvm.getelementptr %33[%c0_i32_25] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %41 = llvm.getelementptr %33[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     llvm.store %38, %41 : !llvm.ptr<i64>
-    %c0_i32_26 = constant 0 : i32
-    %42 = llvm.getelementptr %33[%c0_i32_26] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %42 = llvm.getelementptr %33[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %43 = llvm.load %42 : !llvm.ptr<i64>
     return %43 : i64
   }

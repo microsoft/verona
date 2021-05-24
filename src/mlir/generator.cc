@@ -238,28 +238,59 @@ namespace mlir::verona
     builder.create<LLVM::StoreOp>(loc, val, addr);
   }
 
+  std::string
+  MLIRGenerator::mangleConstantName(Type ty, std::variant<int, double> val)
+  {
+    // This is similar to MLIR's own naming, but with two leading underscores,
+    // to make it easier to find in a debugger
+    std::string name = "__c";
+    if (ty.isa<FloatType>())
+    {
+      name += std::to_string(std::get<double>(val));
+      name += "_f";
+      name += std::to_string(ty.getIntOrFloatBitWidth());
+    }
+    else if (ty.isa<IntegerType>())
+    {
+      name += std::to_string(std::get<int>(val));
+      name += "_i";
+      name += std::to_string(ty.getIntOrFloatBitWidth());
+    }
+    else if (ty.isa<IndexType>())
+    {
+      name += std::to_string(std::get<int>(val));
+    }
+
+    return name;
+  }
+
   Value MLIRGenerator::generateConstant(Type ty, std::variant<int, double> val)
   {
+    // Use symbol table with mangled name to avoid duplication
+    auto name = mangleConstantName(ty, val);
+    auto value = symbolTable.lookup(name);
+    if (value)
+      return value;
+
     auto loc = builder.getUnknownLoc();
     if (ty.isIndex())
     {
-      return builder.create<ConstantIndexOp>(loc, std::get<int>(val));
+      value = builder.create<ConstantIndexOp>(loc, std::get<int>(val));
     }
     else if (auto it = ty.dyn_cast<IntegerType>())
     {
-      return builder.create<ConstantIntOp>(loc, std::get<int>(val), it);
+      value = builder.create<ConstantIntOp>(loc, std::get<int>(val), it);
     }
     else if (auto ft = ty.dyn_cast<FloatType>())
     {
-      APFloat value = APFloat(std::get<double>(val));
-      return builder.create<ConstantFloatOp>(loc, value, ft);
+      APFloat floatValue = APFloat(std::get<double>(val));
+      value = builder.create<ConstantFloatOp>(loc, floatValue, ft);
     }
 
-    assert(0 && "Type not supported for zero");
+    assert(value && "Type not supported for constant");
 
-    // Return invalid value for release builds
-    // FIXME: Attach diagnostics engine here to report problems like these.
-    return Value();
+    symbolTable.insert(name, value);
+    return value;
   }
 
   Value MLIRGenerator::generateZero(Type ty)
@@ -297,8 +328,6 @@ namespace mlir::verona
     module->push_back(global);
 
     // But their addresses are a local operation
-    auto addr =
-      builder.create<LLVM::AddressOfOp>(builder.getUnknownLoc(), global);
-    return addr->getResult(0);
+    return builder.create<LLVM::AddressOfOp>(builder.getUnknownLoc(), global);
   }
 }
