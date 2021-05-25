@@ -4,22 +4,23 @@
 #pragma once
 
 #include "error.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/MLIRContext.h"
-#include "parser/ast.h"
 #include "symbol.h"
-
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Error.h"
 
 #include <string>
 #include <variant>
 
 namespace mlir::verona
 {
+  /// LLVM aliases
+  using StructType = mlir::LLVM::LLVMStructType;
+  using PointerType = mlir::LLVM::LLVMPointerType;
+  using ArrayType = mlir::LLVM::LLVMArrayType;
+
   /**
    * MLIR Generator.
    *
@@ -45,20 +46,21 @@ namespace mlir::verona
   public:
     MLIRGenerator(MLIRContext* context) : builder(context)
     {
+      // There is only one module and it's created here. Everywhere else, the
+      // module is a non-woning reference to this one. This is the global
+      // module, not a specific Verona module, so there is no location for it.
+      // Verona modules will end up embedded in this one via mangling, so no
+      // need to create any additiona modules.
       module = ModuleOp::create(builder.getUnknownLoc());
     }
 
+    // ====== Helpers to interface consumers and transformers with the generator
+
     /// Expose builder to users.
-    OpBuilder& getBuilder()
-    {
-      return builder;
-    }
+    OpBuilder& getBuilder();
 
     /// Expose symbol table to users.
-    SymbolTableT& getSymbolTable()
-    {
-      return symbolTable;
-    }
+    SymbolTableT& getSymbolTable();
 
     /// Expose the symbol table lookup form the module.
     template<class OpTy>
@@ -68,77 +70,93 @@ namespace mlir::verona
     }
 
     /// Expose the function push-back in the module.
-    void push_back(FuncOp func)
-    {
-      module->push_back(func);
-    }
+    void push_back(FuncOp func);
 
     /// Return the module with move semantics. No further actions can be taken
     /// on this generator after that.
-    OwningModuleRef finish()
-    {
-      return std::move(module);
-    }
+    OwningModuleRef finish();
 
-    /// Convert (promote/demote) the value to the specified type. This
-    /// automatically chooses promotion / demotion based on the types involved.
-    Value typeConversion(Value val, Type ty);
+    // ==================================== Generic helpers that manipulate MLIR
 
-    /// Promote the smallest (compatible) type and return the values to be used
-    /// for arithmetic operations. If types are same, just return them, if not,
-    /// return the cast operations that make them the same. If types are
-    /// incompatible, assert.
-    std::pair<Value, Value> typePromotion(Value lhs, Value rhs);
+    /// Returns true if the basic block has a terminator
+    static bool hasTerminator(mlir::Block* bb);
+
+    /// Returns true if the value has a pointer type.
+    static bool isPointer(mlir::Value val);
+
+    /// Returns the element type if val is a pointer.
+    static mlir::Type getElementType(mlir::Value val);
+
+    /// Returns true if the value has a pointer to a structure type.
+    static bool isStructPointer(mlir::Value val);
+
+    /// Get the type of the strucure field at this offset
+    static mlir::Type getFieldType(StructType type, int offset);
+
+    // ==================================================== Top level generators
 
     /// Generate a prototype, populating the symbol table
-    llvm::Expected<FuncOp> generateProto(
+    llvm::Expected<FuncOp> Proto(
       Location loc,
       llvm::StringRef name,
       llvm::ArrayRef<Type> types,
       llvm::ArrayRef<Type> retTy);
 
     /// Generates an empty function (with the first basic block)
-    llvm::Expected<FuncOp> generateEmptyFunction(
+    llvm::Expected<FuncOp> EmptyFunction(
       Location loc,
       llvm::StringRef name,
       llvm::ArrayRef<Type> types,
       llvm::ArrayRef<Type> retTy);
 
-    /// Generates a call to a static function (FIXME: implement dynamic calls)
+    /// Generates a call to a static function
+    /// FIXME: implement dynamic calls
     llvm::Expected<Value>
-    generateCall(Location loc, FuncOp func, llvm::ArrayRef<Value> args);
+    Call(Location loc, FuncOp func, llvm::ArrayRef<Value> args);
 
     /// Generates arithmetic based on param types and op names
-    llvm::Expected<Value> generateArithmetic(
-      Location loc, llvm::StringRef opName, Value lhs, Value rhs);
+    /// FIXME: Remove this once arithmetic is in Verona code
+    llvm::Expected<Value>
+    Arithmetic(Location loc, llvm::StringRef opName, Value lhs, Value rhs);
+
+    // ==================================================== Low level generators
+
+    /// Convert (promote/demote) the value to the specified type. This
+    /// automatically chooses promotion / demotion based on the types involved.
+    Value Convert(Value val, Type ty);
+
+    /// Promote the smallest (compatible) type and return the values to be used
+    /// for arithmetic operations. If types are same, just return them, if not,
+    /// return the cast operations that make them the same. If types are
+    /// incompatible, assert.
+    std::pair<Value, Value> Promote(Value lhs, Value rhs);
 
     /// Generates an alloca (stack variable)
-    Value generateAlloca(Location loc, Type ty);
+    Value Alloca(Location loc, Type ty);
 
     /// Generates an element pointer
-    Value generateGEP(Location loc, Value addr, int offset = 0);
+    Value GEP(Location loc, Value addr, int offset = 0);
 
     /// Generates a load of an address
-    Value generateLoad(Location loc, Value addr, int offset = 0);
+    Value Load(Location loc, Value addr, int offset = 0);
 
     /// Generates a load if the expected type is not a pointer and is compatible
     /// with the element type (asserts if not)
-    Value generateAutoLoad(
-      Location loc, Value addr, Type ty = Type(), int offset = 0);
+    Value AutoLoad(Location loc, Value addr, Type ty = Type(), int offset = 0);
 
     /// Generates a store into an address
-    void generateStore(Location loc, Value addr, Value val, int offset = 0);
+    void Store(Location loc, Value addr, Value val, int offset = 0);
 
     /// Mangle constant name to use the symbol table and avoid duplication
     std::string mangleConstantName(Type ty, std::variant<int, double> val);
 
     /// Generate a constant value of a certain type
-    Value generateConstant(Type ty, std::variant<int, double> val);
+    Value Constant(Type ty, std::variant<int, double> val);
 
     /// Generate a zero initialized value of a certain type
-    Value generateZero(Type ty);
+    Value Zero(Type ty);
 
     /// Generate a constant string as an LLVM global constant
-    Value generateConstantString(StringRef str, StringRef name = "");
+    Value ConstantString(StringRef str, StringRef name = "");
   };
 }

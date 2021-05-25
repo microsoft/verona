@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "error.h"
 #include "generator.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -16,93 +15,9 @@
 #include "llvm/Support/Error.h"
 
 #include <string>
-#include <variant>
 
 namespace mlir::verona
 {
-  /**
-   * Return Value.
-   *
-   * Verona constructs (including functions, operations, statements) can return
-   * 0, 1 or many values (tuples). Constructs that don't return values (like
-   * lexical blocks, conditionals, loops, termination) can safely return an
-   * empty "ReturnValue" with the guarantee (by the ast construction) that no
-   * other construct will try to use their return value.
-   *
-   * Tuples in MLIR are best represented by a loose list of values:
-   * https://mlir.llvm.org/docs/Rationale/Rationale/#tuple-types
-   * So we keep track of all values returned along with their normalised and
-   * canonicalised types (property distribution), and can access them via simply
-   * taking the n-th value in the list.
-   */
-  class ReturnValue
-  {
-    /// The list of values returned. Usually one or zero but could be more.
-    llvm::SmallVector<Value, 1> values;
-
-  public:
-    /// Default constructor, builds an empty return value.
-    ReturnValue() {}
-    /// Constructor for single valued Value
-    ReturnValue(Value value)
-    {
-      values.push_back(value);
-    }
-    /// Multiple value constructor (not necessarily same types)
-    ReturnValue(ResultRange& range)
-    {
-      values.insert(values.begin(), range.begin(), range.end());
-    }
-    /// Assignment operator for Value.
-    ReturnValue& operator=(Value& value)
-    {
-      values.clear();
-      values.push_back(value);
-      return *this;
-    }
-
-    /// Returns true if this return value has exactly one value.
-    bool hasValue() const
-    {
-      return hasValues(1);
-    }
-
-    /// Returns true if this return value has exactly `n` values.
-    bool hasValues(size_t n = 1) const
-    {
-      return values.size() == n;
-    }
-
-    /// Access to the single value held, asserts if none or more than one.
-    Value get() const
-    {
-      assert(values.size() > 0 && "Access to empty return value");
-      assert(values.size() == 1 && "Direct access to multiple values");
-      return values[0];
-    }
-
-    /// Access a specific value held, asserts if none or not enough values.
-    Value get(size_t n) const
-    {
-      assert(values.size() > 0 && "Access to empty return value");
-      assert(values.size() > n && "Not enough values");
-      return values[n - 1];
-    }
-
-    /// Returns a reference to all the values.
-    llvm::ArrayRef<Value> getAll() const
-    {
-      assert(values.size() > 0 && "Access to empty return value");
-      return values;
-    }
-
-    /// Add elements to the list
-    void push_back(Value& value)
-    {
-      values.push_back(value);
-    }
-  };
-
   /**
    * Field offset maps between field names, types and their relative position.
    *
@@ -120,10 +35,10 @@ namespace mlir::verona
    */
   class ASTConsumer
   {
-    ASTConsumer(MLIRContext* context) : generator(context) {}
+    ASTConsumer(MLIRContext* context) : gen(context) {}
 
     /// MLIR Generator
-    MLIRGenerator generator;
+    MLIRGenerator gen;
 
     /// Map for each type which fields does it have.
     std::map<llvm::StringRef, FieldOffset> classFields;
@@ -143,13 +58,20 @@ namespace mlir::verona
     /// Get builder from generator.
     OpBuilder& builder()
     {
-      return generator.getBuilder();
+      return gen.getBuilder();
     }
 
     /// Get symbol table from generator.
     SymbolTableT& symbolTable()
     {
-      return generator.getSymbolTable();
+      return gen.getSymbolTable();
+    }
+
+    /// Get node as a shared pointer of a sub-type
+    template<class T>
+    ::verona::parser::Node<T> nodeAs(::verona::parser::Ast from)
+    {
+      return std::make_shared<T>(from->as<T>());
     }
 
     /// Get location of an ast node.
@@ -178,34 +100,34 @@ namespace mlir::verona
     // ======================================================= General Consumers
     /// Generic node consumer, calls other consumer functions to handle each
     /// individual type.
-    llvm::Expected<ReturnValue> consumeNode(Ast ast);
+    llvm::Expected<Value> consumeNode(Ast ast);
 
     /// Consumes a field definition.
     llvm::Expected<Type> consumeField(Ast ast);
 
     /// Consumes a lambda (function body).
-    llvm::Expected<ReturnValue> consumeLambda(Ast ast);
+    llvm::Expected<Value> consumeLambda(Ast ast);
 
     /// Consumes a select statement.
-    llvm::Expected<ReturnValue> consumeSelect(Ast ast);
+    llvm::Expected<Value> consumeSelect(Ast ast);
 
     /// Consumes a variable reference.
-    llvm::Expected<ReturnValue> consumeRef(Ast ast);
+    llvm::Expected<Value> consumeRef(Ast ast);
 
     /// Consumes a let/var binding.
-    llvm::Expected<ReturnValue> consumeLocalDecl(Ast ast);
+    llvm::Expected<Value> consumeLocalDecl(Ast ast);
 
     /// Consumes a type declaration.
-    llvm::Expected<ReturnValue> consumeOfType(Ast ast);
+    llvm::Expected<Value> consumeOfType(Ast ast);
 
     /// Consumes a variable assignment.
-    llvm::Expected<ReturnValue> consumeAssign(Ast ast);
+    llvm::Expected<Value> consumeAssign(Ast ast);
 
     /// Consumes a literal.
-    llvm::Expected<ReturnValue> consumeLiteral(Ast ast);
+    llvm::Expected<Value> consumeLiteral(Ast ast);
 
     /// Consumes a string literal.
-    llvm::Expected<ReturnValue> consumeString(Ast ast);
+    llvm::Expected<Value> consumeString(Ast ast);
 
     /// Consumes a type.
     Type consumeType(Ast ast);

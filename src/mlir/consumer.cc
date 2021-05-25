@@ -8,7 +8,6 @@
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/Types.h"
-#include "utils.h"
 
 #include <string>
 
@@ -25,7 +24,7 @@ namespace mlir::verona
     if (err)
       return std::move(err);
 
-    return con.generator.finish();
+    return con.gen.finish();
   }
 
   // ===================================================== Helpers
@@ -162,7 +161,7 @@ namespace mlir::verona
           auto func = consumeFunction(sub);
           if (auto err = func.takeError())
             return err;
-          generator.push_back(*func);
+          gen.push_back(*func);
           break;
         }
         case Kind::Field:
@@ -189,7 +188,7 @@ namespace mlir::verona
     return llvm::Error::success();
   }
 
-  llvm::Expected<ReturnValue> ASTConsumer::consumeNode(Ast ast)
+  llvm::Expected<Value> ASTConsumer::consumeNode(Ast ast)
   {
     switch (ast->kind())
     {
@@ -260,7 +259,7 @@ namespace mlir::verona
     SymbolScopeT var_scope(symbolTable());
     auto name = mangleName(func->name.view());
     auto def =
-      generator.generateEmptyFunction(getLocation(ast), name, types, retTy);
+      gen.EmptyFunction(getLocation(ast), name, types, retTy);
     if (auto err = def.takeError())
       return std::move(err);
     auto& funcIR = *def;
@@ -282,7 +281,7 @@ namespace mlir::verona
       return std::move(err);
 
     // Check if needs to return a value at all
-    if (hasTerminator(builder().getBlock()))
+    if (gen.hasTerminator(builder().getBlock()))
       return funcIR;
 
     // Lower return value
@@ -291,9 +290,8 @@ namespace mlir::verona
 
     if (needsReturn)
     {
-      assert(last->hasValue() && "No value to return");
-      auto retVal = last->get();
-      builder().create<ReturnOp>(loc, retVal);
+      assert(last && "No value to return");
+      builder().create<ReturnOp>(loc, *last);
     }
     else
     {
@@ -315,7 +313,7 @@ namespace mlir::verona
     return type;
   }
 
-  llvm::Expected<ReturnValue> ASTConsumer::consumeLambda(Ast ast)
+  llvm::Expected<Value> ASTConsumer::consumeLambda(Ast ast)
   {
     auto lambda = nodeAs<Lambda>(ast);
     assert(lambda && "Bad Node");
@@ -323,7 +321,7 @@ namespace mlir::verona
     // Blocks add lexical context
     SymbolScopeT var_scope{symbolTable()};
 
-    ReturnValue last;
+    Value last;
     llvm::SmallVector<Ast, 1> nodes;
     for (auto sub : lambda->body)
     {
@@ -335,7 +333,7 @@ namespace mlir::verona
     return last;
   }
 
-  llvm::Expected<ReturnValue> ASTConsumer::consumeSelect(Ast ast)
+  llvm::Expected<Value> ASTConsumer::consumeSelect(Ast ast)
   {
     auto select = nodeAs<Select>(ast);
     assert(select && "Bad Node");
@@ -353,7 +351,7 @@ namespace mlir::verona
       auto rhsNode = consumeNode(select->args);
       if (auto err = rhsNode.takeError())
         return std::move(err);
-      rhs = rhsNode->get();
+      rhs = *rhsNode;
     }
 
     // FIXME: "special case" return for now, to make it work without method
@@ -365,7 +363,7 @@ namespace mlir::verona
         dyn_cast<FuncOp>(builder().getInsertionBlock()->getParentOp());
       if (thisFunc.getType().getNumResults() > 0)
         rhs =
-          generator.generateAutoLoad(loc, rhs, thisFunc.getType().getResult(0));
+          gen.AutoLoad(loc, rhs, thisFunc.getType().getResult(0));
       return rhs;
     }
 
@@ -377,13 +375,13 @@ namespace mlir::verona
       auto lhsNode = consumeNode(select->expr);
       if (auto err = lhsNode.takeError())
         return std::move(err);
-      lhs = lhsNode->get();
+      lhs = *lhsNode;
     }
 
     // Dynamic selector, for accessing a field or calling a method
-    if (isStructPointer(lhs))
+    if (gen.isStructPointer(lhs))
     {
-      auto structTy = getElementType(lhs);
+      auto structTy = gen.getElementType(lhs);
 
       // Loading fields, we calculate the offset to load based on the field name
       auto [offset, elmTy, found] =
@@ -391,7 +389,7 @@ namespace mlir::verona
       if (found)
       {
         // Convert the address of the structure to the address of the element
-        return generator.generateGEP(loc, lhs, offset);
+        return gen.GEP(loc, lhs, offset);
       }
 
       // FIXME: Implement dynamic dispatch of methods
@@ -409,7 +407,7 @@ namespace mlir::verona
       mangleName(select->typenames[end]->location.view(), scope);
 
     // Check the function table for a symbol that matches the opName
-    if (auto funcOp = generator.lookupSymbol<FuncOp>(opName))
+    if (auto funcOp = gen.lookupSymbol<FuncOp>(opName))
     {
       // If function takes a value and rhs is a pointer (alloca), load first
       // TODO: Handle tuples
@@ -417,10 +415,10 @@ namespace mlir::verona
       if (rhs)
       {
         rhs =
-          generator.generateAutoLoad(loc, rhs, funcOp.args_begin()->getType());
+          gen.AutoLoad(loc, rhs, funcOp.args_begin()->getType());
         args.push_back(rhs);
       }
-      auto res = generator.generateCall(loc, funcOp, args);
+      auto res = gen.Call(loc, funcOp, args);
       if (auto err = res.takeError())
         return std::move(err);
       return *res;
@@ -428,33 +426,33 @@ namespace mlir::verona
 
     // If function does not exist, it's either arithmetic or an error.
     // For arithmetic, we must use values, not addresses.
-    lhs = generator.generateAutoLoad(loc, lhs);
-    rhs = generator.generateAutoLoad(loc, rhs);
+    lhs = gen.AutoLoad(loc, lhs);
+    rhs = gen.AutoLoad(loc, rhs);
 
     // TODO: For now, we take the op name, not the context (auto-gen), soon
     // we'll write arithmetic in the types themselves and this will go.
     opName = select->typenames[end]->location.view();
 
-    auto res = generator.generateArithmetic(loc, opName, lhs, rhs);
+    auto res = gen.Arithmetic(loc, opName, lhs, rhs);
     if (auto err = res.takeError())
       return std::move(err);
     return *res;
   }
 
-  llvm::Expected<ReturnValue> ASTConsumer::consumeRef(Ast ast)
+  llvm::Expected<Value> ASTConsumer::consumeRef(Ast ast)
   {
     auto ref = nodeAs<Ref>(ast);
     assert(ref && "Bad Node");
     return symbolTable().lookup(ref->location.view());
   }
 
-  llvm::Expected<ReturnValue> ASTConsumer::consumeLocalDecl(Ast ast)
+  llvm::Expected<Value> ASTConsumer::consumeLocalDecl(Ast ast)
   {
     // FIXME: for now, just creates a new empty value that can be updated.
     return symbolTable().insert(ast->location.view(), Value());
   }
 
-  llvm::Expected<ReturnValue> ASTConsumer::consumeOfType(Ast ast)
+  llvm::Expected<Value> ASTConsumer::consumeOfType(Ast ast)
   {
     auto ofty = nodeAs<Oftype>(ast);
     assert(ofty && "Bad Node");
@@ -467,11 +465,11 @@ namespace mlir::verona
     // FIXME: for now, just updates the reference's type
     auto newTy = consumeType(ofty->type);
     // FIXME: This is probably the wrong place to do this
-    Value addr = generator.generateAlloca(getLocation(ofty), newTy);
+    Value addr = gen.Alloca(getLocation(ofty), newTy);
     return symbolTable().update(name, addr);
   }
 
-  llvm::Expected<ReturnValue> ASTConsumer::consumeAssign(Ast ast)
+  llvm::Expected<Value> ASTConsumer::consumeAssign(Ast ast)
   {
     auto assign = nodeAs<Assign>(ast);
     assert(assign && "Bad Node");
@@ -480,13 +478,13 @@ namespace mlir::verona
     auto lhsNode = consumeNode(assign->left);
     if (auto err = lhsNode.takeError())
       return std::move(err);
-    auto addr = lhsNode->get();
+    auto addr = *lhsNode;
 
     // Evaluate the right hand side to get type information
     auto rhsNode = consumeNode(assign->right);
     if (auto err = rhsNode.takeError())
       return std::move(err);
-    auto val = rhsNode->get();
+    auto val = *rhsNode;
 
     // No address means inline let/var (incl. temps), which has no type.
     // We evaluate the RHS first (above) to get its type and create an address
@@ -498,7 +496,7 @@ namespace mlir::verona
       auto name = assign->left->location.view();
 
       // If the value is a pointer, we just alias the temp with the SSA address
-      if (isPointer(val))
+      if (gen.isPointer(val))
       {
         symbolTable().update(name, val);
         return val;
@@ -506,40 +504,40 @@ namespace mlir::verona
       // Else, allocate some space to store val into it
       else
       {
-        addr = generator.generateAlloca(getLocation(ast), val.getType());
+        addr = gen.Alloca(getLocation(ast), val.getType());
         symbolTable().update(name, addr);
       }
       needsLoad = false;
     }
-    assert(isPointer(addr) && "Couldn't create an address for lhs in assign");
+    assert(gen.isPointer(addr) && "Couldn't create an address for lhs in assign");
 
     // If both are addresses, we need to load from the RHS to be able to store
     // into the LHS
-    val = generator.generateAutoLoad(val.getLoc(), val);
+    val = gen.AutoLoad(val.getLoc(), val);
 
     // If LHS and RHS types don't match, do type conversion to make them match.
     // This is specially important in literals, which still have largest types
     // themselves (I64, F64).
-    auto addrTy = getElementType(addr);
+    auto addrTy = gen.getElementType(addr);
     auto valTy = val.getType();
     if (addrTy != valTy)
     {
-      val = generator.typeConversion(val, addrTy);
+      val = gen.Convert(val, addrTy);
     }
 
     // Load the existing value to return (if addr existed before)
     Value old;
     if (needsLoad)
-      old = generator.generateLoad(getLocation(assign), addr);
+      old = gen.Load(getLocation(assign), addr);
 
     // Store the new value in the same address
-    generator.generateStore(getLocation(assign), addr, val);
+    gen.Store(getLocation(assign), addr, val);
 
     // Return the previous value
     return old;
   }
 
-  llvm::Expected<ReturnValue> ASTConsumer::consumeLiteral(Ast ast)
+  llvm::Expected<Value> ASTConsumer::consumeLiteral(Ast ast)
   {
     auto loc = getLocation(ast);
     switch (ast->kind())
@@ -581,7 +579,7 @@ namespace mlir::verona
     return Value();
   }
 
-  llvm::Expected<ReturnValue> ASTConsumer::consumeString(Ast ast)
+  llvm::Expected<Value> ASTConsumer::consumeString(Ast ast)
   {
     std::string_view str;
 
@@ -593,7 +591,7 @@ namespace mlir::verona
     else
       assert(false && "Unknown string type");
 
-    return generator.generateConstantString(str);
+    return gen.ConstantString(str);
   }
 
   Type ASTConsumer::consumeType(Ast ast)
