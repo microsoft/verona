@@ -66,7 +66,6 @@ namespace verona::rt
   static void scheduleLambda(T f)
   {
     Cown* c = new EmptyCown();
-    Cown::schedule<LambdaBehaviour<T>>(c, std::forward<T>(f));
-    Cown::release(ThreadAlloc::get(), c);
+    Cown::schedule<LambdaBehaviour<T>, YesTransfer>(c, std::forward<T>(f));
   }
 } // namespace verona::rt
