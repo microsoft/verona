@@ -130,36 +130,6 @@ struct Send : public VBehaviour<Send>
   }
 };
 
-struct Dummy : public VCown<Dummy>
-{};
-
-struct AddExternalEvent : public VBehaviour<AddExternalEvent>
-{
-  Cown* a;
-
-  AddExternalEvent(Cown* a) : a(a) {}
-
-  void f()
-  {
-    Systematic::cout() << "Add external event source" << std::endl;
-    Scheduler::add_external_event_source();
-  }
-};
-
-struct RemoveExternalEvent : public VBehaviour<RemoveExternalEvent>
-{
-  Cown* a;
-
-  RemoveExternalEvent(Cown* a) : a(a) {}
-
-  void f()
-  {
-    Systematic::cout() << "Remove external event source" << std::endl;
-    Scheduler::remove_external_event_source();
-    Cown::release(ThreadAlloc::get(), a);
-  }
-};
-
 int main(int argc, char** argv)
 {
   opt::Opt opt(argc, argv);
@@ -192,8 +162,12 @@ int main(int argc, char** argv)
   for (size_t p = 0; p < proxies; p++)
     proxy_chain.push_back(new (alloc) Proxy(p));
 
-  auto e = new Dummy;
-  Cown::schedule<AddExternalEvent>(e, e);
+  auto* e = new EmptyCown;
+  scheduleLambda(e, [] {
+    Systematic::cout() << "Add external event source" << std::endl;
+    Scheduler::add_external_event_source();
+  });
+
   auto thr = std::thread([=] {
     for (size_t i = 0; i < senders; i++)
     {
@@ -221,7 +195,11 @@ int main(int argc, char** argv)
         Cown::release(alloc, r);
     }
 
-    Cown::schedule<RemoveExternalEvent>(e, e);
+    scheduleLambda(e, [e] {
+      Systematic::cout() << "Remove external event source" << std::endl;
+      Scheduler::remove_external_event_source();
+      Cown::release(ThreadAlloc::get(), e);
+    });
   });
 
   sched.run();
