@@ -11,6 +11,7 @@
 #include "mlir/IR/MLIRContext.h"
 #include "symbol.h"
 
+#include <optional>
 #include <string>
 #include <variant>
 
@@ -79,19 +80,22 @@ namespace mlir::verona
     // ==================================== Generic helpers that manipulate MLIR
 
     /// Returns true if the basic block has a terminator
-    static bool hasTerminator(mlir::Block* bb);
+    static bool hasTerminator(Block* bb);
 
-    /// Returns true if the value has a pointer type.
-    static bool isPointer(mlir::Value val);
+    /// Returns true if val is a pointer.
+    static bool isPointer(Value val);
 
     /// Returns the element type if val is a pointer.
-    static mlir::Type getElementType(mlir::Value val);
+    static Type getPointedType(Value val);
 
-    /// Returns true if the value has a pointer to a structure type.
-    static bool isStructPointer(mlir::Value val);
+    /// Returns true if val is a pointer to a structure.
+    static bool isStructPointer(Value val);
+
+    /// Returns StructType if the value has a pointer to a structure type.
+    static StructType getPointedStructType(Value val, bool anonymous = false);
 
     /// Get the type of the strucure field at this offset
-    static mlir::Type getFieldType(StructType type, int offset);
+    static Type getFieldType(StructType type, int offset);
 
     // ==================================================== Top level generators
 
@@ -135,17 +139,22 @@ namespace mlir::verona
     Value Alloca(Location loc, Type ty);
 
     /// Generates an element pointer
-    Value GEP(Location loc, Value addr, int offset = 0);
+    Value GEP(Location loc, Value addr, std::optional<int> offset = {});
 
     /// Generates a load of an address
-    Value Load(Location loc, Value addr, int offset = 0);
+    Value Load(Location loc, Value addr, std::optional<int> offset = {});
 
     /// Generates a load if the expected type is not a pointer and is compatible
     /// with the element type (asserts if not)
-    Value AutoLoad(Location loc, Value addr, Type ty = Type(), int offset = 0);
+    Value AutoLoad(
+      Location loc,
+      Value addr,
+      Type ty = Type(),
+      std::optional<int> offset = {});
 
     /// Generates a store into an address
-    void Store(Location loc, Value addr, Value val, int offset = 0);
+    void
+    Store(Location loc, Value addr, Value val, std::optional<int> offset = {});
 
     /// Mangle constant name to use the symbol table and avoid duplication
     std::string mangleConstantName(Type ty, std::variant<int, double> val);

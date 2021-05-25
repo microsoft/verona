@@ -47,6 +47,12 @@ namespace mlir::verona
     /// root module, the current module and a class, at the very least.
     llvm::SmallVector<llvm::StringRef, 3> functionScope;
 
+    /// HACK: This tracks assignment types for `select` functions without a
+    /// return type.
+    /// FIXME: Either `select` should have a type or we should track this in a
+    /// context variable of sorts.
+    Type assignTypeFromSelect;
+
     /// AST aliases
     using Ast = ::verona::parser::Ast;
     using AstPath = ::verona::parser::AstPath;
@@ -79,8 +85,7 @@ namespace mlir::verona
 
     /// Mangle function names. If scope is not passed, use functionScope.
     std::string mangleName(
-      llvm::StringRef name,
-      llvm::ArrayRef<llvm::StringRef> scope = {});
+      llvm::StringRef name, llvm::ArrayRef<llvm::StringRef> scope = {});
 
     /// Return the offset into the structure to load/store values into fields
     /// and the type of the field's value (if stored in a different container).
@@ -122,6 +127,9 @@ namespace mlir::verona
 
     /// Consumes a variable assignment.
     llvm::Expected<Value> consumeAssign(Ast ast);
+
+    /// Consumes a tuple declaration.
+    llvm::Expected<Value> consumeTuple(Ast ast);
 
     /// Consumes a literal.
     llvm::Expected<Value> consumeLiteral(Ast ast);
