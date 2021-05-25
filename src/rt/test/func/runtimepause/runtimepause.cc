@@ -11,49 +11,9 @@ using namespace verona::rt;
 struct A : public VCown<A>
 {};
 
-struct M : public VBehaviour<M>
+void test_runtime_pause(size_t pauses)
 {
-  Cown* a;
-
-  size_t id;
-  bool last = false;
-
-  M(Cown* a, size_t i, bool l = false) : a(a), id(i), last(l) {}
-
-  void f()
-  {
-    Systematic::cout() << "running message " << id << std::endl;
-
-    if (last)
-      Cown::release(ThreadAlloc::get(), a);
-  }
-};
-
-struct Dummy : public VCown<Dummy>
-{};
-
-struct RemoveExternalEvent : public VBehaviour<RemoveExternalEvent>
-{
-  Cown* a;
-
-  RemoveExternalEvent(Cown* a) : a(a) {}
-
-  void f()
-  {
-    Systematic::cout() << "Remove external event source" << std::endl;
-    Scheduler::remove_external_event_source();
-    Cown::release(ThreadAlloc::get(), a);
-  }
-};
-
-struct StartExternalThread : public VBehaviour<StartExternalThread>
-{
-  size_t pauses;
-
-  StartExternalThread(size_t pauses) : pauses(pauses) {}
-
-  void f()
-  {
+  scheduleLambda([pauses]() {
     auto a = new A;
     Scheduler::add_external_event_source();
     auto pauses_ = pauses;
@@ -67,23 +27,21 @@ struct StartExternalThread : public VBehaviour<StartExternalThread>
         auto pause_time = std::chrono::milliseconds(dist(rng));
         std::this_thread::sleep_for(pause_time);
         Systematic::cout() << "Scheduling Message" << Systematic::endl;
-        Cown::schedule<M>(a, a, i, i == pauses_);
+        scheduleLambda(a, [i]() {
+          Systematic::cout() << "running message " << i << std::endl;
+        });
       }
+      scheduleLambda(a, [a]() { Cown::release(ThreadAlloc::get(), a); });
 
-      auto e = new Dummy;
-      Cown::schedule<RemoveExternalEvent>(e, e);
+      scheduleLambda([]() {
+        Systematic::cout() << "Remove external event source" << std::endl;
+        Scheduler::remove_external_event_source();
+      });
 
       Systematic::cout() << "External thread exiting" << Systematic::endl;
     });
     t.detach();
-  }
-};
-
-void test_runtime_pause(size_t pauses)
-{
-  auto e = new Dummy;
-  Cown::schedule<StartExternalThread>(e, pauses);
-  Cown::release(ThreadAlloc::get(), e);
+  });
 }
 
 int main(int argc, char** argv)
