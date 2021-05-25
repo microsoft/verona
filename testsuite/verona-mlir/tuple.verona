@@ -1,0 +1,33 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+class I32 {}
+class I64 {}
+class F32 {}
+class F64 {}
+
+foo()
+{
+  // Test constructor from literals
+  let tuple : (I64, F64) = (42, 3.1415);
+}
+
+has_tuple(a: (I64, I64), b: I64) {}
+
+no_tuples(a: I64, b: I64, c: I64) {}
+
+just_tuple(a: (I64, I64, I64)) {}
+
+bar()
+{
+  let x : I64 = 42;
+  let tup : (I64, I64) = (x, x);
+  let trip : (I64, I64, I64) = (x, x, x);
+
+  has_tuple(tup, x);
+
+  no_tuples(x, x, x);
+
+  just_tuple(trip);
+  just_tuple(x, x, x);
+}

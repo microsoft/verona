@@ -36,29 +36,52 @@ namespace mlir::verona
 
   // ==================================== Generic helpers that manipulate MLIR
 
-  bool MLIRGenerator::hasTerminator(mlir::Block* bb)
+  bool MLIRGenerator::hasTerminator(Block* bb)
   {
     return !bb->getOperations().empty() &&
-      bb->back().mightHaveTrait<mlir::OpTrait::IsTerminator>();
+      bb->back().mightHaveTrait<OpTrait::IsTerminator>();
   }
 
-  bool MLIRGenerator::isPointer(mlir::Value val)
+  bool MLIRGenerator::isPointer(Value val)
   {
-    return val && val.getType().isa<PointerType>();
+    return (val && val.getType().isa<PointerType>());
   }
 
-  mlir::Type MLIRGenerator::getElementType(mlir::Value val)
+  Type MLIRGenerator::getPointedType(mlir::Value val)
   {
-    assert(isPointer(val) && "Bad type");
-    return val.getType().dyn_cast<PointerType>().getElementType();
+    if (!val)
+      return Type();
+    auto pTy = val.getType().dyn_cast<PointerType>();
+    if (!pTy)
+      return Type();
+    return pTy.getElementType();
   }
 
-  bool MLIRGenerator::isStructPointer(mlir::Value val)
+  bool MLIRGenerator::isStructPointer(Value val)
   {
-    return isPointer(val) && getElementType(val).isa<StructType>();
+    auto pTy = getPointedType(val);
+    return (pTy && pTy.isa<StructType>());
   }
 
-  mlir::Type MLIRGenerator::getFieldType(StructType type, int offset)
+  StructType MLIRGenerator::getPointedStructType(Value val, bool anonymous)
+  {
+    auto pTy = getPointedType(val);
+    if (!pTy)
+      return StructType();
+
+    // This is a pointer, but is it to a structure?
+    auto sTy = pTy.dyn_cast<StructType>();
+    if (!sTy)
+      return StructType();
+
+    // This is a pointer to a structure, but is it anonymous?
+    if (anonymous && sTy.isIdentified())
+      return StructType();
+
+    return sTy;
+  }
+
+  Type MLIRGenerator::getFieldType(StructType type, int offset)
   {
     auto field = type.getBody().begin();
     std::advance(field, offset);
@@ -107,8 +130,8 @@ namespace mlir::verona
     return func;
   }
 
-  llvm::Expected<Value> MLIRGenerator::Call(
-    Location loc, FuncOp func, llvm::ArrayRef<Value> args)
+  llvm::Expected<Value>
+  MLIRGenerator::Call(Location loc, FuncOp func, llvm::ArrayRef<Value> args)
   {
     // TODO: Implement dynamic method calls
     auto call = builder.create<CallOp>(loc, func, args);
@@ -200,8 +223,8 @@ namespace mlir::verona
     return Value();
   }
 
-  std::pair<mlir::Value, mlir::Value>
-  MLIRGenerator::Promote(mlir::Value lhs, mlir::Value rhs)
+  std::pair<Value, mlir::Value>
+  MLIRGenerator::Promote(Value lhs, mlir::Value rhs)
   {
     auto lhsType = lhs.getType();
     auto rhsType = rhs.getType();
@@ -230,36 +253,53 @@ namespace mlir::verona
     return builder.create<LLVM::AllocaOp>(loc, pointerTy, len);
   }
 
-  Value MLIRGenerator::GEP(Location loc, Value addr, int offset)
+  Value MLIRGenerator::GEP(Location loc, Value addr, std::optional<int> offset)
   {
     llvm::SmallVector<Value> offsetList;
-    // First argument is always in context of a list
-    if (isStructPointer(addr))
+    bool extractElementFromStruct = false;
+
+    // First argument is always in context of a list, so if there is no value
+    // and this is a struct pointer, get the "first" struct, which is the only
+    // one. See: https://www.llvm.org/docs/GetElementPtr.html
+    if (isStructPointer(addr) && offset.has_value())
     {
       auto zero = Zero(builder.getI32Type());
       offsetList.push_back(zero);
+      extractElementFromStruct = true;
     }
+
+    // Default offset is zero
+    auto offsetValue = offset.value_or(0);
+
     // Second argument is in context of the struct
-    auto len = Constant(builder.getI32Type(), offset);
+    auto len = Constant(builder.getI32Type(), offsetValue);
     offsetList.push_back(len);
     ValueRange index(offsetList);
     Type retTy = addr.getType();
-    if (auto structTy = getElementType(addr).dyn_cast<StructType>())
-      retTy = getFieldType(structTy, offset);
+
+    // If the offset really was zero (not unset), and the address has a struct
+    // type, we need to extract the element form it
+    if (extractElementFromStruct)
+    {
+      auto structTy = getPointedType(addr).dyn_cast<StructType>();
+      retTy = getFieldType(structTy, offsetValue);
+    }
     return builder.create<LLVM::GEPOp>(loc, retTy, addr, index);
   }
 
-  Value MLIRGenerator::Load(Location loc, Value addr, int offset)
+  Value MLIRGenerator::Load(Location loc, Value addr, std::optional<int> offset)
   {
     if (!isa<LLVM::GEPOp>(addr.getDefiningOp()))
       addr = GEP(loc, addr, offset);
     else
-      assert(offset == 0 && "Can't take an offset of a GEP");
+      assert(
+        (!offset.has_value() || offset == 0) &&
+        "Can't take an offset of a GEP");
     return builder.create<LLVM::LoadOp>(loc, addr);
   }
 
-  Value
-  MLIRGenerator::AutoLoad(Location loc, Value addr, Type ty, int offset)
+  Value MLIRGenerator::AutoLoad(
+    Location loc, Value addr, Type ty, std::optional<int> offset)
   {
     // If it's not an address, there's nothing to load
     if (!isPointer(addr))
@@ -269,7 +309,7 @@ namespace mlir::verona
     if (ty && ty.isa<PointerType>())
       return addr;
 
-    auto elmTy = getElementType(addr);
+    auto elmTy = getPointedType(addr);
 
     // If type was specified, check it matches the address type
     if (ty)
@@ -278,13 +318,15 @@ namespace mlir::verona
     return Load(loc, addr, offset);
   }
 
-  void
-  MLIRGenerator::Store(Location loc, Value addr, Value val, int offset)
+  void MLIRGenerator::Store(
+    Location loc, Value addr, Value val, std::optional<int> offset)
   {
     if (!isa<LLVM::GEPOp>(addr.getDefiningOp()))
       addr = GEP(loc, addr, offset);
     else
-      assert(offset == 0 && "Can't take an offset of a GEP");
+      assert(
+        (!offset.has_value() || offset == 0) &&
+        "Can't take an offset of a GEP");
     builder.create<LLVM::StoreOp>(loc, val, addr);
   }
 

@@ -40,8 +40,7 @@ namespace mlir::verona
   }
 
   std::string ASTConsumer::mangleName(
-    llvm::StringRef name,
-    llvm::ArrayRef<llvm::StringRef> scope)
+    llvm::StringRef name, llvm::ArrayRef<llvm::StringRef> scope)
   {
     // FIXME: This is a hack to help running LLVM modules
     if (name == "main")
@@ -71,7 +70,7 @@ namespace mlir::verona
   std::tuple<size_t, Type, bool>
   ASTConsumer::getField(Type type, llvm::StringRef fieldName)
   {
-    auto structTy = type.dyn_cast<LLVM::LLVMStructType>();
+    auto structTy = type.dyn_cast<StructType>();
     assert(structTy && "Bad type for field access");
 
     auto name = structTy.getName();
@@ -87,7 +86,7 @@ namespace mlir::verona
       }
 
       // Always recurse into all class fields
-      auto classField = fieldMap.types[pos].dyn_cast<LLVM::LLVMStructType>();
+      auto classField = fieldMap.types[pos].dyn_cast<StructType>();
       if (classField)
       {
         auto [subPos, subTy, subFound] = getField(classField, fieldName);
@@ -132,8 +131,7 @@ namespace mlir::verona
 
     // Push another scope for variables, functions and types
     SymbolScopeT var_scope(symbolTable());
-    auto type =
-      LLVM::LLVMStructType::getIdentified(builder().getContext(), modName);
+    auto type = StructType::getIdentified(builder().getContext(), modName);
 
     // Create an entry for the fields
     classFields.emplace(modName, FieldOffset());
@@ -205,6 +203,8 @@ namespace mlir::verona
         return consumeLocalDecl(ast);
       case Kind::Oftype:
         return consumeOfType(ast);
+      case Kind::Tuple:
+        return consumeTuple(ast);
       case Kind::Character:
       case Kind::Int:
       case Kind::Float:
@@ -248,7 +248,7 @@ namespace mlir::verona
       // TODO: Handle default init
     }
 
-    // Check return type (TODO: implement multiple returns)
+    // Check return type (multiple returns as tuples)
     llvm::SmallVector<Type, 1> retTy;
     if (func->result)
     {
@@ -258,8 +258,7 @@ namespace mlir::verona
     // Declare all arguments on current scope
     SymbolScopeT var_scope(symbolTable());
     auto name = mangleName(func->name.view());
-    auto def =
-      gen.EmptyFunction(getLocation(ast), name, types, retTy);
+    auto def = gen.EmptyFunction(getLocation(ast), name, types, retTy);
     if (auto err = def.takeError())
       return std::move(err);
     auto& funcIR = *def;
@@ -347,7 +346,6 @@ namespace mlir::verona
     //  * the arguments of the function call as a tuple
     if (select->args)
     {
-      // TODO: Implement tuple for multiple arguments
       auto rhsNode = consumeNode(select->args);
       if (auto err = rhsNode.takeError())
         return std::move(err);
@@ -362,8 +360,7 @@ namespace mlir::verona
       auto thisFunc =
         dyn_cast<FuncOp>(builder().getInsertionBlock()->getParentOp());
       if (thisFunc.getType().getNumResults() > 0)
-        rhs =
-          gen.AutoLoad(loc, rhs, thisFunc.getType().getResult(0));
+        rhs = gen.AutoLoad(loc, rhs, thisFunc.getType().getResult(0));
       return rhs;
     }
 
@@ -379,10 +376,8 @@ namespace mlir::verona
     }
 
     // Dynamic selector, for accessing a field or calling a method
-    if (gen.isStructPointer(lhs))
+    if (auto structTy = gen.getPointedStructType(lhs))
     {
-      auto structTy = gen.getElementType(lhs);
-
       // Loading fields, we calculate the offset to load based on the field name
       auto [offset, elmTy, found] =
         getField(structTy, select->typenames[0]->location.view());
@@ -409,20 +404,55 @@ namespace mlir::verona
     // Check the function table for a symbol that matches the opName
     if (auto funcOp = gen.lookupSymbol<FuncOp>(opName))
     {
-      // If function takes a value and rhs is a pointer (alloca), load first
-      // TODO: Handle tuples
       llvm::SmallVector<Value, 1> args;
+      // Here it's guaranteed the lhs is not a selector (handled above), so if
+      // there is one, it's the first argument of a function call.
+      if (lhs)
+      {
+        args.push_back(lhs);
+      }
       if (rhs)
       {
-        rhs =
-          gen.AutoLoad(loc, rhs, funcOp.args_begin()->getType());
-        args.push_back(rhs);
+        auto numArgs = funcOp.getNumArguments();
+        // Single argument isn't wrapped in a tuple, so just push it.
+        if (numArgs == 1)
+        {
+          assert(args.empty() && "lhs must be empty for single arg");
+          // If argument is indeed a tuple, dereference the pointer
+          if (gen.isStructPointer(rhs))
+          {
+            assert(
+              funcOp.getArgument(0).getType().isa<StructType>() &&
+              "Single argument type mismatch");
+
+            // Pass a a struct, not as a pointer
+            rhs = gen.GEP(loc, rhs);
+          }
+          rhs = gen.AutoLoad(loc, rhs);
+          args.push_back(rhs);
+        }
+        // Multiple arguments wrap as a tuple. If the function arguments weren't
+        // wrapped in a tuple, deconstruct it to get the right types for the
+        // call.
+        else
+        {
+          for (unsigned offset = 0, last = numArgs; offset < last; offset++)
+          {
+            auto ptr = gen.GEP(loc, rhs, offset);
+            auto val = gen.Load(loc, ptr);
+            args.push_back(val);
+          }
+        }
       }
+
       auto res = gen.Call(loc, funcOp, args);
       if (auto err = res.takeError())
         return std::move(err);
       return *res;
     }
+
+    // FIXME: The catch-all below is wrong and should be removed once arithmetic
+    // is implemented in Verona code.
 
     // If function does not exist, it's either arithmetic or an error.
     // For arithmetic, we must use values, not addresses.
@@ -480,6 +510,13 @@ namespace mlir::verona
       return std::move(err);
     auto addr = *lhsNode;
 
+    // HACK: Working around the lack of type in assign, to know what the return
+    // value of the function call it is.
+    if (addr)
+      assignTypeFromSelect = gen.getPointedType(addr);
+    else
+      assignTypeFromSelect = Type();
+
     // Evaluate the right hand side to get type information
     auto rhsNode = consumeNode(assign->right);
     if (auto err = rhsNode.takeError())
@@ -509,7 +546,8 @@ namespace mlir::verona
       }
       needsLoad = false;
     }
-    assert(gen.isPointer(addr) && "Couldn't create an address for lhs in assign");
+    assert(
+      gen.isPointer(addr) && "Couldn't create an address for lhs in assign");
 
     // If both are addresses, we need to load from the RHS to be able to store
     // into the LHS
@@ -518,7 +556,7 @@ namespace mlir::verona
     // If LHS and RHS types don't match, do type conversion to make them match.
     // This is specially important in literals, which still have largest types
     // themselves (I64, F64).
-    auto addrTy = gen.getElementType(addr);
+    auto addrTy = gen.getPointedType(addr);
     auto valTy = val.getType();
     if (addrTy != valTy)
     {
@@ -535,6 +573,60 @@ namespace mlir::verona
 
     // Return the previous value
     return old;
+  }
+
+  llvm::Expected<Value> ASTConsumer::consumeTuple(Ast ast)
+  {
+    auto tuple = nodeAs<Tuple>(ast);
+    assert(tuple && "Bad Node");
+    auto loc = getLocation(ast);
+
+    // Evaluate each tuple element
+    llvm::SmallVector<Value, 1> values;
+    llvm::SmallVector<Type, 1> types;
+    for (auto sub : tuple->seq)
+    {
+      auto node = consumeNode(sub);
+      if (auto err = node.takeError())
+        return std::move(err);
+      values.push_back(*node);
+      // FIXME: Currently, tuples and values are stored as pointers in the
+      // symbol table and without explicit type on the temps we don't know if we
+      // want the value of the address. For now, we assume value.
+      auto actualType = node->getType();
+      if (gen.isPointer(*node))
+        actualType = gen.getPointedType(*node);
+      types.push_back(actualType);
+    }
+
+    // Retrieve the tuple type from the assign (like select does) and allocate
+    // space for its values. FIXME: Future versions of AST won't need this hack,
+    // as all nodes will have types directly on them.
+    auto tupleType = assignTypeFromSelect;
+    if (!tupleType)
+    {
+      // When creating temporaries, we don't have the assign type yet, so we
+      // borrow from the value definition, which should be correct by now, if we
+      // don't create let expressions without explicit type definition.
+      tupleType = StructType::getLiteral(builder().getContext(), types);
+    }
+    else
+    {
+      assignTypeFromSelect = Type();
+    }
+    auto addr = gen.Alloca(loc, tupleType);
+
+    // Store the elements in the allocated space
+    size_t index = 0;
+    for (auto sub : values)
+    {
+      auto gep = gen.GEP(loc, addr, index++);
+      auto value = gen.AutoLoad(loc, sub);
+      gen.Store(loc, gep, value);
+    }
+
+    // Return the address of the tuple's storage
+    return addr;
   }
 
   llvm::Expected<Value> ASTConsumer::consumeLiteral(Ast ast)
@@ -646,6 +738,16 @@ namespace mlir::verona
         }
         assert(type && "Type not found");
         return type;
+      }
+      case Kind::TupleType:
+      {
+        auto T = nodeAs<::verona::parser::TupleType>(ast);
+        assert(T && "Bad Node");
+        llvm::SmallVector<Type, 1> tuple;
+        for (auto t : T->types)
+          tuple.push_back(consumeType(t));
+        // Tuples are represented as anonymous structures
+        return StructType::getLiteral(builder().getContext(), tuple);
       }
       case Kind::Character:
       case Kind::Hex:
