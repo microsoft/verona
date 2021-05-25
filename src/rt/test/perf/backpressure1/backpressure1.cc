@@ -163,7 +163,7 @@ int main(int argc, char** argv)
     proxy_chain.push_back(new (alloc) Proxy(p));
 
   auto* e = new EmptyCown;
-  scheduleLambda(e, [] {
+  schedule_lambda(e, [] {
     Systematic::cout() << "Add external event source" << std::endl;
     Scheduler::add_external_event_source();
   });
@@ -195,7 +195,7 @@ int main(int argc, char** argv)
         Cown::release(alloc, r);
     }
 
-    scheduleLambda(e, [e] {
+    schedule_lambda(e, [e] {
       Systematic::cout() << "Remove external event source" << std::endl;
       Scheduler::remove_external_event_source();
       Cown::release(ThreadAlloc::get(), e);

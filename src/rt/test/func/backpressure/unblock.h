@@ -57,17 +57,18 @@ namespace backpressure_unblock
       for (size_t i = 0; i < 100; i++)
       {
         Cown::acquire(receiver);
-        scheduleLambda(
-          sender, [receiver] { scheduleLambda<YesTransfer>(receiver, [] {}); });
+        schedule_lambda(sender, [receiver] {
+          schedule_lambda<YesTransfer>(receiver, [] {});
+        });
       }
       Cown::release(ThreadAlloc::get_noncachable(), sender);
       Cown::release(ThreadAlloc::get_noncachable(), receiver);
     };
 
-    scheduleLambda([=] { overload(sender1, receiver1); });
-    scheduleLambda([=] { overload(sender2, receiver2); });
+    schedule_lambda([=] { overload(sender1, receiver1); });
+    schedule_lambda([=] { overload(sender2, receiver2); });
 
     Cown* receivers[2] = {sender1, receiver2};
-    scheduleLambda<YesTransfer>(2, receivers, [] {});
+    schedule_lambda<YesTransfer>(2, receivers, [] {});
   }
 }

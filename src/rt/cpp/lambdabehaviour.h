@@ -57,20 +57,20 @@ namespace verona::rt
   };
 
   template<TransferOwnership transfer = NoTransfer, typename T>
-  static void scheduleLambda(Cown* c, T f)
+  static void schedule_lambda(Cown* c, T f)
   {
     Cown::schedule<LambdaBehaviour<T>, transfer>(c, std::forward<T>(f));
   }
 
   template<TransferOwnership transfer = NoTransfer, typename T>
-  static void scheduleLambda(size_t count, Cown** cowns, T f)
+  static void schedule_lambda(size_t count, Cown** cowns, T f)
   {
     Cown::schedule<LambdaBehaviour<T>, transfer>(
       count, cowns, std::forward<T>(f));
   }
 
   template<typename T>
-  static void scheduleLambda(T f)
+  static void schedule_lambda(T f)
   {
     Cown* c = new EmptyCown();
     Cown::schedule<LambdaBehaviour<T>, YesTransfer>(c, std::forward<T>(f));
