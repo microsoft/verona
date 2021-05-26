@@ -26,25 +26,26 @@ struct A
 void lambda_smart()
 {
   auto a = make_unique<A>(42);
-  scheduleLambda(
+  schedule_lambda(
     [a = move(a)]() { std::cout << "Hello " << a->v << std::endl; });
 }
 
 void lambda_args()
 {
   int a = 42;
-  scheduleLambda([=]() { std::cout << "captured arg a = " << a << std::endl; });
+  schedule_lambda(
+    [=]() { std::cout << "captured arg a = " << a << std::endl; });
 }
 
 void lambda_no_cown()
 {
-  scheduleLambda([]() { std::cout << "Hello world!\n"; });
+  schedule_lambda([]() { std::cout << "Hello world!\n"; });
 }
 
 void lambda_cown()
 {
   TestCown* c = new TestCown;
-  scheduleLambda(c, []() { std::cout << "Hello world!\n"; });
+  schedule_lambda(c, []() { std::cout << "Hello world!\n"; });
   Cown::release(ThreadAlloc::get(), c);
 }
 

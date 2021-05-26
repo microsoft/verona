@@ -134,7 +134,7 @@ namespace ext_ref_basic
     Immutable::acquire(b->ext_node);
     auto a = g_a;
     auto ext_node = b->ext_node;
-    scheduleLambda(a, [a, ext_node]() {
+    schedule_lambda(a, [a, ext_node]() {
       auto alloc = ThreadAlloc::get();
 
       auto list = a->list;

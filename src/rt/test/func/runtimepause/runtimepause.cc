@@ -13,7 +13,7 @@ struct A : public VCown<A>
 
 void test_runtime_pause(size_t pauses)
 {
-  scheduleLambda([pauses]() {
+  schedule_lambda([pauses]() {
     auto a = new A;
     Scheduler::add_external_event_source();
     auto pauses_ = pauses;
@@ -27,13 +27,13 @@ void test_runtime_pause(size_t pauses)
         auto pause_time = std::chrono::milliseconds(dist(rng));
         std::this_thread::sleep_for(pause_time);
         Systematic::cout() << "Scheduling Message" << Systematic::endl;
-        scheduleLambda(a, [i]() {
+        schedule_lambda(a, [i]() {
           Systematic::cout() << "running message " << i << std::endl;
         });
       }
-      scheduleLambda(a, [a]() { Cown::release(ThreadAlloc::get(), a); });
+      schedule_lambda(a, [a]() { Cown::release(ThreadAlloc::get(), a); });
 
-      scheduleLambda([]() {
+      schedule_lambda([]() {
         Systematic::cout() << "Remove external event source" << std::endl;
         Scheduler::remove_external_event_source();
       });
