@@ -1,7 +1,14 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-class I64 {}
+class I64
+{
+  +(lhs: I64, rhs: I64) : I64
+  {
+    let res : I64 = "std.addi"(lhs, rhs);
+    return res;
+  }
+}
 
 class Math
 {
@@ -30,7 +37,7 @@ bar() : I64
 foo(a: I64) : I64
 {
   let x : I64 = bar();
-  let ret : I64 = x + a;
+  let ret : I64 = I64::+(x, a);
   return ret;
 }
 
@@ -39,9 +46,9 @@ main() : I64
   let m : Math;
   let truth = Math::getTruth();
   m.arg0 = truth;
-  m.arg1 = truth + truth;
+  m.arg1 = I64::+(truth, truth);
   let fooVal : I64 = foo(21);
-  let tmp : I64 = fooVal + m.arg0;
-  let ret : I64 = tmp + m.arg1;
+  let tmp : I64 = I64::+(fooVal, m.arg0);
+  let ret : I64 = I64::+(tmp, m.arg1);
   return ret;
 }

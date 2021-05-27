@@ -12,6 +12,13 @@
 
 namespace mlir::verona
 {
+  void MLIRGenerator::initializeArithmetic()
+  {
+    // TODO: Add all known MLIR arithmetic
+    arithmetic.emplace("std.addi", 2);
+    arithmetic.emplace("std.addf", 2);
+  }
+
   // ====== Helpers to interface consumers and transformers with the generator
 
   OpBuilder& MLIRGenerator::getBuilder()
@@ -137,50 +144,6 @@ namespace mlir::verona
     auto call = builder.create<CallOp>(loc, func, args);
     // TODO: Implement multiple return values (tuples?)
     return call->getOpResult(0);
-  }
-
-  llvm::Expected<Value> MLIRGenerator::Arithmetic(
-    Location loc, llvm::StringRef opName, Value lhs, Value rhs)
-  {
-    // FIXME: Implement all unary and binary operators
-    assert(lhs && rhs && "No binary operation with less than two arguments");
-
-    // Make sure we're dealing with values, not pointers
-    // FIXME: This shouldn't be necessary at this point
-    if (isPointer(lhs))
-      lhs = Load(loc, lhs);
-    if (isPointer(rhs))
-      rhs = Load(loc, rhs);
-
-    // Promote types to be the same, or ops don't work, in the end, both
-    // types are identical and the same as the return type.
-    std::tie(lhs, rhs) = Promote(lhs, rhs);
-    auto retTy = lhs.getType();
-
-    // FIXME: We already converted U32 to i32 so this "works". But we need
-    // to make sure we want that conversion as early as it is, and if not,
-    // we need to implement this as a standard select and convert that
-    // later. However, that would only work if U32 has a method named "+",
-    // or if we declare it on the fly and then clean up when we remove the
-    // call.
-
-    // Floating point arithmetic
-    if (retTy.isF32() || retTy.isF64())
-    {
-      auto op = llvm::StringSwitch<Value>(opName)
-                  .Case("+", builder.create<AddFOp>(loc, retTy, lhs, rhs))
-                  .Default({});
-      assert(op && "Unknown arithmetic operator");
-      return op;
-    }
-
-    // Integer arithmetic
-    assert(retTy.isa<IntegerType>() && "Bad arithmetic types");
-    auto op = llvm::StringSwitch<Value>(opName)
-                .Case("+", builder.create<AddIOp>(loc, retTy, lhs, rhs))
-                .Default({});
-    assert(op && "Unknown arithmetic operator");
-    return op;
   }
 
   // ==================================================== Low level generators
@@ -395,31 +358,85 @@ namespace mlir::verona
 
   Value MLIRGenerator::ConstantString(StringRef str, StringRef name)
   {
-    // Use auto-generated name if none provided
-    static size_t incr = 0;
-    std::string nameStr;
+    // Use contents as name if none provided
     if (name.empty())
-      nameStr = "_string" + std::to_string(incr++);
-    else
-      nameStr = name.str();
+      name = str;
 
-    // In LLVM, strings are arrays of i8 elements
-    auto i8 = builder.getIntegerType(8);
-    auto strTy = ArrayType::get(i8, str.size());
-    auto strAttr = builder.getStringAttr(str);
+    // Avoid redefinition
+    auto global = module->lookupSymbol<LLVM::GlobalOp>(name);
+    if (!global)
+    {
+      // In LLVM, strings are arrays of i8 elements
+      auto i8 = builder.getIntegerType(8);
+      auto strTy = ArrayType::get(i8, str.size());
+      auto strAttr = builder.getStringAttr(str);
 
-    // In LLVM, constant strings are global objects
-    auto moduleBuilder = OpBuilder(*module);
-    auto global = moduleBuilder.create<LLVM::GlobalOp>(
-      builder.getUnknownLoc(),
-      strTy,
-      /*isConstant=*/true,
-      LLVM::Linkage::Private,
-      nameStr,
-      strAttr);
-    module->push_back(global);
+      // In LLVM, constant strings are global objects
+      auto moduleBuilder = OpBuilder(*module);
+      global = moduleBuilder.create<LLVM::GlobalOp>(
+        builder.getUnknownLoc(),
+        strTy,
+        /*isConstant=*/true,
+        LLVM::Linkage::Private,
+        name,
+        strAttr);
+      module->push_back(global);
+    }
 
     // But their addresses are a local operation
     return builder.create<LLVM::AddressOfOp>(builder.getUnknownLoc(), global);
+  }
+  Value MLIRGenerator::Arithmetic(Location loc, StringRef name, Value ops)
+  {
+    // FIXME: We already converted U32 to i32 so this "works". But we need
+    // to make sure we want that conversion as early as it is, and if not,
+    // we need to implement this as a standard select and convert that
+    // later. However, that would only work if U32 has a method named "+",
+    // or if we declare it on the fly and then clean up when we remove the
+    // call.
+    auto numOps = arithmetic[name];
+    // FIXME: Implement call to intrinsics, too
+    assert(numOps && "Unknown arithmetic operation");
+
+    auto getOperand = [this, loc, ops](size_t offset) {
+      auto ptr = GEP(loc, ops, offset);
+      return Load(loc, ptr);
+    };
+
+    llvm::SmallVector<Value> values;
+    Type retTy;
+    switch (numOps)
+    {
+      case 1:
+        values.push_back(ops);
+        retTy = ops.getType();
+        break;
+      case 2:
+      {
+        auto structTy = getPointedStructType(ops, /*anonymous*/ true);
+        assert(
+          structTy && structTy.getBody().size() == 2 &&
+          "Binary op needs two operands");
+
+        // Promote types to be the same, or ops don't work, in the end, both
+        // types are identical and the same as the return type.
+        auto lhs = getOperand(0);
+        auto rhs = getOperand(1);
+        std::tie(lhs, rhs) = Promote(lhs, rhs);
+        values.append({lhs, rhs});
+        retTy = rhs.getType();
+        break;
+      }
+      default:
+        assert(false && "Unsupported arithmetic operation");
+        return Value();
+    }
+
+    // If the operation is known, lower as MLIR op
+    ValueRange valRange{values};
+    auto state = OperationState(loc, name, valRange, retTy, /*attrs*/ {});
+    auto op = builder.createOperation(state);
+    auto value = op->getResult(0);
+    return value;
   }
 }

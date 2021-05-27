@@ -11,7 +11,7 @@ foo(): I64
 bar(x: I64): I64
 {
   let f : I64 = foo();
-  let res : I64 = x + f;
+  let res : I64 = "std.addi"(x, f);
   return res;
 }
 

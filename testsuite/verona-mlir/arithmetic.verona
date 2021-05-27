@@ -1,41 +1,79 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-class I32 {}
-class I64 {}
-class F32 {}
-class F64 {}
-
-simple(a: I32, b: I32): I32
+class I32
 {
-  let x : I32 = a + b;
+  +(lhs: I32, rhs: I32) : I32
+  {
+    let res : I32 = "std.addi"(lhs, rhs);
+    return res;
+  }
+}
+class I64
+{
+  +(lhs: I64, rhs: I64) : I64
+  {
+    let res : I64 = "std.addi"(lhs, rhs);
+    return res;
+  }
+}
+class F32
+{
+  +(lhs: F32, rhs: F32) : F32
+  {
+    let res : F32 = "std.addf"(lhs, rhs);
+    return res;
+  }
+}
+class F64
+{
+  +(lhs: F64, rhs: F64) : F64
+  {
+    let res : F64 = "std.addf"(lhs, rhs);
+    return res;
+  }
+}
+
+simple_int(a: I32, b: I32): I32
+{
+  // This is what a + b will be lowered to
+  let x : I32 = I32::+(a, b);
+  return x;
+}
+
+simple_fp(a: F32, b: F32): F32
+{
+  // This is what a + b will be lowered to
+  let x : F32 = F32::+(a, b);
   return x;
 }
 
 int_upcast(a: I32, b: I64): I64
 {
-  let x : I64 = a + b;
+  // a will be automatically promoted to I64
+  let x : I64 = "std.addi"(a, b);
   return x;
 }
 
 fp_upcast(a: F64, b: F32): F64
 {
-  let x : F64 = a + b;
+  // b will be automatically promoted to F64
+  let x : F64 = "std.addf"(a, b);
   return x;
 }
 
 literals(): F64
 {
-  let x : I32 = 21;
-  let y : I64 = x + 21;
-  let f : F32 = 3.14;
-  let d : F64 = f + 0.0015;
+  let x : I64 = 21;
+  let y : I64 = I64::+(x, 21);
+  let f : F64 = 3.14;
+  let d : F64 = F64::+(f, 0.0015);
   return d;
 }
 
 update_value(): I64
 {
   var a : I64 = 21;
-  a = a + 21;
+  a = I64::+(a, 21);
   return a;
 }
