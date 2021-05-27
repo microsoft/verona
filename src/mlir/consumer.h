@@ -58,8 +58,6 @@ namespace mlir::verona
     using AstPath = ::verona::parser::AstPath;
 
     // ===================================================== Helpers
-    // Methods for symbols, location and other helpers for building
-    // MLIR nodes.
 
     /// Get builder from generator.
     OpBuilder& builder()
@@ -93,6 +91,7 @@ namespace mlir::verona
     getField(Type type, llvm::StringRef fieldName);
 
     // ===================================================== Top-Level Consumers
+
     /// Consumes the top module.
     llvm::Error consumeRootModule(Ast ast);
 
@@ -103,6 +102,7 @@ namespace mlir::verona
     llvm::Expected<FuncOp> consumeFunction(Ast ast);
 
     // ======================================================= General Consumers
+
     /// Generic node consumer, calls other consumer functions to handle each
     /// individual type.
     llvm::Expected<Value> consumeNode(Ast ast);

@@ -8,9 +8,9 @@
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/MLIRContext.h"
 #include "symbol.h"
 
+#include <map>
 #include <optional>
 #include <string>
 #include <variant>
@@ -44,6 +44,12 @@ namespace mlir::verona
     /// Symbol tables for variables.
     SymbolTableT symbolTable;
 
+    /// Set of known arithmetic operations and their number of operators
+    std::map<llvm::StringRef, size_t> arithmetic;
+
+    /// Populate map with known MLIR arithmetic operations.
+    void initializeArithmetic();
+
   public:
     MLIRGenerator(MLIRContext* context) : builder(context)
     {
@@ -53,6 +59,9 @@ namespace mlir::verona
       // Verona modules will end up embedded in this one via mangling, so no
       // need to create any additiona modules.
       module = ModuleOp::create(builder.getUnknownLoc());
+
+      // Initialize known arithmetic ops
+      initializeArithmetic();
     }
 
     // ====== Helpers to interface consumers and transformers with the generator
@@ -118,11 +127,6 @@ namespace mlir::verona
     llvm::Expected<Value>
     Call(Location loc, FuncOp func, llvm::ArrayRef<Value> args);
 
-    /// Generates arithmetic based on param types and op names
-    /// FIXME: Remove this once arithmetic is in Verona code
-    llvm::Expected<Value>
-    Arithmetic(Location loc, llvm::StringRef opName, Value lhs, Value rhs);
-
     // ==================================================== Low level generators
 
     /// Convert (promote/demote) the value to the specified type. This
@@ -167,5 +171,8 @@ namespace mlir::verona
 
     /// Generate a constant string as an LLVM global constant
     Value ConstantString(StringRef str, StringRef name = "");
+
+    /// Generate an arithmetic call (known operation or intrinsic)
+    Value Arithmetic(Location loc, StringRef name, Value ops);
   };
 }

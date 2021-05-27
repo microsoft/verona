@@ -28,6 +28,7 @@ namespace mlir::verona
   }
 
   // ===================================================== Helpers
+
   Location ASTConsumer::getLocation(Ast ast)
   {
     if (!ast->location.source)
@@ -106,7 +107,8 @@ namespace mlir::verona
     return {0, Type(), false};
   }
 
-  // ===================================================== AST -> MLIR
+  // ===================================================== Top-Level Consumers
+
   llvm::Error ASTConsumer::consumeRootModule(Ast ast)
   {
     auto node = nodeAs<Class>(ast);
@@ -186,6 +188,8 @@ namespace mlir::verona
     return llvm::Error::success();
   }
 
+  // ======================================================= General Consumers
+
   llvm::Expected<Value> ASTConsumer::consumeNode(Ast ast)
   {
     switch (ast->kind())
@@ -237,8 +241,8 @@ namespace mlir::verona
     auto loc = getLocation(ast);
 
     // Find all arguments
-    llvm::SmallVector<llvm::StringRef, 1> argNames;
-    llvm::SmallVector<Type, 1> types;
+    llvm::SmallVector<llvm::StringRef> argNames;
+    llvm::SmallVector<Type> types;
     for (auto p : func->params)
     {
       auto param = nodeAs<Param>(p);
@@ -249,7 +253,7 @@ namespace mlir::verona
     }
 
     // Check return type (multiple returns as tuples)
-    llvm::SmallVector<Type, 1> retTy;
+    llvm::SmallVector<Type> retTy;
     if (func->result)
     {
       retTy.push_back(consumeType(func->result));
@@ -319,7 +323,7 @@ namespace mlir::verona
     SymbolScopeT var_scope{symbolTable()};
 
     Value last;
-    llvm::SmallVector<Ast, 1> nodes;
+    llvm::SmallVector<Ast> nodes;
     for (auto sub : lambda->body)
     {
       auto node = consumeNode(sub);
@@ -402,7 +406,7 @@ namespace mlir::verona
     // Check the function table for a symbol that matches the opName
     if (auto funcOp = gen.lookupSymbol<FuncOp>(opName))
     {
-      llvm::SmallVector<Value, 1> args;
+      llvm::SmallVector<Value> args;
       // Here it's guaranteed the lhs is not a selector (handled above), so if
       // there is one, it's the first argument of a function call.
       if (lhs)
@@ -434,6 +438,10 @@ namespace mlir::verona
         // call.
         else
         {
+          auto structTy = gen.getPointedStructType(rhs, /*anonymous*/ true);
+          assert(
+            structTy && structTy.getBody().size() == numArgs &&
+            "Call to function with wrong number of operands");
           for (unsigned offset = 0, last = numArgs; offset < last; offset++)
           {
             auto ptr = gen.GEP(loc, rhs, offset);
@@ -449,22 +457,12 @@ namespace mlir::verona
       return *res;
     }
 
-    // FIXME: The catch-all below is wrong and should be removed once arithmetic
-    // is implemented in Verona code.
-
     // If function does not exist, it's either arithmetic or an error.
-    // For arithmetic, we must use values, not addresses.
-    lhs = gen.AutoLoad(loc, lhs);
-    rhs = gen.AutoLoad(loc, rhs);
-
-    // TODO: For now, we take the op name, not the context (auto-gen), soon
-    // we'll write arithmetic in the types themselves and this will go.
-    opName = select->typenames[end]->location.view();
-
-    auto res = gen.Arithmetic(loc, opName, lhs, rhs);
-    if (auto err = res.takeError())
-      return std::move(err);
-    return *res;
+    auto addrOp = dyn_cast<LLVM::AddressOfOp>(lhs.getDefiningOp());
+    assert(addrOp && "Arithmetic implemented as string calls");
+    // lhs has the operation name, rhs are the ops (in a tuple)
+    opName = addrOp.global_name();
+    return gen.Arithmetic(loc, opName, rhs);
   }
 
   llvm::Expected<Value> ASTConsumer::consumeRef(Ast ast)
@@ -580,8 +578,8 @@ namespace mlir::verona
     auto loc = getLocation(ast);
 
     // Evaluate each tuple element
-    llvm::SmallVector<Value, 1> values;
-    llvm::SmallVector<Type, 1> types;
+    llvm::SmallVector<Value> values;
+    llvm::SmallVector<Type> types;
     for (auto sub : tuple->seq)
     {
       auto node = consumeNode(sub);
@@ -741,7 +739,7 @@ namespace mlir::verona
       {
         auto T = nodeAs<::verona::parser::TupleType>(ast);
         assert(T && "Bad Node");
-        llvm::SmallVector<Type, 1> tuple;
+        llvm::SmallVector<Type> tuple;
         for (auto t : T->types)
           tuple.push_back(consumeType(t));
         // Tuples are represented as anonymous structures
