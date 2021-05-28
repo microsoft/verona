@@ -266,10 +266,8 @@ namespace mlir::verona
     // Declare all arguments on current scope on a newly created stack object
     auto& entryBlock = *funcIR->getRegion(0).getBlocks().begin();
     auto argVals = entryBlock.getArguments();
-    for (auto arg_val : llvm::zip(argNames, argVals))
+    for (auto [name, val] : llvm::zip(argNames, argVals))
     {
-      auto name = std::get<0>(arg_val);
-      auto val = std::get<1>(arg_val);
       symbolTable().insert(name, val);
     }
 

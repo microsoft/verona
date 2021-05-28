@@ -80,7 +80,7 @@ But we will only do so if there is a clear path for optimisation.
 
 ## Arithmetic and Builtins
 
-Arithmetic and builtins are implemented in Verona via direct calls to intrinsics and MLIR/LLMV operations by name (string).
+Arithmetic and builtins are implemented in Verona via direct calls to intrinsics and MLIR/LLVM operations by name (string).
 Each numeric class will have their operations defined in the standard library and the compiler will detect the call as _internal_ and create the appropriate intrinsic / operation.
 Builtins (number conversion, checks, cpu-specific instructions) will also be implemented in the standard Verona library.
 
@@ -114,8 +114,8 @@ Once more nodes have types (ex: `let`, `var`) we can skip the second step.
 
 The three main type capabilities are: `imm`, `mut` and `iso`. See https://microsoft.github.io/verona/explore.html#regions.
 
-Immutable regions will always be allocated on the same reference counted "region", via runtime calls.
-They can only be read from, so there are no concurrency issues. They can be collected when there are no more references to them.
+Immutable regions are created from "frozen" mutable regions, via runtime calls.
+They can only be read from, so there are no concurrency issues (other than atomic reference counting). They can be collected when there are no more references to them.
 
 Mutable regions will be allocated on the heap, but cannot be used directly, unless they're in a "forest", accessible through their roots (`iso`s).
 
@@ -125,7 +125,7 @@ The runtime calls will be just to create the `cown` and to push it into the sche
 **QUESTION: Do stack roots also push behaviours to the scheduler or do they execute synchronously?**
 Either way, they should also yield similar runtime calls.
 
-Regions can also have two more properties:
+Regions can also have at least two more properties:
  * Which memory model they use (ref. count, GC, arena, etc)
  * Which sandbox type, if any, they belong to (native C++, Rust on Wasm, etc)
 
