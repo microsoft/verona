@@ -14,9 +14,60 @@ namespace mlir::verona
 {
   void MLIRGenerator::initializeArithmetic()
   {
-    // TODO: Add all known MLIR arithmetic
-    arithmetic.emplace("std.addi", 2);
+    // FIXME: Using MLIR standard dialect comes with complications, since the
+    // arithmetic in MLIR is mostly for ML and doens't have the semantics we
+    // need for generic lowering. We should probably use the LLVM dialect + LLVM
+    // intrinsic calls for the rest.
+
+    // Floating-point arithmetic
+    arithmetic.emplace("std.absf", 1);
+    arithmetic.emplace("std.ceilf", 1);
+    arithmetic.emplace("std.floorf", 1);
+    arithmetic.emplace("std.negf", 1);
+
     arithmetic.emplace("std.addf", 2);
+    arithmetic.emplace("std.subf", 2);
+    arithmetic.emplace("std.mulf", 2);
+    arithmetic.emplace("std.divf", 2);
+
+    arithmetic.emplace("std.fmaf", 3);
+
+    // Integer arithmetic
+    arithmetic.emplace("std.addi", 2);
+    arithmetic.emplace("std.subi", 2);
+    arithmetic.emplace("std.muli", 2);
+    arithmetic.emplace("std.divi_unsigned", 2);
+    arithmetic.emplace("std.remi_unsigned", 2);
+    arithmetic.emplace("std.divi_signed", 2);
+    arithmetic.emplace("std.remi_signed", 2);
+    arithmetic.emplace("std.ceildivi_signed", 2);
+    arithmetic.emplace("std.floordivi_signed", 2);
+
+    // Logical operators
+    arithmetic.emplace("std.and", 2);
+    arithmetic.emplace("std.or", 2);
+    arithmetic.emplace("std.xor", 2);
+    arithmetic.emplace("std.select", 2);
+    arithmetic.emplace("std.shift_left", 2);
+    arithmetic.emplace("std.shift_right_signed", 2);
+    arithmetic.emplace("std.shift_right_unsigned", 2);
+
+    // Conversions
+    arithmetic.emplace("std.fpext", 1);
+    arithmetic.emplace("std.fptrunc", 1);
+    arithmetic.emplace("std.sexti", 1);
+    arithmetic.emplace("std.zexti", 1);
+    arithmetic.emplace("std.trunci", 1);
+
+    // Casts
+    arithmetic.emplace("std.index_cast", 1);
+    arithmetic.emplace("std.fptosi", 1);
+    arithmetic.emplace("std.fptoui", 1);
+    arithmetic.emplace("std.sitofp", 1);
+    arithmetic.emplace("std.uitofp", 1);
+
+    // TODO: Add comparators
+    // TODO: Add llvm intrinsics
   }
 
   // ====== Helpers to interface consumers and transformers with the generator

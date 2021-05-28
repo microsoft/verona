@@ -23,6 +23,78 @@ module  {
     %14 = llvm.load %13 : !llvm.ptr<i32>
     return %14 : i32
   }
+  llvm.mlir.global private constant @std.subi("std.subi")
+  func @"$module-0__I32__-"(%arg0: i32, %arg1: i32) -> i32 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
+    %1 = llvm.mlir.addressof @std.subi : !llvm.ptr<array<8 x i8>>
+    %2 = llvm.alloca %c1_i32 x !llvm.struct<(i32, i32)> : (i32) -> !llvm.ptr<struct<(i32, i32)>>
+    %c0_i32 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    llvm.store %arg0, %3 : !llvm.ptr<i32>
+    %4 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    llvm.store %arg1, %4 : !llvm.ptr<i32>
+    %5 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    %6 = llvm.load %5 : !llvm.ptr<i32>
+    %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    %8 = llvm.load %7 : !llvm.ptr<i32>
+    %9 = subi %6, %8 : i32
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    %11 = llvm.load %10 : !llvm.ptr<i32>
+    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    llvm.store %9, %12 : !llvm.ptr<i32>
+    %13 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    %14 = llvm.load %13 : !llvm.ptr<i32>
+    return %14 : i32
+  }
+  llvm.mlir.global private constant @std.muli("std.muli")
+  func @"$module-0__I32__*"(%arg0: i32, %arg1: i32) -> i32 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
+    %1 = llvm.mlir.addressof @std.muli : !llvm.ptr<array<8 x i8>>
+    %2 = llvm.alloca %c1_i32 x !llvm.struct<(i32, i32)> : (i32) -> !llvm.ptr<struct<(i32, i32)>>
+    %c0_i32 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    llvm.store %arg0, %3 : !llvm.ptr<i32>
+    %4 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    llvm.store %arg1, %4 : !llvm.ptr<i32>
+    %5 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    %6 = llvm.load %5 : !llvm.ptr<i32>
+    %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    %8 = llvm.load %7 : !llvm.ptr<i32>
+    %9 = muli %6, %8 : i32
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    %11 = llvm.load %10 : !llvm.ptr<i32>
+    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    llvm.store %9, %12 : !llvm.ptr<i32>
+    %13 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    %14 = llvm.load %13 : !llvm.ptr<i32>
+    return %14 : i32
+  }
+  llvm.mlir.global private constant @std.divi_signed("std.divi_signed")
+  func @"$module-0__I32__/"(%arg0: i32, %arg1: i32) -> i32 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
+    %1 = llvm.mlir.addressof @std.divi_signed : !llvm.ptr<array<15 x i8>>
+    %2 = llvm.alloca %c1_i32 x !llvm.struct<(i32, i32)> : (i32) -> !llvm.ptr<struct<(i32, i32)>>
+    %c0_i32 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    llvm.store %arg0, %3 : !llvm.ptr<i32>
+    %4 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    llvm.store %arg1, %4 : !llvm.ptr<i32>
+    %5 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    %6 = llvm.load %5 : !llvm.ptr<i32>
+    %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    %8 = llvm.load %7 : !llvm.ptr<i32>
+    %9 = divi_signed %6, %8 : i32
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    %11 = llvm.load %10 : !llvm.ptr<i32>
+    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    llvm.store %9, %12 : !llvm.ptr<i32>
+    %13 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    %14 = llvm.load %13 : !llvm.ptr<i32>
+    return %14 : i32
+  }
   func @"$module-0__I64__+"(%arg0: i64, %arg1: i64) -> i64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
@@ -38,6 +110,75 @@ module  {
     %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
     %8 = llvm.load %7 : !llvm.ptr<i64>
     %9 = addi %6, %8 : i64
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %11 = llvm.load %10 : !llvm.ptr<i64>
+    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %9, %12 : !llvm.ptr<i64>
+    %13 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %14 = llvm.load %13 : !llvm.ptr<i64>
+    return %14 : i64
+  }
+  func @"$module-0__I64__-"(%arg0: i64, %arg1: i64) -> i64 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %1 = llvm.mlir.addressof @std.subi : !llvm.ptr<array<8 x i8>>
+    %2 = llvm.alloca %c1_i32 x !llvm.struct<(i64, i64)> : (i32) -> !llvm.ptr<struct<(i64, i64)>>
+    %c0_i32 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    llvm.store %arg0, %3 : !llvm.ptr<i64>
+    %4 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    llvm.store %arg1, %4 : !llvm.ptr<i64>
+    %5 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    %6 = llvm.load %5 : !llvm.ptr<i64>
+    %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    %8 = llvm.load %7 : !llvm.ptr<i64>
+    %9 = subi %6, %8 : i64
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %11 = llvm.load %10 : !llvm.ptr<i64>
+    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %9, %12 : !llvm.ptr<i64>
+    %13 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %14 = llvm.load %13 : !llvm.ptr<i64>
+    return %14 : i64
+  }
+  func @"$module-0__I64__*"(%arg0: i64, %arg1: i64) -> i64 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %1 = llvm.mlir.addressof @std.muli : !llvm.ptr<array<8 x i8>>
+    %2 = llvm.alloca %c1_i32 x !llvm.struct<(i64, i64)> : (i32) -> !llvm.ptr<struct<(i64, i64)>>
+    %c0_i32 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    llvm.store %arg0, %3 : !llvm.ptr<i64>
+    %4 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    llvm.store %arg1, %4 : !llvm.ptr<i64>
+    %5 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    %6 = llvm.load %5 : !llvm.ptr<i64>
+    %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    %8 = llvm.load %7 : !llvm.ptr<i64>
+    %9 = muli %6, %8 : i64
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %11 = llvm.load %10 : !llvm.ptr<i64>
+    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %9, %12 : !llvm.ptr<i64>
+    %13 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %14 = llvm.load %13 : !llvm.ptr<i64>
+    return %14 : i64
+  }
+  func @"$module-0__I64__/"(%arg0: i64, %arg1: i64) -> i64 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %1 = llvm.mlir.addressof @std.divi_signed : !llvm.ptr<array<15 x i8>>
+    %2 = llvm.alloca %c1_i32 x !llvm.struct<(i64, i64)> : (i32) -> !llvm.ptr<struct<(i64, i64)>>
+    %c0_i32 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    llvm.store %arg0, %3 : !llvm.ptr<i64>
+    %4 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    llvm.store %arg1, %4 : !llvm.ptr<i64>
+    %5 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    %6 = llvm.load %5 : !llvm.ptr<i64>
+    %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    %8 = llvm.load %7 : !llvm.ptr<i64>
+    %9 = divi_signed %6, %8 : i64
     %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
     %11 = llvm.load %10 : !llvm.ptr<i64>
     %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
@@ -70,6 +211,78 @@ module  {
     %14 = llvm.load %13 : !llvm.ptr<f32>
     return %14 : f32
   }
+  llvm.mlir.global private constant @std.subf("std.subf")
+  func @"$module-0__F32__-"(%arg0: f32, %arg1: f32) -> f32 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x f32 : (i32) -> !llvm.ptr<f32>
+    %1 = llvm.mlir.addressof @std.subf : !llvm.ptr<array<8 x i8>>
+    %2 = llvm.alloca %c1_i32 x !llvm.struct<(f32, f32)> : (i32) -> !llvm.ptr<struct<(f32, f32)>>
+    %c0_i32 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    llvm.store %arg0, %3 : !llvm.ptr<f32>
+    %4 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    llvm.store %arg1, %4 : !llvm.ptr<f32>
+    %5 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    %6 = llvm.load %5 : !llvm.ptr<f32>
+    %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    %8 = llvm.load %7 : !llvm.ptr<f32>
+    %9 = subf %6, %8 : f32
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    %11 = llvm.load %10 : !llvm.ptr<f32>
+    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    llvm.store %9, %12 : !llvm.ptr<f32>
+    %13 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    %14 = llvm.load %13 : !llvm.ptr<f32>
+    return %14 : f32
+  }
+  llvm.mlir.global private constant @std.mulf("std.mulf")
+  func @"$module-0__F32__*"(%arg0: f32, %arg1: f32) -> f32 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x f32 : (i32) -> !llvm.ptr<f32>
+    %1 = llvm.mlir.addressof @std.mulf : !llvm.ptr<array<8 x i8>>
+    %2 = llvm.alloca %c1_i32 x !llvm.struct<(f32, f32)> : (i32) -> !llvm.ptr<struct<(f32, f32)>>
+    %c0_i32 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    llvm.store %arg0, %3 : !llvm.ptr<f32>
+    %4 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    llvm.store %arg1, %4 : !llvm.ptr<f32>
+    %5 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    %6 = llvm.load %5 : !llvm.ptr<f32>
+    %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    %8 = llvm.load %7 : !llvm.ptr<f32>
+    %9 = mulf %6, %8 : f32
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    %11 = llvm.load %10 : !llvm.ptr<f32>
+    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    llvm.store %9, %12 : !llvm.ptr<f32>
+    %13 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    %14 = llvm.load %13 : !llvm.ptr<f32>
+    return %14 : f32
+  }
+  llvm.mlir.global private constant @std.divf("std.divf")
+  func @"$module-0__F32__/"(%arg0: f32, %arg1: f32) -> f32 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x f32 : (i32) -> !llvm.ptr<f32>
+    %1 = llvm.mlir.addressof @std.divf : !llvm.ptr<array<8 x i8>>
+    %2 = llvm.alloca %c1_i32 x !llvm.struct<(f32, f32)> : (i32) -> !llvm.ptr<struct<(f32, f32)>>
+    %c0_i32 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    llvm.store %arg0, %3 : !llvm.ptr<f32>
+    %4 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    llvm.store %arg1, %4 : !llvm.ptr<f32>
+    %5 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    %6 = llvm.load %5 : !llvm.ptr<f32>
+    %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    %8 = llvm.load %7 : !llvm.ptr<f32>
+    %9 = divf %6, %8 : f32
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    %11 = llvm.load %10 : !llvm.ptr<f32>
+    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    llvm.store %9, %12 : !llvm.ptr<f32>
+    %13 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    %14 = llvm.load %13 : !llvm.ptr<f32>
+    return %14 : f32
+  }
   func @"$module-0__F64__+"(%arg0: f64, %arg1: f64) -> f64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f64 : (i32) -> !llvm.ptr<f64>
@@ -85,6 +298,75 @@ module  {
     %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f64, f64)>>, i32, i32) -> !llvm.ptr<f64>
     %8 = llvm.load %7 : !llvm.ptr<f64>
     %9 = addf %6, %8 : f64
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
+    %11 = llvm.load %10 : !llvm.ptr<f64>
+    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
+    llvm.store %9, %12 : !llvm.ptr<f64>
+    %13 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
+    %14 = llvm.load %13 : !llvm.ptr<f64>
+    return %14 : f64
+  }
+  func @"$module-0__F64__-"(%arg0: f64, %arg1: f64) -> f64 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x f64 : (i32) -> !llvm.ptr<f64>
+    %1 = llvm.mlir.addressof @std.subf : !llvm.ptr<array<8 x i8>>
+    %2 = llvm.alloca %c1_i32 x !llvm.struct<(f64, f64)> : (i32) -> !llvm.ptr<struct<(f64, f64)>>
+    %c0_i32 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f64, f64)>>, i32, i32) -> !llvm.ptr<f64>
+    llvm.store %arg0, %3 : !llvm.ptr<f64>
+    %4 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f64, f64)>>, i32, i32) -> !llvm.ptr<f64>
+    llvm.store %arg1, %4 : !llvm.ptr<f64>
+    %5 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f64, f64)>>, i32, i32) -> !llvm.ptr<f64>
+    %6 = llvm.load %5 : !llvm.ptr<f64>
+    %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f64, f64)>>, i32, i32) -> !llvm.ptr<f64>
+    %8 = llvm.load %7 : !llvm.ptr<f64>
+    %9 = subf %6, %8 : f64
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
+    %11 = llvm.load %10 : !llvm.ptr<f64>
+    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
+    llvm.store %9, %12 : !llvm.ptr<f64>
+    %13 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
+    %14 = llvm.load %13 : !llvm.ptr<f64>
+    return %14 : f64
+  }
+  func @"$module-0__F64__*"(%arg0: f64, %arg1: f64) -> f64 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x f64 : (i32) -> !llvm.ptr<f64>
+    %1 = llvm.mlir.addressof @std.mulf : !llvm.ptr<array<8 x i8>>
+    %2 = llvm.alloca %c1_i32 x !llvm.struct<(f64, f64)> : (i32) -> !llvm.ptr<struct<(f64, f64)>>
+    %c0_i32 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f64, f64)>>, i32, i32) -> !llvm.ptr<f64>
+    llvm.store %arg0, %3 : !llvm.ptr<f64>
+    %4 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f64, f64)>>, i32, i32) -> !llvm.ptr<f64>
+    llvm.store %arg1, %4 : !llvm.ptr<f64>
+    %5 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f64, f64)>>, i32, i32) -> !llvm.ptr<f64>
+    %6 = llvm.load %5 : !llvm.ptr<f64>
+    %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f64, f64)>>, i32, i32) -> !llvm.ptr<f64>
+    %8 = llvm.load %7 : !llvm.ptr<f64>
+    %9 = mulf %6, %8 : f64
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
+    %11 = llvm.load %10 : !llvm.ptr<f64>
+    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
+    llvm.store %9, %12 : !llvm.ptr<f64>
+    %13 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
+    %14 = llvm.load %13 : !llvm.ptr<f64>
+    return %14 : f64
+  }
+  func @"$module-0__F64__/"(%arg0: f64, %arg1: f64) -> f64 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x f64 : (i32) -> !llvm.ptr<f64>
+    %1 = llvm.mlir.addressof @std.divf : !llvm.ptr<array<8 x i8>>
+    %2 = llvm.alloca %c1_i32 x !llvm.struct<(f64, f64)> : (i32) -> !llvm.ptr<struct<(f64, f64)>>
+    %c0_i32 = constant 0 : i32
+    %3 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f64, f64)>>, i32, i32) -> !llvm.ptr<f64>
+    llvm.store %arg0, %3 : !llvm.ptr<f64>
+    %4 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f64, f64)>>, i32, i32) -> !llvm.ptr<f64>
+    llvm.store %arg1, %4 : !llvm.ptr<f64>
+    %5 = llvm.getelementptr %2[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f64, f64)>>, i32, i32) -> !llvm.ptr<f64>
+    %6 = llvm.load %5 : !llvm.ptr<f64>
+    %7 = llvm.getelementptr %2[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f64, f64)>>, i32, i32) -> !llvm.ptr<f64>
+    %8 = llvm.load %7 : !llvm.ptr<f64>
+    %9 = divf %6, %8 : f64
     %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
     %11 = llvm.load %10 : !llvm.ptr<f64>
     %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f64>, i32) -> !llvm.ptr<f64>
@@ -111,9 +393,51 @@ module  {
     %10 = llvm.load %9 : !llvm.ptr<i32>
     %11 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
     llvm.store %8, %11 : !llvm.ptr<i32>
-    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
-    %13 = llvm.load %12 : !llvm.ptr<i32>
-    return %13 : i32
+    %12 = llvm.alloca %c1_i32 x !llvm.struct<(i32, i32)> : (i32) -> !llvm.ptr<struct<(i32, i32)>>
+    %13 = llvm.getelementptr %12[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    llvm.store %arg0, %13 : !llvm.ptr<i32>
+    %14 = llvm.getelementptr %12[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    llvm.store %arg1, %14 : !llvm.ptr<i32>
+    %15 = llvm.getelementptr %12[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    %16 = llvm.load %15 : !llvm.ptr<i32>
+    %17 = llvm.getelementptr %12[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    %18 = llvm.load %17 : !llvm.ptr<i32>
+    %19 = call @"$module-0__I32__-"(%16, %18) : (i32, i32) -> i32
+    %20 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    %21 = llvm.load %20 : !llvm.ptr<i32>
+    %22 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    llvm.store %19, %22 : !llvm.ptr<i32>
+    %23 = llvm.alloca %c1_i32 x !llvm.struct<(i32, i32)> : (i32) -> !llvm.ptr<struct<(i32, i32)>>
+    %24 = llvm.getelementptr %23[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    llvm.store %arg0, %24 : !llvm.ptr<i32>
+    %25 = llvm.getelementptr %23[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    llvm.store %arg1, %25 : !llvm.ptr<i32>
+    %26 = llvm.getelementptr %23[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    %27 = llvm.load %26 : !llvm.ptr<i32>
+    %28 = llvm.getelementptr %23[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    %29 = llvm.load %28 : !llvm.ptr<i32>
+    %30 = call @"$module-0__I32__*"(%27, %29) : (i32, i32) -> i32
+    %31 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    %32 = llvm.load %31 : !llvm.ptr<i32>
+    %33 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    llvm.store %30, %33 : !llvm.ptr<i32>
+    %34 = llvm.alloca %c1_i32 x !llvm.struct<(i32, i32)> : (i32) -> !llvm.ptr<struct<(i32, i32)>>
+    %35 = llvm.getelementptr %34[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    llvm.store %arg0, %35 : !llvm.ptr<i32>
+    %36 = llvm.getelementptr %34[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    llvm.store %arg1, %36 : !llvm.ptr<i32>
+    %37 = llvm.getelementptr %34[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    %38 = llvm.load %37 : !llvm.ptr<i32>
+    %39 = llvm.getelementptr %34[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i32, i32)>>, i32, i32) -> !llvm.ptr<i32>
+    %40 = llvm.load %39 : !llvm.ptr<i32>
+    %41 = call @"$module-0__I32__/"(%38, %40) : (i32, i32) -> i32
+    %42 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    %43 = llvm.load %42 : !llvm.ptr<i32>
+    %44 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    llvm.store %41, %44 : !llvm.ptr<i32>
+    %45 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    %46 = llvm.load %45 : !llvm.ptr<i32>
+    return %46 : i32
   }
   func @"$module-0__simple_fp"(%arg0: f32, %arg1: f32) -> f32 {
     %c1_i32 = constant 1 : i32
@@ -133,9 +457,51 @@ module  {
     %10 = llvm.load %9 : !llvm.ptr<f32>
     %11 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
     llvm.store %8, %11 : !llvm.ptr<f32>
-    %12 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
-    %13 = llvm.load %12 : !llvm.ptr<f32>
-    return %13 : f32
+    %12 = llvm.alloca %c1_i32 x !llvm.struct<(f32, f32)> : (i32) -> !llvm.ptr<struct<(f32, f32)>>
+    %13 = llvm.getelementptr %12[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    llvm.store %arg0, %13 : !llvm.ptr<f32>
+    %14 = llvm.getelementptr %12[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    llvm.store %arg1, %14 : !llvm.ptr<f32>
+    %15 = llvm.getelementptr %12[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    %16 = llvm.load %15 : !llvm.ptr<f32>
+    %17 = llvm.getelementptr %12[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    %18 = llvm.load %17 : !llvm.ptr<f32>
+    %19 = call @"$module-0__F32__-"(%16, %18) : (f32, f32) -> f32
+    %20 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    %21 = llvm.load %20 : !llvm.ptr<f32>
+    %22 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    llvm.store %19, %22 : !llvm.ptr<f32>
+    %23 = llvm.alloca %c1_i32 x !llvm.struct<(f32, f32)> : (i32) -> !llvm.ptr<struct<(f32, f32)>>
+    %24 = llvm.getelementptr %23[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    llvm.store %arg0, %24 : !llvm.ptr<f32>
+    %25 = llvm.getelementptr %23[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    llvm.store %arg1, %25 : !llvm.ptr<f32>
+    %26 = llvm.getelementptr %23[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    %27 = llvm.load %26 : !llvm.ptr<f32>
+    %28 = llvm.getelementptr %23[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    %29 = llvm.load %28 : !llvm.ptr<f32>
+    %30 = call @"$module-0__F32__*"(%27, %29) : (f32, f32) -> f32
+    %31 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    %32 = llvm.load %31 : !llvm.ptr<f32>
+    %33 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    llvm.store %30, %33 : !llvm.ptr<f32>
+    %34 = llvm.alloca %c1_i32 x !llvm.struct<(f32, f32)> : (i32) -> !llvm.ptr<struct<(f32, f32)>>
+    %35 = llvm.getelementptr %34[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    llvm.store %arg0, %35 : !llvm.ptr<f32>
+    %36 = llvm.getelementptr %34[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    llvm.store %arg1, %36 : !llvm.ptr<f32>
+    %37 = llvm.getelementptr %34[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    %38 = llvm.load %37 : !llvm.ptr<f32>
+    %39 = llvm.getelementptr %34[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(f32, f32)>>, i32, i32) -> !llvm.ptr<f32>
+    %40 = llvm.load %39 : !llvm.ptr<f32>
+    %41 = call @"$module-0__F32__/"(%38, %40) : (f32, f32) -> f32
+    %42 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    %43 = llvm.load %42 : !llvm.ptr<f32>
+    %44 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    llvm.store %41, %44 : !llvm.ptr<f32>
+    %45 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<f32>, i32) -> !llvm.ptr<f32>
+    %46 = llvm.load %45 : !llvm.ptr<f32>
+    return %46 : f32
   }
   func @"$module-0__int_upcast"(%arg0: i32, %arg1: i64) -> i64 {
     %c1_i32 = constant 1 : i32
