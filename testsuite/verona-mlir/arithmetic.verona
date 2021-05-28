@@ -8,12 +8,42 @@ class I32
     let res : I32 = "std.addi"(lhs, rhs);
     return res;
   }
+  -(lhs: I32, rhs: I32) : I32
+  {
+    let res : I32 = "std.subi"(lhs, rhs);
+    return res;
+  }
+  *(lhs: I32, rhs: I32) : I32
+  {
+    let res : I32 = "std.muli"(lhs, rhs);
+    return res;
+  }
+  /(lhs: I32, rhs: I32) : I32
+  {
+    let res : I32 = "std.divi_signed"(lhs, rhs);
+    return res;
+  }
 }
 class I64
 {
   +(lhs: I64, rhs: I64) : I64
   {
     let res : I64 = "std.addi"(lhs, rhs);
+    return res;
+  }
+  -(lhs: I64, rhs: I64) : I64
+  {
+    let res : I64 = "std.subi"(lhs, rhs);
+    return res;
+  }
+  *(lhs: I64, rhs: I64) : I64
+  {
+    let res : I64 = "std.muli"(lhs, rhs);
+    return res;
+  }
+  /(lhs: I64, rhs: I64) : I64
+  {
+    let res : I64 = "std.divi_signed"(lhs, rhs);
     return res;
   }
 }
@@ -24,6 +54,21 @@ class F32
     let res : F32 = "std.addf"(lhs, rhs);
     return res;
   }
+  -(lhs: F32, rhs: F32) : F32
+  {
+    let res : F32 = "std.subf"(lhs, rhs);
+    return res;
+  }
+  *(lhs: F32, rhs: F32) : F32
+  {
+    let res : F32 = "std.mulf"(lhs, rhs);
+    return res;
+  }
+  /(lhs: F32, rhs: F32) : F32
+  {
+    let res : F32 = "std.divf"(lhs, rhs);
+    return res;
+  }
 }
 class F64
 {
@@ -32,19 +77,40 @@ class F64
     let res : F64 = "std.addf"(lhs, rhs);
     return res;
   }
+  -(lhs: F64, rhs: F64) : F64
+  {
+    let res : F64 = "std.subf"(lhs, rhs);
+    return res;
+  }
+  *(lhs: F64, rhs: F64) : F64
+  {
+    let res : F64 = "std.mulf"(lhs, rhs);
+    return res;
+  }
+  /(lhs: F64, rhs: F64) : F64
+  {
+    let res : F64 = "std.divf"(lhs, rhs);
+    return res;
+  }
 }
 
 simple_int(a: I32, b: I32): I32
 {
   // This is what a + b will be lowered to
-  let x : I32 = I32::+(a, b);
+  var x : I32 = I32::+(a, b);
+  x = I32::-(a, b);
+  x = I32::*(a, b);
+  x = I32::/(a, b);
   return x;
 }
 
 simple_fp(a: F32, b: F32): F32
 {
   // This is what a + b will be lowered to
-  let x : F32 = F32::+(a, b);
+  var x : F32 = F32::+(a, b);
+  x = F32::-(a, b);
+  x = F32::*(a, b);
+  x = F32::/(a, b);
   return x;
 }
 
