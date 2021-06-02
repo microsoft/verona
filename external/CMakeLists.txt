@@ -65,7 +65,12 @@ if (VERONA_DOWNLOAD_LLVM)
 else()
   list (APPEND LLVM_EXTRA_CMAKE_ARGS
     -DCMAKE_INSTALL_PREFIX=${MLIR_INSTALL}/install  # Add install as tar has install prefix. Outer project knows about this.
-    -DLLVM_ENABLE_PROJECTS=mlir
+    # Note: We must use the SEMICOLON generator expression here because CMake
+    # uses semicolons as list separators and this must be a literal semicolon
+    # in the final output.  There are at least two steps in between this line
+    # and the final command-line invocation that parse the string as a list and
+    # so any amount of escaping is fragile.
+    -DLLVM_ENABLE_PROJECTS=clang$<SEMICOLON>mlir
     -DLLVM_TARGETS_TO_BUILD=X86
     -DLLVM_ENABLE_ASSERTIONS=On
     -DLLVM_ENABLE_RTTI=ON
