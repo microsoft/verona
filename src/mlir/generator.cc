@@ -12,62 +12,52 @@
 
 namespace mlir::verona
 {
-  void MLIRGenerator::initializeArithmetic()
+  size_t MLIRGenerator::numArithmeticOps(llvm::StringRef name)
   {
     // FIXME: Using MLIR standard dialect comes with complications, since the
     // arithmetic in MLIR is mostly for ML and doens't have the semantics we
     // need for generic lowering. We should probably use the LLVM dialect + LLVM
     // intrinsic calls for the rest.
 
-    // Floating-point arithmetic
-    arithmetic.emplace("std.absf", 1);
-    arithmetic.emplace("std.ceilf", 1);
-    arithmetic.emplace("std.floorf", 1);
-    arithmetic.emplace("std.negf", 1);
-
-    arithmetic.emplace("std.addf", 2);
-    arithmetic.emplace("std.subf", 2);
-    arithmetic.emplace("std.mulf", 2);
-    arithmetic.emplace("std.divf", 2);
-
-    arithmetic.emplace("std.fmaf", 3);
-
-    // Integer arithmetic
-    arithmetic.emplace("std.addi", 2);
-    arithmetic.emplace("std.subi", 2);
-    arithmetic.emplace("std.muli", 2);
-    arithmetic.emplace("std.divi_unsigned", 2);
-    arithmetic.emplace("std.remi_unsigned", 2);
-    arithmetic.emplace("std.divi_signed", 2);
-    arithmetic.emplace("std.remi_signed", 2);
-    arithmetic.emplace("std.ceildivi_signed", 2);
-    arithmetic.emplace("std.floordivi_signed", 2);
-
-    // Logical operators
-    arithmetic.emplace("std.and", 2);
-    arithmetic.emplace("std.or", 2);
-    arithmetic.emplace("std.xor", 2);
-    arithmetic.emplace("std.select", 2);
-    arithmetic.emplace("std.shift_left", 2);
-    arithmetic.emplace("std.shift_right_signed", 2);
-    arithmetic.emplace("std.shift_right_unsigned", 2);
-
-    // Conversions
-    arithmetic.emplace("std.fpext", 1);
-    arithmetic.emplace("std.fptrunc", 1);
-    arithmetic.emplace("std.sexti", 1);
-    arithmetic.emplace("std.zexti", 1);
-    arithmetic.emplace("std.trunci", 1);
-
-    // Casts
-    arithmetic.emplace("std.index_cast", 1);
-    arithmetic.emplace("std.fptosi", 1);
-    arithmetic.emplace("std.fptoui", 1);
-    arithmetic.emplace("std.sitofp", 1);
-    arithmetic.emplace("std.uitofp", 1);
-
     // TODO: Add comparators
     // TODO: Add llvm intrinsics
+    return llvm::StringSwitch<size_t>(name)
+      .Case("std.absf", 1)
+      .Case("std.ceilf", 1)
+      .Case("std.floorf", 1)
+      .Case("std.negf", 1)
+      .Case("std.addf", 2)
+      .Case("std.subf", 2)
+      .Case("std.mulf", 2)
+      .Case("std.divf", 2)
+      .Case("std.fmaf", 3)
+      .Case("std.addi", 2)
+      .Case("std.subi", 2)
+      .Case("std.muli", 2)
+      .Case("std.divi_unsigned", 2)
+      .Case("std.remi_unsigned", 2)
+      .Case("std.divi_signed", 2)
+      .Case("std.remi_signed", 2)
+      .Case("std.ceildivi_signed", 2)
+      .Case("std.floordivi_signed", 2)
+      .Case("std.and", 2)
+      .Case("std.or", 2)
+      .Case("std.xor", 2)
+      .Case("std.select", 2)
+      .Case("std.shift_left", 2)
+      .Case("std.shift_right_signed", 2)
+      .Case("std.shift_right_unsigned", 2)
+      .Case("std.fpext", 1)
+      .Case("std.fptrunc", 1)
+      .Case("std.sexti", 1)
+      .Case("std.zexti", 1)
+      .Case("std.trunci", 1)
+      .Case("std.index_cast", 1)
+      .Case("std.fptosi", 1)
+      .Case("std.fptoui", 1)
+      .Case("std.sitofp", 1)
+      .Case("std.uitofp", 1)
+      .Default(0);
   }
 
   // ====== Helpers to interface consumers and transformers with the generator
@@ -446,10 +436,9 @@ namespace mlir::verona
     // later. However, that would only work if U32 has a method named "+",
     // or if we declare it on the fly and then clean up when we remove the
     // call.
-    auto it = arithmetic.find(name);
+    auto numOps = numArithmeticOps(name);
     // FIXME: Implement call to intrinsics, too
-    assert(it != arithmetic.end() && "Unknown arithmetic operation");
-    auto numOps = it->second;
+    assert(numOps && "Unknown arithmetic operation");
 
     auto getOperand = [this, loc, ops](size_t offset) {
       auto ptr = GEP(loc, ops, offset);
