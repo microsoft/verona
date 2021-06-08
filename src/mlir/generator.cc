@@ -446,9 +446,10 @@ namespace mlir::verona
     // later. However, that would only work if U32 has a method named "+",
     // or if we declare it on the fly and then clean up when we remove the
     // call.
-    auto numOps = arithmetic[name];
+    auto it = arithmetic.find(name);
     // FIXME: Implement call to intrinsics, too
-    assert(numOps && "Unknown arithmetic operation");
+    assert(it != arithmetic.end() && "Unknown arithmetic operation");
+    auto numOps = it->second;
 
     auto getOperand = [this, loc, ops](size_t offset) {
       auto ptr = GEP(loc, ops, offset);
