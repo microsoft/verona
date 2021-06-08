@@ -10,7 +10,6 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "symbol.h"
 
-#include <map>
 #include <optional>
 #include <string>
 #include <variant>
@@ -44,11 +43,8 @@ namespace mlir::verona
     /// Symbol tables for variables.
     SymbolTableT symbolTable;
 
-    /// Set of known arithmetic operations and their number of operators
-    std::map<llvm::StringRef, size_t> arithmetic;
-
-    /// Populate map with known MLIR arithmetic operations.
-    void initializeArithmetic();
+    /// Return the number of operators if arithmetic function is recognised
+    size_t numArithmeticOps(llvm::StringRef name);
 
   public:
     MLIRGenerator(MLIRContext* context) : builder(context)
@@ -59,9 +55,6 @@ namespace mlir::verona
       // Verona modules will end up embedded in this one via mangling, so no
       // need to create any additiona modules.
       module = ModuleOp::create(builder.getUnknownLoc());
-
-      // Initialize known arithmetic ops
-      initializeArithmetic();
     }
 
     // ====== Helpers to interface consumers and transformers with the generator
