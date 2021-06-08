@@ -458,9 +458,13 @@ namespace mlir::verona
     }
 
     // If function does not exist, it's either arithmetic or an error.
+    // lhs has the operation name, rhs are the ops (in a tuple)
+
+    // FIXME: This is a work-around the current AST shape. Future versions will
+    // use a special symbol, `@` to nominate foreign functions (like inline
+    // MLIR/LLVM IR) and restrict those to special modules only.
     auto addrOp = dyn_cast<LLVM::AddressOfOp>(lhs.getDefiningOp());
     assert(addrOp && "Arithmetic implemented as string calls");
-    // lhs has the operation name, rhs are the ops (in a tuple)
     opName = addrOp.global_name();
     return gen.Arithmetic(loc, opName, rhs);
   }

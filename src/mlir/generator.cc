@@ -437,6 +437,7 @@ namespace mlir::verona
     // But their addresses are a local operation
     return builder.create<LLVM::AddressOfOp>(builder.getUnknownLoc(), global);
   }
+
   Value MLIRGenerator::Arithmetic(Location loc, StringRef name, Value ops)
   {
     // FIXME: We already converted U32 to i32 so this "works". But we need
