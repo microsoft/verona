@@ -2,7 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 class I32 {}
-class I64 {}
+class I64
+{
+  trunc(arg: I64) : I32
+  {
+    let res : I32 = "std.trunci"(arg);
+    return res;
+  }
+}
 class F32 {}
 class F64 {}
 
@@ -50,7 +57,7 @@ foo() : I32
   boop.d = PI;
 
   // Test reading / writing to fields
-  foo.a = 12;
+  foo.a = I64::trunc(12);
   bar.a = foo.a;
   bar.b = 12;
 

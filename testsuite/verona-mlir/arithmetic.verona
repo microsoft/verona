@@ -23,6 +23,24 @@ class I32
     let res : I32 = "std.divi_signed"(lhs, rhs);
     return res;
   }
+  ext(arg: I32) : I64
+  {
+    let res : I64 = "std.sexti"(arg);
+    return res;
+  }
+}
+class U32
+{
+  +(lhs: U32, rhs: U32) : U32
+  {
+    let res : U32 = "std.addi"(lhs, rhs);
+    return res;
+  }
+  ext(arg: U32) : U64
+  {
+    let res : U64 = "std.zexti"(arg);
+    return res;
+  }
 }
 class I64
 {
@@ -31,19 +49,42 @@ class I64
     let res : I64 = "std.addi"(lhs, rhs);
     return res;
   }
-  -(lhs: I64, rhs: I64) : I64
+  trunc(arg: I64) : I32
   {
-    let res : I64 = "std.subi"(lhs, rhs);
+    let res : I32 = "std.trunci"(arg);
     return res;
   }
-  *(lhs: I64, rhs: I64) : I64
+  toFloat(arg: U64) : F32
   {
-    let res : I64 = "std.muli"(lhs, rhs);
+    let res : F32 = "std.sitofp"(arg);
     return res;
   }
-  /(lhs: I64, rhs: I64) : I64
+  toDouble(arg: U64) : F64
   {
-    let res : I64 = "std.divi_signed"(lhs, rhs);
+    let res : F64 = "std.sitofp"(arg);
+    return res;
+  }
+}
+class U64
+{
+  +(lhs: U64, rhs: U64) : U64
+  {
+    let res : U64 = "std.addi"(lhs, rhs);
+    return res;
+  }
+  trunc(arg: U64) : U32
+  {
+    let res : U32 = "std.trunci"(arg);
+    return res;
+  }
+  toFloat(arg: U64) : F32
+  {
+    let res : F32 = "std.uitofp"(arg);
+    return res;
+  }
+  toDouble(arg: U64) : F64
+  {
+    let res : F64 = "std.uitofp"(arg);
     return res;
   }
 }
@@ -69,6 +110,11 @@ class F32
     let res : F32 = "std.divf"(lhs, rhs);
     return res;
   }
+  ext(arg: F32) : F64
+  {
+    let res : F64 = "std.fpext"(arg);
+    return res;
+  }
 }
 class F64
 {
@@ -77,19 +123,24 @@ class F64
     let res : F64 = "std.addf"(lhs, rhs);
     return res;
   }
-  -(lhs: F64, rhs: F64) : F64
+  trunc(arg: F64) : F32
   {
-    let res : F64 = "std.subf"(lhs, rhs);
+    let res : F32 = "std.fptrunc"(arg);
     return res;
   }
-  *(lhs: F64, rhs: F64) : F64
+  toInt(arg: F64) : I64
   {
-    let res : F64 = "std.mulf"(lhs, rhs);
+    let res : I64 = "std.fptosi"(arg);
     return res;
   }
-  /(lhs: F64, rhs: F64) : F64
+  toUInt(arg: F64) : U64
   {
-    let res : F64 = "std.divf"(lhs, rhs);
+    let res : U64 = "std.fptoui"(arg);
+    return res;
+  }
+  neg(arg: F64) : F64
+  {
+    let res : F64 = "std.negf"(arg);
     return res;
   }
 }
@@ -116,25 +167,56 @@ simple_fp(a: F32, b: F32): F32
 
 int_upcast(a: I32, b: I64): I64
 {
-  // a will be automatically promoted to I64
-  let x : I64 = "std.addi"(a, b);
+  // This is what a + b will be lowered to
+  let a64 : I64 = I32::ext(a);
+  let x : I64 = I64::+(a64, b);
   return x;
 }
 
 fp_upcast(a: F64, b: F32): F64
 {
-  // b will be automatically promoted to F64
-  let x : F64 = "std.addf"(a, b);
+  // This is what a + b will be lowered to
+  let b64 : F64 = F32::ext(b);
+  let x : F64 = F64::+(a, b64);
+  return x;
+}
+
+simple_unsigned(a: U32, b: U32)
+{
+  // This is what a + b will be lowered to
+  var x : U32 = U32::+(a, b);
+  return x;
+}
+
+unsigned_upcast(a: U32, b: U64): U64
+{
+  // This is what a + b will be lowered to
+  let a64 : U64 = U32::ext(a);
+  var x : U64 = U64::+(a64, b);
   return x;
 }
 
 literals(): F64
 {
-  let x : I64 = 21;
-  let y : I64 = I64::+(x, 21);
-  let f : F64 = 3.14;
-  let d : F64 = F64::+(f, 0.0015);
-  return d;
+  // This is x:I32 = 21; x + 21;
+  let x32 : I32 = I64::trunc(21);
+  var x : I64 = I32::ext(x32);
+  x = I64::+(x, 21);
+
+  // This is y:F32 = 3.14; y + 0.0015;
+  let y32 : F32 = F64::trunc(3.14);
+  var y : F64 = F32::ext(y32);
+  y = F64::+(y, 0.0015);
+
+  return y;
+}
+
+conversions(): I64
+{
+  var x : F64 = I64::toDouble(42);
+  x = F64::neg(x);
+  var y : I64 = F64::toInt(x);
+  return y;
 }
 
 update_value(): I64
