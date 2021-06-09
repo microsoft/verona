@@ -189,66 +189,6 @@ namespace mlir::verona
 
   // ==================================================== Low level generators
 
-  Value MLIRGenerator::Convert(Value val, Type ty)
-  {
-    auto valTy = val.getType();
-    auto valSize = valTy.getIntOrFloatBitWidth();
-    auto tySize = ty.getIntOrFloatBitWidth();
-    if (valSize == tySize)
-      return val;
-
-    // Integer upcasts
-    // TODO: Consiger sign, too
-    auto valInt = valTy.dyn_cast<IntegerType>();
-    auto tyInt = ty.dyn_cast<IntegerType>();
-    if (valInt && tyInt)
-    {
-      if (valSize < tySize)
-        return builder.create<SignExtendIOp>(val.getLoc(), ty, val);
-      else
-        return builder.create<TruncateIOp>(val.getLoc(), ty, val);
-    }
-
-    // Floating point casts
-    auto valFP = valTy.dyn_cast<FloatType>();
-    auto tyFP = ty.dyn_cast<FloatType>();
-    if (valFP && tyFP)
-    {
-      if (valSize < tySize)
-        return builder.create<FPExtOp>(val.getLoc(), ty, val);
-      else
-        return builder.create<FPTruncOp>(val.getLoc(), ty, val);
-    }
-
-    // If not compatible, assert
-    assert(false && "Type casts between incompatible types");
-
-    // Appease MSVC warnings
-    return Value();
-  }
-
-  std::pair<Value, mlir::Value>
-  MLIRGenerator::Promote(Value lhs, mlir::Value rhs)
-  {
-    auto lhsType = lhs.getType();
-    auto rhsType = rhs.getType();
-
-    // Shortcut for when both are the same
-    if (lhsType == rhsType)
-      return {lhs, rhs};
-
-    auto lhsSize = lhsType.getIntOrFloatBitWidth();
-    auto rhsSize = rhsType.getIntOrFloatBitWidth();
-
-    // Promote the smallest to the largest
-    if (lhsSize < rhsSize)
-      lhs = Convert(lhs, rhsType);
-    else
-      rhs = Convert(rhs, lhsType);
-
-    return {lhs, rhs};
-  }
-
   Value MLIRGenerator::Alloca(Location loc, Type ty)
   {
     PointerType pointerTy;
@@ -428,7 +368,8 @@ namespace mlir::verona
     return builder.create<LLVM::AddressOfOp>(builder.getUnknownLoc(), global);
   }
 
-  Value MLIRGenerator::Arithmetic(Location loc, StringRef name, Value ops)
+  Value
+  MLIRGenerator::Arithmetic(Location loc, StringRef name, Value ops, Type retTy)
   {
     // FIXME: We already converted U32 to i32 so this "works". But we need
     // to make sure we want that conversion as early as it is, and if not,
@@ -446,27 +387,34 @@ namespace mlir::verona
     };
 
     llvm::SmallVector<Value> values;
-    Type retTy;
     switch (numOps)
     {
       case 1:
+        // Update operands and return type
         values.push_back(ops);
-        retTy = ops.getType();
+        if (!retTy)
+          retTy = ops.getType();
         break;
       case 2:
       {
         auto structTy = getPointedStructType(ops, /*anonymous*/ true);
+        // Make sure this is a tuple
         assert(
           structTy && structTy.getBody().size() == 2 &&
           "Binary op needs two operands");
 
-        // Promote types to be the same, or ops don't work, in the end, both
-        // types are identical and the same as the return type.
+        // Get both operands from a tuple
         auto lhs = getOperand(0);
         auto rhs = getOperand(1);
-        std::tie(lhs, rhs) = Promote(lhs, rhs);
+
+        // Make sure the types are the same
+        assert(
+          lhs.getType() == rhs.getType() && "Binop types must be identical");
+
+        // Update operands and return type
         values.append({lhs, rhs});
-        retTy = rhs.getType();
+        if (!retTy)
+          retTy = rhs.getType();
         break;
       }
       default:

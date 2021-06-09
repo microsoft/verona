@@ -459,6 +459,12 @@ namespace mlir::verona
 
     // If function does not exist, it's either arithmetic or an error.
     // lhs has the operation name, rhs are the ops (in a tuple)
+    // The return type is usually the same as the operand types, unless this is
+    // a cast, in which case there's probably an assignment and we can get the
+    // type from there.
+    Type retTy = assignTypeFromSelect;
+    if (retTy)
+      assignTypeFromSelect = Type();
 
     // FIXME: This is a work-around the current AST shape. Future versions will
     // use a special symbol, `@` to nominate foreign functions (like inline
@@ -466,7 +472,7 @@ namespace mlir::verona
     auto addrOp = dyn_cast<LLVM::AddressOfOp>(lhs.getDefiningOp());
     assert(addrOp && "Arithmetic implemented as string calls");
     opName = addrOp.global_name();
-    return gen.Arithmetic(loc, opName, rhs);
+    return gen.Arithmetic(loc, opName, rhs, retTy);
   }
 
   llvm::Expected<Value> ASTConsumer::consumeRef(Ast ast)
@@ -558,10 +564,7 @@ namespace mlir::verona
     // themselves (I64, F64).
     auto addrTy = gen.getPointedType(addr);
     auto valTy = val.getType();
-    if (addrTy != valTy)
-    {
-      val = gen.Convert(val, addrTy);
-    }
+    assert(addrTy == valTy && "Assignment types must be the same");
 
     // Load the existing value to return (if addr existed before)
     Value old;
@@ -724,7 +727,13 @@ namespace mlir::verona
                       .Case("I32", builder().getIntegerType(32))
                       .Case("I64", builder().getIntegerType(64))
                       .Case("I128", builder().getIntegerType(128))
+                      .Case("U8", builder().getIntegerType(8))
+                      .Case("U16", builder().getIntegerType(16))
+                      .Case("U32", builder().getIntegerType(32))
+                      .Case("U64", builder().getIntegerType(64))
+                      .Case("U128", builder().getIntegerType(128))
                       .Case("ISize", builder().getIntegerType(size))
+                      .Case("USize", builder().getIntegerType(size))
                       .Case("F32", builder().getF32Type())
                       .Case("F64", builder().getF64Type())
                       .Default(Type());

@@ -122,16 +122,6 @@ namespace mlir::verona
 
     // ==================================================== Low level generators
 
-    /// Convert (promote/demote) the value to the specified type. This
-    /// automatically chooses promotion / demotion based on the types involved.
-    Value Convert(Value val, Type ty);
-
-    /// Promote the smallest (compatible) type and return the values to be used
-    /// for arithmetic operations. If types are same, just return them, if not,
-    /// return the cast operations that make them the same. If types are
-    /// incompatible, assert.
-    std::pair<Value, Value> Promote(Value lhs, Value rhs);
-
     /// Generates an alloca (stack variable)
     Value Alloca(Location loc, Type ty);
 
@@ -166,6 +156,6 @@ namespace mlir::verona
     Value ConstantString(StringRef str, StringRef name = "");
 
     /// Generate an arithmetic call (known operation or intrinsic)
-    Value Arithmetic(Location loc, StringRef name, Value ops);
+    Value Arithmetic(Location loc, StringRef name, Value ops, Type retTy);
   };
 }
