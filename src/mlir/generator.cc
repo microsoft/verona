@@ -138,22 +138,26 @@ namespace mlir::verona
 
   // ==================================================== Top level generators
 
-  llvm::Expected<FuncOp> MLIRGenerator::Proto(
+  FuncOp MLIRGenerator::Proto(
     Location loc,
     llvm::StringRef name,
     llvm::ArrayRef<Type> types,
     llvm::ArrayRef<Type> retTy)
   {
+    // Should not declare two functions with the same name
+    auto func = module->lookupSymbol<FuncOp>(name);
+    assert(!func && "Redeclaration of existing function");
+
     // Create function
     auto funcTy = builder.getFunctionType(types, {retTy});
-    auto func = FuncOp::create(loc, name, funcTy);
+    func = FuncOp::create(loc, name, funcTy);
     // FIXME: This should be private unless we export, but for now we make
     // it public to test IR generation before implementing public visibility
     func.setVisibility(SymbolTable::Visibility::Public);
     return func;
   }
 
-  llvm::Expected<FuncOp> MLIRGenerator::EmptyFunction(
+  FuncOp MLIRGenerator::EmptyFunction(
     Location loc,
     llvm::StringRef name,
     llvm::ArrayRef<Type> types,
@@ -165,11 +169,13 @@ namespace mlir::verona
     auto func = module->lookupSymbol<FuncOp>(name);
     if (!func)
     {
-      auto proto = Proto(loc, name, types, retTy);
-      if (auto err = proto.takeError())
-        return std::move(err);
-      func = *proto;
+      func = Proto(loc, name, types, retTy);
     }
+
+    // If it was declared, make sure it wasn't also defined
+    assert(
+      func.getRegion().getBlocks().size() == 0 &&
+      "Redefinition of existing function");
 
     // Create entry block, set builder entry point
     auto& entryBlock = *func.addEntryBlock();
@@ -178,7 +184,7 @@ namespace mlir::verona
     return func;
   }
 
-  llvm::Expected<Value>
+  Value
   MLIRGenerator::Call(Location loc, FuncOp func, llvm::ArrayRef<Value> args)
   {
     // TODO: Implement dynamic method calls

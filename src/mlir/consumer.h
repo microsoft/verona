@@ -35,6 +35,11 @@ namespace mlir::verona
    */
   class ASTConsumer
   {
+    /// This is temporary to make the passes work, we need to think of a better
+    /// way out.
+    friend struct ASTDeclarations;
+    friend struct ASTDefinitions;
+
     ASTConsumer(MLIRContext* context) : gen(context) {}
 
     /// MLIR Generator
@@ -79,7 +84,7 @@ namespace mlir::verona
     }
 
     /// Get location of an ast node.
-    Location getLocation(Ast ast);
+    Location getLocation(::verona::parser::NodeDef& ast);
 
     /// Mangle function names. If scope is not passed, use functionScope.
     std::string mangleName(

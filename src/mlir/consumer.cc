@@ -3,15 +3,152 @@
 
 #include "consumer.h"
 
+#include "error.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/Types.h"
+#include "parser/pass.h"
 
+#include <stack>
 #include <string>
 
 using namespace verona::parser;
+
+namespace mlir::verona
+{
+  /// ASTDeclarations - traverses the AST and declares types and functions
+  /// before they get user in definitions.
+  struct ASTDeclarations : Pass<ASTDeclarations>
+  {
+  private:
+    /// Consumer
+    ASTConsumer& con;
+    /// Generator
+    MLIRGenerator& gen;
+
+    /// Function scope, for mangling names. 5 because there will always be the
+    /// root module, the current module and a class, at the very least.
+    llvm::SmallVector<llvm::StringRef, 5> functionScope;
+
+    /// Stack for classes in construction.
+    std::stack<StructType> classes;
+
+    /// Map for each type which fields does it have.
+    std::stack<FieldOffset> classFields;
+
+    /// Get builder from generator.
+    OpBuilder& builder()
+    {
+      return gen.getBuilder();
+    }
+
+    /// Get symbol table from generator.
+    SymbolTableT& symbolTable()
+    {
+      return gen.getSymbolTable();
+    }
+
+  public:
+    ASTDeclarations(ASTConsumer& con, MLIRGenerator& gen) : con(con), gen(gen)
+    {}
+
+    /// Declarations for base nodes
+    AST_PASS;
+
+    /// Class declaration, sets up the current class' structure as empty.
+    /// Processing fields will update structure.
+    void pre(Class& node)
+    {
+      StringRef modName = node.id.view();
+      // The root module has no name, doesn't need to be in the context
+      if (!modName.empty())
+        functionScope.push_back(modName);
+
+      // Push another scope for variables, functions and types
+      SymbolScopeT var_scope(symbolTable());
+
+      // Create an entry for the class' structure type
+      classes.push(StructType::getIdentified(builder().getContext(), modName));
+
+      // Create an entry for the fields
+      classFields.push(FieldOffset());
+    }
+
+    /// Post processing will finalise the structure.
+    void post(Class& node)
+    {
+      StringRef modName = node.id.view();
+      auto type = classes.top();
+      assert(type.getName() == modName && "Finishing the wrong class");
+
+      // Set fields to the class' map, if any
+      if (mlir::failed(type.setBody(classFields.top().types, /*packed*/ false)))
+      {
+        error() << node.location << "Error setting fields to class"
+                << text(node.location);
+        return;
+      }
+
+      // Pop the function scope for name mangling and current class, fields
+      if (!functionScope.empty())
+        functionScope.pop_back();
+      classes.pop();
+      classFields.pop();
+    }
+
+    /// Add field name and type to the list of class fields
+    void post(Field& node)
+    {
+      // Update class-field map
+      auto& fieldMap = classFields.top();
+      fieldMap.fields.push_back(node.location.view());
+      fieldMap.types.push_back(con.consumeType(node.type));
+    }
+
+    /// Parse function declaration nodes
+    void post(Function& node)
+    {
+      auto loc = con.getLocation(node.as<NodeDef>());
+
+      // Find all arguments
+      llvm::SmallVector<llvm::StringRef> argNames;
+      llvm::SmallVector<Type> types;
+      for (auto p : node.params)
+      {
+        auto param = p->as<Param>();
+        argNames.push_back(param.location.view());
+        types.push_back(con.consumeType(param.type));
+        // TODO: Handle default init
+      }
+
+      // Check return type (multiple returns as tuples)
+      llvm::SmallVector<Type> retTy;
+      if (node.result)
+      {
+        retTy.push_back(con.consumeType(node.result));
+      }
+
+      // Push the function declaration into the module
+      auto name = con.mangleName(node.name.view(), functionScope);
+
+      // FIXME: This should not happen in a fully expanded AST
+      auto func = gen.lookupSymbol<FuncOp>(name);
+      if (func)
+        return;
+
+      func = gen.Proto(loc, name, types, retTy);
+      gen.push_back(func);
+    }
+  };
+
+  /// ASTDefinitions - traverses the AST defining class bodies, functions,
+  /// lambdas, etc. Uses the pre-declaration above to avoid declaration order
+  /// issues.
+  struct ASTDefinitions : Pass<ASTDefinitions>
+  {};
+}
 
 namespace mlir::verona
 {
@@ -20,6 +157,14 @@ namespace mlir::verona
   ASTConsumer::lower(MLIRContext* context, Ast ast)
   {
     ASTConsumer con(context);
+
+    // Declaration pass
+    ASTDeclarations decl(con, con.gen);
+    decl.set_error(std::cerr);
+    decl << ast;
+
+    // Definition pass
+    // FIXME: Move to an AST pass, too
     auto err = con.consumeRootModule(ast);
     if (err)
       return std::move(err);
@@ -29,13 +174,13 @@ namespace mlir::verona
 
   // ===================================================== Helpers
 
-  Location ASTConsumer::getLocation(Ast ast)
+  Location ASTConsumer::getLocation(::verona::parser::NodeDef& ast)
   {
-    if (!ast->location.source)
+    if (!ast.location.source)
       return builder().getUnknownLoc();
 
-    auto path = ast->location.source->origin;
-    auto [line, column] = ast->location.linecol();
+    auto path = ast.location.source->origin;
+    auto [line, column] = ast.location.linecol();
     return mlir::FileLineColLoc::get(
       builder().getIdentifier(path), line, column);
   }
@@ -161,7 +306,6 @@ namespace mlir::verona
           auto func = consumeFunction(sub);
           if (auto err = func.takeError())
             return err;
-          gen.push_back(*func);
           break;
         }
         case Kind::Field:
@@ -238,7 +382,7 @@ namespace mlir::verona
   {
     auto func = nodeAs<Function>(ast);
     assert(func && "Bad node");
-    auto loc = getLocation(ast);
+    auto loc = getLocation(*ast);
 
     // Find all arguments
     llvm::SmallVector<llvm::StringRef> argNames;
@@ -262,10 +406,7 @@ namespace mlir::verona
     // Declare all arguments on current scope
     SymbolScopeT var_scope(symbolTable());
     auto name = mangleName(func->name.view());
-    auto def = gen.EmptyFunction(getLocation(ast), name, types, retTy);
-    if (auto err = def.takeError())
-      return std::move(err);
-    auto& funcIR = *def;
+    auto funcIR = gen.EmptyFunction(loc, name, types, retTy);
 
     // Declare all arguments on current scope on a newly created stack object
     auto& entryBlock = *funcIR->getRegion(0).getBlocks().begin();
@@ -338,7 +479,7 @@ namespace mlir::verona
   {
     auto select = nodeAs<Select>(ast);
     assert(select && "Bad Node");
-    auto loc = getLocation(ast);
+    auto loc = getLocation(*ast);
 
     Value lhs, rhs;
 
@@ -451,10 +592,7 @@ namespace mlir::verona
         }
       }
 
-      auto res = gen.Call(loc, funcOp, args);
-      if (auto err = res.takeError())
-        return std::move(err);
-      return *res;
+      return gen.Call(loc, funcOp, args);
     }
 
     // If function does not exist, it's either arithmetic or an error.
@@ -501,7 +639,7 @@ namespace mlir::verona
     // FIXME: for now, just updates the reference's type
     auto newTy = consumeType(ofty->type);
     // FIXME: This is probably the wrong place to do this
-    Value addr = gen.Alloca(getLocation(ofty), newTy);
+    Value addr = gen.Alloca(getLocation(*ofty), newTy);
     return symbolTable().update(name, addr);
   }
 
@@ -547,7 +685,7 @@ namespace mlir::verona
       // Else, allocate some space to store val into it
       else
       {
-        addr = gen.Alloca(getLocation(ast), val.getType());
+        addr = gen.Alloca(getLocation(*ast), val.getType());
         symbolTable().update(name, addr);
       }
       needsLoad = false;
@@ -569,10 +707,10 @@ namespace mlir::verona
     // Load the existing value to return (if addr existed before)
     Value old;
     if (needsLoad)
-      old = gen.Load(getLocation(assign), addr);
+      old = gen.Load(getLocation(*assign), addr);
 
     // Store the new value in the same address
-    gen.Store(getLocation(assign), addr, val);
+    gen.Store(getLocation(*assign), addr, val);
 
     // Return the previous value
     return old;
@@ -582,7 +720,7 @@ namespace mlir::verona
   {
     auto tuple = nodeAs<Tuple>(ast);
     assert(tuple && "Bad Node");
-    auto loc = getLocation(ast);
+    auto loc = getLocation(*ast);
 
     // Evaluate each tuple element
     llvm::SmallVector<Value> values;
@@ -634,7 +772,7 @@ namespace mlir::verona
 
   llvm::Expected<Value> ASTConsumer::consumeLiteral(Ast ast)
   {
-    auto loc = getLocation(ast);
+    auto loc = getLocation(*ast);
     switch (ast->kind())
     {
       case Kind::Int:
