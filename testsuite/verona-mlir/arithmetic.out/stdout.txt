@@ -1,5 +1,4 @@
 module  {
-  llvm.mlir.global private constant @std.addi("std.addi")
   func @"$module-0__I32__+"(%arg0: i32, %arg1: i32) -> i32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
@@ -23,7 +22,6 @@ module  {
     %14 = llvm.load %13 : !llvm.ptr<i32>
     return %14 : i32
   }
-  llvm.mlir.global private constant @std.subi("std.subi")
   func @"$module-0__I32__-"(%arg0: i32, %arg1: i32) -> i32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
@@ -47,7 +45,6 @@ module  {
     %14 = llvm.load %13 : !llvm.ptr<i32>
     return %14 : i32
   }
-  llvm.mlir.global private constant @std.muli("std.muli")
   func @"$module-0__I32__*"(%arg0: i32, %arg1: i32) -> i32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
@@ -71,7 +68,6 @@ module  {
     %14 = llvm.load %13 : !llvm.ptr<i32>
     return %14 : i32
   }
-  llvm.mlir.global private constant @std.divi_signed("std.divi_signed")
   func @"$module-0__I32__/"(%arg0: i32, %arg1: i32) -> i32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
@@ -95,7 +91,6 @@ module  {
     %14 = llvm.load %13 : !llvm.ptr<i32>
     return %14 : i32
   }
-  llvm.mlir.global private constant @std.sexti("std.sexti")
   func @"$module-0__I32__ext"(%arg0: i32) -> i64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
@@ -133,7 +128,6 @@ module  {
     %14 = llvm.load %13 : !llvm.ptr<i32>
     return %14 : i32
   }
-  llvm.mlir.global private constant @std.zexti("std.zexti")
   func @"$module-0__U32__ext"(%arg0: i32) -> i64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
@@ -171,7 +165,6 @@ module  {
     %14 = llvm.load %13 : !llvm.ptr<i64>
     return %14 : i64
   }
-  llvm.mlir.global private constant @std.trunci("std.trunci")
   func @"$module-0__I64__trunc"(%arg0: i64) -> i32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
@@ -186,7 +179,6 @@ module  {
     %7 = llvm.load %6 : !llvm.ptr<i32>
     return %7 : i32
   }
-  llvm.mlir.global private constant @std.sitofp("std.sitofp")
   func @"$module-0__I64__toFloat"(%arg0: i64) -> f32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f32 : (i32) -> !llvm.ptr<f32>
@@ -252,7 +244,6 @@ module  {
     %7 = llvm.load %6 : !llvm.ptr<i32>
     return %7 : i32
   }
-  llvm.mlir.global private constant @std.uitofp("std.uitofp")
   func @"$module-0__U64__toFloat"(%arg0: i64) -> f32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f32 : (i32) -> !llvm.ptr<f32>
@@ -281,7 +272,6 @@ module  {
     %7 = llvm.load %6 : !llvm.ptr<f64>
     return %7 : f64
   }
-  llvm.mlir.global private constant @std.addf("std.addf")
   func @"$module-0__F32__+"(%arg0: f32, %arg1: f32) -> f32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f32 : (i32) -> !llvm.ptr<f32>
@@ -305,7 +295,6 @@ module  {
     %14 = llvm.load %13 : !llvm.ptr<f32>
     return %14 : f32
   }
-  llvm.mlir.global private constant @std.subf("std.subf")
   func @"$module-0__F32__-"(%arg0: f32, %arg1: f32) -> f32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f32 : (i32) -> !llvm.ptr<f32>
@@ -329,7 +318,6 @@ module  {
     %14 = llvm.load %13 : !llvm.ptr<f32>
     return %14 : f32
   }
-  llvm.mlir.global private constant @std.mulf("std.mulf")
   func @"$module-0__F32__*"(%arg0: f32, %arg1: f32) -> f32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f32 : (i32) -> !llvm.ptr<f32>
@@ -353,7 +341,6 @@ module  {
     %14 = llvm.load %13 : !llvm.ptr<f32>
     return %14 : f32
   }
-  llvm.mlir.global private constant @std.divf("std.divf")
   func @"$module-0__F32__/"(%arg0: f32, %arg1: f32) -> f32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f32 : (i32) -> !llvm.ptr<f32>
@@ -377,7 +364,6 @@ module  {
     %14 = llvm.load %13 : !llvm.ptr<f32>
     return %14 : f32
   }
-  llvm.mlir.global private constant @std.fpext("std.fpext")
   func @"$module-0__F32__ext"(%arg0: f32) -> f64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f64 : (i32) -> !llvm.ptr<f64>
@@ -415,7 +401,6 @@ module  {
     %14 = llvm.load %13 : !llvm.ptr<f64>
     return %14 : f64
   }
-  llvm.mlir.global private constant @std.fptrunc("std.fptrunc")
   func @"$module-0__F64__trunc"(%arg0: f64) -> f32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f32 : (i32) -> !llvm.ptr<f32>
@@ -430,7 +415,6 @@ module  {
     %7 = llvm.load %6 : !llvm.ptr<f32>
     return %7 : f32
   }
-  llvm.mlir.global private constant @std.fptosi("std.fptosi")
   func @"$module-0__F64__toInt"(%arg0: f64) -> i64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
@@ -445,7 +429,6 @@ module  {
     %7 = llvm.load %6 : !llvm.ptr<i64>
     return %7 : i64
   }
-  llvm.mlir.global private constant @std.fptoui("std.fptoui")
   func @"$module-0__F64__toUInt"(%arg0: f64) -> i64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
@@ -460,7 +443,6 @@ module  {
     %7 = llvm.load %6 : !llvm.ptr<i64>
     return %7 : i64
   }
-  llvm.mlir.global private constant @std.negf("std.negf")
   func @"$module-0__F64__neg"(%arg0: f64) -> f64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f64 : (i32) -> !llvm.ptr<f64>
@@ -873,4 +855,22 @@ module  {
     %22 = llvm.load %21 : !llvm.ptr<i64>
     return %22 : i64
   }
+  llvm.mlir.global private constant @std.addi("std.addi")
+  llvm.mlir.global private constant @std.subi("std.subi")
+  llvm.mlir.global private constant @std.muli("std.muli")
+  llvm.mlir.global private constant @std.divi_signed("std.divi_signed")
+  llvm.mlir.global private constant @std.sexti("std.sexti")
+  llvm.mlir.global private constant @std.zexti("std.zexti")
+  llvm.mlir.global private constant @std.trunci("std.trunci")
+  llvm.mlir.global private constant @std.sitofp("std.sitofp")
+  llvm.mlir.global private constant @std.uitofp("std.uitofp")
+  llvm.mlir.global private constant @std.addf("std.addf")
+  llvm.mlir.global private constant @std.subf("std.subf")
+  llvm.mlir.global private constant @std.mulf("std.mulf")
+  llvm.mlir.global private constant @std.divf("std.divf")
+  llvm.mlir.global private constant @std.fpext("std.fpext")
+  llvm.mlir.global private constant @std.fptrunc("std.fptrunc")
+  llvm.mlir.global private constant @std.fptosi("std.fptosi")
+  llvm.mlir.global private constant @std.fptoui("std.fptoui")
+  llvm.mlir.global private constant @std.negf("std.negf")
 }

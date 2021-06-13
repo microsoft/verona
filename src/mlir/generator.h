@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "error.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -102,14 +101,14 @@ namespace mlir::verona
     // ==================================================== Top level generators
 
     /// Generate a prototype, populating the symbol table
-    llvm::Expected<FuncOp> Proto(
+    FuncOp Proto(
       Location loc,
       llvm::StringRef name,
       llvm::ArrayRef<Type> types,
       llvm::ArrayRef<Type> retTy);
 
     /// Generates an empty function (with the first basic block)
-    llvm::Expected<FuncOp> EmptyFunction(
+    FuncOp EmptyFunction(
       Location loc,
       llvm::StringRef name,
       llvm::ArrayRef<Type> types,
@@ -117,7 +116,7 @@ namespace mlir::verona
 
     /// Generates a call to a static function
     /// FIXME: implement dynamic calls
-    llvm::Expected<Value>
+    Value
     Call(Location loc, FuncOp func, llvm::ArrayRef<Value> args);
 
     // ==================================================== Low level generators

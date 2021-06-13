@@ -1,5 +1,4 @@
 module  {
-  llvm.mlir.global private constant @std.trunci("std.trunci")
   func @"$module-0__trunc_64_8"(%arg0: i64) -> i8 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i8 : (i32) -> !llvm.ptr<i8>
@@ -42,7 +41,6 @@ module  {
     %7 = llvm.load %6 : !llvm.ptr<i32>
     return %7 : i32
   }
-  llvm.mlir.global private constant @std.sexti("std.sexti")
   func @"$module-0__ext_64_128"(%arg0: i64) -> i128 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i128 : (i32) -> !llvm.ptr<i128>
@@ -57,7 +55,6 @@ module  {
     %7 = llvm.load %6 : !llvm.ptr<i128>
     return %7 : i128
   }
-  llvm.mlir.global private constant @std.fptrunc("std.fptrunc")
   func @"$module-0__truncf_64_32"(%arg0: f64) -> f32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f32 : (i32) -> !llvm.ptr<f32>
@@ -149,4 +146,7 @@ module  {
     llvm.store %cst_0, %52 : !llvm.ptr<f64>
     return
   }
+  llvm.mlir.global private constant @std.trunci("std.trunci")
+  llvm.mlir.global private constant @std.sexti("std.sexti")
+  llvm.mlir.global private constant @std.fptrunc("std.fptrunc")
 }

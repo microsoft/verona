@@ -1,5 +1,4 @@
 module  {
-  llvm.mlir.global private constant @std.trunci("std.trunci")
   func @"$module-0__I64__trunc"(%arg0: i64) -> i32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
@@ -95,4 +94,5 @@ module  {
     %6 = llvm.load %5 : !llvm.ptr<f64>
     return %6 : f64
   }
+  llvm.mlir.global private constant @std.trunci("std.trunci")
 }

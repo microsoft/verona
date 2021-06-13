@@ -1,5 +1,4 @@
 module  {
-  llvm.mlir.global private constant @std.addi("std.addi")
   func @"$module-0__I64__+"(%arg0: i64, %arg1: i64) -> i64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
@@ -172,4 +171,5 @@ module  {
     %64 = llvm.load %63 : !llvm.ptr<i64>
     return %64 : i64
   }
+  llvm.mlir.global private constant @std.addi("std.addi")
 }
