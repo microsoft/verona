@@ -44,7 +44,7 @@ foo(a: I64) : I64
 main() : I64
 {
   let m : Math;
-  let truth = Math::getTruth();
+  let truth : I64 = Math::getTruth();
   m.arg0 = truth;
   m.arg1 = I64::+(truth, truth);
   let fooVal : I64 = foo(21);

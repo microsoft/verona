@@ -107,17 +107,12 @@ namespace mlir::verona
       llvm::ArrayRef<Type> types,
       llvm::ArrayRef<Type> retTy);
 
-    /// Generates an empty function (with the first basic block)
-    FuncOp EmptyFunction(
-      Location loc,
-      llvm::StringRef name,
-      llvm::ArrayRef<Type> types,
-      llvm::ArrayRef<Type> retTy);
+    /// Generates a definition, with a starting basic block
+    FuncOp StartFunction(FuncOp& func);
 
     /// Generates a call to a static function
     /// FIXME: implement dynamic calls
-    Value
-    Call(Location loc, FuncOp func, llvm::ArrayRef<Value> args);
+    Value Call(Location loc, FuncOp func, llvm::ArrayRef<Value> args);
 
     // ==================================================== Low level generators
 

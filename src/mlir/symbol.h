@@ -18,10 +18,6 @@ namespace mlir::verona
    * all future insertions happen at that level, destroying it pops
    * the scope out of the stack.
    *
-   * New scopes are created by creating a new local variable like:
-   *   SymbolScopeT scope(symbolTable);
-   * The destructor pops the scope automatically.
-   *
    * We cannot use LLVM's ADT/ScopedHashTable like MLIR's Toy example because
    * that coped hash table does not allow redefinition, which is a problem when
    * declaring variables with a type only and then assigning values later.
@@ -122,27 +118,9 @@ namespace mlir::verona
     }
   };
 
-  // FIXME: This is a hack to control scope. We can do better.
-  template<class T>
-  class ScopedTableScope
-  {
-    ScopedTable<T>& table;
-
-  public:
-    ScopedTableScope(ScopedTable<T>& table) : table(table)
-    {
-      table.pushScope();
-    }
-    ~ScopedTableScope()
-    {
-      table.popScope();
-    }
-  };
-
   /**
    * Variable symbols. New scopes should be created when entering classes,
    * functions, lexical blocks, lambdas, etc.
    */
   using SymbolTableT = ScopedTable<mlir::Value>;
-  using SymbolScopeT = ScopedTableScope<mlir::Value>;
 }
