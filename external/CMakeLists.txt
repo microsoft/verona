@@ -63,6 +63,7 @@ if (VERONA_DOWNLOAD_LLVM)
     USES_TERMINAL_DOWNLOAD true
   )
 else()
+  separate_arguments(LLVM_EXTRA_CMAKE_ARGS UNIX_COMMAND ${LLVM_EXTRA_CMAKE_ARGS})
   list (APPEND LLVM_EXTRA_CMAKE_ARGS
     -DCMAKE_INSTALL_PREFIX=${MLIR_INSTALL}/install  # Add install as tar has install prefix. Outer project knows about this.
     # Note: We must use the SEMICOLON generator expression here because CMake

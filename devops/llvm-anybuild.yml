@@ -18,7 +18,7 @@ parameters:
   # extra command-line args to pass to AnyBuild
   - name: ExtraAnyBuildArgs
     type: string
-    default: --Verbose --WhyCacheMiss --WhyCacheMissOptions CacheDataStoreKey=LLVMVerona
+    default: ''
   # number of parallel cmake jobs when building LLVM on Linux
   - name: CmakeJobsLinux
     type: number
@@ -41,16 +41,7 @@ schedules:
     - master
 
 variables:
-- name: AbEnvironmentName
-  value: LLVMVna
-- name: AbClusterId
-  value: 0310c9eb-18d0-4a58-bc85-bdc02a4d764a
-- name: AnyBuildEnvironmentUri
-  value: https://northeurope.anybuild-test.microsoft.com/api/clusters/$(AbClusterId)/agents
-- name: AnyBuildSource
-  value: https://anybuild$(AbEnvironmentName)neurope.blob.core.windows.net/clientreleases
-- name: AnyBuildRing
-  value: Dogfood
+- template: ./vars/anybuild-vars.yml
 - name: LlvmRepoGitUri
   value: https://github.com/llvm/llvm-project
 
@@ -144,7 +135,7 @@ jobs:
       set "USERDOMAIN_ROAMINGPROFILE="
 
       set ServicePrincipalPassword=$(LLVMPrincipalPassword)
-      call "%LOCALAPPDATA%\Microsoft\AnyBuild\AnyBuild.cmd" --EnableActionCache ${{ parameters.ExtraAnyBuildArgs }} --RemoteExecServiceUri $(AnyBuildEnvironmentUri) --ClientApplicationId $(LLVMPrincipalAppId) --ClientSecretEnvironmentVariable ServicePrincipalPassword --WaitForAgentForever --DoNotUseMachineUtilizationForScheduling -- ninja.exe -j ${{ parameters.CmakeJobsWindows }} install
+      call "%LOCALAPPDATA%\Microsoft\AnyBuild\AnyBuild.cmd" --EnableActionCache --WhyCacheMiss --WhyCacheMissOptions CacheDataStoreKey=LLVMVerona ${{ parameters.ExtraAnyBuildArgs }} --RemoteExecServiceUri $(AnyBuildEnvironmentUri) --ClientApplicationId $(LLVMPrincipalAppId) --ClientSecretEnvironmentVariable ServicePrincipalPassword --WaitForAgentForever --DoNotUseMachineUtilizationForScheduling -- ninja.exe -j ${{ parameters.CmakeJobsWindows }} install
     displayName: Compile
 
   - template: ./steps/print-anybuild-stats.yml
@@ -213,13 +204,6 @@ jobs:
     displayName: Install Prerequisites
 
   - bash: |
-      set -euo pipefail
-
-      echo "=== Downloading AnyBuild from $(AnyBuildSource)"
-      wget -O- $(AnyBuildSource)/bootstrapper.sh | bash -s $(AnyBuildSource) $(AnyBuildRing)
-    displayName: Install AnyBuild Client
-
-  - bash: |
       function log-and-run {
         echo "Running "
         echo "  CWD = $(pwd)"
@@ -249,32 +233,12 @@ jobs:
     workingDirectory: $(LlvmSourceDir)
     displayName: CMake
 
-  - bash: |
-      declare time_limit="90m"
-
-      echo "===== Running build (${{ parameters.CmakeJobsLinux }} CMake jobs) up to ${time_limit} from $(pwd)"
-      echo
-
-      env -i                                                      \
-        llvmPassword=$(LLVMPrincipalPassword)                     \
-        HOME="$HOME"                                              \
-        PATH="$PATH"                                              \
-      timeout "$time_limit" time $(AbClientDirectory)/AnyBuild.sh \
-        --RemoteExecServiceUri $(AnyBuildEnvironmentUri)          \
-        --NoCheckForUpdates                                       \
-        --WaitForAgentForever                                     \
-        --DoNotUseMachineUtilizationForScheduling                 \
-        --ClientApplicationId $(LLVMPrincipalAppId)               \
-        --ClientSecretEnvironmentVariable llvmPassword            \
-        ${{ parameters.ExtraAnyBuildArgs }}                       \
-        -- \
-        cmake --build . -- -j ${{ parameters.CmakeJobsLinux }} install
-    workingDirectory: $(LlvmBuildDir)
-    displayName: Compile
-
-  - template: ./steps/print-anybuild-stats.yml
+  - template: ./steps/linux/anybuild.yml
     parameters:
-      LogsDir: $(LlvmBuildDir)
+      BuildName: LLVM-$(BuildType)-$(CC)-Asan$(Asan)-AnyBuild
+      BuildCommandLine: cmake --build . -- -j ${{ parameters.CmakeJobsLinux }} install
+      WorkingDirectory: $(LlvmBuildDir)
+      ExtraAnyBuildArgs: ${{ parameters.ExtraAnyBuildArgs }}
 
   - bash: |
       ninja clean

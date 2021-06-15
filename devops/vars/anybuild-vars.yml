@@ -1,0 +1,11 @@
+variables:
+- name: AbEnvironmentName
+  value: LLVMVna
+- name: AbClusterId
+  value: 0310c9eb-18d0-4a58-bc85-bdc02a4d764a
+- name: AnyBuildEnvironmentUri
+  value: https://northeurope.anybuild-test.microsoft.com/api/clusters/$(AbClusterId)/agents
+- name: AnyBuildSource
+  value: https://anybuild$(AbEnvironmentName)neurope.blob.core.windows.net/clientreleases
+- name: AnyBuildRing
+  value: Dogfood
