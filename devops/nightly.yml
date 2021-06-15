@@ -137,11 +137,6 @@ stages:
     - bash: |
         set -euo pipefail
 
-        # drop an AnyBuild.json config file and use it to
-        #   - ignore the CMAKE_BUILD_PARALLEL_LEVEL variable
-        #   - limit the number of concurrent cache lookups
-        echo '{"ActionCache": { "MaxParallelLookups": 10, "IgnoredEnvVars": [ "CMAKE_BUILD_PARALLEL_LEVEL" ] }}' | tee AnyBuild.json
-
         # remove '-march=native' which is incompatible with remote execution
         sed -i 's/ -march=native//g' src/rt/CMakeLists.txt
 
