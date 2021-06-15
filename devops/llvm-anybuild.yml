@@ -95,8 +95,8 @@ jobs:
     value: $(LlvmSourceDir)\build
   - name: LLVM_COMMIT
     value: $[ dependencies.Configure.outputs['SetCommits.LLVM_COMMIT'] ]
-  - name: PKG_NAME
-    value: verona-llvm-install-x86_64-windows-$(BuildName)-$(LLVM_COMMIT)
+  - name: PKG_NAME_PREFIX
+    value: verona-llvm-install-x86_64-windows-$(BuildName)
 
   steps:
   - checkout: none
@@ -147,7 +147,8 @@ jobs:
       parameters:
         WorkingDir: $(LlvmSourceDir)
         InstallDirRelativePath: build/install
-        PackageName: $(PKG_NAME)
+        PackageName: $(PKG_NAME_PREFIX)
+        PackageCommit: $(LLVM_COMMIT)
         Md5Cmd: md5sum
 
 ############################################# Linux Builds
@@ -181,8 +182,8 @@ jobs:
     value: $(LlvmSourceDir)/build
   - name: LLVM_COMMIT
     value: $[ dependencies.Configure.outputs['SetCommits.LLVM_COMMIT'] ]
-  - name: PKG_NAME
-    value: verona-llvm-install-x86_64-linux-$(BuildName)-$(LLVM_COMMIT)
+  - name: PKG_NAME_PREFIX
+    value: verona-llvm-install-x86_64-linux-$(BuildName)
 
   steps:
   - checkout: none
@@ -250,7 +251,8 @@ jobs:
       parameters:
         WorkingDir: $(LlvmSourceDir)
         InstallDirRelativePath: build/install
-        PackageName: $(PKG_NAME)
+        PackageName: $(PKG_NAME_PREFIX)
+        PackageCommit: $(LLVM_COMMIT)
         Md5Cmd: md5sum
 
 ############################################## MacOS Builds
@@ -271,8 +273,8 @@ jobs:
     value: $(Agent.BuildDirectory)/s
   - name: LLVM_COMMIT
     value: $[ dependencies.Configure.outputs['SetCommits.LLVM_COMMIT'] ]
-  - name: PKG_NAME
-    value: verona-llvm-install-x86_64-darwin-$(BuildName)-$(LLVM_COMMIT)
+  - name: PKG_NAME_PREFIX
+    value: verona-llvm-install-x86_64-darwin-$(BuildName)
   steps:
   - checkout: none
   - template: ./steps/git-shallow-clone.yml
@@ -299,5 +301,6 @@ jobs:
       parameters:
         WorkingDir: $(LlvmSourceDir)
         InstallDirRelativePath: build/install
-        PackageName: $(PKG_NAME)
+        PackageName: $(PKG_NAME_PREFIX)
+        PackageCommit: $(LLVM_COMMIT)
         Md5Cmd: md5 -r
