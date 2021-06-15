@@ -18,7 +18,7 @@ parameters:
   # extra command-line args to pass to AnyBuild
   - name: ExtraAnyBuildArgs
     type: string
-    default: ''
+    default: --Epoch 0
   # number of parallel cmake jobs when building LLVM on Linux
   - name: CmakeJobsLinux
     type: number
