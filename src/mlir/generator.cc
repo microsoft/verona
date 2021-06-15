@@ -123,7 +123,8 @@ namespace mlir::verona
       return StructType();
 
     // This is a pointer to a structure, but is it anonymous?
-    if (anonymous && sTy.isIdentified())
+    // Empty type for (anon && ident) || (!anon && !ident)
+    if (anonymous == sTy.isIdentified())
       return StructType();
 
     return sTy;
@@ -157,21 +158,8 @@ namespace mlir::verona
     return func;
   }
 
-  FuncOp MLIRGenerator::EmptyFunction(
-    Location loc,
-    llvm::StringRef name,
-    llvm::ArrayRef<Type> types,
-    llvm::ArrayRef<Type> retTy)
+  FuncOp MLIRGenerator::StartFunction(FuncOp& func)
   {
-    // If it's not declared yet, do so. This simplifies direct declaration
-    // of compiler functions. User functions should be checked at the parse
-    // level.
-    auto func = module->lookupSymbol<FuncOp>(name);
-    if (!func)
-    {
-      func = Proto(loc, name, types, retTy);
-    }
-
     // If it was declared, make sure it wasn't also defined
     assert(
       func.getRegion().getBlocks().size() == 0 &&

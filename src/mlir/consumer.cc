@@ -18,40 +18,53 @@ using namespace verona::parser;
 
 namespace mlir::verona
 {
-  /// ASTDeclarations - traverses the AST and declares types and functions
-  /// before they get user in definitions.
-  struct ASTDeclarations : Pass<ASTDeclarations>
+  /// ASTMLIRPass - Base class for AST to MLIR passes.
+  template<class Derived>
+  struct ASTMLIRPass : Pass<Derived>
   {
-  private:
-    /// Consumer
     ASTConsumer& con;
-    /// Generator
     MLIRGenerator& gen;
+    ASTMLIRPass(ASTConsumer& con, MLIRGenerator& gen) : con(con), gen(gen) {}
 
     /// Function scope, for mangling names. 5 because there will always be the
     /// root module, the current module and a class, at the very least.
     llvm::SmallVector<llvm::StringRef, 5> functionScope;
 
-    /// Stack for classes in construction.
-    std::stack<StructType> classes;
+    /// Class info - keeps class struct type and field list until it's complete.
+    struct ClassInfo
+    {
+      StructType type;
+      FieldOffset fields;
+    };
 
-    /// Map for each type which fields does it have.
-    std::stack<FieldOffset> classFields;
+    /// Stack for classes in construction. Elements are all incomplete.
+    /// Classes get their fields assigned in program order, so non-top elements
+    /// may have some fields. Once the class is completed, it pops off the
+    /// stack.
+    std::stack<ClassInfo> classes;
 
-    /// Get builder from generator.
+    /// Get builder from generator. This must be used to build any MLIR node as
+    /// it keeps the context where the last operations were inserted.
     OpBuilder& builder()
     {
       return gen.getBuilder();
     }
 
-    /// Get symbol table from generator.
+    /// Get symbol table from generator. This must be used for all variables
+    /// (user declared, temporaries, compiler generated) so that we can always
+    /// refer to any declared variable from anywhere.
     SymbolTableT& symbolTable()
     {
       return gen.getSymbolTable();
     }
+  };
 
-  public:
-    ASTDeclarations(ASTConsumer& con, MLIRGenerator& gen) : con(con), gen(gen)
+  /// ASTDeclarations - traverses the AST and declares types and functions
+  /// before they get user in definitions.
+  struct ASTDeclarations : ASTMLIRPass<ASTDeclarations>
+  {
+    ASTDeclarations(ASTConsumer& con, MLIRGenerator& gen)
+    : ASTMLIRPass(con, gen)
     {}
 
     /// Declarations for base nodes
@@ -67,44 +80,46 @@ namespace mlir::verona
         functionScope.push_back(modName);
 
       // Push another scope for variables, functions and types
-      SymbolScopeT var_scope(symbolTable());
+      symbolTable().pushScope();
 
-      // Create an entry for the class' structure type
-      classes.push(StructType::getIdentified(builder().getContext(), modName));
-
-      // Create an entry for the fields
-      classFields.push(FieldOffset());
+      // Create an entry for the class' structure type and fields
+      classes.push({StructType::getIdentified(builder().getContext(), modName),
+                    FieldOffset()});
     }
 
     /// Post processing will finalise the structure.
     void post(Class& node)
     {
       StringRef modName = node.id.view();
-      auto type = classes.top();
+      auto type = classes.top().type;
       assert(type.getName() == modName && "Finishing the wrong class");
+      auto fields = classes.top().fields;
 
       // Set fields to the class' map, if any
-      if (mlir::failed(type.setBody(classFields.top().types, /*packed*/ false)))
+      if (mlir::failed(type.setBody(fields.types, /*packed*/ false)))
       {
         error() << node.location << "Error setting fields to class"
                 << text(node.location);
         return;
       }
 
-      // Pop the function scope for name mangling and current class, fields
+      // Update the map between class types and their field names
+      con.classFields.emplace(type.getAsOpaquePointer(), fields);
+
+      // Pop the function scope for name mangling and current class
       if (!functionScope.empty())
         functionScope.pop_back();
       classes.pop();
-      classFields.pop();
+      symbolTable().popScope();
     }
 
     /// Add field name and type to the list of class fields
     void post(Field& node)
     {
       // Update class-field map
-      auto& fieldMap = classFields.top();
+      auto& fieldMap = classes.top().fields;
       fieldMap.fields.push_back(node.location.view());
-      fieldMap.types.push_back(con.consumeType(node.type));
+      fieldMap.types.push_back(con.consumeType(*node.type));
     }
 
     /// Parse function declaration nodes
@@ -113,21 +128,18 @@ namespace mlir::verona
       auto loc = con.getLocation(node.as<NodeDef>());
 
       // Find all arguments
-      llvm::SmallVector<llvm::StringRef> argNames;
       llvm::SmallVector<Type> types;
       for (auto p : node.params)
       {
         auto param = p->as<Param>();
-        argNames.push_back(param.location.view());
-        types.push_back(con.consumeType(param.type));
-        // TODO: Handle default init
+        types.push_back(con.consumeType(*param.type));
       }
 
       // Check return type (multiple returns as tuples)
       llvm::SmallVector<Type> retTy;
       if (node.result)
       {
-        retTy.push_back(con.consumeType(node.result));
+        retTy.push_back(con.consumeType(*node.result));
       }
 
       // Push the function declaration into the module
@@ -146,15 +158,453 @@ namespace mlir::verona
   /// ASTDefinitions - traverses the AST defining class bodies, functions,
   /// lambdas, etc. Uses the pre-declaration above to avoid declaration order
   /// issues.
-  struct ASTDefinitions : Pass<ASTDefinitions>
-  {};
-}
+  struct ASTDefinitions : ASTMLIRPass<ASTDefinitions>
+  {
+  private:
+    Type selectTypeFromAssign;
 
-namespace mlir::verona
-{
+    /// Stack of operands for calls, operations, assignments in the order
+    /// they're evaluated (ex. lhs, rhs). The current AST isn't completely
+    /// A-normal form, so we aren't dealing exclusively with values from a
+    /// symbol table quite yet.
+    std::stack<Value> operands;
+
+    /// Push operand into stack
+    void pushOperand(Value val)
+    {
+      operands.push(val);
+    }
+
+    /// Take a value from the operands list.
+    Value takeOperand(bool last = false)
+    {
+      if (operands.empty())
+        return Value();
+      auto val = operands.top();
+      operands.pop();
+      if (last)
+        assert(
+          operands.empty() && "Mismatch on creating and consuming operands");
+      return val;
+    }
+
+    // Take a value from a reference or the retuls of previous operations.
+    Value takeValue(Ast node)
+    {
+      Value val;
+      // Value can be a reference (and the operand list must be empty)
+      if (node->kind() == Kind::Ref)
+      {
+        assert(operands.empty());
+        val = con.lookup(node);
+      }
+      // Or it can be the result of an operation
+      else
+      {
+        val = takeOperand();
+      }
+      return val;
+    }
+
+  public:
+    ASTDefinitions(ASTConsumer& con, MLIRGenerator& gen) : ASTMLIRPass(con, gen)
+    {}
+
+    /// Declarations for base nodes
+    AST_PASS;
+
+    /// Class definition, type already exists, just keep the context up-to-date.
+    void pre(Class& node)
+    {
+      StringRef modName = node.id.view();
+      // The root module has no name, doesn't need to be in the context
+      if (!modName.empty())
+        functionScope.push_back(modName);
+
+      // Push another scope for variables, functions and types
+      symbolTable().pushScope();
+    }
+
+    /// Post processing will pop the scopes.
+    void post(Class& node)
+    {
+      // Pop the variables scope
+      symbolTable().popScope();
+
+      // Pop the function scope for name mangling and current class
+      if (!functionScope.empty())
+        functionScope.pop_back();
+    }
+
+    /// Defines a function and creates its structure
+    /// Following post(node)s will lower the body
+    void pre(Function& node)
+    {
+      // Initialise the function's definition
+      auto name = con.mangleName(node.name.view(), functionScope);
+      auto func = gen.lookupSymbol<FuncOp>(name);
+      assert(func && "Definition of an undeclared function");
+      auto funcIR = gen.StartFunction(func);
+
+      // Declare all arguments on a new scope
+      symbolTable().pushScope();
+      llvm::SmallVector<llvm::StringRef> argNames;
+      for (auto p : node.params)
+      {
+        argNames.push_back(p->location.view());
+        // TODO: Handle default init
+      }
+      auto& entryBlock = *funcIR->getRegion(0).getBlocks().begin();
+      auto argVals = entryBlock.getArguments();
+      for (auto [name, val] : llvm::zip(argNames, argVals))
+      {
+        symbolTable().insert(name, val);
+      }
+    }
+
+    /// Closes the function, checking the return value
+    void post(Function& node)
+    {
+      // Check if needs to return a value at all
+      if (gen.hasTerminator(builder().getBlock()))
+        return;
+
+      auto loc = con.getLocation(node);
+      auto name = con.mangleName(node.name.view(), functionScope);
+      auto func = gen.lookupSymbol<FuncOp>(name);
+      assert(func && "Definition of an undeclared function");
+
+      // Lower return value
+      bool needsReturn = !func.getType().getResults().empty();
+      if (needsReturn)
+      {
+        // FIXME: some values are being left over, inverstigate
+        assert(operands.size() == 1 && "Can only return one value");
+        auto opVal = takeOperand();
+        auto opTy = opVal.getType();
+        auto retTy = func.getType().getResults()[0];
+        assert(retTy == opTy && "Last operand and return types mismatch");
+        builder().create<ReturnOp>(loc, opVal);
+      }
+      else
+      {
+        builder().create<ReturnOp>(loc);
+      }
+
+      // Pop function's variable scope
+      symbolTable().popScope();
+    }
+
+    /// Local declarations (including temps) reserve a place on the symbol table
+    /// FIXME: in the new AST, with types, the alloca will be done here
+    void pre(Let& node)
+    {
+      symbolTable().insert(node.location.view(), Value());
+    }
+
+    /// Local declarations reserve a place on the symbol table
+    /// FIXME: in the new AST, with types, the alloca will be done here
+    void pre(Var& node)
+    {
+      symbolTable().insert(node.location.view(), Value());
+    }
+
+    /// Define the type of a node (this is going away on the new AST)
+    void post(Oftype& node)
+    {
+      auto loc = con.getLocation(node);
+      assert(node.expr->kind() == Kind::Ref && "LHS oftype must be a ref");
+      auto name = node.expr->location.view();
+
+      // Make sure the variable exists, but it's uninitialized
+      auto val = symbolTable().lookup(name, /*local scope*/ true);
+      assert(val == Value() && "LHS not declared or already has value");
+
+      // Alloca the right size and update the symbol table
+      auto newTy = con.consumeType(*node.type);
+      Value addr = gen.Alloca(loc, newTy);
+      symbolTable().update(name, addr);
+    }
+
+    /// Create an integer literal, push to the operands list
+    auto post(Int& node)
+    {
+      auto loc = con.getLocation(node);
+      auto str = node.location.view();
+      auto val = std::stol(str.data());
+      auto type = builder().getIntegerType(64);
+      assert(type.isa<IntegerType>() && "Bad type for integer literal");
+      auto op = builder().create<ConstantIntOp>(loc, val, type);
+      pushOperand(op->getOpResult(0));
+    }
+
+    /// Create a float literal, push to the operands list
+    auto post(Float& node)
+    {
+      auto loc = con.getLocation(node);
+      auto str = node.location.view();
+      auto val = llvm::APFloat(std::stod(str.data()));
+      auto type = builder().getF64Type();
+      auto floatType = type.dyn_cast<FloatType>();
+      assert(floatType && "Bad type for float literal");
+      auto op = builder().create<ConstantFloatOp>(loc, val, floatType);
+      pushOperand(op->getOpResult(0));
+    }
+
+    /// Create an escaped string literal, push to the operands list
+    auto post(EscapedString& node)
+    {
+      // TODO: Actually implement this for real
+      pushOperand(gen.ConstantString(node.location.view()));
+    }
+
+    /// Create an unescaped string literal, push to the operands list
+    auto post(UnescapedString& node)
+    {
+      // TODO: Actually implement this for real
+      pushOperand(gen.ConstantString(node.location.view()));
+    }
+
+    /// Selects (for now) can be many things so we need some checks to see how
+    /// to handle it. Soon it'll be just dynamic selection and static calls and
+    /// field access will have their own node types.
+    void post(Select& node)
+    {
+      auto loc = con.getLocation(node);
+      // The right-hand side of a select is always a reference (or nothing)
+      auto rhs = con.lookup(node.args);
+
+      // FIXME: "special case" return for now, to make it work without method
+      // call. There's a bug in the current AST that doesn't create a "last"
+      // value in some cases, so we add an explicit "return" to force it.
+      if (node.typenames[0]->location.view() == "return")
+      {
+        // FIXME: some values are being left over, inverstigate
+        assert(operands.empty());
+        auto thisFunc =
+          dyn_cast<FuncOp>(builder().getInsertionBlock()->getParentOp());
+        auto funcTy = thisFunc.getType();
+        if (funcTy.getNumResults() > 0)
+        {
+          assert(rhs && "Return needs value but was given none");
+          rhs = gen.AutoLoad(loc, rhs, thisFunc.getType().getResult(0));
+          pushOperand(rhs);
+        }
+        return;
+      }
+
+      // The left-hand side of a select is always a reference (or nothing)
+      auto lhs = con.lookup(node.expr);
+
+      // Dynamic selector, for accessing a field or calling a method
+      if (auto structTy = gen.getPointedStructType(lhs))
+      {
+        // Loading fields, we calculate the offset to load based on the field
+        // name
+        auto [offset, elmTy, found] =
+          con.getField(structTy, node.typenames[0]->location.view());
+        if (found)
+        {
+          // Convert the address of the structure to the address of the element
+          pushOperand(gen.GEP(loc, lhs, offset));
+          return;
+        }
+
+        // FIXME: Implement dynamic dispatch of methods
+        assert(false && "Dynamic method call not implemented yet");
+      }
+
+      // Typenames indicate the context and the function name
+      llvm::SmallVector<llvm::StringRef, 3> scope;
+      size_t end = node.typenames.size() - 1;
+      for (size_t i = 0; i < end; i++)
+      {
+        scope.push_back(node.typenames[i]->location.view());
+      }
+      std::string opName = con.mangleName(
+        node.typenames[end]->location.view(), functionScope, scope);
+
+      // Check the function table for a symbol that matches the opName
+      if (auto funcOp = gen.lookupSymbol<FuncOp>(opName))
+      {
+        llvm::SmallVector<Value> args;
+        // Here it's guaranteed the lhs is not a selector (handled above), so if
+        // there is one, it's the first argument of a function call.
+        if (lhs)
+        {
+          args.push_back(lhs);
+        }
+        if (rhs)
+        {
+          auto numArgs = funcOp.getNumArguments();
+          // Single argument isn't wrapped in a tuple, so just push it.
+          if (numArgs == 1)
+          {
+            assert(args.empty() && "lhs must be empty for single arg");
+            // If argument is indeed a tuple, dereference the pointer
+            if (gen.isStructPointer(rhs))
+            {
+              assert(
+                funcOp.getArgument(0).getType().isa<StructType>() &&
+                "Single argument type mismatch");
+
+              // Pass a a struct, not as a pointer
+              rhs = gen.GEP(loc, rhs);
+            }
+            rhs = gen.AutoLoad(loc, rhs);
+            args.push_back(rhs);
+          }
+          // Multiple arguments wrap as a tuple. If the function arguments
+          // weren't wrapped in a tuple, deconstruct it to get the right types
+          // for the call.
+          else
+          {
+            auto structTy = gen.getPointedStructType(rhs, /*anonymous*/ true);
+            assert(
+              structTy && structTy.getBody().size() == numArgs &&
+              "Call to function with wrong number of operands");
+            for (unsigned offset = 0, last = numArgs; offset < last; offset++)
+            {
+              auto ptr = gen.GEP(loc, rhs, offset);
+              auto val = gen.Load(loc, ptr);
+              args.push_back(val);
+            }
+          }
+        }
+
+        pushOperand(gen.Call(loc, funcOp, args));
+        return;
+      }
+
+      // If function does not exist, it's either arithmetic or an error.
+      // lhs has the operation name, rhs are the ops (in a tuple)
+      auto retTy = selectTypeFromAssign;
+      selectTypeFromAssign = Type();
+
+      // FIXME: This is a work-around the current AST shape. Future versions
+      // will use a special symbol, `@` to nominate foreign functions (like
+      // inline MLIR/LLVM IR) and restrict those to special modules only.
+      auto addrOp = dyn_cast<LLVM::AddressOfOp>(lhs.getDefiningOp());
+      assert(addrOp && "Arithmetic implemented as string calls");
+      opName = addrOp.global_name();
+      // String was stored previously and kept as an operand, we don't need it
+      // anymore.
+      // FIXME: This should take the last one, some values are being left over,
+      // inverstigate
+      takeOperand();
+      pushOperand(gen.Arithmetic(loc, opName, rhs, retTy));
+    }
+
+    void pre(Assign& node)
+    {
+      auto lhs = con.lookup(node.left);
+      if (lhs)
+      {
+        if (gen.isPointer(lhs))
+          selectTypeFromAssign = gen.getPointedType(lhs);
+        else
+          selectTypeFromAssign = lhs.getType();
+      }
+    }
+
+    /// Assign needs both address and value to be evaluated first, so we
+    /// handle it on post. The current AST has no types on nodes, but at least
+    /// either lhs or rhs must have a type, so we check them first and make
+    /// sure we match.
+    void post(Assign& node)
+    {
+      auto loc = con.getLocation(node);
+      auto val = takeValue(node.right);
+      // Address is always a reference or an inline let/var
+      auto addr = con.lookup(node.left);
+
+      // No address means inline let/var (incl. temps), which has no type.
+      // We evaluate the RHS first (above) to get its type and create an
+      // address of the same type to store in.
+      if (!addr)
+      {
+        assert(
+          node.left->kind() == Kind::Let || node.left->kind() == Kind::Var ||
+          node.left->kind() == Kind::Ref);
+        auto name = node.left->location.view();
+
+        // If the value is a pointer, we just alias the temp with the SSA
+        // address
+        if (gen.isPointer(val))
+        {
+          symbolTable().update(name, val);
+          return;
+        }
+        // Else, allocate some space to store val into it
+        else
+        {
+          addr = gen.Alloca(loc, val.getType());
+          symbolTable().update(name, addr);
+        }
+      }
+      assert(
+        gen.isPointer(addr) && "Couldn't create an address for lhs in assign");
+
+      // If both are addresses, we need to load from the RHS to be able to
+      // store into the LHS
+      val = gen.AutoLoad(val.getLoc(), val);
+
+      // If LHS and RHS types don't match, do type conversion to make them
+      // match. This is specially important in literals, which still have
+      // largest types themselves (I64, F64).
+      auto addrTy = gen.getPointedType(addr);
+      auto valTy = val.getType();
+      assert(addrTy == valTy && "Assignment types must be the same");
+
+      // TODO: Load the existing value to return, if the value is used.
+      // Store the new value in the same address
+      gen.Store(loc, addr, val);
+    }
+
+    /// Creates new tuples and initialise their fields
+    void post(Tuple& node)
+    {
+      auto loc = con.getLocation(node);
+
+      // Evaluate each tuple element
+      SmallVector<Value> values;
+      SmallVector<Type> types;
+      for (auto sub : node.seq)
+      {
+        auto val = con.lookup(sub);
+        auto type = val.getType();
+        // FIXME: Currently, tuples and values are stored as pointers in the
+        // symbol table and without explicit type on the temps we don't know
+        // if we want the value of the address. For now, we assume value.
+        if (gen.isPointer(val))
+          type = gen.getPointedType(val);
+        values.push_back(val);
+        types.push_back(type);
+      }
+
+      // When creating temporaries, we don't have the assign type yet, so we
+      // borrow from the value definition, which should be correct by now, if
+      // we don't create let expressions without explicit type definition.
+      auto tupleType = StructType::getLiteral(builder().getContext(), types);
+      auto addr = gen.Alloca(loc, tupleType);
+
+      // Store the elements in the allocated space
+      size_t index = 0;
+      for (auto sub : values)
+      {
+        auto gep = gen.GEP(loc, addr, index++);
+        auto value = gen.AutoLoad(loc, sub);
+        gen.Store(loc, gep, value);
+      }
+
+      pushOperand(addr);
+    }
+  };
+
   // ===================================================== Public Interface
+
   llvm::Expected<OwningModuleRef>
-  ASTConsumer::lower(MLIRContext* context, Ast ast)
+  ASTConsumer::lower(MLIRContext* context, ::verona::parser::Ast ast)
   {
     ASTConsumer con(context);
 
@@ -164,11 +614,13 @@ namespace mlir::verona
     decl << ast;
 
     // Definition pass
-    // FIXME: Move to an AST pass, too
-    auto err = con.consumeRootModule(ast);
-    if (err)
-      return std::move(err);
+    ASTDefinitions def(con, con.gen);
+    def.set_error(std::cerr);
+    def << ast;
 
+    // TODO: MLIR passes, if needed
+
+    // Return the owning module
     return con.gen.finish();
   }
 
@@ -186,7 +638,9 @@ namespace mlir::verona
   }
 
   std::string ASTConsumer::mangleName(
-    llvm::StringRef name, llvm::ArrayRef<llvm::StringRef> scope)
+    llvm::StringRef name,
+    llvm::ArrayRef<llvm::StringRef> functionScope,
+    llvm::ArrayRef<llvm::StringRef> callScope)
   {
     // FIXME: This is a hack to help running LLVM modules
     if (name == "main")
@@ -203,7 +657,7 @@ namespace mlir::verona
     }
 
     // Add the relative scope (class name, etc)
-    for (auto s : scope)
+    for (auto s : callScope)
     {
       os << s.str() << "__";
     }
@@ -219,8 +673,7 @@ namespace mlir::verona
     auto structTy = type.dyn_cast<StructType>();
     assert(structTy && "Bad type for field access");
 
-    auto name = structTy.getName();
-    auto& fieldMap = classFields[name];
+    auto& fieldMap = classFields[type.getAsOpaquePointer()];
     size_t pos = 0;
     for (auto f : fieldMap.fields)
     {
@@ -252,603 +705,28 @@ namespace mlir::verona
     return {0, Type(), false};
   }
 
-  // ===================================================== Top-Level Consumers
-
-  llvm::Error ASTConsumer::consumeRootModule(Ast ast)
+  Value ASTConsumer::lookup(::verona::parser::Ast ast)
   {
-    auto node = nodeAs<Class>(ast);
-    assert(node && "Bad node");
-
-    // TODO: Quick early pass to declare all functions before we descend the
-    // AST.
-
-    // Modules are just global classes
-    return consumeClass(ast);
+    if (!ast)
+      return Value();
+    auto name = ast->location.view();
+    return symbolTable().lookup(name);
   }
 
-  llvm::Error ASTConsumer::consumeClass(Ast ast)
+  Type ASTConsumer::consumeType(::verona::parser::Type& ast)
   {
-    auto node = nodeAs<Class>(ast);
-    assert(node && "Bad node");
-
-    StringRef modName = node->id.view();
-    // The root module has no name, doesn't need to be in the context
-    if (!modName.empty())
-      functionScope.push_back(modName);
-
-    // Push another scope for variables, functions and types
-    SymbolScopeT var_scope(symbolTable());
-    auto type = StructType::getIdentified(builder().getContext(), modName);
-
-    // Create an entry for the fields
-    classFields.emplace(modName, FieldOffset());
-
-    // Lower members, types, functions
-    for (auto sub : node->members)
+    switch (ast.kind())
     {
-      switch (sub->kind())
-      {
-        case Kind::Class:
-        {
-          auto err = consumeClass(sub);
-          if (err)
-            return err;
-          functionScope.pop_back();
-          break;
-        }
-        case Kind::Using:
-          // Ignore for now as this is just a reference to the module name
-          // that will be lowered, but module names aren't being lowered
-          // now.
-          break;
-        case Kind::Function:
-        {
-          auto func = consumeFunction(sub);
-          if (auto err = func.takeError())
-            return err;
-          break;
-        }
-        case Kind::Field:
-        {
-          auto res = consumeField(sub);
-          if (auto err = res.takeError())
-            return err;
-
-          // Update class-field map
-          auto field = nodeAs<Field>(sub);
-          auto& fieldMap = classFields[modName];
-          fieldMap.fields.push_back(field->location.view());
-          fieldMap.types.push_back(*res);
-          break;
-        }
-        default:
-          return runtimeError("Wrong member in class");
-      }
-    }
-    if (mlir::failed(
-          type.setBody(classFields[modName].types, /*packed*/ false)))
-      return runtimeError("Error setting fields to class");
-
-    return llvm::Error::success();
-  }
-
-  // ======================================================= General Consumers
-
-  llvm::Expected<Value> ASTConsumer::consumeNode(Ast ast)
-  {
-    switch (ast->kind())
-    {
-      case Kind::Lambda:
-        return consumeLambda(ast);
-      case Kind::Select:
-        return consumeSelect(ast);
-      case Kind::Ref:
-        return consumeRef(ast);
-      case Kind::Assign:
-        return consumeAssign(ast);
-      case Kind::Let:
-      case Kind::Var:
-        return consumeLocalDecl(ast);
-      case Kind::Oftype:
-        return consumeOfType(ast);
-      case Kind::Tuple:
-        return consumeTuple(ast);
-      case Kind::Character:
-      case Kind::Int:
-      case Kind::Float:
-      case Kind::Hex:
-      case Kind::Binary:
-      case Kind::Bool:
-        return consumeLiteral(ast);
-      case Kind::EscapedString:
-      case Kind::UnescapedString:
-        return consumeString(ast);
-      case Kind::Function:
-      case Kind::Class:
-      case Kind::Field:
-        return runtimeError(
-          "Top-level field " + std::string(kindname(ast->kind())) +
-          " cannot be consumed through generic recursion");
-      default:
-        // TODO: Implement all others
-        break;
-    }
-
-    return runtimeError(
-      "Node " + std::string(kindname(ast->kind())) + " not implemented yet");
-  }
-
-  llvm::Expected<FuncOp> ASTConsumer::consumeFunction(Ast ast)
-  {
-    auto func = nodeAs<Function>(ast);
-    assert(func && "Bad node");
-    auto loc = getLocation(*ast);
-
-    // Find all arguments
-    llvm::SmallVector<llvm::StringRef> argNames;
-    llvm::SmallVector<Type> types;
-    for (auto p : func->params)
-    {
-      auto param = nodeAs<Param>(p);
-      assert(param && "Bad Node");
-      argNames.push_back(param->location.view());
-      types.push_back(consumeType(param->type));
-      // TODO: Handle default init
-    }
-
-    // Check return type (multiple returns as tuples)
-    llvm::SmallVector<Type> retTy;
-    if (func->result)
-    {
-      retTy.push_back(consumeType(func->result));
-    }
-
-    // Declare all arguments on current scope
-    SymbolScopeT var_scope(symbolTable());
-    auto name = mangleName(func->name.view());
-    auto funcIR = gen.EmptyFunction(loc, name, types, retTy);
-
-    // Declare all arguments on current scope on a newly created stack object
-    auto& entryBlock = *funcIR->getRegion(0).getBlocks().begin();
-    auto argVals = entryBlock.getArguments();
-    for (auto [name, val] : llvm::zip(argNames, argVals))
-    {
-      symbolTable().insert(name, val);
-    }
-
-    // Lower body
-    auto body = func->body;
-    auto last = consumeNode(body);
-    if (auto err = last.takeError())
-      return std::move(err);
-
-    // Check if needs to return a value at all
-    if (gen.hasTerminator(builder().getBlock()))
-      return funcIR;
-
-    // Lower return value
-    // (TODO: cast type if not the same)
-    bool needsReturn = !retTy.empty();
-
-    if (needsReturn)
-    {
-      assert(last && "No value to return");
-      builder().create<ReturnOp>(loc, *last);
-    }
-    else
-    {
-      builder().create<ReturnOp>(loc);
-    }
-
-    return funcIR;
-  }
-
-  llvm::Expected<Type> ASTConsumer::consumeField(Ast ast)
-  {
-    auto field = nodeAs<Field>(ast);
-    assert(field && "Bad node");
-
-    auto type = consumeType(field->type);
-    // TODO: Add names to a hash so we can access for field read/write.
-    // TODO: Implement initialiser
-
-    return type;
-  }
-
-  llvm::Expected<Value> ASTConsumer::consumeLambda(Ast ast)
-  {
-    auto lambda = nodeAs<Lambda>(ast);
-    assert(lambda && "Bad Node");
-
-    // Blocks add lexical context
-    SymbolScopeT var_scope{symbolTable()};
-
-    Value last;
-    llvm::SmallVector<Ast> nodes;
-    for (auto sub : lambda->body)
-    {
-      auto node = consumeNode(sub);
-      if (auto err = node.takeError())
-        return std::move(err);
-      last = *node;
-    }
-    return last;
-  }
-
-  llvm::Expected<Value> ASTConsumer::consumeSelect(Ast ast)
-  {
-    auto select = nodeAs<Select>(ast);
-    assert(select && "Bad Node");
-    auto loc = getLocation(*ast);
-
-    Value lhs, rhs;
-
-    // This is either:
-    //  * the RHS of a binary operator
-    //  * the argument of a unary operator
-    //  * the arguments of the function call as a tuple
-    if (select->args)
-    {
-      auto rhsNode = consumeNode(select->args);
-      if (auto err = rhsNode.takeError())
-        return std::move(err);
-      rhs = *rhsNode;
-    }
-
-    // FIXME: "special case" return for now, to make it work without method
-    // call. There's a bug in the current AST that doesn't create a "last" value
-    // in some cases, so we add an explicit "return" to force it.
-    if (select->typenames[0]->location.view() == "return")
-    {
-      auto thisFunc =
-        dyn_cast<FuncOp>(builder().getInsertionBlock()->getParentOp());
-      if (thisFunc.getType().getNumResults() > 0)
-        rhs = gen.AutoLoad(loc, rhs, thisFunc.getType().getResult(0));
-      return rhs;
-    }
-
-    // This is either:
-    //  * the LHS of a binary operator
-    //  * the selector for a static/dynamic call of a class member
-    if (select->expr)
-    {
-      auto lhsNode = consumeNode(select->expr);
-      if (auto err = lhsNode.takeError())
-        return std::move(err);
-      lhs = *lhsNode;
-    }
-
-    // Dynamic selector, for accessing a field or calling a method
-    if (auto structTy = gen.getPointedStructType(lhs))
-    {
-      // Loading fields, we calculate the offset to load based on the field name
-      auto [offset, elmTy, found] =
-        getField(structTy, select->typenames[0]->location.view());
-      if (found)
-      {
-        // Convert the address of the structure to the address of the element
-        return gen.GEP(loc, lhs, offset);
-      }
-
-      // FIXME: Implement dynamic dispatch of methods
-      assert(false && "Dynamic method call not implemented yet");
-    }
-
-    // Typenames indicate the context and the function name
-    llvm::SmallVector<llvm::StringRef, 3> scope;
-    size_t end = select->typenames.size() - 1;
-    for (size_t i = 0; i < end; i++)
-    {
-      scope.push_back(select->typenames[i]->location.view());
-    }
-    std::string opName =
-      mangleName(select->typenames[end]->location.view(), scope);
-
-    // Check the function table for a symbol that matches the opName
-    if (auto funcOp = gen.lookupSymbol<FuncOp>(opName))
-    {
-      llvm::SmallVector<Value> args;
-      // Here it's guaranteed the lhs is not a selector (handled above), so if
-      // there is one, it's the first argument of a function call.
-      if (lhs)
-      {
-        args.push_back(lhs);
-      }
-      if (rhs)
-      {
-        auto numArgs = funcOp.getNumArguments();
-        // Single argument isn't wrapped in a tuple, so just push it.
-        if (numArgs == 1)
-        {
-          assert(args.empty() && "lhs must be empty for single arg");
-          // If argument is indeed a tuple, dereference the pointer
-          if (gen.isStructPointer(rhs))
-          {
-            assert(
-              funcOp.getArgument(0).getType().isa<StructType>() &&
-              "Single argument type mismatch");
-
-            // Pass a a struct, not as a pointer
-            rhs = gen.GEP(loc, rhs);
-          }
-          rhs = gen.AutoLoad(loc, rhs);
-          args.push_back(rhs);
-        }
-        // Multiple arguments wrap as a tuple. If the function arguments weren't
-        // wrapped in a tuple, deconstruct it to get the right types for the
-        // call.
-        else
-        {
-          auto structTy = gen.getPointedStructType(rhs, /*anonymous*/ true);
-          assert(
-            structTy && structTy.getBody().size() == numArgs &&
-            "Call to function with wrong number of operands");
-          for (unsigned offset = 0, last = numArgs; offset < last; offset++)
-          {
-            auto ptr = gen.GEP(loc, rhs, offset);
-            auto val = gen.Load(loc, ptr);
-            args.push_back(val);
-          }
-        }
-      }
-
-      return gen.Call(loc, funcOp, args);
-    }
-
-    // If function does not exist, it's either arithmetic or an error.
-    // lhs has the operation name, rhs are the ops (in a tuple)
-    // The return type is usually the same as the operand types, unless this is
-    // a cast, in which case there's probably an assignment and we can get the
-    // type from there.
-    Type retTy = assignTypeFromSelect;
-    if (retTy)
-      assignTypeFromSelect = Type();
-
-    // FIXME: This is a work-around the current AST shape. Future versions will
-    // use a special symbol, `@` to nominate foreign functions (like inline
-    // MLIR/LLVM IR) and restrict those to special modules only.
-    auto addrOp = dyn_cast<LLVM::AddressOfOp>(lhs.getDefiningOp());
-    assert(addrOp && "Arithmetic implemented as string calls");
-    opName = addrOp.global_name();
-    return gen.Arithmetic(loc, opName, rhs, retTy);
-  }
-
-  llvm::Expected<Value> ASTConsumer::consumeRef(Ast ast)
-  {
-    auto ref = nodeAs<Ref>(ast);
-    assert(ref && "Bad Node");
-    return symbolTable().lookup(ref->location.view());
-  }
-
-  llvm::Expected<Value> ASTConsumer::consumeLocalDecl(Ast ast)
-  {
-    // FIXME: for now, just creates a new empty value that can be updated.
-    return symbolTable().insert(ast->location.view(), Value());
-  }
-
-  llvm::Expected<Value> ASTConsumer::consumeOfType(Ast ast)
-  {
-    auto ofty = nodeAs<Oftype>(ast);
-    assert(ofty && "Bad Node");
-    auto name = ofty->expr->location.view();
-
-    // Make sure the variable is uninitialized
-    auto val = symbolTable().lookup(name, /*local scope*/ true);
-    assert(!val);
-
-    // FIXME: for now, just updates the reference's type
-    auto newTy = consumeType(ofty->type);
-    // FIXME: This is probably the wrong place to do this
-    Value addr = gen.Alloca(getLocation(*ofty), newTy);
-    return symbolTable().update(name, addr);
-  }
-
-  llvm::Expected<Value> ASTConsumer::consumeAssign(Ast ast)
-  {
-    auto assign = nodeAs<Assign>(ast);
-    assert(assign && "Bad Node");
-
-    // lhs has to be an addressable expression (ref, let, var)
-    auto lhsNode = consumeNode(assign->left);
-    if (auto err = lhsNode.takeError())
-      return std::move(err);
-    auto addr = *lhsNode;
-
-    // HACK: Working around the lack of type in assign, to know what the return
-    // value of the function call it is.
-    if (addr)
-      assignTypeFromSelect = gen.getPointedType(addr);
-    else
-      assignTypeFromSelect = Type();
-
-    // Evaluate the right hand side to get type information
-    auto rhsNode = consumeNode(assign->right);
-    if (auto err = rhsNode.takeError())
-      return std::move(err);
-    auto val = *rhsNode;
-
-    // No address means inline let/var (incl. temps), which has no type.
-    // We evaluate the RHS first (above) to get its type and create an address
-    // of the same type to store in.
-    bool needsLoad = true;
-    if (!addr)
-    {
-      assert(nodeAs<Let>(assign->left) || nodeAs<Var>(assign->left));
-      auto name = assign->left->location.view();
-
-      // If the value is a pointer, we just alias the temp with the SSA address
-      if (gen.isPointer(val))
-      {
-        symbolTable().update(name, val);
-        return val;
-      }
-      // Else, allocate some space to store val into it
-      else
-      {
-        addr = gen.Alloca(getLocation(*ast), val.getType());
-        symbolTable().update(name, addr);
-      }
-      needsLoad = false;
-    }
-    assert(
-      gen.isPointer(addr) && "Couldn't create an address for lhs in assign");
-
-    // If both are addresses, we need to load from the RHS to be able to store
-    // into the LHS
-    val = gen.AutoLoad(val.getLoc(), val);
-
-    // If LHS and RHS types don't match, do type conversion to make them match.
-    // This is specially important in literals, which still have largest types
-    // themselves (I64, F64).
-    auto addrTy = gen.getPointedType(addr);
-    auto valTy = val.getType();
-    assert(addrTy == valTy && "Assignment types must be the same");
-
-    // Load the existing value to return (if addr existed before)
-    Value old;
-    if (needsLoad)
-      old = gen.Load(getLocation(*assign), addr);
-
-    // Store the new value in the same address
-    gen.Store(getLocation(*assign), addr, val);
-
-    // Return the previous value
-    return old;
-  }
-
-  llvm::Expected<Value> ASTConsumer::consumeTuple(Ast ast)
-  {
-    auto tuple = nodeAs<Tuple>(ast);
-    assert(tuple && "Bad Node");
-    auto loc = getLocation(*ast);
-
-    // Evaluate each tuple element
-    llvm::SmallVector<Value> values;
-    llvm::SmallVector<Type> types;
-    for (auto sub : tuple->seq)
-    {
-      auto node = consumeNode(sub);
-      if (auto err = node.takeError())
-        return std::move(err);
-      values.push_back(*node);
-      // FIXME: Currently, tuples and values are stored as pointers in the
-      // symbol table and without explicit type on the temps we don't know if we
-      // want the value of the address. For now, we assume value.
-      auto actualType = node->getType();
-      if (gen.isPointer(*node))
-        actualType = gen.getPointedType(*node);
-      types.push_back(actualType);
-    }
-
-    // Retrieve the tuple type from the assign (like select does) and allocate
-    // space for its values. FIXME: Future versions of AST won't need this hack,
-    // as all nodes will have types directly on them.
-    auto tupleType = assignTypeFromSelect;
-    if (!tupleType)
-    {
-      // When creating temporaries, we don't have the assign type yet, so we
-      // borrow from the value definition, which should be correct by now, if we
-      // don't create let expressions without explicit type definition.
-      tupleType = StructType::getLiteral(builder().getContext(), types);
-    }
-    else
-    {
-      assignTypeFromSelect = Type();
-    }
-    auto addr = gen.Alloca(loc, tupleType);
-
-    // Store the elements in the allocated space
-    size_t index = 0;
-    for (auto sub : values)
-    {
-      auto gep = gen.GEP(loc, addr, index++);
-      auto value = gen.AutoLoad(loc, sub);
-      gen.Store(loc, gep, value);
-    }
-
-    // Return the address of the tuple's storage
-    return addr;
-  }
-
-  llvm::Expected<Value> ASTConsumer::consumeLiteral(Ast ast)
-  {
-    auto loc = getLocation(*ast);
-    switch (ast->kind())
-    {
-      case Kind::Int:
-      {
-        auto I = nodeAs<Int>(ast);
-        assert(I && "Bad Node");
-        auto str = I->location.view();
-        auto val = std::stol(str.data());
-        auto type = consumeType(ast);
-        assert(type.isa<IntegerType>() && "Bad type for integer literal");
-        auto op = builder().create<ConstantIntOp>(loc, val, type);
-        return op->getOpResult(0);
-        break;
-      }
-      case Kind::Float:
-      {
-        auto F = nodeAs<Float>(ast);
-        assert(F && "Bad Node");
-        auto str = F->location.view();
-        auto val = llvm::APFloat(std::stod(str.data()));
-        auto type = consumeType(ast);
-        auto floatType = type.dyn_cast<FloatType>();
-        assert(floatType && "Bad type for float literal");
-        auto op = builder().create<ConstantFloatOp>(loc, val, floatType);
-        return op->getOpResult(0);
-        break;
-      }
-      case Kind::Character:
-      case Kind::Hex:
-      case Kind::Binary:
-      case Kind::Bool:
-        assert(false && "Not implemented yet");
-      default:
-        assert(false && "Bad Node");
-    }
-
-    return Value();
-  }
-
-  llvm::Expected<Value> ASTConsumer::consumeString(Ast ast)
-  {
-    std::string_view str;
-
-    // TODO: Differentiate between escaped and unescaped
-    if (auto S = nodeAs<UnescapedString>(ast))
-      str = S->location.view();
-    else if (auto S = nodeAs<EscapedString>(ast))
-      str = S->location.view();
-    else
-      assert(false && "Unknown string type");
-
-    return gen.ConstantString(str);
-  }
-
-  Type ASTConsumer::consumeType(Ast ast)
-  {
-    switch (ast->kind())
-    {
-      case Kind::Int:
-        // TODO: Understand what the actual size is
-        return builder().getIntegerType(64);
-      case Kind::Float:
-        // TODO: Understand what the actual size is
-        return builder().getF64Type();
       case Kind::TypeRef:
       {
-        auto R = nodeAs<TypeRef>(ast);
-        assert(R && "Bad Node");
+        auto R = ast.as<TypeRef>();
         // TODO: Implement type list
-        return consumeType(R->typenames[0]);
+        return consumeType(R.typenames[0]->as<::verona::parser::Type>());
       }
       case Kind::TypeName:
       {
-        auto C = nodeAs<TypeName>(ast);
-        assert(C && "Bad Node");
-        auto name = C->location.view();
+        auto C = ast.as<TypeName>();
+        auto name = C.location.view();
         // FIXME: This gets the size of the host, not the target. We need a
         // target-info kind of class here to get this kinf of information, but
         // this will do for now.
@@ -857,8 +735,8 @@ namespace mlir::verona
         // helps us run lots of tests before actually implementing classes,
         // etc.
         // FIXME: Support unsigned values. The standard dialect only has
-        // signless operations, so we restrict current tests to I* and avoid U*
-        // integer types.
+        // signless operations, so we restrict current tests to I* and avoid
+        // U* integer types.
         Type type = llvm::StringSwitch<Type>(name)
                       .Case("I8", builder().getIntegerType(8))
                       .Case("I16", builder().getIntegerType(16))
@@ -888,11 +766,10 @@ namespace mlir::verona
       }
       case Kind::TupleType:
       {
-        auto T = nodeAs<::verona::parser::TupleType>(ast);
-        assert(T && "Bad Node");
+        auto T = ast.as<::verona::parser::TupleType>();
         llvm::SmallVector<Type> tuple;
-        for (auto t : T->types)
-          tuple.push_back(consumeType(t));
+        for (auto t : T.types)
+          tuple.push_back(consumeType(*t));
         // Tuples are represented as anonymous structures
         return StructType::getLiteral(builder().getContext(), tuple);
       }
