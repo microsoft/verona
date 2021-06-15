@@ -1,5 +1,5 @@
 parameters:
-  # number of parallel cmake jobs when building LLVM on Linux
+  # number of parallel cmake jobs when building with AnyBuild
   - name: AnyBuildParallelism
     type: number
     default: 48

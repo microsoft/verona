@@ -1,7 +1,7 @@
 parameters:
   - name: WorkingDirectory
     type: string
-  
+
 steps:
 - script: |
     set -eo pipefail
