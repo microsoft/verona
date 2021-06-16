@@ -1,3 +1,9 @@
+parameters:
+  # number of parallel cmake jobs when building with AnyBuild
+  - name: AnyBuildParallelism
+    type: number
+    default: 48
+
 resources:
 - repo: self
 
@@ -13,182 +19,257 @@ schedules:
     include:
     - master
 
-jobs:
 ############################################## Linux Builds
-- job:
-  displayName: Linux
-  pool:
-    vmImage: 'ubuntu-20.04'
-  timeoutInMinutes: 120
-  strategy:
-    matrix:
-      GCC Debug:
-        CC: gcc
-        CXX: g++
-        CXXFLAGS:
-        BuildType: Debug
-        Asan: Off
-      GCC Release:
-        CC: gcc
-        CXX: g++
-        CXXFLAGS:
-        Asan: Off
-        BuildType: Release
-      Clang Debug:
-        CC: clang
-        CXX: clang++
-        CXXFLAGS: -stdlib=libstdc++
-        BuildType: Debug
-        Asan: Off
-      Clang Release:
-        CC: clang
-        CXX: clang++
-        CXXFLAGS: -stdlib=libstdc++
-        Asan: Off
-        BuildType: Release
-      Clang Debug (ASAN):
-        CC: clang
-        CXX: clang++
-        CXXFLAGS: -stdlib=libstdc++
-        BuildType: Debug
-        Asan: On
-      Clang Release (ASAN):
-        CC: clang
-        CXX: clang++
-        CXXFLAGS: -stdlib=libstdc++
-        BuildType: Release
-        Asan: On
-  steps:
-  - checkout: self
+stages:
+- stage: Linux
+  displayName: Linux (Verona)
+  dependsOn: []
+  jobs:
+  - job:
+    displayName: Linux
+    pool:
+      vmImage: 'ubuntu-20.04'
+    timeoutInMinutes: 120
+    strategy:
+      matrix:
+        GCC Debug:
+          CC: gcc
+          CXX: g++
+          CXXFLAGS:
+          BuildType: Debug
+          Asan: Off
+        GCC Release:
+          CC: gcc
+          CXX: g++
+          CXXFLAGS:
+          Asan: Off
+          BuildType: Release
+        Clang Debug:
+          CC: clang
+          CXX: clang++
+          CXXFLAGS: -stdlib=libstdc++
+          BuildType: Debug
+          Asan: Off
+        Clang Release:
+          CC: clang
+          CXX: clang++
+          CXXFLAGS: -stdlib=libstdc++
+          Asan: Off
+          BuildType: Release
+        Clang Debug (ASAN):
+          CC: clang
+          CXX: clang++
+          CXXFLAGS: -stdlib=libstdc++
+          BuildType: Debug
+          Asan: On
+        Clang Release (ASAN):
+          CC: clang
+          CXX: clang++
+          CXXFLAGS: -stdlib=libstdc++
+          BuildType: Release
+          Asan: On
+    steps:
+    - checkout: self
 
-  - script: |
-      set -eo pipefail
-      git submodule init
-      git submodule update --depth 1 --recursive
-    displayName: 'Checkout submodules'
+    - script: |
+        set -eo pipefail
+        git submodule init
+        git submodule update --depth 1 --recursive
+      displayName: 'Checkout submodules'
 
-  - script: |
-      set -eo pipefail
-      sudo apt-get update
-      sudo apt-get install -y ninja-build
-      sudo apt-get remove --purge cmake
-      sudo snap install cmake --classic
-      sudo pip install wheel OutputCheck
-    displayName: 'Dependencies'
+    - template: ./steps/linux/dependencies.yml
 
-  - task: CMake@1
-    displayName: 'CMake'
-    inputs:
-      cmakeArgs: |
-        .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DENABLE_ASSERTS=ON -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DRT_TESTS=ON
+    - task: CMake@1
+      displayName: 'CMake'
+      inputs:
+        cmakeArgs: |
+          .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DENABLE_ASSERTS=ON -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DRT_TESTS=ON
 
-  - script: |
-      set -eo pipefail
-      ninja
-    workingDirectory: build
-    displayName: 'Compile'
+    - script: |
+        set -eo pipefail
+        ninja
+      workingDirectory: build
+      displayName: 'Compile'
 
-  - script: |
-      set -eo pipefail
-      export ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer
-      export ASAN_OPTIONS="alloc_dealloc_mismatch=0 symbolize=1"
-      ninja check
-    workingDirectory: build
-    displayName: 'Tests'
+    - template: ./steps/linux/test.yml
+      parameters:
+        WorkingDirectory: build
+
+- stage: LinuxFull
+  displayName: Linux (Verona + LLVM)
+  dependsOn: []
+  jobs:
+  - job:
+    displayName: Linux
+    pool:
+      vmImage: 'ubuntu-20.04'
+    timeoutInMinutes: 120
+    strategy:
+      matrix:
+        GCC Release:
+          CC: gcc
+          CXX: g++
+          CXXFLAGS:
+          Asan: Off
+          BuildType: Release
+        Clang Debug (ASAN):
+          CC: clang
+          CXX: clang++
+          CXXFLAGS: -stdlib=libstdc++
+          BuildType: Debug
+          Asan: On
+
+    variables:
+      - template: ./vars/anybuild-vars.yml
+      - template: ./vars/llvm-vars.yml
+
+    steps:
+    - checkout: self
+
+    - script: |
+        set -eo pipefail
+        git submodule init
+        git submodule update --depth 1 --recursive
+      displayName: 'Checkout submodules'
+
+    - template: ./steps/linux/dependencies.yml
+
+    - bash: |
+        set -euo pipefail
+
+        mkdir -p build
+        cd build
+        cmake                                      \
+          ..                                       \
+          -GNinja                                  \
+          -DCMAKE_BUILD_TYPE=$(BuildType)          \
+          -DCMAKE_CXX_FLAGS=$(CXXFLAGS)            \
+          -DENABLE_ASSERTS=ON                      \
+          -DUSE_ASAN=$(Asan)                       \
+          -DVERONA_CI_BUILD=On                     \
+          -DRT_TESTS=ON                            \
+          -DVERONA_DOWNLOAD_LLVM=OFF               \
+          -DLLVM_EXTRA_CMAKE_ARGS="                \
+            -Wno-dev                               \
+            -DCMAKE_C_COMPILER=$(LLVM_CC)          \
+            -DCMAKE_CXX_COMPILER=$(LLVM_CXX)       \
+            -DCMAKE_BUILD_TYPE=$(LLVM_BuildType)   \
+            -DCMAKE_CXX_FLAGS=$(LLVM_CXXFLAGS)     \
+            -DLLVM_USE_SANITIZER=$(LLVM_Sanitizer) \
+            -DMLIR_INCLUDE_TESTS=OFF"
+      displayName: CMake
+
+    - template: ./steps/linux/anybuild.yml
+      parameters:
+        BuildName: Verona-$(BuildType)-$(CC)-Asan$(Asan)-AnyBuild
+        BuildCommandLine: env CMAKE_BUILD_PARALLEL_LEVEL=${{ parameters.AnyBuildParallelism }} cmake --build .
+        WorkingDirectory: build
+
+    - template: ./steps/linux/test.yml
+      parameters:
+        WorkingDirectory: build
 
 ############################################## Windows Builds
-- job:
-  displayName: Windows
-  pool:
-    vmImage: 'windows-2019'
-  timeoutInMinutes: 120
-  strategy:
-    matrix:
-      RelWithDebInfo:
-        CXXFLAGS: '/EHsc /D _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING=1'
-        BuildType: RelWithDebInfo
-      Release:
-        CXXFLAGS: '/EHsc /D _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING=1'
-        BuildType: Release
+- stage: Windows
+  displayName: Windows (Verona)
+  dependsOn: []
+  jobs:
+  - job:
+    displayName: Windows
+    pool:
+      vmImage: 'windows-2019'
+    timeoutInMinutes: 120
+    strategy:
+      matrix:
+        RelWithDebInfo:
+          CXXFLAGS: '/EHsc /D _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING=1'
+          BuildType: RelWithDebInfo
+        Release:
+          CXXFLAGS: '/EHsc /D _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING=1'
+          BuildType: Release
 
-  steps:
-  - checkout: self
+    steps:
+    - checkout: self
 
-  - script: |
-      git submodule init
-      git submodule update --depth 1 --recursive
-    displayName: 'Checkout submodules'
+    - script: |
+        git submodule init
+        git submodule update --depth 1 --recursive
+      displayName: 'Checkout submodules'
 
-  - script:
-      pip install OutputCheck
-    displayName: 'Dependencies'
+    - script:
+        pip install OutputCheck
+      displayName: 'Dependencies'
 
 
-  - script: |
-      mkdir build
-      cd build
-      cmake .. -G"Visual Studio 16 2019" -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=ON -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
-    displayName: 'CMake'
+    - script: |
+        mkdir build
+        cd build
+        cmake .. -G"Visual Studio 16 2019" -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=ON -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
+      displayName: 'CMake'
 
-  - task: MSBuild@1
-    displayName: 'Compile'
-    inputs:
-      solution: build/verona.sln
-      msbuildArguments: '/m /p:Configuration=$(BuildType)'
+    - task: MSBuild@1
+      displayName: 'Compile'
+      inputs:
+        solution: build/verona.sln
+        msbuildArguments: '/m /p:Configuration=$(BuildType)'
 
-  - task: MSBuild@1
-    displayName: 'Test'
-    inputs:
-      solution: build/check.vcxproj
-      msbuildArguments: '/m /p:Configuration=$(BuildType)'
+    - task: MSBuild@1
+      displayName: 'Test'
+      inputs:
+        solution: build/check.vcxproj
+        msbuildArguments: '/m /p:Configuration=$(BuildType)'
 
-  - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
-    displayName: 'Component Detection'
-    inputs:
-      failOnAlert: true
+    - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
+      displayName: 'Component Detection'
+      inputs:
+        failOnAlert: true
 
 ############################################## MacOS Builds
-- job:
-  displayName: macOS
-  pool:
-    vmImage: 'macOS-10.14'
-  timeoutInMinutes: 120
-  strategy:
-    matrix:
-      Debug:
-        BuildType: Debug
-      Release:
-        BuildType: Release
+- stage: MacOS
+  displayName: macOS (Verona)
+  dependsOn: []
+  jobs:
+  - job:
+    displayName: macOS
+    pool:
+      vmImage: 'macOS-10.14'
+    timeoutInMinutes: 120
+    strategy:
+      matrix:
+        Debug:
+          BuildType: Debug
+        Release:
+          BuildType: Release
 
-  steps:
-  - checkout: self
+    steps:
+    - checkout: self
 
-  - script: |
-      set -eo pipefail
-      git submodule init
-      git submodule update --depth 1 --recursive
-    displayName: 'Checkout submodules'
+    - script: |
+        set -eo pipefail
+        git submodule init
+        git submodule update --depth 1 --recursive
+      displayName: 'Checkout submodules'
 
-  - script: |
-      set -eo pipefail
-      sudo pip3 install wheel OutputCheck
-    displayName:  'Dependencies'
+    - script: |
+        set -eo pipefail
+        sudo pip3 install wheel OutputCheck
+      displayName:  'Dependencies'
 
-  - task: CMake@1
-    displayName: 'CMake'
-    inputs:
-      cmakeArgs: |
-        .. -DCMAKE_BUILD_TYPE=$(BuildType) -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=ON
+    - task: CMake@1
+      displayName: 'CMake'
+      inputs:
+        cmakeArgs: |
+          .. -DCMAKE_BUILD_TYPE=$(BuildType) -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=ON
 
-  - script: |
-      set -eo pipefail
-      N=$(sysctl -n hw.ncpu)
-      make -j $N
-    workingDirectory: build
-    displayName: 'Compile'
+    - script: |
+        set -eo pipefail
+        N=$(sysctl -n hw.ncpu)
+        make -j $N
+      workingDirectory: build
+      displayName: 'Compile'
 
-  - script: |
-      set -eo pipefail
-      make check
-    workingDirectory: build/
-    displayName: 'Tests'
+    - script: |
+        set -eo pipefail
+        make check
+      workingDirectory: build/
+      displayName: 'Tests'

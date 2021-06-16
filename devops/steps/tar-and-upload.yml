@@ -5,13 +5,18 @@ parameters:
   type: string
 - name: PackageName
   type: string
+- name: PackageCommit
+  type: string
 - name: Md5Cmd
   type: string
 
 steps:
   - bash: |
       set -euo pipefail
-      readonly PKG_NAME="${{ parameters.PackageName }}"
+
+      readonly CommitLong="${{ parameters.PackageCommit }}"
+
+      PKG_NAME="${{ parameters.PackageName }}-${CommitLong:0:11}"
       rm -f $PKG_NAME.tar.gz
 
       echo "=== Creating a tarball from $(pwd)/${{ parameters.InstallDirRelativePath }}"
@@ -21,16 +26,11 @@ steps:
       echo "=== Computing md5 checksum"
       ${{ parameters.Md5Cmd }} $PKG_NAME.tar.gz | awk '{print $1}' > $PKG_NAME.tar.gz.md5
       cat $PKG_NAME.tar.gz.md5
-    workingDirectory: ${{ parameters.WorkingDir }}
-    displayName: Create Package
 
-  - bash: |
-      set -eo pipefail
-      readonly PKG_NAME="${{ parameters.PackageName }}"
       echo "=== Uploading $(pwd)/$PKG_NAME.tar.gz"
       az storage blob upload --container-name llvmbuild --file $PKG_NAME.tar.gz --name $PKG_NAME --connection-string "$(BLOB_CONNECTION_STRING)"
 
       echo "=== Uploading $(pwd)/$PKG_NAME.tar.gz.md5"
       az storage blob upload --container-name llvmbuild --file $PKG_NAME.tar.gz.md5 --name $PKG_NAME.md5 --connection-string "$(BLOB_CONNECTION_STRING)"
     workingDirectory: ${{ parameters.WorkingDir }}
-    displayName: Upload Package
+    displayName: Create and Upload Package
