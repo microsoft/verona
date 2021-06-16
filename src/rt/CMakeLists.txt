@@ -68,7 +68,7 @@ if(MSVC)
   set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG")
 else()
   find_package(Threads REQUIRED)
-  target_compile_options(verona_rt INTERFACE -mcx16 -march=native)
+  target_compile_options(verona_rt INTERFACE -mcx16)
 endif()
 
 if(USE_SCHED_STATS)

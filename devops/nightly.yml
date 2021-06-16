@@ -137,19 +137,6 @@ stages:
     - bash: |
         set -euo pipefail
 
-        # remove '-march=native' which is incompatible with remote execution
-        sed -i 's/ -march=native//g' src/rt/CMakeLists.txt
-
-        echo "=============="
-        echo "Patch applied:"
-        echo "=============="
-        echo
-        git diff
-      displayName: Configure AnyBuild
-
-    - bash: |
-        set -euo pipefail
-
         mkdir -p build
         cd build
         cmake                                      \
