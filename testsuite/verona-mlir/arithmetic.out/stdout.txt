@@ -571,7 +571,7 @@ module  {
     %16 = llvm.load %15 : !llvm.ptr<f64>
     return %16 : f64
   }
-  func @"$module-0__simple_unsigned"(%arg0: i32, %arg1: i32) {
+  func @"$module-0__simple_unsigned"(%arg0: i32, %arg1: i32) -> i32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
     %1 = llvm.alloca %c1_i32 x !llvm.struct<(i32, i32)> : (i32) -> !llvm.ptr<struct<(i32, i32)>>
@@ -587,7 +587,9 @@ module  {
     %8 = call @"$module-0__U32__+"(%5, %7) : (i32, i32) -> i32
     %9 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
     llvm.store %8, %9 : !llvm.ptr<i32>
-    return
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i32>, i32) -> !llvm.ptr<i32>
+    %11 = llvm.load %10 : !llvm.ptr<i32>
+    return %11 : i32
   }
   func @"$module-0__unsigned_upcast"(%arg0: i32, %arg1: i64) -> i64 {
     %c1_i32 = constant 1 : i32

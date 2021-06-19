@@ -74,7 +74,7 @@ namespace mlir::verona
     getField(Type type, llvm::StringRef fieldName);
 
     /// Looks up a symbol with the ast's view.
-    Value lookup(::verona::parser::Ast ast);
+    Value lookup(::verona::parser::Ast ast, bool lastContextOnly = false);
 
     /// Consumes a type.
     Type consumeType(::verona::parser::Type& ast);

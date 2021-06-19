@@ -30,19 +30,6 @@ namespace mlir::verona
     /// root module, the current module and a class, at the very least.
     llvm::SmallVector<llvm::StringRef, 5> functionScope;
 
-    /// Class info - keeps class struct type and field list until it's complete.
-    struct ClassInfo
-    {
-      StructType type;
-      FieldOffset fields;
-    };
-
-    /// Stack for classes in construction. Elements are all incomplete.
-    /// Classes get their fields assigned in program order, so non-top elements
-    /// may have some fields. Once the class is completed, it pops off the
-    /// stack.
-    std::stack<ClassInfo> classes;
-
     /// Get builder from generator. This must be used to build any MLIR node as
     /// it keeps the context where the last operations were inserted.
     OpBuilder& builder()
@@ -63,6 +50,21 @@ namespace mlir::verona
   /// before they get user in definitions.
   struct ASTDeclarations : ASTMLIRPass<ASTDeclarations>
   {
+  private:
+    /// Class info - keeps class struct type and field list until it's complete.
+    struct ClassInfo
+    {
+      StructType type;
+      FieldOffset fields;
+    };
+
+    /// Stack for classes in construction. Elements are all incomplete.
+    /// Classes get their fields assigned in program order, so non-top elements
+    /// may have some fields. Once the class is completed, it pops off the
+    /// stack.
+    std::stack<ClassInfo> classes;
+
+  public:
     ASTDeclarations(ASTConsumer& con, MLIRGenerator& gen)
     : ASTMLIRPass(con, gen)
     {}
@@ -96,12 +98,8 @@ namespace mlir::verona
       auto fields = classes.top().fields;
 
       // Set fields to the class' map, if any
-      if (mlir::failed(type.setBody(fields.types, /*packed*/ false)))
-      {
-        error() << node.location << "Error setting fields to class"
-                << text(node.location);
-        return;
-      }
+      auto set = mlir::succeeded(type.setBody(fields.types, /*packed*/ false));
+      assert(set && "Error setting fields to class");
 
       // Update the map between class types and their field names
       con.classFields.emplace(type.getAsOpaquePointer(), fields);
@@ -142,15 +140,13 @@ namespace mlir::verona
         retTy.push_back(con.consumeType(*node.result));
       }
 
-      // Push the function declaration into the module
+      // Generate the prototype
       auto name = con.mangleName(node.name.view(), functionScope);
-
-      // FIXME: This should not happen in a fully expanded AST
       auto func = gen.lookupSymbol<FuncOp>(name);
-      if (func)
-        return;
-
+      assert(!func && "Function redeclaration");
       func = gen.Proto(loc, name, types, retTy);
+
+      // Push the function declaration into the module
       gen.push_back(func);
     }
   };
@@ -169,13 +165,13 @@ namespace mlir::verona
     /// symbol table quite yet.
     std::stack<Value> operands;
 
-    /// Push operand into stack
+    /// Push operand into stack.
     void pushOperand(Value val)
     {
       operands.push(val);
     }
 
-    /// Take a value from the operands list.
+    /// Take a value from the operands list. Returns Value() if list empty.
     Value takeOperand(bool last = false)
     {
       if (operands.empty())
@@ -185,24 +181,6 @@ namespace mlir::verona
       if (last)
         assert(
           operands.empty() && "Mismatch on creating and consuming operands");
-      return val;
-    }
-
-    // Take a value from a reference or the retuls of previous operations.
-    Value takeValue(Ast node)
-    {
-      Value val;
-      // Value can be a reference (and the operand list must be empty)
-      if (node->kind() == Kind::Ref)
-      {
-        assert(operands.empty());
-        val = con.lookup(node);
-      }
-      // Or it can be the result of an operation
-      else
-      {
-        val = takeOperand();
-      }
       return val;
     }
 
@@ -216,8 +194,8 @@ namespace mlir::verona
     /// Class definition, type already exists, just keep the context up-to-date.
     void pre(Class& node)
     {
-      StringRef modName = node.id.view();
       // The root module has no name, doesn't need to be in the context
+      StringRef modName = node.id.view();
       if (!modName.empty())
         functionScope.push_back(modName);
 
@@ -267,29 +245,20 @@ namespace mlir::verona
     {
       // Check if needs to return a value at all
       if (gen.hasTerminator(builder().getBlock()))
+      {
+        symbolTable().popScope();
         return;
+      }
 
+      // Fetch the current function
       auto loc = con.getLocation(node);
       auto name = con.mangleName(node.name.view(), functionScope);
       auto func = gen.lookupSymbol<FuncOp>(name);
       assert(func && "Definition of an undeclared function");
 
       // Lower return value
-      bool needsReturn = !func.getType().getResults().empty();
-      if (needsReturn)
-      {
-        // FIXME: some values are being left over, inverstigate
-        assert(operands.size() == 1 && "Can only return one value");
-        auto opVal = takeOperand();
-        auto opTy = opVal.getType();
-        auto retTy = func.getType().getResults()[0];
-        assert(retTy == opTy && "Last operand and return types mismatch");
-        builder().create<ReturnOp>(loc, opVal);
-      }
-      else
-      {
-        builder().create<ReturnOp>(loc);
-      }
+      auto val = takeOperand(/*last=*/true);
+      gen.Return(loc, func, val);
 
       // Pop function's variable scope
       symbolTable().popScope();
@@ -297,6 +266,7 @@ namespace mlir::verona
 
     /// Local declarations (including temps) reserve a place on the symbol table
     /// FIXME: in the new AST, with types, the alloca will be done here
+    /// FIXME: Let and Var are indistinguishable at this stage, merge them
     void pre(Let& node)
     {
       symbolTable().insert(node.location.view(), Value());
@@ -304,6 +274,7 @@ namespace mlir::verona
 
     /// Local declarations reserve a place on the symbol table
     /// FIXME: in the new AST, with types, the alloca will be done here
+    /// FIXME: Let and Var are indistinguishable at this stage, merge them
     void pre(Var& node)
     {
       symbolTable().insert(node.location.view(), Value());
@@ -313,16 +284,17 @@ namespace mlir::verona
     void post(Oftype& node)
     {
       auto loc = con.getLocation(node);
-      assert(node.expr->kind() == Kind::Ref && "LHS oftype must be a ref");
-      auto name = node.expr->location.view();
+      assert(
+        node.expr->kind() == Kind::Ref && "oftype expression must be a ref");
 
       // Make sure the variable exists, but it's uninitialized
-      auto val = symbolTable().lookup(name, /*local scope*/ true);
-      assert(val == Value() && "LHS not declared or already has value");
+      auto val = con.lookup(node.expr, /*local scope*/ true);
+      assert(!val && "Expression already has type");
 
       // Alloca the right size and update the symbol table
       auto newTy = con.consumeType(*node.type);
       Value addr = gen.Alloca(loc, newTy);
+      auto name = node.expr->location.view();
       symbolTable().update(name, addr);
     }
 
@@ -333,7 +305,6 @@ namespace mlir::verona
       auto str = node.location.view();
       auto val = std::stol(str.data());
       auto type = builder().getIntegerType(64);
-      assert(type.isa<IntegerType>() && "Bad type for integer literal");
       auto op = builder().create<ConstantIntOp>(loc, val, type);
       pushOperand(op->getOpResult(0));
     }
@@ -344,10 +315,8 @@ namespace mlir::verona
       auto loc = con.getLocation(node);
       auto str = node.location.view();
       auto val = llvm::APFloat(std::stod(str.data()));
-      auto type = builder().getF64Type();
-      auto floatType = type.dyn_cast<FloatType>();
-      assert(floatType && "Bad type for float literal");
-      auto op = builder().create<ConstantFloatOp>(loc, val, floatType);
+      auto type = builder().getF64Type().dyn_cast<FloatType>();
+      auto op = builder().create<ConstantFloatOp>(loc, val, type);
       pushOperand(op->getOpResult(0));
     }
 
@@ -379,7 +348,6 @@ namespace mlir::verona
       // value in some cases, so we add an explicit "return" to force it.
       if (node.typenames[0]->location.view() == "return")
       {
-        // FIXME: some values are being left over, inverstigate
         assert(operands.empty());
         auto thisFunc =
           dyn_cast<FuncOp>(builder().getInsertionBlock()->getParentOp());
@@ -388,8 +356,8 @@ namespace mlir::verona
         {
           assert(rhs && "Return needs value but was given none");
           rhs = gen.AutoLoad(loc, rhs, thisFunc.getType().getResult(0));
-          pushOperand(rhs);
         }
+        gen.Return(loc, thisFunc, rhs);
         return;
       }
 
@@ -472,7 +440,9 @@ namespace mlir::verona
           }
         }
 
-        pushOperand(gen.Call(loc, funcOp, args));
+        auto ret = gen.Call(loc, funcOp, args);
+        if (funcOp.getType().getNumResults())
+          pushOperand(ret);
         return;
       }
 
@@ -497,6 +467,11 @@ namespace mlir::verona
 
     void pre(Assign& node)
     {
+      // FIXME: This is needed if the address has a type but the expression
+      // doesn't. This happens on arithmetic, for example, where the expresion
+      // is just a string and the return type is not always the same as the
+      // arguments (ex. truncate/extend). Once all AST nodes have types, this
+      // can be removed.
       auto lhs = con.lookup(node.left);
       if (lhs)
       {
@@ -514,7 +489,20 @@ namespace mlir::verona
     void post(Assign& node)
     {
       auto loc = con.getLocation(node);
-      auto val = takeValue(node.right);
+      Value val;
+      // Value can be a reference (and the operand list must be empty)
+      if (node.right->kind() == Kind::Ref)
+      {
+        assert(operands.empty());
+        val = con.lookup(node.right);
+      }
+      // Or it can be the result of an operation
+      else
+      {
+        assert(!operands.empty());
+        val = takeOperand();
+      }
+
       // Address is always a reference or an inline let/var
       auto addr = con.lookup(node.left);
 
@@ -535,28 +523,37 @@ namespace mlir::verona
           symbolTable().update(name, val);
           return;
         }
-        // Else, allocate some space to store val into it
+        // Else, allocate some space to store val into it (below)
         else
         {
           addr = gen.Alloca(loc, val.getType());
           symbolTable().update(name, addr);
         }
       }
+      // Either way, we must have a valid address by now
       assert(
         gen.isPointer(addr) && "Couldn't create an address for lhs in assign");
 
       // If both are addresses, we need to load from the RHS to be able to
-      // store into the LHS
+      // store into the LHS. We can't just alias (like above) because both
+      // addresses exist and have their own values and provenance.
       val = gen.AutoLoad(val.getLoc(), val);
 
-      // If LHS and RHS types don't match, do type conversion to make them
-      // match. This is specially important in literals, which still have
-      // largest types themselves (I64, F64).
+      // Types of LHS and RHS must match.
       auto addrTy = gen.getPointedType(addr);
       auto valTy = val.getType();
       assert(addrTy == valTy && "Assignment types must be the same");
 
       // TODO: Load the existing value to return, if the value is used.
+      //
+      // This isn't implemented yet because we track used values with the
+      // operands stack which would get out of sync if we load values that don't
+      // get used.
+      //
+      // Once the AST has all operands as references, the load would probably go
+      // to a temporary symbol and even if unused, there would be no operands
+      // stack to get misaligned.
+
       // Store the new value in the same address
       gen.Store(loc, addr, val);
     }
@@ -575,16 +572,18 @@ namespace mlir::verona
         auto type = val.getType();
         // FIXME: Currently, tuples and values are stored as pointers in the
         // symbol table and without explicit type on the temps we don't know
-        // if we want the value of the address. For now, we assume value.
+        // if we want the value of the address.
+        // For now, we assume value, but this is clearly wrong.
         if (gen.isPointer(val))
           type = gen.getPointedType(val);
         values.push_back(val);
         types.push_back(type);
       }
 
-      // When creating temporaries, we don't have the assign type yet, so we
-      // borrow from the value definition, which should be correct by now, if
-      // we don't create let expressions without explicit type definition.
+      // This creates a type from the declaration itself. This will be assigned
+      // to a variable that we assume has the exact same type, as type inference
+      // sould have occured by now.
+      // If the types mismatch, the assign will bail.
       auto tupleType = StructType::getLiteral(builder().getContext(), types);
       auto addr = gen.Alloca(loc, tupleType);
 
@@ -705,12 +704,12 @@ namespace mlir::verona
     return {0, Type(), false};
   }
 
-  Value ASTConsumer::lookup(::verona::parser::Ast ast)
+  Value ASTConsumer::lookup(::verona::parser::Ast ast, bool lastContextOnly)
   {
     if (!ast)
       return Value();
     auto name = ast->location.view();
-    return symbolTable().lookup(name);
+    return symbolTable().lookup(name, lastContextOnly);
   }
 
   Type ASTConsumer::consumeType(::verona::parser::Type& ast)
