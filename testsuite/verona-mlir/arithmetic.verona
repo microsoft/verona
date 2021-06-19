@@ -181,7 +181,7 @@ fp_upcast(a: F64, b: F32): F64
   return x;
 }
 
-simple_unsigned(a: U32, b: U32)
+simple_unsigned(a: U32, b: U32) : U32
 {
   // This is what a + b will be lowered to
   var x : U32 = U32::+(a, b);

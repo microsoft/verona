@@ -423,4 +423,27 @@ namespace mlir::verona
     auto value = op->getResult(0);
     return value;
   }
+
+  void MLIRGenerator::Return(Location loc, FuncOp& func, Value ret)
+  {
+    // Check if needs to return a value at all
+    if (hasTerminator(builder.getBlock()))
+      return;
+
+    // Lower return value
+    bool needsReturn = !func.getType().getResults().empty();
+    if (needsReturn)
+    {
+      assert(ret && "Function return value not found");
+      auto retTy = func.getType().getResults()[0];
+      assert(
+        retTy == ret.getType() && "Last operand and return types mismatch");
+      builder.create<ReturnOp>(loc, ret);
+    }
+    else
+    {
+      assert(!ret && "Value passed to function that returns void");
+      builder.create<ReturnOp>(loc);
+    }
+  }
 }

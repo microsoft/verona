@@ -151,5 +151,8 @@ namespace mlir::verona
 
     /// Generate an arithmetic call (known operation or intrinsic)
     Value Arithmetic(Location loc, StringRef name, Value ops, Type retTy);
+
+    /// Generate a return on the current basic block of the function
+    void Return(Location loc, FuncOp& func, Value ret);
   };
 }
