@@ -17,7 +17,7 @@ steps:
     set -euo pipefail
 
     echo "=== Downloading AnyBuild from $(AnyBuildSource)"
-    wget -O- $(AnyBuildSource)/bootstrapper.sh | bash -s $(AnyBuildSource) $(AnyBuildRing)
+    wget -O- $(AnyBuildSource)/bootstrapper.sh | bash
   displayName: Install AnyBuild Client
 
 - bash: |
