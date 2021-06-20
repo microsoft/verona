@@ -26,7 +26,7 @@ parameters:
   # number of parallel cmake jobs when building LLVM on Windows
   - name: CmakeJobsWindows
     type: number
-    default: 24
+    default: 48
 
 resources:
   repositories:
@@ -111,7 +111,7 @@ jobs:
 
       Remove-Item -Force -Recurse "$env:LOCALAPPDATA\Microsoft\AnyBuild" -ea SilentlyContinue
 
-      Invoke-Command -ScriptBlock ([scriptblock]::Create((New-Object System.Net.WebClient).DownloadString("$(AnyBuildSource)/bootstrapper.ps1"))) -ArgumentList ("$(AnyBuildSource)", "$(AnyBuildRing)")
+      Invoke-Command -ScriptBlock ([scriptblock]::Create((New-Object System.Net.WebClient).DownloadString("$(AnyBuildSource)/bootstrapper.ps1")))
     displayName: Install AnyBuild
 
   - script: |
@@ -133,6 +133,9 @@ jobs:
       set "PROCESSOR_REVISION="
       set "USERDOMAIN="
       set "USERDOMAIN_ROAMINGPROFILE="
+      set "IMAGEVERSION="
+      set "VSCMD_VER="
+      set "LLVM_COMMIT="
 
       set ServicePrincipalPassword=$(LLVMPrincipalPassword)
       call "%LOCALAPPDATA%\Microsoft\AnyBuild\AnyBuild.cmd" --EnableActionCache --WhyCacheMiss --WhyCacheMissOptions CacheDataStoreKey=LLVMVerona ${{ parameters.ExtraAnyBuildArgs }} --RemoteExecServiceUri $(AnyBuildEnvironmentUri) --ClientApplicationId $(LLVMPrincipalAppId) --ClientSecretEnvironmentVariable ServicePrincipalPassword --WaitForAgentForever --DoNotUseMachineUtilizationForScheduling -- ninja.exe -j ${{ parameters.CmakeJobsWindows }} install
@@ -236,7 +239,7 @@ jobs:
 
   - template: ./steps/linux/anybuild.yml
     parameters:
-      BuildName: LLVM-$(BuildType)-$(CC)-Asan$(Asan)-AnyBuild
+      BuildName: LLVM-$(BuildType)-$(CC)-AnyBuild
       BuildCommandLine: cmake --build . -- -j ${{ parameters.CmakeJobsLinux }} install
       WorkingDirectory: $(LlvmBuildDir)
       ExtraAnyBuildArgs: ${{ parameters.ExtraAnyBuildArgs }}
