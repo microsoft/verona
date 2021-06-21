@@ -1,0 +1,2 @@
+error at 4:27: syntax error
+Parsing failed

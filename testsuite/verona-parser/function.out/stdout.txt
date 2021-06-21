@@ -1,0 +1,38 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      $module-0
+      []
+      ()
+      [
+        (class U64 [] () [])
+        (function
+          foo
+          [
+            (typeparam N (imm ) ())
+            (typeparam
+              R
+              (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ])
+              ())
+          ]
+          [
+            (param a (typeref [ (typename N []) ]) ())
+            (param b (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ]) ())
+          ]
+          (typeref [ (typename R []) ])
+          (lambda
+            []
+            []
+            [
+              (let x)
+              (assign (ref x) (select (ref a) [ (typename + []) ] (ref b)))
+              (let r)
+              (oftype (ref r) (typeref [ (typename R []) ]))
+              (assign (ref r) (ref x))
+            ]))
+        (function apply [] [] () (lambda [] [] []))
+      ])
+  ])

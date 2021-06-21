@@ -3,11 +3,10 @@
 
 #pragma once
 
-#include "ast/ast.h"
-#include "dialect/VeronaDialect.h"
 #include "error.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"
+#include "parser/ast.h"
 
 #include "llvm/Support/SourceMgr.h"
 
@@ -35,13 +34,16 @@ namespace mlir::verona
     // this might be more thinking about the error API of the Driver.
 
     /// Lower an AST into an MLIR module, which is loaded in the driver.
-    llvm::Error readAST(const ::ast::Ast& ast);
+    llvm::Error readAST(::verona::parser::Ast ast);
 
     /// Read textual MLIR into the driver's module.
     llvm::Error readMLIR(const std::string& filename);
 
     /// Emit the module as textual MLIR.
     llvm::Error emitMLIR(const llvm::StringRef filename);
+
+    /// Emit the module as textual LLVM IR.
+    llvm::Error emitLLVM(const llvm::StringRef filename);
 
   private:
     /// MLIR context.
@@ -50,6 +52,9 @@ namespace mlir::verona
     /// MLIR module.
     /// It gets modified as the driver progresses through its passes.
     mlir::OwningModuleRef module;
+
+    /// Optimisation level (for both MLIR and LLVM IRs)
+    unsigned optLevel;
 
     /// MLIR Pass Manager
     /// It gets configured by the constructor based on the provided arguments.

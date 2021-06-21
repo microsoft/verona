@@ -1,40 +1,38 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
-#include "CLI/CLI.hpp"
-#include "ast/module.h"
-#include "ast/parser.h"
-#include "ast/pass.h"
-#include "ast/path.h"
-#include "ast/prec.h"
-#include "ast/ref.h"
-#include "ast/sugar.h"
-#include "ast/sym.h"
 #include "driver.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
+#include "parser/anf.h"
+#include "parser/dnf.h"
+#include "parser/parser.h"
+#include "parser/resolve.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/Path.h"
 
+#include <iostream>
+
 namespace
 {
   namespace cl = llvm::cl;
-  // Input file name
+  /// Input file name (- means stdin)
   cl::opt<std::string> inputFile(
     cl::Positional,
     cl::desc("<input file>"),
     cl::init("-"),
     cl::value_desc("filename"));
 
-  // Source file types, to choose how to parse
+  /// Source file kind
   enum class InputKind
   {
     None,
     Verona,
     MLIR
   };
+  /// Source file kind option
   cl::opt<enum InputKind> inputKind(
     "x",
     cl::init(InputKind::None),
@@ -42,7 +40,7 @@ namespace
     cl::values(clEnumValN(InputKind::Verona, "verona", "Verona file")),
     cl::values(clEnumValN(InputKind::MLIR, "mlir", "MLIR file")));
 
-  // Optimisations enabled
+  /// Optimisations enabled
   static cl::opt<unsigned> optLevel(
     "O",
     cl::desc("Optimization level. [-O0, -O1, -O2, or -O3] "
@@ -51,14 +49,20 @@ namespace
     cl::ZeroOrMore,
     cl::init(0));
 
-  // Output file
+  /// Which output to emit
+  static cl::opt<std::string> outputFmt(
+    "out",
+    cl::desc("Output format [mlir, llvm, asm, obj] "
+             "(default = 'mlir')"),
+    cl::Prefix,
+    cl::ZeroOrMore,
+    cl::init("mlir"));
+
+  /// Output file name (- means stdout)
   cl::opt<std::string> outputFile("o", cl::init(""), cl::desc("Output file"));
 
-  // Grammar file is not optional
-  std::string grammarFile;
-
-  // Set defaults form command line arguments
-  void cmdLineDefaults()
+  /// Set defaults form command line arguments
+  void cmdLineDefaults(const char* execName)
   {
     // Default input is stdin
     if (inputFile.empty())
@@ -94,12 +98,21 @@ namespace
         outputFile = newName.c_str();
       }
     }
+  }
 
-    // Default grammar
-    // FIXME: Move to llvm::sys::path, but LLVM's GetMainExecutable is horrible
-    grammarFile = path::directory(path::executable()).append("/grammar.peg");
+  /// Get Verona std library path
+  std::string getStdLibPath(const char* progName)
+  {
+    std::string exec = llvm::sys::fs::getMainExecutable(
+      progName, /*some function in this binary*/ (void*)getStdLibPath);
+    std::string path =
+      std::string(llvm::sys::path::parent_path(exec)) + "/stdlib/";
+    return path;
   }
 } // namespace
+
+using namespace verona::parser;
+using namespace mlir::verona;
 
 int main(int argc, char** argv)
 {
@@ -108,7 +121,7 @@ int main(int argc, char** argv)
 
   // Parse cmd-line options
   cl::ParseCommandLineOptions(argc, argv, "Verona MLIR Generator\n");
-  cmdLineDefaults();
+  cmdLineDefaults(argv[0]);
 
   if (inputKind == InputKind::None)
   {
@@ -121,27 +134,34 @@ int main(int argc, char** argv)
   llvm::ExitOnError check;
 
   // Parse the source file (verona/mlir)
+  mlir::OwningModuleRef module;
+  mlir::MLIRContext context;
   switch (inputKind)
   {
     case InputKind::Verona:
     {
       // Parse the file
-      err::Errors err;
-      pass::Passes passes = {{"sugar", sugar::build},
-                             {"sym", sym::build},
-                             {"ref", ref::build},
-                             {"prec", prec::build}};
-      auto m = module::build(
-        grammarFile, /*stopAt*/ "", passes, inputFile, "verona", err);
-      if (!err.empty())
+      auto stdlibpath = getStdLibPath(argv[0]);
+      auto [ok, ast] = parse(inputFile, stdlibpath);
+      ok = ok && dnf::wellformed(ast);
+
+      // Resolve types
+      ok = ok && resolve::run(ast);
+      ok = ok && resolve::wellformed(ast);
+
+      // Convert to A-norm
+      ok = ok && anf::run(ast);
+      ok = ok && anf::wellformed(ast);
+
+      if (!ok)
       {
         std::cerr << "ERROR: cannot parse Verona file " << inputFile
-                  << std::endl
-                  << err.to_s() << std::endl;
+                  << std::endl;
         return 1;
       }
+
       // Parse AST file into MLIR
-      check(driver.readAST(m->ast));
+      check(driver.readAST(ast));
     }
     break;
     case InputKind::MLIR:
@@ -153,7 +173,21 @@ int main(int argc, char** argv)
       return 1;
   }
 
-  check(driver.emitMLIR(outputFile));
+  // Dumps the module in the chosen format
+  if (outputFmt == "mlir")
+  {
+    check(driver.emitMLIR(outputFile));
+  }
+  else if (outputFmt == "llvm")
+  {
+    check(driver.emitLLVM(outputFile));
+  }
+  else
+  {
+    std::cerr << "Output format " << outputFmt << " not yet supported"
+              << std::endl;
+    return 1;
+  }
 
   return 0;
 }

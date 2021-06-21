@@ -1,0 +1,47 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      $module-0
+      []
+      ()
+      [
+        (using (typeref [ (modulename $module-1 []) ]))
+        (typealias
+          UInt
+          []
+          (isecttype [ (typeref [ (typename U64 []) ]) (imm ) ]))
+        (class Foo [] () [])
+        (class
+          Bar
+          []
+          ()
+          [
+            (typealias A [] (typeref [ (typename U64 []) ]))
+            (field a (typeref [ (typename A []) ]) ())
+            (function f [] [] () (lambda [] [] []))
+          ])
+      ])
+    (class
+      $module-1
+      []
+      ()
+      [
+        (class I8 [] () [])
+        (class I16 [] () [])
+        (class I32 [] () [])
+        (class I64 [] () [])
+        (class I128 [] () [])
+        (class ISize [] () [])
+        (class U8 [] () [])
+        (class U16 [] () [])
+        (class U32 [] () [])
+        (class U64 [] () [])
+        (class U128 [] () [])
+        (class USize [] () [])
+        (class F32 [] () [])
+        (class F64 [] () [])
+      ])
+  ])

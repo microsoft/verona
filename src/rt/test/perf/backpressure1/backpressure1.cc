@@ -162,7 +162,12 @@ int main(int argc, char** argv)
   for (size_t p = 0; p < proxies; p++)
     proxy_chain.push_back(new (alloc) Proxy(p));
 
-  Scheduler::add_external_event_source();
+  auto* e = new EmptyCown;
+  schedule_lambda(e, [] {
+    Systematic::cout() << "Add external event source" << std::endl;
+    Scheduler::add_external_event_source();
+  });
+
   auto thr = std::thread([=] {
     for (size_t i = 0; i < senders; i++)
     {
@@ -190,7 +195,11 @@ int main(int argc, char** argv)
         Cown::release(alloc, r);
     }
 
-    Scheduler::remove_external_event_source();
+    schedule_lambda(e, [e] {
+      Systematic::cout() << "Remove external event source" << std::endl;
+      Scheduler::remove_external_event_source();
+      Cown::release(ThreadAlloc::get(), e);
+    });
   });
 
   sched.run();

@@ -1,5 +1,5 @@
 [submodule "src/rt/external/snmalloc"]
-	path = src/rt/external/snmalloc
+	path = external/snmalloc
 	url = https://github.com/Microsoft/snmalloc
 	branch = master
 	shallow = true
@@ -14,11 +14,6 @@
 [submodule "external/fmt"]
 	path = external/fmt
 	url = https://github.com/fmtlib/fmt.git
-	shallow = true
-[submodule "external/cpp-peglib"]
-	path = external/cpp-peglib
-	url = https://github.com/yhirose/cpp-peglib.git
-	branch = master
 	shallow = true
 [submodule "external/llvm-project"]
 	path = external/llvm-project

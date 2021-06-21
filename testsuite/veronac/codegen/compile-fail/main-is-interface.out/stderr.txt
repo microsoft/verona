@@ -1,0 +1,4 @@
+main-is-interface.verona:4:11: error: 'Main' must be a class
+interface Main {
+          ^~~~
+1 error generated

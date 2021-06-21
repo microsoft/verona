@@ -1,0 +1,19 @@
+where-clause.verona:8:11: error: Cannot find value for symbol 'y'
+    where y in x
+          ^
+where-clause.verona:13:16: error: Cannot find value for symbol 'y'
+    where x in y
+               ^
+where-clause.verona:18:11: error: Cannot find value for symbol 'self'
+    where self in x
+          ^~~~
+where-clause.verona:23:16: error: Cannot find value for symbol 'self'
+    where x in self
+               ^~~~
+where-clause.verona:28:11: error: A is not a local variable
+    where A in x
+          ^
+where-clause.verona:33:16: error: A is not a local variable
+    where x in A
+               ^
+6 errors generated

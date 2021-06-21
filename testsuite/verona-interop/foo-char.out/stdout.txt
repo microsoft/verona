@@ -1,0 +1,3 @@
+Type 'SFoo' as Class Template
+Size of SFoo is 1 bytes
+Field 'innerFoo' has SubstTemplateTypeParm type 'char'

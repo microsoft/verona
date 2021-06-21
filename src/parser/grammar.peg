@@ -1,75 +1,58 @@
-# This is not (yet) a full grammar. The parser is not auto-generated from this
-# grammar.
+# The parser is not auto-generated from this grammar.
 
 # Type Arguments
 typeargs <- '[' type (',' type)* ']'
 
 # Types
-# Binding is: ref, tuple, view, function, isect, union
+# Binding is: ref, tuple, view, function, isect, throw, union
 tupletype <- '(' (type (',' type)*)? ')'
+typelist <- ident '...'
 typename <- ident typeargs?
 modulename <- string typeargs?
 typeref <- (modulename / typename) ('::' typename)*
-captype <- 'iso' / 'mut' / 'imm' / typeref
-viewtype <- (captype ('~>' / '<~'))* (captype / tupletype)
+captype <- 'iso' / 'mut' / 'imm' / 'Self' / tupletype / typelist / typeref
+viewtype <- captype (('~>' / '<~') captype)*
 functiontype <- viewtype ('->' functiontype)?
 isecttype <- functiontype ('&' functiontype)*
-uniontype <- isecttype ('|' isecttype)*
+throwtype <- 'throw'? isecttype
+uniontype <- throwtype ('|' throwtype)*
 type <- uniontype
 
-# Block Expressions
-lambda <- (signature / ident) '=>' expr
-case <- atom ('if' tuple)? block
-match <- 'match' tuple '{' case* '}'
-for <- 'for' '(' expr 'in' expr ')' block
-while <- 'while' tuple block
-if <- 'if' tuple block ('else' block)?
-when <- 'when' tuple block
-controlflow <- 'break' / 'continue' / 'return' expr? / 'yield' expr? / expr
-block <- '{' (expr ';'*)* controlflow? '}'
-blockexpr <- block / when / match / if / while / for / match / lambda
-
 # Atoms
-decl <- ('let' / 'var') ident
-new <- 'new' (tuple / typebody / type typebody) ('in' ident)?
+lambda <- '{' (typeparams? (param (',' param)*)? '=>')? (expr ';'*)* '}'
+try <- 'try' lambda 'catch' '{' lambda* '}'
+match <- 'match' postfix '{' lambda* '}'
+when <- 'when' postfix lambda
+new <- 'new' ('@' ident)? (tuple / typebody / type typebody)
 tuple <- '(' (expr (',' expr)*)? ')'
 constant <- string / character / float / int / hex / binary / 'true' / 'false'
 ref <- [local] ident
-### TODO: new and decl probably shouldn't be here
-atom <- staticref / ref / constant / tuple / new / decl
-
-# Operators
-staticname <- name typeargs?
-staticselect <- postfix ('::' staticname)+
-staticref <- [nonlocal] staticname ('::' staticname)*
-op <- staticref / staticselect
 
 # Expressions
-# Binding is: postfix, apply, infix, assign
-postfix <- atom ('.' name / typeargs)*
-apply <- op+ postfix* / postfix+
-applyblock <- apply? blockexpr
-infix <- apply (op apply)*
-inblock <- applyblock / infix (op applyblock)?
-expr <- inblock / infix oftype? ('=' expr)?
+atom <- tuple / constant / new / when / try / match / lambda
+selector <- name typeargs? ('::' name typeargs?)*
+select <- ('.' selector / typeargs) tuple?
+postfix <- (atom / ref typeargs? tuple?) select*
+infix <- (postfix / selector)+
+throw <- 'throw' expr
+decl <- ('let' / 'var') ident
+expr <- (decl / throw / infix) oftype? ('=' expr)?
 
 # Definitions
-param <- ident oftype? initexpr?
-params <- '(' param* ')'
-throws <- 'throws' type
-signature <- typeparams? params oftype? throws?
+param <- ident oftype? initexpr? / expr
+params <- '(' (param (',' param)*)? ')'
 
 initexpr <- '=' expr
 inittype <- '=' type
 oftype <- ':' type
-typeparam <- ident ofttype? inittype?
+typeparam <- ident '...'? ofttype? inittype?
 typeparams <- '[' typeparam (',' typeparam)* ']'
 typebody <- '{' member* '}'
 
 # Members
 name <- symbol / ident
 field <- ident oftype? initexpr? ';'
-function <- name? signature (block / ';')
+function <- name? typeparams? params oftype? (lambda / ';')
 using <- 'using' typeref ';'
 typealias <- 'type' ident typeparams? '=' type ';'
 entity <- typeparams? oftype?

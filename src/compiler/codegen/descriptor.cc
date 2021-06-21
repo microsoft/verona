@@ -65,7 +65,7 @@ namespace verona::compiler
       gen.u32(truncate<uint32_t>(info.methods.size()));
       gen.u32(rel_field_slots);
       gen.u32(rel_field_count);
-      gen.u32(info.subtypes.size());
+      gen.u32(truncate<uint32_t>(info.subtypes.size()));
 
       // Output label for finaliser for this class, if it has one.
       if (info.finaliser.label.has_value())
@@ -90,7 +90,7 @@ namespace verona::compiler
       gen.u32(0); // method_count
       gen.u32(0); // field_slots
       gen.u32(0); // field_count
-      gen.u32(info.subtypes.size());
+      gen.u32(truncate<uint32_t>(info.subtypes.size()));
       gen.u32(0); // finaliser
       emit_subtypes(info);
     }

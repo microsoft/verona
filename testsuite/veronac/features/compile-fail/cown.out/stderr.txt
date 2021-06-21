@@ -1,0 +1,4 @@
+cown.verona:16:3: error: Inference failed for method cown_fail
+  cown_fail(x: None & imm): None & imm
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~>
+1 error generated

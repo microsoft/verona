@@ -1,0 +1,51 @@
+module  {
+  func @"$module-0__foo"() -> i64 {
+    %c42_i64 = constant 42 : i64
+    return %c42_i64 : i64
+  }
+  llvm.mlir.global private constant @std.addi("std.addi")
+  func @"$module-0__bar"(%arg0: i64) -> i64 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %1 = call @"$module-0__foo"() : () -> i64
+    %c0_i32 = constant 0 : i32
+    %2 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %3 = llvm.load %2 : !llvm.ptr<i64>
+    %4 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %1, %4 : !llvm.ptr<i64>
+    %5 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %6 = llvm.mlir.addressof @std.addi : !llvm.ptr<array<8 x i8>>
+    %7 = llvm.alloca %c1_i32 x !llvm.struct<(i64, i64)> : (i32) -> !llvm.ptr<struct<(i64, i64)>>
+    %8 = llvm.getelementptr %7[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    llvm.store %arg0, %8 : !llvm.ptr<i64>
+    %9 = llvm.getelementptr %7[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    %10 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %11 = llvm.load %10 : !llvm.ptr<i64>
+    llvm.store %11, %9 : !llvm.ptr<i64>
+    %12 = llvm.getelementptr %7[%c0_i32, %c0_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    %13 = llvm.load %12 : !llvm.ptr<i64>
+    %14 = llvm.getelementptr %7[%c0_i32, %c1_i32] : (!llvm.ptr<struct<(i64, i64)>>, i32, i32) -> !llvm.ptr<i64>
+    %15 = llvm.load %14 : !llvm.ptr<i64>
+    %16 = addi %13, %15 : i64
+    %17 = llvm.getelementptr %5[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %18 = llvm.load %17 : !llvm.ptr<i64>
+    %19 = llvm.getelementptr %5[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %16, %19 : !llvm.ptr<i64>
+    %20 = llvm.getelementptr %5[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %21 = llvm.load %20 : !llvm.ptr<i64>
+    return %21 : i64
+  }
+  func @"$module-0__baz"(%arg0: i64) -> i64 {
+    %c1_i32 = constant 1 : i32
+    %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
+    %1 = call @"$module-0__bar"(%arg0) : (i64) -> i64
+    %c0_i32 = constant 0 : i32
+    %2 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %3 = llvm.load %2 : !llvm.ptr<i64>
+    %4 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    llvm.store %1, %4 : !llvm.ptr<i64>
+    %5 = llvm.getelementptr %0[%c0_i32] : (!llvm.ptr<i64>, i32) -> !llvm.ptr<i64>
+    %6 = llvm.load %5 : !llvm.ptr<i64>
+    return %6 : i64
+  }
+}

@@ -1,0 +1,4 @@
+main-has-arguments.verona:5:3: error: Method 'main' has an invalid signature
+  main(x: U64) { }
+  ^~~~
+1 error generated

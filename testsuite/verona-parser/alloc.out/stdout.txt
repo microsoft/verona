@@ -1,0 +1,168 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      $module-0
+      []
+      ()
+      [
+        (using (typeref [ (modulename $module-1 []) ]))
+        (class
+          C
+          [ (typeparam A () ()) ]
+          ()
+          [
+            (field f (isecttype [ (typeref [ (typename A []) ]) (mut ) ]) ())
+            (function
+              create
+              [
+                (typeparam
+                  S
+                  (isecttype
+                    [
+                      (typeref
+                        [ (typename C [ (typeref [ (typename A []) ]) ]) ])
+                      (mut )
+                    ])
+                  ())
+              ]
+              [
+                (param
+                  a
+                  (extracttype
+                    (typeref [ (typename S []) ])
+                    (isecttype [ (typeref [ (typename A []) ]) (mut ) ]))
+                  ())
+              ]
+              (typeref [ (typename S []) ])
+              (lambda [] [] [ (new a (ref a)) ]))
+          ])
+        (interface Any [] () [])
+        (class
+          Empty
+          []
+          ()
+          [
+            (function
+              create
+              []
+              []
+              (typeref [ (typename Empty []) ])
+              (lambda [] [] [ (new () ()) ]))
+            (function
+              apply
+              []
+              []
+              (typeref [ (typename Empty []) ])
+              (lambda [] [] [ (new () ()) ]))
+          ])
+        (class
+          One
+          []
+          ()
+          [
+            (field a (typeref [ (typename U32 []) ]) ())
+            (function
+              create
+              []
+              [ (param a (typeref [ (typename U32 []) ]) ()) ]
+              (typeref [ (typename One []) ])
+              (lambda [] [] [ (new () (ref a)) ]))
+          ])
+        (class
+          Two
+          []
+          ()
+          [
+            (field a (typeref [ (typename U32 []) ]) ())
+            (field b (typeref [ (typename F64 []) ]) ())
+            (function
+              create
+              []
+              [
+                (param a (typeref [ (typename U32 []) ]) ())
+                (param b (typeref [ (typename F64 []) ]) ())
+              ]
+              (typeref [ (typename Two []) ])
+              (lambda
+                []
+                []
+                [
+                  (assign (let $0) (tuple [ (ref a) (ref b) ]))
+                  (new () (ref $0))
+                ]))
+          ])
+        (function
+          foo
+          []
+          []
+          ()
+          (lambda
+            []
+            []
+            [
+              (let f)
+              (assign
+                (ref f)
+                (lambda
+                  [ (typeparam A (typeref [ (typename U64 []) ]) ()) ]
+                  [ (param a () ()) ]
+                  [
+                    (assign (let $0) (int 42))
+                    (select (ref a) [ (typename + []) ] (ref $0))
+                  ]))
+              (let e0)
+              (assign
+                (ref e0)
+                (select () [ (typename Empty []) (typename create []) ] ()))
+              (let e1)
+              (assign
+                (ref e1)
+                (select () [ (typename Empty []) (typename create []) ] ()))
+              (let e2)
+              (assign (ref e2) (object e (typeref [ (typename Empty []) ]) []))
+              (let one)
+              (assign (let $0) (lambda [] [] [ (int 42) ]))
+              (assign
+                (ref one)
+                (object
+                  ()
+                  (typeref [ (typename One []) ])
+                  [ (field a (typeref [ (typename U32 []) ]) (ref $0)) ]))
+              (let two)
+              (assign (let $1) (lambda [] [] [ (int 42) ]))
+              (assign (let $2) (lambda [] [] [ (float 3.14) ]))
+              (assign
+                (ref two)
+                (object
+                  one
+                  (typeref [ (typename Two []) ])
+                  [
+                    (field a (typeref [ (typename U32 []) ]) (ref $1))
+                    (field b (typeref [ (typename F64 []) ]) (ref $2))
+                  ]))
+            ]))
+      ])
+    (class
+      $module-1
+      []
+      ()
+      [
+        (class I8 [] () [])
+        (class I16 [] () [])
+        (class I32 [] () [])
+        (class I64 [] () [])
+        (class I128 [] () [])
+        (class ISize [] () [])
+        (class U8 [] () [])
+        (class U16 [] () [])
+        (class U32 [] () [])
+        (class U64 [] () [])
+        (class U128 [] () [])
+        (class USize [] () [])
+        (class F32 [] () [])
+        (class F64 [] () [])
+      ])
+  ])

@@ -52,7 +52,7 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       update_buffer_push(new_o);
       flush_some(alloc);
-      Scheduler::yield_my_turn();
+      yield();
 #else
       if constexpr (!std::is_fundamental_v<T>)
       {
@@ -60,7 +60,7 @@ namespace verona::rt
         auto local_content = get<T>();
         Systematic::cout() << "Updating noticeboard " << this << " old value "
                            << local_content << " new value " << new_o
-                           << std::endl;
+                           << Systematic::endl;
         e.dec_in_epoch(local_content);
         put(new_o);
       }
@@ -86,8 +86,8 @@ namespace verona::rt
           // only protect incref with epoch
           Epoch e(alloc);
           local_content = get<T>();
-          Systematic::cout()
-            << "Inc ref from noticeboard peek" << local_content << std::endl;
+          Systematic::cout() << "Inc ref from noticeboard peek" << local_content
+                             << Systematic::endl;
           local_content->incref();
         }
         // It's possible that the following three things happen:
@@ -99,8 +99,8 @@ namespace verona::rt
         // to be scanned.
         if (Scheduler::should_scan())
         {
-          Systematic::cout()
-            << "Scan from noticeboard peek" << local_content << std::endl;
+          Systematic::cout() << "Scan from noticeboard peek" << local_content
+                             << Systematic::endl;
           ObjectStack f(alloc);
           local_content->trace(f);
           Cown::scan_stack(alloc, Scheduler::epoch(), f);

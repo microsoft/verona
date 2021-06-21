@@ -110,39 +110,6 @@ namespace ext_ref_basic
     }
   };
 
-  struct AMsg : public VBehaviour<AMsg>
-  {
-    A* a;
-    B* b;
-    ExternalRef* ext_node;
-
-    Node* get()
-    {
-      return (Node*)ext_node->get();
-    }
-
-    void f()
-    {
-      auto alloc = ThreadAlloc::get();
-
-      auto list = a->list;
-      check(ext_node->is_in(Region::get(g_list)));
-      auto node = get();
-
-      node->prev->next = node->next;
-      node->next->prev = node->prev;
-
-      node->element = nullptr;
-      RegionTrace::gc(alloc, list);
-
-      check(!ext_node->is_in(Region::get(g_list)));
-      Immutable::release(alloc, ext_node);
-    }
-
-    AMsg(A* a, B* b_, ExternalRef* ext_node_) : a(a), b{b_}, ext_node{ext_node_}
-    {}
-  };
-
   // Illustrating a scenario, where cown A holds a doubly-linked list, with
   // each node holds a ref to cown B. When cown B decides to remove itself
   // from this list, it could send an message to cown A. Upon receiving this
@@ -165,8 +132,24 @@ namespace ext_ref_basic
 
     // Aliasing ext_node in AMsg.
     Immutable::acquire(b->ext_node);
-    Cown::schedule<AMsg>(g_a, g_a, b, b->ext_node);
+    auto a = g_a;
+    auto ext_node = b->ext_node;
+    schedule_lambda(a, [a, ext_node]() {
+      auto alloc = ThreadAlloc::get();
 
+      auto list = a->list;
+      check(ext_node->is_in(Region::get(g_list)));
+      auto node = (Node*)ext_node->get();
+
+      node->prev->next = node->next;
+      node->next->prev = node->prev;
+
+      node->element = nullptr;
+      RegionTrace::gc(alloc, list);
+
+      check(!ext_node->is_in(Region::get(g_list)));
+      Immutable::release(alloc, ext_node);
+    });
     Cown::release(alloc, g_a);
     sched.run();
     snmalloc::current_alloc_pool()->debug_check_empty();

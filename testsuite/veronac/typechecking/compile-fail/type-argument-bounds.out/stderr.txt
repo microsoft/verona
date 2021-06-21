@@ -1,0 +1,19 @@
+type-argument-bounds.verona:13:7: error: Type argument '(U64 & imm(none))' for 'A' does not satisfy its bound 'IHasFoo'
+  f1: A[U64 & imm];
+      ^~~~~~~~~~~~
+type-argument-bounds.verona:15:7: error: Type argument 'X' for 'A' does not satisfy its bound 'IHasFoo'
+  f2: A[X];
+      ^~~~
+type-argument-bounds.verona:19:9: error: Type argument '(U64 & imm(none))' for 'A' does not satisfy its bound 'IHasFoo'
+  m1(x: A[U64 & imm]) { }
+        ^~~~~~~~~~~~
+type-argument-bounds.verona:21:9: error: Type argument 'X' for 'A' does not satisfy its bound 'IHasFoo'
+  m2(x: A[X]) { }
+        ^~~~
+type-argument-bounds.verona:23:12: error: Type argument 'Y' for 'A' does not satisfy its bound 'IHasFoo'
+  m3[Y](x: A[Y]) { }
+           ^~~~
+type-argument-bounds.verona:25:9: error: Type argument '(U64 & imm(none))' for 'A' does not satisfy its bound 'IHasFoo'
+  m4[Y: A[U64 & imm]]() { }
+        ^~~~~~~~~~~~
+6 errors generated

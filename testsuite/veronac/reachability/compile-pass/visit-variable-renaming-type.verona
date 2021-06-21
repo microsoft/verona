@@ -1,0 +1,24 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+/*
+ * This test checks https://github.com/microsoft/verona/issues/67
+ */
+
+class B {
+  foo(self: mut) {}
+}
+
+class Main {
+  test()
+  {
+    var b = new B;
+    var mutb = mut-view b;
+    while (1) {
+      mutb.foo();
+    };
+  }
+
+  main() {
+  }
+}

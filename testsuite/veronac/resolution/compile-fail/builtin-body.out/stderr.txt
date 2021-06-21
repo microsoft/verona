@@ -1,0 +1,4 @@
+builtin-body.verona:6:11: error: Builtin method 'foo' in 'Main' must not have a body
+  builtin foo() { }
+          ^~~
+1 error generated

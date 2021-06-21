@@ -518,13 +518,25 @@ namespace verona::compiler
       // Draw tildes to either the end of the line or the last character of the
       // specified range, whichever comes first.
       size_t end = endloc.column;
+
+      // Fix for files with DOS line endings, which affect how many characters
+      // are on the rest of the line.
+      buffer.erase(
+        std::remove(buffer.begin(), buffer.end(), '\r'), buffer.end());
+
+      std::string terminator("");
       if ((loc.filename != endloc.filename) || (loc.line != endloc.line))
       {
         end = buffer.size();
+        terminator = ">";
       }
       std::string tildes(
         (end > loc.column + 1) ? end - loc.column - 1 : 0, '~');
-      s << format(fmt::emphasis::bold | fg(fmt::color::lime), "^{}\n", tildes);
+      s << format(
+        fmt::emphasis::bold | fg(fmt::color::lime),
+        "^{}{}\n",
+        tildes,
+        terminator);
     }
 
     /**

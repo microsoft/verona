@@ -118,11 +118,9 @@ namespace ubench
   static void start_timer(Monitor* monitor, std::chrono::milliseconds timeout)
   {
     rt::Cown::acquire(monitor);
-    rt::Scheduler::add_external_event_source();
     std::thread([=]() mutable {
       std::this_thread::sleep_for(timeout);
       rt::Cown::schedule<Stop, rt::YesTransfer>((rt::Cown*)monitor, monitor);
-      rt::Scheduler::remove_external_event_source();
     }).detach();
   }
 
@@ -134,6 +132,7 @@ namespace ubench
 
     void f()
     {
+      rt::Scheduler::add_external_event_source();
       for (auto* p : monitor->pingers)
       {
         p->count = 0;
@@ -189,6 +188,9 @@ namespace ubench
         return;
 
       rt::Cown::schedule<Report>(all_cowns_count, all_cowns, monitor);
+
+      // Drop count, Start will reincrease if more external work is needed.
+      rt::Scheduler::remove_external_event_source();
 
       if (--monitor->report_count != 0)
         rt::Cown::schedule<Start>(all_cowns_count, all_cowns, monitor);
@@ -266,7 +268,6 @@ int main(int argc, char** argv)
   all_cowns = (rt::Cown**)alloc->alloc(all_cowns_count * sizeof(rt::Cown*));
   memcpy(all_cowns, pinger_set.data(), pinger_set.size() * sizeof(rt::Cown*));
   all_cowns[pinger_set.size()] = monitor;
-
   rt::Cown::schedule<ubench::Start>(all_cowns_count, all_cowns, monitor);
 
   sched.run();

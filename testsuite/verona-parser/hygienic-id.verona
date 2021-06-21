@@ -1,0 +1,43 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+// Test hygienic ids are module-wide
+
+// No hygienic ids are currently generated
+/*
+class U32 {}
+class List[T] {}
+
+for_sum(x: List[U32]) : U32
+{
+  let sum: U32 = 0;
+  // $0
+  for (let a in x.values()) {
+    sum = sum + a;
+  }
+  // $1
+  for (let a in x.values()) {
+    sum = sum + a;
+    // $2
+    for (let a in x.values()) {
+      sum = sum + a;
+    }
+  }
+  if (x.has_values())
+  {
+    // $3
+    for (let a in x.values()) {
+      sum = sum + a;
+    }
+  }
+  else
+  {
+    // $4
+    for (let a in x.values()) {
+      sum = sum + a;
+    }
+  }
+
+  return sum;
+}
+*/

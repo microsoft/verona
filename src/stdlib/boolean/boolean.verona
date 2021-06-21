@@ -1,0 +1,44 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+class Bool
+{
+  (self: Bool): Bool { self }
+  bool(self: Bool): Bool { self }
+}
+
+interface ToBool
+{
+  bool(self: Self): Bool;
+}
+
+// `and` and `or` take lambdas for the rhs to allow short-circuiting, i.e. lazy
+// evaluation. However, any type that has an apply method that returns itself
+// can be passed as well, allowing strict evaluation.
+and[T: ToBool, U](a: T, b: ()->U): T | U
+{
+  match (bool a)
+  {
+    // Because `a` is "falsey", return it directly.
+    { false => a }
+    { true => b() }
+  }
+}
+
+or[T: ToBool, U](a: T, b: ()->U): T | U
+{
+  match (bool a)
+  {
+    // Because `a` is "truthey", return it directly.
+    { true => a }
+    { false => b() }
+  }
+}
+
+not[T: ToBool](a: T): Bool
+{
+  match (bool a)
+  {
+    { true => false }
+    { false => true }
+  }
+}

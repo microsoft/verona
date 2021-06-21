@@ -1,0 +1,44 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+
+using "numbers";
+
+// This needs to be here until "numbers" implement it
+trunc_64_8(arg: I64) : I8
+{
+  let res : I8 = "std.trunci"(arg);
+  return res;
+}
+trunc_64_16(arg: I64) : I16
+{
+  let res : I16 = "std.trunci"(arg);
+  return res;
+}
+trunc_64_32(arg: I64) : I32
+{
+  let res : I32 = "std.trunci"(arg);
+  return res;
+}
+ext_64_128(arg: I64) : I128
+{
+  let res : I128 = "std.sexti"(arg);
+  return res;
+}
+truncf_64_32(arg: F64) : F32
+{
+  let res : F32 = "std.fptrunc"(arg);
+  return res;
+}
+
+foo()
+{
+  let i8 : I8 = trunc_64_8(10);
+  let i16 : I16 = trunc_64_16(123123);
+  let i32 : I32 = trunc_64_32(1000000000);
+  let i64 : I64 = 2000000000;
+  let i128 : I128 = ext_64_128(1234567890);
+  // Testing ISize is platform dependent.
+  // let iSize : ISize = 12345;
+  let f32 : F32 = truncf_64_32(3.1415e20);
+  let f64 : F64 = 3.1415e123;
+}

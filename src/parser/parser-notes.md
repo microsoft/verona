@@ -1,12 +1,9 @@
 # Parser Notes
 
+* `\` for "without" types
 * allow `using` inside a function
-* put precedence paren forcing back in
-* special type: Self
 * inheritance
-* try/catch
-* update sugar
-  should we instead have Ref[T] or Ref[T, U]?
+* Ref[T] instead of update sugar
 * distinguishing value parameters from type parameters
 * constant expressions
 * yield transformation
@@ -15,15 +12,12 @@
 
 ## Open Questions
 
-* lambdas and object literals: are they ever block expressions?
 * transform an object literal into an anonymous class and a create call
   needs free variable analysis
   could do the same thing for lambdas
   might not want to do either as they have type checking implications
-* `where` might need to have non-type constraints
-* do we need default capabilities for types
-* short-circuiting
-  lazy type, or lambdas
+* type parameters might need to have non-type constraints
+* default capabilities for types
 
 ## Public/Private
 

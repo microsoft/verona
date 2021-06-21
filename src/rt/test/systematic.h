@@ -29,31 +29,59 @@
 namespace Systematic
 {
 #ifdef USE_SYSTEMATIC_TESTING
-  static inline xoroshiro::p128r32& get_rng()
+  /// Return a mutable reference to the pseudo random number generator (PRNG).
+  /// It is assumed that the PRNG will only be setup once via `set_seed`. After
+  /// it is setup, the PRNG must only be used via `get_prng_next`.
+  static inline xoroshiro::p128r32& get_prng_for_setup()
   {
-    static thread_local xoroshiro::p128r32 rng;
-    return rng;
+    static xoroshiro::p128r32 prng;
+    return prng;
   }
 
-  static inline verona::Scramble& get_scrambler()
+  /// Return the next pseudo random number.
+  static inline uint32_t get_prng_next()
   {
-    static thread_local verona::Scramble scrambler;
+    auto& prng = get_prng_for_setup();
+    static std::atomic_flag lock;
+    snmalloc::FlagLock l{lock};
+    return prng.next();
+  }
+
+  /// Return a mutable reference to the scrambler. It is assumed that the
+  /// scrambler will only be setup once via `set_seed`. After it is setup, the
+  /// scrambler must only be accessed via a const reference
+  /// (see `get_scrambler`).
+  static inline verona::Scramble& get_scrambler_for_setup()
+  {
+    static verona::Scramble scrambler;
     return scrambler;
+  }
+
+  /// Return a const reference to the scrambler.
+  static inline const verona::Scramble& get_scrambler()
+  {
+    return get_scrambler_for_setup();
   }
 
   static inline void set_seed(uint64_t seed)
   {
-    auto& rng = get_rng();
+    auto& rng = get_prng_for_setup();
     rng.set_state(seed);
-    get_scrambler().setup(rng);
+    get_scrambler_for_setup().setup(rng);
   }
 
   /// 1/(2^range_bits) likelyhood of returning true
   static inline bool coin(size_t range_bits = 1)
   {
     assert(range_bits < 20);
-    return (get_rng().next() & ((1ULL << range_bits) - 1)) == 0;
+    return (get_prng_next() & ((1ULL << range_bits) - 1)) == 0;
   }
+#endif
+
+#ifdef USE_SYSTEMATIC_TESTING
+  static constexpr bool systematic = true;
+#else
+  static constexpr bool systematic = false;
 #endif
 
 #ifdef USE_FLIGHT_RECORDER
@@ -81,7 +109,7 @@ namespace Systematic
   };
 
   // Filled in later by the scheduler thread
-  size_t get_systematic_id();
+  std::string get_systematic_id();
 
   class LocalLog : public snmalloc::Pooled<LocalLog>
   {
@@ -99,7 +127,7 @@ namespace Systematic
 #endif
     size_t index;
     size_t working_index;
-    size_t systematic_id = (size_t)-1;
+    std::string systematic_id = "";
     verona::rt::AsymmetricLock alock;
 
     Entry log[size];
@@ -187,11 +215,7 @@ namespace Systematic
 
       time = log[index % size].header.time;
 
-      auto offset = static_cast<int>(systematic_id % 9);
-      if (offset != 0)
-        o << std::setw(offset) << " ";
       o << systematic_id;
-      o << std::setw(9 - offset) << " ";
 
       index = (index - entry_size + size) % size;
       working_index = working_index - entry_size;
@@ -238,74 +262,77 @@ namespace Systematic
 
     static void dump(std::ostream& o)
     {
-      o << "Crash log begins with most recent events" << std::endl;
-
-      o << "THIS IS BACKWARDS COMPARED TO THE NORMAL LOG!" << std::endl;
-
-      // Set up all logs for dumping
-      auto curr = global_logs().iterate();
-      auto mine = get().log;
-
-      while (curr != nullptr)
+      if constexpr (flight_recorder)
       {
-        curr->suspend_logging(curr != mine);
-        curr = global_logs().iterate(curr);
-      }
+        o << "Crash log begins with most recent events" << std::endl;
 
-      LocalLog* next = nullptr;
-      while (true)
-      {
-        next = nullptr;
-        size_t t1 = 0;
-        curr = global_logs().iterate();
+        o << "THIS IS BACKWARDS COMPARED TO THE NORMAL LOG!" << std::endl;
+
+        // Set up all logs for dumping
+        auto curr = global_logs().iterate();
+        auto mine = get().log;
 
         while (curr != nullptr)
         {
-          size_t t2;
-          if (curr->peek_time(t2))
-          {
-            if (next == nullptr || t1 < t2)
-            {
-              next = curr;
-              t1 = t2;
-            }
-          }
+          curr->suspend_logging(curr != mine);
           curr = global_logs().iterate(curr);
         }
 
-        if (next == nullptr)
-          break;
+        LocalLog* next = nullptr;
+        while (true)
+        {
+          next = nullptr;
+          size_t t1 = 0;
+          curr = global_logs().iterate();
 
-        next->pop_and_print(o);
+          while (curr != nullptr)
+          {
+            size_t t2;
+            if (curr->peek_time(t2))
+            {
+              if (next == nullptr || t1 < t2)
+              {
+                next = curr;
+                t1 = t2;
+              }
+            }
+            curr = global_logs().iterate(curr);
+          }
+
+          if (next == nullptr)
+            break;
+
+          next->pop_and_print(o);
+        }
+
+        curr = global_logs().iterate();
+        while (curr != nullptr)
+        {
+          curr->resume_logging(curr != mine);
+          curr = global_logs().iterate(curr);
+        }
+
+        o.flush();
       }
-
-      curr = global_logs().iterate();
-      while (curr != nullptr)
-      {
-        curr->resume_logging(curr != mine);
-        curr = global_logs().iterate(curr);
-      }
-
-      o.flush();
     }
   };
 
   template<typename T>
-  std::ostream& pretty_printer(std::ostream& os, T const& e)
+  static std::ostream& pretty_printer(std::ostream& os, T const& e)
   {
     return os << e;
   }
   class SysLog
   {
-#ifdef USE_SYSTEMATIC_TESTING
-    static constexpr bool systematic = true;
-#else
-    static constexpr bool systematic = false;
-#endif
-
   private:
     std::ostream* o;
     bool first;
+
+    static stringstream& get_ss()
+    {
+      static thread_local stringstream ss;
+      return ss;
+    }
 
     inline static bool& get_logging()
     {
@@ -324,16 +351,11 @@ namespace Systematic
         {
           if (first)
           {
-            auto id = get_systematic_id();
-            auto offset = static_cast<int>(id % 9);
-            if (offset != 0)
-              *o << std::setw(offset) << " ";
-            *o << id;
-            *o << std::setw(9 - offset) << " ";
+            get_ss() << get_systematic_id();
             first = false;
           }
 
-          *o << value;
+          get_ss() << value;
         }
       }
 
@@ -362,16 +384,19 @@ namespace Systematic
     }
 #endif
 
-    static void dump_flight_recorder(size_t id = 0)
+    static void dump_flight_recorder(std::string id = "")
     {
       static std::atomic_flag dump_in_progress = ATOMIC_FLAG_INIT;
 
       snmalloc::FlagLock f(dump_in_progress);
 
-      std::cerr << "Dump started by " << (id != 0 ? id : get_systematic_id())
-                << std::endl;
-      ThreadLocalLog::dump(std::cerr);
-      std::cerr << "Dump complete!" << std::endl;
+      if constexpr (flight_recorder)
+      {
+        std::cerr << "Dump started by " << (id != "" ? id : get_systematic_id())
+                  << std::endl;
+        ThreadLocalLog::dump(std::cerr);
+        std::cerr << "Dump complete!" << std::endl;
+      }
     }
 
     inline SysLog& operator<<(const char* value)
@@ -397,7 +422,9 @@ namespace Systematic
       {
         if (get_logging())
         {
-          *o << f;
+          get_ss() << f;
+          *o << get_ss().str();
+          get_ss().str(""); // Clear the stream
           o->flush();
           first = true;
         }
@@ -415,7 +442,7 @@ namespace Systematic
     }
   };
 
-#if defined(USE_FLIGHT_RECORDER) && defined(_MSC_VER)
+#if defined(CI_BUILD) && defined(_MSC_VER)
   inline LONG ExceptionHandler(_EXCEPTION_POINTERS* ExceptionInfo)
   {
     // On any exception dump the flight recorder
@@ -481,15 +508,21 @@ namespace Systematic
     return EXCEPTION_CONTINUE_SEARCH;
   }
 
-#elif defined(USE_FLIGHT_RECORDER) && defined(USE_EXECINFO)
+#elif defined(CI_BUILD) && defined(USE_EXECINFO)
   static std::mutex mutx;
   static std::condition_variable cv;
   static void* stack_frames = nullptr;
   static int n_frames = 0;
-  static size_t systematic_id = 0;
+  static std::string systematic_id = "";
 
   inline static void signal_handler(int sig, siginfo_t*, void*)
   {
+    static std::atomic<bool> run_already = false;
+
+    if (run_already)
+      abort();
+    run_already = true;
+
     auto str = strsignal(sig);
 
     // We're ignoring the result of write, as there's not much we can do if it
@@ -580,9 +613,9 @@ namespace Systematic
 
   inline static void enable_crash_logging()
   {
-#if defined(USE_FLIGHT_RECORDER) && defined(_MSC_VER)
+#if defined(CI_BUILD) && defined(_MSC_VER)
     AddVectoredExceptionHandler(0, &ExceptionHandler);
-#elif defined(USE_FLIGHT_RECORDER) && defined(USE_EXECINFO)
+#elif defined(CI_BUILD) && defined(USE_EXECINFO)
     static std::thread thr = std::thread(&crash_dump);
     thr.detach();
     std::atexit([] {
@@ -597,6 +630,8 @@ namespace Systematic
     sa.sa_flags = SA_SIGINFO;
     sigaction(SIGABRT, &sa, nullptr);
     sigaction(SIGILL, &sa, nullptr);
+    sigaction(SIGINT, &sa, nullptr);
+    sigaction(SIGTERM, &sa, nullptr);
     sigaction(SIGSEGV, &sa, nullptr);
     sigaction(SIGSYS, &sa, nullptr);
 #endif
@@ -611,5 +646,15 @@ namespace Systematic
   {
     static SysLog cout_log;
     return cout_log;
+  }
+
+  inline ostream& endl(ostream& os)
+  {
+    if constexpr (systematic || flight_recorder)
+    {
+      os << std::endl;
+    }
+
+    return os;
   }
 } // namespace Systematic

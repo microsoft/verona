@@ -1,0 +1,3 @@
+Type 'TFoo' as Class Template
+Size of TFoo is 8 bytes
+Field 'innerFoo' has SubstTemplateTypeParm type 'double'

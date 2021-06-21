@@ -1,0 +1,45 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+using "iterators";
+using "numbers";
+
+class List[T] {}
+
+// This for loop
+
+for_sum(x: List[U32]) : U32
+{
+  var sum: U32 = 0;
+
+  // `a` is a local variable in the loop's context
+  // `x.values()` is any expression that yields an iterator
+  for (values x)
+  {
+    a =>
+    sum = sum + a
+  }
+
+  sum
+}
+
+// Does the same as this while loop
+
+while_sum(x: List[U32]) : U32
+{
+  var sum: U32 = 0;
+  let iter = x.values();
+
+  while { iter.has_value() }
+  {
+    // This has to be `a`, same as in the for loop above
+    let a = iter();
+
+    // Increments the iterator
+    next iter;
+
+    // This is the body of the for loop
+    sum = sum + a
+  }
+
+  sum
+}

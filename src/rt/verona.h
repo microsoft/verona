@@ -7,6 +7,7 @@
 #  define SNMALLOC_USE_THREAD_DESTRUCTOR 1
 #endif
 
+#include "cpp/lambdabehaviour.h"
 #include "cpp/vbehaviour.h"
 #include "cpp/vobject.h"
 #include "object/object.h"

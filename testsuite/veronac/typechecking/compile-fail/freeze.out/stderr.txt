@@ -1,0 +1,13 @@
+freeze.verona:10:3: error: Inference failed for method test1
+  test1(x: A & imm) {
+  ^~~~~~~~~~~~~~~~~~>
+freeze.verona:15:3: error: Inference failed for method test2
+  test2[X](x: X) {
+  ^~~~~~~~~~~~~~~>
+freeze.verona:20:3: error: Inference failed for method test3
+  test3(x: A & (iso | imm)) {
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~>
+freeze.verona:25:3: error: Inference failed for method test4
+  test4(x: A & mut) {
+  ^~~~~~~~~~~~~~~~~~>
+4 errors generated

@@ -1,0 +1,42 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+class Less {}
+class Equal {}
+class Greater {}
+type Compare = Less | Equal | Greater;
+
+// `Equatable` is the structural type of things that can be compared for
+// equality to other things.
+interface Equatable[T]
+{
+  ==(self: Self, other: T): Bool;
+
+  !=(self: Self, other: T): Bool
+  {
+    not (self == other)
+  }
+}
+
+interface Comparable[T]: Equatable[T]
+{
+  <(self: Self, other: T): Bool;
+  <=(self: Self, other: T): Bool { (self < other) or (self == other) }
+  >=(self: Self, other: T): Bool { not (self < other) }
+  >(self: Self, other: T): Bool { not (self <= other) }
+
+  <=>(self: Self, other: T): Compare
+  {
+    if (self < other)
+    {
+      Less
+    }
+    elseif (self == other)
+    {
+      Equal
+    }
+    else
+    {
+      Greater
+    }
+  }
+}

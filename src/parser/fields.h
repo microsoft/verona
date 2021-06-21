@@ -66,15 +66,16 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, Signature& sig)
+  void fieldsof(T& target, Function& func)
   {
-    target << sig.typeparams << sig.params << sig.result << sig.throws;
+    target << func.name << func.typeparams << func.params << func.result
+           << func.body;
   }
 
   template<typename T>
-  void fieldsof(T& target, Function& func)
+  void fieldsof(T& target, ThrowType& tt)
   {
-    target << func.name << func.signature << func.body;
+    target << tt.type;
   }
 
   template<typename T>
@@ -102,6 +103,12 @@ namespace verona::parser
   }
 
   template<typename T>
+  void fieldsof(T& target, TypeList& tl)
+  {
+    target << tl.location;
+  }
+
+  template<typename T>
   void fieldsof(T& target, Oftype& oftype)
   {
     target << oftype.expr << oftype.type;
@@ -114,27 +121,15 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, Block& block)
-  {
-    target << block.seq;
-  }
-
-  template<typename T>
   void fieldsof(T& target, When& when)
   {
     target << when.waitfor << when.behaviour;
   }
 
   template<typename T>
-  void fieldsof(T& target, While& wh)
+  void fieldsof(T& target, Try& tr)
   {
-    target << wh.cond << wh.body;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, Case& c)
-  {
-    target << c.pattern << c.guard << c.body;
+    target << tr.body << tr.catches;
   }
 
   template<typename T>
@@ -144,21 +139,9 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, If& cond)
-  {
-    target << cond.cond << cond.on_true << cond.on_false;
-  }
-
-  template<typename T>
   void fieldsof(T& target, Lambda& lambda)
   {
-    target << lambda.signature << lambda.body;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, Return& ret)
-  {
-    target << ret.expr;
+    target << lambda.typeparams << lambda.params << lambda.body;
   }
 
   template<typename T>
@@ -168,33 +151,9 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, Infix& infix)
-  {
-    target << infix.op << infix.left << infix.right;
-  }
-
-  template<typename T>
   void fieldsof(T& target, Select& select)
   {
-    target << select.expr << select.member;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, StaticSelect& select)
-  {
-    target << select.expr << select.typenames;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, Specialise& spec)
-  {
-    target << spec.expr << spec.typeargs;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, Apply& apply)
-  {
-    target << apply.expr << apply.args;
+    target << select.expr << select.typenames << select.args;
   }
 
   template<typename T>
@@ -204,27 +163,27 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, StaticRef& sr)
-  {
-    target << sr.typenames;
-  }
-
-  template<typename T>
   void fieldsof(T& target, Let& let)
   {
     target << let.location;
   }
 
   template<typename T>
+  void fieldsof(T& target, Throw& thr)
+  {
+    target << thr.expr;
+  }
+
+  template<typename T>
   void fieldsof(T& target, New& n)
   {
-    target << n.args << n.in;
+    target << n.in << n.args;
   }
 
   template<typename T>
   void fieldsof(T& target, ObjectLiteral& obj)
   {
-    target << obj.inherits << obj.members << obj.in;
+    target << obj.in << obj.inherits << obj.members;
   }
 
   template<typename T>

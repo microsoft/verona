@@ -1,0 +1,14 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
+using "numbers";
+
+type UInt = U64 & imm;
+
+class Foo {}
+
+class Bar
+{
+  type A = U64;
+  a : A;
+  f() {}
+}

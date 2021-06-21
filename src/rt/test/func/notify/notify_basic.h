@@ -2,11 +2,6 @@
 // SPDX-License-Identifier: MIT
 namespace notify_basic
 {
-  struct Ping : public VBehaviour<Ping>
-  {
-    void f() {}
-  };
-
   bool g_called = false;
 
   struct A : public VCown<A>
@@ -28,7 +23,7 @@ namespace notify_basic
     g_a = new A;
 
     g_a->mark_notify();
-    Cown::schedule<Ping>(g_a);
+    schedule_lambda(g_a, []() {});
 
     Cown::release(alloc, g_a);
   }

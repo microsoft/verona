@@ -141,7 +141,7 @@ namespace verona::rt
         o = recurse.pop();
         assert(o->debug_is_iso());
         Systematic::cout() << "Region Scan: scanning region: " << o
-                           << std::endl;
+                           << Systematic::endl;
         switch (Region::get_type(o->get_region()))
         {
           case RegionType::Trace:
@@ -267,7 +267,7 @@ namespace verona::rt
             [[fallthrough]];
           case Object::RC:
             Systematic::cout()
-              << "Region Scan: reaches immutable: " << p << std::endl;
+              << "Region Scan: reaches immutable: " << p << Systematic::endl;
             Immutable::mark_and_scan(alloc, p, epoch);
             break;
 
@@ -276,14 +276,14 @@ namespace verona::rt
             {
               Systematic::cout()
                 << "Region Scan: pushing subregion to worklist: " << p
-                << std::endl;
+                << Systematic::endl;
               recurse.push(p);
             }
             break;
 
           case Object::COWN:
             Systematic::cout()
-              << "Region Scan: reaches cown: " << p << std::endl;
+              << "Region Scan: reaches cown: " << p << Systematic::endl;
             cown::mark_for_scan(p, epoch);
             break;
 

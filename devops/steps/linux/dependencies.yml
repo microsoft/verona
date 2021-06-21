@@ -1,0 +1,9 @@
+steps:
+- script: |
+    set -eo pipefail
+    sudo apt-get update
+    sudo apt-get install -y ninja-build
+    sudo apt-get remove --purge cmake
+    sudo snap install cmake --classic
+    sudo pip install wheel OutputCheck
+  displayName: 'Dependencies'

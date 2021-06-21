@@ -1,0 +1,74 @@
+parameters:
+  - name: BuildName
+    type: string
+  - name: BuildCommandLine
+    type: string
+  - name: WorkingDirectory
+    type: string
+  - name: Condition
+    type: string
+    default: succeeded()
+  - name: ExtraAnyBuildArgs
+    type: string
+    default: ''
+
+steps:
+- bash: |
+    set -euo pipefail
+
+    echo "=== Downloading AnyBuild from $(AnyBuildSource)"
+    wget -O- $(AnyBuildSource)/bootstrapper.sh | bash
+  displayName: Install AnyBuild Client
+
+- bash: |
+    set -euo pipefail
+
+    # drop an AnyBuild.json config file and use it to
+    #   - ignore the CMAKE_BUILD_PARALLEL_LEVEL variable
+    #   - limit the number of concurrent cache lookups
+    echo "===== Writing AnyBuild.json"
+    echo '{"ActionCache": { "MaxParallelLookups": 10, "IgnoredEnvVars": [ "CMAKE_BUILD_PARALLEL_LEVEL", "SNAP" ] }}' | tee AnyBuild.json
+
+    echo "===== Running '${{ parameters.BuildCommandLine }}' from $(pwd)"
+    echo
+
+    readonly abClientExe="$HOME/.local/share/Microsoft/AnyBuild/AnyBuild.sh"
+
+    env -i                                                                \
+      SECRET=$(LLVMPrincipalPassword)                                     \
+      HOME="$HOME"                                                        \
+      PATH="$PATH"                                                        \
+    "$abClientExe"                                                        \
+      --RemoteExecServiceUri $(AnyBuildEnvironmentUri)                    \
+      --NoCheckForUpdates                                                 \
+      --WaitForAgentForever                                               \
+      --DoNotUseMachineUtilizationForScheduling                           \
+      --ClientApplicationId $(LLVMPrincipalAppId)                         \
+      --ClientSecretEnvironmentVariable SECRET                            \
+      --ExperimentName "${{ parameters.BuildName }}"                      \
+      --WhyCacheMiss                                                      \
+      --WhyCacheMissOptions CacheDataStoreKey=${{ parameters.BuildName }} \
+      ${{ parameters.ExtraAnyBuildArgs }}                                 \
+      --                                                                  \
+      ${{ parameters.BuildCommandLine }}
+  workingDirectory: ${{ parameters.WorkingDirectory }}
+  displayName: AnyBuild ${{ parameters.BuildName }}
+
+- template: ../print-anybuild-stats.yml
+  parameters:
+    LogsDir: ${{ parameters.WorkingDirectory }}
+
+- bash: |
+    rm -rf AnyBuildLogs
+    mkdir AnyBuildLogs
+    mv -v AnyBuild*.log AnyBuildLogs/
+  workingDirectory: ${{ parameters.WorkingDirectory }}
+  continueOnError: true
+  condition: and(failed(), not(canceled()))
+  displayName: Extract AnyBuild Logs
+
+- publish: ${{ parameters.WorkingDirectory }}/AnyBuildLogs
+  artifact: AnyBuildLogs-${{ parameters.BuildName }}-linux.$(Build.BuildId)
+  continueOnError: true
+  condition: and(failed(), not(canceled()))
+  displayName: Publish AnyBuild Logs

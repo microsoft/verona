@@ -1,0 +1,14 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      $module-0
+      [ (typeparam A () ()) (typeparam B () ()) ]
+      ()
+      [
+        (function foo [] [] () (lambda [] [] []))
+        (function _foo [] [] () (lambda [] [] []))
+      ])
+  ])

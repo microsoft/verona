@@ -1,0 +1,59 @@
+(class
+  ()
+  []
+  ()
+  [
+    (class
+      $module-0
+      []
+      ()
+      [
+        (using (typeref [ (modulename $module-1 []) ]))
+        (function
+          apply
+          []
+          [
+            (param x (typeref [ (typename U64 []) ]) ())
+            (param y (typeref [ (typename U64 []) ]) ())
+          ]
+          ()
+          (lambda
+            []
+            []
+            [
+              (string " c-string \" 😄 -> 😄 ")
+              (string
+                "    no indent $x + ${y} = ${x + y} $1\n      indent 2 spaces \"{no interp: $x}\"")
+              (string "\n    hi\n")
+              (char "{\n  }")
+              (let tab)
+              (assign (ref tab) (string "\t"))
+              (assign (let $0) (string "    look, a "))
+              (assign
+                (let $1)
+                (select (ref $0) [ (typename apply []) ] (ref tab)))
+              (assign (let $2) (string " in my string"))
+              (select (ref $1) [ (typename apply []) ] (ref $2))
+            ]))
+      ])
+    (class
+      $module-1
+      []
+      ()
+      [
+        (class I8 [] () [])
+        (class I16 [] () [])
+        (class I32 [] () [])
+        (class I64 [] () [])
+        (class I128 [] () [])
+        (class ISize [] () [])
+        (class U8 [] () [])
+        (class U16 [] () [])
+        (class U32 [] () [])
+        (class U64 [] () [])
+        (class U128 [] () [])
+        (class USize [] () [])
+        (class F32 [] () [])
+        (class F64 [] () [])
+      ])
+  ])
