@@ -4,8 +4,8 @@ Numeric types in Verona are nothing but classes with methods that implement know
 
 For example:
 ```
-  let x : I8 & mut = 42;
-  let y : I8 & mut = 24;
+  let x : I8 & imm = 42;
+  let y : I8 & imm = 24;
 
   // This is what a programmer would write
   let sum = x + y; // type inference to I8
@@ -21,14 +21,14 @@ If an operation refers to a function that is not implemented, this is a syntax e
 
 For example:
 ```
-  let x : I8 & mut = 42;
-  let y : I16 & mut = 24;
+  let x : I8 & imm = 42;
+  let y : I16 & imm = 24;
 
   // There is no such function I8::+(I8, I16);
   let sum = x + y; // ERROR
 
   // We can extend x, then add
-  let z : I16 & mut = x.toI16();
+  let z : I16 & imm = x.toI16();
   let sum = z + y; // type inference to I16
 
   // This is what it would turn to
