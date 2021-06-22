@@ -25,7 +25,7 @@ Example:
 ```
   let x : Foo & mut = ...;
 
-  // This is fine, as `readonly` is a sub-type of `mut`
+  // This is fine, as `mut` is a sub-type of `readonly`
   let y : Foo & readonly = x;
 
   // This is not
