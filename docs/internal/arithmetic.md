@@ -49,3 +49,12 @@ With around 48 bits used to represent pointers, and any integer up to 32-bits fi
 Obviously, 64-bit integers cannot be represented in that manner, so it will need a longer representation (tag+payload) on different words.
 
 The implementation details are still under discussion, which will determine what type of boxing we want and which bits we'll use for what.
+
+It is worth noting that this will also be architecture-dependent.
+
+For example:
+ * On CHERI we probably can't steal the high bits, but we can use the tag bit to differentiate between a pointer and 128 bits of not-pointer.
+   This means that we could have a `U128` and any number of pointer types in the same union type using the same amount of space as a pointer.
+ * On 32-bit systems we probably won't want to do NaN boxing for anything that doesn't include a f64 value.
+
+This is relatively important because it means that we need to make sure that the compiler abstracts this representation as much as possible.

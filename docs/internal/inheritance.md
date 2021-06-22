@@ -43,3 +43,7 @@ Example:
 
   // Here, `foo` is no longer valid
 ```
+
+More specifically: This works because owning the iso guarantees that there are no other pointers to the object that foo points to.
+The freeze function can consume the iso, which means that there are no pointers to the object that have any kind of capability that permits mutation.
+This enforces the guarantee that there is no shared mutable state.
