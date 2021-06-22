@@ -1,16 +1,16 @@
 # Object's memory model
 
 In Verona, there are no implicit deep copies of objects and no implicit initialisation.
-Methods used to construct a type (aka. constructors) need to be called explicitly.
-Any static function that returns an object of a certain type is a constructor for that type.
+Methods used to construct a type (aka. factory methods, constructors) need to be called explicitly.
+Any static function that returns an object of a certain type is a factory method for that type.
 
 Example:
 ```
   class Foo {
-    // The "standard" constructor, as "Foo()" is sugar for "Foo::create()"
+    // "Foo()" is sugar for "Foo::create()"
     create() : Foo { ... }
 
-    // Some other "constructor", not sugared but always explicit
+    // Some other factory method, not sugared but always explicit
     build(a: Bar, b: Baz) : Foo { ... }
 
     ...
@@ -22,7 +22,7 @@ Example:
   };
 
   func() {
-    // Explicitly call the constructor
+    // Explicitly call the factory method
     let a = Foo::create();
 
     // This is sugar for `Foo::create()`
@@ -48,10 +48,10 @@ Example:
   class Foo {
     value : I32;
 
-    // Implement the sugar constructor
+    // Implement the sugar factory method
     create() { ... };
 
-    // Implement the sugar copy constructor
+    // Implement the sugar copy factory method
     update(I32 arg) { value = arg; };
   };
 
