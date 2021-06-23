@@ -19,6 +19,19 @@ using namespace verona::parser;
 namespace mlir::verona
 {
   /// ASTMLIRPass - Base class for AST to MLIR passes.
+  ///
+  /// Passing the AST through this passes (via "pass << ast") populates the MLIR
+  /// module in the generator. These passes can be chained together, if they are
+  /// created with the same consumer and generator, and the same module will be
+  /// updated.
+  ///
+  /// The objective of these passes is *just* to get AST into MLIR, not to
+  /// change the AST nor the MLIR. There's a particular order in which the AST
+  /// has to go through these passes, otherwise the pass will fail.
+  ///
+  /// To avoid declaration order issues, we have a declaration pass first, and a
+  /// definition pass afterward. The ASTConsumer class takes care of doing that
+  /// the right way.
   template<class Derived>
   struct ASTMLIRPass : Pass<Derived>
   {
@@ -51,7 +64,9 @@ namespace mlir::verona
   struct ASTDeclarations : ASTMLIRPass<ASTDeclarations>
   {
   private:
-    /// Class info - keeps class struct type and field list until it's complete.
+    /// Class info - keeps class struct type and field list until its definition
+    /// is complete, when an MLIR Type is created from it and we don't need it
+    /// anymore.
     struct ClassInfo
     {
       StructType type;
@@ -304,6 +319,7 @@ namespace mlir::verona
       auto loc = con.getLocation(node);
       auto str = node.location.view();
       auto val = std::stol(str.data());
+      // FIXME: The new AST will have the actual type
       auto type = builder().getIntegerType(64);
       auto op = builder().create<ConstantIntOp>(loc, val, type);
       pushOperand(op->getOpResult(0));
@@ -315,6 +331,7 @@ namespace mlir::verona
       auto loc = con.getLocation(node);
       auto str = node.location.view();
       auto val = llvm::APFloat(std::stod(str.data()));
+      // FIXME: The new AST will have the actual type
       auto type = builder().getF64Type().dyn_cast<FloatType>();
       auto op = builder().create<ConstantFloatOp>(loc, val, type);
       pushOperand(op->getOpResult(0));
