@@ -11,9 +11,6 @@
 #include "mlir/IR/Types.h"
 #include "parser/pass.h"
 
-#include <stack>
-#include <string>
-
 using namespace verona::parser;
 
 namespace mlir::verona
@@ -63,21 +60,11 @@ namespace mlir::verona
   /// before they get user in definitions.
   struct ASTDeclarations : ASTMLIRPass<ASTDeclarations>
   {
-  private:
-    /// Class info - keeps class struct type and field list until its definition
-    /// is complete, when an MLIR Type is created from it and we don't need it
-    /// anymore.
-    struct ClassInfo
-    {
-      StructType type;
-      FieldOffset fields;
-    };
-
     /// Stack for classes in construction. Elements are all incomplete.
     /// Classes get their fields assigned in program order, so non-top elements
     /// may have some fields. Once the class is completed, it pops off the
-    /// stack.
-    std::stack<ClassInfo> classes;
+    /// stack and moves to the classInfo map.
+    std::stack<ClassInfo> classStack;
 
   public:
     ASTDeclarations(ASTConsumer& con, MLIRGenerator& gen)
@@ -100,29 +87,27 @@ namespace mlir::verona
       symbolTable().pushScope();
 
       // Create an entry for the class' structure type and fields
-      classes.push({StructType::getIdentified(builder().getContext(), modName),
-                    FieldOffset()});
+      classStack.push(ClassInfo(builder().getContext(), modName));
     }
 
     /// Post processing will finalise the structure.
     void post(Class& node)
     {
       StringRef modName = node.id.view();
-      auto type = classes.top().type;
-      assert(type.getName() == modName && "Finishing the wrong class");
-      auto fields = classes.top().fields;
+      auto& info = classStack.top();
+      assert(
+        info.getType().getName() == modName && "Finishing the wrong class");
 
-      // Set fields to the class' map, if any
-      auto set = mlir::succeeded(type.setBody(fields.types, /*packed*/ false));
-      assert(set && "Error setting fields to class");
+      // Finalise the structure
+      info.finalize();
 
       // Update the map between class types and their field names
-      con.classFields.emplace(type.getAsOpaquePointer(), fields);
+      con.classInfo.emplace(info.key(), std::move(info));
 
       // Pop the function scope for name mangling and current class
       if (!functionScope.empty())
         functionScope.pop_back();
-      classes.pop();
+      classStack.pop();
       symbolTable().popScope();
     }
 
@@ -130,9 +115,8 @@ namespace mlir::verona
     void post(Field& node)
     {
       // Update class-field map
-      auto& fieldMap = classes.top().fields;
-      fieldMap.fields.push_back(node.location.view());
-      fieldMap.types.push_back(con.consumeType(*node.type));
+      auto& info = classStack.top();
+      info.addField(node.location.view(), con.consumeType(*node.type));
     }
 
     /// Parse function declaration nodes
@@ -383,9 +367,11 @@ namespace mlir::verona
       {
         // Loading fields, we calculate the offset to load based on the field
         // name
-        auto [offset, elmTy, found] =
-          con.getField(structTy, node.typenames[0]->location.view());
-        if (found)
+        auto key = ClassInfo::key(structTy);
+        auto& info = con.classInfo.at(key);
+        auto [offset, elmTy] =
+          info.getFieldType(node.typenames[0]->location.view());
+        if (elmTy)
         {
           // Convert the address of the structure to the address of the element
           pushOperand(gen.GEP(loc, lhs, offset));
@@ -678,44 +664,6 @@ namespace mlir::verona
     os << name.str();
 
     return os.str();
-  }
-
-  std::tuple<size_t, Type, bool>
-  ASTConsumer::getField(Type type, llvm::StringRef fieldName)
-  {
-    auto structTy = type.dyn_cast<StructType>();
-    assert(structTy && "Bad type for field access");
-
-    auto& fieldMap = classFields[type.getAsOpaquePointer()];
-    size_t pos = 0;
-    for (auto f : fieldMap.fields)
-    {
-      // Found the field, return position
-      if (f == fieldName)
-      {
-        auto ty = fieldMap.types[pos];
-        return {pos, ty, true};
-      }
-
-      // Always recurse into all class fields
-      auto classField = fieldMap.types[pos].dyn_cast<StructType>();
-      if (classField)
-      {
-        auto [subPos, subTy, subFound] = getField(classField, fieldName);
-        pos += subPos;
-
-        if (subFound)
-          return {pos, subTy, true};
-        else
-          continue;
-      }
-
-      // Not found, continue searching
-      pos++;
-    }
-
-    // Not found, return false
-    return {0, Type(), false};
   }
 
   Value ASTConsumer::lookup(::verona::parser::Ast ast, bool lastContextOnly)
