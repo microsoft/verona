@@ -86,4 +86,25 @@ namespace mlir::verona
     static llvm::Expected<OwningModuleRef>
     lower(MLIRContext* context, ::verona::parser::Ast ast);
   };
+
+  /*
+   * Scope Cleanup helper
+   *
+   * Automatically performs cleanup on destruction.
+   */
+  template<class T>
+  class ScopeCleanup
+  {
+    /// Action to perform on destruction
+    T cleanup;
+
+  public:
+    ScopeCleanup(T&& c) : cleanup(std::move(c)) {}
+
+    /// Automatically applies the cleanup
+    ~ScopeCleanup()
+    {
+      cleanup();
+    }
+  };
 }
