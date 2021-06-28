@@ -258,12 +258,12 @@ namespace mlir::verona
     /// Closes the function, checking the return value
     void post(Function& node)
     {
+      // Automatically clean up
+      ScopeCleanup([&]() { symbolTable().popScope(); });
+
       // Check if needs to return a value at all
       if (gen.hasTerminator(builder().getBlock()))
-      {
-        symbolTable().popScope();
         return;
-      }
 
       // Fetch the current function
       auto loc = con.getLocation(node);
@@ -274,9 +274,6 @@ namespace mlir::verona
       // Lower return value
       auto val = takeOperand(/*last=*/true);
       gen.Return(loc, func, val);
-
-      // Pop function's variable scope
-      symbolTable().popScope();
     }
 
     /// Local declarations (including temps) reserve a place on the symbol table
