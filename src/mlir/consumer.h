@@ -13,15 +13,114 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
+#include <stack>
 #include <string>
 
 namespace mlir::verona
 {
-  /// Field offset maps between field names, types and their relative position.
-  struct FieldOffset
+  /**
+   * Class information
+   *
+   * Keeps information on classes, and their respective fields (types, names).
+   * This class is used for both keeping the context while building classes as
+   * well as querying field types by name later in code generation.
+   *
+   * FIXME: Verona may play with field offset (ex. by size order), which needs
+   * to be done *before* we access any field from code, ie. right after
+   * declaration is finished, so the order in which they appear in the vector
+   * can change but only once. MLIR doesn't allow to change the fields of a
+   * declared structure, so this needs to be done before setting the
+   * StructureType.
+   */
+  class ClassInfo
   {
-    SmallVector<llvm::StringRef> fields;
-    SmallVector<Type> types;
+    /// Bind name and type for fields. Position is given by its vector offset.
+    struct Field
+    {
+      StringRef name;
+      Type type;
+    };
+
+    /// The fields, by offset order
+    SmallVector<Field> fields;
+
+    /// The final MLIR structure type
+    StructType type;
+
+    /// Class name
+    StringRef name;
+
+    /// Reorder fields to make structures more efficient.
+    void optimizeFields()
+    {
+      // TODO: Implement this.
+    }
+
+  public:
+    /// Constructs an empty class with a name
+    ClassInfo(MLIRContext* context, StringRef name) : name(name)
+    {
+      type = StructType::getIdentified(context, name);
+    }
+
+    /// Adds a field to the list before finalisation
+    void addField(StringRef name, Type ty)
+    {
+      assert(!type.isInitialized() && "Can't change type after declaration");
+      fields.push_back({name, ty});
+    }
+
+    /// Finalise structure and set MLIR type
+    void finalize()
+    {
+      // First make sure we have the most optimal placing
+      optimizeFields();
+
+      // Now get the types in order and create the structure
+      SmallVector<Type> types;
+      for (auto field : fields)
+        types.push_back(field.type);
+      auto set = type.setBody(types, /*packed*/ false);
+      // This really shouldn't fail
+      assert(mlir::succeeded(set) && "Error setting fields to class");
+    }
+
+    /// FIXME: Find better map key than opaque pointer types
+    typedef const void* KeyTy;
+
+    /// Get the key to search maps
+    KeyTy key()
+    {
+      return ClassInfo::key(type);
+    }
+
+    /// Get the key from some StructType to search maps
+    static KeyTy key(StructType ty)
+    {
+      return ty.getAsOpaquePointer();
+    }
+
+    /// Get the structure type itself
+    StructType getType()
+    {
+      return type;
+    }
+
+    /// Return the field type by name, or empty type if not found
+    std::tuple<size_t, Type> getFieldType(StringRef name)
+    {
+      assert(type && "Can't yet determine final structure");
+      size_t pos = 0;
+      for (auto field : fields)
+      {
+        if (name == field.name)
+          return {pos, field.type};
+        pos++;
+      }
+
+      // Not found, return empty type
+      return {pos, Type()};
+    }
   };
 
   /**
@@ -40,10 +139,8 @@ namespace mlir::verona
     MLIRGenerator gen;
 
     /// Map for each type which fields does it have.
-    /// Use type.getAsOpaquePointer() for keys
-    /// FIXME: Find better key than opaque pointer types
-    using OpaqueType = const void*;
-    std::map<OpaqueType, FieldOffset> classFields;
+    /// Use ClassInfo::key(structType) to get the key.
+    std::unordered_map<ClassInfo::KeyTy, ClassInfo> classInfo;
 
     // ===================================================== Helpers
 
@@ -67,11 +164,6 @@ namespace mlir::verona
       llvm::StringRef name,
       llvm::ArrayRef<llvm::StringRef> functionScope = {},
       llvm::ArrayRef<llvm::StringRef> callScope = {});
-
-    /// Return the offset into the structure to load/store values into fields
-    /// and the type of the field's value (if stored in a different container).
-    std::tuple<size_t, Type, bool>
-    getField(Type type, llvm::StringRef fieldName);
 
     /// Looks up a symbol with the ast's view.
     Value lookup(::verona::parser::Ast ast, bool lastContextOnly = false);
