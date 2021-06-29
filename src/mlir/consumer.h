@@ -90,7 +90,13 @@ namespace mlir::verona
   /*
    * Scope Cleanup helper
    *
-   * Automatically performs cleanup on destruction.
+   * Automatically invokes the callable object passed to the constructor on
+   * destruction. This class is intended to provide lexically scoped cleanups,
+   * for example:
+   * ```c++
+   * ScopedCleanup defer([&] { cleanup code here });
+   * ```
+   * The code in the lambda will be invoked when `defer` goes out of scope.
    */
   template<class T>
   class ScopeCleanup
