@@ -102,7 +102,8 @@ namespace mlir::verona
       info.finalize();
 
       // Update the map between class types and their field names
-      con.classInfo.emplace(info.key(), std::move(info));
+      auto key = info.key();
+      con.classInfo.emplace(key, std::move(info));
 
       // Pop the function scope for name mangling and current class
       if (!functionScope.empty())
