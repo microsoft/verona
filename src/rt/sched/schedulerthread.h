@@ -46,6 +46,7 @@ namespace verona::rt
     static constexpr uint64_t TSC_QUIESCENCE_TIMEOUT = 1'000'000;
 
     T* token_cown = nullptr;
+    T* poller_cown = nullptr;
 
 #ifdef USE_SYSTEMATIC_TESTING
     friend class ThreadSyncSystematic<SchedulerThread>;
@@ -65,6 +66,7 @@ namespace verona::rt
     Alloc* alloc = nullptr;
     SchedulerThread<T>* next = nullptr;
     SchedulerThread<T>* victim = nullptr;
+    SchedulerThread<T>* poll_from = nullptr;
     std::condition_variable cv;
 
     bool running = true;
@@ -104,6 +106,8 @@ namespace verona::rt
     /// cleared before scheduler sleep, or in some stages of the LD protocol.
     ObjectMap<T*> mute_set;
 
+    ObjectMap<T*> pollers;
+
     T* get_token_cown()
     {
       assert(token_cown);
@@ -112,10 +116,13 @@ namespace verona::rt
 
     SchedulerThread()
     : token_cown{T::create_token_cown()},
+      poller_cown{T::create_poller_cown()},
       q{token_cown},
-      mute_set{ThreadAlloc::get()}
+      mute_set{ThreadAlloc::get()},
+      pollers{ThreadAlloc::get()}
     {
       token_cown->set_owning_thread(this);
+      poller_cown->set_owning_thread(this);
     }
 
     ~SchedulerThread()
@@ -167,6 +174,12 @@ namespace verona::rt
         stats.unpause();
     }
 
+    void notify_poller_cown()
+    {
+      poll_from->poller_cown->mark_notify();
+      poll_from = poll_from->next;
+    }
+
     void check_token_cown()
     {
       if (is_token_consumed())
@@ -216,6 +229,17 @@ namespace verona::rt
       mute_set.clear(*alloc);
     }
 
+    T* poller_add(Object* o)
+    {
+      T::poller_add_async((T*)poller_cown, (T*)o);
+      return poller_cown;
+    }
+
+    void poller_remove(Object* owner, Object* o)
+    {
+      T::poller_remove_async((T*)owner, (T*)o);
+    }
+
     template<typename... Args>
     static void run(SchedulerThread* t, void (*startup)(Args...), Args... args)
     {
@@ -236,6 +260,7 @@ namespace verona::rt
       Scheduler::local() = this;
       alloc = &ThreadAlloc::get();
       victim = next;
+      poll_from = next;
       T* cown = nullptr;
 
       Scheduler::get().sync.thread_start(this);
@@ -374,6 +399,9 @@ namespace verona::rt
         cown = cown->next;
       }
 
+      poller_cown->collect(alloc);
+      poller_cown->dealloc(alloc);
+
       Systematic::cout() << "End teardown (phase 1)" << Systematic::endl;
 
       Epoch(ThreadAlloc::get()).flush_local();
@@ -495,6 +523,12 @@ namespace verona::rt
         // Wait until a minimum timeout has passed.
         uint64_t tsc2 = Aal::tick();
 
+        if (pollers.size() != 0)
+        {
+          notify_poller_cown();
+          continue;
+        }
+
 #ifndef USE_SYSTEMATIC_TESTING
         if ((tsc2 - tsc) < TSC_QUIESCENCE_TIMEOUT)
         {
@@ -558,6 +592,8 @@ namespace verona::rt
         SchedulerThread* sched = unmasked->owning_thread();
         assert(!sched->debug_is_token_consumed());
         sched->set_token_consumed(true);
+
+        notify_poller_cown();
 
         if (sched != this)
         {

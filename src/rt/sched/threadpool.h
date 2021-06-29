@@ -364,6 +364,16 @@ namespace verona::rt
       return get().active_thread_count == 0;
     }
 
+    Object* poller_add(Object* o)
+    {
+      return local()->poller_add(o);
+    }
+
+    void poller_remove(Object* owner, Object* o)
+    {
+      local()->poller_remove(owner, o);
+    }
+
   private:
     inline ThreadState::State next_state(ThreadState::State s)
     {

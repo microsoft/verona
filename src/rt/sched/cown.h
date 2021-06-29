@@ -20,6 +20,9 @@ namespace verona::rt
   using CownThread = SchedulerThread<Cown>;
   using Scheduler = ThreadPool<CownThread>;
 
+  template<TransferOwnership transfer, typename T>
+  static void schedule_lambda(Cown* c, T f);
+
   static void yield()
   {
     Scheduler::get().sync.yield(Scheduler::local());
@@ -143,8 +146,51 @@ namespace verona::rt
       return a;
     }
 
+    static void empty_cown_trace(const Object*, ObjectStack&) {}
+    static void poller_notified(Object* o)
+    {
+      Cown* poller = (Cown*)o;
+      for (auto* cown : poller->owning_thread()->pollers)
+        cown->mark_notify();
+    }
+
+    static Cown* create_poller_cown()
+    {
+      static constexpr Descriptor desc = {
+        vsizeof<Cown>, empty_cown_trace, nullptr, poller_notified};
+      auto alloc = ThreadAlloc::get();
+      auto p = alloc->alloc<desc.size>();
+      auto o = Object::register_object(p, &desc);
+      auto a = new (o) Cown(true);
+
+      a->cown_mark_scanned();
+      return a;
+    }
+
     static constexpr uintptr_t collected_mask = 1;
     static constexpr uintptr_t thread_mask = ~collected_mask;
+
+    static void poller_add_async(Cown* owner, Cown* poller)
+    {
+      schedule_lambda<NoTransfer>(owner, [=] {
+        auto alloc = ThreadAlloc::get();
+        bool inserted =
+          owner->owning_thread()->pollers.insert(alloc, poller).first;
+        (void)inserted;
+        // if (inserted)
+        //  acquire(poller);
+      });
+    }
+
+    static void poller_remove_async(Cown* owner, Cown* poller)
+    {
+      schedule_lambda<NoTransfer>(owner, [=] {
+        bool found = owner->owning_thread()->pollers.erase(poller);
+        auto alloc = ThreadAlloc::get();
+        if (found)
+          release(alloc, poller);
+      });
+    }
 
     void set_owning_thread(SchedulerThread<Cown>* owner)
     {
