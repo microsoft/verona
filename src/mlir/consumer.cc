@@ -259,7 +259,7 @@ namespace mlir::verona
     void post(Function& node)
     {
       // Automatically clean up
-      ScopeCleanup([&]() { symbolTable().popScope(); });
+      ScopeCleanup pop([&]() { symbolTable().popScope(); });
 
       // Check if needs to return a value at all
       if (gen.hasTerminator(builder().getBlock()))
