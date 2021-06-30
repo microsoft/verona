@@ -4,17 +4,17 @@
 #pragma once
 #include <memory>
 
-#if __has_include(<source_location>)
-#  include <source_location>
-namespace sandbox
-{
-  using source_location = std::source_location;
-}
-#elif __has_include(<experimental/source_location>)
+#if __has_include(<experimental/source_location>)
 #  include <experimental/source_location>
 namespace sandbox
 {
   using source_location = std::experimental::source_location;
+}
+#elif __has_include(<source_location>)
+#  include <source_location>
+namespace sandbox
+{
+  using source_location = std::source_location;
 }
 #else
 // If we don't have a vaguely recent standard library then we don't get useful

@@ -446,7 +446,7 @@ namespace sandbox
       if (fd >= 0)
       {
         platform::Handle h(fd);
-        return std::move(h);
+        return h;
       }
       return -errno;
     };

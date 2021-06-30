@@ -604,7 +604,7 @@ namespace
       auto syscall_callback = [&](int number, auto&& fn) {
         if ((number != -1) && (number == syscall))
         {
-          uintptr_t result = call(fn);
+          intptr_t result = call(fn);
           if (result < 0)
           {
             c.set_error_return(-result);
