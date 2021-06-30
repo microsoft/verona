@@ -16,8 +16,7 @@ struct TimerPoller : public VCown<TimerPoller>
     TimerPoller* p = (TimerPoller*)o;
     if (std::difftime(std::time(nullptr), p->start) > 1)
     {
-      auto& sched = Scheduler::get();
-      sched.poller_remove(p->owner, p);
+      Cown::poller_remove(p->owner, p);
       std::cout << "Poller Remove\n";
     }
   }
@@ -30,11 +29,8 @@ void timer_poller()
     auto alloc = ThreadAlloc::get();
     TimerPoller* p = new (alloc) TimerPoller;
 
-    auto& sched = Scheduler::get();
-    Cown* owner = (Cown*)sched.poller_add(p);
+    Cown* owner = Cown::poller_add<YesTransfer>(p);
     p->owner = owner;
-
-    // Cown::release(ThreadAlloc::get(), p);
   });
 }
 

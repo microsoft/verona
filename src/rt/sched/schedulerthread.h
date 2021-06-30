@@ -229,17 +229,6 @@ namespace verona::rt
       mute_set.clear(*alloc);
     }
 
-    T* poller_add(Object* o)
-    {
-      T::poller_add_async((T*)poller_cown, (T*)o);
-      return poller_cown;
-    }
-
-    void poller_remove(Object* owner, Object* o)
-    {
-      T::poller_remove_async((T*)owner, (T*)o);
-    }
-
     template<typename... Args>
     static void run(SchedulerThread* t, void (*startup)(Args...), Args... args)
     {

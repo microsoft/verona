@@ -170,28 +170,6 @@ namespace verona::rt
     static constexpr uintptr_t collected_mask = 1;
     static constexpr uintptr_t thread_mask = ~collected_mask;
 
-    static void poller_add_async(Cown* owner, Cown* poller)
-    {
-      schedule_lambda<NoTransfer>(owner, [=] {
-        auto alloc = ThreadAlloc::get();
-        bool inserted =
-          owner->owning_thread()->pollers.insert(alloc, poller).first;
-        (void)inserted;
-        // if (inserted)
-        //  acquire(poller);
-      });
-    }
-
-    static void poller_remove_async(Cown* owner, Cown* poller)
-    {
-      schedule_lambda<NoTransfer>(owner, [=] {
-        bool found = owner->owning_thread()->pollers.erase(poller);
-        auto alloc = ThreadAlloc::get();
-        if (found)
-          release(alloc, poller);
-      });
-    }
-
     void set_owning_thread(SchedulerThread<Cown>* owner)
     {
       thread_status = (uintptr_t)owner;
@@ -1411,6 +1389,32 @@ namespace verona::rt
       auto* body =
         MultiMessage::make_body(alloc, count, cowns, &unmute_behaviour);
       return MultiMessage::make_message(alloc, body, epoch);
+    }
+
+    template<TransferOwnership transfer = NoTransfer>
+    static Cown* poller_add(Cown* poller)
+    {
+      Cown* owner = Scheduler::local()->poller_cown;
+      schedule_lambda<NoTransfer>(owner, [=] {
+        auto alloc = ThreadAlloc::get();
+        bool inserted =
+          owner->owning_thread()->pollers.insert(alloc, poller).first;
+        if constexpr (transfer == NoTransfer)
+          if (inserted)
+            acquire(poller);
+      });
+
+      return owner;
+    }
+
+    static void poller_remove(Cown* owner, Cown* poller)
+    {
+      schedule_lambda<NoTransfer>(owner, [=] {
+        bool found = owner->owning_thread()->pollers.erase(poller);
+        auto alloc = ThreadAlloc::get();
+        if (found)
+          release(alloc, poller);
+      });
     }
   };
 
