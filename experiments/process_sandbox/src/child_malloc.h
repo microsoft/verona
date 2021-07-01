@@ -168,6 +168,8 @@ namespace sandbox
 }
 
 #define SNMALLOC_DEFAULT_CHUNKMAP sandbox::ProxyPageMap
-#define SNMALLOC_DEFAULT_MEMORY_PROVIDER struct sandbox::MemoryProviderProxy
-#define SNMALLOC_USE_THREAD_CLEANUP 1
+#define SNMALLOC_DEFAULT_MEMORY_PROVIDER sandbox::MemoryProviderProxy
+#ifdef __FreeBSD__
+#  define SNMALLOC_USE_THREAD_CLEANUP 1
+#endif
 #include "override/malloc.cc"

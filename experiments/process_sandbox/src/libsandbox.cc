@@ -191,7 +191,24 @@ namespace sandbox
             break;
           }
         }
-        write(fd, static_cast<void*>(&reply), sizeof(HostServiceResponse));
+        ssize_t remainder = sizeof(HostServiceResponse);
+        char* buffer = reinterpret_cast<char*>(&reply);
+        while (remainder > 0)
+        {
+          ssize_t ret = write(fd, buffer, remainder);
+          if (ret < 0)
+          {
+            if ((errno == EAGAIN) || ((errno == EINTR)))
+            {
+              continue;
+            }
+            // All other errno errors may be the result of the child doing
+            // something wrong.  Let the child fail here.
+            break;
+          }
+          remainder -= ret;
+          buffer += ret;
+        }
       }
       err(1, "Waiting for pagetable updates failed");
     }

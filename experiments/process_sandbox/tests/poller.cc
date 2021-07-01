@@ -47,7 +47,8 @@ void test_poller()
     {
       auto sp = SocketPair::create();
       poller.add(sp.second.take());
-      write(sp.first.fd, &i, sizeof(i));
+      int ret = write(sp.first.fd, &i, sizeof(i));
+      SANDBOX_INVARIANT(ret == sizeof(i), "write failed {}", strerror(errno));
       socks.push_back(std::move(sp.first));
     }
     auto start = std::chrono::steady_clock::now();

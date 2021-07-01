@@ -4,6 +4,37 @@
 #pragma once
 #include <memory>
 
+/**
+ * Helper macro to apply a pragma in a macro, concatenating arguments as a
+ * single string.
+ */
+#define SANDBOX_DO_PRAGMA(x) _Pragma(#x)
+
+#ifdef __clang__
+/**
+ * Macro to silence a clang warning until the next
+ * `SANDBOX_CLANG_DIAGNOSTIC_POP()`.  The argument is the name of the warning
+ * as a string.  For example, if the flag to enable the warning is
+ * `-Wwarning-with-false-positives` then the argument to this should be
+ * `"-Wwarning-with-false-positives"`.
+ *
+ * When compiling with a non-clang compiler, this macro does nothing.
+ */
+#  define SANDBOX_CLANG_DIAGNOSTIC_IGNORE(x) \
+    _Pragma("clang diagnostic push") \
+      SANDBOX_DO_PRAGMA(clang diagnostic ignored x)
+/**
+ * Restores the set of enabled clang warnings to the set before the most recent
+ * `SANDBOX_CLANG_DIAGNOSTIC_IGNORE()`.
+ *
+ * When compiling with a non-clang compiler, this macro does nothing.
+ */
+#  define SANDBOX_CLANG_DIAGNOSTIC_POP() _Pragma("clang diagnostic pop")
+#else
+#  define SANDBOX_CLANG_DIAGNOSTIC_IGNORE(x)
+#  define SANDBOX_CLANG_DIAGNOSTIC_POP()
+#endif
+
 #if __has_include(<experimental/source_location>)
 #  include <experimental/source_location>
 namespace sandbox

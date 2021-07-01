@@ -80,7 +80,12 @@ namespace sandbox
             // filesystem namespace.
             {
               char* name_raw = nullptr;
-              asprintf(&name_raw, "/verona_sandbox_alloc_%lx", random());
+              int ret =
+                asprintf(&name_raw, "/verona_sandbox_alloc_%lx", random());
+              SANDBOX_INVARIANT(
+                ret > 0,
+                "aspintf failed trying to create unique name for POSIX shared "
+                "memory object");
               name.reset(name_raw);
             }
             // Try to atomically create-and-open the shared memory object with
@@ -200,7 +205,8 @@ namespace sandbox
       {
         assert(mem_object.fd.is_valid());
         assert(size >= snmalloc::OS_PAGE_SIZE);
-        ftruncate(mem_object.fd.fd, size);
+        int ret = ftruncate(mem_object.fd.fd, size);
+        SANDBOX_INVARIANT(ret == 0, "ftruncate failed {}", strerror(errno));
       }
 
       /**
@@ -270,7 +276,8 @@ namespace sandbox
       SharedMemoryMapPOSIX(uint8_t log2_size) : Base(log2_size)
       {
         // Set the object size to the desired size.
-        ftruncate(Base::get_fd(), Base::size);
+        int ret = ftruncate(Base::get_fd(), Base::size);
+        SANDBOX_INVARIANT(ret == 0, "ftruncate failed {}", strerror(errno));
 
         if (Base::size > snmalloc::OS_PAGE_SIZE)
         {

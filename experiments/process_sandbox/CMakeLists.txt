@@ -72,6 +72,11 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	target_link_libraries(sandbox -ldl -lbsd -lrt)
 endif()
 
+if (${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
+	target_link_libraries(library_runner -latomic)
+	target_link_libraries(sandbox -latomic)
+endif()
+
 if (${ENABLE_SECCOMP})
 	message(STATUS "Using seccomp-bpf for sandboxing")
 	target_link_libraries(library_runner -lseccomp)

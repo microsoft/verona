@@ -9,4 +9,3 @@ or more sockets, it is not a generic event abstraction.
 
 Some of the code here may eventually be moved into generic Verona runtime
 platform abstractions and made more general.
-

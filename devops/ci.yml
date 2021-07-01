@@ -32,9 +32,12 @@ jobs:
       fi
 
       echo "Determine if process-based sandbox changed."
-      if git diff --ignore-submodules=dirty --quiet origin/master -- experiments/process_sandbox; then
-        echo " - Process-based sandbox is unchanged!"
-        echo "##vso[task.setvariable variable=testProcSandbox;isOutput=true]Off" #set variable testProcSandbox to Off
+      # Check if the process sandbox code has changed, or snmalloc (which is
+      # tightly coupled to the process sandbox code) so that we can skip CI on
+      # the process sandbox code if it has not been modified.
+      if git diff --ignore-submodules=dirty --quiet origin/master -- experiments/process_sandbox external/snmalloc/; then
+       echo " - Process-based sandbox is unchanged!"
+       echo "##vso[task.setvariable variable=testProcSandbox;isOutput=true]Off" #set variable testProcSandbox to Off
       else
         echo " - Process-based sandbox has changed!"
         echo "##vso[task.setvariable variable=testProcSandbox;isOutput=true]On" #set variable testProcSandbox to On
@@ -111,6 +114,14 @@ jobs:
   timeoutInMinutes: 120
   strategy:
     matrix:
+      GCC Release:
+        CC: gcc-10
+        CXX: g++-10
+        BuildType: Release
+      GCC Debug:
+        CC: gcc-10
+        CXX: g++-10
+        BuildType: Debug
       Clang Release:
         CC: clang
         CXX: clang++
@@ -124,8 +135,9 @@ jobs:
 
   - script: |
       set -eo pipefail
-      git submodule init
-      git submodule update --depth 1 --recursive
+      # Skip two huge submodules that aren't needed.  This should save about a
+      # minute of CI time for each instance of this job.
+      git -c submodule."external/llvm-project".update=none -c submodule."external/CLI11".update=none submodule update --depth 1 --init --recursive
     displayName: 'Checkout submodules'
 
   - script: |
