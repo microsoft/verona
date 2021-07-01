@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
-#if __has_include(<seccomp.h>)
-#  pragma clang diagnostic push
-#  pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#include "../helpers.h"
 
+#if __has_include(<seccomp.h>)
+SANDBOX_CLANG_DIAGNOSTIC_IGNORE("-Wmissing-field-initializers")
 #  include <seccomp.h>
-#  pragma clang diagnostic pop
+SANDBOX_CLANG_DIAGNOSTIC_POP()
 #  include <assert.h>
 
 namespace sandbox

@@ -55,7 +55,10 @@ namespace
   void* fdlopen(int fd, int flags)
   {
     char* str;
-    asprintf(&str, "/proc/%d/fd/%d", (int)getpid(), fd);
+    if (asprintf(&str, "/proc/%d/fd/%d", (int)getpid(), fd) < 0)
+    {
+      DefaultPal::error("asprintf failed in fdlopen.");
+    }
     void* ret = dlopen(str, flags);
     free(str);
     return ret;
