@@ -164,11 +164,14 @@ namespace verona::parser
       case Kind::Free:
         return f(node->as<Free>(), args...);
 
-      case Kind::LookupUnion:
-        return f(node->as<LookupUnion>(), args...);
+      case Kind::LookupOne:
+        return f(node->as<LookupOne>(), args...);
 
       case Kind::LookupIsect:
         return f(node->as<LookupIsect>(), args...);
+
+      case Kind::LookupUnion:
+        return f(node->as<LookupUnion>(), args...);
     }
 
     // This is unreachable, and is only to suppress an MSVC error.

@@ -28,18 +28,28 @@ namespace verona::parser::resolve
 
     void post(TypeRef& tr)
     {
-      auto def = lookup.typeref(symbols(), tr);
+      auto find = lookup.typeref(symbols(), tr);
 
       // Handle this in Select instead.
       if (parent()->kind() == Kind::Select)
         return;
 
-      if (!def)
+      if (!find)
       {
         error() << tr.location << "Couldn't find a definition of this type."
                 << text(tr.location);
         return;
       }
+
+      if (find->kind() != Kind::LookupOne)
+      {
+        // TODO: show what the ambiguous choices are
+        error() << tr.location << "This type is ambiguous."
+                << text(tr.location);
+        return;
+      }
+
+      auto def = find->as<LookupOne>().def.lock();
 
       if (!is_kind(
             def,
@@ -54,17 +64,15 @@ namespace verona::parser::resolve
 
     void post(Select& select)
     {
-      // TODO: multiple definitions of functions for arity-based overloading
-
       // If it's a single element name with any arguments, it can be a dynamic
       // member select.
       bool dynamic =
         (select.expr || select.args) && (select.typeref->typenames.size() == 1);
 
       // Find all definitions of the selector.
-      auto def = select.typeref->def.lock();
+      auto find = select.typeref->lookup;
 
-      if (!def)
+      if (!find || (find->kind() != Kind::LookupOne))
       {
         if (!dynamic)
         {
@@ -74,6 +82,8 @@ namespace verona::parser::resolve
         }
         return;
       }
+
+      auto def = find->as<LookupOne>().def.lock();
 
       switch (def->kind())
       {
@@ -87,13 +97,11 @@ namespace verona::parser::resolve
           create->location = name_create;
           select.typeref->typenames.push_back(create);
 
-          auto sym = select.typeref->context.lock();
-          def = lookup.member(sym, def, name_create);
+          auto find = lookup.typeref(symbols(), *select.typeref);
 
-          select.typeref->context = select.typeref->def;
-          select.typeref->def = def;
-
-          if (!def || (def->kind() != Kind::Function))
+          if (
+            !find || (find->kind() != Kind::LookupOne) ||
+            (find->as<LookupOne>().def.lock()->kind() != Kind::Function))
           {
             error() << select.typeref->location
                     << "Couldn't find a create function for this."

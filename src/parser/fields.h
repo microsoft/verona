@@ -93,7 +93,7 @@ namespace verona::parser
   template<typename T>
   void fieldsof(T& target, TypeRef& tr)
   {
-    target << tr.typenames;
+    target << tr.typenames << tr.lookup;
   }
 
   template<typename T>
@@ -191,6 +191,25 @@ namespace verona::parser
   void fieldsof(T& target, Constant& constant)
   {
     target << constant.location;
+  }
+
+  template<typename T>
+  void fieldsof(T& target, LookupOne& look)
+  {
+    // TODO: self and subs?
+    target << look.def;
+  }
+
+  template<typename T>
+  void fieldsof(T& target, LookupIsect& look)
+  {
+    target << look.list;
+  }
+
+  template<typename T>
+  void fieldsof(T& target, LookupUnion& look)
+  {
+    target << look.list;
   }
 
   template<typename T>

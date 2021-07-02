@@ -71,6 +71,47 @@ namespace verona::parser
                << escape(escapedstring(node.location.view())) << q << end;
   }
 
+  PrettyStream& operator<<(PrettyStream& out, LookupOne& node)
+  {
+    auto def = node.def.lock();
+
+    if (def)
+    {
+      auto self = node.self.lock();
+      out << start(kindname(def->kind())) << sep;
+
+      std::vector<Location> names;
+      names.push_back(def->location);
+
+      if (self != def)
+        names.push_back(self->location);
+
+      auto st = self->symbol_table();
+
+      while (st)
+      {
+        self = st->parent.lock();
+
+        if (!self)
+          break;
+
+        names.push_back(self->location);
+        st = self->symbol_table();
+      }
+
+      for (auto it = names.rbegin(); it != names.rend(); ++it)
+        out << "::" << *it;
+
+      out << end;
+    }
+    else
+    {
+      out << sep << "()";
+    }
+
+    return out;
+  }
+
   struct Print
   {
     PrettyStream& operator()(PrettyStream& out)

@@ -4,7 +4,7 @@ class Return[T]
 {
   value: T;
 
-  create[R: Return[T]](value: R~>T): R
+  create[R: Return[T]](value: R<~T): R
   {
     new(value)
   }

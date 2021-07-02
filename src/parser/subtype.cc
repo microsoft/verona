@@ -50,6 +50,9 @@ namespace verona::parser
 
   void Subtype::t_sub_t(Node<Type>& lhs, Node<Type>& rhs)
   {
+    // TODO: TypeRef sub things means unwinding LookupResult
+    // which is a parallel DNF to the union/isect DNF
+
     // Check InferTypes, lhs first.
     if (lhs->kind() == Kind::InferType)
     {
@@ -102,35 +105,51 @@ namespace verona::parser
     if (lhs->kind() == Kind::TypeRef)
     {
       auto& tr = lhs->as<TypeRef>();
-      auto def = tr.def.lock();
 
-      switch (def->kind())
+      switch (tr.lookup->kind())
       {
-        case Kind::TypeAlias:
+        case Kind::LookupOne:
         {
-          // Check the aliased type.
-          if (!tr.resolved)
-            tr.resolved = clone(tr.subs, def->as<TypeAlias>().inherits);
+          auto& lookup = tr.lookup->as<LookupOne>();
+          auto def = lookup.def.lock();
 
-          result(constraint(tr.resolved, rhs));
-          return;
-        }
-
-        case Kind::TypeParam:
-        {
-          // Treat this as (T & Bounds) by checking the upper bounds first.
-          auto noshow = NoShow(this);
-
-          if (constraint(def->as<TypeParam>().upper, rhs))
+          switch (def->kind())
           {
-            result(true);
-            return;
+            case Kind::TypeAlias:
+            {
+              // Check the aliased type.
+              if (!tr.resolved)
+                tr.resolved = clone(lookup.subs, def->as<TypeAlias>().inherits);
+
+              result(constraint(tr.resolved, rhs));
+              return;
+            }
+
+            case Kind::TypeParam:
+            {
+              // Treat this as (T & Bounds) by checking the upper bounds first.
+              auto noshow = NoShow(this);
+
+              if (!tr.resolved)
+                tr.resolved = clone(lookup.subs, def->as<TypeParam>().upper);
+
+              if (constraint(tr.resolved, rhs))
+              {
+                result(true);
+                return;
+              }
+              break;
+            }
+
+            default:
+              // It's a Class or an Interface. Fall through.
+              break;
           }
-          break;
         }
+
+        // TODO: LookupIsect, LookupUnion?
 
         default:
-          // It's a Class or an Interface. Fall through.
           break;
       }
     }

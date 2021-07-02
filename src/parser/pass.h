@@ -85,6 +85,13 @@ namespace verona::parser
     }
 
     template<typename T>
+    Pass& operator<<(Weak<T>& node)
+    {
+      // Ignore weak pointers by default.
+      return *this;
+    }
+
+    template<typename T>
     Pass& operator<<(List<T>& nodes)
     {
       auto prev = index;

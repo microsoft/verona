@@ -71,9 +71,10 @@ namespace verona::parser
     Binary,
     Bool,
 
-    // Lookup
-    LookupUnion,
+    // Lookup results
+    LookupOne,
     LookupIsect,
+    LookupUnion,
   };
 
   struct NodeDef;
@@ -114,8 +115,6 @@ namespace verona::parser
       return static_cast<T&>(*this);
     }
   };
-
-  // TODO: anonymous interface
 
   struct Type : NodeDef
   {};
@@ -193,13 +192,13 @@ namespace verona::parser
   using Substitutions =
     std::map<Weak<TypeParam>, Node<Type>, std::owner_less<>>;
 
+  struct LookupResult : NodeDef
+  {};
+
   struct TypeRef : Type
   {
     List<TypeName> typenames;
-    AstWeak context;
-    AstWeak def;
-    Substitutions subs;
-    Node<Type> resolved;
+    Node<LookupResult> lookup;
 
     Kind kind() override
     {
@@ -684,21 +683,44 @@ namespace verona::parser
     }
   };
 
-  struct LookupUnion : NodeDef
+  struct LookupOne : LookupResult
   {
-    List<NodeDef> list;
+    // `def` is a Class, Interface, TypeAlias, Field, or Function. It's the
+    // thing we actually looked up.
+    AstWeak def;
+
+    // `self` is the Class or Interface that should be used as Self when
+    // instantiating `def`. If `def` is a Field or Function, `self` will be the
+    // enclosing Class or Interface. Otherwise, `self` will be the same as
+    // `def`.
+    AstWeak self;
+
+    // `subs` includes the substitutions for both `def` and `self`.
+    Substitutions subs;
+
+    Kind kind()
+    {
+      return Kind::LookupOne;
+    }
+  };
+
+  struct LookupIsect : LookupResult
+  {
+    List<LookupResult> list;
+
+    Kind kind()
+    {
+      return Kind::LookupIsect;
+    }
+  };
+
+  struct LookupUnion : LookupResult
+  {
+    List<LookupResult> list;
 
     Kind kind()
     {
       return Kind::LookupUnion;
-    }
-  };
-
-  struct LookupIsect : LookupUnion
-  {
-    Kind kind()
-    {
-      return Kind::LookupIsect;
     }
   };
 }

@@ -49,6 +49,12 @@ namespace verona::parser
     }
 
     template<typename T>
+    Rewrite& operator<<(Weak<T>& node)
+    {
+      return *this;
+    }
+
+    template<typename T>
     Rewrite& operator<<(List<T>& list)
     {
       if (!ok && (index < list.size()) && (list.at(index) == prev))
@@ -80,33 +86,44 @@ namespace verona::parser
       return {};
     }
 
+    Ast operator()(LookupOne& lookup)
+    {
+      // global subs: T -> A | B
+      // local subs: U -> T | C
+      // rewrite local subs to: U -> A | B | C
+      auto clone = std::make_shared<LookupOne>();
+      *clone = lookup;
+
+      for (auto& sub : clone->subs)
+      {
+        sub.second =
+          std::static_pointer_cast<Type>(dispatch(*this, sub.second));
+      }
+
+      return clone;
+    }
+
     Ast operator()(TypeRef& tr)
     {
-      auto def = tr.def.lock();
-
-      if (def && (def->kind() == Kind::TypeParam))
+      // If this is a reference to a TypeParam, and that TypeParam is
+      // present in our substitution map, return the substituted type
+      // instead.
+      if (tr.lookup && (tr.lookup->kind() != Kind::LookupOne))
       {
-        auto tp = std::static_pointer_cast<TypeParam>(def);
-        auto find = subs.find(tr.def);
+        auto def = tr.lookup->as<LookupOne>().def.lock();
 
-        if (find != subs.end())
-          return find->second;
+        if (def && (def->kind() == Kind::TypeParam))
+        {
+          auto tp = std::static_pointer_cast<TypeParam>(def);
+          auto find = subs.find(def);
+
+          if (find != subs.end())
+            return find->second;
+        }
       }
 
       auto clone = std::make_shared<TypeRef>();
       *clone = tr;
-
-      for (auto& sub : clone->subs)
-      {
-        if (sub.second->kind() == Kind::TypeRef)
-        {
-          auto& tr = sub.second->as<TypeRef>();
-          auto find = subs.find(tr.def);
-
-          if (find != subs.end())
-            sub.second = find->second;
-        }
-      }
 
       *this << fields(*clone);
       return clone;
@@ -140,6 +157,13 @@ namespace verona::parser
     Clone& operator<<(Node<T>& node)
     {
       node = std::static_pointer_cast<T>(dispatch(*this, node));
+      return *this;
+    }
+
+    template<typename T>
+    Clone& operator<<(Weak<T>& node)
+    {
+      node = std::static_pointer_cast<T>(dispatch(*this, node.lock()));
       return *this;
     }
 
@@ -193,10 +217,14 @@ namespace verona::parser
     auto tn = std::make_shared<TypeName>();
     tn->location = typeparam->location;
 
+    auto find = std::make_shared<LookupOne>();
+    find->def = typeparam;
+    find->self = typeparam;
+
     auto tr = std::make_shared<TypeRef>();
     tr->location = typeparam->location;
     tr->typenames.push_back(tn);
-    tr->def = typeparam;
+    tr->lookup = find;
 
     return tr;
   }

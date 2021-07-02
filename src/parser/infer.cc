@@ -136,11 +136,10 @@ namespace verona::parser::infer
       }
     }
 
-    void post(TypeRef& tr)
+    void post(LookupOne& find)
     {
       // Type arguments must be a subtype of the type parameter upper bounds.
-      // TODO: not in a dynamic dispatch node
-      for (auto& [wparam, arg] : tr.subs)
+      for (auto& [wparam, arg] : find.subs)
       {
         auto param = wparam.lock();
 
@@ -254,7 +253,7 @@ namespace verona::parser::infer
 
       // Resolve the static function, with substitutions and a Self type.
       auto self = clone(sel.typeref->subs, sel.typeref->context.lock());
-      auto f = function_type(def->as<Function>().lambda->as<Lambda>());
+      auto f = def->as<Function>().type;
       f = clone(sel.typeref->subs, f, self);
       sel.typeref->resolved = f;
       subtype(f, call);
@@ -376,34 +375,35 @@ namespace verona::parser::infer
       if (!call || !call->left || (sel.typeref->typenames.size() != 1))
         return false;
 
-      Ast receiver = receiver_type(call->left);
-      auto& tn = sel.typeref->typenames.front();
-      auto sym = receiver;
-      auto def = lookup.member(sym, receiver, tn->location);
+      auto receiver = receiver_type(call->left);
+      auto find = lookup.member(receiver, sel.typeref->typenames.front());
 
-      if (!def)
+      if (!find)
         return false;
 
-      lookup.substitutions(sel.typeref->subs, def, tn->typeargs);
-      sel.typeref->context = sym;
-      sel.typeref->def = def;
-
-      if (sym->kind() == Kind::Class)
+      // TODO: could be a LookupIsect with a Class `self` inside it
+      if (find->kind() == Kind::LookupOne)
       {
-        // TODO: we know the method statically
+        auto self = find->as<LookupOne>().self.lock();
+
+        if (self->kind() == Kind::Class)
+        {
+          // TODO: we know the method statically
+        }
       }
 
+      // TODO: is `call` <: `functype` for every disjunction?
+      // at LookupOne, the receiver type is `type & self`
       return check_dispatch_type(receiver, call, def, sel.typeref->subs, sel);
     }
 
     bool check_dispatch_type(
-      Ast& receiver,
+      Node<Type>& receiver,
       Node<FunctionType>& call,
-      Ast& def,
-      Substitutions& subs,
+      Node<LookupResult>& look,
       Select& sel)
     {
-      switch (def->kind())
+      switch (look->kind())
       {
         case Kind::Field:
         {
@@ -417,14 +417,16 @@ namespace verona::parser::infer
 
         case Kind::Function:
         {
-          auto& lambda = def->as<Function>().lambda->as<Lambda>();
-          auto f = function_type(lambda);
+          auto f = def->as<Function>().type;
 
           // TODO: don't use whole receiver type as self?
           // discard capabilities? specialise to the dispatch type?
           // but when we check subtyping, `receiver & dispatch-type` for the
           // first argument of `call`, instead of just `receiver`
           // return clone(subs, f, receiver);
+
+          // TODO: not sufficient, need receiver substitutions on f
+          f = clone(subs, f, receiver);
           std::cerr << f << std::endl;
           std::cerr << call << std::endl;
           return subtype(f, call);
