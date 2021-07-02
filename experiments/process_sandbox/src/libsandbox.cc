@@ -173,7 +173,7 @@ namespace sandbox
           }
           case MemoryProviderReserve:
           {
-            uint8_t large_size = static_cast<uint8_t>(rpc.arg1);
+            uint8_t large_size = static_cast<uint8_t>(rpc.arg0);
             if (!is_large_sizeclass(large_size))
             {
               break;
