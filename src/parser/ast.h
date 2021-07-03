@@ -280,7 +280,7 @@ namespace verona::parser
     Node<Type> type;
     bool assigned = false;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Let;
     }
@@ -288,7 +288,7 @@ namespace verona::parser
 
   struct Var : Let
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Var;
     }
@@ -296,7 +296,7 @@ namespace verona::parser
 
   struct Free : Expr
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Free;
     }
@@ -380,7 +380,7 @@ namespace verona::parser
 
     SymbolTable st;
 
-    SymbolTable* symbol_table()
+    SymbolTable* symbol_table() override
     {
       return &st;
     }
@@ -457,7 +457,7 @@ namespace verona::parser
       location = ident();
     }
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::InferType;
     }
@@ -556,7 +556,7 @@ namespace verona::parser
 
   struct TypeAlias : Interface
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::TypeAlias;
     }
@@ -605,7 +605,7 @@ namespace verona::parser
 
     SymbolTable st;
 
-    SymbolTable* symbol_table()
+    SymbolTable* symbol_table() override
     {
       return &st;
     }
@@ -677,7 +677,7 @@ namespace verona::parser
 
   struct Bool : Constant
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::Bool;
     }
@@ -698,7 +698,7 @@ namespace verona::parser
     // `subs` includes the substitutions for both `def` and `self`.
     Substitutions subs;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::LookupOne;
     }
@@ -718,7 +718,7 @@ namespace verona::parser
   {
     List<LookupResult> list;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::LookupUnion;
     }
