@@ -12,6 +12,7 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -302,7 +303,7 @@ namespace
    * depth in a callback has its own runloop that handles recursive invocations
    * from the parent in response to the callback.
    */
-  void runloop(int callback_depth = 0)
+  __attribute__((used)) void runloop(int callback_depth = 0)
   {
     int new_depth;
     do
@@ -450,7 +451,7 @@ namespace
    *  wrapper.
    */
   std::pair<uintptr_t, Handle>
-  callback(sandbox::CallbackKind k, void* buffer, size_t size, int fd)
+  callback(sandbox::CallbackKind k, const void* buffer, size_t size, int fd)
   {
     Handle out_fd(fd);
     CallbackRequest req{k, size, reinterpret_cast<uintptr_t>(buffer)};
@@ -467,6 +468,134 @@ namespace
   }
 
   /**
+   * Argument direction: for pointers, are they used to transfer data to or
+   * from the callee?
+   */
+  enum ArgDirection
+  {
+    /**
+     * The callee will read via this pointer.
+     */
+    In,
+    /**
+     * The callee will write via this pointer.
+     */
+    Out,
+    /**
+     * The callee will read and write via this pointer.
+     */
+    InOut
+  };
+
+  /**
+   * Wrapper for pointer arguments.  Encapsulates a pointer to a `T` that is to
+   * be passed to the parent.  Checks that the argument is inside the region
+   * that is shared with the parent, allocating a new buffer if it is not.  If
+   * this is an `Out` or `InOut` parameter, copies the result back.
+   *
+   * TODO: Handle arrays
+   */
+  template<typename T, ArgDirection Direction = In>
+  class CallbackPtrArg
+  {
+    /**
+     * The pointer captured by this object.
+     */
+    T* original;
+    /**
+     * An on-heap pointer for a copy of the pointee, allocated in the shared
+     * region.  If `original` is in the shared heap, this will be `nullptr`.
+     */
+    std::unique_ptr<T> copy;
+
+  public:
+    /**
+     * Constructor, captures `orig` and also allocates a copy of it on the
+     * heap.  The value of `orig` must not be modified for the lifetime of this
+     * object.
+     */
+    CallbackPtrArg(T* orig) : original(orig)
+    {
+      if (!is_inside_shared_memory(orig))
+      {
+        copy = std::make_unique<T>(*orig);
+      }
+    }
+
+    /**
+     * Destructor.  If this is an output parameter and the address passed out
+     * of the sandbox was to the copy, copy the result back.
+     */
+    ~CallbackPtrArg()
+    {
+      if (copy && (Direction != In))
+      {
+        *original = *copy;
+      }
+    }
+
+    /**
+     * Returns a pointer to the version of the argument that should be used.
+     */
+    const T* get()
+    {
+      return copy ? copy.get() : original;
+    }
+
+    /**
+     * Provide the address (either of the original object if possible or the
+     * copy if necessary) for use in a message to the parent.
+     */
+    uintptr_t arg()
+    {
+      return reinterpret_cast<uintptr_t>(get());
+    }
+
+    /**
+     * Implicit conversion to the type used to communicate outside of the
+     * sandbox.
+     */
+    operator uintptr_t()
+    {
+      return arg();
+    }
+  };
+
+  /**
+   * String pointer argument.  Encapsulates a C string pointer and copies it to
+   * the sandbox shared heap if it is not within the sandbox.
+   */
+  class CallbackCStrArg
+  {
+    /**
+     * The original C string.
+     */
+    const char* original;
+
+    /**
+     *
+     */
+    unique_c_ptr<char> copy;
+
+  public:
+    CallbackCStrArg(const char* orig)
+    {
+      if (!is_inside_shared_memory(orig))
+      {
+        copy.reset(strdup(orig));
+      }
+    }
+    uintptr_t arg()
+    {
+      return reinterpret_cast<uintptr_t>(copy ? copy.get() : original);
+    }
+    operator uintptr_t()
+    {
+      return arg();
+    }
+  };
+
+  /**
    * Invoke a callback, of the specified kind, passing `data`.  The `data`
    * argument must point to the shared heap.
    *
@@ -481,39 +610,17 @@ namespace
   }
 
   /**
-   * Emulate the `stat` system call by performing a callback to the parent.
+   * Wrapper template for callbacks that are system calls.  The first template
+   * parameter is a specialisation of `sandbox::SyscallArgs<>`, which infers
+   * the types from the underlying system call types.  The remaining arguments
+   * are the values in the message.
    */
-  int callback_stat(const char* pathname, struct stat* statbuf)
+  template<typename ArgsStruct, typename... Args>
+  intptr_t syscall_callback_helper(Args... args)
   {
-    auto args = std::make_unique<sandbox::CallbackArgs::Stat>();
-    unique_c_ptr<char> copy;
-    if (!is_inside_shared_memory(pathname))
-    {
-      copy.reset(strdup(pathname));
-      pathname = copy.get();
-    }
-    args->path = reinterpret_cast<uintptr_t>(pathname);
-    args->statbuf = reinterpret_cast<uintptr_t>(statbuf);
-    auto ret = callback(sandbox::CallbackKind::Stat, args.get());
-    return static_cast<int>(ret.first);
-  }
-
-  /**
-   * Emulate the `open` system call by performing a callback to the parent.
-   */
-  int callback_open(const char* pathname, int flags, mode_t mode)
-  {
-    auto args = std::make_unique<sandbox::CallbackArgs::Open>();
-    unique_c_ptr<char> copy;
-    if (!is_inside_shared_memory(pathname))
-    {
-      copy.reset(strdup(pathname));
-      pathname = copy.get();
-    }
-    args->path = reinterpret_cast<uintptr_t>(pathname);
-    args->flags = flags;
-    args->mode = mode;
-    auto ret = callback(sandbox::CallbackKind::Open, args.get());
+    typename ArgsStruct::rpc_type stack_args{args...};
+    CallbackPtrArg<decltype(stack_args)> argstruct{&stack_args};
+    auto ret = callback(ArgsStruct::kind, argstruct.get());
     int result = static_cast<int>(ret.first);
     if (ret.second.is_valid())
     {
@@ -523,8 +630,28 @@ namespace
   }
 
   /**
+   * Emulate the `stat` system call by performing a callback to the parent.
+   */
+  intptr_t callback_stat(const char* pathname, struct stat* statbuf)
+  {
+    return syscall_callback_helper<
+      sandbox::SyscallArgs<Stat>,
+      CallbackCStrArg,
+      CallbackPtrArg<struct stat, Out>>(pathname, statbuf);
+  }
+
+  /**
+   * Emulate the `open` system call by performing a callback to the parent.
+   */
+  int callback_open(const char* pathname, int flags, mode_t mode)
+  {
+    return syscall_callback_helper<sandbox::SyscallArgs<Open>, CallbackCStrArg>(
+      pathname, flags, mode);
+  }
+
+  /**
    * The callback functions use the Linux convention for system call returns:
-   * non-negative numbers indicate success, negative numbers indicate valuesw
+   * non-negative numbers indicate success, negative numbers indicate values
    * that should be stored in `errno`.  The `syscall_return` function unwraps
    * this into the return value from the POSIX function, setting `errno` if
    * appropriate.
@@ -691,6 +818,54 @@ int sandbox::invoke_user_callback(int idx, void* data, size_t size, int fd)
   return result;
 }
 
+#ifdef __x86_64__
+/**
+ * x86-64 assembly version of the stack pivot.  Stores the old stack pointer on
+ * the new stack and then calls `runloop`.
+ */
+__asm__(
+  "\t.type   runloop_with_stack_pivot,@function\n"
+  "runloop_with_stack_pivot:\n"
+  "\tmov  %rsp, %rbx # Old stack pointer in rbx\n"
+  "\tmov  %rdi, %rsp # Move to using the new stack pointer\n"
+  "\tpush %rbx       # Old stack pointer on the new stack\n"
+  "\tpush %rbx       # Fix stack alignment\n"
+  "\txor  %rdi, %rdi # Depth = 0\n"
+  "\tcallq _ZN12_GLOBAL__N_17runloopEi # call runloop()\n"
+  "\tpop %rax\n      # Ignored\n"
+  "\tpop %rsp\n      # Restore the old stack pointer\n"
+  "\tret             # Return to the return address from the old stack\n"
+  ".Lrunloop_with_stack_pivot_end:\n"
+  "\t.size   runloop_with_stack_pivot, "
+  ".Lrunloop_with_stack_pivot_end-runloop_with_stack_pivot\n");
+
+extern "C" void runloop_with_stack_pivot(void*, size_t);
+#else
+/**
+ * Portable version of the stack pivot.  Creates a new pthread with the
+ * specified stack and then waits for it to finish.
+ */
+static void runloop_with_stack_pivot(void* stack, size_t stack_size)
+{
+  pthread_t runner;
+  pthread_attr_t attrs;
+  pthread_attr_init(&attrs);
+  pthread_attr_setstack(&attrs, stack, stack_size);
+  // Create the new thread on the provided stack
+  pthread_create(
+    &runner,
+    &attrs,
+    [](void*) -> void* {
+      runloop();
+      return nullptr;
+    },
+    nullptr);
+  // Block until the thread has exited.
+  void* unused;
+  pthread_join(runner, &unused);
+}
+#endif
+
 int main()
 {
   sandbox::platform::Sandbox::apply_sandboxing_policy_postexec();
@@ -755,8 +930,12 @@ int main()
   shared->token.is_child_executing = false;
   shared->token.is_child_loaded = true;
 
+  static constexpr size_t stack_size = 8 * 1024 * 1024;
+  void* stack = malloc(stack_size);
   // Enter the run loop, waiting for calls from trusted code.
-  runloop();
+  // We do this in a new thread so that our stack can be in the shared region.
+  // This avoids the need to copy arguments from the stack to the heap.
+  runloop_with_stack_pivot(stack, stack_size);
 
   return 0;
 }

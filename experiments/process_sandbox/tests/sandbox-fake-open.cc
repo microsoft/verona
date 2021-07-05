@@ -44,7 +44,12 @@ int main()
   };
   fprintf(stderr, "Indirect syscall\n");
   test(false);
-  fprintf(stderr, "Direct syscall\n");
-  test(true);
+  // The no-op sandbox doesn't actually do any sandboxing so raw system calls
+  // will work.  Skip the test that they're correctly intercepted.
+  if constexpr (!std::is_same_v<platform::Sandbox, platform::SandboxNoOp>)
+  {
+    fprintf(stderr, "Direct syscall\n");
+    test(true);
+  }
   return 0;
 }
