@@ -68,7 +68,7 @@ target_link_libraries(sandbox fmt)
 target_link_options(library_runner PRIVATE -Wl,-export-dynamic)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(library_runner -ldl -lbsd)
+	target_link_libraries(library_runner -ldl -lbsd -lrt)
 	target_link_libraries(sandbox -ldl -lbsd -lrt)
 endif()
 

@@ -138,7 +138,7 @@ namespace sandbox
    * and so we need to pack those into a tuple.
    */
   template<DebugOption Enable = DebugAndRelease, typename Msg, typename... Args>
-  __attribute__((always_inline)) void invariant(
+  __attribute__((always_inline)) inline void invariant(
     bool cond,
     Msg msg = "Assertion failure",
     std::tuple<Args...> fmt_args = {},

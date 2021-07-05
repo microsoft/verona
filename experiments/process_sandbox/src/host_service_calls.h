@@ -22,44 +22,34 @@ namespace sandbox
   enum HostServiceCallID : uintptr_t
   {
     /**
-     * Push a large allocation to the stack.  The first argument is the address
-     * of the slab, the second the large sizeclass.  The return value is unused.
-     *
-     * The slab must be within the shared memory region for the sandbox and so
-     * must have been previously returned with a call to either
-     * `MemoryProviderPopLargeStack` or `MemoryProviderReserve`.
-     */
-    MemoryProviderPushLargeStack,
-    /**
-     * Pop a large allocation from the stack.  The first argument is the large
-     * sizeclass, the second is unused.  The return value is the address of the
-     * large allocation that was popped from the stack, 0 indicates that the
-     * stack was empty.
-     */
-    MemoryProviderPopLargeStack,
-    /**
-     * Reserve memory.  The first argument is the large sizeclass, the second
-     * is unused.  The return value is the start of the reserved address range.
+     * Reserve memory.  The first (and only) argument is the number of bytes.
+     * static_cast<he>(return value is the start of the reserved address range.
      *
      * Note: The `committed` template parameter is ignored, the shared memory
      * region is assumed to always be committed.
      */
     MemoryProviderReserve,
     /**
-     * Set a chunk map element. The first argument is the address, the second
-     * is the chunkmap entry.  The return value is unused.
+     * Sets the metadata for a slab.  The arguments are:
+     *
+     * - The slab address
+     * - The slab size
+     * - The pointer to the metadata (MetaSlab)
+     * - The message queue with the size class encoded in the low bits.
      */
-    ChunkMapSet,
+    MetadataSet,
     /**
-     * Set a range in the chunk map.  The first argument is the base address,
-     * the second is the base-2 logarithm of the size (rounded up).
+     * Allocate a chunk.  The arguments are:
+     *  - The size to allocate
+     *  - The address of the message queue
+     *  - The size class of the allocation
+     *  - The address of the metadata.
+     *
+     * Note that the address of the metadata should never be
+     * accessed from outside the sandbox and so does not need to be in the
+     * shared memory region.
      */
-    ChunkMapSetRange,
-    /**
-     * Clear a range in the chunk map.  The first argument is the base address,
-     * the second is the base-2 logarithm of the size (rounded up).
-     */
-    ChunkMapClearRange,
+    AllocChunk,
   };
 
   /**
@@ -74,13 +64,9 @@ namespace sandbox
     HostServiceCallID kind;
 
     /**
-     * The first argument.  The interpretation of this is depends on the call.
+     * The arguments.  The interpretation of this is depends on the call.
      */
-    uintptr_t arg0;
-    /**
-     * The second argument.  The interpretation of this is depends on the call.
-     */
-    uintptr_t arg1;
+    uintptr_t args[4];
   };
 
   /**
