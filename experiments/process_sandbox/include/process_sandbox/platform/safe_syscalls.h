@@ -9,8 +9,8 @@
  * descriptor that the .
  */
 
+#include "safe_syscalls-freebsd.h"
 #include "safe_syscalls-linux.h"
-//#include "safe_syscalls-freebsd.h"
 
 namespace sandbox::platform
 {
@@ -18,7 +18,7 @@ namespace sandbox::platform
 #ifdef __linux__
     SafeSyscallsLinux
 #elif defined(__FreeBSD__)
-    sandbox::platform::syscalls::freebsd
+    SafeSyscallsFreeBSD
 #else
 #  error Safe system calls not implemented for your platform
 #endif

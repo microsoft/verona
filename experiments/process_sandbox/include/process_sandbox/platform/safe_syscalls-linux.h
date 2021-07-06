@@ -99,8 +99,8 @@ namespace sandbox::platform
      * Check for access of a file.  The arguments correspond to those of the
      * `faccessat` call in POSIX.
      */
-    static int
-    faccessat_beneath(platform::handle_t fd, const char* path, int mode)
+    static int faccessat_beneath(
+      platform::handle_t fd, const char* path, int mode, int flags = 0)
     {
       int eno;
       int ret;
@@ -113,10 +113,12 @@ namespace sandbox::platform
         }
         else
         {
-          ret = syscall(faccessat2_number, fd, "", mode, at_empty_path);
+          ret = syscall(faccessat2_number, fd, "", mode, flags | at_empty_path);
           eno = errno;
         }
       }
+      // Set errno to the value from the call that we care about, not any value
+      // set by `close` in `Handle`'s destructor.
       errno = eno;
       return ret;
     };
