@@ -5,6 +5,7 @@
 #ifdef __linux__
 
 #  include <fcntl.h>
+#  include <sys/stat.h>
 #  include <sys/syscall.h>
 #  include <unistd.h>
 
@@ -113,7 +114,8 @@ namespace sandbox::platform
         }
         else
         {
-          ret = syscall(faccessat2_number, fd, "", mode, flags | at_empty_path);
+          ret = syscall(
+            faccessat2_number, path_handle.fd, "", mode, flags | at_empty_path);
           eno = errno;
         }
       }
@@ -122,6 +124,34 @@ namespace sandbox::platform
       errno = eno;
       return ret;
     };
+
+    /**
+     * Check the properties of a file.  The arguments correspond to those of
+     * the `fstatat_beneath` call in POSIX.
+     */
+    static int fstatat_beneath(
+      platform::handle_t fd, const char* path, struct stat* sb, int flags)
+    {
+      int eno;
+      int ret;
+      {
+        Handle path_handle{openat_beneath(fd, path, o_path, 0)};
+        if (!path_handle.is_valid())
+        {
+          eno = errno;
+          ret = -1;
+        }
+        else
+        {
+          ret = fstatat(path_handle.fd, "", sb, flags | at_empty_path);
+          eno = errno;
+        }
+      }
+      // Set errno to the value from the call that we care about, not any
+      // value set by `close` in `Handle`'s destructor.
+      errno = eno;
+      return ret;
+    }
   };
 }
 

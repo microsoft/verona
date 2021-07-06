@@ -28,6 +28,7 @@
 #include "host_service_calls.h"
 #include "process_sandbox/callbacks.h"
 #include "process_sandbox/filetree.h"
+#include "process_sandbox/path.h"
 #include "process_sandbox/platform/sandbox.h"
 #include "process_sandbox/sandbox.h"
 #include "process_sandbox/shared_memory_region.h"
@@ -486,16 +487,6 @@ namespace sandbox
     };
 
     /**
-     * Turn a path into a canonical path.  The argument should be the return
-     * value from `get_path`.
-     */
-    unique_c_ptr<char> get_canonical_path(unique_c_ptr<char>& path)
-    {
-      unique_c_ptr<char> canonical_path{realpath(path.get(), nullptr)};
-      return canonical_path;
-    }
-
-    /**
      * Check a pointer.  Returns `nullptr` if an object of type `T` at the
      * given address is not fully contained within the sandbox.  Returns a
      * pointer to the object cast to the correct type.
@@ -518,13 +509,14 @@ namespace sandbox
     Result
     handle_path_syscall(Library& lib, uintptr_t inSandboxPath, T&& handler)
     {
-      auto path = get_path(lib, inSandboxPath);
-      auto canonical_path = get_canonical_path(path);
-      if (!path)
+      auto raw_path = get_path(lib, inSandboxPath);
+      if (!raw_path)
       {
         return return_int(-EINVAL);
       }
-      auto allowed = vfs.lookup_file(path.get());
+      Path path{raw_path.get()};
+      path.canonicalise();
+      auto allowed = vfs.lookup_file(path);
       if (!allowed.has_value())
       {
         return return_int(-ENOENT);
@@ -541,10 +533,13 @@ namespace sandbox
     {
       return handle_path_syscall(
         lib, std::get<0>(args), [&](auto fd, auto& path_tail) {
-          if (path_tail != std::string())
+          if (!path_tail.is_empty())
           {
             fd = platform::SafeSyscalls::openat_beneath(
-              fd, path_tail.c_str(), std::get<1>(args), std::get<2>(args));
+              fd,
+              path_tail.str().c_str(),
+              std::get<1>(args),
+              std::get<2>(args));
           }
           else
           {
@@ -566,7 +561,7 @@ namespace sandbox
         lib, std::get<0>(args), [&](auto fd, auto& path_tail) {
           return return_int(platform::SafeSyscalls::faccessat_beneath(
             fd,
-            path_tail == std::string() ? nullptr : path_tail.c_str(),
+            path_tail.is_empty() ? nullptr : path_tail.str().c_str(),
             std::get<1>(args)));
         });
     }
@@ -584,9 +579,9 @@ namespace sandbox
           if (sb != nullptr)
           {
             return return_int(
-              (path_tail == std::string()) ?
-                fstat(fd, sb) :
-                fstatat(fd, path_tail.c_str(), sb, 0));
+              path_tail.is_empty() ? fstat(fd, sb) :
+                                     platform::SafeSyscalls::fstatat_beneath(
+                                       fd, path_tail.str().c_str(), sb, 0));
           }
           return return_int(-EINVAL);
         });

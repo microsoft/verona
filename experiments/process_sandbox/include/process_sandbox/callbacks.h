@@ -176,7 +176,10 @@ namespace sandbox
       }
       // Defensively copy the request body out of the sandbox.
       auto arg = std::make_unique<T>();
-      memcpy(arg.get(), reinterpret_cast<void*>(req.data), sizeof(T));
+      memcpy(
+        reinterpret_cast<void*>(arg.get()),
+        reinterpret_cast<void*>(req.data),
+        sizeof(T));
       return fn(lib, *arg);
     }
 
@@ -312,6 +315,8 @@ namespace sandbox
   struct SyscallArgs
   {};
 
+  SANDBOX_GCC_DIAGNOSTIC_IGNORE("-Wignored-attributes")
+
   /**
    * System call arguments for the `open` call.  Note that this cannot infer the
    * type from `open` because POSIX requires `open` to be declared as
@@ -341,4 +346,5 @@ namespace sandbox
   struct SyscallArgs<Stat> : internal::SyscallArgsBase<Stat, decltype(::stat)>
   {};
 
+  SANDBOX_GCC_DIAGNOSTIC_POP()
 }

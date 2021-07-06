@@ -573,22 +573,36 @@ namespace
     const char* original;
 
     /**
-     *
+     * A copy of the string in shared memory (if necessary);
      */
     unique_c_ptr<char> copy;
 
   public:
-    CallbackCStrArg(const char* orig)
+    /**
+     * Constructor.  Holds a reference to the C string and copies it if
+     * necessary.
+     */
+    CallbackCStrArg(const char* orig) : original(orig)
     {
       if (!is_inside_shared_memory(orig))
       {
         copy.reset(strdup(orig));
       }
     }
+
+    /**
+     * Provide the address (either of the original object if possible or the
+     * copy if necessary) for use in a message to the parent.
+     */
     uintptr_t arg()
     {
       return reinterpret_cast<uintptr_t>(copy ? copy.get() : original);
     }
+
+    /**
+     * Implicit conversion to the type used to communicate outside of the
+     * sandbox.
+     */
     operator uintptr_t()
     {
       return arg();
@@ -907,7 +921,6 @@ int main()
   void* handle = fdlopen(MainLibrary, RTLD_GLOBAL | RTLD_LAZY);
   if (handle == nullptr)
   {
-    fprintf(stderr, "dlopen failed: %s\n", dlerror());
     return 1;
   }
 

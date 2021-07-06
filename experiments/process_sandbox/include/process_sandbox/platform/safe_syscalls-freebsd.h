@@ -5,6 +5,7 @@
 #ifdef __FreeBSD__
 
 #  include <fcntl.h>
+#  include <sys/stat.h>
 #  include <unistd.h>
 
 namespace sandbox::platform
@@ -34,6 +35,16 @@ namespace sandbox::platform
     {
       return faccessat(fd, path, mode, flags | AT_RESOLVE_BENEATH);
     };
+
+    /**
+     * Check the properties of a file.  The arguments correspond to those of
+     * the `fstatat_beneath` call in POSIX.
+     */
+    static int fstatat_beneath(
+      platform::handle_t fd, const char* path, struct stat* sb, int flags)
+    {
+      return fstatat(fd, path, sb, flags | AT_RESOLVE_BENEATH);
+    }
   };
 }
 
