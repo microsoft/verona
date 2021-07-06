@@ -289,6 +289,17 @@ namespace sandbox
        */
       using rpc_type = typename RPCTypes<Args...>::type;
     };
+
+    /**
+     * On some platforms, syscalls are marked explicitly as `noexcept` (which
+     * makes sense, because they don't throw exceptions).  The presence or
+     * absence of this annotation doesn't affect this class, so match this by
+     * delegating to the non-`noexcept` variant.
+     */
+    template<CallbackKind Kind, typename R, typename... Args>
+    struct SyscallArgsBase<Kind, R(Args...) noexcept>
+    : SyscallArgsBase<Kind, R(Args...)>
+    {};
   }
 
   /**

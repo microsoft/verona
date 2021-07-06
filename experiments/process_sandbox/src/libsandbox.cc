@@ -543,7 +543,7 @@ namespace sandbox
         lib, std::get<0>(args), [&](auto fd, auto& path_tail) {
           if (path_tail != std::string())
           {
-            fd = ::openat(
+            fd = platform::SafeSyscalls::openat_beneath(
               fd, path_tail.c_str(), std::get<1>(args), std::get<2>(args));
           }
           else
@@ -564,11 +564,10 @@ namespace sandbox
     {
       return handle_path_syscall(
         lib, std::get<0>(args), [&](auto fd, auto& path_tail) {
-          return return_int(::faccessat(
+          return return_int(platform::SafeSyscalls::faccessat_beneath(
             fd,
             path_tail == std::string() ? nullptr : path_tail.c_str(),
-            std::get<1>(args),
-            AT_RESOLVE_BENEATH));
+            std::get<1>(args)));
         });
     }
 
