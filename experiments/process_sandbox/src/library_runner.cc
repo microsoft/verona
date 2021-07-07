@@ -636,6 +636,22 @@ namespace
     CallbackPtrArg<decltype(stack_args)> argstruct{&stack_args};
     auto ret = callback(ArgsStruct::kind, argstruct.get());
     int result = static_cast<int>(ret.first);
+    // POSIX defines system calls to all return a single value (and optionally
+    // set `errno`).  Some of those integer returns are file descriptors.  When
+    // the file descriptor is sent over the UNIX domain socket, its number will
+    // change.  If we receive a file descriptor, we return the received value
+    // instead.
+    //
+    // Each operating system has a different convention for returning `errno`
+    // values.  FreeBSD uses the carry bit to differentiate between a valid and
+    // error return, for an invalid return the return value is moved to `errno`
+    // and replaced with -1.  Irrespective of the host system, we always use
+    // the Linux convention and this layer.  Linux uses the sign: Negative
+    // values returned from the system call are stored in `errno` and the
+    // return value replaced by -1, non-negative values are returned directly.
+    // This is handled by the system call wrappers, these functions mimic the
+    // raw system call because they are invoked from both the wrappers and the
+    // system-call emulation in the signal handler.
     if (ret.second.is_valid())
     {
       result = ret.second.take();
