@@ -46,7 +46,7 @@ namespace verona::rt
     static constexpr uint64_t TSC_QUIESCENCE_TIMEOUT = 1'000'000;
 
     T* token_cown = nullptr;
-    T* poller_cown = nullptr;
+    T* poller_owner_cown = nullptr;
 
 #ifdef USE_SYSTEMATIC_TESTING
     friend class ThreadSyncSystematic<SchedulerThread>;
@@ -116,13 +116,13 @@ namespace verona::rt
 
     SchedulerThread()
     : token_cown{T::create_token_cown()},
-      poller_cown{T::create_poller_cown()},
+      poller_owner_cown{T::create_poller_owner_cown()},
       q{token_cown},
       mute_set{ThreadAlloc::get()},
       pollers{ThreadAlloc::get()}
     {
       token_cown->set_owning_thread(this);
-      poller_cown->set_owning_thread(this);
+      poller_owner_cown->set_owning_thread(this);
     }
 
     ~SchedulerThread()
@@ -174,9 +174,9 @@ namespace verona::rt
         stats.unpause();
     }
 
-    void notify_poller_cown()
+    void notify_poller_owner_cown()
     {
-      poll_from->poller_cown->mark_notify();
+      poll_from->poller_owner_cown->mark_notify();
       poll_from = poll_from->next;
     }
 
@@ -388,8 +388,8 @@ namespace verona::rt
         cown = cown->next;
       }
 
-      poller_cown->collect(alloc);
-      poller_cown->dealloc(alloc);
+      poller_owner_cown->collect(alloc);
+      poller_owner_cown->dealloc(alloc);
 
       Systematic::cout() << "End teardown (phase 1)" << Systematic::endl;
 
@@ -514,7 +514,7 @@ namespace verona::rt
 
         if (pollers.size() != 0)
         {
-          notify_poller_cown();
+          notify_poller_owner_cown();
           continue;
         }
 
@@ -582,7 +582,7 @@ namespace verona::rt
         assert(!sched->debug_is_token_consumed());
         sched->set_token_consumed(true);
 
-        notify_poller_cown();
+        notify_poller_owner_cown();
 
         if (sched != this)
         {

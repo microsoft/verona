@@ -154,7 +154,7 @@ namespace verona::rt
         cown->mark_notify();
     }
 
-    static Cown* create_poller_cown()
+    static Cown* create_poller_owner_cown()
     {
       static constexpr Descriptor desc = {
         vsizeof<Cown>, empty_cown_trace, nullptr, poller_notified};
@@ -1394,7 +1394,7 @@ namespace verona::rt
     template<TransferOwnership transfer = NoTransfer>
     static Cown* poller_add(Cown* poller)
     {
-      Cown* owner = Scheduler::local()->poller_cown;
+      Cown* owner = Scheduler::local()->poller_owner_cown;
       schedule_lambda<NoTransfer>(owner, [=] {
         auto alloc = ThreadAlloc::get();
         bool inserted =
