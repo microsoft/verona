@@ -12,7 +12,7 @@
 namespace sandbox
 {
   /**
-   * Class encapsulating a path.  A path is route through a tree.  This class
+   * Class encapsulating a path.  A path is a route through a tree.  This class
    * works on an abstract filesystem namespace, it never accesses the
    * filesystem.
    */
