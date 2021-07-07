@@ -42,7 +42,7 @@ namespace sandbox::platform
       // This system call was introduced with Linux 5.6, but Ubuntu 20.04
       // doesn't provide headers that expose it, so hard-code the number
       // for x86-64 until they catch up.
-      437
+      439
 #  else
 #    error faccessat2 system call number not found
 #  endif
