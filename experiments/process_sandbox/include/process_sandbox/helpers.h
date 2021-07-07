@@ -35,6 +35,30 @@
 #  define SANDBOX_CLANG_DIAGNOSTIC_POP()
 #endif
 
+#if defined(__GNUC__) && !defined(__clang__)
+/**
+ * Macro to silence a gcc warning until the next
+ * `SANDBOX_GCC_DIAGNOSTIC_POP()`.  The argument is the name of the warning
+ * as a string.  For example, if the flag to enable the warning is
+ * `-Wwarning-with-false-positives` then the argument to this should be
+ * `"-Wwarning-with-false-positives"`.
+ *
+ * When compiling with a non-gcc compiler, this macro does nothing.
+ */
+#  define SANDBOX_GCC_DIAGNOSTIC_IGNORE(x) \
+    _Pragma("GCC diagnostic push") SANDBOX_DO_PRAGMA(GCC diagnostic ignored x)
+/**
+ * Restores the set of enabled gcc warnings to the set before the most recent
+ * `SANDBOX_GCC_DIAGNOSTIC_IGNORE()`.
+ *
+ * When compiling with a non-gcc compiler, this macro does nothing.
+ */
+#  define SANDBOX_GCC_DIAGNOSTIC_POP() _Pragma("GCC diagnostic pop")
+#else
+#  define SANDBOX_GCC_DIAGNOSTIC_IGNORE(x)
+#  define SANDBOX_GCC_DIAGNOSTIC_POP()
+#endif
+
 #if __has_include(<experimental/source_location>)
 #  include <experimental/source_location>
 namespace sandbox

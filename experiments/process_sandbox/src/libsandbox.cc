@@ -28,6 +28,7 @@
 #include "host_service_calls.h"
 #include "process_sandbox/callbacks.h"
 #include "process_sandbox/filetree.h"
+#include "process_sandbox/path.h"
 #include "process_sandbox/platform/sandbox.h"
 #include "process_sandbox/sandbox.h"
 #include "process_sandbox/shared_memory_region.h"
@@ -173,7 +174,7 @@ namespace sandbox
           }
           case MemoryProviderReserve:
           {
-            uint8_t large_size = static_cast<uint8_t>(rpc.arg1);
+            uint8_t large_size = static_cast<uint8_t>(rpc.arg0);
             if (!is_large_sizeclass(large_size))
             {
               break;
@@ -486,16 +487,6 @@ namespace sandbox
     };
 
     /**
-     * Turn a path into a canonical path.  The argument should be the return
-     * value from `get_path`.
-     */
-    unique_c_ptr<char> get_canonical_path(unique_c_ptr<char>& path)
-    {
-      unique_c_ptr<char> canonical_path{realpath(path.get(), nullptr)};
-      return canonical_path;
-    }
-
-    /**
      * Check a pointer.  Returns `nullptr` if an object of type `T` at the
      * given address is not fully contained within the sandbox.  Returns a
      * pointer to the object cast to the correct type.
@@ -514,36 +505,65 @@ namespace sandbox
       return nullptr;
     }
 
-    /**
-     * Handle an `open` callback by reading the file from the exported file
-     * tree.
-     */
-    Result handle_open(Library& lib, CallbackArgs::Open& args)
+    template<typename T>
+    Result
+    handle_path_syscall(Library& lib, uintptr_t inSandboxPath, T&& handler)
     {
-      auto path = get_path(lib, args.path);
-      auto canonical_path = get_canonical_path(path);
-      if (!path)
+      auto raw_path = get_path(lib, inSandboxPath);
+      if (!raw_path)
       {
         return return_int(-EINVAL);
       }
-      auto allowed = vfs.lookup_file(path.get());
+      Path path{raw_path.get()};
+      path.canonicalise();
+      auto allowed = vfs.lookup_file(path);
       if (!allowed.has_value())
       {
         return return_int(-ENOENT);
       }
-      auto fd = allowed.value().first;
-      auto& path_tail = allowed.value().second;
-      if (path_tail != std::string())
-      {
-        fd = ::openat(fd, path_tail.c_str(), args.flags, args.mode);
-      }
-      else
-      {
-        // FIXME: Ugly hack to work around the lack of a non-owning version
-        // of `Handle`
-        fd = ::dup(fd);
-      }
-      return return_fd(fd);
+      auto [fd, path_tail] = allowed.value();
+      return handler(fd, path_tail);
+    }
+
+    /**
+     * Handle an `open` callback by reading the file from the exported file
+     * tree.
+     */
+    Result handle_open(Library& lib, SyscallArgs<Open>::rpc_type& args)
+    {
+      return handle_path_syscall(
+        lib, std::get<0>(args), [&](auto fd, auto& path_tail) {
+          if (!path_tail.is_empty())
+          {
+            fd = platform::SafeSyscalls::openat_beneath(
+              fd,
+              path_tail.str().c_str(),
+              std::get<1>(args),
+              std::get<2>(args));
+          }
+          else
+          {
+            // FIXME: Ugly hack to work around the lack of a non-owning version
+            // of `Handle`
+            fd = ::dup(fd);
+          }
+          return return_fd(fd);
+        });
+    }
+
+    /**
+     * Handle an `access` callback by checking the file in the exported file
+     * tree.
+     */
+    Result handle_access(Library& lib, SyscallArgs<Access>::rpc_type& args)
+    {
+      return handle_path_syscall(
+        lib, std::get<0>(args), [&](auto fd, auto& path_tail) {
+          return return_int(platform::SafeSyscalls::faccessat_beneath(
+            fd,
+            path_tail.is_empty() ? nullptr : path_tail.str().c_str(),
+            std::get<1>(args)));
+        });
     }
 
     /**
@@ -551,26 +571,20 @@ namespace sandbox
      * exported file tree provides a file descriptor corresponding to this
      * path.
      */
-    Result handle_stat(Library& lib, CallbackArgs::Stat& args)
+    Result handle_stat(Library& lib, SyscallArgs<Stat>::rpc_type& args)
     {
-      uintptr_t ret = -EINVAL;
-      struct stat* sb = check_pointer<struct stat>(lib, args.statbuf);
-      auto path = get_path(lib, args.path);
-      auto allowed = vfs.lookup_file(path.get());
-      if (allowed.has_value() && (sb != nullptr))
-      {
-        auto fd = allowed.value().first;
-        auto& path_tail = allowed.value().second;
-        if (path_tail == std::string())
-        {
-          ret = fstat(fd, sb);
-        }
-        else
-        {
-          ret = fstatat(fd, path_tail.c_str(), sb, 0);
-        }
-      }
-      return return_int(ret);
+      return handle_path_syscall(
+        lib, std::get<0>(args), [&](auto fd, auto& path_tail) {
+          struct stat* sb = check_pointer<struct stat>(lib, std::get<1>(args));
+          if (sb != nullptr)
+          {
+            return return_int(
+              path_tail.is_empty() ? fstat(fd, sb) :
+                                     platform::SafeSyscalls::fstatat_beneath(
+                                       fd, path_tail.str().c_str(), sb, 0));
+          }
+          return return_int(-EINVAL);
+        });
     }
 
     /**

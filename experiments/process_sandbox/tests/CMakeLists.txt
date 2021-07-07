@@ -3,6 +3,7 @@ set(UNIT_TESTS
 	child_process
 	onebitsem-basic
 	onebitsem-child
+	path
 	poller
 	shm
 	socketpair
