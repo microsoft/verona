@@ -27,13 +27,9 @@ Verona has literal of Boolean, numeric, character and array types.
 ### Boolean
 
 Boolean literals are `true` and `false`.
-The Boolean type is `Bool` and is represented by the least-significant bit in its storage, all other bits will be ignored.
-The number of bytes in a Boolean will depend on the platform, but it will probably be at least one byte and at most one word.
-Arrays of Booleans and packing hasn't been defined yet.
-
 There is no coercion between numeric values and Boolean values, so one must initialise Boolean variables with their own literals, or as the result of Boolean expressions.
-For example:
 
+For example:
 ```ts
 // Direct assignment
 let a : Bool & imm = true;
@@ -62,7 +58,7 @@ let a : I32 & mut = 42;
 let b : F64 & mut = 3.1415;
 
 // This creates a temporary with the type that the `function` was declared with.
-function(42)
+function(42);
 ```
 
 Numeric literals can be represented in binary (0b101010), decimal (42) or hexadecimal (0x2A) and will be treated in the same way.
@@ -79,11 +75,11 @@ It's still under discussion if we want character literals to natively interact w
 For example:
 
 ```ts
-// `A` can be seen as 0x41, which is often OK
-let a : U8 & imm = `A`;
+// 'A' can be seen as 0x41, which is often OK
+let a : U8 & imm = 'A';
 
-// But `ABCD` is now a bit pattern (0x41424344)
-let b : U64 & imm = `ABCD`; // little-endian? big-endian?
+// But 'ABCD' is now a bit pattern (0x41424344)
+let b : U64 & imm = 'ABCD'; // little-endian? big-endian?
 ```
 
 String literals are enclosed with double quotes (`"`).
@@ -93,21 +89,35 @@ String types are still in discussion, but literals can be used for their constru
 For example:
 ```ts
 // A plain ASCii string, initialised with a string literal
-let str : CString & imm = "Hello World!\n";
+let str = "Hello World!\n"; // Creates a `String` object
 
 // An UTF-8 single character (🏟) string
-let verona : UTF8String & imm = "U+1F3DF";
+let verona = UTF8("\U1F3DF");
 
 // Or a whole UTF-16 string from an UTF-16 literal
-let intro : UTF16String & imm = "こんばんは、お元気ですか";
+let intro = UTF16S "こんばんは、お元気ですか";
 
 // This is ok as long as the classes implement the methods
-let compat : UTF8String & imm = intro.toUTF8();
+let compat : UTF8 = intro.toUTF8();
 ```
 
 ### Array Literals
 
-The syntax for array literals hasn't been defined yet but we certainly want array literals with the usual semantics.
+We don't need array literals in Verona.
+We can create arrays of any types with the `Array` type constructor, like strings above.
+
+Example:
+```ts
+// An array with defined type
+let a = Array[F64](3.1415, 2.7183);
+
+// An array of integers. Which type? Depends on who uses `a`!
+let b = Array(1, 2, 3);
+
+// An array of (integer | String | float), again, depends on use
+// This is not the same as a tuple: every argument can be any of the possible types.
+let c = Array(1, "2", 3.0);
+```
 
 ## Variables
 
