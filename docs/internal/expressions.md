@@ -146,7 +146,8 @@ c.updateMe();
 ### Value vs. Pointer
 
 All types in Verona are classes, so all variables in Verona store pointer objects.
-However, some classes are treated specially (ex. numeric types), which have their _object representation_ identical to their values.
+As an optimisation, small immutable objects may be stored inside the pointer representation, avoiding the need for heap allocation.
+This is the default case for any simple numeric types and may be extended to others in the future.
 Refer to the internal ABI document for more details on object representation, including singleton types.
 
 ### Stack vs. Heap
@@ -379,7 +380,7 @@ The types of the arguments and return values must be known at compile time, thou
 For non-concrete cases, their implementation needs to be complete for closed-world cases (ex. account for all types in a union) but not for open-world cases (ex. interfaces), as long as they only use features that the interfaces provides.
 
 Method names can be anything that is allowed on identifiers, including numbers and symbols.
-It must not, however, be comprised of numbers only, to avoid confusing them with numeric literals.
+It must not, however, be comprised of only numbers, to avoid confusing them with numeric literals.
 
 Example:
 ```ts
