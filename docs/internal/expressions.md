@@ -121,8 +121,8 @@ let c = Array(1, "2", 3.0);
 
 ## Variables
 
-Variables are placeholders for the value or a pointer to the value of an object, to which they are bound.
-What defines which kind, storage type and lifetime duration will depend on the declaration.
+Variables are placeholders for a reference to an object, to which they are bound.
+The compiler optimises the representation of certain variables (ex. numeric types) but the syntax is preserved as if they are pointers.
 
 ### Let vs. Var
 
@@ -145,20 +145,9 @@ c.updateMe();
 
 ### Value vs. Pointer
 
-All types in Verona are classes, so all variables in Verona store objects.
+All types in Verona are classes, so all variables in Verona store pointer objects.
 However, some classes are treated specially (ex. numeric types), which have their _object representation_ identical to their values.
 Refer to the internal ABI document for more details on object representation, including singleton types.
-
-Numeric variables are represented as the machine-representation of their values.
-For example:
-```ts
-let a = U32 & imm = 42; // In a little-endian machine, this is 0x2A000000
-let b = F32 & imm = 3.1415; // This is 0x40490E56
-```
-
-This makes arithmetic natural and much faster (see below).
-
-All other objects are allocated and the variables contain a pointer to that region (either stack or heap).
 
 ### Stack vs. Heap
 
@@ -179,12 +168,14 @@ var b : OtherType & mut = OtherType in a;
 // Now, `b` is a pointer to another element in the same region as `a`
 ```
 
-The region is responsible for managing that memory and the pointer will be valid for as long as the region allows it.
-Heap objects are used to dispatch behaviours (see `when`), which will execute asynchronously, so memory management needs greater care.
+The region is responsible for managing that memory. The compiler guarantees that pointer are always valid.
+Memory deallocation isn't necessarily done at the same time as invalidation of pointers (ex. garbage collected regions), but the compiler also guarantees that no code will follow pointers after becoming invalid.
+
+Objects that can be captured (lambda, behaviour, function calls) need to go on the heap.
+The deallocation of those objects will depend on which type of region and their policies.
 
 Stack variables, however, have automatic lifetime given by the duration of their lexical scopes.
-For that reason, stack variables have restrictions over heap variables.
-For example, stack variables cannot be passed into a behaviour (`when`) because their lifetimes end as soon as the behaviour is scheduled, not completed.
+For that reason, stack variables are captured (ie. moved) when used by an asynchronous behaviour (`when`).
 
 Example:
 ```ts
@@ -195,19 +186,21 @@ foo()
 
   // Start a new lexical scope
   {
-    // Unless MyType::create() specifies the region, this is not allowed
-    var b : MyType & iso = MyType; // Possible ERROR
-
-    // Assuming `b` was created on the stack, this is not allowed
+    // Assume MyType::create() specifies the region (which could be the stack)
+    var b : MyType & iso = MyType;
     var cown : Cown(b);
+
     // This only schedules the work, not executes it
     when (cown) {
-      // This would probably execute *after* `b` has been deallocated
+      // `b` is captured by the behaviour and is invalid afterwards.
       b.doSomething();
     }
-  } // `b` goes out of scope and is now invalid
 
-  // Updates `b`, invalid
+    // This is an error, as `b` was captured above
+    b.somethingElse();
+  }
+
+  // No `b` in this scope
   b = ...; // ERROR
 
   // Updates a, still valid
@@ -215,18 +208,18 @@ foo()
 } // `a` goes out of scope
 ```
 
-### Class fields
+### Object fields
 
-Like other variables, class fields have the same value/pointer duality as before.
-Unless declared `embed`, class fields are pointers to the data.
-This is particularly useful for numeric fields.
+Like other variables, object fields store pointers to objects, unless declared `embed`, which makes them part of the structure.
 Refer to the types document for more information on the `embed` keyword.
 
 ## Operators
 
 In Verona, operators and calls are treated equally.
 In-fix operators (ex. `a + b`) and pre-fix operators (ex. `+(a, b)`) are one and the same.
-All operators are calls on the descriptor object: the first argument of a pre-fix operator, or the left hand side of an infix operator (`a` above).
+
+All operators are calls on a descriptor: either an object or a type declaration that indicates which type the method is to be found.
+For example the type name (`Foo::method()`), the first argument of a pre-fix operator (`foo.method()` or `method(foo)`), or the left hand side of an infix operator (`foo method bar`).
 
 Example:
 ```ts
@@ -247,17 +240,17 @@ The Verona standard library will implement all operations for all appropriate ty
 Users can implement similar calls to specialised type (ex. `MyInt::+(MyInt, I32)`).
 
 There is no precedence in Verona, so operators must be wrapped in parenthesis to convey the right meaning.
-This means that, unlike other languages, `(a + b * c)` is not the same as `(a + (b * c))`.
+This means that, unlike other languages, `(a + b * c)` is a syntax error, while either `((a + b) * c)` or `(a + (b * c))` are expected.
 
-_Note: Do we want to force parenthesis in DSLs?_
+_Note: Can we avoid forcing parenthesis on DSLs?_
 
 ## Arithmetic
 
-As detailed above, arithmetic in Verona is equivalent to function calls on numeric types and operands.
+As detailed above, arithmetic in Verona is implemented as function calls on numeric types and operands.
 This means developers can extend the functionality of arithmetic to the existing types or their own new types naturally.
 But it also means every addition or subtraction is converted to a call on objects, which could potentially be many orders of magnitude slower than standard hardware operations.
 
-But Verona's arithmetic is as fast as calling the right hardware instructions.
+But Verona's arithmetic is often as fast as calling the right hardware instructions.
 
 The reasons are:
 1. As explained in the types document, numeric types are singleton classes, ie. they don't have fields, only methods.
@@ -265,9 +258,8 @@ The reasons are:
 2. Computation often uses concrete types (ex. `U32` or `F64`) instead of interface types (ex. `IntegralType`) or type unions (ex. `(U32 | F64`)).
    The compiler can only match concrete types to their machine equivalent.
    It can try to infer, match and separate concrete types from their declared collection types, but that's an optimisation, not a guarantee.
-3. Inline IR calls (ex. `@llvm.uadd.with.overflow.i8`) can be made in Verona, making explicit the exact instructions that each operation needs.
-   Those calls translated directly to hardware instructions and such short functions are always inlined by the compiler.
-   These are only available to the standard library, to avoid proliferation of user code that depends on specific versions of LLVM.
+3. Direct code generation of the hardware instructions for arithmetic functions.
+   Those functions are often short and simple and are always inlined by the compiler.
 
 This means `(a + b)` in Verona usually completely bypasses function calls and wrappers and just call a single `add` instruction.
 
@@ -289,7 +281,6 @@ Users that want a different semantics for arithmetic can create their own wrappe
 ### Type Conversion
 
 Type conversion in Verona is always explicit, including numeric types.
-Unlike most other languages, operations on different types is forbidden (by their own implementation in the standard library).
 To operate on different types, users have to convert each type to the operation's expected type.
 
 Example:
@@ -309,7 +300,7 @@ It allows for explicit semantics to make sure developers write their intentions 
 
 ## Control Structures
 
-Unlike most other programming languages, Verona does not have the traditional control flow structures like conditionals and loops.
+Unlike many other programming languages, Verona does not have the traditional control flow structures like conditionals and loops.
 It does however, implement them using the core Verona control flow structures and make available to programmers, so that programming in Verona doesn't become a burden.
 
 ### Core control structures
