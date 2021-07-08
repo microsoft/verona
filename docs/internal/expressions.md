@@ -38,15 +38,15 @@ For example:
 // Direct assignment
 let a : Bool & imm = true;
 
-// Indirect assignment
-let b : U64 & imm = ...;
-let c : Bool & imm = (42 == 0);
-
 // This won't compile
-let d : Bool & imm = 42; // ERROR
+let b : Bool & imm = 42; // ERROR
 
-// But this could, if `toBool` is implemented
-let e : Bool & imm = b.toBool();
+// Indirect assignment
+let c : U64 & imm = 42;
+let d : Bool & imm = (c == 0);
+
+// Using conversion from numeric types
+let e : Bool & imm = c.toBool();
 ```
 
 ### Numeric
@@ -126,6 +126,11 @@ a = 41; // This is a compiler error
 
 var b : U64 & mut = 42;
 b = 41; // This is perfectly fine
+
+// This is also fine. The variable still points to the same object
+// even if its contents have changed (it's a mutable object)
+let c : MyType & mut = MyType;
+c.updateMe();
 ```
 
 ### Value vs. Pointer
@@ -149,7 +154,7 @@ All other objects are allocated and the variables contain a pointer to that regi
 
 The lifetime of variables is either automatic, when allocated on the stack, or determined by their regions' semantics, when allocated on the heap.
 
-All new objects are allocated in some region of the heap, made explicit by their declarations.
+All new objects are allocated in some region, made explicit by their declarations.
 There isn't yet consensus no the syntax of declaring region types, but it will be required for new regions.
 Other variables can be allocated on the same region as a previously declared one with the keyword `in`.
 
@@ -242,14 +247,19 @@ As detailed above, arithmetic in Verona is equivalent to function calls on numer
 This means developers can extend the functionality of arithmetic to the existing types or their own new types naturally.
 But it also means every addition or subtraction is converted to a call on objects, which could potentially be many orders of magnitude slower than standard hardware operations.
 
-The reasons why Verona's arithmetic is as fast as calling the right hardware instructions are:
+But Verona's arithmetic is as fast as calling the right hardware instructions.
+
+The reasons are:
 1. As explained in the types document, numeric types are singleton classes, ie. they don't have fields, only methods.
    The compiler treats them differently and uses their machine representation instead of a pointer to an allocated memory.
 2. Computation often uses concrete types (ex. `U32` or `F64`) instead of interface types (ex. `IntegralType`) or type unions (ex. `(U32 | F64`)).
    The compiler can only match concrete types to their machine equivalent.
    It can try to infer, match and separate concrete types from their declared collection types, but that's an optimisation, not a guarantee.
 3. Inline IR calls (ex. `@llvm.uadd.with.overflow.i8`) can be made in Verona, making explicit the exact instructions that each operation needs.
+   Those calls translated directly to hardware instructions and such short functions are always inlined by the compiler.
    These are only available to the standard library, to avoid proliferation of user code that depends on specific versions of LLVM.
+
+This means `(a + b)` in Verona usually completely bypasses function calls and wrappers and just call a single `add` instruction.
 
 ### Semantics
 
@@ -365,7 +375,7 @@ Methods can have any number of arguments (including none) and can return zero or
 If a method needs to return more than one value, it can do so by returning a tuple of values.
 
 The types of the arguments and return values must be known at compile time, though they do not need to be concrete (classes).
-For non-concrete cases, their implementation needs to be complete for closed-world cases (ex. account for all types in a union) but not for open-world cases (ex. interfaces), as long as they only use features that the interfaces provide.
+For non-concrete cases, their implementation needs to be complete for closed-world cases (ex. account for all types in a union) but not for open-world cases (ex. interfaces), as long as they only use features that the interfaces provides.
 
 Method names can be anything that is allowed on identifiers, including numbers and symbols.
 It must not, however, be comprised of numbers only, to avoid confusing them with numeric literals.
@@ -384,7 +394,7 @@ class MyType
   apply();
 
   // Multiple arguments, multiple return values
-  ===(arg0 : U32, arg1 : U32) : (Bool, MyType, MaybeError);
+  ===(arg0 : MyYType, arg1 : U32) : (Bool, MyType, MaybeError);
 }
 ```
 
@@ -438,6 +448,7 @@ bar()
 
 Calling a method in Verona is similar to most other languages.
 The name must be fully qualifiable (not necessarily fully qualified) to identify the type that implements it, either at compile time (for static calls) or at run-time (for dynamic calls).
+
 If the method has return values, the variable (named or temporary) that will hold the results must be of a compatible type, declared or inferred, with the rest of the code that uses it.
 
 Example:
@@ -458,7 +469,7 @@ my_function()
 
   // Or use infix notation, equivalent to `MyType::===(U32, U32)`
   let d : MyType & mut = MyType;
-  let (equals, result, error) = (24 === 42);
+  let (equals, result, error) = (d === 42);
   // `equals` is a `Bool`, `result` is `MyType` and `error` is a `MaybeError`
 }
 ```
@@ -532,12 +543,13 @@ let b = a + 1;
 // A new variable with the same value (but different address)
 var c : U32 & mut = 42;
 
-let eq = (a == b); // FALSE, 42 != 43
-let ne = (a == c); // TRUE, both as 42
+let ne = (a == b); // FALSE, 42 != 43
+let eq = (a == c); // TRUE, both as 42
 ```
 
 _Note: There is nothing special about structural comparison methods.
- They're methods like any other that just happens to "implement" comparisons._
+ They're methods like any other that just happens to "implement" comparisons.
+ You can do whatever you want with your own types for `==`._
 
 ## Syntax Sugar
 
@@ -550,7 +562,7 @@ class MyType {
   create() : MyType;
   apply();
 }
-// Creates a new object
+// Creates a new object and calls it
 let a : MyType & mut = MyType::create();
 a.apply();
 ```
