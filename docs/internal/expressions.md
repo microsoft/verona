@@ -189,10 +189,9 @@ foo()
   {
     // Assume MyType::create() specifies the region (which could be the stack)
     var b : MyType & iso = MyType;
-    var cown : Cown(b);
 
     // This only schedules the work, not executes it
-    when (cown) {
+    when () {
       // `b` is captured by the behaviour and is invalid afterwards.
       b.doSomething();
     }
