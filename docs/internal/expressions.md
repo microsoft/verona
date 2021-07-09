@@ -67,18 +67,31 @@ Numeric literals can be represented in binary (0b101010), decimal (42) or hexade
 
 Character literals are enclosed with single quotes (`'`).
 
-With the introduction of Unicode standards, characters are no longer single-bytes.
-However, the size of a character can be different depending on which Unicode standard you use (ex. `UTF-8` vs. `UTF-16`).
+With the introduction of Unicode standards, the definition of a character is less clear.
+The size of a character can be different depending on which Unicode standard you use (ex. `UTF-8` vs. `UTF-16`).
 But each Unicode standard has the appropriate byte-sized _escape sequence_ to represent a character with multiple bytes, so literals can still be a string of bytes.
 
-It's still under discussion if we want character literals to natively interact with numeric types.
+A few things are still under heavy discussion:
+* How we want character literals to natively interact with numeric types.
+* What is the core character type? A byte? A Unicode code point? A word?
+* How will string types interact with each other.
+
 For example:
 
 ```ts
-// 'A' can be seen as 0x41, which is often OK
+// 'A' can be seen as 0x41, which is often OK as a number
 let a : U8 & imm = 'A';
 
-// But 'ABCD' is now a bit pattern (0x41424344)
+// This is pretty clear
+let b : U8 & imm = a + 1;
+
+// Is a Unicode code point with multiple bytes a "character"?
+let verona : U32 & imm = "🏟"; 
+
+// What does this mean?
+let treviso : U32 & imm = verona + 1; // ?!?
+
+// 'ABCD' is a bit pattern (0x41424344), what's its actual value?
 let b : U64 & imm = 'ABCD'; // little-endian? big-endian?
 ```
 
