@@ -249,7 +249,7 @@ _Note: Can we avoid forcing parenthesis on DSLs?_
 
 As detailed above, arithmetic in Verona is implemented as function calls on numeric types and operands.
 This means developers can extend the functionality of arithmetic to the existing types or their own new types naturally.
-But it also means every addition or subtraction is converted to a call on objects, which could potentially be many orders of magnitude slower than standard hardware operations.
+But it also means that every addition or subtraction could end up as call on objects, which could potentially be many orders of magnitude slower than standard hardware operations.
 
 But Verona's arithmetic is often as fast as calling the right hardware instructions.
 
@@ -314,25 +314,21 @@ TODO: Populate this entire section with examples, as they're super useful but I'
 
 #### Try/Catch/Throw
 
-Verona exceptions aren't handled by some hidden compiler or runtime library.
-Instead, they're just non-local returns.
+Verona's exceptions are fully checked at compile time and are implemented as non-local returns.
+This means there are no hidden exceptions from the standard library or user code.
 
-The Verona type system mandates that the return type of a function and the type of the variable it will be stored at to be the same.
-But a function can return an object or a different type that the caller is expecting, in which case the caller simply chain-returns until some caller can handle it.
+Every function's return type must be checked against the variable or context they're being assigned to, including the exceptions they throw, via a `throws` keyword.
 
-Unlike most other language with exception handling, however, the checks on which non-local returns are captured by which frame is done at compile time.
-
-Specifically:
-* There are no standard exceptions nor program-level exception handling.
+More specifically:
 * In Verona, `return` and `throw` are equivalent expressions.
-  If an exception is not handled by any caller, the compiler emits an error.
-* Functions that can `throw` a type that is different than the declared type must declare that they can throw that type.
-* Functions that call other functions that can throw different types either handle the different types themselves (via `try/catch`) or also declare that they can throw those types.
-  This is similar to a `rethrow` in some languages, or `continue unwind` in others.
+* If a function throws an exception, it must be declared by the function.
+* If a function calls another function that throws, it must either handle (`try/catch`) or also declare the throw.
+* The compiler must be able to see that at some point all exceptions thrown have been handled.
+* No exception can escape the program's exection (the _main_ function cannot throw).
 
 #### Lambda
 
-Like most other languages, a lambda is a function object.
+In Verona a lambda is a function object.
 The type of the object is an anonymous class type with the captures as fields and a method `apply()`, which is sugar for calling the object as a function.
 
 Each lambda gets its own type with the block inserted into the `apply()` method.
@@ -368,13 +364,16 @@ For flow control in loops, `continue` and `break` are types used on the `match` 
 
 ## Methods
 
-Methods are functions that were declared on a particular type.
-Like most other languages, methods can have arbitrary code inside, including creating asynchronous behaviours that could be executed long after the method has returned.
+Classes and interfaces provide three mechanisms in Verona:
+* A mechanism in Verona for defining a namespace for a set of related functions.
+* A unit for performing dynamic dispatch where the dispatch target is identified by the concrete type of the first argument
+* Access to a `Self` type, which is the concrete type of the receiver for dynamic dispatch and the type of the class for static dispatch.
 
 ### Declaring methods
 
-Methods can have any number of arguments (including none) and can return zero or one values.
-If a method needs to return more than one value, it can do so by returning a tuple of values.
+Methods have a name, argument and return type.
+The rules for names are the same for other identifiers.
+The argument and return types are tuples, which can contain zero or more values each.
 
 The types of the arguments and return values must be known at compile time, though they do not need to be concrete (classes).
 For non-concrete cases, their implementation needs to be complete for closed-world cases (ex. account for all types in a union) but not for open-world cases (ex. interfaces), as long as they only use features that the interfaces provides.
@@ -400,7 +399,7 @@ class MyType
 }
 ```
 
-Unlike most other languages, Verona does not have _free functions_, ie. those that are not attached to a type.
+Verona does not have _free functions_, ie. those that are not attached to a type.
 In that sense, all Verona functions are methods of some class, for example, like `U32::+(U32, U32)` implements addition of unsigned 32-bit integers for `(a + b)`.
 
 Modules are classes, so they can have functions without declaring further types, but those are just methods of the module's class type.
@@ -448,8 +447,8 @@ bar()
 
 ### Calling methods
 
-Calling a method in Verona is similar to most other languages.
-The name must be fully qualifiable (not necessarily fully qualified) to identify the type that implements it, either at compile time (for static calls) or at run-time (for dynamic calls).
+Calling a method by name must allow the compiler to find the class or interface it belongs to at compile time.
+For concrete class types, the call will be static (direct call to the function), and for abstract interface or union types, a dynamic dispatch will be performed to the object's virtual table.
 
 If the method has return values, the variable (named or temporary) that will hold the results must be of a compatible type, declared or inferred, with the rest of the code that uses it.
 
@@ -523,7 +522,9 @@ let always_eq = (None is None); // TRUE
 let never_eq = (None is All); // FALSE
 ```
 
-Because singleton types (other than numeric types) have no machine representation, they always compare equal on the same types, which means all variables of the same singleton type are aliases to each other.
+Singleton types (other than numeric types) have no machine representation, so all variables point to the same object and
+they always compare equal because they are aliases to each other.
+Different singleton types are different objects, therefore variables pointing to different singleton types always compare unequal.
 
 Note that, even though literals have a machine representation for their values, the addresses that they are stored for `a` and `c` are different, and therefore they are not the _same variable_, even though they have the same value.
 
@@ -532,18 +533,17 @@ Note that, even though literals have a machine representation for their values, 
 Structural equality, compared with the method `==` on appropriate types, is a comparison of the values in the object that the variable points to, including numeric literal values.
 It is the responsibility of each class to implement their own structural equality method.
 
-The standard library implements them for all classes that can be structurally compared.
 User objects can be compared structurally, simply by implementing the `==` method.
 Similar operators (`!=`, `<`, `>`, etc) are also implemented in the standard library and can be used by any user class in the same way.
 
 Example:
 ```ts
 // Some variable
-var a : U32 & mut = 42;
+var a : U32 & imm = 42;
 // A new variable with different value
 let b = a + 1;
 // A new variable with the same value (but different address)
-var c : U32 & mut = 42;
+var c : U32 & imm = 42;
 
 let ne = (a == b); // FALSE, 42 != 43
 let eq = (a == c); // TRUE, both as 42
