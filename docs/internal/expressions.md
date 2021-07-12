@@ -567,8 +567,8 @@ _Note: There is nothing special about structural comparison methods.
 
 ## Syntax Sugar
 
-In Verona, every operation is a method call, including lambda execution, object creation, destruction, etc.
-To create syntactically correct code, one must be explicit about everything.
+In Verona, operations are method calls.
+To create syntactically correct code, one must be explicit about their names and types (arguments and return values).
 
 Example:
 ```ts
