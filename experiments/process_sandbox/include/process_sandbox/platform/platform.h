@@ -166,6 +166,7 @@ namespace std
 #include "child_process.h"
 #include "onebitsem.h"
 #include "poller.h"
+#include "safe_syscalls.h"
 #include "sandbox.h"
 #include "shm.h"
 #include "socketpair.h"

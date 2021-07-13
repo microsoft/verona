@@ -19,6 +19,7 @@
  */
 
 #pragma once
+#include "path.h"
 #include "platform/platform.h"
 
 #include <optional>
@@ -214,11 +215,9 @@ namespace sandbox
       size_t end = path.find_last_of('/');
       while (it < end)
       {
-        fprintf(stderr, "Path: %s\n", path.c_str());
         size_t next = path.find_first_of('/', it + 1);
         auto component = path.substr(it + 1, next - it - 1);
         it = next;
-        fprintf(stderr, "Path component: '%s'\n", component.c_str());
         auto result = dir->get_dir(component);
         if (std::holds_alternative<DirPtr>(result))
         {
@@ -254,39 +253,40 @@ namespace sandbox
      *
      * The argument is a canonicalised path.
      */
-    std::optional<std::pair<platform::handle_t, std::string>>
-    lookup_file(const std::string& path)
+    std::optional<std::pair<platform::handle_t, Path>>
+    lookup_file(const Path& path)
     {
       DirPtr dir = root;
-      size_t it = 0;
-      size_t end = path.find_last_of('/');
-      while (it < end)
+      auto i = path.begin(), e = path.end();
+      if (std::distance(i, e) > 1)
       {
-        fprintf(stderr, "Path: %s\n", path.c_str());
-        size_t next = path.find_first_of('/', it + 1);
-        auto component = path.substr(it + 1, next - it - 1);
-        it = next;
-        fprintf(stderr, "Path component: '%s'\n", component.c_str());
-        auto result = dir->get_dir(component);
-        if (std::holds_alternative<DirPtr>(result))
+        auto last_dir = e;
+        --last_dir;
+        for (; i != last_dir; ++i)
         {
-          dir = std::get<DirPtr>(result);
-        }
-        else if (std::holds_alternative<platform::handle_t>(result))
-        {
-          return std::make_pair(
-            std::get<platform::handle_t>(result), path.substr(it + 1));
-        }
-        else
-        {
-          return {};
+          auto result = dir->get_dir(*i);
+          if (std::holds_alternative<DirPtr>(result))
+          {
+            dir = std::get<DirPtr>(result);
+          }
+          else if (std::holds_alternative<platform::handle_t>(result))
+          {
+            return std::make_pair(
+              std::get<platform::handle_t>(result), Path(++i, e));
+          }
+          else
+          {
+            return {};
+          }
         }
       }
-      auto component = path.substr(it + 1);
-      auto file = dir->get_file(component);
-      if (file)
+      if (i != e)
       {
-        return std::make_pair(file.value(), std::string());
+        auto file = dir->get_file(*i);
+        if (file)
+        {
+          return std::make_pair(file.value(), Path());
+        }
       }
       return {};
     }
