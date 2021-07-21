@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "subtype.h"
 
+#include "dnf.h"
 #include "print.h"
 #include "rewrite.h"
 
@@ -50,9 +51,6 @@ namespace verona::parser
 
   void Subtype::t_sub_t(Node<Type>& lhs, Node<Type>& rhs)
   {
-    // TODO: TypeRef sub things means unwinding LookupResult
-    // which is a parallel DNF to the union/isect DNF
-
     // Check InferTypes, lhs first.
     if (lhs->kind() == Kind::InferType)
     {
@@ -101,61 +99,33 @@ namespace verona::parser
       return;
     }
 
-    // Expand TypeAlias and TypeParam on the lhs.
+    // Check TypeRefs, lhs first.
     if (lhs->kind() == Kind::TypeRef)
     {
-      auto& tr = lhs->as<TypeRef>();
-
-      switch (tr.lookup->kind())
-      {
-        case Kind::LookupOne:
-        {
-          auto& lookup = tr.lookup->as<LookupOne>();
-          auto def = lookup.def.lock();
-
-          switch (def->kind())
-          {
-            case Kind::TypeAlias:
-            {
-              // Check the aliased type.
-              if (!tr.resolved)
-                tr.resolved = clone(lookup.subs, def->as<TypeAlias>().inherits);
-
-              result(constraint(tr.resolved, rhs));
-              return;
-            }
-
-            case Kind::TypeParam:
-            {
-              // Treat this as (T & Bounds) by checking the upper bounds first.
-              auto noshow = NoShow(this);
-
-              if (!tr.resolved)
-                tr.resolved = clone(lookup.subs, def->as<TypeParam>().upper);
-
-              if (constraint(tr.resolved, rhs))
-              {
-                result(true);
-                return;
-              }
-              break;
-            }
-
-            default:
-              // It's a Class or an Interface. Fall through.
-              break;
-          }
-        }
-
-        // TODO: LookupIsect, LookupUnion?
-
-        default:
-          break;
-      }
+      typeref_sub_t(lhs, rhs);
+      return;
     }
 
-    // Neither side is an inference variable, union, throw, or isect.
-    // The lhs is not a type alias or type param reference.
+    if (rhs->kind() == Kind::TypeRef)
+    {
+      t_sub_typeref(lhs, rhs);
+      return;
+    }
+
+    // Check LookupRef, lhs first.
+    if (lhs->kind() == Kind::LookupRef)
+    {
+      lookupref_sub_t(lhs, rhs);
+      return;
+    }
+
+    if (rhs->kind() == Kind::LookupRef)
+    {
+      t_sub_lookupref(lhs, rhs);
+      return;
+    }
+
+    // TODO: view, extract.
 
     // Check TupleTypes.
     if (rhs->kind() == Kind::TupleType)
@@ -164,17 +134,8 @@ namespace verona::parser
       return;
     }
 
-    // Check capability types.
-    if (is_kind(rhs, {Kind::Iso, Kind::Mut, Kind::Imm}))
-    {
-      sub_same(lhs, rhs);
-      return;
-    }
-
-    // TODO: view, extract.
-
-    // Check Self.
-    if ((lhs->kind() == Kind::Self) || (rhs->kind() == Kind::Self))
+    // Check reference capability types and Self.
+    if (is_kind(rhs, {Kind::Iso, Kind::Mut, Kind::Imm, Kind::Self}))
     {
       sub_same(lhs, rhs);
       return;
@@ -193,24 +154,26 @@ namespace verona::parser
       return;
     }
 
-    // Check TypeRefs.
-    if (rhs->kind() == Kind::TypeRef)
-    {
-      t_sub_typeref(lhs, rhs);
-      return;
-    }
-
     unexpected();
   }
 
   void Subtype::infer_sub_t(Node<Type>& lhs, Node<Type>& rhs)
   {
+    // Add the rhs as a new upper bound. All of our lower bounds must be a
+    // subtype of the new upper bound.
     auto& bnd = bounds[lhs];
-    bnd.upper.push_back(rhs);
+    bnd.upper = dnf::conjunction(bnd.upper, rhs);
+    result(constraint(bnd.lower, rhs));
+  }
+
+  void Subtype::union_sub_t(Node<Type>& lhs, Node<Type>& rhs)
+  {
+    // Every element of the lhs must be a subtype of the rhs.
+    auto& l = lhs->as<UnionType>();
     bool ok = true;
 
-    for (auto& lower : bnd.lower)
-      ok &= constraint(lower, rhs);
+    for (auto& t : l.types)
+      ok &= constraint(t, rhs);
 
     result(ok);
   }
@@ -251,28 +214,59 @@ namespace verona::parser
     result(false);
   }
 
-  void Subtype::union_sub_t(Node<Type>& lhs, Node<Type>& rhs)
+  void Subtype::typeref_sub_t(Node<Type>& lhs, Node<Type>& rhs)
   {
-    // Every element of the lhs must be a subtype of the rhs.
-    auto& l = lhs->as<UnionType>();
-    bool ok = true;
+    Node<Type> t = lhs->as<TypeRef>().lookup;
+    result(constraint(t, rhs));
+  }
 
-    for (auto& t : l.types)
-      ok &= constraint(t, rhs);
+  void Subtype::lookupref_sub_t(Node<Type>& lhs, Node<Type>& rhs)
+  {
+    resolve_lookupref(lhs);
 
-    result(ok);
+    auto& l = lhs->as<LookupRef>();
+    auto ldef = l.def.lock();
+
+    switch (ldef->kind())
+    {
+      case Kind::TypeAlias:
+      {
+        // Check the aliased type.
+        result(constraint(l.resolved, rhs));
+        return;
+      }
+
+      case Kind::TypeParam:
+      {
+        // Treat this as (T & Bounds) by checking the upper bounds first.
+        auto noshow = NoShow(this);
+
+        if (constraint(l.resolved, rhs))
+        {
+          result(true);
+          return;
+        }
+        break;
+      }
+
+      default:
+        // It's a Class, Interface, Function, or Field. Fall through.
+        break;
+    }
+
+    // TODO: check but knowing we've unpacked typealias and upper bounds
+    // It's a TypeParam, Class, Interface, Function, or Field. Fall through.
+    // Neither side is an inference variable, union, throw, or isect.
+    // The lhs is not a type alias or type param reference.
   }
 
   void Subtype::t_sub_infer(Node<Type>& lhs, Node<Type>& rhs)
   {
+    // Add the lhs as a new lower bound. The new lower bound must be a subtype
+    // of all upper bounds.
     auto& bnd = bounds[rhs];
-    bnd.lower.push_back(lhs);
-    bool ok = true;
-
-    for (auto& upper : bnd.upper)
-      ok &= constraint(lhs, upper);
-
-    result(ok);
+    bnd.lower = dnf::disjunction(bnd.lower, lhs);
+    result(constraint(lhs, bnd.upper));
   }
 
   void Subtype::t_sub_union(Node<Type>& lhs, Node<Type>& rhs)
@@ -331,6 +325,12 @@ namespace verona::parser
     result(ok);
   }
 
+  void Subtype::t_sub_typeref(Node<Type>& lhs, Node<Type>& rhs)
+  {
+    Node<Type> t = rhs->as<TypeRef>().lookup;
+    result(constraint(lhs, t));
+  }
+
   void Subtype::t_sub_tuple(Node<Type>& lhs, Node<Type>& rhs)
   {
     if (lhs->kind() != Kind::TupleType)
@@ -378,11 +378,11 @@ namespace verona::parser
 
   void Subtype::t_sub_function(Node<Type>& lhs, Node<Type>& rhs)
   {
-    if (lhs->kind() == Kind::TypeRef)
+    if (lhs->kind() == Kind::LookupRef)
     {
       // The lhs must be a class or interface. An alias or a typeparam has
       // already been checked.
-      auto& l = lhs->as<TypeRef>();
+      auto& l = lhs->as<LookupRef>();
       auto def = l.def.lock();
 
       if (is_kind(def, {Kind::Class, Kind::Interface}))
@@ -419,13 +419,14 @@ namespace verona::parser
     result(ok);
   }
 
-  void Subtype::t_sub_typeref(Node<Type>& lhs, Node<Type>& rhs)
+  void Subtype::t_sub_lookupref(Node<Type>& lhs, Node<Type>& rhs)
   {
-    // The rhs is a Class, Interface, TypeAlias, or TypeParam.
-    auto& r = rhs->as<TypeRef>();
-    auto def = r.def.lock();
+    resolve_lookupref(rhs);
 
-    switch (def->kind())
+    auto& r = rhs->as<LookupRef>();
+    auto rdef = r.def.lock();
+
+    switch (rdef->kind())
     {
       case Kind::Class:
       case Kind::TypeParam:
@@ -442,31 +443,30 @@ namespace verona::parser
 
       case Kind::TypeAlias:
       {
-        if (!r.resolved)
-          r.resolved = clone(r.subs, def->as<TypeAlias>().inherits);
-
         result(constraint(lhs, r.resolved));
         return;
       }
 
       default:
-        unexpected();
+      {
+        kinderror(lhs, rhs);
         return;
+      }
     }
   }
 
   void Subtype::t_sub_class(Node<Type>& lhs, Node<Type>& rhs)
   {
-    if (lhs->kind() != Kind::TypeRef)
+    if (lhs->kind() != Kind::LookupRef)
     {
       kinderror(lhs, rhs);
       return;
     }
 
-    auto& l = lhs->as<TypeRef>();
+    auto& l = lhs->as<LookupRef>();
     auto ldef = l.def.lock();
 
-    auto& r = rhs->as<TypeRef>();
+    auto& r = rhs->as<LookupRef>();
     auto rdef = r.def.lock();
 
     if (ldef != rdef)
@@ -527,16 +527,16 @@ namespace verona::parser
 
     // TODO: a function can be a subtype of an interface that only has an apply
     // method
-    if (lhs->kind() != Kind::TypeRef)
+    if (lhs->kind() != Kind::LookupRef)
     {
       kinderror(lhs, rhs);
       return;
     }
 
-    auto& l = lhs->as<TypeRef>();
+    auto& l = lhs->as<LookupRef>();
     auto ldef = l.def.lock();
 
-    auto& r = rhs->as<TypeRef>();
+    auto& r = rhs->as<LookupRef>();
     auto rdef = r.def.lock();
     bool ok = true;
 
@@ -655,6 +655,36 @@ namespace verona::parser
     }
 
     result(true);
+  }
+
+  void Subtype::resolve_lookupref(Node<Type>& t)
+  {
+    auto& l = t->as<LookupRef>();
+
+    if (l.resolved)
+      return;
+
+    auto ldef = l.def.lock();
+
+    switch (ldef->kind())
+    {
+      case Kind::TypeAlias:
+      {
+        l.resolved = clone(l.subs, ldef->as<TypeAlias>().inherits);
+        break;
+      }
+
+      case Kind::TypeParam:
+      {
+        l.resolved = clone(l.subs, ldef->as<TypeParam>().upper);
+        break;
+      }
+
+      default:
+        // TODO:
+        // It's a Class, Interface, Function, or Field.
+        break;
+    }
   }
 
   bool Subtype::returnval(Cache::iterator& it)

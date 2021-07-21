@@ -15,8 +15,11 @@ namespace verona::parser
   {
     struct Bounds
     {
-      List<Type> lower;
-      List<Type> upper;
+      // The lower bounds is a disjunction of assignments.
+      Node<Type> lower;
+
+      // The upper bounds is a conjunction of uses.
+      Node<Type> upper;
     };
 
     using State = std::variant<bool, std::stringstream>;
@@ -86,20 +89,26 @@ namespace verona::parser
     void infer_sub_t(Node<Type>& lhs, Node<Type>& rhs);
     void union_sub_t(Node<Type>& lhs, Node<Type>& rhs);
     void isect_sub_t(Node<Type>& lhs, Node<Type>& rhs);
+    void typeref_sub_t(Node<Type>& lhs, Node<Type>& rhs);
+    void lookupref_sub_t(Node<Type>& lhs, Node<Type>& rhs);
 
     void t_sub_infer(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_union(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_throw(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_isect(Node<Type>& lhs, Node<Type>& rhs);
+    void t_sub_typeref(Node<Type>& lhs, Node<Type>& rhs);
+
     void t_sub_tuple(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_typelist(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_function(Node<Type>& lhs, Node<Type>& rhs);
-    void t_sub_typeref(Node<Type>& lhs, Node<Type>& rhs);
+
+    void t_sub_lookupref(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_class(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_iface(Node<Type>& lhs, Node<Type>& rhs);
 
     void sub_same(Node<Type>& lhs, Node<Type>& rhs);
 
+    void resolve_lookupref(Node<Type>& t);
     bool returnval(Cache::iterator& it);
     void kinderror(Node<Type>& lhs, Node<Type>& rhs);
     void unexpected();

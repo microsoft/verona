@@ -86,13 +86,13 @@ namespace verona::parser
       return {};
     }
 
-    Ast operator()(LookupOne& lookup)
+    Ast operator()(LookupRef& lr)
     {
       // global subs: T -> A | B
       // local subs: U -> T | C
       // rewrite local subs to: U -> A | B | C
-      auto clone = std::make_shared<LookupOne>();
-      *clone = lookup;
+      auto clone = std::make_shared<LookupRef>();
+      *clone = lr;
 
       for (auto& sub : clone->subs)
       {
@@ -108,9 +108,9 @@ namespace verona::parser
       // If this is a reference to a TypeParam, and that TypeParam is
       // present in our substitution map, return the substituted type
       // instead.
-      if (tr.lookup && (tr.lookup->kind() != Kind::LookupOne))
+      if (tr.lookup && (tr.lookup->kind() != Kind::LookupRef))
       {
-        auto def = tr.lookup->as<LookupOne>().def.lock();
+        auto def = tr.lookup->as<LookupRef>().def.lock();
 
         if (def && (def->kind() == Kind::TypeParam))
         {
@@ -217,7 +217,7 @@ namespace verona::parser
     auto tn = std::make_shared<TypeName>();
     tn->location = typeparam->location;
 
-    auto find = std::make_shared<LookupOne>();
+    auto find = std::make_shared<LookupRef>();
     find->def = typeparam;
     find->self = typeparam;
 

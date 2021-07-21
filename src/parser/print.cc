@@ -71,7 +71,7 @@ namespace verona::parser
                << escape(escapedstring(node.location.view())) << q << end;
   }
 
-  PrettyStream& operator<<(PrettyStream& out, LookupOne& node)
+  PrettyStream& operator<<(PrettyStream& out, LookupRef& node)
   {
     auto def = node.def.lock();
 

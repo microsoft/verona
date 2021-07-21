@@ -2,193 +2,18 @@
 // SPDX-License-Identifier: MIT
 #include "lookup.h"
 
+#include "dnf.h"
+
 namespace verona::parser
 {
-  // Helper functions for looking up in unions and intersections.
-  template<typename T>
-  Node<LookupResult> member_union(
-    Lookup* lookup,
-    Substitutions& subs,
-    Ast& sym,
-    List<T>& list,
-    Node<TypeName>& tn)
-  {
-    // Look in all disjunctions. Fail if it isn't present in every branch.
-    Node<LookupResult> def;
-
-    for (auto& element : list)
-    {
-      auto ldef = lookup->member(subs, sym, element, tn);
-
-      if (!ldef)
-        return {};
-
-      def = disjunction(def, ldef);
-    }
-
-    return def;
-  }
-
-  template<typename T>
-  Node<LookupResult> member_isect(
-    Lookup* lookup,
-    Substitutions& subs,
-    Ast& sym,
-    List<T>& list,
-    Node<TypeName>& tn)
-  {
-    Node<LookupResult> def;
-
-    for (auto& element : list)
-    {
-      auto ldef = lookup->member(subs, sym, element, tn);
-      def = conjunction(def, ldef);
-    }
-
-    return def;
-  }
-
-  // DNF over lookup values.
-  Node<LookupResult>
-  disjunction(Node<LookupResult> left, Node<LookupResult> right)
-  {
-    if (!left)
-      return right;
-
-    if (!right)
-      return left;
-
-    if (left == right)
-      return left;
-
-    if (left->kind() == Kind::LookupUnion)
-    {
-      auto& lhs = left->as<LookupUnion>();
-
-      if (right->kind() == Kind::LookupUnion)
-      {
-        // (A | B) | (C | D) -> (A | B | C | D)
-        auto& rhs = right->as<LookupUnion>();
-
-        for (auto& t : rhs.list)
-        {
-          if (std::find(lhs.list.begin(), lhs.list.end(), t) == lhs.list.end())
-            lhs.list.push_back(t);
-        }
-      }
-      else
-      {
-        // (A | B) | C -> (A | B | C)
-        if (
-          std::find(lhs.list.begin(), lhs.list.end(), right) == lhs.list.end())
-        {
-          lhs.list.push_back(right);
-        }
-      }
-
-      return left;
-    }
-
-    if (right->kind() == Kind::LookupUnion)
-      return disjunction(right, left);
-
-    auto r = std::make_shared<LookupUnion>();
-    r->list.push_back(left);
-    r->list.push_back(right);
-    return r;
-  }
-
-  Node<LookupResult>
-  conjunction(Node<LookupResult> left, Node<LookupResult> right)
-  {
-    if (!left)
-      return right;
-
-    if (!right)
-      return left;
-
-    if (left == right)
-      return left;
-
-    if (left->kind() == Kind::LookupUnion)
-    {
-      auto& lhs = left->as<LookupUnion>();
-      auto un = std::make_shared<LookupUnion>();
-
-      if (right->kind() == Kind::LookupUnion)
-      {
-        // (A | B) & (C | D) -> (A & C) | (A & D) | (B & C) | (B & D)
-        auto& rhs = right->as<LookupUnion>();
-
-        for (auto& l : lhs.list)
-        {
-          for (auto& r : rhs.list)
-            un->list.push_back(conjunction(l, r));
-        }
-      }
-      else
-      {
-        // (A | B) & C -> (A & C) | (B & C)
-        for (auto& t : lhs.list)
-          un->list.push_back(conjunction(t, right));
-      }
-
-      return un;
-    }
-
-    if (right->kind() == Kind::LookupUnion)
-      return conjunction(right, left);
-
-    if (left->kind() == Kind::LookupIsect)
-    {
-      auto& lhs = left->as<LookupIsect>();
-
-      if (right->kind() == Kind::LookupIsect)
-      {
-        // (A & B) & (C & D) -> (A & B & C & D)
-        auto& rhs = right->as<LookupIsect>();
-
-        for (auto& t : rhs.list)
-        {
-          if (std::find(lhs.list.begin(), lhs.list.end(), t) == lhs.list.end())
-            lhs.list.push_back(t);
-        }
-      }
-      else
-      {
-        // (A & B) & C -> (A & B & C)
-        if (
-          std::find(lhs.list.begin(), lhs.list.end(), right) == lhs.list.end())
-        {
-          auto& rhs = right->as<LookupOne>();
-          lhs.list.push_back(right);
-        }
-      }
-
-      return left;
-    }
-
-    if (right->kind() == Kind::LookupIsect)
-      return conjunction(right, left);
-
-    auto r = std::make_shared<LookupIsect>();
-    r->list.push_back(left);
-    r->list.push_back(right);
-    return r;
-  }
-
-  Node<LookupResult> Lookup::typeref(Ast sym, TypeRef& tr)
+  Node<Type> Lookup::typeref(Ast sym, TypeRef& tr)
   {
     Substitutions subs;
     return typeref(subs, sym, tr);
   }
 
-  Node<LookupResult> Lookup::typeref(Substitutions& subs, Ast sym, TypeRef& tr)
+  Node<Type> Lookup::typeref(Substitutions& subs, Ast sym, TypeRef& tr)
   {
-    // Each element will have a definition. This will be a LookupOne,
-    // LookupIsect, or LookupUnion. A LookupOne will point to a Class,
-    // Interface, TypeAlias, Field, or Function, and carries TypeParam
-    // substitutions.
     auto def = tr.lookup;
 
     if (def)
@@ -201,14 +26,11 @@ namespace verona::parser
     for (size_t i = 1; i < tr.typenames.size(); i++)
       def = member(subs, sym, def, tr.typenames.at(i));
 
-    // Don't set up tr.resolved here. That needs all typerefs to already have
-    // their lookup set.
     tr.lookup = def;
     return def;
   }
 
-  Node<LookupResult>
-  Lookup::name(Substitutions& subs, Ast sym, Node<TypeName>& tn)
+  Node<Type> Lookup::name(Substitutions& subs, Ast sym, Node<TypeName>& tn)
   {
     auto name = tn->location;
 
@@ -252,13 +74,13 @@ namespace verona::parser
     return {};
   }
 
-  Node<LookupResult> Lookup::member(Ast node, Node<TypeName>& tn)
+  Node<Type> Lookup::member(Ast node, Node<TypeName>& tn)
   {
     Substitutions subs;
     return member(subs, node, node, tn);
   }
 
-  Node<LookupResult>
+  Node<Type>
   Lookup::member(Substitutions& subs, Ast sym, Ast node, Node<TypeName>& tn)
   {
     // `sym` is the context in which TypeRef names are resolved. It's changed
@@ -273,26 +95,14 @@ namespace verona::parser
 
     switch (node->kind())
     {
-      case Kind::LookupOne:
+      case Kind::LookupRef:
       {
         // We previously found a Class, Interface, TypeAlias, Field, or
         // Function. Look inside it, using the previous substitutions. Any
         // current substitutions can be discarded.
-        auto& find = node->as<LookupOne>();
+        auto& find = node->as<LookupRef>();
         auto def = find.def.lock();
         return member(find.subs, def, def, tn);
-      }
-
-      case Kind::LookupIsect:
-      {
-        // Look in all conjunctions.
-        return member_isect(this, subs, sym, node->as<LookupIsect>().list, tn);
-      }
-
-      case Kind::LookupUnion:
-      {
-        // Look in all disjunctions.
-        return member_union(this, subs, sym, node->as<LookupUnion>().list, tn);
       }
 
       case Kind::Class:
@@ -308,7 +118,7 @@ namespace verona::parser
         // A LookupOne always references a Class, Interface, TypeAlias, Field,
         // or Function. The `self` member is a reference to the enclosing type
         // for a Field or Function, or to `def` otherwise.
-        auto res = std::make_shared<LookupOne>();
+        auto res = std::make_shared<LookupRef>();
         res->def = def;
         res->subs = substitutions(subs, def, tn->typeargs);
 
@@ -353,13 +163,35 @@ namespace verona::parser
       case Kind::IsectType:
       {
         // Look in all conjunctions.
-        return member_isect(this, subs, sym, node->as<IsectType>().types, tn);
+        auto& l = node->as<UnionType>();
+        Node<Type> def;
+
+        for (auto& t : l.types)
+        {
+          auto ldef = member(subs, sym, t, tn);
+          def = dnf::conjunction(def, ldef);
+        }
+
+        return def;
       }
 
       case Kind::UnionType:
       {
         // Look in all disjunctions. Fail if it isn't present in every branch.
-        return member_union(this, subs, sym, node->as<UnionType>().types, tn);
+        auto& l = node->as<UnionType>();
+        Node<Type> def;
+
+        for (auto& t : l.types)
+        {
+          auto ldef = member(subs, sym, t, tn);
+
+          if (!ldef)
+            return {};
+
+          def = dnf::disjunction(def, ldef);
+        }
+
+        return def;
       }
 
       case Kind::InferType:
@@ -374,14 +206,14 @@ namespace verona::parser
 
         // We are a supertype of all lower bounds, so treat the list of lower
         // bounds as a union type.
-        auto lower = member_union(this, subs, sym, find->second.lower, tn);
+        auto lower = member(subs, sym, find->second.lower, tn);
 
         // We are a subtype of all upper bounds, so treat the list of upper
         // bounds as an intersection type.
-        auto upper = member_isect(this, subs, sym, find->second.upper, tn);
+        auto upper = member(subs, sym, find->second.upper, tn);
 
         // We conform to both, so return the conjunction.
-        return conjunction(lower, upper);
+        return dnf::conjunction(lower, upper);
       }
 
       default:

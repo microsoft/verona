@@ -194,22 +194,10 @@ namespace verona::parser
   }
 
   template<typename T>
-  void fieldsof(T& target, LookupOne& look)
+  void fieldsof(T& target, LookupRef& lr)
   {
     // TODO: self and subs?
-    target << look.def;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, LookupIsect& look)
-  {
-    target << look.list;
-  }
-
-  template<typename T>
-  void fieldsof(T& target, LookupUnion& look)
-  {
-    target << look.list;
+    target << lr.def;
   }
 
   template<typename T>

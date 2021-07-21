@@ -41,7 +41,7 @@ namespace verona::parser::resolve
         return;
       }
 
-      if (find->kind() != Kind::LookupOne)
+      if (find->kind() != Kind::LookupRef)
       {
         // TODO: show what the ambiguous choices are
         error() << tr.location << "This type is ambiguous."
@@ -49,7 +49,7 @@ namespace verona::parser::resolve
         return;
       }
 
-      auto def = find->as<LookupOne>().def.lock();
+      auto def = find->as<LookupRef>().def.lock();
 
       if (!is_kind(
             def,
@@ -72,7 +72,7 @@ namespace verona::parser::resolve
       // Find all definitions of the selector.
       auto find = select.typeref->lookup;
 
-      if (!find || (find->kind() != Kind::LookupOne))
+      if (!find || (find->kind() != Kind::LookupRef))
       {
         if (!dynamic)
         {
@@ -83,7 +83,7 @@ namespace verona::parser::resolve
         return;
       }
 
-      auto def = find->as<LookupOne>().def.lock();
+      auto def = find->as<LookupRef>().def.lock();
 
       switch (def->kind())
       {
@@ -100,8 +100,8 @@ namespace verona::parser::resolve
           auto find = lookup.typeref(symbols(), *select.typeref);
 
           if (
-            !find || (find->kind() != Kind::LookupOne) ||
-            (find->as<LookupOne>().def.lock()->kind() != Kind::Function))
+            !find || (find->kind() != Kind::LookupRef) ||
+            (find->as<LookupRef>().def.lock()->kind() != Kind::Function))
           {
             error() << select.typeref->location
                     << "Couldn't find a create function for this."

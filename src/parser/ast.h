@@ -71,10 +71,8 @@ namespace verona::parser
     Binary,
     Bool,
 
-    // Lookup results
-    LookupOne,
-    LookupIsect,
-    LookupUnion,
+    // Lookup result
+    LookupRef,
   };
 
   struct NodeDef;
@@ -175,7 +173,7 @@ namespace verona::parser
     Node<Type> upper;
     Node<Type> dflt;
 
-    Kind kind()
+    Kind kind() override
     {
       return Kind::TypeParam;
     }
@@ -183,7 +181,7 @@ namespace verona::parser
 
   struct TypeParamList : TypeParam
   {
-    Kind kind()
+    Kind kind() override
     {
       return Kind::TypeParamList;
     }
@@ -192,13 +190,10 @@ namespace verona::parser
   using Substitutions =
     std::map<Weak<TypeParam>, Node<Type>, std::owner_less<>>;
 
-  struct LookupResult : NodeDef
-  {};
-
   struct TypeRef : Type
   {
     List<TypeName> typenames;
-    Node<LookupResult> lookup;
+    Node<Type> lookup;
 
     Kind kind() override
     {
@@ -683,7 +678,7 @@ namespace verona::parser
     }
   };
 
-  struct LookupOne : LookupResult
+  struct LookupRef : Type
   {
     // `def` is a Class, Interface, TypeAlias, Field, or Function. It's the
     // thing we actually looked up.
@@ -698,29 +693,12 @@ namespace verona::parser
     // `subs` includes the substitutions for both `def` and `self`.
     Substitutions subs;
 
-    Kind kind() override
-    {
-      return Kind::LookupOne;
-    }
-  };
-
-  struct LookupIsect : LookupResult
-  {
-    List<LookupResult> list;
-
-    Kind kind()
-    {
-      return Kind::LookupIsect;
-    }
-  };
-
-  struct LookupUnion : LookupResult
-  {
-    List<LookupResult> list;
+    // A clone of def with subs and self applied.
+    Node<Type> resolved;
 
     Kind kind() override
     {
-      return Kind::LookupUnion;
+      return Kind::LookupRef;
     }
   };
 }
