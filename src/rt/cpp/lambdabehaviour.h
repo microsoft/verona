@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "lambdabehaviour_fwd.h"
 #include "vbehaviour.h"
 #include "vobject.h"
 
@@ -56,7 +57,7 @@ namespace verona::rt
     LambdaBehaviour(T fn_) : Behaviour(desc()), fn(std::move(fn_)) {}
   };
 
-  template<TransferOwnership transfer = NoTransfer, typename T>
+  template<TransferOwnership transfer, typename T>
   static void schedule_lambda(Cown* c, T f)
   {
     Cown::schedule<LambdaBehaviour<T>, transfer>(c, std::forward<T>(f));

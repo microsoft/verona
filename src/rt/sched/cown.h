@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "../cpp/lambdabehaviour_fwd.h"
 #include "../ds/forward_list.h"
 #include "../ds/mpscq.h"
 #include "../region/region.h"
@@ -19,9 +20,6 @@ namespace verona::rt
   class Cown;
   using CownThread = SchedulerThread<Cown>;
   using Scheduler = ThreadPool<CownThread>;
-
-  template<TransferOwnership transfer, typename T>
-  static void schedule_lambda(Cown* c, T f);
 
   static void yield()
   {
