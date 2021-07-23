@@ -13,6 +13,7 @@ Point the compiler to the directory and it will compile all (Verona) files toget
 
 The end result is a single meta-module containing all modules: the main directory and all included modules from any module.
 This final module must contain a `Main` class with a `main(env : Env) : I32` method on any of the sub-modules, that will be the entry point for the program.
+There could be a compiler flag to change the name of the `Main` class and method, but it must retain the same requirements.
 Having zero or more than one `Main` classes is a compiler error.
 
 ### Foreign Code
@@ -30,7 +31,7 @@ Interoperability code can be found at [`src/interop`](../../src/interop).
 The parser is responsible for:
 * Understanding how to navigate directory structures to include all reachable code
 * Recognising foreign calls and trigger parsing of foreing code
-* Check syntax and semantics correctness of all sources
+* Check syntax and semantic correctness of all sources
 * Parse the code as one meta-module and emit A-normal form AST for the next stage
 
 The final product of the parser is a fully checked concrete AST that the MLIR layer can consume as is (with potential additional helper structures) and generate plain MLIR without additional checks.
@@ -44,6 +45,9 @@ The stages (and status) of the parser are:
 * (not started) Selector colouring (vtables) for dynamic calls
 * (mostly done) Emit A-normal form + Symbol table
 
+All of the work above is required for a fully functional compiler.
+There are no optional steps, but some of them can be greatly improved in future versions.
+
 The parser code can be found at [`src/parser`](../../src/parser).
 
 ## MLIR
@@ -53,13 +57,19 @@ The MLIR stage takes in the AST and symbol table above and lowers to the followi
 * LLVM: Structures, memory management, remaining operations
 * Region (new): A dialect that tags objects into regions + creation & destruction semantics.
 
-With the (high-level) IR above, the following MLIR passes are executed:
-* Region and alias analysis
-* Heap to stack transformation
+With the (high-level) IR above, the following MLIR passes can be executed:
+* (opt) Region and alias analysis
+* (opt) Heap to stack transformation
 * Foreign code RPC generation
 * Types representation (boxing, unions)
-* Type pruning (intersection of unions to concrete)
-* Dynamic to static conversion after inlining
+* (opt) Type pruning (intersection of unions to concrete)
+* (opt) `match` elision, removing unreachable cases
+* (opt) Dynamic to static calls conversion after inlining
+* (opt) Array bounds check elision to improve vectorisation
+
+All of the steps above marked `(opt)` are optional.
+They improve the quality of the code generated but are not necessary for correct lowering.
+These can be done later and will require further research to exploit the Verona semantics and run-time guarantees.
 
 The final lowering to LLVM IR is done via:
 * Partial lowering from the Region dialect to Std/LLVM dialects
@@ -67,8 +77,12 @@ The final lowering to LLVM IR is done via:
 
 The stages (and status) of the MLIR generator are:
 * (in progress) AST lowering to high-level MLIR
+* (prototyping) Foreign code generation and integration
+* (not started) Type representation
 * (not started) Optimisation passes
 * (in progress) Final lowering to LLVM IR
+
+All of the work above, except the optimisation pass, is required for a fully functional compiler.
 
 The MLIR code can be found at [`src/mlir`](../../src/mlir).
 
@@ -91,6 +105,8 @@ An initial take on which passes we'll need:
 * Code optimisations (inst.combine, loop opts, vectorisation, etc.)
 * Final cleanups
 
+The list and order of passes will probably change with time, but all of those above will need to be run one way or another.
+
 The back-end will need information from the environment and target flags:
 * Target triple defines the back-end to use as well as defaul options
 * Remaining target flags overwrite some defaults
@@ -101,6 +117,8 @@ The stages (and status) of the LLVM driver are:
 * (not started) New passes
 * (not started) Target options
 * (not started) Object code generation
+
+All of the work above is required for a fully functional compiler.
 
 The LLVM code can be found at [`src/mlir`](../../src/mlir).
 
@@ -121,7 +139,31 @@ The program will dynamically link all the necessary shared objects, including fo
 The stages (and status) of the linker steps are:
 * (in progress) Verona runtime and snmalloc
 * (not started) Builtin library components in C++
-* (not started) Dynamic loading routines
+* (not started) Dynamic loading routines and sandbox code
 * (not started) Linking and producing an executable
 
 The runtime code can be found at [`src/rt`](../../src/rt).
+
+## Future Work
+
+All of the optional steps marked above are meant as future work, after we have a working toolchain.
+Some of them may be completed before, but not necessarily in a complete state, only to do the minimal necessary to get reasonable performance out of Verona code.
+
+But those aren't the only options for future work.
+There are a number of areas that we can improve the compiler once functional:
+* **Optimisation passes:** region analysis, stack usage, hoisting array bounds checks, lambda simplifications, multiple reachability analysis and type simplifications, etc.
+* **Leaner lowering:** simplify the lowering process for smaller IR, fewer intermediate steps, more obvious (canonical) code generated, etc.
+* **More efficient runtime library:** faster routines, more efficient scheduling, leaner interfaces, better inlining of builtins, etc.
+* **Improved interoperability:** better foreign code generation, leaner RPC API, more sandbox technologies, more language features, more languages, etc.
+* **Compiler support:** better error messages, hints, UI hooks, editor support, debug information, fix-it suggestions, refactoring support, etc.
+* **Toolchain completion:** debugger, profiler, testing and benchmarking harness, distributed monitoring, configuration management, etc.
+
+### Verona compiler in Verona
+
+Once the current version of the compiler is good enough, however, we may also try to rewrite parts of the compiler in Verona itself.
+This will create a bootstrap problem, but hopefuly we'll be able to retain the existing components as libraries to the new Verona interfaces.
+
+The compilation process would first bootstrap the C++ compiler and the common libraries, then use that compiler to compile the remaining Verona compiler, using the same C++ libraries (ex. MLIR, LLVM), to then produce a working Verona compiler.
+
+This may overlap with some of the optional elements above, for example, writing a debugger in Verona in the first attempt.
+But it must rely on a stable and minimally funcioning and performing C++ compiler.
