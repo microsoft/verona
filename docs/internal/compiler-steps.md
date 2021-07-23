@@ -58,6 +58,8 @@ With the (high-level) IR above, the following MLIR passes are executed:
 * Heap to stack transformation
 * Foreign code RPC generation
 * Types representation (boxing, unions)
+* Type pruning (intersection of unions to concrete)
+* Dynamic to static conversion after inlining
 
 The final lowering to LLVM IR is done via:
 * Partial lowering from the Region dialect to Std/LLVM dialects
