@@ -42,7 +42,7 @@ The stages (and status) of the parser are:
 * (in progress) Reachability analysis & code elision
 * (mostly done) Emit A-normal form + Symbol table
 
-The parser code can be found at `src/parser`.
+The parser code can be found at [`src/parser`](../../src/parser).
 
 ## MLIR
 
