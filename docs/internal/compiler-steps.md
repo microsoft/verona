@@ -21,9 +21,9 @@ Verona can also interoperate with foreign code, via sandbox regions and remote c
 
 The main goal of the interoperability layer is to use _functionality in foreign modules_, not to use _foreign code_ inside Verona.
 
-Check the `interop.md` document for more details.
+Check the [`interop`](interop.md) document for more details.
 
-Interoperability code can be found at `src/interop`.
+Interoperability code can be found at [`src/interop`](../../src/interop).
 
 ## Parser
 
@@ -40,6 +40,8 @@ The stages (and status) of the parser are:
 * (mostly done) Resolve symbols
 * (in progress) Type inference + Generics + Reification
 * (in progress) Reachability analysis & code elision
+* (in progress) Separation of dynamic vs. static calls
+* (not started) Selector colouring (vtables) for dynamic calls
 * (mostly done) Emit A-normal form + Symbol table
 
 The parser code can be found at [`src/parser`](../../src/parser).
@@ -55,6 +57,7 @@ With the (high-level) IR above, the following MLIR passes are executed:
 * Region and alias analysis
 * Heap to stack transformation
 * Foreign code RPC generation
+* Types representation (boxing, unions)
 
 The final lowering to LLVM IR is done via:
 * Partial lowering from the Region dialect to Std/LLVM dialects
@@ -65,7 +68,7 @@ The stages (and status) of the MLIR generator are:
 * (not started) Optimisation passes
 * (in progress) Final lowering to LLVM IR
 
-The MLIR code can be found at `src/mlir`.
+The MLIR code can be found at [`src/mlir`](../../src/mlir).
 
 ## LLVM
 
@@ -97,18 +100,21 @@ The stages (and status) of the LLVM driver are:
 * (not started) Target options
 * (not started) Object code generation
 
-The LLVM code can be found at `src/mlir`.
+The LLVM code can be found at [`src/mlir`](../../src/mlir).
 
 ## Linker
 
 The final output of the compiler is a single object file containing the whole Verona meta-module and all its compile-time dependencies.
+Foreign code will be compiled separately in a shared object, including all its requirements (other libraries).
 
 In addition to those, Verona will have the following components to link:
 * The Verona runtime, declared at compile time but not implemented
 * Pre-compiled parts of the (builtin) standard library, if needed to be written in C++
-* Any foreign module (archive) that need to be included in the final executable, along with dynamic loading routines for shared objects
+* Those components can be further optimised (inlined, cleaned up) by Link-Time optimisations
 
 The linker will then link all these objects together, doing the standard relocation fixups and cleanups, producing a final executable.
+
+The program will dynamically link all the necessary shared objects, including foreign code for sandboxing, at run time.
 
 The stages (and status) of the linker steps are:
 * (in progress) Verona runtime and snmalloc
@@ -116,4 +122,4 @@ The stages (and status) of the linker steps are:
 * (not started) Dynamic loading routines
 * (not started) Linking and producing an executable
 
-The runtime code can be found at `src/rt`.
+The runtime code can be found at [`src/rt`](../../src/rt).
