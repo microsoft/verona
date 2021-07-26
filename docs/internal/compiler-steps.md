@@ -3,7 +3,7 @@
 ## Overview
 
 This is a preliminary study on each compiler step to produce executable objects from Verona code.
-The initial objective of the Verona compiler is to generate a single executable from a number of files, directories and existing foreing objects.
+The initial objective of the Verona compiler is to generate a single executable from a number of files, directories and existing foreign objects.
 Loadable code and separate compilation processes are not taken into account in this document but are under discussion and may be introduced in the future.
 
 ### Verona Sources
@@ -30,7 +30,7 @@ Interoperability code can be found at [`src/interop`](../../src/interop).
 
 The parser is responsible for:
 * Understanding how to navigate directory structures to include all reachable code
-* Recognising foreign calls and trigger parsing of foreing code
+* Recognising foreign calls and trigger parsing of foreign code
 * Check syntax and semantic correctness of all sources
 * Parse the code as one meta-module and emit A-normal form AST for the next stage
 
@@ -88,12 +88,21 @@ The MLIR code can be found at [`src/mlir`](../../src/mlir).
 
 ## LLVM
 
-This stage is mainly about managing the LLVM compiler to produce object code, but it will need creation of new passes and analises.
+This stage is mainly about managing the LLVM compiler to produce object code, but it will need creation of new passes and analyses.
 
-The Verona LLVM driver will need to:
+Library code will be compiled into LLVM IR and merged into the main IR module with the rest of the Verona code and compiler generated chunks, including:
+* The Verona runtime (scheduler, snmalloc, etc)
+* Builtin library written in C++
+* Sandbox RPC implementation
+
+In the future, we'll compartmentalise these chunks and run thin-LTO passes to clean up all of the unused code as well as inline and optimise it further.
+
+For now, we'll rely on existing passes as a single IR module.
+
+The Verona LLVM driver will then need to:
 * Create a new pass manager infrastructure
 * Create new passes to handle Verona-specific changes
-* Register the existing passes intercalated with our new passes
+* Register the existing passes interpolated with our new passes
 * Drive the code through the pipeline
 * Select the correct back-end options to emit appropriate object code
 
@@ -108,7 +117,7 @@ An initial take on which passes we'll need:
 The list and order of passes will probably change with time, but all of those above will need to be run one way or another.
 
 The back-end will need information from the environment and target flags:
-* Target triple defines the back-end to use as well as defaul options
+* Target triple defines the back-end to use as well as default options
 * Remaining target flags overwrite some defaults
 * Environment can fill other gaps when needed
 
@@ -127,19 +136,14 @@ The LLVM code can be found at [`src/mlir`](../../src/mlir).
 The final output of the compiler is a single object file containing the whole Verona meta-module and all its compile-time dependencies.
 Foreign code will be compiled separately in a shared object, including all its requirements (other libraries).
 
-In addition to those, Verona will have the following components to link:
-* The Verona runtime, declared at compile time but not implemented
-* Pre-compiled parts of the (builtin) standard library, if needed to be written in C++
-* Those components can be further optimised (inlined, cleaned up) by Link-Time optimisations
-
-The linker will then link all these objects together, doing the standard relocation fixups and cleanups, producing a final executable.
+The linker will then link all these objects together, doing the standard relocation fix-ups and cleanups, producing a final executable.
 
 The program will dynamically link all the necessary shared objects, including foreign code for sandboxing, at run time.
 
 The stages (and status) of the linker steps are:
 * (in progress) Verona runtime and snmalloc
 * (not started) Builtin library components in C++
-* (not started) Dynamic loading routines and sandbox code
+* (prototyping) Dynamic loading routines and sandbox code
 * (not started) Linking and producing an executable
 
 The runtime code can be found at [`src/rt`](../../src/rt).
@@ -152,6 +156,7 @@ Some of them may be completed before, but not necessarily in a complete state, o
 But those aren't the only options for future work.
 There are a number of areas that we can improve the compiler once functional:
 * **Optimisation passes:** region analysis, stack usage, hoisting array bounds checks, lambda simplifications, multiple reachability analysis and type simplifications, etc.
+* **Thin-LTO:** Compartmentalise runtime libraries and compiler generated code as _One Definition Rule_ and enable multi-threaded optimisation at link time and incremental compilation.
 * **Leaner lowering:** simplify the lowering process for smaller IR, fewer intermediate steps, more obvious (canonical) code generated, etc.
 * **More efficient runtime library:** faster routines, more efficient scheduling, leaner interfaces, better inlining of builtins, etc.
 * **Improved interoperability:** better foreign code generation, leaner RPC API, more sandbox technologies, more language features, more languages, etc.
@@ -161,9 +166,9 @@ There are a number of areas that we can improve the compiler once functional:
 ### Verona compiler in Verona
 
 Once the current version of the compiler is good enough, however, we may also try to rewrite parts of the compiler in Verona itself.
-This will create a bootstrap problem, but hopefuly we'll be able to retain the existing components as libraries to the new Verona interfaces.
+This will create a bootstrap problem, but hopefully we'll be able to retain the existing components as libraries to the new Verona interfaces.
 
 The compilation process would first bootstrap the C++ compiler and the common libraries, then use that compiler to compile the remaining Verona compiler, using the same C++ libraries (ex. MLIR, LLVM), to then produce a working Verona compiler.
 
 This may overlap with some of the optional elements above, for example, writing a debugger in Verona in the first attempt.
-But it must rely on a stable and minimally funcioning and performing C++ compiler.
+But it must rely on a stable and minimally functioning and performing C++ compiler.
