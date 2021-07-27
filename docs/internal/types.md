@@ -67,7 +67,84 @@ Most importantly, capabilities are not type traits like C++'s `const int * const
 
 ## Module / Class model
 
-TODO
+In Verona, modules are classes.
+Classes and functions inside modules are just nested types and methods of the module's class.
+
+Modules are composed of all Verona files in a specific directory.
+But there is no special relationship between modules in hierarchical directory structure.
+Sub-directories are not part of the module, nor visible in any special way to the module in the parent directory.
+
+For example, the following directory structure:
+```
+myproject +-- main.verona
+          |-- driver.verona
+          `-- packages +-- Module1 +-- foo.verona
+                       |           `-- bar.verona
+                       `-- Module2 +-- baz.verona
+                                   |-- ber.verona
+                                   `-- Module3 +-- mod3.verona
+```
+
+translates to the following module structure:
+```ts
+class myproject {
+  // both main and driver inserted here
+}
+class Module1 {
+  // both foo and bar inserted here
+}
+class Module2 {
+  // both baz and ber inserted here
+}
+class Module3 {
+  // mod3 inserted here
+}
+```
+
+The structure of modules in sub-directories should be used for organisational purposes and won't change the visibility of their definitions.
+
+The discovery path for modules is done in the following order:
+1. **Local path.**
+   For example, `using Module3` inside `Module2` will find it directly.
+2. **The project's `packages` directory.**
+   For example, `using Module2` inside `Module1` will find it via `packages`.
+3. **The compiler's standard library location.**
+   For example, `using numbers` inside any package will find the standard library implementation.
+   The location of the standard library is up to the compiler and irrelevant from the users' perspective.
+
+If a module cannot be found in any of these three locations, the compiler emits an error.
+
+The use of relative paths (example `using ../../Module1` inside `Module3`) is allowed.
+However, the package maintainer is responsible to making sure the structure holds on any user environment.
+This usually means you should not go beyond the boundaries of your own directory structure.
+Specifically, it is dangerous for `Module2`'s implementation to refer to `Module1` in that fashion, which could cause lookup failure on ill-formed directory structures.
+
+Mechanisms for importing packages using URIs (ex. `github:developer:project:version`) is under discussion but we have not finalised how it would look like.
+The consensus is to have a closed interpretation of how to handle each URI to guarantee integrity and security of the modules.
+New handlers should be incorporated into the compiler via pull requests, and not via third-party plugins, which could potentially be exploitable.
+
+### Visibility
+
+There are only two types of visibility: `public` and `module private`.
+Module private limits the visibility to classes and files on the same module, while public extends the visibility to all modules.
+
+Verona does not provide any equivalent of `private` or `protected` from C++, Java, and so on.
+Visibility is primarily a software-engineering abstraction to prevent implementation details leaking past abstraction boundaries.
+Verona treats a module as an abstraction and packaging boundary.
+
+Any form of protection within an abstraction boundary is purely advisory: the author of the module can trivially modify the code to override a specifier.
+As such, we do not believe that class-private has any value in Verona: any code that is able to modify an object's package-private fields is part of the same abstraction and distribution unit and so can be updated at the same time as any changes to that field's behaviour, without affecting any external APIs.
+
+Verona does not allow subtyping of concrete types and so has no need of a `protected` visibility specifier.
+
+The concept of visibility is different depending on what we refer to.
+
+If public:
+* Classes can be used as types by other modules.
+* Methods can be called by other modules.
+* Fields can be directly read and written to by other modules.
+
+Since sub-directories have no special relationship with their parent directories, `module private` does not permit modules in parent/child directory to see each others' private types.
 
 ## Classes and Interfaces
 
@@ -159,7 +236,7 @@ class Line
 Methods are functions that belong to a class or interface which can have arguments and a return type.
 
 Methods can be called statically or dynamically.
-Static calls are either directl (like `Class::method()`) or via an object (like `obj.method()`) if the compiler can infer the concrete type.
+Static calls are either directly (like `Class::method()`) or via an object (like `obj.method()`) if the compiler can infer the concrete type.
 Dynamic calls are either direct (via `Interface::method(object)`) or via an object (like `obj.method()`) otherwise.
 Methods that change the fields in the class must receive a `self : Self` argument and use as the field accessor (ex. `self.field`).
 
@@ -321,16 +398,30 @@ If the semantics are defined at compile time, this can simplifies a `match` stat
 Example:
 ```ts
 // The generic one, if there are still dynamic cases
-foobar(a : (A | B | C)) { ... }
+foobar(a : (A | B | C))
+{
+  match (a)
+  {
+    { A => /* code for A */ }
+    { B => /* code for B */ }
+    { C => /* code for C */ }
+  }
+}
 
 // The specific specialisations used in defined cases
-foobar(a : A) { ... }
-foobar(b : B) { ... }
+foobar(a : A)
+{
+  // code for A
+}
+foobar(b : B)
+{
+  // code for B
+}
 ```
 
 ## Type Intersections
 
-Intersection means a type must all types involved.
+Intersection means a type must conform to all types involved.
 
 For example:
 ```ts
@@ -344,26 +435,17 @@ main()
 
 In the above example, the type of `x` must conform to both `A` and `Serialisable` guarantees (methods, fields) as well as the `mutable` capability.
 
-Every variable in Verona must be typed with an intersection of a type and a capability, so:
-```ts
-var x : (A & imm); // this is ok
-
-var y : B; // this is not
-```
+References to objects need capabilities to be useful (read/write to fields, call methods), but references without capabilities can still be used for pattern matching objects at run time.
 
 Type aliases can be used to make it easier to use types, for example:
 ```ts
-class InternalString { ... };
+class String { ... };
 
 // We mostly want strings as values
-type String = (InternalString & imm);
+type StringImm = (InternalString & imm);
 
 // But we may want to change it
-type MutableString = (InternalString & mut);
-
-...
-
-var str : String = "Hi mum!"; // Same as InternalString & imm
+type StringMut = (InternalString & mut);
 ```
 
 ## Tuples
@@ -379,6 +461,143 @@ var x : (String, U64);
 // Tuple literals
 x = ("hi", 42); // Type inference looks at `x`'s type for literals
 
-// Access elements
-(var s, var i) = x; // Is this a destructive read? Great question!
+// Deconstruct and update x, with s and i holding the old values
+(var s, var i) = x = ("bye", 21);
+
+// Deconstruct, consuming values and make x an invalid reference
+(var s, var i) = consume(x);
+
+// Deconstructs, x may be invalid or not after this
+(var s, var i) = x;
+
+// Possible syntax to access tuple elements by reference
+x._1 = "ciao";
+print(x._1);
 ```
+
+The semantics of reading and writing to tuples is still under discussion.
+
+## Self type
+
+The `Self` type is used on interfaces to refer to the concrete type that implements the interface.
+
+When concrete types implement an interface, they must implement all methods that the interface provides.
+However, the interface type can be implemented by any number of concrete classes, and so cannot know what would be the concrete type implementing it.
+That's where `Self` types come in: they're the concrete type implementing the interface.
+
+Example:
+```ts
+interface EqualComparable
+{
+  ==(Self & readonly, Self & readonly): Bool;
+}
+
+interface Addable
+{
+  +(Self & readonly, Self & readonly): Self & imm;
+}
+
+class MyClass: EqualComparable, Addable
+{
+  // Some internal field
+  field: U32 & mut;
+
+  // Implements the EqualComparable interface
+  ==(lhs: MyClass & readonly, rhs: MyClass & readonly): Bool
+  {
+    lhs.field == rhs.field
+  }
+
+  // Implements the Addable interface
+  +lhs: MyClass & readonly, rhs: MyClass & readonly): MyClass & imm
+  {
+    lhs.field + rhs.field
+  }
+}
+```
+
+In the example above, the `MyClass` argument type _matches_ the `Self` type in the interface declaration because it is the same type as the class declaring it.
+
+The interfaces above can also be implemented with [F-bound polymorphism](https://en.wikipedia.org/wiki/Bounded_quantification):
+
+```ts
+interface EqualComparable[A]
+{
+  ==(A, A) : Bool;
+}
+
+interface Addable[A]
+{
+  +(A, A): A;
+}
+```
+
+In the bounded case, `A` is a type parameter that concrete classes implement by passing their own types, like `MyClass & readonly`.
+
+Trying to use interfaces to implement a similar concept would incur in various problems in the type system and push some verifications from compile-time check to run-time checks.
+Even if no exceptions are ever thrown, having to check them at run time every time would slow down programs and inhibit other compiler optimisations.
+
+Below is an example of the pitfals encountered if we didn't use `Self` types.
+
+If instead we had to use the interface's name, each argument (and return value) in the methods `==` and `+` would match _any_ types that implement the interfaces.
+
+All problems are identified in comments, and the code below will not compile.
+
+Example:
+```ts
+// This is NOT what we want!
+interface Addable
+{
+  // Each argument and return value can be of a different Addable type!
+  +(Addable & readonly, Addable & readonly) : Addable & imm;
+}
+
+class Foo : Addable
+{
+  // Implements interface, but operates on any Addable, which isn't what we want
+  +(lhs: Addable & readonly, rhs: Addable & readonly) : Addable & imm
+  {
+    // You can't match against all possible Addable types (open world)
+    match (lhs)
+    {
+      { Foo =>
+        // We need to match both lhs and rhs
+        // This is a horrible practice!
+        match(rhs)
+        {
+          // This is where the logic goes, and gets lost in boilerplate
+          { Foo => ... }
+          // This becomes a run-time error, which is not what we want either
+          { _ => Throw... }
+        }
+      }
+      // This becomes a run-time error, which is not what we want either
+      { _ => Throw... }
+    }
+  }
+
+  // Doesn't implement the interface, but operates on Foo only, which is what we wanted
+  +(lhs: Foo & readonly, rhs: Foo & readonly) : Foo & imm { ... } // ERROR: Redefinition of `+`
+}
+class Bar : Addable
+{
+  // Similar implementation as Foo here
+  ...
+}
+class Baz : Addable
+{
+  // Similar implementation as Foo here
+  ...
+}
+
+function() {
+  var foo = Foo;
+  var bar = Bar;
+  // Type error if implemented as +(Foo, Foo), as it doesn't implement the interface.
+  var addable : Addable = foo;
+  // This matches the interface, but won't do what you want and will throw a run-time error
+  var baz : Baz & imm = foo + bar; // ERROR: Doesn't catch throw
+}
+```
+
+As demonstrated, `Self` is not just a convenience type, but a requirement to have the type checks occur at compile time and produce correct code without run time errors.
