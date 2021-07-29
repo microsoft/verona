@@ -48,10 +48,10 @@ When targeting a CHERI system, the following additional rules apply:
   Doing so would require expensive operations for reference-count manipulation.
   When a pointer to an immutable object is passed via the foreign-code layer, it must have the load-storable-capabilities permission removed, such that no reachable capability will ever provide write permission.
 
+### Classes and interfaces
+
 Concrete classes and interfaces each have their own unique header, with a unique descriptor.
 Following a pointer and decoding the header gives you the type of the object and therefore there is no need to treat interfaces and classes differently.
-
-### Classes and interfaces
 
 Classes and interfaces are stored similar to a _C structure_.
 The general layout is:
@@ -59,9 +59,9 @@ The general layout is:
 * The list of `embed` fields.
 * Pointers to the remaining fields.
 
-The header is a pair of values values:
+The header is a pair of values:
 * The region meta-data, a 64-bit value containing information for the runtime library.
-* The descriptor, a pointer to `vtable` (see below) and additional meta-data.
+* The descriptor, a pointer to the `vtable` (see below) and additional meta-data.
 
 Example:
 ```ts
@@ -74,11 +74,11 @@ class Foo
     create() { ... }
 }
 // The layout on a 32-bit machine could be:
-// { { i64, i32 }, i32,  i64,  i32   }
+// { { i64, i32 }, i32,  f64,  i32   }
 //      header,    U32*, F64, Other*
 //
 // The layout on a 64-bit machine could be:
-// { { i64, i64 }, i32,  i64,  i32   }
+// { { i64, i64 }, i32,  f64,  i32   }
 //      header,    U32*, F64, Other*
 ```
 
@@ -87,7 +87,7 @@ But the `embed` fields will always be _in-place_ and the rest will always be poi
 
 As a future optimisation, we could reorder the fields by size.
 Some targets have stronger alignment requirements, and unaligned reads can incur in penalties.
-Having an 8-bit type between two 64-bit types can misalign larger objects.
+Having an 8-bit type between 64-bit types can misalign the larger objects.
 By sorting the types by size, we guarantee that all 64-bit values are 64-bit aligned, all 32-bit values are 32-bit aligned and so on.
 
 Each type has its own unique descriptor which uniquely identify the type.
