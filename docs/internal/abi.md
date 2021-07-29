@@ -28,7 +28,7 @@ All numeric types are aligned naturally, except booleans, which align to 1 byte.
 * `Bool`: 8-bits, with the bit pattern 0 or 1 in the platform's native endian.
 * `U8`, `U16`, ... `U128`: power-of-two-bits, unsigned, on the platform's native endian.
 * `I8`, `I16`, ... `I128`: power-of-two-bits, 2's-complement, on the platform's native endian.
-* `F16`, `F32`, `F64`, `F128`: IEEE-745 (binary) floating point numbers.
+* `F16`, `F32`, `F64`, `F128`: IEEE-754 (binary) floating point numbers.
 
 There are discussions on introducing non-power-of-two integers, but they won't be present for the first iteration of the compiler.
 
@@ -165,7 +165,7 @@ The encoding of the discriminator is shown below.
 
 ### NaN-Boxing
 
-IEEE-745 doubles are 64 bits, on both 32-bit and 64-bit platforms, encoded in the exact same way:
+IEEE-754 doubles are 64 bits, on both 32-bit and 64-bit platforms, encoded in the exact same way:
 ```
 [ sign ][ exponent ][ mantissa ]
 63     62          51          0
@@ -175,7 +175,7 @@ So:
 * 11 exponent bits
 * 52 mantissa bits
 
-A `NaN` (not-a-number) is encoded in IEEE-745 as setting the exponent to _all ones_.
+A `NaN` (not-a-number) is encoded in IEEE-754 as setting the exponent to _all ones_.
 All other bits are ignored.
 If we set the exponent to _all ones_, we can use the remaining 53 bits to encode a variety of smaller types.
 
