@@ -323,7 +323,7 @@ The compiler could also try to infer which variables would benefit to be in regi
 ### Union Types
 
 Union types, when NaN-boxed, are indivisible 64-bit values, even if their actual payload is 32-bit or less.
-The only way to optimise this (reduce the width to the actual payload) is to synthesise a new version of the function with the actual concrete type.
+The only way to optimise this (reduce the width to the actual payload) is to synthesise a new version of the function with each concrete type.
 
 The new version would need additional type inference and most optimisation passes, and it's not clear the gains at such an early stage.
 Link-time optimisations, however, could do that with a lot more information about the state of the code and with hopefully less code to deal with.
