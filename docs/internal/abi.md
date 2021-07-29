@@ -78,7 +78,7 @@ class Foo
 //      header,    U32*, F64, Other*
 //
 // The layout on a 64-bit machine could be:
-// { { i64, i64 }, i32,  f64,  i32   }
+// { { i64, i64 }, i64,  f64,  i64   }
 //      header,    U32*, F64, Other*
 ```
 
