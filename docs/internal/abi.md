@@ -110,7 +110,7 @@ This applies to concrete classes that implement specific interfaces, but it's no
 Any two classes that have the same methods (signature) will end up with the same offset.
 
 With multiple interfaces and classes implementing similar methods, this can lead to a number of gaps between offsets.
-The vtables will be compacted afterwards to minimise that.
+The vtables will be compacted (either during colouring or afterwards) to minimise that.
 
 ## Union Types
 
@@ -141,7 +141,7 @@ So a union of pointers is represented as just a pointer and the discrimination w
 However, numeric types don't have discriminators, so they need special handling when inside union.
 Furthermore, mixing pointers and numeric types creates the need to differentiate pointers from the rest, so they then need special representation.
 
-The type representation will be composed of a descriptor and a _payload_ the size of the largest object.
+The type representation will be composed of a descriptor and a _payload_ whit the size of the largest object.
 There are two ways of storing the descriptor: wide packing and NaN-boxing.
 
 ### Wide packing
@@ -151,7 +151,7 @@ This is the naive representation, using an 8-bit descriptor and a `max(sizeof(ty
 Example:
 ```ts
 (A | U64) -> (Pointer | i64) -> { i8, i64 } // On both 32-bit and 64-bit machines
-// On CHERI, this would be { i8, i128 }
+// On CHERI, this would be { i8, i128 }, as pointers are 128-bits wide
 ```
 
 This can be used for all types, but it creates two main problems:
@@ -182,9 +182,9 @@ If we set the exponent to _all ones_, we can use the remaining 53 bits to encode
 Basically, if the exponent is **not** _all ones_, then the value represented is a 64-bit floating pointer number.
 If it is, then we use some bits to encode which type it is (the discriminator), and the rest of the bits left to encode the value.
 
-We use the sign bit to represent pointers, leaving the remaining 52-bits to represent the address of the pointer.
+We use the sign bit to represent pointers, leaving the remaining 52-bits (the entire mantissa) to represent the address of the pointer.
 Most 64-bit architectures use 52-bits or less to encode addresses, so that's enough for our purposes.
-When the sign bit is zero, we use 4 high bits to encode all representable types, followed by a padding of `(52-4-sizeof(type))` bits and the value taking the `sizeof(type)` lower bits.
+When the sign bit is zero, we use 4 high bits in the mantissa to encode all representable types, followed by a padding of `(52-4-sizeof(type))` bits, and the value taking the `sizeof(type)` lower bits.
 
 We can encode all 32-bit or less types as well as pointers and `F64`, but not 64-bit integers or higher.
 For those, we use the wide packing above.
@@ -236,19 +236,22 @@ Because we have more than 16 types, we need to add 1 extra bit to the discrimina
 We also need to add another bit for identifying pointers, which we can use the top bit like NaN-boxing.
 
 ```
-[1][**][10000] I64
-[1][**][10001] U64
-[1][**][10010] I128
-[1][**][10011] U128
-[1][**][10100] F128
-[1][**][10101] ISize (on a 64 bit platform)
-[1][**][10110] USize (on a 64 bit platform)
+[1][**][00000] Pointer
+[0][**][10000] I64
+[0][**][10001] U64
+[0][**][10010] I128
+[0][**][10011] U128
+[0][**][10100] F128
+[0][**][10101] ISize (on a 64 bit platform)
+[0][**][10110] USize (on a 64 bit platform)
 ```
 
 This bit pattern is also arbitrary and can change in the actual implementation.
 
 Note that, in 64-bit architectures, pointers (and `F64`) have the same width on both native and NaN-boxed representations.
 All other types increase the width to at least 64-bit, even if they were `U8` to begin with.
+
+Also note that the pattern above is an extra byte, so all values will have the whole 64/128 bits of the payload to be encoded.
 
 ## Arrays
 
