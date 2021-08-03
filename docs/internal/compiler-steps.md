@@ -65,7 +65,7 @@ With the (high-level) IR above, the following MLIR passes can be executed:
 * (opt) Type pruning (intersection of unions to concrete)
 * (opt) `match` elision, removing unreachable cases
 * (opt) Dynamic to static calls conversion after inlining
-* (opt) Array bounds check elision to improve vectorisation
+* (opt) Array bounds check hoisting/elision to improve vectorisation
 
 All of the steps above marked `(opt)` are optional.
 They improve the quality of the code generated but are not necessary for correct lowering.
@@ -136,8 +136,6 @@ The LLVM code can be found at [`src/mlir`](../../src/mlir).
 The final output of the compiler is a single object file containing the whole Verona meta-module and all its compile-time dependencies.
 Foreign code will be compiled separately in a shared object, including all its requirements (other libraries).
 
-The linker will then link all these objects together, doing the standard relocation fix-ups and cleanups, producing a final executable.
-
 The program will dynamically link all the necessary shared objects, including foreign code for sandboxing, at run time.
 
 The stages (and status) of the linker steps are:
@@ -165,7 +163,7 @@ There are a number of areas that we can improve the compiler once functional:
 
 ### Verona compiler in Verona
 
-Once the current version of the compiler is good enough, however, we may also try to rewrite parts of the compiler in Verona itself.
+Once the current version of the compiler is good enough, we may also try to rewrite parts of the compiler in Verona itself.
 This will create a bootstrap problem, but hopefully we'll be able to retain the existing components as libraries to the new Verona interfaces.
 
 The compilation process would first bootstrap the C++ compiler and the common libraries, then use that compiler to compile the remaining Verona compiler, using the same C++ libraries (ex. MLIR, LLVM), to then produce a working Verona compiler.
