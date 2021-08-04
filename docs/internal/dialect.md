@@ -64,20 +64,19 @@ This is so that we can carry the capability semantics throughout the MLIR passes
 ## Union Types
 
 Union types will be represented by `!join<A, B>`.
-Verona types are algebraic, so `!join<A, !join<B, C>>` is equivalent to `!join<A, B, C>` and will be represented as the latter in MLIR.
+Verona types are algebraic, so `!join<A, !join<B, C>>` is equivalent to `!join<A, B, C>`.
+Verona also normalises types in [disjunctive normal form](https://en.wikipedia.org/wiki/Disjunctive_normal_form), so they will be represented as the latter in MLIR.
 
 We need to keep union types represented in such a way because this will allow us to simplify calls and checks after optimisations.
 
 For example:
 ```ts
-// Original version, needs to differentiate between mut and imm
-{
+{ // Original version, needs to differentiate between mut and imm at run time
   var a : A & mut | B & mut | C & imm = ...;
   in MLIR -> %a = ... : !join<mut<A>, mut<B>, imm<C>>
 } // Exit scope, needs to collect for mut, do nothing for imm
 
-// An optimisation (inline, propagation, etc) drops the C type, so it becomes only muts
-{
+{ // An optimisation (inline, propagation, etc) drops the C type, so it becomes only muts
   var a : A & mut | B & mut = ...;
   in MLIR -> %a = ... : !join<mut<A>, mut<B>>
 } // Now, there's no need to check if its mut or imm, leaving the scope means update gc/ref count only.
