@@ -64,7 +64,7 @@ This is so that we can carry the capability semantics throughout the MLIR passes
 ## Union Types
 
 Union types will be represented by `!join<A, B>`.
-Verona types are algebraic, to `!join<A, !join<B, C>>` is equivalent to `!join<A, B, C>` and will be represented as the latter in MLIR.
+Verona types are algebraic, so `!join<A, !join<B, C>>` is equivalent to `!join<A, B, C>` and will be represented as the latter in MLIR.
 
 We need to keep union types represented in such a way because this will allow us to simplify calls and checks after optimisations.
 
@@ -113,4 +113,4 @@ Undecided syntax is marked with a question mark (?).
 | `drop(%x : !iso<Type>)` | Goes out of context | `Region::release(alloc, x)` |
 | `kill(%x : !mut<Type>)` | Goes out of context | `RegionType::???(alloc, x) or NO-OP` |
 | `freeze(%x : !iso<Type>)` | `Builtin::freeze(x : iso)` | `Freeze::apply(alloc, x)` |
-| `cast(%x : !Ty1) : !Ty2` | `<compiler-internal>` | `NO-OP` |
+| `%y = cast(%x : !Ty1) : !Ty2` | `<compiler-internal>` | `NO-OP` |
