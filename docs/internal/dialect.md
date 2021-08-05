@@ -103,8 +103,8 @@ Undecided syntax is marked with a question mark (?).
 
 | Dialect Operation | Verona Language | Runtime Call |
 | ----------------- | --------------- | ------------ | 
-| `%x = create(!Type, !RegionType) : !iso<Type>` | `var x = Type::create() as RegionType?` | `RegionType::create(alloc, Type) + call to Type::create()` |
-| `%y = alloc(%x : !iso<Ty1>, !Ty2) : !mut<Ty2>` | `var y = Type::create() in x` | `RegionType(x)::alloc(alloc, x, Type) + call to Type::create()` |
+| `%x = create(!Type, !RegionType) : !iso<Type>` | `var x = new Type::create() as RegionType?` | `RegionType::create(alloc, Type) + call to Type::create()` |
+| `%y = alloc(%x : !iso<Ty1>, !Ty2) : !mut<Ty2>` | `var y = new Type::create() in x` | `RegionType(x)::alloc(alloc, x, Type) + call to Type::create()` |
 | `move(%x : !iso<Type>, %z : !mut<Type>)` | `move?(x : iso, z : mut)` | `RegionType::insert<YesTransfer>(alloc, x, z)` |
 | `extref(%x : !iso<Type>, %z : !mut<Type>)` | `extref?(x : iso, z : mut)` | `RegionType::insert<NoTransfer>(alloc, x, z)` |
 | `merge(%x : !iso<Type>, %z : !iso<Type>)` | `merge?(x : iso, z : iso)` | `RegionType::merge(alloc, x, z)` |
