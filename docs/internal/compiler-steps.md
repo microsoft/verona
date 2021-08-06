@@ -13,8 +13,7 @@ Point the compiler to the directory and it will compile all (Verona) files toget
 
 The end result is a single meta-module containing all modules: the main directory and all included modules from any module.
 This final module must contain a `Main` class with a `main(env : Env) : I32` method on any of the sub-modules, that will be the entry point for the program.
-There could be a compiler flag to change the name of the `Main` class and method, but it must retain the same requirements.
-Having zero or more than one `Main` classes is a compiler error.
+We could change the name of the `Main` class and method, but the same requirements must still be met: Having zero or more than one `Main` classes is a compiler error.
 
 ### Foreign Code
 
@@ -30,15 +29,15 @@ Interoperability code can be found at [`src/interop`](../../src/interop).
 
 The parser is responsible for:
 * Understanding how to navigate directory structures to include all reachable code
-* Recognising foreign calls and trigger parsing of foreign code
 * Check syntax and semantic correctness of all sources
+* Recognising foreign calls and trigger parsing of foreign code
 * Parse the code as one meta-module and emit A-normal form AST for the next stage
 
-The final product of the parser is a fully checked concrete AST that the MLIR layer can consume as is (with potential additional helper structures) and generate plain MLIR without additional checks.
+The final product of the parser is a fully checked concrete AST (and additional helper structures) that the MLIR layer can consume as is and generate plain MLIR without additional syntax checks.
 
 The stages (and status) of the parser are:
 * (mostly done) Lex/Parse (+ syntax check)
-* (mostly done) Resolve symbols
+* (mostly done) Symbol resolution
 * (in progress) Type inference + Generics + Reification
 * (in progress) Reachability analysis & code elision
 * (in progress) Separation of dynamic vs. static calls
@@ -55,13 +54,16 @@ The parser code can be found at [`src/parser`](../../src/parser).
 The MLIR stage takes in the AST and symbol table above and lowers to the following MLIR dialects:
 * Standard: Overall structure (functions, modules, etc) + existing operations
 * LLVM: Structures, memory management, remaining operations
-* Region (new): A dialect that tags objects into regions + creation & destruction semantics.
+* Verona (new): A dialect that tags objects into regions + creation & destruction semantics, plus some types.
+
+More details on the [Verona dialect](dialect.md) document.
 
 With the (high-level) IR above, the following MLIR passes can be executed:
 * (opt) Region and alias analysis
 * (opt) Heap to stack transformation
 * Foreign code RPC generation
 * Types representation (boxing, unions)
+* Inlining for arithmetic and other simple cases
 * (opt) Type pruning (intersection of unions to concrete)
 * (opt) `match` elision, removing unreachable cases
 * (opt) Dynamic to static calls conversion after inlining
@@ -90,7 +92,7 @@ The MLIR code can be found at [`src/mlir`](../../src/mlir).
 
 This stage is mainly about managing the LLVM compiler to produce object code, but it will need creation of new passes and analyses.
 
-Library code will be compiled into LLVM IR and merged into the main IR module with the rest of the Verona code and compiler generated chunks, including:
+Verona library code will be compiled into LLVM IR and merged into the main IR module with the rest of the Verona code and compiler generated chunks, including:
 * The Verona runtime (scheduler, snmalloc, etc)
 * Builtin library written in C++
 * Sandbox RPC implementation
@@ -107,8 +109,8 @@ The Verona LLVM driver will then need to:
 * Select the correct back-end options to emit appropriate object code
 
 An initial take on which passes we'll need:
-* Clean ups, mem2reg, constant folding and propagation, etc.
-* Early inline pass, at least all functions marked *always_inline* plus obvious ones (arithmetic)
+* DCE, CSE, mem2reg, constant folding and propagation, etc.
+* Early inline pass
 * Whole program analysis (reachability, multi-versioning)
 * More cleanups and late inlining
 * Code optimisations (inst.combine, loop opts, vectorisation, etc.)
@@ -143,6 +145,8 @@ The stages (and status) of the linker steps are:
 * (not started) Builtin library components in C++
 * (prototyping) Dynamic loading routines and sandbox code
 * (not started) Linking and producing an executable
+
+The linker code will be bundled together with the LLVM code.
 
 The runtime code can be found at [`src/rt`](../../src/rt).
 
