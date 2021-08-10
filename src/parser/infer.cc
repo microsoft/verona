@@ -111,17 +111,6 @@ namespace verona::parser::infer
       return f;
     }
 
-    Node<Type> receiver_type(Node<Type>& args)
-    {
-      if (!args)
-        return {};
-
-      if (args->kind() == Kind::TupleType)
-        return args->as<TupleType>().types.front();
-
-      return args;
-    }
-
     void post(Free& fr)
     {
       auto l = g(fr.location);
@@ -136,7 +125,7 @@ namespace verona::parser::infer
       }
     }
 
-    void post(LookupOne& find)
+    void post(LookupRef& find)
     {
       // Type arguments must be a subtype of the type parameter upper bounds.
       for (auto& [wparam, arg] : find.subs)
@@ -232,31 +221,51 @@ namespace verona::parser::infer
 
       // TODO: rewrite the node to be static or dynamic dispatch
       // include a precise reference to the selected function
-      assert(!sel.typeref->resolved);
       auto call = call_type(sel.expr, sel.args);
 
-      // TODO: apply on a functiontype receiver
+      // TODO: `apply` on a functiontype receiver
 
-      // Dynamic dispatch.
-      if (dynamic_dispatch(sel, call))
-        return;
+      if (call && call->left && (sel.typeref->typenames.size() == 1))
+      {
+        // Dynamic dispatch.
+        auto receiver = receiver_type(call->left);
+        auto find = lookup.member(receiver, sel.typeref->typenames.front());
+
+        // A->B <: C->D <=> C <: A /\ B <: D
+        // The member(s) we find must be a subtype of the call, not the other
+        // way around. This means they are substitutable for the call. If the
+        // call has an inferred result, it will receive a lower bound, which is
+        // what we want. Each LookupRef in `find` modifies the receiver in
+        // `call` to be `receiver & lookupref.self`.
+
+        // not all `D <: (A, B)->C` should do `A & self`? explicitly mark those
+        // that are dynamic lookups?
+        if (subtype.dynamic(find, call))
+        {
+          // TODO: rewrite as dynamic dispatch
+          return;
+        }
+      }
 
       // Static dispatch.
-      auto def = lookup.typeref(symbols(), sel.typeref->as<TypeRef>());
+      auto find = lookup.typeref(symbols(), *sel.typeref);
 
-      if (!def || (def->kind() != Kind::Function))
+      if (!find)
       {
         error() << sel.location << "Couldn't find this function."
                 << text(sel.location);
         return;
       }
 
-      // Resolve the static function, with substitutions and a Self type.
-      auto self = clone(sel.typeref->subs, sel.typeref->context.lock());
-      auto f = def->as<Function>().type;
-      f = clone(sel.typeref->subs, f, self);
-      sel.typeref->resolved = f;
-      subtype(f, call);
+      if (find->kind() != Kind::LookupRef)
+      {
+        error() << sel.location << "Expected a function but found "
+                << kindname(find->kind()) << text(sel.location);
+        return;
+      }
+
+      subtype(find, call);
+      // TODO: rewrite as static dispatch
     }
 
     void post(New& nw)
@@ -367,108 +376,6 @@ namespace verona::parser::infer
           // Do nothing.
           break;
         }
-      }
-    }
-
-    bool dynamic_dispatch(Select& sel, Node<FunctionType>& call)
-    {
-      if (!call || !call->left || (sel.typeref->typenames.size() != 1))
-        return false;
-
-      auto receiver = receiver_type(call->left);
-      auto find = lookup.member(receiver, sel.typeref->typenames.front());
-
-      if (!find)
-        return false;
-
-      // TODO: could be a LookupIsect with a Class `self` inside it
-      if (find->kind() == Kind::LookupOne)
-      {
-        auto self = find->as<LookupOne>().self.lock();
-
-        if (self->kind() == Kind::Class)
-        {
-          // TODO: we know the method statically
-        }
-      }
-
-      // TODO: is `call` <: `functype` for every disjunction?
-      // at LookupOne, the receiver type is `type & self`
-      return check_dispatch_type(receiver, call, def, sel.typeref->subs, sel);
-    }
-
-    bool check_dispatch_type(
-      Node<Type>& receiver,
-      Node<FunctionType>& call,
-      Node<LookupResult>& look,
-      Select& sel)
-    {
-      switch (look->kind())
-      {
-        case Kind::Field:
-        {
-          // TODO: view and extract types
-          // could have additional args, at which point it's an apply
-          // call on the field
-          error() << sel.location << "Fields not handled yet."
-                  << text(sel.location);
-          return false;
-        }
-
-        case Kind::Function:
-        {
-          auto f = def->as<Function>().type;
-
-          // TODO: don't use whole receiver type as self?
-          // discard capabilities? specialise to the dispatch type?
-          // but when we check subtyping, `receiver & dispatch-type` for the
-          // first argument of `call`, instead of just `receiver`
-          // return clone(subs, f, receiver);
-
-          // TODO: not sufficient, need receiver substitutions on f
-          f = clone(subs, f, receiver);
-          std::cerr << f << std::endl;
-          std::cerr << call << std::endl;
-          return subtype(f, call);
-        }
-
-        case Kind::LookupUnion:
-        {
-          auto& un = def->as<LookupUnion>();
-          bool ok = true;
-
-          for (auto& t : un.list)
-            ok &= check_dispatch_type(receiver, call, t, subs, sel);
-
-          return ok;
-        }
-
-        case Kind::LookupIsect:
-        {
-          auto& isect = def->as<LookupIsect>();
-          subtype.show = false;
-          size_t ok = 0;
-
-          for (auto& t : isect.list)
-          {
-            if (check_dispatch_type(receiver, call, t, subs, sel))
-              ok++;
-          }
-
-          subtype.show = true;
-
-          if (ok == 0)
-          {
-            // Do it again and show error messages.
-            for (auto& t : isect.list)
-              check_dispatch_type(receiver, call, t, subs, sel);
-          }
-
-          return ok > 0;
-        }
-
-        default:
-          return false;
       }
     }
   };

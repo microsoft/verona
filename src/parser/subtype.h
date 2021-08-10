@@ -34,6 +34,7 @@ namespace verona::parser
     Cache::iterator current;
     bool show = true;
     bool ok = true;
+    bool dyn = false;
 
     struct NoShow
     {
@@ -82,29 +83,32 @@ namespace verona::parser
     }
 
     bool operator()(Node<Type> lhs, Node<Type> rhs);
-    bool constraint(Node<Type>& lhs, Node<Type>& rhs);
+    bool dynamic(Node<Type> lhs, Node<Type> rhs);
 
+    bool constraint(Node<Type>& lhs, Node<Type>& rhs);
     void t_sub_t(Node<Type>& lhs, Node<Type>& rhs);
 
-    void infer_sub_t(Node<Type>& lhs, Node<Type>& rhs);
-    void union_sub_t(Node<Type>& lhs, Node<Type>& rhs);
-    void isect_sub_t(Node<Type>& lhs, Node<Type>& rhs);
-    void typeref_sub_t(Node<Type>& lhs, Node<Type>& rhs);
-    void lookupref_sub_t(Node<Type>& lhs, Node<Type>& rhs);
+    // The *_sub_t and t_sub_* functions return true if they produced a result.
+    // Otherwise, they return false and additional cases should be checked.
+    bool infer_sub_t(Node<Type>& lhs, Node<Type>& rhs);
+    bool union_sub_t(Node<Type>& lhs, Node<Type>& rhs);
+    bool isect_sub_t(Node<Type>& lhs, Node<Type>& rhs);
+    bool typeref_sub_t(Node<Type>& lhs, Node<Type>& rhs);
+    bool lookupref_sub_t(Node<Type>& lhs, Node<Type>& rhs);
 
-    void t_sub_infer(Node<Type>& lhs, Node<Type>& rhs);
-    void t_sub_union(Node<Type>& lhs, Node<Type>& rhs);
-    void t_sub_throw(Node<Type>& lhs, Node<Type>& rhs);
-    void t_sub_isect(Node<Type>& lhs, Node<Type>& rhs);
-    void t_sub_typeref(Node<Type>& lhs, Node<Type>& rhs);
+    bool t_sub_infer(Node<Type>& lhs, Node<Type>& rhs);
+    bool t_sub_union(Node<Type>& lhs, Node<Type>& rhs);
+    bool t_sub_throw(Node<Type>& lhs, Node<Type>& rhs);
+    bool t_sub_isect(Node<Type>& lhs, Node<Type>& rhs);
+    bool t_sub_typeref(Node<Type>& lhs, Node<Type>& rhs);
 
-    void t_sub_tuple(Node<Type>& lhs, Node<Type>& rhs);
-    void t_sub_typelist(Node<Type>& lhs, Node<Type>& rhs);
-    void t_sub_function(Node<Type>& lhs, Node<Type>& rhs);
+    bool t_sub_tuple(Node<Type>& lhs, Node<Type>& rhs);
+    bool t_sub_typelist(Node<Type>& lhs, Node<Type>& rhs);
+    bool t_sub_function(Node<Type>& lhs, Node<Type>& rhs);
 
-    void t_sub_lookupref(Node<Type>& lhs, Node<Type>& rhs);
-    void t_sub_class(Node<Type>& lhs, Node<Type>& rhs);
-    void t_sub_iface(Node<Type>& lhs, Node<Type>& rhs);
+    bool t_sub_lookupref(Node<Type>& lhs, Node<Type>& rhs);
+    bool t_sub_class(Node<Type>& lhs, Node<Type>& rhs);
+    bool t_sub_iface(Node<Type>& lhs, Node<Type>& rhs);
 
     void sub_same(Node<Type>& lhs, Node<Type>& rhs);
 

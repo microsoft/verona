@@ -16,5 +16,7 @@ namespace verona::parser
 
   std::pair<bool, Ast> run(Limit limit, bool validate, const std::string& path);
 
-  void dump(Ast& ast);
+  void dump(const Ast& ast);
+
+  void dump(NodeDef* ast);
 }

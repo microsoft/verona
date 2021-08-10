@@ -3,6 +3,7 @@
 #include "rewrite.h"
 
 #include "dispatch.h"
+#include "dnf.h"
 #include "fields.h"
 
 namespace verona::parser
@@ -212,6 +213,46 @@ namespace verona::parser
     return f;
   }
 
+  Node<Type> receiver_type(Node<Type>& args)
+  {
+    if (!args)
+      return {};
+
+    if (args->kind() == Kind::TupleType)
+      return args->as<TupleType>().types.front();
+
+    return args;
+  }
+
+  Node<Type> receiver_self(Node<Type>& t, Node<Type>& self)
+  {
+    if (t->kind() != Kind::FunctionType)
+      return {};
+
+    auto f = t->as<FunctionType>();
+    Node<Type> left;
+
+    if (f.left->kind() == Kind::TupleType)
+    {
+      auto fl = f.left->as<TupleType>();
+      auto fln = std::make_shared<TupleType>();
+      fln->location = fl.location;
+      fln->types = fl.types;
+      fln->types.front() = dnf::conjunction(fl.types.front(), self);
+      left = fln;
+    }
+    else
+    {
+      left = dnf::conjunction(f.left, self);
+    }
+
+    auto ft = std::make_shared<FunctionType>();
+    ft->location = f.location;
+    ft->left = left;
+    ft->right = f.right;
+    return ft;
+  }
+
   Node<TypeRef> typeparamref(Node<TypeParam>& typeparam)
   {
     auto tn = std::make_shared<TypeName>();
@@ -219,7 +260,6 @@ namespace verona::parser
 
     auto find = std::make_shared<LookupRef>();
     find->def = typeparam;
-    find->self = typeparam;
 
     auto tr = std::make_shared<TypeRef>();
     tr->location = typeparam->location;

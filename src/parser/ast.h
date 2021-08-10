@@ -688,7 +688,7 @@ namespace verona::parser
     // instantiating `def`. If `def` is a Field or Function, `self` will be the
     // enclosing Class or Interface. Otherwise, `self` will be the same as
     // `def`.
-    AstWeak self;
+    Weak<Type> self;
 
     // `subs` includes the substitutions for both `def` and `self`.
     Substitutions subs;

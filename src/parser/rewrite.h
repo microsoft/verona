@@ -22,6 +22,12 @@ namespace verona::parser
   // Create a function type for this lambda.
   Node<FunctionType> function_type(Lambda& lambda);
 
+  // Get the type of the first argument.
+  Node<Type> receiver_type(Node<Type>& args);
+
+  // Intersect the receiver with the supplied self type.
+  Node<Type> receiver_self(Node<Type>& t, Node<Type>& self);
+
   // Create a fully resolved typeref to this type parameter.
   Node<TypeRef> typeparamref(Node<TypeParam>& typeparam);
 }

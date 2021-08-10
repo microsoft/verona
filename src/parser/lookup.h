@@ -29,6 +29,8 @@ namespace verona::parser
     // The closest one will be returned, where a `using` statement is the
     // furthest away in its scope, but closer than the enclosing scope.
     Node<Type> name(Substitutions& subs, Ast sym, Node<TypeName>& tn);
+    Node<Type>
+    lexical(Substitutions& subs, Ast node, Node<TypeName>& tn, bool up);
 
     // This looks up `name` as a member of `node`. If `node` is not a Class or
     // an Interface, `node` is first resolved in the symbol context.

@@ -78,7 +78,7 @@ namespace mlir::verona
     /// Processing fields will update structure.
     void pre(Class& node)
     {
-      StringRef modName = node.id.view();
+      StringRef modName = node.location.view();
       // The root module has no name, doesn't need to be in the context
       if (!modName.empty())
         functionScope.push_back(modName);
@@ -93,7 +93,7 @@ namespace mlir::verona
     /// Post processing will finalise the structure.
     void post(Class& node)
     {
-      StringRef modName = node.id.view();
+      StringRef modName = node.location.view();
       auto& info = classStack.top();
       assert(
         info.getType().getName() == modName && "Finishing the wrong class");
@@ -124,10 +124,11 @@ namespace mlir::verona
     void post(Function& node)
     {
       auto loc = con.getLocation(node.as<NodeDef>());
+      auto lambda = node.lambda->as<Lambda>();
 
       // Find all arguments
       llvm::SmallVector<Type> types;
-      for (auto p : node.params)
+      for (auto p : lambda.params)
       {
         auto param = p->as<Param>();
         types.push_back(con.consumeType(*param.type));
@@ -135,9 +136,9 @@ namespace mlir::verona
 
       // Check return type (multiple returns as tuples)
       llvm::SmallVector<Type> retTy;
-      if (node.result)
+      if (lambda.result)
       {
-        retTy.push_back(con.consumeType(*node.result));
+        retTy.push_back(con.consumeType(*lambda.result));
       }
 
       // Generate the prototype
@@ -195,7 +196,7 @@ namespace mlir::verona
     void pre(Class& node)
     {
       // The root module has no name, doesn't need to be in the context
-      StringRef modName = node.id.view();
+      StringRef modName = node.location.view();
       if (!modName.empty())
         functionScope.push_back(modName);
 
@@ -227,7 +228,7 @@ namespace mlir::verona
       // Declare all arguments on a new scope
       symbolTable().pushScope();
       llvm::SmallVector<llvm::StringRef> argNames;
-      for (auto p : node.params)
+      for (auto p : node.lambda->as<Lambda>().params)
       {
         argNames.push_back(p->location.view());
         // TODO: Handle default init
@@ -345,7 +346,7 @@ namespace mlir::verona
       // FIXME: "special case" return for now, to make it work without method
       // call. There's a bug in the current AST that doesn't create a "last"
       // value in some cases, so we add an explicit "return" to force it.
-      if (node.typenames[0]->location.view() == "return")
+      if (node.typeref->typenames[0]->location.view() == "return")
       {
         assert(operands.empty());
         auto thisFunc =
@@ -371,7 +372,7 @@ namespace mlir::verona
         auto key = ClassInfo::key(structTy);
         auto& info = con.classInfo.at(key);
         auto [offset, elmTy] =
-          info.getFieldType(node.typenames[0]->location.view());
+          info.getFieldType(node.typeref->typenames[0]->location.view());
         if (elmTy)
         {
           // Convert the address of the structure to the address of the element
@@ -385,13 +386,13 @@ namespace mlir::verona
 
       // Typenames indicate the context and the function name
       llvm::SmallVector<llvm::StringRef, 3> scope;
-      size_t end = node.typenames.size() - 1;
+      size_t end = node.typeref->typenames.size() - 1;
       for (size_t i = 0; i < end; i++)
       {
-        scope.push_back(node.typenames[i]->location.view());
+        scope.push_back(node.typeref->typenames[i]->location.view());
       }
       std::string opName = con.mangleName(
-        node.typenames[end]->location.view(), functionScope, scope);
+        node.typeref->typenames[end]->location.view(), functionScope, scope);
 
       // Check the function table for a symbol that matches the opName
       if (auto funcOp = gen.lookupSymbol<FuncOp>(opName))

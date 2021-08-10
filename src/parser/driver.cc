@@ -41,9 +41,17 @@ namespace verona::parser
     return {ok, ast};
   }
 
-  void dump(Ast& ast)
+  void dump(const Ast& ast)
   {
     if (ast)
       std::cout << ast << std::endl;
+  }
+
+  void no_delete(NodeDef*) {}
+
+  void dump(NodeDef* ast)
+  {
+    Ast t(ast, no_delete);
+    dump(t);
   }
 }

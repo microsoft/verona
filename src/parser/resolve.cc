@@ -36,6 +36,8 @@ namespace verona::parser::resolve
 
       if (!find)
       {
+        // TODO: remove this
+        find = lookup.typeref(symbols(), tr);
         error() << tr.location << "Couldn't find a definition of this type."
                 << text(tr.location);
         return;
@@ -96,6 +98,7 @@ namespace verona::parser::resolve
           auto create = std::make_shared<TypeName>();
           create->location = name_create;
           select.typeref->typenames.push_back(create);
+          select.typeref->lookup.reset();
 
           auto find = lookup.typeref(symbols(), *select.typeref);
 

@@ -36,7 +36,7 @@ namespace verona::parser
 
     while (sym)
     {
-      auto find = member(subs, sym, sym, tn);
+      auto find = lexical(subs, sym, tn, true);
 
       if (find)
         return find;
@@ -62,7 +62,7 @@ namespace verona::parser
         }
 
         // Find `name` in the used TypeRef, using the current symbol table.
-        auto find = member(subs, sym, use->type, tn);
+        find = member(subs, sym, use->type, tn);
 
         if (find)
           return find;
@@ -72,6 +72,39 @@ namespace verona::parser
     }
 
     return {};
+  }
+
+  Node<Type>
+  Lookup::lexical(Substitutions& subs, Ast node, Node<TypeName>& tn, bool up)
+  {
+    // This comes from `name` and is looking inside a symbol table, or it
+    // comes from looking inside a previous lookup result.
+    auto def = node->symbol_table()->get(tn->location);
+
+    if (!def)
+      return {};
+
+    // Don't return typeparams here. This is for when we're looking inside
+    // something, not looking up lexically.
+    if (!up && is_kind(def, {Kind::TypeParam, Kind::TypeParamList}))
+      return {};
+
+    // A LookupRef always references a Class, Interface, TypeAlias, TypeParam,
+    // TypeParamList, Field, or Function. The `self` member is a reference to
+    // the enclosing scope if the target has no symbol table.
+    auto res = std::make_shared<LookupRef>();
+    res->def = def;
+    res->subs = substitutions(subs, def, tn->typeargs);
+
+    if (!def->symbol_table())
+    {
+      auto self = std::make_shared<LookupRef>();
+      self->def = node;
+      self->subs = subs;
+      res->self = self;
+    }
+
+    return res;
   }
 
   Node<Type> Lookup::member(Ast node, Node<TypeName>& tn)
@@ -108,26 +141,7 @@ namespace verona::parser
       case Kind::Class:
       case Kind::Interface:
       {
-        // This comes from `name` and is looking inside a symbol table, or it
-        // comes from looking inside a previous lookup result.
-        auto def = node->symbol_table()->get(tn->location);
-
-        if (!def)
-          return {};
-
-        // A LookupOne always references a Class, Interface, TypeAlias, Field,
-        // or Function. The `self` member is a reference to the enclosing type
-        // for a Field or Function, or to `def` otherwise.
-        auto res = std::make_shared<LookupRef>();
-        res->def = def;
-        res->subs = substitutions(subs, def, tn->typeargs);
-
-        if (is_kind(def, {Kind::Field, Kind::Function}))
-          res->self = node;
-        else
-          res->self = def;
-
-        return res;
+        return lexical(subs, node, tn, false);
       }
 
       case Kind::TypeAlias:
@@ -252,6 +266,7 @@ namespace verona::parser
       }
 
       case Kind::Field:
+      case Kind::TypeParam:
         return ret;
 
       default:

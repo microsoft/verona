@@ -77,30 +77,37 @@ namespace verona::parser
 
     if (def)
     {
-      auto self = node.self.lock();
       out << start(kindname(def->kind())) << sep;
 
       std::vector<Location> names;
       names.push_back(def->location);
+      auto self = node.self.lock();
+      auto st = def->symbol_table();
 
-      if (self != def)
-        names.push_back(self->location);
-
-      auto st = self->symbol_table();
+      if (self && (self->kind() == Kind::LookupRef))
+      {
+        auto s = self->as<LookupRef>();
+        auto def = s.def.lock();
+        names.push_back(def->location);
+        st = def->symbol_table();
+      }
 
       while (st)
       {
-        self = st->parent.lock();
+        auto p = st->parent.lock();
 
-        if (!self)
+        if (!p)
           break;
 
-        names.push_back(self->location);
-        st = self->symbol_table();
+        if (p->location.source)
+          names.push_back(p->location);
+
+        st = p->symbol_table();
+
       }
 
       for (auto it = names.rbegin(); it != names.rend(); ++it)
-        out << "::" << *it;
+        out << *it;
 
       out << end;
     }
