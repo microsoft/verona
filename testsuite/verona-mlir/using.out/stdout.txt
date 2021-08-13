@@ -1,5 +1,5 @@
-module  {
-  func @"$module-0__trunc_64_8"(%arg0: i64) -> i8 {
+builtin.module  {
+  builtin.func @"$module-0__trunc_64_8"(%arg0: i64) -> i8 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i8 : (i32) -> !llvm.ptr<i8>
     %1 = llvm.mlir.addressof @std.trunci : !llvm.ptr<array<10 x i8>>
@@ -11,7 +11,7 @@ module  {
     %5 = llvm.load %4 : !llvm.ptr<i8>
     return %5 : i8
   }
-  func @"$module-0__trunc_64_16"(%arg0: i64) -> i16 {
+  builtin.func @"$module-0__trunc_64_16"(%arg0: i64) -> i16 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i16 : (i32) -> !llvm.ptr<i16>
     %1 = llvm.mlir.addressof @std.trunci : !llvm.ptr<array<10 x i8>>
@@ -23,7 +23,7 @@ module  {
     %5 = llvm.load %4 : !llvm.ptr<i16>
     return %5 : i16
   }
-  func @"$module-0__trunc_64_32"(%arg0: i64) -> i32 {
+  builtin.func @"$module-0__trunc_64_32"(%arg0: i64) -> i32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
     %1 = llvm.mlir.addressof @std.trunci : !llvm.ptr<array<10 x i8>>
@@ -35,7 +35,7 @@ module  {
     %5 = llvm.load %4 : !llvm.ptr<i32>
     return %5 : i32
   }
-  func @"$module-0__ext_64_128"(%arg0: i64) -> i128 {
+  builtin.func @"$module-0__ext_64_128"(%arg0: i64) -> i128 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i128 : (i32) -> !llvm.ptr<i128>
     %1 = llvm.mlir.addressof @std.sexti : !llvm.ptr<array<9 x i8>>
@@ -47,7 +47,7 @@ module  {
     %5 = llvm.load %4 : !llvm.ptr<i128>
     return %5 : i128
   }
-  func @"$module-0__truncf_64_32"(%arg0: f64) -> f32 {
+  builtin.func @"$module-0__truncf_64_32"(%arg0: f64) -> f32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f32 : (i32) -> !llvm.ptr<f32>
     %1 = llvm.mlir.addressof @std.fptrunc : !llvm.ptr<array<11 x i8>>
@@ -59,7 +59,7 @@ module  {
     %5 = llvm.load %4 : !llvm.ptr<f32>
     return %5 : f32
   }
-  func @"$module-0__foo"() {
+  builtin.func @"$module-0__foo"() {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i8 : (i32) -> !llvm.ptr<i8>
     %c10_i64 = constant 10 : i64

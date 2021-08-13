@@ -1,9 +1,9 @@
-module  {
-  func @"$module-0__bar"() {
+builtin.module  {
+  builtin.func @"$module-0__bar"() {
     call @"$module-0__foo"() : () -> ()
     return
   }
-  func @"$module-0__foo"() {
+  builtin.func @"$module-0__foo"() {
     return
   }
 }

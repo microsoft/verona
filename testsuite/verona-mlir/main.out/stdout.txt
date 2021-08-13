@@ -1,5 +1,5 @@
-module  {
-  func @"$module-0__I64__+"(%arg0: i64, %arg1: i64) -> i64 {
+builtin.module  {
+  builtin.func @"$module-0__I64__+"(%arg0: i64, %arg1: i64) -> i64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
     %1 = llvm.mlir.addressof @std.addi : !llvm.ptr<array<8 x i8>>
@@ -20,7 +20,7 @@ module  {
     %12 = llvm.load %11 : !llvm.ptr<i64>
     return %12 : i64
   }
-  func @"$module-0__Math__getTruth"() -> i64 {
+  builtin.func @"$module-0__Math__getTruth"() -> i64 {
     %c42_i64 = constant 42 : i64
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
@@ -31,7 +31,7 @@ module  {
     %3 = llvm.load %2 : !llvm.ptr<i64>
     return %3 : i64
   }
-  func @"$module-0__Math__getRandom"() -> i64 {
+  builtin.func @"$module-0__Math__getRandom"() -> i64 {
     %c1_i64 = constant 1 : i64
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
@@ -42,7 +42,7 @@ module  {
     %3 = llvm.load %2 : !llvm.ptr<i64>
     return %3 : i64
   }
-  func @"$module-0__bar"() -> i64 {
+  builtin.func @"$module-0__bar"() -> i64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
     %1 = call @"$module-0__Math__getRandom"() : () -> i64
@@ -53,7 +53,7 @@ module  {
     %4 = llvm.load %3 : !llvm.ptr<i64>
     return %4 : i64
   }
-  func @"$module-0__foo"(%arg0: i64) -> i64 {
+  builtin.func @"$module-0__foo"(%arg0: i64) -> i64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
     %1 = call @"$module-0__bar"() : () -> i64
@@ -79,7 +79,7 @@ module  {
     %16 = llvm.load %15 : !llvm.ptr<i64>
     return %16 : i64
   }
-  func @main() -> i64 {
+  builtin.func @main() -> i64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x !llvm.struct<"Math", (i64, i64)> : (i32) -> !llvm.ptr<struct<"Math", (i64, i64)>>
     %1 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>

@@ -1,5 +1,5 @@
-module  {
-  func @"$module-0__foo"() {
+builtin.module  {
+  builtin.func @"$module-0__foo"() {
     %0 = llvm.mlir.addressof @hello : !llvm.ptr<array<5 x i8>>
     %1 = llvm.mlir.addressof @world : !llvm.ptr<array<5 x i8>>
     return

@@ -1,5 +1,5 @@
-module  {
-  func @"$module-0__I64__trunc"(%arg0: i64) -> i32 {
+builtin.module  {
+  builtin.func @"$module-0__I64__trunc"(%arg0: i64) -> i32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x i32 : (i32) -> !llvm.ptr<i32>
     %1 = llvm.mlir.addressof @std.trunci : !llvm.ptr<array<10 x i8>>
@@ -11,7 +11,7 @@ module  {
     %5 = llvm.load %4 : !llvm.ptr<i32>
     return %5 : i32
   }
-  func @"$module-0__Boop__getPI"() -> f64 {
+  builtin.func @"$module-0__Boop__getPI"() -> f64 {
     %cst = constant 3.141500e+00 : f64
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f64 : (i32) -> !llvm.ptr<f64>
@@ -22,7 +22,7 @@ module  {
     %3 = llvm.load %2 : !llvm.ptr<f64>
     return %3 : f64
   }
-  func @"$module-0__foo"() -> i32 {
+  builtin.func @"$module-0__foo"() -> i32 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x !llvm.struct<"Foo", (i32, i64)> : (i32) -> !llvm.ptr<struct<"Foo", (i32, i64)>>
     %1 = llvm.alloca %c1_i32 x !llvm.struct<"Bar", (i32, i64)> : (i32) -> !llvm.ptr<struct<"Bar", (i32, i64)>>
@@ -70,7 +70,7 @@ module  {
     %31 = llvm.load %30 : !llvm.ptr<i32>
     return %31 : i32
   }
-  func @"$module-0__bar"() -> f64 {
+  builtin.func @"$module-0__bar"() -> f64 {
     %c1_i32 = constant 1 : i32
     %0 = llvm.alloca %c1_i32 x f64 : (i32) -> !llvm.ptr<f64>
     %1 = call @"$module-0__Boop__getPI"() : () -> f64
