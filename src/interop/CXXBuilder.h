@@ -125,7 +125,7 @@ namespace verona::interop
         clang::CK_FunctionToPointerDecay,
         expr,
         /*base path=*/nullptr,
-        clang::VK_RValue,
+        clang::VK_PRValue,
         clang::FPOptionsOverride());
 
       return implCast;
@@ -151,7 +151,7 @@ namespace verona::interop
           expr,
           args,
           retTy,
-          clang::VK_RValue,
+          clang::VK_PRValue,
           loc,
           clang::FPOptionsOverride());
       }
@@ -165,7 +165,7 @@ namespace verona::interop
           expr,
           args,
           retTy,
-          clang::VK_RValue,
+          clang::VK_PRValue,
           loc,
           clang::FPOptionsOverride());
       }
@@ -335,7 +335,7 @@ namespace verona::interop
           clang::CK_LValueToRValue,
           e,
           /*base path=*/nullptr,
-          clang::VK_RValue,
+          clang::VK_PRValue,
           clang::FPOptionsOverride());
 
         argExpr.push_back(cast);

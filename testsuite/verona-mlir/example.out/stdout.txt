@@ -1,5 +1,5 @@
-module @__  {
-  func @"____$module-0__Math__getTruth"() -> i64 {
+builtin.module @__  {
+  builtin.func @"____$module-0__Math__getTruth"() -> i64 {
     %c42_i64 = constant 42 : i64
     %c1_i32 = constant 1 : i32
     %c0_i32 = constant 0 : i32
@@ -10,7 +10,7 @@ module @__  {
     %3 = llvm.load %1 : !llvm.ptr<i64>
     return %3 : i64
   }
-  func @"____$module-0__Math__getRandom"() -> i64 {
+  builtin.func @"____$module-0__Math__getRandom"() -> i64 {
     %c1_i64 = constant 1 : i64
     %c1_i32 = constant 1 : i32
     %c0_i32 = constant 0 : i32
@@ -21,7 +21,7 @@ module @__  {
     %3 = llvm.load %1 : !llvm.ptr<i64>
     return %3 : i64
   }
-  func @"____$module-0__bar"() -> i64 {
+  builtin.func @"____$module-0__bar"() -> i64 {
     %c1_i32 = constant 1 : i32
     %c0_i32 = constant 0 : i32
     %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
@@ -32,7 +32,7 @@ module @__  {
     %4 = llvm.load %2 : !llvm.ptr<i64>
     return %4 : i64
   }
-  func @"____$module-0__foo"(%arg0: i64) -> i64 {
+  builtin.func @"____$module-0__foo"(%arg0: i64) -> i64 {
     %c1_i32 = constant 1 : i32
     %c0_i32 = constant 0 : i32
     %0 = llvm.alloca %c1_i32 x i64 : (i32) -> !llvm.ptr<i64>
@@ -53,7 +53,7 @@ module @__  {
     %12 = llvm.load %10 : !llvm.ptr<i64>
     return %12 : i64
   }
-  func @main() -> i64 {
+  builtin.func @main() -> i64 {
     %c21_i64 = constant 21 : i64
     %c1_i32 = constant 1 : i32
     %c0_i32 = constant 0 : i32

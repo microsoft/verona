@@ -1,2 +1,2 @@
-module  {
+builtin.module  {
 }
