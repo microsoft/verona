@@ -19,18 +19,20 @@ But the compiler reserves the right to change the internal ABI at any time, wher
 
 ## Concrete Types
 
-### Numeric 'natives'
+### Machine-word types
 
-Numeric types are singleton types (no fields) and do not have a _standard_ object representation.
+Machine-word types, (ex, numeric) are singleton types (no fields) and do not have a _standard_ object representation (see below).
 They are treated special by the compiler and are represented as their machine equivalent bit-widths.
-All numeric types are aligned naturally, except booleans, which align to 1 byte.
+All numeric types are aligned naturally, except booleans, which align to its storage type.
 
-* `Bool`: 8-bits, with the bit pattern 0 or 1 in the platform's native endian.
+* `Bool`: bit pattern 0 or 1. The storage is usually 1 byte but can be different.
 * `U8`, `U16`, ... `U128`: power-of-two-bits, unsigned, on the platform's native endian.
 * `I8`, `I16`, ... `I128`: power-of-two-bits, 2's-complement, on the platform's native endian.
-* `F16`, `F32`, `F64`, `F128`: IEEE-754 (binary) floating point numbers.
+* `F32`, `F64`: IEEE-754 (binary) floating point numbers.
 
-There are discussions on introducing non-power-of-two integers, but they won't be present for the first iteration of the compiler.
+Booleans can be packed (ex. 1 byte = 8 boolean values) for arrays on specific optimisations.
+
+There are discussions on introducing non-power-of-two integers and other floating point sizes, but they won't be present for the first iteration of the compiler.
 
 ### Pointers
 
@@ -56,14 +58,20 @@ Following a pointer and decoding the header gives you the type of the object and
 Classes and interfaces are stored similar to a _C structure_.
 The general layout is:
 * A header.
-* The list of `embed` fields.
-* Pointers to the remaining fields.
+* The list of fields (with `embed` values or pointers to objects).
 
 The header is a pair of values:
-* The region meta-data, a 64-bit value containing information for the runtime library.
-* The descriptor, a pointer to the `vtable` (see below) and additional meta-data.
+* The region meta-data, a pointer-sized value containing information for the runtime library.
+* A pointer to the type descriptor (see below).
 
-Example:
+Each object points to a descriptor that uniquely identifies its type.
+Matching types of dynamic objects (against interface types, for example) means comparing their descriptors.
+
+The remaining fields can, on internal representations, be packed or reordered for optimisation purposes.
+But the `embed` fields will always be _in-place_ and the rest will always be pointers to the actual data.
+Machine-word types (ex. numeric) are always represented by value (their singleton representation).
+
+For example, a class:
 ```ts
 class Other { ... }
 class Foo
@@ -73,44 +81,49 @@ class Foo
     var other : Other & mut;
     create() { ... }
 }
-// The layout on a 32-bit machine could be:
-// { { i64, i32 }, i32,  f64,  i32   }
-//      header,    U32*, F64, Other*
-//
-// The layout on a 64-bit machine could be:
-// { { i64, i64 }, i64,  f64,  i64   }
-//      header,    U32*, F64, Other*
 ```
 
-The remaining fields can, on internal representations, be packed or reordered for optimisation purposes.
-But the `embed` fields will always be _in-place_ and the rest will always be pointers to the actual data.
+A naive layout could be:
+```ts
+ { { ptr, ptr }, i32, f64,  ptr   }
+      header,    U32, F64, Other*
+```
+
+With `ptr` 32/64/128-bits, depending on the architecture.
 
 As a future optimisation, we could reorder the fields by size.
 Some targets have stronger alignment requirements, and unaligned reads can incur in penalties.
 Having an 8-bit type between 64-bit types can misalign the larger objects.
 By sorting the types by size, we guarantee that all 64-bit values are 64-bit aligned, all 32-bit values are 32-bit aligned and so on.
 
-Each type has its own unique descriptor which uniquely identify the type.
-Matching types of dynamic objects means comparing them to a known value or the value of the descriptor from another type.
+A more optimal layout for the same class above, on either 32 or 64 bit targets, would be:
+```ts
+ { { ptr, ptr }, f64,   ptr,  i32 }
+      header,    F64, Other*, U32
+```
 
-### VTables & Selector Colouring
+Because `f64` aligns stronger than `i32` and `ptr` can be either.
+On CHERI, the 128-bit `ptr` would be the first field after the header.
 
-Object headers have a pointer to their type's virtual dispatch table.
-A `vtable` contains pointers to the functions that the type provides at specific offsets.
+### Dispatch Tables & Selector Colouring
+
+Object headers have a pointer to their type's dispatch table.
+A dispatch table contains pointers to the functions that the type provides at specific offsets.
 Those pointers are called when it's not possible to determine the actual function being called at compile time.
+There is only one dispatch table per type, not per object.
 
 The offset of each method is calculated at compile time.
 The address at each offset has a pointer to the actual functions.
-Dynamic dispatch is done by taking the pointer at the offset from a vtable pointer and calling that.
-If an interface provides a method `foo`, all classes that implement that interface will have a method `foo` and their vtables will have an entry for it.
+Dynamic dispatch is done by taking the pointer at the offset from a table pointer and calling that.
+If an interface provides a method `foo`, all classes that implement that interface will have a method `foo` and their dispatch tables will have an entry for it.
 
 To avoid each type to have a different calculation for each method's offset, the compiler will do **selector colouring**.
-This process finds all common methods across all types and ensure the same methods all have the same offsets on all vtables.
+This process finds all common methods across all types and ensure the same methods all have the same offsets on all tables.
 This applies to concrete classes that implement specific interfaces, but it's not limited by it.
 Any two classes that have the same methods (signature) will end up with the same offset.
 
 With multiple interfaces and classes implementing similar methods, this can lead to a number of gaps between offsets.
-The vtables will be compacted (either during colouring or afterwards) to minimise that.
+The tables will be compacted (either during colouring or afterwards) to minimise that.
 
 ## Union Types
 
@@ -129,24 +142,27 @@ var b : F32 & imm = 3.14;
 function(b); // Passes 32-bit floating point
 ```
 
-Union types are algebraic, so `((A | B) | C) == (A | (B | C)) == (A | B | C)`.
-Intersection types create a new type, so `(A & B) =/= A && (A & B) =/= B`.
-Excluding native numeric types, all objects are referenced to by a pointer.
-For that reason, they can only _contain_ the following types:
-* Native numeric types.
-* Pointers to classes or interfaces.
+All objects are referred to by pointers.
+Machine-word types are refereed to by value as an optimisation by the compiler.
 
-Because all objects have a descriptor that identifies their types, pointers don't need a special descriptor in the union representation.
+For that reason, they can only _contain_ the following representations:
+* Machine-word values.
+* Pointers to objects.
+
+To identify which type the run-time object has, we need a discriminator flag.
+Because the values take up all their storage, we need a wider storage to bundle more than one type in the same representation.
+
+Objects have a descriptor that identifies their types, so pointers don't need a special descriptor in the union representation.
 So a union of pointers is represented as just a pointer and the discrimination will happen at the object level.
 However, numeric types don't have discriminators, so they need special handling when inside union.
-Furthermore, mixing pointers and numeric types creates the need to differentiate pointers from the rest, so they then need special representation.
+Furthermore, mixing pointers and numeric types creates the need to differentiate pointers from the rest.
 
-The type representation will be composed of a descriptor and a _payload_ whit the size of the largest object.
-There are two ways of storing the descriptor: wide packing and NaN-boxing.
+The type representation will be composed of a _descriptor_ and a _payload_ with the size of the largest object.
+There are two ways of storing the descriptor: `wide packing` and `NaN-boxing`.
 
 ### Wide packing
 
-This is the naive representation, using an 8-bit descriptor and a `max(sizeof(type...))` as the payload.
+This is the naive representation, using an 8-bit descriptor and the largest object's size as the payload.
 
 Example:
 ```ts
@@ -158,7 +174,7 @@ This can be used for all types, but it creates two main problems:
 1. It adds at least 8-bits to every number.
    For a `U8`, that's twice the size.
 2. Alignment requirements may force us to _pad_ the first `i8`.
-   This would add another 24 or 56 bits on structures or arrays, per element.
+   This would add another 24, 56 or 120 bits on structures or arrays, per element.
 
 For this reason, we use NaN-boxing below for all types that we can.
 The encoding of the discriminator is shown below.
@@ -187,7 +203,7 @@ Most 64-bit architectures use 52-bits or less to encode addresses, so that's eno
 When the sign bit is zero, we use 4 high bits in the mantissa to encode all representable types, followed by a padding of `(52-4-sizeof(type))` bits, and the value taking the `sizeof(type)` lower bits.
 
 We can encode all 32-bit or less types as well as pointers and `F64`, but not 64-bit integers or higher.
-For those, we use the wide packing above.
+For those, we use the wide packing below.
 
 The list of the types that can be NaN-packed:
 * Pointer
@@ -208,42 +224,43 @@ In the following ways:
 [*][***********][52 bit mantissa] = F64
 [1][11111111111][52 data bits] = Pointer
 [0][11111111111][0000][47*][1 data bit] = Bool
-[0][11111111111][0001][40*][8 data bits] = F8
-[0][11111111111][0010][32*][16 data bits] = F16
-[0][11111111111][0011][16*][32 data bits] = F32
-[0][11111111111][0100][40*][8 data bits] = I8
-[0][11111111111][0101][32*][16 data bits] = I16
-[0][11111111111][0110][16*][32 data bits] = I32
-[0][11111111111][0111][16*][32 data bits] = ISize (32)
-[0][11111111111][1000][40*][8 data bits] = U8
-[0][11111111111][1001][32*][16 data bits] = U16
-[0][11111111111][1010][16*][32 data bits] = U32
-[0][11111111111][1011][16*][32 data bits] = USize (32)
+[0][11111111111][0001][16*][32 data bits] = F32
+[0][11111111111][0010][40*][8 data bits] = I8
+[0][11111111111][0011][32*][16 data bits] = I16
+[0][11111111111][0100][16*][32 data bits] = I32
+[0][11111111111][0101][16*][32 data bits] = ISize (32)
+[0][11111111111][0110][40*][8 data bits] = U8
+[0][11111111111][0111][32*][16 data bits] = U16
+[0][11111111111][1000][16*][32 data bits] = U32
+[0][11111111111][1001][16*][32 data bits] = USize (32)
 ```
 
-The order of types and their bit patterns is arbitrary.
+The order of types and their bit patterns are arbitrary.
 
 The remaining types that need to be wide-packed are:
 * I64
 * U64
 * I128
 * U128
-* F128
 * ISize (on a 64 bit platform)
 * USize (on a 64 bit platform)
 
-Because we have more than 16 types, we need to add 1 extra bit to the discriminator for wide packing.
+Because we have more than 16 types in total, we need to add 1 extra bit to the discriminator for wide packing.
 We also need to add another bit for identifying pointers, which we can use the top bit like NaN-boxing.
 
 ```
-[1][**][00000] Pointer
-[0][**][10000] I64
-[0][**][10001] U64
-[0][**][10010] I128
-[0][**][10011] U128
-[0][**][10100] F128
-[0][**][10101] ISize (on a 64 bit platform)
-[0][**][10110] USize (on a 64 bit platform)
+------------------------- Types also represented in NaN-boxing
+[1][**][0][0000] Pointer
+[0][**][0][0000] Bool
+[0][**][0][0001] F32
+[0][**][0][****] ... // Same bit-pattern as above
+------------------------- New types, only in wide-packing
+[0][**][1][0000] I64
+[0][**][1][0001] U64
+[0][**][1][0010] I128
+[0][**][1][0011] U128
+[0][**][1][0100] ISize (on a 64 bit platform)
+[0][**][1][0101] USize (on a 64 bit platform)
 ```
 
 This bit pattern is also arbitrary and can change in the actual implementation.
@@ -256,19 +273,22 @@ Also note that the pattern above is an extra byte, so all values will have the w
 ## Arrays
 
 Arrays are structures that contain a dynamically sized list of elements of a single type.
-The memory layout of the array isn't guaranteed to be consecutive memory (ex. `addr(array[N+1]) == addr(array[N] + sizeof(type)`).
-Since there is no pointer arithmetic in Verona, the compiler is free to change the offset calculations to suite the allocation strategy.
+The memory layout of the array is guaranteed to be consecutive (ex. `addr(array[N+1]) == addr(array[N] + sizeof(type)`).
 
 Example:
 ```ts
-// Bool has 8-bits (we can pack it later using bitfields)
-Array[Bool] -> [ i8, i8, i8, ... ]
 // No surprises here
 Array[U16] -> [ i16, i16, i16, ...]
 Array[A] -> [ ptr, ptr, ptr, ... ]
+
+// Naive Bool array
+Array[Bool] -> [ i8, i8, i8, ... ]
+
+// Compact Bool array
+Array[Bool] -> [ { i1, i1, i1, ... }, { i1, ... } ... ]
 ```
 
-That type, however, can be a union type, so it too needs descriptors.
+That type, however, can be a union type, so it needs descriptors.
 The naive layout for an array of unions is to have an array of packed descriptors.
 
 Example:
@@ -286,15 +306,44 @@ Array[F64 | U128] -> [ { i8, i128 }, { i8, i128 }, ... ]
 NaN-boxed types have the problem that it increases the size of the object at least to 64-bits (128-bit on CHERI), even when neither of the types are 64-bit wide.
 This may not be a problem for individual objects, but an array with multiple objects will multiply the problem.
 
+Example:
+```ts
+// Single-types
+Array[I8] -> [ i8, i8, i8, ... ]
+Array[U8] -> [ i8, i8, i8, ... ]
+
+// NaN-boxed types
+Array[U8 | I8] -> [ i64, i64, i64, ... ]
+```
+
 That, however, is a small problem when compared to the wide packing.
 Not only the wide-packed array increases the payload, but it also introduces the descriptor which is not the same size as the payload.
 This creates misalignment issues (on platforms where misaligned reads are penalised or forbidden, this is really bad).
 
 An optimisation under discussion is to pack the descriptors into a payload-sized element.
-The first 8 elements would follow the first bucket with their 8 descriptors packed.
+With a 64-bit payload, the first 8 elements would follow the first 64-bit bucket with their 8 descriptors packed.
 The following 8 elements would need a new descriptor bucket, placed after the 8th element, and so on.
 
-These problems only happens in arrays of unions that need to be packed.
+Example:
+```ts
+Array[F64 | U128] -> [ { i8, i64 }, { i8, i64 }, ... ]
+
+// to
+
+type Desc = { i8, i8, i8, i8, i8, i8, i8, i8 };
+Array[F64 | U128] -> [ Desc, i64, i64, i64, i64, i64, i64, i64, i64, Desc, i64, ...  ]
+```
+
+To access the 7-th element, the unpacking does:
+```ts
+// Takes the 7th descriptor (in pseudo tuple notation starting at _0)
+descrip = Array[0]._6;
+
+// Takes the 7th element (at 8th position starting from 0)
+payload = Array[6+1];
+```
+
+These problems only happens in arrays of unions that need to be wide-packed.
 Users should prefer arrays of concrete types as much as possible for code that needs to be fast (inner loops, etc).
 
 ## Calling Convention
@@ -309,8 +358,10 @@ This section discusses some of those opportunities.
 
 ### Concrete Types
 
+FIXME: The wording below is confusing, please suggest a better one.
+
 Concrete types, including pointers, are always passed by value to functions.
-A native numeric type will create a copy of the value to be used inside the function.
+A machine-word numeric type will create a copy of the value to be used inside the function.
 Other types are represented by pointer, so a _copy_ of the pointer is passed, but still pointing to the same object, so the object can be mutated (if via a `mutable` reference).
 
 This is very friendly to modern calling conventions, that place values in registers and have plenty of large registers to use.
