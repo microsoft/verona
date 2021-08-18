@@ -14,7 +14,7 @@ namespace verona::rt
    * Object representation
    * =====================
    *
-   * The object has at least two fields
+   * The object has at least two pointer sized fields
    *
    *  - Region meta data
    *  - Descriptor
@@ -25,7 +25,7 @@ namespace verona::rt
    * ----------------
    *
    * This is split into the bottom 3 bits represent the type of status, and the
-   * top 61 bits are the payload
+   * remaining bits are the payload.
    *
    *  Tag      |  Payload                                     | Object type
    * ---------------------------------------------------------|--------------
@@ -214,6 +214,7 @@ namespace verona::rt
 
     /// This class represents the Verona object header.
     /// It is stored directly before a Verona object.
+    /// Its overall size is two pointers.
     struct Header
     {
       union
