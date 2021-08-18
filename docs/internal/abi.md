@@ -17,6 +17,34 @@ The following ABI proposal is under construction and will change over time.
 The public ABI (when interfacing with foreign languages or exported symbols) will be stable at some point and guaranteed by the compiler.
 But the compiler reserves the right to change the internal ABI at any time, where it can guarantee the changes are not visible from user code.
 
+## Memory Model
+
+Verona's memory model is based on isolated regions.
+References to sentinel objects (`iso`) point to the entry point of the region, while mutable references (`mut`) point to objects inside the region.
+Immutable references (`imm`) point to immutable objects outside of any region.
+The Verona runtime guarantees no more than one behaviour has access to the same region at any time, avoiding concurrent mutation problems.
+
+### Regions
+
+A region is a tree of related objects, not necessarily contiguous in memory.
+The reason for grouping objects in the same region is to they can be accessed together by the same behaviour.
+However, some regions (ex. sandboxes) do require memory to be contiguous (for range access protection).
+
+Two regions can have overlapping memory addresses.
+The Verona compiler guarantees that one behaviour cannot write to another region's memory by not having pointer arithmetic and checking provenance at compile time.
+However, dynamic arrays can still have dynamic out-of-bounds access, which should trigger a run time error.
+
+Objects have their sizes known statically and are allocated directly and assigned to a region.
+Dynamic arrays can grow their storage size, to add more elements at run time, but each element still has a static size.
+
+### Forests
+
+Regions can point to other regions (via their sentinel objects), recursively.
+Sentinel objects can only have a single owning reference, so when another region acquires the owning reference, it is moved from the previous region to the new one.
+This forms a forest, or a tree of trees of objects (not a DAG).
+
+When regions are frozen (made immutable), their references move outside of the forest, so any region can read concurrently.
+
 ## Concrete Types
 
 ### Machine-word types
