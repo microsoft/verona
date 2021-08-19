@@ -93,7 +93,9 @@ The header is a pair of values:
 * A pointer to the type descriptor (see below).
 
 Each object points to a descriptor that uniquely identifies its type.
-Matching types of dynamic objects (against interface types, for example) means comparing their descriptors.
+Pattern matching by type, when the type of the object is not statically known at compile time, involves the descriptor.
+Matching against a concrete type is a simple comparison: does the descriptor pointer in the object point to the descriptor for the concrete type?
+Matching a pointer to an unknown concrete type (i.e. whose static type is an interface type) against an interface type requires a more complex lookup.
 
 The remaining fields can, on internal representations, be packed or reordered for optimisation purposes.
 But the `embed` fields will always be _in-place_ and the rest will always be pointers to the actual data.
@@ -120,7 +122,7 @@ A naive layout could be:
 With `ptr` 32/64/128-bits, depending on the architecture.
 
 As a future optimisation, we could reorder the fields by size.
-Some targets have stronger alignment requirements, and unaligned reads can incur in penalties.
+Some targets have stronger alignment requirements, and unaligned reads can incur in performance penalties.
 Having an 8-bit type between 64-bit types can misalign the larger objects.
 By sorting the types by size, we guarantee that all 64-bit values are 64-bit aligned, all 32-bit values are 32-bit aligned and so on.
 
@@ -136,7 +138,7 @@ On CHERI, the 128-bit `ptr` would be the first field after the header.
 ### Dispatch Tables & Selector Colouring
 
 Object headers have a pointer to their type's dispatch table.
-A dispatch table contains pointers to the functions that the type provides at specific offsets.
+A dispatch table contains pointers to the functions that the type provides, at specific offsets.
 Those pointers are called when it's not possible to determine the actual function being called at compile time.
 There is only one dispatch table per type, not per object.
 
@@ -180,13 +182,14 @@ For that reason, they can only _contain_ the following representations:
 To identify which type the run-time object has, we need a discriminator flag.
 Because the values take up all their storage, we need a wider storage to bundle more than one type in the same representation.
 
-Objects have a descriptor that identifies their types, so pointers don't need a special descriptor in the union representation.
+Objects have a pointer to their type descriptor, which uniquely identifies their concrete types, so pointers implicitly carry a discriminator in the pointee when stored in the union representation.
 So a union of pointers is represented as just a pointer and the discrimination will happen at the object level.
-However, numeric types don't have discriminators, so they need special handling when inside union.
+In contrast, machine-word types don't contain anything other than their data and so have no internal state that can serve as a discriminator.
+As such, they need special handling when inside union.
 Furthermore, mixing pointers and numeric types creates the need to differentiate pointers from the rest.
 
-The type representation will be composed of a _descriptor_ and a _payload_ with the size of the largest object.
-There are two ways of storing the descriptor: `wide packing` and `NaN-boxing`.
+The type representation will be composed of a _discriminator_ and a _payload_ with the size of the largest object.
+There are two ways of storing the discriminator: `wide packing` and `NaN-boxing`.
 
 ### Wide packing
 
