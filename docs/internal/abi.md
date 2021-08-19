@@ -58,7 +58,7 @@ All numeric types are aligned naturally, except booleans, which align to its sto
 * `I8`, `I16`, ... `I128`: power-of-two-bits, 2's-complement, on the platform's native endian.
 * `F32`, `F64`: IEEE-754 (binary) floating point numbers.
 
-Booleans can be packed (ex. 1 byte = 8 boolean values) for arrays on specific optimisations.
+Booleans can be packed (ex. 1 byte = 8 boolean values) for class fields and arrays on specific optimisations.
 
 There are discussions on introducing non-power-of-two integers and other floating point sizes, but they won't be present for the first iteration of the compiler.
 
@@ -98,7 +98,6 @@ Matching against a concrete type is a simple comparison: does the descriptor poi
 Matching a pointer to an unknown concrete type (i.e. whose static type is an interface type) against an interface type requires a more complex lookup.
 
 The remaining fields can, on internal representations, be packed or reordered for optimisation purposes.
-But the `embed` fields will always be _in-place_ and the rest will always be pointers to the actual data.
 Machine-word types (ex. numeric) are always represented by value (their singleton representation).
 
 For example, a class:
@@ -374,7 +373,13 @@ descrip = Array[0]._6;
 payload = Array[6+1];
 ```
 
-These problems only happens in arrays of unions that need to be wide-packed.
+Alternatively, to facilitate vectorisation, it might be more efficient to store parallel arrays of values and arrays of discriminators.
+It is possible to optimise this further for cases where the total number of machine-word types in the array is limited.
+
+For example `Array[Foo | U64]` requires only one bit of discriminator state to identify the type.
+This could be compressed by providing a two-element map (16 bits of state in the array object) that indexes from a dense type representation to a the wide encoding.
+
+Note that these problems only happen in arrays of unions that need to be wide-packed.
 Users should prefer arrays of concrete types as much as possible for code that needs to be fast (inner loops, etc).
 
 ## Calling Convention
@@ -388,8 +393,6 @@ Luckily, by using LLVM, we don't need to worry about any calling convention feat
 This section discusses some of those opportunities.
 
 ### Concrete Types
-
-FIXME: The wording below is confusing, please suggest a better one.
 
 Concrete types, including pointers, are always passed by value to functions.
 A machine-word numeric type will create a copy of the value to be used inside the function.
