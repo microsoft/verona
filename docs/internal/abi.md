@@ -396,6 +396,7 @@ This section discusses some of those opportunities.
 
 Concrete types, including pointers, are always passed by value to functions.
 A machine-word numeric type will create a copy of the value to be used inside the function.
+Machine-word types are immutable and so the fact that a copy is made is not visible in the abstract machine.
 Other types are represented by pointer, so a _copy_ of the pointer is passed, but still pointing to the same object, so the object can be mutated (if via a `mutable` reference).
 
 This is very friendly to modern calling conventions, that place values in registers and have plenty of large registers to use.
