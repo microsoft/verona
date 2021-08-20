@@ -192,7 +192,7 @@ getFooable(a : Any & mut) : Fooable | None
 
 // In module C
 import "A@1.0" as A;
-import "B@2.0@ as B;
+import "B@2.0" as B;
 
 // Does this return `None` or a `Fooable`?
 var a = B.getFooable(A.A());
