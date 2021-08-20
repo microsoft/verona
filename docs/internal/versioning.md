@@ -76,7 +76,7 @@ API Versioning
 In Verona, we differentiate between the package (implementation) version and the API version.
 A package version is a simple monotonic counter of package releases.
 For each release, the package supports a set of API versions.
-API versions use semantic versioning, where the major version is incremented to indicate the removal of types or methods and the minor version to indicate the addition of new classes or methods.
+API versions use semantic versioning, where the major version is incremented to indicate the removal or change in behaviour of types or methods and the minor version to indicate the addition of new classes or methods.
 Both indicate potentially breaking changes for Verona consumers but it should be possible for a package to support all minor versions of an API with minimal effort by the package author.
 There is also one special API version: `unstable`.
 This represents any work-in-progress changes since the last release and exists so that developers can import the current snapshot of a library to test whether in-development changes are likely to cause problems.
