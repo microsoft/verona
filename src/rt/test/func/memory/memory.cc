@@ -21,29 +21,30 @@
 void test_alloc_pool()
 {
 #ifndef SNMALLOC_PASS_THROUGH
-  auto* a1 = current_alloc_pool()->acquire();
-  auto* a2 = current_alloc_pool()->acquire();
-  check(a1 != a2);
+  auto a1 = snmalloc::get_scoped_allocator();
+  Alloc* a2_alloc;
+  {
+    auto a2 = snmalloc::get_scoped_allocator();
+    a2_alloc = &a2.alloc;
+    check(&a1.alloc != a2_alloc);
+  }
 
-  current_alloc_pool()->release(a1);
-  auto* a3 = current_alloc_pool()->acquire();
-  check(a3 == a1);
+  auto a3 = snmalloc::get_scoped_allocator();
+  check(&a3.alloc == a2_alloc);
 
-  current_alloc_pool()->release(a2);
-  current_alloc_pool()->release(a3);
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 #endif
 }
 
 void test_dealloc()
 {
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
 
   size_t size = 1 << 25;
-  void* p = alloc->alloc(size);
-  alloc->dealloc(p, size);
+  void* p = alloc.alloc(size);
+  alloc.dealloc(p, size);
 
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 size_t do_nothing(size_t x);

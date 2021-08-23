@@ -39,7 +39,7 @@ struct Receive : public VBehaviour<Receive>
 
   ~Receive()
   {
-    ThreadAlloc::get()->dealloc(receivers, receiver_count * sizeof(Receiver*));
+    ThreadAlloc::get().dealloc(receivers, receiver_count * sizeof(Receiver*));
   }
 
   void trace(ObjectStack& st) const
@@ -102,7 +102,7 @@ struct Send : public VBehaviour<Send>
     const size_t receiver_count = (s->rng.next() % max_receivers) + 1;
 
     auto** receivers =
-      (Receiver**)ThreadAlloc::get()->alloc(receiver_count * sizeof(Receiver*));
+      (Receiver**)ThreadAlloc::get().alloc(receiver_count * sizeof(Receiver*));
 
     for (size_t i = 0; i < receiver_count;)
     {
@@ -140,7 +140,7 @@ int main(int argc, char** argv)
   sched.set_fair(true);
   sched.init(cores);
 
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
 
   static std::vector<Receiver*> receiver_set;
   for (size_t i = 0; i < receivers; i++)

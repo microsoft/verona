@@ -131,7 +131,7 @@ namespace verona::rt
     }
 
   public:
-    static void apply(Alloc* alloc, Object* o)
+    static void apply(Alloc& alloc, Object* o)
     {
       assert(o->debug_is_iso());
 

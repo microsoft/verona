@@ -27,7 +27,7 @@ void test_linked_list()
 {
   // Freeze a doubly linked list
 
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
 
   for (int list_size = 100000; list_size <= 1000000; list_size += 100000)
   {
@@ -35,7 +35,9 @@ void test_linked_list()
     C1* root;
     C1* next;
 
-    DO_TIME("Alloc DLL:  " << std::setw(10) << list_size, {
+    {
+      MeasureTime m;
+      m << "Alloc DLL:  " << std::setw(10) << list_size;
       curr = new (alloc) C1;
       root = curr;
       curr->f2 = nullptr;
@@ -50,19 +52,23 @@ void test_linked_list()
       }
 
       curr->f1 = nullptr;
-    });
+    }
 
-    DO_TIME("Freeze DLL: " << std::setw(10) << list_size, {
+    {
+      MeasureTime m;
+      m << "Freeze DLL: " << std::setw(10) << list_size;
       Freeze::apply(alloc, root);
-    });
+    }
 
     // Free immutable graph.
-    DO_TIME("Free DLL:   " << std::setw(10) << list_size, {
+    {
+      MeasureTime m;
+      m << "Free DLL:   " << std::setw(10) << list_size;
       Immutable::release(alloc, root);
-    });
+    }
   }
 
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 int main(int, char**)

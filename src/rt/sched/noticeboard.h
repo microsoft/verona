@@ -43,7 +43,7 @@ namespace verona::rt
     }
 
     // NOTE: the rc of new_o is not incremented
-    void update(Alloc* alloc, T new_o)
+    void update(Alloc& alloc, T new_o)
     {
       if constexpr (!std::is_fundamental_v<T>)
       {
@@ -72,7 +72,7 @@ namespace verona::rt
 #endif
     }
 
-    T peek(Alloc* alloc)
+    T peek(Alloc& alloc)
     {
       if constexpr (std::is_fundamental_v<T>)
       {

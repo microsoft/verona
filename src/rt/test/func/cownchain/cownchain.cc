@@ -24,7 +24,7 @@ struct ChainCown : public VCown<ChainCown>
 
   ChainCown(LinkObject* next) : next(next) {}
 
-  static ChainCown* make_chain(Alloc* alloc, size_t length)
+  static ChainCown* make_chain(Alloc& alloc, size_t length)
   {
     ChainCown* hd = nullptr;
     for (; length > 0; length--)
@@ -56,8 +56,8 @@ void LinkObject::trace(ObjectStack& fields) const
 
 int main(int, char**)
 {
-  auto alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
   auto a = ChainCown::make_chain(alloc, 100000);
   Cown::release(alloc, a);
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }

@@ -18,7 +18,7 @@ namespace notify_basic
 
   void basic_test()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
 
     g_a = new A;
 

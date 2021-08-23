@@ -87,7 +87,7 @@ namespace verona::interpreter
     other.tag = UNINIT;
   }
 
-  void Value::overwrite(rt::Alloc* alloc, Value&& other)
+  void Value::overwrite(rt::Alloc& alloc, Value&& other)
   {
     std::swap(this->tag, other.tag);
     std::swap(this->inner, other.inner);
@@ -102,7 +102,7 @@ namespace verona::interpreter
     }
   }
 
-  void Value::clear(rt::Alloc* alloc)
+  void Value::clear(rt::Alloc& alloc)
   {
     switch (tag)
     {
@@ -270,7 +270,7 @@ namespace verona::interpreter
   }
 
   Value
-  FieldValue::exchange(rt::Alloc* alloc, rt::Object* region, Value&& value)
+  FieldValue::exchange(rt::Alloc& alloc, rt::Object* region, Value&& value)
   {
     switch (value.tag)
     {

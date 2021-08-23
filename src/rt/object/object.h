@@ -246,9 +246,9 @@ namespace verona::rt
   public:
     /// Returns the start of the allocation containing this object
     /// I.e. the start of the objects verona header.
-    byte* real_start() const
+    std::byte* real_start() const
     {
-      return ((byte*)this) - sizeof(Header);
+      return ((std::byte*)this) - sizeof(Header);
     }
 
     Object(const Object&) = delete;
@@ -850,9 +850,9 @@ namespace verona::rt
         get_descriptor()->destructor(this);
     }
 
-    inline void dealloc(Alloc* alloc)
+    inline void dealloc(Alloc& alloc)
     {
-      alloc->dealloc(&this->get_header(), size());
+      alloc.dealloc(&this->get_header(), size());
     }
 
   protected:

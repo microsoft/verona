@@ -54,7 +54,7 @@ namespace verona::rt
       update_buffer.push_back((CT)v);
     }
 
-    void flush_n(Alloc* alloc, size_t n)
+    void flush_n(Alloc& alloc, size_t n)
     {
       assert(n > 0);
 
@@ -87,7 +87,7 @@ namespace verona::rt
     }
 
   public:
-    void flush_all(Alloc* alloc)
+    void flush_all(Alloc& alloc)
     {
       if (update_buffer.empty())
       {
@@ -98,7 +98,7 @@ namespace verona::rt
       flush_n(alloc, update_buffer.size());
     }
 
-    void flush_some(Alloc* alloc)
+    void flush_some(Alloc& alloc)
     {
       if (update_buffer.empty())
       {

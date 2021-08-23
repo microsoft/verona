@@ -20,7 +20,7 @@ namespace memory_gc
   using Fx = F3<region_type>;
 
   template<class... T>
-  void alloc_garbage_helper(Alloc* alloc, Object* o)
+  void alloc_garbage_helper(Alloc& alloc, Object* o)
   {
     alloc_in_region<T...>(alloc, o);
     check(Region::debug_size(o) == 1 + sizeof...(T)); // o + T...
@@ -38,7 +38,7 @@ namespace memory_gc
   {
     // Allocate a lot of garbage.
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
       auto* o = new (alloc) C;
 
       alloc_garbage_helper<C, F, MC, MF, LC, LF, XC, XF>(alloc, o);
@@ -50,13 +50,13 @@ namespace memory_gc
       alloc_garbage_helper<F, F, F, C, C, C, C, F>(alloc, o);
 
       Region::release(alloc, o);
-      snmalloc::current_alloc_pool()->debug_check_empty();
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     }
 
     // Allocate a lot of objects that are all connected.
     // Then break the link and GC.
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
       auto* o = new (alloc) C;
 
       auto* o1 = new (alloc, o) C;
@@ -97,7 +97,7 @@ namespace memory_gc
       check(Region::debug_size(o) == 1); // only o is left
 
       Region::release(alloc, o);
-      snmalloc::current_alloc_pool()->debug_check_empty();
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     }
   }
 
@@ -115,7 +115,7 @@ namespace memory_gc
     // Primary ring with objects that don't need finalisers.
     // We'll put some gaps in the region's object ring.
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
       auto* o = new (alloc) C;
 
       auto* o1 = new (alloc, o) C;
@@ -148,13 +148,13 @@ namespace memory_gc
       check(Region::debug_size(o) == 6);
 
       Region::release(alloc, o);
-      snmalloc::current_alloc_pool()->debug_check_empty();
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     }
 
     // Primary ring with objects that need finalisers.
     // We'll put some gaps in the region's object ring.
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
       auto* o = new (alloc) F;
 
       auto* o1 = new (alloc, o) F;
@@ -190,13 +190,13 @@ namespace memory_gc
       check(Region::debug_size(o) == 11);
 
       Region::release(alloc, o);
-      snmalloc::current_alloc_pool()->debug_check_empty();
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     }
 
     // Two rings. First and last objects in secondary ring are garbage.
     // For good measure, we'll add some more garbage.
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
       auto* o = new (alloc) Fx;
 
       new (alloc, o) Fx;
@@ -233,7 +233,7 @@ namespace memory_gc
       check(Region::debug_size(o) == 7);
 
       Region::release(alloc, o);
-      snmalloc::current_alloc_pool()->debug_check_empty();
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     }
   }
 
@@ -244,7 +244,7 @@ namespace memory_gc
    **/
   void test_freeze()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
 
     // Create and freeze an SCC.
     C* scc = new (alloc) C;
@@ -274,7 +274,7 @@ namespace memory_gc
     Immutable::release(alloc, scc);
     check(scc->debug_test_rc(1));
     Region::release(alloc, r);
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
   /**
@@ -282,7 +282,7 @@ namespace memory_gc
    **/
   void test_cycles()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     auto* o = new (alloc) C;
 
     // Allocate some reachable objects.
@@ -352,7 +352,7 @@ namespace memory_gc
     check(Region::debug_size(o) == 6);
 
     Region::release(alloc, o);
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
   /**
@@ -360,7 +360,7 @@ namespace memory_gc
    **/
   void test_merge()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
 
     // Create the first region.
     auto* r1 = new (alloc) Cx;
@@ -403,7 +403,7 @@ namespace memory_gc
     check(Region::debug_size(r2) == 8);
 
     Region::release(alloc, r2);
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
   /**
@@ -411,7 +411,7 @@ namespace memory_gc
    **/
   void test_swap_root()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
 
     auto* o = new (alloc) Cx;
     o->c1 = new (alloc, o) Cx;
@@ -461,14 +461,14 @@ namespace memory_gc
     check(Region::debug_size(nnroot) == 1);
 
     Region::release(alloc, nnroot);
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
   void test_additional_roots()
   {
     Systematic::cout() << "Additional roots test" << std::endl;
 
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     auto* o = new (alloc) C;
     Systematic::cout() << "Root" << o << std::endl;
 
@@ -525,7 +525,7 @@ namespace memory_gc
     RegionTrace::gc(alloc, o);
     check(Region::debug_size(o) == 1);
     Region::release(alloc, o);
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
   void run_test()

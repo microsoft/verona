@@ -6,7 +6,7 @@
 #  include <DbgHelp.h>
 #  include <windows.h>
 #  pragma comment(lib, "dbghelp.lib")
-#elif USE_EXECINFO
+#elif defined(USE_EXECINFO)
 #  include <condition_variable>
 #  include <csignal>
 #  include <cxxabi.h>
@@ -116,8 +116,6 @@ namespace Systematic
   private:
     friend class ThreadLocalLog;
     friend class SysLog;
-    template<class L, typename M>
-    friend class snmalloc::Pool;
 
 #ifdef USE_FLIGHT_RECORDER
     static constexpr size_t size =
@@ -231,11 +229,10 @@ namespace Systematic
     }
   };
 
-  inline snmalloc::Pool<LocalLog>& global_logs()
+  using LocalLogPool = snmalloc::Pool<LocalLog, snmalloc::Alloc::StateHandle>;
+  inline LocalLogPool& global_logs()
   {
-    return *snmalloc::Singleton<
-      snmalloc::Pool<LocalLog>*,
-      snmalloc::Pool<LocalLog>::make>::get();
+    return *snmalloc::Singleton<LocalLogPool*, LocalLogPool::make>::get();
   };
 
   class ThreadLocalLog
@@ -328,9 +325,9 @@ namespace Systematic
     std::ostream* o;
     bool first;
 
-    static stringstream& get_ss()
+    static std::stringstream& get_ss()
     {
-      static thread_local stringstream ss;
+      static thread_local std::stringstream ss;
       return ss;
     }
 
@@ -648,7 +645,7 @@ namespace Systematic
     return cout_log;
   }
 
-  inline ostream& endl(ostream& os)
+  inline std::ostream& endl(std::ostream& os)
   {
     if constexpr (systematic || flight_recorder)
     {

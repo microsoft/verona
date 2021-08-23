@@ -119,7 +119,7 @@ void eat_send(Philosopher* p)
 {
   if (p->to_eat == 0)
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     Systematic::cout() << "Releasing Philosopher " << p->id << " " << p
                        << std::endl;
     Cown::release(alloc, p);
@@ -179,7 +179,7 @@ void test_dining(
 
   for (size_t i = 0; i < philosophers; i++)
   {
-    Cown::release(ThreadAlloc::get_noncachable(), forks[i]);
+    Cown::release(ThreadAlloc::get(), forks[i]);
   }
 }
 

@@ -35,7 +35,7 @@ void basic_test()
 {
   using RegionClass = typename RegionType_to_class<region_type>::T;
 
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
 
   // This will be our root object.
   C1<region_type>* o1 = new (alloc) C1<region_type>;
@@ -83,7 +83,7 @@ void basic_test()
 
   Region::release(alloc, o1);
 
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 template<RegionType region_type>
@@ -92,8 +92,7 @@ void merge_test()
   using RegionClass = typename RegionType_to_class<region_type>::T;
   using T = C1<region_type>;
 
-  auto* alloc = ThreadAlloc::get();
-  (void)alloc;
+  auto& alloc = ThreadAlloc::get();
 
   // Create two regions.
   auto r1 = new (alloc) T;
@@ -101,7 +100,7 @@ void merge_test()
 
   // Create some immutables that we can refcount, i.e. freeze them.
   // Right now, we can only freeze RegionTrace objects
-  auto create_imm = [alloc]() {
+  auto create_imm = [&alloc]() {
     auto* o = new (alloc) C1<RegionType::Trace>;
     Freeze::apply(alloc, o);
     check(o->debug_is_rc());
@@ -146,7 +145,7 @@ void merge_test()
   Region::release(alloc, r1);
   // Don't release r2, it was deallocated during the merge.
 
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 int main(int argc, char** argv)

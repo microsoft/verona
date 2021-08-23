@@ -35,9 +35,9 @@ namespace verona::rt
     }
 
     static MultiMessage*
-    make(Alloc* alloc, EpochMark epoch, MultiMessageBody* body)
+    make(Alloc& alloc, EpochMark epoch, MultiMessageBody* body)
     {
-      auto msg = (MultiMessage*)alloc->alloc<sizeof(MultiMessage)>();
+      auto msg = (MultiMessage*)alloc.alloc<sizeof(MultiMessage)>();
       msg->body = body;
       msg->set_epoch(epoch);
       return msg;
@@ -68,14 +68,14 @@ namespace verona::rt
     }
 
     static MultiMessageBody*
-    make_body(Alloc* alloc, size_t count, Cown** cowns, Behaviour* behaviour)
+    make_body(Alloc& alloc, size_t count, Cown** cowns, Behaviour* behaviour)
     {
-      return new (alloc->alloc<sizeof(MultiMessageBody)>())
+      return new (alloc.alloc<sizeof(MultiMessageBody)>())
         MultiMessageBody{0, count, cowns, behaviour};
     }
 
     static MultiMessage*
-    make_message(Alloc* alloc, MultiMessageBody* body, EpochMark epoch)
+    make_message(Alloc& alloc, MultiMessageBody* body, EpochMark epoch)
     {
       MultiMessage* m = make(alloc, epoch, body);
       Systematic::cout() << "MultiMessage " << m << " payload " << body << " ("

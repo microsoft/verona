@@ -28,7 +28,7 @@ void schedule_run(size_t decay)
   if (decay == 0)
     return;
 
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
   auto runner = new Runner();
   Cown::schedule<Run>(runner, runner, decay - 1);
   Cown::release(alloc, runner);

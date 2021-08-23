@@ -50,15 +50,15 @@ struct Receive : public VBehaviour<Receive>
 
   void f()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     if (s == nullptr)
     {
       s = r->senders[r->rng.next() % r->senders.size()];
-      auto** cowns = (Cown**)alloc->alloc<2 * sizeof(Cown*)>();
+      auto** cowns = (Cown**)alloc.alloc<2 * sizeof(Cown*)>();
       cowns[0] = (Cown*)r;
       cowns[1] = (Cown*)s;
       Cown::schedule<Receive>(2, cowns, r, s);
-      alloc->dealloc<2 * sizeof(Cown*)>(cowns);
+      alloc.dealloc<2 * sizeof(Cown*)>(cowns);
     }
     else
     {
@@ -132,7 +132,7 @@ int main(int argc, char** argv)
   sched.set_fair(true);
   sched.init(cores);
 
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
 
   static std::vector<Sender*> sender_set;
   auto* receiver = new (alloc) Receiver(sender_set, seed);

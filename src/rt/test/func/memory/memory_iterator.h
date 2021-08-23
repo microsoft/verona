@@ -16,7 +16,7 @@ namespace memory_iterator
    **/
   template<class T, class... Rest>
   void test_iterator_insert(
-    Alloc* alloc,
+    Alloc& alloc,
     Object* o,
     std::unordered_set<Object*>& all,
     std::unordered_set<Object*>& trivial,
@@ -118,7 +118,7 @@ namespace memory_iterator
       std::unordered_set<Object*> s2; // trivial
       std::unordered_set<Object*> s3; // non-trivial
       std::unordered_set<Object*> s4; // to be garbage collected
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
 
       auto* r = new (alloc) C;
       auto* reg = RegionTrace::get(r);
@@ -209,7 +209,7 @@ namespace memory_iterator
       }
 
       Region::release(alloc, r);
-      snmalloc::current_alloc_pool()->debug_check_empty();
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
       check(live_count == 0);
     }
     else if constexpr (region_type == RegionType::Arena)
@@ -224,7 +224,7 @@ namespace memory_iterator
       std::unordered_set<Object*> s1; // all objects
       std::unordered_set<Object*> s2; // trivial
       std::unordered_set<Object*> s3; // non-trivial
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
 
       auto* o = new (alloc) XF;
       auto* reg = RegionArena::get(o);
@@ -277,7 +277,7 @@ namespace memory_iterator
       check(s3.empty());
 
       Region::release(alloc, o);
-      snmalloc::current_alloc_pool()->debug_check_empty();
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
       check(live_count == 0);
     }
   }

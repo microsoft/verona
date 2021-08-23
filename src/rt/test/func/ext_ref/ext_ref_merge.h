@@ -25,7 +25,7 @@ namespace ext_ref_merge
     using RegionClass = typename RegionType_to_class<region_type>::T;
     using T = C<region_type>;
 
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     (void)alloc;
 
     auto r1 = new (alloc) T;
@@ -50,7 +50,7 @@ namespace ext_ref_merge
     Region::release(alloc, r1);
     // Don't release r2, it was deallocated during the merge.
 
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
   void run_test()

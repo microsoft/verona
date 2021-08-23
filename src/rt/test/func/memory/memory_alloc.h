@@ -16,10 +16,10 @@ namespace memory_alloc
   template<class First, class... Rest>
   void test_alloc_helper()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     First* a = alloc_region<First, Rest...>(alloc);
     Region::release(alloc, a);
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     check(live_count == 0);
   }
 

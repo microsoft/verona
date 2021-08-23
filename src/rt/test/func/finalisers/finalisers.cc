@@ -136,7 +136,7 @@ void basic_test()
   using F = F1<region_type>;
   using E = F2<region_type>;
 
-  Alloc* alloc = ThreadAlloc::get();
+  Alloc& alloc = ThreadAlloc::get();
 
   auto a = new F;
   new (a) F;
@@ -179,7 +179,7 @@ void basic_test()
   e2->child = e3;
   Region::release(alloc, e0);
 
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 int main(int, char**)

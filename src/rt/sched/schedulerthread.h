@@ -142,7 +142,7 @@ namespace verona::rt
         scheduled_unscanned_cown = true;
       }
       assert(!a->queue.is_sleeping());
-      q.enqueue(alloc, a);
+      q.enqueue(*alloc, a);
 
       // Put the token back if it has been stolen.  This will help
       // free up more work for other threads to steal.
@@ -196,7 +196,7 @@ namespace verona::rt
      */
     void mute_set_add(T* cown)
     {
-      bool inserted = mute_set.insert(alloc, cown).first;
+      bool inserted = mute_set.insert(*alloc, cown).first;
       if (inserted)
         cown->weak_acquire();
     }
@@ -212,9 +212,9 @@ namespace verona::rt
         // This operation should be safe if the cown has been collected but the
         // stub exists.
         entry.key()->backpressure_transition(Priority::Normal);
-        entry.key()->weak_release(alloc);
+        entry.key()->weak_release(*alloc);
       }
-      mute_set.clear(alloc);
+      mute_set.clear(*alloc);
     }
 
     template<typename... Args>
@@ -235,7 +235,7 @@ namespace verona::rt
       startup(args...);
 
       Scheduler::local() = this;
-      alloc = ThreadAlloc::get();
+      alloc = &ThreadAlloc::get();
       victim = next;
       T* cown = nullptr;
 
@@ -264,7 +264,7 @@ namespace verona::rt
 
         if (cown == nullptr)
         {
-          cown = q.dequeue(alloc);
+          cown = q.dequeue(*alloc);
           if (cown != nullptr)
             Systematic::cout() << "Pop cown " << cown << Systematic::endl;
         }
@@ -305,7 +305,7 @@ namespace verona::rt
 
         Systematic::cout() << "Running cown " << cown << Systematic::endl;
 
-        bool reschedule = cown->run(alloc, state, send_epoch);
+        bool reschedule = cown->run(*alloc, state, send_epoch);
 
         if (reschedule)
         {
@@ -321,7 +321,7 @@ namespace verona::rt
             // otherwise run this cown again. Don't push to the queue
             // immediately to avoid another thread stealing our only cown.
 
-            T* n = q.dequeue(alloc);
+            T* n = q.dequeue(*alloc);
 
             if (n != nullptr)
             {
@@ -370,7 +370,7 @@ namespace verona::rt
       while (cown != nullptr)
       {
         if (!cown->is_collected())
-          cown->collect(alloc);
+          cown->collect(*alloc);
         cown = cown->next;
       }
 
@@ -387,7 +387,7 @@ namespace verona::rt
 
       Systematic::cout() << "End teardown (phase 2)" << Systematic::endl;
 
-      q.destroy(alloc);
+      q.destroy(*alloc);
 
       Scheduler::get().sync.thread_finished(this);
     }
@@ -400,7 +400,7 @@ namespace verona::rt
       // Try to steal from the victim thread.
       if (victim != this)
       {
-        cown = victim->q.dequeue(alloc);
+        cown = victim->q.dequeue(*alloc);
 
         if (cown != nullptr)
         {
@@ -464,7 +464,7 @@ namespace verona::rt
         ld_protocol();
 
         // Check if some other thread has pushed work on our queue.
-        cown = q.dequeue(alloc);
+        cown = q.dequeue(*alloc);
 
         if (cown != nullptr)
           return cown;
@@ -472,7 +472,7 @@ namespace verona::rt
         // Try to steal from the victim thread.
         if (victim != this)
         {
-          cown = victim->q.dequeue(alloc);
+          cown = victim->q.dequeue(*alloc);
 
           if (cown != nullptr)
           {
@@ -742,7 +742,7 @@ namespace verona::rt
     {
       // Must set the flag before pushing due to work stealing.
       assert(!debug_is_token_consumed());
-      q.enqueue(alloc, (T*)((uintptr_t)get_token_cown() | 1));
+      q.enqueue(*alloc, (T*)((uintptr_t)get_token_cown() | 1));
     }
 
     void enter_scan()
@@ -777,7 +777,7 @@ namespace verona::rt
       while (p != nullptr)
       {
         T* n = p->next;
-        p->try_collect(alloc, send_epoch);
+        p->try_collect(*alloc, send_epoch);
         p = n;
       }
     }
@@ -827,7 +827,7 @@ namespace verona::rt
             *p = c->next;
             Systematic::cout()
               << "Stub collected cown " << c << Systematic::endl;
-            c->dealloc(alloc);
+            c->dealloc(*alloc);
             continue;
           }
           else

@@ -24,7 +24,7 @@ namespace noticeboard_primitive_weak
 
     void f()
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
 
       auto x_0 = 1;
       auto x_1 = 2;
@@ -55,7 +55,7 @@ namespace noticeboard_primitive_weak
 
     void f()
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
 
       auto x_1 = reader->box_1->peek(alloc);
       auto x_0 = reader->box_0->peek(alloc);
@@ -75,7 +75,7 @@ namespace noticeboard_primitive_weak
 
   void run_test()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     (void)alloc;
 
     auto x_0 = 0;

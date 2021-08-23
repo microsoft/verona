@@ -3,6 +3,8 @@
 
 #include <test/harness.h>
 
+using namespace std;
+
 struct TestCown : public VCown<TestCown>
 {};
 
@@ -13,7 +15,7 @@ struct A
 
   A(int v_) : v(v_)
   {
-    auto alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     t = new (alloc) TestCown;
   }
 

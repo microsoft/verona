@@ -60,7 +60,7 @@ struct Key : public VCown<Key>
 
 bool test(size_t seed)
 {
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
   ObjectMap<std::pair<Key*, int32_t>> map(alloc);
   std::unordered_map<Key*, int32_t> model;
 
@@ -166,7 +166,7 @@ int main(int argc, char** argv)
     if (!test(seed))
       return 1;
 
-    current_alloc_pool()->debug_check_empty();
+    debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
   return 0;
