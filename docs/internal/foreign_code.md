@@ -67,7 +67,7 @@ If the unit of interoperability is a library, how do we surface that within Vero
 We aim to treat foreign libraries just like any other module: as classes that can contain nested types.
 A package is referred to in Verona by a path.
 Normally this refers to a directory that contains Verona source code.
-For foreign modules, this provides a JSON (subject to change) file that contains (for C/C++):
+For foreign modules, this provides a configuration file that contains (for C/C++):
 
  - The header file describing the interface.
  - The compiler flags required to parse the header file (for example, predefined macros, language dialect).
@@ -217,7 +217,7 @@ CXXLib.Sub.x(s);
 ### Templates
 
 C++ templates are exposed as Verona generics.
-Unlike normal Verona generics, C++ templates can take values as type parameters.
+Unlike Verona generics, C++ templates can take values as type parameters.
 For the MVP, we should not support C++20 object literals and so support only types and numeric types as template parameters.
 This is sufficient for existing rich C++ APIs and requires approximately the same parsing logic as is already needed for Verona arrays.
 
@@ -225,7 +225,7 @@ Unlike Verona generics, a C++ template may parse but not be possible to instanti
 For example, `std::vector<T>` requires that `T` is copy or move constructable but the only constraint on `T` is that it is a type.
 To avoid propagating this problem into Verona code, we require that all template arguments are concrete types *before* reification.
 A Verona generic can wrap a C++ template by providing a closed set of permitted values for the template instantiation.
-If any of these fail, the generic will not valid Verona code, if all of them succeed then the generic is valid for all possible instantiations.
+If any of these fail, the generic will not be valid Verona code, if all of them succeed then the generic is valid for all possible instantiations.
 
 ### Overloaded operators
 
