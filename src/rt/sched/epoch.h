@@ -365,25 +365,19 @@ namespace verona::rt
   };
 
   using LocalEpochPool =
-    snmalloc::Pool<LocalEpoch, snmalloc::Alloc::StateHandle>;
-  static inline LocalEpochPool& global_epoch_set()
-  {
-    return *Singleton<
-      LocalEpochPool*,
-      Pool<LocalEpoch, Alloc::StateHandle>::make>::get();
-  }
+    snmalloc::Pool<LocalEpoch, snmalloc::Alloc::StateHandle, snmalloc::SingletonPoolState<LocalEpoch>::pool>;
 
   template<typename T, bool predicate(LocalEpoch* p, T t)>
   bool LocalEpoch::forall(T t)
   {
-    auto curr = global_epoch_set().iterate();
+    auto curr = LocalEpochPool::iterate();
 
     while (curr != nullptr)
     {
       if (!predicate(curr, t))
         return false;
 
-      curr = global_epoch_set().iterate(curr);
+      curr = LocalEpochPool::iterate(curr);
     }
 
     return true;
@@ -397,13 +391,13 @@ namespace verona::rt
 
     ThreadLocalEpoch()
     {
-      ptr = global_epoch_set().acquire();
+      ptr = LocalEpochPool::acquire();
     }
 
     ~ThreadLocalEpoch()
     {
       ptr->eject();
-      global_epoch_set().release(ptr);
+      LocalEpochPool::release(ptr);
     }
   };
 
@@ -465,14 +459,14 @@ namespace verona::rt
     {
       // This should only be called when no threads are using the epoch, for
       // example when cleaning up before process termination.
-      auto curr = global_epoch_set().iterate();
+      auto curr = LocalEpochPool::iterate();
 
       while (curr != nullptr)
       {
         for (int i = 0; i < 4; i++)
           curr->advance_epoch(a);
 
-        curr = global_epoch_set().iterate(curr);
+        curr = LocalEpochPool::iterate(curr);
       }
     }
   };

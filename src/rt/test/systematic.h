@@ -229,11 +229,7 @@ namespace Systematic
     }
   };
 
-  using LocalLogPool = snmalloc::Pool<LocalLog, snmalloc::Alloc::StateHandle>;
-  inline LocalLogPool& global_logs()
-  {
-    return *snmalloc::Singleton<LocalLogPool*, LocalLogPool::make>::get();
-  };
+  using LocalLogPool = snmalloc::Pool<LocalLog, snmalloc::Alloc::StateHandle, snmalloc::SingletonPoolState<LocalLog>::pool>;
 
   class ThreadLocalLog
   {
@@ -242,11 +238,11 @@ namespace Systematic
 
     LocalLog* log = nullptr;
 #ifdef USE_FLIGHT_RECORDER
-    ThreadLocalLog() : log(global_logs().acquire()) {}
+    ThreadLocalLog() : log(LocalLogPool::acquire()) {}
 
     ~ThreadLocalLog()
     {
-      global_logs().release(log);
+      LocalLogPool::release(log);
     }
 #endif
 
@@ -266,13 +262,13 @@ namespace Systematic
         o << "THIS IS BACKWARDS COMPARED TO THE NORMAL LOG!" << std::endl;
 
         // Set up all logs for dumping
-        auto curr = global_logs().iterate();
+        auto curr = LocalLogPool::iterate();
         auto mine = get().log;
 
         while (curr != nullptr)
         {
           curr->suspend_logging(curr != mine);
-          curr = global_logs().iterate(curr);
+          curr = LocalLogPool::iterate(curr);
         }
 
         LocalLog* next = nullptr;
@@ -280,7 +276,7 @@ namespace Systematic
         {
           next = nullptr;
           size_t t1 = 0;
-          curr = global_logs().iterate();
+          curr = LocalLogPool::iterate();
 
           while (curr != nullptr)
           {
@@ -293,7 +289,7 @@ namespace Systematic
                 t1 = t2;
               }
             }
-            curr = global_logs().iterate(curr);
+            curr = LocalLogPool::iterate(curr);
           }
 
           if (next == nullptr)
@@ -302,11 +298,11 @@ namespace Systematic
           next->pop_and_print(o);
         }
 
-        curr = global_logs().iterate();
+        curr = LocalLogPool::iterate();
         while (curr != nullptr)
         {
           curr->resume_logging(curr != mine);
-          curr = global_logs().iterate(curr);
+          curr = LocalLogPool::iterate(curr);
         }
 
         o.flush();
