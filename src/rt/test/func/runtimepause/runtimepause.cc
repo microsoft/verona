@@ -39,6 +39,10 @@ void test_runtime_pause(size_t pauses)
       });
 
       Systematic::cout() << "External thread exiting" << Systematic::endl;
+      // Don't actually terminate external thread as it will race
+      // snmalloc::debug_check_empty.
+      while (true)
+        ;
     });
     t.detach();
   });

@@ -364,10 +364,13 @@ namespace verona::rt
     }
   };
 
-  using LocalEpochPool = snmalloc::Pool<LocalEpoch, snmalloc::Alloc::StateHandle>;
+  using LocalEpochPool =
+    snmalloc::Pool<LocalEpoch, snmalloc::Alloc::StateHandle>;
   static inline LocalEpochPool& global_epoch_set()
   {
-    return *Singleton<LocalEpochPool*, Pool<LocalEpoch, Alloc::StateHandle>::make>::get();
+    return *Singleton<
+      LocalEpochPool*,
+      Pool<LocalEpoch, Alloc::StateHandle>::make>::get();
   }
 
   template<typename T, bool predicate(LocalEpoch* p, T t)>
@@ -411,6 +414,9 @@ namespace verona::rt
     LocalEpoch* local_epoch;
 
   public:
+    Epoch(const Epoch&) = delete;
+    Epoch& operator=(const Epoch&) = delete;
+
     Epoch(Alloc& a) : alloc(a)
     {
       static thread_local ThreadLocalEpoch thread_local_epoch;

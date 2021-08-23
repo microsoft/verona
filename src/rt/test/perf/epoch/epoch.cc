@@ -21,7 +21,8 @@ void test_epoch()
   {
     MeasureTime m;
     m << "with_epoch   ";
-    for (int n = 0; n < count; n++) {
+    for (int n = 0; n < count; n++)
+    {
       Epoch e(alloc);
       obj = alloc.alloc(size);
       e.delete_in_epoch(obj);
@@ -33,7 +34,8 @@ void test_epoch()
   {
     MeasureTime m;
     m << "without_epoch";
-    for (int n = 0; n < count; n++) {
+    for (int n = 0; n < count; n++)
+    {
       obj = alloc.alloc(size);
       old = obj;
       alloc.dealloc(obj, size);
@@ -43,7 +45,8 @@ void test_epoch()
   {
     MeasureTime m;
     m << "template_no_e";
-    for (int n = 0; n < count; n++) {
+    for (int n = 0; n < count; n++)
+    {
       obj = alloc.alloc<size>();
       old = obj;
       alloc.dealloc<size>(obj);

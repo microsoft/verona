@@ -395,9 +395,9 @@ namespace verona::rt
     }
 
     /**
-     * Empty the map, removing all entries. If skip_deallocate is false, the capacity
-     * will be reset to the initial allocation size. Resetting the allocation
-     * size may significantly improve iteration performance.
+     * Empty the map, removing all entries. If skip_deallocate is false, the
+     * capacity will be reset to the initial allocation size. Resetting the
+     * allocation size may significantly improve iteration performance.
      */
     void clear(Alloc& alloc, bool skip_deallocate = false)
     {
