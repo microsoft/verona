@@ -11,7 +11,6 @@
 #include "threadpool.h"
 
 #include <snmalloc.h>
-#include <thread>
 
 namespace verona::rt
 {
