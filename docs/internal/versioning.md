@@ -43,8 +43,8 @@ Even within the category of interface breakage, there are two key subcategories:
  - Changes that affect things that are visible in the Verona type system and can cause a consumer of a package to fail to compile.
  - Changes to behaviour documented via API contracts that can cause a consumer of a package to behave unexpectedly.
 
-For example, consider a map defines an iterator that returns the elements in insertion order.
-If a later version of the same package redefines this API to return the elements sorted by a total ordering on the keys, this is a different type.
+For example, consider a map defining an iterator that returns the elements in insertion order.
+If a later version of the same package redefines this API to return the elements sorted by a total ordering on the keys, this is the latter type.
 The API in both versions appears identical at the level of an abstract syntax tree but moving to the new version will break most consumers.
 We aim to provide tools to help developers avoid this kind of problem but we cannot (and do not try to) detect it automatically.
 
@@ -53,7 +53,7 @@ These are [*Note* This should be an exhaustive list, but probably isn't.  We sho
 
  - Removing a public method or field from a class that is public.
    This breaks any code that tries to call the method / access the field or that tries to cast a pointer to that concrete type to an interface type defining that member.
- - Removing a public method field from a private class that is returned as an interface type from a public method.
+ - Removing a public method or field from a private class that is returned (as an interface type) from a public method.
    Code outside the package may cast this to an interface defining the member and expose it.
  - Adding a public method or field to a public class.
    This will potentially allow the class to match interfaces that it did not previously and may affect the behaviour of code that assumes specific semantics from classes that match the interface.
@@ -61,7 +61,7 @@ These are [*Note* This should be an exhaustive list, but probably isn't.  We sho
  - Adding any top-level public field, method, or type.
    This will break any file that imports the module into its top-level scope and defines something with the same name (or imports something else into its top-level scope that defines something with the same name).
 
-In most packages, it will be important to make this kind of breaking change periodically.
+In most packages, it will be important to make this kind of breaking change occasionally.
 The simplest way for a package author to do this is simply to bump the library version and require everyone to fix any breakages in their code.
 This is not desirable because the only way that this allows *graceful deprecation*, which provides a window in which old and new versions of the APIs exist, is to ship two versions of the library.
 Shipping two versions of the library causes several problems, most notably:
