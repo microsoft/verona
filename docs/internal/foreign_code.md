@@ -78,6 +78,33 @@ This file should be trivial to generate from existing build systems.
 Once C++ module support is more widespread, module imports may be able to take the place of header inclusions.
 The Verona compiler is responsible for parsing the interface description and mapping it into Verona constructs.
 
+For example, a Verona module using a C++ library that exposes a CMake target (for example, one installable via vcpkg) might include an interface description `verona.foreignpackage.in` something like this:
+
+```json
+{
+  "name" : "libfoo",
+  "link_flags" : "@LIBRARY@",
+  "include_file" : "libfoo.h",
+  "language" : "c++",
+  "dialect" : "c++20",
+  "compiler_flags" : "@CMAKE_CXX_FLAGS@"
+}
+```
+
+The CMake build system would include a line something like this:
+
+```cmake
+find_package(libfoo CONFIG REQUIRED)
+get_target_property(LIBRARY_DEPS libfoo::libfoo IMPORTED_LINK_INTERFACE_LIBRARIES_RELEASE)
+get_target_property(LIB_FILE libfoo::libfoo IMPORTED_LOCATION_RELEASE)
+set(LIBRARY "${LIBRARY_DEPS} ${LIB_FILE}")
+configure_file(verona.foreignpackage.in verona.foreignpackage)
+```
+
+This is an incomplete example.
+A more complete example collects all of the compiler and linker flags for the imported target and propagates them to the JSON file.
+It should be possible to provide a generic CMake function that extracts everything required for an imported library, or integrate this directly into vcpkg so that a Verona module just needs to specify the vcpkg ports that it wishes to use and provide a header file that includes the headers that should be exposed. 
+
 Mapping from C constructs to Verona
 -----------------------------------
 
@@ -124,8 +151,12 @@ There is no way of implementing a `match` expression on a `C` union.
 C unions are not type safe and some code depends on writing to one union field and reading from another.
 In this way, they are closer to a Verona object type that provides set and get methods of different types and uses internal storage that allows it to materialise a value of the requested type from whatever was set.
 
+Clang will generate a wrapper function for accessing each field.
+In the MVP implementation, every field access will generate an RPC.
+Most field accesses can be trivially inlined into the caller on the Verona side of the boundary and so by 1.0 the overhead of accessing a field in a C structure should be negligible.
+
 All built-in C types (for example, `int` and `long`) are surfaced as type aliases on the class that is exposed for the library.
-A single program may include sandboxes with 32- and 64-bit ABIs for foreign code and so the size of primitive types must be defined per-sandbox-instance.
+A single program may include sandboxes with 32- and 64-bit ABIs for foreign code and so the size of primitive types must be defined per-sandbox-type and, for convenience, exposed per sandboxed-library-instance.
 
 C structures are always exposed in Verona as pointers.
 A by-value copy of a C structure can be accomplished with a call to `memcpy`.
@@ -154,6 +185,50 @@ Two things are explicitly out of scope from Verona's C++ interop layer:
 
 It *is* possible to invoke callbacks from C++ that invoke Verona code and so it is possible to create, on the C++ side of the interop layer, a C++ class that subclasses another C++ class and invokes Verona callbacks for all (or some) of its methods.
 Most of the rest of C++ should be possible to expose as Verona concepts.
+
+### Passing values between Verona and C/C++
+
+We treat machine-word types and pointers differently in the interop layer.
+The C/C++ primitive types are all exposed as aliases of one of the Verona `Builtin` types (for example, a C `long` in a specific sandbox configuration would be an alias for either `Builtin.I32` or `Builtin.I64`).
+These types are passed through the interface layer as simple values.
+All other types are represented as pointers.
+
+When a Verona pointer is passed to a C/C++ function, it appears as a `void*`.
+In most configurations, this is not going to be a pointer to the Verona object it will instead be a token that identifies an index into a table of Verona objects that have been passed to a given sandbox and which can be used to look up a Verona object if passed back.
+In a CHERI world, this will be a (tamper-proof) sealed capability to a Verona object.
+This means that it is possible to create, for example, a `std::vector<void*>` that refers to Verona objects, but it is not possible to do anything with these pointers in the C/C++ code other than pass them back to Verona.
+Because Verona objects are in a different region to C++ objects, passing a Verona object back from a sandbox will provide an external reference, which must be converted to a normal pointer by presenting the region that contains the Verona object before it can be used.
+
+Pointers to C/C++ objects returned to Verona code are object pointers referring to concrete types.
+These are all within the region representing the sandbox and so they can be stored on the stack directly in Verona but can be stored on the heap only as external references.
+This means that, for example, a heap-allocated `Array[SomeCXXType & mut]` is not allowed, though `Array[SomeCXXType & ext]` is, though the objects cannot be accessed without presenting the sandboxed region.
+
+
+### Casts
+
+C++ casts are exposed as generic functions on the class that represents the library.
+Any C library has a `$cast[T,U](U) : T` function defined, which takes any C built-in type or pointer type and returns any other.
+For C++ codebases, this performs a 'C-style cast', including invoking user-defined conversion operators.
+Any C++ library will also expose `static_cast[T,U](U) : T` and `reinterpret_cast[T,U](U) : T` functions and, if compiled with RTTI enabled, a `dynamic_cast[T,U](U) : T` function.
+These can all be used with any combination of types for which their C/C++ analogues are defined and with the same semantics.
+The Verona syntax implicitly applies to pointers when given any value except a C built-in type.
+C built-in types are passed as values to the cast functions unless wrapped in `Ref` cells.
+For example:
+
+```verona
+// Equivalent to auto *x = new SomeStruct();
+var x = C.SomeStruct();
+// Equivalent to auto *y = static_cast<SomeOtherStruct*>(x);
+var y = C.static_cast[C.SomeOtherStruct](x);
+var i : C.int = 12;
+// Equivalent to f = static_cast<float>(i);
+var f = C.static_cast[C.float](i);
+// Equivalent to float *f_type_punned = reinterpret_cast<float*>(&i);
+var f_type_punned : C.float = C.reinterpret_cast[Ref[C.float], Ref[C.int]](i);
+```
+
+Note that the last line of this is explicitly violating type safety.
+All of these operations are restricted to values that are within a sandboxed foreign region where type safety is explicitly not guaranteed.
 
 C++ namespaces
 --------------
@@ -232,32 +307,6 @@ If any of these fail, the generic will not be valid Verona code, if all of them 
 Verona allows overloading most of the operators that C++ provides and so these can be trivially mapped just like any other methods.
 The main exceptions relate to assignment, though Verona's `apply` sugar provides similar functionality.
 Classes from C++ need to opt out of `create` and `apply` sugar because these reflect patterns that don't exist in C++ codebases and so it's possible that apply sugar could be applied for C++ assignment operators.
-
-### Casts
-
-C++ casts are exposed as generic functions on the class that represents the library.
-Any C library has a `$cast[T,U](U) : T` function defined, which takes any C built-in type or pointer type and returns any other.
-For C++ codebases, this performs a 'C-style cast', including invoking user-defined conversion operators.
-Any C++ library will also expose `static_cast[T,U](U) : T` and `reinterpret_cast[T,U](U) : T` functions and, if compiled with RTTI enabled, a `dynamic_cast[T,U](U) : T` function.
-These can all be used with any combination of types for which their C/C++ analogues are defined and with the same semantics.
-The Verona syntax implicitly applies to pointers when given any value except a C built-in type.
-C built-in types are passed as values to the cast functions unless wrapped in `Ref` cells.
-For example:
-
-```verona
-// Equivalent to auto *x = new SomeStruct();
-var x = C.SomeStruct();
-// Equivalent to auto *y = static_cast<SomeOtherStruct*>(x);
-var y = C.static_cast[C.SomeOtherStruct](x);
-var i : C.int = 12;
-// Equivalent to f = static_cast<float>(i);
-var f = C.static_cast[C.float](i);
-// Equivalent to float *f_type_punned = reinterpret_cast<float*>(&i);
-var f_type_punned : C.float = C.reinterpret_cast[Ref[C.float], Ref[C.int]](i);
-```
-
-Note that the last line of this is explicitly violating type safety.
-All of these operations are restricted to values that are within a sandboxed foreign region where type safety is explicitly not guaranteed.
 
 ### Exceptions
 
