@@ -4,7 +4,9 @@
 
 #include <cassert>
 #include <chrono>
+#include <list>
 #include <test/opt.h>
+#include <thread>
 #include <verona.h>
 
 using namespace verona::rt;
@@ -26,6 +28,7 @@ extern "C" void dump_flight_recorder()
 class SystematicTestHarness
 {
   size_t seed = 0;
+  std::list<std::thread> external_threads;
 
 public:
   opt::Opt opt;
@@ -108,6 +111,15 @@ public:
       f(std::forward<Args>(args)...);
 
       sched.run();
+
+      // Join on all created external threads and clear the list.
+      while (!external_threads.empty())
+      {
+        auto& thread = external_threads.front();
+        thread.join();
+        external_threads.pop_front();
+      }
+
       if (detect_leaks)
         snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
       high_resolution_clock::time_point t1 = high_resolution_clock::now();
@@ -115,6 +127,12 @@ public:
                 << duration_cast<seconds>((t1 - start)).count() << " seconds"
                 << std::endl;
     }
+  }
+
+  template<typename F, typename... Args>
+  void external_thread(F f, Args... args)
+  {
+    external_threads.emplace_back(f, args...);
   }
 
   size_t current_seed()

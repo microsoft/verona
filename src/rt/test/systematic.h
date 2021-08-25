@@ -229,7 +229,7 @@ namespace Systematic
     }
   };
 
-  using LocalLogPool = snmalloc::Pool<LocalLog, snmalloc::Alloc::StateHandle, snmalloc::SingletonPoolState<LocalLog>::pool>;
+  using LocalLogPool = snmalloc::Pool<LocalLog, snmalloc::Alloc::StateHandle>;
 
   class ThreadLocalLog
   {

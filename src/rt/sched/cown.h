@@ -533,7 +533,7 @@ namespace verona::rt
           Epoch e(alloc);
           if (!next->try_fast_send(m))
           {
-            backpressure_unblock(next);
+            backpressure_unblock(next, e);
             return;
           }
         }
@@ -839,8 +839,12 @@ namespace verona::rt
     }
 
     /// Recursively raise the priority of the given cown and its blocker.
-    static inline void backpressure_unblock(Cown* cown)
+    /// Either an Epoch object needs to be held in the calling context or one is
+    /// created for the lifetime of the call.
+    static inline void backpressure_unblock(
+      Cown* cown, const Epoch& epoch = Epoch(ThreadAlloc::get()))
     {
+      UNUSED(epoch);
       for (; cown != nullptr;
            cown = cown->bp_state.load(std::memory_order_acquire).blocker())
       {
