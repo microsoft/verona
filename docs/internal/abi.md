@@ -27,23 +27,30 @@ The Verona runtime guarantees no more than one behaviour has access to the same 
 ### Regions
 
 A region is a tree of related objects, not necessarily contiguous in memory.
-The reason for grouping objects in the same region is to they can be accessed together by the same behaviour.
+Region objects can be placed anywhere in the heap and will depend on the memory allocator design.
+The reason for grouping objects in the same region is so they can be accessed together by the same behaviour.
 However, some regions (ex. sandboxes) do require memory to be contiguous (for range access protection).
 
-Two regions can have overlapping memory addresses.
+Objects have their sizes known statically and are allocated directly and assigned to a region.
 The Verona compiler guarantees that one behaviour cannot write to another region's memory by not having pointer arithmetic and checking provenance at compile time.
 However, dynamic arrays can still have dynamic out-of-bounds access, which should trigger a run time error.
-
-Objects have their sizes known statically and are allocated directly and assigned to a region.
 Dynamic arrays can grow their storage size, to add more elements at run time, but each element still has a static size.
 
-### Forests
+### Graphs, Trees and Forests
 
-Regions can point to other regions (via their sentinel objects), recursively.
+Internally, regions form a graph of (`mut`, `readonly`) pointers between objects, dominated by a sentinel (`iso`) pointer.
+
+Regions can also point to other regions (via their sentinel objects), recursively.
 Sentinel objects can only have a single owning reference, so when another region acquires the owning reference, it is moved from the previous region to the new one.
-This forms a forest, or a tree of trees of objects (not a DAG).
+No two regions can point to the same sentinel object, forming a tree of regions (not a graph).
 
-When regions are frozen (made immutable), their references move outside of the forest, so any behavior can read its objects concurrently and no updates are possible.
+`cown`s isolate a region (and its sub-regions) to be used by a behaviour.
+They can also be reserved together for behaviours that use more than one `cown`.
+The set of `cown`s defines a _forest_ of regions.
+
+When regions are frozen (made immutable), their references move outside of the tree, so any behavior can read its objects concurrently and no updates are possible.
+After being frozen, the immutable tree allows any other region to point to its members directly.
+For that reason, Verona doesn't allow thawing regions.
 
 ## Concrete Types
 
@@ -102,20 +109,28 @@ Machine-word types (ex. numeric) are always represented by value (their singleto
 
 For example, given this class:
 ```ts
-class Other { ... }
+class Other
+{
+  var x: U64 & imm;
+}
 class Foo
 {
-    var a : U32 & imm;
-    embed var b : F64 & imm;
-    var other : Other & mut;
-    create() { ... }
+  // Machine-word types are singletons, represented by their values
+  var a: U32 & imm;
+  // Embed inserts the structure inside the representation
+  embed var b: Other & mut;
+  // Objects are just pointers
+  var c: Other & mut;
+
+  create() { ... }
 }
 ```
 
 A naive layout could be:
 ```ts
- { { ptr, ptr }, i32, f64,  ptr   }
-      header,    U32, F64, Other*
+// Evident problems with alignment...
+{ { ptr, ptr }, i32,   i64,    ptr   }
+     header,    U32, { U64 }, Other*
 ```
 
 With `ptr` 32/64/128-bits, depending on the architecture.
@@ -127,12 +142,34 @@ By sorting the types by size, we guarantee that all 64-bit values are 64-bit ali
 
 A more optimal layout for the same class above, on either 32 or 64 bit targets, would be:
 ```ts
- { { ptr, ptr }, f64,   ptr,  i32 }
-      header,    F64, Other*, U32
+// Alignment friendly layout
+{ { ptr, ptr },   i64,    ptr,   i32 }
+     header,    { U64 }, Other*, U32
 ```
 
 Because `f64` aligns stronger than `i32` and `ptr` can be either.
 On CHERI, the 128-bit `ptr` would be the first field after the header.
+
+Note that `embed` structures could also be broken to keep stronger alignment in order.
+
+For example:
+```ts
+class Foo
+{
+  var a: U64 & imm;
+  var b: I8 & imm;
+}
+class Bar
+{
+  var c: I32 & imm;
+  embed var d: Foo & mut;
+}
+
+// Bar's optimal layout
+{ { ptr, ptr },   i64,      i32,      i8 }
+     header,    { U64... }, I32, { ...I8 }
+```
+_Note: The header is never reordered, to allow for faster pattern-matching against type descriptor._
 
 ### Dispatch Tables & Selector Colouring
 
@@ -152,7 +189,7 @@ This applies to concrete classes that implement specific interfaces, but it's no
 Any two classes that have the same methods (signature) will end up with the same offset.
 
 With multiple interfaces and classes implementing similar methods, this can lead to a number of gaps between offsets.
-The tables will be compacted (either during colouring or afterwards) to minimise that.
+The colouring will compact the representation, removing some gaps, but how to minimise the number of gaps and when to run colouring is an open problem.
 
 ## Union Types
 
@@ -252,20 +289,28 @@ The list of the types that can be NaN-packed:
 In the following ways:
 ```
 [*][***********][52 bit mantissa] = F64
+[*][11111111111][52 zeroes] = NaN
 [1][11111111111][52 data bits] = Pointer
-[0][11111111111][0000][47*][1 data bit] = Bool
-[0][11111111111][0001][16*][32 data bits] = F32
-[0][11111111111][0010][40*][8 data bits] = I8
-[0][11111111111][0011][32*][16 data bits] = I16
-[0][11111111111][0100][16*][32 data bits] = I32
-[0][11111111111][0101][16*][32 data bits] = ISize (32)
-[0][11111111111][0110][40*][8 data bits] = U8
-[0][11111111111][0111][32*][16 data bits] = U16
-[0][11111111111][1000][16*][32 data bits] = U32
-[0][11111111111][1001][16*][32 data bits] = USize (32)
+[0][11111111111][0001][47*][1 data bit] = Bool
+[0][11111111111][0010][16*][32 data bits] = F32
+[0][11111111111][0011][40*][8 data bits] = I8
+[0][11111111111][0100][32*][16 data bits] = I16
+[0][11111111111][0101][16*][32 data bits] = I32
+[0][11111111111][0110][16*][32 data bits] = ISize (32)
+[0][11111111111][0111][40*][8 data bits] = U8
+[0][11111111111][1000][32*][16 data bits] = U16
+[0][11111111111][1001][16*][32 data bits] = U32
+[0][11111111111][1010][16*][32 data bits] = USize (32)
 ```
 
-The order of types and their bit patterns are arbitrary.
+The order of types and their bit patterns are arbitrary, and the sub-divisions is provisory.
+
+The following reasoning applies:
+* We still need to represent `NaN`s as FP, so we can zero the mantissa
+* Pointers with all-zero bits are `null` pointers and not allowed in Verona
+* All other types have at least one bit in the discriminator
+
+The reasoning and patterns can change depending on implementation details that will be clearer later.
 
 The remaining types that need to be wide-packed are:
 * I64
@@ -395,8 +440,7 @@ This section discusses some of those opportunities.
 ### Concrete Types
 
 Concrete types, including pointers, are always passed by value to functions.
-A machine-word numeric type will create a copy of the value to be used inside the function.
-Machine-word types are immutable and so the fact that a copy is made is not visible in the abstract machine.
+Machine-word types are singleton types and immutable and so copies replicate the machine representation.
 Other types are represented by pointer, so a _copy_ of the pointer is passed, but still pointing to the same object, so the object can be mutated (if via a `mutable` reference).
 
 This is very friendly to modern calling conventions, that place values in registers and have plenty of large registers to use.
