@@ -16,47 +16,44 @@
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/Transforms/Passes.h"
+#include "orcjit.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 
+#include <iostream>
+
 namespace mlir::verona
 {
   Driver::Driver(unsigned optLevel)
   : optLevel(optLevel),
-    passManager(&context),
-    diagnosticHandler(sourceManager, &context)
+    passManager(&mlirContext),
+    diagnosticHandler(sourceManager, &mlirContext)
   {
     // These are the dialects we emit directly
-    context.getOrLoadDialect<mlir::StandardOpsDialect>();
-    context.getOrLoadDialect<mlir::LLVM::LLVMDialect>();
+    mlirContext.getOrLoadDialect<mlir::StandardOpsDialect>();
+    mlirContext.getOrLoadDialect<mlir::LLVM::LLVMDialect>();
 
-    // Some simple MLIR optimisations
-    if (optLevel > 0)
-    {
-      passManager.addPass(mlir::createInlinerPass());
-      passManager.addPass(mlir::createSymbolDCEPass());
-
-      mlir::OpPassManager& funcPM = passManager.nest<mlir::FuncOp>();
-      funcPM.addPass(mlir::createCanonicalizerPass());
-      funcPM.addPass(mlir::createCSEPass());
-    }
+    // Initialize LLVM targets.
+    // TODO: Use target triples here, for cross-compilation
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
   }
 
   llvm::Error Driver::readAST(::verona::parser::Ast ast)
   {
     // Use the MLIR generator to lower the AST into MLIR
-    auto result = ASTConsumer::lower(&context, ast);
+    auto result = ASTConsumer::lower(&mlirContext, ast);
     if (!result)
       return result.takeError();
-    module = std::move(*result);
+    mlirModule = std::move(*result);
 
-    // Verify the module to make sure we didn't do anything silly
-    if (failed(verify(*module)))
+    // Verify the mlirModule to make sure we didn't do anything silly
+    if (failed(verify(*mlirModule)))
     {
-      module->dump();
+      mlirModule->dump();
       return runtimeError("AST was lowered to invalid MLIR");
     }
 
@@ -77,8 +74,8 @@ namespace mlir::verona
     // Add the input to the source manager and parse it.
     // `parseSourceFile` already includes verification of the IR.
     sourceManager.AddNewSourceBuffer(std::move(*srcOrErr), llvm::SMLoc());
-    module = mlir::parseSourceFile(sourceManager, &context);
-    if (!module)
+    mlirModule = mlir::parseSourceFile(sourceManager, &mlirContext);
+    if (!mlirModule)
       return runtimeError("Can't load MLIR file");
 
     return llvm::Error::success();
@@ -86,77 +83,148 @@ namespace mlir::verona
 
   llvm::Error Driver::emitMLIR(llvm::StringRef filename)
   {
-    assert(module);
+    assert(mlirModule);
 
     if (filename.empty())
       return runtimeError("No output filename provided");
-
-    // If optimisation levels higher than 0, run some opts
-    if (failed(passManager.run(module.get())))
-    {
-      module->dump();
-      return runtimeError("Failed to run some passes");
-    }
 
     // Write to the file requested
     std::error_code error;
     auto out = llvm::raw_fd_ostream(filename, error);
     if (error)
       return runtimeError("Cannot open output filename");
-    module->print(out);
+    mlirModule->print(out);
+
+    return llvm::Error::success();
+  }
+
+  llvm::Error Driver::optimiseMLIR()
+  {
+    assert(mlirModule);
+
+    if (mlirOptimised)
+      return llvm::Error::success();
+
+    // Some simple MLIR optimisations
+    if (optLevel > 0)
+    {
+      passManager.addPass(mlir::createInlinerPass());
+      passManager.addPass(mlir::createSymbolDCEPass());
+
+      mlir::OpPassManager& funcPM = passManager.nest<mlir::FuncOp>();
+      funcPM.addPass(mlir::createCanonicalizerPass());
+      funcPM.addPass(mlir::createCSEPass());
+    }
+
+    // If optimisation levels higher than 0, run some opts
+    if (failed(passManager.run(mlirModule.get())))
+    {
+      mlirModule->dump();
+      return runtimeError("Failed to run some passes");
+    }
+    mlirOptimised = true;
+
+    return llvm::Error::success();
+  }
+
+  llvm::Error Driver::lowerToLLVM()
+  {
+    assert(mlirModule);
+
+    // The lowering "pass manager"
+    passManager.addPass(mlir::createLowerToLLVMPass());
+
+    // If optimisation levels higher than 0, run some opts
+    if (mlir::failed(passManager.run(mlirModule.get())))
+    {
+      mlirModule->dump();
+      return runtimeError("Failed to run some passes");
+    }
+
+    // Register the translation to LLVM IR with the MLIR mlirContext.
+    mlir::registerLLVMDialectTranslation(*mlirModule->getContext());
+
+    // Then lower to LLVM IR (via LLVM dialect)
+    if (!llvmContext)
+      llvmContext = std::make_unique<llvm::LLVMContext>();
+    llvmModule = mlir::translateModuleToLLVMIR(mlirModule.get(), *llvmContext);
+    if (!llvmModule)
+      return runtimeError("Failed to lower to LLVM IR");
+
+    // Optimise if requested
+    if (optLevel)
+    {
+      mlir::ExecutionEngine::setupTargetTriple(llvmModule.get());
+
+      // Optionally run an optimization pipeline over the llvm mlirModule.
+      auto optPipeline = mlir::makeOptimizingTransformer(
+        optLevel,
+        /*sizeLevel=*/0,
+        /*targetMachine=*/nullptr);
+      if (auto err = optPipeline(llvmModule.get()))
+        return runtimeError("Failed to generate LLVM IR");
+    }
 
     return llvm::Error::success();
   }
 
   llvm::Error Driver::emitLLVM(llvm::StringRef filename)
   {
+    if (!llvmModule)
+    {
+      auto err = lowerToLLVM();
+      if (err)
+        return err;
+    }
+
     if (filename.empty())
       return runtimeError("No output filename provided");
-
-    // The lowering "pass manager"
-    passManager.addPass(mlir::createLowerToLLVMPass());
-
-    // If optimisation levels higher than 0, run some opts
-    if (mlir::failed(passManager.run(module.get())))
-    {
-      module->dump();
-      return runtimeError("Failed to run some passes");
-    }
-
-    // Register the translation to LLVM IR with the MLIR context.
-    mlir::registerLLVMDialectTranslation(*module->getContext());
-
-    // Then lower to LLVM IR (via LLVM dialect)
-    llvm::LLVMContext llvmContext;
-    auto llvm = mlir::translateModuleToLLVMIR(module.get(), llvmContext);
-    if (!llvm)
-      return runtimeError("Failed to lower to LLVM IR");
-
-    // Optimise if requested
-    if (optLevel)
-    {
-      // Initialize LLVM targets.
-      // TODO: Use target triples here, for cross-compilation
-      llvm::InitializeNativeTarget();
-      llvm::InitializeNativeTargetAsmPrinter();
-      mlir::ExecutionEngine::setupTargetTriple(llvm.get());
-
-      /// Optionally run an optimization pipeline over the llvm module.
-      auto optPipeline = mlir::makeOptimizingTransformer(
-        optLevel,
-        /*sizeLevel=*/0,
-        /*targetMachine=*/nullptr);
-      if (auto err = optPipeline(llvm.get()))
-        return runtimeError("Failed to generate LLVM IR");
-    }
 
     // Write to the file requested
     std::error_code error;
     auto out = llvm::raw_fd_ostream(filename, error);
     if (error)
       return runtimeError("Failed open output file");
-    llvm->print(out, nullptr);
+    llvmModule->print(out, nullptr);
 
     return llvm::Error::success();
+  }
+
+  llvm::Error Driver::runLLVM(int &returnValue)
+  {
+    if (!llvmModule)
+    {
+      auto err = lowerToLLVM();
+      if (err)
+        return err;
+    }
+    llvm::ExitOnError check;
+
+    auto J = llvm::orc::VeronaJIT::Create();
+    if (!J)
+      return J.takeError();
+    auto& JIT = *J;
+    llvm::orc::ThreadSafeModule TSM(
+      std::move(llvmModule), std::move(llvmContext));
+    check(JIT->addModule(std::move(TSM)));
+    auto MainSymbol = JIT->lookup("main");
+    if (!MainSymbol)
+      return MainSymbol.takeError();
+    auto* Main = (int (*)(int, char*[]))MainSymbol->getAddress();
+    returnValue = Main(0, {});
+
+    return llvm::Error::success();
+  }
+
+  llvm::Error Driver::codeGeneration(const llvm::StringRef filename)
+  {
+    if (!llvmModule)
+    {
+      auto err = lowerToLLVM();
+      if (err)
+        return err;
+    }
+
+    assert(false && "Not implemented yet");
   }
 }

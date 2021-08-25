@@ -8,6 +8,7 @@
 #include "mlir/Pass/PassManager.h"
 #include "parser/ast.h"
 
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/SourceMgr.h"
 
 namespace mlir::verona
@@ -15,11 +16,31 @@ namespace mlir::verona
   /**
    * Main compiler API.
    *
-   * The driver is user by first calling one of the `readXXX` methods, followed
-   * by `emitMLIR`. The various `readXXX` methods allow using different kinds of
-   * input.
+   * The two entry points are `readAST` and `readMLIR`.
+   * The intermediate steps are `optimiseMLIR` and `loweToLLVM`.
+   * The final step is `codeGeneration`.
+   * The testing methods are `emitMLIR`, `emitLLVM` and `runLLVM`.
    *
-   * The lowering pipeline is configured through Driver's constructor arguments.
+   * In ASCii-art:
+   *
+   *   readAST -->.<-- readMLIR(file)
+   *              |
+   *              +--> emitMLIR(file)
+   *              |
+   *             ---
+   *         optimiseMLIR
+   *             ---
+   *              |
+   *              +--> emitMLIR(file)
+   *              |
+   *             ---
+   *          lowerToLLVM
+   *             ---
+   *              |
+   *              +--> emitLLVM(file)
+   *              +--> runLLVM()
+   *              |
+   *              `--> codeGeneration(file)
    *
    * For now, the error handling is crude and needs proper consideration,
    * especially aggregating all errors and context before sending it back to
@@ -30,31 +51,61 @@ namespace mlir::verona
   public:
     Driver(unsigned optLevel = 0);
 
-    // TODO: add a readSource function that parses Verona source code.
-    // this might be more thinking about the error API of the Driver.
-
     /// Lower an AST into an MLIR module, which is loaded in the driver.
+    /// Populates mlirModule
     llvm::Error readAST(::verona::parser::Ast ast);
 
     /// Read textual MLIR into the driver's module.
+    /// Populates mlirModule
     llvm::Error readMLIR(const std::string& filename);
 
     /// Emit the module as textual MLIR.
+    /// Requires mlirModule
+    /// For testing purposes only
     llvm::Error emitMLIR(const llvm::StringRef filename);
 
+    /// Optimise the MLIR module in preparation for LLVM lowering
+    /// Requires mlirModule
+    llvm::Error optimiseMLIR();
+
+    /// Lower to LLVM IR (+ basic opt passes)
+    /// Requires mlirModule
+    /// Populates llvmModule
+    llvm::Error lowerToLLVM();
+
     /// Emit the module as textual LLVM IR.
+    /// Requires llvmModule
+    /// For testing purposes only
     llvm::Error emitLLVM(const llvm::StringRef filename);
+
+    /// JIT & execute the module and print the return value of main.
+    /// Requires llvmModule
+    /// For testing purposes only
+    llvm::Error runLLVM(int &returnValue);
+
+    /// Emits the object code for the target
+    /// TODO: Implement this functionality, needs target-triple, etc.
+    /// Argument is the final object filename
+    llvm::Error codeGeneration(const llvm::StringRef filename);
 
   private:
     /// MLIR context.
-    mlir::MLIRContext context;
+    mlir::MLIRContext mlirContext;
+
+    /// LLVMContext.
+    std::unique_ptr<llvm::LLVMContext> llvmContext;
 
     /// MLIR module.
     /// It gets modified as the driver progresses through its passes.
-    mlir::OwningModuleRef module;
+    mlir::OwningModuleRef mlirModule;
+
+    /// LLVM module.
+    /// It gets modified as the driver progresses through its passes.
+    std::unique_ptr<llvm::Module> llvmModule;
 
     /// Optimisation level (for both MLIR and LLVM IRs)
     unsigned optLevel;
+    bool mlirOptimised = false;
 
     /// MLIR Pass Manager
     /// It gets configured by the constructor based on the provided arguments.

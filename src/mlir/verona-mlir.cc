@@ -53,7 +53,7 @@ namespace
   /// Which output to emit
   static cl::opt<std::string> outputFmt(
     "out",
-    cl::desc("Output format [mlir, llvm, asm, obj] "
+    cl::desc("Output format [mlir, llvm, asm, obj, jit] "
              "(default = 'mlir')"),
     cl::Prefix,
     cl::ZeroOrMore,
@@ -182,6 +182,12 @@ int main(int argc, char** argv)
   else if (outputFmt == "llvm")
   {
     check(driver.emitLLVM(outputFile));
+  }
+  else if (outputFmt == "jit")
+  {
+    int returnValue = 0;
+    check(driver.runLLVM(returnValue));
+    std::cout << "Return value: " << returnValue << std::endl;
   }
   else
   {
