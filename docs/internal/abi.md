@@ -43,15 +43,15 @@ Regions can point to other regions (via their sentinel objects), recursively.
 Sentinel objects can only have a single owning reference, so when another region acquires the owning reference, it is moved from the previous region to the new one.
 This forms a forest, or a tree of trees of objects (not a DAG).
 
-When regions are frozen (made immutable), their references move outside of the forest, so any region can read concurrently.
+When regions are frozen (made immutable), their references move outside of the forest, so any behavior can read its objects concurrently and no updates are possible.
 
 ## Concrete Types
 
 ### Machine-word types
 
 Machine-word types, (ex, numeric) are singleton types (no fields) and do not have a _standard_ object representation (see below).
-They are treated special by the compiler and are represented as their machine equivalent bit-widths.
-All numeric types are aligned naturally, except booleans, which align to its storage type.
+They are treated specially by the compiler and are represented as their machine equivalent bit-widths.
+All numeric types are aligned naturally, except `Bool`, for which the backing storage type (and associated alignment) is at the discretion of the compiler.
 
 * `Bool`: bit pattern 0 or 1. The storage is usually 1 byte but can be different.
 * `U8`, `U16`, ... `U128`: power-of-two-bits, unsigned, on the platform's native endian.
@@ -100,7 +100,7 @@ Matching a pointer to an unknown concrete type (i.e. whose static type is an int
 The remaining fields can, on internal representations, be packed or reordered for optimisation purposes.
 Machine-word types (ex. numeric) are always represented by value (their singleton representation).
 
-For example, a class:
+For example, given this class:
 ```ts
 class Other { ... }
 class Foo
@@ -136,7 +136,7 @@ On CHERI, the 128-bit `ptr` would be the first field after the header.
 
 ### Dispatch Tables & Selector Colouring
 
-Object headers have a pointer to their type's dispatch table.
+Object headers have a pointer to their type descriptor, which includes a dispatch table.
 A dispatch table contains pointers to the functions that the type provides, at specific offsets.
 Those pointers are called when it's not possible to determine the actual function being called at compile time.
 There is only one dispatch table per type, not per object.
@@ -146,8 +146,8 @@ The address at each offset has a pointer to the actual functions.
 Dynamic dispatch is done by taking the pointer at the offset from a table pointer and calling that.
 If an interface provides a method `foo`, all classes that implement that interface will have a method `foo` and their dispatch tables will have an entry for it.
 
-To avoid each type to have a different calculation for each method's offset, the compiler will do **selector colouring**.
-This process finds all common methods across all types and ensure the same methods all have the same offsets on all tables.
+To avoid each type having a different calculation for each method's offset, the compiler will do **selector colouring**.
+This process finds all common methods across all types and ensures the same methods all have the same offsets on all tables.
 This applies to concrete classes that implement specific interfaces, but it's not limited by it.
 Any two classes that have the same methods (signature) will end up with the same offset.
 
@@ -172,14 +172,14 @@ function(b); // Passes 32-bit floating point
 ```
 
 All objects are referred to by pointers.
-Machine-word types are refereed to by value as an optimisation by the compiler.
+Machine-word types are referred to by value as an optimisation by the compiler.
 
-For that reason, they can only _contain_ the following representations:
+For that reason, union types can _contain_ only the following representations:
 * Machine-word values.
 * Pointers to objects.
 
-To identify which type the run-time object has, we need a discriminator flag.
-Because the values take up all their storage, we need a wider storage to bundle more than one type in the same representation.
+To identify which type the run-time object has, we need a discriminator value (e.g., a flag or small bit field).
+Because values generally take up all their storage, we usually need storage wider than the largest union member to bundle more than one type in the same representation.
 
 Objects have a pointer to their type descriptor, which uniquely identifies their concrete types, so pointers implicitly carry a discriminator in the pointee when stored in the union representation.
 So a union of pointers is represented as just a pointer and the discrimination will happen at the object level.
