@@ -18,24 +18,6 @@
  * Other tests to look at include finalisers and the various cowngc tests.
  **/
 
-void test_alloc_pool()
-{
-#ifndef SNMALLOC_PASS_THROUGH
-  auto a1 = snmalloc::get_scoped_allocator();
-  Alloc* a2_alloc;
-  {
-    auto a2 = snmalloc::get_scoped_allocator();
-    a2_alloc = &a2.alloc;
-    check(&a1.alloc != a2_alloc);
-  }
-
-  auto a3 = snmalloc::get_scoped_allocator();
-  check(&a3.alloc == a2_alloc);
-
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
-#endif
-}
-
 void test_dealloc()
 {
   auto& alloc = ThreadAlloc::get();
@@ -77,7 +59,6 @@ int main(int argc, char** argv)
   memory_gc::run_test();
   memory_subregion::run_test();
 
-  test_alloc_pool();
   test_dealloc();
 
   return 0;

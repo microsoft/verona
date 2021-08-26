@@ -1405,8 +1405,9 @@ namespace Systematic
     }
     std::stringstream ss;
     bool short_id = external_id <= 26;
-    size_t spaces = short_id ? 9 : 8;
-    size_t offset = (external_id - 1) % spaces;
+    int spaces = short_id ? 9 : 8;
+    // Modulo guarantees that this fits into the same type as spaces.
+    int offset = static_cast<int>((external_id - 1) % spaces);
     if (offset != 0)
       ss << std::setw(spaces - offset) << " ";
     if (short_id)

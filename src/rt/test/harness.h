@@ -28,6 +28,14 @@ extern "C" void dump_flight_recorder()
 class SystematicTestHarness
 {
   size_t seed = 0;
+  /**
+   * External threads created during execution can only be joined once
+   * sched.run() is finished. Not joining on these threads can lead to a race
+   * between their destruction and operations such as
+   * snmalloc::debug_check_empty. Since the test has no way to detect when the
+   * execution has finished, we make the harness responsible for tracking and
+   * joining on external threads.
+   */
   std::list<std::thread> external_threads;
 
 public:
@@ -129,6 +137,13 @@ public:
     }
   }
 
+  /**
+   * Add an external thread to the system, which will be joined after
+   * sched.run() finishes. Do not create any std::thread explicitly in a test
+   * when using SystematicTestHarness.
+   *
+   * Same arguments as the std::thread constructor.
+   */
   template<typename F, typename... Args>
   void external_thread(F f, Args... args)
   {

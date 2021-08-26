@@ -35,7 +35,7 @@ namespace verona::interpreter
 
     static void init_vm(const Code* code, bool verbose)
     {
-      static thread_local snmalloc::OnDestruct foo([]() { dealloc_vm(); });
+      static thread_local snmalloc::OnDestruct foo(&dealloc_vm);
       local_vm = new VM(*code, verbose);
     }
 
