@@ -20,8 +20,6 @@ namespace verona::rt
         Cown::acquire(p);
       }
 
-      PromiseR(const PromiseR&) = delete;
-
       PromiseR& operator=(PromiseR&& old)
       {
         promise = old.promise;
@@ -31,16 +29,18 @@ namespace verona::rt
       PromiseR& operator=(const PromiseR&) = delete;
 
     public:
-      /** This function consumes the read endpoint so that only one entity can
-       * wait on it
-       */
       template<
         typename F,
         typename = std::enable_if_t<std::is_invocable_v<F, T>>>
-      static void then(PromiseR&& rp, F&& fn)
+      void then(F&& fn)
       {
-        PromiseR tmp = std::move(rp);
-        tmp.promise->then(std::forward<F>(fn));
+        promise->then(std::forward<F>(fn));
+      }
+
+      PromiseR(const PromiseR& other)
+      {
+        promise = other.promise;
+        Cown::acquire(promise);
       }
 
       PromiseR(PromiseR&& old)
@@ -54,14 +54,6 @@ namespace verona::rt
         if (promise)
           Cown::release(ThreadAlloc::get(), promise);
       }
-    };
-
-    class PromiseSharedR : public PromiseR
-    {
-    public:
-      PromiseSharedR(PromiseR&& r) : PromiseR(std::move(r)) {}
-
-      PromiseSharedR(const PromiseSharedR& other) : PromiseR(other.promise) {}
     };
 
     class PromiseW
@@ -87,15 +79,6 @@ namespace verona::rt
       PromiseW& operator=(const PromiseW&) = delete;
 
     public:
-      /* fulfil consumes the write end point so that the promise
-       * so that the promise will be fulfilled only once
-       */
-      static void fulfill(PromiseW&& wp, T v)
-      {
-        PromiseW tmp = std::move(wp);
-        tmp.promise->fulfill(v);
-      }
-
       PromiseW(PromiseW&& old)
       {
         promise = old.promise;
@@ -111,17 +94,6 @@ namespace verona::rt
 
   private:
     T val;
-
-    /**
-     * Fulfill the promise with a value and put the promise cown in a
-     * scheduler thread queue
-     */
-    void fulfill(T v)
-    {
-      val = v;
-      Cown::acquire(this);
-      VCown<Promise<T>>::schedule();
-    }
 
     template<typename F, typename = std::enable_if_t<std::is_invocable_v<F, T>>>
     void then(F&& fn)
@@ -150,6 +122,18 @@ namespace verona::rt
       Cown::release(ThreadAlloc::get(), p);
 
       return std::make_pair(std::move(r), std::move(w));
+    }
+
+    /**
+     * Fulfill the promise with a value and put the promise cown in a
+     * scheduler thread queue. A PromiseW can be fulfilled only once.
+     */
+    static void fulfill(PromiseW&& wp, T v)
+    {
+      PromiseW tmp = std::move(wp);
+      tmp.promise->val = v;
+      Cown::acquire(tmp.promise);
+      tmp.promise->schedule();
     }
   };
 }
