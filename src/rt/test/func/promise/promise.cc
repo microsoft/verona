@@ -14,7 +14,7 @@ void promise_test()
   });
 
   Promise<int>::PromiseR::then(
-    std::move(rp), [](int val) { std::cout << val << std::endl; });
+    std::move(rp), [](int val) { Systematic::cout() << val << std::endl; });
 }
 
 int main(int argc, char** argv)

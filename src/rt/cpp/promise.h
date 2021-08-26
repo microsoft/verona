@@ -15,7 +15,20 @@ namespace verona::rt
 
       Promise* promise;
 
-      PromiseR(Promise* p) : promise(p) {}
+      PromiseR(Promise* p) : promise(p)
+      {
+        Cown::acquire(p);
+      }
+
+      PromiseR(const PromiseR&) = delete;
+
+      PromiseR& operator=(PromiseR&& old)
+      {
+        promise = old.promise;
+        old.promise = nullptr;
+        return *this;
+      }
+      PromiseR& operator=(const PromiseR&) = delete;
 
     public:
       /** This function consumes the read endpoint so that only one entity can
@@ -24,9 +37,22 @@ namespace verona::rt
       template<
         typename F,
         typename = std::enable_if_t<std::is_invocable_v<F, T>>>
-      static void then(std::unique_ptr<PromiseR> rp, F fn)
+      static void then(PromiseR&& rp, F&& fn)
       {
-        rp->promise->then(std::forward<F>(fn));
+        PromiseR tmp = std::move(rp);
+        tmp.promise->then(std::forward<F>(fn));
+      }
+
+      PromiseR(PromiseR&& old)
+      {
+        promise = old.promise;
+        old.promise = nullptr;
+      }
+
+      ~PromiseR()
+      {
+        if (promise)
+          Cown::release(ThreadAlloc::get(), promise);
       }
     };
 
@@ -37,15 +63,41 @@ namespace verona::rt
 
       Promise* promise;
 
-      PromiseW(Promise* p) : promise(p) {}
+      PromiseW(Promise* p) : promise(p)
+      {
+        Cown::acquire(p);
+      }
+
+      PromiseW(const PromiseW&) = delete;
+
+      PromiseW& operator=(PromiseW&& old)
+      {
+        promise = old.promise;
+        old.promise = nullptr;
+        return *this;
+      }
+      PromiseW& operator=(const PromiseW&) = delete;
 
     public:
       /* fulfil consumes the write end point so that the promise
        * so that the promise will be fulfilled only once
        */
-      static void fulfill(std::unique_ptr<PromiseW> w, T v)
+      static void fulfill(PromiseW&& wp, T v)
       {
-        w->promise->fulfill(v);
+        PromiseW tmp = std::move(wp);
+        tmp.promise->fulfill(v);
+      }
+
+      PromiseW(PromiseW&& old)
+      {
+        promise = old.promise;
+        old.promise = nullptr;
+      }
+
+      ~PromiseW()
+      {
+        if (promise)
+          Cown::release(ThreadAlloc::get(), promise);
       }
     };
 
@@ -62,8 +114,7 @@ namespace verona::rt
     template<typename F, typename = std::enable_if_t<std::is_invocable_v<F, T>>>
     void then(F&& fn)
     {
-      schedule_lambda<YesTransfer>(
-        this, [fn = std::move(fn), this] { fn(val); });
+      schedule_lambda(this, [fn = std::move(fn), this] { fn(val); });
     }
 
     Promise()
@@ -72,13 +123,12 @@ namespace verona::rt
     }
 
   public:
-    static std::pair<std::unique_ptr<PromiseR>, std::unique_ptr<PromiseW>>
-    create_promise()
+    static std::pair<PromiseR, PromiseW> create_promise()
     {
-      // FIXME: Should this be 3 allocations?
       Promise* p = new Promise<T>;
-      std::unique_ptr<PromiseR> r = std::unique_ptr<PromiseR>(new PromiseR(p));
-      std::unique_ptr<PromiseW> w = std::unique_ptr<PromiseW>(new PromiseW(p));
+      PromiseR r(p);
+      PromiseW w(p);
+      Cown::release(ThreadAlloc::get(), p);
       return std::make_pair(std::move(r), std::move(w));
     }
   };
