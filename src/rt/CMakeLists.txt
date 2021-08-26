@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(verona C CXX)
 
+message(STATUS "Debug SNMALLOC_USE_CXX17 ${SNMALLOC_USE_CXX17}")
+
 set(SNMALLOC_ONLY_HEADER_LIBRARY ON)
 add_subdirectory(../../external/snmalloc ./external/snmalloc EXCLUDE_FROM_ALL)
 
@@ -58,6 +60,9 @@ if(VERONA_CI_BUILD)
   target_compile_definitions(verona_rt INTERFACE -DCI_BUILD)
 endif()
 
+message(STATUS "Debug SNMALLOC_USE_CXX17 ${SNMALLOC_USE_CXX17}")
+get_target_property(definitions snmalloc_lib INTERFACE_COMPILE_DEFINITIONS)
+message(STATUS "Debug snmalloc defs: ${definitions}")
 target_link_libraries(verona_rt INTERFACE snmalloc_lib)
 target_include_directories(verona_rt INTERFACE .)
 
