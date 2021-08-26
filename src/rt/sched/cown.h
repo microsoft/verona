@@ -1407,7 +1407,8 @@ namespace Systematic
     bool short_id = external_id <= 26;
     unsigned char spaces = short_id ? 9 : 8;
     // Modulo guarantees that this fits into the same type as spaces.
-    decltype(spaces) offset = static_cast<decltype(spaces)>((external_id - 1) % spaces);
+    decltype(spaces) offset =
+      static_cast<decltype(spaces)>((external_id - 1) % spaces);
     if (offset != 0)
       ss << std::setw(spaces - offset) << " ";
     if (short_id)
