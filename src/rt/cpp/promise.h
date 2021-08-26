@@ -104,6 +104,10 @@ namespace verona::rt
   private:
     T val;
 
+    /**
+     * Fulfill the promise with a value and put the promise cown in a
+     * scheduler thread queue
+     */
     void fulfill(T v)
     {
       val = v;
@@ -117,6 +121,13 @@ namespace verona::rt
       schedule_lambda(this, [fn = std::move(fn), this] { fn(val); });
     }
 
+    /**
+     * Create an empty cown and call wake() on it. This will move the cown's
+     * queue from the SLEEPING state to WAKE and prevent subsequent messages
+     * from putting the cown on a scheduler thread queue. This cown can only
+     * be scheduled through an explicit call to schedule(). schedule() is
+     * called when the promise is fulfilled
+     */
     Promise()
     {
       VCown<Promise<T>>::wake();
@@ -129,6 +140,7 @@ namespace verona::rt
       PromiseR r(p);
       PromiseW w(p);
       Cown::release(ThreadAlloc::get(), p);
+
       return std::make_pair(std::move(r), std::move(w));
     }
   };
