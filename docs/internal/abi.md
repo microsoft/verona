@@ -83,7 +83,7 @@ When targeting a CHERI system, the following additional rules apply:
   This ensures that `cown`s in immutable objects cannot be dereferenced by unsafe (sandboxed) code and provides some defense in depth against compiler bugs that would accidentally dereference a `cown` pointer.
 * Pointers to immutable objects are not represented by read-only capabilities.
   Doing so would require expensive operations for reference-count manipulation.
-  When a pointer to an immutable object is passed via the foreign-code layer, it must have the load-storable-capabilities permission removed, such that no reachable capability will ever provide write permission.
+  When a pointer to an immutable object is passed via the foreign-code layer, it must have store and load-storeable-capabilities permission removed, such that no reachable capability will ever provide write permission.
 
 ### Classes and interfaces
 
