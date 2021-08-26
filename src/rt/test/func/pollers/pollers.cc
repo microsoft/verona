@@ -17,7 +17,7 @@ struct TimerPoller : public VCown<TimerPoller>
     if (std::difftime(std::time(nullptr), p->start) > 1)
     {
       Cown::poller_remove(p->owner, p);
-      std::cout << "Poller Remove\n";
+      Systematic::cout() << "Poller Remove\n";
     }
   }
 };
@@ -25,7 +25,7 @@ struct TimerPoller : public VCown<TimerPoller>
 void timer_poller()
 {
   schedule_lambda([]() {
-    std::cout << "Poller Add\n";
+    Systematic::cout() << "Poller Add\n";
     auto alloc = ThreadAlloc::get();
     TimerPoller* p = new (alloc) TimerPoller;
 
