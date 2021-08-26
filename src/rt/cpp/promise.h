@@ -27,10 +27,10 @@ namespace verona::rt
     }
 
     template<typename F, typename = std::enable_if_t<std::is_invocable_v<F, T>>>
-    void then(F fn)
+    void then(F&& fn)
     {
-      // FIXME: Am I using the right capture for fn?
-      schedule_lambda<YesTransfer>(this, [=]() { fn(val); });
+      schedule_lambda<YesTransfer>(
+        this, [fn = std::move(fn), this] { fn(val); });
     }
 
     Promise()
