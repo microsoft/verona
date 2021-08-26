@@ -40,3 +40,7 @@ Due to some amazing early contributors, we have syntax highlighting for two edit
 ## [Building](docs/building.md)
 
 ## [Contributing](CONTRIBUTING.md)
+
+## [Internal Design](docs/internal)
+
+Warning: These documents are work-in-progress and may change without notice.
