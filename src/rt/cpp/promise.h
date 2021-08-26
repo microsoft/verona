@@ -5,18 +5,51 @@
 namespace verona::rt
 {
   template<typename T>
-  class PromiseR;
-
-  template<typename T>
-  class PromiseW;
-
-  template<typename T>
   class Promise : public VCown<Promise<T>>
   {
-  private:
-    friend class PromiseR<T>;
-    friend class PromiseW<T>;
+  public:
+    class PromiseR
+    {
+    private:
+      friend class Promise;
 
+      Promise* promise;
+
+      PromiseR(Promise* p) : promise(p) {}
+
+    public:
+      /** This function consumes the read endpoint so that only one entity can
+       * wait on it
+       */
+      template<
+        typename F,
+        typename = std::enable_if_t<std::is_invocable_v<F, T>>>
+      static void then(std::unique_ptr<PromiseR> rp, F fn)
+      {
+        rp->promise->then(std::forward<F>(fn));
+      }
+    };
+
+    class PromiseW
+    {
+    private:
+      friend class Promise;
+
+      Promise* promise;
+
+      PromiseW(Promise* p) : promise(p) {}
+
+    public:
+      /* fulfil consumes the write end point so that the promise
+       * so that the promise will be fulfilled only once
+       */
+      static void fulfill(std::unique_ptr<PromiseW> w, T v)
+      {
+        w->promise->fulfill(v);
+      }
+    };
+
+  private:
     T val;
 
     void fulfill(T v)
@@ -39,53 +72,14 @@ namespace verona::rt
     }
 
   public:
-    static std::pair<std::unique_ptr<PromiseR<T>>, std::unique_ptr<PromiseW<T>>>
+    static std::pair<std::unique_ptr<PromiseR>, std::unique_ptr<PromiseW>>
     create_promise()
     {
       // FIXME: Should this be 3 allocations?
-      Promise<T>* p = new Promise<T>;
-      std::unique_ptr<PromiseR<T>> r =
-        std::unique_ptr<PromiseR<T>>(new PromiseR<T>(p));
-      std::unique_ptr<PromiseW<T>> w =
-        std::unique_ptr<PromiseW<T>>(new PromiseW<T>(p));
+      Promise* p = new Promise<T>;
+      std::unique_ptr<PromiseR> r = std::unique_ptr<PromiseR>(new PromiseR(p));
+      std::unique_ptr<PromiseW> w = std::unique_ptr<PromiseW>(new PromiseW(p));
       return std::make_pair(std::move(r), std::move(w));
-    }
-  };
-
-  template<typename T>
-  class PromiseR
-  {
-  private:
-    Promise<T>* promise;
-
-  public:
-    PromiseR(Promise<T>* p) : promise(p) {}
-
-    /** This function consumes the read endpoint so that only one entity can
-     * wait on it
-     */
-    template<typename F, typename = std::enable_if_t<std::is_invocable_v<F, T>>>
-    static void then(std::unique_ptr<PromiseR<T>> rp, F fn)
-    {
-      rp->promise->then(std::forward<F>(fn));
-    }
-  };
-
-  template<typename T>
-  class PromiseW
-  {
-  private:
-    Promise<T>* promise;
-
-  public:
-    PromiseW(Promise<T>* p) : promise(p) {}
-
-    /* fulfil consumes the write end point so that the promise
-     * so that the promise will be fulfilled only once
-     */
-    static void fulfill(std::unique_ptr<PromiseW<T>> w, T v)
-    {
-      w->promise->fulfill(v);
     }
   };
 }
