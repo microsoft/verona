@@ -56,6 +56,14 @@ namespace verona::rt
       }
     };
 
+    class PromiseSharedR : public PromiseR
+    {
+    public:
+      PromiseSharedR(PromiseR&& r) : PromiseR(std::move(r)) {}
+
+      PromiseSharedR(const PromiseSharedR& other) : PromiseR(other.promise) {}
+    };
+
     class PromiseW
     {
     private:
