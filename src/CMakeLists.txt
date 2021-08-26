@@ -5,7 +5,6 @@ include_directories(.)
 project(verona-lang CXX)
 
 set(CMAKE_CXX_STANDARD 17)
-set(SNMALLOC_USE_CXX17 ON CACHE BOOL "Build in legacy CXX17 mode as long as Verona stays on CXX17" FORCE)
 
 message(STATUS "Build Type for Verona ${CMAKE_BUILD_TYPE}")
 set(CMAKE_CONFIGURATION_TYPES  Release Debug RelWithDebInfo)
