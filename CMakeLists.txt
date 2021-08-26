@@ -12,13 +12,17 @@ macro (option_top VAR HELP DEFAULT)
   set_cache_top(${VAR} ${HELP} BOOL ${DEFAULT})
 endmacro ()
 
-option_top (VERONA_DOWNLOAD_LLVM "Download cached version of LLVM. Do not set with LLVM_EXTRA_CMAKE_ARGS or VERONS_EXTERNAL_LLVM_DIR" ON)
-option_top (VERBOSE_LLVM_DOWNLOAD "Verbose LLVM/MLIR download step" OFF)
-set_cache_top(VERONA_EXTERNAL_LLVM_DIR "Location of an external LLVM installation to use. Do not set with VERONA_DOWNLOAD_LLVM or LLVM_EXTRA_CMAKE_ARGS" PATH "")
-set_cache_top(LLVM_EXTRA_CMAKE_ARGS "Additional options to pass to LLVM submodule. Do not set with VERONA_DOWNLOAD_LLVM or VERONS_EXTERNAL_LLVM_DIR" STRING "")
+# Default is to download LLVM blob, this shows progress
+option_top(VERBOSE_LLVM_DOWNLOAD "Verbose LLVM/LLVM download step" OFF)
 
-message (STATUS "Download LLVM: ${VERONA_DOWNLOAD_LLVM}")
+# Use external LLVM directory options
+set_cache_top(VERONA_USE_EXTERNAL_LLVM_DIR "Location of an external LLVM installation to use. Do not set with DOWNLOAD LLVM / LLVM SUBMODULE options." PATH "")
 
+# Build LLVM from submodule
+option_top(VERONA_BUILD_LLVM_SUBMODULE "Force building the LLVM submodule. Do not set with DOWNLOAD LLVM / EXTERNAL LLVM options." OFF)
+set_cache_top(LLVM_EXTRA_CMAKE_ARGS "Additional options for building LLVM submodule. Do not set with DOWNLOAD LLVM / EXTERNAL LLVM options." STRING "")
+
+# Other Verona options
 option(ENABLE_ASSERTS "Enable asserts even in release builds" OFF)
 option_top(RT_TESTS "Including unit tests for the runtime" OFF)
 option_top(VERONA_EXPENSIVE_SYSTEMATIC_TESTING "Increase the range of seeds covered by systematic testing" OFF)
@@ -76,46 +80,72 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "${DEFAULT_BUILD_TYPE}" CACHE STRING "Choose the type of build." FORCE)
 endif()
 
-if (VERONA_DOWNLOAD_LLVM AND LLVM_EXTRA_CMAKE_ARGS)
-  message (SEND_ERROR "Incompatible options LLVM_EXTRA_CMAKE_ARGS and VERONA_DOWNLOAD_LLVM.")
-endif ()
-
-if (VERONA_DOWNLOAD_LLVM AND VERONA_EXTERNAL_LLVM_DIR)
-  message (SEND_ERROR "Incompatible options VERONA_DOWNLOAD_LLVM and VERONA_EXTERNAL_LLVM_DIR.")
-endif ()
-
-if (VERONA_EXTERNAL_LLVM_DIR AND LLVM_EXTRA_CMAKE_ARGS)
-  message (SEND_ERROR "Incompatible options LLVM_EXTRA_CMAKE_ARGS and VERONA_EXTERNAL_LLVM_DIR.")
-endif ()
+# LLVM Options
+#
+# Each option below works on their own and are incompatible with each other.
+#  * VERONA_DOWNLOAD_LLVM (Default=ON): Downloads a pre-build LLVM for Verona.
+#    (+ VERBOSE_LLVM_DOWNLOAD: Shows download progress (Default=OFF))
+#  * VERONA_USE_EXTERNAL_LLVM_DIR: The path of a pre-built install dir of an LLVM toolchain.
+#  * VERONA_BUILD_LLVM_SUBMODULE: Builds from the submodule.
+#    (+ LLVM_EXTRA_CMAKE_ARGS: Extra CMake arguments to build LLVM)
+#
+# Note: On both download and build options, the LLVM checkout are guaranteed to
+# be the same as the submodule, and have been validated by CI. For the external
+# build, users need to make sure they either get the same commit or they know what
+# they're doing.
+if (VERONA_USE_EXTERNAL_LLVM_DIR OR (VERONA_BUILD_LLVM_SUBMODULE OR LLVM_EXTRA_CMAKE_ARGS))
+  if (VERONA_USE_EXTERNAL_LLVM_DIR AND (VERONA_BUILD_LLVM_SUBMODULE OR LLVM_EXTRA_CMAKE_ARGS))
+    message (SEND_ERROR "Incompatible options VERONA_BUILD_LLVM_SUBMODULE/LLVM_EXTRA_CMAKE_ARGS and VERONA_USE_EXTERNAL_LLVM_DIR.")
+  elseif (LLVM_EXTRA_CMAKE_ARGS AND NOT VERONA_BUILD_LLVM_SUBMODULE)
+    message (SEND_ERROR "Invalid use of LLVM_EXTRA_CMAKE_ARGS without VERONA_BUILD_LLVM_SUBMODULE.")
+  else()
+    if (VERONA_USE_EXTERNAL_LLVM_DIR)
+      message (STATUS "Import LLVM from: ${VERONA_USE_EXTERNAL_LLVM_DIR}")
+    elseif(VERONA_BUILD_LLVM_SUBMODULE)
+      if (LLVM_EXTRA_CMAKE_ARGS)
+        message (STATUS "Build LLVM with args: ${LLVM_EXTRA_CMAKE_ARGS}")
+      else()
+        message (STATUS "Build LLVM: ${VERONA_BUILD_LLVM_SUBMODULE}")
+      endif()
+    endif()
+  endif ()
+  # Download is default, so if we pick one of these, we want to turn off download
+  set(VERONA_DOWNLOAD_LLVM OFF)
+else()
+  set(VERONA_DOWNLOAD_LLVM ON)
+  message (STATUS "Download LLVM: ${VERONA_DOWNLOAD_LLVM}")
+endif()
 
 ##########################################################
-#  Configure MLIR installation
+#  Configure LLVM installation
 ##########################################################
-if (VERONA_EXTERNAL_LLVM_DIR)
-  # Fake target for MLIR, it is built externally.
+
+if(VERONA_USE_EXTERNAL_LLVM_DIR)
+  # Fake target for LLVM, it is built externally.
   add_custom_target(external)
   # Use existing installation from system
   list (APPEND VERONA_EXTRA_CMAKE_ARGS
-    -DVERONA_LLVM_LOCATION=${VERONA_EXTERNAL_LLVM_DIR}
+    -DVERONA_LLVM_LOCATION=${VERONA_USE_EXTERNAL_LLVM_DIR}
   )
 else()
-  set (MLIR_INSTALL ${CMAKE_BINARY_DIR}/$<CONFIG>/mlir)
-  #  Build or Download MLIR installation
+  set(LLVM_INSTALL ${CMAKE_BINARY_DIR}/$<CONFIG>/mlir)
+  #  Build or Download LLVM installation
   set (EXTERNAL_EXTRA_CMAKE_ARGS)
   list (APPEND EXTERNAL_EXTRA_CMAKE_ARGS 
     -DVERONA_DOWNLOAD_LLVM=${VERONA_DOWNLOAD_LLVM}
-    -DMLIR_INSTALL=${MLIR_INSTALL}
+    -DLLVM_INSTALL=${LLVM_INSTALL}
     -DCMAKE_BUILD_TYPE=$<CONFIG>)
 
-  if (NOT VERONA_DOWNLOAD_LLVM)
+  # Extra options for building or downloading LLVM
+  if(VERONA_BUILD_LLVM_SUBMODULE)
     list (APPEND EXTERNAL_EXTRA_CMAKE_ARGS
       -DLLVM_EXTRA_CMAKE_ARGS=${LLVM_EXTRA_CMAKE_ARGS}
     )
-  else ()
+  elseif(VERONA_DOWNLOAD_LLVM)
     list (APPEND EXTERNAL_EXTRA_CMAKE_ARGS
       -DVERBOSE_LLVM_DOWNLOAD=${VERBOSE_LLVM_DOWNLOAD}
     )
-  endif ()
+  endif()
 
   ExternalProject_Add(external
     SOURCE_DIR ${CMAKE_SOURCE_DIR}/external
@@ -127,7 +157,7 @@ else()
     USES_TERMINAL_CONFIGURE true
   )
 
-  # Point Verona at the MLIR install, we just built/downloaded
+  # Point Verona at the LLVM install, we just built/downloaded
   list (APPEND VERONA_EXTRA_CMAKE_ARGS
     -DVERONA_LLVM_LOCATION=${CMAKE_BINARY_DIR}/$<CONFIG>/mlir/install
   )

@@ -10,7 +10,7 @@ cmake_minimum_required(VERSION 3.10.0)
 project(verona_external CXX)
 include(ExternalProject)
 
-message (STATUS "Install MLIR to ${MLIR_INSTALL}")
+message (STATUS "Install LLVM to ${LLVM_INSTALL}")
 
 if (VERONA_DOWNLOAD_LLVM)
   find_package(Git)
@@ -56,7 +56,7 @@ if (VERONA_DOWNLOAD_LLVM)
     DOWNLOAD_NO_PROGRESS NOT ${VERBOSE_LLVM_DOWNLOAD}
     CONFIGURE_COMMAND ""
     PREFIX mlir-${LLVM_BUILD_TYPE}
-    SOURCE_DIR ${MLIR_INSTALL}
+    SOURCE_DIR ${LLVM_INSTALL}
     BUILD_COMMAND ""
     INSTALL_COMMAND ""
     TEST_COMMAND ""
@@ -65,7 +65,7 @@ if (VERONA_DOWNLOAD_LLVM)
 else()
   separate_arguments(LLVM_EXTRA_CMAKE_ARGS UNIX_COMMAND ${LLVM_EXTRA_CMAKE_ARGS})
   list (APPEND LLVM_EXTRA_CMAKE_ARGS
-    -DCMAKE_INSTALL_PREFIX=${MLIR_INSTALL}/install  # Add install as tar has install prefix. Outer project knows about this.
+    -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL}/install  # Add install as tar has install prefix. Outer project knows about this.
     # Note: We must use the SEMICOLON generator expression here because CMake
     # uses semicolons as list separators and this must be a literal semicolon
     # in the final output.  There are at least two steps in between this line

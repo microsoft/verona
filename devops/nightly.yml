@@ -148,7 +148,7 @@ stages:
           -DUSE_ASAN=$(Asan)                       \
           -DVERONA_CI_BUILD=On                     \
           -DRT_TESTS=ON                            \
-          -DVERONA_DOWNLOAD_LLVM=OFF               \
+          -DVERONA_BUILD_LLVM_SUBMODULE=ON         \
           -DLLVM_EXTRA_CMAKE_ARGS="                \
             -Wno-dev                               \
             -DCMAKE_C_COMPILER=$(LLVM_CC)          \
