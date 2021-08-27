@@ -4,6 +4,8 @@
 #include <cassert>
 #ifdef _WIN32
 #  include <windows.h>
+#elif defined(VERONA_EXTERNAL_THREADING)
+#  include <verona_external_threading.h>
 #else
 #  include <functional>
 #  include <mutex>
@@ -35,7 +37,7 @@ namespace verona::rt
   class Barrier
   {
   private:
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(VERONA_EXTERNAL_THREADING)
 #  ifdef __linux__
     /**
      * Linux version of `FlushProcessWriteBuffers`, uses membarrier.

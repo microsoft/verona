@@ -3,9 +3,24 @@
 
 #pragma once
 
-#include "cpu.h"
+#if !defined(VERONA_EXTERNAL_THREADING)
 
-#include <thread>
+#  include "cpu.h"
+
+#  include <thread>
+
+namespace verona::rt
+{
+  using InternalThread = std::thread;
+}
+
+#else
+
+#  include <verona_external_threading.h>
+
+#endif
+
+#include <list>
 
 /**
  * This constructs a platforms affinitised set of threads.
@@ -15,7 +30,7 @@ namespace verona::rt
   class ThreadPoolBuilder
   {
     Topology topology;
-    std::thread* threads;
+    std::list<InternalThread> threads;
     size_t thread_count;
     size_t index = 0;
 
@@ -24,11 +39,11 @@ namespace verona::rt
     {
       if (index < thread_count)
       {
-        threads[index] = std::thread(body, args...);
+        threads.emplace_back(body, args...);
       }
       else
       {
-        abort();
+        body(args...);
       }
     }
 
@@ -41,9 +56,9 @@ namespace verona::rt
     }
 
   public:
-    ThreadPoolBuilder(size_t thread_count) : thread_count(thread_count)
+    ThreadPoolBuilder(size_t thread_count)
     {
-      threads = new std::thread[thread_count];
+      this->thread_count = thread_count - 1;
       topology.acquire();
     }
 
@@ -67,21 +82,20 @@ namespace verona::rt
     /**
      * The destructor waits for all threads to finish, and
      * then tidies up.
+     *
+     *  The number of executions is one larger than the number of threads
+     * created as there is also the main thread.
      */
     ~ThreadPoolBuilder()
     {
-      assert(index == thread_count);
-      for (size_t i = 0; i < thread_count; i++)
-      {
-        threads[i].join();
-      }
+      assert(index == thread_count + 1);
 
-      for (size_t i = 0; i < thread_count; i++)
+      while (!threads.empty())
       {
-        threads[i].~thread();
+        auto& thread = threads.front();
+        thread.join();
+        threads.pop_front();
       }
-
-      delete[] threads;
 
       topology.release();
     }

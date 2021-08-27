@@ -11,6 +11,8 @@
 #include "priority.h"
 #include "schedulerthread.h"
 
+#include <algorithm>
+
 namespace verona::rt
 {
   using namespace snmalloc;
