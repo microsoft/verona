@@ -50,12 +50,12 @@ namespace verona::interpreter
 
     rt::Cown::schedule<ExecuteMessage>(cown, ip, std::move(args), 0);
 
-    rt::Alloc* alloc = rt::ThreadAlloc::get();
+    rt::Alloc& alloc = rt::ThreadAlloc::get();
     rt::Cown::release(alloc, cown);
 
     sched.run_with_startup<const Code*, bool>(VM::init_vm, &code, verbose);
 
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
   void instantiate(InterpreterOptions& options, const Code& code)

@@ -12,7 +12,7 @@ namespace memory_swap_root
    * properly, and then releases the regions and makes a few assertions.
    **/
   template<RegionType region_type>
-  void test_swap_root_helper(Alloc* alloc, Object* oroot, Object* nroot)
+  void test_swap_root_helper(Alloc& alloc, Object* oroot, Object* nroot)
   {
     using RegionClass = typename RegionType_to_class<region_type>::T;
 
@@ -30,7 +30,7 @@ namespace memory_swap_root
     new (alloc, nroot) XLargeC2<region_type>;
 
     Region::release(alloc, nroot);
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     check(live_count == 0);
   }
 
@@ -50,7 +50,7 @@ namespace memory_swap_root
     // merges two regions, and then allocates some more. We're checking that
     // region internal structures are still sensible.
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
 
       C* oroot1 = new (alloc) C;
       F* nroot1 = new (alloc, oroot1) F;
@@ -74,7 +74,7 @@ namespace memory_swap_root
       alloc_in_region<XC, XC, C>(alloc, nroot1);
 
       Region::release(alloc, nroot1);
-      snmalloc::current_alloc_pool()->debug_check_empty();
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
       check(live_count == 0);
     }
 
@@ -86,7 +86,7 @@ namespace memory_swap_root
 
       // Only two objects in the ring, so we're swapping first with last.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         C* oroot = new (alloc) C;
         C* nroot = new (alloc, oroot) C;
         test_swap_root_helper<region_type>(alloc, oroot, nroot);
@@ -95,7 +95,7 @@ namespace memory_swap_root
       // More than two objects in the ring.
       // New root is right before the old root.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         C* oroot = new (alloc) C;
         C* nroot = new (alloc, oroot) C;
         new (alloc, oroot) C;
@@ -106,7 +106,7 @@ namespace memory_swap_root
       // More than two objects in the ring.
       // New root is somewhere in the middle of the ring.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         C* oroot = new (alloc) C;
         new (alloc, oroot) C;
         C* nroot = new (alloc, oroot) C;
@@ -117,7 +117,7 @@ namespace memory_swap_root
       // More than two objects in the ring.
       // New root is right after the region metadata object.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         C* oroot = new (alloc) C;
         new (alloc, oroot) C;
         new (alloc, oroot) C;
@@ -131,7 +131,7 @@ namespace memory_swap_root
 
       // One object in each ring.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         F* oroot = new (alloc) F;
         C* nroot = new (alloc, oroot) C;
         test_swap_root_helper<region_type>(alloc, oroot, nroot);
@@ -140,7 +140,7 @@ namespace memory_swap_root
       // Two objects in primary ring, multiple in secondary ring.
       // New root is the same as the new "old root" (after swapping rings).
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         F* oroot = new (alloc) F;
         new (alloc, oroot) F;
         C* nroot = new (alloc, oroot) C;
@@ -152,7 +152,7 @@ namespace memory_swap_root
       // Two objects in primary ring, multiple in secondary ring.
       // New root is right before the new "old root" (after swapping rings).
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         F* oroot = new (alloc) F;
         new (alloc, oroot) F;
         new (alloc, oroot) C;
@@ -164,7 +164,7 @@ namespace memory_swap_root
       // Two objects in primary ring, multiple in secondary ring.
       // New root is somewhere in middle of ring.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         F* oroot = new (alloc) F;
         new (alloc, oroot) F;
         new (alloc, oroot) C;
@@ -178,7 +178,7 @@ namespace memory_swap_root
       // Two objects in primary ring, multiple in secondary ring.
       // New root is right after the region metadata object.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         F* oroot = new (alloc) F;
         new (alloc, oroot) F;
         new (alloc, oroot) C;
@@ -191,7 +191,7 @@ namespace memory_swap_root
     {
       // Both objects in the same arena.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         C* oroot = new (alloc) C;
         C* nroot = new (alloc, oroot) C;
         test_swap_root_helper<region_type>(alloc, oroot, nroot);
@@ -199,7 +199,7 @@ namespace memory_swap_root
 
       // Objects in different arenas.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         C* oroot = new (alloc) C;
         new (alloc, oroot) LC;
         new (alloc, oroot) LC;
@@ -210,7 +210,7 @@ namespace memory_swap_root
 
       // Old root in the ring, new root in an arena.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         XC* oroot = new (alloc) XC;
         C* nroot = new (alloc, oroot) C;
         test_swap_root_helper<region_type>(alloc, oroot, nroot);
@@ -219,7 +219,7 @@ namespace memory_swap_root
       // Old root in an arena, new root in the ring.
       // Only one object in the ring.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         C* oroot = new (alloc) C;
         XC* nroot = new (alloc, oroot) XC;
         test_swap_root_helper<region_type>(alloc, oroot, nroot);
@@ -228,7 +228,7 @@ namespace memory_swap_root
       // Old root in an arena, new root in the ring.
       // Two objects in the ring. New root is last in the ring.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         C* oroot = new (alloc) C;
         XC* nroot = new (alloc, oroot) XC;
         new (alloc, oroot) XC;
@@ -238,7 +238,7 @@ namespace memory_swap_root
       // Old root in an arena, new root in the ring.
       // Two objects in the ring. New root is first in the ring.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         C* oroot = new (alloc) C;
         new (alloc, oroot) XC;
         XC* nroot = new (alloc, oroot) XC;
@@ -248,7 +248,7 @@ namespace memory_swap_root
       // Old root in an arena, new root in the ring.
       // Multiple objects in the ring. New root is last in the ring.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         C* oroot = new (alloc) C;
         XC* nroot = new (alloc, oroot) XC;
         new (alloc, oroot) XC;
@@ -259,7 +259,7 @@ namespace memory_swap_root
       // Old root in an arena, new root in the ring.
       // Multiple objects in the ring. New root is in the middle of the ring.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         C* oroot = new (alloc) C;
         new (alloc, oroot) XC;
         XC* nroot = new (alloc, oroot) XC;
@@ -270,7 +270,7 @@ namespace memory_swap_root
       // Old root in an arena, new root in the ring.
       // Multiple objects in the ring. New root is first in the ring.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         C* oroot = new (alloc) C;
         new (alloc, oroot) XC;
         new (alloc, oroot) XC;
@@ -281,7 +281,7 @@ namespace memory_swap_root
       // Both objects in the ring. Old root must be last object in the ring.
       // Only two objects in the ring.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         XC* oroot = new (alloc) XC;
         XC* nroot = new (alloc, oroot) XC;
         test_swap_root_helper<region_type>(alloc, oroot, nroot);
@@ -290,7 +290,7 @@ namespace memory_swap_root
       // Both objects in the ring. Old root must be last object in the ring.
       // Multiple objects in the ring. New root is right before the old root.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         XC* oroot = new (alloc) XC;
         XC* nroot = new (alloc, oroot) XC;
         new (alloc, oroot) XC;
@@ -301,7 +301,7 @@ namespace memory_swap_root
       // Both objects in the ring. Old root must be last object in the ring.
       // Multiple objects in the ring. New root is somewhere in the middle.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         XC* oroot = new (alloc) XC;
         new (alloc, oroot) XC;
         XC* nroot = new (alloc, oroot) XC;
@@ -312,7 +312,7 @@ namespace memory_swap_root
       // Both objects in the ring. Old root must be last object in the ring.
       // Multiple objects in the ring. New root is after region metadata object.
       {
-        auto* alloc = ThreadAlloc::get();
+        auto& alloc = ThreadAlloc::get();
         XC* oroot = new (alloc) XC;
         new (alloc, oroot) XC;
         new (alloc, oroot) XC;

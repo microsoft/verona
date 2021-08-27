@@ -123,7 +123,7 @@ struct RCown : public VCown<RCown>
 
   RCown(size_t more, uint64_t forward_count) : forward(forward_count)
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
 
     if (rcown_first == nullptr)
       rcown_first = this;
@@ -376,7 +376,7 @@ void test_cown_gc(
 void test_cown_gc_before_sched()
 {
   auto a = new CCown(nullptr);
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
   Cown::release(alloc, a);
 }
 

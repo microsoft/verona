@@ -82,7 +82,7 @@ namespace verona::rt
       front.init(token);
     }
 
-    void enqueue(Alloc* alloc, T* node)
+    void enqueue(Alloc& alloc, T* node)
     {
       UNUSED(alloc);
       auto unmasked_node = unmask(node);
@@ -92,7 +92,7 @@ namespace verona::rt
       back = node;
     }
 
-    void enqueue_front(Alloc* alloc, T* node)
+    void enqueue_front(Alloc& alloc, T* node)
     {
       UNUSED(alloc);
       auto cmp = front.read();
@@ -103,7 +103,7 @@ namespace verona::rt
       } while (!cmp.store_conditional(node));
     }
 
-    T* dequeue(Alloc* alloc)
+    T* dequeue(Alloc& alloc)
     {
       T* next;
       T* fnt;
@@ -135,7 +135,7 @@ namespace verona::rt
 
     // The callers are expected to guarantee no one is attempting to access the
     // queue concurrently.
-    void destroy(Alloc* alloc)
+    void destroy(Alloc& alloc)
     {
       assert(front.peek() == back);
       assert(is_bit_set(back));

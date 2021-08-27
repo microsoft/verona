@@ -85,7 +85,7 @@ void test1()
   // Freeze an scc.
   // 1 -> 2
   // 2 -> 1
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
 
   C1* r = new (alloc) C1;
   r->f1 = new (alloc, r) C1;
@@ -102,7 +102,7 @@ void test1()
   // Free immutable graph.
   Immutable::release(alloc, r);
 
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 void test2()
@@ -114,7 +114,7 @@ void test2()
   // 4 -> 3, 5 = ptr 2
   // 5 -> 2, 6 = ptr 2
   // 6 -> 4, 3 = ptr 2
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
 
   C1* o1 = new (alloc) C1;
   C1* o2 = new (alloc, o1) C1;
@@ -152,7 +152,7 @@ void test2()
   // Free immutable graph.
   Immutable::release(alloc, o1);
 
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 void test3()
@@ -167,7 +167,7 @@ void test3()
   // 7 -> 8, 8 = scc rc 1
   // 8 -> 4, 4 = scc rc 1
   // 9 -> 1, 1 = scc rc 1
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
 
   C1* o1 = new (alloc) C1;
   C1* o2 = new (alloc, o1) C1;
@@ -215,7 +215,7 @@ void test3()
   // Free immutable graph.
   Immutable::release(alloc, o1);
 
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 void test4()
@@ -229,7 +229,7 @@ void test4()
   // 3 -> 4    = ptr 2
   // 4 -> 2, 5 = ptr 2
   // 5         = scc rc 1
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
 
   C1* o1 = new (alloc) C1;
   C1* o2 = new (alloc) C1;
@@ -258,7 +258,7 @@ void test4()
   // Free immutable graph.
   Immutable::release(alloc, o1);
 
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 void test5()
@@ -270,7 +270,7 @@ void test5()
   //
   // Freeze 1,
   // Ptr from 2 to subregion 3
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
 
   C1* o1 = new (alloc) C1;
   std::cout << "o1: " << o1 << std::endl;
@@ -288,12 +288,12 @@ void test5()
   // Free immutable graph.
   Immutable::release(alloc, o1);
 
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 void freeze_weird_ring()
 {
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
 
   List<Foo>* root = new (alloc) List<Foo>;
   List<Foo>* next = new (alloc, root) List<Foo>;
@@ -312,7 +312,7 @@ void freeze_weird_ring()
   // Free immutable graph.
   Immutable::release(alloc, root);
 
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 struct Symbolic : public V<Symbolic>
@@ -331,28 +331,28 @@ struct Symbolic : public V<Symbolic>
 
 void test_two_rings_1()
 {
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
   auto r = new (alloc) C1;
   new (alloc, r) Symbolic;
   Freeze::apply(alloc, r);
   Immutable::release(alloc, r);
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 void test_two_rings_2()
 {
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
   auto r = new (alloc) Symbolic;
   new (alloc, r) C1;
   Freeze::apply(alloc, r);
   Immutable::release(alloc, r);
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 void test_random(size_t seed = 1, size_t max_edges = 128)
 {
-  snmalloc::current_alloc_pool()->debug_check_empty();
-  auto* alloc = ThreadAlloc::get();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  auto& alloc = ThreadAlloc::get();
   size_t id = 0;
 
   xoroshiro::p128r32 r(seed);
@@ -488,7 +488,7 @@ void test_random(size_t seed = 1, size_t max_edges = 128)
 
   Immutable::release(alloc, root);
 
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 int main(int, char**)

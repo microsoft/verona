@@ -38,7 +38,7 @@ namespace noticeboard_weak
 
     void f()
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
 
       auto c_0 = new C(1);
       Freeze::apply(alloc, c_0);
@@ -71,7 +71,7 @@ namespace noticeboard_weak
 
     void f()
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
 
       auto c_1 = (C*)reader->box_1->peek(alloc);
       auto c_0 = (C*)reader->box_0->peek(alloc);
@@ -92,7 +92,7 @@ namespace noticeboard_weak
 
   void run_test()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
 
     auto c_0 = new (alloc) C(0);
     auto c_1 = new (alloc) C(1);

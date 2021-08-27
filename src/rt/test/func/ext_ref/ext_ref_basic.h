@@ -67,7 +67,7 @@ namespace ext_ref_basic
       first->next = last;
       last->prev = first;
 
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
       auto cur = first;
       for (auto i = 0; i < n; ++i)
       {
@@ -122,7 +122,7 @@ namespace ext_ref_basic
     size_t cores = 1;
     sched.init(cores);
 
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     (void)alloc;
 
     g_list = new DList(1);
@@ -135,7 +135,7 @@ namespace ext_ref_basic
     auto a = g_a;
     auto ext_node = b->ext_node;
     schedule_lambda(a, [a, ext_node]() {
-      auto alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
 
       auto list = a->list;
       check(ext_node->is_in(Region::get(g_list)));
@@ -152,7 +152,7 @@ namespace ext_ref_basic
     });
     Cown::release(alloc, g_a);
     sched.run();
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
   template<RegionType region_type>
@@ -162,7 +162,7 @@ namespace ext_ref_basic
   template<RegionType region_type>
   void singleton_region_test()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     (void)alloc;
 
     auto r = new (alloc) R<region_type>;
@@ -174,7 +174,7 @@ namespace ext_ref_basic
     Immutable::release(alloc, ext_ref);
     Region::release(alloc, r);
 
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
   void run_test()

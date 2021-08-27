@@ -137,7 +137,7 @@ struct RCown : public VCown<RCown<region_type>>
   RCown(size_t more, uint64_t forward_count)
   : forward(forward_count), threshold(forward_count / 4)
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
 
     if (rcown_first == nullptr)
       rcown_first = (RCown<RegionType::Trace>*)this;

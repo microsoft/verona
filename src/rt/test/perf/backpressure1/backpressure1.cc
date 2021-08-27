@@ -154,7 +154,7 @@ int main(int argc, char** argv)
   sched.set_fair(true);
   sched.init(cores);
 
-  auto* alloc = ThreadAlloc::get();
+  Alloc& alloc = ThreadAlloc::get();
 
   for (size_t r = 0; r < receivers; r++)
     receiver_set.push_back(new (alloc) Receiver);
@@ -168,7 +168,7 @@ int main(int argc, char** argv)
     Scheduler::add_external_event_source();
   });
 
-  auto thr = std::thread([=] {
+  auto thr = std::thread([=, &alloc] {
     for (size_t i = 0; i < senders; i++)
     {
       if (proxy_chain.size() > 0)

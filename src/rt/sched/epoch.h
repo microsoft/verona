@@ -105,16 +105,16 @@ namespace verona::rt
       debug_check_count();
     }
 
-    void add_to_dec_list(Alloc* alloc, Object* p)
+    void add_to_dec_list(Alloc& alloc, Object* p)
     {
-      auto node = (DecNode*)alloc->alloc<sizeof(DecNode)>();
+      auto node = (DecNode*)alloc.alloc<sizeof(DecNode)>();
       node->o = p;
       dec_list.enqueue((InnerNode*)node);
       (*get_to_dec(2))++;
       debug_check_count();
     }
 
-    inline void use_epoch(Alloc* a)
+    inline void use_epoch(Alloc& a)
     {
       lock.internal_acquire();
 
@@ -128,7 +128,7 @@ namespace verona::rt
       }
     }
 
-    inline void release_epoch(Alloc* a)
+    inline void release_epoch(Alloc& a)
     {
       if (advance_is_sensible())
       {
@@ -154,7 +154,7 @@ namespace verona::rt
       return &to_dec[(index + i) & 3];
     }
 
-    void advance_epoch(Alloc* alloc)
+    void advance_epoch(Alloc& alloc)
     {
       debug_check_count();
 
@@ -163,7 +163,7 @@ namespace verona::rt
         auto usable = *cell;
 
         for (size_t n = 0; n < usable; n++)
-          alloc->dealloc(delete_list.dequeue());
+          alloc.dealloc(delete_list.dequeue());
 
         *cell = 0;
 
@@ -178,7 +178,7 @@ namespace verona::rt
         {
           auto dn = (DecNode*)dec_list.dequeue();
           auto o = dn->o;
-          alloc->dealloc<sizeof(DecNode)>(dn);
+          alloc.dealloc<sizeof(DecNode)>(dn);
           Systematic::cout() << "Delayed decref on " << o << Systematic::endl;
           Immutable::release(alloc, o);
         }
@@ -219,7 +219,7 @@ namespace verona::rt
     }
 
     NOINLINE
-    void refresh_rare(Alloc* a, uint64_t old_epoch, uint64_t new_epoch)
+    void refresh_rare(Alloc& a, uint64_t old_epoch, uint64_t new_epoch)
     {
       advance_epoch(a);
 
@@ -236,7 +236,7 @@ namespace verona::rt
       epoch.store(new_epoch, std::memory_order_release);
     }
 
-    inline void refresh(Alloc* a)
+    inline void refresh(Alloc& a)
     {
       assert(lock.debug_internal_held());
 
@@ -249,7 +249,7 @@ namespace verona::rt
       }
     }
 
-    NOINLINE void rejoin_epoch(Alloc* a, uint64_t old_epoch)
+    NOINLINE void rejoin_epoch(Alloc& a, uint64_t old_epoch)
     {
       epoch.store(old_epoch & ~EJECTED_BIT, std::memory_order_release);
 
@@ -318,7 +318,7 @@ namespace verona::rt
       GlobalEpoch::set(next_epoch);
     }
 
-    void use_epoch_rare(Alloc* a, uint64_t old_epoch, uint64_t new_epoch)
+    void use_epoch_rare(Alloc& a, uint64_t old_epoch, uint64_t new_epoch)
     {
       if ((old_epoch & EJECTED_BIT) == 0)
       {
@@ -330,7 +330,7 @@ namespace verona::rt
       }
     }
 
-    NOINLINE void release_epoch_rare(Alloc* a)
+    NOINLINE void release_epoch_rare(Alloc& a)
     {
       refresh(a);
 
@@ -364,22 +364,20 @@ namespace verona::rt
     }
   };
 
-  static inline Pool<LocalEpoch>& global_epoch_set()
-  {
-    return *Singleton<Pool<LocalEpoch>*, Pool<LocalEpoch>::make>::get();
-  }
+  using LocalEpochPool =
+    snmalloc::Pool<LocalEpoch, snmalloc::Alloc::StateHandle>;
 
   template<typename T, bool predicate(LocalEpoch* p, T t)>
   bool LocalEpoch::forall(T t)
   {
-    auto curr = global_epoch_set().iterate();
+    auto curr = LocalEpochPool::iterate();
 
     while (curr != nullptr)
     {
       if (!predicate(curr, t))
         return false;
 
-      curr = global_epoch_set().iterate(curr);
+      curr = LocalEpochPool::iterate(curr);
     }
 
     return true;
@@ -393,24 +391,27 @@ namespace verona::rt
 
     ThreadLocalEpoch()
     {
-      ptr = global_epoch_set().acquire();
+      ptr = LocalEpochPool::acquire();
     }
 
     ~ThreadLocalEpoch()
     {
       ptr->eject();
-      global_epoch_set().release(ptr);
+      LocalEpochPool::release(ptr);
     }
   };
 
   class Epoch
   {
   private:
-    Alloc* alloc;
+    Alloc& alloc;
     LocalEpoch* local_epoch;
 
   public:
-    Epoch(Alloc* a) : alloc(a)
+    Epoch(const Epoch&) = delete;
+    Epoch& operator=(const Epoch&) = delete;
+
+    Epoch(Alloc& a) : alloc(a)
     {
       static thread_local ThreadLocalEpoch thread_local_epoch;
       yield();
@@ -427,8 +428,6 @@ namespace verona::rt
       local_epoch->release_epoch(alloc);
       yield();
     }
-
-    Epoch(const Epoch&) : alloc(nullptr), local_epoch(nullptr) {}
 
     void add_pressure()
     {
@@ -456,18 +455,18 @@ namespace verona::rt
         local_epoch->advance_epoch(alloc);
     }
 
-    static void flush(Alloc* a)
+    static void flush(Alloc& a)
     {
       // This should only be called when no threads are using the epoch, for
       // example when cleaning up before process termination.
-      auto curr = global_epoch_set().iterate();
+      auto curr = LocalEpochPool::iterate();
 
       while (curr != nullptr)
       {
         for (int i = 0; i < 4; i++)
           curr->advance_epoch(a);
 
-        curr = global_epoch_set().iterate(curr);
+        curr = LocalEpochPool::iterate(curr);
       }
     }
   };

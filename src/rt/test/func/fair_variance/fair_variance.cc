@@ -57,7 +57,7 @@ struct Spawn : public VBehaviour<Spawn>
 {
   void f()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     (void)alloc;
     for (int i = 0; i < n_cowns; ++i)
     {
@@ -102,7 +102,7 @@ int main()
   sched.init(cores);
   sched.set_fair(true);
 
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
   (void)alloc;
 
   auto b = new B;
@@ -110,7 +110,7 @@ int main()
 
   Cown::release(alloc, b);
   sched.run();
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   assert_variance();
 
   puts("done");

@@ -4,7 +4,9 @@
 
 #include <cassert>
 #include <chrono>
+#include <list>
 #include <test/opt.h>
+#include <thread>
 #include <verona.h>
 
 using namespace verona::rt;
@@ -26,6 +28,15 @@ extern "C" void dump_flight_recorder()
 class SystematicTestHarness
 {
   size_t seed = 0;
+  /**
+   * External threads created during execution can only be joined once
+   * sched.run() is finished. Not joining on these threads can lead to a race
+   * between their destruction and operations such as
+   * snmalloc::debug_check_empty. Since the test has no way to detect when the
+   * execution has finished, we make the harness responsible for tracking and
+   * joining on external threads.
+   */
+  std::list<std::thread> external_threads;
 
 public:
   opt::Opt opt;
@@ -108,13 +119,35 @@ public:
       f(std::forward<Args>(args)...);
 
       sched.run();
+
+      // Join on all created external threads and clear the list.
+      while (!external_threads.empty())
+      {
+        auto& thread = external_threads.front();
+        thread.join();
+        external_threads.pop_front();
+      }
+
       if (detect_leaks)
-        snmalloc::current_alloc_pool()->debug_check_empty();
+        snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
       high_resolution_clock::time_point t1 = high_resolution_clock::now();
       std::cout << "Time so far: "
                 << duration_cast<seconds>((t1 - start)).count() << " seconds"
                 << std::endl;
     }
+  }
+
+  /**
+   * Add an external thread to the system, which will be joined after
+   * sched.run() finishes. Do not create any std::thread explicitly in a test
+   * when using SystematicTestHarness.
+   *
+   * Same arguments as the std::thread constructor.
+   */
+  template<typename F, typename... Args>
+  void external_thread(F f, Args... args)
+  {
+    external_threads.emplace_back(f, args...);
   }
 
   size_t current_seed()

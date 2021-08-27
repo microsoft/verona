@@ -18,32 +18,15 @@
  * Other tests to look at include finalisers and the various cowngc tests.
  **/
 
-void test_alloc_pool()
-{
-#ifndef SNMALLOC_PASS_THROUGH
-  auto* a1 = current_alloc_pool()->acquire();
-  auto* a2 = current_alloc_pool()->acquire();
-  check(a1 != a2);
-
-  current_alloc_pool()->release(a1);
-  auto* a3 = current_alloc_pool()->acquire();
-  check(a3 == a1);
-
-  current_alloc_pool()->release(a2);
-  current_alloc_pool()->release(a3);
-  snmalloc::current_alloc_pool()->debug_check_empty();
-#endif
-}
-
 void test_dealloc()
 {
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
 
   size_t size = 1 << 25;
-  void* p = alloc->alloc(size);
-  alloc->dealloc(p, size);
+  void* p = alloc.alloc(size);
+  alloc.dealloc(p, size);
 
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 size_t do_nothing(size_t x);
@@ -76,7 +59,6 @@ int main(int argc, char** argv)
   memory_gc::run_test();
   memory_subregion::run_test();
 
-  test_alloc_pool();
   test_dealloc();
 
   return 0;

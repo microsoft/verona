@@ -110,7 +110,7 @@ namespace notify_empty_queue
       check(notified->count <= 20);
       notified->closed = true;
 
-      auto alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
       // The initial test set up forgot about reference counts to the two
       // cowns involved in this example.  This should be the last event in
       // the system.  Remove the reference counts to deallocate the cowns.

@@ -11,13 +11,13 @@ using namespace verona::rt;
 struct A : public VCown<A>
 {};
 
-void test_runtime_pause(size_t pauses)
+void test_runtime_pause(SystematicTestHarness* harness, size_t pauses)
 {
-  schedule_lambda([pauses]() {
+  schedule_lambda([harness, pauses]() {
     auto a = new A;
     Scheduler::add_external_event_source();
     auto pauses_ = pauses;
-    auto t = std::thread([pauses_, a]() mutable {
+    harness->external_thread([pauses_, a]() mutable {
       Systematic::cout() << "Started external thread" << Systematic::endl;
       std::mt19937 rng;
       rng.seed(1);
@@ -40,7 +40,6 @@ void test_runtime_pause(size_t pauses)
 
       Systematic::cout() << "External thread exiting" << Systematic::endl;
     });
-    t.detach();
   });
 }
 
@@ -50,6 +49,6 @@ int main(int argc, char** argv)
 
   size_t pauses = harness.opt.is<size_t>("--pauses", 3);
 
-  harness.run(test_runtime_pause, pauses);
+  harness.run(test_runtime_pause, &harness, pauses);
   return 0;
 }

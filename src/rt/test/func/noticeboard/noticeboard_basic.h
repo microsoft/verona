@@ -100,7 +100,7 @@ namespace noticeboard_basic
 
     void f()
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
       if (db->n == 30)
       {
         C* new_c = new (alloc) C(1);
@@ -126,7 +126,7 @@ namespace noticeboard_basic
 
     void f()
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
       (void)alloc;
       switch (peeker->state)
       {
@@ -201,7 +201,7 @@ namespace noticeboard_basic
 
   void run_test()
   {
-    Alloc* alloc = ThreadAlloc::get();
+    Alloc& alloc = ThreadAlloc::get();
 
     Alive* alive = new (alloc) Alive;
     Systematic::cout() << "Alive" << alive << std::endl;

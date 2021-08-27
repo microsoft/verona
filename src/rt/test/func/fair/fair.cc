@@ -48,7 +48,7 @@ struct Spawn : public VBehaviour<Spawn>
 {
   void f()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     (void)alloc;
     for (int i = 0; i < 6; ++i)
     {
@@ -61,7 +61,7 @@ struct Spawn : public VBehaviour<Spawn>
 
 void basic_test()
 {
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
 
   auto b = new B;
   Cown::schedule<Spawn>(b);

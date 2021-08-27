@@ -38,7 +38,7 @@ namespace memory_subregion
     using C = C3<region_type>;
     using F = F3<region_type>;
 
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
 
     auto* r = new (alloc) F;
     r->c1 = new (alloc, r) C;
@@ -52,7 +52,7 @@ namespace memory_subregion
     alloc_in_region<C, F>(alloc, r); // unreachable
 
     Region::release(alloc, r);
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     check(live_count == 0);
   }
 
@@ -65,7 +65,7 @@ namespace memory_subregion
     using C = C3<region_type>;
     using F = F3<region_type>;
 
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
 
     // Start with a single region.
     auto* r = new (alloc) F;
@@ -100,7 +100,7 @@ namespace memory_subregion
     r2->f1->f1->f1 = r3;
 
     Region::release(alloc, r);
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     check(live_count == 0);
   }
 
@@ -112,7 +112,7 @@ namespace memory_subregion
     using OTrace = O<RegionType::Trace>;
     using OArena = O<RegionType::Arena>;
 
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
 
     // Start with a single region.
     auto* r = new (alloc) OTrace;
@@ -160,7 +160,7 @@ namespace memory_subregion
     check(Region::debug_size(r3) == 1);
 
     Region::release(alloc, r);
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
   /**
@@ -175,7 +175,7 @@ namespace memory_subregion
 
     // Subregion hanging off the entry object, but then we swap root.
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
 
       auto* oroot = new (alloc) F;
       auto* nroot = new (alloc, oroot) C;
@@ -199,12 +199,12 @@ namespace memory_subregion
       }
 
       Region::release(alloc, nroot);
-      snmalloc::current_alloc_pool()->debug_check_empty();
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     }
 
     // After swapping the root, the subregion now hangs off the entry object.
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
 
       auto* oroot = new (alloc) F;
       auto* nroot = new (alloc, oroot) F;
@@ -228,12 +228,12 @@ namespace memory_subregion
       }
 
       Region::release(alloc, nroot);
-      snmalloc::current_alloc_pool()->debug_check_empty();
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     }
 
     // Swap root for the subregion, and patch up parent region's pointer.
     {
-      auto* alloc = ThreadAlloc::get();
+      auto& alloc = ThreadAlloc::get();
 
       auto* r = new (alloc) F;
       r->c1 = new (alloc, r) C;
@@ -260,7 +260,7 @@ namespace memory_subregion
       }
 
       Region::release(alloc, r);
-      snmalloc::current_alloc_pool()->debug_check_empty();
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     }
   }
 
@@ -271,7 +271,7 @@ namespace memory_subregion
     using C = C3<region_type>;
     using F = F3<region_type>;
 
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
 
     // Create the first region, with some unreachable objects.
     auto* r1 = new (alloc) C;
@@ -313,7 +313,7 @@ namespace memory_subregion
     }
 
     Region::release(alloc, r1);
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
   template<RegionType region_type>
@@ -321,7 +321,7 @@ namespace memory_subregion
   {
     using F = F3<region_type>;
 
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
 
     // Create the first region, with some unreachable objects.
     auto* r1 = new (alloc) F;
@@ -336,7 +336,7 @@ namespace memory_subregion
     std::cout << "Dealloc long region chain." << std::endl;
 
     Region::release(alloc, r1);
-    snmalloc::current_alloc_pool()->debug_check_empty();
+    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     std::cout << "Dealloced long region chain." << std::endl;
   }
 

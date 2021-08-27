@@ -81,8 +81,8 @@ namespace verona::rt
 
         // External references are not allocated in any regions, but have
         // independent lifetime protected by reference counting.
-        void* header_obj = ThreadAlloc::get_noncachable()
-                             ->template alloc<vsizeof<ExternalRef>>();
+        void* header_obj =
+          ThreadAlloc::get().template alloc<vsizeof<ExternalRef>>();
         Object* obj = Object::register_object(header_obj, desc());
         return new (obj) ExternalRef(ert, o);
       }
@@ -117,16 +117,16 @@ namespace verona::rt
     : external_map(ExternalMap::create(ThreadAlloc::get()))
     {}
 
-    void dealloc(Alloc* alloc)
+    void dealloc(Alloc& alloc)
     {
       for (auto it = external_map->begin(); it != external_map->end(); ++it)
         remove_ref(alloc, it);
 
       external_map->dealloc(alloc);
-      alloc->dealloc<sizeof(ExternalMap)>(external_map);
+      alloc.dealloc<sizeof(ExternalMap)>(external_map);
     }
 
-    void merge(Alloc* alloc, ExternalReferenceTable* that)
+    void merge(Alloc& alloc, ExternalReferenceTable* that)
     {
       for (auto e : *that->external_map)
       {
@@ -138,7 +138,7 @@ namespace verona::rt
       }
     }
 
-    void insert(Alloc* alloc, Object* object, ExternalRef* ext_ref)
+    void insert(Alloc& alloc, Object* object, ExternalRef* ext_ref)
     {
       auto unique =
         external_map->insert(alloc, std::make_pair(object, ext_ref)).first;
@@ -146,14 +146,14 @@ namespace verona::rt
       UNUSED(unique);
     }
 
-    void erase(Alloc* alloc, Object* p)
+    void erase(Alloc& alloc, Object* p)
     {
       auto it = external_map->find(p);
       assert(it != external_map->end());
       remove_ref(alloc, it);
     }
 
-    void remove_ref(Alloc* alloc, ExternalMap::Iterator& it)
+    void remove_ref(Alloc& alloc, ExternalMap::Iterator& it)
     {
       auto*& ext_ref = it.value();
       if (ext_ref != nullptr)

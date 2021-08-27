@@ -183,7 +183,7 @@ namespace verona::rt
      * Messages are deallocated after the next message is dequeued. This ensures
      * that there is always a message in the queue.
      **/
-    T* dequeue(snmalloc::Alloc* alloc, bool& notify)
+    T* dequeue(snmalloc::Alloc& alloc, bool& notify)
     {
       // Returns the next message. If the next message
       // is not null, the front message is freed.
@@ -202,7 +202,7 @@ namespace verona::rt
       assert(front);
       std::atomic_thread_fence(std::memory_order_acquire);
 
-      alloc->dealloc(fnt, fnt->size());
+      alloc.dealloc(fnt, fnt->size());
       invariant();
 
       if (has_state(next, NOTIFY))
@@ -224,7 +224,7 @@ namespace verona::rt
      * Messages are deallocated after the next message is dequeued. This ensures
      * that there is always a message in the queue.
      **/
-    T* dequeue(snmalloc::Alloc* alloc)
+    T* dequeue(snmalloc::Alloc& alloc)
     {
       bool notify;
       return dequeue(alloc, notify);

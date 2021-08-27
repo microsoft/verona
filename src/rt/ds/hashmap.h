@@ -91,23 +91,23 @@ namespace verona::rt
     /**
      * Allocate enough slots for 8 entries.
      */
-    void init_alloc(Alloc* alloc)
+    void init_alloc(Alloc& alloc)
     {
       static constexpr size_t init_capacity = 8;
       capacity_shift = (uint8_t)bits::ctz(init_capacity);
-      slots = (Entry*)alloc->alloc<init_capacity * sizeof(Entry), YesZero>();
+      slots = (Entry*)alloc.alloc<init_capacity * sizeof(Entry), YesZero>();
     }
 
     /**
      * Double the allocation size. The entries in the previous allocation will
      * be reinserted.
      */
-    void resize(Alloc* alloc)
+    void resize(Alloc& alloc)
     {
       auto prev = *this;
 
       capacity_shift++;
-      slots = (Entry*)alloc->alloc<YesZero>(capacity() * sizeof(Entry));
+      slots = (Entry*)alloc.alloc<YesZero>(capacity() * sizeof(Entry));
       filled_slots = 0;
       longest_probe = 0;
 
@@ -217,7 +217,7 @@ namespace verona::rt
     /**
      * Create an `ObjectMap` with an initial capacity for at least 8 entries.
      */
-    ObjectMap(Alloc* alloc)
+    ObjectMap(Alloc& alloc)
     {
       init_alloc(alloc);
     }
@@ -227,15 +227,15 @@ namespace verona::rt
       dealloc(ThreadAlloc::get());
     }
 
-    static ObjectMap<Entry>* create(Alloc* alloc)
+    static ObjectMap<Entry>* create(Alloc& alloc)
     {
-      return new (alloc->alloc<sizeof(ObjectMap<Entry>)>()) ObjectMap(alloc);
+      return new (alloc.alloc<sizeof(ObjectMap<Entry>)>()) ObjectMap(alloc);
     }
 
-    void dealloc(Alloc* alloc)
+    void dealloc(Alloc& alloc)
     {
-      clear(nullptr);
-      alloc->dealloc(slots, capacity() * sizeof(Entry));
+      clear(alloc, true);
+      alloc.dealloc(slots, capacity() * sizeof(Entry));
     }
 
     /**
@@ -301,7 +301,7 @@ namespace verona::rt
      * inserted entry. The key of the inserted entry must not be null.
      */
     template<typename E>
-    std::pair<bool, Iterator> insert(Alloc* alloc, E entry)
+    std::pair<bool, Iterator> insert(Alloc& alloc, E entry)
     {
       if (unlikely(size() == capacity()))
         resize(alloc);
@@ -395,20 +395,20 @@ namespace verona::rt
     }
 
     /**
-     * Empty the map, removing all entries. If `alloc` is not null, the capacity
-     * will be reset to the initial allocation size. Resetting the allocation
-     * size may significantly improve iteration performance.
+     * Empty the map, removing all entries. If skip_deallocate is false, the
+     * capacity will be reset to the initial allocation size. Resetting the
+     * allocation size may significantly improve iteration performance.
      */
-    void clear(Alloc* alloc)
+    void clear(Alloc& alloc, bool skip_deallocate = false)
     {
       for (auto it = begin(); it != end(); ++it)
         erase(it);
 
       longest_probe = 0;
 
-      if ((alloc != nullptr) && (capacity() > 8))
+      if (!skip_deallocate && (capacity() > 8))
       {
-        alloc->dealloc(slots, capacity() * sizeof(Entry));
+        alloc.dealloc(slots, capacity() * sizeof(Entry));
         init_alloc(alloc);
       }
     }

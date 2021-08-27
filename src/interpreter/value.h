@@ -22,7 +22,7 @@ namespace verona::interpreter
    *
    * Because releasing ownership may require access to the local allocator, a
    * Value must explicitly be cleared before destruction, by calling
-   * `clear(Alloc*)`. Failing to do so will result in an abort.
+   * `clear(Alloc&)`. Failing to do so will result in an abort.
    */
   struct Value
   {
@@ -97,7 +97,7 @@ namespace verona::interpreter
      * Note that this may cause a re-entrant call onto the VM if an object with
      * a finaliser is deallocated.
      */
-    void clear(rt::Alloc* alloc);
+    void clear(rt::Alloc& alloc);
 
     /**
      * Replace the contents of the Value.
@@ -109,7 +109,7 @@ namespace verona::interpreter
      * Note that this may cause a re-entrant call onto the VM if an object with
      * a finaliser is deallocated.
      */
-    void overwrite(rt::Alloc* alloc, Value&& other);
+    void overwrite(rt::Alloc& alloc, Value&& other);
 
     /**
      * Get a copy of this Value, by maybe consuming it.
@@ -201,7 +201,7 @@ namespace verona::interpreter
      * `region` should be the region of the object containing this field.
      * If `value` is an immutable, it is added to the region's RememberedSet.
      */
-    Value exchange(rt::Alloc* alloc, rt::Object* region, Value&& value);
+    Value exchange(rt::Alloc& alloc, rt::Object* region, Value&& value);
 
     void trace(rt::ObjectStack& stack) const;
 

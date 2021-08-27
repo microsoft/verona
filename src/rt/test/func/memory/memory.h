@@ -173,7 +173,7 @@ using XLargeF2 = F2<1024 * 1024 - 4 * sizeof(uintptr_t) + 1, region_type>;
  * iso object o.
  **/
 template<class First, class... Rest>
-void alloc_in_region(Alloc* alloc, Object* o)
+void alloc_in_region(Alloc& alloc, Object* o)
 {
   new (alloc, o) First;
   if constexpr (sizeof...(Rest) > 0)
@@ -187,7 +187,7 @@ void alloc_in_region(Alloc* alloc, Object* o)
  * This helper is used by many different tests, so we don't release the region.
  **/
 template<class First, class... Rest>
-First* alloc_region(Alloc* alloc)
+First* alloc_region(Alloc& alloc)
 {
   First* o = new (alloc) First;
   if constexpr (sizeof...(Rest) > 0)

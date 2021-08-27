@@ -10,7 +10,7 @@ namespace verona::rt
   namespace cown
   {
     // This is used only to break a dependency cycle.
-    inline void release(Alloc* alloc, Cown* o);
+    inline void release(Alloc& alloc, Cown* o);
     inline void mark_for_scan(Object* o, EpochMark epoch);
   } // namespace cown
 
@@ -23,7 +23,7 @@ namespace verona::rt
       o->immutable()->incref();
     }
 
-    static size_t release(Alloc* alloc, Object* o)
+    static size_t release(Alloc& alloc, Object* o)
     {
       assert(o->debug_is_immutable());
       auto root = o->immutable();
@@ -34,7 +34,7 @@ namespace verona::rt
       return 0;
     }
 
-    static void mark_and_scan(Alloc* alloc, Object* o, EpochMark epoch)
+    static void mark_and_scan(Alloc& alloc, Object* o, EpochMark epoch)
     {
       assert(o->debug_is_immutable());
       auto root = o->immutable();
@@ -78,7 +78,7 @@ namespace verona::rt
     }
 
   private:
-    static size_t free(Alloc* alloc, Object* o)
+    static size_t free(Alloc& alloc, Object* o)
     {
       assert(o == o->immutable());
       size_t total = 0;
@@ -150,12 +150,12 @@ namespace verona::rt
     static inline void run_finaliser(Object* o)
     {
       // We don't need the actual subregions here, as they have been frozen.
-      ObjectStack dummy(ThreadAlloc::get_noncachable());
+      ObjectStack dummy(ThreadAlloc::get());
       o->finalise(nullptr, dummy);
     }
 
     static inline void scc_classify(
-      Alloc* alloc, Object* w, LinkedObjectStack& dfs, LinkedObjectStack& scc)
+      Alloc& alloc, Object* w, LinkedObjectStack& dfs, LinkedObjectStack& scc)
     {
       Object::RegionMD c;
       Object* r = w->root_and_class(c);

@@ -102,7 +102,7 @@ namespace notify_coalesce
   // coalesced, causing single acknowledge on the cown.
   void run_test()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
 
     auto a = new A;
     auto b = new B(a);

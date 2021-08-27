@@ -112,7 +112,7 @@ namespace verona::rt
      * every object must contain a descriptor, so 0 is not a valid size.
      **/
     template<size_t size = 0>
-    static Object* alloc(Alloc* alloc, Object* in, const Descriptor* desc)
+    static Object* alloc(Alloc& alloc, Object* in, const Descriptor* desc)
     {
       assert(in->debug_is_iso());
       switch (Region::get_type(in->get_region()))
@@ -131,7 +131,7 @@ namespace verona::rt
      * subregions. This is used to keep reachable cowns alive and prevent them
      * from being collected by the leak detector.
      **/
-    static void cown_scan(Alloc* alloc, Object* o, EpochMark epoch)
+    static void cown_scan(Alloc& alloc, Object* o, EpochMark epoch)
     {
       ObjectStack f(alloc);
       ObjectStack recurse(alloc);
@@ -164,7 +164,7 @@ namespace verona::rt
      * As we discover Iso pointers to other regions, we add them to our
      * worklist.
      **/
-    static void release(Alloc* alloc, Object* o)
+    static void release(Alloc& alloc, Object* o)
     {
       assert(o->debug_is_iso());
       ObjectStack collect(alloc);
@@ -239,7 +239,7 @@ namespace verona::rt
      **/
     template<class RegionType>
     static void cown_scan_internal(
-      Alloc* alloc,
+      Alloc& alloc,
       Object* o,
       ObjectStack& f,
       ObjectStack& recurse,
@@ -299,7 +299,7 @@ namespace verona::rt
      *
      * We dispatch based on the type of region represented by `o`.
      **/
-    static void release_internal(Alloc* alloc, Object* o, ObjectStack& collect)
+    static void release_internal(Alloc& alloc, Object* o, ObjectStack& collect)
     {
       assert(o->debug_is_iso());
       RegionBase* r = o->get_region();

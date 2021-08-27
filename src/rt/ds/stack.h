@@ -94,13 +94,13 @@ namespace verona::rt
     }
 
     /// Deallocate the linked blocks for this stack.
-    void dealloc(Alloc* alloc)
+    void dealloc(Alloc& alloc)
     {
       auto local_block = get_block(index);
       while (local_block != &null_block)
       {
         auto prev = get_block(local_block->prev);
-        alloc->template dealloc<sizeof(Block)>(local_block);
+        alloc.template dealloc<sizeof(Block)>(local_block);
         local_block = prev;
       }
     }
@@ -119,7 +119,7 @@ namespace verona::rt
     }
 
     /// Call this to pop an element from the stack.
-    ALWAYSINLINE T* pop(Alloc* alloc)
+    ALWAYSINLINE T* pop(Alloc& alloc)
     {
       assert(!empty());
       if (!is_empty(index - 1))
@@ -133,7 +133,7 @@ namespace verona::rt
     }
 
     /// Call this to push an element onto the stack.
-    ALWAYSINLINE void push(T* item, Alloc* alloc)
+    ALWAYSINLINE void push(T* item, Alloc& alloc)
     {
       if (!is_full(index))
       {
@@ -164,11 +164,11 @@ namespace verona::rt
 
   private:
     /// Slow path for push, performs a push, when allocation is required.
-    void push_slow(T* item, Alloc* alloc)
+    void push_slow(T* item, Alloc& alloc)
     {
       assert(is_full(index));
 
-      Block* next = (Block*)alloc->template alloc<sizeof(Block)>();
+      Block* next = (Block*)alloc.template alloc<sizeof(Block)>();
       assert(((uintptr_t)next) % alignof(Block) == 0);
       next->prev = index;
       index = &(next->data[0]);
@@ -177,7 +177,7 @@ namespace verona::rt
 
     /// Slow path for pop, performs a pop, when deallocation of a block is
     /// required.
-    T* pop_slow(Alloc* alloc)
+    T* pop_slow(Alloc& alloc)
     {
       assert(is_empty(index - 1));
 
@@ -185,7 +185,7 @@ namespace verona::rt
       Block* block = get_block(index);
       index = block->prev;
 
-      alloc->template dealloc<sizeof(Block)>(block);
+      alloc.template dealloc<sizeof(Block)>(block);
       return item;
     }
   };
@@ -219,10 +219,10 @@ namespace verona::rt
       Block* backup = nullptr;
 
       /// Allocator that blocks are supplied by.
-      Alloc* underlying_alloc;
+      Alloc& underlying_alloc;
 
     public:
-      BackupAlloc(Alloc* a) : underlying_alloc(a) {}
+      BackupAlloc(Alloc& a) : underlying_alloc(a) {}
 
       /// Allocate a stack Block.
       template<size_t Size>
@@ -235,7 +235,7 @@ namespace verona::rt
         if (backup)
           return std::exchange(backup, nullptr);
         else
-          return underlying_alloc->template alloc<Size>();
+          return underlying_alloc.template alloc<Size>();
       }
 
       /// Deallocate a stack Block.
@@ -249,13 +249,13 @@ namespace verona::rt
         if (backup == nullptr)
           backup = b;
         else
-          underlying_alloc->template dealloc<Size>(b);
+          underlying_alloc.template dealloc<Size>(b);
       }
 
       ~BackupAlloc()
       {
         if (backup != nullptr)
-          underlying_alloc->template dealloc<sizeof(Block)>(backup);
+          underlying_alloc.template dealloc<sizeof(Block)>(backup);
       }
     };
 
@@ -266,7 +266,7 @@ namespace verona::rt
     BackupAlloc backup_alloc;
 
   public:
-    Stack(Alloc* alloc) : backup_alloc(alloc) {}
+    Stack(Alloc& alloc) : backup_alloc(alloc) {}
 
     /// Return top element of the stack
     ALWAYSINLINE T* peek()
@@ -277,13 +277,13 @@ namespace verona::rt
     /// Put an element on the stack
     ALWAYSINLINE void push(T* item)
     {
-      stack.push(item, &backup_alloc);
+      stack.push(item, backup_alloc);
     }
 
     /// Remove an element on the stack
     ALWAYSINLINE T* pop()
     {
-      return stack.pop(&backup_alloc);
+      return stack.pop(backup_alloc);
     }
 
     /// Check if stack is empty
@@ -301,7 +301,7 @@ namespace verona::rt
 
     ~Stack()
     {
-      stack.dealloc(&backup_alloc);
+      stack.dealloc(backup_alloc);
     }
   };
 } // namespace verona::rt

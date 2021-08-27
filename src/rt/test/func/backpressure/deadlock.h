@@ -69,7 +69,7 @@ namespace backpressure_deadlock
 
   void test()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     auto* c1 = new (alloc) C();
     auto* c2 = new (alloc) C();
     auto* c3 = new (alloc) C();

@@ -67,12 +67,12 @@ void test_multimessage(size_t cores)
   Cown::schedule<AddTwo>(2, dest, a1, a2);
 
   // Show that participating cowns remain alive.
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
   Cown::release(alloc, a1);
   Cown::release(alloc, a2);
 
   sched.run();
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 int main(int argc, char** argv)

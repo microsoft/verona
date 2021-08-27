@@ -44,7 +44,7 @@ namespace backpressure_unblock
 
   void test()
   {
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     auto* sender1 = new (alloc) EmptyCown;
     auto* sender2 = new (alloc) EmptyCown;
     auto* receiver1 = new (alloc) EmptyCown;
@@ -61,8 +61,8 @@ namespace backpressure_unblock
           schedule_lambda<YesTransfer>(receiver, [] {});
         });
       }
-      Cown::release(ThreadAlloc::get_noncachable(), sender);
-      Cown::release(ThreadAlloc::get_noncachable(), receiver);
+      Cown::release(ThreadAlloc::get(), sender);
+      Cown::release(ThreadAlloc::get(), receiver);
     };
 
     schedule_lambda([=] { overload(sender1, receiver1); });

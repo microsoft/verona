@@ -69,7 +69,7 @@ struct Loop : public VBehaviour<Loop>
     auto& advance_epoch_count = a->advance_epoch_count;
     auto& state = a->state;
 
-    auto* alloc = ThreadAlloc::get();
+    auto& alloc = ThreadAlloc::get();
     (void)alloc;
     switch (state)
     {
@@ -162,7 +162,7 @@ void run_test(size_t cores = 4, size_t seed = 100)
   Scheduler& sched = Scheduler::get();
   sched.init(cores);
 
-  auto* alloc = ThreadAlloc::get();
+  auto& alloc = ThreadAlloc::get();
   (void)alloc;
 
   auto a = new A;
@@ -170,7 +170,7 @@ void run_test(size_t cores = 4, size_t seed = 100)
 
   Cown::release(alloc, a);
   sched.run();
-  snmalloc::current_alloc_pool()->debug_check_empty();
+  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 int main(int argc, char** argv)
