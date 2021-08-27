@@ -108,7 +108,7 @@ jobs:
 - job:
   displayName: LinuxSandboxTests
   dependsOn: ConfigureCIRun
-  condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.testProcSandbox'], 'On')
+  condition: false # eq(dependencies.ConfigureCIRun.outputs['setVarStep.testProcSandbox'], 'On')
   pool:
     vmImage: 'ubuntu-20.04'
   timeoutInMinutes: 120
