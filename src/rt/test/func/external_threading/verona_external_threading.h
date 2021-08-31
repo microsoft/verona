@@ -10,7 +10,7 @@ namespace verona::rt
   class Topology
   {
   public:
-    Topology();
+    Topology(){};
     Topology(const Topology&) = delete;
     Topology(Topology&&) = delete;
 
