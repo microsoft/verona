@@ -7,19 +7,7 @@ if (DIFF_TOOL STREQUAL DIFF_TOOL-NOTFOUND)
   set(DIFF_TOOL "")
 endif()
 
-set(
-  DISABLED_TESTS
-  # Region-checking hasn't been ported yet
-  veronac/features/compile-fail/bad-branch
-
-  # The typechecker takes way too much time to solve this test
-  veronac/ir/compile-pass/loop-complexity
-
-  # These test randomly get stuck in a solver loop (microsoft/verona#77).
-  # Disable it until we find out why.
-  veronac/features/run-pass/when
-  veronac/features/run-pass/loop
-)
+set(DISABLED_TESTS)
 
 function(subdirlist result curdir)
   file(GLOB children LIST_DIRECTORIES true CONFIGURE_DEPENDS RELATIVE ${curdir}  ${curdir}/*)
@@ -35,6 +23,9 @@ endfunction()
 # Iterate each tool
 subdirlist(TOOL_FOLDERS ${CMAKE_CURRENT_SOURCE_DIR})
 foreach(TOOL ${TOOL_FOLDERS})
+  if (TOOL MATCHES "deprecated")
+    continue()
+  endif()
   set (test_set)
   set(TOOLCMD ${VERONA_LOCAL_DIST}/${TOOL}${CMAKE_EXECUTABLE_SUFFIX})
   set(TOOL_FOLDER ${CMAKE_CURRENT_SOURCE_DIR}/${TOOL})
