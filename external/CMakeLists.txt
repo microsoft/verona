@@ -65,6 +65,7 @@ if (VERONA_DOWNLOAD_LLVM)
 else()
   separate_arguments(LLVM_EXTRA_CMAKE_ARGS UNIX_COMMAND ${LLVM_EXTRA_CMAKE_ARGS})
   list (APPEND LLVM_EXTRA_CMAKE_ARGS
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL}/install  # Add install as tar has install prefix. Outer project knows about this.
     # Note: We must use the SEMICOLON generator expression here because CMake
     # uses semicolons as list separators and this must be a literal semicolon
@@ -74,8 +75,6 @@ else()
     -DLLVM_ENABLE_PROJECTS=clang$<SEMICOLON>mlir
     -DLLVM_TARGETS_TO_BUILD=X86
     -DLLVM_ENABLE_ASSERTIONS=On
-    -DLLVM_ENABLE_RTTI=ON
-    -DLLVM_ENABLE_EH=ON
     -DCMAKE_CXX_STANDARD=17
   )
 

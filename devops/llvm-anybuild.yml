@@ -119,7 +119,7 @@ jobs:
       call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
       mkdir build
       cd build
-      cmake ..\llvm -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DLLVM_ENABLE_PROJECTS="clang;mlir" -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_EH=ON -DLLVM_ENABLE_RTTI=ON -DCMAKE_INSTALL_PREFIX=install -DMLIR_INCLUDE_TESTS=OFF -Wno-dev
+      cmake ..\llvm -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DLLVM_ENABLE_PROJECTS="clang;mlir" -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_ASSERTIONS=ON -DCMAKE_INSTALL_PREFIX=install -DMLIR_INCLUDE_TESTS=OFF -Wno-dev
     displayName: CMake
 
   - script: |
@@ -229,8 +229,6 @@ jobs:
         -DLLVM_TARGETS_TO_BUILD="X86"         \
         -DLLVM_ENABLE_ASSERTIONS=ON           \
         -DLLVM_ENABLE_LLD=ON                  \
-        -DLLVM_ENABLE_EH=ON                   \
-        -DLLVM_ENABLE_RTTI=ON                 \
         -DCMAKE_INSTALL_PREFIX=install        \
         -DMLIR_INCLUDE_TESTS=OFF              \
         -Wno-dev
@@ -290,7 +288,7 @@ jobs:
     displayName: 'CMake'
     inputs:
       cmakeArgs: |
-        ../llvm -DCMAKE_BUILD_TYPE=$(BuildType) -DLLVM_ENABLE_PROJECTS="clang;mlir" -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_EH=ON -DLLVM_ENABLE_RTTI=ON -DCMAKE_INSTALL_PREFIX=install -DMLIR_INCLUDE_TESTS=OFF -Wno-dev
+        ../llvm -DCMAKE_BUILD_TYPE=$(BuildType) -DLLVM_ENABLE_PROJECTS="clang;mlir" -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_ASSERTIONS=ON -DCMAKE_INSTALL_PREFIX=install -DMLIR_INCLUDE_TESTS=OFF -Wno-dev
 
   - script: |
       set -eo pipefail

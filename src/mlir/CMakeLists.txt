@@ -27,13 +27,14 @@ find_package(MLIR REQUIRED CONFIG)
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-# Enable exception handling
-set(LLVM_REQUIRES_EH ON)
-set(LLVM_REQUIRES_RTTI ON)
-
-# LLVM was accidentally defaulting this to OFF.
-# TODO: this has been fixed upstream already. Remove when updating.
-set(LLVM_ENABLE_WARNINGS ON)
+# Disable RTTI and EH
+if (MSVC)
+  add_compile_options(/EH-)
+  add_compile_options(/GR-)
+else()
+  add_compile_options(-fno-rtti)
+  add_compile_options(-fno-exceptions)
+endif()
 
 set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
 set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
