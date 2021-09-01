@@ -201,15 +201,18 @@ namespace verona::interop
       // Search for class, enum or template.
       name = "::" + name;
       MatchFinder finder;
+      auto recDeclMatch =
+        std::make_unique<CXXTypeMatch<clang::CXXRecordDecl>>(ty);
+      auto classTempMatch =
+        std::make_unique<CXXTypeMatch<clang::ClassTemplateDecl>>(ty);
+      auto enumDeclMatch = std::make_unique<CXXTypeMatch<clang::EnumDecl>>(ty);
+
       finder.addMatcher(
-        cxxRecordDecl(hasName(name)).bind("id"),
-        new CXXTypeMatch<clang::CXXRecordDecl>(ty));
+        cxxRecordDecl(hasName(name)).bind("id"), recDeclMatch.get());
       finder.addMatcher(
-        classTemplateDecl(hasName(name)).bind("id"),
-        new CXXTypeMatch<clang::ClassTemplateDecl>(ty));
+        classTemplateDecl(hasName(name)).bind("id"), classTempMatch.get());
       finder.addMatcher(
-        enumDecl(hasName(name)).bind("id"),
-        new CXXTypeMatch<clang::EnumDecl>(ty));
+        enumDecl(hasName(name)).bind("id"), enumDeclMatch.get());
       finder.matchAST(*ast);
 
       // Return the type matched directly.
