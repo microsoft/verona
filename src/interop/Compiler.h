@@ -108,39 +108,27 @@ namespace verona::interop
       Clang = std::make_unique<clang::CompilerInstance>();
 
       // Diagnostics
-      // TODO: Wire up diagnostics so that we can spot invalid template
-      // instantiations.
       clang::IntrusiveRefCntPtr<clang::DiagnosticIDs> DiagID =
         new clang::DiagnosticIDs();
       clang::IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts =
         new clang::DiagnosticOptions();
-      auto* DiagsPrinter =
-        new clang::TextDiagnosticPrinter{llvm::errs(), &*DiagOpts};
-      auto* Diags =
-        new clang::DiagnosticsEngine(DiagID, DiagOpts, DiagsPrinter, false);
+      auto DiagsPrinter =
+        new clang::TextDiagnosticPrinter(llvm::errs(), DiagOpts.get());
+      clang::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags =
+        new clang::DiagnosticsEngine(DiagID, DiagOpts, DiagsPrinter, true);
 
       // Compiler invocation
       auto CI = createInvocationFromCommandLine(
         getArgs(sourceName), Diags, llvm::vfs::getRealFileSystem());
 
       // File and source manager
-      // FIXME: A new Diags is needed here because the invocation takes
-      // ownership. Can we make this more obvious?
-      Diags =
-        new clang::DiagnosticsEngine(DiagID, DiagOpts, DiagsPrinter, false);
-
-      // Create the file manager
-      // NOTE: Both managers pointers will be owned by CompilerInstance
-      auto* fileManager =
-        new clang::FileManager(clang::FileSystemOptions{}, FS);
-      auto* sourceManager = new clang::SourceManager(
+      Clang->setSourceManager(new clang::SourceManager(
         *Diags,
-        *fileManager,
-        /*UserFilesAreVolatile*/ false);
-      Clang->setFileManager(fileManager);
-      Clang->setSourceManager(sourceManager);
+        *new clang::FileManager(clang::FileSystemOptions{}, FS),
+        /*UserFilesAreVolatile*/ false));
+      Clang->setFileManager(&Clang->getSourceManager().getFileManager());
+      Clang->setDiagnostics(Diags.get());
       Clang->setInvocation(std::move(CI));
-      Clang->setDiagnostics(Diags);
 
       // Pre-processor and header search
       auto PPOpts = std::make_shared<clang::PreprocessorOptions>();
