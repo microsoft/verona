@@ -114,33 +114,36 @@ namespace verona::interop
         new clang::DiagnosticIDs();
       clang::IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts =
         new clang::DiagnosticOptions();
-      auto* DiagsPrinter =
-        new clang::TextDiagnosticPrinter{llvm::errs(), &*DiagOpts};
-      auto* Diags =
-        new clang::DiagnosticsEngine(DiagID, DiagOpts, DiagsPrinter, false);
+      auto DiagsPrinter = std::make_shared<clang::TextDiagnosticPrinter>(
+        llvm::errs(), DiagOpts.get());
+      clang::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags =
+        new clang::DiagnosticsEngine(
+          DiagID, DiagOpts, DiagsPrinter.get(), false);
 
       // Compiler invocation
       auto CI = createInvocationFromCommandLine(
         getArgs(sourceName), Diags, llvm::vfs::getRealFileSystem());
 
-      // File and source manager
-      // FIXME: A new Diags is needed here because the invocation takes
-      // ownership. Can we make this more obvious?
-      Diags =
-        new clang::DiagnosticsEngine(DiagID, DiagOpts, DiagsPrinter, false);
+      // A new Diags is needed here because the invocation takes ownership.
+      DiagID = new clang::DiagnosticIDs();
+      DiagOpts = new clang::DiagnosticOptions();
+      clang::IntrusiveRefCntPtr<clang::DiagnosticsEngine> NewDiags =
+        new clang::DiagnosticsEngine(
+          DiagID, DiagOpts, DiagsPrinter.get(), false);
 
-      // Create the file manager
+      // File and source manager
       // NOTE: Both managers pointers will be owned by CompilerInstance
+      // No need to free them later...
       auto* fileManager =
         new clang::FileManager(clang::FileSystemOptions{}, FS);
       auto* sourceManager = new clang::SourceManager(
-        *Diags,
+        *NewDiags,
         *fileManager,
         /*UserFilesAreVolatile*/ false);
       Clang->setFileManager(fileManager);
       Clang->setSourceManager(sourceManager);
       Clang->setInvocation(std::move(CI));
-      Clang->setDiagnostics(Diags);
+      Clang->setDiagnostics(NewDiags.get());
 
       // Pre-processor and header search
       auto PPOpts = std::make_shared<clang::PreprocessorOptions>();
