@@ -675,7 +675,7 @@ namespace mlir::verona
     return symbolTable().lookup(name, lastContextOnly);
   }
 
-  Type ASTConsumer::consumeType(::verona::parser::Type& ast)
+  Type ASTConsumer::consumeType(::verona::parser::NodeDef& ast)
   {
     switch (ast.kind())
     {
@@ -683,7 +683,7 @@ namespace mlir::verona
       {
         auto R = ast.as<TypeRef>();
         // TODO: Implement type list
-        return consumeType(R.typenames[0]->as<::verona::parser::Type>());
+        return consumeType(R.typenames[0]->as<::verona::parser::TypeName>());
       }
       case Kind::TypeName:
       {

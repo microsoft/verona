@@ -169,7 +169,7 @@ namespace mlir::verona
     Value lookup(::verona::parser::Ast ast, bool lastContextOnly = false);
 
     /// Consumes a type.
-    Type consumeType(::verona::parser::Type& ast);
+    Type consumeType(::verona::parser::NodeDef& ast);
 
   public:
     /**
