@@ -131,6 +131,10 @@ namespace
     // Parse the command line
     cl::ParseCommandLineOptions(
       args.size(), args.data(), "Verona Interop test\n");
+
+    // Manual cleanup because char* doesn't have a destructor
+    for (auto arg : args)
+      delete arg;
   }
 
   /// Test call
