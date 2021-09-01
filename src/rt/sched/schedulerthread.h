@@ -390,6 +390,10 @@ namespace verona::rt
       q.destroy(*alloc);
 
       Scheduler::get().sync.thread_finished(this);
+
+      // Reset the local thread pointer as this physical thread could be reused
+      // for a different SchedulerThread later.
+      Scheduler::local() = nullptr;
     }
 
     bool fast_steal(T*& result)

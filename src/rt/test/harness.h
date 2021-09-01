@@ -47,7 +47,7 @@ public:
   size_t seed_upper;
   high_resolution_clock::time_point start;
 
-  SystematicTestHarness(int argc, char** argv) : opt(argc, argv)
+  SystematicTestHarness(int argc, const char* const* argv) : opt(argc, argv)
   {
     for (int i = 0; i < argc; i++)
     {

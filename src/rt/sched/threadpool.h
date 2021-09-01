@@ -334,8 +334,6 @@ namespace verona::rt
           builder.add_thread(&T::run, t, startup, args...);
           t = t->next;
         } while (t != first_thread);
-
-        Systematic::cout() << "All threads started" << Systematic::endl;
       }
       Systematic::cout() << "All threads stopped" << Systematic::endl;
 
