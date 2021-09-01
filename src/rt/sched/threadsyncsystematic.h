@@ -64,7 +64,8 @@ namespace verona::rt
         return;
       }
 
-      auto i = snmalloc::bits::ctz(Systematic::get_prng_next());
+      auto r = Systematic::get_prng_next();
+      auto i = snmalloc::bits::ctz(r != 0 ? r : 1);
       auto start = running_thread;
       assert(me == start);
       UNUSED(me);

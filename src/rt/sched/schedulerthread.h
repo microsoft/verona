@@ -265,7 +265,8 @@ namespace verona::rt
         {
           cown = q.dequeue(*alloc);
           if (cown != nullptr)
-            Systematic::cout() << "Pop cown " << cown << Systematic::endl;
+            Systematic::cout()
+              << "Pop cown " << clear_thread_bit(cown) << Systematic::endl;
         }
 
         if (cown == nullptr)
@@ -404,8 +405,9 @@ namespace verona::rt
         if (cown != nullptr)
         {
           // stats.steal();
-          Systematic::cout() << "Fast-steal cown " << cown << " from "
-                             << victim->systematic_id << Systematic::endl;
+          Systematic::cout()
+            << "Fast-steal cown " << clear_thread_bit(cown) << " from "
+            << victim->systematic_id << Systematic::endl;
           result = cown;
           return true;
         }
@@ -476,8 +478,9 @@ namespace verona::rt
           if (cown != nullptr)
           {
             stats.steal();
-            Systematic::cout() << "Stole cown " << cown << " from "
-                               << victim->systematic_id << Systematic::endl;
+            Systematic::cout()
+              << "Stole cown " << clear_thread_bit(cown) << " from "
+              << victim->systematic_id << Systematic::endl;
             return cown;
           }
         }

@@ -128,7 +128,7 @@ namespace verona::rt
 
       assert(epoch != T::NO_EPOCH_SET);
 
-      fnt->epoch_when_popped = epoch;
+      unmask(fnt)->epoch_when_popped = epoch;
 
       return fnt;
     }
