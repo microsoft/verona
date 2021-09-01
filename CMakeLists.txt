@@ -27,13 +27,17 @@ option(ENABLE_ASSERTS "Enable asserts even in release builds" OFF)
 option_top(RT_TESTS "Including unit tests for the runtime" OFF)
 option_top(VERONA_EXPENSIVE_SYSTEMATIC_TESTING "Increase the range of seeds covered by systematic testing" OFF)
 option(USE_SCHED_STATS "Track scheduler stats" OFF)
-option(USE_ASAN "Use address sanitizer" OFF)
 option(VERONA_CI_BUILD "Disable features not sensible for CI" OFF)
 option(USE_SYSTEMATIC_TESTING "Enable systematic testing in the runtime" OFF)
 option(USE_CRASH_LOGGING "Enable crash logging in the runtime" OFF)
 if (NOT MSVC)
   option(CMAKE_EXPORT_COMPILE_COMMANDS "Export compilation commands" ON)
 endif ()
+
+set(SANITIZER "" CACHE STRING "Use sanitizer type (address|undefined|memory|...)")
+if (SANITIZER)
+  message(STATUS "Using sanitizer=${SANITIZER}")
+endif()
 
 ##########################################################
 # Pass parameters to subbuild.

@@ -21,6 +21,16 @@ if (ENABLE_ASSERTS)
   enable_asserts()
 endif()
 
+# Sanitizers must be added first, or it gets upset.
+if(SANITIZER)
+  if(MSVC)
+    message(FATAL_ERROR "MSVC does not support sanitizers")
+  endif()
+  message(STATUS "Using sanitizer=${SANITIZER}")
+  add_compile_options(-fsanitize=${SANITIZER})
+  add_link_options(-fsanitize=${SANITIZER})
+endif()
+
 add_subdirectory(../external/CLI11 ./external/CLI11 EXCLUDE_FROM_ALL)
 add_subdirectory(../external/fmt ./external/fmt EXCLUDE_FROM_ALL)
 add_subdirectory(../external/pegmatite ./external/pegmatite EXCLUDE_FROM_ALL)
