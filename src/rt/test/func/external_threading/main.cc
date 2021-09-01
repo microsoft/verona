@@ -22,7 +22,7 @@ int main()
 {
   Systematic::enable_logging();
   SystematicTestHarness harness(
-    static_cast<int>(std::size(HARNESS_ARGV)), HARNESS_ARGV);
+    static_cast<int>(std::ssize(HARNESS_ARGV)), HARNESS_ARGV);
 
   harness.run(test_cown);
 
