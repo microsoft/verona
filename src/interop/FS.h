@@ -58,7 +58,8 @@ namespace verona::interop
     {
       llvm::SmallVector<char, 16> out;
       llvm::sys::fs::real_path(path, out, /*expand_tilde*/ true);
-      return out.data();
+      std::string res(out.data(), out.size());
+      return res;
     }
 
     /**
