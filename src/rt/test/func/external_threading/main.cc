@@ -21,7 +21,8 @@ void test_cown()
 int main()
 {
   Systematic::enable_logging();
-  SystematicTestHarness harness(std::size(HARNESS_ARGV), HARNESS_ARGV);
+  SystematicTestHarness harness(
+    static_cast<int>(std::size(HARNESS_ARGV)), HARNESS_ARGV);
 
   harness.run(test_cown);
 
