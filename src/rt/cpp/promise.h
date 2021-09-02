@@ -7,7 +7,7 @@ namespace verona::rt
   /*
    * This class defines a Promise object to be used inside the verona runtime
    * A promise is a cown whose lifetime is controlled by the read and write
-   * end point (PromiseR and PromiseW). There can be a single writer and 
+   * end point (PromiseR and PromiseW). There can be a single writer and
    * multiple readers.
    *
    * The cown has a local value (val) which is the value returned by the
@@ -51,10 +51,11 @@ namespace verona::rt
     public:
       template<
         typename F,
-        typename = std::enable_if_t<std::is_invocable_v<F, T>>>
-      void then(F&& fn)
+        typename = std::enable_if_t<std::is_invocable_v<F, T>>,
+        typename E>
+      void then(F&& fn, E&& err)
       {
-        promise->then(std::forward<F>(fn));
+        promise->then(std::forward<F>(fn), std::forward<E>(err));
       }
 
       /**
@@ -119,17 +120,31 @@ namespace verona::rt
       ~PromiseW()
       {
         if (promise)
-          Cown::release(ThreadAlloc::get(), promise);
+        {
+          if (!promise->fulfilled)
+            promise->schedule();
+          else
+            Cown::release(ThreadAlloc::get(), promise);
+        }
       }
     };
 
   private:
     T val;
+    bool fulfilled;
 
-    template<typename F, typename = std::enable_if_t<std::is_invocable_v<F, T>>>
-    void then(F&& fn)
+    template<
+      typename F,
+      typename = std::enable_if_t<std::is_invocable_v<F, T>>,
+      typename E>
+    void then(F&& fn, E&& err)
     {
-      schedule_lambda(this, [fn = std::move(fn), this] { fn(val); });
+      schedule_lambda(this, [fn = std::move(fn), err = std::move(err), this] {
+        if (fulfilled)
+          fn(val);
+        else
+          err();
+      });
     }
 
     /**
@@ -142,6 +157,7 @@ namespace verona::rt
     Promise()
     {
       VCown<Promise<T>>::wake();
+      fulfilled = false;
     }
 
   public:
@@ -166,6 +182,7 @@ namespace verona::rt
     {
       PromiseW tmp = std::move(wp);
       tmp.promise->val = v;
+      tmp.promise->fulfilled = true;
       Cown::acquire(tmp.promise);
       tmp.promise->schedule();
     }
