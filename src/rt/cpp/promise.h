@@ -5,7 +5,7 @@
 namespace verona::rt
 {
   /*
-   * This class defines a Promise object to be used inside the verona runtime
+   * This class defines a Promise object on top of the verona runtime.
    * A promise is a cown whose lifetime is controlled by the read and write
    * end point (PromiseR and PromiseW). There can be a single writer and
    * multiple readers.
