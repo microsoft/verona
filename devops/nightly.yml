@@ -68,7 +68,18 @@ stages:
           CXXFLAGS: -stdlib=libstdc++
           BuildType: Release
           SANITIZER: address
-        # TODO: Add UBSAN (undefined)
+        Clang Debug (UBSAN):
+          CC: clang
+          CXX: clang++
+          CXXFLAGS: -stdlib=libstdc++
+          BuildType: Debug
+          SANITIZER: undefined
+        Clang Release (UBSAN):
+          CC: clang
+          CXX: clang++
+          CXXFLAGS: -stdlib=libstdc++
+          BuildType: Release
+          SANITIZER: undefined
     steps:
     - checkout: self
 
