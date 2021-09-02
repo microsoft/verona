@@ -29,6 +29,12 @@ if(SANITIZER)
   message(STATUS "Using sanitizer=${SANITIZER}")
   add_compile_options(-fsanitize=${SANITIZER})
   add_link_options(-fsanitize=${SANITIZER})
+  # Disable vptr check in UBSAN (incompatible with -no-rtti used by LLVM)
+  # https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html#available-checks
+  if (SANITIZER MATCHES "undefined")
+    add_compile_options(-fno-sanitize=vptr)
+    add_link_options(-fno-sanitize=vptr)
+  endif()
 endif()
 
 add_subdirectory(../external/CLI11 ./external/CLI11 EXCLUDE_FROM_ALL)

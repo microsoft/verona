@@ -56,30 +56,18 @@ stages:
           CXXFLAGS: -stdlib=libstdc++
           BuildType: Release
           SANITIZER:
-        Clang Debug (ASAN):
+        Clang Debug (SAN):
           CC: clang
           CXX: clang++
           CXXFLAGS: -stdlib=libstdc++
           BuildType: Debug
-          SANITIZER: address
-        Clang Release (ASAN):
+          SANITIZER: address,undefined,leak
+        Clang Release (SAN):
           CC: clang
           CXX: clang++
           CXXFLAGS: -stdlib=libstdc++
           BuildType: Release
-          SANITIZER: address
-        Clang Debug (UBSAN):
-          CC: clang
-          CXX: clang++
-          CXXFLAGS: -stdlib=libstdc++
-          BuildType: Debug
-          SANITIZER: undefined
-        Clang Release (UBSAN):
-          CC: clang
-          CXX: clang++
-          CXXFLAGS: -stdlib=libstdc++
-          BuildType: Release
-          SANITIZER: undefined
+          SANITIZER: address,undefined,leak
     steps:
     - checkout: self
 
@@ -124,12 +112,12 @@ stages:
           CXXFLAGS:
           BuildType: Release
           SANITIZER:
-        Clang Debug (ASAN):
+        Clang Debug (SAN):
           CC: clang
           CXX: clang++
           CXXFLAGS: -stdlib=libstdc++
           BuildType: Debug
-          SANITIZER: address
+          SANITIZER: address,undefined,leak
 
     variables:
       - template: ./vars/anybuild-vars.yml

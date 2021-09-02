@@ -63,13 +63,12 @@ jobs:
         CXXFLAGS:
         BuildType: Release
         SANITIZER:
-      Clang RelDbg+ASAN:
+      Clang RelDbg+SAN:
         CC: clang
         CXX: clang++
         CXXFLAGS: -stdlib=libstdc++
         BuildType: RelWithDebInfo
-        SANITIZER: address
-      # TODO: Add UBSAN (undefined)
+        SANITIZER: address,undefined,leak
   steps:
   - checkout: self
 
