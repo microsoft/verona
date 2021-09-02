@@ -259,7 +259,7 @@ stages:
       displayName: 'CMake'
       inputs:
         cmakeArgs: |
-          .. -DCMAKE_BUILD_TYPE=$(BuildType) -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=ON
+          .. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On -DRT_TESTS=ON
 
     - script: |
         set -eo pipefail
