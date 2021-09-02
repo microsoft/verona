@@ -27,13 +27,14 @@ endif()
 
 add_library(verona_rt INTERFACE)
 # ASAN must be added first, or it gets upset.
-if(USE_ASAN)
+if(SANITIZER)
   if(MSVC)
-    message(FATAL_ERROR "MSVC does not support ASAN")
+    message(FATAL_ERROR "MSVC does not support sanitizers")
   endif()
+  message(STATUS "Run-time sanitizer=${SANITIZER}")
   target_compile_definitions(verona_rt INTERFACE -DSNMALLOC_PASS_THROUGH)
-  target_compile_options(verona_rt INTERFACE -g -fsanitize=address -fno-omit-frame-pointer)
-  target_link_libraries(verona_rt INTERFACE -fsanitize=address)
+  target_compile_options(verona_rt INTERFACE -g -fsanitize=${SANITIZER} -fno-omit-frame-pointer)
+  target_link_libraries(verona_rt INTERFACE -fsanitize=${SANITIZER})
 endif()
 
 if(USE_SYSTEMATIC_TESTING)

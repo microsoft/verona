@@ -37,37 +37,49 @@ stages:
           CXX: g++
           CXXFLAGS:
           BuildType: Debug
-          Asan: Off
+          SANITIZER:
         GCC Release:
           CC: gcc
           CXX: g++
           CXXFLAGS:
-          Asan: Off
           BuildType: Release
+          SANITIZER:
         Clang Debug:
           CC: clang
           CXX: clang++
           CXXFLAGS: -stdlib=libstdc++
           BuildType: Debug
-          Asan: Off
+          SANITIZER:
         Clang Release:
           CC: clang
           CXX: clang++
           CXXFLAGS: -stdlib=libstdc++
-          Asan: Off
           BuildType: Release
+          SANITIZER:
         Clang Debug (ASAN):
           CC: clang
           CXX: clang++
           CXXFLAGS: -stdlib=libstdc++
           BuildType: Debug
-          Asan: On
+          SANITIZER: address
         Clang Release (ASAN):
           CC: clang
           CXX: clang++
           CXXFLAGS: -stdlib=libstdc++
           BuildType: Release
-          Asan: On
+          SANITIZER: address
+        Clang Debug (UBSAN):
+          CC: clang
+          CXX: clang++
+          CXXFLAGS: -stdlib=libstdc++
+          BuildType: Debug
+          SANITIZER: undefined
+        Clang Release (UBSAN):
+          CC: clang
+          CXX: clang++
+          CXXFLAGS: -stdlib=libstdc++
+          BuildType: Release
+          SANITIZER: undefined
     steps:
     - checkout: self
 
@@ -83,7 +95,7 @@ stages:
       displayName: 'CMake'
       inputs:
         cmakeArgs: |
-          .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DENABLE_ASSERTS=ON -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DRT_TESTS=ON
+          .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DENABLE_ASSERTS=ON -DSANITIZER=$(SANITIZER) -DVERONA_CI_BUILD=On -DRT_TESTS=ON
 
     - script: |
         set -eo pipefail
@@ -110,14 +122,14 @@ stages:
           CC: gcc
           CXX: g++
           CXXFLAGS:
-          Asan: Off
           BuildType: Release
+          SANITIZER:
         Clang Debug (ASAN):
           CC: clang
           CXX: clang++
           CXXFLAGS: -stdlib=libstdc++
           BuildType: Debug
-          Asan: On
+          SANITIZER: address
 
     variables:
       - template: ./vars/anybuild-vars.yml
@@ -145,7 +157,7 @@ stages:
           -DCMAKE_BUILD_TYPE=$(BuildType)          \
           -DCMAKE_CXX_FLAGS=$(CXXFLAGS)            \
           -DENABLE_ASSERTS=ON                      \
-          -DUSE_ASAN=$(Asan)                       \
+          -DSANITIZER=$(SANITIZER)                 \
           -DVERONA_CI_BUILD=On                     \
           -DRT_TESTS=ON                            \
           -DVERONA_BUILD_LLVM_SUBMODULE=ON         \
@@ -161,7 +173,7 @@ stages:
 
     - template: ./steps/linux/anybuild.yml
       parameters:
-        BuildName: Verona-$(BuildType)-$(CC)-Asan$(Asan)-AnyBuild
+        BuildName: Verona-$(BuildType)-$(CC)-san$(SANITIZER)-AnyBuild
         BuildCommandLine: env CMAKE_BUILD_PARALLEL_LEVEL=${{ parameters.AnyBuildParallelism }} cmake --build .
         WorkingDirectory: build
 

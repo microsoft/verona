@@ -62,13 +62,14 @@ jobs:
         CXX: g++
         CXXFLAGS:
         BuildType: Release
-        Asan: Off
+        SANITIZER:
       Clang RelDbg+ASAN:
         CC: clang
         CXX: clang++
         CXXFLAGS: -stdlib=libstdc++
         BuildType: RelWithDebInfo
-        Asan: On
+        SANITIZER: address
+      # TODO: Add UBSAN (undefined)
   steps:
   - checkout: self
 
@@ -90,7 +91,7 @@ jobs:
     displayName: 'CMake'
     inputs:
       cmakeArgs: |
-        .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DENABLE_ASSERTS=ON -DUSE_ASAN=$(Asan) -DVERONA_CI_BUILD=On -DRT_TESTS=$(RTTests)
+        .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DENABLE_ASSERTS=ON -DSANITIZER=$(SANITIZER) -DVERONA_CI_BUILD=On -DRT_TESTS=$(RTTests)
 
   - script: |
       set -eo pipefail
@@ -100,7 +101,8 @@ jobs:
 
   - script: |
       set -eo pipefail
-      export ASAN_OPTIONS="alloc_dealloc_mismatch=0 symbolize=1"
+      export UBSAN_OPTIONS="print_stacktrace=1"
+      export ASAN_OPTIONS="alloc_dealloc_mismatch=0 symbolize=1 print_stacktrace=1"
       ninja check
     workingDirectory: build
     displayName: 'Tests'
