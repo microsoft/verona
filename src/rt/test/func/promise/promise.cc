@@ -10,8 +10,9 @@ void promise_test()
   auto rp2 = rp;
   auto wp = std::move(pp.second);
 
-  schedule_lambda(
-    [wp = move(wp)]() mutable { Promise<int>::fulfill(std::move(wp), 42); });
+  schedule_lambda([wp = std::move(wp)]() mutable {
+    Promise<int>::fulfill(std::move(wp), 42);
+  });
 
   rp.then([](int val) { Systematic::cout() << val << std::endl; });
   rp.then([](int val) { Systematic::cout() << val << std::endl; });
