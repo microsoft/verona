@@ -83,7 +83,8 @@ This represents any work-in-progress changes since the last release and exists s
 
 By making the API version distinct from the implementation version, we allow:
 
- - A program to consume two different API versions of the same package (while consuming a single implementation)
+ - A program to consume two different API versions of the same package (while consuming a single implementation).
+   See below for some corner cases that need to be addressed for this to work reliably.
  - A package to deprecate and remove APIs gradually over time without needing two versions of the code.
  - A package to add new APIs without breaking any consumers.
 
