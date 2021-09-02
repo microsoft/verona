@@ -111,7 +111,7 @@ jobs:
 
       Remove-Item -Force -Recurse "$env:LOCALAPPDATA\Microsoft\AnyBuild" -ea SilentlyContinue
 
-      Invoke-Command -ScriptBlock ([scriptblock]::Create((New-Object System.Net.WebClient).DownloadString("$(AnyBuildSource)/bootstrapper.ps1")))
+      Invoke-Expression ((curl.exe -s -S --retry 10 --retry-connrefused '$(AnyBuildSource)/bootstrapper.ps1') | Out-String)
     displayName: Install AnyBuild
 
   - script: |
