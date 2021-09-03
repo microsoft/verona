@@ -135,6 +135,8 @@ public:
                 << duration_cast<seconds>((t1 - start)).count() << " seconds"
                 << std::endl;
     }
+
+    std::cout << "Test Harness Finished!" << std::endl;
   }
 
   /**
