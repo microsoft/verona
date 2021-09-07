@@ -98,13 +98,9 @@ jobs:
     workingDirectory: build
     displayName: 'Compile'
 
-  - script: |
-      set -eo pipefail
-      export UBSAN_OPTIONS="print_stacktrace=1"
-      export ASAN_OPTIONS="alloc_dealloc_mismatch=0 symbolize=1 print_stacktrace=1"
-      ninja check
-    workingDirectory: build
-    displayName: 'Tests'
+  - template: ./steps/linux/test.yml
+    parameters:
+      WorkingDirectory: build
 
 - job:
   displayName: LinuxSandboxTests
