@@ -49,6 +49,8 @@ public:
 
   SystematicTestHarness(int argc, const char* const* argv) : opt(argc, argv)
   {
+    std::cout << "Harness starting." << std::endl;
+
     for (int i = 0; i < argc; i++)
     {
       std::cout << " " << argv[i];
