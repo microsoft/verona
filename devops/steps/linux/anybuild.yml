@@ -35,7 +35,7 @@ steps:
     readonly abClientExe="$HOME/.local/share/Microsoft/AnyBuild/AnyBuild.sh"
 
     # why cache miss key must not contain commas
-    readonly cacheDataStoreKey="${{ replace(parameters.BuildName, ',', '_') }}"
+    cacheDataStoreKey="$(echo "${{ parameters.BuildName }}" | tr ',' '_' )"
 
     env -i                                                           \
       SECRET=$(LLVMPrincipalPassword)                                \
