@@ -318,7 +318,9 @@ int main(int argc, char** argv)
   // NOTE: Output is not stable, don't use it for tests
   if (dumpIR)
   {
+#ifndef NDEBUG
     mod->dump();
+#endif
   }
 
   return 0;

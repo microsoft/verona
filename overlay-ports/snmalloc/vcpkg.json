@@ -1,0 +1,11 @@
+{
+  "name"           : "snmalloc",
+  "description"    : "snmalloc memory allocator",
+  "version-string" : "verona",
+  "dependencies": [
+    {
+        "name": "vcpkg-cmake-config",
+        "host": true
+    }
+  ]
+}

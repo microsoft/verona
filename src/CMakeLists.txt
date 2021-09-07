@@ -21,13 +21,6 @@ if (ENABLE_ASSERTS)
   enable_asserts()
 endif()
 
-add_subdirectory(../external/CLI11 ./external/CLI11 EXCLUDE_FROM_ALL)
-add_subdirectory(../external/fmt ./external/fmt EXCLUDE_FROM_ALL)
-add_subdirectory(../external/pegmatite ./external/pegmatite EXCLUDE_FROM_ALL)
-
-add_library(cpp-peglib INTERFACE)
-target_include_directories(cpp-peglib INTERFACE ../external/cpp-peglib)
-
 if(MSVC)
   add_compile_options(/permissive-)
   add_compile_options(/utf-8)
@@ -37,7 +30,11 @@ if(MSVC)
   add_compile_options(/wd4624)
 endif()
 
-set (VERONA_RT_ONLY_HEADER_LIBRARY ON)
+if (RT_TESTS)
+  enable_testing()
+else()
+  set (VERONA_RT_ONLY_HEADER_LIBRARY ON)
+endif()
 add_subdirectory(rt)
 
 # Should go to stricter warnings 

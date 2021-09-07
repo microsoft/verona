@@ -1,4 +1,5 @@
 find_package(Threads REQUIRED)
+find_package(CLI11 CONFIG REQUIRED)
 
 add_library(verona-parser-lib
   anf.cc
@@ -19,5 +20,9 @@ add_executable(verona-parser main.cc)
 target_link_libraries(verona-parser-lib CLI11::CLI11)
 target_link_libraries(verona-parser-lib Threads::Threads)
 target_link_libraries(verona-parser verona-parser-lib)
+
+get_target_property(STDLIB_TMP_PATH verona-parser BINARY_DIR)
+file(CREATE_LINK ${CMAKE_SOURCE_DIR}/src/stdlib ${STDLIB_TMP_PATH}/stdlib
+     COPY_ON_ERROR SYMBOLIC)
 
 install(TARGETS verona-parser RUNTIME DESTINATION .)

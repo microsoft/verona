@@ -27,8 +27,10 @@ foreach(TOOL ${TOOL_FOLDERS})
     continue()
   endif()
   set (test_set)
-  set(TOOLCMD ${VERONA_LOCAL_DIST}/${TOOL}${CMAKE_EXECUTABLE_SUFFIX})
+  set(TOOLCMD ${TOOL})
   set(TOOL_FOLDER ${CMAKE_CURRENT_SOURCE_DIR}/${TOOL})
+  get_target_property(TOOL_LOCATION ${TOOL} BINARY_DIR)
+  message(STATUS "${TOOL} is in ${TOOL_LOCATION}")
   
   # Grab specific settings for this tool
   include(${CMAKE_CURRENT_LIST_DIR}/${TOOL}.cmake)
@@ -61,7 +63,7 @@ foreach(TOOL ${TOOL_FOLDERS})
       ${CMAKE_COMMAND}
         -DTESTFILE=${test_file}
         -DWORKING_DIR=${TOOL_FOLDER}/${test_dir}
-        -DTOOLCMD=${TOOLCMD}
+        -DTOOLCMD=${TOOL_LOCATION}/${TOOL}
         -DTOOLNAME=${TOOL}
         -DOUTPUT_DIR=${output_dir}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/run_command.cmake
@@ -137,7 +139,8 @@ foreach(TOOL ${TOOL_FOLDERS})
 
     endif()
   endforeach()
-  add_custom_command(OUTPUT ${TOOL}
+  message(STATUS "Tool: ${TOOL}, test set ${test_set}")
+  add_custom_command(OUTPUT ${TOOL}.test
     DEPENDS ${test_set})
 endforeach()
 

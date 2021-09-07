@@ -1,5 +1,8 @@
 include(CheckCXXSymbolExists)
 
+find_package(CLI11 CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+
 CHECK_CXX_SOURCE_COMPILES(
 "
 #include <filesystem>
@@ -63,7 +66,7 @@ add_library(veronac-lib
 )
 
 target_link_libraries(veronac-lib CLI11::CLI11)
-target_link_libraries(veronac-lib fmt)
+target_link_libraries(veronac-lib fmt::fmt)
 target_link_libraries(veronac-lib pegmatite-static)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")

@@ -1,21 +1,4 @@
-[submodule "src/rt/external/snmalloc"]
-	path = external/snmalloc
-	url = https://github.com/Microsoft/snmalloc
-	branch = master
-	shallow = true
 [submodule "external/pegmatite"]
-	path = external/pegmatite
+	path = src/deprecated/external/pegmatite
 	url = https://github.com/CompilerTeaching/Pegmatite
-	shallow = true
-[submodule "external/CLI11"]
-	path = external/CLI11
-	url = https://github.com/CLIUtils/CLI11
-	shallow = true
-[submodule "external/fmt"]
-	path = external/fmt
-	url = https://github.com/fmtlib/fmt.git
-	shallow = true
-[submodule "external/llvm-project"]
-	path = external/llvm-project
-	url = https://github.com/llvm/llvm-project.git
 	shallow = true
