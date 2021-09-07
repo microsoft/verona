@@ -46,6 +46,8 @@ steps:
       --ClientApplicationId $(LLVMPrincipalAppId)                           \
       --ClientSecretEnvironmentVariable SECRET                              \
       --ExperimentName "${{ parameters.BuildName }}"                        \
+      --LogDir .                                                            \
+      --NoSessionLogDir                                                     \
       --WhyCacheMiss                                                        \
       --WhyCacheMissOptions CacheDataStoreKey="${{ parameters.BuildName }}" \
       ${{ parameters.ExtraAnyBuildArgs }}                                   \
