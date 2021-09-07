@@ -152,56 +152,19 @@ struct Loop : public VBehaviour<Loop>
 //    prematurely collected because the `has_ext_ref` bit confused the tracing
 //    algorithm.
 // 5. Clean up resource, and exit.
-void run_test(size_t cores = 4, size_t seed = 100)
+void run_test()
 {
-#ifdef USE_SYSTEMATIC_TESTING
-  Systematic::set_seed(seed);
-#else
-  UNUSED(seed);
-#endif
-  Scheduler& sched = Scheduler::get();
-  sched.init(cores);
-
   auto& alloc = ThreadAlloc::get();
-  (void)alloc;
-
   auto a = new A;
   Cown::schedule<Loop>(a, a);
-
   Cown::release(alloc, a);
-  sched.run();
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
 
 int main(int argc, char** argv)
 {
-  opt::Opt opt(argc, argv);
-  size_t seed_lower = opt.is<size_t>("--seed", 5489);
-  size_t seed_upper = opt.is<size_t>("--seed_upper", seed_lower) + 1;
+  SystematicTestHarness harness(argc, argv);
 
-#ifdef USE_FLIGHT_RECORDER
-  Systematic::enable_crash_logging();
-#endif
-
-  if (seed_lower + 1 == seed_upper)
-    Systematic::enable_logging();
-
-  if (seed_upper < seed_lower)
-  {
-    std::cout << "Seed_upper " << seed_upper << " seed_lower " << seed_lower
-              << std::endl;
-    abort();
-  }
-
-  size_t cores = opt.is<size_t>("--cores", 4);
-  std::cout << " --cores " << cores;
-
-  for (size_t seed = seed_lower; seed < seed_upper; seed++)
-  {
-    std::cout << "Seed: " << seed << std::endl;
-
-    run_test(cores, seed);
-  }
+  harness.run(run_test);
 
   return 0;
 }
