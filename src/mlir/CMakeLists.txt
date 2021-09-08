@@ -44,11 +44,11 @@ add_executable(verona-mlir
   generator.cc
   verona-mlir.cc)
 
-get_target_property(STDLIB_TMP_PATH verona-mlir BINARY_DIR)
-message(STATUS "Copying stdlib to ${STDLIB_TMP_PATH}")
-
-file(CREATE_LINK ${CMAKE_SOURCE_DIR}/src/stdlib ${STDLIB_TMP_PATH}/stdlib
-     COPY_ON_ERROR SYMBOLIC)
+# Copy the stdlib into the place verona-mlir will find it.
+add_custom_command(TARGET verona-mlir
+  POST_BUILD
+  COMMAND ${CMAKE_COMMAND} ARGS -E create_symlink ${CMAKE_SOURCE_DIR}/src/stdlib $<TARGET_FILE_DIR:verona-mlir>/stdlib
+  MAIN_DEPENDENCY ${CMAKE_SOURCE_DIR}/src/stdlib)
 
 target_link_libraries(verona-mlir PRIVATE ${LIBS})
 install(TARGETS verona-mlir RUNTIME DESTINATION .)
