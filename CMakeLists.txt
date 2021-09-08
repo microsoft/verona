@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.10.0)
 
 # Bootstrap vcpkg before we declare the project
+# Use a pinned version of vcpkg so that we guarantee that CI has stable
+# dependencies.
+set(FIXED_VCPKG_VERSION "615547c1d5b363d3586d2012c4cd7d075a0516b8")
 include(cmake/vcpkg.cmake)
 
 project(verona CXX)
