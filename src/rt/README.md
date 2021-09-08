@@ -56,9 +56,10 @@ build\Debug\func-sys-diningphilosophers.exe
 ```
 will run it with an actually concurrent runtime. 
 
-Systematic testing tests take parameters `--seed n` and `--seed_upper m` to run
-the seed range `n` to `m`. If you provide a single seed, then it will print the
-trace for that seed.
+Systematic testing tests take parameters `--seed n` and `--seed_count m` to run
+the seed range `n` to `n+m-1`. If you provide a `--seed_count 1` (which it 
+defaults to, if not provided), then it will print the trace for that seed.
+If you don't provide `--seed` it will pick a random starting seed.
 
 
 # CMake Feature Flags

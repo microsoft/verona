@@ -34,22 +34,27 @@ steps:
 
     readonly abClientExe="$HOME/.local/share/Microsoft/AnyBuild/AnyBuild.sh"
 
-    env -i                                                                \
-      SECRET=$(LLVMPrincipalPassword)                                     \
-      HOME="$HOME"                                                        \
-      PATH="$PATH"                                                        \
-    "$abClientExe"                                                        \
-      --RemoteExecServiceUri $(AnyBuildEnvironmentUri)                    \
-      --NoCheckForUpdates                                                 \
-      --WaitForAgentForever                                               \
-      --DoNotUseMachineUtilizationForScheduling                           \
-      --ClientApplicationId $(LLVMPrincipalAppId)                         \
-      --ClientSecretEnvironmentVariable SECRET                            \
-      --ExperimentName "${{ parameters.BuildName }}"                      \
-      --WhyCacheMiss                                                      \
-      --WhyCacheMissOptions CacheDataStoreKey=${{ parameters.BuildName }} \
-      ${{ parameters.ExtraAnyBuildArgs }}                                 \
-      --                                                                  \
+    # why cache miss key must not contain commas
+    cacheDataStoreKey="$(echo "${{ parameters.BuildName }}" | tr ',' '_' )"
+
+    env -i                                                           \
+      SECRET=$(LLVMPrincipalPassword)                                \
+      HOME="$HOME"                                                   \
+      PATH="$PATH"                                                   \
+    "$abClientExe"                                                   \
+      --RemoteExecServiceUri $(AnyBuildEnvironmentUri)               \
+      --NoCheckForUpdates                                            \
+      --WaitForAgentForever                                          \
+      --DoNotUseMachineUtilizationForScheduling                      \
+      --ClientApplicationId $(LLVMPrincipalAppId)                    \
+      --ClientSecretEnvironmentVariable SECRET                       \
+      --ExperimentName "${{ parameters.BuildName }}"                 \
+      --LogDir .                                                     \
+      --NoSessionLogDir                                              \
+      --WhyCacheMiss                                                 \
+      --WhyCacheMissOptions "CacheDataStoreKey=${cacheDataStoreKey}" \
+      ${{ parameters.ExtraAnyBuildArgs }}                            \
+      --                                                             \
       ${{ parameters.BuildCommandLine }}
   workingDirectory: ${{ parameters.WorkingDirectory }}
   displayName: AnyBuild ${{ parameters.BuildName }}

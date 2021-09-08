@@ -5,8 +5,8 @@ parameters:
 steps:
 - script: |
     set -eo pipefail
-    export ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer
-    export ASAN_OPTIONS="alloc_dealloc_mismatch=0 symbolize=1"
+    export UBSAN_OPTIONS="print_stacktrace=1"
+    export ASAN_OPTIONS="alloc_dealloc_mismatch=0 symbolize=1 print_stacktrace=1"
     ninja check
   workingDirectory: ${{ parameters.WorkingDirectory }}
   displayName: Tests
