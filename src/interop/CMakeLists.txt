@@ -14,6 +14,7 @@ list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 
 include(AddLLVM)
 
+include_directories(../ds)
 include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${CLANG_INCLUDE_DIRS})
 link_directories(${LLVM_BUILD_LIBRARY_DIR})
