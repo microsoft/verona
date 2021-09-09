@@ -65,8 +65,8 @@ if (VERONA_DOWNLOAD_LLVM)
 else()
   separate_arguments(LLVM_EXTRA_CMAKE_ARGS UNIX_COMMAND ${LLVM_EXTRA_CMAKE_ARGS})
   set (LLVM_CMAKE_ARGS
-    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} # set a default CMAKE_BUILD_TYPE to be the same as for Verona
-    -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL}/install # Add install as tar has install prefix. Outer project knows about this.
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}          # set a default CMAKE_BUILD_TYPE to be the same as for Verona
+    -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL}/install  # Add install as tar has install prefix. Outer project knows about this.
     # Note: We must use the SEMICOLON generator expression here because CMake
     # uses semicolons as list separators and this must be a literal semicolon
     # in the final output.  There are at least two steps in between this line
