@@ -1,0 +1,23 @@
+{
+  "name"         : "verona",
+  "version"      : "0.1",
+  "dependencies" : [
+    "cli11",
+    "fmt",
+    "snmalloc",
+    {
+      "name"     : "llvm",
+      "default-features": false,
+      "features" : [ 
+        "clang",
+        "mlir",
+        "disable-abi-breaking-checks",
+        "disable-assertions",
+        "disable-clang-static-analyzer",
+        "enable-threads",
+        "target-x86",
+        "target-aarch64"
+      ]
+    }
+  ]
+}
