@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "ds/hashmap.h"
 
+#include "test/harness.h"
 #include "test/opt.h"
 #include "test/xoroshiro.h"
 #include "verona.h"
@@ -156,11 +157,10 @@ bool test(size_t seed)
 
 int main(int argc, char** argv)
 {
-  opt::Opt opt(argc, argv);
-  auto seed = opt.is<size_t>("--seed", 5489);
-  const auto seed_upper = opt.is<size_t>("--seed_upper", seed);
+  // Use harness for consistent API to seeds for randomness.
+  SystematicTestHarness harness(argc, argv);
 
-  for (; seed <= seed_upper; seed++)
+  for (size_t seed = harness.seed_lower; seed <= harness.seed_upper; seed++)
   {
     std::cout << "seed: " << seed << std::endl;
     if (!test(seed))

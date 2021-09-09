@@ -49,15 +49,31 @@ public:
 
   SystematicTestHarness(int argc, const char* const* argv) : opt(argc, argv)
   {
+    std::cout << "Harness starting." << std::endl;
+
     for (int i = 0; i < argc; i++)
     {
       std::cout << " " << argv[i];
     }
+
+    size_t count = opt.is<size_t>("--seed_count", 1);
+
+    // Detect if seed supplied.  If not, then generate a seed, and add to
+    // command line print out.
+    if (opt.has("--seed"))
+    {
+      seed_lower = opt.is<size_t>("--seed", 0);
+    }
+    else
+    {
+      seed_lower = ((snmalloc::Aal::tick()) & 0xffffffff) * count;
+      std::cout << " --seed " << seed_lower;
+    }
+
     std::cout << std::endl;
 
     start = high_resolution_clock::now();
-    seed_lower = opt.is<size_t>("--seed", 5489);
-    seed_upper = opt.is<size_t>("--seed_upper", seed_lower) + 1;
+    seed_upper = seed_lower + count;
 
 #if defined(USE_FLIGHT_RECORDER) || defined(CI_BUILD)
     Systematic::enable_crash_logging();
@@ -65,13 +81,6 @@ public:
 
     if (opt.has("--log-all") || (seed_lower + 1 == seed_upper))
       Systematic::enable_logging();
-
-    if (seed_upper < seed_lower)
-    {
-      std::cout << "Seed_upper " << seed_upper << " seed_lower " << seed_lower
-                << std::endl;
-      abort();
-    }
 
     cores = opt.is<size_t>("--cores", 4);
 
@@ -87,16 +96,7 @@ public:
   template<typename... Args>
   void run(void f(Args...), Args... args)
   {
-#ifdef CI_BUILD
-    // The CI build is configured to output the trace on failure, so will print
-    // the seed, so it can be duplicated. Adding noise to CI means we will get
-    // more coverage over time.
-    size_t random = ((snmalloc::Aal::tick()) & 0xffff) * 100000;
-#else
-    // When not a CI build use the seed the user specified.
-    size_t random = 0;
-#endif
-    for (seed = seed_lower + random; seed < seed_upper + random; seed++)
+    for (seed = seed_lower; seed < seed_upper; seed++)
     {
       std::cout << "Seed: " << seed << std::endl;
 
