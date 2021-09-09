@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 #include "CXXInterface.h"
+#include "config.h"
+#include "fs.h"
 
 #include <fstream>
 #include <iomanip>
@@ -79,62 +81,32 @@ namespace
     cl::CommaSeparated,
     cl::value_desc("argTys"));
 
-  /// Add new option to arguments array
-  void addArgOption(vector<char*>& args, char* arg, size_t len)
-  {
-    args.push_back(new char[len + 1]);
-    auto& inplace = args[args.size() - 1];
-    copy(arg, arg + len, inplace);
-    inplace[len] = 0;
-  }
-
   /// Parse config file adding args to the args globals
   void parseCommandLine(int argc, char** argv, vector<string>& includePath)
   {
     // Replace "--config file" with the contents of file
-    vector<char*> args;
-    string configFileName;
-    StringRef flag("-config");
-    for (int i = 0; i < argc; i++)
+    CmdLineAppend app;
+    if (!app.parse(argc, argv))
     {
-      auto arg = argv[i];
-      // If not config, just copy the argv as is
-      if (!flag.equals(arg))
-      {
-        addArgOption(args, arg, strlen(arg));
-        continue;
-      }
+      auto paths = app.configPaths();
+      // Whatever error was on the last config file
+      auto lastConfig = paths[paths.size() - 1];
+      cerr << "Error opening config file " << lastConfig.c_str() << endl;
+      exit(1);
+    }
 
-      // Else, append all arguments from the file to args
-      string configFile(argv[++i]);
-      ifstream file(configFile);
-      if (!file.good())
-      {
-        cerr << "Error opening config file " << configFile.c_str() << endl;
-        exit(1);
-      }
-
-      // For each arg, append the options to the command line
-      string buffer;
-      while (file >> quoted(buffer))
-      {
-        addArgOption(args, buffer.data(), buffer.size());
-      }
-      file.close();
-
-      // Add the path to the config file to the include path
-      auto conf = FileSystem::getRealPath(configFile);
-      auto dir = FileSystem::getDirName(conf);
+    // Add the path to the config files to the include path
+    auto paths = app.configPaths();
+    for (auto path : paths)
+    {
+      auto conf = FSHelper::getRealPath(path);
+      auto dir = FSHelper::getDirName(conf);
       includePath.push_back(dir);
     }
 
     // Parse the command line
     cl::ParseCommandLineOptions(
-      args.size(), args.data(), "Verona Interop test\n");
-
-    // Manual cleanup because char* doesn't have a destructor
-    for (auto arg : args)
-      delete arg;
+      app.argc(), app.argv(), "Verona Interop test\n");
   }
 
   /// Test call
