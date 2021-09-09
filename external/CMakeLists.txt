@@ -68,12 +68,9 @@ else()
     # set a default CMAKE_BUILD_TYPE to be the same as for Verona
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
 
-    # append LLVM_EXTRA_CMAKE_ARGS (which may override CMAKE_BUILD_TYPE)
-    ${LLVM_EXTRA_CMAKE_ARGS}
+    # Add install as tar has install prefix. Outer project knows about this.
+    -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL}/install
 
-    # set mandatory cmake args below
-
-    -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL}/install  # Add install as tar has install prefix. Outer project knows about this.
     # Note: We must use the SEMICOLON generator expression here because CMake
     # uses semicolons as list separators and this must be a literal semicolon
     # in the final output.  There are at least two steps in between this line
@@ -83,6 +80,9 @@ else()
     -DLLVM_TARGETS_TO_BUILD=X86
     -DLLVM_ENABLE_ASSERTIONS=On
     -DCMAKE_CXX_STANDARD=17
+
+    # append LLVM_EXTRA_CMAKE_ARGS (which may override any previously set values)
+    ${LLVM_EXTRA_CMAKE_ARGS}
   )
 
   ExternalProject_Add(mlir
