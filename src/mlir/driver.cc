@@ -218,13 +218,6 @@ namespace mlir::verona
 
   llvm::Error Driver::codeGeneration(const llvm::StringRef filename)
   {
-    if (!llvmModule)
-    {
-      auto err = lowerToLLVM();
-      if (err)
-        return err;
-    }
-
-    assert(false && "Not implemented yet");
+    return runtimeError("Not implemented yet");
   }
 }
