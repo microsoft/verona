@@ -81,7 +81,7 @@ namespace mlir::verona
     /// JIT & execute the module and print the return value of main.
     /// Requires llvmModule
     /// For testing purposes only
-    llvm::Error runLLVM(int &returnValue);
+    llvm::Error runLLVM(int& returnValue);
 
     /// Emits the object code for the target
     /// TODO: Implement this functionality, needs target-triple, etc.

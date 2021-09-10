@@ -190,7 +190,7 @@ namespace mlir::verona
     return llvm::Error::success();
   }
 
-  llvm::Error Driver::runLLVM(int &returnValue)
+  llvm::Error Driver::runLLVM(int& returnValue)
   {
     if (!llvmModule)
     {

@@ -158,8 +158,7 @@ namespace verona::interop
      * user file (and all dependencies), generates the pre-compiled headers,
      * creates the compiler instance and re-attaches the AST to the interface.
      */
-    CXXQuery(clang::ASTContext* ast, Compiler* Clang) : ast(ast)
-    {}
+    CXXQuery(clang::ASTContext* ast, Compiler* Clang) : ast(ast) {}
 
     /**
      * Gets an {class | template | enum} type from the source AST by name.
