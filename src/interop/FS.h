@@ -12,6 +12,31 @@
 namespace verona::interop
 {
   /**
+   * Helper for LLVM FS functionality
+   */
+  struct FSHelper
+  {
+    /**
+     * Resolves a path and returns its absolute canonical path
+     */
+    static std::string getRealPath(const std::string_view path)
+    {
+      llvm::SmallVector<char, 16> out;
+      llvm::sys::fs::real_path(path, out, /*expand_tilde*/ true);
+      std::string res(out.data(), out.size());
+      return res;
+    }
+
+    /**
+     * Returns the directory name that contains this path
+     */
+    static std::string getDirName(const llvm::StringRef path)
+    {
+      return llvm::sys::path::parent_path(path).str();
+    }
+  };
+
+  /**
    * Creates an in-memory overlay file-system, so we can create the interim
    * compile unit (that includes the user file) alongside the necessary
    * headers to include (built-in, etc).

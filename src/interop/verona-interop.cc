@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 #include "CXXInterface.h"
+#include "FS.h"
 #include "config.h"
-#include "fs.h"
 
 #include <fstream>
 #include <iomanip>
