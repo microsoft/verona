@@ -38,8 +38,6 @@ namespace verona::interop
   {
     /// The AST root
     clang::ASTContext* ast = nullptr;
-    /// Compiler
-    Compiler* Clang;
 
     /**
      * Simple handler for indirect dispatch on a CXXType AST matcher.
@@ -160,7 +158,7 @@ namespace verona::interop
      * user file (and all dependencies), generates the pre-compiled headers,
      * creates the compiler instance and re-attaches the AST to the interface.
      */
-    CXXQuery(clang::ASTContext* ast, Compiler* Clang) : ast(ast), Clang(Clang)
+    CXXQuery(clang::ASTContext* ast, Compiler* Clang) : ast(ast)
     {}
 
     /**

@@ -23,10 +23,10 @@ namespace verona::interop
    */
   struct FileSystem
   {
-    /// Main overlay FS initialised with the OS FS
-    llvm::IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> overlay;
     /// InMemory FS to store the compiled sources and built-in headers
     llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem> inMemory;
+    /// Main overlay FS initialised with the OS FS
+    llvm::IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> overlay;
 
   public:
     /// Creates the overlay file system with the real file system + a temporary
