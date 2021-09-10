@@ -1,8 +1,8 @@
 # Arguments for testing verona-mlir
 macro(toolargs ARGS testfile outputdir)
-set(${ARGS} ${testfile} -o -)
+set(${ARGS} -config ${testfile})
 endmacro()
 
 # Set extension for verona-mlir tests
-set(TEST_EXTENSION verona mlir)
+set(TEST_EXTENSION cfg)
 

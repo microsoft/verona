@@ -1,6 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+#include "config.h"
 #include "driver.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
@@ -16,9 +17,18 @@
 
 #include <iostream>
 
+using namespace std;
+namespace cl = llvm::cl;
+
 namespace
 {
-  namespace cl = llvm::cl;
+  /// For help's sake, will never be parsed, as we intercept
+  cl::opt<string> config(
+    "config",
+    cl::desc("<config file>"),
+    cl::Optional,
+    cl::value_desc("config"));
+
   /// Input file name (- means stdin)
   cl::opt<std::string> inputFile(
     cl::Positional,
@@ -110,6 +120,25 @@ namespace
       std::string(llvm::sys::path::parent_path(exec)) + "/stdlib/";
     return path;
   }
+
+  /// Parse config file adding args to the args globals
+  void parseCommandLine(int argc, char** argv)
+  {
+    // Replace "--config file" with the contents of file
+    CmdLineAppend app;
+    if (!app.parse(argc, argv))
+    {
+      auto paths = app.configPaths();
+      // Whatever error was on the last config file
+      auto lastConfig = paths[paths.size() - 1];
+      cerr << "Error opening config file " << lastConfig.c_str() << endl;
+      exit(1);
+    }
+
+    // Parse the command line
+    cl::ParseCommandLineOptions(
+      app.argc(), app.argv(), "Verona MLIR Generator\n");
+  }
 } // namespace
 
 using namespace verona::parser;
@@ -121,7 +150,7 @@ int main(int argc, char** argv)
   llvm::InitLLVM y(argc, argv);
 
   // Parse cmd-line options
-  cl::ParseCommandLineOptions(argc, argv, "Verona MLIR Generator\n");
+  parseCommandLine(argc, argv);
   cmdLineDefaults(argv[0]);
 
   if (inputKind == InputKind::None)
