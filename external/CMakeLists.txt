@@ -64,8 +64,8 @@ if (VERONA_DOWNLOAD_LLVM)
   )
 else()
   separate_arguments(LLVM_EXTRA_CMAKE_ARGS UNIX_COMMAND ${LLVM_EXTRA_CMAKE_ARGS})
-  list (APPEND LLVM_EXTRA_CMAKE_ARGS
-    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+  set (LLVM_CMAKE_ARGS
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}          # set a default CMAKE_BUILD_TYPE to be the same as for Verona
     -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL}/install  # Add install as tar has install prefix. Outer project knows about this.
     # Note: We must use the SEMICOLON generator expression here because CMake
     # uses semicolons as list separators and this must be a literal semicolon
@@ -76,11 +76,14 @@ else()
     -DLLVM_TARGETS_TO_BUILD=X86
     -DLLVM_ENABLE_ASSERTIONS=On
     -DCMAKE_CXX_STANDARD=17
+
+    # append LLVM_EXTRA_CMAKE_ARGS (which may override any previously set values)
+    ${LLVM_EXTRA_CMAKE_ARGS}
   )
 
   ExternalProject_Add(mlir
     SOURCE_DIR ${CMAKE_SOURCE_DIR}/llvm-project/llvm
-    CMAKE_ARGS ${LLVM_EXTRA_CMAKE_ARGS}
+    CMAKE_ARGS ${LLVM_CMAKE_ARGS}
     BUILD_ALWAYS true
     USES_TERMINAL_BUILD true
     USES_TERMINAL_CONFIGURE true
