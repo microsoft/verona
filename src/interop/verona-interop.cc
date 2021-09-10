@@ -145,7 +145,6 @@ namespace
     clang::QualType retTy,
     const CXXInterface& interface)
   {
-    const CXXQuery* query = interface.getQuery();
     const CXXBuilder* builder = interface.getBuilder();
 
     // Build a unique name (per class/method)

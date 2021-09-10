@@ -206,8 +206,7 @@ namespace verona::interop
       auto args = query->gatherTemplateArguments(ty, params);
 
       // Build the canonical representation
-      clang::QualType canon =
-        query->getCanonicalTemplateSpecializationType(ty.decl, args);
+      query->getCanonicalTemplateSpecializationType(ty.decl, args);
 
       // Instantiate and return the definition
       return instantiateClassTemplate(ty, args);
@@ -351,7 +350,7 @@ namespace verona::interop
       method->addAttr(clang::UsedAttr::Create(S.Context, CommonInfo));
 
       // Update the body and return
-      caller->setBody(callStmt);
+      caller->setBody(compStmt);
       return callStmt;
     }
 
