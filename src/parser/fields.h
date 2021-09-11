@@ -201,6 +201,18 @@ namespace verona::parser
   }
 
   template<typename T>
+  void fieldsof(T& target, DynamicCall& dc)
+  {
+    target << dc.receiver << dc.lookup << dc.args;
+  }
+
+  template<typename T>
+  void fieldsof(T& target, StaticCall& sc)
+  {
+    target << sc.lookup << sc.args;
+  }
+
+  template<typename T>
   struct fields
   {
     T& arg;

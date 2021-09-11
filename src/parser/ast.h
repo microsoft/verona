@@ -73,6 +73,10 @@ namespace verona::parser
 
     // Lookup result
     LookupRef,
+
+    // Calls
+    DynamicCall,
+    StaticCall,
   };
 
   struct NodeDef;
@@ -699,6 +703,29 @@ namespace verona::parser
     Kind kind() override
     {
       return Kind::LookupRef;
+    }
+  };
+
+  struct DynamicCall : Expr
+  {
+    Node<Expr> receiver;
+    Node<Type> lookup;
+    Node<Expr> args;
+
+    Kind kind() override
+    {
+      return Kind::DynamicCall;
+    }
+  };
+
+  struct StaticCall : Expr
+  {
+    Node<Type> lookup;
+    Node<Expr> args;
+
+    Kind kind() override
+    {
+      return Kind::StaticCall;
     }
   };
 }

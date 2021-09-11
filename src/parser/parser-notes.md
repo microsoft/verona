@@ -1,5 +1,17 @@
 # Parser Notes
 
+* tests passing
+  alloc.verona
+  dnf.verona
+  function.verona -> but why isn't it complaining about the + ?
+* tests failing
+  for-sugar
+
+* lambdas
+  * `var` is ref captured
+  * `let` is value captured
+  * all lambdas have a `self` parameter
+
 * union_sub_t should ignore uninhabited branches of the disjunction
   * (U16 | U32) & (U32 | U64) -> U32
 * free functions are singleton types with an apply method?

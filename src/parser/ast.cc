@@ -163,6 +163,12 @@ namespace verona::parser
 
       case Kind::LookupRef:
         return "lookupref";
+
+      case Kind::DynamicCall:
+        return "dynamiccall";
+
+      case Kind::StaticCall:
+        return "staticcall";
     }
 
     // This is unreachable, and is only to suppress an MSVC error.

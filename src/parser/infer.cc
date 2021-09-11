@@ -111,6 +111,77 @@ namespace verona::parser::infer
       return f;
     }
 
+    Node<Expr> receiver_expr(Node<Expr>& left, Node<Expr>& right)
+    {
+      if (left)
+      {
+        if (left->kind() == Kind::Tuple)
+          return left->as<Tuple>().seq.front();
+
+        return left;
+      }
+
+      if (right)
+      {
+        if (right->kind() == Kind::Tuple)
+          return right->as<Tuple>().seq.front();
+
+        return right;
+      }
+
+      return {};
+    }
+
+    Node<Expr> call_args(Node<Expr>& left, Node<Expr>& right)
+    {
+      auto args = std::make_shared<Tuple>();
+
+      if (left)
+      {
+        args->location = left->location;
+
+        if (left->kind() == Kind::Tuple)
+        {
+          for (auto e : left->as<Tuple>().seq)
+            args->seq.push_back(e);
+        }
+        else
+        {
+          args->seq.push_back(left);
+        }
+      }
+
+      if (right)
+      {
+        args->location.extend(right->location);
+
+        if (right->kind() == Kind::Tuple)
+        {
+          for (auto e : right->as<Tuple>().seq)
+            args->seq.push_back(e);
+        }
+        else
+        {
+          args->seq.push_back(right);
+        }
+      }
+
+      return args;
+    }
+
+    Node<Expr> call_receiver(Node<Expr>& args)
+    {
+      assert(args->kind() == Kind::Tuple);
+      auto t = args->as<Tuple>();
+
+      if (t.seq.empty())
+        return {};
+
+      auto r = t.seq.front();
+      t.seq.erase(t.seq.begin());
+      return r;
+    }
+
     void post(Free& fr)
     {
       auto l = g(fr.location);
@@ -219,8 +290,6 @@ namespace verona::parser::infer
       // TODO: a select with a result that is always a throw should only be
       // allowed at the end of a lambda
 
-      // TODO: rewrite the node to be static or dynamic dispatch
-      // include a precise reference to the selected function
       auto call = call_type(sel.expr, sel.args);
 
       // TODO: `apply` on a functiontype receiver
@@ -228,8 +297,8 @@ namespace verona::parser::infer
       if (call && call->left && (sel.typeref->typenames.size() == 1))
       {
         // Dynamic dispatch.
-        auto receiver = receiver_type(call->left);
-        auto find = lookup.member(receiver, sel.typeref->typenames.front());
+        auto rt = receiver_type(call->left);
+        auto find = lookup.member(rt, sel.typeref->typenames.front());
 
         // A->B <: C->D <=> C <: A /\ B <: D
         // The member(s) we find must be a subtype of the call, not the other
@@ -237,12 +306,16 @@ namespace verona::parser::infer
         // call has an inferred result, it will receive a lower bound, which is
         // what we want. Each LookupRef in `find` modifies the receiver in
         // `call` to be `receiver & lookupref.self`.
-
-        // not all `D <: (A, B)->C` should do `A & self`? explicitly mark those
-        // that are dynamic lookups?
-        if (subtype.dynamic(find, call))
+        if (find && subtype.dynamic(find, call))
         {
-          // TODO: rewrite as dynamic dispatch
+          // Rewrite as dynamic dispatch.
+          // TODO: can be static if `rt` is a concrete type
+          auto dc = std::make_shared<DynamicCall>();
+          dc->location = sel.location;
+          dc->lookup = find;
+          dc->args = call_args(sel.expr, sel.args);
+          dc->receiver = call_receiver(dc->args);
+          rewrite(dc);
           return;
         }
       }
@@ -265,7 +338,13 @@ namespace verona::parser::infer
       }
 
       subtype(find, call);
-      // TODO: rewrite as static dispatch
+
+      // Rewrite as static dispatch.
+      auto sc = std::make_shared<StaticCall>();
+      sc->location = sel.location;
+      sc->lookup = find;
+      sc->args = call_args(sel.expr, sel.args);
+      rewrite(sc);
     }
 
     void post(New& nw)
@@ -398,6 +477,11 @@ namespace verona::parser::infer
       // TODO:
       // error() << infer.location << "Unresolved type." <<
       // text(infer.location);
+    }
+
+    void post(Select& sel)
+    {
+      error() << sel.location << "Unresolved select." << text(sel.location);
     }
   };
 

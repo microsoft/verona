@@ -442,6 +442,12 @@ namespace verona::parser
           return true;
         }
 
+        case Kind::FunctionType:
+        {
+          result(constraint(l.resolved, rhs));
+          return true;
+        }
+
         default:
           break;
       }
@@ -726,6 +732,14 @@ namespace verona::parser
       {
         auto self = l.self.lock();
         l.resolved = clone(l.subs, ldef->as<Function>().type, self);
+        break;
+      }
+
+      case Kind::FunctionType:
+      {
+        auto self = l.self.lock();
+        l.resolved =
+          clone(l.subs, std::static_pointer_cast<FunctionType>(ldef), self);
         break;
       }
 

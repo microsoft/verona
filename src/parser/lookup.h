@@ -31,6 +31,8 @@ namespace verona::parser
     Node<Type> name(Substitutions& subs, Ast sym, Node<TypeName>& tn);
     Node<Type>
     lexical(Substitutions& subs, Ast node, Node<TypeName>& tn, bool up);
+    Node<Type>
+    result(Substitutions& subs, Ast node, Node<TypeName>& tn, Ast def);
 
     // This looks up `name` as a member of `node`. If `node` is not a Class or
     // an Interface, `node` is first resolved in the symbol context.

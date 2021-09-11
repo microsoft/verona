@@ -166,6 +166,12 @@ namespace verona::parser
 
       case Kind::LookupRef:
         return f(node->as<LookupRef>(), args...);
+
+      case Kind::DynamicCall:
+        return f(node->as<DynamicCall>(), args...);
+
+      case Kind::StaticCall:
+        return f(node->as<StaticCall>(), args...);
     }
 
     // This is unreachable, and is only to suppress an MSVC error.

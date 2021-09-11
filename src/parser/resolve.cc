@@ -36,8 +36,6 @@ namespace verona::parser::resolve
 
       if (!find)
       {
-        // TODO: remove this
-        find = lookup.typeref(symbols(), tr);
         error() << tr.location << "Couldn't find a definition of this type."
                 << text(tr.location);
         return;

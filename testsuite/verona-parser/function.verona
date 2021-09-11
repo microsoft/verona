@@ -1,13 +1,22 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+// using "numbers";
 
-class U64 {}
+class U64
+{
+  +(a: Self, b: Self): Self { a }
+}
 
-foo[N: imm, R: U64 & imm](a: N, b: U64 & imm): R
+interface Addable
+{
+  +(a: Self, b: Self): Self { a }
+}
+
+foo[N: U64 & imm, R: U64 & imm](a: N, b: U64 & imm): R
 {
   let x = a + b;
   let r: R = x;
-  x
+  a
 }
 
-(){}
+// (){}

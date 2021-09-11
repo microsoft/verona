@@ -89,6 +89,12 @@ namespace verona::parser
     if (!up && is_kind(def, {Kind::TypeParam, Kind::TypeParamList}))
       return {};
 
+    return result(subs, node, tn, def);
+  }
+
+  Node<Type>
+  Lookup::result(Substitutions& subs, Ast node, Node<TypeName>& tn, Ast def)
+  {
     // A LookupRef always references a Class, Interface, TypeAlias, TypeParam,
     // TypeParamList, Field, or Function. The `self` member is a reference to
     // the enclosing scope if the target has no symbol table.
@@ -230,6 +236,15 @@ namespace verona::parser
         return dnf::conjunction(lower, upper);
       }
 
+      case Kind::FunctionType:
+      {
+        // The `apply` method is this function.
+        if (tn->location == "apply")
+          return result(subs, node, tn, node);
+
+        return {};
+      }
+
       default:
       {
         // No lookup in Field, Function, ThrowType, FunctionType, TupleType,
@@ -267,6 +282,7 @@ namespace verona::parser
 
       case Kind::Field:
       case Kind::TypeParam:
+      case Kind::FunctionType:
         return ret;
 
       default:

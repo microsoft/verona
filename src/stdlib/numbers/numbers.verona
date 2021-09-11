@@ -12,7 +12,12 @@ type Signed = I8 | I16 | I32 | I64 | I128 | ISize;
 class U8 {}
 class U16 {}
 class U32 {}
-class U64 {}
+
+class U64 
+{
+  +(self: Self, other: Self): Self { self }
+}
+
 class U128 {}
 class USize {}
 

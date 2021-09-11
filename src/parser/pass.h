@@ -95,13 +95,9 @@ namespace verona::parser
     Pass& operator<<(List<T>& nodes)
     {
       auto prev = index;
-      index = 0;
 
-      for (auto& node : nodes)
-      {
-        *this << node;
-        index++;
-      }
+      for (index = 0; index < nodes.size(); index++)
+        *this << nodes.at(index);
 
       index = prev;
       return *this;
