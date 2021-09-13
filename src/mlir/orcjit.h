@@ -76,6 +76,8 @@ namespace llvm::orc
       MainJD.addGenerator(
         cantFail(DynamicLibrarySearchGenerator::GetForCurrentProcess(
           DL.getGlobalPrefix())));
+      // Needed for COFF targets
+      ObjectLayer.setOverrideObjectFlagsWithResponsibilityFlags(true);
     }
 
     ~VeronaJIT()
