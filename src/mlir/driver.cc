@@ -25,6 +25,32 @@
 
 #include <iostream>
 
+namespace
+{
+  /// Return the correct output stream for writing operations.
+  /// Possible returns are: file, stdout or null
+  llvm::Expected<std::unique_ptr<llvm::raw_ostream>>
+  getOutputStream(llvm::StringRef filename)
+  {
+    std::unique_ptr<llvm::raw_ostream> out;
+    if (filename.empty())
+    {
+      // Empty filename is null output
+      out = std::make_unique<llvm::raw_null_ostream>();
+    }
+    else
+    {
+      // Otherwise, both filename and - do the right thing
+      std::error_code error;
+      out = std::make_unique<llvm::raw_fd_ostream>(filename, error);
+      if (error)
+        return mlir::verona::runtimeError("Cannot open output filename");
+    }
+
+    return out;
+  }
+}
+
 namespace mlir::verona
 {
   Driver::Driver(unsigned optLevel)
@@ -85,15 +111,12 @@ namespace mlir::verona
   {
     assert(mlirModule);
 
-    if (filename.empty())
-      return runtimeError("No output filename provided");
+    auto out = getOutputStream(filename);
+    if (auto err = out.takeError())
+      return err;
 
     // Write to the file requested
-    std::error_code error;
-    auto out = llvm::raw_fd_ostream(filename, error);
-    if (error)
-      return runtimeError("Cannot open output filename");
-    mlirModule->print(out);
+    mlirModule->print(*out.get());
 
     return llvm::Error::success();
   }
@@ -177,15 +200,12 @@ namespace mlir::verona
         return err;
     }
 
-    if (filename.empty())
-      return runtimeError("No output filename provided");
+    auto out = getOutputStream(filename);
+    if (auto err = out.takeError())
+      return err;
 
     // Write to the file requested
-    std::error_code error;
-    auto out = llvm::raw_fd_ostream(filename, error);
-    if (error)
-      return runtimeError("Failed open output file");
-    llvmModule->print(out, nullptr);
+    llvmModule->print(*out.get(), nullptr);
 
     return llvm::Error::success();
   }

@@ -52,7 +52,7 @@ namespace
     cl::values(clEnumValN(InputKind::MLIR, "mlir", "MLIR file")));
 
   /// Optimisations enabled
-  static cl::opt<unsigned> optLevel(
+  cl::opt<unsigned> optLevel(
     "O",
     cl::desc("Optimization level. [-O0, -O1, -O2, or -O3] "
              "(default = '-O0')"),
@@ -61,24 +61,34 @@ namespace
     cl::init(0));
 
   /// Which output to emit
-  static cl::opt<std::string> outputFmt(
+  cl::opt<std::string> outputFmt(
     "out",
-    cl::desc("Output format [mlir, llvm, asm, obj, jit] "
+    cl::desc("Output format [mlir, ll, jit] "
              "(default = 'mlir')"),
     cl::Prefix,
     cl::ZeroOrMore,
     cl::init("mlir"));
 
+  /// Test only, redirect output to /dev/null
+  cl::opt<bool> testOnly(
+    "t", cl::desc("Test only (no output)"), cl::Optional, cl::init(false));
+
   /// Output file name (- means stdout)
   cl::opt<std::string> outputFile("o", cl::init(""), cl::desc("Output file"));
+
+  /// Appends .new to extension if the new extension is the same
+  void addExtension(llvm::SmallString<128>& name, llvm::StringRef ext)
+  {
+    auto currExt = llvm::sys::path::extension(name);
+    if (ext.equals(currExt))
+      llvm::sys::path::replace_extension(name, ".new");
+    else
+      llvm::sys::path::replace_extension(name, ext);
+  }
 
   /// Set defaults form command line arguments
   void cmdLineDefaults(const char* execName)
   {
-    // Default input is stdin
-    if (inputFile.empty())
-      inputFile = "-";
-
     // Detect source type from extension, if not passed as argument
     if (inputKind == InputKind::None)
     {
@@ -92,20 +102,24 @@ namespace
     }
 
     // Choose output file extension from output type
-    // Careful with mlir->mlir not to overwrite source file
     if (outputFile.empty())
     {
-      if (inputFile == "-")
+      // Default input file is "-"
+      if (testOnly)
       {
+        // No output
+        outputFile = "";
+      }
+      else if (inputFile == "-")
+      {
+        // stdin defaults to stdout
         outputFile = "-";
       }
       else
       {
+        // Extension derives from output kind
         llvm::SmallString<128> newName(inputFile);
-        if (inputKind == InputKind::MLIR)
-          llvm::sys::path::replace_extension(newName, ".new.mlir");
-        else
-          llvm::sys::path::replace_extension(newName, ".mlir");
+        addExtension(newName, outputFmt);
         outputFile = newName.c_str();
       }
     }
@@ -208,7 +222,7 @@ int main(int argc, char** argv)
   {
     check(driver.emitMLIR(outputFile));
   }
-  else if (outputFmt == "llvm")
+  else if (outputFmt == "ll")
   {
     check(driver.emitLLVM(outputFile));
   }
