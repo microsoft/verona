@@ -35,10 +35,10 @@ class SystematicTestHarness
    * execution has finished, we make the harness responsible for tracking and
    * joining on external threads.
    *
-   * Storage type is verona::InternalThread, so that the harness can be reused
+   * Storage type is verona::PlatformThread, so that the harness can be reused
    * on platforms with custom threading.
    */
-  std::list<InternalThread> external_threads;
+  std::list<PlatformThread> external_threads;
 
 public:
   opt::Opt opt;
@@ -143,7 +143,7 @@ public:
 
   /**
    * Add an external thread to the system, which will be joined after
-   * sched.run() finishes. Do not create any verona::InternalThread or
+   * sched.run() finishes. Do not create any verona::PlatformThread or
    * std::thread explicitly in a test when using SystematicTestHarness.
    *
    * Same arguments as the std::thread constructor.

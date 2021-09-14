@@ -14,7 +14,7 @@ namespace verona::rt
   class ThreadPoolBuilder
   {
     Topology topology;
-    std::list<InternalThread> threads;
+    std::list<PlatformThread> threads;
     size_t thread_count;
     size_t index = 0;
 

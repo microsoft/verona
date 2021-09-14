@@ -46,7 +46,7 @@ namespace verona::rt
     inline void set_affinity(size_t) {}
   }
 
-  class InternalThread
+  class PlatformThread
   {
   public:
     /**
@@ -54,18 +54,18 @@ namespace verona::rt
      * on it.
      */
     template<typename F, typename... Args>
-    InternalThread(F&&, Args&&...)
+    PlatformThread(F&&, Args&&...)
     {}
 
-    InternalThread() = delete;
-    InternalThread(const InternalThread&) = delete;
-    InternalThread(InternalThread&&) = delete;
+    PlatformThread() = delete;
+    PlatformThread(const PlatformThread&) = delete;
+    PlatformThread(PlatformThread&&) = delete;
 
     /**
      * Destructor to be called after the thread has finished executing (and was
      * joined).
      */
-    ~InternalThread(){};
+    ~PlatformThread(){};
 
     /**
      * Wait until the thread has finished executing the function it was
