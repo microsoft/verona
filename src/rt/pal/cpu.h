@@ -29,6 +29,7 @@
 #endif
 
 #include <algorithm>
+#include <functional>
 #include <vector>
 
 namespace verona::rt
