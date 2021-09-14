@@ -36,7 +36,7 @@ namespace verona::rt
     std::mutex mutx{};
 
     /// Internal thread that will handle the pings.
-    InternalThread thrd;
+    PlatformThread thrd;
 
   public:
     /// Creates a thread that can be pinged to execute f

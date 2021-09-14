@@ -10,7 +10,7 @@
 
 namespace verona::rt
 {
-  using InternalThread = std::thread;
+  using PlatformThread = std::thread;
 }
 
 #else

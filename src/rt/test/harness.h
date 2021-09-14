@@ -6,7 +6,6 @@
 #include <chrono>
 #include <list>
 #include <test/opt.h>
-#include <thread>
 #include <verona.h>
 
 using namespace verona::rt;
@@ -35,8 +34,11 @@ class SystematicTestHarness
    * snmalloc::debug_check_empty. Since the test has no way to detect when the
    * execution has finished, we make the harness responsible for tracking and
    * joining on external threads.
+   *
+   * Storage type is verona::PlatformThread, so that the harness can be reused
+   * on platforms with custom threading.
    */
-  std::list<std::thread> external_threads;
+  std::list<PlatformThread> external_threads;
 
 public:
   opt::Opt opt;
@@ -141,13 +143,13 @@ public:
 
   /**
    * Add an external thread to the system, which will be joined after
-   * sched.run() finishes. Do not create any std::thread explicitly in a test
-   * when using SystematicTestHarness.
+   * sched.run() finishes. Do not create any verona::PlatformThread or
+   * std::thread explicitly in a test when using SystematicTestHarness.
    *
    * Same arguments as the std::thread constructor.
    */
   template<typename F, typename... Args>
-  void external_thread(F f, Args... args)
+  void external_thread(F&& f, Args&&... args)
   {
     external_threads.emplace_back(f, args...);
   }
