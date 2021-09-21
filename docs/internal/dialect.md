@@ -126,7 +126,7 @@ where:
  * `ObjectType` is a `!verona.type` that defines the structure to be allocated.
  * `%args` is the list of initialisers for the fields of `ObjectType`.
 
-If the pointer is `undef`, then this will create a new region, calling the run-time function: `RegionType::create(alloc, Type)`, returning a `!iso<ObjectType>`.
+If the region pointer is `undef`, then this will create a new region, calling the run-time function: `RegionType::create(alloc, Type)`, returning a `!iso<ObjectType>`.
 
 Otherwise, it will allocate a new object on the current region, calling the run-time function: `RegionType(object)::alloc(alloc, Type)`, returning a `!mut<ObjectType>`.
 
@@ -147,13 +147,13 @@ where:
 
 The operation returns `true` if the run-time type of `%obj` is `!Type`.
 
-If know at compile time, `match(!concreteA, !concreteA)` can be simplified to `true` and `match(!concreteA, !concreteB)` can be simplified to `false`.
-
 Example:
 ```mlir
   %obj = call @some_function(...): !join<A, B>
   %m = verona.match(%obj, !A) : i1
-  cond_br %m, ^handle_a(%obj), ^handle_b(%obj)
+  %a = verona.cast(%obj) : !A
+  %b = verona.cast(%obj) : !B
+  cond_br %m, ^handle_a(%a), ^handle_b(%b)
 
 ^handle_a(%a: !A): // guaranteed to be !A
   ...
@@ -161,6 +161,8 @@ Example:
 ^handle_b(%b: !B): // guaranteed to be !B
   ...
 ```
+
+If know at compile time, `match(!concreteA, !concreteA)` can be simplified to `true` and `match(!concreteA, !concreteB)` can be simplified to `false`.
 
 ### Throw
 
@@ -197,8 +199,10 @@ This is equivalent to a `match` that looks into throw vs no-throw types.
 Example:
 ```mlir
   %obj = call @some_function(...): !join<A, B, Throw<E>, Throw<F>>
-  %c = verona.catch(%obj): i1
-  cond_br %c, ^handle_exception(%obj), ^continue(%obj)
+  %c = verona.catch(%obj): i1 // clears the flag
+  %exc = verona.cast(%obj) : !join<E, F>
+  %val = verona.cast(%obj) : !join<A, B>
+  cond_br %c, ^handle_exception(%exc), ^continue(%val)
 
 ^handle_exception(%exc: !join<E, F>): // flags was cleared above
   %e = match(%exc, !E): i1
