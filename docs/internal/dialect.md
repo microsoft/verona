@@ -88,6 +88,22 @@ Tuple types are _unnamed_ LLVM `StructType` pointers.
 There are no methods to call, only field access, so no need for headers or `vtable`s.
 All fields are `embed` and can be reordered for efficiency (like concrete classes).
 
+## Throw types
+
+Exception handling is implemented as non-local returns, and are identified by the keyword `throw` with types `Throw[T]`.
+The basic implementation is for `throw` to set a flag when returning, so the `catch` can check (and clear) the flag and branch conditionally to error handling blocks.
+
+The type of a throw in MLIR is `!throw<T>`, to differentiate from `T`, which doesn't have the exception flag.
+This makes the distinction between `std.ret` and `verona.throw` clear, with the former returning `T` and the latter always returning `!throw<T>`.
+
+## Region type
+
+The new semantics only allows one region to be writeable at any given point, so when creating new objects, we know in which region, if any, to allocate it.
+But to know which is the current region at any given time, the ABI has to change so that every function receives a region object and uses it for the `alloc` operation.
+
+For this, we need a new type, `!region`, which is a pointer to an object that defines the region, or `undef` if there are no regions defined.
+See `alloc` below for more information on the semantics of the `!region` type.
+
 # Dialect Operations
 
 The Verona dialect operations are directly related to region run-time semantics.
@@ -97,19 +113,183 @@ Verona language concepts will be directly lowered to dialect operations in a 1:1
 Those operations will have specific run-time behaviour and will depend on the types they operate on.
 By treating them as abstract concepts throughout optimisation passes, but changing the operands and types they operate on, we can more efficiently lower the right calls to the runtime libraries as late as possible.
 
-The operations and their equivalent language and runtime calls are on the table below.
-Some of the syntax isn't decided yet (ex. region types), but we'll have some syntax for those soon enough.
-Undecided syntax is marked with a question mark (?).
+## Object Creation
 
-| Dialect Operation | Verona Language | Runtime Call |
-| ----------------- | --------------- | ------------ | 
-| `%x = create(!Type, !RegionType) : !iso<Type>` | `var x = new Type::create() as RegionType?` | `RegionType::create(alloc, Type) + call to Type::create()` |
-| `%y = alloc(%x : !iso<Ty1>, !Ty2) : !mut<Ty2>` | `var y = new Type::create() in x` | `RegionType(x)::alloc(alloc, x, Type) + call to Type::create()` |
-| `move(%x : !iso<Type>, %z : !mut<Type>)` | `move?(x : iso, z : mut)` | `RegionType::insert<YesTransfer>(alloc, x, z)` |
-| `extref(%x : !iso<Type>, %z : !mut<Type>)` | `extref?(x : iso, z : mut)` | `RegionType::insert<NoTransfer>(alloc, x, z)` |
-| `merge(%x : !iso<Type>, %z : !iso<Type>)` | `merge?(x : iso, z : iso)` | `RegionType::merge(alloc, x, z)` |
-| `tidy(%x : !iso<Type>)` | `tidy?(x : iso)` | `RegionType::gc(alloc, x) or NO-OP` |
-| `drop(%x : !iso<Type>)` | Goes out of context | `Region::release(alloc, x)` |
-| `kill(%x : !mut<Type>)` | Goes out of context | `RegionType::???(alloc, x) or NO-OP` |
-| `freeze(%x : !iso<Type>)` | `Builtin::freeze(x : iso)` | `Freeze::apply(alloc, x)` |
-| `%y = cast(%x : !Ty1) : !Ty2` | `<compiler-internal>` | `NO-OP` |
+New objects are allocated with the operation:
+
+```mlir
+alloc(%region: !region, !ObjectType, %args...): !join<iso<ObjectType>, mut<ObjectType>>
+```
+
+where:
+ * `%region` is a pointer to the object that defines the region.
+ * `ObjectType` is a `!verona.type` that defines the structure to be allocated.
+ * `%args` is the list of initialisers for the fields of `ObjectType`.
+
+If the pointer is `undef`, then this will create a new region, calling the run-time function: `RegionType::create(alloc, Type)`, returning a `!iso<ObjectType>`.
+
+Otherwise, it will allocate a new object on the current region, calling the run-time function: `RegionType(object)::alloc(alloc, Type)`, returning a `!mut<ObjectType>`.
+
+After the allocation, this operator will initialise each field with the values from `%args` by lowering to `field(%obj, "name") = %arg[i]`.
+
+## Control Flow
+
+### Match
+
+`match` is used to match the type of an object to a known type, returning a boolean, used in conditional branches.
+```mlir
+match(%obj: !join<Type1, Type2, ..., TypeN>, !Type) : i1
+```
+
+where:
+ * The type of the `%obj` has to be a `!join<>` type.
+ * The `!Type` to match has to be in the union above.
+
+The operation returns `true` if the run-time type of `%obj` is `!Type`.
+
+If know at compile time, `match(!concreteA, !concreteA)` can be simplified to `true` and `match(!concreteA, !concreteB)` can be simplified to `false`.
+
+Example:
+```mlir
+  %obj = call @some_function(...): !join<A, B>
+  %m = verona.match(%obj, !A) : i1
+  cond_br %m, ^handle_a(%obj), ^handle_b(%obj)
+
+^handle_a(%a: !A): // guaranteed to be !A
+  ...
+
+^handle_b(%b: !B): // guaranteed to be !B
+  ...
+```
+
+### Throw
+
+`throw` is used as non-local return, where the function is defined to throw `Throw[T]` types.
+```mlir
+throw(%obj: !Type): !throw<Type>
+```
+
+where:
+ * `%obj` is a reference to the object being thrown.
+ * `Type` is the type of that object.
+ * The type returned is `!throw<Type>`.
+
+The operation sets a flag before returning, so that `catch` can check that flag and know that the encapsulated type is a `!throw<T>` and needs to clear the flag.
+
+This is a terminator operation, with the same semantics as a `return` in a basic block.
+
+### Catch
+
+`catch` checks for the exception flag, and if true, clears the flag and returns `true`, otherwise, it returns `false`.
+This is used in conjunction with a conditional branch, guaranteeing the dispatch type.
+```mlir
+catch(%obj: !join<...>): i1
+```
+
+where:
+ * `%obj` is the object returned or thrown.
+ * The type of `%obj` is a union of types, with at least one being `!throw<T>`.
+
+The operation returns `true` is the run-time type is a `!throw<T>` type, clearing the exception flag, otherwise, it returns `false`.
+
+This is equivalent to a `match` that looks into throw vs no-throw types.
+
+Example:
+```mlir
+  %obj = call @some_function(...): !join<A, B, Throw<E>, Throw<F>>
+  %c = verona.catch(%obj): i1
+  cond_br %c, ^handle_exception(%obj), ^continue(%obj)
+
+^handle_exception(%exc: !join<E, F>): // flags was cleared above
+  %e = match(%exc, !E): i1
+  ...
+
+^continue(%val: !join<A, B>): // no exceptions here
+  %a = match(%val, !A): i1
+  ...
+```
+
+### Using
+
+`using` changes the current active region, ie. the one we can write to and where we create new objects.
+```mlir
+%ret = using(%ref = %obj: !join<iso<T>, mut<T>>)
+{
+  // Code here assumes the active region is the one where %obj is
+}
+```
+
+where:
+ * `%ret` is the (optional) return value of the region.
+ * `%obj` is an object that is located in the region to be made active.
+ * If the object is `!mut<>`, then we find the region it belongs to and make that the active region.
+ * If the `%obj` is `undef`, then a new region has to be created.
+ * `%ref` is the internal reference to `%obj` inside the region (isolated from above).
+
+Example:
+```mlir
+  // Returns an immutable object from a temp region
+  %immObj = verona.using(%region = undef) : !imm<Type>
+  {
+    %obj = verona.alloc(%region, !Type): !iso<Type>
+    %imm = verona.freeze(%obj)
+    ret %imm
+  }
+```
+
+Alternatively, we could create two operations: `region_push()` and `region_pop()` to manipulate the stack of regions directly, but MLIR has isolated regions that already encode that logic, so it should be fine.
+
+### Cast
+
+`cast` just changes the type for the sake of the native MLIR type checker with no-op semantics.
+```mlir
+cast(%obj: !Type1): !Type2
+```
+
+Expressions where union and interface types are requested, their sub-types can be used, but MLIR doens't know the Verona type relationships.
+
+This operation just changes the type on a new SSA variable, allowing the type checker to pass.
+
+## Memory Management
+
+These are inserted by the compiler when objects go out of scope or in special places that the compiler deems correct to insert.
+
+`tidy` calls the garbage collector on the region, if the region is traced, or doesn't do anything otherwise:
+```mlir
+tidy(%x : !join<iso<Type>, mut<Type>) ->
+RegionType::gc(alloc, x) || NOOP
+```
+
+`drop` marks the reference as dead and, if the reference was an `iso`, it also releases the region. If the region is reference-counted, also decrease the counter for `mut` references.
+```mlir
+drop(%x : !join<iso<Type>, mut<Type>) ->
+Region::release(alloc, x)
+```
+
+## Region Handling
+
+This may not have direct correlation with the language, but is needed in order to implement the run-time semantics correcty.
+
+`move` inserts an object into a region by transfering the ownership of the new region.
+```mlir
+move(%x : !region, %z : !mut<Type>) ->
+RegionType::insert<YesTransfer>(alloc, x, z)
+```
+
+`extref` inserts an external reference to an object in another region but not transfering the ownership to the new region.
+```mlir
+extref(%x : !region, %z : !mut<Type>) ->
+RegionType::insert<NoTransfer>(alloc, x, z)
+```
+
+`merge` joins two regions into one, leaving the active region's sentinel as the entry point to the new region.
+```mlir
+merge(%x : !region, %z : !region) ->
+RegionType::merge(alloc, x, z)
+```
+
+`freeze` makes all objects in the region `imm`, from the sentinel object down to all others.
+```mlir
+freeze(%x : !join<iso<Type>, mut<Type>>) ->
+Freeze::apply(alloc, x)
+```
