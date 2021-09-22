@@ -470,8 +470,8 @@ Example:
 {
   %a = call @factory(...): !join<A, B, throw<E>, throw<F>>
   %threw = verona.catch(%a): i1
-  %values = verona.cast(%a): !join<A, B>
-  %exceptions = verona.cast(%a): !join<E, F>
+  %values = verona.cast(%a): !join<A, B>     // Note, only "regular" objects here
+  %exceptions = verona.cast(%a): !join<E, F> // Note, only "exception" objects here
   cond_br %threw, error(%exceptions), cont(%values)
   ...
 }
@@ -483,7 +483,7 @@ Example:
 ```ts
 factory(a: I32): A | Throw[E]
 {
-  if (a > 10)
+  if (a > 10)            // When inlined, this condition is always false
     throw E
   let obj = A::create(a)
   obj
@@ -493,7 +493,7 @@ user(...): A
 {
   let a = 5
   try {
-    let obj = factory(a) // clearly, a<10
+    let obj = factory(a) // clearly, a < 10
     obj
   }
   catch
