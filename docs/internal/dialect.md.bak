@@ -98,7 +98,7 @@ This makes the distinction between `std.ret` and `verona.throw` clear, with the 
 
 ## Region type
 
-The new semantics only allows one region to be writable at any given point, so when creating new objects, we know in which region, if any, to allocate it.
+The new semantics only allows one region to be writeable at any given point, so when creating new objects, we know in which region, if any, to allocate it.
 But to know which is the current region at any given time, the ABI has to change so that every function receives a region object and uses it for the `alloc` operation.
 
 For this, we need a new type, `!region`, which is a pointer to an object that defines the region, or `undef` if there are no regions defined.
@@ -250,7 +250,7 @@ Alternatively, we could create two operations: `region_push()` and `region_pop()
 cast(%obj: !Type1): !Type2
 ```
 
-Expressions where union and interface types are requested, their sub-types can be used, but MLIR doesn't know the Verona type relationships.
+Expressions where union and interface types are requested, their sub-types can be used, but MLIR doens't know the Verona type relationships.
 
 This operation just changes the type on a new SSA variable, allowing the type checker to pass.
 
@@ -272,15 +272,15 @@ Region::release(alloc, x)
 
 ## Region Handling
 
-This may not have direct correlation with the language, but is needed in order to implement the run-time semantics correctly.
+This may not have direct correlation with the language, but is needed in order to implement the run-time semantics correcty.
 
-`move` inserts an object into a region by transferring the ownership of the new region.
+`move` inserts an object into a region by transfering the ownership of the new region.
 ```mlir
 move(%x : !region, %z : !mut<Type>) ->
 RegionType::insert<YesTransfer>(alloc, x, z)
 ```
 
-`extref` inserts an external reference to an object in another region but not transferring the ownership to the new region.
+`extref` inserts an external reference to an object in another region but not transfering the ownership to the new region.
 ```mlir
 extref(%x : !region, %z : !mut<Type>) ->
 RegionType::insert<NoTransfer>(alloc, x, z)
@@ -300,7 +300,7 @@ Freeze::apply(alloc, x)
 
 ## IR Optimisation
 
-The main reason for an MLIR dialect, rather than direct lowering to LLVM IR, is so we can do high-level transformations that would be costly or impossible in a low-level IR.
+The main reason for an MLIR dialect, rather than direct lowring to LLVM IR, is to we can do high-level transformations that would be costly or impossible in a low-level IR.
 
 This section justifies the existence of the operations and types declared for what optimisations they allow.
 
