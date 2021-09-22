@@ -298,15 +298,15 @@ freeze(%x : !join<iso<Type>, mut<Type>>) ->
 Freeze::apply(alloc, x)
 ```
 
-## IR Optimisation
+# IR Optimisation
 
 The main reason for an MLIR dialect, rather than direct lowering to LLVM IR, is so we can do high-level transformations that would be costly or impossible in a low-level IR.
 
 This section justifies the existence of the operations and types declared for what optimisations they allow.
 
-### Types
+## Types
 
-#### Concrete Types
+### Concrete Types
 
 Concrete types are just LLVM pointers to structures which are allocated by the run-time using the `verona.alloc` operation.
 
@@ -314,7 +314,7 @@ Objects that have a limited lifetime (ex. not captured by a lambda or passed ont
 
 The compiler can detect lifetime locally and change a `verona.alloc` to an `llvm.alloca` to avoid run-time calls, reference counting, garbage collection, etc.
 
-#### Capabilities
+### Capabilities
 
 With the type inference and final checks being done before MLIR, there is no need to keep reference capabilities at this level, other than potential optimisations.
 
@@ -380,7 +380,7 @@ which allows the compiler to match the type of `%x` with `!imm` directly and sub
 }
 ```
 
-#### Union Types, Throw Types and Casts
+### Union Types, Throw Types and Casts
 
 This less for code optimisation per se, more for simplifying code generation.
 But in conjunction with `match`, it can help similar optimisations as above.
