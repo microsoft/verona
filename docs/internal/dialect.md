@@ -297,3 +297,163 @@ RegionType::merge(alloc, x, z)
 freeze(%x : !join<iso<Type>, mut<Type>>) ->
 Freeze::apply(alloc, x)
 ```
+
+## IR Optimisation
+
+The main reason for an MLIR dialect, rather than direct lowring to LLVM IR, is to we can do high-level transformations that would be costly or impossible in a low-level IR.
+
+This section justifies the existence of the operations and types declared for what optimisations they allow.
+
+### Types
+
+#### Concrete Types
+
+Concrete types are just LLVM pointers to structures which are allocated by the run-time using the `verona.alloc` operation.
+
+Objects that have a limited lifetime (ex. not captured by a lambda or passed onto asynchronous execution) can be allocated in the stack instead.
+
+The compiler can detect lifetime locally and change a `verona.alloc` to an `llvm.alloca` to avoid run-time calls.
+
+#### Capabilities
+
+With the type inference and final checks being done before MLIR, there is no need to keep reference capabilities at this level, other than potential optimisations.
+
+For example, a `match` on a function that gets inlined, where the argument's type is statically known can help the compiler elide the remaining cases.
+
+For example, this match:
+```ts
+func(arg: (imm | mut)): A | B
+{
+  match arg
+    { i: imm => new A }
+    { m: mut => new B }
+}
+```
+
+Could be simplified if inlined in a function with a static type:
+```ts
+other(...): ...
+{
+  let x = A::create() // A & mut
+  let y = func(x)     // B & mut
+  ...
+}
+```
+
+The compiler can look at a `match` and check if the type of the argument is known to be the same at compile time:
+```mlir
+@func(%arg: !join<imm, mut>): !join<A, B>
+{
+  %m = verona.match(%arg, !imm) : i1
+  // exhaustive match, so...
+  cond_br %m, imm(), mut()
+
+^imm():
+  %a = verona.alloca(...): !mut<A>
+  ret %a
+
+^mut():
+  %b = verona.alloca(...): !mut<B>
+  ret %b
+}
+
+@other(...): ...
+{
+  %x = call @A::create(...): !mut<A>
+  %y = call @func(%x)
+  ...
+}
+```
+
+Inlining the call to `@func` would make the `match` line:
+```mlir
+  %x = call @A::create(...): !mut<A>
+  %m = verona.match(%x, !imm) : i1
+```
+
+which allows the compiler to match the type of `%x` with `!imm` directly and substitute for `%m = false`, making the `cond_br` an unconditional branch, eliding the first basic block, simplifying `@other` to:
+```mlir
+@other(...): ...
+{
+  %x = call @A::create(...): !mut<A>
+  %y = verona.alloca(...): !mut<B>
+  ...
+}
+```
+
+#### Union Types, Throw Types and Casts
+
+This isn't particularly for code optimisation per se, but for simplifying code generation.
+
+We need to be able to represent union types in IR in some form, and encoding it in a way that allows us to inspect and extract the sub-types is helpful in some situations.
+
+If a function has an argument with a union type and the caller passes one of the sub-types, we can introduce a `cast` but also check that the type is in the list of the union's sub-types.
+
+Or, when a function return some types and throw others, the return type is a union of types and `Throw[]` types. When using a `try/catch` on the caller, the `catch` must separate between returned and thrown objects, and also unpack the thrown objects into regular objects.
+
+Having union types that can be inspected and throw types helps that. the `cast` operation helps glue all of that together without needing a full blown type verification in MLIR.
+
+For example:
+```ts
+factory(...): A | Throw[E]
+{
+  if (something wrong)
+    throw E
+  let a = new A(...)
+  a
+}
+
+user(...): A
+{
+  try {
+    let a = factory(...)
+    a
+  }
+  catch
+  {
+    e: E => // handle error
+  }
+}
+```
+
+In MLIR would be:
+```mlir
+@factory(...): !join<A, throw<E>>
+{
+  %err = // check something
+  cond_br %err, error(), cont()
+
+^error():
+  %e = call @E::create(...)
+  verona.throw %e // terminator
+
+^cont():
+  %a = call @A::create(...)
+  ret %a
+}
+
+@user(...): !A
+{
+  %a = call @factory(...): !join<A, throw<E>>
+  %threw = verona.catch(%a): i1
+  %actual_a = verona.cast(%a): !A
+  %throw_e = verona.cast(%a): !E
+  cond_br %threw, error(%throw_e), cont(%actual_a)
+
+^error(%throw_e):
+  // handle error
+  terminator || unreachable
+
+^cont(%actual_a):
+  ret %a
+}
+```
+
+Note the use of `cast` on `%a` for both types, even if just one would ever match. This is possible because casts are no-ops and will be lowered as either some form of `bitcast` or elided completely.
+
+Also note that the thrown cast is to `!E` and not `!throw<E>`.
+That is because `catch` has already cleared the exception flag, and now all exception objects are just regular objects.
+
+If `@factory` could throw more than one exception, the cast would be to another union containing only `throw` types, and further `match` operations on the `^error` basic block would differentiate which type of exception
+
+If the error checks depend on the arguments and `@factory` gets inlined, then the compiler can verify if nothing is ever thrown, so the `catch` will always be false and the `^error` basic block will never be reached, thus eliding not only a lot of code, but also run-time checks and branches.
