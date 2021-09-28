@@ -2,11 +2,19 @@
 # can be used by CI to ensure that we're able to use the versions from the
 # cache.
 if (NOT DEFINED FIXED_VCPKG_VERSION)
-    set(FIXED_VCPKG_VERSION master)
-	set(FIXED_VCPKG_ZIP refs/heads/master)
+  set(FIXED_VCPKG_VERSION master)
+  set(FIXED_VCPKG_ZIP refs/heads/master)
 else()
-	set(FIXED_VCPKG_ZIP ${FIXED_VCPKG_VERSION})
+  set(FIXED_VCPKG_ZIP ${FIXED_VCPKG_VERSION})
 endif ()
+
+# On non-Windows platforms, where we have a stable ABI across compiler
+# versions, don't use the hash of the compiler in determining the ID of a
+# cached binary.  Allows us to use the same build of LLVM for different clang /
+# gcc versions on the same OS.
+if (NOT WIN32)
+  set(VCPKG_DISABLE_COMPILER_TRACKING ON)
+endif()
 
 # Not used yet, but we may want to add custom triplets for ASAN and so on.
 #set("VCPKG_OVERLAY_TRIPLETS" "${CMAKE_SOURCE_DIR}/overlay-triplets")
