@@ -168,7 +168,7 @@ From the `build_ninja` directory, you can run
 ninja
 ```
 
-# Running examples
+# Running deprecated examples
 
 Inside the build directory, by default, there will be a `dist` directory that
 contains
@@ -178,12 +178,12 @@ interpreter[.exe]
 ```
 On Windows, the simplest way to run an example is
 ```
-build\dist\veronac.exe --run testsuite\veronac\demo\run-pass\dining_phil.verona
+build\dist\veronac.exe --run testsuite\deprecated\veronac\demo\run-pass\dining_phil.verona
 ```
 
 On Linux, the simplest way to run an example is
 ```
-build_ninja/dist/veronac --run testsuite/veronac/demo/run-pass/dining_phil.verona
+build_ninja/dist/veronac --run testsuite/deprecated/veronac/demo/run-pass/dining_phil.verona
 ```
 
 This compiles the program to byte code and runs it through our interpreter. 
