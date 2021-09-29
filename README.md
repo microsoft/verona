@@ -26,11 +26,10 @@ MacOS 10.14 Clang 11 | [![Build Status](https://dev.azure.com/ProjectVeronaCI/Pr
 
 # Syntax Highlight
 
-Due to some amazing early contributors, we have syntax highlighting for two editors:
-* **VS Code:** Automatically suggests installing when opening Verona files. Thanks to @KodrAus (#145).
-* **Emacs:** https://github.com/damon-kwok/verona-mode. Thanks to @damon-kwok (#199).
-
-**Vim** lovers, the ball is in your court.
+Due to some amazing early contributors, we have syntax highlighting for the following editors:
+* **VS Code:** Automatically suggests installing when opening Verona files. Thanks to @KodrAus (see #145).
+* **Emacs:** https://github.com/damon-kwok/verona-mode. Thanks to @damon-kwok (see #199).
+* **Vim:** https://github.com/timmyjose-projects/verona.vim. Thanks to @timmyjose (see #504).
 
 # Development Documents
 
