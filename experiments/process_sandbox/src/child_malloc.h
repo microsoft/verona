@@ -41,7 +41,8 @@ namespace sandbox
   public:
     /**
      * Interface to a pagemap that is private to the child.  This is used with
-     * the private address-space manage.
+     * the private address-space manager so that the child process can track
+     * metadata about unused memory without needing an RPC to the parent.
      */
     struct PrivatePagemap
     {
@@ -53,6 +54,9 @@ namespace sandbox
 
       /**
        * Private pagemap, allocated in memory owned exclusively by the child.
+       *
+       * This spans the entire child's address space. Any parts of it
+       * that cover the range shared with the parent will be unused.
        */
       inline static snmalloc::FlatPagemap<
         snmalloc::MIN_CHUNK_BITS,
@@ -107,6 +111,12 @@ namespace sandbox
     struct LocalState
     {};
 
+    /**
+     * Adaptor for the pagemap that is managed by the parent.  This is backed
+     * by a shared-memory object that is passed into the child on process start
+     * and is then mapped read-only in the child.  All updates require an RPC
+     * to the parent, which will validate the updates and install them.
+     */
     struct Pagemap
     {
       /**
