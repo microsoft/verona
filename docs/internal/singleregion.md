@@ -23,7 +23,7 @@ There can be multiple mutable regions.  There is a single object in a mutable re
       region_of(ref2.src) = region_of(ref1.dst) ∨
       ref1.src == ref2.src
 ```
-Here, we use a generic concept of reference, where a reference has a `src` and `dst`.  Examples for srcs of references are a stack locations for variables, fields in objects, and captures in closures.  The `dst` is always an object.  This generalisation to references is required to ensure there is only a single entry point from either the stack or the heap.
+Here, we use a generic concept of reference, where a reference has a `src` and `dst`.  The `src` of a reference is a storage location, which includes stack locations for variables, fields in objects, and captures in closures.  The `dst` is always an object.This generalisation to references is required to ensure there is only a single entry point from either the stack or the heap.
 
 [TODO: This explanation falls short when we get to `using`. Well, we at least need to carefully consider how `region_of` interacts with variable scopes.]
 
