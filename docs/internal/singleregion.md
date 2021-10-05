@@ -59,7 +59,7 @@ class Entry
   ...
 }
 ```
-It has four fields.  The first, `key`, references an object in the immutable region that is a subtype of `K`.
+The `Entry` class has four fields.  The first, `key`, references an object in the immutable region that is a subtype of `K`.
 The second, `value`, references an object that is an entry point into a different region that is a subtype of `V`.  The final two fields are references in the same region to objects of the `Entry` type.
 
 Here you can see the flexibility we get.  Each `value` in the list is in its own region, but the structure of the list can have an arbitrary structure.  In this instance, given the type, you might expect a doubly-linked list.  As the `key`s are in the immutable region, they can be shared and referenced from any region.
