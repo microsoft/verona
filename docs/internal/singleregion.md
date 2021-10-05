@@ -73,8 +73,6 @@ The gives the basic topology that the type system can impose on the structure of
 Now we will consider how we can access and manipulate the structure of objects, while preserving the topology that is imposed on memory.
 In this section, we will informally walk through the typing of various accesses to memory, using the `Entry` class from the previous section.
 
-We consider accessing various fields of `Entry` with different starting capabilities.
-
 #### Immutable
 
 If we access immutable fields of a mutable object, then we get the immutable capability on the target:
