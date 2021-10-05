@@ -8,24 +8,9 @@ This document is a working document and should not be consider definitive.  It r
 
 ## Informal
 
-Verona is a structurally type and algebraic programming language.  It is an object based language, where the only values are references to objects.  There are some primitive types that the runtime represents more efficiently, but abstractly everything can be viewed as an object.  Thus all types are refer to the target of the reference.
+Verona is a structurally type and algebraic programming language.  It is an object based language, where the only values are references to objects.  There are some primitive types that the runtime represents more efficiently, but abstractly everything can be viewed as an object.
 
-[TODO - Overview of semantics]
-
-An object is an index set of storage locations, and each storage location contains a reference to a value.  The type of a storage location specifies properties of what the storage locations refers to.
-
-```
-oid ⇀ (field ⇀ storage_location) × class
-storage_location ⇀ value
-```
-
-In what follows, we consider `value` to be `oid`.
-
-[TODO: Nested storage locations?]
-
-### Region Topology
-
-Verona core concept for ownership is regions.  A region is a group of objects.
+Verona's core concept for ownership is regions.  A region is a group of objects.
 There are two types of region in Verona, mutable and immutable.  There is a single immutable region.  The immutable region is closed under flowing fields from objects in that region.
 ```
   ∀ x,f. region_of(x) = immutable ⇒ region_of(x.f) = immutable
@@ -222,6 +207,21 @@ using x.value {
   y.next = x; // This does not type check, x is not `mut` as required.
 }
 ```
+
+### Semantics
+
+[TODO - Overview of semantics]
+
+An object is an index set of storage locations, and each storage location contains a reference to a value.  The type of a storage location specifies properties of what the storage locations refers to.
+
+```
+oid ⇀ (field ⇀ storage_location) × class
+storage_location ⇀ value
+```
+
+In what follows, we consider `value` to be `oid`.
+
+[TODO: Nested storage locations?]
 
 ### Variables and `store[T]`
 
