@@ -15,17 +15,17 @@ There are two types of region in Verona, mutable and immutable.  There is a sing
 ```
   ∀ x,f. region_of(x) = immutable ⇒ region_of(x.f) = immutable
 ```
-There can be multiple mutable regions.  There is a single object in a mutable region that is the entry point. There is a single reference to the entry point from outside the region.  There may be multiple references from within the region to any other object, including the entry point.
+There can be multiple mutable regions.  There is a single object in a mutable region that is the entry point. There is a single reference to the entry point from outside the region.  There may be multiple references from within the region to any other object, including the entry point.  This can be enforced by:
 ```
   ∀ ref1,ref2.
-    ref1.dst = ref2.dst ∧  region_of(ref1.dst) ≠ immutable ⇒
+    region_of(ref1.dst) = region_of(ref2.dst) ∧  region_of(ref1.dst) ≠ immutable ⇒
       region_of(ref1.src) = region_of(ref1.dst) ∨
       region_of(ref2.src) = region_of(ref1.dst) ∨
       ref1.src == ref2.src
 ```
 Here, we use a generic concept of reference, where a reference has a `src` and `dst`.  The `src` of a reference is a storage location, which includes stack locations for variables, fields in objects, and captures in closures.  The `dst` is always an object.This generalisation to references is required to ensure there is only a single entry point from either the stack or the heap.
 
-[TODO: This explanation falls short when we get to `using`. Well, we at least need to carefully consider how `region_of` interacts with variable scopes.]
+[TODO: This explanation falls short when we get to `using`. Well, we at least need to carefully consider how `region_of` interacts with variable scopes.  I think we need to extend region_of to sets, and then stack locations are in the set of currently open regions.  Then a bunch of equalities become subsets.]
 
 The overall topology is a forest of mutable regions, which can all reference the immutable region.
 
@@ -78,12 +78,12 @@ In this section, we will informally walk through the typing of various accesses 
 If we access immutable fields of a mutable object, then we get the immutable capability on the target:
 ```
 // x: mut & Entry
-let k = x.k
+let k = x.key
 // k: imm & K
 ```
 Now, if we access any field on an object with an immutable capability, then all the accessed are allowed, but must also be immutable capabilities:
 ```
-// i: imm & Entry
+// x: imm & Entry
 let k = x.key
 // k: imm & K
 let v = x.value
@@ -203,7 +203,12 @@ using x.value {
   // x: paused & Entry
   x.next = y; // This does not type check, cannot assign a `paused` object
   y.next = x; // This does not type check, x is not `mut` as required.
+  let z = x.next
+  // z: paused & Entry
+  let k = z.key 
+  // k: imm & K
 }
+// x: mut & Entry
 ```
 
 ### Semantics
