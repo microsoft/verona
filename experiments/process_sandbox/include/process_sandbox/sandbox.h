@@ -48,11 +48,6 @@ namespace sandbox
   struct SharedAllocConfig : public snmalloc::CommonConfig
   {
     /**
-     * Forward definition of `Pagemap` so that `LocalState` can refer to it.
-     */
-    class Pagemap;
-
-    /**
      * The memory provider for the shared region.  This manages a single
      * contiguous address range.  This class is used both by the sandboxing code
      * and directly by snmalloc, which holds a reference to an instance of this
@@ -160,6 +155,10 @@ namespace sandbox
       /**
        * Concrete instance of a pagemap.  This is updated only with
        * `pagemap_lock` held.
+       *
+       * This pagemap spans the entire address space (i.e. does not use the
+       * fixed-range option) because it covers all sandboxes.  Each sandbox is
+       * (currently) a fixed range within the global address space.
        */
       inline static snmalloc::FlatPagemap<
         snmalloc::MIN_CHUNK_BITS,

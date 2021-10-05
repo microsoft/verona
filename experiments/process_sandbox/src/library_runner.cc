@@ -870,7 +870,7 @@ int main()
   close(PageMapPage);
   callbackSocket.reset(FDSocket);
 
-  //#ifndef NDEBUG
+#ifndef NDEBUG
   // Check that our bootstrapping actually did the right thing and that
   // allocated objects are in the shared region.
   auto check_is_in_shared_range = [](void* ptr) {
@@ -884,6 +884,7 @@ int main()
   void* obj = malloc(42);
   check_is_in_shared_range(obj);
   free(obj);
+#endif
 
   // Load the library using the file descriptor that the parent opened.  This
   // allows a Capsicum sandbox to prevent any access to the global namespace.
