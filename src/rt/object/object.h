@@ -77,6 +77,12 @@ namespace verona::rt
   class Object;
   class RegionBase;
 
+  struct ObjectCount
+  {
+    Object* object;
+    uintptr_t count;
+  };
+
   using ObjectStack = Stack<Object, Alloc>;
   static constexpr size_t descriptor_alignment =
     snmalloc::bits::min<size_t>(8, alignof(void*));
@@ -423,6 +429,7 @@ namespace verona::rt
     friend class RegionBase;
     friend class RegionTrace;
     friend class RegionArena;
+    friend class RegionRc;
     friend class RememberedSet;
     friend class ExternalReferenceTable;
     template<typename Entry>
@@ -459,6 +466,16 @@ namespace verona::rt
     inline void init_next(Object* o)
     {
       get_header().next = o;
+    }
+
+    inline ObjectCount* get_rv_index()
+    {
+      return (ObjectCount*)(get_header().next);
+    }
+
+    inline void set_rv_index(ObjectCount* o)
+    {
+      set_next((Object*)o);
     }
 
     inline Object* get_next()

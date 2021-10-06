@@ -6,6 +6,7 @@
 #include "memory_gc.h"
 #include "memory_iterator.h"
 #include "memory_merge.h"
+#include "memory_rc.h"
 #include "memory_subregion.h"
 #include "memory_swap_root.h"
 
@@ -60,6 +61,7 @@ int main(int argc, char** argv)
   memory_subregion::run_test();
 
   test_dealloc();
+  memory_rc::run_test();
 
   return 0;
 }
