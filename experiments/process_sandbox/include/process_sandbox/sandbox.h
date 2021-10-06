@@ -36,6 +36,7 @@ namespace sandbox
    */
   using NoOpPal = snmalloc::PALNoAlloc<snmalloc::DefaultPal>;
 
+  using snmalloc::pointer_diff;
   using snmalloc::pointer_offset;
 
   /**
@@ -64,7 +65,7 @@ namespace sandbox
      *    internally.
      *  - The chunk allocator state.  This contains a fixed-size array of
      *    multi-producer, multi-consumer stacks and so is safe to access from
-     * both threads.
+     *    both threads.
      */
     class LocalState
     {
@@ -116,10 +117,7 @@ namespace sandbox
        */
       bool contains(const void* ptr, size_t sz)
       {
-        // We shouldn't need the const cast here, but pointer_offset doesn't
-        // correctly handle const pointers yet.
-        return (ptr >= base) &&
-          (pointer_offset(const_cast<void*>(ptr), sz) < top);
+        return (ptr >= base) && (pointer_diff(ptr, (void*)top) >= sz);
       }
 
       /**
@@ -342,7 +340,7 @@ namespace sandbox
      * interface will cause linker failures, allowing us to check whether they
      * need to be allocated in the shared memory region or not.
      *
-     * Note that there is not specialisation of this function to allocate
+     * Note that there is no specialisation of this function to allocate
      * allocators.  This would be used by the pool allocator functionality in
      * snmalloc.  We should have exactly one shared allocator per sandbox and
      * so we don't use the pool allocator and will get a link failure if we
@@ -381,8 +379,8 @@ namespace sandbox
 
     /**
      * Construct the global state object.  This allocates the huge region for
-     * the pagemap (512 GiB currently, subject to change) and initialises the
-     * pagemap object to point to it.
+     * the pagemap (512 GiB currently on most platforms, subject to change) and
+     * initialises the pagemap object to point to it.
      *
      * This does not use snmalloc's lazy initialisation logic because we need
      * to create the shared memory *before* we create any allocators.  It is
@@ -429,6 +427,11 @@ namespace sandbox
      * core allocator and a local allocator.  The former provides the slow-path
      * operations and is managed by the latter, which provides fast-path
      * operations.
+     *
+     * This is a `unique_ptr` because it can't be constructed until things that
+     * are created in the middle of the constructor are available as
+     * constructor parameters and C++ requires all objects to be constructed on
+     * entry to the constructor.
      */
     std::unique_ptr<snmalloc::CoreAllocator<SharedAllocConfig>> core_alloc;
 

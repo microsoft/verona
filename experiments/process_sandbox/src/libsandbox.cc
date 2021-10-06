@@ -162,7 +162,8 @@ namespace sandbox
             auto msgq =
               reinterpret_cast<snmalloc::RemoteAllocator*>(rpc.args[1]);
             if (
-              !(s->contains(msgq, sizeof(snmalloc::RemoteAllocator))) &&
+              !((msgq == nullptr) ||
+                s->contains(msgq, sizeof(snmalloc::RemoteAllocator))) &&
               ((isLarge && (snmalloc::sizeclass_to_size(sizeclass) == size)) ||
                (!isLarge && (snmalloc::sizeclass_to_size(sizeclass) <= size))))
             {
@@ -241,7 +242,7 @@ namespace sandbox
       {
         return false;
       }
-      // The message queue must be in the allocator.
+      // The message queue must be in the shared memory region for this sandbox.
       if (
         !is_fake &&
         !s->contains(m.get_remote(), sizeof(snmalloc::RemoteAllocator)))

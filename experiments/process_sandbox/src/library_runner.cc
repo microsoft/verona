@@ -241,7 +241,6 @@ namespace sandbox
     snmalloc::RemoteAllocator* remote,
     snmalloc::sizeclass_t sizeclass)
   {
-    // TODO: Check this doesn't actually write to the pagemap.
     auto* ms = new (private_asm
                       .reserve<true, SnmallocGlobals::PrivatePagemap>(
                         nullptr, sizeof(snmalloc::Metaslab))
