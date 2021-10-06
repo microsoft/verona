@@ -1359,12 +1359,15 @@ namespace verona::rt
       alloc.dealloc<sizeof(MultiMessage)>(stub);
     }
 
-    void release_early()
+    bool release_early()
     {
       auto* body = Scheduler::local()->message_body;
       auto* senders = body->cowns;
       const size_t senders_count = body->count;
       Alloc& alloc = ThreadAlloc::get();
+
+      if (this == senders[senders_count - 1])
+        return false;
 
       for (size_t s = 0; s < senders_count; s++)
       {
@@ -1375,6 +1378,8 @@ namespace verona::rt
         senders[s] = nullptr;
         break;
       }
+
+      return true;
     }
 
     /**
