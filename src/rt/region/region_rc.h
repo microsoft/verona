@@ -267,12 +267,6 @@ namespace verona::rt
     // Memory usage in the region.
     size_t current_memory_used = 0;
 
-    // Compact representation of previous memory used as a sizeclass.
-    snmalloc::sizeclass_t previous_memory_used = 0;
-
-    // Stack of stack based entry points into the region.
-    StackThin<Object, Alloc> additional_entry_points{};
-
     RegionRc() : RegionBase() {}
 
     static const Descriptor* desc()
