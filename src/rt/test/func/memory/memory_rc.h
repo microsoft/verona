@@ -29,9 +29,9 @@ namespace memory_rc
     auto reg = (RegionRc*)Region::get(o);
     RegionVector<ObjectCount, Alloc>::iterator iter(reg->get_trivial_vec());
 
-    ObjectCount* rm1;
-    ObjectCount* rm2;
-    ObjectCount* rm3;
+    ObjectCount* rm1 = nullptr;
+    ObjectCount* rm2 = nullptr;
+    ObjectCount* rm3 = nullptr;
 
     int count = 0;
     for (auto object_count : iter)
