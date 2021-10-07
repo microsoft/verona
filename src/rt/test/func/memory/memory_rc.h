@@ -27,16 +27,16 @@ namespace memory_rc
     // Iterate through the region vector and make sure that all the
     // refcounts make sense.
     auto reg = (RegionRc*)Region::get(o);
-    RegionVector<ObjectCount, Alloc>::iterator iter(reg->get_trivial_vec());
+    RegionVector<uintptr_t, Alloc>::iterator iter(reg->get_trivial_vec());
 
-    ObjectCount* rm1 = nullptr;
-    ObjectCount* rm2 = nullptr;
-    ObjectCount* rm3 = nullptr;
+    RegionVector<uintptr_t, Alloc>::Elem* rm1 = nullptr;
+    RegionVector<uintptr_t, Alloc>::Elem* rm2 = nullptr;
+    RegionVector<uintptr_t, Alloc>::Elem* rm3 = nullptr;
 
     int count = 0;
     for (auto object_count : iter)
     {
-      assert(object_count->count == 1);
+      assert(object_count->metadata == 1);
 
       if (count == 5)
         rm1 = object_count;
@@ -84,15 +84,15 @@ namespace memory_rc
     assert(RegionRc::debug_get_ref_count(o4) == 1);
     assert((uintptr_t)rm3 == (uintptr_t)o4_idx);
 
-    reg->get_trivial_vec()->dealloc(alloc);
+    /* reg->get_trivial_vec()->dealloc(alloc); */
 
-    count = 0;
-    for (auto object_count : iter)
-    {
-      UNUSED(object_count);
-      count++;
-    }
-    assert(count == 0);
+    /* count = 0; */
+    /* for (auto object_count : iter) */
+    /* { */
+    /*   UNUSED(object_count); */
+    /*   count++; */
+    /* } */
+    /* assert(count == 0); */
   }
 
   void run_test()

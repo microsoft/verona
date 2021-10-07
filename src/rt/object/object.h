@@ -77,12 +77,6 @@ namespace verona::rt
   class Object;
   class RegionBase;
 
-  struct ObjectCount
-  {
-    Object* object;
-    uintptr_t count;
-  };
-
   using ObjectStack = Stack<Object, Alloc>;
   static constexpr size_t descriptor_alignment =
     snmalloc::bits::min<size_t>(8, alignof(void*));
@@ -468,14 +462,14 @@ namespace verona::rt
       get_header().next = o;
     }
 
-    inline ObjectCount* get_rv_index()
+    inline Object* get_rv_index()
     {
-      return (ObjectCount*)(get_header().next);
+      return (Object*)(get_header().next);
     }
 
-    inline void set_rv_index(ObjectCount* o)
+    inline void set_rv_index(Object* o)
     {
-      set_next((Object*)o);
+      set_next(o);
     }
 
     inline Object* get_next()
