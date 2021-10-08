@@ -107,15 +107,15 @@ when (c)
 }
 ```
 
-The test suite contains a simple example of using a `cown`, [bank1](../testsuite/deprecated/veronac/demo/run-pass/bank1.verona).
+The test suite contains a simple example of using a `cown`, [bank1](https://github.com/microsoft/verona/blob/master/testsuite/deprecated/veronac/demo/run-pass/bank1.verona).
 This example adds an amount to a balance on a bank account. 
 
 The concurrent owners add to the expressiveness of other approaches by enabling acquiring multiple cowns in one go.
-Reading the demo examples [bank2](../testsuite/deprecated/veronac/demo/run-pass/bank2.verona) and [bank3](../testsuite/veronac/demo/run-pass/bank3.verona) can help illustrate this.
+Reading the demo examples [bank2](https://github.com/microsoft/verona/blob/master/testsuite/deprecated/veronac/demo/run-pass/bank2.verona) and [bank3](https://github.com/microsoft/verona/blob/master/testsuite/deprecated/veronac/demo/run-pass/bank3.verona) can help illustrate this.
 
 There are two other slightly more advanced examples of concurrency that are well documented:
-  * [Dining Philosophers](../testsuite/deprecated/veronac/demo/run-pass/dining_phil.verona), which illustrates a slightly more elaborate concurrent protocol.
-  * [Parallel Fibonacci](../testsuite/deprecated/veronac/demo/run-pass/fib.verona), which illustrates fork/join parallism using `when` and `promises`.
+  * [Dining Philosophers](https://github.com/microsoft/verona/blob/master/testsuite/deprecated/veronac/demo/run-pass/dining_phil.verona), which illustrates a slightly more elaborate concurrent protocol.
+  * [Parallel Fibonacci](https://github.com/microsoft/verona/blob/master/testsuite/deprecated/veronac/demo/run-pass/fib.verona), which illustrates fork/join parallism using `when` and `promises`.
 
 
 # Regions
