@@ -69,10 +69,11 @@ namespace verona::rt
     // Index of the full dummy block
     // Due to pointer arithmetic with nullptr being undefined behaviour
     // we use a statically allocated null block.
-    static constexpr MaybeElem* null_index = &(null_block.data[BLOCK_COUNT - 1]);
+    static constexpr MaybeElem* null_index =
+      &(null_block.data[BLOCK_COUNT - 1]);
 
     /// Mask to access the index component of the pointer to a block.
-    static constexpr uintptr_t INDEX_MASK = (ITEM_COUNT- 1) * sizeof(T);
+    static constexpr uintptr_t INDEX_MASK = (ITEM_COUNT - 1) * sizeof(T);
 
     /// Pointer into a block.  As the blocks are strongly aligned
     /// the bits 9-3 represent the element in the block, with 0 being
@@ -123,8 +124,8 @@ namespace verona::rt
 
     ALWAYSINLINE void remove(Elem* index)
     {
-      MaybeElem* hole = (MaybeElem*) index;
-      hole->hole_ptr = (MaybeElem*) ((uintptr_t) next_free | EMPTY_MASK);
+      MaybeElem* hole = (MaybeElem*)index;
+      hole->hole_ptr = (MaybeElem*)((uintptr_t)next_free | EMPTY_MASK);
       next_free = hole;
     }
 
@@ -149,7 +150,7 @@ namespace verona::rt
         MaybeElem* prev = next_free->hole_ptr;
         next_free->item = item;
         MaybeElem* cur = next_free;
-        next_free = (MaybeElem*)((uintptr_t) prev & ~EMPTY_MASK);
+        next_free = (MaybeElem*)((uintptr_t)prev & ~EMPTY_MASK);
         return &(cur->item);
       }
       if (!is_full(index))
@@ -198,7 +199,7 @@ namespace verona::rt
       iterator operator++()
       {
         ptr--;
-        auto maybe_ptr = (MaybeElem*) ptr;
+        auto maybe_ptr = (MaybeElem*)ptr;
         if (maybe_ptr != vec->null_index)
         {
           if (!vec->is_empty(maybe_ptr))
@@ -381,7 +382,7 @@ namespace verona::rt
         oc = reg->get_trivial_vec()->push({o, 1}, alloc);
       else
         oc = reg->get_non_trivial_vec()->push({o, 1}, alloc);
-      o->set_rv_index((Object*) oc);
+      o->set_rv_index((Object*)oc);
 
       // GC heuristics.
       reg->use_memory(desc->size);
@@ -390,7 +391,7 @@ namespace verona::rt
 
     static RegionVector<RefCount, Alloc>::Elem* debug_get_rv_index(Object* o)
     {
-      return (RegionVector<RefCount, Alloc>::Elem*) o->get_rv_index();
+      return (RegionVector<RefCount, Alloc>::Elem*)o->get_rv_index();
     }
 
     static RefCount debug_get_ref_count(Object* o)
