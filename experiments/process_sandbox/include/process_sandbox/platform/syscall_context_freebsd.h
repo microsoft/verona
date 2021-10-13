@@ -32,8 +32,17 @@ namespace sandbox::platform
      */
     bool is_syscall()
     {
+      // This check works only on newer FreeBSD systems that provide si_syscall.
+      // Once support for this is MFC'd to all supporting branches and a release
+      // has happened from them then the fallback codepaths should all be
+      // deleted from here.  At the time of writing, it is in 14, not yet merged
+      // back to 12.x or 13.x.
+#    ifdef si_syscall
       return (info.si_syscall == SYS_syscall) ||
         (info.si_syscall == SYS___syscall);
+#    else
+      return false;
+#    endif
     }
 
   public:
@@ -130,7 +139,11 @@ namespace sandbox::platform
      */
     int get_syscall_number()
     {
+#    ifdef si_syscall
       return is_syscall() ? ctx.uc_mcontext.mc_rdi : info.si_syscall;
+#    else
+      return ctx.uc_mcontext.mc_rax;
+#    endif
     }
 
     /**
