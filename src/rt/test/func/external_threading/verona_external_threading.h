@@ -20,13 +20,7 @@ namespace verona::rt
      * Signals the the start of the Topology usage.
      * No calls should be made to Topology::get before calling this method.
      */
-    void acquire() {}
-
-    /**
-     * Signals that no futher calls will be made to Topology::get until another
-     * call is made to Topology::acquire.
-     */
-    void release() {}
+    static void init(Topology*) noexcept {}
 
     /**
      * Assigns a CPU ID to a scheduler thread specified as the argument.

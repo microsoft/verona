@@ -87,7 +87,7 @@ namespace verona::rt
       }
     };
 
-    std::vector<CPU>* cpus = nullptr;
+    std::vector<CPU> cpus;
 
 #if defined(CPU_COUNT) && defined(CPU_ISSET)
     template<typename CPUSet>
@@ -105,7 +105,7 @@ namespace verona::rt
       {
         if (CPU_ISSET(index, &all_cpus))
         {
-          cpus->push_back(CPU{0, 0, 0, index, false});
+          cpus.push_back(CPU{0, 0, 0, index, false});
           found++;
         }
 
@@ -115,15 +115,11 @@ namespace verona::rt
 #endif
 
   public:
-    ~Topology()
+    static void init(Topology* top) noexcept
     {
-      release();
-    }
-
-    void acquire()
-    {
-      delete cpus;
-      cpus = new std::vector<CPU>;
+      // Only call once.
+      if (top->cpus.size() != 0)
+        abort();
 
 #if defined(_WIN32)
       size_t numa_count;
@@ -153,7 +149,7 @@ namespace verona::rt
 
             if (idmask & p->Processor.GroupMask[j].Mask)
             {
-              cpus->push_back(
+              top->cpus.push_back(
                 CPU{get_numa_node(group, id, numa, numa_count),
                     get_package(group, id, package, package_count),
                     group,
@@ -172,14 +168,14 @@ namespace verona::rt
       release_info(package);
       release_info(numa);
 #elif defined(__linux__)
-      get_cpuset<cpu_set_t>([](cpu_set_t& all_cpus) {
+      top->get_cpuset<cpu_set_t>([](cpu_set_t& all_cpus) {
         sched_getaffinity(0, sizeof(cpu_set_t), &all_cpus);
       });
 #elif defined(FreeBSD_KERNEL)
-      get_cpuset<cpuset_t>(
+      top->get_cpuset<cpuset_t>(
         [](cpuset_t& all_cpus) { CPU_COPY(cpuset_root, &all_cpus); });
 #elif defined(__FreeBSD__)
-      get_cpuset<cpuset_t>([](cpuset_t& all_cpus) {
+      top->get_cpuset<cpuset_t>([](cpuset_t& all_cpus) {
         pthread_getaffinity_np(pthread_self(), sizeof(cpuset_t), &all_cpus);
       });
 #elif defined(__APPLE__)
@@ -194,45 +190,39 @@ namespace verona::rt
       // work, we just won't get CPU affinity.
       if (ret >= 0)
       {
-        cpus->reserve(core_count);
+        top->cpus.reserve(core_count);
         for (uint32_t index = 0; index < core_count; index++)
         {
-          cpus->push_back(CPU{0, 0, 0, index, false});
+          top->cpus.push_back(CPU{0, 0, 0, index, false});
         }
       }
 #else
 #  error Missing CPU enumeration for your OS.
 #endif
 
-      std::sort(cpus->begin(), cpus->end());
-    }
-
-    void release()
-    {
-      delete cpus;
-      cpus = nullptr;
+      std::sort(top->cpus.begin(), top->cpus.end());
     }
 
     size_t get(size_t index)
     {
-      if ((cpus == nullptr) || (cpus->size() == 0))
+      if (cpus.size() == 0)
         abort();
 
-      index = index % cpus->size();
-      return cpus->at(index).get();
+      index = index % cpus.size();
+      return cpus.at(index).get();
     }
 
     size_t size()
     {
-      if ((cpus == nullptr) || (cpus->size() == 0))
+      if (cpus.size() == 0)
         abort();
 
-      return cpus->size();
+      return cpus.size();
     }
 
   private:
 #ifdef _WIN32
-    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX
+    static PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX
     get_info(LOGICAL_PROCESSOR_RELATIONSHIP relation, size_t& count)
     {
       DWORD len = 0;
@@ -266,7 +256,7 @@ namespace verona::rt
       return info;
     }
 
-    size_t get_numa_node(
+    static size_t get_numa_node(
       size_t group,
       size_t id,
       PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX info,
@@ -289,7 +279,7 @@ namespace verona::rt
       return 0;
     }
 
-    size_t get_package(
+    static size_t get_package(
       size_t group,
       size_t id,
       PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX info,
@@ -316,13 +306,13 @@ namespace verona::rt
     }
 
     PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX
-    next_info(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX info)
+    static next_info(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX info)
     {
       return (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)(
         (char*)info + info->Size);
     }
 
-    void release_info(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX info)
+    static void release_info(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX info)
     {
       if (info != nullptr)
         delete[]((char*)info);
