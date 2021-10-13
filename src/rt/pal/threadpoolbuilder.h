@@ -13,7 +13,7 @@ namespace verona::rt
 {
   class ThreadPoolBuilder
   {
-    Topology topology;
+    inline static Singleton<Topology, &Topology::init> topology;
     std::list<PlatformThread> threads;
     size_t thread_count;
     size_t index = 0;
@@ -43,7 +43,6 @@ namespace verona::rt
     ThreadPoolBuilder(size_t thread_count)
     {
       this->thread_count = thread_count - 1;
-      topology.acquire();
     }
 
     /**
@@ -58,7 +57,8 @@ namespace verona::rt
       // thread to a core we massively increase contention.
       add_thread_impl(body, args...);
 #else
-      add_thread_impl(&run_with_affinity, topology.get(index), body, args...);
+      add_thread_impl(
+        &run_with_affinity, topology.get().get(index), body, args...);
 #endif
       index++;
     }
@@ -80,8 +80,6 @@ namespace verona::rt
         thread.join();
         threads.pop_front();
       }
-
-      topology.release();
     }
   };
 }
