@@ -60,7 +60,7 @@ if(VERONA_CI_BUILD)
   target_compile_definitions(verona_rt INTERFACE -DCI_BUILD)
 endif()
 
-target_link_libraries(verona_rt INTERFACE snmalloc_lib)
+target_link_libraries(verona_rt INTERFACE snmalloc)
 target_include_directories(verona_rt INTERFACE .)
 
 if(MSVC)
