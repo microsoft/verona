@@ -305,18 +305,17 @@ namespace sandbox
      * all metadata associated with an allocation from outside is inaccessible
      * by the sandbox and does not need to be validated.
      */
-    static std::
-      pair<snmalloc::CapPtr<void, snmalloc::CBChunk>, snmalloc::Metaslab*>
-      alloc_chunk(
-        LocalState* local_state,
-        size_t size,
-        snmalloc::RemoteAllocator* remote,
-        snmalloc::sizeclass_t sizeclass)
+    static std::pair<snmalloc::capptr::Chunk<void>, snmalloc::Metaslab*>
+    alloc_chunk(
+      LocalState* local_state,
+      size_t size,
+      snmalloc::RemoteAllocator* remote,
+      snmalloc::sizeclass_t sizeclass)
     {
       auto p = Pagemap::reserve(*local_state, size);
       if (p == nullptr)
       {
-        return {nullptr, nullptr};
+        return {{nullptr}, nullptr};
       }
       auto* meta = new snmalloc::Metaslab();
       snmalloc::MetaEntry t(meta, remote, sizeclass);
@@ -328,7 +327,7 @@ namespace sandbox
       {
         pm.set(a, t);
       }
-      return {snmalloc::CapPtr<void, snmalloc::CBChunk>{p}, meta};
+      return {snmalloc::capptr::Chunk<void>{p}, meta};
     }
 
     /**
@@ -347,7 +346,7 @@ namespace sandbox
      * accidentally do.
      */
     template<typename T>
-    static snmalloc::CapPtr<void, snmalloc::CBChunk>
+    static snmalloc::capptr::Chunk<void>
     alloc_meta_data(LocalState*, size_t size);
 
     /**
@@ -366,13 +365,37 @@ namespace sandbox
      * Options for configuring snmalloc.  This allocator is almost the exact
      * opposite of the default.  There is only one of them per sandbox, they
      * aren't per-thread, they're allocated and deallocated by the sandbox
-     * library.
+     * library.  The untrusted code has write access to the message queues and
+     * so the queue heads are not trusted.
      */
     constexpr static snmalloc::Flags Options{.IsQueueInline = false,
                                              .CoreAllocOwnsLocalState = false,
                                              .CoreAllocIsPoolAllocated = false,
                                              .LocalAllocSupportsLazyInit =
-                                               false};
+                                               false,
+                                             .QueueHeadsAreTame = false};
+
+    /**
+     * 'Domesticate' a pointer.  This takes a pointer to something that we've
+     * read from sandbox-controlled memory and validates whether it can be used
+     * for the specified type.  If it does not come from the sandbox identified
+     * by `ls` then this return a null pointer.
+     */
+    template<typename T, SNMALLOC_CONCEPT(snmalloc::ConceptCapPtr) B>
+    static auto capptr_domesticate(LocalState* ls, snmalloc::CapPtr<T, B> p)
+    {
+      // If we know the size that we're being asked for then use it in the
+      // check.  For deallocated objects the type is `void` and the caller
+      // will check that this is part of a valid allocation, we'll check that
+      // it's sufficiently large to store a freelist entry.
+      using ObjType = std::conditional_t<std::is_same_v<T, void>, void*, T>;
+      T* unsafe_ptr = ls->contains(p.unsafe_ptr(), sizeof(ObjType)) ?
+        p.unsafe_ptr() :
+        nullptr;
+      using Tame = typename B::template with_wildness<
+        snmalloc::capptr::dimension::Wildness::Tame>;
+      return snmalloc::CapPtr<T, Tame>(unsafe_ptr);
+    }
 
   private:
     friend class LocalState;

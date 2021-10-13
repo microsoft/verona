@@ -29,7 +29,7 @@ namespace sandbox
      * Non-templated version of reserve_with_left_over.  Calls the parent
      * process to request a new chunk of memory.
      */
-    static snmalloc::CapPtr<void, snmalloc::CBChunk> reserve(size_t size);
+    static snmalloc::capptr::Chunk<void> reserve(size_t size);
 
     /**
      * Private address-space manager.  Used to manage allocations that are
@@ -167,20 +167,19 @@ namespace sandbox
      * This performs a single RPC that validates the metadata and then
      * allocates and installs the entry.
      */
-    static std::
-      pair<snmalloc::CapPtr<void, snmalloc::CBChunk>, snmalloc::Metaslab*>
-      alloc_chunk(
-        LocalState* local_state,
-        size_t size,
-        snmalloc::RemoteAllocator* remote,
-        snmalloc::sizeclass_t sizeclass);
+    static std::pair<snmalloc::capptr::Chunk<void>, snmalloc::Metaslab*>
+    alloc_chunk(
+      LocalState* local_state,
+      size_t size,
+      snmalloc::RemoteAllocator* remote,
+      snmalloc::sizeclass_t sizeclass);
 
     /**
      * Allocate metadata.  This allocates non-shared memory for metaslabs and
      * shared memory for allocators.
      */
     template<typename T>
-    static snmalloc::CapPtr<void, snmalloc::CBChunk>
+    static snmalloc::capptr::Chunk<void>
     alloc_meta_data(LocalState*, size_t size);
 
     /**

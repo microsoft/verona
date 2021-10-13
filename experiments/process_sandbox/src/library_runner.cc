@@ -89,7 +89,6 @@ extern "C"
   extern char** environ;
 }
 
-using namespace snmalloc;
 using namespace sandbox;
 
 namespace
@@ -188,8 +187,7 @@ bool SnmallocGlobals::is_initialised()
 
 namespace sandbox
 {
-  snmalloc::CapPtr<void, snmalloc::CBChunk>
-  SnmallocGlobals::reserve(size_t size)
+  snmalloc::capptr::Chunk<void> SnmallocGlobals::reserve(size_t size)
   {
     SNMALLOC_ASSERT(size >= sizeof(void*));
 
@@ -197,7 +195,7 @@ namespace sandbox
 
     size_t rsize = bits::next_pow2(size);
 
-    snmalloc::CapPtr<void, snmalloc::CBChunk> res{
+    snmalloc::capptr::Chunk<void> res{
       reinterpret_cast<void*>(requestHostService(
         MemoryProviderReserve, static_cast<uintptr_t>(rsize)))};
 
@@ -216,7 +214,7 @@ namespace sandbox
   }
 
   template<>
-  snmalloc::CapPtr<void, snmalloc::CBChunk>
+  snmalloc::capptr::Chunk<void>
   SnmallocGlobals::alloc_meta_data<snmalloc::Metaslab>(LocalState*, size_t size)
   {
     size = snmalloc::bits::next_pow2(size);
@@ -225,16 +223,16 @@ namespace sandbox
   }
 
   template<>
-  snmalloc::CapPtr<void, snmalloc::CBChunk> SnmallocGlobals::alloc_meta_data<
+  snmalloc::capptr::Chunk<void> SnmallocGlobals::alloc_meta_data<
     snmalloc::CoreAllocator<sandbox::SnmallocGlobals>>(LocalState*, size_t size)
   {
     size = snmalloc::bits::next_pow2(size);
     auto* result =
       reinterpret_cast<void*>(requestHostService(MemoryProviderReserve, size));
-    return snmalloc::CapPtr<void, snmalloc::CBChunk>{result};
+    return snmalloc::capptr::Chunk<void>{result};
   }
 
-  std::pair<snmalloc::CapPtr<void, snmalloc::CBChunk>, snmalloc::Metaslab*>
+  std::pair<snmalloc::capptr::Chunk<void>, snmalloc::Metaslab*>
   SnmallocGlobals::alloc_chunk(
     SnmallocGlobals::LocalState*,
     size_t size,
@@ -251,7 +249,7 @@ namespace sandbox
       reinterpret_cast<uintptr_t>(remote),
       static_cast<uintptr_t>(sizeclass),
       reinterpret_cast<uintptr_t>(ms));
-    return {snmalloc::CapPtr<void, snmalloc::CBChunk>{result}, ms};
+    return {snmalloc::capptr::Chunk<void>{reinterpret_cast<void*>(result)}, ms};
   }
 }
 
@@ -352,6 +350,7 @@ namespace
     {
       DefaultPal::error("Unable to find memory location");
     }
+    auto map_nocore = sandbox::platform::detail::map_nocore;
 
     // fprintf(stderr, "Child starting\n");
     // printf(
@@ -361,7 +360,7 @@ namespace
       addr,
       length,
       PROT_READ | PROT_WRITE,
-      MAP_FIXED_NOREPLACE | MAP_SHARED | platform::detail::map_nocore,
+      MAP_FIXED_NOREPLACE | MAP_SHARED | map_nocore,
       SharedMemRegion,
       0);
 
@@ -380,7 +379,7 @@ namespace
       nullptr,
       decltype(SnmallocGlobals::Pagemap::pagemap)::required_size(),
       PROT_READ,
-      MAP_SHARED | platform::detail::map_nocore,
+      MAP_SHARED | map_nocore,
       PageMapPage,
       0));
     SANDBOX_INVARIANT(base != MAP_FAILED, "Mapping pagemap failed");

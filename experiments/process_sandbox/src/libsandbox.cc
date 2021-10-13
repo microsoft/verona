@@ -51,7 +51,7 @@ namespace sandbox
     // Force initialisation of the shared memory object backing the pagemap.
     SharedAllocConfig::ensure_initialised();
     shared_asm.add_range<SharedAllocConfig::Pagemap>(
-      this, snmalloc::CapPtr<void, snmalloc::CBChunk>{start}, size);
+      this, snmalloc::capptr::Chunk<void>{start}, size);
   }
   /**
    * Singleton class that handles pagemap updates from children.  This listens
@@ -837,7 +837,7 @@ namespace sandbox
   }
 
   template<>
-  snmalloc::CapPtr<void, snmalloc::CBChunk>
+  snmalloc::capptr::Chunk<void>
   SharedAllocConfig::alloc_meta_data<snmalloc::Metaslab>(
     LocalState*, size_t size)
   {
@@ -846,6 +846,6 @@ namespace sandbox
       "Requested to allocate {} bytes for {}-byte metaslab",
       size,
       sizeof(snmalloc::Metaslab));
-    return snmalloc::CapPtr<void, snmalloc::CBChunk>{new snmalloc::Metaslab()};
+    return snmalloc::capptr::Chunk<void>{new snmalloc::Metaslab()};
   }
 }
