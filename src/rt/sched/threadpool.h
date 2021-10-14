@@ -412,7 +412,11 @@ namespace verona::rt
 
       // Strong barrier to ensure that this is visible to all threads before
       // we actually attempt to sleep.
+#ifndef USE_SYSTEMATIC_TESTING
+      // This has no effect as execution is sequentialised with systematic testing.
+      // and causes bad performance.
       Barrier::memory();
+#endif
 
       // Work has become available, we shouldn't pause.
       if (check_for_work()) return false;
