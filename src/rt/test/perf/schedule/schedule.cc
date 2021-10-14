@@ -63,11 +63,11 @@ int main(int argc, char** argv)
 //  auto& alloc = sn::ThreadAlloc::get();
 
   const auto cores = opt.is<size_t>("--cores", 4);
-  const auto cowns = (size_t)1 << opt.is<size_t>("--cowns", 16);
+  const auto cowns = (size_t)1 << opt.is<size_t>("--cowns", 8);
   global_array_size  = (size_t)1 << opt.is<size_t>("--size", 22);
   global_array = new size_t[global_array_size];
-  const auto loops = opt.is<size_t>("--loops", 1000);
-  writes = opt.is<size_t>("--writes", 1000);
+  const auto loops = opt.is<size_t>("--loops", 100);
+  writes = opt.is<size_t>("--writes", 100);
 
   auto& sched = rt::Scheduler::get();
   sched.set_fair(true);
