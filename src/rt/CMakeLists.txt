@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(verona C CXX)
 
 set(SNMALLOC_USE_CXX17 ON CACHE BOOL "Build snmalloc in legacy CXX17 mode as long as Verona stays on CXX17" FORCE)
-set(SNMALLOC_ONLY_HEADER_LIBRARY ON)
+set(SNMALLOC_HEADER_ONLY_LIBRARY ON)
 add_subdirectory(../../external/snmalloc ./external/snmalloc EXCLUDE_FROM_ALL)
 
 macro(subdirlist result curdir)
@@ -60,7 +60,7 @@ if(VERONA_CI_BUILD)
   target_compile_definitions(verona_rt INTERFACE -DCI_BUILD)
 endif()
 
-target_link_libraries(verona_rt INTERFACE snmalloc_lib)
+target_link_libraries(verona_rt INTERFACE snmalloc)
 target_include_directories(verona_rt INTERFACE .)
 
 if(MSVC)

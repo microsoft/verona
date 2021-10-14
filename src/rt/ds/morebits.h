@@ -44,7 +44,9 @@ namespace verona::rt
     {
       size_t x = static_cast<size_t>(p);
 
-      if (snmalloc::bits::is64())
+      if constexpr (
+        std::numeric_limits<uintptr_t>::max() ==
+        std::numeric_limits<uint64_t>::max())
       {
         x = ~x + (x << 21);
         x = x ^ (x >> 24);

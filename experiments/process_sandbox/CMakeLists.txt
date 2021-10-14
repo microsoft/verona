@@ -61,14 +61,15 @@ find_package(Threads REQUIRED)
 target_link_libraries(library_runner Threads::Threads)
 target_link_libraries(sandbox Threads::Threads)
 
-target_link_libraries(library_runner fmt)
-target_link_libraries(sandbox fmt)
+find_package(fmt REQUIRED CONFIG)
+target_link_libraries(library_runner fmt::fmt)
+target_link_libraries(sandbox fmt::fmt)
 # The library runner needs to export the upcall function and its system call
 # interposition functions to the loaded library.
 target_link_options(library_runner PRIVATE -Wl,-export-dynamic)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(library_runner -ldl -lbsd)
+	target_link_libraries(library_runner -ldl -lbsd -lrt)
 	target_link_libraries(sandbox -ldl -lbsd -lrt)
 endif()
 

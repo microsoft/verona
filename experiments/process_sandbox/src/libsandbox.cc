@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include <array>
+#include <chrono>
 #include <functional>
 #include <mutex>
 #include <queue>
@@ -33,6 +34,8 @@
 #include "process_sandbox/sandbox.h"
 #include "process_sandbox/shared_memory_region.h"
 
+using namespace std::chrono_literals;
+
 namespace
 {
   // The library load paths.  We're going to pass all of these to the
@@ -42,6 +45,14 @@ namespace
 
 namespace sandbox
 {
+  SharedAllocConfig::LocalState::LocalState(void* start, size_t size)
+  : base(start), top(pointer_offset(base, size))
+  {
+    // Force initialisation of the shared memory object backing the pagemap.
+    SharedAllocConfig::ensure_initialised();
+    shared_asm.add_range<SharedAllocConfig::Pagemap>(
+      this, snmalloc::capptr::Chunk<void>{start}, size);
+  }
   /**
    * Singleton class that handles pagemap updates from children.  This listens
    * on a socket for updates, validates that they correspond to the memory that
@@ -53,7 +64,6 @@ namespace sandbox
    */
   class MemoryServiceProvider
   {
-    snmalloc::DefaultChunkMap<> pm;
     platform::Poller poller;
     /**
      * Add a new socket that we'll wait for.  This can be called from any
@@ -68,21 +78,6 @@ namespace sandbox
      */
     std::mutex m;
     /**
-     * Metadata about a sandbox for which we are updating the page map.
-     */
-    struct Sandbox
-    {
-      /**
-       * The memory provider that owns the above range.
-       */
-      SharedMemoryProvider* memory_provider;
-      /**
-       * The shared pagemap page that we need to update on behalf of this
-       * process.
-       */
-      uint8_t* shared_page = nullptr;
-    };
-    /**
      * A map from file descriptor over which we've received an update request
      * to the sandbox metadata.
      *
@@ -91,7 +86,9 @@ namespace sandbox
      * by storing an owning copy of the handle in the value and using the
      * non-owning value in the value.
      */
-    std::unordered_map<platform::handle_t, std::pair<platform::Handle, Sandbox>>
+    std::unordered_map<
+      platform::handle_t,
+      std::pair<platform::Handle, SharedAllocConfig::LocalState*>>
       ranges;
     /**
      * Run loop.  Wait for updates from the child.
@@ -122,7 +119,7 @@ namespace sandbox
           // but slightly misses the point of fault isolation.
         }
         HostServiceResponse reply{1, 0};
-        Sandbox s;
+        SharedAllocConfig::LocalState* s;
         {
           decltype(ranges)::iterator r;
           std::lock_guard g(m);
@@ -133,62 +130,70 @@ namespace sandbox
           }
           s = r->second.second;
         }
-        auto is_large_sizeclass = [](auto large_size) {
-          return (large_size < snmalloc::NUM_LARGE_CLASSES);
-        };
         // No default so we get range checking.  Fallthrough returns the error
         // result.
         switch (rpc.kind)
         {
-          case MemoryProviderPushLargeStack:
-          {
-            // This may truncate, but only if the sandbox is doing
-            // something bad.  We'll catch that on the range check (or get
-            // some in-sandbox corruption that the sandbox could do
-            // anyway), so don't bother checking it now.
-            void* base = reinterpret_cast<void*>(rpc.arg0);
-            uint8_t large_size = static_cast<uint8_t>(rpc.arg1);
-            if (
-              !is_large_sizeclass(large_size) ||
-              !s.memory_provider->contains(
-                base, snmalloc::large_sizeclass_to_size(large_size)))
-            {
-              break;
-            }
-            s.memory_provider->push_large_stack(
-              static_cast<snmalloc::Largeslab*>(base), large_size);
-            reply = {0, 0};
-            break;
-          }
-          case MemoryProviderPopLargeStack:
-          {
-            uint8_t large_size = static_cast<uint8_t>(rpc.arg1);
-            if (!is_large_sizeclass(large_size))
-            {
-              break;
-            }
-            reply = {0,
-                     reinterpret_cast<uintptr_t>(
-                       s.memory_provider->pop_large_stack(large_size))};
-            break;
-          }
           case MemoryProviderReserve:
           {
-            uint8_t large_size = static_cast<uint8_t>(rpc.arg0);
-            if (!is_large_sizeclass(large_size))
-            {
-              break;
-            }
+            size_t large_size = static_cast<size_t>(rpc.args[0]);
             reply = {0,
                      reinterpret_cast<uintptr_t>(
-                       s.memory_provider->template reserve<true>(large_size))};
+                       SharedAllocConfig::Pagemap::reserve(*s, large_size))};
             break;
           }
-          case ChunkMapSet:
-          case ChunkMapSetRange:
-          case ChunkMapClearRange:
+          case MetadataSet:
           {
-            reply.error = !validate_and_insert(s, rpc);
+            snmalloc::MetaEntry m{
+              reinterpret_cast<snmalloc::Metaslab*>(rpc.args[2]), rpc.args[3]};
+            char* p = reinterpret_cast<char*>(rpc.args[0]);
+            size_t size = static_cast<size_t>(rpc.args[1]);
+            for (char* a = p; a < p + size; a += snmalloc::MIN_CHUNK_SIZE)
+            {
+              reply.error |= validate_and_insert(s, a, m);
+            }
+            break;
+          }
+          case AllocChunk:
+          {
+            auto size = static_cast<size_t>(rpc.args[0]);
+            auto sizeclass = static_cast<snmalloc::sizeclass_t>(rpc.args[2]);
+            bool isLarge = size > snmalloc::MIN_CHUNK_SIZE;
+            auto msgq =
+              reinterpret_cast<snmalloc::RemoteAllocator*>(rpc.args[1]);
+            if (
+              !((msgq == nullptr) ||
+                s->contains(msgq, sizeof(snmalloc::RemoteAllocator))) &&
+              ((isLarge && (snmalloc::sizeclass_to_size(sizeclass) == size)) ||
+               (!isLarge && (snmalloc::sizeclass_to_size(sizeclass) <= size))))
+            {
+              reply.error = 1;
+              break;
+            }
+            void* alloc = SharedAllocConfig::Pagemap::reserve(
+              *s, static_cast<size_t>(rpc.args[0]));
+            if (alloc == nullptr)
+            {
+              reply.error = 1;
+              break;
+            }
+            // For large allocations we store the power of two size, not the
+            // sizeclass.
+            if (isLarge)
+            {
+              sizeclass = snmalloc::bits::next_pow2_bits(size);
+            }
+            char* p = static_cast<char*>(alloc);
+            snmalloc::MetaEntry m{
+              reinterpret_cast<snmalloc::Metaslab*>(rpc.args[3]),
+              msgq,
+              sizeclass};
+            for (char* a = p; a < p + size; a += snmalloc::MIN_CHUNK_SIZE)
+            {
+              reply.error |= validate_and_insert(s, a, m);
+            }
+
+            reply = {0, reinterpret_cast<uintptr_t>(alloc)};
             break;
           }
         }
@@ -215,65 +220,48 @@ namespace sandbox
     }
     /**
      * Validate a request from the sandbox to update a pagemap and insert it if
-     * allowed.  The `sender` parameter is the file descriptor over which the
-     * message was sent. The `position` parameter is the address of the memory
-     * for which the corresponding pagemap entry is to be updated.  For the
-     * update to succeed, this must be within the range owned by the sandbox
-     * identified by the sending socket.  The last two parameters indicate
-     * whether this is a large allocation (one that spans multiple pagemap
-     * entries) and the value.  If `isBig` is 0, then this is a simple update
-     * of a single pagemap entry (typically a slab), specified in the `value`
-     * parameter.  Otherwise, `value` is the base-2 logarithm of the size,
-     * which is either being set or cleared (`isBig` values of 1 and 2,
-     * respectively).
+     * allowed.
      */
-    bool validate_and_insert(Sandbox& s, HostServiceRequest rpc)
+    bool validate_and_insert(
+      SharedAllocConfig::LocalState* s, void* address, snmalloc::MetaEntry m)
     {
-      void* address = reinterpret_cast<void*>(rpc.arg0);
-      snmalloc::ChunkmapPagemap& cpm = snmalloc::GlobalPagemap::pagemap();
-      size_t index = cpm.index_for_address(rpc.arg0);
-      size_t entries = 1;
-      bool safe = true;
-      auto check_large_update = [&]() {
-        size_t alloc_size = (1ULL << rpc.arg1);
-        entries = alloc_size / snmalloc::SUPERSLAB_SIZE;
-        return s.memory_provider->contains(address, alloc_size);
-      };
-      switch (rpc.kind)
+      size_t range_size;
+      void* base_address = address;
+      bool is_fake = m.get_remote() == SharedAllocConfig::fake_large_remote;
+      if (is_fake)
       {
-        default:
-          // Should be unreachable
-          SANDBOX_DEBUG_INVARIANT(false, "Invalid RPC kind: {}", rpc.kind);
-          __builtin_unreachable();
-          break;
-        case ChunkMapSet:
-          if ((safe = s.memory_provider->contains(
-                 address, snmalloc::SUPERSLAB_SIZE)))
-          {
-            cpm.set(rpc.arg0, rpc.arg1);
-          }
-          break;
-        case ChunkMapSetRange:
-          if ((safe = check_large_update()))
-          {
-            pm.set_large_size(address, 1ULL << rpc.arg1);
-          }
-          break;
-        case ChunkMapClearRange:
-          if ((safe = check_large_update()))
-          {
-            pm.clear_large_size(address, 1ULL << rpc.arg1);
-          }
+        range_size = 1 << m.get_sizeclass();
+        base_address = snmalloc::pointer_align_down(address, range_size);
       }
-      if (safe)
+      else
       {
-        for (size_t i = 0; i < entries; i++)
-        {
-          s.shared_page[index + i] =
-            pm.get(pointer_offset(address, i * snmalloc::SUPERSLAB_SIZE));
-        }
+        range_size = snmalloc::sizeclass_to_size(m.get_sizeclass());
       }
-      return safe;
+      // Metadata updates must refer to addresses associated with the sandbox.
+      if (!s->contains(base_address, range_size))
+      {
+        return false;
+      }
+      // The message queue must be in the shared memory region for this sandbox.
+      if (
+        !is_fake &&
+        !s->contains(m.get_remote(), sizeof(snmalloc::RemoteAllocator)))
+      {
+        return false;
+      }
+      // Protect against a race where the child tries to claim ownership of a
+      // chunk of memory at the same time as the parent.  In the case of a
+      // conflict, the trusted parent is allowed to take ownership so that we
+      // don't leak a metaslab in the parent.
+      auto [g, pm] = SharedAllocConfig::Pagemap::get_pagemap_writeable();
+      auto p = snmalloc::address_cast(address);
+      auto* old = pm.template get<false>(p).get_remote();
+      if ((old != nullptr) && !s->contains(old, sizeof(*old)))
+      {
+        return false;
+      }
+      pm.set(p, m);
+      return true;
     }
 
   public:
@@ -293,17 +281,14 @@ namespace sandbox
      * page.
      */
     void add_range(
-      SharedMemoryProvider* memory_provider,
-      platform::Handle&& socket,
-      platform::SharedMemoryMap& page)
+      SharedAllocConfig::LocalState& memory_provider, platform::Handle&& socket)
     {
       {
         std::lock_guard g(m);
         register_fd(socket);
         platform::handle_t socket_fd = socket.fd;
-        ranges[socket_fd] = std::make_pair(
-          std::move(socket),
-          Sandbox{memory_provider, static_cast<uint8_t*>(page.get_base())});
+        ranges.emplace(
+          socket_fd, std::make_pair(std::move(socket), &memory_provider));
       }
     }
   };
@@ -316,111 +301,6 @@ namespace sandbox
     static MemoryServiceProvider* p = new MemoryServiceProvider();
     return *p;
   }
-
-  /**
-   * Adaptor for allocators in the shared region to update the pagemap.
-   * These treat the global pagemap in the process as canonical but also
-   * update the pagemap in the child whenever the parent allocates within the
-   * shared region.
-   */
-  struct SharedPagemapAdaptor
-  {
-    /**
-     * Interface to the global pagemap.  Used to update the global pagemap and
-     * to query values to propagate to the child process.
-     */
-    snmalloc::DefaultChunkMap<> global_pagemap;
-    /**
-     * The page in the child process that will be mapped into its pagemap.  Any
-     * slab allocations by the parent must be propagated into this page.
-     */
-    uint8_t* shared_page;
-
-    /**
-     * Constructor.  Takes a shared pagemap page that this adaptor will update
-     * in addition to updating the global pagemap.
-     */
-    SharedPagemapAdaptor(uint8_t* p) : shared_page(p) {}
-
-    /**
-     * Update the child, propagating `entries` entries from the global pagemap
-     * into the shared pagemap region.
-     */
-    void update_child(uintptr_t p, size_t entries = 1)
-    {
-      snmalloc::ChunkmapPagemap& cpm = snmalloc::GlobalPagemap::pagemap();
-      size_t index = cpm.index_for_address(p);
-      for (size_t i = 0; i < entries; i++)
-      {
-        shared_page[index + i] =
-          global_pagemap.get(p + (i * snmalloc::SUPERSLAB_SIZE));
-      }
-    }
-    /**
-     * Accessor.  We treat the global pagemap as canonical, so only look values
-     * up here.
-     */
-    uint8_t get(uintptr_t p)
-    {
-      return global_pagemap.get(p);
-    }
-    /**
-     * Set a superslab entry in the pagemap.  Inserts it into the global
-     * pagemap and then propagates to the child.
-     */
-    void set_slab(snmalloc::Superslab* slab)
-    {
-      global_pagemap.set_slab(slab);
-      update_child(reinterpret_cast<uintptr_t>(slab));
-    }
-    /**
-     * Clear a superslab entry in the pagemap.  Removes it from the global
-     * pagemap and then propagates to the child.
-     */
-    void clear_slab(snmalloc::Superslab* slab)
-    {
-      global_pagemap.clear_slab(slab);
-      update_child(reinterpret_cast<uintptr_t>(slab));
-    }
-    /**
-     * Clear a medium slab entry in the pagemap.  Removes it from the global
-     * pagemap and then propagates to the child.
-     */
-    void clear_slab(snmalloc::Mediumslab* slab)
-    {
-      global_pagemap.clear_slab(slab);
-      update_child(reinterpret_cast<uintptr_t>(slab));
-    }
-    /**
-     * Set a medium slab entry in the pagemap.  Inserts it into the global
-     * pagemap and then propagates to the child.
-     */
-    void set_slab(snmalloc::Mediumslab* slab)
-    {
-      global_pagemap.set_slab(slab);
-      update_child(reinterpret_cast<uintptr_t>(slab));
-    }
-    /**
-     * Set a large entry in the pagemap.  Inserts it into the global
-     * pagemap and then propagates to the child.
-     */
-    void set_large_size(void* p, size_t size)
-    {
-      global_pagemap.set_large_size(p, size);
-      size_t entries = size / snmalloc::SUPERSLAB_SIZE;
-      update_child(reinterpret_cast<uintptr_t>(p), entries);
-    }
-    /**
-     * Clear a large entry in the pagemap.  Removes it from the global
-     * pagemap and then propagates to the child.
-     */
-    void clear_large_size(void* p, size_t size)
-    {
-      global_pagemap.clear_large_size(p, size);
-      size_t entries = size / snmalloc::SUPERSLAB_SIZE;
-      update_child(reinterpret_cast<uintptr_t>(p), entries);
-    }
-  };
 
   /**
    * Class that handles callbacks.  Each `Library` holds a single one
@@ -692,6 +572,31 @@ namespace sandbox
   Library::~Library()
   {
     wait_for_child_exit();
+    {
+      auto [g, pm] = SharedAllocConfig::Pagemap::get_pagemap_writeable();
+      snmalloc::address_t base =
+        snmalloc::address_cast(memory_provider.get_base());
+      auto top = snmalloc::address_cast(memory_provider.top_address());
+      // Scan the pagemap for all memory associated with this and deallocate
+      // the metaslabs.  Note that we don't need to do any cleanup for the
+      // memory referenced by these metaslabs: it will all go away when the
+      // shared memory region is deallocated.
+      for (snmalloc::address_t a = base; a < top; a += snmalloc::MIN_CHUNK_SIZE)
+      {
+        auto& meta =
+          SharedAllocConfig::Pagemap::get_metaentry(&memory_provider, a);
+        auto* remote = meta.get_remote();
+        if (
+          (remote != nullptr) &&
+          !contains(remote, sizeof(snmalloc::RemoteAllocator)))
+        {
+          delete meta.get_metaslab();
+        }
+        // Reset all of these pagemap entries to unused.
+        SharedAllocConfig::Pagemap::set_metaentry(
+          &memory_provider, a, 1, {nullptr, 0});
+      }
+    }
     shared_mem->destroy();
   }
 
@@ -699,13 +604,12 @@ namespace sandbox
     const char* library_name,
     const char* librunnerpath,
     const void* sharedmem_addr,
-    platform::Handle& pagemap_mem,
+    const platform::Handle& pagemap_mem,
     platform::Handle&& malloc_rpc_socket,
     platform::Handle&& fd_socket)
   {
     static const int last_fd = OtherLibraries;
     auto move_fd = [](int x) {
-      assert(x >= 0);
       SANDBOX_DEBUG_INVARIANT(
         x >= 0, "Attempting to move invalid file descriptor {}", x);
       while (x < last_fd)
@@ -717,7 +621,7 @@ namespace sandbox
     // Move all of the file descriptors that we're going to use out of the
     // region that we're going to populate.
     int shm_fd = move_fd(shm.get_handle().take());
-    pagemap_mem = move_fd(pagemap_mem.take());
+    int pagemap_fd = move_fd(pagemap_mem.fd);
     fd_socket = move_fd(fd_socket.take());
     malloc_rpc_socket = move_fd(malloc_rpc_socket.take());
     // Open the library binary.  If this fails, kill the child process.  Note
@@ -732,7 +636,7 @@ namespace sandbox
     library = move_fd(library);
     // The child process expects to find these in fixed locations.
     shm_fd = dup2(shm_fd, SharedMemRegion);
-    dup2(pagemap_mem.take(), PageMapPage);
+    dup2(pagemap_fd, PageMapPage);
     dup2(fd_socket.take(), FDSocket);
     assert(library);
     library = dup2(library, MainLibrary);
@@ -773,7 +677,6 @@ namespace sandbox
 
   Library::Library(const char* library_name, size_t size)
   : shm(snmalloc::bits::next_pow2_bits(size << 30)),
-    shared_pagemap(snmalloc::bits::next_pow2_bits(snmalloc::OS_PAGE_SIZE)),
     memory_provider(
       pointer_offset(shm.get_base(), sizeof(SharedMemoryRegion)),
       shm.get_size() - sizeof(SharedMemoryRegion)),
@@ -789,7 +692,7 @@ namespace sandbox
     // Create a pair of sockets that we can use to
     auto malloc_rpc_sockets = platform::SocketPair::create();
     memory_service_provider().add_range(
-      &memory_provider, std::move(malloc_rpc_sockets.first), shared_pagemap);
+      memory_provider, std::move(malloc_rpc_sockets.first));
     // Construct a UNIX domain socket.  This will eventually be used to send
     // file descriptors from the parent to the child, but isn't yet.
     auto socks = platform::SocketPair::create();
@@ -827,16 +730,18 @@ namespace sandbox
         library_name,
         librunnerpath,
         shm_base,
-        shared_pagemap.get_handle(),
+        SharedAllocConfig::Pagemap::get_pagemap_handle(),
         std::move(malloc_rpc_sockets.second),
         std::move(socks.second));
     });
     callback_dispatcher->socket = std::move(socks.first);
     // Allocate an allocator in the shared memory region.
-    allocator = new SharedAlloc(
-      memory_provider,
-      SharedPagemapAdaptor(static_cast<uint8_t*>(shared_pagemap.get_base())),
-      &shared_mem->allocator_state);
+
+    allocator = std::make_unique<SharedAlloc>();
+    core_alloc = std::make_unique<snmalloc::CoreAllocator<SharedAllocConfig>>(
+      &allocator->get_local_cache(), &memory_provider);
+    core_alloc->init_message_queue(&shared_mem->allocator_state);
+    allocator->init(core_alloc.get());
   }
 
   void Library::send(int idx, void* ptr)
@@ -929,5 +834,18 @@ namespace sandbox
   void Library::dealloc_in_sandbox(void* ptr)
   {
     allocator->dealloc(ptr);
+  }
+
+  template<>
+  snmalloc::capptr::Chunk<void>
+  SharedAllocConfig::alloc_meta_data<snmalloc::Metaslab>(
+    LocalState*, size_t size)
+  {
+    SANDBOX_INVARIANT(
+      size == sizeof(snmalloc::Metaslab),
+      "Requested to allocate {} bytes for {}-byte metaslab",
+      size,
+      sizeof(snmalloc::Metaslab));
+    return snmalloc::capptr::Chunk<void>{new snmalloc::Metaslab()};
   }
 }

@@ -89,9 +89,6 @@ extern "C"
   extern char** environ;
 }
 
-sandbox::ProxyPageMap sandbox::ProxyPageMap::p;
-
-using namespace snmalloc;
 using namespace sandbox;
 
 namespace
@@ -142,12 +139,16 @@ namespace
    * libc features that either depend on library initialisation or which
    * allocate memory.
    */
-  uintptr_t
-  requestHostService(HostServiceCallID id, uintptr_t arg0, uintptr_t arg1 = 0)
+  uintptr_t requestHostService(
+    HostServiceCallID id,
+    uintptr_t arg0,
+    uintptr_t arg1 = 0,
+    uintptr_t arg2 = 0,
+    uintptr_t arg3 = 0)
   {
-    static std::atomic_flag lock;
+    static std::atomic_flag lock{0};
     FlagLock g(lock);
-    HostServiceRequest req{id, arg0, arg1};
+    HostServiceRequest req{id, {arg0, arg1, arg2, arg3}};
     auto written_bytes = write(PageMapUpdates, &req, sizeof(req));
     SANDBOX_INVARIANT(
       written_bytes == sizeof(req),
@@ -168,123 +169,88 @@ namespace
     }
     return response.ret;
   }
+
 }
 
-MemoryProviderProxy* MemoryProviderProxy::make() noexcept
+void SnmallocGlobals::ensure_init() noexcept
 {
-  if (unlikely(!done_bootstrapping))
+  if (!done_bootstrapping)
   {
     bootstrap();
   }
-  static MemoryProviderProxy singleton;
-  return &singleton;
+}
+
+bool SnmallocGlobals::is_initialised()
+{
+  return done_bootstrapping;
 }
 
 namespace sandbox
 {
-  void ProxyPageMap::set(uintptr_t p, uint8_t x)
+  snmalloc::capptr::Chunk<void> SnmallocGlobals::reserve(size_t size)
   {
-    SANDBOX_DEBUG_INVARIANT(
-      is_inside_shared_memory(
-        reinterpret_cast<void*>(p), snmalloc::OS_PAGE_SIZE),
-      "Setting metadata pointer {} in pagemap that is outside of the sandbox "
-      "range {}--{}",
-      p,
-      shared_memory_start,
-      shared_memory_end);
-    requestHostService(
-      ChunkMapSet, reinterpret_cast<uintptr_t>(p), static_cast<uintptr_t>(x));
+    SNMALLOC_ASSERT(size >= sizeof(void*));
+
+    size = bits::align_up(size, sizeof(void*));
+
+    size_t rsize = bits::next_pow2(size);
+
+    snmalloc::capptr::Chunk<void> res{
+      reinterpret_cast<void*>(requestHostService(
+        MemoryProviderReserve, static_cast<uintptr_t>(rsize)))};
+
+    return res;
   }
 
-  uint8_t ProxyPageMap::get(address_t p)
-  {
-    return GlobalPagemap::pagemap().get(p);
-  }
-
-  uint8_t ProxyPageMap::get(void* p)
-  {
-    return GlobalPagemap::pagemap().get(address_cast(p));
-  }
-
-  void ProxyPageMap::set_slab(snmalloc::Superslab* slab)
-  {
-    set(reinterpret_cast<uintptr_t>(slab), (size_t)CMSuperslab);
-  }
-
-  void ProxyPageMap::clear_slab(snmalloc::Superslab* slab)
-  {
-    set(reinterpret_cast<uintptr_t>(slab), (size_t)CMNotOurs);
-  }
-
-  void ProxyPageMap::set_slab(snmalloc::Mediumslab* slab)
-  {
-    set(reinterpret_cast<uintptr_t>(slab), (size_t)CMMediumslab);
-  }
-
-  void ProxyPageMap::clear_slab(snmalloc::Mediumslab* slab)
-  {
-    set(reinterpret_cast<uintptr_t>(slab), (size_t)CMNotOurs);
-  }
-
-  void ProxyPageMap::set_large_size(void* p, size_t size)
-  {
-    size_t size_bits = bits::next_pow2_bits(size);
-    SANDBOX_DEBUG_INVARIANT(
-      is_inside_shared_memory(p, size),
-      "Setting large size for pointer {} in pagemap that is outside of the "
-      "sandbox range {}--{}",
-      p,
-      shared_memory_start,
-      shared_memory_end);
-    requestHostService(
-      ChunkMapSetRange,
-      reinterpret_cast<uintptr_t>(p),
-      static_cast<uintptr_t>(size_bits));
-  }
-
-  void ProxyPageMap::clear_large_size(void* p, size_t size)
-  {
-    SANDBOX_DEBUG_INVARIANT(
-      is_inside_shared_memory(p, size),
-      "Clearing large size for pointer {} in pagemap that is outside of the "
-      "sandbox range {}--{}",
-      p,
-      shared_memory_start,
-      shared_memory_end);
-    size_t size_bits = bits::next_pow2_bits(size);
-    requestHostService(
-      ChunkMapClearRange,
-      reinterpret_cast<uintptr_t>(p),
-      static_cast<uintptr_t>(size_bits));
-  }
-
-  void* MemoryProviderProxy::pop_large_stack(size_t large_class)
-  {
-    return reinterpret_cast<void*>(requestHostService(
-      MemoryProviderPopLargeStack, static_cast<uintptr_t>(large_class)));
-  }
-
-  void
-  MemoryProviderProxy::push_large_stack(Largeslab* slab, size_t large_class)
+  void SnmallocGlobals::Pagemap::set_metaentry(
+    LocalState*, snmalloc::address_t p, size_t size, snmalloc::MetaEntry t)
   {
     requestHostService(
-      MemoryProviderPushLargeStack,
-      reinterpret_cast<uintptr_t>(slab),
-      static_cast<uintptr_t>(large_class));
+      MetadataSet,
+      static_cast<uintptr_t>(p),
+      static_cast<uintptr_t>(size),
+      reinterpret_cast<uintptr_t>(t.get_metaslab()),
+      t.get_remote_and_sizeclass());
   }
 
-  void* MemoryProviderProxy::reserve_committed_size(size_t size) noexcept
+  template<>
+  snmalloc::capptr::Chunk<void>
+  SnmallocGlobals::alloc_meta_data<snmalloc::Metaslab>(LocalState*, size_t size)
   {
-    size_t size_bits = snmalloc::bits::next_pow2_bits(size);
-    size_t large_class = std::max(size_bits, SUPERSLAB_BITS) - SUPERSLAB_BITS;
-    return reserve_committed(large_class);
-  }
-  void* MemoryProviderProxy::reserve_committed(size_t large_class) noexcept
-  {
-    return reinterpret_cast<void*>(requestHostService(
-      MemoryProviderReserve, static_cast<uintptr_t>(large_class)));
+    size = snmalloc::bits::next_pow2(size);
+    return private_asm.reserve<true, SnmallocGlobals::PrivatePagemap>(
+      nullptr, size);
   }
 
+  template<>
+  snmalloc::capptr::Chunk<void> SnmallocGlobals::alloc_meta_data<
+    snmalloc::CoreAllocator<sandbox::SnmallocGlobals>>(LocalState*, size_t size)
+  {
+    size = snmalloc::bits::next_pow2(size);
+    auto* result =
+      reinterpret_cast<void*>(requestHostService(MemoryProviderReserve, size));
+    return snmalloc::capptr::Chunk<void>{result};
+  }
+
+  std::pair<snmalloc::capptr::Chunk<void>, snmalloc::Metaslab*>
+  SnmallocGlobals::alloc_chunk(
+    SnmallocGlobals::LocalState*,
+    size_t size,
+    snmalloc::RemoteAllocator* remote,
+    snmalloc::sizeclass_t sizeclass)
+  {
+    auto* ms = new (private_asm
+                      .reserve<true, SnmallocGlobals::PrivatePagemap>(
+                        nullptr, sizeof(snmalloc::Metaslab))
+                      .unsafe_ptr()) snmalloc::Metaslab();
+    auto result = requestHostService(
+      AllocChunk,
+      static_cast<uintptr_t>(size),
+      reinterpret_cast<uintptr_t>(remote),
+      static_cast<uintptr_t>(sizeclass),
+      reinterpret_cast<uintptr_t>(ms));
+    return {snmalloc::capptr::Chunk<void>{reinterpret_cast<void*>(result)}, ms};
+  }
 }
 
 namespace
@@ -384,6 +350,7 @@ namespace
     {
       DefaultPal::error("Unable to find memory location");
     }
+    auto map_nocore = sandbox::platform::detail::map_nocore;
 
     // fprintf(stderr, "Child starting\n");
     // printf(
@@ -393,7 +360,7 @@ namespace
       addr,
       length,
       PROT_READ | PROT_WRITE,
-      MAP_FIXED_NOREPLACE | MAP_SHARED | platform::detail::map_nocore,
+      MAP_FIXED_NOREPLACE | MAP_SHARED | map_nocore,
       SharedMemRegion,
       0);
 
@@ -404,29 +371,20 @@ namespace
     }
 
     shared = reinterpret_cast<SharedMemoryRegion*>(ptr);
-    // Splice the pagemap page inherited from the parent into the pagemap.
-    void* pagemap_chunk = GlobalPagemap::pagemap().page_for_address(
-      reinterpret_cast<uintptr_t>(ptr));
-    munmap(pagemap_chunk, snmalloc::OS_PAGE_SIZE);
-    void* shared_pagemap = mmap(
-      pagemap_chunk,
-      snmalloc::OS_PAGE_SIZE,
-      PROT_READ,
-      MAP_SHARED | MAP_FIXED,
-      PageMapPage,
-      0);
-    if (shared_pagemap == MAP_FAILED)
-    {
-      err(1, "Mapping shared pagemap page failed");
-    }
+
     shared_memory_start = shared->start;
     shared_memory_end = shared->end;
-    SANDBOX_INVARIANT(
-      shared_pagemap == pagemap_chunk,
-      "Mapping pagmemap chunk failed.  Expected {}, got {}",
-      pagemap_chunk,
-      shared_pagemap);
-    (void)shared_pagemap;
+
+    auto* base = static_cast<snmalloc::MetaEntry*>(mmap(
+      nullptr,
+      decltype(SnmallocGlobals::Pagemap::pagemap)::required_size(),
+      PROT_READ,
+      MAP_SHARED | map_nocore,
+      PageMapPage,
+      0));
+    SANDBOX_INVARIANT(base != MAP_FAILED, "Mapping pagemap failed");
+    SnmallocGlobals::Pagemap::pagemap.init(base);
+    SnmallocGlobals::PrivatePagemap::pagemap.init();
 
     done_bootstrapping = true;
   }
@@ -736,7 +694,7 @@ namespace
   template<typename Tuple, int Arg = std::tuple_size_v<Tuple> - 1>
   __attribute__((always_inline)) void extract_args(Tuple& args, SyscallFrame& c)
   {
-    get<Arg>(args) = c.get_arg<
+    std::get<Arg>(args) = c.get_arg<
       Arg,
       std::tuple_element_t<Arg, std::remove_reference_t<Tuple>>>();
     if constexpr (Arg > 0)
@@ -921,12 +879,9 @@ int main()
       shared_memory_start,
       shared_memory_end);
   };
-  check_is_in_shared_range(current_alloc_pool());
-  check_is_in_shared_range(ThreadAlloc::get_reference());
   void* obj = malloc(42);
   check_is_in_shared_range(obj);
   free(obj);
-  fprintf(stderr, "Sandbox: %p--%p\n", shared_memory_start, shared_memory_end);
 #endif
 
   // Load the library using the file descriptor that the parent opened.  This
