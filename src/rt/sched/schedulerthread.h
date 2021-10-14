@@ -492,10 +492,10 @@ namespace verona::rt
         // We were unable to steal, move to the next victim thread.
         victim = victim->next;
 
-        // Wait until a minimum timeout has passed.
-        uint64_t tsc2 = Aal::tick();
 
 #ifndef USE_SYSTEMATIC_TESTING
+        // Wait until a minimum timeout has passed.
+        uint64_t tsc2 = Aal::tick();
         if ((tsc2 - tsc) < TSC_QUIESCENCE_TIMEOUT)
         {
           Aal::pause();
@@ -516,7 +516,7 @@ namespace verona::rt
         {
           // We've been spinning looking for work for some time. While paused,
           // our running flag may be set to false, in which case we terminate.
-          if (Scheduler::get().pause(tsc2))
+          if (Scheduler::get().pause())
             stats.pause();
         }
 #ifdef USE_SYSTEMATIC_TESTING
