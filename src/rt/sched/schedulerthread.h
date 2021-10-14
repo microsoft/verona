@@ -492,39 +492,38 @@ namespace verona::rt
         // We were unable to steal, move to the next victim thread.
         victim = victim->next;
 
+#ifdef USE_SYSTEMATIC_TESTING
+        // Only try to pause with 1/(2^5) probability
+        UNUSED(tsc);
+        if (!Systematic::coin(5))
+        {
+          yield();
+          continue;
+        }
+#else
         // Wait until a minimum timeout has passed.
         uint64_t tsc2 = Aal::tick();
-
-#ifndef USE_SYSTEMATIC_TESTING
         if ((tsc2 - tsc) < TSC_QUIESCENCE_TIMEOUT)
         {
           Aal::pause();
-        }
-        else
-#else
-        {
-          UNUSED(tsc);
+          continue;
         }
 #endif
-          if (mute_set.size() != 0)
+
+        if (mute_set.size() != 0)
         {
           mute_set_clear();
           continue;
         }
+
         // Enter sleep only when the queue doesn't contain any real cowns.
-        else if (state == ThreadState::NotInLD && q.is_empty())
+        if (state == ThreadState::NotInLD && q.is_empty())
         {
           // We've been spinning looking for work for some time. While paused,
           // our running flag may be set to false, in which case we terminate.
-          if (Scheduler::get().pause(tsc2))
+          if (Scheduler::get().pause())
             stats.pause();
         }
-#ifdef USE_SYSTEMATIC_TESTING
-        else
-        {
-          yield();
-        }
-#endif
       }
 
       return nullptr;

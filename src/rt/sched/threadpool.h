@@ -40,7 +40,20 @@ namespace verona::rt
      **/
     std::atomic<size_t> inflight_count = 0;
 
-    uint64_t last_unpause_tsc = Aal::tick();
+    /**
+     * Used to represent the current pause_epoch.
+     *
+     * If a thread is paused, then it must be the case
+     * that pause_epoch is ahead of unpause_epoch.
+     */
+    std::atomic<uint64_t> pause_epoch{0};
+
+    /**
+     * Used to track unpause calls.  Threads unpausing
+     * attempt to catch unpause_epoch up to pause_epoch,
+     * and thus ensure threads are running.
+     */
+    std::atomic<uint64_t> unpause_epoch{0};
 
 #ifdef USE_SYSTEMATIC_TESTING
     ThreadSyncSystematic<T> sync;
@@ -61,11 +74,8 @@ namespace verona::rt
 
     /// Count of external event sources, such as I/O, that will prevent
     /// quiescence.
-    std::atomic<size_t> external_event_sources = 0;
-    // Pausing if value is odd.
-    // Is not atomic, since updates are only made while a lock is held.
-    // We are assuming that no partial write will be observed.
-    uint32_t runtime_pausing = 0;
+    size_t external_event_sources = 0;
+
     bool teardown_in_progress = false;
 
     bool fair = false;
@@ -121,8 +131,7 @@ namespace verona::rt
       auto& s = get();
       auto h = s.sync.handle(local());
       assert(local() != nullptr);
-      auto prev_count =
-        s.external_event_sources.fetch_add(1, std::memory_order_seq_cst);
+      auto prev_count = s.external_event_sources++;
       Systematic::cout() << "Add external event source (now "
                          << (prev_count + 1) << ")" << Systematic::endl;
     }
@@ -147,8 +156,7 @@ namespace verona::rt
 
       auto& s = get();
       auto h = s.sync.handle(local());
-      auto prev_count =
-        s.external_event_sources.fetch_sub(1, std::memory_order_seq_cst);
+      auto prev_count = s.external_event_sources--;
       assert(prev_count != 0);
       Systematic::cout() << "Remove external event source (now "
                          << (prev_count - 1) << ")" << Systematic::endl;
@@ -390,65 +398,57 @@ namespace verona::rt
       return false;
     }
 
-    bool pause(uint64_t tsc)
+    bool pause()
     {
+      // Snapshot unpause_epoch, so we can detect a racing unpause.
+      auto local_unpause_epoch = unpause_epoch.load(std::memory_order_relaxed);
+
+      yield();
+
+      // Notify that we are trying to pause this thread.
+      pause_epoch++;
+
+      yield();
+
+      // Strong barrier to ensure that this is visible to all threads before
+      // we actually attempt to sleep.
 #ifndef USE_SYSTEMATIC_TESTING
-      if ((tsc - last_unpause_tsc) < TSC_PAUSE_SLOP)
-        return false;
-#else
-      UNUSED(tsc);
+      // This has no effect as execution is sequentialised with systematic
+      // testing. and causes bad performance.
+      Barrier::memory();
 #endif
+
+      // Work has become available, we shouldn't pause.
+      if (check_for_work())
+        return false;
+
+      yield();
 
       {
         auto h = sync.handle(local());
+
+        // An unpause has occurred since, we started to pause.
+        if (
+          local_unpause_epoch != unpause_epoch.load(std::memory_order_relaxed))
+          return false;
+
+        // Check if we should wait for other threads to generate more work.
         if (active_thread_count > 1)
         {
           active_thread_count--;
           Systematic::cout() << "Pausing" << Systematic::endl;
-          h.pause();
+          h.pause(); // Spurious wake-ups are safe.
           Systematic::cout() << "Unpausing" << Systematic::endl;
           active_thread_count++;
           return true;
         }
-        Systematic::cout() << "Tried to pause last thread" << Systematic::endl;
 
-        bool has_external_sources =
-          external_event_sources.load(std::memory_order_seq_cst) != 0;
-        if (has_external_sources)
+        // There are external sources should wait for external wake ups.
+        if (external_event_sources != 0)
         {
-          assert((runtime_pausing & 1) == 0);
-          runtime_pausing++;
-          // Ensure this is visible to `unpause` before we check for
-          // new work.
-          Barrier::memory();
-        }
-
-        if (check_for_work())
-        {
-          // Something has been scheduled LIFO, and the unpause was missed,
-          // restart everybody.
-          Systematic::cout()
-            << "Still work left, back out pause." << Systematic::endl;
-
-          if (has_external_sources)
-          {
-            assert((runtime_pausing & 1) == 1);
-            // Cancel pausing state
-            runtime_pausing++;
-          }
-          h.unpause_all();
-          return true;
-        }
-
-        if (has_external_sources)
-        {
-          Systematic::cout() << "Runtime pausing" << Systematic::endl;
-          // Wait for external wake-up
-          h.pause();
-
-          Systematic::cout() << "Runtime unpausing" << Systematic::endl;
-          assert((runtime_pausing & 1) == 1);
-          runtime_pausing++;
+          Systematic::cout() << "Pausing last thread" << Systematic::endl;
+          h.pause(); // Spurious wake-ups are safe.
+          Systematic::cout() << "Unpausing last thread" << Systematic::endl;
           return true;
         }
 
@@ -478,42 +478,45 @@ namespace verona::rt
     bool unpause()
     {
       Systematic::cout() << "unpause()" << Systematic::endl;
+
       // Work should be added before checking for the runtime_pause.
       Barrier::compiler();
 
-      uint32_t pausing = runtime_pausing;
-      if ((pausing & 1) != 0)
-      {
-        // Prevent starvation by detecting if the pausing state has changed,
-        // even if it has paused again.
-        do
-        {
-          sync.handle(local()).unpause_all();
-        } while (runtime_pausing == pausing);
-        Systematic::cout() << "Unpausing other threads." << Systematic::endl;
+      // The order of these loads does not mater.
+      // They have been placed in the least helpful order to flush out bugs.
+      auto local_pause_epoch = pause_epoch.load(std::memory_order_relaxed);
+      yield();
+      auto local_unpause_epoch = unpause_epoch.load(std::memory_order_relaxed);
 
+      // Exit early if we think no threads are trying to sleep.
+      // Our work will be visible to any thread at this point.
+      if (local_unpause_epoch == local_pause_epoch)
+        return false;
+
+      yield();
+
+      // Ensure our reading of pause_epoch occurred after
+      // unpaused_epoch.  This is required to ensure we are going to
+      // monotonically increase unpause_epoch.
+      local_pause_epoch = pause_epoch.load(std::memory_order_acquire);
+
+      yield();
+
+      // Attempt to catch up epoch.
+      bool success = unpause_epoch.compare_exchange_strong(
+        local_unpause_epoch, local_pause_epoch);
+
+      yield();
+
+      if (success)
+      {
+        // This grabs the scheduler lock to ensure threads have seen CAS before
+        // we notify.
+        sync.handle(local()).unpause_all();
         return true;
       }
-
-#ifndef USE_SYSTEMATIC_TESTING
-      uint64_t now = Aal::tick();
-      uint64_t elapsed = now - last_unpause_tsc;
-      last_unpause_tsc = now;
-
-      if (elapsed < TSC_UNPAUSE_SLOP)
-        return false;
-#endif
-
-      {
-        auto h = sync.handle(local());
-        if (active_thread_count != thread_count)
-        {
-          Systematic::cout() << "Unpausing other threads." << Systematic::endl;
-          h.unpause_all();
-          return true;
-        }
-        return false;
-      }
+      // Another thread won the CAS race, and is responsible for waking up.
+      return false;
     }
 
     void init_barrier()
