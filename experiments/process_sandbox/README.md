@@ -61,16 +61,6 @@ The attacker must not be able to:
  - Cause the parent to stop executing (denial of service) in any thread, except for the time that the parent allows for a call into the child to execute.
  - Access any global namespace (filesystem, network, and so on) except as explicitly permitted by the parent.
 
-### Known issues
-
-The current implementation assumes that the snmalloc `Alloc` instance at the boundary of the sandbox validates all pointers that it follows within the sandbox.
-This is a trivial check to add (a simple range check), but is not currently implemented.
-As such, an attacker can corrupt allocator metadata in such a way that causes snmalloc in the parent to corrupt arbitrary memory.
-
-The original design assumed that the child cannot modify the shared pagemap page.
-In the Capsicum implementation, the child does not have the capability to map the shared pagemap page read-write and so this is safe.
-This is not true in the seccomp-bpf version currently, though it can be addressed by reopening the file descriptor read-only via fdfs.
-
 ### Unknown issues
 
 This is experimental code and has not yet been audited for security.

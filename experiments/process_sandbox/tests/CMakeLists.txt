@@ -16,6 +16,7 @@ set(SANDBOX_TESTS
 	fake-open
 	callback-basic
 	callback-recursive
+	modify-pagemap
 	zlib
 	)
 
