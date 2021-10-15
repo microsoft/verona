@@ -386,7 +386,7 @@ namespace verona::rt
       {
         Systematic::cout() << "Checking for pending work on thread "
                            << t->systematic_id << Systematic::endl;
-        if (!t->q.is_empty())
+        if (!t->q.nothing_old())
         {
           Systematic::cout() << "Found pending work!" << Systematic::endl;
           return true;

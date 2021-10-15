@@ -7,7 +7,7 @@
 #include "object/object.h"
 #include "priority.h"
 #include "schedulerstats.h"
-#include "spmcq.h"
+#include "mpmcq.h"
 #include "threadpool.h"
 
 #include <snmalloc.h>
@@ -61,7 +61,7 @@ namespace verona::rt
     size_t steps = 0;
 #endif
 
-    SPMCQ<T> q;
+    MPMCQ<T> q;
     Alloc* alloc = nullptr;
     SchedulerThread<T>* next = nullptr;
     SchedulerThread<T>* victim = nullptr;
@@ -330,7 +330,7 @@ namespace verona::rt
             }
             else
             {
-              if (q.is_empty())
+              if (q.nothing_old())
               {
                 Systematic::cout() << "Queue empty" << Systematic::endl;
                 // We have effectively reached token cown.
@@ -460,7 +460,7 @@ namespace verona::rt
 
         yield();
 
-        if (q.is_empty())
+        if (q.nothing_old())
         {
           n_ld_tokens = 0;
         }
@@ -516,8 +516,8 @@ namespace verona::rt
           continue;
         }
 
-        // Enter sleep only when the queue doesn't contain any real cowns.
-        if (state == ThreadState::NotInLD && q.is_empty())
+        // Enter sleep only if we aren't executing the leak detector currently.
+        if (state == ThreadState::NotInLD)
         {
           // We've been spinning looking for work for some time. While paused,
           // our running flag may be set to false, in which case we terminate.
