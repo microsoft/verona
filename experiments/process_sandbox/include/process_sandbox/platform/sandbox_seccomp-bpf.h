@@ -9,6 +9,7 @@ SANDBOX_CLANG_DIAGNOSTIC_IGNORE("-Wmissing-field-initializers")
 #  include <seccomp.h>
 SANDBOX_CLANG_DIAGNOSTIC_POP()
 #  include <assert.h>
+#  include <process_sandbox/sandbox_fd_numbers.h>
 
 namespace sandbox
 {
@@ -42,6 +43,15 @@ namespace sandbox
         const std::array<const char*, EnvSize>& envp,
         const std::array<const char*, LibDirSize>& libdirs)
       {
+        static_assert(
+          PageMapPage == 4,
+          "The following line must be updated if the value of PageMapPage "
+          "changes");
+        // Drop write permission on the shared pagemap so that the child
+        // can't just mprotect the page read-write.
+        int ropagemap = open("/proc/self/fd/4", O_RDONLY);
+        dup2(ropagemap, PageMapPage);
+        close(ropagemap);
         SandboxNoOp::execve(pathname, envp, libdirs);
       }
 
