@@ -31,7 +31,6 @@ struct LoopCown : public VCown<LoopCown>
   size_t count;
   xoroshiro::p128r32 rng;
 
-
   LoopCown(size_t count, size_t seed) : count(count)
   {
     rng.set_state(seed);
@@ -90,7 +89,7 @@ int main(int argc, char** argv)
 
     for (size_t i = 0; i < cowns; i++)
     {
-      auto c = new LoopCown(loops, i+200);
+      auto c = new LoopCown(loops, i + 200);
       c->go();
     }
 

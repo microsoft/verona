@@ -4,10 +4,10 @@
 
 #include "ds/hashmap.h"
 #include "ds/mpscq.h"
+#include "mpmcq.h"
 #include "object/object.h"
 #include "priority.h"
 #include "schedulerstats.h"
-#include "mpmcq.h"
 #include "threadpool.h"
 
 #include <snmalloc.h>
@@ -73,14 +73,6 @@ namespace verona::rt
     // process before reaching its LD checkpoint (`n_ld_tokens == 0`).
     uint8_t n_ld_tokens = 0;
 
-    // The cown queue is initialized with only the token (a cown) in.
-    // Whenever the token is popped out, `token_consumed` is set to `true`,
-    // informing its owner so that it could re-insert the token, which is
-    // required because there's always one cown stuck in the queue; if the
-    // token is not there, this must mean a real cown is stuck there.
-    // Accordingly, the `is_empty` returns true iff token is the only item
-    // left in the queue.
-    std::atomic<bool> token_consumed = false;
     bool should_steal_for_fairness = false;
 
     std::atomic<bool> scheduled_unscanned_cown = false;
@@ -143,10 +135,6 @@ namespace verona::rt
       assert(!a->queue.is_sleeping());
       q.enqueue(*alloc, a);
 
-      // Put the token back if it has been stolen.  This will help
-      // free up more work for other threads to steal.
-      check_token_cown();
-
       if (Scheduler::get().unpause())
         stats.unpause();
     }
@@ -165,28 +153,6 @@ namespace verona::rt
 
       if (Scheduler::get().unpause())
         stats.unpause();
-    }
-
-    void check_token_cown()
-    {
-      if (is_token_consumed())
-      {
-        Systematic::cout() << "Put token " << get_token_cown()
-                           << " in scheduler queue." << Systematic::endl;
-        if (n_ld_tokens > 0)
-        {
-          dec_n_ld_tokens();
-        }
-        set_token_consumed(false);
-        enqueue_token();
-
-        if (Scheduler::get().fair)
-        {
-          Systematic::cout()
-            << "Should steal for fairness!" << Systematic::endl;
-          should_steal_for_fairness = true;
-        }
-      }
     }
 
     /**
@@ -258,8 +224,6 @@ namespace verona::rt
             fast_steal(cown);
           }
         }
-
-        check_token_cown();
 
         if (cown == nullptr)
         {
@@ -430,25 +394,6 @@ namespace verona::rt
       n_ld_tokens--;
     }
 
-    bool is_token_consumed()
-    {
-      auto res = token_consumed.load(std::memory_order_relaxed);
-      yield();
-      return res;
-    }
-
-    bool debug_is_token_consumed()
-    {
-      auto res = token_consumed.load(std::memory_order_relaxed);
-      return res;
-    }
-
-    void set_token_consumed(bool res)
-    {
-      yield();
-      token_consumed.store(res, std::memory_order_relaxed);
-    }
-
     T* steal()
     {
       uint64_t tsc = Aal::tick();
@@ -456,8 +401,6 @@ namespace verona::rt
 
       while (running)
       {
-        check_token_cown();
-
         yield();
 
         if (q.nothing_old())
@@ -549,25 +492,37 @@ namespace verona::rt
      **/
     bool prerun(T* cown)
     {
-      // See if this is a SchedulerThread enqueued as an cown LD marker.
+      // See if this is a SchedulerThread enqueued as a cown LD marker.
       // It may not be this one.
       if (has_thread_bit(cown))
       {
         auto unmasked = clear_thread_bit(cown);
         SchedulerThread* sched = unmasked->owning_thread();
-        assert(!sched->debug_is_token_consumed());
-        sched->set_token_consumed(true);
 
-        if (sched != this)
+        if (sched == this)
+        {
+          if (Scheduler::get().fair)
+          {
+            Systematic::cout()
+              << "Should steal for fairness!" << Systematic::endl;
+            should_steal_for_fairness = true;
+          }
+
+          if (n_ld_tokens > 0)
+          {
+            dec_n_ld_tokens();
+          }
+
+          Systematic::cout() << "Reached token" << Systematic::endl;
+        }
+        else
         {
           Systematic::cout() << "Reached token: stolen from "
                              << sched->systematic_id << Systematic::endl;
         }
-        else
-        {
-          Systematic::cout() << "Reached token" << Systematic::endl;
-        }
 
+        // Put back the token
+        sched->q.enqueue(*alloc, cown);
         return false;
       }
 
@@ -741,13 +696,6 @@ namespace verona::rt
 
       Systematic::cout() << "send_epoch (1): " << send_epoch
                          << Systematic::endl;
-    }
-
-    void enqueue_token()
-    {
-      // Must set the flag before pushing due to work stealing.
-      assert(!debug_is_token_consumed());
-      q.enqueue(*alloc, (T*)((uintptr_t)get_token_cown() | 1));
     }
 
     void enter_scan()
