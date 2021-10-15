@@ -18,10 +18,10 @@
 #include "region/region.h"
 #include "sched/cown.h"
 #include "sched/epoch.h"
+#include "sched/mpmcq.h"
 #include "sched/multimessage.h"
 #include "sched/noticeboard.h"
 #include "sched/schedulerthread.h"
-#include "sched/mpmcq.h"
 #include "test/systematic.h"
 
 #include <snmalloc.h>

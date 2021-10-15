@@ -51,7 +51,7 @@ namespace verona::rt
   private:
     friend T;
     static constexpr uintptr_t BIT = 1;
-    // Multi-threaded enqueue end of the "queue" 
+    // Multi-threaded enqueue end of the "queue"
     // modified using exchange.
     std::atomic<T*> back;
     // Multi-threaded end of the "queue" requires ABA protection.
