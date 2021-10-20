@@ -49,6 +49,7 @@ namespace verona::rt
   private:
     friend class Region;
     friend class RegionTrace;
+    friend class RegionRc;
 
     /**
      * An Arena is a large block of pre-allocated memory. It has an overhead of

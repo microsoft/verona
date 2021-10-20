@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "../ds/bag.h"
 #include "../ds/stack.h"
 #include "../test/systematic.h"
 
@@ -76,6 +77,9 @@ namespace verona::rt
   using namespace snmalloc;
   class Object;
   class RegionBase;
+
+  using RefCounts = Bag<Object, uintptr_t, Alloc>;
+  using RefCount = RefCounts::Elem;
 
   using ObjectStack = Stack<Object, Alloc>;
   static constexpr size_t descriptor_alignment =
@@ -423,6 +427,7 @@ namespace verona::rt
     friend class RegionBase;
     friend class RegionTrace;
     friend class RegionArena;
+    friend class RegionRc;
     friend class RememberedSet;
     friend class ExternalReferenceTable;
     template<typename Entry>
@@ -475,6 +480,22 @@ namespace verona::rt
         (get_class() == RegionMD::PENDING) || (get_class() == RegionMD::ISO));
 
       return (Object*)(get_header().bits & ~MASK);
+    }
+
+    inline RefCount* get_ref_count()
+    {
+      assert(
+        (get_class() == RegionMD::MARKED) ||
+        (get_class() == RegionMD::UNMARKED));
+      return (RefCount*)(get_header().bits & ~MASK);
+    }
+
+    inline void set_ref_count(RefCount* rc)
+    {
+      // The MARKED/UNMARKED tags are not used by RegionRc, so we don't need to
+      // bother restoring the bit, and can simply leave it unset (i.e.
+      // UNMARKED).
+      get_header().next = (Object*)rc;
     }
 
     inline void set_next(Object* o)
