@@ -230,5 +230,16 @@ namespace verona::rt
       Bag<T, U, Alloc>* bag;
       MaybeElem* ptr;
     };
+
+    inline iterator begin()
+    {
+        return {this};
+    }
+
+    inline iterator end()
+    {
+        return {this, Bag::null_index};
+    }
+
   };
 } // namespace verona::rt
