@@ -49,6 +49,7 @@ namespace verona::rt
   {
     friend class Freeze;
     friend class Region;
+    friend class RegionRc;
 
   private:
     enum RingKind

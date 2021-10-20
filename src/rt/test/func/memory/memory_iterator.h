@@ -8,6 +8,7 @@
 
 namespace memory_iterator
 {
+  static constexpr uintptr_t FINALISER_MASK = 1 << 1;
   /**
    * Helper for iterator tests that allocates objects into the region whose
    * iso object is `o`, and then maintains unordered sets to ensure the
@@ -52,6 +53,10 @@ namespace memory_iterator
       for (auto p : *reg)
       {
         UNUSED(p);
+        if constexpr (region_type == RegionType::Rc)
+        {
+          p = (Object*)(((uintptr_t)p) & ~FINALISER_MASK);
+        }
         check(p == o);
       }
 
@@ -66,7 +71,15 @@ namespace memory_iterator
            f_it != reg->template end<RegionBase::NonTrivial>();
            ++f_it)
       {
-        check(*f_it == o);
+        if constexpr (region_type == RegionType::Rc)
+        {
+          auto p = (Object*)(((uintptr_t)*f_it) & ~FINALISER_MASK);
+          check(p == o);
+        }
+        else
+        {
+          check(*f_it == o);
+        }
       }
 
       Region::release(ThreadAlloc::get(), o);
@@ -280,14 +293,105 @@ namespace memory_iterator
       snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
       check(live_count == 0);
     }
+    else if constexpr (region_type == RegionType::Rc)
+    {
+      using C = C3<region_type>;
+      using F = F3<region_type>;
+
+      C* oc = nullptr;
+      F* of = nullptr;
+      std::unordered_set<Object*> s1; // all objects
+      std::unordered_set<Object*> s2; // trivial
+      std::unordered_set<Object*> s3; // non-trivial
+      auto& alloc = ThreadAlloc::get();
+
+      auto* r = new (alloc) C;
+      auto* reg = RegionRc::get(r);
+      s1.insert(r);
+      s2.insert(r);
+
+      // Add some objects.
+      oc = new (alloc, r) C;
+      s1.insert(oc);
+      s2.insert(oc);
+
+      oc = new (alloc, r) C;
+      s1.insert(oc);
+      s2.insert(oc);
+      r->c1 = oc;
+
+      of = new (alloc, r) F;
+      s1.insert(of);
+      s3.insert(of);
+      r->f1 = of;
+
+      oc = new (alloc, r) C;
+      s1.insert(oc);
+      s2.insert(oc);
+      r->f1->c1 = oc;
+
+      of = new (alloc, r) F;
+      s1.insert(of);
+      s3.insert(of);
+      r->c1->f1 = of;
+
+      oc = new (alloc, r) C;
+      s1.insert(oc);
+      s2.insert(oc);
+
+      of = new (alloc, r) F;
+      s1.insert(of);
+      s3.insert(of);
+
+      of = new (alloc, r) F;
+      s1.insert(of);
+      s3.insert(of);
+
+      // Sanity check.
+      check(s1.size() == s2.size() + s3.size());
+
+      // Now check that we iterated over everything.
+      for (auto p : *reg)
+      {
+        auto untagged = (Object*)(((uintptr_t)p) & ~FINALISER_MASK);
+        check(s1.count(untagged));
+        s1.erase(untagged);
+      }
+      check(s1.empty());
+
+      for (auto n_it = reg->template begin<RegionBase::Trivial>();
+           n_it != reg->template end<RegionBase::Trivial>();
+           ++n_it)
+      {
+        check(s2.count(*n_it));
+        s2.erase(*n_it);
+      }
+      check(s2.empty());
+
+      for (auto f_it = reg->template begin<RegionBase::NonTrivial>();
+           f_it != reg->template end<RegionBase::NonTrivial>();
+           ++f_it)
+      {
+        auto untagged = (Object*)(((uintptr_t)*f_it) & ~FINALISER_MASK);
+        check(s3.count(untagged));
+        s3.erase(untagged);
+      }
+      check(s3.empty());
+
+      Region::release(alloc, r);
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      check(live_count == 0);
+    }
   }
 
   void run_test()
   {
     test_simple<RegionType::Trace>();
     test_simple<RegionType::Arena>();
+    test_simple<RegionType::Rc>();
 
     test_iterator<RegionType::Trace>();
     test_iterator<RegionType::Arena>();
+    test_iterator<RegionType::Rc>();
   }
 }

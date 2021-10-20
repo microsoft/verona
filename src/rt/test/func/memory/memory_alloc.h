@@ -146,6 +146,16 @@ namespace memory_alloc
       // 3rd arena: MC MC C C
       test_alloc_helper<MC, MF, C, F, MF, MC, F, F, MC, MC, C, C>();
     }
+    else if constexpr (region_type == RegionType::Rc)
+    {
+      // Region contains only the iso object.
+      test_alloc_helper<C>();
+
+      test_alloc_helper<C, C, C>();
+      test_alloc_helper<F, F, F>();
+      test_alloc_helper<C, C, F, F>();
+      test_alloc_helper<F, F, C, C>();
+    }
   }
 
   void run_test()

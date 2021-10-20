@@ -5,6 +5,7 @@
 #include "../object/object.h"
 #include "region_arena.h"
 #include "region_base.h"
+#include "region_rc.h"
 #include "region_trace.h"
 
 namespace verona::rt
@@ -84,6 +85,12 @@ namespace verona::rt
     using T = RegionArena;
   };
 
+  template<>
+  struct RegionType_to_class<RegionType::Rc>
+  {
+    using T = RegionRc;
+  };
+
   class Region
   {
   public:
@@ -99,6 +106,8 @@ namespace verona::rt
         return RegionType::Trace;
       else if (RegionArena::is_arena_region(o))
         return RegionType::Arena;
+      else if (RegionRc::is_rc_region(o))
+        return RegionType::Rc;
 
       abort();
     }
@@ -121,6 +130,8 @@ namespace verona::rt
           return RegionTrace::alloc<size>(alloc, in, desc);
         case RegionType::Arena:
           return RegionArena::alloc<size>(alloc, in, desc);
+        case RegionType::Rc:
+          return RegionRc::alloc<size>(alloc, in, desc);
         default:
           abort();
       }
@@ -218,6 +229,13 @@ namespace verona::rt
             count++;
           }
           return count;
+        case RegionType::Rc:
+          for (auto p : *((RegionRc*)r))
+          {
+            UNUSED(p);
+            count++;
+          }
+          return count;
         default:
           abort();
       }
@@ -310,6 +328,9 @@ namespace verona::rt
           return;
         case RegionType::Arena:
           ((RegionArena*)r)->release_internal(alloc, o, collect);
+          return;
+        case RegionType::Rc:
+          ((RegionRc*)r)->release_internal(alloc, o, collect);
           return;
         default:
           abort();

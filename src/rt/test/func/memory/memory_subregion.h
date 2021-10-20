@@ -344,9 +344,11 @@ namespace memory_subregion
   {
     test_subregion_singleton<RegionType::Trace>();
     test_subregion_singleton<RegionType::Arena>();
+    test_subregion_singleton<RegionType::Rc>();
 
     test_subregion_basic<RegionType::Trace>();
     test_subregion_basic<RegionType::Arena>();
+    test_subregion_basic<RegionType::Rc>();
 
     test_subregion_mix();
 

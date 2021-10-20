@@ -233,13 +233,12 @@ namespace verona::rt
 
     inline iterator begin()
     {
-        return {this};
+      return {this};
     }
 
     inline iterator end()
     {
-        return {this, Bag::null_index};
+      return {this, Bag::null_index};
     }
-
   };
 } // namespace verona::rt
