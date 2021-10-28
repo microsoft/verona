@@ -7,32 +7,16 @@
 
 namespace verona::rt
 {
-  /**
-   * This class contains the core functionality for a bag using aligned blocks
-   * which is optimised for constant time insertion and removal.
-   *
-   * Removal is O(1) because a removed item will leave a hole in the bag rather
-   * than shifting remaining items down like in a bag. To reduce fragmentation
-   * which can occur with deallocation churn, the bag maintains a freelist which
-   * is threaded through the holes left in the bag.  Insertion of new items will
-   * first query the freelist to see if a hole can be reused, otherwise items
-   * are bump allocated.
-   *
-   * To maintain an internal freelist with no additional space requirements, the
-   * item `T` must be at least 1 machine word in size.
-   */
-  template<class T, class U, class Alloc>
-  class Bag
+  template<class E, class Alloc>
+  class BagBase
   {
-  public:
-    struct Elem
+    union MaybeElem
     {
-      T* object;
-      U metadata;
+      MaybeElem* hole_ptr;
+      E item;
     };
 
-  private:
-    static constexpr size_t ITEM_COUNT = 32;
+    static constexpr size_t ITEM_COUNT = 512 / sizeof(E);
     static_assert(
       snmalloc::bits::next_pow2_const(ITEM_COUNT) == ITEM_COUNT,
       "Should be power of 2 for alignment.");
@@ -40,21 +24,11 @@ namespace verona::rt
     static constexpr size_t BLOCK_COUNT = ITEM_COUNT - 1;
     static constexpr uintptr_t EMPTY_MASK = 1 << 0;
 
-    // An element in the Bag may be empty. Where this is the case, a
-    // freelist is threaded through holes so that the element's slot can be
-    // reused. This is encoded as the `hole_ptr` field in the union.
-    union MaybeElem
-    {
-      MaybeElem* hole_ptr;
-      Elem item;
-    };
-
     struct alignas(ITEM_COUNT * sizeof(MaybeElem)) Block
     {
       MaybeElem prev;
       MaybeElem data[BLOCK_COUNT];
     };
-
     // Dummy block to effectively allow pointer arithmetic on nullptr
     // which is undefined behaviour.  So we statically allocate a block
     // to represent the end of the bag.
@@ -97,7 +71,7 @@ namespace verona::rt
     }
 
   public:
-    Bag<T, U, Alloc>() : index(null_index), next_free(nullptr)
+    BagBase<E, Alloc>() : index(null_index), next_free(nullptr)
     {
       static_assert(
         sizeof(*this) == sizeof(void*) * 2,
@@ -117,7 +91,7 @@ namespace verona::rt
       index = null_index;
     }
 
-    ALWAYSINLINE void remove(Elem* item)
+    ALWAYSINLINE void remove(E* item)
     {
       MaybeElem* hole = (MaybeElem*)item;
       hole->hole_ptr = (MaybeElem*)((uintptr_t)next_free | EMPTY_MASK);
@@ -125,7 +99,7 @@ namespace verona::rt
     }
 
     /// Insert an element into the bag.
-    ALWAYSINLINE Elem* insert(Elem item, Alloc& alloc)
+    ALWAYSINLINE E* insert(E item, Alloc& alloc)
     {
       if (next_free != nullptr)
       {
@@ -147,7 +121,7 @@ namespace verona::rt
 
   private:
     /// Slow path for insert, performs an insert, when allocation is required.
-    Elem* insert_slow(Elem item, Alloc& alloc)
+    E* insert_slow(E item, Alloc& alloc)
     {
       assert(is_last_block_elem(index));
 
@@ -170,7 +144,7 @@ namespace verona::rt
 
     static MaybeElem* next_non_empty(MaybeElem* elem)
     {
-      while ((elem != Bag::null_index) &&
+      while ((elem != BagBase::null_index) &&
              ((uintptr_t)elem->hole_ptr & EMPTY_MASK))
       {
         step(elem);
@@ -181,22 +155,22 @@ namespace verona::rt
   public:
     class iterator
     {
-      friend class Bag;
+      friend class BagBase;
 
     public:
-      iterator(Bag<T, U, Alloc>* bag) : bag(bag)
+      iterator(BagBase<E, Alloc>* bag) : bag(bag)
       {
         ptr = bag->next_non_empty(bag->index);
       }
 
-      iterator(Bag<T, U, Alloc>* bag, MaybeElem* p) : bag(bag), ptr(p) {}
+      iterator(BagBase<E, Alloc>* bag, MaybeElem* p) : bag(bag), ptr(p) {}
 
       iterator operator++()
       {
         step(ptr);
         ptr = next_non_empty(ptr);
         assert(
-          (ptr == Bag::null_index) ||
+          (ptr == BagBase::null_index) ||
           (((uintptr_t)ptr->hole_ptr & EMPTY_MASK) == 0));
 
         return *this;
@@ -212,7 +186,7 @@ namespace verona::rt
         return ptr == other.ptr;
       }
 
-      inline Elem* operator*() const
+      inline E* operator*() const
       {
         return &(ptr->item);
       }
@@ -223,11 +197,11 @@ namespace verona::rt
 
       inline iterator end()
       {
-        return {bag, Bag::null_index};
+        return {bag, BagBase::null_index};
       }
 
     private:
-      Bag<T, U, Alloc>* bag;
+      BagBase<E, Alloc>* bag;
       MaybeElem* ptr;
     };
 
@@ -238,7 +212,66 @@ namespace verona::rt
 
     inline iterator end()
     {
-      return {this, Bag::null_index};
+      return {this, BagBase::null_index};
     }
   };
+
+  template<class T, class U>
+  struct BagElem
+  {
+    T* object;
+    U metadata;
+  };
+
+  /**
+   * This class contains the core functionality for a bag using aligned blocks
+   * which is optimised for constant time insertion and removal.
+   *
+   * Removal is O(1) because a removed item will leave a hole in the bag rather
+   * than shifting remaining items down like in a bag. To reduce fragmentation
+   * which can occur with deallocation churn, the bag maintains a freelist which
+   * is threaded through the holes left in the bag.  Insertion of new items will
+   * first query the freelist to see if a hole can be reused, otherwise items
+   * are bump allocated.
+   *
+   * To maintain an internal freelist with no additional space requirements, the
+   * item `T` must be at least 1 machine word in size.
+   */
+  template<class T, class U, class Alloc>
+  class Bag : public BagBase<BagElem<T, U>, Alloc>
+  {
+  public:
+    using Elem = BagElem<T, U>;
+    using B = BagBase<Elem, Alloc>;
+    using iterator = typename B::iterator;
+
+  public:
+    Bag<T, U, Alloc>() : BagBase<Elem, Alloc>() {}
+  };
+
+  template<class T>
+  struct BagThinElem
+  {
+    T* object;
+  };
+
+  /**
+   * This class contains the core functionality for a 'thin' bag using aligned
+   * blocks which is optimised for constant time insertion and removal.
+   *
+   * This is similar to the bag data structure with the key difference that each
+   * element holds only a `T*`, without an additional field.
+   */
+  template<class T, class Alloc>
+  class BagThin : public BagBase<BagThinElem<T>, Alloc>
+  {
+  public:
+    using Elem = BagThinElem<T>;
+    using B = BagBase<Elem, Alloc>;
+    using iterator = typename B::iterator;
+
+  public:
+    BagThin<T, Alloc>() : BagBase<Elem, Alloc>() {}
+  };
+
 } // namespace verona::rt
