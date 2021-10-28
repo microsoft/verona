@@ -5,7 +5,7 @@
  * This test detects if early release allows for interleavings
  * There is currently no checks that this actually occurs as it
  * is probabalistic it occurs.
- * 
+ *
  * Running for a set of seeds will generate things such as:
  * ---------------------------
  * ./func-sys-early_release --seed 2070 --seed_count 3
@@ -35,8 +35,8 @@
  *    Time so far: 0 seconds
  *    Test Harness Finished!
  * ---------------------------
- * This shows that interleaving occured on the second test for 2072, and the third test
- * for seed 2070.  We can then inspect a particular seed with
+ * This shows that interleaving occured on the second test for 2072, and the
+ * third test for seed 2070.  We can then inspect a particular seed with
  * ---------------------------
  * ./func-sys-early_release --seed 2072 | grep Early
  *   a Early release: begin
@@ -77,7 +77,8 @@ void interleave()
   // Print if this occurs, before `finished`.
   if (!flag)
   {
-    Systematic::cout() << "Early release: Interleaving occured!" << Systematic::endl;
+    Systematic::cout() << "Early release: Interleaving occured!"
+                       << Systematic::endl;
     // Print normally so that it can be searched for across multiple seeds.
     printf("Interleaving occurred\n");
   }
@@ -116,7 +117,6 @@ void early_release_test(bool first, bool second)
   else
     Cown::release(alloc, b);
 }
-
 
 int main(int argc, char** argv)
 {
