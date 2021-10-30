@@ -18,9 +18,9 @@ TODO:
   - to re-root, use a storage location and assign to it
   - can re-root if `z` is a storage location, not if its a let binding?
   - need some kind of special storage location?
-- we don't want memory management operations on `paused`
-  - when `using`, we can't give it "the only reference" to mut or stack
-  - but we can on iso or imm
+- embedded objects as members
+  - constants can be represented as functions
+  - embedded objects are per-instance, but aren't storagelocs
 
 ## Types
 
@@ -63,8 +63,10 @@ paused: subset of regions not including top
 
 ```
 x, y, z ∈ Id
-l       ∈ Label
-P       ∈ Program     ::= (Id → Function) × (Label → Label*)
+τ       ∈ TypeId
+P       ∈ Program     ::= (Id → Function) × (TypeId → Type)
+          Type        ::= TypeId* × (Id → Member)
+m       ∈ Member      ::= Function | Id
 ϕ       ∈ Frame       ::= Region* × (Id → Value) × Id × Expression*
 σ       ∈ State       ::= Frame*
                         × (ObjectId → Object)
@@ -73,16 +75,15 @@ P       ∈ Program     ::= (Id → Function) × (Label → Label*)
                         × Bool
 v       ∈ Value       ::= ObjectId
                         | StorageLoc
-                        | MachineWord
                         | Function
+                        | Bool
                         | Undefined
 ι       ∈ ObjectId
 f       ∈ StorageLoc  ::= ObjectId × Id
-          MachineWord ::= Bool | i8 | i16 | i32 | i64 | i128 | f32 | f64 | ...
           Bool        ::= true | false
 λ         Function    ::= Id* × Expression*
 undef   ∈ Undefined
-ω       ∈ Object      ::= Label × Region* × (Id → Value)
+ω       ∈ Object      ::= Region* × TypeId
 ρ       ∈ Region
 Σ       ∈ Strategy    ::= GC | RC | Arena
 e       ∈ Expression  ::= x = var y
@@ -90,8 +91,9 @@ e       ∈ Expression  ::= x = var y
                         | x = load y
                         | x = store y z
                         | x = lookup y z
-                        | x = typetest x l
-                        | x = new l y*
+                        | x = typetest x τ
+                        | x = new τ
+                        | x = stack τ
                         | x = call y(y*)
                         | x = using y(z, z*)
                         | x = create Σ y(z*)
@@ -116,19 +118,14 @@ e       ∈ Expression  ::= x = var y
 ```ts
 // Program operations.
 P.functions = P↓₁
-P.subtypes = P↓₂
+P.types = P↓₂
 
 // Object operations.
-ω.label = ω↓₁
-ω.regions = ω↓₂
-ω.lookup = ω↓₃
+ω.regions = ω↓₁
+ω.type = ω↓₂
 
-ω <: l = l ∈ P.subtypes(ω.label)
-dom(ω) = dom(ω.lookup)
-x ∈ ω = x ∈ dom(ω)
-ω(x) = ω.lookup(x) if x ∈ dom(ω)
-       undef otherwise
-ω[x↦v] = ω.label, ω.regions, ω.lookup[x↦v]
+ω <: τ = τ ∈ P.types(ω.type)↓₁
+ω(x) = P.types(ω.type)↓₂(x)
 
 // Function operations.
 λ.args = λ↓₁
@@ -278,43 +275,38 @@ store(σ, f.id, v)
 σ, x = store y z; e* → σ[f↦v][x↦σ(f)]\{z}, e*
 
 // Look in the descriptor table of an object.
-// We can't lookup an ObjectId or a StorageLoc unless the object is not iso.
+// We can't lookup a StorageLoc unless the object is not iso.
 x ∉ σ
 ι = σ(y)
-v = σ(ι)(z)
-v ∈ (StorageLoc ∪ ObjectId) ⇒ ¬iso(σ, ι)
+m = σ(ι)(z)
+v = (ι, m) if m ∈ Id
+    m if m ∈ Function
+v ∈ StorageLoc ⇒ ¬iso(σ, ι)
 --- [lookup]
 σ, x = lookup y z; e* → σ[x↦v], acquire x; e*
 
 // Check abstract subtyping.
 // TODO: stuck if not an object?
 x ∉ σ
-v = σ(ι) <: l if ι ∈ ObjectId where ι = σ(y)
+v = σ(ι) <: τ if ι ∈ ObjectId where ι = σ(y)
     false otherwise
 --- [typetest]
-σ, x = typetest y l; e* → σ[x↦v], e*
+σ, x = typetest y τ; e* → σ[x↦v], e*
 
 // Create a new object in the current open region, i.e. a heap object.
-norepeat(x*; y*)
-norepeat(z*)
+// All fields are initially undefined.
 x ∉ σ
 ι ∉ σ
-σ₁.frame.regions = (ρ*; ρ)
-ω = l, ρ, [x*↦(ι, x*)][y*↦σ₁(z*)]
-σ₂ = σ₁[ι↦ω][(ι, x*)↦undef][x↦ι]
-store(σ₂, ι, z*)
+σ.frame.regions = (ρ*; ρ)
 --- [new]
-σ₁, x = new l x* (y = z)*; e* → σ₂\{z*}, e*
+σ, x = new τ; e* → σ[ι↦(ρ, τ)][x↦ι], e*
 
 // Create a new object in all open regions, i.e. a stack object.
-norepeat(x*; y*)
-norepeat(z*)
+// All fields are initially undefined.
 x ∉ σ
 ι ∉ σ
-ω = l, σ₁.frame.regions, [x*↦(ι, x*)][y*↦σ₁(z*)]
-σ₂ = σ₁[ι↦ω][(ι, x*)↦undef][x↦ι]
 --- [stack]
-σ₁, x = stack l x* (y = z)*; e* → σ₂\{z*}, e*
+σ, x = stack τ; e* → σ[ι↦(σ.frame.regions, τ)][x↦ι], e*
 
 // Push a new frame.
 norepeat(y; z*)
@@ -324,7 +316,8 @@ x ∉ σ
 σ₁, x = call y(z*); e₁* → σ₂, e₂*
 
 // Push a new frame with the specified heap region.
-// TODO: don't consume z
+// TODO: don't consume z?
+// what about re-rooting? return multiple things?
 norepeat(y; z; z*)
 x ∉ σ
 ι = σ(z)
