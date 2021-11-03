@@ -1209,12 +1209,7 @@ namespace verona::rt
             senders[s]->schedule();
         }
 
-        bool should_break = senders[senders_count - 1] == nullptr;
-
         alloc.dealloc(senders, senders_count * sizeof(Cown*));
-
-        if (should_break)
-          return false;
 
       } while ((curr != until) && (batch_size < batch_limit));
 
@@ -1366,6 +1361,10 @@ namespace verona::rt
       const size_t senders_count = body->count;
       Alloc& alloc = ThreadAlloc::get();
 
+      /*
+       * Avoid releasing the last cown because it breaks the current
+       * code structure
+       */
       if (this == senders[senders_count - 1])
         return false;
 
