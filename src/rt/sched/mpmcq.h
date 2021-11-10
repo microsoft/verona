@@ -22,7 +22,7 @@ namespace verona::rt
    *
    * The queue uses an intrusive list in the elements of the queue.  (For
    * Verona this is the Cowns). To make this memory safe and ABA safe we use
-   * to mechanisms.
+   * two mechanisms.
    *
    *   - ABA protection from snmalloc - this will use LL/SC or Double-word
    *     compare and swap.  This ensures that the same element can be added

@@ -713,7 +713,10 @@ namespace verona::rt
       body.behaviour->f();
 
       for (size_t i = 0; i < body.count; i++)
-        Cown::release(alloc, body.cowns[i]);
+      {
+        if (body.cowns[i])
+          Cown::release(alloc, body.cowns[i]);
+      }
 
       Systematic::cout() << "MultiMessage " << m << " completed and running on "
                          << cown << Systematic::endl;
@@ -1015,6 +1018,8 @@ namespace verona::rt
       for (size_t i = 0; i < count; i++)
       {
         auto* cown = senders[i];
+        if (!cown)
+          continue;
         auto bp = cown->bp_state.load(std::memory_order_relaxed);
         const bool high_priority = bp.high_priority();
         yield();
@@ -1199,7 +1204,10 @@ namespace verona::rt
 
         // Reschedule the other cowns.
         for (size_t s = 0; s < (senders_count - 1); s++)
-          senders[s]->schedule();
+        {
+          if (senders[s])
+            senders[s]->schedule();
+        }
 
         alloc.dealloc(senders, senders_count * sizeof(Cown*));
 
@@ -1344,6 +1352,33 @@ namespace verona::rt
       assert(stub->next.load(std::memory_order_relaxed) == nullptr);
 
       alloc.dealloc<sizeof(MultiMessage)>(stub);
+    }
+
+    bool release_early()
+    {
+      auto* body = Scheduler::local()->message_body;
+      auto* senders = body->cowns;
+      const size_t senders_count = body->count;
+      Alloc& alloc = ThreadAlloc::get();
+
+      /*
+       * Avoid releasing the last cown because it breaks the current
+       * code structure
+       */
+      if (this == senders[senders_count - 1])
+        return false;
+
+      for (size_t s = 0; s < senders_count; s++)
+      {
+        if (senders[s] != this)
+          continue;
+        Cown::release(alloc, senders[s]);
+        senders[s]->schedule();
+        senders[s] = nullptr;
+        break;
+      }
+
+      return true;
     }
 
     /**
