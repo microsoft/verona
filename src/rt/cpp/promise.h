@@ -35,17 +35,6 @@ namespace verona::rt
 
       Promise* promise;
 
-      PromiseR(Promise* p) : promise(p)
-      {
-        Cown::acquire(p);
-      }
-
-      PromiseR& operator=(PromiseR&& old)
-      {
-        promise = old.promise;
-        old.promise = nullptr;
-        return *this;
-      }
       PromiseR& operator=(const PromiseR&) = delete;
 
     public:
@@ -56,6 +45,14 @@ namespace verona::rt
       void then(F&& fn, E&& err)
       {
         promise->then(std::forward<F>(fn), std::forward<E>(err));
+      }
+
+      PromiseR() : promise(nullptr) {}
+
+      PromiseR(Promise* p, TransferOwnership transfer = NoTransfer) : promise(p)
+      {
+        if (transfer == NoTransfer)
+          Cown::acquire(p);
       }
 
       /**
@@ -77,6 +74,32 @@ namespace verona::rt
       {
         if (promise)
           Cown::release(ThreadAlloc::get(), promise);
+      }
+
+      PromiseR& operator=(PromiseR&& old)
+      {
+        if (promise)
+          Cown::release(ThreadAlloc::get(), promise);
+        promise = old.promise;
+        old.promise = nullptr;
+        return *this;
+      }
+
+      template<TransferOwnership transfer = NoTransfer>
+      Promise* get_promise()
+      {
+        Promise* ret = promise;
+
+        if constexpr (transfer == NoTransfer)
+        {
+          if (promise)
+            Cown::acquire(promise);
+        }
+        else
+        {
+          promise = nullptr;
+        }
+        return ret;
       }
     };
 
@@ -102,19 +125,24 @@ namespace verona::rt
        */
       PromiseW(const PromiseW&) = delete;
 
-      PromiseW& operator=(PromiseW&& old)
-      {
-        promise = old.promise;
-        old.promise = nullptr;
-        return *this;
-      }
       PromiseW& operator=(const PromiseW&) = delete;
 
     public:
+      PromiseW() : promise(nullptr) {}
+
       PromiseW(PromiseW&& old)
       {
         promise = old.promise;
         old.promise = nullptr;
+      }
+
+      PromiseW& operator=(PromiseW&& old)
+      {
+        if (promise)
+          Cown::release(ThreadAlloc::get(), promise);
+        promise = old.promise;
+        old.promise = nullptr;
+        return *this;
       }
 
       ~PromiseW()
@@ -141,7 +169,16 @@ namespace verona::rt
     {
       schedule_lambda(this, [fn = std::move(fn), err = std::move(err), this] {
         if (fulfilled)
-          fn(val);
+        {
+          if constexpr (std::is_trivially_copy_constructible<T>::value)
+          {
+            fn(val);
+          }
+          else
+          {
+            fn(std::move(val));
+          }
+        }
         else
           err();
       });
@@ -178,10 +215,10 @@ namespace verona::rt
      * Fulfill the promise with a value and put the promise cown in a
      * scheduler thread queue. A PromiseW can be fulfilled only once.
      */
-    static void fulfill(PromiseW&& wp, T v)
+    static void fulfill(PromiseW&& wp, T&& v)
     {
       PromiseW tmp = std::move(wp);
-      tmp.promise->val = v;
+      tmp.promise->val = std::move(v);
       tmp.promise->fulfilled = true;
       Cown::acquire(tmp.promise);
       tmp.promise->schedule();
