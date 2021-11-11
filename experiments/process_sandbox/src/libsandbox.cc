@@ -29,10 +29,17 @@
 #include "host_service_calls.h"
 #include "process_sandbox/callbacks.h"
 #include "process_sandbox/filetree.h"
+#include "process_sandbox/netpolicy.h"
 #include "process_sandbox/path.h"
 #include "process_sandbox/platform/sandbox.h"
 #include "process_sandbox/sandbox.h"
 #include "process_sandbox/shared_memory_region.h"
+
+// Linux doesn't provide a useful error code for an invalid hints pointer, use
+// the closest approximation.
+#ifndef EAI_BADHINTS
+#  define EAI_BADHINTS EAI_BADFLAGS
+#endif
 
 using namespace std::chrono_literals;
 
@@ -118,7 +125,7 @@ namespace sandbox
           // something bad.  For now, we kill the host process, which is safe
           // but slightly misses the point of fault isolation.
         }
-        HostServiceResponse reply{1, 0};
+        HostServiceResponse reply{0, 0};
         SharedAllocConfig::LocalState* s;
         {
           decltype(ranges)::iterator r;
@@ -150,7 +157,7 @@ namespace sandbox
             size_t size = static_cast<size_t>(rpc.args[1]);
             for (char* a = p; a < p + size; a += snmalloc::MIN_CHUNK_SIZE)
             {
-              reply.error |= validate_and_insert(s, a, m);
+              reply.error |= !validate_and_insert(s, a, m);
             }
             break;
           }
@@ -190,10 +197,10 @@ namespace sandbox
               sizeclass};
             for (char* a = p; a < p + size; a += snmalloc::MIN_CHUNK_SIZE)
             {
-              reply.error |= validate_and_insert(s, a, m);
+              reply.error |= !validate_and_insert(s, a, m);
             }
 
-            reply = {0, reinterpret_cast<uintptr_t>(alloc)};
+            reply.ret = reinterpret_cast<uintptr_t>(alloc);
             break;
           }
         }
@@ -314,6 +321,11 @@ namespace sandbox
     ExportedFileTree vfs;
 
     /**
+     * The policy for network access.
+     */
+    NetworkPolicy netpolicy;
+
+    /**
      * Vector of callback handlers.
      */
     std::vector<std::unique_ptr<CallbackHandlerBase>> handlers;
@@ -392,14 +404,14 @@ namespace sandbox
       auto raw_path = get_path(lib, inSandboxPath);
       if (!raw_path)
       {
-        return return_int(-EINVAL);
+        return {-EINVAL};
       }
       Path path{raw_path.get()};
       path.canonicalise();
       auto allowed = vfs.lookup_file(path);
       if (!allowed.has_value())
       {
-        return return_int(-ENOENT);
+        return {-ENOENT};
       }
       auto [fd, path_tail] = allowed.value();
       return handler(fd, path_tail);
@@ -429,6 +441,129 @@ namespace sandbox
           }
           return return_fd(fd);
         });
+    }
+
+    /**
+     * Handle an `openat` callback by reading the file from the exported file
+     * tree.
+     */
+    Result handle_openat(
+      Library& lib, SyscallArgs<OpenAt>::rpc_type& args, platform::Handle h)
+    {
+      return platform::SafeSyscalls::openat_beneath(
+        h.fd,
+        get_path(lib, std::get<1>(args)).get(),
+        std::get<2>(args),
+        std::get<3>(args));
+    }
+
+    /**
+     * Handle either a bind or connect call.  These take the same set of
+     * arguments and so can be handled with common code before dispatching to
+     * the correct policy function.
+     */
+    template<CallbackKind K, NetworkPolicy::NetOperation Op>
+    Result handle_bind_or_connect(
+      Library& lib, typename SyscallArgs<K>::rpc_type& args, platform::Handle h)
+    {
+      // Don't allow an attacker to force us to copy huge things.  The size
+      // of a sockaddr is on the order of a few tens of bytes, clamp this to
+      // a size that is well over the biggest that we expect.
+      constexpr size_t maxSaneSockAddrSize = 4096;
+      const void* unsafeBase = reinterpret_cast<void*>(std::get<1>(args));
+      const socklen_t length = std::get<2>(args);
+      if (
+        !h.is_valid() || (length > maxSaneSockAddrSize) ||
+        !lib.contains(unsafeBase, length))
+      {
+        return {-EINVAL};
+      }
+      char buffer[maxSaneSockAddrSize];
+      memcpy(buffer, unsafeBase, length);
+      int ret =
+        netpolicy.invoke<Op>(h.fd, reinterpret_cast<sockaddr*>(buffer), length);
+      return return_int(ret);
+    }
+
+    /**
+     * Handle the `getaddrinfo` libc call.  Note that this is not a system call
+     * and so does not follow the same rules for integer return values as system
+     * call.
+     */
+    Result
+    handle_getaddrinfo(Library& lib, SyscallArgs<GetAddrInfo>::rpc_type& args)
+    {
+      void* unsafeHints = reinterpret_cast<void*>(std::get<2>(args));
+      addrinfo hintsCopy;
+      addrinfo* hints;
+      if (unsafeHints == nullptr)
+      {
+        hints = nullptr;
+      }
+      else
+      {
+        if (!lib.contains(unsafeHints, sizeof(addrinfo)))
+        {
+          return EAI_BADHINTS;
+        }
+        memcpy(&hintsCopy, unsafeHints, sizeof(addrinfo));
+        hints = &hintsCopy;
+      }
+      auto host = get_path(lib, std::get<0>(args));
+      auto service = get_path(lib, std::get<1>(args));
+      addrinfo* res;
+      int ret = netpolicy.invoke<NetworkPolicy::NetOperation::GetAddrInfo>(
+        host.get(), service.get(), hints, &res);
+      // On success, we need to copy the result out and free it.
+      if (ret == 0)
+      {
+        size_t count = 0;
+        size_t extra = 0;
+        // Find the number of `addrinfo` structures in the list and the size of
+        // their associated `sockaddr`s
+        for (addrinfo* cur = res; cur != nullptr; cur = cur->ai_next)
+        {
+          count++;
+          extra += cur->ai_addrlen;
+        }
+        if (count > 0)
+        {
+          // Allocate space for everything.  No overflow checking here, but the
+          // called code is trusted and we could only overflow if it returned a
+          // nonsense `ai_addrlen`.
+          char* buffer = lib.alloc<char>((sizeof(addrinfo) * count) + extra);
+          // The allocated space will be an array of `addrinfo`s, followed by
+          // (variable-sized) `sockaddr`s.
+          addrinfo* ais = reinterpret_cast<addrinfo*>(buffer);
+          char* sockaddrs = buffer + (sizeof(addrinfo) * count);
+          size_t i = 0;
+          // Copy each list element into the new buffer, updating its next
+          // pointer and copying the payload into the end of the buffer.
+          for (addrinfo* cur = res; cur != nullptr; cur = cur->ai_next, i++)
+          {
+            ais[i] = *cur;
+            memcpy(sockaddrs, cur->ai_addr, cur->ai_addrlen);
+            ais[i].ai_addr = reinterpret_cast<sockaddr*>(sockaddrs);
+            sockaddrs += cur->ai_addrlen;
+            ais[i].ai_next = &ais[i + 1];
+          }
+          // Add the null terminator in the list.
+          ais[count - 1].ai_next = nullptr;
+          // If the result pointer is actually sensible, return the pointer.
+          addrinfo** unsafeSandboxRes =
+            reinterpret_cast<addrinfo**>(std::get<3>(args));
+          if (lib.contains(unsafeSandboxRes, sizeof(addrinfo*)))
+          {
+            *unsafeSandboxRes = ais;
+          }
+          else
+          {
+            lib.free(ais);
+          }
+          netpolicy.freeaddrinfo(res);
+        }
+      }
+      return return_int(ret);
     }
 
     /**
@@ -463,7 +598,7 @@ namespace sandbox
                                      platform::SafeSyscalls::fstatat_beneath(
                                        fd, path_tail.str().c_str(), sb, 0));
           }
-          return return_int(-EINVAL);
+          return Result{-EINVAL};
         });
     }
 
@@ -498,6 +633,25 @@ namespace sandbox
     }
 
     /**
+     * Register a handler for an callback, with the specific index.  Note that,
+     * although `k` is an `CallbackKind`, this will be a value after the last
+     * statically defined callback kind for any user-provided callbacks.
+     */
+    template<typename Args>
+    void register_handler(
+      CallbackKind k,
+      Result (CallbackDispatcher::*handler)(Library&, Args&, platform::Handle))
+    {
+      enlarge_handlers(k + 1);
+      handlers[k] = make_callback_handler<Args, true>(std::bind(
+        handler,
+        this,
+        std::placeholders::_1,
+        std::placeholders::_2,
+        std::placeholders::_3));
+    }
+
+    /**
      * Handle a request.
      */
     void handle(Library& lib)
@@ -511,7 +665,7 @@ namespace sandbox
       CallbackHandlerBase::Result ret;
       if (req.kind < handlers.size())
       {
-        ret = handlers[req.kind]->invoke(lib, req);
+        ret = handlers[req.kind]->invoke(lib, req, std::move(in_fd));
       }
       socket.send(&ret.integer, sizeof(ret.integer), ret.handle);
     }
@@ -555,12 +709,33 @@ namespace sandbox
       handlers.reserve(CallbackKind::BuiltInCallbackKindCount);
       register_handler(CallbackKind::Open, &CallbackDispatcher::handle_open);
       register_handler(CallbackKind::Stat, &CallbackDispatcher::handle_stat);
+      register_handler(
+        CallbackKind::Access, &CallbackDispatcher::handle_access);
+      register_handler(
+        CallbackKind::OpenAt, &CallbackDispatcher::handle_openat);
+      register_handler(
+        CallbackKind::Bind,
+        &CallbackDispatcher::handle_bind_or_connect<
+          CallbackKind::Bind,
+          NetworkPolicy::NetOperation::Bind>);
+      register_handler(
+        CallbackKind::GetAddrInfo, &CallbackDispatcher::handle_getaddrinfo);
+      register_handler(
+        CallbackKind::Connect,
+        &CallbackDispatcher::handle_bind_or_connect<
+          CallbackKind::Connect,
+          NetworkPolicy::NetOperation::Connect>);
     };
   };
 
   ExportedFileTree& Library::filetree()
   {
     return callback_dispatcher->vfs;
+  }
+
+  NetworkPolicy& Library::network_policy()
+  {
+    return callback_dispatcher->netpolicy;
   }
 
   int Library::register_callback(

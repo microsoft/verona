@@ -17,10 +17,16 @@ set(SANDBOX_TESTS
 	callback-basic
 	callback-recursive
 	modify-pagemap
+	network
 	zlib
 	)
 
 find_package(Threads REQUIRED)
+
+find_package(CURL)
+if (${CURL_FOUND})
+	list(APPEND SANDBOX_TESTS curl)
+endif()
 
 function(setup_sandbox_test_properties TEST_NAME)
 	set_target_properties(${TEST_NAME} PROPERTIES
@@ -56,3 +62,7 @@ foreach(TEST_NAME ${SANDBOX_TESTS})
 	add_test(${TEST_NAME} ${TEST_NAME})
 	target_compile_definitions(${TEST_NAME} PRIVATE SANDBOX_LIBRARY=\"${CMAKE_CURRENT_BINARY_DIR}/${TEST_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}\")
 endforeach()
+
+if (${CURL_FOUND})
+	target_link_libraries(sandboxed-curl CURL::libcurl)
+endif()

@@ -1,8 +1,12 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #ifdef __FreeBSD__
+#  include "../callback_numbers.h"
+
+#  include <array>
 #  include <sys/syscall.h>
 #  include <ucontext.h>
+#  include <utility>
 
 namespace sandbox::platform
 {
@@ -45,16 +49,39 @@ namespace sandbox::platform
 #    endif
     }
 
+    /**
+     * FreeBSD system call numbers.  These must be kept in the same order as
+     * the callback numbers.  Each entry is a pair of the callback number
+     * followed by the corresponding system-call number.  This is accessed only
+     * by a wrapper that provides a compile-tine check that the entries are in
+     * the correct order.
+     */
+    static constexpr std::
+      array<std::pair<CallbackKind, int>, SyscallCallbackCount>
+        SyscallNumbers{
+          std::make_pair(Open, SYS_open),
+          {Stat, SYS_freebsd11_stat},
+          {Access, SYS_access},
+          {OpenAt, SYS_openat},
+          {Bind, SYS_bind},
+          {Connect, SYS_connect},
+        };
+
   public:
     /**
-     * FreeBSD system call numbers.
+     * Compile-time lookup of a system call number that corresponds to a given
+     * callback.  May return -1 if there is no matching system call.
      */
-    enum SyscallNumbers
+    template<CallbackKind K>
+    static constexpr int syscall_number()
     {
-      Open = SYS_open,
-      OpenAt = SYS_openat,
-      Stat = SYS_freebsd11_stat,
-    };
+      static_assert(
+        K < SyscallNumbers.size(), "Callback number is out of range");
+      static_assert(
+        SyscallNumbers[K].first == K,
+        "SyscallNumbers array layout is incorrect!");
+      return SyscallNumbers[K].second;
+    }
 
     /**
      * The signal delivered for a Capsicum-disallowed system call.
@@ -65,6 +92,19 @@ namespace sandbox::platform
      * Constructor.  Takes the arguments to a signal handler.
      */
     SyscallFrameFreeBSDX8664(siginfo_t& i, ucontext_t& c) : info(i), ctx(c) {}
+
+    /**
+     * The system call registers, according to the x86-64 System-V ABI
+     * specification.
+     */
+    static constexpr std::array<register_t mcontext_t::*, 6> syscallArgRegs{
+      &mcontext_t::mc_rdi,
+      &mcontext_t::mc_rsi,
+      &mcontext_t::mc_rdx,
+      &mcontext_t::mc_r10,
+      &mcontext_t::mc_r8,
+      &mcontext_t::mc_r9,
+    };
 
     /**
      * Get the syscall argument at index `Arg`, cast to type `T`.
@@ -86,22 +126,8 @@ namespace sandbox::platform
           return reinterpret_cast<T>(static_cast<intptr_t>(val));
         }
       };
-      switch (Arg + (is_syscall() ? 1 : 0))
-      {
-        case 0:
-          return cast(ctx.uc_mcontext.mc_rdi);
-        case 1:
-          return cast(ctx.uc_mcontext.mc_rsi);
-        case 2:
-          return cast(ctx.uc_mcontext.mc_rdx);
-        case 3:
-          return cast(ctx.uc_mcontext.mc_r10);
-        case 4:
-          return cast(ctx.uc_mcontext.mc_r8);
-        case 5:
-          return cast(ctx.uc_mcontext.mc_r9);
-      }
-      return 0;
+      return cast(
+        ctx.uc_mcontext.*syscallArgRegs.at(Arg + (is_syscall() ? 1 : 0)));
     }
 
     /**

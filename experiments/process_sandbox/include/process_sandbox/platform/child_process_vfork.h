@@ -3,8 +3,13 @@
 #ifdef __unix__
 #  include <err.h>
 #  include <errno.h>
+#  include <sys/signal.h>
 #  include <sys/types.h>
 #  include <sys/wait.h>
+#  if __has_include(<sys/procctl.h>)
+#    include <sys/procctl.h>
+#  endif
+#  include "../helpers.h"
 namespace sandbox
 {
   namespace platform
@@ -80,9 +85,20 @@ namespace sandbox
         pid = vfork();
         if (pid == 0)
         {
+          // If we have a platform-specific mechanism for requesting a SIGKILL
+          // when the parent exits, use it.  This allows us to automatically
+          // clean up sandboxes if the parent terminates abnormally.
+          //
+          // On Linux, we can't use `PR_SET_PDEATHSIG` because that causes the
+          // child to receive the signal when the *thread* that called `vfork`
+          // exits, not when the *process* exits.  See:
+          // https://bugzilla.kernel.org/show_bug.cgi?id=43300
+#  ifdef __FreeBSD__
+          int deathsig = SIGKILL;
+          procctl(P_PID, 0, PROC_PDEATHSIG_CTL, &deathsig);
+#  endif
           start();
-          assert(0 && "Should not be reached");
-          abort();
+          SANDBOX_INVARIANT(0, "start function must not return");
         }
       }
 
