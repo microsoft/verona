@@ -87,7 +87,8 @@ namespace sandbox::platform
       }
       int arg = PROC_TRAPCAP_CTL_ENABLE;
       int ret = procctl(P_PID, getpid(), PROC_TRAPCAP_CTL, &arg);
-      assert(ret == 0);
+      SANDBOX_INVARIANT(
+        ret == 0, "Failed to register for traps on Capsicum violations");
       std::array<const char*, EnvSize + 1> env;
       std::copy(envp.begin(), envp.end(), env.begin());
       env.at(EnvSize - 1) = "LD_LIBRARY_PATH_FDS=8:9:10";

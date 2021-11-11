@@ -2,47 +2,18 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
+#include "callback_numbers.h"
 #include "sandbox.h"
 
 #include <limits.h>
+#include <netdb.h>
+
 /**
  * This file contains the mechanism for servicing callbacks from the sandbox.
  */
 namespace sandbox
 {
   class Library;
-  /**
-   * The kind of callback.  This is used to dispatch the callback to the
-   * correct handler.
-   */
-  enum CallbackKind
-  {
-    /**
-     * Proxying an `open` system call.
-     */
-    Open,
-    /**
-     * Proxying a `stat` system call.
-     */
-    Stat,
-    /**
-     * Proxying an `access` system call.
-     */
-    Access,
-    /**
-     * Proxying an `openat` system call.
-     */
-    OpenAt,
-    /**
-     * Total number of built-in callback kinds.
-     */
-    BuiltInCallbackKindCount,
-    /**
-     * User-defined callback numbers start here.  User for callbacks from the
-     * sandbox into Verona code and will itself be multiplexed.
-     */
-    FirstUserFunction = BuiltInCallbackKindCount,
-  };
 
   /**
    * The body of the callback request message.  This is sent over a UNIX domain
@@ -133,7 +104,8 @@ namespace sandbox
      * Invoke the handler.  This provides a type-safe interface that wraps the
      * templated version.
      */
-    virtual Result invoke(Library&, struct CallbackRequest)
+    virtual Result
+    invoke(Library&, struct CallbackRequest, platform::Handle = {})
     {
       return -ENOSYS;
     }
@@ -150,21 +122,31 @@ namespace sandbox
    * structure out so that the wrapped function does not have to worry about
    * truncated arguments and can ignore TOCTOU issues unless it follows pointers
    * in the argument frame.
+   *
+   * The handler may optionally take a file descriptor.  If it does then the
+   * handler function should take a `sandbox::platform::Handle` as a third
+   * argument.
    */
-  template<typename T>
+  template<typename T, bool TakesHandle = false>
   class CallbackHandler : public CallbackHandlerBase
   {
     /**
      * The implementation of the handler.
      */
-    std::function<CallbackHandlerBase::Result(Library&, T&)> fn;
+    std::function<std::conditional_t<
+      TakesHandle,
+      CallbackHandlerBase::Result(Library&, T&, platform::Handle),
+      CallbackHandlerBase::Result(Library&, T&)>>
+      fn;
 
     /**
      * Invoke the handler after checking that the arguments are of the correct
      * size and copying them out of the sandbox.
      */
-    CallbackHandlerBase::Result
-    invoke(Library& lib, struct CallbackRequest req) override
+    CallbackHandlerBase::Result invoke(
+      Library& lib,
+      struct CallbackRequest req,
+      platform::Handle h = {}) override
     {
       if (req.size != sizeof(T))
       {
@@ -180,7 +162,14 @@ namespace sandbox
         reinterpret_cast<void*>(arg.get()),
         reinterpret_cast<void*>(req.data),
         sizeof(T));
-      return fn(lib, *arg);
+      if constexpr (TakesHandle)
+      {
+        return fn(lib, *arg, std::move(h));
+      }
+      else
+      {
+        return fn(lib, *arg);
+      }
     }
 
   public:
@@ -196,12 +185,18 @@ namespace sandbox
   /**
    * Helper that constructs a unique pointer to a callback handler of the right
    * type for the callable argument as a pointer to the base class.
+   *
+   * If `TakesHandle` is true, then the called function must take a
+   * `sandbox::platform::Handle` as an additional argument.
    */
-  template<typename T>
+  template<typename T, bool TakesHandle = false>
   std::unique_ptr<CallbackHandlerBase> make_callback_handler(
-    std::function<CallbackHandlerBase::Result(Library&, T&)> fn)
+    std::function<std::conditional_t<
+      TakesHandle,
+      CallbackHandlerBase::Result(Library&, T&, platform::Handle),
+      CallbackHandlerBase::Result(Library&, T&)>> fn)
   {
-    return std::make_unique<CallbackHandler<T>>(fn);
+    return std::make_unique<CallbackHandler<T, TakesHandle>>(fn);
   }
 
   /**
@@ -330,6 +325,15 @@ namespace sandbox
   {};
 
   /**
+   * System call arguments for the `openat` call.  Note that this cannot infer
+   * the type from `openat` for the same reason as `open`.
+   */
+  template<>
+  struct SyscallArgs<OpenAt>
+  : internal::SyscallArgsBase<OpenAt, int(int, const char*, int, mode_t)>
+  {};
+
+  /**
    * The system call arguments for the `access` call.  Inferred from the
    * declaration of the system call.
    */
@@ -344,6 +348,32 @@ namespace sandbox
    */
   template<>
   struct SyscallArgs<Stat> : internal::SyscallArgsBase<Stat, decltype(::stat)>
+  {};
+
+  /**
+   * The system call arguments for the `bind` call.  Inferred from the
+   * declaration of the system call.
+   */
+  template<>
+  struct SyscallArgs<Bind> : internal::SyscallArgsBase<Bind, decltype(::bind)>
+  {};
+
+  /**
+   * The system call arguments for the `getaddrinfo` call.  Inferred from the
+   * declaration of the system call.
+   */
+  template<>
+  struct SyscallArgs<GetAddrInfo>
+  : internal::SyscallArgsBase<GetAddrInfo, decltype(::getaddrinfo)>
+  {};
+
+  /**
+   * The system call arguments for the `connect` call.  Inferred from the
+   * declaration of the system call.
+   */
+  template<>
+  struct SyscallArgs<Connect>
+  : internal::SyscallArgsBase<Connect, decltype(::connect)>
   {};
 
   SANDBOX_GCC_DIAGNOSTIC_POP()

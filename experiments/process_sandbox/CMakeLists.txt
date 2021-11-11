@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(sandbox C CXX)
 
-INCLUDE (CheckCXXSourceCompiles)
+include(CheckCXXSourceCompiles)
+include(FindPkgConfig)
 
 set(CHILD_SOURCES src/library_runner.cc)
 set(LIBSANDBOX_SOURCES src/libsandbox.cc)
@@ -69,8 +70,12 @@ target_link_libraries(sandbox fmt::fmt)
 target_link_options(library_runner PRIVATE -Wl,-export-dynamic)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(library_runner -ldl -lbsd -lrt)
-	target_link_libraries(sandbox -ldl -lbsd -lrt)
+	# Unconditionally link libbsd to everything on Linux so we have a useful
+	# set of libc functions.
+	pkg_check_modules(libbsd REQUIRED IMPORTED_TARGET libbsd-overlay)
+	link_libraries(PkgConfig::libbsd)
+	target_link_libraries(library_runner -ldl -lrt)
+	target_link_libraries(sandbox -ldl -lrt)
 endif()
 
 if (${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")

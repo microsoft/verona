@@ -3,6 +3,8 @@
 
 #pragma once
 #ifdef __linux__
+#  include "../callback_numbers.h"
+
 #  include <sys/syscall.h>
 #  include <ucontext.h>
 namespace sandbox::platform
@@ -24,16 +26,39 @@ namespace sandbox::platform
      */
     ucontext_t& ctx;
 
+    /**
+     * Linux system call numbers.  These must be kept in the same order as
+     * the callback numbers.  Each entry is a pair of the callback number
+     * followed by the corresponding system-call number.  This is accessed only
+     * by a wrapper that provides a compile-tine check that the entries are in
+     * the correct order.
+     */
+    static constexpr std::
+      array<std::pair<CallbackKind, int>, SyscallCallbackCount>
+        SyscallNumbers{
+          std::make_pair(Open, __NR_open),
+          {Stat, __NR_stat},
+          {Access, __NR_access},
+          {OpenAt, __NR_openat},
+          {Bind, __NR_bind},
+          {Connect, __NR_connect},
+        };
+
   public:
     /**
-     * Linux system call numbers.
+     * Compile-time lookup of a system call number that corresponds to a given
+     * callback.  May return -1 if there is no matching system call.
      */
-    enum SyscallNumbers
+    template<CallbackKind K>
+    static constexpr int syscall_number()
     {
-      Open = __NR_open,
-      OpenAt = __NR_openat,
-      Stat = __NR_stat,
-    };
+      static_assert(
+        K < SyscallNumbers.size(), "Callback number is out of range");
+      static_assert(
+        SyscallNumbers[K].first == K,
+        "SyscallNumbers array layout is incorrect!");
+      return SyscallNumbers[K].second;
+    }
 
     /**
      * The signal sent when a seccomp policy violation occurs.

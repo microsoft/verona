@@ -16,6 +16,7 @@
 #endif
 
 #include "helpers.h"
+#include "netpolicy.h"
 #include "platform/platform.h"
 #include "sandbox_fd_numbers.h"
 
@@ -604,6 +605,11 @@ namespace sandbox
      * Returns the filesystem abstraction exported to this sandbox.
      */
     ExportedFileTree& filetree();
+
+    /**
+     * Returns the network access policy for this sandbox.
+     */
+    NetworkPolicy& network_policy();
 
     /**
      * Register a handler for a callback from this sandbox.  The return value

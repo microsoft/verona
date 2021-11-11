@@ -1,6 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+#include "process_sandbox/callback_numbers.h"
 #include "process_sandbox/cxxsandbox.h"
 #include "process_sandbox/platform/platform.h"
 #include "process_sandbox/sandbox.h"
@@ -21,9 +22,11 @@ int test(bool raw_syscall)
 #endif
   const char* path = "/foo";
   int x;
-  if (raw_syscall && (SyscallFrame::Open != -1))
+  constexpr int OpenSyscallNo =
+    SyscallFrame::syscall_number<sandbox::CallbackKind::Open>();
+  if (raw_syscall && (OpenSyscallNo != -1))
   {
-    x = syscall(SyscallFrame::Open, path, O_RDWR);
+    x = syscall(OpenSyscallNo, path, O_RDWR);
   }
   else
   {

@@ -457,9 +457,12 @@ namespace
   class CallbackPtrArg
   {
     /**
-     * The pointer captured by this object.
+     * The pointer captured by this object, `const`-qualified for parameters
+     * that are not modified so that it can be constructed from
+     * `const`-qualified parameters.
      */
-    T* original;
+    std::conditional_t<Direction == In, const T, T>* original;
+
     /**
      * An on-heap pointer for a copy of the pointee, allocated in the shared
      * region.  If `original` is in the shared heap, this will be `nullptr`.
@@ -472,7 +475,7 @@ namespace
      * heap.  The value of `orig` must not be modified for the lifetime of this
      * object.
      */
-    CallbackPtrArg(T* orig) : original(orig)
+    CallbackPtrArg(decltype(original) orig) : original(orig)
     {
       if (!is_inside_shared_memory(orig))
       {
@@ -486,9 +489,12 @@ namespace
      */
     ~CallbackPtrArg()
     {
-      if (copy && (Direction != In))
+      if constexpr (Direction != In)
       {
-        *original = *copy;
+        if (copy)
+        {
+          *original = *copy;
+        }
       }
     }
 
@@ -576,23 +582,43 @@ namespace
    */
   template<typename T>
   std::pair<uintptr_t, Handle>
-  callback(sandbox::CallbackKind k, T* data, int fd = -1)
+  callback(sandbox::CallbackKind k, T* data, int fd)
   {
     return callback(k, data, sizeof(T), fd);
   }
 
   /**
-   * Wrapper template for callbacks that are system calls.  The first template
-   * parameter is a specialisation of `sandbox::SyscallArgs<>`, which infers
-   * the types from the underlying system call types.  The remaining arguments
-   * are the values in the message.
+   * Wrapper template for callbacks that are not system calls.  The first
+   * template parameter is a specialisation of `sandbox::SyscallArgs<>`, which
+   * infers the types from the underlying system call types.  The remaining
+   * template parameters are the types used to construct this structure.  The
+   * arguments are then implicitly converted to these types to handle things
+   * like copying structures into shared memory.  The last argument is an
+   * optional file descriptor to accompany the message.
    */
   template<typename ArgsStruct, typename... Args>
-  intptr_t syscall_callback_helper(Args... args)
+  std::pair<uintptr_t, Handle> callback_helper(Args... args, int fd = -1)
   {
     typename ArgsStruct::rpc_type stack_args{args...};
     CallbackPtrArg<decltype(stack_args)> argstruct{&stack_args};
-    auto ret = callback(ArgsStruct::kind, argstruct.get());
+    return callback(ArgsStruct::kind, argstruct.get(), fd);
+  }
+
+  /**
+   * Wrapper template for callbacks that are system calls.  The first template
+   * parameter is a specialisation of `sandbox::SyscallArgs<>`, which infers
+   * the types from the underlying system call types.  The remaining template
+   * parameters are the types used to construct this structure.  The arguments
+   * are then implicitly converted to these types to handle things like copying
+   * structures into shared memory.  The last argument is an optional file
+   * descriptor to accompany the message.
+   */
+  template<typename ArgsStruct, typename... Args>
+  intptr_t syscall_callback_helper(Args... args, int fd = -1)
+  {
+    typename ArgsStruct::rpc_type stack_args{args...};
+    CallbackPtrArg<decltype(stack_args)> argstruct{&stack_args};
+    auto ret = callback(ArgsStruct::kind, argstruct.get(), fd);
     int result = static_cast<int>(ret.first);
     // POSIX defines system calls to all return a single value (and optionally
     // set `errno`).  Some of those integer returns are file descriptors.  When
@@ -604,7 +630,7 @@ namespace
     // values.  FreeBSD uses the carry bit to differentiate between a valid and
     // error return, for an invalid return the return value is moved to `errno`
     // and replaced with -1.  Irrespective of the host system, we always use
-    // the Linux convention and this layer.  Linux uses the sign: Negative
+    // the Linux convention in this layer.  Linux uses the sign: Negative
     // values returned from the system call are stored in `errno` and the
     // return value replaced by -1, non-negative values are returned directly.
     // This is handled by the system call wrappers, these functions mimic the
@@ -615,6 +641,17 @@ namespace
       result = ret.second.take();
     }
     return result;
+  }
+
+  /**
+   * Emulate the `access` system call by performing a callback to the parent.
+   */
+  intptr_t callback_access(const char* path, int mode)
+  {
+    return syscall_callback_helper<
+      sandbox::SyscallArgs<Access>,
+      CallbackCStrArg,
+      int>(path, mode);
   }
 
   /**
@@ -633,8 +670,40 @@ namespace
    */
   int callback_open(const char* pathname, int flags, mode_t mode)
   {
-    return syscall_callback_helper<sandbox::SyscallArgs<Open>, CallbackCStrArg>(
-      pathname, flags, mode);
+    return syscall_callback_helper<
+      sandbox::SyscallArgs<Open>,
+      CallbackCStrArg,
+      int,
+      mode_t>(pathname, flags, mode);
+  }
+
+  /**
+   * Emulate the `bind` or `connect` system call by performing a callback to
+   * the parent.  These two functions have the same argument signature and so
+   * the logic can be shared between them.
+   */
+  template<CallbackKind Op>
+  int callback_bind_or_connect(int s, const sockaddr* addr, socklen_t addrlen)
+  {
+    // The second argument is annoying because, although the static type is
+    // `sockaddr` it is really some subtype of `sockaddr`, in a language that
+    // can't express subtype relationships.  This is typically something like
+    // `sockaddr_in` or `sockaddr_in6` but is implemented as a variable-sized
+    // tagged union where the first few fields uniquely identify the type.
+    // The size must be passed as an extra parameter.  We therefore can't use
+    // the templates that automatically ensure a parameter is in shared memory.
+    unique_c_ptr<sockaddr> copy;
+    if (is_inside_shared_memory(addr, addrlen))
+    {
+      copy.reset(static_cast<sockaddr*>(malloc(addrlen)));
+      memcpy(copy.get(), addr, addrlen);
+      addr = copy.get();
+    }
+    return syscall_callback_helper<
+      sandbox::SyscallArgs<Op>,
+      int,
+      uintptr_t,
+      socklen_t>(s, reinterpret_cast<uintptr_t>(addr), addrlen, s);
   }
 
   /**
@@ -659,7 +728,6 @@ namespace
    */
   int callback_openat(int dirfd, const char* pathname, int flags, mode_t mode)
   {
-    (void)dirfd;
 #ifdef __linux__
     // Special case for Linux's /proc/{pid}/fd filesystem.  This is necessary
     // for fdlopen on Linux.
@@ -680,8 +748,12 @@ namespace
     {
       return callback_open(pathname, flags, mode);
     }
-    // TODO: Perform a callback for the openat emulation.
-    return -EINVAL;
+    return syscall_callback_helper<
+      sandbox::SyscallArgs<OpenAt>,
+      int,
+      CallbackCStrArg,
+      int,
+      mode_t>(dirfd, pathname, flags, mode, dirfd);
   }
 
   using SyscallFrame = sandbox::platform::SyscallFrame;
@@ -704,39 +776,68 @@ namespace
   }
 
   /**
+   * Callback functions that emulate system calls (not the C wrappers, which
+   * will also set `errno`).  These must be kept in the same order as the
+   * `CallbackKind` enumeration.
+   */
+  constexpr std::tuple callbacks{&callback_open,
+                                 &callback_stat,
+                                 &callback_access,
+                                 &callback_openat,
+                                 &callback_bind_or_connect<Bind>,
+                                 &callback_bind_or_connect<Connect>};
+
+  /**
+   * Dispatch to a callback given a system call frame.  This will call the
+   * entry in the `callbacks` tuple that matches the system call number.
+   */
+  template<int Number = SyscallCallbackCount - 1>
+  void syscall_callback(SyscallFrame& c) noexcept
+  {
+    static_assert(
+      Number < SyscallCallbackCount, "System call callback out of range");
+    if constexpr (Number >= FirstSyscall)
+    {
+      // If the system call matches the one for this template instantiation:
+      if (
+        SyscallFrame::syscall_number<static_cast<CallbackKind>(Number)>() ==
+        c.get_syscall_number())
+      {
+        // Extract the arguments from the system call frame and call the
+        // handler.
+        typename sandbox::internal::signature<std::remove_pointer_t<
+          std::remove_reference_t<decltype(std::get<Number>(callbacks))>>>::
+          argument_type args;
+        extract_args(args, c);
+        int result = std::apply(std::get<Number>(callbacks), args);
+        // Put the result back into the argument frame.
+        if (result < 0)
+        {
+          c.set_error_return(-result);
+        }
+        else
+        {
+          c.set_success_return(result);
+        }
+      }
+      else
+      {
+        syscall_callback<Number - 1>(c);
+      }
+    }
+  };
+
+  /**
    * Signal handler function.  For system calls that are emulated after a trap,
    * this extracts the arguments from the trap frame, calls the correct callback
    * function, and then injects the return address into the syscall frame.
    */
-  void emulate(int, siginfo_t* info, ucontext_t* ctx)
+  void emulate(int, siginfo_t* info, ucontext_t* ctx) noexcept
   {
     SyscallFrame c(*info, *ctx);
     if (c.is_sandbox_policy_violation())
     {
-      int syscall = c.get_syscall_number();
-      auto call = [&](auto&& fn) {
-        typename sandbox::internal::signature<decltype(fn)>::argument_type args;
-        extract_args(args, c);
-        return std::apply(fn, args);
-      };
-      auto syscall_callback = [&](int number, auto&& fn) {
-        if ((number != -1) && (number == syscall))
-        {
-          intptr_t result = call(fn);
-          if (result < 0)
-          {
-            c.set_error_return(-result);
-          }
-          else
-          {
-            c.set_success_return(result);
-          }
-          return;
-        }
-      };
-      syscall_callback(SyscallFrame::Open, callback_open);
-      syscall_callback(SyscallFrame::OpenAt, callback_openat);
-      syscall_callback(SyscallFrame::Stat, callback_stat);
+      syscall_callback(c);
     }
   }
 
@@ -783,6 +884,50 @@ extern "C" int openat(int dirfd, const char* pathname, int flags, ...)
   return ret;
 }
 #endif
+
+/**
+ * The `bind` system call.  Delegates to the parent process.
+ */
+extern "C" int bind(int s, const sockaddr* addr, socklen_t addrlen)
+{
+  return syscall_return(callback_bind_or_connect<Bind>(s, addr, addrlen));
+}
+
+/**
+ * The `connect` system call.  Delegates to the parent process.
+ */
+extern "C" int connect(int s, const sockaddr* addr, socklen_t addrlen)
+{
+  return syscall_return(callback_bind_or_connect<Connect>(s, addr, addrlen));
+}
+
+/**
+ * The `getaddrinfo` libc call.  Because this is not a system call, we don't
+ * need a split of the `callback_getaddrinfo` that can be called from both here
+ * and the signal handler.
+ */
+extern "C" int getaddrinfo(
+  const char* hostname,
+  const char* servname,
+  const addrinfo* hints,
+  addrinfo** res)
+{
+  addrinfo* localRes;
+  auto ret = callback_helper<
+    sandbox::SyscallArgs<GetAddrInfo>,
+    CallbackCStrArg,
+    CallbackCStrArg,
+    CallbackPtrArg<addrinfo>,
+    CallbackPtrArg<addrinfo*, Out>>(hostname, servname, hints, &localRes);
+
+  *res = localRes;
+  return static_cast<int>(ret.first);
+}
+
+extern "C" void freeaddrinfo(addrinfo* ai)
+{
+  free(ai);
+}
 
 /**
  * Exported function to allow the loaded code to invoke a callback to the
