@@ -7,20 +7,38 @@ Regions:
 Async:
 - new cown
 - new promise
+  - is this a noticeboard plus a notifier?
 - when
 - fulfill
+- noticeboards
+  - snap a value on behaviour start?
+  - cancellation tokens can only check on behaviour change (but that's good?)
+- notification
+  - separate from noticeboard
+  - fire on signal (one waiter? all waiters?)
 
 TODO:
 - behaviour starts with a stack region
   - how do we deal with initial cowns? "paused but openable"
 - track gc roots for gc regions
-- `using` doesn't consume
-  - to re-root, use a storage location and assign to it
-  - can re-root if `z` is a storage location, not if its a let binding?
-  - need some kind of special storage location?
 - embedded objects as members
   - constants can be represented as functions
   - embedded objects are per-instance, but aren't storagelocs
+  - assignable fields are actually embedded objects of type `store T`?
+- allocation monads? ie `region { ... }` is stack allocation
+
+- pattern matching on capability in the semantics
+  - distinguish heap/stack/paused `heap | active`
+    - when we don't know statically, use 2-bits in the pointer
+    - one for `paused` vs `active`
+    - another for `heap` vs `stack`
+  - iso
+    - easy if we don't change it to mut representation in `region`
+      - `region x { ... }` <=> `using x { ... }`
+    - if we do change it, then it looks like `paused~>heap` instead of `paused~>iso` if we read ourself from our parent region
+    - if we `undef` our storageloc in order to call `region`, this is fine
+  - imm
+    - easy, it's in the object header
 
 ## Types
 
@@ -67,7 +85,7 @@ x, y, z ∈ Id
 P       ∈ Program     ::= (Id → Function) × (TypeId → Type)
           Type        ::= TypeId* × (Id → Member)
 m       ∈ Member      ::= Function | Id
-ϕ       ∈ Frame       ::= Region* × (Id → Value) × Id × Expression*
+ϕ       ∈ Frame       ::= Region* × (Id → Value) × Id* × Expression*
 σ       ∈ State       ::= Frame*
                         × (ObjectId → Object)
                         × (StorageLoc → Value)
@@ -86,7 +104,7 @@ undef   ∈ Undefined
 ω       ∈ Object      ::= Region* × TypeId
 ρ       ∈ Region
 Σ       ∈ Strategy    ::= GC | RC | Arena
-e       ∈ Expression  ::= x = var y
+e       ∈ Expression  ::= x = var
                         | x = dup y
                         | x = load y
                         | x = store y z
@@ -94,16 +112,17 @@ e       ∈ Expression  ::= x = var y
                         | x = typetest x τ
                         | x = new τ
                         | x = stack τ
-                        | x = call y(y*)
-                        | x = using y(z, z*)
-                        | x = create Σ y(z*)
+                        | x* = call y(y*)
+                        | x* = region y(z, z*)
+                        | x* = create Σ y(z*)
                         | tailcall x(x*)
                         | branch x y(y*) z(z*)
-                        | return x
+                        | return x*
                         | error
                         | x = catch
                         | acquire x
                         | release x
+                        | release v
                         | fulfill x
 ```
 
@@ -119,6 +138,7 @@ e       ∈ Expression  ::= x = var y
 // Program operations.
 P.functions = P↓₁
 P.types = P↓₂
+P.types(τᵩ) = ((), [x↦x])
 
 // Object operations.
 ω.regions = ω↓₁
@@ -143,8 +163,8 @@ f.loc = f↓₂
 
 x ∈ ϕ = x ∈ dom(ϕ.lookup)
 ϕ(x) = ϕ.lookup(x)
-ϕ[x↦v] = ϕ.regions, ϕ.lookup[x↦v], ϕ.ret, ϕ.cont
-ϕ\{x*} = ϕ.regions, ϕ.lookup\{x*}, ϕ.ret, ϕ.cont
+ϕ[x↦v] = (ϕ.regions, ϕ.lookup[x↦v], ϕ.ret, ϕ.cont)
+ϕ\{x*} = (ϕ.regions, ϕ.lookup\{x*}, ϕ.ret, ϕ.cont)
 
 // State operations.
 x ∈ σ = x ∈ σ.frame
@@ -159,6 +179,8 @@ f ∈ σ = f ∈ dom(σ.fields)
 σ.regions = σ↓₄
 σ.except = σ↓₅
 
+σ.objects(ρ*) = {ι | σ(ι).regions = ρ*}
+
 // Note that P is implicit and immutable.
 σ(x) = σ.frame(x) if x ∈ σ
        P.functions(x) if x ∈ dom(P.functions)
@@ -169,25 +191,35 @@ f ∈ σ = f ∈ dom(σ.fields)
        undef otherwise
 
 σ[x↦v] =
-  (ϕ*; ϕ[x↦v]), σ.objects, σ.fields, σ.regions, σ.except where σ.frames = ϕ*; ϕ
+  ((ϕ*; ϕ[x↦v]), σ.objects, σ.fields, σ.regions, σ.except)
+  where σ.frames = (ϕ*; ϕ)
 σ\{x*} =
-  (ϕ*; ϕ\{x*}), σ.objects, σ.fields, σ.regions, σ.except where σ.frames = ϕ*; ϕ
+  ((ϕ*; ϕ\{x*}), σ.objects, σ.fields, σ.regions, σ.except)
+  where σ.frames = (ϕ*; ϕ)
 
-σ[f↦v] = σ.frames, σ.objects, σ.fields[f↦v], σ.regions, σ.except
+σ[f↦v] = (σ.frames, σ.objects, σ.fields[f↦v], σ.regions, σ.except)
 
-σ[ι↦ω] = σ.frames, σ.objects[ι↦ω], σ.fields, σ.regions, σ.except
+σ[ι↦ω] = (σ.frames, σ.objects[ι↦ω], σ.fields, σ.regions, σ.except)
 σ\{ι*} =
-  σ.frames, σ.objects\{ι*},
-  σ.fields\{(ι, x) | ι ∈ ι* ∧ (ι, x) ∈ dom(σ.fields)},
-  σ.regions, σ.except
+  (σ.frames,
+   σ.objects\{ι*},
+   σ.fields\{(ι, x) | ι ∈ ι* ∧ (ι, x) ∈ dom(σ.fields)},
+   σ.regions,
+   σ.except)
 
-σ[ρ↦Σ] = σ.frames, σ.objects, σ.fields, σ.regions[ρ↦Σ], σ.except
+σ[ρ↦Σ] = (σ.frames, σ.objects, σ.fields, σ.regions[ρ↦Σ], σ.except)
 σ[ρ₁*→ρ₂*] =
   (σ.frames,
    σ.objects[ι↦σ(ι)\{ρ₁*}∪{ρ₂*} | ι ∈ σ ∧ ρ₁* ⊆ σ(ι).regions],
    σ.fields,
-   σ.regions\{ρ₁},
+   σ.regions\{ρ₁*},
    σ.except)
+
+σ\{ρ*} =
+  (σ.frames,
+   σ.objects\{ι | σ(ι).regions = ρ*},
+   σ.fields\{(ι, x) | ι ∈ ι* ∧ (ι, x) ∈ dom(σ, fields)},
+   σ.regions\{ρ*}
 
 dom(x*) = { xᵢ | i ∈ 1…|x*| }
 live(σ, x*) = norepeat(x*) ∧ (dom(σ.frame) = dom(x*))
@@ -199,17 +231,17 @@ norepeat(x*) = (|x*| = |dom(x*)|)
 [()↦()] = []
 [(x; x*)↦(v; v*)] = [x↦v][x*↦v*]
 
-newframe(σ, ρ*, x, y, z*, e*) =
+newframe(σ, ρ*, x*, y, z*, e*) =
   ((ϕ*; ϕ₁\{y, z*}; ϕ₂), σ.objects, σ.fields, σ.regions, σ.except), λ.expr
   if λ ∈ Function
   where
     λ = σ(y),
     σ.frames = (ϕ*; ϕ₁),
-    ϕ₂ = (ϕ₁.regions; ρ*), [λ.args↦σ(z*)], x, e*
+    ϕ₂ = ((ϕ₁.regions; ρ*), [λ.args↦σ(z*)], x*, e*)
 
 unpin(σ, ()) = ()
 unpin(σ, z; z*) =
-  (release z; unpin(σ, z*)) if mut(σ, σ(zᵢ)) ∨ stack(σ, σ(zᵢ))
+  (release v; unpin(σ, z*)) if mut(σ, v) ∨ stack(σ, v) where v = σ(z)
   unpin(σ, z*) otherwise
 
 imm(σ, v) =
@@ -240,15 +272,13 @@ store(σ, ι, (x; x*)) = store(σ, ι, σ(xᵢ)) ∧ store(σ, ι, x*)
 // Allocate a cell on the stack.
 // x = var
 // ->
-// x0 = stack l x
+// x0 = stack τ
 // x = lookup x0 x
 // release x0
 x ∉ σ
 ι ∉ σ
-f = ι, y
-ω = l, σ.frame.regions, [y↦f]
 --- [var]
-σ, x = var; e* → σ[ι↦ω][f↦undef][x↦f], acquire x; e*
+σ, x = var; e* → σ[ι↦(σ.frame.regions, τᵩ)][x↦(ι, x)], acquire x; e*
 
 // Duplicate a stack identifier.
 // We can't duplicate an iso value.
@@ -311,28 +341,26 @@ x ∉ σ
 // Push a new frame.
 norepeat(y; z*)
 x ∉ σ
-σ₂, e₂* = newframe(σ₁, (), x, y, z*, e₁*)
+σ₂, e₂* = newframe(σ₁, (), x*, y, z*, e₁*)
 --- [call]
-σ₁, x = call y(z*); e₁* → σ₂, e₂*
+σ₁, x* = call y(z*); e₁* → σ₂, e₂*
 
 // Push a new frame with the specified heap region.
-// TODO: don't consume z?
-// what about re-rooting? return multiple things?
 norepeat(y; z; z*)
 x ∉ σ
 ι = σ(z)
 ρ = σ(ι).regions
 iso(σ, ι)
-σ₂, e₂* = newframe(σ₁, ρ, x, y, (z; z*), (unpin(σ₁, z*); e₁*))
---- [using]
-σ₁, x = using y(z, z*); e₁* → σ₂, e₂*
+σ₂, e₂* = newframe(σ₁, ρ, x*, y, (z; z*), (unpin(σ₁, z*); e₁*))
+--- [region]
+σ₁, x* = region y(z, z*); e₁* → σ₂, e₂*
 
 // Create a new heap region.
 x ∉ σ
 ρ ∉ σ
-σ₂, e₂* = newframe(σ₁[ρ↦Σ], ρ, x, y, z*, (unpin(σ₁, z*); e₁*))
+σ₂, e₂* = newframe(σ₁[ρ↦Σ], ρ, x*, y, z*, (unpin(σ₁, z*); e₁*))
 --- [create]
-σ, x = create Σ y(z*); e* → σ₂, e₂*
+σ, x* = create Σ y(z*); e* → σ₂, e₂*
 
 // Reuse the current frame.
 live(σ, x; y*)
@@ -352,13 +380,15 @@ live(σ₁, x; y; z; z*)
 
 // Pop the current frame.
 // Can only return iso or imm across a `using`.
-// TODO: discard everything in the stack region
-live(σ₁, x)
+// TODO: the isos being returned have to be disjoint
+live(σ₁, x*)
 σ₁.frames = (ϕ*; ϕ₁; ϕ₂)
-σ₂ = (ϕ*; ϕ₁[ϕ₂.ret↦ϕ₂(x)], σ₁.objects, σ₁.fields, σ₁.except)
+σ₂ = ((ϕ*; ϕ₁[ϕ₂.ret↦σ₁(x*)]), σ₁.objects, σ₁.fields, σ₁.except)
 (ϕ₁.regions ≠ ϕ₂.regions) ⇒ iso(σ₂, ϕ₂(x)) ∨ imm(σ₂, ϕ₂(x))
+ιs = σ₁.objects(ϕ₂.regions) if ϕ₁.regions ≠ ϕ₂.regions
+     ∅ otherwise
 --- [return]
-σ₁, return x → σ₂, ϕ₂.cont
+σ₁, return x* → σ₂\ιs, ϕ₂.cont
 
 // Unset the success flag.
 --- [error]

@@ -289,18 +289,28 @@ The list of the types that can be NaN-packed:
 In the following ways:
 ```
 [*][***********][52 bit mantissa] = F64
-[*][11111111111][52 zeroes] = NaN
-[1][11111111111][52 data bits] = Pointer
-[0][11111111111][0001][47*][1 data bit] = Bool
-[0][11111111111][0010][16*][32 data bits] = F32
-[0][11111111111][0011][40*][8 data bits] = I8
-[0][11111111111][0100][32*][16 data bits] = I16
-[0][11111111111][0101][16*][32 data bits] = I32
-[0][11111111111][0110][16*][32 data bits] = ISize (32)
-[0][11111111111][0111][40*][8 data bits] = U8
-[0][11111111111][1000][32*][16 data bits] = U16
-[0][11111111111][1001][16*][32 data bits] = U32
-[0][11111111111][1010][16*][32 data bits] = USize (32)
+[*][00000000000][52 bit mantissa] = F64 (zero and subnormals)
+[*][11111111111][52 zeroes] = F64 (infinity)
+[1][11111111111][00][50 data bits] = Pointer (active heap)
+[1][11111111111][01][50 data bits] = Pointer (active stack)
+[1][11111111111][10][50 data bits] = Pointer (paused heap)
+[1][11111111111][11][50 data bits] = Pointer (paused stack)
+[0][11111111111][0000][40*][8 data bits] = I8
+[0][11111111111][0001][32*][16 data bits] = I16
+[0][11111111111][0010][16*][32 data bits] = I32
+[0][11111111111][0011][16*][32 data bits] = ISize (32)
+[0][11111111111][0100][47*][1 data bit] = Bool
+[0][11111111111][0101][32*][16 data bits] = F16
+[0][11111111111][0110][16*][32 data bits] = F32
+[0][11111111111][0111][48 ones] = F64 (quiet NaN)
+[0][11111111111][1000][40*][8 data bits] = U8
+[0][11111111111][1001][32*][16 data bits] = U16
+[0][11111111111][1010][16*][32 data bits] = U32
+[0][11111111111][1011][16*][32 data bits] = USize (32)
+[0][11111111111][1100][48*] = Unused
+[0][11111111111][1101][48*] = Unused
+[0][11111111111][1110][48*] = Unused
+[0][11111111111][1111][48 ones] = F64 (signalling NaN)
 ```
 
 The order of types and their bit patterns are arbitrary, and the sub-divisions is provisory.
