@@ -80,13 +80,12 @@ Memory management
 -----------------
 
 For each sandbox instance, the parent creates two anonymous shared memory objects.
-One object is large and will be used for the sandbox's heap.
-The large object is mapped at the same address in both the parent and a child process, allowing intra-sandbox pointers to have the same values in both.
+The first object is used for the sandbox's heap.
+This object is mapped at the same address in both the parent and a child process, allowing intra-sandbox pointers to have the same values in both.
 This is mapped read-write in both processes.
 
-The smaller object is a single page, used for the snmalloc page map that covers the large region.
-This is mapped read-write in the parent over the region of the pagemap that contains metadata for the large region.
-It is mapped read-only in the child.
+The other object is a shared memory region used for the snmalloc page map that covers the sandbox's heap.
+It is mapped read-write in the parent and read-only in the child.
 Updates to the pagemap are infrequent.
 
 The parent has a boundary allocator associated with the sandbox that allows allocation in the sandbox's heap.
@@ -330,3 +329,184 @@ Code layout
    - [libsandbox.cc](src/libsandbox.cc) is the library that manages sandbox lifecycle.
  - [tests](tests) contains tests.
    Some are stand-alone unit tests, the files that start `sandbox-` and `sandboxlib-` are the parent / child parts of tests that use the complete sandboxing framework.
+
+Building
+--------
+
+The following dependencies are required in order to build the `process_sandbox`:
+
+```
+libfmt
+libseccomp
+libbsd
+```
+
+:warning: There is a known compilation issue with gcc/g++ versions < 10.
+Either upgrade your gcc/g++ to at least version 10 or switch to clang.
+
+The building process is similar to the rest of the project.
+To build in debug mode, do the following in the `process_sandbox` folder:
+
+```
+mkdir build_ninja
+cd build_ninja
+cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug
+ninja
+```
+
+Tests
+------
+
+The previous steps build 15 tests, 8 unit and regression tests, and 7 end-to-end sandbox tests:
+
+* [test-sandbox-basic](tests/sandbox-basic.cc): Creates 3 sandboxes wrapping around a small library that exposes a function returning the sum of two `int`. Each sandbox is called twice.
+
+* [test-sandbox-callback-basic](tests/sandbox-callback-basic.cc): Creates a simple sandbox and registers a callback function that returns an `int`. The sandbox library simply invokes the callback and asserts it gets the correct value (`42`). 
+
+* [test-sandbox-callback-recursive](tests/sandbox-callback-recursive.cc): Creates a single sandbox that recursively invokes 6 nested levels of callbacks, i.e., a callback triggers a call into the sandbox that itself invokes a callback etc. 
+
+* [test-sandbox-crash](tests/sandbox-crash.cc): Creates 3 sandboxes meant to crash (calls `abort`). The crash triggers a `runtime_error` exception caught in the parent process. 
+
+* [test-sandbox-fake-open](tests/sandbox-fake-open.cc): Creates a shared memory file and a sandbox. The sandbox opens the file in two different ways: 1) with a raw system call, and 2) with the `open` function that performs a callback to the host. 
+
+* [test-sandbox-modify-pagemap](tests/sandbox-modify-pagemap.cc): Creates a sandbox attempting to modify the access rights of the pagemap using `mprotect`. The `mprotect` call should fail with a `permission denied`.
+
+* [test-sandbox-zlib](tests/sandbox-zlib.cc): Uses `zlib` to `deflate`, i.e., compress, the program's file. This test compares the output produced by a sandboxed and an unsandboxed version of zlib. 
+
+* [test-sandbox-network](tests/test-sandbox-network.cc): Example of how network policies can be used to restrict the sandbox's ability to perform network operations. 
+This test creates a server sandbox and gradually enables network operations (1) `getaddrinfo`, (2) `bind`ing to a socket, (3) the ability to receive messages on the socket from the parent, and (4) the ability for asandboxed client to `connect` to the server. 
+
+Walkthrough Example
+-------------------
+
+In this section we provide a slightly more detailed walkthrough for the `test-sandbox-basic` test.
+
+### Files
+
+* [tests/sandbox-basic.cc](tests/sandbox-basic.cc): Defines the main entry point of the test.
+* [tests/sandboxlib-basic.cc](tests/sandboxlib-basic.cc): Defines the basic library that will be sandboxed.
+
+### Running the test
+
+```
+./build_ninja/tests/test-sandbox-basic
+
+# expected Output
+
+Adding 1 to 2 in sandbox
+Adding 2147483647 to -1 in sandbox
+Adding 1 to 2 in sandbox
+Adding 2147483647 to -1 in sandbox
+Adding 1 to 2 in sandbox
+Adding 2147483647 to -1 in sandbox
+```
+
+### High Level Description
+
+This tests creates 3 sandboxes wrapping around the simple adder defined by the sandboxed library.
+Each sandbox runs in a separate process and is called twice.
+
+
+### Runtime Walkthrough
+
+Below is the process tree generated by the test:
+
+```
+test-sandbox-basic─┬─3*[library_runner]
+                   └─{test-sandbox-basic}
+
+```
+
+The test creates three children processes and one thread.
+
+* *Thread:* It is created as part of the `sandbox::Library::MemoryServiceProvider` defined in [src/libsandbox.cc](src/libsandbox.cc) and handles pagemap updates from children.
+
+* *Processes:* Each process runs the [library_runner](src/library_runner.cc) which dynamically loads the sandboxed library `sandboxed-basic.so`.
+
+
+#### Memory Layout
+
+On Linux with `memfd` support, we observe the following shared memory mappings in the parent and children processes:
+
+```
+# [Parent] test-sandbox-basic 
+7f8000000000-7fc000000000 rw-s 00000000 00:01 362                        /memfd:Verona Sandbox (deleted)
+7ffe80000000-7ffec0000000 rw-s 00000000 00:01 7515                       /memfd:Verona Sandbox (deleted)
+7fff00000000-7fff40000000 rw-s 00000000 00:01 7514                       /memfd:Verona Sandbox (deleted)
+7fff80000000-7fffc0000000 rw-s 00000000 00:01 361                        /memfd:Verona Sandbox (deleted)
+
+# [Child 1] library_runner
+7fbf80000000-7fff80000000 r--s 00000000 00:01 362                        /memfd:Verona Sandbox (deleted)
+7fff80000000-7fffc0000000 rw-s 00000000 00:01 361                        /memfd:Verona Sandbox (deleted)
+
+# [Child 2] library_runner
+7fbf00000000-7fff00000000 r--s 00000000 00:01 362                        /memfd:Verona Sandbox (deleted)
+7fff00000000-7fff40000000 rw-s 00000000 00:01 7514                       /memfd:Verona Sandbox (deleted)
+
+# [Child 3] library_runner
+7fbe80000000-7ffe80000000 r--s 00000000 00:01 362                        /memfd:Verona Sandbox (deleted)
+7ffe80000000-7ffec0000000 rw-s 00000000 00:01 7515                       /memfd:Verona Sandbox (deleted)
+```
+
+To better understand the virtual memory layout, consider the following "graphical" representation: 
+
+```
+[Parent] test-sandbox-basic                    [Child 1] library_runner                       [Child 2] library_runner                       [Child 3] library_runner
+                                                                                                                                             
+  |-- 0x7f8000000000 [rw-s]                                                                                                                       
+  |                                                                                                                                          
+  |                                                                                                                                            |-- 0x7fbe80000000 [r--s]
+  |                                                                                                                                            |
+  ...                                                                                           |-- 0x7fbf00000000 [r--s]                      |
+  |                                                                                             |                                              |
+  |                                              |-- 0x7fbf80000000 [r--s]                      |                                              |
+  |                                              |                                              |                                              |        PageMap
+  |-- 0x7fc000000000                             |                                              |                                              |
+                                                 |                                              |        PageMap                               |
+                                                 |                                              |                                              |
+                                                 |        PageMap                               |                                              | 
+  |-- 0x7ffe80000000 -- 0x7ffec0000000 [rw-s]    |                                              |                                              |-- child 3 region [rw-s]
+                                                 |                                              |                                            
+  |-- 0x7fff00000000 -- 0x7fff40000000 [rw-s]    |                                              |-- child 2 region [rw-s]                     
+                                                 |                                                                                           
+  |-- 0x7fff80000000 -- 0x7fffc0000000 [rw-s]    |-- child 1 region [rw-s]                                                                   
+
+```
+
+The `library_runner` is responsible, at initialization time, for ensuring that both the `PageMap` and the child's memory region (i.e., heap) are correctly mapped in the process's address space.
+For that purposes, it uses the `memfd` file descriptors inherited from the parent.
+It relies on `mmap` to install the heap as a shared memory region that is both readable and writable.
+For the `PageMap`, it resizes the region and drops write access to the corresponding file descriptor using `mmap`.
+Despite observable overlaps between the `PageMap` memory regions and heaps of different children, this initialization step ensures that the corresponding virtual memory is backed by separate physical pages in the different children address spaces. 
+
+#### Invoking the sandbox
+
+We follow the execution of the program and show how, on Linux, the parent invokes the `sum` function defined in [sandboxlib-basic](tests/sandboxlib-basic.cc).
+
+
+On the parent side, the sandbox library setups a `msg_buffer`, i.e.,  call frame containing the arguments to the function call and a return element.
+It passes the pointer to that call frame as well as the index of the library's function invoked via shared memory to the child that it wakes up.
+On Linux, semaphores (implemented with the underlying `futex` system call) are used to communciate with the child process.
+The trace below shows the parent's stack trace:
+
+```
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+#1  0x00007ffff7f3b611 in sandbox::platform::FutexOneBitSem::futex_op (this=0x7fff800000c0, futex_op=1, val=1, timeout=0x0) at ../include/process_sandbox/platform/onebitsem_futex.h:29
+#2  0x00007ffff7f3b884 in sandbox::platform::FutexOneBitSem::wake (this=0x7fff800000c0) at ../include/process_sandbox/platform/onebitsem_futex.h:46
+#3  0x00007ffff7f38d77 in sandbox::Library::send (this=0x7fffffffd1b0, idx=1, ptr=0x7fff80004020) at ../src/libsandbox.cc:774
+#4  0x000055555557e0b0 in sandbox::Function<int, int, int>::operator() (this=0x7fffffffd660, args#0=1, args#1=2) at ../include/process_sandbox/cxxsandbox.h:103
+#5  0x000055555557cd65 in test_sum (sb=..., a=1, b=2) at ../tests/sandbox-basic.cc:31
+#6  0x000055555557cf18 in main () at ../tests/sandbox-basic.cc:40
+```
+
+On the child's side, the process stuck waiting on the futex is woken up, extracts the index and `msg_buffer`, and invokes the corresponding sandboxed function. 
+The trace below shows the child's side of the execution:
+
+```
+#4  0x00007fffefa168c0 in std::apply<int (*&)(int, int), std::tuple<int, int>&> (__f=@0x7fff800080a8: 0x7fffefa1476e <sum(int, int)>, __t=std::tuple containing = {...}) at /usr/include/c++/10/tuple:1738
+#5  0x00007fffefa16923 in sandbox::ExportedFunction<int, int, int>::operator() (this=0x7fff800080a0, callframe=0x7fff80004020) at ../include/process_sandbox/cxxsandbox.h:176
+#6  0x00007fffefa14ab7 in sandbox::ExportedLibrary::call (idx=1, args=0x7fff80004020) at ../include/process_sandbox/cxxsandbox.h:217
+#7  0x00007fffefa1476b in sandbox::sandbox_call (idx=1, args=0x7fff80004020) at ../include/process_sandbox/cxxsandbox.h:249
+#8  0x000055555559eaed in (anonymous namespace)::runloop (callback_depth=0) at ../src/library_runner.cc:295
+#9  0x00005555555a001e in runloop_with_stack_pivot () at ../src/library_runner.cc:807
+```
