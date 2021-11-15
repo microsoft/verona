@@ -40,6 +40,10 @@ namespace verona::rt
 
     RefCount* entry_point_count = nullptr;
 
+    // Objects which may be in a cycle, so will be checked by gc_cycles.
+    // FIXME: Use two stacks to simulate per-block queue based behaviour.
+    StackThin<Object, Alloc> lins_stack;
+
     // Memory usage in the region.
     size_t current_memory_used = 0;
 
@@ -147,6 +151,10 @@ namespace verona::rt
       }
       RefCount* rc = o->get_ref_count();
       rc->metadata += 1;
+
+      // TODO: Currently we don't remove items from the Lins stack because
+      // there is no way to find the object in the stack without an O(n) pass.
+      // This is still technically correct, but inefficient.
     }
 
     /// Decrements the reference count of `o`. The object `in` is the entry
@@ -158,12 +166,18 @@ namespace verona::rt
       {
         RegionRc* reg = get(in);
         reg->entry_point_count->metadata -= 1;
-        return false;
       }
-      if (decref_inner(o))
+      else if (decref_inner(o))
       {
         dealloc_object(alloc, o, in);
         return true;
+      }
+
+      if (o->get_rc_colour() != RcColour::BLACK)
+      {
+        o->set_rc_colour(RcColour::BLACK);
+        RegionRc* reg = get(in);
+        reg->lins_stack.push(o, alloc);
       }
       return false;
     }
@@ -181,16 +195,269 @@ namespace verona::rt
       return rc->metadata;
     }
 
+    /** Removes cyclic garbage from the region.
+     *
+     * This uses the Lins cyclic reference counting algorithm: a local mark-scan
+     * of the subgraph of objects which are potentially cyclic. This cycle
+     * detection is based on two key observations: first, that cycles are formed
+     * only by interior object field references; and, second, if decrefing all
+     * such interior references causes a zero ref count on those objects, then
+     * it is a cycle.
+     *
+     * The algorithm uses a stack of object pointers -- referred to as a "Lins
+     * stack" -- as starting points to check for, (and remove), potential
+     * cycles. The Lins stack is maintained by the region during incref/decref
+     * calls: an object is pushed when decrefing it yields a non-zero count;
+     * conversely, an object is removed from the Lins stack when it is increfed.
+     *
+     * The Lins algorithm is a three-phase sweep over the subgraph of an object
+     * with potential cyclic reachability. For each object o in the Lins stack,
+     * it does the following:
+     *
+     *  1. o's subgraph is traced and each object is marked red and decrefed.
+     *  Marking an object red indicates that it is potentially garbage. Objects
+     *  that are marked red but still have non-zero ref count are added to a
+     *  jump stack to be checked during phase 2. This ensures that they are not
+     *  prematurely reclaimed.
+     *
+     *  2. For each element in the jump stack with an RC>1, it's red subgraph is
+     *  re-traced and each edge is increfed, with their colours restored to
+     *  green.
+     *
+     *  3. o's subgraph is re-traced a final time, and any remaining red objects
+     *  are deallocated.
+     **/
+    static void gc_cycles(Alloc& alloc, Object* o)
+    {
+      RegionRc* reg = get(o);
+      ObjectStack jump_stack(alloc);
+      while (!reg->lins_stack.empty())
+      {
+        auto p = reg->lins_stack.pop(alloc);
+
+        if (p->get_rc_colour() == RcColour::BLACK)
+        {
+          mark_red(alloc, p, o, jump_stack);
+          scan(alloc, p, o, jump_stack);
+        }
+      }
+    }
+
   private:
+    enum FinalisationKind
+    {
+      Cyclic,
+      NonCyclic,
+    };
+
+    /**
+     * Mark an object as red (i.e. dead). This is recursive over o's fields
+     * where the field points to an objects which is also an rc candidate.
+     *
+     * mark_red traces the entire subgraph of o, decrefing on each edge and
+     * marking each subobject as red.
+     *
+     * Note that objects are marked red indiscriminately. In other words, an
+     * object `o` will be marked red even if it has a reference count greater
+     * than 0 (indicating a potential external reference is keeping it alive).
+     *
+     * This eagerness is based on the observation by Lins that objects in a
+     * cycle can have a non-zero count because they are referenced by other
+     * objects in the same subgraph which are yet to be processed. This means it
+     * is usually a good idea to eagerly mark them red but add them to a "jump
+     * stack" for their liveness to be confirmed later on. This is a performance
+     * optimisation that can result in fewer passes over the graph.
+     **/
+    static void
+    mark_red(Alloc& alloc, Object* o, Object* in, ObjectStack& jump_stack)
+    {
+      if (!o->is_rc_candidate())
+      {
+        return;
+      }
+
+      if (o->get_rc_colour() != RcColour::RED)
+      {
+        o->set_rc_colour(RcColour::RED);
+      }
+
+      ObjectStack dfs(alloc);
+      o->trace(dfs);
+
+      while (!dfs.empty())
+      {
+        Object* f = dfs.pop();
+        if (!o->is_rc_candidate())
+        {
+          continue;
+        }
+
+        if (f->get_class() == RegionMD::ISO)
+        {
+          if (f != in)
+          {
+            // If f is the entry point to a subregion we don't want to trace
+            // into it: the colour of `f` is enough to determine the fate of
+            // the entire subregion.
+            continue;
+          }
+
+          RegionRc* reg = get(f);
+          reg->entry_point_count->metadata -= 1;
+        }
+        else
+        {
+          decref_inner(f);
+        }
+
+        if (f->get_rc_colour() == RcColour::RED)
+        {
+          // base case to stop us infinitely iterating a cycle.
+          continue;
+        }
+
+        if (get_ref_count(f, in) > 0)
+        {
+          // f might still be live, so add it to the jump stack to confirm
+          // later on.
+          //
+          // Checking if `f` already exists in the stack is expensive and
+          // unnecessary: a JS entry is only interesting if it is red, after
+          // which it will be restored to green, so duplicates will just be
+          // skipped over.
+          jump_stack.push(f);
+        }
+
+        f->set_rc_colour(RcColour::RED);
+        f->trace(dfs);
+      }
+    }
+
+    static void
+    scan(Alloc& alloc, Object* o, Object* in, ObjectStack& jump_stack)
+    {
+      // If the RC is positive after all interior pointers in this subgraph
+      // have been decrefed, then |o| is rooted by *at least one* live
+      // reference. Hence, it must be made green and have its interior
+      // refcounts restored.
+      if (o->is_rc_candidate() && get_ref_count(o, in) > 0)
+      {
+        restore_green(alloc, o, in);
+        return;
+      }
+
+      while (!jump_stack.empty())
+      {
+        Object* p = jump_stack.pop();
+        if (p->get_rc_colour() == RcColour::RED && get_ref_count(p, in) > 0)
+        {
+          restore_green(alloc, p, in);
+        }
+      }
+
+      dealloc_reds(alloc, o, in);
+    }
+
+    /**
+     * Mark the object o as green (i.e. live). This is recursive over o's fields
+     * where the field is also an rc candidate.
+     *
+     * Green objects won't be collected, so this method is called on objects
+     * known to have live, non-cyclic references after the mark_red phase.
+     **/
+    static void restore_green(Alloc& alloc, Object* o, Object* in)
+    {
+      o->set_rc_colour(RcColour::GREEN);
+      ObjectStack dfs(alloc);
+      o->trace(dfs);
+
+      while (!dfs.empty())
+      {
+        Object* f = dfs.pop();
+
+        if (f->get_class() == RegionMD::ISO && f != in)
+        {
+          // If f is the entry point to a subregion we don't want to trace
+          // into it or incref.
+          continue;
+        }
+
+        incref(f, in);
+        if (f->is_rc_candidate() && f->get_rc_colour() != RcColour::GREEN)
+        {
+          f->set_rc_colour(RcColour::GREEN);
+          f->trace(dfs);
+        }
+      }
+    }
+
+    /**
+     * Deallocate o if it is red. This is recursive over o's fields
+     * where the field is also red and an rc candidate.
+     *
+     * This is the final phase of the cylic reference count scan. This must only
+     * be called after all potential live objects which were eagerly marked red
+     * are restored to green via the jump stack.
+     **/
+    static void dealloc_reds(Alloc& alloc, Object* o, Object* in)
+    {
+      if (o->get_rc_colour() != RcColour::RED)
+      {
+        return;
+      }
+
+      RegionRc* reg = get(in);
+
+      ObjectStack dfs(alloc);
+      ObjectStack fin_q(alloc);
+      ObjectStack sub_regions(alloc);
+      o->trace(dfs);
+      while (!dfs.empty())
+      {
+        Object* f = dfs.pop();
+        switch (f->get_class())
+        {
+          case Object::ISO:
+            // There should always be an external reference to the region's ISO.
+            assert(f != in);
+            sub_regions.push(f);
+            break;
+          case Object::MARKED:
+            break;
+          case Object::UNMARKED:
+            // We don't decref here because that would have already
+            // happened during mark_red. We simply need to check if
+            // this is red (i.e. garbage).
+            if (f->get_rc_colour() == RcColour::RED)
+            {
+              fin_q.push(f);
+              f->trace(dfs);
+              f->mark();
+            }
+            break;
+          case Object::SCC_PTR:
+            f->immutable();
+            f->decref();
+            break;
+          case Object::RC:
+            f->decref();
+            break;
+          case Object::COWN:
+            f->decref_cown();
+            break;
+          default:
+            assert(0);
+        }
+      }
+
+      reg->dealloc_objects<FinalisationKind::Cyclic>(alloc, fin_q, sub_regions);
+    }
+
     inline static bool decref_inner(Object* o)
     {
       RefCount* rc = o->get_ref_count();
-      if (rc->metadata == 1)
-      {
-        return true;
-      }
       rc->metadata -= 1;
-      return false;
+      return (rc->metadata == 0);
     }
 
     static void dealloc_object(Alloc& alloc, Object* o, Object* in)
@@ -244,26 +511,48 @@ namespace verona::rt
         }
       }
 
-      while (!fin_q.empty())
+      reg->dealloc_objects<FinalisationKind::NonCyclic>(
+        alloc, fin_q, sub_regions);
+    }
+
+    template<FinalisationKind finalisation>
+    void dealloc_objects(
+      Alloc& alloc, ObjectStack& objects, ObjectStack& sub_regions)
+    {
+      if constexpr (finalisation == Cyclic)
       {
-        auto p = fin_q.pop();
-        RefCount* rc = p->get_ref_count();
-        reg->counts.remove(rc);
-        if (!p->is_trivial())
+        objects.forall([this, &sub_regions](Object* o) {
+          if (!o->is_trivial())
+          {
+            o->finalise(this, sub_regions);
+          }
+        });
+      }
+
+      while (!objects.empty())
+      {
+        Object* o = objects.pop();
+        if (o->get_class() != RegionMD::ISO)
         {
-          p->finalise(in, sub_regions);
+          counts.remove(o->get_ref_count());
         }
-        // Unlike traced regions, we can deallocate this immediately after
-        // finalization.
-        p->destructor();
-        p->dealloc(alloc);
+
+        if constexpr (finalisation == NonCyclic)
+        {
+          if (!o->is_trivial())
+          {
+            o->finalise(this, sub_regions);
+          }
+        }
+        o->destructor();
+        o->dealloc(alloc);
       }
 
       // Finally, we release any regions which were held by ISO pointers from
       // this object.
       while (!sub_regions.empty())
       {
-        o = sub_regions.pop();
+        Object* o = sub_regions.pop();
         assert(o->debug_is_iso());
         Systematic::cout() << "Region RC: releasing unreachable subregion: "
                            << o << Systematic::endl;
@@ -271,7 +560,7 @@ namespace verona::rt
         // Note that we need to dispatch because `r` is a different region
         // metadata object.
         RegionBase* r = o->get_region();
-        assert(r != in);
+        assert(r != this);
 
         // Unfortunately, we can't use Region::release_internal because of a
         // circular dependency between header files.
@@ -317,6 +606,7 @@ namespace verona::rt
       }
 
       counts.dealloc(alloc);
+      lins_stack.dealloc(alloc);
       dealloc(alloc);
     }
 
