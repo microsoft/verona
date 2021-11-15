@@ -129,6 +129,13 @@ namespace verona::rt
     SCANNED = 0x4,
   };
 
+  enum class RcColour : uint8_t
+  {
+    GREEN = 0x0,
+    RED = 0x1,
+    BLACK = 0x2,
+  };
+
   inline std::ostream& operator<<(std::ostream& os, EpochMark e)
   {
     switch (e)
@@ -228,7 +235,11 @@ namespace verona::rt
         size_t bits;
       };
 
-      std::atomic<const Descriptor*> descriptor;
+      union
+      {
+        std::atomic<const Descriptor*> descriptor;
+        uintptr_t descriptor_bits;
+      };
     };
 
   private:
@@ -401,6 +412,12 @@ namespace verona::rt
     intptr_t debug_rc()
     {
       return (intptr_t)get_header().bits >> SHIFT;
+    }
+
+    bool is_rc_candidate()
+    {
+      return get_class() == RegionMD::UNMARKED ||
+        get_class() == RegionMD::MARKED || get_class() == RegionMD::ISO;
     }
 
     Object* debug_immutable_root()
@@ -620,6 +637,12 @@ namespace verona::rt
       get_header().bits |= (uint8_t)RegionMD::MARKED;
     }
 
+    inline void mark_iso()
+    {
+      assert(get_class() == RegionMD::ISO);
+      get_header().bits |= (uint8_t)RegionMD::MARKED;
+    }
+
     inline void unmark()
     {
       assert(get_class() == RegionMD::MARKED);
@@ -667,6 +690,17 @@ namespace verona::rt
         (e == EpochMark::EPOCH_B) || (e == EpochMark::SCANNED));
 
       set_epoch_mark(e);
+    }
+
+    inline void set_rc_colour(RcColour colour)
+    {
+      get_header().descriptor_bits =
+        (get_header().descriptor_bits & ~MARK_MASK) | (uintptr_t)colour;
+    }
+
+    inline RcColour get_rc_colour()
+    {
+      return (RcColour)((uintptr_t)get_header().descriptor_bits & MARK_MASK);
     }
 
     inline bool has_ext_ref()

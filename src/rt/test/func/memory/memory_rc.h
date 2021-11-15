@@ -143,37 +143,157 @@ namespace memory_rc
    **/
   void test_cycles()
   {
-    auto& alloc = ThreadAlloc::get();
-    auto* o = new (alloc) C;
+    // Start with a simple cycle
+    {
+      auto& alloc = ThreadAlloc::get();
+      auto* o = new (alloc) C;
 
-    // Allocate some reachable objects.
-    auto* o1 = new (alloc, o) C;
-    auto* o2 = new (alloc, o) C;
-    auto* o3 = new (alloc, o) C;
-    auto* o4 = new (alloc, o) C;
-    auto* o5 = new (alloc, o) C;
+      // Allocate some reachable objects.
+      auto* o1 = new (alloc, o) C;
+      auto* o2 = new (alloc, o) C;
+      auto* o3 = new (alloc, o) C;
+      auto* o4 = new (alloc, o) C;
+      auto* o5 = new (alloc, o) C;
+      auto* o6 = new (alloc, o) C;
 
-    // cycle: o1 -> o2 -> o3 -> o4 -> o5 -> o1
-    o1->f1 = o2;
-    o2->f1 = o3;
-    o3->f1 = o4;
-    o4->f1 = o5;
-    RegionRc::incref(o1, o);
-    o5->f1 = o1;
+      // cycle: o6 -> (o1 -> o2 -> o3 -> o4 -> o5 -> o1)
+      o1->f1 = o2;
+      o2->f1 = o3;
+      o3->f1 = o4;
+      o4->f1 = o5;
+      o5->f1 = o1;
 
-    check(Region::debug_size(o) == 6);
-    o5->f1 = nullptr;
-    RegionRc::decref(alloc, o1, o);
-    check(Region::debug_size(o) == 6);
-    // When cycle detection exists. This should dealloc the objects.
-    // check(Region::debug_size(o) == 0);
+      RegionRc::incref(o1, o);
+      o6->f1 = o1;
 
-    // Break the cycle
-    RegionRc::decref(alloc, o1, o);
-    check(Region::debug_size(o) == 1);
+      check(Region::debug_size(o) == 7);
+      RegionRc::gc_cycles(alloc, o);
+      check(Region::debug_size(o) == 7);
 
-    Region::release(alloc, o);
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      o6->f1 = nullptr;
+      RegionRc::decref(alloc, o1, o);
+
+      RegionRc::gc_cycles(alloc, o);
+      check(Region::debug_size(o) == 2);
+
+      Region::release(alloc, o);
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    }
+
+    // A cycle where part of the subgraph is rooted by an external reference
+    {
+      auto& alloc = ThreadAlloc::get();
+      auto* o = new (alloc) C;
+
+      // Allocate some reachable objects.
+      auto* o1 = new (alloc, o) C;
+      auto* o2 = new (alloc, o) C;
+      auto* o3 = new (alloc, o) C;
+      auto* o4 = new (alloc, o) C;
+      auto* o5 = new (alloc, o) C;
+      auto* o6 = new (alloc, o) C;
+
+      // cycle: (o1 -> o2 -> o3 -> o4 -> o5 -> o1)
+      //                     ^
+      //                     o6
+      o1->f1 = o2;
+      o2->f1 = o3;
+      o3->f1 = o4;
+      o4->f1 = o5;
+      o5->f1 = o1;
+
+      RegionRc::incref(o1, o);
+      o6->f1 = o3;
+      RegionRc::incref(o3, o);
+
+      check(Region::debug_size(o) == 7);
+
+      RegionRc::decref(alloc, o1, o);
+
+      RegionRc::gc_cycles(alloc, o);
+      check(Region::debug_size(o) == 7);
+
+      // Now add a reference from o1->o6 and try and reclaim the cycle again.
+      // cycle: (o1 -> o2 -> o3 -> o4 -> o5 -> o1)
+      //          |                 ^
+      //          +---------------> o6
+      o1->f2 = o6;
+
+      // Retrigger adding o1 to the lins stack.
+      RegionRc::incref(o1, o);
+      RegionRc::decref(alloc, o1, o);
+
+      RegionRc::gc_cycles(alloc, o);
+      check(Region::debug_size(o) == 1);
+
+      Region::release(alloc, o);
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    }
+
+    // A cycle which contains references to other subregions.
+    {
+      auto& alloc = ThreadAlloc::get();
+      auto* o = new (alloc) C;
+
+      // Allocate some reachable objects.
+      auto* o1 = new (alloc, o) C;
+      auto* o2 = new (alloc, o) C;
+      auto* o3 = new (alloc, o) C;
+
+      // New subregion
+      auto* p = new (alloc) C;
+      auto* p1 = new (alloc, p) C;
+      auto* p2 = new (alloc, p) C;
+
+      p->f1 = p1;
+      p1->f1 = p2;
+
+      o1->f1 = o2;
+      o2->f1 = o3;
+      o2->f2 = p;
+      o3->f1 = o1;
+
+      RegionRc::incref(o1, o);
+      RegionRc::decref(alloc, o1, o);
+
+      check(Region::debug_size(o) == 4);
+      check(Region::debug_size(p) == 3);
+
+      RegionRc::gc_cycles(alloc, o);
+      check(Region::debug_size(o) == 1);
+      Region::release(alloc, o);
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    }
+    // A cycle where the root is the region's ISO.
+    // This should tease out any bugs for special casing that is needed for
+    // entry point objects.
+    {
+      auto& alloc = ThreadAlloc::get();
+      auto* o = new (alloc) C;
+
+      // Allocate some reachable objects.
+      auto* o1 = new (alloc, o) C;
+      auto* o2 = new (alloc, o) C;
+
+      // cycle: (o -> o1 -> o2 -> o)
+      o->f1 = o1;
+      o1->f1 = o2;
+      o2->f1 = o;
+
+      RegionRc::incref(o, o);
+
+      check(Region::debug_size(o) == 3);
+      RegionRc::gc_cycles(alloc, o);
+      check(Region::debug_size(o) == 3);
+
+      RegionRc::incref(o, o);
+      RegionRc::decref(alloc, o, o);
+
+      RegionRc::gc_cycles(alloc, o);
+      check(Region::debug_size(o) == 3);
+      Region::release(alloc, o);
+      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    }
   }
 
   void run_test()
