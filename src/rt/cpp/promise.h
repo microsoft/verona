@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <variant>
+
 namespace verona::rt
 {
   /*
@@ -24,6 +26,14 @@ namespace verona::rt
   class Promise : public VCown<Promise<T>>
   {
   public:
+    class PromiseErr
+    {
+      friend class Promise;
+
+      int err_code;
+      PromiseErr(int code) : err_code(code) {}
+    };
+
     /**
      * The promise read end-point
      * This is a smart pointer that points to the promise cown
@@ -40,11 +50,11 @@ namespace verona::rt
     public:
       template<
         typename F,
-        typename = std::enable_if_t<std::is_invocable_v<F, T>>,
-        typename E>
-      void then(F&& fn, E&& err)
+        typename =
+          std::enable_if_t<std::is_invocable_v<F, std::variant<T, PromiseErr>>>>
+      void then(F&& fn)
       {
-        promise->then(std::forward<F>(fn), std::forward<E>(err));
+        promise->then(std::forward<F>(fn));
       }
 
       PromiseR() : promise(nullptr) {}
@@ -163,11 +173,11 @@ namespace verona::rt
 
     template<
       typename F,
-      typename = std::enable_if_t<std::is_invocable_v<F, T>>,
-      typename E>
-    void then(F&& fn, E&& err)
+      typename =
+        std::enable_if_t<std::is_invocable_v<F, std::variant<T, PromiseErr>>>>
+    void then(F&& fn)
     {
-      schedule_lambda(this, [fn = std::move(fn), err = std::move(err), this] {
+      schedule_lambda(this, [fn = std::move(fn), this] {
         if (fulfilled)
         {
           if constexpr (std::is_trivially_copy_constructible<T>::value)
@@ -180,7 +190,7 @@ namespace verona::rt
           }
         }
         else
-          err();
+          fn(PromiseErr(-1));
       });
     }
 

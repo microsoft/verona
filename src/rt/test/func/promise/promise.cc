@@ -16,15 +16,42 @@ void promise_test()
     Promise<int>::fulfill(std::move(wp), 42);
   });
 
-  rp.then(
-    [](int val) { Systematic::cout() << val << std::endl; },
-    []() { Systematic::cout() << "Error\n"; });
-  rp.then(
-    [](int val) { Systematic::cout() << val << std::endl; },
-    []() { Systematic::cout() << "Error\n"; });
-  rp2.then(
-    [](int val) { Systematic::cout() << val << std::endl; },
-    []() { Systematic::cout() << "Error\n"; });
+  rp.then([](std::variant<int, Promise<int>::PromiseErr> val) {
+    if (std::holds_alternative<int>(val))
+    {
+      auto v = std::get<int>(std::move(val));
+      Systematic::cout() << v << std::endl;
+    }
+    else
+    {
+      Systematic::cout() << "Got promise error" << std::endl;
+      abort();
+    }
+  });
+  rp.then([](std::variant<int, Promise<int>::PromiseErr> val) {
+    if (std::holds_alternative<int>(val))
+    {
+      auto v = std::get<int>(std::move(val));
+      Systematic::cout() << v << std::endl;
+    }
+    else
+    {
+      Systematic::cout() << "Got promise error" << std::endl;
+      abort();
+    }
+  });
+  rp2.then([](std::variant<int, Promise<int>::PromiseErr> val) {
+    if (std::holds_alternative<int>(val))
+    {
+      auto v = std::get<int>(std::move(val));
+      Systematic::cout() << v << std::endl;
+    }
+    else
+    {
+      Systematic::cout() << "Got promise error" << std::endl;
+      abort();
+    }
+  });
 }
 
 void promise_no_reader()
@@ -42,9 +69,18 @@ void promise_no_writer()
   auto pp = Promise<int>::create_promise();
   auto rp = std::move(pp.first);
 
-  rp.then(
-    [](int val) { Systematic::cout() << val << std::endl; },
-    []() { Systematic::cout() << "Error\n"; });
+  rp.then([](std::variant<int, Promise<int>::PromiseErr> val) {
+    if (std::holds_alternative<int>(val))
+    {
+      auto v = std::get<int>(std::move(val));
+      Systematic::cout() << v << std::endl;
+      abort();
+    }
+    else
+    {
+      Systematic::cout() << "Got promise error" << std::endl;
+    }
+  });
 }
 
 void promise_smart_pointer()
@@ -59,8 +95,18 @@ void promise_smart_pointer()
   });
 
   rp.then(
-    [](unique_ptr<int> a) { Systematic::cout() << *a << std::endl; },
-    []() { Systematic::cout() << "Error\n"; });
+    [](std::variant<unique_ptr<int>, Promise<unique_ptr<int>>::PromiseErr> a) {
+      if (std::holds_alternative<unique_ptr<int>>(a))
+      {
+        auto p = std::get<unique_ptr<int>>(std::move(a));
+        Systematic::cout() << *p << std::endl;
+      }
+      else
+      {
+        Systematic::cout() << "Got promise error" << std::endl;
+        abort();
+      }
+    });
 }
 
 void promise_transfer1()
