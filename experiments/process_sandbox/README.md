@@ -341,7 +341,7 @@ libseccomp
 libbsd
 ```
 
-:warning: There is a known compilation issue with gcc/g++ versions < 10.
+:warning: There is a known compilation issue with gcc/g++ versions < 10 on Linux.
 Either upgrade your gcc/g++ to at least version 10 or switch to clang.
 
 The building process is similar to the rest of the project.
