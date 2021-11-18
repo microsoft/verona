@@ -487,7 +487,7 @@ Despite observable overlaps between the `PageMap` memory regions and heaps of di
 We follow the execution of the program and show how, on Linux, the parent invokes the `sum` function defined in [sandboxlib-basic](tests/sandboxlib-basic.cc).
 
 
-On the parent side, the sandbox library setups a `msg_buffer`, i.e.,  call frame containing the arguments to the function call and a return element.
+On the parent side, the sandbox library sets up a call frame containing the arguments to the function call and a return element in the shared memory region and points the `msg_buffer` field in the header of the shared memory region to this buffer.
 It passes the pointer to that call frame as well as the index of the library's function invoked via shared memory to the child that it wakes up.
 On Linux, semaphores (implemented with the underlying `futex` system call) are used to communciate with the child process.
 The trace below shows the parent's stack trace:
