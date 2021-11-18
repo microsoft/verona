@@ -502,7 +502,7 @@ The trace below shows the parent's stack trace:
 #6  0x000055555557cf18 in main () at ../tests/sandbox-basic.cc:40
 ```
 
-On the child's side, the process stuck waiting on the futex is woken up, extracts the index and `msg_buffer`, and invokes the corresponding sandboxed function. 
+On the child's side, the process that was blocked waiting on the one-bit semaphore is woken up, then extracts the index and call frame, and invokes the corresponding sandboxed function. 
 The trace below shows the child's side of the execution:
 
 ```
