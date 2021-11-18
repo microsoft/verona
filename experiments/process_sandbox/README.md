@@ -369,7 +369,8 @@ The previous steps build 15 tests, 8 unit and regression tests, and 7 end-to-end
 
 * [test-sandbox-fake-open](tests/sandbox-fake-open.cc): Creates a shared memory file and a sandbox. The sandbox opens the file in two different ways: 1) with a raw system call, and 2) with the `open` function that performs a callback to the host. 
 
-* [test-sandbox-modify-pagemap](tests/sandbox-modify-pagemap.cc): Creates a sandbox attempting to modify the access rights of the pagemap using `mprotect`. The `mprotect` call should fail with a `permission denied`.
+* [test-sandbox-modify-pagemap](tests/sandbox-modify-pagemap.cc): Creates a sandbox attempting to modify the access rights of the pagemap using `mprotect`.
+  The `mprotect` call should fail with a `permission denied`.
 
 * [test-sandbox-zlib](tests/sandbox-zlib.cc): Uses `zlib` to `deflate`, i.e., compress, the program's file. This test compares the output produced by a sandboxed and an unsandboxed version of zlib. 
 
