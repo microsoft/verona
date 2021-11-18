@@ -366,7 +366,8 @@ The previous steps build 15 tests, 8 unit and regression tests, and 7 end-to-end
 
 * [test-sandbox-callback-recursive](tests/sandbox-callback-recursive.cc): Creates a single sandbox that recursively invokes 6 nested levels of callbacks, i.e., a callback triggers a call into the sandbox that itself invokes a callback etc. 
 
-* [test-sandbox-crash](tests/sandbox-crash.cc): Creates 3 sandboxes meant to crash (calls `abort`). The crash triggers a `runtime_error` exception caught in the parent process. 
+* [test-sandbox-crash](tests/sandbox-crash.cc): Creates 3 sandboxes meant to crash (calls `abort`).
+  The crash triggers a `runtime_error` exception caught in the parent process. 
 
 * [test-sandbox-fake-open](tests/sandbox-fake-open.cc): Creates a shared memory file and a sandbox. The sandbox opens the file in two different ways: 1) with a raw system call, and 2) with the `open` function that performs a callback to the host. 
 
