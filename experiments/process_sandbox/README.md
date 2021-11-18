@@ -359,7 +359,8 @@ Tests
 
 The previous steps build 15 tests, 8 unit and regression tests, and 7 end-to-end sandbox tests:
 
-* [test-sandbox-basic](tests/sandbox-basic.cc): Creates 3 sandboxes wrapping around a small library that exposes a function returning the sum of two `int`. Each sandbox is called twice.
+* [test-sandbox-basic](tests/sandbox-basic.cc): Creates 3 sandboxes wrapping around a small library that exposes a function returning the sum of two `int`.
+  Each sandbox is called twice.
 
 * [test-sandbox-callback-basic](tests/sandbox-callback-basic.cc): Creates a simple sandbox and registers a callback function that returns an `int`.
    The sandbox library simply invokes the callback and asserts it gets the correct value (`42`). 
