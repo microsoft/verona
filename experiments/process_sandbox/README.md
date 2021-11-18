@@ -361,7 +361,8 @@ The previous steps build 15 tests, 8 unit and regression tests, and 7 end-to-end
 
 * [test-sandbox-basic](tests/sandbox-basic.cc): Creates 3 sandboxes wrapping around a small library that exposes a function returning the sum of two `int`. Each sandbox is called twice.
 
-* [test-sandbox-callback-basic](tests/sandbox-callback-basic.cc): Creates a simple sandbox and registers a callback function that returns an `int`. The sandbox library simply invokes the callback and asserts it gets the correct value (`42`). 
+* [test-sandbox-callback-basic](tests/sandbox-callback-basic.cc): Creates a simple sandbox and registers a callback function that returns an `int`.
+   The sandbox library simply invokes the callback and asserts it gets the correct value (`42`). 
 
 * [test-sandbox-callback-recursive](tests/sandbox-callback-recursive.cc): Creates a single sandbox that recursively invokes 6 nested levels of callbacks, i.e., a callback triggers a call into the sandbox that itself invokes a callback etc. 
 
