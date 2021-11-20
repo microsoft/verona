@@ -1,6 +1,6 @@
 # Verona Interoperability / Sandbox
 
-This is an initial attemp at mapping all the requirements that the interoperability layer will have in Verona to use external code written in other languages (like C++, Rust, etc) in a safe manner (sanbdox).
+This is an initial attempt at mapping all the requirements that the interoperability layer will have in Verona to use external code written in other languages (like C++, Rust, etc) in a safe manner (sanbdox).
 
 ## Usage in Verona
 

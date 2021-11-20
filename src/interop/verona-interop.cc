@@ -18,7 +18,7 @@ namespace cl = llvm::cl;
  * This file is a helper for a few tests, not the aim of an actual
  * interoperability driver, which will actually be hidden inside the compiler.
  *
- * We should move this into a bunch of unit tests andn run them directly from
+ * We should move this into a bunch of unit tests and run them directly from
  * ctest, with all the functionality we'll need from the sandbox code inside
  * the compiler.
  */
