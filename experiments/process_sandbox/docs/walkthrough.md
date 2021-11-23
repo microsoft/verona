@@ -42,9 +42,9 @@ test-sandbox-basic─┬─3*[library_runner]
 
 The test creates three children processes and one thread.
 
-* *Thread:* It is created as part of the `sandbox::Library::MemoryServiceProvider` defined in [src/libsandbox.cc](src/libsandbox.cc) and handles pagemap updates from children.
+* *Thread:* It is created as part of the `sandbox::Library::MemoryServiceProvider` defined in [src/libsandbox.cc](../src/libsandbox.cc) and handles pagemap updates from children.
 
-* *Processes:* Each process runs the [library_runner](src/library_runner.cc) which dynamically loads the sandboxed library `sandboxed-basic.so`.
+* *Processes:* Each process runs the [library_runner](../src/library_runner.cc) which dynamically loads the sandboxed library `sandboxed-basic.so`.
 
 
 #### Memory Layout
@@ -103,7 +103,7 @@ The `library_runner` opens the `memfd` file descriptor that corresponds to the `
 
 #### Invoking the sandbox
 
-We follow the execution of the program and show how, on Linux, the parent invokes the `sum` function defined in [sandboxlib-basic](tests/sandboxlib-basic.cc).
+We follow the execution of the program and show how, on Linux, the parent invokes the `sum` function defined in [sandboxlib-basic](../tests/sandboxlib-basic.cc).
 
 
 On the parent side, the sandbox library sets up a call frame containing the arguments to the function call and a return element in the shared memory region and points the `msg_buffer` field in the header of the shared memory region to this buffer.

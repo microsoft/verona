@@ -10,7 +10,7 @@
    - [sandbox_fd_numbers.h](../include/process_sandbox/sandbox_fd_numbers.h) contains the file descriptors that are set on child-process creation.
    - [sandbox.h](../include/process_sandbox/sandbox.h) contains the definition of the sandbox library interface.
    - [shared_memory_region.h](../include/process_sandbox/shared_memory_region.h) defines the part of the shared memory region, not including the heap.
- - [src](src) contains the source files
+ - [src](../src) contains the source files
    - [child_malloc.h](../src/child_malloc.h) contains the interfaces for the parts that specialise snmalloc for use in the child.
    - [host_service_calls.h](../src/host_service_calls.h) describes the IPC mechanism used for the snmalloc to request memory and update the sandbox.
    - [library_runner.cc](../src/library_runner.cc) is the program that runs inside the sandbox that loads the library and manages communication with the parent.
