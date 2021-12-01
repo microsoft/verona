@@ -33,7 +33,6 @@ namespace verona::rt
   public:
     /// Friendly thread identifier for logging information.
     size_t systematic_id = 0;
-    size_t systematic_speed_mask = 1;
 
   private:
     using Scheduler = ThreadPool<SchedulerThread<T>>;
@@ -59,6 +58,9 @@ namespace verona::rt
 
     /// How many uninterrupted steps this threads has been selected to run for.
     size_t steps = 0;
+
+    /// Alters distribution of steps taken in systematic testing.
+    size_t systematic_speed_mask = 1;
 #else
     friend class ThreadSync<SchedulerThread>;
     LocalSync local_sync{};
