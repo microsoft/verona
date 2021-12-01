@@ -484,6 +484,9 @@ namespace verona::rt
       auto& alloc = ThreadAlloc::get();
       const auto last = body->count - 1;
       assert(body->index <= last);
+#ifdef ACQUIRE_ALL
+      bool should_sched = true;
+#endif
 
       auto high_priority = false;
       if (body->index == 0)
@@ -503,7 +506,31 @@ namespace verona::rt
         auto* next = body->cowns[body->index];
         Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
                         << ", index " << body->index << Logging::endl;
+#ifdef ACQUIRE_ALL
+        if (!next->try_fast_send(m)) {
+          should_sched = false;
+          continue;
+        }
 
+        if ((body->index == last) && (should_sched))
+        {
+          next->schedule();
+          return;
+        }
+
+        body->exec_count_down.fetch_sub(1);
+
+        // The cown was asleep, so we have acquired it now. Dequeue the
+        // message because we want to handle it now. Note that after
+        // dequeueing, the queue may be non-empty: the scheduler may have
+        // allowed another multi-message to request and send another message
+        // to this cown. However, we are guaranteed to be the first message in
+        // the queue.
+        const auto* m2 = next->queue.dequeue(alloc);
+        assert(m == m2);
+        UNUSED(m2);
+      }
+#else
         if (body->index > 0)
         {
           // Double check the priority of the most recently acquired cown to
@@ -559,6 +586,7 @@ namespace verona::rt
         assert(m == m2);
         UNUSED(m2);
       }
+#endif
     }
 
     /**
@@ -596,7 +624,9 @@ namespace verona::rt
     {
       MultiMessage::MultiMessageBody& body = *(m->get_body());
       Alloc& alloc = ThreadAlloc::get();
+#ifndef ACQUIRE_ALL
       size_t last = body.count - 1;
+#endif
       auto cown = body.cowns[m->get_body()->index];
 
       EpochMark e = m->get_epoch();
@@ -619,7 +649,11 @@ namespace verona::rt
         }
       }
 
+#ifdef ACQUIRE_ALL
+      if (body.exec_count_down.fetch_sub(1) > 1)
+#else
       if (body.index < last)
+#endif
       {
         if (e != Scheduler::local()->send_epoch)
         {
@@ -657,11 +691,13 @@ namespace verona::rt
           }
         }
 
+#ifndef ACQUIRE_ALL
         // Try to acquire as many cowns as possible without rescheduling,
         // starting from the next cown.
         body.index++;
 
         fast_send(&body, e);
+#endif
         return false;
       }
 

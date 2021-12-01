@@ -19,6 +19,7 @@ namespace verona::rt
       size_t index;
       size_t count;
       Cown** cowns;
+      std::atomic<size_t> exec_count_down;
       Behaviour* behaviour;
     };
 
@@ -71,7 +72,7 @@ namespace verona::rt
     make_body(Alloc& alloc, size_t count, Cown** cowns, Behaviour* behaviour)
     {
       return new (alloc.alloc<sizeof(MultiMessageBody)>())
-        MultiMessageBody{0, count, cowns, behaviour};
+        MultiMessageBody{0, count, cowns, count, behaviour};
     }
 
     static MultiMessage*
