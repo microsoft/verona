@@ -65,7 +65,7 @@ target_include_directories(verona_rt INTERFACE .)
 
 if(MSVC)
   target_compile_definitions(verona_rt INTERFACE -D__EXCEPTIONS)
-  target_compile_options(verona_rt INTERFACE /std:c++latest /permissive-)
+  target_compile_options(verona_rt INTERFACE /permissive-)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi")
   set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG")
 else()
