@@ -1237,9 +1237,9 @@ namespace verona::rt
           return false;
 
         // Reschedule the other cowns.
-        for (size_t s = 0; s < (senders_count - 1); s++)
+        for (size_t s = 0; s < senders_count; s++)
         {
-          if (senders[s])
+          if ((senders[s]) && (senders[s] != this))
             senders[s]->schedule();
         }
 
