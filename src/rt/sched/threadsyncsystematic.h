@@ -253,6 +253,14 @@ namespace verona::rt
     }
 
     /**
+     * This unpauses all threads.
+     */
+    void unpause_all(T* me)
+    {
+      handle(me).unpause_all();
+    }
+
+    /**
      * Call this when the thread has completed.
      */
     void thread_finished(T* me)
