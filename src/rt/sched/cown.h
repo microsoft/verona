@@ -624,10 +624,13 @@ namespace verona::rt
     {
       MultiMessage::MultiMessageBody& body = *(m->get_body());
       Alloc& alloc = ThreadAlloc::get();
-#ifndef ACQUIRE_ALL
       size_t last = body.count - 1;
-#endif
-      auto cown = body.cowns[m->get_body()->index];
+      Cown *cown;
+
+      if (body.index <= last)
+        cown = body.cowns[m->get_body()->index];
+      else
+        cown = body.cowns[last];
 
       EpochMark e = m->get_epoch();
 
