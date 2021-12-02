@@ -500,19 +500,21 @@ namespace verona::rt
           });
       }
 
-      for (; body->index < body->count; body->index++)
+#ifdef ACQUIRE_ALL
+      size_t loop_end = body->count;
+      for (size_t i=0;i<loop_end;i++)
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
-        auto* next = body->cowns[body->index];
+        auto* next = body->cowns[i];
         Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
-                        << ", index " << body->index << Logging::endl;
+                        << ", index " << i << Logging::endl;
 #ifdef ACQUIRE_ALL
         if (!next->try_fast_send(m)) {
           should_sched = false;
           continue;
         }
 
-        if ((body->index == last) && (should_sched))
+        if ((i == last) && (should_sched))
         {
           next->schedule();
           return;
@@ -531,6 +533,14 @@ namespace verona::rt
         UNUSED(m2);
       }
 #else
+      for (; body->index < body->count; body->index++)
+      {
+        auto m = MultiMessage::make_message(alloc, body, epoch);
+        auto* next = body->cowns[body->index];
+        Systematic::cout() << "MultiMessage " << m << ": fast requesting "
+                           << next << ", index " << body->index
+                           << Systematic::endl;
+
         if (body->index > 0)
         {
           // Double check the priority of the most recently acquired cown to
