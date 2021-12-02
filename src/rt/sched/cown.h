@@ -620,22 +620,18 @@ namespace verona::rt
      * Otherwise, all cowns have been acquired and we can execute the message
      * behaviour.
      **/
-    static bool run_step(MultiMessage* m)
+    bool run_step(MultiMessage* m)
     {
       MultiMessage::MultiMessageBody& body = *(m->get_body());
       Alloc& alloc = ThreadAlloc::get();
+#ifndef ACQUIRE_ALL
       size_t last = body.count - 1;
-      Cown *cown;
-
-      if (body.index <= last)
-        cown = body.cowns[m->get_body()->index];
-      else
-        cown = body.cowns[last];
+#endif
 
       EpochMark e = m->get_epoch();
 
       Logging::cout() << "MultiMessage " << m << " index " << body.index
-                      << " acquired " << cown << " epoch " << e
+                      << " acquired " << this << " epoch " << e
                       << Logging::endl;
 
       // If we are in should_scan, and we observe a message in this epoch,
@@ -645,10 +641,10 @@ namespace verona::rt
       if (Scheduler::should_scan() && e == Scheduler::local()->send_epoch)
       {
         // TODO: Investigate systematic testing coverage here.
-        if (cown->get_epoch_mark() != Scheduler::local()->send_epoch)
+        if (get_epoch_mark() != Scheduler::local()->send_epoch)
         {
-          cown->scan(alloc, Scheduler::local()->send_epoch);
-          cown->set_epoch_mark(Scheduler::local()->send_epoch);
+          scan(alloc, Scheduler::local()->send_epoch);
+          set_epoch_mark(Scheduler::local()->send_epoch);
         }
       }
 
@@ -683,7 +679,7 @@ namespace verona::rt
         }
         else if (Scheduler::should_scan())
         {
-          if (cown->get_epoch_mark() != Scheduler::local()->send_epoch)
+          if (get_epoch_mark() != Scheduler::local()->send_epoch)
           {
             Logging::cout() << "Contains unscanned cown." << Logging::endl;
 
@@ -753,7 +749,7 @@ namespace verona::rt
       }
 
       Logging::cout() << "MultiMessage " << m << " completed and running on "
-                      << cown << Logging::endl;
+                      << this << Logging::endl;
 
       // Free the body and the behaviour.
       alloc.dealloc(body.behaviour, body.behaviour->size());
