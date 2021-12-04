@@ -132,6 +132,8 @@ namespace verona::rt
 
     std::atomic<BPState> bp_state{};
 
+    std::atomic<bool> queue_locked = false;
+
     static Cown* create_token_cown()
     {
       static constexpr Descriptor desc = {
@@ -484,9 +486,6 @@ namespace verona::rt
       auto& alloc = ThreadAlloc::get();
       const auto last = body->count - 1;
       assert(body->index <= last);
-#ifdef ACQUIRE_ALL
-      bool should_sched = true;
-#endif
 
       auto high_priority = false;
       if (body->index == 0)
@@ -501,24 +500,65 @@ namespace verona::rt
       }
 
 #ifdef ACQUIRE_ALL
+      UNUSED(high_priority);
+      // First acquire all the locks
+      // FIXME: Bad implementation for testing purposes
+      for (size_t i=0;i<body->count;i++)
+      {
+        auto* next = body->cowns[i];
+        Systematic::cout() << "Will try to acquire lock " << next << Systematic::endl;
+        auto u = false;
+        while(!next->queue_locked.compare_exchange_strong(u, true))
+        {
+          u = false;
+          yield();
+        }
+        yield();
+        Systematic::cout() << "Acquired lock " << next << Systematic::endl;
+      }
+
       size_t loop_end = body->count;
       for (size_t i=0;i<loop_end;i++)
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
         auto* next = body->cowns[i];
-        Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
-                        << ", index " << i << Logging::endl;
-#ifdef ACQUIRE_ALL
-        if (!next->try_fast_send(m)) {
-          should_sched = false;
+        Logging::cout() << "MultiMessage " << m << ": fast requesting "
+                           << next << ", index " << i << " behaviour " << body->behaviour << " loop end " << loop_end 
+                           << Logging::endl;
+
+        auto needs_sched = next->try_fast_send(m);
+        // Release all the locks now. Is it too early?
+        assert(next->queue_locked == true);
+        next->queue_locked = false;
+
+        if (!needs_sched)
+        {
+          Logging::cout() << "try fast send found busy cown " << body << " loop iteration " << i <<  " cown " << next << Logging::endl;
           continue;
         }
 
-        if ((i == last) && (should_sched))
+
+
+        Systematic::cout() << "Will schedule cown " << next << Systematic::endl;
+        if (i == last)
         {
           next->schedule();
           return;
         }
+        
+#if 0
+        Systematic::cout() << "Should I schedule? " << body << " loop iteration " << i <<  " cown " << next << Systematic::endl;
+
+        if(body->exec_count_down.fetch_sub(1) == 1)
+        {
+          body->exec_count_down++;
+          Systematic::cout() << "Will schedule? " << body << " loop iteration " << i <<  " cown " << next << Systematic::endl;
+          next->schedule();
+          return;
+        }
+
+        Systematic::cout() << "Will not schedule? " << body << " loop iteration " << i <<  " cown " << next << Systematic::endl;
+#endif
 
         body->exec_count_down.fetch_sub(1);
 
@@ -613,6 +653,7 @@ namespace verona::rt
 #endif
       Logging::cout() << "Enqueue MultiMessage " << m << Logging::endl;
       bool needs_scheduling = queue.enqueue(m);
+      Systematic::cout() << "Enqueued MultiMessage " << m << " needs scheduling? " << needs_scheduling << Systematic::endl;
       yield();
       if (needs_scheduling)
       {
@@ -1239,8 +1280,9 @@ namespace verona::rt
         if (!run_step(curr))
           return false;
 
-        if (apply_backpressure(alloc, epoch, senders, senders_count))
-          return false;
+        (void)epoch;
+        //if (apply_backpressure(alloc, epoch, senders, senders_count))
+        //  return false;
 
         // Reschedule the other cowns.
         for (size_t s = 0; s < senders_count; s++)
