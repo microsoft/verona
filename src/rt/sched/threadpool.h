@@ -301,7 +301,7 @@ namespace verona::rt
       {
         t->systematic_id = count;
 #ifdef USE_SYSTEMATIC_TESTING
-        t->systematic_speed_mask =
+        t->local_sync.systematic_speed_mask =
           (8ULL << (Systematic::get_prng_next() % 4)) - 1;
 #endif
         if (count > 1)
