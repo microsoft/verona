@@ -59,6 +59,9 @@ namespace verona::rt
 
     /// How many uninterrupted steps this threads has been selected to run for.
     size_t steps = 0;
+#else
+    friend class ThreadSync<SchedulerThread>;
+    LocalSync local_sync{};
 #endif
 
     MPMCQ<T> q;
