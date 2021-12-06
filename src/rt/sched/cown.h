@@ -501,14 +501,20 @@ namespace verona::rt
 
 #ifdef ACQUIRE_ALL
       UNUSED(high_priority);
+      // First acquire all the locks
       // FIXME: Bad implementation for testing purposes
-      auto* first = body->cowns[0];
-      Systematic::cout() << "Will try to acquire lock " << first << Systematic::endl;
-      auto u = false;
-      while(!first->queue_locked.compare_exchange_strong(u, true))
+      for (size_t i=0;i<body->count;i++)
       {
-        u = false;
+        auto* next = body->cowns[i];
+        Systematic::cout() << "Will try to acquire lock " << next << Systematic::endl;
+        auto u = false;
+        while(!next->queue_locked.compare_exchange_strong(u, true))
+        {
+          u = false;
+          yield();
+        }
         yield();
+        Systematic::cout() << "Acquired lock " << next << Systematic::endl;
       }
 
       size_t loop_end = body->count;
@@ -521,21 +527,7 @@ namespace verona::rt
                            << Logging::endl;
 
         auto needs_sched = next->try_fast_send(m);
-
-        // acquire next lock
-        if (i < loop_end - 1)
-        {
-          auto* to_get = body->cowns[i+1];
-          Systematic::cout() << "Will try to acquire lock " << to_get << Systematic::endl;
-          auto u = false;
-          while(!to_get->queue_locked.compare_exchange_strong(u, true))
-          {
-            u = false;
-            yield();
-          }
-        }
-
-        // Release the lock
+        // Release all the locks now. Is it too early?
         assert(next->queue_locked == true);
         next->queue_locked = false;
 
