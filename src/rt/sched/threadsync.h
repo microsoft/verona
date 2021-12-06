@@ -4,7 +4,7 @@
 #pragma once
 #include "test/systematic.h"
 
-#include <condition_variable>
+#include "../pal/semaphore.h"
 #include <mutex>
 
 /**
@@ -13,19 +13,37 @@
  * be replaced with alternatives for other platforms.
  *
  * This is the standard implementation based on the C++ standard
- * libraries condition variables.
+ * libraries semaphores.
  */
 namespace verona::rt
 {
+  struct LocalSync
+  {
+    pal::Semaphore sem;
+    LocalSync* next{nullptr};
+  };
+  
   template<class T>
   class ThreadSync
   {
     std::mutex m;
-    std::condition_variable cv;
+    LocalSync* waiters = nullptr;
+
+    void unpause_all()
+    {
+      auto* curr = waiters;
+      while (curr != nullptr)
+      {
+        curr->sem.release();
+        curr = curr->next;
+      }
+      waiters = nullptr;
+    }
 
   public:
     class ThreadSyncHandle
-    {
+    {      
+      T* thread;
       ThreadSync& sync;
       std::unique_lock<std::mutex> lock;
       bool wake_on_exit = false;
@@ -49,17 +67,26 @@ namespace verona::rt
        */
       void pause()
       {
-        sync.cv.wait(lock);
+        Systematic::cout() << "Increasing sleep count" << Systematic::endl;
+        thread->local_sync.next = sync.waiters;
+        sync.waiters = &(thread->local_sync);
+        lock.unlock();
+
+        Systematic::cout() << "Acquire Sem" << Systematic::endl;
+        thread->local_sync.sem.acquire();
+        Systematic::cout() << "Acquired Sem!" << Systematic::endl;
+
+        lock.lock();
       }
 
-      ThreadSyncHandle(ThreadSync& sync) : sync(sync), lock(sync.m) {}
+      ThreadSyncHandle(T* thread, ThreadSync& sync) : thread(thread), sync(sync), lock(sync.m) {}
 
       ~ThreadSyncHandle()
       {
         if (wake_on_exit)
         {
+          sync.unpause_all();
           lock.unlock();
-          sync.cv.notify_all();
         }
       }
     };
@@ -70,9 +97,9 @@ namespace verona::rt
      * The ThreadSyncHandle provides single threaded access to pausing and
      * waking threads, and thus can be used as a lock.
      */
-    ThreadSyncHandle handle(T*)
+    ThreadSyncHandle handle(T* t)
     {
-      return ThreadSyncHandle(*this);
+      return ThreadSyncHandle(t, *this);
     }
 
     /**
