@@ -92,7 +92,7 @@ namespace verona::rt
 
   struct LocalSync
   {
-    pal::Semaphore sem;
+    pal::SleepHandle sem;
     LocalSync* next{nullptr};
   };
 
@@ -120,7 +120,7 @@ namespace verona::rt
         while (curr != nullptr)
         {
           auto next = curr->next;
-          curr->sem.release();
+          curr->sem.wake();
           curr = next;
         }
       }
@@ -165,9 +165,9 @@ namespace verona::rt
         sync.waiters = &(thread->local_sync);
         sync.unlock();
 
-        Systematic::cout() << "Acquire Sem" << Systematic::endl;
-        thread->local_sync.sem.acquire();
-        Systematic::cout() << "Acquired Sem!" << Systematic::endl;
+        Systematic::cout() << "Sleep" << Systematic::endl;
+        thread->local_sync.sem.sleep();
+        Systematic::cout() << "Awake!" << Systematic::endl;
 
         sync.lock.lock();
       }

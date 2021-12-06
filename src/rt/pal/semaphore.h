@@ -3,15 +3,23 @@
 #pragma once
 
 /**
+ * This file provides a mechanism for threads to sleep and be woken.
+ *
+ * To builds a point-to-point wake up using a binary semaphore. The
+ * class is intentionally restricted to allow for other platforms to
+ * implement this more efficiently.
+ */
+#ifndef VERONA_EXTERNAL_SEMAPHORE_IMPL
+/**
  * This constructs a platform specific semaphore.
  */
-#if __has_include(<semaphore>)
-#  include <semaphore>
-#endif
-#if defined(__cpp_lib_semaphore)
+#  if __has_include(<semaphore>)
+#    include <semaphore>
+#  endif
+#  if defined(__cpp_lib_semaphore)
 namespace verona::rt::pal
 {
-  class Semaphore
+  class SemaphoreImpl
   {
     std::binary_semaphore semaphore_{0};
 
@@ -27,21 +35,21 @@ namespace verona::rt::pal
     }
   };
 } // namespace verona::rt::pal
-#elif defined(__APPLE__)
-#  include <dispatch/dispatch.h>
+#  elif defined(__APPLE__)
+#    include <dispatch/dispatch.h>
 namespace verona::rt::pal
 {
-  class Semaphore
+  class SemaphoreImpl
   {
     dispatch_semaphore_t semaphore_;
 
   public:
-    Semaphore()
+    SemaphoreImpl()
     {
       semaphore_ = dispatch_semaphore_create(0);
     }
 
-    ~Semaphore()
+    ~SemaphoreImpl()
     {
       dispatch_release(semaphore_);
     }
@@ -57,21 +65,21 @@ namespace verona::rt::pal
     }
   };
 } // namespace verona::rt::pal
-#elif defined(WIN32)
-#  include <windows.h>
+#  elif defined(WIN32)
+#    include <windows.h>
 namespace verona::rt::pal
 {
-  class Semaphore
+  class SemaphoreImpl
   {
     HANDLE semaphore_;
 
   public:
-    Semaphore()
+    SemaphoreImpl()
     {
       semaphore_ = CreateSemaphore(NULL, 0, LONG_MAX, NULL);
     }
 
-    ~Semaphore()
+    ~SemaphoreImpl()
     {
       CloseHandle(semaphore_);
     }
@@ -87,17 +95,17 @@ namespace verona::rt::pal
     }
   };
 } // namespace verona::rt::pal
-#elif __has_include(<semaphore.h>)
+#  elif __has_include(<semaphore.h>)
 // Use Posix semaphores
-#  include <semaphore.h>
+#    include <semaphore.h>
 namespace verona::rt::pal
 {
-  class Semaphore
+  class SemaphoreImpl
   {
     sem_t semaphore_;
 
   public:
-    Semaphore()
+    SemaphoreImpl()
     {
       auto err = sem_init(&semaphore_, 0, 0);
       if (err != 0)
@@ -107,10 +115,10 @@ namespace verona::rt::pal
       }
     }
 
-    Semaphore(const Semaphore&) = delete;
-    Semaphore& operator=(const Semaphore&) = delete;
+    SemaphoreImpl(const SemaphoreImpl&) = delete;
+    SemaphoreImpl& operator=(const SemaphoreImpl&) = delete;
 
-    ~Semaphore()
+    ~SemaphoreImpl()
     {
       sem_destroy(&semaphore_);
     }
@@ -148,6 +156,56 @@ namespace verona::rt::pal
     }
   };
 } // namespace verona::rt::pal
-#else
-#  error "No semaphore implementation available"
+#  else
+#    error "No semaphore implementation available"
+#  endif
+namespace verona::rt::pal
+{
+  /**
+   * Handles thread sleeping.
+   */
+  class SleepHandle
+  {
+    SemaphoreImpl sem;
+
+#  ifndef NDEBUG
+    std::atomic<bool> sleeper{false};
+    std::atomic<bool> waker{false};
+#  endif
+
+  public:
+    /**
+     * Called to sleep until a matching call to wake is made.
+     *
+     * There are not allowed to be two parallel calls to sleep.
+     */
+    void sleep()
+    {
+#  ifndef NDEBUG
+      assert(!sleeper);
+      sleeper = true;
+#  endif
+      sem.acquire();
+#  ifndef NDEBUG
+      waker = false;
+      sleeper = false;
+#  endif
+    }
+
+    /**
+     * Used to wake a thread from sleep.
+     *
+     * The number of calls to wake may be at most one more than the number of
+     * calls to sleep.
+     */
+    void wake()
+    {
+      assert(!waker);
+#  ifndef NDEBUG
+      waker = true;
+#  endif
+      sem.release();
+    }
+  };
+} // namespace verona::rt::pal
 #endif
