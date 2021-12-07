@@ -323,7 +323,6 @@ namespace verona::rt
         o->dealloc(alloc);
       }
 
-
       // finally, close the region and destroy the ISO object.
       RegionRc::close(o, this);
       o->destructor();
