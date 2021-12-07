@@ -27,7 +27,7 @@ namespace verona::rt
       assert(!empty());
 
       auto result = header;
-      header = header->get_next();
+      header = header->get_next_any_mark();
       return result;
     }
 
@@ -44,7 +44,7 @@ namespace verona::rt
       while (curr != nullptr)
       {
         apply(curr);
-        curr = curr->get_next();
+        curr = curr->get_next_any_mark();
       }
     }
   };
