@@ -703,7 +703,6 @@ namespace verona::rt
     {
       current_memory_used += size;
     }
-
   };
 
 } // namespace verona::rt
