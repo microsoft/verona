@@ -9,6 +9,7 @@
 #include <verona.h>
 
 using namespace verona::rt;
+using namespace verona::rt::api;
 using namespace std::chrono;
 
 extern "C" void dump_flight_recorder()

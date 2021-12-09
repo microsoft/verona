@@ -6,12 +6,12 @@
 
 using namespace snmalloc;
 using namespace verona::rt;
+using namespace verona::rt::api;
 
-template<RegionType region_type>
-struct C1 : public V<C1<region_type>, region_type>
+struct C1 : public V<C1>
 {
-  C1<region_type>* f1 = nullptr;
-  C1<region_type>* f2 = nullptr;
+  C1* f1 = nullptr;
+  C1* f2 = nullptr;
 
   void trace(ObjectStack& st) const
   {
@@ -38,18 +38,19 @@ void basic_test()
   auto& alloc = ThreadAlloc::get();
 
   // This will be our root object.
-  C1<region_type>* o1 = new (alloc) C1<region_type>;
+  auto o1 = new (region_type) C1;
 
   // To insert o2 and o3 into o1's remembered set, we need to freeze them.
   // Right now, we can only freeze RegionTrace objects.
-  auto* o2 = new (alloc) C1<RegionType::Trace>;
-  Freeze::apply(alloc, o2);
+  auto o2 = new (RegionType::Trace) C1;
+  freeze(o2);
   check(o2->debug_is_rc());
-  auto* o3 = new (alloc) C1<RegionType::Trace>;
-  Freeze::apply(alloc, o3);
+
+  auto o3 = new (RegionType::Trace) C1;
+  freeze(o3);
   check(o3->debug_is_rc());
 
-  // f1 and f2 need to be of type C1<RegionType::Trace>, and this is only
+  // f1 and f2 need to be of type C1 in <RegionType::Trace>, and this is only
   // used for the GC part of the test.
   if constexpr (region_type == RegionType::Trace)
   {
@@ -81,7 +82,7 @@ void basic_test()
     // o2 is now gone.
   }
 
-  Region::release(alloc, o1);
+  region_release(o1);
 
   snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
@@ -90,19 +91,18 @@ template<RegionType region_type>
 void merge_test()
 {
   using RegionClass = typename RegionType_to_class<region_type>::T;
-  using T = C1<region_type>;
 
   auto& alloc = ThreadAlloc::get();
 
   // Create two regions.
-  auto r1 = new (alloc) T;
-  auto r2 = new (alloc) T;
+  auto r1 = new (region_type) C1;
+  auto r2 = new (region_type) C1;
 
   // Create some immutables that we can refcount, i.e. freeze them.
   // Right now, we can only freeze RegionTrace objects
-  auto create_imm = [&alloc]() {
-    auto* o = new (alloc) C1<RegionType::Trace>;
-    Freeze::apply(alloc, o);
+  auto create_imm = []() {
+    auto* o = new (RegionType::Trace) C1;
+    freeze(o);
     check(o->debug_is_rc());
     return o;
   };
@@ -110,7 +110,7 @@ void merge_test()
   auto* o2 = create_imm();
   auto* o3 = create_imm();
 
-  // f1 and f2 need to be of type C1<RegionType::Trace>, and this is only
+  // f1 and f2 need to be of type C1 in <RegionType::Trace>, and this is only
   // used for the GC part of the test.
   if constexpr (region_type == RegionType::Trace)
   {
@@ -130,7 +130,10 @@ void merge_test()
   RegionClass::insert(alloc, r2, o3);
   check(o1->debug_rc() == 1 && o2->debug_rc() == 1 && o3->debug_rc() == 3);
 
-  RegionClass::merge(alloc, r1, r2);
+  {
+    UsingRegion rr(r1);
+    merge(r2);
+  }
   check(o1->debug_rc() == 1 && o2->debug_rc() == 1 && o3->debug_rc() == 2);
 
   if constexpr (region_type == RegionType::Trace)
@@ -142,7 +145,7 @@ void merge_test()
   }
 
   Immutable::release(alloc, o3);
-  Region::release(alloc, r1);
+  region_release(r1);
   // Don't release r2, it was deallocated during the merge.
 
   snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();

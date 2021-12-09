@@ -453,7 +453,7 @@ namespace verona::rt
     friend class ObjectMap;
     friend class Message;
     friend class LocalEpoch;
-    friend struct UsingRegion;
+    friend size_t debug_get_ref_count(Object* o);
 
     friend class LinkedObjectStack;
 
@@ -546,12 +546,14 @@ namespace verona::rt
       get_header().next = o;
     }
 
+public:
     inline RegionBase* get_region()
     {
       assert(get_class() == RegionMD::ISO);
       return (RegionBase*)(get_header().bits & ~MASK);
     }
 
+private:
     inline void set_region(RegionBase* region)
     {
       assert(get_class() == RegionMD::ISO || get_class() == RegionMD::OPEN_ISO);

@@ -40,10 +40,10 @@ namespace noticeboard_weak
     {
       auto& alloc = ThreadAlloc::get();
 
-      auto c_0 = new C(1);
-      Freeze::apply(alloc, c_0);
-      auto c_1 = new C(2);
-      Freeze::apply(alloc, c_1);
+      auto c_0 = new (RegionType::Trace) C(1);
+      freeze(c_0);
+      auto c_1 = new (RegionType::Trace) C(2);
+      freeze(c_1);
 
       writer->box_0.update(alloc, c_0);
       writer->box_1.update(alloc, c_1);
@@ -92,12 +92,10 @@ namespace noticeboard_weak
 
   void run_test()
   {
-    auto& alloc = ThreadAlloc::get();
-
-    auto c_0 = new (alloc) C(0);
-    auto c_1 = new (alloc) C(1);
-    Freeze::apply(alloc, c_0);
-    Freeze::apply(alloc, c_1);
+    auto c_0 = new (RegionType::Trace) C(0);
+    auto c_1 = new (RegionType::Trace) C(1);
+    freeze(c_0);
+    freeze(c_1);
 
     g_writer = new Writer(c_0, c_1);
     g_reader = new Reader(&g_writer->box_0, &g_writer->box_1);
