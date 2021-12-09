@@ -612,16 +612,9 @@ namespace verona::rt
           case Object::OPEN_ISO:
             if (decref_inner(p))
             {
-              // We have to halt the deallocation and instead start a full
-              // release of the region so that floating garbage is accounted
-              // for. This will undo work from the current trace.
-              //
-              // FIXME: This may be problematic because linkedobjectstack
-              // corrupts headers. May be able to mark it though?
-
-              ObjectStack collect(alloc);
-              reg->release_internal(alloc, p, collect);
-              return;
+                // There should always be an external reference keeping the ISO
+                // alive.
+                abort();
             }
             break;
           case Object::MARKED:
