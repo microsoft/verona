@@ -612,9 +612,9 @@ namespace verona::rt
           case Object::OPEN_ISO:
             if (decref_inner(p))
             {
-                // There should always be an external reference keeping the ISO
-                // alive.
-                abort();
+              // There should always be an external reference keeping the ISO
+              // alive.
+              abort();
             }
             break;
           case Object::MARKED:
