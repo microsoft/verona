@@ -273,8 +273,6 @@ namespace verona::rt
         o->finalise(o, collect);
       }
 
-      // TODO: FINALIZE THE INITIAL OBJECT `o`.
-
       while (!dfs.empty())
       {
         Object* f = dfs.pop();
