@@ -10,7 +10,7 @@
 
 namespace verona::rt
 {
-  inline thread_local RegionBase* ACTIVE_REGION_MD = nullptr;
+  inline thread_local RegionBase* active_region_md = nullptr;
 
   /**
    * Conceptually, objects are allocated within a region, and regions are
@@ -319,7 +319,7 @@ namespace verona::rt
       RegionBase* r = nullptr;
       if (o->is_opened())
       {
-        r = ACTIVE_REGION_MD;
+        r = active_region_md;
       }
       else
       {
@@ -357,17 +357,17 @@ namespace verona::rt
 
   inline static RegionBase* opened_region()
   {
-    return ACTIVE_REGION_MD;
+    return active_region_md;
   }
 
   inline static void clear_opened_region()
   {
-    ACTIVE_REGION_MD = nullptr;
+    active_region_md = nullptr;
   }
 
   inline static void set_opened_region(RegionBase* reg)
   {
-    ACTIVE_REGION_MD = reg;
+    active_region_md = reg;
   }
 
   struct UsingRegion
@@ -375,7 +375,7 @@ namespace verona::rt
     UsingRegion(Object* iso) : iso(iso)
     {
       RegionBase* r = iso->get_region();
-      ACTIVE_REGION_MD = r;
+      active_region_md = r;
       // We store the type here because get_type can't be called on an opened
       // region since we modify the ISO header.
       type = Region::get_type(r);
@@ -395,7 +395,7 @@ namespace verona::rt
 
     ~UsingRegion()
     {
-      if (!ACTIVE_REGION_MD)
+      if (!active_region_md)
       {
         // The region closed itself (i.e. release was called)
         return;
@@ -406,7 +406,7 @@ namespace verona::rt
         case RegionType::Arena:
           break;
         case RegionType::Rc:
-          ((RegionRc*)ACTIVE_REGION_MD)->close(iso, ACTIVE_REGION_MD);
+          ((RegionRc*)active_region_md)->close(iso, active_region_md);
           break;
         default:
           abort();
@@ -417,7 +417,7 @@ namespace verona::rt
     size_t debug_size()
     {
       assert(type == RegionType::Rc);
-      return ((RegionRc*)ACTIVE_REGION_MD)->region_size;
+      return ((RegionRc*)active_region_md)->region_size;
     }
 
     size_t debug_get_ref_count(Object* o)
