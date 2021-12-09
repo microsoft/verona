@@ -520,6 +520,7 @@ namespace Systematic
     auto* sa = new struct sigaction;
     sa->sa_handler = SIG_DFL;
     sigaction(SIGABRT, sa, nullptr);
+    sigaction(SIGINT, sa, nullptr);
 
     // Attempt to print stack trace
     auto syms = backtrace_symbols((void* const*)stack_frames, n_frames);

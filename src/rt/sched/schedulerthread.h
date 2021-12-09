@@ -33,7 +33,6 @@ namespace verona::rt
   public:
     /// Friendly thread identifier for logging information.
     size_t systematic_id = 0;
-    size_t systematic_speed_mask = 1;
 
   private:
     using Scheduler = ThreadPool<SchedulerThread<T>>;
@@ -49,23 +48,16 @@ namespace verona::rt
 
 #ifdef USE_SYSTEMATIC_TESTING
     friend class ThreadSyncSystematic<SchedulerThread>;
-    /// Used by systematic testing to implement the condition variable,
-    /// and thread termination.
-    SystematicState systematic_state = SystematicState::Active;
-
-    /// Used to specify a condition when this thread should/could make
-    /// progress.  It is used to implement condition variables.
-    snmalloc::function_ref<bool()> guard = true_thunk;
-
-    /// How many uninterrupted steps this threads has been selected to run for.
-    size_t steps = 0;
+    LocalSync local_sync{};
+#else
+    friend class ThreadSync<SchedulerThread>;
+    LocalSync local_sync{};
 #endif
 
     MPMCQ<T> q;
     Alloc* alloc = nullptr;
     SchedulerThread<T>* next = nullptr;
     SchedulerThread<T>* victim = nullptr;
-    std::condition_variable cv;
 
     bool running = true;
 

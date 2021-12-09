@@ -301,7 +301,7 @@ namespace verona::rt
       {
         t->systematic_id = count;
 #ifdef USE_SYSTEMATIC_TESTING
-        t->systematic_speed_mask =
+        t->local_sync.systematic_speed_mask =
           (8ULL << (Systematic::get_prng_next() % 4)) - 1;
 #endif
         if (count > 1)
@@ -512,7 +512,8 @@ namespace verona::rt
       {
         // This grabs the scheduler lock to ensure threads have seen CAS before
         // we notify.
-        sync.handle(local()).unpause_all();
+        Systematic::cout() << "Wake all threads" << Systematic::endl;
+        sync.unpause_all(local());
         return true;
       }
       // Another thread won the CAS race, and is responsible for waking up.

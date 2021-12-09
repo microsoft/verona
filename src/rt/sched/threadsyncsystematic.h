@@ -24,6 +24,26 @@ namespace verona::rt
 
   inline snmalloc::function_ref<bool()> true_thunk{[]() { return true; }};
 
+  struct LocalSync
+  {
+    /// Used by systematic testing to implement the condition variable,
+    /// and thread termination.
+    SystematicState systematic_state = SystematicState::Active;
+
+    /// Used to specify a condition when this thread should/could make
+    /// progress.  It is used to implement condition variables.
+    snmalloc::function_ref<bool()> guard = true_thunk;
+
+    /// How many uninterrupted steps this threads has been selected to run for.
+    size_t steps = 0;
+
+    /// Alters distribution of steps taken in systematic testing.
+    size_t systematic_speed_mask = 1;
+
+    /// Used to hold thread asleep.
+    std::condition_variable cv;
+  };
+
   template<typename T>
   class ThreadSyncSystematic
   {
@@ -80,8 +100,8 @@ namespace verona::rt
         start = start->next;
 
       auto result = start;
-      while ((result->systematic_state != SystematicState::Active) ||
-             !result->guard())
+      while ((result->local_sync.systematic_state != SystematicState::Active) ||
+             !result->local_sync.guard())
       {
         result = result->next;
         if (result == start)
@@ -102,11 +122,11 @@ namespace verona::rt
       }
       Systematic::cout() << "Set running thread:" << result->systematic_id
                          << Systematic::endl;
-      assert(result->guard());
+      assert(result->local_sync.guard());
 
       running_thread = result;
-      assert(result->systematic_state == SystematicState::Active);
-      result->cv.notify_all();
+      assert(result->local_sync.systematic_state == SystematicState::Active);
+      result->local_sync.cv.notify_all();
     }
 
     void wait_for_my_turn_inner(std::unique_lock<std::mutex>& lock, T* me)
@@ -114,8 +134,8 @@ namespace verona::rt
       assert(lock.mutex() == &m_sys);
       Systematic::cout() << "Waiting for turn" << Systematic::endl;
       while (running_thread != me)
-        me->cv.wait(lock);
-      assert(me->systematic_state == SystematicState::Active);
+        me->local_sync.cv.wait(lock);
+      assert(me->local_sync.systematic_state == SystematicState::Active);
     }
 
     /// Must hold the systematic testing lock to call this.
@@ -127,10 +147,10 @@ namespace verona::rt
       snmalloc::function_ref<bool()> g)
     {
       assert(lock.mutex() == &m_sys);
-      me->guard = g;
+      me->local_sync.guard = g;
       choose_thread(lock, me);
       wait_for_my_turn_inner(lock, me);
-      me->guard = true_thunk;
+      me->local_sync.guard = true_thunk;
     }
 
     void acquire(T* me)
@@ -178,7 +198,7 @@ namespace verona::rt
       {
         assert(sync.m == true);
         sync.m = false;
-        assert(me->systematic_state == SystematicState::Active);
+        assert(me->local_sync.systematic_state == SystematicState::Active);
         {
           std::unique_lock<std::mutex> lock(sync.m_sys);
           auto incarnation = sync.unpause_incarnation.load();
@@ -253,13 +273,21 @@ namespace verona::rt
     }
 
     /**
+     * This unpauses all threads.
+     */
+    void unpause_all(T* me)
+    {
+      handle(me).unpause_all();
+    }
+
+    /**
      * Call this when the thread has completed.
      */
     void thread_finished(T* me)
     {
       std::unique_lock<std::mutex> lock(m_sys);
-      assert(me->systematic_state == SystematicState::Active);
-      me->systematic_state = SystematicState::Finished;
+      assert(me->local_sync.systematic_state == SystematicState::Active);
+      me->local_sync.systematic_state = SystematicState::Finished;
 
       assert(running_thread == me);
 
@@ -267,7 +295,7 @@ namespace verona::rt
 
       // Confirm at least one other thread is running,
       auto curr = me;
-      while (curr->systematic_state != SystematicState::Active)
+      while (curr->local_sync.systematic_state != SystematicState::Active)
       {
         curr = curr->next;
         if (curr == me)
@@ -304,15 +332,16 @@ namespace verona::rt
 
       assert(running_thread == me);
 
-      if (me->steps == 0)
+      if (me->local_sync.steps == 0)
       {
         std::unique_lock<std::mutex> lock(m_sys);
         yield_until(me, lock, true_thunk);
-        me->steps = Systematic::get_prng_next() & me->systematic_speed_mask;
+        me->local_sync.steps =
+          Systematic::get_prng_next() & me->local_sync.systematic_speed_mask;
       }
       else
       {
-        me->steps--;
+        me->local_sync.steps--;
       }
     };
 
