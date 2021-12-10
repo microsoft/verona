@@ -11,6 +11,10 @@ namespace verona::rt
 {
   using namespace snmalloc;
 
+  inline static RegionBase* opened_region();
+  inline static void set_opened_region(RegionBase* reg);
+  inline static void clear_opened_region();
+
   /**
    * Please see region.h for the full documentation.
    *
@@ -32,13 +36,12 @@ namespace verona::rt
     friend class Freeze;
     friend class Region;
     friend class RegionTrace;
+    friend struct UsingRegion;
 
   private:
     static constexpr uintptr_t FINALISER_MASK = 1 << 1;
 
-    RefCounts counts{};
-
-    RefCount* entry_point_count = nullptr;
+    size_t entry_point_count = 1;
 
     // Objects which may be in a cycle, so will be checked by gc_cycles.
     // FIXME: Use two stacks to simulate per-block queue based behaviour.
@@ -46,6 +49,8 @@ namespace verona::rt
 
     // Memory usage in the region.
     size_t current_memory_used = 0;
+
+    size_t region_size = 0;
 
     RegionRc() : RegionBase() {}
 
@@ -93,12 +98,11 @@ namespace verona::rt
         p = alloc.alloc<size>();
       o = Object::register_object(p, desc);
 
+      reg->region_size += 1;
+
       reg->init_next(o);
       o->init_iso();
       o->set_region(reg);
-
-      auto rc = reg->track_object(o, alloc);
-      reg->entry_point_count = rc;
 
       assert(Object::debug_is_aligned(o));
       return o;
@@ -116,7 +120,8 @@ namespace verona::rt
     static Object* alloc(Alloc& alloc, Object* in, const Descriptor* desc)
     {
       assert((size == 0) || (size == desc->size));
-      RegionRc* reg = get(in);
+      assert(in->get_class() == RegionMD::OPEN_ISO);
+      RegionRc* reg = (RegionRc*)opened_region();
 
       assert(reg != nullptr);
 
@@ -129,28 +134,35 @@ namespace verona::rt
       auto o = (Object*)Object::register_object(p, desc);
       assert(Object::debug_is_aligned(o));
 
-      o->set_ref_count(reg->track_object(o, alloc));
+      o->init_ref_count();
 
       // GC heuristics.
       reg->use_memory(desc->size);
+      reg->region_size += 1;
       return o;
+    }
+
+    static void open(Object* o)
+    {
+      assert(o->get_class() == RegionMD::ISO);
+      RegionRc* reg = get(o);
+      o->init_iso_ref_count(reg->entry_point_count);
+    }
+
+    static void close(Object* o, RegionBase* region)
+    {
+      assert(o->get_class() == RegionMD::OPEN_ISO);
+      auto r = (RegionRc*)region;
+      r->entry_point_count = o->get_ref_count();
+      o->set_region(region);
+      clear_opened_region();
     }
 
     /// Increments the reference count of `o`. The object `in` is the entry
     /// point to the region that contains `o`.
-    static void incref(Object* o, Object* in)
+    static void incref(Object* o)
     {
-      // FIXME: An extra branch is needed here because the first field in the
-      // RegionMD of an ISO holds a pointer to the region description, so we
-      // can't quickly access the refcount as we would an ordinary object.
-      if (o == in)
-      {
-        RegionRc* reg = get(in);
-        reg->entry_point_count->metadata += 1;
-        return;
-      }
-      RefCount* rc = o->get_ref_count();
-      rc->metadata += 1;
+      o->incref_rc_region();
 
       // TODO: Currently we don't remove items from the Lins stack because
       // there is no way to find the object in the stack without an O(n) pass.
@@ -162,12 +174,7 @@ namespace verona::rt
     /// object with only one reference, then the object will be deallocated.
     static bool decref(Alloc& alloc, Object* o, Object* in)
     {
-      if (o == in)
-      {
-        RegionRc* reg = get(in);
-        reg->entry_point_count->metadata -= 1;
-      }
-      else if (decref_inner(o))
+      if (decref_inner(o))
       {
         dealloc_object(alloc, o, in);
         return true;
@@ -176,7 +183,7 @@ namespace verona::rt
       if (o->get_rc_colour() != RcColour::BLACK)
       {
         o->set_rc_colour(RcColour::BLACK);
-        RegionRc* reg = get(in);
+        RegionRc* reg = (RegionRc*)opened_region();
         reg->lins_stack.push(o, alloc);
       }
       return false;
@@ -184,15 +191,14 @@ namespace verona::rt
 
     /// Get the reference count of `o`. The object `in` is the entry point to
     /// the region that contains `o`.
-    static uintptr_t get_ref_count(Object* o, Object* in)
+    static size_t get_ref_count(Object* o, Object* in)
     {
       if (o == in)
       {
         RegionRc* reg = get(in);
-        return reg->entry_point_count->metadata;
+        return reg->entry_point_count;
       }
-      RefCount* rc = o->get_ref_count();
-      return rc->metadata;
+      return o->get_ref_count();
     }
 
     /** Removes cyclic garbage from the region.
@@ -229,7 +235,8 @@ namespace verona::rt
      **/
     static void gc_cycles(Alloc& alloc, Object* o)
     {
-      RegionRc* reg = get(o);
+      assert(o->get_class() == RegionMD::OPEN_ISO);
+      RegionRc* reg = (RegionRc*)opened_region();
       ObjectStack jump_stack(alloc);
       while (!reg->lins_stack.empty())
       {
@@ -243,12 +250,125 @@ namespace verona::rt
       }
     }
 
-  private:
-    enum FinalisationKind
+    /**
+     * Release and deallocate all objects within the region represented by the
+     * Iso Object `o`.
+     *
+     * Note: this does not release subregions. Use Region::release instead.
+     **/
+    void release_internal(Alloc& alloc, Object* o, ObjectStack& collect)
     {
-      Cyclic,
-      NonCyclic,
-    };
+      assert(o->get_class() == RegionMD::OPEN_ISO);
+      if (!decref_inner(o))
+      {
+        abort();
+      }
+
+      ObjectStack dfs(alloc);
+      o->trace(dfs);
+      LinkedObjectStack gc;
+
+      if (!o->is_trivial())
+      {
+        o->finalise(o, collect);
+      }
+
+      while (!dfs.empty())
+      {
+        Object* f = dfs.pop();
+        switch (f->get_class())
+        {
+          case Object::OPEN_ISO:
+            assert(0);
+          case Object::MARKED:
+          case Object::UNMARKED:
+            // FIXME: we need to ensure decrefing removes from the lins q
+            if (decref_inner(f))
+            {
+              f->trace(dfs);
+              if (!f->is_trivial())
+              {
+                f->finalise(o, collect);
+              }
+              gc.push(f);
+            }
+            break;
+          case Object::SCC_PTR:
+            f->immutable();
+            f->decref();
+            break;
+          case Object::RC:
+            f->decref();
+            break;
+          case Object::COWN:
+            f->decref_cown();
+            break;
+          case Object::ISO:
+            assert(f != o);
+            break;
+          default:
+            assert(0);
+        }
+      }
+
+      // Clean up any cyclic garbage not reachable from the entry point.
+      release_cycles(alloc, o, gc, collect);
+
+      while (!gc.empty())
+      {
+        Object* o = gc.pop();
+        o->destructor();
+        o->dealloc(alloc);
+      }
+
+      // finally, close the region and destroy the ISO object.
+      RegionRc::close(o, this);
+      o->destructor();
+      o->dealloc(alloc);
+      dealloc(alloc);
+    }
+
+  private:
+    void release_cycles(
+      Alloc& alloc, Object* o, LinkedObjectStack& gc, ObjectStack& collect)
+    {
+      ObjectStack dfs(alloc);
+      while (!lins_stack.empty())
+      {
+        dfs.push(lins_stack.pop(alloc));
+      }
+      while (!dfs.empty())
+      {
+        Object* p = dfs.pop();
+        switch (p->get_class())
+        {
+          case Object::OPEN_ISO:
+          case Object::MARKED:
+            break;
+          case Object::UNMARKED:
+            if (!p->is_trivial())
+            {
+              p->finalise(o, collect);
+            }
+            p->trace(dfs);
+            gc.push(p);
+            p->mark();
+            break;
+          case Object::SCC_PTR:
+            p->immutable();
+            p->decref();
+            break;
+          case Object::RC:
+            p->decref();
+            break;
+          case Object::COWN:
+            p->decref_cown();
+            break;
+          default:
+            assert(0);
+        }
+      }
+    }
 
     /**
      * Mark an object as red (i.e. dead). This is recursive over o's fields
@@ -303,7 +423,7 @@ namespace verona::rt
           }
 
           RegionRc* reg = get(f);
-          reg->entry_point_count->metadata -= 1;
+          reg->entry_point_count -= 1;
         }
         else
         {
@@ -382,7 +502,7 @@ namespace verona::rt
           continue;
         }
 
-        incref(f, in);
+        incref(f);
         if (f->is_rc_candidate() && f->get_rc_colour() != RcColour::GREEN)
         {
           f->set_rc_colour(RcColour::GREEN);
@@ -406,10 +526,10 @@ namespace verona::rt
         return;
       }
 
-      RegionRc* reg = get(in);
+      RegionRc* reg = (RegionRc*)opened_region();
 
       ObjectStack dfs(alloc);
-      ObjectStack fin_q(alloc);
+      LinkedObjectStack gc;
       ObjectStack sub_regions(alloc);
       o->trace(dfs);
       while (!dfs.empty())
@@ -417,10 +537,9 @@ namespace verona::rt
         Object* f = dfs.pop();
         switch (f->get_class())
         {
-          case Object::ISO:
+          case Object::OPEN_ISO:
             // There should always be an external reference to the region's ISO.
-            assert(f != in);
-            sub_regions.push(f);
+            assert(0);
             break;
           case Object::MARKED:
             break;
@@ -430,8 +549,9 @@ namespace verona::rt
             // this is red (i.e. garbage).
             if (f->get_rc_colour() == RcColour::RED)
             {
-              fin_q.push(f);
+              f->finalise(in, sub_regions);
               f->trace(dfs);
+              gc.push(f);
               f->mark();
             }
             break;
@@ -445,19 +565,30 @@ namespace verona::rt
           case Object::COWN:
             f->decref_cown();
             break;
+          case Object::ISO:
+            // Deallocation should only happen on an opened region.
+            sub_regions.push(f);
+            break;
           default:
             assert(0);
         }
       }
 
-      reg->dealloc_objects<FinalisationKind::Cyclic>(alloc, fin_q, sub_regions);
+      release_sub_regions(alloc, sub_regions);
+
+      while (!gc.empty())
+      {
+        Object* o = gc.pop();
+        reg->region_size -= 1;
+        o->destructor();
+        o->dealloc(alloc);
+      }
     }
 
     inline static bool decref_inner(Object* o)
     {
-      RefCount* rc = o->get_ref_count();
-      rc->metadata -= 1;
-      return (rc->metadata == 0);
+      o->decref_rc_region();
+      return (o->get_ref_count() == 0);
     }
 
     static void dealloc_object(Alloc& alloc, Object* o, Object* in)
@@ -467,33 +598,32 @@ namespace verona::rt
       ObjectStack dfs(alloc);
       ObjectStack sub_regions(alloc);
       o->trace(dfs);
-      ObjectStack fin_q(alloc);
+      LinkedObjectStack gc;
 
-      RegionRc* reg = get(in);
+      RegionRc* reg = (RegionRc*)opened_region();
 
-      fin_q.push(o);
+      gc.push(o);
 
       while (!dfs.empty())
       {
         Object* p = dfs.pop();
         switch (p->get_class())
         {
-          case Object::ISO:
-            if (p == in)
+          case Object::OPEN_ISO:
+            if (decref_inner(p))
             {
-              reg->entry_point_count->metadata -= 1;
-            }
-            else
-            {
-              sub_regions.push(p);
+              // There should always be an external reference keeping the ISO
+              // alive.
+              abort();
             }
             break;
           case Object::MARKED:
           case Object::UNMARKED:
             if (decref_inner(p))
             {
-              fin_q.push(p);
               p->trace(dfs);
+              p->finalise(in, sub_regions);
+              gc.push(p);
             }
             break;
           case Object::SCC_PTR:
@@ -506,50 +636,28 @@ namespace verona::rt
           case Object::COWN:
             p->decref_cown();
             break;
+          case Object::ISO:
+            assert(p != in);
+            sub_regions.push(p);
+            break;
           default:
             assert(0);
         }
       }
 
-      reg->dealloc_objects<FinalisationKind::NonCyclic>(
-        alloc, fin_q, sub_regions);
-    }
-
-    template<FinalisationKind finalisation>
-    void dealloc_objects(
-      Alloc& alloc, ObjectStack& objects, ObjectStack& sub_regions)
-    {
-      if constexpr (finalisation == Cyclic)
+      while (!gc.empty())
       {
-        objects.forall([this, &sub_regions](Object* o) {
-          if (!o->is_trivial())
-          {
-            o->finalise(this, sub_regions);
-          }
-        });
-      }
-
-      while (!objects.empty())
-      {
-        Object* o = objects.pop();
-        if (o->get_class() != RegionMD::ISO)
-        {
-          counts.remove(o->get_ref_count());
-        }
-
-        if constexpr (finalisation == NonCyclic)
-        {
-          if (!o->is_trivial())
-          {
-            o->finalise(this, sub_regions);
-          }
-        }
+        Object* o = gc.pop();
+        reg->region_size -= 1;
         o->destructor();
         o->dealloc(alloc);
       }
 
-      // Finally, we release any regions which were held by ISO pointers from
-      // this object.
+      release_sub_regions(alloc, sub_regions);
+    }
+
+    static void release_sub_regions(Alloc& alloc, ObjectStack& sub_regions)
+    {
       while (!sub_regions.empty())
       {
         Object* o = sub_regions.pop();
@@ -559,8 +667,13 @@ namespace verona::rt
 
         // Note that we need to dispatch because `r` is a different region
         // metadata object.
+        //
+        // We need to open the sub_region in order to mutate it. This means
+        // storing the current region metadata here before diving in.
         RegionBase* r = o->get_region();
-        assert(r != this);
+        RegionBase* current = opened_region();
+        RegionRc::open(o);
+        set_opened_region(r);
 
         // Unfortunately, we can't use Region::release_internal because of a
         // circular dependency between header files.
@@ -572,146 +685,14 @@ namespace verona::rt
           ((RegionRc*)r)->release_internal(alloc, o, sub_regions);
         else
           abort();
+        set_opened_region(current);
       }
-    }
-
-    /**
-     * Release and deallocate all objects within the region represented by the
-     * Iso Object `o`.
-     *
-     * Note: this does not release subregions. Use Region::release instead.
-     **/
-    void release_internal(Alloc& alloc, Object* o, ObjectStack& collect)
-    {
-      assert(o->debug_is_iso());
-
-      // Finalize the non-trivial objects
-      for (auto rc : counts)
-      {
-        auto p = (uintptr_t)rc->object;
-        if ((p & FINALISER_MASK) == FINALISER_MASK)
-        {
-          auto untagged = (Object*)((uintptr_t)p & ~FINALISER_MASK);
-          untagged->finalise(o, collect);
-        }
-      }
-
-      // Note: it is safe to iterate the bag to deallocate objects since
-      // the bag only stores a pointer to the objects.
-      for (auto rc : counts)
-      {
-        auto untagged = (Object*)(((uintptr_t)rc->object) & ~FINALISER_MASK);
-        untagged->destructor();
-        untagged->dealloc(alloc);
-      }
-
-      counts.dealloc(alloc);
-      lins_stack.dealloc(alloc);
-      dealloc(alloc);
-    }
-
-  public:
-    template<IteratorType type = AllObjects>
-    class iterator
-    {
-      friend class RegionRc;
-
-      static_assert(
-        type == Trivial || type == NonTrivial || type == AllObjects);
-
-      iterator(RegionRc* r, RefCounts::iterator counts) : reg(r), counts(counts)
-      {
-        counts = r->counts.begin();
-        ptr = (*counts)->object;
-        next();
-      }
-
-      iterator(RegionRc* r, RefCounts::iterator counts, Object* p)
-      : reg(r), counts(counts), ptr(p)
-      {}
-
-    private:
-      RegionRc* reg;
-      RefCounts::iterator counts;
-      Object* ptr;
-
-      void step()
-      {
-        ++counts;
-        ptr = (*counts)->object;
-      }
-
-      void next()
-      {
-        if constexpr (type == AllObjects)
-        {
-          ptr = (*counts)->object;
-          return;
-        }
-        else if constexpr (type == NonTrivial)
-        {
-          while ((counts != counts.end()) && !((uintptr_t)ptr & FINALISER_MASK))
-          {
-            step();
-          }
-          ptr = (*counts)->object;
-          return;
-        }
-        else
-        {
-          while ((counts != counts.end()) && ((uintptr_t)ptr & FINALISER_MASK))
-          {
-            step();
-          }
-          ptr = (*counts)->object;
-          return;
-        }
-      }
-
-    public:
-      iterator operator++()
-      {
-        step();
-        next();
-        return *this;
-      }
-
-      inline bool operator!=(const iterator& other) const
-      {
-        assert(reg == other.reg);
-        return ptr != other.ptr;
-      }
-
-      inline Object* operator*() const
-      {
-        return ptr;
-      }
-    };
-
-    template<IteratorType type = AllObjects>
-    inline iterator<type> begin()
-    {
-      return {this, counts.begin()};
-    }
-
-    template<IteratorType type = AllObjects>
-    inline iterator<type> end()
-    {
-      return {this, counts.end(), nullptr};
     }
 
   private:
     void use_memory(size_t size)
     {
       current_memory_used += size;
-    }
-
-    RefCount* track_object(Object* o, Alloc& alloc)
-    {
-      auto tagged = (uintptr_t)o;
-      if (!(o->is_trivial()))
-        tagged |= FINALISER_MASK;
-      return counts.insert({(Object*)tagged, 1}, alloc);
     }
   };
 
