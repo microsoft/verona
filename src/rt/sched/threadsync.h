@@ -200,32 +200,4 @@ namespace verona::rt
       return ThreadSyncHandle(t, *this);
     }
   };
-
-#ifdef ACQUIRE_ALL
-  // struct __attribute__((aligned (64))) EnqueueLock
-  struct EnqueueLock
-  {
-    std::atomic<bool> locked = false;
-    // char padding[64 - sizeof(std::atomic<bool>)];
-
-    void lock()
-    {
-      auto u = false;
-      while (!locked.compare_exchange_strong(u, true))
-      {
-        u = false;
-        while (locked)
-        {
-          yield();
-        }
-      }
-    }
-
-    void unlock()
-    {
-      locked.store(false, std::memory_order_release);
-    }
-  };
-  // static_assert(sizeof(EnqueueLock) == 64);
-#endif
 }

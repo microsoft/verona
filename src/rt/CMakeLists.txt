@@ -79,7 +79,9 @@ endif()
 
 target_compile_definitions(verona_rt INTERFACE -DSNMALLOC_CHEAP_CHECKS)
 
-target_compile_definitions(verona_rt INTERFACE -DACQUIRE_ALL)
+if(ACQUIRE_ALL)
+  target_compile_definitions(verona_rt INTERFACE -DACQUIRE_ALL)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 
