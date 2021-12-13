@@ -120,6 +120,7 @@ namespace verona::rt
     static Object* alloc(Alloc& alloc, Object* in, const Descriptor* desc)
     {
       assert((size == 0) || (size == desc->size));
+      (void)in; // asserts aren't compiled in release mode and this goes unused
       assert(in->get_class() == RegionMD::OPEN_ISO);
       RegionRc* reg = (RegionRc*)opened_region();
 
