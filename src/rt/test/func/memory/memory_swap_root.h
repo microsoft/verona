@@ -7,11 +7,11 @@
 namespace memory_swap_root
 {
   /**
-   * Helper for swap root tests 
+   * Helper for swap root tests
    * 1. Create a region with entry point type T
    * 2. Allocates objects of type Others,
-   * 3. Makes the `index` element of Others the new root. 
-   * 4. Checks a few assertions. 
+   * 3. Makes the `index` element of Others the new root.
+   * 4. Checks a few assertions.
    * 5. Adds a few more allocations
    * 6. Deallocates the region
    * 7. Checks a few more assertions.
@@ -84,7 +84,7 @@ namespace memory_swap_root
       }
 
       alloc_in_region<0, F, F, XC>(nroot1);
-        
+
       alloc_in_region<0, C, C>(nroot2);
 
       {

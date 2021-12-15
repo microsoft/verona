@@ -205,6 +205,8 @@ namespace verona::rt::api
         return RegionRc::alloc(
           ThreadAlloc::get(), (RegionRc*)RegionContext::get_region(), d);
     }
+    // Unreachable as case is exhaustive
+    abort();
   }
 
   inline void add_reference(Object*)

@@ -4,8 +4,8 @@
 
 #include "../region/region_api.h"
 
-#include <type_traits>
 #include <new>
+#include <type_traits>
 
 namespace verona::rt
 {
@@ -127,6 +127,13 @@ namespace verona::rt
     }
 
     void operator delete(void*, Alloc&, Object*)
+    {
+      // Should not be called directly, present to allow calling if the
+      // constructor throws an exception. The object lifetime is managed by the
+      // region.
+    }
+
+    void operator delete(void*, RegionType)
     {
       // Should not be called directly, present to allow calling if the
       // constructor throws an exception. The object lifetime is managed by the

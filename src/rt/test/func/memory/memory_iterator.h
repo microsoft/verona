@@ -61,15 +61,15 @@ namespace memory_iterator
         }
 
         for (auto n_it = reg->template begin<RegionBase::Trivial>();
-            n_it != reg->template end<RegionBase::Trivial>();
-            ++n_it)
+             n_it != reg->template end<RegionBase::Trivial>();
+             ++n_it)
         {
           check(0); // unreachable
         }
 
         for (auto f_it = reg->template begin<RegionBase::NonTrivial>();
-            f_it != reg->template end<RegionBase::NonTrivial>();
-            ++f_it)
+             f_it != reg->template end<RegionBase::NonTrivial>();
+             ++f_it)
         {
           if constexpr (region_type == RegionType::Rc)
           {
@@ -98,15 +98,15 @@ namespace memory_iterator
         }
 
         for (auto n_it = reg->template begin<RegionBase::Trivial>();
-            n_it != reg->template end<RegionBase::Trivial>();
-            ++n_it)
+             n_it != reg->template end<RegionBase::Trivial>();
+             ++n_it)
         {
           check(*n_it == o);
         }
 
         for (auto f_it = reg->template begin<RegionBase::NonTrivial>();
-            f_it != reg->template end<RegionBase::NonTrivial>();
-            ++f_it)
+             f_it != reg->template end<RegionBase::NonTrivial>();
+             ++f_it)
         {
           check(0); // unreachable
         }
@@ -140,8 +140,8 @@ namespace memory_iterator
         s1.insert(r);
         s2.insert(r); // Note: might need to change this if o's type is changed.
 
-        // Add some objects. Some of them will be part of the object graph, while
-        // others will be GC'd.
+        // Add some objects. Some of them will be part of the object graph,
+        // while others will be GC'd.
         oc = new C;
         s1.insert(oc);
         s2.insert(oc);
@@ -194,8 +194,8 @@ namespace memory_iterator
         check(s1.empty());
 
         for (auto n_it = reg->template begin<RegionBase::Trivial>();
-            n_it != reg->template end<RegionBase::Trivial>();
-            ++n_it)
+             n_it != reg->template end<RegionBase::Trivial>();
+             ++n_it)
         {
           check(s2.count(*n_it));
           s2.erase(*n_it);
@@ -203,8 +203,8 @@ namespace memory_iterator
         check(s2.empty());
 
         for (auto f_it = reg->template begin<RegionBase::NonTrivial>();
-            f_it != reg->template end<RegionBase::NonTrivial>();
-            ++f_it)
+             f_it != reg->template end<RegionBase::NonTrivial>();
+             ++f_it)
         {
           check(s3.count(*f_it));
           s3.erase(*f_it);
@@ -249,8 +249,7 @@ namespace memory_iterator
         s3.insert(o); // Note: might need to change this if o's type is changed.
 
         // Put a few objects into the large object ring.
-        test_iterator_insert<XC, XC, XC, XF, XC, XF, XF, XC>(
-          s1, s2, s3);
+        test_iterator_insert<XC, XC, XC, XF, XC, XF, XF, XC>(s1, s2, s3);
 
         // Now a bunch of objects into an arena.
         test_iterator_insert<C, C, C, F, F, F>(s1, s2, s3);
@@ -276,8 +275,8 @@ namespace memory_iterator
         check(s1.empty());
 
         for (auto n_it = reg->template begin<RegionBase::Trivial>();
-            n_it != reg->template end<RegionBase::Trivial>();
-            ++n_it)
+             n_it != reg->template end<RegionBase::Trivial>();
+             ++n_it)
         {
           check(s2.count(*n_it));
           s2.erase(*n_it);
@@ -285,8 +284,8 @@ namespace memory_iterator
         check(s2.empty());
 
         for (auto f_it = reg->template begin<RegionBase::NonTrivial>();
-            f_it != reg->template end<RegionBase::NonTrivial>();
-            ++f_it)
+             f_it != reg->template end<RegionBase::NonTrivial>();
+             ++f_it)
         {
           check(s3.count(*f_it));
           s3.erase(*f_it);

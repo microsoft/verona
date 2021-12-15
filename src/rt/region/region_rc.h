@@ -624,7 +624,7 @@ namespace verona::rt
             p->decref_cown();
             break;
           case Object::ISO:
-//            assert(p != in);
+            //            assert(p != in);
             sub_regions.push(p);
             break;
           default:

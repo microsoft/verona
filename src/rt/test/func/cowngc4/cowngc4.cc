@@ -158,7 +158,8 @@ struct RCown : public VCown<RCown<region_type>>
         // Construct a CCown and give it to the region.
         auto c = new CCown(shared_child);
         Systematic::cout() << "  child " << c << std::endl;
-        RegionClass::template insert<TransferOwnership::YesTransfer>(alloc, r, c);
+        RegionClass::template insert<TransferOwnership::YesTransfer>(
+          alloc, r, c);
         Cown::acquire(shared_child); // acquire on behalf of child CCown
 
         reg_with_graph = r;

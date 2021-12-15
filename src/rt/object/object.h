@@ -546,14 +546,14 @@ namespace verona::rt
       get_header().next = o;
     }
 
-public:
+  public:
     inline RegionBase* get_region()
     {
       assert(get_class() == RegionMD::ISO);
       return (RegionBase*)(get_header().bits & ~MASK);
     }
 
-private:
+  private:
     inline void set_region(RegionBase* region)
     {
       assert(get_class() == RegionMD::ISO || get_class() == RegionMD::OPEN_ISO);

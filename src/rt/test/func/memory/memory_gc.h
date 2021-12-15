@@ -392,7 +392,6 @@ namespace memory_gc
       check(debug_size() == 8);
     }
 
-
     // Create another region.
     auto* r2 = new (RegionType::Trace) Fx;
     {

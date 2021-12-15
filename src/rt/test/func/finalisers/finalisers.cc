@@ -165,7 +165,8 @@ void basic_test()
   auto d = new (region_type) D;
   {
     UsingRegion ur(d);
-    d->f1 = new (region_type) D; // This is a fresh region, hanging off the entry object.
+    d->f1 = new (region_type)
+      D; // This is a fresh region, hanging off the entry object.
     new D;
   }
   region_release(d);

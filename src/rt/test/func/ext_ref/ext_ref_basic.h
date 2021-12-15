@@ -153,7 +153,6 @@ namespace ext_ref_basic
     snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
-
   struct R : public V<R>
   {};
 
@@ -164,7 +163,7 @@ namespace ext_ref_basic
     (void)alloc;
 
     auto r = new (region_type) R;
-    { 
+    {
       UsingRegion ur(r);
       auto ext_ref = create_external_reference(r);
       check(is_external_reference_valid(ext_ref));

@@ -14,7 +14,7 @@ namespace memory_merge
   template<RegionType region_type>
   void test_merge_helper(Object* r1, Object* r2)
   {
-    { 
+    {
       UsingRegion r(r1);
       merge(r2);
 
@@ -72,7 +72,7 @@ namespace memory_merge
         allocs<0, LC, F>();
 
         set_entry_point(o2);
-      
+
         check(o2->debug_is_iso());
 
         allocs<0, F, LC>();

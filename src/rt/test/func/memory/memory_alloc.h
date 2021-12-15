@@ -143,7 +143,20 @@ namespace memory_alloc
       // 1st arena: MC MF C F
       // 2nd arena: MF MC F F
       // 3rd arena: MC MC C C
-      test_alloc_helper<region_type, MC, MF, C, F, MF, MC, F, F, MC, MC, C, C>();
+      test_alloc_helper<
+        region_type,
+        MC,
+        MF,
+        C,
+        F,
+        MF,
+        MC,
+        F,
+        F,
+        MC,
+        MC,
+        C,
+        C>();
     }
     else if constexpr (region_type == RegionType::Rc)
     {

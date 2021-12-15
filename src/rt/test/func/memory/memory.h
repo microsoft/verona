@@ -170,8 +170,8 @@ auto allocs()
   auto a = new First;
   if constexpr (sizeof...(Rest) > 0)
   {
-    auto b = allocs<n-1, Rest...>();
-    if constexpr (n==0)
+    auto b = allocs<n - 1, Rest...>();
+    if constexpr (n == 0)
       return a;
     else
       return b;
@@ -180,14 +180,12 @@ auto allocs()
     return a;
 }
 
-
 template<size_t n, class First, class... Rest>
 auto alloc_in_region(Object* r)
 {
   UsingRegion rr(r);
   return allocs<n, First, Rest...>();
 }
-
 
 /**
  * Allocates a region containing objects of types First and Rest..., where
