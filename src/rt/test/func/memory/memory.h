@@ -172,12 +172,20 @@ auto allocs()
   {
     auto b = allocs<n - 1, Rest...>();
     if constexpr (n == 0)
+    {
+      UNUSED(b);
       return a;
+    }
     else
+    {
+      UNUSED(a);
       return b;
+    }
   }
   else
+  {
     return a;
+  }
 }
 
 template<size_t n, class First, class... Rest>

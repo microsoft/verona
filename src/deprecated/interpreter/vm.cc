@@ -437,7 +437,7 @@ namespace verona::interpreter
   {
     check_type(parent, {Value::ISO, Value::MUT});
     VMObject* region = parent->object->region();
-    UsingRegion ur(region);
+    rt::api::UsingRegion ur(region);
     rt::Object* object = rt::api::create_object(descriptor);
     return Value::mut(new (object) VMObject(region, descriptor));
   }
