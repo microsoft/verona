@@ -32,7 +32,6 @@ namespace verona::rt
     friend class Freeze;
     friend class Region;
     friend class RegionTrace;
-    friend struct UsingRegion;
 
   private:
     static constexpr uintptr_t FINALISER_MASK = 1 << 1;

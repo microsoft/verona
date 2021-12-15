@@ -115,6 +115,30 @@ namespace verona::rt
     }
 
     /**
+     * Allocates an Object `o` of type `desc` in the region represented by the
+     * Iso object `in`. Returns a pointer to `o`.
+     *
+     * The default template parameter `size = 0` is to avoid writing two
+     * definitions which differ only in one line. This overload works because
+     * every object must contain a descriptor, so 0 is not a valid size.
+     **/
+    template<size_t size = 0>
+    static Object* alloc(Alloc& alloc, RegionBase* reg, const Descriptor* desc)
+    {
+      switch (Region::get_type(reg))
+      {
+        case RegionType::Trace:
+          return RegionTrace::alloc<size>(alloc, in, desc);
+        case RegionType::Arena:
+          return RegionArena::alloc<size>(alloc, in, desc);
+        case RegionType::Rc:
+          return RegionRc::alloc<size>(alloc, in, desc);
+        default:
+          abort();
+      }
+    }
+
+    /**
      * Scan the region to find all cowns, following pointers to immutables and
      * subregions. This is used to keep reachable cowns alive and prevent them
      * from being collected by the leak detector.
