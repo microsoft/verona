@@ -5,7 +5,6 @@
 #include "freeze.h"
 #include "region.h"
 
-
 namespace verona::rt::api
 {
   namespace internal
@@ -76,6 +75,7 @@ namespace verona::rt::api
    */
   inline void open_region(Object* r)
   {
+    assert(r->debug_is_iso());
     auto md = r->get_region();
     RegionContext::push(r, md);
     switch (Region::get_type(md))
@@ -152,14 +152,17 @@ namespace verona::rt::api
     switch (Region::get_type(r->get_region()))
     {
       case RegionType::Trace:
-        RegionTrace::merge(ThreadAlloc::get(), RegionContext::get_entry_point(), r);
+        RegionTrace::merge(
+          ThreadAlloc::get(), RegionContext::get_entry_point(), r);
         return r;
       case RegionType::Arena:
-        RegionArena::merge(ThreadAlloc::get(), RegionContext::get_entry_point(), r);
+        RegionArena::merge(
+          ThreadAlloc::get(), RegionContext::get_entry_point(), r);
         return r;
       case RegionType::Rc:
         abort();
     }
+    abort();
   }
 
   /**
@@ -190,7 +193,7 @@ namespace verona::rt::api
   /**
    * Create object in current region
    */
-  inline Object* create_object(Descriptor* d)
+  inline Object* create_object(const Descriptor* d)
   {
     // Case analysis on type of region
     switch (Region::get_type(RegionContext::get_region()))
@@ -221,27 +224,19 @@ namespace verona::rt::api
 
   inline void incref(Object* o)
   {
+    assert(Region::get_type(RegionContext::get_region() == RegionType::Rc));
     RegionRc::incref(o);
   }
 
   inline void decref(Object* o)
   {
-    switch (Region::get_type(RegionContext::get_region()))
-    {
-      case RegionType::Trace:
-        abort();
-        break;
-      case RegionType::Arena:
-        abort();
-        break;
-      case RegionType::Rc:
-        RegionRc::decref(ThreadAlloc::get(), o, (RegionRc*)RegionContext::get_region());
-        break;
-    }
+    assert(Region::get_type(RegionContext::get_region() == RegionType::Rc));
+    RegionRc::decref(
+      ThreadAlloc::get(), o, (RegionRc*)RegionContext::get_region());
   }
 
-  template <typename T = Object>
-  inline T* create_fresh_region(RegionType type, Descriptor* d)
+  template<typename T = Object>
+  inline T* create_fresh_region(RegionType type, const Descriptor* d)
   {
     Object* entry_point = nullptr;
     switch (type)
@@ -281,13 +276,17 @@ namespace verona::rt::api
     switch (Region::get_type(RegionContext::get_region()))
     {
       case RegionType::Trace:
-      // Other roots?
+        // Other roots?
         RegionTrace::gc(ThreadAlloc::get(), RegionContext::get_entry_point());
         break;
       case RegionType::Arena:
-        break; // TODO?
+        // Nothing to collect here!
+        break;
       case RegionType::Rc:
-        RegionRc::gc_cycles(ThreadAlloc::get(), RegionContext::get_entry_point(), (RegionRc*)RegionContext::get_region());
+        RegionRc::gc_cycles(
+          ThreadAlloc::get(),
+          RegionContext::get_entry_point(),
+          (RegionRc*)RegionContext::get_region());
         break;
     }
   }
