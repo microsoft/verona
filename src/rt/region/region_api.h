@@ -224,13 +224,13 @@ namespace verona::rt::api
 
   inline void incref(Object* o)
   {
-    assert(Region::get_type(RegionContext::get_region() == RegionType::Rc));
+    assert(Region::get_type(RegionContext::get_region()) == RegionType::Rc);
     RegionRc::incref(o);
   }
 
   inline void decref(Object* o)
   {
-    assert(Region::get_type(RegionContext::get_region() == RegionType::Rc));
+    assert(Region::get_type(RegionContext::get_region()) == RegionType::Rc);
     RegionRc::decref(
       ThreadAlloc::get(), o, (RegionRc*)RegionContext::get_region());
   }
