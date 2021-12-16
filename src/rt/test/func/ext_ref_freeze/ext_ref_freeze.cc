@@ -104,8 +104,8 @@ struct Loop : public VBehaviour<Loop>
         {
           UsingRegion ur(a->r);
           g_ext_ref = create_external_reference(a->r->f1);
-          freeze(a->r);
         }
+        freeze(a->r);
         state = WAITFORGC;
         Cown::schedule<Loop>(a, a);
         return;
