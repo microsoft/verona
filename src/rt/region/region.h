@@ -115,31 +115,6 @@ namespace verona::rt
     }
 
     /**
-     * Allocates an Object `o` of type `desc` in the region represented by the
-     * Iso object `in`. Returns a pointer to `o`.
-     *
-     * The default template parameter `size = 0` is to avoid writing two
-     * definitions which differ only in one line. This overload works because
-     * every object must contain a descriptor, so 0 is not a valid size.
-     **/
-    template<size_t size = 0>
-    static Object* alloc(Alloc& alloc, Object* in, const Descriptor* desc)
-    {
-      assert(in->debug_is_iso());
-      switch (Region::get_type(in->get_region()))
-      {
-        case RegionType::Trace:
-          return RegionTrace::alloc<size>(alloc, in, desc);
-        case RegionType::Arena:
-          return RegionArena::alloc<size>(alloc, in, desc);
-        case RegionType::Rc:
-          return RegionRc::alloc<size>(alloc, in, desc);
-        default:
-          abort();
-      }
-    }
-
-    /**
      * Scan the region to find all cowns, following pointers to immutables and
      * subregions. This is used to keep reachable cowns alive and prevent them
      * from being collected by the leak detector.
@@ -201,41 +176,6 @@ namespace verona::rt
     {
       assert(o->debug_is_iso());
       return o->get_region();
-    }
-
-    /**
-     * Iterate over the region represented by iso object 'o' and count the
-     * number of objects (including `o`) within that region. Ignores
-     * subregions.
-     *
-     * For testing and debugging purposes only.
-     **/
-    static size_t debug_size(Object* o)
-    {
-      assert(o->debug_is_iso());
-      RegionBase* r = o->get_region();
-      size_t count = 0;
-      switch (Region::get_type(r))
-      {
-        case RegionType::Trace:
-          for (auto p : *((RegionTrace*)r))
-          {
-            UNUSED(p);
-            count++;
-          }
-          return count;
-        case RegionType::Arena:
-          for (auto p : *((RegionArena*)r))
-          {
-            UNUSED(p);
-            count++;
-          }
-          return count;
-        case RegionType::Rc:
-          return ((RegionRc*)r)->region_size;
-        default:
-          abort();
-      }
     }
 
   private:
@@ -316,15 +256,7 @@ namespace verona::rt
      **/
     static void release_internal(Alloc& alloc, Object* o, ObjectStack& collect)
     {
-      RegionBase* r = nullptr;
-      if (o->is_opened())
-      {
-        r = active_region_md;
-      }
-      else
-      {
-        r = o->get_region();
-      }
+      auto r = o->get_region();
       switch (Region::get_type(r))
       {
         case RegionType::Trace:
@@ -335,18 +267,7 @@ namespace verona::rt
           return;
         case RegionType::Rc:
         {
-          RegionBase* current = opened_region();
-          if (!o->is_opened())
-          {
-            RegionRc::open(o);
-            set_opened_region(r);
-            ((RegionRc*)r)->release_internal(alloc, o, collect);
-            set_opened_region(current);
-          }
-          else
-          {
-            ((RegionRc*)r)->release_internal(alloc, o, collect);
-          }
+          ((RegionRc*)r)->release_internal(alloc, o, collect);
           return;
         }
         default:
@@ -355,78 +276,8 @@ namespace verona::rt
     }
   };
 
-  inline static RegionBase* opened_region()
+  inline size_t debug_get_ref_count(Object* o)
   {
-    return active_region_md;
+    return o->get_ref_count();
   }
-
-  inline static void clear_opened_region()
-  {
-    active_region_md = nullptr;
-  }
-
-  inline static void set_opened_region(RegionBase* reg)
-  {
-    active_region_md = reg;
-  }
-
-  struct UsingRegion
-  {
-    UsingRegion(Object* iso) : iso(iso)
-    {
-      RegionBase* r = iso->get_region();
-      active_region_md = r;
-      // We store the type here because get_type can't be called on an opened
-      // region since we modify the ISO header.
-      type = Region::get_type(r);
-
-      switch (type)
-      {
-        case RegionType::Trace:
-        case RegionType::Arena:
-          break;
-        case RegionType::Rc:
-          ((RegionRc*)r)->open(iso);
-          break;
-        default:
-          abort();
-      }
-    }
-
-    ~UsingRegion()
-    {
-      if (!active_region_md)
-      {
-        // The region closed itself (i.e. release was called)
-        return;
-      }
-      switch (type)
-      {
-        case RegionType::Trace:
-        case RegionType::Arena:
-          break;
-        case RegionType::Rc:
-          ((RegionRc*)active_region_md)->close(iso, active_region_md);
-          break;
-        default:
-          abort();
-      }
-      clear_opened_region();
-    }
-
-    size_t debug_size()
-    {
-      assert(type == RegionType::Rc);
-      return ((RegionRc*)active_region_md)->region_size;
-    }
-
-    size_t debug_get_ref_count(Object* o)
-    {
-      assert(type == RegionType::Rc);
-      return o->get_ref_count();
-    }
-
-    Object* iso;
-    RegionType type;
-  };
 } // namespace verona::rt

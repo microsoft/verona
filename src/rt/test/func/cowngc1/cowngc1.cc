@@ -93,10 +93,9 @@ struct CCown : public VCown<CCown>
   }
 };
 
-template<RegionType region_type>
-struct O : public V<O<region_type>, region_type>
+struct O : public V<O>
 {
-  O<RegionType::Trace>* f1 = nullptr;
+  O* f1 = nullptr;
   CCown* cown = nullptr;
 
   void trace(ObjectStack& st) const
@@ -107,8 +106,9 @@ struct O : public V<O<region_type>, region_type>
       st.push(cown);
   }
 };
-using OTrace = O<RegionType::Trace>;
-using OArena = O<RegionType::Arena>;
+// The types are used for documentation purposes only.
+using OTrace = O;
+using OArena = O;
 
 struct RCown : public VCown<RCown>
 {
@@ -145,7 +145,7 @@ struct RCown : public VCown<RCown>
 
     // Initialize otrace
     {
-      otrace = new OTrace;
+      otrace = new (RegionType::Trace) OTrace;
       otrace->cown = new CCown(shared_child);
       Systematic::cout() << "  child " << otrace->cown << std::endl;
       // Transfer ownership of child CCown to the regions.
@@ -156,7 +156,7 @@ struct RCown : public VCown<RCown>
 
     // Initialize oarena
     {
-      oarena = new OArena;
+      oarena = new (RegionType::Arena) OArena;
       oarena->cown = new CCown(shared_child);
       Systematic::cout() << "  child " << oarena->cown << std::endl;
       // Transfer ownership of child CCown to the regions.
@@ -169,28 +169,34 @@ struct RCown : public VCown<RCown>
     {
       // Create two immutables. Each is a two object cycle, but we pass a
       // different object to RCown, to get coverage of RC vs SCC objects.
-      auto r1 = new OTrace;
-      r1->f1 = new (r1) OTrace;
-      r1->f1->f1 = r1;
-      r1->cown = new CCown(shared_child);
-      Systematic::cout() << "  child " << r1->cown << std::endl;
-      Cown::acquire(shared_child); // acquire on behalf of child CCown
-      r1->f1->cown = new CCown(shared_child);
-      Systematic::cout() << "  child " << r1->f1->cown << std::endl;
-      Cown::acquire(shared_child); // acquire on behalf of child CCown
+      auto r1 = new (RegionType::Trace) OTrace;
+      {
+        UsingRegion ur(r1);
+        r1->f1 = new OTrace;
+        r1->f1->f1 = r1;
+        r1->cown = new CCown(shared_child);
+        Systematic::cout() << "  child " << r1->cown << std::endl;
+        Cown::acquire(shared_child); // acquire on behalf of child CCown
+        r1->f1->cown = new CCown(shared_child);
+        Systematic::cout() << "  child " << r1->f1->cown << std::endl;
+        Cown::acquire(shared_child); // acquire on behalf of child CCown
+      }
 
-      auto r2 = new OTrace;
-      r2->f1 = new (r2) OTrace;
-      r2->f1->f1 = r2;
-      r2->cown = new CCown(shared_child);
-      Systematic::cout() << "  child " << r2->cown << std::endl;
-      Cown::acquire(shared_child); // acquire on behalf of child CCown
-      r2->f1->cown = new CCown(shared_child);
-      Systematic::cout() << "  child " << r2->f1->cown << std::endl;
-      Cown::acquire(shared_child); // acquire on behalf of child CCown
+      auto r2 = new (RegionType::Trace) OTrace;
+      {
+        UsingRegion ur(r2);
+        r2->f1 = new OTrace;
+        r2->f1->f1 = r2;
+        r2->cown = new CCown(shared_child);
+        Systematic::cout() << "  child " << r2->cown << std::endl;
+        Cown::acquire(shared_child); // acquire on behalf of child CCown
+        r2->f1->cown = new CCown(shared_child);
+        Systematic::cout() << "  child " << r2->f1->cown << std::endl;
+        Cown::acquire(shared_child); // acquire on behalf of child CCown
+      }
 
-      Freeze::apply(alloc, r1);
-      Freeze::apply(alloc, r2);
+      freeze(r1);
+      freeze(r2);
       imm1 = r1;
       imm2 = r2->f1;
 

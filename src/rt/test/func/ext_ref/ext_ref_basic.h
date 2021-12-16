@@ -13,9 +13,6 @@ namespace ext_ref_basic
   struct A;
   struct B;
 
-  A* g_a;
-  DList* g_list;
-
   struct Node : public V<Node>
   {
     static int count;
@@ -40,9 +37,9 @@ namespace ext_ref_basic
 
     B(Object* list, Object* node)
     {
-      auto region = Region::get(list);
-      ext_node = ExternalRef::create(region, node);
-      ext_node_alias = ExternalRef::create(region, node);
+      UsingRegion ur(list);
+      ext_node = create_external_reference(node);
+      ext_node_alias = create_external_reference(node);
     }
 
     void trace(ObjectStack& st) const
@@ -61,8 +58,9 @@ namespace ext_ref_basic
 
     DList(int n)
     {
-      first = new (this) Node;
-      last = new (this) Node;
+      UsingRegion ur(this);
+      first = new Node;
+      last = new Node;
 
       first->next = last;
       last->prev = first;
@@ -71,7 +69,7 @@ namespace ext_ref_basic
       auto cur = first;
       for (auto i = 0; i < n; ++i)
       {
-        auto node = new (this) Node;
+        auto node = new Node;
 
         auto b = new B(this, node);
         node->element = b;
@@ -125,38 +123,37 @@ namespace ext_ref_basic
     auto& alloc = ThreadAlloc::get();
     (void)alloc;
 
-    g_list = new DList(1);
-    g_a = new A(g_list);
+    auto list = new (RegionType::Trace) DList(1);
+    auto a = new A(list);
 
-    auto b = g_list->first->next->element;
+    auto b = list->first->next->element;
 
-    // Aliasing ext_node in AMsg.
+    // Aliasing ext_node in Closure.
     Immutable::acquire(b->ext_node);
-    auto a = g_a;
     auto ext_node = b->ext_node;
     schedule_lambda(a, [a, ext_node]() {
       auto& alloc = ThreadAlloc::get();
 
       auto list = a->list;
-      check(ext_node->is_in(Region::get(g_list)));
-      auto node = (Node*)ext_node->get();
+      UsingRegion ur(list);
+      check(is_external_reference_valid(ext_node));
+      auto node = (Node*)use_external_reference(ext_node);
 
       node->prev->next = node->next;
       node->next->prev = node->prev;
 
       node->element = nullptr;
-      RegionTrace::gc(alloc, list);
+      region_collect();
 
-      check(!ext_node->is_in(Region::get(g_list)));
+      check(!is_external_reference_valid(ext_node));
       Immutable::release(alloc, ext_node);
     });
-    Cown::release(alloc, g_a);
+    Cown::release(alloc, a);
     sched.run();
     snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
 
-  template<RegionType region_type>
-  struct R : public V<R<region_type>, region_type>
+  struct R : public V<R>
   {};
 
   template<RegionType region_type>
@@ -165,14 +162,16 @@ namespace ext_ref_basic
     auto& alloc = ThreadAlloc::get();
     (void)alloc;
 
-    auto r = new (alloc) R<region_type>;
-    auto region = Region::get(r);
-    auto ext_ref = ExternalRef::create(region, r);
-    check(ext_ref->is_in(region));
-    check(ext_ref->get() == r);
+    auto r = new (region_type) R;
+    {
+      UsingRegion ur(r);
+      auto ext_ref = create_external_reference(r);
+      check(is_external_reference_valid(ext_ref));
+      check(use_external_reference(ext_ref) == r);
+      Immutable::release(alloc, ext_ref);
+    }
 
-    Immutable::release(alloc, ext_ref);
-    Region::release(alloc, r);
+    region_release(r);
 
     snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
   }
@@ -182,6 +181,7 @@ namespace ext_ref_basic
     basic_test();
     singleton_region_test<RegionType::Trace>();
     singleton_region_test<RegionType::Arena>();
+    // TODO: RegionType::Rc
   }
 
   void run_all()

@@ -12,19 +12,21 @@ namespace memory_merge
    * releases the regions and makes a few assertions.
    **/
   template<RegionType region_type>
-  void test_merge_helper(Alloc& alloc, Object* r1, Object* r2)
+  void test_merge_helper(Object* r1, Object* r2)
   {
-    using RegionClass = typename RegionType_to_class<region_type>::T;
+    {
+      UsingRegion r(r1);
+      merge(r2);
 
-    RegionClass::merge(alloc, r1, r2);
-    check(!r2->debug_is_iso());
+      check(!r2->debug_is_iso());
 
-    // Allocate a few more things to ensure our pointers are correct.
-    new (alloc, r1) LargeC2<region_type>;
-    new (alloc, r1) LargeF2<region_type>;
-    new (alloc, r1) XLargeC2<region_type>;
+      // Allocate a few more things to ensure our pointers are correct.
+      new LargeC2;
+      new LargeF2;
+      new XLargeC2;
+    }
 
-    Region::release(alloc, r1);
+    region_release(r1);
     snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
     check(live_count == 0);
   }
@@ -35,42 +37,48 @@ namespace memory_merge
   template<RegionType region_type>
   void test_merge()
   {
-    using RegionClass = typename RegionType_to_class<region_type>::T;
-    using C = C1<region_type>;
-    using F = F1<region_type>;
-    using LC = LargeC2<region_type>;
-    using XC = XLargeC2<region_type>;
+    using C = C1;
+    using F = F1;
+    using LC = LargeC2;
+    using XC = XLargeC2;
 
     // Quick sanity check that merges two regions, allocates a few more
     // objects, swaps roots a few times, and allocates more objects. We're
     // checking that region internal structures are still sensible.
     {
-      auto& alloc = ThreadAlloc::get();
+      auto r1 = alloc_region<C>(region_type);
+      XC* o1 = alloc_in_region<1, F, XC>(r1);
 
-      C* r1 = new (alloc) C;
-      new (alloc, r1) F;
-      XC* o1 = new (alloc, r1) XC;
+      auto r2 = alloc_region<F>(region_type);
+      auto o2 = alloc_in_region<1, F, C, LC>(r2);
 
-      F* r2 = new (alloc) F;
-      new (alloc, r2) F;
-      C* o2 = new (alloc, r2) C;
-      new (alloc, r2) LC;
+      {
+        UsingRegion rr(r1);
+        merge(r2);
+      }
 
-      RegionClass::merge(alloc, r1, r2);
       check(r1->debug_is_iso() && !r2->debug_is_iso());
 
-      alloc_in_region<F, F, LC, XC>(alloc, r1);
+      {
+        UsingRegion rr(r1);
+        allocs<0, F, F, LC, XC>();
 
-      RegionClass::swap_root(r1, o1);
-      alloc_in_region<C, C>(alloc, o1);
-      RegionClass::swap_root(o1, r2);
-      alloc_in_region<LC, F>(alloc, r2);
-      RegionClass::swap_root(r2, o2);
-      check(o2->debug_is_iso());
+        set_entry_point(o1);
 
-      alloc_in_region<F, LC>(alloc, o2);
+        allocs<0, C, C>();
 
-      Region::release(alloc, o2);
+        set_entry_point(r2);
+
+        allocs<0, LC, F>();
+
+        set_entry_point(o2);
+
+        check(o2->debug_is_iso());
+
+        allocs<0, F, LC>();
+      }
+
+      region_release(o2);
       snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
       check(live_count == 0);
     }
@@ -92,145 +100,129 @@ namespace memory_merge
       // Primary ring:   {singleton x singleton} (mismatch)
       // Secondary ring: {empty x empty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C>(alloc);
-        auto* r2 = alloc_region<F>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto r1 = alloc_region<C>(region_type);
+        auto r2 = alloc_region<F>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {singleton x singleton} (mismatch)
       // Secondary ring: {empty x nonempty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C>(alloc);
-        auto* r2 = alloc_region<F, C, C>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C>(region_type);
+        auto* r2 = alloc_region<F, C, C>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {singleton x singleton} (mismatch)
       // Secondary ring: {nonempty x empty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C, F, F>(alloc);
-        auto* r2 = alloc_region<F>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C, F, F>(region_type);
+        auto* r2 = alloc_region<F>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {singleton x singleton} (mismatch)
       // Secondary ring: {nonempty x nonempty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C, F, F>(alloc);
-        auto* r2 = alloc_region<F, C, C>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C, F, F>(region_type);
+        auto* r2 = alloc_region<F, C, C>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {singleton x multiple}
       // Secondary ring: {empty x empty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C>(alloc);
-        auto* r2 = alloc_region<C, C, C>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C>(region_type);
+        auto* r2 = alloc_region<C, C, C>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {singleton x multiple}
       // Secondary ring: {empty x nonempty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C>(alloc);
-        auto* r2 = alloc_region<C, C, F, F>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C>(region_type);
+        auto* r2 = alloc_region<C, C, F, F>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {singleton x multiple}
       // Secondary ring: {nonempty x empty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<F, C, C>(alloc);
-        auto* r2 = alloc_region<F, F, F>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<F, C, C>(region_type);
+        auto* r2 = alloc_region<F, F, F>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {singleton x multiple}
       // Secondary ring: {nonempty x nonempty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C, F, F>(alloc);
-        auto* r2 = alloc_region<C, C, F, F>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C, F, F>(region_type);
+        auto* r2 = alloc_region<C, C, F, F>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {multiple x singleton}
       // Secondary ring: {empty x empty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C, C, C>(alloc);
-        auto* r2 = alloc_region<C>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C, C, C>(region_type);
+        auto* r2 = alloc_region<C>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {multiple x singleton}
       // Secondary ring: {empty x nonempty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C, C, C>(alloc);
-        auto* r2 = alloc_region<C, F>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C, C, C>(region_type);
+        auto* r2 = alloc_region<C, F>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {multiple x singleton}
       // Secondary ring: {nonempty x empty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<F, F, C>(alloc);
-        auto* r2 = alloc_region<F>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<F, F, C>(region_type);
+        auto* r2 = alloc_region<F>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {multiple x singleton}
       // Secondary ring: {nonempty x nonempty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C, C, F>(alloc);
-        auto* r2 = alloc_region<C, F>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C, C, F>(region_type);
+        auto* r2 = alloc_region<C, F>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {multiple x multiple} (mismatch)
       // Secondary ring: {empty x empty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C, C, C>(alloc);
-        auto* r2 = alloc_region<F, F, F>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C, C, C>(region_type);
+        auto* r2 = alloc_region<F, F, F>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {multiple x multiple} (mismatch)
       // Secondary ring: {empty x nonempty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<F, F, F>(alloc);
-        auto* r2 = alloc_region<C, C, F>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<F, F, F>(region_type);
+        auto* r2 = alloc_region<C, C, F>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {multiple x multiple} (mismatch)
       // Secondary ring: {nonempty x empty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<F, F, F, C>(alloc);
-        auto* r2 = alloc_region<C, C>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<F, F, F, C>(region_type);
+        auto* r2 = alloc_region<C, C>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Primary ring:   {multiple x multiple} (mismatch)
       // Secondary ring: {nonempty x nonempty}
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C, C, C, F, F>(alloc);
-        auto* r2 = alloc_region<F, F, F, C, C>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C, C, C, F, F>(region_type);
+        auto* r2 = alloc_region<F, F, F, C, C>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
     }
     else if constexpr (region_type == RegionType::Arena)
@@ -244,82 +236,73 @@ namespace memory_merge
       // Arena linked lists: empty x empty
       // Large object rings: multiple x multiple
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<XC, XC>(alloc);
-        auto* r2 = alloc_region<XC, XC>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<XC, XC>(region_type);
+        auto* r2 = alloc_region<XC, XC>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Arena linked lists: empty x singleton
       // Large object rings: multiple x singleton
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<XC, XC>(alloc);
-        auto* r2 = alloc_region<XC, C>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<XC, XC>(region_type);
+        auto* r2 = alloc_region<XC, C>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Arena linked lists: empty x multiple
       // Large object rings: multiple x empty
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<XC, XC>(alloc);
-        auto* r2 = alloc_region<LC, LC>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<XC, XC>(region_type);
+        auto* r2 = alloc_region<LC, LC>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Arena linked lists: singleton x empty
       // Large object rings: singleton x multiple
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C, XC>(alloc);
-        auto* r2 = alloc_region<XC, XC>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C, XC>(region_type);
+        auto* r2 = alloc_region<XC, XC>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Arena linked lists: singleton x singleton
       // Large object rings: singleton x singleton
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C, XC>(alloc);
-        auto* r2 = alloc_region<C, XC>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C, XC>(region_type);
+        auto* r2 = alloc_region<C, XC>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Arena linked lists: singleton x multiple
       // Large object rings: singleton x empty
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<C, XC>(alloc);
-        auto* r2 = alloc_region<LC, LC>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<C, XC>(region_type);
+        auto* r2 = alloc_region<LC, LC>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Arena linked lists: multiple x empty
       // Large object rings: empty x multiple
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<LC, LC>(alloc);
-        auto* r2 = alloc_region<XC, XC>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<LC, LC>(region_type);
+        auto* r2 = alloc_region<XC, XC>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Arena linked lists: multiple x singleton
       // Large object rings: empty x singleton
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<LC, LC>(alloc);
-        auto* r2 = alloc_region<C, XC>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<LC, LC>(region_type);
+        auto* r2 = alloc_region<C, XC>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
 
       // Arena linked lists: multiple x multiple
       // Large object rings: empty x empty
       {
-        auto& alloc = ThreadAlloc::get();
-        auto* r1 = alloc_region<LC, LC>(alloc);
-        auto* r2 = alloc_region<LC, LC>(alloc);
-        test_merge_helper<region_type>(alloc, r1, r2);
+        auto* r1 = alloc_region<LC, LC>(region_type);
+        auto* r2 = alloc_region<LC, LC>(region_type);
+        test_merge_helper<region_type>(r1, r2);
       }
     }
   }

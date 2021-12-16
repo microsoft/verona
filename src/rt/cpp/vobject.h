@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "../region/region.h"
+#include "../region/region_api.h"
 
+#include <new>
 #include <type_traits>
 
 namespace verona::rt
@@ -132,6 +133,13 @@ namespace verona::rt
       // region.
     }
 
+    void operator delete(void*, RegionType)
+    {
+      // Should not be called directly, present to allow calling if the
+      // constructor throws an exception. The object lifetime is managed by the
+      // region.
+    }
+
     void* operator new[](size_t size) = delete;
     void operator delete[](void* p) = delete;
     void operator delete[](void* p, size_t sz) = delete;
@@ -142,36 +150,20 @@ namespace verona::rt
    *
    * Will fill the Verona descriptor with relevant fields.
    */
-  template<class T, RegionType region_type = RegionType::Trace>
+  template<class T>
   class V : public VBase<T, Object>
   {
-    using RegionClass = typename RegionType_to_class<region_type>::T;
-
   public:
     V() : VBase<T, Object>() {}
 
     void* operator new(size_t)
     {
-      return RegionClass::template create<vsizeof<T>>(
-        ThreadAlloc::get(), VBase<T, Object>::desc());
+      return api::create_object(VBase<T, Object>::desc());
     }
 
-    void* operator new(size_t, Alloc& alloc)
+    void* operator new(size_t, RegionType rt)
     {
-      return RegionClass::template create<vsizeof<T>>(
-        alloc, VBase<T, Object>::desc());
-    }
-
-    void* operator new(size_t, Object* region)
-    {
-      return RegionClass::template alloc<vsizeof<T>>(
-        ThreadAlloc::get(), region, VBase<T, Object>::desc());
-    }
-
-    void* operator new(size_t, Alloc& alloc, Object* region)
-    {
-      return RegionClass::template alloc<vsizeof<T>>(
-        alloc, region, VBase<T, Object>::desc());
+      return api::create_fresh_region<V>(rt, V::desc());
     }
   };
 

@@ -103,11 +103,11 @@ namespace noticeboard_basic
       auto& alloc = ThreadAlloc::get();
       if (db->n == 30)
       {
-        C* new_c = new (alloc) C(1);
+        C* new_c = new (RegionType::Trace) C(1);
 
         Systematic::cout() << "Update DB Create C " << new_c << std::endl;
 
-        Freeze::apply(alloc, new_c);
+        freeze(new_c);
         db->box.update(alloc, new_c);
       }
 
@@ -206,8 +206,8 @@ namespace noticeboard_basic
     Alive* alive = new (alloc) Alive;
     Systematic::cout() << "Alive" << alive << std::endl;
 
-    C* c = new (alloc) C(0);
-    c->next = new (alloc) C(10);
+    C* c = new (RegionType::Trace) C(0);
+    c->next = new (RegionType::Trace) C(10);
 
     RegionTrace::insert(alloc, c, alive);
     c->alive = alive;
@@ -216,7 +216,7 @@ namespace noticeboard_basic
 
     Systematic::cout() << "Create C next" << c->next << std::endl;
 
-    Freeze::apply(alloc, c);
+    freeze(c);
 
     DB* db = new DB(c);
     Systematic::cout() << "DB " << db << std::endl;

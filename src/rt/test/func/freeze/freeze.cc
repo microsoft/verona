@@ -8,6 +8,7 @@
 
 using namespace snmalloc;
 using namespace verona::rt;
+using namespace verona::rt::api;
 
 // This only tests trace regions.
 // At the moment, it does not make sense to freeze arena regions.
@@ -87,11 +88,14 @@ void test1()
   // 2 -> 1
   auto& alloc = ThreadAlloc::get();
 
-  C1* r = new (alloc) C1;
-  r->f1 = new (alloc, r) C1;
-  r->f1->f1 = r;
+  C1* r = new (RegionType::Trace) C1;
+  {
+    UsingRegion r2(r);
+    r->f1 = new C1;
+    r->f1->f1 = r;
+  }
 
-  Freeze::apply(alloc, r);
+  freeze(r);
 
   auto rr = r->debug_immutable_root();
   UNUSED(rr);
@@ -116,25 +120,30 @@ void test2()
   // 6 -> 4, 3 = ptr 2
   auto& alloc = ThreadAlloc::get();
 
-  C1* o1 = new (alloc) C1;
-  C1* o2 = new (alloc, o1) C1;
-  C1* o3 = new (alloc, o1) C1;
-  C1* o4 = new (alloc, o1) C1;
-  C1* o5 = new (alloc, o1) C1;
-  C1* o6 = new (alloc, o1) C1;
+  C1* o1 = new (RegionType::Trace) C1;
+  C1 *o2, *o3, *o4, *o5, *o6;
+  {
+    UsingRegion r(o1);
 
-  o1->f1 = o2;
-  o1->f2 = o3;
-  o2->f1 = o3;
-  o2->f2 = o4;
-  o4->f1 = o3;
-  o4->f2 = o5;
-  o5->f1 = o2;
-  o5->f2 = o6;
-  o6->f1 = o4;
-  o6->f2 = o3;
+    o2 = new C1;
+    o3 = new C1;
+    o4 = new C1;
+    o5 = new C1;
+    o6 = new C1;
 
-  Freeze::apply(alloc, o1);
+    o1->f1 = o2;
+    o1->f2 = o3;
+    o2->f1 = o3;
+    o2->f2 = o4;
+    o4->f1 = o3;
+    o4->f2 = o5;
+    o5->f1 = o2;
+    o5->f2 = o6;
+    o6->f1 = o4;
+    o6->f2 = o3;
+  }
+
+  freeze(o1);
 
   check(o1->debug_immutable_root() == o1);
   check(o1->debug_test_rc(1));
@@ -169,36 +178,40 @@ void test3()
   // 9 -> 1, 1 = scc rc 1
   auto& alloc = ThreadAlloc::get();
 
-  C1* o1 = new (alloc) C1;
-  C1* o2 = new (alloc, o1) C1;
-  C1* o3 = new (alloc, o1) C1;
-  C1* o4 = new (alloc, o1) C1;
-  C1* o5 = new (alloc, o1) C1;
-  C1* o6 = new (alloc, o1) C1;
-  C1* o7 = new (alloc, o1) C1;
-  C1* o8 = new (alloc, o1) C1;
-  C1* o9 = new (alloc, o1) C1;
+  auto o1 = new (RegionType::Trace) C1;
+  C1 *o2, *o3, *o4, *o5, *o6, *o7, *o8, *o9;
+  {
+    UsingRegion r(o1);
+    o2 = new C1;
+    o3 = new C1;
+    o4 = new C1;
+    o5 = new C1;
+    o6 = new C1;
+    o7 = new C1;
+    o8 = new C1;
+    o9 = new C1;
 
-  o1->f1 = o2;
-  o1->f2 = o2;
-  o2->f1 = o3;
-  o2->f2 = o9;
-  o3->f1 = o4;
-  o3->f2 = o7;
-  o4->f1 = o5;
-  o4->f2 = o6;
-  o5->f1 = o3;
-  o5->f2 = o3;
-  o6->f1 = o2;
-  o6->f2 = o2;
-  o7->f1 = o8;
-  o7->f2 = o8;
-  o8->f1 = o4;
-  o8->f2 = o4;
-  o9->f1 = o1;
-  o9->f2 = o1;
+    o1->f1 = o2;
+    o1->f2 = o2;
+    o2->f1 = o3;
+    o2->f2 = o9;
+    o3->f1 = o4;
+    o3->f2 = o7;
+    o4->f1 = o5;
+    o4->f2 = o6;
+    o5->f1 = o3;
+    o5->f2 = o3;
+    o6->f1 = o2;
+    o6->f2 = o2;
+    o7->f1 = o8;
+    o7->f2 = o8;
+    o8->f1 = o4;
+    o8->f2 = o4;
+    o9->f1 = o1;
+    o9->f2 = o1;
+  }
 
-  Freeze::apply(alloc, o1);
+  freeze(o1);
 
   auto r = o1->debug_immutable_root();
   UNUSED(r);
@@ -231,19 +244,27 @@ void test4()
   // 5         = scc rc 1
   auto& alloc = ThreadAlloc::get();
 
-  C1* o1 = new (alloc) C1;
-  C1* o2 = new (alloc) C1;
-  C1* o3 = new (alloc, o2) C1;
-  C1* o4 = new (alloc, o2) C1;
-  C1* o5 = new (alloc) C1;
+  C1* o1 = new (RegionType::Trace) C1;
+  C1* o2 = new (RegionType::Trace) C1;
+  C1 *o3, *o4, *o5;
+  {
+    UsingRegion r(o2);
+    o3 = new C1;
+    o4 = new C1;
+    o2->f1 = o3;
+    o3->f1 = o4;
+    o4->f1 = o2;
 
-  o1->f1 = o2;
-  o2->f1 = o3;
-  o3->f1 = o4;
-  o4->f1 = o2;
-  o4->f2 = o5;
+    o5 = new (RegionType::Trace) C1;
+    o4->f2 = o5;
+  }
 
-  Freeze::apply(alloc, o1);
+  {
+    UsingRegion r(o1);
+    o1->f1 = o2;
+  }
+
+  freeze(o1);
 
   check(o1->debug_test_rc(1));
 
@@ -272,16 +293,18 @@ void test5()
   // Ptr from 2 to subregion 3
   auto& alloc = ThreadAlloc::get();
 
-  C1* o1 = new (alloc) C1;
+  C1* o1 = new (RegionType::Trace) C1;
   std::cout << "o1: " << o1 << std::endl;
-  C1* o2 = new (alloc, o1) C1;
-  std::cout << "o2: " << o2 << std::endl;
-  C1* o3 = new (alloc) C1;
-  std::cout << "o3: " << o3 << std::endl;
+  {
+    UsingRegion r(o1);
+    C1* o2 = new C1;
+    std::cout << "o2: " << o2 << std::endl;
+    C1* o3 = new (RegionType::Trace) C1;
+    std::cout << "o3: " << o3 << std::endl;
+    o2->f1 = o3;
+  }
 
-  o2->f1 = o3;
-
-  Freeze::apply(alloc, o1);
+  freeze(o1);
 
   check(o1->debug_test_rc(1));
 
@@ -295,19 +318,23 @@ void freeze_weird_ring()
 {
   auto& alloc = ThreadAlloc::get();
 
-  List<Foo>* root = new (alloc) List<Foo>;
-  List<Foo>* next = new (alloc, root) List<Foo>;
-  List<Foo>* next_next = new (alloc, root) List<Foo>;
+  auto root = new (RegionType::Trace) List<Foo>;
 
-  Foo* foo1 = new (alloc, root) Foo;
-  Foo* foo2 = new (alloc, root) Foo;
-  Foo* foo3 = new (alloc, root) Foo;
+  {
+    UsingRegion r(root);
+    List<Foo>* next = new List<Foo>;
+    List<Foo>* next_next = new List<Foo>;
 
-  root->init(foo1, next);
-  next->init(foo2, next_next);
-  next_next->init(foo3, root);
+    Foo* foo1 = new Foo;
+    Foo* foo2 = new Foo;
+    Foo* foo3 = new Foo;
 
-  Freeze::apply(alloc, root);
+    root->init(foo1, next);
+    next->init(foo2, next_next);
+    next_next->init(foo3, root);
+  }
+
+  freeze(root);
 
   // Free immutable graph.
   Immutable::release(alloc, root);
@@ -332,9 +359,13 @@ struct Symbolic : public V<Symbolic>
 void test_two_rings_1()
 {
   auto& alloc = ThreadAlloc::get();
-  auto r = new (alloc) C1;
-  new (alloc, r) Symbolic;
-  Freeze::apply(alloc, r);
+
+  auto r = new (RegionType::Trace) C1;
+  {
+    UsingRegion rr(r);
+    new Symbolic;
+  }
+  freeze(r);
   Immutable::release(alloc, r);
   snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
@@ -342,9 +373,12 @@ void test_two_rings_1()
 void test_two_rings_2()
 {
   auto& alloc = ThreadAlloc::get();
-  auto r = new (alloc) Symbolic;
-  new (alloc, r) C1;
-  Freeze::apply(alloc, r);
+  auto r = new (RegionType::Trace) Symbolic;
+  {
+    UsingRegion rr(r);
+    new C1;
+  }
+  freeze(r);
   Immutable::release(alloc, r);
   snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }
@@ -356,14 +390,16 @@ void test_random(size_t seed = 1, size_t max_edges = 128)
   size_t id = 0;
 
   xoroshiro::p128r32 r(seed);
-  Symbolic* root = new (alloc) Symbolic;
-  {
+  Symbolic* root = new (RegionType::Trace) Symbolic;
 #ifndef NDEBUG
-    bool* reach = new bool[max_edges * max_edges];
-    for (size_t i = 0; i < max_edges * max_edges; i++)
-      reach[i] = false;
+  bool* reach = new bool[max_edges * max_edges];
+  for (size_t i = 0; i < max_edges * max_edges; i++)
+    reach[i] = false;
 #endif
-    std::vector<Symbolic*> all_objects;
+  std::vector<Symbolic*> all_objects;
+
+  {
+    UsingRegion rr(root);
     root->id = id++;
     all_objects.push_back(root);
     check(all_objects[root->id] == root);
@@ -380,7 +416,7 @@ void test_random(size_t seed = 1, size_t max_edges = 128)
         dst = all_objects[r.next() % all_objects.size()];
       else
       {
-        dst = new (alloc, root) Symbolic;
+        dst = new Symbolic;
         dst->id = id++;
         all_objects.push_back(dst);
         check(all_objects[root->id] == root);
@@ -391,100 +427,100 @@ void test_random(size_t seed = 1, size_t max_edges = 128)
       reach[src->id * max_edges + dst->id] = true;
 #endif
     }
-    Freeze::apply(alloc, root);
+  }
+  freeze(root);
 
 #ifndef NDEBUG
-    // build transitive closure in rev_fields
-    // This is using Floyd-Warshall's algorithm restricted to
-    // reachability.
-    // https://en.wikipedia.org/wiki/Floyd–Warshall_algorithm
-    // This is O(N^3) the algorithm we are testing is O(N),
-    // so don't do this on big graphs.
-    for (size_t k = 0; k < all_objects.size(); k++)
+  // build transitive closure in rev_fields
+  // This is using Floyd-Warshall's algorithm restricted to
+  // reachability.
+  // https://en.wikipedia.org/wiki/Floyd–Warshall_algorithm
+  // This is O(N^3) the algorithm we are testing is O(N),
+  // so don't do this on big graphs.
+  for (size_t k = 0; k < all_objects.size(); k++)
+  {
+    for (size_t j = 0; j < all_objects.size(); j++)
     {
-      for (size_t j = 0; j < all_objects.size(); j++)
+      if (j == k)
+        continue;
+      for (size_t i = 0; i < all_objects.size(); i++)
       {
-        if (j == k)
+        if (i == j || i == k)
           continue;
-        for (size_t i = 0; i < all_objects.size(); i++)
-        {
-          if (i == j || i == k)
-            continue;
 
-          if (reach[i * max_edges + k] && reach[k * max_edges + j])
-            reach[i * max_edges + j] = true;
-        }
+        if (reach[i * max_edges + k] && reach[k * max_edges + j])
+          reach[i * max_edges + j] = true;
       }
     }
+  }
 
-    // Check SCCs are correct
-    // If a can reach b, and b can reach a, then they should be
-    // in the same scc, i.e. have the same root in the SCC algorithm.
-    for (size_t i = 0; i < all_objects.size(); i++)
+  // Check SCCs are correct
+  // If a can reach b, and b can reach a, then they should be
+  // in the same scc, i.e. have the same root in the SCC algorithm.
+  for (size_t i = 0; i < all_objects.size(); i++)
+  {
+    // Will have been collected if not reachable
+    if (!reach[root->id * max_edges + i])
+      continue;
+
+    auto io = all_objects[i];
+    auto ior = (Symbolic*)io->debug_immutable_root();
+
+    for (size_t j = 0; j < all_objects.size(); j++)
     {
       // Will have been collected if not reachable
-      if (!reach[root->id * max_edges + i])
+      if (!reach[root->id * max_edges + j])
+        continue;
+      if (i == j)
         continue;
 
-      auto io = all_objects[i];
-      auto ior = (Symbolic*)io->debug_immutable_root();
+      bool i_reaches_j = reach[i * max_edges + j];
+      bool j_reaches_i = reach[j * max_edges + i];
 
-      for (size_t j = 0; j < all_objects.size(); j++)
-      {
-        // Will have been collected if not reachable
-        if (!reach[root->id * max_edges + j])
-          continue;
-        if (i == j)
-          continue;
+      auto jo = all_objects[j];
+      auto jor = jo->debug_immutable_root();
+      bool different_root = jor != ior;
+      bool in_scc = i_reaches_j && j_reaches_i;
 
-        bool i_reaches_j = reach[i * max_edges + j];
-        bool j_reaches_i = reach[j * max_edges + i];
-
-        auto jo = all_objects[j];
-        auto jor = jo->debug_immutable_root();
-        bool different_root = jor != ior;
-        bool in_scc = i_reaches_j && j_reaches_i;
-
-        if (different_root == in_scc)
-          abort();
-      }
+      if (different_root == in_scc)
+        abort();
     }
-    // Root has RC of one
-    size_t* refcount = new size_t[max_edges];
-    for (size_t i = 0; i < all_objects.size(); i++)
-    {
-      refcount[i] = i == 0 ? 1 : 0;
-    }
-    // For each object, and each field add an RC
-    for (size_t i = 0; i < all_objects.size(); i++)
-    {
-      if (!reach[root->id * max_edges + i])
-        continue;
-      auto io = all_objects[i];
-      auto ior = io->debug_immutable_root();
-      for (auto ko : io->fields)
-      {
-        auto kor = (Symbolic*)ko->debug_immutable_root();
-        // Ignore edges between the same SCC
-        if (kor != ior)
-          continue;
-        refcount[kor->id]++;
-      }
-    }
-    // Check all the RCs are correct
-    for (size_t i = 0; i < all_objects.size(); i++)
-    {
-      if (!reach[root->id * max_edges + i])
-        continue;
-      auto io = all_objects[i];
-      auto ior = (Symbolic*)io->debug_immutable_root();
-      ior->debug_test_rc(refcount[ior->id]);
-    }
-
-    delete[] refcount;
-    delete[] reach;
-#endif
   }
+  // Root has RC of one
+  size_t* refcount = new size_t[max_edges];
+  for (size_t i = 0; i < all_objects.size(); i++)
+  {
+    refcount[i] = i == 0 ? 1 : 0;
+  }
+  // For each object, and each field add an RC
+  for (size_t i = 0; i < all_objects.size(); i++)
+  {
+    if (!reach[root->id * max_edges + i])
+      continue;
+    auto io = all_objects[i];
+    auto ior = io->debug_immutable_root();
+    for (auto ko : io->fields)
+    {
+      auto kor = (Symbolic*)ko->debug_immutable_root();
+      // Ignore edges between the same SCC
+      if (kor != ior)
+        continue;
+      refcount[kor->id]++;
+    }
+  }
+  // Check all the RCs are correct
+  for (size_t i = 0; i < all_objects.size(); i++)
+  {
+    if (!reach[root->id * max_edges + i])
+      continue;
+    auto io = all_objects[i];
+    auto ior = (Symbolic*)io->debug_immutable_root();
+    ior->debug_test_rc(refcount[ior->id]);
+  }
+
+  delete[] refcount;
+  delete[] reach;
+#endif
 
   Immutable::release(alloc, root);
 

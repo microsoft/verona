@@ -7,14 +7,14 @@
 
 using namespace snmalloc;
 using namespace verona::rt;
+using namespace verona::rt::api;
 
 static std::atomic<int> live_count;
 
-template<RegionType region_type>
-struct C1 : public V<C1<region_type>, region_type>
+struct C1 : public V<C1>
 {
-  C1<region_type>* f1 = nullptr;
-  C1<region_type>* f2 = nullptr;
+  C1* f1 = nullptr;
+  C1* f2 = nullptr;
 
   void trace(ObjectStack& st) const
   {
@@ -26,11 +26,10 @@ struct C1 : public V<C1<region_type>, region_type>
   }
 };
 
-template<RegionType region_type>
-struct F1 : public V<F1<region_type>, region_type>
+struct F1 : public V<F1>
 {
-  F1<region_type>* f1 = nullptr;
-  F1<region_type>* f2 = nullptr;
+  F1* f1 = nullptr;
+  F1* f2 = nullptr;
 
   void trace(ObjectStack& st) const
   {
@@ -58,14 +57,14 @@ struct F1 : public V<F1<region_type>, region_type>
   }
 };
 
-template<size_t N, RegionType region_type>
-struct C2 : public V<C2<N, region_type>, region_type>
+template<size_t N>
+struct C2 : public V<C2<N>>
 {
   uint8_t data[N - sizeof(Object)];
 };
 
-template<size_t N, RegionType region_type>
-struct F2 : public V<F2<N, region_type>, region_type>
+template<size_t N>
+struct F2 : public V<F2<N>>
 {
   uint8_t data[N - sizeof(Object)];
 
@@ -81,40 +80,24 @@ struct F2 : public V<F2<N, region_type>, region_type>
 };
 
 // Foward declaration
-template<RegionType region_type>
 struct F3;
 
-template<RegionType region_type>
-struct C3 : public V<C3<region_type>, region_type>
+struct C3 : public V<C3>
 {
-  C3<region_type>* c1 = nullptr;
-  C3<region_type>* c2 = nullptr;
-  F3<region_type>* f1 = nullptr;
-  F3<region_type>* f2 = nullptr;
+  C3* c1 = nullptr;
+  C3* c2 = nullptr;
+  F3* f1 = nullptr;
+  F3* f2 = nullptr;
 
-  void trace(ObjectStack& st) const
-  {
-    if (c1 != nullptr)
-      st.push(c1);
-
-    if (c2 != nullptr)
-      st.push(c2);
-
-    if (f1 != nullptr)
-      st.push(f1);
-
-    if (f2 != nullptr)
-      st.push(f2);
-  }
+  void trace(ObjectStack& st) const;
 };
 
-template<RegionType region_type>
-struct F3 : public V<F3<region_type>, region_type>
+struct F3 : public V<F3>
 {
-  C3<region_type>* c1 = nullptr;
-  C3<region_type>* c2 = nullptr;
-  F3<region_type>* f1 = nullptr;
-  F3<region_type>* f2 = nullptr;
+  C3* c1 = nullptr;
+  C3* c2 = nullptr;
+  F3* f1 = nullptr;
+  F3* f2 = nullptr;
 
   void trace(ObjectStack& st) const
   {
@@ -150,34 +133,66 @@ struct F3 : public V<F3<region_type>, region_type>
   }
 };
 
+void C3::trace(ObjectStack& st) const
+{
+  if (c1 != nullptr)
+    st.push(c1);
+
+  if (c2 != nullptr)
+    st.push(c2);
+
+  if (f1 != nullptr)
+    st.push(f1);
+
+  if (f2 != nullptr)
+    st.push(f2);
+}
+
 // Only two can fit into an Arena.
-template<RegionType region_type>
-using MediumC2 = C2<400 * 1024 - 4 * sizeof(uintptr_t), region_type>;
-template<RegionType region_type>
-using MediumF2 = F2<400 * 1024 - 4 * sizeof(uintptr_t), region_type>;
+using MediumC2 = C2<400 * 1024 - 4 * sizeof(uintptr_t)>;
+using MediumF2 = F2<400 * 1024 - 4 * sizeof(uintptr_t)>;
 
 // Fits exactly into an Arena.
-template<RegionType region_type>
-using LargeC2 = C2<1024 * 1024 - 4 * sizeof(uintptr_t), region_type>;
-template<RegionType region_type>
-using LargeF2 = F2<1024 * 1024 - 4 * sizeof(uintptr_t), region_type>;
+using LargeC2 = C2<1024 * 1024 - 4 * sizeof(uintptr_t)>;
+using LargeF2 = F2<1024 * 1024 - 4 * sizeof(uintptr_t)>;
 
 // Too large for Arena.
-template<RegionType region_type>
-using XLargeC2 = C2<1024 * 1024 - 4 * sizeof(uintptr_t) + 1, region_type>;
-template<RegionType region_type>
-using XLargeF2 = F2<1024 * 1024 - 4 * sizeof(uintptr_t) + 1, region_type>;
+using XLargeC2 = C2<1024 * 1024 - 4 * sizeof(uintptr_t) + 1>;
+using XLargeF2 = F2<1024 * 1024 - 4 * sizeof(uintptr_t) + 1>;
 
 /**
  * Allocates objects of types First and Rest... into a region represented by
  * iso object o.
  **/
-template<class First, class... Rest>
-void alloc_in_region(Alloc& alloc, Object* o)
+template<size_t n, class First, class... Rest>
+auto allocs()
 {
-  new (alloc, o) First;
+  auto a = new First;
   if constexpr (sizeof...(Rest) > 0)
-    alloc_in_region<Rest...>(alloc, o);
+  {
+    auto b = allocs<n - 1, Rest...>();
+    if constexpr (n == 0)
+    {
+      UNUSED(b);
+      return a;
+    }
+    else
+    {
+      UNUSED(a);
+      return b;
+    }
+  }
+  else
+  {
+    return a;
+  }
+}
+
+template<size_t n, class First, class... Rest>
+auto alloc_in_region(Object* r)
+{
+  UsingRegion rr(r);
+  return allocs<n, First, Rest...>();
 }
 
 /**
@@ -187,10 +202,12 @@ void alloc_in_region(Alloc& alloc, Object* o)
  * This helper is used by many different tests, so we don't release the region.
  **/
 template<class First, class... Rest>
-First* alloc_region(Alloc& alloc)
+First* alloc_region(RegionType rt)
 {
-  First* o = new (alloc) First;
-  if constexpr (sizeof...(Rest) > 0)
-    alloc_in_region<Rest...>(alloc, o);
+  auto o = new (rt) First;
+  {
+    if constexpr (sizeof...(Rest) > 0)
+      alloc_in_region<0, Rest...>(o);
+  }
   return o;
 }

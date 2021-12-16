@@ -436,9 +436,9 @@ namespace verona::interpreter
   VM::opcode_new_object(const Value& parent, const VMDescriptor* descriptor)
   {
     check_type(parent, {Value::ISO, Value::MUT});
-
     VMObject* region = parent->object->region();
-    rt::Object* object = rt::Region::alloc(alloc_, region, descriptor);
+    rt::api::UsingRegion ur(region);
+    rt::Object* object = rt::api::create_object(descriptor);
     return Value::mut(new (object) VMObject(region, descriptor));
   }
 

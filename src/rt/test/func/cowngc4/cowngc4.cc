@@ -83,14 +83,13 @@ struct RCown;
 // We'll need to do some ugly casting later on...
 static RCown<RegionType::Trace>* rcown_first;
 
-template<RegionType region_type>
-struct O : public V<O<region_type>, region_type>
+struct O : public V<O>
 {
-  O<region_type>* f = nullptr;
-  O<RegionType::Trace>* f1 = nullptr;
-  O<RegionType::Arena>* f2 = nullptr;
-  O<RegionType::Trace>* imm1 = nullptr;
-  O<RegionType::Trace>* imm2 = nullptr;
+  O* f = nullptr;
+  O* f1 = nullptr; // Trace region
+  O* f2 = nullptr; // Arena region
+  O* imm1 = nullptr;
+  O* imm2 = nullptr;
   CCown* cown = nullptr;
 
   void trace(ObjectStack& st) const
@@ -116,15 +115,15 @@ struct O : public V<O<region_type>, region_type>
   }
 };
 
-using OTrace = O<RegionType::Trace>;
-using OArena = O<RegionType::Arena>;
+using OTrace = O;
+using OArena = O;
 
 template<RegionType region_type>
 struct RCown : public VCown<RCown<region_type>>
 {
   using RegionClass = typename RegionType_to_class<region_type>::T;
   using Self = RCown<region_type>;
-  using Reg = O<region_type>;
+  using Reg = O;
 
   uint64_t forward;
   uint64_t threshold;
@@ -149,27 +148,31 @@ struct RCown : public VCown<RCown<region_type>>
 
     // Initialize region with object graph. We'll make a short linked list.
     {
-      auto* r = new Reg;
-      r->f = new (r) Reg;
-      r->f->f = new (r) Reg;
-      r->f->f->f = r;
+      auto* r = new (region_type) Reg;
+      {
+        UsingRegion ur(r);
+        r->f = new Reg;
+        r->f->f = new Reg;
+        r->f->f->f = r;
 
-      // Construct a CCown and give it to the region.
-      auto c = new CCown(shared_child);
-      Systematic::cout() << "  child " << c << std::endl;
-      RegionClass::template insert<TransferOwnership::YesTransfer>(alloc, r, c);
-      Cown::acquire(shared_child); // acquire on behalf of child CCown
+        // Construct a CCown and give it to the region.
+        auto c = new CCown(shared_child);
+        Systematic::cout() << "  child " << c << std::endl;
+        RegionClass::template insert<TransferOwnership::YesTransfer>(
+          alloc, r, c);
+        Cown::acquire(shared_child); // acquire on behalf of child CCown
 
-      reg_with_graph = r;
-      reg_with_graph->f->f->cown = c;
+        reg_with_graph = r;
+        reg_with_graph->f->f->cown = c;
+      }
     }
 
     // Initialize a linked list of regions.
     {
-      auto* r = new Reg;
-      r->f1 = new OTrace;
-      r->f1->f2 = new OArena;
-      r->f1->f2->f2 = new OArena;
+      auto* r = new (region_type) Reg;
+      r->f1 = new (RegionType::Trace) OTrace;
+      r->f1->f2 = new (RegionType::Arena) OArena;
+      r->f1->f2->f2 = new (RegionType::Arena) OArena;
 
       // Construct a CCown and give it to the last region.
       auto c = new CCown(shared_child);
@@ -184,33 +187,39 @@ struct RCown : public VCown<RCown<region_type>>
 
     // Initialize region with immutables.
     {
-      reg_with_imm = new Reg;
+      reg_with_imm = new (region_type) Reg;
 
       // Create two immutables. Each is a two object cycle, but we pass a
       // different object to reg_with_imm, to get coverage of RC vs SCC
       // objects.
-      auto r1 = new OTrace;
-      r1->f1 = new (r1) OTrace;
-      r1->f1->f1 = r1;
-      r1->cown = new CCown(shared_child);
-      Systematic::cout() << "  child " << r1->cown << std::endl;
-      Cown::acquire(shared_child); // acquire on behalf of child CCown
-      r1->f1->cown = new CCown(shared_child);
-      Systematic::cout() << "  child " << r1->f1->cown << std::endl;
-      Cown::acquire(shared_child); // acquire on behalf of child CCown
+      auto r1 = new (RegionType::Trace) OTrace;
+      {
+        UsingRegion ur(r1);
+        r1->f1 = new OTrace;
+        r1->f1->f1 = r1;
+        r1->cown = new CCown(shared_child);
+        Systematic::cout() << "  child " << r1->cown << std::endl;
+        Cown::acquire(shared_child); // acquire on behalf of child CCown
+        r1->f1->cown = new CCown(shared_child);
+        Systematic::cout() << "  child " << r1->f1->cown << std::endl;
+        Cown::acquire(shared_child); // acquire on behalf of child CCown
+      }
 
-      auto r2 = new OTrace;
-      r2->f1 = new (r2) OTrace;
-      r2->f1->f1 = r2;
-      r2->cown = new CCown(shared_child);
-      Systematic::cout() << "  child " << r2->cown << std::endl;
-      Cown::acquire(shared_child); // acquire on behalf of child CCown
-      r2->f1->cown = new CCown(shared_child);
-      Systematic::cout() << "  child " << r2->f1->cown << std::endl;
-      Cown::acquire(shared_child); // acquire on behalf of child CCown
+      auto r2 = new (RegionType::Trace) OTrace;
+      {
+        UsingRegion ur(r2);
+        r2->f1 = new OTrace;
+        r2->f1->f1 = r2;
+        r2->cown = new CCown(shared_child);
+        Systematic::cout() << "  child " << r2->cown << std::endl;
+        Cown::acquire(shared_child); // acquire on behalf of child CCown
+        r2->f1->cown = new CCown(shared_child);
+        Systematic::cout() << "  child " << r2->f1->cown << std::endl;
+        Cown::acquire(shared_child); // acquire on behalf of child CCown
+      }
 
-      Freeze::apply(alloc, r1);
-      Freeze::apply(alloc, r2);
+      freeze(r1);
+      freeze(r2);
       reg_with_imm->imm1 = r1;
       reg_with_imm->imm2 = r2->f1;
 

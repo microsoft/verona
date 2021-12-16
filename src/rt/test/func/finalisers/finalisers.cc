@@ -9,11 +9,10 @@ using namespace verona::rt;
 
 static std::atomic<int> live_count;
 
-template<RegionType region_type>
-struct C1 : public V<C1<region_type>, region_type>
+struct C1 : public V<C1>
 {
-  C1<region_type>* f1 = nullptr;
-  C1<region_type>* f2 = nullptr;
+  C1* f1 = nullptr;
+  C1* f2 = nullptr;
 
   void trace(ObjectStack& st) const
   {
@@ -25,11 +24,10 @@ struct C1 : public V<C1<region_type>, region_type>
   }
 };
 
-template<RegionType region_type>
-class C2 : public V<C2<region_type>, region_type>
+class C2 : public V<C2>
 {
 public:
-  C2<region_type>* f1 = nullptr;
+  C2* f1 = nullptr;
   enum State
   {
     LIVE,
@@ -64,8 +62,7 @@ public:
   }
 };
 
-template<RegionType region_type>
-class F1 : public V<F1<region_type>, region_type>
+class F1 : public V<F1>
 {
 public:
   F1()
@@ -80,8 +77,7 @@ public:
   }
 };
 
-template<RegionType region_type>
-class F2 : public V<F2<region_type>, region_type>
+class F2 : public V<F2>
 {
 public:
   int id;
@@ -130,54 +126,62 @@ public:
 template<RegionType region_type>
 void basic_test()
 {
-  using RegionClass = typename RegionType_to_class<region_type>::T;
-  using C = C1<region_type>;
-  using D = C2<region_type>;
-  using F = F1<region_type>;
-  using E = F2<region_type>;
-
-  Alloc& alloc = ThreadAlloc::get();
-
-  auto a = new F;
-  new (a) F;
-  new (a) F;
-
-  auto b = new (a) C;
-  b->f1 = new (a) C;
-
-  RegionClass::swap_root(a, b);
-  if constexpr (region_type == RegionType::Trace)
+  using C = C1;
+  using D = C2;
+  using F = F1;
+  using E = F2;
+  auto a = new (region_type) F;
   {
-    RegionTrace::gc(alloc, b);
-    logger::cout() << "GCed" << std::endl;
+    UsingRegion ur(a);
+    new F;
+    new F;
+
+    auto b = new C;
+    b->f1 = new C;
+
+    set_entry_point(b);
+    if constexpr (region_type == RegionType::Trace)
+    {
+      region_collect();
+      logger::cout() << "GCed" << std::endl;
+    }
+
+    new F;
+    new F;
+    a = new F;
+
+    set_entry_point(a);
   }
+  region_release(a);
 
-  new (b) F;
-  new (b) F;
-  a = new (b) F;
+  auto c = new (region_type) D;
+  {
+    UsingRegion ur(c);
+    c->f1 = new D;
+    c->f1->f1 = new (region_type) D; // This is a fresh region.
+  }
+  region_release(c);
 
-  RegionClass::swap_root(b, a);
+  auto d = new (region_type) D;
+  {
+    UsingRegion ur(d);
+    d->f1 = new (region_type)
+      D; // This is a fresh region, hanging off the entry object.
+    new D;
+  }
+  region_release(d);
 
-  Region::release(alloc, a);
-
-  auto c = new D;
-  c->f1 = new (c) D;
-  c->f1->f1 = new D; // This is a fresh region.
-  Region::release(alloc, c);
-
-  auto d = new D;
-  d->f1 = new D; // This is a fresh region, hanging off the entry object.
-  new (d) D;
-  Region::release(alloc, d);
-
-  auto e0 = new E(0, nullptr);
-  auto e1 = new (e0) E(1, e0);
-  auto e2 = new (e0) E(2, e1);
-  auto e3 = new (e0) E(3, e2);
-  e0->child = e1;
-  e1->child = e2;
-  e2->child = e3;
-  Region::release(alloc, e0);
+  auto e0 = new (region_type) E(0, nullptr);
+  {
+    UsingRegion ur(e0);
+    auto e1 = new E(1, e0);
+    auto e2 = new E(2, e1);
+    auto e3 = new E(3, e2);
+    e0->child = e1;
+    e1->child = e2;
+    e2->child = e3;
+  }
+  region_release(e0);
 
   snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
 }

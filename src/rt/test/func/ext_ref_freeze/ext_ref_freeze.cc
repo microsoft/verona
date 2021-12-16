@@ -89,19 +89,23 @@ struct Loop : public VBehaviour<Loop>
       }
       case SETUP:
       {
-        auto r = new (alloc) C;
+        auto r = new (RegionType::Trace) C;
 
-        r->f1 = new (alloc, r) C;
-        r->f1->f1 = new (alloc, r) C;
-        r->f1->f1->f1 = r->f1;
-        r->f1->b = new B;
+        {
+          UsingRegion ur(r);
+          r->f1 = new C;
+          r->f1->f1 = new C;
+          r->f1->f1->f1 = r->f1;
+          r->f1->b = new B;
+        }
 
         a->r = r;
         RegionTrace::insert<YesTransfer>(alloc, a->r, a->r->f1->b);
-        auto reg = RegionTrace::get(a->r);
-        g_ext_ref = ExternalRef::create(reg, a->r->f1);
-
-        Freeze::apply(alloc, a->r);
+        {
+          UsingRegion ur(a->r);
+          g_ext_ref = create_external_reference(a->r->f1);
+        }
+        freeze(a->r);
         state = WAITFORGC;
         Cown::schedule<Loop>(a, a);
         return;

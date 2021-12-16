@@ -7,6 +7,7 @@
 
 using namespace snmalloc;
 using namespace verona::rt;
+using namespace verona::rt::api;
 
 struct C1 : public V<C1>
 {
@@ -38,26 +39,28 @@ void test_linked_list()
     {
       MeasureTime m;
       m << "Alloc DLL:  " << std::setw(10) << list_size;
-      curr = new (alloc) C1;
+      curr = new (RegionType::Trace) C1;
       root = curr;
       curr->f2 = nullptr;
       next = nullptr;
 
-      for (int i = 0; i < list_size; i++)
       {
-        next = new (alloc, root) C1;
-        curr->f1 = next;
-        next->f2 = curr;
-        curr = next;
+        UsingRegion rr(root);
+        for (int i = 0; i < list_size; i++)
+        {
+          next = new C1;
+          curr->f1 = next;
+          next->f2 = curr;
+          curr = next;
+        }
       }
-
       curr->f1 = nullptr;
     }
 
     {
       MeasureTime m;
       m << "Freeze DLL: " << std::setw(10) << list_size;
-      Freeze::apply(alloc, root);
+      freeze(root);
     }
 
     // Free immutable graph.
