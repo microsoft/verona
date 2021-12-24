@@ -224,6 +224,7 @@ namespace verona::rt
     static void gc_cycles(Alloc& alloc, Object* o, RegionRc* reg)
     {
       assert(o->get_class() == RegionMD::OPEN_ISO);
+      UNUSED(o);
       ObjectStack jump_stack(alloc);
       while (!reg->lins_stack.empty())
       {
