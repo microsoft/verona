@@ -718,6 +718,12 @@ namespace verona::rt
       if (body.index < last)
 #endif
       {
+#ifndef ACQUIRE_ALL
+        // The following code is isolating cases where a message was sent
+        // before the leak detector began, and is now about to be forwarded
+        // after the leak detector has started.  This means the messages must
+        // now be counted for termination of the scan phase of the leak detector.
+        // This is not required in the ACQUIRE_ALL case as messages are not forwarded.
         if (e != Scheduler::local()->send_epoch)
         {
           Logging::cout() << "Message not in current epoch" << Logging::endl;
@@ -754,7 +760,6 @@ namespace verona::rt
           }
         }
 
-#ifndef ACQUIRE_ALL
         // Try to acquire as many cowns as possible without rescheduling,
         // starting from the next cown.
         body.index++;

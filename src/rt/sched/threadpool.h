@@ -277,12 +277,10 @@ namespace verona::rt
 
     static void want_ld()
     {
-#ifndef ACQUIRE_ALL
       T* t = local();
 
       if (t != nullptr)
         t->want_ld();
-#endif
     }
 
     void init(size_t count)
