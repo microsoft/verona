@@ -108,7 +108,7 @@ We follow the execution of the program and show how, on Linux, the parent invoke
 
 
 On the parent side, the sandbox library creates an object representing a call frame, containing the arguments to the function call and space for any return element, in the shared memory region and points the `msg_buffer` field in the header of the shared memory region to this object.
-It passes the pointer to that call frame as well as the index of the library's function invoked via shared memory to the child that it wakes up.
+It also stores the index of the library's function to be invoked in the `function_index` field.
 Simple one-bit in-memory semaphores are used to communicate with the child process.
 These are implemented with the platform's low-level primitive, `futex` on Linux and `_umtx_op` on FreeBSD.
 The trace below shows the parent's stack trace:
