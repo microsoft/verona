@@ -8,7 +8,7 @@ This folder contains 17 tests, 8 unit and regression tests, and 9 end-to-end san
 ## End-to-End sandbox tests
 
 * [test-sandbox-basic](sandbox-basic.cc): Creates 3 sandboxes wrapping around a small library that exposes a function returning the sum of two `int`.
-  Each sandbox is called twice.
+  This test ensures that it is possible to create multiple instances of a sandbox.
 
 * [test-sandbox-callback-basic](sandbox-callback-basic.cc): Creates a simple sandbox and registers a callback function that returns an `int`.
    The sandbox library simply invokes the callback and asserts it gets the correct value (`42`). 
