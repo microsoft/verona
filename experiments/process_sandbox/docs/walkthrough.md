@@ -99,7 +99,8 @@ To better understand the virtual memory layout, consider the following "graphica
 The `library_runner` is responsible, at initialization time, for ensuring that both the `PageMap` and the child's memory region (i.e., heap) are correctly mapped in the process's address space.
 For that purposes, it uses the file descriptors referring to shared memory objects that it inherits from the parent.
 It relies on `mmap` to install the heap as a shared memory region that is both readable and writable.
-The `library_runner` opens the `memfd` file descriptor that corresponds to the `PageMap` object and maps its content read-only in the child's address space.
+The `library_runner` opens the file descriptor that corresponds to the shared memory object that backs the `PageMap` and maps its content read-only in the child's address space.
+The platform-specific sandboxing code is responsible for ensuring that the child process cannot perform a read-write mapping of this file descriptor.
 
 #### Invoking the sandbox
 
