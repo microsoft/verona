@@ -18,7 +18,9 @@ This folder contains 17 tests, 8 unit and regression tests, and 9 end-to-end san
 * [test-sandbox-crash](sandbox-crash.cc): Creates 3 sandboxes meant to crash (calls `abort`).
   The crash triggers a `runtime_error` exception caught in the parent process. 
 
-* [test-sandbox-fake-open](sandbox-fake-open.cc): Creates a shared memory file and a sandbox. The sandbox opens the file in two different ways: 1) with a raw system call, and 2) with the `open` function that performs a callback to the host. 
+* [test-sandbox-fake-open](sandbox-fake-open.cc): Creates a shared memory file and a sandbox. 
+  The sandbox opens the file in two different ways: 1) with a raw system call, and 2) with the `open` function that performs a callback to the host.
+  This ensures that the child process correctly interposes on both the libc wrappers (by providing a strong definition of the functions in `library_runner`) and on the raw system call (by catching a signal delivered by the underlying sandboxing technology and emulating it).
 
 * [test-sandbox-modify-pagemap](sandbox-modify-pagemap.cc): Creates a sandbox attempting to modify the access rights of the pagemap using `mprotect`.
   The `mprotect` call should fail with a `permission denied`.
