@@ -122,7 +122,7 @@ The trace below shows the parent's stack trace:
 #6  0x000055555557cf18 in main () at ../tests/sandbox-basic.cc:40
 ```
 
-On the child's side, the process that was blocked waiting on the one-bit semaphore is woken up, then extracts the index and call frame, and invokes the corresponding sandboxed function. 
+The pointer to the call frame object and the function index are not used again after this point and so a reentrant call (if the child calls back into the parent, which then calls back into the child) can reuse them.
 The trace below shows the child's side of the execution:
 
 ```
