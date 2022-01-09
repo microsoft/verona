@@ -107,7 +107,7 @@ The platform-specific sandboxing code is responsible for ensuring that the child
 We follow the execution of the program and show how, on Linux, the parent invokes the `sum` function defined in [sandboxlib-basic](../tests/sandboxlib-basic.cc).
 
 
-On the parent side, the sandbox library sets up a call frame containing the arguments to the function call and a return element in the shared memory region and points the `msg_buffer` field in the header of the shared memory region to this buffer.
+On the parent side, the sandbox library creates an object representing a call frame, containing the arguments to the function call and space for any return element, in the shared memory region and points the `msg_buffer` field in the header of the shared memory region to this object.
 It passes the pointer to that call frame as well as the index of the library's function invoked via shared memory to the child that it wakes up.
 Simple one-bit in-memory semaphores are used to communicate with the child process.
 These are implemented with the platform's low-level primitive, `futex` on Linux and `_umtx_op` on FreeBSD.
