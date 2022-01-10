@@ -1,7 +1,7 @@
 Building process_sandbox 
 --------
 
-The following dependencies are required in order to build the `process_sandbox`:
+On Linux, the following dependencies are required to build the `process_sandbox`:
 
 ```
 libfmt

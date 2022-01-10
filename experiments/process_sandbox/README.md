@@ -79,12 +79,11 @@ Other abstractions are built on this fact to provide lightweight single-copy I/O
 Memory management
 -----------------
 
-For each sandbox instance, the parent creates two anonymous shared memory objects.
-The first object is used for the sandbox's heap.
-This object is mapped at the same address in both the parent and a child process, allowing intra-sandbox pointers to have the same values in both.
+For each sandbox instance, the parent creates an anonymous shared memory object.
+This object is the sandbox's heap and is mapped at the same address in both the parent and a child process, allowing intra-sandbox pointers to have the same values in both.
 This is mapped read-write in both processes.
 
-The other object is a shared memory region used for the snmalloc page map that covers the sandbox's heap.
+The parent shared, with all sandboxes, another object that corresponds to a shared memory region used for the snmalloc page map and which covers the sandboxes' heaps.
 It is mapped read-write in the parent and read-only in the child.
 Updates to the pagemap are infrequent.
 
