@@ -226,7 +226,7 @@ jobs:
   variables:
     RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
   pool:
-    vmImage: 'macOS-10.14'
+    vmImage: 'macOS-10.15'
   timeoutInMinutes: 120
   strategy:
     matrix:
