@@ -179,7 +179,8 @@ namespace verona::rt
       PENDING = 0x5,
       NONATOMIC_RC = 0x6,
       COWN = 0x7,
-      OPEN_ISO = 0x8
+      OPEN_ISO = 0x8 // TODO This is a problem for 32bit platforms. We need to
+                     // fix as part of major refactor of header layout.
     };
 
     inline friend std::ostream& operator<<(std::ostream& os, RegionMD md)
@@ -228,7 +229,7 @@ namespace verona::rt
     /// This class represents the Verona object header.
     /// It is stored directly before a Verona object.
     /// Its overall size is two pointers.
-    struct Header
+    struct alignas(ALIGNMENT) Header
     {
       union
       {
@@ -242,6 +243,11 @@ namespace verona::rt
         std::atomic<const Descriptor*> descriptor;
         uintptr_t descriptor_bits;
       };
+
+#ifdef USE_SYSTEMATIC_TESTING
+      // Used to give objects unique identifiers for systematic testing.
+      uintptr_t sys_id;
+#endif
     };
 
   private:
@@ -251,13 +257,23 @@ namespace verona::rt
 
 #ifdef USE_SYSTEMATIC_TESTING
     // Used to give objects unique identifiers for systematic testing.
-    inline static size_t id_source = 0;
-    uintptr_t sys_id;
+    inline static std::atomic<size_t> id_source = 0;
 #endif
 
     Header& get_header() const
     {
       return *((Header*)real_start());
+    }
+
+    // Used to track last object that was register with a region.
+    // This is used to ensure that anything of Object has just
+    // been region allocated.
+    static void* last_alloc(void* next)
+    {
+      static thread_local void* last = nullptr;
+      auto prev = last;
+      last = next;
+      return prev;
     }
 
   public:
@@ -271,40 +287,6 @@ namespace verona::rt
     Object(const Object&) = delete;
     Object& operator=(const Object&) = delete;
 
-    /// Used to check type has been allocated by the runtime.
-    /// Any runtime allocation function sets this, before calling
-    /// the constructor of a class.
-    static void runtime_alloc(bool value)
-    {
-#ifndef NDEBUG
-      thread_local bool previous = false;
-
-      if (previous == value)
-      {
-        if (value)
-        {
-          puts(
-            "Internal error! Runtime allocation in progress on this thread.");
-          // This error can occur because a type was allocated by the runtime
-          // that does not inherit from Object.
-          abort();
-        }
-        else
-        {
-          puts("Internal error! Not part of Verona allocation.");
-          // This error is because produce_alloc was not called prior to
-          // initialising this object.  This is probably due to not being
-          // allocated with the Verona region allocator
-          abort();
-        }
-      }
-
-      previous = value;
-#else
-      UNUSED(value);
-#endif
-    }
-
     /// Should be called by the region allocator prior to initialising an
     /// object as part of the runtime.  This is used to ensure that all
     /// subclasses of rt::Object are actually part of the runtime.
@@ -312,7 +294,16 @@ namespace verona::rt
     {
       Object* obj = object_start(base);
       obj->get_header().descriptor = desc;
-      runtime_alloc(true);
+#ifndef NDEBUG
+      last_alloc(obj);
+#endif
+
+#ifdef USE_SYSTEMATIC_TESTING
+      obj->get_header().sys_id =
+        id_source.fetch_add(1, std::memory_order_relaxed);
+#endif
+
+      assert(debug_is_aligned(obj));
       return obj;
     }
 
@@ -325,12 +316,10 @@ namespace verona::rt
 
     Object()
     {
-      // Confirm this is  runtime alloc, and unset flag
-      runtime_alloc(false);
-
-#ifdef USE_SYSTEMATIC_TESTING
-      sys_id = ++id_source;
-#endif
+      // This assertion fails of register_object was not called prior to
+      // initialising this object.  This is probably due to not being
+      // allocated with the Verona region allocator
+      assert(last_alloc(nullptr) == this);
 
       // This should have already been set up.
       assert(get_descriptor() != nullptr);
@@ -354,7 +343,7 @@ namespace verona::rt
     {
 #ifdef USE_SYSTEMATIC_TESTING
       if constexpr (scramble)
-        return Systematic::get_scrambler().perm(sys_id);
+        return Systematic::get_scrambler().perm(get_header().sys_id);
       else
 #  ifdef USE_FLIGHT_RECORDER
         // If the flight recorder is enabled to debug systematic
@@ -362,7 +351,7 @@ namespace verona::rt
         // at log time, and thus this needs to be the raw pointer.
         return (uintptr_t)this;
 #  else
-        return sys_id;
+        return get_header().sys_id;
 #  endif
 #else
       return (uintptr_t)this;
