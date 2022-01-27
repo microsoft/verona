@@ -320,8 +320,10 @@ namespace verona::rt
      *   else     -> ABORT;     invalid input
      * Only safe to call from the consumer.
      */
-    bool mark_sleeping(bool& notify)
+    bool mark_sleeping(snmalloc::Alloc& alloc, bool& notify)
     {
+      UNUSED(alloc);
+
       T* fnt = front;
       T* bk = back.load(std::memory_order_relaxed);
 

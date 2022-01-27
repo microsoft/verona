@@ -902,7 +902,7 @@ namespace verona::rt
             return true;
 
           // Reschedule if cown does not go to sleep.
-          if (!queue.mark_sleeping(notify))
+          if (!queue.mark_sleeping(alloc, notify))
           {
             if (notify)
             {
