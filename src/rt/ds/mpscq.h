@@ -303,28 +303,19 @@ namespace verona::rt
 
       T* fnt = front;
       T* bk = back.load(std::memory_order_relaxed);
+      T* clear = clear_state(bk);
+      if (clear != fnt)
+        return false;
 
-      if (bk != fnt)
+      if (get_state(bk) == NOTIFY)
       {
-        switch (get_state(bk))
-        {
-          case NONE:
-            return false;
-          case SLEEPING:
-            // Only the consumer can call `mark_sleeping`. The consumer should
-            // not call `mark_sleeping` is the queue is SLEEPING.
-            abort();
-          case NOTIFY:
-          {
-            notify = true;
-            T* clear = clear_state(bk);
-            back.compare_exchange_strong(bk, clear, std::memory_order_release);
-            return false;
-          }
-
-          default:
-            abort();
-        }
+        // We have observed the queue to only contain a notify bit,
+        // attempt to remove, so the notification can be handled.
+        // Do not move to sleeping as we still need ownership to
+        // handle the notification.
+        notify =
+          back.compare_exchange_strong(bk, clear, std::memory_order_release);
+        return false;
       }
 
       // note: set_state asserts that fnt is in the NONE state
