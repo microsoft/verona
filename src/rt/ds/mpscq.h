@@ -39,13 +39,6 @@ namespace verona::rt
    *
    *      Note that the queue can be empty and not asleep.
    *
-   *    Delay
-   *      This state means prevents going to sleep immediately. The next call to
-   *      mark_sleeping is guaranteed to fail, either because the queue is still
-   *      in this state, or a new message has been enqueued.  This is used to
-   *      prevent the queue going to sleep, directly after a reschedule from the
-   *      runtime.
-   *
    *    Notify
    *      The queue supports a single consolidated message type that has no
    *      payload and does not require any allocation, a notificaton.  If the
@@ -67,8 +60,7 @@ namespace verona::rt
     {
       NONE = 0x0,
       SLEEPING = 0x1,
-      DELAY = 0x2,
-      NOTIFY = 0x3,
+      NOTIFY = 0x2,
       STATES = 0x3,
     };
 
@@ -260,7 +252,6 @@ namespace verona::rt
      * State transition:
      *   NONE     -> NOTIFY;  return false
      *   SLEEPING -> NOTIFY;  return true
-     *   DELAY    -> NOTIFY;  return false
      *   NOTIFY   -> NOTIFY;  return false
      * Scheduling is required when the queue was SLEEPING, but not other states.
      */
@@ -312,7 +303,6 @@ namespace verona::rt
      * State transition (for a non-empty queue):
      *   NONE     -> NONE;      return false
      *   SLEEPING -> ABORT;     invalid input
-     *   DELAY    -> NONE;      return false
      *   NOTIFY   -> NONE;      return false, and set notify argument to true
      *
      * State transition (for an empty queue):
@@ -337,12 +327,6 @@ namespace verona::rt
             // Only the consumer can call `mark_sleeping`. The consumer should
             // not call `mark_sleeping` is the queue is SLEEPING.
             abort();
-          case DELAY:
-          {
-            T* clear = clear_state(bk);
-            back.compare_exchange_strong(bk, clear, std::memory_order_release);
-            return false;
-          }
           case NOTIFY:
           {
             notify = true;
@@ -367,9 +351,8 @@ namespace verona::rt
      * previously SLEEPING. Safe to call from a producer.
      *
      * State transition:
-     *   NONE     -> DELAY|Other;  return false
+     *   NONE     -> Other;        return false
      *   SLEEPING -> NONE;         return true
-     *   DELAY    -> DELAY;        return false
      *   NOTIFY   -> NOTIFY;       return false
      * (`Other` means that another thread beats us in CAS so we don't know for
      * sure what the state is now.)
@@ -378,27 +361,14 @@ namespace verona::rt
     {
       T* bk = back.load(std::memory_order_relaxed);
       T* clear = clear_state(bk);
-      T* delay = set_state(clear, DELAY);
 
-      if (bk == delay)
-        return false;
-
-      if (has_state(bk, NOTIFY))
-      {
-        // Preserve NOTIFY bit
-        return false;
-      }
-
-      if (
-        (bk == clear) &&
-        back.compare_exchange_strong(bk, delay, std::memory_order_release))
+      if (!has_state(bk, SLEEPING))
       {
         return false;
       }
 
-      T* sleeping = set_state(clear, SLEEPING);
       return back.compare_exchange_strong(
-        sleeping, clear, std::memory_order_release);
+        bk, clear, std::memory_order_release);
     }
   };
 } // namespace verona::rt

@@ -1134,25 +1134,20 @@ namespace verona::rt
             this->set_epoch_mark(Scheduler::local()->send_epoch);
           }
 
+          // We are about to unschedule this cown, if another thread has
+          // marked this cown as scheduled for scan it will not have been
+          // able to reschedule it, but as this thread hasn't started
+          // scanning it will not have been scanned.  Ensure we can't miss it
+          // by keeping in scheduler queue until the prescan phase has
+          // finished.
+          if (Scheduler::in_prescan())
+            return true;
+
           // Reschedule if we have processed a message.
           // This is primarily an optimisation to keep busy cowns active cowns
           // around.
-          // However,  if we remove this line then the leak detector will have
-          // a bug.  It is possible to miss a wake-up from a Scan thread, is
-          // the cown is currently active on a pre-scan thread. The following
-          // should be added after if we alter this behaviour:
-          //
-          // // We are about to unschedule this cown, if another thread has
-          // // marked this cown as scheduled for scan it will not have been
-          // // able to reschedule it, but as this thread hasn't started
-          // // scanning it will not have been scanned.  Ensure we can't miss
-          // it
-          // // by keeping in scheduler queue until the prescan phase has
-          // // finished.
-          // if (Scheduler::in_prescan())
-          //   return true;
-          //
-          // TODO: Investigate systematic testing coverage here.
+          // TODO The following could be removed to improve the single action cown case.
+          //      This is designed to be effective if a cown is receiving a lot of messages.
           if (batch_size != 0)
             return true;
 
@@ -1163,10 +1158,13 @@ namespace verona::rt
           {
             if (notify)
             {
-              // We must have run something to get here.
-              assert(!notified_called);
+              // It is possible to have already notified the cown in this batch,
+              // but the notification on the mark_sleeping could have occurred
+              // after the previous call to cown_notified, so need to call again.
               cown_notified();
-              // Treat notification as a message and don't deschedule.
+              // Don't deschedule send round again.  We could try to mark_sleeping
+              // but that could lead to another notification having been received,
+              // and then we wouldn't process anything else.
             }
             return true;
           }
