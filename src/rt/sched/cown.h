@@ -72,10 +72,8 @@ namespace verona::rt
 
       if (initialise)
       {
-        auto& alloc = ThreadAlloc::get();
         auto epoch = Scheduler::alloc_epoch();
         set_epoch(epoch);
-        queue.init(stub_msg(alloc));
         CownThread* local = Scheduler::local();
 
         if (local != nullptr)
@@ -978,6 +976,8 @@ namespace verona::rt
 
     inline bool check_unmute_message(Alloc& alloc, MessageBody* msg)
     {
+      Systematic::cout() << "Unmute msg " << msg << " on cown " << this
+                         << Systematic::endl;
       if (msg->behaviour != &unmute_behaviour)
         return false;
 
@@ -1117,6 +1117,9 @@ namespace verona::rt
 
         curr = queue.dequeue(alloc, notify);
 
+        Systematic::cout() << "Cown " << this << ": dequeue " << curr
+                           << Systematic::endl;
+
         if (!notified_called && notify)
         {
           notified_called = true;
@@ -1156,6 +1159,7 @@ namespace verona::rt
           // Reschedule if cown does not go to sleep.
           if (!queue.mark_sleeping(alloc, notify))
           {
+            Systematic::cout() << "Mark sleeping failed on " << this << Systematic::endl;
             if (notify)
             {
               // It is possible to have already notified the cown in this batch,
@@ -1345,11 +1349,8 @@ namespace verona::rt
       // Now we may run our destructor.
       destructor();
 
-      auto* stub = queue.destroy();
-      // All messages must have been run by the time the cown is collected.
-      assert(stub->next.load(std::memory_order_relaxed) == nullptr);
-
-      alloc.dealloc<sizeof(MultiMessage)>(stub);
+      // Check queue is sleeping, and hence contains no messages.
+      assert(queue.is_sleeping());
     }
 
     bool release_early()

@@ -18,12 +18,15 @@ namespace verona::rt
    * thread.
    *
    * Elements are enqueued (added) to the `back` of the queue and dequeued
-   * (removed) from the `front`.  The queue is considered empty when `back`
-   * and `front` contain the same value.
+   * (removed) from the `front`.  
    *
-   * The queue always contains one stub element.  This removes some branching in
+   * The queue may contain one stub element.  This removes some branching in
    * the implementation.
    *
+   * The queue is considered empty when 
+   *    1. `back` and `front` contain the same value, and the queue contains a stub element, or
+   *    2. `front` is nullptr, and `back` is `&front`.
+   * 
    * The queue supports several internal states to enable schedulers to manage
    * the ownership of the queue.
    *
@@ -31,11 +34,17 @@ namespace verona::rt
    *      This is the standard state of the queue. It is owned by something,
    *      which is expected to process the messages.
    *
+   *    Stub
+   *      This is used to indicate the initial message in the queue is a stub.
+   *      Hence, the first real message is `front->next` rather than `front`.
+   *      Stub is indicated by the setting the stub bit on the `front`.
+   *
    *    Sleeping
    *      This means the queue does not contain any messages.  Any enqueue to
    *      the message queue will be informed that the queue was "sleeping". Only
    *      a single enqueuer will be informed that it woke the queue up, so this
-   *      can be used to represent taking ownership of the queue.
+   *      can be used to represent taking ownership of the queue.  Sleeping is
+   *      represented with `back` containing `nullptr`.
    *
    *      Note that the queue can be empty and not asleep.
    *
@@ -59,80 +68,67 @@ namespace verona::rt
     enum STATE
     {
       NONE = 0x0,
-      SLEEPING = 0x1,
+      STUB = 0x1,
       NOTIFY = 0x2,
       STATES = 0x3,
     };
 
     static constexpr uintptr_t MASK = ~static_cast<uintptr_t>(STATES);
 
-    std::atomic<T*> back;
-    T* front;
+    std::atomic<std::atomic<T*>*> back{nullptr};
+    // The front is atomic as it can be read and written concurrently.
+    std::atomic<T*> front{nullptr};
 
-    inline static bool has_state(T* p, STATE f)
+    T* get_containing_type(std::atomic<T*>* ptr)
+    {
+      static constexpr ptrdiff_t offset = offsetof(T, next);
+      return snmalloc::pointer_offset_signed<T>(ptr, -offset);
+    }
+
+    template <typename TT>
+    inline static bool has_state(TT* p, STATE f)
     {
       return ((uintptr_t)p & STATES) == f;
     }
 
-    inline static T* set_state(T* p, STATE f)
+    template <typename TT>
+    inline static TT* set_state(TT* p, STATE f)
     {
       assert(is_clear(p));
-      return (T*)((uintptr_t)p | f);
+      return (TT*)((uintptr_t)p | f);
     }
 
-    inline static bool is_clear(T* p)
+    template <typename TT>
+    inline static bool is_clear(TT* p)
     {
       return clear_state(p) == p;
     }
 
-    inline static STATE get_state(T* p)
+    template <typename TT>
+    inline static STATE get_state(TT* p)
     {
       return static_cast<STATE>((uintptr_t)p & STATES);
     }
 
-    static T* clear_state(T* p)
+    template <typename TT>
+    static TT* clear_state(TT* p)
     {
-      return (T*)((uintptr_t)p & MASK);
+      return (TT*)((uintptr_t)p & MASK);
     }
 
   public:
-    void invariant()
-    {
-#ifndef NDEBUG
-      assert(back != nullptr);
-      assert(front != nullptr);
-#endif
-    }
-
-    void init(T* stub)
-    {
-      stub->next.store(nullptr, std::memory_order_relaxed);
-      front = stub;
-
-      stub = set_state(stub, SLEEPING);
-
-      back.store(stub, std::memory_order_relaxed);
-      invariant();
-    }
-
-    T* destroy()
-    {
-      T* fnt = front;
-      back.store(nullptr, std::memory_order_relaxed);
-      front = nullptr;
-      return fnt;
-    }
+    constexpr MPSCQ() = default;
 
     T* peek_back()
     {
-      return clear_state(back.load(std::memory_order_relaxed));
+      return get_containing_type(clear_state(back.load(std::memory_order_relaxed)));
     }
 
     inline bool is_sleeping()
     {
-      T* bk = back.load(std::memory_order_relaxed);
+      std::atomic<T*>* bk = back.load(std::memory_order_relaxed);
 
-      return has_state(bk, SLEEPING);
+      return bk == nullptr;
     }
 
     /**
@@ -144,11 +140,8 @@ namespace verona::rt
     {
       assert(is_clear(t));
 
-      invariant();
       t->next.store(nullptr, std::memory_order_relaxed);
-      std::atomic_thread_fence(std::memory_order_release);
-      T* prev = back.exchange(t, std::memory_order_relaxed);
-      bool was_sleeping;
+      auto* prev = back.exchange(&(t->next), std::memory_order_acq_rel);
 
       yield();
 
@@ -156,13 +149,21 @@ namespace verona::rt
       if (has_state(prev, NOTIFY))
       {
         t = set_state(t, NOTIFY);
+        prev = clear_state(prev);
       }
 
-      was_sleeping = has_state(prev, SLEEPING);
-      prev = clear_state(prev);
+      if (prev == nullptr)
+      {
+        // Was sleeping so use front to start list.
+        // This releases permission to write to front to the consumer.
+        front.store(t, std::memory_order_release);
+        return true;
+      }
 
-      prev->next.store(t, std::memory_order_relaxed);
-      return was_sleeping;
+      // This may be writing to `front` and in that case is this releases
+      // permission to write to the consumer.
+      prev->store(t, std::memory_order_release);
+      return false;
     }
 
     /**
@@ -179,31 +180,42 @@ namespace verona::rt
     {
       // Returns the next message. If the next message
       // is not null, the front message is freed.
-      invariant();
-      T* fnt = front;
-      assert(is_clear(fnt));
-      T* next = fnt->next.load(std::memory_order_relaxed);
 
-      if (next == nullptr)
+      T* fnt = front.load(std::memory_order_acquire);
+
+      if (has_state(fnt, STUB))
+      {
+        fnt = clear_state(fnt);
+        T* next = fnt->next.load(std::memory_order_relaxed);
+
+        if (next == nullptr)
+        {
+          return nullptr;
+        }
+
+        notify = has_state(next, NOTIFY);
+        next = clear_state(next);
+
+        front = set_state(next, STUB);
+
+        std::atomic_thread_fence(std::memory_order_acquire);
+
+        alloc.dealloc(fnt, fnt->size());
+
+        return next;
+      }
+
+      if (fnt == nullptr)
       {
         return nullptr;
       }
 
-      front = clear_state(next);
+      notify = has_state(fnt, NOTIFY);
+      fnt = clear_state(fnt);
+      assert(fnt != nullptr);
 
-      assert(front);
-      std::atomic_thread_fence(std::memory_order_acquire);
-
-      alloc.dealloc(fnt, fnt->size());
-      invariant();
-
-      if (has_state(next, NOTIFY))
-      {
-        next = clear_state(next);
-        notify = true;
-      }
-
-      return next;
+      front.store(set_state(fnt, STUB), std::memory_order_relaxed);
+      return fnt;
     }
 
     /**
@@ -228,7 +240,14 @@ namespace verona::rt
      **/
     T* peek()
     {
-      return clear_state(front->next.load(std::memory_order_relaxed));
+      auto fnt = front;
+      if (has_state(fnt, STUB))
+      {
+        fnt = clear_state(fnt);
+        return clear_state(fnt->next.load(std::memory_order_relaxed));
+      }
+      
+      return clear_state(front);
     }
 
     /**
@@ -249,6 +268,11 @@ namespace verona::rt
      *
      * will only result in the first dequeue having the notify parameter set.
      *
+     *   mark_notify; enqueue; mark_sleeping; dequeue
+     * 
+     * the mark sleeping will fail, and will not set its notify parameter, but the subsequent
+     * dequeue will have its notify parameter set.
+     *
      * State transition:
      *   NONE     -> NOTIFY;  return false
      *   SLEEPING -> NOTIFY;  return true
@@ -257,7 +281,7 @@ namespace verona::rt
      */
     bool mark_notify()
     {
-      auto bk = back.load(std::memory_order_relaxed);
+      std::atomic<T*>* bk = back.load(std::memory_order_relaxed);
       auto was_sleeping = false;
 
       while (true)
@@ -267,11 +291,14 @@ namespace verona::rt
           break;
         }
 
-        auto notify = set_state(clear_state(bk), NOTIFY);
+        was_sleeping = bk == nullptr;
+        std::atomic<T*>* next_val = was_sleeping ? &front : bk;
 
-        if (back.compare_exchange_strong(bk, notify, std::memory_order_release))
+        next_val = set_state(next_val, NOTIFY);
+
+        if (back.compare_exchange_strong(
+              bk, next_val, std::memory_order_release))
         {
-          was_sleeping = has_state(bk, SLEEPING);
           break;
         }
       }
@@ -280,85 +307,83 @@ namespace verona::rt
     }
 
     /**
-     * Attempts to set the queue into a SLEEPING state.  Will only succeed if
-     * the queue is empty and in the NONE state, and wake has not been called
-     * since the queue became empty. Returns true if the queue was successfully
-     * set to SLEEPING.
+     * If the queue is empty and has not been NOTIFIED, then this will
+     * put the queue into the SLEEPING state.
      *
-     * Note that for a sequential call sequence
+     * If the queue is non-empty, then this will return false.
      *
-     *    wake; mark_sleeping; mark_sleeping;
+     * If the queue has been notified since the last enqueue, then 
+     * it will return false, and will set the `notify` parameter to true.
      *
-     * the second call to mark_sleeping will succeed.
+     * In the case that it actually puts the queue into the SLEEPING state,
+     * any stub message if it exists will deleted.
      *
-     * Similarly
-     *
-     *    wake; enqueue; dequeue; mark_sleeping;
-     *
-     * the call to mark_sleeping will succeed assuming the queue is empty.
-     *
-     * The notify parameter will be set if the notification has not yet been
-     * observed by a previous mark_sleeping.
-     *
-     * State transition (for a non-empty queue):
-     *   NONE     -> NONE;      return false
-     *   SLEEPING -> ABORT;     invalid input
-     *   NOTIFY   -> NONE;      return false, and set notify argument to true
-     *
-     * State transition (for an empty queue):
-     *   NONE     -> SLEEPING;  return true
-     *   else     -> ABORT;     invalid input
+     * There are two types of empty queue that this code has to handle:
+     *   1. back == &front   and  no STUB message
+     *   2. front == back    and  STUB message
      * Only safe to call from the consumer.
      */
     bool mark_sleeping(snmalloc::Alloc& alloc, bool& notify)
     {
       UNUSED(alloc);
 
-      T* fnt = front;
-      T* bk = back.load(std::memory_order_relaxed);
-      T* clear = clear_state(bk);
-      if (clear != fnt)
-        return false;
+      std::atomic<T*>* bk = back.load(std::memory_order_relaxed);
+      // Can't be sleeping already.
+      assert(bk != nullptr);
 
+      if (bk == &front)
+      {
+        return back.compare_exchange_strong(bk, nullptr, std::memory_order_release);
+      }
+
+      // Handle special cases for notify.
       if (get_state(bk) == NOTIFY)
       {
         // We have observed the queue to only contain a notify bit,
         // attempt to remove, so the notification can be handled.
         // Do not move to sleeping as we still need ownership to
-        // handle the notification.
-        notify = back.compare_exchange_strong(bk, clear, std::memory_order_release);
+        // handle the notification.  Also, we might be removing
+        // the notification from a non-empty queue.
+        notify =
+          back.compare_exchange_strong(bk, clear_state(bk), std::memory_order_release);
         return false;
       }
 
-      // note: set_state asserts that fnt is in the NONE state
-      bk = set_state(fnt, SLEEPING);
-      return back.compare_exchange_strong(fnt, bk, std::memory_order_release);
+      // Check for single stub entry
+      T* fnt = front.load(std::memory_order_relaxed);
+      if (set_state(get_containing_type(bk), STUB) == fnt)
+      {
+        front = nullptr;
+        auto success = back.compare_exchange_strong(bk, nullptr, std::memory_order_release);
+        if (success)
+        {
+          alloc.dealloc(clear_state(fnt));
+          return true;
+        }
+        else
+        {
+          // Reset front as we failed to sleep the queue.
+          front = fnt;
+          return false;
+        }
+      }
+
+      return false;
     }
 
     /**
-     * Prevents a single subsequent call to mark_sleeping from suceeding unless
-     * a new message is enqueued and dequeued. Returns true if the queue was
-     * previously SLEEPING. Safe to call from a producer.
-     *
-     * State transition:
-     *   NONE     -> Other;        return false
-     *   SLEEPING -> NONE;         return true
-     *   NOTIFY   -> NOTIFY;       return false
-     * (`Other` means that another thread beats us in CAS so we don't know for
-     * sure what the state is now.)
+     * Takes the queue out of the sleeping state.  Returns true, if it
+     * succeeded in waking up the queue.
      */
     bool wake()
     {
-      T* bk = back.load(std::memory_order_relaxed);
-      T* clear = clear_state(bk);
+      std::atomic<T*>* bk = back.load(std::memory_order_relaxed);
 
-      if (!has_state(bk, SLEEPING))
-      {
+      if (bk != nullptr)
         return false;
-      }
 
       return back.compare_exchange_strong(
-        bk, clear, std::memory_order_release);
+        bk, &front, std::memory_order_release);
     }
   };
 } // namespace verona::rt

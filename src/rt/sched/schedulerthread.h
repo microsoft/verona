@@ -588,6 +588,9 @@ namespace verona::rt
         yield();
         ThreadState::State snext = Scheduler::get().next_state(sprev);
 
+        Systematic::cout() << "Scheduler state: " << sprev << " -> " << snext
+                           << " inflight "  << Systematic::endl;
+
         // If we have a lost wake-up, then all threads can get stuck
         // trying to perform a LD.
         if (

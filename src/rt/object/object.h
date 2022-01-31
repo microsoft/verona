@@ -211,7 +211,11 @@ namespace verona::rt
 #ifdef USE_SYSTEMATIC_TESTING
     inline friend std::ostream& operator<<(std::ostream& os, const Object* o)
     {
-      return os << o->id<false>();
+#  ifdef USE_FLIGHT_RECORDER
+      return os << (void*)o;
+#  else
+      return os << std::hex << o->id<false>() << " (" << (void*)o << ")";
+#  endif
     }
 #endif
 
