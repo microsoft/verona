@@ -109,25 +109,25 @@ namespace verona::rt
     union
     {
       std::atomic<Cown*> next_in_queue;
-      uint64_t epoch_when_popped = NO_EPOCH_SET;
+      uint64_t epoch_when_popped{NO_EPOCH_SET};
     };
 
     // Seven pointer overhead compared to an object.
-    verona::rt::MPSCQ<MultiMessage> queue;
+    verona::rt::MPSCQ<MultiMessage> queue{};
 
     // Used for garbage collection of cyclic cowns only.
     // Uses the bottom bit to indicate the cown has been collected
     // If the object is collected by the leak detector, we should not
     // collect again when the weak reference count hits 0.
-    std::atomic<uintptr_t> thread_status;
-    Cown* next;
+    std::atomic<uintptr_t> thread_status{0};
+    Cown* next{nullptr};
 
     /**
      * Cown's weak reference count.  This keeps the cown itself alive, but not
      * the data it can reach.  Weak reference can be promoted to strong, if a
      * strong reference still exists.
      **/
-    std::atomic<size_t> weak_count = 1;
+    std::atomic<size_t> weak_count{1};
 
     std::atomic<BPState> bp_state{};
 

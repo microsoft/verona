@@ -46,7 +46,7 @@ namespace verona::rt
       All = (HasToken << 1) - 1,
     };
 
-    BPState() noexcept {}
+    constexpr BPState() noexcept {}
 
     Cown* blocker() const
     {
