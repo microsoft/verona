@@ -85,7 +85,7 @@ namespace verona::rt
   public:
     static ThreadPool<T>& get()
     {
-      static ThreadPool<T> global_thread_pool;
+      SNMALLOC_REQUIRE_CONSTINIT static ThreadPool<T> global_thread_pool;
       return global_thread_pool;
     }
 
