@@ -344,9 +344,8 @@ struct Ping : public VBehaviour<Ping<region_type>>
             rcown->reg_with_graph != nullptr &&
             rcown->reg_with_graph->f->f->cown != nullptr)
           {
-            Logging::cout()
-              << "RCown " << rcown << " is leaking cown "
-              << rcown->reg_with_graph->f->f->cown << std::endl;
+            Logging::cout() << "RCown " << rcown << " is leaking cown "
+                            << rcown->reg_with_graph->f->f->cown << std::endl;
             auto* reg = RegionClass::get(rcown->reg_with_graph);
             reg->discard(ThreadAlloc::get());
             rcown->reg_with_graph->f->f->cown = nullptr;
@@ -363,7 +362,7 @@ struct Ping : public VBehaviour<Ping<region_type>>
             rcown->reg_with_sub->f1->f2->f2 != nullptr)
           {
             Logging::cout() << "RCown " << rcown << " is leaking cown "
-                               << rcown->reg_with_sub->f1->f2->f2 << std::endl;
+                            << rcown->reg_with_sub->f1->f2->f2 << std::endl;
             auto* reg = RegionArena::get(rcown->reg_with_sub->f1->f2->f2);
             reg->discard(ThreadAlloc::get());
             rcown->reg_with_sub->f1->f2->f2->cown = nullptr;

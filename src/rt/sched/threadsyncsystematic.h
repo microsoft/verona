@@ -121,7 +121,7 @@ namespace verona::rt
         }
       }
       Logging::cout() << "Set running thread:" << result->systematic_id
-                         << Logging::endl;
+                      << Logging::endl;
       assert(result->local_sync.guard());
 
       running_thread = result;

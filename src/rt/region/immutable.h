@@ -180,8 +180,7 @@ namespace verona::rt
 
         case Object::COWN:
         {
-          Logging::cout()
-            << "Immutable releasing cown: " << w << Logging::endl;
+          Logging::cout() << "Immutable releasing cown: " << w << Logging::endl;
           cown::release(alloc, (Cown*)w);
           break;
         }

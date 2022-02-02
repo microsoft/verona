@@ -131,8 +131,7 @@ namespace verona::rt
         case Object::RC:
         {
           assert(o->debug_is_immutable());
-          Logging::cout()
-            << "RS releasing: immutable: " << o << Logging::endl;
+          Logging::cout() << "RS releasing: immutable: " << o << Logging::endl;
           Immutable::release(alloc, o);
           break;
         }

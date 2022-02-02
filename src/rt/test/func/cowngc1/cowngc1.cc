@@ -314,7 +314,7 @@ struct Ping : public VBehaviour<Ping>
           if (rcown->array[idx] != nullptr)
           {
             Logging::cout() << "RCown " << rcown << " is leaking cown "
-                               << rcown->array[idx] << std::endl;
+                            << rcown->array[idx] << std::endl;
             // TODO: Sometimes the leak detector doesn't catch this. Although
             // the cown is leaked, it might still be scheduled, so it's treated
             // as live. For now, we'll explicitly release the cown.
@@ -331,7 +331,7 @@ struct Ping : public VBehaviour<Ping>
           if (rcown->otrace != nullptr && rcown->otrace->cown != nullptr)
           {
             Logging::cout() << "RCown " << rcown << " is leaking cown "
-                               << rcown->otrace->cown << std::endl;
+                            << rcown->otrace->cown << std::endl;
             auto* reg = RegionTrace::get(rcown->otrace);
             reg->discard(ThreadAlloc::get());
             rcown->otrace->cown = nullptr;
@@ -346,7 +346,7 @@ struct Ping : public VBehaviour<Ping>
           if (rcown->oarena != nullptr && rcown->oarena->cown != nullptr)
           {
             Logging::cout() << "RCown " << rcown << " is leaking cown "
-                               << rcown->oarena->cown << std::endl;
+                            << rcown->oarena->cown << std::endl;
             auto* reg = RegionArena::get(rcown->oarena);
             reg->discard(ThreadAlloc::get());
             rcown->oarena->cown = nullptr;

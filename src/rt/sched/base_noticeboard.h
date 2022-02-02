@@ -94,7 +94,7 @@ namespace verona::rt
         return;
       }
       Logging::cout() << "Flushing values on noticeboard: " << this
-                         << Logging::endl;
+                      << Logging::endl;
       flush_n(alloc, update_buffer.size());
     }
 

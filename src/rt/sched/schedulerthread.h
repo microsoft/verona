@@ -115,13 +115,12 @@ namespace verona::rt
     inline void schedule_fifo(T* a)
     {
       Logging::cout() << "Enqueue cown " << a << " (" << a->get_epoch_mark()
-                         << ")" << Logging::endl;
+                      << ")" << Logging::endl;
 
       // Scheduling on this thread, from this thread.
       if (!a->scanned(send_epoch))
       {
-        Logging::cout() << "Enqueue unscanned cown " << a
-                           << Logging::endl;
+        Logging::cout() << "Enqueue unscanned cown " << a << Logging::endl;
         scheduled_unscanned_cown = true;
       }
       assert(!a->queue.is_sleeping());
@@ -136,10 +135,10 @@ namespace verona::rt
       // A lifo scheduled cown is coming from an external source, such as
       // asynchronous I/O.
       Logging::cout() << "LIFO scheduling cown " << a << " onto "
-                         << systematic_id << Logging::endl;
+                      << systematic_id << Logging::endl;
       q.enqueue_front(ThreadAlloc::get(), a);
       Logging::cout() << "LIFO scheduled cown " << a << " onto "
-                         << systematic_id << Logging::endl;
+                      << systematic_id << Logging::endl;
 
       stats.lifo();
 
@@ -242,7 +241,7 @@ namespace verona::rt
         }
 
         Logging::cout() << "Schedule cown " << cown << " ("
-                           << cown->get_epoch_mark() << ")" << Logging::endl;
+                        << cown->get_epoch_mark() << ")" << Logging::endl;
 
         // This prevents the LD protocol advancing if this cown has not been
         // scanned. This catches various cases where we have stolen, or
@@ -365,9 +364,8 @@ namespace verona::rt
         if (cown != nullptr)
         {
           // stats.steal();
-          Logging::cout()
-            << "Fast-steal cown " << clear_thread_bit(cown) << " from "
-            << victim->systematic_id << Logging::endl;
+          Logging::cout() << "Fast-steal cown " << clear_thread_bit(cown)
+                          << " from " << victim->systematic_id << Logging::endl;
           result = cown;
           return true;
         }
@@ -495,8 +493,7 @@ namespace verona::rt
         {
           if (Scheduler::get().fair)
           {
-            Logging::cout()
-              << "Should steal for fairness!" << Logging::endl;
+            Logging::cout() << "Should steal for fairness!" << Logging::endl;
             should_steal_for_fairness = true;
           }
 
@@ -510,7 +507,7 @@ namespace verona::rt
         else
         {
           Logging::cout() << "Reached token: stolen from "
-                             << sched->systematic_id << Logging::endl;
+                          << sched->systematic_id << Logging::endl;
         }
 
         // Put back the token
@@ -523,7 +520,7 @@ namespace verona::rt
       if (cown->owning_thread() == nullptr)
       {
         Logging::cout() << "Bind cown to scheduler thread: " << this
-                           << Logging::endl;
+                        << Logging::endl;
         cown->set_owning_thread(this);
         cown->next = list;
         list = cown;
@@ -538,13 +535,13 @@ namespace verona::rt
       if (state == ThreadState::NotInLD)
       {
         Logging::cout() << "==============================================="
-                           << Logging::endl;
+                        << Logging::endl;
         Logging::cout() << "==============================================="
-                           << Logging::endl;
+                        << Logging::endl;
         Logging::cout() << "==============================================="
-                           << Logging::endl;
+                        << Logging::endl;
         Logging::cout() << "==============================================="
-                           << Logging::endl;
+                        << Logging::endl;
 
         ld_state_change(ThreadState::WantLD);
       }
@@ -566,7 +563,7 @@ namespace verona::rt
       if ((state == ThreadState::AllInScan) && ld_checkpoint_reached())
       {
         Logging::cout() << "Scheduler unscanned flag: "
-                           << scheduled_unscanned_cown << Logging::endl;
+                        << scheduled_unscanned_cown << Logging::endl;
 
         if (!scheduled_unscanned_cown && Scheduler::no_inflight_messages())
         {
@@ -671,8 +668,8 @@ namespace verona::rt
 
     void ld_state_change(ThreadState::State snext)
     {
-      Logging::cout() << "Scheduler state change: " << state << " -> "
-                         << snext << Logging::endl;
+      Logging::cout() << "Scheduler state change: " << state << " -> " << snext
+                      << Logging::endl;
       state = snext;
     }
 
@@ -686,16 +683,14 @@ namespace verona::rt
       // scanning.
       send_epoch = EpochMark::EPOCH_NONE;
 
-      Logging::cout() << "send_epoch (1): " << send_epoch
-                         << Logging::endl;
+      Logging::cout() << "send_epoch (1): " << send_epoch << Logging::endl;
     }
 
     void enter_scan()
     {
       send_epoch = (prev_epoch == EpochMark::EPOCH_B) ? EpochMark::EPOCH_A :
                                                         EpochMark::EPOCH_B;
-      Logging::cout() << "send_epoch (2): " << send_epoch
-                         << Logging::endl;
+      Logging::cout() << "send_epoch (2): " << send_epoch << Logging::endl;
 
       // Send empty messages to all cowns that can be LIFO scheduled.
 
@@ -770,8 +765,7 @@ namespace verona::rt
           {
             count++;
             *p = c->next;
-            Logging::cout()
-              << "Stub collected cown " << c << Logging::endl;
+            Logging::cout() << "Stub collected cown " << c << Logging::endl;
             c->dealloc(*alloc);
             continue;
           }

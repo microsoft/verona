@@ -42,7 +42,7 @@ struct MyCown : VCown<MyCown>
       parent->weak_release(ThreadAlloc::get());
 
     Logging::cout() << "Destroying " << this << " up_count " << up_count
-                       << std::endl;
+                    << std::endl;
   }
 };
 

@@ -59,8 +59,8 @@ namespace verona::rt
         Epoch e(alloc);
         auto local_content = get<T>();
         Logging::cout() << "Updating noticeboard " << this << " old value "
-                           << local_content << " new value " << new_o
-                           << Logging::endl;
+                        << local_content << " new value " << new_o
+                        << Logging::endl;
         e.dec_in_epoch(local_content);
         put(new_o);
       }
@@ -87,7 +87,7 @@ namespace verona::rt
           Epoch e(alloc);
           local_content = get<T>();
           Logging::cout() << "Inc ref from noticeboard peek" << local_content
-                             << Logging::endl;
+                          << Logging::endl;
           local_content->incref();
         }
         // It's possible that the following three things happen:
@@ -100,7 +100,7 @@ namespace verona::rt
         if (Scheduler::should_scan())
         {
           Logging::cout() << "Scan from noticeboard peek" << local_content
-                             << Logging::endl;
+                          << Logging::endl;
           ObjectStack f(alloc);
           local_content->trace(f);
           Cown::scan_stack(alloc, Scheduler::epoch(), f);

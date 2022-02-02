@@ -77,8 +77,7 @@ void interleave()
   // Print if this occurs, before `finished`.
   if (!flag)
   {
-    Logging::cout() << "Early release: Interleaving occured!"
-                       << Logging::endl;
+    Logging::cout() << "Early release: Interleaving occured!" << Logging::endl;
     // Print normally so that it can be searched for across multiple seeds.
     printf("Interleaving occurred\n");
   }

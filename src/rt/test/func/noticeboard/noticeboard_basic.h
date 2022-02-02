@@ -211,8 +211,7 @@ namespace noticeboard_basic
 
     RegionTrace::insert(alloc, c, alive);
     c->alive = alive;
-    Logging::cout() << "Create C " << c << " with alive " << alive
-                       << std::endl;
+    Logging::cout() << "Create C " << c << " with alive " << alive << std::endl;
 
     Logging::cout() << "Create C next" << c->next << std::endl;
 

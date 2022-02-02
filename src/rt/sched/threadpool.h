@@ -101,23 +101,23 @@ namespace verona::rt
 
     static void record_inflight_message()
     {
-      Logging::cout() << "Increase inflight count: "
-                         << get().inflight_count + 1 << Logging::endl;
+      Logging::cout() << "Increase inflight count: " << get().inflight_count + 1
+                      << Logging::endl;
       local()->scheduled_unscanned_cown = true;
       get().inflight_count++;
     }
 
     static void recv_inflight_message()
     {
-      Logging::cout() << "Decrease inflight count: "
-                         << get().inflight_count - 1 << Logging::endl;
+      Logging::cout() << "Decrease inflight count: " << get().inflight_count - 1
+                      << Logging::endl;
       get().inflight_count--;
     }
 
     static bool no_inflight_messages()
     {
       Logging::cout() << "Check inflight count: " << get().inflight_count
-                         << Logging::endl;
+                      << Logging::endl;
       return get().inflight_count == 0;
     }
 
@@ -132,8 +132,8 @@ namespace verona::rt
       auto h = s.sync.handle(local());
       assert(local() != nullptr);
       auto prev_count = s.external_event_sources++;
-      Logging::cout() << "Add external event source (now "
-                         << (prev_count + 1) << ")" << Logging::endl;
+      Logging::cout() << "Add external event source (now " << (prev_count + 1)
+                      << ")" << Logging::endl;
     }
 
     /// Decrement the external event source count. This will allow runtime
@@ -159,7 +159,7 @@ namespace verona::rt
       auto prev_count = s.external_event_sources--;
       assert(prev_count != 0);
       Logging::cout() << "Remove external event source (now "
-                         << (prev_count - 1) << ")" << Logging::endl;
+                      << (prev_count - 1) << ")" << Logging::endl;
     }
 
     static void set_fair(bool fair)
@@ -385,7 +385,7 @@ namespace verona::rt
       do
       {
         Logging::cout() << "Checking for pending work on thread "
-                           << t->systematic_id << Logging::endl;
+                        << t->systematic_id << Logging::endl;
         if (!t->q.nothing_old())
         {
           Logging::cout() << "Found pending work!" << Logging::endl;
@@ -463,15 +463,13 @@ namespace verona::rt
           t->stop();
           t = t->next;
         } while (t != first_thread);
-        Logging::cout() << "Teardown: all threads stopped"
-                           << Logging::endl;
+        Logging::cout() << "Teardown: all threads stopped" << Logging::endl;
 
         h.unpause_all();
-        Logging::cout() << "cv_notify_all() for teardown"
-                           << Logging::endl;
+        Logging::cout() << "cv_notify_all() for teardown" << Logging::endl;
       }
       Logging::cout() << "Teardown: all threads beginning teardown"
-                         << Logging::endl;
+                      << Logging::endl;
       return true;
     }
 

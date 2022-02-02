@@ -80,7 +80,7 @@ struct Ponder : public VBehaviour<Ponder>
   void f()
   {
     Logging::cout() << "Philosopher " << p->id << " " << p << " pondering "
-                       << p->to_eat << std::endl;
+                    << p->to_eat << std::endl;
     eat_send(p);
     Scheduler::want_ld();
   }
@@ -93,7 +93,7 @@ struct Eat : public VBehaviour<Eat>
   void f()
   {
     Logging::cout() << "Philosopher " << eater->id << " " << eater
-                       << " eating (" << this << ")" << std::endl;
+                    << " eating (" << this << ")" << std::endl;
     for (auto f : eater->forks)
     {
       ((Fork*)f)->uses++;
@@ -104,8 +104,8 @@ struct Eat : public VBehaviour<Eat>
 
   Eat(Philosopher* p_) : eater(p_)
   {
-    Logging::cout() << "Eat Message " << this << " for Philosopher "
-                       << p_->id << " " << p_ << std::endl;
+    Logging::cout() << "Eat Message " << this << " for Philosopher " << p_->id
+                    << " " << p_ << std::endl;
   }
 
   void trace(ObjectStack& fields) const
@@ -121,7 +121,7 @@ void eat_send(Philosopher* p)
   {
     auto& alloc = ThreadAlloc::get();
     Logging::cout() << "Releasing Philosopher " << p->id << " " << p
-                       << std::endl;
+                    << std::endl;
     Cown::release(alloc, p);
     return;
   }
@@ -173,7 +173,7 @@ void test_dining(
     for (size_t j = 0; j < fork_count; j++)
     {
       Logging::cout() << "   Fork " << ((Fork*)my_forks[j])->id << " "
-                         << my_forks[j] << std::endl;
+                      << my_forks[j] << std::endl;
     }
   }
 

@@ -260,9 +260,8 @@ namespace verona::rt
       {
         if (!o->is_live(Scheduler::epoch()))
         {
-          Logging::cout()
-            << "Not performing recursive deallocation on: " << o
-            << Logging::endl;
+          Logging::cout() << "Not performing recursive deallocation on: " << o
+                          << Logging::endl;
           // The cown may have already been swept, just remove weak count, let
           // sweeping/cown stub collection deal with the rest.
           a->weak_count.fetch_sub(1);
@@ -283,8 +282,7 @@ namespace verona::rt
      **/
     void weak_release(Alloc& alloc)
     {
-      Logging::cout() << "Cown " << this << " weak release"
-                         << Logging::endl;
+      Logging::cout() << "Cown " << this << " weak release" << Logging::endl;
       if (weak_count.fetch_sub(1) == 1)
       {
         auto* t = owning_thread();
@@ -312,8 +310,7 @@ namespace verona::rt
 
     void weak_acquire()
     {
-      Logging::cout() << "Cown " << this << " weak acquire"
-                         << Logging::endl;
+      Logging::cout() << "Cown " << this << " weak acquire" << Logging::endl;
       assert(weak_count > 0);
       weak_count++;
     }
@@ -337,7 +334,7 @@ namespace verona::rt
       if (cown->cown_marked_for_scan(epoch))
       {
         Logging::cout() << "Already marked " << cown << " ("
-                           << cown->get_epoch_mark() << ")" << Logging::endl;
+                        << cown->get_epoch_mark() << ")" << Logging::endl;
         return;
       }
 
@@ -504,9 +501,8 @@ namespace verona::rt
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
         auto* next = body->cowns[body->index];
-        Logging::cout() << "MultiMessage " << m << ": fast requesting "
-                           << next << ", index " << body->index
-                           << Logging::endl;
+        Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
+                        << ", index " << body->index << Logging::endl;
 
         if (body->index > 0)
         {
@@ -542,13 +538,13 @@ namespace verona::rt
         }
 
         Logging::cout() << "MultiMessage " << m << ": fast acquire cown "
-                           << next << Logging::endl;
+                        << next << Logging::endl;
         if (body->index == last)
         {
           // Case 2: acquired the last cown.
-          Logging::cout()
-            << "MultiMessage " << m
-            << ": fast send complete, reschedule last cown" << Logging::endl;
+          Logging::cout() << "MultiMessage " << m
+                          << ": fast send complete, reschedule last cown"
+                          << Logging::endl;
           next->schedule();
           return;
         }
@@ -606,8 +602,8 @@ namespace verona::rt
       EpochMark e = m->get_epoch();
 
       Logging::cout() << "MultiMessage " << m << " index " << body.index
-                         << " acquired " << cown << " epoch " << e
-                         << Logging::endl;
+                      << " acquired " << cown << " epoch " << e
+                      << Logging::endl;
 
       // If we are in should_scan, and we observe a message in this epoch,
       // then all future messages must have been sent while in pre-scan or
@@ -627,8 +623,7 @@ namespace verona::rt
       {
         if (e != Scheduler::local()->send_epoch)
         {
-          Logging::cout()
-            << "Message not in current epoch" << Logging::endl;
+          Logging::cout() << "Message not in current epoch" << Logging::endl;
           // We can only see messages from other epochs during the prescan and
           // scan phases.  The message epochs must be up-to-date in all other
           // phases.  We can also see messages sent by threads that have made
@@ -653,8 +648,7 @@ namespace verona::rt
         {
           if (cown->get_epoch_mark() != Scheduler::local()->send_epoch)
           {
-            Logging::cout()
-              << "Contains unscanned cown." << Logging::endl;
+            Logging::cout() << "Contains unscanned cown." << Logging::endl;
 
             // Count message as this contains a cown, that has a message queue
             // that could potentially have old messages in.
@@ -701,7 +695,7 @@ namespace verona::rt
         else
         {
           Logging::cout() << "Trace message not required: " << m << " (" << e
-                             << ")" << Logging::endl;
+                          << ")" << Logging::endl;
         }
       }
 
@@ -720,7 +714,7 @@ namespace verona::rt
       }
 
       Logging::cout() << "MultiMessage " << m << " completed and running on "
-                         << cown << Logging::endl;
+                      << cown << Logging::endl;
 
       // Free the body and the behaviour.
       alloc.dealloc(body.behaviour, body.behaviour->size());
@@ -755,7 +749,7 @@ namespace verona::rt
     {
       static_assert(std::is_base_of_v<Behaviour, Be>);
       Logging::cout() << "Schedule behaviour of type: " << typeid(Be).name()
-                         << Logging::endl;
+                      << Logging::endl;
 
       auto& alloc = ThreadAlloc::get();
       auto* be =
@@ -830,7 +824,7 @@ namespace verona::rt
                  std::memory_order_acq_rel));
 
       Logging::cout() << "Cown " << this << ": backpressure state " << prev
-                         << " -> " << state << Logging::endl;
+                      << " -> " << state << Logging::endl;
       yield();
 
       if (prev == Priority::Low)
@@ -953,7 +947,7 @@ namespace verona::rt
       if (curr == nullptr)
       {
         Logging::cout() << "Reached message token on cown " << this
-                           << Logging::endl;
+                        << Logging::endl;
         if (overloaded())
           return true;
 
@@ -969,7 +963,7 @@ namespace verona::rt
       if (!bp.has_token())
       {
         Logging::cout() << "Cown " << this << ": enqueue message token"
-                           << Logging::endl;
+                        << Logging::endl;
         queue.enqueue(stub_msg(alloc));
         set_has_token(true);
       }
@@ -1055,11 +1049,11 @@ namespace verona::rt
         }
 
         Logging::cout() << "Cown " << cown << ": backpressure state "
-                           << bp.priority() << " -> Low" << Logging::endl;
+                        << bp.priority() << " -> Low" << Logging::endl;
         assert(!high_priority);
         senders[muting_count++] = cown;
         Logging::cout() << "Mute cown " << cown << " (mutor: cown " << mutor
-                           << ")" << Logging::endl;
+                        << ")" << Logging::endl;
 
         Scheduler::local()->mute_set_add(cown);
       }
@@ -1189,7 +1183,7 @@ namespace verona::rt
         batch_size++;
 
         Logging::cout() << "Running Message " << curr << " on cown " << this
-                           << Logging::endl;
+                        << Logging::endl;
 
         auto* senders = body->cowns;
         const size_t senders_count = body->count;
@@ -1220,12 +1214,12 @@ namespace verona::rt
     bool try_collect(Alloc& alloc, EpochMark epoch)
     {
       Logging::cout() << "try_collect: " << this << " (" << get_epoch_mark()
-                         << ")" << Logging::endl;
+                      << ")" << Logging::endl;
 
       if (in_epoch(EpochMark::SCHEDULED_FOR_SCAN))
       {
         Logging::cout() << "Clearing SCHEDULED_FOR_SCAN state: " << this
-                           << Logging::endl;
+                        << Logging::endl;
         // There is a race, when multiple threads may attempt to
         // schedule a Cown for tracing.  In this case, we can
         // get a stale descriptor mark. Update it here, for the
@@ -1243,8 +1237,7 @@ namespace verona::rt
         yield();
         assert(
           bp_state.load(std::memory_order_acquire).priority() != Priority::Low);
-        Logging::cout() << "Collecting (sweep) cown " << this
-                           << Logging::endl;
+        Logging::cout() << "Collecting (sweep) cown " << this << Logging::endl;
         collect(alloc);
       }
 

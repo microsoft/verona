@@ -121,7 +121,7 @@ struct M2 : public VBehaviour<M2>
     if (count_down == 0)
     {
       Logging::cout() << "Fin M2 on " << c << " sending to " << keep_alive
-                         << std::endl;
+                      << std::endl;
       Cown::schedule<Ping>(keep_alive, keep_alive);
     }
     else

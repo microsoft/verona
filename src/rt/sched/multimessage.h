@@ -60,7 +60,7 @@ namespace verona::rt
         (e == EpochMark::EPOCH_B));
 
       Logging::cout() << "MultiMessage epoch: " << this << " " << get_epoch()
-                         << " -> " << e << Logging::endl;
+                      << " -> " << e << Logging::endl;
 
       body = (MultiMessageBody*)((uintptr_t)get_body() | (size_t)e);
 
@@ -79,7 +79,7 @@ namespace verona::rt
     {
       MultiMessage* m = make(alloc, epoch, body);
       Logging::cout() << "MultiMessage " << m << " payload " << body << " ("
-                         << epoch << ")" << Logging::endl;
+                      << epoch << ")" << Logging::endl;
       return m;
     }
 

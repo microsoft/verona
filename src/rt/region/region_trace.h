@@ -261,8 +261,8 @@ namespace verona::rt
       {
         o = collect.pop();
         assert(o->debug_is_iso());
-        Logging::cout() << "Region GC: releasing unreachable subregion: "
-                           << o << Logging::endl;
+        Logging::cout() << "Region GC: releasing unreachable subregion: " << o
+                        << Logging::endl;
 
         // Note that we need to dispatch because `r` is a different region
         // metadata object.
@@ -605,15 +605,13 @@ namespace verona::rt
       if (!additional_entry_points.empty())
       {
         Logging::cout() << "Region release failed due to additional roots"
-                           << Logging::endl;
-        additional_entry_points.forall([](Object* o) {
-          Logging::cout() << " root" << o << Logging::endl;
-        });
+                        << Logging::endl;
+        additional_entry_points.forall(
+          [](Object* o) { Logging::cout() << " root" << o << Logging::endl; });
         abort();
       }
 
-      Logging::cout() << "Region release: trace region: " << o
-                         << Logging::endl;
+      Logging::cout() << "Region release: trace region: " << o << Logging::endl;
 
       // Sweep everything, including the entrypoint.
       sweep<SweepAll::Yes>(alloc, o, collect);

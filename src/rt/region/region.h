@@ -129,7 +129,7 @@ namespace verona::rt
         o = recurse.pop();
         assert(o->debug_is_iso());
         Logging::cout() << "Region Scan: scanning region: " << o
-                           << Logging::endl;
+                        << Logging::endl;
         switch (Region::get_type(o->get_region()))
         {
           case RegionType::Trace:
