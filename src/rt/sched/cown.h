@@ -5,7 +5,7 @@
 #include "../ds/forward_list.h"
 #include "../ds/mpscq.h"
 #include "../region/region.h"
-#include "../test/systematic.h"
+#include "../test/logging.h"
 #include "base_noticeboard.h"
 #include "multimessage.h"
 #include "priority.h"

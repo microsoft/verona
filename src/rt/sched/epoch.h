@@ -4,7 +4,7 @@
 
 #include "../ds/asymlock.h"
 #include "../ds/queue.h"
-#include "../test/systematic.h"
+#include "../test/logging.h"
 #include "region/immutable.h"
 
 #include <snmalloc.h>
