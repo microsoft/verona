@@ -79,7 +79,10 @@ namespace Systematic
     return (get_prng_next() & ((1ULL << range_bits) - 1)) == 0;
   }
 #endif
+} // namespace Systematic
 
+namespace Logging
+{
 #ifdef USE_SYSTEMATIC_TESTING
   static constexpr bool systematic = true;
 #else
@@ -647,4 +650,4 @@ namespace Systematic
 
     return os;
   }
-} // namespace Systematic
+} // namespace Logging

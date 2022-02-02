@@ -688,9 +688,9 @@ namespace verona::rt
 
     inline void set_epoch_mark(EpochMark e)
     {
-      Systematic::cout() << "Object epoch: " << this << " (" << get_class()
+      Logging::cout() << "Object epoch: " << this << " (" << get_class()
                          << ") " << get_epoch_mark() << " -> " << e
-                         << Systematic::endl;
+                         << Logging::endl;
 
       // We only require relaxed consistency here as we can perfectly see old
       // values as we know that we will only need up-to-date values once we have

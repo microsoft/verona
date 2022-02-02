@@ -51,7 +51,7 @@ int main(int argc, char** argv)
 #endif
 
   if (log)
-    Systematic::enable_logging();
+    Logging::enable_logging();
 
   memory_alloc::run_test();
   memory_iterator::run_test();

@@ -179,7 +179,7 @@ namespace verona::rt
           auto dn = (DecNode*)dec_list.dequeue();
           auto o = dn->o;
           alloc.dealloc<sizeof(DecNode)>(dn);
-          Systematic::cout() << "Delayed decref on " << o << Systematic::endl;
+          Logging::cout() << "Delayed decref on " << o << Logging::endl;
           Immutable::release(alloc, o);
         }
 
@@ -283,7 +283,7 @@ namespace verona::rt
       {
         if (!not_in_epoch(o, e))
         {
-          Systematic::cout() << "Ejecting other thread" << Systematic::endl;
+          Logging::cout() << "Ejecting other thread" << Logging::endl;
           o->eject();
         }
 

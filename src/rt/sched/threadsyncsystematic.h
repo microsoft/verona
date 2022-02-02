@@ -116,12 +116,12 @@ namespace verona::rt
           // to wake them until `runtime_pausing` is unset.
 
           running_thread = nullptr;
-          Systematic::cout() << "All threads sleeping!" << Systematic::endl;
+          Logging::cout() << "All threads sleeping!" << Logging::endl;
           return;
         }
       }
-      Systematic::cout() << "Set running thread:" << result->systematic_id
-                         << Systematic::endl;
+      Logging::cout() << "Set running thread:" << result->systematic_id
+                         << Logging::endl;
       assert(result->local_sync.guard());
 
       running_thread = result;
@@ -132,7 +132,7 @@ namespace verona::rt
     void wait_for_my_turn_inner(std::unique_lock<std::mutex>& lock, T* me)
     {
       assert(lock.mutex() == &m_sys);
-      Systematic::cout() << "Waiting for turn" << Systematic::endl;
+      Logging::cout() << "Waiting for turn" << Logging::endl;
       while (running_thread != me)
         me->local_sync.cv.wait(lock);
       assert(me->local_sync.systematic_state == SystematicState::Active);
@@ -238,13 +238,13 @@ namespace verona::rt
           // control.
           if (me != nullptr)
           {
-            Systematic::cout() << "unpause internal" << Systematic::endl;
+            Logging::cout() << "unpause internal" << Logging::endl;
             sync.unpause_incarnation++;
             sync.yield(me);
           }
           else
           {
-            Systematic::cout() << "unpause external" << Systematic::endl;
+            Logging::cout() << "unpause external" << Logging::endl;
             // Can be signalled from outside the runtime if external work is
             // injected. If this is a runtime thread, then yield.
             // This will wake a thread if none are currently running, otherwise
@@ -291,7 +291,7 @@ namespace verona::rt
 
       assert(running_thread == me);
 
-      Systematic::cout() << "Thread finished." << Systematic::endl;
+      Logging::cout() << "Thread finished." << Logging::endl;
 
       // Confirm at least one other thread is running,
       auto curr = me;
@@ -300,7 +300,7 @@ namespace verona::rt
         curr = curr->next;
         if (curr == me)
         {
-          Systematic::cout() << "Last thread finished." << Systematic::endl;
+          Logging::cout() << "Last thread finished." << Logging::endl;
           // No threads left
           running_thread = nullptr;
           shutdown = true;

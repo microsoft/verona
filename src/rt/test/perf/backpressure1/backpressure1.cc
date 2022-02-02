@@ -144,7 +144,7 @@ int main(int argc, char** argv)
                  << "ms" << std::endl;
 
 #ifdef USE_SYSTEMATIC_TESTING
-  Systematic::enable_logging();
+  Logging::enable_logging();
   Systematic::set_seed(seed);
 #else
   UNUSED(seed);
@@ -164,7 +164,7 @@ int main(int argc, char** argv)
 
   auto* e = new EmptyCown;
   schedule_lambda(e, [] {
-    Systematic::cout() << "Add external event source" << std::endl;
+    Logging::cout() << "Add external event source" << std::endl;
     Scheduler::add_external_event_source();
   });
 
@@ -196,7 +196,7 @@ int main(int argc, char** argv)
     }
 
     schedule_lambda(e, [e] {
-      Systematic::cout() << "Remove external event source" << std::endl;
+      Logging::cout() << "Remove external event source" << std::endl;
       Scheduler::remove_external_event_source();
       Cown::release(ThreadAlloc::get(), e);
     });

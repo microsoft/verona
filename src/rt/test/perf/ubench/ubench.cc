@@ -249,7 +249,7 @@ int main(int argc, char** argv)
 
   auto& alloc = sn::ThreadAlloc::get();
 #ifdef USE_SYSTEMATIC_TESTING
-  Systematic::enable_logging();
+  Logging::enable_logging();
   Systematic::set_seed(seed);
 #else
   UNUSED(seed);

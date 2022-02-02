@@ -44,7 +44,7 @@ namespace verona::rt
      */
     void lock()
     {
-      Systematic::cout() << "Locking Scheduler." << Systematic::endl;
+      Logging::cout() << "Locking Scheduler." << Logging::endl;
       auto u = Unlocked;
       while (!state.compare_exchange_strong(u, Locked))
       {
@@ -55,7 +55,7 @@ namespace verona::rt
           snmalloc::Aal::pause();
         }
       }
-      Systematic::cout() << "Locking Scheduler done" << Systematic::endl;
+      Logging::cout() << "Locking Scheduler done" << Logging::endl;
     }
 
     /**
@@ -104,12 +104,12 @@ namespace verona::rt
 
     void unlock()
     {
-      Systematic::cout() << "Unlock Scheduler lock" << Systematic::endl;
+      Logging::cout() << "Unlock Scheduler lock" << Logging::endl;
 
       // Releasing the lock can pickup an unpause request
       if (!lock.unlock())
       {
-        Systematic::cout() << "Pending unpause" << Systematic::endl;
+        Logging::cout() << "Pending unpause" << Logging::endl;
 
         auto* curr = waiters;
         waiters = nullptr;
@@ -129,10 +129,10 @@ namespace verona::rt
   public:
     void unpause_all(T*)
     {
-      Systematic::cout() << "Unpause all" << Systematic::endl;
+      Logging::cout() << "Unpause all" << Logging::endl;
       if (lock.lock_for_unpause())
         unlock();
-      Systematic::cout() << "Unpause all done" << Systematic::endl;
+      Logging::cout() << "Unpause all done" << Logging::endl;
     }
 
     class ThreadSyncHandle
@@ -160,14 +160,14 @@ namespace verona::rt
        */
       void pause()
       {
-        Systematic::cout() << "Add to list of waiters" << Systematic::endl;
+        Logging::cout() << "Add to list of waiters" << Logging::endl;
         thread->local_sync.next = sync.waiters;
         sync.waiters = &(thread->local_sync);
         sync.unlock();
 
-        Systematic::cout() << "Sleep" << Systematic::endl;
+        Logging::cout() << "Sleep" << Logging::endl;
         thread->local_sync.sem.sleep();
-        Systematic::cout() << "Awake!" << Systematic::endl;
+        Logging::cout() << "Awake!" << Logging::endl;
 
         sync.lock.lock();
       }

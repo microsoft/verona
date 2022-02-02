@@ -14,7 +14,7 @@ struct Msg : VBehaviour<Msg>
 
   void f()
   {
-    Systematic::cout() << "Msg on " << m << std::endl;
+    Logging::cout() << "Msg on " << m << std::endl;
   }
 };
 

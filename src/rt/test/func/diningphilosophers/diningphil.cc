@@ -79,7 +79,7 @@ struct Ponder : public VBehaviour<Ponder>
 
   void f()
   {
-    Systematic::cout() << "Philosopher " << p->id << " " << p << " pondering "
+    Logging::cout() << "Philosopher " << p->id << " " << p << " pondering "
                        << p->to_eat << std::endl;
     eat_send(p);
     Scheduler::want_ld();
@@ -92,7 +92,7 @@ struct Eat : public VBehaviour<Eat>
 
   void f()
   {
-    Systematic::cout() << "Philosopher " << eater->id << " " << eater
+    Logging::cout() << "Philosopher " << eater->id << " " << eater
                        << " eating (" << this << ")" << std::endl;
     for (auto f : eater->forks)
     {
@@ -104,13 +104,13 @@ struct Eat : public VBehaviour<Eat>
 
   Eat(Philosopher* p_) : eater(p_)
   {
-    Systematic::cout() << "Eat Message " << this << " for Philosopher "
+    Logging::cout() << "Eat Message " << this << " for Philosopher "
                        << p_->id << " " << p_ << std::endl;
   }
 
   void trace(ObjectStack& fields) const
   {
-    Systematic::cout() << "Calling custom trace" << std::endl;
+    Logging::cout() << "Calling custom trace" << std::endl;
     fields.push(eater);
   }
 };
@@ -120,7 +120,7 @@ void eat_send(Philosopher* p)
   if (p->to_eat == 0)
   {
     auto& alloc = ThreadAlloc::get();
-    Systematic::cout() << "Releasing Philosopher " << p->id << " " << p
+    Logging::cout() << "Releasing Philosopher " << p->id << " " << p
                        << std::endl;
     Cown::release(alloc, p);
     return;
@@ -143,7 +143,7 @@ void test_dining(
   {
     auto f = new Fork(i);
     forks.push_back(f);
-    Systematic::cout() << "Fork " << i << " " << f << std::endl;
+    Logging::cout() << "Fork " << i << " " << f << std::endl;
   }
 
   verona::Scramble scrambler;
@@ -169,10 +169,10 @@ void test_dining(
 
     auto p = new Philosopher(i, my_forks, hunger);
     Cown::schedule<Ponder>(p, p);
-    Systematic::cout() << "Philosopher " << i << " " << p << std::endl;
+    Logging::cout() << "Philosopher " << i << " " << p << std::endl;
     for (size_t j = 0; j < fork_count; j++)
     {
-      Systematic::cout() << "   Fork " << ((Fork*)my_forks[j])->id << " "
+      Logging::cout() << "   Fork " << ((Fork*)my_forks[j])->id << " "
                          << my_forks[j] << std::endl;
     }
   }

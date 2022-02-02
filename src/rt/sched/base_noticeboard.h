@@ -93,8 +93,8 @@ namespace verona::rt
       {
         return;
       }
-      Systematic::cout() << "Flushing values on noticeboard: " << this
-                         << Systematic::endl;
+      Logging::cout() << "Flushing values on noticeboard: " << this
+                         << Logging::endl;
       flush_n(alloc, update_buffer.size());
     }
 

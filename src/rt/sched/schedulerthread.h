@@ -114,14 +114,14 @@ namespace verona::rt
 
     inline void schedule_fifo(T* a)
     {
-      Systematic::cout() << "Enqueue cown " << a << " (" << a->get_epoch_mark()
-                         << ")" << Systematic::endl;
+      Logging::cout() << "Enqueue cown " << a << " (" << a->get_epoch_mark()
+                         << ")" << Logging::endl;
 
       // Scheduling on this thread, from this thread.
       if (!a->scanned(send_epoch))
       {
-        Systematic::cout() << "Enqueue unscanned cown " << a
-                           << Systematic::endl;
+        Logging::cout() << "Enqueue unscanned cown " << a
+                           << Logging::endl;
         scheduled_unscanned_cown = true;
       }
       assert(!a->queue.is_sleeping());
@@ -135,11 +135,11 @@ namespace verona::rt
     {
       // A lifo scheduled cown is coming from an external source, such as
       // asynchronous I/O.
-      Systematic::cout() << "LIFO scheduling cown " << a << " onto "
-                         << systematic_id << Systematic::endl;
+      Logging::cout() << "LIFO scheduling cown " << a << " onto "
+                         << systematic_id << Logging::endl;
       q.enqueue_front(ThreadAlloc::get(), a);
-      Systematic::cout() << "LIFO scheduled cown " << a << " onto "
-                         << systematic_id << Systematic::endl;
+      Logging::cout() << "LIFO scheduled cown " << a << " onto "
+                         << systematic_id << Logging::endl;
 
       stats.lifo();
 
@@ -163,7 +163,7 @@ namespace verona::rt
      */
     void mute_set_clear()
     {
-      Systematic::cout() << "Clear mute set" << Systematic::endl;
+      Logging::cout() << "Clear mute set" << Logging::endl;
       for (auto entry = mute_set.begin(); entry != mute_set.end(); ++entry)
       {
         // This operation should be safe if the cown has been collected but the
@@ -221,8 +221,8 @@ namespace verona::rt
         {
           cown = q.dequeue(*alloc);
           if (cown != nullptr)
-            Systematic::cout()
-              << "Pop cown " << clear_thread_bit(cown) << Systematic::endl;
+            Logging::cout()
+              << "Pop cown " << clear_thread_bit(cown) << Logging::endl;
         }
 
         if (cown == nullptr)
@@ -241,8 +241,8 @@ namespace verona::rt
           continue;
         }
 
-        Systematic::cout() << "Schedule cown " << cown << " ("
-                           << cown->get_epoch_mark() << ")" << Systematic::endl;
+        Logging::cout() << "Schedule cown " << cown << " ("
+                           << cown->get_epoch_mark() << ")" << Logging::endl;
 
         // This prevents the LD protocol advancing if this cown has not been
         // scanned. This catches various cases where we have stolen, or
@@ -253,13 +253,13 @@ namespace verona::rt
         // stealing, and running on same cown as previous loop.
         if (Scheduler::should_scan() && (cown->get_epoch_mark() != send_epoch))
         {
-          Systematic::cout() << "Unscanned cown next" << Systematic::endl;
+          Logging::cout() << "Unscanned cown next" << Logging::endl;
           scheduled_unscanned_cown = true;
         }
 
         ld_protocol();
 
-        Systematic::cout() << "Running cown " << cown << Systematic::endl;
+        Logging::cout() << "Running cown " << cown << Logging::endl;
 
         bool reschedule = cown->run(*alloc, state, send_epoch);
 
@@ -288,7 +288,7 @@ namespace verona::rt
             {
               if (q.nothing_old())
               {
-                Systematic::cout() << "Queue empty" << Systematic::endl;
+                Logging::cout() << "Queue empty" << Logging::endl;
                 // We have effectively reached token cown.
                 n_ld_tokens = 0;
 
@@ -302,9 +302,9 @@ namespace verona::rt
 
               if (!has_thread_bit(cown))
               {
-                Systematic::cout()
+                Logging::cout()
                   << "Reschedule cown " << cown << " ("
-                  << cown->get_epoch_mark() << ")" << Systematic::endl;
+                  << cown->get_epoch_mark() << ")" << Logging::endl;
               }
             }
           }
@@ -320,7 +320,7 @@ namespace verona::rt
 
       assert(mute_set.size() == 0);
 
-      Systematic::cout() << "Begin teardown (phase 1)" << Systematic::endl;
+      Logging::cout() << "Begin teardown (phase 1)" << Logging::endl;
 
       cown = list;
       while (cown != nullptr)
@@ -330,18 +330,18 @@ namespace verona::rt
         cown = cown->next;
       }
 
-      Systematic::cout() << "End teardown (phase 1)" << Systematic::endl;
+      Logging::cout() << "End teardown (phase 1)" << Logging::endl;
 
       Epoch(ThreadAlloc::get()).flush_local();
       Scheduler::get().enter_barrier();
 
-      Systematic::cout() << "Begin teardown (phase 2)" << Systematic::endl;
+      Logging::cout() << "Begin teardown (phase 2)" << Logging::endl;
 
       GlobalEpoch::advance();
 
       collect_cown_stubs<true>();
 
-      Systematic::cout() << "End teardown (phase 2)" << Systematic::endl;
+      Logging::cout() << "End teardown (phase 2)" << Logging::endl;
 
       q.destroy(*alloc);
 
@@ -365,9 +365,9 @@ namespace verona::rt
         if (cown != nullptr)
         {
           // stats.steal();
-          Systematic::cout()
+          Logging::cout()
             << "Fast-steal cown " << clear_thread_bit(cown) << " from "
-            << victim->systematic_id << Systematic::endl;
+            << victim->systematic_id << Logging::endl;
           result = cown;
           return true;
         }
@@ -382,7 +382,7 @@ namespace verona::rt
     void dec_n_ld_tokens()
     {
       assert(n_ld_tokens == 1 || n_ld_tokens == 2);
-      Systematic::cout() << "Reached LD token" << Systematic::endl;
+      Logging::cout() << "Reached LD token" << Logging::endl;
       n_ld_tokens--;
     }
 
@@ -417,9 +417,9 @@ namespace verona::rt
           if (cown != nullptr)
           {
             stats.steal();
-            Systematic::cout()
+            Logging::cout()
               << "Stole cown " << clear_thread_bit(cown) << " from "
-              << victim->systematic_id << Systematic::endl;
+              << victim->systematic_id << Logging::endl;
             return cown;
           }
         }
@@ -495,8 +495,8 @@ namespace verona::rt
         {
           if (Scheduler::get().fair)
           {
-            Systematic::cout()
-              << "Should steal for fairness!" << Systematic::endl;
+            Logging::cout()
+              << "Should steal for fairness!" << Logging::endl;
             should_steal_for_fairness = true;
           }
 
@@ -505,12 +505,12 @@ namespace verona::rt
             dec_n_ld_tokens();
           }
 
-          Systematic::cout() << "Reached token" << Systematic::endl;
+          Logging::cout() << "Reached token" << Logging::endl;
         }
         else
         {
-          Systematic::cout() << "Reached token: stolen from "
-                             << sched->systematic_id << Systematic::endl;
+          Logging::cout() << "Reached token: stolen from "
+                             << sched->systematic_id << Logging::endl;
         }
 
         // Put back the token
@@ -522,8 +522,8 @@ namespace verona::rt
       // registered with a scheduler thread.
       if (cown->owning_thread() == nullptr)
       {
-        Systematic::cout() << "Bind cown to scheduler thread: " << this
-                           << Systematic::endl;
+        Logging::cout() << "Bind cown to scheduler thread: " << this
+                           << Logging::endl;
         cown->set_owning_thread(this);
         cown->next = list;
         list = cown;
@@ -537,14 +537,14 @@ namespace verona::rt
     {
       if (state == ThreadState::NotInLD)
       {
-        Systematic::cout() << "==============================================="
-                           << Systematic::endl;
-        Systematic::cout() << "==============================================="
-                           << Systematic::endl;
-        Systematic::cout() << "==============================================="
-                           << Systematic::endl;
-        Systematic::cout() << "==============================================="
-                           << Systematic::endl;
+        Logging::cout() << "==============================================="
+                           << Logging::endl;
+        Logging::cout() << "==============================================="
+                           << Logging::endl;
+        Logging::cout() << "==============================================="
+                           << Logging::endl;
+        Logging::cout() << "==============================================="
+                           << Logging::endl;
 
         ld_state_change(ThreadState::WantLD);
       }
@@ -565,8 +565,8 @@ namespace verona::rt
       // Set state to BelieveDone_Vote when we think we've finished scanning.
       if ((state == ThreadState::AllInScan) && ld_checkpoint_reached())
       {
-        Systematic::cout() << "Scheduler unscanned flag: "
-                           << scheduled_unscanned_cown << Systematic::endl;
+        Logging::cout() << "Scheduler unscanned flag: "
+                           << scheduled_unscanned_cown << Logging::endl;
 
         if (!scheduled_unscanned_cown && Scheduler::no_inflight_messages())
         {
@@ -604,7 +604,7 @@ namespace verona::rt
         if (first)
         {
           first = false;
-          Systematic::cout() << "LD protocol loop" << Systematic::endl;
+          Logging::cout() << "LD protocol loop" << Logging::endl;
         }
 
         ld_state_change(snext);
@@ -671,8 +671,8 @@ namespace verona::rt
 
     void ld_state_change(ThreadState::State snext)
     {
-      Systematic::cout() << "Scheduler state change: " << state << " -> "
-                         << snext << Systematic::endl;
+      Logging::cout() << "Scheduler state change: " << state << " -> "
+                         << snext << Logging::endl;
       state = snext;
     }
 
@@ -686,16 +686,16 @@ namespace verona::rt
       // scanning.
       send_epoch = EpochMark::EPOCH_NONE;
 
-      Systematic::cout() << "send_epoch (1): " << send_epoch
-                         << Systematic::endl;
+      Logging::cout() << "send_epoch (1): " << send_epoch
+                         << Logging::endl;
     }
 
     void enter_scan()
     {
       send_epoch = (prev_epoch == EpochMark::EPOCH_B) ? EpochMark::EPOCH_A :
                                                         EpochMark::EPOCH_B;
-      Systematic::cout() << "send_epoch (2): " << send_epoch
-                         << Systematic::endl;
+      Logging::cout() << "send_epoch (2): " << send_epoch
+                         << Logging::endl;
 
       // Send empty messages to all cowns that can be LIFO scheduled.
 
@@ -712,7 +712,7 @@ namespace verona::rt
 
       n_ld_tokens = 2;
       scheduled_unscanned_cown = false;
-      Systematic::cout() << "Enqueued LD check point" << Systematic::endl;
+      Logging::cout() << "Enqueued LD check point" << Logging::endl;
     }
 
     void collect_cowns()
@@ -754,14 +754,14 @@ namespace verona::rt
         {
           if (c->weak_count != 0)
           {
-            Systematic::cout() << "Leaking cown " << c << Systematic::endl;
+            Logging::cout() << "Leaking cown " << c << Logging::endl;
             if (Scheduler::get_detect_leaks())
             {
               *p = c->next;
               continue;
             }
           }
-          Systematic::cout() << "Stub collect cown " << c << Systematic::endl;
+          Logging::cout() << "Stub collect cown " << c << Logging::endl;
           // TODO: Investigate systematic testing coverage here.
           auto epoch = c->epoch_when_popped;
           auto outdated =
@@ -770,16 +770,16 @@ namespace verona::rt
           {
             count++;
             *p = c->next;
-            Systematic::cout()
-              << "Stub collected cown " << c << Systematic::endl;
+            Logging::cout()
+              << "Stub collected cown " << c << Logging::endl;
             c->dealloc(*alloc);
             continue;
           }
           else
           {
             if (!outdated)
-              Systematic::cout()
-                << "Cown " << c << " not outdated." << Systematic::endl;
+              Logging::cout()
+                << "Cown " << c << " not outdated." << Logging::endl;
           }
         }
         p = &(c->next);

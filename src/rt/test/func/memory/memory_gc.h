@@ -500,38 +500,38 @@ namespace memory_gc
 
   void test_additional_roots()
   {
-    Systematic::cout() << "Additional roots test" << std::endl;
+    Logging::cout() << "Additional roots test" << std::endl;
 
     auto& alloc = ThreadAlloc::get();
     auto* o = new (RegionType::Trace) C;
-    Systematic::cout() << "Root" << o << std::endl;
+    Logging::cout() << "Root" << o << std::endl;
     {
       UsingRegion rr(o);
       // Allocate some reachable objects.
       auto* o1 = new C;
-      Systematic::cout() << " other" << o1 << std::endl;
+      Logging::cout() << " other" << o1 << std::endl;
       auto* s1 = new C;
-      Systematic::cout() << " sub" << s1 << std::endl;
+      Logging::cout() << " sub" << s1 << std::endl;
       o1->f1 = s1;
       auto* o2 = new C;
-      Systematic::cout() << " other" << o2 << std::endl;
+      Logging::cout() << " other" << o2 << std::endl;
       auto* s2 = new C;
-      Systematic::cout() << " sub" << s2 << std::endl;
+      Logging::cout() << " sub" << s2 << std::endl;
       o2->f1 = s2;
       auto* o3 = new C;
-      Systematic::cout() << " other" << o3 << std::endl;
+      Logging::cout() << " other" << o3 << std::endl;
       auto* s3 = new C;
-      Systematic::cout() << " sub" << s2 << std::endl;
+      Logging::cout() << " sub" << s2 << std::endl;
       o3->f1 = s3;
       auto* o4 = new C;
-      Systematic::cout() << " other" << o4 << std::endl;
+      Logging::cout() << " other" << o4 << std::endl;
       auto* s4 = new C;
-      Systematic::cout() << " sub" << s4 << std::endl;
+      Logging::cout() << " sub" << s4 << std::endl;
       o4->f1 = s4;
       auto* o5 = new C;
-      Systematic::cout() << " other" << o5 << std::endl;
+      Logging::cout() << " other" << o5 << std::endl;
       auto* s5 = new C;
-      Systematic::cout() << " sub" << s5 << std::endl;
+      Logging::cout() << " sub" << s5 << std::endl;
       o5->f1 = s5;
 
       RegionTrace::push_additional_root(o, o1, alloc);
@@ -542,7 +542,7 @@ namespace memory_gc
 
       check(debug_size() == 11);
       region_collect();
-      Systematic::cout() << debug_size() << std::endl;
+      Logging::cout() << debug_size() << std::endl;
       check(debug_size() == 11);
 
       RegionTrace::pop_additional_root(o, o5, alloc);
