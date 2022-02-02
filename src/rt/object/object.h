@@ -5,6 +5,7 @@
 #include "../ds/bag.h"
 #include "../ds/stack.h"
 #include "../test/logging.h"
+#include "../test/systematic.h"
 
 #include <snmalloc.h>
 

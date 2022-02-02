@@ -6,6 +6,7 @@
 #include "../ds/mpscq.h"
 #include "../region/region.h"
 #include "../test/logging.h"
+#include "../test/systematic.h"
 #include "base_noticeboard.h"
 #include "multimessage.h"
 #include "priority.h"
