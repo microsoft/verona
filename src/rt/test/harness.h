@@ -79,7 +79,7 @@ public:
     seed_upper = seed_lower + count;
 
 #if defined(USE_FLIGHT_RECORDER) || defined(CI_BUILD)
-    Systematic::enable_crash_logging();
+    Logging::enable_crash_logging();
 #endif
 
     if (opt.has("--log-all") || (seed_lower + 1 == seed_upper))
