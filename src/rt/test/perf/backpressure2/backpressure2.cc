@@ -132,7 +132,7 @@ int main(int argc, char** argv)
                  << "ms" << std::endl;
 
 #ifdef USE_SYSTEMATIC_TESTING
-  Systematic::enable_logging();
+  Logging::enable_logging();
   Systematic::set_seed(seed);
 #endif
   Scheduler::set_detect_leaks(true);

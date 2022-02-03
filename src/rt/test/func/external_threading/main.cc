@@ -9,7 +9,7 @@ constexpr const char* HARNESS_ARGV[] = {"binary", "--cores", "1"};
 
 void test_cown()
 {
-  schedule_lambda([] { Systematic::cout() << "Executed" << Systematic::endl; });
+  schedule_lambda([] { Logging::cout() << "Executed" << Logging::endl; });
 }
 
 /**
@@ -20,7 +20,7 @@ void test_cown()
  */
 int main()
 {
-  Systematic::enable_logging();
+  Logging::enable_logging();
   SystematicTestHarness harness(
     static_cast<int>(std::size(HARNESS_ARGV)), HARNESS_ARGV);
 

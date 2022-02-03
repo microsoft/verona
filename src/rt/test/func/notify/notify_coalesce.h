@@ -8,7 +8,7 @@ namespace notify_coalesce
   {
     void notified(Object*)
     {
-      Systematic::cout() << "Recv Notify" << std::endl;
+      Logging::cout() << "Recv Notify" << std::endl;
       g_called++;
     }
   };
@@ -17,7 +17,7 @@ namespace notify_coalesce
   {
     void f()
     {
-      Systematic::cout() << "Recv Ping" << std::endl;
+      Logging::cout() << "Recv Ping" << std::endl;
     }
   };
 
@@ -59,7 +59,7 @@ namespace notify_coalesce
           g_called = 0;
           for (int i = 0; i < 10; ++i)
           {
-            Systematic::cout() << "Send Notify" << std::endl;
+            Logging::cout() << "Send Notify" << std::endl;
             a->mark_notify();
             Cown::schedule<Ping>(a);
           }

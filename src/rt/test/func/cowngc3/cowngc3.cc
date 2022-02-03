@@ -59,7 +59,7 @@ struct Ping : public VBehaviour<Ping>
 
   void f()
   {
-    Systematic::cout() << "Ping on " << c << std::endl;
+    Logging::cout() << "Ping on " << c << std::endl;
   }
 
   void trace(ObjectStack&) const {}
@@ -82,7 +82,7 @@ struct WantLD : public VBehaviour<WantLD>
 
   void f()
   {
-    Systematic::cout() << "WantLD on " << c << std::endl;
+    Logging::cout() << "WantLD on " << c << std::endl;
     Scheduler::want_ld();
   }
 };
@@ -94,11 +94,11 @@ struct M0 : public VBehaviour<M0>
 
   void f()
   {
-    Systematic::cout() << "M0 on " << c << std::endl;
+    Logging::cout() << "M0 on " << c << std::endl;
 
     // Allocate a new Cown, and put in noticebaord
     auto n = new MyCown;
-    Systematic::cout() << "c4 = " << n << std::endl;
+    Logging::cout() << "c4 = " << n << std::endl;
 
     yield();
     fake_noticeboard = n;
@@ -120,13 +120,13 @@ struct M2 : public VBehaviour<M2>
   {
     if (count_down == 0)
     {
-      Systematic::cout() << "Fin M2 on " << c << " sending to " << keep_alive
-                         << std::endl;
+      Logging::cout() << "Fin M2 on " << c << " sending to " << keep_alive
+                      << std::endl;
       Cown::schedule<Ping>(keep_alive, keep_alive);
     }
     else
     {
-      Systematic::cout() << "Loop M2 on " << c << std::endl;
+      Logging::cout() << "Loop M2 on " << c << std::endl;
       Cown::schedule<M2>(c, c, keep_alive, count_down - 1);
     }
   }
@@ -145,7 +145,7 @@ struct M1 : public VBehaviour<M1>
 
   void f()
   {
-    Systematic::cout() << "M1 on " << m << std::endl;
+    Logging::cout() << "M1 on " << m << std::endl;
 
     MyCown* o;
 
@@ -163,7 +163,7 @@ struct M1 : public VBehaviour<M1>
 
     yield();
 
-    Systematic::cout() << "Sending M2 to " << o << "with " << m << std::endl;
+    Logging::cout() << "Sending M2 to " << o << "with " << m << std::endl;
     Cown::schedule<M2>(o, o, m, 20);
 
     yield();
@@ -177,9 +177,9 @@ void run_test()
   auto c1 = new MyCown;
   auto c2 = new MyCown;
   auto c3 = new MyCown;
-  Systematic::cout() << "c1 = " << c1 << std::endl;
-  Systematic::cout() << "c2 = " << c2 << std::endl;
-  Systematic::cout() << "c3 = " << c3 << std::endl;
+  Logging::cout() << "c1 = " << c1 << std::endl;
+  Logging::cout() << "c2 = " << c2 << std::endl;
+  Logging::cout() << "c3 = " << c3 << std::endl;
 
   Cown::schedule<Ping>(c1, c1);
   Cown::schedule<Ping>(c2, c2);

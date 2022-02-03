@@ -41,8 +41,8 @@ struct MyCown : VCown<MyCown>
     if (parent != nullptr)
       parent->weak_release(ThreadAlloc::get());
 
-    Systematic::cout() << "Destroying " << this << " up_count " << up_count
-                       << std::endl;
+    Logging::cout() << "Destroying " << this << " up_count " << up_count
+                    << std::endl;
   }
 };
 
@@ -72,7 +72,7 @@ MyCown* make_tree(int n, MyCown* p)
 
   auto c = new MyCown;
 
-  Systematic::cout() << "Cown " << spaces[n] << c << std::endl;
+  Logging::cout() << "Cown " << spaces[n] << c << std::endl;
 
   c->left = make_tree(n - 1, c);
   c->right = make_tree(n - 1, c);
@@ -100,7 +100,7 @@ struct Up : VBehaviour<Up>
 
   void f()
   {
-    Systematic::cout() << "Up on " << m << std::endl;
+    Logging::cout() << "Up on " << m << std::endl;
 
     m->up_count++;
 
@@ -115,7 +115,7 @@ struct Down : VBehaviour<Down>
 
   void f()
   {
-    Systematic::cout() << "Down on " << m << std::endl;
+    Logging::cout() << "Down on " << m << std::endl;
 
     Up::weak_send(m);
 

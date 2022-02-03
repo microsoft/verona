@@ -3,7 +3,7 @@
 #pragma once
 
 #include "../pal/threadpoolbuilder.h"
-#include "test/systematic.h"
+#include "test/logging.h"
 #include "threadstate.h"
 #ifdef USE_SYSTEMATIC_TESTING
 #  include "threadsyncsystematic.h"
@@ -101,23 +101,23 @@ namespace verona::rt
 
     static void record_inflight_message()
     {
-      Systematic::cout() << "Increase inflight count: "
-                         << get().inflight_count + 1 << Systematic::endl;
+      Logging::cout() << "Increase inflight count: " << get().inflight_count + 1
+                      << Logging::endl;
       local()->scheduled_unscanned_cown = true;
       get().inflight_count++;
     }
 
     static void recv_inflight_message()
     {
-      Systematic::cout() << "Decrease inflight count: "
-                         << get().inflight_count - 1 << Systematic::endl;
+      Logging::cout() << "Decrease inflight count: " << get().inflight_count - 1
+                      << Logging::endl;
       get().inflight_count--;
     }
 
     static bool no_inflight_messages()
     {
-      Systematic::cout() << "Check inflight count: " << get().inflight_count
-                         << Systematic::endl;
+      Logging::cout() << "Check inflight count: " << get().inflight_count
+                      << Logging::endl;
       return get().inflight_count == 0;
     }
 
@@ -132,8 +132,8 @@ namespace verona::rt
       auto h = s.sync.handle(local());
       assert(local() != nullptr);
       auto prev_count = s.external_event_sources++;
-      Systematic::cout() << "Add external event source (now "
-                         << (prev_count + 1) << ")" << Systematic::endl;
+      Logging::cout() << "Add external event source (now " << (prev_count + 1)
+                      << ")" << Logging::endl;
     }
 
     /// Decrement the external event source count. This will allow runtime
@@ -158,13 +158,13 @@ namespace verona::rt
       auto h = s.sync.handle(local());
       auto prev_count = s.external_event_sources--;
       assert(prev_count != 0);
-      Systematic::cout() << "Remove external event source (now "
-                         << (prev_count - 1) << ")" << Systematic::endl;
+      Logging::cout() << "Remove external event source (now "
+                      << (prev_count - 1) << ")" << Logging::endl;
     }
 
     static void set_fair(bool fair)
     {
-      Systematic::cout() << "Set fair: " << fair << Systematic::endl;
+      Logging::cout() << "Set fair: " << fair << Logging::endl;
       auto& s = get();
       s.fair = fair;
     }
@@ -219,7 +219,7 @@ namespace verona::rt
       if (in_prescan())
       {
         // During pre-scan alloc in previous epoch.
-        Systematic::cout() << "Alloc cown during pre-scan" << Systematic::endl;
+        Logging::cout() << "Alloc cown during pre-scan" << Logging::endl;
         return t->prev_epoch;
       }
 
@@ -285,7 +285,7 @@ namespace verona::rt
 
     void init(size_t count)
     {
-      Systematic::cout() << "Init runtime" << Systematic::endl;
+      Logging::cout() << "Init runtime" << Logging::endl;
 
       if ((thread_count != 0) || (count == 0))
         abort();
@@ -314,7 +314,7 @@ namespace verona::rt
         {
           t->next = first_thread;
 
-          Systematic::cout() << "Runtime initialised" << Systematic::endl;
+          Logging::cout() << "Runtime initialised" << Logging::endl;
           break;
         }
       }
@@ -336,14 +336,14 @@ namespace verona::rt
       {
         ThreadPoolBuilder builder(thread_count);
 
-        Systematic::cout() << "Starting all threads" << Systematic::endl;
+        Logging::cout() << "Starting all threads" << Logging::endl;
         do
         {
           builder.add_thread(&T::run, t, startup, args...);
           t = t->next;
         } while (t != first_thread);
       }
-      Systematic::cout() << "All threads stopped" << Systematic::endl;
+      Logging::cout() << "All threads stopped" << Logging::endl;
 
       assert(t == first_thread);
       do
@@ -352,7 +352,7 @@ namespace verona::rt
         delete t;
         t = next;
       } while (t != first_thread);
-      Systematic::cout() << "All threads deallocated" << Systematic::endl;
+      Logging::cout() << "All threads deallocated" << Logging::endl;
 
       first_thread = nullptr;
       incarnation++;
@@ -384,17 +384,17 @@ namespace verona::rt
       T* t = first_thread;
       do
       {
-        Systematic::cout() << "Checking for pending work on thread "
-                           << t->systematic_id << Systematic::endl;
+        Logging::cout() << "Checking for pending work on thread "
+                        << t->systematic_id << Logging::endl;
         if (!t->q.nothing_old())
         {
-          Systematic::cout() << "Found pending work!" << Systematic::endl;
+          Logging::cout() << "Found pending work!" << Logging::endl;
           return true;
         }
         t = t->next;
       } while (t != first_thread);
 
-      Systematic::cout() << "No pending work!" << Systematic::endl;
+      Logging::cout() << "No pending work!" << Logging::endl;
       return false;
     }
 
@@ -436,9 +436,9 @@ namespace verona::rt
         if (active_thread_count > 1)
         {
           active_thread_count--;
-          Systematic::cout() << "Pausing" << Systematic::endl;
+          Logging::cout() << "Pausing" << Logging::endl;
           h.pause(); // Spurious wake-ups are safe.
-          Systematic::cout() << "Unpausing" << Systematic::endl;
+          Logging::cout() << "Unpausing" << Logging::endl;
           active_thread_count++;
           return true;
         }
@@ -446,13 +446,13 @@ namespace verona::rt
         // There are external sources should wait for external wake ups.
         if (external_event_sources != 0)
         {
-          Systematic::cout() << "Pausing last thread" << Systematic::endl;
+          Logging::cout() << "Pausing last thread" << Logging::endl;
           h.pause(); // Spurious wake-ups are safe.
-          Systematic::cout() << "Unpausing last thread" << Systematic::endl;
+          Logging::cout() << "Unpausing last thread" << Logging::endl;
           return true;
         }
 
-        Systematic::cout() << "Teardown beginning" << Systematic::endl;
+        Logging::cout() << "Teardown beginning" << Logging::endl;
         // Used to handle deallocating all the state of the threads.
         teardown_in_progress = true;
 
@@ -463,21 +463,19 @@ namespace verona::rt
           t->stop();
           t = t->next;
         } while (t != first_thread);
-        Systematic::cout() << "Teardown: all threads stopped"
-                           << Systematic::endl;
+        Logging::cout() << "Teardown: all threads stopped" << Logging::endl;
 
         h.unpause_all();
-        Systematic::cout() << "cv_notify_all() for teardown"
-                           << Systematic::endl;
+        Logging::cout() << "cv_notify_all() for teardown" << Logging::endl;
       }
-      Systematic::cout() << "Teardown: all threads beginning teardown"
-                         << Systematic::endl;
+      Logging::cout() << "Teardown: all threads beginning teardown"
+                      << Logging::endl;
       return true;
     }
 
     bool unpause()
     {
-      Systematic::cout() << "unpause()" << Systematic::endl;
+      Logging::cout() << "unpause()" << Logging::endl;
 
       // Work should be added before checking for the runtime_pause.
       Barrier::compiler();
@@ -512,7 +510,7 @@ namespace verona::rt
       {
         // This grabs the scheduler lock to ensure threads have seen CAS before
         // we notify.
-        Systematic::cout() << "Wake all threads" << Systematic::endl;
+        Logging::cout() << "Wake all threads" << Logging::endl;
         sync.unpause_all(local());
         return true;
       }

@@ -11,7 +11,7 @@
 
 extern "C" void dump_flight_recorder()
 {
-  Systematic::SysLog::dump_flight_recorder();
+  Logging::SysLog::dump_flight_recorder();
 }
 
 struct Options : public verona::interpreter::InterpreterOptions

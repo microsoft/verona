@@ -64,7 +64,7 @@ namespace verona::interpreter
     if (options.run_seed.has_value())
     {
       if (options.debug_runtime)
-        Systematic::enable_logging();
+        Logging::enable_logging();
       if (options.run_seed_upper.has_value())
       {
         for (size_t i = options.run_seed.value();

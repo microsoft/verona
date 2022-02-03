@@ -62,14 +62,14 @@ struct B : public VCown<B>
 std::atomic<bool> flag = false;
 void start()
 {
-  Systematic::cout() << "Early release: start" << Systematic::endl;
+  Logging::cout() << "Early release: start" << Logging::endl;
   flag = false;
 }
 
 void finished()
 {
   flag = true;
-  Systematic::cout() << "Early release: finish" << Systematic::endl;
+  Logging::cout() << "Early release: finish" << Logging::endl;
 }
 
 void interleave()
@@ -77,8 +77,7 @@ void interleave()
   // Print if this occurs, before `finished`.
   if (!flag)
   {
-    Systematic::cout() << "Early release: Interleaving occured!"
-                       << Systematic::endl;
+    Logging::cout() << "Early release: Interleaving occured!" << Logging::endl;
     // Print normally so that it can be searched for across multiple seeds.
     printf("Interleaving occurred\n");
   }
@@ -87,7 +86,7 @@ void interleave()
 void early_release_test(bool first, bool second)
 {
   Cown* cowns[2];
-  Systematic::cout() << "Early release: begin" << Systematic::endl;
+  Logging::cout() << "Early release: begin" << Logging::endl;
   auto* a = new A;
   auto* b = new B;
 

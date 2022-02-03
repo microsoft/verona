@@ -141,10 +141,10 @@ struct RCown : public VCown<RCown<region_type>>
     if (rcown_first == nullptr)
       rcown_first = (RCown<RegionType::Trace>*)this;
 
-    Systematic::cout() << "Cown " << this << std::endl;
+    Logging::cout() << "Cown " << this << std::endl;
 
     auto shared_child = new CCown(nullptr);
-    Systematic::cout() << "  shared " << shared_child << std::endl;
+    Logging::cout() << "  shared " << shared_child << std::endl;
 
     // Initialize region with object graph. We'll make a short linked list.
     {
@@ -157,7 +157,7 @@ struct RCown : public VCown<RCown<region_type>>
 
         // Construct a CCown and give it to the region.
         auto c = new CCown(shared_child);
-        Systematic::cout() << "  child " << c << std::endl;
+        Logging::cout() << "  child " << c << std::endl;
         RegionClass::template insert<TransferOwnership::YesTransfer>(
           alloc, r, c);
         Cown::acquire(shared_child); // acquire on behalf of child CCown
@@ -176,7 +176,7 @@ struct RCown : public VCown<RCown<region_type>>
 
       // Construct a CCown and give it to the last region.
       auto c = new CCown(shared_child);
-      Systematic::cout() << "  child " << c << std::endl;
+      Logging::cout() << "  child " << c << std::endl;
       RegionArena::insert<TransferOwnership::YesTransfer>(
         alloc, r->f1->f2->f2, c);
       Cown::acquire(shared_child); // acquire on behalf of child CCown
@@ -198,10 +198,10 @@ struct RCown : public VCown<RCown<region_type>>
         r1->f1 = new OTrace;
         r1->f1->f1 = r1;
         r1->cown = new CCown(shared_child);
-        Systematic::cout() << "  child " << r1->cown << std::endl;
+        Logging::cout() << "  child " << r1->cown << std::endl;
         Cown::acquire(shared_child); // acquire on behalf of child CCown
         r1->f1->cown = new CCown(shared_child);
-        Systematic::cout() << "  child " << r1->f1->cown << std::endl;
+        Logging::cout() << "  child " << r1->f1->cown << std::endl;
         Cown::acquire(shared_child); // acquire on behalf of child CCown
       }
 
@@ -211,10 +211,10 @@ struct RCown : public VCown<RCown<region_type>>
         r2->f1 = new OTrace;
         r2->f1->f1 = r2;
         r2->cown = new CCown(shared_child);
-        Systematic::cout() << "  child " << r2->cown << std::endl;
+        Logging::cout() << "  child " << r2->cown << std::endl;
         Cown::acquire(shared_child); // acquire on behalf of child CCown
         r2->f1->cown = new CCown(shared_child);
-        Systematic::cout() << "  child " << r2->f1->cown << std::endl;
+        Logging::cout() << "  child " << r2->f1->cown << std::endl;
         Cown::acquire(shared_child); // acquire on behalf of child CCown
       }
 
@@ -250,7 +250,7 @@ struct RCown : public VCown<RCown<region_type>>
     else
       next = (Self*)rcown_first;
 
-    Systematic::cout() << "  next " << next << std::endl;
+    Logging::cout() << "  next " << next << std::endl;
   }
 
   void trace(ObjectStack& fields) const
@@ -344,9 +344,8 @@ struct Ping : public VBehaviour<Ping<region_type>>
             rcown->reg_with_graph != nullptr &&
             rcown->reg_with_graph->f->f->cown != nullptr)
           {
-            Systematic::cout()
-              << "RCown " << rcown << " is leaking cown "
-              << rcown->reg_with_graph->f->f->cown << std::endl;
+            Logging::cout() << "RCown " << rcown << " is leaking cown "
+                            << rcown->reg_with_graph->f->f->cown << std::endl;
             auto* reg = RegionClass::get(rcown->reg_with_graph);
             reg->discard(ThreadAlloc::get());
             rcown->reg_with_graph->f->f->cown = nullptr;
@@ -362,8 +361,8 @@ struct Ping : public VBehaviour<Ping<region_type>>
             rcown->reg_with_sub != nullptr &&
             rcown->reg_with_sub->f1->f2->f2 != nullptr)
           {
-            Systematic::cout() << "RCown " << rcown << " is leaking cown "
-                               << rcown->reg_with_sub->f1->f2->f2 << std::endl;
+            Logging::cout() << "RCown " << rcown << " is leaking cown "
+                            << rcown->reg_with_sub->f1->f2->f2 << std::endl;
             auto* reg = RegionArena::get(rcown->reg_with_sub->f1->f2->f2);
             reg->discard(ThreadAlloc::get());
             rcown->reg_with_sub->f1->f2->f2->cown = nullptr;
@@ -378,7 +377,7 @@ struct Ping : public VBehaviour<Ping<region_type>>
     }
     if (rcown->next == (RCown<region_type>*)rcown_first)
     {
-      Systematic::cout() << "Loop " << rcown->forward << std::endl;
+      Logging::cout() << "Loop " << rcown->forward << std::endl;
       // Scheduler::want_ld();
     }
   }

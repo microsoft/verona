@@ -131,15 +131,14 @@ namespace verona::rt
         case Object::RC:
         {
           assert(o->debug_is_immutable());
-          Systematic::cout()
-            << "RS releasing: immutable: " << o << Systematic::endl;
+          Logging::cout() << "RS releasing: immutable: " << o << Logging::endl;
           Immutable::release(alloc, o);
           break;
         }
 
         case Object::COWN:
         {
-          Systematic::cout() << "RS releasing: cown: " << o << Systematic::endl;
+          Logging::cout() << "RS releasing: cown: " << o << Logging::endl;
           cown::release(alloc, (Cown*)o);
           break;
         }

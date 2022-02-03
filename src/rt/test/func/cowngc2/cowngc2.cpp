@@ -34,7 +34,7 @@ struct Mess : public VBehaviour<Mess>
     {
       if (ccown->child != nullptr)
       {
-        Systematic::cout() << "Child message: " << ccown->child << std::endl;
+        Logging::cout() << "Child message: " << ccown->child << std::endl;
         Cown::schedule<Mess>(ccown->child, ccown->child, (size_t)0);
       }
       return;
@@ -45,7 +45,7 @@ struct Mess : public VBehaviour<Mess>
       Scheduler::want_ld();
     }
 
-    Systematic::cout() << "Self: " << timer << std::endl;
+    Logging::cout() << "Self: " << timer << std::endl;
     Cown::schedule<Mess>(ccown, ccown, timer - 1);
   }
 };
@@ -66,11 +66,11 @@ struct Go : public VBehaviour<Go>
 void test_cown_gc()
 {
   auto L = new CCown(nullptr);
-  Systematic::cout() << "L:" << L << std::endl;
+  Logging::cout() << "L:" << L << std::endl;
   auto M = new CCown(L);
-  Systematic::cout() << "M:" << M << std::endl;
+  Logging::cout() << "M:" << M << std::endl;
   auto S = new CCown(M);
-  Systematic::cout() << "S:" << S << std::endl;
+  Logging::cout() << "S:" << S << std::endl;
   Cown::schedule<Go>(L, S);
   Cown::schedule<Nop>(M);
 }

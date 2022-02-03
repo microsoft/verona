@@ -20,11 +20,11 @@ void promise_test()
     if (std::holds_alternative<int>(val))
     {
       auto v = std::get<int>(std::move(val));
-      Systematic::cout() << v << std::endl;
+      Logging::cout() << v << std::endl;
     }
     else
     {
-      Systematic::cout() << "Got promise error" << std::endl;
+      Logging::cout() << "Got promise error" << std::endl;
       abort();
     }
   });
@@ -32,11 +32,11 @@ void promise_test()
     if (std::holds_alternative<int>(val))
     {
       auto v = std::get<int>(std::move(val));
-      Systematic::cout() << v << std::endl;
+      Logging::cout() << v << std::endl;
     }
     else
     {
-      Systematic::cout() << "Got promise error" << std::endl;
+      Logging::cout() << "Got promise error" << std::endl;
       abort();
     }
   });
@@ -44,11 +44,11 @@ void promise_test()
     if (std::holds_alternative<int>(val))
     {
       auto v = std::get<int>(std::move(val));
-      Systematic::cout() << v << std::endl;
+      Logging::cout() << v << std::endl;
     }
     else
     {
-      Systematic::cout() << "Got promise error" << std::endl;
+      Logging::cout() << "Got promise error" << std::endl;
       abort();
     }
   });
@@ -73,12 +73,12 @@ void promise_no_writer()
     if (std::holds_alternative<int>(val))
     {
       auto v = std::get<int>(std::move(val));
-      Systematic::cout() << v << std::endl;
+      Logging::cout() << v << std::endl;
       abort();
     }
     else
     {
-      Systematic::cout() << "Got promise error" << std::endl;
+      Logging::cout() << "Got promise error" << std::endl;
     }
   });
 }
@@ -99,11 +99,11 @@ void promise_smart_pointer()
       if (std::holds_alternative<unique_ptr<int>>(a))
       {
         auto p = std::get<unique_ptr<int>>(std::move(a));
-        Systematic::cout() << *p << std::endl;
+        Logging::cout() << *p << std::endl;
       }
       else
       {
-        Systematic::cout() << "Got promise error" << std::endl;
+        Logging::cout() << "Got promise error" << std::endl;
         abort();
       }
     });
@@ -116,7 +116,7 @@ void promise_transfer1()
   auto wp = std::move(pp.second);
 
   Promise<int>* p = rp.get_promise();
-  Systematic::cout() << p << std::endl;
+  Logging::cout() << p << std::endl;
   Cown::release(ThreadAlloc::get(), p);
 }
 
@@ -129,8 +129,8 @@ void promise_transfer2()
   Promise<int>* p1 = rp.get_promise<NoTransfer>();
   Promise<int>* p2 = rp.get_promise<YesTransfer>();
 
-  Systematic::cout() << p1 << std::endl;
-  Systematic::cout() << p2 << std::endl;
+  Logging::cout() << p1 << std::endl;
+  Logging::cout() << p2 << std::endl;
 
   Cown::release(ThreadAlloc::get(), p1);
   auto rp2 = Promise<int>::PromiseR(p2, YesTransfer);

@@ -51,8 +51,8 @@ namespace verona::rt
           case Object::RC:
           case Object::SCC_PTR:
           {
-            Systematic::cout()
-              << "Immutable Scan: reaches immutable: " << o << Systematic::endl;
+            Logging::cout()
+              << "Immutable Scan: reaches immutable: " << o << Logging::endl;
             if (o->in_epoch(epoch))
               continue;
 
@@ -65,8 +65,8 @@ namespace verona::rt
 
           case Object::COWN:
           {
-            Systematic::cout()
-              << "Immutable Scan: reaches cown: " << o << Systematic::endl;
+            Logging::cout()
+              << "Immutable Scan: reaches cown: " << o << Logging::endl;
             cown::mark_for_scan(o, epoch);
             break;
           }
@@ -180,8 +180,7 @@ namespace verona::rt
 
         case Object::COWN:
         {
-          Systematic::cout()
-            << "Immutable releasing cown: " << w << Systematic::endl;
+          Logging::cout() << "Immutable releasing cown: " << w << Logging::endl;
           cown::release(alloc, (Cown*)w);
           break;
         }

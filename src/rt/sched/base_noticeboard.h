@@ -6,7 +6,7 @@
 #include "../region/region.h"
 #include "../sched/epoch.h"
 #include "../sched/schedulerthread.h"
-#include "../test/systematic.h"
+#include "../test/logging.h"
 
 #include <queue>
 
@@ -93,8 +93,8 @@ namespace verona::rt
       {
         return;
       }
-      Systematic::cout() << "Flushing values on noticeboard: " << this
-                         << Systematic::endl;
+      Logging::cout() << "Flushing values on noticeboard: " << this
+                      << Logging::endl;
       flush_n(alloc, update_buffer.size());
     }
 

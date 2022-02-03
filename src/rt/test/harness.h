@@ -14,7 +14,7 @@ using namespace std::chrono;
 
 extern "C" void dump_flight_recorder()
 {
-  Systematic::SysLog::dump_flight_recorder();
+  Logging::SysLog::dump_flight_recorder();
 }
 
 #define check(x) \
@@ -79,11 +79,11 @@ public:
     seed_upper = seed_lower + count;
 
 #if defined(USE_FLIGHT_RECORDER) || defined(CI_BUILD)
-    Systematic::enable_crash_logging();
+    Logging::enable_crash_logging();
 #endif
 
     if (opt.has("--log-all") || (seed_lower + 1 == seed_upper))
-      Systematic::enable_logging();
+      Logging::enable_logging();
 
     cores = opt.is<size_t>("--cores", 4);
 

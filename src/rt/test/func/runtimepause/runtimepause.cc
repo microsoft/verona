@@ -18,7 +18,7 @@ void test_runtime_pause(SystematicTestHarness* harness, size_t pauses)
     Scheduler::add_external_event_source();
     auto pauses_ = pauses;
     harness->external_thread([pauses_, a]() mutable {
-      Systematic::cout() << "Started external thread" << Systematic::endl;
+      Logging::cout() << "Started external thread" << Logging::endl;
       std::mt19937 rng;
       rng.seed(1);
       std::uniform_int_distribution<> dist(1, 1000);
@@ -26,19 +26,19 @@ void test_runtime_pause(SystematicTestHarness* harness, size_t pauses)
       {
         auto pause_time = std::chrono::milliseconds(dist(rng));
         std::this_thread::sleep_for(pause_time);
-        Systematic::cout() << "Scheduling Message" << Systematic::endl;
+        Logging::cout() << "Scheduling Message" << Logging::endl;
         schedule_lambda(a, [i]() {
-          Systematic::cout() << "running message " << i << std::endl;
+          Logging::cout() << "running message " << i << std::endl;
         });
       }
       schedule_lambda(a, [a]() { Cown::release(ThreadAlloc::get(), a); });
 
       schedule_lambda([]() {
-        Systematic::cout() << "Remove external event source" << std::endl;
+        Logging::cout() << "Remove external event source" << std::endl;
         Scheduler::remove_external_event_source();
       });
 
-      Systematic::cout() << "External thread exiting" << Systematic::endl;
+      Logging::cout() << "External thread exiting" << Logging::endl;
     });
   });
 }

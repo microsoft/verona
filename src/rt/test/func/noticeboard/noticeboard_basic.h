@@ -18,7 +18,7 @@ namespace noticeboard_basic
 
     void f()
     {
-      Systematic::cout() << "Ping on " << target << std::endl;
+      Logging::cout() << "Ping on " << target << std::endl;
     }
   };
 
@@ -105,7 +105,7 @@ namespace noticeboard_basic
       {
         C* new_c = new (RegionType::Trace) C(1);
 
-        Systematic::cout() << "Update DB Create C " << new_c << std::endl;
+        Logging::cout() << "Update DB Create C " << new_c << std::endl;
 
         freeze(new_c);
         db->box.update(alloc, new_c);
@@ -204,26 +204,25 @@ namespace noticeboard_basic
     Alloc& alloc = ThreadAlloc::get();
 
     Alive* alive = new (alloc) Alive;
-    Systematic::cout() << "Alive" << alive << std::endl;
+    Logging::cout() << "Alive" << alive << std::endl;
 
     C* c = new (RegionType::Trace) C(0);
     c->next = new (RegionType::Trace) C(10);
 
     RegionTrace::insert(alloc, c, alive);
     c->alive = alive;
-    Systematic::cout() << "Create C " << c << " with alive " << alive
-                       << std::endl;
+    Logging::cout() << "Create C " << c << " with alive " << alive << std::endl;
 
-    Systematic::cout() << "Create C next" << c->next << std::endl;
+    Logging::cout() << "Create C next" << c->next << std::endl;
 
     freeze(c);
 
     DB* db = new DB(c);
-    Systematic::cout() << "DB " << db << std::endl;
+    Logging::cout() << "DB " << db << std::endl;
 
     Peeker* peeker = new Peeker(db, &db->box);
 
-    Systematic::cout() << "Peeker " << peeker << std::endl;
+    Logging::cout() << "Peeker " << peeker << std::endl;
 
     Cown::schedule<ToPeek>(peeker, peeker);
     Cown::schedule<Ping>(alive, alive);

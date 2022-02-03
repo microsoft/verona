@@ -649,8 +649,8 @@ namespace verona::rt
       {
         Object* o = sub_regions.pop();
         assert(o->debug_is_iso());
-        Systematic::cout() << "Region RC: releasing unreachable subregion: "
-                           << o << Systematic::endl;
+        Logging::cout() << "Region RC: releasing unreachable subregion: " << o
+                        << Logging::endl;
 
         RegionBase* r = o->get_region();
         // Unfortunately, we can't use Region::release_internal because of a

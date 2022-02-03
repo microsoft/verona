@@ -128,17 +128,17 @@ struct RCown : public VCown<RCown>
     if (rcown_first == nullptr)
       rcown_first = this;
 
-    Systematic::cout() << "Cown " << this << std::endl;
+    Logging::cout() << "Cown " << this << std::endl;
 
     auto shared_child = new CCown(nullptr);
-    Systematic::cout() << "  shared " << shared_child << std::endl;
+    Logging::cout() << "  shared " << shared_child << std::endl;
 
     // Initialize array
     {
       for (uint64_t i = 0; i < others_count; i++)
       {
         array[i] = new CCown(shared_child);
-        Systematic::cout() << "  child " << array[i] << std::endl;
+        Logging::cout() << "  child " << array[i] << std::endl;
         Cown::acquire(shared_child); // acquire on behalf of child CCown
       }
     }
@@ -147,7 +147,7 @@ struct RCown : public VCown<RCown>
     {
       otrace = new (RegionType::Trace) OTrace;
       otrace->cown = new CCown(shared_child);
-      Systematic::cout() << "  child " << otrace->cown << std::endl;
+      Logging::cout() << "  child " << otrace->cown << std::endl;
       // Transfer ownership of child CCown to the regions.
       RegionTrace::insert<TransferOwnership::YesTransfer>(
         alloc, otrace, otrace->cown);
@@ -158,7 +158,7 @@ struct RCown : public VCown<RCown>
     {
       oarena = new (RegionType::Arena) OArena;
       oarena->cown = new CCown(shared_child);
-      Systematic::cout() << "  child " << oarena->cown << std::endl;
+      Logging::cout() << "  child " << oarena->cown << std::endl;
       // Transfer ownership of child CCown to the regions.
       RegionArena::insert<TransferOwnership::YesTransfer>(
         alloc, oarena, oarena->cown);
@@ -175,10 +175,10 @@ struct RCown : public VCown<RCown>
         r1->f1 = new OTrace;
         r1->f1->f1 = r1;
         r1->cown = new CCown(shared_child);
-        Systematic::cout() << "  child " << r1->cown << std::endl;
+        Logging::cout() << "  child " << r1->cown << std::endl;
         Cown::acquire(shared_child); // acquire on behalf of child CCown
         r1->f1->cown = new CCown(shared_child);
-        Systematic::cout() << "  child " << r1->f1->cown << std::endl;
+        Logging::cout() << "  child " << r1->f1->cown << std::endl;
         Cown::acquire(shared_child); // acquire on behalf of child CCown
       }
 
@@ -188,10 +188,10 @@ struct RCown : public VCown<RCown>
         r2->f1 = new OTrace;
         r2->f1->f1 = r2;
         r2->cown = new CCown(shared_child);
-        Systematic::cout() << "  child " << r2->cown << std::endl;
+        Logging::cout() << "  child " << r2->cown << std::endl;
         Cown::acquire(shared_child); // acquire on behalf of child CCown
         r2->f1->cown = new CCown(shared_child);
-        Systematic::cout() << "  child " << r2->f1->cown << std::endl;
+        Logging::cout() << "  child " << r2->f1->cown << std::endl;
         Cown::acquire(shared_child); // acquire on behalf of child CCown
       }
 
@@ -219,7 +219,7 @@ struct RCown : public VCown<RCown>
     else
       next = rcown_first;
 
-    Systematic::cout() << "  next " << next << std::endl;
+    Logging::cout() << "  next " << next << std::endl;
   }
 
   void trace(ObjectStack& fields) const
@@ -313,8 +313,8 @@ struct Ping : public VBehaviour<Ping>
           size_t idx = rand->next() % others_count;
           if (rcown->array[idx] != nullptr)
           {
-            Systematic::cout() << "RCown " << rcown << " is leaking cown "
-                               << rcown->array[idx] << std::endl;
+            Logging::cout() << "RCown " << rcown << " is leaking cown "
+                            << rcown->array[idx] << std::endl;
             // TODO: Sometimes the leak detector doesn't catch this. Although
             // the cown is leaked, it might still be scheduled, so it's treated
             // as live. For now, we'll explicitly release the cown.
@@ -330,8 +330,8 @@ struct Ping : public VBehaviour<Ping>
           // clear the remembered set.
           if (rcown->otrace != nullptr && rcown->otrace->cown != nullptr)
           {
-            Systematic::cout() << "RCown " << rcown << " is leaking cown "
-                               << rcown->otrace->cown << std::endl;
+            Logging::cout() << "RCown " << rcown << " is leaking cown "
+                            << rcown->otrace->cown << std::endl;
             auto* reg = RegionTrace::get(rcown->otrace);
             reg->discard(ThreadAlloc::get());
             rcown->otrace->cown = nullptr;
@@ -345,8 +345,8 @@ struct Ping : public VBehaviour<Ping>
           // clear the remembered set.
           if (rcown->oarena != nullptr && rcown->oarena->cown != nullptr)
           {
-            Systematic::cout() << "RCown " << rcown << " is leaking cown "
-                               << rcown->oarena->cown << std::endl;
+            Logging::cout() << "RCown " << rcown << " is leaking cown "
+                            << rcown->oarena->cown << std::endl;
             auto* reg = RegionArena::get(rcown->oarena);
             reg->discard(ThreadAlloc::get());
             rcown->oarena->cown = nullptr;
@@ -361,7 +361,7 @@ struct Ping : public VBehaviour<Ping>
     }
     if (rcown->next == rcown_first)
     {
-      Systematic::cout() << "Loop " << rcown->forward << std::endl;
+      Logging::cout() << "Loop " << rcown->forward << std::endl;
       // Scheduler::want_ld();
     }
   }
