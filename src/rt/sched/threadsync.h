@@ -199,26 +199,5 @@ namespace verona::rt
     {
       return ThreadSyncHandle(t, *this);
     }
-
-    /**
-     * Call this when the thread has completed.
-     */
-    inline void thread_finished(T*){};
-
-    /**
-     * Call this when the thread starts.
-     */
-    inline void thread_start(T*){};
-
-    /**
-     * Call this to potentially yield control
-     *
-     * Only used by systematic testing.
-     */
-    inline void yield(T*){};
-
-    void init(T*) {}
-
-    void reset() {}
   };
 }

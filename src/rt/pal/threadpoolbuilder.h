@@ -27,6 +27,7 @@ namespace verona::rt
       }
       else
       {
+        Systematic::start();
         body(args...);
       }
     }

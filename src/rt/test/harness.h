@@ -152,7 +152,15 @@ public:
   template<typename F, typename... Args>
   void external_thread(F&& f, Args&&... args)
   {
-    external_threads.emplace_back(f, args...);
+    // TODO Thread ID
+    Systematic::Local* t = Systematic::create_thread(0);
+    auto f_wrap = [t](F&& f, Args&&... args) {
+      Systematic::attach_thread(t);
+      f(args...);
+      Systematic::finished_thread();
+    };
+
+    external_threads.emplace_back(f_wrap, f, args...);
   }
 
   size_t current_seed()

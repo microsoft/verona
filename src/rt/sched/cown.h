@@ -23,7 +23,7 @@ namespace verona::rt
 
   static void yield()
   {
-    Scheduler::get().sync.yield(Scheduler::local());
+    Systematic::yield();
   }
 
   /**
