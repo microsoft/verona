@@ -167,11 +167,11 @@ namespace verona::rt
 
   public:
     /**
-     * Create thread creates the structure for pausing a thread
-     * in systematic testing.  This should be called a sequential setting
-     * so that determinism is maintained.
+     * Creates the structure for pausing a thread in systematic testing.  This
+     * should be called in a sequential setting so that determinism is
+     * maintained.
      */
-    static Local* create_thread(size_t id)
+    static Local* create_systematic_thread(size_t id)
     {
       if constexpr (enabled)
       {
@@ -205,9 +205,9 @@ namespace verona::rt
     /**
      * Attach this thread to the systematic testing implementation.
      *
-     * Must be passed a pointer return from `create_thread`.
+     * Must be passed a pointer return from `create_systematic_thread`.
      */
-    static void attach_thread(Local* l)
+    static void attach_systematic_thread(Local* l)
     {
       if constexpr (enabled)
       {

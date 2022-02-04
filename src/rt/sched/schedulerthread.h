@@ -196,7 +196,7 @@ namespace verona::rt
       T* cown = nullptr;
 
 #ifdef USE_SYSTEMATIC_TESTING
-      Systematic::attach_thread(this->local_systematic);
+      Systematic::attach_systematic_thread(this->local_systematic);
 #endif
 
       while (true)

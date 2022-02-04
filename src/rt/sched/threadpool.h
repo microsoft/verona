@@ -301,7 +301,8 @@ namespace verona::rt
       {
         t->systematic_id = count;
 #ifdef USE_SYSTEMATIC_TESTING
-        t->local_systematic = Systematic::create_thread(t->systematic_id);
+        t->local_systematic =
+          Systematic::create_systematic_thread(t->systematic_id);
 #endif
         if (count > 1)
         {

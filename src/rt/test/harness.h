@@ -153,10 +153,16 @@ public:
   void external_thread(F&& f, Args&&... args)
   {
     // TODO Thread ID
-    Systematic::Local* t = Systematic::create_thread(0);
+    // Pre-inject the thread into systematic testing.  This must be done
+    // before the thread is created, so that it location in systematic
+    // testing is deterministic.
+    Systematic::Local* t = Systematic::create_systematic_thread(0);
+
     auto f_wrap = [t](F&& f, Args&&... args) {
-      Systematic::attach_thread(t);
+      // Before running any code join systematic testing
+      Systematic::attach_systematic_thread(t);
       f(args...);
+      // Leave systematic testing.
       Systematic::finished_thread();
     };
 
