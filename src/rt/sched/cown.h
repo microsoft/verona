@@ -534,11 +534,11 @@ namespace verona::rt
         for (size_t i = 0; i < body->count; i++)
         {
           auto* next = body->cowns[i];
-          Systematic::cout()
-            << "Will try to acquire lock " << next << Systematic::endl;
+          Logging::cout()
+            << "Will try to acquire lock " << next << Logging::endl;
           next->enqueue_lock.lock();
           yield();
-          Systematic::cout() << "Acquired lock " << next << Systematic::endl;
+          Logging::cout() << "Acquired lock " << next << Logging::endl;
         }
       }
 
@@ -564,7 +564,7 @@ namespace verona::rt
           continue;
         }
 
-        Systematic::cout() << "Will schedule cown " << next << Systematic::endl;
+        Logging::cout() << "Will schedule cown " << next << Logging::endl;
         if (i == last)
         {
           next->schedule();
@@ -588,9 +588,9 @@ namespace verona::rt
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
         auto* next = body->cowns[body->index];
-        Systematic::cout() << "MultiMessage " << m << ": fast requesting "
+        Logging::cout() << "MultiMessage " << m << ": fast requesting "
                            << next << ", index " << body->index
-                           << Systematic::endl;
+                           << Logging::endl;
 
         if (body->index > 0)
         {
@@ -664,9 +664,9 @@ namespace verona::rt
 #endif
       Logging::cout() << "Enqueue MultiMessage " << m << Logging::endl;
       bool needs_scheduling = queue.enqueue(m);
-      Systematic::cout() << "Enqueued MultiMessage " << m
+      Logging::cout() << "Enqueued MultiMessage " << m
                          << " needs scheduling? " << needs_scheduling
-                         << Systematic::endl;
+                         << Logging::endl;
       yield();
       if (needs_scheduling)
       {
