@@ -301,8 +301,8 @@ namespace verona::rt
       {
         t->systematic_id = count;
 #ifdef USE_SYSTEMATIC_TESTING
-        t->local_sync.systematic_speed_mask =
-          (8ULL << (Systematic::get_prng_next() % 4)) - 1;
+        t->local_systematic =
+          Systematic::create_systematic_thread(t->systematic_id);
 #endif
         if (count > 1)
         {
@@ -320,7 +320,6 @@ namespace verona::rt
       }
 
       init_barrier();
-      sync.init(first_thread);
     }
 
     void run()
@@ -361,7 +360,6 @@ namespace verona::rt
 #endif
       thread_count = 0;
       active_thread_count = 0;
-      sync.reset();
       state.reset<ThreadState::NotInLD>();
 
       Epoch::flush(ThreadAlloc::get());

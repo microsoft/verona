@@ -152,7 +152,21 @@ public:
   template<typename F, typename... Args>
   void external_thread(F&& f, Args&&... args)
   {
-    external_threads.emplace_back(f, args...);
+    // TODO Thread ID
+    // Pre-inject the thread into systematic testing.  This must be done
+    // before the thread is created, so that it location in systematic
+    // testing is deterministic.
+    Systematic::Local* t = Systematic::create_systematic_thread(0);
+
+    auto f_wrap = [t](F&& f, Args&&... args) {
+      // Before running any code join systematic testing
+      Systematic::attach_systematic_thread(t);
+      f(args...);
+      // Leave systematic testing.
+      Systematic::finished_thread();
+    };
+
+    external_threads.emplace_back(f_wrap, f, args...);
   }
 
   size_t current_seed()

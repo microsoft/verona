@@ -48,7 +48,7 @@ namespace verona::rt
 
 #ifdef USE_SYSTEMATIC_TESTING
     friend class ThreadSyncSystematic<SchedulerThread>;
-    LocalSync local_sync{};
+    Systematic::Local* local_systematic{nullptr};
 #else
     friend class ThreadSync<SchedulerThread>;
     LocalSync local_sync{};
@@ -195,7 +195,9 @@ namespace verona::rt
       victim = next;
       T* cown = nullptr;
 
-      Scheduler::get().sync.thread_start(this);
+#ifdef USE_SYSTEMATIC_TESTING
+      Systematic::attach_systematic_thread(this->local_systematic);
+#endif
 
       while (true)
       {
@@ -344,7 +346,7 @@ namespace verona::rt
 
       q.destroy(*alloc);
 
-      Scheduler::get().sync.thread_finished(this);
+      Systematic::finished_thread();
 
       // Reset the local thread pointer as this physical thread could be reused
       // for a different SchedulerThread later.
