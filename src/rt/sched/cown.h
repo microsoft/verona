@@ -534,8 +534,8 @@ namespace verona::rt
         for (size_t i = 0; i < body->count; i++)
         {
           auto* next = body->cowns[i];
-          Logging::cout()
-            << "Will try to acquire lock " << next << Logging::endl;
+          Logging::cout() << "Will try to acquire lock " << next
+                          << Logging::endl;
           next->enqueue_lock.lock();
           yield();
           Logging::cout() << "Acquired lock " << next << Logging::endl;
@@ -547,10 +547,9 @@ namespace verona::rt
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
         auto* next = body->cowns[i];
-        Logging::cout() << "MultiMessage " << m << ": fast requesting "
-                        << next << ", index " << i << " behaviour "
-                        << body->behaviour << " loop end " << loop_end
-                        << Logging::endl;
+        Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
+                        << ", index " << i << " behaviour " << body->behaviour
+                        << " loop end " << loop_end << Logging::endl;
 
         auto needs_sched = next->try_fast_send(m);
         if (loop_end > 1)
@@ -558,9 +557,9 @@ namespace verona::rt
 
         if (!needs_sched)
         {
-          Logging::cout()
-            << "try fast send found busy cown " << body << " loop iteration "
-            << i << " cown " << next << Logging::endl;
+          Logging::cout() << "try fast send found busy cown " << body
+                          << " loop iteration " << i << " cown " << next
+                          << Logging::endl;
           continue;
         }
 
@@ -588,9 +587,8 @@ namespace verona::rt
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
         auto* next = body->cowns[body->index];
-        Logging::cout() << "MultiMessage " << m << ": fast requesting "
-                           << next << ", index " << body->index
-                           << Logging::endl;
+        Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
+                        << ", index " << body->index << Logging::endl;
 
         if (body->index > 0)
         {
@@ -664,9 +662,8 @@ namespace verona::rt
 #endif
       Logging::cout() << "Enqueue MultiMessage " << m << Logging::endl;
       bool needs_scheduling = queue.enqueue(m);
-      Logging::cout() << "Enqueued MultiMessage " << m
-                         << " needs scheduling? " << needs_scheduling
-                         << Logging::endl;
+      Logging::cout() << "Enqueued MultiMessage " << m << " needs scheduling? "
+                      << needs_scheduling << Logging::endl;
       yield();
       if (needs_scheduling)
       {
@@ -722,8 +719,9 @@ namespace verona::rt
         // The following code is isolating cases where a message was sent
         // before the leak detector began, and is now about to be forwarded
         // after the leak detector has started.  This means the messages must
-        // now be counted for termination of the scan phase of the leak detector.
-        // This is not required in the ACQUIRE_ALL case as messages are not forwarded.
+        // now be counted for termination of the scan phase of the leak
+        // detector. This is not required in the ACQUIRE_ALL case as messages
+        // are not forwarded.
         if (e != Scheduler::local()->send_epoch)
         {
           Logging::cout() << "Message not in current epoch" << Logging::endl;
