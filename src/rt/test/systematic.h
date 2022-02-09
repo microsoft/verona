@@ -138,6 +138,7 @@ namespace verona::rt
       auto start = running_thread;
 
       assert((running_thread == local_systematic) || startup);
+      UNUSED(startup);
 
       // Skip to a first choice for selecting.
       for (; i > 0; i--)
