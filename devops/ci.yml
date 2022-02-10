@@ -50,8 +50,6 @@ jobs:
   displayName: Linux
   dependsOn: ConfigureCIRun
   condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.docOnly'], 'false')
-  variables:
-    RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
   pool:
     vmImage: 'ubuntu-20.04'
   timeoutInMinutes: 120
@@ -90,8 +88,7 @@ jobs:
     displayName: 'CMake'
     inputs:
       cmakeArgs: |
-        .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DENABLE_ASSERTS=ON -DSANITIZER=$(SANITIZER) -DVERONA_CI_BUILD=On -DRT_TESTS=$(RTTests)
-
+        .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DENABLE_ASSERTS=ON -DSANITIZER=$(SANITIZER) -DVERONA_CI_BUILD=On
   - script: |
       set -eo pipefail
       ninja
@@ -101,6 +98,60 @@ jobs:
   - template: ./steps/linux/test.yml
     parameters:
       WorkingDirectory: build
+
+- job: 
+  displayName: LinuxRT
+  dependsOn: ConfigureCIRun
+  condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'], 'On')
+  pool:
+    vmImage: 'ubuntu-20.04'
+  timeoutInMinutes: 120
+  strategy:
+    matrix:
+      GCC Release:
+        CC: gcc
+        CXX: g++
+        CXXFLAGS:
+        BuildType: Release
+        SANITIZER:
+      Clang RelDbg+SAN:
+        CC: clang
+        CXX: clang++
+        CXXFLAGS: -stdlib=libstdc++
+        BuildType: RelWithDebInfo
+        SANITIZER: address,undefined,leak
+  steps:
+  - checkout: self
+
+  - script: |
+      set -eo pipefail
+      git submodule init
+      git submodule update external/snmalloc
+    displayName: 'Checkout submodules'
+
+  - script: |
+      set -eo pipefail
+      sudo apt-get update
+      sudo apt-get install -y ninja-build
+      sudo apt-get remove --purge cmake
+      sudo snap install cmake --classic
+    displayName: 'Dependencies'
+
+  - task: CMake@1
+    displayName: 'CMake'
+    inputs:
+      cmakeArgs: |
+        ../src/rt -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DSANITIZER=$(SANITIZER) -DVERONA_CI_BUILD=On
+
+  - script: |
+      set -eo pipefail
+      ninja
+    workingDirectory: build
+    displayName: 'Compile'
+
+  - script: |
+      ctest -j 4 --output-on-failure -Rruntime
+    workingDirectory: build
 
 - job:
   displayName: LinuxSandboxTests
@@ -174,8 +225,6 @@ jobs:
   displayName: Windows
   dependsOn: ConfigureCIRun
   condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.docOnly'], 'false')
-  variables:
-    RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
   pool:
     vmImage: 'windows-2019'
   timeoutInMinutes: 120
@@ -197,7 +246,7 @@ jobs:
       call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
       mkdir build
       cd build
-      cmake .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=$(RTTests) -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
+      cmake .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=Off -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
     displayName: 'CMake'
 
   - script: |
@@ -218,13 +267,57 @@ jobs:
       verbosity: 'Verbose'
       alertWarningLevel: 'High'
 
+- job: 
+  displayName: WindowsRT
+  dependsOn: ConfigureCIRun
+  condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'], 'On')
+  pool:
+    vmImage: 'windows-2019'
+  timeoutInMinutes: 120
+  strategy:
+    matrix:
+      Release:
+        CXXFLAGS: '/EHsc /D _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING=1'
+        BuildType: Release
+
+  steps:
+  - checkout: self
+
+  - script: |
+      git submodule init
+      git submodule update external/snmalloc
+    displayName: 'Checkout submodules'
+
+  - script: |
+      call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+      mkdir build
+      cd build
+      cmake ../src/rt -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
+    displayName: 'CMake'
+
+  - script: |
+      call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+      cd build
+      ninja
+    displayName: 'Compile'
+
+  - script: |
+      call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+      cd build
+      ctest -j 4 --output-on-failure -Rruntime
+    displayName: 'Test'
+
+  - task: ComponentGovernanceComponentDetection@0
+    inputs:
+      scanType: 'LogOnly'
+      verbosity: 'Verbose'
+      alertWarningLevel: 'High'
+
 ############################################## MacOS Builds
 - job: 
   displayName: MacOS
   dependsOn: ConfigureCIRun
   condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.docOnly'], 'false')
-  variables:
-    RTTests: $[ dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'] ]
   pool:
     vmImage: 'macOS-10.15'
   timeoutInMinutes: 120
@@ -246,7 +339,7 @@ jobs:
     displayName: 'CMake'
     inputs:
       cmakeArgs: |
-        .. -DCMAKE_BUILD_TYPE=$(BuildType) -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=$(RTTests)
+        .. -DCMAKE_BUILD_TYPE=$(BuildType) -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=Off
 
   - script: |
       set -eo pipefail
@@ -258,6 +351,46 @@ jobs:
   - script: |
       set -eo pipefail
       make check
+    workingDirectory: build/
+    displayName: 'Tests'
+
+- job: 
+  displayName: MacOSRT
+  dependsOn: ConfigureCIRun
+  condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'], 'On')
+  pool:
+    vmImage: 'macOS-10.15'
+  timeoutInMinutes: 120
+  strategy:
+    matrix:
+      Release:
+        BuildType: Release
+
+  steps:
+  - checkout: self
+
+  - script: |
+      set -eo pipefail
+      git submodule init
+      git submodule update external/snmalloc
+    displayName: 'Checkout submodules'
+
+  - task: CMake@1
+    displayName: 'CMake'
+    inputs:
+      cmakeArgs: |
+        ../src/rt -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On
+
+  - script: |
+      set -eo pipefail
+      N=$(sysctl -n hw.ncpu)
+      make -j $N
+    workingDirectory: build
+    displayName: 'Compile'
+
+  - script: |
+      set -eo pipefail
+      ctest -j 4 --output-on-failure -Rruntime
     workingDirectory: build/
     displayName: 'Tests'
 
