@@ -77,6 +77,15 @@ paused: subset of regions not including top
   -> { stack }
 ```
 
+## Program Grammar
+
+```
+Program   ::= x(y*): e*
+            | type x: y* { (Method | Field)* }
+Method    ::= fun x: y
+Field     ::= x
+```
+
 ## Definitions
 
 ```
@@ -124,6 +133,8 @@ e       ∈ Expression  ::= x = var
                         | release x
                         | release v
                         | fulfill x
+                        | x = freeze y
+                        | x = merge y
 ```
 
 ## Shape
@@ -270,6 +281,9 @@ store(σ, ι, (x; x*)) = store(σ, ι, σ(xᵢ)) ∧ store(σ, ι, x*)
 
 ```ts
 // Allocate a cell on the stack.
+// This is equivalent to allocating a new stack object with a single field,
+// holding a reference to the contained store location, and dropping the
+// reference to the newly allocated object.
 // x = var
 // ->
 // x0 = stack τ
@@ -405,7 +419,7 @@ x ∉ σ
 ι = σ(y)
 iso(σ, ι)
 --- [freeze]
-σ, x = freeze y; e* → σ[σ(v).regions→∅]\{y}[x↦v], acquire x; e*
+σ, x = freeze y; e* → σ[σ(ι).regions→∅]\{y}[x↦ι], acquire x; e*
 
 // Destroy a region and move all objects that were in it into the currently
 // open heap region.
