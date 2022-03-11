@@ -141,7 +141,7 @@ namespace sandbox
 #else
 #  error Handle type not defined for your platform
 #endif
-    void disable_aslr()
+    inline void disable_aslr()
     {
 #ifdef __linux__
       int p = personality(0xffffffff);
