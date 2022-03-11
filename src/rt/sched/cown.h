@@ -42,6 +42,31 @@ namespace verona::rt
 
   static Behaviour unmute_behaviour{Behaviour::Descriptor::empty()};
 
+#ifdef ACQUIRE_ALL
+  struct EnqueueLock
+  {
+    std::atomic<bool> locked = false;
+
+    void lock()
+    {
+      auto u = false;
+      while (!locked.compare_exchange_strong(u, true))
+      {
+        u = false;
+        while (locked)
+        {
+          yield();
+        }
+      }
+    }
+
+    void unlock()
+    {
+      locked.store(false, std::memory_order_release);
+    }
+  };
+#endif
+
   /**
    * A cown, or concurrent owner, encapsulates a set of resources that may be
    * accessed by a single (scheduler) thread at a time. A cown can only be in
@@ -131,6 +156,10 @@ namespace verona::rt
     std::atomic<size_t> weak_count{1};
 
     std::atomic<BPState> bp_state{};
+
+#ifdef ACQUIRE_ALL
+    EnqueueLock enqueue_lock;
+#endif
 
     static Cown* create_token_cown()
     {
@@ -497,6 +526,63 @@ namespace verona::rt
           });
       }
 
+#ifdef ACQUIRE_ALL
+      UNUSED(high_priority);
+      // First acquire all the locks if a multimessage
+      if (body->count > 1)
+      {
+        for (size_t i = 0; i < body->count; i++)
+        {
+          auto* next = body->cowns[i];
+          Logging::cout() << "Will try to acquire lock " << next
+                          << Logging::endl;
+          next->enqueue_lock.lock();
+          yield();
+          Logging::cout() << "Acquired lock " << next << Logging::endl;
+        }
+      }
+
+      size_t loop_end = body->count;
+      for (size_t i = 0; i < loop_end; i++)
+      {
+        auto m = MultiMessage::make_message(alloc, body, epoch);
+        auto* next = body->cowns[i];
+        Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
+                        << ", index " << i << " behaviour " << body->behaviour
+                        << " loop end " << loop_end << Logging::endl;
+
+        auto needs_sched = next->try_fast_send(m);
+        if (loop_end > 1)
+          next->enqueue_lock.unlock();
+
+        if (!needs_sched)
+        {
+          Logging::cout() << "try fast send found busy cown " << body
+                          << " loop iteration " << i << " cown " << next
+                          << Logging::endl;
+          continue;
+        }
+
+        Logging::cout() << "Will schedule cown " << next << Logging::endl;
+        if (i == last)
+        {
+          next->schedule();
+          return;
+        }
+
+        body->exec_count_down.fetch_sub(1);
+
+        // The cown was asleep, so we have acquired it now. Dequeue the
+        // message because we want to handle it now. Note that after
+        // dequeueing, the queue may be non-empty: the scheduler may have
+        // allowed another multi-message to request and send another message
+        // to this cown. However, we are guaranteed to be the first message in
+        // the queue.
+        const auto* m2 = next->queue.dequeue(alloc);
+        assert(m == m2);
+        UNUSED(m2);
+      }
+#else
       for (; body->index < body->count; body->index++)
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
@@ -559,6 +645,7 @@ namespace verona::rt
         assert(m == m2);
         UNUSED(m2);
       }
+#endif
     }
 
     /**
@@ -575,6 +662,8 @@ namespace verona::rt
 #endif
       Logging::cout() << "Enqueue MultiMessage " << m << Logging::endl;
       bool needs_scheduling = queue.enqueue(m);
+      Logging::cout() << "Enqueued MultiMessage " << m << " needs scheduling? "
+                      << needs_scheduling << Logging::endl;
       yield();
       if (needs_scheduling)
       {
@@ -592,17 +681,18 @@ namespace verona::rt
      * Otherwise, all cowns have been acquired and we can execute the message
      * behaviour.
      **/
-    static bool run_step(MultiMessage* m)
+    bool run_step(MultiMessage* m)
     {
       MultiMessage::MultiMessageBody& body = *(m->get_body());
       Alloc& alloc = ThreadAlloc::get();
+#ifndef ACQUIRE_ALL
       size_t last = body.count - 1;
-      auto cown = body.cowns[m->get_body()->index];
+#endif
 
       EpochMark e = m->get_epoch();
 
       Logging::cout() << "MultiMessage " << m << " index " << body.index
-                      << " acquired " << cown << " epoch " << e
+                      << " acquired " << this << " epoch " << e
                       << Logging::endl;
 
       // If we are in should_scan, and we observe a message in this epoch,
@@ -612,15 +702,26 @@ namespace verona::rt
       if (Scheduler::should_scan() && e == Scheduler::local()->send_epoch)
       {
         // TODO: Investigate systematic testing coverage here.
-        if (cown->get_epoch_mark() != Scheduler::local()->send_epoch)
+        if (get_epoch_mark() != Scheduler::local()->send_epoch)
         {
-          cown->scan(alloc, Scheduler::local()->send_epoch);
-          cown->set_epoch_mark(Scheduler::local()->send_epoch);
+          scan(alloc, Scheduler::local()->send_epoch);
+          set_epoch_mark(Scheduler::local()->send_epoch);
         }
       }
 
+#ifdef ACQUIRE_ALL
+      if (body.exec_count_down.fetch_sub(1) > 1)
+#else
       if (body.index < last)
+#endif
       {
+#ifndef ACQUIRE_ALL
+        // The following code is isolating cases where a message was sent
+        // before the leak detector began, and is now about to be forwarded
+        // after the leak detector has started.  This means the messages must
+        // now be counted for termination of the scan phase of the leak
+        // detector. This is not required in the ACQUIRE_ALL case as messages
+        // are not forwarded.
         if (e != Scheduler::local()->send_epoch)
         {
           Logging::cout() << "Message not in current epoch" << Logging::endl;
@@ -646,7 +747,7 @@ namespace verona::rt
         }
         else if (Scheduler::should_scan())
         {
-          if (cown->get_epoch_mark() != Scheduler::local()->send_epoch)
+          if (get_epoch_mark() != Scheduler::local()->send_epoch)
           {
             Logging::cout() << "Contains unscanned cown." << Logging::endl;
 
@@ -662,6 +763,7 @@ namespace verona::rt
         body.index++;
 
         fast_send(&body, e);
+#endif
         return false;
       }
 
@@ -714,7 +816,7 @@ namespace verona::rt
       }
 
       Logging::cout() << "MultiMessage " << m << " completed and running on "
-                      << cown << Logging::endl;
+                      << this << Logging::endl;
 
       // Free the body and the behaviour.
       alloc.dealloc(body.behaviour, body.behaviour->size());
@@ -1194,13 +1296,14 @@ namespace verona::rt
         if (!run_step(curr))
           return false;
 
+        (void)epoch;
         if (apply_backpressure(alloc, epoch, senders, senders_count))
           return false;
 
         // Reschedule the other cowns.
-        for (size_t s = 0; s < (senders_count - 1); s++)
+        for (size_t s = 0; s < senders_count; s++)
         {
-          if (senders[s])
+          if ((senders[s]) && (senders[s] != this))
             senders[s]->schedule();
         }
 
