@@ -699,6 +699,8 @@ namespace verona::rt
           UNUSED(m2);
         }
       }
+
+      alloc.dealloc(bodies, body_count * sizeof(MessageBody*));
     }
 
     /**

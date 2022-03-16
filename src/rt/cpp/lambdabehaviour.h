@@ -110,6 +110,6 @@ namespace verona::rt
     ([&](auto&& input) { is_packed_args(input); }(std::forward<Args>(args)),
      ...);
 
-    Cown::schedule_many<NoTransfer>(std::forward<Args>(args)...);
+    Cown::schedule_many<transfer>(std::forward<Args>(args)...);
   }
 } // namespace verona::rt
