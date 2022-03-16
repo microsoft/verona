@@ -6,7 +6,6 @@
 #include "ds/mpscq.h"
 #include "mpmcq.h"
 #include "object/object.h"
-#include "priority.h"
 #include "schedulerstats.h"
 #include "threadpool.h"
 
@@ -81,12 +80,6 @@ namespace verona::rt
 
     /// The MessageBody of a running behaviour.
     typename T::MessageBody* message_body = nullptr;
-    /// The mutor is the first high priority cown that receives a message from a
-    /// set of cowns running a behaviour on this scheduler thread.
-    T* mutor = nullptr;
-    /// The set of cowns muted on this scheduler thread. These are unmuted and
-    /// cleared before scheduler sleep, or in some stages of the LD protocol.
-    ObjectMap<T*> mute_set;
 
     T* get_token_cown()
     {
@@ -94,18 +87,12 @@ namespace verona::rt
       return token_cown;
     }
 
-    SchedulerThread()
-    : token_cown{T::create_token_cown()},
-      q{token_cown},
-      mute_set{ThreadAlloc::get()}
+    SchedulerThread() : token_cown{T::create_token_cown()}, q{token_cown}
     {
       token_cown->set_owning_thread(this);
     }
 
-    ~SchedulerThread()
-    {
-      assert(mute_set.size() == 0);
-    }
+    ~SchedulerThread() {}
 
     inline void stop()
     {
@@ -144,33 +131,6 @@ namespace verona::rt
 
       if (Scheduler::get().unpause())
         stats.unpause();
-    }
-
-    /**
-     * Track a cown muted on this thread so that it may be unmuted prior to
-     * shutdown.
-     */
-    void mute_set_add(T* cown)
-    {
-      bool inserted = mute_set.insert(*alloc, cown).first;
-      if (inserted)
-        cown->weak_acquire();
-    }
-
-    /**
-     * Clear the mute set and unmute any muted cowns in the set.
-     */
-    void mute_set_clear()
-    {
-      Logging::cout() << "Clear mute set" << Logging::endl;
-      for (auto entry = mute_set.begin(); entry != mute_set.end(); ++entry)
-      {
-        // This operation should be safe if the cown has been collected but the
-        // stub exists.
-        entry.key()->backpressure_transition(Priority::Normal);
-        entry.key()->weak_release(*alloc);
-      }
-      mute_set.clear(*alloc);
     }
 
     template<typename... Args>
@@ -262,7 +222,7 @@ namespace verona::rt
 
         Logging::cout() << "Running cown " << cown << Logging::endl;
 
-        bool reschedule = cown->run(*alloc, state, send_epoch);
+        bool reschedule = cown->run(*alloc, state);
 
         if (reschedule)
         {
@@ -318,8 +278,6 @@ namespace verona::rt
 
         yield();
       }
-
-      assert(mute_set.size() == 0);
 
       Logging::cout() << "Begin teardown (phase 1)" << Logging::endl;
 
@@ -444,12 +402,6 @@ namespace verona::rt
           continue;
         }
 #endif
-
-        if (mute_set.size() != 0)
-        {
-          mute_set_clear();
-          continue;
-        }
 
         // Enter sleep only if we aren't executing the leak detector currently.
         if (state == ThreadState::NotInLD)
@@ -695,8 +647,6 @@ namespace verona::rt
       Logging::cout() << "send_epoch (2): " << send_epoch << Logging::endl;
 
       // Send empty messages to all cowns that can be LIFO scheduled.
-
-      mute_set_clear(); // TODO: is this necesary?
 
       T* p = list;
       while (p != nullptr)
