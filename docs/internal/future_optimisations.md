@@ -1,7 +1,7 @@
 Future Optimisation Opportunities
 =================================
 
-The Verona language affords a number of optimisation opportunities that do not need to be implemented for a minimum viable product.
+The Verona language affords a number of optimisation opportunities that do not need to be implemented for a minimum viable product (MVP).
 This document exists to capture them so that they can be implemented in a future version and so that the design of the compiler doesn't preclude their implementation.
 They are not in any particular order.
 
@@ -34,7 +34,7 @@ someFunction(object : Interface)
 	match (object)
 	{
 	  _MyPrivateConcreteType => fastPath(object);
-	   => slowPath(object;
+	   => slowPath(object);
 	}
 }
 ```
