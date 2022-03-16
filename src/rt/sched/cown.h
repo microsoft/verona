@@ -9,7 +9,6 @@
 #include "../test/systematic.h"
 #include "base_noticeboard.h"
 #include "multimessage.h"
-#include "priority.h"
 #include "schedulerthread.h"
 
 #include <algorithm>
@@ -24,20 +23,6 @@ namespace verona::rt
   static void yield()
   {
     Systematic::yield();
-  }
-
-  /**
-   * Return output of `Systematic::coin` when systematic testing is enabled;
-   * always return false otherwise.
-   **/
-  static bool coin(size_t range_bits = 1)
-  {
-#ifdef USE_SYSTEMATIC_TESTING
-    return Systematic::coin(range_bits);
-#else
-    UNUSED(range_bits);
-    return false;
-#endif
   }
 
   static Behaviour unmute_behaviour{Behaviour::Descriptor::empty()};
@@ -154,8 +139,6 @@ namespace verona::rt
      * strong reference still exists.
      **/
     std::atomic<size_t> weak_count{1};
-
-    std::atomic<BPState> bp_state{};
 
 #ifdef ACQUIRE_ALL
     EnqueueLock enqueue_lock;
@@ -514,20 +497,7 @@ namespace verona::rt
       const auto last = body->count - 1;
       assert(body->index <= last);
 
-      auto high_priority = false;
-      if (body->index == 0)
-      {
-        // If priority is needed for any cown in this message, start unmuting
-        // cowns in the body so that they can start running messages in their
-        // queue.
-        high_priority = std::any_of(
-          &body->cowns[0], &body->cowns[body->count], [](const auto* c) {
-            return c->bp_state.load(std::memory_order_acquire).high_priority();
-          });
-      }
-
 #ifdef ACQUIRE_ALL
-      UNUSED(high_priority);
       // First acquire all the locks if a multimessage
       if (body->count > 1)
       {
@@ -590,38 +560,8 @@ namespace verona::rt
         Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
                         << ", index " << body->index << Logging::endl;
 
-        if (body->index > 0)
-        {
-          // Double check the priority of the most recently acquired cown to
-          // prevent deadlock.
-          auto* cur = body->cowns[body->index - 1];
-          high_priority = high_priority ||
-            cur->bp_state.load(std::memory_order_acquire).high_priority() ||
-            coin(3);
-          yield();
-          if (!high_priority)
-            high_priority = cur->set_blocker(next);
-        }
-
-        if (next->overloaded() || coin(3))
-          high_priority = true;
-
-        if (!high_priority)
-        {
-          if (!next->try_fast_send(m))
-            return;
-        }
-        else
-        {
-          // Hold epoch in case priority needs to be raised after message is
-          // placed in queue.
-          Epoch e(alloc);
-          if (!next->try_fast_send(m))
-          {
-            backpressure_unblock(next, e);
-            return;
-          }
-        }
+        if (!next->try_fast_send(m))
+          return;
 
         Logging::cout() << "MultiMessage " << m << ": fast acquire cown "
                         << next << Logging::endl;
@@ -803,9 +743,6 @@ namespace verona::rt
 
       Scheduler::local()->message_body = &body;
 
-      for (size_t i = 0; i < body.count; i++)
-        body.cowns[i]->set_blocker(nullptr);
-
       // Run the behaviour.
       body.behaviour->f();
 
@@ -887,296 +824,9 @@ namespace verona::rt
         Scheduler::record_inflight_message();
       }
 
-      if ((sched != nullptr) && (sched->message_body != nullptr))
-        backpressure_scan(*sched->message_body, *body);
-
       // Try to acquire as many cowns as possible without rescheduling,
       // starting from the beginning.
       fast_send(body, epoch);
-    }
-
-    /// Transition a cown between backpressure states. Return the previous
-    /// state. An attempt to set the state to Normal may be preempted by
-    /// another thread setting the cown to any state that isn't Muted. Normal
-    /// priority may overwrite High priority when the exact flag is set.
-    ///
-    /// Transitioning cowns to High priority should be done through
-    /// `backpressure_unblock`.
-    inline Priority backpressure_transition(Priority state, bool exact = false)
-    {
-      auto bp = bp_state.load(std::memory_order_acquire);
-      Priority prev;
-      do
-      {
-        yield();
-        prev = bp.priority();
-
-        if ((state == Priority::Normal) && (prev != Priority::Low) && !exact)
-          return prev;
-
-        if (prev == state)
-          return prev;
-
-        // When testing spurious failure, simulated by the `coin` returning
-        // false, the exchange must not occur.
-      } while (coin(9) ||
-               !bp_state.compare_exchange_weak(
-                 bp,
-                 BPState() | bp.blocker() | state | bp.has_token(),
-                 std::memory_order_acq_rel));
-
-      Logging::cout() << "Cown " << this << ": backpressure state " << prev
-                      << " -> " << state << Logging::endl;
-      yield();
-
-      if (prev == Priority::Low)
-      {
-        auto sleeping = queue.wake();
-        UNUSED(sleeping);
-        assert(!sleeping);
-        schedule();
-      }
-
-      return prev;
-    }
-
-    /// Recursively raise the priority of the given cown and its blocker.
-    /// Either an Epoch object needs to be held in the calling context or one is
-    /// created for the lifetime of the call.
-    static inline void backpressure_unblock(
-      Cown* cown, const Epoch& epoch = Epoch(ThreadAlloc::get()))
-    {
-      UNUSED(epoch);
-      for (; cown != nullptr;
-           cown = cown->bp_state.load(std::memory_order_acquire).blocker())
-      {
-        Logging::cout() << "Unblock cown " << cown << Logging::endl;
-        cown->backpressure_transition(Priority::High);
-      }
-    }
-
-    /// Attempt to set the blocker for this cown. Return true if the priority is
-    /// high. The blocker will not be set on a failed exchange due to another
-    /// thread raising the priority of this cown.
-    inline bool set_blocker(Cown* b)
-    {
-      auto bp = bp_state.load(std::memory_order_relaxed);
-      yield();
-      const auto success = bp_state.compare_exchange_strong(
-        bp,
-        BPState() | b | bp.priority() | bp.has_token(),
-        std::memory_order_acq_rel);
-      yield();
-      assert(success || bp.high_priority());
-      UNUSED(success);
-      return bp.high_priority();
-    }
-
-    /// Return true if a sender to this cown should become low priority.
-    inline bool triggers_muting()
-    {
-      auto p = bp_state.load(std::memory_order_acquire).priority();
-      auto sleeping = queue.is_sleeping();
-      yield();
-      return (p != Priority::Normal) && !sleeping;
-    }
-
-    /// Set the `mutor` field of the current scheduler thread if the senders
-    /// should be muted as a result of this message. Otherwise the `mutor`
-    /// will remain null.
-    static inline void
-    backpressure_scan(const MessageBody& senders, const MessageBody& receivers)
-    {
-      if (Scheduler::local()->mutor != nullptr)
-        return;
-
-      // Ignore message if any senders are are in the set of receivers.
-      for (size_t s = 0; s < senders.count; s++)
-      {
-        for (size_t r = 0; r < receivers.count; r++)
-        {
-          if (senders.cowns[s] == receivers.cowns[r])
-            return;
-        }
-      }
-
-      // Mute senders if any receivers are high or low priority.
-      for (size_t r = 0; r < receivers.count; r++)
-      {
-        auto* receiver = receivers.cowns[r];
-        if (receiver->triggers_muting() || coin(5))
-        {
-          assert(Scheduler::local()->mutor == nullptr);
-          Scheduler::local()->mutor = receiver;
-          Cown::acquire(receiver);
-          return;
-        }
-      }
-    }
-
-    /// Return true if this cown's message queue is growing faster than the
-    /// messages are being processed. This is based on an approximation for the
-    /// length of this cown's message queue.
-    inline bool overloaded() const
-    {
-      static constexpr size_t overload_rc = 800;
-      const auto rc = get_header().rc.load(std::memory_order_relaxed);
-      assert(rc != 0);
-      yield();
-      return rc >= overload_rc;
-    }
-
-    /// Update priority based on the occurrence of a token message, or replace
-    /// the token if it is not in the queue. Return true if the current message
-    /// is a token.
-    inline bool check_token_message(Alloc& alloc, MessageBody* curr)
-    {
-      auto bp = bp_state.load(std::memory_order_acquire);
-
-      auto set_has_token = [this, &bp](bool t) mutable {
-        BPState next;
-        do
-        {
-          assert(bp.has_token() != t);
-          next = BPState() | bp.blocker() | bp.priority() | t;
-          // When testing spurious failure, simulated by the `coin` returning
-          // false, the exchange must not occur.
-        } while (
-          coin(9) ||
-          !bp_state.compare_exchange_weak(bp, next, std::memory_order_acq_rel));
-      };
-
-      if (curr == nullptr)
-      {
-        Logging::cout() << "Reached message token on cown " << this
-                        << Logging::endl;
-        if (overloaded())
-          return true;
-
-        if (bp.priority() == Priority::High)
-          backpressure_transition(Priority::MaybeHigh);
-        else if (bp.priority() == Priority::MaybeHigh)
-          backpressure_transition(Priority::Normal);
-
-        set_has_token(false);
-        return true;
-      }
-
-      if (!bp.has_token())
-      {
-        Logging::cout() << "Cown " << this << ": enqueue message token"
-                        << Logging::endl;
-        queue.enqueue(stub_msg(alloc));
-        set_has_token(true);
-      }
-
-      return false;
-    }
-
-    inline bool check_unmute_message(Alloc& alloc, MessageBody* msg)
-    {
-      if (msg->behaviour != &unmute_behaviour)
-        return false;
-
-      for (size_t i = 0; i < msg->count; i++)
-      {
-        auto* cown = msg->cowns[i];
-        if (cown == nullptr)
-          break;
-
-        Logging::cout() << "Unmute cown " << cown << Logging::endl;
-        cown->backpressure_transition(Priority::Normal);
-        Cown::release(alloc, cown);
-      }
-
-      alloc.dealloc(msg->cowns, msg->count * sizeof(Cown*));
-      alloc.dealloc<sizeof(MessageBody)>(msg);
-
-      return true;
-    }
-
-    /// Mute the senders participating in this message if a backpressure scan
-    /// set the mutor during the behaviour. If false is returned, the caller
-    /// must reschedule the senders and deallocate the senders array.
-    inline bool apply_backpressure(
-      Alloc& alloc, EpochMark epoch, Cown** senders, size_t count)
-    {
-      auto* mutor = Scheduler::local()->mutor;
-      if (mutor == nullptr)
-        return false;
-
-      // The array of senders is reused for the unmute message. Since fewer than
-      // the original count of cowns may be muted, a null terminator may be
-      // added before the end of the allocation to mark the end of the muted
-      // set.
-
-      Scheduler::local()->mutor = nullptr;
-      size_t muting_count = 0;
-      for (size_t i = 0; i < count; i++)
-      {
-        auto* cown = senders[i];
-        if (!cown)
-          continue;
-        auto bp = cown->bp_state.load(std::memory_order_relaxed);
-        const bool high_priority = bp.high_priority();
-        yield();
-        assert(bp.priority() != Priority::Low);
-
-        // The cown may only be muted if its priority is normal and its epoch
-        // mark is not `SCANNED`. Muting a scanned cown may result in the leak
-        // detector collecting the cown while it is muted.
-        if (high_priority || (cown->get_epoch_mark() == EpochMark::SCANNED))
-        {
-          cown->schedule();
-          continue;
-        }
-
-        yield();
-        Cown::acquire(cown);
-
-        if (
-#ifdef USE_SYSTEMATIC_TESTING
-          Systematic::coin(9) ||
-#endif
-          !cown->bp_state.compare_exchange_weak(
-            bp,
-            BPState() | bp.blocker() | Priority::Low | bp.has_token(),
-            std::memory_order_acq_rel))
-        {
-          assert(bp.priority() != Priority::Low);
-          yield();
-          cown->schedule();
-          Cown::release(alloc, cown);
-          continue;
-        }
-
-        Logging::cout() << "Cown " << cown << ": backpressure state "
-                        << bp.priority() << " -> Low" << Logging::endl;
-        assert(!high_priority);
-        senders[muting_count++] = cown;
-        Logging::cout() << "Mute cown " << cown << " (mutor: cown " << mutor
-                        << ")" << Logging::endl;
-
-        Scheduler::local()->mute_set_add(cown);
-      }
-
-      if (muting_count == 0)
-      {
-        alloc.dealloc(senders, count * sizeof(Cown*));
-        Cown::release(alloc, mutor);
-        return true;
-      }
-
-      if (muting_count < count)
-        senders[muting_count] = nullptr;
-
-      auto* msg = unmute_msg(alloc, count, senders, epoch);
-      bool needs_scheduling = mutor->try_fast_send(msg);
-      if (needs_scheduling)
-        mutor->schedule();
-
-      Cown::release(alloc, mutor);
-      return true;
     }
 
     /**
@@ -1195,12 +845,10 @@ namespace verona::rt
      * called, and it is guaranteed to return true, so it will be rescheduled
      * or false if it is part of a multi-message acquire.
      **/
-    bool run(Alloc& alloc, ThreadState::State, EpochMark epoch)
+    bool run(Alloc& alloc, ThreadState::State)
     {
       auto until = queue.peek_back();
       yield(); // Reading global state in peek_back().
-      assert(
-        bp_state.load(std::memory_order_acquire).priority() != Priority::Low);
 
       static constexpr size_t batch_limit = 100;
       auto notified_called = false;
@@ -1253,8 +901,6 @@ namespace verona::rt
           if (batch_size != 0)
             return true;
 
-          backpressure_transition(Priority::Normal, true);
-
           // Reschedule if cown does not go to sleep.
           if (!queue.mark_sleeping(notify))
           {
@@ -1276,12 +922,6 @@ namespace verona::rt
         assert(!queue.is_sleeping());
         auto* body = curr->get_body();
 
-        if (check_token_message(alloc, body))
-          return true;
-
-        if (check_unmute_message(alloc, body))
-          return true;
-
         batch_size++;
 
         Logging::cout() << "Running Message " << curr << " on cown " << this
@@ -1294,10 +934,6 @@ namespace verona::rt
         // be rescheduled, even if it has pending work. This also means the
         // cown's queue should not be marked as empty, even if it is.
         if (!run_step(curr))
-          return false;
-
-        (void)epoch;
-        if (apply_backpressure(alloc, epoch, senders, senders_count))
           return false;
 
         // Reschedule the other cowns.
@@ -1338,8 +974,6 @@ namespace verona::rt
       if (!is_collected())
       {
         yield();
-        assert(
-          bp_state.load(std::memory_order_acquire).priority() != Priority::Low);
         Logging::cout() << "Collecting (sweep) cown " << this << Logging::endl;
         collect(alloc);
       }
@@ -1438,8 +1072,6 @@ namespace verona::rt
       }
 
       yield();
-      assert(
-        bp_state.load(std::memory_order_acquire).priority() != Priority::Low);
 
       // Now we may run our destructor.
       destructor();
