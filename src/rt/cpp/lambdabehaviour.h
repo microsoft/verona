@@ -56,6 +56,16 @@ namespace verona::rt
     LambdaBehaviour(T fn_) : Behaviour(desc()), fn(std::move(fn_)) {}
   };
 
+  template<typename T>
+  struct LambdaBehaviourPackedArgs
+  {
+    T fn;
+    Cown **cowns;
+    size_t count;
+
+    LambdaBehaviourPackedArgs(T&& fn_, Cown **cowns_, size_t count_) : fn(std::move(fn_)), cowns(cowns_), count(count_) {}
+  };
+
   template<TransferOwnership transfer = NoTransfer, typename T>
   static void schedule_lambda(Cown* c, T f)
   {
@@ -74,5 +84,23 @@ namespace verona::rt
   {
     Cown* c = new EmptyCown();
     Cown::schedule<LambdaBehaviour<T>, YesTransfer>(c, std::forward<T>(f));
+  }
+
+  template<typename T>
+  static void is_packed_args(LambdaBehaviourPackedArgs<T> args)
+  {
+    (void)args;
+  }
+
+  template<TransferOwnership transfer = NoTransfer, typename... Args>
+  static void schedule_lambda_many(Args&&... args)
+  {
+    // Hack to enforce the right variadic template types are PackedArg
+    ([&] (auto && input)
+     {
+     is_packed_args(input);
+     } (std::forward<Args>(args)), ...);
+
+    Cown::schedule_many<NoTransfer>(std::forward<Args>(args)...);
   }
 } // namespace verona::rt

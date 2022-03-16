@@ -829,6 +829,18 @@ namespace verona::rt
       fast_send(body, epoch);
     }
 
+    template<
+      TransferOwnership transfer = NoTransfer,
+      typename... Args>
+    static void schedule_many(Args&&... args)
+    {
+      std::cout << "Schedule many hello!" << std::endl;
+      ([&] (auto && input)
+       {
+       std::cout << "cown count " << input.count << std::endl;
+       } (std::forward<Args>(args)), ...);
+    }
+
     /**
      * This processes a batch of messages on a cown.
      *
