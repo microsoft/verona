@@ -612,6 +612,95 @@ namespace verona::rt
       return needs_scheduling;
     }
 
+    static void fast_send_many(MultiMessage::MultiMessageBody** bodies, size_t body_count, EpochMark epoch)
+    {
+      (void)epoch;
+      // Collect all cowns and sort them
+      size_t cown_count = 0;
+
+      auto& alloc = ThreadAlloc::get();
+
+      for (size_t i=0;i<body_count;i++)
+        cown_count += bodies[i]->count;
+
+      auto** sort = (Cown**)alloc.alloc(cown_count * sizeof(Cown*));
+
+      cown_count = 0;
+      for (size_t i=0;i<body_count;i++)
+      {
+        memcpy(&sort[cown_count], bodies[i]->cowns, bodies[i]->count * sizeof(Cown*));
+        cown_count += bodies[i]->count;
+      }
+#ifdef USE_SYSTEMATIC_TESTING
+      std::sort(&sort[0], &sort[cown_count], [](Cown*& a, Cown*& b) {
+          return a->id() < b->id();
+          });
+#else
+      std::sort(&sort[0], &sort[cown_count]);
+#endif
+
+
+      // Acquire the locks in sort order
+      for (size_t i = 0; i < cown_count; i++)
+      {
+        auto* next = sort[i];
+        Logging::cout() << "Will try to acquire lock " << next
+          << Logging::endl;
+        next->enqueue_lock.lock();
+        yield();
+        Logging::cout() << "Acquired lock " << next << Logging::endl;
+      }
+
+      alloc.dealloc(sort, cown_count * sizeof(Cown*));
+
+      for (size_t b =0;b<body_count;b++)
+      {
+        auto *body = bodies[b];
+        size_t loop_end = body->count;
+        const auto last = body->count - 1;
+        for (size_t i=0;i<loop_end;i++)
+        {
+          auto m = MultiMessage::make_message(alloc, body, epoch);
+          auto* next = body->cowns[i];
+          Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
+            << ", index " << i << " behaviour " << body->behaviour
+            << " loop end " << loop_end << Logging::endl;
+
+          auto needs_sched = next->try_fast_send(m);
+
+          // Gradually release the locks. Is it ok?
+          next->enqueue_lock.unlock();
+
+          if (!needs_sched)
+          {
+            Logging::cout() << "try fast send found busy cown " << body
+              << " loop iteration " << i << " cown " << next
+              << Logging::endl;
+            continue;
+          }
+
+          Logging::cout() << "Will schedule cown " << next << Logging::endl;
+          if (i == last)
+          {
+            next->schedule();
+            break;
+          }
+
+          body->exec_count_down.fetch_sub(1);
+
+          // The cown was asleep, so we have acquired it now. Dequeue the
+          // message because we want to handle it now. Note that after
+          // dequeueing, the queue may be non-empty: the scheduler may have
+          // allowed another multi-message to request and send another message
+          // to this cown. However, we are guaranteed to be the first message in
+          // the queue.
+          const auto* m2 = next->queue.dequeue(alloc);
+          assert(m == m2);
+          UNUSED(m2);
+        }
+      }
+    }
+
     /**
      * Execute the behaviour of the given multi-message.
      *
@@ -829,16 +918,41 @@ namespace verona::rt
       fast_send(body, epoch);
     }
 
-    template<
-      TransferOwnership transfer = NoTransfer,
-      typename... Args>
+    template<TransferOwnership transfer = NoTransfer, typename... Args>
     static void schedule_many(Args&&... args)
     {
-      std::cout << "Schedule many hello!" << std::endl;
-      ([&] (auto && input)
-       {
-       std::cout << "cown count " << input.count << std::endl;
-       } (std::forward<Args>(args)), ...);
+      auto& alloc = ThreadAlloc::get();
+      MultiMessage::MultiMessageBody **bodies = (MessageBody**)alloc.alloc((sizeof...(args)) * sizeof(MessageBody*));
+      size_t body_count=0;
+
+      (
+        [&](auto&& input) {
+          auto** sort = (Cown**)alloc.alloc(input.count * sizeof(Cown*));
+          memcpy(sort, input.cowns, input.count * sizeof(Cown*));
+
+          if constexpr (transfer == NoTransfer)
+          {
+            for (size_t i = 0; i < input.count; i++)
+              Cown::acquire(sort[i]);
+          }
+
+          bodies[body_count++] = MultiMessage::make_body(alloc, input.count, sort, input.be);
+        }(std::forward<Args>(args)),
+        ...);
+
+
+      // TODO what if this thread is external.
+      //  EPOCH_A okay as currently only sending externally, before we start
+      //  and thus its okay.
+      //  Need to use another value when we add pinned cowns.
+      auto sched = Scheduler::local();
+      auto epoch = sched == nullptr ? EpochMark::EPOCH_A : Scheduler::epoch();
+
+      // FIXME: What should is do with backpressure and the leak detector?
+
+      // Try to acquire as many cowns as possible without rescheduling,
+      // starting from the beginning.
+      fast_send_many(bodies, body_count, epoch);
     }
 
     /**
