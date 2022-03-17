@@ -65,7 +65,7 @@ namespace verona::rt
   {
     using type = LambdaBehaviour<T>;
 
-    LambdaBehaviour<T> *be;
+    LambdaBehaviour<T>* be;
     Cown** cowns;
     size_t count;
 
@@ -73,7 +73,8 @@ namespace verona::rt
     : cowns(cowns_), count(count_)
     {
       auto& alloc = ThreadAlloc::get();
-      be = new ((LambdaBehaviour<T>*)alloc.alloc<sizeof(LambdaBehaviour<T>)>()) LambdaBehaviour<T>(std::move(fn));
+      be = new ((LambdaBehaviour<T>*)alloc.alloc<sizeof(LambdaBehaviour<T>)>())
+        LambdaBehaviour<T>(std::move(fn));
     }
   };
 

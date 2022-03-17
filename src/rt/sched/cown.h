@@ -612,7 +612,10 @@ namespace verona::rt
       return needs_scheduling;
     }
 
-    static void fast_send_many(MultiMessage::MultiMessageBody** bodies, size_t body_count, EpochMark epoch)
+    static void fast_send_many(
+      MultiMessage::MultiMessageBody** bodies,
+      size_t body_count,
+      EpochMark epoch)
     {
       (void)epoch;
       // Collect all cowns and sort them
@@ -620,32 +623,33 @@ namespace verona::rt
 
       auto& alloc = ThreadAlloc::get();
 
-      for (size_t i=0;i<body_count;i++)
+      for (size_t i = 0; i < body_count; i++)
         cown_count += bodies[i]->count;
 
       auto** sort = (Cown**)alloc.alloc(cown_count * sizeof(Cown*));
 
       cown_count = 0;
-      for (size_t i=0;i<body_count;i++)
+      for (size_t i = 0; i < body_count; i++)
       {
-        memcpy(&sort[cown_count], bodies[i]->cowns, bodies[i]->count * sizeof(Cown*));
+        memcpy(
+          &sort[cown_count],
+          bodies[i]->cowns,
+          bodies[i]->count * sizeof(Cown*));
         cown_count += bodies[i]->count;
       }
 #ifdef USE_SYSTEMATIC_TESTING
       std::sort(&sort[0], &sort[cown_count], [](Cown*& a, Cown*& b) {
-          return a->id() < b->id();
-          });
+        return a->id() < b->id();
+      });
 #else
       std::sort(&sort[0], &sort[cown_count]);
 #endif
-
 
       // Acquire the locks in sort order
       for (size_t i = 0; i < cown_count; i++)
       {
         auto* next = sort[i];
-        Logging::cout() << "Will try to acquire lock " << next
-          << Logging::endl;
+        Logging::cout() << "Will try to acquire lock " << next << Logging::endl;
         next->enqueue_lock.lock();
         yield();
         Logging::cout() << "Acquired lock " << next << Logging::endl;
@@ -653,18 +657,19 @@ namespace verona::rt
 
       alloc.dealloc(sort, cown_count * sizeof(Cown*));
 
-      for (size_t b =0;b<body_count;b++)
+      for (size_t b = 0; b < body_count; b++)
       {
-        auto *body = bodies[b];
+        auto* body = bodies[b];
         size_t loop_end = body->count;
         const auto last = body->count - 1;
-        for (size_t i=0;i<loop_end;i++)
+        for (size_t i = 0; i < loop_end; i++)
         {
           auto m = MultiMessage::make_message(alloc, body, epoch);
           auto* next = body->cowns[i];
-          Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
-            << ", index " << i << " behaviour " << body->behaviour
-            << " loop end " << loop_end << Logging::endl;
+          Logging::cout() << "MultiMessage " << m << ": fast requesting "
+                          << next << ", index " << i << " behaviour "
+                          << body->behaviour << " loop end " << loop_end
+                          << Logging::endl;
 
           auto needs_sched = next->try_fast_send(m);
 
@@ -673,9 +678,9 @@ namespace verona::rt
 
           if (!needs_sched)
           {
-            Logging::cout() << "try fast send found busy cown " << body
-              << " loop iteration " << i << " cown " << next
-              << Logging::endl;
+            Logging::cout()
+              << "try fast send found busy cown " << body << " loop iteration "
+              << i << " cown " << next << Logging::endl;
             continue;
           }
 
@@ -924,8 +929,9 @@ namespace verona::rt
     static void schedule_many(Args&&... args)
     {
       auto& alloc = ThreadAlloc::get();
-      MultiMessage::MultiMessageBody **bodies = (MessageBody**)alloc.alloc((sizeof...(args)) * sizeof(MessageBody*));
-      size_t body_count=0;
+      MultiMessage::MultiMessageBody** bodies =
+        (MessageBody**)alloc.alloc((sizeof...(args)) * sizeof(MessageBody*));
+      size_t body_count = 0;
 
       (
         [&](auto&& input) {
@@ -938,10 +944,10 @@ namespace verona::rt
               Cown::acquire(sort[i]);
           }
 
-          bodies[body_count++] = MultiMessage::make_body(alloc, input.count, sort, input.be);
+          bodies[body_count++] =
+            MultiMessage::make_body(alloc, input.count, sort, input.be);
         }(std::forward<Args>(args)),
         ...);
-
 
       // TODO what if this thread is external.
       //  EPOCH_A okay as currently only sending externally, before we start
