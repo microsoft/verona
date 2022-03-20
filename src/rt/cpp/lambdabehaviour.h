@@ -104,6 +104,7 @@ namespace verona::rt
     (void)args;
   }
 
+#ifdef ACQUIRE_ALL
   template<TransferOwnership transfer = NoTransfer, typename... Args>
   static void schedule_lambda_many(Args&&... args)
   {
@@ -113,4 +114,5 @@ namespace verona::rt
 
     Cown::schedule_many<transfer>(std::forward<Args>(args)...);
   }
+#endif
 } // namespace verona::rt

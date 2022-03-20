@@ -612,6 +612,7 @@ namespace verona::rt
       return needs_scheduling;
     }
 
+#ifdef ACQUIRE_ALL
     static void fast_send_many(
       MultiMessage::MultiMessageBody** bodies,
       size_t body_count,
@@ -707,6 +708,7 @@ namespace verona::rt
 
       alloc.dealloc(bodies, body_count * sizeof(MessageBody*));
     }
+#endif
 
     /**
      * Execute the behaviour of the given multi-message.
@@ -925,6 +927,7 @@ namespace verona::rt
       fast_send(body, epoch);
     }
 
+#ifdef ACQUIRE_ALL
     template<TransferOwnership transfer = NoTransfer, typename... Args>
     static void schedule_many(Args&&... args)
     {
@@ -962,6 +965,7 @@ namespace verona::rt
       // starting from the beginning.
       fast_send_many(bodies, body_count, epoch);
     }
+#endif
 
     /**
      * This processes a batch of messages on a cown.

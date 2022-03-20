@@ -17,6 +17,7 @@ struct foo
 
 void split_exec()
 {
+#ifdef ACQUIRE_ALL
   // foo<int> f;
   // f.count = 42;
 
@@ -28,6 +29,7 @@ void split_exec()
   schedule_lambda_many<YesTransfer>(
     LambdaBehaviourPackedArgs([]() { cout << "hello1\n"; }, cowns, 1),
     LambdaBehaviourPackedArgs([]() { cout << "hello2\n"; }, &cowns[1], 1));
+#endif
 }
 
 int main(int argc, char** argv)
