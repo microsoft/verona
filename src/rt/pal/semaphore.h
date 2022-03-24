@@ -13,7 +13,9 @@
 /**
  * This constructs a platform specific semaphore.
  */
-#  include <version>
+#  if __has_include(<version>)
+#    include <version>
+#  endif
 #  if defined(__cpp_lib_semaphore)
 #    include <semaphore>
 namespace verona::rt::pal
