@@ -57,8 +57,13 @@ namespace sandbox
   {
     // Force initialisation of the shared memory object backing the pagemap.
     SharedAllocConfig::ensure_initialised();
-    shared_asm.add_range<SharedAllocConfig::Pagemap>(
-      this, snmalloc::capptr::Chunk<void>{start}, size);
+    snmalloc::range_to_pow_2_blocks<snmalloc::MIN_CHUNK_BITS>(
+      snmalloc::capptr::Chunk<void>(start),
+      size,
+      [&](snmalloc::capptr::Chunk<void> p, size_t sz, bool) {
+        auto [g, m] = get_memory();
+        m.dealloc_range(p, sz);
+      });
   }
   /**
    * Singleton class that handles pagemap updates from children.  This listens
@@ -137,70 +142,63 @@ namespace sandbox
           }
           s = r->second.second;
         }
+        auto is_metaentry_valid =
+          [&](size_t size, SharedAllocConfig::Pagemap::Entry& metaentry) {
+            auto sizeclass = metaentry.get_sizeclass();
+            auto remote = metaentry.get_remote();
+            snmalloc::message<>(
+              "Remote: {}, size: {}, sizeclass: {} ({})",
+              remote,
+              size,
+              snmalloc::sizeclass_full_to_size(sizeclass),
+              sizeclass.raw());
+            return ((remote == nullptr) ||
+                    s->contains(remote, sizeof(snmalloc::RemoteAllocator))) &&
+              (snmalloc::sizeclass_full_to_size(sizeclass) <= size);
+          };
         // No default so we get range checking.  Fallthrough returns the error
         // result.
         switch (rpc.kind)
         {
-          case MemoryProviderReserve:
-          {
-            size_t large_size = static_cast<size_t>(rpc.args[0]);
-            reply = {0,
-                     reinterpret_cast<uintptr_t>(
-                       SharedAllocConfig::Pagemap::reserve(*s, large_size))};
-            break;
-          }
-          case MetadataSet:
-          {
-            snmalloc::MetaEntry m{
-              reinterpret_cast<snmalloc::Metaslab*>(rpc.args[2]), rpc.args[3]};
-            char* p = reinterpret_cast<char*>(rpc.args[0]);
-            size_t size = static_cast<size_t>(rpc.args[1]);
-            for (char* a = p; a < p + size; a += snmalloc::MIN_CHUNK_SIZE)
-            {
-              reply.error |= !validate_and_insert(s, a, m);
-            }
-            break;
-          }
           case AllocChunk:
           {
             auto size = static_cast<size_t>(rpc.args[0]);
-            auto sizeclass = static_cast<snmalloc::sizeclass_t>(rpc.args[2]);
-            bool isLarge = size > snmalloc::MIN_CHUNK_SIZE;
-            auto msgq =
-              reinterpret_cast<snmalloc::RemoteAllocator*>(rpc.args[1]);
-            if (
-              !((msgq == nullptr) ||
-                s->contains(msgq, sizeof(snmalloc::RemoteAllocator))) &&
-              ((isLarge && (snmalloc::sizeclass_to_size(sizeclass) == size)) ||
-               (!isLarge && (snmalloc::sizeclass_to_size(sizeclass) <= size))))
+            auto meta =
+              reinterpret_cast<SharedAllocConfig::SlabMetadata*>(rpc.args[1]);
+            auto ras = rpc.args[2];
+            SharedAllocConfig::Pagemap::Entry metaentry{meta, ras};
+            if (!is_metaentry_valid(size, metaentry))
             {
               reply.error = 1;
               break;
             }
-            void* alloc = SharedAllocConfig::Pagemap::reserve(
-              *s, static_cast<size_t>(rpc.args[0]));
+            snmalloc::capptr::Chunk<void> alloc;
+            {
+              auto [g, m] = s->get_memory();
+              alloc = m.alloc_range(size);
+            }
             if (alloc == nullptr)
             {
+              reply.error = 2;
+              break;
+            }
+            SharedAllocConfig::Pagemap::set_metaentry(
+              address_cast(alloc), size, metaentry);
+
+            reply.ret = alloc.unsafe_uintptr();
+            break;
+          }
+          case DeallocChunk:
+          {
+            snmalloc::capptr::Chunk<void> ptr{
+              reinterpret_cast<void*>(rpc.args[0])};
+            size_t size = static_cast<size_t>(rpc.args[1]);
+            if (!s->contains(ptr.unsafe_ptr(), size))
+            {
               reply.error = 1;
               break;
             }
-            // For large allocations we store the power of two size, not the
-            // sizeclass.
-            if (isLarge)
-            {
-              sizeclass = snmalloc::bits::next_pow2_bits(size);
-            }
-            char* p = static_cast<char*>(alloc);
-            snmalloc::MetaEntry m{
-              reinterpret_cast<snmalloc::Metaslab*>(rpc.args[3]),
-              msgq,
-              sizeclass};
-            for (char* a = p; a < p + size; a += snmalloc::MIN_CHUNK_SIZE)
-            {
-              reply.error |= !validate_and_insert(s, a, m);
-            }
-
-            reply.ret = reinterpret_cast<uintptr_t>(alloc);
+            SharedAllocConfig::dealloc_range(*s, ptr, size);
             break;
           }
         }
@@ -224,51 +222,6 @@ namespace sandbox
         }
       }
       err(1, "Waiting for pagetable updates failed");
-    }
-    /**
-     * Validate a request from the sandbox to update a pagemap and insert it if
-     * allowed.
-     */
-    bool validate_and_insert(
-      SharedAllocConfig::LocalState* s, void* address, snmalloc::MetaEntry m)
-    {
-      size_t range_size;
-      void* base_address = address;
-      bool is_fake = m.get_remote() == SharedAllocConfig::fake_large_remote;
-      if (is_fake)
-      {
-        range_size = 1 << m.get_sizeclass();
-        base_address = snmalloc::pointer_align_down(address, range_size);
-      }
-      else
-      {
-        range_size = snmalloc::sizeclass_to_size(m.get_sizeclass());
-      }
-      // Metadata updates must refer to addresses associated with the sandbox.
-      if (!s->contains(base_address, range_size))
-      {
-        return false;
-      }
-      // The message queue must be in the shared memory region for this sandbox.
-      if (
-        !is_fake &&
-        !s->contains(m.get_remote(), sizeof(snmalloc::RemoteAllocator)))
-      {
-        return false;
-      }
-      // Protect against a race where the child tries to claim ownership of a
-      // chunk of memory at the same time as the parent.  In the case of a
-      // conflict, the trusted parent is allowed to take ownership so that we
-      // don't leak a metaslab in the parent.
-      auto [g, pm] = SharedAllocConfig::Pagemap::get_pagemap_writeable();
-      auto p = snmalloc::address_cast(address);
-      auto* old = pm.template get<false>(p).get_remote();
-      if ((old != nullptr) && !s->contains(old, sizeof(*old)))
-      {
-        return false;
-      }
-      pm.set(p, m);
-      return true;
     }
 
   public:
@@ -752,24 +705,25 @@ namespace sandbox
       snmalloc::address_t base =
         snmalloc::address_cast(memory_provider.get_base());
       auto top = snmalloc::address_cast(memory_provider.top_address());
+      SharedAllocConfig::Pagemap::Entry empty{nullptr, 0};
       // Scan the pagemap for all memory associated with this and deallocate
       // the metaslabs.  Note that we don't need to do any cleanup for the
       // memory referenced by these metaslabs: it will all go away when the
       // shared memory region is deallocated.
       for (snmalloc::address_t a = base; a < top; a += snmalloc::MIN_CHUNK_SIZE)
       {
-        auto& meta =
-          SharedAllocConfig::Pagemap::get_metaentry(&memory_provider, a);
-        auto* remote = meta.get_remote();
-        if (
-          (remote != nullptr) &&
-          !contains(remote, sizeof(snmalloc::RemoteAllocator)))
+        auto& meta = SharedAllocConfig::Pagemap::get_metaentry_mut(a);
+        if (!meta.is_backend_owned())
         {
-          delete meta.get_metaslab();
+          auto* remote = meta.get_remote();
+          if (
+            (remote != nullptr) &&
+            !contains(remote, sizeof(snmalloc::RemoteAllocator)))
+          {
+            delete meta.get_slab_metadata();
+          }
         }
-        // Reset all of these pagemap entries to unused.
-        SharedAllocConfig::Pagemap::set_metaentry(
-          &memory_provider, a, 1, {nullptr, 0});
+        meta = empty;
       }
     }
     shared_mem->destroy();
@@ -1011,16 +965,4 @@ namespace sandbox
     allocator->dealloc(ptr);
   }
 
-  template<>
-  snmalloc::capptr::Chunk<void>
-  SharedAllocConfig::alloc_meta_data<snmalloc::Metaslab>(
-    LocalState*, size_t size)
-  {
-    SANDBOX_INVARIANT(
-      size == sizeof(snmalloc::Metaslab),
-      "Requested to allocate {} bytes for {}-byte metaslab",
-      size,
-      sizeof(snmalloc::Metaslab));
-    return snmalloc::capptr::Chunk<void>{new snmalloc::Metaslab()};
-  }
 }

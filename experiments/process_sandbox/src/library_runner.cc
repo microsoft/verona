@@ -146,7 +146,7 @@ namespace
     uintptr_t arg2 = 0,
     uintptr_t arg3 = 0)
   {
-    static std::atomic_flag lock{0};
+    static snmalloc::FlagWord lock;
     FlagLock g(lock);
     HostServiceRequest req{id, {arg0, arg1, arg2, arg3}};
     auto written_bytes = write(PageMapUpdates, &req, sizeof(req));
@@ -165,10 +165,63 @@ namespace
 
     if (response.error)
     {
-      DefaultPal::error("Host returned an error.");
+      snmalloc::report_fatal_error<>(
+        "Host call ({}, {}, {}, {}, {}) returned {}",
+        id,
+        arg0,
+        arg1,
+        arg2,
+        arg3,
+        response.error);
     }
     return response.ret;
   }
+
+  /**
+   * Range that allocates memory from the shared memory region via RPC.
+   */
+  struct SharedMemoryRange
+  {
+    /**
+     * Odd indirection required by snmalloc, will hopefully go away soon.
+     * @{
+     */
+    using State = SharedMemoryRange;
+    auto* operator-> ()
+    {
+      return this;
+    }
+    ///@}
+
+    /**
+     * This always provides aligned chunks.
+     */
+    static constexpr bool Aligned = true;
+
+    /**
+     * Allocate a chunk.
+     */
+    capptr::Chunk<void> alloc_range(size_t size)
+    {
+      capptr::Chunk<void> r{reinterpret_cast<void*>(
+        requestHostService(AllocChunk, static_cast<uintptr_t>(size), 0, 0))};
+      return r;
+    };
+
+    /**
+     * Deallocate a chunk.
+     */
+    void dealloc_range(capptr::Chunk<void> base, size_t size)
+    {
+      requestHostService(
+        DeallocChunk, base.unsafe_uintptr(), static_cast<uintptr_t>(size));
+    }
+  };
+
+  /**
+   * Singleton instance of the range that requests memory from the parent.
+   */
+  snmalloc::SmallBuddyRange<SharedMemoryRange> allocator_range;
 
 }
 
@@ -187,39 +240,42 @@ bool SnmallocGlobals::is_initialised()
 
 namespace sandbox
 {
-  snmalloc::capptr::Chunk<void> SnmallocGlobals::reserve(size_t size)
+  std::pair<snmalloc::capptr::Chunk<void>, SnmallocGlobals::SlabMetadata*>
+  SnmallocGlobals::alloc_chunk(
+    SnmallocGlobals::LocalState&, size_t size, uintptr_t ras)
   {
-    SNMALLOC_ASSERT(size >= sizeof(void*));
-
-    size = bits::align_up(size, sizeof(void*));
-
-    size_t rsize = bits::next_pow2(size);
-
-    snmalloc::capptr::Chunk<void> res{
+    snmalloc::message<>("alloc_chunk({}, {})", size, ras);
+    auto* ms =
+      new (metadata_range.alloc_range(sizeof(SnmallocGlobals::SlabMetadata))
+             .unsafe_ptr()) SnmallocGlobals::SlabMetadata();
+    snmalloc::capptr::Chunk<void> chunk{
       reinterpret_cast<void*>(requestHostService(
-        MemoryProviderReserve, static_cast<uintptr_t>(rsize)))};
-
-    return res;
+        AllocChunk,
+        static_cast<uintptr_t>(size),
+        reinterpret_cast<uintptr_t>(ms),
+        ras))};
+    if (chunk == nullptr)
+    {
+      metadata_range.dealloc_range(
+        snmalloc::capptr::Chunk<void>{ms},
+        sizeof(SnmallocGlobals::SlabMetadata));
+      return {nullptr, nullptr};
+    }
+    return {chunk, ms};
   }
 
-  void SnmallocGlobals::Pagemap::set_metaentry(
-    LocalState*, snmalloc::address_t p, size_t size, snmalloc::MetaEntry t)
+  void SnmallocGlobals::dealloc_chunk(
+    SnmallocGlobals::LocalState&,
+    SnmallocGlobals::SlabMetadata& meta_common,
+    snmalloc::capptr::Alloc<void> start,
+    size_t size)
   {
+    snmalloc::capptr::Chunk<void> addr{start.unsafe_ptr()};
+    metadata_range.dealloc_range(
+      snmalloc::capptr::Chunk<void>{&meta_common},
+      sizeof(SnmallocGlobals::SlabMetadata));
     requestHostService(
-      MetadataSet,
-      static_cast<uintptr_t>(p),
-      static_cast<uintptr_t>(size),
-      reinterpret_cast<uintptr_t>(t.get_metaslab()),
-      t.get_remote_and_sizeclass());
-  }
-
-  template<>
-  snmalloc::capptr::Chunk<void>
-  SnmallocGlobals::alloc_meta_data<snmalloc::Metaslab>(LocalState*, size_t size)
-  {
-    size = snmalloc::bits::next_pow2(size);
-    return private_asm.reserve<true, SnmallocGlobals::PrivatePagemap>(
-      nullptr, size);
+      DeallocChunk, addr.unsafe_uintptr(), static_cast<uintptr_t>(size));
   }
 
   template<>
@@ -227,29 +283,12 @@ namespace sandbox
     snmalloc::CoreAllocator<sandbox::SnmallocGlobals>>(LocalState*, size_t size)
   {
     size = snmalloc::bits::next_pow2(size);
-    auto* result =
-      reinterpret_cast<void*>(requestHostService(MemoryProviderReserve, size));
-    return snmalloc::capptr::Chunk<void>{result};
+    return snmalloc::capptr::Chunk<void>{allocator_range.alloc_range(size)};
   }
 
-  std::pair<snmalloc::capptr::Chunk<void>, snmalloc::Metaslab*>
-  SnmallocGlobals::alloc_chunk(
-    SnmallocGlobals::LocalState*,
-    size_t size,
-    snmalloc::RemoteAllocator* remote,
-    snmalloc::sizeclass_t sizeclass)
+  void PalRange::dealloc_range(snmalloc::capptr::Chunk<void> base, size_t size)
   {
-    auto* ms = new (private_asm
-                      .reserve<true, SnmallocGlobals::PrivatePagemap>(
-                        nullptr, sizeof(snmalloc::Metaslab))
-                      .unsafe_ptr()) snmalloc::Metaslab();
-    auto result = requestHostService(
-      AllocChunk,
-      static_cast<uintptr_t>(size),
-      reinterpret_cast<uintptr_t>(remote),
-      static_cast<uintptr_t>(sizeclass),
-      reinterpret_cast<uintptr_t>(ms));
-    return {snmalloc::capptr::Chunk<void>{reinterpret_cast<void*>(result)}, ms};
+    munmap(base.unsafe_ptr(), size);
   }
 }
 
@@ -375,7 +414,7 @@ namespace
     shared_memory_start = shared->start;
     shared_memory_end = shared->end;
 
-    auto* base = static_cast<snmalloc::MetaEntry*>(mmap(
+    auto* base = static_cast<SnmallocGlobals::Pagemap::Entry*>(mmap(
       nullptr,
       decltype(SnmallocGlobals::Pagemap::pagemap)::required_size(),
       PROT_READ,
@@ -384,7 +423,6 @@ namespace
       0));
     SANDBOX_INVARIANT(base != MAP_FAILED, "Mapping pagemap failed");
     SnmallocGlobals::Pagemap::pagemap.init(base);
-    SnmallocGlobals::PrivatePagemap::pagemap.init();
 
     done_bootstrapping = true;
   }

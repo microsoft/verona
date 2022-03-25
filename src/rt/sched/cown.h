@@ -105,7 +105,6 @@ namespace verona::rt
     }
 
   private:
-    friend class DLList<Cown>;
     friend class MultiMessage;
     friend CownThread;
 

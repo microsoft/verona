@@ -7,6 +7,10 @@
 #endif
 #define SNMALLOC_PLATFORM_HAS_GETENTROPY 1
 #define SNMALLOC_PROVIDE_OWN_CONFIG 1
+#include <backend/buddy.h>
+#include <backend/palrange.h>
+#include <backend/smallbuddyrange.h>
+#include <mem/allocconfig.h>
 #include <process_sandbox/helpers.h>
 #include <process_sandbox/sandbox_fd_numbers.h>
 #include <snmalloc_core.h>
@@ -21,85 +25,42 @@ namespace snmalloc
 namespace sandbox
 {
   /**
+   * Helper range that deallocates memory provided by the PAL.
+   */
+  struct PalRange : public snmalloc::PalRange<snmalloc::DefaultPal>
+  {
+    /**
+     * The range abstraction in snmalloc currently does something odd with
+     * instance data and requires that it comes via an indirection layer.
+     * This will probably go away at some point and then these two can be
+     * deleted.
+     * \@{
+     */
+    using State = PalRange;
+    auto* operator-> ()
+    {
+      return this;
+    }
+    ///@}
+
+    /**
+     * Deallocate memory using munmap.
+     */
+    void dealloc_range(snmalloc::capptr::Chunk<void> base, size_t size);
+  };
+
+  /**
    * The snmalloc configuration used for the child process.
    */
   class SnmallocGlobals : public snmalloc::CommonConfig
   {
     /**
-     * Non-templated version of reserve_with_left_over.  Calls the parent
-     * process to request a new chunk of memory.
-     */
-    static snmalloc::capptr::Chunk<void> reserve(size_t size);
-
-    /**
-     * Private address-space manager.  Used to manage allocations that are
+     * Private allocator.  Used to manage metadata allocations, which are
      * not shared with the parent.
      */
-    inline static snmalloc::AddressSpaceManager<snmalloc::DefaultPal>
-      private_asm;
+    inline static snmalloc::SmallBuddyRange<PalRange> metadata_range;
 
   public:
-    /**
-     * Interface to a pagemap that is private to the child.  This is used with
-     * the private address-space manager so that the child process can track
-     * metadata about unused memory without needing an RPC to the parent.
-     */
-    struct PrivatePagemap
-    {
-      /**
-       * Empty local state.  This is required to exist by snmalloc.
-       */
-      struct LocalState
-      {};
-
-      /**
-       * Private pagemap, allocated in memory owned exclusively by the child.
-       *
-       * This spans the entire child's address space. Any parts of it
-       * that cover the range shared with the parent will be unused.
-       */
-      inline static snmalloc::FlatPagemap<
-        snmalloc::MIN_CHUNK_BITS,
-        snmalloc::MetaEntry,
-        snmalloc::DefaultPal,
-        /*fixed range*/ false>
-        pagemap;
-
-      /**
-       * Return the metadata associated with an address.  This reads the
-       * private pagemap.
-       */
-      template<bool potentially_out_of_range = false>
-      SNMALLOC_FAST_PATH static const snmalloc::MetaEntry&
-      get_metaentry(LocalState*, snmalloc::address_t p)
-      {
-        return pagemap.template get<potentially_out_of_range>(p);
-      }
-
-      /**
-       * Set the metadata associated with an address range.  Updates the private
-       * pagemap directly.
-       */
-      SNMALLOC_FAST_PATH
-      static void set_metaentry(
-        LocalState*, snmalloc::address_t p, size_t size, snmalloc::MetaEntry t)
-      {
-        for (auto a = p; a < p + size; a += snmalloc::MIN_CHUNK_SIZE)
-        {
-          pagemap.set(a, t);
-        }
-      }
-
-      /**
-       * Ensure that the range is valid in the private pagemap.
-       */
-      static void
-      register_range(LocalState*, snmalloc::address_t p, size_t size)
-      {
-        pagemap.register_range(p, size);
-      }
-    };
-
     /**
      * Expose a PAL that doesn't do allocation.
      */
@@ -112,17 +73,24 @@ namespace sandbox
     {};
 
     /**
+     * This back end does not need to hold any extra metadata and so exports the
+     * default slab metadata type.
+     */
+    using SlabMetadata = snmalloc::FrontendSlabMetadata;
+
+    /**
      * Adaptor for the pagemap that is managed by the parent.  This is backed
-     * by a shared-memory object that is passed into the child on process start
-     * and is then mapped read-only in the child.  All updates require an RPC
-     * to the parent, which will validate the updates and install them.
+     * by a shared-memory object that is passed into the child on process
+     * start and is then mapped read-only in the child.  All updates require
+     * an RPC to the parent, which will validate the updates and install them.
      */
     struct Pagemap
     {
       /**
-       * Local state for pagemap updates.  Currently unused.
+       * This back end does not need to hold any extra metadata and so exports
+       * the default pagemap metadata type.
        */
-      using LocalState = SnmallocGlobals::LocalState;
+      using Entry = snmalloc::FrontendMetaEntry<SlabMetadata>;
 
       /**
        * The pagemap that spans the entire address space.  This uses a read-only
@@ -130,7 +98,7 @@ namespace sandbox
        */
       inline static snmalloc::FlatPagemap<
         snmalloc::MIN_CHUNK_BITS,
-        snmalloc::MetaEntry,
+        Entry,
         snmalloc::DefaultPal,
         /*fixed range*/ false>
         pagemap;
@@ -140,26 +108,17 @@ namespace sandbox
        * read-only mapping of the pagemap directly.
        */
       template<bool potentially_out_of_range = false>
-      SNMALLOC_FAST_PATH static const snmalloc::MetaEntry&
-      get_metaentry(LocalState*, snmalloc::address_t p)
+      static const auto& get_metaentry(snmalloc::address_t p)
       {
         return pagemap.template get<potentially_out_of_range>(p);
       }
-
-      /**
-       * Set the metadata associated with an address range.  Sends an RPC to the
-       * parent, which validates and inserts the entry.
-       */
-      SNMALLOC_FAST_PATH
-      static void set_metaentry(
-        LocalState*, snmalloc::address_t p, size_t size, snmalloc::MetaEntry t);
 
       /**
        * Ensure that the range is valid.  This is a no-op: the parent is
        * responsible for ensuring that the pagemap covers the entire address
        * range.
        */
-      static void register_range(LocalState*, snmalloc::address_t, size_t) {}
+      static void register_range(snmalloc::address_t, size_t) {}
     };
 
     /**
@@ -167,12 +126,13 @@ namespace sandbox
      * This performs a single RPC that validates the metadata and then
      * allocates and installs the entry.
      */
-    static std::pair<snmalloc::capptr::Chunk<void>, snmalloc::Metaslab*>
-    alloc_chunk(
-      LocalState* local_state,
-      size_t size,
-      snmalloc::RemoteAllocator* remote,
-      snmalloc::sizeclass_t sizeclass);
+    static std::pair<snmalloc::capptr::Chunk<void>, SlabMetadata*>
+    alloc_chunk(LocalState& local_state, size_t size, uintptr_t ras);
+    static void dealloc_chunk(
+      LocalState& local_state,
+      SlabMetadata& meta_common,
+      snmalloc::capptr::Alloc<void> start,
+      size_t size);
 
     /**
      * Allocate metadata.  This allocates non-shared memory for metaslabs and
@@ -187,11 +147,6 @@ namespace sandbox
      */
     using AllocPool =
       snmalloc::PoolState<snmalloc::CoreAllocator<SnmallocGlobals>>;
-
-    /**
-     * The state associated with the chunk allocator.
-     */
-    inline static snmalloc::ChunkAllocatorState chunk_alloc_state;
 
     /**
      * The concrete instance of the pool allocator.
@@ -233,14 +188,6 @@ namespace sandbox
 #ifndef SNMALLOC_USE_THREAD_CLEANUP
       snmalloc::register_clean_up();
 #endif
-    }
-
-    /**
-     * Returns the singleton instance of the chunk allocator state.
-     */
-    static snmalloc::ChunkAllocatorState& get_slab_allocator_state(void*)
-    {
-      return chunk_alloc_state;
     }
   };
 }

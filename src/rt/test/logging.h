@@ -327,7 +327,7 @@ namespace Logging
 
     static void dump_flight_recorder(std::string id = "")
     {
-      static std::atomic_flag dump_in_progress = ATOMIC_FLAG_INIT;
+      static snmalloc::FlagWord dump_in_progress = ATOMIC_FLAG_INIT;
 
       snmalloc::FlagLock f(dump_in_progress);
 
