@@ -103,7 +103,6 @@ namespace verona::parser
           names.push_back(p->location);
 
         st = p->symbol_table();
-
       }
 
       for (auto it = names.rbegin(); it != names.rend(); ++it)

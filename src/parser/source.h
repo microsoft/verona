@@ -51,7 +51,7 @@ namespace verona::parser
     Location range(const Location& that)
     {
       // Create a synthetic location that includes both locations.
-      if(this->source != that.source)
+      if (this->source != that.source)
         return *this;
 
       return Location(
