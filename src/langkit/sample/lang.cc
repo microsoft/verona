@@ -8,13 +8,19 @@ namespace verona::lang
   Parse parser()
   {
     Parse p("verona", Parse::depth::subdirectories);
-    auto indent = std::make_shared<std::vector<std::pair<size_t, bool>>>();
     auto depth = std::make_shared<size_t>(0);
+    auto indent = std::make_shared<std::vector<std::pair<size_t, bool>>>();
+    indent->push_back({restart, false});
 
-    p.preprocess([indent, depth]() {
+    p.postparse([](auto& p, auto ast) {
+      auto stdlib = path::directory(path::executable()) + "std/";
+      ast->push_back(p.parse(stdlib));
+    });
+
+    p.postfile([indent, depth](auto& p, auto ast) {
+      *depth = 0;
       indent->clear();
       indent->push_back({restart, false});
-      *depth = 0;
     });
 
     p("start",
@@ -251,10 +257,6 @@ namespace verona::lang
     = in an initializer
     dependent types
 
-    std
-      containers, iterators, network, time, strings, regex, env, ...
-    builtin
-      numbers, arrays, ambient authority
     public/private
     interface
     param: values as parameters for pattern matching
@@ -272,8 +274,7 @@ namespace verona::lang
       T(Directory)[Directory] >>
         [](auto& _) {
           auto ident = path::last(_(Directory)->location.source->origin());
-          return Class << Ident(ident) << Typeparams << Type
-                       << (Classbody << *_[Directory]);
+          return Group << Class << Ident(ident) << (Brace << *_[Directory]);
         },
 
       // File on its own (no module).
@@ -284,9 +285,9 @@ namespace verona::lang
                        << (Classbody << *_[File]);
         },
 
-      // File.
-      T(Classbody) << (T(File) * (T(File)++)[File] * End) >>
-        [](auto& _) { return Classbody << *_[File]; },
+      // Files in a directory.
+      T(Brace) << (T(File) * (T(File)++))[File] * End >>
+        [](auto& _) { return Brace << *_[File]; },
 
       // Type.
       T(Colon) * ((!T(Brace))++)[Type] >>

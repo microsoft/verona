@@ -4,9 +4,8 @@
 
 #include "ast.h"
 
-#include <path/path.h>
-
 #include <optional>
+#include <path/path.h>
 #include <regex>
 
 namespace langkit
@@ -208,12 +207,17 @@ namespace langkit
       subdirectories
     };
 
+    using PostF = std::function<void(Parse&, Node)>;
+
   private:
     std::string ext;
     depth depth_;
 
-    std::function<void(void)> pre;
+    PostF postfile_;
+    PostF postdir_;
+    PostF postparse_;
     std::map<const std::string, std::vector<Rule>> rules;
+    bool in_post = false;
 
   public:
     Parse(const std::string& ext, depth depth_) : ext(ext), depth_(depth_) {}
@@ -225,38 +229,67 @@ namespace langkit
       return *this;
     }
 
-    void preprocess(std::function<void(void)> f)
+    void postfile(PostF f)
     {
-      pre = f;
+      postfile_ = f;
     }
 
-    Node parse(const std::string& file)
+    void postdir(PostF f)
     {
-      switch (path::type(file))
+      postdir_ = f;
+    }
+
+    void postparse(PostF f)
+    {
+      postparse_ = f;
+    }
+
+    Node parse(const std::string& path)
+    {
+      Node ast;
+
+      switch (path::type(path))
       {
         case path::Type::File:
-          return parse_file(file);
+        {
+          ast = parse_file(path);
+          break;
+        }
 
         case path::Type::Directory:
         {
           if (depth_ == depth::file)
             return {};
 
-          return parse_directory(file);
+          ast = parse_directory(path);
+          break;
         }
 
         default:
           return {};
       }
+
+      if (!in_post && postparse_)
+      {
+        in_post = true;
+        postparse_(*this, ast);
+        in_post = false;
+      }
+
+      return ast;
     }
 
-    Node parse(Source& source)
+  private:
+    Node parse_file(const std::string& file)
     {
-      if (!source)
+      if (path::extension(file) != ext)
         return {};
 
-      if (pre)
-        pre();
+      auto filename = path::canonical(file);
+      auto source = SourceDef::load(filename);
+
+      if (!source)
+        return {};
 
       auto make = Make(source);
       auto it = source->view().cbegin();
@@ -307,26 +340,20 @@ namespace langkit
         }
       }
 
-      return make.done();
+      auto ast = make.done();
+
+      if (postfile_)
+        postfile_(*this, ast);
+
+      return ast;
     }
 
-  private:
-    Node parse_file(const std::string& file)
+    Node parse_directory(const std::string& path)
     {
-      if (path::extension(file) != ext)
-        return {};
-
-      auto filename = path::canonical(file);
-      auto source = SourceDef::load(filename);
-      return parse(source);
-    }
-
-    Node parse_directory(const std::string& file)
-    {
-      auto dir = path::to_directory(path::canonical(file));
+      auto dir = path::to_directory(path::canonical(path));
       Node top = NodeDef::create(Directory, {SourceDef::directory(dir), 0, 0});
 
-      auto files = path::files(file);
+      auto files = path::files(dir);
 
       for (auto& file : files)
       {
@@ -339,11 +366,11 @@ namespace langkit
 
       if (depth_ == depth::subdirectories)
       {
-        auto dirs = path::directories(file);
+        auto dirs = path::directories(dir);
 
-        for (auto& dir : dirs)
+        for (auto& subdir : dirs)
         {
-          auto filename = path::join(file, dir);
+          auto filename = path::join(dir, subdir);
           auto ast = parse_directory(filename);
 
           if (ast)
@@ -353,6 +380,9 @@ namespace langkit
 
       if (top->children.empty())
         return {};
+
+      if (postdir_)
+        postdir_(*this, top);
 
       return top;
     }

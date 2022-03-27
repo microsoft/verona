@@ -12,26 +12,22 @@ namespace langkit
   class Driver
   {
   private:
-    std::string name;
+    CLI::App app;
     Parse parser;
     std::vector<std::pair<Token, Pass>> passes;
+    std::vector<std::string> limits;
+
+    bool emit_ast = false;
+    std::string path;
+    std::string limit;
 
   public:
     Driver(
       const std::string& name,
       Parse parser,
       std::initializer_list<std::pair<Token, Pass>> passes)
-    : name(name), parser(parser), passes(passes)
-    {}
-
-    int run(int argc, char** argv)
+    : app(name), parser(parser), passes(passes)
     {
-      CLI::App app{name};
-      bool emit_ast = false;
-      std::string path;
-      std::string limit;
-      std::vector<std::string> limits;
-
       for (auto& [token, pass] : passes)
         limits.push_back(token.str());
 
@@ -39,7 +35,10 @@ namespace langkit
       app.add_option("-p,--pass", limit, "Run up to this pass.")
         ->transform(CLI::IsMember(limits));
       app.add_option("path", path, "Path to compile.")->required();
+    }
 
+    int run(int argc, char** argv)
+    {
       try
       {
         app.parse(argc, argv);

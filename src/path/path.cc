@@ -101,13 +101,14 @@ namespace path
     if (!is_directory(path))
       return filename(path);
 
-    size_t end = path.size() - delim_len;
+    size_t end = path.size() - delim_len - 1;
     size_t pos = path.rfind(delim, end);
 
     if (pos == std::string::npos)
       return {};
 
-    return path.substr(pos + delim_len, end);
+    auto begin = pos + delim_len;
+    return path.substr(begin, end - begin + 1);
   }
 
   std::string join(const std::string& path1, const std::string& path2)
@@ -222,7 +223,7 @@ namespace path
 
         case DT_DIR:
         {
-          if (!files)
+          if (!files && strcmp(e->d_name, ".") && strcmp(e->d_name, ".."))
             r.push_back(e->d_name);
           break;
         }

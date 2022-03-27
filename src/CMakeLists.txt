@@ -79,3 +79,5 @@ install(CODE [[
   ]])
 install(DIRECTORY stdlib/ DESTINATION stdlib
   PATTERN "CMakeLists.txt" EXCLUDE)
+  install(DIRECTORY std/ DESTINATION std
+  PATTERN "CMakeLists.txt" EXCLUDE)

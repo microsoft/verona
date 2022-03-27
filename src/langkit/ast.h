@@ -202,6 +202,9 @@ namespace langkit
 
     void push_back(Node node)
     {
+      if (!node)
+        return;
+
       children.push_back(node);
       node->parent = this;
     }
@@ -219,6 +222,9 @@ namespace langkit
 
     Node pop_back()
     {
+      if (children.empty())
+        return {};
+
       auto node = children.back();
       children.pop_back();
       node->parent = nullptr;
