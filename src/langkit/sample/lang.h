@@ -80,6 +80,7 @@ namespace verona::lang
   const auto RefType = Token("reftype");
   const auto RefClass = Token("refclass");
   const auto RefFunction = Token("reffunc");
+  const auto Scoped = Token("scoped");
   const auto Selector = Token("selector");
   const auto Call = Token("call");
 
@@ -96,6 +97,7 @@ namespace verona::lang
   // Passes.
   const auto Imports = Token("imports");
   const auto Structure = Token("structure");
+  const auto References = Token("references");
   const auto Selectors = Token("selectors");
   const auto ReverseApp = Token("reverseapp");
   const auto Expressions = Token("expressions");

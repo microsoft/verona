@@ -315,7 +315,7 @@ namespace langkit
       return {};
     }
 
-    Node at(const Location& loc, Token type)
+    Node at(const Location& loc)
     {
       if (!symtab)
         return {};
@@ -324,13 +324,7 @@ namespace langkit
       if (find == symtab->symbols.end())
         return {};
 
-      for (auto& node : find->second)
-      {
-        if (node->type == type)
-          return node;
-      }
-
-      return {};
+      return find->second.front();
     }
 
     void bind(const Location loc, Node node)

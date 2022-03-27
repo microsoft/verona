@@ -255,7 +255,7 @@ namespace verona::lang
     TODO:
 
     = in an initializer
-    dependent types
+    lookup in typealiases
 
     public/private
     interface
@@ -267,14 +267,16 @@ namespace verona::lang
         (type)
       pattern match on value
         (expr)
-    :: lookup in typealiases
+
+    package schemes
+    dependent types
     */
     return {
       // Module.
-      T(Directory)[Directory] >>
+      T(Directory)[Directory] << (T(File)++)[File] >>
         [](auto& _) {
           auto ident = path::last(_(Directory)->location.source->origin());
-          return Group << Class << Ident(ident) << (Brace << *_[Directory]);
+          return Group << Class << Ident(ident) << (Brace << *_[File]);
         },
 
       // File on its own (no module).
@@ -284,10 +286,6 @@ namespace verona::lang
           return Class << Ident(ident) << Typeparams << Type
                        << (Classbody << *_[File]);
         },
-
-      // Files in a directory.
-      T(Brace) << (T(File) * (T(File)++))[File] * End >>
-        [](auto& _) { return Brace << *_[File]; },
 
       // Type.
       T(Colon) * ((!T(Brace))++)[Type] >>
@@ -513,49 +511,66 @@ namespace verona::lang
       // Throw.
       In(Expr) * Start * T(Throw) * (Any++)[rhs] >>
         [](auto& _) { return Throw << (Expr << _[rhs]); },
+    };
+  }
 
+  const Lookup look{
+    T(Ident)[id] >> [](auto& _) -> Node {
+      auto node = _(id);
+      if (!node)
+        return {};
+      return node->find_first(node->location);
+    },
+
+    T(RefClass) << (T(Ident)[id] * T(Typeargs) * End) >>
+      [](auto& _) { return _.look(id); },
+
+    T(RefClass) << (T(RefClass)[RefClass] * T(Ident)[id] * T(Typeargs) * End) >>
+      [](auto& _) { return _.look(RefClass)->at(_(id)->location); },
+
+    T(Scoped) << (T(RefClass)[RefClass] * T(Ident)[id] * T(Typeargs) * End) >>
+      [](auto& _) { return _.look(RefClass)->at(_(id)->location); },
+  };
+
+  Pass references()
+  {
+    return {
       // Ref.
-      In(Expr) * S(Ident, Var)[id] >> [](auto& _) { return RefVar << _[id]; },
-      In(Expr) * S(Ident, Let)[id] >> [](auto& _) { return RefLet << _[id]; },
-      In(Expr) * S(Ident, Param)[id] >>
+      In(Expr) * T(Ident)(look = Var)[id] >>
+        [](auto& _) { return RefVar << _[id]; },
+      In(Expr) * T(Ident)(look = Let)[id] >>
+        [](auto& _) { return RefLet << _[id]; },
+      In(Expr) * T(Ident)(look = Param)[id] >>
         [](auto& _) { return RefParam << _[id]; },
-      In(Expr) * S(Ident, Typealias)[id] * ~T(Square)[Typeargs] >>
+      In(Expr) * T(Ident)(look = Typealias)[id] * ~T(Square)[Typeargs] >>
         [](auto& _) { return RefType << _[id] << (Typeargs << *_[Typeargs]); },
-      In(Expr) * S(Ident, Class)[id] * ~T(Square)[Typeargs] >>
+      In(Expr) * T(Ident)(look = Class)[id] * ~T(Square)[Typeargs] >>
         [](auto& _) { return RefClass << _[id] << (Typeargs << *_[Typeargs]); },
-      In(Expr) * (S(Ident, Function) / S(Symbol, Function))[id] *
+      In(Expr) * (T(Ident) / T(Symbol))(look = Function)[id] *
           ~T(Square)[Typeargs] >>
         [](auto& _) {
           return RefFunction << _[id] << (Typeargs << *_[Typeargs]);
         },
 
-      // Scoped class lookup.
-      In(Expr) *
-          (T(RefClass)
-           << (S(Ident, Class) * T(Typeargs) *
-               (L(Ident, Class) * T(Typeargs))++))[RefClass] *
-          T(DoubleColon) * L(Ident, Class)[id] * ~T(Square)[Typeargs] >>
-        [](auto& _) {
-          return RefClass << *_[RefClass] << _[id]
-                          << (Typeargs << *_[Typeargs]);
-        },
-
-      // Scoped function lookup.
-      In(Expr) *
-          (T(RefClass)
-           << (S(Ident, Class) * T(Typeargs) *
-               (L(Ident, Class) * T(Typeargs))++))[RefClass] *
-          T(DoubleColon) * (L(Ident, Function) / L(Symbol, Function))[id] *
+      // Scoped lookup.
+      In(Expr) * T(RefClass)[lhs] * T(DoubleColon) * Name[id] *
           ~T(Square)[Typeargs] >>
         [](auto& _) {
-          return RefFunction << *_[RefClass] << _[id]
-                             << (Typeargs << *_[Typeargs]);
+          return Scoped << _[lhs] << _[id] << (Typeargs << *_[Typeargs]);
         },
+
+      // Scoped class lookup.
+      In(Expr) * T(Scoped)(look = Class)[RefClass] >>
+        [](auto& _) { return RefClass << *_[RefClass]; },
+
+      // Scoped function lookup.
+      In(Expr) * T(Scoped)(look = Function)[RefFunction] >>
+        [](auto& _) { return RefFunction << *_[RefFunction]; },
 
       // Create sugar.
       In(Expr) * T(RefClass)[RefClass] >>
         [](auto& _) {
-          return Call << (RefFunction << *_[RefClass] << Ident(create)
+          return Call << (RefFunction << _[RefClass] << Ident(create)
                                       << Typeargs)
                       << Expr;
         },
@@ -617,6 +632,7 @@ namespace verona::lang
       {
         {Imports, imports()},
         {Structure, structure()},
+        {References, references()},
         {Selectors, selectors()},
         {ReverseApp, reverseapp()},
         {Expressions, expressions()},

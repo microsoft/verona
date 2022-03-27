@@ -10,15 +10,36 @@
 
 namespace langkit
 {
+  class Lookup;
+
   namespace detail
   {
+    class ILookup;
+
+    struct BindLookup
+    {
+      const ILookup& lookup;
+      Token type;
+    };
+
+    class ILookup
+    {
+    public:
+      virtual Node run(NodeRange range) const
+      {
+        return {};
+      }
+    };
+
     class Capture
     {
+      friend class langkit::Lookup;
+
     private:
       std::map<Token, NodeRange> captures;
       std::map<Location, Node> bindings;
       std::map<Token, Location> defaults;
-      Node lookup_;
+      const ILookup* lookup_ = nullptr;
 
     public:
       Capture() = default;
@@ -59,6 +80,14 @@ namespace langkit
         return binding.second;
       }
 
+      Node look(Token token)
+      {
+        if (!lookup_)
+          return {};
+
+        return lookup_->run(captures[token]);
+      }
+
       void operator+=(const Capture& that)
       {
         captures.insert(that.captures.begin(), that.captures.end());
@@ -67,17 +96,11 @@ namespace langkit
         lookup_ = that.lookup_;
       }
 
-      Node& lookup()
-      {
-        return lookup_;
-      }
-
       void clear()
       {
         captures.clear();
         bindings.clear();
         defaults.clear();
-        lookup_ = {};
       }
 
       void bind()
@@ -156,59 +179,34 @@ namespace langkit
       }
     };
 
-    class SymbolMatch : public PatternDef
-    {
-    private:
-      Token type;
-      Token symbol_type;
-
-    public:
-      SymbolMatch(Token type, Token symbol_type)
-      : type(type), symbol_type(symbol_type)
-      {}
-
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
-      {
-        if ((it == end) || ((*it)->type != type))
-          return false;
-
-        auto find = (*it)->find_first((*it)->location);
-
-        if (!find || (find->type != symbol_type))
-          return false;
-
-        captures.lookup() = find;
-        ++it;
-        return true;
-      }
-    };
-
     class LookupMatch : public PatternDef
     {
     private:
-      Token type;
-      Token symbol_type;
+      PatternPtr pattern;
+      Token lookup_type;
+      const ILookup& lookup;
 
     public:
-      LookupMatch(Token type, Token symbol_type)
-      : type(type), symbol_type(symbol_type)
+      LookupMatch(PatternPtr pattern, Token lookup_type, const ILookup& lookup)
+      : pattern(pattern), lookup_type(lookup_type), lookup(lookup)
       {}
 
       bool match(NodeIt& it, NodeIt end, Capture& captures) const override
       {
-        if ((it == end) || ((*it)->type != type))
+        auto begin = it;
+        auto captures2 = captures;
+
+        if (!pattern->match(it, end, captures2))
           return false;
 
-        auto lookup = captures.lookup();
-        if (!lookup)
+        auto find = lookup.run({begin, it});
+        if (!find || (find->type != lookup_type))
+        {
+          it = begin;
           return false;
+        }
 
-        auto find = lookup->at((*it)->location, symbol_type);
-        if (!find)
-          return false;
-
-        captures.lookup() = find;
-        ++it;
+        captures += captures2;
         return true;
       }
     };
@@ -374,6 +372,9 @@ namespace langkit
         if (it == end)
           return false;
 
+        if (!(*it)->parent)
+          return false;
+
         auto parent = (*it)->parent->acquire();
         return parent->type == type;
       }
@@ -387,6 +388,9 @@ namespace langkit
       bool match(NodeIt& it, NodeIt end, Capture& captures) const override
       {
         if (it == end)
+          return false;
+
+        if (!(*it)->parent)
           return false;
 
         auto parent = (*it)->parent->acquire();
@@ -531,6 +535,11 @@ namespace langkit
       {
         return {std::make_shared<Children>(pattern, rhs.pattern)};
       }
+
+      Pattern operator()(BindLookup bind) const
+      {
+        return {std::make_shared<LookupMatch>(pattern, bind.type, bind.lookup)};
+      }
     };
 
     using Effect = std::function<Node(Capture&)>;
@@ -565,16 +574,6 @@ namespace langkit
   inline detail::Pattern R(Token type, const std::string& r)
   {
     return detail::Pattern(std::make_shared<detail::RegexMatch>(type, r));
-  }
-
-  inline detail::Pattern S(Token type, Token symbol)
-  {
-    return detail::Pattern(std::make_shared<detail::SymbolMatch>(type, symbol));
-  }
-
-  inline detail::Pattern L(Token type, Token symbol)
-  {
-    return detail::Pattern(std::make_shared<detail::LookupMatch>(type, symbol));
   }
 
   inline detail::Pattern In(Token type)
@@ -790,6 +789,42 @@ namespace langkit
       }
 
       return changes;
+    }
+  };
+
+  class Lookup : public detail::ILookup
+  {
+  private:
+    std::vector<detail::PatternEffect> rules;
+
+  public:
+    Lookup(const std::initializer_list<detail::PatternEffect>& r) : rules(r) {}
+
+    Node operator()(NodeRange range) const
+    {
+      return run(range);
+    }
+
+    Node run(NodeRange range) const override
+    {
+      detail::Capture captures;
+      captures.lookup_ = this;
+
+      for (auto& rule : rules)
+      {
+        auto it = range.first;
+        captures.clear();
+
+        if (rule.first.match(it, range.second, captures))
+          return rule.second(captures);
+      }
+
+      return {};
+    }
+
+    detail::BindLookup operator=(const Token& type) const
+    {
+      return {*this, type};
     }
   };
 }
