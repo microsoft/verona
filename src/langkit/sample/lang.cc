@@ -185,6 +185,9 @@ namespace verona::lang
         "var\\b" >> [](auto& m) { m.add(Var); },
         "let\\b" >> [](auto& m) { m.add(Let); },
         "throw\\b" >> [](auto& m) { m.add(Throw); },
+        "iso\\b" >> [](auto& m) { m.add(Iso); },
+        "imm\\b" >> [](auto& m) { m.add(Imm); },
+        "mut\\b" >> [](auto& m) { m.add(Mut); },
 
         // Identifier.
         "[_[:alpha:]][_[:alnum:]]*\\b" >> [](auto& m) { m.add(Ident); },
@@ -221,6 +224,9 @@ namespace verona::lang
     return p;
   }
 
+  const auto TypeElem = T(Type) / T(TypeRef) / T(TypeTuple) / T(Iso) / T(Imm) /
+    T(Mut) / T(TypeView) / T(TypeFunc) / T(TypeThrow) / T(TypeIsect) /
+    T(TypeUnion);
   const auto Name = T(Ident) / T(Symbol);
   const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) / T(Hex) /
     T(Bin) / T(Int) / T(Float) / T(HexFloat);
@@ -251,9 +257,6 @@ namespace verona::lang
       numbers, arrays, ambient authority
     public/private
     interface
-    types
-      capability
-      throw, isect, union, viewpoint, function
     param: values as parameters for pattern matching
       named parameters
         (group ident type)
@@ -394,6 +397,13 @@ namespace verona::lang
         [](auto& _) { return TypeTuple << *_[TypeTuple]; },
       In(Type) * T(Paren)[Type] >> [](auto& _) { return Type << *_[Type]; },
 
+      // Typeargs.
+      In(Typeargs) * T(Group)[Type] >> [](auto& _) { return Type << *_[Type]; },
+      In(Typeargs) * T(List)[TypeTuple] >>
+        [](auto& _) { return TypeTuple << *_[TypeTuple]; },
+      In(Typeargs) * T(Paren)[Type] >> [](auto& _) { return Type << *_[Type]; },
+
+      // Type tuple.
       In(TypeTuple) * T(Group)[Type] >>
         [](auto& _) { return Type << *_[Type]; },
 
@@ -411,13 +421,21 @@ namespace verona::lang
           return TypeRef << _[Package] << _[id] << (Typeargs << *_[Typeargs]);
         },
 
-      // TODO:
-      // Union type.
-      // Throw type.
-      // Intersection type.
-      // Function type.
-      // Viewpoint type.
-      // Capability type.
+      // Type expressions.
+      In(Type) * TypeElem[lhs] * R(Symbol, "~>") * TypeElem[rhs] >>
+        [](auto& _) { return TypeView << _[lhs] << _[rhs]; },
+
+      In(Type) * TypeElem[lhs] * R(Symbol, "->") * TypeElem[rhs] >>
+        [](auto& _) { return TypeFunc << _[lhs] << _[rhs]; },
+
+      In(Type) * TypeElem[lhs] * R(Symbol, "&") * TypeElem[rhs] >>
+        [](auto& _) { return TypeIsect << _[lhs] << _[rhs]; },
+
+      In(Type) * TypeElem[lhs] * R(Symbol, "\\|") * TypeElem[rhs] >>
+        [](auto& _) { return TypeUnion << _[lhs] << _[rhs]; },
+
+      In(Type) * T(Throw) * TypeElem[rhs] >>
+        [](auto& _) { return TypeThrow << _[rhs]; },
 
       // Expression.
       In(Funcbody) * T(Group)[Expr] >> [](auto& _) { return Expr << *_[Expr]; },

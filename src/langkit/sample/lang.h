@@ -43,6 +43,9 @@ namespace verona::lang
   const auto Var = Token("var");
   const auto Let = Token("let");
   const auto Throw = Token("throw");
+  const auto Iso = Token("iso");
+  const auto Imm = Token("imm");
+  const auto Mut = Token("mut");
 
   // Semantic structure.
   const auto Classbody = Token("classbody");
@@ -59,6 +62,11 @@ namespace verona::lang
   const auto Type = Token("type");
   const auto TypeTuple = Token("typetuple");
   const auto TypeRef = Token("typeref");
+  const auto TypeView = Token("typeview");
+  const auto TypeFunc = Token("typefunc");
+  const auto TypeThrow = Token("typethrow");
+  const auto TypeIsect = Token("typeisect");
+  const auto TypeUnion = Token("typeunion");
 
   // Expression structure.
   const auto Expr = Token("expr");
