@@ -220,7 +220,7 @@ namespace langkit
     public:
       RegexMatch(Token type, const std::string& r) : type(type)
       {
-        regex = std::regex("^" + r, std::regex_constants::optimize);
+        regex = std::regex("^" + r + "$", std::regex_constants::optimize);
       }
 
       bool match(NodeIt& it, NodeIt end, Capture& captures) const override
@@ -721,16 +721,20 @@ namespace langkit
       return {top->children.front(), changes};
     }
 
-    Node repeat(Node node)
+    std::tuple<Node, size_t, size_t> repeat(Node node)
     {
       size_t changes = 0;
+      size_t changes_sum = 0;
+      size_t count = 0;
 
       do
       {
         std::tie(node, changes) = run(node);
+        changes_sum += changes;
+        count++;
       } while (changes > 0);
 
-      return node;
+      return {node, count, changes_sum};
     }
 
   private:

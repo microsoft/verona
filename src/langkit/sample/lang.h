@@ -61,7 +61,6 @@ namespace verona::lang
   // Type structure.
   const auto Type = Token("type");
   const auto TypeTuple = Token("typetuple");
-  const auto TypeRef = Token("typeref");
   const auto TypeView = Token("typeview");
   const auto TypeFunc = Token("typefunc");
   const auto TypeThrow = Token("typethrow");
@@ -100,7 +99,7 @@ namespace verona::lang
   const auto References = Token("references");
   const auto Selectors = Token("selectors");
   const auto ReverseApp = Token("reverseapp");
-  const auto Expressions = Token("expressions");
+  const auto Application = Token("application");
 
   Driver& driver();
 }

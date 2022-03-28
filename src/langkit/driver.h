@@ -18,6 +18,7 @@ namespace langkit
     std::vector<std::string> limits;
 
     bool emit_ast = false;
+    bool diag = false;
     std::string path;
     std::string limit;
 
@@ -32,6 +33,7 @@ namespace langkit
         limits.push_back(token.str());
 
       app.add_flag("-a,--ast", emit_ast, "Emit an abstract syntax tree.");
+      app.add_flag("-d,--diagnostics", diag, "Emit diagnostics.");
       app.add_option("-p,--pass", limit, "Run up to this pass.")
         ->transform(CLI::IsMember(limits));
       app.add_option("path", path, "Path to compile.")->required();
@@ -56,7 +58,15 @@ namespace langkit
 
       for (auto& [name, pass] : passes)
       {
-        ast = pass.repeat(ast);
+        size_t count;
+        size_t changes;
+        std::tie(ast, count, changes) = pass.repeat(ast);
+
+        if (diag)
+        {
+          std::cout << "Pass " << name.str() << ": " << count << " iterations, "
+                    << changes << " nodes rewritten." << std::endl;
+        }
 
         if (name == lim)
           break;

@@ -240,15 +240,16 @@ namespace verona::lang
     return p;
   }
 
-  const auto TypeElem = T(Type) / T(TypeRef) / T(TypeTuple) / T(Iso) / T(Imm) /
-    T(Mut) / T(TypeView) / T(TypeFunc) / T(TypeThrow) / T(TypeIsect) /
-    T(TypeUnion);
+  const auto TypeElem = T(Type) / T(RefClass) / T(RefType) / T(TypeTuple) /
+    T(Iso) / T(Imm) / T(Mut) / T(TypeView) / T(TypeFunc) / T(TypeThrow) /
+    T(TypeIsect) / T(TypeUnion);
   const auto Name = T(Ident) / T(Symbol);
   const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) / T(Hex) /
     T(Bin) / T(Int) / T(Float) / T(HexFloat);
   const auto Object = Literal / T(RefVar) / T(RefLet) / T(RefParam) / T(Tuple) /
     T(Lambda) / T(Call) / T(Expr);
   const auto Operator = T(RefFunction) / T(Selector);
+  const auto TypeOrExpr = In(Type) / In(Expr);
 
   Pass imports()
   {
@@ -266,7 +267,6 @@ namespace verona::lang
 
     = in an initializer
     lookup in typealiases, typeparams
-    resolve typeargs
 
     public/private
     interface
@@ -401,49 +401,21 @@ namespace verona::lang
             << (Classbody << *_[Classbody]);
         },
 
-      // Type.
+      // Type structure.
       In(Type) * T(Group)[Type] >> [](auto& _) { return Type << *_[Type]; },
       In(Type) * T(List)[TypeTuple] >>
         [](auto& _) { return TypeTuple << *_[TypeTuple]; },
       In(Type) * T(Paren)[Type] >> [](auto& _) { return Type << *_[Type]; },
 
-      // Typeargs.
+      In(TypeTuple) * T(Group)[Type] >>
+        [](auto& _) { return Type << *_[Type]; },
+
       In(Typeargs) * T(Group)[Type] >> [](auto& _) { return Type << *_[Type]; },
       In(Typeargs) * T(List)[TypeTuple] >>
         [](auto& _) { return TypeTuple << *_[TypeTuple]; },
       In(Typeargs) * T(Paren)[Type] >> [](auto& _) { return Type << *_[Type]; },
 
-      // Type tuple.
-      In(TypeTuple) * T(Group)[Type] >>
-        [](auto& _) { return Type << *_[Type]; },
-
-      // Type scoping.
-      In(Type) * T(Ident)[id] * ~T(Square)[Typeargs] >>
-        [](auto& _) { return TypeRef << _[id] << (Typeargs << *_[Typeargs]); },
-      In(Type) * T(TypeRef)[lhs] * T(DoubleColon) * T(Ident)[id] *
-          ~T(Square)[Typeargs] >>
-        [](auto& _) {
-          return TypeRef << _[lhs] << _[id] << (Typeargs << *_[Typeargs]);
-        },
-      In(Type) * T(Package)[Package] * T(DoubleColon) * T(Ident)[id] *
-          ~T(Square)[Typeargs] >>
-        [](auto& _) {
-          return TypeRef << _[Package] << _[id] << (Typeargs << *_[Typeargs]);
-        },
-
-      // Type expressions.
-      In(Type) * TypeElem[lhs] * T(Symbol, "~>") * TypeElem[rhs] >>
-        [](auto& _) { return TypeView << _[lhs] << _[rhs]; },
-      In(Type) * TypeElem[lhs] * T(Symbol, "->") * TypeElem[rhs] >>
-        [](auto& _) { return TypeFunc << _[lhs] << _[rhs]; },
-      In(Type) * TypeElem[lhs] * T(Symbol, "&") * TypeElem[rhs] >>
-        [](auto& _) { return TypeIsect << _[lhs] << _[rhs]; },
-      In(Type) * TypeElem[lhs] * T(Symbol, "\\|") * TypeElem[rhs] >>
-        [](auto& _) { return TypeUnion << _[lhs] << _[rhs]; },
-      In(Type) * T(Throw) * TypeElem[rhs] >>
-        [](auto& _) { return TypeThrow << _[rhs]; },
-
-      // Expression.
+      // Expression structure.
       In(Funcbody) * T(Group)[Expr] >> [](auto& _) { return Expr << *_[Expr]; },
       In(Funcbody) * T(List)[Tuple] >>
         [](auto& _) { return Tuple << *_[Tuple]; },
@@ -542,11 +514,6 @@ namespace verona::lang
 
     T(Scoped) << (T(RefClass)[RefClass] * T(Ident)[id] * T(Typeargs) * End) >>
       [](auto& _) { return _.look(RefClass)->at(_(id)->location); },
-
-    T(TypeRef) << (T(Ident)[id] * T(Typeargs) * End) >>
-      [](auto& _) { return _.look(id); },
-    T(TypeRef) << (T(TypeRef)[TypeRef] * T(Ident)[id] * T(Typeargs) * End) >>
-      [](auto& _) { return _.look(TypeRef)->at(_(id)->location); },
   };
 
   Pass references()
@@ -559,29 +526,28 @@ namespace verona::lang
         [](auto& _) { return RefLet << _[id]; },
       In(Expr) * T(Ident)(look = Param)[id] >>
         [](auto& _) { return RefParam << _[id]; },
-      In(Expr) * T(Ident)(look = Typealias)[id] * ~T(Square)[Typeargs] >>
+      TypeOrExpr * T(Ident)(look = Typealias)[id] * ~T(Square)[Typeargs] >>
         [](auto& _) { return RefType << _[id] << (Typeargs << *_[Typeargs]); },
-      In(Expr) * T(Ident)(look = Class)[id] * ~T(Square)[Typeargs] >>
+      TypeOrExpr * T(Ident)(look = Class)[id] * ~T(Square)[Typeargs] >>
         [](auto& _) { return RefClass << _[id] << (Typeargs << *_[Typeargs]); },
-      In(Expr) * (T(Ident) / T(Symbol))(look = Function)[id] *
+      TypeOrExpr * (T(Ident) / T(Symbol))(look = Function)[id] *
           ~T(Square)[Typeargs] >>
         [](auto& _) {
           return RefFunction << _[id] << (Typeargs << *_[Typeargs]);
         },
 
       // Scoped lookup.
-      In(Expr) * T(RefClass)[lhs] * T(DoubleColon) * Name[id] *
-          ~T(Square)[Typeargs] >>
+      TypeOrExpr * (T(RefClass) / T(RefType) / T(Package))[lhs] *
+          T(DoubleColon) * Name[id] * ~T(Square)[Typeargs] >>
         [](auto& _) {
           return Scoped << _[lhs] << _[id] << (Typeargs << *_[Typeargs]);
         },
 
-      // Scoped class lookup.
-      In(Expr) * T(Scoped)(look = Class)[RefClass] >>
+      TypeOrExpr * T(Scoped)(look = Typealias)[RefType] >>
+        [](auto& _) { return RefType << *_[RefType]; },
+      TypeOrExpr * T(Scoped)(look = Class)[RefClass] >>
         [](auto& _) { return RefClass << *_[RefClass]; },
-
-      // Scoped function lookup.
-      In(Expr) * T(Scoped)(look = Function)[RefFunction] >>
+      TypeOrExpr * T(Scoped)(look = Function)[RefFunction] >>
         [](auto& _) { return RefFunction << *_[RefFunction]; },
 
       // Create sugar.
@@ -600,12 +566,6 @@ namespace verona::lang
       // Unknown names are selectors.
       In(Expr) * Name[id] * ~T(Square)[Typeargs] >>
         [](auto& _) { return Selector << _[id] << (Typeargs << *_[Typeargs]); },
-
-      // Compact an expr that contains a single child.
-      T(Expr) << (Any[Expr] * End) >> [](auto& _) { return _(Expr); },
-
-      // Compact a type that contains a single child.
-      T(Type) << (Any[Type] * End) >> [](auto& _) { return _(Type); },
     };
   }
 
@@ -618,9 +578,21 @@ namespace verona::lang
     };
   }
 
-  Pass expressions()
+  Pass application()
   {
     return {
+      // Type expressions.
+      In(Type) * TypeElem[lhs] * T(Symbol, "~>") * TypeElem[rhs] >>
+        [](auto& _) { return TypeView << _[lhs] << _[rhs]; },
+      In(Type) * TypeElem[lhs] * T(Symbol, "->") * TypeElem[rhs] >>
+        [](auto& _) { return TypeFunc << _[lhs] << _[rhs]; },
+      In(Type) * TypeElem[lhs] * T(Symbol, "&") * TypeElem[rhs] >>
+        [](auto& _) { return TypeIsect << _[lhs] << _[rhs]; },
+      In(Type) * TypeElem[lhs] * T(Symbol, "\\|") * TypeElem[rhs] >>
+        [](auto& _) { return TypeUnion << _[lhs] << _[rhs]; },
+      In(Type) * T(Throw) * TypeElem[rhs] >>
+        [](auto& _) { return TypeThrow << _[rhs]; },
+
       // Adjacency: application.
       In(Expr) * Object[lhs] * Object[rhs] >>
         [](auto& _) { return Call << _[lhs] << _[rhs]; },
@@ -638,6 +610,10 @@ namespace verona::lang
         [](auto& _) { return Call << _[op] << (Tuple << _[lhs] << *_[rhs]); },
       In(Expr) * Object[lhs] * Operator[op] * Object[rhs] >>
         [](auto& _) { return Call << _[op] << (Tuple << _[lhs] << _[rhs]); },
+
+      // Compaction.
+      T(Expr) << (Any[Expr] * End) >> [](auto& _) { return _(Expr); },
+      T(Type) << (Any[Type] * End) >> [](auto& _) { return _(Type); },
     };
   }
 
@@ -652,7 +628,7 @@ namespace verona::lang
         {References, references()},
         {Selectors, selectors()},
         {ReverseApp, reverseapp()},
-        {Expressions, expressions()},
+        {Application, application()},
       });
 
     return d;
