@@ -7,14 +7,24 @@ namespace verona::lang
 
   Parse parser()
   {
-    Parse p("verona", Parse::depth::subdirectories);
+    Parse p(Parse::depth::subdirectories);
     auto depth = std::make_shared<size_t>(0);
     auto indent = std::make_shared<std::vector<std::pair<size_t, bool>>>();
     indent->push_back({restart, false});
 
+    p.prefile(
+      [](auto& p, auto& path) { return path::extension(path) == "verona"; });
+
+    p.predir([](auto& p, auto& path) {
+      static auto re = std::regex(
+        ".*/[_[:alpha:]][_[:alnum:]]*/$", std::regex_constants::optimize);
+      return std::regex_match(path, re);
+    });
+
     p.postparse([](auto& p, auto ast) {
       auto stdlib = path::directory(path::executable()) + "std/";
-      ast->push_back(p.parse(stdlib));
+      if (ast->location.source->origin() != stdlib)
+        ast->push_back(p.parse(stdlib));
     });
 
     p.postfile([indent, depth](auto& p, auto ast) {

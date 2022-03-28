@@ -207,26 +207,37 @@ namespace langkit
       subdirectories
     };
 
+    using PreF = std::function<bool(Parse&, const std::string&)>;
     using PostF = std::function<void(Parse&, Node)>;
 
   private:
-    std::string ext;
     depth depth_;
 
+    PreF prefile_;
+    PreF predir_;
     PostF postfile_;
     PostF postdir_;
     PostF postparse_;
     std::map<const std::string, std::vector<Rule>> rules;
-    bool in_post = false;
 
   public:
-    Parse(const std::string& ext, depth depth_) : ext(ext), depth_(depth_) {}
+    Parse(depth depth_) : depth_(depth_) {}
 
     Parse&
     operator()(const std::string& mode, const std::initializer_list<Rule> r)
     {
       rules[mode].insert(rules[mode].end(), r.begin(), r.end());
       return *this;
+    }
+
+    void prefile(PreF f)
+    {
+      prefile_ = f;
+    }
+
+    void predir(PreF f)
+    {
+      predir_ = f;
     }
 
     void postfile(PostF f)
@@ -269,12 +280,8 @@ namespace langkit
           return {};
       }
 
-      if (!in_post && postparse_)
-      {
-        in_post = true;
+      if (postparse_ && ast)
         postparse_(*this, ast);
-        in_post = false;
-      }
 
       return ast;
     }
@@ -282,10 +289,11 @@ namespace langkit
   private:
     Node parse_file(const std::string& file)
     {
-      if (path::extension(file) != ext)
+      auto filename = path::canonical(file);
+
+      if (prefile_ && !prefile_(*this, filename))
         return {};
 
-      auto filename = path::canonical(file);
       auto source = SourceDef::load(filename);
 
       if (!source)
@@ -342,7 +350,7 @@ namespace langkit
 
       auto ast = make.done();
 
-      if (postfile_)
+      if (postfile_ && ast)
         postfile_(*this, ast);
 
       return ast;
@@ -351,6 +359,10 @@ namespace langkit
     Node parse_directory(const std::string& path)
     {
       auto dir = path::to_directory(path::canonical(path));
+
+      if (predir_ && !predir_(*this, dir))
+        return {};
+
       Node top = NodeDef::create(Directory, {SourceDef::directory(dir), 0, 0});
 
       auto files = path::files(dir);
@@ -381,7 +393,7 @@ namespace langkit
       if (top->children.empty())
         return {};
 
-      if (postdir_)
+      if (postdir_ && top)
         postdir_(*this, top);
 
       return top;
