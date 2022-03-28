@@ -240,9 +240,9 @@ namespace verona::lang
     return p;
   }
 
-  const auto TypeElem = T(Type) / T(RefClass) / T(RefType) / T(TypeTuple) /
-    T(Iso) / T(Imm) / T(Mut) / T(TypeView) / T(TypeFunc) / T(TypeThrow) /
-    T(TypeIsect) / T(TypeUnion);
+  const auto TypeElem = T(Type) / T(RefClass) / T(RefType) / T(RefTypeparam) /
+    T(TypeTuple) / T(Iso) / T(Imm) / T(Mut) / T(TypeView) / T(TypeFunc) /
+    T(TypeThrow) / T(TypeIsect) / T(TypeUnion);
   const auto Name = T(Ident) / T(Symbol);
   const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) / T(Hex) /
     T(Bin) / T(Int) / T(Float) / T(HexFloat);
@@ -266,7 +266,12 @@ namespace verona::lang
     TODO:
 
     = in an initializer
-    lookup in typealiases, typeparams
+    typealias: change syntax, have a bounds and a type
+    lookup in
+      typealias: lookup in reified rhs
+      typeparam: lookup in the bounds
+      package: resolve it
+    `use` type
 
     public/private
     interface
@@ -385,10 +390,21 @@ namespace verona::lang
       // Typealias.
       T(Group)
           << (T(Typealias) * T(Ident)[id] * ~T(Square)[Typeparams] *
-              T(Type)[Type] * End) >>
+              ~T(Type)[Type] * End) >>
         [](auto& _) {
-          return _(id = Typealias)
-            << _[id] << (Typeparams << *_[Typeparams]) << _[Type];
+          return _(id = Typealias) << _[id] << (Typeparams << *_[Typeparams])
+                                   << (_[Type] | Type) << Type;
+        },
+
+      // Typealias: (equals (group typealias ident typeparams type) group)
+      T(Equals)
+          << ((T(Group)
+               << (T(Typealias) * T(Ident)[id] * ~T(Square)[Typeparams] *
+                   ~T(Type)[Type] * End)) *
+              T(Group)[rhs] * End) >>
+        [](auto& _) {
+          return _(id = Typealias) << _[id] << (Typeparams << *_[Typeparams])
+                                   << (_[Type] | Type) << (Type << *_[rhs]);
         },
 
       // Class.
@@ -410,11 +426,6 @@ namespace verona::lang
       In(TypeTuple) * T(Group)[Type] >>
         [](auto& _) { return Type << *_[Type]; },
 
-      In(Typeargs) * T(Group)[Type] >> [](auto& _) { return Type << *_[Type]; },
-      In(Typeargs) * T(List)[TypeTuple] >>
-        [](auto& _) { return TypeTuple << *_[TypeTuple]; },
-      In(Typeargs) * T(Paren)[Type] >> [](auto& _) { return Type << *_[Type]; },
-
       // Expression structure.
       In(Funcbody) * T(Group)[Expr] >> [](auto& _) { return Expr << *_[Expr]; },
       In(Funcbody) * T(List)[Tuple] >>
@@ -432,6 +443,13 @@ namespace verona::lang
       In(Expr) * T(List)[Tuple] >> [](auto& _) { return Tuple << *_[Tuple]; },
       In(Expr) * T(Equals)[Assign] >>
         [](auto& _) { return Assign << *_[Assign]; },
+
+      TypeOrExpr * T(Square)[Typeargs] >>
+        [](auto& _) { return Typeargs << *_[Typeargs]; },
+      In(Typeargs) * T(Group)[Type] >> [](auto& _) { return Type << *_[Type]; },
+      In(Typeargs) * T(List)[TypeTuple] >>
+        [](auto& _) { return TypeTuple << *_[TypeTuple]; },
+      In(Typeargs) * T(Paren)[Type] >> [](auto& _) { return Type << *_[Type]; },
 
       // Lambda: (group typeparams) (list params...) => rhs
       In(Expr) * T(Brace)
@@ -494,26 +512,40 @@ namespace verona::lang
   }
 
   const Lookup look{
-    T(Ident)[id] >> [](auto& _) -> Node {
-      auto node = _(id);
-      if (!node)
-        return {};
-      return node->find_first(node->location);
-    },
+    T(Ident)[id] >>
+      [](auto& _) {
+        auto node = _(id);
+        return node->find_first(node->location);
+      },
 
-    T(RefClass) << (T(Ident)[id] * T(Typeargs) * End) >>
-      [](auto& _) { return _.look(id); },
-    T(RefClass) << (T(RefClass)[RefClass] * T(Ident)[id] * T(Typeargs) * End) >>
-      [](auto& _) { return _.look(RefClass)->at(_(id)->location); },
+    (T(RefType) / T(RefClass) / T(RefFunction))
+        << (T(Ident)[id] * T(Typeargs) * End) >>
+      [](auto& _) { return _.find(id); },
 
-    T(RefFunction) << (T(Ident)[id] * T(Typeargs) * End) >>
-      [](auto& _) { return _.look(id); },
-    T(RefFunction)
-        << (T(RefClass)[RefClass] * T(Ident)[id] * T(Typeargs) * End) >>
-      [](auto& _) { return _.look(RefClass)->at(_(id)->location); },
+    (T(Scoped) / T(RefType) / T(RefClass) / T(RefFunction))
+        << (T(RefClass)[lhs] * T(Ident)[id] * T(Typeargs) * End) >>
+      [](auto& _) { return _.find(lhs)->at(_(id)->location); },
 
-    T(Scoped) << (T(RefClass)[RefClass] * T(Ident)[id] * T(Typeargs) * End) >>
-      [](auto& _) { return _.look(RefClass)->at(_(id)->location); },
+    (T(Scoped) / T(RefType) / T(RefClass) / T(RefFunction))
+        << (T(RefType)[lhs] * T(Ident)[id] * T(Typeargs) * End) >>
+      [](auto& _) {
+        // TODO: lhs is a typealias, doesn't work yet
+        return _.find(lhs)->at(_(id)->location);
+      },
+
+    (T(Scoped) / T(RefType) / T(RefClass) / T(RefFunction))
+        << (T(RefTypeparam)[lhs] * T(Ident)[id] * T(Typeargs) * End) >>
+      [](auto& _) {
+        // TODO: lhs is a typeparam, doesn't work yet
+        return _.find(lhs)->at(_(id)->location);
+      },
+
+    (T(Scoped) / T(RefType) / T(RefClass) / T(RefFunction))
+        << (T(Package)[lhs] * T(Ident)[id] * T(Typeargs) * End) >>
+      [](auto& _) {
+        // TODO: lhs is a package, doesn't work yet
+        return _.find(lhs)->at(_(id)->location);
+      },
   };
 
   Pass references()
@@ -526,19 +558,21 @@ namespace verona::lang
         [](auto& _) { return RefLet << _[id]; },
       In(Expr) * T(Ident)(look = Param)[id] >>
         [](auto& _) { return RefParam << _[id]; },
-      TypeOrExpr * T(Ident)(look = Typealias)[id] * ~T(Square)[Typeargs] >>
+      TypeOrExpr * T(Ident)(look = Typeparam)[id] >>
+        [](auto& _) { return RefTypeparam << _[id]; },
+      TypeOrExpr * T(Ident)(look = Typealias)[id] * ~T(Typeargs)[Typeargs] >>
         [](auto& _) { return RefType << _[id] << (Typeargs << *_[Typeargs]); },
-      TypeOrExpr * T(Ident)(look = Class)[id] * ~T(Square)[Typeargs] >>
+      TypeOrExpr * T(Ident)(look = Class)[id] * ~T(Typeargs)[Typeargs] >>
         [](auto& _) { return RefClass << _[id] << (Typeargs << *_[Typeargs]); },
       TypeOrExpr * (T(Ident) / T(Symbol))(look = Function)[id] *
-          ~T(Square)[Typeargs] >>
+          ~T(Typeargs)[Typeargs] >>
         [](auto& _) {
           return RefFunction << _[id] << (Typeargs << *_[Typeargs]);
         },
 
       // Scoped lookup.
       TypeOrExpr * (T(RefClass) / T(RefType) / T(Package))[lhs] *
-          T(DoubleColon) * Name[id] * ~T(Square)[Typeargs] >>
+          T(DoubleColon) * Name[id] * ~T(Typeargs)[Typeargs] >>
         [](auto& _) {
           return Scoped << _[lhs] << _[id] << (Typeargs << *_[Typeargs]);
         },
@@ -551,9 +585,9 @@ namespace verona::lang
         [](auto& _) { return RefFunction << *_[RefFunction]; },
 
       // Create sugar.
-      In(Expr) * T(RefClass)[RefClass] >>
+      In(Expr) * (T(RefClass) / T(RefTypeparam))[lhs] >>
         [](auto& _) {
-          return Call << (RefFunction << _[RefClass] << Ident(create)
+          return Call << (RefFunction << _[lhs] << Ident(create)
                                       << Typeargs)
                       << Expr;
         },
@@ -564,7 +598,7 @@ namespace verona::lang
   {
     return {
       // Unknown names are selectors.
-      In(Expr) * Name[id] * ~T(Square)[Typeargs] >>
+      In(Expr) * Name[id] * ~T(Typeargs)[Typeargs] >>
         [](auto& _) { return Selector << _[id] << (Typeargs << *_[Typeargs]); },
     };
   }

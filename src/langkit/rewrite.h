@@ -80,7 +80,7 @@ namespace langkit
         return binding.second;
       }
 
-      Node look(Token token)
+      Node find(Token token)
       {
         if (!lookup_)
           return {};

@@ -38,7 +38,7 @@ namespace verona::lang
   const auto Private = Token("private");
   const auto Package = Token("package");
   const auto Using = Token("using");
-  const auto Typealias = Token("typealias");
+  const auto Typealias = Token("typealias", flag::symtab);
   const auto Class = Token("class", flag::symtab);
   const auto Var = Token("var");
   const auto Let = Token("let");
@@ -76,6 +76,7 @@ namespace verona::lang
   const auto RefVar = Token("refvar");
   const auto RefLet = Token("reflet");
   const auto RefParam = Token("refparam");
+  const auto RefTypeparam = Token("reftypeparam");
   const auto RefType = Token("reftype");
   const auto RefClass = Token("refclass");
   const auto RefFunction = Token("reffunc");
