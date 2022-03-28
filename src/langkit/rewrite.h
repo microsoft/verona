@@ -571,7 +571,7 @@ namespace langkit
     return detail::Pattern(std::make_shared<detail::TokenMatch>(type));
   }
 
-  inline detail::Pattern R(Token type, const std::string& r)
+  inline detail::Pattern T(Token type, const std::string& r)
   {
     return detail::Pattern(std::make_shared<detail::RegexMatch>(type, r));
   }

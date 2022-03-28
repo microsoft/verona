@@ -255,7 +255,8 @@ namespace verona::lang
     TODO:
 
     = in an initializer
-    lookup in typealiases
+    lookup in typealiases, typeparams
+    resolve typeargs
 
     public/private
     interface
@@ -412,7 +413,7 @@ namespace verona::lang
       In(Type) * T(TypeRef)[lhs] * T(DoubleColon) * T(Ident)[id] *
           ~T(Square)[Typeargs] >>
         [](auto& _) {
-          return TypeRef << *_[lhs] << _[id] << (Typeargs << *_[Typeargs]);
+          return TypeRef << _[lhs] << _[id] << (Typeargs << *_[Typeargs]);
         },
       In(Type) * T(Package)[Package] * T(DoubleColon) * T(Ident)[id] *
           ~T(Square)[Typeargs] >>
@@ -421,18 +422,14 @@ namespace verona::lang
         },
 
       // Type expressions.
-      In(Type) * TypeElem[lhs] * R(Symbol, "~>") * TypeElem[rhs] >>
+      In(Type) * TypeElem[lhs] * T(Symbol, "~>") * TypeElem[rhs] >>
         [](auto& _) { return TypeView << _[lhs] << _[rhs]; },
-
-      In(Type) * TypeElem[lhs] * R(Symbol, "->") * TypeElem[rhs] >>
+      In(Type) * TypeElem[lhs] * T(Symbol, "->") * TypeElem[rhs] >>
         [](auto& _) { return TypeFunc << _[lhs] << _[rhs]; },
-
-      In(Type) * TypeElem[lhs] * R(Symbol, "&") * TypeElem[rhs] >>
+      In(Type) * TypeElem[lhs] * T(Symbol, "&") * TypeElem[rhs] >>
         [](auto& _) { return TypeIsect << _[lhs] << _[rhs]; },
-
-      In(Type) * TypeElem[lhs] * R(Symbol, "\\|") * TypeElem[rhs] >>
+      In(Type) * TypeElem[lhs] * T(Symbol, "\\|") * TypeElem[rhs] >>
         [](auto& _) { return TypeUnion << _[lhs] << _[rhs]; },
-
       In(Type) * T(Throw) * TypeElem[rhs] >>
         [](auto& _) { return TypeThrow << _[rhs]; },
 
@@ -524,12 +521,22 @@ namespace verona::lang
 
     T(RefClass) << (T(Ident)[id] * T(Typeargs) * End) >>
       [](auto& _) { return _.look(id); },
-
     T(RefClass) << (T(RefClass)[RefClass] * T(Ident)[id] * T(Typeargs) * End) >>
+      [](auto& _) { return _.look(RefClass)->at(_(id)->location); },
+
+    T(RefFunction) << (T(Ident)[id] * T(Typeargs) * End) >>
+      [](auto& _) { return _.look(id); },
+    T(RefFunction)
+        << (T(RefClass)[RefClass] * T(Ident)[id] * T(Typeargs) * End) >>
       [](auto& _) { return _.look(RefClass)->at(_(id)->location); },
 
     T(Scoped) << (T(RefClass)[RefClass] * T(Ident)[id] * T(Typeargs) * End) >>
       [](auto& _) { return _.look(RefClass)->at(_(id)->location); },
+
+    T(TypeRef) << (T(Ident)[id] * T(Typeargs) * End) >>
+      [](auto& _) { return _.look(id); },
+    T(TypeRef) << (T(TypeRef)[TypeRef] * T(Ident)[id] * T(Typeargs) * End) >>
+      [](auto& _) { return _.look(TypeRef)->at(_(id)->location); },
   };
 
   Pass references()
