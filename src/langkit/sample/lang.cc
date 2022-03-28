@@ -195,7 +195,7 @@ namespace verona::lang
         // Keywords.
         "private\\b" >> [](auto& m) { m.add(Private); },
         "package\\b" >> [](auto& m) { m.add(Package); },
-        "using\\b" >> [](auto& m) { m.add(Using); },
+        "use\\b" >> [](auto& m) { m.add(Use); },
         "type\\b" >> [](auto& m) { m.add(Typealias); },
         "class\\b" >> [](auto& m) { m.add(Class); },
         "var\\b" >> [](auto& m) { m.add(Var); },
@@ -266,12 +266,14 @@ namespace verona::lang
     TODO:
 
     = in an initializer
-    typealias: change syntax, have a bounds and a type
     lookup in
       typealias: lookup in reified rhs
       typeparam: lookup in the bounds
       package: resolve it
-    `use` type
+    well-formedness for errors
+
+    DNF algebraic types
+    right associative function and viewpoint types
 
     public/private
     interface
@@ -292,20 +294,21 @@ namespace verona::lang
       T(Directory)[Directory] << (T(File)++)[File] >>
         [](auto& _) {
           auto ident = path::last(_(Directory)->location.source->origin());
-          return Group << Class << Ident(ident) << (Brace << *_[File]);
+          return Group << (Class ^ _(Directory)) << Ident(ident)
+                       << (Brace << *_[File]);
         },
 
       // File on its own (no module).
       In(Group) * T(File)[File] >>
         [](auto& _) {
           auto ident = path::last(_(File)->location.source->origin());
-          return Class << Ident(ident) << Typeparams << Type
-                       << (Classbody << *_[File]);
+          return (Class ^ _(File))
+            << Ident(ident) << Typeparams << Type << (Classbody << *_[File]);
         },
 
       // Type.
-      T(Colon) * ((!T(Brace))++)[Type] >>
-        [](auto& _) { return Type << _[Type]; },
+      T(Colon)[Colon] * ((!T(Brace))++)[Type] >>
+        [](auto& _) { return (Type ^ _(Colon)) << _[Type]; },
 
       // Field: (group let ident type)
       In(Classbody) * T(Group) << (T(Let) * T(Ident)[id] * ~T(Type) * End) >>
@@ -386,6 +389,10 @@ namespace verona::lang
           return _(id = Param)
             << _[id] << (_[Type] | Type) << (Expr << *_[Expr]);
         },
+
+      // Use.
+      T(Group) << T(Use)[Use] * (Any++)[Type] >>
+        [](auto& _) { return (Use ^ _(Use)) << (Type << _[Type]); },
 
       // Typealias.
       T(Group)
@@ -526,26 +533,26 @@ namespace verona::lang
         << (T(RefClass)[lhs] * T(Ident)[id] * T(Typeargs) * End) >>
       [](auto& _) { return _.find(lhs)->at(_(id)->location); },
 
-    (T(Scoped) / T(RefType) / T(RefClass) / T(RefFunction))
-        << (T(RefType)[lhs] * T(Ident)[id] * T(Typeargs) * End) >>
-      [](auto& _) {
-        // TODO: lhs is a typealias, doesn't work yet
-        return _.find(lhs)->at(_(id)->location);
-      },
+    // (T(Scoped) / T(RefType) / T(RefClass) / T(RefFunction))
+    //     << (T(RefType)[lhs] * T(Ident)[id] * T(Typeargs) * End) >>
+    //   [](auto& _) {
+    //     // TODO: lhs is a typealias, doesn't work yet
+    //     return _.find(lhs)->at(_(id)->location);
+    //   },
 
-    (T(Scoped) / T(RefType) / T(RefClass) / T(RefFunction))
-        << (T(RefTypeparam)[lhs] * T(Ident)[id] * T(Typeargs) * End) >>
-      [](auto& _) {
-        // TODO: lhs is a typeparam, doesn't work yet
-        return _.find(lhs)->at(_(id)->location);
-      },
+    // (T(Scoped) / T(RefType) / T(RefClass) / T(RefFunction))
+    //     << (T(RefTypeparam)[lhs] * T(Ident)[id] * T(Typeargs) * End) >>
+    //   [](auto& _) {
+    //     // TODO: lhs is a typeparam, doesn't work yet
+    //     return _.find(lhs)->at(_(id)->location);
+    //   },
 
-    (T(Scoped) / T(RefType) / T(RefClass) / T(RefFunction))
-        << (T(Package)[lhs] * T(Ident)[id] * T(Typeargs) * End) >>
-      [](auto& _) {
-        // TODO: lhs is a package, doesn't work yet
-        return _.find(lhs)->at(_(id)->location);
-      },
+    // (T(Scoped) / T(RefType) / T(RefClass) / T(RefFunction))
+    //     << (T(Package)[lhs] * T(Ident)[id] * T(Typeargs) * End) >>
+    //   [](auto& _) {
+    //     // TODO: lhs is a package, doesn't work yet
+    //     return _.find(lhs)->at(_(id)->location);
+    //   },
   };
 
   Pass references()
@@ -571,7 +578,8 @@ namespace verona::lang
         },
 
       // Scoped lookup.
-      TypeOrExpr * (T(RefClass) / T(RefType) / T(Package))[lhs] *
+      TypeOrExpr *
+          (T(RefClass) / T(RefType) / T(RefTypeparam) / T(Package))[lhs] *
           T(DoubleColon) * Name[id] * ~T(Typeargs)[Typeargs] >>
         [](auto& _) {
           return Scoped << _[lhs] << _[id] << (Typeargs << *_[Typeargs]);
@@ -584,11 +592,17 @@ namespace verona::lang
       TypeOrExpr * T(Scoped)(look = Function)[RefFunction] >>
         [](auto& _) { return RefFunction << *_[RefFunction]; },
 
+      // Use.
+      T(Use)[Use]
+          << (T(Type)
+              << (T(RefClass) / T(RefType) / T(RefTypeparam) /
+                  T(Package))[rhs]) >>
+        [](auto& _) { return _.include(Use = look(_[rhs])) << _[rhs]; },
+
       // Create sugar.
       In(Expr) * (T(RefClass) / T(RefTypeparam))[lhs] >>
         [](auto& _) {
-          return Call << (RefFunction << _[lhs] << Ident(create)
-                                      << Typeargs)
+          return Call << (RefFunction << _[lhs] << Ident(create) << Typeargs)
                       << Expr;
         },
     };

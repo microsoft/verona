@@ -37,7 +37,7 @@ namespace verona::lang
   // Parsing keywords.
   const auto Private = Token("private");
   const auto Package = Token("package");
-  const auto Using = Token("using");
+  const auto Use = Token("use");
   const auto Typealias = Token("typealias", flag::symtab);
   const auto Class = Token("class", flag::symtab);
   const auto Var = Token("var");

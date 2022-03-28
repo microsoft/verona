@@ -131,6 +131,7 @@ namespace langkit
 
   private:
     std::map<Location, std::vector<Node>> symbols;
+    std::vector<std::pair<Location, Node>> includes;
     size_t next_id = 0;
 
   public:
@@ -255,11 +256,16 @@ namespace langkit
 
       while (st)
       {
+        auto def_ok = !(st->type & flag::defbeforeuse);
         auto it = st->symtab->symbols.find(loc);
 
         if (it != st->symtab->symbols.end())
         {
-          if (st->type & flag::defbeforeuse)
+          if (def_ok)
+          {
+            r.insert(r.end(), it->second.begin(), it->second.end());
+          }
+          else
           {
             for (auto& node : it->second)
             {
@@ -267,9 +273,16 @@ namespace langkit
                 r.push_back(node);
             }
           }
-          else
+        }
+
+        for (auto& [def, node] : st->symtab->includes)
+        {
+          if (def_ok || def.before(loc))
           {
-            r.insert(r.end(), it->second.begin(), it->second.end());
+            auto find = node->symtab->symbols.find(loc);
+
+            if (find != node->symtab->symbols.end())
+              r.insert(r.end(), find->second.begin(), find->second.end());
           }
         }
 
@@ -285,29 +298,42 @@ namespace langkit
 
       while (st)
       {
+        auto def_ok = !(st->type & flag::defbeforeuse);
         auto it = st->symtab->symbols.find(loc);
+        Node r;
 
         if (it != st->symtab->symbols.end())
         {
-          if (st->type & flag::defbeforeuse)
+          // Select the last definition. In a defbeforeuse context, select the
+          // last definition before the use site.
+          for (auto& node : it->second)
           {
-            Node r;
-
-            for (auto& node : it->second)
+            if (
+              (def_ok || node->location.before(loc)) &&
+              (!r || r->location.before(node->location)))
             {
-              if (
-                node->location.before(loc) &&
-                (!r || r->location.before(node->location)))
-              {
-                r = node;
-              }
+              r = node;
             }
-
-            return r;
           }
-
-          return it->second.front();
         }
+
+        Location pdef;
+
+        if (r)
+          pdef = r->location;
+
+        for (auto& [def, node] : st->symtab->includes)
+        {
+          // An include before the selected definition is ignored.
+          if ((def_ok || def.before(loc)) && (!r || pdef.before(def)))
+          {
+            r = node->at(loc);
+            pdef = def;
+          }
+        }
+
+        if (r)
+          return r;
 
         st = st->scope();
       }
@@ -327,13 +353,24 @@ namespace langkit
       return find->second.front();
     }
 
-    void bind(const Location loc, Node node)
+    void bind(const Location& loc, Node node)
     {
-      if (!symtab)
+      auto st = scope();
+
+      if (!st)
         throw std::runtime_error("No symbol table");
 
-      node->location = loc;
-      return symtab->symbols[loc].push_back(node);
+      st->symtab->symbols[loc].push_back(node);
+    }
+
+    void include(Node node)
+    {
+      auto st = scope();
+
+      if (!st)
+        throw std::runtime_error("No symbol table");
+
+      st->symtab->includes.emplace_back(this->location, node);
     }
 
     std::string str(size_t level = 0)
@@ -383,6 +420,12 @@ namespace langkit
         for (auto& node : sym)
           ss << std::endl << indent(level + 2) << node->type.str();
       }
+    }
+
+    for (auto& [loc, node] : includes)
+    {
+      ss << std::endl
+         << indent(level + 1) << "include " << node->location.view();
     }
 
     ss << "}";

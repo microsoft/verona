@@ -37,8 +37,9 @@ namespace langkit
 
     private:
       std::map<Token, NodeRange> captures;
-      std::map<Location, Node> bindings;
       std::map<Token, Location> defaults;
+      std::map<Location, Node> bindings;
+      std::vector<std::pair<Node, Node>> includes;
       const ILookup* lookup_ = nullptr;
 
     public:
@@ -66,18 +67,31 @@ namespace langkit
 
       Node operator()(Binding binding)
       {
-        auto range = captures[binding.first];
-        Location loc;
+        auto loc = bind_location(binding.first);
+        binding.second->location = loc;
+        bindings[loc] = binding.second;
+        return binding.second;
+      }
+
+      Node include(Binding binding)
+      {
+        auto loc = bind_location(binding.first);
+        Node node = binding.first;
+        node->location = loc;
+        includes.emplace_back(node, binding.second);
+        return node;
+      }
+
+      Location bind_location(Token token)
+      {
+        auto range = captures[token];
 
         if (range.first == range.second)
-          loc = defaults[binding.first];
+          return defaults[token];
         else if ((range.first + 1) != range.second)
           throw std::runtime_error("Can only bind to a single node");
         else
-          loc = (*range.first)->location;
-
-        bindings[loc] = binding.second;
-        return binding.second;
+          return (*range.first)->location;
       }
 
       Node find(Token token)
@@ -106,7 +120,10 @@ namespace langkit
       void bind()
       {
         for (auto& [loc, node] : bindings)
-          node->scope()->bind(loc, node);
+          node->bind(loc, node);
+
+        for (auto& [node, include] : includes)
+          node->include(include);
       }
     };
 
@@ -665,6 +682,12 @@ namespace langkit
   {
     auto node = NodeDef::create(type1);
     return node << type2;
+  }
+
+  inline Node operator^(Node node1, Node node2)
+  {
+    node1->location = node2->location;
+    return node1;
   }
 
   enum class dir
