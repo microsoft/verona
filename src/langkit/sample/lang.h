@@ -9,98 +9,98 @@ namespace verona::lang
   using namespace langkit;
 
   // Parsing structure.
-  const auto Comment = Token("comment");
-  const auto Paren = Token("paren");
-  const auto Square = Token("square");
-  const auto Brace = Token("brace");
-  const auto List = Token("list");
-  const auto Equals = Token("equals");
+  constexpr auto Comment = Token("comment");
+  constexpr auto Paren = Token("paren");
+  constexpr auto Square = Token("square");
+  constexpr auto Brace = Token("brace");
+  constexpr auto List = Token("list");
+  constexpr auto Equals = Token("equals");
 
   // Parsing literals.
-  const auto Dot = Token("dot");
-  const auto Ellipsis = Token("ellipsis");
-  const auto Colon = Token("colon");
-  const auto DoubleColon = Token("doublecolon");
-  const auto FatArrow = Token("fatarrow");
-  const auto Bool = Token("bool", flag::print);
-  const auto Hex = Token("hex", flag::print);
-  const auto Bin = Token("bin", flag::print);
-  const auto Int = Token("int", flag::print);
-  const auto HexFloat = Token("hexfloat", flag::print);
-  const auto Float = Token("float", flag::print);
-  const auto Char = Token("char", flag::print);
-  const auto Escaped = Token("escaped", flag::print);
-  const auto String = Token("string", flag::print);
-  const auto Symbol = Token("symbol", flag::print);
-  const auto Ident = Token("ident", flag::print);
+  constexpr auto Dot = Token("dot");
+  constexpr auto Ellipsis = Token("ellipsis");
+  constexpr auto Colon = Token("colon");
+  constexpr auto DoubleColon = Token("doublecolon");
+  constexpr auto FatArrow = Token("fatarrow");
+  constexpr auto Bool = Token("bool", flag::print);
+  constexpr auto Hex = Token("hex", flag::print);
+  constexpr auto Bin = Token("bin", flag::print);
+  constexpr auto Int = Token("int", flag::print);
+  constexpr auto HexFloat = Token("hexfloat", flag::print);
+  constexpr auto Float = Token("float", flag::print);
+  constexpr auto Char = Token("char", flag::print);
+  constexpr auto Escaped = Token("escaped", flag::print);
+  constexpr auto String = Token("string", flag::print);
+  constexpr auto Symbol = Token("symbol", flag::print);
+  constexpr auto Ident = Token("ident", flag::print);
 
   // Parsing keywords.
-  const auto Private = Token("private");
-  const auto Package = Token("package");
-  const auto Use = Token("use");
-  const auto Typealias = Token("typealias", flag::symtab);
-  const auto Class = Token("class", flag::symtab);
-  const auto Var = Token("var");
-  const auto Let = Token("let");
-  const auto Throw = Token("throw");
-  const auto Iso = Token("iso");
-  const auto Imm = Token("imm");
-  const auto Mut = Token("mut");
+  constexpr auto Private = Token("private");
+  constexpr auto Package = Token("package");
+  constexpr auto Use = Token("use");
+  constexpr auto Typealias = Token("typealias", flag::symtab);
+  constexpr auto Class = Token("class", flag::symtab);
+  constexpr auto Var = Token("var");
+  constexpr auto Let = Token("let");
+  constexpr auto Throw = Token("throw");
+  constexpr auto Iso = Token("iso");
+  constexpr auto Imm = Token("imm");
+  constexpr auto Mut = Token("mut");
 
   // Semantic structure.
-  const auto Classbody = Token("classbody");
-  const auto Typeparams = Token("typeparams");
-  const auto Typeparam = Token("typeparam");
-  const auto Params = Token("params");
-  const auto Param = Token("param", flag::symtab | flag::defbeforeuse);
-  const auto Funcbody = Token("funcbody");
-  const auto Function = Token("function", flag::symtab | flag::defbeforeuse);
-  const auto FieldLet = Token("fieldlet", flag::symtab | flag::defbeforeuse);
-  const auto FieldVar = Token("fieldvar", flag::symtab | flag::defbeforeuse);
+  constexpr auto Classbody = Token("classbody");
+  constexpr auto Typeparams = Token("typeparams");
+  constexpr auto Typeparam = Token("typeparam");
+  constexpr auto Params = Token("params");
+  constexpr auto Param = Token("param", flag::symtab | flag::defbeforeuse);
+  constexpr auto Funcbody = Token("funcbody");
+  constexpr auto Function = Token("function", flag::symtab | flag::defbeforeuse);
+  constexpr auto FieldLet = Token("fieldlet", flag::symtab | flag::defbeforeuse);
+  constexpr auto FieldVar = Token("fieldvar", flag::symtab | flag::defbeforeuse);
 
   // Type structure.
-  const auto Type = Token("type");
-  const auto TypeTuple = Token("typetuple");
-  const auto TypeView = Token("typeview");
-  const auto TypeFunc = Token("typefunc");
-  const auto TypeThrow = Token("typethrow");
-  const auto TypeIsect = Token("typeisect");
-  const auto TypeUnion = Token("typeunion");
+  constexpr auto Type = Token("type");
+  constexpr auto TypeTuple = Token("typetuple");
+  constexpr auto TypeView = Token("typeview");
+  constexpr auto TypeFunc = Token("typefunc");
+  constexpr auto TypeThrow = Token("typethrow");
+  constexpr auto TypeIsect = Token("typeisect");
+  constexpr auto TypeUnion = Token("typeunion");
 
   // Expression structure.
-  const auto Expr = Token("expr");
-  const auto Typeargs = Token("typeargs");
-  const auto Lambda = Token("lambda", flag::symtab | flag::defbeforeuse);
-  const auto Tuple = Token("tuple");
-  const auto Assign = Token("assign");
-  const auto RefVar = Token("refvar");
-  const auto RefLet = Token("reflet");
-  const auto RefParam = Token("refparam");
-  const auto RefTypeparam = Token("reftypeparam");
-  const auto RefType = Token("reftype");
-  const auto RefClass = Token("refclass");
-  const auto RefFunction = Token("reffunc");
-  const auto Scoped = Token("scoped");
-  const auto Selector = Token("selector");
-  const auto Call = Token("call");
+  constexpr auto Expr = Token("expr");
+  constexpr auto Typeargs = Token("typeargs");
+  constexpr auto Lambda = Token("lambda", flag::symtab | flag::defbeforeuse);
+  constexpr auto Tuple = Token("tuple");
+  constexpr auto Assign = Token("assign");
+  constexpr auto RefVar = Token("refvar");
+  constexpr auto RefLet = Token("reflet");
+  constexpr auto RefParam = Token("refparam");
+  constexpr auto RefTypeparam = Token("reftypeparam");
+  constexpr auto RefType = Token("reftype");
+  constexpr auto RefClass = Token("refclass");
+  constexpr auto RefFunction = Token("reffunc");
+  constexpr auto Scoped = Token("scoped");
+  constexpr auto Selector = Token("selector");
+  constexpr auto Call = Token("call");
 
   // Rewrite identifiers.
-  const auto id = Token("id");
-  const auto lhs = Token("lhs");
-  const auto rhs = Token("rhs");
-  const auto op = Token("op");
+  constexpr auto id = Token("id");
+  constexpr auto lhs = Token("lhs");
+  constexpr auto rhs = Token("rhs");
+  constexpr auto op = Token("op");
+
+  // Passes.
+  constexpr auto Imports = Token("imports");
+  constexpr auto Structure = Token("structure");
+  constexpr auto References = Token("references");
+  constexpr auto Selectors = Token("selectors");
+  constexpr auto ReverseApp = Token("reverseapp");
+  constexpr auto Application = Token("application");
 
   // Sythetic locations.
   const auto apply = Location("apply");
   const auto create = Location("create");
-
-  // Passes.
-  const auto Imports = Token("imports");
-  const auto Structure = Token("structure");
-  const auto References = Token("references");
-  const auto Selectors = Token("selectors");
-  const auto ReverseApp = Token("reverseapp");
-  const auto Application = Token("application");
 
   Driver& driver();
 }

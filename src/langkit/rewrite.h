@@ -50,17 +50,17 @@ namespace langkit
         lookup_ = that.lookup_;
       }
 
-      NodeRange& operator[](Token token)
+      NodeRange& operator[](const Token& token)
       {
         return captures[token];
       }
 
-      void def(Token token, Location loc)
+      void def(const Token& token, Location loc)
       {
         defaults[token] = loc;
       }
 
-      Node operator()(Token token)
+      Node operator()(const Token& token)
       {
         return *captures[token].first;
       }
@@ -82,7 +82,7 @@ namespace langkit
         return node;
       }
 
-      Location bind_location(Token token)
+      Location bind_location(const Token& token)
       {
         auto range = captures[token];
 
@@ -94,12 +94,21 @@ namespace langkit
           return (*range.first)->location;
       }
 
-      Node find(Token token)
+      Node find(const Token& token)
       {
         if (!lookup_)
           return {};
 
         return lookup_->run(captures[token]);
+      }
+
+      Node find(Node node)
+      {
+        if (!lookup_)
+          return {};
+
+        auto v = std::vector<Node>{node};
+        return lookup_->run({v.begin(), v.end()});
       }
 
       void operator+=(const Capture& that)
@@ -147,7 +156,8 @@ namespace langkit
       PatternPtr pattern;
 
     public:
-      Cap(Token name, PatternPtr pattern) : name(name), pattern(pattern) {}
+      Cap(const Token& name, PatternPtr pattern) : name(name), pattern(pattern)
+      {}
 
       bool match(NodeIt& it, NodeIt end, Capture& captures) const override
       {
@@ -184,7 +194,7 @@ namespace langkit
       Token type;
 
     public:
-      TokenMatch(Token type) : type(type) {}
+      TokenMatch(const Token& type) : type(type) {}
 
       bool match(NodeIt& it, NodeIt end, Capture& captures) const override
       {
@@ -204,7 +214,8 @@ namespace langkit
       const ILookup& lookup;
 
     public:
-      LookupMatch(PatternPtr pattern, Token lookup_type, const ILookup& lookup)
+      LookupMatch(
+        PatternPtr pattern, const Token& lookup_type, const ILookup& lookup)
       : pattern(pattern), lookup_type(lookup_type), lookup(lookup)
       {}
 
@@ -235,7 +246,7 @@ namespace langkit
       std::regex regex;
 
     public:
-      RegexMatch(Token type, const std::string& r) : type(type)
+      RegexMatch(const Token& type, const std::string& r) : type(type)
       {
         regex = std::regex("^" + r + "$", std::regex_constants::optimize);
       }
@@ -382,7 +393,7 @@ namespace langkit
       Token type;
 
     public:
-      Inside(Token type) : type(type) {}
+      Inside(const Token& type) : type(type) {}
 
       bool match(NodeIt& it, NodeIt end, Capture& captures) const override
       {
@@ -583,17 +594,17 @@ namespace langkit
   const auto Start = detail::Pattern(std::make_shared<detail::First>());
   const auto End = detail::Pattern(std::make_shared<detail::Last>());
 
-  inline detail::Pattern T(Token type)
+  inline detail::Pattern T(const Token& type)
   {
     return detail::Pattern(std::make_shared<detail::TokenMatch>(type));
   }
 
-  inline detail::Pattern T(Token type, const std::string& r)
+  inline detail::Pattern T(const Token& type, const std::string& r)
   {
     return detail::Pattern(std::make_shared<detail::RegexMatch>(type, r));
   }
 
-  inline detail::Pattern In(Token type)
+  inline detail::Pattern In(const Token& type)
   {
     return detail::Pattern(std::make_shared<detail::Inside>(type));
   }
@@ -608,7 +619,7 @@ namespace langkit
     return {range, node};
   }
 
-  inline detail::RangeOr operator|(NodeRange range, Token token)
+  inline detail::RangeOr operator|(NodeRange range, const Token& token)
   {
     return {range, NodeDef::create(token)};
   }
@@ -648,37 +659,38 @@ namespace langkit
     return node;
   }
 
-  inline Node operator<<(Node node, Token type)
+  inline Node operator<<(Node node, const Token& type)
   {
     node->push_back(NodeDef::create(type));
     return node;
   }
 
-  inline Node operator<<(Token type, Node node)
+  inline Node operator<<(const Token& type, Node node)
   {
     auto node1 = NodeDef::create(type);
     return node1 << node;
   }
 
-  inline Node operator<<(Token type, NodeRange range)
+  inline Node operator<<(const Token& type, NodeRange range)
   {
     auto node = NodeDef::create(type);
     return node << range;
   }
 
-  inline Node operator<<(Token type, detail::RangeContents range_contents)
+  inline Node
+  operator<<(const Token& type, detail::RangeContents range_contents)
   {
     auto node = NodeDef::create(type);
     return node << range_contents;
   }
 
-  inline Node operator<<(Token type, detail::RangeOr range_or)
+  inline Node operator<<(const Token& type, detail::RangeOr range_or)
   {
     auto node = NodeDef::create(type);
     return node << range_or;
   }
 
-  inline Node operator<<(Token type1, Token type2)
+  inline Node operator<<(const Token& type1, const Token& type2)
   {
     auto node = NodeDef::create(type1);
     return node << type2;
@@ -852,6 +864,69 @@ namespace langkit
     detail::BindLookup operator=(const Token& type) const
     {
       return {*this, type};
+    }
+  };
+
+  namespace detail
+  {
+    struct WFShape
+    {
+      Token type;
+      Pattern pattern;
+
+      WFShape(const Token& type, const Pattern& pattern)
+      : type(type), pattern(pattern)
+      {}
+
+      bool match(Node node) const
+      {
+        detail::Capture captures;
+        auto it = node->children.begin();
+        return pattern.match(it, node->children.end(), captures);
+      }
+
+      bool operator<(const WFShape& that) const
+      {
+        return type < that.type;
+      }
+    };
+  }
+
+  class WellFormed
+  {
+  private:
+    std::vector<detail::WFShape> shapes;
+
+  public:
+    WellFormed(const std::initializer_list<detail::WFShape>& r) : shapes(r)
+    {
+      std::sort(shapes.begin(), shapes.end());
+    }
+
+    bool check(Node node) const
+    {
+      if (!node)
+        return false;
+
+      auto shape = std::lower_bound(
+        shapes.begin(),
+        shapes.end(),
+        node->type,
+        [](const auto& a, const auto& b) { return a.type < b; });
+
+      if ((shape == shapes.end()) || (shape->type != node->type))
+        return false;
+
+      if (!shape->match(node))
+        return false;
+
+      for (auto& node : node->children)
+      {
+        if (!check(node))
+          return false;
+      }
+
+      return true;
     }
   };
 }

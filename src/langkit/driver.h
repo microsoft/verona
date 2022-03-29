@@ -50,7 +50,6 @@ namespace langkit
         return app.exit(e);
       }
 
-      auto lim = Token(limit);
       auto ast = parser.parse(path);
 
       if (!ast)
@@ -68,7 +67,7 @@ namespace langkit
                     << changes << " nodes rewritten." << std::endl;
         }
 
-        if (name == lim)
+        if (limit == name.str())
           break;
       }
 

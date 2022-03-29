@@ -39,27 +39,11 @@ namespace langkit
     using flag = uint64_t;
 
   private:
-    const std::string* name;
+    const char* name;
     flag fl;
 
   public:
-    Token(const std::string& s, flag fl = 0) : fl(fl)
-    {
-      static std::set<std::string> set;
-
-      auto it = set.find(s);
-
-      if (it != set.end())
-      {
-        name = &(*it);
-      }
-      else
-      {
-        set.emplace(s);
-        it = set.find(s);
-        name = &(*it);
-      }
-    }
+    constexpr Token(const char* name, flag fl = 0) : name(name), fl(fl) {}
 
     operator Node() const;
 
@@ -105,9 +89,9 @@ namespace langkit
       return name >= that.name;
     }
 
-    const std::string& str() const
+    const char* str() const
     {
-      return *name;
+      return name;
     }
   };
 
@@ -119,11 +103,11 @@ namespace langkit
     constexpr Token::flag defbeforeuse = 1 << 2;
   }
 
-  const auto Invalid = Token("invalid");
-  const auto Unclosed = Token("unclosed");
-  const auto Group = Token("group");
-  const auto File = Token("file");
-  const auto Directory = Token("directory");
+  constexpr auto Invalid = Token("invalid");
+  constexpr auto Unclosed = Token("unclosed");
+  constexpr auto Group = Token("group");
+  constexpr auto File = Token("file");
+  constexpr auto Directory = Token("directory");
 
   class SymtabDef
   {
@@ -150,14 +134,14 @@ namespace langkit
   class NodeDef : public std::enable_shared_from_this<NodeDef>
   {
   public:
-    const Token type;
+    Token type;
     Location location;
     Symtab symtab;
     NodeDef* parent;
     std::vector<Node> children;
 
   private:
-    NodeDef(Token type, Location location)
+    NodeDef(const Token& type, Location location)
     : type(type), location(location), parent(nullptr)
     {
       if (type & flag::symtab)
@@ -167,17 +151,17 @@ namespace langkit
   public:
     ~NodeDef() {}
 
-    static Node create(Token type)
+    static Node create(const Token& type)
     {
       return std::shared_ptr<NodeDef>(new NodeDef(type, {nullptr, 0, 0}));
     }
 
-    static Node create(Token type, Location location)
+    static Node create(const Token& type, Location location)
     {
       return std::shared_ptr<NodeDef>(new NodeDef(type, location));
     }
 
-    static Node create(Token type, NodeRange range)
+    static Node create(const Token& type, NodeRange range)
     {
       if (range.first == range.second)
         return create(type);
@@ -292,6 +276,11 @@ namespace langkit
       return r;
     }
 
+    Node find_first()
+    {
+      return find_first(location);
+    }
+
     Node find_first(const Location& loc)
     {
       auto st = scope();
@@ -339,6 +328,11 @@ namespace langkit
       }
 
       return {};
+    }
+
+    Node at(Node that)
+    {
+      return at(that->location);
     }
 
     Node at(const Location& loc)

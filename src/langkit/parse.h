@@ -56,12 +56,12 @@ namespace langkit
         mode_ = next;
       }
 
-      bool in(Token type)
+      bool in(const Token& type)
       {
         return node->type == type;
       }
 
-      bool previous(Token type)
+      bool previous(const Token& type)
       {
         if (!in(Group))
           return false;
@@ -72,7 +72,7 @@ namespace langkit
         return node->children.back()->type == type;
       }
 
-      void add(Token type)
+      void add(const Token& type)
       {
         if ((type != Group) && !in(Group))
           push(Group);
@@ -81,7 +81,7 @@ namespace langkit
         node->push_back(n);
       }
 
-      void seq(Token type, std::initializer_list<Token> skip = {})
+      void seq(const Token& type, std::initializer_list<Token> skip = {})
       {
         if (in(Group))
         {
@@ -112,13 +112,13 @@ namespace langkit
         }
       }
 
-      void push(Token type)
+      void push(const Token& type)
       {
         add(type);
         node = node->back();
       }
 
-      void pop(Token type)
+      void pop(const Token& type)
       {
         if (in(type))
         {
@@ -153,7 +153,7 @@ namespace langkit
       }
 
     private:
-      bool try_pop(Token type)
+      bool try_pop(const Token& type)
       {
         if (in(type))
         {

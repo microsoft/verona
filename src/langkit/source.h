@@ -112,11 +112,8 @@ namespace langkit
     {}
 
     Location(const std::string& s)
-    {
-      source = SourceDef::synthetic(s);
-      pos = 0;
-      len = s.size();
-    }
+    : source(SourceDef::synthetic(s)), pos(0), len(s.size())
+    {}
 
     Location extend(const Location& to) const
     {
