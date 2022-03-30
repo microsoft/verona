@@ -66,6 +66,7 @@ namespace verona::lang
   constexpr auto TypeThrow = Token("typethrow");
   constexpr auto TypeIsect = Token("typeisect");
   constexpr auto TypeUnion = Token("typeunion");
+  constexpr auto TypeVar = Token("typevar");
 
   // Expression structure.
   constexpr auto Expr = Token("expr");
@@ -91,7 +92,6 @@ namespace verona::lang
   constexpr auto op = Token("op");
 
   // Passes.
-  constexpr auto Imports = Token("imports");
   constexpr auto Structure = Token("structure");
   constexpr auto References = Token("references");
   constexpr auto Selectors = Token("selectors");

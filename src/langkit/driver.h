@@ -12,6 +12,8 @@ namespace langkit
   class Driver
   {
   private:
+    constexpr static auto parse_only = "parse";
+
     CLI::App app;
     Parse parser;
     std::vector<std::pair<Token, Pass>> passes;
@@ -29,6 +31,8 @@ namespace langkit
       std::initializer_list<std::pair<Token, Pass>> passes)
     : app(name), parser(parser), passes(passes)
     {
+      limits.push_back(parse_only);
+
       for (auto& [token, pass] : passes)
         limits.push_back(token.str());
 
@@ -55,20 +59,24 @@ namespace langkit
       if (!ast)
         return -1;
 
-      for (auto& [name, pass] : passes)
+      if (limit != parse_only)
       {
-        size_t count;
-        size_t changes;
-        std::tie(ast, count, changes) = pass.repeat(ast);
-
-        if (diag)
+        for (auto& [name, pass] : passes)
         {
-          std::cout << "Pass " << name.str() << ": " << count << " iterations, "
-                    << changes << " nodes rewritten." << std::endl;
-        }
+          size_t count;
+          size_t changes;
+          std::tie(ast, count, changes) = pass.repeat(ast);
 
-        if (limit == name.str())
-          break;
+          if (diag)
+          {
+            std::cout << "Pass " << name.str() << ": " << count
+                      << " iterations, " << changes << " nodes rewritten."
+                      << std::endl;
+          }
+
+          if (limit == name.str())
+            break;
+        }
       }
 
       if (emit_ast)

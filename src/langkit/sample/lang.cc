@@ -173,7 +173,7 @@ namespace verona::lang
         "[[:digit:]]+\\b" >> [](auto& m) { m.add(Int); },
 
         // Escaped string.
-        "\"[^\"]*\"" >> [](auto& m) { m.add(Escaped); },
+        "\"(?:\\\"|[^\"])*\"" >> [](auto& m) { m.add(Escaped); },
 
         // Unescaped string.
         "('+)\"[\\s\\S]*?\"\\1" >> [](auto& m) { m.add(String); },
@@ -184,14 +184,14 @@ namespace verona::lang
         // Line comment.
         "//[^\n]*\n" >>
           [](auto& m) {
-            // m.add(Comment);
+            m.add(Comment);
           },
 
         // Nested comment.
         "/\\*" >>
           [](auto& m) {
             m.mode("comment");
-            // m.add(Comment);
+            m.add(Comment);
           },
 
         // Keywords.
@@ -262,15 +262,6 @@ namespace verona::lang
     };
   }
 
-  Pass imports()
-  {
-    return {
-      // Packages.
-      T(Package) * (T(String) / T(Escaped))[String] >>
-        [](auto& _) { return Package << _[String]; },
-    };
-  }
-
   Pass structure()
   {
     /*
@@ -282,8 +273,20 @@ namespace verona::lang
       isect: lookup in lhs and rhs
     well-formedness for errors
 
+    reify
+      from where we're looking up, the enclosing typeparams are all typevar
+        they might get used in a lookup, but they're not bound
+      given `class C1[T1, T2]`
+      C1 ~> (refclass (ident C1) (typeargs (typevar fresh) (typevar fresh)))
+      C1[_, T3] (refclass (ident C1) (typeargs (typevar fresh) (refclass ...)))
+      C1[_, T3]::C2
+
     DNF algebraic types
     right associative function and viewpoint types
+
+    _ for partial application and higher order bounds
+      T: C1[C2, _, C3] is a type parameter that takes one argument
+      given f(x: A, y: B, z: C), f(_, _, z) is a function that takes (A, B)
 
     public/private
     interface
@@ -315,6 +318,13 @@ namespace verona::lang
           return (Class ^ _(File))
             << Ident(ident) << Typeparams << Type << (Classbody << *_[File]);
         },
+
+      // Comments.
+      T(Comment) >> [](auto& _)->Node { return {}; },
+
+      // Packages.
+      T(Package) * (T(String) / T(Escaped))[String] >>
+        [](auto& _) { return Package << _[String]; },
 
       // Type.
       T(Colon)[Colon] * ((!T(Brace))++)[Type] >>
@@ -675,7 +685,6 @@ namespace verona::lang
       "Verona",
       parser(),
       {
-        {Imports, imports()},
         {Structure, structure()},
         {References, references()},
         {Selectors, selectors()},

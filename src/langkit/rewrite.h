@@ -4,7 +4,6 @@
 
 #include "ast.h"
 
-#include <iostream>
 #include <optional>
 #include <regex>
 
@@ -813,9 +812,14 @@ namespace langkit
           {
             // Replace [start, it) with whatever the rule builds.
             auto replace = rule.second(captures);
-            replace->parent = node.get();
             it = node->children.erase(start, it);
-            it = node->children.insert(it, replace);
+
+            if (replace)
+            {
+              it = node->children.insert(it, replace);
+              replace->parent = node.get();
+            }
+
             captures.bind();
             replaced = true;
             changes++;
@@ -882,7 +886,8 @@ namespace langkit
       {
         detail::Capture captures;
         auto it = node->children.begin();
-        return pattern.match(it, node->children.end(), captures);
+        return pattern.match(it, node->children.end(), captures) &&
+          (it == node->children.end());
       }
 
       bool operator<(const WFShape& that) const
