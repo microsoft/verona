@@ -11,7 +11,7 @@
  */
 
 size_t OPERATIONS = 100;
-size_t NUM_BANKS = 20;
+size_t NUM_BANKS = 100;
 
 struct Bank : public VCown<Bank>
 {
@@ -31,7 +31,7 @@ struct Account : public VCown<Account>
 struct Log : public VCown<Log>
 {};
 
-std::array<Account*, 1000> accounts;
+std::array<Account*, 10000> accounts;
 
 void setup_accounts()
 {
