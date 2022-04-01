@@ -84,6 +84,7 @@ namespace verona::lang
   constexpr auto Scoped = Token("scoped");
   constexpr auto Selector = Token("selector");
   constexpr auto Call = Token("call");
+  constexpr auto Oftype = Token("oftype");
 
   // Rewrite identifiers.
   constexpr auto id = Token("id");

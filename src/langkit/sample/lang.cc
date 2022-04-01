@@ -246,7 +246,7 @@ namespace verona::lang
   const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) / T(Hex) /
     T(Bin) / T(Int) / T(Float) / T(HexFloat);
   const auto Object = Literal / T(RefVar) / T(RefLet) / T(RefParam) / T(Tuple) /
-    T(Lambda) / T(Call) / T(Expr);
+    T(Lambda) / T(Call) / T(Oftype) / T(Expr);
   const auto Operator = T(RefFunction) / T(Selector);
   const auto InExpr =
     In(Funcbody) / In(Assign) / In(Tuple) / In(Expr) / In(Call);
@@ -306,7 +306,7 @@ namespace verona::lang
     TODO:
 
     = in an initializer
-    how much expr and type compaction?
+    type compaction?
     lookup
       reify typeargs
       isect: lookup in lhs and rhs
@@ -632,6 +632,10 @@ namespace verona::lang
       // Unknown names are selectors.
       In(Expr) * Name[id] * ~T(Typeargs)[Typeargs] >>
         [](auto& _) { return Selector << _[id] << (Typeargs << *_[Typeargs]); },
+
+      // Type assertions for operators.
+      T(Expr) << (Operator[op] * T(Type)[Type] * End) >>
+        [](auto& _) { return _(op) << _[Type]; },
     };
   }
 
@@ -676,6 +680,10 @@ namespace verona::lang
         [](auto& _) { return Call << _[op] << (Tuple << _[lhs] << *_[rhs]); },
       In(Expr) * Object[lhs] * Operator[op] * Object[rhs] >>
         [](auto& _) { return Call << _[op] << (Tuple << _[lhs] << _[rhs]); },
+
+      // Type assertions.
+      T(Expr) << (Object[lhs] * T(Type)[rhs] * End) >>
+        [](auto& _) { return Oftype << _[lhs] << _[rhs]; },
     };
   }
 
