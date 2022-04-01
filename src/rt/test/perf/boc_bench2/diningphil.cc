@@ -10,13 +10,26 @@
 
 std::mutex *forks;
 int loop_time;
+int phil_count;
 
 void philosopher_main(int phil_id, int hunger)
 {
+  std::mutex *m1, *m2;
   for (int i=0;i<hunger;i++)
   {
-    forks[phil_id].lock();
-    forks[phil_id+1].lock();
+    if (phil_id == phil_count - 1)
+    {
+      m1 = &forks[(phil_id+1) % phil_count];
+      m2 = &forks[phil_id];
+    }
+    else
+    {
+      m1 = &forks[phil_id];
+      m2 = &forks[(phil_id+1) % phil_count];
+    }
+
+    m1->lock();
+    m2->lock();
 
     // eat -> busy wait
     std::chrono::microseconds usec(loop_time);
@@ -25,8 +38,8 @@ void philosopher_main(int phil_id, int hunger)
     // spin
     while (std::chrono::system_clock::now() < end);
 
-    forks[phil_id+1].unlock();
-    forks[phil_id].unlock();
+    m1->unlock();
+    m2->unlock();
   }
 }
 
@@ -38,7 +51,7 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  int phil_count = atoi(argv[1]);
+  phil_count = atoi(argv[1]);
   int hunger = atoi(argv[2]);
   loop_time = atoi(argv[3]);
   int should_split = atoi(argv[4]);
