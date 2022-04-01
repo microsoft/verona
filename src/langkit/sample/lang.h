@@ -38,10 +38,10 @@ namespace verona::lang
   constexpr auto Private = Token("private");
   constexpr auto Package = Token("package");
   constexpr auto Use = Token("use");
-  constexpr auto Typealias = Token("typealias", flag::symtab);
-  constexpr auto Class = Token("class", flag::symtab);
-  constexpr auto Var = Token("var");
-  constexpr auto Let = Token("let");
+  constexpr auto Typealias = Token("typealias", flag::print | flag::symtab);
+  constexpr auto Class = Token("class", flag::print | flag::symtab);
+  constexpr auto Var = Token("var", flag::print);
+  constexpr auto Let = Token("let", flag::print);
   constexpr auto Throw = Token("throw");
   constexpr auto Iso = Token("iso");
   constexpr auto Imm = Token("imm");
@@ -50,13 +50,13 @@ namespace verona::lang
   // Semantic structure.
   constexpr auto Classbody = Token("classbody");
   constexpr auto Typeparams = Token("typeparams");
-  constexpr auto Typeparam = Token("typeparam");
+  constexpr auto Typeparam = Token("typeparam", flag::print);
   constexpr auto Params = Token("params");
-  constexpr auto Param = Token("param", flag::symtab | flag::defbeforeuse);
+  constexpr auto Param = Token("param", flag::print | flag::symtab | flag::defbeforeuse);
   constexpr auto Funcbody = Token("funcbody");
-  constexpr auto Function = Token("function", flag::symtab | flag::defbeforeuse);
-  constexpr auto FieldLet = Token("fieldlet", flag::symtab | flag::defbeforeuse);
-  constexpr auto FieldVar = Token("fieldvar", flag::symtab | flag::defbeforeuse);
+  constexpr auto Function = Token("function", flag::print | flag::symtab | flag::defbeforeuse);
+  constexpr auto FieldLet = Token("fieldlet", flag::print | flag::symtab | flag::defbeforeuse);
+  constexpr auto FieldVar = Token("fieldvar", flag::print | flag::symtab | flag::defbeforeuse);
 
   // Type structure.
   constexpr auto Type = Token("type");
@@ -74,9 +74,9 @@ namespace verona::lang
   constexpr auto Lambda = Token("lambda", flag::symtab | flag::defbeforeuse);
   constexpr auto Tuple = Token("tuple");
   constexpr auto Assign = Token("assign");
-  constexpr auto RefVar = Token("refvar");
-  constexpr auto RefLet = Token("reflet");
-  constexpr auto RefParam = Token("refparam");
+  constexpr auto RefVar = Token("refvar", flag::print);
+  constexpr auto RefLet = Token("reflet", flag::print);
+  constexpr auto RefParam = Token("refparam", flag::print);
   constexpr auto RefTypeparam = Token("reftypeparam");
   constexpr auto RefType = Token("reftype");
   constexpr auto RefClass = Token("refclass");
@@ -90,13 +90,6 @@ namespace verona::lang
   constexpr auto lhs = Token("lhs");
   constexpr auto rhs = Token("rhs");
   constexpr auto op = Token("op");
-
-  // Passes.
-  constexpr auto Structure = Token("structure");
-  constexpr auto References = Token("references");
-  constexpr auto Selectors = Token("selectors");
-  constexpr auto ReverseApp = Token("reverseapp");
-  constexpr auto Application = Token("application");
 
   // Sythetic locations.
   const auto apply = Location("apply");

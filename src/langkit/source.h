@@ -115,30 +115,12 @@ namespace langkit
     : source(SourceDef::synthetic(s)), pos(0), len(s.size())
     {}
 
-    Location extend(const Location& to) const
-    {
-      return {source, pos, to.pos - pos + to.len};
-    }
-
-    bool before(const Location& other) const
-    {
-      return (source == other.source) && (pos < other.pos);
-    }
-
     std::string_view view() const
     {
       if (!source)
         return {};
 
       return source->view().substr(pos, len);
-    }
-
-    std::pair<size_t, size_t> linecol() const
-    {
-      if (!source)
-        return {0, 0};
-
-      return source->linecol(pos);
     }
 
     std::string str() const
@@ -150,6 +132,35 @@ namespace langkit
       auto [line, col] = linecol();
       ss << source->origin() << ":" << line << ":" << col;
       return ss.str();
+    }
+
+    std::pair<size_t, size_t> linecol() const
+    {
+      if (!source)
+        return {0, 0};
+
+      return source->linecol(pos);
+    }
+
+    bool before(const Location& that) const
+    {
+      return (source != that.source) || (pos < that.pos);
+    }
+
+    Location operator*(const Location& that) const
+    {
+      if (source != that.source)
+        return *this;
+
+      auto lo = std::min(pos, that.pos);
+      auto hi = std::max(pos + len, that.pos + that.len);
+      return {source, lo, hi - lo};
+    }
+
+    Location operator*=(const Location& that)
+    {
+      *this = *this * that;
+      return *this;
     }
 
     bool operator==(const Location& that) const

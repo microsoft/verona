@@ -133,19 +133,18 @@ namespace langkit
 
   class NodeDef : public std::enable_shared_from_this<NodeDef>
   {
-  public:
-    Token type;
-    Location location;
-    Symtab symtab;
-    NodeDef* parent;
+  private:
+    Token type_;
+    Location location_;
+    Symtab symtab_;
+    NodeDef* parent_;
     std::vector<Node> children;
 
-  private:
     NodeDef(const Token& type, Location location)
-    : type(type), location(location), parent(nullptr)
+    : type_(type), location_(location), parent_(nullptr)
     {
-      if (type & flag::symtab)
-        symtab = std::make_shared<SymtabDef>();
+      if (type_ & flag::symtab)
+        symtab_ = std::make_shared<SymtabDef>();
     }
 
   public:
@@ -166,15 +165,56 @@ namespace langkit
       if (range.first == range.second)
         return create(type);
 
-      Location loc = (*range.first)->location;
-      loc.extend((*(range.second - 1))->location);
-
-      return std::shared_ptr<NodeDef>(new NodeDef(type, loc));
+      return std::shared_ptr<NodeDef>(new NodeDef(
+        type, (*range.first)->location_ * (*(range.second - 1))->location_));
     }
 
-    Node acquire()
+    const Token& type()
     {
-      return shared_from_this();
+      return type_;
+    }
+
+    const Location& location()
+    {
+      return location_;
+    }
+
+    NodeDef* parent()
+    {
+      return parent_;
+    }
+
+    void extend(const Location& loc)
+    {
+      location_ *= loc;
+    }
+
+    NodeIt begin()
+    {
+      return children.begin();
+    }
+
+    NodeIt end()
+    {
+      return children.end();
+    }
+
+    bool empty()
+    {
+      return children.empty();
+    }
+
+    Node at(size_t i)
+    {
+      return children.at(i);
+    }
+
+    Node front()
+    {
+      if (children.empty())
+        return {};
+
+      return children.front();
     }
 
     Node back()
@@ -191,7 +231,7 @@ namespace langkit
         return;
 
       children.push_back(node);
-      node->parent = this;
+      node->parent_ = this;
     }
 
     void push_back(NodeIt it)
@@ -205,6 +245,15 @@ namespace langkit
         push_back(it);
     }
 
+    void move_children(Node from)
+    {
+      if (!from)
+        return;
+
+      push_back({from->begin(), from->end()});
+      from->children.clear();
+    }
+
     Node pop_back()
     {
       if (children.empty())
@@ -212,38 +261,61 @@ namespace langkit
 
       auto node = children.back();
       children.pop_back();
-      node->parent = nullptr;
+      node->parent_ = nullptr;
       return node;
+    }
+
+    NodeIt erase(NodeIt first, NodeIt last)
+    {
+      for (auto it = first; it != last; ++it)
+      {
+        // Only clear the parent if the node is not shared.
+        if ((*it)->parent_ == this)
+          (*it)->parent_ = nullptr;
+      }
+
+      return children.erase(first, last);
+    }
+
+    NodeIt insert(NodeIt pos, Node node)
+    {
+      if (!node)
+        return pos;
+
+      node->parent_ = this;
+      return children.insert(pos, node);
     }
 
     Node scope()
     {
-      auto p = parent;
+      auto p = parent_;
 
       while (p)
       {
-        auto node = p->acquire();
+        auto node = p->shared_from_this();
 
-        if (node->symtab)
+        if (node->symtab_)
           return node;
 
-        p = node->parent;
+        p = node->parent_;
       }
 
       return {};
     }
 
-    std::vector<Node> find_all(const Location& loc)
+    std::vector<Node> lookup_all(const Location& loc)
     {
+      // Find all bindings for this location by looking upwards in the symbol
+      // table chain.
       std::vector<Node> r;
       auto st = scope();
 
       while (st)
       {
-        auto def_ok = !(st->type & flag::defbeforeuse);
-        auto it = st->symtab->symbols.find(loc);
+        auto def_ok = !(st->type_ & flag::defbeforeuse);
+        auto it = st->symtab_->symbols.find(loc);
 
-        if (it != st->symtab->symbols.end())
+        if (it != st->symtab_->symbols.end())
         {
           if (def_ok)
           {
@@ -253,19 +325,19 @@ namespace langkit
           {
             for (auto& node : it->second)
             {
-              if (node->location.before(loc))
+              if (node->location_.before(loc))
                 r.push_back(node);
             }
           }
         }
 
-        for (auto& [def, node] : st->symtab->includes)
+        for (auto& [def, node] : st->symtab_->includes)
         {
           if (def_ok || def.before(loc))
           {
-            auto find = node->symtab->symbols.find(loc);
+            auto find = node->symtab_->symbols.find(loc);
 
-            if (find != node->symtab->symbols.end())
+            if (find != node->symtab_->symbols.end())
               r.insert(r.end(), find->second.begin(), find->second.end());
           }
         }
@@ -276,30 +348,32 @@ namespace langkit
       return r;
     }
 
-    Node find_first()
+    Node lookup_first()
     {
-      return find_first(location);
+      // Find ourself in the enclosing symbol table chain.
+      return lookup_first(location_);
     }
 
-    Node find_first(const Location& loc)
+    Node lookup_first(const Location& loc)
     {
+      // Find this location in the enclosing symbol table chain.
       auto st = scope();
 
       while (st)
       {
-        auto def_ok = !(st->type & flag::defbeforeuse);
-        auto it = st->symtab->symbols.find(loc);
+        auto def_ok = !(st->type_ & flag::defbeforeuse);
+        auto it = st->symtab_->symbols.find(loc);
         Node r;
 
-        if (it != st->symtab->symbols.end())
+        if (it != st->symtab_->symbols.end())
         {
           // Select the last definition. In a defbeforeuse context, select the
           // last definition before the use site.
           for (auto& node : it->second)
           {
             if (
-              (def_ok || node->location.before(loc)) &&
-              (!r || r->location.before(node->location)))
+              (def_ok || node->location_.before(loc)) &&
+              (!r || r->location_.before(node->location_)))
             {
               r = node;
             }
@@ -309,14 +383,14 @@ namespace langkit
         Location pdef;
 
         if (r)
-          pdef = r->location;
+          pdef = r->location_;
 
-        for (auto& [def, node] : st->symtab->includes)
+        for (auto& [def, node] : st->symtab_->includes)
         {
           // An include before the selected definition is ignored.
           if ((def_ok || def.before(loc)) && (!r || pdef.before(def)))
           {
-            r = node->at(loc);
+            r = node->lookdown_first(loc);
             pdef = def;
           }
         }
@@ -330,53 +404,58 @@ namespace langkit
       return {};
     }
 
-    Node at(Node that)
+    Node lookdown_first(Node that)
     {
-      return at(that->location);
+      // Find the location of this node in our symbol table.
+      return lookdown_first(that->location_);
     }
 
-    Node at(const Location& loc)
+    Node lookdown_first(const Location& loc)
     {
-      if (!symtab)
+      // Find this location in our symbol table.
+      if (!symtab_)
         return {};
 
-      auto find = symtab->symbols.find(loc);
-      if (find == symtab->symbols.end())
+      auto find = symtab_->symbols.find(loc);
+      if (find == symtab_->symbols.end())
         return {};
 
       return find->second.front();
     }
 
-    void bind(const Location& loc, Node node)
+    void bind(const Location& loc)
     {
+      // Change the location of the node, find the enclosing scope, and bind the
+      // new location to this node in the symbol table.
+      location_ = loc;
       auto st = scope();
 
       if (!st)
         throw std::runtime_error("No symbol table");
 
-      st->symtab->symbols[loc].push_back(node);
+      st->symtab_->symbols[loc].push_back(shared_from_this());
     }
 
-    void include(Node node)
+    void include(Node target)
     {
       auto st = scope();
 
       if (!st)
         throw std::runtime_error("No symbol table");
 
-      st->symtab->includes.emplace_back(this->location, node);
+      st->symtab_->includes.emplace_back(location_, target);
     }
 
     std::string str(size_t level = 0)
     {
       std::stringstream ss;
-      ss << indent(level) << "(" << type.str();
+      ss << indent(level) << "(" << type_.str();
 
-      if (type & flag::print)
-        ss << " " << location.view();
+      if (type_ & flag::print)
+        ss << " " << location_.view();
 
-      if (symtab)
-        ss << std::endl << symtab->str(level + 1);
+      if (symtab_)
+        ss << std::endl << symtab_->str(level + 1);
 
       for (auto child : children)
         ss << std::endl << child->str(level + 1);
@@ -407,19 +486,19 @@ namespace langkit
 
       if (sym.size() == 1)
       {
-        ss << " " << sym.back()->type.str();
+        ss << " " << sym.back()->type().str();
       }
       else
       {
         for (auto& node : sym)
-          ss << std::endl << indent(level + 2) << node->type.str();
+          ss << std::endl << indent(level + 2) << node->type().str();
       }
     }
 
     for (auto& [loc, node] : includes)
     {
       ss << std::endl
-         << indent(level + 1) << "include " << node->location.view();
+         << indent(level + 1) << "include " << node->location().view();
     }
 
     ss << "}";

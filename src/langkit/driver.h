@@ -16,7 +16,7 @@ namespace langkit
 
     CLI::App app;
     Parse parser;
-    std::vector<std::pair<Token, Pass>> passes;
+    std::vector<std::pair<std::string, Pass>> passes;
     std::vector<std::string> limits;
 
     bool emit_ast = false;
@@ -28,13 +28,13 @@ namespace langkit
     Driver(
       const std::string& name,
       Parse parser,
-      std::initializer_list<std::pair<Token, Pass>> passes)
+      std::initializer_list<std::pair<std::string, Pass>> passes)
     : app(name), parser(parser), passes(passes)
     {
       limits.push_back(parse_only);
 
-      for (auto& [token, pass] : passes)
-        limits.push_back(token.str());
+      for (auto& [name, pass] : passes)
+        limits.push_back(name);
 
       app.add_flag("-a,--ast", emit_ast, "Emit an abstract syntax tree.");
       app.add_flag("-d,--diagnostics", diag, "Emit diagnostics.");
@@ -69,12 +69,11 @@ namespace langkit
 
           if (diag)
           {
-            std::cout << "Pass " << name.str() << ": " << count
-                      << " iterations, " << changes << " nodes rewritten."
-                      << std::endl;
+            std::cout << "Pass " << name << ": " << count << " iterations, "
+                      << changes << " nodes rewritten." << std::endl;
           }
 
-          if (limit == name.str())
+          if (limit == name)
             break;
         }
       }

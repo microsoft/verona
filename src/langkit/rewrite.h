@@ -4,11 +4,13 @@
 
 #include "ast.h"
 
+#include <cassert>
 #include <optional>
 #include <regex>
 
 namespace langkit
 {
+  class Pass;
   class Lookup;
 
   namespace detail
@@ -32,6 +34,7 @@ namespace langkit
 
     class Capture
     {
+      friend class langkit::Pass;
       friend class langkit::Lookup;
 
     private:
@@ -54,7 +57,7 @@ namespace langkit
         return captures[token];
       }
 
-      void def(const Token& token, Location loc)
+      void def(const Token& token, const Location& loc)
       {
         defaults[token] = loc;
       }
@@ -66,31 +69,14 @@ namespace langkit
 
       Node operator()(Binding binding)
       {
-        auto loc = bind_location(binding.first);
-        binding.second->location = loc;
-        bindings[loc] = binding.second;
+        bindings[bind_location(binding.first)] = binding.second;
         return binding.second;
       }
 
-      Node include(Binding binding)
+      Node include(Node site, Node target)
       {
-        auto loc = bind_location(binding.first);
-        Node node = binding.first;
-        node->location = loc;
-        includes.emplace_back(node, binding.second);
-        return node;
-      }
-
-      Location bind_location(const Token& token)
-      {
-        auto range = captures[token];
-
-        if (range.first == range.second)
-          return defaults[token];
-        else if ((range.first + 1) != range.second)
-          throw std::runtime_error("Can only bind to a single node");
-        else
-          return (*range.first)->location;
+        includes.emplace_back(site, target);
+        return site;
       }
 
       Node find(const Token& token)
@@ -118,6 +104,19 @@ namespace langkit
         lookup_ = that.lookup_;
       }
 
+    private:
+      const Location& bind_location(const Token& token)
+      {
+        auto range = captures[token];
+
+        if (range.first == range.second)
+          return defaults[token];
+        else if ((range.first + 1) != range.second)
+          throw std::runtime_error("Can only bind to a single node");
+        else
+          return (*range.first)->location();
+      }
+
       void clear()
       {
         captures.clear();
@@ -128,10 +127,10 @@ namespace langkit
       void bind()
       {
         for (auto& [loc, node] : bindings)
-          node->bind(loc, node);
+          node->bind(loc);
 
-        for (auto& [node, include] : includes)
-          node->include(include);
+        for (auto& [site, target] : includes)
+          site->include(target);
       }
     };
 
@@ -197,7 +196,7 @@ namespace langkit
 
       bool match(NodeIt& it, NodeIt end, Capture& captures) const override
       {
-        if ((it == end) || ((*it)->type != type))
+        if ((it == end) || ((*it)->type() != type))
           return false;
 
         ++it;
@@ -227,7 +226,7 @@ namespace langkit
           return false;
 
         auto find = lookup.run({begin, it});
-        if (!find || (find->type != lookup_type))
+        if (!find || (find->type() != lookup_type))
         {
           it = begin;
           return false;
@@ -252,10 +251,10 @@ namespace langkit
 
       bool match(NodeIt& it, NodeIt end, Capture& captures) const override
       {
-        if ((it == end) || ((*it)->type != type))
+        if ((it == end) || ((*it)->type() != type))
           return false;
 
-        auto s = (*it)->location.view();
+        auto s = (*it)->location().view();
         if (!std::regex_match(s.begin(), s.end(), regex))
           return false;
 
@@ -399,11 +398,8 @@ namespace langkit
         if (it == end)
           return false;
 
-        if (!(*it)->parent)
-          return false;
-
-        auto parent = (*it)->parent->acquire();
-        return parent->type == type;
+        auto p = (*it)->parent();
+        return p && (p->type() == type);
       }
     };
 
@@ -417,11 +413,8 @@ namespace langkit
         if (it == end)
           return false;
 
-        if (!(*it)->parent)
-          return false;
-
-        auto parent = (*it)->parent->acquire();
-        return it == parent->children.begin();
+        auto p = (*it)->parent();
+        return p && (it == p->begin());
       }
     };
 
@@ -455,8 +448,8 @@ namespace langkit
         if (!pattern->match(it, end, captures2))
           return false;
 
-        auto it2 = (*begin)->children.begin();
-        auto end2 = (*begin)->children.end();
+        auto it2 = (*begin)->begin();
+        auto end2 = (*begin)->end();
 
         if (!children->match(it2, end2, captures2))
         {
@@ -641,8 +634,7 @@ namespace langkit
          it != range_contents.range.second;
          ++it)
     {
-      node->push_back({(*it)->children.begin(), (*it)->children.end()});
-      (*it)->children.clear();
+      node->move_children(*it);
     }
 
     return node;
@@ -695,10 +687,9 @@ namespace langkit
     return node << type2;
   }
 
-  inline Node operator^(Node node1, Node node2)
+  inline Node operator^(const Token& type, Node node)
   {
-    node1->location = node2->location;
-    return node1;
+    return NodeDef::create(type, node->location());
   }
 
   enum class dir
@@ -710,24 +701,17 @@ namespace langkit
   class Pass
   {
   private:
+    dir direction;
     std::vector<detail::PatternEffect> rules;
-    dir direction = dir::topdown;
 
   public:
-    Pass() {}
-    Pass(const std::initializer_list<detail::PatternEffect>& r) : rules(r) {}
+    Pass(const std::initializer_list<detail::PatternEffect>& r)
+    : direction(dir::topdown), rules(r)
+    {}
 
-    Pass& operator()(dir d)
-    {
-      direction = d;
-      return *this;
-    }
-
-    Pass& operator()(const std::initializer_list<detail::PatternEffect>& r)
-    {
-      rules.insert(rules.end(), r.begin(), r.end());
-      return *this;
-    }
+    Pass(dir direction, const std::initializer_list<detail::PatternEffect>& r)
+    : direction(direction), rules(r)
+    {}
 
     std::pair<Node, size_t> run(Node node)
     {
@@ -752,7 +736,7 @@ namespace langkit
         }
       }
 
-      return {top->children.front(), changes};
+      return {top->front(), changes};
     }
 
     std::tuple<Node, size_t, size_t> repeat(Node node)
@@ -776,7 +760,7 @@ namespace langkit
     {
       size_t changes = 0;
 
-      for (auto& child : node->children)
+      for (auto& child : *node)
         changes += bottom_up(child);
 
       changes += apply(node);
@@ -787,7 +771,7 @@ namespace langkit
     {
       size_t changes = apply(node);
 
-      for (auto& child : node->children)
+      for (auto& child : *node)
         changes += top_down(child);
 
       return changes;
@@ -796,10 +780,10 @@ namespace langkit
     size_t apply(Node node)
     {
       detail::Capture captures;
-      auto it = node->children.begin();
+      auto it = node->begin();
       size_t changes = 0;
 
-      while (it != node->children.end())
+      while (it != node->end())
       {
         bool replaced = false;
 
@@ -808,18 +792,12 @@ namespace langkit
           auto start = it;
           captures.clear();
 
-          if (rule.first.match(it, node->children.end(), captures))
+          if (rule.first.match(it, node->end(), captures))
           {
             // Replace [start, it) with whatever the rule builds.
             auto replace = rule.second(captures);
-            it = node->children.erase(start, it);
-
-            if (replace)
-            {
-              it = node->children.insert(it, replace);
-              replace->parent = node.get();
-            }
-
+            it = node->erase(start, it);
+            it = node->insert(it, replace);
             captures.bind();
             replaced = true;
             changes++;
@@ -885,9 +863,8 @@ namespace langkit
       bool match(Node node) const
       {
         detail::Capture captures;
-        auto it = node->children.begin();
-        return pattern.match(it, node->children.end(), captures) &&
-          (it == node->children.end());
+        auto it = node->begin();
+        return pattern.match(it, node->end(), captures) && (it == node->end());
       }
 
       bool operator<(const WFShape& that) const
@@ -916,18 +893,18 @@ namespace langkit
       auto shape = std::lower_bound(
         shapes.begin(),
         shapes.end(),
-        node->type,
+        node->type(),
         [](const auto& a, const auto& b) { return a.type < b; });
 
-      if ((shape == shapes.end()) || (shape->type != node->type))
+      if ((shape == shapes.end()) || (shape->type != node->type()))
         return false;
 
       if (!shape->match(node))
         return false;
 
-      for (auto& node : node->children)
+      for (auto& child : *node)
       {
-        if (!check(node))
+        if (!check(child))
           return false;
       }
 

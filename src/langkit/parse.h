@@ -58,7 +58,7 @@ namespace langkit
 
       bool in(const Token& type)
       {
-        return node->type == type;
+        return node->type() == type;
       }
 
       bool previous(const Token& type)
@@ -66,10 +66,8 @@ namespace langkit
         if (!in(Group))
           return false;
 
-        if (node->children.empty())
-          return false;
-
-        return node->children.back()->type == type;
+        auto n = node->back();
+        return n && (n->type() == type);
       }
 
       void add(const Token& type)
@@ -85,17 +83,17 @@ namespace langkit
       {
         if (in(Group))
         {
-          while (std::find(skip.begin(), skip.end(), node->parent->type) !=
+          while (std::find(skip.begin(), skip.end(), node->parent()->type()) !=
                  skip.end())
           {
-            node = node->parent->acquire();
+            node = node->parent()->shared_from_this();
           }
 
-          auto p = node->parent;
+          auto p = node->parent();
 
-          if (p->type == type)
+          if (p->type() == type)
           {
-            node = p->acquire();
+            node = p->shared_from_this();
           }
           else
           {
@@ -123,7 +121,7 @@ namespace langkit
         if (in(type))
         {
           extend();
-          node = node->parent->acquire();
+          node = node->parent()->shared_from_this();
         }
         else
         {
@@ -141,12 +139,12 @@ namespace langkit
 
       void extend()
       {
-        node->location = node->location.extend(location);
+        node->extend(location);
       }
 
       void invalid()
       {
-        if (node->type == Invalid)
+        if (node->type() == Invalid)
           extend();
         else
           add(Invalid);
@@ -158,7 +156,7 @@ namespace langkit
         if (in(type))
         {
           extend();
-          node = node->parent->acquire();
+          node = node->parent()->shared_from_this();
           return true;
         }
 
@@ -169,11 +167,11 @@ namespace langkit
       {
         term();
 
-        while (node->parent)
+        while (node->parent())
         {
           add(Unclosed);
           term();
-          node = node->parent->acquire();
+          node = node->parent()->shared_from_this();
           term();
         }
 
@@ -390,7 +388,7 @@ namespace langkit
         }
       }
 
-      if (top->children.empty())
+      if (top->empty())
         return {};
 
       if (postdir_ && top)
