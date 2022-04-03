@@ -1,7 +1,5 @@
 #include "lang.h"
 
-#include <cassert>
-
 namespace verona::lang
 {
   constexpr size_t restart = 0;
@@ -252,16 +250,12 @@ namespace verona::lang
     In(Funcbody) / In(Assign) / In(Tuple) / In(Expr) / In(Call);
   const auto TypeOrExpr = In(Type) / InExpr;
 
-  WellFormed wf()
-  {
-    return {
-      {Package, T(String) / T(Escaped)},
-      {Class, T(Typeparams) * TypeElem * T(Classbody)},
-      {Typealias, T(Typeparams) * TypeElem * TypeElem},
-      // {Funcbody, ExprElem++},
-      // {Tuple, ExprElem++},
-    };
-  }
+  inline constexpr auto wf = wellformed(
+    shape(Package, field(id, String, Escaped)),
+    shape(Class, field(Typeparams), field(Type), field(Classbody)),
+    shape(
+      Typealias, field(Typeparams), field(Bounds, Type), field(Default, Type)),
+    shape(Typeparam, field(Bounds, Type), field(Default, Type)));
 
   const Lookup look{
     T(Ident)[id] >> [](auto& _) { return _(id)->lookup_first(); },
@@ -280,14 +274,14 @@ namespace verona::lang
         << (T(RefType)[lhs] * T(Ident)[id] * T(Typeargs) * End) >>
       [](auto& _) {
         // TODO: apply typeargs
-        auto type = _.find(lhs)->at(2);
+        auto type = _.find(lhs)->at(wf / Typealias / Default);
         return _.find(type)->lookdown_first(_(id));
       },
 
     (T(Scoped) / T(RefType) / T(RefTypeparam) / T(RefClass) / T(RefFunction))
         << (T(RefTypeparam)[lhs] * T(Ident)[id] * T(Typeargs) * End) >>
       [](auto& _) {
-        auto bounds = _.find(lhs)->at(0);
+        auto bounds = _.find(lhs)->at(wf / Typeparam / Bounds);
         return _.find(bounds)->lookdown_first(_(id));
       },
 

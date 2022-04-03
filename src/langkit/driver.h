@@ -4,6 +4,7 @@
 
 #include "parse.h"
 #include "rewrite.h"
+#include "wf.h"
 
 #include <CLI/CLI.hpp>
 

@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "source.h"
+#include "token.h"
 
 #include <map>
-#include <set>
 #include <sstream>
 #include <vector>
 
@@ -26,88 +25,10 @@ namespace langkit
     return out;
   }
 
-  class Token;
   class NodeDef;
   using Node = std::shared_ptr<NodeDef>;
   using NodeIt = std::vector<Node>::iterator;
   using NodeRange = std::pair<NodeIt, NodeIt>;
-  using Binding = std::pair<Token, Node>;
-
-  class Token
-  {
-  public:
-    using flag = uint64_t;
-
-  private:
-    const char* name;
-    flag fl;
-
-  public:
-    constexpr Token(const char* name, flag fl = 0) : name(name), fl(fl) {}
-
-    operator Node() const;
-
-    bool operator&(flag f) const
-    {
-      return (fl & f) != 0;
-    }
-
-    Node operator()(Location loc) const;
-
-    Binding operator=(Node n) const
-    {
-      return {*this, n};
-    }
-
-    bool operator==(const Token& that) const
-    {
-      return name == that.name;
-    }
-
-    bool operator!=(const Token& that) const
-    {
-      return name != that.name;
-    }
-
-    bool operator<(const Token& that) const
-    {
-      return name < that.name;
-    }
-
-    bool operator>(const Token& that) const
-    {
-      return name > that.name;
-    }
-
-    bool operator<=(const Token& that) const
-    {
-      return name <= that.name;
-    }
-
-    bool operator>=(const Token& that) const
-    {
-      return name >= that.name;
-    }
-
-    const char* str() const
-    {
-      return name;
-    }
-  };
-
-  namespace flag
-  {
-    constexpr Token::flag none = 0;
-    constexpr Token::flag print = 1 << 0;
-    constexpr Token::flag symtab = 1 << 1;
-    constexpr Token::flag defbeforeuse = 1 << 2;
-  }
-
-  constexpr auto Invalid = Token("invalid");
-  constexpr auto Unclosed = Token("unclosed");
-  constexpr auto Group = Token("group");
-  constexpr auto File = Token("file");
-  constexpr auto Directory = Token("directory");
 
   class SymtabDef
   {
@@ -130,6 +51,17 @@ namespace langkit
   };
 
   using Symtab = std::shared_ptr<SymtabDef>;
+
+  struct Index
+  {
+    Token type;
+    size_t index;
+
+    constexpr Index() : type(Invalid), index(std::numeric_limits<size_t>::max())
+    {}
+    constexpr Index(const Token& type, size_t index) : type(type), index(index)
+    {}
+  };
 
   class NodeDef : public std::enable_shared_from_this<NodeDef>
   {
@@ -204,9 +136,22 @@ namespace langkit
       return children.empty();
     }
 
-    Node at(size_t i)
+    size_t size()
     {
-      return children.at(i);
+      return children.size();
+    }
+
+    Node at(const Index& index)
+    {
+      assert(index.type == type_);
+      assert(index.index < children.size());
+      return children.at(index.index);
+    }
+
+    Node at(size_t index)
+    {
+      assert(index < children.size());
+      return children.at(index);
     }
 
     Node front()

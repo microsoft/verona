@@ -717,7 +717,7 @@ namespace langkit
     {
       // Because apply runs over child nodes, the top node is never visited.
       // Use a synthetic top node.
-      Node top = Group;
+      auto top = NodeDef::create(Group);
       top->push_back(node);
       size_t changes;
 
@@ -846,69 +846,6 @@ namespace langkit
     detail::BindLookup operator=(const Token& type) const
     {
       return {*this, type};
-    }
-  };
-
-  namespace detail
-  {
-    struct WFShape
-    {
-      Token type;
-      Pattern pattern;
-
-      WFShape(const Token& type, const Pattern& pattern)
-      : type(type), pattern(pattern)
-      {}
-
-      bool match(Node node) const
-      {
-        detail::Capture captures;
-        auto it = node->begin();
-        return pattern.match(it, node->end(), captures) && (it == node->end());
-      }
-
-      bool operator<(const WFShape& that) const
-      {
-        return type < that.type;
-      }
-    };
-  }
-
-  class WellFormed
-  {
-  private:
-    std::vector<detail::WFShape> shapes;
-
-  public:
-    WellFormed(const std::initializer_list<detail::WFShape>& r) : shapes(r)
-    {
-      std::sort(shapes.begin(), shapes.end());
-    }
-
-    bool check(Node node) const
-    {
-      if (!node)
-        return false;
-
-      auto shape = std::lower_bound(
-        shapes.begin(),
-        shapes.end(),
-        node->type(),
-        [](const auto& a, const auto& b) { return a.type < b; });
-
-      if ((shape == shapes.end()) || (shape->type != node->type()))
-        return false;
-
-      if (!shape->match(node))
-        return false;
-
-      for (auto& child : *node)
-      {
-        if (!check(child))
-          return false;
-      }
-
-      return true;
     }
   };
 }

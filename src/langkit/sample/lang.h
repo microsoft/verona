@@ -9,88 +9,92 @@ namespace verona::lang
   using namespace langkit;
 
   // Parsing structure.
-  constexpr auto Comment = Token("comment");
-  constexpr auto Paren = Token("paren");
-  constexpr auto Square = Token("square");
-  constexpr auto Brace = Token("brace");
-  constexpr auto List = Token("list");
-  constexpr auto Equals = Token("equals");
+  inline constexpr auto Comment = TokenDef("comment");
+  inline constexpr auto Paren = TokenDef("paren");
+  inline constexpr auto Square = TokenDef("square");
+  inline constexpr auto Brace = TokenDef("brace");
+  inline constexpr auto List = TokenDef("list");
+  inline constexpr auto Equals = TokenDef("equals");
 
   // Parsing literals.
-  constexpr auto Dot = Token("dot");
-  constexpr auto Ellipsis = Token("ellipsis");
-  constexpr auto Colon = Token("colon");
-  constexpr auto DoubleColon = Token("doublecolon");
-  constexpr auto FatArrow = Token("fatarrow");
-  constexpr auto Bool = Token("bool", flag::print);
-  constexpr auto Hex = Token("hex", flag::print);
-  constexpr auto Bin = Token("bin", flag::print);
-  constexpr auto Int = Token("int", flag::print);
-  constexpr auto HexFloat = Token("hexfloat", flag::print);
-  constexpr auto Float = Token("float", flag::print);
-  constexpr auto Char = Token("char", flag::print);
-  constexpr auto Escaped = Token("escaped", flag::print);
-  constexpr auto String = Token("string", flag::print);
-  constexpr auto Symbol = Token("symbol", flag::print);
-  constexpr auto Ident = Token("ident", flag::print);
+  inline constexpr auto Dot = TokenDef("dot");
+  inline constexpr auto Ellipsis = TokenDef("ellipsis");
+  inline constexpr auto Colon = TokenDef("colon");
+  inline constexpr auto DoubleColon = TokenDef("doublecolon");
+  inline constexpr auto FatArrow = TokenDef("fatarrow");
+  inline constexpr auto Bool = TokenDef("bool", flag::print);
+  inline constexpr auto Hex = TokenDef("hex", flag::print);
+  inline constexpr auto Bin = TokenDef("bin", flag::print);
+  inline constexpr auto Int = TokenDef("int", flag::print);
+  inline constexpr auto HexFloat = TokenDef("hexfloat", flag::print);
+  inline constexpr auto Float = TokenDef("float", flag::print);
+  inline constexpr auto Char = TokenDef("char", flag::print);
+  inline constexpr auto Escaped = TokenDef("escaped", flag::print);
+  inline constexpr auto String = TokenDef("string", flag::print);
+  inline constexpr auto Symbol = TokenDef("symbol", flag::print);
+  inline constexpr auto Ident = TokenDef("ident", flag::print);
 
   // Parsing keywords.
-  constexpr auto Private = Token("private");
-  constexpr auto Package = Token("package");
-  constexpr auto Use = Token("use");
-  constexpr auto Typealias = Token("typealias", flag::print | flag::symtab);
-  constexpr auto Class = Token("class", flag::print | flag::symtab);
-  constexpr auto Var = Token("var", flag::print);
-  constexpr auto Let = Token("let", flag::print);
-  constexpr auto Throw = Token("throw");
-  constexpr auto Iso = Token("iso");
-  constexpr auto Imm = Token("imm");
-  constexpr auto Mut = Token("mut");
+  inline constexpr auto Private = TokenDef("private");
+  inline constexpr auto Package = TokenDef("package");
+  inline constexpr auto Use = TokenDef("use");
+  inline constexpr auto Typealias = TokenDef("typealias", flag::print | flag::symtab);
+  inline constexpr auto Class = TokenDef("class", flag::print | flag::symtab);
+  inline constexpr auto Var = TokenDef("var", flag::print);
+  inline constexpr auto Let = TokenDef("let", flag::print);
+  inline constexpr auto Throw = TokenDef("throw");
+  inline constexpr auto Iso = TokenDef("iso");
+  inline constexpr auto Imm = TokenDef("imm");
+  inline constexpr auto Mut = TokenDef("mut");
 
   // Semantic structure.
-  constexpr auto Classbody = Token("classbody");
-  constexpr auto Typeparams = Token("typeparams");
-  constexpr auto Typeparam = Token("typeparam", flag::print);
-  constexpr auto Params = Token("params");
-  constexpr auto Param = Token("param", flag::print | flag::symtab | flag::defbeforeuse);
-  constexpr auto Funcbody = Token("funcbody");
-  constexpr auto Function = Token("function", flag::print | flag::symtab | flag::defbeforeuse);
-  constexpr auto FieldLet = Token("fieldlet", flag::print | flag::symtab | flag::defbeforeuse);
-  constexpr auto FieldVar = Token("fieldvar", flag::print | flag::symtab | flag::defbeforeuse);
+  inline constexpr auto Classbody = TokenDef("classbody");
+  inline constexpr auto Typeparams = TokenDef("typeparams");
+  inline constexpr auto Typeparam = TokenDef("typeparam", flag::print);
+  inline constexpr auto Params = TokenDef("params");
+  inline constexpr auto Param = TokenDef("param", flag::print | flag::symtab | flag::defbeforeuse);
+  inline constexpr auto Funcbody = TokenDef("funcbody");
+  inline constexpr auto Function = TokenDef("function", flag::print | flag::symtab | flag::defbeforeuse);
+  inline constexpr auto FieldLet = TokenDef("fieldlet", flag::print | flag::symtab | flag::defbeforeuse);
+  inline constexpr auto FieldVar = TokenDef("fieldvar", flag::print | flag::symtab | flag::defbeforeuse);
 
   // Type structure.
-  constexpr auto Type = Token("type");
-  constexpr auto TypeTuple = Token("typetuple");
-  constexpr auto TypeView = Token("typeview");
-  constexpr auto TypeFunc = Token("typefunc");
-  constexpr auto TypeThrow = Token("typethrow");
-  constexpr auto TypeIsect = Token("typeisect");
-  constexpr auto TypeUnion = Token("typeunion");
-  constexpr auto TypeVar = Token("typevar");
+  inline constexpr auto Type = TokenDef("type");
+  inline constexpr auto TypeTuple = TokenDef("typetuple");
+  inline constexpr auto TypeView = TokenDef("typeview");
+  inline constexpr auto TypeFunc = TokenDef("typefunc");
+  inline constexpr auto TypeThrow = TokenDef("typethrow");
+  inline constexpr auto TypeIsect = TokenDef("typeisect");
+  inline constexpr auto TypeUnion = TokenDef("typeunion");
+  inline constexpr auto TypeVar = TokenDef("typevar");
 
   // Expression structure.
-  constexpr auto Expr = Token("expr");
-  constexpr auto Typeargs = Token("typeargs");
-  constexpr auto Lambda = Token("lambda", flag::symtab | flag::defbeforeuse);
-  constexpr auto Tuple = Token("tuple");
-  constexpr auto Assign = Token("assign");
-  constexpr auto RefVar = Token("refvar", flag::print);
-  constexpr auto RefLet = Token("reflet", flag::print);
-  constexpr auto RefParam = Token("refparam", flag::print);
-  constexpr auto RefTypeparam = Token("reftypeparam");
-  constexpr auto RefType = Token("reftype");
-  constexpr auto RefClass = Token("refclass");
-  constexpr auto RefFunction = Token("reffunc");
-  constexpr auto Scoped = Token("scoped");
-  constexpr auto Selector = Token("selector");
-  constexpr auto Call = Token("call");
-  constexpr auto Oftype = Token("oftype");
+  inline constexpr auto Expr = TokenDef("expr");
+  inline constexpr auto Typeargs = TokenDef("typeargs");
+  inline constexpr auto Lambda = TokenDef("lambda", flag::symtab | flag::defbeforeuse);
+  inline constexpr auto Tuple = TokenDef("tuple");
+  inline constexpr auto Assign = TokenDef("assign");
+  inline constexpr auto RefVar = TokenDef("refvar", flag::print);
+  inline constexpr auto RefLet = TokenDef("reflet", flag::print);
+  inline constexpr auto RefParam = TokenDef("refparam", flag::print);
+  inline constexpr auto RefTypeparam = TokenDef("reftypeparam");
+  inline constexpr auto RefType = TokenDef("reftype");
+  inline constexpr auto RefClass = TokenDef("refclass");
+  inline constexpr auto RefFunction = TokenDef("reffunc");
+  inline constexpr auto Scoped = TokenDef("scoped");
+  inline constexpr auto Selector = TokenDef("selector");
+  inline constexpr auto Call = TokenDef("call");
+  inline constexpr auto Oftype = TokenDef("oftype");
+
+  // Indexing names.
+  inline constexpr auto Bounds = TokenDef("bounds");
+  inline constexpr auto Default = TokenDef("default");
 
   // Rewrite identifiers.
-  constexpr auto id = Token("id");
-  constexpr auto lhs = Token("lhs");
-  constexpr auto rhs = Token("rhs");
-  constexpr auto op = Token("op");
+  inline constexpr auto id = TokenDef("id");
+  inline constexpr auto lhs = TokenDef("lhs");
+  inline constexpr auto rhs = TokenDef("rhs");
+  inline constexpr auto op = TokenDef("op");
 
   // Sythetic locations.
   const auto apply = Location("apply");
