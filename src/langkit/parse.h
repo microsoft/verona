@@ -10,12 +10,31 @@
 
 namespace langkit
 {
-  class Parse
+  class Parse;
+
+  namespace detail
   {
-  public:
+    class Make;
+
+    class Rule
+    {
+      friend class langkit::Parse;
+
+    private:
+      std::regex regex;
+      std::function<void(Make&)> effect;
+
+    public:
+      Rule(const std::string& r, std::function<void(Make&)> effect)
+      : effect(effect)
+      {
+        regex = std::regex("^" + r, std::regex_constants::optimize);
+      }
+    };
+
     class Make
     {
-      friend class Parse;
+      friend class langkit::Parse;
 
     private:
       Node top;
@@ -56,12 +75,12 @@ namespace langkit
         mode_ = next;
       }
 
-      bool in(const Token& type)
+      bool in(const Token& type) const
       {
         return node->type() == type;
       }
 
-      bool previous(const Token& type)
+      bool previous(const Token& type) const
       {
         if (!in(Group))
           return false;
@@ -181,30 +200,18 @@ namespace langkit
         return top;
       }
     };
+  }
 
-    class Rule
-    {
-      friend class Parse;
+  enum class depth
+  {
+    file,
+    directory,
+    subdirectories
+  };
 
-    private:
-      std::regex regex;
-      std::function<void(Make&)> effect;
-
-    public:
-      Rule(const std::string& r, std::function<void(Make&)> effect)
-      : effect(effect)
-      {
-        regex = std::regex("^" + r, std::regex_constants::optimize);
-      }
-    };
-
-    enum class depth
-    {
-      file,
-      directory,
-      subdirectories
-    };
-
+  class Parse
+  {
+  public:
     using PreF = std::function<bool(Parse&, const std::string&)>;
     using PostF = std::function<void(Parse&, Node)>;
 
@@ -216,13 +223,13 @@ namespace langkit
     PostF postfile_;
     PostF postdir_;
     PostF postparse_;
-    std::map<const std::string, std::vector<Rule>> rules;
+    std::map<const std::string, std::vector<detail::Rule>> rules;
 
   public:
     Parse(depth depth_) : depth_(depth_) {}
 
-    Parse&
-    operator()(const std::string& mode, const std::initializer_list<Rule> r)
+    Parse& operator()(
+      const std::string& mode, const std::initializer_list<detail::Rule> r)
     {
       rules[mode].insert(rules[mode].end(), r.begin(), r.end());
       return *this;
@@ -297,7 +304,7 @@ namespace langkit
       if (!source)
         return {};
 
-      auto make = Make(source);
+      auto make = detail::Make(source);
       auto it = source->view().cbegin();
       auto st = it;
       auto end = source->view().cend();
@@ -398,8 +405,8 @@ namespace langkit
     }
   };
 
-  inline Parse::Rule
-  operator>>(const std::string& r, std::function<void(Parse::Make&)> make)
+  inline detail::Rule
+  operator>>(const std::string& r, std::function<void(detail::Make&)> make)
   {
     return {r, make};
   }

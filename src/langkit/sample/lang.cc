@@ -7,7 +7,7 @@ namespace verona::lang
 
   Parse parser()
   {
-    Parse p(Parse::depth::subdirectories);
+    Parse p(depth::subdirectories);
     auto depth = std::make_shared<size_t>(0);
     auto indent = std::make_shared<std::vector<std::pair<size_t, bool>>>();
     indent->push_back({restart, false});
@@ -43,10 +43,10 @@ namespace verona::lang
           },
 
         // A newline that starts a brace block doesn't terminate.
-        "\n([[:blank:]]*\\{[[:blank:]]*)" >>
+        "\n([[:blank:]]*(\\{[[:blank:]]*))" >>
           [indent](auto& m) {
             indent->push_back({m.match().length(1), false});
-            m.pos() += m.len() - 1;
+            m.pos() += m.len() - m.match().length(2);
             m.len() = 1;
             m.push(Brace);
           },
