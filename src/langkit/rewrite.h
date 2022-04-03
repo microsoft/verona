@@ -26,6 +26,11 @@ namespace langkit
     class ILookup
     {
     public:
+      virtual Node start(NodeRange range) const
+      {
+        return {};
+      }
+
       virtual Node run(NodeRange range) const
       {
         return {};
@@ -64,7 +69,11 @@ namespace langkit
 
       Node operator()(const Token& token)
       {
-        return *captures[token].first;
+        auto it = captures.find(token);
+        if (it == captures.end())
+          return {};
+
+        return *it->second.first;
       }
 
       Node operator()(Binding binding)
@@ -84,12 +93,16 @@ namespace langkit
         if (!lookup_)
           return {};
 
-        return lookup_->run(captures[token]);
+        auto it = captures.find(token);
+        if (it == captures.end())
+          return {};
+
+        return lookup_->run(it->second);
       }
 
       Node find(Node node)
       {
-        if (!lookup_)
+        if (!lookup_ || !node)
           return {};
 
         auto v = std::vector<Node>{node};
@@ -225,7 +238,7 @@ namespace langkit
         if (!pattern->match(it, end, captures2))
           return false;
 
-        auto find = lookup.run({begin, it});
+        auto find = lookup.start({begin, it});
         if (!find || (find->type() != lookup_type))
         {
           it = begin;
@@ -815,15 +828,41 @@ namespace langkit
 
   class Lookup : public detail::ILookup
   {
+  public:
+    using PostF = std::function<void(const Lookup&)>;
+
   private:
+    PostF post_;
     std::vector<detail::PatternEffect> rules;
 
   public:
-    Lookup(const std::initializer_list<detail::PatternEffect>& r) : rules(r) {}
+    Lookup() {}
+
+    Lookup& post(PostF f)
+    {
+      post_ = f;
+      return *this;
+    }
+
+    Lookup& operator()(const std::initializer_list<detail::PatternEffect> r)
+    {
+      rules.insert(rules.end(), r.begin(), r.end());
+      return *this;
+    }
 
     Node operator()(NodeRange range) const
     {
-      return run(range);
+      return start(range);
+    }
+
+    Node start(NodeRange range) const override
+    {
+      auto node = run(range);
+
+      if (post_)
+        post_(*this);
+
+      return node;
     }
 
     Node run(NodeRange range) const override

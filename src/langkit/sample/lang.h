@@ -17,6 +17,7 @@ namespace verona::lang
   inline constexpr auto Equals = TokenDef("equals");
 
   // Parsing literals.
+  inline constexpr auto DontCare = TokenDef("dontcare");
   inline constexpr auto Dot = TokenDef("dot");
   inline constexpr auto Ellipsis = TokenDef("ellipsis");
   inline constexpr auto Colon = TokenDef("colon");
@@ -38,7 +39,8 @@ namespace verona::lang
   inline constexpr auto Private = TokenDef("private");
   inline constexpr auto Package = TokenDef("package");
   inline constexpr auto Use = TokenDef("use");
-  inline constexpr auto Typealias = TokenDef("typealias", flag::print | flag::symtab);
+  inline constexpr auto Typealias =
+    TokenDef("typealias", flag::print | flag::symtab);
   inline constexpr auto Class = TokenDef("class", flag::print | flag::symtab);
   inline constexpr auto Var = TokenDef("var", flag::print);
   inline constexpr auto Let = TokenDef("let", flag::print);
@@ -52,11 +54,15 @@ namespace verona::lang
   inline constexpr auto Typeparams = TokenDef("typeparams");
   inline constexpr auto Typeparam = TokenDef("typeparam", flag::print);
   inline constexpr auto Params = TokenDef("params");
-  inline constexpr auto Param = TokenDef("param", flag::print | flag::symtab | flag::defbeforeuse);
+  inline constexpr auto Param =
+    TokenDef("param", flag::print | flag::symtab | flag::defbeforeuse);
   inline constexpr auto Funcbody = TokenDef("funcbody");
-  inline constexpr auto Function = TokenDef("function", flag::print | flag::symtab | flag::defbeforeuse);
-  inline constexpr auto FieldLet = TokenDef("fieldlet", flag::print | flag::symtab | flag::defbeforeuse);
-  inline constexpr auto FieldVar = TokenDef("fieldvar", flag::print | flag::symtab | flag::defbeforeuse);
+  inline constexpr auto Function =
+    TokenDef("function", flag::print | flag::symtab | flag::defbeforeuse);
+  inline constexpr auto FieldLet =
+    TokenDef("fieldlet", flag::print | flag::symtab | flag::defbeforeuse);
+  inline constexpr auto FieldVar =
+    TokenDef("fieldvar", flag::print | flag::symtab | flag::defbeforeuse);
 
   // Type structure.
   inline constexpr auto Type = TokenDef("type");
@@ -71,7 +77,8 @@ namespace verona::lang
   // Expression structure.
   inline constexpr auto Expr = TokenDef("expr");
   inline constexpr auto Typeargs = TokenDef("typeargs");
-  inline constexpr auto Lambda = TokenDef("lambda", flag::symtab | flag::defbeforeuse);
+  inline constexpr auto Lambda =
+    TokenDef("lambda", flag::symtab | flag::defbeforeuse);
   inline constexpr auto Tuple = TokenDef("tuple");
   inline constexpr auto Assign = TokenDef("assign");
   inline constexpr auto RefVar = TokenDef("refvar", flag::print);
@@ -81,8 +88,8 @@ namespace verona::lang
   inline constexpr auto RefType = TokenDef("reftype");
   inline constexpr auto RefClass = TokenDef("refclass");
   inline constexpr auto RefFunction = TokenDef("reffunc");
-  inline constexpr auto Scoped = TokenDef("scoped");
   inline constexpr auto Selector = TokenDef("selector");
+  inline constexpr auto DotSelector = TokenDef("dotselector");
   inline constexpr auto Call = TokenDef("call");
   inline constexpr auto Oftype = TokenDef("oftype");
 

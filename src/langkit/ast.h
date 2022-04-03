@@ -131,6 +131,11 @@ namespace langkit
       return children.end();
     }
 
+    NodeRange range()
+    {
+      return {begin(), end()};
+    }
+
     bool empty()
     {
       return children.empty();
@@ -141,9 +146,17 @@ namespace langkit
       return children.size();
     }
 
-    Node at(const Index& index)
+    template<typename... Ts>
+    Node at(const Index& index, const Ts&... indices)
     {
-      assert(index.type == type_);
+      if (index.type != type_)
+      {
+        if constexpr (sizeof...(Ts) > 0)
+          return at(indices...);
+
+        throw std::runtime_error("invalid index");
+      }
+
       assert(index.index < children.size());
       return children.at(index.index);
     }
