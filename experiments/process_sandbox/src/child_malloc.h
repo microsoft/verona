@@ -44,9 +44,54 @@ namespace sandbox
     ///@}
 
     /**
+     * This range is intended to be used directly by the small buddy allocator
+     * without a pagemap to store extra metadata and so must support aligned
+     * allocation, even if the underlying PAL does not.
+     */
+    static constexpr bool Aligned = true;
+
+    /**
+     * All operations on the address space are locked by the kernel.
+     */
+    static constexpr bool ConcurrencySafe = true;
+
+    /**
      * Deallocate memory using munmap.
      */
     void dealloc_range(snmalloc::capptr::Chunk<void> base, size_t size);
+
+    /**
+     * Allocate memory, trimming to guarantee alignment if necessary.
+     */
+    snmalloc::capptr::Chunk<void> alloc_range(size_t size)
+    {
+      if constexpr (snmalloc::pal_supports<
+                      snmalloc::AlignedAllocation,
+                      snmalloc::DefaultPal>)
+      {
+        return snmalloc::PalRange<snmalloc::DefaultPal>::alloc_range(size);
+      }
+      else
+      {
+        size_t overallocation = size * 2;
+        auto alloc =
+          snmalloc::PalRange<snmalloc::DefaultPal>::alloc_range(overallocation);
+        auto end = snmalloc::pointer_offset(alloc, size * 2);
+        auto aligned_base = snmalloc::pointer_align_up(alloc, size);
+        auto aligned_end = snmalloc::pointer_offset(aligned_base, size);
+        if (end.unsafe_ptr() > aligned_end.unsafe_ptr())
+        {
+          dealloc_range(
+            aligned_end, end.unsafe_uintptr() - aligned_end.unsafe_uintptr());
+        }
+        if (aligned_base.unsafe_ptr() > alloc.unsafe_ptr())
+        {
+          dealloc_range(
+            alloc, aligned_base.unsafe_uintptr() - alloc.unsafe_uintptr());
+        }
+        return aligned_base;
+      }
+    }
   };
 
   /**
