@@ -338,8 +338,8 @@ namespace verona::lang
 
     return look({
       T(Ident)[id] * ~T(Typeargs)[Typeargs] >>
-        [sub, typeargs](auto& _) {
-          auto def = sub(_(id)->lookup_first());
+        [typeargs](auto& _) {
+          auto def = _(id)->lookup_first();
           typeargs(_, def);
           return _.find(def);
         },
@@ -353,8 +353,10 @@ namespace verona::lang
         [](auto& _) { return _.find(_(id)->at(wf / Typealias / Default)); },
 
       T(Typeparam)[id] >>
-        [](auto& _) {
-          auto def = _(id);
+        [sub](auto& _) {
+          auto def = sub(_(id));
+          if (def->type() != Typeparam)
+            return def;
           auto bounds = def->at(wf / Typeparam / Bounds);
           return bounds->empty() ? def : _.find(bounds);
         },
@@ -388,6 +390,7 @@ namespace verona::lang
     /*
     TODO:
 
+    list inside Typeparams or Typeargs along with groups or other lists
     = in an initializer
     type compaction?
     lookup
@@ -584,9 +587,9 @@ namespace verona::lang
 
       TypeOrExpr * T(Square)[Typeargs] >>
         [](auto& _) { return Typeargs << *_[Typeargs]; },
+      T(Typeargs) << T(List)[Typeargs] >>
+        [](auto& _) { return Typeargs << *_[Typeargs]; },
       In(Typeargs) * T(Group)[Type] >> [](auto& _) { return Type << *_[Type]; },
-      In(Typeargs) * T(List)[TypeTuple] >>
-        [](auto& _) { return TypeTuple << *_[TypeTuple]; },
       In(Typeargs) * T(Paren)[Type] >> [](auto& _) { return Type << *_[Type]; },
 
       // Lambda: (group typeparams) (list params...) => rhs
