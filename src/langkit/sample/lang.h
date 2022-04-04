@@ -85,7 +85,7 @@ namespace verona::lang
   inline constexpr auto RefLet = TokenDef("reflet", flag::print);
   inline constexpr auto RefParam = TokenDef("refparam", flag::print);
   inline constexpr auto RefTypeparam = TokenDef("reftypeparam");
-  inline constexpr auto RefType = TokenDef("reftype");
+  inline constexpr auto RefTypealias = TokenDef("reftypealias");
   inline constexpr auto RefClass = TokenDef("refclass");
   inline constexpr auto RefFunction = TokenDef("reffunc");
   inline constexpr auto Selector = TokenDef("selector");

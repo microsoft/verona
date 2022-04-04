@@ -798,7 +798,7 @@ namespace langkit
   class Lookup : public detail::ILookup
   {
   public:
-    using PostF = std::function<void(const Lookup&)>;
+    using PostF = std::function<void()>;
 
   private:
     PostF post_;
@@ -829,7 +829,7 @@ namespace langkit
       auto node = run(range);
 
       if (post_)
-        post_(*this);
+        post_();
 
       return node;
     }
