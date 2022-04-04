@@ -92,6 +92,7 @@ namespace verona::lang
   inline constexpr auto DotSelector = TokenDef("dotselector");
   inline constexpr auto Call = TokenDef("call");
   inline constexpr auto Oftype = TokenDef("oftype");
+  inline constexpr auto Include = TokenDef("include");
 
   // Indexing names.
   inline constexpr auto Bounds = TokenDef("bounds");

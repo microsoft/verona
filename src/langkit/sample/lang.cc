@@ -180,7 +180,7 @@ namespace verona::lang
         "'[^']*'" >> [](auto& m) { m.add(Char); },
 
         // Line comment.
-        "//[^\n]*(?:\n|$)" >> [](auto& m) { m.add(Comment); },
+        "//[^\n]*" >> [](auto& m) { m.add(Comment); },
 
         // Nested comment.
         "/\\*" >>
@@ -204,6 +204,9 @@ namespace verona::lang
 
         // Don't care.
         "_(?![_[:alnum:]])" >> [](auto& m) { m.add(DontCare); },
+
+        // Reserve a sequence of underscores.
+        "_(?:_)+(?![[:alnum:]])" >> [](auto& m) { m.add(Invalid); },
 
         // Identifier.
         "[_[:alpha:]][_[:alnum:]]*\\b" >> [](auto& m) { m.add(Ident); },
@@ -396,17 +399,13 @@ namespace verona::lang
     lookup
       isect: lookup in lhs and rhs
     well-formedness for errors
-
-    reify
-      from where we're looking up, the enclosing typeparams are all typevar
-        they might get used in a lookup, but they're not bound
-      given `class C1[T1, T2]`
-      C1 ~> (refclass (ident C1) (typeargs (typevar fresh) (typevar fresh)))
-      C1[_, T3] (refclass (ident C1) (typeargs (typevar fresh) (refclass ...)))
-      C1[_, T3]::C2
+    error on too many typeargs
+    recursive typealias?
 
     DNF algebraic types
     right associative function and viewpoint types
+    ANF
+    type checker
 
     _ for partial application and higher order bounds
       T: C1[C2, _, C3] is a type parameter that takes one argument
@@ -658,7 +657,7 @@ namespace verona::lang
       dir::bottomup,
       {
         // Identifiers and symbols.
-        In(Expr) * T(Dot) * T(Ident)[id] * ~T(Typeargs)[Typeargs] >>
+        In(Expr) * T(Dot) * Name[id] * ~T(Typeargs)[Typeargs] >>
           [](auto& _) {
             return DotSelector << _[id] << (_[Typeargs] | Typeargs);
           },
@@ -684,7 +683,7 @@ namespace verona::lang
                 << (T(RefClass) / T(RefType) / T(RefTypeparam) /
                     T(Package))[rhs]) >>
           [](auto& _) {
-            auto site = Use ^ _(lhs);
+            auto site = Include ^ _(lhs);
             _.include(site, look(_[rhs]));
             return site << _[rhs];
           },

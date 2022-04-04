@@ -732,23 +732,7 @@ namespace langkit
       // Use a synthetic top node.
       auto top = NodeDef::create(Group);
       top->push_back(node);
-      size_t changes;
-
-      switch (direction)
-      {
-        case dir::bottomup:
-        {
-          changes = bottom_up(top);
-          break;
-        }
-
-        case dir::topdown:
-        {
-          changes = top_down(top);
-          break;
-        }
-      }
-
+      auto changes = apply(top);
       return {top->front(), changes};
     }
 
@@ -769,27 +753,6 @@ namespace langkit
     }
 
   private:
-    size_t bottom_up(Node node)
-    {
-      size_t changes = 0;
-
-      for (auto& child : *node)
-        changes += bottom_up(child);
-
-      changes += apply(node);
-      return changes;
-    }
-
-    size_t top_down(Node node)
-    {
-      size_t changes = apply(node);
-
-      for (auto& child : *node)
-        changes += top_down(child);
-
-      return changes;
-    }
-
     size_t apply(Node node)
     {
       detail::Capture captures;
@@ -798,6 +761,9 @@ namespace langkit
 
       while (it != node->end())
       {
+        if (direction == dir::bottomup)
+          changes += apply(*it);
+
         bool replaced = false;
 
         for (auto& rule : rules)
@@ -817,6 +783,9 @@ namespace langkit
             break;
           }
         }
+
+        if ((it != node->end()) && (direction == dir::topdown))
+          changes += apply(*it);
 
         if (!replaced)
           ++it;
