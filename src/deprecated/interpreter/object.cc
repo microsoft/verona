@@ -92,7 +92,7 @@ namespace verona::interpreter
   {
     // The interpreter doesn't need the region, as the FieldValue type contains
     // the ISO information in its fat pointers.
-    UNUSED(region);
+    snmalloc::UNUSED(region);
 
     VMObject* object = static_cast<VMObject*>(base_object);
     const VMDescriptor* descriptor = object->descriptor();

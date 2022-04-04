@@ -537,7 +537,7 @@ namespace Logging
       // fails. We're about to crash anyway.
       auto s1 = write(1, str, strlen(str));
       auto s2 = write(1, "\n", 1);
-      UNUSED(s1 + s2);
+      snmalloc::UNUSED(s1 + s2);
 
       // Set up data for the crash dump
       n_frames = backtrace(frames, max_stack_frames);
