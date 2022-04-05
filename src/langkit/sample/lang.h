@@ -35,7 +35,6 @@ namespace verona::lang
   inline constexpr auto Ident = TokenDef("ident", flag::print);
 
   // Parsing keywords.
-  inline constexpr auto Private = TokenDef("private");
   inline constexpr auto Package = TokenDef("package");
   inline constexpr auto Use = TokenDef("use");
   inline constexpr auto Typealias =
@@ -50,18 +49,18 @@ namespace verona::lang
 
   // Semantic structure.
   inline constexpr auto Classbody = TokenDef("classbody");
+  inline constexpr auto FieldLet =
+    TokenDef("fieldlet", flag::print | flag::symtab | flag::defbeforeuse);
+  inline constexpr auto FieldVar =
+    TokenDef("fieldvar", flag::print | flag::symtab | flag::defbeforeuse);
+  inline constexpr auto Function =
+    TokenDef("function", flag::print | flag::symtab | flag::defbeforeuse);
   inline constexpr auto Typeparams = TokenDef("typeparams");
   inline constexpr auto Typeparam = TokenDef("typeparam", flag::print);
   inline constexpr auto Params = TokenDef("params");
   inline constexpr auto Param =
     TokenDef("param", flag::print | flag::symtab | flag::defbeforeuse);
   inline constexpr auto Funcbody = TokenDef("funcbody");
-  inline constexpr auto Function =
-    TokenDef("function", flag::print | flag::symtab | flag::defbeforeuse);
-  inline constexpr auto FieldLet =
-    TokenDef("fieldlet", flag::print | flag::symtab | flag::defbeforeuse);
-  inline constexpr auto FieldVar =
-    TokenDef("fieldvar", flag::print | flag::symtab | flag::defbeforeuse);
 
   // Type structure.
   inline constexpr auto Type = TokenDef("type");

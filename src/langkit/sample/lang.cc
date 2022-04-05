@@ -190,7 +190,6 @@ namespace verona::lang
           },
 
         // Keywords.
-        "private\\b" >> [](auto& m) { m.add(Private); },
         "package\\b" >> [](auto& m) { m.add(Package); },
         "use\\b" >> [](auto& m) { m.add(Use); },
         "type\\b" >> [](auto& m) { m.add(Typealias); },
@@ -250,14 +249,71 @@ namespace verona::lang
 
   inline constexpr auto wf = wellformed(
     shape(Package, field(id, String, Escaped)),
-    shape(Class, field(Typeparams), field(Type), field(Classbody)),
+    shape(Use, field(Type)),
     shape(
       Typealias, field(Typeparams), field(Bounds, Type), field(Default, Type)),
-    shape(Typeparam, field(Bounds, Type), field(Default, Type)),
+    shape(Class, field(Typeparams), field(Type), field(Classbody)),
+    shape(Var),
+    shape(Let),
+    shape(Throw, field(Expr)),
+    shape(Iso),
+    shape(Imm),
+    shape(Mut),
+
+    shape(Classbody, seq(Use, Typealias, Class, FieldLet, FieldVar, Function)),
+    shape(FieldLet, field(Type), field(Expr)),
+    shape(FieldVar, field(Type), field(Expr)),
     shape(
       Function, field(Typeparams), field(Params), field(Type), field(Funcbody)),
-    shape(FieldLet, field(Type), field(Expr)),
-    shape(FieldVar, field(Type), field(Expr)));
+    shape(Typeparams, seq(Typeparam)),
+    shape(Typeparam, field(Bounds, Type), field(Default, Type)),
+    shape(Params, seq(Param)),
+    shape(Param, field(Type), field(Expr)),
+    // TODO:
+    shape(Funcbody, undef()),
+
+    // TODO:
+    shape(Type, undef()),
+    shape(TypeTerm, undef()),
+    shape(TypeTuple, undef()),
+    shape(TypeView, undef()),
+    shape(TypeFunc, undef()),
+    shape(TypeThrow, undef()),
+    shape(TypeIsect, undef()),
+    shape(TypeUnion, undef()),
+    shape(TypeVar, undef()),
+    shape(TypeTrait, undef()),
+
+    // TODO:
+    shape(Expr, undef()),
+    shape(Term, undef()),
+    shape(Typeargs, undef()),
+
+    shape(Lambda, field(Typeparams), field(Params), field(Funcbody)),
+
+    // TODO:
+    shape(Tuple, undef()),
+    shape(Assign, undef()),
+
+    shape(RefVar, field(Ident), field(Typeargs)),
+    shape(RefLet, field(Ident), field(Typeargs)),
+    shape(RefParam, field(Ident), field(Typeargs)),
+
+    // TODO: scoped
+    shape(RefTypeparam, field(Ident), field(Typeargs)),
+    shape(RefTypealias, field(Ident), field(Typeargs)),
+    shape(RefClass, field(Ident), field(Typeargs)),
+
+    shape(RefFunction, field(Ident), field(Typeargs)),
+    shape(Selector, field(Ident), field(Typeargs)),
+
+    // TODO:
+    shape(Call, undef()),
+
+    shape(Include, field(Type)),
+
+    // TODO: Let, Expr
+    shape(Lift, undef()));
 
   Token reftype(Node def)
   {
@@ -427,6 +483,7 @@ namespace verona::lang
     type checker
 
     public/private
+    variadic ops: a op b op c -> op(a, b, c)
     param: values as parameters for pattern matching
       named parameters
         (group ident type)
@@ -607,6 +664,7 @@ namespace verona::lang
         [](auto& _) { return Term << *_[Expr]; },
       T(Expr) << (T(Term)[Term] * End) >>
         [](auto& _) { return Expr << *_[Term]; },
+      T(Term) << End >> [](auto& _) -> Node { return Tuple; },
 
       (In(Type) / ExprStruct) * T(Square)[Typeargs] >>
         [](auto& _) { return Typeargs << *_[Typeargs]; },
@@ -793,7 +851,7 @@ namespace verona::lang
           [](auto& _) {
             return Call << (RefFunction << _[lhs] << (Ident ^ create)
                                         << Typeargs)
-                        << Expr;
+                        << Tuple;
           },
       }};
   }

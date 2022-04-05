@@ -11,6 +11,9 @@ namespace langkit
 {
   namespace detail
   {
+    struct Undef
+    {};
+
     template<size_t N>
     struct Field
     {
@@ -20,6 +23,14 @@ namespace langkit
       constexpr Field(const Token& name, const std::array<Token, N>& types)
       : name(name), types(types)
       {}
+    };
+
+    template<size_t N>
+    struct Sequence : Undef
+    {
+      std::array<Token, N> tokens;
+
+      constexpr Sequence(const std::array<Token, N>& tokens) : tokens(tokens) {}
     };
 
     template<typename... Ts>
@@ -48,10 +59,18 @@ namespace langkit
       {
         auto field = std::get<I>(shape.fields);
 
-        if (name == field.name)
+        if constexpr (std::is_base_of_v<Undef, decltype(field)>)
+        {
+          return {};
+        }
+        else if (name == field.name)
+        {
           return Index(shape.type, I);
-
-        return index<I + 1>(shape, name);
+        }
+        else
+        {
+          return index<I + 1>(shape, name);
+        }
       }
 
       return {};
@@ -74,15 +93,41 @@ namespace langkit
       return {};
     }
 
-    template<size_t N>
-    inline std::set<Token> field_set(const Field<N>& field)
+    enum class field
     {
-      return {field.types.begin(), field.types.end()};
+      undef,
+      field,
+      sequence,
+    };
+
+    struct FieldCheck
+    {
+      field field;
+      std::set<Token> set;
+    };
+
+    using ShapeCheck = std::vector<FieldCheck>;
+    using WFCheck = std::map<Token, ShapeCheck>;
+
+    inline FieldCheck field_set(const Undef& undef)
+    {
+      return {field::undef, {}};
+    }
+
+    template<size_t N>
+    inline FieldCheck field_set(const Field<N>& field)
+    {
+      return {field::field, {field.types.begin(), field.types.end()}};
+    }
+
+    template<size_t N>
+    inline FieldCheck field_set(const Sequence<N>& seq)
+    {
+      return {field::sequence, {seq.tokens.begin(), seq.tokens.end()}};
     }
 
     template<size_t I, typename... Ts>
-    inline void shape_vector_i(
-      const Shape<Ts...>& shape, std::vector<std::set<Token>>& defs)
+    inline void shape_vector_i(const Shape<Ts...>& shape, ShapeCheck& defs)
     {
       if constexpr (I == sizeof...(Ts))
         return;
@@ -92,17 +137,15 @@ namespace langkit
     }
 
     template<typename... Ts>
-    inline std::vector<std::set<Token>> shape_vector(const Shape<Ts...>& shape)
+    inline ShapeCheck shape_vector(const Shape<Ts...>& shape)
     {
-      std::vector<std::set<Token>> defs;
+      ShapeCheck defs;
       shape_vector_i<0>(shape, defs);
       return defs;
     }
 
     template<size_t I, typename... Ts>
-    inline void wellformed_map_i(
-      const Wellformed<Ts...>& wf,
-      std::map<Token, std::vector<std::set<Token>>>& defs)
+    inline void wellformed_map_i(const Wellformed<Ts...>& wf, WFCheck& defs)
     {
       if constexpr (I == sizeof...(Ts))
         return;
@@ -113,16 +156,14 @@ namespace langkit
     }
 
     template<typename... Ts>
-    inline std::map<Token, std::vector<std::set<Token>>>
-    wellformed_map(const Wellformed<Ts...>& wf)
+    inline WFCheck wellformed_map(const Wellformed<Ts...>& wf)
     {
-      std::map<Token, std::vector<std::set<Token>>> defs;
+      WFCheck defs;
       wellformed_map_i<0>(wf, defs);
       return defs;
     }
 
-    inline bool
-    check(std::map<Token, std::vector<std::set<Token>>>& map, Node node)
+    inline bool check(WFCheck& map, Node node)
     {
       auto find = map.find(node->type());
 
@@ -130,21 +171,31 @@ namespace langkit
         return false;
 
       auto& defs = find->second;
-      if (defs.size() != node->size())
-        return false;
-
       auto it = defs.begin();
 
       for (auto& child : *node)
       {
-        auto find = it->find(child->type());
-        if (find == it->end())
+        if (it == defs.end())
+          return false;
+
+        if (it->field == field::undef)
+          return true;
+
+        auto find = it->set.find(child->type());
+        if (find == it->set.end())
           return false;
 
         if (!check(map, child))
           return false;
 
-        ++it;
+        if (it->field == field::field)
+          ++it;
+      }
+
+      if (it != defs.end())
+      {
+        if (((it + 1) != defs.end()) || (it->field != field::sequence))
+          return false;
       }
 
       return true;
@@ -156,6 +207,11 @@ namespace langkit
       auto map = wellformed_map(wf);
       return check(map, node);
     }
+  }
+
+  inline constexpr auto undef()
+  {
+    return detail::Undef{};
   }
 
   template<typename... Ts>
@@ -170,6 +226,21 @@ namespace langkit
     {
       std::array<Token, sizeof...(Ts)> arr = {Token(types)...};
       return detail::Field{name, arr};
+    }
+  }
+
+  template<typename... Ts>
+  inline constexpr auto seq(const Ts&... types)
+  {
+    if constexpr (sizeof...(Ts) == 0)
+    {
+      std::array<Token, 0> arr;
+      return detail::Sequence{arr};
+    }
+    else
+    {
+      std::array<Token, sizeof...(Ts)> arr = {Token(types)...};
+      return detail::Sequence{arr};
     }
   }
 
