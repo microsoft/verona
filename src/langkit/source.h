@@ -14,7 +14,11 @@
 namespace langkit
 {
   class SourceDef;
+  struct Location;
+  class NodeDef;
   using Source = std::shared_ptr<SourceDef>;
+  using Node = std::shared_ptr<NodeDef>;
+  using LocBinding = std::pair<Location, Node>;
 
   class SourceDef
   {
@@ -146,6 +150,11 @@ namespace langkit
     bool before(const Location& that) const
     {
       return (source != that.source) || (pos < that.pos);
+    }
+
+    LocBinding operator=(Node n) const
+    {
+      return {*this, n};
     }
 
     Location operator*(const Location& that) const

@@ -7,8 +7,6 @@
 namespace langkit
 {
   class Token;
-  class NodeDef;
-  using Node = std::shared_ptr<NodeDef>;
   using Binding = std::pair<Token, Node>;
 
   class TokenDef
@@ -25,9 +23,10 @@ namespace langkit
 
     TokenDef() = delete;
     TokenDef(const TokenDef&) = delete;
-    TokenDef& operator=(const TokenDef&) = delete;
 
-    Node operator()(Location loc) const;
+    operator Node() const;
+
+    Binding operator=(const TokenDef& token) const;
     Binding operator=(const Token& token) const;
     Binding operator=(Node n) const;
 
@@ -58,8 +57,6 @@ namespace langkit
     {
       return (def->has(f)) != 0;
     }
-
-    Node operator()(Location loc) const;
 
     Binding operator=(Node n) const
     {
@@ -102,9 +99,9 @@ namespace langkit
     }
   };
 
-  inline Node TokenDef::operator()(Location loc) const
+  inline Binding TokenDef::operator=(const TokenDef& token) const
   {
-    return Token(*this)(loc);
+    return {Token(*this), Token(token)};
   }
 
   inline Binding TokenDef::operator=(const Token& token) const
@@ -130,4 +127,5 @@ namespace langkit
   inline constexpr auto Group = TokenDef("group");
   inline constexpr auto File = TokenDef("file");
   inline constexpr auto Directory = TokenDef("directory");
+  inline constexpr auto Seq = TokenDef("seq");
 }

@@ -350,6 +350,7 @@ namespace langkit
         {
           make.invalid();
           it++;
+          pos++;
         }
       }
 

@@ -76,6 +76,12 @@ namespace langkit
         return *it->second.first;
       }
 
+      Node operator()(LocBinding binding)
+      {
+        bindings[binding.first] = binding.second;
+        return binding.second;
+      }
+
       Node operator()(Binding binding)
       {
         bindings[bind_location(binding.first)] = binding.second;
@@ -86,6 +92,11 @@ namespace langkit
       {
         includes.emplace_back(site, target);
         return site;
+      }
+
+      Node find(const TokenDef& token)
+      {
+        return find(Token(token));
       }
 
       Node find(const Token& token)
@@ -624,11 +635,6 @@ namespace langkit
     return {range, node};
   }
 
-  inline detail::RangeOr operator|(NodeRange range, const Token& token)
-  {
-    return {range, NodeDef::create(token)};
-  }
-
   inline Node operator<<(Node node1, Node node2)
   {
     node1->push_back(node2);
@@ -663,46 +669,14 @@ namespace langkit
     return node;
   }
 
-  inline Node operator<<(Node node, const Token& type)
-  {
-    node->push_back(NodeDef::create(type));
-    return node;
-  }
-
-  inline Node operator<<(const Token& type, Node node)
-  {
-    auto node1 = NodeDef::create(type);
-    return node1 << node;
-  }
-
-  inline Node operator<<(const Token& type, NodeRange range)
-  {
-    auto node = NodeDef::create(type);
-    return node << range;
-  }
-
-  inline Node
-  operator<<(const Token& type, detail::RangeContents range_contents)
-  {
-    auto node = NodeDef::create(type);
-    return node << range_contents;
-  }
-
-  inline Node operator<<(const Token& type, detail::RangeOr range_or)
-  {
-    auto node = NodeDef::create(type);
-    return node << range_or;
-  }
-
-  inline Node operator<<(const Token& type1, const Token& type2)
-  {
-    auto node = NodeDef::create(type1);
-    return node << type2;
-  }
-
   inline Node operator^(const Token& type, Node node)
   {
     return NodeDef::create(type, node->location());
+  }
+
+  inline Node operator^(const Token& type, Location loc)
+  {
+    return NodeDef::create(type, loc);
   }
 
   enum class dir
@@ -776,7 +750,12 @@ namespace langkit
             // Replace [start, it) with whatever the rule builds.
             auto replace = rule.second(captures);
             it = node->erase(start, it);
-            it = node->insert(it, replace);
+
+            if (replace && replace->type() == Seq)
+              it = node->insert(it, replace->begin(), replace->end());
+            else
+              it = node->insert(it, replace);
+
             captures.bind();
             replaced = true;
             changes++;

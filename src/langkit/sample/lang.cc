@@ -180,13 +180,13 @@ namespace verona::lang
         "'[^']*'" >> [](auto& m) { m.add(Char); },
 
         // Line comment.
-        "//[^\n]*" >> [](auto& m) { m.add(Comment); },
+        "//[^\n]*" >> [](auto& m) {},
 
         // Nested comment.
         "/\\*" >>
-          [](auto& m) {
+          [depth](auto& m) {
+            ++(*depth);
             m.mode("comment");
-            m.add(Comment);
           },
 
         // Keywords.
@@ -229,32 +229,26 @@ namespace verona::lang
 
     p("comment",
       {
-        "[\\s\\S]*/\\*" >> [depth](auto& m) { (*depth)++; },
-        "[\\s\\S]*\\*/" >>
+        "(?:[^\\*]|\\*(?!/))*/\\*" >> [depth](auto& m) { ++(*depth); },
+        "(?:[^/]|/(?!\\*))*\\*/" >>
           [depth](auto& m) {
-            if ((*depth)-- == 0)
-            {
-              m.extend();
+            if (--(*depth) == 0)
               m.mode("start");
-            }
           },
       });
 
     return p;
   }
 
+  const auto ExprStruct =
+    In(Funcbody) / In(Assign) / In(Tuple) / In(Expr) / In(Term);
+  const auto TermStruct = In(Term) / In(Expr);
   const auto TypeElem = T(Type) / T(RefClass) / T(RefTypealias) /
     T(RefTypeparam) / T(TypeTuple) / T(Iso) / T(Imm) / T(Mut) / T(TypeView) /
     T(TypeFunc) / T(TypeThrow) / T(TypeIsect) / T(TypeUnion) / T(DontCare);
   const auto Name = T(Ident) / T(Symbol);
   const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) / T(Hex) /
     T(Bin) / T(Int) / T(Float) / T(HexFloat);
-  const auto Object = Literal / T(RefVar) / T(RefLet) / T(RefParam) / T(Tuple) /
-    T(Lambda) / T(Call) / T(Oftype) / T(Expr) / T(DontCare);
-  const auto Operator = T(RefFunction) / T(Selector);
-  const auto InExpr =
-    In(Funcbody) / In(Assign) / In(Tuple) / In(Expr) / In(Call);
-  const auto TypeOrExpr = In(Type) / InExpr;
 
   inline constexpr auto wf = wellformed(
     shape(Package, field(id, String, Escaped)),
@@ -427,17 +421,13 @@ namespace verona::lang
 
     list inside Typeparams or Typeargs along with groups or other lists
     = in an initializer
-    type compaction?
     lookup
       isect: lookup in lhs and rhs
     well-formedness for errors
-    error on too many typeargs
-    recursive typealiases?
-      typeexpr aren't done by the time we look up typealiases
+      error on too many typeargs
 
     DNF algebraic types
     right associative function and viewpoint types
-    ANF
     type checker
 
     public/private
@@ -459,7 +449,7 @@ namespace verona::lang
       T(Directory)[Directory] << (T(File)++)[File] >>
         [](auto& _) {
           auto ident = path::last(_(Directory)->location().source->origin());
-          return Group << (Class ^ _(Directory)) << Ident(ident)
+          return Group << (Class ^ _(Directory)) << (Ident ^ ident)
                        << (Brace << *_[File]);
         },
 
@@ -468,11 +458,11 @@ namespace verona::lang
       In(Group) * T(File)[File] >>
         [](auto& _) {
           auto ident = path::last(_(File)->location().source->origin());
-          return Class(ident) << Typeparams << Type << (Classbody << *_[File]);
+          return (Class ^ ident)
+            << Typeparams << Type << (Classbody << *_[File]);
         },
 
-      // Comments and empty groups.
-      T(Comment) >> [](auto& _) -> Node { return {}; },
+      // Empty groups.
       T(Group) << End >> [](auto& _) -> Node { return {}; },
     };
   }
@@ -606,14 +596,21 @@ namespace verona::lang
         [](auto& _) { return Type << *_[Type]; },
 
       // Expression structure.
-      InExpr * T(Group)[Expr] >> [](auto& _) { return Expr << *_[Expr]; },
-      InExpr * T(List)[Tuple] >> [](auto& _) { return Tuple << *_[Tuple]; },
-      InExpr * T(Equals)[Assign] >>
+      ExprStruct * T(Group)[Expr] >> [](auto& _) { return Expr << *_[Expr]; },
+      ExprStruct * T(List)[Tuple] >> [](auto& _) { return Tuple << *_[Tuple]; },
+      ExprStruct * T(Equals)[Assign] >>
         [](auto& _) { return Assign << *_[Assign]; },
-      InExpr * T(Paren)[Expr] >> [](auto& _) { return Expr << *_[Expr]; },
-      T(Expr) << (T(Tuple)[Tuple] * End) >> [](auto& _) { return _(Tuple); },
+      ExprStruct * T(Paren)[Term] >> [](auto& _) { return Term << *_[Term]; },
 
-      TypeOrExpr * T(Square)[Typeargs] >>
+      // Term compaction.
+      T(Term) << ((T(Term) / T(Tuple) / T(Assign))[op] * End) >>
+        [](auto& _) { return _(op); },
+      T(Term) << (T(Expr)[Expr] * End) >>
+        [](auto& _) { return Term << *_[Expr]; },
+      T(Expr) << (T(Term)[Term] * End) >>
+        [](auto& _) { return Expr << *_[Term]; },
+
+      (In(Type) / ExprStruct) * T(Square)[Typeargs] >>
         [](auto& _) { return Typeargs << *_[Typeargs]; },
       T(Typeargs) << T(List)[Typeargs] >>
         [](auto& _) { return Typeargs << *_[Typeargs]; },
@@ -621,7 +618,7 @@ namespace verona::lang
       In(Typeargs) * T(Paren)[Type] >> [](auto& _) { return Type << *_[Type]; },
 
       // Lambda: (group typeparams) (list params...) => rhs
-      In(Expr) * T(Brace)
+      ExprStruct * T(Brace)
           << (((T(Group) << T(Square)[Typeparams]) * T(List)[Params]) *
               (T(Group) << T(FatArrow)) * (Any++)[rhs]) >>
         [](auto& _) {
@@ -630,7 +627,7 @@ namespace verona::lang
         },
 
       // Lambda: (group typeparams) (group param) => rhs
-      In(Expr) * T(Brace)
+      ExprStruct * T(Brace)
           << (((T(Group) << T(Square)[Typeparams]) * T(Group)[Param]) *
               (T(Group) << T(FatArrow)) * (Any++)[rhs]) >>
         [](auto& _) {
@@ -639,7 +636,7 @@ namespace verona::lang
         },
 
       // Lambda: (list (group typeparams? param) params...) => rhs
-      In(Expr) * T(Brace)
+      ExprStruct * T(Brace)
           << ((T(List)
                << ((T(Group) << (~T(Square)[Typeparams] * (Any++)[Param])) *
                    (Any++)[Params]))) *
@@ -651,7 +648,7 @@ namespace verona::lang
         },
 
       // Lambda: (group typeparams? param) => rhs
-      In(Expr) * T(Brace)
+      ExprStruct * T(Brace)
           << ((T(Group) << (~T(Square)[Typeparams] * (Any++)[Param])) *
               (T(Group) << T(FatArrow)) * (Any++)[rhs]) >>
         [](auto& _) {
@@ -661,21 +658,21 @@ namespace verona::lang
         },
 
       // Zero argument lambda.
-      In(Expr) * T(Brace) << (!(T(Group) << T(FatArrow)))++[Lambda] >>
+      ExprStruct * T(Brace) << (!(T(Group) << T(FatArrow)))++[Lambda] >>
         [](auto& _) {
           return Lambda << Typeparams << Params << (Funcbody << _[Lambda]);
         },
 
       // Var.
-      In(Expr) * Start * T(Var) * T(Ident)[id] >>
+      ExprStruct * Start * T(Var) * T(Ident)[id] >>
         [](auto& _) { return _(id = Var); },
 
       // Let.
-      In(Expr) * Start * T(Let) * T(Ident)[id] >>
+      ExprStruct * Start * T(Let) * T(Ident)[id] >>
         [](auto& _) { return _(id = Let); },
 
       // Throw.
-      In(Expr) * Start * T(Throw) * (Any++)[rhs] >>
+      ExprStruct * Start * T(Throw) * (Any++)[rhs] >>
         [](auto& _) { return Throw << (Expr << _[rhs]); },
     };
   }
@@ -719,19 +716,19 @@ namespace verona::lang
       dir::bottomup,
       {
         // Identifiers and symbols.
-        In(Expr) * T(Dot) * Name[id] * ~T(Typeargs)[Typeargs] >>
+        TermStruct * T(Dot) * Name[id] * ~T(Typeargs)[Typeargs] >>
           [](auto& _) {
             return DotSelector << _[id] << (_[Typeargs] | Typeargs);
           },
 
-        In(Expr) * (Name[id] * ~T(Typeargs)[Typeargs])[Type] >>
+        TermStruct * (Name[id] * ~T(Typeargs)[Typeargs])[Type] >>
           [](auto& _) {
             auto def = look(_[Type]);
             return reftype(def) << _[id] << (_[Typeargs] | Typeargs);
           },
 
         // Scoped lookup.
-        In(Expr) *
+        TermStruct *
             ((T(RefClass) / T(RefTypealias) / T(RefTypeparam) /
               T(Package))[lhs] *
              T(DoubleColon) * Name[id] * ~T(Typeargs)[Typeargs])[Type] >>
@@ -752,19 +749,25 @@ namespace verona::lang
           },
 
         // Create sugar.
-        In(Expr) * (T(RefClass) / T(RefTypeparam))[lhs] >>
+        TermStruct * (T(RefClass) / T(RefTypeparam))[lhs] >>
           [](auto& _) {
-            return Call << (RefFunction << _[lhs] << Ident(create) << Typeargs)
+            return Call << (RefFunction << _[lhs] << (Ident ^ create)
+                                        << Typeargs)
                         << Expr;
           },
       }};
   }
 
+  const auto Object = Literal / T(RefVar) / T(RefLet) / T(RefParam) / T(Tuple) /
+    T(Lambda) / T(Call) / T(Term) / T(Assign) / T(DontCare);
+  const auto Operator = T(RefFunction) / T(Selector);
+
   Pass typeassert()
   {
     return {
       // Type assertions for operators.
-      T(Expr) << (Operator[op] * T(Type)[Type] * End) >>
+      // TODO: is it ok to just append the type?
+      T(Term) << (Operator[op] * T(Type)[Type] * End) >>
         [](auto& _) { return _(op) << _[Type]; },
     };
   }
@@ -773,10 +776,10 @@ namespace verona::lang
   {
     return {
       // Dot: reverse application.
-      In(Expr) * Object[lhs] * T(Dot) * Any[rhs] >>
+      TermStruct * Object[lhs] * T(Dot) * Any[rhs] >>
         [](auto& _) { return Call << _[rhs] << _[lhs]; },
 
-      In(Expr) * Object[lhs] * T(DotSelector)[rhs] >>
+      TermStruct * Object[lhs] * T(DotSelector)[rhs] >>
         [](auto& _) { return Call << (Selector << *_[rhs]) << _[lhs]; },
     };
   }
@@ -785,34 +788,54 @@ namespace verona::lang
   {
     return {
       // Adjacency: application.
-      In(Expr) * Object[lhs] * Object[rhs] >>
+      TermStruct * Object[lhs] * Object[rhs] >>
         [](auto& _) { return Call << _[lhs] << _[rhs]; },
 
       // Prefix.
-      In(Expr) * Operator[op] * Object[rhs] >>
+      TermStruct * Operator[op] * Object[rhs] >>
         [](auto& _) { return Call << _[op] << _[rhs]; },
 
       // Infix.
-      In(Expr) * T(Tuple)[lhs] * Operator[op] * T(Tuple)[rhs] >>
+      TermStruct * T(Tuple)[lhs] * Operator[op] * T(Tuple)[rhs] >>
         [](auto& _) { return Call << _[op] << (Tuple << *_[lhs] << *_[rhs]); },
-      In(Expr) * T(Tuple)[lhs] * Operator[op] * Object[rhs] >>
+      TermStruct * T(Tuple)[lhs] * Operator[op] * Object[rhs] >>
         [](auto& _) { return Call << _[op] << (Tuple << *_[lhs] << _[rhs]); },
-      In(Expr) * Object[lhs] * Operator[op] * T(Tuple)[rhs] >>
+      TermStruct * Object[lhs] * Operator[op] * T(Tuple)[rhs] >>
         [](auto& _) { return Call << _[op] << (Tuple << _[lhs] << *_[rhs]); },
-      In(Expr) * Object[lhs] * Operator[op] * Object[rhs] >>
+      TermStruct * Object[lhs] * Operator[op] * Object[rhs] >>
         [](auto& _) { return Call << _[op] << (Tuple << _[lhs] << _[rhs]); },
 
-      // Type assertions.
-      T(Expr) << (Object[lhs] * T(Type)[rhs] * End) >>
-        [](auto& _) { return Oftype << _[lhs] << _[rhs]; },
+      // Term compaction.
+      T(Term) << (Any[op] * End) >> [](auto& _) { return _(op); },
     };
   }
 
-  Pass compaction()
+  const auto InContainer =
+    In(Expr) / In(Term) / In(Tuple) / In(Assign) / In(Call);
+  const auto Container =
+    T(Expr) / T(Term) / T(Tuple) / T(Assign) / T(Call) / T(Lift);
+  const auto LiftExpr = T(Term) / T(Lambda) / T(Call) / T(Assign);
+
+  Pass anf()
   {
     return {
-      // Expression compaction.
-      InExpr * T(Expr) << (Any[lhs] * End) >> [](auto& _) { return _(lhs); },
+      InContainer * LiftExpr[Lift] >>
+        [](auto& _) {
+          auto e = _(Lift);
+          auto id = e->fresh();
+          return Lift << _(id = Let) << e
+                      << (RefLet << (Ident ^ id) << Typeargs);
+        },
+
+      Container[op]
+          << (((!T(Lift))++)[lhs] *
+              (T(Lift) << ((T(Let) * Any)[Let] * ~T(RefLet)[RefLet] * End)) *
+              (Any++)[rhs]) >>
+        [](auto& _) {
+          // Pull the lift out of the container, leaving the reflet behind.
+          return Seq << (Lift << _[Let])
+                     << (_(op)->type() << _[lhs] << _[RefLet] << _[rhs]);
+        },
     };
   }
 
@@ -828,10 +851,9 @@ namespace verona::lang
         {"reftype", reftype()},
         {"refexpr", refexpr()},
         {"typeassert", typeassert()},
-        {"compaction", compaction()},
         {"reverseapp", reverseapp()},
         {"application", application()},
-        {"compaction", compaction()},
+        {"anf", anf()},
       });
 
     return d;

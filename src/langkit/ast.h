@@ -25,11 +25,6 @@ namespace langkit
     return out;
   }
 
-  class NodeDef;
-  using Node = std::shared_ptr<NodeDef>;
-  using NodeIt = std::vector<Node>::iterator;
-  using NodeRange = std::pair<NodeIt, NodeIt>;
-
   class SymtabDef
   {
     friend class NodeDef;
@@ -62,6 +57,9 @@ namespace langkit
     constexpr Index(const Token& type, size_t index) : type(type), index(index)
     {}
   };
+
+  using NodeIt = std::vector<Node>::iterator;
+  using NodeRange = std::pair<NodeIt, NodeIt>;
 
   class NodeDef : public std::enable_shared_from_this<NodeDef>
   {
@@ -244,6 +242,17 @@ namespace langkit
       return children.insert(pos, node);
     }
 
+    NodeIt insert(NodeIt pos, NodeIt first, NodeIt last)
+    {
+      if (first == last)
+        return pos;
+
+      for (auto it = first; it != last; ++it)
+        (*it)->parent_ = this;
+
+      return children.insert(pos, first, last);
+    }
+
     Node scope()
     {
       auto p = parent_;
@@ -404,6 +413,16 @@ namespace langkit
       st->symtab_->includes.emplace_back(location_, target);
     }
 
+    Location fresh()
+    {
+      auto st = scope();
+
+      if (!st)
+        throw std::runtime_error("No symbol table");
+
+      return st->symtab_->fresh();
+    }
+
     std::string str(size_t level = 0)
     {
       std::stringstream ss;
@@ -423,14 +442,14 @@ namespace langkit
     }
   };
 
+  inline TokenDef::operator Node() const
+  {
+    return NodeDef::create(Token(*this));
+  }
+
   inline Token::operator Node() const
   {
     return NodeDef::create(*this);
-  }
-
-  inline Node Token::operator()(Location loc) const
-  {
-    return NodeDef::create(*this, loc);
   }
 
   inline std::string SymtabDef::str(size_t level)

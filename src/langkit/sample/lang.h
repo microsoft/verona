@@ -9,7 +9,6 @@ namespace verona::lang
   using namespace langkit;
 
   // Parsing structure.
-  inline constexpr auto Comment = TokenDef("comment");
   inline constexpr auto Paren = TokenDef("paren");
   inline constexpr auto Square = TokenDef("square");
   inline constexpr auto Brace = TokenDef("brace");
@@ -76,6 +75,7 @@ namespace verona::lang
 
   // Expression structure.
   inline constexpr auto Expr = TokenDef("expr");
+  inline constexpr auto Term = TokenDef("term");
   inline constexpr auto Typeargs = TokenDef("typeargs");
   inline constexpr auto Lambda =
     TokenDef("lambda", flag::symtab | flag::defbeforeuse);
@@ -91,8 +91,8 @@ namespace verona::lang
   inline constexpr auto Selector = TokenDef("selector");
   inline constexpr auto DotSelector = TokenDef("dotselector");
   inline constexpr auto Call = TokenDef("call");
-  inline constexpr auto Oftype = TokenDef("oftype");
   inline constexpr auto Include = TokenDef("include");
+  inline constexpr auto Lift = TokenDef("lift");
 
   // Indexing names.
   inline constexpr auto Bounds = TokenDef("bounds");
