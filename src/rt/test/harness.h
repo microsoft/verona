@@ -12,7 +12,7 @@ using namespace verona::rt;
 using namespace verona::rt::api;
 using namespace std::chrono;
 
-extern "C" void dump_flight_recorder()
+extern "C" inline void dump_flight_recorder()
 {
   Logging::SysLog::dump_flight_recorder();
 }
@@ -28,7 +28,7 @@ extern "C" void dump_flight_recorder()
 /**
  * Implements a busy loop that spins for the specified number of microseconds.
  */
-void busy_loop(size_t u_sec)
+inline void busy_loop(size_t u_sec)
 {
   auto wait = [](size_t step_u_sec) {
     std::chrono::microseconds usec(step_u_sec);
@@ -85,7 +85,11 @@ public:
       std::cout << " " << argv[i];
     }
 
+#ifdef USE_SYSTEMATIC_TESTING
+    size_t count = opt.is<size_t>("--seed_count", 100);
+#else
     size_t count = opt.is<size_t>("--seed_count", 1);
+#endif
 
     // Detect if seed supplied.  If not, then generate a seed, and add to
     // command line print out.
