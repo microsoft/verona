@@ -423,6 +423,17 @@ namespace langkit
       return st->symtab_->fresh();
     }
 
+    Node clone()
+    {
+      // This doesn't preserve the symbol table.
+      auto node = create(type_, location_);
+
+      for (auto& child : children)
+        node->push_back(child->clone());
+
+      return node;
+    }
+
     std::string str(size_t level = 0)
     {
       std::stringstream ss;

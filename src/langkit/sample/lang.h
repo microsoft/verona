@@ -65,6 +65,7 @@ namespace verona::lang
 
   // Type structure.
   inline constexpr auto Type = TokenDef("type");
+  inline constexpr auto TypeTerm = TokenDef("typeterm");
   inline constexpr auto TypeTuple = TokenDef("typetuple");
   inline constexpr auto TypeView = TokenDef("typeview");
   inline constexpr auto TypeFunc = TokenDef("typefunc");

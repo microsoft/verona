@@ -545,7 +545,7 @@ namespace langkit
         return {std::make_shared<Opt>(pattern)};
       }
 
-      Pattern operator-() const
+      Pattern operator++() const
       {
         return {std::make_shared<Pred>(pattern)};
       }
@@ -669,6 +669,12 @@ namespace langkit
     return node;
   }
 
+  inline Node operator<<(Node node, std::vector<Node> range)
+  {
+    node->push_back({range.begin(), range.end()});
+    return node;
+  }
+
   inline Node operator^(const Token& type, Node node)
   {
     return NodeDef::create(type, node->location());
@@ -677,6 +683,22 @@ namespace langkit
   inline Node operator^(const Token& type, Location loc)
   {
     return NodeDef::create(type, loc);
+  }
+
+  inline Node clone(Node node)
+  {
+    return node->clone();
+  }
+
+  inline std::vector<Node> clone(NodeRange range)
+  {
+    std::vector<Node> nodes;
+    nodes.reserve(std::distance(range.first, range.second));
+
+    for (auto it = range.first; it != range.second; ++it)
+      nodes.push_back((*it)->clone());
+
+    return nodes;
   }
 
   enum class dir

@@ -243,9 +243,7 @@ namespace verona::lang
   const auto ExprStruct =
     In(Funcbody) / In(Assign) / In(Tuple) / In(Expr) / In(Term);
   const auto TermStruct = In(Term) / In(Expr);
-  const auto TypeElem = T(Type) / T(RefClass) / T(RefTypealias) /
-    T(RefTypeparam) / T(TypeTuple) / T(Iso) / T(Imm) / T(Mut) / T(TypeView) /
-    T(TypeFunc) / T(TypeThrow) / T(TypeIsect) / T(TypeUnion) / T(DontCare);
+  const auto TypeStruct = In(Type) / In(TypeTerm) / In(TypeTuple);
   const auto Name = T(Ident) / T(Symbol);
   const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) / T(Hex) /
     T(Bin) / T(Int) / T(Float) / T(HexFloat);
@@ -426,12 +424,10 @@ namespace verona::lang
     well-formedness for errors
       error on too many typeargs
 
-    DNF algebraic types
-    right associative function and viewpoint types
     type checker
 
     public/private
-    interface
+    interface as { ... }
     param: values as parameters for pattern matching
       named parameters
         (group ident type)
@@ -587,13 +583,12 @@ namespace verona::lang
         },
 
       // Type structure.
-      In(Type) * T(Group)[Type] >> [](auto& _) { return Type << *_[Type]; },
-      In(Type) * T(List)[TypeTuple] >>
+      TypeStruct * T(Group)[TypeTerm] >>
+        [](auto& _) { return TypeTerm << *_[TypeTerm]; },
+      TypeStruct * T(List)[TypeTuple] >>
         [](auto& _) { return TypeTuple << *_[TypeTuple]; },
-      In(Type) * T(Paren)[Type] >> [](auto& _) { return Type << *_[Type]; },
-
-      In(TypeTuple) * T(Group)[Type] >>
-        [](auto& _) { return Type << *_[Type]; },
+      TypeStruct * T(Paren)[TypeTerm] >>
+        [](auto& _) { return TypeTerm << *_[TypeTerm]; },
 
       // Expression structure.
       ExprStruct * T(Group)[Expr] >> [](auto& _) { return Expr << *_[Expr]; },
@@ -682,13 +677,13 @@ namespace verona::lang
     return {
       dir::bottomup,
       {
-        In(Type) * (T(Ident)[id] * ~T(Typeargs)[Typeargs])[Type] >>
+        TypeStruct * (T(Ident)[id] * ~T(Typeargs)[Typeargs])[Type] >>
           [](auto& _) {
             auto def = look(_[Type]);
             return reftype(def) << _[id] << (_[Typeargs] | Typeargs);
           },
 
-        In(Type) *
+        TypeStruct *
             ((T(RefClass) / T(RefTypealias) / T(RefTypeparam) /
               T(Package))[lhs] *
              T(DoubleColon) * T(Ident)[id] * ~T(Typeargs)[Typeargs])[Type] >>
@@ -696,18 +691,50 @@ namespace verona::lang
             auto def = look(_[Type]);
             return reftype(def) << _[lhs] << _[id] << (_[Typeargs] | Typeargs);
           },
-
-        In(Type) * TypeElem[lhs] * T(Symbol, "~>") * TypeElem[rhs] >>
-          [](auto& _) { return TypeView << _[lhs] << _[rhs]; },
-        In(Type) * TypeElem[lhs] * T(Symbol, "->") * TypeElem[rhs] >>
-          [](auto& _) { return TypeFunc << _[lhs] << _[rhs]; },
-        In(Type) * TypeElem[lhs] * T(Symbol, "&") * TypeElem[rhs] >>
-          [](auto& _) { return TypeIsect << _[lhs] << _[rhs]; },
-        In(Type) * TypeElem[lhs] * T(Symbol, "\\|") * TypeElem[rhs] >>
-          [](auto& _) { return TypeUnion << _[lhs] << _[rhs]; },
-        In(Type) * T(Throw) * TypeElem[rhs] >>
-          [](auto& _) { return TypeThrow << _[rhs]; },
       }};
+  }
+
+  const auto TypeElem = T(TypeTerm) / T(RefClass) / T(RefTypealias) /
+    T(RefTypeparam) / T(TypeTuple) / T(Iso) / T(Imm) / T(Mut) / T(TypeView) /
+    T(TypeFunc) / T(TypeThrow) / T(TypeIsect) / T(TypeUnion) / T(DontCare);
+
+  Pass typeexpr()
+  {
+    return {
+      TypeStruct * TypeElem[lhs] * T(Symbol, "~>") * TypeElem[rhs] *
+          --T(Symbol, "~>") >>
+        [](auto& _) { return TypeView << _[lhs] << _[rhs]; },
+      TypeStruct * TypeElem[lhs] * T(Symbol, "->") * TypeElem[rhs] *
+          --T(Symbol, "->") >>
+        [](auto& _) { return TypeFunc << _[lhs] << _[rhs]; },
+    };
+  }
+
+  Pass typealg()
+  {
+    return {
+      TypeStruct * TypeElem[lhs] * T(Symbol, "&") * TypeElem[rhs] >>
+        [](auto& _) { return TypeIsect << _[lhs] << _[rhs]; },
+      TypeStruct * TypeElem[lhs] * T(Symbol, "\\|") * TypeElem[rhs] >>
+        [](auto& _) { return TypeUnion << _[lhs] << _[rhs]; },
+      TypeStruct * T(Throw) * TypeElem[rhs] >>
+        [](auto& _) { return TypeThrow << _[rhs]; },
+      T(TypeTerm) << (TypeElem[op] * End) >> [](auto& _) { return _(op); },
+    };
+  }
+
+  Pass dnf()
+  {
+    return {
+      T(TypeIsect)
+          << (((!T(TypeUnion))++)[lhs] * T(TypeUnion)[op] * (Any++)[rhs]) >>
+        [](auto& _) {
+          Node r = TypeUnion;
+          for (auto& child : *_(op))
+            r << (TypeIsect << clone(child) << clone(_[lhs]) << clone(_[rhs]));
+          return r;
+        },
+    };
   }
 
   Pass refexpr()
@@ -715,6 +742,12 @@ namespace verona::lang
     return {
       dir::bottomup,
       {
+        // Flatten algebraic types.
+        In(TypeUnion) * T(TypeUnion)[lhs] >>
+          [](auto& _) { return Seq << *_[lhs]; },
+        In(TypeIsect) * T(TypeIsect)[lhs] >>
+          [](auto& _) { return Seq << *_[lhs]; },
+
         // Identifiers and symbols.
         TermStruct * T(Dot) * Name[id] * ~T(Typeargs)[Typeargs] >>
           [](auto& _) {
@@ -849,6 +882,9 @@ namespace verona::lang
         {"types", types()},
         {"structure", structure()},
         {"reftype", reftype()},
+        {"typeexpr", typeexpr()},
+        {"typealg", typealg()},
+        {"dnf", dnf()},
         {"refexpr", refexpr()},
         {"typeassert", typeassert()},
         {"reverseapp", reverseapp()},
