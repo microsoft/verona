@@ -73,6 +73,7 @@ namespace verona::lang
   inline constexpr auto TypeIsect = TokenDef("typeisect");
   inline constexpr auto TypeUnion = TokenDef("typeunion");
   inline constexpr auto TypeVar = TokenDef("typevar");
+  inline constexpr auto TypeTrait = TokenDef("typetrait", flag::symtab);
 
   // Expression structure.
   inline constexpr auto Expr = TokenDef("expr");

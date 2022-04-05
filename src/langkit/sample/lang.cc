@@ -420,14 +420,13 @@ namespace verona::lang
     list inside Typeparams or Typeargs along with groups or other lists
     = in an initializer
     lookup
-      isect: lookup in lhs and rhs
+      isect: lookup in lhs and rhs?
     well-formedness for errors
       error on too many typeargs
 
     type checker
 
     public/private
-    interface as { ... }
     param: values as parameters for pattern matching
       named parameters
         (group ident type)
@@ -457,9 +456,6 @@ namespace verona::lang
           return (Class ^ ident)
             << Typeparams << Type << (Classbody << *_[File]);
         },
-
-      // Empty groups.
-      T(Group) << End >> [](auto& _) -> Node { return {}; },
     };
   }
 
@@ -508,12 +504,14 @@ namespace verona::lang
       // Function.
       In(Classbody) * T(Group)
           << (~Name[id] * ~T(Square)[Typeparams] * T(Paren)[Params] *
-              ~T(Type)[Type] * ~T(Brace)[Funcbody] * End) >>
+              ~T(Type)[Type] * ~T(Brace)[Funcbody] * (Any++)[rhs]) >>
         [](auto& _) {
           _.def(id, apply);
-          return _(id = Function)
-            << (Typeparams << *_[Typeparams]) << (Params << *_[Params])
-            << (_[Type] | Type) << (Funcbody << *_[Funcbody]);
+          return Seq << (_(id = Function)
+                         << (Typeparams << *_[Typeparams])
+                         << (Params << *_[Params]) << (_[Type] | Type)
+                         << (Funcbody << *_[Funcbody]))
+                     << (Group << _[rhs]);
         },
 
       // Typeparams.
@@ -575,11 +573,12 @@ namespace verona::lang
       // Class.
       T(Group)
           << (T(Class) * T(Ident)[id] * ~T(Square)[Typeparams] *
-              ~T(Type)[Type] * T(Brace)[Classbody] * End) >>
+              ~T(Type)[Type] * T(Brace)[Classbody] * (Any++)[rhs]) >>
         [](auto& _) {
-          return _(id = Class)
-            << (Typeparams << *_[Typeparams]) << (_[Type] | Type)
-            << (Classbody << *_[Classbody]);
+          return Seq << (_(id = Class)
+                         << (Typeparams << *_[Typeparams]) << (_[Type] | Type)
+                         << (Classbody << *_[Classbody]))
+                     << (Group << _[rhs]);
         },
 
       // Type structure.
@@ -589,6 +588,10 @@ namespace verona::lang
         [](auto& _) { return TypeTuple << *_[TypeTuple]; },
       TypeStruct * T(Paren)[TypeTerm] >>
         [](auto& _) { return TypeTerm << *_[TypeTerm]; },
+
+      // Interfaces.
+      TypeStruct * T(Brace)[Classbody] >>
+        [](auto& _) { return TypeTrait << (Classbody << *_[Classbody]); },
 
       // Expression structure.
       ExprStruct * T(Group)[Expr] >> [](auto& _) { return Expr << *_[Expr]; },
@@ -669,6 +672,9 @@ namespace verona::lang
       // Throw.
       ExprStruct * Start * T(Throw) * (Any++)[rhs] >>
         [](auto& _) { return Throw << (Expr << _[rhs]); },
+
+      // Empty groups.
+      T(Group) << End >> [](auto& _) -> Node { return {}; },
     };
   }
 
@@ -696,7 +702,8 @@ namespace verona::lang
 
   const auto TypeElem = T(TypeTerm) / T(RefClass) / T(RefTypealias) /
     T(RefTypeparam) / T(TypeTuple) / T(Iso) / T(Imm) / T(Mut) / T(TypeView) /
-    T(TypeFunc) / T(TypeThrow) / T(TypeIsect) / T(TypeUnion) / T(DontCare);
+    T(TypeFunc) / T(TypeThrow) / T(TypeIsect) / T(TypeUnion) / T(TypeVar) /
+    T(TypeTrait) / T(DontCare);
 
   Pass typeexpr()
   {
