@@ -3,6 +3,7 @@
 #include <ds/scramble.h>
 #include <memory>
 #include <test/harness.h>
+#include <test/when.h>
 
 /**
  * This file implements the following program:
@@ -45,65 +46,47 @@ void setup_accounts()
   }
 }
 
-void log(Log* log, const char* msg)
+void log(Log* log, std::string msg)
 {
-  verona::rt::schedule_lambda(log, [=]() { std::cout << msg << std::endl; });
+  when(log) << [=](Log*) { std::cout << msg << std::endl; };
 }
 
-void spin_time()
+void bank_job(Bank* bank, Log* l, int repeats)
 {
-  // Busy loop for more accurate experiment duration predictions
-  std::chrono::microseconds usec(500);
-  auto end = std::chrono::system_clock::now() + usec;
-
-  // spin
-  while (std::chrono::system_clock::now() < end)
-    snmalloc::Aal::pause();
-}
-
-void transfer(Account* from, Account* to, int64_t amount, Log* l)
-{
-  spin_time();
-
-  if ((from->balance + from->overdraft) < amount)
-  {
-    log(l, "Insufficient funds");
-    return;
-  }
-  else
-  {
-    from->balance -= amount;
-    to->balance += amount;
-    log(l, "Success");
-  }
-}
-
-void bank_job(Bank* bank, Log* log, int repeats)
-{
+  assert(bank != nullptr);
   for (size_t i = 0; i < OPERATIONS; i++)
   {
     // Select two accounts at random.
-    Cown* cowns[2];
     auto from_idx = bank->rand.next() % accounts.size();
     auto to_idx = bank->rand.next() % accounts.size();
     // Runtime currently doesn't deduplicate cown acquisitions, so this leads to
     // deadlock if the two accounts are the same.
-    if (to_idx == from_idx) continue;
-    cowns[0] = accounts[from_idx];
-    cowns[1] = accounts[to_idx];
+    if (to_idx == from_idx)
+      continue;
     // Schedule a transfer
-    verona::rt::schedule_lambda(2, cowns, [=]() {
-      auto from = (Account*)cowns[0];
-      auto to = (Account*)cowns[1];
-      transfer(from, to, 100, log);
-    });
+    int64_t amount = 100;
+    when(accounts[from_idx], accounts[to_idx])
+      << [=](Account* from, Account* to) {
+           busy_loop(500);
+
+           if ((from->balance + from->overdraft) < amount)
+           {
+             log(l, "Insufficient funds");
+             return;
+           }
+           else
+           {
+             from->balance -= amount;
+             to->balance += amount;
+             log(l, "Success");
+           }
+         };
   }
 
   // Reschedule bank_job
   if (repeats > 0)
   {
-    verona::rt::schedule_lambda(
-      bank, [=]() { bank_job(bank, log, repeats - 1); });
+    when(bank) << [=](Bank* bank) { bank_job(bank, l, repeats - 1); };
   }
   else
   {
@@ -119,11 +102,11 @@ void test_body()
   for (size_t j = 0; j < NUM_BANKS; j++)
   {
     auto b = new Bank;
-    // Give each bank a different random seed,
+    // Give each bank a different random seed
     // so they all do different transactions.
-    b->rand.set_state(j+1);
+    b->rand.set_state(j + 1);
 
-    verona::rt::schedule_lambda(b, [=]() { bank_job(b, log, 10); });
+    when(b) << [=](Bank* b) { bank_job(b, log, 10); };
   }
 }
 

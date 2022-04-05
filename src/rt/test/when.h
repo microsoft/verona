@@ -22,7 +22,7 @@ template<typename... Args>
 class When
 {
   template<typename... Args2>
-  friend When<Args2...> when(Args2&&... args);
+  friend When<Args2...> when(Args2... args);
 
   std::tuple<Args...> cown_tuple;
 
@@ -32,7 +32,7 @@ class When
    * The index template parameter is used to perform each the assignment for
    * each index.
    */
-  template<size_t index>
+  template<size_t index = 0>
   void array_assign(Cown** array)
   {
     if constexpr (index >= sizeof...(Args))
@@ -41,13 +41,15 @@ class When
     }
     else
     {
-      array[index] = std::get<index>(cown_tuple);
+      auto p = std::get<index>(cown_tuple);
+      assert(p != nullptr);
+      array[index] = p;
       array_assign<index + 1>(array);
     }
   }
 
   template<typename... Ts>
-  When(Ts&&... args) : cown_tuple(std::forward<Ts>(args)...)
+  When(Ts... args) : cown_tuple(args...)
   {}
 
 public:
@@ -55,7 +57,7 @@ public:
   void operator<<(F&& f)
   {
     verona::rt::Cown* cowns[sizeof...(Args)];
-    array_assign<0>(cowns);
+    array_assign(cowns);
 
     verona::rt::schedule_lambda(
       sizeof...(Args),
@@ -72,7 +74,7 @@ public:
  * Uses `<<` to apply the closure.
  */
 template<typename... Args>
-When<Args...> when(Args&&... args)
+When<Args...> when(Args... args)
 {
-  return When<Args...>(std::forward<Args>(args)...);
+  return When<Args...>(args...);
 }
