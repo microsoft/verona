@@ -3,7 +3,7 @@
 #pragma once
 
 #include <cassert>
-#include <snmalloc.h>
+#include <snmalloc/snmalloc.h>
 
 namespace verona::rt
 {

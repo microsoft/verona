@@ -30,7 +30,7 @@ extern "C"
 #  endif
 #endif
 
-#include <snmalloc.h>
+#include <snmalloc/snmalloc.h>
 
 namespace verona::rt
 {

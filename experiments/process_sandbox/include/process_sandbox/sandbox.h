@@ -20,7 +20,7 @@
 #include "platform/platform.h"
 #include "sandbox_fd_numbers.h"
 
-#include <snmalloc.h>
+#include <snmalloc/snmalloc_core.h>
 
 namespace sandbox
 {
@@ -288,7 +288,7 @@ namespace sandbox
        */
       bool contains(const void* ptr, size_t sz)
       {
-        return (ptr >= base) && (pointer_diff(ptr, (void*)top) >= sz);
+        return (ptr >= base) && (pointer_diff(ptr, top) >= sz);
       }
 
       /**
@@ -302,7 +302,7 @@ namespace sandbox
       /**
        * Return the top of the sandbox.
        */
-      void* get_base()
+      void* base_address()
       {
         return base;
       }

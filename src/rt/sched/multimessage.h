@@ -6,7 +6,7 @@
 #include "../object/object.h"
 #include "behaviour.h"
 
-#include <snmalloc.h>
+#include <snmalloc/snmalloc.h>
 
 namespace verona::rt
 {

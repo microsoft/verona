@@ -21,7 +21,7 @@
 
 #include <iomanip>
 #include <iostream>
-#include <snmalloc.h>
+#include <snmalloc/snmalloc.h>
 #include <sstream>
 
 namespace Logging

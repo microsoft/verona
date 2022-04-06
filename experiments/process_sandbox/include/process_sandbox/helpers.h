@@ -98,7 +98,7 @@ namespace sandbox
 }
 #endif
 #include <fmt/format.h>
-#include <pal/pal.h>
+#include <snmalloc/pal/pal.h>
 
 namespace sandbox
 {

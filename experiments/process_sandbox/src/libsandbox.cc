@@ -703,7 +703,7 @@ namespace sandbox
     {
       auto [g, pm] = SharedAllocConfig::Pagemap::get_pagemap_writeable();
       snmalloc::address_t base =
-        snmalloc::address_cast(memory_provider.get_base());
+        snmalloc::address_cast(memory_provider.base_address());
       auto top = snmalloc::address_cast(memory_provider.top_address());
       SharedAllocConfig::Pagemap::Entry empty{nullptr, 0};
       // Scan the pagemap for all memory associated with this and deallocate

@@ -6,7 +6,7 @@
 #include "ds/hashmap.h"
 #include "immutable.h"
 
-#include <snmalloc.h>
+#include <snmalloc/snmalloc.h>
 
 namespace verona::rt
 {

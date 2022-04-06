@@ -4,7 +4,7 @@
 
 #include "../object/object.h"
 
-#include <snmalloc.h>
+#include <snmalloc/snmalloc.h>
 
 namespace verona::rt
 {

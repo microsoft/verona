@@ -7,13 +7,9 @@
 #endif
 #define SNMALLOC_PLATFORM_HAS_GETENTROPY 1
 #define SNMALLOC_PROVIDE_OWN_CONFIG 1
-#include <backend/buddy.h>
-#include <backend/palrange.h>
-#include <backend/smallbuddyrange.h>
-#include <mem/allocconfig.h>
 #include <process_sandbox/helpers.h>
 #include <process_sandbox/sandbox_fd_numbers.h>
-#include <snmalloc_core.h>
+#include <snmalloc/snmalloc_core.h>
 
 namespace snmalloc
 {
@@ -245,4 +241,4 @@ namespace snmalloc
   using Alloc = LocalAllocator<sandbox::SnmallocGlobals>;
 }
 
-#include <override/malloc.cc>
+#include <snmalloc/override/malloc.cc>
