@@ -66,7 +66,7 @@ namespace langkit
         {
           size_t count;
           size_t changes;
-          std::tie(ast, count, changes) = pass.repeat(ast);
+          std::tie(ast, count, changes) = pass->repeat(ast);
 
           if (diag)
           {

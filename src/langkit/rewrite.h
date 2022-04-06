@@ -10,52 +10,22 @@
 
 namespace langkit
 {
-  class Pass;
-  class Lookup;
+  class PassDef;
 
   namespace detail
   {
-    class ILookup;
-
-    struct BindLookup
-    {
-      const ILookup& lookup;
-      Token type;
-    };
-
-    class ILookup
-    {
-    public:
-      virtual Node start(NodeRange range) const
-      {
-        return {};
-      }
-
-      virtual Node run(NodeRange range) const
-      {
-        return {};
-      }
-    };
-
     class Capture
     {
-      friend class langkit::Pass;
-      friend class langkit::Lookup;
+      friend class langkit::PassDef;
 
     private:
       std::map<Token, NodeRange> captures;
       std::map<Token, Location> defaults;
       std::map<Location, Node> bindings;
       std::vector<std::pair<Node, Node>> includes;
-      const ILookup* lookup_ = nullptr;
 
     public:
       Capture() = default;
-
-      Capture(const Capture& that)
-      {
-        lookup_ = that.lookup_;
-      }
 
       NodeRange& operator[](const Token& token)
       {
@@ -94,38 +64,18 @@ namespace langkit
         return site;
       }
 
-      Node find(const TokenDef& token)
-      {
-        return find(Token(token));
-      }
-
-      Node find(const Token& token)
-      {
-        if (!lookup_)
-          return {};
-
-        auto it = captures.find(token);
-        if (it == captures.end())
-          return {};
-
-        return lookup_->run(it->second);
-      }
-
-      Node find(Node node)
-      {
-        if (!lookup_ || !node)
-          return {};
-
-        auto v = std::vector<Node>{node};
-        return lookup_->run({v.begin(), v.end()});
-      }
-
       void operator+=(const Capture& that)
       {
         captures.insert(that.captures.begin(), that.captures.end());
         bindings.insert(that.bindings.begin(), that.bindings.end());
         defaults.insert(that.defaults.begin(), that.defaults.end());
-        lookup_ = that.lookup_;
+      }
+
+      void clear()
+      {
+        captures.clear();
+        bindings.clear();
+        defaults.clear();
       }
 
     private:
@@ -139,13 +89,6 @@ namespace langkit
           throw std::runtime_error("Can only bind to a single node");
         else
           return (*range.first)->location();
-      }
-
-      void clear()
-      {
-        captures.clear();
-        bindings.clear();
-        defaults.clear();
       }
 
       void bind()
@@ -224,39 +167,6 @@ namespace langkit
           return false;
 
         ++it;
-        return true;
-      }
-    };
-
-    class LookupMatch : public PatternDef
-    {
-    private:
-      PatternPtr pattern;
-      Token lookup_type;
-      const ILookup& lookup;
-
-    public:
-      LookupMatch(
-        PatternPtr pattern, const Token& lookup_type, const ILookup& lookup)
-      : pattern(pattern), lookup_type(lookup_type), lookup(lookup)
-      {}
-
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
-      {
-        auto begin = it;
-        auto captures2 = captures;
-
-        if (!pattern->match(it, end, captures2))
-          return false;
-
-        auto find = lookup.start({begin, it});
-        if (!find || (find->type() != lookup_type))
-        {
-          it = begin;
-          return false;
-        }
-
-        captures += captures2;
         return true;
       }
     };
@@ -522,6 +432,14 @@ namespace langkit
       }
     };
 
+    class Pattern;
+
+    template<typename T>
+    using Effect = std::function<T(Capture&)>;
+
+    template<typename T>
+    using PatternEffect = std::pair<Pattern, Effect<T>>;
+
     class Pattern
     {
     private:
@@ -579,20 +497,7 @@ namespace langkit
       {
         return {std::make_shared<Children>(pattern, rhs.pattern)};
       }
-
-      Pattern operator()(BindLookup bind) const
-      {
-        return {std::make_shared<LookupMatch>(pattern, bind.type, bind.lookup)};
-      }
     };
-
-    using Effect = std::function<Node(Capture&)>;
-    using PatternEffect = std::pair<Pattern, Effect>;
-
-    inline PatternEffect operator>>(Pattern pattern, Effect effect)
-    {
-      return {pattern, effect};
-    }
 
     struct RangeContents
     {
@@ -604,6 +509,25 @@ namespace langkit
       NodeRange range;
       Node node;
     };
+  }
+
+  template<typename T>
+  inline detail::PatternEffect<T>
+  operator>>(detail::Pattern pattern, detail::Effect<T> effect)
+  {
+    return {pattern, effect};
+  }
+
+  inline detail::PatternEffect<Node>
+  operator>>(detail::Pattern pattern, detail::Effect<Node> effect)
+  {
+    return {pattern, effect};
+  }
+
+  inline detail::PatternEffect<bool>
+  operator>>(detail::Pattern pattern, detail::Effect<bool> effect)
+  {
+    return {pattern, effect};
   }
 
   const auto Any = detail::Pattern(std::make_shared<detail::Anything>());
@@ -707,20 +631,30 @@ namespace langkit
     topdown,
   };
 
-  class Pass
+  class PassDef;
+  using Pass = std::shared_ptr<PassDef>;
+
+  class PassDef
   {
   private:
     dir direction;
-    std::vector<detail::PatternEffect> rules;
+    std::vector<detail::PatternEffect<Node>> rules;
 
   public:
-    Pass(const std::initializer_list<detail::PatternEffect>& r)
+    PassDef(const std::initializer_list<detail::PatternEffect<Node>>& r)
     : direction(dir::topdown), rules(r)
     {}
 
-    Pass(dir direction, const std::initializer_list<detail::PatternEffect>& r)
+    PassDef(
+      dir direction,
+      const std::initializer_list<detail::PatternEffect<Node>>& r)
     : direction(direction), rules(r)
     {}
+
+    operator Pass() const
+    {
+      return std::make_shared<PassDef>(*this);
+    }
 
     std::pair<Node, size_t> run(Node node)
     {
@@ -796,36 +730,44 @@ namespace langkit
     }
   };
 
-  class Lookup : public detail::ILookup
+  template<typename T>
+  class LookupDef
   {
   public:
     using PostF = std::function<void()>;
 
   private:
     PostF post_;
-    std::vector<detail::PatternEffect> rules;
+    std::vector<detail::PatternEffect<T>> rules_;
 
   public:
-    Lookup() {}
+    LookupDef() {}
 
-    Lookup& post(PostF f)
+    void post(PostF f)
     {
       post_ = f;
-      return *this;
     }
 
-    Lookup& operator()(const std::initializer_list<detail::PatternEffect> r)
+    void rules(const std::initializer_list<detail::PatternEffect<T>> r)
     {
-      rules.insert(rules.end(), r.begin(), r.end());
-      return *this;
+      rules_.insert(rules_.end(), r.begin(), r.end());
     }
 
-    Node operator()(NodeRange range) const
+    void rule(const detail::PatternEffect<T>& r)
     {
-      return start(range);
+      rules_.push_back(r);
     }
 
-    Node start(NodeRange range) const override
+    template<typename... Ts>
+    T at(Ts... rest) const
+    {
+      std::vector<Node> nodes;
+      nodes.reserve(sizeof...(Ts));
+      (nodes.push_back(rest), ...);
+      return at({nodes.begin(), nodes.end()});
+    }
+
+    T at(NodeRange range) const
     {
       auto node = run(range);
 
@@ -835,12 +777,11 @@ namespace langkit
       return node;
     }
 
-    Node run(NodeRange range) const override
+    T run(NodeRange range) const
     {
       detail::Capture captures;
-      captures.lookup_ = this;
 
-      for (auto& rule : rules)
+      for (auto& rule : rules_)
       {
         auto it = range.first;
         captures.clear();
@@ -851,10 +792,8 @@ namespace langkit
 
       return {};
     }
-
-    detail::BindLookup operator=(const Token& type) const
-    {
-      return {*this, type};
-    }
   };
+
+  template<typename T>
+  using Lookup = std::shared_ptr<LookupDef<T>>;
 }

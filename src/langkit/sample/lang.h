@@ -4,7 +4,7 @@
 
 #include <langkit/driver.h>
 
-namespace verona::lang
+namespace sample
 {
   using namespace langkit;
 
@@ -109,5 +109,10 @@ namespace verona::lang
   const auto apply = Location("apply");
   const auto create = Location("create");
 
+  Parse parser();
+  Lookup<Node> lookup();
+  PassDef infer();
   Driver& driver();
+
+  const auto look = lookup();
 }

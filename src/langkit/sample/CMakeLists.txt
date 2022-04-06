@@ -1,8 +1,11 @@
 find_package(Threads REQUIRED)
 
 add_executable(langkit-sample
+  infer.cc
   lang.cc
+  lookup.cc
   main.cc
+  parse.cc
   )
 
 # target_link_libraries(langkit-lib

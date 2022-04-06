@@ -4,5 +4,5 @@
 
 int main(int argc, char** argv)
 {
-  return verona::lang::driver().run(argc, argv) ? 0 : -1;
+  return sample::driver().run(argc, argv) ? 0 : -1;
 }

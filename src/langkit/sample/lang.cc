@@ -1,501 +1,13 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 #include "lang.h"
 
-namespace verona::lang
+#include "wf.h"
+
+namespace sample
 {
-  constexpr size_t restart = 0;
-  const std::initializer_list<Token> terminators = {Equals, List};
-
-  Parse parser()
+  PassDef modules()
   {
-    Parse p(depth::subdirectories);
-    auto depth = std::make_shared<size_t>(0);
-    auto indent = std::make_shared<std::vector<std::pair<size_t, bool>>>();
-    indent->push_back({restart, false});
-
-    p.prefile(
-      [](auto& p, auto& path) { return path::extension(path) == "verona"; });
-
-    p.predir([](auto& p, auto& path) {
-      static auto re = std::regex(
-        ".*/[_[:alpha:]][_[:alnum:]]*/$", std::regex_constants::optimize);
-      return std::regex_match(path, re);
-    });
-
-    p.postparse([](auto& p, auto ast) {
-      auto stdlib = path::directory(path::executable()) + "std/";
-      if (ast->location().source->origin() != stdlib)
-        ast->push_back(p.parse(stdlib));
-    });
-
-    p.postfile([indent, depth](auto& p, auto ast) {
-      *depth = 0;
-      indent->clear();
-      indent->push_back({restart, false});
-    });
-
-    p("start",
-      {
-        // Blank lines terminate.
-        "\n(?:[[:blank:]]*\n)+([[:blank:]]*)" >>
-          [indent](auto& m) {
-            indent->back() = {m.match().length(1), false};
-            m.term(terminators);
-          },
-
-        // A newline that starts a brace block doesn't terminate.
-        "\n([[:blank:]]*(\\{[[:blank:]]*))" >>
-          [indent](auto& m) {
-            indent->push_back({m.match().length(1), false});
-            m.pos() += m.len() - m.match().length(2);
-            m.len() = 1;
-            m.push(Brace);
-          },
-
-        // A newline sometimes terminates.
-        "\n([[:blank:]]*)" >>
-          [indent](auto& m) {
-            auto col = m.match().length(1);
-            auto prev = indent->back().first;
-
-            // If following a brace, don't terminate, but reset indentation.
-            if (m.previous(Brace))
-            {
-              indent->back() = {col, false};
-              return;
-            }
-
-            // Set as a continuation expression and don't terminate if:
-            // * in a list
-            // * in a group and indented
-            if (
-              m.in(List) ||
-              (m.in(Group) && (col > prev) ||
-               ((col == prev) && indent->back().second)))
-            {
-              indent->back() = {prev, true};
-              return;
-            }
-
-            // Otherwise, terminate.
-            indent->back() = {col, false};
-            m.term(terminators);
-          },
-
-        // Whitespace between tokens.
-        "[[:blank:]]+" >> [](auto& m) {},
-
-        // Terminator.
-        ";" >>
-          [indent](auto& m) {
-            indent->back() = {restart, false};
-            m.term(terminators);
-          },
-
-        // FatArrow.
-        "=>" >>
-          [indent](auto& m) {
-            indent->back() = {m.linecol().second + 1, false};
-            m.term(terminators);
-            m.add(FatArrow);
-            m.term(terminators);
-          },
-
-        // Equals.
-        "=" >> [](auto& m) { m.seq(Equals); },
-
-        // List.
-        "," >> [](auto& m) { m.seq(List, {Equals}); },
-
-        // Blocks.
-        "\\(([[:blank:]]*)" >>
-          [indent](auto& m) {
-            indent->push_back(
-              {m.linecol().second + m.match().length(1), false});
-            m.push(Paren);
-          },
-
-        "\\)" >>
-          [indent](auto& m) {
-            indent->pop_back();
-            m.term(terminators);
-            m.pop(Paren);
-          },
-
-        "\\[([[:blank:]]*)" >>
-          [indent](auto& m) {
-            indent->push_back(
-              {m.linecol().second + m.match().length(1), false});
-            m.push(Square);
-          },
-
-        "\\]" >>
-          [indent](auto& m) {
-            indent->pop_back();
-            m.term(terminators);
-            m.pop(Square);
-          },
-
-        "\\{([[:blank:]]*)" >>
-          [indent](auto& m) {
-            indent->push_back(
-              {m.linecol().second + m.match().length(1), false});
-            m.push(Brace);
-          },
-
-        "\\}" >>
-          [indent](auto& m) {
-            // A brace block terminates a fat arrow as well.
-            indent->pop_back();
-            m.term({Equals, List, FatArrow});
-            m.pop(Brace);
-          },
-
-        // Bool.
-        "(?:true|false)\\b" >> [](auto& m) { m.add(Bool); },
-
-        // Hex float.
-        "0x[[:xdigit:]]+\\.[[:xdigit:]]+(?:p[+-][[:digit:]]+)?\\b" >>
-          [](auto& m) { m.add(HexFloat); },
-
-        // Hex.
-        "0x[_[:xdigit:]]+\\b" >> [](auto& m) { m.add(Hex); },
-
-        // Bin.
-        "0b[_01]+\\b" >> [](auto& m) { m.add(Bin); },
-
-        // Float.
-        "[[]:digit:]]+\\.[[:digit:]]+(?:e[+-]?[[:digit:]]+)?\\b" >>
-          [](auto& m) { m.add(Float); },
-
-        // Int.
-        "[[:digit:]]+\\b" >> [](auto& m) { m.add(Int); },
-
-        // Escaped string.
-        "\"(?:\\\"|[^\"])*\"" >> [](auto& m) { m.add(Escaped); },
-
-        // Unescaped string.
-        "('+)\"[\\s\\S]*?\"\\1" >> [](auto& m) { m.add(String); },
-
-        // Character literal.
-        "'[^']*'" >> [](auto& m) { m.add(Char); },
-
-        // Line comment.
-        "//[^\n]*" >> [](auto& m) {},
-
-        // Nested comment.
-        "/\\*" >>
-          [depth](auto& m) {
-            ++(*depth);
-            m.mode("comment");
-          },
-
-        // Keywords.
-        "package\\b" >> [](auto& m) { m.add(Package); },
-        "use\\b" >> [](auto& m) { m.add(Use); },
-        "type\\b" >> [](auto& m) { m.add(Typealias); },
-        "class\\b" >> [](auto& m) { m.add(Class); },
-        "var\\b" >> [](auto& m) { m.add(Var); },
-        "let\\b" >> [](auto& m) { m.add(Let); },
-        "throw\\b" >> [](auto& m) { m.add(Throw); },
-        "iso\\b" >> [](auto& m) { m.add(Iso); },
-        "imm\\b" >> [](auto& m) { m.add(Imm); },
-        "mut\\b" >> [](auto& m) { m.add(Mut); },
-
-        // Don't care.
-        "_(?![_[:alnum:]])" >> [](auto& m) { m.add(DontCare); },
-
-        // Reserve a sequence of underscores.
-        "_(?:_)+(?![[:alnum:]])" >> [](auto& m) { m.add(Invalid); },
-
-        // Identifier.
-        "[_[:alpha:]][_[:alnum:]]*\\b" >> [](auto& m) { m.add(Ident); },
-
-        // Ellipsis.
-        "\\.\\.\\." >> [](auto& m) { m.add(Ellipsis); },
-
-        // Dot.
-        "\\." >> [](auto& m) { m.add(Dot); },
-
-        // Double colon.
-        "::" >> [](auto& m) { m.add(DoubleColon); },
-
-        // Colon.
-        ":" >> [](auto& m) { m.add(Colon); },
-
-        // Symbol. Reserved: "'(),.:;[]_{}
-        "[!#$%&*+-/<=>?@\\^`|~]+" >> [](auto& m) { m.add(Symbol); },
-      });
-
-    p("comment",
-      {
-        "(?:[^\\*]|\\*(?!/))*/\\*" >> [depth](auto& m) { ++(*depth); },
-        "(?:[^/]|/(?!\\*))*\\*/" >>
-          [depth](auto& m) {
-            if (--(*depth) == 0)
-              m.mode("start");
-          },
-      });
-
-    return p;
-  }
-
-  const auto ExprStruct =
-    In(Funcbody) / In(Assign) / In(Tuple) / In(Expr) / In(Term);
-  const auto TermStruct = In(Term) / In(Expr);
-  const auto TypeStruct = In(Type) / In(TypeTerm) / In(TypeTuple);
-  const auto Name = T(Ident) / T(Symbol);
-  const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) / T(Hex) /
-    T(Bin) / T(Int) / T(Float) / T(HexFloat);
-
-  inline constexpr auto wf = wellformed(
-    shape(Package, field(id, String, Escaped)),
-    shape(Use, field(Type)),
-    shape(
-      Typealias, field(Typeparams), field(Bounds, Type), field(Default, Type)),
-    shape(Class, field(Typeparams), field(Type), field(Classbody)),
-    shape(Var),
-    shape(Let),
-    shape(Throw, field(Expr)),
-    shape(Iso),
-    shape(Imm),
-    shape(Mut),
-
-    shape(Classbody, seq(Use, Typealias, Class, FieldLet, FieldVar, Function)),
-    shape(FieldLet, field(Type), field(Expr)),
-    shape(FieldVar, field(Type), field(Expr)),
-    shape(
-      Function, field(Typeparams), field(Params), field(Type), field(Funcbody)),
-    shape(Typeparams, seq(Typeparam)),
-    shape(Typeparam, field(Bounds, Type), field(Default, Type)),
-    shape(Params, seq(Param)),
-    shape(Param, field(Type), field(Expr)),
-    // TODO:
-    shape(Funcbody, undef()),
-
-    // TODO:
-    shape(Type, undef()),
-    shape(TypeTerm, undef()),
-    shape(TypeTuple, undef()),
-    shape(TypeView, undef()),
-    shape(TypeFunc, undef()),
-    shape(TypeThrow, undef()),
-    shape(TypeIsect, undef()),
-    shape(TypeUnion, undef()),
-    shape(TypeVar, undef()),
-    shape(TypeTrait, undef()),
-
-    // TODO:
-    shape(Expr, undef()),
-    shape(Term, undef()),
-    shape(Typeargs, undef()),
-
-    shape(Lambda, field(Typeparams), field(Params), field(Funcbody)),
-
-    // TODO:
-    shape(Tuple, undef()),
-    shape(Assign, undef()),
-
-    shape(RefVar, field(Ident), field(Typeargs)),
-    shape(RefLet, field(Ident), field(Typeargs)),
-    shape(RefParam, field(Ident), field(Typeargs)),
-
-    // TODO: scoped
-    shape(RefTypeparam, field(Ident), field(Typeargs)),
-    shape(RefTypealias, field(Ident), field(Typeargs)),
-    shape(RefClass, field(Ident), field(Typeargs)),
-
-    shape(RefFunction, field(Ident), field(Typeargs)),
-    shape(Selector, field(Ident), field(Typeargs)),
-
-    // TODO:
-    shape(Call, undef()),
-
-    shape(Include, field(Type)),
-
-    // TODO: Let, Expr
-    shape(Lift, undef()));
-
-  Token reftype(Node def)
-  {
-    static std::map<Token, Token> map{
-      {Var, RefVar},
-      {Let, RefLet},
-      {Param, RefParam},
-      {Class, RefClass},
-      {Typealias, RefTypealias},
-      {Typeparam, RefTypeparam},
-      {Function, RefFunction},
-    };
-
-    if (!def)
-      return Selector;
-
-    auto it = map.find(def->type());
-    if (it == map.end())
-      return Selector;
-
-    return it->second;
-  }
-
-  Lookup lookup()
-  {
-    Lookup look;
-
-    using Subs = std::map<Node, Node, std::owner_less<>>;
-    using Aliases = std::vector<Node>;
-    using State = std::vector<std::pair<Subs, Aliases>>;
-    auto state = std::make_shared<State>();
-    state->push_back({});
-
-    look.post([state]() {
-      state->clear();
-      state->push_back({});
-    });
-
-    auto typeargs = [state](auto& _, Node def) {
-      // TODO: what if def is a Typeparam?
-      // use the bounds somehow
-      auto ta = _(Typeargs);
-      if (!def || !ta)
-        return;
-
-      constexpr std::array<Token, 3> list{Typealias, Class, Function};
-      auto it = std::find(list.begin(), list.end(), def->type());
-      if (it == list.end())
-        return;
-
-      auto tp = def->at(
-        wf / Typealias / Typeparams,
-        wf / Class / Typeparams,
-        wf / Function / Typeparams);
-
-      std::vector<Node> args;
-      std::transform(
-        ta->begin(),
-        ta->end(),
-        std::back_inserter(args),
-        [&_, &state](auto& arg) {
-          state->push_back({});
-          auto def = _.find(arg);
-          state->pop_back();
-          return def;
-        });
-      args.resize(tp->size());
-
-      auto& subs = state->back().first;
-      std::transform(
-        tp->begin(),
-        tp->end(),
-        args.begin(),
-        std::inserter(subs, subs.end()),
-        [](auto& param, auto& arg) { return std::make_pair(param, arg); });
-    };
-
-    auto sub = [state](Node def) {
-      if (!def || (def->type() != Typeparam))
-        return def;
-
-      auto& subs = state->back().first;
-      auto it = subs.find(def);
-      if ((it != subs.end()) && it->second)
-        return it->second;
-
-      return def;
-    };
-
-    auto alias = [state](Node def) {
-      auto& aliases = state->back().second;
-      auto it = std::find(aliases.begin(), aliases.end(), def);
-
-      if (it != aliases.end())
-        return true;
-
-      aliases.push_back(def);
-      return false;
-    };
-
-    return look({
-      T(Ident)[id] * ~T(Typeargs)[Typeargs] >>
-        [typeargs](auto& _) {
-          auto def = _(id)->lookup_first();
-          typeargs(_, def);
-          return _.find(def);
-        },
-
-      (T(Var) / T(Let) / T(Param) / T(Class) / T(Function))[id] >>
-        [](auto& _) { return _(id); },
-
-      T(Type) << Any[Type] >> [](auto& _) { return _.find(Type); },
-
-      T(Typealias)[id] >>
-        [alias](auto& _) {
-          auto def = _(id);
-          if (alias(def))
-            return def;
-          return _.find(def->at(wf / Typealias / Default));
-        },
-
-      T(Typeparam)[id] >>
-        [sub](auto& _) {
-          auto def = sub(_(id));
-          if (def->type() != Typeparam)
-            return def;
-          auto bounds = def->at(wf / Typeparam / Bounds);
-          return bounds->empty() ? def : _.find(bounds);
-        },
-
-      (T(RefClass) / T(RefTypealias) / T(RefTypeparam) / T(Package))[lhs] *
-          T(DoubleColon) * T(Ident)[id] * ~T(Typeargs)[Typeargs] >>
-        [typeargs](auto& _) {
-          auto def = _.find(lhs)->lookdown_first(_(id));
-          typeargs(_, def);
-          return _.find(def);
-        },
-
-      (T(RefClass) / T(RefTypealias) / T(RefTypeparam) / T(Package))
-          << (T(Ident) * T(Typeargs))[id] >>
-        [](auto& _) { return _.find(id); },
-
-      (T(RefClass) / T(RefTypealias) / T(RefTypeparam) / T(Package))
-          << (Any[lhs] * T(Ident)[id] * T(Typeargs)[Typeargs]) >>
-        [typeargs](auto& _) {
-          auto def = _.find(lhs)->lookdown_first(_(id));
-          typeargs(_, def);
-          return _.find(def);
-        },
-    });
-  }
-
-  const auto look = lookup();
-
-  Pass modules()
-  {
-    /*
-    TODO:
-
-    list inside Typeparams or Typeargs along with groups or other lists
-    = in an initializer
-    lookup
-      isect: lookup in lhs and rhs?
-    well-formedness for errors
-      error on too many typeargs
-
-    type checker
-
-    public/private
-    variadic ops: a op b op c -> op(a, b, c)
-    param: values as parameters for pattern matching
-      named parameters
-        (group ident type)
-        (equals (group ident type) group*)
-      pattern match on type
-        (type)
-      pattern match on value
-        (expr)
-
-    package schemes
-    dependent types
-    */
     return {
       // Module.
       T(Directory)[Directory] << (T(File)++)[File] >>
@@ -516,7 +28,7 @@ namespace verona::lang
     };
   }
 
-  Pass types()
+  PassDef types()
   {
     return {
       // Packages.
@@ -529,7 +41,15 @@ namespace verona::lang
     };
   }
 
-  Pass structure()
+  const auto ExprStruct =
+    In(Funcbody) / In(Assign) / In(Tuple) / In(Expr) / In(Term);
+  const auto TermStruct = In(Term) / In(Expr);
+  const auto TypeStruct = In(Type) / In(TypeTerm) / In(TypeTuple);
+  const auto Name = T(Ident) / T(Symbol);
+  const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) / T(Hex) /
+    T(Bin) / T(Int) / T(Float) / T(HexFloat);
+
+  PassDef structure()
   {
     return {
       // Field: (group let ident type)
@@ -736,14 +256,36 @@ namespace verona::lang
     };
   }
 
-  Pass reftype()
+  Token reftype(Node def)
+  {
+    static std::map<Token, Token> map{
+      {Var, RefVar},
+      {Let, RefLet},
+      {Param, RefParam},
+      {Class, RefClass},
+      {Typealias, RefTypealias},
+      {Typeparam, RefTypeparam},
+      {Function, RefFunction},
+    };
+
+    if (!def)
+      return Selector;
+
+    auto it = map.find(def->type());
+    if (it == map.end())
+      return Selector;
+
+    return it->second;
+  }
+
+  PassDef reftype()
   {
     return {
       dir::bottomup,
       {
         TypeStruct * (T(Ident)[id] * ~T(Typeargs)[Typeargs])[Type] >>
           [](auto& _) {
-            auto def = look(_[Type]);
+            auto def = look->at(_[Type]);
             return reftype(def) << _[id] << (_[Typeargs] | Typeargs);
           },
 
@@ -752,7 +294,7 @@ namespace verona::lang
               T(Package))[lhs] *
              T(DoubleColon) * T(Ident)[id] * ~T(Typeargs)[Typeargs])[Type] >>
           [](auto& _) {
-            auto def = look(_[Type]);
+            auto def = look->at(_[Type]);
             return reftype(def) << _[lhs] << _[id] << (_[Typeargs] | Typeargs);
           },
       }};
@@ -763,7 +305,7 @@ namespace verona::lang
     T(TypeFunc) / T(TypeThrow) / T(TypeIsect) / T(TypeUnion) / T(TypeVar) /
     T(TypeTrait) / T(DontCare);
 
-  Pass typeexpr()
+  PassDef typeexpr()
   {
     return {
       TypeStruct * TypeElem[lhs] * T(Symbol, "~>") * TypeElem[rhs] *
@@ -775,7 +317,7 @@ namespace verona::lang
     };
   }
 
-  Pass typealg()
+  PassDef typealg()
   {
     return {
       TypeStruct * TypeElem[lhs] * T(Symbol, "&") * TypeElem[rhs] >>
@@ -788,7 +330,7 @@ namespace verona::lang
     };
   }
 
-  Pass dnf()
+  PassDef dnf()
   {
     return {
       T(TypeIsect)
@@ -802,7 +344,7 @@ namespace verona::lang
     };
   }
 
-  Pass refexpr()
+  PassDef refexpr()
   {
     return {
       dir::bottomup,
@@ -821,7 +363,7 @@ namespace verona::lang
 
         TermStruct * (Name[id] * ~T(Typeargs)[Typeargs])[Type] >>
           [](auto& _) {
-            auto def = look(_[Type]);
+            auto def = look->at(_[Type]);
             return reftype(def) << _[id] << (_[Typeargs] | Typeargs);
           },
 
@@ -831,7 +373,7 @@ namespace verona::lang
               T(Package))[lhs] *
              T(DoubleColon) * Name[id] * ~T(Typeargs)[Typeargs])[Type] >>
           [](auto& _) {
-            auto def = look(_[Type]);
+            auto def = look->at(_[Type]);
             return reftype(def) << _[lhs] << _[id] << (_[Typeargs] | Typeargs);
           },
 
@@ -842,7 +384,7 @@ namespace verona::lang
                     T(Package))[rhs]) >>
           [](auto& _) {
             auto site = Include ^ _(lhs);
-            _.include(site, look(_[rhs]));
+            _.include(site, look->at(_[rhs]));
             return site << _[rhs];
           },
 
@@ -860,17 +402,16 @@ namespace verona::lang
     T(Lambda) / T(Call) / T(Term) / T(Assign) / T(DontCare);
   const auto Operator = T(RefFunction) / T(Selector);
 
-  Pass typeassert()
+  PassDef typeassert()
   {
     return {
       // Type assertions for operators.
-      // TODO: is it ok to just append the type?
       T(Term) << (Operator[op] * T(Type)[Type] * End) >>
         [](auto& _) { return _(op) << _[Type]; },
     };
   }
 
-  Pass reverseapp()
+  PassDef reverseapp()
   {
     return {
       // Dot: reverse application.
@@ -882,7 +423,7 @@ namespace verona::lang
     };
   }
 
-  Pass application()
+  PassDef application()
   {
     return {
       // Adjacency: application.
@@ -914,7 +455,7 @@ namespace verona::lang
     T(Expr) / T(Term) / T(Tuple) / T(Assign) / T(Call) / T(Lift);
   const auto LiftExpr = T(Term) / T(Lambda) / T(Call) / T(Assign);
 
-  Pass anf()
+  PassDef anf()
   {
     return {
       InContainer * LiftExpr[Lift] >>
@@ -955,6 +496,7 @@ namespace verona::lang
         {"reverseapp", reverseapp()},
         {"application", application()},
         {"anf", anf()},
+        // {"infer", infer()},
       });
 
     return d;
