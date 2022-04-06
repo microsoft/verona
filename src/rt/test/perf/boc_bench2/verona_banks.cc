@@ -1,5 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+#include "args.h"
+
 #include <ds/scramble.h>
 #include <memory>
 #include <test/harness.h>
@@ -11,10 +13,7 @@
  * TODO
  */
 
-size_t OPERATIONS = 100;
-size_t NUM_BANKS = 100;
-
-struct Bank : public VCown<Bank>
+struct Worker : public VCown<Worker>
 {
   xoroshiro::p128r64 rand;
 };
@@ -26,72 +25,69 @@ struct Account : public VCown<Account>
   size_t id;
 };
 
-/**
- *
- */
 struct Log : public VCown<Log>
 {};
 
-std::array<Account*, 10000> accounts;
+namespace
+{
+  Account** accounts;
+}
 
 void setup_accounts()
 {
   size_t ids = 0;
-  for (auto& a : accounts)
+  for (size_t i = 0; i < NUM_ACCOUNTS; i++)
   {
-    a = new Account;
-    a->balance = 100;
-    a->overdraft = 100;
-    a->id = ids++;
+    accounts[i] = new Account;
+    accounts[i]->balance = 100;
+    accounts[i]->overdraft = 100;
+    accounts[i]->id = ids++;
   }
 }
 
-void log(Log* log, std::string msg)
+void log(Log* log, std::string)
 {
-  when(log) << [=](Log*) { std::cout << msg << std::endl; };
+  when(log) << [=](Log*) { /*std::cout << msg << std::endl;*/ };
 }
 
-void bank_job(Bank* bank, Log* l, int repeats)
+void bank_job(Worker* worker, Log* l, size_t repeats)
 {
-  assert(bank != nullptr);
-  for (size_t i = 0; i < OPERATIONS; i++)
-  {
-    // Select two accounts at random.
-    auto from_idx = bank->rand.next() % accounts.size();
-    auto to_idx = bank->rand.next() % accounts.size();
-    // Runtime currently doesn't deduplicate cown acquisitions, so this leads to
-    // deadlock if the two accounts are the same.
-    if (to_idx == from_idx)
-      continue;
-    // Schedule a transfer
-    int64_t amount = 100;
-    when(accounts[from_idx], accounts[to_idx])
-      << [=](Account* from, Account* to) {
-           busy_loop(500);
+  // Select two accounts at random.
+  auto from_idx = worker->rand.next() % NUM_ACCOUNTS;
+  auto to_idx = from_idx;
+  // We don't want to use the same account.
+  while (to_idx == from_idx)
+    to_idx = worker->rand.next() % NUM_ACCOUNTS;
 
-           if ((from->balance + from->overdraft) < amount)
-           {
-             log(l, "Insufficient funds");
-             return;
-           }
-           else
-           {
-             from->balance -= amount;
-             to->balance += amount;
-             log(l, "Success");
-           }
-         };
-  }
+  // Schedule a transfer
+  int64_t amount = 100;
+  when(accounts[from_idx], accounts[to_idx])
+    << [=](Account* from, Account* to) {
+         busy_loop(WORK_USEC);
 
-  // Reschedule bank_job
+         if ((from->balance + from->overdraft) < amount)
+         {
+           log(l, "Insufficient funds");
+           return;
+         }
+         else
+         {
+           from->balance -= amount;
+           to->balance += amount;
+           log(l, "Success");
+         }
+       };
+
   if (repeats > 0)
   {
-    when(bank) << [=](Bank* bank) { bank_job(bank, l, repeats - 1); };
+    // Reschedule bank_job
+    //bank_job(worker, l, repeats - 1);
+    when(worker) << [=](Worker* worker) { bank_job(worker, l, repeats - 1); };
   }
   else
   {
     // Tidy up
-    verona::rt::Cown::release(ThreadAlloc::get(), bank);
+    verona::rt::Cown::release(ThreadAlloc::get(), worker);
   }
 }
 
@@ -99,23 +95,29 @@ void test_body()
 {
   Log* log = new Log;
   setup_accounts();
-  for (size_t j = 0; j < NUM_BANKS; j++)
+  for (size_t j = 0; j < NUM_WORKERS; j++)
   {
-    auto b = new Bank;
+    auto w = new Worker;
     // Give each bank a different random seed
     // so they all do different transactions.
-    b->rand.set_state(j + 1);
+    w->rand.set_state(j + 1);
 
-    when(b) << [=](Bank* b) { bank_job(b, log, 10); };
+    when(w) << [=](Worker* w) { bank_job(w, log, TRANSACTIONS / NUM_WORKERS); };
   }
 }
 
-int main(int argc, char** argv)
+int verona_main(SystematicTestHarness& harness)
 {
-  SystematicTestHarness harness(argc, argv);
-
   // Not correctly doing memory management in this test.
   harness.detect_leaks = false;
 
+  //NUM_WORKERS = 1;
+
+  accounts = new Account*[NUM_ACCOUNTS];
+
   harness.run(test_body);
+
+  delete accounts;
+
+  return 0;
 }
