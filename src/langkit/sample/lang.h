@@ -106,13 +106,19 @@ namespace sample
   inline constexpr auto op = TokenDef("op");
 
   // Sythetic locations.
-  const auto apply = Location("apply");
-  const auto create = Location("create");
+  inline const auto apply = Location("apply");
+  inline const auto create = Location("create");
+
+  struct Found
+  {
+    Node def;
+    std::map<Node, Node, std::owner_less<>> map;
+  };
 
   Parse parser();
-  Lookup<Node> lookup();
-  PassDef infer();
+  Lookup<Found> lookup();
+  Pass infer();
   Driver& driver();
 
-  const auto look = lookup();
+  inline const auto look = lookup();
 }

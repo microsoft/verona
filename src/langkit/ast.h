@@ -492,4 +492,18 @@ namespace langkit
     ss << "}";
     return ss.str();
   }
+
+  inline std::ostream& operator<<(std::ostream& os, const Node& node)
+  {
+    if (node)
+      os << node->str() << std::endl;
+    return os;
+  }
+
+  inline std::ostream& operator<<(std::ostream& os, const NodeRange& range)
+  {
+    for (auto it = range.first; it != range.second; ++it)
+      os << (*it)->str();
+    return os;
+  }
 }

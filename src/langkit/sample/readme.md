@@ -1,7 +1,5 @@
 # Todo
 
-remove operator>> PatternEffect specializations
-
 list inside Typeparams or Typeargs along with groups or other lists
 = in an initializer
 lookup
@@ -13,6 +11,8 @@ type checker
 
 public/private
 variadic ops: a op b op c -> op(a, b, c)
+`new` to create an instance of the enclosing class
+object literals
 
 package schemes
 dependent types

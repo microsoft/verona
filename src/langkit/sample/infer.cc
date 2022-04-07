@@ -22,13 +22,13 @@ namespace sample
     {
       BoundsMap bounds;
       Cache cache;
-      Lookup<bool> match;
+      LookupDef<bool> match;
 
       State()
       {
         // TODO: view, func, isect, union, trait, refclass, reftypealias,
         // reftypeparam
-        match->rules({
+        match.rules({
           T(TypeVar)[lhs] * T(TypeVar)[rhs] >>
             [this](auto& _) {
               auto r = _(rhs);
@@ -72,7 +72,7 @@ namespace sample
           T(RefClass)[lhs] * T(RefClass)[rhs] >>
             [this](auto& _) {
               // TODO: typeargs have to be the same
-              return look->at(_[lhs]) == look->at(_[rhs]);
+              return look->at(_[lhs]).def == look->at(_[rhs]).def;
             },
         });
       }
@@ -81,16 +81,19 @@ namespace sample
       {
         // Don't repeat checks. Initially assume the check succeeds.
         auto [it, fresh] = cache.try_emplace({lhs, rhs}, true);
-        return fresh ? match->at(lhs, rhs) : it->second;
+        return fresh ? match.at(lhs, rhs) : it->second;
       }
     };
   }
 
-  PassDef infer()
+  Pass infer()
   {
     // TODO: when done, check all lower <: upper
+    auto p = std::make_shared<PassDef>();
     auto sub = std::make_shared<detail::State>();
 
-    return {};
+    p->rules();
+
+    return p;
   }
 }

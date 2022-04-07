@@ -511,28 +511,16 @@ namespace langkit
     };
   }
 
-  template<typename T>
-  inline detail::PatternEffect<T>
-  operator>>(detail::Pattern pattern, detail::Effect<T> effect)
+  template<typename F>
+  inline auto operator>>(detail::Pattern pattern, F effect)
+    -> detail::PatternEffect<decltype(effect(std::declval<detail::Capture&>()))>
   {
     return {pattern, effect};
   }
 
-  inline detail::PatternEffect<Node>
-  operator>>(detail::Pattern pattern, detail::Effect<Node> effect)
-  {
-    return {pattern, effect};
-  }
-
-  inline detail::PatternEffect<bool>
-  operator>>(detail::Pattern pattern, detail::Effect<bool> effect)
-  {
-    return {pattern, effect};
-  }
-
-  const auto Any = detail::Pattern(std::make_shared<detail::Anything>());
-  const auto Start = detail::Pattern(std::make_shared<detail::First>());
-  const auto End = detail::Pattern(std::make_shared<detail::Last>());
+  inline const auto Any = detail::Pattern(std::make_shared<detail::Anything>());
+  inline const auto Start = detail::Pattern(std::make_shared<detail::First>());
+  inline const auto End = detail::Pattern(std::make_shared<detail::Last>());
 
   inline detail::Pattern T(const Token& type)
   {
@@ -633,22 +621,27 @@ namespace langkit
 
   class PassDef;
   using Pass = std::shared_ptr<PassDef>;
+  using Callback = std::function<void()>;
 
   class PassDef
   {
   private:
-    dir direction;
-    std::vector<detail::PatternEffect<Node>> rules;
+    Callback pre_;
+    Callback post_;
+    dir direction_;
+    std::vector<detail::PatternEffect<Node>> rules_;
 
   public:
+    PassDef(dir direction = dir::topdown) : direction_(direction) {}
+
     PassDef(const std::initializer_list<detail::PatternEffect<Node>>& r)
-    : direction(dir::topdown), rules(r)
+    : direction_(dir::topdown), rules_(r)
     {}
 
     PassDef(
       dir direction,
       const std::initializer_list<detail::PatternEffect<Node>>& r)
-    : direction(direction), rules(r)
+    : direction_(direction), rules_(r)
     {}
 
     operator Pass() const
@@ -656,30 +649,53 @@ namespace langkit
       return std::make_shared<PassDef>(*this);
     }
 
-    std::pair<Node, size_t> run(Node node)
+    void pre(Callback f)
     {
-      // Because apply runs over child nodes, the top node is never visited.
-      // Use a synthetic top node.
-      auto top = NodeDef::create(Group);
-      top->push_back(node);
-      auto changes = apply(top);
-      return {top->front(), changes};
+      pre_ = f;
     }
 
-    std::tuple<Node, size_t, size_t> repeat(Node node)
+    void post(Callback f)
+    {
+      post_ = f;
+    }
+
+    template<typename... Ts>
+    void rules(Ts... r)
+    {
+      std::vector<detail::PatternEffect<Node>> rules = {r...};
+      rules_.insert(rules_.end(), rules.begin(), rules.end());
+    }
+
+    void rules(const std::initializer_list<detail::PatternEffect<Node>>& r)
+    {
+      rules_.insert(rules_.end(), r.begin(), r.end());
+    }
+
+    std::tuple<Node, size_t, size_t> run(Node node)
     {
       size_t changes = 0;
       size_t changes_sum = 0;
       size_t count = 0;
 
+      if (pre_)
+        pre_();
+
+      // Because apply runs over child nodes, the top node is never visited.
+      // Use a synthetic top node.
+      auto top = NodeDef::create(Group);
+      top->push_back(node);
+
       do
       {
-        std::tie(node, changes) = run(node);
+        changes = apply(top);
         changes_sum += changes;
         count++;
       } while (changes > 0);
 
-      return {node, count, changes_sum};
+      if (post_)
+        post_();
+
+      return {top->front(), count, changes_sum};
     }
 
   private:
@@ -691,12 +707,12 @@ namespace langkit
 
       while (it != node->end())
       {
-        if (direction == dir::bottomup)
+        if (direction_ == dir::bottomup)
           changes += apply(*it);
 
         bool replaced = false;
 
-        for (auto& rule : rules)
+        for (auto& rule : rules_)
         {
           auto start = it;
           captures.clear();
@@ -719,7 +735,7 @@ namespace langkit
           }
         }
 
-        if ((it != node->end()) && (direction == dir::topdown))
+        if ((it != node->end()) && (direction_ == dir::topdown))
           changes += apply(*it);
 
         if (!replaced)
@@ -733,17 +749,20 @@ namespace langkit
   template<typename T>
   class LookupDef
   {
-  public:
-    using PostF = std::function<void()>;
-
   private:
-    PostF post_;
+    Callback pre_;
+    Callback post_;
     std::vector<detail::PatternEffect<T>> rules_;
 
   public:
     LookupDef() {}
 
-    void post(PostF f)
+    void pre(Callback f)
+    {
+      pre_ = f;
+    }
+
+    void post(Callback f)
     {
       post_ = f;
     }
@@ -761,22 +780,27 @@ namespace langkit
     template<typename... Ts>
     T at(Ts... rest) const
     {
-      std::vector<Node> nodes;
-      nodes.reserve(sizeof...(Ts));
-      (nodes.push_back(rest), ...);
+      std::vector<Node> nodes = {rest...};
+      if (std::find(nodes.begin(), nodes.end(), nullptr) != nodes.end())
+        return {};
+
       return at({nodes.begin(), nodes.end()});
     }
 
     T at(NodeRange range) const
     {
-      auto node = run(range);
+      if (pre_)
+        pre_();
+
+      auto r = run(range);
 
       if (post_)
         post_();
 
-      return node;
+      return r;
     }
 
+  private:
     T run(NodeRange range) const
     {
       detail::Capture captures;

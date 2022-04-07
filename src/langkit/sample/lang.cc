@@ -41,13 +41,13 @@ namespace sample
     };
   }
 
-  const auto ExprStruct =
+  inline const auto ExprStruct =
     In(Funcbody) / In(Assign) / In(Tuple) / In(Expr) / In(Term);
-  const auto TermStruct = In(Term) / In(Expr);
-  const auto TypeStruct = In(Type) / In(TypeTerm) / In(TypeTuple);
-  const auto Name = T(Ident) / T(Symbol);
-  const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) / T(Hex) /
-    T(Bin) / T(Int) / T(Float) / T(HexFloat);
+  inline const auto TermStruct = In(Term) / In(Expr);
+  inline const auto TypeStruct = In(Type) / In(TypeTerm) / In(TypeTuple);
+  inline const auto Name = T(Ident) / T(Symbol);
+  inline const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) /
+    T(Hex) / T(Bin) / T(Int) / T(Float) / T(HexFloat);
 
   PassDef structure()
   {
@@ -124,11 +124,12 @@ namespace sample
         },
 
       // Use.
-      T(Group) << T(Use)[Use] * (Any++)[Type] >>
+      (In(Classbody) / In(Funcbody)) * T(Group)
+          << T(Use)[Use] * (Any++)[Type] >>
         [](auto& _) { return (Use ^ _(Use)) << (Type << _[Type]); },
 
       // Typealias.
-      T(Group)
+      (In(Classbody) / In(Funcbody)) * T(Group)
           << (T(Typealias) * T(Ident)[id] * ~T(Square)[Typeparams] *
               ~T(Type)[Type] * End) >>
         [](auto& _) {
@@ -136,8 +137,8 @@ namespace sample
             << (Typeparams << *_[Typeparams]) << (_[Type] | Type) << Type;
         },
 
-      // Typealias: (equals (group typealias ident typeparams type) group)
-      T(Equals)
+      // Typealias: (equals (typealias typeparams type type) group)
+      (In(Classbody) / In(Funcbody)) * T(Equals)
           << ((T(Group)
                << (T(Typealias) * T(Ident)[id] * ~T(Square)[Typeparams] *
                    ~T(Type)[Type] * End)) *
@@ -148,7 +149,7 @@ namespace sample
         },
 
       // Class.
-      T(Group)
+      (In(Classbody) / In(Funcbody)) * T(Group)
           << (T(Class) * T(Ident)[id] * ~T(Square)[Typeparams] *
               ~T(Type)[Type] * T(Brace)[Classbody] * (Any++)[rhs]) >>
         [](auto& _) {
@@ -285,7 +286,7 @@ namespace sample
       {
         TypeStruct * (T(Ident)[id] * ~T(Typeargs)[Typeargs])[Type] >>
           [](auto& _) {
-            auto def = look->at(_[Type]);
+            auto def = look->at(_[Type]).def;
             return reftype(def) << _[id] << (_[Typeargs] | Typeargs);
           },
 
@@ -294,13 +295,13 @@ namespace sample
               T(Package))[lhs] *
              T(DoubleColon) * T(Ident)[id] * ~T(Typeargs)[Typeargs])[Type] >>
           [](auto& _) {
-            auto def = look->at(_[Type]);
+            auto def = look->at(_[Type]).def;
             return reftype(def) << _[lhs] << _[id] << (_[Typeargs] | Typeargs);
           },
       }};
   }
 
-  const auto TypeElem = T(TypeTerm) / T(RefClass) / T(RefTypealias) /
+  inline const auto TypeElem = T(TypeTerm) / T(RefClass) / T(RefTypealias) /
     T(RefTypeparam) / T(TypeTuple) / T(Iso) / T(Imm) / T(Mut) / T(TypeView) /
     T(TypeFunc) / T(TypeThrow) / T(TypeIsect) / T(TypeUnion) / T(TypeVar) /
     T(TypeTrait) / T(DontCare);
@@ -363,7 +364,7 @@ namespace sample
 
         TermStruct * (Name[id] * ~T(Typeargs)[Typeargs])[Type] >>
           [](auto& _) {
-            auto def = look->at(_[Type]);
+            auto def = look->at(_[Type]).def;
             return reftype(def) << _[id] << (_[Typeargs] | Typeargs);
           },
 
@@ -373,7 +374,7 @@ namespace sample
               T(Package))[lhs] *
              T(DoubleColon) * Name[id] * ~T(Typeargs)[Typeargs])[Type] >>
           [](auto& _) {
-            auto def = look->at(_[Type]);
+            auto def = look->at(_[Type]).def;
             return reftype(def) << _[lhs] << _[id] << (_[Typeargs] | Typeargs);
           },
 
@@ -384,7 +385,7 @@ namespace sample
                     T(Package))[rhs]) >>
           [](auto& _) {
             auto site = Include ^ _(lhs);
-            _.include(site, look->at(_[rhs]));
+            _.include(site, look->at(_[rhs]).def);
             return site << _[rhs];
           },
 
@@ -398,9 +399,9 @@ namespace sample
       }};
   }
 
-  const auto Object = Literal / T(RefVar) / T(RefLet) / T(RefParam) / T(Tuple) /
-    T(Lambda) / T(Call) / T(Term) / T(Assign) / T(DontCare);
-  const auto Operator = T(RefFunction) / T(Selector);
+  inline const auto Object = Literal / T(RefVar) / T(RefLet) / T(RefParam) /
+    T(Tuple) / T(Lambda) / T(Call) / T(Term) / T(Assign) / T(DontCare);
+  inline const auto Operator = T(RefFunction) / T(Selector);
 
   PassDef typeassert()
   {
@@ -449,11 +450,11 @@ namespace sample
     };
   }
 
-  const auto InContainer =
+  inline const auto InContainer =
     In(Expr) / In(Term) / In(Tuple) / In(Assign) / In(Call);
-  const auto Container =
+  inline const auto Container =
     T(Expr) / T(Term) / T(Tuple) / T(Assign) / T(Call) / T(Lift);
-  const auto LiftExpr = T(Term) / T(Lambda) / T(Call) / T(Assign);
+  inline const auto LiftExpr = T(Term) / T(Lambda) / T(Call) / T(Assign);
 
   PassDef anf()
   {
@@ -496,7 +497,7 @@ namespace sample
         {"reverseapp", reverseapp()},
         {"application", application()},
         {"anf", anf()},
-        // {"infer", infer()},
+        {"infer", infer()},
       });
 
     return d;

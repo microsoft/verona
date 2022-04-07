@@ -66,7 +66,7 @@ namespace langkit
         {
           size_t count;
           size_t changes;
-          std::tie(ast, count, changes) = pass->repeat(ast);
+          std::tie(ast, count, changes) = pass->run(ast);
 
           if (diag)
           {
@@ -80,7 +80,7 @@ namespace langkit
       }
 
       if (emit_ast)
-        std::cout << ast->str() << std::endl;
+        std::cout << ast;
 
       return 0;
     }
