@@ -10,7 +10,6 @@ well-formedness for errors
 type checker
 
 public/private
-variadic ops: a op b op c -> op(a, b, c)
 `new` to create an instance of the enclosing class
 object literals
 
@@ -38,3 +37,10 @@ pattern match on type
   (type)
 pattern match on value
   (expr)
+
+## Lambda typing
+
+how to get a "call once" lambda
+  apply(self: iso)
+    (var ...) = destruct self
+  this extracts the fields

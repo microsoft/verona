@@ -257,6 +257,18 @@ namespace sample
     };
   }
 
+  PassDef include()
+  {
+    return {
+      T(Use)[lhs] << T(Type)[rhs] >>
+        [](auto& _) {
+          auto site = Include ^ _(lhs);
+          _.include(site, look->at(_[rhs]).def);
+          return site << _[rhs];
+        },
+    };
+  }
+
   Token reftype(Node def)
   {
     static std::map<Token, Token> map{
@@ -378,17 +390,6 @@ namespace sample
             return reftype(def) << _[lhs] << _[id] << (_[Typeargs] | Typeargs);
           },
 
-        // Use.
-        T(Use)[lhs]
-            << (T(Type)
-                << (T(RefClass) / T(RefTypealias) / T(RefTypeparam) /
-                    T(Package))[rhs]) >>
-          [](auto& _) {
-            auto site = Include ^ _(lhs);
-            _.include(site, look->at(_[rhs]).def);
-            return site << _[rhs];
-          },
-
         // Create sugar.
         TermStruct * (T(RefClass) / T(RefTypeparam))[lhs] >>
           [](auto& _) {
@@ -459,17 +460,36 @@ namespace sample
   PassDef anf()
   {
     return {
-      InContainer * LiftExpr[Lift] >>
+      InContainer * T(Var)[Var] * ~T(Type)[Type] >>
+        [](auto& _) {
+          auto e = _(Var);
+          auto t = _(Type) ? _(Type) : TypeVar ^ e->fresh();
+          return Lift << (e << t) << Expr
+                      << (RefVar << (Ident ^ e) << Typeargs);
+        },
+
+      InContainer * T(Let)[Let] * ~T(Type)[Type] >>
+        [](auto& _) {
+          auto e = _(Let);
+          auto t = _(Type) ? _(Type) : TypeVar ^ e->fresh();
+          return Lift << (e << t) << Expr
+                      << (RefLet << (Ident ^ e) << Typeargs);
+        },
+
+      InContainer * LiftExpr[Lift] * ~T(Type)[Type] >>
         [](auto& _) {
           auto e = _(Lift);
+          auto t = _(Type) ? _(Type) : TypeVar ^ e->fresh();
           auto id = e->fresh();
-          return Lift << _(id = Let) << e
+          return Lift << (_(id = Let) << t) << e
                       << (RefLet << (Ident ^ id) << Typeargs);
         },
 
       Container[op]
           << (((!T(Lift))++)[lhs] *
-              (T(Lift) << ((T(Let) * Any)[Let] * ~T(RefLet)[RefLet] * End)) *
+              (T(Lift)
+               << (((T(Let) / T(Var)) * Any)[Let] *
+                   ~(T(RefLet) / T(RefVar))[RefLet] * End)) *
               (Any++)[rhs]) >>
         [](auto& _) {
           // Pull the lift out of the container, leaving the reflet behind.
@@ -488,6 +508,7 @@ namespace sample
         {"modules", modules()},
         {"types", types()},
         {"structure", structure()},
+        {"include", include()},
         {"reftype", reftype()},
         {"typeexpr", typeexpr()},
         {"typealg", typealg()},

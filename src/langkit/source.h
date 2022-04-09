@@ -60,7 +60,6 @@ namespace langkit
     static Source synthetic(const std::string& contents)
     {
       auto source = std::make_shared<SourceDef>();
-      source->origin_ = "<synthetic>";
       source->contents = contents;
       source->find_lines();
       return source;

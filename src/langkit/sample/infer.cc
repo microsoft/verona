@@ -72,7 +72,9 @@ namespace sample
           T(RefClass)[lhs] * T(RefClass)[rhs] >>
             [this](auto& _) {
               // TODO: typeargs have to be the same
-              return look->at(_[lhs]).def == look->at(_[rhs]).def;
+              auto l = look->at(_[lhs]);
+              auto r = look->at(_[rhs]);
+              return l.def == r.def;
             },
         });
       }

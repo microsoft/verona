@@ -71,7 +71,7 @@ namespace sample
   inline constexpr auto TypeThrow = TokenDef("typethrow");
   inline constexpr auto TypeIsect = TokenDef("typeisect");
   inline constexpr auto TypeUnion = TokenDef("typeunion");
-  inline constexpr auto TypeVar = TokenDef("typevar");
+  inline constexpr auto TypeVar = TokenDef("typevar", flag::print);
   inline constexpr auto TypeTrait = TokenDef("typetrait", flag::symtab);
 
   // Expression structure.
