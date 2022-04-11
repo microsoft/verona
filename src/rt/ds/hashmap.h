@@ -303,7 +303,7 @@ namespace verona::rt
     template<typename E>
     std::pair<bool, Iterator> insert(Alloc& alloc, E entry)
     {
-      if (unlikely(size() == capacity()))
+      if (SNMALLOC_UNLIKELY(size() == capacity()))
         resize(alloc);
 
       assert(key_of(entry) != 0);

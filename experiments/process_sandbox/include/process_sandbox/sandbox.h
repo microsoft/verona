@@ -20,7 +20,7 @@
 #include "platform/platform.h"
 #include "sandbox_fd_numbers.h"
 
-#include <snmalloc.h>
+#include <snmalloc/snmalloc_core.h>
 
 namespace sandbox
 {
@@ -49,6 +49,171 @@ namespace sandbox
    */
   struct SharedAllocConfig : public snmalloc::CommonConfig
   {
+    /**
+     * Metadata for a slab.  This back end does not store any backend-specific
+     * metadata here.
+     */
+    using SlabMetadata = snmalloc::FrontendSlabMetadata;
+
+    /**
+     * The type of a pagemap that spans the entire address space.
+     *
+     * This is used for all compartments.  Currently, this is not the same
+     * pagemap that the parent process uses for any non-shared allocations.
+     * This could be changed in environments (such as Verona) that can
+     * guarantee that in-compartment pointers are never freed with the global
+     * `free` or if we have a default `Alloc` that checks for this case
+     * (perhaps with a flag in the metadata entry indicating whether the slab
+     * is compartment-owned).
+     */
+    class Pagemap
+    {
+    public:
+      /**
+       * Pagemap entry.  This back end does not store anything here, so expose
+       * the default.
+       */
+      using Entry = snmalloc::FrontendMetaEntry<SlabMetadata>;
+
+    private:
+      /**
+       * Concrete instance of a pagemap.  This is updated only with
+       * `pagemap_lock` held.
+       *
+       * This pagemap spans the entire address space (i.e. does not use the
+       * fixed-range option) because it covers all sandboxes.  Each sandbox is
+       * (currently) a fixed range within the global address space.
+       */
+      inline static snmalloc::FlatPagemap<
+        snmalloc::MIN_CHUNK_BITS,
+        Entry,
+        NoOpPal,
+        /*fixed range*/ false>
+        pagemap;
+
+      /**
+       * Shared memory object backing the pagemap.  Every compartment has a
+       * read-only view of this that is mapped into its address space on start.
+       *
+       * This is a `unique_ptr` because otherwise this is not discarded in
+       * debug builds of the library runner and so ends up trying to initialise
+       * a new shared memory (which is not needed) in the child.  This doesn't
+       * matter too much, except that on GNU/Linux (and possibly other Linux
+       * variants) `shm_open` forwards to `open`, which then tries to do the
+       * `open` callback, before the callback mechanism is initialised.
+       */
+      inline static std::unique_ptr<platform::SharedMemoryMap> pagemap_mem;
+
+      /**
+       * Mutex that must be held while writing to the pagemap.
+       *
+       * This is a recursive mutex because it must be held during destruction
+       * of a `Library` and by each call to `set_meta_data` in that destructor.
+       */
+      inline static std::recursive_mutex pagemap_lock;
+
+    public:
+      /**
+       * Helper to get a reference to the pagemap and a lock guard.  This is the
+       * only way of accessing the pagemap outside of this class.  It should be
+       * used as:
+       *
+       * ```c++
+       * auto [g, pm] = Pagemap::get_pagemap_writeable();
+       * ```
+       *
+       * It is then safe to update `pm` for as long as `g` remains in scope.
+       * By default, these have the same lifetime.
+       */
+      std::tuple<
+        std::unique_lock<decltype(pagemap_lock)>,
+        decltype(pagemap)&> static get_pagemap_writeable()
+      {
+        std::unique_lock g(pagemap_lock);
+        return {std::move(g), pagemap};
+      }
+
+      /**
+       * Return a reference to the handle used for the pagemap.
+       */
+      static auto& get_pagemap_handle()
+      {
+        return pagemap_mem->get_handle();
+      }
+
+      /**
+       * Retrieve a mutable reference to the metadata entry.  This is used only
+       * in the large buddy allocator.
+       */
+      template<bool potentially_out_of_range = false>
+      static Entry& get_metaentry_mut(snmalloc::address_t p)
+      {
+        return pagemap.template get_mut<potentially_out_of_range>(p);
+      }
+
+      /**
+       * Look up the metadata entry for an address.  This is called by snmalloc
+       * on the deallocation path to determine who owns the memory and, if it's
+       * the deallocating allocator, where to find the metadata.
+       */
+      template<bool potentially_out_of_range = false>
+      static const Entry& get_metaentry(snmalloc::address_t p)
+      {
+        return pagemap.template get<potentially_out_of_range>(p);
+      }
+
+      /**
+       * Sets metadata in the shared pagemap.  This assumes callers are trusted
+       * and does not validate the metadata.  This is called only by the trusted
+       * allocator, the RPC thread updating the pagemap on behalf of a child
+       * will write to the pagemap directly.
+       *
+       * In the case of a conflict over ownership, the caller of this always
+       * wins.  The RPC handler will check (with the lock held) if a `MetaEntry`
+       * identifies an out-of-sandbox allocator as the owner already and refuse
+       * to install a new version if it does.  This method, in contrast, will
+       * update the pagemap unconditionally.  This means that if the update by
+       * the trusted allocator is ordered first (by the lock) then the child
+       * will not install an update and if it is ordered second then it will
+       * overwrite the child's entry.  This means that the trusted allocator can
+       * end up with surprising values in its message queue (which it must
+       * protect against anyway because its message queue is writeable by
+       * untrusted code) but we cannot leak out-of-sandbox metaslabs as a result
+       * of activity by the child.
+       */
+      static void
+      set_metaentry(snmalloc::address_t p, size_t size, const Entry& t)
+      {
+        auto [g, pm] = get_pagemap_writeable();
+        for (snmalloc::address_t a = p; a < p + size;
+             a += snmalloc::MIN_CHUNK_SIZE)
+        {
+          pm.set(a, t);
+        }
+      }
+
+      /**
+       * Initialise the pagemap.  This must be called precisely once, from
+       * `SharedAllocConfig::ensure_init`.
+       */
+      static void init()
+      {
+        pagemap_mem = std::make_unique<platform::SharedMemoryMap>(
+          static_cast<uint8_t>(snmalloc::bits::next_pow2_bits_const(
+            decltype(pagemap)::required_size())));
+        assert(pagemap_mem->get_base());
+        pagemap.init(static_cast<Entry*>((pagemap_mem->get_base())));
+      }
+
+      /**
+       * Ensure that a range of the pagemap is useable.
+       */
+      static void register_range(snmalloc::address_t p, size_t sz)
+      {
+        pagemap.register_range(p, sz);
+      }
+    };
+
     /**
      * The memory provider for the shared region.  This manages a single
      * contiguous address range.  This class is used both by the sandboxing code
@@ -81,17 +246,32 @@ namespace sandbox
       void* top;
 
       /**
-       * Chunks that have been allocated by the shared allocator and not yet
-       * returned to the child.
+       * The class that manages blocks of memory for this region.  This is
+       * filled with the memory assigned to a specific sandbox on start.
        */
-      snmalloc::ChunkAllocatorState chunk_alloc_state;
+      snmalloc::LargeBuddyRange<
+        snmalloc::EmptyRange,
+        snmalloc::bits::BITS - 1,
+        snmalloc::bits::BITS - 1,
+        Pagemap>
+        memory;
+
+      /**
+       * Lock protecting the range.
+       */
+      std::mutex lock;
 
     public:
       /**
-       * The address-space manager that manages this region.
+       * Helper to receive a reference to the range that can allocate /
+       * deallocate memory while holding its lock.
        */
-      snmalloc::AddressSpaceManager<snmalloc::PALNoAlloc<snmalloc::DefaultPal>>
-        shared_asm;
+      std::tuple<std::unique_lock<decltype(lock)>, decltype(memory)&>
+      get_memory()
+      {
+        std::unique_lock g{lock};
+        return {std::move(g), memory};
+      }
 
       /**
        * Constructor.  Takes the memory range allocated for the sandbox heap as
@@ -103,22 +283,12 @@ namespace sandbox
       LocalState(void* start, size_t size);
 
       /**
-       * Returns the chunk allocator state for this sandbox.  This is called
-       * only by the corresponding method in the `SharedAllocConfig` class,
-       * which is called from snmalloc.
-       */
-      snmalloc::ChunkAllocatorState& get_slab_allocator_state()
-      {
-        return chunk_alloc_state;
-      }
-
-      /**
        * Predicate to test whether an object of size `sz` starting at `ptr`
        * is within the region managed by this memory provider.
        */
       bool contains(const void* ptr, size_t sz)
       {
-        return (ptr >= base) && (pointer_diff(ptr, (void*)top) >= sz);
+        return (ptr >= base) && (pointer_diff(ptr, top) >= sz);
       }
 
       /**
@@ -132,164 +302,9 @@ namespace sandbox
       /**
        * Return the top of the sandbox.
        */
-      void* get_base()
+      void* base_address()
       {
         return base;
-      }
-    };
-
-    /**
-     * The type of a pagemap that spans the entire address space.
-     *
-     * This is used for all compartments.  Currently, this is not the same
-     * pagemap that the parent process uses for any non-shared allocations.
-     * This could be changed in environments (such as Verona) that can
-     * guarantee that in-compartment pointers are never freed with the global
-     * `free` or if we have a default `Alloc` that checks for this case
-     * (perhaps with a flag in the metadata entry indicating whether the slab
-     * is compartment-owned).
-     */
-    class Pagemap
-    {
-      /**
-       * Concrete instance of a pagemap.  This is updated only with
-       * `pagemap_lock` held.
-       *
-       * This pagemap spans the entire address space (i.e. does not use the
-       * fixed-range option) because it covers all sandboxes.  Each sandbox is
-       * (currently) a fixed range within the global address space.
-       */
-      inline static snmalloc::FlatPagemap<
-        snmalloc::MIN_CHUNK_BITS,
-        snmalloc::MetaEntry,
-        NoOpPal,
-        /*fixed range*/ false>
-        pagemap;
-
-      /**
-       * Shared memory object backing the pagemap.  Every compartment has a
-       * read-only view of this that is mapped into its address space on start.
-       *
-       * This is a `unique_ptr` because otherwise this is not discarded in
-       * debug builds of the library runner and so ends up trying to initialise
-       * a new shared memory (which is not needed) in the child.  This doesn't
-       * matter too much, except that on GNU/Linux (and possibly other Linux
-       * variants) `shm_open` forwards to `open`, which then tries to do the
-       * `open` callback, before the callback mechanism is initialised.
-       */
-      inline static std::unique_ptr<platform::SharedMemoryMap> pagemap_mem;
-
-      /**
-       * Mutex that must be held while writing to the pagemap.
-       *
-       * This is a recursive mutex because it must be held during destruction
-       * of a `Library` and by each call to `set_meta_data` in that destructor.
-       */
-      inline static std::recursive_mutex pagemap_lock;
-
-    public:
-      using LocalState = SharedAllocConfig::LocalState;
-
-      /**
-       * Helper to get a reference to the pagemap and a lock guard.  This is the
-       * only way of accessing the pagemap outside of this class.  It should be
-       * used as:
-       *
-       * ```c++
-       * auto [g, pm] = Pagemap::get_pagemap_writeable();
-       * ```
-       *
-       * It is then safe to update `pm` for as long as `g` remains in scope.
-       * By default, these have the same lifetime.
-       */
-      std::tuple<
-        std::unique_lock<decltype(pagemap_lock)>,
-        decltype(pagemap)&> static get_pagemap_writeable()
-      {
-        std::unique_lock g(pagemap_lock);
-        return {std::move(g), pagemap};
-      }
-
-      /**
-       * Return a reference to the handle used for the pagemap.
-       */
-      static auto& get_pagemap_handle()
-      {
-        return pagemap_mem->get_handle();
-      }
-
-      /**
-       * Reserve a chunk of memory in the shared address space for this sandbox.
-       */
-      static void* reserve(LocalState& local_state, size_t size)
-      {
-        return local_state.shared_asm.reserve<true, Pagemap>(&local_state, size)
-          .unsafe_ptr();
-      }
-
-      /**
-       * Look up the metadata entry for an address.  This is called by snmalloc
-       * on the deallocation path to determine who owns the memory and, if it's
-       * the deallocating allocator, where to find the metadata.
-       */
-      template<bool potentially_out_of_range = false>
-      static const snmalloc::MetaEntry&
-      get_metaentry(LocalState*, snmalloc::address_t p)
-      {
-        return pagemap.template get<potentially_out_of_range>(p);
-      }
-
-      /**
-       * Sets metadata in the shared pagemap.  This assumes callers are trusted
-       * and does not validate the metadata.  This is called only by the trusted
-       * allocator, the RPC thread updating the pagemap on behalf of a child
-       * will write to the pagemap directly.
-       *
-       * In the case of a conflict over ownership, the caller of this always
-       * wins.  The RPC handler will check (with the lock held) if a `MetaEntry`
-       * identifies an out-of-sandbox allocator as the owner already and refuse
-       * to install a new version if it does.  This method, in contrast, will
-       * update the pagemap unconditionally.  This means that if the update by
-       * the trusted allocator is ordered first (by the lock) then the child
-       * will not install an update and if it is ordered second then it will
-       * overwrite the child's entry.  This means that the trusted allocator can
-       * end up with surprising values in its message queue (which it must
-       * protect against anyway because its message queue is writeable by
-       * untrusted code) but we cannot leak out-of-sandbox metaslabs as a result
-       * of activity by the child.
-       */
-      static void set_metaentry(
-        LocalState*, snmalloc::address_t p, size_t size, snmalloc::MetaEntry t)
-      {
-        auto [g, pm] = get_pagemap_writeable();
-        for (snmalloc::address_t a = p; a < p + size;
-             a += snmalloc::MIN_CHUNK_SIZE)
-        {
-          pm.set(a, t);
-        }
-      }
-
-      /**
-       * Register an address range.  This is used by the address-space manager.
-       */
-      static void register_range(LocalState*, snmalloc::address_t p, size_t sz)
-      {
-        auto [g, pm] = get_pagemap_writeable();
-        pm.register_range(p, sz);
-      }
-
-      /**
-       * Initialise the pagemap.  This must be called precisely once, from
-       * `SharedAllocConfig::ensure_init`.
-       */
-      static void init()
-      {
-        pagemap_mem = std::make_unique<platform::SharedMemoryMap>(
-          static_cast<uint8_t>(snmalloc::bits::next_pow2_bits_const(
-            decltype(pagemap)::required_size())));
-        assert(pagemap_mem->get_base());
-        pagemap.init(
-          static_cast<snmalloc::MetaEntry*>((pagemap_mem->get_base())));
       }
     };
 
@@ -306,29 +321,56 @@ namespace sandbox
      * all metadata associated with an allocation from outside is inaccessible
      * by the sandbox and does not need to be validated.
      */
-    static std::pair<snmalloc::capptr::Chunk<void>, snmalloc::Metaslab*>
-    alloc_chunk(
-      LocalState* local_state,
-      size_t size,
-      snmalloc::RemoteAllocator* remote,
-      snmalloc::sizeclass_t sizeclass)
+    static std::pair<snmalloc::capptr::Chunk<void>, SlabMetadata*>
+    alloc_chunk(LocalState& local_state, size_t size, uintptr_t ras)
     {
-      auto p = Pagemap::reserve(*local_state, size);
-      if (p == nullptr)
+      snmalloc::capptr::Chunk<void> chunk;
       {
-        return {{nullptr}, nullptr};
+        auto [g, m] = local_state.get_memory();
+        chunk = m.alloc_range(size);
       }
-      auto* meta = new snmalloc::Metaslab();
-      snmalloc::MetaEntry t(meta, remote, sizeclass);
-      auto [g, pm] = Pagemap::get_pagemap_writeable();
+      if (chunk == nullptr)
+      {
+        return {nullptr, nullptr};
+      }
+      auto* meta = new SlabMetadata();
+      Pagemap::Entry t(meta, ras);
+      Pagemap::set_metaentry(address_cast(chunk), size, t);
 
-      for (snmalloc::address_t a = snmalloc::address_cast(p);
-           a < snmalloc::address_cast(pointer_offset(p, size));
-           a += snmalloc::MIN_CHUNK_SIZE)
-      {
-        pm.set(a, t);
-      }
-      return {snmalloc::capptr::Chunk<void>{p}, meta};
+      chunk =
+        snmalloc::Aal::capptr_bound<void, snmalloc::capptr::bounds::Chunk>(
+          chunk, size);
+      return {chunk, meta};
+    }
+
+    /**
+     * Free a chunk of memory in the shared memory region.  This is used
+     * directly by `dealloc_chunk` and also to handle the RPC call from the
+     * child to deallocate memory.
+     */
+    static void dealloc_range(
+      LocalState& local_state, snmalloc::capptr::Chunk<void> base, size_t size)
+    {
+      Pagemap::Entry t;
+      t.claim_for_backend();
+      Pagemap::set_metaentry(base.unsafe_uintptr(), size, t);
+      auto [g, m] = local_state.get_memory();
+
+      m.dealloc_range(base, size);
+    }
+
+    /**
+     * Deallocate a chunk and its associated metadata.
+     */
+    static void dealloc_chunk(
+      LocalState& local_state,
+      SlabMetadata& metadata,
+      snmalloc::capptr::Alloc<void> base,
+      size_t size)
+    {
+      snmalloc::capptr::Chunk<void> chunk{base.unsafe_ptr()};
+      dealloc_range(local_state, chunk, size);
+      delete &metadata;
     }
 
     /**
@@ -351,18 +393,6 @@ namespace sandbox
     alloc_meta_data(LocalState*, size_t size);
 
     /**
-     * Return the slab allocator.  This is per sandbox: memory must not be
-     * freed by one sandbox and then allocated to another (getting this wrong
-     * shouldn't break the security guarantees but it can lead to crashes).
-     */
-    static snmalloc::ChunkAllocatorState&
-    get_slab_allocator_state(LocalState* mp)
-    {
-      SANDBOX_INVARIANT(mp != nullptr, "Chunk allocator state is per-sandbox");
-      return mp->get_slab_allocator_state();
-    }
-
-    /**
      * Options for configuring snmalloc.  This allocator is almost the exact
      * opposite of the default.  There is only one of them per sandbox, they
      * aren't per-thread, they're allocated and deallocated by the sandbox
@@ -382,7 +412,7 @@ namespace sandbox
      * for the specified type.  If it does not come from the sandbox identified
      * by `ls` then this return a null pointer.
      */
-    template<typename T, SNMALLOC_CONCEPT(snmalloc::ConceptCapPtr) B>
+    template<typename T, SNMALLOC_CONCEPT(snmalloc::capptr::ConceptBound) B>
     static auto capptr_domesticate(LocalState* ls, snmalloc::CapPtr<T, B> p)
     {
       // If we know the size that we're being asked for then use it in the

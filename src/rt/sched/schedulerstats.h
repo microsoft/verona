@@ -3,7 +3,7 @@
 #pragma once
 
 #include <iostream>
-#include <snmalloc.h>
+#include <snmalloc/snmalloc.h>
 
 namespace verona::rt
 {
@@ -22,7 +22,7 @@ namespace verona::rt
     ~SchedulerStats()
 #ifdef USE_SCHED_STATS
     {
-      static std::atomic_flag lock = ATOMIC_FLAG_INIT;
+      static snmalloc::FlagWord lock;
       static SchedulerStats global;
 
       if (this != &global)

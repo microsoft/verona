@@ -99,7 +99,7 @@ namespace verona::rt
     static uint32_t get_prng_next()
     {
       auto& prng = get_prng_for_setup();
-      static std::atomic_flag lock;
+      static snmalloc::FlagWord lock;
       snmalloc::FlagLock l{lock};
       return prng.next();
     }
@@ -138,7 +138,7 @@ namespace verona::rt
       auto start = running_thread;
 
       assert((running_thread == local_systematic) || startup);
-      UNUSED(startup);
+      snmalloc::UNUSED(startup);
 
       // Skip to a first choice for selecting.
       for (; i > 0; i--)
@@ -198,7 +198,7 @@ namespace verona::rt
       }
       else
       {
-        UNUSED(id);
+        snmalloc::UNUSED(id);
         return nullptr;
       }
     }
@@ -217,7 +217,7 @@ namespace verona::rt
       }
       else
       {
-        UNUSED(l);
+        snmalloc::UNUSED(l);
       }
     }
 
@@ -252,7 +252,7 @@ namespace verona::rt
       }
       else
       {
-        UNUSED(guard);
+        snmalloc::UNUSED(guard);
       }
     }
 

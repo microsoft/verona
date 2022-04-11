@@ -6,7 +6,7 @@
  * platform-specific.
  */
 
-#include <pal/pal.h>
+#include <snmalloc/pal/pal.h>
 #ifdef __unix__
 #  include <fcntl.h>
 #endif

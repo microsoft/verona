@@ -3,7 +3,7 @@
 #pragma once
 
 #include <atomic>
-#include <snmalloc.h>
+#include <snmalloc/snmalloc.h>
 
 namespace verona::rt
 {
