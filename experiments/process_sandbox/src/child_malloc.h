@@ -25,19 +25,6 @@ namespace sandbox
    */
   struct PalRange : public snmalloc::PalRange<snmalloc::DefaultPal>
   {
-    /**
-     * The range abstraction in snmalloc currently does something odd with
-     * instance data and requires that it comes via an indirection layer.
-     * This will probably go away at some point and then these two can be
-     * deleted.
-     * \@{
-     */
-    using State = PalRange;
-    auto* operator-> ()
-    {
-      return this;
-    }
-    ///@}
 
     /**
      * This range is intended to be used directly by the small buddy allocator

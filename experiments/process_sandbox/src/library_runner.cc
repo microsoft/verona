@@ -182,16 +182,6 @@ namespace
    */
   struct SharedMemoryRange
   {
-    /**
-     * Odd indirection required by snmalloc, will hopefully go away soon.
-     * @{
-     */
-    using State = SharedMemoryRange;
-    auto* operator-> ()
-    {
-      return this;
-    }
-    ///@}
 
     /**
      * This always provides aligned chunks.
