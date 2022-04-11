@@ -25,7 +25,6 @@ namespace sandbox
    */
   struct PalRange : public snmalloc::PalRange<snmalloc::DefaultPal>
   {
-
     /**
      * This range is intended to be used directly by the small buddy allocator
      * without a pagemap to store extra metadata and so must support aligned

@@ -182,7 +182,6 @@ namespace
    */
   struct SharedMemoryRange
   {
-
     /**
      * This always provides aligned chunks.
      */
