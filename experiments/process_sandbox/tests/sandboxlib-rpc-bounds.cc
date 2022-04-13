@@ -5,6 +5,7 @@
 #include "process_sandbox/cxxsandbox.h"
 #include "process_sandbox/sandbox.h"
 
+#include <limits>
 #include <stdio.h>
 
 using namespace sandbox;
@@ -43,7 +44,9 @@ bool attack(const void* base, const void* top)
   // This test triggers an assert failure in snmalloc in debug builds.  In
   // release builds, we should have proper error handling for it..
   SANDBOX_INVARIANT(
-    try_dealloc(static_cast<const char*>(top) + 100, SIZE_T_MAX - 100) != 0,
+    try_dealloc(
+      static_cast<const char*>(top) + 100,
+      std::numeric_limits<size_t>::max() - 100) != 0,
     "Trying to dealloc with overflow from the top");
 #endif
   return false;
