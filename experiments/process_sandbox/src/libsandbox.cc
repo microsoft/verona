@@ -146,12 +146,6 @@ namespace sandbox
           [&](size_t size, SharedAllocConfig::Pagemap::Entry& metaentry) {
             auto sizeclass = metaentry.get_sizeclass();
             auto remote = metaentry.get_remote();
-            snmalloc::message<>(
-              "Remote: {}, size: {}, sizeclass: {} ({})",
-              remote,
-              size,
-              snmalloc::sizeclass_full_to_size(sizeclass),
-              sizeclass.raw());
             return ((remote == nullptr) ||
                     s->contains(remote, sizeof(snmalloc::RemoteAllocator))) &&
               (snmalloc::sizeclass_full_to_size(sizeclass) <= size);
