@@ -288,7 +288,7 @@ namespace sandbox
        */
       bool contains(const void* ptr, size_t sz)
       {
-        return (ptr >= base) && (pointer_diff(ptr, top) >= sz);
+        return (ptr >= base) && (top > ptr) && (pointer_diff(ptr, top) >= sz);
       }
 
       /**
@@ -737,6 +737,14 @@ namespace sandbox
     bool contains(const void* ptr, size_t sz)
     {
       return memory_provider.contains(ptr, sz);
+    }
+
+    /**
+     * Returns the bounds of the sandbox region managed by snmalloc.
+     */
+    std::pair<const void*, const void*> sandbox_heap()
+    {
+      return {memory_provider.base_address(), memory_provider.top_address()};
     }
 
   private:

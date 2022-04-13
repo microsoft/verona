@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
+#include <stdint.h>
+
 /**
  * This file includes all of the types used for forwarding memory-provider
  * requests and pagemap updates from the sandbox to the parent.  This is a
