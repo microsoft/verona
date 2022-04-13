@@ -233,7 +233,6 @@ namespace sandbox
   SnmallocGlobals::alloc_chunk(
     SnmallocGlobals::LocalState&, size_t size, uintptr_t ras)
   {
-    snmalloc::message<>("alloc_chunk({}, {})", size, ras);
     auto* ms =
       new (metadata_range.alloc_range(sizeof(SnmallocGlobals::SlabMetadata))
              .unsafe_ptr()) SnmallocGlobals::SlabMetadata();
