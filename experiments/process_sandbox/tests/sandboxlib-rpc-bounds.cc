@@ -48,6 +48,8 @@ bool attack(const void* base, const void* top)
       static_cast<const char*>(top) + 100,
       std::numeric_limits<size_t>::max() - 100) != 0,
     "Trying to dealloc with overflow from the top");
+#else
+  snmalloc::UNUSED(top);
 #endif
   return false;
 }
