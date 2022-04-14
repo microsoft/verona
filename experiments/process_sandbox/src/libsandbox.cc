@@ -354,7 +354,10 @@ namespace sandbox
         return {-EINVAL};
       }
       Path path{raw_path.get()};
-      path.canonicalise();
+      if (!path.canonicalise())
+      {
+        return {-EINVAL};
+      }
       auto allowed = vfs.lookup_file(path);
       if (!allowed.has_value())
       {
