@@ -443,7 +443,7 @@ namespace sandbox
     Result
     handle_getaddrinfo(Library& lib, SyscallArgs<GetAddrInfo>::rpc_type& args)
     {
-      void* unsafeHints = reinterpret_cast<void*>(std::get<2>(args));
+      addrinfo* unsafeHints = reinterpret_cast<addrinfo*>(std::get<2>(args));
       addrinfo hintsCopy;
       addrinfo* hints;
       if (unsafeHints == nullptr)
@@ -456,7 +456,18 @@ namespace sandbox
         {
           return EAI_BADHINTS;
         }
-        memcpy(&hintsCopy, unsafeHints, sizeof(addrinfo));
+        // The `hints` argument to `getaddrinfo` may contain the `ai_flags`,
+        // `ai_family`, `ai_socktype`, and `ai_protocol` fields.  These are not
+        // pointers and so can be shallow copied.  Some of the other fields
+        // *are* pointers, so explicitly zero them here.  If bugs in any of the
+        // code that receives the copy of `hints` reads the fields that it
+        // should not, then this prevents the untrusted code from being able to
+        // influence the pointers that buggy code on the trusted side copies.
+        memset(&hintsCopy, 0, sizeof(hintsCopy));
+        hintsCopy.ai_flags = unsafeHints->ai_flags;
+        hintsCopy.ai_family = unsafeHints->ai_family;
+        hintsCopy.ai_socktype = unsafeHints->ai_socktype;
+        hintsCopy.ai_protocol = unsafeHints->ai_protocol;
         hints = &hintsCopy;
       }
       auto host = get_path(lib, std::get<0>(args));
