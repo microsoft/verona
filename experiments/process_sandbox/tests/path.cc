@@ -17,7 +17,7 @@ namespace
   void check_canonicalisation(std::string_view path, std::string_view expected)
   {
     Path p = get(path);
-    p.canonicalise();
+    snmalloc::UNUSED(p.canonicalise());
     SANDBOX_INVARIANT(
       p.str() == expected,
       "{} canonicalised as {}, expected {}",
@@ -40,7 +40,7 @@ int main()
   {
     Path p = get("/foo/../bar");
     SANDBOX_INVARIANT(p.is_absolute(), "{} is an absolute path.", p.str());
-    p.canonicalise();
+    snmalloc::UNUSED(p.canonicalise());
     expect(p, "/bar");
   }
 
@@ -49,7 +49,7 @@ int main()
   {
     Path p = get("foo/../bar");
     SANDBOX_INVARIANT(!p.is_absolute(), "{} is not an absolute path.", p.str());
-    p.canonicalise();
+    snmalloc::UNUSED(p.canonicalise());
     SANDBOX_INVARIANT(
       p.str() == "bar", "Canonicalised incorrectly as {}.", p.str());
 
@@ -69,7 +69,7 @@ int main()
     Path base = get("/1/2/3/4");
     p.make_absolute(base);
     SANDBOX_INVARIANT(p.is_absolute(), "{} is not an absolute path.", p.str());
-    p.canonicalise();
+    snmalloc::UNUSED(p.canonicalise());
     expect(p, "/1/2/foo");
   }
 
