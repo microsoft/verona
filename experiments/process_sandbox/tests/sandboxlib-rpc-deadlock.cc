@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 using namespace sandbox;
+using snmalloc::UNUSED;
 
 void attack()
 {
@@ -20,7 +21,7 @@ void attack()
   // This sandbox should be terminated if that happens.
   for (int i = 0; i < 1000000; i++)
   {
-    write(PageMapUpdates, &req, sizeof(req));
+    UNUSED(write(PageMapUpdates, &req, sizeof(req)));
   }
 }
 
@@ -30,7 +31,7 @@ void attack2()
   // detect partial messages and kill the sandbox.
   for (int i = 0; i < 100; i++)
   {
-    write(PageMapUpdates, "\0", 1);
+    UNUSED(write(PageMapUpdates, "\0", 1));
     usleep(10000);
   }
 }
