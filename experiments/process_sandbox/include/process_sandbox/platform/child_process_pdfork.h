@@ -117,6 +117,14 @@ namespace sandbox
       {
         return wait_for_exit(nullptr);
       }
+
+      /**
+       * Forcibly kill the child.
+       */
+      void terminate()
+      {
+        pdkill(proc.fd, SIGKILL);
+      }
     };
   }
 }

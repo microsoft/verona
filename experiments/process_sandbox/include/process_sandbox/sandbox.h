@@ -524,11 +524,7 @@ namespace sandbox
      * functions.
      */
     int last_vtable_entry = 1;
-    /**
-     * A flag indicating whether the child has exited.  This is updated when a
-     * message send fails.
-     */
-    bool child_exited = false;
+
     /**
      * The exit code of the child.  This is set when the child process exits.
      */
@@ -780,6 +776,17 @@ namespace sandbox
      * exited immediately after the call.
      */
     bool has_child_exited();
+
+    /**
+     * Forcibly terminate the child.
+     */
+    void terminate();
+
+    /**
+     * MemoryServiceProvider manages memory for sandboxes and must be able to
+     * access this class's memory provider.
+     */
+    friend class MemoryServiceProvider;
   };
 
   /**

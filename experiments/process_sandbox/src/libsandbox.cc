@@ -89,6 +89,7 @@ namespace sandbox
      * Mutex that protects the `ranges` map.
      */
     std::mutex m;
+
     /**
      * A map from file descriptor over which we've received an update request
      * to the sandbox metadata.
@@ -98,10 +99,9 @@ namespace sandbox
      * by storing an owning copy of the handle in the value and using the
      * non-owning value in the value.
      */
-    std::unordered_map<
-      platform::handle_t,
-      std::pair<platform::Handle, SharedAllocConfig::LocalState*>>
-      ranges;
+    std::
+      unordered_map<platform::handle_t, std::pair<platform::Handle, Library*>>
+        ranges;
     /**
      * Run loop.  Wait for updates from the child.
      */
@@ -111,27 +111,22 @@ namespace sandbox
       bool eof;
       while (poller.poll(fd, eof))
       {
+        auto remove_fd = [&]() {
+          std::lock_guard g(m);
+          auto r = ranges.find(fd);
+          if (r != ranges.end())
+          {
+            ranges.erase(r);
+          }
+        };
         // If a child's socket closed, unmap its shared page and delete the
         // metadata that we have associated with it.
         if (eof)
         {
-          std::lock_guard g(m);
-          auto r = ranges.find(fd);
-          ranges.erase(r);
+          remove_fd();
           continue;
         }
-        HostServiceRequest rpc;
-        if (
-          read(fd, static_cast<void*>(&rpc), sizeof(HostServiceRequest)) !=
-          sizeof(HostServiceRequest))
-        {
-          err(1, "Read from host service pipe %d failed", fd);
-          // FIXME: We should kill the sandbox at this point.  It is doing
-          // something bad.  For now, we kill the host process, which is safe
-          // but slightly misses the point of fault isolation.
-        }
-        HostServiceResponse reply{0, 0};
-        SharedAllocConfig::LocalState* s;
+        Library* lib;
         {
           decltype(ranges)::iterator r;
           std::lock_guard g(m);
@@ -140,8 +135,21 @@ namespace sandbox
           {
             continue;
           }
-          s = r->second.second;
+          lib = r->second.second;
         }
+        SharedAllocConfig::LocalState* s = &lib->memory_provider;
+        HostServiceRequest rpc;
+        if (
+          recv(
+            fd,
+            static_cast<void*>(&rpc),
+            sizeof(HostServiceRequest),
+            MSG_DONTWAIT) != sizeof(HostServiceRequest))
+        {
+          remove_fd();
+          lib->terminate();
+        }
+        HostServiceResponse reply{0, 0};
         auto is_metaentry_valid =
           [&](size_t size, SharedAllocConfig::Pagemap::Entry& metaentry) {
             auto sizeclass = metaentry.get_sizeclass();
@@ -211,15 +219,18 @@ namespace sandbox
         char* buffer = reinterpret_cast<char*>(&reply);
         while (remainder > 0)
         {
-          ssize_t ret = write(fd, buffer, remainder);
+          ssize_t ret =
+            send(fd, buffer, remainder, MSG_DONTWAIT | MSG_NOSIGNAL);
           if (ret < 0)
           {
-            if ((errno == EAGAIN) || ((errno == EINTR)))
+            if (errno == EINTR)
             {
               continue;
             }
             // All other errno errors may be the result of the child doing
             // something wrong.  Let the child fail here.
+            remove_fd();
+            lib->terminate();
             break;
           }
           remainder -= ret;
@@ -245,15 +256,13 @@ namespace sandbox
      * sandbox will send update requests.  `pagemap_fd` is the shared pagemap
      * page.
      */
-    void add_range(
-      SharedAllocConfig::LocalState& memory_provider, platform::Handle&& socket)
+    void add_range(Library& sandbox, platform::Handle&& socket)
     {
       {
         std::lock_guard g(m);
         register_fd(socket);
         platform::handle_t socket_fd = socket.fd;
-        ranges.emplace(
-          socket_fd, std::make_pair(std::move(socket), &memory_provider));
+        ranges.emplace(socket_fd, std::make_pair(std::move(socket), &sandbox));
       }
     }
   };
@@ -840,9 +849,9 @@ namespace sandbox
     // Create a pair of sockets that we can use to
     auto malloc_rpc_sockets = platform::SocketPair::create();
     memory_service_provider().add_range(
-      memory_provider, std::move(malloc_rpc_sockets.first));
-    // Construct a UNIX domain socket.  This will eventually be used to send
-    // file descriptors from the parent to the child, but isn't yet.
+      *this, std::move(malloc_rpc_sockets.first));
+    // Construct a UNIX domain socket.  This is used to send file descriptors
+    // from the parent to the child
     auto socks = platform::SocketPair::create();
     std::string path = ".";
     std::string lib;
@@ -955,6 +964,15 @@ namespace sandbox
   {
     return child_proc->exit_status().has_exited;
   }
+
+  void Library::terminate()
+  {
+    if (!has_child_exited())
+    {
+      child_proc->terminate();
+    }
+  }
+
   int Library::wait_for_child_exit()
   {
     auto exit_status = child_proc->exit_status();

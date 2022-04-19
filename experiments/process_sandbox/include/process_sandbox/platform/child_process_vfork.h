@@ -3,7 +3,7 @@
 #ifdef __unix__
 #  include <err.h>
 #  include <errno.h>
-#  include <sys/signal.h>
+#  include <signal.h>
 #  include <sys/types.h>
 #  include <sys/wait.h>
 #  if __has_include(<sys/procctl.h>)
@@ -117,6 +117,14 @@ namespace sandbox
       ExitStatus wait_for_exit()
       {
         return waitpid();
+      }
+
+      /**
+       * Forcibly kill the child.
+       */
+      void terminate()
+      {
+        kill(pid, SIGKILL);
       }
     };
   }
