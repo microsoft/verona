@@ -6,6 +6,8 @@
 #  include <pthread.h>
 #endif
 
+#include <snmalloc/snmalloc_core.h>
+
 namespace sandbox
 {
   /**
