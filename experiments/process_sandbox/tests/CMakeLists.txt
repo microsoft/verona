@@ -19,6 +19,7 @@ set(SANDBOX_TESTS
 	modify-pagemap
 	network
 	rpc-bounds
+	rpc-deadlock
 	zlib
 	)
 
