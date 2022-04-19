@@ -19,12 +19,10 @@
 #include "netpolicy.h"
 #include "platform/platform.h"
 #include "sandbox_fd_numbers.h"
-
-#include <snmalloc/snmalloc_core.h>
+#include "shared_memory_region.h"
 
 namespace sandbox
 {
-  struct SharedMemoryRegion;
   class CallbackDispatcher;
   class ExportedFileTree;
   struct CallbackHandlerBase;
@@ -285,10 +283,16 @@ namespace sandbox
       /**
        * Predicate to test whether an object of size `sz` starting at `ptr`
        * is within the region managed by this memory provider.
+       *
+       * Note that this is smaller than the shared memory object.  The shared
+       * memory object starts with a fixed layout.  This region is still
+       * treated as untrusted (the child process can modify it) but nothing in
+       * that part should ever be passed directly to the parent.
        */
       bool contains(const void* ptr, size_t sz)
       {
-        return (ptr >= base) && (top > ptr) && (pointer_diff(ptr, top) >= sz);
+        return (ptr >= pointer_offset(base, sizeof(SharedMemoryRegion))) &&
+          (top > ptr) && (pointer_diff(ptr, top) >= sz);
       }
 
       /**
