@@ -160,6 +160,10 @@ namespace sandbox
             auto meta =
               reinterpret_cast<SharedAllocConfig::SlabMetadata*>(rpc.args[1]);
             auto ras = rpc.args[2];
+            // `meta` refers to the pointer to the slab metadata.  This field in
+            // the `Entry` is dereferenced outside of the sandbox only in the
+            // case where the remote is not the single remote of the allocator
+            // associated with this sandbox for use on the outside.
             SharedAllocConfig::Pagemap::Entry metaentry{meta, ras};
             if (!is_metaentry_valid(size, metaentry))
             {
