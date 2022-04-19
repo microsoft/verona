@@ -157,6 +157,13 @@ namespace sandbox
           case AllocChunk:
           {
             auto size = static_cast<size_t>(rpc.args[0]);
+            if (
+              (size < snmalloc::MIN_CHUNK_SIZE) ||
+              !snmalloc::bits::is_pow2(size))
+            {
+              reply.error = 3;
+              break;
+            }
             auto meta =
               reinterpret_cast<SharedAllocConfig::SlabMetadata*>(rpc.args[1]);
             auto ras = rpc.args[2];

@@ -10,11 +10,8 @@
 
 using namespace sandbox;
 
-uintptr_t try_dealloc(const void* addr, size_t size)
+HostServiceResponse sendRequest(HostServiceRequest req)
 {
-  HostServiceRequest req{
-    DeallocChunk,
-    {reinterpret_cast<uintptr_t>(addr), static_cast<uintptr_t>(size), 0, 0}};
   auto written_bytes = write(PageMapUpdates, &req, sizeof(req));
   SANDBOX_INVARIANT(
     written_bytes == sizeof(req),
@@ -28,11 +25,27 @@ uintptr_t try_dealloc(const void* addr, size_t size)
     "Read {} bytes, expected {}",
     read_bytes,
     sizeof(response));
-  return response.error;
+  return response;
+}
+
+uintptr_t try_dealloc(const void* addr, size_t size)
+{
+  HostServiceRequest req{
+    DeallocChunk,
+    {reinterpret_cast<uintptr_t>(addr), static_cast<uintptr_t>(size), 0, 0}};
+  return sendRequest(req).error;
+}
+
+void try_alloc()
+{
+  SANDBOX_INVARIANT(
+    sendRequest({AllocChunk, {0x100, 0, 0}}).error != 0,
+    "Allocating less than a chunk spuriously returned success");
 }
 
 bool attack(const void* base, const void* top)
 {
+  try_alloc();
   SANDBOX_INVARIANT(try_dealloc(nullptr, -1) != 0, "Trying to dealloc nullptr");
   SANDBOX_INVARIANT(
     try_dealloc(static_cast<const char*>(base) + 100, -100) != 0,
