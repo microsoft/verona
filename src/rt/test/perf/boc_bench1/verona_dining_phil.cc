@@ -6,8 +6,7 @@
 #include <test/harness.h>
 #include <test/when.h>
 
-
-struct Fork : public VCown<Fork>
+struct Fork
 {
   size_t uses{0};
 
@@ -18,27 +17,19 @@ struct Fork : public VCown<Fork>
 
   ~Fork()
   {
-    check((HUNGER * 2) == uses);
+    // Contains the uses == 0 case, due to copies during 
+    // setup needing to be destroyed.
+    // Should look to make example copy free.
+    check(((HUNGER * 2) == uses) || (uses == 0));
   }
 };
 
-Fork** forks;
-
-void setup_forks()
-{
-  for (size_t i = 0; i < NUM_PHILOSOPHERS; i++)
-  {
-    forks[i] = new Fork;
-    Cown::acquire(forks[i]);
-  }
-}
-
-Fork* get_left(size_t index)
+cown_ptr<Fork> get_left(std::vector<cown_ptr<Fork>>& forks, size_t index)
 {
   return forks[index];
 }
 
-Fork* get_right(size_t index)
+cown_ptr<Fork> get_right(std::vector<cown_ptr<Fork>>& forks, size_t index)
 {
   // This code handles tables by splitting the index into the table and then
   // the philosopher index.  It wraps the fork around for the last philosoher
@@ -51,12 +42,12 @@ Fork* get_right(size_t index)
 
 struct Philosopher
 {
-  Fork* left; // Has a reference count on the forks
-  Fork* right; // Has a reference count on the forks
+  cown_ptr<Fork> left;
+  cown_ptr<Fork> right;
   size_t hunger;
 
-  Philosopher(size_t index)
-  : left(get_left(index)), right(get_right(index)), hunger(HUNGER)
+  Philosopher(std::vector<cown_ptr<Fork>>& forks, size_t index)
+  : left(get_left(forks, index)), right(get_right(forks, index)), hunger(HUNGER)
   {}
 
   static void eat(std::unique_ptr<Philosopher> phil)
@@ -64,35 +55,37 @@ struct Philosopher
     if (phil->hunger > 0)
     {
       when(phil->left, phil->right)
-        << [phil = std::move(phil)](Fork* f1, Fork* f2) mutable {
+        << [phil = std::move(phil)](
+             acquired_cown<Fork> f1, acquired_cown<Fork> f2) mutable {
              f1->use();
              f2->use();
-             busy_loop(WORK_USEC); // Ponder
+             busy_loop(WORK_USEC);
              phil->hunger--;
              eat(std::move(phil));
            };
     }
   }
-
-  ~Philosopher()
-  {
-    Cown::release(ThreadAlloc::get(), left);
-    Cown::release(ThreadAlloc::get(), right);
-  }
 };
 
 void test_body()
 {
+  std::vector<cown_ptr<Fork>> forks;
+
+  for (size_t i = 0; i < NUM_PHILOSOPHERS; i++)
+  {
+    forks.push_back(make_cown<Fork>({}));
+  }
+
   if (OPTIMAL_ORDER)
   {
     for (size_t i = 0; i < NUM_PHILOSOPHERS; i += 2)
     {
-      auto phil = std::make_unique<Philosopher>(i);
+      auto phil = std::make_unique<Philosopher>(forks, i);
       Philosopher::eat(std::move(phil));
     }
     for (size_t i = 1; i < NUM_PHILOSOPHERS; i += 2)
     {
-      auto phil = std::make_unique<Philosopher>(i);
+      auto phil = std::make_unique<Philosopher>(forks, i);
       Philosopher::eat(std::move(phil));
     }
   }
@@ -100,7 +93,7 @@ void test_body()
   {
     for (size_t i = 0; i < NUM_PHILOSOPHERS; i++)
     {
-      auto phil = std::make_unique<Philosopher>(i);
+      auto phil = std::make_unique<Philosopher>(forks, i);
       Philosopher::eat(std::move(phil));
     }
   }
@@ -108,18 +101,12 @@ void test_body()
 
 void test1()
 {
-  setup_forks();
-  // Hold no forks during the initial schedule.
-  verona::rt::schedule_lambda(test_body);
+  when () << test_body;
 }
 
 int verona_main(SystematicTestHarness& harness)
 {
-  forks = new Fork*[NUM_PHILOSOPHERS * NUM_TABLES];
-
   harness.run(test1);
-
-  delete[] forks;
 
   return 0;
 }

@@ -13,56 +13,50 @@
  * TODO
  */
 
-struct Worker : public VCown<Worker>
-{
-  xoroshiro::p128r64 rand;
-};
-
-struct Account : public VCown<Account>
+struct Account
 {
   int64_t balance;
   int64_t overdraft;
   size_t id;
 };
 
-struct Log : public VCown<Log>
+using Accounts = std::vector<cown_ptr<Account>>;
+
+struct Worker
+{
+  std::shared_ptr<Accounts> accounts;
+
+  xoroshiro::p128r64 rand;
+
+  Worker(std::shared_ptr<Accounts> accounts, size_t seed) : accounts(accounts)
+  {
+    rand.set_state(seed + 1);
+  }
+};
+
+struct Log
 {};
 
-namespace
+void log(cown_ptr<Log> log, std::string)
 {
-  Account** accounts;
+  when(log) << [=](auto) { /*std::cout << msg << std::endl;*/ };
 }
 
-void setup_accounts()
-{
-  size_t ids = 0;
-  for (size_t i = 0; i < NUM_ACCOUNTS; i++)
-  {
-    accounts[i] = new Account;
-    accounts[i]->balance = 100;
-    accounts[i]->overdraft = 100;
-    accounts[i]->id = ids++;
-  }
-}
-
-void log(Log* log, std::string)
-{
-  when(log) << [=](Log*) { /*std::cout << msg << std::endl;*/ };
-}
-
-void bank_job(Worker* worker, Log* l, size_t repeats)
+void bank_job(acquired_cown<Worker>& worker, cown_ptr<Log> l, size_t repeats)
 {
   // Select two accounts at random.
   auto from_idx = worker->rand.next() % NUM_ACCOUNTS;
   auto to_idx = from_idx;
+
   // We don't want to use the same account.
   while (to_idx == from_idx)
     to_idx = worker->rand.next() % NUM_ACCOUNTS;
 
   // Schedule a transfer
   int64_t amount = 100;
+  Accounts& accounts = *worker->accounts;
   when(accounts[from_idx], accounts[to_idx])
-    << [=](Account* from, Account* to) {
+    << [=](acquired_cown<Account> from, acquired_cown<Account> to) {
          busy_loop(WORK_USEC);
 
          if ((from->balance + from->overdraft) < amount)
@@ -81,43 +75,37 @@ void bank_job(Worker* worker, Log* l, size_t repeats)
   if (repeats > 0)
   {
     // Reschedule bank_job
-    //bank_job(worker, l, repeats - 1);
-    when(worker) << [=](Worker* worker) { bank_job(worker, l, repeats - 1); };
-  }
-  else
-  {
-    // Tidy up
-    verona::rt::Cown::release(ThreadAlloc::get(), worker);
+    // bank_job(worker, l, repeats - 1);
+    when(worker.cown()) <<
+      [=](acquired_cown<Worker> worker) { bank_job(worker, l, repeats - 1); };
   }
 }
 
 void test_body()
 {
-  Log* log = new Log;
-  setup_accounts();
+  auto log = make_cown<Log>({});
+
+  // We share accounts across all the workers, use C++
+  // memory management to collect after the Workers finish.
+  auto accounts = std::make_shared<Accounts>();
+
+  size_t ids = 0;
+  for (size_t i = 0; i < NUM_ACCOUNTS; i++)
+  {
+    accounts->push_back(make_cown<Account>({100, 100, ids++}));
+  }
+
   for (size_t j = 0; j < NUM_WORKERS; j++)
   {
-    auto w = new Worker;
-    // Give each bank a different random seed
-    // so they all do different transactions.
-    w->rand.set_state(j + 1);
-
-    when(w) << [=](Worker* w) { bank_job(w, log, TRANSACTIONS / NUM_WORKERS); };
+    when(make_cown<Worker>({accounts, j + 1})) << [=](acquired_cown<Worker> w) {
+      bank_job(w, log, TRANSACTIONS / NUM_WORKERS);
+    };
   }
 }
 
 int verona_main(SystematicTestHarness& harness)
 {
-  // Not correctly doing memory management in this test.
-  harness.detect_leaks = false;
-
-  //NUM_WORKERS = 1;
-
-  accounts = new Account*[NUM_ACCOUNTS];
-
   harness.run(test_body);
-
-  delete accounts;
 
   return 0;
 }

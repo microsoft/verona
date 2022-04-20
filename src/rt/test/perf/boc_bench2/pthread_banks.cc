@@ -30,9 +30,7 @@ void thread_main(size_t id)
       b = rand.next() % NUM_ACCOUNTS;
 
     {
-      std::lock(accounts[a], accounts[b]);
-      std::lock_guard<std::mutex> lk1(accounts[a], std::adopt_lock);
-      std::lock_guard<std::mutex> lk2(accounts[b], std::adopt_lock);
+      std::scoped_lock lock(accounts[a], accounts[b]);
 
       busy_loop(WORK_USEC);
 

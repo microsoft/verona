@@ -1,21 +1,24 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 
+#include "cown.h"
+
 #include <functional>
 #include <tuple>
 #include <utility>
 #include <verona.h>
 
+
 /**
  * Class for staging the when creation.
  *
  * Do not call directly use `when`
- * 
- * This provides an operator << to apply the closure.  This allows the 
+ *
+ * This provides an operator << to apply the closure.  This allows the
  * argument order to be more sensible, as variadic arguments have to be last.
  *
  *   when (cown1, ..., cownn) << closure;
- * 
+ *
  * Allows the variadic number of cowns to occur before the closure.
  */
 template<typename... Args>
@@ -24,6 +27,10 @@ class When
   template<typename... Args2>
   friend When<Args2...> when(Args2... args);
 
+  /**
+   * Internally uses AcquiredCown.  The cown is only acquired after the
+   * behaviour is scheduled.
+   */
   std::tuple<Args...> cown_tuple;
 
   /**
@@ -43,7 +50,7 @@ class When
     {
       auto p = std::get<index>(cown_tuple);
       assert(p != nullptr);
-      array[index] = p;
+      array[index] = p.underlying_cown();
       array_assign<index + 1>(array);
     }
   }
@@ -52,19 +59,54 @@ class When
   When(Ts... args) : cown_tuple(args...)
   {}
 
+  /**
+   * Converts a single `cown_ptr` into a `acquired_cown`.
+   *
+   * Needs to be a separate function for the template parameter to work.
+   */
+  template<typename C>
+  static acquired_cown<C> cown_ptr_to_acquired(cown_ptr<C> c)
+  {
+    return acquired_cown<C>(c);
+  }
+
+  /**
+   * Internally used to convert a cown_ptr... to an acquired_cown... .
+   *
+   * Effectively
+   *    (cown_ptr<T>... -> ()) -> (acquired_cown<T>... -> ())
+   */
+  template<typename F>
+  static auto lift(F f)
+  {
+    return [f = std::forward<F>(f)](Args... args) mutable {
+      f(cown_ptr_to_acquired(args)...);
+    };
+  }
+
 public:
+  /**
+   * Applies the closure to schedule the behaviour on the set of cowns.
+   */
   template<typename F>
   void operator<<(F&& f)
   {
-    verona::rt::Cown* cowns[sizeof...(Args)];
-    array_assign(cowns);
+    if constexpr (sizeof...(Args) == 0)
+    {
+      verona::rt::schedule_lambda(std::forward<F>(f));
+    }
+    else
+    {
+      verona::rt::Cown* cowns[sizeof...(Args)];
+      array_assign(cowns);
 
-    verona::rt::schedule_lambda(
-      sizeof...(Args),
-      cowns,
-      [f = std::forward<F>(f), cown_tuple = cown_tuple]() mutable {
-        std::apply(f, cown_tuple);
-      });
+      verona::rt::schedule_lambda(
+        sizeof...(Args),
+        cowns,
+        [f = std::forward<F>(f), cown_tuple = cown_tuple]() mutable {
+          std::apply(lift(std::forward<F>(f)), cown_tuple);
+        });
+    }
   }
 };
 

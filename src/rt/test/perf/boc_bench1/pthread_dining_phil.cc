@@ -18,10 +18,7 @@ void philosopher_main(size_t phil_id, size_t hunger)
 {
   for (size_t i = 0; i < hunger; i++)
   {
-    std::lock(forks[(phil_id + 1) % NUM_PHILOSOPHERS], forks[phil_id]);
-    std::lock_guard<std::mutex> lk1(
-      forks[(phil_id + 1) % NUM_PHILOSOPHERS], std::adopt_lock);
-    std::lock_guard<std::mutex> lk2(forks[phil_id], std::adopt_lock);
+    std::scoped_lock lock(forks[phil_id], forks[(phil_id + 1) % NUM_PHILOSOPHERS]);
 
     busy_loop(WORK_USEC);
   }
