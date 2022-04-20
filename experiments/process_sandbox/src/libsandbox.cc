@@ -463,6 +463,13 @@ namespace sandbox
     Result
     handle_getaddrinfo(Library& lib, SyscallArgs<GetAddrInfo>::rpc_type& args)
     {
+      // If the result pointer is not valid, report an error
+      addrinfo** unsafeSandboxRes =
+        reinterpret_cast<addrinfo**>(std::get<3>(args));
+      if (!lib.contains(unsafeSandboxRes, sizeof(addrinfo*)))
+      {
+        return EAI_MEMORY;
+      }
       addrinfo* unsafeHints = reinterpret_cast<addrinfo*>(std::get<2>(args));
       addrinfo hintsCopy;
       addrinfo* hints;
@@ -530,17 +537,7 @@ namespace sandbox
           }
           // Add the null terminator in the list.
           ais[count - 1].ai_next = nullptr;
-          // If the result pointer is actually sensible, return the pointer.
-          addrinfo** unsafeSandboxRes =
-            reinterpret_cast<addrinfo**>(std::get<3>(args));
-          if (lib.contains(unsafeSandboxRes, sizeof(addrinfo*)))
-          {
-            *unsafeSandboxRes = ais;
-          }
-          else
-          {
-            lib.free(ais);
-          }
+          *unsafeSandboxRes = ais;
           netpolicy.freeaddrinfo(res);
         }
       }
