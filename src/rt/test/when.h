@@ -8,7 +8,6 @@
 #include <utility>
 #include <verona.h>
 
-
 /**
  * Class for staging the when creation.
  *
@@ -57,7 +56,11 @@ class When
 
   template<typename... Ts>
   When(Ts... args) : cown_tuple(args...)
-  {}
+  {
+    static_assert(
+      std::conjunction_v<std::is_base_of<cown_ptr_trait, Ts>...>,
+      "Not a cown_ptr");
+  }
 
   /**
    * Converts a single `cown_ptr` into a `acquired_cown`.

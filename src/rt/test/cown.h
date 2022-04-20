@@ -6,13 +6,22 @@
 #include <utility>
 #include <verona.h>
 
+class cown_ptr_trait
+{
+  private:
+    cown_ptr_trait() {}
+
+  template<typename T>
+  friend class cown_ptr;
+};
+
 /**
  * Smart pointer to represent shared access to a cown.
  * Can only be used asychronously with `when` to get
  * underlying access.
  */
 template<typename T>
-class cown_ptr
+class cown_ptr : cown_ptr_trait
 {
 private:
   /**
