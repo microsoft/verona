@@ -5,12 +5,14 @@
 #include <ds/scramble.h>
 #include <memory>
 #include <test/harness.h>
-#include <test/when.h>
+#include <cpp/when.h>
 
 /**
- * This file implements the following program:
- *
- * TODO
+ * This file implements an example of a set of Workers
+ * creating transactions.  The transactions use Accounts,
+ * and finally, all the transactions are logged.
+ * 
+ * There is a busy loop in the transactions.
  */
 
 struct Account

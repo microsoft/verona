@@ -4,7 +4,7 @@
 
 #include <memory>
 #include <test/harness.h>
-#include <test/when.h>
+#include <cpp/when.h>
 
 struct Fork
 {
