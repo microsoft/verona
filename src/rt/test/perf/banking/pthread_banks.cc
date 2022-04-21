@@ -15,7 +15,6 @@ namespace
   uint64_t tx_count = 0;
 }
 
-
 void thread_main(size_t id)
 {
   size_t a, b;

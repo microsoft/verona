@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: MIT
 #include "args.h"
 
+#include <cpp/when.h>
 #include <ds/scramble.h>
 #include <memory>
 #include <test/harness.h>
-#include <cpp/when.h>
 
 /**
  * This file implements an example of a set of Workers
  * creating transactions.  The transactions use Accounts,
  * and finally, all the transactions are logged.
- * 
+ *
  * There is a busy loop in the transactions.
  */
 

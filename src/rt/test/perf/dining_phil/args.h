@@ -8,7 +8,7 @@ inline size_t NUM_PHILOSOPHERS = 50;
 inline size_t NUM_TABLES = 1;
 inline bool OPTIMAL_ORDER = false;
 inline size_t WORK_USEC = 1000;
-
+inline bool MANUAL_LOCK_ORDER = false;
 
 inline bool process_args(SystematicTestHarness& harness)
 {
@@ -25,6 +25,8 @@ inline bool process_args(SystematicTestHarness& harness)
               << std::endl;
     return false;
   }
+
+  MANUAL_LOCK_ORDER = harness.opt.has("--manual_lock_order");
 
   if (NUM_PHILOSOPHERS < 2)
   {

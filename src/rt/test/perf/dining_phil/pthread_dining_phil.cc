@@ -10,7 +10,8 @@
 #include <thread>
 #include <vector>
 
-namespace {
+namespace
+{
   std::mutex* forks;
 }
 
@@ -18,7 +19,8 @@ void philosopher_main(size_t phil_id, size_t hunger)
 {
   for (size_t i = 0; i < hunger; i++)
   {
-    std::scoped_lock lock(forks[phil_id], forks[(phil_id + 1) % NUM_PHILOSOPHERS]);
+    std::scoped_lock lock(
+      forks[phil_id], forks[(phil_id + 1) % NUM_PHILOSOPHERS]);
 
     busy_loop(WORK_USEC);
   }

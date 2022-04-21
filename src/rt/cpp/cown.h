@@ -8,8 +8,8 @@
 
 class cown_ptr_trait
 {
-  private:
-    cown_ptr_trait() {}
+private:
+  cown_ptr_trait() {}
 
   template<typename T>
   friend class cown_ptr;
@@ -33,8 +33,7 @@ private:
     T value;
 
   public:
-    ActualCown(T&& t) : value(std::forward<T>(t))
-    {}
+    ActualCown(T&& t) : value(std::forward<T>(t)) {}
 
     template<typename TT>
     friend class acquired_cown;

@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT
 #include "args.h"
 
+#include <cpp/when.h>
 #include <memory>
 #include <test/harness.h>
-#include <cpp/when.h>
 
 struct Fork
 {
@@ -17,7 +17,7 @@ struct Fork
 
   ~Fork()
   {
-    // Contains the uses == 0 case, due to copies during 
+    // Contains the uses == 0 case, due to copies during
     // setup needing to be destroyed.
     // Should look to make example copy free.
     check(((HUNGER * 2) == uses) || (uses == 0));
@@ -101,7 +101,7 @@ void test_body()
 
 void test1()
 {
-  when () << test_body;
+  when() << test_body;
 }
 
 int verona_main(SystematicTestHarness& harness)
