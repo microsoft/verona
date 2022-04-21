@@ -48,8 +48,8 @@ class When
     else
     {
       auto p = std::get<index>(cown_tuple);
-      assert(p != nullptr);
       array[index] = p.underlying_cown();
+      assert(array[index] != nullptr);
       array_assign<index + 1>(array);
     }
   }
