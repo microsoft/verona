@@ -22,7 +22,7 @@ struct Account
   size_t id;
 
   Account(int64_t balance, int64_t overdraft, size_t id)
-    : balance(balance), overdraft(overdraft), id(id)
+  : balance(balance), overdraft(overdraft), id(id)
   {}
 };
 
@@ -48,7 +48,10 @@ void log(cown_ptr<std::unique_ptr<Log>> log, std::string)
   when(log) << [=](auto) { /*std::cout << msg << std::endl;*/ };
 }
 
-void bank_job(acquired_cown<Worker>& worker, cown_ptr<std::unique_ptr<Log>> l, size_t repeats)
+void bank_job(
+  acquired_cown<Worker>& worker,
+  cown_ptr<std::unique_ptr<Log>> l,
+  size_t repeats)
 {
   // Select two accounts at random.
   auto from_idx = worker->rand.next() % NUM_ACCOUNTS;
@@ -63,7 +66,7 @@ void bank_job(acquired_cown<Worker>& worker, cown_ptr<std::unique_ptr<Log>> l, s
   Accounts& accounts = *worker->accounts;
   when(accounts[from_idx], accounts[to_idx])
     << [=](acquired_cown<Account> from, acquired_cown<Account> to) {
-         // Note that we could you 
+         // Note that we could do
          //  (auto from, auto to) {
          // We give explicit types for clarity.
          busy_loop(WORK_USEC);
