@@ -99,12 +99,10 @@ public:
   ~cown_ptr()
   {
     // Condition to handle moved cown ptrs.
-    // And a defence against the destructor being called twice.
     if (allocated_cown != nullptr)
     {
       auto& alloc = verona::rt::ThreadAlloc::get();
       verona::rt::Cown::release(alloc, allocated_cown);
-      allocated_cown = nullptr;
     }
   }
 
