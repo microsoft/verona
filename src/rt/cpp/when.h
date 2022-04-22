@@ -23,6 +23,8 @@
 template<typename... Args>
 class When
 {
+  // Note only requires friend when Args2 == Args
+  // but C++ doesn't like this.
   template<typename... Args2>
   friend When<Args2...> when(Args2... args);
 
@@ -58,7 +60,7 @@ class When
   When(Ts... args) : cown_tuple(args...)
   {
     static_assert(
-      std::conjunction_v<std::is_base_of<cown_ptr_trait, Ts>...>,
+      std::conjunction_v<std::is_base_of<cown_ptr_base, Ts>...>,
       "Not a cown_ptr");
   }
 
@@ -71,20 +73,6 @@ class When
   static acquired_cown<C> cown_ptr_to_acquired(cown_ptr<C> c)
   {
     return acquired_cown<C>(c);
-  }
-
-  /**
-   * Internally used to convert a cown_ptr... to an acquired_cown... .
-   *
-   * Effectively
-   *    (cown_ptr<T>... -> ()) -> (acquired_cown<T>... -> ())
-   */
-  template<typename F>
-  static auto lift(F f)
-  {
-    return [f = std::forward<F>(f)](Args... args) mutable {
-      f(cown_ptr_to_acquired(args)...);
-    };
   }
 
 public:
@@ -107,7 +95,13 @@ public:
         sizeof...(Args),
         cowns,
         [f = std::forward<F>(f), cown_tuple = cown_tuple]() mutable {
-          std::apply(lift(std::forward<F>(f)), cown_tuple);
+          /// Effectively converts cown_ptr... to acquired_cown... .
+          auto lift_f = [f =
+                                    std::forward<F>(f)](Args... args) mutable {
+            f(cown_ptr_to_acquired(args)...);
+          };
+
+          std::apply(lift_f, cown_tuple);
         });
     }
   }

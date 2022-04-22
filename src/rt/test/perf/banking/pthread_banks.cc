@@ -12,8 +12,13 @@
 
 namespace
 {
+  /// Protects the state of the accounts (note, in this benchmark there is no state)
   std::mutex* accounts;
+
+  /// Protects the state of the logger (note, in this benchmark that is tx_count)
   std::mutex logger;
+  
+  /// Something representing the loggers state.
   uint64_t tx_count = 0;
 }
 
@@ -35,7 +40,10 @@ void thread_main(size_t id)
 
       busy_loop(WORK_USEC);
 
+      // Must expand lock set to ensure the order is consistent.
       std::lock_guard<std::mutex> lg_lk(logger);
+
+      // Superficial logging.
       tx_count++;
     }
   }

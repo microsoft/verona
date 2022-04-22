@@ -31,13 +31,7 @@ cown_ptr<Fork> get_left(std::vector<cown_ptr<Fork>>& forks, size_t index)
 
 cown_ptr<Fork> get_right(std::vector<cown_ptr<Fork>>& forks, size_t index)
 {
-  // This code handles tables by splitting the index into the table and then
-  // the philosopher index.  It wraps the fork around for the last philosoher
-  // on each table.
-  size_t table_size = NUM_PHILOSOPHERS / NUM_TABLES;
-  size_t table = index / table_size;
-  size_t next_fork = (index + 1) % table_size;
-  return forks[(table * table_size) + next_fork];
+  return forks[(index + 1) % NUM_PHILOSOPHERS];
 }
 
 struct Philosopher
@@ -73,7 +67,7 @@ void test_body()
 
   for (size_t i = 0; i < NUM_PHILOSOPHERS; i++)
   {
-    forks.push_back(make_cown<Fork>({}));
+    forks.push_back(make_cown<Fork>());
   }
 
   if (OPTIMAL_ORDER)

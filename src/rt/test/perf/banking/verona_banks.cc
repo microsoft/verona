@@ -20,6 +20,10 @@ struct Account
   int64_t balance;
   int64_t overdraft;
   size_t id;
+
+  Account(int64_t balance, int64_t overdraft, size_t id)
+    : balance(balance), overdraft(overdraft), id(id)
+  {}
 };
 
 using Accounts = std::vector<cown_ptr<Account>>;
@@ -39,12 +43,12 @@ struct Worker
 struct Log
 {};
 
-void log(cown_ptr<Log> log, std::string)
+void log(cown_ptr<std::unique_ptr<Log>> log, std::string)
 {
   when(log) << [=](auto) { /*std::cout << msg << std::endl;*/ };
 }
 
-void bank_job(acquired_cown<Worker>& worker, cown_ptr<Log> l, size_t repeats)
+void bank_job(acquired_cown<Worker>& worker, cown_ptr<std::unique_ptr<Log>> l, size_t repeats)
 {
   // Select two accounts at random.
   auto from_idx = worker->rand.next() % NUM_ACCOUNTS;
@@ -59,6 +63,9 @@ void bank_job(acquired_cown<Worker>& worker, cown_ptr<Log> l, size_t repeats)
   Accounts& accounts = *worker->accounts;
   when(accounts[from_idx], accounts[to_idx])
     << [=](acquired_cown<Account> from, acquired_cown<Account> to) {
+         // Note that we could you 
+         //  (auto from, auto to) {
+         // We give explicit types for clarity.
          busy_loop(WORK_USEC);
 
          if ((from->balance + from->overdraft) < amount)
@@ -85,7 +92,7 @@ void bank_job(acquired_cown<Worker>& worker, cown_ptr<Log> l, size_t repeats)
 
 void test_body()
 {
-  auto log = make_cown<Log>({});
+  auto log = make_cown<std::unique_ptr<Log>>(std::make_unique<Log>());
 
   // We share accounts across all the workers, use C++
   // memory management to collect after the Workers finish.
@@ -94,12 +101,12 @@ void test_body()
   size_t ids = 0;
   for (size_t i = 0; i < NUM_ACCOUNTS; i++)
   {
-    accounts->push_back(make_cown<Account>({100, 100, ids++}));
+    accounts->push_back(make_cown<Account>(100, 100, ids++));
   }
 
   for (size_t j = 0; j < NUM_WORKERS; j++)
   {
-    when(make_cown<Worker>({accounts, j + 1})) << [=](acquired_cown<Worker> w) {
+    when(make_cown<Worker>(accounts, j + 1)) << [=](acquired_cown<Worker> w) {
       bank_job(w, log, TRANSACTIONS / NUM_WORKERS);
     };
   }

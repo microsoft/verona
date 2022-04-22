@@ -6,11 +6,22 @@
 #include <utility>
 #include <verona.h>
 
-class cown_ptr_trait
+/**
+ * Used in static asserts to check passed values are cown_ptr types.
+ *
+ * This class is used so a single simple check can be used
+ *   std::is_base_of<cown_ptr_base, T>
+ * To check T is a cown_ptr.
+ */
+class cown_ptr_base
 {
 private:
-  cown_ptr_trait() {}
+  cown_ptr_base() {}
 
+  /**
+   * Only cown_ptr can construct one of these,
+   * so anything that has this base class will be a cown_ptr.
+   */
   template<typename T>
   friend class cown_ptr;
 };
@@ -19,9 +30,12 @@ private:
  * Smart pointer to represent shared access to a cown.
  * Can only be used asychronously with `when` to get
  * underlying access.
+ * 
+ * Note using lower case name to match C++ std library
+ * as this is one of the exposed types.
  */
 template<typename T>
-class cown_ptr : cown_ptr_trait
+class cown_ptr : cown_ptr_base
 {
 private:
   /**
@@ -33,7 +47,8 @@ private:
     T value;
 
   public:
-    ActualCown(T&& t) : value(std::forward<T>(t)) {}
+    template<typename... Args>
+    ActualCown(Args&&... ts) : value(std::forward<Args>(ts)...) {}
 
     template<typename TT>
     friend class acquired_cown;
@@ -58,7 +73,7 @@ private:
    * This is internal, and the `make_cown` below is the public interface,
    * which has better behaviour for implicit template arguments.
    */
-  cown_ptr(T&& t) : allocated_cown(new ActualCown(std::forward<T>(t))) {}
+  cown_ptr(ActualCown* cown) : allocated_cown(cown) {}
 
 public:
   /**
@@ -94,25 +109,29 @@ public:
   }
 
   // Required as acquired_cown has to reach inside.
-  template<typename TT>
+  // Note only requires friend when implicit typename is T
+  // but C++ doesn't like this.
+  template<typename>
   friend class acquired_cown;
 
-  template<typename TT>
-  friend cown_ptr<TT> make_cown(TT&& t);
+  // Note only requires friend when TT is T
+  // but C++ doesn't like this.
+  template<typename TT, typename... Args>
+  friend cown_ptr<TT> make_cown(Args&&...);
 
   template<typename...>
   friend class When;
 };
 
 /**
- * Used to construct a new cown_ptr to `t`.
+ * Used to construct a new cown_ptr.
  *
- * TODO: Need to improve the forwarding versus copy behaviour here.
+ * Forwards arguments to construct the underlying data contained in the cown.
  */
-template<typename T>
-cown_ptr<T> make_cown(T&& t)
+template<typename T, typename... Args>
+cown_ptr<T> make_cown(Args&&... ts)
 {
-  return cown_ptr<T>(std::forward<T>(t));
+  return cown_ptr<T>(new typename cown_ptr<T>::ActualCown(std::forward<Args>(ts)...));
 }
 
 /**
@@ -121,23 +140,27 @@ cown_ptr<T> make_cown(T&& t)
  * Can only be constructed by a `when`.
  *
  * The acquired_cown should not be persisted beyond the lifetime of the `when`
+ *
+ * Note using lower case name to match C++ std library
+ * as this is one of the exposed types.
  */
 template<typename T>
 class acquired_cown
 {
-  // Needed to build one from inside a `when`
+  /// Needed to build one from inside a `when`
   template<typename...>
   friend class When;
 
 private:
-  // Underlying cown that has been acquired.
-  // TODO: Look to optimise away the reference count here, as the
-  // runtime already holds one for the duration of the `when`.
-  cown_ptr<T> origin_cown;
+  /// Underlying cown that has been acquired.
+  /// Runtime is actually holding this reference count.
+  typename cown_ptr<T>::ActualCown* origin_cown;
 
-  acquired_cown(const cown_ptr<T>& origin) : origin_cown(origin) {}
+  /// Constructor is private, as only `When` can construct one.
+  acquired_cown(const cown_ptr<T>& origin) : origin_cown(origin.allocated_cown) {}
 
 public:
+  /// Get a handle on the underlying cown.
   cown_ptr<T> cown() const
   {
     return origin_cown;
@@ -145,21 +168,28 @@ public:
 
   T* operator->()
   {
-    return &(origin_cown.allocated_cown->value);
+    return &(origin_cown->value);
   }
 
   T& operator*()
   {
-    return origin_cown.allocated_cown->value;
+    return origin_cown->value;
   }
 
   operator T&()
   {
-    return origin_cown.allocated_cown->value;
+    return origin_cown->value;
   }
 
+  /**
+   * Deleted to prevent accidental copying or 
+   * moving.  The lifetime is tied to the `when`,
+   * so the cown should not be put somewhere else.
+   * @{
+   */
   acquired_cown(acquired_cown&&) = delete;
   acquired_cown& operator=(acquired_cown&&) = delete;
   acquired_cown(const acquired_cown&) = delete;
   acquired_cown& operator=(const acquired_cown&) = delete;
+  /// @}
 };
