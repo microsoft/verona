@@ -96,8 +96,7 @@ public:
         cowns,
         [f = std::forward<F>(f), cown_tuple = cown_tuple]() mutable {
           /// Effectively converts cown_ptr... to acquired_cown... .
-          auto lift_f = [f =
-                                    std::forward<F>(f)](Args... args) mutable {
+          auto lift_f = [f = std::forward<F>(f)](Args... args) mutable {
             f(cown_ptr_to_acquired(args)...);
           };
 

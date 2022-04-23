@@ -27,14 +27,14 @@ extern "C" inline void dump_flight_recorder()
 
 /**
  * Implements a busy loop that spins for the specified number of microseconds.
- * 
- * This is used instead of sleep as it keeps the core busy for the specified time, and
- * hence can be used in a test to emulate work.
  *
- * Sleep cannot be used to emulate work as many threads can be sleeping at once and thus
- * it appears to be quicker.  E.g. 2000 threads sleeping for 1 ms, can occur in 1
- * ms on a single core box, where as 2000 threads calling busy_loop(1'000) would have to take
- * 2 seconds to complete.
+ * This is used instead of sleep as it keeps the core busy for the specified
+ * time, and hence can be used in a test to emulate work.
+ *
+ * Sleep cannot be used to emulate work as many threads can be sleeping at once
+ * and thus it appears to be quicker.  E.g. 2000 threads sleeping for 1 ms, can
+ * occur in 1 ms on a single core box, where as 2000 threads calling
+ * busy_loop(1'000) would have to take 2 seconds to complete.
  */
 inline void busy_loop(size_t u_sec)
 {

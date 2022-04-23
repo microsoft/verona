@@ -12,12 +12,14 @@
 
 namespace
 {
-  /// Protects the state of the accounts (note, in this benchmark there is no state)
+  /// Protects the state of the accounts (note, in this benchmark there is no
+  /// state)
   std::mutex* accounts;
 
-  /// Protects the state of the logger (note, in this benchmark that is tx_count)
+  /// Protects the state of the logger (note, in this benchmark that is
+  /// tx_count)
   std::mutex logger;
-  
+
   /// Something representing the loggers state.
   uint64_t tx_count = 0;
 }

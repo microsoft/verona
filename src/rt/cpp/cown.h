@@ -30,7 +30,7 @@ private:
  * Smart pointer to represent shared access to a cown.
  * Can only be used asychronously with `when` to get
  * underlying access.
- * 
+ *
  * Note using lower case name to match C++ std library
  * as this is one of the exposed types.
  */
@@ -48,7 +48,8 @@ private:
 
   public:
     template<typename... Args>
-    ActualCown(Args&&... ts) : value(std::forward<Args>(ts)...) {}
+    ActualCown(Args&&... ts) : value(std::forward<Args>(ts)...)
+    {}
 
     template<typename TT>
     friend class acquired_cown;
@@ -129,7 +130,8 @@ public:
 template<typename T, typename... Args>
 cown_ptr<T> make_cown(Args&&... ts)
 {
-  return cown_ptr<T>(new typename cown_ptr<T>::ActualCown(std::forward<Args>(ts)...));
+  return cown_ptr<T>(
+    new typename cown_ptr<T>::ActualCown(std::forward<Args>(ts)...));
 }
 
 /**
@@ -182,7 +184,7 @@ public:
   }
 
   /**
-   * Deleted to prevent accidental copying or 
+   * Deleted to prevent accidental copying or
    * moving.  The lifetime is tied to the `when`,
    * so the cown should not be put somewhere else.
    * @{
