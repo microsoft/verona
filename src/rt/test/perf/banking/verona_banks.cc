@@ -24,6 +24,11 @@ struct Account
   Account(int64_t balance, int64_t overdraft, size_t id)
   : balance(balance), overdraft(overdraft), id(id)
   {}
+
+  ~Account()
+  {
+    Logging::cout() << "Account " << id << " destroyed" << Logging::endl;
+  }
 };
 
 using Accounts = std::vector<cown_ptr<Account>>;
@@ -37,6 +42,11 @@ struct Worker
   Worker(std::shared_ptr<Accounts> accounts, size_t seed) : accounts(accounts)
   {
     rand.set_state(seed + 1);
+  }
+
+  ~Worker()
+  {
+    Logging::cout() << "Worker destroyed" << Logging::endl;
   }
 };
 
@@ -95,6 +105,8 @@ void bank_job(
 
 void test_body()
 {
+  Logging::cout() << "test_body()" << Logging::endl;
+
   auto log = make_cown<std::unique_ptr<Log>>(std::make_unique<Log>());
 
   // We share accounts across all the workers, use C++
@@ -104,11 +116,13 @@ void test_body()
   size_t ids = 0;
   for (size_t i = 0; i < NUM_ACCOUNTS; i++)
   {
+    Logging::cout() << "Account " << i << Logging::endl;
     accounts->push_back(make_cown<Account>(100, 100, ids++));
   }
 
   for (size_t j = 0; j < NUM_WORKERS; j++)
   {
+    Logging::cout() << "Worker " << j << Logging::endl;
     when(make_cown<Worker>(accounts, j + 1)) << [=](acquired_cown<Worker> w) {
       bank_job(w, log, TRANSACTIONS / NUM_WORKERS);
     };

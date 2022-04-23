@@ -152,10 +152,12 @@ class acquired_cown
 private:
   /// Underlying cown that has been acquired.
   /// Runtime is actually holding this reference count.
-  typename cown_ptr<T>::ActualCown* origin_cown;
+  cown_ptr<T> origin_cown;
 
   /// Constructor is private, as only `When` can construct one.
-  acquired_cown(const cown_ptr<T>& origin) : origin_cown(origin.allocated_cown) {}
+  /// TODO: Consider if we can reduce the reference count here, as the
+  /// runtime is holding references too.
+  acquired_cown(const cown_ptr<T>& origin) : origin_cown(origin) {}
 
 public:
   /// Get a handle on the underlying cown.
@@ -166,17 +168,17 @@ public:
 
   T* operator->()
   {
-    return &(origin_cown->value);
+    return &(origin_cown.allocated_cown->value);
   }
 
   T& operator*()
   {
-    return origin_cown->value;
+    return origin_cown.allocated_cown->value;
   }
 
   operator T&()
   {
-    return origin_cown->value;
+    return origin_cown.allocated_cown->value;
   }
 
   /**
