@@ -8,8 +8,8 @@ using namespace verona::rt;
 int buffer[100];
 
 struct ExternalSource;
-void enable_notifications(ExternalSource* es);
-void disable_notifications(ExternalSource* es);
+void enable_notifications(ExternalSource& es);
+void disable_notifications(ExternalSource& es);
 
 struct Poller : VCown<Poller>
 {
@@ -18,7 +18,7 @@ struct Poller : VCown<Poller>
   int empty_count;
   Noticeboard<int> buffer_idx;
   int read;
-  ExternalSource* es;
+  std::shared_ptr<ExternalSource> es;
 
   Poller()
   : should_schedule_if_notified(false), empty_count(0), buffer_idx(0), read(0)
@@ -49,7 +49,7 @@ struct Poller : VCown<Poller>
     else
     {
       // add external source and enable notifications
-      enable_notifications(es);
+      enable_notifications(*es);
       Scheduler::add_external_event_source();
       should_schedule_if_notified = true;
 
@@ -57,7 +57,7 @@ struct Poller : VCown<Poller>
       // notifications
       if (read <= buffer_idx.peek(alloc))
       {
-        disable_notifications(es);
+        disable_notifications(*es);
         Scheduler::remove_external_event_source();
         should_schedule_if_notified = false;
         schedule_lambda(this, [=]() { main_poller(); });
@@ -90,12 +90,6 @@ struct ExternalSource
     Cown::acquire(p);
   }
 
-  ~ExternalSource()
-  {
-    auto& alloc = ThreadAlloc::get();
-    Cown::release(alloc, p);
-  }
-
   void main_es()
   {
     auto& alloc = ThreadAlloc::get();
@@ -122,7 +116,7 @@ struct ExternalSource
     if (notifications_on.exchange(false))
       p->mark_notify();
 
-    delete this;
+    Cown::release(alloc, p);
   }
 
   void notifications_enable()
@@ -136,21 +130,21 @@ struct ExternalSource
   }
 };
 
-void enable_notifications(ExternalSource* es)
+void enable_notifications(ExternalSource& es)
 {
-  es->notifications_enable();
+  es.notifications_enable();
 }
 
-void disable_notifications(ExternalSource* es)
+void disable_notifications(ExternalSource& es)
 {
-  es->notifications_disable();
+  es.notifications_disable();
 }
 
 void test(SystematicTestHarness* harness)
 {
   auto& alloc = ThreadAlloc::get();
   auto* p = new (alloc) Poller();
-  auto* es = new ExternalSource(p);
+  auto es = std::make_shared<ExternalSource>(p);
 
   p->es = es;
   schedule_lambda<YesTransfer>(p, [=]() { p->main_poller(); });
