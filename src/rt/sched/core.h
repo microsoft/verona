@@ -3,6 +3,7 @@
 #include <atomic>
 
 #include "mpmcq.h"
+#include "schedulerstats.h"
 
 namespace verona::rt
 {
@@ -20,6 +21,8 @@ namespace verona::rt
         /// Moved from the scheduler thread
         std::atomic<size_t> total_cowns = 0;
         std::atomic<size_t> free_cowns = 0;
+        SchedulerStats stats;
+
 
       public:
         Core() : token_cown{T::create_token_cown()}, q{token_cown}

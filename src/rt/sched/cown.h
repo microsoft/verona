@@ -392,8 +392,8 @@ namespace verona::rt
       // TODO Make this assertion pass.
       // assert(can_lifo_schedule() || Scheduler::debug_not_running());
 
-      t = Scheduler::round_robin();
-      t->schedule_lifo(this);
+      auto* core = Scheduler::round_robin();
+      CownThread::schedule_lifo(core, this);
     }
 
   private:

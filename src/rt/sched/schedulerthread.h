@@ -3,7 +3,6 @@
 #pragma once
 
 #include "object/object.h"
-#include "schedulerstats.h"
 #include "threadpool.h"
 #include "core.h"
 
@@ -52,8 +51,8 @@ namespace verona::rt
 #endif
 
     Alloc* alloc = nullptr;
-    SchedulerThread<T>* next = nullptr;
-    SchedulerThread<T>* victim = nullptr;
+    SchedulerThread<T>* next_th = nullptr;
+    Core<T>* victim = nullptr;
 
     bool running = true;
 
@@ -69,7 +68,6 @@ namespace verona::rt
     EpochMark prev_epoch = EpochMark::EPOCH_B;
 
     ThreadState::State state = ThreadState::State::NotInLD;
-    SchedulerStats stats;
 
     T* list = nullptr;
 
@@ -113,23 +111,25 @@ namespace verona::rt
       core->q.enqueue(*alloc, a);
 
       if (Scheduler::get().unpause())
-        stats.unpause();
+        core->stats.unpause();
     }
 
-    inline void schedule_lifo(T* a)
+    static inline void schedule_lifo(Core<T>* c, T* a)
     {
+      assert(c != nullptr);
+      assert(a != nullptr);
       // A lifo scheduled cown is coming from an external source, such as
       // asynchronous I/O.
       Logging::cout() << "LIFO scheduling cown " << a << " onto "
-                      << systematic_id << Logging::endl;
-      core->q.enqueue_front(ThreadAlloc::get(), a);
+                      << c->affinity << Logging::endl;
+      c->q.enqueue_front(ThreadAlloc::get(), a);
       Logging::cout() << "LIFO scheduled cown " << a << " onto "
-                      << systematic_id << Logging::endl;
+                      << c->affinity << Logging::endl;
 
-      stats.lifo();
+      c->stats.lifo();
 
       if (Scheduler::get().unpause())
-        stats.unpause();
+        c->stats.unpause();
     }
 
     template<typename... Args>
@@ -151,7 +151,8 @@ namespace verona::rt
 
       Scheduler::local() = this;
       alloc = &ThreadAlloc::get();
-      victim = next;
+      assert(this->core != nullptr);
+      victim = core->next;
       T* cown = nullptr;
       assert(this->core != nullptr);
 
@@ -317,15 +318,15 @@ namespace verona::rt
       T* cown;
 
       // Try to steal from the victim thread.
-      if (victim != this)
+      if (victim != this->core)
       {
-        cown = victim->core->q.dequeue(*alloc);
+        cown = victim->q.dequeue(*alloc);
 
         if (cown != nullptr)
         {
           // stats.steal();
           Logging::cout() << "Fast-steal cown " << clear_thread_bit(cown)
-                          << " from " << victim->systematic_id << Logging::endl;
+                          << " from " << victim->affinity << Logging::endl;
           result = cown;
           return true;
         }
@@ -368,16 +369,16 @@ namespace verona::rt
           return cown;
 
         // Try to steal from the victim thread.
-        if (victim != this)
+        if (victim != this->core)
         {
-          cown = victim->core->q.dequeue(*alloc);
+          cown = victim->q.dequeue(*alloc);
 
           if (cown != nullptr)
           {
-            stats.steal();
+            core->stats.steal();
             Logging::cout()
               << "Stole cown " << clear_thread_bit(cown) << " from "
-              << victim->systematic_id << Logging::endl;
+              << victim->affinity << Logging::endl;
             return cown;
           }
         }
@@ -409,7 +410,7 @@ namespace verona::rt
           // We've been spinning looking for work for some time. While paused,
           // our running flag may be set to false, in which case we terminate.
           if (Scheduler::get().pause())
-            stats.pause();
+            core->stats.pause();
         }
       }
 
@@ -546,7 +547,7 @@ namespace verona::rt
           sprev == ThreadState::PreScan && snext == ThreadState::PreScan &&
           Scheduler::get().unpause())
         {
-          stats.unpause();
+          core->stats.unpause();
         }
 
         if (snext == sprev)
@@ -567,7 +568,7 @@ namespace verona::rt
           case ThreadState::PreScan:
           {
             if (Scheduler::get().unpause())
-              stats.unpause();
+              core->stats.unpause();
 
             enter_prescan();
             return;

@@ -94,6 +94,11 @@ namespace verona::rt
       return global_thread_pool;
     }
 
+    static Core<E>* first_core()
+    {
+      return get().core_pool->first_core;
+    }
+
     static void set_detect_leaks(bool b)
     {
       get().detect_leaks = b;
@@ -185,15 +190,15 @@ namespace verona::rt
       return local;
     }
 
-    static T* round_robin()
+    static Core<E>* round_robin()
     {
       static thread_local size_t incarnation;
-      static thread_local T* nonlocal;
+      static thread_local Core<E>* nonlocal;
 
       if (incarnation != get().incarnation)
       {
         incarnation = get().incarnation;
-        nonlocal = get().first_thread;
+        nonlocal = get().first_core();
       }
       else
       {
@@ -316,13 +321,13 @@ namespace verona::rt
         t->setCore(core_pool->cores[count - 1]);
         if (count > 1)
         {
-          t->next = new T;
-          t = t->next;
+          t->next_th = new T;
+          t = t->next_th;
           count--;
         }
         else
         {
-          t->next = first_thread;
+          t->next_th = first_thread;
 
           Logging::cout() << "Runtime initialised" << Logging::endl;
           break;
@@ -349,7 +354,7 @@ namespace verona::rt
         do
         {
           builder.add_thread(t->core->affinity, &T::run, t, startup, args...);
-          t = t->next;
+          t = t->next_th;
         } while (t != first_thread);
       }
       Logging::cout() << "All threads stopped" << Logging::endl;
@@ -357,7 +362,7 @@ namespace verona::rt
       assert(t == first_thread);
       do
       {
-        T* next = t->next;
+        T* next = t->next_th;
         delete t;
         t = next;
       } while (t != first_thread);
@@ -390,18 +395,18 @@ namespace verona::rt
     bool check_for_work()
     {
       // TODO: check for pending async IO
-      T* t = first_thread;
+      Core<E>* c = first_core();
       do
       {
         Logging::cout() << "Checking for pending work on thread "
-                        << t->systematic_id << Logging::endl;
-        if (!t->core->q.nothing_old())
+                        << c->affinity << Logging::endl;
+        if (!c->q.nothing_old())
         {
           Logging::cout() << "Found pending work!" << Logging::endl;
           return true;
         }
-        t = t->next;
-      } while (t != first_thread);
+        c = c->next;
+      } while( c != first_core());
 
       Logging::cout() << "No pending work!" << Logging::endl;
       return false;
@@ -470,7 +475,7 @@ namespace verona::rt
         do
         {
           t->stop();
-          t = t->next;
+          t = t->next_th;
         } while (t != first_thread);
         Logging::cout() << "Teardown: all threads stopped" << Logging::endl;
 
