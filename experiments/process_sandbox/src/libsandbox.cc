@@ -195,6 +195,7 @@ namespace sandbox
               reply.error = 2;
               break;
             }
+            metaentry.claim_for_sandbox();
             SharedAllocConfig::Pagemap::set_metaentry(
               address_cast(alloc), size, metaentry);
 
@@ -211,7 +212,37 @@ namespace sandbox
               reply.error = 1;
               break;
             }
-            SharedAllocConfig::dealloc_range(*s, ptr, size);
+            // The size must be a power of two, larger than the chunk size
+            if (!(snmalloc::bits::is_pow2(size) &&
+                  (size >= snmalloc::MIN_CHUNK_SIZE)))
+            {
+              reply.error = 2;
+              break;
+            }
+            // The base must be chunk-aligned
+            if (
+              snmalloc::pointer_align_down(
+                ptr.unsafe_ptr(), snmalloc::MIN_CHUNK_SIZE) != ptr.unsafe_ptr())
+            {
+              reply.error = 3;
+              break;
+            }
+            auto address = snmalloc::address_cast(ptr);
+            for (size_t chunk_offset = 0; chunk_offset < size;
+                 chunk_offset += snmalloc::MIN_CHUNK_SIZE)
+            {
+              auto& meta = SharedAllocConfig::Pagemap::get_metaentry_mut(
+                address + chunk_offset);
+              if (!meta.is_sandbox_owned())
+              {
+                reply.error = 4;
+                break;
+              }
+            }
+            if (reply.error == 0)
+            {
+              SharedAllocConfig::dealloc_range(*s, ptr, size);
+            }
             break;
           }
         }
@@ -741,14 +772,15 @@ namespace sandbox
         if (!meta.is_backend_owned())
         {
           auto* remote = meta.get_remote();
-          if (
-            (remote != nullptr) &&
-            !contains(remote, sizeof(snmalloc::RemoteAllocator)))
+          if (!meta.is_sandbox_owned() && (remote != nullptr))
           {
             delete meta.get_slab_metadata();
           }
         }
         meta = empty;
+        SANDBOX_DEBUG_INVARIANT(
+          !meta.is_sandbox_owned(),
+          "Unused pagemap entry must not be sandbox owned");
       }
     }
     shared_mem->destroy();

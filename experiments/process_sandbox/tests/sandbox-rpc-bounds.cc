@@ -9,7 +9,7 @@
 
 using namespace sandbox;
 
-bool attack(const void*, const void*);
+bool attack(int, const void*, const void*);
 
 /**
  * The structure that represents an instance of the sandbox.
@@ -26,11 +26,26 @@ struct EvilSandbox
   EXPORTED_FUNCTION(attack, ::attack)
 };
 
-int main()
+void try_attack(int issue)
 {
   EvilSandbox sandbox;
   auto [base, top] = sandbox.lib.sandbox_heap();
-  SANDBOX_INVARIANT(
-    sandbox.attack(base, top) == false, "Sandbox attack succeeded!");
+  try
+  {
+    SANDBOX_INVARIANT(
+      sandbox.attack(issue, base, top) == false,
+      "Sandbox attack {} succeeded!",
+      issue);
+  }
+  catch (...)
+  {}
+}
+
+int main()
+{
+  try_attack(565);
+  try_attack(574);
+  try_attack(575);
+  try_attack(576);
   return 0;
 }

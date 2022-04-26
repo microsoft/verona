@@ -209,7 +209,7 @@ jobs:
     displayName: 'Compile'
 
   - script: |
-      ctest -j 4 --output-on-failure -T test
+      ctest -j 4 --output-on-failure -T test --timeout 30
     displayName: 'Test'
     workingDirectory: build
     failOnStderr: false

@@ -19,6 +19,7 @@
 #include "netpolicy.h"
 #include "platform/platform.h"
 #include "sandbox_fd_numbers.h"
+#include "sandbox_meta_entry.h"
 #include "shared_memory_region.h"
 
 namespace sandbox
@@ -68,10 +69,9 @@ namespace sandbox
     {
     public:
       /**
-       * Pagemap entry.  This back end does not store anything here, so expose
-       * the default.
+       * Pagemap entry.
        */
-      using Entry = snmalloc::FrontendMetaEntry<SlabMetadata>;
+      using Entry = SandboxMetaEntry;
 
     private:
       /**
