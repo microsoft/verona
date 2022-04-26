@@ -10,6 +10,7 @@
 #include "base_noticeboard.h"
 #include "multimessage.h"
 #include "schedulerthread.h"
+#include "core.h"
 
 #include <algorithm>
 
@@ -108,6 +109,7 @@ namespace verona::rt
     friend class DLList<Cown>;
     friend class MultiMessage;
     friend CownThread;
+    friend Core<Cown>;
 
     template<typename T>
     friend class Noticeboard;

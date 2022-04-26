@@ -384,7 +384,7 @@ namespace verona::rt
       {
         Logging::cout() << "Checking for pending work on thread "
                         << t->systematic_id << Logging::endl;
-        if (!t->q.nothing_old())
+        if (!t->core->q.nothing_old())
         {
           Logging::cout() << "Found pending work!" << Logging::endl;
           return true;
