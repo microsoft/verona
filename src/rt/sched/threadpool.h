@@ -348,7 +348,7 @@ namespace verona::rt
         Logging::cout() << "Starting all threads" << Logging::endl;
         do
         {
-          builder.add_thread(&T::run, t, startup, args...);
+          builder.add_thread(t->core->affinity, &T::run, t, startup, args...);
           t = t->next;
         } while (t != first_thread);
       }

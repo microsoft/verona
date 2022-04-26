@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core.h"
+#include "pal/threading.h"
 
 #include <vector>
 
