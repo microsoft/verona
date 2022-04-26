@@ -19,7 +19,7 @@ namespace verona::rt
   using namespace snmalloc;
   class Cown;
   using CownThread = SchedulerThread<Cown>;
-  using Scheduler = ThreadPool<CownThread>;
+  using Scheduler = ThreadPool<CownThread, Cown>;
 
   static void yield()
   {

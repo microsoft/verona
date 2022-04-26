@@ -11,6 +11,8 @@
 #  include "threadsync.h"
 #endif
 
+#include "corepool.h"
+
 #include <condition_variable>
 #include <mutex>
 #include <snmalloc.h>
@@ -21,7 +23,7 @@ namespace verona::rt
   inline void nop() {}
 
   using namespace snmalloc;
-  template<class T>
+  template<class T, class E>
   class ThreadPool
   {
   private:
@@ -82,10 +84,13 @@ namespace verona::rt
 
     ThreadState state;
 
+    /// Pool of cores shared by the scheduler threads.
+    CorePool<ThreadPool<T, E>, E>* core_pool = nullptr;
+
   public:
-    static ThreadPool<T>& get()
+    static ThreadPool<T, E>& get()
     {
-      SNMALLOC_REQUIRE_CONSTINIT static ThreadPool<T> global_thread_pool;
+      SNMALLOC_REQUIRE_CONSTINIT static ThreadPool<T, E> global_thread_pool;
       return global_thread_pool;
     }
 
@@ -297,6 +302,9 @@ namespace verona::rt
       T* t = first_thread;
       teardown_in_progress = false;
 
+      // Initialize the corepool
+      core_pool = new CorePool<ThreadPool<T, E>, E>(count);
+
       while (true)
       {
         t->systematic_id = count;
@@ -304,6 +312,8 @@ namespace verona::rt
         t->local_systematic =
           Systematic::create_systematic_thread(t->systematic_id);
 #endif
+        // Set the thread core
+        t->setCore(core_pool->cores[count - 1]);
         if (count > 1)
         {
           t->next = new T;
@@ -363,6 +373,7 @@ namespace verona::rt
       state.reset<ThreadState::NotInLD>();
 
       Epoch::flush(ThreadAlloc::get());
+      delete core_pool;
     }
 
     static bool debug_not_running()

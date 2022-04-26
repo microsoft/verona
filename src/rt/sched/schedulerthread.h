@@ -32,7 +32,7 @@ namespace verona::rt
     size_t systematic_id = 0;
 
   private:
-    using Scheduler = ThreadPool<SchedulerThread<T>>;
+    using Scheduler = ThreadPool<SchedulerThread<T>, T>;
     friend Scheduler;
     friend T;
 
@@ -85,15 +85,14 @@ namespace verona::rt
       return core->token_cown;
     }
 
-    SchedulerThread() 
-    {
-      core = new Core<T>();
-      core->token_cown->set_owning_thread(this);
-      core->token_cown->set_owning_thread(this);
-    }
+    SchedulerThread() {}
 
-    ~SchedulerThread() {
-      delete core;
+    ~SchedulerThread() {}
+  
+    void setCore(Core<T>* core)
+    {
+      this->core = core;
+      this->core->token_cown->set_owning_thread(this);
     }
 
     inline void stop()
