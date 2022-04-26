@@ -18,7 +18,7 @@ namespace verona::rt
         std::atomic<Core<T>*> next = nullptr;
         
         /// Moved from the scheduler thread
-        size_t total_cowns = 0;
+        std::atomic<size_t> total_cowns = 0;
         std::atomic<size_t> free_cowns = 0;
 
       public:

@@ -72,8 +72,6 @@ namespace verona::rt
     SchedulerStats stats;
 
     T* list = nullptr;
-    size_t total_cowns = 0;
-    std::atomic<size_t> free_cowns = 0;
 
     /// The MessageBody of a running behaviour.
     typename T::MessageBody* message_body = nullptr;
@@ -92,7 +90,7 @@ namespace verona::rt
     void setCore(Core<T>* core)
     {
       this->core = core;
-      this->core->token_cown->set_owning_thread(this);
+      core->token_cown->set_owning_core(core);
     }
 
     inline void stop()
@@ -155,6 +153,7 @@ namespace verona::rt
       alloc = &ThreadAlloc::get();
       victim = next;
       T* cown = nullptr;
+      assert(this->core != nullptr);
 
 #ifdef USE_SYSTEMATIC_TESTING
       Systematic::attach_systematic_thread(this->local_systematic);
@@ -163,7 +162,7 @@ namespace verona::rt
       while (true)
       {
         if (
-          (total_cowns < (free_cowns << 1))
+          (this->core->total_cowns < (this->core->free_cowns << 1))
 #ifdef USE_SYSTEMATIC_TESTING
           || Systematic::coin()
 #endif
@@ -442,9 +441,9 @@ namespace verona::rt
       if (has_thread_bit(cown))
       {
         auto unmasked = clear_thread_bit(cown);
-        SchedulerThread* sched = unmasked->owning_thread();
+        Core<T>* core = unmasked->owning_core();
 
-        if (sched == this)
+        if (core == this->core)
         {
           if (Scheduler::get().fair)
           {
@@ -462,24 +461,25 @@ namespace verona::rt
         else
         {
           Logging::cout() << "Reached token: stolen from "
-                          << sched->systematic_id << Logging::endl;
+                          << core->affinity << Logging::endl;
         }
 
         // Put back the token
-        sched->core->q.enqueue(*alloc, cown);
+        core->q.enqueue(*alloc, cown);
         return false;
       }
 
       // Register this cown with the scheduler thread if it is not currently
       // registered with a scheduler thread.
-      if (cown->owning_thread() == nullptr)
+      if (cown->owning_core() == nullptr)
       {
         Logging::cout() << "Bind cown to scheduler thread: " << this
                         << Logging::endl;
-        cown->set_owning_thread(this);
+        assert(this->core != nullptr);
+        cown->set_owning_core(this->core);
         cown->next = list;
         list = cown;
-        total_cowns++;
+        this->core->total_cowns++;
       }
 
       return true;
@@ -732,7 +732,7 @@ namespace verona::rt
         p = &(c->next);
       }
 
-      free_cowns -= count;
+      this->core->free_cowns -= count;
     }
   };
 } // namespace verona::rt
