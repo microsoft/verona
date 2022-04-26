@@ -24,6 +24,11 @@ struct Poller : VCown<Poller>
   : should_schedule_if_notified(false), empty_count(0), buffer_idx(0), read(0)
   {}
 
+  ~Poller()
+  {
+    Logging::cout() << "Poller destroyed" << Logging::endl;
+  }
+
   void main_poller()
   {
     int val, read_old;
@@ -88,6 +93,11 @@ struct ExternalSource
   ExternalSource(Poller* p_) : p(p_), notifications_on(false)
   {
     Cown::acquire(p);
+  }
+
+  ~ExternalSource()
+  {
+    Logging::cout() << "~ExternalSource" << Logging::endl;
   }
 
   void main_es()
