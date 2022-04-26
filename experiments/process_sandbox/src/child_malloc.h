@@ -9,6 +9,7 @@
 #define SNMALLOC_PROVIDE_OWN_CONFIG 1
 #include <process_sandbox/helpers.h>
 #include <process_sandbox/sandbox_fd_numbers.h>
+#include <process_sandbox/sandbox_meta_entry.h>
 #include <snmalloc/snmalloc_core.h>
 
 namespace snmalloc
@@ -117,7 +118,7 @@ namespace sandbox
        * This back end does not need to hold any extra metadata and so exports
        * the default pagemap metadata type.
        */
-      using Entry = snmalloc::FrontendMetaEntry<SlabMetadata>;
+      using Entry = SandboxMetaEntry;
 
       /**
        * The pagemap that spans the entire address space.  This uses a read-only
