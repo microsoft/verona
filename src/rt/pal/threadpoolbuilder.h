@@ -32,12 +32,6 @@ namespace verona::rt
     }
 
     template<typename... Args>
-    void add_extra_thread(void (*body)(Args...), Args... args)
-    {
-      threads.emplace_back(body, args...);
-    }
-
-    template<typename... Args>
     static void
     run_with_affinity(size_t affinity, void (*body)(Args...), Args... args)
     {
@@ -68,6 +62,12 @@ namespace verona::rt
         &run_with_affinity, affinity, body, args...);
 #endif
       index++;
+    }
+
+    template<typename... Args>
+    void add_extra_thread(void (*body)(Args...), Args... args)
+    {
+      threads.emplace_back(body, args...);
     }
 
     /**

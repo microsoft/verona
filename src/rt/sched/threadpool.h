@@ -32,6 +32,7 @@ namespace verona::rt
     friend T;
     friend void verona::rt::yield();
     using Monitor = SysMonitor<ThreadPool<T, E>>;
+    friend Monitor;
 
     static constexpr uint64_t TSC_PAUSE_SLOP = 1'000'000;
     static constexpr uint64_t TSC_UNPAUSE_SLOP = TSC_PAUSE_SLOP / 2;
@@ -332,6 +333,16 @@ namespace verona::rt
       run_with_startup<>(&nop);
     }
 
+    static void run_monitor(ThreadPoolBuilder* builder)
+    {
+      get().run_monitor_inner(*builder);
+    }
+
+    void run_monitor_inner(ThreadPoolBuilder& builder)
+    {
+      Monitor::get().run_monitor(builder);
+    }
+
     template<typename... Args>
     void run_with_startup(void (*startup)(Args...), Args... args)
     {
@@ -350,6 +361,10 @@ namespace verona::rt
           active_threads->push_back(t);
           builder.add_thread(t->core->affinity, &T::run, t, startup, args...);
         }
+        // Run the system monitor;
+        Monitor::get().run_monitor(builder);
+
+        // ThreadPoolBuilder goes out of scope and is deallocated here.
       }
       Logging::cout() << "All threads stopped" << Logging::endl;
 
@@ -553,32 +568,41 @@ namespace verona::rt
       }
     }
 
-    T* getOrCreateFreeThread()
+    T* getOrCreateFreeThread(ThreadPoolBuilder& builder)
     {
       //TODO implement this
       // setup the default values etc.
-      return new T;
+      T* res = free_threads->pop_front_or_null();
+      if (res != nullptr)
+        return res;
+      res = new T;
+      builder.add_extra_thread(&T::run, res, T::extra_start, res);
+      return res;
     }
 
-    void spawnThread(Core<E>* core, size_t count)
+    void spawnThread(ThreadPoolBuilder& builder, Core<E>* core, size_t count)
     {
       // Quick check to bail.
-      if (count != core->progress_count)
+      if (count != core->progress_counter)
         return;
 
-      T* thread = getOrCreateFreeThread();
-      //TODO do something here to attribute the core;
-      //Or do that at the begining of the scheduling?
-      thread->core = core;
+      T* thread = getOrCreateFreeThread(builder);
+      assert(thread->core == nullptr);
 
-      if (count != core->progress_count)
+      if (count != core->progress_counter)
       {
         // Give up.
-        thread->park(false);
+        free_threads->push_back(thread);
         return;
       }
+      thread->park_mutex.lock();
+      thread->core = core;
+      thread->park_cond = false;
+      active_threads->push_back(thread);
+      thread->park_mutex.unlock();
       
-      /// TODO RUN
+      // Run the thread
+      thread->unpark();
     }
   };
 } // namespace verona::rt

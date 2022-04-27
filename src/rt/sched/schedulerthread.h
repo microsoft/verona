@@ -2,10 +2,14 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "core.h"
 #include "object/object.h"
 #include "threadpool.h"
-#include "core.h"
+#include "sysmonitor.h"
 
+#include <mutex>
+#include <atomic>
+#include <condition_variable>
 #include <snmalloc.h>
 
 namespace verona::rt
@@ -32,6 +36,7 @@ namespace verona::rt
 
   private:
     using Scheduler = ThreadPool<SchedulerThread<T>, T>;
+    using Monitor = SysMonitor<Scheduler>;
     friend Scheduler;
     friend T;
 
@@ -72,6 +77,11 @@ namespace verona::rt
 
     /// The MessageBody of a running behaviour.
     typename T::MessageBody* message_body = nullptr;
+
+    /// Synchronization
+    std::atomic_bool park_cond = true;
+    std::mutex park_mutex;
+    std::condition_variable park_cv;
 
     T* get_token_cown()
     {
@@ -223,6 +233,12 @@ namespace verona::rt
 
         Logging::cout() << "Running cown " << cown << Logging::endl;
 
+        // Update the progress counter on that core.
+        {
+          Core<T>* c = cown->owning_core();
+          if (c != nullptr)
+            c->progress_counter++;
+        }
         bool reschedule = cown->run(*alloc, state);
 
         if (reschedule)
@@ -310,6 +326,7 @@ namespace verona::rt
       // Reset the local thread pointer as this physical thread could be reused
       // for a different SchedulerThread later.
       Scheduler::local() = nullptr;
+      Monitor::get().threadExit();
     }
 
     bool fast_steal(T*& result)
@@ -736,10 +753,39 @@ namespace verona::rt
       this->core->free_cowns -= count;
     }
 
-    void park(bool is_running)
+    void park()
     {
-      //TODO implement;
-      UNUSED(is_running);
+      //TODO figure out if we give up here or before that.
+      std::unique_lock lk(park_mutex);
+      while(park_cond)
+      {
+        park_cv.wait(lk, [this]{return !this->park_cond;});
+      }
+      lk.unlock();
+     
+      // Woken up without being attributed a core.
+      if (core == nullptr)
+        abort();
+
+      // We have a core, we should be able to return wherever we came from.
+      cpu::set_affinity(core->affinity);
+    }
+
+    // Called by another thread to wakeup the scheduler thread.
+    void unpark()
+    {
+      park_mutex.lock();
+      assert(core != nullptr);
+      park_cond = false;
+      park_mutex.unlock();
+      park_cv.notify_one();
+    }
+
+    // Called as a startup for extra scheduler threads
+    static void extra_start(SchedulerThread<T>* self)
+    {
+      self->park();
+      assert(self->core != nullptr);
     }
   };
 } // namespace verona::rt

@@ -19,6 +19,8 @@ namespace verona::rt
       friend Scheduler;
       /// When true, the SysMonitor should stop.
       std::atomic_bool done = false;
+
+      SysMonitor() {}
     
     public:
       SysMonitor(SysMonitor const&) = delete;
@@ -29,17 +31,16 @@ namespace verona::rt
         return instance;
       }
 
-      template<class Pool>
-      static void run_monitor(Pool* pool, ThreadPoolBuilder& builder)
+      void run_monitor(ThreadPoolBuilder& builder)
       {
-        UNUSED(builder);
         using namespace std::chrono_literals;
+        auto* pool = Scheduler::get().core_pool;
         assert(pool != nullptr);
         assert(pool->core_count != 0);
-        auto& scheduler = Scheduler::get(); 
-        /// TODO expose this as a tunable parameter
+
+        // TODO expose this as a tunable parameter
         auto quantum = 10ms;
-        while(!SysMonitor::get().done)
+        while(!done)
         {
           size_t scan[pool->core_count]; 
           for (size_t i = 0; i < pool->core_count; i++)
@@ -47,7 +48,7 @@ namespace verona::rt
             scan[i] = pool->cores[i]->progress_counter;
           }
           std::this_thread::sleep_for(quantum);
-          if (SysMonitor::get().done)
+          if (done)
           {
             return;
           }
@@ -59,13 +60,19 @@ namespace verona::rt
             {
               // We pass the count as argument in case there was some progress
               // in the meantime.
-              Scheduler::get().spawnThread(pool->cores[i], count);
+              Scheduler::get().spawnThread(builder, pool->cores[i], count);
             }
           }
         }
+        // As this thread is the only one modifying the builder thread list,
+        // we know nothing should be modifying it right now and can thus exit 
+        // to join on every single thread.
       }
 
-
-    
+      void threadExit()
+      {
+        // if a thread exits, we are done
+        done = true;
+      }
   };
 }
