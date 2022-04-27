@@ -6,7 +6,7 @@ Verona is a collaboration between Microsoft Research, Imperial College London, a
 
 {% assign msfolk = site.data.people | where: 'affiliation', 'Microsoft Research' %}
 {% assign iclfolk = site.data.people | where: 'affiliation', 'Imperial College London' %}
-{% assign otherfolk = site.data.people | where: 'affiliation', nil %}
+{% assign otherfolk = site.data.people | where: 'affiliation', 'Other' %}
 {% include person.html title="Microsoft Research" people=msfolk %}
 {% include person.html title="Imperial College London" people=iclfolk %}
 {% include person.html title="Other contributors" people=otherfolk %}
