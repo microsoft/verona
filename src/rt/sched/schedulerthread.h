@@ -155,6 +155,7 @@ namespace verona::rt
       victim = core->next;
       T* cown = nullptr;
       assert(this->core != nullptr);
+      this->core->servicing_threads++;
 
 #ifdef USE_SYSTEMATIC_TESTING
       Systematic::attach_systematic_thread(this->local_systematic);
@@ -734,6 +735,12 @@ namespace verona::rt
       }
 
       this->core->free_cowns -= count;
+    }
+
+    void park(bool is_running)
+    {
+      //TODO implement;
+      UNUSED(is_running);
     }
   };
 } // namespace verona::rt

@@ -12,6 +12,7 @@
 #endif
 
 #include "corepool.h"
+#include "sysmonitor.h"
 
 #include <condition_variable>
 #include <mutex>
@@ -29,6 +30,7 @@ namespace verona::rt
   private:
     friend T;
     friend void verona::rt::yield();
+    using Monitor = SysMonitor<ThreadPool<T, E>>;
 
     static constexpr uint64_t TSC_PAUSE_SLOP = 1'000'000;
     static constexpr uint64_t TSC_UNPAUSE_SLOP = TSC_PAUSE_SLOP / 2;
@@ -555,6 +557,34 @@ namespace verona::rt
         barrier_incarnation++;
         h.unpause_all();
       }
+    }
+
+    T* getOrCreateFreeThread()
+    {
+      //TODO implement this
+      // setup the default values etc.
+      return new T;
+    }
+
+    void spawnThread(Core<E>* core, size_t count)
+    {
+      // Quick check to bail.
+      if (count != core->progress_count)
+        return;
+
+      T* thread = getOrCreateFreeThread();
+      //TODO do something here to attribute the core;
+      //Or do that at the begining of the scheduling?
+      thread->core = core;
+
+      if (count != core->progress_count)
+      {
+        // Give up.
+        thread->park(false);
+        return;
+      }
+      
+      /// TODO RUN
     }
   };
 } // namespace verona::rt

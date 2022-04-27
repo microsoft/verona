@@ -2,6 +2,7 @@
 
 #include "core.h"
 #include "pal/threading.h"
+#include "sysmonitor.h"
 
 #include <vector>
 
@@ -12,6 +13,7 @@ namespace verona::rt
   {
     private:
       friend P;
+      friend SysMonitor<P>;
 
       inline static Singleton<Topology, &Topology::init> topology;
       Core<T>* first_core = nullptr;
