@@ -13,6 +13,7 @@
 
 #include "corepool.h"
 #include "sysmonitor.h"
+#include "threadlist.h"
 
 #include <condition_variable>
 #include <mutex>
@@ -68,7 +69,9 @@ namespace verona::rt
     std::atomic_uint64_t barrier_count = 0;
     uint64_t barrier_incarnation = 0;
 
-    T* first_thread = nullptr;
+    /// Thread lists. Active ones have a core assigned to them.
+    ThreadList<T>* active_threads = nullptr;
+    ThreadList<T>* free_threads = nullptr;
 
     /// How many threads are being managed by this pool
     size_t thread_count = 0;
@@ -303,39 +306,24 @@ namespace verona::rt
         abort();
 
       thread_count = count;
-
-      // Build a circular linked list of scheduler threads.
-      first_thread = new T;
-      T* t = first_thread;
+      active_threads = new ThreadList<T>;
+      free_threads = new ThreadList<T>;
       teardown_in_progress = false;
 
       // Initialize the corepool
       core_pool = new CorePool<ThreadPool<T, E>, E>(count);
 
-      while (true)
+      for (; count > 0; count--)
       {
+        T* t = new T;
         t->systematic_id = count;
 #ifdef USE_SYSTEMATIC_TESTING
         t->local_systematic =
           Systematic::create_systematic_thread(t->systematic_id);
 #endif
-        // Set the thread core
-        t->setCore(core_pool->cores[count - 1]);
-        if (count > 1)
-        {
-          t->next_th = new T;
-          t = t->next_th;
-          count--;
-        }
-        else
-        {
-          t->next_th = first_thread;
-
-          Logging::cout() << "Runtime initialised" << Logging::endl;
-          break;
-        }
+        free_threads->push_back(t);
       }
-
+      Logging::cout() << "Runtime initialised" << Logging::endl;
       init_barrier();
     }
 
@@ -348,29 +336,38 @@ namespace verona::rt
     void run_with_startup(void (*startup)(Args...), Args... args)
     {
       active_thread_count = thread_count;
-      T* t = first_thread;
       {
         ThreadPoolBuilder builder(thread_count);
 
         Logging::cout() << "Starting all threads" << Logging::endl;
-        do
+
+        for (size_t i = 0; i < active_thread_count; i++)
         {
+          T* t = free_threads->pop_front_or_null(); 
+          if (t == nullptr)
+            abort();
+          t->setCore(core_pool->cores[i]);
+          active_threads->push_back(t);
           builder.add_thread(t->core->affinity, &T::run, t, startup, args...);
-          t = t->next_th;
-        } while (t != first_thread);
+        }
       }
       Logging::cout() << "All threads stopped" << Logging::endl;
 
-      assert(t == first_thread);
-      do
+      T* t = active_threads->pop_front_or_null();
+      while (t != nullptr)
       {
-        T* next = t->next_th;
-        delete t;
-        t = next;
-      } while (t != first_thread);
+        T* prev = t;
+        t = active_threads->pop_front_or_null();
+        delete prev;
+      }
+      t = free_threads->pop_front_or_null();
+      while (t != nullptr)
+      {
+        T* prev = t;
+        t = free_threads->pop_front_or_null();
+        delete prev;
+      }
       Logging::cout() << "All threads deallocated" << Logging::endl;
-
-      first_thread = nullptr;
       incarnation++;
 #ifdef USE_SYSTEMATIC_TESTING
       Object::reset_ids();
@@ -381,6 +378,8 @@ namespace verona::rt
 
       Epoch::flush(ThreadAlloc::get());
       delete core_pool;
+      delete active_threads;
+      delete free_threads;
     }
 
     static bool debug_not_running()
@@ -473,12 +472,7 @@ namespace verona::rt
         teardown_in_progress = true;
 
         // Tell all threads to stop looking for work.
-        T* t = first_thread;
-        do
-        {
-          t->stop();
-          t = t->next_th;
-        } while (t != first_thread);
+        active_threads->forall([](T* thread) {thread->stop();});
         Logging::cout() << "Teardown: all threads stopped" << Logging::endl;
 
         h.unpause_all();

@@ -51,7 +51,6 @@ namespace verona::rt
 #endif
 
     Alloc* alloc = nullptr;
-    SchedulerThread<T>* next_th = nullptr;
     Core<T>* victim = nullptr;
 
     bool running = true;
