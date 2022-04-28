@@ -304,8 +304,12 @@ begining:
             this->core->servicing_threads--;
             this->core = nullptr;
             this->park();
-            // TODO check if we need to bail out
-            assert(this->core != nullptr);
+            if (core == nullptr)
+            {
+              assert(!running);
+              break;
+            }
+
             goto begining;
           }
         }
@@ -772,12 +776,25 @@ begining:
 
     void park()
     { 
+      // @warn we need to add ourselves to the free_list.
+      // Thus, we acquire first the mutex lock and then perform the operation on the
+      // thread lists.
+      // TODO maybe one lock for both lists would be better?
+      // Is there a race condition here?
       std::unique_lock lk(park_mutex);
-      while(park_cond)
+      Scheduler::get().active_threads->remove(this);
+      Scheduler::get().free_threads->push_back(this);
+      while(park_cond && running)
       {
-        park_cv.wait(lk, [this]{return !this->park_cond;});
+        park_cv.wait(lk, [this]{return (!this->park_cond || !this->running);});
       }
       lk.unlock();
+
+      if (!running)
+      {
+        // We need to bail
+        return;
+      }
      
       // TODO figure out if we get woken up before bailing too.
       // In that case, the core might be null

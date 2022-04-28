@@ -339,16 +339,6 @@ namespace verona::rt
       run_with_startup<>(&nop);
     }
 
-    static void run_monitor(ThreadPoolBuilder* builder)
-    {
-      get().run_monitor_inner(*builder);
-    }
-
-    void run_monitor_inner(ThreadPoolBuilder& builder)
-    {
-      Monitor::get().run_monitor(builder);
-    }
-
     template<typename... Args>
     void run_with_startup(void (*startup)(Args...), Args... args)
     {
@@ -602,6 +592,8 @@ namespace verona::rt
         free_threads->push_back(thread);
         return;
       }
+      // @Warn always acquire mutex lock first,
+      // and hold it until we add the element to the active list.
       thread->park_mutex.lock();
       thread->core = core;
       thread->park_cond = false;

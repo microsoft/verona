@@ -65,6 +65,8 @@ namespace verona::rt
             }
           }
         }
+        // Wake all the threads stuck on their condition vars.
+
         // As this thread is the only one modifying the builder thread list,
         // we know nothing should be modifying it right now and can thus exit 
         // to join on every single thread.
