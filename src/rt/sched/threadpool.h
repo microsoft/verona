@@ -13,7 +13,7 @@
 
 #include "corepool.h"
 #include "sysmonitor.h"
-#include "threadlist.h"
+#include "schedulerlist.h"
 
 #include <condition_variable>
 #include <mutex>
@@ -70,9 +70,9 @@ namespace verona::rt
     std::atomic_uint64_t barrier_count = 0;
     uint64_t barrier_incarnation = 0;
 
-    /// Thread lists. Active ones have a core assigned to them.
-    ThreadList<T>* active_threads = nullptr;
-    ThreadList<T>* free_threads = nullptr;
+    /// List of instantiated scheduler threads.
+    /// Contains both free and active threads; protects accesses with a lock.
+    SchedulerList<T>* threads = nullptr;
 
     /// How many threads are being managed by this pool
     size_t thread_count = 0;
@@ -310,8 +310,7 @@ namespace verona::rt
         abort();
 
       thread_count = count;
-      active_threads = new ThreadList<T>;
-      free_threads = new ThreadList<T>;
+      threads = new SchedulerList<T>;
       teardown_in_progress = false;
 
       // Initialize the corepool
@@ -328,7 +327,7 @@ namespace verona::rt
         t->local_systematic =
           Systematic::create_systematic_thread(t->systematic_id);
 #endif
-        free_threads->push_back(t);
+        threads->addFree(t);
       }
       Logging::cout() << "Runtime initialised" << Logging::endl;
       init_barrier();
@@ -350,11 +349,11 @@ namespace verona::rt
 
         for (size_t i = 0; i < active_thread_count; i++)
         {
-          T* t = free_threads->pop_front_or_null(); 
+          T* t = threads->popFree(); 
           if (t == nullptr)
             abort();
           t->setCore(core_pool->cores[i]);
-          active_threads->push_back(t);
+          threads->addActive(t);
           builder.add_thread(t->core->affinity, &T::run, t, startup, args...);
         }
         // Run the system monitor;
@@ -364,18 +363,18 @@ namespace verona::rt
       }
       Logging::cout() << "All threads stopped" << Logging::endl;
 
-      T* t = active_threads->pop_front_or_null();
+      T* t = threads->popActive();
       while (t != nullptr)
       {
         T* prev = t;
-        t = active_threads->pop_front_or_null();
+        t = threads->popActive();
         delete prev;
       }
-      t = free_threads->pop_front_or_null();
+      t = threads->popFree();
       while (t != nullptr)
       {
         T* prev = t;
-        t = free_threads->pop_front_or_null();
+        t = threads->popFree();
         delete prev;
       }
       Logging::cout() << "All threads deallocated" << Logging::endl;
@@ -389,8 +388,7 @@ namespace verona::rt
 
       Epoch::flush(ThreadAlloc::get());
       delete core_pool;
-      delete active_threads;
-      delete free_threads;
+      delete threads;
     }
 
     static bool debug_not_running()
@@ -483,7 +481,7 @@ namespace verona::rt
         teardown_in_progress = true;
 
         // Tell all threads to stop looking for work.
-        active_threads->forall([](T* thread) {thread->stop();});
+        threads->forall([](T* thread) {thread->stop();});
         Logging::cout() << "Teardown: all threads stopped" << Logging::endl;
 
         h.unpause_all();
@@ -564,43 +562,62 @@ namespace verona::rt
       }
     }
 
-    T* getOrCreateFreeThread(ThreadPoolBuilder& builder)
-    {
-      //TODO implement this
-      // setup the default values etc.
-      T* res = free_threads->pop_front_or_null();
-      if (res != nullptr)
-        return res;
-      res = new T;
-      res->systematic_id = systematic_ids++;
-      builder.add_extra_thread(&T::run, res, T::extra_start, res);
-      return res;
-    }
-
     void spawnThread(ThreadPoolBuilder& builder, Core<E>* core, size_t count)
     {
       // Quick check to bail.
       if (count != core->progress_counter)
         return;
 
-      T* thread = getOrCreateFreeThread(builder);
+      // This has to be done with the scheduler list locked in case someone
+      // is executing stop or tries to park itself.
+      threads->m.lock();
+      T* thread = nullptr;
+      bool needsSysThread = false;
+      if (threads->free.empty())
+      {
+        thread = new T;
+        thread->systematic_id = systematic_ids++;
+        needsSysThread = true;
+      }
+      else
+      {
+        thread = threads->free.front();
+        threads->free.pop_front();
+      }
+      // At that point the thread is in neither sublists and does not have a core
       assert(thread->core == nullptr);
 
-      if (count != core->progress_counter)
+      // Last chance to bail.
+      if (core->progress_counter != count)
       {
-        // Give up.
-        free_threads->push_back(thread);
+        if (needsSysThread)
+        {
+          // Just spawn it and let it park
+          threads->active.push_back(thread);
+          builder.add_extra_thread(&T::run, thread, T::extra_start, thread);
+        }
+        else
+        {
+          threads->free.push_back(thread);
+        }
+        threads->m.unlock();
         return;
       }
-      // @Warn always acquire mutex lock first,
-      // and hold it until we add the element to the active list.
+
       thread->park_mutex.lock();
       thread->core = core;
+      threads->active.push_back(thread);
       thread->park_cond = false;
-      active_threads->push_back(thread);
       thread->park_mutex.unlock();
       
-      // Run the thread
+      threads->m.unlock();
+      // Freshly created thread
+      if (needsSysThread)
+      {
+        builder.add_extra_thread(&T::run, thread, &nop);
+        return;
+      }
+      // Wake-up the existing thread
       thread->unpark();
     }
   };

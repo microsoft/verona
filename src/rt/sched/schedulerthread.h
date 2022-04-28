@@ -776,14 +776,11 @@ begining:
 
     void park()
     { 
-      // @warn we need to add ourselves to the free_list.
-      // Thus, we acquire first the mutex lock and then perform the operation on the
-      // thread lists.
-      // TODO maybe one lock for both lists would be better?
-      // Is there a race condition here?
+      // @warn make sure we correctly acquire locks in order wrt. sysmonitor.
+      // This needs to be in the freelist before acquiring the mutex otherwise
+      // it could deadlock with the threadpool monitor.
+      Scheduler::get().threads->moveActiveToFree(this);
       std::unique_lock lk(park_mutex);
-      Scheduler::get().active_threads->remove(this);
-      Scheduler::get().free_threads->push_back(this);
       while(park_cond && running)
       {
         park_cv.wait(lk, [this]{return (!this->park_cond || !this->running);});
@@ -816,11 +813,9 @@ begining:
       park_cv.notify_one();
     }
 
-    // Called as a startup for extra scheduler threads
-    static void extra_start(SchedulerThread<T>* self)
+    static void extra_start(SchedulerThread<T> *self)
     {
       self->park();
-      assert(self->core != nullptr);
     }
   };
 } // namespace verona::rt
