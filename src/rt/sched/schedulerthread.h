@@ -793,8 +793,6 @@ begining:
         return;
       }
      
-      // TODO figure out if we get woken up before bailing too.
-      // In that case, the core might be null
       // Woken up without being attributed a core.
       if (core == nullptr)
         abort();

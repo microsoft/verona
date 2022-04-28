@@ -66,7 +66,7 @@ namespace verona::rt
           }
         }
         // Wake all the threads stuck on their condition vars.
-
+        Scheduler::get().wakeWorkers();
         // As this thread is the only one modifying the builder thread list,
         // we know nothing should be modifying it right now and can thus exit 
         // to join on every single thread.

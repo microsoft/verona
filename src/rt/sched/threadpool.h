@@ -620,5 +620,16 @@ namespace verona::rt
       // Wake-up the existing thread
       thread->unpark();
     }
+
+    void wakeWorkers()
+    {
+      threads->forall([](T* worker){
+        worker->park_mutex.lock();
+        worker->park_cond = false;
+        worker->running = false;
+        worker->park_mutex.unlock();
+        worker->park_cv.notify_one();
+        });
+    }
   };
 } // namespace verona::rt
