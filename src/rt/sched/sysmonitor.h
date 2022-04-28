@@ -56,7 +56,8 @@ namespace verona::rt
           for (size_t i = 0; i < pool->core_count; i++)
           {
             size_t count = pool->cores[i]->progress_counter; 
-            if (scan[i] == count)
+            // Counter is the same and there is some work to do.
+            if (scan[i] == count && !pool->cores[i]->q.nothing_old())
             {
               // We pass the count as argument in case there was some progress
               // in the meantime.

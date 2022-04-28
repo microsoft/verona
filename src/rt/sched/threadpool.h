@@ -93,6 +93,9 @@ namespace verona::rt
     /// Pool of cores shared by the scheduler threads.
     CorePool<ThreadPool<T, E>, E>* core_pool = nullptr;
 
+    /// Systematic ids
+    size_t systematic_ids = 0;
+
   public:
     static ThreadPool<T, E>& get()
     {
@@ -313,6 +316,9 @@ namespace verona::rt
 
       // Initialize the corepool
       core_pool = new CorePool<ThreadPool<T, E>, E>(count);
+
+      // For future ids.
+      systematic_ids = count+1;
 
       for (; count > 0; count--)
       {
@@ -576,6 +582,7 @@ namespace verona::rt
       if (res != nullptr)
         return res;
       res = new T;
+      res->systematic_id = systematic_ids++;
       builder.add_extra_thread(&T::run, res, T::extra_start, res);
       return res;
     }

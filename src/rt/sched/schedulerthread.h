@@ -172,6 +172,7 @@ namespace verona::rt
 
       while (true)
       {
+begining:
         if (
           (this->core->total_cowns < (this->core->free_cowns << 1))
 #ifdef USE_SYSTEMATIC_TESTING
@@ -234,11 +235,13 @@ namespace verona::rt
         Logging::cout() << "Running cown " << cown << Logging::endl;
 
         // Update the progress counter on that core.
-        {
-          Core<T>* c = cown->owning_core();
-          if (c != nullptr)
-            c->progress_counter++;
-        }
+        
+        Core<T>* cown_core = cown->owning_core();
+        if (cown_core != nullptr)
+          cown_core->progress_counter++;
+        if (cown_core == this->core)
+          core->last_worker = this->systematic_id;
+        
         bool reschedule = cown->run(*alloc, state);
 
         if (reschedule)
@@ -291,6 +294,20 @@ namespace verona::rt
         {
           // Don't reschedule.
           cown = nullptr;
+        }
+
+        if (cown_core != nullptr && cown_core == core)
+        {
+          // There are more workers and I am not the last one who made progress.
+          if (core->servicing_threads > 1 && core->last_worker != this->systematic_id)
+          {
+            this->core->servicing_threads--;
+            this->core = nullptr;
+            this->park();
+            // TODO check if we need to bail out
+            assert(this->core != nullptr);
+            goto begining;
+          }
         }
 
         yield();
@@ -754,8 +771,7 @@ namespace verona::rt
     }
 
     void park()
-    {
-      //TODO figure out if we give up here or before that.
+    { 
       std::unique_lock lk(park_mutex);
       while(park_cond)
       {
@@ -763,6 +779,8 @@ namespace verona::rt
       }
       lk.unlock();
      
+      // TODO figure out if we get woken up before bailing too.
+      // In that case, the core might be null
       // Woken up without being attributed a core.
       if (core == nullptr)
         abort();

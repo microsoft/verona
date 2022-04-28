@@ -19,6 +19,7 @@ namespace verona::rt
         /// Progress and synchronization between the threads.
         std::atomic<std::size_t> progress_counter = 0;
         std::atomic<std::size_t> servicing_threads = 0;
+        std::atomic<std::size_t> last_worker = 0;
 
         
         /// Moved from the scheduler thread
@@ -30,7 +31,7 @@ namespace verona::rt
       public:
         Core() : token_cown{T::create_token_cown()}, q{token_cown}
         {
-          //TODO let the thread set the owning thread;
+          // Let the thread set the owning core.
         }
 
         ~Core() {}
