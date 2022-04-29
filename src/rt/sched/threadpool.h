@@ -577,7 +577,7 @@ namespace verona::rt
       threads->m.lock();
       T* thread = nullptr;
       bool needsSysThread = false;
-      if (threads->free.empty())
+      if (threads->free.is_empty())
       {
         thread = new T;
         thread->systematic_id = systematic_ids++;
@@ -585,8 +585,7 @@ namespace verona::rt
       }
       else
       {
-        thread = threads->free.front();
-        threads->free.pop_front();
+        thread = threads->free.pop();
       }
       // At that point the thread is in neither sublists and does not have a core
       assert(thread->core == nullptr);
@@ -597,12 +596,12 @@ namespace verona::rt
         if (needsSysThread)
         {
           // Just spawn it and let it park
-          threads->active.push_back(thread);
+          threads->active.insert_back(thread);
           builder.add_extra_thread(&T::run, thread, T::extra_start, thread);
         }
         else
         {
-          threads->free.push_back(thread);
+          threads->free.insert_back(thread);
         }
         threads->m.unlock();
         return;
@@ -610,7 +609,7 @@ namespace verona::rt
 
       thread->park_mutex.lock();
       thread->core = core;
-      threads->active.push_back(thread);
+      threads->active.insert_back(thread);
       thread->park_cond = false;
       thread->park_mutex.unlock();
       

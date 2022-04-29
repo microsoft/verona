@@ -1,6 +1,7 @@
 #pragma once
 
-#include <list>
+#include "ds/dllist.h"
+
 #include <mutex>
 
 namespace verona::rt
@@ -14,15 +15,15 @@ namespace verona::rt
     public:
       std::mutex m;
 
-      std::list<T*> active;
-      std::list<T*> free;
+      DLList<T> active;
+      DLList<T> free;
 
     public:
       SchedulerList() {}
       ~SchedulerList()
       {
         m.lock();
-        if (!active.empty() || !free.empty())
+        if (!active.is_empty() || !free.is_empty())
         {
           //TODO should we abort or delete here?
           abort();
@@ -54,7 +55,7 @@ namespace verona::rt
       {
         m.lock();
         active.remove(thread);
-        free.push_back(thread);
+        free.insert_back(thread);
         m.unlock();
       }
 
@@ -63,13 +64,17 @@ namespace verona::rt
       void forall(void (*f)(T* elem))
       {
         m.lock();
-        for (auto t: active)
+        T* t = active.get_head();
+        while (t != nullptr)
         {
           f(t);
+          t = t->next;
         }
-        for (auto t: free)
+        t = free.get_head();
+        while (t != nullptr)
         {
           f(t);
+          t = t->next;
         }
         m.unlock();
       }
@@ -81,28 +86,33 @@ namespace verona::rt
           abort();
         m.lock();
         if (is_active)
-          active.push_back(elem);
+          active.insert_back(elem);
         else
-          free.push_back(elem);
+          free.insert_back(elem);
         m.unlock();
       }
 
       T* pop_or_null(bool is_active)
       {
         m.lock();
-        std::list<T*>* list = &free;
         if (is_active)
         {
-          list = &active;
+          if (active.is_empty())
+          {
+            m.unlock();
+            return nullptr;
+          }
+          T* res = active.pop();
+          m.unlock();
+          return res;
         }
 
-        if (list->empty())
+        if (free.is_empty())
         {
           m.unlock();
           return nullptr;
         }
-        T* res = list->front();
-        list->pop_front();
+        T* res = free.pop();
         m.unlock();
         return res;
       }

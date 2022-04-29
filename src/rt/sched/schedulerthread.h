@@ -3,9 +3,11 @@
 #pragma once
 
 #include "core.h"
+#include "ds/dllist.h"
 #include "object/object.h"
 #include "threadpool.h"
 #include "sysmonitor.h"
+#include "schedulerlist.h"
 
 #include <mutex>
 #include <atomic>
@@ -39,6 +41,8 @@ namespace verona::rt
     using Monitor = SysMonitor<Scheduler>;
     friend Scheduler;
     friend T;
+    friend DLList<SchedulerThread<T>>;
+    friend SchedulerList<SchedulerThread<T>>;
 
     template<typename Owner>
     friend class Noticeboard;
@@ -82,6 +86,10 @@ namespace verona::rt
     std::atomic_bool park_cond = true;
     std::mutex park_mutex;
     std::condition_variable park_cv;
+
+    /// SchedulerList pointers;
+    SchedulerThread<T>* prev = nullptr;
+    SchedulerThread<T>* next = nullptr;
 
     T* get_token_cown()
     {
