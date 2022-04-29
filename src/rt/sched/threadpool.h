@@ -356,9 +356,13 @@ namespace verona::rt
           threads->addActive(t);
           builder.add_thread(t->core->affinity, &T::run, t, startup, args...);
         }
+        // The system monitor is not compatible with systematic testing.
+#ifndef USE_SYSTEMATIC_TESTING 
+#ifdef USE_SYSTEM_MONITOR
         // Run the system monitor;
         Monitor::get().run_monitor(builder);
-
+#endif
+#endif
         // ThreadPoolBuilder goes out of scope and is deallocated here.
       }
       Logging::cout() << "All threads stopped" << Logging::endl;

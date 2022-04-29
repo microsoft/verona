@@ -237,10 +237,14 @@ begining:
         // Update the progress counter on that core.
         
         Core<T>* cown_core = cown->owning_core();
+        assert(this->core != nullptr);
+        
+        // TODO should we also increment the counter on that core?
         if (cown_core != nullptr)
           cown_core->progress_counter++;
-        if (cown_core == this->core)
-          core->last_worker = this->systematic_id;
+        if (cown_core != this->core)
+          core->progress_counter++;
+        core->last_worker = this->systematic_id;
         
         bool reschedule = cown->run(*alloc, state);
 
@@ -296,22 +300,19 @@ begining:
           cown = nullptr;
         }
 
-        if (cown_core != nullptr && cown_core == core)
+        // There are more workers and I am not the last one who made progress.
+        if (core->servicing_threads > 1 && core->last_worker != this->systematic_id)
         {
-          // There are more workers and I am not the last one who made progress.
-          if (core->servicing_threads > 1 && core->last_worker != this->systematic_id)
+          this->core->servicing_threads--;
+          this->core = nullptr;
+          this->park();
+          if (core == nullptr)
           {
-            this->core->servicing_threads--;
-            this->core = nullptr;
-            this->park();
-            if (core == nullptr)
-            {
-              assert(!running);
-              break;
-            }
-
-            goto begining;
+            assert(!running);
+            break;
           }
+
+          goto begining;
         }
 
         yield();
