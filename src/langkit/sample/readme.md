@@ -7,8 +7,6 @@ lookup
 well-formedness for errors
 - error on too many typeargs
 
-type checker
-
 public/private
 `new` to create an instance of the enclosing class
 object literals
@@ -22,6 +20,35 @@ type assertions for operators
 applying typeargs to a typeparam
 - T[C1]
 - this is filling in the bounds in some way?
+
+## ANF
+
+destructure tuples in assignment lhs?
+type assertions?
+`let x = ...`
+
+### expr structure after ANF
+
+funcbody: (var|let|arg|tuple|lift|load|store)*
+arg: refvar|reflet|refparam|literal
+tuple: arg*
+lift: let, call|tuple
+call: reffunc|selector, arg*
+
+## type checker
+
+can probably do global inference
+
+finding selectors
+  don't bother: treat as a `{ selector }` constraint?
+  what about arity?
+    arg count gives minimum arity
+    a selector with higher arity is a subtype of a selector with lower arity
+    given `f(A, B, C): D`, type it as `A->B->C->D` not `(A, B, C)->D`
+
+selecting by reffunc arity
+  select the shortest, not the longest
+  use tuple notation to force a longer arity
 
 ## DNF
 
@@ -44,3 +71,4 @@ how to get a "call once" lambda
   apply(self: iso)
     (var ...) = destruct self
   this extracts the fields
+  what if the lambda can't be iso?

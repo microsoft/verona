@@ -198,6 +198,7 @@ namespace sample
         "class\\b" >> [](auto& m) { m.add(Class); },
         "var\\b" >> [](auto& m) { m.add(Var); },
         "let\\b" >> [](auto& m) { m.add(Let); },
+        "ref\\b" >> [](auto& m) { m.add(Ref); },
         "throw\\b" >> [](auto& m) { m.add(Throw); },
         "iso\\b" >> [](auto& m) { m.add(Iso); },
         "imm\\b" >> [](auto& m) { m.add(Imm); },

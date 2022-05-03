@@ -67,7 +67,8 @@ namespace sample
           << ((T(Group) << (T(Var) * T(Ident)[id] * ~T(Type)[Type] * End)) *
               T(Group)[rhs] * End) >>
         [](auto& _) {
-          return _(id = FieldVar) << (_[Type] | Type) << (Expr << *_[rhs]);
+          auto t = _(Type) ? _(Type) : TypeVar ^ _(id)->fresh();
+          return _(id = FieldVar) << t << (Expr << *_[rhs]);
         },
 
       // Field: (equals (group let ident type) group)
@@ -75,7 +76,8 @@ namespace sample
           << ((T(Group) << (T(Let) * T(Ident)[id] * ~T(Type)[Type] * End)) *
               T(Group)[rhs] * End) >>
         [](auto& _) {
-          return _(id = FieldLet) << (_[Type] | Type) << (Expr << *_[rhs]);
+          auto t = _(Type) ? _(Type) : TypeVar ^ _(id)->fresh();
+          return _(id = FieldLet) << t << (Expr << *_[rhs]);
         },
 
       // Function.
@@ -178,15 +180,10 @@ namespace sample
         [](auto& _) { return Assign << *_[Assign]; },
       ExprStruct * T(Paren)[Term] >> [](auto& _) { return Term << *_[Term]; },
 
-      // Term compaction.
-      T(Term) << ((T(Term) / T(Tuple) / T(Assign))[op] * End) >>
-        [](auto& _) { return _(op); },
-      T(Term) << (T(Expr)[Expr] * End) >>
-        [](auto& _) { return Term << *_[Expr]; },
-      T(Expr) << (T(Term)[Term] * End) >>
-        [](auto& _) { return Expr << *_[Term]; },
+      // An empty term is an empty tuple.
       T(Term) << End >> [](auto& _) -> Node { return Tuple; },
 
+      // Typearg structure.
       (In(Type) / ExprStruct) * T(Square)[Typeargs] >>
         [](auto& _) { return Typeargs << *_[Typeargs]; },
       T(Typeargs) << T(List)[Typeargs] >>
@@ -357,6 +354,8 @@ namespace sample
     };
   }
 
+  inline const auto Operator = T(RefFunction) / T(Selector);
+
   PassDef refexpr()
   {
     return {
@@ -393,109 +392,201 @@ namespace sample
         // Create sugar.
         TermStruct * (T(RefClass) / T(RefTypeparam))[lhs] >>
           [](auto& _) {
-            return Call << (RefFunction << _[lhs] << (Ident ^ create)
-                                        << Typeargs)
-                        << Tuple;
+            return Call
+              << (RefFunction << _[lhs] << (Ident ^ create) << Typeargs);
           },
+
+        // Type assertions for operators.
+        TermStruct * Start * Operator[op] * T(Type)[Type] * End >>
+          [](auto& _) { return _(op) << _[Type]; },
+
+        // Compact terms.
+        T(Term) << (Any[Expr] * End) >> [](auto& _) { return _(Expr); },
+
+        // Compact expressions.
+        T(Expr) << (T(Expr)[Expr] * End) >> [](auto& _) { return _(Expr); },
       }};
   }
 
-  inline const auto Object = Literal / T(RefVar) / T(RefLet) / T(RefParam) /
-    T(Tuple) / T(Lambda) / T(Call) / T(Term) / T(Assign) / T(DontCare);
-  inline const auto Operator = T(RefFunction) / T(Selector);
-
-  PassDef typeassert()
-  {
-    return {
-      // Type assertions for operators.
-      T(Term) << (Operator[op] * T(Type)[Type] * End) >>
-        [](auto& _) { return _(op) << _[Type]; },
-    };
-  }
+  inline const auto Object = Literal / T(RefVar) / T(RefVarLHS) / T(RefLet) /
+    T(RefParam) / T(Tuple) / T(Lambda) / T(Call) / T(CallLHS) / T(Assign) /
+    T(Term) / T(DontCare);
+  inline const auto Apply = (Selector << (Ident ^ apply) << Typeargs);
 
   PassDef reverseapp()
   {
     return {
       // Dot: reverse application.
-      TermStruct * Object[lhs] * T(Dot) * Any[rhs] >>
-        [](auto& _) { return Call << _[rhs] << _[lhs]; },
-
+      TermStruct * T(Tuple)[lhs] * T(DotSelector)[rhs] >>
+        [](auto& _) { return Call << (Selector << *_[rhs]) << *_[lhs]; },
       TermStruct * Object[lhs] * T(DotSelector)[rhs] >>
         [](auto& _) { return Call << (Selector << *_[rhs]) << _[lhs]; },
+
+      TermStruct * T(Tuple)[lhs] * T(Dot) * Operator[op] >>
+        [](auto& _) { return Call << _[op] << *_[lhs]; },
+      TermStruct * Object[lhs] * T(Dot) * Operator[op] >>
+        [](auto& _) { return Call << _[op] << _[lhs]; },
+
+      TermStruct * T(Tuple)[lhs] * T(Dot) * Object[rhs] >>
+        [](auto& _) { return Call << clone(Apply) << _[rhs] << *_[lhs]; },
+      TermStruct * Object[lhs] * T(Dot) * Object[rhs] >>
+        [](auto& _) { return Call << clone(Apply) << _[rhs] << _[lhs]; },
     };
   }
 
   PassDef application()
   {
     return {
+      // Typeargs on variables are typeargs on apply.
+      TermStruct *
+          ((T(RefVar) / T(RefLet) / T(RefParam))[lhs]
+           << (T(Ident)[id] * T(Typeargs)[Typeargs])) *
+          T(Tuple)[rhs] >>
+        [](auto& _) {
+          return Call << (Selector << (Ident ^ apply) << _[Typeargs])
+                      << (_(lhs)->type() ^ _(id)) << *_[rhs];
+        },
+
+      TermStruct *
+          ((T(RefVar) / T(RefLet) / T(RefParam))[lhs]
+           << (T(Ident)[id] * T(Typeargs)[Typeargs])) *
+          Object[rhs] >>
+        [](auto& _) {
+          return Call << (Selector << (Ident ^ apply) << _[Typeargs])
+                      << (_(lhs)->type() ^ _(id)) << _[rhs];
+        },
+
       // Adjacency: application.
+      TermStruct * Object[lhs] * T(Tuple)[rhs] >>
+        [](auto& _) { return Call << clone(Apply) << _[lhs] << *_[rhs]; },
       TermStruct * Object[lhs] * Object[rhs] >>
-        [](auto& _) { return Call << _[lhs] << _[rhs]; },
+        [](auto& _) { return Call << clone(Apply) << _[lhs] << _[rhs]; },
+
+      // Ref expressions.
+      TermStruct * T(Ref) * T(RefVar)[RefVar] >>
+        [](auto& _) { return (RefVarLHS ^ _(RefVar)) << *_[RefVar]; },
+      TermStruct * T(Ref) * T(Call)[Call] >>
+        [](auto& _) { return CallLHS << *_[Call]; },
+      TermStruct * T(Ref) * (T(Expr) << (T(Call)[Call] * End)) >>
+        [](auto& _) { return CallLHS << *_[Call]; },
 
       // Prefix.
+      TermStruct * Operator[op] * T(Tuple)[rhs] >>
+        [](auto& _) { return Call << _[op] << *_[rhs]; },
       TermStruct * Operator[op] * Object[rhs] >>
         [](auto& _) { return Call << _[op] << _[rhs]; },
 
       // Infix.
       TermStruct * T(Tuple)[lhs] * Operator[op] * T(Tuple)[rhs] >>
-        [](auto& _) { return Call << _[op] << (Tuple << *_[lhs] << *_[rhs]); },
+        [](auto& _) { return Call << _[op] << *_[lhs] << *_[rhs]; },
       TermStruct * T(Tuple)[lhs] * Operator[op] * Object[rhs] >>
-        [](auto& _) { return Call << _[op] << (Tuple << *_[lhs] << _[rhs]); },
+        [](auto& _) { return Call << _[op] << *_[lhs] << _[rhs]; },
       TermStruct * Object[lhs] * Operator[op] * T(Tuple)[rhs] >>
-        [](auto& _) { return Call << _[op] << (Tuple << _[lhs] << *_[rhs]); },
+        [](auto& _) { return Call << _[op] << _[lhs] << *_[rhs]; },
       TermStruct * Object[lhs] * Operator[op] * Object[rhs] >>
-        [](auto& _) { return Call << _[op] << (Tuple << _[lhs] << _[rhs]); },
+        [](auto& _) { return Call << _[op] << _[lhs] << _[rhs]; },
 
-      // Term compaction.
-      T(Term) << (Any[op] * End) >> [](auto& _) { return _(op); },
+      // Strip empty typeargs on variables.
+      (T(RefVar) / T(RefLet) / T(RefParam))[lhs]
+          << (T(Ident)[id] * (T(Typeargs) << End)) >>
+        [](auto& _) { return _(lhs)->type() ^ _(id); },
     };
   }
 
-  inline const auto InContainer =
-    In(Expr) / In(Term) / In(Tuple) / In(Assign) / In(Call);
+  inline const auto InContainer = In(Expr) / In(Term) / In(Tuple) / In(Call);
   inline const auto Container =
-    T(Expr) / T(Term) / T(Tuple) / T(Assign) / T(Call) / T(Lift);
-  inline const auto LiftExpr = T(Term) / T(Lambda) / T(Call) / T(Assign);
+    T(Expr) / T(Term) / T(Tuple) / T(Assign) / T(Call) / T(CallLHS) / T(Lift);
+  inline const auto LiftExpr =
+    T(Term) / T(Tuple) / T(Lambda) / T(Call) / T(CallLHS) / T(Assign);
 
   PassDef anf()
   {
     return {
+      // Don't leave a reference to a var or let if it's declared at the top.
+      In(Funcbody) * T(Expr)
+          << ((T(Var) / T(Let))[Var] * ~T(Type)[Type] * End) >>
+        [](auto& _) {
+          auto e = _(Var);
+          auto t = _(Type) ? _(Type) : TypeVar ^ e->fresh();
+          return e << t;
+        },
+
+      // Lift a var or let declaration with it's type assertion.
       InContainer * T(Var)[Var] * ~T(Type)[Type] >>
         [](auto& _) {
           auto e = _(Var);
           auto t = _(Type) ? _(Type) : TypeVar ^ e->fresh();
-          return Lift << (e << t) << Expr
-                      << (RefVar << (Ident ^ e) << Typeargs);
+          return Seq << (Lift << (e << t)) << (RefVar ^ e);
         },
 
       InContainer * T(Let)[Let] * ~T(Type)[Type] >>
         [](auto& _) {
           auto e = _(Let);
           auto t = _(Type) ? _(Type) : TypeVar ^ e->fresh();
-          return Lift << (e << t) << Expr
-                      << (RefLet << (Ident ^ e) << Typeargs);
+          return Seq << (Lift << (e << t)) << (RefLet ^ e);
         },
 
+      // Lift an arbitrary expression as a let.
       InContainer * LiftExpr[Lift] * ~T(Type)[Type] >>
         [](auto& _) {
           auto e = _(Lift);
           auto t = _(Type) ? _(Type) : TypeVar ^ e->fresh();
           auto id = e->fresh();
-          return Lift << (_(id = Let) << t) << e
-                      << (RefLet << (Ident ^ id) << Typeargs);
+          return Seq << (Lift << (_(id = Let) << t) << e) << (RefLet ^ id);
         },
 
-      Container[op]
-          << (((!T(Lift))++)[lhs] *
-              (T(Lift)
-               << (((T(Let) / T(Var)) * Any)[Let] *
-                   ~(T(RefLet) / T(RefVar))[RefLet] * End)) *
-              (Any++)[rhs]) >>
+      // Sequence of expressions.
+      InContainer * T(Expr)[lhs] * T(Expr)[rhs] >>
         [](auto& _) {
-          // Pull the lift out of the container, leaving the reflet behind.
-          return Seq << (Lift << _[Let])
-                     << (_(op)->type() << _[lhs] << _[RefLet] << _[rhs]);
+          auto e = _(lhs);
+          return Seq << (Lift << _(lhs)) << _[rhs];
         },
+
+      In(Assign) * (T(Expr) << (Any[lhs] * ~T(Type)[ltype] * End)) *
+          (T(Expr) << (Any[rhs] * ~T(Type)[rtype] * End)) * End >>
+        [](auto& _) {
+          // TODO: assignment to `let x`
+          auto e0 = _(lhs);
+          auto t0 = TypeVar ^ e0->fresh();
+          auto id0 = e0->fresh();
+
+          auto e1 = Load ^ id0;
+          auto t1 = _(ltype) ? _(ltype) : TypeVar ^ e0->fresh();
+          auto id1 = e0->fresh();
+
+          // If this is a call, make it an lhs call.
+          if (e0->type() == Call)
+            e0 = CallLHS << *_[lhs];
+
+          // If this is a refvar, make it an lhs refvar.
+          if (e0->type() == RefVar)
+            e0 = (RefVarLHS ^ e0) << *_[lhs];
+
+          // TODO: destructure lhs tuples
+
+          auto e2 = _(rhs);
+          auto t2 = _(rtype) ? _(rtype) : TypeVar ^ e2->fresh();
+          auto id2 = e2->fresh();
+          return Seq << (Lift << (_(id0 = Let) << t0) << e0)
+                     << (Lift << (_(id1 = Let) << t1) << e1)
+                     << (Lift << (_(id2 = Let) << t2) << e2)
+                     << (Lift << (Store << (RefLet ^ id0) << (RefLet ^ id2)))
+                     << (Expr << (RefLet ^ id1));
+        },
+
+      // Lift to the top.
+      Container[op] << (((!T(Lift))++)[lhs] * T(Lift)[Lift] * (Any++)[rhs]) >>
+        [](auto& _) {
+          return Seq << _[Lift] << (_(op)->type() << _[lhs] << _[rhs]);
+        },
+
+      // Remove the lift at the top level if there's no let.
+      In(Funcbody) * T(Lift) << (Any[Expr] * End) >>
+        [](auto& _) { return _(Expr); },
+
+      // Compact assigns, terms, and exprs after they're reduced.
+      (T(Assign) / T(Term) / T(Expr)) << (Any[op] * End) >>
+        [](auto& _) { return _(op); },
     };
   }
 
@@ -514,7 +605,6 @@ namespace sample
         {"typealg", typealg()},
         {"dnf", dnf()},
         {"refexpr", refexpr()},
-        {"typeassert", typeassert()},
         {"reverseapp", reverseapp()},
         {"application", application()},
         {"anf", anf()},

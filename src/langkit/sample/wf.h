@@ -54,9 +54,9 @@ namespace sample
     shape(Tuple, undef()),
     shape(Assign, undef()),
 
-    shape(RefVar, field(Ident), field(Typeargs)),
-    shape(RefLet, field(Ident), field(Typeargs)),
-    shape(RefParam, field(Ident), field(Typeargs)),
+    shape(RefVar),
+    shape(RefLet),
+    shape(RefParam),
 
     // TODO: scoped
     shape(RefTypeparam, field(Ident), field(Typeargs)),
@@ -72,5 +72,8 @@ namespace sample
     shape(Include, field(Type)),
 
     // TODO: Let, Expr
-    shape(Lift, undef()));
+    shape(Lift, undef()),
+
+    shape(Load),
+    shape(Store, field(RefLet), field(RefLet)));
 }

@@ -18,13 +18,13 @@ namespace sample
     using BoundsMap = std::map<Node, Bounds, std::owner_less<>>;
     using Cache = std::map<std::pair<Node, Node>, bool>;
 
-    struct State
+    struct Checker
     {
       BoundsMap bounds;
       Cache cache;
       LookupDef<bool> match;
 
-      State()
+      Checker()
       {
         // TODO: view, func, isect, union, trait, refclass, reftypealias,
         // reftypeparam
@@ -91,11 +91,15 @@ namespace sample
   Pass infer()
   {
     // TODO: when done, check all lower <: upper
-    auto p = std::make_shared<PassDef>();
-    auto sub = std::make_shared<detail::State>();
+    auto inferdef = std::make_shared<PassDef>();
+    auto infer = inferdef.get();
+    auto check = std::make_shared<detail::Checker>();
 
-    p->rules();
+    // infer->rules({
+    //   T(Lift)
 
-    return p;
+    // });
+
+    return inferdef;
   }
 }

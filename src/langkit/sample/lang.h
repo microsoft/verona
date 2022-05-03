@@ -42,6 +42,7 @@ namespace sample
   inline constexpr auto Class = TokenDef("class", flag::print | flag::symtab);
   inline constexpr auto Var = TokenDef("var", flag::print);
   inline constexpr auto Let = TokenDef("let", flag::print);
+  inline constexpr auto Ref = TokenDef("ref");
   inline constexpr auto Throw = TokenDef("throw");
   inline constexpr auto Iso = TokenDef("iso");
   inline constexpr auto Imm = TokenDef("imm");
@@ -83,6 +84,7 @@ namespace sample
   inline constexpr auto Tuple = TokenDef("tuple");
   inline constexpr auto Assign = TokenDef("assign");
   inline constexpr auto RefVar = TokenDef("refvar", flag::print);
+  inline constexpr auto RefVarLHS = TokenDef("refvar-lhs", flag::print);
   inline constexpr auto RefLet = TokenDef("reflet", flag::print);
   inline constexpr auto RefParam = TokenDef("refparam", flag::print);
   inline constexpr auto RefTypeparam = TokenDef("reftypeparam");
@@ -92,8 +94,11 @@ namespace sample
   inline constexpr auto Selector = TokenDef("selector");
   inline constexpr auto DotSelector = TokenDef("dotselector");
   inline constexpr auto Call = TokenDef("call");
+  inline constexpr auto CallLHS = TokenDef("call-lhs");
   inline constexpr auto Include = TokenDef("include");
   inline constexpr auto Lift = TokenDef("lift");
+  inline constexpr auto Load = TokenDef("load", flag::print);
+  inline constexpr auto Store = TokenDef("store");
 
   // Indexing names.
   inline constexpr auto Bounds = TokenDef("bounds");
@@ -104,6 +109,8 @@ namespace sample
   inline constexpr auto lhs = TokenDef("lhs");
   inline constexpr auto rhs = TokenDef("rhs");
   inline constexpr auto op = TokenDef("op");
+  inline constexpr auto ltype = TokenDef("ltype");
+  inline constexpr auto rtype = TokenDef("rtype");
 
   // Sythetic locations.
   inline const auto apply = Location("apply");
