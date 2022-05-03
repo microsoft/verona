@@ -67,7 +67,7 @@ namespace verona::rt
     size_t current_memory_used = 0;
 
     // Compact representation of previous memory used as a sizeclass.
-    snmalloc::sizeclass_t previous_memory_used = 0;
+    snmalloc::sizeclass_t previous_memory_used;
 
     // Stack of stack based entry points into the region.
     StackThin<Object, Alloc> additional_entry_points{};
@@ -349,9 +349,9 @@ namespace verona::rt
       // Update memory usage.
       current_memory_used += other->current_memory_used;
 
-      previous_memory_used = size_to_sizeclass(
-        sizeclass_to_size(other->previous_memory_used) +
-        sizeclass_to_size(other->previous_memory_used));
+      previous_memory_used = size_to_sizeclass_full(
+        sizeclass_full_to_size(other->previous_memory_used) +
+        sizeclass_full_to_size(other->previous_memory_used));
     }
 
     void swap_root_internal(Object* oroot, Object* nroot)
@@ -460,7 +460,7 @@ namespace verona::rt
       sweep_ring<TrivialRing, sweep_all>(alloc, o, primary_ring, collect);
 
       RememberedSet::sweep(alloc);
-      previous_memory_used = size_to_sizeclass(current_memory_used);
+      previous_memory_used = size_to_sizeclass_full(current_memory_used);
     }
 
     /**

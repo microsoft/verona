@@ -21,7 +21,7 @@
 
 #include <iomanip>
 #include <iostream>
-#include <snmalloc.h>
+#include <snmalloc/snmalloc.h>
 #include <sstream>
 
 namespace Logging
@@ -327,7 +327,7 @@ namespace Logging
 
     static void dump_flight_recorder(std::string id = "")
     {
-      static std::atomic_flag dump_in_progress = ATOMIC_FLAG_INIT;
+      static snmalloc::FlagWord dump_in_progress;
 
       snmalloc::FlagLock f(dump_in_progress);
 
@@ -537,7 +537,7 @@ namespace Logging
       // fails. We're about to crash anyway.
       auto s1 = write(1, str, strlen(str));
       auto s2 = write(1, "\n", 1);
-      UNUSED(s1 + s2);
+      snmalloc::UNUSED(s1 + s2);
 
       // Set up data for the crash dump
       n_frames = backtrace(frames, max_stack_frames);

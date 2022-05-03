@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
+#include <stdint.h>
+
 /**
  * This file includes all of the types used for forwarding memory-provider
  * requests and pagemap updates from the sandbox to the parent.  This is a
@@ -22,34 +24,24 @@ namespace sandbox
   enum HostServiceCallID : uintptr_t
   {
     /**
-     * Reserve memory.  The first (and only) argument is the number of bytes.
-     * static_cast<he>(return value is the start of the reserved address range.
-     *
-     * Note: The `committed` template parameter is ignored, the shared memory
-     * region is assumed to always be committed.
-     */
-    MemoryProviderReserve,
-    /**
-     * Sets the metadata for a slab.  The arguments are:
-     *
-     * - The slab address
-     * - The slab size
-     * - The pointer to the metadata (MetaSlab)
-     * - The message queue with the size class encoded in the low bits.
-     */
-    MetadataSet,
-    /**
      * Allocate a chunk.  The arguments are:
      *  - The size to allocate
-     *  - The address of the message queue
-     *  - The size class of the allocation
      *  - The address of the metadata.
+     *  - The address of the message queue and the sizeclass
      *
      * Note that the address of the metadata should never be
      * accessed from outside the sandbox and so does not need to be in the
      * shared memory region.
      */
     AllocChunk,
+
+    /**
+     * Deallocate a chunk.  The arguments are:
+     *
+     * - The address of the chunk.
+     * - The size of the chunk.
+     */
+    DeallocChunk,
   };
 
   /**

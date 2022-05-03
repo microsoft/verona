@@ -28,7 +28,6 @@ namespace verona::rt
 
   static Behaviour unmute_behaviour{Behaviour::Descriptor::empty()};
 
-#ifdef ACQUIRE_ALL
   struct EnqueueLock
   {
     std::atomic<bool> locked = false;
@@ -51,7 +50,6 @@ namespace verona::rt
       locked.store(false, std::memory_order_release);
     }
   };
-#endif
 
   /**
    * A cown, or concurrent owner, encapsulates a set of resources that may be
@@ -107,7 +105,6 @@ namespace verona::rt
     }
 
   private:
-    friend class DLList<Cown>;
     friend class MultiMessage;
     friend CownThread;
     friend Core<Cown>;
@@ -143,9 +140,7 @@ namespace verona::rt
      **/
     std::atomic<size_t> weak_count{1};
 
-#ifdef ACQUIRE_ALL
     EnqueueLock enqueue_lock;
-#endif
 
     static Cown* create_token_cown()
     {
@@ -500,7 +495,6 @@ namespace verona::rt
       const auto last = body->count - 1;
       assert(body->index <= last);
 
-#ifdef ACQUIRE_ALL
       // First acquire all the locks if a multimessage
       if (body->count > 1)
       {
@@ -555,40 +549,6 @@ namespace verona::rt
         assert(m == m2);
         UNUSED(m2);
       }
-#else
-      for (; body->index < body->count; body->index++)
-      {
-        auto m = MultiMessage::make_message(alloc, body, epoch);
-        auto* next = body->cowns[body->index];
-        Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
-                        << ", index " << body->index << Logging::endl;
-
-        if (!next->try_fast_send(m))
-          return;
-
-        Logging::cout() << "MultiMessage " << m << ": fast acquire cown "
-                        << next << Logging::endl;
-        if (body->index == last)
-        {
-          // Case 2: acquired the last cown.
-          Logging::cout() << "MultiMessage " << m
-                          << ": fast send complete, reschedule last cown"
-                          << Logging::endl;
-          next->schedule();
-          return;
-        }
-
-        // The cown was asleep, so we have acquired it now. Dequeue the
-        // message because we want to handle it now. Note that after
-        // dequeueing, the queue may be non-empty: the scheduler may have
-        // allowed another multi-message to request and send another message
-        // to this cown. However, we are guaranteed to be the first message in
-        // the queue.
-        const auto* m2 = next->queue.dequeue(alloc);
-        assert(m == m2);
-        UNUSED(m2);
-      }
-#endif
     }
 
     /**
@@ -628,9 +588,6 @@ namespace verona::rt
     {
       MultiMessage::MultiMessageBody& body = *(m->get_body());
       Alloc& alloc = ThreadAlloc::get();
-#ifndef ACQUIRE_ALL
-      size_t last = body.count - 1;
-#endif
 
       EpochMark e = m->get_epoch();
 
@@ -652,61 +609,8 @@ namespace verona::rt
         }
       }
 
-#ifdef ACQUIRE_ALL
       if (body.exec_count_down.fetch_sub(1) > 1)
-#else
-      if (body.index < last)
-#endif
       {
-#ifndef ACQUIRE_ALL
-        // The following code is isolating cases where a message was sent
-        // before the leak detector began, and is now about to be forwarded
-        // after the leak detector has started.  This means the messages must
-        // now be counted for termination of the scan phase of the leak
-        // detector. This is not required in the ACQUIRE_ALL case as messages
-        // are not forwarded.
-        if (e != Scheduler::local()->send_epoch)
-        {
-          Logging::cout() << "Message not in current epoch" << Logging::endl;
-          // We can only see messages from other epochs during the prescan and
-          // scan phases.  The message epochs must be up-to-date in all other
-          // phases.  We can also see messages sent by threads that have made
-          // it into PreScan before us. But the global state must be PreScan,
-          // we just haven't moved into it yet. `debug_in_prescan` accounts
-          // for either the local or the global state is prescan.
-          assert(Scheduler::should_scan() || Scheduler::debug_in_prescan());
-
-          if (e != EpochMark::EPOCH_NONE)
-          {
-            Logging::cout() << "Message old" << Logging::endl;
-
-            // Count message as this must be an old message being resent for a
-            // further acquisition.
-            Scheduler::record_inflight_message();
-            e = EpochMark::EPOCH_NONE;
-          }
-
-          assert(e == EpochMark::EPOCH_NONE);
-        }
-        else if (Scheduler::should_scan())
-        {
-          if (get_epoch_mark() != Scheduler::local()->send_epoch)
-          {
-            Logging::cout() << "Contains unscanned cown." << Logging::endl;
-
-            // Count message as this contains a cown, that has a message queue
-            // that could potentially have old messages in.
-            Scheduler::record_inflight_message();
-            e = EpochMark::EPOCH_NONE;
-          }
-        }
-
-        // Try to acquire as many cowns as possible without rescheduling,
-        // starting from the next cown.
-        body.index++;
-
-        fast_send(&body, e);
-#endif
         return false;
       }
 

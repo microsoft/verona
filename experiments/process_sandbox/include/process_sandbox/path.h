@@ -182,7 +182,7 @@ namespace sandbox
      * Returns true on success, false otherwise.  This function can fail if
      * there are too many `..` elements in the path.
      */
-    bool canonicalise()
+    [[nodiscard]] bool canonicalise()
     {
       remove_empty();
       return remove_dotdot();

@@ -7,7 +7,7 @@
 #include "../test/logging.h"
 #include "region/immutable.h"
 
-#include <snmalloc.h>
+#include <snmalloc/snmalloc.h>
 
 namespace verona::rt
 {

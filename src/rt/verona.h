@@ -26,4 +26,4 @@
 #include "test/logging.h"
 #include "test/systematic.h"
 
-#include <snmalloc.h>
+#include <snmalloc/snmalloc.h>

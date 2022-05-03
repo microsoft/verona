@@ -19,32 +19,37 @@
   affiliation: Microsoft Research
   photo: https://www.microsoft.com/en-us/research/wp-content/uploads/2017/01/avatar_user__1485857468-180x180.jpg
   sort-key: Clebsch
-- name: Juliana Vicente Franco
-  url: https://www.microsoft.com/en-us/research/people/jufranc/
-  affiliation: Microsoft Research
-  photo: https://www.microsoft.com/en-us/research/uploads/prod/2019/10/MSR_0119_0444_N8A7846-Copy-2.jpg
-  sort-key: Franco
 - name: Renato Golin
+  url: https://www.microsoft.com/en-us/research/people/rengolin/
   affiliation: Microsoft Research
+  photo: https://www.microsoft.com/en-us/research/uploads/prod/2021/09/Lab_Square_Small.jpg
   sort-key: Golin
 - name: Sophia Drossopoulou
   url: http://www.imperial.ac.uk/people/s.drossopoulou
   affiliation: Imperial College London
   photo: https://www.microsoft.com/en-us/research/uploads/prod/2020/04/Sophia-D.jpg
   sort-key: Drossopoulou
-- name: Paul Liétar
-  affiliation: Imperial College London
-  sort-key: Liétar
 - name: Luke Cheeseman
   affiliation: Imperial College London
   sort-key: Cheeseman
+- name: Juliana Vicente Franco
+  url: https://www.microsoft.com/en-us/research/people/jufranc/
+  affiliation: Other
+  photo: https://www.microsoft.com/en-us/research/uploads/prod/2019/10/MSR_0119_0444_N8A7846-Copy-2.jpg
+  sort-key: Franco
+- name: Paul Liétar
+  affiliation: Other
+  sort-key: Liétar
 - name: Albert Mingkun Yang
   url: http://www.it.uu.se/katalog/albya111
   photo: https://www.microsoft.com/en-us/research/wp-content/uploads/2020/04/Albert-Mingkun-Yang-e1586347975790-360x360.jpg
+  affiliation: Other
   sort-key: Yang
 - name: Ming-Ho Yee
   photo: https://www.microsoft.com/en-us/research/uploads/prod/2020/04/Ming.jpg
+  affiliation: Other
   sort-key: Yee
 - name: Theo Butler
   photo: https://www.microsoft.com/en-us/research/uploads/prod/2020/04/Theo-Butler-360x360.jpg
+  affiliation: Other
   sort-key: Butler

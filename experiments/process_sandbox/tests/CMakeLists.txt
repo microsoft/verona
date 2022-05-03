@@ -18,6 +18,8 @@ set(SANDBOX_TESTS
 	callback-recursive
 	modify-pagemap
 	network
+	rpc-bounds
+	rpc-deadlock
 	zlib
 	)
 

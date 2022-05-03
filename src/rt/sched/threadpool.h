@@ -17,7 +17,7 @@
 
 #include <condition_variable>
 #include <mutex>
-#include <snmalloc.h>
+#include <snmalloc/snmalloc.h>
 
 namespace verona::rt
 {

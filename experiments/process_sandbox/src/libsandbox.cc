@@ -57,8 +57,13 @@ namespace sandbox
   {
     // Force initialisation of the shared memory object backing the pagemap.
     SharedAllocConfig::ensure_initialised();
-    shared_asm.add_range<SharedAllocConfig::Pagemap>(
-      this, snmalloc::capptr::Chunk<void>{start}, size);
+    snmalloc::range_to_pow_2_blocks<snmalloc::MIN_CHUNK_BITS>(
+      snmalloc::capptr::Chunk<void>(start),
+      size,
+      [&](snmalloc::capptr::Chunk<void> p, size_t sz, bool) {
+        auto [g, m] = get_memory();
+        m.dealloc_range(p, sz);
+      });
   }
   /**
    * Singleton class that handles pagemap updates from children.  This listens
@@ -84,6 +89,7 @@ namespace sandbox
      * Mutex that protects the `ranges` map.
      */
     std::mutex m;
+
     /**
      * A map from file descriptor over which we've received an update request
      * to the sandbox metadata.
@@ -93,10 +99,9 @@ namespace sandbox
      * by storing an owning copy of the handle in the value and using the
      * non-owning value in the value.
      */
-    std::unordered_map<
-      platform::handle_t,
-      std::pair<platform::Handle, SharedAllocConfig::LocalState*>>
-      ranges;
+    std::
+      unordered_map<platform::handle_t, std::pair<platform::Handle, Library*>>
+        ranges;
     /**
      * Run loop.  Wait for updates from the child.
      */
@@ -106,27 +111,22 @@ namespace sandbox
       bool eof;
       while (poller.poll(fd, eof))
       {
+        auto remove_fd = [&]() {
+          std::lock_guard g(m);
+          auto r = ranges.find(fd);
+          if (r != ranges.end())
+          {
+            ranges.erase(r);
+          }
+        };
         // If a child's socket closed, unmap its shared page and delete the
         // metadata that we have associated with it.
         if (eof)
         {
-          std::lock_guard g(m);
-          auto r = ranges.find(fd);
-          ranges.erase(r);
+          remove_fd();
           continue;
         }
-        HostServiceRequest rpc;
-        if (
-          read(fd, static_cast<void*>(&rpc), sizeof(HostServiceRequest)) !=
-          sizeof(HostServiceRequest))
-        {
-          err(1, "Read from host service pipe %d failed", fd);
-          // FIXME: We should kill the sandbox at this point.  It is doing
-          // something bad.  For now, we kill the host process, which is safe
-          // but slightly misses the point of fault isolation.
-        }
-        HostServiceResponse reply{0, 0};
-        SharedAllocConfig::LocalState* s;
+        Library* lib;
         {
           decltype(ranges)::iterator r;
           std::lock_guard g(m);
@@ -135,72 +135,114 @@ namespace sandbox
           {
             continue;
           }
-          s = r->second.second;
+          lib = r->second.second;
         }
+        SharedAllocConfig::LocalState* s = &lib->memory_provider;
+        HostServiceRequest rpc;
+        if (
+          recv(
+            fd,
+            static_cast<void*>(&rpc),
+            sizeof(HostServiceRequest),
+            MSG_DONTWAIT) != sizeof(HostServiceRequest))
+        {
+          remove_fd();
+          lib->terminate();
+        }
+        HostServiceResponse reply{0, 0};
+        auto is_metaentry_valid =
+          [&](size_t size, SharedAllocConfig::Pagemap::Entry& metaentry) {
+            auto sizeclass = metaentry.get_sizeclass();
+            auto remote = metaentry.get_remote();
+            return ((remote == nullptr) ||
+                    s->contains(remote, sizeof(snmalloc::RemoteAllocator))) &&
+              (snmalloc::sizeclass_full_to_size(sizeclass) <= size);
+          };
         // No default so we get range checking.  Fallthrough returns the error
         // result.
         switch (rpc.kind)
         {
-          case MemoryProviderReserve:
-          {
-            size_t large_size = static_cast<size_t>(rpc.args[0]);
-            reply = {0,
-                     reinterpret_cast<uintptr_t>(
-                       SharedAllocConfig::Pagemap::reserve(*s, large_size))};
-            break;
-          }
-          case MetadataSet:
-          {
-            snmalloc::MetaEntry m{
-              reinterpret_cast<snmalloc::Metaslab*>(rpc.args[2]), rpc.args[3]};
-            char* p = reinterpret_cast<char*>(rpc.args[0]);
-            size_t size = static_cast<size_t>(rpc.args[1]);
-            for (char* a = p; a < p + size; a += snmalloc::MIN_CHUNK_SIZE)
-            {
-              reply.error |= !validate_and_insert(s, a, m);
-            }
-            break;
-          }
           case AllocChunk:
           {
             auto size = static_cast<size_t>(rpc.args[0]);
-            auto sizeclass = static_cast<snmalloc::sizeclass_t>(rpc.args[2]);
-            bool isLarge = size > snmalloc::MIN_CHUNK_SIZE;
-            auto msgq =
-              reinterpret_cast<snmalloc::RemoteAllocator*>(rpc.args[1]);
             if (
-              !((msgq == nullptr) ||
-                s->contains(msgq, sizeof(snmalloc::RemoteAllocator))) &&
-              ((isLarge && (snmalloc::sizeclass_to_size(sizeclass) == size)) ||
-               (!isLarge && (snmalloc::sizeclass_to_size(sizeclass) <= size))))
+              (size < snmalloc::MIN_CHUNK_SIZE) ||
+              !snmalloc::bits::is_pow2(size))
+            {
+              reply.error = 3;
+              break;
+            }
+            auto meta =
+              reinterpret_cast<SharedAllocConfig::SlabMetadata*>(rpc.args[1]);
+            auto ras = rpc.args[2];
+            // `meta` refers to the pointer to the slab metadata.  This field in
+            // the `Entry` is dereferenced outside of the sandbox only in the
+            // case where the remote is not the single remote of the allocator
+            // associated with this sandbox for use on the outside.
+            SharedAllocConfig::Pagemap::Entry metaentry{meta, ras};
+            if (!is_metaentry_valid(size, metaentry))
             {
               reply.error = 1;
               break;
             }
-            void* alloc = SharedAllocConfig::Pagemap::reserve(
-              *s, static_cast<size_t>(rpc.args[0]));
+            snmalloc::capptr::Chunk<void> alloc;
+            {
+              auto [g, m] = s->get_memory();
+              alloc = m.alloc_range(size);
+            }
             if (alloc == nullptr)
             {
+              reply.error = 2;
+              break;
+            }
+            metaentry.claim_for_sandbox();
+            SharedAllocConfig::Pagemap::set_metaentry(
+              address_cast(alloc), size, metaentry);
+
+            reply.ret = alloc.unsafe_uintptr();
+            break;
+          }
+          case DeallocChunk:
+          {
+            snmalloc::capptr::Chunk<void> ptr{
+              reinterpret_cast<void*>(rpc.args[0])};
+            size_t size = static_cast<size_t>(rpc.args[1]);
+            if (!s->contains(ptr.unsafe_ptr(), size))
+            {
               reply.error = 1;
               break;
             }
-            // For large allocations we store the power of two size, not the
-            // sizeclass.
-            if (isLarge)
+            // The size must be a power of two, larger than the chunk size
+            if (!(snmalloc::bits::is_pow2(size) &&
+                  (size >= snmalloc::MIN_CHUNK_SIZE)))
             {
-              sizeclass = snmalloc::bits::next_pow2_bits(size);
+              reply.error = 2;
+              break;
             }
-            char* p = static_cast<char*>(alloc);
-            snmalloc::MetaEntry m{
-              reinterpret_cast<snmalloc::Metaslab*>(rpc.args[3]),
-              msgq,
-              sizeclass};
-            for (char* a = p; a < p + size; a += snmalloc::MIN_CHUNK_SIZE)
+            // The base must be chunk-aligned
+            if (
+              snmalloc::pointer_align_down(
+                ptr.unsafe_ptr(), snmalloc::MIN_CHUNK_SIZE) != ptr.unsafe_ptr())
             {
-              reply.error |= !validate_and_insert(s, a, m);
+              reply.error = 3;
+              break;
             }
-
-            reply.ret = reinterpret_cast<uintptr_t>(alloc);
+            auto address = snmalloc::address_cast(ptr);
+            for (size_t chunk_offset = 0; chunk_offset < size;
+                 chunk_offset += snmalloc::MIN_CHUNK_SIZE)
+            {
+              auto& meta = SharedAllocConfig::Pagemap::get_metaentry_mut(
+                address + chunk_offset);
+              if (!meta.is_sandbox_owned())
+              {
+                reply.error = 4;
+                break;
+              }
+            }
+            if (reply.error == 0)
+            {
+              SharedAllocConfig::dealloc_range(*s, ptr, size);
+            }
             break;
           }
         }
@@ -208,15 +250,18 @@ namespace sandbox
         char* buffer = reinterpret_cast<char*>(&reply);
         while (remainder > 0)
         {
-          ssize_t ret = write(fd, buffer, remainder);
+          ssize_t ret =
+            send(fd, buffer, remainder, MSG_DONTWAIT | MSG_NOSIGNAL);
           if (ret < 0)
           {
-            if ((errno == EAGAIN) || ((errno == EINTR)))
+            if (errno == EINTR)
             {
               continue;
             }
             // All other errno errors may be the result of the child doing
             // something wrong.  Let the child fail here.
+            remove_fd();
+            lib->terminate();
             break;
           }
           remainder -= ret;
@@ -224,51 +269,6 @@ namespace sandbox
         }
       }
       err(1, "Waiting for pagetable updates failed");
-    }
-    /**
-     * Validate a request from the sandbox to update a pagemap and insert it if
-     * allowed.
-     */
-    bool validate_and_insert(
-      SharedAllocConfig::LocalState* s, void* address, snmalloc::MetaEntry m)
-    {
-      size_t range_size;
-      void* base_address = address;
-      bool is_fake = m.get_remote() == SharedAllocConfig::fake_large_remote;
-      if (is_fake)
-      {
-        range_size = 1 << m.get_sizeclass();
-        base_address = snmalloc::pointer_align_down(address, range_size);
-      }
-      else
-      {
-        range_size = snmalloc::sizeclass_to_size(m.get_sizeclass());
-      }
-      // Metadata updates must refer to addresses associated with the sandbox.
-      if (!s->contains(base_address, range_size))
-      {
-        return false;
-      }
-      // The message queue must be in the shared memory region for this sandbox.
-      if (
-        !is_fake &&
-        !s->contains(m.get_remote(), sizeof(snmalloc::RemoteAllocator)))
-      {
-        return false;
-      }
-      // Protect against a race where the child tries to claim ownership of a
-      // chunk of memory at the same time as the parent.  In the case of a
-      // conflict, the trusted parent is allowed to take ownership so that we
-      // don't leak a metaslab in the parent.
-      auto [g, pm] = SharedAllocConfig::Pagemap::get_pagemap_writeable();
-      auto p = snmalloc::address_cast(address);
-      auto* old = pm.template get<false>(p).get_remote();
-      if ((old != nullptr) && !s->contains(old, sizeof(*old)))
-      {
-        return false;
-      }
-      pm.set(p, m);
-      return true;
     }
 
   public:
@@ -287,15 +287,13 @@ namespace sandbox
      * sandbox will send update requests.  `pagemap_fd` is the shared pagemap
      * page.
      */
-    void add_range(
-      SharedAllocConfig::LocalState& memory_provider, platform::Handle&& socket)
+    void add_range(Library& sandbox, platform::Handle&& socket)
     {
       {
         std::lock_guard g(m);
         register_fd(socket);
         platform::handle_t socket_fd = socket.fd;
-        ranges.emplace(
-          socket_fd, std::make_pair(std::move(socket), &memory_provider));
+        ranges.emplace(socket_fd, std::make_pair(std::move(socket), &sandbox));
       }
     }
   };
@@ -407,7 +405,10 @@ namespace sandbox
         return {-EINVAL};
       }
       Path path{raw_path.get()};
-      path.canonicalise();
+      if (!path.canonicalise())
+      {
+        return {-EINVAL};
+      }
       auto allowed = vfs.lookup_file(path);
       if (!allowed.has_value())
       {
@@ -493,7 +494,14 @@ namespace sandbox
     Result
     handle_getaddrinfo(Library& lib, SyscallArgs<GetAddrInfo>::rpc_type& args)
     {
-      void* unsafeHints = reinterpret_cast<void*>(std::get<2>(args));
+      // If the result pointer is not valid, report an error
+      addrinfo** unsafeSandboxRes =
+        reinterpret_cast<addrinfo**>(std::get<3>(args));
+      if (!lib.contains(unsafeSandboxRes, sizeof(addrinfo*)))
+      {
+        return EAI_MEMORY;
+      }
+      addrinfo* unsafeHints = reinterpret_cast<addrinfo*>(std::get<2>(args));
       addrinfo hintsCopy;
       addrinfo* hints;
       if (unsafeHints == nullptr)
@@ -506,7 +514,18 @@ namespace sandbox
         {
           return EAI_BADHINTS;
         }
-        memcpy(&hintsCopy, unsafeHints, sizeof(addrinfo));
+        // The `hints` argument to `getaddrinfo` may contain the `ai_flags`,
+        // `ai_family`, `ai_socktype`, and `ai_protocol` fields.  These are not
+        // pointers and so can be shallow copied.  Some of the other fields
+        // *are* pointers, so explicitly zero them here.  If bugs in any of the
+        // code that receives the copy of `hints` reads the fields that it
+        // should not, then this prevents the untrusted code from being able to
+        // influence the pointers that buggy code on the trusted side copies.
+        memset(&hintsCopy, 0, sizeof(hintsCopy));
+        hintsCopy.ai_flags = unsafeHints->ai_flags;
+        hintsCopy.ai_family = unsafeHints->ai_family;
+        hintsCopy.ai_socktype = unsafeHints->ai_socktype;
+        hintsCopy.ai_protocol = unsafeHints->ai_protocol;
         hints = &hintsCopy;
       }
       auto host = get_path(lib, std::get<0>(args));
@@ -549,17 +568,7 @@ namespace sandbox
           }
           // Add the null terminator in the list.
           ais[count - 1].ai_next = nullptr;
-          // If the result pointer is actually sensible, return the pointer.
-          addrinfo** unsafeSandboxRes =
-            reinterpret_cast<addrinfo**>(std::get<3>(args));
-          if (lib.contains(unsafeSandboxRes, sizeof(addrinfo*)))
-          {
-            *unsafeSandboxRes = ais;
-          }
-          else
-          {
-            lib.free(ais);
-          }
+          *unsafeSandboxRes = ais;
           netpolicy.freeaddrinfo(res);
         }
       }
@@ -750,26 +759,28 @@ namespace sandbox
     {
       auto [g, pm] = SharedAllocConfig::Pagemap::get_pagemap_writeable();
       snmalloc::address_t base =
-        snmalloc::address_cast(memory_provider.get_base());
+        snmalloc::address_cast(memory_provider.base_address());
       auto top = snmalloc::address_cast(memory_provider.top_address());
+      SharedAllocConfig::Pagemap::Entry empty{nullptr, 0};
       // Scan the pagemap for all memory associated with this and deallocate
       // the metaslabs.  Note that we don't need to do any cleanup for the
       // memory referenced by these metaslabs: it will all go away when the
       // shared memory region is deallocated.
       for (snmalloc::address_t a = base; a < top; a += snmalloc::MIN_CHUNK_SIZE)
       {
-        auto& meta =
-          SharedAllocConfig::Pagemap::get_metaentry(&memory_provider, a);
-        auto* remote = meta.get_remote();
-        if (
-          (remote != nullptr) &&
-          !contains(remote, sizeof(snmalloc::RemoteAllocator)))
+        auto& meta = SharedAllocConfig::Pagemap::get_metaentry_mut(a);
+        if (!meta.is_backend_owned())
         {
-          delete meta.get_metaslab();
+          auto* remote = meta.get_remote();
+          if (!meta.is_sandbox_owned() && (remote != nullptr))
+          {
+            delete meta.get_slab_metadata();
+          }
         }
-        // Reset all of these pagemap entries to unused.
-        SharedAllocConfig::Pagemap::set_metaentry(
-          &memory_provider, a, 1, {nullptr, 0});
+        meta = empty;
+        SANDBOX_DEBUG_INVARIANT(
+          !meta.is_sandbox_owned(),
+          "Unused pagemap entry must not be sandbox owned");
       }
     }
     shared_mem->destroy();
@@ -867,9 +878,9 @@ namespace sandbox
     // Create a pair of sockets that we can use to
     auto malloc_rpc_sockets = platform::SocketPair::create();
     memory_service_provider().add_range(
-      memory_provider, std::move(malloc_rpc_sockets.first));
-    // Construct a UNIX domain socket.  This will eventually be used to send
-    // file descriptors from the parent to the child, but isn't yet.
+      *this, std::move(malloc_rpc_sockets.first));
+    // Construct a UNIX domain socket.  This is used to send file descriptors
+    // from the parent to the child
     auto socks = platform::SocketPair::create();
     std::string path = ".";
     std::string lib;
@@ -982,6 +993,15 @@ namespace sandbox
   {
     return child_proc->exit_status().has_exited;
   }
+
+  void Library::terminate()
+  {
+    if (!has_child_exited())
+    {
+      child_proc->terminate();
+    }
+  }
+
   int Library::wait_for_child_exit()
   {
     auto exit_status = child_proc->exit_status();
@@ -1011,16 +1031,4 @@ namespace sandbox
     allocator->dealloc(ptr);
   }
 
-  template<>
-  snmalloc::capptr::Chunk<void>
-  SharedAllocConfig::alloc_meta_data<snmalloc::Metaslab>(
-    LocalState*, size_t size)
-  {
-    SANDBOX_INVARIANT(
-      size == sizeof(snmalloc::Metaslab),
-      "Requested to allocate {} bytes for {}-byte metaslab",
-      size,
-      sizeof(snmalloc::Metaslab));
-    return snmalloc::capptr::Chunk<void>{new snmalloc::Metaslab()};
-  }
 }

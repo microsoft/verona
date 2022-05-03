@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include <snmalloc.h>
+#include <snmalloc/snmalloc.h>
 
 #if defined(__linux__)
 #  include <sched.h>
