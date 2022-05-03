@@ -1,8 +1,9 @@
 #pragma once
 
 #include "ds/dllist.h"
+#include "threadsync.h"
 
-#include <mutex>
+//#include <mutex>
 
 namespace verona::rt
 {
@@ -13,7 +14,8 @@ namespace verona::rt
   class SchedulerList
   {
     public:
-      std::mutex m;
+      //std::mutex m;
+      SchedulerLock m;
 
       DLList<T> active;
       DLList<T> free;
@@ -117,5 +119,4 @@ namespace verona::rt
         return res;
       }
   };
-
 }
