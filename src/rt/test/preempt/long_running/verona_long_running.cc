@@ -23,7 +23,7 @@ void short_running()
   counter--;
 }
 
-void test1()
+void test_inner()
 {
   // Set the counter to the number of short-lived behaviors.
   counter = NUM_SMALL;
@@ -34,6 +34,12 @@ void test1()
   }
 }
 
+// Required first `when` to make sure we enqueue fifo
+void test1()
+{
+  when() << test_inner;
+}
+
 
 int verona_main(SystematicTestHarness& harness)
 {
@@ -42,6 +48,8 @@ int verona_main(SystematicTestHarness& harness)
 #ifndef USE_SYSTEMATIC_TESTING 
 #ifdef USE_SYSTEM_MONITOR
   harness.run(test1); 
+#else
+  UNUSED(harness);
 #endif
 #else
   UNUSED(harness);

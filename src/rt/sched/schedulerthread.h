@@ -309,10 +309,14 @@ begining:
         }
 
         // There are more workers and I am not the last one who made progress.
-        if (core->servicing_threads > 1 && core->last_worker != this->systematic_id)
+        // TODO @aghosn figure out if cown == nullptr is necessary
+        if (cown == nullptr && 
+            core->servicing_threads > 1 && core->last_worker != this->systematic_id)
         {
+          // The following should be safe as we are in the active list.
           this->core->servicing_threads--;
           this->core = nullptr;
+          this->park_cond = true;
           this->park();
           if (core == nullptr)
           {
@@ -349,7 +353,11 @@ begining:
 
       Logging::cout() << "End teardown (phase 2)" << Logging::endl;
 
-      core->q.destroy(*alloc);
+      //TODO @aghosn maybe this should be moved to the corepool.
+      if (core != nullptr)
+      {
+        core->q.destroy(*alloc);
+      }
 
       Systematic::finished_thread();
 
@@ -779,8 +787,9 @@ begining:
         }
         p = &(c->next);
       }
-
-      this->core->free_cowns -= count;
+      
+      if (this->core != nullptr)
+        this->core->free_cowns -= count;
     }
 
     void park()
