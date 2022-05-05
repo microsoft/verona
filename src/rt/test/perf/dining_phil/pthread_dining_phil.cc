@@ -22,7 +22,8 @@ void philosopher_main(size_t phil_id, size_t hunger)
 
   if (MANUAL_LOCK_ORDER)
   {
-    if (p1 > p2) std::swap(p1, p2);
+    if (p1 > p2)
+      std::swap(p1, p2);
     for (size_t i = 0; i < hunger; i++)
     {
       std::scoped_lock lock1(*p1);
