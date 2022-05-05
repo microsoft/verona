@@ -17,12 +17,12 @@ namespace
 
 void philosopher_main(size_t phil_id, size_t hunger)
 {
+  auto* p1 = forks + phil_id;
+  auto* p2 = forks + ((phil_id + 1) % NUM_PHILOSOPHERS);
+
   if (MANUAL_LOCK_ORDER)
   {
-    auto* p1 = forks + phil_id;
-    auto* p2 = forks + ((phil_id + 1) % NUM_PHILOSOPHERS);
     if (p1 > p2) std::swap(p1, p2);
-
     for (size_t i = 0; i < hunger; i++)
     {
       std::scoped_lock lock1(*p1);
@@ -34,7 +34,7 @@ void philosopher_main(size_t phil_id, size_t hunger)
   {
     for (size_t i = 0; i < hunger; i++)
     {
-      std::scoped_lock lock(forks[phil_id], forks[(phil_id + 1) % NUM_PHILOSOPHERS]);
+      std::scoped_lock lock(*p1, *p2);
       busy_loop(WORK_USEC);
     }
   }
