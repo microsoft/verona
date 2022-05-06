@@ -45,6 +45,7 @@ namespace sample
     In(Funcbody) / In(Assign) / In(Tuple) / In(Expr) / In(Term);
   inline const auto TermStruct = In(Term) / In(Expr);
   inline const auto TypeStruct = In(Type) / In(TypeTerm) / In(TypeTuple);
+  inline const auto SeqStruct = T(Expr) / T(Tuple) / T(Assign);
   inline const auto Name = T(Ident) / T(Symbol);
   inline const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) /
     T(Hex) / T(Bin) / T(Int) / T(Float) / T(HexFloat);
@@ -248,6 +249,25 @@ namespace sample
       // Throw.
       ExprStruct * Start * T(Throw) * (Any++)[rhs] >>
         [](auto& _) { return Throw << (Expr << _[rhs]); },
+
+      // Move a ref to the last expr of a sequence.
+      ExprStruct * T(Ref) * T(Term)[Term] >>
+        [](auto& _) { return Term << Ref << *_[Term]; },
+      In(Term) * T(Ref) * T(Expr)[lhs] * T(Expr)[rhs] >>
+        [](auto& _) { return Seq << _[lhs] << Ref << _[rhs]; },
+      In(Term) * T(Ref) * T(Expr)[Expr] * End >>
+        [](auto& _) { return Expr << Ref << *_[Expr]; },
+
+      // Sequence of expr|tuple|assign in a term.
+      In(Term) * SeqStruct[lhs] * SeqStruct[rhs] >>
+        [](auto& _) {
+          auto e = _(lhs);
+          return Seq << (Lift << _(lhs)) << _[rhs];
+        },
+
+      // A tuple at the end of a term.
+      T(Term) << ((T(Lift)++)[lhs] * T(Tuple)[rhs]) >>
+        [](auto& _) { return Tuple << _[lhs] << *_[rhs]; },
 
       // Empty groups.
       T(Group) << End >> [](auto& _) -> Node { return {}; },
@@ -499,7 +519,7 @@ namespace sample
   inline const auto LiftExpr =
     T(Term) / T(Tuple) / T(Lambda) / T(Call) / T(CallLHS) / T(Assign);
 
-  PassDef anf()
+  PassDef vardecl()
   {
     return {
       // Don't leave a reference to a var or let if it's declared at the top.
@@ -512,20 +532,18 @@ namespace sample
         },
 
       // Lift a var or let declaration with it's type assertion.
-      InContainer * T(Var)[Var] * ~T(Type)[Type] >>
+      InContainer * (T(Var) / T(Let))[Var] * ~T(Type)[Type] >>
         [](auto& _) {
           auto e = _(Var);
           auto t = _(Type) ? _(Type) : TypeVar ^ e->fresh();
-          return Seq << (Lift << (e << t)) << (RefVar ^ e);
-        },
+          auto r = _(Var)->type() == Var ? RefVar ^ e : RefLet ^ e;
+          return Seq << (Lift << (e << t)) << r;
+        }};
+  }
 
-      InContainer * T(Let)[Let] * ~T(Type)[Type] >>
-        [](auto& _) {
-          auto e = _(Let);
-          auto t = _(Type) ? _(Type) : TypeVar ^ e->fresh();
-          return Seq << (Lift << (e << t)) << (RefLet ^ e);
-        },
-
+  PassDef anf()
+  {
+    return {
       // Lift an arbitrary expression as a let.
       InContainer * LiftExpr[Lift] * ~T(Type)[Type] >>
         [](auto& _) {
@@ -535,13 +553,7 @@ namespace sample
           return Seq << (Lift << (_(id = Let) << t) << e) << (RefLet ^ id);
         },
 
-      // Sequence of expressions.
-      InContainer * T(Expr)[lhs] * T(Expr)[rhs] >>
-        [](auto& _) {
-          auto e = _(lhs);
-          return Seq << (Lift << _(lhs)) << _[rhs];
-        },
-
+      // Assignment.
       In(Assign) * (T(Expr) << (Any[lhs] * ~T(Type)[ltype] * End)) *
           (T(Expr) << (Any[rhs] * ~T(Type)[rtype] * End)) * End >>
         [](auto& _) {
@@ -564,6 +576,8 @@ namespace sample
 
           // TODO: destructure lhs tuples
 
+          // TODO: lift all type assertions?
+          // TODO: don't lift the rhs if it's not a liftexpr?
           auto e2 = _(rhs);
           auto t2 = _(rtype) ? _(rtype) : TypeVar ^ e2->fresh();
           auto id2 = e2->fresh();
@@ -607,6 +621,7 @@ namespace sample
         {"refexpr", refexpr()},
         {"reverseapp", reverseapp()},
         {"application", application()},
+        {"vardecl", vardecl()},
         {"anf", anf()},
         {"infer", infer()},
       });

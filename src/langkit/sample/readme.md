@@ -14,9 +14,6 @@ object literals
 package schemes
 dependent types
 
-type assertions for operators
-- is it ok to just append the type to the operator node?
-
 applying typeargs to a typeparam
 - T[C1]
 - this is filling in the bounds in some way?
@@ -26,14 +23,6 @@ applying typeargs to a typeparam
 destructure tuples in assignment lhs?
 type assertions?
 `let x = ...`
-
-### expr structure after ANF
-
-funcbody: (var|let|arg|tuple|lift|load|store)*
-arg: refvar|reflet|refparam|literal
-tuple: arg*
-lift: let, call|tuple
-call: reffunc|selector, arg*
 
 ## type checker
 

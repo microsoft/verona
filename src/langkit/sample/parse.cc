@@ -87,11 +87,7 @@ namespace sample
         "[[:blank:]]+" >> [](auto& m) {},
 
         // Terminator.
-        ";" >>
-          [indent](auto& m) {
-            indent->back() = {restart, false};
-            m.term(terminators);
-          },
+        ";" >> [indent](auto& m) { m.term(terminators); },
 
         // FatArrow.
         "=>" >>
