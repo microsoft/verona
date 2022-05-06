@@ -86,6 +86,12 @@ public:
     verona::rt::Cown::acquire(allocated_cown);
   }
 
+  cown_ptr& operator=(cown_ptr&& other) {
+    allocated_cown = other.allocated_cown;
+    verona::rt::Cown::acquire(allocated_cown);
+    return *this;
+  }
+
   /**
    * Move an existing cown ptr.  Does not create a new cown,
    * and is more efficient than copying, as it does not need
