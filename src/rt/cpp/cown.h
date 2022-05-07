@@ -86,7 +86,8 @@ public:
     verona::rt::Cown::acquire(allocated_cown);
   }
 
-  cown_ptr& operator=(cown_ptr&& other) {
+  cown_ptr& operator=(cown_ptr&& other)
+  {
     allocated_cown = other.allocated_cown;
     verona::rt::Cown::acquire(allocated_cown);
     return *this;
