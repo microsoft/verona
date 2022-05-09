@@ -560,6 +560,10 @@ namespace verona::rt
         barrier_count--;
         if (barrier_count != 0)
         {
+          //TODO(aghosn) seems to be blocking here.
+          //It might be because the barrier_count is set to be thread_count.
+          //Let's see if we can catch that. 
+          assert(barrier_count >= 0);
           while (inc == barrier_incarnation)
           {
             h.pause();

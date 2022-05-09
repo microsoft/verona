@@ -348,6 +348,7 @@ namespace verona::rt
       Logging::cout() << "End teardown (phase 1)" << Logging::endl;
 
       Epoch(ThreadAlloc::get()).flush_local();
+      //TODO(aghosn) apparently it was in the teardown...
       Scheduler::get().enter_barrier();
 
       Logging::cout() << "Begin teardown (phase 2)" << Logging::endl;

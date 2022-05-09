@@ -42,7 +42,7 @@ namespace verona::rt
   public:
     ThreadPoolBuilder(size_t thread_count)
     {
-#ifdef USE_SYSTEM_MONITOR
+#if !defined(USE_SYSTEMATIC_TESTING) && defined(USE_SYSTEM_MONITOR)
       this->thread_count = thread_count;
 #else
       this->thread_count = thread_count - 1;
@@ -83,7 +83,7 @@ namespace verona::rt
      */
     ~ThreadPoolBuilder()
     {
-#ifdef USE_SYSTEM_MONITOR
+#if !defined(USE_SYSTEMATIC_TESTING) && defined(USE_SYSTEM_MONITOR)
       assert(index == thread_count);
 #else
       assert(index == thread_count + 1);
