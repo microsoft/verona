@@ -27,7 +27,7 @@ namespace verona::rt
 
       static SysMonitor<Scheduler>& get()
       {
-        static SysMonitor<Scheduler> instance;
+       static SysMonitor<Scheduler> instance;
         return instance;
       }
 
@@ -65,6 +65,7 @@ namespace verona::rt
             }
           }
         }
+        assert(done);
         // Wake all the threads stuck on their condition vars.
         Scheduler::get().wakeWorkers();
         // As this thread is the only one modifying the builder thread list,

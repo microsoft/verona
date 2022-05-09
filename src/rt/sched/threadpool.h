@@ -342,6 +342,12 @@ namespace verona::rt
     void run_with_startup(void (*startup)(Args...), Args... args)
     {
       active_thread_count = thread_count;
+#ifndef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEM_MONITOR
+      // Required when reusing the runtime.
+      Monitor::get().done = false;
+#endif
+#endif
       {
         ThreadPoolBuilder builder(thread_count);
 

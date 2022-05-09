@@ -180,7 +180,6 @@ namespace verona::rt
 
       while (true)
       {
-begining:
         if (
           (this->core->total_cowns < (this->core->free_cowns << 1))
 #ifdef USE_SYSTEMATIC_TESTING
@@ -308,6 +307,8 @@ begining:
           cown = nullptr;
         }
 
+#ifndef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEM_MONITOR
         // There are more workers and I am not the last one who made progress.
         // TODO @aghosn figure out if cown == nullptr is necessary
         if (cown == nullptr && 
@@ -323,12 +324,16 @@ begining:
             assert(!running);
             break;
           }
-
-          goto begining;
+          continue;
         }
-
+#endif
+#endif
         yield();
       }
+      //TODO @aghosn should we make sure that only one thread goes
+      //through that teardown phase per core? 
+      //Do we need extra checks/sync to guarantee we do not get here with multiple
+      //threads on the same core?
 
       Logging::cout() << "Begin teardown (phase 1)" << Logging::endl;
 

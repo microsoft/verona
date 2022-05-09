@@ -23,7 +23,12 @@ int main()
   Logging::enable_logging();
   SystematicTestHarness harness(
     static_cast<int>(std::size(HARNESS_ARGV)), HARNESS_ARGV);
-
+#ifndef USE_SYSTEMATIC_TESTING
+#ifdef USE_SYSTEM_MONITOR
+  Logging::cout() << "System Monitor not running this test" << std::endl;
+  return 0;
+#endif
+#endif
   harness.run(test_cown);
 
   return 0;
