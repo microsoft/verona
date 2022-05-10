@@ -403,12 +403,14 @@ namespace sandbox
      * library.  The untrusted code has write access to the message queues and
      * so the queue heads are not trusted.
      */
-    constexpr static snmalloc::Flags Options{.IsQueueInline = false,
-                                             .CoreAllocOwnsLocalState = false,
-                                             .CoreAllocIsPoolAllocated = false,
-                                             .LocalAllocSupportsLazyInit =
-                                               false,
-                                             .QueueHeadsAreTame = false};
+    constexpr static snmalloc::Flags Options{
+      .IsQueueInline = false,
+      .CoreAllocOwnsLocalState = false,
+      .CoreAllocIsPoolAllocated = false,
+      .LocalAllocSupportsLazyInit = false,
+      .QueueHeadsAreTame = false,
+      .HasDomesticate = true,
+    };
 
     /**
      * 'Domesticate' a pointer.  This takes a pointer to something that we've
