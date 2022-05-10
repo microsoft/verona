@@ -342,11 +342,9 @@ namespace verona::rt
     void run_with_startup(void (*startup)(Args...), Args... args)
     {
       active_thread_count = thread_count;
-#ifndef USE_SYSTEMATIC_TESTING
 #ifdef USE_SYSTEM_MONITOR
       // Required when reusing the runtime.
       Monitor::get().done = false;
-#endif
 #endif
       {
         ThreadPoolBuilder builder(thread_count);
@@ -363,11 +361,9 @@ namespace verona::rt
           builder.add_thread(t->core->affinity, &T::run, t, startup, args...);
         }
         // The system monitor is not compatible with systematic testing.
-#ifndef USE_SYSTEMATIC_TESTING 
 #ifdef USE_SYSTEM_MONITOR
         // Run the system monitor;
         Monitor::get().run_monitor(builder);
-#endif
 #endif
         // ThreadPoolBuilder goes out of scope and is deallocated here.
       }
@@ -563,6 +559,7 @@ namespace verona::rt
           //TODO(aghosn) seems to be blocking here.
           //It might be because the barrier_count is set to be thread_count.
           //Let's see if we can catch that. 
+          //Apparently some threads exit without updating
           assert(barrier_count >= 0);
           while (inc == barrier_incarnation)
           {
@@ -591,6 +588,10 @@ namespace verona::rt
       {
         thread = new T;
         thread->systematic_id = systematic_ids++;
+#ifdef USE_SYSTEMATIC_TESTING
+        thread->local_systematic = 
+          Systematic::create_systematic_thread(thread->systematic_id);
+#endif
         needsSysThread = true;
       }
       else
@@ -617,11 +618,9 @@ namespace verona::rt
         return;
       }
 
-      thread->park_mutex.lock();
       thread->core = core;
       threads->active.insert_back(thread);
-      thread->park_cond = false;
-      thread->park_mutex.unlock();
+      thread->syncp.unpause_all(thread);
       
       threads->m.unlock();
       // Freshly created thread
@@ -637,12 +636,8 @@ namespace verona::rt
     void wakeWorkers()
     {
       threads->forall([](T* worker){
-        worker->park_mutex.lock();
-        worker->park_cond = false;
-        worker->running = false;
-        worker->park_mutex.unlock();
-        worker->park_cv.notify_one();
-        });
+        worker->unpark();
+      });
     }
   };
 } // namespace verona::rt

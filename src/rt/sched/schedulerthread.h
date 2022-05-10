@@ -82,10 +82,17 @@ namespace verona::rt
     /// The MessageBody of a running behaviour.
     typename T::MessageBody* message_body = nullptr;
 
+#ifdef USE_SYSTEM_MONITOR
     /// Synchronization
-    std::atomic_bool park_cond = true;
-    std::mutex park_mutex;
-    std::condition_variable park_cv;
+    LocalSync pool_sync{};
+#ifdef USE_SYSTEMATIC_TESTING
+    friend class ThreadSyncSystematic<SchedulerThread<T>>;
+    ThreadSyncSystematic<SchedulerThread<T>> syncp;
+#else
+    friend class ThreadSync<SchedulerThread, 0>;
+    ThreadSync<SchedulerThread<T>, 0> syncp;
+#endif
+#endif
 
     /// SchedulerList pointers;
     SchedulerThread<T>* prev = nullptr;
@@ -171,7 +178,6 @@ namespace verona::rt
       assert(this->core != nullptr);
       victim = core->next;
       T* cown = nullptr;
-      assert(this->core != nullptr);
       this->core->servicing_threads++;
 
 #ifdef USE_SYSTEMATIC_TESTING
@@ -307,7 +313,6 @@ namespace verona::rt
           cown = nullptr;
         }
 
-#ifndef USE_SYSTEMATIC_TESTING
 #ifdef USE_SYSTEM_MONITOR
         // There are more workers and I am not the last one who made progress.
         // TODO @aghosn figure out if cown == nullptr is necessary
@@ -317,7 +322,6 @@ namespace verona::rt
           // The following should be safe as we are in the active list.
           this->core->servicing_threads--;
           this->core = nullptr;
-          this->park_cond = true;
           this->park();
           if (core == nullptr)
           {
@@ -326,7 +330,6 @@ namespace verona::rt
           }
           continue;
         }
-#endif
 #endif
         yield();
       }
@@ -348,7 +351,7 @@ namespace verona::rt
       Logging::cout() << "End teardown (phase 1)" << Logging::endl;
 
       Epoch(ThreadAlloc::get()).flush_local();
-      //TODO(aghosn) apparently it was in the teardown...
+      //TODO(aghosn) apparently it blocks in the teardown...
       Scheduler::get().enter_barrier();
 
       Logging::cout() << "Begin teardown (phase 2)" << Logging::endl;
@@ -804,19 +807,16 @@ namespace verona::rt
       // This needs to be in the freelist before acquiring the mutex otherwise
       // it could deadlock with the threadpool monitor.
       Scheduler::get().threads->moveActiveToFree(this);
-      std::unique_lock lk(park_mutex);
-      while(park_cond && running)
-      {
-        park_cv.wait(lk, [this]{return (!this->park_cond || !this->running);});
-      }
-      lk.unlock();
 
+      {
+        auto h = syncp.handle(this);
+        h.pause();
+      }
       if (!running)
       {
         // We need to bail
         return;
       }
-     
       // Woken up without being attributed a core.
       if (core == nullptr)
         abort();
@@ -828,11 +828,7 @@ namespace verona::rt
     // Called by another thread to wakeup the scheduler thread.
     void unpark()
     {
-      park_mutex.lock();
-      assert(core != nullptr);
-      park_cond = false;
-      park_mutex.unlock();
-      park_cv.notify_one();
+      syncp.unpause_all(this);
     }
 
     static void extra_start(SchedulerThread<T> *self)

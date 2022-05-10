@@ -96,7 +96,7 @@ namespace verona::rt
     LocalSync* next{nullptr};
   };
 
-  template<class T>
+  template<class T, int select = 1>
   class ThreadSync
   {
     SchedulerLock lock;
@@ -161,13 +161,26 @@ namespace verona::rt
       void pause()
       {
         Logging::cout() << "Add to list of waiters" << Logging::endl;
-        thread->local_sync.next = sync.waiters;
-        sync.waiters = &(thread->local_sync);
-        sync.unlock();
+        if constexpr(select)
+        {
+          thread->local_sync.next = sync.waiters;
+          sync.waiters = &(thread->local_sync);
+          sync.unlock();
 
-        Logging::cout() << "Sleep" << Logging::endl;
-        thread->local_sync.sem.sleep();
-        Logging::cout() << "Awake!" << Logging::endl;
+          Logging::cout() << "Sleep" << Logging::endl;
+          thread->local_sync.sem.sleep();
+          Logging::cout() << "Awake!" << Logging::endl;
+        }
+        else
+        {
+          thread->pool_sync.next = sync.waiters;
+          sync.waiters = &(thread->pool_sync);
+          sync.unlock();
+
+          Logging::cout() << "Sleep" << Logging::endl;
+          thread->pool_sync.sem.sleep();
+          Logging::cout() << "Awake!" << Logging::endl;
+        }
 
         sync.lock.lock();
       }
