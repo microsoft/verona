@@ -19,6 +19,7 @@ namespace verona::rt
       friend Scheduler;
       /// When true, the SysMonitor should stop.
       std::atomic_bool done = false;
+      std::atomic_size_t active_threads = 0;
 
       SysMonitor() {}
     

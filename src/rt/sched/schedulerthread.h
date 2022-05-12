@@ -252,7 +252,8 @@ namespace verona::rt
         Core<T>* cown_core = cown->owning_core();
         assert(this->core != nullptr);
         
-        // TODO should we also increment the counter on that core?
+        // If the cown comes from another core, both core counts are incremented.
+        // This reflects both CPU utilization and queue progress.
         if (cown_core != nullptr)
           cown_core->progress_counter++;
         if (cown_core != this->core)
@@ -337,6 +338,7 @@ namespace verona::rt
       //through that teardown phase per core? 
       //Do we need extra checks/sync to guarantee we do not get here with multiple
       //threads on the same core?
+      Monitor::get().threadExit();
 
       Logging::cout() << "Begin teardown (phase 1)" << Logging::endl;
 
@@ -373,7 +375,6 @@ namespace verona::rt
       // Reset the local thread pointer as this physical thread could be reused
       // for a different SchedulerThread later.
       Scheduler::local() = nullptr;
-      Monitor::get().threadExit();
     }
 
     bool fast_steal(T*& result)
@@ -801,6 +802,7 @@ namespace verona::rt
         this->core->free_cowns -= count;
     }
 
+#ifdef USE_SYSTEM_MONITOR
     void park()
     { 
       // @warn make sure we correctly acquire locks in order wrt. sysmonitor.
@@ -834,6 +836,10 @@ namespace verona::rt
     static void extra_start(SchedulerThread<T> *self)
     {
       self->park();
+      if (self->core == nullptr && self->running)
+        abort();
+        
     }
+#endif
   };
 } // namespace verona::rt

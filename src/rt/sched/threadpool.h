@@ -342,6 +342,7 @@ namespace verona::rt
     void run_with_startup(void (*startup)(Args...), Args... args)
     {
       active_thread_count = thread_count;
+      Monitor::get().active_threads = thread_count; 
 #ifdef USE_SYSTEM_MONITOR
       // Required when reusing the runtime.
       Monitor::get().done = false;
@@ -551,15 +552,16 @@ namespace verona::rt
     void enter_barrier()
     {
       auto inc = barrier_incarnation;
+#ifdef USE_SYSTEM_MONITOR
+      if (!Monitor::get().done)
+        abort();
+#endif
       {
         auto h = sync.handle(local());
         barrier_count--;
+#ifndef USE_SYSTEM_MONITOR
         if (barrier_count != 0)
         {
-          //TODO(aghosn) seems to be blocking here.
-          //It might be because the barrier_count is set to be thread_count.
-          //Let's see if we can catch that. 
-          //Apparently some threads exit without updating
           assert(barrier_count >= 0);
           while (inc == barrier_incarnation)
           {
@@ -570,6 +572,14 @@ namespace verona::rt
         init_barrier();
         barrier_incarnation++;
         h.unpause_all();
+#else
+        UNUSED(inc);
+        // The system monitor is the one that will wake everyone up
+        if (barrier_count != 0)
+          h.pause();
+        else
+          h.unpause_all();
+#endif
       }
     }
 
@@ -608,6 +618,16 @@ namespace verona::rt
         {
           // Just spawn it and let it park
           threads->active.insert_back(thread);
+          auto val = barrier_count.fetch_add(1);
+          // Have to bail
+          if (val == 0)
+          {
+            val = barrier_count.fetch_sub(1);
+            assert(val == 0);
+            threads->active.remove(thread);
+            delete thread;
+            return;
+          }
           builder.add_extra_thread(&T::run, thread, T::extra_start, thread);
         }
         else
@@ -617,18 +637,29 @@ namespace verona::rt
         threads->m.unlock();
         return;
       }
-
+      
       thread->core = core;
       threads->active.insert_back(thread);
-      thread->syncp.unpause_all(thread);
       
-      threads->m.unlock();
       // Freshly created thread
       if (needsSysThread)
       {
+        auto val = barrier_count.fetch_add(1);
+        // Bail
+        if (val == 0)
+        {
+          val = barrier_count.fetch_sub(1);
+          assert(val == 0);
+          threads->active.remove(thread);
+          delete thread;
+          threads->m.unlock();
+          return;
+        }
+        threads->m.unlock();
         builder.add_extra_thread(&T::run, thread, &nop);
         return;
       }
+      threads->m.unlock();
       // Wake-up the existing thread
       thread->unpark();
     }
