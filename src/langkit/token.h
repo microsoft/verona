@@ -128,4 +128,5 @@ namespace langkit
   inline constexpr auto File = TokenDef("file");
   inline constexpr auto Directory = TokenDef("directory");
   inline constexpr auto Seq = TokenDef("seq");
+  inline constexpr auto Lift = TokenDef("lift");
 }

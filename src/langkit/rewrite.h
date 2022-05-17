@@ -581,7 +581,7 @@ namespace langkit
     return node;
   }
 
-  inline Node operator<<(Node node, std::vector<Node> range)
+  inline Node operator<<(Node node, Nodes range)
   {
     node->push_back({range.begin(), range.end()});
     return node;
@@ -602,9 +602,9 @@ namespace langkit
     return node->clone();
   }
 
-  inline std::vector<Node> clone(NodeRange range)
+  inline Nodes clone(NodeRange range)
   {
-    std::vector<Node> nodes;
+    Nodes nodes;
     nodes.reserve(std::distance(range.first, range.second));
 
     for (auto it = range.first; it != range.second; ++it)
@@ -688,6 +688,11 @@ namespace langkit
       do
       {
         changes = apply(top);
+
+        auto lifted = lift(top);
+        if (!lifted.empty())
+          throw std::runtime_error("lifted nodes with no destination");
+
         changes_sum += changes;
         count++;
       } while (changes > 0);
@@ -735,14 +740,48 @@ namespace langkit
           }
         }
 
-        if ((it != node->end()) && (direction_ == dir::topdown))
-          changes += apply(*it);
-
         if (!replaced)
+        {
+          if (direction_ == dir::topdown)
+            changes += apply(*it);
+
           ++it;
+        }
       }
 
       return changes;
+    }
+
+    Nodes lift(Node node)
+    {
+      Nodes uplift;
+      auto it = node->begin();
+
+      while (it != node->end())
+      {
+        auto lifted = lift(*it);
+        bool removed = false;
+
+        if ((*it)->type() == Lift)
+        {
+          lifted.push_back(*it);
+          it = node->erase(it, it + 1);
+          removed = true;
+        }
+
+        for (auto& lnode : lifted)
+        {
+          if (lnode->front()->type() == node->type())
+            it = node->insert(it, lnode->begin() + 1, lnode->end()) + 1;
+          else
+            uplift.push_back(lnode);
+        }
+
+        if (!removed)
+          ++it;
+      }
+
+      return uplift;
     }
   };
 
@@ -780,7 +819,7 @@ namespace langkit
     template<typename... Ts>
     T at(Ts... rest) const
     {
-      std::vector<Node> nodes = {rest...};
+      Nodes nodes = {rest...};
       if (std::find(nodes.begin(), nodes.end(), nullptr) != nodes.end())
         return {};
 

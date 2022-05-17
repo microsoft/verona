@@ -84,7 +84,6 @@ namespace sample
   inline constexpr auto Tuple = TokenDef("tuple");
   inline constexpr auto Assign = TokenDef("assign");
   inline constexpr auto RefVar = TokenDef("refvar", flag::print);
-  inline constexpr auto RefVarLHS = TokenDef("refvar-lhs", flag::print);
   inline constexpr auto RefLet = TokenDef("reflet", flag::print);
   inline constexpr auto RefParam = TokenDef("refparam", flag::print);
   inline constexpr auto RefTypeparam = TokenDef("reftypeparam");
@@ -94,9 +93,10 @@ namespace sample
   inline constexpr auto Selector = TokenDef("selector");
   inline constexpr auto DotSelector = TokenDef("dotselector");
   inline constexpr auto Call = TokenDef("call");
-  inline constexpr auto CallLHS = TokenDef("call-lhs");
   inline constexpr auto Include = TokenDef("include");
-  inline constexpr auto Lift = TokenDef("lift");
+  inline constexpr auto TupleLHS = TokenDef("tuple-lhs");
+  inline constexpr auto CallLHS = TokenDef("call-lhs");
+  inline constexpr auto RefVarLHS = TokenDef("refvar-lhs", flag::print);
   inline constexpr auto Load = TokenDef("load", flag::print);
   inline constexpr auto Store = TokenDef("store");
 

@@ -25,12 +25,16 @@ namespace langkit
     return out;
   }
 
+  using Nodes = std::vector<Node>;
+  using NodeIt = Nodes::iterator;
+  using NodeRange = std::pair<NodeIt, NodeIt>;
+
   class SymtabDef
   {
     friend class NodeDef;
 
   private:
-    std::map<Location, std::vector<Node>> symbols;
+    std::map<Location, Nodes> symbols;
     std::vector<std::pair<Location, Node>> includes;
     size_t next_id = 0;
 
@@ -58,9 +62,6 @@ namespace langkit
     {}
   };
 
-  using NodeIt = std::vector<Node>::iterator;
-  using NodeRange = std::pair<NodeIt, NodeIt>;
-
   class NodeDef : public std::enable_shared_from_this<NodeDef>
   {
   private:
@@ -68,7 +69,7 @@ namespace langkit
     Location location_;
     Symtab symtab_;
     NodeDef* parent_;
-    std::vector<Node> children;
+    Nodes children;
 
     NodeDef(const Token& type, Location location)
     : type_(type), location_(location), parent_(nullptr)
@@ -270,11 +271,11 @@ namespace langkit
       return {};
     }
 
-    std::vector<Node> lookup_all(const Location& loc)
+    Nodes lookup_all(const Location& loc)
     {
       // Find all bindings for this location by looking upwards in the symbol
       // table chain.
-      std::vector<Node> r;
+      Nodes r;
       auto st = scope();
 
       while (st)

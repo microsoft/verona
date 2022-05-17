@@ -10,7 +10,7 @@ namespace sample
     struct State
     {
       Found found;
-      std::vector<Node> aliases;
+      Nodes aliases;
       size_t depth;
     };
 
@@ -55,7 +55,7 @@ namespace sample
         wf / Class / Typeparams,
         wf / Function / Typeparams);
 
-      std::vector<Node> args{ta->begin(), ta->end()};
+      Nodes args{ta->begin(), ta->end()};
       args.resize(tp->size());
       auto& found = state->found;
 

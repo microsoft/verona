@@ -12,9 +12,6 @@ namespace sample
     shape(
       Typealias, field(Typeparams), field(Bounds, Type), field(Default, Type)),
     shape(Class, field(Typeparams), field(Type), field(Classbody)),
-    shape(Var),
-    shape(Let),
-    shape(Throw, field(Expr)),
     shape(Iso),
     shape(Imm),
     shape(Mut),
@@ -28,6 +25,7 @@ namespace sample
     shape(Typeparam, field(Bounds, Type), field(Default, Type)),
     shape(Params, seq(Param)),
     shape(Param, field(Type), field(Expr)),
+
     // TODO:
     shape(Funcbody, undef()),
 
@@ -42,6 +40,10 @@ namespace sample
     shape(TypeUnion, undef()),
     shape(TypeVar, undef()),
     shape(TypeTrait, undef()),
+
+    shape(Var, field(Type)),
+    shape(Let, field(Type)),
+    shape(Throw, field(Expr)),
 
     // TODO:
     shape(Expr, undef()),
@@ -69,11 +71,26 @@ namespace sample
     // TODO:
     shape(Call, undef()),
 
-    shape(Include, field(Type)),
+    shape(
+      Include,
+      field(Type),
+      field(
+        Expr,
+        Tuple,
+        Lambda,
+        Call,
+        CallLHS,
+        String,
+        Escaped,
+        Char,
+        Bool,
+        Hex,
+        Bin,
+        Int,
+        Float,
+        HexFloat)),
 
-    // TODO: Let, Expr
-    shape(Lift, undef()),
-
+    // TODO:
     shape(Load),
     shape(Store, field(RefLet), field(RefLet)));
 }
