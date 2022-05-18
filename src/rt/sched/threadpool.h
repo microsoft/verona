@@ -67,7 +67,6 @@ namespace verona::rt
     ThreadSync<T> sync;
 #endif
 
-    std::atomic_uint64_t barrier_count = 0;
     uint64_t barrier_incarnation = 0;
 
     /// List of instantiated scheduler threads.
@@ -342,7 +341,6 @@ namespace verona::rt
     void run_with_startup(void (*startup)(Args...), Args... args)
     {
       active_thread_count = thread_count;
-      Monitor::get().active_threads = thread_count; 
 #ifdef USE_SYSTEM_MONITOR
       // Required when reusing the runtime.
       Monitor::get().done = false;
@@ -546,7 +544,7 @@ namespace verona::rt
 
     void init_barrier()
     {
-      barrier_count = thread_count;
+      state.set_barrier(thread_count);
     }
 
     void enter_barrier()
@@ -558,11 +556,10 @@ namespace verona::rt
 #endif
       {
         auto h = sync.handle(local());
-        barrier_count--;
+        state.exit_thread();
 #ifndef USE_SYSTEM_MONITOR
-        if (barrier_count != 0)
+        if (state.barrier_count() != 0)
         {
-          assert(barrier_count >= 0);
           while (inc == barrier_incarnation)
           {
             h.pause();
@@ -575,7 +572,7 @@ namespace verona::rt
 #else
         UNUSED(inc);
         // The system monitor is the one that will wake everyone up
-        if (barrier_count != 0)
+        if (state.barrier_count() != 0)
           h.pause();
         else
           h.unpause_all();
@@ -618,12 +615,12 @@ namespace verona::rt
         {
           // Just spawn it and let it park
           threads->active.insert_back(thread);
-          auto val = barrier_count.fetch_add(1);
+          auto val = state.add_thread();
           // Have to bail
           if (val == 0)
           {
-            val = barrier_count.fetch_sub(1);
-            assert(val == 0);
+            val = state.exit_thread();
+            assert(val == 1);
             threads->active.remove(thread);
             delete thread;
             return;
@@ -644,12 +641,12 @@ namespace verona::rt
       // Freshly created thread
       if (needsSysThread)
       {
-        auto val = barrier_count.fetch_add(1);
+        auto val = state.add_thread();
         // Bail
         if (val == 0)
         {
-          val = barrier_count.fetch_sub(1);
-          assert(val == 0);
+          val = state.exit_thread();
+          assert(val == 1);
           threads->active.remove(thread);
           delete thread;
           threads->m.unlock();

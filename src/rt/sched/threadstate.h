@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <atomic>
 #include <snmalloc/snmalloc.h>
 
 namespace verona::rt
@@ -108,21 +109,55 @@ namespace verona::rt
     };
 
   private:
-    State state{NotInLD};
-    bool retracted{false};
-    std::atomic<size_t> vote_yes{0};
+#define IDX_BARRIER 0ULL
+#define IDX_VOTE 29ULL
+#define IDX_STATE 58ULL
+#define IDX_RETRACTED 63ULL
+
+#define U_BARRIER (1ULL << IDX_BARRIER)
+#define U_VOTE (1ULL << IDX_VOTE)
+#define U_RETRACTED (1ULL << IDX_RETRACTED)
+#define ADD_THREAD (U_VOTE + U_BARRIER)
+
+#define MASK_BARRIER ((1ULL << (IDX_VOTE)) -1ULL)
+#define MASK_VOTE ((((1ULL << IDX_STATE) - 1ULL) >> IDX_VOTE) << IDX_VOTE)
+#define MASK_STATE ((((1ULL << (IDX_RETRACTED)) -1ULL) >> IDX_STATE) << IDX_STATE)
+#define MASK_RETRACTED (1ULL << IDX_RETRACTED)
+
+
+#define GET_BARRIER(x) uint64_t(((x) & MASK_BARRIER) >> IDX_BARRIER)
+#define GET_VOTE(x) uint64_t(((x) & MASK_VOTE) >> IDX_VOTE)
+#define GET_STATE(x) uint64_t(((x) & MASK_STATE) >> IDX_STATE)
+#define GET_RETRACTED(x) uint64_t(((x) & MASK_RETRACTED) >> IDX_RETRACTED)
+
+#define SET_BARRIER(x, y) (CLEAR_BARRIER(x) | ((y) << IDX_BARRIER)) 
+#define SET_VOTE(x, y) (CLEAR_VOTE(x) | ((y) << IDX_VOTE))
+#define SET_STATE(x, y) (CLEAR_STATE(x) | ((y) << IDX_STATE))
+
+#define CLEAR_BARRIER(x) ((x) & ~MASK_BARRIER)
+#define CLEAR_VOTE(x) ((x) & ~MASK_VOTE)
+#define CLEAR_STATE(x) ((x) & ~MASK_STATE)
+#define CLEAR_RETRACTED(x) ((x) & ~MASK_RETRACTED)
+
+    // Barrier_count should not be decremented until the end when threads
+    // do not participate any longer in the ld protocol. Is that correct?
+    // Here is the layout
+    //    63    | 62 ... 58 | 57 ... 29 | 28 ... 0
+    // retracted   state      vote        barrier_count 
+    std::atomic_uint64_t atomic_state = (uint64_t(NotInLD) << IDX_STATE);
 
   public:
     constexpr ThreadState() = default;
 
     State get_state()
     {
+      State state = static_cast<State>(GET_STATE(atomic_state));
       return state;
     }
 
     State next(State s, size_t total_votes)
     {
-      switch (state)
+      switch (GET_STATE(atomic_state))
       {
         case NotInLD:
         {
@@ -134,7 +169,7 @@ namespace verona::rt
 
             case WantLD:
             {
-              state = PreScan;
+              atomic_state = SET_STATE(atomic_state, uint64_t(PreScan));
               return vote_one<PreScan, Scan>(total_votes);
             }
 
@@ -207,7 +242,7 @@ namespace verona::rt
 
             case BelieveDone_Retract:
             {
-              retracted = true;
+              atomic_state.fetch_or(U_RETRACTED);
               return vote<BelieveDone_Ack, ReallyDone>(total_votes);
             }
 
@@ -226,7 +261,7 @@ namespace verona::rt
             case BelieveDone_Ack:
             case ReallyDone:
             {
-              if (retracted)
+              if (atomic_state & U_RETRACTED)
               {
                 vote<ReallyDone_Retract, AllInScan>(total_votes);
                 return ReallyDone_Retract;
@@ -272,51 +307,85 @@ namespace verona::rt
     void reset()
     {
       if (next == AllInScan)
-        retracted = false;
+        atomic_state = CLEAR_RETRACTED(atomic_state);
 
-      vote_yes.store(0);
-      state = next;
+      bool res = false;
+      do
+      {
+        auto read = atomic_state.load();
+        auto val = SET_STATE(read | (GET_BARRIER(read) << IDX_VOTE), uint64_t(next));
+        res = atomic_state.compare_exchange_strong(read, val);
+      }
+      while(!res);
     }
 
     template<State next>
     void reset_one()
     {
       if (next == AllInScan)
-        retracted = false;
+        atomic_state = CLEAR_RETRACTED(atomic_state); 
 
-      vote_yes.store(1);
-      state = next;
+      bool res = false;
+      do
+      {
+        auto read = atomic_state.load(); 
+        assert(GET_VOTE(read) == 0);
+        auto val = SET_STATE(read | ((GET_BARRIER(read)-1) << IDX_VOTE), uint64_t(next));
+        res = atomic_state.compare_exchange_strong(read, val);
+      }
+      while(!res);
     }
 
   private:
     template<State intermediate, State next>
     State vote(size_t total_votes)
     {
-      size_t vote = vote_yes.fetch_add(1) + 1;
-
-      if (vote == total_votes)
+      UNUSED(total_votes);
+      auto val = atomic_state.fetch_sub(U_VOTE); 
+      if (GET_VOTE(val) == 1)
       {
         reset<next>();
         return next;
       }
-
       return intermediate;
     }
 
     template<State intermediate, State next>
     State vote_one(size_t total_votes)
     {
-      size_t vote = vote_yes.fetch_add(1) + 1;
-
-      if (vote == total_votes)
+      UNUSED(total_votes);
+      auto val = atomic_state.fetch_sub(U_VOTE);
+      if (GET_VOTE(val) == 1)
       {
         reset_one<next>();
         return next;
       }
-
       return intermediate;
     }
+  public:
+    void set_barrier(size_t thread_count)
+    {
+      atomic_state = SET_BARRIER(atomic_state, thread_count);
+      atomic_state = SET_VOTE(atomic_state, thread_count);
+    }
+
+    uint64_t add_thread()
+    {
+      return GET_BARRIER(atomic_state.fetch_add(ADD_THREAD));
+    }
+
+    uint64_t exit_thread()
+    {
+      return GET_BARRIER(atomic_state.fetch_sub(U_BARRIER));
+    }
+
+    uint64_t barrier_count()
+    {
+      return GET_BARRIER(atomic_state);
+    }
   };
+
+
 
   inline std::ostream&
   operator<<(std::ostream& os, const ThreadState::State& obj)
