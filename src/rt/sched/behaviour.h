@@ -10,6 +10,7 @@ namespace verona::rt
 {
   using namespace snmalloc;
   class Cown;
+  class Request;
 
   /**
    * This class represents the closure run when all the cowns required have

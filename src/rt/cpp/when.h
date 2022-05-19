@@ -41,7 +41,7 @@ class When
    * each index.
    */
   template<size_t index = 0>
-  void array_assign(Cown** array)
+  void array_assign(Request* requests)
   {
     if constexpr (index >= sizeof...(Args))
     {
@@ -50,9 +50,12 @@ class When
     else
     {
       auto p = std::get<index>(cown_tuple);
-      array[index] = p.underlying_cown();
-      assert(array[index] != nullptr);
-      array_assign<index + 1>(array);
+      if constexpr (is_read_only<decltype(p)>())
+        requests[index] = Request { p.underlying_cown(), AccessMode::READ };
+      else
+        requests[index] = Request { p.underlying_cown(), AccessMode::WRITE };
+      assert(requests[index].cown != nullptr);
+      array_assign<index + 1>(requests);
     }
   }
 
@@ -88,12 +91,12 @@ public:
     }
     else
     {
-      verona::rt::Cown* cowns[sizeof...(Args)];
-      array_assign(cowns);
+      verona::rt::Request requests[sizeof...(Args)];
+      array_assign(requests);
 
       verona::rt::schedule_lambda(
         sizeof...(Args),
-        cowns,
+        requests,
         [f = std::forward<F>(f), cown_tuple = cown_tuple]() mutable {
           /// Effectively converts cown_ptr... to acquired_cown... .
           auto lift_f = [f = std::forward<F>(f)](Args... args) mutable {

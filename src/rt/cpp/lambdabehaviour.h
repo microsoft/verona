@@ -69,6 +69,13 @@ namespace verona::rt
       count, cowns, std::forward<T>(f));
   }
 
+  template<TransferOwnership transfer = NoTransfer, typename T>
+  static void schedule_lambda(size_t count, Request* requests, T f)
+  {
+    Cown::schedule<LambdaBehaviour<T>, transfer>(
+      count, requests, std::forward<T>(f));
+  }
+
   template<typename T>
   static void schedule_lambda(T f)
   {

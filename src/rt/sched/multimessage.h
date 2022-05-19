@@ -18,7 +18,7 @@ namespace verona::rt
     {
       size_t index;
       size_t count;
-      Cown** cowns;
+      Request* requests;
       std::atomic<size_t> exec_count_down;
       Behaviour* behaviour;
     };
@@ -27,6 +27,7 @@ namespace verona::rt
     MultiMessageBody* body;
     friend verona::rt::MPSCQ<MultiMessage>;
     friend class Cown;
+    friend class Request;
 
     std::atomic<MultiMessage*> next{nullptr};
 
@@ -69,10 +70,10 @@ namespace verona::rt
     }
 
     static MultiMessageBody*
-    make_body(Alloc& alloc, size_t count, Cown** cowns, Behaviour* behaviour)
+    make_body(Alloc& alloc, size_t count, Request* requests, Behaviour* behaviour)
     {
       return new (alloc.alloc<sizeof(MultiMessageBody)>())
-        MultiMessageBody{0, count, cowns, count, behaviour};
+        MultiMessageBody{0, count, requests, count, behaviour};
     }
 
     static MultiMessage*

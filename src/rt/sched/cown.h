@@ -64,6 +64,11 @@ namespace verona::rt
    * acquired. If the running cown is acquired for a future behaviour, it will
    * be descheduled until that behaviour has completed.
    */
+
+  enum class AccessMode { WRITE, READ };
+
+  struct Request { Cown* cown; AccessMode mode; };
+
   class Cown : public Object
   {
     using MessageBody = MultiMessage::MultiMessageBody;
@@ -136,6 +141,11 @@ namespace verona::rt
      * strong reference still exists.
      **/
     std::atomic<size_t> weak_count{1};
+
+    /*
+     * Cown's read ref count.
+     */
+    std::atomic<size_t> read_ref_count{0};
 
     EnqueueLock enqueue_lock;
 
@@ -497,7 +507,7 @@ namespace verona::rt
       {
         for (size_t i = 0; i < body->count; i++)
         {
-          auto* next = body->cowns[i];
+          auto* next = body->requests[i].cown;
           Logging::cout() << "Will try to acquire lock " << next
                           << Logging::endl;
           next->enqueue_lock.lock();
@@ -510,7 +520,7 @@ namespace verona::rt
       for (size_t i = 0; i < loop_end; i++)
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
-        auto* next = body->cowns[i];
+        auto* next = body->requests[i].cown;
         Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
                         << ", index " << i << " behaviour " << body->behaviour
                         << " loop end " << loop_end << Logging::endl;
@@ -534,6 +544,8 @@ namespace verona::rt
           return;
         }
 
+        if (body->requests[i].mode == AccessMode::READ)
+          body->requests[i].cown->read_ref_count++;
         body->exec_count_down.fetch_sub(1);
 
         // The cown was asleep, so we have acquired it now. Dequeue the
@@ -606,9 +618,29 @@ namespace verona::rt
         }
       }
 
-      if (body.exec_count_down.fetch_sub(1) > 1)
-      {
-        return false;
+      // find this cown in the list of cowns to acquire
+      Request* request = body.requests;
+      while (request->cown != this) request++;
+
+      // If the cown is not in use then the request can be serviced.
+      // Otherwise, if the cown is in use, the cown is being read and the request is a read,
+      // then the request can be servied.
+
+      bool read_cown_executing = false;
+      if (request->mode == AccessMode::READ) {
+        size_t count = read_ref_count.fetch_add(1);
+
+        if (body.exec_count_down.fetch_sub(1) > 1) {
+          return true;
+        } else {
+          // In this case, this thread will execute the behaviour
+          // but another thread can still use the cown
+          read_cown_executing = true;
+        }
+
+      } else { // otherwise it's a write
+        if (body.exec_count_down.fetch_sub(1) > 1)
+          return false;
       }
 
       if (e == EpochMark::EPOCH_NONE)
@@ -629,8 +661,8 @@ namespace verona::rt
           for (size_t i = 0; i < body.count; i++)
           {
             Logging::cout()
-              << "Scanning cown " << body.cowns[i] << Logging::endl;
-            body.cowns[i]->scan(alloc, Scheduler::local()->send_epoch);
+              << "Scanning cown " << body.requests[i].cown << Logging::endl;
+            body.requests[i].cown->scan(alloc, Scheduler::local()->send_epoch);
           }
 
           // Scan closure
@@ -647,13 +679,26 @@ namespace verona::rt
 
       Scheduler::local()->message_body = &body;
 
+      // The message `m` will be deallocated when the next scheduler thread
+      // picks up a message, so wait until after all the possible tracing to
+      // reschedule this cown.
+      if (read_cown_executing)
+        schedule();
+
       // Run the behaviour.
       body.behaviour->f();
 
       for (size_t i = 0; i < body.count; i++)
       {
-        if (body.cowns[i])
-          Cown::release(alloc, body.cowns[i]);
+        Request request = body.requests[i];
+        if (request.cown)
+        {
+          // if the request was a read then decrement
+          if (request.mode == AccessMode::READ)
+            request.cown->read_ref_count.fetch_sub(1);
+
+          Cown::release(alloc, request.cown);
+        }
       }
 
       Logging::cout() << "MultiMessage " << m << " completed and running on "
@@ -661,9 +706,19 @@ namespace verona::rt
 
       // Free the body and the behaviour.
       alloc.dealloc(body.behaviour, body.behaviour->size());
-      alloc.dealloc<sizeof(MultiMessage::MultiMessageBody)>(m->get_body());
 
-      return true;
+      //  Reschedule the writeable cowns (read-only cowns are not unscheduled for a behaviour).
+      for (size_t s = 0; s < body.count; s++)
+      {
+        if ((body.requests[s].cown) && (body.requests[s].cown != this) && (body.requests[s].mode == AccessMode::WRITE))
+          body.requests[s].cown->schedule();
+      }
+
+      alloc.dealloc(body.requests, body.count * sizeof(Request));
+
+      alloc.dealloc<sizeof(MultiMessage::MultiMessageBody)>(&body);
+
+      return !read_cown_executing;
     }
 
   public:
@@ -677,6 +732,19 @@ namespace verona::rt
         1, &cown, std::forward<Args>(args)...);
     }
 
+    template<
+      class Behaviour,
+      TransferOwnership transfer = NoTransfer,
+      typename... Args>
+    static void schedule(size_t count, Cown** cowns, Args&&... args)
+    {
+      Request requests[count];
+      for (size_t i = 0; i < count; ++i)
+        requests[i] = Request { cowns[i], AccessMode::WRITE };
+
+      schedule<Behaviour, transfer, Args...>(count, requests, std::forward<Args>(args)...);
+    }
+
     /**
      * Sends a multi-message to the first cown we want to acquire.
      *
@@ -688,7 +756,7 @@ namespace verona::rt
       class Be,
       TransferOwnership transfer = NoTransfer,
       typename... Args>
-    static void schedule(size_t count, Cown** cowns, Args&&... args)
+    static void schedule(size_t count, Request* requests, Args&&... args)
     {
       static_assert(std::is_base_of_v<Behaviour, Be>);
       Logging::cout() << "Schedule behaviour of type: " << typeid(Be).name()
@@ -697,21 +765,24 @@ namespace verona::rt
       auto& alloc = ThreadAlloc::get();
       auto* be =
         new ((Be*)alloc.alloc<sizeof(Be)>()) Be(std::forward<Args>(args)...);
-      auto** sort = (Cown**)alloc.alloc(count * sizeof(Cown*));
-      memcpy(sort, cowns, count * sizeof(Cown*));
+
+      Request* sort = (Request*)alloc.alloc(count * sizeof(Request));
+      memcpy(sort, requests, count * sizeof(Request));
 
 #ifdef USE_SYSTEMATIC_TESTING
-      std::sort(&sort[0], &sort[count], [](Cown*& a, Cown*& b) {
-        return a->id() < b->id();
+      std::sort(&sort[0], &sort[count], [](Request& a, Request& b) {
+        return a.cown->id() < b.cown->id();
       });
 #else
-      std::sort(&sort[0], &sort[count]);
+      std::sort(&sort[0], &sort[count], [](Request& a, Request& b) {
+        return a.cown < b.cown;
+      });
 #endif
 
       if constexpr (transfer == NoTransfer)
       {
         for (size_t i = 0; i < count; i++)
-          Cown::acquire(sort[i]);
+          Cown::acquire(sort[i].cown);
       }
 
       auto body = MultiMessage::make_body(alloc, count, sort, be);
@@ -749,6 +820,7 @@ namespace verona::rt
      * called, and it is guaranteed to return true, so it will be rescheduled
      * or false if it is part of a multi-message acquire.
      **/
+
     bool run(Alloc& alloc, ThreadState::State)
     {
       auto until = queue.peek_back();
@@ -763,6 +835,21 @@ namespace verona::rt
       do
       {
         assert(!queue.is_sleeping());
+
+        curr = queue.peek();
+
+        if (curr != nullptr)
+        {
+          auto* body = curr->get_body();
+
+          // find us in the list of cowns to acquire
+          Request* request = body->requests;
+          while (request->cown != this)
+            request++;
+
+          if (request->mode == AccessMode::WRITE && request->cown->read_ref_count > 0)
+            return true;
+        }
 
         curr = queue.dequeue(alloc, notify);
 
@@ -826,30 +913,17 @@ namespace verona::rt
         }
 
         assert(!queue.is_sleeping());
-        auto* body = curr->get_body();
 
         batch_size++;
 
         Logging::cout() << "Running Message " << curr << " on cown " << this
                         << Logging::endl;
 
-        auto* senders = body->cowns;
-        const size_t senders_count = body->count;
-
         // A function that returns false indicates that the cown should not
         // be rescheduled, even if it has pending work. This also means the
         // cown's queue should not be marked as empty, even if it is.
         if (!run_step(curr))
           return false;
-
-        // Reschedule the other cowns.
-        for (size_t s = 0; s < senders_count; s++)
-        {
-          if ((senders[s]) && (senders[s] != this))
-            senders[s]->schedule();
-        }
-
-        alloc.dealloc(senders, senders_count * sizeof(Cown*));
 
       } while ((curr != until) && (batch_size < batch_limit));
 
@@ -992,7 +1066,7 @@ namespace verona::rt
     bool release_early()
     {
       auto* body = Scheduler::local()->message_body;
-      auto* senders = body->cowns;
+      Request* senders = body->requests;
       const size_t senders_count = body->count;
       Alloc& alloc = ThreadAlloc::get();
 
@@ -1000,16 +1074,16 @@ namespace verona::rt
        * Avoid releasing the last cown because it breaks the current
        * code structure
        */
-      if (this == senders[senders_count - 1])
+      if (this == senders[senders_count - 1].cown)
         return false;
 
       for (size_t s = 0; s < senders_count; s++)
       {
-        if (senders[s] != this)
+        if (senders[s].cown != this)
           continue;
-        Cown::release(alloc, senders[s]);
-        senders[s]->schedule();
-        senders[s] = nullptr;
+        Cown::release(alloc, senders[s].cown);
+        senders[s].cown->schedule();
+        senders[s].cown = nullptr;
         break;
       }
 
@@ -1032,8 +1106,11 @@ namespace verona::rt
     static MultiMessage*
     unmute_msg(Alloc& alloc, size_t count, Cown** cowns, EpochMark epoch)
     {
+      Request requests[count];
+      for (size_t i = 0; i < count; ++i)
+        requests[i] = Request { cowns[i], AccessMode::WRITE };
       auto* body =
-        MultiMessage::make_body(alloc, count, cowns, &unmute_behaviour);
+        MultiMessage::make_body(alloc, count, requests, &unmute_behaviour);
       return MultiMessage::make_message(alloc, body, epoch);
     }
   };
