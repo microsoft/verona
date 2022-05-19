@@ -98,7 +98,12 @@ namespace sandbox
      */
     Ret operator()(Args... args)
     {
-      CallFrame* callframe = lib.alloc<CallFrame>();
+      auto cf = lib.alloc<CallFrame>();
+      if (!cf)
+      {
+        throw std::bad_alloc();
+      }
+      CallFrame* callframe = cf.value();
       callframe->args = std::forward_as_tuple(args...);
       lib.send(vtable_index, callframe);
       if constexpr (!std::is_void_v<Ret>)

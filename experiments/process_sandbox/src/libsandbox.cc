@@ -535,7 +535,12 @@ namespace sandbox
           // Allocate space for everything.  No overflow checking here, but the
           // called code is trusted and we could only overflow if it returned a
           // nonsense `ai_addrlen`.
-          char* buffer = lib.alloc<char>((sizeof(addrinfo) * count) + extra);
+          auto b = lib.alloc<char>((sizeof(addrinfo) * count) + extra);
+          if (!b)
+          {
+            return return_int(EAI_MEMORY);
+          }
+          auto buffer = b.value();
           // The allocated space will be an array of `addrinfo`s, followed by
           // (variable-sized) `sockaddr`s.
           addrinfo* ais = reinterpret_cast<addrinfo*>(buffer);

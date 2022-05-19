@@ -549,10 +549,12 @@ namespace sandbox
      * allocation failed.
      */
     void* alloc_in_sandbox(size_t bytes, size_t count);
+
     /**
      * Deallocate an allocation in the sandbox.
      */
     void dealloc_in_sandbox(void* ptr);
+
     /**
      * Start the child process.  On *NIX systems, this can be called within a
      * vfork context and so must not allocate or modify memory on the heap, or
@@ -620,12 +622,16 @@ namespace sandbox
      * would have its vtable incorrectly initialised.
      */
     template<typename T>
-    T* alloc(size_t count)
+    std::optional<T*> alloc(size_t count)
     {
       static_assert(
         std::is_standard_layout_v<T> && std::is_trivial_v<T>,
         "Arrays allocated in sandboxes must be POD types");
       T* array = static_cast<T*>(alloc_in_sandbox(sizeof(T), count));
+      if (array == nullptr)
+      {
+        return std::nullopt;
+      }
       for (size_t i = 0; i < count; i++)
       {
         new (&array[i]) T();
@@ -658,12 +664,16 @@ namespace sandbox
      * would have its vtable incorrectly initialised.
      */
     template<typename T, size_t Count>
-    T* alloc()
+    std::optional<T*> alloc()
     {
       static_assert(
         std::is_standard_layout_v<T> && std::is_trivial_v<T>,
         "Arrays allocated in sandboxes must be POD types");
       T* array = static_cast<T*>(alloc_in_sandbox(sizeof(T), Count));
+      if (array == nullptr)
+      {
+        return std::nullopt;
+      }
       for (size_t i = 0; i < Count; i++)
       {
         new (&array[i]) T();
@@ -678,14 +688,18 @@ namespace sandbox
      * with a vtable would have its vtable incorrectly initialised.
      */
     template<typename T, typename... Args>
-    T* alloc(Args&&... args)
+    std::optional<T*> alloc(Args&&... args)
     {
       static_assert(
         !std::is_polymorphic_v<T>,
         "Classes with vtables cannot be safely allocated in sandboxes from "
         "outside (nor can virtual functions be safely called).");
-      return new (alloc_in_sandbox(sizeof(T), 1))
-        T(std::forward<Args>(args)...);
+      void* ptr = alloc_in_sandbox(sizeof(T), 1);
+      if (ptr == nullptr)
+      {
+        return std::nullopt;
+      }
+      return new (ptr) T(std::forward<Args>(args)...);
     }
     /**
      * Free an object allocated in the sandbox.
@@ -703,9 +717,13 @@ namespace sandbox
     char* strdup(const char* str)
     {
       auto len = strlen(str);
-      char* ptr = alloc<char>(len);
-      memcpy(ptr, str, len);
-      return ptr;
+      std::optional<char*> ptr = alloc<char>(len);
+      if (!ptr)
+      {
+        return nullptr;
+      }
+      memcpy(*ptr, str, len);
+      return *ptr;
     }
 
     /**
@@ -790,10 +808,10 @@ namespace sandbox
      */
     friend class MemoryServiceProvider;
 
-	/**
-	 * CallbackDispatcher needs to be able to terminate a running sandbox.
-	 */
-	friend class CallbackDispatcher;
+    /**
+     * CallbackDispatcher needs to be able to terminate a running sandbox.
+     */
+    friend class CallbackDispatcher;
   };
 
   /**
