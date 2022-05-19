@@ -369,9 +369,13 @@ namespace verona::rt
       atomic_state = SET_VOTE(atomic_state, thread_count);
     }
 
-    uint64_t add_thread()
+    bool add_thread()
     {
-      return GET_BARRIER(atomic_state.fetch_add(ADD_THREAD));
+      auto value = atomic_state.load();
+      if (GET_STATE(value) >= State::AllInScan)
+        return false;
+      auto update = value + ADD_THREAD;
+      return atomic_state.compare_exchange_strong(value, update);
     }
 
     uint64_t exit_thread()

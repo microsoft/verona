@@ -615,13 +615,12 @@ namespace verona::rt
         {
           // Just spawn it and let it park
           threads->active.insert_back(thread);
-          auto val = state.add_thread();
+          bool success = state.add_thread();
           // Have to bail
-          if (val == 0)
+          if (!success)
           {
-            val = state.exit_thread();
-            assert(val == 1);
             threads->active.remove(thread);
+            threads->m.unlock();
             delete thread;
             return;
           }
@@ -641,12 +640,10 @@ namespace verona::rt
       // Freshly created thread
       if (needsSysThread)
       {
-        auto val = state.add_thread();
+        bool success = state.add_thread();
         // Bail
-        if (val == 0)
+        if (!success)
         {
-          val = state.exit_thread();
-          assert(val == 1);
           threads->active.remove(thread);
           delete thread;
           threads->m.unlock();

@@ -353,7 +353,6 @@ namespace verona::rt
       Logging::cout() << "End teardown (phase 1)" << Logging::endl;
 
       Epoch(ThreadAlloc::get()).flush_local();
-      //TODO(aghosn) apparently it blocks in the teardown...
       Scheduler::get().enter_barrier();
 
       Logging::cout() << "Begin teardown (phase 2)" << Logging::endl;
@@ -364,7 +363,6 @@ namespace verona::rt
 
       Logging::cout() << "End teardown (phase 2)" << Logging::endl;
 
-      //TODO @aghosn maybe this should be moved to the corepool.
       if (core != nullptr)
       {
         core->q.destroy(*alloc);
