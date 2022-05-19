@@ -32,7 +32,7 @@ void attack2()
   for (int i = 0; i < 100; i++)
   {
     UNUSED(write(PageMapUpdates, "\0", 1));
-    usleep(10000);
+    usleep(100000);
   }
 }
 

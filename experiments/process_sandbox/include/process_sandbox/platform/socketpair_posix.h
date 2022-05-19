@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 #ifdef __unix__
+#  include <functional>
+#  include <optional>
 #  include <sys/socket.h>
 #  include <sys/types.h>
 
@@ -25,7 +27,8 @@ namespace sandbox
          * Send a message containing `data_len` bytes of data starting at
          * `data`.  Optionally also send a file descriptor.
          */
-        bool send_msg(const void* data, size_t data_len, int send_fd = -1)
+        bool
+        send_msg(const void* data, size_t data_len, int flags, int send_fd = -1)
         {
           struct msghdr header;
           struct iovec iov
@@ -59,9 +62,9 @@ namespace sandbox
           int ret;
           do
           {
-            ret = sendmsg(fd, &header, MSG_NOSIGNAL);
-          } while ((ret == -1) && (errno == EAGAIN));
-          return ret != -1;
+            ret = sendmsg(fd, &header, MSG_NOSIGNAL | flags);
+          } while ((ret == -1) && (errno == EINTR));
+          return static_cast<size_t>(ret) == data_len;
         }
 
         /**
@@ -70,7 +73,8 @@ namespace sandbox
          * `int` pointed to by this parameter is set to -1 if no file
          * descriptor is received.
          */
-        bool receive_msg(void* data, size_t data_len, int* recv_fd = nullptr)
+        bool receive_msg(
+          void* data, size_t data_len, int flags, int* recv_fd = nullptr)
         {
           struct msghdr header;
           struct iovec iov
@@ -98,8 +102,8 @@ namespace sandbox
           int ret;
           do
           {
-            ret = recvmsg(fd, &header, MSG_NOSIGNAL);
-          } while ((ret == -1) && (errno == EAGAIN));
+            ret = recvmsg(fd, &header, flags | MSG_NOSIGNAL);
+          } while ((ret == -1) && (errno == EINTR));
           if (
             (ret != -1) && (recv_fd != nullptr) && (header.msg_controllen > 0))
           {
@@ -113,7 +117,7 @@ namespace sandbox
               *recv_fd = *fd_ptr;
             }
           }
-          return ret != -1;
+          return static_cast<size_t>(ret) == data_len;
         }
 
       public:
@@ -122,48 +126,105 @@ namespace sandbox
          */
         using Handle::Handle;
 
-        /**
-         * Send a message containing `data_len` bytes of data starting at
-         * `data`.
-         */
-        bool send(const void* data, size_t data_len)
+        enum ShouldBlock
         {
-          return send_msg(data, data_len);
+          Block,
+          DoNotBlock
+        };
+
+        /**
+         * Send a message containing `data`.  Accompanied by a copy of the file
+         * descriptor owned by `h` (if one is provided).  If `B` is `Block` then
+         * this will block until completion.  If `B` is `DoNotBlock` then it
+         * will return `false` if the operation cannot complete immediately.
+         */
+        template<ShouldBlock B, typename T>
+        [[nodiscard]] bool send(
+          const T& data,
+          const std::optional<std::reference_wrapper<Handle>> h = std::nullopt)
+        {
+          int fd = h.has_value() ? h->get().fd : -1;
+          return send_msg(
+            &data, sizeof(T), (B == Block) ? MSG_WAITALL : MSG_DONTWAIT, fd);
         }
 
         /**
-         * Send a message containing `data_len` bytes of data starting at
-         * `data`, accompanied by a copy of the file descriptor owned by `h`.
+         * Send a message containing `data`.  Accompanied by a copy of the file
+         * descriptor owned by `h` (if one is provided).  Returns `false` if
+         * the operation cannot complete immediately.
          */
-        bool send(const void* data, size_t data_len, const Handle& h)
+        template<typename T>
+        [[nodiscard]] bool nonblocking_send(
+          const T& data,
+          const std::optional<std::reference_wrapper<Handle>> h = std::nullopt)
         {
-          return send_msg(data, data_len, h.fd);
+          return send<Socket::DoNotBlock>(data, h);
         }
 
         /**
-         * Receive a message, `data_len` bytes long into `data`.
-         */
-        bool receive(void* data, size_t data_len)
+         * Send a message containing `data`.  Accompanied by a copy of the file
+         * descriptor owned by `h` (if one is provided).  This will block until
+         * completion.
+         * */
+        template<typename T>
+        [[nodiscard]] bool blocking_send(
+          const T& data,
+          const std::optional<std::reference_wrapper<Handle>> h = std::nullopt)
         {
-          return receive_msg(data, data_len);
+          return send<Socket::Block>(data, h);
         }
 
         /**
-         * Receive a message, `data_len` bytes long into `data`.  If the
-         * message is accompanied by a file descriptor, store it in `h`,
-         * otherwise reset `h` to an invalid file descriptor.  The caller can
-         * use `h.is_valid()` to determine whether a file descriptor was
-         * received.
+         * Receive a message into `data`.  If `B` is set to `Block` then this
+         * will block until completion, otherwise it will return failure if the
+         * operation cannot complete.  If `h` is provided then it will be set
+         * to a received file descriptor.
          */
-        bool receive(void* data, size_t data_len, Handle& h)
+        template<ShouldBlock B, typename T>
+        [[nodiscard]] bool receive(
+          T& data,
+          const std::optional<std::reference_wrapper<Handle>> h = std::nullopt)
         {
-          int recv_fd;
-          bool ret = receive_msg(data, data_len, &recv_fd);
-          if (ret)
+          int flags = (B == Block) ? MSG_WAITALL : MSG_DONTWAIT;
+          if (h.has_value())
           {
-            h.reset(recv_fd);
+            int recv_fd;
+            bool ret = receive_msg(&data, sizeof(T), flags, &recv_fd);
+            if (ret)
+            {
+              h->get().reset(recv_fd);
+            }
+            return ret;
           }
-          return ret;
+          else
+          {
+            return receive_msg(&data, sizeof(T), flags);
+          }
+        }
+
+        /**
+         * Receive a message into `data`.  This will block until completion.  If
+         * `h` is provided then it will be set to a received file descriptor.
+         */
+        template<typename T>
+        [[nodiscard]] bool blocking_receive(
+          T& data,
+          const std::optional<std::reference_wrapper<Handle>> h = std::nullopt)
+        {
+          return receive<Socket::Block>(data, h);
+        }
+
+        /**
+         * Receive a message into `data`.  Returns failure if the operation
+         * cannot complete.  If `h` is provided then it will be set to a
+         * received file descriptor.
+         */
+        template<typename T>
+        [[nodiscard]] bool nonblocking_receive(
+          T& data,
+          const std::optional<std::reference_wrapper<Handle>> h = std::nullopt)
+        {
+          return receive<Socket::DoNotBlock>(data, h);
         }
       };
 

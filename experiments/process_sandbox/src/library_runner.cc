@@ -439,7 +439,15 @@ namespace
   {
     Handle out_fd(fd);
     CallbackRequest req{k, size, reinterpret_cast<uintptr_t>(buffer)};
-    callbackSocket.send(&req, sizeof(req), out_fd);
+    if (!callbackSocket.blocking_send(req, out_fd))
+    {
+      snmalloc::report_fatal_error(
+        "Sandbox failed to write callback request (Callback {}, {} bytes to "
+        "file descriptor {})",
+        static_cast<size_t>(k),
+        size,
+        fd);
+    }
     out_fd.take();
     int depth = ++shared->token.callback_depth;
     shared->token.is_child_executing = false;
@@ -447,7 +455,14 @@ namespace
     runloop(depth);
     Handle in_fd;
     CallbackResponse response;
-    callbackSocket.receive(&response, sizeof(response), in_fd);
+    if (!callbackSocket.blocking_receive(response, in_fd))
+    {
+      snmalloc::report_fatal_error(
+        "Sandbox failed to read callback response (Callback {}, on file "
+        "descriptor {})",
+        static_cast<size_t>(k),
+        fd);
+    }
     return {response.response, std::move(in_fd)};
   }
 
@@ -817,7 +832,7 @@ namespace
    * Dispatch to a callback given a system call frame.  This will call the
    * entry in the `callbacks` tuple that matches the system call number.
    */
-  template<int Number = SyscallCallbackCount - 1>
+  template<size_t Number = SyscallCallbackCount - 1>
   void syscall_callback(SyscallFrame& c) noexcept
   {
     static_assert(
@@ -848,7 +863,10 @@ namespace
       }
       else
       {
-        syscall_callback<Number - 1>(c);
+        if constexpr (Number > 0)
+        {
+          syscall_callback<Number - 1>(c);
+        }
       }
     }
   };
