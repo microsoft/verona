@@ -29,9 +29,13 @@ struct UnsandboxedZlib
   struct
   {
     template<typename T>
-    T* alloc(size_t count = 1)
+    std::optional<T*> alloc(size_t count = 1)
     {
       T* array = static_cast<T*>(calloc(sizeof(T), count));
+      if (array == nullptr)
+      {
+        return std::nullopt;
+      }
       for (size_t i = 0; i < count; i++)
       {
         new (&array[i]) T();
@@ -69,14 +73,20 @@ void test(ZLib& sandbox, const char* file, std::vector<char>& result)
   SANDBOX_INVARIANT(fd >= 0, "Failed to open {}", file);
   static const size_t out_buffer_size = 1024;
   static const size_t in_buffer_size = 1024;
-  char* in = sandbox.lib.template alloc<char>(in_buffer_size);
-  char* out = sandbox.lib.template alloc<char>(out_buffer_size);
+  auto optional_in = sandbox.lib.template alloc<char>(in_buffer_size);
+  auto optional_out = sandbox.lib.template alloc<char>(out_buffer_size);
+  SANDBOX_INVARIANT(optional_in && optional_out, "Buffer allocation failed");
+  auto in = optional_in.value();
+  auto out = optional_out.value();
   // This is needed because deflateInit is a macro that implicitly passes
   // a string literal.
   char* version = sandbox.lib.strdup(ZLIB_VERSION);
 #undef ZLIB_VERSION
 #define ZLIB_VERSION version
-  z_stream* zs = sandbox.lib.template alloc<z_stream>();
+  auto ozs = sandbox.lib.template alloc<z_stream>();
+  SANDBOX_INVARIANT(ozs.has_value(), "Allocation failed");
+  z_stream* zs = ozs.value();
+
   memset(zs, 0, sizeof(*zs));
   zs->zalloc = Z_NULL;
   zs->zfree = Z_NULL;
