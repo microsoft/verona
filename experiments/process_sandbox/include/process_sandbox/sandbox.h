@@ -789,6 +789,11 @@ namespace sandbox
      * access this class's memory provider.
      */
     friend class MemoryServiceProvider;
+
+	/**
+	 * CallbackDispatcher needs to be able to terminate a running sandbox.
+	 */
+	friend class CallbackDispatcher;
   };
 
   /**

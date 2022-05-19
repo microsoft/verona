@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
+#include <cstddef>
 
 /**
  * This file contains the callback numbers for callbacks from the sandbox.
@@ -18,7 +19,7 @@ namespace sandbox
    * `SyscallCallbackCount`.  Entries in this enumeration must not be reordered
    * without updating all of the structures that are indexed on it.
    */
-  enum CallbackKind
+  enum CallbackKind : size_t
   {
     /**
      * Marker for the first callback that implements a system call.
