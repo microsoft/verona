@@ -28,68 +28,13 @@ applying typeargs to a typeparam
 
 ## ANF
 
-destructure tuples in assignment lhs?
-
-((a, b), c) = e
-
-(assign
-  (tuple-lhs (tuple-lhs (refvar-lhs a) (refvar-lhs b)) (refvar-lhs c))
-  e
-  )
-
-(let $a (refvar-lhs a))
-(let $v_a (load $a))
-(let $b (refvar-lhs b))
-(let $v_b (load $b))
-(let $t1 (tuple $v_a $v_b))
-(let $c (refvar-lhs c))
-(let $v_c (load $c))
-(let $t2 (tuple $t1 $v_c))
-(let $e e)
-(let $e_1 (call _1 $e))
-(let $e_1_1 (call _1 $e_1))
-(let $e_1_2 (call _2 $e_1))
-(let $e_2 (call _2 $e))
-(store $a $e_1_1)
-(store $b $e_1_2)
-(store $c $e_2)
-(reflet $t2)
+refvar
+  var x -> let x = <cell>
+  refvar-lhs -> reflet?
+  refvar -> load?
 
 type assertions on:
   reflet, refvar, refparam
-`let x = ...`
-  currently trying to store to `x` instead of bind to it
-
-```ts
-
-(assign e0 e1 e2)
-
-(let $0 = lhs e0)
-(let $1 = load $0)
-(let $2 = lhs e1)
-(let $3 = load $2)
-(store $0 $3)
-(assign $2 e2)
-  (let $0 = lhs $2)
-  (let $1 = load $0) // $3
-  (let $2 = e2) // not lhs+load!
-  (store $0 $2)
-(reflet $1)
-
-tuple-lhs?
-  then rewrite (store tuple-lhs e0)
-
-e0 = e1 = e2
-
-$0 = e2
-$1 = lhs e1
-$2 = load $1
-store $1 $0
-$3 = lhs e0
-$4 = load $3
-store $3 $2
-
-```
 
 ## type checker
 

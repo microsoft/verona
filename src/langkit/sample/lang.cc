@@ -509,13 +509,12 @@ namespace sample
           return e << t;
         },
 
-      // Lift a var or let declaration with it's type assertion.
-      InContainer * (T(Var) / T(Let))[Var] * ~T(Type)[Type] >>
+      // Lift a var declaration with it's type assertion.
+      InContainer * T(Var)[Var] * ~T(Type)[Type] >>
         [](auto& _) {
           auto e = _(Var);
           auto t = _(Type) ? _(Type) : TypeVar ^ e->fresh();
-          auto r = _(Var)->type() == Var ? RefVar ^ e : RefLet ^ e;
-          return Seq << (Lift << Funcbody << (e << t)) << r;
+          return Seq << (Lift << Funcbody << (e << t)) << (RefVar ^ e);
         },
 
       // Turn a Tuple on the LHS of an assignment into a TupleLHS.
@@ -561,30 +560,70 @@ namespace sample
                      << (RefLet ^ id);
         },
 
+      // Destructuring assignment.
+      In(Assign) * (T(Expr) << (T(TupleLHS)[lhs] * ~T(Type)[ltype] * End)) *
+          (T(Expr) << (Any[rhs] * ~T(Type)[rtype] * End)) * End >>
+        [](auto& _) {
+          auto e = _(rhs);
+          auto id = e->fresh();
+          auto t = _(rtype) ? _(rtype) : TypeVar ^ e->fresh();
+          Node tuple = Tuple;
+
+          auto l = _(lhs);
+          size_t index = 0;
+
+          for (auto child : *l)
+          {
+            tuple
+              << (Assign << child
+                         << (Expr
+                             << (Call
+                                 << (Selector
+                                     << (Ident ^
+                                         Location("_" + std::to_string(index)))
+                                     << Typeargs)
+                                 << (RefLet ^ id))));
+            index++;
+          }
+
+          return Seq << (Lift << Funcbody << (_(id = Let) << t << e)) << tuple
+                     << _[ltype];
+        },
+
+      // Let binding.
+      In(Assign) * (T(Expr) << (T(Let)[lhs] * ~T(Type)[ltype] * End)) *
+          (T(Expr) << (Any[rhs] * ~T(Type)[rtype] * End)) * End >>
+        [](auto& _) {
+          auto e = _(lhs);
+          auto t = _(rtype) ? _(rtype) : TypeVar ^ e->fresh();
+          return Seq << (Lift << Funcbody << (e << t << _(rhs)))
+                     << (RefLet ^ e);
+        },
+
       // Assignment.
       In(Assign) * (T(Expr) << (Any[lhs] * ~T(Type)[ltype] * End)) *
           (T(Expr) << (Any[rhs] * ~T(Type)[rtype] * End)) * End >>
         [](auto& _) {
-          // TODO: assignment to `let x`, TupleLHS?
-          auto e0 = _(lhs);
-          auto t0 = TypeVar ^ e0->fresh();
-          auto id0 = e0->fresh();
-
-          auto e1 = Load ^ id0;
-          auto t1 = _(ltype) ? _(ltype) : TypeVar ^ e0->fresh();
-          auto id1 = e0->fresh();
-
           // TODO: lift all type assertions?
           // TODO: don't lift the rhs if it's not a liftexpr?
-          auto e2 = _(rhs);
-          auto t2 = _(rtype) ? _(rtype) : TypeVar ^ e2->fresh();
-          auto id2 = e2->fresh();
+          auto e0 = _(rhs);
+          auto id0 = e0->fresh();
+          auto t0 = _(rtype) ? _(rtype) : TypeVar ^ e0->fresh();
+
+          auto e1 = _(lhs);
+          auto id1 = e1->fresh();
+          auto t1 = TypeVar ^ e1->fresh();
+
+          auto e2 = Load ^ id1;
+          auto id2 = e1->fresh();
+          auto t2 = _(ltype) ? _(ltype) : TypeVar ^ e1->fresh();
+
           return Seq << (Lift << Funcbody << (_(id0 = Let) << t0 << e0))
                      << (Lift << Funcbody << (_(id1 = Let) << t1 << e1))
                      << (Lift << Funcbody << (_(id2 = Let) << t2 << e2))
                      << (Lift << Funcbody
-                              << (Store << (RefLet ^ id0) << (RefLet ^ id2)))
-                     << (Expr << (RefLet ^ id1));
+                              << (Store << (RefLet ^ id1) << (RefLet ^ id0)))
+                     << (Expr << (RefLet ^ id2));
         },
 
       // Compact assigns, terms, and exprs after they're reduced.
