@@ -51,11 +51,11 @@ jobs:
         LOCAL_REV=$(git ls-tree HEAD $SUBMODULE_PATH | awk '{ print $3 }')
 
         # Export these so they can be used in the rest of the job.
-        echo ::set-env name=SUBMODULE_PATH::$SUBMODULE_PATH
-        echo ::set-env name=REMOTE_REV::$REMOTE_REV
-        echo ::set-env name=REMOTE_SHORT_REV::$(git rev-parse --short $REMOTE_REV)
-        echo ::set-env name=LOCAL_REV::$LOCAL_REV
-        echo ::set-env name=LOCAL_SHORT_REV::$(git rev-parse --short $LOCAL_REV)
+        echo name=SUBMODULE_PATH::$SUBMODULE_PATH >> $GITHUB_ENV
+        echo name=REMOTE_REV::$REMOTE_REV >> $GITHUB_ENV
+        echo name=REMOTE_SHORT_REV::$(git rev-parse --short $REMOTE_REV) >> $GITHUB_ENV
+        echo name=LOCAL_REV::$LOCAL_REV >> $GITHUB_ENV
+        echo name=LOCAL_SHORT_REV::$(git rev-parse --short $LOCAL_REV) >> $GITHUB_ENV
 
         echo "Submodule path: $SUBMODULE_PATH"
         echo "Local revision: $LOCAL_REV"
