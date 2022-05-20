@@ -1,10 +1,13 @@
 #pragma once
 
 #include "pal/threadpoolbuilder.h"
+#include "test/logging.h"
+#include "pal/threading.h"
 
 #include <atomic>
 #include <chrono>
 #include <cassert>
+
 
 namespace verona::rt
 {
@@ -19,6 +22,10 @@ namespace verona::rt
       friend Scheduler;
       /// When true, the SysMonitor should stop.
       std::atomic_bool done = false;
+#ifdef USE_SYSTEMATIC_TESTING
+    friend class ThreadSyncSystematic<SysMonitor<Scheduler>>;
+    Systematic::Local* local_systematic{nullptr};
+#endif
 
       SysMonitor() {}
     
@@ -33,6 +40,10 @@ namespace verona::rt
 
       void run_monitor(ThreadPoolBuilder& builder)
       {
+#ifdef USE_SYSTEMATIC_TESTING
+        Systematic::start();
+        Systematic::attach_systematic_thread(this->local_systematic);
+#endif 
         using namespace std::chrono_literals;
         auto* pool = Scheduler::get().core_pool;
         assert(pool != nullptr);
@@ -61,6 +72,7 @@ namespace verona::rt
 
           if (done)
           {
+            Logging::cout() << "System monitor break" << Logging::endl;
             break;
           }
           // Look for progress 
@@ -70,6 +82,7 @@ namespace verona::rt
             // Counter is the same and there is some work to do.
             if (scan[i] == count && !pool->cores[i]->q.nothing_old())
             {
+              Logging::cout() << "System monitor detected lack of progress on core " << i << Logging::endl;
               // We pass the count as argument in case there was some progress
               // in the meantime.
               Scheduler::get().spawnThread(builder, pool->cores[i], count);
@@ -82,10 +95,13 @@ namespace verona::rt
         // As this thread is the only one modifying the builder thread list,
         // we know nothing should be modifying it right now and can thus exit 
         // to join on every single thread.
+        Logging::cout() << "System monitor exit" << Logging::endl;
+        Systematic::finished_thread();
       }
 
       void threadExit()
       {
+        Logging::cout() << "Thread exit: setting done to true" << Logging::endl;
         // if a thread exits, we are done
         done = true;
       }

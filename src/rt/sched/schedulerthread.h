@@ -807,13 +807,16 @@ namespace verona::rt
       // This needs to be in the freelist before acquiring the mutex otherwise
       // it could deadlock with the threadpool monitor.
       Scheduler::get().threads->moveActiveToFree(this);
-
+      Logging::cout() << "parking" << Logging::endl;
       {
         auto h = syncp.handle(this);
         h.pause();
       }
+      
+      Logging::cout() << " unparked!" << Logging::endl;
       if (!running)
       {
+        Logging::cout() << "not running, bail" << Logging::endl;
         // We need to bail
         return;
       }
@@ -823,11 +826,13 @@ namespace verona::rt
 
       // We have a core, we should be able to return wherever we came from.
       cpu::set_affinity(core->affinity);
+      Logging::cout() << " servicing core " << core->affinity << Logging::endl;
     }
 
     // Called by another thread to wakeup the scheduler thread.
     void unpark()
     {
+      Logging::cout() << "calling unpark on " << systematic_id << Logging::endl;
       syncp.unpause_all(this);
     }
 

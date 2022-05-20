@@ -359,9 +359,12 @@ namespace verona::rt
           threads->addActive(t);
           builder.add_thread(t->core->affinity, &T::run, t, startup, args...);
         }
-        // The system monitor is not compatible with systematic testing.
 #ifdef USE_SYSTEM_MONITOR
-        // Run the system monitor;
+        // Run the system monitor
+#ifdef USE_SYSTEMATIC_TESTING
+        Monitor::get().local_systematic =
+          Systematic::create_systematic_thread(systematic_ids++);
+#endif 
         Monitor::get().run_monitor(builder);
 #endif
         // ThreadPoolBuilder goes out of scope and is deallocated here.
@@ -573,9 +576,15 @@ namespace verona::rt
         UNUSED(inc);
         // The system monitor is the one that will wake everyone up
         if (state.barrier_count() != 0)
+        {
+          Logging::cout() << "Barrier not 0, pause" << Logging::endl;
           h.pause();
+        }
         else
+        {
+          Logging::cout() << "Barrier 0, unpause all" << Logging::endl;
           h.unpause_all();
+        }
 #endif
       }
     }
@@ -584,7 +593,11 @@ namespace verona::rt
     {
       // Quick check to bail.
       if (count != core->progress_counter)
+      {
+        Logging::cout() << "Progress detected on core " << core->affinity
+          << Logging::endl;
         return;
+      }
 
       // This has to be done with the scheduler list locked in case someone
       // is executing stop or tries to park itself.
@@ -600,6 +613,8 @@ namespace verona::rt
           Systematic::create_systematic_thread(thread->systematic_id);
 #endif
         needsSysThread = true;
+        Logging::cout() << "Creating a new thread" << thread->systematic_id
+          <<Logging::endl;
       }
       else
       {
@@ -611,6 +626,8 @@ namespace verona::rt
       // Last chance to bail.
       if (core->progress_counter != count)
       {
+        Logging::cout() << "Late progress detected on core " << core->affinity
+          << Logging::endl;
         if (needsSysThread)
         {
           // Just spawn it and let it park
@@ -650,16 +667,20 @@ namespace verona::rt
           return;
         }
         threads->m.unlock();
+        Logging::cout() << "Spawning extra platform thread" << Logging::endl;
         builder.add_extra_thread(&T::run, thread, &nop);
         return;
       }
       threads->m.unlock();
+      Logging::cout() << "Unpark extra scheduler thread on core " << core->affinity
+        << Logging::endl;
       // Wake-up the existing thread
       thread->unpark();
     }
 
     void wakeWorkers()
     {
+      Logging::cout() << "Unparking all the workers" << Logging::endl;
       threads->forall([](T* worker){
         worker->unpark();
       });

@@ -13,7 +13,10 @@ std::atomic<size_t> counter = 0;
 void long_running()
 {
   Logging::cout() << "Starting the long running" << std::endl;
-  while(counter != 0) {}
+  while(counter != 0) {
+    Logging::cout() << "Long running about to yield " <<  counter << Logging::endl;
+    yield();
+  }
   Logging::cout() << "Long running behavior just finished" << std::endl;
 }
 
