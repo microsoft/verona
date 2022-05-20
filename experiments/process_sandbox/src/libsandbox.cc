@@ -465,6 +465,10 @@ namespace sandbox
         return {-EINVAL};
       }
       char buffer[maxSaneSockAddrSize];
+      // For defence in depth, initialise the stack buffer so that
+      // it's harder for `netpolicy.invoke` to accidentally leak kernel stack
+      // values.
+      memset(buffer, 0xa5, maxSaneSockAddrSize);
       memcpy(buffer, unsafeBase, length);
       int ret =
         netpolicy.invoke<Op>(h.fd, reinterpret_cast<sockaddr*>(buffer), length);
