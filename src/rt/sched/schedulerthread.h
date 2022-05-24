@@ -105,7 +105,10 @@ namespace verona::rt
       return core->token_cown;
     }
 
-    SchedulerThread() {}
+    SchedulerThread()
+    {
+      Logging::cout() << "Scheduler Thread created" << Logging::endl;
+    }
 
     ~SchedulerThread() {}
   
@@ -171,6 +174,7 @@ namespace verona::rt
     template<typename... Args>
     void run_inner(void (*startup)(Args...), Args... args)
     {
+      Logging::cout() << "Starting run_inner" << Logging::endl;
       startup(args...);
 
       Scheduler::local() = this;
@@ -365,7 +369,12 @@ namespace verona::rt
 
       if (core != nullptr)
       {
-        core->q.destroy(*alloc);
+        auto val = core->servicing_threads.fetch_sub(1);
+        if (val == 1)
+        {
+          Logging::cout() << "Destroying core " << core->affinity << Logging::endl;
+          core->q.destroy(*alloc);
+        }
       }
 
       Systematic::finished_thread();

@@ -372,7 +372,7 @@ namespace verona::rt
     bool add_thread()
     {
       auto value = atomic_state.load();
-      if (GET_STATE(value) >= State::AllInScan)
+      if (GET_STATE(value) >= State::Scan)
         return false;
       auto update = value + ADD_THREAD;
       return atomic_state.compare_exchange_strong(value, update);

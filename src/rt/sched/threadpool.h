@@ -559,9 +559,9 @@ namespace verona::rt
 #endif
       {
         auto h = sync.handle(local());
-        state.exit_thread();
+        auto barrier = state.exit_thread();
 #ifndef USE_SYSTEM_MONITOR
-        if (state.barrier_count() != 0)
+        if (barrier != 1)
         {
           while (inc == barrier_incarnation)
           {
@@ -575,9 +575,9 @@ namespace verona::rt
 #else
         UNUSED(inc);
         // The system monitor is the one that will wake everyone up
-        if (state.barrier_count() != 0)
+        if (barrier != 1)
         {
-          Logging::cout() << "Barrier not 0, pause" << Logging::endl;
+          Logging::cout() << "Barrier: " << barrier << ", pause" << Logging::endl;
           h.pause();
         }
         else
@@ -608,13 +608,7 @@ namespace verona::rt
       {
         thread = new T;
         thread->systematic_id = systematic_ids++;
-#ifdef USE_SYSTEMATIC_TESTING
-        thread->local_systematic = 
-          Systematic::create_systematic_thread(thread->systematic_id);
-#endif
         needsSysThread = true;
-        Logging::cout() << "Creating a new thread" << thread->systematic_id
-          <<Logging::endl;
       }
       else
       {
@@ -623,34 +617,6 @@ namespace verona::rt
       // At that point the thread is in neither sublists and does not have a core
       assert(thread->core == nullptr);
 
-      // Last chance to bail.
-      if (core->progress_counter != count)
-      {
-        Logging::cout() << "Late progress detected on core " << core->affinity
-          << Logging::endl;
-        if (needsSysThread)
-        {
-          // Just spawn it and let it park
-          threads->active.insert_back(thread);
-          bool success = state.add_thread();
-          // Have to bail
-          if (!success)
-          {
-            threads->active.remove(thread);
-            threads->m.unlock();
-            delete thread;
-            return;
-          }
-          builder.add_extra_thread(&T::run, thread, T::extra_start, thread);
-        }
-        else
-        {
-          threads->free.insert_back(thread);
-        }
-        threads->m.unlock();
-        return;
-      }
-      
       thread->core = core;
       threads->active.insert_back(thread);
       
@@ -662,12 +628,18 @@ namespace verona::rt
         if (!success)
         {
           threads->active.remove(thread);
-          delete thread;
           threads->m.unlock();
+          systematic_ids--;
+          delete thread;
           return;
         }
         threads->m.unlock();
-        Logging::cout() << "Spawning extra platform thread" << Logging::endl;
+        Logging::cout() << "Spawning extra platform thread " <<
+          thread->systematic_id << Logging::endl;
+#ifdef USE_SYSTEMATIC_TESTING
+          thread->local_systematic = 
+          Systematic::create_systematic_thread(thread->systematic_id);
+#endif
         builder.add_extra_thread(&T::run, thread, &nop);
         return;
       }
