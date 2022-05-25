@@ -322,7 +322,8 @@ namespace verona::rt
         // There are more workers and I am not the last one who made progress.
         // TODO @aghosn figure out if cown == nullptr is necessary
         if (cown == nullptr && 
-            core->servicing_threads > 1 && core->last_worker != this->systematic_id)
+            core->servicing_threads > 1 && core->last_worker != this->systematic_id &&
+            state == ThreadState::NotInLD && Scheduler::get().state.park_thread())
         {
           // The following should be safe as we are in the active list.
           this->core->servicing_threads--;

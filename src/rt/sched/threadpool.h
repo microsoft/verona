@@ -465,6 +465,7 @@ namespace verona::rt
           return false;
 
         // Check if we should wait for other threads to generate more work.
+        //TODO aghosn problem here
         if (active_thread_count > 1)
         {
           active_thread_count--;

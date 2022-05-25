@@ -110,40 +110,50 @@ namespace verona::rt
 
   private:
 #define IDX_BARRIER 0ULL
-#define IDX_VOTE 29ULL
+#define IDX_VOTER 19ULL
+#define IDX_VOTE 38ULL
 #define IDX_STATE 58ULL
 #define IDX_RETRACTED 63ULL
 
 #define U_BARRIER (1ULL << IDX_BARRIER)
+#define U_VOTER (1ULL << IDX_VOTER)
 #define U_VOTE (1ULL << IDX_VOTE)
 #define U_RETRACTED (1ULL << IDX_RETRACTED)
-#define ADD_THREAD (U_VOTE + U_BARRIER)
+#define ADD_THREAD (U_VOTE + U_BARRIER + U_VOTER)
+#define PARK_THREAD (U_VOTE + U_VOTER)
 
-#define MASK_BARRIER ((1ULL << (IDX_VOTE)) -1ULL)
+#define MASK_BARRIER ((1ULL << (IDX_VOTER)) -1ULL)
+#define MASK_VOTER ((((1ULL << IDX_VOTE) -1ULL) >> IDX_VOTER) << IDX_VOTER)
 #define MASK_VOTE ((((1ULL << IDX_STATE) - 1ULL) >> IDX_VOTE) << IDX_VOTE)
 #define MASK_STATE ((((1ULL << (IDX_RETRACTED)) -1ULL) >> IDX_STATE) << IDX_STATE)
 #define MASK_RETRACTED (1ULL << IDX_RETRACTED)
 
 
 #define GET_BARRIER(x) uint64_t(((x) & MASK_BARRIER) >> IDX_BARRIER)
+#define GET_VOTER(x) uint64_t(((x) & MASK_VOTER) >> IDX_VOTER)
 #define GET_VOTE(x) uint64_t(((x) & MASK_VOTE) >> IDX_VOTE)
 #define GET_STATE(x) uint64_t(((x) & MASK_STATE) >> IDX_STATE)
 #define GET_RETRACTED(x) uint64_t(((x) & MASK_RETRACTED) >> IDX_RETRACTED)
 
 #define SET_BARRIER(x, y) (CLEAR_BARRIER(x) | ((y) << IDX_BARRIER)) 
+#define SET_VOTER(x, y) (CLEAR_VOTER(x) | (y) << IDX_VOTER)
 #define SET_VOTE(x, y) (CLEAR_VOTE(x) | ((y) << IDX_VOTE))
 #define SET_STATE(x, y) (CLEAR_STATE(x) | ((y) << IDX_STATE))
 
 #define CLEAR_BARRIER(x) ((x) & ~MASK_BARRIER)
+#define CLEAR_VOTER(x) ((x) & ~MASK_VOTER)
 #define CLEAR_VOTE(x) ((x) & ~MASK_VOTE)
 #define CLEAR_STATE(x) ((x) & ~MASK_STATE)
 #define CLEAR_RETRACTED(x) ((x) & ~MASK_RETRACTED)
 
-    // Barrier_count should not be decremented until the end when threads
-    // do not participate any longer in the ld protocol. Is that correct?
-    // Here is the layout
-    //    63    | 62 ... 58 | 57 ... 29 | 28 ... 0
-    // retracted   state      vote        barrier_count 
+    // 19 bits Barrier_count should not be decremented until the end.
+    // 19 bits Voters can change dynamically with threads joining and parking.
+    // 19 bits Vote is set to voters and decremented upon each vote/parking.
+    // 1 bit to detect overflows.
+    // 5 bits to encode the state.
+    // 1 bit to encode retracted.
+    //    63    | 62 ... 58 | 57 | 56 ... 38 | 37 ... 19 | 18 ... 0
+    // retracted   state     sep     votes      voters    barrier_count 
     std::atomic_uint64_t atomic_state = (uint64_t(NotInLD) << IDX_STATE);
 
   public:
@@ -313,7 +323,7 @@ namespace verona::rt
       do
       {
         auto read = atomic_state.load();
-        auto val = SET_STATE(read | (GET_BARRIER(read) << IDX_VOTE), uint64_t(next));
+        auto val = SET_STATE(read | (GET_VOTER(read) << IDX_VOTE), uint64_t(next));
         res = atomic_state.compare_exchange_strong(read, val);
       }
       while(!res);
@@ -330,7 +340,7 @@ namespace verona::rt
       {
         auto read = atomic_state.load(); 
         assert(GET_VOTE(read) == 0);
-        auto val = SET_STATE(read | ((GET_BARRIER(read)-1) << IDX_VOTE), uint64_t(next));
+        auto val = SET_STATE(read | ((GET_VOTER(read)-1) << IDX_VOTE), uint64_t(next));
         res = atomic_state.compare_exchange_strong(read, val);
       }
       while(!res);
@@ -367,6 +377,7 @@ namespace verona::rt
     {
       atomic_state = SET_BARRIER(atomic_state, thread_count);
       atomic_state = SET_VOTE(atomic_state, thread_count);
+      atomic_state = SET_VOTER(atomic_state, thread_count);
     }
 
     bool add_thread()
@@ -383,9 +394,24 @@ namespace verona::rt
       return GET_BARRIER(atomic_state.fetch_sub(U_BARRIER));
     }
 
+    bool park_thread()
+    {
+      auto value = atomic_state.load();
+      if (GET_STATE(value) != ThreadState::NotInLD)
+        return false;
+      assert(GET_VOTE(value) > 1);
+      auto update = value - PARK_THREAD;
+      return atomic_state.compare_exchange_strong(value, update);
+    }
+
     uint64_t barrier_count()
     {
       return GET_BARRIER(atomic_state);
+    }
+
+    uint64_t get_voters()
+    {
+      return GET_VOTER(atomic_state);
     }
   };
 
