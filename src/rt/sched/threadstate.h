@@ -108,6 +108,17 @@ namespace verona::rt
       Finished,
     };
 
+    struct StateCounters
+    {
+      bool retracted;
+      State state;
+      size_t votes;
+      size_t voters;
+      size_t active_threads;
+      size_t barrier_count; 
+      size_t total_threads;
+    };
+
   private:
 #define IDX_BARRIER 0ULL
 #define IDX_VOTER 19ULL
@@ -155,6 +166,8 @@ namespace verona::rt
     //    63    | 62 ... 58 | 57 | 56 ... 38 | 37 ... 19 | 18 ... 0
     // retracted   state     sep     votes      voters    barrier_count 
     std::atomic_uint64_t atomic_state = (uint64_t(NotInLD) << IDX_STATE);
+
+    //StateCounters internal_state;
 
   public:
     constexpr ThreadState() = default;
@@ -397,10 +410,20 @@ namespace verona::rt
     bool park_thread()
     {
       auto value = atomic_state.load();
-      if (GET_STATE(value) != ThreadState::NotInLD)
+      if (GET_STATE(value) != State::NotInLD)
         return false;
       assert(GET_VOTE(value) > 1);
       auto update = value - PARK_THREAD;
+      return atomic_state.compare_exchange_strong(value, update);
+    }
+
+    bool unpark_thread()
+    {
+      auto value = atomic_state.load();
+      if (GET_STATE(value) != ThreadState::NotInLD)
+        return false;
+      assert(GET_VOTE(value) > 1);
+      auto update = value + PARK_THREAD;
       return atomic_state.compare_exchange_strong(value, update);
     }
 
@@ -412,6 +435,11 @@ namespace verona::rt
     uint64_t get_voters()
     {
       return GET_VOTER(atomic_state);
+    }
+
+    void reset()
+    {
+      atomic_state = (uint64_t(NotInLD) << IDX_STATE);
     }
   };
 

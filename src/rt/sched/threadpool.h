@@ -643,6 +643,15 @@ namespace verona::rt
 #endif
         builder.add_extra_thread(&T::run, thread, &nop);
         return;
+      } else {
+        bool success = state.unpark_thread();
+        if (!success)
+        {
+          threads->active.remove(thread);
+          threads->free.insert_back(thread);
+          threads->m.unlock();
+          return;
+        }
       }
       threads->m.unlock();
       Logging::cout() << "Unpark extra scheduler thread on core " << core->affinity
