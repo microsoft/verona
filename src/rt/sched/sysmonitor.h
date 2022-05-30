@@ -59,12 +59,12 @@ namespace verona::rt
             scan[i] = pool->cores[i]->progress_counter;
           }
 #ifdef USE_SYSTEMATIC_TESTING
-          auto start = std::chrono::system_clock::now();
-          auto end = start;
-          while((end-start) < quantum)
+          UNUSED(quantum);
+          size_t start = 0;
+          while(start < 1000)
           {
             yield();
-            end = std::chrono::system_clock::now();
+            start++;
           }
 #else
           std::this_thread::sleep_for(quantum);
