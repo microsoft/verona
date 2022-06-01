@@ -320,12 +320,9 @@ namespace verona::rt
 
 #ifdef USE_SYSTEM_MONITOR
         // There are more workers and I am not the last one who made progress.
-        // TODO @aghosn figure out if cown == nullptr is necessary
-        if (cown == nullptr && 
-            core->servicing_threads > 1 && core->last_worker != this->systematic_id &&
-            state == ThreadState::NotInLD && Scheduler::get().state.park_thread())
+        if (cown == nullptr && core->servicing_threads > 1 && 
+            core->last_worker != this->systematic_id && Scheduler::get().thread_park())
         {
-          // The following should be safe as we are in the active list.
           this->core->servicing_threads--;
           this->core = nullptr;
           this->park();
@@ -339,10 +336,6 @@ namespace verona::rt
 #endif
         yield();
       }
-      //TODO @aghosn should we make sure that only one thread goes
-      //through that teardown phase per core? 
-      //Do we need extra checks/sync to guarantee we do not get here with multiple
-      //threads on the same core?
       Monitor::get().threadExit();
 
       Logging::cout() << "Begin teardown (phase 1)" << Logging::endl;

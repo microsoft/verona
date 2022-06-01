@@ -26,7 +26,6 @@ namespace verona::rt
     friend class ThreadSyncSystematic<SysMonitor<Scheduler>>;
     Systematic::Local* local_systematic{nullptr};
 #endif
-
       SysMonitor() {}
     
     public:

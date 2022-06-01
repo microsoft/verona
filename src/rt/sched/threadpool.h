@@ -76,9 +76,6 @@ namespace verona::rt
     /// How many threads are being managed by this pool
     size_t thread_count = 0;
 
-    /// How many threads are not currently paused.
-    size_t active_thread_count = 0;
-
     /// Count of external event sources, such as I/O, that will prevent
     /// quiescence.
     size_t external_event_sources = 0;
@@ -94,6 +91,10 @@ namespace verona::rt
 
     /// Systematic ids
     size_t systematic_ids = 0;
+
+#ifdef USE_SYSTEM_MONITOR
+    T* sys_monitor_thread = nullptr;
+#endif
 
   public:
     static ThreadPool<T, E>& get()
@@ -328,6 +329,10 @@ namespace verona::rt
 #endif
         threads->addFree(t);
       }
+#ifdef USE_SYSTEM_MONITOR
+      sys_monitor_thread = new T;
+      sys_monitor_thread->systematic_id = 0;
+#endif
       Logging::cout() << "Runtime initialised" << Logging::endl;
       init_barrier();
     }
@@ -340,7 +345,6 @@ namespace verona::rt
     template<typename... Args>
     void run_with_startup(void (*startup)(Args...), Args... args)
     {
-      active_thread_count = thread_count;
 #ifdef USE_SYSTEM_MONITOR
       // Required when reusing the runtime.
       Monitor::get().done = false;
@@ -350,7 +354,7 @@ namespace verona::rt
 
         Logging::cout() << "Starting all threads" << Logging::endl;
 
-        for (size_t i = 0; i < active_thread_count; i++)
+        for (size_t i = 0; i < thread_count; i++)
         {
           T* t = threads->popFree(); 
           if (t == nullptr)
@@ -391,9 +395,10 @@ namespace verona::rt
       Object::reset_ids();
 #endif
       thread_count = 0;
-      active_thread_count = 0;
       state.reset<ThreadState::NotInLD>();
-
+#ifdef USE_SYSTEM_MONITOR
+      delete sys_monitor_thread;
+#endif
       Epoch::flush(ThreadAlloc::get());
       delete core_pool;
       delete threads;
@@ -401,12 +406,13 @@ namespace verona::rt
 
     static bool debug_not_running()
     {
-      return get().active_thread_count == 0;
+      return get().state.get_active_threads() == 0;
     }
 
   private:
     inline ThreadState::State next_state(ThreadState::State s)
     {
+      auto h = sync.handle(local());
       return state.next(s, thread_count);
     }
 
@@ -465,14 +471,14 @@ namespace verona::rt
           return false;
 
         // Check if we should wait for other threads to generate more work.
-        //TODO aghosn problem here
-        if (active_thread_count > 1)
+        auto value = state.get_active_threads();
+        if (value > 1)
         {
-          active_thread_count--;
+          state.dec_active_threads();
           Logging::cout() << "Pausing" << Logging::endl;
           h.pause(); // Spurious wake-ups are safe.
           Logging::cout() << "Unpausing" << Logging::endl;
-          active_thread_count++;
+          state.inc_active_threads();
           return true;
         }
 
@@ -562,7 +568,7 @@ namespace verona::rt
         auto h = sync.handle(local());
         auto barrier = state.exit_thread();
 #ifndef USE_SYSTEM_MONITOR
-        if (barrier != 1)
+        if (barrier != 0)
         {
           while (inc == barrier_incarnation)
           {
@@ -575,8 +581,7 @@ namespace verona::rt
         h.unpause_all();
 #else
         UNUSED(inc);
-        // The system monitor is the one that will wake everyone up
-        if (barrier != 1)
+        if (barrier != 0)
         {
           Logging::cout() << "Barrier: " << barrier << ", pause" << Logging::endl;
           h.pause();
@@ -590,6 +595,12 @@ namespace verona::rt
       }
     }
 
+    bool thread_park()
+    {
+      auto h = sync.handle(local());
+      return state.park_thread();
+    }
+
     void spawnThread(ThreadPoolBuilder& builder, Core<E>* core, size_t count)
     {
       // Quick check to bail.
@@ -599,6 +610,9 @@ namespace verona::rt
           << Logging::endl;
         return;
       }
+
+      // Lock everything
+      auto h = sync.handle(sys_monitor_thread);
 
       // This has to be done with the scheduler list locked in case someone
       // is executing stop or tries to park itself.

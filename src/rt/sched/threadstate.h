@@ -108,79 +108,35 @@ namespace verona::rt
       Finished,
     };
 
+    // TODO make them atomic?
     struct StateCounters
     {
-      bool retracted;
-      State state;
-      size_t votes;
-      size_t voters;
-      size_t active_threads;
-      size_t barrier_count; 
-      size_t total_threads;
+      std::atomic<bool> retracted = false;
+      std::atomic<State> state = NotInLD;
+      std::atomic<size_t> vote_yes = 0;
+      size_t voters = 0;
+      size_t active_threads = 0;
+      std::atomic<size_t> barrier_count = 0;
+      // This is mostly for debugging
+      size_t total_threads = 0;
     };
 
   private:
-#define IDX_BARRIER 0ULL
-#define IDX_VOTER 19ULL
-#define IDX_VOTE 38ULL
-#define IDX_STATE 58ULL
-#define IDX_RETRACTED 63ULL
 
-#define U_BARRIER (1ULL << IDX_BARRIER)
-#define U_VOTER (1ULL << IDX_VOTER)
-#define U_VOTE (1ULL << IDX_VOTE)
-#define U_RETRACTED (1ULL << IDX_RETRACTED)
-#define ADD_THREAD (U_VOTE + U_BARRIER + U_VOTER)
-#define PARK_THREAD (U_VOTE + U_VOTER)
-
-#define MASK_BARRIER ((1ULL << (IDX_VOTER)) -1ULL)
-#define MASK_VOTER ((((1ULL << IDX_VOTE) -1ULL) >> IDX_VOTER) << IDX_VOTER)
-#define MASK_VOTE ((((1ULL << IDX_STATE) - 1ULL) >> IDX_VOTE) << IDX_VOTE)
-#define MASK_STATE ((((1ULL << (IDX_RETRACTED)) -1ULL) >> IDX_STATE) << IDX_STATE)
-#define MASK_RETRACTED (1ULL << IDX_RETRACTED)
-
-
-#define GET_BARRIER(x) uint64_t(((x) & MASK_BARRIER) >> IDX_BARRIER)
-#define GET_VOTER(x) uint64_t(((x) & MASK_VOTER) >> IDX_VOTER)
-#define GET_VOTE(x) uint64_t(((x) & MASK_VOTE) >> IDX_VOTE)
-#define GET_STATE(x) uint64_t(((x) & MASK_STATE) >> IDX_STATE)
-#define GET_RETRACTED(x) uint64_t(((x) & MASK_RETRACTED) >> IDX_RETRACTED)
-
-#define SET_BARRIER(x, y) (CLEAR_BARRIER(x) | ((y) << IDX_BARRIER)) 
-#define SET_VOTER(x, y) (CLEAR_VOTER(x) | (y) << IDX_VOTER)
-#define SET_VOTE(x, y) (CLEAR_VOTE(x) | ((y) << IDX_VOTE))
-#define SET_STATE(x, y) (CLEAR_STATE(x) | ((y) << IDX_STATE))
-
-#define CLEAR_BARRIER(x) ((x) & ~MASK_BARRIER)
-#define CLEAR_VOTER(x) ((x) & ~MASK_VOTER)
-#define CLEAR_VOTE(x) ((x) & ~MASK_VOTE)
-#define CLEAR_STATE(x) ((x) & ~MASK_STATE)
-#define CLEAR_RETRACTED(x) ((x) & ~MASK_RETRACTED)
-
-    // 19 bits Barrier_count should not be decremented until the end.
-    // 19 bits Voters can change dynamically with threads joining and parking.
-    // 19 bits Vote is set to voters and decremented upon each vote/parking.
-    // 1 bit to detect overflows.
-    // 5 bits to encode the state.
-    // 1 bit to encode retracted.
-    //    63    | 62 ... 58 | 57 | 56 ... 38 | 37 ... 19 | 18 ... 0
-    // retracted   state     sep     votes      voters    barrier_count 
-    std::atomic_uint64_t atomic_state = (uint64_t(NotInLD) << IDX_STATE);
-
-    //StateCounters internal_state;
+    StateCounters internal_state;
 
   public:
     constexpr ThreadState() = default;
 
     State get_state()
     {
-      State state = static_cast<State>(GET_STATE(atomic_state));
-      return state;
+      //State state = static_cast<State>(GET_STATE(atomic_state));
+      return internal_state.state;
     }
 
     State next(State s, size_t total_votes)
     {
-      switch (GET_STATE(atomic_state))
+      switch (internal_state.state)
       {
         case NotInLD:
         {
@@ -192,7 +148,7 @@ namespace verona::rt
 
             case WantLD:
             {
-              atomic_state = SET_STATE(atomic_state, uint64_t(PreScan));
+              internal_state.state = PreScan;
               return vote_one<PreScan, Scan>(total_votes);
             }
 
@@ -265,7 +221,7 @@ namespace verona::rt
 
             case BelieveDone_Retract:
             {
-              atomic_state.fetch_or(U_RETRACTED);
+              internal_state.retracted = true;
               return vote<BelieveDone_Ack, ReallyDone>(total_votes);
             }
 
@@ -284,7 +240,7 @@ namespace verona::rt
             case BelieveDone_Ack:
             case ReallyDone:
             {
-              if (atomic_state & U_RETRACTED)
+              if (internal_state.retracted)
               {
                 vote<ReallyDone_Retract, AllInScan>(total_votes);
                 return ReallyDone_Retract;
@@ -330,42 +286,30 @@ namespace verona::rt
     void reset()
     {
       if (next == AllInScan)
-        atomic_state = CLEAR_RETRACTED(atomic_state);
+        internal_state.retracted = false;
 
-      bool res = false;
-      do
-      {
-        auto read = atomic_state.load();
-        auto val = SET_STATE(read | (GET_VOTER(read) << IDX_VOTE), uint64_t(next));
-        res = atomic_state.compare_exchange_strong(read, val);
-      }
-      while(!res);
+      internal_state.vote_yes.store(0);
+      internal_state.state = next;
     }
 
     template<State next>
     void reset_one()
     {
       if (next == AllInScan)
-        atomic_state = CLEAR_RETRACTED(atomic_state); 
+        internal_state.retracted = false;
 
-      bool res = false;
-      do
-      {
-        auto read = atomic_state.load(); 
-        assert(GET_VOTE(read) == 0);
-        auto val = SET_STATE(read | ((GET_VOTER(read)-1) << IDX_VOTE), uint64_t(next));
-        res = atomic_state.compare_exchange_strong(read, val);
-      }
-      while(!res);
+      internal_state.vote_yes.store(1);
+      internal_state.state = next;
     }
 
   private:
+    // @warn Needs locking
     template<State intermediate, State next>
     State vote(size_t total_votes)
     {
       UNUSED(total_votes);
-      auto val = atomic_state.fetch_sub(U_VOTE); 
-      if (GET_VOTE(val) == 1)
+      size_t vote = internal_state.vote_yes.fetch_add(1) + 1;
+      if (vote == internal_state.voters)
       {
         reset<next>();
         return next;
@@ -377,8 +321,8 @@ namespace verona::rt
     State vote_one(size_t total_votes)
     {
       UNUSED(total_votes);
-      auto val = atomic_state.fetch_sub(U_VOTE);
-      if (GET_VOTE(val) == 1)
+      size_t vote = internal_state.vote_yes.fetch_add(1) + 1;
+      if (vote == internal_state.voters)
       {
         reset_one<next>();
         return next;
@@ -388,61 +332,72 @@ namespace verona::rt
   public:
     void set_barrier(size_t thread_count)
     {
-      atomic_state = SET_BARRIER(atomic_state, thread_count);
-      atomic_state = SET_VOTE(atomic_state, thread_count);
-      atomic_state = SET_VOTER(atomic_state, thread_count);
+      internal_state.retracted = false;
+      internal_state.state = NotInLD;
+      internal_state.vote_yes = 0;
+      internal_state.voters = thread_count;
+      internal_state.active_threads = thread_count;
+      internal_state.barrier_count = thread_count;
+      internal_state.total_threads = thread_count;
     }
 
+    // @warn Requires holding the threadpool lock.
     bool add_thread()
     {
-      auto value = atomic_state.load();
-      if (GET_STATE(value) >= State::Scan)
+      if (internal_state.state >= Scan)
         return false;
-      auto update = value + ADD_THREAD;
-      return atomic_state.compare_exchange_strong(value, update);
+      internal_state.active_threads++;
+      internal_state.voters++;
+      internal_state.barrier_count++;
+      internal_state.total_threads++;
+      return true;
     }
 
-    uint64_t exit_thread()
+    // @warn Requires holding the threadpool lock.
+    size_t exit_thread()
     {
-      return GET_BARRIER(atomic_state.fetch_sub(U_BARRIER));
+      return internal_state.barrier_count.fetch_sub(1)-1;
     }
 
+    // @warn require threadpool lock
     bool park_thread()
     {
-      auto value = atomic_state.load();
-      if (GET_STATE(value) != State::NotInLD)
+      // We should not park if the LD protocol is in progress
+      // or if we are the last active thread
+      if (internal_state.state != NotInLD || internal_state.active_threads < 2)
         return false;
-      assert(GET_VOTE(value) > 1);
-      auto update = value - PARK_THREAD;
-      return atomic_state.compare_exchange_strong(value, update);
+     
+      // Nobody should have voted?
+      assert(internal_state.vote_yes == 0);
+      internal_state.voters--;
+      internal_state.active_threads--;
+      return true;
     }
 
     bool unpark_thread()
     {
-      auto value = atomic_state.load();
-      if (GET_STATE(value) != ThreadState::NotInLD)
+      if (internal_state.state != NotInLD)
         return false;
-      assert(GET_VOTE(value) > 1);
-      auto update = value + PARK_THREAD;
-      return atomic_state.compare_exchange_strong(value, update);
+      assert(internal_state.vote_yes == 0);
+      internal_state.voters++;
+      internal_state.active_threads++;
+      return true;
     }
 
-    uint64_t barrier_count()
+    size_t get_active_threads()
     {
-      return GET_BARRIER(atomic_state);
+      return internal_state.active_threads;
     }
 
-    uint64_t get_voters()
+    void dec_active_threads()
     {
-      return GET_VOTER(atomic_state);
+      internal_state.active_threads--;
     }
-
-    void reset()
+    void inc_active_threads()
     {
-      atomic_state = (uint64_t(NotInLD) << IDX_STATE);
+      internal_state.active_threads++;
     }
   };
-
 
 
   inline std::ostream&
