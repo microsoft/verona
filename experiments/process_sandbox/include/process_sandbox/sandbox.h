@@ -68,6 +68,9 @@ namespace sandbox
     {
     private:
       /**
+       * Concrete instance of a pagemap.  This is updated only with
+       * `pagemap_lock` held.
+       *
        * This pagemap spans the entire address space (i.e. does not use the
        * fixed-range option) because it covers all sandboxes.  Each sandbox is
        * (currently) a fixed range within the global address space.
@@ -101,6 +104,9 @@ namespace sandbox
       inline static std::recursive_mutex pagemap_lock;
 
     public:
+      /**
+       * Pagemap entry.
+       */
       using Entry = PagemapEntry;
 
       /**
