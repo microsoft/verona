@@ -11,8 +11,10 @@ int attack()
 {
   // Find the symbol from the library runner that contains the pagemap
   // address and load it.
+  // The following name is the mangled version of
+  //   sandbox::SnmallocGlobals::pagemap
   void* pagemap_base = *reinterpret_cast<void**>(
-    dlsym(RTLD_DEFAULT, "_ZN7sandbox15SnmallocGlobals7Pagemap7pagemapE"));
+    dlsym(RTLD_DEFAULT, "_ZN7sandbox15SnmallocGlobals7pagemapE"));
   SANDBOX_INVARIANT(
     pagemap_base != nullptr,
     "The mangled name or the visibility of the child's sandbox has changed.  "
