@@ -19,8 +19,8 @@ int attack()
     "This test must be updated");
   fprintf(stderr, "Found pagemap base %p\n", pagemap_base);
   // Try to make the pagemap read-write.
-  int ret =
-    mprotect(pagemap_base, snmalloc::Pal::page_size, PROT_READ | PROT_WRITE);
+  int ret = mprotect(
+    pagemap_base, snmalloc::DefaultPal::page_size, PROT_READ | PROT_WRITE);
   fprintf(stderr, "mprotect returned %d (%s)", ret, strerror(errno));
   // If we could, return 0, otherwise return the errno value.
   return ret == 0 ? 0 : errno;

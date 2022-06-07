@@ -37,7 +37,7 @@ namespace sandbox
         EV_SET(&event, fd, EVFILT_READ, EV_ADD, 0, 0, nullptr);
         if (kevent(kq, &event, 1, nullptr, 0, nullptr) == -1)
         {
-          snmalloc::Pal::error("Setting up kqueue");
+          snmalloc::DefaultPal::error("Setting up kqueue");
         }
       }
 
