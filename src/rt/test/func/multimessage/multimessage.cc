@@ -72,7 +72,7 @@ void test_multimessage(size_t cores)
   Cown::release(alloc, a2);
 
   sched.run();
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 int main(int argc, char** argv)

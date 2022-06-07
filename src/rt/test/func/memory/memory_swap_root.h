@@ -42,7 +42,7 @@ namespace memory_swap_root
     }
 
     region_release(nroot);
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     check(live_count == 0);
   }
 
@@ -97,7 +97,7 @@ namespace memory_swap_root
       alloc_in_region<0, XC, XC, C>(nroot1);
 
       region_release(nroot1);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
       check(live_count == 0);
     }
 

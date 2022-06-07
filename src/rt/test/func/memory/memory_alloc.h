@@ -18,7 +18,7 @@ namespace memory_alloc
   {
     auto a = alloc_region<First, Rest...>(region_type);
     region_release(a);
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     check(live_count == 0);
   }
 

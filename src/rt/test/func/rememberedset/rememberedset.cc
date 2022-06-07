@@ -84,7 +84,7 @@ void basic_test()
 
   region_release(o1);
 
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 template<RegionType region_type>
@@ -148,7 +148,7 @@ void merge_test()
   region_release(r1);
   // Don't release r2, it was deallocated during the merge.
 
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 int main(int argc, char** argv)

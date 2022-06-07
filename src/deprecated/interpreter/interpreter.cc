@@ -55,7 +55,7 @@ namespace verona::interpreter
 
     sched.run_with_startup<const Code*, bool>(VM::init_vm, &code, verbose);
 
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
   }
 
   void instantiate(InterpreterOptions& options, const Code& code)

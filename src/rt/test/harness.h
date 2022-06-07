@@ -170,7 +170,7 @@ public:
       }
 
       if (detect_leaks)
-        snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+        snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
       high_resolution_clock::time_point t1 = high_resolution_clock::now();
       std::cout << "Time so far: "
                 << duration_cast<seconds>((t1 - start)).count() << " seconds"

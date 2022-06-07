@@ -166,7 +166,7 @@ int main(int argc, char** argv)
     if (!test(seed))
       return 1;
 
-    debug_check_empty<snmalloc::Alloc::StateHandle>();
+    debug_check_empty<snmalloc::Alloc::Config>();
   }
 
   return 0;
