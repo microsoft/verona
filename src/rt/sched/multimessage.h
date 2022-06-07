@@ -69,8 +69,8 @@ namespace verona::rt
       assert(get_epoch() == e);
     }
 
-    static MultiMessageBody*
-    make_body(Alloc& alloc, size_t count, Request* requests, Behaviour* behaviour)
+    static MultiMessageBody* make_body(
+      Alloc& alloc, size_t count, Request* requests, Behaviour* behaviour)
     {
       return new (alloc.alloc<sizeof(MultiMessageBody)>())
         MultiMessageBody{0, count, requests, count, behaviour};

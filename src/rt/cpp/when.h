@@ -51,9 +51,9 @@ class When
     {
       auto p = std::get<index>(cown_tuple);
       if constexpr (is_read_only<decltype(p)>())
-        requests[index] = Request { p.underlying_cown(), AccessMode::READ };
+        requests[index] = Request{p.underlying_cown(), AccessMode::READ};
       else
-        requests[index] = Request { p.underlying_cown(), AccessMode::WRITE };
+        requests[index] = Request{p.underlying_cown(), AccessMode::WRITE};
       assert(requests[index].cown != nullptr);
       array_assign<index + 1>(requests);
     }

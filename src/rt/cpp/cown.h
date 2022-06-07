@@ -130,16 +130,24 @@ public:
 };
 
 template<typename T>
-class cown_ptr<const T> : public cown_ptr<T> {
+class cown_ptr<const T> : public cown_ptr<T>
+{
 public:
-  cown_ptr(const cown_ptr<T>& other) : cown_ptr<T>(other) {};
+  cown_ptr(const cown_ptr<T>& other) : cown_ptr<T>(other){};
 };
 
 template<typename T>
-cown_ptr<const T> read(cown_ptr<T> cown) { return cown; }
+cown_ptr<const T> read(cown_ptr<T> cown)
+{
+  return cown;
+}
 
-template<class T> struct is_read_only : std::false_type {};
-template<class T> struct is_read_only<cown_ptr<const T>> : std::true_type {};
+template<class T>
+struct is_read_only : std::false_type
+{};
+template<class T>
+struct is_read_only<cown_ptr<const T>> : std::true_type
+{};
 
 /**
  * Used to construct a new cown_ptr.

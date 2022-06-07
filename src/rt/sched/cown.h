@@ -65,9 +65,17 @@ namespace verona::rt
    * be descheduled until that behaviour has completed.
    */
 
-  enum class AccessMode { WRITE, READ };
+  enum class AccessMode
+  {
+    WRITE,
+    READ
+  };
 
-  struct Request { Cown* cown; AccessMode mode; };
+  struct Request
+  {
+    Cown* cown;
+    AccessMode mode;
+  };
 
   class Cown : public Object
   {
@@ -620,25 +628,31 @@ namespace verona::rt
 
       // find this cown in the list of cowns to acquire
       Request* request = body.requests;
-      while (request->cown != this) request++;
+      while (request->cown != this)
+        request++;
 
       // If the cown is not in use then the request can be serviced.
-      // Otherwise, if the cown is in use, the cown is being read and the request is a read,
-      // then the request can be servied.
+      // Otherwise, if the cown is in use, the cown is being read and the
+      // request is a read, then the request can be servied.
 
       bool read_cown_executing = false;
-      if (request->mode == AccessMode::READ) {
+      if (request->mode == AccessMode::READ)
+      {
         size_t count = read_ref_count.fetch_add(1);
 
-        if (body.exec_count_down.fetch_sub(1) > 1) {
+        if (body.exec_count_down.fetch_sub(1) > 1)
+        {
           return true;
-        } else {
+        }
+        else
+        {
           // In this case, this thread will execute the behaviour
           // but another thread can still use the cown
           read_cown_executing = true;
         }
-
-      } else { // otherwise it's a write
+      }
+      else
+      { // otherwise it's a write
         if (body.exec_count_down.fetch_sub(1) > 1)
           return false;
       }
@@ -707,10 +721,13 @@ namespace verona::rt
       // Free the body and the behaviour.
       alloc.dealloc(body.behaviour, body.behaviour->size());
 
-      //  Reschedule the writeable cowns (read-only cowns are not unscheduled for a behaviour).
+      //  Reschedule the writeable cowns (read-only cowns are not unscheduled
+      //  for a behaviour).
       for (size_t s = 0; s < body.count; s++)
       {
-        if ((body.requests[s].cown) && (body.requests[s].cown != this) && (body.requests[s].mode == AccessMode::WRITE))
+        if (
+          (body.requests[s].cown) && (body.requests[s].cown != this) &&
+          (body.requests[s].mode == AccessMode::WRITE))
           body.requests[s].cown->schedule();
       }
 
@@ -740,9 +757,10 @@ namespace verona::rt
     {
       Request requests[count];
       for (size_t i = 0; i < count; ++i)
-        requests[i] = Request { cowns[i], AccessMode::WRITE };
+        requests[i] = Request{cowns[i], AccessMode::WRITE};
 
-      schedule<Behaviour, transfer, Args...>(count, requests, std::forward<Args>(args)...);
+      schedule<Behaviour, transfer, Args...>(
+        count, requests, std::forward<Args>(args)...);
     }
 
     /**
@@ -847,7 +865,9 @@ namespace verona::rt
           while (request->cown != this)
             request++;
 
-          if (request->mode == AccessMode::WRITE && request->cown->read_ref_count > 0)
+          if (
+            request->mode == AccessMode::WRITE &&
+            request->cown->read_ref_count > 0)
             return true;
         }
 
@@ -1108,7 +1128,7 @@ namespace verona::rt
     {
       Request requests[count];
       for (size_t i = 0; i < count; ++i)
-        requests[i] = Request { cowns[i], AccessMode::WRITE };
+        requests[i] = Request{cowns[i], AccessMode::WRITE};
       auto* body =
         MultiMessage::make_body(alloc, count, requests, &unmute_behaviour);
       return MultiMessage::make_message(alloc, body, epoch);
