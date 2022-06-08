@@ -54,7 +54,7 @@ void test_epoch()
   }
 
   alloc.dealloc(special);
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
   (void)old;
 }
 

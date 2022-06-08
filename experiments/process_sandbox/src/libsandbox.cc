@@ -172,7 +172,8 @@ namespace sandbox
               break;
             }
             auto meta =
-              reinterpret_cast<SharedAllocConfig::SlabMetadata*>(rpc.args[1]);
+              reinterpret_cast<SharedAllocConfig::Backend::SlabMetadata*>(
+                rpc.args[1]);
             auto ras = rpc.args[2];
             // `meta` refers to the pointer to the slab metadata.  This field in
             // the `Entry` is dereferenced outside of the sandbox only in the
@@ -240,7 +241,7 @@ namespace sandbox
             }
             if (reply.error == 0)
             {
-              SharedAllocConfig::dealloc_range(*s, ptr, size);
+              SharedAllocConfig::Backend::dealloc_range(*s, ptr, size);
             }
             break;
           }

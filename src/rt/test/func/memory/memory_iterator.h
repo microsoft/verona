@@ -225,7 +225,7 @@ namespace memory_iterator
       }
 
       region_release(r);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
       check(live_count == 0);
     }
     else if constexpr (region_type == RegionType::Arena)
@@ -294,7 +294,7 @@ namespace memory_iterator
       }
 
       region_release(o);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
       check(live_count == 0);
     }
   }

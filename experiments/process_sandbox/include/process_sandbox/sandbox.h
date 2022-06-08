@@ -49,10 +49,9 @@ namespace sandbox
   struct SharedAllocConfig : public snmalloc::CommonConfig
   {
     /**
-     * Metadata for a slab.  This back end does not store any backend-specific
-     * metadata here.
+     * Pagemap entry.
      */
-    using SlabMetadata = snmalloc::FrontendSlabMetadata;
+    using PagemapEntry = SandboxMetaEntry;
 
     /**
      * The type of a pagemap that spans the entire address space.
@@ -67,12 +66,6 @@ namespace sandbox
      */
     class Pagemap
     {
-    public:
-      /**
-       * Pagemap entry.
-       */
-      using Entry = SandboxMetaEntry;
-
     private:
       /**
        * Concrete instance of a pagemap.  This is updated only with
@@ -84,7 +77,7 @@ namespace sandbox
        */
       inline static snmalloc::FlatPagemap<
         snmalloc::MIN_CHUNK_BITS,
-        Entry,
+        PagemapEntry,
         NoOpPal,
         /*fixed range*/ false>
         pagemap;
@@ -111,6 +104,11 @@ namespace sandbox
       inline static std::recursive_mutex pagemap_lock;
 
     public:
+      /**
+       * Pagemap entry.
+       */
+      using Entry = PagemapEntry;
+
       /**
        * Helper to get a reference to the pagemap and a lock guard.  This is the
        * only way of accessing the pagemap outside of this class.  It should be
@@ -247,11 +245,12 @@ namespace sandbox
        * The class that manages blocks of memory for this region.  This is
        * filled with the memory assigned to a specific sandbox on start.
        */
-      snmalloc::LargeBuddyRange<
+      snmalloc::Pipe<
         snmalloc::EmptyRange,
-        snmalloc::bits::BITS - 1,
-        snmalloc::bits::BITS - 1,
-        Pagemap>
+        snmalloc::LargeBuddyRange<
+          snmalloc::bits::BITS - 1,
+          snmalloc::bits::BITS - 1,
+          Pagemap>>
         memory;
 
       /**
@@ -318,83 +317,100 @@ namespace sandbox
      */
     using Pal = NoOpPal;
 
-    /**
-     * Allocate a chunk, its associated metaslab, and install its metadata
-     * entry in the pagemap.  This allocates the chunk in the sandbox-shared
-     * memory region and the metaslab in host-owned memory.  This means that
-     * all metadata associated with an allocation from outside is inaccessible
-     * by the sandbox and does not need to be validated.
-     */
-    static std::pair<snmalloc::capptr::Chunk<void>, SlabMetadata*>
-    alloc_chunk(LocalState& local_state, size_t size, uintptr_t ras)
+    struct Backend
     {
-      snmalloc::capptr::Chunk<void> chunk;
+      /**
+       * Metadata for a slab.  This back end does not store any backend-specific
+       * metadata here.
+       */
+      using SlabMetadata = snmalloc::FrontendSlabMetadata;
+
+      /**
+       * Allocate a chunk, its associated metaslab, and install its metadata
+       * entry in the pagemap.  This allocates the chunk in the sandbox-shared
+       * memory region and the metaslab in host-owned memory.  This means that
+       * all metadata associated with an allocation from outside is inaccessible
+       * by the sandbox and does not need to be validated.
+       */
+      static std::pair<snmalloc::capptr::Chunk<void>, SlabMetadata*>
+      alloc_chunk(LocalState& local_state, size_t size, uintptr_t ras)
       {
+        snmalloc::capptr::Chunk<void> chunk;
+        {
+          auto [g, m] = local_state.get_memory();
+          chunk = m.alloc_range(size);
+        }
+        if (chunk == nullptr)
+        {
+          return {nullptr, nullptr};
+        }
+        auto* meta = new SlabMetadata();
+        Pagemap::Entry t(meta, ras);
+        Pagemap::set_metaentry(address_cast(chunk), size, t);
+
+        chunk =
+          snmalloc::Aal::capptr_bound<void, snmalloc::capptr::bounds::Chunk>(
+            chunk, size);
+        return {chunk, meta};
+      }
+
+      /**
+       * Free a chunk of memory in the shared memory region.  This is used
+       * directly by `dealloc_chunk` and also to handle the RPC call from the
+       * child to deallocate memory.
+       */
+      static void dealloc_range(
+        LocalState& local_state,
+        snmalloc::capptr::Chunk<void> base,
+        size_t size)
+      {
+        Pagemap::Entry t;
+        t.claim_for_backend();
+        Pagemap::set_metaentry(base.unsafe_uintptr(), size, t);
         auto [g, m] = local_state.get_memory();
-        chunk = m.alloc_range(size);
+
+        m.dealloc_range(base, size);
       }
-      if (chunk == nullptr)
+
+      /**
+       * Deallocate a chunk and its associated metadata.
+       */
+      static void dealloc_chunk(
+        LocalState& local_state,
+        SlabMetadata& metadata,
+        snmalloc::capptr::Alloc<void> base,
+        size_t size)
       {
-        return {nullptr, nullptr};
+        snmalloc::capptr::Chunk<void> chunk{base.unsafe_ptr()};
+        dealloc_range(local_state, chunk, size);
+        delete &metadata;
       }
-      auto* meta = new SlabMetadata();
-      Pagemap::Entry t(meta, ras);
-      Pagemap::set_metaentry(address_cast(chunk), size, t);
 
-      chunk =
-        snmalloc::Aal::capptr_bound<void, snmalloc::capptr::bounds::Chunk>(
-          chunk, size);
-      return {chunk, meta};
-    }
+      /**
+       * Allocate metadata.  Metadata is stored outside of the sandbox and so
+       * this is just allocated with the normal malloc.
+       *
+       * This has a single concrete specialisation, to allocate metaslabs.  Any
+       * modifications to snmalloc that try to allocate other types though this
+       * interface will cause linker failures, allowing us to check whether they
+       * need to be allocated in the shared memory region or not.
+       *
+       * Note that there is no specialisation of this function to allocate
+       * allocators.  This would be used by the pool allocator functionality in
+       * snmalloc.  We should have exactly one shared allocator per sandbox and
+       * so we don't use the pool allocator and will get a link failure if we
+       * accidentally do.
+       */
+      template<typename T>
+      static snmalloc::capptr::Chunk<void>
+      alloc_meta_data(LocalState*, size_t size);
 
-    /**
-     * Free a chunk of memory in the shared memory region.  This is used
-     * directly by `dealloc_chunk` and also to handle the RPC call from the
-     * child to deallocate memory.
-     */
-    static void dealloc_range(
-      LocalState& local_state, snmalloc::capptr::Chunk<void> base, size_t size)
-    {
-      Pagemap::Entry t;
-      t.claim_for_backend();
-      Pagemap::set_metaentry(base.unsafe_uintptr(), size, t);
-      auto [g, m] = local_state.get_memory();
-
-      m.dealloc_range(base, size);
-    }
-
-    /**
-     * Deallocate a chunk and its associated metadata.
-     */
-    static void dealloc_chunk(
-      LocalState& local_state,
-      SlabMetadata& metadata,
-      snmalloc::capptr::Alloc<void> base,
-      size_t size)
-    {
-      snmalloc::capptr::Chunk<void> chunk{base.unsafe_ptr()};
-      dealloc_range(local_state, chunk, size);
-      delete &metadata;
-    }
-
-    /**
-     * Allocate metadata.  Metadata is stored outside of the sandbox and so
-     * this is just allocated with the normal malloc.
-     *
-     * This has a single concrete specialisation, to allocate metaslabs.  Any
-     * modifications to snmalloc that try to allocate other types though this
-     * interface will cause linker failures, allowing us to check whether they
-     * need to be allocated in the shared memory region or not.
-     *
-     * Note that there is no specialisation of this function to allocate
-     * allocators.  This would be used by the pool allocator functionality in
-     * snmalloc.  We should have exactly one shared allocator per sandbox and
-     * so we don't use the pool allocator and will get a link failure if we
-     * accidentally do.
-     */
-    template<typename T>
-    static snmalloc::capptr::Chunk<void>
-    alloc_meta_data(LocalState*, size_t size);
+      template<bool potentially_out_of_range = false>
+      static const PagemapEntry& get_metaentry(snmalloc::address_t addr)
+      {
+        return Pagemap::get_metaentry<potentially_out_of_range>(addr);
+      }
+    };
 
     /**
      * Options for configuring snmalloc.  This allocator is almost the exact

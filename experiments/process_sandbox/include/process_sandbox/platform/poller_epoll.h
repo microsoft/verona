@@ -37,7 +37,7 @@ namespace sandbox
         event.data.fd = fd;
         if (epoll_ctl(ep, EPOLL_CTL_ADD, fd, &event) == -1)
         {
-          snmalloc::Pal::error("Setting up epoll");
+          snmalloc::DefaultPal::error("Setting up epoll");
         }
       }
 

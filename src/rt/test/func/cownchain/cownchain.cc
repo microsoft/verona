@@ -59,5 +59,5 @@ int main(int, char**)
   auto& alloc = ThreadAlloc::get();
   auto a = ChainCown::make_chain(alloc, 100000);
   Cown::release(alloc, a);
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
