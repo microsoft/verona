@@ -106,7 +106,7 @@ void test1()
   // Free immutable graph.
   Immutable::release(alloc, r);
 
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 void test2()
@@ -161,7 +161,7 @@ void test2()
   // Free immutable graph.
   Immutable::release(alloc, o1);
 
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 void test3()
@@ -228,7 +228,7 @@ void test3()
   // Free immutable graph.
   Immutable::release(alloc, o1);
 
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 void test4()
@@ -279,7 +279,7 @@ void test4()
   // Free immutable graph.
   Immutable::release(alloc, o1);
 
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 void test5()
@@ -311,7 +311,7 @@ void test5()
   // Free immutable graph.
   Immutable::release(alloc, o1);
 
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 void freeze_weird_ring()
@@ -339,7 +339,7 @@ void freeze_weird_ring()
   // Free immutable graph.
   Immutable::release(alloc, root);
 
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 struct Symbolic : public V<Symbolic>
@@ -367,7 +367,7 @@ void test_two_rings_1()
   }
   freeze(r);
   Immutable::release(alloc, r);
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 void test_two_rings_2()
@@ -380,12 +380,12 @@ void test_two_rings_2()
   }
   freeze(r);
   Immutable::release(alloc, r);
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 void test_random(size_t seed = 1, size_t max_edges = 128)
 {
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
   auto& alloc = ThreadAlloc::get();
   size_t id = 0;
 
@@ -524,7 +524,7 @@ void test_random(size_t seed = 1, size_t max_edges = 128)
 
   Immutable::release(alloc, root);
 
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 int main(int, char**)

@@ -77,7 +77,7 @@ namespace memory_subregion
 
       Region::release(alloc, r);
     }
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     check(live_count == 0);
   }
 
@@ -175,7 +175,7 @@ namespace memory_subregion
 
       Region::release(alloc, r);
     }
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     check(live_count == 0);
   }
 
@@ -235,7 +235,7 @@ namespace memory_subregion
     check(Region::debug_size(r3) == 1);
 
     Region::release(alloc, r);
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
   }
 
   /**
@@ -274,7 +274,7 @@ namespace memory_subregion
       }
 
       Region::release(alloc, nroot);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     }
 
     // After swapping the root, the subregion now hangs off the entry object.
@@ -303,7 +303,7 @@ namespace memory_subregion
       }
 
       Region::release(alloc, nroot);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     }
 
     // Swap root for the subregion, and patch up parent region's pointer.
@@ -335,7 +335,7 @@ namespace memory_subregion
       }
 
       Region::release(alloc, r);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     }
   }
 
@@ -388,7 +388,7 @@ namespace memory_subregion
     }
 
     Region::release(alloc, r1);
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
   }
 
   template<RegionType region_type>
@@ -411,7 +411,7 @@ namespace memory_subregion
     std::cout << "Dealloc long region chain." << std::endl;
 
     Region::release(alloc, r1);
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     std::cout << "Dealloced long region chain." << std::endl;
   }
 

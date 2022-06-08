@@ -86,7 +86,8 @@ namespace sandbox
      * Private allocator.  Used to manage metadata allocations, which are
      * not shared with the parent.
      */
-    inline static snmalloc::SmallBuddyRange<PalRange> metadata_range;
+    inline static snmalloc::Pipe<PalRange, snmalloc::SmallBuddyRange>
+      metadata_range;
 
   public:
     /**
@@ -94,42 +95,55 @@ namespace sandbox
      */
     using Pal = snmalloc::PALNoAlloc<snmalloc::DefaultPal>;
 
+    using PagemapEntry = SandboxMetaEntry;
+
+    /**
+     * The pagemap that spans the entire address space.  This uses a read-only
+     * mapping of a shared memory region as its backing store.
+     */
+    inline static snmalloc::FlatPagemap<
+      snmalloc::MIN_CHUNK_BITS,
+      PagemapEntry,
+      snmalloc::DefaultPal,
+      /*fixed range*/ false>
+      pagemap;
+
     /**
      * Thread-local state.  Currently not used.
      */
     struct LocalState
     {};
 
-    /**
-     * This back end does not need to hold any extra metadata and so exports the
-     * default slab metadata type.
-     */
-    using SlabMetadata = snmalloc::FrontendSlabMetadata;
-
-    /**
-     * Adaptor for the pagemap that is managed by the parent.  This is backed
-     * by a shared-memory object that is passed into the child on process
-     * start and is then mapped read-only in the child.  All updates require
-     * an RPC to the parent, which will validate the updates and install them.
-     */
-    struct Pagemap
+    class Backend
     {
+    public:
       /**
        * This back end does not need to hold any extra metadata and so exports
-       * the default pagemap metadata type.
+       * the default slab metadata type.
        */
-      using Entry = SandboxMetaEntry;
+      using SlabMetadata = snmalloc::FrontendSlabMetadata;
 
       /**
-       * The pagemap that spans the entire address space.  This uses a read-only
-       * mapping of a shared memory region as its backing store.
+       * Allocate a chunk of memory and install its metadata in the pagemap.
+       * This performs a single RPC that validates the metadata and then
+       * allocates and installs the entry.
        */
-      inline static snmalloc::FlatPagemap<
-        snmalloc::MIN_CHUNK_BITS,
-        Entry,
-        snmalloc::DefaultPal,
-        /*fixed range*/ false>
-        pagemap;
+      static std::pair<snmalloc::capptr::Chunk<void>, SlabMetadata*>
+      alloc_chunk(LocalState& local_state, size_t size, uintptr_t ras);
+
+      static void dealloc_chunk(
+        LocalState& local_state,
+        SlabMetadata& meta_common,
+        snmalloc::capptr::Alloc<void> start,
+        size_t size);
+
+      /**
+       * Allocate metadata.  This allocates non-shared memory for metaslabs and
+       * shared memory for allocators.
+       */
+      template<typename T>
+      static snmalloc::capptr::Chunk<void>
+      alloc_meta_data(LocalState*, size_t size);
 
       /**
        * Return the metadata associated with an address.  This reads the
@@ -140,35 +154,7 @@ namespace sandbox
       {
         return pagemap.template get<potentially_out_of_range>(p);
       }
-
-      /**
-       * Ensure that the range is valid.  This is a no-op: the parent is
-       * responsible for ensuring that the pagemap covers the entire address
-       * range.
-       */
-      static void register_range(snmalloc::address_t, size_t) {}
     };
-
-    /**
-     * Allocate a chunk of memory and install its metadata in the pagemap.
-     * This performs a single RPC that validates the metadata and then
-     * allocates and installs the entry.
-     */
-    static std::pair<snmalloc::capptr::Chunk<void>, SlabMetadata*>
-    alloc_chunk(LocalState& local_state, size_t size, uintptr_t ras);
-    static void dealloc_chunk(
-      LocalState& local_state,
-      SlabMetadata& meta_common,
-      snmalloc::capptr::Alloc<void> start,
-      size_t size);
-
-    /**
-     * Allocate metadata.  This allocates non-shared memory for metaslabs and
-     * shared memory for allocators.
-     */
-    template<typename T>
-    static snmalloc::capptr::Chunk<void>
-    alloc_meta_data(LocalState*, size_t size);
 
     /**
      * The allocator pool type used to allocate per-thread allocators.

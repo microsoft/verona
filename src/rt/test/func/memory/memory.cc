@@ -27,7 +27,7 @@ void test_dealloc()
   void* p = alloc.alloc(size);
   alloc.dealloc(p, size);
 
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 size_t do_nothing(size_t x);

@@ -110,7 +110,7 @@ int main()
 
   Cown::release(alloc, b);
   sched.run();
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
   assert_variance();
 
   puts("done");

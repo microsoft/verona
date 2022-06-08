@@ -56,7 +56,7 @@ namespace ext_ref_merge
     region_release(r1);
     // Don't release r2, it was deallocated during the merge.
 
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
   }
 
   void run_test()

@@ -53,7 +53,7 @@ namespace memory_gc
       }
 
       region_release(o);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     }
 
     // Allocate a lot of objects that are all connected.
@@ -103,7 +103,7 @@ namespace memory_gc
       }
 
       region_release(o);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     }
   }
 
@@ -157,7 +157,7 @@ namespace memory_gc
       }
 
       region_release(o);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     }
 
     // Primary ring with objects that need finalisers.
@@ -201,7 +201,7 @@ namespace memory_gc
       }
 
       region_release(o);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     }
 
     // Two rings. First and last objects in secondary ring are garbage.
@@ -245,7 +245,7 @@ namespace memory_gc
         check(debug_size() == 7);
       }
       region_release(o);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     }
   }
 
@@ -292,7 +292,7 @@ namespace memory_gc
       check(scc->debug_test_rc(1));
     }
     region_release(r);
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
   }
 
   /**
@@ -372,7 +372,7 @@ namespace memory_gc
     }
 
     region_release(o);
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
   }
 
   /**
@@ -431,7 +431,7 @@ namespace memory_gc
     }
 
     region_release(r2);
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
   }
 
   /**
@@ -495,7 +495,7 @@ namespace memory_gc
     }
 
     region_release(nnroot);
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
   }
 
   void test_additional_roots()
@@ -561,7 +561,7 @@ namespace memory_gc
       check(debug_size() == 1);
     }
     region_release(o);
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
   }
 
   void run_test()

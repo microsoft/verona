@@ -117,7 +117,7 @@ namespace sandbox
       sl.line(),
       sl.function_name(),
       user_msg);
-    snmalloc::Pal::error(final_msg.c_str());
+    snmalloc::DefaultPal::error(final_msg.c_str());
   }
 
   enum DebugOption

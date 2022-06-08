@@ -364,8 +364,7 @@ namespace verona::rt
     }
   };
 
-  using LocalEpochPool =
-    snmalloc::Pool<LocalEpoch, snmalloc::Alloc::StateHandle>;
+  using LocalEpochPool = snmalloc::Pool<LocalEpoch, snmalloc::Alloc::Config>;
 
   template<typename T, bool predicate(LocalEpoch* p, T t)>
   bool LocalEpoch::forall(T t)
