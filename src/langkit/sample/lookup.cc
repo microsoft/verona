@@ -29,12 +29,6 @@ namespace sample
     auto ret = [=](Node def) {
       auto found = state->found;
       found.def = def;
-      // std::erase_if(found.map, [&](auto& sub) {
-      //   if (!sub.second)
-      //     return true;
-      //   auto find = def->lookup_all(sub.first->location());
-      //   return std::find(find.begin(), find.end(), sub.first) == find.end();
-      // });
       return found;
     };
 
@@ -64,9 +58,7 @@ namespace sample
         tp->end(),
         args.begin(),
         std::inserter(found.map, found.map.end()),
-        [](auto param, auto arg) {
-          return std::make_pair(param, arg);
-        });
+        [](auto param, auto arg) { return std::make_pair(param, arg); });
     };
 
     auto sub = [=](Node def) {
@@ -92,6 +84,12 @@ namespace sample
     };
 
     look->rules({
+      // Lookup target.
+      (T(Var) / T(Let) / T(Param) / T(Typeparam) / T(Class) / T(Function) /
+       T(Typealias))[id] >>
+        [=](auto& _) { return ret(_(id)); },
+
+      // Initial lookup.
       T(Ident)[id] * ~T(Typeargs)[Typeargs] >>
         [=](auto& _) {
           auto def = _(id)->lookup_first();
@@ -99,9 +97,42 @@ namespace sample
           return look->at(def);
         },
 
-      (T(Var) / T(Let) / T(Param) / T(Class) / T(Function))[id] >>
+      // Initial nested lookup.
+      (T(RefClass) / T(RefTypealias) / T(RefTypeparam) / T(Package))[lhs] *
+          T(DoubleColon) * T(Ident)[id] * ~T(Typeargs)[Typeargs] >>
         [=](auto& _) {
-          return ret(_(id));
+          auto l = look->at(_(lhs));
+          auto def = l.def->lookdown_first(_(id));
+          typeargs(_, def);
+          return look->at(def);
+        },
+
+      (T(RefClass) / T(Package))[lhs] * T(DoubleColon) * T(Ident)[id] *
+          ~T(Typeargs)[Typeargs] >>
+        [=](auto& _) {
+          auto l = look->at(_(lhs));
+          auto def = l.def->lookdown_first(_(id));
+          typeargs(_, def);
+          return look->at(def);
+        },
+
+      T(RefTypealias)[lhs] * T(DoubleColon) * T(Ident)[id] *
+          ~T(Typeargs)[Typeargs] >>
+        [=](auto& _) {
+          auto l = look->at(_(lhs));
+          auto def = l.def->lookdown_first(_(id));
+          typeargs(_, def);
+          return look->at(def);
+        },
+
+      // Initial nested lookup 
+      T(RefTypeparam)[lhs] * T(DoubleColon) * T(Ident)[id] *
+          ~T(Typeargs)[Typeargs] >>
+        [=](auto& _) {
+          auto l = look->at(_(lhs));
+          auto def = l.def->lookdown_first(_(id));
+          typeargs(_, def);
+          return look->at(def);
         },
 
       T(Type) << (Any[Type]) >> [=](auto& _) { return look->at(_(Type)); },
@@ -127,19 +158,12 @@ namespace sample
           return look->at(bounds);
         },
 
-      (T(RefClass) / T(RefTypealias) / T(RefTypeparam) / T(Package))[lhs] *
-          T(DoubleColon) * T(Ident)[id] * ~T(Typeargs)[Typeargs] >>
-        [=](auto& _) {
-          auto l = look->at(_(lhs));
-          auto def = l.def->lookdown_first(_(id));
-          typeargs(_, def);
-          return look->at(def);
-        },
-
+      // Repeating a lookup.
       (T(RefClass) / T(RefTypealias) / T(RefTypeparam) / T(Package))
           << (T(Ident) * T(Typeargs))[id] >>
         [=](auto& _) { return look->at(_[id]); },
 
+      // Repeating a nested lookup.
       (T(RefClass) / T(RefTypealias) / T(RefTypeparam) / T(Package))
           << (Any[lhs] * T(Ident)[id] * T(Typeargs)[Typeargs]) >>
         [=](auto& _) {

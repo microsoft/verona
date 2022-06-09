@@ -12,6 +12,7 @@ list inside Typeparams or Typeargs along with groups or other lists
 = in an initializer
 lookup
 - isect: lookup in lhs and rhs?
+- lookups in typetraits
 well-formedness for errors
 - error on too many typeargs
 
@@ -34,7 +35,33 @@ refvar
   refvar -> load?
 
 type assertions on:
-  reflet, refvar, refparam
+  reflet, refvar, refparam, literal
+
+## Lookup
+
+not nested: return the target
+nested
+  let/var/param/function: fail
+  class::X
+    lookup X in the class
+    if X is
+      class: done
+      typeparam: done
+      function: done
+      typealias: done
+  typeparam::X
+    lookup X in our bounds
+    the typeparam and our bounds may already have been subbed
+    `A[B[C]::E, B[D]::E]::F`
+      find A
+      find B, no subs
+      find C, no subs
+      find D, no subs
+      bind B[C]::E to A::_0
+      bind B[D]::E to A::_1
+        problem: two different bindings for the same typeparam B::_0
+      find F
+      drop binding
 
 ## type checker
 

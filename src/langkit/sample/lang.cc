@@ -25,6 +25,10 @@ namespace sample
           return (Class ^ ident)
             << Typeparams << Type << (Classbody << *_[File]);
         },
+
+      // Allow disambiguating anonymous types from class or function bodies.
+      In(Group) * T(Typealias) * T(Brace)[Classbody] >>
+        [](auto& _) { return TypeTrait << (Classbody << *_[Classbody]); },
     };
   }
 
@@ -36,9 +40,6 @@ namespace sample
         [](auto& _) { return Package << _[String]; },
 
       // Type.
-      // TODO: not good, because brace starts an interface type
-      // consuming to the end of the group is fine (because of = and ,) for
-      // everything except classes
       T(Colon)[Colon] * ((!T(Brace))++)[Type] >>
         [](auto& _) { return (Type ^ _(Colon)) << _[Type]; },
     };
@@ -53,38 +54,53 @@ namespace sample
   inline const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) /
     T(Hex) / T(Bin) / T(Int) / T(Float) / T(HexFloat);
 
+  auto typevar(auto& _, const Token& e, const Token& t)
+  {
+    return _(t) ? _(t) : TypeVar ^ _(e)->fresh();
+  }
+
   PassDef structure()
   {
     return {
-      // Field: (group let ident type)
-      In(Classbody) * T(Group)
-          << (T(Let) * T(Ident)[id] * ~T(Type)[Type] * End) >>
-        [](auto& _) { return _(id = FieldLet) << (_[Type] | Type) << Expr; },
-
-      // Field: (group var ident type)
-      In(Classbody) * T(Group)
-          << (T(Var) * T(Ident)[id] * ~T(Type)[Type] * End) >>
-        [](auto& _) { return _(id = FieldVar) << (_[Type] | Type) << Expr; },
-
-      // Field: (equals (group var ident type) group)
-      In(Classbody) * T(Equals)
-          << ((T(Group) << (T(Var) * T(Ident)[id] * ~T(Type)[Type] * End)) *
-              T(Group)[rhs] * End) >>
+      // Let Field:
+      // (equals (group let ident type) group)
+      // (group let ident type)
+      In(Classbody) *
+          (T(Equals)
+           << ((T(Group) << (T(Let) * T(Ident)[id] * ~T(Type)[Type] * End)) *
+               T(Group)[rhs] * End)) /
+          (T(Group) << (T(Let) * T(Ident)[id] * ~T(Type)[Type] * End)) >>
         [](auto& _) {
-          auto t = _(Type) ? _(Type) : TypeVar ^ _(id)->fresh();
-          return _(id = FieldVar) << t << (Expr << *_[rhs]);
+          return _(id = FieldLet) << typevar(_, id, Type) << (Expr << *_[rhs]);
         },
 
-      // Field: (equals (group let ident type) group)
-      In(Classbody) * T(Equals)
-          << ((T(Group) << (T(Let) * T(Ident)[id] * ~T(Type)[Type] * End)) *
-              T(Group)[rhs] * End) >>
+      // Var Field:
+      // (equals (group var ident type) group)
+      // (group var ident type)
+      In(Classbody) *
+          (T(Equals)
+           << ((T(Group) << (T(Var) * T(Ident)[id] * ~T(Type)[Type] * End)) *
+               T(Group)[rhs] * End)) /
+          (T(Group) << (T(Var) * T(Ident)[id] * ~T(Type)[Type] * End)) >>
         [](auto& _) {
-          auto t = _(Type) ? _(Type) : TypeVar ^ _(id)->fresh();
-          return _(id = FieldLet) << t << (Expr << *_[rhs]);
+          return _(id = FieldVar) << typevar(_, id, Type) << (Expr << *_[rhs]);
         },
 
       // Function.
+      // (equals (group name square parens type) group)
+      In(Classbody) *
+          (T(Equals)
+           << (T(Group) << (~Name[id] * ~T(Square)[Typeparams] *
+                            T(Paren)[Params] * ~T(Type)[Type]) *
+                 T(Group)[rhs])) >>
+        [](auto& _) {
+          _.def(id, apply);
+          return _(id = Function)
+            << (Typeparams << *_[Typeparams]) << (Params << *_[Params])
+            << typevar(_, Params, Type) << (Funcbody << _[rhs]);
+        },
+
+      // (group name square parens type brace)
       In(Classbody) * T(Group)
           << (~Name[id] * ~T(Square)[Typeparams] * T(Paren)[Params] *
               ~T(Type)[Type] * ~T(Brace)[Funcbody] * (Any++)[rhs]) >>
@@ -92,7 +108,7 @@ namespace sample
           _.def(id, apply);
           return Seq << (_(id = Function)
                          << (Typeparams << *_[Typeparams])
-                         << (Params << *_[Params]) << (_[Type] | Type)
+                         << (Params << *_[Params]) << typevar(_, Params, Type)
                          << (Funcbody << *_[Funcbody]))
                      << (Group << _[rhs]);
         },
@@ -103,14 +119,16 @@ namespace sample
 
       // Typeparam: (group ident type)
       In(Typeparams) * T(Group) << (T(Ident)[id] * ~T(Type)[Type] * End) >>
-        [](auto& _) { return _(id = Typeparam) << (_[Type] | Type) << Type; },
+        [](auto& _) {
+          return _(id = Typeparam) << typevar(_, id, Type) << Type;
+        },
 
       // Typeparam: (equals (group ident type) group)
       In(Typeparams) * T(Equals)
           << ((T(Group) << (T(Ident)[id] * ~T(Type)[Type] * End)) *
               T(Group)[rhs] * End) >>
         [](auto& _) {
-          return _(id = Typeparam) << (_[Type] | Type) << (Type << *_[rhs]);
+          return _(id = Typeparam) << typevar(_, id, Type) << (Type << *_[rhs]);
         },
 
       // Params.
@@ -119,14 +137,14 @@ namespace sample
 
       // Param: (group ident type)
       In(Params) * T(Group) << (T(Ident)[id] * ~T(Type)[Type] * End) >>
-        [](auto& _) { return _(id = Param) << (_[Type] | Type) << Expr; },
+        [](auto& _) { return _(id = Param) << typevar(_, id, Type) << Expr; },
 
       // Param: (equals (group ident type) group)
       In(Params) * T(Equals)
           << ((T(Group) << (T(Ident)[id] * ~T(Type)[Type] * End)) *
               T(Group)[Expr] * End) >>
         [](auto& _) {
-          return _(id = Param) << (_[Type] | Type) << (Expr << *_[Expr]);
+          return _(id = Param) << typevar(_, id, Type) << (Expr << *_[Expr]);
         },
 
       // Use.
@@ -140,7 +158,7 @@ namespace sample
               ~T(Type)[Type] * End) >>
         [](auto& _) {
           return _(id = Typealias)
-            << (Typeparams << *_[Typeparams]) << (_[Type] | Type) << Type;
+            << (Typeparams << *_[Typeparams]) << typevar(_, id, Type) << Type;
         },
 
       // Typealias: (equals (typealias typeparams type type) group)
@@ -151,7 +169,7 @@ namespace sample
               T(Group)[rhs] * End) >>
         [](auto& _) {
           return _(id = Typealias) << (Typeparams << *_[Typeparams])
-                                   << (_[Type] | Type) << (Type << *_[rhs]);
+                                   << typevar(_, id, Type) << (Type << *_[rhs]);
         },
 
       // Class.
@@ -173,7 +191,7 @@ namespace sample
       TypeStruct * T(Paren)[TypeTerm] >>
         [](auto& _) { return TypeTerm << *_[TypeTerm]; },
 
-      // Interfaces.
+      // Anonymous types.
       TypeStruct * T(Brace)[Classbody] >>
         [](auto& _) { return TypeTrait << (Classbody << *_[Classbody]); },
 
@@ -268,11 +286,10 @@ namespace sample
           return Seq << (Lift << Funcbody << _(lhs)) << _[rhs];
         },
 
-      // TODO: any single node?
-      // A tuple at the end of a term.
-      T(Term) << (T(Tuple)[rhs] * End) >> [](auto& _) { return _(rhs); },
+      // Compact single element terms.
+      T(Term) << (Any[op] * End) >> [](auto& _) { return _(op); },
 
-      // Empty groups.
+      // Remove empty groups.
       T(Group) << End >> [](auto& _) -> Node { return {}; },
     };
   }
@@ -490,12 +507,6 @@ namespace sample
   }
 
   inline const auto InContainer = In(Expr) / In(Term) / In(Tuple) / In(Call);
-  inline const auto Container =
-    T(Expr) / T(Term) / T(Tuple) / T(Assign) / T(Call) / T(CallLHS) / T(Let);
-  inline const auto LiftExpr =
-    T(Tuple) / T(Lambda) / T(Call) / T(CallLHS) / T(Assign) / Literal;
-  inline const auto RefExpr =
-    T(RefVar) / T(RefVarLHS) / T(RefLet) / T(RefParam);
 
   PassDef vardecl()
   {
@@ -503,20 +514,26 @@ namespace sample
       // Don't leave a reference to a var or let if it's declared at the top.
       In(Funcbody) * T(Expr)
           << ((T(Var) / T(Let))[Var] * ~T(Type)[Type] * End) >>
-        [](auto& _) {
-          auto e = _(Var);
-          auto t = _(Type) ? _(Type) : TypeVar ^ e->fresh();
-          return e << t;
-        },
+        [](auto& _) { return _(Var) << typevar(_, Var, Type); },
 
       // Lift a var declaration with it's type assertion.
       InContainer * T(Var)[Var] * ~T(Type)[Type] >>
         [](auto& _) {
-          auto e = _(Var);
-          auto t = _(Type) ? _(Type) : TypeVar ^ e->fresh();
-          return Seq << (Lift << Funcbody << (e << t)) << (RefVar ^ e);
+          return Seq << (Lift << Funcbody << (_(Var) << typevar(_, Var, Type)))
+                     << (RefVar ^ _(Var));
         },
+    };
+  }
 
+  inline const auto LHSExpr = T(RefLet) / T(RefVarLHS) / T(CallLHS);
+  inline const auto LiftExpr =
+    T(Tuple) / T(Lambda) / T(Call) / T(CallLHS) / T(Assign);
+  inline const auto RefExpr =
+    T(RefVar) / T(RefVarLHS) / T(RefLet) / T(RefParam) / Literal;
+
+  PassDef assignment()
+  {
+    return {
       // Turn a Tuple on the LHS of an assignment into a TupleLHS.
       In(Assign) * (T(Expr) << (T(Tuple)[lhs] * ~T(Type)[Type])) * Any[rhs] >>
         [](auto& _) {
@@ -544,21 +561,6 @@ namespace sample
 
       In(TupleLHS) * (T(Expr) << (T(RefVar)[lhs] * ~T(Type)[Type])) >>
         [](auto& _) { return Expr << (RefVarLHS ^ _(lhs)) << _[Type]; },
-    };
-  }
-
-  PassDef anf()
-  {
-    return {
-      // Lift an arbitrary expression as a let with a type assertion.
-      (In(Funcbody) / InContainer) * LiftExpr[Lift] * ~T(Type)[Type] >>
-        [](auto& _) {
-          auto e = _(Lift);
-          auto t = _(Type) ? _(Type) : TypeVar ^ e->fresh();
-          auto id = e->fresh();
-          return Seq << (Lift << Funcbody << (_(id = Let) << t << e))
-                     << (RefLet ^ id);
-        },
 
       // Destructuring assignment.
       In(Assign) * (T(Expr) << (T(TupleLHS)[lhs] * ~T(Type)[ltype] * End)) *
@@ -566,49 +568,43 @@ namespace sample
         [](auto& _) {
           auto e = _(rhs);
           auto id = e->fresh();
-          auto t = _(rtype) ? _(rtype) : TypeVar ^ e->fresh();
           Node tuple = Tuple;
-
-          auto l = _(lhs);
           size_t index = 0;
 
-          for (auto child : *l)
+          for (auto child : *_(lhs))
           {
             tuple
               << (Assign << child
                          << (Expr
-                             << (Call
-                                 << (Selector
-                                     << (Ident ^
-                                         Location("_" + std::to_string(index)))
-                                     << Typeargs)
-                                 << (RefLet ^ id))));
-            index++;
+                             << (Call << (Selector
+                                          << (Ident ^
+                                              Location(
+                                                "_" + std::to_string(index++)))
+                                          << Typeargs)
+                                      << (RefLet ^ id))));
           }
 
-          return Seq << (Lift << Funcbody << (_(id = Let) << t << e)) << tuple
-                     << _[ltype];
+          return Seq << (Lift << Funcbody
+                              << (_(id = Let) << typevar(_, rhs, rtype) << e))
+                     << tuple << _[ltype];
         },
 
       // Let binding.
       In(Assign) * (T(Expr) << (T(Let)[lhs] * ~T(Type)[ltype] * End)) *
-          (T(Expr) << (Any[rhs] * ~T(Type)[rtype] * End)) * End >>
+          T(Expr)[rhs] * End >>
         [](auto& _) {
-          auto e = _(lhs);
-          auto t = _(rtype) ? _(rtype) : TypeVar ^ e->fresh();
-          return Seq << (Lift << Funcbody << (e << t << _(rhs)))
-                     << (RefLet ^ e);
+          return Seq << (Lift << Funcbody
+                              << (_(lhs) << typevar(_, lhs, ltype) << _(rhs)))
+                     << (RefLet ^ _(lhs));
         },
 
       // Assignment.
-      In(Assign) * (T(Expr) << (Any[lhs] * ~T(Type)[ltype] * End)) *
-          (T(Expr) << (Any[rhs] * ~T(Type)[rtype] * End)) * End >>
+      In(Assign) * (T(Expr) << (LHSExpr[lhs] * ~T(Type)[ltype] * End)) *
+          (T(Expr) << (LiftExpr[rhs] * ~T(Type)[rtype] * End)) * End >>
         [](auto& _) {
-          // TODO: lift all type assertions?
-          // TODO: don't lift the rhs if it's not a liftexpr?
           auto e0 = _(rhs);
           auto id0 = e0->fresh();
-          auto t0 = _(rtype) ? _(rtype) : TypeVar ^ e0->fresh();
+          auto t0 = typevar(_, rhs, rtype);
 
           auto e1 = _(lhs);
           auto id1 = e1->fresh();
@@ -616,7 +612,7 @@ namespace sample
 
           auto e2 = Load ^ id1;
           auto id2 = e1->fresh();
-          auto t2 = _(ltype) ? _(ltype) : TypeVar ^ e1->fresh();
+          auto t2 = typevar(_, lhs, ltype);
 
           return Seq << (Lift << Funcbody << (_(id0 = Let) << t0 << e0))
                      << (Lift << Funcbody << (_(id1 = Let) << t1 << e1))
@@ -626,9 +622,45 @@ namespace sample
                      << (Expr << (RefLet ^ id2));
         },
 
-      // Compact assigns, terms, and exprs after they're reduced.
-      (T(Assign) / T(Term) / T(Expr)) << (Any[op] * End) >>
-        [](auto& _) { return _(op); },
+      In(Assign) * (T(Expr) << (LHSExpr[lhs] * ~T(Type)[ltype] * End)) *
+          (T(Expr) << (RefExpr[rhs] * ~T(Type)[rtype] * End)) * End >>
+        [](auto& _) {
+          // TODO: what do we do with rtype?
+          auto e1 = _(lhs);
+          auto id1 = e1->fresh();
+          auto t1 = TypeVar ^ e1->fresh();
+
+          auto e2 = Load ^ id1;
+          auto id2 = e1->fresh();
+          auto t2 = typevar(_, lhs, ltype);
+
+          return Seq << (Lift << Funcbody << (_(id1 = Let) << t1 << e1))
+                     << (Lift << Funcbody << (_(id2 = Let) << t2 << e2))
+                     << (Lift << Funcbody
+                              << (Store << (RefLet ^ id1) << _(rhs)))
+                     << (Expr << (RefLet ^ id2));
+        },
+
+      // Compact assigns after they're reduced.
+      T(Assign) << (Any[op] * End) >> [](auto& _) { return _(op); },
+    };
+  }
+
+  PassDef anf()
+  {
+    return {
+      // Lift an expression as a let with a type assertion.
+      (In(Funcbody) / InContainer) * LiftExpr[Lift] * ~T(Type)[Type] >>
+        [](auto& _) {
+          auto id = _(Lift)->fresh();
+          return Seq << (Lift
+                         << Funcbody
+                         << (_(id = Let) << typevar(_, Lift, Type) << _(Lift)))
+                     << (RefLet ^ id);
+        },
+
+      // Compact terms and exprs after they're reduced.
+      (T(Term) / T(Expr)) << (Any[op] * End) >> [](auto& _) { return _(op); },
     };
   }
 
@@ -663,6 +695,7 @@ namespace sample
         {"reverseapp", reverseapp()},
         {"application", application()},
         {"vardecl", vardecl()},
+        {"assignment", assignment()},
         {"anf", anf()},
         {"dnf", dnf()},
         {"infer", infer()},

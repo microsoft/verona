@@ -11,8 +11,8 @@ namespace sample
   {
     Parse p(depth::subdirectories);
     auto depth = std::make_shared<size_t>(0);
-    auto indent = std::make_shared<std::vector<std::pair<size_t, bool>>>();
-    indent->push_back({restart, false});
+    auto indent = std::make_shared<std::vector<size_t>>();
+    indent->push_back(restart);
 
     p.prefile(
       [](auto& p, auto& path) { return path::extension(path) == "verona"; });
@@ -32,7 +32,7 @@ namespace sample
     p.postfile([indent, depth](auto& p, auto ast) {
       *depth = 0;
       indent->clear();
-      indent->push_back({restart, false});
+      indent->push_back(restart);
     });
 
     p("start",
@@ -40,14 +40,14 @@ namespace sample
         // Blank lines terminate.
         "\n(?:[[:blank:]]*\n)+([[:blank:]]*)" >>
           [indent](auto& m) {
-            indent->back() = {m.match().length(1), false};
+            indent->back() = m.match().length(1);
             m.term(terminators);
           },
 
         // A newline that starts a brace block doesn't terminate.
         "\n([[:blank:]]*(\\{[[:blank:]]*))" >>
           [indent](auto& m) {
-            indent->push_back({m.match().length(1), false});
+            indent->push_back(m.match().length(1));
             m.pos() += m.len() - m.match().length(2);
             m.len() = 1;
             m.push(Brace);
@@ -57,30 +57,24 @@ namespace sample
         "\n([[:blank:]]*)" >>
           [indent](auto& m) {
             auto col = m.match().length(1);
-            auto prev = indent->back().first;
+            auto prev = indent->back();
 
             // If following a brace, don't terminate, but reset indentation.
             if (m.previous(Brace))
             {
-              indent->back() = {col, false};
+              indent->back() = col;
               return;
             }
 
-            // Set as a continuation expression and don't terminate if:
-            // * in a list
+            // Don't terminate and don't reset indentation if:
+            // * in an equals or list
             // * in a group and indented
-            if (
-              m.in(List) ||
-              (m.in(Group) && (col > prev) ||
-               ((col == prev) && indent->back().second)))
-            {
-              indent->back() = {prev, true};
+            if (m.in(Equals) || m.in(List) || (m.in(Group) && (col > prev)))
               return;
-            }
 
-            // Otherwise, terminate.
-            indent->back() = {col, false};
+            // Otherwise, terminate and reset indentation.
             m.term(terminators);
+            indent->back() = col;
           },
 
         // Whitespace between tokens.
@@ -92,7 +86,7 @@ namespace sample
         // FatArrow.
         "=>" >>
           [indent](auto& m) {
-            indent->back() = {m.linecol().second + 1, false};
+            indent->back() = m.linecol().second + 1;
             m.term(terminators);
             m.add(FatArrow);
             m.term(terminators);
@@ -107,8 +101,7 @@ namespace sample
         // Blocks.
         "\\(([[:blank:]]*)" >>
           [indent](auto& m) {
-            indent->push_back(
-              {m.linecol().second + m.match().length(1), false});
+            indent->push_back(m.linecol().second + m.match().length(1));
             m.push(Paren);
           },
 
@@ -121,8 +114,7 @@ namespace sample
 
         "\\[([[:blank:]]*)" >>
           [indent](auto& m) {
-            indent->push_back(
-              {m.linecol().second + m.match().length(1), false});
+            indent->push_back(m.linecol().second + m.match().length(1));
             m.push(Square);
           },
 
@@ -135,8 +127,7 @@ namespace sample
 
         "\\{([[:blank:]]*)" >>
           [indent](auto& m) {
-            indent->push_back(
-              {m.linecol().second + m.match().length(1), false});
+            indent->push_back(m.linecol().second + m.match().length(1));
             m.push(Brace);
           },
 
