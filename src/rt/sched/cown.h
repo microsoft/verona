@@ -554,7 +554,6 @@ namespace verona::rt
 
         if (body->requests[i].mode == AccessMode::READ) {
           body->requests[i].cown->read_ref_count.fetch_add(1);
-          body->requests[i].cown->schedule();
         }
         body->exec_count_down.fetch_sub(1);
 
@@ -567,6 +566,10 @@ namespace verona::rt
         const auto* m2 = next->queue.dequeue(alloc);
         assert(m == m2);
         UNUSED(m2);
+
+        if (body->requests[i].mode == AccessMode::READ) {
+          body->requests[i].cown->schedule();
+        }
       }
     }
 
