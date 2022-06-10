@@ -44,6 +44,24 @@ void test_read_only()
   };
 }
 
+void test_read_only_fast_send() {
+  // Test that fast sending to a read cown also reschedules the cown
+  cown_ptr<Account> account_one = make_cown<Account>(100);
+  cown_ptr<Account> account_two = make_cown<Account>(100);
+
+  when(read(account_one), read(account_two)) << [](acquired_cown<const Account> account_one, acquired_cown<const Account> account_two) {
+    check(account_one->balance == account_two->balance);
+  };
+
+  when(read(account_one), read(account_two)) << [](acquired_cown<const Account> account_one, acquired_cown<const Account> account_two) {
+    check(account_one->balance == account_two->balance);
+  };
+
+  when(account_one, account_two) << [](acquired_cown<Account> account_one, acquired_cown<Account> account_two) {
+    check(account_one->balance == account_two->balance);
+  };
+}
+
 int main(int argc, char** argv)
 {
   SystematicTestHarness harness(argc, argv);

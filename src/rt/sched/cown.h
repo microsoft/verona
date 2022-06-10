@@ -552,8 +552,10 @@ namespace verona::rt
           return;
         }
 
-        if (body->requests[i].mode == AccessMode::READ)
-          body->requests[i].cown->read_ref_count++;
+        if (body->requests[i].mode == AccessMode::READ) {
+          body->requests[i].cown->read_ref_count.fetch_add(1);
+          body->requests[i].cown->schedule();
+        }
         body->exec_count_down.fetch_sub(1);
 
         // The cown was asleep, so we have acquired it now. Dequeue the
@@ -639,7 +641,6 @@ namespace verona::rt
       if (request->mode == AccessMode::READ)
       {
         size_t count = read_ref_count.fetch_add(1);
-
         if (body.exec_count_down.fetch_sub(1) > 1)
         {
           return true;
