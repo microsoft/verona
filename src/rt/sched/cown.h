@@ -154,6 +154,8 @@ namespace verona::rt
      * Cown's read ref count.
      */
     std::atomic<size_t> read_ref_count{0};
+    bool write_waiting{false};
+    EnqueueLock write_waiting_lock;
 
     EnqueueLock enqueue_lock;
 
@@ -706,15 +708,8 @@ namespace verona::rt
 
       for (size_t i = 0; i < body.count; i++)
       {
-        Request request = body.requests[i];
-        if (request.cown)
-        {
-          // if the request was a read then decrement
-          if (request.mode == AccessMode::READ)
-            request.cown->read_ref_count.fetch_sub(1);
-
-          Cown::release(alloc, request.cown);
-        }
+        if (body.requests[i].cown)
+          Cown::release(alloc, body.requests[i].cown);
       }
 
       Logging::cout() << "MultiMessage " << m << " completed and running on "
@@ -727,10 +722,24 @@ namespace verona::rt
       //  for a behaviour).
       for (size_t s = 0; s < body.count; s++)
       {
-        if (
-          (body.requests[s].cown) && (body.requests[s].cown != this) &&
-          (body.requests[s].mode == AccessMode::WRITE))
-          body.requests[s].cown->schedule();
+        Request request = body.requests[s];
+        Cown* cown = request.cown;
+        if (cown)
+        {
+          if (request.mode == AccessMode::WRITE && cown != this)
+            cown->schedule();
+          else if (request.mode == AccessMode::READ) {
+            cown->write_waiting_lock.lock();
+            if (cown->read_ref_count.fetch_sub(1) == 1 && cown->write_waiting) {
+              if (cown != this)
+                cown->schedule();
+              else
+                read_cown_executing = false;
+              cown->write_waiting = false;
+            }
+            cown->write_waiting_lock.unlock();
+          }
+        }
       }
 
       alloc.dealloc(body.requests, body.count * sizeof(Request));
@@ -867,11 +876,17 @@ namespace verona::rt
           while (request->cown != this)
             request++;
 
+          write_waiting_lock.lock();
+          size_t count = request->cown->read_ref_count;
           if (
             request->mode == AccessMode::WRITE &&
-            request->cown->read_ref_count > 0)
+            count > 0) {
+            write_waiting = true;
+            write_waiting_lock.unlock();
             // here we want to unschedule the cown and wait for the last read of it to finish
-            return true;
+            return false;
+          }
+          write_waiting_lock.unlock();
         }
 
         curr = queue.dequeue(alloc, notify);
