@@ -552,9 +552,6 @@ namespace verona::rt
           return;
         }
 
-        if (body->requests[i].mode == AccessMode::READ) {
-          body->requests[i].cown->read_ref_count.fetch_add(1);
-        }
         body->exec_count_down.fetch_sub(1);
 
         // The cown was asleep, so we have acquired it now. Dequeue the
@@ -568,6 +565,7 @@ namespace verona::rt
         UNUSED(m2);
 
         if (body->requests[i].mode == AccessMode::READ) {
+          body->requests[i].cown->read_ref_count.fetch_add(1);
           body->requests[i].cown->schedule();
         }
       }
@@ -872,6 +870,7 @@ namespace verona::rt
           if (
             request->mode == AccessMode::WRITE &&
             request->cown->read_ref_count > 0)
+            // here we want to unschedule the cown and wait for the last read of it to finish
             return true;
         }
 
