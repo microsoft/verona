@@ -152,10 +152,9 @@ namespace verona::rt
 
     /*
      * Cown's read ref count.
+     * Top bit is used to signal a waiting write
      */
     std::atomic<size_t> read_ref_count{0};
-    bool write_waiting{false};
-    EnqueueLock write_waiting_lock;
 
     EnqueueLock enqueue_lock;
 
@@ -567,7 +566,7 @@ namespace verona::rt
         UNUSED(m2);
 
         if (body->requests[i].mode == AccessMode::READ) {
-          body->requests[i].cown->read_ref_count.fetch_add(1);
+          size_t rc = body->requests[i].cown->read_ref_count.fetch_add(1);
           body->requests[i].cown->schedule();
         }
       }
@@ -640,7 +639,7 @@ namespace verona::rt
       // Otherwise, if the cown is in use, the cown is being read and the
       // request is a read, then the request can be servied.
 
-      bool read_cown_executing = false;
+      bool schedule_after_behaviour = true;
       if (request->mode == AccessMode::READ)
       {
         size_t count = read_ref_count.fetch_add(1);
@@ -652,7 +651,7 @@ namespace verona::rt
         {
           // In this case, this thread will execute the behaviour
           // but another thread can still use the cown
-          read_cown_executing = true;
+          schedule_after_behaviour = false;
         }
       }
       else
@@ -700,7 +699,7 @@ namespace verona::rt
       // The message `m` will be deallocated when the next scheduler thread
       // picks up a message, so wait until after all the possible tracing to
       // reschedule this cown.
-      if (read_cown_executing)
+      if (!schedule_after_behaviour)
         schedule();
 
       // Run the behaviour.
@@ -729,15 +728,16 @@ namespace verona::rt
           if (request.mode == AccessMode::WRITE && cown != this)
             cown->schedule();
           else if (request.mode == AccessMode::READ) {
-            cown->write_waiting_lock.lock();
-            if (cown->read_ref_count.fetch_sub(1) == 1 && cown->write_waiting) {
+            size_t write_waiting_mask = 1UL << (sizeof(size_t) * CHAR_BIT - 1);
+            size_t rc = cown->read_ref_count.load(std::memory_order_relaxed);
+            while(!cown->read_ref_count.compare_exchange_strong(rc, ((rc & ~write_waiting_mask) - 1) | (rc & write_waiting_mask)));
+            if ((rc & ~write_waiting_mask) == 1 && (rc & write_waiting_mask) != 0) {
+              cown->read_ref_count.store(0, std::memory_order_relaxed);
               if (cown != this)
                 cown->schedule();
               else
-                read_cown_executing = false;
-              cown->write_waiting = false;
+                schedule_after_behaviour = true;
             }
-            cown->write_waiting_lock.unlock();
           }
         }
       }
@@ -746,7 +746,7 @@ namespace verona::rt
 
       alloc.dealloc<sizeof(MultiMessage::MultiMessageBody)>(&body);
 
-      return !read_cown_executing;
+      return schedule_after_behaviour;
     }
 
   public:
@@ -876,17 +876,14 @@ namespace verona::rt
           while (request->cown != this)
             request++;
 
-          write_waiting_lock.lock();
-          size_t count = request->cown->read_ref_count;
-          if (
-            request->mode == AccessMode::WRITE &&
-            count > 0) {
-            write_waiting = true;
-            write_waiting_lock.unlock();
-            // here we want to unschedule the cown and wait for the last read of it to finish
-            return false;
+          if (request->mode == AccessMode::WRITE)
+          {
+            size_t rc = read_ref_count.load(std::memory_order_relaxed);
+            while(rc > 0 && !read_ref_count.compare_exchange_strong(rc, rc | (1UL << (sizeof(size_t) * CHAR_BIT - 1))));
+            if(rc > 0) {
+              return false;
+            }
           }
-          write_waiting_lock.unlock();
         }
 
         curr = queue.dequeue(alloc, notify);
