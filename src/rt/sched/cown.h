@@ -874,13 +874,17 @@ namespace verona::rt
           while (request->cown != this)
             request++;
 
-          if (request->mode == AccessMode::WRITE)
+          // If a write is required read the ref count,
+          // if it is non-zero set the bottom bit to signal a waiting write
+          if (request->mode == AccessMode::WRITE && read_ref_count.load(std::memory_order_relaxed) > 0)
           {
-            size_t rc = read_ref_count.load(std::memory_order_relaxed);
-            while(rc > 0 && !read_ref_count.compare_exchange_strong(rc, rc + 1));
-            if(rc > 0) {
+            // if in the time between reading and writing the ref count, it
+            // became zero, we can now process the write, so clear the flag
+            // and continue
+            if (read_ref_count.fetch_add(1) == 0)
+              read_ref_count.fetch_sub(1);
+            else
               return false;
-            }
           }
         }
 
