@@ -566,7 +566,7 @@ namespace verona::rt
         UNUSED(m2);
 
         if (body->requests[i].mode == AccessMode::READ) {
-          size_t rc = body->requests[i].cown->read_ref_count.fetch_add(1);
+          size_t rc = body->requests[i].cown->read_ref_count.fetch_add(2);
           body->requests[i].cown->schedule();
         }
       }
@@ -642,7 +642,7 @@ namespace verona::rt
       bool schedule_after_behaviour = true;
       if (request->mode == AccessMode::READ)
       {
-        size_t count = read_ref_count.fetch_add(1);
+        size_t count = read_ref_count.fetch_add(2);
         if (body.exec_count_down.fetch_sub(1) > 1)
         {
           return true;
@@ -728,10 +728,8 @@ namespace verona::rt
           if (request.mode == AccessMode::WRITE && cown != this)
             cown->schedule();
           else if (request.mode == AccessMode::READ) {
-            size_t write_waiting_mask = 1UL << (sizeof(size_t) * CHAR_BIT - 1);
-            size_t rc = cown->read_ref_count.load(std::memory_order_relaxed);
-            while(!cown->read_ref_count.compare_exchange_strong(rc, ((rc & ~write_waiting_mask) - 1) | (rc & write_waiting_mask)));
-            if ((rc & ~write_waiting_mask) == 1 && (rc & write_waiting_mask) != 0) {
+            size_t rc = cown->read_ref_count.fetch_sub(2);
+            if (rc == 3) {
               cown->read_ref_count.store(0, std::memory_order_relaxed);
               if (cown != this)
                 cown->schedule();
@@ -879,7 +877,7 @@ namespace verona::rt
           if (request->mode == AccessMode::WRITE)
           {
             size_t rc = read_ref_count.load(std::memory_order_relaxed);
-            while(rc > 0 && !read_ref_count.compare_exchange_strong(rc, rc | (1UL << (sizeof(size_t) * CHAR_BIT - 1))));
+            while(rc > 0 && !read_ref_count.compare_exchange_strong(rc, rc + 1));
             if(rc > 0) {
               return false;
             }
