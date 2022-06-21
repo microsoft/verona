@@ -52,17 +52,22 @@ namespace verona::rt
 
   /**
    * A cown, or concurrent owner, encapsulates a set of resources that may be
-   * accessed by a single (scheduler) thread at a time. A cown can only be in
-   * exactly one of the following states:
+   * accessed by a single (scheduler) thread at a time when writing, or
+   * accessed by multiple (scheduler) threads at a time when reading.
+   * A cown can only be in one of the following states:
    *   1. Unscheduled
    *   2. Scheduled, in the queue of a single scheduler thread
-   *   3. Running on a single scheduler thread
+   *   3. Running with read/write access on a single scheduler thread, and not in the queue of any scheduler thread
+   *   4. Running with read access on one or more scheduler threads, and may also be in the queue of one other scheduler thread
    *
    * Once a cown is running, it executes a batch of multi-message behaviours.
    * Each message may either acquire the running cown for participation in a
    * future behaviour, or execute the behaviour if it is the last cown to be
-   * acquired. If the running cown is acquired for a future behaviour, it will
-   * be descheduled until that behaviour has completed.
+   * acquired.
+   * If the running cown is acquired for writing for a future behaviour, it will be descheduled until that behaviour has completed.
+   * If the running cown is acquired for reading for a future behaviour, it will not be descheduled.
+   * If the running cown is acquired for reading _and_ executing on this thread, the cown will be rescheduled to be picked up by another thread.
+   * (it might later return to this thread if this is the last thread to use the cown in read more before a write).
    */
 
   enum class AccessMode
@@ -152,7 +157,8 @@ namespace verona::rt
 
     /*
      * Cown's read ref count.
-     * Top bit is used to signal a waiting write
+     * Bottom bit is used to signal a waiting write.
+     * Remaining bits are the count.
      */
     std::atomic<size_t> read_ref_count{0};
 
@@ -630,32 +636,25 @@ namespace verona::rt
         }
       }
 
-      // find this cown in the list of cowns to acquire
+      // Find this cown in the list of cowns to acquire
       Request* request = body.requests;
       while (request->cown != this)
         request++;
 
-      // If the cown is not in use then the request can be serviced.
-      // Otherwise, if the cown is in use, the cown is being read and the
-      // request is a read, then the request can be servied.
-
       bool schedule_after_behaviour = true;
       if (request->mode == AccessMode::READ)
       {
-        size_t count = read_ref_count.fetch_add(2);
+        read_ref_count.fetch_add(2);
         if (body.exec_count_down.fetch_sub(1) > 1)
-        {
           return true;
-        }
         else
-        {
           // In this case, this thread will execute the behaviour
-          // but another thread can still use the cown
+          // but another thread can still read this cown, so reschedule
+          // it before executing the behaviour and do not reschedule it after.
           schedule_after_behaviour = false;
-        }
       }
       else
-      { // otherwise it's a write
+      { // request->mode == AccessMode::WRITE
         if (body.exec_count_down.fetch_sub(1) > 1)
           return false;
       }
@@ -697,7 +696,7 @@ namespace verona::rt
       Scheduler::local()->message_body = &body;
 
       // The message `m` will be deallocated when the next scheduler thread
-      // picks up a message, so wait until after all the possible tracing to
+      // picks up a message, so wait until after all the possible uses of `m` to
       // reschedule this cown.
       if (!schedule_after_behaviour)
         schedule();
@@ -728,6 +727,11 @@ namespace verona::rt
           if (request.mode == AccessMode::WRITE && cown != this)
             cown->schedule();
           else if (request.mode == AccessMode::READ) {
+            // If this read is the last read of a cown, and that cown's next
+            // message requires writing, clear the flag and either:
+            //   - schedule the cown if it is not this cown, or
+            //   - continue processing this cown's message on this scheduler thread
+            //     (overwriting the previous decision to stop processing this cown).
             size_t rc = cown->read_ref_count.fetch_sub(2);
             if (rc == 3) {
               cown->read_ref_count.store(0, std::memory_order_relaxed);
