@@ -6,6 +6,8 @@
 #include <memory>
 #include <test/harness.h>
 
+using namespace verona::cpp;
+
 struct Fork
 {
   size_t uses{0};

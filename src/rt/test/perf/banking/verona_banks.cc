@@ -7,6 +7,8 @@
 #include <memory>
 #include <test/harness.h>
 
+using namespace verona::cpp;
+
 /**
  * This file implements an example of a set of Workers
  * creating transactions.  The transactions use Accounts,
