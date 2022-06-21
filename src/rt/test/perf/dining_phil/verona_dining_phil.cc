@@ -19,10 +19,7 @@ struct Fork
 
   ~Fork()
   {
-    // Contains the uses == 0 case, due to copies during
-    // setup needing to be destroyed.
-    // Should look to make example copy free.
-    check(((HUNGER * 2) == uses) || (uses == 0));
+    check((HUNGER * 2) == uses);
   }
 };
 
