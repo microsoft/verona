@@ -578,7 +578,7 @@ namespace verona::rt
 
         if (body->requests[i].mode == AccessMode::READ)
         {
-          size_t rc = body->requests[i].cown->read_ref_count.fetch_add(2);
+          body->requests[i].cown->read_ref_count.fetch_add(2);
           body->requests[i].cown->schedule();
         }
       }
