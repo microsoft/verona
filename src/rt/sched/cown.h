@@ -744,6 +744,8 @@ namespace verona::rt
             size_t rc = cown->read_ref_count.fetch_sub(2);
             if (rc == 3)
             {
+              Systematic::yield();
+              assert(cown->read_ref_count.load() == 1);
               cown->read_ref_count.store(0, std::memory_order_relaxed);
               if (cown != this)
                 cown->schedule();
@@ -898,7 +900,11 @@ namespace verona::rt
             // became zero, we can now process the write, so clear the flag
             // and continue
             if (read_ref_count.fetch_add(1) == 0)
+            {
               read_ref_count.fetch_sub(1);
+              Systematic::yield();
+              assert(read_ref_count.load() == 0);
+            }
             else
               return false;
           }
