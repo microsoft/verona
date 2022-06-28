@@ -22,7 +22,7 @@ enum TX_TYPES
 
 struct Checking
 {
-  uint64_t balance;
+  int64_t balance;
 };
 
 struct Savings
@@ -91,12 +91,15 @@ void transact_savings(
   std::string user_id,
   int64_t amount)
 {
-  auto account = accounts.at(user_id);
-  when(account.savings) << [=](acquired_cown<Savings> sa_acq) {
+  auto account = accounts.find(user_id);
+  if (account == accounts.end())
+    return;
+
+  when(account->second.savings) << [=](acquired_cown<Savings> sa_acq) {
     if ((amount < 0) && (sa_acq->balance < static_cast<uint64_t>(-1 * amount)))
       return;
     sa_acq->balance += amount;
-    std::cout << "transact savings";
+    std::cout << "transact savings\n";
   };
 }
 
@@ -148,7 +151,7 @@ public:
   static void generate_tx(acquired_cown<Generator>& g_acq)
   {
     // Business logic
-    uint8_t txn_type = 1; // rand() % TX_COUNT;
+    uint8_t txn_type = 2; // rand() % TX_COUNT;
     uint64_t acc1 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
 
     switch (txn_type)
@@ -158,6 +161,9 @@ public:
         break;
       case DEPOSIT_CKN:
         deposit_checking(g_acq->accounts, std::to_string(acc1), rand());
+        break;
+      case TRANSACT_SNG:
+        transact_savings(g_acq->accounts, std::to_string(acc1), rand());
         break;
     }
 
