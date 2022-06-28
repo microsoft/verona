@@ -6,9 +6,11 @@
 
 using namespace verona::rt;
 
-const uint32_t GENERATOR_COUNT = 1;
+const uint32_t GENERATOR_COUNT = 2;
 const uint64_t ACCOUNTS_COUNT = 1000;
 const uint8_t ACCOUNT_EXTRA = 10;
+const uint32_t PER_GEN_TX_COUNT = 1e6;
+const uint32_t TX_BATCH= 10;
 
 enum TX_TYPES
 {
@@ -36,6 +38,8 @@ struct Account
   cown_ptr<Savings> savings;
 };
 
+using Accounts = std::unordered_map<std::string, Account>;
+
 // Balance transaction: Return sum of savings and checking
 void balance(
   std::unordered_map<std::string, Account>& accounts, std::string user_id)
@@ -52,16 +56,10 @@ void balance(
       acquired_cown<Checking> ch_acq, acquired_cown<Savings> sa_acq) mutable {
       Promise<uint64_t>::fulfill(
         std::move(wp), ch_acq->balance + sa_acq->balance);
-      std::cout << "Balance accounts\n";
     };
 
   pp.first.then([](std::variant<uint64_t, Promise<uint64_t>::PromiseErr> val) {
-    if (std::holds_alternative<uint64_t>(val))
-    {
-      auto v = std::get<uint64_t>(std::move(val));
-      std::cout << "Balance result " << v << std::endl;
-    }
-    else
+    if (!std::holds_alternative<uint64_t>(val))
     {
       Logging::cout() << "Got promise error" << std::endl;
       abort();
@@ -81,7 +79,6 @@ void deposit_checking(
 
   when(account->second.checking) << [=](acquired_cown<Checking> ch_acq) {
     ch_acq->balance += amount;
-    std::cout << "deposit checking\n";
   };
 }
 
@@ -99,7 +96,6 @@ void transact_savings(
     if ((amount < 0) && (sa_acq->balance < static_cast<uint64_t>(-1 * amount)))
       return;
     sa_acq->balance += amount;
-    std::cout << "transact savings\n";
   };
 }
 
@@ -119,7 +115,6 @@ void write_check(
            ch_acq->balance -= (amount + 1);
          else
            ch_acq->balance -= amount;
-         std::cout << "Write check\n";
        };
 }
 
@@ -145,57 +140,75 @@ void amalgamate(
          ch_acq2->balance += (sa_acq1->balance + ch_acq1->balance);
          sa_acq1->balance = 0;
          ch_acq1->balance = 0;
-         std::cout << "amalgamate\n";
        };
 }
 
 struct Generator
 {
 private:
-  std::unordered_map<std::string, Account>& accounts;
+  std::shared_ptr<Accounts> accounts;
+  uint32_t tx_count;
+  std::chrono::time_point<std::chrono::system_clock> start;
+
+  void print_stats()
+  {
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> duration = end - start;
+    std::cout << "Generator: " << std::hex
+      << (unsigned long)this << ": Dispatched "
+      << tx_count / duration.count() << " tx/s\n";
+    fflush(stdout);
+  }
 
 public:
-  Generator(std::unordered_map<std::string, Account>& accounts_)
-  : accounts(accounts_)
+  Generator(std::shared_ptr<Accounts> accounts_)
+  : accounts(accounts_), tx_count(0), start(std::chrono::system_clock::now())
   {}
   static void generate_tx(acquired_cown<Generator>& g_acq)
   {
     // Business logic
-    uint8_t txn_type = 4; // rand() % TX_COUNT;
-    uint64_t acc1 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
-
-    switch (txn_type)
+    for (uint32_t i=0;i<TX_BATCH;i++)
     {
-      case BALANCE:
-        balance(g_acq->accounts, std::to_string(acc1));
-        break;
-      case DEPOSIT_CKN:
-        deposit_checking(g_acq->accounts, std::to_string(acc1), rand());
-        break;
-      case TRANSACT_SNG:
-        transact_savings(g_acq->accounts, std::to_string(acc1), rand());
-        break;
-      case WRITE_CHECK:
-        write_check(g_acq->accounts, std::to_string(acc1), rand());
-        break;
-      case AMLGMT:
-        uint64_t acc2 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
-        while (acc2 == acc1)
-          acc2 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
-        amalgamate(g_acq->accounts, std::to_string(acc1), std::to_string(acc2));
-        break;
+      uint8_t txn_type = rand() % TX_COUNT;
+      uint64_t acc1 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
+
+      switch (txn_type)
+      {
+        case BALANCE:
+          balance(*(g_acq->accounts), std::to_string(acc1));
+          break;
+        case DEPOSIT_CKN:
+          deposit_checking(*(g_acq->accounts), std::to_string(acc1), rand());
+          break;
+        case TRANSACT_SNG:
+          transact_savings(*(g_acq->accounts), std::to_string(acc1), rand());
+          break;
+        case WRITE_CHECK:
+          write_check(*(g_acq->accounts), std::to_string(acc1), rand());
+          break;
+        case AMLGMT:
+          uint64_t acc2 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
+          while (acc2 == acc1)
+            acc2 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
+          amalgamate(*(g_acq->accounts), std::to_string(acc1), std::to_string(acc2));
+          break;
+      }
     }
+    g_acq->tx_count += TX_BATCH;
 
     // Reschedule
-    when(g_acq.cown()) <<
-      [](acquired_cown<Generator> g_acq_new) { generate_tx(g_acq_new); };
+    if (g_acq->tx_count < PER_GEN_TX_COUNT)
+      when(g_acq.cown()) <<
+        [](acquired_cown<Generator> g_acq_new) { generate_tx(g_acq_new); };
+    else
+      g_acq->print_stats();
   }
 };
 
 void experiment_init()
 {
   // Setup the accounts
-  auto* accounts = new std::unordered_map<std::string, Account>();
+  auto accounts = std::make_shared<Accounts>();
 
   for (uint64_t i = 0; i < ACCOUNTS_COUNT; i++)
   {
@@ -208,7 +221,7 @@ void experiment_init()
   // Setup the generators
   for (uint32_t i = 0; i < GENERATOR_COUNT; i++)
   {
-    auto g = make_cown<Generator>(*accounts);
+    auto g = make_cown<Generator>(accounts);
     when(g) << [](acquired_cown<Generator> g_acq_new) {
       Generator::generate_tx(g_acq_new);
     };
