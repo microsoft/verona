@@ -1,9 +1,13 @@
 #include "../../../test/harness.h"
 
 #include <cpp/when.h>
+#include <string>
 #include <unordered_map>
 
 using namespace verona::rt;
+
+const uint32_t GENERATOR_COUNT = 1;
+const uint64_t ACCOUNTS_COUNT = 1000;
 
 struct Checking
 {
@@ -79,6 +83,22 @@ void transact_savings(
   };
 }
 
+// WriteCheck
+void write_check(
+  std::unordered_map<std::string, Account>& accounts,
+  std::string user_id,
+  uint64_t amount)
+{
+  auto account = accounts.at(user_id);
+  when(account.savings, account.checking)
+    << [=](acquired_cown<Savings> sa_acq, acquired_cown<Checking> ch_acq) {
+         if (amount < (ch_acq->balance + sa_acq->balance))
+           ch_acq->balance -= (amount + 1);
+         else
+           ch_acq->balance -= amount;
+       };
+}
+
 // Amalgamate: Move all funds from account 1 to the checking account 2
 void amalgamate(
   std::unordered_map<std::string, Account>& accounts,
@@ -99,20 +119,39 @@ void amalgamate(
        };
 }
 
-// WriteCheck
-void write_check(
-  std::unordered_map<std::string, Account>& accounts,
-  std::string user_id,
-  uint64_t amount)
+struct Generator
 {
-  auto account = accounts.at(user_id);
-  when(account.savings, account.checking)
-    << [=](acquired_cown<Savings> sa_acq, acquired_cown<Checking> ch_acq) {
-         if (amount < (ch_acq->balance + sa_acq->balance))
-           ch_acq->balance -= (amount + 1);
-         else
-           ch_acq->balance -= amount;
-       };
+  static void generate_tx(acquired_cown<Generator>& g_acq)
+  {
+    // Business logic
+
+    // Reschedule
+    when(g_acq.cown()) <<
+      [](acquired_cown<Generator> g_acq_new) { generate_tx(g_acq_new); };
+  }
+};
+
+void experiment_init()
+{
+  // Setup the accounts
+  auto* accounts = new std::unordered_map<std::string, Account>();
+
+  for (uint64_t i = 0; i < ACCOUNTS_COUNT; i++)
+  {
+    auto s = make_cown<Savings>();
+    auto c = make_cown<Checking>();
+
+    accounts->emplace(std::make_pair(std::to_string(i), Account{c, s}));
+  }
+
+  // Setup the generators
+  for (uint32_t i = 0; i < GENERATOR_COUNT; i++)
+  {
+    auto g = make_cown<Generator>();
+    when(g) << [](acquired_cown<Generator> g_acq_new) {
+      Generator::generate_tx(g_acq_new);
+    };
+  }
 }
 
 void smallbank_body()
