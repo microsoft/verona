@@ -129,17 +129,23 @@ void amalgamate(
   std::string user_id1,
   std::string user_id2)
 {
-  auto account1 = accounts.at(user_id1);
-  auto account2 = accounts.at(user_id2);
+  auto account1 = accounts.find(user_id1);
+  auto account2 = accounts.find(user_id2);
+  if ((account1 == accounts.end()) || (account2 == accounts.end()))
+    return;
 
-  when(account1.savings, account1.checking, account2.checking)
+  when(
+    account1->second.savings,
+    account1->second.checking,
+    account2->second.checking)
     << [=](
          acquired_cown<Savings> sa_acq1,
-         acquired_cown<Checking>(ch_acq1),
+         acquired_cown<Checking> ch_acq1,
          acquired_cown<Checking> ch_acq2) {
          ch_acq2->balance += (sa_acq1->balance + ch_acq1->balance);
          sa_acq1->balance = 0;
          ch_acq1->balance = 0;
+         std::cout << "amalgamate\n";
        };
 }
 
@@ -155,7 +161,7 @@ public:
   static void generate_tx(acquired_cown<Generator>& g_acq)
   {
     // Business logic
-    uint8_t txn_type = 3; // rand() % TX_COUNT;
+    uint8_t txn_type = 4; // rand() % TX_COUNT;
     uint64_t acc1 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
 
     switch (txn_type)
@@ -171,6 +177,12 @@ public:
         break;
       case WRITE_CHECK:
         write_check(g_acq->accounts, std::to_string(acc1), rand());
+        break;
+      case AMLGMT:
+        uint64_t acc2 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
+        while (acc2 == acc1)
+          acc2 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
+        amalgamate(g_acq->accounts, std::to_string(acc1), std::to_string(acc2));
         break;
     }
 
