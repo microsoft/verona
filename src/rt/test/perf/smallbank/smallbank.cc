@@ -109,13 +109,17 @@ void write_check(
   std::string user_id,
   uint64_t amount)
 {
-  auto account = accounts.at(user_id);
-  when(account.savings, account.checking)
+  auto account = accounts.find(user_id);
+  if (account == accounts.end())
+    return;
+
+  when(account->second.savings, account->second.checking)
     << [=](acquired_cown<Savings> sa_acq, acquired_cown<Checking> ch_acq) {
          if (amount < (ch_acq->balance + sa_acq->balance))
            ch_acq->balance -= (amount + 1);
          else
            ch_acq->balance -= amount;
+         std::cout << "Write check\n";
        };
 }
 
@@ -151,7 +155,7 @@ public:
   static void generate_tx(acquired_cown<Generator>& g_acq)
   {
     // Business logic
-    uint8_t txn_type = 2; // rand() % TX_COUNT;
+    uint8_t txn_type = 3; // rand() % TX_COUNT;
     uint64_t acc1 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
 
     switch (txn_type)
@@ -164,6 +168,9 @@ public:
         break;
       case TRANSACT_SNG:
         transact_savings(g_acq->accounts, std::to_string(acc1), rand());
+        break;
+      case WRITE_CHECK:
+        write_check(g_acq->accounts, std::to_string(acc1), rand());
         break;
     }
 
