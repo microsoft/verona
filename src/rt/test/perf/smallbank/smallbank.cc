@@ -1,16 +1,10 @@
-#include "../../../test/harness.h"
+#include "args.h"
 
 #include <cpp/when.h>
 #include <string>
 #include <unordered_map>
 
 using namespace verona::rt;
-
-const uint32_t GENERATOR_COUNT = 2;
-const uint64_t ACCOUNTS_COUNT = 1000;
-const uint8_t ACCOUNT_EXTRA = 10;
-const uint32_t PER_GEN_TX_COUNT = 1e6;
-const uint32_t TX_BATCH= 10;
 
 enum TX_TYPES
 {
@@ -77,9 +71,8 @@ void deposit_checking(
   if (account == accounts.end())
     return;
 
-  when(account->second.checking) << [=](acquired_cown<Checking> ch_acq) {
-    ch_acq->balance += amount;
-  };
+  when(account->second.checking)
+    << [=](acquired_cown<Checking> ch_acq) { ch_acq->balance += amount; };
 }
 
 // TransactSavings: Add or remove from the savings account
@@ -154,9 +147,8 @@ private:
   {
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<double> duration = end - start;
-    std::cout << "Generator: " << std::hex
-      << (unsigned long)this << ": Dispatched "
-      << tx_count / duration.count() << " tx/s\n";
+    std::cout << "Generator: " << std::hex << (unsigned long)this
+              << ": Dispatched " << tx_count / duration.count() << " tx/s\n";
     fflush(stdout);
   }
 
@@ -167,7 +159,7 @@ public:
   static void generate_tx(acquired_cown<Generator>& g_acq)
   {
     // Business logic
-    for (uint32_t i=0;i<TX_BATCH;i++)
+    for (uint32_t i = 0; i < TX_BATCH; i++)
     {
       uint8_t txn_type = rand() % TX_COUNT;
       uint64_t acc1 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
@@ -190,7 +182,8 @@ public:
           uint64_t acc2 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
           while (acc2 == acc1)
             acc2 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
-          amalgamate(*(g_acq->accounts), std::to_string(acc1), std::to_string(acc2));
+          amalgamate(
+            *(g_acq->accounts), std::to_string(acc1), std::to_string(acc2));
           break;
       }
     }
@@ -236,6 +229,10 @@ void smallbank_body()
 int main(int argc, char** argv)
 {
   SystematicTestHarness harness(argc, argv);
+  if (!process_args(harness))
+  {
+    return -1;
+  }
 
   harness.run(smallbank_body);
 }
