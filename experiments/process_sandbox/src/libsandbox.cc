@@ -99,9 +99,10 @@ namespace sandbox
      * by storing an owning copy of the handle in the value and using the
      * non-owning value in the value.
      */
-    std::
-      unordered_map<platform::handle_t, std::pair<platform::Handle, Library*>>
-        ranges;
+    std::unordered_map<
+      platform::handle_t,
+      std::pair<platform::SocketPair::Socket, Library*>>
+      ranges;
     /**
      * Run loop.  Wait for updates from the child.
      */
@@ -126,7 +127,7 @@ namespace sandbox
           remove_fd();
           continue;
         }
-        Library* lib;
+        decltype(ranges)::mapped_type* entry;
         {
           decltype(ranges)::iterator r;
           std::lock_guard g(m);
@@ -135,19 +136,17 @@ namespace sandbox
           {
             continue;
           }
-          lib = r->second.second;
+          entry = &r->second;
         }
+        auto& sock = entry->first;
+        Library* lib = entry->second;
         SharedAllocConfig::LocalState* s = &lib->memory_provider;
         HostServiceRequest rpc;
-        if (
-          recv(
-            fd,
-            static_cast<void*>(&rpc),
-            sizeof(HostServiceRequest),
-            MSG_DONTWAIT) != sizeof(HostServiceRequest))
+        if (!sock.nonblocking_receive(rpc))
         {
           remove_fd();
           lib->terminate();
+          continue;
         }
         HostServiceResponse reply{0, 0};
         auto is_metaentry_valid =
@@ -173,7 +172,8 @@ namespace sandbox
               break;
             }
             auto meta =
-              reinterpret_cast<SharedAllocConfig::SlabMetadata*>(rpc.args[1]);
+              reinterpret_cast<SharedAllocConfig::Backend::SlabMetadata*>(
+                rpc.args[1]);
             auto ras = rpc.args[2];
             // `meta` refers to the pointer to the slab metadata.  This field in
             // the `Entry` is dereferenced outside of the sandbox only in the
@@ -241,31 +241,17 @@ namespace sandbox
             }
             if (reply.error == 0)
             {
-              SharedAllocConfig::dealloc_range(*s, ptr, size);
+              SharedAllocConfig::Backend::dealloc_range(*s, ptr, size);
             }
             break;
           }
         }
-        ssize_t remainder = sizeof(HostServiceResponse);
-        char* buffer = reinterpret_cast<char*>(&reply);
-        while (remainder > 0)
+        // If we can't do a non-blocking send, then the child must have filled
+        // up the kernel's buffer, kill the child.
+        if (!sock.nonblocking_send(reply))
         {
-          ssize_t ret =
-            send(fd, buffer, remainder, MSG_DONTWAIT | MSG_NOSIGNAL);
-          if (ret < 0)
-          {
-            if (errno == EINTR)
-            {
-              continue;
-            }
-            // All other errno errors may be the result of the child doing
-            // something wrong.  Let the child fail here.
-            remove_fd();
-            lib->terminate();
-            break;
-          }
-          remainder -= ret;
-          buffer += ret;
+          remove_fd();
+          lib->terminate();
         }
       }
       err(1, "Waiting for pagetable updates failed");
@@ -287,7 +273,7 @@ namespace sandbox
      * sandbox will send update requests.  `pagemap_fd` is the shared pagemap
      * page.
      */
-    void add_range(Library& sandbox, platform::Handle&& socket)
+    void add_range(Library& sandbox, platform::SocketPair::Socket&& socket)
     {
       {
         std::lock_guard g(m);
@@ -480,6 +466,10 @@ namespace sandbox
         return {-EINVAL};
       }
       char buffer[maxSaneSockAddrSize];
+      // For defence in depth, initialise the stack buffer so that
+      // it's harder for `netpolicy.invoke` to accidentally leak kernel stack
+      // values.
+      memset(buffer, 0xa5, maxSaneSockAddrSize);
       memcpy(buffer, unsafeBase, length);
       int ret =
         netpolicy.invoke<Op>(h.fd, reinterpret_cast<sockaddr*>(buffer), length);
@@ -550,7 +540,12 @@ namespace sandbox
           // Allocate space for everything.  No overflow checking here, but the
           // called code is trusted and we could only overflow if it returned a
           // nonsense `ai_addrlen`.
-          char* buffer = lib.alloc<char>((sizeof(addrinfo) * count) + extra);
+          auto b = lib.alloc<char>((sizeof(addrinfo) * count) + extra);
+          if (!b)
+          {
+            return return_int(EAI_MEMORY);
+          }
+          auto buffer = b.value();
           // The allocated space will be an array of `addrinfo`s, followed by
           // (variable-sized) `sockaddr`s.
           addrinfo* ais = reinterpret_cast<addrinfo*>(buffer);
@@ -667,16 +662,22 @@ namespace sandbox
     {
       CallbackRequest req;
       platform::Handle in_fd;
-      // FIXME: This should not block, but it can if the sandbox doesn't write
+      // This should not block, but it can if the sandbox doesn't write
       // anything into the socket.
-      socket.receive(&req, sizeof(req), in_fd);
+      if (!socket.nonblocking_receive(req, in_fd))
+      {
+        return;
+      }
 
       CallbackHandlerBase::Result ret;
       if (req.kind < handlers.size())
       {
         ret = handlers[req.kind]->invoke(lib, req, std::move(in_fd));
       }
-      socket.send(&ret.integer, sizeof(ret.integer), ret.handle);
+      if (!socket.nonblocking_send(ret.integer, ret.handle))
+      {
+        lib.terminate();
+      }
     }
 
     /**

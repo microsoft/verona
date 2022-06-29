@@ -78,7 +78,7 @@ namespace memory_rc
         check(debug_size() == 5);
       }
       region_release(o);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     }
 
     // Allocate objects which link to subregions and check that decrefing ISOs
@@ -115,7 +115,7 @@ namespace memory_rc
         check(debug_size() == 1);
       }
       region_release(o);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     }
   }
 
@@ -163,7 +163,7 @@ namespace memory_rc
         o->f1 = o6;
       }
       region_release(o);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     }
 
     // A cycle where part of the subgraph is rooted by an external reference
@@ -216,7 +216,7 @@ namespace memory_rc
       }
       region_release(o);
 
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     }
 
     // A cycle which contains references to other subregions.
@@ -256,7 +256,7 @@ namespace memory_rc
         check(debug_size() == 1);
       }
       region_release(o);
-      snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+      snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
     }
 
     // A cycle where the root is the region's ISO.
@@ -291,7 +291,7 @@ namespace memory_rc
       }
       region_release(o);
     }
-    snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+    snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
   }
 
   void run_test()

@@ -71,7 +71,7 @@ void test_linked_list()
     }
   }
 
-  snmalloc::debug_check_empty<snmalloc::Alloc::StateHandle>();
+  snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
 }
 
 int main(int, char**)
