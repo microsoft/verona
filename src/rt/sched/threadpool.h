@@ -601,6 +601,7 @@ namespace verona::rt
       return state.park_thread();
     }
 
+#ifdef USE_SYSTEM_MONITOR
     void spawnThread(ThreadPoolBuilder& builder, Core<E>* core, size_t count)
     {
       // Quick check to bail.
@@ -673,6 +674,7 @@ namespace verona::rt
       // Wake-up the existing thread
       thread->unpark();
     }
+#endif
 
     void wakeWorkers()
     {
