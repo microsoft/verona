@@ -6,8 +6,11 @@
 #include "ds/dllist.h"
 #include "object/object.h"
 #include "threadpool.h"
-#include "sysmonitor.h"
 #include "schedulerlist.h"
+
+#ifdef USE_SYSTEM_MONITOR
+#include "sysmonitor.h"
+#endif
 
 #include <mutex>
 #include <atomic>
@@ -38,7 +41,9 @@ namespace verona::rt
 
   private:
     using Scheduler = ThreadPool<SchedulerThread<T>, T>;
+#ifdef USE_SYSTEM_MONITOR
     using Monitor = SysMonitor<Scheduler>;
+#endif
     friend Scheduler;
     friend T;
     friend DLList<SchedulerThread<T>>;
@@ -336,7 +341,10 @@ namespace verona::rt
 #endif
         yield();
       }
+
+#ifdef USE_SYSTEM_MONITOR
       Monitor::get().threadExit();
+#endif
 
       Logging::cout() << "Begin teardown (phase 1)" << Logging::endl;
 

@@ -12,8 +12,11 @@
 #endif
 
 #include "corepool.h"
-#include "sysmonitor.h"
 #include "schedulerlist.h"
+
+#ifdef USE_SYSTEM_MONITOR
+#include "sysmonitor.h"
+#endif
 
 #include <condition_variable>
 #include <mutex>
@@ -31,8 +34,10 @@ namespace verona::rt
   private:
     friend T;
     friend void verona::rt::yield();
+#ifdef USE_SYSTEM_MONITOR
     using Monitor = SysMonitor<ThreadPool<T, E>>;
     friend Monitor;
+#endif
 
     static constexpr uint64_t TSC_PAUSE_SLOP = 1'000'000;
     static constexpr uint64_t TSC_UNPAUSE_SLOP = TSC_PAUSE_SLOP / 2;
