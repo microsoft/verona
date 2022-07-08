@@ -1,3 +1,5 @@
+// Copyright Microsoft and Project Verona Contributors.
+// SPDX-License-Identifier: MIT
 #include "args.h"
 
 #include <cpp/when.h>
@@ -5,6 +7,7 @@
 #include <unordered_map>
 
 using namespace verona::rt;
+using namespace verona::cpp;
 
 enum TX_TYPES
 {
@@ -23,7 +26,7 @@ struct Checking
 
 struct Savings
 {
-  uint64_t balance;
+  int64_t balance;
 };
 
 struct Account
@@ -43,17 +46,17 @@ void balance(
     return;
 
   // Return a promise
-  auto pp = Promise<uint64_t>::create_promise();
+  auto pp = Promise<int64_t>::create_promise();
 
   when(account->second.checking, account->second.savings) <<
     [wp = std::move(pp.second)](
       acquired_cown<Checking> ch_acq, acquired_cown<Savings> sa_acq) mutable {
-      Promise<uint64_t>::fulfill(
+      Promise<int64_t>::fulfill(
         std::move(wp), ch_acq->balance + sa_acq->balance);
     };
 
-  pp.first.then([](std::variant<uint64_t, Promise<uint64_t>::PromiseErr> val) {
-    if (!std::holds_alternative<uint64_t>(val))
+  pp.first.then([](std::variant<int64_t, Promise<int64_t>::PromiseErr> val) {
+    if (!std::holds_alternative<int64_t>(val))
     {
       Logging::cout() << "Got promise error" << std::endl;
       abort();
@@ -65,7 +68,7 @@ void balance(
 void deposit_checking(
   std::unordered_map<std::string, Account>& accounts,
   std::string user_id,
-  uint64_t amount)
+  int64_t amount)
 {
   auto account = accounts.find(user_id);
   if (account == accounts.end())
@@ -86,7 +89,7 @@ void transact_savings(
     return;
 
   when(account->second.savings) << [=](acquired_cown<Savings> sa_acq) {
-    if ((amount < 0) && (sa_acq->balance < static_cast<uint64_t>(-1 * amount)))
+    if ((amount < 0) && (sa_acq->balance < (-1 * amount)))
       return;
     sa_acq->balance += amount;
   };
@@ -96,7 +99,7 @@ void transact_savings(
 void write_check(
   std::unordered_map<std::string, Account>& accounts,
   std::string user_id,
-  uint64_t amount)
+  int64_t amount)
 {
   auto account = accounts.find(user_id);
   if (account == accounts.end())
@@ -162,7 +165,8 @@ public:
     for (uint32_t i = 0; i < TX_BATCH; i++)
     {
       uint8_t txn_type = rand() % TX_COUNT;
-      uint64_t acc1 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
+      uint64_t acc1 =
+        static_cast<uint64_t>(rand()) % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
 
       switch (txn_type)
       {
@@ -179,9 +183,11 @@ public:
           write_check(*(g_acq->accounts), std::to_string(acc1), rand());
           break;
         case AMLGMT:
-          uint64_t acc2 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
+          uint64_t acc2 =
+            static_cast<uint64_t>(rand()) % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
           while (acc2 == acc1)
-            acc2 = rand() % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
+            acc2 =
+              static_cast<uint64_t>(rand()) % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
           amalgamate(
             *(g_acq->accounts), std::to_string(acc1), std::to_string(acc2));
           break;
