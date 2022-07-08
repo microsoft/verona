@@ -150,8 +150,8 @@ private:
   {
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<double> duration = end - start;
-    std::cout << "Generator: " << std::hex << (unsigned long)this
-              << ": Dispatched " << tx_count / duration.count() << " tx/s\n";
+    std::cout << "Generator: " << std::hex << this << ": Dispatched "
+              << tx_count / duration.count() << " tx/s\n";
     fflush(stdout);
   }
 
