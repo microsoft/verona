@@ -97,6 +97,7 @@ namespace verona::cpp
      */
     cown_ptr& operator=(const cown_ptr& other)
     {
+      clear();
       allocated_cown = other.allocated_cown;
       verona::rt::Cown::acquire(allocated_cown);
       return *this;
@@ -120,12 +121,17 @@ namespace verona::cpp
      */
     cown_ptr& operator=(cown_ptr&& other)
     {
+      clear();
       allocated_cown = other.allocated_cown;
       other.allocated_cown = nullptr;
       return *this;
     }
 
-    ~cown_ptr()
+    /**
+     * Sets the cown_ptr to nullptr, and decrements the reference count
+     * if it was not already nullptr.
+     */
+    void clear()
     {
       // Condition to handle moved cown ptrs.
       if (allocated_cown != nullptr)
@@ -133,6 +139,12 @@ namespace verona::cpp
         auto& alloc = verona::rt::ThreadAlloc::get();
         verona::rt::Cown::release(alloc, allocated_cown);
       }
+      allocated_cown = nullptr;
+    }
+
+    ~cown_ptr()
+    {
+      clear();
     }
 
     // Required as acquired_cown has to reach inside.
