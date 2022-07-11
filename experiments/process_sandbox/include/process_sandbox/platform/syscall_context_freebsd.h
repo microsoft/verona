@@ -86,7 +86,13 @@ namespace sandbox::platform
     /**
      * The signal delivered for a Capsicum-disallowed system call.
      */
-    static constexpr int syscall_signal = SIGTRAP;
+    static constexpr int syscall_signal =
+#    ifdef SIGCAP
+      SIGCAP
+#    else
+      SIGTRAP
+#    endif
+      ;
 
     /**
      * Constructor.  Takes the arguments to a signal handler.
