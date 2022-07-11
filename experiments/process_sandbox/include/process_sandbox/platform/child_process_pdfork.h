@@ -3,6 +3,7 @@
 #ifdef USE_KQUEUE_PROCDESC
 #  include <err.h>
 #  include <errno.h>
+#  include <signal.h>
 #  include <sys/event.h>
 #  include <sys/procdesc.h>
 #  include <sys/types.h>

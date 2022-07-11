@@ -1049,7 +1049,11 @@ int main()
   sandbox::platform::Sandbox::apply_sandboxing_policy_postexec();
   struct sigaction sa;
   memset(&sa, 0, sizeof(sa));
-  sa.sa_flags = SA_SIGINFO;
+  // If we do a disallowed system call while handling another, deliver the
+  // signal immediately.  We may still not be able to handle it usefully, but
+  // we will definitely not handle it correctly if it is not delivered during
+  // system call return.
+  sa.sa_flags = SA_SIGINFO | SA_NODEFER;
   sa.sa_sigaction = (void (*)(int, siginfo_t*, void*))emulate;
   sigaction(SyscallFrame::syscall_signal, &sa, nullptr);
   // Close the shared memory region file descriptor before we call untrusted

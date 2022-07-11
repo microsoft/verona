@@ -66,9 +66,12 @@ namespace sandbox::platform
       };
       // Standard in is read only
       limit_fd(STDIN_FILENO, CAP_READ);
-      // Standard out and error are write only
-      limit_fd(STDOUT_FILENO, CAP_WRITE);
-      limit_fd(STDERR_FILENO, CAP_WRITE);
+      // Standard out and error are write only.  Allow them fsync to make sure
+      // that debugging messages are properly flushed.  Without this,
+      // snmalloc's `message()` raises a SIGCAP and if we call it in debug
+      // builds while handling the signal then we infinite loop.
+      limit_fd(STDOUT_FILENO, CAP_WRITE | CAP_FSYNC);
+      limit_fd(STDERR_FILENO, CAP_WRITE | CAP_FSYNC);
       // The socket is used with a call-return protocol for requesting
       // services for malloc.
       limit_fd(PageMapUpdates, CAP_WRITE, CAP_READ);
@@ -85,7 +88,13 @@ namespace sandbox::platform
       {
         limit_fd(libfd, CAP_READ, CAP_FSTAT, CAP_LOOKUP, CAP_MMAP_RX);
       }
-      int arg = PROC_TRAPCAP_CTL_ENABLE;
+      int arg =
+#  ifdef PROC_TRAPCAP_CTL_ENABLE_SIGCAP
+        PROC_TRAPCAP_CTL_ENABLE_SIGCAP
+#  else
+        PROC_TRAPCAP_CTL_ENABLE
+#  endif
+        ;
       int ret = procctl(P_PID, getpid(), PROC_TRAPCAP_CTL, &arg);
       SANDBOX_INVARIANT(
         ret == 0, "Failed to register for traps on Capsicum violations");
