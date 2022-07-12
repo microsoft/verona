@@ -139,7 +139,7 @@ namespace verona::cpp
       {
         auto& alloc = verona::rt::ThreadAlloc::get();
         verona::rt::Cown::release(alloc, allocated_cown);
-      allocated_cown = nullptr;
+        allocated_cown = nullptr;
       }
     }
 
