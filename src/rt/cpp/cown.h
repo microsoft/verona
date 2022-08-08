@@ -46,6 +46,11 @@ namespace verona::cpp
   private:
     T value;
 
+      void schedule(bool fifo = true)
+      {
+        VCown<ActualCown>::schedule(fifo);
+      }
+
     template<typename... Args>
     ActualCown(Args&&... ts) : value(std::forward<Args>(ts)...)
     {}
@@ -58,6 +63,8 @@ namespace verona::cpp
 
     template<typename TT, typename... Args>
     friend cown_ptr<TT> make_cown(Args&&... ts);
+
+    friend class Token;
   };
 
   /**
@@ -83,7 +90,7 @@ namespace verona::cpp
     /**
      * Accesses the internal Verona runtime cown for this handle.
      */
-    Cown* underlying_cown()
+    ActualCown<T>* underlying_cown()
     {
       return allocated_cown;
     }
@@ -176,6 +183,8 @@ namespace verona::cpp
 
     template<typename...>
     friend class When;
+
+    friend class Token;
   };
 
   /**
