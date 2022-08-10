@@ -312,9 +312,9 @@ namespace sample
       {Var, RefVar},
       {Let, RefLet},
       {Param, RefParam},
-      {Class, RefClass},
-      {Typealias, RefTypealias},
-      {Typeparam, RefTypeparam},
+      {Class, RefType},
+      {Typealias, RefType},
+      {Typeparam, RefType},
       {Function, RefFunction},
     };
 
@@ -340,9 +340,8 @@ namespace sample
           },
 
         TypeStruct *
-            ((T(RefClass) / T(RefTypealias) / T(RefTypeparam) /
-              T(Package))[lhs] *
-             T(DoubleColon) * T(Ident)[id] * ~T(Typeargs)[Typeargs])[Type] >>
+            (T(RefType)[lhs] * T(DoubleColon) * T(Ident)[id] *
+             ~T(Typeargs)[Typeargs])[Type] >>
           [](auto& _) {
             auto def = look->at(_[Type]).def;
             return reftype(def) << _[lhs] << _[id] << (_[Typeargs] | Typeargs);
@@ -350,10 +349,9 @@ namespace sample
       }};
   }
 
-  inline const auto TypeElem = T(TypeTerm) / T(RefClass) / T(RefTypealias) /
-    T(RefTypeparam) / T(TypeTuple) / T(Iso) / T(Imm) / T(Mut) / T(TypeView) /
-    T(TypeFunc) / T(TypeThrow) / T(TypeIsect) / T(TypeUnion) / T(TypeVar) /
-    T(TypeTrait) / T(DontCare);
+  inline const auto TypeElem = T(TypeTerm) / T(RefType) / T(TypeTuple) /
+    T(Iso) / T(Imm) / T(Mut) / T(TypeView) / T(TypeFunc) / T(TypeThrow) /
+    T(TypeIsect) / T(TypeUnion) / T(TypeVar) / T(TypeTrait) / T(DontCare);
 
   PassDef typeexpr()
   {
@@ -377,6 +375,20 @@ namespace sample
       TypeStruct * T(Throw) * TypeElem[rhs] >>
         [](auto& _) { return TypeThrow << _[rhs]; },
       T(TypeTerm) << (TypeElem[op] * End) >> [](auto& _) { return _(op); },
+    };
+  }
+
+  PassDef dnf()
+  {
+    return {
+      T(TypeIsect)
+          << (((!T(TypeUnion))++)[lhs] * T(TypeUnion)[op] * (Any++)[rhs]) >>
+        [](auto& _) {
+          Node r = TypeUnion;
+          for (auto& child : *_(op))
+            r << (TypeIsect << clone(child) << clone(_[lhs]) << clone(_[rhs]));
+          return r;
+        },
     };
   }
 
@@ -407,16 +419,15 @@ namespace sample
 
         // Scoped lookup.
         TermStruct *
-            ((T(RefClass) / T(RefTypealias) / T(RefTypeparam) /
-              T(Package))[lhs] *
-             T(DoubleColon) * Name[id] * ~T(Typeargs)[Typeargs])[Type] >>
+            (T(RefType)[lhs] * T(DoubleColon) * Name[id] *
+             ~T(Typeargs)[Typeargs])[Type] >>
           [](auto& _) {
             auto def = look->at(_[Type]).def;
             return reftype(def) << _[lhs] << _[id] << (_[Typeargs] | Typeargs);
           },
 
         // Create sugar.
-        TermStruct * (T(RefClass) / T(RefTypeparam))[lhs] >>
+        TermStruct * T(RefType)[lhs] >>
           [](auto& _) {
             return Call
               << (RefFunction << _[lhs] << (Ident ^ create) << Typeargs);
@@ -664,20 +675,6 @@ namespace sample
     };
   }
 
-  PassDef dnf()
-  {
-    return {
-      T(TypeIsect)
-          << (((!T(TypeUnion))++)[lhs] * T(TypeUnion)[op] * (Any++)[rhs]) >>
-        [](auto& _) {
-          Node r = TypeUnion;
-          for (auto& child : *_(op))
-            r << (TypeIsect << clone(child) << clone(_[lhs]) << clone(_[rhs]));
-          return r;
-        },
-    };
-  }
-
   Driver& driver()
   {
     static Driver d(
@@ -691,13 +688,13 @@ namespace sample
         {"reftype", reftype()},
         {"typeexpr", typeexpr()},
         {"typealg", typealg()},
+        {"dnf", dnf()},
         {"refexpr", refexpr()},
         {"reverseapp", reverseapp()},
         {"application", application()},
         {"vardecl", vardecl()},
         {"assignment", assignment()},
         {"anf", anf()},
-        {"dnf", dnf()},
         {"infer", infer()},
       });
 

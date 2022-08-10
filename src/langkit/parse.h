@@ -102,11 +102,8 @@ namespace langkit
       {
         if (in(Group))
         {
-          while (std::find(skip.begin(), skip.end(), node->parent()->type()) !=
-                 skip.end())
-          {
+          while (node->parent()->type().in(skip))
             node = node->parent()->shared_from_this();
-          }
 
           auto p = node->parent();
 

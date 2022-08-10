@@ -93,6 +93,11 @@ namespace langkit
       return def >= that.def;
     }
 
+    constexpr bool in(std::initializer_list<Token> list) const
+    {
+      return std::find(list.begin(), list.end(), *this) != list.end();
+    }
+
     constexpr const char* str() const
     {
       return def->name();

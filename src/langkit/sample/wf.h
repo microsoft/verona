@@ -6,8 +6,22 @@
 
 namespace sample
 {
+  inline constexpr auto wfTypes = choice(
+    RefType,
+    TypeTuple,
+    TypeView,
+    TypeFunc,
+    TypeThrow,
+    TypeIsect,
+    TypeUnion,
+    TypeVar,
+    TypeTrait,
+    Iso,
+    Imm,
+    Mut);
+
   inline constexpr auto wf = wellformed(
-    shape(Package, field(id, String, Escaped)),
+    shape(Package, field(id, choice(String, Escaped))),
     shape(Use, field(Type)),
     shape(
       Typealias, field(Typeparams), field(Bounds, Type), field(Default, Type)),
@@ -30,14 +44,13 @@ namespace sample
     shape(Funcbody, undef()),
 
     // TODO:
-    shape(Type, undef()),
-    shape(TypeTerm, undef()),
-    shape(TypeTuple, undef()),
-    shape(TypeView, undef()),
-    shape(TypeFunc, undef()),
-    shape(TypeThrow, undef()),
-    shape(TypeIsect, undef()),
-    shape(TypeUnion, undef()),
+    shape(Type, field(Type, wfTypes)),
+    shape(TypeTuple, seq(wfTypes)),
+    shape(TypeView, field(lhs, wfTypes), field(rhs, wfTypes)),
+    shape(TypeFunc, field(lhs, wfTypes), field(rhs, wfTypes)),
+    shape(TypeThrow, field(Type, wfTypes)),
+    shape(TypeIsect, seq(wfTypes)),
+    shape(TypeUnion, seq(wfTypes)),
     shape(TypeVar, undef()),
     shape(TypeTrait, undef()),
 
@@ -61,9 +74,7 @@ namespace sample
     shape(RefParam),
 
     // TODO: scoped
-    shape(RefTypeparam, field(Ident), field(Typeargs)),
-    shape(RefTypealias, field(Ident), field(Typeargs)),
-    shape(RefClass, field(Ident), field(Typeargs)),
+    shape(RefType, field(Ident), field(Typeargs)),
 
     shape(RefFunction, field(Ident), field(Typeargs)),
     shape(Selector, field(Ident), field(Typeargs)),
@@ -71,24 +82,7 @@ namespace sample
     // TODO:
     shape(Call, undef()),
 
-    shape(
-      Include,
-      field(Type),
-      field(
-        Expr,
-        Tuple,
-        Lambda,
-        Call,
-        CallLHS,
-        String,
-        Escaped,
-        Char,
-        Bool,
-        Hex,
-        Bin,
-        Int,
-        Float,
-        HexFloat)),
+    shape(Include, field(Type)),
 
     // TODO:
     shape(Load),

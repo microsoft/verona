@@ -3,7 +3,8 @@
 #pragma once
 
 #include "parse.h"
-#include "rewrite.h"
+#include "pass.h"
+#include "lookup.h"
 #include "wf.h"
 
 #include <CLI/CLI.hpp>

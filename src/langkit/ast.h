@@ -4,7 +4,9 @@
 
 #include "token.h"
 
+#include <limits>
 #include <map>
+#include <set>
 #include <sstream>
 #include <vector>
 
@@ -28,6 +30,10 @@ namespace langkit
   using Nodes = std::vector<Node>;
   using NodeIt = Nodes::iterator;
   using NodeRange = std::pair<NodeIt, NodeIt>;
+  using NodeSet = std::set<Node, std::owner_less<>>;
+
+  template<typename T>
+  using NodeMap = std::map<Node, T, std::owner_less<>>;
 
   class SymtabDef
   {

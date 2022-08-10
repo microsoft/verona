@@ -10,9 +10,9 @@ namespace sample
     struct Bounds
     {
       // The lower bounds is a disjunction of assignments.
-      std::set<Node, std::owner_less<>> lower;
+      NodeSet lower;
       // The upper bounds is a conjunction of uses.
-      std::set<Node, std::owner_less<>> upper;
+      NodeSet upper;
     };
 
     using BoundsMap = std::map<Node, Bounds, std::owner_less<>>;
@@ -69,13 +69,13 @@ namespace sample
           (T(TypeThrow) << Any[lhs]) * (T(TypeThrow) << Any[rhs]) >>
             [this](auto& _) { return sub(_(lhs), _(rhs)); },
 
-          T(RefClass)[lhs] * T(RefClass)[rhs] >>
-            [this](auto& _) {
-              // TODO: typeargs have to be the same
-              auto l = look->at(_[lhs]);
-              auto r = look->at(_[rhs]);
-              return l.def == r.def;
-            },
+          // T(RefClass)[lhs] * T(RefClass)[rhs] >>
+          //   [this](auto& _) {
+          //     // TODO: typeargs have to be the same
+          //     auto l = look->at(_[lhs]);
+          //     auto r = look->at(_[rhs]);
+          //     return l.def == r.def;
+          //   },
         });
       }
 

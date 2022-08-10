@@ -5,171 +5,137 @@
 
 namespace sample
 {
+  void typeargs(Found& found, Node ta)
+  {
+    // TODO: what if def is a Typeparam?
+    // use the bounds somehow?
+    if (!found.def || !ta)
+      return;
+
+    // TODO: error node if it's something that doesn't take typeargs?
+    if (!found.def->type().in({Class, Function, Typealias}))
+      return;
+
+    auto tp = found.def->at(
+      wf / Class / Typeparams,
+      wf / Function / Typeparams,
+      wf / Typealias / Typeparams);
+
+    // TODO: error node if there are too many typeargs?
+    Nodes args{ta->begin(), ta->end()};
+    args.resize(tp->size());
+
+    std::transform(
+      tp->begin(),
+      tp->end(),
+      args.begin(),
+      std::inserter(found.map, found.map.end()),
+      [](auto param, auto arg) { return std::make_pair(param, arg); });
+  }
+
+  Node lookdown(Found& found, Node id)
+  {
+    NodeSet visited;
+
+    while (true)
+    {
+      // Check if we've visited this node before. If so, we've found a cycle.
+      auto [it, inserted] = visited.insert(found.def);
+      if (!inserted)
+        return {};
+
+      if (found.def->type() == Class)
+      {
+        return found.def->lookdown_first(id);
+      }
+      else if (found.def->type() == Typeparam)
+      {
+        auto it = found.map.find(found.def);
+        if ((it != found.map.end()) && it->second)
+        {
+          found.def = it->second;
+          continue;
+        }
+
+        auto bounds = found.def->at(wf / Typeparam / Bounds);
+        if (!bounds->empty())
+        {
+          found.def = bounds;
+          continue;
+        }
+      }
+      else if (found.def->type() == Typealias)
+      {
+        found.def = found.def->at(wf / Typealias / Default);
+        continue;
+      }
+      else if (found.def->type() == Type)
+      {
+        found.def = found.def->at(wf / Type / Type);
+        continue;
+      }
+      else if (found.def->type() == TypeView)
+      {
+        found.def = found.def->at(wf / TypeView / rhs);
+        continue;
+      }
+      else if (found.def->type() == TypeThrow)
+      {
+        found.def = found.def->at(wf / TypeThrow / Type);
+        continue;
+      }
+      else if (found.def->type() == RefType)
+      {
+        auto ident = found.def->at(wf / RefType / Ident);
+        auto ta = found.def->at(wf / RefType / Typeargs);
+        found.def = ident->lookup_first();
+        typeargs(found, ta);
+        continue;
+      }
+      else if (found.def->type() == TypeIsect)
+      {
+        // TODO:
+      }
+      // TODO: typeisect, typeunion
+
+      // Other nodes don't have children to look down.
+      break;
+    }
+
+    return {};
+  }
+
   Lookup<Found> lookup()
   {
-    struct State
-    {
-      Found found;
-      Nodes aliases;
-      size_t depth;
-    };
-
-    auto state = std::make_shared<State>();
     auto lookdef = std::make_shared<LookupDef<Found>>();
     auto look = lookdef.get();
 
-    look->pre([=]() { ++state->depth; });
-    look->post([=]() {
-      if ((--state->depth) == 0)
-      {
-        *state = {};
-      }
-    });
-
-    auto ret = [=](Node def) {
-      auto found = state->found;
-      found.def = def;
-      return found;
-    };
-
-    auto typeargs = [=](auto& _, Node def) {
-      // TODO: what if def is a Typeparam?
-      // use the bounds somehow
-      auto ta = _(Typeargs);
-      if (!def || !ta)
-        return;
-
-      constexpr std::array<Token, 3> list{Typealias, Class, Function};
-      auto it = std::find(list.begin(), list.end(), def->type());
-      if (it == list.end())
-        return;
-
-      auto tp = def->at(
-        wf / Typealias / Typeparams,
-        wf / Class / Typeparams,
-        wf / Function / Typeparams);
-
-      Nodes args{ta->begin(), ta->end()};
-      args.resize(tp->size());
-      auto& found = state->found;
-
-      std::transform(
-        tp->begin(),
-        tp->end(),
-        args.begin(),
-        std::inserter(found.map, found.map.end()),
-        [](auto param, auto arg) { return std::make_pair(param, arg); });
-    };
-
-    auto sub = [=](Node def) {
-      if (!def || (def->type() != Typeparam))
-        return def;
-
-      auto& found = state->found;
-      auto it = found.map.find(def);
-      if ((it != found.map.end()) && it->second)
-        return it->second;
-
-      return def;
-    };
-
-    auto alias = [=](Node def) {
-      auto& aliases = state->aliases;
-      auto it = std::find(aliases.begin(), aliases.end(), def);
-      if (it != aliases.end())
-        return true;
-
-      aliases.push_back(def);
-      return false;
-    };
-
     look->rules({
-      // Lookup target.
-      (T(Var) / T(Let) / T(Param) / T(Typeparam) / T(Class) / T(Function) /
-       T(Typealias))[id] >>
-        [=](auto& _) { return ret(_(id)); },
+      // Look through an outer Type node.
+      (T(Type) << (Any[Type])) * End >>
+        [=](auto& _) { return look->at(_(Type)); },
 
-      // Initial lookup.
-      T(Ident)[id] * ~T(Typeargs)[Typeargs] >>
+      // An identifier and optional typeargs.
+      ((T(Ident)[id] * ~T(Typeargs)[Typeargs]) /
+       (T(RefType) << (T(Ident)[id] * T(Typeargs)[Typeargs] * End))) *
+          End >>
         [=](auto& _) {
-          auto def = _(id)->lookup_first();
-          typeargs(_, def);
-          return look->at(def);
+          Found found(_(id)->lookup_first());
+          typeargs(found, _(Typeargs));
+          return std::move(found);
         },
 
-      // Initial nested lookup.
-      (T(RefClass) / T(RefTypealias) / T(RefTypeparam) / T(Package))[lhs] *
-          T(DoubleColon) * T(Ident)[id] * ~T(Typeargs)[Typeargs] >>
+      // Nested lookup.
+      ((T(RefType)[lhs] * T(DoubleColon) * T(Ident)[id] *
+        ~T(Typeargs)[Typeargs]) /
+       (T(RefType) << (T(RefType)[lhs] * T(Ident)[id] * T(Typeargs)[Typeargs]) *
+          End)) *
+          End >>
         [=](auto& _) {
-          auto l = look->at(_(lhs));
-          auto def = l.def->lookdown_first(_(id));
-          typeargs(_, def);
-          return look->at(def);
-        },
-
-      (T(RefClass) / T(Package))[lhs] * T(DoubleColon) * T(Ident)[id] *
-          ~T(Typeargs)[Typeargs] >>
-        [=](auto& _) {
-          auto l = look->at(_(lhs));
-          auto def = l.def->lookdown_first(_(id));
-          typeargs(_, def);
-          return look->at(def);
-        },
-
-      T(RefTypealias)[lhs] * T(DoubleColon) * T(Ident)[id] *
-          ~T(Typeargs)[Typeargs] >>
-        [=](auto& _) {
-          auto l = look->at(_(lhs));
-          auto def = l.def->lookdown_first(_(id));
-          typeargs(_, def);
-          return look->at(def);
-        },
-
-      // Initial nested lookup 
-      T(RefTypeparam)[lhs] * T(DoubleColon) * T(Ident)[id] *
-          ~T(Typeargs)[Typeargs] >>
-        [=](auto& _) {
-          auto l = look->at(_(lhs));
-          auto def = l.def->lookdown_first(_(id));
-          typeargs(_, def);
-          return look->at(def);
-        },
-
-      T(Type) << (Any[Type]) >> [=](auto& _) { return look->at(_(Type)); },
-
-      T(Typealias)[id] >>
-        [=](auto& _) {
-          auto def = _(id);
-          if (alias(def))
-            return ret(def);
-          return look->at(def->at(wf / Typealias / Default));
-        },
-
-      T(Typeparam)[id] >>
-        [=](auto& _) {
-          auto def = sub(_(id));
-          if (def->type() != Typeparam)
-            return look->at(def);
-
-          auto bounds = def->at(wf / Typeparam / Bounds);
-          if (bounds->empty())
-            return ret(def);
-
-          return look->at(bounds);
-        },
-
-      // Repeating a lookup.
-      (T(RefClass) / T(RefTypealias) / T(RefTypeparam) / T(Package))
-          << (T(Ident) * T(Typeargs))[id] >>
-        [=](auto& _) { return look->at(_[id]); },
-
-      // Repeating a nested lookup.
-      (T(RefClass) / T(RefTypealias) / T(RefTypeparam) / T(Package))
-          << (Any[lhs] * T(Ident)[id] * T(Typeargs)[Typeargs]) >>
-        [=](auto& _) {
-          auto def = look->at(_(lhs)).def->lookdown_first(_(id));
-          typeargs(_, def);
-          return look->at(def);
+          auto found = look->at(_(lhs));
+          found.def = lookdown(found, _(id));
+          typeargs(found, _(Typeargs));
+          return std::move(found);
         },
     });
 

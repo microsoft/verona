@@ -39,29 +39,7 @@ type assertions on:
 
 ## Lookup
 
-not nested: return the target
-nested
-  let/var/param/function: fail
-  class::X
-    lookup X in the class
-    if X is
-      class: done
-      typeparam: done
-      function: done
-      typealias: done
-  typeparam::X
-    lookup X in our bounds
-    the typeparam and our bounds may already have been subbed
-    `A[B[C]::E, B[D]::E]::F`
-      find A
-      find B, no subs
-      find C, no subs
-      find D, no subs
-      bind B[C]::E to A::_0
-      bind B[D]::E to A::_1
-        problem: two different bindings for the same typeparam B::_0
-      find F
-      drop binding
+lookup in union and intersection types
 
 ## type checker
 
@@ -155,5 +133,61 @@ x: ?T // better - implies adjacency is application, not intersection
 x: Array U32 // awkward or good?
 
 type |[T, U] = Union[T, U] // no, unions are fundamental
+
+```
+
+## Flow Typing Contexts
+
+```ts
+
+True::if[T, U](self: True ^ ⌊U⌋, f: (() ^ ⌊U⌋) -> T): Taken[T] =
+  // Taken(f(() with self))
+  Taken(f())
+False::if[T, U](self: False ^ ⌊U⌋, f: (() ^ ⌊U⌋) -> T): NotTaken[T] ^ ⌊U⌋ =
+  // NotTaken[T] with self
+  NotTaken
+
+Taken[T]::elseif[DC](self, cond: () -> Bool, f: DC -> T): Taken[T] = self
+NotTaken[T]::elseif[U](
+  self: NotTaken[T] ^ ⌊U⌋, cond: () -> Bool, f: (() ^ ⌊U⌋) -> T):
+  Taken[T] | (NotTaken[T] ^ ⌊U⌋) =
+  // cond().if(f with self)
+  if(cond()) f
+
+Taken[T]::else[DC](self, f: DC -> T): T = self()
+NotTaken[T]::else[U](self: NotTaken[T] ^ ⌊U⌋, f: (() ^ ⌊U⌋) -> T): T =
+  // f(() with self)
+  f()
+
+```
+
+## Kappa
+
+```ts
+
+iso "entry point to another region"
+  denies {iso, mut, imm, paused}
+mut "from my region"
+  denies {iso, imm, paused}
+imm "from no region"
+  denies {iso, mut, paused}
+paused "from another region"
+  denies {iso, mut, imm}
+
+iso▹T = ⊥
+mut▹T = T
+imm▹T = imm
+paused▹iso = iso
+paused▹mut = paused
+paused▹imm = imm
+
+ref[T]::load : (ref[T] & K) -> K▹T
+ref[T]::store : (ref[T] & mut) -> T -> T
+
+Γ ⊢ x 
+T = T1 in Γ[borrow/mut] ⊢ e : T1 iff ¬open(region(x))
+    throw AlreadyOpen otherwise
+--- [ENTER]
+Γ ⊢ enter x e : T
 
 ```

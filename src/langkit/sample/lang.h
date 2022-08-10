@@ -86,9 +86,7 @@ namespace sample
   inline constexpr auto RefVar = TokenDef("refvar", flag::print);
   inline constexpr auto RefLet = TokenDef("reflet", flag::print);
   inline constexpr auto RefParam = TokenDef("refparam", flag::print);
-  inline constexpr auto RefTypeparam = TokenDef("reftypeparam");
-  inline constexpr auto RefTypealias = TokenDef("reftypealias");
-  inline constexpr auto RefClass = TokenDef("refclass");
+  inline constexpr auto RefType = TokenDef("reftype");
   inline constexpr auto RefFunction = TokenDef("reffunc");
   inline constexpr auto Selector = TokenDef("selector");
   inline constexpr auto DotSelector = TokenDef("dotselector");
@@ -119,7 +117,20 @@ namespace sample
   struct Found
   {
     Node def;
-    std::map<Node, Node, std::owner_less<>> map;
+    NodeMap<Node> map;
+
+    Found() = default;
+    Found(const Found&) = default;
+    Found& operator=(const Found&) = default;
+
+    Found(Found&& that)
+      : def(std::move(that.def)), map(std::move(that.map))
+    {
+      that.def = nullptr;
+      that.map.clear();
+    }
+
+    Found(Node def) : def(def) {}
   };
 
   Parse parser();

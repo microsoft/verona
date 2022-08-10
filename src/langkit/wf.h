@@ -4,7 +4,6 @@
 
 #include "ast.h"
 
-#include <set>
 #include <tuple>
 
 namespace langkit
@@ -209,39 +208,47 @@ namespace langkit
     }
   }
 
+  template<typename... Ts>
+  inline constexpr auto choice(const Ts&... types)->std::array<Token, sizeof...(Ts)>
+  {
+    std::array<Token, sizeof...(Ts)> arr = {Token(types)...};
+    return arr;
+  }
+
   inline constexpr auto undef()
   {
     return detail::Undef{};
   }
 
-  template<typename... Ts>
-  inline constexpr auto field(const Token& name, const Ts&... types)
+  template<size_t N>
+  inline constexpr auto field(const Token& name, std::array<Token, N> types)
   {
-    if constexpr (sizeof...(Ts) == 0)
-    {
-      std::array<Token, 1> arr = {name};
-      return detail::Field{name, arr};
-    }
-    else
-    {
-      std::array<Token, sizeof...(Ts)> arr = {Token(types)...};
-      return detail::Field{name, arr};
-    }
+    return detail::Field<N>(name, types);
+  }
+
+  inline constexpr auto field(const Token& name, const Token& type)
+  {
+    std::array<Token, 1> arr = {type};
+    return detail::Field<1>{name, arr};
+  }
+
+  inline constexpr auto field(const Token& name)
+  {
+    std::array<Token, 1> arr = {name};
+    return detail::Field<1>{name, arr};
+  }
+
+  template<size_t N>
+  inline constexpr auto seq(std::array<Token, N> types)
+  {
+    return detail::Sequence<N>{types};
   }
 
   template<typename... Ts>
   inline constexpr auto seq(const Ts&... types)
   {
-    if constexpr (sizeof...(Ts) == 0)
-    {
-      std::array<Token, 0> arr;
-      return detail::Sequence{arr};
-    }
-    else
-    {
-      std::array<Token, sizeof...(Ts)> arr = {Token(types)...};
-      return detail::Sequence{arr};
-    }
+    std::array<Token, sizeof...(Ts)> arr = {Token(types)...};
+    return detail::Sequence{arr};
   }
 
   template<typename... Ts>
