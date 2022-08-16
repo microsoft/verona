@@ -10,6 +10,7 @@
 #include "base_noticeboard.h"
 #include "multimessage.h"
 #include "schedulerthread.h"
+#include "core.h"
 
 #include <algorithm>
 
@@ -18,7 +19,7 @@ namespace verona::rt
   using namespace snmalloc;
   class Cown;
   using CownThread = SchedulerThread<Cown>;
-  using Scheduler = ThreadPool<CownThread>;
+  using Scheduler = ThreadPool<CownThread, Cown>;
 
   static void yield()
   {
@@ -87,14 +88,16 @@ namespace verona::rt
 
         if (local != nullptr)
         {
-          set_owning_thread(local);
+          if (local->core == nullptr) 
+            abort();
+          set_owning_core(local->core);
           next = local->list;
           local->list = this;
-          local->total_cowns++;
+          local->core->total_cowns++;
         }
         else
         {
-          set_owning_thread(nullptr);
+          set_owning_core(nullptr);
           next = nullptr;
         }
       }
@@ -103,6 +106,7 @@ namespace verona::rt
   private:
     friend class MultiMessage;
     friend CownThread;
+    friend Core<Cown>;
 
     template<typename T>
     friend class Noticeboard;
@@ -125,7 +129,7 @@ namespace verona::rt
     // Uses the bottom bit to indicate the cown has been collected
     // If the object is collected by the leak detector, we should not
     // collect again when the weak reference count hits 0.
-    std::atomic<uintptr_t> thread_status{0};
+    std::atomic<uintptr_t> core_status{0};
     Cown* next{nullptr};
 
     /**
@@ -152,27 +156,26 @@ namespace verona::rt
     static constexpr uintptr_t collected_mask = 1;
     static constexpr uintptr_t thread_mask = ~collected_mask;
 
-    void set_owning_thread(SchedulerThread<Cown>* owner)
+    void set_owning_core(Core<Cown>* owner)
     {
-      thread_status = (uintptr_t)owner;
+      core_status = (uintptr_t)owner;
     }
 
     void mark_collected()
     {
-      thread_status |= 1;
+      core_status |= 1;
     }
 
     bool is_collected()
     {
-      return (thread_status.load(std::memory_order_relaxed) & collected_mask) !=
+      return (core_status.load(std::memory_order_relaxed) & collected_mask) !=
         0;
     }
 
-    SchedulerThread<Cown>* owning_thread()
+    Core<Cown>* owning_core()
     {
-      return (
-        SchedulerThread<
-          Cown>*)(thread_status.load(std::memory_order_relaxed) & thread_mask);
+      return
+        (Core<Cown>*)(core_status.load(std::memory_order_relaxed) & thread_mask);
     }
 
   public:
@@ -290,7 +293,7 @@ namespace verona::rt
       Logging::cout() << "Cown " << this << " weak release" << Logging::endl;
       if (weak_count.fetch_sub(1) == 1)
       {
-        auto* t = owning_thread();
+        auto* t = owning_core();
         yield();
         if (!t)
         {
@@ -382,8 +385,8 @@ namespace verona::rt
       // TODO Make this assertion pass.
       // assert(can_lifo_schedule() || Scheduler::debug_not_running());
 
-      t = Scheduler::round_robin();
-      t->schedule_lifo(this);
+      auto* core = Scheduler::round_robin();
+      CownThread::schedule_lifo(core, this);
     }
 
   private:

@@ -11,6 +11,9 @@
 #  include "threadsync.h"
 #endif
 
+#include "corepool.h"
+#include "schedulerlist.h"
+
 #include <condition_variable>
 #include <mutex>
 #include <snmalloc/snmalloc.h>
@@ -21,7 +24,7 @@ namespace verona::rt
   inline void nop() {}
 
   using namespace snmalloc;
-  template<class T>
+  template<class T, class E>
   class ThreadPool
   {
   private:
@@ -61,16 +64,14 @@ namespace verona::rt
     ThreadSync<T> sync;
 #endif
 
-    std::atomic_uint64_t barrier_count = 0;
     uint64_t barrier_incarnation = 0;
 
-    T* first_thread = nullptr;
+    /// List of instantiated scheduler threads.
+    /// Contains both free and active threads; protects accesses with a lock.
+    SchedulerList<T>* threads = nullptr;
 
     /// How many threads are being managed by this pool
     size_t thread_count = 0;
-
-    /// How many threads are not currently paused.
-    size_t active_thread_count = 0;
 
     /// Count of external event sources, such as I/O, that will prevent
     /// quiescence.
@@ -82,11 +83,22 @@ namespace verona::rt
 
     ThreadState state;
 
+    /// Pool of cores shared by the scheduler threads.
+    CorePool<ThreadPool<T, E>, E>* core_pool = nullptr;
+
+    /// Systematic ids.
+    size_t systematic_ids = 0;
+
   public:
-    static ThreadPool<T>& get()
+    static ThreadPool<T, E>& get()
     {
-      SNMALLOC_REQUIRE_CONSTINIT static ThreadPool<T> global_thread_pool;
+      SNMALLOC_REQUIRE_CONSTINIT static ThreadPool<T, E> global_thread_pool;
       return global_thread_pool;
+    }
+
+    static Core<E>* first_core()
+    {
+      return get().core_pool->first_core;
     }
 
     static void set_detect_leaks(bool b)
@@ -180,15 +192,15 @@ namespace verona::rt
       return local;
     }
 
-    static T* round_robin()
+    static Core<E>* round_robin()
     {
       static thread_local size_t incarnation;
-      static thread_local T* nonlocal;
+      static thread_local Core<E>* nonlocal;
 
       if (incarnation != get().incarnation)
       {
         incarnation = get().incarnation;
-        nonlocal = get().first_thread;
+        nonlocal = get().first_core();
       }
       else
       {
@@ -293,32 +305,25 @@ namespace verona::rt
       thread_count = count;
 
       // Build a circular linked list of scheduler threads.
-      first_thread = new T;
-      T* t = first_thread;
+      threads = new SchedulerList<T>();
       teardown_in_progress = false;
 
-      while (true)
-      {
+      // Initialize the corepool.
+      core_pool = new CorePool<ThreadPool<T, E>, E>(count);
+
+      // For future ids.
+      systematic_ids = count + 1;
+      
+      for (; count > 0; count--) {
+        T* t = new T;
         t->systematic_id = count;
 #ifdef USE_SYSTEMATIC_TESTING
         t->local_systematic =
           Systematic::create_systematic_thread(t->systematic_id);
 #endif
-        if (count > 1)
-        {
-          t->next = new T;
-          t = t->next;
-          count--;
-        }
-        else
-        {
-          t->next = first_thread;
-
-          Logging::cout() << "Runtime initialised" << Logging::endl;
-          break;
-        }
+        threads->addFree(t);
       }
-
+      Logging::cout() << "Runtime initialised" << Logging::endl;
       init_barrier();
     }
 
@@ -330,67 +335,77 @@ namespace verona::rt
     template<typename... Args>
     void run_with_startup(void (*startup)(Args...), Args... args)
     {
-      active_thread_count = thread_count;
-      T* t = first_thread;
       {
         ThreadPoolBuilder builder(thread_count);
 
         Logging::cout() << "Starting all threads" << Logging::endl;
-        do
+        for (size_t i = 0; i < thread_count; i++) 
         {
-          builder.add_thread(&T::run, t, startup, args...);
-          t = t->next;
-        } while (t != first_thread);
+          T* t = threads->popFree();
+          if (t == nullptr)
+            abort();
+          t->setCore(core_pool->cores[i]);
+          threads->addActive(t);
+          builder.add_thread(t->core->affinity, &T::run, t, startup, args...);
+        }
       }
       Logging::cout() << "All threads stopped" << Logging::endl;
 
-      assert(t == first_thread);
-      do
+      T* t = threads->popActive();
+      while(t != nullptr)
       {
-        T* next = t->next;
-        delete t;
-        t = next;
-      } while (t != first_thread);
+        T* prev = t;
+        t = threads->popActive();
+        delete prev;
+      } 
+      t = threads->popFree();
+      while (t != nullptr)
+      {
+        T* prev = t;
+        t = threads->popFree();
+        delete prev;
+      }
       Logging::cout() << "All threads deallocated" << Logging::endl;
 
-      first_thread = nullptr;
       incarnation++;
 #ifdef USE_SYSTEMATIC_TESTING
       Object::reset_ids();
 #endif
       thread_count = 0;
-      active_thread_count = 0;
       state.reset<ThreadState::NotInLD>();
 
       Epoch::flush(ThreadAlloc::get());
+      delete core_pool;
+      delete threads;
     }
 
     static bool debug_not_running()
     {
-      return get().active_thread_count == 0;
+      return get().state.get_active_threads() == 0;
     }
 
   private:
     inline ThreadState::State next_state(ThreadState::State s)
     {
+      auto h = sync.handle(local());
       return state.next(s, thread_count);
     }
 
     bool check_for_work()
     {
       // TODO: check for pending async IO
-      T* t = first_thread;
+      Core<E>* c = first_core();
       do
       {
         Logging::cout() << "Checking for pending work on thread "
-                        << t->systematic_id << Logging::endl;
-        if (!t->q.nothing_old())
+                        << c->affinity << Logging::endl;
+        if (!c->q.nothing_old())
         {
           Logging::cout() << "Found pending work!" << Logging::endl;
           return true;
         }
-        t = t->next;
-      } while (t != first_thread);
+        c = c->next;
+      } while (c != first_core());
 
       Logging::cout() << "No pending work!" << Logging::endl;
       return false;
@@ -431,13 +446,14 @@ namespace verona::rt
           return false;
 
         // Check if we should wait for other threads to generate more work.
-        if (active_thread_count > 1)
+        auto value = state.get_active_threads();
+        if (value > 1)
         {
-          active_thread_count--;
+          state.dec_active_threads();
           Logging::cout() << "Pausing" << Logging::endl;
           h.pause(); // Spurious wake-ups are safe.
           Logging::cout() << "Unpausing" << Logging::endl;
-          active_thread_count++;
+          state.inc_active_threads();
           return true;
         }
 
@@ -455,12 +471,7 @@ namespace verona::rt
         teardown_in_progress = true;
 
         // Tell all threads to stop looking for work.
-        T* t = first_thread;
-        do
-        {
-          t->stop();
-          t = t->next;
-        } while (t != first_thread);
+        threads->forall([](T* thread){thread->stop();}); 
         Logging::cout() << "Teardown: all threads stopped" << Logging::endl;
 
         h.unpause_all();
@@ -518,7 +529,7 @@ namespace verona::rt
 
     void init_barrier()
     {
-      barrier_count = thread_count;
+      state.set_barrier(thread_count);
     }
 
     void enter_barrier()
@@ -526,7 +537,7 @@ namespace verona::rt
       auto inc = barrier_incarnation;
       {
         auto h = sync.handle(local());
-        barrier_count--;
+        auto barrier_count = state.exit_thread();
         if (barrier_count != 0)
         {
           while (inc == barrier_incarnation)
