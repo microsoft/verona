@@ -41,6 +41,7 @@ namespace verona::rt
     template<typename Owner>
     friend class Noticeboard;
 
+    static constexpr uint64_t FREE_COWNS_THRESHOLD = 100;
     static constexpr uint64_t TSC_QUIESCENCE_TIMEOUT = 1'000'000;
 
     T* token_cown = nullptr;
@@ -162,7 +163,7 @@ namespace verona::rt
       while (true)
       {
         if (
-          (total_cowns < (free_cowns << 1))
+          (free_cowns > FREE_COWNS_THRESHOLD)
 #ifdef USE_SYSTEMATIC_TESTING
           || Systematic::coin()
 #endif
