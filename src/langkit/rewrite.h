@@ -599,7 +599,10 @@ namespace langkit
 
   inline Node clone(Node node)
   {
-    return node->clone();
+    if (node)
+      return node->clone();
+    else
+      return {};
   }
 
   inline Nodes clone(NodeRange range)

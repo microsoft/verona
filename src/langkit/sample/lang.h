@@ -37,11 +37,10 @@ namespace sample
   // Parsing keywords.
   inline constexpr auto Package = TokenDef("package");
   inline constexpr auto Use = TokenDef("use");
-  inline constexpr auto Typealias =
-    TokenDef("typealias", flag::print | flag::symtab);
-  inline constexpr auto Class = TokenDef("class", flag::print | flag::symtab);
-  inline constexpr auto Var = TokenDef("var", flag::print);
-  inline constexpr auto Let = TokenDef("let", flag::print);
+  inline constexpr auto Typealias = TokenDef("typealias", flag::symtab);
+  inline constexpr auto Class = TokenDef("class", flag::symtab);
+  inline constexpr auto Var = TokenDef("var");
+  inline constexpr auto Let = TokenDef("let");
   inline constexpr auto Ref = TokenDef("ref");
   inline constexpr auto Throw = TokenDef("throw");
   inline constexpr auto Iso = TokenDef("iso");
@@ -51,16 +50,16 @@ namespace sample
   // Semantic structure.
   inline constexpr auto Classbody = TokenDef("classbody");
   inline constexpr auto FieldLet =
-    TokenDef("fieldlet", flag::print | flag::symtab | flag::defbeforeuse);
+    TokenDef("fieldlet", flag::symtab | flag::defbeforeuse);
   inline constexpr auto FieldVar =
-    TokenDef("fieldvar", flag::print | flag::symtab | flag::defbeforeuse);
+    TokenDef("fieldvar", flag::symtab | flag::defbeforeuse);
   inline constexpr auto Function =
-    TokenDef("function", flag::print | flag::symtab | flag::defbeforeuse);
+    TokenDef("function", flag::symtab | flag::defbeforeuse);
   inline constexpr auto Typeparams = TokenDef("typeparams");
-  inline constexpr auto Typeparam = TokenDef("typeparam", flag::print);
+  inline constexpr auto Typeparam = TokenDef("typeparam");
   inline constexpr auto Params = TokenDef("params");
   inline constexpr auto Param =
-    TokenDef("param", flag::print | flag::symtab | flag::defbeforeuse);
+    TokenDef("param", flag::symtab | flag::defbeforeuse);
   inline constexpr auto Funcbody = TokenDef("funcbody");
 
   // Type structure.
@@ -77,7 +76,6 @@ namespace sample
 
   // Expression structure.
   inline constexpr auto Expr = TokenDef("expr");
-  inline constexpr auto Term = TokenDef("term");
   inline constexpr auto Typeargs = TokenDef("typeargs");
   inline constexpr auto Lambda =
     TokenDef("lambda", flag::symtab | flag::defbeforeuse);
@@ -95,10 +93,9 @@ namespace sample
   inline constexpr auto TupleLHS = TokenDef("tuple-lhs");
   inline constexpr auto CallLHS = TokenDef("call-lhs");
   inline constexpr auto RefVarLHS = TokenDef("refvar-lhs", flag::print);
-  inline constexpr auto Load = TokenDef("load", flag::print);
-  inline constexpr auto Store = TokenDef("store");
 
   // Indexing names.
+  inline constexpr auto IdSym = TokenDef("idsym");
   inline constexpr auto Bounds = TokenDef("bounds");
   inline constexpr auto Default = TokenDef("default");
 
@@ -111,8 +108,12 @@ namespace sample
   inline constexpr auto rtype = TokenDef("rtype");
 
   // Sythetic locations.
-  inline const auto apply = Location("apply");
+  inline const auto standard = Location("std");
+  inline const auto cell = Location("cell");
   inline const auto create = Location("create");
+  inline const auto apply = Location("apply");
+  inline const auto load = Location("load");
+  inline const auto store = Location("store");
 
   struct Found
   {
@@ -123,8 +124,7 @@ namespace sample
     Found(const Found&) = default;
     Found& operator=(const Found&) = default;
 
-    Found(Found&& that)
-      : def(std::move(that.def)), map(std::move(that.map))
+    Found(Found&& that) : def(std::move(that.def)), map(std::move(that.map))
     {
       that.def = nullptr;
       that.map.clear();

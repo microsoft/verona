@@ -26,8 +26,7 @@ namespace sample
 
       Checker()
       {
-        // TODO: view, func, isect, union, trait, refclass, reftypealias,
-        // reftypeparam
+        // TODO: view, func, isect, union, trait, reftype
         match.rules({
           T(TypeVar)[lhs] * T(TypeVar)[rhs] >>
             [this](auto& _) {

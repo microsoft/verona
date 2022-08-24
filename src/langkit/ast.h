@@ -399,9 +399,8 @@ namespace langkit
 
     void bind(const Location& loc)
     {
-      // Change the location of the node, find the enclosing scope, and bind the
-      // new location to this node in the symbol table.
-      location_ = loc;
+      // Find the enclosing scope and bind the new location to this node in the
+      // symbol table.
       auto st = scope();
 
       if (!st)

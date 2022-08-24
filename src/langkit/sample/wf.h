@@ -20,30 +20,42 @@ namespace sample
     Imm,
     Mut);
 
+  inline constexpr auto wfIdSym = field(IdSym, choice(Ident, Symbol));
+
   inline constexpr auto wf = wellformed(
-    shape(Package, field(id, choice(String, Escaped))),
+    shape(Ident),
+
+    // Class bodies.
     shape(Use, field(Type)),
     shape(
-      Typealias, field(Typeparams), field(Bounds, Type), field(Default, Type)),
-    shape(Class, field(Typeparams), field(Type), field(Classbody)),
-    shape(Iso),
-    shape(Imm),
-    shape(Mut),
-
-    shape(Classbody, seq(Use, Typealias, Class, FieldLet, FieldVar, Function)),
-    shape(FieldLet, field(Type), field(Expr)),
-    shape(FieldVar, field(Type), field(Expr)),
+      Typealias,
+      field(Ident),
+      field(Typeparams),
+      field(Bounds, Type),
+      field(Default, Type)),
     shape(
-      Function, field(Typeparams), field(Params), field(Type), field(Funcbody)),
-    shape(Typeparams, seq(Typeparam)),
-    shape(Typeparam, field(Bounds, Type), field(Default, Type)),
-    shape(Params, seq(Param)),
-    shape(Param, field(Type), field(Expr)),
+      Class, field(Ident), field(Typeparams), field(Type), field(Classbody)),
+    shape(Classbody, seq(Use, Class, Typealias, FieldLet, FieldVar, Function)),
+    shape(FieldLet, field(Ident), field(Type), field(Expr)),
+    shape(FieldVar, field(Ident), field(Type), field(Expr)),
+    shape(
+      Function,
+      wfIdSym,
+      field(Typeparams),
+      field(Params),
+      field(Type),
+      field(Funcbody)),
 
-    // TODO:
+    // Type parameters.
+    shape(Typeparams, seq(Typeparam)),
+    shape(Typeparam, field(Ident), field(Bounds, Type), field(Default, Type)),
+
+    // Functions.
+    shape(Params, seq(Param)),
+    shape(Param, field(Ident), field(Type), field(Expr)),
     shape(Funcbody, undef()),
 
-    // TODO:
+    // Types.
     shape(Type, field(Type, wfTypes)),
     shape(TypeTuple, seq(wfTypes)),
     shape(TypeView, field(lhs, wfTypes), field(rhs, wfTypes)),
@@ -51,16 +63,20 @@ namespace sample
     shape(TypeThrow, field(Type, wfTypes)),
     shape(TypeIsect, seq(wfTypes)),
     shape(TypeUnion, seq(wfTypes)),
-    shape(TypeVar, undef()),
-    shape(TypeTrait, undef()),
+    shape(TypeVar, field(Ident)),
+    shape(TypeTrait, field(Classbody)),
+    shape(Iso),
+    shape(Imm),
+    shape(Mut),
+    shape(Package, field(id, choice(String, Escaped))),
+    shape(RefType, field(Ident), field(Typeargs)), // TODO: scoped
 
-    shape(Var, field(Type)),
-    shape(Let, field(Type)),
+    shape(Var, field(Ident), field(Type)),
+    shape(Let, field(Ident), field(Type)),
     shape(Throw, field(Expr)),
 
     // TODO:
     shape(Expr, undef()),
-    shape(Term, undef()),
     shape(Typeargs, undef()),
 
     shape(Lambda, field(Typeparams), field(Params), field(Funcbody)),
@@ -70,21 +86,16 @@ namespace sample
     shape(Assign, undef()),
 
     shape(RefVar),
+    shape(RefVarLHS),
     shape(RefLet),
     shape(RefParam),
 
-    // TODO: scoped
-    shape(RefType, field(Ident), field(Typeargs)),
-
-    shape(RefFunction, field(Ident), field(Typeargs)),
-    shape(Selector, field(Ident), field(Typeargs)),
+    shape(RefFunction, wfIdSym, field(Typeargs)),
+    shape(Selector, wfIdSym, field(Typeargs)),
 
     // TODO:
     shape(Call, undef()),
+    shape(CallLHS, undef()),
 
-    shape(Include, field(Type)),
-
-    // TODO:
-    shape(Load),
-    shape(Store, field(RefLet), field(RefLet)));
+    shape(Include, field(Type)));
 }

@@ -73,7 +73,7 @@ namespace langkit
 
       // Because apply runs over child nodes, the top node is never visited.
       // Use a synthetic top node.
-      auto top = NodeDef::create(Group);
+      auto top = NodeDef::create(Top);
       top->push_back(node);
 
       do

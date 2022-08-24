@@ -129,6 +129,7 @@ namespace langkit
 
   inline constexpr auto Invalid = TokenDef("invalid");
   inline constexpr auto Unclosed = TokenDef("unclosed");
+  inline constexpr auto Top = TokenDef("top", flag::symtab);
   inline constexpr auto Group = TokenDef("group");
   inline constexpr auto File = TokenDef("file");
   inline constexpr auto Directory = TokenDef("directory");
