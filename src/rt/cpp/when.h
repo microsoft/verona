@@ -31,13 +31,13 @@ namespace verona::cpp
     // Note only requires friend when Args2 == Args
     // but C++ doesn't like this.
     template<typename... Args2>
-    friend When<Args2...> when(Args2... args);
+    friend When<Args2...> when(cown_ptr<Args2>&... args);
 
     /**
      * Internally uses AcquiredCown.  The cown is only acquired after the
      * behaviour is scheduled.
      */
-    std::tuple<Args...> cown_tuple;
+    std::tuple<typename cown_ptr<Args>::ActualCown*...> cown_tuple;
 
     /**
      * This uses template programming to turn the std::tuple into a C style
@@ -54,15 +54,15 @@ namespace verona::cpp
       }
       else
       {
-        auto p = std::get<index>(cown_tuple);
-        array[index] = p.underlying_cown();
+        auto& p = std::get<index>(cown_tuple);
+        array[index] = p;
         assert(array[index] != nullptr);
         array_assign<index + 1>(array);
       }
     }
 
     template<typename... Ts>
-    When(Ts... args) : cown_tuple(args...)
+    When(Ts&... args) : cown_tuple(args.underlying_cown()...)
     {
       static_assert(
         std::conjunction_v<std::is_base_of<cown_ptr_base, Ts>...>,
@@ -75,7 +75,8 @@ namespace verona::cpp
      * Needs to be a separate function for the template parameter to work.
      */
     template<typename C>
-    static acquired_cown<C> cown_ptr_to_acquired(cown_ptr<C> c)
+    static acquired_cown<C>
+    cown_ptr_actual_cown_to_acquired(typename cown_ptr<C>::ActualCown* c)
     {
       return acquired_cown<C>(c);
     }
@@ -99,11 +100,16 @@ namespace verona::cpp
         verona::rt::schedule_lambda(
           sizeof...(Args),
           cowns,
-          [f = std::forward<F>(f), cown_tuple = cown_tuple]() mutable {
-            /// Effectively converts cown_ptr... to acquired_cown... .
-            auto lift_f = [f = std::forward<F>(f)](Args... args) mutable {
-              f(cown_ptr_to_acquired(args)...);
-            };
+          [f = std::forward<F>(f),
+           cown_tuple = std::tuple<typename cown_ptr<Args>::ActualCown*...>(
+             cown_tuple)]() mutable {
+            /// Effectively converts cown_ptr<T>::ActualCown... to
+            /// acquired_cown... .
+            auto lift_f =
+              [f = std::forward<F>(f)](
+                typename cown_ptr<Args>::ActualCown*... args) mutable {
+                f(cown_ptr_actual_cown_to_acquired<Args>(args)...);
+              };
 
             std::apply(lift_f, cown_tuple);
           });
@@ -117,7 +123,7 @@ namespace verona::cpp
    * Uses `<<` to apply the closure.
    */
   template<typename... Args>
-  When<Args...> when(Args... args)
+  When<Args...> when(cown_ptr<Args>&... args)
   {
     return When<Args...>(args...);
   }
