@@ -61,12 +61,8 @@ namespace verona::cpp
       }
     }
 
-    template<typename... Ts>
-    When(Ts&... args) : cown_tuple(args.underlying_cown()...)
+    When(typename cown_ptr<Args>::ActualCown*... args) : cown_tuple(args...)
     {
-      static_assert(
-        std::conjunction_v<std::is_base_of<cown_ptr_base, Ts>...>,
-        "Not a cown_ptr");
     }
 
     /**
@@ -125,6 +121,6 @@ namespace verona::cpp
   template<typename... Args>
   When<Args...> when(cown_ptr<Args>&... args)
   {
-    return When<Args...>(args...);
+    return When<Args...>(args.allocated_cown...);
   }
 } // namespace verona::cpp

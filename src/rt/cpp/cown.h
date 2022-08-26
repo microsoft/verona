@@ -31,6 +31,9 @@ namespace verona::cpp
     friend class cown_ptr;
   };
 
+  template<typename... Args>
+  class When;
+
   /**
    * Smart pointer to represent shared access to a cown.
    * Can only be used asychronously with `when` to get
@@ -43,6 +46,13 @@ namespace verona::cpp
   class cown_ptr : cown_ptr_base
   {
   private:
+
+
+    // Note only requires friend when Args2 == Args
+    // but C++ doesn't like this.
+    template<typename... Args2>
+    friend When<Args2...> when(cown_ptr<Args2>&... args);
+
     /**
      * Internal Verona runtime cown for this type.
      */
