@@ -54,7 +54,7 @@ namespace verona::cpp
       }
       else
       {
-        auto& p = std::get<index>(cown_tuple);
+        auto p = std::get<index>(cown_tuple);
         array[index] = p;
         assert(array[index] != nullptr);
         array_assign<index + 1>(array);
@@ -97,8 +97,7 @@ namespace verona::cpp
           sizeof...(Args),
           cowns,
           [f = std::forward<F>(f),
-           cown_tuple = std::tuple<typename cown_ptr<Args>::ActualCown*...>(
-             cown_tuple)]() mutable {
+           cown_tuple = cown_tuple]() mutable {
             /// Effectively converts cown_ptr<T>::ActualCown... to
             /// acquired_cown... .
             auto lift_f =
