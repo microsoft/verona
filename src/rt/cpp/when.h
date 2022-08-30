@@ -25,7 +25,6 @@ namespace verona::cpp
    *
    * Allows the variadic number of cowns to occur before the closure.
    */
-
   template<typename... Args>
   class When
   {
