@@ -4,6 +4,8 @@
 #include <memory>
 #include <test/harness.h>
 
+using namespace verona::cpp;
+
 struct Account
 {
   int balance;
