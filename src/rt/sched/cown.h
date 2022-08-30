@@ -75,16 +75,27 @@ namespace verona::rt
    * read more before a write).
    */
 
-  enum class AccessMode
-  {
-    WRITE,
-    READ
-  };
-
   struct Request
   {
-    Cown* cown;
+    enum class AccessMode
+    {
+      WRITE,
+      READ
+    };
+
+    Cown* _cown;
     AccessMode mode;
+
+    Request(): _cown(nullptr), mode(AccessMode::WRITE) {}
+    Request(Cown* cown, AccessMode mode): _cown(cown), mode(mode) {}
+
+    Cown* cown() { return _cown; }
+
+    bool is_read() { return mode == AccessMode::READ; }
+
+    static Request write(Cown* cown) { return Request(cown, AccessMode::WRITE); }
+
+    static Request read(Cown* cown) { return Request(cown, AccessMode::READ); }
   };
 
   struct ReadRefCount
@@ -562,7 +573,7 @@ namespace verona::rt
       {
         for (size_t i = 0; i < body->count; i++)
         {
-          auto* next = body->requests[i].cown;
+          auto* next = body->requests[i].cown();
           Logging::cout() << "Will try to acquire lock " << next
                           << Logging::endl;
           next->enqueue_lock.lock();
@@ -575,7 +586,7 @@ namespace verona::rt
       for (size_t i = 0; i < loop_end; i++)
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
-        auto* next = body->requests[i].cown;
+        auto* next = body->requests[i].cown();
         Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
                         << ", index " << i << " behaviour " << body->behaviour
                         << " loop end " << loop_end << Logging::endl;
@@ -611,10 +622,10 @@ namespace verona::rt
         assert(m == m2);
         UNUSED(m2);
 
-        if (body->requests[i].mode == AccessMode::READ)
+        if (body->requests[i].is_read())
         {
-          body->requests[i].cown->read_ref_count.add_read();
-          body->requests[i].cown->schedule();
+          body->requests[i].cown()->read_ref_count.add_read();
+          body->requests[i].cown()->schedule();
         }
       }
     }
@@ -679,11 +690,11 @@ namespace verona::rt
 
       // Find this cown in the list of cowns to acquire
       Request* request = body.requests;
-      while (request->cown != this)
+      while (request->cown() != this)
         request++;
 
       bool schedule_after_behaviour = true;
-      if (request->mode == AccessMode::READ)
+      if (request->is_read())
       {
         read_ref_count.add_read();
         if (body.exec_count_down.fetch_sub(1) > 1)
@@ -718,8 +729,8 @@ namespace verona::rt
           for (size_t i = 0; i < body.count; i++)
           {
             Logging::cout()
-              << "Scanning cown " << body.requests[i].cown << Logging::endl;
-            body.requests[i].cown->scan(alloc, Scheduler::local()->send_epoch);
+              << "Scanning cown " << body.requests[i].cown() << Logging::endl;
+            body.requests[i].cown()->scan(alloc, Scheduler::local()->send_epoch);
           }
 
           // Scan closure
@@ -747,8 +758,8 @@ namespace verona::rt
 
       for (size_t i = 0; i < body.count; i++)
       {
-        if (body.requests[i].cown)
-          Cown::release(alloc, body.requests[i].cown);
+        if (body.requests[i].cown())
+          Cown::release(alloc, body.requests[i].cown());
       }
 
       Logging::cout() << "MultiMessage " << m << " completed and running on "
@@ -762,12 +773,12 @@ namespace verona::rt
       for (size_t s = 0; s < body.count; s++)
       {
         Request request = body.requests[s];
-        Cown* cown = request.cown;
+        Cown* cown = request.cown();
         if (cown)
         {
-          if (request.mode == AccessMode::WRITE && cown != this)
+          if (!request.is_read() && cown != this)
             cown->schedule();
-          else if (request.mode == AccessMode::READ)
+          else if (request.is_read())
           {
             // If this read is the last read of a cown, and that cown's next
             // message requires writing, clear the flag and either:
@@ -813,7 +824,7 @@ namespace verona::rt
     {
       Request requests[count];
       for (size_t i = 0; i < count; ++i)
-        requests[i] = Request{cowns[i], AccessMode::WRITE};
+        requests[i] = Request::write(cowns[i]);
 
       schedule<Behaviour, transfer, Args...>(
         count, requests, std::forward<Args>(args)...);
@@ -849,14 +860,14 @@ namespace verona::rt
       });
 #else
       std::sort(&sort[0], &sort[count], [](Request& a, Request& b) {
-        return a.cown < b.cown;
+        return a.cown() < b.cown();
       });
 #endif
 
       if constexpr (transfer == NoTransfer)
       {
         for (size_t i = 0; i < count; i++)
-          Cown::acquire(sort[i].cown);
+          Cown::acquire(sort[i].cown());
       }
 
       auto body = MultiMessage::make_body(alloc, count, sort, be);
@@ -918,12 +929,12 @@ namespace verona::rt
 
           // find us in the list of cowns to acquire
           Request* request = body->requests;
-          while (request->cown != this)
+          while (request->cown() != this)
             request++;
 
           // Attempt to process a write, if it fails stop processing the message
           // queue.
-          if (request->mode == AccessMode::WRITE && !read_ref_count.try_write())
+          if (!request->is_read() && !read_ref_count.try_write())
             return false;
         }
 
@@ -1150,16 +1161,15 @@ namespace verona::rt
        * Avoid releasing the last cown because it breaks the current
        * code structure
        */
-      if (this == senders[senders_count - 1].cown)
+      if (this == senders[senders_count - 1].cown())
         return false;
 
       for (size_t s = 0; s < senders_count; s++)
       {
-        if (senders[s].cown != this)
+        if (senders[s].cown() != this)
           continue;
-        Cown::release(alloc, senders[s].cown);
-        senders[s].cown->schedule();
-        senders[s].cown = nullptr;
+        Cown::release(alloc, senders[s].cown());
+        senders[s].cown()->schedule();
         break;
       }
 
@@ -1184,7 +1194,7 @@ namespace verona::rt
     {
       Request requests[count];
       for (size_t i = 0; i < count; ++i)
-        requests[i] = Request{cowns[i], AccessMode::WRITE};
+        requests[i] = Request::write(cowns[i]);
       auto* body =
         MultiMessage::make_body(alloc, count, requests, &unmute_behaviour);
       return MultiMessage::make_message(alloc, body, epoch);

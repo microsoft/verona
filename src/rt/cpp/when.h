@@ -57,10 +57,10 @@ namespace verona::cpp
       {
         auto p = std::get<index>(cown_tuple);
         if constexpr (is_read_only<decltype(p)>())
-          requests[index] = Request{p.underlying_cown(), AccessMode::READ};
+          requests[index] = Request::read(p.underlying_cown());
         else
-          requests[index] = Request{p.underlying_cown(), AccessMode::WRITE};
-        assert(requests[index].cown != nullptr);
+          requests[index] = Request::write(p.underlying_cown());
+        assert(requests[index].cown() != nullptr);
         array_assign<index + 1>(requests);
       }
     }
