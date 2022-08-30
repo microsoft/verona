@@ -77,25 +77,20 @@ namespace verona::rt
 
   struct Request
   {
-    enum class AccessMode
-    {
-      WRITE,
-      READ
-    };
-
     Cown* _cown;
-    AccessMode mode;
 
-    Request(): _cown(nullptr), mode(AccessMode::WRITE) {}
-    Request(Cown* cown, AccessMode mode): _cown(cown), mode(mode) {}
+    static const size_t READ_FLAG = 1;
 
-    Cown* cown() { return _cown; }
+    Request(): _cown(nullptr) {}
+    Request(Cown* cown): _cown(cown) {}
 
-    bool is_read() { return mode == AccessMode::READ; }
+    Cown* cown() { return (Cown*)((size_t)_cown & ~READ_FLAG); }
 
-    static Request write(Cown* cown) { return Request(cown, AccessMode::WRITE); }
+    bool is_read() { return ((size_t)_cown & READ_FLAG); }
 
-    static Request read(Cown* cown) { return Request(cown, AccessMode::READ); }
+    static Request write(Cown* cown) { return Request(cown); }
+
+    static Request read(Cown* cown) { return Request((Cown*) ((size_t)cown | READ_FLAG)); }
   };
 
   struct ReadRefCount
