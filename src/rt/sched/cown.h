@@ -490,7 +490,6 @@ namespace verona::rt
     {
       auto& alloc = ThreadAlloc::get();
       const auto last = body->count - 1;
-      assert(body->index <= last);
 
       // First acquire all the locks if a multimessage
       if (body->count > 1)
@@ -588,9 +587,8 @@ namespace verona::rt
 
       EpochMark e = m->get_epoch();
 
-      Logging::cout() << "MultiMessage " << m << " index " << body.index
-                      << " acquired " << this << " epoch " << e
-                      << Logging::endl;
+      Logging::cout() << "MultiMessage " << m << " acquired " << this
+                      << " epoch " << e << Logging::endl;
 
       // If we are in should_scan, and we observe a message in this epoch,
       // then all future messages must have been sent while in pre-scan or
