@@ -78,8 +78,12 @@ namespace verona::rt
 
     // The number of cowns in the per-thread list `list`.
     size_t total_cowns = 0;
+
     // The number of cowns that have been collected in the per-thread list
-    // `list`.
+    // `list`. This is atomic as other threads can collect the body of the
+    // cown managed from this thread.  They cannot collect the actual cown
+    // allocation.  The ratio of free_cowns to total_cowns is used to
+    // determine when to walk the `list` to collect the stubs.
     std::atomic<size_t> free_cowns = 0;
 
     /// The MessageBody of a running behaviour.
