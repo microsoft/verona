@@ -112,7 +112,7 @@ namespace verona::cpp
    * Template deduction guide for when.
    */
   template<typename... Args>
-  When(ActualCown<Args>*...)->When<Args...>; 
+  When(ActualCown<Args>*...)->When<Args...>;
 
   /**
    * Implements a Verona-like `when` statement.
