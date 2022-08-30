@@ -69,7 +69,7 @@ namespace verona::cpp
      * Needs to be a separate function for the template parameter to work.
      */
     template<typename C>
-    static acquired_cown<C> cown_ptr_actual_cown_to_acquired(ActualCown<C>* c)
+    static acquired_cown<C> actual_cown_to_acquired(ActualCown<C>* c)
     {
       return acquired_cown<C>(c);
     }
