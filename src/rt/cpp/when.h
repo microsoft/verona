@@ -122,7 +122,7 @@ namespace verona::cpp
    * Uses `<<` to apply the closure.
    *
    * This should really take a type of
-   *   ((ActualCown<A1>& | ActualCown<A1>&&)...
+   *   ((cown_ptr<A1>& | cown_ptr<A1>&&)...
    * To get the universal reference type to work, we can't
    * place this constraint on it directly, as it needs to be
    * on a type argument.  This also requires an additional
