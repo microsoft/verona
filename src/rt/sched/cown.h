@@ -870,7 +870,7 @@ namespace verona::rt
 
 #ifdef USE_SYSTEMATIC_TESTING
       std::sort(&sort[0], &sort[count], [](Request& a, Request& b) {
-        return a.cown->id() < b.cown->id();
+        return a.cown()->id() < b.cown()->id();
       });
 #else
       std::sort(&sort[0], &sort[count], [](Request& a, Request& b) {
