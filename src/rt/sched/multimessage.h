@@ -27,7 +27,7 @@ namespace verona::rt
     MultiMessageBody* body;
     friend verona::rt::MPSCQ<MultiMessage>;
     friend class Cown;
-    friend class Request;
+    friend struct Request;
 
     std::atomic<MultiMessage*> next{nullptr};
 
