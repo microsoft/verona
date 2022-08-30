@@ -1204,11 +1204,8 @@ namespace verona::rt
      * pointers that indicates the size of the allocation.
      */
     static MultiMessage*
-    unmute_msg(Alloc& alloc, size_t count, Cown** cowns, EpochMark epoch)
+    unmute_msg(Alloc& alloc, size_t count, Request* requests, EpochMark epoch)
     {
-      Request requests[count];
-      for (size_t i = 0; i < count; ++i)
-        requests[i] = Request::write(cowns[i]);
       auto* body =
         MultiMessage::make_body(alloc, count, requests, &unmute_behaviour);
       return MultiMessage::make_message(alloc, body, epoch);
