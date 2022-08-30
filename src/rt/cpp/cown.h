@@ -212,7 +212,7 @@ namespace verona::cpp
     ActualCown<T>& origin_cown;
 
     /// Constructor is private, as only `When` can construct one.
-    acquired_cown(ActualCown<T>* origin) : origin_cown(*origin) {}
+    acquired_cown(ActualCown<T>& origin) : origin_cown(origin) {}
 
   public:
     /// Get a handle on the underlying cown.

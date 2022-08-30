@@ -71,7 +71,8 @@ namespace verona::cpp
     template<typename C>
     static acquired_cown<C> actual_cown_to_acquired(ActualCown<C>* c)
     {
-      return acquired_cown<C>(c);
+      assert(c != nullptr);
+      return acquired_cown<C>(*c);
     }
 
   public:
@@ -122,9 +123,7 @@ namespace verona::cpp
    *   ((cown_ptr<A1>& | cown_ptr<A1>&&)...
    * To get the universal reference type to work, we can't
    * place this constraint on it directly, as it needs to be
-   * on a type argument.  This also requires an additional
-   * step with `mk_when` to actually infer the generics correctly
-   * as we can't apply the tight constraint.
+   * on a type argument.
    */
   template<typename... Args>
   auto when(Args&&... args)
