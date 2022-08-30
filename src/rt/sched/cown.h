@@ -87,6 +87,41 @@ namespace verona::rt
     AccessMode mode;
   };
 
+  struct ReadRefCount
+  {
+    std::atomic<size_t> count{0};
+
+    void add_read() { count.fetch_add(2); }
+
+    // true means last reader and writer is waiting, false otherwise
+    bool release_read() {
+      if (count.fetch_sub(2) == 3) {
+        Systematic::yield();
+        assert(count.load() == 1);
+        count.store(0, std::memory_order_relaxed);
+        return true;
+      }
+      return false;
+    }
+
+    bool try_write() {
+      if (count.load(std::memory_order_relaxed) == 0)
+        return true;
+
+      // Mark a pending write
+      if (count.fetch_add(1) != 0)
+        return false;
+
+      // if in the time between reading and writing the ref count, it
+      // became zero, we can now process the write, so clear the flag
+      // and continue
+      count.fetch_sub(1);
+      Systematic::yield();
+      assert(count.load() == 0);
+      return true;
+    }
+  };
+
   class Cown : public Object
   {
     using MessageBody = MultiMessage::MultiMessageBody;
@@ -165,7 +200,7 @@ namespace verona::rt
      * Bottom bit is used to signal a waiting write.
      * Remaining bits are the count.
      */
-    std::atomic<size_t> read_ref_count{0};
+    ReadRefCount read_ref_count;
 
     EnqueueLock enqueue_lock;
 
@@ -578,7 +613,7 @@ namespace verona::rt
 
         if (body->requests[i].mode == AccessMode::READ)
         {
-          body->requests[i].cown->read_ref_count.fetch_add(2);
+          body->requests[i].cown->read_ref_count.add_read();
           body->requests[i].cown->schedule();
         }
       }
@@ -650,7 +685,7 @@ namespace verona::rt
       bool schedule_after_behaviour = true;
       if (request->mode == AccessMode::READ)
       {
-        read_ref_count.fetch_add(2);
+        read_ref_count.add_read();
         if (body.exec_count_down.fetch_sub(1) > 1)
           return true;
         else
@@ -741,12 +776,8 @@ namespace verona::rt
             //   thread
             //     (overwriting the previous decision to stop processing this
             //     cown).
-            size_t rc = cown->read_ref_count.fetch_sub(2);
-            if (rc == 3)
+            if (cown->read_ref_count.release_read())
             {
-              Systematic::yield();
-              assert(cown->read_ref_count.load() == 1);
-              cown->read_ref_count.store(0, std::memory_order_relaxed);
               if (cown != this)
                 cown->schedule();
               else
@@ -890,24 +921,10 @@ namespace verona::rt
           while (request->cown != this)
             request++;
 
-          // If a write is required read the ref count,
-          // if it is non-zero set the bottom bit to signal a waiting write
-          if (
-            request->mode == AccessMode::WRITE &&
-            read_ref_count.load(std::memory_order_relaxed) > 0)
-          {
-            // if in the time between reading and writing the ref count, it
-            // became zero, we can now process the write, so clear the flag
-            // and continue
-            if (read_ref_count.fetch_add(1) == 0)
-            {
-              read_ref_count.fetch_sub(1);
-              Systematic::yield();
-              assert(read_ref_count.load() == 0);
-            }
-            else
-              return false;
-          }
+          // Attempt to process a write, if it fails stop processing the message
+          // queue.
+          if (request->mode == AccessMode::WRITE && !read_ref_count.try_write())
+            return false;
         }
 
         curr = queue.dequeue(alloc, notify);
