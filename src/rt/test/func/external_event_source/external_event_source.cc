@@ -113,9 +113,13 @@ struct ExternalSource
     if (notifications_on.exchange(false))
       p->mark_notify();
 
+#ifdef USE_SYSTEMATIC_TESTING
+    Systematic::yield();
+#else
     // sleep
     auto pause_time = std::chrono::milliseconds(1000);
     std::this_thread::sleep_for(pause_time);
+#endif
 
     for (int i = 10; i < 20; i++)
     {
