@@ -31,13 +31,13 @@ namespace verona::cpp
     // Note only requires friend when Args2 == Args
     // but C++ doesn't like this.
     template<typename... Args2>
-    friend When<Args2...> when(cown_ptr<Args2>&... args);
+    friend When<Args2...> mk_when(ActualCown<Args2>*... args);
 
     /**
      * Internally uses AcquiredCown.  The cown is only acquired after the
      * behaviour is scheduled.
      */
-    std::tuple<typename cown_ptr<Args>::ActualCown*...> cown_tuple;
+    std::tuple<ActualCown<Args>*...> cown_tuple;
 
     /**
      * This uses template programming to turn the std::tuple into a C style
@@ -61,9 +61,7 @@ namespace verona::cpp
       }
     }
 
-    When(typename cown_ptr<Args>::ActualCown*... args) : cown_tuple(args...)
-    {
-    }
+    When(ActualCown<Args>*... args) : cown_tuple(args...) {}
 
     /**
      * Converts a single `cown_ptr` into a `acquired_cown`.
@@ -71,8 +69,7 @@ namespace verona::cpp
      * Needs to be a separate function for the template parameter to work.
      */
     template<typename C>
-    static acquired_cown<C>
-    cown_ptr_actual_cown_to_acquired(typename cown_ptr<C>::ActualCown* c)
+    static acquired_cown<C> cown_ptr_actual_cown_to_acquired(ActualCown<C>* c)
     {
       return acquired_cown<C>(c);
     }
@@ -96,13 +93,11 @@ namespace verona::cpp
         verona::rt::schedule_lambda(
           sizeof...(Args),
           cowns,
-          [f = std::forward<F>(f),
-           cown_tuple = cown_tuple]() mutable {
-            /// Effectively converts cown_ptr<T>::ActualCown... to
+          [f = std::forward<F>(f), cown_tuple = cown_tuple]() mutable {
+            /// Effectively converts ActualCown<T>... to
             /// acquired_cown... .
             auto lift_f =
-              [f = std::forward<F>(f)](
-                typename cown_ptr<Args>::ActualCown*... args) mutable {
+              [f = std::forward<F>(f)](ActualCown<Args>*... args) mutable {
                 f(cown_ptr_actual_cown_to_acquired<Args>(args)...);
               };
 
@@ -113,13 +108,30 @@ namespace verona::cpp
   };
 
   /**
+   * Internal: required for template inference.
+   */
+  template<typename... Args>
+  When<Args...> mk_when(ActualCown<Args>*... args)
+  {
+    return When<Args...>(args...);
+  }
+
+  /**
    * Implements a Verona-like `when` statement.
    *
    * Uses `<<` to apply the closure.
+   *
+   * This should really take a type of
+   *   ((ActualCown<A1>& | ActualCown<A1>&&)...
+   * To get the universal reference type to work, we can't
+   * place this constraint on it directly, as it needs to be
+   * on a type argument.  This also requires an additional
+   * step with `mk_when` to actually infer the generics correctly
+   * as we can't apply the tight constraint.
    */
   template<typename... Args>
-  When<Args...> when(cown_ptr<Args>&... args)
+  auto when(Args&&... args)
   {
-    return When<Args...>(args.allocated_cown...);
+    return mk_when(args.allocated_cown...);
   }
 } // namespace verona::cpp

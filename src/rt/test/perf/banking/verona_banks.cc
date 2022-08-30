@@ -100,8 +100,7 @@ void bank_job(
   {
     // Reschedule bank_job
     // bank_job(worker, l, repeats - 1);
-    auto w = worker.cown();
-    when(w) <<
+    when(worker.cown()) <<
       [=](acquired_cown<Worker> worker) { bank_job(worker, l, repeats - 1); };
   }
 }
@@ -126,8 +125,7 @@ void test_body()
   for (size_t j = 0; j < NUM_WORKERS; j++)
   {
     Logging::cout() << "Worker " << j << Logging::endl;
-    auto w = make_cown<Worker>(accounts, j + 1); 
-    when(w) << [=](acquired_cown<Worker> w) {
+    when(make_cown<Worker>(accounts, j + 1)) << [=](acquired_cown<Worker> w) {
       bank_job(w, log, TRANSACTIONS / NUM_WORKERS);
     };
   }
