@@ -31,7 +31,7 @@ namespace verona::cpp
     // Note only requires friend when Args2 == Args
     // but C++ doesn't like this.
     template<typename... Args2>
-    friend When<Args2...> mk_when(ActualCown<Args2>*... args);
+    friend auto when(Args2&&... args);
 
     /**
      * Internally uses AcquiredCown.  The cown is only acquired after the
@@ -108,13 +108,10 @@ namespace verona::cpp
   };
 
   /**
-   * Internal: required for template inference.
+   * Template deduction guide for when.
    */
   template<typename... Args>
-  When<Args...> mk_when(ActualCown<Args>*... args)
-  {
-    return When<Args...>(args...);
-  }
+  When(ActualCown<Args>*...) -> When<Args...>; 
 
   /**
    * Implements a Verona-like `when` statement.
@@ -132,6 +129,6 @@ namespace verona::cpp
   template<typename... Args>
   auto when(Args&&... args)
   {
-    return mk_when(args.allocated_cown...);
+    return When(args.allocated_cown...);
   }
 } // namespace verona::cpp

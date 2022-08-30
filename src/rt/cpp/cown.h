@@ -35,7 +35,10 @@ namespace verona::cpp
   class cown_ptr;
 
   /**
-   * Internal Verona runtime cown for this type.
+   * Internal Verona runtime cown for the type T.
+   *
+   * This class is used to prevent access to the representation except
+   * through the correct usage of cown_ptr and when.
    */
   template<typename T>
   class ActualCown : public VCown<ActualCown<T>>
@@ -206,32 +209,32 @@ namespace verona::cpp
   private:
     /// Underlying cown that has been acquired.
     /// Runtime is actually holding this reference count.
-    ActualCown<T>* origin_cown;
+    ActualCown<T>& origin_cown;
 
     /// Constructor is private, as only `When` can construct one.
-    acquired_cown(ActualCown<T>* origin) : origin_cown(origin) {}
+    acquired_cown(ActualCown<T>* origin) : origin_cown(*origin) {}
 
   public:
     /// Get a handle on the underlying cown.
     cown_ptr<T> cown() const
     {
-      verona::rt::Cown::acquire(origin_cown);
-      return cown_ptr<T>(origin_cown);
+      verona::rt::Cown::acquire(&origin_cown);
+      return cown_ptr<T>(&origin_cown);
     }
 
     T* operator->()
     {
-      return &(origin_cown->value);
+      return &(origin_cown.value);
     }
 
     T& operator*()
     {
-      return origin_cown->value;
+      return origin_cown.value;
     }
 
     operator T&()
     {
-      return origin_cown->value;
+      return origin_cown.value;
     }
 
     /**
