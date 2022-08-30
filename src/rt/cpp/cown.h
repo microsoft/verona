@@ -31,9 +31,6 @@ namespace verona::cpp
     friend class cown_ptr;
   };
 
-  template<typename... Args>
-  class When;
-
   template<typename T>
   class cown_ptr;
 

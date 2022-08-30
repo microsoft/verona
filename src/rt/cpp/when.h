@@ -98,7 +98,7 @@ namespace verona::cpp
             /// acquired_cown... .
             auto lift_f =
               [f = std::forward<F>(f)](ActualCown<Args>*... args) mutable {
-                f(cown_ptr_actual_cown_to_acquired<Args>(args)...);
+                f(actual_cown_to_acquired<Args>(args)...);
               };
 
             std::apply(lift_f, cown_tuple);
