@@ -75,7 +75,11 @@ namespace verona::rt
     SchedulerStats stats;
 
     T* list = nullptr;
+
+    // The number of cowns in the per-thread list `list`.
     size_t total_cowns = 0;
+    // The number of cowns that have been collected in the per-thread list
+    // `list`.
     std::atomic<size_t> free_cowns = 0;
 
     /// The MessageBody of a running behaviour.
@@ -691,10 +695,12 @@ namespace verona::rt
       }
 
       T** p = &list;
+      size_t removed_count = 0;
       size_t count = 0;
 
       while (*p != nullptr)
       {
+        count++;
         T* c = *p;
         // Collect cown stubs when the weak count is zero.
         if (c->weak_count == 0 || during_teardown)
@@ -715,7 +721,7 @@ namespace verona::rt
             epoch == T::NO_EPOCH_SET || GlobalEpoch::is_outdated(epoch);
           if (outdated)
           {
-            count++;
+            removed_count++;
             *p = c->next;
             Logging::cout() << "Stub collected cown " << c << Logging::endl;
             c->dealloc(*alloc);
@@ -730,8 +736,9 @@ namespace verona::rt
         }
         p = &(c->next);
       }
-
-      free_cowns -= count;
+      assert(total_cowns == count);
+      free_cowns -= removed_count;
+      total_cowns -= removed_count;
     }
   };
 } // namespace verona::rt
