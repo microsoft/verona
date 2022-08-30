@@ -81,27 +81,44 @@ namespace verona::rt
 
     static const size_t READ_FLAG = 1;
 
-    Request(): _cown(nullptr) {}
-    Request(Cown* cown): _cown(cown) {}
+    Request() : _cown(nullptr) {}
+    Request(Cown* cown) : _cown(cown) {}
 
-    Cown* cown() { return (Cown*)((size_t)_cown & ~READ_FLAG); }
+    Cown* cown()
+    {
+      return (Cown*)((size_t)_cown & ~READ_FLAG);
+    }
 
-    bool is_read() { return ((size_t)_cown & READ_FLAG); }
+    bool is_read()
+    {
+      return ((size_t)_cown & READ_FLAG);
+    }
 
-    static Request write(Cown* cown) { return Request(cown); }
+    static Request write(Cown* cown)
+    {
+      return Request(cown);
+    }
 
-    static Request read(Cown* cown) { return Request((Cown*) ((size_t)cown | READ_FLAG)); }
+    static Request read(Cown* cown)
+    {
+      return Request((Cown*)((size_t)cown | READ_FLAG));
+    }
   };
 
   struct ReadRefCount
   {
     std::atomic<size_t> count{0};
 
-    void add_read() { count.fetch_add(2); }
+    void add_read()
+    {
+      count.fetch_add(2);
+    }
 
     // true means last reader and writer is waiting, false otherwise
-    bool release_read() {
-      if (count.fetch_sub(2) == 3) {
+    bool release_read()
+    {
+      if (count.fetch_sub(2) == 3)
+      {
         Systematic::yield();
         assert(count.load() == 1);
         count.store(0, std::memory_order_relaxed);
@@ -110,7 +127,8 @@ namespace verona::rt
       return false;
     }
 
-    bool try_write() {
+    bool try_write()
+    {
       if (count.load(std::memory_order_relaxed) == 0)
         return true;
 
@@ -725,7 +743,8 @@ namespace verona::rt
           {
             Logging::cout()
               << "Scanning cown " << body.requests[i].cown() << Logging::endl;
-            body.requests[i].cown()->scan(alloc, Scheduler::local()->send_epoch);
+            body.requests[i].cown()->scan(
+              alloc, Scheduler::local()->send_epoch);
           }
 
           // Scan closure

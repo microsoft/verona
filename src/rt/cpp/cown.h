@@ -164,12 +164,12 @@ namespace verona::cpp
   };
 
   /* A cown_ptr<const T> is used to mark that the cown is being accessed as
-  * read-only. (This combines the type as the capability. We do not have deep
-  * immutability in C++, so acquired_cown<const T> is an approximation.)
-  *
-  * We abuses inheritance to allow us to construct a cown_ptr<const T> from a
-  * cown_ptr<T>.
-  */
+   * read-only. (This combines the type as the capability. We do not have deep
+   * immutability in C++, so acquired_cown<const T> is an approximation.)
+   *
+   * We use inheritance to allow us to construct a cown_ptr<const T> from a
+   * cown_ptr<T>.
+   */
   template<typename T>
   class cown_ptr<const T> : public cown_ptr<T>
   {
