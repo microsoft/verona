@@ -25,8 +25,6 @@ namespace verona::rt
     Systematic::yield();
   }
 
-  static Behaviour unmute_behaviour{Behaviour::Descriptor::empty()};
-
   struct EnqueueLock
   {
     std::atomic<bool> locked = false;
@@ -1020,19 +1018,6 @@ namespace verona::rt
     static MultiMessage* stub_msg(Alloc& alloc)
     {
       return MultiMessage::make_message(alloc, nullptr, EpochMark::EPOCH_NONE);
-    }
-
-    /**
-     * Create an unmute message using an empty behaviour. The given array of
-     * cowns may be null terminated, but the count must always be count of
-     * pointers that indicates the size of the allocation.
-     */
-    static MultiMessage*
-    unmute_msg(Alloc& alloc, size_t count, Cown** cowns, EpochMark epoch)
-    {
-      auto* body =
-        MultiMessage::make_body(alloc, count, cowns, &unmute_behaviour);
-      return MultiMessage::make_message(alloc, body, epoch);
     }
   };
 
