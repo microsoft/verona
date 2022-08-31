@@ -743,6 +743,10 @@ namespace verona::rt
       assert(total_cowns == count);
       free_cowns -= removed_count;
       total_cowns -= removed_count;
+
+      Logging::cout() << "Stub collected " << removed_count << " cowns"
+                      << " Free cowns " << free_cowns << " Total cowns "
+                      << total_cowns << Logging::endl;
     }
   };
 } // namespace verona::rt
