@@ -161,13 +161,13 @@ void test(SystematicTestHarness* harness)
   auto es = std::make_shared<ExternalSource>(p);
 
   p->es = es;
-  schedule_lambda<YesTransfer>(p, [=]() { 
+  schedule_lambda<YesTransfer>(p, [=]() {
     // Start IO Thread
     Scheduler::add_external_event_source();
     harness->external_thread([=]() { es->main_es(); });
 
     // Begin polling behaviour
-    p->main_poller(); 
+    p->main_poller();
   });
 }
 
