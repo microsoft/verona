@@ -161,6 +161,8 @@ public:
 
       sched.run();
 
+      Logging::cout() << "Joining external threads" << std::endl;
+
       // Join on all created external threads and clear the list.
       while (!external_threads.empty())
       {
@@ -168,6 +170,8 @@ public:
         thread.join();
         external_threads.pop_front();
       }
+
+      Logging::cout() << "External threads joined" << std::endl;
 
       if (detect_leaks)
         snmalloc::debug_check_empty<snmalloc::Alloc::Config>();

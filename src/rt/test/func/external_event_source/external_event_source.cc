@@ -55,7 +55,6 @@ struct Poller : VCown<Poller>
     {
       // add external source and enable notifications
       enable_notifications(*es);
-      Scheduler::add_external_event_source();
       should_schedule_if_notified = true;
 
       // Check if there are new buffers between last checking and enabling
@@ -63,7 +62,6 @@ struct Poller : VCown<Poller>
       if (read <= buffer_idx.peek(alloc))
       {
         disable_notifications(*es);
-        Scheduler::remove_external_event_source();
         should_schedule_if_notified = false;
         schedule_lambda(this, [=]() { main_poller(); });
       }
@@ -79,7 +77,6 @@ struct Poller : VCown<Poller>
       // No need to disable notifications here because the external source
       // delivers a single-shot notification
       should_schedule_if_notified = false;
-      Scheduler::remove_external_event_source();
       schedule_lambda(p, [=]() { p->main_poller(); });
     }
   }
@@ -131,6 +128,9 @@ struct ExternalSource
       p->mark_notify();
 
     Cown::release(alloc, p);
+
+    // Notify runtime external IO thread has completed.
+    schedule_lambda(Scheduler::remove_external_event_source);
   }
 
   void notifications_enable()
@@ -161,9 +161,14 @@ void test(SystematicTestHarness* harness)
   auto es = std::make_shared<ExternalSource>(p);
 
   p->es = es;
-  schedule_lambda<YesTransfer>(p, [=]() { p->main_poller(); });
+  schedule_lambda<YesTransfer>(p, [=]() { 
+    // Start IO Thread
+    Scheduler::add_external_event_source();
+    harness->external_thread([=]() { es->main_es(); });
 
-  harness->external_thread([=]() { es->main_es(); });
+    // Begin polling behaviour
+    p->main_poller(); 
+  });
 }
 
 int main(int argc, char** argv)
