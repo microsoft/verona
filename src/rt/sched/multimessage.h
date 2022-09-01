@@ -48,9 +48,10 @@ namespace verona::rt
 
       /**
        * Allocates a message body with sufficient space for the
-       * cowns_array and the behaviour.  This does not initialise the cowns array.
+       * cowns_array and the behaviour.  This does not initialise the cowns
+       * array.
        */
-      template <typename Be, typename... Args>
+      template<typename Be, typename... Args>
       static Body* make(Alloc& alloc, size_t count, Args... args)
       {
         size_t size = sizeof(Body) + (sizeof(Cown*) * count) + sizeof(Be);
@@ -58,6 +59,9 @@ namespace verona::rt
         // Create behaviour
         auto body = new (alloc.alloc(size)) Body(count);
         new ((Be*)&(body->get_behaviour())) Be(std::forward<Args>(args)...);
+
+        static_assert(alignof(Be) <= sizeof(void*), "Alignment not supported, yet!");
+        static_assert(sizeof(Body) % alignof(Be) == 0, "Alignment not supported, yet!");
 
         return body;
       }
