@@ -19,7 +19,7 @@ namespace verona::cpp
    * then the lambda is delayed, until a Token has been destroyed.
    *
    * Tokens must be treated linearly, once a token is no longer required
-   * its destructor runs, and that enables the source to provide an token.
+   * its destructor runs, and that enables the source to provide another token.
    */
   class Token
   {
