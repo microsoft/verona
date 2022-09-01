@@ -80,13 +80,11 @@ namespace verona::rt
     inline Body* get_body()
     {
       auto result = (Body*)((uintptr_t)body & ~Object::MARK_MASK);
-      assert(result != nullptr);
       return result;
     }
 
     static MultiMessage* make(Alloc& alloc, EpochMark epoch, Body* body)
     {
-      assert(body != nullptr);
       auto msg = (MultiMessage*)alloc.alloc<sizeof(MultiMessage)>();
       msg->body = body;
       msg->set_epoch(epoch);
