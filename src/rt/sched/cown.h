@@ -64,7 +64,7 @@ namespace verona::rt
    */
   class Cown : public Object
   {
-    using MessageBody = MultiMessage::MultiMessageBody;
+    using MessageBody = MultiMessage::Body;
 
   public:
     enum TryFastSend
@@ -484,7 +484,7 @@ namespace verona::rt
      *     rescheduling. However, for fairness, it is better to reschedule in
      *     case the behaviour executes for a very long time.
      **/
-    static void fast_send(MultiMessage::MultiMessageBody* body, EpochMark epoch)
+    static void fast_send(MultiMessage::Body* body, EpochMark epoch)
     {
       auto& alloc = ThreadAlloc::get();
       const auto last = body->count - 1;
@@ -494,7 +494,7 @@ namespace verona::rt
       {
         for (size_t i = 0; i < body->count; i++)
         {
-          auto* next = body->cowns[i];
+          auto* next = body->get_cowns_array()[i];
           Logging::cout() << "Will try to acquire lock " << next
                           << Logging::endl;
           next->enqueue_lock.lock();
@@ -507,10 +507,10 @@ namespace verona::rt
       for (size_t i = 0; i < loop_end; i++)
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
-        auto* next = body->cowns[i];
+        auto* next = body->get_cowns_array()[i];
         Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
-                        << ", index " << i << " behaviour " << body->behaviour
-                        << " loop end " << loop_end << Logging::endl;
+                        << ", index " << i << " loop end " << loop_end
+                        << Logging::endl;
 
         auto needs_sched = next->try_fast_send(m);
         if (loop_end > 1)
@@ -580,7 +580,7 @@ namespace verona::rt
      **/
     bool run_step(MultiMessage* m)
     {
-      MultiMessage::MultiMessageBody& body = *(m->get_body());
+      MultiMessage::Body& body = *(m->get_body());
       Alloc& alloc = ThreadAlloc::get();
 
       EpochMark e = m->get_epoch();
@@ -625,13 +625,14 @@ namespace verona::rt
           for (size_t i = 0; i < body.count; i++)
           {
             Logging::cout()
-              << "Scanning cown " << body.cowns[i] << Logging::endl;
-            body.cowns[i]->scan(alloc, Scheduler::local()->send_epoch);
+              << "Scanning cown " << body.get_cowns_array()[i] << Logging::endl;
+            body.get_cowns_array()[i]->scan(
+              alloc, Scheduler::local()->send_epoch);
           }
 
           // Scan closure
           ObjectStack f(alloc);
-          body.behaviour->trace(f);
+          body.get_behaviour()->trace(f);
           scan_stack(alloc, Scheduler::local()->send_epoch, f);
         }
         else
@@ -644,20 +645,18 @@ namespace verona::rt
       Scheduler::local()->message_body = &body;
 
       // Run the behaviour.
-      body.behaviour->f();
+      body.get_behaviour()->f();
 
       for (size_t i = 0; i < body.count; i++)
       {
-        if (body.cowns[i])
-          Cown::release(alloc, body.cowns[i]);
+        if (body.get_cowns_array()[i])
+          Cown::release(alloc, body.get_cowns_array()[i]);
       }
 
       Logging::cout() << "MultiMessage " << m << " completed and running on "
                       << this << Logging::endl;
 
-      // Free the body and the behaviour.
-      alloc.dealloc(body.behaviour, body.behaviour->size());
-      alloc.dealloc<sizeof(MultiMessage::MultiMessageBody)>(m->get_body());
+      alloc.dealloc(m->get_body());
 
       return true;
     }
@@ -691,9 +690,13 @@ namespace verona::rt
                       << Logging::endl;
 
       auto& alloc = ThreadAlloc::get();
-      auto* be =
-        new ((Be*)alloc.alloc<sizeof(Be)>()) Be(std::forward<Args>(args)...);
-      auto** sort = (Cown**)alloc.alloc(count * sizeof(Cown*));
+
+      auto body = MultiMessage::Body::make(alloc, count, sizeof(Be));
+
+      // Initialised the behaviour.
+      new ((Be*)body->get_behaviour()) Be(std::forward<Args>(args)...);
+
+      auto** sort = body->get_cowns_array();
       memcpy(sort, cowns, count * sizeof(Cown*));
 
 #ifdef USE_SYSTEMATIC_TESTING
@@ -709,8 +712,6 @@ namespace verona::rt
         for (size_t i = 0; i < count; i++)
           Cown::acquire(sort[i]);
       }
-
-      auto body = MultiMessage::make_body(alloc, count, sort, be);
 
       // TODO what if this thread is external.
       //  EPOCH_A okay as currently only sending externally, before we start
@@ -829,7 +830,7 @@ namespace verona::rt
         Logging::cout() << "Running Message " << curr << " on cown " << this
                         << Logging::endl;
 
-        auto* senders = body->cowns;
+        auto* senders = body->get_cowns_array();
         const size_t senders_count = body->count;
 
         // A function that returns false indicates that the cown should not
@@ -844,8 +845,6 @@ namespace verona::rt
           if ((senders[s]) && (senders[s] != this))
             senders[s]->schedule();
         }
-
-        alloc.dealloc(senders, senders_count * sizeof(Cown*));
 
       } while ((curr != until) && (batch_size < batch_limit));
 
@@ -988,7 +987,7 @@ namespace verona::rt
     bool release_early()
     {
       auto* body = Scheduler::local()->message_body;
-      auto* senders = body->cowns;
+      auto* senders = body->get_cowns_array();
       const size_t senders_count = body->count;
       Alloc& alloc = ThreadAlloc::get();
 

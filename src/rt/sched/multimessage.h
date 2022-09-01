@@ -14,28 +14,61 @@ namespace verona::rt
 
   class MultiMessage
   {
-    struct MultiMessageBody
+    /**
+     * This represents a message that is send to a behaviour.
+     *
+     * The layout requires that after the allocation there is space for
+     * `count` cown pointers, and then the behaviour's body.
+     *
+     * This layout allows the message body to be single allocation even though
+     * there are multiple different sized pieces.
+     */
+    struct Body
     {
-      size_t count;
-      Cown** cowns;
       std::atomic<size_t> exec_count_down;
-      Behaviour* behaviour;
+      size_t count;
+
+    private:
+      Body(size_t count) : exec_count_down(count), count(count) {}
+
+    public:
+      Cown** get_cowns_array()
+      {
+        return snmalloc::pointer_offset<Cown*>(this, sizeof(Body));
+      }
+
+      Behaviour* get_behaviour()
+      {
+        return snmalloc::pointer_offset<Behaviour>(
+          this, sizeof(Body) + sizeof(Cown*) * count);
+      }
+
+      /**
+       * Allocates a message body with sufficient space for the
+       * cowns_array and the behaviour.  Neither the cowns array
+       * or the behaviour are initialised by this function.
+       */
+      static Body* make(Alloc& alloc, size_t count, size_t behaviour_size)
+      {
+        size_t size = sizeof(Body) + (sizeof(Cown*) * count) + behaviour_size;
+        return new (alloc.alloc(size)) Body(count);
+      }
     };
 
   private:
-    MultiMessageBody* body;
+    // The body of the actual message.
+    Body* body;
     friend verona::rt::MPSCQ<MultiMessage>;
     friend class Cown;
 
     std::atomic<MultiMessage*> next{nullptr};
 
-    inline MultiMessageBody* get_body()
+    inline Body* get_body()
     {
-      return (MultiMessageBody*)((uintptr_t)body & ~Object::MARK_MASK);
+      return (Body*)((uintptr_t)body & ~Object::MARK_MASK);
     }
 
-    static MultiMessage*
-    make(Alloc& alloc, EpochMark epoch, MultiMessageBody* body)
+    static MultiMessage* make(Alloc& alloc, EpochMark epoch, Body* body)
     {
       auto msg = (MultiMessage*)alloc.alloc<sizeof(MultiMessage)>();
       msg->body = body;
@@ -62,20 +95,12 @@ namespace verona::rt
       Logging::cout() << "MultiMessage epoch: " << this << " " << get_epoch()
                       << " -> " << e << Logging::endl;
 
-      body = (MultiMessageBody*)((uintptr_t)get_body() | (size_t)e);
+      body = (Body*)((uintptr_t)get_body() | (size_t)e);
 
       assert(get_epoch() == e);
     }
 
-    static MultiMessageBody*
-    make_body(Alloc& alloc, size_t count, Cown** cowns, Behaviour* behaviour)
-    {
-      return new (alloc.alloc<sizeof(MultiMessageBody)>())
-        MultiMessageBody{count, cowns, count, behaviour};
-    }
-
-    static MultiMessage*
-    make_message(Alloc& alloc, MultiMessageBody* body, EpochMark epoch)
+    static MultiMessage* make_message(Alloc& alloc, Body* body, EpochMark epoch)
     {
       MultiMessage* m = make(alloc, epoch, body);
       Logging::cout() << "MultiMessage " << m << " payload " << body << " ("
