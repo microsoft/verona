@@ -656,8 +656,6 @@ namespace verona::rt
       Logging::cout() << "MultiMessage " << m << " completed and running on "
                       << this << Logging::endl;
 
-      alloc.dealloc(m->get_body());
-
       return true;
     }
 
@@ -843,6 +841,8 @@ namespace verona::rt
           if ((senders[s]) && (senders[s] != this))
             senders[s]->schedule();
         }
+
+        alloc.dealloc(body);
 
       } while ((curr != until) && (batch_size < batch_limit));
 
