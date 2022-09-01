@@ -15,7 +15,7 @@ namespace verona::rt
   class MultiMessage
   {
     /**
-     * This represents a message that is send to a behaviour.
+     * This represents a message that is sent to a behaviour.
      *
      * The layout requires that after the allocation there is space for
      * `count` cown pointers, and then the behaviour's body.
@@ -32,26 +32,34 @@ namespace verona::rt
       Body(size_t count) : exec_count_down(count), count(count) {}
 
     public:
+      /**
+       * TODO When we move to C++20, convert to returning a span.
+       */
       Cown** get_cowns_array()
       {
         return snmalloc::pointer_offset<Cown*>(this, sizeof(Body));
       }
 
-      Behaviour* get_behaviour()
+      Behaviour& get_behaviour()
       {
-        return snmalloc::pointer_offset<Behaviour>(
+        return *snmalloc::pointer_offset<Behaviour>(
           this, sizeof(Body) + sizeof(Cown*) * count);
       }
 
       /**
        * Allocates a message body with sufficient space for the
-       * cowns_array and the behaviour.  Neither the cowns array
-       * or the behaviour are initialised by this function.
+       * cowns_array and the behaviour.  This does not initialise the cowns array.
        */
-      static Body* make(Alloc& alloc, size_t count, size_t behaviour_size)
+      template <typename Be, typename... Args>
+      static Body* make(Alloc& alloc, size_t count, Args... args)
       {
-        size_t size = sizeof(Body) + (sizeof(Cown*) * count) + behaviour_size;
-        return new (alloc.alloc(size)) Body(count);
+        size_t size = sizeof(Body) + (sizeof(Cown*) * count) + sizeof(Be);
+
+        // Create behaviour
+        auto body = new (alloc.alloc(size)) Body(count);
+        new ((Be*)&(body->get_behaviour())) Be(std::forward<Args>(args)...);
+
+        return body;
       }
     };
 
@@ -65,11 +73,14 @@ namespace verona::rt
 
     inline Body* get_body()
     {
-      return (Body*)((uintptr_t)body & ~Object::MARK_MASK);
+      auto result = (Body*)((uintptr_t)body & ~Object::MARK_MASK);
+      assert(result != nullptr);
+      return result;
     }
 
     static MultiMessage* make(Alloc& alloc, EpochMark epoch, Body* body)
     {
+      assert(body != nullptr);
       auto msg = (MultiMessage*)alloc.alloc<sizeof(MultiMessage)>();
       msg->body = body;
       msg->set_epoch(epoch);

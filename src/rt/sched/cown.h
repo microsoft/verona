@@ -632,7 +632,7 @@ namespace verona::rt
 
           // Scan closure
           ObjectStack f(alloc);
-          body.get_behaviour()->trace(f);
+          body.get_behaviour().trace(f);
           scan_stack(alloc, Scheduler::local()->send_epoch, f);
         }
         else
@@ -645,7 +645,7 @@ namespace verona::rt
       Scheduler::local()->message_body = &body;
 
       // Run the behaviour.
-      body.get_behaviour()->f();
+      body.get_behaviour().f();
 
       for (size_t i = 0; i < body.count; i++)
       {
@@ -691,10 +691,8 @@ namespace verona::rt
 
       auto& alloc = ThreadAlloc::get();
 
-      auto body = MultiMessage::Body::make(alloc, count, sizeof(Be));
-
-      // Initialised the behaviour.
-      new ((Be*)body->get_behaviour()) Be(std::forward<Args>(args)...);
+      auto body =
+        MultiMessage::Body::make<Be>(alloc, count, std::forward<Args>(args)...);
 
       auto** sort = body->get_cowns_array();
       memcpy(sort, cowns, count * sizeof(Cown*));
