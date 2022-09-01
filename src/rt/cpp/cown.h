@@ -46,10 +46,10 @@ namespace verona::cpp
   private:
     T value;
 
-      void schedule(bool fifo = true)
-      {
-        VCown<ActualCown>::schedule(fifo);
-      }
+    void schedule(bool fifo = true)
+    {
+      VCown<ActualCown>::schedule(fifo);
+    }
 
     template<typename... Args>
     ActualCown(Args&&... ts) : value(std::forward<Args>(ts)...)
