@@ -95,6 +95,8 @@ namespace verona::cpp
       // Reference to the underlying state.
       State* state;
 
+      // Local cache of tokens.  These tokens can be used without
+      // synchronising with the shared state.
       size_t local_tokens = 0;
 
       Source(State* state) : state(state) {}
@@ -124,11 +126,18 @@ namespace verona::cpp
       }
 
     public:
+      /**
+       * Returns the number of tokens that be be successfully acquired
+       * by calling `get_token`.
+       *
+       * This will synchronise with the global state, and locally caches
+       * the tokens to reduce the number of synchronising operations.
+       */
       size_t available_tokens()
       {
         if (state->inflight.load() == state->max_inflight)
         {
-          return 0;
+          return local_tokens;
         }
         auto available = state->max_inflight - state->inflight.load() - 1;
 
@@ -141,6 +150,9 @@ namespace verona::cpp
 
       /**
        * Only call previous call to available_tokens() has returned 0;
+       *
+       * This will call f once there is at least one available token.
+       * f may be called synchronously or asynchronously.
        */
       template<typename F>
       void wait_for_token(F f) &&
@@ -148,6 +160,12 @@ namespace verona::cpp
         assert(local_tokens == 0);
 
         auto old = state->inflight++;
+
+        // We have already performed an increment, so the local_tokens
+        // needs increasing to reflect this.  The token may or mat not be
+        // available yet, but will definitely be by the time we call f.
+        local_tokens++;
+
         if (old + 1 == state->max_inflight)
         {
           // There are no more Tokens available, so when on wait
@@ -157,12 +175,12 @@ namespace verona::cpp
                  // Create a new thing to wait on.
                  that.state->setup_wait();
                  // We are guaranteed that a token is available, so proceed.
-                 f({that.state}, std::move(that));
+                 f(std::move(that));
                };
         }
         else
         {
-          f({state}, std::move(*this));
+          f(std::move(*this));
         }
       }
 
