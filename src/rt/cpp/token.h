@@ -116,6 +116,11 @@ namespace verona::cpp
       }
 
     public:
+      size_t available_tokens()
+      {
+        return state->max_inflight - state->inflight.load();
+      }
+
       template<typename F>
       void get_token(F f) &&
       {
