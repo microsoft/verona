@@ -8,7 +8,7 @@ using namespace verona::cpp;
 
 void slow_work(Token t)
 {
-  busy_loop(1000);
+  busy_loop(1);
   UNUSED(t);
   printf("!");
 }
@@ -17,7 +17,7 @@ void fast_work(Token t, cown_ptr<size_t> slow_cown)
 {
   printf(".");
   when() << [t = std::move(t), slow_cown]() mutable {
-    busy_loop(5000);
+    busy_loop(5);
     when(slow_cown) <<
       [t = std::move(t)](auto) mutable { slow_work(std::move(t)); };
   };
@@ -67,8 +67,8 @@ void generate_loop(
 void test()
 {
   auto ts = Token::Source::create(10);
-  auto log = make_cown<size_t>((size_t)0);
-  auto slow_cown = make_cown<size_t>((size_t)0);
+  auto log = make_cown<size_t>();
+  auto slow_cown = make_cown<size_t>();
 
   when() << [ts = std::move(ts), log, slow_cown]() mutable {
     generate_loop(std::move(ts), log, slow_cown);
