@@ -180,6 +180,7 @@ namespace verona::cpp
         }
         else
         {
+          // Token was already available so proceed.
           f(std::move(*this));
         }
       }
