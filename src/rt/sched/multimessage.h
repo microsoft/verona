@@ -60,8 +60,10 @@ namespace verona::rt
         auto body = new (alloc.alloc(size)) Body(count);
         new ((Be*)&(body->get_behaviour())) Be(std::forward<Args>(args)...);
 
-        static_assert(alignof(Be) <= sizeof(void*), "Alignment not supported, yet!");
-        static_assert(sizeof(Body) % alignof(Be) == 0, "Alignment not supported, yet!");
+        static_assert(
+          alignof(Be) <= sizeof(void*), "Alignment not supported, yet!");
+        static_assert(
+          sizeof(Body) % alignof(Be) == 0, "Alignment not supported, yet!");
 
         return body;
       }
