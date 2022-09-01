@@ -24,14 +24,38 @@ void fast_work(Token t, cown_ptr<size_t> slow_cown)
 
 void generate_loop(Token::Source ts, cown_ptr<size_t> log, cown_ptr<size_t> slow_cown, size_t count = 1000)
 {
-  std::move(ts).get_token([count, log, slow_cown](Token t, auto ts) {
-    // do something
-    if (count > 0)
-    {
+  size_t i = ts.available_tokens();
+  if (i == 0)
+  {
+    std::move(ts).wait_for_token([count, log, slow_cown](Token t, auto ts){
       fast_work(std::move(t), slow_cown);
       generate_loop(std::move(ts), log, slow_cown, count - 1);
-    }
-  });
+    });
+    return;
+  }
+
+  // Calculate if we can complete with the currently available tokens.
+  if (count < i)
+  {
+    i = count;
+  }
+
+  // Remove the work we are about to schedule.
+  count -= i;
+
+  // Schedule work
+  for (; i > 0; i--)
+  {
+    fast_work(ts.get_token(), slow_cown);
+  }
+
+  // If we have more work to do, schedule a continuation.
+  if (count != 0)
+  {
+    when () << [ts = std::move(ts), log, slow_cown, count]() mutable {
+      generate_loop(std::move(ts), log, slow_cown, count);
+    };
+  }
 }
 
 void test()

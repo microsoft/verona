@@ -118,23 +118,25 @@ namespace verona::cpp
     public:
       size_t available_tokens()
       {
-        return state->max_inflight - state->inflight.load();
+        if (state->inflight.load() == state->max_inflight)
+        {
+          return 0;
+        }
+        return state->max_inflight - state->inflight.load() - 1;
       }
 
       template<typename F>
-      void get_token(F f) &&
+      void wait_for_token(F f) &&
       {
         auto old = state->inflight++;
         if (old + 1 == state->max_inflight)
         {
-//          printf("S");
           // There are no more Tokens available, so when on wait
           // to be notified when more are available.
           when(this->state->wait)
             << [that = std::move(*this), f = std::move(f)](auto) mutable {
                  // Create a new thing to wait on.
                  that.state->setup_wait();
-//                 printf("R");
                  // We are guaranteed that a token is available, so proceed.
                  f({that.state}, std::move(that));
                };
@@ -143,6 +145,19 @@ namespace verona::cpp
         {
           f({state}, std::move(*this));
         }
+      }
+
+      /**
+       * Gets a token, requires that there is at least one available token.
+       * This should be ensured by calling `available_tokens` first.
+       */
+      Token get_token() &
+      {
+        assert(state->inflight + 1 < state->max_inflight);
+        auto old = state->inflight++;
+        assert(old + 1 < state->max_inflight);
+        UNUSED(old);
+        return {state};
       }
 
       /**
@@ -205,7 +220,7 @@ namespace verona::cpp
         auto old = src->inflight--;
         if (old == src->max_inflight)
         {
-//          printf("W");
+          //          printf("W");
           signal_wait(src->wait);
         }
         else if (old == 1)
@@ -217,6 +232,8 @@ namespace verona::cpp
     }
 
   public:
+    Token() : src(nullptr) {}
+
     ~Token()
     {
       clear();
