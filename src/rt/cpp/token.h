@@ -95,6 +95,8 @@ namespace verona::cpp
       // Reference to the underlying state.
       State* state;
 
+      size_t local_tokens = 0;
+
       Source(State* state) : state(state) {}
 
       /**
@@ -104,7 +106,13 @@ namespace verona::cpp
       {
         if (state)
         {
+          // Return any locally held tokens.
+          state->inflight -= local_tokens;
+          local_tokens = 0;
+
+          // Return the sources count.
           auto old = state->inflight--;
+
           // If this is the last reference to the state,
           // then it is responsible for deallocating it.
           if (old == 1)
@@ -122,12 +130,23 @@ namespace verona::cpp
         {
           return 0;
         }
-        return state->max_inflight - state->inflight.load() - 1;
+        auto available = state->max_inflight - state->inflight.load() - 1;
+
+        state->inflight += available;
+
+        local_tokens += available;
+
+        return local_tokens;
       }
 
+      /**
+       * Only call previous call to available_tokens() has returned 0;
+       */
       template<typename F>
       void wait_for_token(F f) &&
       {
+        assert(local_tokens == 0);
+
         auto old = state->inflight++;
         if (old + 1 == state->max_inflight)
         {
@@ -151,12 +170,10 @@ namespace verona::cpp
        * Gets a token, requires that there is at least one available token.
        * This should be ensured by calling `available_tokens` first.
        */
-      Token get_token() &
+      Token get_token()
       {
-        assert(state->inflight + 1 < state->max_inflight);
-        auto old = state->inflight++;
-        assert(old + 1 < state->max_inflight);
-        UNUSED(old);
+        assert(local_tokens > 0);
+        local_tokens--;
         return {state};
       }
 
@@ -176,7 +193,9 @@ namespace verona::cpp
       Source(Source&& b)
       {
         state = b.state;
+        local_tokens = b.local_tokens;
         b.state = nullptr;
+        b.local_tokens = 0;
       }
 
       /**
@@ -186,7 +205,9 @@ namespace verona::cpp
       {
         clear();
         state = b.state;
+        local_tokens = b.local_tokens;
         b.state = nullptr;
+        b.local_tokens = 0;
         return *this;
       }
 
@@ -220,7 +241,6 @@ namespace verona::cpp
         auto old = src->inflight--;
         if (old == src->max_inflight)
         {
-          //          printf("W");
           signal_wait(src->wait);
         }
         else if (old == 1)

@@ -25,6 +25,7 @@ void fast_work(Token t, cown_ptr<size_t> slow_cown)
 void generate_loop(Token::Source ts, cown_ptr<size_t> log, cown_ptr<size_t> slow_cown, size_t count = 1000)
 {
   size_t i = ts.available_tokens();
+
   if (i == 0)
   {
     std::move(ts).wait_for_token([count, log, slow_cown](Token t, auto ts){
