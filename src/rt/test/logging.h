@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include <csignal>
-
 #ifdef _MSC_VER
 #  include <DbgHelp.h>
+#  include <csignal>
 #  include <windows.h>
 #  pragma comment(lib, "dbghelp.lib")
 #elif defined(USE_EXECINFO)
 #  include "threadping.h"
 
 #  include <condition_variable>
+#  include <csignal>
 #  include <cxxabi.h>
 #  include <execinfo.h>
 #  include <thread>
