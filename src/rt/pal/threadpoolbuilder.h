@@ -58,8 +58,7 @@ namespace verona::rt
       UNUSED(affinity);
       add_thread_impl(body, args...);
 #else
-      add_thread_impl(
-        &run_with_affinity, affinity, body, args...);
+      add_thread_impl(&run_with_affinity, affinity, body, args...);
 #endif
       index++;
     }
@@ -80,7 +79,7 @@ namespace verona::rt
     ~ThreadPoolBuilder()
     {
       assert(index == thread_count + 1);
-      
+
       while (!threads.empty())
       {
         auto& thread = threads.front();

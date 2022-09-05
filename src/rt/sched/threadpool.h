@@ -313,8 +313,9 @@ namespace verona::rt
 
       // For future ids.
       systematic_ids = count + 1;
-      
-      for (; count > 0; count--) {
+
+      for (; count > 0; count--)
+      {
         T* t = new T;
         t->systematic_id = count;
 #ifdef USE_SYSTEMATIC_TESTING
@@ -339,7 +340,7 @@ namespace verona::rt
         ThreadPoolBuilder builder(thread_count);
 
         Logging::cout() << "Starting all threads" << Logging::endl;
-        for (size_t i = 0; i < thread_count; i++) 
+        for (size_t i = 0; i < thread_count; i++)
         {
           T* t = threads->popFree();
           if (t == nullptr)
@@ -352,12 +353,12 @@ namespace verona::rt
       Logging::cout() << "All threads stopped" << Logging::endl;
 
       T* t = threads->popActive();
-      while(t != nullptr)
+      while (t != nullptr)
       {
         T* prev = t;
         t = threads->popActive();
         delete prev;
-      } 
+      }
       t = threads->popFree();
       while (t != nullptr)
       {
@@ -397,8 +398,8 @@ namespace verona::rt
       Core<E>* c = first_core();
       do
       {
-        Logging::cout() << "Checking for pending work on thread "
-                        << c->affinity << Logging::endl;
+        Logging::cout() << "Checking for pending work on thread " << c->affinity
+                        << Logging::endl;
         if (!c->q.nothing_old())
         {
           Logging::cout() << "Found pending work!" << Logging::endl;
@@ -471,7 +472,7 @@ namespace verona::rt
         teardown_in_progress = true;
 
         // Tell all threads to stop looking for work.
-        threads->forall([](T* thread){thread->stop();}); 
+        threads->forall([](T* thread) { thread->stop(); });
         Logging::cout() << "Teardown: all threads stopped" << Logging::endl;
 
         h.unpause_all();

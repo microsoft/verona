@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include <snmalloc/snmalloc.h>
-
 #include <atomic>
+#include <snmalloc/snmalloc.h>
 
 namespace verona::rt
 {
@@ -110,7 +109,8 @@ namespace verona::rt
     };
 
     // ThreadState counters.
-    struct StateCounters {
+    struct StateCounters
+    {
       size_t active_threads = 0;
       std::atomic<size_t> barrier_count = 0;
     };
@@ -306,7 +306,7 @@ namespace verona::rt
     /// @warn Should be holding the threadpool lock.
     size_t exit_thread()
     {
-      return internal_state.barrier_count.fetch_sub(1) -1;
+      return internal_state.barrier_count.fetch_sub(1) - 1;
     }
 
     size_t get_active_threads()

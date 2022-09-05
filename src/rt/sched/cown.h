@@ -8,9 +8,9 @@
 #include "../test/logging.h"
 #include "../test/systematic.h"
 #include "base_noticeboard.h"
+#include "core.h"
 #include "multimessage.h"
 #include "schedulerthread.h"
-#include "core.h"
 
 #include <algorithm>
 
@@ -88,7 +88,7 @@ namespace verona::rt
 
         if (local != nullptr)
         {
-          if (local->core == nullptr) 
+          if (local->core == nullptr)
             abort();
           set_owning_core(local->core);
           next = local->list;
@@ -174,8 +174,8 @@ namespace verona::rt
 
     Core<Cown>* owning_core()
     {
-      return
-        (Core<Cown>*)(core_status.load(std::memory_order_relaxed) & thread_mask);
+      return (
+        Core<Cown>*)(core_status.load(std::memory_order_relaxed) & thread_mask);
     }
 
   public:

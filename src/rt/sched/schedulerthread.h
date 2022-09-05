@@ -2,16 +2,15 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "core.h"
+#include "ds/dllist.h"
 #include "ds/hashmap.h"
 #include "ds/mpscq.h"
 #include "mpmcq.h"
 #include "object/object.h"
+#include "schedulerlist.h"
 #include "schedulerstats.h"
 #include "threadpool.h"
-
-#include "core.h"
-#include "ds/dllist.h"
-#include "schedulerlist.h"
 
 #include <snmalloc/snmalloc.h>
 
@@ -77,7 +76,7 @@ namespace verona::rt
     ThreadState::State state = ThreadState::State::NotInLD;
 
     T* list = nullptr;
-		
+
     /// The MessageBody of a running behaviour.
     typename T::MessageBody* message_body = nullptr;
 
@@ -88,11 +87,11 @@ namespace verona::rt
     T* get_token_cown()
     {
       assert(core != nullptr);
-      assert(core ->token_cown);
+      assert(core->token_cown);
       return core->token_cown;
     }
 
-    SchedulerThread() 
+    SchedulerThread()
     {
       Logging::cout() << "Scheduler Thread created" << Logging::endl;
     }
@@ -132,11 +131,11 @@ namespace verona::rt
     {
       // A lifo scheduled cown is coming from an external source, such as
       // asynchronous I/O.
-      Logging::cout() << "LIFO scheduling cown " << a << " onto "
-                      << c->affinity << Logging::endl;
+      Logging::cout() << "LIFO scheduling cown " << a << " onto " << c->affinity
+                      << Logging::endl;
       c->q.enqueue_front(ThreadAlloc::get(), a);
-      Logging::cout() << "LIFO scheduled cown " << a << " onto "
-                      << c->affinity << Logging::endl;
+      Logging::cout() << "LIFO scheduled cown " << a << " onto " << c->affinity
+                      << Logging::endl;
 
       c->stats.lifo();
 
@@ -239,8 +238,8 @@ namespace verona::rt
         Core<T>* cown_core = cown->owning_core();
         assert(this->core != nullptr);
 
-        // If the cown comes from another core, both core counts are incremented.
-        // This reflects both CPU utilization and queue progress.
+        // If the cown comes from another core, both core counts are
+        // incremented. This reflects both CPU utilization and queue progress.
         if (cown_core != nullptr)
           cown_core->progress_counter++;
         if (cown_core != this->core)
@@ -332,7 +331,8 @@ namespace verona::rt
         auto val = core->servicing_threads.fetch_sub(1);
         if (val == 1)
         {
-          Logging::cout() << "Destroying core " << core->affinity << Logging::endl;
+          Logging::cout() << "Destroying core " << core->affinity
+                          << Logging::endl;
           core->q.destroy(*alloc);
         }
       }
@@ -407,9 +407,8 @@ namespace verona::rt
           if (cown != nullptr)
           {
             core->stats.steal();
-            Logging::cout()
-              << "Stole cown " << clear_thread_bit(cown) << " from "
-              << victim->affinity << Logging::endl;
+            Logging::cout() << "Stole cown " << clear_thread_bit(cown)
+                            << " from " << victim->affinity << Logging::endl;
             return cown;
           }
         }
@@ -492,8 +491,8 @@ namespace verona::rt
         }
         else
         {
-          Logging::cout() << "Reached token: stolen from "
-                          << core->affinity << Logging::endl;
+          Logging::cout() << "Reached token: stolen from " << core->affinity
+                          << Logging::endl;
         }
 
         // Put back the token
@@ -768,11 +767,12 @@ namespace verona::rt
       assert(this->core != nullptr);
       assert(this->core->total_cowns == count);
       this->core->free_cowns -= removed_count;
-			this->core->total_cowns -= removed_count;
+      this->core->total_cowns -= removed_count;
 
       Logging::cout() << "Stub collected " << removed_count << " cowns"
-                      << " Free cowns " << this->core->free_cowns << " Total cowns "
-                      << this->core->total_cowns << Logging::endl;
+                      << " Free cowns " << this->core->free_cowns
+                      << " Total cowns " << this->core->total_cowns
+                      << Logging::endl;
     }
   };
 } // namespace verona::rt

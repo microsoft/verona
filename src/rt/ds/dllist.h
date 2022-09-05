@@ -133,7 +133,7 @@ namespace verona::rt
       debug_check();
 #endif
     }
-    
+
     void clear()
     {
       while (head != nullptr)
