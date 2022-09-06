@@ -12,6 +12,7 @@
 #include "schedulerthread.h"
 
 #include <algorithm>
+#include <vector>
 
 namespace verona::rt
 {
@@ -799,12 +800,18 @@ namespace verona::rt
       typename... Args>
     static void schedule(size_t count, Cown** cowns, Args&&... args)
     {
-      Request requests[count];
+      // TODO Remove vector allocation here.  This is a temporary fix to
+      // as we transition to using Request through the code base.
+      auto& alloc = ThreadAlloc::get();
+      Request* requests = (Request*)alloc.alloc(count * sizeof(Request));
+
       for (size_t i = 0; i < count; ++i)
         requests[i] = Request::write(cowns[i]);
 
       schedule<Behaviour, transfer, Args...>(
         count, requests, std::forward<Args>(args)...);
+
+      alloc.dealloc(requests);
     }
 
     /**
@@ -1145,8 +1152,9 @@ namespace verona::rt
         if (senders[s].cown() != this)
           continue;
 
-
-        if (!senders[s].is_read() || senders[s].cown()->read_ref_count.release_read())
+        if (
+          !senders[s].is_read() ||
+          senders[s].cown()->read_ref_count.release_read())
         {
           senders[s].cown()->schedule();
         }
