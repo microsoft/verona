@@ -73,36 +73,6 @@ namespace verona::rt
    * read more before a write).
    */
 
-  struct Request
-  {
-    Cown* _cown;
-
-    static const size_t READ_FLAG = 1;
-
-    Request() : _cown(nullptr) {}
-    Request(Cown* cown) : _cown(cown) {}
-
-    Cown* cown()
-    {
-      return (Cown*)((size_t)_cown & ~READ_FLAG);
-    }
-
-    bool is_read()
-    {
-      return ((size_t)_cown & READ_FLAG);
-    }
-
-    static Request write(Cown* cown)
-    {
-      return Request(cown);
-    }
-
-    static Request read(Cown* cown)
-    {
-      return Request((Cown*)((size_t)cown | READ_FLAG));
-    }
-  };
-
   struct ReadRefCount
   {
     std::atomic<size_t> count{0};
@@ -583,12 +553,12 @@ namespace verona::rt
       {
         for (size_t i = 0; i < body->count; i++)
         {
-          auto* next = body->get_requests_array()[i];
-          Logging::cout() << "Will try to acquire lock " << next
+          auto next = body->get_requests_array()[i];
+          Logging::cout() << "Will try to acquire lock " << next.cown()
                           << Logging::endl;
-          next->enqueue_lock.lock();
+          next.cown()->enqueue_lock.lock();
           yield();
-          Logging::cout() << "Acquired lock " << next << Logging::endl;
+          Logging::cout() << "Acquired lock " << next.cown() << Logging::endl;
         }
       }
 
@@ -596,7 +566,7 @@ namespace verona::rt
       for (size_t i = 0; i < loop_end; i++)
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
-        auto* next = body->get_requests_array()[i];
+        auto next = body->get_requests_array()[i].cown();
         Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
                         << ", index " << i << " loop end " << loop_end
                         << Logging::endl;
@@ -632,10 +602,11 @@ namespace verona::rt
         assert(m == m2);
         UNUSED(m2);
 
-        if (body->requests[i].is_read())
+        Request r = body->get_requests_array()[i];
+        if (r.is_read())
         {
-          body->requests[i].cown()->read_ref_count.add_read();
-          body->requests[i].cown()->schedule();
+          r.cown()->read_ref_count.add_read();
+          r.cown()->schedule();
         }
       }
     }
@@ -698,7 +669,7 @@ namespace verona::rt
       }
 
       // Find this cown in the list of cowns to acquire
-      Request* request = body.requests;
+      Request* request = body.get_requests_array();
       while (request->cown() != this)
         request++;
 
@@ -738,7 +709,7 @@ namespace verona::rt
           for (size_t i = 0; i < body.count; i++)
           {
             Logging::cout()
-              << "Scanning cown " << body.get_cowns_array()[i] << Logging::endl;
+              << "Scanning cown " << body.get_requests_array()[i].cown() << Logging::endl;
             body.get_requests_array()[i].cown()->scan(
               alloc, Scheduler::local()->send_epoch);
           }
@@ -769,7 +740,7 @@ namespace verona::rt
       for (size_t i = 0; i < body.count; i++)
       {
         if (body.get_requests_array()[i].cown())
-          Cown::release(alloc, body.get_cowns_array()[i]);
+          Cown::release(alloc, body.get_requests_array()[i].cown());
       }
 
       Logging::cout() << "MultiMessage " << m << " completed and running on "
@@ -857,7 +828,7 @@ namespace verona::rt
       auto body =
         MultiMessage::Body::make<Be>(alloc, count, std::forward<Args>(args)...);
 
-      auto** sort = body->get_requests_array();
+      auto* sort = body->get_requests_array();
       memcpy(sort, requests, count * sizeof(Request));
 
 #ifdef USE_SYSTEMATIC_TESTING
@@ -932,7 +903,7 @@ namespace verona::rt
           auto* body = curr->get_body();
 
           // find us in the list of cowns to acquire
-          Request* request = body->requests;
+          Request* request = body->get_requests_array();
           while (request->cown() != this)
             request++;
 

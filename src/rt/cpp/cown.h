@@ -34,6 +34,9 @@ namespace verona::cpp
   template<typename T>
   class cown_ptr;
 
+  template<typename T>
+  struct Access;
+
   /**
    * Internal Verona runtime cown for the type T.
    *
@@ -72,6 +75,9 @@ namespace verona::cpp
   class cown_ptr : cown_ptr_base
   {
   private:
+    template<typename TT>
+    friend Access<TT> make_access(cown_ptr<TT>& c);
+
     template<typename... Args>
     friend auto when(Args&&... args);
 
@@ -197,13 +203,6 @@ namespace verona::cpp
   {
     return cown;
   }
-
-  template<class T>
-  struct is_read_only : std::false_type
-  {};
-  template<class T>
-  struct is_read_only<cown_ptr<const T>> : std::true_type
-  {};
 
   /**
    * Used to construct a new cown_ptr.

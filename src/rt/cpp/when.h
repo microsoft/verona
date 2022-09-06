@@ -13,6 +13,13 @@ namespace verona::cpp
 {
   using namespace verona::rt;
 
+  template<typename T>
+  struct Access
+  {
+  public:
+    ActualCown<std::remove_const_t<T>>* t;
+  };
+
   /**
    * Class for staging the when creation.
    *
@@ -28,6 +35,13 @@ namespace verona::cpp
   template<typename... Args>
   class When
   {
+    template<class T>
+    struct is_read_only : std::false_type
+    {};
+    template<class T>
+    struct is_read_only<Access<const T>> : std::true_type
+    {};
+
     // Note only requires friend when Args2 == Args
     // but C++ doesn't like this.
     template<typename... Args2>
@@ -37,7 +51,7 @@ namespace verona::cpp
      * Internally uses AcquiredCown.  The cown is only acquired after the
      * behaviour is scheduled.
      */
-    std::tuple<ActualCown<Args>*...> cown_tuple;
+    std::tuple<Access<Args>...> cown_tuple;
 
     /**
      * This uses template programming to turn the std::tuple into a C style
@@ -56,15 +70,15 @@ namespace verona::cpp
       {
         auto p = std::get<index>(cown_tuple);
         if constexpr (is_read_only<decltype(p)>())
-          requests[index] = Request::read(p.underlying_cown());
+          requests[index] = Request::read(p.t);
         else
-          requests[index] = Request::write(p.underlying_cown());
+          requests[index] = Request::write(p.t);
         assert(requests[index].cown() != nullptr);
         array_assign<index + 1>(requests);
       }
     }
 
-    When(ActualCown<Args>*... args) : cown_tuple(args...) {}
+    When(Access<Args>... args) : cown_tuple(args...) {}
 
     /**
      * Converts a single `cown_ptr` into a `acquired_cown`.
@@ -72,10 +86,13 @@ namespace verona::cpp
      * Needs to be a separate function for the template parameter to work.
      */
     template<typename C>
-    static acquired_cown<C> actual_cown_to_acquired(ActualCown<C>* c)
+    static acquired_cown<C> access_to_acquired(Access<C> c)
     {
-      assert(c != nullptr);
-      return acquired_cown<C>(*c);
+      assert(c.t != nullptr);
+      if constexpr (std::is_const<C>())
+        return acquired_cown<C>(*reinterpret_cast<ActualCown<const C>*>(c.t));
+      else
+        return acquired_cown<C>(*c.t);
     }
 
   public:
@@ -101,8 +118,8 @@ namespace verona::cpp
             /// Effectively converts ActualCown<T>... to
             /// acquired_cown... .
             auto lift_f =
-              [f = std::forward<F>(f)](ActualCown<Args>*... args) mutable {
-                f(actual_cown_to_acquired<Args>(args)...);
+              [f = std::forward<F>(f)](Access<Args>... args) mutable {
+                f(access_to_acquired<Args>(args)...);
               };
 
             std::apply(lift_f, cown_tuple);
@@ -111,11 +128,17 @@ namespace verona::cpp
     }
   };
 
+  template<typename T>
+  Access<T> make_access(cown_ptr<T>& c)
+  {
+    return Access<T>{c.allocated_cown};
+  }
+
   /**
    * Template deduction guide for when.
    */
   template<typename... Args>
-  When(ActualCown<Args>*...)->When<Args...>;
+  When(Access<Args>...)->When<Args...>;
 
   /**
    * Implements a Verona-like `when` statement.
@@ -131,6 +154,6 @@ namespace verona::cpp
   template<typename... Args>
   auto when(Args&&... args)
   {
-    return When(args.allocated_cown...);
+    return When(make_access(args)...);
   }
 } // namespace verona::cpp

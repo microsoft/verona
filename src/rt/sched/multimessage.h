@@ -35,7 +35,7 @@ namespace verona::rt
       /**
        * TODO When we move to C++20, convert to returning a span.
        */
-      Requests* get_requests_array()
+      Request* get_requests_array()
       {
         return snmalloc::pointer_offset<Request>(this, sizeof(Body));
       }

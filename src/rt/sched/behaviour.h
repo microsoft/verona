@@ -10,7 +10,36 @@ namespace verona::rt
 {
   using namespace snmalloc;
   class Cown;
-  struct Request;
+  
+  struct Request
+  {
+    Cown* _cown;
+
+    static const size_t READ_FLAG = 1;
+
+    Request() : _cown(nullptr) {}
+    Request(Cown* cown) : _cown(cown) {}
+
+    Cown* cown()
+    {
+      return (Cown*)((size_t)_cown & ~READ_FLAG);
+    }
+
+    bool is_read()
+    {
+      return ((size_t)_cown & READ_FLAG);
+    }
+
+    static Request write(Cown* cown)
+    {
+      return Request(cown);
+    }
+
+    static Request read(Cown* cown)
+    {
+      return Request((Cown*)((size_t)cown | READ_FLAG));
+    }
+  };
 
   /**
    * This class represents the closure run when all the cowns required have
