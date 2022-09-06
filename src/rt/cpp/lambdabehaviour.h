@@ -17,6 +17,7 @@ namespace verona::rt
   class LambdaBehaviour : public Behaviour
   {
     friend class Cown;
+    friend class MultiMessage;
 
   private:
     T fn;

@@ -14,30 +14,77 @@ namespace verona::rt
 
   class MultiMessage
   {
-    struct MultiMessageBody
+    /**
+     * This represents a message that is sent to a behaviour.
+     *
+     * The layout requires that after the allocation there is space for
+     * `count` cown pointers, and then the behaviour's body.
+     *
+     * This layout allows the message body to be single allocation even though
+     * there are multiple different sized pieces.
+     */
+    struct Body
     {
-      size_t index;
-      size_t count;
-      Request* requests;
       std::atomic<size_t> exec_count_down;
-      Behaviour* behaviour;
+      size_t count;
+
+    private:
+      Body(size_t count) : exec_count_down(count), count(count) {}
+
+    public:
+      /**
+       * TODO When we move to C++20, convert to returning a span.
+       */
+      Requests* get_requests_array()
+      {
+        return snmalloc::pointer_offset<Request>(this, sizeof(Body));
+      }
+
+      Behaviour& get_behaviour()
+      {
+        return *snmalloc::pointer_offset<Behaviour>(
+          this, sizeof(Body) + sizeof(Request) * count);
+      }
+
+      /**
+       * Allocates a message body with sufficient space for the
+       * cowns_array and the behaviour.  This does not initialise the cowns
+       * array.
+       */
+      template<typename Be, typename... Args>
+      static Body* make(Alloc& alloc, size_t count, Args... args)
+      {
+        size_t size = sizeof(Body) + (sizeof(Request) * count) + sizeof(Be);
+
+        // Create behaviour
+        auto body = new (alloc.alloc(size)) Body(count);
+        new ((Be*)&(body->get_behaviour())) Be(std::forward<Args>(args)...);
+
+        static_assert(
+          alignof(Be) <= sizeof(void*), "Alignment not supported, yet!");
+        static_assert(
+          sizeof(Body) % alignof(Be) == 0, "Alignment not supported, yet!");
+
+        return body;
+      }
     };
 
   private:
-    MultiMessageBody* body;
+    // The body of the actual message.
+    Body* body;
     friend verona::rt::MPSCQ<MultiMessage>;
     friend class Cown;
     friend struct Request;
 
     std::atomic<MultiMessage*> next{nullptr};
 
-    inline MultiMessageBody* get_body()
+    inline Body* get_body()
     {
-      return (MultiMessageBody*)((uintptr_t)body & ~Object::MARK_MASK);
+      auto result = (Body*)((uintptr_t)body & ~Object::MARK_MASK);
+      return result;
     }
 
-    static MultiMessage*
-    make(Alloc& alloc, EpochMark epoch, MultiMessageBody* body)
+    static MultiMessage* make(Alloc& alloc, EpochMark epoch, Body* body)
     {
       auto msg = (MultiMessage*)alloc.alloc<sizeof(MultiMessage)>();
       msg->body = body;
@@ -64,20 +111,12 @@ namespace verona::rt
       Logging::cout() << "MultiMessage epoch: " << this << " " << get_epoch()
                       << " -> " << e << Logging::endl;
 
-      body = (MultiMessageBody*)((uintptr_t)get_body() | (size_t)e);
+      body = (Body*)((uintptr_t)get_body() | (size_t)e);
 
       assert(get_epoch() == e);
     }
 
-    static MultiMessageBody* make_body(
-      Alloc& alloc, size_t count, Request* requests, Behaviour* behaviour)
-    {
-      return new (alloc.alloc<sizeof(MultiMessageBody)>())
-        MultiMessageBody{0, count, requests, count, behaviour};
-    }
-
-    static MultiMessage*
-    make_message(Alloc& alloc, MultiMessageBody* body, EpochMark epoch)
+    static MultiMessage* make_message(Alloc& alloc, Body* body, EpochMark epoch)
     {
       MultiMessage* m = make(alloc, epoch, body);
       Logging::cout() << "MultiMessage " << m << " payload " << body << " ("

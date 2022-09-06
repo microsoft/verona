@@ -25,6 +25,7 @@ namespace verona::rt
   class VBehaviour : public Behaviour
   {
     friend class Cown;
+    friend class MultiMessage;
 
   private:
     static void gc_trace(const Behaviour* msg, ObjectStack& st)

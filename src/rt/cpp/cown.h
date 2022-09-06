@@ -31,6 +31,35 @@ namespace verona::cpp
     friend class cown_ptr;
   };
 
+  template<typename T>
+  class cown_ptr;
+
+  /**
+   * Internal Verona runtime cown for the type T.
+   *
+   * This class is used to prevent access to the representation except
+   * through the correct usage of cown_ptr and when.
+   */
+  template<typename T>
+  class ActualCown : public VCown<ActualCown<T>>
+  {
+  private:
+    T value;
+
+    template<typename... Args>
+    ActualCown(Args&&... ts) : value(std::forward<Args>(ts)...)
+    {}
+
+    template<typename TT>
+    friend class acquired_cown;
+
+    template<typename TT>
+    friend class cown_ptr;
+
+    template<typename TT, typename... Args>
+    friend cown_ptr<TT> make_cown(Args&&... ts);
+  };
+
   /**
    * Smart pointer to represent shared access to a cown.
    * Can only be used asychronously with `when` to get
@@ -43,27 +72,13 @@ namespace verona::cpp
   class cown_ptr : cown_ptr_base
   {
   private:
-    /**
-     * Internal Verona runtime cown for this type.
-     */
-    class ActualCown : public VCown<ActualCown>
-    {
-    private:
-      T value;
-
-    public:
-      template<typename... Args>
-      ActualCown(Args&&... ts) : value(std::forward<Args>(ts)...)
-      {}
-
-      template<typename TT>
-      friend class acquired_cown;
-    };
+    template<typename... Args>
+    friend auto when(Args&&... args);
 
     /**
      * Internal Verona runtime cown for this type.
      */
-    ActualCown* allocated_cown{nullptr};
+    ActualCown<T>* allocated_cown{nullptr};
 
     /**
      * Accesses the internal Verona runtime cown for this handle.
@@ -79,7 +94,7 @@ namespace verona::cpp
      * This is internal, and the `make_cown` below is the public interface,
      * which has better behaviour for implicit template arguments.
      */
-    cown_ptr(ActualCown* cown) : allocated_cown(cown) {}
+    cown_ptr(ActualCown<T>* cown) : allocated_cown(cown) {}
 
   public:
     constexpr cown_ptr() = default;
@@ -198,8 +213,7 @@ namespace verona::cpp
   template<typename T, typename... Args>
   cown_ptr<T> make_cown(Args&&... ts)
   {
-    return cown_ptr<T>(
-      new typename cown_ptr<T>::ActualCown(std::forward<Args>(ts)...));
+    return cown_ptr<T>(new ActualCown<T>(std::forward<Args>(ts)...));
   }
 
   /**
@@ -222,33 +236,32 @@ namespace verona::cpp
   private:
     /// Underlying cown that has been acquired.
     /// Runtime is actually holding this reference count.
-    cown_ptr<T> origin_cown;
+    ActualCown<T>& origin_cown;
 
     /// Constructor is private, as only `When` can construct one.
-    /// TODO: Consider if we can reduce the reference count here, as the
-    /// runtime is holding references too.
-    acquired_cown(const cown_ptr<T>& origin) : origin_cown(origin) {}
+    acquired_cown(ActualCown<T>& origin) : origin_cown(origin) {}
 
   public:
     /// Get a handle on the underlying cown.
     cown_ptr<T> cown() const
     {
-      return origin_cown;
+      verona::rt::Cown::acquire(&origin_cown);
+      return cown_ptr<T>(&origin_cown);
     }
 
     T* operator->()
     {
-      return &(origin_cown.allocated_cown->value);
+      return &(origin_cown.value);
     }
 
     T& operator*()
     {
-      return origin_cown.allocated_cown->value;
+      return origin_cown.value;
     }
 
     operator T&()
     {
-      return origin_cown.allocated_cown->value;
+      return origin_cown.value;
     }
 
     /**

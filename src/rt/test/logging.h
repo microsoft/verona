@@ -4,6 +4,7 @@
 
 #ifdef _MSC_VER
 #  include <DbgHelp.h>
+#  include <csignal>
 #  include <windows.h>
 #  pragma comment(lib, "dbghelp.lib")
 #elif defined(USE_EXECINFO)
@@ -386,6 +387,7 @@ namespace Logging
 #if defined(CI_BUILD) && defined(_MSC_VER)
   inline LONG ExceptionHandler(_EXCEPTION_POINTERS* ExceptionInfo)
   {
+    puts("Running error handler\n");
     // On any exception dump the flight recorder
     // TODO:  Out of memory filtering
     // TODO:  Handle crashes in the dump method.
@@ -556,10 +558,19 @@ namespace Logging
   }
 #endif
 
+#if defined(CI_BUILD) && defined(_MSC_VER)
+  inline static void signal_handler(int sig)
+  {
+    ExceptionHandler(nullptr);
+  }
+#endif
+
   inline static void enable_crash_logging()
   {
 #if defined(CI_BUILD) && defined(_MSC_VER)
+    printf("Enable crash logging\n");
     AddVectoredExceptionHandler(0, &ExceptionHandler);
+    signal(SIGABRT, signal_handler);
 #elif defined(CI_BUILD) && defined(USE_EXECINFO)
     static struct sigaction sa;
     sa.sa_sigaction = signal_handler;

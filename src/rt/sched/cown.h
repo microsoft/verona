@@ -25,8 +25,6 @@ namespace verona::rt
     Systematic::yield();
   }
 
-  static Behaviour unmute_behaviour{Behaviour::Descriptor::empty()};
-
   struct EnqueueLock
   {
     std::atomic<bool> locked = false;
@@ -148,7 +146,7 @@ namespace verona::rt
 
   class Cown : public Object
   {
-    using MessageBody = MultiMessage::MultiMessageBody;
+    using MessageBody = MultiMessage::Body;
 
   public:
     enum TryFastSend
@@ -575,18 +573,17 @@ namespace verona::rt
      *     rescheduling. However, for fairness, it is better to reschedule in
      *     case the behaviour executes for a very long time.
      **/
-    static void fast_send(MultiMessage::MultiMessageBody* body, EpochMark epoch)
+    static void fast_send(MultiMessage::Body* body, EpochMark epoch)
     {
       auto& alloc = ThreadAlloc::get();
       const auto last = body->count - 1;
-      assert(body->index <= last);
 
       // First acquire all the locks if a multimessage
       if (body->count > 1)
       {
         for (size_t i = 0; i < body->count; i++)
         {
-          auto* next = body->requests[i].cown();
+          auto* next = body->get_requests_array()[i];
           Logging::cout() << "Will try to acquire lock " << next
                           << Logging::endl;
           next->enqueue_lock.lock();
@@ -599,10 +596,10 @@ namespace verona::rt
       for (size_t i = 0; i < loop_end; i++)
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
-        auto* next = body->requests[i].cown();
+        auto* next = body->get_requests_array()[i];
         Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
-                        << ", index " << i << " behaviour " << body->behaviour
-                        << " loop end " << loop_end << Logging::endl;
+                        << ", index " << i << " loop end " << loop_end
+                        << Logging::endl;
 
         auto needs_sched = next->try_fast_send(m);
         if (loop_end > 1)
@@ -678,14 +675,13 @@ namespace verona::rt
      **/
     bool run_step(MultiMessage* m)
     {
-      MultiMessage::MultiMessageBody& body = *(m->get_body());
+      MultiMessage::Body& body = *(m->get_body());
       Alloc& alloc = ThreadAlloc::get();
 
       EpochMark e = m->get_epoch();
 
-      Logging::cout() << "MultiMessage " << m << " index " << body.index
-                      << " acquired " << this << " epoch " << e
-                      << Logging::endl;
+      Logging::cout() << "MultiMessage " << m << " acquired " << this
+                      << " epoch " << e << Logging::endl;
 
       // If we are in should_scan, and we observe a message in this epoch,
       // then all future messages must have been sent while in pre-scan or
@@ -742,14 +738,14 @@ namespace verona::rt
           for (size_t i = 0; i < body.count; i++)
           {
             Logging::cout()
-              << "Scanning cown " << body.requests[i].cown() << Logging::endl;
-            body.requests[i].cown()->scan(
+              << "Scanning cown " << body.get_cowns_array()[i] << Logging::endl;
+            body.get_requests_array()[i].cown()->scan(
               alloc, Scheduler::local()->send_epoch);
           }
 
           // Scan closure
           ObjectStack f(alloc);
-          body.behaviour->trace(f);
+          body.get_behaviour().trace(f);
           scan_stack(alloc, Scheduler::local()->send_epoch, f);
         }
         else
@@ -768,25 +764,22 @@ namespace verona::rt
         schedule();
 
       // Run the behaviour.
-      body.behaviour->f();
+      body.get_behaviour().f();
 
       for (size_t i = 0; i < body.count; i++)
       {
-        if (body.requests[i].cown())
-          Cown::release(alloc, body.requests[i].cown());
+        if (body.get_requests_array()[i].cown())
+          Cown::release(alloc, body.get_cowns_array()[i]);
       }
 
       Logging::cout() << "MultiMessage " << m << " completed and running on "
                       << this << Logging::endl;
 
-      // Free the body and the behaviour.
-      alloc.dealloc(body.behaviour, body.behaviour->size());
-
       //  Reschedule the writeable cowns (read-only cowns are not unscheduled
       //  for a behaviour).
       for (size_t s = 0; s < body.count; s++)
       {
-        Request request = body.requests[s];
+        Request request = body.get_requests_array()[s];
         Cown* cown = request.cown();
         if (cown)
         {
@@ -812,9 +805,7 @@ namespace verona::rt
         }
       }
 
-      alloc.dealloc(body.requests, body.count * sizeof(Request));
-
-      alloc.dealloc<sizeof(MultiMessage::MultiMessageBody)>(&body);
+      alloc.dealloc(&body);
 
       return schedule_after_behaviour;
     }
@@ -862,10 +853,11 @@ namespace verona::rt
                       << Logging::endl;
 
       auto& alloc = ThreadAlloc::get();
-      auto* be =
-        new ((Be*)alloc.alloc<sizeof(Be)>()) Be(std::forward<Args>(args)...);
 
-      Request* sort = (Request*)alloc.alloc(count * sizeof(Request));
+      auto body =
+        MultiMessage::Body::make<Be>(alloc, count, std::forward<Args>(args)...);
+
+      auto** sort = body->get_requests_array();
       memcpy(sort, requests, count * sizeof(Request));
 
 #ifdef USE_SYSTEMATIC_TESTING
@@ -883,8 +875,6 @@ namespace verona::rt
         for (size_t i = 0; i < count; i++)
           Cown::acquire(sort[i].cown());
       }
-
-      auto body = MultiMessage::make_body(alloc, count, sort, be);
 
       // TODO what if this thread is external.
       //  EPOCH_A okay as currently only sending externally, before we start
@@ -1167,7 +1157,7 @@ namespace verona::rt
     bool release_early()
     {
       auto* body = Scheduler::local()->message_body;
-      Request* senders = body->requests;
+      auto* senders = body->get_requests_array();
       const size_t senders_count = body->count;
       Alloc& alloc = ThreadAlloc::get();
 
@@ -1196,19 +1186,6 @@ namespace verona::rt
     static MultiMessage* stub_msg(Alloc& alloc)
     {
       return MultiMessage::make_message(alloc, nullptr, EpochMark::EPOCH_NONE);
-    }
-
-    /**
-     * Create an unmute message using an empty behaviour. The given array of
-     * cowns may be null terminated, but the count must always be count of
-     * pointers that indicates the size of the allocation.
-     */
-    static MultiMessage*
-    unmute_msg(Alloc& alloc, size_t count, Request* requests, EpochMark epoch)
-    {
-      auto* body =
-        MultiMessage::make_body(alloc, count, requests, &unmute_behaviour);
-      return MultiMessage::make_message(alloc, body, epoch);
     }
   };
 

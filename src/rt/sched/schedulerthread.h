@@ -75,7 +75,15 @@ namespace verona::rt
     SchedulerStats stats;
 
     T* list = nullptr;
+
+    // The number of cowns in the per-thread list `list`.
     size_t total_cowns = 0;
+
+    // The number of cowns that have been collected in the per-thread list
+    // `list`. This is atomic as other threads can collect the body of the
+    // cown managed from this thread.  They cannot collect the actual cown
+    // allocation.  The ratio of free_cowns to total_cowns is used to
+    // determine when to walk the `list` to collect the stubs.
     std::atomic<size_t> free_cowns = 0;
 
     /// The MessageBody of a running behaviour.
@@ -691,10 +699,12 @@ namespace verona::rt
       }
 
       T** p = &list;
+      size_t removed_count = 0;
       size_t count = 0;
 
       while (*p != nullptr)
       {
+        count++;
         T* c = *p;
         // Collect cown stubs when the weak count is zero.
         if (c->weak_count == 0 || during_teardown)
@@ -715,7 +725,7 @@ namespace verona::rt
             epoch == T::NO_EPOCH_SET || GlobalEpoch::is_outdated(epoch);
           if (outdated)
           {
-            count++;
+            removed_count++;
             *p = c->next;
             Logging::cout() << "Stub collected cown " << c << Logging::endl;
             c->dealloc(*alloc);
@@ -730,8 +740,13 @@ namespace verona::rt
         }
         p = &(c->next);
       }
+      assert(total_cowns == count);
+      free_cowns -= removed_count;
+      total_cowns -= removed_count;
 
-      free_cowns -= count;
+      Logging::cout() << "Stub collected " << removed_count << " cowns"
+                      << " Free cowns " << free_cowns << " Total cowns "
+                      << total_cowns << Logging::endl;
     }
   };
 } // namespace verona::rt

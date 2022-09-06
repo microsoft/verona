@@ -24,6 +24,11 @@ struct Poller : VCown<Poller>
   : should_schedule_if_notified(false), empty_count(0), buffer_idx(0), read(0)
   {}
 
+  ~Poller()
+  {
+    Logging::cout() << "Poller destroyed" << Logging::endl;
+  }
+
   void main_poller()
   {
     int val, read_old;
@@ -50,7 +55,6 @@ struct Poller : VCown<Poller>
     {
       // add external source and enable notifications
       enable_notifications(*es);
-      Scheduler::add_external_event_source();
       should_schedule_if_notified = true;
 
       // Check if there are new buffers between last checking and enabling
@@ -58,7 +62,6 @@ struct Poller : VCown<Poller>
       if (read <= buffer_idx.peek(alloc))
       {
         disable_notifications(*es);
-        Scheduler::remove_external_event_source();
         should_schedule_if_notified = false;
         schedule_lambda(this, [=]() { main_poller(); });
       }
@@ -74,7 +77,6 @@ struct Poller : VCown<Poller>
       // No need to disable notifications here because the external source
       // delivers a single-shot notification
       should_schedule_if_notified = false;
-      Scheduler::remove_external_event_source();
       schedule_lambda(p, [=]() { p->main_poller(); });
     }
   }
@@ -90,6 +92,11 @@ struct ExternalSource
     Cown::acquire(p);
   }
 
+  ~ExternalSource()
+  {
+    Logging::cout() << "~ExternalSource" << Logging::endl;
+  }
+
   void main_es()
   {
     auto& alloc = ThreadAlloc::get();
@@ -103,9 +110,13 @@ struct ExternalSource
     if (notifications_on.exchange(false))
       p->mark_notify();
 
+#ifdef USE_SYSTEMATIC_TESTING
+    Systematic::yield();
+#else
     // sleep
     auto pause_time = std::chrono::milliseconds(1000);
     std::this_thread::sleep_for(pause_time);
+#endif
 
     for (int i = 10; i < 20; i++)
     {
@@ -117,6 +128,9 @@ struct ExternalSource
       p->mark_notify();
 
     Cown::release(alloc, p);
+
+    // Notify runtime external IO thread has completed.
+    schedule_lambda(Scheduler::remove_external_event_source);
   }
 
   void notifications_enable()
@@ -147,9 +161,14 @@ void test(SystematicTestHarness* harness)
   auto es = std::make_shared<ExternalSource>(p);
 
   p->es = es;
-  schedule_lambda<YesTransfer>(p, [=]() { p->main_poller(); });
+  schedule_lambda<YesTransfer>(p, [=]() {
+    // Start IO Thread
+    Scheduler::add_external_event_source();
+    harness->external_thread([=]() { es->main_es(); });
 
-  harness->external_thread([=]() { es->main_es(); });
+    // Begin polling behaviour
+    p->main_poller();
+  });
 }
 
 int main(int argc, char** argv)
