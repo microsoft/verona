@@ -229,32 +229,40 @@ namespace verona::cpp
   private:
     /// Underlying cown that has been acquired.
     /// Runtime is actually holding this reference count.
-    ActualCown<T>& origin_cown;
+    ActualCown<std::remove_const_t<T>>& origin_cown;
 
     /// Constructor is private, as only `When` can construct one.
-    acquired_cown(ActualCown<T>& origin) : origin_cown(origin) {}
+    acquired_cown(ActualCown<std::remove_const_t<T>>& origin) : origin_cown(origin) {}
 
   public:
     /// Get a handle on the underlying cown.
-    cown_ptr<T> cown() const
+    cown_ptr<std::remove_const_t<T>> cown() const
     {
       verona::rt::Cown::acquire(&origin_cown);
       return cown_ptr<T>(&origin_cown);
     }
 
-    T* operator->()
+    T& get_ref() const
     {
-      return &(origin_cown.value);
+      if constexpr (std::is_const<T>())
+        return const_cast<T&>(origin_cown.value);
+      else
+        return origin_cown.value;
     }
 
     T& operator*()
     {
-      return origin_cown.value;
+      return get_ref();
+    }
+
+    T* operator->()
+    {
+      return &get_ref();
     }
 
     operator T&()
     {
-      return origin_cown.value;
+      return get_ref();
     }
 
     /**

@@ -98,10 +98,7 @@ namespace verona::cpp
     static acquired_cown<C> access_to_acquired(Access<C> c)
     {
       assert(c.t != nullptr);
-      if constexpr (std::is_const<C>())
-        return acquired_cown<C>(*reinterpret_cast<ActualCown<const C>*>(c.t));
-      else
-        return acquired_cown<C>(*c.t);
+      return acquired_cown<C>(*c.t);
     }
 
   public:
