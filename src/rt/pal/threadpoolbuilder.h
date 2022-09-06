@@ -20,7 +20,7 @@ namespace verona::rt
     template<typename... Args>
     void add_thread_impl(void (*body)(Args...), Args... args)
     {
-      if (index < thread_count)
+      if (index != thread_count)
       {
         threads.emplace_back(body, args...);
       }
@@ -61,12 +61,6 @@ namespace verona::rt
       add_thread_impl(&run_with_affinity, affinity, body, args...);
 #endif
       index++;
-    }
-
-    template<typename... Args>
-    void add_extra_thread(void (*body)(Args...), Args... args)
-    {
-      threads.emplace_back(body, args...);
     }
 
     /**

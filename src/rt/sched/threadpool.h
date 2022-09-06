@@ -14,6 +14,7 @@
 #include "corepool.h"
 #include "schedulerlist.h"
 
+#include <atomic>
 #include <condition_variable>
 #include <mutex>
 #include <snmalloc/snmalloc.h>
@@ -24,7 +25,9 @@ namespace verona::rt
   inline void nop() {}
 
   using namespace snmalloc;
-  template<class T, class E>
+
+  // Threadpool instantiated with <SchedulerThread<Cown>, Cown>
+  template<class T, class C>
   class ThreadPool
   {
   private:
@@ -84,19 +87,19 @@ namespace verona::rt
     ThreadState state;
 
     /// Pool of cores shared by the scheduler threads.
-    CorePool<ThreadPool<T, E>, E>* core_pool = nullptr;
+    CorePool<ThreadPool<T, C>, C>* core_pool = nullptr;
 
     /// Systematic ids.
-    size_t systematic_ids = 0;
+    std::atomic<size_t> systematic_ids = 0;
 
   public:
-    static ThreadPool<T, E>& get()
+    static ThreadPool<T, C>& get()
     {
-      SNMALLOC_REQUIRE_CONSTINIT static ThreadPool<T, E> global_thread_pool;
+      SNMALLOC_REQUIRE_CONSTINIT static ThreadPool<T, C> global_thread_pool;
       return global_thread_pool;
     }
 
-    static Core<E>* first_core()
+    static Core<C>* first_core()
     {
       return get().core_pool->first_core;
     }
@@ -192,10 +195,10 @@ namespace verona::rt
       return local;
     }
 
-    static Core<E>* round_robin()
+    static Core<C>* round_robin()
     {
       static thread_local size_t incarnation;
-      static thread_local Core<E>* nonlocal;
+      static thread_local Core<C>* nonlocal;
 
       if (incarnation != get().incarnation)
       {
@@ -303,13 +306,11 @@ namespace verona::rt
         abort();
 
       thread_count = count;
-
-      // Build a circular linked list of scheduler threads.
-      threads = new SchedulerList<T>();
       teardown_in_progress = false;
+      threads = new SchedulerList<T>();
 
       // Initialize the corepool.
-      core_pool = new CorePool<ThreadPool<T, E>, E>(count);
+      core_pool = new CorePool<ThreadPool<T, C>, C>(count);
 
       // For future ids.
       systematic_ids = count + 1;
@@ -322,7 +323,7 @@ namespace verona::rt
         t->local_systematic =
           Systematic::create_systematic_thread(t->systematic_id);
 #endif
-        threads->addFree(t);
+        threads->add_free(t);
       }
       Logging::cout() << "Runtime initialised" << Logging::endl;
       init_barrier();
@@ -342,30 +343,16 @@ namespace verona::rt
         Logging::cout() << "Starting all threads" << Logging::endl;
         for (size_t i = 0; i < thread_count; i++)
         {
-          T* t = threads->popFree();
+          T* t = threads->pop_free();
           if (t == nullptr)
             abort();
-          t->setCore(core_pool->cores[i]);
-          threads->addActive(t);
+          t->set_core(core_pool->cores[i]);
+          threads->add_active(t);
           builder.add_thread(t->core->affinity, &T::run, t, startup, args...);
         }
       }
       Logging::cout() << "All threads stopped" << Logging::endl;
-
-      T* t = threads->popActive();
-      while (t != nullptr)
-      {
-        T* prev = t;
-        t = threads->popActive();
-        delete prev;
-      }
-      t = threads->popFree();
-      while (t != nullptr)
-      {
-        T* prev = t;
-        t = threads->popFree();
-        delete prev;
-      }
+      threads->dealloc_lists();
       Logging::cout() << "All threads deallocated" << Logging::endl;
 
       incarnation++;
@@ -395,7 +382,7 @@ namespace verona::rt
     bool check_for_work()
     {
       // TODO: check for pending async IO
-      Core<E>* c = first_core();
+      Core<C>* c = first_core();
       do
       {
         Logging::cout() << "Checking for pending work on thread " << c->affinity

@@ -3,7 +3,8 @@
 #include "ds/dllist.h"
 #include "threadsync.h"
 
-//#include <mutex>
+#include <cstdlib>
+#include <snmalloc/snmalloc.h>
 
 namespace verona::rt
 {
@@ -15,8 +16,7 @@ namespace verona::rt
   class SchedulerList
   {
   public:
-    // std::mutex m;
-    SchedulerLock m;
+    snmalloc::FlagWord m;
 
     DLList<T> active;
     DLList<T> free;
@@ -25,48 +25,47 @@ namespace verona::rt
     SchedulerList() {}
     ~SchedulerList()
     {
-      m.lock();
+      snmalloc::FlagLock lock(m);
       if (!active.is_empty() || !free.is_empty())
       {
         // TODO should we abort or delete here?
         abort();
       }
-      m.unlock();
     }
 
-    void addActive(T* thread)
+    void add_active(T* thread)
     {
-      add(true, thread);
+      add(active, thread);
     }
 
-    void addFree(T* thread)
+    void add_free(T* thread)
     {
-      add(false, thread);
+      add(free, thread);
     }
 
-    T* popActive()
+    T* pop_active()
     {
-      return pop_or_null(true);
+      return pop_or_null(active);
     }
 
-    T* popFree()
+    T* pop_free()
     {
-      return pop_or_null(false);
+      return pop_or_null(free);
     }
 
-    void moveActiveToFree(T* thread)
+    void move_active_to_free(T* thread)
     {
-      m.lock();
+      snmalloc::FlagLock lock(m);
       active.remove(thread);
       free.insert_back(thread);
-      m.unlock();
     }
 
+    // Applies f on all active and free threads.
     // WARNING: do not call other methods on the list or we end up with
     // deadlock.
     void forall(void (*f)(T* elem))
     {
-      m.lock();
+      snmalloc::FlagLock lock(m);
       T* t = active.get_head();
       while (t != nullptr)
       {
@@ -79,45 +78,52 @@ namespace verona::rt
         f(t);
         t = t->next;
       }
-      m.unlock();
+    }
+
+    void dealloc_lists()
+    {
+      dealloc_active();
+      dealloc_free();
+    }
+
+    // Empty the active list and call delete on every element.
+    void dealloc_active()
+    {
+      dealloc_list(active);
+    }
+
+    // Empty the free list and call delete on every element.
+    void dealloc_free()
+    {
+      dealloc_list(free);
     }
 
   private:
-    void add(bool is_active, T* elem)
+    void add(DLList<T>& list, T* elem)
     {
       if (elem == nullptr)
         abort();
-      m.lock();
-      if (is_active)
-        active.insert_back(elem);
-      else
-        free.insert_back(elem);
-      m.unlock();
+      snmalloc::FlagLock lock(m);
+      list.insert_back(elem);
     }
 
-    T* pop_or_null(bool is_active)
+    T* pop_or_null(DLList<T>& list)
     {
-      m.lock();
-      if (is_active)
-      {
-        if (active.is_empty())
-        {
-          m.unlock();
-          return nullptr;
-        }
-        T* res = active.pop();
-        m.unlock();
-        return res;
-      }
-
-      if (free.is_empty())
-      {
-        m.unlock();
+      snmalloc::FlagLock lock(m);
+      if (list.is_empty())
         return nullptr;
+      return list.pop();
+    }
+
+    void dealloc_list(DLList<T>& list)
+    {
+      T* t = list.pop();
+      while (t != nullptr)
+      {
+        T* prev = t;
+        t = list.pop();
+        delete prev;
       }
-      T* res = free.pop();
-      m.unlock();
-      return res;
     }
   };
 }

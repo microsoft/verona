@@ -98,10 +98,9 @@ namespace verona::rt
 
     ~SchedulerThread() {}
 
-    void setCore(Core<T>* core)
+    void set_core(Core<T>* core)
     {
       this->core = core;
-      core->token_cown->set_owning_core(core);
     }
 
     inline void stop()
@@ -162,7 +161,7 @@ namespace verona::rt
 
       Scheduler::local() = this;
       alloc = &ThreadAlloc::get();
-      assert(this->core != nullptr);
+      assert(core != nullptr);
       victim = core->next;
       T* cown = nullptr;
       this->core->servicing_threads++;
