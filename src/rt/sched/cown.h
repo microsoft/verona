@@ -1144,8 +1144,17 @@ namespace verona::rt
       {
         if (senders[s].cown() != this)
           continue;
+
+
+        if (!senders[s].is_read() || senders[s].cown()->read_ref_count.release_read())
+        {
+          senders[s].cown()->schedule();
+        }
+
         Cown::release(alloc, senders[s].cown());
-        senders[s].cown()->schedule();
+
+        senders[s] = Request();
+
         break;
       }
 
