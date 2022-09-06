@@ -164,16 +164,16 @@ namespace verona::rt
       assert(core != nullptr);
       victim = core->next;
       T* cown = nullptr;
-      this->core->servicing_threads++;
+      core->servicing_threads++;
 
 #ifdef USE_SYSTEMATIC_TESTING
-      Systematic::attach_systematic_thread(this->local_systematic);
+      Systematic::attach_systematic_thread(local_systematic);
 #endif
 
       while (true)
       {
         if (
-          (this->core->total_cowns < (this->core->free_cowns << 1))
+          (core->total_cowns < (core->free_cowns << 1))
 #ifdef USE_SYSTEMATIC_TESTING
           || Systematic::coin()
 #endif
@@ -235,15 +235,15 @@ namespace verona::rt
 
         // Update progress counter on that core.
         Core<T>* cown_core = cown->owning_core();
-        assert(this->core != nullptr);
+        assert(core != nullptr);
 
         // If the cown comes from another core, both core counts are
         // incremented. This reflects both CPU utilization and queue progress.
         if (cown_core != nullptr)
           cown_core->progress_counter++;
-        if (cown_core != this->core)
+        if (cown_core != core)
           core->progress_counter++;
-        core->last_worker = this->systematic_id;
+        core->last_worker = systematic_id;
 
         bool reschedule = cown->run(*alloc, state);
 
@@ -348,7 +348,7 @@ namespace verona::rt
       T* cown;
 
       // Try to steal from the victim thread.
-      if (victim != this->core)
+      if (victim != core)
       {
         cown = victim->q.dequeue(*alloc);
 
@@ -399,7 +399,7 @@ namespace verona::rt
           return cown;
 
         // Try to steal from the victim thread.
-        if (victim != this->core)
+        if (victim != core)
         {
           cown = victim->q.dequeue(*alloc);
 
@@ -473,7 +473,7 @@ namespace verona::rt
         auto unmasked = clear_thread_bit(cown);
         Core<T>* core = unmasked->owning_core();
 
-        if (core == this->core)
+        if (core == core)
         {
           if (Scheduler::get().fair)
           {
@@ -505,11 +505,11 @@ namespace verona::rt
       {
         Logging::cout() << "Bind cown to scheduler thread: " << this
                         << Logging::endl;
-        assert(this->core != nullptr);
-        cown->set_owning_core(this->core);
+        assert(core != nullptr);
+        cown->set_owning_core(core);
         cown->next = list;
         list = cown;
-        this->core->total_cowns++;
+        core->total_cowns++;
       }
 
       return true;
