@@ -36,6 +36,7 @@ namespace verona::rt
     // allocation.  The ratio of free_cowns to total_cowns is used to
     // determine when to walk the `list` to collect the stubs.
     std::atomic<size_t> free_cowns = 0;
+
     SchedulerStats stats;
 
   public:
