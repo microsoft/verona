@@ -10,7 +10,7 @@ namespace verona::rt
 {
   using namespace snmalloc;
   class Cown;
-  
+
   struct Request
   {
     Cown* _cown;

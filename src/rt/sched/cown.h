@@ -709,7 +709,8 @@ namespace verona::rt
           for (size_t i = 0; i < body.count; i++)
           {
             Logging::cout()
-              << "Scanning cown " << body.get_requests_array()[i].cown() << Logging::endl;
+              << "Scanning cown " << body.get_requests_array()[i].cown()
+              << Logging::endl;
             body.get_requests_array()[i].cown()->scan(
               alloc, Scheduler::local()->send_epoch);
           }

@@ -23,8 +23,7 @@ namespace verona::cpp
     ActualCown<std::remove_const_t<T>>* t;
 
   public:
-    Access(const cown_ptr<T>& c) : t(c.allocated_cown)
-    {}
+    Access(const cown_ptr<T>& c) : t(c.allocated_cown) {}
 
     template<typename... Args>
     friend class When;
@@ -127,10 +126,10 @@ namespace verona::cpp
           [f = std::forward<F>(f), cown_tuple = cown_tuple]() mutable {
             /// Effectively converts ActualCown<T>... to
             /// acquired_cown... .
-            auto lift_f =
-              [f = std::forward<F>(f)](Access<Args>... args) mutable {
-                f(access_to_acquired<Args>(args)...);
-              };
+            auto lift_f = [f =
+                             std::forward<F>(f)](Access<Args>... args) mutable {
+              f(access_to_acquired<Args>(args)...);
+            };
 
             std::apply(lift_f, cown_tuple);
           });
@@ -148,7 +147,7 @@ namespace verona::cpp
    * Template deduction guide for Access.
    */
   template<typename T>
-  Access(const cown_ptr<T>&) -> Access<T>;
+  Access(const cown_ptr<T>&)->Access<T>;
 
   /**
    * Implements a Verona-like `when` statement.
