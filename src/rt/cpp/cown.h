@@ -34,9 +34,6 @@ namespace verona::cpp
   template<typename T>
   class cown_ptr;
 
-  template<typename T>
-  struct Access;
-
   /**
    * Internal Verona runtime cown for the type T.
    *
@@ -76,10 +73,7 @@ namespace verona::cpp
   {
   private:
     template<typename TT>
-    friend Access<TT> make_access(cown_ptr<TT>& c);
-
-    template<typename... Args>
-    friend auto when(Args&&... args);
+    friend class Access;
 
     /**
      * Internal Verona runtime cown for this type.

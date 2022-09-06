@@ -13,11 +13,21 @@ namespace verona::cpp
 {
   using namespace verona::rt;
 
+  /**
+   * Used to track the type of access request by embedding const into
+   * the type T, or not having const.
+   */
   template<typename T>
-  struct Access
+  class Access
   {
-  public:
     ActualCown<std::remove_const_t<T>>* t;
+
+  public:
+    Access(const cown_ptr<T>& c) : t(c.allocated_cown)
+    {}
+
+    template<typename... Args>
+    friend class When;
   };
 
   /**
@@ -128,17 +138,17 @@ namespace verona::cpp
     }
   };
 
-  template<typename T>
-  Access<T> make_access(cown_ptr<T>& c)
-  {
-    return Access<T>{c.allocated_cown};
-  }
-
   /**
    * Template deduction guide for when.
    */
   template<typename... Args>
   When(Access<Args>...)->When<Args...>;
+
+  /**
+   * Template deduction guide for Access.
+   */
+  template<typename T>
+  Access(const cown_ptr<T>&) -> Access<T>;
 
   /**
    * Implements a Verona-like `when` statement.
@@ -154,6 +164,6 @@ namespace verona::cpp
   template<typename... Args>
   auto when(Args&&... args)
   {
-    return When(make_access(args)...);
+    return When(Access(args)...);
   }
 } // namespace verona::cpp
