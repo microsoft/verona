@@ -206,6 +206,11 @@ namespace verona::cpp
   template<typename T, typename... Args>
   cown_ptr<T> make_cown(Args&&... ts)
   {
+    static_assert(
+      !std::is_const_v<T>,
+      "Cannot make a cown of const type as this conflicts with read acquire "
+      "encoding trick. If we hit this assertion, raise an issue explaining the "
+      "use case.");
     return cown_ptr<T>(new ActualCown<T>(std::forward<Args>(ts)...));
   }
 
@@ -232,7 +237,9 @@ namespace verona::cpp
     ActualCown<std::remove_const_t<T>>& origin_cown;
 
     /// Constructor is private, as only `When` can construct one.
-    acquired_cown(ActualCown<std::remove_const_t<T>>& origin) : origin_cown(origin) {}
+    acquired_cown(ActualCown<std::remove_const_t<T>>& origin)
+    : origin_cown(origin)
+    {}
 
   public:
     /// Get a handle on the underlying cown.
