@@ -75,8 +75,6 @@ namespace verona::rt
 
     ThreadState::State state = ThreadState::State::NotInLD;
 
-    T* list = nullptr;
-
     /// The MessageBody of a running behaviour.
     typename T::MessageBody* message_body = nullptr;
 
@@ -304,12 +302,9 @@ namespace verona::rt
 
       Logging::cout() << "Begin teardown (phase 1)" << Logging::endl;
 
-      cown = list;
-      while (cown != nullptr)
+      if (core != nullptr)
       {
-        if (!cown->is_collected())
-          cown->collect(*alloc);
-        cown = cown->next;
+        core->collect(*alloc);
       }
 
       Logging::cout() << "End teardown (phase 1)" << Logging::endl;
@@ -503,12 +498,10 @@ namespace verona::rt
       // registered with a scheduler thread.
       if (cown->owning_core() == nullptr)
       {
-        Logging::cout() << "Bind cown to scheduler thread: " << this
-                        << Logging::endl;
+        Logging::cout() << "Bind cown to core: " << core << Logging::endl;
         assert(core != nullptr);
         cown->set_owning_core(core);
-        cown->next = list;
-        list = cown;
+        core->add_cown(cown);
         core->total_cowns++;
       }
 
@@ -679,15 +672,8 @@ namespace verona::rt
 
       // Send empty messages to all cowns that can be LIFO scheduled.
 
-      T* p = list;
-      while (p != nullptr)
-      {
-        if (p->can_lifo_schedule())
-          p->reschedule();
-
-        p = p->next;
-      }
-
+      assert(core != nullptr);
+      core->scan();
       n_ld_tokens = 2;
       scheduled_unscanned_cown = false;
       Logging::cout() << "Enqueued LD check point" << Logging::endl;
@@ -695,14 +681,8 @@ namespace verona::rt
 
     void collect_cowns()
     {
-      T* p = list;
-
-      while (p != nullptr)
-      {
-        T* n = p->next;
-        p->try_collect(*alloc, send_epoch);
-        p = n;
-      }
+      assert(core != nullptr);
+      core->try_collect(*alloc, send_epoch);
     }
 
     template<bool during_teardown = false>
@@ -721,7 +701,12 @@ namespace verona::rt
         default:;
       }
 
-      T** p = &list;
+      assert(core != nullptr);
+      // TODO not sure about the logic here.
+      T* _list = core->drain();
+      T** list = &_list;
+      T** p = &_list;
+      assert(p != nullptr);
       size_t removed_count = 0;
       size_t count = 0;
 
@@ -763,7 +748,22 @@ namespace verona::rt
         }
         p = &(c->next);
       }
+
+      // Put the list back
+      if (*list != nullptr)
+      {
+        // TODO this is slow, find a better way to keep track of the tail.
+        T* tail = *list;
+        while (tail->next != nullptr)
+        {
+          tail = tail->next;
+        }
+        core->add_cowns(*list, tail);
+      }
+
       assert(this->core != nullptr);
+      // TODO This will become false once we have multiple scheduler threads per
+      // core.
       assert(this->core->total_cowns == count);
       this->core->free_cowns -= removed_count;
       this->core->total_cowns -= removed_count;

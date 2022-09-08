@@ -91,8 +91,7 @@ namespace verona::rt
           if (local->core == nullptr)
             abort();
           set_owning_core(local->core);
-          next = local->list;
-          local->list = this;
+          local->core->add_cown(this);
           local->core->total_cowns++;
         }
         else
