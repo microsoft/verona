@@ -24,7 +24,7 @@ namespace verona::rt
     DLList<T> free;
 
   public:
-    SchedulerList() {}
+    constexpr SchedulerList() = default;
     ~SchedulerList()
     {
       snmalloc::FlagLock lock(m);
