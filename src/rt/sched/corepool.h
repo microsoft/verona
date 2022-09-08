@@ -29,7 +29,7 @@ namespace verona::rt
     std::vector<Core<T>*> cores;
 
   public:
-    CorePool(size_t count) : core_count{count}
+    constexpr CorePool(size_t count) : core_count{count}
     {
       first_core = new Core<T>;
       Core<T>* t = first_core;
