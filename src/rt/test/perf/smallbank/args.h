@@ -5,7 +5,7 @@
 inline uint32_t GENERATOR_COUNT = 2;
 inline uint64_t ACCOUNTS_COUNT = 1000;
 inline uint8_t ACCOUNT_EXTRA = 10;
-inline uint32_t PER_GEN_TX_COUNT = 1e6;
+inline uint32_t PER_GEN_TX_COUNT = 1'000'000;
 inline uint32_t TX_BATCH = 10;
 
 inline bool process_args(SystematicTestHarness& harness)
