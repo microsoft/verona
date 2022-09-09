@@ -381,7 +381,8 @@ namespace sandbox
         snmalloc::capptr::Alloc<void> base,
         size_t size)
       {
-        auto arena = snmalloc::capptr::Arena<void>::unsafe_from(base.unsafe_ptr());
+        auto arena =
+          snmalloc::capptr::Arena<void>::unsafe_from(base.unsafe_ptr());
         dealloc_range(local_state, arena, size);
         delete &metadata;
       }
