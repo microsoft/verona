@@ -35,15 +35,15 @@ namespace verona::rt
       /**
        * TODO When we move to C++20, convert to returning a span.
        */
-      Cown** get_cowns_array()
+      Request* get_requests_array()
       {
-        return snmalloc::pointer_offset<Cown*>(this, sizeof(Body));
+        return snmalloc::pointer_offset<Request>(this, sizeof(Body));
       }
 
       Behaviour& get_behaviour()
       {
         return *snmalloc::pointer_offset<Behaviour>(
-          this, sizeof(Body) + sizeof(Cown*) * count);
+          this, sizeof(Body) + sizeof(Request) * count);
       }
 
       /**
@@ -54,7 +54,7 @@ namespace verona::rt
       template<typename Be, typename... Args>
       static Body* make(Alloc& alloc, size_t count, Args... args)
       {
-        size_t size = sizeof(Body) + (sizeof(Cown*) * count) + sizeof(Be);
+        size_t size = sizeof(Body) + (sizeof(Request) * count) + sizeof(Be);
 
         // Create behaviour
         auto body = new (alloc.alloc(size)) Body(count);
@@ -74,6 +74,7 @@ namespace verona::rt
     Body* body;
     friend verona::rt::MPSCQ<MultiMessage>;
     friend class Cown;
+    friend struct Request;
 
     std::atomic<MultiMessage*> next{nullptr};
 

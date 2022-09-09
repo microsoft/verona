@@ -14,6 +14,22 @@ namespace verona::cpp
   using namespace verona::rt;
 
   /**
+   * Used to track the type of access request by embedding const into
+   * the type T, or not having const.
+   */
+  template<typename T>
+  class Access
+  {
+    ActualCown<std::remove_const_t<T>>* t;
+
+  public:
+    Access(const cown_ptr<T>& c) : t(c.allocated_cown) {}
+
+    template<typename... Args>
+    friend class When;
+  };
+
+  /**
    * Class for staging the when creation.
    *
    * Do not call directly use `when`
@@ -28,6 +44,13 @@ namespace verona::cpp
   template<typename... Args>
   class When
   {
+    template<class T>
+    struct is_read_only : std::false_type
+    {};
+    template<class T>
+    struct is_read_only<Access<const T>> : std::true_type
+    {};
+
     // Note only requires friend when Args2 == Args
     // but C++ doesn't like this.
     template<typename... Args2>
@@ -37,7 +60,7 @@ namespace verona::cpp
      * Internally uses AcquiredCown.  The cown is only acquired after the
      * behaviour is scheduled.
      */
-    std::tuple<ActualCown<Args>*...> cown_tuple;
+    std::tuple<Access<Args>...> cown_tuple;
 
     /**
      * This uses template programming to turn the std::tuple into a C style
@@ -46,7 +69,7 @@ namespace verona::cpp
      * each index.
      */
     template<size_t index = 0>
-    void array_assign(Cown** array)
+    void array_assign(Request* requests)
     {
       if constexpr (index >= sizeof...(Args))
       {
@@ -55,13 +78,16 @@ namespace verona::cpp
       else
       {
         auto p = std::get<index>(cown_tuple);
-        array[index] = p;
-        assert(array[index] != nullptr);
-        array_assign<index + 1>(array);
+        if constexpr (is_read_only<decltype(p)>())
+          requests[index] = Request::read(p.t);
+        else
+          requests[index] = Request::write(p.t);
+        assert(requests[index].cown() != nullptr);
+        array_assign<index + 1>(requests);
       }
     }
 
-    When(ActualCown<Args>*... args) : cown_tuple(args...) {}
+    When(Access<Args>... args) : cown_tuple(args...) {}
 
     /**
      * Converts a single `cown_ptr` into a `acquired_cown`.
@@ -69,10 +95,10 @@ namespace verona::cpp
      * Needs to be a separate function for the template parameter to work.
      */
     template<typename C>
-    static acquired_cown<C> actual_cown_to_acquired(ActualCown<C>* c)
+    static acquired_cown<C> access_to_acquired(Access<C> c)
     {
-      assert(c != nullptr);
-      return acquired_cown<C>(*c);
+      assert(c.t != nullptr);
+      return acquired_cown<C>(*c.t);
     }
 
   public:
@@ -88,19 +114,19 @@ namespace verona::cpp
       }
       else
       {
-        verona::rt::Cown* cowns[sizeof...(Args)];
-        array_assign(cowns);
+        verona::rt::Request requests[sizeof...(Args)];
+        array_assign(requests);
 
         verona::rt::schedule_lambda(
           sizeof...(Args),
-          cowns,
+          requests,
           [f = std::forward<F>(f), cown_tuple = cown_tuple]() mutable {
             /// Effectively converts ActualCown<T>... to
             /// acquired_cown... .
-            auto lift_f =
-              [f = std::forward<F>(f)](ActualCown<Args>*... args) mutable {
-                f(actual_cown_to_acquired<Args>(args)...);
-              };
+            auto lift_f = [f =
+                             std::forward<F>(f)](Access<Args>... args) mutable {
+              f(access_to_acquired<Args>(args)...);
+            };
 
             std::apply(lift_f, cown_tuple);
           });
@@ -112,7 +138,13 @@ namespace verona::cpp
    * Template deduction guide for when.
    */
   template<typename... Args>
-  When(ActualCown<Args>*...)->When<Args...>;
+  When(Access<Args>...)->When<Args...>;
+
+  /**
+   * Template deduction guide for Access.
+   */
+  template<typename T>
+  Access(const cown_ptr<T>&)->Access<T>;
 
   /**
    * Implements a Verona-like `when` statement.
@@ -128,6 +160,6 @@ namespace verona::cpp
   template<typename... Args>
   auto when(Args&&... args)
   {
-    return When(args.allocated_cown...);
+    return When(Access(args)...);
   }
 } // namespace verona::cpp

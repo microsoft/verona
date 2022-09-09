@@ -72,8 +72,8 @@ namespace verona::cpp
   class cown_ptr : cown_ptr_base
   {
   private:
-    template<typename... Args>
-    friend auto when(Args&&... args);
+    template<typename TT>
+    friend class Access;
 
     /**
      * Internal Verona runtime cown for this type.
@@ -178,6 +178,26 @@ namespace verona::cpp
     friend class When;
   };
 
+  /* A cown_ptr<const T> is used to mark that the cown is being accessed as
+   * read-only. (This combines the type as the capability. We do not have deep
+   * immutability in C++, so acquired_cown<const T> is an approximation.)
+   *
+   * We use inheritance to allow us to construct a cown_ptr<const T> from a
+   * cown_ptr<T>.
+   */
+  template<typename T>
+  class cown_ptr<const T> : public cown_ptr<T>
+  {
+  public:
+    cown_ptr(const cown_ptr<T>& other) : cown_ptr<T>(other){};
+  };
+
+  template<typename T>
+  cown_ptr<const T> read(cown_ptr<T> cown)
+  {
+    return cown;
+  }
+
   /**
    * Used to construct a new cown_ptr.
    *
@@ -186,6 +206,11 @@ namespace verona::cpp
   template<typename T, typename... Args>
   cown_ptr<T> make_cown(Args&&... ts)
   {
+    static_assert(
+      !std::is_const_v<T>,
+      "Cannot make a cown of const type as this conflicts with read acquire "
+      "encoding trick. If we hit this assertion, raise an issue explaining the "
+      "use case.");
     return cown_ptr<T>(new ActualCown<T>(std::forward<Args>(ts)...));
   }
 
@@ -209,32 +234,42 @@ namespace verona::cpp
   private:
     /// Underlying cown that has been acquired.
     /// Runtime is actually holding this reference count.
-    ActualCown<T>& origin_cown;
+    ActualCown<std::remove_const_t<T>>& origin_cown;
 
     /// Constructor is private, as only `When` can construct one.
-    acquired_cown(ActualCown<T>& origin) : origin_cown(origin) {}
+    acquired_cown(ActualCown<std::remove_const_t<T>>& origin)
+    : origin_cown(origin)
+    {}
 
   public:
     /// Get a handle on the underlying cown.
-    cown_ptr<T> cown() const
+    cown_ptr<std::remove_const_t<T>> cown() const
     {
       verona::rt::Cown::acquire(&origin_cown);
       return cown_ptr<T>(&origin_cown);
     }
 
-    T* operator->()
+    T& get_ref() const
     {
-      return &(origin_cown.value);
+      if constexpr (std::is_const<T>())
+        return const_cast<T&>(origin_cown.value);
+      else
+        return origin_cown.value;
     }
 
     T& operator*()
     {
-      return origin_cown.value;
+      return get_ref();
+    }
+
+    T* operator->()
+    {
+      return &get_ref();
     }
 
     operator T&()
     {
-      return origin_cown.value;
+      return get_ref();
     }
 
     /**

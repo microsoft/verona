@@ -12,6 +12,7 @@
 #include "schedulerthread.h"
 
 #include <algorithm>
+#include <vector>
 
 namespace verona::rt
 {
@@ -50,18 +51,70 @@ namespace verona::rt
 
   /**
    * A cown, or concurrent owner, encapsulates a set of resources that may be
-   * accessed by a single (scheduler) thread at a time. A cown can only be in
-   * exactly one of the following states:
+   * accessed by a single (scheduler) thread at a time when writing, or
+   * accessed by multiple (scheduler) threads at a time when reading.
+   * A cown can only be in one of the following states:
    *   1. Unscheduled
    *   2. Scheduled, in the queue of a single scheduler thread
-   *   3. Running on a single scheduler thread
+   *   3. Running with read/write access on a single scheduler thread, and not
+   * in the queue of any scheduler thread
+   *   4. Running with read access on one or more scheduler threads, and may
+   * also be in the queue of one other scheduler thread
    *
    * Once a cown is running, it executes a batch of multi-message behaviours.
    * Each message may either acquire the running cown for participation in a
    * future behaviour, or execute the behaviour if it is the last cown to be
-   * acquired. If the running cown is acquired for a future behaviour, it will
-   * be descheduled until that behaviour has completed.
+   * acquired.
+   * If the running cown is acquired for writing for a future behaviour, it will
+   * be descheduled until that behaviour has completed. If the running cown is
+   * acquired for reading for a future behaviour, it will not be descheduled. If
+   * the running cown is acquired for reading _and_ executing on this thread,
+   * the cown will be rescheduled to be picked up by another thread. (it might
+   * later return to this thread if this is the last thread to use the cown in
+   * read more before a write).
    */
+
+  struct ReadRefCount
+  {
+    std::atomic<size_t> count{0};
+
+    void add_read()
+    {
+      count.fetch_add(2);
+    }
+
+    // true means last reader and writer is waiting, false otherwise
+    bool release_read()
+    {
+      if (count.fetch_sub(2) == 3)
+      {
+        Systematic::yield();
+        assert(count.load() == 1);
+        count.store(0, std::memory_order_relaxed);
+        return true;
+      }
+      return false;
+    }
+
+    bool try_write()
+    {
+      if (count.load(std::memory_order_relaxed) == 0)
+        return true;
+
+      // Mark a pending write
+      if (count.fetch_add(1) != 0)
+        return false;
+
+      // if in the time between reading and writing the ref count, it
+      // became zero, we can now process the write, so clear the flag
+      // and continue
+      count.fetch_sub(1);
+      Systematic::yield();
+      assert(count.load() == 0);
+      return true;
+    }
+  };
+
   class Cown : public Object
   {
     using MessageBody = MultiMessage::Body;
@@ -134,6 +187,13 @@ namespace verona::rt
      * strong reference still exists.
      **/
     std::atomic<size_t> weak_count{1};
+
+    /*
+     * Cown's read ref count.
+     * Bottom bit is used to signal a waiting write.
+     * Remaining bits are the count.
+     */
+    ReadRefCount read_ref_count;
 
     EnqueueLock enqueue_lock;
 
@@ -494,12 +554,12 @@ namespace verona::rt
       {
         for (size_t i = 0; i < body->count; i++)
         {
-          auto* next = body->get_cowns_array()[i];
-          Logging::cout() << "Will try to acquire lock " << next
+          auto next = body->get_requests_array()[i];
+          Logging::cout() << "Will try to acquire lock " << next.cown()
                           << Logging::endl;
-          next->enqueue_lock.lock();
+          next.cown()->enqueue_lock.lock();
           yield();
-          Logging::cout() << "Acquired lock " << next << Logging::endl;
+          Logging::cout() << "Acquired lock " << next.cown() << Logging::endl;
         }
       }
 
@@ -507,7 +567,7 @@ namespace verona::rt
       for (size_t i = 0; i < loop_end; i++)
       {
         auto m = MultiMessage::make_message(alloc, body, epoch);
-        auto* next = body->get_cowns_array()[i];
+        auto next = body->get_requests_array()[i].cown();
         Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
                         << ", index " << i << " loop end " << loop_end
                         << Logging::endl;
@@ -542,6 +602,13 @@ namespace verona::rt
         const auto* m2 = next->queue.dequeue(alloc);
         assert(m == m2);
         UNUSED(m2);
+
+        Request r = body->get_requests_array()[i];
+        if (r.is_read())
+        {
+          r.cown()->read_ref_count.add_read();
+          r.cown()->schedule();
+        }
       }
     }
 
@@ -602,9 +669,27 @@ namespace verona::rt
         }
       }
 
-      if (body.exec_count_down.fetch_sub(1) > 1)
+      // Find this cown in the list of cowns to acquire
+      Request* request = body.get_requests_array();
+      while (request->cown() != this)
+        request++;
+
+      bool schedule_after_behaviour = true;
+      if (request->is_read())
       {
-        return false;
+        read_ref_count.add_read();
+        if (body.exec_count_down.fetch_sub(1) > 1)
+          return true;
+        else
+          // In this case, this thread will execute the behaviour
+          // but another thread can still read this cown, so reschedule
+          // it before executing the behaviour and do not reschedule it after.
+          schedule_after_behaviour = false;
+      }
+      else
+      { // request->mode == AccessMode::WRITE
+        if (body.exec_count_down.fetch_sub(1) > 1)
+          return false;
       }
 
       if (e == EpochMark::EPOCH_NONE)
@@ -625,8 +710,9 @@ namespace verona::rt
           for (size_t i = 0; i < body.count; i++)
           {
             Logging::cout()
-              << "Scanning cown " << body.get_cowns_array()[i] << Logging::endl;
-            body.get_cowns_array()[i]->scan(
+              << "Scanning cown " << body.get_requests_array()[i].cown()
+              << Logging::endl;
+            body.get_requests_array()[i].cown()->scan(
               alloc, Scheduler::local()->send_epoch);
           }
 
@@ -644,19 +730,57 @@ namespace verona::rt
 
       Scheduler::local()->message_body = &body;
 
+      // The message `m` will be deallocated when the next scheduler thread
+      // picks up a message, so wait until after all the possible uses of `m` to
+      // reschedule this cown.
+      if (!schedule_after_behaviour)
+        schedule();
+
       // Run the behaviour.
       body.get_behaviour().f();
 
       for (size_t i = 0; i < body.count; i++)
       {
-        if (body.get_cowns_array()[i])
-          Cown::release(alloc, body.get_cowns_array()[i]);
+        if (body.get_requests_array()[i].cown())
+          Cown::release(alloc, body.get_requests_array()[i].cown());
       }
 
       Logging::cout() << "MultiMessage " << m << " completed and running on "
                       << this << Logging::endl;
 
-      return true;
+      //  Reschedule the writeable cowns (read-only cowns are not unscheduled
+      //  for a behaviour).
+      for (size_t s = 0; s < body.count; s++)
+      {
+        Request request = body.get_requests_array()[s];
+        Cown* cown = request.cown();
+        if (cown)
+        {
+          if (!request.is_read() && cown != this)
+            cown->schedule();
+          else if (request.is_read())
+          {
+            // If this read is the last read of a cown, and that cown's next
+            // message requires writing, clear the flag and either:
+            //   - schedule the cown if it is not this cown, or
+            //   - continue processing this cown's message on this scheduler
+            //   thread
+            //     (overwriting the previous decision to stop processing this
+            //     cown).
+            if (cown->read_ref_count.release_read())
+            {
+              if (cown != this)
+                cown->schedule();
+              else
+                schedule_after_behaviour = true;
+            }
+          }
+        }
+      }
+
+      alloc.dealloc(&body);
+
+      return schedule_after_behaviour;
     }
 
   public:
@@ -670,6 +794,26 @@ namespace verona::rt
         1, &cown, std::forward<Args>(args)...);
     }
 
+    template<
+      class Behaviour,
+      TransferOwnership transfer = NoTransfer,
+      typename... Args>
+    static void schedule(size_t count, Cown** cowns, Args&&... args)
+    {
+      // TODO Remove vector allocation here.  This is a temporary fix to
+      // as we transition to using Request through the code base.
+      auto& alloc = ThreadAlloc::get();
+      Request* requests = (Request*)alloc.alloc(count * sizeof(Request));
+
+      for (size_t i = 0; i < count; ++i)
+        requests[i] = Request::write(cowns[i]);
+
+      schedule<Behaviour, transfer, Args...>(
+        count, requests, std::forward<Args>(args)...);
+
+      alloc.dealloc(requests);
+    }
+
     /**
      * Sends a multi-message to the first cown we want to acquire.
      *
@@ -681,7 +825,7 @@ namespace verona::rt
       class Be,
       TransferOwnership transfer = NoTransfer,
       typename... Args>
-    static void schedule(size_t count, Cown** cowns, Args&&... args)
+    static void schedule(size_t count, Request* requests, Args&&... args)
     {
       static_assert(std::is_base_of_v<Behaviour, Be>);
       Logging::cout() << "Schedule behaviour of type: " << typeid(Be).name()
@@ -692,21 +836,23 @@ namespace verona::rt
       auto body =
         MultiMessage::Body::make<Be>(alloc, count, std::forward<Args>(args)...);
 
-      auto** sort = body->get_cowns_array();
-      memcpy(sort, cowns, count * sizeof(Cown*));
+      auto* sort = body->get_requests_array();
+      memcpy(sort, requests, count * sizeof(Request));
 
 #ifdef USE_SYSTEMATIC_TESTING
-      std::sort(&sort[0], &sort[count], [](Cown*& a, Cown*& b) {
-        return a->id() < b->id();
+      std::sort(&sort[0], &sort[count], [](Request& a, Request& b) {
+        return a.cown()->id() < b.cown()->id();
       });
 #else
-      std::sort(&sort[0], &sort[count]);
+      std::sort(&sort[0], &sort[count], [](Request& a, Request& b) {
+        return a.cown() < b.cown();
+      });
 #endif
 
       if constexpr (transfer == NoTransfer)
       {
         for (size_t i = 0; i < count; i++)
-          Cown::acquire(sort[i]);
+          Cown::acquire(sort[i].cown());
       }
 
       // TODO what if this thread is external.
@@ -742,6 +888,7 @@ namespace verona::rt
      * called, and it is guaranteed to return true, so it will be rescheduled
      * or false if it is part of a multi-message acquire.
      **/
+
     bool run(Alloc& alloc, ThreadState::State)
     {
       auto until = queue.peek_back();
@@ -756,6 +903,23 @@ namespace verona::rt
       do
       {
         assert(!queue.is_sleeping());
+
+        curr = queue.peek();
+
+        if (curr != nullptr)
+        {
+          auto* body = curr->get_body();
+
+          // find us in the list of cowns to acquire
+          Request* request = body->get_requests_array();
+          while (request->cown() != this)
+            request++;
+
+          // Attempt to process a write, if it fails stop processing the message
+          // queue.
+          if (!request->is_read() && !read_ref_count.try_write())
+            return false;
+        }
 
         curr = queue.dequeue(alloc, notify);
 
@@ -819,30 +983,17 @@ namespace verona::rt
         }
 
         assert(!queue.is_sleeping());
-        auto* body = curr->get_body();
 
         batch_size++;
 
         Logging::cout() << "Running Message " << curr << " on cown " << this
                         << Logging::endl;
 
-        auto* senders = body->get_cowns_array();
-        const size_t senders_count = body->count;
-
         // A function that returns false indicates that the cown should not
         // be rescheduled, even if it has pending work. This also means the
         // cown's queue should not be marked as empty, even if it is.
         if (!run_step(curr))
           return false;
-
-        // Reschedule the other cowns.
-        for (size_t s = 0; s < senders_count; s++)
-        {
-          if ((senders[s]) && (senders[s] != this))
-            senders[s]->schedule();
-        }
-
-        alloc.dealloc(body);
 
       } while ((curr != until) && (batch_size < batch_limit));
 
@@ -985,7 +1136,7 @@ namespace verona::rt
     bool release_early()
     {
       auto* body = Scheduler::local()->message_body;
-      auto* senders = body->get_cowns_array();
+      auto* senders = body->get_requests_array();
       const size_t senders_count = body->count;
       Alloc& alloc = ThreadAlloc::get();
 
@@ -993,16 +1144,25 @@ namespace verona::rt
        * Avoid releasing the last cown because it breaks the current
        * code structure
        */
-      if (this == senders[senders_count - 1])
+      if (this == senders[senders_count - 1].cown())
         return false;
 
       for (size_t s = 0; s < senders_count; s++)
       {
-        if (senders[s] != this)
+        if (senders[s].cown() != this)
           continue;
-        Cown::release(alloc, senders[s]);
-        senders[s]->schedule();
-        senders[s] = nullptr;
+
+        if (
+          !senders[s].is_read() ||
+          senders[s].cown()->read_ref_count.release_read())
+        {
+          senders[s].cown()->schedule();
+        }
+
+        Cown::release(alloc, senders[s].cown());
+
+        senders[s] = Request();
+
         break;
       }
 
