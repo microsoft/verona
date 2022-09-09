@@ -11,7 +11,7 @@ namespace sample
     return {
       // Module.
       T(Directory)[Directory] << (T(File)++)[File] >>
-        [](auto& _) {
+        [](Match& _) {
           auto ident = path::last(_(Directory)->location().source->origin());
           return Group << (Class ^ _(Directory)) << (Ident ^ ident)
                        << (Brace << *_[File]);
@@ -19,7 +19,7 @@ namespace sample
 
       // File on its own (no module).
       In(Top) * T(File)[File] >>
-        [](auto& _) {
+        [](Match& _) {
           auto ident = path::last(_(File)->location().source->origin());
           return Group << (Class ^ _(File)) << (Ident ^ ident)
                        << (Brace << *_[File]);
@@ -27,7 +27,7 @@ namespace sample
 
       // Allow disambiguating anonymous types from class or function bodies.
       In(Group) * T(Typealias) * T(Brace)[Classbody] >>
-        [](auto& _) { return TypeTrait << (Classbody << *_[Classbody]); },
+        [](Match& _) { return TypeTrait << (Classbody << *_[Classbody]); },
     };
   }
 
@@ -36,11 +36,11 @@ namespace sample
     return {
       // Packages.
       T(Package) * (T(String) / T(Escaped))[String] >>
-        [](auto& _) { return Package << _[String]; },
+        [](Match& _) { return Package << _[String]; },
 
       // Type.
       T(Colon)[Colon] * ((!T(Brace))++)[Type] >>
-        [](auto& _) { return (Type ^ _(Colon)) << _[Type]; },
+        [](Match& _) { return (Type ^ _(Colon)) << _[Type]; },
     };
   }
 
@@ -73,7 +73,7 @@ namespace sample
             << ((T(Group) << (T(Let) * T(Ident)[id] * ~T(Type)[Type] * End)) *
                 T(Group)[rhs] * End)) /
            (T(Group) << (T(Let) * T(Ident)[id] * ~T(Type)[Type] * End))) >>
-        [](auto& _) {
+        [](Match& _) {
           return _(id = FieldLet)
             << _(id) << typevar(_, id, Type) << (Expr << *_[rhs]);
         },
@@ -86,7 +86,7 @@ namespace sample
             << ((T(Group) << (T(Var) * T(Ident)[id] * ~T(Type)[Type] * End)) *
                 T(Group)[rhs] * End)) /
            (T(Group) << (T(Var) * T(Ident)[id] * ~T(Type)[Type] * End))) >>
-        [](auto& _) {
+        [](Match& _) {
           return _(id = FieldVar)
             << _(id) << typevar(_, id, Type) << (Expr << *_[rhs]);
         },
@@ -98,7 +98,7 @@ namespace sample
            << (T(Group) << (~Name[id] * ~T(Square)[Typeparams] *
                             T(Paren)[Params] * ~T(Type)[Type]) *
                  T(Group)[rhs] * End)) >>
-        [](auto& _) {
+        [](Match& _) {
           _.def(id, apply);
           return _(id = Function)
             << _(id) << (Typeparams << *_[Typeparams]) << (Params << *_[Params])
@@ -109,7 +109,7 @@ namespace sample
       In(Classbody) * T(Group)
           << (~Name[id] * ~T(Square)[Typeparams] * T(Paren)[Params] *
               ~T(Type)[Type] * ~T(Brace)[Funcbody] * (Any++)[rhs]) >>
-        [](auto& _) {
+        [](Match& _) {
           _.def(id, apply);
           return Seq << (_(id = Function)
                          << _(id) << (Typeparams << *_[Typeparams])
@@ -120,11 +120,11 @@ namespace sample
 
       // Typeparams.
       T(Typeparams) << T(List)[Typeparams] >>
-        [](auto& _) { return Typeparams << *_[Typeparams]; },
+        [](Match& _) { return Typeparams << *_[Typeparams]; },
 
       // Typeparam: (group ident type)
       In(Typeparams) * T(Group) << (T(Ident)[id] * ~T(Type)[Type] * End) >>
-        [](auto& _) {
+        [](Match& _) {
           return _(id = Typeparam) << _(id) << typevar(_, id, Type) << Type;
         },
 
@@ -132,18 +132,18 @@ namespace sample
       In(Typeparams) * T(Equals)
           << ((T(Group) << (T(Ident)[id] * ~T(Type)[Type] * End)) *
               T(Group)[rhs] * End) >>
-        [](auto& _) {
+        [](Match& _) {
           return _(id = Typeparam)
             << _(id) << typevar(_, id, Type) << (Type << *_[rhs]);
         },
 
       // Params.
       T(Params) << T(List)[Params] >>
-        [](auto& _) { return Params << *_[Params]; },
+        [](Match& _) { return Params << *_[Params]; },
 
       // Param: (group ident type)
       In(Params) * T(Group) << (T(Ident)[id] * ~T(Type)[Type] * End) >>
-        [](auto& _) {
+        [](Match& _) {
           return _(id = Param) << _(id) << typevar(_, id, Type) << Expr;
         },
 
@@ -151,7 +151,7 @@ namespace sample
       In(Params) * T(Equals)
           << ((T(Group) << (T(Ident)[id] * ~T(Type)[Type] * End)) *
               T(Group)[Expr] * End) >>
-        [](auto& _) {
+        [](Match& _) {
           return _(id = Param)
             << _(id) << typevar(_, id, Type) << (Expr << *_[Expr]);
         },
@@ -159,13 +159,13 @@ namespace sample
       // Use.
       (In(Classbody) / In(Funcbody)) * T(Group)
           << T(Use)[Use] * (Any++)[Type] >>
-        [](auto& _) { return (Use ^ _(Use)) << (Type << _[Type]); },
+        [](Match& _) { return (Use ^ _(Use)) << (Type << _[Type]); },
 
       // Typealias.
       (In(Classbody) / In(Funcbody)) * T(Group)
           << (T(Typealias) * T(Ident)[id] * ~T(Square)[Typeparams] *
               ~T(Type)[Type] * End) >>
-        [](auto& _) {
+        [](Match& _) {
           return _(id = Typealias) << _(id) << (Typeparams << *_[Typeparams])
                                    << typevar(_, id, Type) << Type;
         },
@@ -176,7 +176,7 @@ namespace sample
                << (T(Typealias) * T(Ident)[id] * ~T(Square)[Typeparams] *
                    ~T(Type)[Type] * End)) *
               T(Group)[rhs] * End) >>
-        [](auto& _) {
+        [](Match& _) {
           return _(id = Typealias) << _(id) << (Typeparams << *_[Typeparams])
                                    << typevar(_, id, Type) << (Type << *_[rhs]);
         },
@@ -185,7 +185,7 @@ namespace sample
       (In(Top) / In(Classbody) / In(Funcbody)) * T(Group)
           << (T(Class) * T(Ident)[id] * ~T(Square)[Typeparams] *
               ~T(Type)[Type] * T(Brace)[Classbody] * (Any++)[rhs]) >>
-        [](auto& _) {
+        [](Match& _) {
           return Seq << (_(id = Class)
                          << _(id) << (Typeparams << *_[Typeparams])
                          << (_[Type] | Type) << (Classbody << *_[Classbody]))
@@ -194,39 +194,42 @@ namespace sample
 
       // Type structure.
       TypeStruct * T(Group)[TypeTerm] >>
-        [](auto& _) { return TypeTerm << *_[TypeTerm]; },
+        [](Match& _) { return TypeTerm << *_[TypeTerm]; },
       TypeStruct * T(List)[TypeTuple] >>
-        [](auto& _) { return TypeTuple << *_[TypeTuple]; },
+        [](Match& _) { return TypeTuple << *_[TypeTuple]; },
       TypeStruct * T(Paren)[TypeTerm] >>
-        [](auto& _) { return TypeTerm << *_[TypeTerm]; },
+        [](Match& _) { return TypeTerm << *_[TypeTerm]; },
 
       // Anonymous types.
       TypeStruct * T(Brace)[Classbody] >>
-        [](auto& _) { return TypeTrait << (Classbody << *_[Classbody]); },
+        [](Match& _) { return TypeTrait << (Classbody << *_[Classbody]); },
 
       // Expression structure.
-      ExprStruct * T(Group)[Expr] >> [](auto& _) { return Expr << *_[Expr]; },
-      ExprStruct * T(List)[Tuple] >> [](auto& _) { return Tuple << *_[Tuple]; },
+      ExprStruct * T(Group)[Expr] >> [](Match& _) { return Expr << *_[Expr]; },
+      ExprStruct * T(List)[Tuple] >>
+        [](Match& _) { return Tuple << *_[Tuple]; },
       ExprStruct * T(Equals)[Assign] >>
-        [](auto& _) { return Assign << *_[Assign]; },
+        [](Match& _) { return Assign << *_[Assign]; },
 
       // Empty parens are an empty tuple.
-      ExprStruct * T(Paren) << End >> [](auto& _) -> Node { return Tuple; },
-      ExprStruct* T(Paren)[Expr] >> [](auto& _) { return Expr << *_[Expr]; },
+      ExprStruct * T(Paren) << End >> [](Match& _) -> Node { return Tuple; },
+      ExprStruct* T(Paren)[Expr] >> [](Match& _) { return Expr << *_[Expr]; },
 
       // Typearg structure.
       (In(Type) / ExprStruct) * T(Square)[Typeargs] >>
-        [](auto& _) { return Typeargs << *_[Typeargs]; },
+        [](Match& _) { return Typeargs << *_[Typeargs]; },
       T(Typeargs) << T(List)[Typeargs] >>
-        [](auto& _) { return Typeargs << *_[Typeargs]; },
-      In(Typeargs) * T(Group)[Type] >> [](auto& _) { return Type << *_[Type]; },
-      In(Typeargs) * T(Paren)[Type] >> [](auto& _) { return Type << *_[Type]; },
+        [](Match& _) { return Typeargs << *_[Typeargs]; },
+      In(Typeargs) * T(Group)[Type] >>
+        [](Match& _) { return Type << *_[Type]; },
+      In(Typeargs) * T(Paren)[Type] >>
+        [](Match& _) { return Type << *_[Type]; },
 
       // Lambda: (group typeparams) (list params...) => rhs
       ExprStruct * T(Brace)
           << (((T(Group) << T(Square)[Typeparams]) * T(List)[Params]) *
               (T(Group) << T(FatArrow)) * (Any++)[rhs]) >>
-        [](auto& _) {
+        [](Match& _) {
           return Lambda << (Typeparams << *_[Typeparams])
                         << (Params << *_[Params]) << (Funcbody << _[rhs]);
         },
@@ -235,7 +238,7 @@ namespace sample
       ExprStruct * T(Brace)
           << (((T(Group) << T(Square)[Typeparams]) * T(Group)[Param]) *
               (T(Group) << T(FatArrow)) * (Any++)[rhs]) >>
-        [](auto& _) {
+        [](Match& _) {
           return Lambda << (Typeparams << *_[Typeparams])
                         << (Params << _[Param]) << (Funcbody << _[rhs]);
         },
@@ -246,7 +249,7 @@ namespace sample
                << ((T(Group) << (~T(Square)[Typeparams] * (Any++)[Param])) *
                    (Any++)[Params]))) *
             (T(Group) << T(FatArrow)) * (Any++)[rhs] >>
-        [](auto& _) {
+        [](Match& _) {
           return Lambda << (Typeparams << *_[Typeparams])
                         << (Params << (Group << _[Param]) << _[Params])
                         << (Funcbody << _[rhs]);
@@ -256,7 +259,7 @@ namespace sample
       ExprStruct * T(Brace)
           << ((T(Group) << (~T(Square)[Typeparams] * (Any++)[Param])) *
               (T(Group) << T(FatArrow)) * (Any++)[rhs]) >>
-        [](auto& _) {
+        [](Match& _) {
           return Lambda << (Typeparams << *_[Typeparams])
                         << (Params << (Group << _[Param]) << _[Params])
                         << (Funcbody << _[rhs]);
@@ -264,39 +267,39 @@ namespace sample
 
       // Zero argument lambda.
       ExprStruct * T(Brace) << (!(T(Group) << T(FatArrow)))++[Lambda] >>
-        [](auto& _) {
+        [](Match& _) {
           return Lambda << Typeparams << Params << (Funcbody << _[Lambda]);
         },
 
       // Var.
       ExprStruct * T(Var)[Var] * T(Ident)[id] * ~T(Type)[Type] >>
-        [](auto& _) { return _(id = Var) << _(id) << typevar(_, Var, Type); },
+        [](Match& _) { return _(id = Var) << _(id) << typevar(_, Var, Type); },
 
       // Let.
       ExprStruct * T(Let)[Let] * T(Ident)[id] * ~T(Type)[Type] >>
-        [](auto& _) { return _(id = Let) << _(id) << typevar(_, Let, Type); },
+        [](Match& _) { return _(id = Let) << _(id) << typevar(_, Let, Type); },
 
       // Throw.
       ExprStruct * T(Throw) * (Any++)[rhs] >>
-        [](auto& _) { return Throw << (Expr << _[rhs]); },
+        [](Match& _) { return Throw << (Expr << _[rhs]); },
 
       // Move a ref to the last expr of a sequence.
       ExprStruct * T(Ref) * T(Expr)[Expr] >>
-        [](auto& _) { return Expr << Ref << *_[Expr]; },
+        [](Match& _) { return Expr << Ref << *_[Expr]; },
       In(Expr) * T(Ref) * T(Expr)[lhs] * T(Expr)[rhs] >>
-        [](auto& _) { return Seq << _[lhs] << Ref << _[rhs]; },
+        [](Match& _) { return Seq << _[lhs] << Ref << _[rhs]; },
       In(Expr) * T(Ref) * T(Expr)[Expr] * End >>
-        [](auto& _) { return Expr << Ref << *_[Expr]; },
+        [](Match& _) { return Expr << Ref << *_[Expr]; },
 
       // Sequence of expr|tuple|assign in an expr.
       In(Expr) * SeqStruct[lhs] * SeqStruct[rhs] >>
-        [](auto& _) {
+        [](Match& _) {
           auto e = _(lhs);
           return Seq << (Lift << Funcbody << _(lhs)) << _[rhs];
         },
 
       // Remove empty groups.
-      T(Group) << End >> [](auto& _) -> Node { return {}; },
+      T(Group) << End >> [](Match& _) -> Node { return {}; },
     };
   }
 
@@ -304,7 +307,7 @@ namespace sample
   {
     return {
       T(Use)[lhs] << T(Type)[rhs] >>
-        [](auto& _) {
+        [](Match& _) {
           auto site = Include ^ _(lhs);
           _.include(site, look->at(_[rhs]).def);
           return site << _[rhs];
@@ -340,7 +343,7 @@ namespace sample
       dir::bottomup,
       {
         TypeStruct * (T(Ident)[id] * ~T(Typeargs)[Typeargs])[Type] >>
-          [](auto& _) {
+          [](Match& _) {
             auto def = look->at(_[Type]).def;
             return reftype(def) << _[id] << (_[Typeargs] | Typeargs);
           },
@@ -348,7 +351,7 @@ namespace sample
         TypeStruct *
             (T(RefType)[lhs] * T(DoubleColon) * T(Ident)[id] *
              ~T(Typeargs)[Typeargs])[Type] >>
-          [](auto& _) {
+          [](Match& _) {
             auto def = look->at(_[Type]).def;
             return reftype(def) << _[lhs] << _[id] << (_[Typeargs] | Typeargs);
           },
@@ -364,10 +367,10 @@ namespace sample
     return {
       TypeStruct * TypeElem[lhs] * T(Symbol, "~>") * TypeElem[rhs] *
           --T(Symbol, "~>") >>
-        [](auto& _) { return TypeView << _[lhs] << _[rhs]; },
+        [](Match& _) { return TypeView << _[lhs] << _[rhs]; },
       TypeStruct * TypeElem[lhs] * T(Symbol, "->") * TypeElem[rhs] *
           --T(Symbol, "->") >>
-        [](auto& _) { return TypeFunc << _[lhs] << _[rhs]; },
+        [](Match& _) { return TypeFunc << _[lhs] << _[rhs]; },
     };
   }
 
@@ -376,18 +379,18 @@ namespace sample
     return {
       // Build algebraic types.
       TypeStruct * TypeElem[lhs] * T(Symbol, "&") * TypeElem[rhs] >>
-        [](auto& _) { return TypeIsect << _[lhs] << _[rhs]; },
+        [](Match& _) { return TypeIsect << _[lhs] << _[rhs]; },
       TypeStruct * TypeElem[lhs] * T(Symbol, "\\|") * TypeElem[rhs] >>
-        [](auto& _) { return TypeUnion << _[lhs] << _[rhs]; },
+        [](Match& _) { return TypeUnion << _[lhs] << _[rhs]; },
       TypeStruct * T(Throw) * TypeElem[rhs] >>
-        [](auto& _) { return TypeThrow << _[rhs]; },
-      T(TypeTerm) << (TypeElem[op] * End) >> [](auto& _) { return _(op); },
+        [](Match& _) { return TypeThrow << _[rhs]; },
+      T(TypeTerm) << (TypeElem[op] * End) >> [](Match& _) { return _(op); },
 
       // Flatten algebraic types.
       In(TypeUnion) * T(TypeUnion)[lhs] >>
-        [](auto& _) { return Seq << *_[lhs]; },
+        [](Match& _) { return Seq << *_[lhs]; },
       In(TypeIsect) * T(TypeIsect)[lhs] >>
-        [](auto& _) { return Seq << *_[lhs]; },
+        [](Match& _) { return Seq << *_[lhs]; },
 
     };
   }
@@ -397,7 +400,7 @@ namespace sample
     return {
       T(TypeIsect)
           << (((!T(TypeUnion))++)[lhs] * T(TypeUnion)[op] * (Any++)[rhs]) >>
-        [](auto& _) {
+        [](Match& _) {
           Node r = TypeUnion;
           for (auto& child : *_(op))
             r << (TypeIsect << clone(child) << clone(_[lhs]) << clone(_[rhs]));
@@ -413,12 +416,12 @@ namespace sample
       {
         // Identifiers and symbols.
         In(Expr) * T(Dot) * Name[id] * ~T(Typeargs)[Typeargs] >>
-          [](auto& _) {
+          [](Match& _) {
             return DotSelector << _[id] << (_[Typeargs] | Typeargs);
           },
 
         In(Expr) * (Name[id] * ~T(Typeargs)[Typeargs])[Type] >>
-          [](auto& _) {
+          [](Match& _) {
             auto def = look->at(_[Type]).def;
             return reftype(def) << _[id] << (_[Typeargs] | Typeargs);
           },
@@ -427,14 +430,14 @@ namespace sample
         In(Expr) *
             (T(RefType)[lhs] * T(DoubleColon) * Name[id] *
              ~T(Typeargs)[Typeargs])[Type] >>
-          [](auto& _) {
+          [](Match& _) {
             auto def = look->at(_[Type]).def;
             return reftype(def) << _[lhs] << _[id] << (_[Typeargs] | Typeargs);
           },
 
         // Create sugar.
         In(Expr) * T(RefType)[lhs] >>
-          [](auto& _) {
+          [](Match& _) {
             return Call
               << (RefFunction << _[lhs] << (Ident ^ create) << Typeargs);
           },
@@ -442,24 +445,24 @@ namespace sample
         // Type assertions for operators.
         // TODO: remove this?
         // In(Expr) * Start * Operator[op] * T(Type)[Type] * End >>
-        //   [](auto& _) { return _(op) << _[Type]; },
+        //   [](Match& _) { return _(op) << _[Type]; },
 
         // Strip empty typeargs on variables.
         (T(RefVar) / T(RefLet) / T(RefParam))[lhs]
             << (T(Ident)[id] * (T(Typeargs) << End)) >>
-          [](auto& _) { return _(lhs)->type() ^ _(id); },
+          [](Match& _) { return _(lhs)->type() ^ _(id); },
 
         // Typeargs on variables are typeargs on apply.
         In(Expr) *
             ((T(RefVar) / T(RefLet) / T(RefParam))[lhs]
              << (T(Ident)[id] * T(Typeargs)[Typeargs])) >>
-          [](auto& _) {
+          [](Match& _) {
             return Seq << (_(lhs)->type() ^ _(id))
                        << (DotSelector << (Ident ^ apply) << _[Typeargs]);
           },
 
         // Compact expressions.
-        T(Expr) << (T(Expr)[Expr] * End) >> [](auto& _) { return _(Expr); },
+        T(Expr) << (T(Expr)[Expr] * End) >> [](Match& _) { return _(Expr); },
       }};
   }
 
@@ -482,19 +485,19 @@ namespace sample
     return {
       // Dot: reverse application.
       In(Expr) * T(Tuple)[lhs] * T(DotSelector)[rhs] >>
-        [](auto& _) { return Call << (Selector << *_[rhs]) << *_[lhs]; },
+        [](Match& _) { return Call << (Selector << *_[rhs]) << *_[lhs]; },
       In(Expr) * Object[lhs] * T(DotSelector)[rhs] >>
-        [](auto& _) { return Call << (Selector << *_[rhs]) << _[lhs]; },
+        [](Match& _) { return Call << (Selector << *_[rhs]) << _[lhs]; },
 
       In(Expr) * T(Tuple)[lhs] * T(Dot) * Operator[op] >>
-        [](auto& _) { return Call << _[op] << *_[lhs]; },
+        [](Match& _) { return Call << _[op] << *_[lhs]; },
       In(Expr) * Object[lhs] * T(Dot) * Operator[op] >>
-        [](auto& _) { return Call << _[op] << _[lhs]; },
+        [](Match& _) { return Call << _[op] << _[lhs]; },
 
       In(Expr) * T(Tuple)[lhs] * T(Dot) * Object[rhs] >>
-        [](auto& _) { return Call << clone(Apply) << _[rhs] << *_[lhs]; },
+        [](Match& _) { return Call << clone(Apply) << _[rhs] << *_[lhs]; },
       In(Expr) * Object[lhs] * T(Dot) * Object[rhs] >>
-        [](auto& _) { return Call << clone(Apply) << _[rhs] << _[lhs]; },
+        [](Match& _) { return Call << clone(Apply) << _[rhs] << _[lhs]; },
     };
   }
 
@@ -503,33 +506,33 @@ namespace sample
     return {
       // Adjacency: application.
       In(Expr) * Object[lhs] * T(Tuple)[rhs] >>
-        [](auto& _) { return Call << clone(Apply) << _[lhs] << *_[rhs]; },
+        [](Match& _) { return Call << clone(Apply) << _[lhs] << *_[rhs]; },
       In(Expr) * Object[lhs] * Object[rhs] >>
-        [](auto& _) { return Call << clone(Apply) << _[lhs] << _[rhs]; },
+        [](Match& _) { return Call << clone(Apply) << _[lhs] << _[rhs]; },
 
       // Ref expressions.
       In(Expr) * T(Ref) * T(RefVar)[RefVar] >>
-        [](auto& _) { return RefVarLHS ^ _(RefVar); },
+        [](Match& _) { return RefVarLHS ^ _(RefVar); },
       In(Expr) * T(Ref) * T(Call)[Call] >>
-        [](auto& _) { return CallLHS << *_[Call]; },
+        [](Match& _) { return CallLHS << *_[Call]; },
       In(Expr) * T(Ref) * (T(Expr) << (T(Call)[Call] * End)) >>
-        [](auto& _) { return CallLHS << *_[Call]; },
+        [](Match& _) { return CallLHS << *_[Call]; },
 
       // Prefix.
       In(Expr) * Operator[op] * T(Tuple)[rhs] >>
-        [](auto& _) { return Call << _[op] << *_[rhs]; },
+        [](Match& _) { return Call << _[op] << *_[rhs]; },
       In(Expr) * Operator[op] * Object[rhs] >>
-        [](auto& _) { return Call << _[op] << _[rhs]; },
+        [](Match& _) { return Call << _[op] << _[rhs]; },
 
       // Infix.
       In(Expr) * T(Tuple)[lhs] * Operator[op] * T(Tuple)[rhs] >>
-        [](auto& _) { return Call << _[op] << *_[lhs] << *_[rhs]; },
+        [](Match& _) { return Call << _[op] << *_[lhs] << *_[rhs]; },
       In(Expr) * T(Tuple)[lhs] * Operator[op] * Object[rhs] >>
-        [](auto& _) { return Call << _[op] << *_[lhs] << _[rhs]; },
+        [](Match& _) { return Call << _[op] << *_[lhs] << _[rhs]; },
       In(Expr) * Object[lhs] * Operator[op] * T(Tuple)[rhs] >>
-        [](auto& _) { return Call << _[op] << _[lhs] << *_[rhs]; },
+        [](Match& _) { return Call << _[op] << _[lhs] << *_[rhs]; },
       In(Expr) * Object[lhs] * Operator[op] * Object[rhs] >>
-        [](auto& _) { return Call << _[op] << _[lhs] << _[rhs]; },
+        [](Match& _) { return Call << _[op] << _[lhs] << _[rhs]; },
     };
   }
 
@@ -538,31 +541,31 @@ namespace sample
     return {
       // Turn a Tuple on the LHS of an assignment into a TupleLHS.
       In(Assign) * (T(Expr) << (T(Tuple)[lhs] * ~T(Type)[Type])) * Any[rhs] >>
-        [](auto& _) {
+        [](Match& _) {
           return Seq << (Expr << (TupleLHS << *_[lhs]) << _[Type]) << _[rhs];
         },
 
       // Turn a Call on the LHS of an assignment into a CallLHS.
       In(Assign) * (T(Expr) << (T(Call)[lhs] * ~T(Type)[Type])) * Any[rhs] >>
-        [](auto& _) {
+        [](Match& _) {
           return Seq << (Expr << (CallLHS << *_[lhs]) << _[Type]) << _[rhs];
         },
 
       // Turn a RefVar on the LHS of an assignment into a RefVarLHS.
       In(Assign) * (T(Expr) << (T(RefVar)[lhs] * ~T(Type)[Type])) * Any[rhs] >>
-        [](auto& _) {
+        [](Match& _) {
           return Seq << (Expr << (RefVarLHS ^ _(lhs)) << _[Type]) << _[rhs];
         },
 
       // Recurse LHS.
       In(TupleLHS) * (T(Expr) << (T(Tuple)[lhs] * ~T(Type)[Type])) >>
-        [](auto& _) { return Expr << (TupleLHS << *_[lhs]) << _[Type]; },
+        [](Match& _) { return Expr << (TupleLHS << *_[lhs]) << _[Type]; },
 
       In(TupleLHS) * (T(Expr) << (T(Call)[lhs] * ~T(Type)[Type])) >>
-        [](auto& _) { return Expr << (CallLHS << *_[lhs]) << _[Type]; },
+        [](Match& _) { return Expr << (CallLHS << *_[lhs]) << _[Type]; },
 
       In(TupleLHS) * (T(Expr) << (T(RefVar)[lhs] * ~T(Type)[Type])) >>
-        [](auto& _) { return Expr << (RefVarLHS ^ _(lhs)) << _[Type]; },
+        [](Match& _) { return Expr << (RefVarLHS ^ _(lhs)) << _[Type]; },
     };
   }
 
@@ -573,7 +576,7 @@ namespace sample
   {
     return {
       (In(Funcbody) / InContainer) * T(Var)[Var] >>
-        [](auto& _) {
+        [](Match& _) {
           auto var = _(Var);
           auto id = var->at(wf / Var / Ident)->location();
           auto t = var->at(wf / Var / Type);
@@ -581,10 +584,10 @@ namespace sample
         },
 
       (In(Funcbody) / InContainer) * T(RefVar)[RefVar] >>
-        [](auto& _) { return Call << clone(Load) << (RefLet ^ _(RefVar)); },
+        [](Match& _) { return Call << clone(Load) << (RefLet ^ _(RefVar)); },
 
       (In(Funcbody) / InContainer) * T(RefVarLHS)[RefVarLHS] >>
-        [](auto& _) { return RefLet ^ _(RefVarLHS); },
+        [](Match& _) { return RefLet ^ _(RefVarLHS); },
     };
   }
 
@@ -594,7 +597,7 @@ namespace sample
       // Destructuring assignment.
       In(Assign) * (T(Expr) << (T(TupleLHS)[lhs] * ~T(Type)[ltype] * End)) *
           (T(Expr) << (Any[rhs] * ~T(Type)[rtype] * End)) * End >>
-        [](auto& _) {
+        [](Match& _) {
           auto e = _(rhs);
           auto id = e->fresh();
           Node tuple = Tuple;
@@ -627,7 +630,7 @@ namespace sample
     return {
       // Lift an expression as a let with a type assertion.
       (In(Funcbody) / InContainer) * LiftExpr[Lift] * ~T(Type)[Type] >>
-        [](auto& _) {
+        [](Match& _) {
           auto id = _(Lift)->fresh();
           return Seq << letbind(_, id, typevar(_, Lift, Type), _(Lift))
                      << (RefLet ^ id);
@@ -635,13 +638,13 @@ namespace sample
 
       // Lift type assertions on RefLet, RefParam, and literals as new lets.
       (In(Funcbody) / InContainer) * RHSExpr[Lift] * T(Type)[Type] >>
-        [](auto& _) {
+        [](Match& _) {
           auto id = _(Lift)->fresh();
           return Seq << letbind(_, id, _(Type), _(Lift)) << (RefLet ^ id);
         },
 
       // Compact exprs after they're reduced.
-      T(Expr) << (Any[op] * End) >> [](auto& _) { return _(op); },
+      T(Expr) << (Any[op] * End) >> [](Match& _) { return _(op); },
     };
   }
 
@@ -650,14 +653,14 @@ namespace sample
     return {
       // Let binding.
       In(Assign) * T(Let)[lhs] * RHSExpr[rhs] * End >>
-        [](auto& _) {
+        [](Match& _) {
           return Seq << (Lift << Funcbody << (_(lhs) << _(rhs)))
                      << (RefLet ^ _(lhs)->at(wf / Let / Ident));
         },
 
       // Assignment to RefLet or RefParam.
       In(Assign) * (T(RefLet) / T(RefParam))[lhs] * RHSExpr[rhs] * End >>
-        [](auto& _) {
+        [](Match& _) {
           auto id = _(lhs)->fresh();
           auto t = _(lhs)->fresh();
           auto e = Call << clone(Store) << _(lhs) << _(rhs);
@@ -665,7 +668,7 @@ namespace sample
         },
 
       // Compact assigns after they're reduced.
-      T(Assign) << (Any[op] * End) >> [](auto& _) { return _(op); },
+      T(Assign) << (Any[op] * End) >> [](Match& _) { return _(op); },
     };
   }
 

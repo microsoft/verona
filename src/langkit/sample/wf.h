@@ -77,8 +77,8 @@ namespace sample
 
     // TODO:
     shape(Expr, undef()),
-    shape(Typeargs, undef()),
 
+    shape(Typeargs, seq(wfTypes)),
     shape(Lambda, field(Typeparams), field(Params), field(Funcbody)),
 
     // TODO:

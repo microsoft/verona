@@ -97,7 +97,7 @@ namespace langkit
   private:
     size_t apply(Node node)
     {
-      detail::Capture captures;
+      Match match;
       auto it = node->begin();
       size_t changes = 0;
 
@@ -111,12 +111,12 @@ namespace langkit
         for (auto& rule : rules_)
         {
           auto start = it;
-          captures.clear();
+          match.clear();
 
-          if (rule.first.match(it, node->end(), captures))
+          if (rule.first.match(it, node->end(), match))
           {
             // Replace [start, it) with whatever the rule builds.
-            auto replace = rule.second(captures);
+            auto replace = rule.second(match);
             it = node->erase(start, it);
 
             if (replace && replace->type() == Seq)
@@ -124,7 +124,7 @@ namespace langkit
             else
               it = node->insert(it, replace);
 
-            captures.bind();
+            match.bind();
             replaced = true;
             changes++;
             break;

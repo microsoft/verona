@@ -29,7 +29,7 @@ namespace sample
         // TODO: view, func, isect, union, trait, reftype
         match.rules({
           T(TypeVar)[lhs] * T(TypeVar)[rhs] >>
-            [this](auto& _) {
+            [this](Match& _) {
               auto r = _(rhs);
               auto& b = bounds[_(lhs)];
               b.upper.insert(r);
@@ -42,19 +42,19 @@ namespace sample
             },
 
           T(TypeVar)[lhs] * Any[rhs] >>
-            [this](auto& _) {
+            [this](Match& _) {
               bounds[_(lhs)].upper.insert(_(rhs));
               return true;
             },
 
           Any[lhs] * T(TypeVar)[rhs] >>
-            [this](auto& _) {
+            [this](Match& _) {
               bounds[_(rhs)].lower.insert(_(lhs));
               return true;
             },
 
           T(TypeTuple)[lhs] * T(TypeTuple)[rhs] >>
-            [this](auto& _) {
+            [this](Match& _) {
               return (_(lhs)->size() == _(rhs)->size()) &&
                 std::inner_product(
                        _(lhs)->begin(),
@@ -66,10 +66,10 @@ namespace sample
             },
 
           (T(TypeThrow) << Any[lhs]) * (T(TypeThrow) << Any[rhs]) >>
-            [this](auto& _) { return sub(_(lhs), _(rhs)); },
+            [this](Match& _) { return sub(_(lhs), _(rhs)); },
 
           // T(RefClass)[lhs] * T(RefClass)[rhs] >>
-          //   [this](auto& _) {
+          //   [this](Match& _) {
           //     // TODO: typeargs have to be the same
           //     auto l = look->at(_[lhs]);
           //     auto r = look->at(_[rhs]);

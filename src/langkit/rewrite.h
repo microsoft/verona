@@ -12,101 +12,101 @@ namespace langkit
 {
   class PassDef;
 
+  class Match
+  {
+    friend class PassDef;
+
+  private:
+    std::map<Token, NodeRange> captures;
+    std::map<Token, Location> defaults;
+    std::map<Location, Node> bindings;
+    std::vector<std::pair<Node, Node>> includes;
+
+  public:
+    Match() = default;
+
+    NodeRange& operator[](const Token& token)
+    {
+      return captures[token];
+    }
+
+    void def(const Token& token, const Location& loc)
+    {
+      defaults[token] = loc;
+    }
+
+    Node operator()(const Token& token)
+    {
+      auto it = captures.find(token);
+      if (it == captures.end())
+        return {};
+
+      return *it->second.first;
+    }
+
+    Node operator()(LocBinding binding)
+    {
+      bindings[binding.first] = binding.second;
+      return binding.second;
+    }
+
+    Node operator()(Binding binding)
+    {
+      bindings[bind_location(binding.first)] = binding.second;
+      return binding.second;
+    }
+
+    Node include(Node site, Node target)
+    {
+      includes.emplace_back(site, target);
+      return site;
+    }
+
+    void operator+=(const Match& that)
+    {
+      captures.insert(that.captures.begin(), that.captures.end());
+      bindings.insert(that.bindings.begin(), that.bindings.end());
+      defaults.insert(that.defaults.begin(), that.defaults.end());
+    }
+
+    void clear()
+    {
+      captures.clear();
+      bindings.clear();
+      defaults.clear();
+    }
+
+  private:
+    const Location& bind_location(const Token& token)
+    {
+      auto range = captures[token];
+
+      if (range.first == range.second)
+        return defaults[token];
+      else if ((range.first + 1) != range.second)
+        throw std::runtime_error("Can only bind to a single node");
+      else
+        return (*range.first)->location();
+    }
+
+    void bind()
+    {
+      for (auto& [loc, node] : bindings)
+        node->bind(loc);
+
+      for (auto& [site, target] : includes)
+        site->include(target);
+    }
+  };
+
   namespace detail
   {
-    class Capture
-    {
-      friend class langkit::PassDef;
-
-    private:
-      std::map<Token, NodeRange> captures;
-      std::map<Token, Location> defaults;
-      std::map<Location, Node> bindings;
-      std::vector<std::pair<Node, Node>> includes;
-
-    public:
-      Capture() = default;
-
-      NodeRange& operator[](const Token& token)
-      {
-        return captures[token];
-      }
-
-      void def(const Token& token, const Location& loc)
-      {
-        defaults[token] = loc;
-      }
-
-      Node operator()(const Token& token)
-      {
-        auto it = captures.find(token);
-        if (it == captures.end())
-          return {};
-
-        return *it->second.first;
-      }
-
-      Node operator()(LocBinding binding)
-      {
-        bindings[binding.first] = binding.second;
-        return binding.second;
-      }
-
-      Node operator()(Binding binding)
-      {
-        bindings[bind_location(binding.first)] = binding.second;
-        return binding.second;
-      }
-
-      Node include(Node site, Node target)
-      {
-        includes.emplace_back(site, target);
-        return site;
-      }
-
-      void operator+=(const Capture& that)
-      {
-        captures.insert(that.captures.begin(), that.captures.end());
-        bindings.insert(that.bindings.begin(), that.bindings.end());
-        defaults.insert(that.defaults.begin(), that.defaults.end());
-      }
-
-      void clear()
-      {
-        captures.clear();
-        bindings.clear();
-        defaults.clear();
-      }
-
-    private:
-      const Location& bind_location(const Token& token)
-      {
-        auto range = captures[token];
-
-        if (range.first == range.second)
-          return defaults[token];
-        else if ((range.first + 1) != range.second)
-          throw std::runtime_error("Can only bind to a single node");
-        else
-          return (*range.first)->location();
-      }
-
-      void bind()
-      {
-        for (auto& [loc, node] : bindings)
-          node->bind(loc);
-
-        for (auto& [site, target] : includes)
-          site->include(target);
-      }
-    };
-
     class PatternDef
     {
     public:
       virtual ~PatternDef() = default;
 
-      virtual bool match(NodeIt& it, NodeIt end, Capture& captures) const
+      virtual bool match(NodeIt& it, NodeIt end, Match& match) const
       {
         return false;
       }
@@ -124,16 +124,16 @@ namespace langkit
       Cap(const Token& name, PatternPtr pattern) : name(name), pattern(pattern)
       {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
         auto begin = it;
-        auto captures2 = captures;
+        auto match2 = match;
 
-        if (!pattern->match(it, end, captures2))
+        if (!pattern->match(it, end, match2))
           return false;
 
-        captures += captures2;
-        captures[name] = {begin, it};
+        match += match2;
+        match[name] = {begin, it};
         return true;
       }
     };
@@ -143,7 +143,7 @@ namespace langkit
     public:
       Anything() {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
         if (it == end)
           return false;
@@ -161,7 +161,7 @@ namespace langkit
     public:
       TokenMatch(const Token& type) : type(type) {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
         if ((it == end) || ((*it)->type() != type))
           return false;
@@ -183,7 +183,7 @@ namespace langkit
         regex = std::regex("^" + r + "$", std::regex_constants::optimize);
       }
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
         if ((it == end) || ((*it)->type() != type))
           return false;
@@ -205,12 +205,12 @@ namespace langkit
     public:
       Opt(PatternPtr pattern) : pattern(pattern) {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
-        auto captures2 = captures;
+        auto match2 = match;
 
-        if (pattern->match(it, end, captures2))
-          captures += captures2;
+        if (pattern->match(it, end, match2))
+          match += match2;
 
         return true;
       }
@@ -224,9 +224,9 @@ namespace langkit
     public:
       Rep(PatternPtr pattern) : pattern(pattern) {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
-        while ((it != end) && pattern->match(it, end, captures))
+        while ((it != end) && pattern->match(it, end, match))
           ;
         return true;
       }
@@ -240,15 +240,15 @@ namespace langkit
     public:
       Not(PatternPtr pattern) : pattern(pattern) {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
         if (it == end)
           return false;
 
-        auto captures2 = captures;
+        auto match2 = match;
         auto begin = it;
 
-        if (pattern->match(it, end, captures2))
+        if (pattern->match(it, end, match2))
         {
           it = begin;
           return false;
@@ -268,21 +268,21 @@ namespace langkit
     public:
       Seq(PatternPtr first, PatternPtr second) : first(first), second(second) {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
-        auto captures2 = captures;
+        auto match2 = match;
         auto begin = it;
 
-        if (!first->match(it, end, captures2))
+        if (!first->match(it, end, match2))
           return false;
 
-        if (!second->match(it, end, captures2))
+        if (!second->match(it, end, match2))
         {
           it = begin;
           return false;
         }
 
-        captures += captures2;
+        match += match2;
         return true;
       }
     };
@@ -297,21 +297,21 @@ namespace langkit
       Choice(PatternPtr first, PatternPtr second) : first(first), second(second)
       {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
-        auto captures2 = captures;
+        auto match2 = match;
 
-        if (first->match(it, end, captures2))
+        if (first->match(it, end, match2))
         {
-          captures += captures2;
+          match += match2;
           return true;
         }
 
-        auto captures3 = captures;
+        auto match3 = match;
 
-        if (second->match(it, end, captures3))
+        if (second->match(it, end, match3))
         {
-          captures += captures3;
+          match += match3;
           return true;
         }
 
@@ -327,7 +327,7 @@ namespace langkit
     public:
       Inside(const Token& type) : type(type) {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
         if (it == end)
           return false;
@@ -342,7 +342,7 @@ namespace langkit
     public:
       First() {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
         if (it == end)
           return false;
@@ -357,7 +357,7 @@ namespace langkit
     public:
       Last() {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
         return it == end;
       }
@@ -374,24 +374,24 @@ namespace langkit
       : pattern(pattern), children(children)
       {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
-        auto captures2 = captures;
+        auto match2 = match;
         auto begin = it;
 
-        if (!pattern->match(it, end, captures2))
+        if (!pattern->match(it, end, match2))
           return false;
 
         auto it2 = (*begin)->begin();
         auto end2 = (*begin)->end();
 
-        if (!children->match(it2, end2, captures2))
+        if (!children->match(it2, end2, match2))
         {
           it = begin;
           return false;
         }
 
-        captures += captures2;
+        match += match2;
         return true;
       }
     };
@@ -404,11 +404,11 @@ namespace langkit
     public:
       Pred(PatternPtr pattern) : pattern(pattern) {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
         auto begin = it;
-        auto captures2 = captures;
-        bool ok = pattern->match(it, end, captures2);
+        auto match2 = match;
+        bool ok = pattern->match(it, end, match2);
         it = begin;
         return ok;
       }
@@ -422,11 +422,11 @@ namespace langkit
     public:
       NegPred(PatternPtr pattern) : pattern(pattern) {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const override
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
       {
         auto begin = it;
-        auto captures2 = captures;
-        bool ok = pattern->match(it, end, captures2);
+        auto match2 = match;
+        bool ok = pattern->match(it, end, match2);
         it = begin;
         return !ok;
       }
@@ -435,7 +435,7 @@ namespace langkit
     class Pattern;
 
     template<typename T>
-    using Effect = std::function<T(Capture&)>;
+    using Effect = std::function<T(Match&)>;
 
     template<typename T>
     using PatternEffect = std::pair<Pattern, Effect<T>>;
@@ -448,9 +448,9 @@ namespace langkit
     public:
       Pattern(PatternPtr pattern) : pattern(pattern) {}
 
-      bool match(NodeIt& it, NodeIt end, Capture& captures) const
+      bool match(NodeIt& it, NodeIt end, Match& match) const
       {
-        return pattern->match(it, end, captures);
+        return pattern->match(it, end, match);
       }
 
       Pattern operator[](const Token& name) const
@@ -513,7 +513,7 @@ namespace langkit
 
   template<typename F>
   inline auto operator>>(detail::Pattern pattern, F effect)
-    -> detail::PatternEffect<decltype(effect(std::declval<detail::Capture&>()))>
+    -> detail::PatternEffect<decltype(effect(std::declval<Match&>()))>
   {
     return {pattern, effect};
   }

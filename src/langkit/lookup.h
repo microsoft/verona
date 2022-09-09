@@ -61,15 +61,15 @@ namespace langkit
   private:
     T run(NodeRange range) const
     {
-      detail::Capture captures;
+      Match match;
 
       for (auto& rule : rules_)
       {
         auto it = range.first;
-        captures.clear();
+        match.clear();
 
-        if (rule.first.match(it, range.second, captures))
-          return rule.second(captures);
+        if (rule.first.match(it, range.second, match))
+          return rule.second(match);
       }
 
       return {};

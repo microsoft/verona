@@ -39,7 +39,8 @@ namespace sample
   inline constexpr auto Use = TokenDef("use");
   inline constexpr auto Typealias = TokenDef("typealias", flag::symtab);
   inline constexpr auto Class = TokenDef("class", flag::symtab);
-  inline constexpr auto Var = TokenDef("var");
+  [[clang::require_constant_initialization]] inline constexpr auto Var =
+    TokenDef("var");
   inline constexpr auto Let = TokenDef("let");
   inline constexpr auto Ref = TokenDef("ref");
   inline constexpr auto Throw = TokenDef("throw");

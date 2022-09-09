@@ -52,7 +52,7 @@ namespace langkit
     };
 
     template<size_t I = 0, typename... Ts>
-    inline constexpr Index index(const Shape<Ts...>& shape, const Token& name)
+    inline consteval Index index(const Shape<Ts...>& shape, const Token& name)
     {
       if constexpr (I < sizeof...(Ts))
       {
@@ -76,7 +76,7 @@ namespace langkit
     }
 
     template<size_t I = 0, typename... Ts>
-    inline constexpr Index
+    inline consteval Index
     index(const Wellformed<Ts...>& wf, const Token& type, const Token& name)
     {
       if constexpr (I < sizeof...(Ts))
@@ -209,69 +209,69 @@ namespace langkit
   }
 
   template<typename... Ts>
-  inline constexpr auto choice(const Ts&... types)->std::array<Token, sizeof...(Ts)>
+  inline consteval auto choice(const Ts&... types)->std::array<Token, sizeof...(Ts)>
   {
     std::array<Token, sizeof...(Ts)> arr = {Token(types)...};
     return arr;
   }
 
-  inline constexpr auto undef()
+  inline consteval auto undef()
   {
     return detail::Undef{};
   }
 
   template<size_t N>
-  inline constexpr auto field(const Token& name, std::array<Token, N> types)
+  inline consteval auto field(const Token& name, std::array<Token, N> types)
   {
     return detail::Field<N>(name, types);
   }
 
-  inline constexpr auto field(const Token& name, const Token& type)
+  inline consteval auto field(const Token& name, const Token& type)
   {
     std::array<Token, 1> arr = {type};
     return detail::Field<1>{name, arr};
   }
 
-  inline constexpr auto field(const Token& name)
+  inline consteval auto field(const Token& name)
   {
     std::array<Token, 1> arr = {name};
     return detail::Field<1>{name, arr};
   }
 
   template<size_t N>
-  inline constexpr auto seq(std::array<Token, N> types)
+  inline consteval auto seq(std::array<Token, N> types)
   {
     return detail::Sequence<N>{types};
   }
 
   template<typename... Ts>
-  inline constexpr auto seq(const Ts&... types)
+  inline consteval auto seq(const Ts&... types)
   {
     std::array<Token, sizeof...(Ts)> arr = {Token(types)...};
     return detail::Sequence{arr};
   }
 
   template<typename... Ts>
-  inline constexpr auto shape(const Token& type, const Ts&... fields)
+  inline consteval auto shape(const Token& type, const Ts&... fields)
   {
     return detail::Shape{type, std::make_tuple(fields...)};
   }
 
   template<typename... Ts>
-  inline constexpr auto wellformed(const Ts&... shapes)
+  inline consteval auto wellformed(const Ts&... shapes)
   {
     return detail::Wellformed{std::make_tuple(shapes...)};
   }
 
   template<typename... Ts>
-  inline constexpr auto
+  inline consteval auto
   operator/(const detail::Wellformed<Ts...>& wf, const Token& type)
   {
     return std::make_pair(wf, type);
   }
 
   template<typename... Ts>
-  inline constexpr Index operator/(
+  inline consteval Index operator/(
     const std::pair<detail::Wellformed<Ts...>, Token>& pair, const Token& name)
   {
     return detail::index(pair.first, pair.second, name);

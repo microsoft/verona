@@ -113,13 +113,13 @@ namespace sample
     look->rules({
       // Look through an outer Type node.
       (T(Type) << (Any[Type])) * End >>
-        [=](auto& _) { return look->at(_(Type)); },
+        [=](Match& _) { return look->at(_(Type)); },
 
       // An identifier and optional typeargs.
       ((T(Ident)[id] * ~T(Typeargs)[Typeargs]) /
        (T(RefType) << (T(Ident)[id] * T(Typeargs)[Typeargs] * End))) *
           End >>
-        [=](auto& _) {
+        [=](Match& _) {
           Found found(_(id)->lookup_first());
           typeargs(found, _(Typeargs));
           return std::move(found);
@@ -131,7 +131,7 @@ namespace sample
        (T(RefType) << (T(RefType)[lhs] * T(Ident)[id] * T(Typeargs)[Typeargs]) *
           End)) *
           End >>
-        [=](auto& _) {
+        [=](Match& _) {
           auto found = look->at(_(lhs));
           found.def = lookdown(found, _(id));
           typeargs(found, _(Typeargs));
