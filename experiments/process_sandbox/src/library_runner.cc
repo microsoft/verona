@@ -187,20 +187,22 @@ namespace
      */
     static constexpr bool Aligned = true;
 
+    using ChunkBounds = snmalloc::capptr::bounds::Arena;
+
     /**
      * Allocate a chunk.
      */
-    capptr::Chunk<void> alloc_range(size_t size)
+    capptr::Arena<void> alloc_range(size_t size)
     {
-      capptr::Chunk<void> r{reinterpret_cast<void*>(
-        requestHostService(AllocChunk, static_cast<uintptr_t>(size), 0, 0))};
+      auto r = capptr::Arena<void>::unsafe_from(reinterpret_cast<void*>(
+        requestHostService(AllocChunk, static_cast<uintptr_t>(size), 0, 0)));
       return r;
     };
 
     /**
      * Deallocate a chunk.
      */
-    void dealloc_range(capptr::Chunk<void> base, size_t size)
+    void dealloc_range(capptr::Arena<void> base, size_t size)
     {
       requestHostService(
         DeallocChunk, base.unsafe_uintptr(), static_cast<uintptr_t>(size));
@@ -237,19 +239,24 @@ namespace sandbox
     auto* ms = new (
       metadata_range.alloc_range(sizeof(SnmallocGlobals::Backend::SlabMetadata))
         .unsafe_ptr()) SnmallocGlobals::Backend::SlabMetadata();
-    snmalloc::capptr::Chunk<void> chunk{
+    auto arena = snmalloc::capptr::Arena<void>::unsafe_from(
       reinterpret_cast<void*>(requestHostService(
         AllocChunk,
         static_cast<uintptr_t>(size),
         reinterpret_cast<uintptr_t>(ms),
-        ras))};
-    if (chunk == nullptr)
+        ras)));
+    if (arena == nullptr)
     {
       metadata_range.dealloc_range(
-        snmalloc::capptr::Chunk<void>{ms},
+        snmalloc::capptr::Arena<void>::unsafe_from(ms),
         sizeof(SnmallocGlobals::Backend::SlabMetadata));
       return {nullptr, nullptr};
     }
+
+    auto chunk =
+      snmalloc::Aal::capptr_bound<void, snmalloc::capptr::bounds::Chunk>(
+        arena, size);
+
     return {chunk, ms};
   }
 
@@ -259,23 +266,23 @@ namespace sandbox
     snmalloc::capptr::Alloc<void> start,
     size_t size)
   {
-    snmalloc::capptr::Chunk<void> addr{start.unsafe_ptr()};
+    auto addr = snmalloc::capptr::Arena<void>::unsafe_from(start.unsafe_ptr());
     metadata_range.dealloc_range(
-      snmalloc::capptr::Chunk<void>{&meta_common},
+      snmalloc::capptr::Arena<void>::unsafe_from(&meta_common),
       sizeof(SnmallocGlobals::Backend::SlabMetadata));
     requestHostService(
       DeallocChunk, addr.unsafe_uintptr(), static_cast<uintptr_t>(size));
   }
 
   template<>
-  snmalloc::capptr::Chunk<void> SnmallocGlobals::Backend::alloc_meta_data<
+  snmalloc::capptr::Arena<void> SnmallocGlobals::Backend::alloc_meta_data<
     snmalloc::CoreAllocator<sandbox::SnmallocGlobals>>(LocalState*, size_t size)
   {
     size = snmalloc::bits::next_pow2(size);
-    return snmalloc::capptr::Chunk<void>{allocator_range.alloc_range(size)};
+    return allocator_range.alloc_range(size);
   }
 
-  void PalRange::dealloc_range(snmalloc::capptr::Chunk<void> base, size_t size)
+  void PalRange::dealloc_range(snmalloc::capptr::Arena<void> base, size_t size)
   {
     munmap(base.unsafe_ptr(), size);
   }

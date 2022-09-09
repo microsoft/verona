@@ -58,9 +58,9 @@ namespace sandbox
     // Force initialisation of the shared memory object backing the pagemap.
     SharedAllocConfig::ensure_initialised();
     snmalloc::range_to_pow_2_blocks<snmalloc::MIN_CHUNK_BITS>(
-      snmalloc::capptr::Chunk<void>(start),
+      snmalloc::capptr::Arena<void>::unsafe_from(start),
       size,
-      [&](snmalloc::capptr::Chunk<void> p, size_t sz, bool) {
+      [&](snmalloc::capptr::Arena<void> p, size_t sz, bool) {
         auto [g, m] = get_memory();
         m.dealloc_range(p, sz);
       });
@@ -185,7 +185,7 @@ namespace sandbox
               reply.error = 1;
               break;
             }
-            snmalloc::capptr::Chunk<void> alloc;
+            snmalloc::capptr::Arena<void> alloc;
             {
               auto [g, m] = s->get_memory();
               alloc = m.alloc_range(size);
@@ -204,8 +204,8 @@ namespace sandbox
           }
           case DeallocChunk:
           {
-            snmalloc::capptr::Chunk<void> ptr{
-              reinterpret_cast<void*>(rpc.args[0])};
+            auto ptr = snmalloc::capptr::Arena<void>::unsafe_from(
+              reinterpret_cast<void*>(rpc.args[0]));
             size_t size = static_cast<size_t>(rpc.args[1]);
             if (!s->contains(ptr.unsafe_ptr(), size))
             {

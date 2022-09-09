@@ -246,7 +246,7 @@ namespace sandbox
        * filled with the memory assigned to a specific sandbox on start.
        */
       snmalloc::Pipe<
-        snmalloc::EmptyRange,
+        snmalloc::EmptyRange<>,
         snmalloc::LargeBuddyRange<
           snmalloc::bits::BITS - 1,
           snmalloc::bits::BITS - 1,
@@ -335,22 +335,22 @@ namespace sandbox
       static std::pair<snmalloc::capptr::Chunk<void>, SlabMetadata*>
       alloc_chunk(LocalState& local_state, size_t size, uintptr_t ras)
       {
-        snmalloc::capptr::Chunk<void> chunk;
+        snmalloc::capptr::Arena<void> arena;
         {
           auto [g, m] = local_state.get_memory();
-          chunk = m.alloc_range(size);
+          arena = m.alloc_range(size);
         }
-        if (chunk == nullptr)
+        if (arena == nullptr)
         {
           return {nullptr, nullptr};
         }
         auto* meta = new SlabMetadata();
         Pagemap::Entry t(meta, ras);
-        Pagemap::set_metaentry(address_cast(chunk), size, t);
+        Pagemap::set_metaentry(address_cast(arena), size, t);
 
-        chunk =
+        auto chunk =
           snmalloc::Aal::capptr_bound<void, snmalloc::capptr::bounds::Chunk>(
-            chunk, size);
+            arena, size);
         return {chunk, meta};
       }
 
@@ -361,7 +361,7 @@ namespace sandbox
        */
       static void dealloc_range(
         LocalState& local_state,
-        snmalloc::capptr::Chunk<void> base,
+        snmalloc::capptr::Arena<void> base,
         size_t size)
       {
         Pagemap::Entry t;
@@ -381,8 +381,8 @@ namespace sandbox
         snmalloc::capptr::Alloc<void> base,
         size_t size)
       {
-        snmalloc::capptr::Chunk<void> chunk{base.unsafe_ptr()};
-        dealloc_range(local_state, chunk, size);
+        auto arena = snmalloc::capptr::Arena<void>::unsafe_from(base.unsafe_ptr());
+        dealloc_range(local_state, arena, size);
         delete &metadata;
       }
 
@@ -447,7 +447,7 @@ namespace sandbox
         nullptr;
       using Tame = typename B::template with_wildness<
         snmalloc::capptr::dimension::Wildness::Tame>;
-      return snmalloc::CapPtr<T, Tame>(unsafe_ptr);
+      return snmalloc::CapPtr<T, Tame>::unsafe_from(unsafe_ptr);
     }
 
   private:
