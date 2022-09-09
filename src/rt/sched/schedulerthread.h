@@ -466,9 +466,9 @@ namespace verona::rt
       if (has_thread_bit(cown))
       {
         auto unmasked = clear_thread_bit(cown);
-        Core<T>* core = unmasked->owning_core();
+        Core<T>* owning_core = unmasked->owning_core();
 
-        if (core == core)
+        if (owning_core == core)
         {
           if (Scheduler::get().fair)
           {
@@ -485,12 +485,12 @@ namespace verona::rt
         }
         else
         {
-          Logging::cout() << "Reached token: stolen from " << core->affinity
+          Logging::cout() << "Reached token: stolen from " << owning_core->affinity
                           << Logging::endl;
         }
 
         // Put back the token
-        core->q.enqueue(*alloc, cown);
+        owning_core->q.enqueue(*alloc, cown);
         return false;
       }
 
