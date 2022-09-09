@@ -706,6 +706,7 @@ namespace verona::rt
       T* _list = core->drain();
       T** list = &_list;
       T** p = &_list;
+      T* tail = nullptr;
       assert(p != nullptr);
       size_t removed_count = 0;
       size_t count = 0;
@@ -746,18 +747,14 @@ namespace verona::rt
                 << "Cown " << c << " not outdated." << Logging::endl;
           }
         }
+        tail = c;
         p = &(c->next);
       }
 
       // Put the list back
       if (*list != nullptr)
       {
-        // TODO this is slow, find a better way to keep track of the tail.
-        T* tail = *list;
-        while (tail->next != nullptr)
-        {
-          tail = tail->next;
-        }
+        assert(tail != nullptr);
         core->add_cowns(*list, tail);
       }
 
