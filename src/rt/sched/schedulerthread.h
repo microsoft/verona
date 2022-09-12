@@ -702,7 +702,6 @@ namespace verona::rt
       }
 
       assert(core != nullptr);
-      // TODO not sure about the logic here.
       T* _list = core->drain();
       T** list = &_list;
       T** p = &_list;

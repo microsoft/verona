@@ -30,7 +30,6 @@ namespace verona::rt
       snmalloc::FlagLock lock(m);
       if (!active.is_empty() || !free.is_empty())
       {
-        // TODO should we abort or delete here?
         abort();
       }
     }
