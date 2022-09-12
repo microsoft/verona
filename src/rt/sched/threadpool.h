@@ -87,7 +87,7 @@ namespace verona::rt
     ThreadState state;
 
     /// Pool of cores shared by the scheduler threads.
-    CorePool<ThreadPool<T, C>, C>* core_pool = nullptr;
+    CorePool<ThreadPool<T, C>, C> core_pool;
 
     /// Systematic ids.
     std::atomic<size_t> systematic_ids = 0;
@@ -101,7 +101,7 @@ namespace verona::rt
 
     static Core<C>* first_core()
     {
-      return get().core_pool->first_core;
+      return get().core_pool.first_core;
     }
 
     static void set_detect_leaks(bool b)
@@ -309,7 +309,7 @@ namespace verona::rt
       teardown_in_progress = false;
 
       // Initialize the corepool.
-      core_pool = new CorePool<ThreadPool<T, C>, C>(count);
+      core_pool.init(count);
 
       // For future ids.
       systematic_ids = count + 1;
@@ -340,14 +340,17 @@ namespace verona::rt
         ThreadPoolBuilder builder(thread_count);
 
         Logging::cout() << "Starting all threads" << Logging::endl;
+        auto first_core = core_pool.first_core;
+        auto curr_core = first_core;
         for (size_t i = 0; i < thread_count; i++)
         {
           T* t = threads.pop_free();
           if (t == nullptr)
             abort();
-          t->set_core(core_pool->cores[i]);
+          t->set_core(curr_core);
           threads.add_active(t);
           builder.add_thread(t->core->affinity, &T::run, t, startup, args...);
+          curr_core = curr_core->next;
         }
       }
       Logging::cout() << "All threads stopped" << Logging::endl;
@@ -362,7 +365,7 @@ namespace verona::rt
       state.reset<ThreadState::NotInLD>();
 
       Epoch::flush(ThreadAlloc::get());
-      delete core_pool;
+      core_pool.clear();
     }
 
     static bool debug_not_running()
