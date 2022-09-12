@@ -29,7 +29,7 @@ namespace verona::rt
       clear();
     }
 
-    DLList() = default;
+    constexpr DLList() = default;
 
     DLList(DLList&& o) noexcept
     {
