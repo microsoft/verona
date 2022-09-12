@@ -28,7 +28,7 @@ namespace verona::rt
     std::atomic<std::size_t> servicing_threads = 0;
     std::atomic<std::size_t> last_worker = 0;
 
-    // The number of cowns in the per-thread list `list`.
+    // The number of cowns in the per-core list `list`.
     std::atomic<size_t> total_cowns = 0;
 
     // The number of cowns that have been collected in the per-thread list
