@@ -71,7 +71,7 @@ namespace verona::rt
 
     /// List of instantiated scheduler threads.
     /// Contains both free and active threads; protects accesses with a lock.
-    SchedulerList<T>* threads = nullptr;
+    SchedulerList<T> threads;
 
     /// How many threads are being managed by this pool
     size_t thread_count = 0;
@@ -307,7 +307,6 @@ namespace verona::rt
 
       thread_count = count;
       teardown_in_progress = false;
-      threads = new SchedulerList<T>();
 
       // Initialize the corepool.
       core_pool = new CorePool<ThreadPool<T, C>, C>(count);
@@ -323,7 +322,7 @@ namespace verona::rt
         t->local_systematic =
           Systematic::create_systematic_thread(t->systematic_id);
 #endif
-        threads->add_free(t);
+        threads.add_free(t);
       }
       Logging::cout() << "Runtime initialised" << Logging::endl;
       init_barrier();
@@ -343,16 +342,16 @@ namespace verona::rt
         Logging::cout() << "Starting all threads" << Logging::endl;
         for (size_t i = 0; i < thread_count; i++)
         {
-          T* t = threads->pop_free();
+          T* t = threads.pop_free();
           if (t == nullptr)
             abort();
           t->set_core(core_pool->cores[i]);
-          threads->add_active(t);
+          threads.add_active(t);
           builder.add_thread(t->core->affinity, &T::run, t, startup, args...);
         }
       }
       Logging::cout() << "All threads stopped" << Logging::endl;
-      threads->dealloc_lists();
+      threads.dealloc_lists();
       Logging::cout() << "All threads deallocated" << Logging::endl;
 
       incarnation++;
@@ -364,7 +363,6 @@ namespace verona::rt
 
       Epoch::flush(ThreadAlloc::get());
       delete core_pool;
-      delete threads;
     }
 
     static bool debug_not_running()
@@ -459,7 +457,7 @@ namespace verona::rt
         teardown_in_progress = true;
 
         // Tell all threads to stop looking for work.
-        threads->forall([](T* thread) { thread->stop(); });
+        threads.forall([](T* thread) { thread->stop(); });
         Logging::cout() << "Teardown: all threads stopped" << Logging::endl;
 
         h.unpause_all();

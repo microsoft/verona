@@ -485,8 +485,8 @@ namespace verona::rt
         }
         else
         {
-          Logging::cout() << "Reached token: stolen from " << owning_core->affinity
-                          << Logging::endl;
+          Logging::cout() << "Reached token: stolen from "
+                          << owning_core->affinity << Logging::endl;
         }
 
         // Put back the token
