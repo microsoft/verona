@@ -13,7 +13,6 @@ namespace verona::rt
 {
   class ThreadPoolBuilder
   {
-    inline static Singleton<Topology, &Topology::init> topology;
     std::list<PlatformThread> threads;
     size_t thread_count;
     size_t index = 0;
@@ -21,7 +20,7 @@ namespace verona::rt
     template<typename... Args>
     void add_thread_impl(void (*body)(Args...), Args... args)
     {
-      if (index < thread_count)
+      if (index != thread_count)
       {
         threads.emplace_back(body, args...);
       }
@@ -50,16 +49,16 @@ namespace verona::rt
      * Add a thread to run in this thread pool.
      */
     template<typename... Args>
-    void add_thread(void (*body)(Args...), Args... args)
+    void add_thread(size_t affinity, void (*body)(Args...), Args... args)
     {
 #ifdef USE_SYSTEMATIC_TESTING
       // Don't use affinity with systematic testing.  We're only ever running
       // one thread at a time in systematic testing mode and by pinning each
       // thread to a core we massively increase contention.
+      UNUSED(affinity);
       add_thread_impl(body, args...);
 #else
-      add_thread_impl(
-        &run_with_affinity, topology.get().get(index), body, args...);
+      add_thread_impl(&run_with_affinity, affinity, body, args...);
 #endif
       index++;
     }

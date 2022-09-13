@@ -164,7 +164,7 @@ public:
     // Business logic
     for (uint32_t i = 0; i < TX_BATCH; i++)
     {
-      uint8_t txn_type = rand() % TX_COUNT;
+      uint8_t txn_type = (uint8_t)rand() % TX_COUNT;
       uint64_t acc1 =
         static_cast<uint64_t>(rand()) % (ACCOUNTS_COUNT + ACCOUNT_EXTRA);
 
