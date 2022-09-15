@@ -41,12 +41,12 @@ namespace sandbox
     /**
      * Deallocate memory using munmap.
      */
-    void dealloc_range(snmalloc::capptr::Chunk<void> base, size_t size);
+    void dealloc_range(snmalloc::capptr::Arena<void> base, size_t size);
 
     /**
      * Allocate memory, trimming to guarantee alignment if necessary.
      */
-    snmalloc::capptr::Chunk<void> alloc_range(size_t size)
+    snmalloc::capptr::Arena<void> alloc_range(size_t size)
     {
       if constexpr (snmalloc::pal_supports<
                       snmalloc::AlignedAllocation,
@@ -142,7 +142,7 @@ namespace sandbox
        * shared memory for allocators.
        */
       template<typename T>
-      static snmalloc::capptr::Chunk<void>
+      static snmalloc::capptr::Arena<void>
       alloc_meta_data(LocalState*, size_t size);
 
       /**
