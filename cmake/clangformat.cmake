@@ -6,7 +6,7 @@ macro(clangformat_targets)
   # tool.  It does not work with older versions as AfterCaseLabel is not supported
   # in earlier versions.
   #
-  # This can always be overriden with `-DCLANG_FORMAT=/path/to/clang-format` if
+  # This can always be overridden with `-DCLANG_FORMAT=/path/to/clang-format` if
   # need be.
   find_program(CLANG_FORMAT NAMES
     clang-format-9

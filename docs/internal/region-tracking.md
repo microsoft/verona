@@ -91,7 +91,7 @@ if (x_region == nullptr)
   // call into runtime to deallocate `x`
 ```
 
-The region assoicated with each `mut` also affects the calling convention.
+The region associated with each `mut` also affects the calling convention.
 Each argument that can contain a reference of type `mut`
 needs to be made into two arguments, the region entry point and the object itself.  Similarly,
 return types that can contain `mut` must be double width to encode the region entry point

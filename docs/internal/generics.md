@@ -149,7 +149,7 @@ class Vector[T, let size: U32]
   ...
 }
 
-// A dynamicaly allocated matrix of any size
+// A dynamically allocated matrix of any size
 class Matrix[Type] { ... }
 
 // A function that takes in only lists of a particular type and size
