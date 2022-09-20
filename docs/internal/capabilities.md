@@ -21,7 +21,7 @@ There are kinds of rights that can be granted to capabilities:
   Indicates that a capability is *the globally unique* pointer to its target.
   Every `iso` capability is the entry point to a region.
   Whichever running behaviour holds an `iso` reference to a region has the guarantee that no other running behaviour has any access to that region.
-  To assign an `iso` reference to another variable *moves* it, removing it from the source and transfering the ownership of the target region.
+  To assign an `iso` reference to another variable *moves* it, removing it from the source and transferring the ownership of the target region.
 * Mutable (`mut`).
   Write access to data that is guaranteed to be dominated by an `iso` region.
   Behaviours can freely write to `mut` pointers because they have the guarantee that they can only access them if they hold the corresponding `iso` pointer to their region.
