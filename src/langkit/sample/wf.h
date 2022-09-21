@@ -6,96 +6,74 @@
 
 namespace sample
 {
-  inline constexpr auto wfTypes = choice(
-    RefType,
-    TypeTuple,
-    TypeView,
-    TypeFunc,
-    TypeThrow,
-    TypeIsect,
-    TypeUnion,
-    TypeVar,
-    TypeTrait,
-    Iso,
-    Imm,
-    Mut);
+  using namespace wf::ops;
 
-  inline constexpr auto wfIdSym = field(IdSym, choice(Ident, Symbol));
+  inline constexpr auto wfTypes = RefType | TypeTuple | TypeView | TypeFunc |
+    TypeThrow | TypeIsect | TypeUnion | TypeVar | TypeTrait | Iso | Imm | Mut;
 
-  inline constexpr auto wf = wellformed(
-    shape(Ident),
+  inline constexpr auto wfIdSym = IdSym >>= Ident | Symbol;
 
-    // Class bodies.
-    shape(Use, field(Type)),
-    shape(
-      Typealias,
-      field(Ident),
-      field(Typeparams),
-      field(Bounds, Type),
-      field(Default, Type)),
-    shape(
-      Class, field(Ident), field(Typeparams), field(Type), field(Classbody)),
-    shape(Classbody, seq(Use, Class, Typealias, FieldLet, FieldVar, Function)),
-    shape(FieldLet, field(Ident), field(Type), field(Expr)),
-    shape(FieldVar, field(Ident), field(Type), field(Expr)),
-    shape(
-      Function,
-      wfIdSym,
-      field(Typeparams),
-      field(Params),
-      field(Type),
-      field(Funcbody)),
+  inline constexpr auto wfParseTokens = FatArrow | Package | Use | Typealias |
+    Class | Var | Let | Ref | Throw | Iso | Imm | Mut | DontCare | Ident |
+    Ellipsis | Dot | DoubleColon | Colon | Symbol;
 
-    // Type parameters.
-    shape(Typeparams, seq(Typeparam)),
-    shape(Typeparam, field(Ident), field(Bounds, Type), field(Default, Type)),
+  inline constexpr auto wfLiteral =
+    Bool | Int | Hex | Bin | Float | HexFloat | Char | Escaped | String;
 
-    // Functions.
-    shape(Params, seq(Param)),
-    shape(Param, field(Ident), field(Type), field(Expr)),
-    shape(Funcbody, undef()),
+  inline constexpr auto wfInGroup =
+    wfLiteral | Brace | Paren | Square | List | Equals | wfParseTokens;
 
-    // Types.
-    shape(Type, field(Type, wfTypes)),
-    shape(TypeTuple, seq(wfTypes)),
-    shape(TypeView, field(lhs, wfTypes), field(rhs, wfTypes)),
-    shape(TypeFunc, field(lhs, wfTypes), field(rhs, wfTypes)),
-    shape(TypeThrow, field(Type, wfTypes)),
-    shape(TypeIsect, seq(wfTypes)),
-    shape(TypeUnion, seq(wfTypes)),
-    shape(TypeVar, field(Ident)),
-    shape(TypeTrait, field(Classbody)),
-    shape(Iso),
-    shape(Imm),
-    shape(Mut),
-    shape(Package, field(id, choice(String, Escaped))),
-    shape(RefType, field(Ident), field(Typeargs)), // TODO: scoped
+  inline constexpr auto wfParser = wfLiteral | wfParseTokens |
+    (Directory <<= (Directory | File)++) | (File <<= (Directory | Group)++) |
+    (Brace <<= Group++) | (Paren <<= Group++) | (Square <<= Group++) |
+    (List <<= Group++) | (Equals <<= Group++) | (Group <<= wfInGroup++);
 
-    shape(Var, field(Ident), field(Type)),
-    shape(Let, field(Ident), field(Type)),
-    shape(Throw, field(Expr)),
+  inline constexpr auto wf = Ident |
+    (Typealias <<=
+     Ident * Typeparams * (Bounds >>= Type) * (Default >>= Type)) |
+    (Class <<= Ident * Typeparams * Type * Classbody) |
+    (Classbody <<=
+     (Use | Class | Typealias | FieldLet | FieldVar | Function)++) |
 
-    // TODO:
-    shape(Expr, undef()),
+    (FieldLet <<= Ident * Type * Expr) | (FieldVar <<= Ident * Type * Expr) |
+    (Function <<=
+     wfIdSym * Typeparams * Params * (Type >>= wfTypes) * Funcbody) |
 
-    shape(Typeargs, seq(wfTypes)),
-    shape(Lambda, field(Typeparams), field(Params), field(Funcbody)),
+    (Params <<= Param++) | (Param <<= Ident * Type * Expr) |
+    Funcbody | // TODO: define it
 
-    // TODO:
-    shape(Tuple, undef()),
-    shape(Assign, undef()),
+    (Type <<= (Type >>= wfTypes)) | (TypeTuple <<= wfTypes++) |
+    (TypeView <<= (lhs >>= wfTypes) * (rhs >>= wfTypes)) |
+    (TypeFunc <<= (lhs >>= wfTypes) * (rhs >>= wfTypes)) |
+    (TypeThrow <<= (Type >>= wfTypes)) | (TypeIsect <<= wfTypes++) |
+    (TypeUnion <<= wfTypes++) | TypeVar | // TODO:
+    (TypeTrait <<= Classbody) | Iso | Imm | Mut |
+    (Package <<= (id >>= String | Escaped)) |
+    (RefType <<= Ident * Typeargs) | // TODO: scoped
 
-    shape(RefVar),
-    shape(RefVarLHS),
-    shape(RefLet),
-    shape(RefParam),
+    (Var <<= Ident * Type) | (Let <<= Ident * Type) | (Throw <<= Expr) |
 
-    shape(RefFunction, wfIdSym, field(Typeargs)),
-    shape(Selector, wfIdSym, field(Typeargs)),
+    Expr | // TODO: define it
+    (Typeargs <<= wfTypes++) | (Lambda <<= Typeparams * Params * Funcbody) |
+    Tuple | // TODO: define it
+    (Assign <<= Expr++);
 
-    // TODO:
-    shape(Call, undef()),
-    shape(CallLHS, undef()),
+  //   // These start containing an Ident and Typeargs, but after `refexpr`,
+  //   // they're empty and their location is their variable.
+  //   // TODO: should they keep an Ident node?
+  //   shape(RefVar),
+  //   shape(RefLet),
+  //   shape(RefParam),
 
-    shape(Include, field(Type)));
+  //   shape(RefVarLHS),
+
+  //   // TODO: scoped RefFunction
+  //   shape(RefFunction, wfIdSym, field(Typeargs)),
+  //   shape(Selector, wfIdSym, field(Typeargs)),
+
+  //   // TODO:
+  //   shape(Call, undef()),
+  //   shape(CallLHS, undef()),
+
+  //   shape(Include, field(Type)));
 }

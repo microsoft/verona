@@ -77,16 +77,34 @@ namespace langkit
 
     std::pair<size_t, size_t> linecol(size_t pos) const
     {
-      // Lines and columns are 1-indexed.
-      auto it = std::upper_bound(lines.begin(), lines.end(), pos);
+      // Lines and columns are 0-indexed.
+      auto it = std::lower_bound(lines.begin(), lines.end(), pos);
 
-      auto line = it - lines.begin() + 1;
-      auto col = pos + 1;
+      auto line = it - lines.begin();
+      auto col = pos;
 
       if (it != lines.begin())
-        col -= *(it - 1);
+        col -= *(it - 1) + 1;
 
       return {line, col};
+    }
+
+    std::pair<size_t, size_t> linepos(size_t line) const
+    {
+      // Lines are 0-indexed.
+      if (line > lines.size())
+        return {std::string::npos, 0};
+
+      auto start = 0;
+      auto end = contents.size();
+
+      if (line > 0)
+        start = lines[line - 1] + 1;
+
+      if (line < lines.size())
+        end = lines[line];
+
+      return {start, end - start};
     }
 
   private:
@@ -127,14 +145,51 @@ namespace langkit
       return source->view().substr(pos, len);
     }
 
+    std::string origin_linecol() const
+    {
+      std::stringstream ss;
+
+      if (source && !source->origin().empty())
+      {
+        auto [line, col] = linecol();
+        ss << source->origin() << ":" << (line + 1) << ":" << (col + 1) << " ";
+      }
+
+      return ss.str();
+    }
+
     std::string str() const
     {
       if (!source)
-        return "";
+        return {};
 
       std::stringstream ss;
       auto [line, col] = linecol();
-      ss << source->origin() << ":" << line << ":" << col;
+      auto [linepos, linelen] = source->linepos(line);
+
+      if (view().find_first_of('\n') != std::string::npos)
+      {
+        auto cover = std::min(linelen - col, len);
+        std::fill_n(std::ostream_iterator<char>(ss), col, ' ');
+        std::fill_n(std::ostream_iterator<char>(ss), cover, '=');
+
+        auto [line2, col2] = source->linecol(pos + len);
+        auto [linepos2, linelen2] = source->linepos(line2);
+        linelen = (linepos2 - linepos) + linelen2;
+
+        ss << std::endl << source->view().substr(linepos, linelen) << std::endl;
+
+        std::fill_n(std::ostream_iterator<char>(ss), col2, '=');
+        ss << std::endl;
+      }
+      else
+      {
+        ss << source->view().substr(linepos, linelen) << std::endl;
+        std::fill_n(std::ostream_iterator<char>(ss), col, ' ');
+        std::fill_n(std::ostream_iterator<char>(ss), len, '=');
+        ss << std::endl;
+      }
+
       return ss.str();
     }
 

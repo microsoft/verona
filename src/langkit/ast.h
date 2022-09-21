@@ -121,6 +121,12 @@ namespace langkit
       return parent_;
     }
 
+    void set_location(const Location& loc)
+    {
+      if (!location_.source)
+        location_ = loc;
+    }
+
     void extend(const Location& loc)
     {
       location_ *= loc;

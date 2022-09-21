@@ -12,7 +12,6 @@ namespace langkit
 
   class PassDef;
   using Pass = std::shared_ptr<PassDef>;
-  using Callback = std::function<void()>;
 
   class PassDef
   {
@@ -117,12 +116,25 @@ namespace langkit
           {
             // Replace [start, it) with whatever the rule builds.
             auto replace = rule.second(match);
+            auto loc = (*start)->location() * (*(it - 1))->location();
             it = node->erase(start, it);
 
-            if (replace && replace->type() == Seq)
-              it = node->insert(it, replace->begin(), replace->end());
-            else
-              it = node->insert(it, replace);
+            if (replace)
+            {
+              if (replace->type() == Seq)
+              {
+                std::for_each(replace->begin(), replace->end(), [&](Node n) {
+                  n->set_location(loc);
+                });
+
+                it = node->insert(it, replace->begin(), replace->end());
+              }
+              else
+              {
+                replace->set_location(loc);
+                it = node->insert(it, replace);
+              }
+            }
 
             match.bind();
             replaced = true;

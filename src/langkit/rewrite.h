@@ -10,6 +10,7 @@
 
 namespace langkit
 {
+  using Callback = std::function<void()>;
   class PassDef;
 
   class Match

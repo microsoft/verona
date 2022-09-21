@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "lookup.h"
 #include "parse.h"
 #include "pass.h"
-#include "lookup.h"
 #include "wf.h"
 
 #include <CLI/CLI.hpp>
@@ -15,10 +15,13 @@ namespace langkit
   {
   private:
     constexpr static auto parse_only = "parse";
+    using CheckF = std::function<bool(Node, std::ostream&)>;
+    using PassCheck = std::tuple<std::string, Pass, CheckF>;
 
     CLI::App app;
     Parse parser;
-    std::vector<std::pair<std::string, Pass>> passes;
+    CheckF checkParser;
+    std::vector<PassCheck> passes;
     std::vector<std::string> limits;
 
     bool emit_ast = false;
@@ -30,12 +33,13 @@ namespace langkit
     Driver(
       const std::string& name,
       Parse parser,
-      std::initializer_list<std::pair<std::string, Pass>> passes)
-    : app(name), parser(parser), passes(passes)
+      CheckF checkParser,
+      std::initializer_list<PassCheck> passes)
+    : app(name), parser(parser), checkParser(checkParser), passes(passes)
     {
       limits.push_back(parse_only);
 
-      for (auto& [name, pass] : passes)
+      for (auto& [name, pass, check] : passes)
         limits.push_back(name);
 
       app.add_flag("-a,--ast", emit_ast, "Emit an abstract syntax tree.");
@@ -57,13 +61,20 @@ namespace langkit
       }
 
       auto ast = parser.parse(path);
+      int ret = 0;
 
       if (!ast)
         return -1;
 
+      if (checkParser && !checkParser(ast, std::cout))
+      {
+        limit = parse_only;
+        ret = -1;
+      }
+
       if (limit != parse_only)
       {
-        for (auto& [name, pass] : passes)
+        for (auto& [name, pass, check] : passes)
         {
           size_t count;
           size_t changes;
@@ -75,6 +86,12 @@ namespace langkit
                       << changes << " nodes rewritten." << std::endl;
           }
 
+          if (check && !check(ast, std::cout))
+          {
+            ret = -1;
+            break;
+          }
+
           if (limit == name)
             break;
         }
@@ -83,7 +100,7 @@ namespace langkit
       if (emit_ast)
         std::cout << ast;
 
-      return 0;
+      return ret;
     }
   };
 }
