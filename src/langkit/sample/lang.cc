@@ -692,7 +692,7 @@ namespace sample
         {"localvar", localvar(), {}},
         {"destructure", destructure(), {}},
         {"anf", anf(), {}},
-        {"assignment", assignment(), wf()},
+        {"assignment", assignment(), {}},
         {"infer", infer(), {}},
       });
 

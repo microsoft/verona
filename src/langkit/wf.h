@@ -50,6 +50,15 @@ namespace langkit
 
         return ok;
       }
+
+      template<typename WF, typename Rand>
+      void gen(const WF& wf, Rand& rand, Node node)
+      {
+        auto i = rand.next() % N;
+        auto child = NodeDef::create(types[i]);
+        node->push_back(child);
+        wf.gen(rand, child);
+      }
     };
 
     struct SequenceBase
@@ -61,14 +70,23 @@ namespace langkit
       Choice<N> types;
 
       template<typename WF>
-      bool check(const WF& top, Node node, std::ostream& out) const
+      bool check(const WF& wf, Node node, std::ostream& out) const
       {
         auto ok = true;
 
         for (auto& child : *node)
-          ok = types.check(child, out) && top.check(child, out) && ok;
+          ok = types.check(child, out) && wf.check(child, out) && ok;
 
         return ok;
+      }
+
+      template<typename WF, typename Rand, size_t LO = 1, size_t HI = 10>
+      void gen(const WF& wf, Rand& rand, Node node) const
+      {
+        auto i = (rand.next() % (HI - LO)) + LO;
+
+        for (auto j = 0; j < i; ++j)
+          types.gen(wf, rand, node);
       }
     };
 
@@ -112,14 +130,14 @@ namespace langkit
       {}
 
       template<typename WF>
-      bool check(const WF& top, Node node, std::ostream& out) const
+      bool check(const WF& wf, Node node, std::ostream& out) const
       {
-        return check_field<0>(top, true, node, node->begin(), node->end(), out);
+        return check_field<0>(wf, true, node, node->begin(), node->end(), out);
       }
 
       template<size_t I, typename WF>
       bool check_field(
-        const WF& top,
+        const WF& wf,
         bool ok,
         Node node,
         NodeIt child,
@@ -153,7 +171,7 @@ namespace langkit
         else
         {
           auto field = std::get<I>(fields);
-          ok = field.types.check(*child, out) && top.check(*child, out) && ok;
+          ok = field.types.check(*child, out) && wf.check(*child, out) && ok;
 
           if ((binding != Invalid) && (field.name == binding))
           {
@@ -170,7 +188,24 @@ namespace langkit
             }
           }
 
-          return check_field<I + 1>(top, ok, node, ++child, end, out);
+          return check_field<I + 1>(wf, ok, node, ++child, end, out);
+        }
+      }
+
+      template<typename WF, typename Rand>
+      void gen(const WF& wf, Rand& rand, Node node) const
+      {
+        gen_field<0>(wf, rand, node);
+      }
+
+      template<size_t I, typename WF, typename Rand>
+      void gen_field(const WF& wf, Rand& rand, Node node) const
+      {
+        if constexpr (I < sizeof...(Ts))
+        {
+          auto field = std::get<I>(fields);
+          field.types.gen(wf, rand, node);
+          gen_field<I + 1>(wf, rand, node);
         }
       }
     };
@@ -233,11 +268,7 @@ namespace langkit
       template<size_t I = 0>
       bool check(Node node, std::ostream& out) const
       {
-        if constexpr (sizeof...(Ts) == 0)
-        {
-          return true;
-        }
-        else if constexpr (I >= sizeof...(Ts))
+        if constexpr (I >= sizeof...(Ts))
         {
           out << node->location().origin_linecol() << "unexpected "
               << node->type().str() << std::endl
@@ -259,6 +290,28 @@ namespace langkit
       {
         return
           [this](Node node, std::ostream& out) { return check(node, out); };
+      }
+
+      template<typename Rand>
+      Node gen(Rand& rand) const
+      {
+        auto node = NodeDef::create(Top);
+        gen<0>(rand, node);
+        return node;
+      }
+
+      template<size_t I, typename Rand>
+      void gen(Rand& rand, Node node) const
+      {
+        if constexpr (I < sizeof...(Ts))
+        {
+          auto shape = std::get<I>(shapes);
+
+          if (shape.type == node->type())
+            shape.shape.gen(*this, rand, node);
+          else
+            gen<I + 1>(rand, node);
+        }
       }
     };
 
