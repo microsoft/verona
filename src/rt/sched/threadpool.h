@@ -41,12 +41,6 @@ namespace verona::rt
     size_t incarnation = 1;
 
     /**
-     * Number of messages that have been sent that may not be visible to a
-     *thread in a Scan state.
-     **/
-    std::atomic<size_t> inflight_count = 0;
-
-    /**
      * Used to represent the current pause_epoch.
      *
      * If a thread is paused, then it must be the case
@@ -84,6 +78,7 @@ namespace verona::rt
 
     bool fair = false;
 
+    // TODO remove counters
     ThreadState state;
 
     /// Pool of cores shared by the scheduler threads.
@@ -112,28 +107,6 @@ namespace verona::rt
     static bool get_detect_leaks()
     {
       return get().detect_leaks;
-    }
-
-    static void record_inflight_message()
-    {
-      Logging::cout() << "Increase inflight count: " << get().inflight_count + 1
-                      << Logging::endl;
-      local()->scheduled_unscanned_cown = true;
-      get().inflight_count++;
-    }
-
-    static void recv_inflight_message()
-    {
-      Logging::cout() << "Decrease inflight count: " << get().inflight_count - 1
-                      << Logging::endl;
-      get().inflight_count--;
-    }
-
-    static bool no_inflight_messages()
-    {
-      Logging::cout() << "Check inflight count: " << get().inflight_count
-                      << Logging::endl;
-      return get().inflight_count == 0;
     }
 
     /// Increment the external event source count. A non-zero count will prevent
@@ -213,90 +186,6 @@ namespace verona::rt
       return nonlocal;
     }
 
-    static EpochMark epoch()
-    {
-      T* t = local();
-
-      if (t != nullptr)
-        return t->send_epoch;
-
-      return EpochMark::EPOCH_A;
-    }
-
-    static EpochMark alloc_epoch()
-    {
-      T* t = local();
-
-      // TODO Review what epoch should external participants use?
-      if (t == nullptr)
-        return epoch();
-
-      if (in_prescan())
-      {
-        // During pre-scan alloc in previous epoch.
-        Logging::cout() << "Alloc cown during pre-scan" << Logging::endl;
-        return t->prev_epoch;
-      }
-
-      return epoch();
-    }
-
-    static bool should_scan()
-    {
-      T* t = local();
-
-      if (t == nullptr)
-        return false;
-
-      switch (t->state)
-      {
-        case ThreadState::Scan:
-        case ThreadState::AllInScan:
-        case ThreadState::BelieveDone_Voted:
-        case ThreadState::BelieveDone:
-        case ThreadState::BelieveDone_Confirm:
-        case ThreadState::BelieveDone_Retract:
-        case ThreadState::BelieveDone_Ack:
-        case ThreadState::ReallyDone:
-        case ThreadState::ReallyDone_Retract:
-          return true;
-        default:
-          return false;
-      }
-    }
-
-    static bool in_prescan()
-    {
-      T* t = local();
-
-      if (t == nullptr)
-        return false;
-
-      return (t->state) == ThreadState::PreScan;
-    }
-
-    /**
-     * Either the local or the global state is in prescan.  This should
-     * only be used in assertions.
-     **/
-    static bool debug_in_prescan()
-    {
-      T* t = local();
-
-      if (t == nullptr)
-        return false;
-
-      return ((t->state) == ThreadState::PreScan) ||
-        ((get().state.get_state()) == ThreadState::PreScan);
-    }
-
-    static void want_ld()
-    {
-      T* t = local();
-
-      if (t != nullptr)
-        t->want_ld();
-    }
 
     void init(size_t count)
     {
@@ -362,8 +251,7 @@ namespace verona::rt
       Object::reset_ids();
 #endif
       thread_count = 0;
-      state.reset<ThreadState::NotInLD>();
-
+      
       Epoch::flush(ThreadAlloc::get());
       core_pool.clear();
     }
@@ -374,12 +262,6 @@ namespace verona::rt
     }
 
   private:
-    inline ThreadState::State next_state(ThreadState::State s)
-    {
-      auto h = sync.handle(local());
-      return state.next(s, thread_count);
-    }
-
     bool check_for_work()
     {
       // TODO: check for pending async IO

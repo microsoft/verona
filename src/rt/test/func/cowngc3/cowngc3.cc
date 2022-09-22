@@ -82,8 +82,9 @@ struct WantLD : public VBehaviour<WantLD>
 
   void f()
   {
-    Logging::cout() << "WantLD on " << c << std::endl;
-    Scheduler::want_ld();
+// TODO: LD
+//    Logging::cout() << "WantLD on " << c << std::endl;
+//    Scheduler::want_ld();
   }
 };
 

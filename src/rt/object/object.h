@@ -59,21 +59,7 @@ namespace verona::rt
    * The descriptor primarily points to a descriptor (vtable and meta data)
    * about this object. However, we again borrow the bottom bits.
    *
-   * For an immutable object or a cown object, we use the bottom bits to
-   * represent the scanning status of the global cown leak detector. It is
-   * effectively a two state scan with A and B epoch, so we do not need to clear
-   * epoch flags after scanning.
-   *
-   * There are additional states to represent:
-   *
-   * - `SCHEDULED_FOR_SCAN`: a message has been sent to this Cown to wake it up
-   * and thus perform a scan of its state and message queue.
-   * - `SCANNED`: this Cown has scanned its current state, but has not scanned
-   * its message queue, so still needs to be rescheduled once all the messages
-   * are guaranteed to be scanned before sending.
-   * - `EPOCH_A`/`B`: this Cown guarantees all its state and messages have been
-   * scanned, and all directly reachable Cowns have been rescheduled, so they
-   * will be scanned.
+   * TODO These are currently used in RC regions.  Properly document.
    */
   using Alloc = snmalloc::Alloc;
   using namespace snmalloc;
@@ -122,40 +108,12 @@ namespace verona::rt
     // TODO: virtual dispatch, pattern matching on type, reflection
   };
 
-  enum class EpochMark : uint8_t
-  {
-    EPOCH_NONE = 0x0,
-    EPOCH_A = 0x1,
-    EPOCH_B = 0x2,
-    SCHEDULED_FOR_SCAN = 0x3,
-    SCANNED = 0x4,
-  };
-
   enum class RcColour : uint8_t
   {
     GREEN = 0x0,
     RED = 0x1,
     BLACK = 0x2,
   };
-
-  inline std::ostream& operator<<(std::ostream& os, EpochMark e)
-  {
-    switch (e)
-    {
-      case EpochMark::EPOCH_NONE:
-        return os << "EPOCH_NONE";
-      case EpochMark::EPOCH_A:
-        return os << "EPOCH_A";
-      case EpochMark::EPOCH_B:
-        return os << "EPOCH_B";
-      case EpochMark::SCHEDULED_FOR_SCAN:
-        return os << "SCHEDULED_FOR_SCAN";
-      case EpochMark::SCANNED:
-        return os << "SCANNED";
-      default:
-        abort();
-    }
-  }
 
   enum TransferOwnership
   {
@@ -671,48 +629,6 @@ namespace verona::rt
       return get_class() == RegionMD::OPEN_ISO;
     }
 
-  public:
-    inline EpochMark get_epoch_mark()
-    {
-      return (EpochMark)((uintptr_t)get_header().descriptor.load() & MARK_MASK);
-    }
-
-  private:
-    inline bool in_epoch(EpochMark e)
-    {
-      assert(
-        (get_class() == RegionMD::RC) || (get_class() == RegionMD::SCC_PTR) ||
-        (get_class() == RegionMD::COWN));
-
-      return get_epoch_mark() == e;
-    }
-
-    inline void set_epoch_mark(EpochMark e)
-    {
-      Logging::cout() << "Object epoch: " << this << " (" << get_class() << ") "
-                      << get_epoch_mark() << " -> " << e << Logging::endl;
-
-      // We only require relaxed consistency here as we can perfectly see old
-      // values as we know that we will only need up-to-date values once we have
-      // completed the consensus protocol to enter the sweep phase of the LD.
-      get_header().descriptor.store(
-        (const Descriptor*)((uintptr_t)get_descriptor() | (size_t)e),
-        std::memory_order_relaxed);
-    }
-
-    inline void set_epoch(EpochMark e)
-    {
-      assert(
-        (get_class() == RegionMD::RC) || (get_class() == RegionMD::SCC_PTR) ||
-        (get_class() == RegionMD::COWN));
-
-      assert(
-        (e == EpochMark::EPOCH_NONE) || (e == EpochMark::EPOCH_A) ||
-        (e == EpochMark::EPOCH_B) || (e == EpochMark::SCANNED));
-
-      set_epoch_mark(e);
-    }
-
     inline void set_rc_colour(RcColour colour)
     {
       get_header().descriptor_bits =
@@ -748,32 +664,6 @@ namespace verona::rt
       get_header().descriptor.store(
         (const Descriptor*)((uintptr_t)get_header().descriptor.load() & ~(uintptr_t)1),
         std::memory_order_relaxed);
-    }
-
-    inline bool cown_marked_for_scan(EpochMark e)
-    {
-      assert(get_class() == RegionMD::COWN);
-      EpochMark t = get_epoch_mark();
-      return (t == e) || (t > EpochMark::EPOCH_B);
-    }
-
-    inline bool cown_scanned(EpochMark e)
-    {
-      assert(get_class() == RegionMD::COWN);
-      EpochMark t = get_epoch_mark();
-      return (t == e) || (t == EpochMark::SCANNED);
-    }
-
-    inline void cown_mark_for_scan()
-    {
-      assert(get_class() == RegionMD::COWN);
-      set_epoch_mark(EpochMark::SCHEDULED_FOR_SCAN);
-    }
-
-    inline void cown_mark_scanned()
-    {
-      assert(get_class() == RegionMD::COWN);
-      set_epoch_mark(EpochMark::SCANNED);
     }
 
     inline void incref_nonatomic()

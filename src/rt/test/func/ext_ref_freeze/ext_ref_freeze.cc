@@ -78,7 +78,8 @@ struct Loop : public VBehaviour<Loop>
         if (advance_epoch_count > 0)
         {
           advance_epoch_count--;
-          Scheduler::want_ld();
+// TODO: LD
+//          Scheduler::want_ld();
         }
         else
         {
@@ -114,7 +115,8 @@ struct Loop : public VBehaviour<Loop>
       {
         if (count > 0)
         {
-          Scheduler::want_ld();
+// TODO: LD
+//          Scheduler::want_ld();
           count--;
         }
         else

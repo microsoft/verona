@@ -283,7 +283,8 @@ struct Pong : public VBehaviour<Pong>
     }
     else
     {
-      Scheduler::want_ld();
+// TODO: LD      
+//      Scheduler::want_ld();
     }
   }
 };
@@ -378,6 +379,7 @@ struct Ping : public VBehaviour<Ping<region_type>>
     if (rcown->next == (RCown<region_type>*)rcown_first)
     {
       Logging::cout() << "Loop " << rcown->forward << std::endl;
+      // TODO: LD: Already removed!!! Before LD removal
       // Scheduler::want_ld();
     }
   }

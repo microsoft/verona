@@ -29,6 +29,7 @@ namespace verona::rt
     std::atomic<std::size_t> last_worker = 0;
 
     // The number of cowns in the per-core list `list`.
+    // TODO LD: This should go away
     std::atomic<size_t> total_cowns = 0;
 
     // The number of cowns that have been collected in the per-thread list
@@ -36,10 +37,12 @@ namespace verona::rt
     // cown managed from this thread.  They cannot collect the actual cown
     // allocation.  The ratio of free_cowns to total_cowns is used to
     // determine when to walk the `list` to collect the stubs.
+    // TODO LD: This should go away
     std::atomic<size_t> free_cowns = 0;
 
     SchedulerStats stats;
 
+    // TODO LD: This should go away
     std::atomic<T*> list = nullptr;
 
   public:
@@ -66,7 +69,7 @@ namespace verona::rt
         add_cowns(head, tail);
     }
 
-    void try_collect(Alloc& alloc, EpochMark epoch)
+    void try_collect(Alloc& alloc)
     {
       T* head = list.exchange(nullptr);
       T* tail = head;
@@ -74,7 +77,7 @@ namespace verona::rt
       while (cown != nullptr)
       {
         T* n = cown->next;
-        cown->try_collect(alloc, epoch);
+        cown->try_collect(alloc);
         tail = cown;
         cown = n;
       }

@@ -261,7 +261,8 @@ struct Pong : public VBehaviour<Pong>
     }
     else
     {
-      Scheduler::want_ld();
+// TODO: LD
+//      Scheduler::want_ld();
     }
   }
 };
@@ -362,6 +363,7 @@ struct Ping : public VBehaviour<Ping>
     if (rcown->next == rcown_first)
     {
       Logging::cout() << "Loop " << rcown->forward << std::endl;
+      // TODO: LD: Removed before LD removal
       // Scheduler::want_ld();
     }
   }

@@ -90,21 +90,6 @@ namespace verona::rt
                           << Logging::endl;
           local_content->incref();
         }
-        // It's possible that the following three things happen:
-        // 1) cown is already Scanned,
-        // 2) the owner of the noticeboard is in PreScan,
-        // 3) the owner calls update
-        // This way, the old content of the noticeboard is never scanned.
-        // Intuitively, peek amounts to a way of receiving new msg, so it needs
-        // to be scanned.
-        if (Scheduler::should_scan())
-        {
-          Logging::cout() << "Scan from noticeboard peek" << local_content
-                          << Logging::endl;
-          ObjectStack f(alloc);
-          local_content->trace(f);
-          Cown::scan_stack(alloc, Scheduler::epoch(), f);
-        }
         return local_content;
       }
     }

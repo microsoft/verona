@@ -133,7 +133,8 @@ namespace noticeboard_basic
         case INIT:
         {
           Cown::schedule<UpdateDB>(peeker->db, peeker->db);
-          Scheduler::want_ld();
+// TODO: LD
+//          Scheduler::want_ld();
           peeker->state = WAITFORGC;
           Cown::schedule<ToPeek>(peeker, peeker);
           return;

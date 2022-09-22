@@ -42,7 +42,8 @@ struct Mess : public VBehaviour<Mess>
 
     if (timer == 30)
     {
-      Scheduler::want_ld();
+// TODO: LD:can this test still work.
+//      Scheduler::want_ld();
     }
 
     Logging::cout() << "Self: " << timer << std::endl;

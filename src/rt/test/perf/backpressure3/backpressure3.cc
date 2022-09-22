@@ -106,8 +106,9 @@ struct Send : public VBehaviour<Send>
 
     if ((timer::now() - s->start) < s->duration)
       Cown::schedule<Send>(s, s);
-    else
-      Scheduler::want_ld();
+//    else
+// TODO: LD
+//      Scheduler::want_ld();
   }
 };
 
