@@ -77,6 +77,8 @@ void test_cown_gc()
 }
 
 /**
+ * TODO LD: Not sure this test is still useful.
+ * 
  * This is a test that captures the following interesting behaviour
  *
  * There are three cowns L, M, S

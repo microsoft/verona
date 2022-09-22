@@ -1,5 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+//TODO: LD revisit this test and try to get coverage of Epoch code.
+
 #include <test/harness.h>
 
 namespace noticeboard_basic

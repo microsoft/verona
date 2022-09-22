@@ -242,8 +242,8 @@ struct RCown : public VCown<RCown>
     if (imm2 != nullptr)
       fields.push(imm2);
 
-    check(next != nullptr);
-    fields.push(next);
+    if(next != nullptr)
+      fields.push(next);
   }
 };
 
@@ -258,11 +258,6 @@ struct Pong : public VBehaviour<Pong>
     {
       for (int n = 0; n < 20; n++)
         Cown::schedule<Pong>(ccown->child, ccown->child);
-    }
-    else
-    {
-// TODO: LD
-//      Scheduler::want_ld();
     }
   }
 };
@@ -305,7 +300,7 @@ struct Ping : public VBehaviour<Ping>
         Cown::schedule<Pong>(c2, c2);
       }
 
-      // Randomly introduce a few leaks. We don't want to do this for every
+      // Randomly introduce a pointer nulling operatins. We don't want to do this for every
       // Ping, only about a quarter.
       switch (rand->next() % 12)
       {
@@ -314,11 +309,8 @@ struct Ping : public VBehaviour<Ping>
           size_t idx = rand->next() % others_count;
           if (rcown->array[idx] != nullptr)
           {
-            Logging::cout() << "RCown " << rcown << " is leaking cown "
+            Logging::cout() << "RCown " << rcown << " is dropping a reference to "
                             << rcown->array[idx] << std::endl;
-            // TODO: Sometimes the leak detector doesn't catch this. Although
-            // the cown is leaked, it might still be scheduled, so it's treated
-            // as live. For now, we'll explicitly release the cown.
             Cown::release(ThreadAlloc::get(), rcown->array[idx]);
             rcown->array[idx] = nullptr;
           }
@@ -331,7 +323,7 @@ struct Ping : public VBehaviour<Ping>
           // clear the remembered set.
           if (rcown->otrace != nullptr && rcown->otrace->cown != nullptr)
           {
-            Logging::cout() << "RCown " << rcown << " is leaking cown "
+            Logging::cout() << "RCown " << rcown << " is dropping a reference to "
                             << rcown->otrace->cown << std::endl;
             auto* reg = RegionTrace::get(rcown->otrace);
             reg->discard(ThreadAlloc::get());
@@ -346,7 +338,7 @@ struct Ping : public VBehaviour<Ping>
           // clear the remembered set.
           if (rcown->oarena != nullptr && rcown->oarena->cown != nullptr)
           {
-            Logging::cout() << "RCown " << rcown << " is leaking cown "
+            Logging::cout() << "RCown " << rcown << " is dropping a reference to "
                             << rcown->oarena->cown << std::endl;
             auto* reg = RegionArena::get(rcown->oarena);
             reg->discard(ThreadAlloc::get());
@@ -360,11 +352,22 @@ struct Ping : public VBehaviour<Ping>
 
       rcown->forward--;
     }
+    else
+    {
+      // Last time round the loop.  Break the cycle.
+      if (rcown->next == rcown_first)
+      {
+        // Break the cycle.
+        auto n = rcown->next;
+        Logging::cout() << "Break cycle between" << rcown << " and " << n
+                        << std::endl;
+        Cown::release(ThreadAlloc::get(), n);
+        rcown->next = nullptr;
+      }
+    }
     if (rcown->next == rcown_first)
     {
       Logging::cout() << "Loop " << rcown->forward << std::endl;
-      // TODO: LD: Removed before LD removal
-      // Scheduler::want_ld();
     }
   }
 };

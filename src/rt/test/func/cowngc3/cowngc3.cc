@@ -1,14 +1,16 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 /**
+ * TODO LD: Not sure this makes sense anymore.
+ * 
  * This examples is exploiting a complexity in the leak detector and
  * noticeboards.
  *
- * We have three initial Cowns
+ * We have three initial cowns
  *
  * Cown1 has a reference to Cown2
  *
- * Cown2 has a noticeboard allocates a fresh Cown, Cown4, and places it into the
+ * Cown2 has a noticeboard allocates a fresh cown, Cown4, and places it into the
  * noticeboard.
  *
  * Cown3 requests a leak detection is started.
