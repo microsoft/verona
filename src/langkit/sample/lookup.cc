@@ -66,7 +66,7 @@ namespace sample
       }
       else if (found.def->type() == Typealias)
       {
-        found.def = found.def->at(wf / Typealias / Default);
+        found.def = found.def->at(wf / Typealias / Type);
         continue;
       }
       else if (found.def->type() == Type)

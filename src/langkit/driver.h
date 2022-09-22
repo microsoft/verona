@@ -63,9 +63,6 @@ namespace langkit
       auto ast = parser.parse(path);
       int ret = 0;
 
-      if (!ast)
-        return -1;
-
       if (checkParser && !checkParser(ast, std::cout))
       {
         limit = parse_only;

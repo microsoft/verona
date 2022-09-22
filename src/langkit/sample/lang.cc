@@ -46,7 +46,7 @@ namespace sample
 
   inline const auto ExprStruct =
     In(Funcbody) / In(Assign) / In(Tuple) / In(Expr);
-  inline const auto TypeStruct = In(Type) / In(TypeTerm) / In(TypeTuple);
+  inline const auto TypeStruct = In(Type) / In(TypeTuple);
   inline const auto SeqStruct = T(Expr) / T(Tuple) / T(Assign);
   inline const auto Name = T(Ident) / T(Symbol);
   inline const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) /
@@ -193,12 +193,10 @@ namespace sample
         },
 
       // Type structure.
-      TypeStruct * T(Group)[TypeTerm] >>
-        [](Match& _) { return TypeTerm << *_[TypeTerm]; },
+      TypeStruct * T(Group)[Type] >> [](Match& _) { return Type << *_[Type]; },
       TypeStruct * T(List)[TypeTuple] >>
         [](Match& _) { return TypeTuple << *_[TypeTuple]; },
-      TypeStruct * T(Paren)[TypeTerm] >>
-        [](Match& _) { return TypeTerm << *_[TypeTerm]; },
+      TypeStruct * T(Paren)[Type] >> [](Match& _) { return Type << *_[Type]; },
 
       // Anonymous types.
       TypeStruct * T(Brace)[Classbody] >>
@@ -358,9 +356,9 @@ namespace sample
       }};
   }
 
-  inline const auto TypeElem = T(TypeTerm) / T(RefType) / T(TypeTuple) /
-    T(Iso) / T(Imm) / T(Mut) / T(TypeView) / T(TypeFunc) / T(TypeThrow) /
-    T(TypeIsect) / T(TypeUnion) / T(TypeVar) / T(TypeTrait) / T(DontCare);
+  inline const auto TypeElem = T(Type) / T(RefType) / T(TypeTuple) / T(Iso) /
+    T(Imm) / T(Mut) / T(TypeView) / T(TypeFunc) / T(TypeThrow) / T(TypeIsect) /
+    T(TypeUnion) / T(TypeVar) / T(TypeTrait) / T(DontCare);
 
   PassDef typeexpr()
   {
@@ -384,7 +382,7 @@ namespace sample
         [](Match& _) { return TypeUnion << _[lhs] << _[rhs]; },
       TypeStruct * T(Throw) * TypeElem[rhs] >>
         [](Match& _) { return TypeThrow << _[rhs]; },
-      T(TypeTerm) << (TypeElem[op] * End) >> [](Match& _) { return _(op); },
+      T(Type) << (TypeElem[op] * End) >> [](Match& _) { return _(op); },
 
       // Flatten algebraic types.
       In(TypeUnion) * T(TypeUnion)[lhs] >>
@@ -679,9 +677,9 @@ namespace sample
       parser(),
       wfParser(),
       {
-        {"modules", modules(), {}},
-        {"types", types(), {}},
-        {"structure", structure(), {}},
+        {"modules", modules(), wfPassModules()},
+        {"types", types(), wfPassTypes()},
+        {"structure", structure(), wfPassStructure()},
         {"include", include(), {}},
         {"reftype", reftype(), {}},
         {"typeexpr", typeexpr(), {}},

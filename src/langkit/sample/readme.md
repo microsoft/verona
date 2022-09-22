@@ -28,6 +28,12 @@ CallLHS
 - `fun f()` vs `fun ref f()`
 - if a `ref` function has no non-ref implementation, autogenerate one that calls the `ref` function and does `load` on the result
 
+## QuickCheck
+
+catch unexpected bindings as well
+generate names for things that need them
+- is this just for binding?
+
 ## ANF
 
 rhs ref -> dup ?

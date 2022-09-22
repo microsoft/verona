@@ -71,15 +71,11 @@ namespace langkit
         pre_();
 
       // Because apply runs over child nodes, the top node is never visited.
-      // Use a synthetic top node.
-      auto top = NodeDef::create(Top);
-      top->push_back(node);
-
       do
       {
-        changes = apply(top);
+        changes = apply(node);
 
-        auto lifted = lift(top);
+        auto lifted = lift(node);
         if (!lifted.empty())
           throw std::runtime_error("lifted nodes with no destination");
 
@@ -90,7 +86,7 @@ namespace langkit
       if (post_)
         post_();
 
-      return {top->front(), count, changes_sum};
+      return {node, count, changes_sum};
     }
 
   private:

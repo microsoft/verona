@@ -210,7 +210,7 @@ namespace langkit
   {
   public:
     using PreF = std::function<bool(Parse&, const std::string&)>;
-    using PostF = std::function<void(Parse&, Node)>;
+    using PostF = std::function<void(Parse&, const std::string&, Node)>;
 
   private:
     depth depth_;
@@ -257,7 +257,19 @@ namespace langkit
       postparse_ = f;
     }
 
-    Node parse(const std::string& path)
+    Node parse(std::string& path)
+    {
+      auto ast = sub_parse(path);
+      auto top = NodeDef::create(Top);
+      top->push_back(ast);
+
+      if (postparse_)
+        postparse_(*this, path, top);
+
+      return top;
+    }
+
+    Node sub_parse(std::string& path)
     {
       Node ast;
 
@@ -265,6 +277,7 @@ namespace langkit
       {
         case path::Type::File:
         {
+          path = path::canonical(path);
           ast = parse_file(path);
           break;
         }
@@ -274,6 +287,7 @@ namespace langkit
           if (depth_ == depth::file)
             return {};
 
+          path = path::to_directory(path::canonical(path));
           ast = parse_directory(path);
           break;
         }
@@ -282,17 +296,12 @@ namespace langkit
           return {};
       }
 
-      if (postparse_ && ast)
-        postparse_(*this, ast);
-
       return ast;
     }
 
   private:
-    Node parse_file(const std::string& file)
+    Node parse_file(const std::string& filename)
     {
-      auto filename = path::canonical(file);
-
       if (prefile_ && !prefile_(*this, filename))
         return {};
 
@@ -354,15 +363,13 @@ namespace langkit
       auto ast = make.done();
 
       if (postfile_ && ast)
-        postfile_(*this, ast);
+        postfile_(*this, filename, ast);
 
       return ast;
     }
 
-    Node parse_directory(const std::string& path)
+    Node parse_directory(const std::string& dir)
     {
-      auto dir = path::to_directory(path::canonical(path));
-
       if (predir_ && !predir_(*this, dir))
         return {};
 
@@ -397,7 +404,7 @@ namespace langkit
         return {};
 
       if (postdir_ && top)
-        postdir_(*this, top);
+        postdir_(*this, dir, top);
 
       return top;
     }

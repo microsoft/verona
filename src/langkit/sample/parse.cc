@@ -23,13 +23,13 @@ namespace sample
       return std::regex_match(path, re);
     });
 
-    p.postparse([](auto& p, auto ast) {
+    p.postparse([](auto& p, const std::string& path, auto ast) {
       auto stdlib = path::directory(path::executable()) + "std/";
-      if (ast->location().source->origin() != stdlib)
-        ast->push_back(p.parse(stdlib));
+      if (path != stdlib)
+        ast->push_back(p.sub_parse(stdlib));
     });
 
-    p.postfile([indent, depth](auto& p, auto ast) {
+    p.postfile([indent, depth](auto& p, const std::string& path, auto ast) {
       *depth = 0;
       indent->clear();
       indent->push_back(restart);

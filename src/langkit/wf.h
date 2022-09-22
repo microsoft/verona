@@ -92,8 +92,24 @@ namespace langkit
         std::conjunction_v<std::is_base_of<FieldBase, Ts>...>, "Not a Field");
 
       std::tuple<Ts...> fields;
+      Token binding;
 
-      consteval Fields(const std::tuple<Ts...>& fields) : fields(fields) {}
+      consteval Fields() : fields(), binding(Invalid) {}
+
+      template<size_t N>
+      consteval Fields(const Field<N>& field)
+      : fields(std::make_tuple(field)), binding(Invalid)
+      {}
+
+      template<typename... Ts2, typename... Ts3>
+      consteval Fields(const Fields<Ts2...>& fst, const Fields<Ts3...>& snd)
+      : fields(std::tuple_cat(fst.fields, snd.fields)), binding(Invalid)
+      {}
+
+      template<typename... Ts2>
+      consteval Fields(const Fields<Ts2...>& fields, const Token& binding)
+      : fields(fields.fields), binding(binding)
+      {}
 
       template<typename WF>
       bool check(const WF& top, Node node, std::ostream& out) const
@@ -139,10 +155,37 @@ namespace langkit
           auto field = std::get<I>(fields);
           ok = field.types.check(*child, out) && top.check(*child, out) && ok;
 
+          if ((binding != Invalid) && (field.name == binding))
+          {
+            auto nodes = node->lookup_all((*child)->location());
+            auto find = std::find(nodes.begin(), nodes.end(), node);
+
+            if (find == nodes.end())
+            {
+              out << (*child)->location().origin_linecol()
+                  << "missing symbol table binding for " << node->type().str()
+                  << std::endl
+                  << (*child)->location().str() << std::endl;
+              ok = false;
+            }
+          }
+
           return check_field<I + 1>(top, ok, node, ++child, end, out);
         }
       }
     };
+
+    Fields()->Fields<>;
+
+    template<size_t N>
+    Fields(const Field<N>& field) -> Fields<Field<N>>;
+
+    template<typename... Ts2, typename... Ts3>
+    Fields(const Fields<Ts2...>&, const Fields<Ts3...>&)
+      -> Fields<Ts2..., Ts3...>;
+
+    template<typename... Ts2>
+    Fields(const Fields<Ts2...>&, const Token&) -> Fields<Ts2...>;
 
     struct ShapeBase
     {};
@@ -156,7 +199,12 @@ namespace langkit
 
       Token type;
       T shape;
+
+      consteval Shape(Token type, const T& shape) : type(type), shape(shape) {}
     };
+
+    template<typename T>
+    Shape(Token, const T&) -> Shape<T>;
 
     struct WellformedBase
     {};
@@ -168,6 +216,19 @@ namespace langkit
         std::conjunction_v<std::is_base_of<ShapeBase, Ts>...>, "Not a Shape");
 
       std::tuple<Ts...> shapes;
+
+      consteval Wellformed() : shapes() {}
+
+      template<typename T>
+      consteval Wellformed(const Shape<T>& shape)
+      : shapes(std::make_tuple(shape))
+      {}
+
+      template<typename... Ts1, typename... Ts2>
+      consteval Wellformed(
+        const Wellformed<Ts1...>& wf1, const Wellformed<Ts2...>& wf2)
+      : shapes(std::tuple_cat(wf1.shapes, wf2.shapes))
+      {}
 
       template<size_t I = 0>
       bool check(Node node, std::ostream& out) const
@@ -201,13 +262,14 @@ namespace langkit
       }
     };
 
-    template<typename... Ts>
-    inline auto check(const Wellformed<Ts...>& wf, Node node)
-    {
-      std::stringstream out;
-      auto r = wf.check(node, out);
-      return std::make_pair(r, out.str());
-    }
+    Wellformed()->Wellformed<>;
+
+    template<typename T>
+    Wellformed(const Shape<T>&) -> Wellformed<Shape<T>>;
+
+    template<typename... Ts1, typename... Ts2>
+    Wellformed(const Wellformed<Ts1...>&, const Wellformed<Ts2...>&)
+      -> Wellformed<Ts1..., Ts2...>;
 
     template<size_t I = 0, typename... Ts>
     inline constexpr Index index_fields(
@@ -253,6 +315,11 @@ namespace langkit
 
     namespace ops
     {
+      inline consteval auto operator+(const Token& type)
+      {
+        return type;
+      }
+
       inline consteval auto operator|(const Token& type1, const Token& type2)
       {
         return Choice<2>{type1, type2};
@@ -299,11 +366,6 @@ namespace langkit
         return Sequence<N>{{}, choice};
       }
 
-      inline consteval auto operator>>=(const Token& name, const Token& type)
-      {
-        return Field<1>{{}, name, Choice<1>{type}};
-      }
-
       template<size_t N>
       inline consteval auto
       operator>>=(const Token& name, const Choice<N>& choice)
@@ -311,87 +373,131 @@ namespace langkit
         return Field<N>{{}, name, choice};
       }
 
-      inline consteval auto operator*(const Token& fst, const Token& snd)
+      inline consteval auto operator>>=(const Token& name, const Token& type)
       {
-        return Fields{std::make_tuple(fst >>= fst, snd >>= snd)};
-      }
-
-      template<size_t N>
-      inline consteval auto operator*(const Token& fst, const Field<N>& snd)
-      {
-        return Fields{std::make_tuple(fst >>= fst, snd)};
-      }
-
-      template<typename... Ts>
-      inline consteval auto
-      operator*(const Token& fst, const Fields<Ts...>& snd)
-      {
-        return Fields{std::tuple_cat(std::make_tuple(fst >>= fst), snd.fields)};
-      }
-
-      template<size_t N>
-      inline consteval auto operator*(const Field<N>& fst, const Token& snd)
-      {
-        return Fields{std::make_tuple(fst, snd >>= snd)};
-      }
-
-      template<size_t N1, size_t N2>
-      inline consteval auto
-      operator*(const Field<N1>& fst, const Field<N2>& snd)
-      {
-        return Fields{std::make_tuple(fst, snd)};
-      }
-
-      template<size_t N, typename... Ts>
-      inline consteval auto
-      operator*(const Field<N>& fst, const Fields<Ts...>& snd)
-      {
-        return Fields{std::tuple_cat(std::make_tuple(fst), snd.fields)};
-      }
-
-      template<typename... Ts>
-      inline consteval auto
-      operator*(const Fields<Ts...>& fst, const Token& snd)
-      {
-        return Fields{std::tuple_cat(fst.fields, std::make_tuple(snd >>= snd))};
-      }
-
-      template<typename... Ts, size_t N>
-      inline consteval auto
-      operator*(const Fields<Ts...>& fst, const Field<N>& snd)
-      {
-        return Fields{std::tuple_cat(fst.fields, std::make_tuple(snd))};
+        return Field<1>{{}, name, Choice<1>{type}};
       }
 
       template<typename... Ts1, typename... Ts2>
       inline consteval auto
       operator*(const Fields<Ts1...>& fst, const Fields<Ts2...>& snd)
       {
-        return Fields{std::tuple_cat(fst.fields, snd.fields)};
+        return Fields(fst, snd);
+      }
+
+      template<typename... Ts, size_t N>
+      inline consteval auto
+      operator*(const Fields<Ts...>& fst, const Field<N>& snd)
+      {
+        return fst * Fields(snd);
+      }
+
+      template<typename... Ts>
+      inline consteval auto
+      operator*(const Fields<Ts...>& fst, const Token& snd)
+      {
+        return fst * (snd >>= snd);
+      }
+
+      template<size_t N, typename... Ts>
+      inline consteval auto
+      operator*(const Field<N>& fst, const Fields<Ts...>& snd)
+      {
+        return Fields(fst) * snd;
+      }
+
+      template<size_t N1, size_t N2>
+      inline consteval auto
+      operator*(const Field<N1>& fst, const Field<N2>& snd)
+      {
+        return Fields(fst) * Fields(snd);
+      }
+
+      template<size_t N>
+      inline consteval auto operator*(const Field<N>& fst, const Token& snd)
+      {
+        return fst * (snd >>= snd);
+      }
+
+      template<typename... Ts>
+      inline consteval auto
+      operator*(const Token& fst, const Fields<Ts...>& snd)
+      {
+        return (fst >>= fst) * snd;
+      }
+
+      template<size_t N>
+      inline consteval auto operator*(const Token& fst, const Field<N>& snd)
+      {
+        return (fst >>= fst) * snd;
+      }
+
+      inline consteval auto operator*(const Token& fst, const Token& snd)
+      {
+        return (fst >>= fst) * (snd >>= snd);
+      }
+
+      inline consteval auto operator-(const Token& type1, const Token& type2)
+      {
+        return std::make_pair(type1, type2);
       }
 
       template<size_t N>
       inline consteval auto
       operator<<=(const Token& type, const Sequence<N>& seq)
       {
-        return Shape<Sequence<N>>{{}, type, seq};
+        return Shape(type, seq);
       }
 
       template<typename... Ts>
       inline consteval auto
       operator<<=(const Token& type, const Fields<Ts...>& fields)
       {
-        return Shape<Fields<Ts...>>{{}, type, fields};
+        return Shape(type, fields);
       }
 
       template<size_t N>
       inline consteval auto
       operator<<=(const Token& type, const Field<N>& field)
       {
-        return type <<= Fields{std::make_tuple(field)};
+        return type <<= Fields(field);
+      }
+
+      template<size_t N>
+      inline consteval auto
+      operator<<=(const Token& type, const Choice<N>& choice)
+      {
+        return type <<= (type >>= choice);
       }
 
       inline consteval auto operator<<=(const Token& type1, const Token& type2)
+      {
+        return type1 <<= (type2 >>= type2);
+      }
+
+      template<typename... Ts>
+      inline consteval auto operator<<=(
+        const std::pair<Token, Token>& type, const Fields<Ts...>& fields)
+      {
+        return Shape(type.first, Fields(fields, type.second));
+      }
+
+      template<size_t N>
+      inline consteval auto
+      operator<<=(const std::pair<Token, Token>& type, const Field<N>& field)
+      {
+        return type <<= Fields(field);
+      }
+
+      template<size_t N>
+      inline consteval auto
+      operator<<=(const std::pair<Token, Token>& type, const Choice<N>& choice)
+      {
+        return type <<= (type >>= choice);
+      }
+
+      inline consteval auto
+      operator<<=(const std::pair<Token, Token>& type1, const Token& type2)
       {
         return type1 <<= (type2 >>= type2);
       }
@@ -400,15 +506,14 @@ namespace langkit
       inline consteval auto
       operator|(const Wellformed<Ts1...>& wf1, const Wellformed<Ts2...>& wf2)
       {
-        return Wellformed{std::tuple_cat(wf1.shapes, wf2.shapes)};
+        return Wellformed(wf1, wf2);
       }
 
       template<typename... Ts, typename T>
       inline consteval auto
       operator|(const Wellformed<Ts...>& wf, const Shape<T>& shape)
       {
-        return Wellformed<Ts..., Shape<T>>{
-          {}, std::tuple_cat(wf.shapes, std::make_tuple(shape))};
+        return wf | Wellformed(shape);
       }
 
       template<typename... Ts, size_t N>
@@ -422,22 +527,21 @@ namespace langkit
       inline consteval auto
       operator|(const Wellformed<Ts...>& wf, const Token& type)
       {
-        return wf | (type <<= Fields<>({}));
+        return wf | (type <<= Fields());
       }
 
       template<typename T, typename... Ts>
       inline consteval auto
       operator|(const Shape<T>& shape, const Wellformed<Ts...>& wf)
       {
-        return Wellformed{std::tuple_cat(std::make_tuple(shape), wf.shapes)};
+        return Wellformed(shape) | wf;
       }
 
       template<typename T1, typename T2>
       inline consteval auto
       operator|(const Shape<T1>& shape1, const Shape<T2>& shape2)
       {
-        return Wellformed<Shape<T1>, Shape<T2>>{
-          {}, std::make_tuple(shape1, shape2)};
+        return Wellformed(shape1) | Wellformed(shape2);
       }
 
       template<typename T, size_t N>
@@ -450,7 +554,7 @@ namespace langkit
       template<typename T>
       inline consteval auto operator|(const Shape<T>& shape, const Token& type)
       {
-        return shape | (type <<= type);
+        return shape | (type <<= Fields());
       }
 
       template<size_t N, typename... Ts>
@@ -485,7 +589,7 @@ namespace langkit
     inline consteval auto to_wf(const Shape<T>& shape)
     {
       using namespace ops;
-      return Wellformed{} | shape;
+      return Wellformed() | shape;
     }
 
     template<size_t I, size_t N, typename... Ts>
@@ -497,19 +601,19 @@ namespace langkit
       if constexpr (I >= N)
         return wf;
       else
-        return to_wf<I + 1>(choice, wf | (choice.types[I] <<= Fields<>({})));
+        return to_wf<I + 1>(choice, wf | choice.types[I]);
     }
 
     template<size_t N>
     inline consteval auto to_wf(const Choice<N>& choice)
     {
-      return to_wf<0>(choice, Wellformed{});
+      return to_wf<0>(choice, Wellformed());
     }
 
     inline consteval auto to_wf(const Token& type)
     {
       using namespace ops;
-      return Wellformed{} | (type <<= type);
+      return Wellformed() | (type <<= type);
     }
   }
 
