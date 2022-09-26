@@ -373,6 +373,7 @@ struct Ping : public VBehaviour<Ping<region_type>>
     }
     else
     {
+      assert(rcown == (RCown<region_type>*)rcown_first);
       // Clear next pointer on final iteration.
       Cown::release(ThreadAlloc::get(), rcown->next);
       rcown->next = nullptr;

@@ -354,16 +354,13 @@ struct Ping : public VBehaviour<Ping>
     }
     else
     {
-      // Last time round the loop.  Break the cycle.
-      if (rcown->next == rcown_first)
-      {
-        // Break the cycle.
-        auto n = rcown->next;
-        Logging::cout() << "Break cycle between" << rcown << " and " << n
-                        << std::endl;
-        Cown::release(ThreadAlloc::get(), n);
-        rcown->next = nullptr;
-      }
+      assert(rcown == rcown_first);
+      // Break the cycle.
+      auto n = rcown->next;
+      Logging::cout() << "Break cycle between" << rcown << " and " << n
+                      << std::endl;
+      Cown::release(ThreadAlloc::get(), n);
+      rcown->next = nullptr;
     }
     if (rcown->next == rcown_first)
     {

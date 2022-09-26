@@ -77,13 +77,6 @@ namespace verona::rt
     SchedulerThread<T>* prev = nullptr;
     SchedulerThread<T>* next = nullptr;
 
-    T* get_token_cown()
-    {
-      assert(core != nullptr);
-      assert(core->token_cown);
-      return core->token_cown;
-    }
-
     SchedulerThread()
     {
       Logging::cout() << "Scheduler Thread created" << Logging::endl;
@@ -158,14 +151,6 @@ namespace verona::rt
 
       while (true)
       {
-        if (
-          (core->total_cowns < (core->free_cowns << 1))
-#ifdef USE_SYSTEMATIC_TESTING
-          || Systematic::coin()
-#endif
-        )
-          collect_cown_stubs();
-
         if (should_steal_for_fairness)
         {
           if (cown == nullptr)
@@ -201,16 +186,7 @@ namespace verona::rt
 
         Logging::cout() << "Schedule cown " << cown  << Logging::endl;
 
-        // Update progress counter on that core.
-        Core<T>* cown_core = cown->owning_core();
-        assert(core != nullptr);
-
-        // If the cown comes from another core, both core counts are
-        // incremented. This reflects both CPU utilization and queue progress.
-        if (cown_core != nullptr)
-          cown_core->progress_counter++;
-        if (cown_core != core)
-          core->progress_counter++;
+        core->progress_counter++;
         core->last_worker = systematic_id;
 
         bool reschedule = cown->run(*alloc);
@@ -271,23 +247,16 @@ namespace verona::rt
 
       Logging::cout() << "Begin teardown (phase 1)" << Logging::endl;
 
-      if (core != nullptr)
-      {
-        core->collect(*alloc);
-      }
-
-      Logging::cout() << "End teardown (phase 1)" << Logging::endl;
-
+      // Flush any cowns that weren't collected due to potential
+      // ABA issues on the queue.  The runtime is in a consistent
+      // state so no ABAs can exist anymore.
       Epoch(ThreadAlloc::get()).flush_local();
+      // Second flush required for noticeboards.
+      Epoch(ThreadAlloc::get()).flush_local();
+
       Scheduler::get().enter_barrier();
 
-      Logging::cout() << "Begin teardown (phase 2)" << Logging::endl;
-
-      GlobalEpoch::advance();
-
-      collect_cown_stubs<true>();
-
-      Logging::cout() << "End teardown (phase 2)" << Logging::endl;
+      Logging::cout() << "End teardown (phase 1)" << Logging::endl;
 
       if (core != nullptr)
       {
@@ -299,6 +268,7 @@ namespace verona::rt
           core->q.destroy(*alloc);
         }
       }
+
       Systematic::finished_thread();
 
       // Reset the local thread pointer as this physical thread could be reused
@@ -410,7 +380,6 @@ namespace verona::rt
      * Some preliminaries required before we start processing messages
      *
      * - Check if this is the token, rather than a cown.
-     * - Register cown to scheduler thread if not already on one.
      *
      * This returns false, if this is a token, and true if it is real cown.
      **/
@@ -444,98 +413,7 @@ namespace verona::rt
         return false;
       }
 
-      // Register this cown with the scheduler thread if it is not currently
-      // registered with a scheduler thread.
-      if (cown->owning_core() == nullptr)
-      {
-        Logging::cout() << "Bind cown to core: " << core << Logging::endl;
-        assert(core != nullptr);
-        cown->set_owning_core(core);
-        core->add_cown(cown);
-        core->total_cowns++;
-      }
-
       return true;
-    }
-
-    void collect_cowns()
-    {
-      assert(core != nullptr);
-      core->try_collect(*alloc);
-    }
-
-    template<bool during_teardown = false>
-    void collect_cown_stubs()
-    {
-      // TODO LD: This should be removed.
-
-      assert(core != nullptr);
-      T* _list = core->drain();
-      T** list = &_list;
-      T** p = &_list;
-      T* tail = nullptr;
-      assert(p != nullptr);
-      size_t removed_count = 0;
-      size_t count = 0;
-
-      while (*p != nullptr)
-      {
-        count++;
-        T* c = *p;
-        // Collect cown stubs when the weak count is zero.
-        if (c->weak_count == 0 || during_teardown)
-        {
-          if (c->weak_count != 0)
-          {
-            Logging::cout() << "Leaking cown " << c << Logging::endl;
-            if (Scheduler::get_detect_leaks())
-            {
-              *p = c->next;
-              continue;
-            }
-          }
-          Logging::cout() << "Stub collect cown " << c << Logging::endl;
-          // TODO: Investigate systematic testing coverage here.
-          auto epoch = c->epoch_when_popped;
-          auto outdated =
-            epoch == T::NO_EPOCH_SET || GlobalEpoch::is_outdated(epoch);
-          if (outdated)
-          {
-            removed_count++;
-            *p = c->next;
-            Logging::cout() << "Stub collected cown " << c << Logging::endl;
-            c->dealloc(*alloc);
-            continue;
-          }
-          else
-          {
-            if (!outdated)
-              Logging::cout()
-                << "Cown " << c << " not outdated." << Logging::endl;
-          }
-        }
-        tail = c;
-        p = &(c->next);
-      }
-
-      // Put the list back
-      if (*list != nullptr)
-      {
-        assert(tail != nullptr);
-        core->add_cowns(*list, tail);
-      }
-
-      assert(this->core != nullptr);
-      // TODO This will become false once we have multiple scheduler threads per
-      // core.
-      assert(this->core->total_cowns == count);
-      this->core->free_cowns -= removed_count;
-      this->core->total_cowns -= removed_count;
-
-      Logging::cout() << "Stub collected " << removed_count << " cowns"
-                      << " Free cowns " << this->core->free_cowns
-                      << " Total cowns " << this->core->total_cowns
-                      << Logging::endl;
     }
   };
 } // namespace verona::rt

@@ -135,21 +135,6 @@ namespace verona::rt
       {
         auto& alloc = ThreadAlloc::get();
         queue.init(stub_msg(alloc));
-        CownThread* local = Scheduler::local();
-
-        if (local != nullptr)
-        {
-          if (local->core == nullptr)
-            abort();
-          set_owning_core(local->core);
-          local->core->add_cown(this);
-          local->core->total_cowns++;
-        }
-        else
-        {
-          set_owning_core(nullptr);
-          next = nullptr;
-        }
       }
     }
 
@@ -174,14 +159,6 @@ namespace verona::rt
 
     // Seven pointer overhead compared to an object.
     verona::rt::MPSCQ<MultiMessage> queue{};
-
-    // TODO LD These two fields should go away
-    // Used for garbage collection of cyclic cowns only.
-    // Uses the bottom bit to indicate the cown has been collected
-    // If the object is collected by the leak detector, we should not
-    // collect again when the weak reference count hits 0.
-    std::atomic<uintptr_t> core_status{0};
-    Cown* next{nullptr};
 
     /**
      * Cown's weak reference count.  This keeps the cown itself alive, but not
@@ -209,29 +186,17 @@ namespace verona::rt
       return a;
     }
 
-    static constexpr uintptr_t collected_mask = 1;
-    static constexpr uintptr_t thread_mask = ~collected_mask;
-
     void set_owning_core(Core<Cown>* owner)
     {
-      core_status = (uintptr_t)owner;
+      // Hack need to find a better field for this.
+      init_next((Object*)owner);
     }
 
-    void mark_collected()
-    {
-      core_status |= 1;
-    }
-
-    bool is_collected()
-    {
-      return (core_status.load(std::memory_order_relaxed) & collected_mask) !=
-        0;
-    }
-
+    
     Core<Cown>* owning_core()
     {
-      return (
-        Core<Cown>*)(core_status.load(std::memory_order_relaxed) & thread_mask);
+      // TODO Check this is a token cown.
+      return (Core<Cown>*)(get_next());
     }
 
   public:
@@ -307,23 +272,8 @@ namespace verona::rt
 
       Logging::cout() << "Cown " << o << " dealloc" << Logging::endl;
 
-      // TODO
-      // During teardown don't recursively delete.
-      if (Scheduler::is_teardown_in_progress())
-      {
-        // If we call weak_release here, the object will be fully collected
-        // as the thread field may have been nulled during teardown.  Just
-        // remove weak count, so that we collect stub in teardown phase 2.
-        a->weak_count.fetch_sub(1);
-        return;
-      }
-
       // If last, then collect the cown body.
-      if (!a->is_collected())
-        // Queue_collect calls weak release.
-        a->queue_collect(alloc);
-      else
-        a->weak_release(alloc);
+      a->queue_collect(alloc);
     }
 
     /**
@@ -334,29 +284,27 @@ namespace verona::rt
       Logging::cout() << "Cown " << this << " weak release" << Logging::endl;
       if (weak_count.fetch_sub(1) == 1)
       {
-        // TODO LD: This should become either deallocate it or 
-        // add to the epoch delete list.
+        yield();
 
-        auto* t = owning_core();
-        yield();
-        if (!t)
+        Logging::cout() << "Cown " << this << " no references left." << Logging::endl;
+        auto epoch = epoch_when_popped;
+        auto outdated =
+          epoch == NO_EPOCH_SET || GlobalEpoch::is_outdated(epoch);
+        if (outdated)
         {
-          // Deallocate an unowned cown
-          Logging::cout()
-            << "Not allocated on a Verona thread, so deallocating: " << this
-            << Logging::endl;
-          assert(epoch_when_popped == NO_EPOCH_SET);
+          Logging::cout() << "Cown " << this << " dealloc" << Logging::endl;
           dealloc(alloc);
-          return;
         }
-        // Register that the epoch should be moved on
+        else
         {
+          Logging::cout() << "Cown " << this << " defer dealloc" << Logging::endl;
+          // There could be an ABA problem if we reuse this cown as the epoch has not progressed enough
+          // We delay the deallocation until the epoch has progressed enough
+          // TODO: We are waiting too long as this is inserting in the current epoch, and not `epoch`
+          // which is all that is required.
           Epoch e(alloc);
-          e.add_pressure();
+          e.delete_in_epoch(this);
         }
-        // Tell owning thread that it has a free cown to collect.
-        t->free_cowns++;
-        yield();
       }
     }
 
@@ -838,6 +786,8 @@ namespace verona::rt
       // If there is a already a queue, use it
       if (work_list != nullptr)
       {
+        // This is a recursive call, add to queue
+        // and return immediately.
         work_list->push(this);
         return;
       }
@@ -864,13 +814,6 @@ namespace verona::rt
 
     void collect(Alloc& alloc)
     {
-      // If this was collected by leak detector, then don't double dealloc
-      // cown body, when the ref count drops.
-      if (is_collected())
-        return;
-
-      mark_collected();
-
 #ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       flush_all(alloc);
 #endif
