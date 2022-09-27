@@ -300,7 +300,7 @@ struct Ping : public VBehaviour<Ping>
         Cown::schedule<Pong>(c2, c2);
       }
 
-      // Randomly introduce a pointer nulling operatins. We don't want to do
+      // Randomly introduce a pointer nulling operations. We don't want to do
       // this for every Ping, only about a quarter.
       switch (rand->next() % 12)
       {

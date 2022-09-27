@@ -30,24 +30,17 @@ struct Ping : public VBehaviour<Ping>
   void f() {}
 };
 
-static constexpr int count_max = 1000;
-
 enum Phase
 {
-  ADVANCEEPOCH,
   SETUP,
-  WAITFORGC,
   REUSE,
   EXIT,
 };
 
 struct A : public VCown<A>
 {
-  Phase state = ADVANCEEPOCH;
+  Phase state = SETUP;
   C* r = nullptr;
-  int count = count_max;
-
-  int advance_epoch_count = 100;
 
   void trace(ObjectStack& st) const
   {
@@ -65,29 +58,12 @@ struct Loop : public VBehaviour<Loop>
 
   void f()
   {
-    auto& count = a->count;
-    auto& advance_epoch_count = a->advance_epoch_count;
     auto& state = a->state;
 
     auto& alloc = ThreadAlloc::get();
     (void)alloc;
     switch (state)
     {
-      case ADVANCEEPOCH:
-      {
-        if (advance_epoch_count > 0)
-        {
-          advance_epoch_count--;
-          // TODO: LD
-          //          Scheduler::want_ld();
-        }
-        else
-        {
-          state = SETUP;
-        }
-        Cown::schedule<Loop>(a, a);
-        return;
-      }
       case SETUP:
       {
         auto r = new (RegionType::Trace) C;
@@ -107,22 +83,7 @@ struct Loop : public VBehaviour<Loop>
           g_ext_ref = create_external_reference(a->r->f1);
         }
         freeze(a->r);
-        state = WAITFORGC;
-        Cown::schedule<Loop>(a, a);
-        return;
-      }
-      case WAITFORGC:
-      {
-        if (count > 0)
-        {
-          // TODO: LD
-          //          Scheduler::want_ld();
-          count--;
-        }
-        else
-        {
-          state = REUSE;
-        }
+        state = REUSE;
         Cown::schedule<Loop>(a, a);
         return;
       }
@@ -153,11 +114,10 @@ struct Loop : public VBehaviour<Loop>
 // 2. Setting up the region and its internal connections, creating a ext_ref to
 //    an internal node, attach a cown to that internal node, and freeze the
 //    region.
-// 3. Initialize global LD, and wait for some iterations.
-// 4. Sending a message to the cown in step 2. Should fail if the cown was
+// 3. Sending a message to the cown in step 2. Should fail if the cown was
 //    prematurely collected because the `has_ext_ref` bit confused the tracing
 //    algorithm.
-// 5. Clean up resource, and exit.
+// 4. Clean up resource, and exit.
 void run_test()
 {
   auto& alloc = ThreadAlloc::get();
