@@ -97,9 +97,9 @@ namespace verona::rt
     template<typename T, bool predicate(LocalEpoch* p, T t)>
     static bool forall(T t);
 
-    void add_to_delete_list(Object* p)
+    void add_to_delete_list(void* p)
     {
-      delete_list.enqueue((InnerNode*)&(p->get_header()));
+      delete_list.enqueue((InnerNode*)p);
       (*get_unusable(2))++;
       (*get_pressure(2))++;
       debug_check_count();
@@ -454,7 +454,7 @@ namespace verona::rt
       return local_epoch->epoch;
     }
 
-    void delete_in_epoch(Object* object)
+    void delete_in_epoch(void* object)
     {
       local_epoch->add_to_delete_list(object);
     }

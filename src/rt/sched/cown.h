@@ -176,20 +176,25 @@ namespace verona::rt
 
     EnqueueLock enqueue_lock;
 
-    static constexpr Descriptor token_desc = {
-      vsizeof<Cown>, nullptr, nullptr, nullptr};
+    static const Descriptor* token_desc()
+    {
+      static constexpr Descriptor desc{vsizeof<Cown>, nullptr, nullptr, nullptr};
+      return &desc;
+    }
+
 
     static Cown* create_token_cown()
     {
-      auto p = ThreadAlloc::get().alloc<desc.size>();
-      auto o = Object::register_object(p, &token_desc);
+      auto desc = token_desc();
+      auto p = ThreadAlloc::get().alloc(desc->size);
+      auto o = Object::register_object(p, desc);
       auto a = new (o) Cown(false);
       return a;
     }
 
     void set_token_owning_core(Core<Cown>* owner)
     {
-      assert(get_descriptor() == &token_desc);
+      assert(get_descriptor() == token_desc());
       // Use region meta_data to point at the
       // owning scheduler thread for a token cown.
       init_next((Object*)owner);
@@ -197,7 +202,7 @@ namespace verona::rt
 
     Core<Cown>* get_token_owning_core()
     {
-      assert(get_descriptor() == &token_desc);
+      assert(get_descriptor() == token_desc());
       return (Core<Cown>*)(get_next());
     }
 
@@ -308,7 +313,7 @@ namespace verona::rt
           // TODO: We are waiting too long as this is inserting in the current
           // epoch, and not `epoch` which is all that is required.
           Epoch e(alloc);
-          e.delete_in_epoch(this);
+          e.delete_in_epoch(this->real_start());
         }
       }
     }
