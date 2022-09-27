@@ -264,7 +264,7 @@ struct RCown : public VCown<RCown<region_type>>
     if (reg_with_imm != nullptr)
       fields.push(reg_with_imm);
 
-    if(next != nullptr)
+    if (next != nullptr)
       fields.push(next);
   }
 };

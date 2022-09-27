@@ -185,7 +185,6 @@ namespace verona::rt
       return nonlocal;
     }
 
-
     void init(size_t count)
     {
       Logging::cout() << "Init runtime" << Logging::endl;
@@ -250,7 +249,7 @@ namespace verona::rt
       Object::reset_ids();
 #endif
       thread_count = 0;
-      
+
       Epoch::flush(ThreadAlloc::get());
       core_pool.clear();
     }

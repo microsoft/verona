@@ -184,7 +184,7 @@ namespace verona::rt
           continue;
         }
 
-        Logging::cout() << "Schedule cown " << cown  << Logging::endl;
+        Logging::cout() << "Schedule cown " << cown << Logging::endl;
 
         core->progress_counter++;
         core->last_worker = systematic_id;
@@ -230,8 +230,7 @@ namespace verona::rt
 
               if (!has_thread_bit(cown))
               {
-                Logging::cout()
-                  << "Reschedule cown " << cown << Logging::endl;
+                Logging::cout() << "Reschedule cown " << cown << Logging::endl;
               }
             }
           }
@@ -390,7 +389,7 @@ namespace verona::rt
       if (has_thread_bit(cown))
       {
         auto unmasked = clear_thread_bit(cown);
-        Core<T>* owning_core = unmasked->owning_core();
+        Core<T>* owning_core = unmasked->get_token_owning_core();
 
         if (owning_core == core)
         {

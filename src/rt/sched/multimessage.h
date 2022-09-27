@@ -94,7 +94,8 @@ namespace verona::rt
     static MultiMessage* make_message(Alloc& alloc, Body* body)
     {
       MultiMessage* m = make(alloc, body);
-      Logging::cout() << "MultiMessage " << m << " payload " << body << Logging::endl;
+      Logging::cout() << "MultiMessage " << m << " payload " << body
+                      << Logging::endl;
       return m;
     }
 

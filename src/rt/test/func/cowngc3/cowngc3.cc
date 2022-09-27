@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 /**
  * TODO LD: Not sure this makes sense anymore.
- * 
+ *
  * This examples is exploiting a complexity in the leak detector and
  * noticeboards.
  *
@@ -84,9 +84,9 @@ struct WantLD : public VBehaviour<WantLD>
 
   void f()
   {
-// TODO: LD
-//    Logging::cout() << "WantLD on " << c << std::endl;
-//    Scheduler::want_ld();
+    // TODO: LD
+    //    Logging::cout() << "WantLD on " << c << std::endl;
+    //    Scheduler::want_ld();
   }
 };
 

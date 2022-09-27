@@ -33,7 +33,7 @@ namespace verona::rt
   public:
     Core() : token_cown{T::create_token_cown()}, q{token_cown}
     {
-      token_cown->set_owning_core(this);
+      token_cown->set_token_owning_core(this);
     }
 
     ~Core() {}

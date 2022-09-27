@@ -24,7 +24,7 @@ void test_epoch()
     for (int n = 0; n < count; n++)
     {
       Epoch e(alloc);
-    //TODO REDO
+      // TODO REDO
       // obj = alloc.alloc(size);
       // e.delete_in_epoch(obj);
     }

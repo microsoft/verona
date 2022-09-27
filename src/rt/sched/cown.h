@@ -176,26 +176,28 @@ namespace verona::rt
 
     EnqueueLock enqueue_lock;
 
+    static constexpr Descriptor token_desc = {
+      vsizeof<Cown>, nullptr, nullptr, nullptr};
+
     static Cown* create_token_cown()
     {
-      static constexpr Descriptor desc = {
-        vsizeof<Cown>, nullptr, nullptr, nullptr};
       auto p = ThreadAlloc::get().alloc<desc.size>();
-      auto o = Object::register_object(p, &desc);
+      auto o = Object::register_object(p, &token_desc);
       auto a = new (o) Cown(false);
       return a;
     }
 
-    void set_owning_core(Core<Cown>* owner)
+    void set_token_owning_core(Core<Cown>* owner)
     {
-      // Hack need to find a better field for this.
+      assert(get_descriptor() == &token_desc);
+      // Use region meta_data to point at the
+      // owning scheduler thread for a token cown.
       init_next((Object*)owner);
     }
 
-    
-    Core<Cown>* owning_core()
+    Core<Cown>* get_token_owning_core()
     {
-      // TODO Check this is a token cown.
+      assert(get_descriptor() == &token_desc);
       return (Core<Cown>*)(get_next());
     }
 
@@ -286,7 +288,8 @@ namespace verona::rt
       {
         yield();
 
-        Logging::cout() << "Cown " << this << " no references left." << Logging::endl;
+        Logging::cout() << "Cown " << this << " no references left."
+                        << Logging::endl;
         auto epoch = epoch_when_popped;
         auto outdated =
           epoch == NO_EPOCH_SET || GlobalEpoch::is_outdated(epoch);
@@ -297,11 +300,13 @@ namespace verona::rt
         }
         else
         {
-          Logging::cout() << "Cown " << this << " defer dealloc" << Logging::endl;
-          // There could be an ABA problem if we reuse this cown as the epoch has not progressed enough
-          // We delay the deallocation until the epoch has progressed enough
-          // TODO: We are waiting too long as this is inserting in the current epoch, and not `epoch`
-          // which is all that is required.
+          Logging::cout() << "Cown " << this << " defer dealloc"
+                          << Logging::endl;
+          // There could be an ABA problem if we reuse this cown as the epoch
+          // has not progressed enough We delay the deallocation until the epoch
+          // has progressed enough
+          // TODO: We are waiting too long as this is inserting in the current
+          // epoch, and not `epoch` which is all that is required.
           Epoch e(alloc);
           e.delete_in_epoch(this);
         }

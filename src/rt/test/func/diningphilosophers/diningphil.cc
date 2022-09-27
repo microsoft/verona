@@ -82,8 +82,8 @@ struct Ponder : public VBehaviour<Ponder>
     Logging::cout() << "Philosopher " << p->id << " " << p << " pondering "
                     << p->to_eat << std::endl;
     eat_send(p);
-// TODO: LD
-//    Scheduler::want_ld();
+    // TODO: LD
+    //    Scheduler::want_ld();
   }
 };
 

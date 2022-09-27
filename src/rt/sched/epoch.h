@@ -178,7 +178,7 @@ namespace verona::rt
         {
           auto dn = (DecNode*)dec_list.dequeue();
           // Reestablish invariant.  The Immutable::release below
-          // can re-enter the Epoch structure so we need to ensure the 
+          // can re-enter the Epoch structure so we need to ensure the
           // invariant is re-established.
           (*cell)--;
           auto o = dn->o;
@@ -357,7 +357,8 @@ namespace verona::rt
 
         auto len = delete_list.length();
         if (sum != len)
-          Logging::cout() << "debug_check_cout: Unusable: " << sum << " list.length " << len << Logging::endl;
+          Logging::cout() << "debug_check_cout: Unusable: " << sum
+                          << " list.length " << len << Logging::endl;
 
         assert(sum == len);
       }
@@ -370,8 +371,9 @@ namespace verona::rt
         auto len = dec_list.length();
 
         if (sum != len)
-          Logging::cout() << "debug_check_cout: to_dec: " << sum << " list.length " << len << Logging::endl;
-        
+          Logging::cout() << "debug_check_cout: to_dec: " << sum
+                          << " list.length " << len << Logging::endl;
+
         assert(sum == dec_list.length());
       }
 #endif
