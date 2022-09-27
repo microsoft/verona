@@ -178,10 +178,10 @@ namespace verona::rt
 
     static const Descriptor* token_desc()
     {
-      static constexpr Descriptor desc{vsizeof<Cown>, nullptr, nullptr, nullptr};
+      static constexpr Descriptor desc{
+        vsizeof<Cown>, nullptr, nullptr, nullptr};
       return &desc;
     }
-
 
     static Cown* create_token_cown()
     {

@@ -731,7 +731,6 @@ namespace verona::rt
 
       size_t prev_rc = get_header().rc.fetch_sub(ONE_RC);
 
-
       if (prev_rc != DONE_RC)
         return false;
 
