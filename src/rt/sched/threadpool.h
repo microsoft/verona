@@ -78,7 +78,6 @@ namespace verona::rt
 
     bool fair = false;
 
-    // TODO remove counters
     ThreadState state;
 
     /// Pool of cores shared by the scheduler threads.
