@@ -120,6 +120,15 @@ namespace verona::cpp
     }
 
     /**
+     * Nullptr assignment for a cown.
+     */
+    cown_ptr& operator=(std::nullptr_t)
+    {
+      clear();
+      return *this;
+    }
+
+    /**
      * Move an existing cown ptr.  Does not create a new cown,
      * and is more efficient than copying, as it does not need
      * to perform reference count operations.
@@ -141,6 +150,26 @@ namespace verona::cpp
       allocated_cown = other.allocated_cown;
       other.allocated_cown = nullptr;
       return *this;
+    }
+
+    operator bool() const
+    {
+      return allocated_cown != nullptr;
+    }
+
+    bool operator==(const cown_ptr& other)
+    {
+      return allocated_cown == other.allocated_cown;
+    }
+
+    bool operator!=(const cown_ptr& other)
+    {
+      return !((*this) == other);
+    }
+
+    bool operator==(std::nullptr_t)
+    {
+      return allocated_cown == nullptr;
     }
 
     /**
@@ -212,6 +241,24 @@ namespace verona::cpp
       "encoding trick. If we hit this assertion, raise an issue explaining the "
       "use case.");
     return cown_ptr<T>(new ActualCown<T>(std::forward<Args>(ts)...));
+  }
+
+  template<typename T>
+  bool operator==(std::nullptr_t, const cown_ptr<T>& rhs)
+  {
+    return rhs == nullptr;
+  }
+
+  template<typename T>
+  bool operator!=(const cown_ptr<T>& lhs, std::nullptr_t)
+  {
+    return !(lhs == nullptr);
+  }
+
+  template<typename T>
+  bool operator!=(std::nullptr_t, const cown_ptr<T>& rhs)
+  {
+    return !(rhs == nullptr);
   }
 
   /**
