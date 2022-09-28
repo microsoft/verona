@@ -212,7 +212,7 @@ namespace verona::rt
     }
 
     /**
-     * Deals with the olded epoches worth of delayed operations for this thread.
+     * Deals with the old epoch's delayed operations for this thread.
      */
     void flush_old_epoch(Alloc& alloc)
     {
@@ -563,30 +563,20 @@ namespace verona::rt
     }
 
     /**
-     * Empties all the delayed operations for this thread. This does not wait
-     * until the epoch has been advanced, and should only be called when this is
-     * safe due to other synchronization, such as during teardown.
-     */
-    void flush_local()
-    {
-      for (int i = 0; i < 4; i++)
-        local_epoch->flush_old_epoch(alloc);
-    }
-
-    /**
      * Empties all the delayed operations. This does not wait until the epoch
      * has been advanced, and should only be called when this is safe due to
      * other synchronization, such as during teardown.
      */
     static void flush(Alloc& a)
     {
-      // This should only be called when no threads are using the epoch, for
-      // example when cleaning up before process termination.
       auto curr = LocalEpochPool::iterate();
 
       while (curr != nullptr)
       {
-        for (int i = 0; i < 4; i++)
+        // There are four epoch that can be cleared.
+        // A second pass is required because delayed decrefs can cause delayed
+        // deallocations to be inserted. So we clear each epoch twice.
+        for (int i = 0; i < 8; i++)
           curr->flush_old_epoch(a);
 
         curr = LocalEpochPool::iterate(curr);

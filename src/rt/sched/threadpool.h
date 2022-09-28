@@ -253,9 +253,7 @@ namespace verona::rt
       // ABA issues on the queue.  The runtime is in a consistent
       // state so no ABAs can exist anymore.
       Epoch::flush(ThreadAlloc::get());
-      // Second flush required for noticeboards.  The delayed decref could
-      // cause a delayed deallocation to be created.
-      Epoch::flush(ThreadAlloc::get());
+
       core_pool.clear();
     }
 
