@@ -222,8 +222,11 @@ namespace verona::rt
         auto usable = *cell;
 
         for (size_t n = 0; n < usable; n++)
-          alloc.dealloc(delete_list.dequeue());
-
+        {
+          auto d = delete_list.dequeue();
+          Logging::cout() << "Delayed delete on " << d << Logging::endl;
+          alloc.dealloc(d);
+        }
         *cell = 0;
 
         *get_pressure(0) = 0;
@@ -301,18 +304,21 @@ namespace verona::rt
     NOINLINE void rejoin_epoch(Alloc& a)
     {
       uint64_t old_epoch = get_epoch();
-      Logging::cout() << "Rejoining epoch " << old_epoch << Logging::endl;
       assert(old_epoch & EJECTED_BIT);
       assert(lock.debug_internal_held());
 
       // Clear the ejected bit
       old_epoch = old_epoch & ~EJECTED_BIT;
+      Logging::cout() << "Rejoining epoch " << old_epoch << Logging::endl;
+
+      // Read the global epoch
+      auto temp_epoch = GlobalEpoch::get();
 
       // Remove the ejected bit, this will prevent other threads from advancing
       // the epoch continualy.
       // Need to prevent subsequent load of global epoch occuring before this
       // store.
-      epoch.store(old_epoch, std::memory_order_seq_cst);
+      epoch.store(temp_epoch, std::memory_order_seq_cst);
 
       // Re-read the global epoch
       auto new_epoch = GlobalEpoch::get();
@@ -320,12 +326,12 @@ namespace verona::rt
       // At this point, we know that the
       //   new_epoch == GlobalEpoch::get()
       //   || new_epoch + 1 == GlobalEpoch::get()
-      //   || (old_epoch == new_epoch + 1)   (A)
-      // If old_epoch != new_epoch+1, then the global epoch can be advanced at
-      // most once from this point. However, in the highly unlikely case they
-      // are equal, then we need to retry the whole process.
+      //   || (temp_epoch == new_epoch + 1)   (A)
+      // If temp_epoch != new_epoch+1, then the global epoch can be advanced at
+      // most once from this point. However, this would require a 2^63 wrap
+      // around it in sequence of three instructions, so we can safely ignore
+      // it.
 
-      // Assuming we are not in case (A), we will retry if we hit this case
       // Publish we are in the latest epoch
       // Hence we are now in state 1 or 2 from the comment at the top of the
       // file.
@@ -339,16 +345,6 @@ namespace verona::rt
         flush_old_epoch(a);
         old_epoch = inc_epoch_by(old_epoch, 1);
       } while ((old_epoch != new_epoch) && (--max_steps > 0));
-
-      // Retry as we hit the extremely rare case (A).
-      // We never expect this to occur, as it requires a precise
-      // 63bit wrap around of the epoch counter, from when the thread
-      // was ejected.
-      if (old_epoch == inc_epoch_by(new_epoch, 1))
-      {
-        eject();
-        rejoin_epoch(a);
-      }
     }
 
     /**
@@ -389,7 +385,8 @@ namespace verona::rt
       {
         if (!in_epoch(o, e))
         {
-          Logging::cout() << "Ejecting other thread" << Logging::endl;
+          Logging::cout() << "Ejecting other thread: found" << o->get_epoch()
+                          << " requires " << e << Logging::endl;
           o->eject();
         }
 
@@ -592,6 +589,8 @@ namespace verona::rt
         // deallocations to be inserted. So we clear each epoch twice.
         for (int i = 0; i < 8; i++)
           curr->flush_old_epoch(a);
+
+        curr->eject();
 
         curr = LocalEpochPool::iterate(curr);
       }
