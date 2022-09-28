@@ -47,6 +47,9 @@ namespace verona::rt
       /// Used for debugging.
       size_t systematic_id;
 
+      /// Disables yielding.
+      bool no_yield = false;
+
       /// Used to sleep and wake the threads systematically.
       pal::SleepHandle sh;
 
@@ -238,9 +241,12 @@ namespace verona::rt
 
         assert(local_systematic != nullptr);
 
-        if (local_systematic->steps > 0 && guard())
+        if (
+          (local_systematic->no_yield || local_systematic->steps > 0) &&
+          guard())
         {
-          local_systematic->steps--;
+          if (!local_systematic->no_yield)
+            local_systematic->steps--;
           return;
         }
 
@@ -301,6 +307,33 @@ namespace verona::rt
 
         delete local_systematic;
         local_systematic = nullptr;
+      }
+    }
+
+    /**
+     * Stops the step counter from decreasing
+     *
+     * Used by tests to force a series of events to happen without interleaving.
+     */
+    static void disable_yield()
+    {
+      if constexpr (enabled)
+      {
+        assert(local_systematic->no_yield == false);
+        local_systematic->no_yield = true;
+      }
+    }
+
+    /**
+     * Restarts the step counter.
+     * Should be called after disable_yield to re-enable interleaving.
+     */
+    static void enable_yield()
+    {
+      if constexpr (enabled)
+      {
+        assert(local_systematic->no_yield == true);
+        local_systematic->no_yield = false;
       }
     }
 
