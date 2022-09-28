@@ -322,8 +322,8 @@ namespace verona::rt
       //   || new_epoch + 1 == GlobalEpoch::get()
       //   || (old_epoch == new_epoch + 1)   (A)
       // If old_epoch != new_epoch+1, then the global epoch can be advanced at
-      // most once from this point. However, in the highly unlikely case they are
-      // equal, then we need to retry the whole process.
+      // most once from this point. However, in the highly unlikely case they
+      // are equal, then we need to retry the whole process.
 
       // Assuming we are not in case (A), we will retry if we hit this case
       // Publish we are in the latest epoch
