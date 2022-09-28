@@ -120,6 +120,15 @@ namespace verona::cpp
     }
 
     /**
+     * Nullptr assignment for a cown.
+     */
+    cown_ptr& operator=(nullptr_t)
+    {
+      clear();
+      return *this;
+    }
+
+    /**
      * Move an existing cown ptr.  Does not create a new cown,
      * and is more efficient than copying, as it does not need
      * to perform reference count operations.
