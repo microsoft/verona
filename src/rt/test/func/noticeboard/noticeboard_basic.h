@@ -10,7 +10,7 @@
  *    2. Incref the value read
  * An interleaving between 1 and 2 that deallocates the read value
  * would be problematic.
- * 
+ *
  * This test should fail if the Epoch protection is removed from
  *   Noticeboard::peek
  * This is true for the commit that adds this comment.
@@ -34,8 +34,7 @@ namespace noticeboard_basic
 
     void f()
     {
-      Logging::cout() << "Ping on " << target
-                      << std::endl;
+      Logging::cout() << "Ping on " << target << std::endl;
     }
   };
 
@@ -114,8 +113,7 @@ namespace noticeboard_basic
 
       C* new_c = new (RegionType::Trace) C(1);
 
-      Logging::cout() << "Update DB Create C " << new_c
-                      << std::endl;
+      Logging::cout() << "Update DB Create C " << new_c << std::endl;
 
       freeze(new_c);
       db->box.update(alloc, new_c);
@@ -143,11 +141,9 @@ namespace noticeboard_basic
     {
       auto& alloc = ThreadAlloc::get();
 
-      Logging::cout() << "Peek"
-                      << std::endl;
+      Logging::cout() << "Peek" << std::endl;
       auto o = (C*)peeker->box->peek(alloc);
-      Logging::cout() << "Peeked " << o
-                      << std::endl;
+      Logging::cout() << "Peeked " << o << std::endl;
       // o goes out of scope
       Immutable::release(alloc, o);
     }
