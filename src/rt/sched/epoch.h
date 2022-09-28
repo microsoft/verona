@@ -310,7 +310,9 @@ namespace verona::rt
 
       // Remove the ejected bit, this will prevent other threads from advancing
       // the epoch continualy.
-      epoch.store(old_epoch & ~EJECTED_BIT, std::memory_order_acq_rel);
+      // Need to prevent subsequent load of global epoch occuring before this
+      // store.
+      epoch.store(old_epoch & ~EJECTED_BIT, std::memory_order_seq_cst);
 
       // Re-read the global epoch
       auto new_epoch = GlobalEpoch::get();
