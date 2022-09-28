@@ -122,7 +122,7 @@ namespace verona::cpp
     /**
      * Nullptr assignment for a cown.
      */
-    cown_ptr& operator=(nullptr_t)
+    cown_ptr& operator=(std::nullptr_t)
     {
       clear();
       return *this;
