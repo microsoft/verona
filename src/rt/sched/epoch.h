@@ -562,14 +562,34 @@ namespace verona::rt
     }
 
     /**
-     * Empties all the delayed operations. This does not wait until the epoch
-     * has been advanced, and should only be called when this is safe due to
-     * other synchronization, such as during teardown.
+     * Empties all the delayed operations for this thread. This does not wait
+     * until the epoch has been advanced, and should only be called when this is
+     * safe due to other synchronization, such as during teardown.
      */
     void flush_local()
     {
       for (int i = 0; i < 4; i++)
         local_epoch->flush_old_epoch(alloc);
+    }
+
+    /**
+     * Empties all the delayed operations. This does not wait until the epoch
+     * has been advanced, and should only be called when this is safe due to
+     * other synchronization, such as during teardown.
+     */
+    static void flush(Alloc& a)
+    {
+      // This should only be called when no threads are using the epoch, for
+      // example when cleaning up before process termination.
+      auto curr = LocalEpochPool::iterate();
+
+      while (curr != nullptr)
+    {
+      for (int i = 0; i < 4; i++)
+          curr->flush_old_epoch(a);
+
+        curr = LocalEpochPool::iterate(curr);
+      }
     }
   };
 } // namespace verona::rt
