@@ -1,6 +1,20 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-// TODO: LD revisit this test and try to get coverage of Epoch code.
+
+/**
+ * This test aims to cause a noticeboard peek to occur
+ * at the same time as an update. This is testing to check
+ * that the Epoch mechanism correctly protects the two steps
+ * of noticeboard peek:
+ *    1. Read the current value
+ *    2. Incref the value read
+ * An interleaving between 1 and 2 that deallocates the read value
+ * would be problematic.
+ * 
+ * This test should fail if the Epoch protection is removed from
+ *   Noticeboard::peek
+ * This is true for the commit that adds this comment.
+ */
 
 #include <test/harness.h>
 
@@ -20,7 +34,8 @@ namespace noticeboard_basic
 
     void f()
     {
-      Logging::cout() << "Ping on " << target << std::endl;
+      Logging::cout() << "Ping on " << target
+                      << std::endl;
     }
   };
 
@@ -65,11 +80,7 @@ namespace noticeboard_basic
   enum Phase
   {
     INIT,
-    WAITFORGC,
-    PEEK,
-    WAITFORCOLLECTION,
-    USEALIVE,
-    EXIT,
+    PEEK
   };
 
   struct Peeker : public VCown<Peeker>
@@ -78,9 +89,6 @@ namespace noticeboard_basic
     DB* db;
     Noticeboard<Object*>* box;
     Alive* alive = nullptr;
-    Phase state = INIT;
-    int wait_for_collection = 600;
-    int wait_for_gc_n = 100;
 
     Peeker(DB* db_, Noticeboard<Object*>* box_) : db(db_), box(box_) {}
 
@@ -103,21 +111,26 @@ namespace noticeboard_basic
     void f()
     {
       auto& alloc = ThreadAlloc::get();
-      if (db->n == 30)
+
+      C* new_c = new (RegionType::Trace) C(1);
+
+      Logging::cout() << "Update DB Create C " << new_c
+                      << std::endl;
+
+      freeze(new_c);
+      db->box.update(alloc, new_c);
+
+      // Try to trigger a rapid collection.
+      // Disable yield to avoid being preempted.
+      Systematic::disable_yield();
+      for (int i = 0; i < 100024; i++)
       {
-        C* new_c = new (RegionType::Trace) C(1);
-
-        Logging::cout() << "Update DB Create C " << new_c << std::endl;
-
-        freeze(new_c);
-        db->box.update(alloc, new_c);
+        Epoch e(alloc);
+        UNUSED(e);
       }
+      Systematic::enable_yield();
 
-      if (db->n != db->n_max)
-      {
-        db->n++;
-        Cown::schedule<UpdateDB>(db, db);
-      }
+      Logging::cout() << "Update DB Done" << std::endl;
     }
   };
 
@@ -129,76 +142,14 @@ namespace noticeboard_basic
     void f()
     {
       auto& alloc = ThreadAlloc::get();
-      (void)alloc;
-      switch (peeker->state)
-      {
-        case INIT:
-        {
-          Cown::schedule<UpdateDB>(peeker->db, peeker->db);
-          // TODO: LD
-          //          Scheduler::want_ld();
-          peeker->state = WAITFORGC;
-          Cown::schedule<ToPeek>(peeker, peeker);
-          return;
-        }
-        case WAITFORGC:
-        {
-          if (peeker->wait_for_gc_n == 0)
-          {
-            peeker->state = PEEK;
-          }
-          else
-          {
-            peeker->wait_for_gc_n--;
-          }
-          Cown::schedule<ToPeek>(peeker, peeker);
-          return;
-        }
-        case PEEK:
-        {
-          auto o = (C*)peeker->box->peek(alloc);
-          if (o->alive == nullptr)
-          {
-            peeker->state = EXIT;
-          }
-          else
-          {
-            check(o->alive);
-            Cown::acquire(o->alive);
-            peeker->alive = o->alive;
-            peeker->state = WAITFORCOLLECTION;
-          }
-          // o goes out of scope
-          Immutable::release(alloc, o);
-          Cown::schedule<ToPeek>(peeker, peeker);
-          return;
-        }
-        case WAITFORCOLLECTION:
-        {
-          if (peeker->wait_for_collection == 0)
-          {
-            peeker->state = USEALIVE;
-          }
-          else
-          {
-            peeker->wait_for_collection--;
-          }
-          Cown::schedule<ToPeek>(peeker, peeker);
-          return;
-        }
-        case USEALIVE:
-        {
-          Cown::schedule<Ping>(peeker->alive, peeker->alive);
-          peeker->state = EXIT;
-          Cown::schedule<ToPeek>(peeker, peeker);
-          return;
-        }
-        case EXIT:
-        {
-          return;
-        }
-      }
-      check(false);
+
+      Logging::cout() << "Peek"
+                      << std::endl;
+      auto o = (C*)peeker->box->peek(alloc);
+      Logging::cout() << "Peeked " << o
+                      << std::endl;
+      // o goes out of scope
+      Immutable::release(alloc, o);
     }
   };
 
@@ -228,6 +179,7 @@ namespace noticeboard_basic
     Logging::cout() << "Peeker " << peeker << std::endl;
 
     Cown::schedule<ToPeek>(peeker, peeker);
+    Cown::schedule<UpdateDB>(peeker->db, peeker->db);
     Cown::schedule<Ping>(alive, alive);
 
     Cown::release(alloc, alive);
