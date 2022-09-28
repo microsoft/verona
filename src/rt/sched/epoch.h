@@ -258,7 +258,7 @@ namespace verona::rt
     bool advance_is_sensible()
     {
 #ifdef USE_SYSTEMATIC_TESTING
-      return Systematic::coin(4);
+      return Systematic::coin(2);
 #else
       return *get_pressure(2) > 128;
 #endif
@@ -268,7 +268,7 @@ namespace verona::rt
     bool advance_is_urgent()
     {
 #ifdef USE_SYSTEMATIC_TESTING
-      return Systematic::coin(7);
+      return Systematic::coin(2);
 #else
       return *get_pressure(2) > 1024;
 #endif
