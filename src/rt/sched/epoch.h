@@ -341,7 +341,6 @@ namespace verona::rt
      */
     void eject()
     {
-      assert(lock.debug_held());
       epoch.store(get_epoch() | EJECTED_BIT, std::memory_order_release);
     }
 
