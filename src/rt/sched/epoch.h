@@ -270,23 +270,23 @@ namespace verona::rt
       epoch.store(get_epoch() | EJECTED_BIT, std::memory_order_release);
     }
 
-    static bool not_in_epoch(LocalEpoch* o, uint64_t e)
+    static bool in_epoch(LocalEpoch* o, uint64_t e)
     {
-      // This implicitly checks for EJECTED_BIT being set
       assert((e & EJECTED_BIT) == 0);
-      return e != o->get_epoch();
+      auto oe = o->get_epoch();
+      return (e == oe) || ((oe & EJECTED_BIT) == EJECTED_BIT);
     }
 
-    static bool not_in_epoch_try_eject(LocalEpoch* o, uint64_t e)
+    static bool in_epoch_try_eject(LocalEpoch* o, uint64_t e)
     {
-      if (not_in_epoch(o, e))
+      if (in_epoch(o, e))
       {
         return true;
       }
 
       if (o->lock.try_external_acquire())
       {
-        if (!not_in_epoch(o, e))
+        if (!in_epoch(o, e))
         {
           Logging::cout() << "Ejecting other thread" << Logging::endl;
           o->eject();
@@ -299,22 +299,22 @@ namespace verona::rt
       return false;
     }
 
-    void advance_global_epoch(bool try_eject)
+    void try_advance_global_epoch(bool try_eject)
     {
       // Client must have already locked the epoch
       assert(lock.debug_internal_held());
 
       uint64_t e = get_epoch();
-      uint64_t e_prev = (e - 1) & ~EJECTED_BIT;
 
+      // Check that all threads are in the same epoch as us
       if (try_eject)
       {
-        if (!forall<uint64_t, not_in_epoch_try_eject>(e_prev))
+        if (!forall<uint64_t, in_epoch_try_eject>(e))
           return;
       }
       else
       {
-        if (!forall<uint64_t, not_in_epoch>(e_prev))
+        if (!forall<uint64_t, in_epoch>(e))
           return;
       }
 
@@ -341,7 +341,7 @@ namespace verona::rt
 
       if (advance_is_sensible())
       {
-        advance_global_epoch(advance_is_urgent());
+        try_advance_global_epoch(advance_is_urgent());
         refresh(a);
       }
     }
