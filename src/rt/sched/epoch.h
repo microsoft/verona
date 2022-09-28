@@ -583,8 +583,8 @@ namespace verona::rt
       auto curr = LocalEpochPool::iterate();
 
       while (curr != nullptr)
-    {
-      for (int i = 0; i < 4; i++)
+      {
+        for (int i = 0; i < 4; i++)
           curr->flush_old_epoch(a);
 
         curr = LocalEpochPool::iterate(curr);
