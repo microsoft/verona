@@ -99,5 +99,15 @@ namespace verona::rt
     {
       return internal_lock.load(std::memory_order_relaxed) != 0;
     }
+
+    bool debug_external_held()
+    {
+      return external_lock.load(std::memory_order_relaxed);
+    }
+
+    bool debug_held()
+    {
+      return debug_internal_held() || debug_external_held();
+    }
   };
 } // namespace verona::rt
