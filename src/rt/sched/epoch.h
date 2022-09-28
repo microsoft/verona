@@ -585,9 +585,7 @@ namespace verona::rt
       while (curr != nullptr)
       {
         // There are four epoch that can be cleared.
-        // A second pass is required because delayed decrefs can cause delayed
-        // deallocations to be inserted. So we clear each epoch twice.
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 4; i++)
           curr->flush_old_epoch(a);
 
         curr->eject();
