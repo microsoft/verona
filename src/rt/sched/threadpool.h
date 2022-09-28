@@ -250,7 +250,6 @@ namespace verona::rt
 #endif
       thread_count = 0;
 
-      Epoch::flush(ThreadAlloc::get());
       core_pool.clear();
     }
 
