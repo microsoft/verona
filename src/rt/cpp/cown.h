@@ -158,6 +158,11 @@ namespace verona::cpp
       return !((*this) == other);
     }
 
+    bool operator==(std::nullptr_t)
+    {
+      return allocated_cown == nullptr;
+    }
+
     /**
      * Sets the cown_ptr to nullptr, and decrements the reference count
      * if it was not already nullptr.
@@ -227,12 +232,6 @@ namespace verona::cpp
       "encoding trick. If we hit this assertion, raise an issue explaining the "
       "use case.");
     return cown_ptr<T>(new ActualCown<T>(std::forward<Args>(ts)...));
-  }
-
-  template<typename T>
-  bool operator==(const cown_ptr<T>& lhs, std::nullptr_t)
-  {
-    return lhs.allocated_cown == nullptr;
   }
 
   template<typename T>
