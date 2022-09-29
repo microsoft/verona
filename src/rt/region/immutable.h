@@ -11,7 +11,6 @@ namespace verona::rt
   {
     // This is used only to break a dependency cycle.
     inline void release(Alloc& alloc, Cown* o);
-    inline void mark_for_scan(Object* o, EpochMark epoch);
   } // namespace cown
 
   class Immutable
@@ -32,49 +31,6 @@ namespace verona::rt
         return free(alloc, root);
 
       return 0;
-    }
-
-    static void mark_and_scan(Alloc& alloc, Object* o, EpochMark epoch)
-    {
-      assert(o->debug_is_immutable());
-      auto root = o->immutable();
-
-      ObjectStack dfs(alloc);
-      dfs.push(root);
-
-      while (!dfs.empty())
-      {
-        o = dfs.pop();
-
-        switch (o->get_class())
-        {
-          case Object::RC:
-          case Object::SCC_PTR:
-          {
-            Logging::cout()
-              << "Immutable Scan: reaches immutable: " << o << Logging::endl;
-            if (o->in_epoch(epoch))
-              continue;
-
-            // This may trace an immutable that has already been traced, as it
-            // races over the epoch mark. This is ok.
-            o->set_epoch(epoch);
-            o->trace(dfs);
-            break;
-          }
-
-          case Object::COWN:
-          {
-            Logging::cout()
-              << "Immutable Scan: reaches cown: " << o << Logging::endl;
-            cown::mark_for_scan(o, epoch);
-            break;
-          }
-
-          default:
-            abort();
-        }
-      }
     }
 
   private:

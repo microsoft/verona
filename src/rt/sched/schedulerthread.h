@@ -70,24 +70,12 @@ namespace verona::rt
 
     std::atomic<bool> scheduled_unscanned_cown = false;
 
-    EpochMark send_epoch = EpochMark::EPOCH_A;
-    EpochMark prev_epoch = EpochMark::EPOCH_B;
-
-    ThreadState::State state = ThreadState::State::NotInLD;
-
     /// The MessageBody of a running behaviour.
     typename T::MessageBody* message_body = nullptr;
 
     /// SchedulerList pointers.
     SchedulerThread<T>* prev = nullptr;
     SchedulerThread<T>* next = nullptr;
-
-    T* get_token_cown()
-    {
-      assert(core != nullptr);
-      assert(core->token_cown);
-      return core->token_cown;
-    }
 
     SchedulerThread()
     {
@@ -108,15 +96,8 @@ namespace verona::rt
 
     inline void schedule_fifo(T* a)
     {
-      Logging::cout() << "Enqueue cown " << a << " (" << a->get_epoch_mark()
-                      << ")" << Logging::endl;
+      Logging::cout() << "Enqueue cown " << a << Logging::endl;
 
-      // Scheduling on this thread, from this thread.
-      if (!a->scanned(send_epoch))
-      {
-        Logging::cout() << "Enqueue unscanned cown " << a << Logging::endl;
-        scheduled_unscanned_cown = true;
-      }
       assert(!a->queue.is_sleeping());
       core->q.enqueue(*alloc, a);
 
@@ -170,14 +151,6 @@ namespace verona::rt
 
       while (true)
       {
-        if (
-          (core->total_cowns < (core->free_cowns << 1))
-#ifdef USE_SYSTEMATIC_TESTING
-          || Systematic::coin()
-#endif
-        )
-          collect_cown_stubs();
-
         if (should_steal_for_fairness)
         {
           if (cown == nullptr)
@@ -211,39 +184,12 @@ namespace verona::rt
           continue;
         }
 
-        Logging::cout() << "Schedule cown " << cown << " ("
-                        << cown->get_epoch_mark() << ")" << Logging::endl;
+        Logging::cout() << "Schedule cown " << cown << Logging::endl;
 
-        // This prevents the LD protocol advancing if this cown has not been
-        // scanned. This catches various cases where we have stolen, or
-        // reschedule with the empty queue. We are effectively rescheduling, so
-        // check if unscanned. This seems a little agressive, but prevents the
-        // protocol advancing too quickly.
-        // TODO refactor this could be made more optimal if we only do this for
-        // stealing, and running on same cown as previous loop.
-        if (Scheduler::should_scan() && (cown->get_epoch_mark() != send_epoch))
-        {
-          Logging::cout() << "Unscanned cown next" << Logging::endl;
-          scheduled_unscanned_cown = true;
-        }
-
-        ld_protocol();
-
-        Logging::cout() << "Running cown " << cown << Logging::endl;
-
-        // Update progress counter on that core.
-        Core<T>* cown_core = cown->owning_core();
-        assert(core != nullptr);
-
-        // If the cown comes from another core, both core counts are
-        // incremented. This reflects both CPU utilization and queue progress.
-        if (cown_core != nullptr)
-          cown_core->progress_counter++;
-        if (cown_core != core)
-          core->progress_counter++;
+        core->progress_counter++;
         core->last_worker = systematic_id;
 
-        bool reschedule = cown->run(*alloc, state);
+        bool reschedule = cown->run(*alloc);
 
         if (reschedule)
         {
@@ -284,9 +230,7 @@ namespace verona::rt
 
               if (!has_thread_bit(cown))
               {
-                Logging::cout()
-                  << "Reschedule cown " << cown << " ("
-                  << cown->get_epoch_mark() << ")" << Logging::endl;
+                Logging::cout() << "Reschedule cown " << cown << Logging::endl;
               }
             }
           }
@@ -302,23 +246,16 @@ namespace verona::rt
 
       Logging::cout() << "Begin teardown (phase 1)" << Logging::endl;
 
-      if (core != nullptr)
-      {
-        core->collect(*alloc);
-      }
-
-      Logging::cout() << "End teardown (phase 1)" << Logging::endl;
-
+      // Flush any cowns that weren't collected due to potential
+      // ABA issues on the queue.  The runtime is in a consistent
+      // state so no ABAs can exist anymore.
       Epoch(ThreadAlloc::get()).flush_local();
+      // Second flush required for noticeboards.
+      Epoch(ThreadAlloc::get()).flush_local();
+
       Scheduler::get().enter_barrier();
 
-      Logging::cout() << "Begin teardown (phase 2)" << Logging::endl;
-
-      GlobalEpoch::advance();
-
-      collect_cown_stubs<true>();
-
-      Logging::cout() << "End teardown (phase 2)" << Logging::endl;
+      Logging::cout() << "End teardown (phase 1)" << Logging::endl;
 
       if (core != nullptr)
       {
@@ -330,6 +267,7 @@ namespace verona::rt
           core->q.destroy(*alloc);
         }
       }
+
       Systematic::finished_thread();
 
       // Reset the local thread pointer as this physical thread could be reused
@@ -363,13 +301,6 @@ namespace verona::rt
       return false;
     }
 
-    void dec_n_ld_tokens()
-    {
-      assert(n_ld_tokens == 1 || n_ld_tokens == 2);
-      Logging::cout() << "Reached LD token" << Logging::endl;
-      n_ld_tokens--;
-    }
-
     T* steal()
     {
       uint64_t tsc = Aal::tick();
@@ -383,9 +314,6 @@ namespace verona::rt
         {
           n_ld_tokens = 0;
         }
-
-        // Participate in the cown LD protocol.
-        ld_protocol();
 
         // Check if some other thread has pushed work on our queue.
         cown = core->q.dequeue(*alloc);
@@ -428,14 +356,10 @@ namespace verona::rt
         }
 #endif
 
-        // Enter sleep only if we aren't executing the leak detector currently.
-        if (state == ThreadState::NotInLD)
-        {
-          // We've been spinning looking for work for some time. While paused,
-          // our running flag may be set to false, in which case we terminate.
-          if (Scheduler::get().pause())
-            core->stats.pause();
-        }
+        // We've been spinning looking for work for some time. While paused,
+        // our running flag may be set to false, in which case we terminate.
+        if (Scheduler::get().pause())
+          core->stats.pause();
       }
 
       return nullptr;
@@ -455,7 +379,6 @@ namespace verona::rt
      * Some preliminaries required before we start processing messages
      *
      * - Check if this is the token, rather than a cown.
-     * - Register cown to scheduler thread if not already on one.
      *
      * This returns false, if this is a token, and true if it is real cown.
      **/
@@ -466,7 +389,7 @@ namespace verona::rt
       if (has_thread_bit(cown))
       {
         auto unmasked = clear_thread_bit(cown);
-        Core<T>* owning_core = unmasked->owning_core();
+        Core<T>* owning_core = unmasked->get_token_owning_core();
 
         if (owning_core == core)
         {
@@ -474,11 +397,6 @@ namespace verona::rt
           {
             Logging::cout() << "Should steal for fairness!" << Logging::endl;
             should_steal_for_fairness = true;
-          }
-
-          if (n_ld_tokens > 0)
-          {
-            dec_n_ld_tokens();
           }
 
           Logging::cout() << "Reached token" << Logging::endl;
@@ -494,280 +412,7 @@ namespace verona::rt
         return false;
       }
 
-      // Register this cown with the scheduler thread if it is not currently
-      // registered with a scheduler thread.
-      if (cown->owning_core() == nullptr)
-      {
-        Logging::cout() << "Bind cown to core: " << core << Logging::endl;
-        assert(core != nullptr);
-        cown->set_owning_core(core);
-        core->add_cown(cown);
-        core->total_cowns++;
-      }
-
       return true;
-    }
-
-    void want_ld()
-    {
-      if (state == ThreadState::NotInLD)
-      {
-        Logging::cout() << "==============================================="
-                        << Logging::endl;
-        Logging::cout() << "==============================================="
-                        << Logging::endl;
-        Logging::cout() << "==============================================="
-                        << Logging::endl;
-        Logging::cout() << "==============================================="
-                        << Logging::endl;
-
-        ld_state_change(ThreadState::WantLD);
-      }
-    }
-
-    bool ld_checkpoint_reached()
-    {
-      return n_ld_tokens == 0;
-    }
-
-    /**
-     * This function updates the current thread state in the cown collection
-     * protocol. This basically plays catch up with the global state, and can
-     * vote for new states.
-     **/
-    void ld_protocol()
-    {
-      // Set state to BelieveDone_Vote when we think we've finished scanning.
-      if ((state == ThreadState::AllInScan) && ld_checkpoint_reached())
-      {
-        Logging::cout() << "Scheduler unscanned flag: "
-                        << scheduled_unscanned_cown << Logging::endl;
-
-        if (!scheduled_unscanned_cown && Scheduler::no_inflight_messages())
-        {
-          ld_state_change(ThreadState::BelieveDone_Vote);
-        }
-        else
-        {
-          enter_scan();
-        }
-      }
-
-      bool first = true;
-
-      while (true)
-      {
-        ThreadState::State sprev = state;
-        // Next state can affect global thread pool state, so add to testing for
-        // systematic testing.
-        yield();
-        ThreadState::State snext = Scheduler::get().next_state(sprev);
-
-        // If we have a lost wake-up, then all threads can get stuck
-        // trying to perform a LD.
-        if (
-          sprev == ThreadState::PreScan && snext == ThreadState::PreScan &&
-          Scheduler::get().unpause())
-        {
-          core->stats.unpause();
-        }
-
-        if (snext == sprev)
-          return;
-        yield();
-
-        if (first)
-        {
-          first = false;
-          Logging::cout() << "LD protocol loop" << Logging::endl;
-        }
-
-        ld_state_change(snext);
-
-        // Actions taken when a state transition occurs.
-        switch (state)
-        {
-          case ThreadState::PreScan:
-          {
-            if (Scheduler::get().unpause())
-              core->stats.unpause();
-
-            enter_prescan();
-            return;
-          }
-
-          case ThreadState::Scan:
-          {
-            if (sprev != ThreadState::PreScan)
-              enter_prescan();
-            enter_scan();
-            return;
-          }
-
-          case ThreadState::AllInScan:
-          {
-            if (sprev == ThreadState::PreScan)
-              enter_scan();
-            return;
-          }
-
-          case ThreadState::BelieveDone:
-          {
-            if (scheduled_unscanned_cown)
-              ld_state_change(ThreadState::BelieveDone_Retract);
-            else
-              ld_state_change(ThreadState::BelieveDone_Confirm);
-            continue;
-          }
-
-          case ThreadState::ReallyDone_Confirm:
-          {
-            continue;
-          }
-
-          case ThreadState::Sweep:
-          {
-            collect_cowns();
-            continue;
-          }
-
-          default:
-          {
-            continue;
-          }
-        }
-      }
-    }
-
-    bool in_sweep_state()
-    {
-      return state == ThreadState::Sweep;
-    }
-
-    void ld_state_change(ThreadState::State snext)
-    {
-      Logging::cout() << "Scheduler state change: " << state << " -> " << snext
-                      << Logging::endl;
-      state = snext;
-    }
-
-    void enter_prescan()
-    {
-      // Save epoch for when we start scanning
-      prev_epoch = send_epoch;
-
-      // Set sending Epoch to EpochNone. As these new messages need to be
-      // counted to ensure all inflight work is processed before we complete
-      // scanning.
-      send_epoch = EpochMark::EPOCH_NONE;
-
-      Logging::cout() << "send_epoch (1): " << send_epoch << Logging::endl;
-    }
-
-    void enter_scan()
-    {
-      send_epoch = (prev_epoch == EpochMark::EPOCH_B) ? EpochMark::EPOCH_A :
-                                                        EpochMark::EPOCH_B;
-      Logging::cout() << "send_epoch (2): " << send_epoch << Logging::endl;
-
-      // Send empty messages to all cowns that can be LIFO scheduled.
-
-      assert(core != nullptr);
-      core->scan();
-      n_ld_tokens = 2;
-      scheduled_unscanned_cown = false;
-      Logging::cout() << "Enqueued LD check point" << Logging::endl;
-    }
-
-    void collect_cowns()
-    {
-      assert(core != nullptr);
-      core->try_collect(*alloc, send_epoch);
-    }
-
-    template<bool during_teardown = false>
-    void collect_cown_stubs()
-    {
-      // Cannot collect the cown state while another thread could be
-      // sweeping.  The other thread could be checking to see if it should
-      // issue a decref to the object that is part of the same collection,
-      // and thus cause a use-after-free.
-      switch (state)
-      {
-        case ThreadState::ReallyDone_Confirm:
-        case ThreadState::Finished:
-          return;
-
-        default:;
-      }
-
-      assert(core != nullptr);
-      T* _list = core->drain();
-      T** list = &_list;
-      T** p = &_list;
-      T* tail = nullptr;
-      assert(p != nullptr);
-      size_t removed_count = 0;
-      size_t count = 0;
-
-      while (*p != nullptr)
-      {
-        count++;
-        T* c = *p;
-        // Collect cown stubs when the weak count is zero.
-        if (c->weak_count == 0 || during_teardown)
-        {
-          if (c->weak_count != 0)
-          {
-            Logging::cout() << "Leaking cown " << c << Logging::endl;
-            if (Scheduler::get_detect_leaks())
-            {
-              *p = c->next;
-              continue;
-            }
-          }
-          Logging::cout() << "Stub collect cown " << c << Logging::endl;
-          // TODO: Investigate systematic testing coverage here.
-          auto epoch = c->epoch_when_popped;
-          auto outdated =
-            epoch == T::NO_EPOCH_SET || GlobalEpoch::is_outdated(epoch);
-          if (outdated)
-          {
-            removed_count++;
-            *p = c->next;
-            Logging::cout() << "Stub collected cown " << c << Logging::endl;
-            c->dealloc(*alloc);
-            continue;
-          }
-          else
-          {
-            if (!outdated)
-              Logging::cout()
-                << "Cown " << c << " not outdated." << Logging::endl;
-          }
-        }
-        tail = c;
-        p = &(c->next);
-      }
-
-      // Put the list back
-      if (*list != nullptr)
-      {
-        assert(tail != nullptr);
-        core->add_cowns(*list, tail);
-      }
-
-      assert(this->core != nullptr);
-      // TODO This will become false once we have multiple scheduler threads per
-      // core.
-      assert(this->core->total_cowns == count);
-      this->core->free_cowns -= removed_count;
-      this->core->total_cowns -= removed_count;
-
-      Logging::cout() << "Stub collected " << removed_count << " cowns"
-                      << " Free cowns " << this->core->free_cowns
-                      << " Total cowns " << this->core->total_cowns
-                      << Logging::endl;
     }
   };
 } // namespace verona::rt

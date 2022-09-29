@@ -264,8 +264,8 @@ struct RCown : public VCown<RCown<region_type>>
     if (reg_with_imm != nullptr)
       fields.push(reg_with_imm);
 
-    check(next != nullptr);
-    fields.push(next);
+    if (next != nullptr)
+      fields.push(next);
   }
 };
 
@@ -280,10 +280,6 @@ struct Pong : public VBehaviour<Pong>
     {
       for (int n = 0; n < 20; n++)
         Cown::schedule<Pong>(ccown->child, ccown->child);
-    }
-    else
-    {
-      Scheduler::want_ld();
     }
   }
 };
@@ -375,10 +371,17 @@ struct Ping : public VBehaviour<Ping<region_type>>
 
       rcown->forward--;
     }
+    else
+    {
+      assert(rcown == (RCown<region_type>*)rcown_first);
+      // Clear next pointer on final iteration.
+      Cown::release(ThreadAlloc::get(), rcown->next);
+      rcown->next = nullptr;
+    }
+
     if (rcown->next == (RCown<region_type>*)rcown_first)
     {
       Logging::cout() << "Loop " << rcown->forward << std::endl;
-      // Scheduler::want_ld();
     }
   }
 };

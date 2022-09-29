@@ -115,38 +115,6 @@ namespace verona::rt
     }
 
     /**
-     * Scan the region to find all cowns, following pointers to immutables and
-     * subregions. This is used to keep reachable cowns alive and prevent them
-     * from being collected by the leak detector.
-     **/
-    static void cown_scan(Alloc& alloc, Object* o, EpochMark epoch)
-    {
-      ObjectStack f(alloc);
-      ObjectStack recurse(alloc);
-      recurse.push(o);
-      while (!recurse.empty())
-      {
-        o = recurse.pop();
-        assert(o->debug_is_iso());
-        Logging::cout() << "Region Scan: scanning region: " << o
-                        << Logging::endl;
-        switch (Region::get_type(o->get_region()))
-        {
-          case RegionType::Trace:
-            Region::cown_scan_internal<RegionTrace>(
-              alloc, o, f, recurse, epoch);
-            break;
-          case RegionType::Arena:
-            Region::cown_scan_internal<RegionArena>(
-              alloc, o, f, recurse, epoch);
-            break;
-          default:
-            abort();
-        }
-      }
-    }
-
-    /**
      * Release and deallocate the region represented by Iso object `o`.
      *
      * As we discover Iso pointers to other regions, we add them to our
@@ -179,75 +147,6 @@ namespace verona::rt
     }
 
   private:
-    /**
-     * Trace the region's object graph, following external pointers to cowns,
-     * immutables, and subregions. Note that this will find all cowns reachable
-     * from *within* the region, which may include cowns not reachable from the
-     * object graph.
-     *
-     * Discovered subregions are added to the `recurse` worklist.
-     *
-     * We use the iterator to visit every object, and then trace to follow
-     * pointers to cowns, and immutables and subregions (which might contain
-     * pointers to cowns).
-     *
-     **/
-    template<class RegionType>
-    static void cown_scan_internal(
-      Alloc& alloc,
-      Object* o,
-      ObjectStack& f,
-      ObjectStack& recurse,
-      EpochMark epoch)
-    {
-      // First, iterate over all objects and trace them.
-      auto reg = RegionType::get(o);
-      for (auto b : *reg)
-      {
-        b->trace(f);
-      }
-
-      // Now process the pointers we traced.
-      while (!f.empty())
-      {
-        Object* p = f.pop();
-        switch (p->get_class())
-        {
-          case Object::UNMARKED:
-          case Object::MARKED:
-            break;
-
-          case Object::SCC_PTR:
-            p = p->immutable();
-            [[fallthrough]];
-          case Object::RC:
-            Logging::cout()
-              << "Region Scan: reaches immutable: " << p << Logging::endl;
-            Immutable::mark_and_scan(alloc, p, epoch);
-            break;
-
-          case Object::ISO:
-            if (o != p)
-            {
-              Logging::cout()
-                << "Region Scan: pushing subregion to worklist: " << p
-                << Logging::endl;
-              recurse.push(p);
-            }
-            break;
-
-          case Object::COWN:
-            Logging::cout()
-              << "Region Scan: reaches cown: " << p << Logging::endl;
-            cown::mark_for_scan(p, epoch);
-            break;
-
-          default:
-            assert(0);
-        }
-      }
-    }
-
     /**
      * Internal method for releasing and deallocating regions, that takes
      * a worklist (represented by `f` and `collect`).

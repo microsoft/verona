@@ -134,24 +134,7 @@ namespace verona::rt
       if (initialise)
       {
         auto& alloc = ThreadAlloc::get();
-        auto epoch = Scheduler::alloc_epoch();
-        set_epoch(epoch);
         queue.init(stub_msg(alloc));
-        CownThread* local = Scheduler::local();
-
-        if (local != nullptr)
-        {
-          if (local->core == nullptr)
-            abort();
-          set_owning_core(local->core);
-          local->core->add_cown(this);
-          local->core->total_cowns++;
-        }
-        else
-        {
-          set_owning_core(nullptr);
-          next = nullptr;
-        }
       }
     }
 
@@ -177,13 +160,6 @@ namespace verona::rt
     // Seven pointer overhead compared to an object.
     verona::rt::MPSCQ<MultiMessage> queue{};
 
-    // Used for garbage collection of cyclic cowns only.
-    // Uses the bottom bit to indicate the cown has been collected
-    // If the object is collected by the leak detector, we should not
-    // collect again when the weak reference count hits 0.
-    std::atomic<uintptr_t> core_status{0};
-    Cown* next{nullptr};
-
     /**
      * Cown's weak reference count.  This keeps the cown itself alive, but not
      * the data it can reach.  Weak reference can be promoted to strong, if a
@@ -200,41 +176,34 @@ namespace verona::rt
 
     EnqueueLock enqueue_lock;
 
+    static const Descriptor* token_desc()
+    {
+      static constexpr Descriptor desc{
+        vsizeof<Cown>, nullptr, nullptr, nullptr};
+      return &desc;
+    }
+
     static Cown* create_token_cown()
     {
-      static constexpr Descriptor desc = {
-        vsizeof<Cown>, nullptr, nullptr, nullptr};
-      auto p = ThreadAlloc::get().alloc<desc.size>();
-      auto o = Object::register_object(p, &desc);
+      auto desc = token_desc();
+      auto p = ThreadAlloc::get().alloc(desc->size);
+      auto o = Object::register_object(p, desc);
       auto a = new (o) Cown(false);
-
-      a->cown_mark_scanned();
       return a;
     }
 
-    static constexpr uintptr_t collected_mask = 1;
-    static constexpr uintptr_t thread_mask = ~collected_mask;
-
-    void set_owning_core(Core<Cown>* owner)
+    void set_token_owning_core(Core<Cown>* owner)
     {
-      core_status = (uintptr_t)owner;
+      assert(get_descriptor() == token_desc());
+      // Use region meta_data to point at the
+      // owning scheduler thread for a token cown.
+      init_next((Object*)owner);
     }
 
-    void mark_collected()
+    Core<Cown>* get_token_owning_core()
     {
-      core_status |= 1;
-    }
-
-    bool is_collected()
-    {
-      return (core_status.load(std::memory_order_relaxed) & collected_mask) !=
-        0;
-    }
-
-    Core<Cown>* owning_core()
-    {
-      return (
-        Core<Cown>*)(core_status.load(std::memory_order_relaxed) & thread_mask);
+      assert(get_descriptor() == token_desc());
+      return (Core<Cown>*)(get_next());
     }
 
   public:
@@ -310,38 +279,8 @@ namespace verona::rt
 
       Logging::cout() << "Cown " << o << " dealloc" << Logging::endl;
 
-      // During teardown don't recursively delete.
-      if (Scheduler::is_teardown_in_progress())
-      {
-        // If we call weak_release here, the object will be fully collected
-        // as the thread field may have been nulled during teardown.  Just
-        // remove weak count, so that we collect stub in teardown phase 2.
-        a->weak_count.fetch_sub(1);
-        return;
-      }
-
-      // During a sweep phase check is the target has not been marked
-      // and do not recursively delete if already found unreachable.
-      auto local = Scheduler::local();
-      if (local != nullptr && local->in_sweep_state())
-      {
-        if (!o->is_live(Scheduler::epoch()))
-        {
-          Logging::cout() << "Not performing recursive deallocation on: " << o
-                          << Logging::endl;
-          // The cown may have already been swept, just remove weak count, let
-          // sweeping/cown stub collection deal with the rest.
-          a->weak_count.fetch_sub(1);
-          return;
-        }
-      }
-
       // If last, then collect the cown body.
-      if (!a->is_collected())
-        // Queue_collect calls weak release.
-        a->queue_collect(alloc);
-      else
-        a->weak_release(alloc);
+      a->queue_collect(alloc);
     }
 
     /**
@@ -352,26 +291,30 @@ namespace verona::rt
       Logging::cout() << "Cown " << this << " weak release" << Logging::endl;
       if (weak_count.fetch_sub(1) == 1)
       {
-        auto* t = owning_core();
         yield();
-        if (!t)
+
+        Logging::cout() << "Cown " << this << " no references left."
+                        << Logging::endl;
+        auto epoch = epoch_when_popped;
+        auto outdated =
+          epoch == NO_EPOCH_SET || GlobalEpoch::is_outdated(epoch);
+        if (outdated)
         {
-          // Deallocate an unowned cown
-          Logging::cout()
-            << "Not allocated on a Verona thread, so deallocating: " << this
-            << Logging::endl;
-          assert(epoch_when_popped == NO_EPOCH_SET);
+          Logging::cout() << "Cown " << this << " dealloc" << Logging::endl;
           dealloc(alloc);
-          return;
         }
-        // Register that the epoch should be moved on
+        else
         {
+          Logging::cout() << "Cown " << this << " defer dealloc"
+                          << Logging::endl;
+          // There could be an ABA problem if we reuse this cown as the epoch
+          // has not progressed enough We delay the deallocation until the epoch
+          // has progressed enough
+          // TODO: We are waiting too long as this is inserting in the current
+          // epoch, and not `epoch` which is all that is required.
           Epoch e(alloc);
-          e.add_pressure();
+          e.delete_in_epoch(this->real_start());
         }
-        // Tell owning thread that it has a free cown to collect.
-        t->free_cowns++;
-        yield();
       }
     }
 
@@ -392,28 +335,6 @@ namespace verona::rt
     bool acquire_strong_from_weak()
     {
       return Object::acquire_strong_from_weak();
-    }
-
-    static void mark_for_scan(Object* o, EpochMark epoch)
-    {
-      Cown* cown = (Cown*)o;
-
-      if (cown->cown_marked_for_scan(epoch))
-      {
-        Logging::cout() << "Already marked " << cown << " ("
-                        << cown->get_epoch_mark() << ")" << Logging::endl;
-        return;
-      }
-
-      yield();
-
-      // This may mark for scan something that has already been scanned, due
-      // to racing over the epoch mark. This is ok.
-      cown->cown_mark_for_scan();
-
-      yield();
-
-      cown->reschedule();
     }
 
     void mark_notify()
@@ -449,67 +370,10 @@ namespace verona::rt
     }
 
   private:
-    bool in_epoch(EpochMark epoch)
-    {
-      bool result = Object::in_epoch(epoch);
-      yield();
-      return result;
-    }
-
     void dealloc(Alloc& alloc)
     {
       Object::dealloc(alloc);
       yield();
-    }
-
-    bool scanned(EpochMark epoch)
-    {
-      return in_epoch(epoch);
-    }
-
-    void scan(Alloc& alloc, EpochMark epoch)
-    {
-      // Scan our data for cown references.
-      if (!cown_scanned(epoch))
-      {
-        cown_mark_scanned();
-
-        ObjectStack f(alloc);
-        trace(f);
-        scan_stack(alloc, epoch, f);
-      }
-    }
-
-    static void scan_stack(Alloc& alloc, EpochMark epoch, ObjectStack& f)
-    {
-      while (!f.empty())
-      {
-        Object* o = f.pop();
-        switch (o->get_class())
-        {
-          case RegionMD::ISO:
-            Logging::cout()
-              << "Object Scan: reaches region: " << o << Logging::endl;
-            Region::cown_scan(alloc, o, epoch);
-            break;
-
-          case RegionMD::RC:
-          case RegionMD::SCC_PTR:
-            Logging::cout()
-              << "Object Scan: reaches immutable: " << o << Logging::endl;
-            Immutable::mark_and_scan(alloc, o, epoch);
-            break;
-
-          case RegionMD::COWN:
-            Logging::cout()
-              << "Object Scan: reaches cown " << o << Logging::endl;
-            Cown::mark_for_scan(o, epoch);
-            break;
-
-          default:
-            abort();
-        }
-      }
     }
 
     void cown_notified()
@@ -546,7 +410,7 @@ namespace verona::rt
      *     rescheduling. However, for fairness, it is better to reschedule in
      *     case the behaviour executes for a very long time.
      **/
-    static void fast_send(MultiMessage::Body* body, EpochMark epoch)
+    static void fast_send(MultiMessage::Body* body)
     {
       auto& alloc = ThreadAlloc::get();
       const auto last = body->count - 1;
@@ -568,7 +432,7 @@ namespace verona::rt
       size_t loop_end = body->count;
       for (size_t i = 0; i < loop_end; i++)
       {
-        auto m = MultiMessage::make_message(alloc, body, epoch);
+        auto m = MultiMessage::make_message(alloc, body);
         auto next = body->get_requests_array()[i].cown();
         Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
                         << ", index " << i << " loop end " << loop_end
@@ -652,24 +516,8 @@ namespace verona::rt
       MultiMessage::Body& body = *(m->get_body());
       Alloc& alloc = ThreadAlloc::get();
 
-      EpochMark e = m->get_epoch();
-
       Logging::cout() << "MultiMessage " << m << " acquired " << this
-                      << " epoch " << e << Logging::endl;
-
-      // If we are in should_scan, and we observe a message in this epoch,
-      // then all future messages must have been sent while in pre-scan or
-      // later. Thus any messages that weren't implicitly scanned on send,
-      // will be counted as inflight
-      if (Scheduler::should_scan() && e == Scheduler::local()->send_epoch)
-      {
-        // TODO: Investigate systematic testing coverage here.
-        if (get_epoch_mark() != Scheduler::local()->send_epoch)
-        {
-          scan(alloc, Scheduler::local()->send_epoch);
-          set_epoch_mark(Scheduler::local()->send_epoch);
-        }
-      }
+                      << Logging::endl;
 
       // Find this cown in the list of cowns to acquire
       Request* request = body.get_requests_array();
@@ -692,42 +540,6 @@ namespace verona::rt
       { // request->mode == AccessMode::WRITE
         if (body.exec_count_down.fetch_sub(1) > 1)
           return false;
-      }
-
-      if (e == EpochMark::EPOCH_NONE)
-      {
-        // decrement counter as it must have been incremented earlier for the
-        // message send
-        Scheduler::recv_inflight_message();
-      }
-
-      if (Scheduler::should_scan())
-      {
-        if (e != Scheduler::local()->send_epoch)
-        {
-          Logging::cout() << "Trace message: " << m << Logging::endl;
-
-          // Scan cowns for this message, as they may not have been scanned
-          // yet.
-          for (size_t i = 0; i < body.count; i++)
-          {
-            Logging::cout()
-              << "Scanning cown " << body.get_requests_array()[i].cown()
-              << Logging::endl;
-            body.get_requests_array()[i].cown()->scan(
-              alloc, Scheduler::local()->send_epoch);
-          }
-
-          // Scan closure
-          ObjectStack f(alloc);
-          body.get_behaviour().trace(f);
-          scan_stack(alloc, Scheduler::local()->send_epoch, f);
-        }
-        else
-        {
-          Logging::cout() << "Trace message not required: " << m << " (" << e
-                          << ")" << Logging::endl;
-        }
       }
 
       Scheduler::local()->message_body = &body;
@@ -857,21 +669,9 @@ namespace verona::rt
           Cown::acquire(sort[i].cown());
       }
 
-      // TODO what if this thread is external.
-      //  EPOCH_A okay as currently only sending externally, before we start
-      //  and thus its okay.
-      //  Need to use another value when we add pinned cowns.
-      auto sched = Scheduler::local();
-      auto epoch = sched == nullptr ? EpochMark::EPOCH_A : Scheduler::epoch();
-
-      if (epoch == EpochMark::EPOCH_NONE)
-      {
-        Scheduler::record_inflight_message();
-      }
-
       // Try to acquire as many cowns as possible without rescheduling,
       // starting from the beginning.
-      fast_send(body, epoch);
+      fast_send(body);
     }
 
     /**
@@ -891,7 +691,7 @@ namespace verona::rt
      * or false if it is part of a multi-message acquire.
      **/
 
-    bool run(Alloc& alloc, ThreadState::State)
+    bool run(Alloc& alloc)
     {
       auto until = queue.peek_back();
       yield(); // Reading global state in peek_back().
@@ -933,24 +733,6 @@ namespace verona::rt
 
         if (curr == nullptr)
         {
-          if (Scheduler::should_scan())
-          {
-            // We have hit null, and we should scan, then we know
-            // all future messages must have been sent while in at least
-            // pre-scan or have been counted.
-            this->scan(ThreadAlloc::get(), Scheduler::local()->send_epoch);
-            this->set_epoch_mark(Scheduler::local()->send_epoch);
-          }
-
-          // We are about to unschedule this cown, if another thread has
-          // marked this cown as scheduled for scan it will not have been
-          // able to reschedule it, but as this thread hasn't started
-          // scanning it will not have been scanned.  Ensure we can't miss it
-          // by keeping in scheduler queue until the prescan phase has
-          // finished.
-          if (Scheduler::in_prescan())
-            return true;
-
           // Reschedule if we have processed a message.
           // This is primarily an optimisation to keep busy cowns active cowns
           // around.
@@ -1002,42 +784,6 @@ namespace verona::rt
       return true;
     }
 
-    bool try_collect(Alloc& alloc, EpochMark epoch)
-    {
-      Logging::cout() << "try_collect: " << this << " (" << get_epoch_mark()
-                      << ")" << Logging::endl;
-
-      if (in_epoch(EpochMark::SCHEDULED_FOR_SCAN))
-      {
-        Logging::cout() << "Clearing SCHEDULED_FOR_SCAN state: " << this
-                        << Logging::endl;
-        // There is a race, when multiple threads may attempt to
-        // schedule a Cown for tracing.  In this case, we can
-        // get a stale descriptor mark. Update it here, for the
-        // next LD.
-        set_epoch_mark(epoch);
-        return false;
-      }
-
-      if (in_epoch(epoch))
-        return false;
-
-      // Check if the Cown is already collected.
-      if (!is_collected())
-      {
-        yield();
-        Logging::cout() << "Collecting (sweep) cown " << this << Logging::endl;
-        collect(alloc);
-      }
-
-      return true;
-    }
-
-    inline bool is_live(EpochMark send_epoch)
-    {
-      return in_epoch(EpochMark::SCHEDULED_FOR_SCAN) || in_epoch(send_epoch);
-    }
-
     /**
      * Called when strong reference count reaches one.
      * Uses thread_local state to deal with deep deallocation
@@ -1050,6 +796,8 @@ namespace verona::rt
       // If there is a already a queue, use it
       if (work_list != nullptr)
       {
+        // This is a recursive call, add to queue
+        // and return immediately.
         work_list->push(this);
         return;
       }
@@ -1076,13 +824,6 @@ namespace verona::rt
 
     void collect(Alloc& alloc)
     {
-      // If this was collected by leak detector, then don't double dealloc
-      // cown body, when the ref count drops.
-      if (is_collected())
-        return;
-
-      mark_collected();
-
 #ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
       flush_all(alloc);
 #endif
@@ -1093,6 +834,7 @@ namespace verona::rt
       // Sub-regions handled by code below.
       finalise(nullptr, dummy);
 
+      // TODO?
       // Release our data.
       ObjectStack f(alloc);
       trace(f);
@@ -1176,7 +918,7 @@ namespace verona::rt
      */
     static MultiMessage* stub_msg(Alloc& alloc)
     {
-      return MultiMessage::make_message(alloc, nullptr, EpochMark::EPOCH_NONE);
+      return MultiMessage::make_message(alloc, nullptr);
     }
   };
 
@@ -1185,11 +927,6 @@ namespace verona::rt
     inline void release(Alloc& alloc, Cown* o)
     {
       Cown::release(alloc, o);
-    }
-
-    inline void mark_for_scan(Object* o, EpochMark epoch)
-    {
-      Cown::mark_for_scan(o, epoch);
     }
   } // namespace cown
 } // namespace verona::rt

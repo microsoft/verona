@@ -84,43 +84,18 @@ namespace verona::rt
       return result;
     }
 
-    static MultiMessage* make(Alloc& alloc, EpochMark epoch, Body* body)
+    static MultiMessage* make(Alloc& alloc, Body* body)
     {
       auto msg = (MultiMessage*)alloc.alloc<sizeof(MultiMessage)>();
       msg->body = body;
-      msg->set_epoch(epoch);
       return msg;
     }
 
-    inline bool in_epoch(EpochMark e)
+    static MultiMessage* make_message(Alloc& alloc, Body* body)
     {
-      return get_epoch() == e;
-    }
-
-    inline EpochMark get_epoch()
-    {
-      return (EpochMark)((uintptr_t)body & Object::MARK_MASK);
-    }
-
-    inline void set_epoch(EpochMark e)
-    {
-      assert(
-        (e == EpochMark::EPOCH_NONE) || (e == EpochMark::EPOCH_A) ||
-        (e == EpochMark::EPOCH_B));
-
-      Logging::cout() << "MultiMessage epoch: " << this << " " << get_epoch()
-                      << " -> " << e << Logging::endl;
-
-      body = (Body*)((uintptr_t)get_body() | (size_t)e);
-
-      assert(get_epoch() == e);
-    }
-
-    static MultiMessage* make_message(Alloc& alloc, Body* body, EpochMark epoch)
-    {
-      MultiMessage* m = make(alloc, epoch, body);
-      Logging::cout() << "MultiMessage " << m << " payload " << body << " ("
-                      << epoch << ")" << Logging::endl;
+      MultiMessage* m = make(alloc, body);
+      Logging::cout() << "MultiMessage " << m << " payload " << body
+                      << Logging::endl;
       return m;
     }
 

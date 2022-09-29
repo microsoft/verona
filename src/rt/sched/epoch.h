@@ -177,16 +177,21 @@ namespace verona::rt
         for (size_t n = 0; n < usable; n++)
         {
           auto dn = (DecNode*)dec_list.dequeue();
+          // Reestablish invariant.  The Immutable::release below
+          // can re-enter the Epoch structure so we need to ensure the
+          // invariant is re-established.
+          (*cell)--;
           auto o = dn->o;
           alloc.dealloc<sizeof(DecNode)>(dn);
           Logging::cout() << "Delayed decref on " << o << Logging::endl;
           Immutable::release(alloc, o);
         }
-
-        *cell = 0;
       }
+      debug_check_count();
 
       index = (index + 1) & 3;
+
+      debug_check_count();
     }
 
     void add_pressure()
@@ -350,13 +355,24 @@ namespace verona::rt
         for (auto i : unusable)
           sum += i;
 
-        assert(sum == delete_list.length());
+        auto len = delete_list.length();
+        if (sum != len)
+          Logging::cout() << "debug_check_cout: Unusable: " << sum
+                          << " list.length " << len << Logging::endl;
+
+        assert(sum == len);
       }
       {
         size_t sum = 0;
 
         for (auto i : to_dec)
           sum += i;
+
+        auto len = dec_list.length();
+
+        if (sum != len)
+          Logging::cout() << "debug_check_cout: to_dec: " << sum
+                          << " list.length " << len << Logging::endl;
 
         assert(sum == dec_list.length());
       }

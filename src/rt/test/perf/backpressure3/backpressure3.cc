@@ -90,7 +90,8 @@ struct Sender : public VCown<Sender>
 
   void trace(ObjectStack& st) const
   {
-    st.push(receiver);
+    if (receiver != nullptr)
+      st.push(receiver);
   }
 };
 
@@ -107,7 +108,11 @@ struct Send : public VBehaviour<Send>
     if ((timer::now() - s->start) < s->duration)
       Cown::schedule<Send>(s, s);
     else
-      Scheduler::want_ld();
+    {
+      // Break cycle between sender and receiver.
+      Cown::release(ThreadAlloc::get(), s->receiver);
+      s->receiver = nullptr;
+    }
   }
 };
 
@@ -143,9 +148,9 @@ int main(int argc, char** argv)
     sender_set.push_back(new (alloc) Sender(duration, receiver));
   }
 
-  Cown::release(alloc, receiver);
   for (auto* s : sender_set)
-    Cown::schedule<Send>(s, s);
+    Cown::schedule<Send, NoTransfer>(s, s);
+  Cown::release(alloc, receiver);
 
   sched.run();
 

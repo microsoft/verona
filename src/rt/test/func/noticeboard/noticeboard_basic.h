@@ -1,5 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+// TODO: LD revisit this test and try to get coverage of Epoch code.
+
 #include <test/harness.h>
 
 namespace noticeboard_basic
@@ -133,7 +135,8 @@ namespace noticeboard_basic
         case INIT:
         {
           Cown::schedule<UpdateDB>(peeker->db, peeker->db);
-          Scheduler::want_ld();
+          // TODO: LD
+          //          Scheduler::want_ld();
           peeker->state = WAITFORGC;
           Cown::schedule<ToPeek>(peeker, peeker);
           return;
