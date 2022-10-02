@@ -2,6 +2,29 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+/**
+ * This file provides an Epoch based memory reclamation mechanism.
+ *
+ * There is a global epoch, and each thread has its own view of the local
+ * epoch. The local epoch can be in one of four states
+ *   1. Equal to the global epoch
+ *   2. One less that the global epoch
+ *   3. Ejected
+ *   4. Rejoining
+ * The global epoch can be advanced as long as there is no thread in state 2.
+ * When a thread is in a state 2, any other thread that wishes to advance
+ * the epoch must eject that thread. If a thread is using an Epoch it cannot be
+ * ejected, but if it is not using an Epoch then it may be ejected.
+ *
+ * The ejection mechanism is built on top of the Asymetric lock.  Holding the
+ * epoch, holds the `internal` side of a lock.  To eject a thread, the ejectee
+ * must hold the `external` side of the lock.
+ *
+ * To rejoin a thread must observe itself to be in state 1. That is set its
+ * local epoch to the global one, and then observe the global one has not
+ * changed. A rejoining thread may prevent a thread from advancing the epoch.
+ */
+
 #include "../ds/asymlock.h"
 #include "../ds/queue.h"
 #include "../test/logging.h"
@@ -11,6 +34,10 @@
 
 namespace verona::rt
 {
+  /**
+   * The representation of an epoch is a 63 bit counter.  If the top bit is
+   * set, then the epoch is considered ejected.
+   */
   static constexpr uint64_t EJECTED_BIT = 0x8000000000000000;
 
   static uint64_t inc_epoch_by(uint64_t epoch, uint64_t i)
@@ -19,6 +46,9 @@ namespace verona::rt
     return (epoch + i) & ~EJECTED_BIT;
   }
 
+  /**
+   * Represents the global state of the current epoch.
+   */
   class GlobalEpoch
   {
   private:
@@ -32,6 +62,7 @@ namespace verona::rt
 
     static void set(uint64_t e)
     {
+      Logging::cout() << "Global epoch set to " << e << std::endl;
       global_epoch().store(e, std::memory_order_release);
     }
 
@@ -54,23 +85,35 @@ namespace verona::rt
       }
       return true;
     }
-
-    static void advance()
-    {
-      auto global_e = get();
-      global_e = inc_epoch_by(global_e, 3);
-      set(global_e);
-    }
   };
 
+  /**
+   * Represents the thread local state of the thread's current epoch.
+   *
+   * This also stores the delayed operations that need to wait until the epoch
+   * has advanced sufficiently.
+   *
+   * There are two types of delayed operations:
+   *   1. Decrementing the reference count of an object
+   *   2. Deallocating an object.
+   */
   class LocalEpoch : public Pooled<LocalEpoch>
   {
   private:
+    /**
+     * Used to represent objects that are being delayed deallocations.
+     * The object itself is used to represent this. The object to be deallocated
+     * is used itself by casting to an InnerNode.
+     */
     struct InnerNode
     {
       InnerNode* next;
     };
 
+    /**
+     * Represents the node in the queue for objects that need an incref
+     * applying.
+     */
     struct DecNode
     {
       DecNode* next;
@@ -80,20 +123,38 @@ namespace verona::rt
     friend class ThreadLocalEpoch;
     friend class Epoch;
 
+    /// Ranges from 0 to 3 to represent the current epoch on
+    /// more finite structures.
+    uint8_t index = 0;
+
+    /// The queue of objects to be deallocated.
     Queue<InnerNode> delete_list;
-    Queue<InnerNode> dec_list;
+
+    /// Represents how many objects in each epoch of delete_list
+    size_t unusable[4] = {0, 0, 0, 0};
+
+    /// The queue of objects to be decremeneted.
+    Queue<DecNode> dec_list;
+
+    /// Represents how many objects in each epoch of dec_list
+    size_t to_dec[4] = {0, 0, 0, 0};
+
     // Providing heuristic for advancing the epoch. Currently, we only look at
     // one slot to determine if we should advance the epoch (see
     // advance_is_sensible()), but we keep the history here so that better
     // heuristic could be applied later.
     size_t pressure[4] = {0, 0, 0, 0};
-    size_t unusable[4] = {0, 0, 0, 0};
-    size_t to_dec[4] = {0, 0, 0, 0};
-    uint8_t index = 0;
 
+    /// The current epoch for this structure.  Initially set to EJECTED_BIT
+    /// so we hit a slow path initially.
     std::atomic<uint64_t> epoch = EJECTED_BIT;
+
+    /// Used to allow ejection from other threads.
     AsymmetricLock lock;
 
+    /// Used to check that all threads are in a particular state.
+    /// Forward reference due to requiring the LocalEpochPool to
+    /// find all LocalEpochs.
     template<typename T, bool predicate(LocalEpoch* p, T t)>
     static bool forall(T t);
 
@@ -109,32 +170,27 @@ namespace verona::rt
     {
       auto node = (DecNode*)alloc.alloc<sizeof(DecNode)>();
       node->o = p;
-      dec_list.enqueue((InnerNode*)node);
+      dec_list.enqueue(node);
       (*get_to_dec(2))++;
       debug_check_count();
     }
 
     inline void use_epoch(Alloc& a)
     {
-      lock.internal_acquire();
-
-      auto new_epoch = GlobalEpoch::get();
-      auto old_epoch = get_epoch();
-
-      if (old_epoch != new_epoch)
+      if (lock.internal_acquire())
       {
-        if (lock.internal_count() == 1)
-          use_epoch_rare(a, old_epoch, new_epoch);
+        auto new_epoch = GlobalEpoch::get();
+        auto old_epoch = get_epoch();
+
+        if (old_epoch != new_epoch)
+          use_epoch_rare(a, old_epoch);
       }
     }
 
     inline void release_epoch(Alloc& a)
     {
-      if (advance_is_sensible())
-      {
-        if (lock.internal_count() == 1)
-          release_epoch_rare(a);
-      }
+      if ((lock.internal_count() == 1) && (advance_is_sensible()))
+        release_epoch_rare(a);
 
       lock.internal_release();
     }
@@ -154,7 +210,10 @@ namespace verona::rt
       return &to_dec[(index + i) & 3];
     }
 
-    void advance_epoch(Alloc& alloc)
+    /**
+     * Deals with the old epoch's delayed operations for this thread.
+     */
+    void flush_old_epoch(Alloc& alloc)
     {
       debug_check_count();
 
@@ -163,8 +222,11 @@ namespace verona::rt
         auto usable = *cell;
 
         for (size_t n = 0; n < usable; n++)
-          alloc.dealloc(delete_list.dequeue());
-
+        {
+          auto d = delete_list.dequeue();
+          Logging::cout() << "Delayed delete on " << d << Logging::endl;
+          alloc.dealloc(d);
+        }
         *cell = 0;
 
         *get_pressure(0) = 0;
@@ -194,25 +256,21 @@ namespace verona::rt
       debug_check_count();
     }
 
-    void add_pressure()
-    {
-      (*get_pressure(2))++;
-    }
-
     // TODO: Add a proper heuristic here
     bool advance_is_sensible()
     {
 #ifdef USE_SYSTEMATIC_TESTING
-      return Systematic::coin(4);
+      return Systematic::coin(2);
 #else
       return *get_pressure(2) > 128;
 #endif
     }
 
+    // TODO: Add a proper heuristic here
     bool advance_is_urgent()
     {
 #ifdef USE_SYSTEMATIC_TESTING
-      return Systematic::coin(7);
+      return Systematic::coin(2);
 #else
       return *get_pressure(2) > 1024;
 #endif
@@ -223,72 +281,112 @@ namespace verona::rt
       return epoch.load(std::memory_order_acquire);
     }
 
-    NOINLINE
-    void refresh_rare(Alloc& a, uint64_t old_epoch, uint64_t new_epoch)
-    {
-      advance_epoch(a);
-
-      if (inc_epoch_by(old_epoch, 1) != new_epoch)
-      {
-        advance_epoch(a);
-
-        if (inc_epoch_by(old_epoch, 1) != new_epoch)
-        {
-          advance_epoch(a);
-        }
-      }
-
-      epoch.store(new_epoch, std::memory_order_release);
-    }
-
+    /**
+     * Used to advance the epoch to the current global epoch.
+     * Should only be called when the thread has not been ejected.
+     */
     inline void refresh(Alloc& a)
     {
       assert(lock.debug_internal_held());
 
       auto new_epoch = GlobalEpoch::get();
       auto old_epoch = get_epoch();
+      assert(!(old_epoch & EJECTED_BIT));
 
       if (old_epoch != new_epoch)
       {
-        refresh_rare(a, old_epoch, new_epoch);
+        assert(inc_epoch_by(old_epoch, 1) == new_epoch);
+        flush_old_epoch(a);
+        epoch.store(new_epoch, std::memory_order_release);
       }
     }
 
-    NOINLINE void rejoin_epoch(Alloc& a, uint64_t old_epoch)
+    NOINLINE void rejoin_epoch(Alloc& a)
     {
-      epoch.store(old_epoch & ~EJECTED_BIT, std::memory_order_release);
+      uint64_t old_epoch = get_epoch();
+      assert(old_epoch & EJECTED_BIT);
+      assert(lock.debug_internal_held());
 
+      // Clear the ejected bit
+      old_epoch = old_epoch & ~EJECTED_BIT;
+      Logging::cout() << "Rejoining epoch " << old_epoch << Logging::endl;
+
+      // Read the global epoch
+      auto temp_epoch = GlobalEpoch::get();
+
+      // Remove the ejected bit, this will prevent other threads from advancing
+      // the epoch continualy.
+      // Need to prevent subsequent load of global epoch occuring before this
+      // store.
+      epoch.store(temp_epoch, std::memory_order_seq_cst);
+
+      // Re-read the global epoch
+      auto new_epoch = GlobalEpoch::get();
+
+      // At this point, we know that the
+      //   new_epoch == GlobalEpoch::get()
+      //   || new_epoch + 1 == GlobalEpoch::get()
+      //   || (temp_epoch == new_epoch + 1)   (A)
+      // If temp_epoch != new_epoch+1, then the global epoch can be advanced at
+      // most once from this point. However, this would require a 2^63 wrap
+      // around it in sequence of three instructions, so we can safely ignore
+      // it.
+
+      // Publish we are in the latest epoch
+      // Hence we are now in state 1 or 2 from the comment at the top of the
+      // file.
+      epoch.store(new_epoch, std::memory_order_release);
+
+      // Flush all the old epochs, we might have been ejected for a while, so
+      // there could be more than one.
+      size_t max_steps = 4;
       do
       {
-        refresh(a);
-        // TODO FENCE?
-      } while (epoch.load(std::memory_order_relaxed) != GlobalEpoch::get());
+        flush_old_epoch(a);
+        old_epoch = inc_epoch_by(old_epoch, 1);
+      } while ((old_epoch != new_epoch) && (--max_steps > 0));
     }
 
+    /**
+     * Ejects the current thread from the epoch system.
+     * Must hold the lock (internal or external).
+     */
     void eject()
     {
       epoch.store(get_epoch() | EJECTED_BIT, std::memory_order_release);
     }
 
-    static bool not_in_epoch(LocalEpoch* o, uint64_t e)
+    /**
+     * Returns true if o is in the epoch e
+     * or if o has been ejected.
+     * otherwise returns false.
+     */
+    static bool in_epoch(LocalEpoch* o, uint64_t e)
     {
-      // This implicitly checks for EJECTED_BIT being set
       assert((e & EJECTED_BIT) == 0);
-      return e != o->get_epoch();
+      auto oe = o->get_epoch();
+      return (e == oe) || ((oe & EJECTED_BIT) == EJECTED_BIT);
     }
 
-    static bool not_in_epoch_try_eject(LocalEpoch* o, uint64_t e)
+    /**
+     * Returns true if o is in the epoch e
+     * or if o has been ejected.
+     *
+     * It will also attempt to eject o if it is not in the epoch e.
+     */
+    static bool in_epoch_try_eject(LocalEpoch* o, uint64_t e)
     {
-      if (not_in_epoch(o, e))
+      if (in_epoch(o, e))
       {
         return true;
       }
 
       if (o->lock.try_external_acquire())
       {
-        if (!not_in_epoch(o, e))
+        if (!in_epoch(o, e))
         {
-          Logging::cout() << "Ejecting other thread" << Logging::endl;
+          Logging::cout() << "Ejecting other thread: found" << o->get_epoch()
+                          << " requires " << e << Logging::endl;
           o->eject();
         }
 
@@ -299,39 +397,49 @@ namespace verona::rt
       return false;
     }
 
-    void advance_global_epoch(bool try_eject)
+    /**
+     * Try to advance the global epoch.
+     * If try_eject is true, then we will attempt to eject threads that are not
+     * in the latest epoch.
+     * Returns true if the global epoch was advanced.
+     */
+    bool try_advance_global_epoch(bool try_eject)
     {
       // Client must have already locked the epoch
       assert(lock.debug_internal_held());
 
       uint64_t e = get_epoch();
-      uint64_t e_prev = (e - 1) & ~EJECTED_BIT;
 
+      // Check that all threads are in the same epoch as us
       if (try_eject)
       {
-        if (!forall<uint64_t, not_in_epoch_try_eject>(e_prev))
-          return;
+        if (!forall<uint64_t, in_epoch_try_eject>(e))
+          return false;
       }
       else
       {
-        if (!forall<uint64_t, not_in_epoch>(e_prev))
-          return;
+        if (!forall<uint64_t, in_epoch>(e))
+          return false;
       }
 
+      // Advance the global epoch
+      // Note multiple threads could be attempting this write at the same time.
+      // But they will all be attempting to write the same value.
       auto next_epoch = inc_epoch_by(e, 1);
       assert((GlobalEpoch::get() == e) || GlobalEpoch::get() == e + 1);
       GlobalEpoch::set(next_epoch);
+      return true;
     }
 
-    void use_epoch_rare(Alloc& a, uint64_t old_epoch, uint64_t new_epoch)
+    void use_epoch_rare(Alloc& a, uint64_t old_epoch)
     {
       if ((old_epoch & EJECTED_BIT) == 0)
       {
-        refresh_rare(a, old_epoch, new_epoch);
+        refresh(a);
       }
       else
       {
-        rejoin_epoch(a, old_epoch);
+        rejoin_epoch(a);
       }
     }
 
@@ -341,8 +449,8 @@ namespace verona::rt
 
       if (advance_is_sensible())
       {
-        advance_global_epoch(advance_is_urgent());
-        refresh(a);
+        if (try_advance_global_epoch(advance_is_urgent()))
+          refresh(a);
       }
     }
 
@@ -398,6 +506,9 @@ namespace verona::rt
     return true;
   }
 
+  /**
+   * Handles lifetime management of the LocalEpoch structure.
+   */
   class ThreadLocalEpoch
   {
   private:
@@ -416,6 +527,9 @@ namespace verona::rt
     }
   };
 
+  /**
+   * RAII wrapper for an epoch.
+   */
   class Epoch
   {
   private:
@@ -444,11 +558,6 @@ namespace verona::rt
       yield();
     }
 
-    void add_pressure()
-    {
-      local_epoch->add_pressure();
-    }
-
     uint64_t get_local_epoch_epoch()
     {
       return local_epoch->epoch;
@@ -464,22 +573,22 @@ namespace verona::rt
       local_epoch->add_to_dec_list(alloc, object);
     }
 
-    void flush_local()
-    {
-      for (int i = 0; i < 4; i++)
-        local_epoch->advance_epoch(alloc);
-    }
-
+    /**
+     * Empties all the delayed operations. This does not wait until the epoch
+     * has been advanced, and should only be called when this is safe due to
+     * other synchronization, such as during teardown.
+     */
     static void flush(Alloc& a)
     {
-      // This should only be called when no threads are using the epoch, for
-      // example when cleaning up before process termination.
       auto curr = LocalEpochPool::iterate();
 
       while (curr != nullptr)
       {
+        // There are four epoch that can be cleared.
         for (int i = 0; i < 4; i++)
-          curr->advance_epoch(a);
+          curr->flush_old_epoch(a);
+
+        curr->eject();
 
         curr = LocalEpochPool::iterate(curr);
       }

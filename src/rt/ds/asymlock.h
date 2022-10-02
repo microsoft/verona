@@ -67,21 +67,26 @@ namespace verona::rt
       internal_lock.store(count - 1, std::memory_order_release);
     }
 
-    void internal_acquire()
+    /**
+     * Returns if the lock was freshly acquired.
+     */
+    bool internal_acquire()
     {
       uint64_t count = internal_lock.load(std::memory_order_relaxed);
       internal_lock.store(count + 1, std::memory_order_relaxed);
+
+      // Already hold the lock in the reentrant case
+      if (count > 0)
+        return false;
 
       Barrier::compiler();
 
       if (external_lock.load(std::memory_order_relaxed))
       {
-        // Already hold the lock in the reentrant case
-        if (count > 0)
-          return;
-
         internal_acquire_rare();
       }
+
+      return true;
     }
 
     uint64_t internal_count()
@@ -93,6 +98,16 @@ namespace verona::rt
     bool debug_internal_held()
     {
       return internal_lock.load(std::memory_order_relaxed) != 0;
+    }
+
+    bool debug_external_held()
+    {
+      return external_lock.load(std::memory_order_relaxed);
+    }
+
+    bool debug_held()
+    {
+      return debug_internal_held() || debug_external_held();
     }
   };
 } // namespace verona::rt

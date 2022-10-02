@@ -298,8 +298,12 @@ namespace verona::rt
         auto epoch = epoch_when_popped;
         auto outdated =
           epoch == NO_EPOCH_SET || GlobalEpoch::is_outdated(epoch);
-        if (outdated)
+        if (outdated || Scheduler::is_teardown_in_progress())
         {
+          // If teardown is in progress, then there are no ABA issues, so
+          // directly deallocate.
+          // TODO: Investigate if we could eject global epoch to avoid the
+          // additional test.
           Logging::cout() << "Cown " << this << " dealloc" << Logging::endl;
           dealloc(alloc);
         }

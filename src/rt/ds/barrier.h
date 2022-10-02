@@ -148,7 +148,13 @@ namespace verona::rt
   public:
     static inline void memory()
     {
+#ifdef USE_SYSTEMATIC_TESTING
+      // Systematic testing does not need memory barriers, as
+      // the code is being executed through interleavings.
+      compiler();
+#else
       FlushProcessWriteBuffers();
+#endif
     }
 
     static inline void compiler()

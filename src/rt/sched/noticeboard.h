@@ -56,19 +56,24 @@ namespace verona::rt
 #else
       if constexpr (!std::is_fundamental_v<T>)
       {
-        Epoch e(alloc);
         auto local_content = get<T>();
         Logging::cout() << "Updating noticeboard " << this << " old value "
                         << local_content << " new value " << new_o
                         << Logging::endl;
-        e.dec_in_epoch(local_content);
+
         put(new_o);
+        yield();
+        Epoch e(alloc);
+        e.dec_in_epoch(local_content);
+        Logging::cout() << "Dec ref from noticeboard update" << local_content
+                        << Logging::endl;
       }
       else
       {
         UNUSED(alloc);
         put(new_o);
       }
+      yield();
 #endif
     }
 
@@ -86,6 +91,7 @@ namespace verona::rt
           // only protect incref with epoch
           Epoch e(alloc);
           local_content = get<T>();
+          yield();
           Logging::cout() << "Inc ref from noticeboard peek" << local_content
                           << Logging::endl;
           local_content->incref();

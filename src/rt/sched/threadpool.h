@@ -249,8 +249,11 @@ namespace verona::rt
       Object::reset_ids();
 #endif
       thread_count = 0;
-
+      // Flush any cowns that weren't collected due to potential
+      // ABA issues on the queue.  The runtime is in a consistent
+      // state so no ABAs can exist anymore.
       Epoch::flush(ThreadAlloc::get());
+
       core_pool.clear();
     }
 

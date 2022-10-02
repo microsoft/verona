@@ -244,19 +244,6 @@ namespace verona::rt
         yield();
       }
 
-      Logging::cout() << "Begin teardown (phase 1)" << Logging::endl;
-
-      // Flush any cowns that weren't collected due to potential
-      // ABA issues on the queue.  The runtime is in a consistent
-      // state so no ABAs can exist anymore.
-      Epoch(ThreadAlloc::get()).flush_local();
-      // Second flush required for noticeboards.
-      Epoch(ThreadAlloc::get()).flush_local();
-
-      Scheduler::get().enter_barrier();
-
-      Logging::cout() << "End teardown (phase 1)" << Logging::endl;
-
       if (core != nullptr)
       {
         auto val = core->servicing_threads.fetch_sub(1);
