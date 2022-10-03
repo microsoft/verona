@@ -327,7 +327,7 @@ namespace verona::rt
         // Re-read the global epoch
         new_epoch = GlobalEpoch::get();
 
-        // At this point, we know that the
+        // At this point, we know that
         //   new_epoch == GlobalEpoch::get()
         //   || new_epoch + 1 == GlobalEpoch::get()
         //   || (guessed_epoch == new_epoch + 1)   (A)
