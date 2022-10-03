@@ -320,26 +320,27 @@ namespace verona::rt
       // store.
       epoch.store(new_epoch, std::memory_order_seq_cst);
 
-    retry:
-      auto guessed_epoch = new_epoch;
-      // Re-read the global epoch
-      new_epoch = GlobalEpoch::get();
+      uint64_t guessed_epoch;
+      do
+      {
+        guessed_epoch = new_epoch;
+        // Re-read the global epoch
+        new_epoch = GlobalEpoch::get();
 
-      // At this point, we know that the
-      //   new_epoch == GlobalEpoch::get()
-      //   || new_epoch + 1 == GlobalEpoch::get()
-      //   || (guessed_epoch == new_epoch + 1)   (A)
-      // If guessed_epoch != new_epoch+1, then the global epoch can be
-      // advanced at most once from this point. For the (A) case, this would
-      // require a 2^63 wrap around it in sequence of three instructions.
+        // At this point, we know that the
+        //   new_epoch == GlobalEpoch::get()
+        //   || new_epoch + 1 == GlobalEpoch::get()
+        //   || (guessed_epoch == new_epoch + 1)   (A)
+        // If guessed_epoch != new_epoch+1, then the global epoch can be
+        // advanced at most once from this point. For the (A) case, this would
+        // require a 2^63 wrap around it in sequence of three instructions.
 
-      // Publish we are in the latest epoch
-      epoch.store(new_epoch, std::memory_order_seq_cst);
+        // Publish we are in the latest epoch
+        epoch.store(new_epoch, std::memory_order_seq_cst);
 
-      // Remove highly unlikely case (A) from above
-      // by retrying.
-      if (guessed_epoch == inc_epoch_by(new_epoch, 1))
-        goto retry;
+        // Remove highly unlikely case (A) from above
+        // by retrying.
+      } while (guessed_epoch == inc_epoch_by(new_epoch, 1));
 
       // Hence we are now in state 1 or 2 from the comment at the top of the
       // file.
