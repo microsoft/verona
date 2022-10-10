@@ -18,31 +18,46 @@ namespace langkit
     friend class PassDef;
 
   private:
+    Node in_node;
     std::map<Token, NodeRange> captures;
-    std::map<Token, Location> defaults;
+    std::map<Token, Node> defaults;
     std::map<Location, Node> bindings;
     std::vector<std::pair<Node, Node>> includes;
 
   public:
-    Match() = default;
+    Match(Node in_node) : in_node(in_node) {}
+
+    Location fresh()
+    {
+      return in_node->fresh();
+    }
+
+    Location unique()
+    {
+      return in_node->unique();
+    }
 
     NodeRange& operator[](const Token& token)
     {
       return captures[token];
     }
 
-    void def(const Token& token, const Location& loc)
+    void def(const Token& token, Node node)
     {
-      defaults[token] = loc;
+      defaults[token] = node;
     }
 
     Node operator()(const Token& token)
     {
       auto it = captures.find(token);
-      if (it == captures.end())
-        return {};
+      if ((it != captures.end()) && *it->second.first)
+        return *it->second.first;
 
-      return *it->second.first;
+      auto it2 = defaults.find(token);
+      if (it2 != defaults.end())
+        return it2->second;
+
+      return {};
     }
 
     Node operator()(LocBinding binding)
@@ -53,7 +68,12 @@ namespace langkit
 
     Node operator()(Binding binding)
     {
-      bindings[bind_location(binding.first)] = binding.second;
+      auto node = (*this)(binding.first);
+
+      if (!node)
+        throw std::runtime_error("Binding to undefined node");
+
+      bindings[node->location()] = binding.second;
       return binding.second;
     }
 
@@ -66,30 +86,11 @@ namespace langkit
     void operator+=(const Match& that)
     {
       captures.insert(that.captures.begin(), that.captures.end());
-      bindings.insert(that.bindings.begin(), that.bindings.end());
       defaults.insert(that.defaults.begin(), that.defaults.end());
-    }
-
-    void clear()
-    {
-      captures.clear();
-      bindings.clear();
-      defaults.clear();
+      bindings.insert(that.bindings.begin(), that.bindings.end());
     }
 
   private:
-    const Location& bind_location(const Token& token)
-    {
-      auto range = captures[token];
-
-      if (range.first == range.second)
-        return defaults[token];
-      else if ((range.first + 1) != range.second)
-        throw std::runtime_error("Can only bind to a single node");
-      else
-        return (*range.first)->location();
-    }
-
     void bind()
     {
       for (auto& [loc, node] : bindings)
@@ -433,6 +434,38 @@ namespace langkit
       }
     };
 
+    using ActionFn = std::function<bool(const NodeRange&)>;
+
+    class Action : public PatternDef
+    {
+    private:
+      ActionFn action;
+      PatternPtr pattern;
+
+    public:
+      Action(ActionFn action, PatternPtr pattern)
+      : action(action), pattern(pattern)
+      {}
+
+      bool match(NodeIt& it, NodeIt end, Match& match) const override
+      {
+        auto begin = it;
+        auto match2 = match;
+
+        if (!pattern->match(it, end, match2))
+          return false;
+
+        if (!action({begin, it}))
+        {
+          it = begin;
+          return false;
+        }
+
+        match += match2;
+        return true;
+      }
+    };
+
     class Pattern;
 
     template<typename T>
@@ -452,6 +485,11 @@ namespace langkit
       bool match(NodeIt& it, NodeIt end, Match& match) const
       {
         return pattern->match(it, end, match);
+      }
+
+      Pattern operator()(ActionFn action) const
+      {
+        return {std::make_shared<Action>(action, pattern)};
       }
 
       Pattern operator[](const Token& name) const
@@ -596,6 +634,11 @@ namespace langkit
   inline Node operator^(const Token& type, Location loc)
   {
     return NodeDef::create(type, loc);
+  }
+
+  inline Node operator^(const Token& type, const std::string& text)
+  {
+    return NodeDef::create(type, Location(text));
   }
 
   inline Node clone(Node node)

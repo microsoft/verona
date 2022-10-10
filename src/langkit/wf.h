@@ -2,14 +2,40 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include "../../../external/snmalloc/src/test/xoroshiro.h"
 #include "ast.h"
 
 #include <tuple>
+
+/* Notes on how to use the Well-formedness checker:
+ *
+ * If a pass redefines the shape of a node, it must also wrap any old instances
+ * of that node in an Error node. Otherwise, the QuickCheck will blame that
+ * pass for being ill-formed.
+ */
 
 namespace langkit
 {
   namespace wf
   {
+    struct Gen
+    {
+      using Rand = xoroshiro::p128r32;
+      using Seed = uint64_t;
+      using Result = uint32_t;
+
+      Rand rand;
+      size_t max_depth;
+      std::set<Token> nonterminals;
+
+      Gen(Seed seed, uint max_depth) : rand(seed), max_depth(max_depth) {}
+
+      Result next()
+      {
+        return rand.next();
+      }
+    };
+
     template<size_t N>
     struct Choice
     {
@@ -17,6 +43,9 @@ namespace langkit
 
       bool check(Node node, std::ostream& out) const
       {
+        if (node->type() == Error)
+          return true;
+
         auto ok = false;
 
         for (auto& type : types)
@@ -42,7 +71,7 @@ namespace langkit
             if (n <= (N - 1))
               out << ", ";
             if (n == (N - 1))
-              out << " or ";
+              out << "or ";
           }
 
           out << std::endl << node->location().str() << std::endl;
@@ -51,13 +80,35 @@ namespace langkit
         return ok;
       }
 
-      template<typename WF, typename Rand>
-      void gen(const WF& wf, Rand& rand, Node node)
+      template<typename WF>
+      void gen(const WF& wf, Gen& g, size_t depth, Node node) const
       {
-        auto i = rand.next() % N;
-        auto child = NodeDef::create(types[i]);
+        Token type;
+
+        if (depth < g.max_depth)
+        {
+          type = types[g.next() % N];
+        }
+        if (depth >= g.max_depth)
+        {
+          std::vector<Token> filtered;
+
+          for (size_t i = 0; i < N; ++i)
+          {
+            auto find = g.nonterminals.find(types[i]);
+            if (find == g.nonterminals.end())
+              filtered.push_back(types[i]);
+          }
+
+          if (filtered.size() == 0)
+            type = types[g.next() % N];
+          else
+            type = filtered.at(g.next() % filtered.size());
+        }
+
+        auto child = NodeDef::create(type, node->unique());
         node->push_back(child);
-        wf.gen(rand, child);
+        wf.gen_i(g, depth + 1, child);
       }
     };
 
@@ -67,7 +118,23 @@ namespace langkit
     template<size_t N>
     struct Sequence : SequenceBase
     {
+      size_t minlen;
       Choice<N> types;
+
+      consteval Sequence(const Choice<N>& types) : types(types) {}
+      consteval Sequence(size_t minlen, const Choice<N>& types)
+      : minlen(minlen), types(types)
+      {}
+
+      consteval auto operator[](size_t minlen) const
+      {
+        return Sequence(minlen, types);
+      }
+
+      constexpr bool terminal() const
+      {
+        return false;
+      }
 
       template<typename WF>
       bool check(const WF& wf, Node node, std::ostream& out) const
@@ -77,18 +144,25 @@ namespace langkit
         for (auto& child : *node)
           ok = types.check(child, out) && wf.check(child, out) && ok;
 
-        return ok;
+        return ok && (node->size() >= minlen);
       }
 
-      template<typename WF, typename Rand, size_t LO = 1, size_t HI = 10>
-      void gen(const WF& wf, Rand& rand, Node node) const
+      template<typename WF>
+      void gen(const WF& wf, Gen& g, size_t depth, Node node) const
       {
-        auto i = (rand.next() % (HI - LO)) + LO;
+        for (auto i = 0; i < minlen; ++i)
+          types.gen(wf, g, depth, node);
 
-        for (auto j = 0; j < i; ++j)
-          types.gen(wf, rand, node);
+        while (g.next() % 2)
+          types.gen(wf, g, depth, node);
       }
     };
+
+    template<size_t N>
+    Sequence(const Choice<N>& types) -> Sequence<N>;
+
+    template<size_t N>
+    Sequence(size_t minlen, const Choice<N>& types) -> Sequence<N>;
 
     struct FieldBase
     {};
@@ -128,6 +202,11 @@ namespace langkit
       consteval Fields(const Fields<Ts2...>& fields, const Token& binding)
       : fields(fields.fields), binding(binding)
       {}
+
+      constexpr bool terminal() const
+      {
+        return sizeof...(Ts) == 0;
+      }
 
       template<typename WF>
       bool check(const WF& wf, Node node, std::ostream& out) const
@@ -170,7 +249,7 @@ namespace langkit
         }
         else
         {
-          auto field = std::get<I>(fields);
+          auto& field = std::get<I>(fields);
           ok = field.types.check(*child, out) && wf.check(*child, out) && ok;
 
           if ((binding != Invalid) && (field.name == binding))
@@ -192,20 +271,24 @@ namespace langkit
         }
       }
 
-      template<typename WF, typename Rand>
-      void gen(const WF& wf, Rand& rand, Node node) const
+      template<typename WF>
+      void gen(const WF& wf, Gen& g, size_t depth, Node node) const
       {
-        gen_field<0>(wf, rand, node);
+        gen_field<0>(wf, g, depth, node);
       }
 
-      template<size_t I, typename WF, typename Rand>
-      void gen_field(const WF& wf, Rand& rand, Node node) const
+      template<size_t I, typename WF>
+      void gen_field(const WF& wf, Gen& g, size_t depth, Node node) const
       {
         if constexpr (I < sizeof...(Ts))
         {
-          auto field = std::get<I>(fields);
-          field.types.gen(wf, rand, node);
-          gen_field<I + 1>(wf, rand, node);
+          auto& field = std::get<I>(fields);
+          field.types.gen(wf, g, depth, node);
+
+          if (binding == field.name)
+            node->bind(node->back()->location());
+
+          gen_field<I + 1>(wf, g, depth, node);
         }
       }
     };
@@ -230,7 +313,7 @@ namespace langkit
     {
       static_assert(
         std::is_base_of_v<FieldsBase, T> || std::is_base_of_v<SequenceBase, T>,
-        "Not a Field or Sequence");
+        "Not Fields or a Sequence");
 
       Token type;
       T shape;
@@ -243,6 +326,17 @@ namespace langkit
 
     struct WellformedBase
     {};
+
+    struct WellformedF
+    {
+      std::function<bool(Node, std::ostream&)> check;
+      std::function<Node(Gen::Seed, size_t)> gen;
+
+      operator bool() const
+      {
+        return (check != nullptr) && (gen != nullptr);
+      }
+    };
 
     template<typename... Ts>
     struct Wellformed : WellformedBase
@@ -265,53 +359,89 @@ namespace langkit
       : shapes(std::tuple_cat(wf1.shapes, wf2.shapes))
       {}
 
-      template<size_t I = 0>
       bool check(Node node, std::ostream& out) const
       {
+        if (node->type() == Error)
+          return true;
+
+        return check_i(node, out);
+      }
+
+      template<size_t I = sizeof...(Ts) - 1>
+      bool check_i(Node node, std::ostream& out) const
+      {
+        // Check from the end, such that composition overrides any previous
+        // definition of a shape.
         if constexpr (I >= sizeof...(Ts))
         {
-          out << node->location().origin_linecol() << "unexpected "
+          // If the shape isn't present, assume it should be empty.
+          if (node->empty())
+            return true;
+
+          // Too many child nodes.
+          out << node->location().origin_linecol() << "too many child nodes in "
               << node->type().str() << std::endl
               << node->location().str() << std::endl;
           return false;
         }
         else
         {
-          auto shape = std::get<I>(shapes);
+          auto& shape = std::get<I>(shapes);
 
           if (node->type() == shape.type)
             return shape.shape.check(*this, node, out);
 
-          return check<I + 1>(node, out);
+          return check_i<I - 1>(node, out);
+        }
+      }
+
+      Node gen(Gen::Seed seed, size_t max_depth) const
+      {
+        auto g = Gen(seed, max_depth);
+        nonterminals(g.nonterminals);
+        auto node = NodeDef::create(Top);
+        gen_i(g, 0, node);
+        return node;
+      }
+
+      template<size_t I = sizeof...(Ts) - 1>
+      void gen_i(Gen& g, size_t depth, Node node) const
+      {
+        // Generate from the end, such that composition overrides any previous
+        // definition of a shape. If the shape isn't present, do nothing, as we
+        // assume it should be empty.
+        if constexpr (I < sizeof...(Ts))
+        {
+          auto& shape = std::get<I>(shapes);
+
+          if (shape.type == node->type())
+            shape.shape.gen(*this, g, depth, node);
+          else
+            gen_i<I - 1>(g, depth, node);
+        }
+      }
+
+      template<size_t I = 0>
+      void nonterminals(std::set<Token>& set) const
+      {
+        if constexpr (I < sizeof...(Ts))
+        {
+          auto& shape = std::get<I>(shapes);
+
+          if (!shape.shape.terminal())
+            set.insert(shape.type);
+
+          nonterminals<I + 1>(set);
         }
       }
 
       auto operator()() const
       {
-        return
-          [this](Node node, std::ostream& out) { return check(node, out); };
-      }
-
-      template<typename Rand>
-      Node gen(Rand& rand) const
-      {
-        auto node = NodeDef::create(Top);
-        gen<0>(rand, node);
-        return node;
-      }
-
-      template<size_t I, typename Rand>
-      void gen(Rand& rand, Node node) const
-      {
-        if constexpr (I < sizeof...(Ts))
-        {
-          auto shape = std::get<I>(shapes);
-
-          if (shape.type == node->type())
-            shape.shape.gen(*this, rand, node);
-          else
-            gen<I + 1>(rand, node);
-        }
+        return WellformedF{
+          [this](Node node, std::ostream& out) { return check(node, out); },
+          [this](Gen::Seed seed, size_t max_depth) {
+            return gen(seed, max_depth);
+          }};
       }
     };
 
@@ -345,7 +475,7 @@ namespace langkit
     {
       if constexpr (I < sizeof...(Ts))
       {
-        auto shape = std::get<I>(wf.shapes);
+        auto& shape = std::get<I>(wf.shapes);
 
         if (type == shape.type)
         {
@@ -368,11 +498,6 @@ namespace langkit
 
     namespace ops
     {
-      inline consteval auto operator+(const Token& type)
-      {
-        return type;
-      }
-
       inline consteval auto operator|(const Token& type1, const Token& type2)
       {
         return Choice<2>{type1, type2};
@@ -628,13 +753,13 @@ namespace langkit
       inline consteval auto
       operator|(const Token& type, const Wellformed<Ts...>& wf)
       {
-        return (type <<= type) | wf;
+        return (type <<= Fields()) | wf;
       }
 
       template<typename T>
       inline consteval auto operator|(const Token& type, const Shape<T>& shape)
       {
-        return (type <<= type) | shape;
+        return (type <<= Fields()) | shape;
       }
     }
 

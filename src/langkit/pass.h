@@ -92,12 +92,18 @@ namespace langkit
   private:
     size_t apply(Node node)
     {
-      Match match;
       auto it = node->begin();
       size_t changes = 0;
 
       while (it != node->end())
       {
+        // Don't examine Error nodes.
+        if ((*it)->type() == Error)
+        {
+          ++it;
+          continue;
+        }
+
         if (direction_ == dir::bottomup)
           changes += apply(*it);
 
@@ -105,20 +111,23 @@ namespace langkit
 
         for (auto& rule : rules_)
         {
+          auto match = Match(node);
           auto start = it;
-          match.clear();
 
           if (rule.first.match(it, node->end(), match))
           {
             // Replace [start, it) with whatever the rule builds.
             auto replace = rule.second(match);
+
             auto loc = (*start)->location() * (*(it - 1))->location();
             it = node->erase(start, it);
 
+            // If we return nothing, just remove the matched nodes.
             if (replace)
             {
               if (replace->type() == Seq)
               {
+                // Unpack the sequence.
                 std::for_each(replace->begin(), replace->end(), [&](Node n) {
                   n->set_location(loc);
                 });
@@ -127,6 +136,7 @@ namespace langkit
               }
               else
               {
+                // Replace with a single node.
                 replace->set_location(loc);
                 it = node->insert(it, replace);
               }

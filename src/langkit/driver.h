@@ -16,12 +16,11 @@ namespace langkit
   {
   private:
     constexpr static auto parse_only = "parse";
-    using CheckF = std::function<bool(Node, std::ostream&)>;
-    using PassCheck = std::tuple<std::string, Pass, CheckF>;
+    using PassCheck = std::tuple<std::string, Pass, wf::WellformedF>;
 
     CLI::App app;
     Parse parser;
-    CheckF checkParser;
+    wf::WellformedF wfParser;
     std::vector<PassCheck> passes;
     std::vector<std::string> limits;
 
@@ -29,13 +28,13 @@ namespace langkit
     Driver(
       const std::string& name,
       Parse parser,
-      CheckF checkParser,
+      wf::WellformedF wfParser,
       std::initializer_list<PassCheck> passes)
-    : app(name), parser(parser), checkParser(checkParser), passes(passes)
+    : app(name), parser(parser), wfParser(wfParser), passes(passes)
     {
       limits.push_back(parse_only);
 
-      for (auto& [name, pass, check] : passes)
+      for (auto& [name, pass, wf] : passes)
         limits.push_back(name);
     }
 
@@ -58,18 +57,34 @@ namespace langkit
         ->transform(CLI::IsMember(limits));
 
       std::string path;
-      auto path_opt = build->add_option("path", path, "Path to compile.");
-      build->needs(path_opt);
+      auto path_opt =
+        build->add_option("path", path, "Path to compile.")->required();
 
       // Test command line options.
-      auto test =
-        app.add_subcommand("test", "Run automated tests");
+      auto test = app.add_subcommand("test", "Run automated tests");
 
-      uint32_t test_iter = 100;
-      test->add_option("--iter", test_iter, "Number of iterations for tests");
+      uint32_t test_seed_count = 100;
+      test->add_option(
+        "--seed_count", test_seed_count, "Number of iterations per pass");
 
       uint32_t test_seed = std::random_device()();
       test->add_option("--seed", test_seed, "Random seed for testing");
+
+      std::string start_pass;
+      test->add_option("start", start_pass, "Start at this pass.")
+        ->transform(CLI::IsMember(limits))
+        ->required();
+
+      std::string end_pass;
+      test->add_option("end", end_pass, "End at this pass.")
+        ->transform(CLI::IsMember(limits));
+
+      bool test_verbose = false;
+      test->add_flag("-v,--verbose", test_verbose, "Verbose output");
+
+      size_t test_max_depth = 10;
+      test->add_option(
+        "--max_depth", test_max_depth, "Maximum depth of AST to test");
 
       try
       {
@@ -86,7 +101,7 @@ namespace langkit
       {
         auto ast = parser.parse(path);
 
-        if (checkParser && !checkParser(ast, std::cout))
+        if (wfParser && !wfParser.check(ast, std::cout))
         {
           limit = parse_only;
           ret = -1;
@@ -94,11 +109,10 @@ namespace langkit
 
         if (limit != parse_only)
         {
-          for (auto& [name, pass, check] : passes)
+          for (auto& [name, pass, wf] : passes)
           {
-            size_t count;
-            size_t changes;
-            std::tie(ast, count, changes) = pass->run(ast);
+            auto [new_ast, count, changes] = pass->run(ast);
+            ast = new_ast;
 
             if (diag)
             {
@@ -106,7 +120,7 @@ namespace langkit
                         << changes << " nodes rewritten." << std::endl;
             }
 
-            if (check && !check(ast, std::cout))
+            if (wf && !wf.check(ast, std::cout))
             {
               ret = -1;
               break;
@@ -122,8 +136,63 @@ namespace langkit
       }
       else if (*test)
       {
-        std::cout << "Testing x" << test_iter << ", seed: " << test_seed
+        std::cout << "Testing x" << test_seed_count << ", seed: " << test_seed
                   << std::endl;
+
+        if (end_pass.empty())
+          end_pass = start_pass;
+
+        bool go = start_pass == parse_only;
+        auto prev = wfParser;
+
+        for (auto& [name, pass, wf] : passes)
+        {
+          if (name == start_pass)
+            go = true;
+
+          if (go && prev && wf)
+          {
+            std::cout << "Testing pass: " << name << std::endl;
+
+            for (size_t i = 0; i < test_seed_count; i++)
+            {
+              std::stringstream ss1;
+              std::stringstream ss2;
+
+              auto ast = prev.gen(test_seed + i, test_max_depth);
+              ss1 << "============" << std::endl
+                  << "Pass: " << name << ", seed: " << (test_seed + i)
+                  << std::endl
+                  << "------------" << std::endl
+                  << ast << "------------" << std::endl;
+
+              if (test_verbose)
+                std::cout << ss1.str();
+
+              auto [new_ast, count, changes] = pass->run(ast);
+              ss2 << new_ast << "------------" << std::endl << std::endl;
+
+              if (test_verbose)
+                std::cout << ss2.str();
+
+              std::stringstream ss3;
+
+              if (!wf.check(new_ast, ss3))
+              {
+                if (!test_verbose)
+                  std::cout << ss1.str() << ss2.str();
+
+                std::cout << ss3.str();
+                ret = -1;
+              }
+            }
+          }
+
+          if (name == end_pass)
+            break;
+
+          prev = wf;
+        }
       }
 
       return ret;

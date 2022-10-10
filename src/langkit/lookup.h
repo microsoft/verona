@@ -61,12 +61,10 @@ namespace langkit
   private:
     T run(NodeRange range) const
     {
-      Match match;
-
       for (auto& rule : rules_)
       {
         auto it = range.first;
-        match.clear();
+        auto match = Match(*it);
 
         if (rule.first.match(it, range.second, match))
           return rule.second(match);

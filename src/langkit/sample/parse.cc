@@ -133,9 +133,8 @@ namespace sample
 
         "\\}" >>
           [indent](auto& m) {
-            // A brace block terminates a fat arrow as well.
             indent->pop_back();
-            m.term({Equals, List, FatArrow});
+            m.term(terminators);
             m.pop(Brace);
           },
 
@@ -181,7 +180,7 @@ namespace sample
         // Keywords.
         "package\\b" >> [](auto& m) { m.add(Package); },
         "use\\b" >> [](auto& m) { m.add(Use); },
-        "type\\b" >> [](auto& m) { m.add(Typealias); },
+        "type\\b" >> [](auto& m) { m.add(TypeAlias); },
         "class\\b" >> [](auto& m) { m.add(Class); },
         "var\\b" >> [](auto& m) { m.add(Var); },
         "let\\b" >> [](auto& m) { m.add(Let); },

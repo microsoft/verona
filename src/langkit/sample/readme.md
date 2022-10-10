@@ -8,12 +8,11 @@ if...else and short-circuit evaluation
   we have to build the lambdas before we decide which lambdas are executed
   the same iso free variable can't be in more than one lambda
 
-list inside Typeparams or Typeargs along with groups or other lists
+list inside TypeParams or TypeArgs along with groups or other lists
 = in an initializer
 lookup
 - isect: lookup in lhs and rhs?
 - lookups in typetraits
-well-formedness for errors
 - error on too many typeargs
 
 public/private
@@ -30,9 +29,36 @@ CallLHS
 
 ## QuickCheck
 
+type assertions are accidentally allowed as types
+type assertions on operators are awkward
 catch unexpected bindings as well
-generate names for things that need them
-- is this just for binding?
+  or generate bindings from wf conditions
+
+functions on types (functors, higher-kinded types)
+  kind is functor arity
+
+## Ellipsis
+
+`expr...` "unpacks" the tuple produced by `expr`
+- needed when putting `expr...` in another tuple
+- or passing a tuple as a sequence of arguments to a function
+`id...` on the lhs of an assignment accepts "remaining" (possibly 0 length) tuple elements
+`T...` is a tuple of unknown arity (0 or more) where every element is a `T`
+- bounding a type list bounds the elements, not the list itself
+- `T...` in a tuple "unpacks" the type into the tuple
+- `T...` in a function type "unpacks" the type into the function arguments
+
+```ts
+// multiply a tuple of things by a thing
+mul[n: type {*(n, n): n}, a: n...](x: n, y: a): a
+{
+  match y
+  {
+    { () => () }
+    { y, ys... => x * y, mul(x, ys...)... }
+  }
+}
+```
 
 ## ANF
 

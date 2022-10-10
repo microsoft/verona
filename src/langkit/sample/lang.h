@@ -35,10 +35,10 @@ namespace sample
   inline constexpr auto Ident = TokenDef("ident", flag::print);
 
   // Parsing keywords.
-  inline constexpr auto Package = TokenDef("package");
-  inline constexpr auto Use = TokenDef("use");
-  inline constexpr auto Typealias = TokenDef("typealias", flag::symtab);
   inline constexpr auto Class = TokenDef("class", flag::symtab);
+  inline constexpr auto TypeAlias = TokenDef("typealias", flag::symtab);
+  inline constexpr auto Use = TokenDef("use");
+  inline constexpr auto Package = TokenDef("package");
   inline constexpr auto Var = TokenDef("var");
   inline constexpr auto Let = TokenDef("let");
   inline constexpr auto Ref = TokenDef("ref");
@@ -48,22 +48,26 @@ namespace sample
   inline constexpr auto Mut = TokenDef("mut");
 
   // Semantic structure.
-  inline constexpr auto Classbody = TokenDef("classbody");
+  inline constexpr auto TypeTrait = TokenDef("typetrait", flag::symtab);
+  inline constexpr auto ClassBody = TokenDef("classbody");
   inline constexpr auto FieldLet =
     TokenDef("fieldlet", flag::symtab | flag::defbeforeuse);
   inline constexpr auto FieldVar =
     TokenDef("fieldvar", flag::symtab | flag::defbeforeuse);
   inline constexpr auto Function =
     TokenDef("function", flag::symtab | flag::defbeforeuse);
-  inline constexpr auto Typeparams = TokenDef("typeparams");
-  inline constexpr auto Typeparam = TokenDef("typeparam");
+  inline constexpr auto TypeParams = TokenDef("typeparams");
+  inline constexpr auto TypeParam = TokenDef("typeparam");
   inline constexpr auto Params = TokenDef("params");
   inline constexpr auto Param =
     TokenDef("param", flag::symtab | flag::defbeforeuse);
-  inline constexpr auto Funcbody = TokenDef("funcbody");
+  inline constexpr auto FuncBody = TokenDef("funcbody");
 
   // Type structure.
   inline constexpr auto Type = TokenDef("type");
+  inline constexpr auto TypeUnit = TokenDef("typeunit");
+  inline constexpr auto TypeList = TokenDef("typelist");
+  inline constexpr auto TypeName = TokenDef("typename");
   inline constexpr auto TypeTuple = TokenDef("typetuple");
   inline constexpr auto TypeView = TokenDef("typeview");
   inline constexpr auto TypeFunc = TokenDef("typefunc");
@@ -71,23 +75,21 @@ namespace sample
   inline constexpr auto TypeIsect = TokenDef("typeisect");
   inline constexpr auto TypeUnion = TokenDef("typeunion");
   inline constexpr auto TypeVar = TokenDef("typevar", flag::print);
-  inline constexpr auto TypeTrait = TokenDef("typetrait", flag::symtab);
 
   // Expression structure.
   inline constexpr auto Expr = TokenDef("expr");
-  inline constexpr auto Typeargs = TokenDef("typeargs");
+  inline constexpr auto TypeAssert = TokenDef("typeassert");
+  inline constexpr auto TypeArgs = TokenDef("typeargs");
   inline constexpr auto Lambda =
     TokenDef("lambda", flag::symtab | flag::defbeforeuse);
   inline constexpr auto Tuple = TokenDef("tuple");
   inline constexpr auto Assign = TokenDef("assign");
   inline constexpr auto RefVar = TokenDef("refvar", flag::print);
   inline constexpr auto RefLet = TokenDef("reflet", flag::print);
-  inline constexpr auto RefParam = TokenDef("refparam", flag::print);
-  inline constexpr auto RefType = TokenDef("reftype");
-  inline constexpr auto RefFunction = TokenDef("reffunc");
+  inline constexpr auto FunctionName = TokenDef("funcname");
   inline constexpr auto Selector = TokenDef("selector");
-  inline constexpr auto DotSelector = TokenDef("dotselector");
   inline constexpr auto Call = TokenDef("call");
+  inline constexpr auto Args = TokenDef("args");
   inline constexpr auto Include = TokenDef("include");
   inline constexpr auto TupleLHS = TokenDef("tuple-lhs");
   inline constexpr auto CallLHS = TokenDef("call-lhs");
@@ -123,19 +125,22 @@ namespace sample
     Found(const Found&) = default;
     Found& operator=(const Found&) = default;
 
-    Found(Found&& that) : def(std::move(that.def)), map(std::move(that.map))
-    {
-      that.def = nullptr;
-      that.map.clear();
-    }
-
+    Found(Found&& that) : def(std::move(that.def)), map(std::move(that.map)) {}
     Found(Node def) : def(def) {}
+
+    Found& operator|=(Found&& that)
+    {
+      def = std::move(that.def);
+      map.insert(that.map.begin(), that.map.end());
+      that.map.clear();
+      return *this;
+    }
   };
 
+  Found resolve(Node typeName);
+  Node lookdown(Found& found, Node id);
+
   Parse parser();
-  Lookup<Found> lookup();
   Pass infer();
   Driver& driver();
-
-  inline const auto look = lookup();
 }

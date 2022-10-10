@@ -44,9 +44,9 @@ namespace langkit
       std::optional<std::string> mode_;
 
     public:
-      Make(Source& source)
+      Make(const std::string& loc)
       {
-        node = NodeDef::create(File, {source, 0, 0});
+        node = NodeDef::create(File, {loc});
         top = node;
       }
 
@@ -310,7 +310,7 @@ namespace langkit
       if (!source)
         return {};
 
-      auto make = detail::Make(source);
+      auto make = detail::Make(path::last(filename));
       auto it = source->view().cbegin();
       auto st = it;
       auto end = source->view().cend();
@@ -373,7 +373,7 @@ namespace langkit
       if (predir_ && !predir_(*this, dir))
         return {};
 
-      Node top = NodeDef::create(Directory, {SourceDef::directory(dir), 0, 0});
+      Node top = NodeDef::create(Directory, {path::last(dir)});
 
       auto files = path::files(dir);
 

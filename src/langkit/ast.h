@@ -121,6 +121,21 @@ namespace langkit
       return parent_;
     }
 
+    Node parent(const Token& type)
+    {
+      auto p = parent_;
+
+      while (p)
+      {
+        if (p->type_ == type)
+          return p->shared_from_this();
+
+        p = p->parent_;
+      }
+
+      return {};
+    }
+
     void set_location(const Location& loc)
     {
       if (!location_.source)
@@ -429,10 +444,24 @@ namespace langkit
     {
       auto st = scope();
 
-      if (!st)
+      if (st)
+        return st->symtab_->fresh();
+
+      if (!symtab_)
         throw std::runtime_error("No symbol table");
 
-      return st->symtab_->fresh();
+      return symtab_->fresh();
+    }
+
+    Location unique()
+    {
+      auto p = this;
+
+      while (p->parent_)
+        p = p->parent_;
+
+      assert(p->type_ == Top);
+      return p->symtab_->fresh();
     }
 
     Node clone()

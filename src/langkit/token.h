@@ -6,20 +6,16 @@
 
 namespace langkit
 {
-  class Token;
+  struct Token;
   using Binding = std::pair<Token, Node>;
 
-  class TokenDef
+  struct TokenDef
   {
-  public:
     using flag = uint32_t;
-
-  private:
-    const char* name_;
+    const char* name;
     flag fl;
 
-  public:
-    constexpr TokenDef(const char* name, flag fl = 0) : name_(name), fl(fl) {}
+    consteval TokenDef(const char* name, flag fl = 0) : name(name), fl(fl) {}
 
     TokenDef() = delete;
     TokenDef(const TokenDef&) = delete;
@@ -34,19 +30,12 @@ namespace langkit
     {
       return (fl & f) != 0;
     }
-
-    constexpr const char* name() const
-    {
-      return name_;
-    }
   };
 
-  class Token
+  struct Token
   {
-  private:
     const TokenDef* def;
 
-  public:
     constexpr Token() : def(nullptr) {}
     constexpr Token(const Token& that) : def(that.def) {}
     constexpr Token(const TokenDef& def) : def(&def) {}
@@ -100,7 +89,7 @@ namespace langkit
 
     constexpr const char* str() const
     {
-      return def->name();
+      return def->name;
     }
   };
 
@@ -135,4 +124,7 @@ namespace langkit
   inline constexpr auto Directory = TokenDef("directory");
   inline constexpr auto Seq = TokenDef("seq");
   inline constexpr auto Lift = TokenDef("lift");
+  inline constexpr auto Error = TokenDef("error");
+  inline constexpr auto ErrorMsg = TokenDef("errormsg", flag::print);
+  inline constexpr auto ErrorAst = TokenDef("errorast");
 }
