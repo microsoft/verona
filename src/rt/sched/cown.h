@@ -414,6 +414,7 @@ namespace verona::rt
      *     rescheduling. However, for fairness, it is better to reschedule in
      *     case the behaviour executes for a very long time.
      **/
+    template<TransferOwnership transfer = NoTransfer>
     static void fast_send(MultiMessage::Body* body)
     {
       auto& alloc = ThreadAlloc::get();
@@ -442,7 +443,7 @@ namespace verona::rt
                         << ", index " << i << " loop end " << loop_end
                         << Logging::endl;
 
-        auto needs_sched = next->try_fast_send(m);
+        auto needs_sched = next->try_fast_send<transfer>(m);
         if (loop_end > 1)
           next->enqueue_lock.unlock();
 
@@ -488,6 +489,7 @@ namespace verona::rt
      * acquire the cown without going through the scheduler queue. Returns true
      * if the cown was asleep and needs scheduling; returns false otherwise.
      **/
+    template<TransferOwnership transfer = NoTransfer>
     bool try_fast_send(MultiMessage* m)
     {
 #ifdef USE_SYSTEMATIC_TESTING_WEAK_NOTICEBOARDS
@@ -499,9 +501,13 @@ namespace verona::rt
       Logging::cout() << "Enqueued MultiMessage " << m << " needs scheduling? "
                       << needs_scheduling << Logging::endl;
       yield();
-      if (needs_scheduling)
+      if (needs_scheduling && transfer == NoTransfer)
       {
         Cown::acquire(this);
+      }
+      if (!needs_scheduling && transfer == YesTransfer)
+      {
+        Cown::release(ThreadAlloc::get(), this);
       }
       return needs_scheduling;
     }
@@ -556,12 +562,6 @@ namespace verona::rt
 
       // Run the behaviour.
       body.get_behaviour().f();
-
-      for (size_t i = 0; i < body.count; i++)
-      {
-        if (body.get_requests_array()[i].cown())
-          Cown::release(alloc, body.get_requests_array()[i].cown());
-      }
 
       Logging::cout() << "MultiMessage " << m << " completed and running on "
                       << this << Logging::endl;
@@ -667,15 +667,9 @@ namespace verona::rt
       });
 #endif
 
-      if constexpr (transfer == NoTransfer)
-      {
-        for (size_t i = 0; i < count; i++)
-          Cown::acquire(sort[i].cown());
-      }
-
       // Try to acquire as many cowns as possible without rescheduling,
       // starting from the beginning.
-      fast_send(body);
+      fast_send<transfer>(body);
     }
 
     /**
@@ -906,8 +900,10 @@ namespace verona::rt
         {
           senders[s].cown()->schedule();
         }
-
+        else
+        {
         Cown::release(alloc, senders[s].cown());
+        }
 
         senders[s] = Request();
 
