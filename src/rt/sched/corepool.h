@@ -26,6 +26,8 @@ namespace verona::rt
     size_t core_count = 0;
 
   public:
+    constexpr CorePool() = default;
+
     void init(size_t count)
     {
       core_count = count;
@@ -69,9 +71,11 @@ namespace verona::rt
       core_count = 0;
     }
 
+#ifndef NDEBUG
     ~CorePool()
     {
-      clear();
+      assert(first_core == nullptr);
     }
+#endif
   };
 }

@@ -261,6 +261,7 @@ namespace verona::rt
       o->incref();
     }
 
+    
     static void release(Alloc& alloc, Cown* o)
     {
       Logging::cout() << "Cown " << o << " release" << Logging::endl;

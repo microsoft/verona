@@ -25,6 +25,8 @@ namespace verona::rt
 
   public:
     constexpr SchedulerList() = default;
+
+#ifndef NDEBUG
     ~SchedulerList()
     {
       snmalloc::FlagLock lock(m);
@@ -33,6 +35,7 @@ namespace verona::rt
         abort();
       }
     }
+#endif
 
     void add_active(T* thread)
     {

@@ -37,8 +37,8 @@ namespace verona::rt
     static constexpr uint64_t TSC_PAUSE_SLOP = 1'000'000;
     static constexpr uint64_t TSC_UNPAUSE_SLOP = TSC_PAUSE_SLOP / 2;
 
-    bool detect_leaks = true;
-    size_t incarnation = 1;
+    bool detect_leaks{true};
+    size_t incarnation{1};
 
     /**
      * Used to represent the current pause_epoch.
