@@ -261,7 +261,6 @@ namespace verona::rt
       o->incref();
     }
 
-    
     static void release(Alloc& alloc, Cown* o)
     {
       Logging::cout() << "Cown " << o << " release" << Logging::endl;
@@ -903,7 +902,7 @@ namespace verona::rt
         }
         else
         {
-        Cown::release(alloc, senders[s].cown());
+          Cown::release(alloc, senders[s].cown());
         }
 
         senders[s] = Request();

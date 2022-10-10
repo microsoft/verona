@@ -22,7 +22,8 @@ void test_body()
   auto log1 = make_cown<Body>();
   auto log2 = make_cown<Body>();
 
-  when(log1, log2) << [=](auto, auto) { Logging::cout() << "log" << Logging::endl; };
+  when(log1, log2) <<
+    [=](auto, auto) { Logging::cout() << "log" << Logging::endl; };
 }
 
 int main(int argc, char** argv)
