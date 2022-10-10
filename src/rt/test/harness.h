@@ -173,6 +173,8 @@ public:
 
       Logging::cout() << "External threads joined" << std::endl;
 
+      LocalEpochPool::sort();
+
       if (detect_leaks)
         snmalloc::debug_check_empty<snmalloc::Alloc::Config>();
       high_resolution_clock::time_point t1 = high_resolution_clock::now();
