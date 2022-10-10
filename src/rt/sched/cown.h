@@ -716,22 +716,6 @@ namespace verona::rt
 
         curr = queue.peek();
 
-        if (curr != nullptr)
-        {
-          // Attempt to process a write, if it fails stop processing the message
-          // queue.
-          if (!curr->is_read() && !read_ref_count.try_write())
-            return false;
-        }
-
-        curr = queue.dequeue(alloc, notify);
-
-        if (!notified_called && notify)
-        {
-          notified_called = true;
-          cown_notified();
-        }
-
         if (curr == nullptr)
         {
           // Reschedule if we have processed a message.
@@ -765,6 +749,21 @@ namespace verona::rt
           Logging::cout() << "Unschedule cown " << this << Logging::endl;
           Cown::release(alloc, this);
           return false;
+        }
+
+
+        // If next message is a write, check that we are not in reading mode.
+        // If we are in reading mode stop processing the message
+        // queue (importantly leaving the write at the top.).
+        if (!curr->is_read() && !read_ref_count.try_write())
+          return false;
+
+        curr = queue.dequeue(alloc, notify);
+
+        if (!notified_called && notify)
+        {
+          notified_called = true;
+          cown_notified();
         }
 
         assert(!queue.is_sleeping());
