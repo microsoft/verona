@@ -71,7 +71,8 @@ namespace verona::rt
 
   private:
     // The body of the actual message.
-    Body* body;
+    // uses the bottom bit to determine if the request is a read.
+    uintptr_t body_and_mode;
     friend verona::rt::MPSCQ<MultiMessage>;
     friend class Cown;
     friend struct Request;
@@ -80,20 +81,20 @@ namespace verona::rt
 
     inline Body* get_body()
     {
-      auto result = (Body*)((uintptr_t)body & ~Object::MARK_MASK);
+      auto result = (Body*)(body_and_mode & ~Object::MARK_MASK);
       return result;
     }
 
-    static MultiMessage* make(Alloc& alloc, Body* body)
+    static MultiMessage* make(Alloc& alloc, Body* body, bool is_read)
     {
       auto msg = (MultiMessage*)alloc.alloc<sizeof(MultiMessage)>();
-      msg->body = body;
+      msg->body_and_mode = ((uintptr_t)body) | (is_read ? 1 : 0);
       return msg;
     }
 
-    static MultiMessage* make_message(Alloc& alloc, Body* body)
+    static MultiMessage* make_message(Alloc& alloc, Body* body, bool is_read)
     {
-      MultiMessage* m = make(alloc, body);
+      MultiMessage* m = make(alloc, body, is_read);
       Logging::cout() << "MultiMessage " << m << " payload " << body
                       << Logging::endl;
       return m;
@@ -102,6 +103,11 @@ namespace verona::rt
     inline size_t size()
     {
       return sizeof(MultiMessage);
+    }
+
+    inline bool is_read()
+    {
+      return (body_and_mode & 1) == 1;
     }
   };
 } // namespace verona::rt

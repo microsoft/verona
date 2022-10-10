@@ -452,7 +452,7 @@ namespace verona::rt
       size_t loop_end = body->count;
       for (size_t i = 0; i < loop_end; i++)
       {
-        auto m = MultiMessage::make_message(alloc, body);
+        auto m = MultiMessage::make_message(alloc, body, body->get_requests_array()[i].is_read());
         auto next = body->get_requests_array()[i].cown();
         Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
                         << ", index " << i << " loop end " << loop_end
@@ -544,13 +544,8 @@ namespace verona::rt
       Logging::cout() << "MultiMessage " << m << " acquired " << this
                       << Logging::endl;
 
-      // Find this cown in the list of cowns to acquire
-      Request* request = body.get_requests_array();
-      while (request->cown() != this)
-        request++;
-
       bool schedule_after_behaviour = true;
-      if (request->is_read())
+      if (m->is_read())
       {
         read_ref_count.add_read();
         if (body.exec_count_down.fetch_sub(1) > 1)
@@ -677,9 +672,10 @@ namespace verona::rt
         return a.cown()->id() < b.cown()->id();
       });
 #else
-      std::sort(&sort[0], &sort[count], [](Request& a, Request& b) {
-        return a.cown() < b.cown();
-      });
+      if (count > 1)
+        std::sort(&sort[0], &sort[count], [](Request& a, Request& b) {
+          return a.cown() < b.cown();
+        });
 #endif
 
       // Try to acquire as many cowns as possible without rescheduling,
@@ -933,7 +929,7 @@ namespace verona::rt
      */
     static MultiMessage* stub_msg(Alloc& alloc)
     {
-      return MultiMessage::make_message(alloc, nullptr);
+      return MultiMessage::make_message(alloc, nullptr, false);
     }
   };
 
