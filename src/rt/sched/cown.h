@@ -99,7 +99,7 @@ namespace verona::rt
 
     bool try_write()
     {
-      if (count.load(std::memory_order_relaxed) == 0)
+      if (count.load(std::memory_order_acquire) == 0)
         return true;
 
       // Mark a pending write
@@ -530,9 +530,6 @@ namespace verona::rt
     /**
      * Execute the behaviour of the given multi-message.
      *
-     * If the multi-message has not completed, then we will send a message to
-     * the next cown to acquire.
-     *
      * Otherwise, all cowns have been acquired and we can execute the message
      * behaviour.
      **/
@@ -545,30 +542,32 @@ namespace verona::rt
                       << Logging::endl;
 
       bool schedule_after_behaviour = true;
+      bool last_message = body.count_down();
+
       if (m->is_read())
       {
         read_ref_count.add_read();
-        if (body.exec_count_down.fetch_sub(1) > 1)
+        if (!last_message)
           return true;
         else
+        {
           // In this case, this thread will execute the behaviour
           // but another thread can still read this cown, so reschedule
           // it before executing the behaviour and do not reschedule it after.
           schedule_after_behaviour = false;
+          // The message `m` will be deallocated when the next scheduler thread
+          // picks up a message, so wait until after all the possible uses of `m` to
+          // reschedule this cown.
+          schedule();
+        }
       }
       else
       { // request->mode == AccessMode::WRITE
-        if (body.exec_count_down.fetch_sub(1) > 1)
+        if (!last_message)
           return false;
       }
 
       Scheduler::local()->message_body = &body;
-
-      // The message `m` will be deallocated when the next scheduler thread
-      // picks up a message, so wait until after all the possible uses of `m` to
-      // reschedule this cown.
-      if (!schedule_after_behaviour)
-        schedule();
 
       // Run the behaviour.
       body.get_behaviour().f();
@@ -719,16 +718,9 @@ namespace verona::rt
 
         if (curr != nullptr)
         {
-          auto* body = curr->get_body();
-
-          // find us in the list of cowns to acquire
-          Request* request = body->get_requests_array();
-          while (request->cown() != this)
-            request++;
-
           // Attempt to process a write, if it fails stop processing the message
           // queue.
-          if (!request->is_read() && !read_ref_count.try_write())
+          if (!curr->is_read() && !read_ref_count.try_write())
             return false;
         }
 

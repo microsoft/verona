@@ -47,6 +47,19 @@ namespace verona::rt
       }
 
       /**
+       * Remove one from the exec_count_down.
+       *
+       * Returns true if this call makes the count_down_zero
+       */
+      bool count_down()
+      {
+        // Note that we don't actually perform the last decrement as it is not
+        // required.
+        return (exec_count_down.load(std::memory_order_acquire) == 1) ||
+          (exec_count_down.fetch_sub(1) == 1);
+      }
+
+      /**
        * Allocates a message body with sufficient space for the
        * cowns_array and the behaviour.  This does not initialise the cowns
        * array.
