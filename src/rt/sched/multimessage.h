@@ -14,6 +14,7 @@ namespace verona::rt
 
   class MultiMessage
   {
+  public:
     /**
      * This represents a message that is sent to a behaviour.
      *
@@ -82,35 +83,42 @@ namespace verona::rt
       }
     };
 
+    struct Response
+    {
+      Body& body;
+      bool is_read;
+      bool is_last;
+      Alloc& alloc;
+
+      ~Response()
+      {
+        if (is_last)
+        {
+          alloc.dealloc(&body);
+        }
+      }
+
+      Response(const Response& other) = delete;
+      Response(Response&& other) = delete;
+    };
+
   private:
+    friend verona::rt::MPSCQ<MultiMessage>;
+
     // The body of the actual message.
     // uses the bottom bit to determine if the request is a read.
     uintptr_t body_and_mode;
-    friend verona::rt::MPSCQ<MultiMessage>;
-    friend class Cown;
-    friend struct Request;
 
     std::atomic<MultiMessage*> next{nullptr};
 
-    inline Body* get_body()
-    {
-      auto result = (Body*)(body_and_mode & ~Object::MARK_MASK);
-      return result;
-    }
-
+  public:
     static MultiMessage* make(Alloc& alloc, Body* body, bool is_read)
     {
       auto msg = (MultiMessage*)alloc.alloc<sizeof(MultiMessage)>();
       msg->body_and_mode = ((uintptr_t)body) | (is_read ? 1 : 0);
-      return msg;
-    }
-
-    static MultiMessage* make_message(Alloc& alloc, Body* body, bool is_read)
-    {
-      MultiMessage* m = make(alloc, body, is_read);
-      Logging::cout() << "MultiMessage " << m << " payload " << body
+      Logging::cout() << "MultiMessage " << msg << " payload " << body
                       << Logging::endl;
-      return m;
+      return msg;
     }
 
     inline size_t size()
@@ -121,6 +129,15 @@ namespace verona::rt
     inline bool is_read()
     {
       return (body_and_mode & 1) == 1;
+    }
+
+    Response deliver(Alloc& alloc)
+    {
+      auto body = (Body*)(body_and_mode & ~Object::MARK_MASK);
+      auto is_read_ = is_read();
+      body_and_mode = 0;
+      auto is_last = body->count_down();
+      return {*(body), is_read_, is_last, alloc};
     }
   };
 } // namespace verona::rt

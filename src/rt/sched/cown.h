@@ -407,27 +407,7 @@ namespace verona::rt
     }
 
     /**
-     * A "synchronous" version of multi-message send, to be used by
-     * Cown::run_step and Cown::schedule.
-     *
-     * Assumes that cowns [0, index) have already been acquired. Tries to
-     * acquire the remaining cowns [index, count).
-     *
-     * Sends a multi-message to `cowns[index]`. If the cown can be acquired
-     * immediately without rescheduling (i.e. its queue was sleeping), then we
-     * send the next message to try to acquire the next cown. We repeat this
-     * until:
-     *
-     * (1) The target cown was not sleeping (i.e. it is scheduled, running, or
-     *     has already been acquired in a multi-message). This means we are done
-     *     here, and have to wait for that cown to run and then handle our
-     *     message.
-     * (2) We sent the message to the last cown. There are no further cowns to
-     *     acquire, so we schedule the last cown so it can handle the
-     *     multi-message behaviour.
-     *     TODO: It would be semantically valid to execute the behaviour without
-     *     rescheduling. However, for fairness, it is better to reschedule in
-     *     case the behaviour executes for a very long time.
+     * Sends a multi-message to all the cowns. 
      **/
     template<TransferOwnership transfer = NoTransfer>
     static void fast_send(MultiMessage::Body* body)
@@ -452,7 +432,7 @@ namespace verona::rt
       size_t loop_end = body->count;
       for (size_t i = 0; i < loop_end; i++)
       {
-        auto m = MultiMessage::make_message(alloc, body, body->get_requests_array()[i].is_read());
+        auto m = MultiMessage::make(alloc, body, body->get_requests_array()[i].is_read());
         auto next = body->get_requests_array()[i].cown();
         Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
                         << ", index " << i << " loop end " << loop_end
@@ -535,19 +515,18 @@ namespace verona::rt
      **/
     bool run_step(MultiMessage* m)
     {
-      MultiMessage::Body& body = *(m->get_body());
       Alloc& alloc = ThreadAlloc::get();
+      auto delivered = m->deliver(alloc);
 
       Logging::cout() << "MultiMessage " << m << " acquired " << this
                       << Logging::endl;
 
       bool schedule_after_behaviour = true;
-      bool last_message = body.count_down();
 
-      if (m->is_read())
+      if (delivered.is_read)
       {
         read_ref_count.add_read();
-        if (!last_message)
+        if (!delivered.is_last)
           return true;
         else
         {
@@ -563,23 +542,23 @@ namespace verona::rt
       }
       else
       { // request->mode == AccessMode::WRITE
-        if (!last_message)
+        if (!delivered.is_last)
           return false;
       }
 
-      Scheduler::local()->message_body = &body;
+      Scheduler::local()->message_body = &delivered.body;
 
       // Run the behaviour.
-      body.get_behaviour().f();
+      delivered.body.get_behaviour().f();
 
       Logging::cout() << "MultiMessage " << m << " completed and running on "
                       << this << Logging::endl;
 
       //  Reschedule the writeable cowns (read-only cowns are not unscheduled
       //  for a behaviour).
-      for (size_t s = 0; s < body.count; s++)
+      for (size_t s = 0; s < delivered.body.count; s++)
       {
-        Request request = body.get_requests_array()[s];
+        Request request = delivered.body.get_requests_array()[s];
         Cown* cown = request.cown();
         if (cown)
         {
@@ -605,7 +584,7 @@ namespace verona::rt
         }
       }
 
-      alloc.dealloc(&body);
+      Scheduler::local()->message_body = nullptr;
 
       return schedule_after_behaviour;
     }
@@ -754,7 +733,7 @@ namespace verona::rt
 
         // If next message is a write, check that we are not in reading mode.
         // If we are in reading mode stop processing the message
-        // queue (importantly leaving the write at the top.).
+        // queue (importantly leaving the write request at the top.).
         if (!curr->is_read() && !read_ref_count.try_write())
           return false;
 
@@ -920,7 +899,7 @@ namespace verona::rt
      */
     static MultiMessage* stub_msg(Alloc& alloc)
     {
-      return MultiMessage::make_message(alloc, nullptr, false);
+      return MultiMessage::make(alloc, nullptr, false);
     }
   };
 
