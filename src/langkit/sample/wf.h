@@ -183,7 +183,8 @@ namespace sample
 
     // Replace all Use with Include.
     | (ClassBody <<=
-        (Include | Class | TypeAlias | FieldLet | FieldVar | Function)++)
+        (Include | Class | TypeAlias | TypeTrait | FieldLet | FieldVar |
+         Function)++)
     | (Include <<= TypeName)
     | (FuncBody <<= (Include | Class | TypeAlias | Expr)++)
     ;

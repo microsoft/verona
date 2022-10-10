@@ -65,10 +65,10 @@ namespace langkit
 
       uint32_t test_seed_count = 100;
       test->add_option(
-        "--seed_count", test_seed_count, "Number of iterations per pass");
+        "-c,--seed_count", test_seed_count, "Number of iterations per pass");
 
       uint32_t test_seed = std::random_device()();
-      test->add_option("--seed", test_seed, "Random seed for testing");
+      test->add_option("-s,--seed", test_seed, "Random seed for testing");
 
       std::string start_pass;
       test->add_option("start", start_pass, "Start at this pass.")
@@ -84,7 +84,10 @@ namespace langkit
 
       size_t test_max_depth = 10;
       test->add_option(
-        "--max_depth", test_max_depth, "Maximum depth of AST to test");
+        "-d,--max_depth", test_max_depth, "Maximum depth of AST to test");
+
+      bool test_failfast = false;
+      test->add_flag("-f,--failfast", test_failfast, "Stop on first failure");
 
       try
       {
@@ -182,13 +185,15 @@ namespace langkit
                 if (!test_verbose)
                   std::cout << ss1.str() << ss2.str();
 
-                std::cout << ss3.str();
+                std::cout << ss3.str() << "============" << std::endl
+                          << "Failed pass: " << name
+                          << ", seed: " << (test_seed + i) << std::endl;
                 ret = -1;
               }
             }
           }
 
-          if (name == end_pass)
+          if ((name == end_pass) || (test_failfast && (ret != 0)))
             break;
 
           prev = wf;

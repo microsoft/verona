@@ -544,6 +544,7 @@ namespace sample
   {
     // This needs the symbol tables for classes to be built.
     // TODO: rebuilding symbol tables requires rebuilding includes
+    // don't need Include vs Use, as failure becomes Error?
     return {
       T(Use)[lhs] << (T(TypeName)[rhs] * End) >>
         [](Match& _) {
