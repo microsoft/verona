@@ -268,8 +268,16 @@ namespace verona::rt
       Cown* a = ((Cown*)o);
 
       // Perform decref
-      bool last = o->decref_cown();
+      auto release_weak = false;
+      bool last = o->decref_cown(release_weak);
+
       yield();
+
+      if (release_weak)
+      {
+        o->weak_release(alloc);
+        yield();
+      }
 
       if (!last)
         return;
@@ -304,7 +312,8 @@ namespace verona::rt
           // directly deallocate.
           // TODO: Investigate if we could eject global epoch to avoid the
           // additional test.
-          Logging::cout() << "Cown " << this << " dealloc" << Logging::endl;
+          Logging::cout() << "Cown " << this << " dealloc from weak_release"
+                          << Logging::endl;
           dealloc(alloc);
         }
         else
@@ -338,7 +347,13 @@ namespace verona::rt
      **/
     bool acquire_strong_from_weak()
     {
-      return Object::acquire_strong_from_weak();
+      bool reacquire_weak = false;
+      auto result = Object::acquire_strong_from_weak(reacquire_weak);
+      if (reacquire_weak)
+      {
+        weak_acquire();
+      }
+      return result;
     }
 
     void mark_notify()
