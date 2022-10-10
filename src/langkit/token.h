@@ -114,6 +114,7 @@ namespace langkit
     constexpr TokenDef::flag print = 1 << 0;
     constexpr TokenDef::flag symtab = 1 << 1;
     constexpr TokenDef::flag defbeforeuse = 1 << 2;
+    constexpr TokenDef::flag multidef = 1 << 3;
   }
 
   inline constexpr auto Invalid = TokenDef("invalid");

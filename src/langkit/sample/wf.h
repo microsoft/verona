@@ -53,28 +53,28 @@ namespace sample
   // clang-format off
   inline constexpr auto wfPassStructure =
       (Top <<= Class++)
-    | (Class - Ident <<= Ident * TypeParams * Type * ClassBody)
+    | (Class <<= Ident * TypeParams * Type * ClassBody)[Ident]
     | (ClassBody <<=
         (Use | Class | TypeAlias | TypeTrait | FieldLet | FieldVar |
          Function)++)
     | (Use <<= Type)
-    | (TypeAlias - Ident <<= Ident * TypeParams * (Bounds >>= Type) * Type)
-    | (TypeTrait - Ident <<= Ident * ClassBody)
-    | (FieldLet - Ident <<= Ident * Type * Expr)
-    | (FieldVar - Ident <<= Ident * Type * Expr)
-    | (Function - IdSym <<= wfIdSym * TypeParams * Params * Type * FuncBody)
+    | (TypeAlias <<= Ident * TypeParams * (Bounds >>= Type) * Type)[Ident]
+    | (TypeTrait <<= Ident * ClassBody)[Ident]
+    | (FieldLet <<= Ident * Type * Expr)[Ident]
+    | (FieldVar <<= Ident * Type * Expr)[Ident]
+    | (Function <<= wfIdSym * TypeParams * Params * Type * FuncBody)[IdSym]
     | (TypeParams <<= TypeParam++)
-    | (TypeParam - Ident <<= Ident * (Bounds >>= Type) * Type)
+    | (TypeParam <<= Ident * (Bounds >>= Type) * Type)[Ident]
     | (Params <<= Param++)
-    | (Param - Ident <<= Ident * Type * Expr)
+    | (Param <<= Ident * Type * Expr)[Ident]
     | (TypeTuple <<= Type++)
     | (FuncBody <<= (Use | Class | TypeAlias | Expr)++)
     | (Tuple <<= Expr++)
     | (Assign <<= Expr++[2])
     | (TypeArgs <<= Type++)
     | (Lambda <<= TypeParams * Params * FuncBody)
-    | (Let - Ident <<= Ident)
-    | (Var - Ident <<= Ident)
+    | (Let <<= Ident)[Ident]
+    | (Var <<= Ident)[Ident]
     | (Throw <<= Expr)
     | (TypeAssert <<= Type * Expr)
     | (Type <<=

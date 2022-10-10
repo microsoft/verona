@@ -87,7 +87,7 @@ namespace sample
 
       if (found.def->type().in({Class, TypeTrait}))
       {
-        return found.def->lookdown_first(id);
+        return *found.def->lookdown(id).first;
       }
       else if (found.def->type() == TypeParam)
       {

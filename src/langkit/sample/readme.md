@@ -29,6 +29,10 @@ CallLHS
 
 ## QuickCheck
 
+if symbol table lookup has multiple definitions
+  and any of them isn't a flag::multidef node
+  then error
+
 type assertions are accidentally allowed as types
 type assertions on operators are awkward
 catch unexpected bindings as well

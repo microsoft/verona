@@ -55,7 +55,7 @@ namespace sample
   inline constexpr auto FieldVar =
     TokenDef("fieldvar", flag::symtab | flag::defbeforeuse);
   inline constexpr auto Function =
-    TokenDef("function", flag::symtab | flag::defbeforeuse);
+    TokenDef("function", flag::symtab | flag::defbeforeuse | flag::multidef);
   inline constexpr auto TypeParams = TokenDef("typeparams");
   inline constexpr auto TypeParam = TokenDef("typeparam");
   inline constexpr auto Params = TokenDef("params");

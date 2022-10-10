@@ -545,6 +545,7 @@ namespace sample
     // This needs the symbol tables for classes to be built.
     // TODO: rebuilding symbol tables requires rebuilding includes
     // don't need Include vs Use, as failure becomes Error?
+    // make it a predicate, only rewrite on failure?
     return {
       T(Use)[lhs] << (T(TypeName)[rhs] * End) >>
         [](Match& _) {
@@ -560,8 +561,7 @@ namespace sample
           return err(_[lhs], "couldn't resolve this type");
         },
 
-      // Any Use nodes that remain are ill-formed.
-      T(Use)[Use] >>
+      T(Use)[Use] << (!T(TypeName) * End) >>
         [](Match& _) { return err(_[Use], "`use` requires a type name"); },
     };
   }
@@ -586,7 +586,7 @@ namespace sample
 
       // Unscoped type reference.
       In(Expr) * T(Ident)[id]([](auto& n) {
-        return lookup(n, {Class, TypeAlias, TypeParam});
+        return lookup(n, {Class, TypeAlias, TypeTrait, TypeParam});
       }) * ~T(TypeArgs)[TypeArgs] >>
         [](Match& _) {
           return TypeName << TypeUnit << _(id) << (_[TypeArgs] | TypeArgs);
@@ -608,7 +608,7 @@ namespace sample
           if (!def)
             return err(_[Type], "couldn't resolve this scoped name");
 
-          if (def->type().in({Class, TypeAlias, TypeParam}))
+          if (def->type().in({Class, TypeAlias, TypeTrait, TypeParam}))
             return TypeName << _[lhs] << _(id) << (_[TypeArgs] | TypeArgs);
 
           return FunctionName << _[lhs] << _(id) << (_[TypeArgs] | TypeArgs);

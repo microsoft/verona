@@ -40,6 +40,8 @@ namespace langkit
     friend class NodeDef;
 
   private:
+    // The location in `symbols` is used as an identifier.
+    // The location in `includes` is used for its position in the file.
     std::map<Location, Nodes> symbols;
     std::vector<std::pair<Location, Node>> includes;
     size_t next_id = 0;
@@ -157,11 +159,6 @@ namespace langkit
       return children.end();
     }
 
-    NodeRange range()
-    {
-      return {begin(), end()};
-    }
-
     bool empty()
     {
       return children.empty();
@@ -185,12 +182,6 @@ namespace langkit
 
       assert(index.index < children.size());
       return children.at(index.index);
-    }
-
-    Node at(size_t index)
-    {
-      assert(index < children.size());
-      return children.at(index);
     }
 
     Node front()
@@ -300,39 +291,36 @@ namespace langkit
 
     Nodes lookup_all(const Location& loc)
     {
-      // Find all bindings for this location by looking upwards in the symbol
+      // Find all bindings for this identifier by looking upwards in the symbol
       // table chain.
       Nodes r;
       auto st = scope();
 
       while (st)
       {
-        auto def_ok = !(st->type_ & flag::defbeforeuse);
+        auto unordered = !(st->type_ & flag::defbeforeuse);
         auto it = st->symtab_->symbols.find(loc);
 
         if (it != st->symtab_->symbols.end())
         {
-          if (def_ok)
+          // If we aren't unordered, use only bindings that occur before the
+          // identifier's file location.
+          for (auto& def : it->second)
           {
-            r.insert(r.end(), it->second.begin(), it->second.end());
-          }
-          else
-          {
-            for (auto& node : it->second)
-            {
-              if (node->location_.before(loc))
-                r.push_back(node);
-            }
+            if (unordered || def->location_.before(loc))
+              r.push_back(def);
           }
         }
 
-        for (auto& [def, node] : st->symtab_->includes)
+        for (auto& [def, target] : st->symtab_->includes)
         {
-          if (def_ok || def.before(loc))
+          // If we aren't unordered, use only includes that occur before the
+          // identifier's file location.
+          if (unordered || def.before(loc))
           {
-            auto find = node->symtab_->symbols.find(loc);
-
-            if (find != node->symtab_->symbols.end())
+            // Use all bindings, as order is meaningless through an include.
+            auto find = target->symtab_->symbols.find(loc);
+            if (find != target->symtab_->symbols.end())
               r.insert(r.end(), find->second.begin(), find->second.end());
           }
         }
@@ -352,62 +340,58 @@ namespace langkit
     Node lookup_first(const Location& loc)
     {
       // Find this location in the enclosing symbol table chain.
+      Node r;
       auto st = scope();
 
       while (st)
       {
-        auto def_ok = !(st->type_ & flag::defbeforeuse);
+        auto unordered = !(st->type_ & flag::defbeforeuse);
         auto it = st->symtab_->symbols.find(loc);
-        Node r;
 
         if (it != st->symtab_->symbols.end())
         {
           // Select the last definition. In a defbeforeuse context, select the
           // last definition before the use site.
-          for (auto& node : it->second)
+          for (auto& def : it->second)
           {
             if (
-              (def_ok || node->location_.before(loc)) &&
-              (!r || r->location_.before(node->location_)))
+              (unordered || def->location_.before(loc)) &&
+              (!r || r->location_.before(def->location_)))
             {
-              r = node;
+              r = def;
             }
           }
         }
 
-        Location pdef;
-
-        if (r)
-          pdef = r->location_;
-
-        for (auto& [def, node] : st->symtab_->includes)
+        for (auto& [def, target] : st->symtab_->includes)
         {
-          // An include before the selected definition is ignored.
-          if ((def_ok || def.before(loc)) && (!r || pdef.before(def)))
+          // An include before the use site or current result is ignored.
+          if (
+            (unordered || def.before(loc)) && (!r || r->location().before(def)))
           {
-            r = node->lookdown_first(loc);
-            pdef = def;
+            r = *target->lookdown(loc).first;
           }
         }
 
         if (r)
-          return r;
+          break;
 
         st = st->scope();
       }
 
-      return {};
+      return r;
     }
 
-    Node lookdown_first(Node that)
+    NodeRange lookdown(Node that)
     {
       // Find the location of this node in our symbol table.
-      return lookdown_first(that->location_);
+      return lookdown(that->location_);
     }
 
-    Node lookdown_first(const Location& loc)
+    NodeRange lookdown(const Location& loc)
     {
-      // Find this location in our symbol table.
+      // This is used for scoped resolution, where we're looking in this symbol
+      // table specifically. Don't use includes, as those are for lookup only.
       if (!symtab_)
         return {};
 
@@ -415,7 +399,7 @@ namespace langkit
       if (find == symtab_->symbols.end())
         return {};
 
-      return find->second.front();
+      return {find->second.begin(), find->second.end()};
     }
 
     void bind(const Location& loc)

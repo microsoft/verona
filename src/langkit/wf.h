@@ -319,6 +319,14 @@ namespace langkit
       T shape;
 
       consteval Shape(Token type, const T& shape) : type(type), shape(shape) {}
+
+      consteval auto operator[](const Token& binding) const
+      {
+        if constexpr (std::is_base_of_v<FieldsBase, T>)
+          return Shape<T>(type, T(shape, binding));
+        else
+          return *this;
+      }
     };
 
     template<typename T>
@@ -615,11 +623,6 @@ namespace langkit
         return (fst >>= fst) * (snd >>= snd);
       }
 
-      inline consteval auto operator-(const Token& type1, const Token& type2)
-      {
-        return std::make_pair(type1, type2);
-      }
-
       template<size_t N>
       inline consteval auto
       operator<<=(const Token& type, const Sequence<N>& seq)
@@ -649,33 +652,6 @@ namespace langkit
       }
 
       inline consteval auto operator<<=(const Token& type1, const Token& type2)
-      {
-        return type1 <<= (type2 >>= type2);
-      }
-
-      template<typename... Ts>
-      inline consteval auto operator<<=(
-        const std::pair<Token, Token>& type, const Fields<Ts...>& fields)
-      {
-        return Shape(type.first, Fields(fields, type.second));
-      }
-
-      template<size_t N>
-      inline consteval auto
-      operator<<=(const std::pair<Token, Token>& type, const Field<N>& field)
-      {
-        return type <<= Fields(field);
-      }
-
-      template<size_t N>
-      inline consteval auto
-      operator<<=(const std::pair<Token, Token>& type, const Choice<N>& choice)
-      {
-        return type <<= (type >>= choice);
-      }
-
-      inline consteval auto
-      operator<<=(const std::pair<Token, Token>& type1, const Token& type2)
       {
         return type1 <<= (type2 >>= type2);
       }
