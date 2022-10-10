@@ -11,14 +11,16 @@ namespace verona::rt
   using namespace snmalloc;
   class Cown;
 
-  struct Request
+  class Request
   {
     Cown* _cown;
 
     static const uintptr_t READ_FLAG = 1;
 
-    Request() : _cown(nullptr) {}
     Request(Cown* cown) : _cown(cown) {}
+
+  public:
+    Request() : _cown(nullptr) {}
 
     Cown* cown()
     {
@@ -68,7 +70,7 @@ namespace verona::rt
       /**
        * Run the body of a "when". If the behaviour contains any non-trivial
        * state, then the last thing f should do is finalise that state. The
-       * behaviour itself will deallocated by the runtime.
+       * behaviour itself will be deallocated by the runtime.
        **/
       Function f;
 
