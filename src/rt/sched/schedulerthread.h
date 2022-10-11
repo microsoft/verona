@@ -62,10 +62,6 @@ namespace verona::rt
 
     bool running = true;
 
-    // `n_ld_tokens` indicates the times of token cown a scheduler has to
-    // process before reaching its LD checkpoint (`n_ld_tokens == 0`).
-    uint8_t n_ld_tokens = 0;
-
     bool should_steal_for_fairness = false;
 
     std::atomic<bool> scheduled_unscanned_cown = false;
@@ -218,7 +214,6 @@ namespace verona::rt
               {
                 Logging::cout() << "Queue empty" << Logging::endl;
                 // We have effectively reached token cown.
-                n_ld_tokens = 0;
 
                 T* stolen;
                 if (Scheduler::get().fair && fast_steal(stolen))
@@ -296,11 +291,6 @@ namespace verona::rt
       while (running)
       {
         yield();
-
-        if (core->q.nothing_old())
-        {
-          n_ld_tokens = 0;
-        }
 
         // Check if some other thread has pushed work on our queue.
         cown = core->q.dequeue(*alloc);

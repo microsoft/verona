@@ -39,6 +39,8 @@ namespace verona::rt
     std::atomic<State> state{Unlocked};
 
   public:
+    constexpr SchedulerLock() = default;
+
     /**
      * Acquires the lock. Spins waiting for it to be available.
      */
@@ -100,7 +102,7 @@ namespace verona::rt
   class ThreadSync
   {
     SchedulerLock lock;
-    LocalSync* waiters = nullptr;
+    LocalSync* waiters{nullptr};
 
     void unlock()
     {
@@ -127,6 +129,8 @@ namespace verona::rt
     }
 
   public:
+    constexpr ThreadSync() = default;
+
     void unpause_all(T*)
     {
       Logging::cout() << "Unpause all" << Logging::endl;

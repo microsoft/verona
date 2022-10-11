@@ -24,10 +24,12 @@ namespace verona::rt
     T* tail = Terminator();
 
   public:
+#ifndef NDEBUG
     ~DLList()
     {
-      clear();
+      assert(is_empty());
     }
+#endif
 
     constexpr DLList() = default;
 

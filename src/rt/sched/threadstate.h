@@ -13,8 +13,10 @@ namespace verona::rt
     // ThreadState counters.
     struct StateCounters
     {
-      size_t active_threads = 0;
-      std::atomic<size_t> barrier_count = 0;
+      size_t active_threads{0};
+      std::atomic<size_t> barrier_count{0};
+
+      constexpr StateCounters() = default;
     };
 
   private:
