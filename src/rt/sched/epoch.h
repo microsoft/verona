@@ -312,30 +312,38 @@ namespace verona::rt
       Logging::cout() << "Rejoining epoch " << old_epoch << Logging::endl;
 
       // Read the global epoch
-      auto temp_epoch = GlobalEpoch::get();
-
-      // Remove the ejected bit, this will prevent other threads from advancing
-      // the epoch continualy.
-      // Need to prevent subsequent load of global epoch occuring before this
-      // store.
-      epoch.store(temp_epoch, std::memory_order_seq_cst);
-
-      // Re-read the global epoch
       auto new_epoch = GlobalEpoch::get();
 
-      // At this point, we know that the
-      //   new_epoch == GlobalEpoch::get()
-      //   || new_epoch + 1 == GlobalEpoch::get()
-      //   || (temp_epoch == new_epoch + 1)   (A)
-      // If temp_epoch != new_epoch+1, then the global epoch can be advanced at
-      // most once from this point. However, this would require a 2^63 wrap
-      // around it in sequence of three instructions, so we can safely ignore
-      // it.
+      // Remove the ejected bit, this will prevent other threads from advancing
+      // the epoch continually using an up-to-date snapshot of the epoch.
+      // Need to prevent subsequent load of global epoch occuring before this
+      // store.
+      epoch.store(new_epoch, std::memory_order_seq_cst);
 
-      // Publish we are in the latest epoch
+      uint64_t guessed_epoch;
+      do
+      {
+        guessed_epoch = new_epoch;
+        // Re-read the global epoch
+        new_epoch = GlobalEpoch::get();
+
+        // At this point, we know that
+        //   new_epoch == GlobalEpoch::get()
+        //   || new_epoch + 1 == GlobalEpoch::get()
+        //   || (guessed_epoch == new_epoch + 1)   (A)
+        // If guessed_epoch != new_epoch+1, then the global epoch can be
+        // advanced at most once from this point. For the (A) case, this would
+        // require a 2^63 wrap around it in sequence of three instructions.
+
+        // Publish we are in the latest epoch
+        epoch.store(new_epoch, std::memory_order_seq_cst);
+
+        // Remove highly unlikely case (A) from above
+        // by retrying.
+      } while (guessed_epoch == inc_epoch_by(new_epoch, 1));
+
       // Hence we are now in state 1 or 2 from the comment at the top of the
       // file.
-      epoch.store(new_epoch, std::memory_order_release);
 
       // Flush all the old epochs, we might have been ejected for a while, so
       // there could be more than one.
