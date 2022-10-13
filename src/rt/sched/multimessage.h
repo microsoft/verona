@@ -83,14 +83,14 @@ namespace verona::rt
       }
     };
 
-    struct Response
+    struct Delivered
     {
       Body& body;
       bool is_read;
       bool is_last;
       Alloc& alloc;
 
-      ~Response()
+      ~Delivered()
       {
         if (is_last)
         {
@@ -98,8 +98,8 @@ namespace verona::rt
         }
       }
 
-      Response(const Response& other) = delete;
-      Response(Response&& other) = delete;
+      Delivered(const Delivered& other) = delete;
+      Delivered(Delivered&& other) = delete;
     };
 
   private:
@@ -131,7 +131,7 @@ namespace verona::rt
       return (body_and_mode & 1) == 1;
     }
 
-    Response deliver(Alloc& alloc)
+    Delivered deliver(Alloc& alloc)
     {
       auto body = (Body*)(body_and_mode & ~Object::MARK_MASK);
       auto is_read_ = is_read();

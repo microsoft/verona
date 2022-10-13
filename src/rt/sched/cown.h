@@ -407,7 +407,7 @@ namespace verona::rt
     }
 
     /**
-     * Sends a multi-message to all the cowns. 
+     * Sends a multi-message to all the cowns.
      **/
     template<TransferOwnership transfer = NoTransfer>
     static void fast_send(MultiMessage::Body* body)
@@ -432,7 +432,8 @@ namespace verona::rt
       size_t loop_end = body->count;
       for (size_t i = 0; i < loop_end; i++)
       {
-        auto m = MultiMessage::make(alloc, body, body->get_requests_array()[i].is_read());
+        auto m = MultiMessage::make(
+          alloc, body, body->get_requests_array()[i].is_read());
         auto next = body->get_requests_array()[i].cown();
         Logging::cout() << "MultiMessage " << m << ": fast requesting " << next
                         << ", index " << i << " loop end " << loop_end
@@ -535,8 +536,8 @@ namespace verona::rt
           // it before executing the behaviour and do not reschedule it after.
           schedule_after_behaviour = false;
           // The message `m` will be deallocated when the next scheduler thread
-          // picks up a message, so wait until after all the possible uses of `m` to
-          // reschedule this cown.
+          // picks up a message, so wait until after all the possible uses of
+          // `m` to reschedule this cown.
           schedule();
         }
       }
@@ -729,7 +730,6 @@ namespace verona::rt
           Cown::release(alloc, this);
           return false;
         }
-
 
         // If next message is a write, check that we are not in reading mode.
         // If we are in reading mode stop processing the message
