@@ -167,4 +167,4 @@ bool acquire_strong_from_weak()
 
 # Starling based proof
 
-A starling based proof can be found in [verona_rc.cvf](./verona_rc.cvf).
+A starling based proof can be found in [verona_rc_wrc.cvf](./verona_rc_wrc.cvf).

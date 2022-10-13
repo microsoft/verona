@@ -115,7 +115,7 @@ method release_weak()
 /**
   This has two returns 
     success    signifies we successfully acquired a StrongRef
-    more_work  signifies we lost our weak reference in the acquisition.
+    lost_weak  signifies we lost our weak reference in the acquisition.
 
   This corresponds to Object::acquire_strong_from_weak in object.h
  */
@@ -123,12 +123,12 @@ method acquire_strong_from_weak()
 {
   {| WeakRef |}
   <| 
-     more_work = rc == 0 && !closed; 
+     lost_weak = rc == 0 && !closed; 
      rc++; 
      success = !closed; 
   |>
   {| if (success) { StrongRef }
-     * if (more_work) { emp } else {WeakRef}
+     * if (lost_weak) { emp } else {WeakRef}
    |}
 }
 
