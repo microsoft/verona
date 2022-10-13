@@ -37,10 +37,15 @@ steps:
     # why cache miss key must not contain commas
     cacheDataStoreKey="$(echo "${{ parameters.BuildName }}" | tr ',' '_' )"
 
+    # Pass through SYSTEM_, BUILD_ env vars for AnyBuild telemetry to join to ADO pipeline telemetry.
+
     env -i                                                           \
       SECRET=$(LLVMPrincipalPassword)                                \
       HOME="$HOME"                                                   \
       PATH="$PATH"                                                   \
+      SYSTEM_DEFINITIONNAME="$SYSTEM_DEFINITIONNAME"                 \
+      SYSTEM_DEFINITIONID="$SYSTEM_DEFINITIONID"                     \
+      BUILD_BUILDID="$BUILD_BUILDID"                                 \
     "$abClientExe"                                                   \
       --RemoteExecServiceUri $(AnyBuildEnvironmentUri)               \
       --NoCheckForUpdates                                            \
