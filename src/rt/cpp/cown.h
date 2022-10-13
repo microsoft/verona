@@ -71,6 +71,124 @@ namespace verona::cpp
   template<typename T>
   class cown_ptr : cown_ptr_base
   {
+  public:
+    class weak
+    {
+      friend cown_ptr;
+
+      /**
+       * Internal Verona runtime cown for this type.
+       */
+      ActualCown<T>* allocated_cown{nullptr};
+
+      weak(ActualCown<T>* c) : allocated_cown(c) {}
+
+    public:
+      /**
+       * Sets the cown_ptr::weak to nullptr, and decrements the reference count
+       * if it was not already nullptr.
+       */
+      void clear()
+      {
+        // Condition to handle moved weak cown ptrs.
+        if (allocated_cown != nullptr)
+        {
+          auto& alloc = verona::rt::ThreadAlloc::get();
+          allocated_cown->weak_release(alloc);
+          allocated_cown = nullptr;
+        }
+      }
+
+      constexpr weak() = default;
+
+      /**
+       * Copy an existing weak cown ptr.  Shares the underlying cown.
+       */
+      weak(const weak& other)
+      {
+        allocated_cown = other.allocated_cown;
+        if (allocated_cown != nullptr)
+          allocated_cown->weak_acquire();
+      }
+
+      /**
+       * Copy an existing cown ptr to a weak ptr.  Shares the underlying cown.
+       */
+      weak(const cown_ptr& other)
+      {
+        allocated_cown = other.allocated_cown;
+        if (allocated_cown != nullptr)
+          allocated_cown->weak_acquire();
+      }
+
+      /**
+       * Copy an existing weak cown ptr.  Shares the underlying cown.
+       */
+      weak& operator=(const weak& other)
+      {
+        clear();
+        allocated_cown = other.allocated_cown;
+        if (allocated_cown != nullptr)
+          allocated_cown->weak_acquire();
+        return *this;
+      }
+
+      /**
+       * Nullptr assignment for a weak cown.
+       */
+      weak& operator=(std::nullptr_t)
+      {
+        clear();
+        return *this;
+      }
+
+      /**
+       * Move an existing weak cown ptr.  Does not create a new cown,
+       * and is more efficient than copying, as it does not need
+       * to perform reference count operations.
+       */
+      weak(weak&& other)
+      {
+        allocated_cown = other.allocated_cown;
+        other.allocated_cown = nullptr;
+      }
+
+      /**
+       * Move an existing weak cown ptr.  Does not create a new cown,
+       * and is more efficient than copying, as it does not need
+       * to perform reference count operations.
+       */
+      weak& operator=(weak&& other)
+      {
+        clear();
+        allocated_cown = other.allocated_cown;
+        other.allocated_cown = nullptr;
+        return *this;
+      }
+
+      operator bool() const
+      {
+        return allocated_cown != nullptr;
+      }
+
+      cown_ptr promote()
+      {
+        if (
+          (allocated_cown != nullptr) &&
+          allocated_cown->acquire_strong_from_weak())
+        {
+          return {allocated_cown};
+        }
+
+        return nullptr;
+      }
+
+      ~weak()
+      {
+        clear();
+      }
+    };
+
   private:
     template<typename TT>
     friend class Access;
@@ -105,7 +223,8 @@ namespace verona::cpp
     cown_ptr(const cown_ptr& other)
     {
       allocated_cown = other.allocated_cown;
-      verona::rt::Cown::acquire(allocated_cown);
+      if (allocated_cown != nullptr)
+        verona::rt::Cown::acquire(allocated_cown);
     }
 
     /**
@@ -115,7 +234,8 @@ namespace verona::cpp
     {
       clear();
       allocated_cown = other.allocated_cown;
-      verona::rt::Cown::acquire(allocated_cown);
+      if (allocated_cown != nullptr)
+        verona::rt::Cown::acquire(allocated_cown);
       return *this;
     }
 
@@ -185,6 +305,13 @@ namespace verona::cpp
         verona::rt::Cown::release(alloc, allocated_cown);
         allocated_cown = nullptr;
       }
+    }
+
+    weak get_weak()
+    {
+      if (allocated_cown != nullptr)
+        allocated_cown->weak_acquire();
+      return {allocated_cown};
     }
 
     ~cown_ptr()
