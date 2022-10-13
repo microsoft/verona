@@ -1,0 +1,162 @@
+/* Atomic reference counter from Verona
+ * 
+ * Strong and Weak references
+ *
+ * Provides a wait-free acquire_strong_from_weak.
+ *
+ * This was verified using  ff235a5a5e0e4057 from Matt Windsor's development
+ * branch of Starling.
+ *    https://github.com/MattWindsor91/starling-tool
+ *
+ * Caveats: The proof does not contain the full lifetime management aspects 
+ * such as actually running the destructor of a Cown, or deallocating the
+ * underlying representation. 
+ */
+
+
+/**
+ * The strong reference count
+ */
+shared int rc;
+
+/*
+ * The weak reference count
+ */
+shared int wrc;
+
+/**
+ * This is a mark bit added to the reference count.
+ */ 
+shared bool closed;
+
+thread bool success;
+thread bool lost_weak;
+thread bool last;
+thread bool more_work;
+
+view iter StrongRef;
+view iter WeakRef;
+view NoStrong;
+view NoWeak;
+
+/**
+ * This corresponds to Object::incref in object.h
+ */
+method acquire_strong()
+{
+  {| StrongRef |} <| rc++; |> {| StrongRef * StrongRef |}
+}
+
+/**
+ * This corresponds to Cown::weak_acquire in cown.h
+ */
+method acquire_weak()
+{
+  {| WeakRef |} <| wrc++; |> {| WeakRef * WeakRef |}
+}
+
+/**
+ * This corresponds to Cown::weak_acquire in cown.h
+ * It is the same method as above, just with a different specification.
+ */
+method acquire_weak_from_strong()
+{
+  {| StrongRef |} <| wrc++; |> {| StrongRef * WeakRef |}
+}
+
+/*
+  This has two returns last and more_work
+    If last is true, then this was decremented the final strong reference count
+    If more_work is true, then the process of release this reference count resulted in
+      and additional weak reference that the caller must remove.
+
+  This corresponds to Object::decref_cown in object.h
+*/
+method release_strong()
+{
+  {| StrongRef |}
+  <| rc--; last = rc==0; |>
+  {| if last { WeakRef } |}
+  if last {
+    {| WeakRef * if !last { false} |}
+    // The following is a CAS to attempt to set the bit if the 
+    // rc is still zero.
+    <| last = ((closed == false) && (rc == 0)); if last {closed = true;} |>
+    {| WeakRef * if last { NoStrong } |}
+    more_work = !last;
+    {| if last { NoStrong * WeakRef }
+       * if more_work { WeakRef } |}
+  }
+  else
+  {
+    {| if last { NoStrong * WeakRef } |}
+    more_work = false;
+    {| if last { NoStrong * WeakRef }
+       * if more_work { WeakRef } |}
+  }
+  {| if last { NoStrong * WeakRef }
+    * if more_work { WeakRef } |}
+}
+
+/**
+ * This is corresponds to the start of 
+ * Cown::weak_release in cown.h
+ * The function in Verona also handles the deallocation of
+ * the underlying object, and integrating with other considerations
+ * of the runtime.
+ */
+method release_weak()
+{
+  {| WeakRef |}
+  <| wrc--; last = wrc == 0; |>
+  {| if last { NoWeak } |}
+}
+
+/**
+  This has two returns 
+    success    signifies we successfully acquired a StrongRef
+    lost_weak  signifies we lost our weak reference in the acquisition.
+
+  This corresponds to Object::acquire_strong_from_weak in object.h
+ */
+method acquire_strong_from_weak()
+{
+  {| WeakRef |}
+  <| 
+     lost_weak = rc == 0 && !closed; 
+     rc++; 
+     success = !closed; 
+  |>
+  {| if (success) { StrongRef }
+     * if (lost_weak) { emp } else {WeakRef}
+   |}
+}
+
+// Invariant
+constraint emp -> 
+  rc >= 0 && 
+  wrc >= 0 && 
+  (rc > 0 => (wrc > 0 || closed == true));
+
+// Permission to run the destructor
+constraint NoStrong -> closed == true;
+
+// Permission to deallocate the underlying representation
+// Would be good to prove that the rc is `closed` but that is
+// not currently part of this proof.
+constraint NoWeak -> wrc == 0; 
+
+// Linear
+constraint NoStrong * NoStrong -> false;
+constraint NoWeak * NoWeak -> false;
+
+// Starling complains about the following.
+// It is trivially true from the definitions of NoWeak and WeakRef.
+//constraint NoWeak * WeakRef -> false;
+
+constraint iter[n] StrongRef -> n > 0 => (rc >= n && closed == false);
+
+constraint iter[n] WeakRef -> 
+  n > 0
+  =>  ((closed == false && rc > 0 && wrc >= n + 1 )
+     || ((closed == true || rc == 0) && wrc >= n ));

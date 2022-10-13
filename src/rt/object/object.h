@@ -716,8 +716,9 @@ namespace verona::rt
      * true all future, and parallel, calls to incref_cown_from_weak will return
      * false.
      **/
-    inline bool decref_cown()
+    inline bool decref_cown(bool& release_weak)
     {
+      Logging::cout() << "decref_cown " << (void*)this << std::endl;
       // This always performs the atomic subtraction, since the cown should
       // see its own rc as zero this is due to how weak reference to cowns
       // interact.  An attempt to acquire a weak reference will increase the
@@ -736,27 +737,41 @@ namespace verona::rt
 
       yield();
 
+      Logging::cout() << "decref_cown part 2" << (void*)this << std::endl;
       size_t zero_rc = (size_t)RegionMD::COWN;
-      return get_header().rc.compare_exchange_strong(zero_rc, FINISHED_RC);
+      auto result =
+        get_header().rc.compare_exchange_strong(zero_rc, FINISHED_RC);
+      release_weak = !result;
+      return result;
     }
 
     /**
      * Returns true, if a strong reference was created.
      **/
-    inline bool acquire_strong_from_weak()
+    inline bool acquire_strong_from_weak(bool& reacquire_weak)
     {
+      auto old = get_header().rc.fetch_add(ONE_RC);
+
       // Check if top bit is set, if not then we have validily created a new
       // strong reference
-      if (get_header().rc.fetch_add(ONE_RC) < FINISHED_RC)
-        return true;
+      if (old >= FINISHED_RC)
+      {
+        // We failed to create a strong reference reset rc.
+        // Note store is fine, as only other operations on this will
+        // be failed weak reference promotions.
+        get_header().rc.store(FINISHED_RC, std::memory_order_relaxed);
+        return false;
+      }
 
       yield();
 
-      // We failed to create a strong reference reset rc.
-      // Note store is fine, as only other operations on this will
-      // be failed weak reference promotions.
-      get_header().rc.store(FINISHED_RC, std::memory_order_relaxed);
-      return false;
+      size_t ZERO_RC = (size_t)RegionMD::COWN;
+      if (old == ZERO_RC)
+      {
+        reacquire_weak = true;
+      }
+
+      return true;
     }
 
     inline bool has_finaliser()
