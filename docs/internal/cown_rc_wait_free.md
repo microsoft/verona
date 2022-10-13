@@ -11,7 +11,7 @@ To achieve this past implementations (for examples, [Rust's ARC](https://doc.rus
 This means the implementation is lock-free and not wait-free. 
 Hence, under contention the promotion can be arbitrarily delayed. 
 
-This document describes Verona's approach to [reference counting](https://en.wikipedia.org/wiki/Reference_counting) for cowns, 
+This document describes Verona's approach to reference counting for cowns, 
 which provides a wait-free implementation of all the operations for  both strong and weak references.
 
 
