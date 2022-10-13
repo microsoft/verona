@@ -851,7 +851,7 @@ namespace verona::rt
 
       auto* stub = queue.destroy();
       // All messages must have been run by the time the cown is collected.
-      assert(stub->next.load(std::memory_order_relaxed) == nullptr);
+      assert(stub->next_is_null());
 
       alloc.dealloc<sizeof(MultiMessage)>(stub);
     }
