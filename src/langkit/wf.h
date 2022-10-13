@@ -106,7 +106,7 @@ namespace langkit
             type = filtered.at(g.next() % filtered.size());
         }
 
-        auto child = NodeDef::create(type, node->unique());
+        auto child = NodeDef::create(type, node->fresh());
         node->push_back(child);
         wf.gen_i(g, depth + 1, child);
       }
@@ -144,7 +144,15 @@ namespace langkit
         for (auto& child : *node)
           ok = types.check(child, out) && wf.check(child, out) && ok;
 
-        return ok && (node->size() >= minlen);
+        if (node->size() < minlen)
+        {
+          out << node->location().origin_linecol() << "expected at least "
+              << minlen << " children, found " << node->size() << std::endl
+              << node->location().str() << std::endl;
+          ok = false;
+        }
+
+        return ok;
       }
 
       template<typename WF>

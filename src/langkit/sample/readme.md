@@ -1,16 +1,9 @@
 # Todo
 
-https://devblogs.microsoft.com/cppblog/cpp23-deducing-this/
-
-print errors!
-
 builtins
   if...else
   typetest
-
-if...else and short-circuit evaluation
-  we have to build the lambdas before we decide which lambdas are executed
-  the same iso free variable can't be in more than one lambda
+  match
 
 list inside TypeParams or TypeArgs along with groups or other lists
 = in an initializer
@@ -19,12 +12,10 @@ lookup
 - lookups in typetraits
 - error on too many typeargs
 
-public/private
 `new` to create an instance of the enclosing class
+public/private
 object literals
-
 package schemes
-dependent types
 
 CallLHS
 - separate implementation
@@ -74,42 +65,6 @@ mul[n: type {*(n, n): n}, a: n...](x: n, y: a): a
 
 let xs = mul(2, (1, 2, 3)) // xs = (2, 4, 6)
 ```
-
-## ANF
-
-rhs ref -> dup ?
-
-Γ := id -> typevar
-
-block: expr* term
-
-expr:
-  $0 = literal ...
-    (let $0 (int 4))
-    Γ($0) :> literal
-  $0 = tuple $1..$N
-    Γ($0) :> Γ($1..$N)
-  $0 = new $1..$N // stack or region
-  $0 = lambda ...
-  $0 = call (selector f) $1..$N
-    Γ($1) <: { f($T1..$TN): $T0 } & $T1
-    Γ($0) :> $T0
-  $0 = call reffunction $1..$N
-  $0 = calllhs selector $1..$N
-  $0 = calllhs reffunction $1..$N
-  $0 = typetest T $1
-    Γ($0) :> Bool
-
-  (let $0 (if $1 (block ...) (block ...)))
-
-  $0 = dup $1 ?
-  drop $0 ?
-
-term:
-  br <label>
-  condbr $0 <label> <label>
-  ret $0
-  throw $0
 
 ## If...Else
 

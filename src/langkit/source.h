@@ -171,7 +171,7 @@ namespace langkit
       {
         auto cover = std::min(linelen - col, len);
         std::fill_n(std::ostream_iterator<char>(ss), col, ' ');
-        std::fill_n(std::ostream_iterator<char>(ss), cover, '=');
+        std::fill_n(std::ostream_iterator<char>(ss), cover, '~');
 
         auto [line2, col2] = source->linecol(pos + len);
         auto [linepos2, linelen2] = source->linepos(line2);
@@ -179,14 +179,14 @@ namespace langkit
 
         ss << std::endl << source->view().substr(linepos, linelen) << std::endl;
 
-        std::fill_n(std::ostream_iterator<char>(ss), col2, '=');
+        std::fill_n(std::ostream_iterator<char>(ss), col2, '~');
         ss << std::endl;
       }
       else
       {
         ss << source->view().substr(linepos, linelen) << std::endl;
         std::fill_n(std::ostream_iterator<char>(ss), col, ' ');
-        std::fill_n(std::ostream_iterator<char>(ss), len, '=');
+        std::fill_n(std::ostream_iterator<char>(ss), len, '~');
         ss << std::endl;
       }
 

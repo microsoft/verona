@@ -32,11 +32,6 @@ namespace langkit
       return in_node->fresh();
     }
 
-    Location unique()
-    {
-      return in_node->unique();
-    }
-
     NodeRange& operator[](const Token& token)
     {
       return captures[token];
@@ -604,7 +599,7 @@ namespace langkit
          it != range_contents.range.second;
          ++it)
     {
-      node->move_children(*it);
+      node->push_back({(*it)->begin(), (*it)->end()});
     }
 
     return node;

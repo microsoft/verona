@@ -72,26 +72,38 @@ namespace sample
       // (equals (group let ident type) group)
       // (group let ident type)
       In(ClassBody) *
-          ((T(Equals)
-            << ((T(Group) << (T(Let) * T(Ident)[id] * ~T(Type)[Type] * End)) *
-                T(Group)[rhs] * End)) /
-           (T(Group) << (T(Let) * T(Ident)[id] * ~T(Type)[Type] * End))) >>
+          (T(Equals)
+           << ((T(Group) << (T(Let) * T(Ident)[id] * ~T(Type)[Type] * End)) *
+               T(Group)[rhs] * End)) >>
         [](Match& _) {
           return _(id = FieldLet)
             << _(id) << typevar(_, Type) << (Expr << *_[rhs]);
+        },
+
+      // (group let ident type)
+      In(ClassBody) *
+          (T(Group) << (T(Let) * T(Ident)[id] * ~T(Type)[Type] * End)) >>
+        [](Match& _) {
+          return _(id = FieldLet) << _(id) << typevar(_, Type) << DontCare;
         },
 
       // Var Field:
       // (equals (group var ident type) group)
       // (group var ident type)
       In(ClassBody) *
-          ((T(Equals)
-            << ((T(Group) << (T(Var) * T(Ident)[id] * ~T(Type)[Type] * End)) *
-                T(Group)[rhs] * End)) /
-           (T(Group) << (T(Var) * T(Ident)[id] * ~T(Type)[Type] * End))) >>
+          (T(Equals)
+           << ((T(Group) << (T(Var) * T(Ident)[id] * ~T(Type)[Type] * End)) *
+               T(Group)[rhs] * End)) >>
         [](Match& _) {
           return _(id = FieldVar)
             << _(id) << typevar(_, Type) << (Expr << *_[rhs]);
+        },
+
+      // (group var ident type)
+      In(ClassBody) *
+          (T(Group) << (T(Var) * T(Ident)[id] * ~T(Type)[Type] * End)) >>
+        [](Match& _) {
+          return _(id = FieldVar) << _(id) << typevar(_, Type) << DontCare;
         },
 
       // Function: (equals (group name square parens type) group)
@@ -150,7 +162,7 @@ namespace sample
       // Param: (group ident type)
       In(Params) * T(Group) << (T(Ident)[id] * ~T(Type)[Type] * End) >>
         [](Match& _) {
-          return _(id = Param) << _(id) << typevar(_, Type) << Expr;
+          return _(id = Param) << _(id) << typevar(_, Type) << DontCare;
         },
 
       // Param: (equals (group ident type) group)
@@ -239,26 +251,38 @@ namespace sample
                      << (Ident ^ id);
         },
 
+      // Allow `ref` to be used as a type name.
+      TypeStruct * T(Ref) >> [](Match& _) { return Ident ^ ref; },
+
       TypeStruct *
           (T(Use) / T(Let) / T(Var) / T(Equals) / T(Class) / T(FatArrow) /
            T(TypeAlias) / T(Brace) / T(Ref) / Literal)[Type] >>
         [](Match& _) { return err(_[Type], "can't put this in a type"); },
 
-      // Expression structure.
+      // A group can be in a FuncBody, ExprSeq, Tuple, or Assign.
       (In(FuncBody) / In(ExprSeq) / In(Tuple) / In(Assign)) * T(Group)[Group] >>
         [](Match& _) { return Expr << *_[Group]; },
-      In(Expr) * T(List)[List] >> [](Match& _) { return Tuple << *_[List]; },
+
+      // An equals can be in a FuncBody, an ExprSeq, a Tuple, or an Expr.
+      (In(FuncBody) / In(ExprSeq) / In(Tuple)) * T(Equals)[Equals] >>
+        [](Match& _) { return Expr << (Assign << *_[Equals]); },
       In(Expr) * T(Equals)[Equals] >>
         [](Match& _) { return Assign << *_[Equals]; },
 
+      // A list can be in a FuncBody, an ExprSeq, or an Expr.
+      (In(FuncBody) / In(ExprSeq)) * T(List)[List] >>
+        [](Match& _) { return Expr << (Tuple << *_[List]); },
+      In(Expr) * T(List)[List] >> [](Match& _) { return Tuple << *_[List]; },
+
       // Empty parens are an empty Tuple.
-      In(Expr) * T(Paren) << End >> ([](Match& _) -> Node { return Tuple; }),
+      In(Expr) * (T(Paren) << End) >> ([](Match& _) -> Node { return Tuple; }),
 
-      // Single group parens are an Expr.
-      In(Expr) * T(Paren) << (T(Group)[Group] * End) >>
-        [](Match& _) { return Expr << *_[Group]; },
+      // Parens with one element are an Expr. Put the group, list, or equals
+      // into the expr, where it will become an expr, tuple, or assign.
+      In(Expr) * ((T(Paren) << (Any[lhs] * End))) >>
+        [](Match& _) { return _(lhs); },
 
-      // Multiple group parens are an ExprSeq.
+      // Parens with multiple elements are an ExprSeq.
       In(Expr) * T(Paren)[Paren] >>
         [](Match& _) { return ExprSeq << *_[Paren]; },
 
@@ -657,7 +681,7 @@ namespace sample
     if (arg)
     {
       if (arg->type() == Tuple)
-        args->move_children(arg);
+        args->push_back({arg->begin(), arg->end()});
       else if (arg->type() == Expr)
         args << arg;
       else
@@ -720,6 +744,37 @@ namespace sample
       In(Tuple) * T(Expr) << (Object[lhs] * T(Ellipsis) * End) >>
         [](Match& _) { return Expr << (TupleFlatten << (Expr << _(lhs))); },
 
+      // Use DontCare for partial application of arbitrary arguments.
+      T(Call)
+          << (Operator[op] *
+              (T(Args)
+               << ((T(Expr) << !T(DontCare))++ * (T(Expr) << T(DontCare)) *
+                   T(Expr)++))[Args]) >>
+        [](Match& _) {
+          Node params = Params;
+          Node args = Args;
+          auto lambda = Lambda
+            << TypeParams << params
+            << (FuncBody << (Expr << (Call << _(op) << args)));
+
+          for (auto& arg : *_(Args))
+          {
+            if (arg->front()->type() == DontCare)
+            {
+              auto id = _.fresh();
+              params
+                << (_(id = Param) << (Ident ^ id) << typevar(_) << DontCare);
+              args << (Expr << (RefLet ^ id));
+            }
+            else
+            {
+              args << arg;
+            }
+          }
+
+          return lambda;
+        },
+
       T(Ref) >>
         [](Match& _) {
           return err(_[Ref], "must use `ref` in front of a variable or call");
@@ -728,6 +783,11 @@ namespace sample
       T(Ellipsis) >>
         [](Match& _) {
           return err(_[Ellipsis], "must use `...` after a value in a tuple");
+        },
+
+      In(Expr) * T(DontCare) >>
+        [](Match& _) {
+          return err(_[DontCare], "must use `_` in a partial application");
         },
 
       In(Expr) * (Any * Any)[Expr] >>
@@ -871,13 +931,16 @@ namespace sample
 
       // Assignment to anything else.
       In(Assign) * T(Expr)[lhs] * T(Expr)[rhs] * End >>
-        [](Match& _) { return Call << clone(Store) << _(lhs) << _(rhs); },
+        [](Match& _) {
+          return Expr << (Call << clone(Store) << (Args << _(lhs) << _(rhs)));
+        },
 
       // Compact assigns after they're reduced.
-      T(Assign) << (T(Expr)[Expr] * End) >> [](Match& _) { return _(Expr); },
+      T(Assign) << ((T(Expr) << Any[lhs]) * End) >>
+        [](Match& _) { return _(lhs); },
 
       T(Let)[Let] >>
-        [](Match& _) { return err(_[Let], "must assign to a let binding"); },
+        [](Match& _) { return err(_[Let], "must assign to a `let` binding"); },
     };
   }
 
@@ -932,17 +995,6 @@ namespace sample
       T(TupleFlatten)[TupleFlatten] >>
         [](Match& _) {
           return err(_[TupleFlatten], "`...` can only appear in tuples");
-        },
-
-      // TODO: the reflet is right after it so it's never last
-      // Throw at the end of a FuncBody.
-      In(FuncBody) << (T(Bind) << (T(Ident) * T(Type) * T(Throw)[Throw])) *
-            End >>
-        [](Match& _) { return _(Throw); },
-
-      T(Bind) << (T(Ident) * T(Type) * T(Throw)[Throw]) >>
-        [](Match& _) {
-          return err(_[Throw], "`throw` must be the last statement in a block");
         },
     };
   }

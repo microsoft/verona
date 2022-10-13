@@ -9,6 +9,7 @@ namespace sample
   using namespace wf::ops;
 
   inline constexpr auto wfIdSym = IdSym >>= Ident | Symbol;
+  inline constexpr auto wfDefault = Default >>= Expr | DontCare;
 
   inline constexpr auto wfLiteral =
     Bool | Int | Hex | Bin | Float | HexFloat | Char | Escaped | String;
@@ -17,11 +18,11 @@ namespace sample
   inline constexpr auto wfParser =
       (Top <<= (Directory | File)++)
     | (Directory <<= (Directory | File)++)
-    | (File <<= Group++)
-    | (Brace <<= Group++)
-    | (Paren <<= Group++)
-    | (Square <<= Group++)
-    | (List <<= Group++)
+    | (File <<= (Group | List | Equals)++)
+    | (Brace <<= (Group | List | Equals)++)
+    | (Paren <<= (Group | List | Equals)++)
+    | (Square <<= (Group | List | Equals)++)
+    | (List <<= (Group | Equals)++)
     | (Equals <<= Group++)
     | (Group <<=
         (wfLiteral | Brace | Paren | Square | List | Equals | FatArrow | Use |
@@ -39,10 +40,10 @@ namespace sample
   // clang-format off
   inline constexpr auto wfPassModules =
       (Top <<= Group++)
-    | (Brace <<= Group++)
-    | (Paren <<= Group++)
-    | (Square <<= Group++)
-    | (List <<= Group++)
+    | (Brace <<= (Group | List | Equals)++)
+    | (Paren <<= (Group | List | Equals)++)
+    | (Square <<= (Group | List | Equals)++)
+    | (List <<= (Group | Equals)++)
     | (Equals <<= Group++)
     | (Package <<= String | Escaped)
     | (Type <<= wfModulesTokens++)
@@ -60,13 +61,13 @@ namespace sample
     | (Use <<= Type)
     | (TypeAlias <<= Ident * TypeParams * (Bounds >>= Type) * Type)[Ident]
     | (TypeTrait <<= Ident * ClassBody)[Ident]
-    | (FieldLet <<= Ident * Type * Expr)[Ident]
-    | (FieldVar <<= Ident * Type * Expr)[Ident]
+    | (FieldLet <<= Ident * Type * wfDefault)[Ident]
+    | (FieldVar <<= Ident * Type * wfDefault)[Ident]
     | (Function <<= wfIdSym * TypeParams * Params * Type * FuncBody)[IdSym]
     | (TypeParams <<= TypeParam++)
     | (TypeParam <<= Ident * (Bounds >>= Type) * Type)[Ident]
     | (Params <<= Param++)
-    | (Param <<= Ident * Type * Expr)[Ident]
+    | (Param <<= Ident * Type * wfDefault)[Ident]
     | (TypeTuple <<= Type++)
     | (FuncBody <<= (Use | Class | TypeAlias | Expr)++)
     | (ExprSeq <<= Expr++[2])
@@ -229,11 +230,12 @@ namespace sample
   inline constexpr auto wfPassApplication =
       wfPassReverseApp
 
-    // Remove Expr, Ref, Ellipsis. Add TupleFlatten. No longer a sequence.
+    // Remove Expr, Ref, Ellipsis, DontCare. Add TupleFlatten.
+    // No longer a sequence.
     | (Expr <<=
-        ExprSeq | Tuple | Assign | Lambda | Let | Var | Throw | DontCare |
-        wfLiteral | TypeAssert | RefVar | RefLet | Selector | FunctionName |
-        TypeAssertOp | Call | TupleFlatten)
+        ExprSeq | Tuple | Assign | Lambda | Let | Var | Throw | wfLiteral |
+        TypeAssert | RefVar | RefLet | Selector | FunctionName | TypeAssertOp |
+        Call | TupleFlatten)
     ;
   // clang-format on
 
@@ -248,9 +250,9 @@ namespace sample
 
     // Add TupleLHS, CallLHS, RefVarLHS.
     | (Expr <<=
-        ExprSeq | Tuple | Assign | Lambda | Let | Var | Throw | DontCare |
-        wfLiteral | TypeAssert | RefVar | RefLet | Selector | FunctionName |
-        TypeAssertOp | Call | TupleFlatten | TupleLHS | CallLHS | RefVarLHS)
+        ExprSeq | Tuple | Assign | Lambda | Let | Var | Throw | wfLiteral |
+        TypeAssert | RefVar | RefLet | Selector | FunctionName | TypeAssertOp |
+        Call | TupleFlatten | TupleLHS | CallLHS | RefVarLHS)
     ;
   // clang-format on
 
@@ -260,9 +262,9 @@ namespace sample
 
     // Remove Var, RefVar, RefVarLHS.
     | (Expr <<=
-        ExprSeq | Tuple | Assign | Lambda | Let | Throw | DontCare |
-        wfLiteral | TypeAssert | RefLet | Selector | FunctionName |
-        TypeAssertOp | Call | TupleFlatten | TupleLHS | CallLHS)
+        ExprSeq | Tuple | Assign | Lambda | Let | Throw | wfLiteral |
+        TypeAssert | RefLet | Selector | FunctionName | TypeAssertOp | Call |
+        TupleFlatten | TupleLHS | CallLHS)
     ;
   // clang-format on
 
@@ -275,9 +277,9 @@ namespace sample
 
     // Remove Assign, Let, TupleLHS. Add Bind.
     | (Expr <<=
-        ExprSeq | Tuple | Lambda | Throw | DontCare | wfLiteral | TypeAssert |
-        RefLet | Selector | FunctionName | TypeAssertOp | Call | TupleFlatten |
-        CallLHS | Bind)
+        ExprSeq | Tuple | Lambda | Throw | wfLiteral | TypeAssert | RefLet |
+        Selector | FunctionName | TypeAssertOp | Call | TupleFlatten | CallLHS |
+        Bind)
     ;
   // clang-format on
 

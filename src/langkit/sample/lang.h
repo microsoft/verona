@@ -62,9 +62,6 @@ namespace sample
   inline constexpr auto Param =
     TokenDef("param", flag::symtab | flag::defbeforeuse);
   inline constexpr auto FuncBody = TokenDef("funcbody");
-  inline constexpr auto BasicBlock = TokenDef("basicblock");
-  inline constexpr auto Statements = TokenDef("statements");
-  inline constexpr auto Terminator = TokenDef("terminator");
 
   // Type structure.
   inline constexpr auto Type = TokenDef("type");
@@ -117,6 +114,7 @@ namespace sample
 
   // Sythetic locations.
   inline const auto standard = Location("std");
+  inline const auto ref = Location("ref");
   inline const auto cell = Location("cell");
   inline const auto create = Location("create");
   inline const auto apply = Location("apply");

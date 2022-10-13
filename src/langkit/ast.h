@@ -223,15 +223,6 @@ namespace langkit
         push_back(it);
     }
 
-    void move_children(Node from)
-    {
-      if (!from)
-        return;
-
-      push_back({from->begin(), from->end()});
-      from->children.clear();
-    }
-
     Node pop_back()
     {
       if (children.empty())
@@ -428,19 +419,6 @@ namespace langkit
     }
 
     Location fresh()
-    {
-      auto st = scope();
-
-      if (st)
-        return st->symtab_->fresh();
-
-      if (!symtab_)
-        throw std::runtime_error("No symbol table");
-
-      return symtab_->fresh();
-    }
-
-    Location unique()
     {
       auto p = this;
 
