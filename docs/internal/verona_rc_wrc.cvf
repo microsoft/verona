@@ -136,9 +136,7 @@ method acquire_strong_from_weak()
 constraint emp -> 
   rc >= 0 && 
   wrc >= 0 && 
-  (rc > 0 => (wrc > 0 || closed == true)) &&
-  ((wrc >= 1 && rc > 0 && closed == false) 
-    || (wrc >= 0 && (rc == 0 || closed == true)));
+  (rc > 0 => (wrc > 0 || closed == true));
 
 // Permission to run the destructor
 constraint NoStrong -> closed == true;
@@ -156,9 +154,9 @@ constraint NoWeak * NoWeak -> false;
 // It is trivially true from the definitions of NoWeak and WeakRef.
 //constraint NoWeak * WeakRef -> false;
 
-constraint iter[n] StrongRef -> n > 0 => (rc >= n && closed == false && n > 0);
+constraint iter[n] StrongRef -> n > 0 => (rc >= n && closed == false);
 
 constraint iter[n] WeakRef -> 
-    ((closed == false && rc > 0 && wrc >= n + 1 )
-     || (closed == false && rc == 0 && wrc >= n )
-     || (closed == true && wrc >= n ));
+  n > 0
+  =>  ((closed == false && rc > 0 && wrc >= n + 1 )
+     || ((closed == true || rc == 0) && wrc >= n ));
