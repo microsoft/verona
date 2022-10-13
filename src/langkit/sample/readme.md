@@ -1,5 +1,9 @@
 # Todo
 
+https://devblogs.microsoft.com/cppblog/cpp23-deducing-this/
+
+print errors!
+
 builtins
   if...else
   typetest
@@ -41,16 +45,21 @@ catch unexpected bindings as well
 functions on types (functors, higher-kinded types)
   kind is functor arity
 
+# DontCare for Partial Application
+
+use `_` as a call argument to build a lambda that needs that value filled in
+  `f(x, _)` -> `{ $0 => f(x, $0) }`, same as `f(x)` with partial application
+  `f(_, x)` -> `{ $0 => f($0, x) }`
+  `f _` -> `{ $0 => f($0) }`
+
 ## Ellipsis
 
-`expr...` "unpacks" the tuple produced by `expr`
-- needed when putting `expr...` in another tuple
-- or passing a tuple as a sequence of arguments to a function
-`id...` on the lhs of an assignment accepts "remaining" (possibly 0 length) tuple elements
+`expr...` flattens the tuple produced by `expr`
+- only needed when putting `expr...` in another tuple
 `T...` is a tuple of unknown arity (0 or more) where every element is a `T`
 - bounding a type list bounds the elements, not the list itself
-- `T...` in a tuple "unpacks" the type into the tuple
-- `T...` in a function type "unpacks" the type into the function arguments
+- `T...` in a tuple flattens the type into the tuple
+- `T...` in a function type flattens the type into the function arguments
 
 ```ts
 // multiply a tuple of things by a thing
@@ -59,9 +68,11 @@ mul[n: type {*(n, n): n}, a: n...](x: n, y: a): a
   match y
   {
     { () => () }
-    { y, ys... => x * y, mul(x, ys...)... }
+    { y, ys => x * y, mul(x, ys)... }
   }
 }
+
+let xs = mul(2, (1, 2, 3)) // xs = (2, 4, 6)
 ```
 
 ## ANF
@@ -176,11 +187,6 @@ selecting by reffunc arity
   select the shortest, not the longest
   use tuple notation to force a longer arity
 
-## DNF
-
-does `throw` need to have a separate DNF level?
-- in between union and isect?
-
 ## param: values as parameters for pattern matching
 
 named parameters
@@ -191,54 +197,14 @@ pattern match on type
 pattern match on value
   (expr)
 
-## Lambda typing
-
-how to get a "call once" lambda
-  apply(self: iso)
-    (var ...) = destruct self
-  this extracts the fields
-  what if the lambda can't be iso?
-
-## Unique vs Linear?
-
-linear is use once
-what does the existence of a linear closure deny?
-  denies any local or global aliases
-  but linear can still reach the "enclosing" region
-  which means it's truly unique, not externally unique
-
-can we separate region and unique?
-  unique[T] has only one reference, but T isn't a different region
-  unique[region[T]] has one reference, and there's a new region
-  region[T] on it's own - blah, what's that?
-
-for an object O in region R1
-and a reference in region R2
-  mut =>
-    R1 = R2
-    no mut references to O outside of R1
-    no imm references to O in any region
-  imm =>
-    no mut or iso references to O in any region
-  iso =>
-    R1 != R2
-    no other iso reference to O in any region
-    no imm references to O in any region
-    no mut references to O outside of R1
-  lin => `unique` or `linear`
-    R1 = R2
-    no other references to O in any region
-
-{x => ... } : ((self: Self & lin, T)->U) & lin
-
-what about "one of these"?
-  ie will only call one of a set of linear lambdas
-
 ## Type Language
 
 adjacency for intersection?
 write functions of type->type explicitly?
   treat any type alias as a function of type->type?
+
+use DontCare to create type lambdas?
+  `T: Array[_]`, `T[U]` -> `Array[U]`
 
 ```ts
 f(x: T iso): imm T
@@ -253,61 +219,5 @@ x: ?T // better - implies adjacency is application, not intersection
 x: Array U32 // awkward or good?
 
 type |[T, U] = Union[T, U] // no, unions are fundamental
-
-```
-
-## Flow Typing Contexts
-
-```ts
-
-True::if[T, U](self: True ^ ⌊U⌋, f: (() ^ ⌊U⌋) -> T): Taken[T] =
-  // Taken(f(() with self))
-  Taken(f())
-False::if[T, U](self: False ^ ⌊U⌋, f: (() ^ ⌊U⌋) -> T): NotTaken[T] ^ ⌊U⌋ =
-  // NotTaken[T] with self
-  NotTaken
-
-Taken[T]::elseif[DC](self, cond: () -> Bool, f: DC -> T): Taken[T] = self
-NotTaken[T]::elseif[U](
-  self: NotTaken[T] ^ ⌊U⌋, cond: () -> Bool, f: (() ^ ⌊U⌋) -> T):
-  Taken[T] | (NotTaken[T] ^ ⌊U⌋) =
-  // cond().if(f with self)
-  if(cond()) f
-
-Taken[T]::else[DC](self, f: DC -> T): T = self()
-NotTaken[T]::else[U](self: NotTaken[T] ^ ⌊U⌋, f: (() ^ ⌊U⌋) -> T): T =
-  // f(() with self)
-  f()
-
-```
-
-## Kappa
-
-```ts
-
-iso "entry point to another region"
-  denies {iso, mut, imm, paused}
-mut "from my region"
-  denies {iso, imm, paused}
-imm "from no region"
-  denies {iso, mut, paused}
-paused "from another region"
-  denies {iso, mut, imm}
-
-iso▹T = ⊥
-mut▹T = T
-imm▹T = imm
-paused▹iso = iso
-paused▹mut = paused
-paused▹imm = imm
-
-ref[T]::load : (ref[T] & K) -> K▹T
-ref[T]::store : (ref[T] & mut) -> T -> T
-
-Γ ⊢ x 
-T = T1 in Γ[borrow/mut] ⊢ e : T1 iff ¬open(region(x))
-    throw AlreadyOpen otherwise
---- [ENTER]
-Γ ⊢ enter x e : T
 
 ```

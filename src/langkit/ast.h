@@ -142,6 +142,9 @@ namespace langkit
     {
       if (!location_.source)
         location_ = loc;
+
+      for (auto& c : children)
+        c->set_location(loc);
     }
 
     void extend(const Location& loc)
@@ -475,6 +478,29 @@ namespace langkit
 
       ss << ")";
       return ss.str();
+    }
+
+    bool errors(std::ostream& out)
+    {
+      bool err = false;
+
+      for (auto& child : children)
+      {
+        if (child->errors(out))
+          err = true;
+      }
+
+      if (!err && (type_ == Error))
+      {
+        auto msg = children.at(0);
+        auto ast = children.at(1);
+        out << ast->location().origin_linecol() << msg->location().view()
+            << std::endl
+            << ast->location().str() << std::endl;
+        err = true;
+      }
+
+      return err;
     }
   };
 

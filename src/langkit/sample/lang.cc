@@ -53,23 +53,16 @@ namespace sample
     };
   }
 
-  inline const auto ExprStruct =
-    In(FuncBody) / In(Assign) / In(Tuple) / In(Expr);
   inline const auto TypeStruct = In(Type) / In(TypeList) / In(TypeTuple) /
     In(TypeView) / In(TypeFunc) / In(TypeThrow) / In(TypeUnion) / In(TypeIsect);
   inline const auto Name = T(Ident) / T(Symbol);
   inline const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) /
     T(Hex) / T(Bin) / T(Int) / T(Float) / T(HexFloat);
 
-  auto typevar(auto& _, const Token& t)
+  auto typevar(auto& _, const Token& t = Invalid)
   {
     auto n = _(t);
     return n ? n : Type << (TypeVar ^ _.fresh());
-  }
-
-  auto letbind(auto& _, Location& id, Node t, Node e)
-  {
-    return (Lift << FuncBody << (_(id = Let) << (Ident ^ id) << t << e));
   }
 
   PassDef structure()
@@ -252,18 +245,25 @@ namespace sample
         [](Match& _) { return err(_[Type], "can't put this in a type"); },
 
       // Expression structure.
-      ExprStruct * T(Group)[Expr] >> [](Match& _) { return Expr << *_[Expr]; },
-      ExprStruct * T(List)[Tuple] >>
-        [](Match& _) { return Tuple << *_[Tuple]; },
-      ExprStruct * T(Equals)[Assign] >>
-        [](Match& _) { return Assign << *_[Assign]; },
+      (In(FuncBody) / In(ExprSeq) / In(Tuple) / In(Assign)) * T(Group)[Group] >>
+        [](Match& _) { return Expr << *_[Group]; },
+      In(Expr) * T(List)[List] >> [](Match& _) { return Tuple << *_[List]; },
+      In(Expr) * T(Equals)[Equals] >>
+        [](Match& _) { return Assign << *_[Equals]; },
 
-      // Empty parens are an empty tuple.
-      ExprStruct * T(Paren) << End >> ([](Match& _) -> Node { return Tuple; }),
-      ExprStruct * T(Paren)[Expr] >> [](Match& _) { return Expr << *_[Expr]; },
+      // Empty parens are an empty Tuple.
+      In(Expr) * T(Paren) << End >> ([](Match& _) -> Node { return Tuple; }),
+
+      // Single group parens are an Expr.
+      In(Expr) * T(Paren) << (T(Group)[Group] * End) >>
+        [](Match& _) { return Expr << *_[Group]; },
+
+      // Multiple group parens are an ExprSeq.
+      In(Expr) * T(Paren)[Paren] >>
+        [](Match& _) { return ExprSeq << *_[Paren]; },
 
       // Typearg structure.
-      (TypeStruct / ExprStruct) * T(Square)[TypeArgs] >>
+      (TypeStruct / In(Expr)) * T(Square)[TypeArgs] >>
         [](Match& _) { return TypeArgs << *_[TypeArgs]; },
       T(TypeArgs) << T(List)[TypeArgs] >>
         [](Match& _) { return TypeArgs << *_[TypeArgs]; },
@@ -273,7 +273,7 @@ namespace sample
         [](Match& _) { return Type << *_[Type]; },
 
       // Lambda: (group typeparams) (list params...) => rhs
-      ExprStruct * T(Brace)
+      In(Expr) * T(Brace)
           << (((T(Group) << T(Square)[TypeParams]) * T(List)[Params]) *
               (T(Group) << T(FatArrow)) * (Any++)[rhs]) >>
         [](Match& _) {
@@ -282,7 +282,7 @@ namespace sample
         },
 
       // Lambda: (group typeparams) (group param) => rhs
-      ExprStruct * T(Brace)
+      In(Expr) * T(Brace)
           << (((T(Group) << T(Square)[TypeParams]) * T(Group)[Param]) *
               (T(Group) << T(FatArrow)) * (Any++)[rhs]) >>
         [](Match& _) {
@@ -291,7 +291,7 @@ namespace sample
         },
 
       // Lambda: (list (group typeparams? param) params...) => rhs
-      ExprStruct * T(Brace)
+      In(Expr) * T(Brace)
           << ((T(List)
                << ((T(Group) << (~T(Square)[TypeParams] * (Any++)[Param])) *
                    (Any++)[Params]))) *
@@ -303,7 +303,7 @@ namespace sample
         },
 
       // Lambda: (group typeparams? param) => rhs
-      ExprStruct * T(Brace)
+      In(Expr) * T(Brace)
           << ((T(Group) << (~T(Square)[TypeParams] * (Any++)[Param])) *
               (T(Group) << T(FatArrow)) * (Any++)[rhs]) >>
         [](Match& _) {
@@ -313,34 +313,37 @@ namespace sample
         },
 
       // Zero argument lambda.
-      ExprStruct * T(Brace) << (!(T(Group) << T(FatArrow)))++[Lambda] >>
+      In(Expr) * T(Brace) << (!(T(Group) << T(FatArrow)))++[Lambda] >>
         [](Match& _) {
           return Lambda << TypeParams << Params << (FuncBody << _[Lambda]);
         },
 
       // Var.
-      ExprStruct * T(Var)[Var] * T(Ident)[id] >>
+      In(Expr) * T(Var)[Var] * T(Ident)[id] >>
         [](Match& _) { return _(id = Var) << _(id); },
 
       T(Var)[Var] << End >>
         [](Match& _) { return err(_[Var], "`var` needs an identifier"); },
 
       // Let.
-      ExprStruct * T(Let)[Let] * T(Ident)[id] >>
+      In(Expr) * T(Let)[Let] * T(Ident)[id] >>
         [](Match& _) { return _(id = Let) << _(id); },
 
       T(Let)[Let] << End >>
         [](Match& _) { return err(_[Let], "`let` needs an identifier"); },
 
       // Throw.
-      ExprStruct * T(Throw) * (Any++)[rhs] >>
-        [](Match& _) { return Throw << (Expr << _[rhs]); },
+      In(Expr) * T(Throw) * Any[lhs] * (Any++)[rhs] >>
+        [](Match& _) { return Throw << (Expr << _(lhs) << _[rhs]); },
+
+      In(Expr) * T(Throw)[Throw] << End >>
+        [](Match& _) { return err(_[Throw], "`throw` must specify a value"); },
 
       T(Throw)[Throw] << End >>
         [](Match& _) { return err(_[Throw], "can't put a `throw` here"); },
 
       // Move a ref to the last expr of a sequence.
-      ExprStruct * T(Ref) * T(Expr)[Expr] >>
+      In(Expr) * T(Ref) * T(Expr)[Expr] >>
         [](Match& _) { return Expr << Ref << *_[Expr]; },
       In(Expr) * T(Ref) * T(Expr)[lhs] * T(Expr)[rhs] >>
         [](Match& _) { return Seq << _[lhs] << Ref << _[rhs]; },
@@ -358,8 +361,7 @@ namespace sample
           return Expr << (TypeAssert << _(Type) << (Expr << _[Expr]));
         },
 
-      ExprStruct *
-          (T(Package) / T(Iso) / T(Mut) / T(Imm) / T(FatArrow))[Expr] >>
+      In(Expr) * (T(Package) / T(Iso) / T(Mut) / T(Imm) / T(FatArrow))[Expr] >>
         [](Match& _) {
           return err(_[Expr], "can't put this in an expression");
         },
@@ -614,6 +616,9 @@ namespace sample
           return FunctionName << _[lhs] << _(id) << (_[TypeArgs] | TypeArgs);
         },
 
+      In(Expr) * T(DoubleColon) >>
+        [](Match& _) { return err(_[DoubleColon], "expected a scoped name"); },
+
       // Create sugar.
       In(Expr) * T(TypeName)[lhs] * ~T(TypeArgs)[TypeArgs] >>
         [](Match& _) {
@@ -628,6 +633,12 @@ namespace sample
           return Seq << Dot << (Selector << (Ident ^ apply) << _[TypeArgs]);
         },
 
+      // TypeAssert on a Selector or FunctionName.
+      T(TypeAssert)
+          << (T(Type)[lhs] *
+              (T(Expr) << (T(Selector) / T(FunctionName))[rhs])) >>
+        [](Match& _) { return TypeAssertOp << _[lhs] << _[rhs]; },
+
       // Compact expressions.
       In(Expr) * T(Expr) << (Any[Expr] * End) >>
         [](Match& _) { return _(Expr); },
@@ -635,50 +646,41 @@ namespace sample
     };
   }
 
-  inline const auto Object0 = Literal / T(RefVar) / T(RefVarLHS) / T(RefLet) /
-    T(Tuple) / T(Lambda) / T(Call) / T(CallLHS) / T(Assign) / T(Expr);
-  inline const auto Object = Object0 / (T(TypeAssert) << (T(Type) * Object0));
-  inline const auto Operator0 = T(FunctionName) / T(Selector);
-  inline const auto Operator =
-    Operator0 / (T(TypeAssert) << (T(Type) * Operator0));
-
+  inline const auto Object = Literal / T(RefVar) / T(RefVarLHS) / T(RefLet) /
+    T(Tuple) / T(Lambda) / T(Call) / T(CallLHS) / T(Assign) / T(Expr) /
+    T(ExprSeq) / T(TypeAssert);
+  inline const auto Operator = T(FunctionName) / T(Selector) / T(TypeAssertOp);
   inline const auto Apply = (Selector << (Ident ^ apply) << TypeArgs);
-  inline const auto Load = (Selector << (Ident ^ load) << TypeArgs);
-  inline const auto Store = (Selector << (Ident ^ store) << TypeArgs);
-  inline const auto Std = TypeName << TypeUnit << (Ident ^ standard)
-                                   << TypeArgs;
-  inline const auto Cell = TypeName << Std << (Ident ^ cell) << TypeArgs;
-  inline const auto CellCreate =
-    (FunctionName << Cell << (Ident ^ create) << TypeArgs);
-  inline const auto CallCellCreate = (Call << CellCreate);
+
+  auto arg(Node args, Node arg)
+  {
+    if (arg)
+    {
+      if (arg->type() == Tuple)
+        args->move_children(arg);
+      else if (arg->type() == Expr)
+        args << arg;
+      else
+        args << (Expr << arg);
+    }
+
+    return args;
+  }
+
+  auto call(Node op, Node lhs, Node rhs = {})
+  {
+    return Call << op << arg(arg(Args, lhs), rhs);
+  }
 
   PassDef reverseapp()
   {
     return {
       // Dot: reverse application. This binds most strongly.
-      // TODO: rhs could be a TypeAssert, extract it in Call
-      In(Expr) * T(Tuple)[lhs] * T(Dot) * Operator[rhs] >>
-        [](Match& _) { return Call << _(rhs) << (Args << *_[lhs]); },
-      In(Expr) * (Object / Operator)[lhs] * T(Dot) * Operator[rhs] >>
-        [](Match& _) { return Call << _(rhs) << (Args << _[lhs]); },
+      (Object / Operator)[lhs] * T(Dot) * Operator[rhs] >>
+        [](Match& _) { return call(_(rhs), _(lhs)); },
 
-      In(Expr) * T(Tuple)[lhs] * T(Dot) * Object[rhs] >>
-        [](Match& _) {
-          return Call << clone(Apply) << (Args << _[rhs] << *_[lhs]);
-        },
-      In(Expr) * (Object / Operator)[lhs] * T(Dot) * Object[rhs] >>
-        [](Match& _) {
-          return Call << clone(Apply) << (Args << _[rhs] << _[lhs]);
-        },
-
-      In(Expr) * T(Tuple)[lhs] * T(Dot) * T(Tuple)[rhs] >>
-        [](Match& _) {
-          return Call << clone(Apply) << (Args << *_[rhs] << *_[lhs]);
-        },
-      In(Expr) * (Object / Operator)[lhs] * T(Dot) * T(Tuple)[rhs] >>
-        [](Match& _) {
-          return Call << clone(Apply) << (Args << *_[rhs] << _[lhs]);
-        },
+      (Object / Operator)[lhs] * T(Dot) * (T(Tuple) / Object)[rhs] >>
+        [](Match& _) { return call(clone(Apply), _(rhs), _(lhs)); },
 
       T(Dot)[Dot] >>
         [](Match& _) {
@@ -693,52 +695,45 @@ namespace sample
     // the expected meaning.
     return {
       // Adjacency: application.
-      In(Expr) * T(Tuple)[lhs] * T(Tuple)[rhs] >>
-        [](Match& _) { return Call << clone(Apply) << *_[lhs] << *_[rhs]; },
-      In(Expr) * T(Tuple)[lhs] * Object[rhs] >>
-        [](Match& _) { return Call << clone(Apply) << *_[lhs] << _[rhs]; },
-      In(Expr) * Object[lhs] * T(Tuple)[rhs] >>
-        [](Match& _) { return Call << clone(Apply) << _[lhs] << *_[rhs]; },
       In(Expr) * Object[lhs] * Object[rhs] >>
-        [](Match& _) { return Call << clone(Apply) << _[lhs] << _[rhs]; },
+        [](Match& _) { return call(clone(Apply), _(lhs), _(rhs)); },
 
-      // TODO: op could be a TypeAssert, extract it in Call
       // Prefix. This doesn't rewrite `op op`.
-      In(Expr) * Operator[op] * T(Tuple)[rhs] >>
-        [](Match& _) { return Call << _[op] << *_[rhs]; },
       In(Expr) * Operator[op] * Object[rhs] >>
-        [](Match& _) { return Call << _[op] << _[rhs]; },
+        [](Match& _) { return call(_(op), _(rhs)); },
 
       // Infix. This doesn't rewrite with an operator on lhs or rhs.
-      In(Expr) * T(Tuple)[lhs] * Operator[op] * T(Tuple)[rhs] >>
-        [](Match& _) { return Call << _[op] << *_[lhs] << *_[rhs]; },
-      In(Expr) * T(Tuple)[lhs] * Operator[op] * Object[rhs] >>
-        [](Match& _) { return Call << _[op] << *_[lhs] << _[rhs]; },
-      In(Expr) * Object[lhs] * Operator[op] * T(Tuple)[rhs] >>
-        [](Match& _) { return Call << _[op] << _[lhs] << *_[rhs]; },
       In(Expr) * Object[lhs] * Operator[op] * Object[rhs] >>
-        [](Match& _) { return Call << _[op] << _[lhs] << _[rhs]; },
+        [](Match& _) { return call(_(op), _(lhs), _(rhs)); },
 
-      // Postfix. This doesn't rewrite unless the expression ends here.
-      // TODO: sequence of postfix operators?
-      In(Expr) * T(Tuple)[lhs] * Operator[op] * End >>
-        [](Match& _) { return Call << _[op] << *_[lhs]; },
-      In(Expr) * (Object / Operator)[lhs] * Operator[op] * End >>
-        [](Match& _) { return Call << _[op] << _[lhs]; },
+      // Postfix. This doesn't rewrite unless only postfix operators remain.
+      In(Expr) * (Object / Operator)[lhs] * Operator[op] * Operator++[rhs] *
+          End >>
+        [](Match& _) { return Seq << call(_(op), _(lhs)) << _[rhs]; },
 
       // Ref expressions.
-      In(Expr) * T(Ref) * T(RefVar)[RefVar] >>
+      T(Ref) * T(RefVar)[RefVar] >>
         [](Match& _) { return RefVarLHS ^ _(RefVar); },
-      In(Expr) * T(Ref) * T(Call)[Call] >>
-        [](Match& _) { return CallLHS << *_[Call]; },
+      T(Ref) * T(Call)[Call] >> [](Match& _) { return CallLHS << *_[Call]; },
+
+      // Tuple flattening.
+      In(Tuple) * T(Expr) << (Object[lhs] * T(Ellipsis) * End) >>
+        [](Match& _) { return Expr << (TupleFlatten << (Expr << _(lhs))); },
 
       T(Ref) >>
         [](Match& _) {
           return err(_[Ref], "must use `ref` in front of a variable or call");
         },
 
-      // TODO: remaining Operators are errors? rules on let, var, throw,
-      // dontcare, ellipsis?
+      T(Ellipsis) >>
+        [](Match& _) {
+          return err(_[Ellipsis], "must use `...` after a value in a tuple");
+        },
+
+      In(Expr) * (Any * Any)[Expr] >>
+        [](Match& _) {
+          return err(_[Expr], "adjacency on this expression isn't meaningful");
+        },
     };
   }
 
@@ -746,134 +741,209 @@ namespace sample
   {
     return {
       // Turn a Tuple on the LHS of an assignment into a TupleLHS.
-      In(Assign) * (T(Expr) << (T(Tuple)[lhs] * ~T(Type)[Type])) * Any[rhs] >>
+      (In(Assign) / In(TupleLHS)) * (T(Expr) << T(Tuple)[lhs]) >>
+        [](Match& _) { return Expr << (TupleLHS << *_[lhs]); },
+
+      (In(Assign) / In(TupleLHS)) *
+          (T(Expr) << (T(TypeAssert) << (T(Type)[Type] * T(Tuple)[lhs]))) >>
         [](Match& _) {
-          return Seq << (Expr << (TupleLHS << *_[lhs]) << _[Type]) << _[rhs];
+          return Expr << (TypeAssert << _(Type) << (TupleLHS << *_[lhs]));
         },
 
       // Turn a Call on the LHS of an assignment into a CallLHS.
-      In(Assign) * (T(Expr) << (T(Call)[lhs] * ~T(Type)[Type])) * Any[rhs] >>
+      (In(Assign) / In(TupleLHS)) * (T(Expr) << T(Call)[lhs]) >>
+        [](Match& _) { return Expr << (CallLHS << *_[lhs]); },
+
+      (In(Assign) / In(TupleLHS)) *
+          (T(Expr) << (T(TypeAssert) << (T(Type)[Type] * T(Call)[lhs]))) >>
         [](Match& _) {
-          return Seq << (Expr << (CallLHS << *_[lhs]) << _[Type]) << _[rhs];
+          return Expr << (TypeAssert << _(Type) << (CallLHS << *_[lhs]));
         },
 
       // Turn a RefVar on the LHS of an assignment into a RefVarLHS.
-      In(Assign) * (T(Expr) << (T(RefVar)[lhs] * ~T(Type)[Type])) * Any[rhs] >>
+      (In(Assign) / In(TupleLHS)) * (T(Expr) << T(RefVar)[lhs]) >>
+        [](Match& _) { return Expr << (RefVarLHS ^ _(lhs)); },
+
+      (In(Assign) / In(TupleLHS)) *
+          (T(Expr) << (T(TypeAssert) << (T(Type)[Type] * T(RefVar)[lhs]))) >>
         [](Match& _) {
-          return Seq << (Expr << (RefVarLHS ^ _(lhs)) << _[Type]) << _[rhs];
+          return Expr << (TypeAssert << _(Type) << (RefVarLHS << *_[lhs]));
         },
-
-      // Recurse LHS.
-      In(TupleLHS) * (T(Expr) << (T(Tuple)[lhs] * ~T(Type)[Type])) >>
-        [](Match& _) { return Expr << (TupleLHS << *_[lhs]) << _[Type]; },
-
-      In(TupleLHS) * (T(Expr) << (T(Call)[lhs] * ~T(Type)[Type])) >>
-        [](Match& _) { return Expr << (CallLHS << *_[lhs]) << _[Type]; },
-
-      In(TupleLHS) * (T(Expr) << (T(RefVar)[lhs] * ~T(Type)[Type])) >>
-        [](Match& _) { return Expr << (RefVarLHS ^ _(lhs)) << _[Type]; },
     };
   }
 
-  inline const auto InContainer =
-    In(Expr) / In(Tuple) / In(Call) / In(CallLHS) / In(Assign);
+  inline const auto Std = TypeName << TypeUnit << (Ident ^ standard)
+                                   << TypeArgs;
+  inline const auto Cell = TypeName << Std << (Ident ^ cell) << TypeArgs;
+  inline const auto CellCreate =
+    (FunctionName << Cell << (Ident ^ create) << TypeArgs);
+  inline const auto CallCellCreate = (Call << CellCreate);
+  inline const auto Load = (Selector << (Ident ^ load) << TypeArgs);
 
   PassDef localvar()
   {
     return {
-      (In(FuncBody) / InContainer) * T(Var)[Var] >>
+      T(Var)[Var] >>
         [](Match& _) {
-          auto var = _(Var);
-          auto id = var->at(wf / Var / Ident)->location();
-          auto t = var->at(wf / Var / Type);
-          return Seq << letbind(_, id, t, CallCellCreate) << (RefLet ^ id);
+          auto id = _(Var)->at(wf / Var / Ident)->location();
+          return ExprSeq << (Expr
+                             << (Assign << (Expr << (_(id = Let)))
+                                        << (Expr << CallCellCreate)))
+                         << (Expr << (RefLet ^ id));
         },
 
-      (In(FuncBody) / InContainer) * T(RefVar)[RefVar] >>
+      T(RefVar)[RefVar] >>
         [](Match& _) { return Call << clone(Load) << (RefLet ^ _(RefVar)); },
 
-      (In(FuncBody) / InContainer) * T(RefVarLHS)[RefVarLHS] >>
-        [](Match& _) { return RefLet ^ _(RefVarLHS); },
+      T(RefVarLHS)[RefVarLHS] >> [](Match& _) { return RefLet ^ _(RefVarLHS); },
     };
   }
 
-  PassDef destructure()
-  {
-    return {
-      // Destructuring assignment.
-      In(Assign) * (T(Expr) << (T(TupleLHS)[lhs] * ~T(Type)[ltype] * End)) *
-          (T(Expr) << (Any[rhs] * ~T(Type)[rtype] * End)) * End >>
-        [](Match& _) {
-          auto e = _(rhs);
-          auto id = _.fresh();
-          Node tuple = Tuple;
-          size_t index = 0;
-
-          for (auto child : *_(lhs))
-          {
-            tuple
-              << (Assign << child
-                         << (Expr
-                             << (Call << (Selector
-                                          << (Ident ^
-                                              Location(
-                                                "_" + std::to_string(index++)))
-                                          << TypeArgs)
-                                      << (RefLet ^ id))));
-          }
-
-          return Seq << letbind(_, id, typevar(_, rtype), e)
-                     << (Expr << tuple << _[ltype]);
-        },
-    };
-  }
-
-  inline const auto LiftExpr = T(Tuple) / T(Lambda) / T(Call) / T(CallLHS);
-  inline const auto RHSExpr = T(RefLet) / Literal;
-
-  PassDef anf()
-  {
-    return {
-      // Lift an expression as a let with a type assertion.
-      (In(FuncBody) / InContainer) * LiftExpr[Lift] * ~T(Type)[Type] >>
-        [](Match& _) {
-          auto id = _.fresh();
-          return Seq << letbind(_, id, typevar(_, Type), _(Lift))
-                     << (RefLet ^ id);
-        },
-
-      // Lift type assertions on RefLet and literals as new lets.
-      (In(FuncBody) / InContainer) * RHSExpr[Lift] * T(Type)[Type] >>
-        [](Match& _) {
-          auto id = _.fresh();
-          return Seq << letbind(_, id, _(Type), _(Lift)) << (RefLet ^ id);
-        },
-
-      // Compact exprs after they're reduced.
-      T(Expr) << (Any[op] * End) >> [](Match& _) { return _(op); },
-    };
-  }
+  inline const auto Store = (Selector << (Ident ^ store) << TypeArgs);
 
   PassDef assignment()
   {
     return {
       // Let binding.
-      In(Assign) * T(Let)[lhs] * RHSExpr[rhs] * End >>
+      In(Assign) *
+          (T(Expr)
+           << ((T(Let) << T(Ident)[id]) /
+               (T(TypeAssert) << T(Type)[Type] << (T(Let) << T(Ident)[id])))) *
+          T(Expr)[rhs] * End >>
         [](Match& _) {
-          return Seq << (Lift << FuncBody << (_(lhs) << _(rhs)))
-                     << (RefLet ^ _(lhs)->at(wf / Let / Ident));
+          return ExprSeq << (Expr
+                             << (_(id = Bind)
+                                 << id << typevar(_, Type) << _(rhs)))
+                         << (Expr << (RefLet ^ id));
         },
 
-      // Assignment to RefLet.
-      In(Assign) * T(RefLet)[lhs] * RHSExpr[rhs] * End >>
+      // Destructuring assignment.
+      In(Assign) *
+          (T(Expr)
+           << (T(TupleLHS)[lhs] /
+               (T(TypeAssert)
+                << (T(Type)[Type] * (T(Expr) << T(TupleLHS)[lhs]))))) *
+          T(Expr)[rhs] * End >>
         [](Match& _) {
+          // let $id = rhs
           auto id = _.fresh();
-          auto e = Call << clone(Store) << _(lhs) << _(rhs);
-          return Seq << letbind(_, id, TypeVar ^ _.fresh(), e) << (RefLet ^ id);
+          auto seq = ExprSeq
+            << (Expr << (Assign << (Expr << (_(id = Let))) << _(rhs)));
+
+          Node lhs_tuple = Tuple;
+          Node rhs_tuple = Tuple;
+          auto ty = _(Type);
+          size_t index = 0;
+
+          for (auto child : *_(lhs))
+          {
+            // let $tid = tuple_child
+            auto tid = _.fresh();
+            seq
+              << (Expr
+                  << (Assign << (Expr << (Let << (Ident ^ tid))) << child));
+
+            // Build a LHS tuple that will only be used if there's a TypeAssert.
+            if (ty)
+              lhs_tuple << (Expr << (RefLet ^ tid));
+
+            // $tid = $id._index
+            rhs_tuple
+              << (Expr
+                  << (Assign
+                      << (RefLet ^ tid)
+                      << (Expr
+                          << (Call
+                              << (Selector
+                                  << (Ident ^
+                                      Location("_" + std::to_string(index++)))
+                                  << TypeArgs)
+                              << (RefLet ^ id)))));
+          }
+
+          // TypeAssert comes after the let bindings for the LHS.
+          if (ty)
+            seq << (Expr << (TypeAssert << ty << lhs_tuple));
+
+          // The RHS tuple is the last expression in the sequence.
+          return Expr << (seq << (Expr << rhs_tuple));
         },
+
+      // Assignment to anything else.
+      In(Assign) * T(Expr)[lhs] * T(Expr)[rhs] * End >>
+        [](Match& _) { return Call << clone(Store) << _(lhs) << _(rhs); },
 
       // Compact assigns after they're reduced.
-      T(Assign) << (Any[op] * End) >> [](Match& _) { return _(op); },
+      T(Assign) << (T(Expr)[Expr] * End) >> [](Match& _) { return _(Expr); },
+
+      T(Let)[Let] >>
+        [](Match& _) { return err(_[Let], "must assign to a let binding"); },
+    };
+  }
+
+  inline const auto Liftable = T(Tuple) / T(Lambda) / T(Call) / T(CallLHS) /
+    T(Selector) / T(FunctionName) / Literal / T(Throw);
+
+  PassDef anf()
+  {
+    // TODO: do DontCare in an earlier pass, if it's in Args, make a lambda
+    return {
+      // This liftable expr is already bound from `let x = e`.
+      In(Bind) * (T(Expr) << Liftable[Lift]) >>
+        [](Match& _) { return _(Lift); },
+
+      In(Bind) * (T(Expr) << T(Bind)[Bind]) >>
+        [](Match& _) {
+          return err(
+            _[Bind],
+            "well-formedness allows this but it can't occur on written code");
+        },
+
+      // Lift `let x` bindings, leaving the RefLet behind.
+      T(Expr) << T(Bind)[Bind] >>
+        [](Match& _) { return Lift << FuncBody << _(Bind); },
+
+      // Lift RefLet by one step everywhere.
+      T(Expr) << T(RefLet)[RefLet] >> [](Match& _) { return _(RefLet); },
+
+      // Create a new binding for this liftable expr.
+      T(Expr)
+          << (Liftable[Lift] /
+              ((T(TypeAssert) / T(TypeAssertOp))
+               << (T(Type)[Type] * Liftable[Lift]))) >>
+        [](Match& _) {
+          auto id = _.fresh();
+          return Seq << (Lift << FuncBody
+                              << (_(id = Bind) << (Ident ^ id)
+                                               << typevar(_, Type) << _(Lift)))
+                     << (RefLet ^ id);
+        },
+
+      // Compact an ExprSeq with only one element.
+      T(ExprSeq) << (Any[lhs] * End) >> [](Match& _) { return _(lhs); },
+
+      // Discard leading RefLets in ExprSeq.
+      In(ExprSeq) * (T(RefLet) * Any[lhs] * Any++[rhs]) >>
+        [](Match& _) { return Seq << _(lhs) << _[rhs]; },
+
+      // Tuple flattening.
+      In(Tuple) * (T(Expr) << T(TupleFlatten)[TupleFlatten]) * End >>
+        [](Match& _) { return _(TupleFlatten); },
+      T(TupleFlatten)[TupleFlatten] >>
+        [](Match& _) {
+          return err(_[TupleFlatten], "`...` can only appear in tuples");
+        },
+
+      // TODO: the reflet is right after it so it's never last
+      // Throw at the end of a FuncBody.
+      In(FuncBody) << (T(Bind) << (T(Ident) * T(Type) * T(Throw)[Throw])) *
+            End >>
+        [](Match& _) { return _(Throw); },
+
+      T(Bind) << (T(Ident) * T(Type) * T(Throw)[Throw]) >>
+        [](Match& _) {
+          return err(_[Throw], "`throw` must be the last statement in a block");
+        },
     };
   }
 
@@ -896,12 +966,10 @@ namespace sample
         {"reference", reference(), wfPassReference()},
         {"reverseapp", reverseapp(), wfPassReverseApp()},
         {"application", application(), wfPassApplication()},
-        {"assignlhs", assignlhs(), {}},
-        {"localvar", localvar(), {}},
-        {"destructure", destructure(), {}},
-        {"anf", anf(), {}},
-        {"assignment", assignment(), {}},
-        {"infer", infer(), {}},
+        {"assignlhs", assignlhs(), wfPassAssignLHS()},
+        {"localvar", localvar(), wfPassLocalVar()},
+        {"assignment", assignment(), wfPassAssignment()},
+        {"anf", anf(), wfPassANF()},
       });
 
     return d;

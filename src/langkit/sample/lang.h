@@ -62,6 +62,9 @@ namespace sample
   inline constexpr auto Param =
     TokenDef("param", flag::symtab | flag::defbeforeuse);
   inline constexpr auto FuncBody = TokenDef("funcbody");
+  inline constexpr auto BasicBlock = TokenDef("basicblock");
+  inline constexpr auto Statements = TokenDef("statements");
+  inline constexpr auto Terminator = TokenDef("terminator");
 
   // Type structure.
   inline constexpr auto Type = TokenDef("type");
@@ -78,7 +81,9 @@ namespace sample
 
   // Expression structure.
   inline constexpr auto Expr = TokenDef("expr");
+  inline constexpr auto ExprSeq = TokenDef("exprseq");
   inline constexpr auto TypeAssert = TokenDef("typeassert");
+  inline constexpr auto TypeAssertOp = TokenDef("typeassertop");
   inline constexpr auto TypeArgs = TokenDef("typeargs");
   inline constexpr auto Lambda =
     TokenDef("lambda", flag::symtab | flag::defbeforeuse);
@@ -94,6 +99,8 @@ namespace sample
   inline constexpr auto TupleLHS = TokenDef("tuple-lhs");
   inline constexpr auto CallLHS = TokenDef("call-lhs");
   inline constexpr auto RefVarLHS = TokenDef("refvar-lhs", flag::print);
+  inline constexpr auto TupleFlatten = TokenDef("tupleflatten");
+  inline constexpr auto Bind = TokenDef("bind");
 
   // Indexing names.
   inline constexpr auto IdSym = TokenDef("idsym");

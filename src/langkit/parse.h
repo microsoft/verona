@@ -50,16 +50,6 @@ namespace langkit
         top = node;
       }
 
-      size_t& pos()
-      {
-        return location.pos;
-      }
-
-      size_t& len()
-      {
-        return location.len;
-      }
-
       std::pair<size_t, size_t> linecol() const
       {
         return location.linecol();
@@ -89,12 +79,16 @@ namespace langkit
         return n && (n->type() == type);
       }
 
-      void add(const Token& type)
+      void add(const Token& type, size_t index = 0)
       {
         if ((type != Group) && !in(Group))
           push(Group);
 
-        auto n = NodeDef::create(type, location);
+        auto loc = location;
+        loc.pos += match_.position(index);
+        loc.len = match_.length(index);
+
+        auto n = NodeDef::create(type, loc);
         node->push_back(n);
       }
 
@@ -126,23 +120,16 @@ namespace langkit
         }
       }
 
-      void push(const Token& type)
+      void push(const Token& type, size_t index = 0)
       {
-        add(type);
+        add(type, index);
         node = node->back();
       }
 
       void pop(const Token& type)
       {
-        if (in(type))
-        {
-          extend();
-          node = node->parent()->shared_from_this();
-        }
-        else
-        {
+        if (!try_pop(type))
           invalid();
-        }
       }
 
       void term(std::initializer_list<Token> end = {})
@@ -171,7 +158,9 @@ namespace langkit
       {
         if (in(type))
         {
-          extend();
+          if (!node->empty())
+            node->extend(node->back()->location());
+
           node = node->parent()->shared_from_this();
           return true;
         }

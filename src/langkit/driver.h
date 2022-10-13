@@ -72,8 +72,7 @@ namespace langkit
 
       std::string start_pass;
       test->add_option("start", start_pass, "Start at this pass.")
-        ->transform(CLI::IsMember(limits))
-        ->required();
+        ->transform(CLI::IsMember(limits));
 
       std::string end_pass;
       test->add_option("end", end_pass, "End at this pass.")
@@ -134,6 +133,9 @@ namespace langkit
           }
         }
 
+        if (ast->errors(std::cout))
+          ret = -1;
+
         if (emit_ast)
           std::cout << ast;
       }
@@ -142,8 +144,15 @@ namespace langkit
         std::cout << "Testing x" << test_seed_count << ", seed: " << test_seed
                   << std::endl;
 
-        if (end_pass.empty())
+        if (start_pass.empty())
+        {
+          start_pass = parse_only;
+          end_pass = std::get<0>(passes.back());
+        }
+        else if (end_pass.empty())
+        {
           end_pass = start_pass;
+        }
 
         bool go = start_pass == parse_only;
         auto prev = wfParser;
@@ -189,12 +198,15 @@ namespace langkit
                           << "Failed pass: " << name
                           << ", seed: " << (test_seed + i) << std::endl;
                 ret = -1;
+
+                if (test_failfast)
+                  return ret;
               }
             }
           }
 
-          if ((name == end_pass) || (test_failfast && (ret != 0)))
-            break;
+          if (name == end_pass)
+            return ret;
 
           prev = wf;
         }

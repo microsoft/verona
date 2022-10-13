@@ -45,12 +45,10 @@ namespace sample
           },
 
         // A newline that starts a brace block doesn't terminate.
-        "\n([[:blank:]]*(\\{[[:blank:]]*))" >>
+        "\n([[:blank:]]*(\\{)[[:blank:]]*)" >>
           [indent](auto& m) {
             indent->push_back(m.match().length(1));
-            m.pos() += m.len() - m.match().length(2);
-            m.len() = 1;
-            m.push(Brace);
+            m.push(Brace, 2);
           },
 
         // A newline sometimes terminates.
@@ -81,7 +79,7 @@ namespace sample
         "[[:blank:]]+" >> [](auto& m) {},
 
         // Terminator.
-        ";" >> [indent](auto& m) { m.term(terminators); },
+        ";" >> [](auto& m) { m.term(terminators); },
 
         // FatArrow.
         "=>" >>
@@ -98,11 +96,11 @@ namespace sample
         // List.
         "," >> [](auto& m) { m.seq(List, {Equals}); },
 
-        // Blocks.
-        "\\(([[:blank:]]*)" >>
+        // Parens.
+        "(\\()[[:blank:]]*" >>
           [indent](auto& m) {
-            indent->push_back(m.linecol().second + m.match().length(1));
-            m.push(Paren);
+            indent->push_back(m.linecol().second + m.match().length());
+            m.push(Paren, 1);
           },
 
         "\\)" >>
@@ -112,10 +110,11 @@ namespace sample
             m.pop(Paren);
           },
 
-        "\\[([[:blank:]]*)" >>
+        // Square brackets.
+        "(\\[)[[:blank:]]*" >>
           [indent](auto& m) {
-            indent->push_back(m.linecol().second + m.match().length(1));
-            m.push(Square);
+            indent->push_back(m.linecol().second + m.match().length());
+            m.push(Square, 1);
           },
 
         "\\]" >>
@@ -125,10 +124,11 @@ namespace sample
             m.pop(Square);
           },
 
-        "\\{([[:blank:]]*)" >>
+        // Curly braces.
+        "(\\{)[[:blank:]]*" >>
           [indent](auto& m) {
-            indent->push_back(m.linecol().second + m.match().length(1));
-            m.push(Brace);
+            indent->push_back(m.linecol().second + m.match().length());
+            m.push(Brace, 1);
           },
 
         "\\}" >>

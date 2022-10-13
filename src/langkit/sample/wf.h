@@ -69,6 +69,7 @@ namespace sample
     | (Param <<= Ident * Type * Expr)[Ident]
     | (TypeTuple <<= Type++)
     | (FuncBody <<= (Use | Class | TypeAlias | Expr)++)
+    | (ExprSeq <<= Expr++[2])
     | (Tuple <<= Expr++)
     | (Assign <<= Expr++[2])
     | (TypeArgs <<= Type++)
@@ -81,9 +82,9 @@ namespace sample
         (Type | TypeTuple | TypeVar | TypeArgs | Package | Iso | Imm | Mut |
          DontCare | Ellipsis | Ident | Symbol | Dot | Throw | DoubleColon)++)
     | (Expr <<=
-        (Expr | Tuple | Assign | TypeArgs | Lambda | Let | Var | Throw | Ref |
-         DontCare | Ellipsis | Dot | Ident | Symbol | DoubleColon | wfLiteral |
-         TypeAssert)++)
+        (Expr | ExprSeq | Tuple | Assign | TypeArgs | Lambda | Let | Var |
+         Throw | Ref | DontCare | Ellipsis | Dot | Ident | Symbol |
+         DoubleColon | wfLiteral | TypeAssert)++)
     ;
   // clang-format on
 
@@ -194,16 +195,17 @@ namespace sample
   inline constexpr auto wfPassReference =
       wfPassInclude
 
-    // Add Selector, FunctionName.
+    // Add Selector, FunctionName, TypeAssertOp.
     | (Selector <<= wfIdSym * TypeArgs)
     | (FunctionName <<= (TypeName >>= (TypeName | TypeUnit)) * Ident * TypeArgs)
+    | (TypeAssertOp <<= Type * (op >>= Selector | FunctionName))
 
     // Remove TypeArgs, Ident, Symbol, DoubleColon.
-    // Add RefVar, RefLet, Selector, FunctionName.
+    // Add RefVar, RefLet, Selector, FunctionName, TypeAssertOp.
     | (Expr <<=
-        (Expr | Tuple | Assign | Lambda | Let | Var | Throw | Ref |
-         DontCare | Ellipsis | Dot | wfLiteral | TypeAssert |
-         RefVar | RefLet | Selector | FunctionName)++)
+        (Expr | ExprSeq | Tuple | Assign | Lambda | Let | Var | Throw | Ref |
+         DontCare | Ellipsis | Dot | wfLiteral | TypeAssert | RefVar | RefLet |
+         Selector | FunctionName | TypeAssertOp)++)
     ;
   // clang-format on
 
@@ -212,14 +214,14 @@ namespace sample
       wfPassReference
 
     // Add Call, Args.
-    | (Call <<= (Call >>= (Selector | FunctionName)) * Args)
+    | (Call <<= (Selector >>= (Selector | FunctionName | TypeAssertOp)) * Args)
     | (Args <<= Expr++)
 
-    // Remove Dot, Add Call.
+    // Remove Dot. Add Call.
     | (Expr <<=
-        (Expr | Tuple | Assign | Lambda | Let | Var | Throw | Ref |
+        (Expr | ExprSeq | Tuple | Assign | Lambda | Let | Var | Throw | Ref |
          DontCare | Ellipsis | wfLiteral | TypeAssert | RefVar | RefLet |
-         Selector | FunctionName | Call)++)
+         Selector | FunctionName | TypeAssertOp | Call)++)
     ;
   // clang-format on
 
@@ -227,12 +229,72 @@ namespace sample
   inline constexpr auto wfPassApplication =
       wfPassReverseApp
 
-    // TODO: seq of Expr only?
-    // Remove Ref.
+    // Remove Expr, Ref, Ellipsis. Add TupleFlatten. No longer a sequence.
     | (Expr <<=
-        (Expr | Tuple | Assign | Lambda | Let | Var | Throw | DontCare |
-         Ellipsis | wfLiteral | TypeAssert | RefVar | RefLet | Selector |
-         FunctionName | Call)++)
+        ExprSeq | Tuple | Assign | Lambda | Let | Var | Throw | DontCare |
+        wfLiteral | TypeAssert | RefVar | RefLet | Selector | FunctionName |
+        TypeAssertOp | Call | TupleFlatten)
+    ;
+  // clang-format on
+
+  // clang-format off
+  inline constexpr auto wfPassAssignLHS =
+      wfPassApplication
+
+    // Add TupleLHS, CallLHS.
+    | (TupleLHS <<= Expr++[2])
+    | (CallLHS <<=
+        (Selector >>= (Selector | FunctionName | TypeAssertOp)) * Args)
+
+    // Add TupleLHS, CallLHS, RefVarLHS.
+    | (Expr <<=
+        ExprSeq | Tuple | Assign | Lambda | Let | Var | Throw | DontCare |
+        wfLiteral | TypeAssert | RefVar | RefLet | Selector | FunctionName |
+        TypeAssertOp | Call | TupleFlatten | TupleLHS | CallLHS | RefVarLHS)
+    ;
+  // clang-format on
+
+  // clang-format off
+  inline constexpr auto wfPassLocalVar =
+      wfPassAssignLHS
+
+    // Remove Var, RefVar, RefVarLHS.
+    | (Expr <<=
+        ExprSeq | Tuple | Assign | Lambda | Let | Throw | DontCare |
+        wfLiteral | TypeAssert | RefLet | Selector | FunctionName |
+        TypeAssertOp | Call | TupleFlatten | TupleLHS | CallLHS)
+    ;
+  // clang-format on
+
+  // clang-format off
+  inline constexpr auto wfPassAssignment =
+      wfPassLocalVar
+
+    // Add Bind.
+    | (Bind <<= Ident * Type * Expr)[Ident]
+
+    // Remove Assign, Let, TupleLHS. Add Bind.
+    | (Expr <<=
+        ExprSeq | Tuple | Lambda | Throw | DontCare | wfLiteral | TypeAssert |
+        RefLet | Selector | FunctionName | TypeAssertOp | Call | TupleFlatten |
+        CallLHS | Bind)
+    ;
+  // clang-format on
+
+  // clang-format off
+  inline constexpr auto wfPassANF =
+      wfPassAssignment
+
+    // TODO: add control flow
+    | (FuncBody <<= (Include | Class | TypeAlias | Bind | RefLet | Throw)++)
+    | (Tuple <<= (RefLet | TupleFlatten)++)
+    | (TupleFlatten <<= RefLet)
+    | (Throw <<= RefLet)
+    | (Args <<= RefLet++)
+    | (Bind <<= Ident * Type *
+        (rhs >>=
+          Tuple | Lambda | Call | CallLHS | Selector | FunctionName |
+          wfLiteral))
     ;
   // clang-format on
 
