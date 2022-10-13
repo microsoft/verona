@@ -139,5 +139,10 @@ namespace verona::rt
       auto is_last = body->count_down();
       return {*(body), is_read_, is_last, alloc};
     }
+
+    bool next_is_null()
+    {
+      return next.load(std::memory_order_acquire) == nullptr;
+    }
   };
 } // namespace verona::rt
