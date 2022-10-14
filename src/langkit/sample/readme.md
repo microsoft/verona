@@ -8,6 +8,7 @@ builtins
   match
 
 list inside TypeParams or TypeArgs along with groups or other lists
+
 lookup
 - isect: lookup in lhs and rhs?
 - lookups in typetraits
@@ -17,31 +18,27 @@ lookup
 public/private
 object literals
 package schemes
+type assertions are accidentally allowed as types
 
 CallLHS
 - separate implementation
 - `fun f()` vs `fun ref f()`
 - if a `ref` function has no non-ref implementation, autogenerate one that calls the `ref` function and does `load` on the result
 
-## QuickCheck
+## Symbol Tables
 
 if symbol table lookup has multiple definitions
   and any of them isn't a flag::multidef node
   then error
 
-type assertions are accidentally allowed as types
 catch unexpected bindings as well
   or generate bindings from wf conditions
-
-functions on types (functors, higher-kinded types)
-  kind is functor arity
 
 ## Ellipsis
 
 `expr...` flattens the tuple produced by `expr`
 - only needed when putting `expr...` in another tuple
 `T...` is a tuple of unknown arity (0 or more) where every element is a `T`
-- bounding a type list bounds the elements, not the list itself
 - `T...` in a tuple flattens the type into the tuple
 - `T...` in a function type flattens the type into the function arguments
 
@@ -146,6 +143,9 @@ pattern match on value
   (expr)
 
 ## Type Language
+
+functions on types (functors, higher-kinded types)
+  kind is functor arity
 
 write functions of type->type explicitly?
   treat any type alias as a function of type->type?
