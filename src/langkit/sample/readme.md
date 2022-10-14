@@ -1,12 +1,13 @@
 # Todo
 
+minimum 1 thing in Expr?
+
 builtins
   if...else
   typetest
   match
 
 list inside TypeParams or TypeArgs along with groups or other lists
-= in an initializer
 lookup
 - isect: lookup in lhs and rhs?
 - lookups in typetraits
@@ -29,19 +30,11 @@ if symbol table lookup has multiple definitions
   then error
 
 type assertions are accidentally allowed as types
-type assertions on operators are awkward
 catch unexpected bindings as well
   or generate bindings from wf conditions
 
 functions on types (functors, higher-kinded types)
   kind is functor arity
-
-# DontCare for Partial Application
-
-use `_` as a call argument to build a lambda that needs that value filled in
-  `f(x, _)` -> `{ $0 => f(x, $0) }`, same as `f(x)` with partial application
-  `f(_, x)` -> `{ $0 => f($0, x) }`
-  `f _` -> `{ $0 => f($0) }`
 
 ## Ellipsis
 
@@ -154,7 +147,6 @@ pattern match on value
 
 ## Type Language
 
-adjacency for intersection?
 write functions of type->type explicitly?
   treat any type alias as a function of type->type?
 
@@ -162,15 +154,17 @@ use DontCare to create type lambdas?
   `T: Array[_]`, `T[U]` -> `Array[U]`
 
 ```ts
-f(x: T iso): imm T
+type ?[T] = Some[T] | None
+type ->[T, U] = Fun[T, U]
+
+type Fun[T, U] =
 {
-  freeze(consume x)
+  (self, x: T): U
 }
 
-type ?[T] = Some[T] | None
-
 x: ?[T] // awkward
-x: ?T // better - implies adjacency is application, not intersection
+x: ?T // better - implies adjacency is application
+x: T.? // reverse application? prefer . as viewpoint
 x: Array U32 // awkward or good?
 
 type |[T, U] = Union[T, U] // no, unions are fundamental

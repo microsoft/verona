@@ -9,7 +9,7 @@ namespace sample
   using namespace wf::ops;
 
   inline constexpr auto wfIdSym = IdSym >>= Ident | Symbol;
-  inline constexpr auto wfDefault = Default >>= Expr | DontCare;
+  inline constexpr auto wfDefault = Default >>= FuncBody | DontCare;
 
   inline constexpr auto wfLiteral =
     Bool | Int | Hex | Bin | Float | HexFloat | Char | Escaped | String;
@@ -196,7 +196,9 @@ namespace sample
   inline constexpr auto wfPassReference =
       wfPassInclude
 
-    // Add Selector, FunctionName, TypeAssertOp.
+    // Add RefLet, RefVar, Selector, FunctionName, TypeAssertOp.
+    | (RefLet <<= Ident)
+    | (RefVar <<= Ident)
     | (Selector <<= wfIdSym * TypeArgs)
     | (FunctionName <<= (TypeName >>= (TypeName | TypeUnit)) * Ident * TypeArgs)
     | (TypeAssertOp <<= Type * (op >>= Selector | FunctionName))
@@ -243,7 +245,8 @@ namespace sample
   inline constexpr auto wfPassAssignLHS =
       wfPassApplication
 
-    // Add TupleLHS, CallLHS.
+    // Add RefVarLHS, TupleLHS, CallLHS.
+    | (RefVarLHS <<= Ident)
     | (TupleLHS <<= Expr++[2])
     | (CallLHS <<=
         (Selector >>= (Selector | FunctionName | TypeAssertOp)) * Args)
@@ -295,7 +298,7 @@ namespace sample
     | (Args <<= RefLet++)
     | (Bind <<= Ident * Type *
         (rhs >>=
-          Tuple | Lambda | Call | CallLHS | Selector | FunctionName |
+          RefLet | Tuple | Lambda | Call | CallLHS | Selector | FunctionName |
           wfLiteral))
     ;
   // clang-format on

@@ -74,10 +74,11 @@ namespace sample
       In(ClassBody) *
           (T(Equals)
            << ((T(Group) << (T(Let) * T(Ident)[id] * ~T(Type)[Type] * End)) *
-               T(Group)[rhs] * End)) >>
+               T(Group)++[rhs])) >>
         [](Match& _) {
           return _(id = FieldLet)
-            << _(id) << typevar(_, Type) << (Expr << *_[rhs]);
+            << _(id) << typevar(_, Type)
+            << (FuncBody << (Expr << (Default << _[rhs])));
         },
 
       // (group let ident type)
@@ -93,10 +94,11 @@ namespace sample
       In(ClassBody) *
           (T(Equals)
            << ((T(Group) << (T(Var) * T(Ident)[id] * ~T(Type)[Type] * End)) *
-               T(Group)[rhs] * End)) >>
+               T(Group)++[rhs])) >>
         [](Match& _) {
           return _(id = FieldVar)
-            << _(id) << typevar(_, Type) << (Expr << *_[rhs]);
+            << _(id) << typevar(_, Type)
+            << (FuncBody << (Expr << (Default << _[rhs])));
         },
 
       // (group var ident type)
@@ -111,13 +113,13 @@ namespace sample
           (T(Equals)
            << (T(Group) << (~Name[id] * ~T(Square)[TypeParams] *
                             T(Paren)[Params] * ~T(Type)[Type]) *
-                 T(Group)[rhs] * End)) >>
+                 T(Group)++[rhs])) >>
         [](Match& _) {
           // auto name = _(id) ? _(id) : Ident ^ apply;
           _.def(id, Ident ^ apply);
           return _(id = Function)
             << _(id) << (TypeParams << *_[TypeParams]) << (Params << *_[Params])
-            << typevar(_, Type) << (FuncBody << _[rhs]);
+            << typevar(_, Type) << (FuncBody << (Expr << (Default << _[rhs])));
         },
 
       // Function: (group name square parens type brace)
@@ -146,10 +148,10 @@ namespace sample
       // TypeParam: (equals (group ident type) group)
       In(TypeParams) * T(Equals)
           << ((T(Group) << (T(Ident)[id] * ~T(Type)[Type] * End)) *
-              T(Group)[rhs] * End) >>
+              T(Group)++[rhs]) >>
         [](Match& _) {
           return _(id = TypeParam)
-            << _(id) << typevar(_, Type) << (Type << *_[rhs]);
+            << _(id) << typevar(_, Type) << (Type << (Default << _[rhs]));
         },
 
       In(TypeParams) * (!T(TypeParam))[TypeParam] >>
@@ -168,10 +170,10 @@ namespace sample
       // Param: (equals (group ident type) group)
       In(Params) * T(Equals)
           << ((T(Group) << (T(Ident)[id] * ~T(Type)[Type] * End)) *
-              T(Group)[Expr] * End) >>
+              T(Group)++[Expr]) >>
         [](Match& _) {
-          return _(id = Param)
-            << _(id) << typevar(_, Type) << (Expr << *_[Expr]);
+          return _(id = Param) << _(id) << typevar(_, Type)
+                               << (FuncBody << (Expr << (Default << _[Expr])));
         },
 
       In(Params) * (!T(Param))[Param] >>
@@ -201,10 +203,11 @@ namespace sample
           << ((T(Group)
                << (T(TypeAlias) * T(Ident)[id] * ~T(Square)[TypeParams] *
                    ~T(Type)[Type] * End)) *
-              T(Group)[rhs] * End) >>
+              T(Group)++[rhs]) >>
         [](Match& _) {
-          return _(id = TypeAlias) << _(id) << (TypeParams << *_[TypeParams])
-                                   << typevar(_, Type) << (Type << *_[rhs]);
+          return _(id = TypeAlias)
+            << _(id) << (TypeParams << *_[TypeParams]) << typevar(_, Type)
+            << (Type << (Default << _[rhs]));
         },
 
       (In(ClassBody) / In(FuncBody)) * T(TypeAlias)[TypeAlias] << End >>
@@ -233,6 +236,13 @@ namespace sample
         [](Match& _) {
           return err(_[Class], "can't put a `class` definition here");
         },
+
+      // Default initializers.
+      (T(Default) << End) >> ([](Match& _) -> Node { return DontCare; }),
+      (T(Default) << (T(Group)[rhs]) * End) >>
+        [](Match& _) { return Seq << *_[rhs]; },
+      (T(Default) << (T(Group)++[rhs]) * End) >>
+        [](Match& _) { return Equals << _[rhs]; },
 
       // Type structure.
       TypeStruct * T(Group)[Type] >> [](Match& _) { return Type << *_[Type]; },
@@ -602,7 +612,7 @@ namespace sample
         },
 
       // Local reference.
-      In(Expr) * Name[id]([](auto& n) { return lookup(n, {Var}); }) >>
+      In(Expr) * T(Ident)[id]([](auto& n) { return lookup(n, {Var}); }) >>
         [](Match& _) { return RefVar << _(id); },
 
       In(Expr) * T(Ident)[id]([](auto& n) {
@@ -737,7 +747,7 @@ namespace sample
 
       // Ref expressions.
       T(Ref) * T(RefVar)[RefVar] >>
-        [](Match& _) { return RefVarLHS ^ _(RefVar); },
+        [](Match& _) { return RefVarLHS << *_[RefVar]; },
       T(Ref) * T(Call)[Call] >> [](Match& _) { return CallLHS << *_[Call]; },
 
       // Tuple flattening.
@@ -764,7 +774,7 @@ namespace sample
               auto id = _.fresh();
               params
                 << (_(id = Param) << (Ident ^ id) << typevar(_) << DontCare);
-              args << (Expr << (RefLet ^ id));
+              args << (Expr << (RefLet << (Ident ^ id)));
             }
             else
             {
@@ -797,35 +807,37 @@ namespace sample
     };
   }
 
+  auto on_lhs(auto pattern)
+  {
+    return (In(Assign) * (pattern * ++T(Expr))) / (In(TupleLHS) * pattern);
+  }
+
   PassDef assignlhs()
   {
     return {
       // Turn a Tuple on the LHS of an assignment into a TupleLHS.
-      (In(Assign) / In(TupleLHS)) * (T(Expr) << T(Tuple)[lhs]) >>
+      on_lhs(T(Expr) << T(Tuple)[lhs]) >>
         [](Match& _) { return Expr << (TupleLHS << *_[lhs]); },
 
-      (In(Assign) / In(TupleLHS)) *
-          (T(Expr) << (T(TypeAssert) << (T(Type)[Type] * T(Tuple)[lhs]))) >>
+      on_lhs(T(Expr) << (T(TypeAssert) << (T(Type)[Type] * T(Tuple)[lhs]))) >>
         [](Match& _) {
           return Expr << (TypeAssert << _(Type) << (TupleLHS << *_[lhs]));
         },
 
       // Turn a Call on the LHS of an assignment into a CallLHS.
-      (In(Assign) / In(TupleLHS)) * (T(Expr) << T(Call)[lhs]) >>
+      on_lhs(T(Expr) << T(Call)[lhs]) >>
         [](Match& _) { return Expr << (CallLHS << *_[lhs]); },
 
-      (In(Assign) / In(TupleLHS)) *
-          (T(Expr) << (T(TypeAssert) << (T(Type)[Type] * T(Call)[lhs]))) >>
+      on_lhs(T(Expr) << (T(TypeAssert) << (T(Type)[Type] * T(Call)[lhs]))) >>
         [](Match& _) {
           return Expr << (TypeAssert << _(Type) << (CallLHS << *_[lhs]));
         },
 
       // Turn a RefVar on the LHS of an assignment into a RefVarLHS.
-      (In(Assign) / In(TupleLHS)) * (T(Expr) << T(RefVar)[lhs]) >>
-        [](Match& _) { return Expr << (RefVarLHS ^ _(lhs)); },
+      on_lhs(T(Expr) << T(RefVar)[lhs]) >>
+        [](Match& _) { return Expr << (RefVarLHS << *_[lhs]); },
 
-      (In(Assign) / In(TupleLHS)) *
-          (T(Expr) << (T(TypeAssert) << (T(Type)[Type] * T(RefVar)[lhs]))) >>
+      on_lhs(T(Expr) << (T(TypeAssert) << (T(Type)[Type] * T(RefVar)[lhs]))) >>
         [](Match& _) {
           return Expr << (TypeAssert << _(Type) << (RefVarLHS << *_[lhs]));
         },
@@ -837,25 +849,23 @@ namespace sample
   inline const auto Cell = TypeName << Std << (Ident ^ cell) << TypeArgs;
   inline const auto CellCreate =
     (FunctionName << Cell << (Ident ^ create) << TypeArgs);
-  inline const auto CallCellCreate = (Call << CellCreate);
+  inline const auto CallCellCreate = (Call << CellCreate << Args);
   inline const auto Load = (Selector << (Ident ^ load) << TypeArgs);
 
   PassDef localvar()
   {
     return {
-      T(Var)[Var] >>
+      T(Var)[Var] << T(Ident)[id] >>
         [](Match& _) {
-          auto id = _(Var)->at(wf / Var / Ident)->location();
-          return ExprSeq << (Expr
-                             << (Assign << (Expr << (_(id = Let)))
-                                        << (Expr << CallCellCreate)))
-                         << (Expr << (RefLet ^ id));
+          return Assign << (Expr << ((_(id = Let) << _(id))))
+                        << (Expr << CallCellCreate);
         },
 
       T(RefVar)[RefVar] >>
-        [](Match& _) { return Call << clone(Load) << (RefLet ^ _(RefVar)); },
+        [](Match& _) { return Call << clone(Load) << (RefLet << *_[RefVar]); },
 
-      T(RefVarLHS)[RefVarLHS] >> [](Match& _) { return RefLet ^ _(RefVarLHS); },
+      T(RefVarLHS)[RefVarLHS] >>
+        [](Match& _) { return RefLet << *_[RefVarLHS]; },
     };
   }
 
@@ -871,10 +881,11 @@ namespace sample
                (T(TypeAssert) << T(Type)[Type] << (T(Let) << T(Ident)[id])))) *
           T(Expr)[rhs] * End >>
         [](Match& _) {
-          return ExprSeq << (Expr
-                             << (_(id = Bind)
-                                 << id << typevar(_, Type) << _(rhs)))
-                         << (Expr << (RefLet ^ id));
+          return Expr
+            << (ExprSeq << (Expr
+                            << (_(id = Bind) << (Ident ^ _(id))
+                                             << typevar(_, Type) << _(rhs)))
+                        << (Expr << (RefLet << (Ident ^ _(id)))));
         },
 
       // Destructuring assignment.
@@ -885,40 +896,45 @@ namespace sample
                 << (T(Type)[Type] * (T(Expr) << T(TupleLHS)[lhs]))))) *
           T(Expr)[rhs] * End >>
         [](Match& _) {
-          // let $id = rhs
-          auto id = _.fresh();
-          auto seq = ExprSeq
-            << (Expr << (Assign << (Expr << (_(id = Let))) << _(rhs)));
+          // let $rhs_id = rhs
+          auto rhs_id = _.fresh();
+          auto rhs_e = Expr
+            << (Assign << (Expr << (_(rhs_id = Let) << (Ident ^ rhs_id)))
+                       << _(rhs));
+          Node seq = ExprSeq;
 
           Node lhs_tuple = Tuple;
           Node rhs_tuple = Tuple;
           auto ty = _(Type);
           size_t index = 0;
 
-          for (auto child : *_(lhs))
+          for (auto lhs_child : *_(lhs))
           {
-            // let $tid = tuple_child
-            auto tid = _.fresh();
+            // let $lhs_id = lhs_child
+            auto lhs_id = _.fresh();
             seq
               << (Expr
-                  << (Assign << (Expr << (Let << (Ident ^ tid))) << child));
+                  << (Assign << (Expr << (_(lhs_id = Let) << (Ident ^ lhs_id)))
+                             << lhs_child));
 
             // Build a LHS tuple that will only be used if there's a TypeAssert.
             if (ty)
-              lhs_tuple << (Expr << (RefLet ^ tid));
+              lhs_tuple << (Expr << (RefLet << (Ident ^ lhs_id)));
 
-            // $tid = $id._index
+            // $lhs_id = $rhs_id._index
             rhs_tuple
               << (Expr
                   << (Assign
-                      << (RefLet ^ tid)
+                      << (Expr << (RefLet << (Ident ^ lhs_id)))
                       << (Expr
                           << (Call
                               << (Selector
                                   << (Ident ^
                                       Location("_" + std::to_string(index++)))
                                   << TypeArgs)
-                              << (RefLet ^ id)))));
+                              << (Args
+                                  << (Expr
+                                      << (RefLet << (Ident ^ rhs_id))))))));
           }
 
           // TypeAssert comes after the let bindings for the LHS.
@@ -926,7 +942,7 @@ namespace sample
             seq << (Expr << (TypeAssert << ty << lhs_tuple));
 
           // The RHS tuple is the last expression in the sequence.
-          return Expr << (seq << (Expr << rhs_tuple));
+          return Expr << (seq << rhs_e << (Expr << rhs_tuple));
         },
 
       // Assignment to anything else.
@@ -949,7 +965,6 @@ namespace sample
 
   PassDef anf()
   {
-    // TODO: do DontCare in an earlier pass, if it's in Args, make a lambda
     return {
       // This liftable expr is already bound from `let x = e`.
       In(Bind) * (T(Expr) << Liftable[Lift]) >>
@@ -979,7 +994,7 @@ namespace sample
           return Seq << (Lift << FuncBody
                               << (_(id = Bind) << (Ident ^ id)
                                                << typevar(_, Type) << _(Lift)))
-                     << (RefLet ^ id);
+                     << (RefLet << (Ident ^ id));
         },
 
       // Compact an ExprSeq with only one element.

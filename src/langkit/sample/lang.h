@@ -86,8 +86,8 @@ namespace sample
     TokenDef("lambda", flag::symtab | flag::defbeforeuse);
   inline constexpr auto Tuple = TokenDef("tuple");
   inline constexpr auto Assign = TokenDef("assign");
-  inline constexpr auto RefVar = TokenDef("refvar", flag::print);
-  inline constexpr auto RefLet = TokenDef("reflet", flag::print);
+  inline constexpr auto RefVar = TokenDef("refvar");
+  inline constexpr auto RefLet = TokenDef("reflet");
   inline constexpr auto FunctionName = TokenDef("funcname");
   inline constexpr auto Selector = TokenDef("selector");
   inline constexpr auto Call = TokenDef("call");
@@ -95,7 +95,7 @@ namespace sample
   inline constexpr auto Include = TokenDef("include");
   inline constexpr auto TupleLHS = TokenDef("tuple-lhs");
   inline constexpr auto CallLHS = TokenDef("call-lhs");
-  inline constexpr auto RefVarLHS = TokenDef("refvar-lhs", flag::print);
+  inline constexpr auto RefVarLHS = TokenDef("refvar-lhs");
   inline constexpr auto TupleFlatten = TokenDef("tupleflatten");
   inline constexpr auto Bind = TokenDef("bind");
 
