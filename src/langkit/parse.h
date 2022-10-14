@@ -4,8 +4,8 @@
 
 #include "ast.h"
 
+#include <filesystem>
 #include <optional>
-#include <path/path.h>
 #include <regex>
 
 namespace langkit
@@ -198,10 +198,12 @@ namespace langkit
   class Parse
   {
   public:
-    using PreF = std::function<bool(Parse&, const std::string&)>;
-    using PostF = std::function<void(Parse&, const std::string&, Node)>;
+    using PreF = std::function<bool(Parse&, const std::filesystem::path&)>;
+    using PostF =
+      std::function<void(Parse&, const std::filesystem::path&, Node)>;
 
   private:
+    std::filesystem::path exe;
     depth depth_;
 
     PreF prefile_;
@@ -219,6 +221,16 @@ namespace langkit
     {
       rules[mode].insert(rules[mode].end(), r.begin(), r.end());
       return *this;
+    }
+
+    const std::filesystem::path& executable()
+    {
+      return exe;
+    }
+
+    void executable(std::filesystem::path path)
+    {
+      exe = std::filesystem::canonical(path);
     }
 
     void prefile(PreF f)
@@ -246,7 +258,7 @@ namespace langkit
       postparse_ = f;
     }
 
-    Node parse(std::string& path)
+    Node parse(std::filesystem::path path)
     {
       auto ast = sub_parse(path);
       auto top = NodeDef::create(Top);
@@ -258,38 +270,24 @@ namespace langkit
       return top;
     }
 
-    Node sub_parse(std::string& path)
+    Node sub_parse(std::filesystem::path& path)
     {
-      Node ast;
+      if (!std::filesystem::exists(path))
+        return {};
 
-      switch (path::type(path))
-      {
-        case path::Type::File:
-        {
-          path = path::canonical(path);
-          ast = parse_file(path);
-          break;
-        }
+      path = std::filesystem::canonical(path);
 
-        case path::Type::Directory:
-        {
-          if (depth_ == depth::file)
-            return {};
+      if (std::filesystem::is_regular_file(path))
+        return parse_file(path);
 
-          path = path::to_directory(path::canonical(path));
-          ast = parse_directory(path);
-          break;
-        }
+      if ((depth_ != depth::file) && std::filesystem::is_directory(path))
+        return parse_directory(path);
 
-        default:
-          return {};
-      }
-
-      return ast;
+      return {};
     }
 
   private:
-    Node parse_file(const std::string& filename)
+    Node parse_file(const std::filesystem::path& filename)
     {
       if (prefile_ && !prefile_(*this, filename))
         return {};
@@ -299,7 +297,7 @@ namespace langkit
       if (!source)
         return {};
 
-      auto make = detail::Make(path::last(filename));
+      auto make = detail::Make(filename.stem());
       auto it = source->view().cbegin();
       auto st = it;
       auto end = source->view().cend();
@@ -357,36 +355,30 @@ namespace langkit
       return ast;
     }
 
-    Node parse_directory(const std::string& dir)
+    Node parse_directory(const std::filesystem::path& dir)
     {
       if (predir_ && !predir_(*this, dir))
         return {};
 
-      Node top = NodeDef::create(Directory, {path::last(dir)});
+      Node top = NodeDef::create(Directory, {dir.stem()});
 
-      auto files = path::files(dir);
-
-      for (auto& file : files)
+      for (const auto& entry : std::filesystem::directory_iterator(dir))
       {
-        auto filename = path::join(dir, file);
-        auto ast = parse_file(filename);
+        auto filename = dir / entry.path();
+        Node ast;
 
-        if (ast)
-          top->push_back(ast);
-      }
-
-      if (depth_ == depth::subdirectories)
-      {
-        auto dirs = path::directories(dir);
-
-        for (auto& subdir : dirs)
+        if (std::filesystem::is_regular_file(entry.status()))
         {
-          auto filename = path::join(dir, subdir);
-          auto ast = parse_directory(filename);
-
-          if (ast)
-            top->push_back(ast);
+          ast = parse_file(filename);
         }
+        else if (
+          (depth_ == depth::subdirectories) &&
+          std::filesystem::is_directory(entry.status()))
+        {
+          ast = parse_directory(filename);
+        }
+
+        top->push_back(ast);
       }
 
       if (top->empty())

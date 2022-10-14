@@ -15,21 +15,21 @@ namespace sample
     indent->push_back(restart);
 
     p.prefile(
-      [](auto& p, auto& path) { return path::extension(path) == "verona"; });
+      [](auto& p, auto& path) { return path.extension() == ".verona"; });
 
     p.predir([](auto& p, auto& path) {
       static auto re = std::regex(
-        ".*/[_[:alpha:]][_[:alnum:]]*/$", std::regex_constants::optimize);
-      return std::regex_match(path, re);
+        ".*/[_[:alpha:]][_[:alnum:]]*$", std::regex_constants::optimize);
+      return std::regex_match(path.string(), re);
     });
 
-    p.postparse([](auto& p, const std::string& path, auto ast) {
-      auto stdlib = path::directory(path::executable()) + "std/";
+    p.postparse([](auto& p, auto& path, auto ast) {
+      auto stdlib = p.executable().parent_path() / "std";
       if (path != stdlib)
         ast->push_back(p.sub_parse(stdlib));
     });
 
-    p.postfile([indent, depth](auto& p, const std::string& path, auto ast) {
+    p.postfile([indent, depth](auto& p, auto& path, auto ast) {
       *depth = 0;
       indent->clear();
       indent->push_back(restart);

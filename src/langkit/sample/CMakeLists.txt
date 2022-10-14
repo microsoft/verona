@@ -11,7 +11,6 @@ add_executable(langkit-sample
 target_link_libraries(langkit-sample
   Threads::Threads
   CLI11::CLI11
-  verona-path-lib
   )
 
 install(TARGETS langkit-sample RUNTIME DESTINATION .)

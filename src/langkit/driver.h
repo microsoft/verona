@@ -40,6 +40,8 @@ namespace langkit
 
     int run(int argc, char** argv)
     {
+      parser.executable(argv[0]);
+
       app.set_help_all_flag("--help-all", "Expand all help");
       app.require_subcommand(1);
 
