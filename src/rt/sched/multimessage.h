@@ -83,12 +83,29 @@ namespace verona::rt
       }
     };
 
-    struct Delivered
+    class Delivered
     {
+      // If is_last is true, then this is an owning reference.
       Body& body;
       bool is_read;
       bool is_last;
       Alloc& alloc;
+
+    public:
+      Body& get_body()
+      {
+        return body;
+      }
+
+      bool is_last_reference()
+      {
+        return is_last;
+      }
+
+      bool is_read_request()
+      {
+        return is_read;
+      }
 
       ~Delivered()
       {
@@ -131,6 +148,10 @@ namespace verona::rt
       return (body_and_mode & 1) == 1;
     }
 
+    /**
+     * Processes the message, if it is the last message then
+     * it takes ownership of the body.
+     */
     Delivered deliver(Alloc& alloc)
     {
       auto body = (Body*)(body_and_mode & ~Object::MARK_MASK);

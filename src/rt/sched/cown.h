@@ -524,27 +524,26 @@ namespace verona::rt
 
       bool schedule_after_behaviour = true;
 
+      if (!delivered.is_last)
+      {
+        if (delivered.is_read)
+        {
+          read_ref_count.add_read();
+          return true;
+        }
+        return false;
+      }
+
       if (delivered.is_read)
       {
-        read_ref_count.add_read();
-        if (!delivered.is_last)
-          return true;
-        else
-        {
-          // In this case, this thread will execute the behaviour
-          // but another thread can still read this cown, so reschedule
-          // it before executing the behaviour and do not reschedule it after.
-          schedule_after_behaviour = false;
-          // The message `m` will be deallocated when the next scheduler thread
-          // picks up a message, so wait until after all the possible uses of
-          // `m` to reschedule this cown.
-          schedule();
-        }
-      }
-      else
-      { // request->mode == AccessMode::WRITE
-        if (!delivered.is_last)
-          return false;
+        // In this case, this thread will execute the behaviour
+        // but another thread can still read this cown, so reschedule
+        // it before executing the behaviour and do not reschedule it after.
+        schedule_after_behaviour = false;
+        // The message `m` will be deallocated when the next scheduler thread
+        // picks up a message, so wait until after all the possible uses of
+        // `m` to reschedule this cown.
+        schedule();
       }
 
       Scheduler::local()->message_body = &delivered.body;
