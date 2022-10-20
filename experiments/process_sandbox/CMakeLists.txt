@@ -7,7 +7,17 @@ include(FindPkgConfig)
 set(CHILD_SOURCES src/library_runner.cc)
 set(LIBSANDBOX_SOURCES src/libsandbox.cc)
 
-include_directories(AFTER "${CMAKE_SOURCE_DIR}/../../external/snmalloc/src")
+include(FetchContent)
+set(SNMALLOC_HEADER_ONLY_LIBRARY ON)
+FetchContent_Declare(
+  snmalloc
+  GIT_REPOSITORY https://github.com/microsoft/snmalloc
+  GIT_TAG        ddc5703cc87e092a2cbdf23d779eec1eb16991a3
+)
+
+FetchContent_MakeAvailable(snmalloc)
+
+include_directories(AFTER "${snmalloc_SOURCE_DIR}/src")
 include_directories(BEFORE "${CMAKE_SOURCE_DIR}/include")
 set(CMAKE_CXX_STANDARD 17)
 
