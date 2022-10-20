@@ -204,8 +204,3 @@ On Windows, this can be achieved with:
 ctest -C <config>
 ```
 Where `<config>` is the build type, e.g. Debug.
-
-## Building the runtime tests
-
-By default, the runtime tests are not built. To enable their building
-call cmake with `-DRT_TESTS=ON`.

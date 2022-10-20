@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10.0)
+cmake_minimum_required(VERSION 3.18.0)
 
 include_directories(.)
 
@@ -53,8 +53,17 @@ if(MSVC)
   add_compile_options(/wd4624)
 endif()
 
-set (VERONA_RT_ONLY_HEADER_LIBRARY ON)
-add_subdirectory(rt)
+
+include(FetchContent)
+
+FetchContent_Declare(
+  verona_rt
+  GIT_REPOSITORY https://github.com/microsoft/verona-rt
+  GIT_TAG        aa1cab8c9c7cbc1e55e11d0464c0ea38ff9fe6d1
+  SOURCE_SUBDIR  src
+)
+
+FetchContent_MakeAvailable(verona_rt)
 
 # Should go to stricter warnings 
 #   warnings_high()

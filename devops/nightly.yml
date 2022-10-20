@@ -83,7 +83,7 @@ stages:
       displayName: 'CMake'
       inputs:
         cmakeArgs: |
-          .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DENABLE_ASSERTS=ON -DSANITIZER=$(SANITIZER) -DVERONA_CI_BUILD=On -DRT_TESTS=ON
+          .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DENABLE_ASSERTS=ON -DSANITIZER=$(SANITIZER) -DVERONA_CI_BUILD=On
 
     - script: |
         set -eo pipefail
@@ -147,7 +147,6 @@ stages:
           -DENABLE_ASSERTS=ON                      \
           -DSANITIZER=$(SANITIZER)                 \
           -DVERONA_CI_BUILD=On                     \
-          -DRT_TESTS=ON                            \
           -DVERONA_BUILD_LLVM_SUBMODULE=ON         \
           -DLLVM_EXTRA_CMAKE_ARGS="                \
             -Wno-dev                               \
@@ -204,7 +203,7 @@ stages:
     - script: |
         mkdir build
         cd build
-        cmake .. -G"Visual Studio 16 2019" -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=ON -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
+        cmake .. -G"Visual Studio 16 2019" -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
       displayName: 'CMake'
 
     - task: MSBuild@1
@@ -259,7 +258,7 @@ stages:
       displayName: 'CMake'
       inputs:
         cmakeArgs: |
-          .. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On -DRT_TESTS=ON
+          .. -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On
 
     - script: |
         set -eo pipefail

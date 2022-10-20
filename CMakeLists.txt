@@ -24,7 +24,6 @@ set_cache_top(LLVM_EXTRA_CMAKE_ARGS "Additional options for building LLVM submod
 
 # Other Verona options
 option(ENABLE_ASSERTS "Enable asserts even in release builds" OFF)
-option_top(RT_TESTS "Including unit tests for the runtime" OFF)
 option_top(VERONA_EXPENSIVE_SYSTEMATIC_TESTING "Increase the range of seeds covered by systematic testing" OFF)
 option(USE_SCHED_STATS "Track scheduler stats" OFF)
 option(VERONA_CI_BUILD "Disable features not sensible for CI" OFF)
@@ -208,10 +207,3 @@ add_custom_command(TARGET check
   COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> -j ${N} --output-on-failure --timeout 400 --interactive-debug-mode 0
   USES_TERMINAL
 )
-
-# Main target does not test runtime, build subdirectory for that
-# and add to check target.
-if (RT_TESTS)
-  add_subdirectory(src/rt)
-  add_dependencies(check rt_tests)
-endif()
