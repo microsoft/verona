@@ -80,8 +80,8 @@ add_subdirectory(deprecated)
 add_subdirectory(mlir)
 add_subdirectory(interop)
 
-install(CODE [[
-  file(REMOVE_RECURSE ${CMAKE_INSTALL_PREFIX})
-  ]])
+# install(CODE [[
+#   file(REMOVE_RECURSE ${CMAKE_INSTALL_PREFIX})
+#   ]])
 install(DIRECTORY stdlib/ DESTINATION stdlib
   PATTERN "CMakeLists.txt" EXCLUDE)
