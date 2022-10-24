@@ -24,10 +24,6 @@ We provide the `compiler_commands.json` file for editors that use the [clangd](h
 
 If you're only changing the compiler, interpreter or parser, then running the `check` target is enough to cover those areas. On Windows, there is no separate `check` target, and the tests are run as part of the default target.
 
-If you're changing the runtime libraries, then you'll need to [build the RT tests](docs/building.md#building-the-runtime-tests) and run them before submiting a PR.
-
-Our CI bots will check if you changed the runtime and will dispatch the runtime tests automatically.
-
 ## Style
 
 We use `clang-format-9` on our CI bots, which will fail the pull request if the code is not formatted as expected.

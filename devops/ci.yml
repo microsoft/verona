@@ -22,15 +22,6 @@ jobs:
         echo "##vso[task.setvariable variable=docOnly;isOutput=true]false" #set variable docOnly to false
       fi
 
-      echo "Determine if runtime changed."
-      if git diff --ignore-submodules=dirty --quiet origin/master -- src/rt; then
-        echo " - Runtime is unchanged!"
-        echo "##vso[task.setvariable variable=testRuntime;isOutput=true]Off" #set variable testRuntime to Off
-      else
-        echo " - Runtime has changed!"
-        echo "##vso[task.setvariable variable=testRuntime;isOutput=true]On" #set variable testRuntime to On
-      fi
-
       echo "Determine if process-based sandbox changed."
       # Check if the process sandbox code has changed, or snmalloc (which is
       # tightly coupled to the process sandbox code) so that we can skip CI on
@@ -42,7 +33,7 @@ jobs:
         echo " - Process-based sandbox has changed!"
         echo "##vso[task.setvariable variable=testProcSandbox;isOutput=true]On" #set variable testProcSandbox to On
       fi
-    displayName: 'Check for runtime changes'
+    displayName: 'Check for changes'
     name: setVarStep
 
 ############################################## Linux Builds
@@ -98,60 +89,6 @@ jobs:
   - template: ./steps/linux/test.yml
     parameters:
       WorkingDirectory: build
-
-- job: 
-  displayName: LinuxRT
-  dependsOn: ConfigureCIRun
-  condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'], 'On')
-  pool:
-    vmImage: 'ubuntu-20.04'
-  timeoutInMinutes: 120
-  strategy:
-    matrix:
-      GCC Release:
-        CC: gcc
-        CXX: g++
-        CXXFLAGS:
-        BuildType: Release
-        SANITIZER:
-      Clang RelDbg+SAN:
-        CC: clang
-        CXX: clang++
-        CXXFLAGS: -stdlib=libstdc++
-        BuildType: RelWithDebInfo
-        SANITIZER: address,undefined,leak
-  steps:
-  - checkout: self
-
-  - script: |
-      set -eo pipefail
-      git submodule init
-      git submodule update external/snmalloc
-    displayName: 'Checkout submodules'
-
-  - script: |
-      set -eo pipefail
-      sudo apt-get update
-      sudo apt-get install -y ninja-build
-      sudo apt-get remove --purge cmake
-      sudo snap install cmake --classic
-    displayName: 'Dependencies'
-
-  - task: CMake@1
-    displayName: 'CMake'
-    inputs:
-      cmakeArgs: |
-        ../src/rt -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXXFLAGS) -DSANITIZER=$(SANITIZER) -DVERONA_CI_BUILD=On
-
-  - script: |
-      set -eo pipefail
-      ninja
-    workingDirectory: build
-    displayName: 'Compile'
-
-  - script: |
-      ctest -j 4 --output-on-failure -Rruntime
-    workingDirectory: build
 
 - job:
   displayName: LinuxSandboxTests
@@ -246,7 +183,7 @@ jobs:
       call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
       mkdir build
       cd build
-      cmake .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=Off -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
+      cmake .. -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
     displayName: 'CMake'
 
   - script: |
@@ -267,51 +204,6 @@ jobs:
       verbosity: 'Verbose'
       alertWarningLevel: 'High'
 
-- job: 
-  displayName: WindowsRT
-  dependsOn: ConfigureCIRun
-  condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'], 'On')
-  pool:
-    vmImage: 'windows-2019'
-  timeoutInMinutes: 120
-  strategy:
-    matrix:
-      Release:
-        CXXFLAGS: '/EHsc /D _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING=1'
-        BuildType: Release
-
-  steps:
-  - checkout: self
-
-  - script: |
-      git submodule init
-      git submodule update external/snmalloc
-    displayName: 'Checkout submodules'
-
-  - script: |
-      call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-      mkdir build
-      cd build
-      cmake ../src/rt -GNinja -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
-    displayName: 'CMake'
-
-  - script: |
-      call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-      cd build
-      ninja
-    displayName: 'Compile'
-
-  - script: |
-      call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-      cd build
-      ctest -j 4 --output-on-failure -Rruntime
-    displayName: 'Test'
-
-  - task: ComponentGovernanceComponentDetection@0
-    inputs:
-      scanType: 'LogOnly'
-      verbosity: 'Verbose'
-      alertWarningLevel: 'High'
 
 ############################################## MacOS Builds
 - job: 
@@ -339,7 +231,7 @@ jobs:
     displayName: 'CMake'
     inputs:
       cmakeArgs: |
-        .. -DCMAKE_BUILD_TYPE=$(BuildType) -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On -DRT_TESTS=Off
+        .. -DCMAKE_BUILD_TYPE=$(BuildType) -DENABLE_ASSERTS=ON -DVERONA_CI_BUILD=On
 
   - script: |
       set -eo pipefail
@@ -351,46 +243,6 @@ jobs:
   - script: |
       set -eo pipefail
       make check
-    workingDirectory: build/
-    displayName: 'Tests'
-
-- job: 
-  displayName: MacOSRT
-  dependsOn: ConfigureCIRun
-  condition: eq(dependencies.ConfigureCIRun.outputs['setVarStep.testRuntime'], 'On')
-  pool:
-    vmImage: 'macOS-10.15'
-  timeoutInMinutes: 120
-  strategy:
-    matrix:
-      Release:
-        BuildType: Release
-
-  steps:
-  - checkout: self
-
-  - script: |
-      set -eo pipefail
-      git submodule init
-      git submodule update external/snmalloc
-    displayName: 'Checkout submodules'
-
-  - task: CMake@1
-    displayName: 'CMake'
-    inputs:
-      cmakeArgs: |
-        ../src/rt -DCMAKE_BUILD_TYPE=$(BuildType) -DVERONA_CI_BUILD=On
-
-  - script: |
-      set -eo pipefail
-      N=$(sysctl -n hw.ncpu)
-      make -j $N
-    workingDirectory: build
-    displayName: 'Compile'
-
-  - script: |
-      set -eo pipefail
-      ctest -j 4 --output-on-failure -Rruntime
     workingDirectory: build/
     displayName: 'Tests'
 

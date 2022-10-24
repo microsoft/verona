@@ -208,10 +208,3 @@ add_custom_command(TARGET check
   COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> -j ${N} --output-on-failure --timeout 400 --interactive-debug-mode 0
   USES_TERMINAL
 )
-
-# Main target does not test runtime, build subdirectory for that
-# and add to check target.
-if (RT_TESTS)
-  add_subdirectory(src/rt)
-  add_dependencies(check rt_tests)
-endif()
