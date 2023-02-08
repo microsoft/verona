@@ -141,8 +141,8 @@ namespace sandbox
   __attribute__((always_inline)) inline void invariant(
     bool cond,
     Msg msg = "Assertion failure",
-    std::tuple<Args...> fmt_args = {},
-    source_location sl = source_location::current())
+    source_location sl = source_location::current(),
+    Args&&... args)
   {
     constexpr bool isRelease =
 #ifdef NDEBUG
@@ -158,24 +158,7 @@ namespace sandbox
     {
       if (!cond)
       {
-#if FMT_VERSION >= 70000
-        using Char = fmt::char_t<Msg>;
-        invariant_fail(
-          msg,
-          std::apply<fmt::format_arg_store<
-            fmt::buffer_context<Char>,
-            fmt::remove_reference_t<Args>...>(
-            const Msg&, const fmt::remove_reference_t<Args>&...)>(
-            fmt::make_args_checked<Args...>,
-            std::tuple_cat(std::make_tuple(msg), fmt_args)),
-          sl);
-#else
-        invariant_fail(
-          msg,
-          std::apply(
-            fmt::make_format_args<fmt::format_context, Args...>, fmt_args),
-          sl);
-#endif
+        invariant_fail(msg, fmt::make_format_args(args...), sl);
       }
     }
   }
@@ -185,7 +168,8 @@ namespace sandbox
    * arguments list.  Enabled in any build mode.
    */
 #define SANDBOX_INVARIANT(cond, msg, ...) \
-  sandbox::invariant(cond, FMT_STRING(msg), std::make_tuple(__VA_ARGS__))
+  sandbox::invariant( \
+    cond, FMT_STRING(msg), sandbox::source_location::current(), #__VA_ARGS__)
 
   /**
    * Helper macro for calling `invariant` and constructing the format-string
@@ -193,7 +177,7 @@ namespace sandbox
    */
 #define SANDBOX_DEBUG_INVARIANT(cond, msg, ...) \
   sandbox::invariant<DebugOnly>( \
-    cond, FMT_STRING(msg), std::make_tuple(__VA_ARGS__))
+    cond, FMT_STRING(msg), sandbox::source_location::current(), #__VA_ARGS__)
 
   /**
    * Helper macro for calling `invariant` and constructing the format-string
@@ -201,7 +185,7 @@ namespace sandbox
    */
 #define SANDBOX_RELEASE_INVARIANT(cond, msg, ...) \
   sandbox::invariant<ReleaseOnly>( \
-    cond, FMT_STRING(msg), std::make_tuple(__VA_ARGS__))
+    cond, FMT_STRING(msg), sandbox::source_location::current(), #__VA_ARGS__)
 
   /**
    * Helper that constructs a deleter from a C function, so that it can
