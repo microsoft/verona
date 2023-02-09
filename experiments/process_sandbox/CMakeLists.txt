@@ -14,8 +14,8 @@ FetchContent_MakeAvailable(snmalloc)
 
 project(sandbox C CXX)
 
-include(CheckCXXSourceCompiles)
 include(FindPkgConfig)
+include(CheckCXXSourceCompiles)
 
 set(CHILD_SOURCES src/library_runner.cc)
 set(LIBSANDBOX_SOURCES src/libsandbox.cc)
