@@ -1,7 +1,6 @@
-# See here for image contents: https://github.com/microsoft/vscode-dev-containers/tree/v0.188.0/containers/cpp/.devcontainer/base.Dockerfile
+# See here for image contents: https://github.com/devcontainers/images/tree/main/src/cpp
 
-ARG VARIANT="buster"
-FROM mcr.microsoft.com/vscode/devcontainers/cpp:0-${VARIANT}
+FROM mcr.microsoft.com/devcontainers/cpp:0-debian-11
 
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends cmake \
