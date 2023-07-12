@@ -1,8 +1,0 @@
-// Copyright Microsoft and Project Verona Contributors.
-// SPDX-License-Identifier: MIT
-
-use "library/child.verona"
-
-class Main {
-    main() {}
-}

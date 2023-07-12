@@ -1,4 +1,0 @@
-variables:
-  AbClusterId: 1c784af3-b398-481c-863c-80a06590d2c7
-  AnyBuildEnvironmentUri: https://northeurope.anybuild.microsoft.com/api/clusters/$(AbClusterId)/agents
-  AnyBuildSource: https://anybuild.azureedge.net/clientreleases

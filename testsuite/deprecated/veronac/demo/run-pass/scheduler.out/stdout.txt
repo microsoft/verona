@@ -1,7 +1,0 @@
-done
-Worker 1 starting job 118
-Worker 1 finishing job 118
-Job 118 finalised!
-Finalise node
-Finalise node
-Finalise node

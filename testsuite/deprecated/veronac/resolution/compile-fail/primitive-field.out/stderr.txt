@@ -1,4 +1,0 @@
-primitive-field.verona:6:3: error: Primitives cannot have fields
-  f: None & imm;
-  ^~~~~~~~~~~~~~
-1 error generated

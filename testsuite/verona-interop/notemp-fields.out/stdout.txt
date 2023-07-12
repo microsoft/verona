@@ -1,5 +1,0 @@
-Type 'NoTemp' as Class
-Size of NoTemp is 8 bytes
-Field 'a' has Builtin type 'char'
-Field 'b' has Builtin type 'short'
-Field 'c' has Builtin type 'float'

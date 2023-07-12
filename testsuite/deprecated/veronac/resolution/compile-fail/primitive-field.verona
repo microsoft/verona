@@ -1,7 +1,0 @@
-// Copyright Microsoft and Project Verona Contributors.
-// SPDX-License-Identifier: MIT
-
-primitive P {
-  // CHECK-L: primitive-field.verona:${LINE:+1}:3: error: Primitives cannot have fields
-  f: None & imm;
-}

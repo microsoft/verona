@@ -1,4 +1,0 @@
-invalid-field-read.verona:8:3: error: Inference failed for method read_from_missing_capability
-  read_from_missing_capability(cell: Cell) {
-  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~>
-1 error generated
