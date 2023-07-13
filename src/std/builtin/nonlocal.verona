@@ -1,0 +1,5 @@
+type nonlocal[T] =
+{
+  trait_nonlocal() {}
+  load(self): T
+}

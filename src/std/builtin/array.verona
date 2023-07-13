@@ -1,0 +1,22 @@
+class Array[T]
+{
+  var size: I32
+  var space: I32
+  var data: Ptr
+
+  create(space: I32 = 0): Array[T]
+  {
+    let a = Dyn::to_i32(space)
+    let b = Array[T]::sizeof()
+    let c = :[zext]: a :[to i64]:
+    let d = :[mul i64]: b c
+    let e = :[call ptr @malloc(i64]: c :[)]:
+    let data = Dyn::from_ptr(e)
+    new (0, space, data)
+  }
+
+  sizeof(): Dyn ::: ()->i64
+  {
+    :[ret i64 8]:
+  }
+}

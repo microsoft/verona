@@ -1,0 +1,20 @@
+class Cell[T]
+{
+  var value: T
+
+  create(): Cell[T]
+  {
+    let a = Dyn::from_unit()
+    new (a)
+  }
+
+  load(self: Cell[T]): T
+  {
+    self.value
+  }
+
+  store(self: Cell[T], value: T): T
+  {
+    self.value = value
+  }
+}

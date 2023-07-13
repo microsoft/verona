@@ -1,0 +1,40 @@
+class Ref[T]
+{
+  create(): ()
+  {
+    // TODO: should throw
+    Dyn::from_unit()
+  }
+
+  load(self: Ref[T]): T ::: (i64)->i64
+  {
+    let a = Dyn::to_ref(self)
+    let b = :[load i64, ptr]: a
+    Dyn::copy(b)
+    Ref[T]::drop(self)
+    b
+  }
+
+  store(self: Ref[T], value: T): T ::: (i64, i64)->i64
+  {
+    let a = Dyn::to_ref(self)
+    let b = :[load i64, ptr]: a
+    :[store i64]: value :[,ptr]: a
+    Ref[T]::drop(self)
+    b
+  }
+
+  copy(self: Ref[T]): () ::: (ptr)->void
+  {
+    let a = :[call ptr @verona_enclosing_object(ptr]: self :[)]:
+    Ptr::copy(a)
+    :[ret void]:
+  }
+
+  drop(self: Ref[T]): () ::: (ptr)->void
+  {
+    let a = :[call ptr @verona_enclosing_object(ptr]: self :[)]:
+    Ptr::drop(a)
+    :[ret void]:
+  }
+}

@@ -1,0 +1,165 @@
+class I32
+{
+  create(): I32
+  {
+    let a = :[i32 0]:
+    Dyn::from_i32(a)
+  }
+
+  create(from: ToI32): I32
+  {
+    from.i32()
+  }
+
+  bool(self: I32): Bool
+  {
+    let a = Dyn::to_i32(self)
+    let b = :[icmp ne i32 0,]: a
+    Dyn::from_bool(b)
+  }
+
+  i32(self: I32): I32
+  {
+    self
+  }
+
+  +(self: I32, other: I32): I32
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[add i32]: a b
+    Dyn::from_i32(c)
+  }
+
+  -(self: I32): I32
+  {
+    let a = Dyn::to_i32(self)
+    let b = :[sub i32 0,]: a
+    Dyn::from_i32(b)
+  }
+
+  -(self: I32, other: I32): I32
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[sub i32]: a b
+    Dyn::from_i32(c)
+  }
+
+  *(self: I32, other: I32): I32
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[mul i32]: a b
+    Dyn::from_i32(c)
+  }
+
+  /(self: I32, other: I32): I32
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[sdiv i32]: a b
+    Dyn::from_i32(c)
+  }
+
+  %(self: I32, other: I32): I32
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[srem i32]: a b
+    Dyn::from_i32(c)
+  }
+
+  &(self: I32, other: I32): I32
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[and i32]: a b
+    Dyn::from_i32(c)
+  }
+
+  |(self: I32, other: I32): I32
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[or i32]: a b
+    Dyn::from_i32(c)
+  }
+
+  ^(self: I32, other: I32): I32
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[xor i32]: a b
+    Dyn::from_i32(c)
+  }
+
+  <<(self: I32, other: I32): I32
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[shl i32]: a b
+    Dyn::from_i32(c)
+  }
+
+  >>(self: I32, other: I32): I32
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[ashr i32]: a b
+    Dyn::from_i32(c)
+  }
+
+  ==(self: I32, other: I32): Bool
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[icmp eq i32]: a b
+    Dyn::from_bool(c)
+  }
+
+  !=(self: I32, other: I32): Bool
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[icmp ne i32]: a b
+    Dyn::from_bool(c)
+  }
+
+  <(self: I32, other: I32): Bool
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[icmp slt i32]: a b
+    Dyn::from_bool(c)
+  }
+
+  <=(self: I32, other: I32): Bool
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[icmp sle i32]: a b
+    Dyn::from_bool(c)
+  }
+
+  >(self: I32, other: I32): Bool
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[icmp sgt i32]: a b
+    Dyn::from_bool(c)
+  }
+
+  >=(self: I32, other: I32): Bool
+  {
+    let a = Dyn::to_i32(self)
+    let b = Dyn::to_i32(other)
+    let c = :[icmp sge i32]: a b
+    Dyn::from_bool(c)
+  }
+}
+
+type ToI32 =
+{
+  i32(self/*: Self*/): I32
+}
