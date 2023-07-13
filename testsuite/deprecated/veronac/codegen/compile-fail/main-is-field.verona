@@ -1,6 +1,0 @@
-// Copyright Microsoft and Project Verona Contributors.
-// SPDX-License-Identifier: MIT
-// CHECK-L: main-is-field.verona:${LINE:+1}:7: error: Class 'Main' does not have a 'main' method
-class Main {
-  main: U64 & imm;
-}

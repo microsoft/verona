@@ -1,6 +1,0 @@
-Add[U64]
-cown[A]
-cown[B]
-Any
-cown[Any]
-Any

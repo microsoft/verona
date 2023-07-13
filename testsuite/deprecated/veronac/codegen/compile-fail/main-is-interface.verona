@@ -1,6 +1,0 @@
-// Copyright Microsoft and Project Verona Contributors.
-// SPDX-License-Identifier: MIT
-// CHECK-L: main-is-interface.verona:${LINE:+1}:11: error: 'Main' must be a class
-interface Main {
-  main() { }
-}

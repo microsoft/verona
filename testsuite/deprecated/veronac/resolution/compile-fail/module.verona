@@ -1,6 +1,0 @@
-// Copyright Microsoft and Project Verona Contributors.
-// SPDX-License-Identifier: MIT
-
-// Reported errors should point to the proper source location.
-use "module/child.verona"
-// CHECK-L: child.verona:${LINE:-1}:8: error: Cannot find value for symbol 'T'

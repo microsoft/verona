@@ -1,6 +1,0 @@
-variables:
-  LLVM_CC: clang
-  LLVM_CXX: clang++
-  LLVM_CXXFLAGS: -stdlib=libstdc++
-  LLVM_BuildType: Release
-  LLVM_Sanitizer:

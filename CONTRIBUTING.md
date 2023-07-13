@@ -14,15 +14,7 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 # Working on Verona
 
-See the [building](docs/building.md) document for more information on how to get and build Verona on multiple operating systems.
-
-When submiting patches, you need to make sure all tests pass (`check` target) and that the code is formatted accordingly.
-
-We provide the `compiler_commands.json` file for editors that use the [clangd](https://clangd.llvm.org/) engine for code completion, and we `git-ignore` meta files from common editors, like VSCode and Vim.
-
-## Tests
-
-If you're only changing the compiler, interpreter or parser, then running the `check` target is enough to cover those areas. On Windows, there is no separate `check` target, and the tests are run as part of the default target.
+[TODO]
 
 ## Style
 

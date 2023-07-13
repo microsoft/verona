@@ -1,8 +1,0 @@
-False AND False = False
-False OR False = False
-False AND True = False
-False OR True = True
-True AND False = False
-True OR False = True
-True AND True = True
-True OR True = True

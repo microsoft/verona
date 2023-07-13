@@ -1,9 +1,0 @@
-Typed IR for Main.test4:
-Parameters:
-  x :: ((A & iso(none)) | (A & mut(external 0)))
-
-  Basic block BB0:
-    1 <- mut-view(x) :: (A & mut(variable 0))
-    end-scope(x)
-    return 1
-

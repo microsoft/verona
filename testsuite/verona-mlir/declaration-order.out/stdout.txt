@@ -1,9 +1,0 @@
-builtin.module  {
-  builtin.func @"$module-0__bar"() {
-    call @"$module-0__foo"() : () -> ()
-    return
-  }
-  builtin.func @"$module-0__foo"() {
-    return
-  }
-}
