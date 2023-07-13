@@ -1,0 +1,77 @@
+class Bool
+{
+  create(): Bool
+  {
+    let a = :[i1 0]:
+    Dyn::from_bool(a)
+  }
+
+  create(from: ToBool): Bool
+  {
+    from.bool()
+  }
+
+  bool(self: Bool): Bool
+  {
+    self
+  }
+
+  i32(self: Bool): I32
+  {
+    let a = Dyn::to_bool(self)
+    let b = :[zext i1]: a :[to i32]:
+    Dyn::to_i32(b)
+  }
+
+  &(self: Bool, other: Bool): Bool
+  {
+    let a = Dyn::to_bool(self)
+    let b = Dyn::to_bool(other)
+    let c = :[and i1]: a b
+    Dyn::from_bool(c)
+  }
+
+  |(self: Bool, other: Bool): Bool
+  {
+    let a = Dyn::to_bool(self)
+    let b = Dyn::to_bool(other)
+    let c = :[or i1]: a b
+    Dyn::from_bool(c)
+  }
+
+  ^(self: Bool, other: Bool): Bool
+  {
+    let a = Dyn::to_bool(self)
+    let b = Dyn::to_bool(other)
+    let c = :[xor i1]: a b
+    Dyn::from_bool(c)
+  }
+
+  !(self: Bool): Bool
+  {
+    let a = Dyn::to_bool(self)
+    let b = :[xor i1 true,]: a
+    Dyn::from_bool(b)
+  }
+
+  ==(self: Bool, other: Bool): Bool
+  {
+    let a = Dyn::to_bool(self)
+    let b = Dyn::to_bool(other)
+    let c = :[icmp eq i1]: a b
+    Dyn::from_bool(c)
+  }
+
+  !=(self: Bool, other: Bool): Bool
+  {
+    let a = Dyn::to_bool(self)
+    let b = Dyn::to_bool(other)
+    let c = :[icmp ne i1]: a b
+    Dyn::from_bool(c)
+  }
+}
+
+type ToBool =
+{
+  bool(self/*: Self*/): Bool
+}

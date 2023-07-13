@@ -1,0 +1,34 @@
+class Ptr
+{
+  create(): ()
+  {
+    // TODO: should throw
+    Dyn::from_unit()
+  }
+
+  ref field[T](self: Ptr, i: I32): Ref[T] ::: (ptr, i32)->i64
+  {
+    // The refcount on `self` is moved to the returned Ref[T].
+    let a = Dyn::to_ptr(self)
+    let b = Dyn::to_i32(i)
+    let c = :[getelementptr inbounds [0 x i64], ptr]: a :[,i32]: b
+    Dyn::from_ref(c)
+  }
+
+  function(self: Ptr, i: I32): () ::: (ptr, i32)->ptr
+  {
+    // TODO: look in the type descriptor
+  }
+
+  copy(self: Ptr): () ::: (ptr)->void
+  {
+    // TODO:
+    :[ret void]:
+  }
+
+  drop(self: Ptr): () ::: (ptr)->void
+  {
+    // TODO:
+    :[ret void]:
+  }
+}

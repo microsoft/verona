@@ -1,0 +1,186 @@
+class Dyn
+{
+  // TODO: non-local?
+  // 0000 = Object pointer, no decode step
+  // 0001 = Ref[T], decode by mask
+  // 00020 = Unit, no decode step
+  // 00021 = Bool, decode by trunc
+  // 00022 = I8, decode by trunc
+  // 00023 = U8, decode by trunc
+  // 00024 = I16, decode by trunc
+  // 00025 = U16, decode by trunc
+  // 00026 = I32, decode by trunc
+  // 00027 = U32, decode by trunc
+  // 00030 = F32, decode by trunc and bitcast
+  // 0007-FFFF = F64, decode by subtracting 7<<48
+  create(): Dyn
+  {
+    Dyn::from_unit()
+  }
+
+  ptr_type(): Dyn ::: ()->i64
+  {
+    :[ret i64 0x0000000000000000]:
+  }
+
+  ref_type(): Dyn ::: ()->i64
+  {
+    :[ret i64 0x0001000000000000]:
+  }
+
+  unit_type(): Dyn ::: ()->i64
+  {
+    :[ret i64 0x0002000000000000]:
+  }
+
+  bool_type(): Dyn ::: ()->i64
+  {
+    :[ret i64 0x0002100000000000]:
+  }
+
+  i32_type(): Dyn ::: ()->i64
+  {
+    :[ret i64 0x0002600000000000]:
+  }
+
+  mask(): Dyn ::: ()->i64
+  {
+    :[ret i64 0xFFFFF00000000000]:
+  }
+
+  mask_ptr(): Dyn ::: ()->i64
+  {
+    :[ret i64 0xFFFF000000000000]:
+  }
+
+  make(self: Dyn, ty: Dyn): Dyn ::: (i64, i64)->i64
+  {
+    let a = :[or i64]: self ty
+    a
+  }
+
+  is(self: Dyn, ty: Dyn): Dyn ::: (i64, i64)->i64
+  {
+    let mask = Dyn::mask()
+    let a = :[and i64]: self mask
+    let b = :[icmp eq i64]: ty a
+    Dyn::from_bool(b)
+  }
+
+  is_ptr(self: Dyn, ty: Dyn): Dyn ::: (i64, i64)->i64
+  {
+    let mask = Dyn::mask_ptr()
+    let a = :[and i64]: self mask
+    let b = :[icmp eq i64]: ty a
+    Dyn::from_bool(b)
+  }
+
+  assert(test: Bool): () ::: (i64)->void
+  {
+    // Avoid anything that could recurse to `assert`.
+    if test {} else
+    {
+      :[call void @llvm.debugtrap()]:
+      ()
+    }
+
+    :[ret void]:
+  }
+
+  to_ptr(self: Dyn): Ptr ::: (i64)->ptr
+  {
+    Dyn::assert(Dyn::is_ptr(self, Dyn::ptr_type))
+    let a = :[bitcast i64]: self :[to ptr]:
+    :[ret ptr]: a
+  }
+
+  from_ptr(x: Ptr): Dyn ::: (ptr)->i64
+  {
+    let a = :[bitcast ptr]: x :[to i64]:
+    a
+  }
+
+  to_ref[T](self: Dyn): Ref[T] ::: (i64)->ptr
+  {
+    Dyn::assert(Dyn::is_ptr(self, Dyn::ref_type))
+    let a = :[and i64 0x0000FFFFFFFFFFFF,]: self
+    let b = :[bitcast i64]: a :[to ptr]:
+    :[ret ptr]: b
+  }
+
+  from_ref[T](x: Ref[T]): Dyn ::: (ptr)->i64
+  {
+    let a = :[bitcast ptr]: x :[to i64]:
+    Dyn::make(a, Dyn::ref_type)
+  }
+
+  to_unit(self: Dyn): () ::: (i64)->void
+  {
+    Dyn::assert(Dyn::is(self, Dyn::unit_type))
+    :[ret void]:
+  }
+
+  from_unit(): Dyn ::: ()->i64
+  {
+    let a = :[i64 0]:
+    Dyn::make(a, Dyn::unit_type)
+  }
+
+  to_bool(self: Dyn): Bool ::: (i64)->i1
+  {
+    Dyn::assert(Dyn::is(self, Dyn::bool_type))
+    let a = :[trunc i64]: self :[to i1]:
+    :[ret i1]: a
+  }
+
+  from_bool(x: Bool): Dyn ::: (i1)->i64
+  {
+    let a = :[zext i1]: x :[to i64]:
+    Dyn::make(a, Dyn::bool_type)
+  }
+
+  to_i32(self: Dyn): I32 ::: (i64)->i32
+  {
+    Dyn::assert(Dyn::is(self, Dyn::i32_type))
+    let a = :[trunc i64]: self :[to i32]:
+    :[ret i32]: a
+  }
+
+  from_i32(x: I32): Dyn ::: (i32)->i64
+  {
+    let a = :[zext i32]: x :[to i64]:
+    Dyn::make(a, Dyn::i32_type)
+  }
+
+  copy(self: Dyn): () ::: (i64)->void
+  {
+    if (Dyn::is_ptr(self, Dyn::ptr_type))
+    {
+      Ptr::copy(Dyn::to_ptr(self))
+      ()
+    }
+    else if (Dyn::is_ptr(self, Dyn::ref_type))
+    {
+      Ref::copy(Dyn::to_ref(self))
+      ()
+    }
+
+    :[ret void]:
+  }
+
+  drop(self: Dyn): () ::: (i64)->void
+  {
+    if (Dyn::is_ptr(self, Dyn::ptr_type))
+    {
+      Ptr::drop(Dyn::to_ptr(self))
+      ()
+    }
+    else if (Dyn::is_ptr(self, Dyn::ref_type))
+    {
+      Ref::drop(Dyn::to_ref(self))
+      ()
+    }
+
+    :[ret void]:
+  }
+}
