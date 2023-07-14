@@ -1,11 +1,8 @@
 # TODO
 
-Error messages:
-- Too many repetitions from implicit methods.
-  - `defaultargs`, `partialapp`, `autocreate`, `autofields`, etc.
+`assignlhs` isn't catching LHS calls inside `NLRCheck`.
 
 Code reuse:
-- Code reuse must be intersections of classes and traits only, recursively through type aliases.
 - Logical order: (1) defaultargs, (2) inheritance, (3) partialapp.
   - Can actually do inheritance first, treating defaultargs as blocking multiple arities.
 - Do textual inclusion of any member or method that isn't already defined.

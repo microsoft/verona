@@ -36,10 +36,6 @@ add_executable(verona
   passes/validtypeargs.cc
 )
 
-target_include_directories(verona
-  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
 target_link_libraries(verona
   Threads::Threads
   fmt::fmt

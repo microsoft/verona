@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
+#include "../lang.h"
 
 namespace verona
 {
@@ -12,12 +12,12 @@ namespace verona
       In(ClassBody) *
           (T(Equals)
            << ((T(Group)
-                << ((T(Let) / T(Var))[Let] * T(Ident)[Id] * ~T(Type)[Type] *
+                << ((T(Let) / T(Var))[Let] * T(Ident)[Ident] * ~T(Type)[Type] *
                     End)) *
                T(Group)++[Rhs])) >>
         [](Match& _) {
           Node node = _(Let)->type() == Let ? FieldLet : FieldVar;
-          return node << _(Id) << typevar(_, Type)
+          return node << _(Ident) << typevar(_, Type)
                       << (Lambda << TypeParams << Params << typevar(_)
                                  << typepred()
                                  << (Block << (Expr << (Default << _[Rhs]))));
@@ -27,10 +27,11 @@ namespace verona
       // (group let|var ident type)
       In(ClassBody) *
           (T(Group)
-           << ((T(Let) / T(Var))[Let] * T(Ident)[Id] * ~T(Type)[Type] * End)) >>
+           << ((T(Let) / T(Var))[Let] * T(Ident)[Ident] * ~T(Type)[Type] *
+               End)) >>
         [](Match& _) {
           Node node = _(Let)->type() == Let ? FieldLet : FieldVar;
-          return node << _(Id) << typevar(_, Type) << DontCare;
+          return node << _(Ident) << typevar(_, Type) << DontCare;
         },
 
       // Function: `=` function after a `{}` function with no terminator.
@@ -39,18 +40,19 @@ namespace verona
       In(ClassBody) *
           (T(Equals)
            << ((T(Group)
-                << (~T(Ref)[Ref] * ~Name[Id] * ~T(Square)[TypeParams] *
+                << (~T(Ref)[Ref] * ~Name[Ident] * ~T(Square)[TypeParams] *
                     T(Paren)[Params] * ~T(Type)[Type] *
                     ~T(LLVMFuncType)[LLVMFuncType] * ~T(TypePred)[TypePred] *
                     T(Brace)[Block] * (Any * Any++)[Lhs])) *
                T(Group)++[Rhs])) >>
         [](Match& _) {
-          return Seq << (Function
-                         << (_(Ref) || DontCare) << (_(Id) || apply_id())
-                         << (TypeParams << *_[TypeParams])
-                         << (Params << *_[Params]) << typevar(_, Type)
-                         << (_(LLVMFuncType) || DontCare)
-                         << typepred(_, TypePred) << (Block << *_[Block]))
+          return Seq << (Function << Explicit << (_(Ref) ? Lhs : Rhs)
+                                  << (_(Ident) || apply_id())
+                                  << (TypeParams << *_[TypeParams])
+                                  << (Params << *_[Params]) << typevar(_, Type)
+                                  << (_(LLVMFuncType) || DontCare)
+                                  << typepred(_, TypePred)
+                                  << (Block << *_[Block]))
                      << (Equals << (Group << _[Lhs]) << _[Rhs]);
         },
 
@@ -59,13 +61,14 @@ namespace verona
       In(ClassBody) *
           (T(Equals)
            << ((T(Group)
-                << (~T(Ref)[Ref] * ~Name[Id] * ~T(Square)[TypeParams] *
+                << (~T(Ref)[Ref] * ~Name[Ident] * ~T(Square)[TypeParams] *
                     T(Paren)[Params] * ~T(Type)[Type] *
                     ~T(LLVMFuncType)[LLVMFuncType] * ~T(TypePred)[TypePred] *
                     End)) *
                T(Group)++[Rhs])) >>
         [](Match& _) {
-          return Function << (_(Ref) || DontCare) << (_(Id) || apply_id())
+          return Function << Explicit << (_(Ref) ? Lhs : Rhs)
+                          << (_(Ident) || apply_id())
                           << (TypeParams << *_[TypeParams])
                           << (Params << *_[Params]) << typevar(_, Type)
                           << (_(LLVMFuncType) || DontCare)
@@ -76,18 +79,18 @@ namespace verona
       // Function: f[T](x: T = e): T { e }
       // (group name typeparams params type llvmtype typepred brace)
       In(ClassBody) * T(Group)
-          << (~T(Ref)[Ref] * ~Name[Id] * ~T(Square)[TypeParams] *
+          << (~T(Ref)[Ref] * ~Name[Ident] * ~T(Square)[TypeParams] *
               T(Paren)[Params] * ~T(Type)[Type] *
               ~T(LLVMFuncType)[LLVMFuncType] * ~T(TypePred)[TypePred] *
               ~T(Brace)[Block] * (Any++)[Rhs]) >>
         [](Match& _) {
           auto block = _(Block) ? (Block << *_[Block]) : DontCare;
-          return Seq << (Function
-                         << (_(Ref) || DontCare) << (_(Id) || apply_id())
-                         << (TypeParams << *_[TypeParams])
-                         << (Params << *_[Params]) << typevar(_, Type)
-                         << (_(LLVMFuncType) || DontCare)
-                         << typepred(_, TypePred) << block)
+          return Seq << (Function << Explicit << (_(Ref) ? Lhs : Rhs)
+                                  << (_(Ident) || apply_id())
+                                  << (TypeParams << *_[TypeParams])
+                                  << (Params << *_[Params]) << typevar(_, Type)
+                                  << (_(LLVMFuncType) || DontCare)
+                                  << typepred(_, TypePred) << block)
                      << (Group << _[Rhs]);
         },
 
@@ -96,26 +99,26 @@ namespace verona
         [](Match& _) { return TypeParams << *_[TypeParams]; },
 
       // TypeParam: (group ident)
-      In(TypeParams) * T(Group) << (T(Ident)[Id] * End) >>
-        [](Match& _) { return TypeParam << _(Id) << DontCare; },
+      In(TypeParams) * T(Group) << (T(Ident)[Ident] * End) >>
+        [](Match& _) { return TypeParam << _(Ident) << DontCare; },
 
       // TypeParam with default: (equals (group ident) group)
       In(TypeParams) * T(Equals)
-          << ((T(Group) << (T(Ident)[Id] * End)) * T(Group)++[Rhs]) >>
+          << ((T(Group) << (T(Ident)[Ident] * End)) * T(Group)++[Rhs]) >>
         [](Match& _) {
-          return TypeParam << _(Id) << (Type << (Default << _[Rhs]));
+          return TypeParam << _(Ident) << (Type << (Default << _[Rhs]));
         },
 
       // ValueParam: (group ident type)
-      In(TypeParams) * T(Group) << (T(Ident)[Id] * T(Type)[Type] * End) >>
-        [](Match& _) { return ValueParam << _(Id) << _(Type) << Expr; },
+      In(TypeParams) * T(Group) << (T(Ident)[Ident] * T(Type)[Type] * End) >>
+        [](Match& _) { return ValueParam << _(Ident) << _(Type) << Expr; },
 
       // ValueParam with default: (equals (group ident type) group)
       In(TypeParams) * T(Equals)
-          << ((T(Group) << (T(Ident)[Id] * T(Type)[Type] * End)) *
+          << ((T(Group) << (T(Ident)[Ident] * T(Type)[Type] * End)) *
               T(Group)++[Rhs]) >>
         [](Match& _) {
-          return ValueParam << _(Id) << _(Type)
+          return ValueParam << _(Ident) << _(Type)
                             << (Expr << (Default << _[Rhs]));
         },
 
@@ -136,21 +139,23 @@ namespace verona
 
       // Param: (group ident type)
       In(Params) * T(Group)
-          << ((T(Ident) / T(DontCare))[Id] * ~T(Type)[Type] * End) >>
+          << ((T(Ident) / T(DontCare))[Ident] * ~T(Type)[Type] * End) >>
         [](Match& _) {
-          auto id =
-            (_(Id)->type() == DontCare) ? (Ident ^ _.fresh(l_param)) : _(Id);
+          auto id = (_(Ident)->type() == DontCare) ?
+            (Ident ^ _.fresh(l_param)) :
+            _(Ident);
           return Param << id << typevar(_, Type) << DontCare;
         },
 
       // Param: (equals (group ident type) group)
       In(Params) * T(Equals)
           << ((T(Group)
-               << ((T(Ident) / T(DontCare))[Id] * ~T(Type)[Type] * End)) *
+               << ((T(Ident) / T(DontCare))[Ident] * ~T(Type)[Type] * End)) *
               T(Group)++[Expr]) >>
         [](Match& _) {
-          auto id =
-            (_(Id)->type() == DontCare) ? (Ident ^ _.fresh(l_param)) : _(Id);
+          auto id = (_(Ident)->type() == DontCare) ?
+            (Ident ^ _.fresh(l_param)) :
+            _(Ident);
           return Param << id << typevar(_, Type)
                        << (Lambda << TypeParams << Params << typevar(_)
                                   << typepred()
@@ -172,11 +177,11 @@ namespace verona
       // TypeAlias: (equals (group typealias typeparams typepred) group)
       (In(ClassBody) / In(Block)) * T(Equals)
           << ((T(Group)
-               << (T(TypeAlias) * T(Ident)[Id] * ~T(Square)[TypeParams] *
+               << (T(TypeAlias) * T(Ident)[Ident] * ~T(Square)[TypeParams] *
                    ~T(TypePred)[TypePred] * End)) *
               T(Group)++[Rhs]) >>
         [](Match& _) {
-          return TypeAlias << _(Id) << (TypeParams << *_[TypeParams])
+          return TypeAlias << _(Ident) << (TypeParams << *_[TypeParams])
                            << typepred(_, TypePred)
                            << (Type << (Default << _[Rhs]));
         },
@@ -193,11 +198,11 @@ namespace verona
       // Class.
       // (group class ident typeparams type typepred brace ...)
       (In(Top) / In(ClassBody) / In(Block)) * T(Group)
-          << (T(Class) * T(Ident)[Id] * ~T(Square)[TypeParams] *
+          << (T(Class) * T(Ident)[Ident] * ~T(Square)[TypeParams] *
               ~T(Type)[Type] * ~T(TypePred)[TypePred] * T(Brace)[ClassBody] *
               (Any++)[Rhs]) >>
         [](Match& _) {
-          return Seq << (Class << _(Id) << (TypeParams << *_[TypeParams])
+          return Seq << (Class << _(Ident) << (TypeParams << *_[TypeParams])
                                << inherit(_, Type) << typepred(_, TypePred)
                                << (ClassBody << *_[ClassBody]))
                      << (Group << _[Rhs]);
@@ -334,15 +339,15 @@ namespace verona
         },
 
       // Var.
-      In(Expr) * T(Var)[Var] * T(Ident)[Id] >>
-        [](Match& _) { return Var << _(Id); },
+      In(Expr) * T(Var)[Var] * T(Ident)[Ident] >>
+        [](Match& _) { return Var << _(Ident); },
 
       T(Var)[Var] << End >>
         [](Match& _) { return err(_[Var], "`var` needs an identifier"); },
 
       // Let.
-      In(Expr) * T(Let)[Let] * T(Ident)[Id] >>
-        [](Match& _) { return Let << _(Id); },
+      In(Expr) * T(Let)[Let] * T(Ident)[Ident] >>
+        [](Match& _) { return Let << _(Ident); },
 
       T(Let)[Let] << End >>
         [](Match& _) { return err(_[Let], "`let` needs an identifier"); },

@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
+#include "../lang.h"
 
 namespace verona
 {
@@ -10,12 +10,12 @@ namespace verona
       dir::topdown | dir::once,
       {
         T(Function)[Function]
-            << (T(Ref) * Name[Id] * T(TypeParams)[TypeParams] *
+            << (IsImplicit * T(Lhs) * Name[Ident] * T(TypeParams)[TypeParams] *
                 T(Params)[Params] * T(Type)[Type] * T(DontCare) *
                 T(TypePred)[TypePred] * (T(Block) / T(DontCare))) >>
           ([](Match& _) -> Node {
             auto f = _(Function);
-            auto id = _(Id);
+            auto id = _(Ident);
             auto params = _(Params);
             auto parent = f->parent()->parent()->shared_from_this();
             Token ptype =
@@ -29,7 +29,7 @@ namespace verona
             {
               if (
                 (def != f) && (def->type() == Function) &&
-                ((def / Ref)->type() != Ref) &&
+                ((def / Ref)->type() != Rhs) &&
                 ((def / Ident)->location() == id->location()) &&
                 ((def / Params)->size() == params->size()))
               {
@@ -48,7 +48,7 @@ namespace verona
               args << (Expr << (RefLet << clone(param / Ident)));
 
             auto rhs_f =
-              Function << DontCare << clone(id) << clone(_(TypeParams))
+              Function << Implicit << Rhs << clone(id) << clone(_(TypeParams))
                        << clone(params) << clone(_(Type)) << DontCare
                        << clone(_(TypePred))
                        << (Block

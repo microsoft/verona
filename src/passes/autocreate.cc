@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
+#include "../lang.h"
 
 namespace verona
 {
@@ -35,7 +35,7 @@ namespace verona
           // TODO: return Self & K?
           auto body = ClassBody
             << *_[ClassBody]
-            << (Function << DontCare << (Ident ^ new_) << TypeParams
+            << (Function << Implicit << Rhs << (Ident ^ new_) << TypeParams
                          << new_params << typevar(_) << DontCare << typepred()
                          << (Block << (Expr << unit())));
 
@@ -43,7 +43,7 @@ namespace verona
           {
             // Create the `create` function.
             body
-              << (Function << DontCare << (Ident ^ create) << TypeParams
+              << (Function << Implicit << Rhs << (Ident ^ create) << TypeParams
                            << clone(new_params) << typevar(_) << DontCare
                            << typepred()
                            << (Block << (Expr << (Call << New << new_args))));
@@ -53,11 +53,11 @@ namespace verona
         }),
 
         // Strip the default field values.
-        T(FieldLet) << (T(Ident)[Id] * T(Type)[Type] * Any) >>
-          [](Match& _) { return FieldLet << _(Id) << _(Type); },
+        T(FieldLet) << (T(Ident)[Ident] * T(Type)[Type] * Any) >>
+          [](Match& _) { return FieldLet << _(Ident) << _(Type); },
 
-        T(FieldVar) << (T(Ident)[Id] * T(Type)[Type] * Any) >>
-          [](Match& _) { return FieldVar << _(Id) << _(Type); },
+        T(FieldVar) << (T(Ident)[Ident] * T(Type)[Type] * Any) >>
+          [](Match& _) { return FieldVar << _(Ident) << _(Type); },
       }};
   }
 }

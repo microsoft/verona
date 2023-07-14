@@ -1,8 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
-
-#include "lookup.h"
+#include "../lang.h"
+#include "../lookup.h"
 
 namespace verona
 {
@@ -34,40 +33,43 @@ namespace verona
               .append(_(Rhs)->location().view());
         },
 
-      // Dot notation. Use `Id` as a selector, even if it's in scope.
-      In(Expr) * T(Dot) * Name[Id] * ~T(TypeArgs)[TypeArgs] >>
+      // Dot notation. Use `Ident` as a selector, even if it's in scope.
+      In(Expr) * T(Dot) * Name[Ident] * ~T(TypeArgs)[TypeArgs] >>
         [](Match& _) {
-          return Seq << Dot << (Selector << _[Id] << (_(TypeArgs) || TypeArgs));
+          return Seq << Dot
+                     << (Selector << _(Ident) << (_(TypeArgs) || TypeArgs));
         },
 
       // Local reference.
-      In(Expr) * T(Ident)[Id]([](auto& n) { return lookup(n, {Var}); }) >>
-        [](Match& _) { return RefVar << _(Id); },
+      In(Expr) * T(Ident)[Ident]([](auto& n) { return lookup(n, {Var}); }) >>
+        [](Match& _) { return RefVar << _(Ident); },
 
-      In(Expr) * T(Ident)[Id]([](auto& n) {
+      In(Expr) * T(Ident)[Ident]([](auto& n) {
         return lookup(n, {Let, Param});
       }) >>
-        [](Match& _) { return RefLet << _(Id); },
+        [](Match& _) { return RefLet << _(Ident); },
 
       // Unscoped type reference.
-      In(Expr) * T(Ident)[Id]([](auto& n) {
+      In(Expr) * T(Ident)[Ident]([](auto& n) {
         return lookup(n, {Class, TypeAlias, TypeParam});
       }) * ~T(TypeArgs)[TypeArgs] >>
         [](Match& _) {
-          return makename(DontCare, _(Id), (_(TypeArgs) || TypeArgs));
+          return makename(DontCare, _(Ident), (_(TypeArgs) || TypeArgs));
         },
 
       // Unscoped reference that isn't a local or a type. Treat it as a
       // selector, even if it resolves to a Function.
-      In(Expr) * Name[Id] * ~T(TypeArgs)[TypeArgs] >>
-        [](Match& _) { return Selector << _(Id) << (_(TypeArgs) || TypeArgs); },
+      In(Expr) * Name[Ident] * ~T(TypeArgs)[TypeArgs] >>
+        [](Match& _) {
+          return Selector << _(Ident) << (_(TypeArgs) || TypeArgs);
+        },
 
       // Scoped lookup.
       In(Expr) *
-          (TypeName[Lhs] * T(DoubleColon) * Name[Id] *
+          (TypeName[Lhs] * T(DoubleColon) * Name[Ident] *
            ~T(TypeArgs)[TypeArgs])[Type] >>
         [](Match& _) {
-          return makename(_(Lhs), _(Id), (_(TypeArgs) || TypeArgs), true);
+          return makename(_(Lhs), _(Ident), (_(TypeArgs) || TypeArgs), true);
         },
 
       In(Expr) * T(DoubleColon) >>

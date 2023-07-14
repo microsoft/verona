@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
+#include "../lang.h"
 
 namespace verona
 {
@@ -16,10 +16,10 @@ namespace verona
         [](Match& _) { return _(Lift); },
 
       // Lift `let x` bindings, leaving a RefLet behind.
-      T(Expr) << (T(Bind)[Bind] << (T(Ident)[Id] * T(Type) * T(Expr))) >>
+      T(Expr) << (T(Bind)[Bind] << (T(Ident)[Ident] * T(Type) * T(Expr))) >>
         [](Match& _) {
           return Seq << (Lift << Block << _(Bind))
-                     << (RefLet << (Ident ^ _(Id)));
+                     << (RefLet << clone(_(Ident)));
         },
 
       // Lift RefLet and Return.

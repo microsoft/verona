@@ -1,7 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
-#include "subtype.h"
+#include "../lang.h"
+#include "../subtype.h"
 
 namespace verona
 {
@@ -12,7 +12,9 @@ namespace verona
       {
         (TypeName[Op] << ((TypeName / T(DontCare)) * T(Ident) * T(TypeArgs))) >>
           ([](Match& _) -> Node {
-            if (!valid_typeargs(_(Op)))
+            auto tn = _(Op);
+
+            if (!is_implicit(tn) && !valid_typeargs(tn))
               return err(_[Op], "invalid type arguments");
 
             return NoChange;

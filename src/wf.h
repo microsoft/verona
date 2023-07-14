@@ -8,7 +8,8 @@ namespace verona
 {
   using namespace wf::ops;
 
-  inline const auto wfRef = Ref >>= Ref | DontCare;
+  inline const auto wfRef = Ref >>= Lhs | Rhs;
+  inline const auto wfImplicit = Implicit >>= Implicit | Explicit;
   inline const auto wfName = Ident >>= Ident | Symbol;
   inline const auto wfDefault = Default >>= Lambda | DontCare;
 
@@ -70,7 +71,7 @@ namespace verona
     | (FieldLet <<= Ident * Type * wfDefault)[Ident]
     | (FieldVar <<= Ident * Type * wfDefault)[Ident]
     | (Function <<=
-        wfRef * wfName * TypeParams * Params * Type *
+        wfImplicit * wfRef * wfName * TypeParams * Params * Type *
         (LLVMFuncType >>= LLVMFuncType | DontCare) * TypePred *
         (Block >>= Block | DontCare))[Ident]
     | (TypeParams <<= TypeParam++)
@@ -88,7 +89,7 @@ namespace verona
     | (Let <<= Ident)[Ident]
     | (Var <<= Ident)[Ident]
     | (TypeAssert <<= Expr * Type)
-    | (Package <<= (Id >>= String | Escaped))
+    | (Package <<= (Ident >>= String | Escaped))
     | (LLVMFuncType <<= (Args >>= LLVMList) * (Return >>= LLVM | Ident))
     | (LLVMList <<= (LLVM | Ident)++)
     | (TypePred <<= Type)
@@ -398,9 +399,9 @@ namespace verona
     | (TupleFlatten <<= Copy | Move)
     | (Args <<= (Copy | Move)++)
     | (Conditional <<= (If >>= Copy | Move) * Block * Block)
-    | (TypeTest <<= (Id >>= Copy | Move) * Type)
-    | (Cast <<= (Id >>= Copy | Move) * Type)
-    | (FieldRef <<= (Id >>= Copy | Move) * Ident)
+    | (TypeTest <<= (Ref >>= (Copy | Move)) * Type)
+    | (Cast <<= (Ref >>= (Copy | Move)) * Type)
+    | (FieldRef <<= (Ref >>= (Copy | Move)) * Ident)
     | (Bind <<= Ident * Type *
         (Rhs >>=
           Tuple | Call | Conditional | TypeTest | Cast | CallLHS | FieldRef |
@@ -418,7 +419,7 @@ namespace verona
 
     // Remove LHS/RHS function distinction.
     | (Function <<=
-        Ident * TypeParams * Params * Type *
+        wfImplicit * Ident * TypeParams * Params * Type *
         (LLVMFuncType >>= LLVMFuncType | DontCare) * TypePred *
         (Block >>= Block | DontCare))[Ident]
 
