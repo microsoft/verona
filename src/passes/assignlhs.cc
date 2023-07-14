@@ -30,6 +30,18 @@ namespace verona
           return Expr << (TypeAssert << (CallLHS << *_[Lhs]) << _(Type));
         },
 
+      on_lhs(T(Expr) << (T(NLRCheck) << T(Call)[Lhs])) >>
+        [](Match& _) { return Expr << (NLRCheck << (CallLHS << *_[Lhs])); },
+
+      on_lhs(
+        T(Expr)
+        << (T(TypeAssert)
+            << ((T(NLRCheck) << T(Call)[Lhs]) * T(Type)[Type]))) >>
+        [](Match& _) {
+          return Expr
+            << (TypeAssert << (NLRCheck << (CallLHS << *_[Lhs])) << _(Type));
+        },
+
       // Turn a RefVar on the LHS of an assignment into a RefVarLHS.
       on_lhs(T(Expr) << T(RefVar)[Lhs]) >>
         [](Match& _) { return Expr << (RefVarLHS << *_[Lhs]); },

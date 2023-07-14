@@ -1,7 +1,5 @@
 # TODO
 
-`assignlhs` isn't catching LHS calls inside `NLRCheck`.
-
 Code reuse:
 - Logical order: (1) defaultargs, (2) inheritance, (3) partialapp.
   - Can actually do inheritance first, treating defaultargs as blocking multiple arities.
