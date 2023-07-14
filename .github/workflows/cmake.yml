@@ -1,0 +1,43 @@
+name: BuildAndTest
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build-test:
+    strategy:
+      matrix:
+        platform: [ "ubuntu-latest", "macos-latest", "windows-latest" ]
+        build-type: [ "Release", "Debug" ]
+  
+        include:
+        - platform: "ubuntu-latest"
+          cmake-flags: "-G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang"
+          dependencies: "sudo apt install ninja-build"
+  
+      fail-fast: false
+  
+    runs-on: ${{matrix.platform}}
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install build dependencies
+      run: ${{ matrix.dependencies }}
+
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build-type}} ${{matrix.cmake-flags}}
+
+    - name: Build
+      # Build your program with the given configuration
+      run: cmake --build ${{github.workspace}}/build --config ${{matrix.build-type}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      # Execute tests defined by the CMake configuration.
+      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
+      run: ctest -C ${{matrix.build-type}} --output-on-failure --timeout 400 --interactive-debug-mode 0 
+
