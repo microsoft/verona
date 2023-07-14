@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
+#include "../lang.h"
 
 namespace verona
 {
@@ -11,12 +11,12 @@ namespace verona
     PassDef lambda = {
       dir::bottomup,
       {
-        T(RefLet) << T(Ident)[Id] >> ([freevars](Match& _) -> Node {
+        T(RefLet) << T(Ident)[Ident] >> ([freevars](Match& _) -> Node {
           if (!freevars->empty())
           {
             // If we don't have a definition within the scope of the lambda,
             // then it's a free variable.
-            auto id = _(Id);
+            auto id = _(Ident);
 
             if (id->lookup(id->parent(Lambda)).empty())
               freevars->back().insert(id->location());
@@ -39,8 +39,8 @@ namespace verona
             Node create_params = Params;
             Node new_args = Args;
             auto create_func = Function
-              << DontCare << (Ident ^ create) << TypeParams << create_params
-              << typevar(_) << DontCare << typepred()
+              << Implicit << Rhs << (Ident ^ create) << TypeParams
+              << create_params << typevar(_) << DontCare << typepred()
               << (Block << (Expr << (Call << New << new_args)));
 
             // The create call will instantiate the anonymous type.
@@ -92,7 +92,7 @@ namespace verona
             // parameter with a fresh name to the lambda parameters.
             // TODO: capability for Self
             auto apply_func = Function
-              << DontCare << apply_id() << _(TypeParams)
+              << Implicit << Rhs << apply_id() << _(TypeParams)
               << (Params << (Param << (Ident ^ self_id) << (Type << Self)
                                    << DontCare)
                          << *_[Params])

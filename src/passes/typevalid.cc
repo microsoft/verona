@@ -1,8 +1,8 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "btype.h"
-#include "lang.h"
-#include "lookup.h"
+#include "../btype.h"
+#include "../lang.h"
+#include "../lookup.h"
 
 namespace verona
 {

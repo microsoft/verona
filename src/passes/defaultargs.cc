@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
+#include "../lang.h"
 
 namespace verona
 {
@@ -10,7 +10,7 @@ namespace verona
       dir::topdown | dir::once,
       {
         T(Function)[Function]
-            << ((T(Ref) / T(DontCare))[Ref] * Name[Id] *
+            << (T(Explicit) * Hand[Ref] * Name[Ident] *
                 T(TypeParams)[TypeParams] *
                 (T(Params)
                  << ((T(Param) << (T(Ident) * T(Type) * T(DontCare)))++[Lhs] *
@@ -20,13 +20,13 @@ namespace verona
                 (T(Block) / T(DontCare))[Block]) >>
           [](Match& _) {
             Node seq = Seq;
-            auto ref = _(Ref);
-            auto id = _(Id);
+            auto hand = _(Ref);
+            auto id = _(Ident);
             auto tp = _(TypeParams);
             auto ty = _(Type);
             auto pred = _(TypePred);
             Node params = Params;
-            Node call = (ref->type() == Ref) ? CallLHS : Call;
+            Node call = (hand->type() == Lhs) ? CallLHS : Call;
 
             auto parent = _(Function)->parent()->parent()->shared_from_this();
             auto tn = parent / Ident;
@@ -64,9 +64,10 @@ namespace verona
 
               // Add a new function that calls the arity+1 function.
               seq
-                << (Function << clone(ref) << clone(id) << clone(tp)
-                             << clone(params) << clone(ty) << DontCare
-                             << clone(pred) << (Block << clone(fwd)));
+                << (Function << Implicit << clone(hand) << clone(id)
+                             << clone(tp) << clone(params) << clone(ty)
+                             << DontCare << clone(pred)
+                             << (Block << clone(fwd)));
 
               // Add a parameter.
               auto param_id = *it / Ident;
@@ -79,8 +80,8 @@ namespace verona
 
             // The original function, with no default arguments.
             return seq
-              << (Function << ref << id << tp << params << ty << DontCare
-                           << pred << _(Block));
+              << (Function << Explicit << hand << id << tp << params << ty
+                           << DontCare << pred << _(Block));
           },
 
         T(Param) << (T(Ident)[Ident] * T(Type)[Type] * T(DontCare)) >>

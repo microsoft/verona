@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
+#include "../lang.h"
 
 namespace verona
 {
@@ -225,13 +225,14 @@ namespace verona
     PassDef drop = {
       dir::topdown | dir::once,
       {
-        (T(Param) / T(Bind)) << T(Ident)[Id] >> ([drop_map](Match& _) -> Node {
-          drop_map->back().gen(_(Id)->location());
-          return NoChange;
-        }),
+        (T(Param) / T(Bind)) << T(Ident)[Ident] >>
+          ([drop_map](Match& _) -> Node {
+            drop_map->back().gen(_(Ident)->location());
+            return NoChange;
+          }),
 
-        T(RefLet)[RefLet] << T(Ident)[Id] >> ([drop_map](Match& _) -> Node {
-          drop_map->back().ref(_(Id)->location(), _(RefLet));
+        T(RefLet)[RefLet] << T(Ident)[Ident] >> ([drop_map](Match& _) -> Node {
+          drop_map->back().ref(_(Ident)->location(), _(RefLet));
           return NoChange;
         }),
 

@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
+#include "../lang.h"
 
 namespace verona
 {
@@ -9,8 +9,8 @@ namespace verona
     return {
       dir::topdown | dir::once,
       {
-        T(RefLet) << T(Ident)[Id] >> ([](Match& _) -> Node {
-          auto id = _(Id);
+        T(RefLet) << T(Ident)[Ident] >> ([](Match& _) -> Node {
+          auto id = _(Ident);
           auto defs = id->lookup();
 
           if (
@@ -18,7 +18,7 @@ namespace verona
             ((defs.front()->type() == Param) || defs.front()->precedes(id)))
             return NoChange;
 
-          return err(_[Id], "use of uninitialized identifier");
+          return err(_[Ident], "use of uninitialized identifier");
         }),
       }};
   }

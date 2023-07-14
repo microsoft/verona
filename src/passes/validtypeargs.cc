@@ -1,7 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
-#include "subtype.h"
+#include "../lang.h"
+#include "../subtype.h"
 
 namespace verona
 {

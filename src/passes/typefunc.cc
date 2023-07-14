@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
+#include "../lang.h"
 
 namespace verona
 {
@@ -44,7 +44,7 @@ namespace verona
                           << (TypeTrait
                               << (Ident ^ _.fresh(l_trait))
                               << (ClassBody
-                                  << (Function << DontCare << apply_id()
+                                  << (Function << Explicit << Rhs << apply_id()
                                                << TypeParams << params
                                                << (Type << clone(_(Rhs)))
                                                << DontCare << typepred()

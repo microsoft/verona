@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
+#include "../lang.h"
 
 namespace verona
 {
@@ -12,7 +12,7 @@ namespace verona
     return {
       dir::once | dir::topdown,
       {
-        T(TypeTrait)[TypeTrait] << (T(Ident)[Id] * T(ClassBody)[ClassBody]) >>
+        T(TypeTrait)[TypeTrait] << (T(Ident)[Ident] * T(ClassBody)[ClassBody]) >>
           [](Match& _) {
             // If we're inside a TypeIsect, put the new traits inside it.
             // Otherwise, create a new TypeIsect.
@@ -20,7 +20,7 @@ namespace verona
               (_(TypeTrait)->parent()->type() == TypeIsect) ? Seq : TypeIsect;
 
             Node base = ClassBody;
-            r << (TypeTrait << _(Id) << base);
+            r << (TypeTrait << _(Ident) << base);
 
             for (auto& member : *_(ClassBody))
             {

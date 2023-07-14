@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
+#include "../lang.h"
 
 namespace verona
 {
@@ -12,12 +12,12 @@ namespace verona
       // Let binding.
       In(Assign) *
           (T(Expr)
-           << ((T(Let) << T(Ident)[Id]) /
-               (T(TypeAssert) << (T(Let) << T(Ident)[Id]) * T(Type)[Type]))) *
+           << ((T(Let) << T(Ident)[Ident]) /
+               (T(TypeAssert)
+                << (T(Let) << T(Ident)[Ident]) * T(Type)[Type]))) *
           T(Expr)[Rhs] * End >>
         [](Match& _) {
-          return Expr
-            << (Bind << (Ident ^ _(Id)) << typevar(_, Type) << _(Rhs));
+          return Expr << (Bind << _(Ident) << typevar(_, Type) << _(Rhs));
         },
 
       // Destructuring assignment.

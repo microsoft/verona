@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
+#include "../lang.h"
 
 namespace verona
 {
@@ -77,14 +77,14 @@ namespace verona
       dir::bottomup | dir::once,
       {
         T(Function)[Function]
-            << ((T(Ref) / T(DontCare))[Ref] * Name[Id] *
+            << (IsImplicit * Hand[Ref] * Name[Ident] *
                 T(TypeParams)[TypeParams] * T(Params)[Params] * T(Type) *
                 T(DontCare) * T(TypePred)[TypePred] *
                 (T(Block) / T(DontCare))) >>
           [](Match& _) {
             // Create a FunctionName for a static call to the original function.
             auto f = _(Function);
-            auto id = _(Id);
+            auto id = _(Ident);
             auto parent = f->parent()->parent()->shared_from_this();
 
             auto func_name = FunctionName
@@ -121,8 +121,8 @@ namespace verona
               names.push_back(Ident ^ _.fresh(l_class));
 
             Node ret = Seq;
-            auto ref = _(Ref);
-            Node call = (ref->type() == Ref) ? CallLHS : Call;
+            auto hand = _(Ref);
+            Node call = (hand->type() == Lhs) ? CallLHS : Call;
 
             for (auto arity = start_arity; arity < end_arity; ++arity)
             {
@@ -138,9 +138,9 @@ namespace verona
               Node create_params = Params;
               Node new_args = Args;
               classbody
-                << (Function << DontCare << (Ident ^ create) << TypeParams
-                             << create_params << typevar(_) << DontCare
-                             << typepred()
+                << (Function << Implicit << Rhs << (Ident ^ create)
+                             << TypeParams << create_params << typevar(_)
+                             << DontCare << typepred()
                              << (Block << (Expr << (Call << New << new_args))));
 
               // Create a function that returns the anonymous class for each
@@ -149,8 +149,8 @@ namespace verona
               Node func_params = Params;
               Node func_args = Args;
               auto func = Function
-                << clone(ref) << clone(id) << func_tp << func_params
-                << typevar(_) << DontCare << typepred()
+                << Implicit << clone(hand) << clone(id) << func_tp
+                << func_params << typevar(_) << DontCare << typepred()
                 << (Block
                     << (Expr
                         << (Call << (FunctionName
@@ -231,8 +231,8 @@ namespace verona
 
                 classbody
                   << (Function
-                      << clone(ref) << apply_id() << apply_tp << apply_params
-                      << typevar(_) << DontCare << apply_pred
+                      << Implicit << clone(hand) << apply_id() << apply_tp
+                      << apply_params << typevar(_) << DontCare << apply_pred
                       << (Block << (Expr << (clone(call) << fwd << fwd_args))));
               }
 

@@ -1,6 +1,6 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "lang.h"
+#include "../lang.h"
 
 namespace verona
 {
@@ -9,11 +9,11 @@ namespace verona
     return {
       dir::topdown | dir::once,
       {
-        (T(FieldLet) / T(FieldVar))[Op] << (T(Ident)[Id]) >>
+        (T(FieldLet) / T(FieldVar))[Op] << (T(Ident)[Ident]) >>
           ([](Match& _) -> Node {
             // Fields can conflict with other fields.
             auto field = _(Op);
-            auto defs = field->scope()->lookdown(_(Id)->location());
+            auto defs = field->scope()->lookdown(_(Ident)->location());
 
             for (auto& def : defs)
             {
@@ -26,7 +26,7 @@ namespace verona
           }),
 
         T(Function)[Function]
-            << ((T(Ref) / T(DontCare))[Ref] * Name[Id] * T(TypeParams) *
+            << (IsImplicit * Hand[Ref] * Name[Ident] * T(TypeParams) *
                 T(Params)[Params] * T(Type) * (T(LLVMFuncType) / T(DontCare)) *
                 T(TypePred) * (T(Block) / T(DontCare))[Block]) >>
           ([](Match& _) -> Node {
@@ -43,14 +43,14 @@ namespace verona
                 func, "functions in classes must have implementations");
             }
 
-            auto ref = _(Ref)->type();
+            auto hand = _(Ref)->type();
             auto arity = _(Params)->size();
-            auto defs = func->scope()->lookdown(_(Id)->location());
+            auto defs = func->scope()->lookdown(_(Ident)->location());
 
             for (auto& def : defs)
             {
               if (
-                (def->type() == Function) && ((def / Ref)->type() == ref) &&
+                (def->type() == Function) && ((def / Ref)->type() == hand) &&
                 ((def / Params)->size() == arity) && def->precedes(func))
               {
                 return err(
@@ -61,7 +61,7 @@ namespace verona
                   << (ErrorAst ^ (def / Ident));
               }
               else if (
-                (def->type() == FieldLet) && (ref == DontCare) && (arity == 1))
+                (def->type() == FieldLet) && (hand == Rhs) && (arity == 1))
               {
                 return err(func, "this function has the same arity as a field")
                   << (ErrorAst ^ (def / Ident));

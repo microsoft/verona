@@ -321,7 +321,7 @@ namespace verona
       if (r->type() == Package)
       {
         return (l->type() == Package) &&
-          ((l->node / Id)->location() == (r->node / Id)->location());
+          ((l->node / Ident)->location() == (r->node / Ident)->location());
       }
 
       // Check predicate subtyping.

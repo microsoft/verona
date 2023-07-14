@@ -134,7 +134,8 @@ namespace verona
   inline const auto Default = TokenDef("default");
 
   // Rewrite identifiers.
-  inline const auto Id = TokenDef("Id");
+  inline const auto Implicit = TokenDef("implicit");
+  inline const auto Explicit = TokenDef("explicit");
   inline const auto Lhs = TokenDef("Lhs");
   inline const auto Rhs = TokenDef("Rhs");
   inline const auto Op = TokenDef("Op");
@@ -149,6 +150,8 @@ namespace verona
   inline const auto create = Location("create");
 
   // Helper patterns.
+  inline const auto IsImplicit = T(Implicit) / T(Explicit);
+  inline const auto Hand = T(Lhs) / T(Rhs);
   inline const auto TypeStruct = In(Type) / In(TypeList) / In(TypeTuple) /
     In(TypeView) / In(TypeUnion) / In(TypeIsect) / In(TypeSubtype);
   inline const auto TypeCaps = T(Iso) / T(Mut) / T(Imm);
