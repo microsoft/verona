@@ -233,6 +233,12 @@ namespace verona
                           << (Block << (Expr << (RefLet << (Ident ^ id))))));
   }
 
+  bool is_implicit(Node n)
+  {
+    auto f = n->parent(Function);
+    return f && ((f / Implicit)->type() == Implicit);
+  }
+
   Options& options()
   {
     static Options opts;

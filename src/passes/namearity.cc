@@ -70,8 +70,12 @@ namespace verona
                         << _(Args);
           },
 
-        T(CallLHS)[Call] << T(New) >>
-          [](Match& _) { return err(_[Call], "can't assign to new"); },
+        T(CallLHS)[Call] << T(New) >> ([](Match& _) -> Node {
+          if (!is_implicit(_(Call)))
+            return err(_[Call], "can't assign to new");
+
+          return NoChange;
+        }),
       }};
   }
 }

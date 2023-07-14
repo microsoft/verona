@@ -192,6 +192,7 @@ namespace verona
   Node call(Node op, Node lhs = {}, Node rhs = {});
   Node load(Node arg);
   Node nlrexpand(Match& _, Node call, bool unwrap);
+  bool is_implicit(Node n);
 
   // Pass definitions.
   Parse parser();
