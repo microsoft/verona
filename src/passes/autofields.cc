@@ -23,7 +23,6 @@ namespace verona
             if (hand == Rhs)
               expr = load(expr);
 
-            // TODO: capability for Self, return type is self.T
             auto f = Function << Implicit << hand << clone(id) << TypeParams
                               << (Params
                                   << (Param << (Ident ^ self_id)

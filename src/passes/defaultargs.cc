@@ -62,9 +62,11 @@ namespace verona
               // Add the default argument to the forwarding call.
               args << (Expr << def_arg);
 
-              // Add a new function that calls the arity+1 function.
+              // Add a new function that calls the arity+1 function. Mark it as
+              // explicit, so that errors when type checking the default
+              // arguments are reported.
               seq
-                << (Function << Implicit << clone(hand) << clone(id)
+                << (Function << Explicit << clone(hand) << clone(id)
                              << clone(tp) << clone(params) << clone(ty)
                              << DontCare << clone(pred)
                              << (Block << clone(fwd)));

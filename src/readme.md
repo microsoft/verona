@@ -1,6 +1,20 @@
 # TODO
 
-Code reuse:
+- code reuse
+- free variables in object literals
+- tuples as traits
+- pattern matching
+- type inference
+- lazy[T]
+- weak[T]?
+- public/private
+- package schemes
+  - `Package` in a scoped name, typeargs on packages
+- list inside TypeParams, Params, TypeArgs along with groups or other lists
+- lowering
+
+## Code reuse
+
 - Logical order: (1) defaultargs, (2) inheritance, (3) partialapp.
   - Can actually do inheritance first, treating defaultargs as blocking multiple arities.
 - Do textual inclusion of any member or method that isn't already defined.
@@ -9,6 +23,8 @@ Code reuse:
 - Automatically insert `use std::builtin`.
 - Better system for including parts of `std`.
 - Check that default types for type parameters satisfy predicates.
+
+## Tuples as Traits
 
 Tuples are traits:
 ```ts
@@ -86,22 +102,36 @@ type typelist[T] =
 
 ```
 
-Associated types
+## Associated types
 
-Mangling
+Needs discussion.
+
+## Mangling
+
 - need reachability to do precise flattening
 - for dynamic execution:
   - use polymorphic versions of types and functions
   - encode type arguments as fields (classes) or arguments (functions)
 
-Pattern Matching
+## Pattern Matching
+
 - values as arguments
 - exhaustiveness
 - backtracking?
 
+## Incremental Compilation
+
 Late loads of code that's been through some passes
 - delay name lookup
 - only tricky part is `create` sugar
+
+## Lowering
+
+- mangled names for all types and functions
+- struct for every concrete type
+- static and virtual dispatch
+- heap to stack with escape analysis
+- refcount op elimination
 
 Type Descriptor
 - sizeof: encode it as a function?
@@ -145,16 +175,6 @@ LLVM lowering
   - make them RHS only? this still breaks encapsulation
   - `destruct` method, default impl returns the class fields as a tuple
 
-- `Package` in a scoped name, typeargs on packages
-- free variables in object literals
-- mixins
-- match
-- lazy[T]
-- weak[T]?
-- public/private
-- package schemes
-- list inside TypeParams, Params, TypeArgs along with groups or other lists
-
 ## Key Words
 
 get rid of capabilities as keywords
@@ -168,14 +188,6 @@ type of the lambda:
 - any `lin` captures = `lin`, `self: lin`
 - 0 `lin`, 1 or more `in`, 0 or more `const` = `lin`, `self: in`
 - don't know if any `out` captures
-
-## Lowering
-
-- mangled names for all types and functions
-- struct for every concrete type
-- static and virtual dispatch
-- heap to stack with escape analysis
-- refcount op elimination
 
 ## Ellipsis
 

@@ -45,4 +45,3 @@ target_link_libraries(verona
 add_test(NAME verona COMMAND verona test -f)
 
 install(TARGETS verona RUNTIME DESTINATION verona)
-install(DIRECTORY std DESTINATION verona)

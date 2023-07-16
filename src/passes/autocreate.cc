@@ -10,7 +10,6 @@ namespace verona
       dir::topdown | dir::once,
       {
         In(Class) * T(ClassBody)[ClassBody] >> ([](Match& _) -> Node {
-          // If we already have a create function, do nothing.
           auto class_body = _(ClassBody);
           Node new_params = Params;
           Node new_args = Args;
@@ -31,14 +30,16 @@ namespace verona
             }
           }
 
-          // Create the `new` function.
-          // TODO: return Self & K?
+          // Create the `new` function, with default arguments set to the field
+          // initializers. Mark `new` as explicit, so that errors when type
+          // checking `new` are reported.
           auto body = ClassBody
             << *_[ClassBody]
-            << (Function << Implicit << Rhs << (Ident ^ new_) << TypeParams
+            << (Function << Explicit << Rhs << (Ident ^ new_) << TypeParams
                          << new_params << typevar(_) << DontCare << typepred()
                          << (Block << (Expr << unit())));
 
+          // If we already have a create function, don't emit one.
           if (class_body->parent()->lookdown(create).empty())
           {
             // Create the `create` function.
