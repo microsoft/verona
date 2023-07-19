@@ -33,7 +33,7 @@ namespace verona
             Node class_body = ClassBody;
             auto class_id = _.fresh(l_class);
             auto classdef = Class << (Ident ^ class_id) << TypeParams
-                                  << inherit() << typepred() << class_body;
+                                  << typepred() << class_body;
 
             // The create function will capture the free variables.
             Node create_params = Params;

@@ -28,16 +28,17 @@ namespace verona
                    {TypeClassName,
                     TypeTraitName,
                     TypeAliasName,
-                    TypeParamName}))
+                    TypeParamName,
+                    FunctionName}))
         {
           auto defs = lookup_scopedname(node);
 
           // This won't be empty in non-testing code.
-          if (defs.defs.empty())
+          if (defs.empty())
             return;
 
           // Use existing bindings if they haven't been specified here.
-          auto& def = defs.defs.front();
+          auto& def = defs.front();
           node = def.def;
 
           for (auto& bind : def.bindings)
@@ -85,58 +86,27 @@ namespace verona
       return node->type();
     }
 
-    bool valid_predicate()
-    {
-      // A predicate is a type that can be used in a where clause. They can be
-      // composed of unions and intersections of predicates and type aliases
-      // that expand to predicates.
-      if (node->type() == TypeSubtype)
-      {
-        return true;
-      }
-      else if (node->type().in({TypeUnion, TypeIsect}))
-      {
-        // Check that all children are valid predicates.
-        return std::all_of(node->begin(), node->end(), [&](auto& t) {
-          return make(t)->valid_predicate();
-        });
-      }
-      else if (node->type() == TypeAlias)
-      {
-        return field(Type)->valid_predicate();
-      }
-
-      return false;
-    }
-
-    bool valid_inherit()
-    {
-      // A type that can be used in an inherit clause. They can be composed of
-      // intersections of classes, traits, and type aliases that expand to
-      // valid inherit clauses.
-      if (node->type().in({Class, TypeTrait}))
-      {
-        return true;
-      }
-      else if (node->type().in({Type, TypeIsect}))
-      {
-        // Check that all children are valid for code reuse.
-        return std::all_of(node->begin(), node->end(), [&](auto& t) {
-          return make(t)->valid_inherit();
-        });
-      }
-      else if (node->type() == TypeAlias)
-      {
-        return field(Type)->valid_inherit();
-      }
-
-      return false;
-    }
-
     void str(std::ostream& out, size_t level)
     {
-      out << indent(level) << "btype: {" << std::endl
-          << indent(level + 1) << "bindings: {" << std::endl;
+      out << indent(level) << "btype: {" << std::endl;
+
+      // Print the node.
+      out << indent(level + 1) << "node: {" << std::endl;
+
+      if (node->type().in({Class, TypeAlias, Function}))
+      {
+        out << indent(level + 2) << node->type().str() << " "
+            << (node / Ident)->location().view();
+      }
+      else
+      {
+        node->str(out, level + 2);
+      }
+
+      out << indent(level + 1) << "}," << std::endl;
+
+      // Print the bindings.
+      out << indent(level + 1) << "bindings: {" << std::endl;
 
       for (auto& b : bindings)
       {
@@ -145,19 +115,6 @@ namespace verona
         out << " =" << std::endl;
         b.second->str(out, level + 3);
         out << indent(level + 2) << "}," << std::endl;
-      }
-
-      out << indent(level + 1) << "}," << std::endl
-          << indent(level + 1) << "node: {" << std::endl;
-
-      if (node->type().in({Class, TypeAlias}))
-      {
-        out << indent(level + 2) << node->type().str() << " "
-            << (node / Ident)->location().view();
-      }
-      else
-      {
-        node->str(out, level + 2);
       }
 
       out << std::endl

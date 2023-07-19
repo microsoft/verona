@@ -15,6 +15,13 @@
 
 ## Code reuse
 
+Proposal:
+- Don't do textual inclusion.
+- Check ancestors during `lookdown`.
+- Treat everything defined in a class as shadowing inheritance.
+- Can `lookdown` to fields as well as methods.
+  - When lowering, classes will need storage space for all fields.
+
 - Logical order: (1) defaultargs, (2) inheritance, (3) partialapp.
   - Can actually do inheritance first, treating defaultargs as blocking multiple arities.
 - Do textual inclusion of any member or method that isn't already defined.

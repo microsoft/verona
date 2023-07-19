@@ -104,58 +104,45 @@ namespace verona
   {
     auto defs = lookup_scopedname_name(lhs, id, ta);
 
-    if (defs.defs.size() == 0)
+    if (defs.size() == 0)
       return Error << (ErrorMsg ^ "unknown type name")
                    << ((ErrorAst ^ id) << lhs << id << ta);
 
     if (func)
     {
-      if (std::any_of(defs.defs.begin(), defs.defs.end(), [](auto& def) {
-            return (def.def->type() == Function) && !def.too_many_typeargs;
+      if (std::any_of(defs.begin(), defs.end(), [](auto& def) {
+            return def.def->type() == Function;
           }))
       {
         return FunctionName << lhs << id << ta;
       }
-      else if (std::any_of(defs.defs.begin(), defs.defs.end(), [](auto& def) {
-                 return (def.def->type() == Function) && def.too_many_typeargs;
-               }))
-      {
-        return Error << (ErrorMsg ^ "too many function type arguments")
-                     << ((ErrorAst ^ id) << lhs << id << ta);
-      }
     }
 
-    if (defs.defs.size() > 1)
+    if (defs.size() > 1)
     {
       auto err = Error << (ErrorMsg ^ "ambiguous type name")
                        << ((ErrorAst ^ id) << lhs << id << ta);
 
-      for (auto& def : defs.defs)
+      for (auto& def : defs)
         err << (ErrorAst ^ (def.def / Ident));
 
       return err;
     }
 
-    if (std::all_of(defs.defs.begin(), defs.defs.end(), [](auto& def) {
-          return def.too_many_typeargs;
-        }))
-    {
-      return Error << (ErrorMsg ^ "too many type arguments")
-                   << ((ErrorAst ^ id) << lhs << id << ta);
-    }
+    auto t = defs.front().def->type();
 
-    if (defs.one({Class}))
+    if (t == Class)
       return TypeClassName << lhs << id << ta;
-    if (defs.one({TypeAlias}))
+    if (t == TypeAlias)
       return TypeAliasName << lhs << id << ta;
-    if (defs.one({TypeParam}))
+    if (t == TypeParam)
       return TypeParamName << lhs << id << ta;
-    if (defs.one({TypeTrait}))
+    if (t == TypeTrait)
       return TypeTraitName << lhs << id << ta;
 
     return Error << (ErrorMsg ^ "not a type name")
                  << ((ErrorAst ^ id) << lhs << id << ta)
-                 << (ErrorAst ^ (defs.defs.front().def / Ident));
+                 << (ErrorAst ^ (defs.front().def / Ident));
   }
 
   bool is_llvm_call(Node op, size_t arity)
@@ -164,9 +151,9 @@ namespace verona
     if (op->type() != FunctionName)
       return false;
 
-    auto look = lookup_scopedname(op);
+    auto defs = lookup_scopedname(op);
 
-    for (auto& def : look.defs)
+    for (auto& def : defs)
     {
       if (
         (def.def->type() == Function) &&
@@ -262,7 +249,7 @@ namespace verona
         {"typealg", typealg(), wfPassTypeAlg},
         {"typeflat", typeflat(), wfPassTypeFlat},
         {"typevalid", typevalid(), wfPassTypeFlat},
-        {"codereuse", codereuse(), wfPassTypeFlat},
+        {"codereuse", codereuse(), wfPassCodeReuse},
         {"conditionals", conditionals(), wfPassConditionals},
         {"reference", reference(), wfPassReference},
         {"reverseapp", reverseapp(), wfPassReverseApp},

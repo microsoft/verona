@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: MIT
 #include "subtype.h"
 
-#include "btype.h"
-
 #include <cassert>
 
 namespace verona
@@ -70,7 +68,12 @@ namespace verona
       while (p)
       {
         if (p->type().in({Function, Class, TypeAlias}))
-          predicates.push_back(t->make(p / TypePred));
+        {
+          auto pred = p / TypePred;
+
+          if (pred->precedes(t->node))
+            predicates.push_back(t->make(pred));
+        }
 
         p = p->parent({Function, Class, TypeAlias});
       }
@@ -584,21 +587,9 @@ namespace verona
     return seq.reduce(make_btype(sub), make_btype(sup));
   }
 
-  bool valid_typeargs(Node tn)
+  bool subtype(Btype sub, Btype sup)
   {
-    // TODO: handle FunctionName
-    if (!tn->type().in({TypeClassName, TypeAliasName}))
-      return true;
-
-    // This should only fail in testing code.
-    auto bt = make_btype(tn);
-
-    if (!bt->type().in({Class, TypeAlias}))
-      return true;
-
     Sequent seq;
-    seq.lhs_pending.push_back(make_btype(TypeTrue));
-    seq.rhs_pending.push_back(bt->field(TypePred));
-    return seq.reduce();
+    return seq.reduce(sub, sup);
   }
 }

@@ -130,8 +130,8 @@ namespace verona
               auto name = names[arity - start_arity];
               Node class_tp = TypeParams;
               Node classbody = ClassBody;
-              auto classdef = Class << clone(name) << class_tp << inherit()
-                                    << typepred() << classbody;
+              auto classdef = Class << clone(name) << class_tp << typepred()
+                                    << classbody;
 
               // The anonymous class has fields for each supplied argument and a
               // create function that captures the supplied arguments.

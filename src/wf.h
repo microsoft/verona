@@ -194,8 +194,17 @@ namespace verona
   // clang-format on
 
   // clang-format off
-  inline const auto wfPassConditionals =
+  inline const auto wfPassCodeReuse =
       wfPassTypeFlat
+
+    // Remove Inherit.
+    | (Class <<= Ident * TypeParams * TypePred * ClassBody)[Ident]
+    ;
+  // clang-format in
+
+  // clang-format off
+  inline const auto wfPassConditionals =
+      wfPassCodeReuse
 
     // Add Conditional, TypeTest, Cast.
     | (Conditional <<= (If >>= Expr) * Block * Block)

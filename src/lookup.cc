@@ -5,42 +5,34 @@
 #include "lang.h"
 
 #include <cassert>
-#include <deque>
 
 namespace verona
 {
   Lookup::Lookup(Node def, Node ta, NodeMap<Node> b) : def(def), bindings(b)
   {
     if (!def->type().in({Class, TypeAlias, Function}))
-    {
-      if (ta && !ta->empty())
-        too_many_typeargs = true;
-
-      return;
-    }
-
-    if (!ta)
       return;
 
     auto tp = def / TypeParams;
+    size_t n = ta ? ta->size() : 0;
 
-    if (tp->size() < ta->size())
+    if (tp->size() < n)
+      n = tp->size();
+
+    if (n > 0)
     {
-      too_many_typeargs = true;
-      return;
+      // Bind the first `n` typeparams to the first `n` typeargs.
+      std::transform(
+        ta->begin(),
+        ta->begin() + n,
+        tp->begin(),
+        std::inserter(bindings, bindings.end()),
+        [](auto arg, auto param) { return std::make_pair(param, arg); });
     }
-
-    // Bind all typeparams to their corresponding typeargs.
-    std::transform(
-      ta->begin(),
-      ta->end(),
-      tp->begin(),
-      std::inserter(bindings, bindings.end()),
-      [](auto arg, auto param) { return std::make_pair(param, arg); });
 
     // Bind all remaining typeparams to fresh typevars.
     std::transform(
-      tp->begin() + ta->size(),
+      tp->begin() + n,
       tp->end(),
       std::inserter(bindings, bindings.end()),
       [](auto param) {
@@ -48,7 +40,7 @@ namespace verona
       });
   }
 
-  Lookups lookdown(Lookups&& lookups, Node id, Node ta, NodeSet visited = {});
+  Lookups lookdown_all(Node tn, Node id, Node ta, NodeSet visited);
 
   Lookups lookdown(Lookup& lookup, Node id, Node ta, NodeSet visited)
   {
@@ -68,7 +60,7 @@ namespace verona
         std::transform(
           defs.cbegin(),
           defs.cend(),
-          std::back_inserter(result.defs),
+          std::back_inserter(result),
           [&](auto& def) { return Lookup(def, ta, lookup.bindings); });
 
         return result;
@@ -102,7 +94,7 @@ namespace verona
       {
         // Resolve the name and try again. Pass `visited` into the resulting
         // lookdowns, so that each path tracks cycles independently.
-        return lookdown(lookup_scopedname(lookup.def), id, ta, visited);
+        return lookdown_all(lookup.def, id, ta, visited);
       }
       else if (lookup.def->type() == TypeView)
       {
@@ -111,8 +103,17 @@ namespace verona
       }
       else if (lookup.def->type() == TypeIsect)
       {
-        // TODO: return everything we find
-        return {};
+        // Return everything we find.
+        Lookups result;
+
+        for (auto& t : *lookup.def)
+        {
+          auto l = Lookup(t, lookup.bindings);
+          auto ldefs = lookdown(l, id, ta, visited);
+          result.insert(result.end(), ldefs.begin(), ldefs.end());
+        }
+
+        return result;
       }
       else if (lookup.def->type() == TypeUnion)
       {
@@ -132,12 +133,16 @@ namespace verona
     }
   }
 
-  Lookups lookdown(Lookups&& lookups, Node id, Node ta, NodeSet visited)
+  Lookups lookdown_all(Node tn, Node id, Node ta, NodeSet visited)
   {
+    auto defs = lookup_scopedname(tn);
     Lookups result;
 
-    for (auto& lookup : lookups.defs)
-      result.add(lookdown(lookup, id, ta, visited));
+    for (auto& def : defs)
+    {
+      auto ldefs = lookdown(def, id, ta, visited);
+      result.insert(result.end(), ldefs.begin(), ldefs.end());
+    }
 
     return result;
   }
@@ -147,8 +152,8 @@ namespace verona
     assert(id->type().in({Ident, Symbol}));
     assert(!ta || (ta->type() == TypeArgs));
 
-    Lookups lookups;
     auto defs = id->lookup();
+    Lookups result;
 
     for (auto& def : defs)
     {
@@ -156,15 +161,19 @@ namespace verona
       {
         // Expand Use nodes by looking down into the target type.
         if (def->precedes(id))
-          lookups.add(lookdown(Lookup(def / Type), id, ta));
+        {
+          auto l = Lookup(def / Type);
+          auto ldefs = lookdown(l, id, ta, {});
+          result.insert(result.end(), ldefs.begin(), ldefs.end());
+        }
       }
       else
       {
-        lookups.add(Lookup(def, ta));
+        result.emplace_back(def, ta);
       }
     }
 
-    return lookups;
+    return result;
   }
 
   Lookups lookup_scopedname(Node tn)
@@ -187,76 +196,12 @@ namespace verona
     if (tn->type() == DontCare)
       return lookup_name(id, ta);
 
-    return lookdown(lookup_scopedname(tn), id, ta);
+    return lookdown_all(tn, id, ta, {});
   }
 
   bool lookup(const NodeRange& n, std::initializer_list<Token> t)
   {
-    return lookup_name(*n.first).one(t);
-  }
-
-  bool recursive_typealias(Node node)
-  {
-    // This detects cycles in type aliases, which are not allowed.
-    if (node->type() != TypeAlias)
-      return false;
-
-    // Each element in the worklist carries a set of nodes that have been
-    // visited, a type node, and a map of typeparam bindings.
-    std::deque<std::pair<NodeSet, Lookup>> worklist;
-    worklist.emplace_back(NodeSet{node}, node / Type);
-
-    while (!worklist.empty())
-    {
-      auto& work = worklist.front();
-      auto& set = work.first;
-      auto& type = work.second.def;
-      auto& bindings = work.second.bindings;
-
-      if (type->type() == Type)
-      {
-        worklist.emplace_back(set, Lookup(type / Type, bindings));
-      }
-      else if (type->type().in({TypeTuple, TypeUnion, TypeIsect, TypeView}))
-      {
-        for (auto& t : *type)
-          worklist.emplace_back(set, Lookup(t, bindings));
-      }
-      else if (type->type() == TypeAliasName)
-      {
-        auto defs = lookup_scopedname(type);
-
-        if (!defs.defs.empty())
-        {
-          auto& def = defs.defs.front();
-
-          if (set.contains(def.def))
-            return true;
-
-          for (auto& bind : def.bindings)
-            bindings[bind.first] = bind.second;
-
-          set.insert(def.def);
-          worklist.emplace_back(set, Lookup(def.def / Type, bindings));
-        }
-      }
-      else if (type->type() == TypeParamName)
-      {
-        auto defs = lookup_scopedname(type);
-
-        if (!defs.defs.empty())
-        {
-          auto& def = defs.defs.front();
-          auto find = bindings.find(def.def);
-
-          if (find != bindings.end())
-            worklist.emplace_back(set, Lookup(find->second, bindings));
-        }
-      }
-
-      worklist.pop_front();
-    }
-
-    return false;
+    auto defs = lookup_name(*n.first, {});
+    return (defs.size() == 1) && defs.front().def->type().in(t);
   }
 }
