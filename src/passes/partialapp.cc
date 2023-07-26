@@ -77,7 +77,7 @@ namespace verona
       dir::bottomup | dir::once,
       {
         T(Function)[Function]
-            << (IsImplicit * Hand[Ref] * Name[Ident] *
+            << (IsImplicit * Hand[Ref] * T(Ident)[Ident] *
                 T(TypeParams)[TypeParams] * T(Params)[Params] * T(Type) *
                 T(DontCare) * T(TypePred)[TypePred] *
                 (T(Block) / T(DontCare))) >>

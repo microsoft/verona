@@ -10,7 +10,6 @@ namespace verona
 
   inline const auto wfRef = Ref >>= Lhs | Rhs;
   inline const auto wfImplicit = Implicit >>= Implicit | Explicit;
-  inline const auto wfName = Ident >>= Ident | Symbol;
   inline const auto wfDefault = Default >>= Lambda | DontCare;
 
   inline const auto wfLiteral =
@@ -71,7 +70,7 @@ namespace verona
     | (FieldLet <<= Ident * Type * wfDefault)[Ident]
     | (FieldVar <<= Ident * Type * wfDefault)[Ident]
     | (Function <<=
-        wfImplicit * wfRef * wfName * TypeParams * Params * Type *
+        wfImplicit * wfRef * Ident * TypeParams * Params * Type *
         (LLVMFuncType >>= LLVMFuncType | DontCare) * TypePred *
         (Block >>= Block | DontCare))[Ident]
     | (TypeParams <<= TypeParam++)
@@ -227,8 +226,8 @@ namespace verona
     // Add RefLet, RefVar, Selector, FunctionName.
     | (RefLet <<= Ident)
     | (RefVar <<= Ident)
-    | (Selector <<= wfName * TypeArgs)
-    | (FunctionName <<= (Lhs >>= (wfTypeName | DontCare)) * wfName * TypeArgs)
+    | (Selector <<= Ident * TypeArgs)
+    | (FunctionName <<= (Lhs >>= (wfTypeName | DontCare)) * Ident * TypeArgs)
 
     // Remove TypeArgs, Ident, Symbol, DoubleColon.
     // Add RefVar, RefLet, Selector, FunctionName.
@@ -421,10 +420,6 @@ namespace verona
   // clang-format off
   inline const auto wfPassNameArity =
       wfPassDrop
-
-    // Remove Symbol from Function, Selector, and FunctionName.
-    | (FunctionName <<= (Lhs >>= (wfTypeName | DontCare)) * Ident * TypeArgs)
-    | (Selector <<= Ident * TypeArgs)
 
     // Remove LHS/RHS function distinction.
     | (Function <<=

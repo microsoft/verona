@@ -155,7 +155,6 @@ namespace verona
   inline const auto TypeStruct = In(Type) / In(TypeList) / In(TypeTuple) /
     In(TypeView) / In(TypeUnion) / In(TypeIsect) / In(TypeSubtype);
   inline const auto TypeCaps = T(Iso) / T(Mut) / T(Imm);
-  inline const auto Name = T(Ident) / T(Symbol);
   inline const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) /
     T(Hex) / T(Bin) / T(Int) / T(Float) / T(HexFloat) / T(LLVM);
   inline const auto TypeName =

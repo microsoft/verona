@@ -10,7 +10,7 @@ namespace verona
       dir::topdown | dir::once,
       {
         T(Function)[Function]
-            << (T(Explicit) * Hand[Ref] * Name[Ident] *
+            << (T(Explicit) * Hand[Ref] * T(Ident)[Ident] *
                 T(TypeParams)[TypeParams] *
                 (T(Params)
                  << ((T(Param) << (T(Ident) * T(Type) * T(DontCare)))++[Lhs] *

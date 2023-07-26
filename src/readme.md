@@ -1,17 +1,28 @@
-# TODO
+# To Do
 
-- code reuse
-- free variables in object literals
-- tuples as traits
-- pattern matching
-- type inference
-- lazy[T]
-- weak[T]?
-- public/private
-- package schemes
-  - `Package` in a scoped name, typeargs on packages
-- list inside TypeParams, Params, TypeArgs along with groups or other lists
-- lowering
+- Emit fully qualified names from `makename`?
+  - Distinguish a `DontCare` context from a `Top` context.
+  - Then `use` is no longer needed after `typenames` and `reference`.
+- Code reuse.
+- Free variables in object literals.
+- Tuples as traits.
+- Pattern matching.
+- Type inference.
+- `lazy[T]`
+- `weak[T]`?
+- Public/private.
+- Package schemes.
+  - `Package` in a scoped name, `typeargs` on packages.
+- List inside `TypeParams`, `Params`, `TypeArgs` along with groups or other lists.
+- Lowering.
+
+## Conditional Compilation
+
+Use `where` for conditional compilation:
+- As an expression block.
+- Over fields.
+- Over chunks of a class body?
+- Will it all nicely type check for all platforms?
 
 ## Code reuse
 

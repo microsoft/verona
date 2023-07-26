@@ -34,10 +34,12 @@ namespace verona
         },
 
       // Dot notation. Use `Ident` as a selector, even if it's in scope.
-      In(Expr) * T(Dot) * Name[Ident] * ~T(TypeArgs)[TypeArgs] >>
+      In(Expr) * T(Dot) * (T(Ident) / T(Symbol))[Ident] *
+          ~T(TypeArgs)[TypeArgs] >>
         [](Match& _) {
           return Seq << Dot
-                     << (Selector << _(Ident) << (_(TypeArgs) || TypeArgs));
+                     << (Selector << (Ident ^ _(Ident))
+                                  << (_(TypeArgs) || TypeArgs));
         },
 
       // Local reference.
@@ -59,14 +61,14 @@ namespace verona
 
       // Unscoped reference that isn't a local or a type. Treat it as a
       // selector, even if it resolves to a Function.
-      In(Expr) * Name[Ident] * ~T(TypeArgs)[TypeArgs] >>
+      In(Expr) * (T(Ident) / T(Symbol))[Ident] * ~T(TypeArgs)[TypeArgs] >>
         [](Match& _) {
-          return Selector << _(Ident) << (_(TypeArgs) || TypeArgs);
+          return Selector << (Ident ^ _(Ident)) << (_(TypeArgs) || TypeArgs);
         },
 
       // Scoped lookup.
       In(Expr) *
-          (TypeName[Lhs] * T(DoubleColon) * Name[Ident] *
+          (TypeName[Lhs] * T(DoubleColon) * (T(Ident) / T(Symbol))[Ident] *
            ~T(TypeArgs)[TypeArgs])[Type] >>
         [](Match& _) {
           return makename(_(Lhs), _(Ident), (_(TypeArgs) || TypeArgs), true);

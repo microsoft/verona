@@ -4,6 +4,16 @@
 
 namespace verona
 {
+  Node function_name(Node name)
+  {
+    if (!name)
+      name = apply_id();
+    else if (name->type() == Symbol)
+      name = Ident ^ name;
+
+    return name;
+  }
+
   PassDef structure()
   {
     return {
@@ -40,14 +50,14 @@ namespace verona
       In(ClassBody) *
           (T(Equals)
            << ((T(Group)
-                << (~T(Ref)[Ref] * ~Name[Ident] * ~T(Square)[TypeParams] *
-                    T(Paren)[Params] * ~T(Type)[Type] *
+                << (~T(Ref)[Ref] * ~(T(Ident) / T(Symbol))[Ident] *
+                    ~T(Square)[TypeParams] * T(Paren)[Params] * ~T(Type)[Type] *
                     ~T(LLVMFuncType)[LLVMFuncType] * ~T(TypePred)[TypePred] *
                     T(Brace)[Block] * (Any * Any++)[Lhs])) *
                T(Group)++[Rhs])) >>
         [](Match& _) {
           return Seq << (Function << Explicit << (_(Ref) ? Lhs : Rhs)
-                                  << (_(Ident) || apply_id())
+                                  << function_name(_(Ident))
                                   << (TypeParams << *_[TypeParams])
                                   << (Params << *_[Params]) << typevar(_, Type)
                                   << (_(LLVMFuncType) || DontCare)
@@ -61,14 +71,14 @@ namespace verona
       In(ClassBody) *
           (T(Equals)
            << ((T(Group)
-                << (~T(Ref)[Ref] * ~Name[Ident] * ~T(Square)[TypeParams] *
-                    T(Paren)[Params] * ~T(Type)[Type] *
+                << (~T(Ref)[Ref] * ~(T(Ident) / T(Symbol))[Ident] *
+                    ~T(Square)[TypeParams] * T(Paren)[Params] * ~T(Type)[Type] *
                     ~T(LLVMFuncType)[LLVMFuncType] * ~T(TypePred)[TypePred] *
                     End)) *
                T(Group)++[Rhs])) >>
         [](Match& _) {
           return Function << Explicit << (_(Ref) ? Lhs : Rhs)
-                          << (_(Ident) || apply_id())
+                          << function_name(_(Ident))
                           << (TypeParams << *_[TypeParams])
                           << (Params << *_[Params]) << typevar(_, Type)
                           << (_(LLVMFuncType) || DontCare)
@@ -79,14 +89,14 @@ namespace verona
       // Function: f[T](x: T = e): T { e }
       // (group name typeparams params type llvmtype typepred brace)
       In(ClassBody) * T(Group)
-          << (~T(Ref)[Ref] * ~Name[Ident] * ~T(Square)[TypeParams] *
-              T(Paren)[Params] * ~T(Type)[Type] *
+          << (~T(Ref)[Ref] * ~(T(Ident) / T(Symbol))[Ident] *
+              ~T(Square)[TypeParams] * T(Paren)[Params] * ~T(Type)[Type] *
               ~T(LLVMFuncType)[LLVMFuncType] * ~T(TypePred)[TypePred] *
               ~T(Brace)[Block] * (Any++)[Rhs]) >>
         [](Match& _) {
           auto block = _(Block) ? (Block << *_[Block]) : DontCare;
           return Seq << (Function << Explicit << (_(Ref) ? Lhs : Rhs)
-                                  << (_(Ident) || apply_id())
+                                  << function_name(_(Ident))
                                   << (TypeParams << *_[TypeParams])
                                   << (Params << *_[Params]) << typevar(_, Type)
                                   << (_(LLVMFuncType) || DontCare)

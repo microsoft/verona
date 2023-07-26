@@ -26,7 +26,7 @@ namespace verona
           }),
 
         T(Function)[Function]
-            << (IsImplicit * Hand[Ref] * Name[Ident] * T(TypeParams) *
+            << (IsImplicit * Hand[Ref] * T(Ident)[Ident] * T(TypeParams) *
                 T(Params)[Params] * T(Type) * (T(LLVMFuncType) / T(DontCare)) *
                 T(TypePred) * (T(Block) / T(DontCare))[Block]) >>
           ([](Match& _) -> Node {

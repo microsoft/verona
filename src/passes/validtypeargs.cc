@@ -36,7 +36,6 @@ namespace verona
             if ((tn / TypeArgs)->size() > (bt->node / TypeParams)->size())
               return err(tn, "too many type arguments");
 
-            // TODO: picking up the predicate for the predicate is wrong
             if (!subtype(make_btype(TypeTrue), bt->field(TypePred)))
               return err(tn, "invalid type arguments");
 

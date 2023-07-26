@@ -10,9 +10,10 @@ namespace verona
       dir::topdown | dir::once,
       {
         T(Function)[Function]
-            << (IsImplicit * T(Lhs) * Name[Ident] * T(TypeParams)[TypeParams] *
-                T(Params)[Params] * T(Type)[Type] * T(DontCare) *
-                T(TypePred)[TypePred] * (T(Block) / T(DontCare))) >>
+            << (IsImplicit * T(Lhs) * T(Ident)[Ident] *
+                T(TypeParams)[TypeParams] * T(Params)[Params] * T(Type)[Type] *
+                T(DontCare) * T(TypePred)[TypePred] *
+                (T(Block) / T(DontCare))) >>
           ([](Match& _) -> Node {
             auto f = _(Function);
             auto id = _(Ident);

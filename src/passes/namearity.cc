@@ -10,7 +10,7 @@ namespace verona
       dir::bottomup | dir::once,
       {
         T(Function)
-            << (IsImplicit[Implicit] * Hand[Ref] * Name[Ident] *
+            << (IsImplicit[Implicit] * Hand[Ref] * T(Ident)[Ident] *
                 T(TypeParams)[TypeParams] * T(Params)[Params] * T(Type)[Type] *
                 (T(LLVMFuncType) / T(DontCare))[LLVMFuncType] *
                 T(TypePred)[TypePred] * (T(Block) / T(DontCare))[Block]) >>
@@ -30,7 +30,7 @@ namespace verona
 
         (T(Call) / T(CallLHS))[Call]
             << ((T(FunctionName)
-                 << ((TypeName / T(DontCare))[Lhs] * Name[Ident] *
+                 << ((TypeName / T(DontCare))[Lhs] * T(Ident)[Ident] *
                      T(TypeArgs)[TypeArgs])) *
                 T(Args)[Args]) >>
           [](Match& _) {
@@ -47,7 +47,7 @@ namespace verona
           },
 
         (T(Call) / T(CallLHS))[Call]
-            << ((T(Selector) << (Name[Ident] * T(TypeArgs)[TypeArgs])) *
+            << ((T(Selector) << (T(Ident)[Ident] * T(TypeArgs)[TypeArgs])) *
                 T(Args)[Args]) >>
           [](Match& _) {
             auto arity = _(Args)->size();
