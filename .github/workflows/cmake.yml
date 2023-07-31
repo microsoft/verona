@@ -5,6 +5,7 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  workflow_dispatch:
 
 jobs:
   build-test:
@@ -41,3 +42,32 @@ jobs:
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest -C ${{matrix.build-type}} --output-on-failure --timeout 400 --interactive-debug-mode 0 
 
+  # Job to run clang-format and report errors
+  format:
+    runs-on: "ubuntu-latest"
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install build dependencies
+      run: |
+        sudo apt update
+        sudo apt install clang-format-15
+
+    # We don't need to do the build for this job, but we need to configure it to get the clangformat
+    # and copyright targets
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build
+
+    - name: Run clangformat
+      working-directory: ${{github.workspace}}/build
+      run: |
+        set -eo pipefail
+        make clangformat
+        git diff --exit-code
+
+  all-checks:
+    needs: [ build-test, format ]
+    runs-on: "ubuntu-latest"
+    steps:
+    - name: Dummy step
+      run: true
