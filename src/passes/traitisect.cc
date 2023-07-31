@@ -12,7 +12,8 @@ namespace verona
     return {
       dir::once | dir::topdown,
       {
-        T(TypeTrait)[TypeTrait] << (T(Ident)[Ident] * T(ClassBody)[ClassBody]) >>
+        T(TypeTrait)[TypeTrait]
+            << (T(Ident)[Ident] * T(ClassBody)[ClassBody]) >>
           [](Match& _) {
             // If we're inside a TypeIsect, put the new traits inside it.
             // Otherwise, create a new TypeIsect.

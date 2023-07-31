@@ -38,3 +38,5 @@ install(CODE [[
 
 enable_testing()
 add_subdirectory(src)
+
+clangformat_targets()
