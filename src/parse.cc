@@ -62,7 +62,7 @@ namespace verona
 
       auto stdlib = p.executable().parent_path() / "std";
       if (path != stdlib)
-        ast->push_back(p.sub_parse(stdlib));
+        ast << p.sub_parse(stdlib);
     });
 
     p.postfile([indent, depth](auto&, auto&, auto) {

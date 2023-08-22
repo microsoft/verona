@@ -3,8 +3,6 @@
 - Code reuse.
 - Lookup in a `TypeParam`, e.g., `create` or an associated type.
 
-- Automatically insert `use std::builtin`.
-
 - Better system for including parts of `std`.
 - Check that default types for type parameters satisfy predicates.
 - Free variables in object literals.

@@ -58,9 +58,9 @@ namespace verona
 
   static Node builtin_path()
   {
-    static Location l_standard("std");
+    static Location l_std("std");
     static Location l_builtin("builtin");
-    return TypePath << (TypeClassName << (Ident ^ l_standard) << TypeArgs)
+    return TypePath << (TypeClassName << (Ident ^ l_std) << TypeArgs)
                     << (TypeClassName << (Ident ^ l_builtin) << TypeArgs);
   }
 

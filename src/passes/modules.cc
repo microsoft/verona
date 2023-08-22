@@ -11,7 +11,10 @@ namespace verona
       ((In(Top) * T(File)[Class]) / T(Directory)[Class]) >>
         [](Match& _) {
           return Group << (Class ^ _(Class)) << (Ident ^ _(Class)->location())
-                       << (Brace << *_[Class]);
+                       << (Brace
+                           << (Group << Use << (Ident ^ "std") << DoubleColon
+                                     << (Ident ^ "builtin"))
+                           << *_[Class]);
         },
 
       // Files in a directory aren't semantically meaningful.
