@@ -12,7 +12,7 @@ namespace verona
         [](Match& _) { return call(_(Rhs), _(Lhs)); },
 
       (Object / Operator)[Lhs] * T(Dot) * Object[Rhs] >>
-        [](Match& _) { return call(apply(), _(Rhs), _(Lhs)); },
+        [](Match& _) { return call(selector(l_apply), _(Rhs), _(Lhs)); },
 
       T(Dot)[Dot] >>
         [](Match& _) {

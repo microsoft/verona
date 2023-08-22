@@ -1,5 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+#pragma once
+
 #include "lang.h"
 #include "lookup.h"
 
@@ -24,24 +26,18 @@ namespace verona
         {
           node = node / Type;
         }
-        else if (node->type().in(
-                   {TypeClassName,
-                    TypeTraitName,
-                    TypeAliasName,
-                    TypeParamName,
-                    FunctionName}))
+        else if (node->type().in({FQType, FQFunction}))
         {
-          auto defs = lookup_scopedname(node);
+          auto lookup = resolve_fq(node);
 
-          // This won't be empty in non-testing code.
-          if (defs.empty())
+          // This should only happen in test code.
+          if (!lookup.def)
             return;
 
-          // Use existing bindings if they haven't been specified here.
-          auto& def = defs.front();
-          node = def.def;
+          node = lookup.def;
 
-          for (auto& bind : def.bindings)
+          // Use existing bindings if they haven't been specified here.
+          for (auto& bind : lookup.bindings)
             bindings[bind.first] = make(bind.second, b);
 
           // Check for cycles.
@@ -50,12 +46,24 @@ namespace verona
         }
         else if (node->type() == TypeParam)
         {
-          // An unbound typeparam effectively binds to itself.
           set.insert(node);
-
           auto it = bindings.find(node);
+
+          // Except in testing, there should always be a binding.
           if (it == bindings.end())
             return;
+
+          // If it's bound to itself, check the next binding.
+          if (it->second->type() == TypeParamBind)
+          {
+            for (auto& bind : it->second->bindings)
+              bindings[bind.first] = bind.second;
+
+            it = bindings.find(node);
+
+            if (it == bindings.end())
+              return;
+          }
 
           *this = *it->second;
         }
@@ -103,7 +111,7 @@ namespace verona
         node->str(out, level + 2);
       }
 
-      out << indent(level + 1) << "}," << std::endl;
+      out << std::endl << indent(level + 1) << "}," << std::endl;
 
       // Print the bindings.
       out << indent(level + 1) << "bindings: {" << std::endl;
@@ -117,8 +125,7 @@ namespace verona
         out << indent(level + 2) << "}," << std::endl;
       }
 
-      out << std::endl
-          << indent(level + 1) << "}" << std::endl
+      out << indent(level + 1) << "}" << std::endl
           << indent(level) << "}" << std::endl;
     }
   };

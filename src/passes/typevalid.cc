@@ -6,7 +6,8 @@ namespace verona
 {
   bool recursive_typealias(Node node)
   {
-    // This detects cycles in type aliases, which are not allowed.
+    // This detects cycles in type aliases, which are not allowed. This happens
+    // after type names are turned into FQType.
     if (node->type() != TypeAlias)
       return false;
 
@@ -19,48 +20,46 @@ namespace verona
     {
       auto work = worklist.back();
       auto& set = work.first;
-      auto& type = work.second.def;
-      auto& bindings = work.second.bindings;
+      auto& lookup = work.second;
       worklist.pop_back();
 
-      if (type->type() == Type)
+      if (lookup.def->type() == Type)
       {
-        worklist.emplace_back(set, Lookup(type / Type, bindings));
+        worklist.emplace_back(set, lookup.make(lookup.def / Type));
       }
-      else if (type->type().in({TypeTuple, TypeUnion, TypeIsect, TypeView}))
+      else if (lookup.def->type().in(
+                 {TypeTuple, TypeUnion, TypeIsect, TypeView}))
       {
-        for (auto& t : *type)
-          worklist.emplace_back(set, Lookup(t, bindings));
+        for (auto& t : *lookup.def)
+          worklist.emplace_back(set, lookup.make(t));
       }
-      else if (type->type() == TypeAliasName)
+      else if (
+        (lookup.def->type() == FQType) &&
+        ((lookup.def / Type)->type() == TypeAliasName))
       {
-        auto defs = lookup_scopedname(type);
+        auto l = resolve_fq(lookup.def);
 
-        if (!defs.empty())
+        if (l.def)
         {
-          auto& def = defs.front();
-
-          if (set.contains(def.def))
+          if (set.contains(l.def))
             return true;
 
-          for (auto& bind : def.bindings)
-            bindings[bind.first] = bind.second;
-
-          set.insert(def.def);
-          worklist.emplace_back(set, Lookup(def.def / Type, bindings));
+          set.insert(l.def);
+          worklist.emplace_back(set, l);
         }
       }
-      else if (type->type() == TypeParamName)
+      else if (
+        (lookup.def->type() == FQType) &&
+        ((lookup.def / Type)->type() == TypeParamName))
       {
-        auto defs = lookup_scopedname(type);
+        auto l = resolve_fq(lookup.def);
 
-        if (!defs.empty())
+        if (l.def)
         {
-          auto& def = defs.front();
-          auto find = bindings.find(def.def);
+          auto find = lookup.bindings.find(l.def);
 
-          if (find != bindings.end())
-            worklist.emplace_back(set, Lookup(find->second, bindings));
+          if (find != lookup.bindings.end())
+            worklist.emplace_back(set, lookup.make(find->second));
         }
       }
     }
@@ -147,6 +146,10 @@ namespace verona
     return {
       dir::once | dir::topdown,
       {
+        // Remove all `use` statements.
+        In(ClassBody) * T(Use) >> ([](Match&) -> Node { return {}; }),
+        In(Block) * T(Use) >> ([](Match&) -> Node { return Expr << Unit; }),
+
         T(TypeAlias)[TypeAlias] >> ([](Match& _) -> Node {
           if (recursive_typealias(_(TypeAlias)))
             return err(_[TypeAlias], "recursive type alias");

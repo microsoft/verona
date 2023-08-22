@@ -7,7 +7,7 @@ namespace verona
   Node function_name(Node name)
   {
     if (!name)
-      name = apply_id();
+      name = Ident ^ l_apply;
     else if (name->type() == Symbol)
       name = Ident ^ name;
 
@@ -314,7 +314,7 @@ namespace verona
                                         << inherit() << typepred()
                                         << (ClassBody << *_[ClassBody])))
                      << (Expr << (Ident ^ class_id) << DoubleColon
-                              << (Ident ^ create) << Unit);
+                              << (Ident ^ l_create) << Unit);
         },
 
       // Lambda { [T](x: T = e, ...): T where T => ... }

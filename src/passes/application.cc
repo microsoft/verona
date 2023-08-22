@@ -13,21 +13,19 @@ namespace verona
       T(Ref) * T(RefVar)[RefVar] >>
         [](Match& _) { return RefVarLHS << *_[RefVar]; },
 
-      T(Ref) * (T(NLRCheck) << T(Call)[Call]) >>
-        [](Match& _) { return NLRCheck << (CallLHS << *_[Call]); },
+      T(Ref) * (T(NLRCheck) << (IsImplicit[Implicit] * RhsCall[Call])) >>
+        [](Match& _) { return NLRCheck << _(Implicit) << call_lhs(_(Call)); },
 
       // Try expressions.
-      T(Try) * (T(NLRCheck) << (T(Call) / T(CallLHS))[Call]) >>
+      T(Try) * (T(NLRCheck) << (IsImplicit * T(Call)[Call])) >>
         [](Match& _) { return _(Call); },
 
       T(Try) * T(Lambda)[Lambda] >>
-        [](Match& _) {
-          return Call << apply() << (Args << (Expr << _(Lambda)));
-        },
+        [](Match& _) { return call(selector(l_apply), _(Lambda)); },
 
       // Adjacency: application.
       In(Expr) * Object[Lhs] * Object[Rhs] >>
-        [](Match& _) { return call(apply(), _(Lhs), _(Rhs)); },
+        [](Match& _) { return call(selector(l_apply), _(Lhs), _(Rhs)); },
 
       // Prefix. This doesn't rewrite `Op Op`.
       In(Expr) * Operator[Op] * Object[Rhs] >>
@@ -56,10 +54,7 @@ namespace verona
                    T(Expr)++))[Args]) >>
         [](Match& _) {
           Node params = Params;
-          Node args = Args;
-          auto lambda = Lambda << TypeParams << params << typevar(_)
-                               << typepred()
-                               << (Block << (Expr << (Call << _(Op) << args)));
+          Node args = Tuple;
 
           for (auto& arg : *_(Args))
           {
@@ -83,11 +78,12 @@ namespace verona
             }
           }
 
-          return lambda;
+          return Lambda << TypeParams << params << typevar(_) << typepred()
+                        << (Block << (Expr << call(_(Op), args)));
         },
 
       // Remove the NLRCheck from a partial application.
-      T(NLRCheck) << (T(Lambda)[Lambda] * End) >>
+      T(NLRCheck) << (IsImplicit * T(Lambda)[Lambda] * End) >>
         [](Match& _) { return _(Lambda); },
 
       In(Expr) * T(DontCare) >>

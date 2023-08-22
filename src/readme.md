@@ -1,9 +1,16 @@
 # To Do
 
-- Emit fully qualified names from `makename`?
-  - Distinguish a `DontCare` context from a `Top` context.
-  - Then `use` is no longer needed after `typenames` and `reference`.
+- Fix subtype checking.
+  - Infinite recursion in `validtypeargs`.
+
+- Lookup in a `TypeParam`, e.g., `create` or an associated type.
+- Detect too many type arguments.
+- Strip `use` after `typenames` and `reference`.
+
 - Code reuse.
+- Automatically insert `use std::builtin`.
+- Better system for including parts of `std`.
+- Check that default types for type parameters satisfy predicates.
 - Free variables in object literals.
 - Tuples as traits.
 - Pattern matching.
@@ -37,10 +44,6 @@ Proposal:
   - Can actually do inheritance first, treating defaultargs as blocking multiple arities.
 - Do textual inclusion of any member or method that isn't already defined.
   - Need to do type substitution on the included code.
-
-- Automatically insert `use std::builtin`.
-- Better system for including parts of `std`.
-- Check that default types for type parameters satisfy predicates.
 
 ## Tuples as Traits
 

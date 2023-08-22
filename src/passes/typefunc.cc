@@ -44,11 +44,12 @@ namespace verona
                           << (TypeTrait
                               << (Ident ^ _.fresh(l_trait))
                               << (ClassBody
-                                  << (Function << Explicit << Rhs << apply_id()
-                                               << TypeParams << params
-                                               << (Type << clone(_(Rhs)))
-                                               << DontCare << typepred()
-                                               << (Block << (Expr << Unit))))))
+                                  << (Function
+                                      << Explicit << Rhs << (Ident ^ l_apply)
+                                      << TypeParams << params
+                                      << (Type << clone(_(Rhs))) << DontCare
+                                      << typepred()
+                                      << (Block << (Expr << Unit))))))
                       << (Type << cap)));
           }
 

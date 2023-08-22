@@ -437,7 +437,7 @@ namespace verona
       // TODO: handle viewpoint adaptation
       if (r->type() == TypeView)
       {
-        // TODO: the ned of a TypeView can be a TypeParam. If it is, we need to
+        // TODO: the end of a TypeView can be a TypeParam. If it is, we need to
         // be able to use that to fulfill Class / Trait / etc if the TypeView is
         // on the LHS, or to demand it if the TypeView is on the RHS.
         return false;

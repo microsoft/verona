@@ -241,9 +241,9 @@ namespace verona
           return NoChange;
         }),
 
-        T(Call) << (T(FunctionName)[Op] * T(Args)[Args]) >>
+        T(Call) << (T(FQFunction)[Op] * T(Args)) >>
           ([drop_map](Match& _) -> Node {
-            if (is_llvm_call(_(Op), _(Args)->size()))
+            if (is_llvm_call(_(Op)))
               drop_map->back().llvm = true;
 
             return NoChange;

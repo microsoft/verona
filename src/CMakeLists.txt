@@ -32,8 +32,16 @@ add_executable(verona
   passes/anf.cc
   passes/defbeforeuse.cc
   passes/drop.cc
-  passes/namearity.cc
   passes/validtypeargs.cc
+)
+
+target_precompile_headers(verona
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/btype.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/lang.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/lookup.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/subtype.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/wf.h
 )
 
 target_link_libraries(verona
