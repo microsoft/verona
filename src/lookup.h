@@ -12,6 +12,7 @@ namespace verona
   {
     Node def;
     NodeMap<Node> bindings;
+    bool too_many_typeargs = false;
 
     Lookup() {}
     Lookup(Node def) : def(def) {}
@@ -33,7 +34,6 @@ namespace verona
 
   Lookup resolve_fq(Node fq);
   Node make_fq(Lookup& lookup);
-  Node make_fq(Node& node);
   Node local_fq(Node node);
   Node append_fq(Node fq, Node node);
 }

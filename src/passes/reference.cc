@@ -57,6 +57,12 @@ namespace verona
 
           if (defs.size() == 1)
           {
+            if (defs.front().too_many_typeargs)
+            {
+              return Error << (ErrorMsg ^ "too many type arguments")
+                           << ((ErrorAst ^ id) << id << ta);
+            }
+
             auto fq = make_fq(defs.front());
 
             if (fq->type() == FQType)
@@ -82,7 +88,15 @@ namespace verona
                          << ((ErrorAst ^ id) << id << ta);
 
           if (defs.size() == 1)
+          {
+            if (defs.front().too_many_typeargs)
+            {
+              return Error << (ErrorMsg ^ "too many type arguments")
+                           << ((ErrorAst ^ id) << id << ta);
+            }
+
             return make_fq(defs.front());
+          }
 
           if (std::any_of(defs.begin(), defs.end(), [](auto& d) {
                 return d.def->type() != Function;

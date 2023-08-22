@@ -18,7 +18,10 @@ namespace verona
     size_t n = ta ? ta->size() : 0;
 
     if (tp->size() < n)
+    {
+      lookup.too_many_typeargs = true;
       n = tp->size();
+    }
 
     if (n > 0)
     {
@@ -361,12 +364,6 @@ namespace verona
   Node make_fq(Lookup& lookup)
   {
     return make_fq(lookup, false);
-  }
-
-  Node make_fq(Node& node)
-  {
-    Lookup l(node);
-    return make_fq(l);
   }
 
   Node local_fq(Node node)

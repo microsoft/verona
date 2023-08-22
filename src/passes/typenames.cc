@@ -9,12 +9,12 @@ namespace verona
   {
     if (defs.size() == 0)
       return Error << (ErrorMsg ^ "unknown type name")
-                    << ((ErrorAst ^ id) << id << ta);
+                   << ((ErrorAst ^ id) << id << ta);
 
     if (defs.size() > 1)
     {
       auto err = Error << (ErrorMsg ^ "ambiguous type name")
-                        << ((ErrorAst ^ id) << id << ta);
+                       << ((ErrorAst ^ id) << id << ta);
 
       for (auto& def : defs)
         err << (ErrorAst ^ (def.def / Ident));
@@ -22,11 +22,17 @@ namespace verona
       return err;
     }
 
+    if (defs.front().too_many_typeargs)
+    {
+      return Error << (ErrorMsg ^ "too many type arguments")
+                   << ((ErrorAst ^ id) << id << ta);
+    }
+
     auto fq = make_fq(defs.front());
 
     if (fq->type() != FQType)
       return Error << (ErrorMsg ^ "type name is not a type")
-                    << ((ErrorAst ^ id) << id << ta);
+                   << ((ErrorAst ^ id) << id << ta);
 
     return fq;
   }
@@ -34,8 +40,7 @@ namespace verona
   PassDef typenames()
   {
     return {
-      TypeStruct * T(DontCare)[DontCare] >>
-        [](Match& _) { return typevar(_); },
+      TypeStruct * T(DontCare)[DontCare] >> [](Match& _) { return typevar(_); },
 
       // Names on their own must be types.
       TypeStruct * T(Ident)[Ident] * ~T(TypeArgs)[TypeArgs] >>

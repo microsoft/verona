@@ -1,11 +1,7 @@
 # To Do
 
-- Fix subtype checking.
-  - Infinite recursion in `validtypeargs`.
-
 - Lookup in a `TypeParam`, e.g., `create` or an associated type.
 - Detect too many type arguments.
-- Strip `use` after `typenames` and `reference`.
 
 - Code reuse.
 - Automatically insert `use std::builtin`.
