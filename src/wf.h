@@ -194,18 +194,8 @@ namespace verona
   // clang-format on
 
   // clang-format off
-  inline const auto wfPassTypeValid =
-      wfPassTypeFlat
-
-    // Remove Use.
-    | (ClassBody <<= (Class | TypeAlias | FieldLet | FieldVar | Function)++)
-    | (Block <<= (Class | TypeAlias | Expr)++[1])
-    ;
-  // clang-format in
-
-  // clang-format off
   inline const auto wfPassCodeReuse =
-      wfPassTypeValid
+      wfPassTypeFlat
 
     // Remove Inherit.
     | (Class <<= Ident * TypeParams * TypePred * ClassBody)[Ident]
@@ -257,6 +247,10 @@ namespace verona
     | (Call <<= (Selector >>= (Selector | FQFunction)) * Args)
     | (Args <<= Expr++)
     | (NLRCheck <<= (Implicit >>= Implicit | Explicit) * Call)
+
+    // Remove Use.
+    | (ClassBody <<= (Class | TypeAlias | FieldLet | FieldVar | Function)++)
+    | (Block <<= (Class | TypeAlias | Expr)++[1])
 
     // Remove Dot. Add Call, NLRCheck.
     | (Expr <<=

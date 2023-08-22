@@ -22,9 +22,14 @@ namespace verona
     {
       return {node, bindings};
     }
+
+    bool operator<(const Lookup& other) const
+    {
+      return (def < other.def) && (bindings < other.bindings);
+    }
   };
 
-  using Lookups = std::vector<Lookup>;
+  using Lookups = std::set<Lookup>;
 
   Lookups lookup(Node id, Node ta);
   Lookups lookdown(Lookup& lookup, Node id, Node ta, NodeSet visited = {});

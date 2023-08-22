@@ -33,13 +33,13 @@ namespace verona
       auto id = t / Ident;
       auto defs = id->lookup(scope);
 
-      if ((defs.size() == 1) && (defs.front()->type() == TypeParam))
+      if ((defs.size() == 1) && ((*defs.begin())->type() == TypeParam))
       {
         if (!std::any_of(tp->begin(), tp->end(), [&](auto& p) {
               return (p / Ident)->location() == id->location();
             }))
         {
-          tp << clone(defs.front());
+          tp << clone(*defs.begin());
         }
       }
 

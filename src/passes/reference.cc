@@ -57,16 +57,30 @@ namespace verona
 
           if (defs.size() == 1)
           {
-            if (defs.front().too_many_typeargs)
+            auto def = *defs.begin();
+
+            if (def.too_many_typeargs)
             {
               return Error << (ErrorMsg ^ "too many type arguments")
                            << ((ErrorAst ^ id) << id << ta);
             }
 
-            auto fq = make_fq(defs.front());
+            auto fq = make_fq(def);
 
             if (fq->type() == FQType)
               return fq;
+          }
+
+          if (defs.size() > 1)
+          {
+            // If there are multiple definitions, it's an ambiguous reference.
+            auto err = Error << (ErrorMsg ^ "ambiguous reference")
+                             << ((ErrorAst ^ id) << id << ta);
+
+            for (auto& other : defs)
+              err << (ErrorAst ^ (other.def / Ident));
+
+            return err;
           }
 
           // If there isn't a single type definition, treat it as a selector.
@@ -76,7 +90,7 @@ namespace verona
       // Scoped reference.
       In(Expr) *
           (T(FQType)[Lhs] * T(DoubleColon) * (T(Ident) / T(Symbol))[Ident] *
-           ~T(TypeArgs)[TypeArgs])[Type] >>
+           ~T(TypeArgs)[TypeArgs]) >>
         [](Match& _) {
           auto id = _(Ident);
           auto ta = _(TypeArgs);
@@ -89,13 +103,15 @@ namespace verona
 
           if (defs.size() == 1)
           {
-            if (defs.front().too_many_typeargs)
+            auto ldef = *defs.begin();
+
+            if (ldef.too_many_typeargs)
             {
               return Error << (ErrorMsg ^ "too many type arguments")
                            << ((ErrorAst ^ id) << id << ta);
             }
 
-            return make_fq(defs.front());
+            return make_fq(ldef);
           }
 
           if (std::any_of(defs.begin(), defs.end(), [](auto& d) {
@@ -114,15 +130,18 @@ namespace verona
           }
 
           // Select the smallest arity function.
-          auto it =
-            std::min_element(defs.begin(), defs.end(), [](auto& a, auto& b) {
+          auto l =
+            *std::min_element(defs.begin(), defs.end(), [](auto& a, auto& b) {
               return (a.def / Params)->size() < (b.def / Params)->size();
             });
 
-          return make_fq(*it);
+          return make_fq(l);
         },
 
-      In(Expr) * T(DoubleColon) >>
+      // Error out on invalid scoped references.
+      In(Expr) *
+          (T(DoubleColon) * ~(T(Ident) / T(Symbol)) *
+           ~T(TypeArgs))[DoubleColon] >>
         [](Match& _) {
           return err(_[DoubleColon], "expected a scoped reference");
         },

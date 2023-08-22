@@ -7,6 +7,10 @@ namespace verona
   PassDef reverseapp()
   {
     return {
+      // Remove all `use` statements.
+      In(ClassBody) * T(Use) >> ([](Match&) -> Node { return {}; }),
+      In(Block) * T(Use) >> ([](Match&) -> Node { return Expr << Unit; }),
+
       // Dot: reverse application. This binds most strongly.
       (Object / Operator)[Lhs] * T(Dot) * Operator[Rhs] >>
         [](Match& _) { return call(_(Rhs), _(Lhs)); },

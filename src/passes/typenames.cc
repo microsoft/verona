@@ -22,13 +22,15 @@ namespace verona
       return err;
     }
 
-    if (defs.front().too_many_typeargs)
+    auto def = *defs.begin();
+
+    if (def.too_many_typeargs)
     {
       return Error << (ErrorMsg ^ "too many type arguments")
                    << ((ErrorAst ^ id) << id << ta);
     }
 
-    auto fq = make_fq(defs.front());
+    auto fq = make_fq(def);
 
     if (fq->type() != FQType)
       return Error << (ErrorMsg ^ "type name is not a type")

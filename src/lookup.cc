@@ -62,14 +62,14 @@ namespace verona
         {
           auto l = Lookup(def / Type);
           auto ldefs = lookdown(l, id, ta, {});
-          result.insert(result.end(), ldefs.begin(), ldefs.end());
+          result.insert(ldefs.begin(), ldefs.end());
         }
       }
       else
       {
         Lookup l(def);
         apply_typeargs(l, ta);
-        result.emplace_back(l);
+        result.emplace(l);
       }
     }
 
@@ -96,9 +96,9 @@ namespace verona
         auto defs = lookup.def->lookdown(id->location());
 
         std::transform(
-          defs.cbegin(),
-          defs.cend(),
-          std::back_inserter(result),
+          defs.begin(),
+          defs.end(),
+          std::inserter(result, result.begin()),
           [&](auto& def) {
             auto l = lookup.make(def);
             apply_typeargs(l, ta);
@@ -154,7 +154,7 @@ namespace verona
         {
           auto l = lookup.make(t);
           auto ldefs = lookdown(l, id, ta, visited);
-          result.insert(result.end(), ldefs.begin(), ldefs.end());
+          result.insert(ldefs.begin(), ldefs.end());
         }
 
         return result;
@@ -180,7 +180,7 @@ namespace verona
   bool lookup_type(Node id, std::initializer_list<Token> t)
   {
     auto defs = lookup(id, {});
-    return (defs.size() == 1) && defs.front().def->type().in(t);
+    return (defs.size() == 1) && defs.begin()->def->type().in(t);
   }
 
   bool lookup_type(const NodeRange& n, std::initializer_list<Token> t)
@@ -233,7 +233,7 @@ namespace verona
     if (defs.size() != 1)
       return false;
 
-    p = p.make(defs.front());
+    p = p.make(*defs.begin());
 
     if (n->type().in({TypeClassName, TypeAliasName}))
       apply_typeargs(p, n / TypeArgs);
@@ -292,7 +292,7 @@ namespace verona
       auto it = lookup.bindings.find(tp);
 
       if (it != lookup.bindings.end())
-        ta << it->second;
+        ta << clone(it->second);
       else if (fresh)
         ta << (Type << (TypeVar ^ node->fresh(l_typevar)));
       else
@@ -304,11 +304,9 @@ namespace verona
 
   static Node make_fq(Lookup& lookup, bool fresh)
   {
-    // TODO: what if there were too many typeargs?
     if (!lookup.def->type().in(
           {Class, TypeAlias, TypeParam, TypeTrait, Function}))
     {
-      // TODO: return an error here?
       return lookup.def;
     }
 

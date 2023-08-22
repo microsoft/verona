@@ -146,10 +146,6 @@ namespace verona
     return {
       dir::once | dir::topdown,
       {
-        // Remove all `use` statements.
-        In(ClassBody) * T(Use) >> ([](Match&) -> Node { return {}; }),
-        In(Block) * T(Use) >> ([](Match&) -> Node { return Expr << Unit; }),
-
         T(TypeAlias)[TypeAlias] >> ([](Match& _) -> Node {
           if (recursive_typealias(_(TypeAlias)))
             return err(_[TypeAlias], "recursive type alias");

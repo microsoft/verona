@@ -203,7 +203,7 @@ namespace verona
         {"typefunc", typefunc(), wfPassTypeFunc},
         {"typealg", typealg(), wfPassTypeAlg},
         {"typeflat", typeflat(), wfPassTypeFlat},
-        {"typevalid", typevalid(), wfPassTypeValid},
+        {"typevalid", typevalid(), wfPassTypeFlat},
         {"codereuse", codereuse(), wfPassCodeReuse},
         {"conditionals", conditionals(), wfPassConditionals},
         {"reference", reference(), wfPassReference},
