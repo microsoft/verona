@@ -3,19 +3,21 @@
 - Code reuse.
 - Lookup in a `TypeParam`, e.g., `create` or an associated type.
 
-- Better system for including parts of `std`.
 - Check that default types for type parameters satisfy predicates.
 - Free variables in object literals.
 - Tuples as traits.
 - Pattern matching.
 - Type inference.
 - `lazy[T]`
-- `weak[T]`?
+- `weak[T]`
 - Public/private.
 - Package schemes.
+  - Better system for including parts of `std`.
   - `Package` in a scoped name, `typeargs` on packages.
 - List inside `TypeParams`, `Params`, `TypeArgs` along with groups or other lists.
 - Lowering.
+  - Reachability.
+  - Selector coloring.
 
 ## Conditional Compilation
 
@@ -27,12 +29,11 @@ Use `where` for conditional compilation:
 
 ## Code reuse
 
-Proposal:
-- Don't do textual inclusion.
-- Check ancestors during `lookdown`.
-- Treat everything defined in a class as shadowing inheritance.
-- Can `lookdown` to fields as well as methods.
-  - When lowering, classes will need storage space for all fields.
+- Code reuse needs to be after `typenames` and `reference` to get FQNs.
+- Before `autofields` and other expanding passes.
+- Check member conflict after code reuse.
+  - Member conflict should deal with default args.
+- Code reuse after `reference`? Move `conditionals` after reference?
 
 - Logical order: (1) defaultargs, (2) inheritance, (3) partialapp.
   - Can actually do inheritance first, treating defaultargs as blocking multiple arities.

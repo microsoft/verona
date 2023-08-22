@@ -8,10 +8,11 @@ namespace verona
 {
   using namespace wf::ops;
 
-  inline const auto wfLiteral =
-    Bool | Int | Hex | Bin | Float | HexFloat | Char | Escaped | String | LLVM;
-
-  inline const auto wfCaps = Iso | Mut | Imm;
+  inline const auto wfParserTokens = Bool | Int | Hex | Bin | Float | HexFloat |
+    Char | Escaped | String | LLVM | Iso | Mut | Imm | Brace | Paren | Square |
+    List | Equals | Arrow | Use | Class | TypeAlias | Where | Var | Let | Ref |
+    Self | If | Else | New | Try | DontCare | Ident | Ellipsis | Dot | Colon |
+    DoubleColon | TripleColon | Symbol;
 
   // clang-format off
   inline const auto wfParser =
@@ -23,19 +24,13 @@ namespace verona
     | (Square <<= (Group | List | Equals)++)
     | (List <<= (Group | Equals)++)
     | (Equals <<= Group++)
-    | (Group <<=
-        (wfLiteral | wfCaps | Brace | Paren | Square | List | Equals | Arrow |
-         Use | Class | TypeAlias | Where | Var | Let | Ref | Self | If | Else |
-         New | Try | DontCare | Ident | Ellipsis | Dot | Colon | DoubleColon |
-         TripleColon | Symbol)++)
+    | (Group <<= wfParserTokens++)
     ;
   // clang-format on
 
   // Remove Colon, Where. Add Type, TypePred, LLVMFuncType.
-  inline const auto wfModulesTokens = wfLiteral | wfCaps | Brace | Paren |
-    Square | List | Equals | Arrow | Use | Class | TypeAlias | Var | Let | Ref |
-    Self | If | Else | New | Try | DontCare | Ident | Ellipsis | Dot |
-    DoubleColon | Symbol | Type | TypePred | LLVMFuncType;
+  inline const auto wfModulesTokens =
+    (wfParserTokens - (Colon | Where)) | Type | TypePred | LLVMFuncType;
 
   // clang-format off
   inline const auto wfPassModules =
@@ -52,6 +47,15 @@ namespace verona
     | (Group <<= wfModulesTokens++)
     ;
   // clang-format on
+
+  inline const auto wfTypeStructure = Type | TypeTrue | TypeFalse | Iso | Mut |
+    Imm | TypeTrait | TypeTuple | TypeVar | TypeArgs | Package | Self |
+    DontCare | Ellipsis | Ident | Symbol | Dot | DoubleColon;
+
+  inline const auto wfExprStructure = Expr | ExprSeq | Unit | Tuple | Assign |
+    TypeArgs | If | Else | Lambda | Let | Var | New | Try | Ref | DontCare |
+    Ellipsis | Dot | Ident | Symbol | DoubleColon | Bool | Int | Hex | Bin |
+    Float | HexFloat | Char | Escaped | String | LLVM | TypeAssert;
 
   // clang-format off
   inline const auto wfPassStructure =
@@ -89,22 +93,18 @@ namespace verona
     | (LLVMFuncType <<= (Args >>= LLVMList) * (Return >>= LLVM | Ident))
     | (LLVMList <<= (LLVM | Ident)++)
     | (TypePred <<= Type)
-    | (Type <<=
-        (Type | TypeTrue | wfCaps | TypeTrait | TypeTuple | TypeVar | TypeArgs |
-         Package | Self | DontCare | Ellipsis | Ident | Symbol | Dot |
-         DoubleColon)++)
-    | (Expr <<=
-        (Expr | ExprSeq | Unit | Tuple | Assign | TypeArgs | If | Else |
-         Lambda | Let | Var | New | Try | Ref | DontCare | Ellipsis | Dot |
-         Ident | Symbol | DoubleColon | wfLiteral | TypeAssert)++[1])
+    | (Type <<= wfTypeStructure++)
+    | (Expr <<= wfExprStructure++[1])
     ;
   // clang-format on
+
+  // Remove DontCare, Ident. Add FQType.
+  inline const auto wfTypeNames =
+    (wfTypeStructure - (DontCare | Ident)) | FQType;
 
   // clang-format off
   inline const auto wfPassTypeNames =
       wfPassStructure
-
-    // Add FQType.
     | (FQType <<=
         TypePath *
         (Type >>=
@@ -117,231 +117,196 @@ namespace verona
     | (TypeParamName <<= Ident)
     | (TypeTraitName <<= Ident)
     | (Selector <<= (Ref >>= Lhs | Rhs) * Ident * Int * TypeArgs)
-
-    // Remove DontCare, Ident. Add FQType.
-    | (Type <<=
-        (Type | TypeTrue | wfCaps | TypeTrait | TypeTuple | TypeVar | TypeArgs |
-         Package | Self | Ellipsis | Dot | DoubleColon | Symbol | FQType)++)
+    | (Type <<= wfTypeNames++)
     ;
   // clang-format on
+
+  // Remove DoubleColon, Dot, Ellipsis, TypeArgs. Add TypeView, TypeList.
+  inline const auto wfTypeView =
+    (wfTypeNames - (DoubleColon | Dot | Ellipsis | TypeArgs)) | TypeView |
+    TypeList;
 
   // clang-format off
   inline const auto wfPassTypeView =
       wfPassTypeNames
-
-    // Add TypeView, TypeList.
     | (TypeView <<= Type++[2])
     | (TypeList <<= Type)
-
-    // Remove DoubleColon, Dot, Ellipsis, TypeArgs.
-    | (Type <<=
-        (Type | TypeTrue | wfCaps | TypeTrait | TypeTuple | TypeVar | Package |
-         Self | Symbol | FQType | TypeView | TypeList)++)
+    | (Type <<= wfTypeView++)
     ;
   // clang-format on
+
+  // Add TypeUnion, TypeIsect.
+  inline const auto wfTypeFunc = wfTypeView | TypeUnion | TypeIsect;
 
   // clang-format off
   inline const auto wfPassTypeFunc =
       wfPassTypeView
-
-    // Add TypeUnion, TypeIsect.
     | (TypeUnion <<= Type++[2])
     | (TypeIsect <<= Type++[2])
-
-    | (Type <<=
-        (Type | TypeTrue | wfCaps | TypeTrait | TypeTuple | TypeVar | Package |
-         Self | Symbol | FQType | TypeView | TypeList | TypeUnion |
-         TypeIsect)++)
+    | (Type <<= wfTypeFunc++)
     ;
   // clang-format on
+
+  // Remove Symbol. Add TypeSubtype.
+  inline const auto wfTypeAlg = (wfTypeFunc - Symbol) | TypeSubtype;
 
   // clang-format off
   inline const auto wfPassTypeAlg =
       wfPassTypeFunc
-
-    // Add TypeSubtype.
     | (TypeSubtype <<= (Lhs >>= Type) * (Rhs >>= Type))
-
-    // Remove Symbol. Add TypeSubtype.
-    | (Type <<=
-        (Type | TypeTrue | wfCaps | TypeTrait | TypeTuple | TypeVar | Package |
-         Self | FQType | TypeView | TypeList | TypeUnion | TypeIsect |
-         TypeSubtype)++)
+    | (Type <<= wfTypeAlg++)
     ;
   // clang-format on
 
-  inline const auto wfTypeNoAlg = TypeTrue | TypeFalse | wfCaps | TypeTrait |
-    TypeTuple | TypeVar | Package | Self | FQType | TypeView | TypeList |
-    TypeSubtype;
-
-  inline const auto wfType = wfTypeNoAlg | TypeUnion | TypeIsect;
+  // Remove Type.
+  inline const auto wfType = wfTypeAlg - Type;
 
   // clang-format off
   inline const auto wfPassTypeFlat =
       wfPassTypeAlg
-
-    // No Type nodes inside of type structure.
     | (TypeList <<= wfType)
     | (TypeTuple <<= wfType++[2])
     | (TypeView <<= wfType++[2])
     | (TypeSubtype <<= (Lhs >>= wfType) * (Rhs >>= wfType))
-    | (TypeUnion <<= (wfTypeNoAlg | TypeIsect)++[2])
-    | (TypeIsect <<= (wfTypeNoAlg | TypeUnion)++[2])
+    | (TypeUnion <<= (wfType - TypeUnion)++[2])
+    | (TypeIsect <<= (wfType - TypeIsect)++[2])
 
     // Types are no longer sequences.
     | (Type <<= wfType)
     ;
   // clang-format on
 
+  // Remove TypeArgs, New, Ident, Symbol, DoubleColon.
+  // Add RefVar, RefLet, Selector, FQFunction.
+  inline const auto wfExprReference =
+    (wfExprStructure - (TypeArgs | New | Ident | Symbol | DoubleColon)) |
+    RefVar | RefLet | Selector | FQFunction;
+
+  // clang-format off
+  inline const auto wfPassReference =
+      wfPassTypeFlat
+    | (RefLet <<= Ident)
+    | (RefVar <<= Ident)
+    | (FQFunction <<= FQType * Selector)
+    | (Expr <<= wfExprReference++[1])
+    ;
+  // clang-format on
+
   // clang-format off
   inline const auto wfPassCodeReuse =
-      wfPassTypeFlat
+      wfPassReference
 
     // Remove Inherit.
     | (Class <<= Ident * TypeParams * TypePred * ClassBody)[Ident]
     ;
-  // clang-format in
+  // clang-format on
+
+  // Remove If, Else. Add Conditional, TypeTest, Cast.
+  inline const auto wfExprConditionals =
+    (wfExprReference - (If | Else)) | Conditional | TypeTest | Cast;
 
   // clang-format off
   inline const auto wfPassConditionals =
       wfPassCodeReuse
-
-    // Add Conditional, TypeTest, Cast.
     | (Conditional <<= (If >>= Expr) * Block * Block)
     | (TypeTest <<= Expr * Type)
     | (Cast <<= Expr * Type)
-
-    // Remove If, Else. Add Conditional, TypeTest, Cast.
-    | (Expr <<=
-        (Expr | ExprSeq | Unit | Tuple | Assign | TypeArgs | Lambda | Let |
-         Var | New | Try | Ref | DontCare | Ellipsis | Dot | Ident | Symbol |
-         DoubleColon | wfLiteral | TypeAssert | Conditional | TypeTest |
-         Cast)++[1])
+    | (Expr <<= wfExprConditionals++[1])
     ;
   // clang-format on
 
-  // clang-format off
-  inline const auto wfPassReference =
-      wfPassConditionals
-
-    // Add RefLet, RefVar, FQFunction.
-    | (RefLet <<= Ident)
-    | (RefVar <<= Ident)
-    | (FQFunction <<= FQType * Selector)
-
-    // Remove TypeArgs, New, Ident, Symbol, DoubleColon.
-    // Add RefVar, RefLet, Selector, FQFunction.
-    | (Expr <<=
-        (Expr | ExprSeq | Unit | Tuple | Assign | Lambda | Let | Var | Try |
-         Ref | DontCare | Ellipsis | Dot | wfLiteral | TypeAssert |
-         Conditional | TypeTest | Cast | RefVar | RefLet | Selector |
-         FQFunction)++[1])
-    ;
-  // clang-format on
+  // Remove Dot. Add Call, NLRCheck.
+  inline const auto wfExprReverseApp =
+    (wfExprConditionals - Dot) | Call | NLRCheck;
 
   // clang-format off
   inline const auto wfPassReverseApp =
-      wfPassReference
-
-    // Add Call, Args, NLRCheck.
-    | (Call <<= (Selector >>= (Selector | FQFunction)) * Args)
-    | (Args <<= Expr++)
-    | (NLRCheck <<= (Implicit >>= Implicit | Explicit) * Call)
+      wfPassConditionals
 
     // Remove Use.
     | (ClassBody <<= (Class | TypeAlias | FieldLet | FieldVar | Function)++)
     | (Block <<= (Class | TypeAlias | Expr)++[1])
-
-    // Remove Dot. Add Call, NLRCheck.
-    | (Expr <<=
-        (Expr | ExprSeq | Unit | Tuple | Assign | Lambda | Let | Var | Try |
-         Ref | DontCare | Ellipsis | wfLiteral | TypeAssert | Conditional |
-         TypeTest | Cast | RefVar | RefLet | Selector | FQFunction | Call |
-         NLRCheck)++[1])
+    | (Call <<= (Selector >>= (Selector | FQFunction)) * Args)
+    | (Args <<= Expr++)
+    | (NLRCheck <<= (Implicit >>= Implicit | Explicit) * Call)
+    | (Expr <<= wfExprReverseApp++[1])
     ;
   // clang-format on
+
+  // Remove Unit, Try, DontCare, Ellipsis, Selector, FQFunction.
+  // Add RefVarLHS.
+  inline const auto wfExprApplication =
+    (wfExprReverseApp -
+     (Unit | Try | DontCare | Ellipsis | Selector | FQFunction)) |
+    RefVarLHS;
 
   // clang-format off
   inline const auto wfPassApplication =
       wfPassReverseApp
-
-    // Add TupleFlatten, RefVarLHS.
     | (Tuple <<= (Expr | TupleFlatten)++[2])
     | (TupleFlatten <<= Expr)
     | (RefVarLHS <<= Ident)
-
-    // Remove Unit, Try, DontCare, Ellipsis, Selector, FQFunction.
-    // Add RefVarLHS.
-    | (Expr <<=
-        (Expr | ExprSeq | Tuple | Assign | Lambda | Let | Var | Try | Ref |
-         wfLiteral | TypeAssert | Conditional | TypeTest | Cast | RefVar |
-         RefLet | Call | NLRCheck | RefVarLHS)++[1])
+    | (Expr <<= wfExprApplication++[1])
     ;
   // clang-format on
+
+  // Remove Expr, Try, Ref. Add TupleLHS.
+  inline const auto wfExprAssignLHS =
+    (wfExprApplication - (Expr | Try | Ref)) | TupleLHS;
 
   // clang-format off
   inline const auto wfPassAssignLHS =
       wfPassApplication
-
-    // Add TupleLHS.
     | (TupleLHS <<= Expr++[2])
 
-    // Remove Expr, Try, Ref. Add TupleLHS. No longer a sequence.
-    | (Expr <<=
-        ExprSeq | Tuple | Assign | Lambda | Let | Var | wfLiteral | TypeAssert |
-        Conditional | TypeTest | Cast | RefVar | RefLet | Call | NLRCheck |
-        RefVarLHS | TupleLHS)
+    // Expressions are no longer sequences.
+    | (Expr <<= wfExprAssignLHS)
     ;
   // clang-format on
+
+  // Remove Var, RefVar, RefVarLHS.
+  inline const auto wfExprAssign = wfExprAssignLHS - (Var | RefVar | RefVarLHS);
 
   // clang-format off
   inline const auto wfPassLocalVar =
       wfPassAssignLHS
-
-    // Remove Var, RefVar, RefVarLHS.
-    | (Expr <<=
-        ExprSeq | Tuple | Assign | Lambda | Let | wfLiteral | TypeAssert |
-        Conditional | TypeTest | Cast | RefLet | Call | NLRCheck | TupleLHS)
+    | (Expr <<= wfExprAssign)
     ;
   // clang-format on
+
+  // Remove Assign, Let, TupleLHS. Add Bind.
+  inline const auto wfExprBind =
+    (wfExprAssign - (Assign | Let | TupleLHS)) | Bind;
 
   // clang-format off
   inline const auto wfPassAssignment =
       wfPassLocalVar
-
-    // Add Bind.
     | (Bind <<= Ident * Type * Expr)[Ident]
-
-    // Remove Assign, Let, TupleLHS. Add Bind.
-    | (Expr <<=
-        ExprSeq | Tuple | Lambda | wfLiteral | TypeAssert | Conditional |
-        TypeTest | Cast | RefLet | Call | NLRCheck | Bind)
+    | (Expr <<= wfExprBind)
     ;
   // clang-format on
+
+  // Remove Lambda.
+  inline const auto wfExprLambda = wfExprBind - Lambda;
 
   // clang-format off
   inline const auto wfPassLambda =
       wfPassAssignment
-
-    // Remove Lambda.
     | (FieldLet <<= Ident * Type * (Default >>= (NLRCheck | DontCare)))[Ident]
     | (FieldVar <<= Ident * Type * (Default >>= (NLRCheck | DontCare)))[Ident]
     | (Param <<= Ident * Type * (Default >>= (NLRCheck | DontCare)))[Ident]
-    | (Expr <<=
-        ExprSeq | Tuple | wfLiteral | TypeAssert | Conditional | TypeTest |
-        Cast | RefLet | Call | NLRCheck | Bind)
+    | (Expr <<= wfExprLambda)
     ;
   // clang-format on
+
+  // Add FieldRef.
+  inline const auto wfExprAutoFields = wfExprLambda | FieldRef;
 
   // clang-format off
   inline const auto wfPassAutoFields =
       wfPassLambda
-
-    // Add FieldRef.
     | (FieldRef <<= RefLet * Ident)
-    | (Expr <<=
-        ExprSeq | Tuple | wfLiteral | TypeAssert | Conditional | TypeTest |
-        Cast | RefLet | Call | NLRCheck | Bind | FieldRef)
+    | (Expr <<= wfExprAutoFields)
     ;
   // clang-format on
 
@@ -360,6 +325,9 @@ namespace verona
     ;
   // clang-format on
 
+  // Remove NLRCheck.
+  inline const auto wfExprNLRCheck = wfExprAutoFields - NLRCheck;
+
   // clang-format off
   inline const auto wfPassNLRCheck =
       wfPassDefaultArgs
@@ -367,18 +335,16 @@ namespace verona
     // Add Return.
     | (Block <<= (Class | TypeAlias | Expr | Return)++[1])
     | (Return <<= Expr)
-
-    // Remove NLRCheck.
-    | (Expr <<=
-        ExprSeq | Tuple | wfLiteral | TypeAssert | Conditional | TypeTest |
-        Cast | RefLet | Call | Bind | FieldRef)
+    | (Expr <<= wfExprNLRCheck)
     ;
   // clang-format on
+
+  // Remove ExprSeq, TypeAssert, Bind.
+  inline const auto wfExprANF = wfExprNLRCheck - (ExprSeq | TypeAssert | Bind);
 
   // clang-format off
   inline const auto wfPassANF =
       wfPassNLRCheck
-
     | (Block <<= (Class | TypeAlias | Bind | RefLet | Return | LLVM)++[1])
     | (Return <<= RefLet)
     | (Tuple <<= (RefLet | TupleFlatten)++[2])
@@ -387,18 +353,16 @@ namespace verona
     | (Conditional <<= (If >>= RefLet) * Block * Block)
     | (TypeTest <<= RefLet * Type)
     | (Cast <<= RefLet * Type)
-    | (Bind <<= Ident * Type *
-        (Rhs >>=
-          RefLet | Tuple | Call | Conditional | TypeTest | Cast | FieldRef |
-          wfLiteral))[Ident]
+    | (Bind <<= Ident * Type * (Rhs >>= wfExprANF))[Ident]
     ;
   // clang-format on
+
+  // Remove RefLet. Add Copy, Move, Drop.
+  inline const auto wfExprDrop = (wfExprANF - RefLet) | Copy | Move | Drop;
 
   // clang-format off
   inline const auto wfPassDrop =
       wfPassANF
-
-    // Add Copy, Move, Drop. Remove RefLet.
     | (Copy <<= Ident)
     | (Move <<= Ident)
     | (Drop <<= Ident)
@@ -412,10 +376,7 @@ namespace verona
     | (TypeTest <<= (Ref >>= (Copy | Move)) * Type)
     | (Cast <<= (Ref >>= (Copy | Move)) * Type)
     | (FieldRef <<= (Ref >>= (Copy | Move)) * Ident)
-    | (Bind <<= Ident * Type *
-        (Rhs >>=
-          Tuple | Call | Conditional | TypeTest | Cast | FieldRef | wfLiteral |
-          Copy | Move))[Ident]
+    | (Bind <<= Ident * Type * (Rhs >>= wfExprDrop))[Ident]
     ;
   // clang-format on
 }

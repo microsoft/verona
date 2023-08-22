@@ -4,6 +4,21 @@
 
 namespace verona
 {
+  std::pair<size_t, size_t> arity(Node& func)
+  {
+    auto params = func / Params;
+    auto arity_hi = params->size();
+    auto arity_lo = arity_hi;
+
+    for (auto& param : *params)
+    {
+      if ((param / Default)->type() != DontCare)
+        arity_lo--;
+    }
+
+    return {arity_lo, arity_hi};
+  }
+
   PassDef memberconflict()
   {
     return {
@@ -44,29 +59,34 @@ namespace verona
             }
 
             auto hand = _(Ref)->type();
-            auto arity = _(Params)->size();
+            auto [arity_lo, arity_hi] = arity(func);
             auto defs = func->scope()->lookdown(_(Ident)->location());
 
             for (auto& def : defs)
             {
               if (
                 (def->type() == Function) && ((def / Ref)->type() == hand) &&
-                ((def / Params)->size() == arity) && def->precedes(func))
+                def->precedes(func))
               {
-                return err(
-                         func,
-                         "this function has the same name, arity, and "
-                         "handedness as "
-                         "another function")
-                  << (ErrorAst ^ (def / Ident));
+                auto [def_arity_lo, def_arity_hi] = arity(def);
+
+                if ((def_arity_hi >= arity_lo) && (def_arity_lo <= arity_hi))
+                  return err(
+                           func,
+                           "this function has the same name, arity, and "
+                           "handedness as "
+                           "another function")
+                    << (ErrorAst ^ (def / Ident));
               }
               else if (
-                (def->type() == FieldLet) && (hand == Rhs) && (arity == 1))
+                (def->type() == FieldLet) && (hand == Rhs) && (1 >= arity_lo) &&
+                (1 <= arity_hi))
               {
                 return err(func, "this function has the same arity as a field")
                   << (ErrorAst ^ (def / Ident));
               }
-              else if ((def->type() == FieldVar) && (arity == 1))
+              else if (
+                (def->type() == FieldVar) && (1 >= arity_lo) && (1 <= arity_hi))
               {
                 return err(func, "this function has the same arity as a field")
                   << (ErrorAst ^ (def / Ident));

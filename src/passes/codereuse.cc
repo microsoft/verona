@@ -45,7 +45,6 @@ namespace verona
 
                 for (auto node : *body)
                 {
-                  // TODO: reuse Use, Class, TypeAlias?
                   if (node->type().in({FieldLet, FieldVar, Function}))
                   {
                     auto id = node / Ident;

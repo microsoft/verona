@@ -33,7 +33,7 @@ namespace verona
         auto lhs_id = _.fresh();
         lhs = Expr << (Let << (Ident ^ lhs_id));
         type = clone(params->front() / Type);
-        args = Ident ^ lhs_id;
+        args = RefLet << (Ident ^ lhs_id);
       }
       else
       {
@@ -49,7 +49,7 @@ namespace verona
         for (auto& param : *params)
         {
           auto lhs_id = _.fresh();
-          args << (Expr << (Ident ^ lhs_id));
+          args << (Expr << (RefLet << (Ident ^ lhs_id)));
           lhs << (Expr << (Let << (Ident ^ lhs_id)));
           typetuple << clone(param / Type / Type);
         }
@@ -64,7 +64,9 @@ namespace verona
       block
         << (Expr
             << (Assign << (Expr << lhs)
-                       << (Expr << (Cast << (Expr << (Ident ^ id)) << type))));
+                       << (Expr
+                           << (Cast << (Expr << (RefLet << (Ident ^ id)))
+                                    << type))));
     }
 
     return Conditional << cond << (block << (Expr << lambda << args))
