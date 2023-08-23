@@ -32,8 +32,7 @@ Use `where` for conditional compilation:
 - Code reuse needs to be after `typenames` and `reference` to get FQNs.
 - Before `autofields` and other expanding passes.
 - Check member conflict after code reuse.
-  - Member conflict should deal with default args.
-- Code reuse after `reference`? Move `conditionals` after reference?
+- Code reuse after `reference`?
 
 - Logical order: (1) defaultargs, (2) inheritance, (3) partialapp.
   - Can actually do inheritance first, treating defaultargs as blocking multiple arities.

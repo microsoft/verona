@@ -8,8 +8,7 @@ namespace verona
   {
     // This detects cycles in type aliases, which are not allowed. This happens
     // after type names are turned into FQType.
-    if (node->type() != TypeAlias)
-      return false;
+    assert(node->type() == TypeAlias);
 
     // Each element in the worklist carries a set of nodes that have been
     // visited, a type node, and a map of typeparam bindings.
@@ -47,6 +46,73 @@ namespace verona
           set.insert(l.def);
           worklist.emplace_back(set, l);
         }
+      }
+      else if (
+        (lookup.def->type() == FQType) &&
+        ((lookup.def / Type)->type() == TypeParamName))
+      {
+        auto l = resolve_fq(lookup.def);
+
+        if (l.def)
+        {
+          auto find = lookup.bindings.find(l.def);
+
+          if (find != lookup.bindings.end())
+            worklist.emplace_back(set, lookup.make(find->second));
+        }
+      }
+    }
+
+    return false;
+  }
+
+  bool recursive_inherit(Node node)
+  {
+    assert(node->type() == Inherit);
+    std::vector<std::pair<NodeSet, Lookup>> worklist;
+    worklist.emplace_back(NodeSet{node}, node / Inherit);
+
+    while (!worklist.empty())
+    {
+      auto work = worklist.back();
+      auto& set = work.first;
+      auto& lookup = work.second;
+      worklist.pop_back();
+
+      if (lookup.def->type() == Type)
+      {
+        worklist.emplace_back(set, lookup.make(lookup.def / Type));
+      }
+      else if (lookup.def->type() == TypeIsect)
+      {
+        for (auto& t : *lookup.def)
+          worklist.emplace_back(set, lookup.make(t));
+      }
+      else if (
+        (lookup.def->type() == FQType) &&
+        ((lookup.def / Type)->type() == TypeClassName))
+      {
+        auto l = resolve_fq(lookup.def);
+
+        if (l.def)
+        {
+          Node inherit = l.def / Inherit;
+
+          if ((inherit->type() != Inherit) || set.contains(inherit))
+            return true;
+
+          set.insert(inherit);
+          worklist.emplace_back(set, inherit / Inherit);
+        }
+      }
+      else if (
+        (lookup.def->type() == FQType) &&
+        ((lookup.def / Type)->type() == TypeAliasName))
+      {
+        auto l = resolve_fq(lookup.def);
+
+        if (l.def)
+          worklist.emplace_back(set, l);
       }
       else if (
         (lookup.def->type() == FQType) &&
@@ -149,6 +215,13 @@ namespace verona
         T(TypeAlias)[TypeAlias] >> ([](Match& _) -> Node {
           if (recursive_typealias(_(TypeAlias)))
             return err(_[TypeAlias], "recursive type alias");
+
+          return NoChange;
+        }),
+
+        In(Class) * T(Inherit)[Inherit] << T(Type) >> ([](Match& _) -> Node {
+          if (recursive_inherit(_(Inherit)))
+            return err(_[Inherit], "recursive inheritance");
 
           return NoChange;
         }),
