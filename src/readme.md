@@ -1,6 +1,7 @@
 # To Do
 
 - Code reuse.
+  - Type substitution.
 - Lookup in a `TypeParam`, e.g., `create` or an associated type.
 
 - Check that default types for type parameters satisfy predicates.
@@ -26,18 +27,6 @@ Use `where` for conditional compilation:
 - Over fields.
 - Over chunks of a class body?
 - Will it all nicely type check for all platforms?
-
-## Code reuse
-
-- Code reuse needs to be after `typenames` and `reference` to get FQNs.
-- Before `autofields` and other expanding passes.
-- Check member conflict after code reuse.
-- Code reuse after `reference`?
-
-- Logical order: (1) defaultargs, (2) inheritance, (3) partialapp.
-  - Can actually do inheritance first, treating defaultargs as blocking multiple arities.
-- Do textual inclusion of any member or method that isn't already defined.
-  - Need to do type substitution on the included code.
 
 ## Tuples as Traits
 

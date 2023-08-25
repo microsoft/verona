@@ -7,65 +7,71 @@ namespace verona
   PassDef codereuse()
   {
     return {
-      dir::once | dir::topdown,
-      {
-        T(Class)[Class]
-            << (T(Ident)[Ident] * T(TypeParams)[TypeParams] *
-                T(Inherit)[Inherit] * T(TypePred)[TypePred] *
-                T(ClassBody)[ClassBody]) >>
-          [](Match& _) {
-            auto cls = _(Class);
-            auto from = _(Inherit) / Inherit;
+      T(Class)[Class]
+          << (T(Ident)[Ident] * T(TypeParams)[TypeParams] *
+              (T(Inherit) << T(Type)[Inherit]) * T(TypePred)[TypePred] *
+              T(ClassBody)[ClassBody]) >>
+        ([](Match& _) -> Node {
+          std::vector<Btype> worklist;
+          std::vector<Btype> inherit;
+          worklist.emplace_back(make_btype(_(Inherit)));
 
-            std::map<Location, Nodes> reuse;
+          while (!worklist.empty())
+          {
+            auto type = worklist.back();
+            worklist.pop_back();
 
-            std::vector<Btype> worklist;
-            worklist.emplace_back(make_btype(_(Inherit) / Inherit));
-
-            while (!worklist.empty())
+            if (type->type() == TypeIsect)
             {
-              auto type = worklist.back();
-              worklist.pop_back();
-
-              if (type->type() == TypeIsect)
-              {
-                for (auto& t : *type->node)
-                  worklist.emplace_back(type->make(t));
-              }
-              else if (type->type() == TypeAlias)
-              {
-                worklist.emplace_back(type->field(Type));
-              }
-              else if (type->type().in({Class, TypeTrait}))
-              {
-                // TODO:
-                // Reuse stuff if (a) it's not ambiguous and (b) it's not
-                // already provided in ClassBody. Need to do type substitution.
-                auto body = type->node / ClassBody;
-
-                for (auto node : *body)
-                {
-                  if (node->type().in({FieldLet, FieldVar, Function}))
-                  {
-                    auto id = node / Ident;
-                    auto defs = cls->lookdown(id->location());
-
-                    for (auto def : defs)
-                    {
-                      if (def->type().in({FieldLet, FieldVar, Function}))
-                      {
-                      }
-                    }
-
-                    reuse[id->location()].push_back(node);
-                  }
-                }
-              }
+              for (auto& t : *type->node)
+                worklist.emplace_back(type->make(t));
             }
+            else if (type->type() == TypeAlias)
+            {
+              worklist.emplace_back(type->field(Type));
+            }
+            else if (type->type() == TypeTrait)
+            {
+              inherit.push_back(type);
+            }
+            else if (type->type() == Class)
+            {
+              // A super-class needs to have done its own codereuse pass.
+              // This class will be processed later.
+              if ((type->node / Inherit / Inherit)->type() != DontCare)
+                return NoChange;
 
-            return Class << _(Ident) << _(TypeParams) << _(TypePred)
-                         << _(ClassBody);
-          },
-      }};
+              inherit.push_back(type);
+            }
+          }
+
+          auto body = _(ClassBody);
+
+          for (auto& from : inherit)
+          {
+            for (auto node : *(from->node / ClassBody))
+            {
+              if (!node->type().in({FieldLet, FieldVar, Function}))
+                continue;
+
+              // Don't inherit functions without implementations.
+              if (
+                (node->type() == Function) &&
+                ((node / Block)->type() == DontCare))
+                continue;
+
+              // TODO: type substitution for type parameters.
+
+              // Clone an implicit version into classbody.
+              auto f = clone(node);
+              (f / Implicit) = Implicit;
+              body << f;
+            }
+          }
+
+          return Class << _(Ident) << _(TypeParams) << (Inherit << DontCare)
+                       << _(TypePred) << body;
+        }),
+    };
   }
 }

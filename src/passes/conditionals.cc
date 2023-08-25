@@ -104,6 +104,22 @@ namespace verona
             _[Else],
             "`else` must follow an `if` and be followed by an `if` or braces");
         },
+
+      // Strip implicit/explicit marker from fields.
+      (T(FieldLet) / T(FieldVar))[FieldLet]
+          << (IsImplicit * T(Ident)[Ident] * T(Type)[Type] * Any[Default]) >>
+        [](Match& _) {
+          Node field = _(FieldLet)->type();
+          return field << _(Ident) << _(Type) << _(Default);
+        },
+
+      // Reset functions marked as implicit to be explicit.
+      T(Function)[Function] << T(Implicit) >>
+        [](Match& _) {
+          auto f = _(Function);
+          (f / Implicit) = Explicit;
+          return f;
+        },
     };
   }
 }

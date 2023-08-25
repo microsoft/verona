@@ -8,6 +8,9 @@ namespace verona
 {
   using namespace wf::ops;
 
+  inline const auto wfImplicit = Implicit >>= Implicit | Explicit;
+  inline const auto wfHand = Ref >>= Lhs | Rhs;
+
   inline const auto wfParserTokens = Bool | Int | Hex | Bin | Float | HexFloat |
     Char | Escaped | String | LLVM | Iso | Mut | Imm | Brace | Paren | Square |
     List | Equals | Arrow | Use | Class | TypeAlias | Where | Var | Let | Ref |
@@ -57,6 +60,8 @@ namespace verona
     Ellipsis | Dot | Ident | Symbol | DoubleColon | Bool | Int | Hex | Bin |
     Float | HexFloat | Char | Escaped | String | LLVM | TypeAssert;
 
+  inline const auto wfDefault = Default >>= Lambda | DontCare;
+
   // clang-format off
   inline const auto wfPassStructure =
       (Top <<= Class++)
@@ -67,18 +72,17 @@ namespace verona
     | (Use <<= Type)[Include]
     | (TypeAlias <<= Ident * TypeParams * TypePred * Type)[Ident]
     | (TypeTrait <<= Ident * ClassBody)[Ident]
-    | (FieldLet <<= Ident * Type * (Default >>= Lambda | DontCare))[Ident]
-    | (FieldVar <<= Ident * Type * (Default >>= Lambda | DontCare))[Ident]
+    | (FieldLet <<= wfImplicit * Ident * Type * wfDefault)[Ident]
+    | (FieldVar <<= wfImplicit * Ident * Type * wfDefault)[Ident]
     | (Function <<=
-        (Implicit >>= Implicit | Explicit) * (Ref >>= Lhs | Rhs) * Ident *
-        TypeParams * Params * Type *
+        wfImplicit * wfHand * Ident * TypeParams * Params * Type *
         (LLVMFuncType >>= LLVMFuncType | DontCare) * TypePred *
         (Block >>= Block | DontCare))[Ident]
     | (TypeParams <<= TypeParam++)
     | (TypeParam <<= Ident * (Type >>= Type | DontCare))[Ident]
     | (ValueParam <<= Ident * Type * Expr)[Ident]
     | (Params <<= Param++)
-    | (Param <<= Ident * Type * (Default >>= Lambda | DontCare))[Ident]
+    | (Param <<= Ident * Type * wfDefault)[Ident]
     | (TypeTuple <<= Type++)
     | (Block <<= (Use | Class | TypeAlias | Expr)++[1])
     | (ExprSeq <<= Expr++[2])
@@ -116,7 +120,7 @@ namespace verona
     | (TypeAliasName <<= Ident * TypeArgs)
     | (TypeParamName <<= Ident)
     | (TypeTraitName <<= Ident)
-    | (Selector <<= (Ref >>= Lhs | Rhs) * Ident * Int * TypeArgs)
+    | (Selector <<= wfHand * Ident * Int * TypeArgs)
     | (Type <<= wfTypeNames++)
     ;
   // clang-format on
@@ -192,25 +196,21 @@ namespace verona
     ;
   // clang-format on
 
-  // clang-format off
-  inline const auto wfPassCodeReuse =
-      wfPassReference
-
-    // Remove Inherit.
-    | (Class <<= Ident * TypeParams * TypePred * ClassBody)[Ident]
-    ;
-  // clang-format on
-
   // Remove If, Else. Add Conditional, TypeTest, Cast.
   inline const auto wfExprConditionals =
     (wfExprReference - (If | Else)) | Conditional | TypeTest | Cast;
 
   // clang-format off
   inline const auto wfPassConditionals =
-      wfPassCodeReuse
+      wfPassReference
     | (Conditional <<= (If >>= Expr) * Block * Block)
     | (TypeTest <<= Expr * Type)
     | (Cast <<= Expr * Type)
+
+    // Remove implicit marker.
+    | (FieldLet <<= Ident * Type * wfDefault)[Ident]
+    | (FieldVar <<= Ident * Type * wfDefault)[Ident]
+
     | (Expr <<= wfExprConditionals++[1])
     ;
   // clang-format on
@@ -228,7 +228,7 @@ namespace verona
     | (Block <<= (Class | TypeAlias | Expr)++[1])
     | (Call <<= (Selector >>= (Selector | FQFunction)) * Args)
     | (Args <<= Expr++)
-    | (NLRCheck <<= (Implicit >>= Implicit | Explicit) * Call)
+    | (NLRCheck <<= wfImplicit * Call)
     | (Expr <<= wfExprReverseApp++[1])
     ;
   // clang-format on
@@ -288,13 +288,14 @@ namespace verona
 
   // Remove Lambda.
   inline const auto wfExprLambda = wfExprBind - Lambda;
+  inline const auto wfNLRDefault = Default >>= NLRCheck | DontCare;
 
   // clang-format off
   inline const auto wfPassLambda =
       wfPassAssignment
-    | (FieldLet <<= Ident * Type * (Default >>= (NLRCheck | DontCare)))[Ident]
-    | (FieldVar <<= Ident * Type * (Default >>= (NLRCheck | DontCare)))[Ident]
-    | (Param <<= Ident * Type * (Default >>= (NLRCheck | DontCare)))[Ident]
+    | (FieldLet <<= Ident * Type * wfNLRDefault)[Ident]
+    | (FieldVar <<= Ident * Type * wfNLRDefault)[Ident]
+    | (Param <<= Ident * Type * wfNLRDefault)[Ident]
     | (Expr <<= wfExprLambda)
     ;
   // clang-format on

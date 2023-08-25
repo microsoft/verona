@@ -47,7 +47,8 @@ namespace verona
              Node class_body = ClassBody;
              auto class_id = _.fresh(l_class);
              auto classdef = Class << (Ident ^ class_id) << TypeParams
-                                   << typepred() << class_body;
+                                   << (Inherit << DontCare) << typepred()
+                                   << class_body;
 
              // Build an FQType for the anonymous type.
              auto fq = append_fq(

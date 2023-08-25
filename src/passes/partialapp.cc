@@ -129,7 +129,8 @@ namespace verona
               auto name = names[arity - start_arity];
               Node class_tp = TypeParams;
               Node classbody = ClassBody;
-              auto classdef = Class << clone(name) << class_tp << typepred()
+              auto classdef = Class << clone(name) << class_tp
+                                    << (Inherit << DontCare) << typepred()
                                     << classbody;
 
               auto fq_class = append_fq(

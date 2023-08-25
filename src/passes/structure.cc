@@ -27,7 +27,7 @@ namespace verona
                T(Group)++[Rhs])) >>
         [](Match& _) {
           Node node = _(Let)->type() == Let ? FieldLet : FieldVar;
-          return node << _(Ident) << typevar(_, Type)
+          return node << Explicit << _(Ident) << typevar(_, Type)
                       << (Lambda << TypeParams << Params << typevar(_)
                                  << typepred()
                                  << (Block << (Expr << (Default << _[Rhs]))));
@@ -41,7 +41,7 @@ namespace verona
                End)) >>
         [](Match& _) {
           Node node = _(Let)->type() == Let ? FieldLet : FieldVar;
-          return node << _(Ident) << typevar(_, Type) << DontCare;
+          return node << Explicit << _(Ident) << typevar(_, Type) << DontCare;
         },
 
       // Function: `=` function after a `{}` function with no terminator.
