@@ -25,7 +25,7 @@ namespace verona
             return NoChange;
 
           if (!subtype(make_btype(TypeTrue), bt->field(TypePred)))
-            return err(tn, "invalid type arguments");
+            return err(tn, "Invalid type arguments");
 
           return NoChange;
         }),

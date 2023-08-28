@@ -18,15 +18,15 @@ namespace verona
         [](Match& _) { return TypeList << (Type << _[Lhs]); },
 
       TypeStruct * T(DoubleColon)[DoubleColon] >>
-        [](Match& _) { return err(_[DoubleColon], "misplaced type scope"); },
+        [](Match& _) { return err(_(DoubleColon), "Misplaced type scope"); },
       TypeStruct * T(TypeArgs)[TypeArgs] >>
         [](Match& _) {
-          return err(_[TypeArgs], "type arguments on their own are not a type");
+          return err(_(TypeArgs), "Type arguments on their own are not a type");
         },
       TypeStruct * T(Dot)[Dot] >>
-        [](Match& _) { return err(_[Dot], "misplaced type viewpoint"); },
+        [](Match& _) { return err(_(Dot), "Misplaced type viewpoint"); },
       TypeStruct * T(Ellipsis)[Ellipsis] >>
-        [](Match& _) { return err(_[Ellipsis], "misplaced type list"); },
+        [](Match& _) { return err(_(Ellipsis), "Misplaced type list"); },
     };
   }
 }

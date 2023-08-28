@@ -81,8 +81,8 @@ namespace verona
         T(Param)[Param] << (T(Ident) * T(Type) * T(NLRCheck)) >>
           [](Match& _) {
             return err(
-              _[Param],
-              "can't put a default value before a non-defaulted value");
+              _(Param),
+              "Can't put a default value before a non-defaulted value");
           },
       }};
   }

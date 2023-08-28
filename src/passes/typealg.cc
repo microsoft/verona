@@ -22,7 +22,7 @@ namespace verona
         },
 
       TypeStruct * T(Symbol)[Symbol] >>
-        [](Match& _) { return err(_[Symbol], "invalid symbol in type"); },
+        [](Match& _) { return err(_(Symbol), "Invalid symbol in type"); },
     };
   }
 }

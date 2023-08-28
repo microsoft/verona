@@ -41,15 +41,14 @@ namespace verona
               << (Type
                   << (TypeIsect
                       << (Type
-                          << (TypeTrait
-                              << (Ident ^ _.fresh(l_trait))
-                              << (ClassBody
-                                  << (Function
-                                      << Explicit << Rhs << (Ident ^ l_apply)
-                                      << TypeParams << params
-                                      << (Type << clone(_(Rhs))) << DontCare
-                                      << typepred()
-                                      << (Block << (Expr << Unit))))))
+                          << (Trait << (Ident ^ _.fresh(l_trait))
+                                    << (ClassBody
+                                        << (Function
+                                            << Explicit << Rhs
+                                            << (Ident ^ l_apply) << TypeParams
+                                            << params << (Type << clone(_(Rhs)))
+                                            << DontCare << typepred()
+                                            << (Block << (Expr << Unit))))))
                       << (Type << cap)));
           }
 
@@ -57,7 +56,7 @@ namespace verona
         },
 
       TypeStruct * T(Symbol, "->")[Symbol] >>
-        [](Match& _) { return err(_[Symbol], "misplaced function type"); },
+        [](Match& _) { return err(_(Symbol), "Misplaced function type"); },
     };
   }
 }

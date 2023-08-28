@@ -9,6 +9,7 @@ namespace verona
 {
   struct BtypeDef;
   using Btype = std::shared_ptr<BtypeDef>;
+  using Btypes = std::vector<Btype>;
 
   struct BtypeDef
   {

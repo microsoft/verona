@@ -97,7 +97,7 @@ namespace verona
 
       T(Ellipsis) >>
         [](Match& _) {
-          return err(_[Ellipsis], "must use `...` after a value in a tuple");
+          return err(_(Ellipsis), "`...` must be after a value in a tuple");
         },
 
       // Compact expressions.

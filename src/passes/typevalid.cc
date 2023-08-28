@@ -138,7 +138,7 @@ namespace verona
     // A predicate is a type that can be used in a where clause. They can be
     // composed of unions and intersections of predicates and type aliases
     // that expand to predicates.
-    std::vector<Btype> worklist;
+    Btypes worklist;
     worklist.push_back(t);
 
     while (!worklist.empty())
@@ -175,7 +175,7 @@ namespace verona
     // A type that can be used in an inherit clause. They can be composed of
     // intersections of classes, traits, and type aliases that expand to
     // valid inherit clauses.
-    std::vector<Btype> worklist;
+    Btypes worklist;
     worklist.push_back(t);
 
     while (!worklist.empty())
@@ -183,7 +183,7 @@ namespace verona
       t = worklist.back();
       worklist.pop_back();
 
-      if (t->type().in({Class, TypeTrait}))
+      if (t->type().in({Class, Trait}))
       {
         // Do nothing.
       }
@@ -214,14 +214,14 @@ namespace verona
       {
         T(TypeAlias)[TypeAlias] >> ([](Match& _) -> Node {
           if (recursive_typealias(_(TypeAlias)))
-            return err(_[TypeAlias], "recursive type alias");
+            return err(_(TypeAlias), "Recursive type alias");
 
           return NoChange;
         }),
 
         In(Class) * T(Inherit)[Inherit] << T(Type) >> ([](Match& _) -> Node {
           if (recursive_inherit(_(Inherit)))
-            return err(_[Inherit], "recursive inheritance");
+            return err(_(Inherit), "Recursive inheritance");
 
           return NoChange;
         }),
@@ -231,24 +231,26 @@ namespace verona
           ([](Match& _) -> Node {
             if (!valid_predicate(make_btype(_(TypeAliasName))))
               return err(
-                _[Type], "this type alias isn't a valid type predicate");
+                _(TypeAliasName),
+                "This type alias isn't a valid type predicate");
 
             return NoChange;
           }),
 
         In(TypePred)++ * --(In(TypeSubtype, TypeArgs)++) *
             (TypeCaps / T(TypeClassName) / T(TypeParamName) / T(TypeTraitName) /
-             T(TypeTrait) / T(TypeTuple) / T(Self) / T(TypeList) / T(TypeView) /
+             T(Trait) / T(TypeTuple) / T(Self) / T(TypeList) / T(TypeView) /
              T(TypeVar) / T(Package))[Type] >>
           [](Match& _) {
-            return err(_[Type], "can't put this in a type predicate");
+            return err(_(Type), "Can't put this in a type predicate");
           },
 
         In(Inherit)++ * --(In(TypeArgs)++) * T(TypeAliasName)[TypeAliasName] >>
           ([](Match& _) -> Node {
             if (!valid_inherit(make_btype(_(TypeAliasName))))
               return err(
-                _[Type], "this type alias isn't valid for inheritance");
+                _(TypeAliasName),
+                "This type alias isn't valid for inheritance");
 
             return NoChange;
           }),
@@ -257,7 +259,7 @@ namespace verona
             (TypeCaps / T(TypeParamName) / T(TypeTuple) / T(Self) /
              T(TypeList) / T(TypeView) / T(TypeUnion) / T(TypeVar) /
              T(Package) / T(TypeSubtype) / T(TypeTrue) / T(TypeFalse))[Type] >>
-          [](Match& _) { return err(_[Type], "can't inherit from this type"); },
+          [](Match& _) { return err(_(Type), "Can't inherit from this type"); },
       }};
   }
 }

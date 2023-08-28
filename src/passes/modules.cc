@@ -22,12 +22,12 @@ namespace verona
 
       In(Type)++ * T(Colon)[Colon] >>
         [](Match& _) {
-          return err(_[Colon], "can't put a type assertion inside a type");
+          return err(_(Colon), "Can't put a type assertion inside a type");
         },
 
       In(Type)++ * T(Where)[Where] >>
         [](Match& _) {
-          return err(_[Where], "can't put a type predicate inside a type");
+          return err(_(Where), "Can't put a type predicate inside a type");
         },
 
       // Type assertion. Treat an empty assertion as DontCare. Accept a brace if
@@ -56,7 +56,7 @@ namespace verona
         },
 
       T(TripleColon)[TripleColon] >>
-        [](Match& _) { return err(_[TripleColon], "malformed LLVM type"); },
+        [](Match& _) { return err(_(TripleColon), "Malformed LLVM type"); },
     };
   }
 }

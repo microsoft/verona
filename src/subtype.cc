@@ -13,19 +13,19 @@ namespace verona
 
     Assume(Btype sub, Btype sup) : sub(sub), sup(sup)
     {
-      assert(sub->type().in({Class, TypeTrait}));
-      assert(sup->type() == TypeTrait);
+      assert(sub->type().in({Class, Trait}));
+      assert(sup->type() == Trait);
     }
   };
 
   struct Sequent
   {
-    std::vector<Btype> lhs_pending;
-    std::vector<Btype> rhs_pending;
-    std::vector<Btype> lhs_atomic;
-    std::vector<Btype> rhs_atomic;
-    std::vector<Btype> self;
-    std::vector<Btype> predicates;
+    Btypes lhs_pending;
+    Btypes rhs_pending;
+    Btypes lhs_atomic;
+    Btypes rhs_atomic;
+    Btypes self;
+    Btypes predicates;
     std::vector<Assume> assumptions;
 
     Sequent() = default;
@@ -341,9 +341,9 @@ namespace verona
       }
 
       // Check structural subtyping.
-      if (r->type() == TypeTrait)
+      if (r->type() == Trait)
       {
-        if (!l->type().in({Class, TypeTrait}))
+        if (!l->type().in({Class, Trait}))
           return false;
 
         // If any assumption is true, the trait is satisfied.
@@ -510,7 +510,7 @@ namespace verona
         auto r = t->make(*it);
 
         if (r->type().in(
-              {Package, Class, TypeTrait, TypeTuple, TypeTrue, TypeFalse}))
+              {Package, Class, Trait, TypeTuple, TypeTrue, TypeFalse}))
         {
           // The viewpoint path can be discarded.
           if (*it == t->node->back())

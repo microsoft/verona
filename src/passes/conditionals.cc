@@ -95,13 +95,13 @@ namespace verona
 
       T(If)[If] >>
         [](Match& _) {
-          return err(_[If], "`if` must be followed by a condition and braces");
+          return err(_(If), "`if` must be followed by a condition and braces");
         },
 
       T(Else)[Else] >>
         [](Match& _) {
           return err(
-            _[Else],
+            _(Else),
             "`else` must follow an `if` and be followed by an `if` or braces");
         },
 

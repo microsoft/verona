@@ -52,7 +52,7 @@ namespace verona
 
              // Build an FQType for the anonymous type.
              auto fq = append_fq(
-               local_fq(_(Lambda)->parent({Class, TypeTrait})),
+               local_fq(_(Lambda)->parent({Class, Trait})),
                TypeClassName << (Ident ^ class_id) << TypeArgs);
 
              // The create function will capture the free variables.

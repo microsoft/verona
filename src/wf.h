@@ -52,8 +52,8 @@ namespace verona
   // clang-format on
 
   inline const auto wfTypeStructure = Type | TypeTrue | TypeFalse | Iso | Mut |
-    Imm | TypeTrait | TypeTuple | TypeVar | TypeArgs | Package | Self |
-    DontCare | Ellipsis | Ident | Symbol | Dot | DoubleColon;
+    Imm | Trait | TypeTuple | TypeVar | TypeArgs | Package | Self | DontCare |
+    Ellipsis | Ident | Symbol | Dot | DoubleColon;
 
   inline const auto wfExprStructure = Expr | ExprSeq | Unit | Tuple | Assign |
     TypeArgs | If | Else | Lambda | Let | Var | New | Try | Ref | DontCare |
@@ -71,7 +71,7 @@ namespace verona
         (Use | Class | TypeAlias | FieldLet | FieldVar | Function)++)
     | (Use <<= Type)[Include]
     | (TypeAlias <<= Ident * TypeParams * TypePred * Type)[Ident]
-    | (TypeTrait <<= Ident * ClassBody)[Ident]
+    | (Trait <<= Ident * ClassBody)[Ident]
     | (FieldLet <<= wfImplicit * Ident * Type * wfDefault)[Ident]
     | (FieldVar <<= wfImplicit * Ident * Type * wfDefault)[Ident]
     | (Function <<=

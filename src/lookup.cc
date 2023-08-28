@@ -89,7 +89,7 @@ namespace verona
       if (!inserted.second)
         return {};
 
-      if (lookup.def->type().in({Class, TypeTrait, Function}))
+      if (lookup.def->type().in({Class, Trait, Function}))
       {
         // Return all lookdowns in the found class, trait, or function.
         Lookups result;
@@ -304,8 +304,7 @@ namespace verona
 
   static Node make_fq(Lookup& lookup, bool fresh)
   {
-    if (!lookup.def->type().in(
-          {Class, TypeAlias, TypeParam, TypeTrait, Function}))
+    if (!lookup.def->type().in({Class, TypeAlias, TypeParam, Trait, Function}))
     {
       return lookup.def;
     }
@@ -331,7 +330,7 @@ namespace verona
       {
         path << (TypeParamName << clone(node / Ident));
       }
-      else if (node->type() == TypeTrait)
+      else if (node->type() == Trait)
       {
         path << (TypeTraitName << clone(node / Ident));
       }
@@ -344,7 +343,7 @@ namespace verona
                        << (Int ^ arity) << make_typeargs(node, lookup, fresh));
       }
 
-      node = node->parent({Class, TypeAlias, TypeTrait, Function});
+      node = node->parent({Class, TypeAlias, Trait, Function});
     }
 
     std::reverse(path->begin(), path->end());
@@ -367,8 +366,8 @@ namespace verona
   Node local_fq(Node node)
   {
     // Build an FQType for the local type.
-    if (!node->type().in({Class, TypeAlias, TypeParam, TypeTrait, Function}))
-      node = node->parent({Class, TypeAlias, TypeParam, TypeTrait, Function});
+    if (!node->type().in({Class, TypeAlias, TypeParam, Trait, Function}))
+      node = node->parent({Class, TypeAlias, TypeParam, Trait, Function});
 
     Lookup l(node);
     return make_fq(l, true);

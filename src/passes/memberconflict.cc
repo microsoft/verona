@@ -4,54 +4,6 @@
 
 namespace verona
 {
-  Token handed(Node& node)
-  {
-    assert(node->type().in({FieldLet, FieldVar, Function}));
-
-    // Return Op to mean both.
-    if (node->type() == FieldVar)
-      return Op;
-    else if (node->type() == FieldLet)
-      return Lhs;
-    else
-      return (node / Ref)->type();
-  }
-
-  std::pair<size_t, size_t> arity(Node& node)
-  {
-    assert(node->type().in({FieldLet, FieldVar, Function}));
-
-    if (node->type() != Function)
-      return {1, 1};
-
-    auto params = node / Params;
-    auto arity_hi = params->size();
-    auto arity_lo = arity_hi;
-
-    for (auto& param : *params)
-    {
-      if ((param / Default)->type() != DontCare)
-        arity_lo--;
-    }
-
-    return {arity_lo, arity_hi};
-  }
-
-  bool conflict(Node& a, Node& b)
-  {
-    // Check for handedness overlap.
-    auto a_hand = handed(a);
-    auto b_hand = handed(b);
-
-    if ((a_hand != b_hand) && (a_hand != Op) && (b_hand != Op))
-      return false;
-
-    // Check for arity overlap.
-    auto [a_lo, a_hi] = arity(a);
-    auto [b_lo, b_hi] = arity(b);
-    return (b_hi >= a_lo) && (a_hi >= b_lo);
-  }
-
   PassDef memberconflict()
   {
     return {
@@ -72,7 +24,13 @@ namespace verona
             {
               // If both are implicit or both are explicit, it's an error.
               if (def->precedes(f))
+              {
+                // If they're identical, discard this one.
+                if (def->equals(f))
+                  return {};
+
                 conflicts.push_back(def);
+              }
             }
             else if (implicit)
             {
@@ -83,7 +41,18 @@ namespace verona
 
           if (!conflicts.empty())
           {
-            auto e = err(f, "this member conflicts with other members");
+            Node e = Error;
+            auto p = f->parent({Class, Trait});
+
+            if (p->type() == Class)
+              e << (ErrorMsg ^ "Member conflict in this class")
+                << (ErrorAst ^ (p / Ident));
+            else
+              e << (ErrorMsg ^ "Member conflict in trait");
+
+            e << (ErrorMsg ^ "This member conflicts")
+              << ((ErrorAst ^ (f / Ident)) << f)
+              << (ErrorMsg ^ "The conflicting member(s) are");
 
             for (auto& def : conflicts)
               e << (ErrorAst ^ (def / Ident));

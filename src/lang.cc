@@ -8,14 +8,9 @@
 
 namespace verona
 {
-  Node err(NodeRange& r, const std::string& msg)
-  {
-    return Error << (ErrorMsg ^ msg) << (ErrorAst << r);
-  }
-
   Node err(Node node, const std::string& msg)
   {
-    return Error << (ErrorMsg ^ msg) << ((ErrorAst ^ node) << node);
+    return Error << (ErrorMsg ^ msg) << node;
   }
 
   Node typevar(Match& _)
@@ -179,6 +174,54 @@ namespace verona
   {
     auto f = n->parent(Function);
     return f && ((f / Implicit)->type() == Implicit);
+  }
+
+  static Token handed(Node& node)
+  {
+    assert(node->type().in({FieldLet, FieldVar, Function}));
+
+    // Return Op to mean both.
+    if (node->type() == FieldVar)
+      return Op;
+    else if (node->type() == FieldLet)
+      return Lhs;
+    else
+      return (node / Ref)->type();
+  }
+
+  static std::pair<size_t, size_t> arity(Node& node)
+  {
+    assert(node->type().in({FieldLet, FieldVar, Function}));
+
+    if (node->type() != Function)
+      return {1, 1};
+
+    auto params = node / Params;
+    auto arity_hi = params->size();
+    auto arity_lo = arity_hi;
+
+    for (auto& param : *params)
+    {
+      if ((param / Default)->type() != DontCare)
+        arity_lo--;
+    }
+
+    return {arity_lo, arity_hi};
+  }
+
+  bool conflict(Node& a, Node& b)
+  {
+    // Check for handedness overlap.
+    auto a_hand = handed(a);
+    auto b_hand = handed(b);
+
+    if ((a_hand != b_hand) && (a_hand != Op) && (b_hand != Op))
+      return false;
+
+    // Check for arity overlap.
+    auto [a_lo, a_hi] = arity(a);
+    auto [b_lo, b_hi] = arity(b);
+    return (b_hi >= a_lo) && (a_hi >= b_lo);
   }
 
   Options& options()

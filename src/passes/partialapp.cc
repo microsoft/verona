@@ -88,7 +88,7 @@ namespace verona
             auto f = _(Function);
             auto id = _(Ident);
             auto params = _(Params);
-            auto parent = f->parent({Class, TypeTrait});
+            auto parent = f->parent({Class, Trait});
             auto fq_f = local_fq(f);
             auto fq_parent = local_fq(parent);
 

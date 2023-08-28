@@ -58,7 +58,7 @@ namespace verona
   inline const auto Imm = TokenDef("imm");
 
   // Semantic structure.
-  inline const auto TypeTrait = TokenDef(
+  inline const auto Trait = TokenDef(
     "typetrait",
     flag::symtab | flag::lookup | flag::lookdown | flag::shadowing);
   inline const auto ClassBody = TokenDef("classbody");
@@ -160,7 +160,7 @@ namespace verona
   inline const auto TypeCaps = T(Iso) / T(Mut) / T(Imm);
   inline const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) /
     T(Hex) / T(Bin) / T(Int) / T(Float) / T(HexFloat) / T(LLVM);
-  inline const auto TypeElem = T(Type) / TypeCaps / T(FQType) / T(TypeTrait) /
+  inline const auto TypeElem = T(Type) / TypeCaps / T(FQType) / T(Trait) /
     T(TypeTuple) / T(Self) / T(TypeList) / T(TypeView) / T(TypeIsect) /
     T(TypeUnion) / T(TypeVar) / T(Package) / T(TypeSubtype) / T(TypeTrue) /
     T(TypeFalse);
@@ -174,7 +174,6 @@ namespace verona
         (T(FQFunction) << (T(FQType) * (T(Selector) << T(Rhs)))));
 
   // Helper functions for generating AST fragments.
-  Node err(NodeRange& r, const std::string& msg);
   Node err(Node node, const std::string& msg);
   Node typevar(Match& _);
   Node typevar(Match& _, const Token& t);
@@ -193,6 +192,7 @@ namespace verona
   Node call_lhs(Node call);
   Node load(Node arg, bool post_nlr = false);
   bool is_implicit(Node n);
+  bool conflict(Node& a, Node& b);
 
   // Pass definitions.
   Parse parser();

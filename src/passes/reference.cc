@@ -143,7 +143,7 @@ namespace verona
           (T(DoubleColon) * ~(T(Ident) / T(Symbol)) *
            ~T(TypeArgs))[DoubleColon] >>
         [](Match& _) {
-          return err(_[DoubleColon], "expected a scoped reference");
+          return err(_(DoubleColon), "Expected a scoped reference");
         },
 
       // Create sugar, with no arguments.
@@ -160,7 +160,7 @@ namespace verona
       In(Expr) * T(New)[New] >>
         [](Match& _) {
           return append_fq(
-            local_fq(_(New)->parent({Class, TypeTrait})), selector(l_new));
+            local_fq(_(New)->parent({Class, Trait})), selector(l_new));
         },
     };
   }

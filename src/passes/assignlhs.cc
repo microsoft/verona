@@ -59,31 +59,31 @@ namespace verona
 
       In(Expr) * T(Ref)[Ref] >>
         [](Match& _) {
-          return err(_[Ref], "must use `ref` in front of a variable or call");
+          return err(_(Ref), "`ref` must be in front of a variable or call");
         },
 
       In(Expr) * T(Try)[Try] >>
         [](Match& _) {
-          return err(_[Try], "must use `try` in front of a call or lambda");
+          return err(_(Try), "`try` must be in front of a call or lambda");
         },
 
       T(Expr)[Expr] << (Any * Any * Any++) >>
         [](Match& _) {
-          return err(_[Expr], "adjacency on this expression isn't meaningful");
+          return err(_(Expr), "Adjacency on this expression isn't meaningful");
         },
 
       In(TupleLHS) * T(TupleFlatten) >>
         [](Match& _) {
           return err(
-            _[TupleFlatten],
-            "can't flatten a tuple on the left-hand side of an assignment");
+            _(TupleFlatten),
+            "Can't flatten a tuple on the left-hand side of an assignment");
         },
 
       In(Expr) * T(Expr)[Expr] >>
         [](Match& _) {
           return err(
-            _[Expr],
-            "well-formedness allows this but it can't occur on written code");
+            _(Expr),
+            "Well-formedness allows this but it can't occur on written code");
         },
     };
   }

@@ -20,7 +20,7 @@ namespace verona
 
       T(Dot)[Dot] >>
         [](Match& _) {
-          return err(_[Dot], "must use `.` with values and operators");
+          return err(_(Dot), "Must use `.` with values and operators");
         },
     };
   }

@@ -12,7 +12,7 @@ namespace verona
       {
         T(RefLet) << T(Ident)[Ident] >> ([](Match& _) -> Node {
           if (!is_implicit(_(Ident)) && !lookup_type(_(Ident), {Bind, Param}))
-            return err(_[Ident], "use of uninitialized identifier");
+            return err(_(Ident), "Use of uninitialized identifier");
 
           return NoChange;
         }),

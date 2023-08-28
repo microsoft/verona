@@ -89,10 +89,10 @@ namespace verona
 
       // An assign with an error can't be compacted, so it's an error.
       T(Assign)[Assign] << (T(Expr)++ * T(Error)) >>
-        [](Match& _) { return err(_[Assign], "error inside an assignment"); },
+        [](Match& _) { return err(_(Assign), "Error inside an assignment"); },
 
       T(Expr)[Expr] << T(Let)[Let] >>
-        [](Match& _) { return err(_[Expr], "must assign to a `let` binding"); },
+        [](Match& _) { return err(_(Expr), "`let` must have a value"); },
 
       // Well-formedness allows this but it can't occur on written code.
       T(Expr)[Expr] << T(TupleLHS)[TupleLHS] >>
