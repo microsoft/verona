@@ -233,11 +233,10 @@ namespace verona
     ;
   // clang-format on
 
-  // Remove Unit, Try, DontCare, Ellipsis, Selector, FQFunction.
+  // Remove Unit, DontCare, Ellipsis, Selector, FQFunction.
   // Add RefVarLHS.
   inline const auto wfExprApplication =
-    (wfExprReverseApp -
-     (Unit | Try | DontCare | Ellipsis | Selector | FQFunction)) |
+    (wfExprReverseApp - (Unit | DontCare | Ellipsis | Selector | FQFunction)) |
     RefVarLHS;
 
   // clang-format off

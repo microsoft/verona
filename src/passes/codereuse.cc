@@ -66,6 +66,10 @@ namespace verona
               auto l = worklist.back();
               worklist.pop_back();
 
+              // This should only happen in test code.
+              if (!l.def)
+                continue;
+
               if (l.def->type() == FQType)
               {
                 auto ll = resolve_fq(l.def);
