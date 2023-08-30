@@ -305,9 +305,7 @@ namespace verona
   static Node make_fq(Lookup& lookup, bool fresh)
   {
     if (!lookup.def->type().in({Class, TypeAlias, TypeParam, Trait, Function}))
-    {
       return lookup.def;
-    }
 
     Node path = TypePath;
     auto node = lookup.def;

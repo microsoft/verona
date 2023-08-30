@@ -1,18 +1,50 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
-#include "../subtype.h"
+#include "../lang.h"
+#include "../lookup.h"
 
 namespace verona
 {
+  struct Pending
+  {
+    size_t rc = 0;
+    std::vector<Lookup> inherit;
+    Nodes deps;
+  };
+
+  size_t type_substitution(NodeMap<Node>& bindings, Node& node)
+  {
+    // Substitutes inside of `node`, but not `node` itself.
+    size_t changes = 0;
+
+    for (auto child : *node)
+    {
+      while ((child->type() == FQType) &&
+             ((child / Type)->type() == TypeParamName))
+      {
+        auto l = resolve_fq(child);
+        auto it = bindings.find(l.def);
+
+        if (it == bindings.end())
+          break;
+
+        auto bind = clone(it->second);
+
+        if (bind->type() == Type)
+          bind = bind / Type;
+
+        node->replace(child, bind);
+        child = bind;
+      }
+
+      changes += type_substitution(bindings, child);
+    }
+
+    return changes;
+  }
+
   PassDef codereuse()
   {
-    struct Pending
-    {
-      size_t rc = 0;
-      Btypes inherit;
-      Nodes pending;
-    };
-
     auto pending = std::make_shared<NodeMap<Pending>>();
     auto ready = std::make_shared<Nodes>();
 
@@ -26,36 +58,44 @@ namespace verona
           ([=](Match& _) -> Node {
             auto cls = _(Class);
             auto& pend = (*pending)[cls];
-            Btypes worklist;
-            worklist.emplace_back(make_btype(_(Inherit)));
+            std::vector<Lookup> worklist;
+            worklist.emplace_back(Lookup(_(Inherit)));
 
             while (!worklist.empty())
             {
-              auto type = worklist.back();
+              auto l = worklist.back();
               worklist.pop_back();
 
-              if (type->type() == TypeIsect)
+              if (l.def->type() == FQType)
               {
-                for (auto& t : *type->node)
-                  worklist.emplace_back(type->make(t));
+                auto ll = resolve_fq(l.def);
+                ll.bindings.merge(l.bindings);
+                worklist.push_back(ll);
               }
-              else if (type->type() == TypeAlias)
+              else if (l.def->type().in({Type, TypeIsect}))
               {
-                worklist.emplace_back(type->field(Type));
+                for (auto& t : *l.def)
+                  worklist.emplace_back(l.make(t));
               }
-              else if (type->type() == Trait)
+              else if (l.def->type() == TypeAlias)
               {
-                pend.inherit.push_back(type);
+                // Carry typeargs forward.
+                worklist.emplace_back(l.make(l.def / Type));
               }
-              else if (type->type() == Class)
+              else if (l.def->type() == Trait)
               {
-                if ((type->node / Inherit / Inherit)->type() == Type)
+                pend.inherit.push_back(l);
+              }
+              else if (l.def->type() == Class)
+              {
+                if ((l.def / Inherit / Inherit)->type() == Type)
                 {
-                  (*pending)[type->node].pending.push_back(cls);
+                  // Keep track of the inheritance graph.
+                  (*pending)[l.def].deps.push_back(cls);
                   pend.rc++;
                 }
 
-                pend.inherit.push_back(type);
+                pend.inherit.push_back(l);
               }
             }
 
@@ -76,39 +116,38 @@ namespace verona
         auto& pend = (*pending)[cls];
         auto body = cls / ClassBody;
         (cls / Inherit) = Inherit << DontCare;
+        changes++;
 
         for (auto& from : pend.inherit)
         {
-          for (auto f : *(from->node / ClassBody))
+          for (auto f : *(from.def / ClassBody))
           {
             if (!f->type().in({FieldLet, FieldVar, Function}))
               continue;
 
             // Don't inherit functions without implementations.
-            if (
-              (f->type() == Function) &&
-              ((f / Block)->type() == DontCare))
+            if ((f->type() == Function) && ((f / Block)->type() == DontCare))
               continue;
 
             // If we have an explicit version that conflicts, don't inherit.
             auto defs = cls->lookdown((f / Ident)->location());
-
-            if (std::any_of(
-                  defs.begin(), defs.end(), [&](Node& def) -> bool {
-                    return conflict(f, def);
-                  }))
+            if (std::any_of(defs.begin(), defs.end(), [&](Node& def) -> bool {
+                  return conflict(f, def);
+                }))
               continue;
 
             // Clone an implicit version into classbody.
             f = clone(f);
             (f / Implicit) = Implicit;
             body << f;
+            changes++;
 
-            // TODO: type substitution for type parameters.
+            // Type substitution in the inherited member.
+            changes += type_substitution(from.bindings, f);
           }
         }
 
-        for (auto& dep : pend.pending)
+        for (auto& dep : pend.deps)
         {
           if (--pending->at(dep).rc == 0)
             ready->push_back(dep);

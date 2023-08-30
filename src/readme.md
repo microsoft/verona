@@ -1,9 +1,6 @@
 # To Do
 
-- Code reuse.
-  - Type substitution.
 - Lookup in a `TypeParam`, e.g., `create` or an associated type.
-
 - Check that default types for type parameters satisfy predicates.
 - Free variables in object literals.
 - Tuples as traits.

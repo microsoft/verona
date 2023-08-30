@@ -133,11 +133,16 @@ namespace verona
     return false;
   }
 
-  bool valid_predicate(Btype t)
+  bool valid_predicate(Node fq)
   {
     // A predicate is a type that can be used in a where clause. They can be
     // composed of unions and intersections of predicates and type aliases
     // that expand to predicates.
+    Btype t = make_btype(fq);
+
+    if (t->type() != TypeAlias)
+      return false;
+
     Btypes worklist;
     worklist.push_back(t);
 
@@ -170,11 +175,16 @@ namespace verona
     return true;
   }
 
-  bool valid_inherit(Btype t)
+  bool valid_inherit(Node fq)
   {
     // A type that can be used in an inherit clause. They can be composed of
     // intersections of classes, traits, and type aliases that expand to
     // valid inherit clauses.
+    Btype t = make_btype(fq);
+
+    if (!t->type().in({Class, Trait, TypeAlias}))
+      return false;
+
     Btypes worklist;
     worklist.push_back(t);
 
@@ -226,39 +236,33 @@ namespace verona
           return NoChange;
         }),
 
-        In(TypePred)++ * --(In(TypeSubtype, TypeArgs)++) *
-            T(TypeAliasName)[TypeAliasName] >>
+        In(TypePred)++ * --(In(TypeSubtype, TypeArgs)++) * T(FQType)[FQType] >>
           ([](Match& _) -> Node {
-            if (!valid_predicate(make_btype(_(TypeAliasName))))
-              return err(
-                _(TypeAliasName),
-                "This type alias isn't a valid type predicate");
+            if (!valid_predicate(_(FQType)))
+              return err(_(FQType), "This type isn't a valid type predicate");
 
             return NoChange;
           }),
 
         In(TypePred)++ * --(In(TypeSubtype, TypeArgs)++) *
-            (TypeCaps / T(TypeClassName) / T(TypeParamName) / T(TypeTraitName) /
-             T(Trait) / T(TypeTuple) / T(Self) / T(TypeList) / T(TypeView) /
-             T(TypeVar) / T(Package))[Type] >>
+            (TypeCaps / T(FQType) / T(Trait) / T(TypeTuple) / T(Self) /
+             T(TypeList) / T(TypeView) / T(TypeVar) / T(Package))[Type] >>
           [](Match& _) {
             return err(_(Type), "Can't put this in a type predicate");
           },
 
-        In(Inherit)++ * --(In(TypeArgs)++) * T(TypeAliasName)[TypeAliasName] >>
+        In(Inherit)++ * --(In(TypeArgs)++) * T(FQType)[FQType] >>
           ([](Match& _) -> Node {
-            if (!valid_inherit(make_btype(_(TypeAliasName))))
-              return err(
-                _(TypeAliasName),
-                "This type alias isn't valid for inheritance");
+            if (!valid_inherit(_(FQType)))
+              return err(_(FQType), "This type isn't valid for inheritance");
 
             return NoChange;
           }),
 
         In(Inherit)++ * --(In(TypeArgs)++) *
-            (TypeCaps / T(TypeParamName) / T(TypeTuple) / T(Self) /
-             T(TypeList) / T(TypeView) / T(TypeUnion) / T(TypeVar) /
-             T(Package) / T(TypeSubtype) / T(TypeTrue) / T(TypeFalse))[Type] >>
+            (TypeCaps / T(TypeTuple) / T(Self) / T(TypeList) / T(TypeView) /
+             T(TypeUnion) / T(TypeVar) / T(Package) / T(TypeSubtype) /
+             T(TypeTrue) / T(TypeFalse))[Type] >>
           [](Match& _) { return err(_(Type), "Can't inherit from this type"); },
       }};
   }
