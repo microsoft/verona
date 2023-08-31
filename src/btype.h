@@ -1,5 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
+#pragma once
+
 #include "lang.h"
 #include "lookup.h"
 
@@ -7,6 +9,7 @@ namespace verona
 {
   struct BtypeDef;
   using Btype = std::shared_ptr<BtypeDef>;
+  using Btypes = std::vector<Btype>;
 
   struct BtypeDef
   {
@@ -24,23 +27,18 @@ namespace verona
         {
           node = node / Type;
         }
-        else if (node->type().in(
-                   {TypeClassName,
-                    TypeTraitName,
-                    TypeAliasName,
-                    TypeParamName}))
+        else if (node->type().in({FQType, FQFunction}))
         {
-          auto defs = lookup_scopedname(node);
+          auto lookup = resolve_fq(node);
 
-          // This won't be empty in non-testing code.
-          if (defs.defs.empty())
+          // This should only happen in test code.
+          if (!lookup.def)
             return;
 
-          // Use existing bindings if they haven't been specified here.
-          auto& def = defs.defs.front();
-          node = def.def;
+          node = lookup.def;
 
-          for (auto& bind : def.bindings)
+          // Use existing bindings if they haven't been specified here.
+          for (auto& bind : lookup.bindings)
             bindings[bind.first] = make(bind.second, b);
 
           // Check for cycles.
@@ -49,12 +47,24 @@ namespace verona
         }
         else if (node->type() == TypeParam)
         {
-          // An unbound typeparam effectively binds to itself.
           set.insert(node);
-
           auto it = bindings.find(node);
+
+          // Except in testing, there should always be a binding.
           if (it == bindings.end())
             return;
+
+          // If it's bound to itself, check the next binding.
+          if (it->second->type() == TypeParamBind)
+          {
+            for (auto& bind : it->second->bindings)
+              bindings[bind.first] = bind.second;
+
+            it = bindings.find(node);
+
+            if (it == bindings.end())
+              return;
+          }
 
           *this = *it->second;
         }
@@ -85,58 +95,27 @@ namespace verona
       return node->type();
     }
 
-    bool valid_predicate()
-    {
-      // A predicate is a type that can be used in a where clause. They can be
-      // composed of unions and intersections of predicates and type aliases
-      // that expand to predicates.
-      if (node->type() == TypeSubtype)
-      {
-        return true;
-      }
-      else if (node->type().in({TypeUnion, TypeIsect}))
-      {
-        // Check that all children are valid predicates.
-        return std::all_of(node->begin(), node->end(), [&](auto& t) {
-          return make(t)->valid_predicate();
-        });
-      }
-      else if (node->type() == TypeAlias)
-      {
-        return field(Type)->valid_predicate();
-      }
-
-      return false;
-    }
-
-    bool valid_inherit()
-    {
-      // A type that can be used in an inherit clause. They can be composed of
-      // intersections of classes, traits, and type aliases that expand to
-      // valid inherit clauses.
-      if (node->type().in({Class, TypeTrait}))
-      {
-        return true;
-      }
-      else if (node->type().in({Type, TypeIsect}))
-      {
-        // Check that all children are valid for code reuse.
-        return std::all_of(node->begin(), node->end(), [&](auto& t) {
-          return make(t)->valid_inherit();
-        });
-      }
-      else if (node->type() == TypeAlias)
-      {
-        return field(Type)->valid_inherit();
-      }
-
-      return false;
-    }
-
     void str(std::ostream& out, size_t level)
     {
-      out << indent(level) << "btype: {" << std::endl
-          << indent(level + 1) << "bindings: {" << std::endl;
+      out << indent(level) << "btype: {" << std::endl;
+
+      // Print the node.
+      out << indent(level + 1) << "node: {" << std::endl;
+
+      if (node->type().in({Class, TypeAlias, Function}))
+      {
+        out << indent(level + 2) << node->type().str() << " "
+            << (node / Ident)->location().view();
+      }
+      else
+      {
+        node->str(out, level + 2);
+      }
+
+      out << std::endl << indent(level + 1) << "}," << std::endl;
+
+      // Print the bindings.
+      out << indent(level + 1) << "bindings: {" << std::endl;
 
       for (auto& b : bindings)
       {
@@ -147,21 +126,7 @@ namespace verona
         out << indent(level + 2) << "}," << std::endl;
       }
 
-      out << indent(level + 1) << "}," << std::endl
-          << indent(level + 1) << "node: {" << std::endl;
-
-      if (node->type().in({Class, TypeAlias}))
-      {
-        out << indent(level + 2) << node->type().str() << " "
-            << (node / Ident)->location().view();
-      }
-      else
-      {
-        node->str(out, level + 2);
-      }
-
-      out << std::endl
-          << indent(level + 1) << "}" << std::endl
+      out << indent(level + 1) << "}" << std::endl
           << indent(level) << "}" << std::endl;
     }
   };

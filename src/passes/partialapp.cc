@@ -1,11 +1,14 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
+#include "../lookup.h"
 
 namespace verona
 {
   void extract_typeparams(Node scope, Node t, Node tp)
   {
+    // TODO: use FQNs
+
     // This function extracts all typeparams from a type `t` that are defined
     // within `scope` and appends them to `tp` if they aren't already present.
     if (t->type().in(
@@ -30,13 +33,13 @@ namespace verona
       auto id = t / Ident;
       auto defs = id->lookup(scope);
 
-      if ((defs.size() == 1) && (defs.front()->type() == TypeParam))
+      if ((defs.size() == 1) && ((*defs.begin())->type() == TypeParam))
       {
         if (!std::any_of(tp->begin(), tp->end(), [&](auto& p) {
               return (p / Ident)->location() == id->location();
             }))
         {
-          tp << clone(defs.front());
+          tp << clone(*defs.begin());
         }
       }
 
@@ -77,21 +80,17 @@ namespace verona
       dir::bottomup | dir::once,
       {
         T(Function)[Function]
-            << (IsImplicit * Hand[Ref] * Name[Ident] *
+            << (IsImplicit * Hand[Ref] * T(Ident)[Ident] *
                 T(TypeParams)[TypeParams] * T(Params)[Params] * T(Type) *
                 T(DontCare) * T(TypePred)[TypePred] *
                 (T(Block) / T(DontCare))) >>
           [](Match& _) {
-            // Create a FunctionName for a static call to the original function.
             auto f = _(Function);
             auto id = _(Ident);
-            auto parent = f->parent()->parent()->shared_from_this();
-
-            auto func_name = FunctionName
-              << (((parent->type() == Class) ? TypeClassName : TypeTraitName)
-                  << DontCare << clone(parent / Ident)
-                  << typeparams_to_typeargs(parent))
-              << clone(id) << typeparams_to_typeargs(f);
+            auto params = _(Params);
+            auto parent = f->parent({Class, Trait});
+            auto fq_f = local_fq(f);
+            auto fq_parent = local_fq(parent);
 
             // Find the lowest arity that is not already defined. If an arity 5
             // and an arity 3 function `f` are provided, an arity 4 partial
@@ -99,7 +98,6 @@ namespace verona
             // and arity 0-2 functions will be generated that call the arity 3
             // function.
             auto defs = parent->lookdown(id->location());
-            auto params = _(Params);
             size_t start_arity = 0;
             auto end_arity = params->size();
 
@@ -120,9 +118,10 @@ namespace verona
             for (auto arity = start_arity; arity < end_arity; ++arity)
               names.push_back(Ident ^ _.fresh(l_class));
 
-            Node ret = Seq;
-            auto hand = _(Ref);
-            Node call = (hand->type() == Lhs) ? CallLHS : Call;
+            Node ret = Seq << f;
+            auto hand = _(Ref)->type();
+            Nodes fqs;
+            Nodes classbodies;
 
             for (auto arity = start_arity; arity < end_arity; ++arity)
             {
@@ -130,34 +129,26 @@ namespace verona
               auto name = names[arity - start_arity];
               Node class_tp = TypeParams;
               Node classbody = ClassBody;
-              auto classdef = Class << clone(name) << class_tp << inherit()
-                                    << typepred() << classbody;
+              auto classdef = Class << clone(name) << class_tp
+                                    << (Inherit << DontCare) << typepred()
+                                    << classbody;
+
+              auto fq_class = append_fq(
+                fq_parent,
+                TypeClassName << clone(name)
+                              << typeparams_to_typeargs(classdef));
 
               // The anonymous class has fields for each supplied argument and a
               // create function that captures the supplied arguments.
-              Node create_params = Params;
-              Node new_args = Args;
-              classbody
-                << (Function << Implicit << Rhs << (Ident ^ create)
-                             << TypeParams << create_params << typevar(_)
-                             << DontCare << typepred()
-                             << (Block << (Expr << (Call << New << new_args))));
+              auto fq_new = append_fq(fq_class, selector(l_new));
+              Node new_args = Tuple;
 
-              // Create a function that returns the anonymous class for each
-              // arity.
+              // Find all needed typeparams and add them.
               Node func_tp = TypeParams;
               Node func_params = Params;
-              Node func_args = Args;
-              auto func = Function
-                << Implicit << clone(hand) << clone(id) << func_tp
-                << func_params << typevar(_) << DontCare << typepred()
-                << (Block
-                    << (Expr
-                        << (Call << (FunctionName
-                                     << (TypeClassName
-                                         << DontCare << clone(name) << TypeArgs)
-                                     << (Ident ^ create) << TypeArgs)
-                                 << func_args)));
+
+              Node create_params = Params;
+              Node create_args = Tuple;
 
               for (size_t i = 0; i < arity; ++i)
               {
@@ -165,42 +156,84 @@ namespace verona
                 auto param_id = param / Ident;
                 auto param_type = param / Type;
 
+                // Add any needed typeparams to both the class and the function.
                 extract_typeparams(f, param_type, class_tp);
                 extract_typeparams(f, param_type, func_tp);
 
+                // Add the field to the anonymous class.
                 classbody << (FieldLet << clone(param_id) << clone(param_type));
+
+                // Add the parameter to the create function on the class.
                 create_params << clone(param);
+
+                // Add the argument to the `new` call inside the class create
+                // function.
                 new_args << (Expr << (RefLet << clone(param_id)));
+
+                // Add the parameter to the partial function.
                 func_params << clone(param);
-                func_args << (Expr << (RefLet << clone(param_id)));
+
+                // Add the argument to the create call inside the partial
+                // function.
+                create_args << (Expr << (RefLet << clone(param_id)));
               }
 
+              auto create_func = Function
+                << Implicit << Rhs << (Ident ^ l_create) << TypeParams
+                << create_params << typevar(_) << DontCare << typepred()
+                << (Block << (Expr << call(fq_new, new_args)));
+              classbody << create_func;
+
+              // Create the partial function that returns the anonymous class.
+              auto fq_create = append_fq(
+                fq_class,
+                selector(l_create, typeparams_to_typeargs(create_func)));
+
+              ret << classdef
+                  << (Function
+                      << Implicit << hand << clone(id) << func_tp << func_params
+                      << typevar(_) << DontCare << typepred()
+                      << (Block
+                          << (Expr << call(clone(fq_create), create_args))));
+
+              fqs.push_back(fq_create);
+              classbodies.push_back(classbody);
+            }
+
+            // We have an fq and a classdef for each arity. Now we need to
+            // create the apply functions for each arity.
+            for (auto arity = start_arity; arity < end_arity; ++arity)
+            {
               // The anonymous class has a function for each intermediate arity
-              // and for the final arity.
+              // and for the final arity, allowing any number of arguments to be
+              // supplied.
+              auto classbody = classbodies[arity - start_arity];
+
               for (auto i = arity + 1; i <= end_arity; ++i)
               {
-                // TODO: capability for Self, depends on captured param types
+                // Build an apply function with (i - arity) parameters.
                 auto self_id = Ident ^ _.fresh(l_self);
                 Node apply_tp = TypeParams;
+
+                // TODO: capability for Self, depends on captured param types
                 Node apply_params = Params
                   << (Param << self_id << (Type << Self));
                 Node apply_pred;
-                Node fwd_args = Args;
+                Node fwd_args = Tuple;
 
                 for (size_t j = 0; j < arity; ++j)
                 {
                   // Include our captured arguments.
                   fwd_args
-                    << (Expr
-                        << (Call
-                            << (Selector << clone(params->at(j) / Ident)
-                                         << TypeArgs)
-                            << (Args << (Expr << (RefLet << clone(self_id))))));
+                    << (Expr << call(
+                          selector(params->at(j) / Ident),
+                          RefLet << clone(self_id)));
                 }
 
                 for (auto j = arity; j < i; ++j)
                 {
-                  // Add the additional arguments passed to this apply function.
+                  // Add the additional parameters passed to this apply
+                  // function.
                   auto param = params->at(j);
                   extract_typeparams(f, param / Type, apply_tp);
                   apply_params << clone(param);
@@ -214,32 +247,25 @@ namespace verona
                   // The final arity calls the original function. It has the
                   // type predicate from the original function.
                   apply_pred = clone(_(TypePred));
-                  fwd = clone(func_name);
+                  fwd = clone(fq_f);
                 }
                 else
                 {
-                  // Intermediate arities call the next arity. No type predicate
-                  // is applied.
+                  // Intermediate arities create a new anonymous class for the
+                  // next arity.
                   apply_pred = typepred();
-                  fwd = FunctionName
-                    << (TypeClassName
-                        << DontCare << clone(names[i - start_arity])
-                        << typeparams_to_typeargs(
-                             apply_tp, typeparams_to_typeargs(class_tp)))
-                    << (Ident ^ create) << TypeArgs;
+                  fwd = clone(fqs[i - start_arity]);
                 }
 
                 classbody
-                  << (Function
-                      << Implicit << clone(hand) << apply_id() << apply_tp
-                      << apply_params << typevar(_) << DontCare << apply_pred
-                      << (Block << (Expr << (clone(call) << fwd << fwd_args))));
+                  << (Function << Implicit << hand << (Ident ^ l_apply)
+                               << apply_tp << apply_params << typevar(_)
+                               << DontCare << apply_pred
+                               << (Block << (Expr << call(fwd, fwd_args))));
               }
-
-              ret << classdef << func;
             }
 
-            return ret << f;
+            return ret;
           },
       }};
   }

@@ -21,25 +21,31 @@ namespace verona
           return Expr << (TypeAssert << (TupleLHS << *_[Lhs]) << _(Type));
         },
 
-      // Turn a Call on the LHS of an assignment into a CallLHS.
-      on_lhs(T(Expr) << T(Call)[Lhs]) >>
-        [](Match& _) { return Expr << (CallLHS << *_[Lhs]); },
+      // Rewrite the selector for a Call on the LHS of an assignment to be an
+      // LHS selector.
+      on_lhs(T(Expr) << RhsCall[Call]) >>
+        [](Match& _) { return Expr << call_lhs(_(Call)); },
 
-      on_lhs(T(Expr) << (T(TypeAssert) << (T(Call)[Lhs] * T(Type)[Type]))) >>
+      on_lhs(T(Expr) << (T(TypeAssert) << (RhsCall[Call] * T(Type)[Type]))) >>
         [](Match& _) {
-          return Expr << (TypeAssert << (CallLHS << *_[Lhs]) << _(Type));
+          return Expr << (TypeAssert << call_lhs(_(Call)) << _(Type));
         },
 
-      on_lhs(T(Expr) << (T(NLRCheck) << T(Call)[Lhs])) >>
-        [](Match& _) { return Expr << (NLRCheck << (CallLHS << *_[Lhs])); },
+      on_lhs(
+        T(Expr) << (T(NLRCheck) << (IsImplicit[Implicit] * RhsCall[Call]))) >>
+        [](Match& _) {
+          return Expr << (NLRCheck << _(Implicit) << call_lhs(_(Call)));
+        },
 
       on_lhs(
         T(Expr)
         << (T(TypeAssert)
-            << ((T(NLRCheck) << T(Call)[Lhs]) * T(Type)[Type]))) >>
+            << ((T(NLRCheck) << (IsImplicit[Implicit] * RhsCall[Call])) *
+                T(Type)[Type]))) >>
         [](Match& _) {
           return Expr
-            << (TypeAssert << (NLRCheck << (CallLHS << *_[Lhs])) << _(Type));
+            << (TypeAssert << (NLRCheck << _(Implicit) << call_lhs(_(Call)))
+                           << _(Type));
         },
 
       // Turn a RefVar on the LHS of an assignment into a RefVarLHS.
@@ -53,31 +59,31 @@ namespace verona
 
       In(Expr) * T(Ref)[Ref] >>
         [](Match& _) {
-          return err(_[Ref], "must use `ref` in front of a variable or call");
+          return err(_(Ref), "`ref` must be in front of a variable or call");
         },
 
       In(Expr) * T(Try)[Try] >>
         [](Match& _) {
-          return err(_[Try], "must use `try` in front of a call or lambda");
+          return err(_(Try), "`try` must be in front of a call or lambda");
         },
 
       T(Expr)[Expr] << (Any * Any * Any++) >>
         [](Match& _) {
-          return err(_[Expr], "adjacency on this expression isn't meaningful");
+          return err(_(Expr), "Adjacency on this expression isn't meaningful");
         },
 
       In(TupleLHS) * T(TupleFlatten) >>
         [](Match& _) {
           return err(
-            _[TupleFlatten],
-            "can't flatten a tuple on the left-hand side of an assignment");
+            _(TupleFlatten),
+            "Can't flatten a tuple on the left-hand side of an assignment");
         },
 
       In(Expr) * T(Expr)[Expr] >>
         [](Match& _) {
           return err(
-            _[Expr],
-            "well-formedness allows this but it can't occur on written code");
+            _(Expr),
+            "Well-formedness allows this but it can't occur on written code");
         },
     };
   }

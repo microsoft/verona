@@ -27,12 +27,12 @@ namespace verona
 
       T(Type)[Type] << End >>
         [](Match& _) {
-          return err(_[Type], "can't use an empty type assertion");
+          return err(_(Type), "Can't use an empty type assertion");
         },
 
       T(Type)[Type] << (Any * Any) >>
         [](Match& _) {
-          return err(_[Type], "can't use adjacency to specify a type");
+          return err(_(Type), "Can't use adjacency to specify a type");
         },
     };
   }

@@ -10,15 +10,25 @@ namespace verona
     return {
       dir::bottomup | dir::once,
       {
-        (TypeName[Op] << ((TypeName / T(DontCare)) * T(Ident) * T(TypeArgs))) >>
-          ([](Match& _) -> Node {
-            auto tn = _(Op);
+        (T(FQType) / T(FQFunction))[Type] >> ([](Match& _) -> Node {
+          auto tn = _(Type);
 
-            if (!is_implicit(tn) && !valid_typeargs(tn))
-              return err(_[Op], "invalid type arguments");
-
+          if (is_implicit(tn))
             return NoChange;
-          }),
+
+          auto bt = make_btype(tn);
+
+          // Ignore TypeParams and TypeTraits, as they don't have predicates.
+          // If this fails to resolve to a definition, ignore it. It's either
+          // test code, or the LHS has an error.
+          if (!bt->type().in({Class, TypeAlias, Function}))
+            return NoChange;
+
+          if (!subtype(make_btype(TypeTrue), bt->field(TypePred)))
+            return err(tn, "Invalid type arguments");
+
+          return NoChange;
+        }),
       }};
   }
 }

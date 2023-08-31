@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: MIT
 #include "subtype.h"
 
-#include "btype.h"
-
 #include <cassert>
 
 namespace verona
@@ -15,19 +13,19 @@ namespace verona
 
     Assume(Btype sub, Btype sup) : sub(sub), sup(sup)
     {
-      assert(sub->type().in({Class, TypeTrait}));
-      assert(sup->type() == TypeTrait);
+      assert(sub->type().in({Class, Trait}));
+      assert(sup->type() == Trait);
     }
   };
 
   struct Sequent
   {
-    std::vector<Btype> lhs_pending;
-    std::vector<Btype> rhs_pending;
-    std::vector<Btype> lhs_atomic;
-    std::vector<Btype> rhs_atomic;
-    std::vector<Btype> self;
-    std::vector<Btype> predicates;
+    Btypes lhs_pending;
+    Btypes rhs_pending;
+    Btypes lhs_atomic;
+    Btypes rhs_atomic;
+    Btypes self;
+    Btypes predicates;
     std::vector<Assume> assumptions;
 
     Sequent() = default;
@@ -70,7 +68,12 @@ namespace verona
       while (p)
       {
         if (p->type().in({Function, Class, TypeAlias}))
-          predicates.push_back(t->make(p / TypePred));
+        {
+          auto pred = p / TypePred;
+
+          if (pred->precedes(t->node))
+            predicates.push_back(t->make(pred));
+        }
 
         p = p->parent({Function, Class, TypeAlias});
       }
@@ -338,9 +341,9 @@ namespace verona
       }
 
       // Check structural subtyping.
-      if (r->type() == TypeTrait)
+      if (r->type() == Trait)
       {
-        if (!l->type().in({Class, TypeTrait}))
+        if (!l->type().in({Class, Trait}))
           return false;
 
         // If any assumption is true, the trait is satisfied.
@@ -434,7 +437,7 @@ namespace verona
       // TODO: handle viewpoint adaptation
       if (r->type() == TypeView)
       {
-        // TODO: the ned of a TypeView can be a TypeParam. If it is, we need to
+        // TODO: the end of a TypeView can be a TypeParam. If it is, we need to
         // be able to use that to fulfill Class / Trait / etc if the TypeView is
         // on the LHS, or to demand it if the TypeView is on the RHS.
         return false;
@@ -507,7 +510,7 @@ namespace verona
         auto r = t->make(*it);
 
         if (r->type().in(
-              {Package, Class, TypeTrait, TypeTuple, TypeTrue, TypeFalse}))
+              {Package, Class, Trait, TypeTuple, TypeTrue, TypeFalse}))
         {
           // The viewpoint path can be discarded.
           if (*it == t->node->back())
@@ -584,21 +587,9 @@ namespace verona
     return seq.reduce(make_btype(sub), make_btype(sup));
   }
 
-  bool valid_typeargs(Node tn)
+  bool subtype(Btype sub, Btype sup)
   {
-    // TODO: handle FunctionName
-    if (!tn->type().in({TypeClassName, TypeAliasName}))
-      return true;
-
-    // This should only fail in testing code.
-    auto bt = make_btype(tn);
-
-    if (!bt->type().in({Class, TypeAlias}))
-      return true;
-
     Sequent seq;
-    seq.lhs_pending.push_back(make_btype(TypeTrue));
-    seq.rhs_pending.push_back(bt->field(TypePred));
-    return seq.reduce();
+    return seq.reduce(sub, sup);
   }
 }

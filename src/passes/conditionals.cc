@@ -33,7 +33,7 @@ namespace verona
         auto lhs_id = _.fresh();
         lhs = Expr << (Let << (Ident ^ lhs_id));
         type = clone(params->front() / Type);
-        args = Ident ^ lhs_id;
+        args = RefLet << (Ident ^ lhs_id);
       }
       else
       {
@@ -49,7 +49,7 @@ namespace verona
         for (auto& param : *params)
         {
           auto lhs_id = _.fresh();
-          args << (Expr << (Ident ^ lhs_id));
+          args << (Expr << (RefLet << (Ident ^ lhs_id)));
           lhs << (Expr << (Let << (Ident ^ lhs_id)));
           typetuple << clone(param / Type / Type);
         }
@@ -64,7 +64,9 @@ namespace verona
       block
         << (Expr
             << (Assign << (Expr << lhs)
-                       << (Expr << (Cast << (Expr << (Ident ^ id)) << type))));
+                       << (Expr
+                           << (Cast << (Expr << (RefLet << (Ident ^ id)))
+                                    << type))));
     }
 
     return Conditional << cond << (block << (Expr << lambda << args))
@@ -93,14 +95,30 @@ namespace verona
 
       T(If)[If] >>
         [](Match& _) {
-          return err(_[If], "`if` must be followed by a condition and braces");
+          return err(_(If), "`if` must be followed by a condition and braces");
         },
 
       T(Else)[Else] >>
         [](Match& _) {
           return err(
-            _[Else],
+            _(Else),
             "`else` must follow an `if` and be followed by an `if` or braces");
+        },
+
+      // Strip implicit/explicit marker from fields.
+      (T(FieldLet) / T(FieldVar))[FieldLet]
+          << (IsImplicit * T(Ident)[Ident] * T(Type)[Type] * Any[Default]) >>
+        [](Match& _) {
+          Node field = _(FieldLet)->type();
+          return field << _(Ident) << _(Type) << _(Default);
+        },
+
+      // Reset functions marked as implicit to be explicit.
+      T(Function)[Function] << T(Implicit) >>
+        [](Match& _) {
+          auto f = _(Function);
+          (f / Implicit) = Explicit;
+          return f;
         },
     };
   }

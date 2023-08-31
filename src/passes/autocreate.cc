@@ -1,6 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
+#include "../lookup.h"
 
 namespace verona
 {
@@ -10,10 +11,9 @@ namespace verona
       dir::topdown | dir::once,
       {
         In(Class) * T(ClassBody)[ClassBody] >> ([](Match& _) -> Node {
-          // If we already have a create function, do nothing.
           auto class_body = _(ClassBody);
           Node new_params = Params;
-          Node new_args = Args;
+          Node new_args = Tuple;
 
           for (auto& node : *class_body)
           {
@@ -31,22 +31,26 @@ namespace verona
             }
           }
 
-          // Create the `new` function.
-          // TODO: return Self & K?
+          // Create the `new` function, with default arguments set to the field
+          // initializers. Mark `new` as explicit, so that errors when type
+          // checking `new` are reported.
           auto body = ClassBody
             << *_[ClassBody]
-            << (Function << Implicit << Rhs << (Ident ^ new_) << TypeParams
+            << (Function << Explicit << Rhs << (Ident ^ l_new) << TypeParams
                          << new_params << typevar(_) << DontCare << typepred()
                          << (Block << (Expr << unit())));
 
-          if (class_body->parent()->lookdown(create).empty())
+          // If we already have a create function, don't emit one.
+          if (class_body->parent()->lookdown(l_create).empty())
           {
             // Create the `create` function.
+            auto fq_new = append_fq(local_fq(_(ClassBody)), selector(l_new));
+
             body
-              << (Function << Implicit << Rhs << (Ident ^ create) << TypeParams
-                           << clone(new_params) << typevar(_) << DontCare
-                           << typepred()
-                           << (Block << (Expr << (Call << New << new_args))));
+              << (Function << Implicit << Rhs << (Ident ^ l_create)
+                           << TypeParams << clone(new_params) << typevar(_)
+                           << DontCare << typepred()
+                           << (Block << (Expr << call(fq_new, new_args))));
           }
 
           return body;

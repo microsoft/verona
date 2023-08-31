@@ -64,15 +64,9 @@ namespace verona
               << (Expr
                   << (Assign
                       << lhs_child
-                      << (Expr
-                          << (Call
-                              << (Selector
-                                  << (Ident ^
-                                      Location("_" + std::to_string(index++)))
-                                  << TypeArgs)
-                              << (Args
-                                  << (Expr
-                                      << (RefLet << (Ident ^ rhs_id))))))));
+                      << (Expr << call(
+                            selector(Location("_" + std::to_string(index++))),
+                            RefLet << (Ident ^ rhs_id)))));
           }
 
           // TypeAssert comes after the let bindings for the LHS.
@@ -86,9 +80,7 @@ namespace verona
       // Assignment to anything else.
       In(Assign) * T(Expr)[Lhs] * T(Expr)[Rhs] * End >>
         [](Match& _) {
-          return Expr
-            << (Call << (Selector << (Ident ^ l_store) << TypeArgs)
-                     << (Args << _(Lhs) << _(Rhs)));
+          return Expr << call(selector(l_store), _(Lhs), _(Rhs));
         },
 
       // Compact assigns after they're reduced.
@@ -97,10 +89,10 @@ namespace verona
 
       // An assign with an error can't be compacted, so it's an error.
       T(Assign)[Assign] << (T(Expr)++ * T(Error)) >>
-        [](Match& _) { return err(_[Assign], "error inside an assignment"); },
+        [](Match& _) { return err(_(Assign), "Error inside an assignment"); },
 
       T(Expr)[Expr] << T(Let)[Let] >>
-        [](Match& _) { return err(_[Expr], "must assign to a `let` binding"); },
+        [](Match& _) { return err(_(Expr), "`let` must have a value"); },
 
       // Well-formedness allows this but it can't occur on written code.
       T(Expr)[Expr] << T(TupleLHS)[TupleLHS] >>

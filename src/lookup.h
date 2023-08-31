@@ -10,42 +10,35 @@ namespace verona
 
   struct Lookup
   {
-    // If a typearg isn't in the bindings, it wasn't specified syntactically.
     Node def;
     NodeMap<Node> bindings;
     bool too_many_typeargs = false;
 
-    Lookup(Node def, Node ta = {}, NodeMap<Node> b = {});
-    Lookup(Node def, NodeMap<Node> b) : Lookup(def, {}, b) {}
-  };
+    Lookup() {}
+    Lookup(Node def) : def(def) {}
+    Lookup(Node def, NodeMap<Node>& bindings) : def(def), bindings(bindings) {}
 
-  struct Lookups
-  {
-    std::vector<Lookup> defs;
-
-    Lookups() = default;
-
-    Lookups(Lookup&& def)
+    Lookup make(Node node)
     {
-      defs.push_back(def);
+      return {node, bindings};
     }
 
-    void add(Lookups&& other)
+    bool operator<(const Lookup& other) const
     {
-      defs.insert(defs.end(), other.defs.begin(), other.defs.end());
-    }
-
-    bool one(const std::initializer_list<Token>& types) const
-    {
-      return (defs.size() == 1) && defs.front().def->type().in(types) &&
-        !defs.front().too_many_typeargs;
+      return (def < other.def) && (bindings < other.bindings);
     }
   };
 
-  Lookups lookup_name(Node id, Node ta = {});
-  Lookups lookup_scopedname(Node tn);
-  Lookups lookup_scopedname_name(Node tn, Node id, Node ta = {});
-  bool lookup(const NodeRange& n, std::initializer_list<Token> t);
+  using Lookups = std::set<Lookup>;
 
-  bool recursive_typealias(Node node);
+  Lookups lookup(Node id, Node ta);
+  Lookups lookdown(Lookup& lookup, Node id, Node ta, NodeSet visited = {});
+
+  bool lookup_type(Node id, std::initializer_list<Token> t);
+  bool lookup_type(const NodeRange& n, std::initializer_list<Token> t);
+
+  Lookup resolve_fq(Node fq);
+  Node make_fq(Lookup& lookup);
+  Node local_fq(Node node);
+  Node append_fq(Node fq, Node node);
 }

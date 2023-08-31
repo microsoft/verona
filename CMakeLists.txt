@@ -36,5 +36,8 @@ install(CODE [[
   file(REMOVE_RECURSE ${CMAKE_INSTALL_PREFIX}/.)
   ]])
 
+# Copy the stdlib to the install directory
+install(DIRECTORY std DESTINATION verona)
+
 enable_testing()
 add_subdirectory(src)

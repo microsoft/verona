@@ -1,14 +1,31 @@
-# TODO
+# To Do
 
-Code reuse:
-- Logical order: (1) defaultargs, (2) inheritance, (3) partialapp.
-  - Can actually do inheritance first, treating defaultargs as blocking multiple arities.
-- Do textual inclusion of any member or method that isn't already defined.
-  - Need to do type substitution on the included code.
-
-- Automatically insert `use std::builtin`.
-- Better system for including parts of `std`.
+- Lookup in a `TypeParam`, e.g., `create` or an associated type.
 - Check that default types for type parameters satisfy predicates.
+- Free variables in object literals.
+- Tuples as traits.
+- Pattern matching.
+- Type inference.
+- `lazy[T]`
+- `weak[T]`
+- Public/private.
+- Package schemes.
+  - Better system for including parts of `std`.
+  - `Package` in a scoped name, `typeargs` on packages.
+- List inside `TypeParams`, `Params`, `TypeArgs` along with groups or other lists.
+- Lowering.
+  - Reachability.
+  - Selector coloring.
+
+## Conditional Compilation
+
+Use `where` for conditional compilation:
+- As an expression block.
+- Over fields.
+- Over chunks of a class body?
+- Will it all nicely type check for all platforms?
+
+## Tuples as Traits
 
 Tuples are traits:
 ```ts
@@ -86,22 +103,36 @@ type typelist[T] =
 
 ```
 
-Associated types
+## Associated types
 
-Mangling
+Needs discussion.
+
+## Mangling
+
 - need reachability to do precise flattening
 - for dynamic execution:
   - use polymorphic versions of types and functions
   - encode type arguments as fields (classes) or arguments (functions)
 
-Pattern Matching
+## Pattern Matching
+
 - values as arguments
 - exhaustiveness
 - backtracking?
 
+## Incremental Compilation
+
 Late loads of code that's been through some passes
 - delay name lookup
 - only tricky part is `create` sugar
+
+## Lowering
+
+- mangled names for all types and functions
+- struct for every concrete type
+- static and virtual dispatch
+- heap to stack with escape analysis
+- refcount op elimination
 
 Type Descriptor
 - sizeof: encode it as a function?
@@ -145,16 +176,6 @@ LLVM lowering
   - make them RHS only? this still breaks encapsulation
   - `destruct` method, default impl returns the class fields as a tuple
 
-- `Package` in a scoped name, typeargs on packages
-- free variables in object literals
-- mixins
-- match
-- lazy[T]
-- weak[T]?
-- public/private
-- package schemes
-- list inside TypeParams, Params, TypeArgs along with groups or other lists
-
 ## Key Words
 
 get rid of capabilities as keywords
@@ -168,14 +189,6 @@ type of the lambda:
 - any `lin` captures = `lin`, `self: lin`
 - 0 `lin`, 1 or more `in`, 0 or more `const` = `lin`, `self: in`
 - don't know if any `out` captures
-
-## Lowering
-
-- mangled names for all types and functions
-- struct for every concrete type
-- static and virtual dispatch
-- heap to stack with escape analysis
-- refcount op elimination
 
 ## Ellipsis
 

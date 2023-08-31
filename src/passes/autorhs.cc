@@ -1,6 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
+#include "../lookup.h"
 
 namespace verona
 {
@@ -10,16 +11,15 @@ namespace verona
       dir::topdown | dir::once,
       {
         T(Function)[Function]
-            << (IsImplicit * T(Lhs) * Name[Ident] * T(TypeParams)[TypeParams] *
-                T(Params)[Params] * T(Type)[Type] * T(DontCare) *
-                T(TypePred)[TypePred] * (T(Block) / T(DontCare))) >>
+            << (IsImplicit * T(Lhs) * T(Ident)[Ident] *
+                T(TypeParams)[TypeParams] * T(Params)[Params] * T(Type)[Type] *
+                T(DontCare) * T(TypePred)[TypePred] *
+                (T(Block) / T(DontCare))) >>
           ([](Match& _) -> Node {
             auto f = _(Function);
             auto id = _(Ident);
             auto params = _(Params);
             auto parent = f->parent()->parent()->shared_from_this();
-            Token ptype =
-              (parent->type() == Class) ? TypeClassName : TypeTraitName;
             auto tn = parent / Ident;
             auto defs = parent->lookdown(id->location());
             auto found = false;
@@ -42,22 +42,18 @@ namespace verona
               return NoChange;
 
             // If not, create an RHS function with the same name and arity.
-            Node args = Args;
+            Node args = Tuple;
 
             for (auto param : *params)
               args << (Expr << (RefLet << clone(param / Ident)));
 
-            auto rhs_f =
-              Function << Implicit << Rhs << clone(id) << clone(_(TypeParams))
-                       << clone(params) << clone(_(Type)) << DontCare
-                       << clone(_(TypePred))
-                       << (Block
-                           << (Expr << load(
-                                 CallLHS << (FunctionName
-                                             << (ptype << DontCare << clone(tn)
-                                                       << TypeArgs)
-                                             << clone(id) << TypeArgs)
-                                         << args)));
+            // Call the LHS function with all the same type arguments, load the
+            // result, and return that.
+            auto rhs_f = Function
+              << Implicit << Rhs << clone(id) << clone(_(TypeParams))
+              << clone(params) << clone(_(Type)) << DontCare
+              << clone(_(TypePred))
+              << (Block << (Expr << load(call(local_fq(f), args))));
 
             return Seq << f << rhs_f;
           }),

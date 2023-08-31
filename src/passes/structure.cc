@@ -4,6 +4,16 @@
 
 namespace verona
 {
+  Node function_name(Node name)
+  {
+    if (!name)
+      name = Ident ^ l_apply;
+    else if (name->type() == Symbol)
+      name = Ident ^ name;
+
+    return name;
+  }
+
   PassDef structure()
   {
     return {
@@ -17,7 +27,7 @@ namespace verona
                T(Group)++[Rhs])) >>
         [](Match& _) {
           Node node = _(Let)->type() == Let ? FieldLet : FieldVar;
-          return node << _(Ident) << typevar(_, Type)
+          return node << Explicit << _(Ident) << typevar(_, Type)
                       << (Lambda << TypeParams << Params << typevar(_)
                                  << typepred()
                                  << (Block << (Expr << (Default << _[Rhs]))));
@@ -31,7 +41,7 @@ namespace verona
                End)) >>
         [](Match& _) {
           Node node = _(Let)->type() == Let ? FieldLet : FieldVar;
-          return node << _(Ident) << typevar(_, Type) << DontCare;
+          return node << Explicit << _(Ident) << typevar(_, Type) << DontCare;
         },
 
       // Function: `=` function after a `{}` function with no terminator.
@@ -40,14 +50,14 @@ namespace verona
       In(ClassBody) *
           (T(Equals)
            << ((T(Group)
-                << (~T(Ref)[Ref] * ~Name[Ident] * ~T(Square)[TypeParams] *
-                    T(Paren)[Params] * ~T(Type)[Type] *
+                << (~T(Ref)[Ref] * ~(T(Ident) / T(Symbol))[Ident] *
+                    ~T(Square)[TypeParams] * T(Paren)[Params] * ~T(Type)[Type] *
                     ~T(LLVMFuncType)[LLVMFuncType] * ~T(TypePred)[TypePred] *
                     T(Brace)[Block] * (Any * Any++)[Lhs])) *
                T(Group)++[Rhs])) >>
         [](Match& _) {
           return Seq << (Function << Explicit << (_(Ref) ? Lhs : Rhs)
-                                  << (_(Ident) || apply_id())
+                                  << function_name(_(Ident))
                                   << (TypeParams << *_[TypeParams])
                                   << (Params << *_[Params]) << typevar(_, Type)
                                   << (_(LLVMFuncType) || DontCare)
@@ -61,14 +71,14 @@ namespace verona
       In(ClassBody) *
           (T(Equals)
            << ((T(Group)
-                << (~T(Ref)[Ref] * ~Name[Ident] * ~T(Square)[TypeParams] *
-                    T(Paren)[Params] * ~T(Type)[Type] *
+                << (~T(Ref)[Ref] * ~(T(Ident) / T(Symbol))[Ident] *
+                    ~T(Square)[TypeParams] * T(Paren)[Params] * ~T(Type)[Type] *
                     ~T(LLVMFuncType)[LLVMFuncType] * ~T(TypePred)[TypePred] *
                     End)) *
                T(Group)++[Rhs])) >>
         [](Match& _) {
           return Function << Explicit << (_(Ref) ? Lhs : Rhs)
-                          << (_(Ident) || apply_id())
+                          << function_name(_(Ident))
                           << (TypeParams << *_[TypeParams])
                           << (Params << *_[Params]) << typevar(_, Type)
                           << (_(LLVMFuncType) || DontCare)
@@ -79,14 +89,14 @@ namespace verona
       // Function: f[T](x: T = e): T { e }
       // (group name typeparams params type llvmtype typepred brace)
       In(ClassBody) * T(Group)
-          << (~T(Ref)[Ref] * ~Name[Ident] * ~T(Square)[TypeParams] *
-              T(Paren)[Params] * ~T(Type)[Type] *
+          << (~T(Ref)[Ref] * ~(T(Ident) / T(Symbol))[Ident] *
+              ~T(Square)[TypeParams] * T(Paren)[Params] * ~T(Type)[Type] *
               ~T(LLVMFuncType)[LLVMFuncType] * ~T(TypePred)[TypePred] *
               ~T(Brace)[Block] * (Any++)[Rhs]) >>
         [](Match& _) {
           auto block = _(Block) ? (Block << *_[Block]) : DontCare;
           return Seq << (Function << Explicit << (_(Ref) ? Lhs : Rhs)
-                                  << (_(Ident) || apply_id())
+                                  << function_name(_(Ident))
                                   << (TypeParams << *_[TypeParams])
                                   << (Params << *_[Params]) << typevar(_, Type)
                                   << (_(LLVMFuncType) || DontCare)
@@ -125,12 +135,12 @@ namespace verona
       In(TypeParams) * (!(T(TypeParam) / T(ValueParam)))[TypeParam] >>
         [](Match& _) {
           return err(
-            _[TypeParam], "expected a type parameter or a value parameter");
+            _(TypeParam), "Expected a type parameter or a value parameter");
         },
 
       T(ValueParam) >>
         [](Match& _) {
-          return err(_[ValueParam], "value parameters aren't supported yet");
+          return err(_(ValueParam), "Value parameters aren't supported yet");
         },
 
       // Params.
@@ -163,7 +173,7 @@ namespace verona
         },
 
       In(Params) * (!T(Param))[Param] >>
-        [](Match& _) { return err(_[Param], "expected a parameter"); },
+        [](Match& _) { return err(_(Param), "Expected a parameter"); },
 
       // Use.
       (In(ClassBody) / In(Block)) * T(Group) << T(Use)[Use] * (Any++)[Type] >>
@@ -172,7 +182,7 @@ namespace verona
         },
 
       T(Use)[Use] << End >>
-        [](Match& _) { return err(_[Use], "can't put a `use` here"); },
+        [](Match& _) { return err(_(Use), "Can't put a `use` here"); },
 
       // TypeAlias: (equals (group typealias typeparams typepred) group)
       (In(ClassBody) / In(Block)) * T(Equals)
@@ -188,11 +198,11 @@ namespace verona
 
       (In(ClassBody) / In(Block)) * T(TypeAlias)[TypeAlias] << End >>
         [](Match& _) {
-          return err(_[TypeAlias], "expected a `type` definition");
+          return err(_(TypeAlias), "Expected a `type` definition");
         },
       T(TypeAlias)[TypeAlias] << End >>
         [](Match& _) {
-          return err(_[TypeAlias], "can't put a `type` definition here");
+          return err(_(TypeAlias), "Can't put a `type` definition here");
         },
 
       // Class.
@@ -209,10 +219,10 @@ namespace verona
         },
 
       (In(Top) / In(ClassBody) / In(Block)) * T(Class)[Class] << End >>
-        [](Match& _) { return err(_[Class], "expected a `class` definition"); },
+        [](Match& _) { return err(_(Class), "Expected a `class` definition"); },
       T(Class)[Class] << End >>
         [](Match& _) {
-          return err(_[Class], "can't put a `class` definition here");
+          return err(_(Class), "Can't put a `class` definition here");
         },
 
       // Default initializers. These were taken off the end of an Equals.
@@ -232,8 +242,8 @@ namespace verona
       // Anonymous structural types.
       TypeStruct * T(Brace)[ClassBody] >>
         [](Match& _) {
-          return TypeTrait << (Ident ^ _.fresh(l_trait))
-                           << (ClassBody << *_[ClassBody]);
+          return Trait << (Ident ^ _.fresh(l_trait))
+                       << (ClassBody << *_[ClassBody]);
         },
 
       // Strings in types are package descriptors.
@@ -244,7 +254,7 @@ namespace verona
           (T(Equals) / T(Arrow) / T(Use) / T(Class) / T(TypeAlias) / T(Var) /
            T(Let) / T(Ref) / T(If) / T(Else) / T(New) / T(Try) /
            T(LLVMFuncType) / Literal)[Type] >>
-        [](Match& _) { return err(_[Type], "can't put this in a type"); },
+        [](Match& _) { return err(_(Type), "Can't put this in a type"); },
 
       // A group can be in a Block, Expr, ExprSeq, Tuple, or Assign.
       (In(Block) / In(Expr) / In(ExprSeq) / In(Tuple) / In(Assign)) *
@@ -304,7 +314,7 @@ namespace verona
                                         << inherit() << typepred()
                                         << (ClassBody << *_[ClassBody])))
                      << (Expr << (Ident ^ class_id) << DoubleColon
-                              << (Ident ^ create) << Unit);
+                              << (Ident ^ l_create) << Unit);
         },
 
       // Lambda { [T](x: T = e, ...): T where T => ... }
@@ -343,14 +353,14 @@ namespace verona
         [](Match& _) { return Var << _(Ident); },
 
       T(Var)[Var] << End >>
-        [](Match& _) { return err(_[Var], "`var` needs an identifier"); },
+        [](Match& _) { return err(_(Var), "`var` needs an identifier"); },
 
       // Let.
       In(Expr) * T(Let)[Let] * T(Ident)[Ident] >>
         [](Match& _) { return Let << _(Ident); },
 
       T(Let)[Let] << End >>
-        [](Match& _) { return err(_[Let], "`let` needs an identifier"); },
+        [](Match& _) { return err(_(Let), "`let` needs an identifier"); },
 
       // Move a ref to the last expr of a sequence.
       In(Expr) * T(Ref) * T(Expr)[Expr] >>
@@ -375,7 +385,7 @@ namespace verona
           (TypeCaps / T(TypePred) / T(Self) / T(Arrow) /
            T(LLVMFuncType))[Expr] >>
         [](Match& _) {
-          return err(_[Expr], "can't put this in an expression");
+          return err(_(Expr), "Can't put this in an expression");
         },
 
       // A Block that doesn't end with an Expr gets an implicit Unit.
@@ -387,7 +397,7 @@ namespace verona
 
       // Remove empty and malformed groups.
       T(Group) << End >> ([](Match&) -> Node { return {}; }),
-      T(Group)[Group] >> [](Match& _) { return err(_[Group], "syntax error"); },
+      T(Group)[Group] >> [](Match& _) { return err(_(Group), "Syntax error"); },
     };
   }
 }

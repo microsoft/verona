@@ -4,9 +4,8 @@
 
 namespace verona
 {
-  inline const auto Liftable = T(Tuple) / T(Call) / T(CallLHS) /
-    T(Conditional) / T(FieldRef) / T(TypeTest) / T(Cast) / T(Selector) /
-    T(FunctionName) / Literal;
+  inline const auto Liftable = T(Tuple) / T(Call) / T(Conditional) /
+    T(FieldRef) / T(TypeTest) / T(Cast) / T(Selector) / Literal;
 
   PassDef anf()
   {
