@@ -375,18 +375,23 @@ namespace verona
           // At this point, traits have been decomposed into intersections of
           // single-function traits.
           auto id = (rf / Ident)->location();
+          auto arity = (rf / Params)->size();
           auto lfs = l->node->lookdown(id);
+          auto it = std::find_if(
+            lfs.begin(), lfs.end(), [&](auto& lf) {
+              return (lf->type() == Function) &&
+                ((lf / Params)->size() == arity);
+            });
 
-          // Function names are distinguished by arity at this point.
-          if ((lfs.size() != 1) || (lfs.front()->type() != Function))
+          if (it == lfs.end())
           {
             ok = false;
             break;
           }
 
-          // The functions must take the same number of type parameters.
-          auto lf = lfs.front();
+          auto lf = *it;
 
+          // The functions must take the same number of type parameters.
           if ((lf / TypeParams)->size() != (rf / TypeParams)->size())
           {
             ok = false;
