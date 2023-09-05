@@ -245,8 +245,8 @@ namespace verona
           }),
 
         In(TypePred)++ * --(In(TypeSubtype, TypeArgs)++) *
-            (TypeCaps / T(FQType) / T(Trait) / T(TypeTuple) / T(Self) /
-             T(TypeList) / T(TypeView) / T(TypeVar) / T(Package))[Type] >>
+            (TypeCaps / T(Trait) / T(TypeTuple) / T(Self) / T(TypeList) /
+             T(TypeView) / T(TypeVar) / T(Package))[Type] >>
           [](Match& _) {
             return err(_(Type), "Can't put this in a type predicate");
           },

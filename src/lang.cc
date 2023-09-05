@@ -208,12 +208,14 @@ namespace verona
 
     auto params = node / Params;
     auto arity_hi = params->size();
-    auto arity_lo = arity_hi;
+    auto arity_lo = 0;
 
     for (auto& param : *params)
     {
       if ((param / Default)->type() != DontCare)
-        arity_lo--;
+        break;
+
+      arity_lo++;
     }
 
     return {arity_lo, arity_hi};

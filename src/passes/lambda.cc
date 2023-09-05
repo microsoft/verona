@@ -117,7 +117,10 @@ namespace verona
              class_body << create_func << apply_func;
              freevars->pop_back();
 
-             return Seq << (Lift << ClassBody << classdef)
+             Token target =
+               _(Lambda)->parent()->type() == Param ? ClassBody : Block;
+
+             return Seq << (Lift << target << classdef)
                         << call(fq_create, create_args);
            },
        }};
