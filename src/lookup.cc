@@ -39,10 +39,7 @@ namespace verona
       tp->begin() + n,
       tp->end(),
       std::inserter(lookup.bindings, lookup.bindings.end()),
-      [](auto param) {
-        return std::make_pair(
-          param, Type << (TypeVar ^ param->fresh(l_typevar)));
-      });
+      [](auto param) { return std::make_pair(param, typevar(param)); });
   }
 
   Lookups lookup(Node id, Node ta)
@@ -294,7 +291,7 @@ namespace verona
       if (it != lookup.bindings.end())
         ta << clone(it->second);
       else if (fresh)
-        ta << (Type << (TypeVar ^ node->fresh(l_typevar)));
+        ta << typevar(node);
       else
         ta << TypeParamBind;
     }

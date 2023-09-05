@@ -72,13 +72,13 @@ namespace verona
                  // Add a field for the free variable to the anonymous type.
                  auto type_id = _.fresh(l_typevar);
                  class_body
-                   << (FieldLet << (Ident ^ fv_id)
-                                << (Type << (TypeVar ^ type_id)) << DontCare);
+                   << (FieldLet << (Ident ^ fv_id) << typevar(type_id)
+                                << DontCare);
 
                  // Add a parameter to the create function to capture the free
                  // variable as a field.
                  create_params
-                   << (Param << (Ident ^ fv_id) << (Type << (TypeVar ^ type_id))
+                   << (Param << (Ident ^ fv_id) << typevar(type_id)
                              << DontCare);
                  new_args << (Expr << (RefLet << (Ident ^ fv_id)));
 
@@ -90,8 +90,7 @@ namespace verona
                  // local variable with the same name as the free variable.
                  apply_body
                    << (Expr
-                       << (Bind << (Ident ^ fv_id)
-                                << (Type << (TypeVar ^ type_id))
+                       << (Bind << (Ident ^ fv_id) << typevar(type_id)
                                 << (Expr << call(
                                       selector(fv_id),
                                       RefLet << (Ident ^ self_id)))));

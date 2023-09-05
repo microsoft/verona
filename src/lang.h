@@ -175,6 +175,8 @@ namespace verona
 
   // Helper functions for generating AST fragments.
   Node err(Node node, const std::string& msg);
+  Node typevar(Location loc);
+  Node typevar(Node& node);
   Node typevar(Match& _);
   Node typevar(Match& _, const Token& t);
   Node inherit();

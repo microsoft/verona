@@ -1,12 +1,20 @@
 # To Do
 
-- Lookup in a `TypeParam`, e.g., `create` or an associated type.
+- Type inference.
+  - Uses of `typevar`:
+    - Return type of `new`.
+    - Return type of lambda, auto-create, lambda create, partial app create, partial app invoke, partial app apply.
+    - Lambda free variable types.
+    - `DontCare` syntactically in a type (remove this?).
+    - Unspecified field types, parameter types, function return types.
+  - Build something that prints constraints.
 - Free variables in object literals.
 - Tuples as traits.
 - Pattern matching.
-- Type inference.
+- Type lists.
 - `lazy[T]`
 - `weak[T]`
+- Lookup in a `TypeParam`, e.g., `create` or an associated type.
 - Public/private.
 - Package schemes.
   - Better system for including parts of `std`.
@@ -26,78 +34,79 @@ Use `where` for conditional compilation:
 
 ## Tuples as Traits
 
-Tuples are traits:
+Tuples as traits:
 ```ts
-type Tuple[T, U] =
-{
-  head(self): self.T
-  rest(self): self.U
-}
-
-// make unit a 0-arity tuple
-class Unit: Tuple[(), ()]
-{
-  head(self): () = ()
-  rest(self): () = ()
-}
-
-Unit: Tuple[Unit, Unit]
-T1: Tuple[T1, Unit]
-(T1, T2): Tuple[T1, Tuple[T2, Unit]]
-(T1, T2, T3): Tuple[T1, Tuple[T2, Tuple[T3, Unit]]]
-(T1, T2, T3, T4): Tuple[T1, Tuple[T2, Tuple[T3, Tuple[T4, Unit]]]]
-
 match w
 {
   // matches Unit
-  { () => e0 }
-  // matches {} (x = w)
-  { x => e1 }
-  // matches tuple_1 (x = w._0, y = w._1plus)
-  // problem: for w: (T1, T2), we want y: T2, not y: Tuple[T2, Unit]
-  { x, y => e2 }
-  // matches tuple_2 (x = _0, y = _1, z = _2plus)
-  { x, y, z => e3 }
-  // explicity indicate a w._1plus match?
-  { x, y... => e2plus }
+  { () => e }
+  // matches Any (x = w)
+  { x => e }
+  // matches tuple_2 (x = w._0, y = w._1)
+  { x, y => e }
+  // matches tuple_3 (x = w._0, y = w._1, z = w._3)
+  { x, y, z => e }
+  // explicity indicate a tuple_1+ match
+  // x = w._0, y = w._1plus
+  { x, y... => e }
 }
+
+x, y... = e // e must be tuple_1
+x, y = e // e must be tuple_2
+x, y, z... = e // e must be tuple_2
+x, y, z = e // e must be tuple_3
 
 // experiment: tuple types
-class tuple_1[T1]
+class unit
+{
+  _0(self): unit = self
+  _1plus(self): unit = self
+}
+
+type ituple_1 =
 {
   size(self): Size = 1
-  apply(self, n: Size): T1 | Unit = if (n == 0) { self._0 }
-  _0(self): T1
+  apply(self, n: Size): Self | () = if (n == 0) { self }
+  _0(self): Self = self
+  _1plus(self): ()
 }
 
-class tuple_2[T1, T2]
+type ituple_2[T1, T2] =
 {
+  let _0: T1
+  let _1: T2
   size(self): Size = 2
-  apply(self, n: Size): T1 | T2 | Unit =
+  apply(self, n: Size): T1 | T2 | () =
     if (n == 0) { self._0 }
     else if (n == 1) { self._1 }
-
-  _0(self): T1
-  _1(self): T2
+  _1plus(self): (T2, ())
+  _2plus(self): ()
 }
 
-class tuple_3[T1, T2, T3]
+class tuple_2[T1, T2]: ituple[T1, T2] {}
+
+type ituple_3[T1, T2, T3] =
 {
-  size(self): Size = 2
-  apply(self, n: Size): T1 | T2 | T3 | Unit =
+  let _0: T1
+  let _1: T2
+  let _2: T3
+  size(self): Size = 3
+  apply(self, n: Size): T1 | T2 | T3 | () =
     if (n == 0) { self._0 }
     else if (n == 1) { self._1 }
     else if (n == 2) { self._2 }
-
-  _0(self): T1
-  _1(self): T2
-  _2(self): T3
+  _1plus(self): (T2, T3, ())
+  _2plus(self): (T3, ())
+  _3plus(self): ()
 }
+
+class tuple_3[T1, T2, T3]: ituple[T1, T2, T3] {}
 
 type typelist[T] =
 {
   size(self): Size
-  apply(self, n: Size): T | Unit
+  apply(self, n: Size): T | ()
+  rest(self, n: Size): typelist[T]
 }
 
 ```

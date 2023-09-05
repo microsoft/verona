@@ -13,9 +13,19 @@ namespace verona
     return Error << (ErrorMsg ^ msg) << node;
   }
 
+  Node typevar(Location loc)
+  {
+    return Type << (TypeVar ^ loc);
+  }
+
+  Node typevar(Node& node)
+  {
+    return typevar(node->fresh(l_typevar));
+  }
+
   Node typevar(Match& _)
   {
-    return Type << (TypeVar ^ _.fresh(l_typevar));
+    return typevar(_.fresh(l_typevar));
   }
 
   Node typevar(Match& _, const Token& t)
