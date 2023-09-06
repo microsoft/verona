@@ -11,11 +11,11 @@ namespace verona
   inline const auto wfImplicit = Implicit >>= Implicit | Explicit;
   inline const auto wfHand = Ref >>= Lhs | Rhs;
 
-  inline const auto wfParserTokens = Bool | Int | Hex | Bin | Float | HexFloat |
-    Char | Escaped | String | LLVM | Iso | Mut | Imm | Brace | Paren | Square |
-    List | Equals | Arrow | Use | Class | TypeAlias | Where | Var | Let | Ref |
-    Self | If | Else | New | Try | DontCare | Ident | Ellipsis | Dot | Colon |
-    DoubleColon | TripleColon | Symbol;
+  inline const auto wfParserTokens = Bool | Int | Hex | Oct | Bin | Float |
+    HexFloat | Char | Escaped | String | LLVM | Iso | Mut | Imm | Brace |
+    Paren | Square | List | Equals | Arrow | Use | Class | TypeAlias | Where |
+    Var | Let | Ref | Self | If | Else | New | Try | DontCare | Ident |
+    Ellipsis | Dot | Colon | DoubleColon | TripleColon | Symbol;
 
   // clang-format off
   inline const auto wfParser =
@@ -57,8 +57,8 @@ namespace verona
 
   inline const auto wfExprStructure = Expr | ExprSeq | Unit | Tuple | Assign |
     TypeArgs | If | Else | Lambda | Let | Var | New | Try | Ref | DontCare |
-    Ellipsis | Dot | Ident | Symbol | DoubleColon | Bool | Int | Hex | Bin |
-    Float | HexFloat | Char | Escaped | String | LLVM | TypeAssert;
+    Ellipsis | Dot | Ident | Symbol | DoubleColon | Bool | Int | Hex | Oct |
+    Bin | Float | HexFloat | Char | Escaped | String | LLVM | TypeAssert;
 
   inline const auto wfDefault = Default >>= Lambda | DontCare;
 
@@ -357,8 +357,8 @@ namespace verona
     ;
   // clang-format on
 
-  // Remove RefLet. Add Copy, Move, Drop.
-  inline const auto wfExprDrop = (wfExprANF - RefLet) | Copy | Move | Drop;
+  // Remove RefLet. Add Copy, Move.
+  inline const auto wfExprDrop = (wfExprANF - RefLet) | Copy | Move;
 
   // clang-format off
   inline const auto wfPassDrop =

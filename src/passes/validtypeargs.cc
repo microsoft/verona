@@ -21,7 +21,7 @@ namespace verona
           // Ignore TypeParams and TypeTraits, as they don't have predicates.
           // If this fails to resolve to a definition, ignore it. It's either
           // test code, or the LHS has an error.
-          if (!bt->type().in({Class, TypeAlias, Function}))
+          if (!bt->in({Class, TypeAlias, Function}))
             return NoChange;
 
           if (!subtype(make_btype(TypeTrue), bt->field(TypePred)))

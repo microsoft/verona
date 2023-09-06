@@ -10,7 +10,7 @@ namespace verona
     auto freevars = std::make_shared<std::vector<std::set<Location>>>();
 
     PassDef lambda =
-      {dir::bottomup,
+      {dir::bottomup | dir::once,
        {
          T(RefLet) << T(Ident)[Ident] >> ([freevars](Match& _) -> Node {
            if (!freevars->empty())
@@ -33,7 +33,7 @@ namespace verona
 
            if (
              call->parent({Lambda, FieldLet, FieldVar, Param, Function})
-               ->type() == Lambda)
+                == Lambda)
              return NLRCheck << Implicit << call;
 
            return NoChange;
@@ -118,7 +118,9 @@ namespace verona
              freevars->pop_back();
 
              Token target =
-               _(Lambda)->parent()->type() == Param ? ClassBody : Block;
+               _(Lambda)->parent()->in({FieldLet, FieldVar, Param}) ?
+               ClassBody :
+               Block;
 
              return Seq << (Lift << target << classdef)
                         << call(fq_create, create_args);

@@ -60,13 +60,13 @@ namespace verona
           {
             auto expr = arg->front();
 
-            if (expr->type() == DontCare)
+            if (expr == DontCare)
             {
               auto id = _.fresh(l_param);
               params << (Param << (Ident ^ id) << typevar(_) << DontCare);
               args << (Expr << (RefLet << (Ident ^ id)));
             }
-            else if (expr->type() == TypeAssert)
+            else if (expr == TypeAssert)
             {
               auto id = _.fresh(l_param);
               params << (Param << (Ident ^ id) << (expr / Type) << DontCare);

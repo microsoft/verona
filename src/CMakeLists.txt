@@ -33,6 +33,7 @@ add_executable(verona
   passes/defbeforeuse.cc
   passes/drop.cc
   passes/validtypeargs.cc
+  passes/typeinfer.cc
 )
 
 target_precompile_headers(verona

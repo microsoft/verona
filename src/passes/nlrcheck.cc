@@ -29,7 +29,7 @@ namespace verona
 
             // Unwrap if we're in a function (Explicit), but not if we're in a
             // lambda (Implicit).
-            if (_(Implicit)->type() == Explicit)
+            if (_(Implicit) == Explicit)
               ret = load(ret, true);
 
             return ExprSeq << (Expr

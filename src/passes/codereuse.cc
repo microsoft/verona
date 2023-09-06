@@ -19,8 +19,8 @@ namespace verona
 
     for (auto child : *node)
     {
-      while ((child->type() == FQType) &&
-             ((child / Type)->type() == TypeParamName))
+      while ((child == FQType) &&
+             ((child / Type) == TypeParamName))
       {
         auto l = resolve_fq(child);
         auto it = bindings.find(l.def);
@@ -30,7 +30,7 @@ namespace verona
 
         auto bind = clone(it->second);
 
-        if (bind->type() == Type)
+        if (bind == Type)
           bind = bind / Type;
 
         node->replace(child, bind);
@@ -70,29 +70,29 @@ namespace verona
               if (!l.def)
                 continue;
 
-              if (l.def->type() == FQType)
+              if (l.def == FQType)
               {
                 auto ll = resolve_fq(l.def);
                 ll.bindings.merge(l.bindings);
                 worklist.push_back(ll);
               }
-              else if (l.def->type().in({Type, TypeIsect}))
+              else if (l.def->in({Type, TypeIsect}))
               {
                 for (auto& t : *l.def)
                   worklist.emplace_back(l.make(t));
               }
-              else if (l.def->type() == TypeAlias)
+              else if (l.def == TypeAlias)
               {
                 // Carry typeargs forward.
                 worklist.emplace_back(l.make(l.def / Type));
               }
-              else if (l.def->type() == Trait)
+              else if (l.def == Trait)
               {
                 pend.inherit.push_back(l);
               }
-              else if (l.def->type() == Class)
+              else if (l.def == Class)
               {
-                if ((l.def / Inherit / Inherit)->type() == Type)
+                if ((l.def / Inherit / Inherit) == Type)
                 {
                   // Keep track of the inheritance graph.
                   (*pending)[l.def].deps.push_back(cls);
@@ -126,11 +126,11 @@ namespace verona
         {
           for (auto f : *(from.def / ClassBody))
           {
-            if (!f->type().in({FieldLet, FieldVar, Function}))
+            if (!f->in({FieldLet, FieldVar, Function}))
               continue;
 
             // Don't inherit functions without implementations.
-            if ((f->type() == Function) && ((f / Block)->type() == DontCare))
+            if ((f == Function) && ((f / Block) == DontCare))
               continue;
 
             // If we have an explicit version that conflicts, don't inherit.

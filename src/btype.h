@@ -23,11 +23,11 @@ namespace verona
 
       while (true)
       {
-        if (node->type().in({Type, TypePred}))
+        if (node->in({Type, TypePred}))
         {
           node = node / Type;
         }
-        else if (node->type().in({FQType, FQFunction}))
+        else if (node->in({FQType, FQFunction}))
         {
           auto lookup = resolve_fq(node);
 
@@ -45,7 +45,7 @@ namespace verona
           if (set.contains(node))
             return;
         }
-        else if (node->type() == TypeParam)
+        else if (node == TypeParam)
         {
           set.insert(node);
           auto it = bindings.find(node);
@@ -95,6 +95,11 @@ namespace verona
       return node->type();
     }
 
+    bool in(const std::initializer_list<Token>& list) const
+    {
+      return node->in(list);
+    }
+
     void str(std::ostream& out, size_t level)
     {
       out << indent(level) << "btype: {" << std::endl;
@@ -102,7 +107,7 @@ namespace verona
       // Print the node.
       out << indent(level + 1) << "node: {" << std::endl;
 
-      if (node->type().in({Class, TypeAlias, Function}))
+      if (node->in({Class, TypeAlias, Function}))
       {
         out << indent(level + 2) << node->type().str() << " "
             << (node / Ident)->location().view();
@@ -134,6 +139,11 @@ namespace verona
   inline Btype make_btype(Node t)
   {
     return BtypeDef::make(t, {});
+  }
+
+  inline bool operator==(const Btype& b, const Token& type)
+  {
+    return b->type() == type;
   }
 
   inline std::ostream& operator<<(std::ostream& out, const Btype& b)

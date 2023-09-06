@@ -51,13 +51,13 @@ namespace verona
         return true;
 
       // Only check parents and successors if this isn't an early return.
-      return (block->back()->type() != Return) &&
+      return (block->back() != Return) &&
         (is_parent(of, block) || is_successor_or_child(of, block));
     }
 
     bool is_parent(Node of, Node block)
     {
-      if (of->parent()->type() == Function)
+      if (of->parent() == Function)
         return false;
 
       auto& parent = parents.at(of);
@@ -129,7 +129,7 @@ namespace verona
           {
             auto ref = it->second;
             auto parent = ref->parent();
-            bool immediate = parent->type() == Block;
+            bool immediate = parent == Block;
 
             if (immediate && (parent->back() != ref))
               parent->replace(ref);
@@ -151,7 +151,7 @@ namespace verona
           auto ref = it->second;
           auto id = ref / Ident;
           auto parent = ref->parent()->shared_from_this();
-          bool immediate = parent->type() == Block;
+          bool immediate = parent == Block;
           bool discharging = true;
 
           // We're the last use if there is no following use in this or any
@@ -261,7 +261,7 @@ namespace verona
     });
 
     drop.pre(Function, [drop_map](Node f) {
-      auto llvm = (f / LLVMFuncType)->type() == LLVMFuncType;
+      auto llvm = (f / LLVMFuncType) == LLVMFuncType;
       drop_map->push_back(track(llvm));
       return 0;
     });

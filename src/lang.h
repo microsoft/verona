@@ -25,6 +25,7 @@ namespace verona
   inline const auto Arrow = TokenDef("arrow");
   inline const auto Bool = TokenDef("bool", flag::print);
   inline const auto Hex = TokenDef("hex", flag::print);
+  inline const auto Oct = TokenDef("oct", flag::print);
   inline const auto Bin = TokenDef("bin", flag::print);
   inline const auto Int = TokenDef("int", flag::print);
   inline const auto HexFloat = TokenDef("hexfloat", flag::print);
@@ -159,7 +160,7 @@ namespace verona
     In(TypeView) / In(TypeUnion) / In(TypeIsect) / In(TypeSubtype);
   inline const auto TypeCaps = T(Iso) / T(Mut) / T(Imm);
   inline const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) /
-    T(Hex) / T(Bin) / T(Int) / T(Float) / T(HexFloat) / T(LLVM);
+    T(Hex) / T(Oct) / T(Bin) / T(Int) / T(Float) / T(HexFloat) / T(LLVM);
   inline const auto TypeElem = T(Type) / TypeCaps / T(FQType) / T(Trait) /
     T(TypeTuple) / T(Self) / T(TypeList) / T(TypeView) / T(TypeIsect) /
     T(TypeUnion) / T(TypeVar) / T(Package) / T(TypeSubtype) / T(TypeTrue) /
@@ -228,6 +229,7 @@ namespace verona
   PassDef drop();
   PassDef namearity();
   PassDef validtypeargs();
+  PassDef typeinfer();
 
   struct Options : public trieste::Options
   {

@@ -1,9 +1,11 @@
 # To Do
 
+- Blocks.
+  - Enforce (Return | Move | Drop) at the end?
+  - Must LLVM appear in a block? If so, allow LLVM at the end?
 - Type inference.
   - Uses of `typevar`:
-    - Return type of `new`.
-    - Return type of lambda, auto-create, lambda create, partial app create, partial app invoke, partial app apply.
+    - Return type of `new`, auto-create, lambda create, lambda apply, partial functions, partial app class create, partial app class apply.
     - Lambda free variable types.
     - `DontCare` syntactically in a type (remove this?).
     - Unspecified field types, parameter types, function return types.

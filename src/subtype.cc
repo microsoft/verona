@@ -13,8 +13,8 @@ namespace verona
 
     Assume(Btype sub, Btype sup) : sub(sub), sup(sup)
     {
-      assert(sub->type().in({Class, Trait}));
-      assert(sup->type() == Trait);
+      assert(sub->in({Class, Trait}));
+      assert(sup == Trait);
     }
   };
 
@@ -52,7 +52,7 @@ namespace verona
 
     void push_self(Btype s)
     {
-      assert(s->type() == Class);
+      assert(s == Class);
       self.push_back(s);
     }
 
@@ -67,7 +67,7 @@ namespace verona
 
       while (p)
       {
-        if (p->type().in({Function, Class, TypeAlias}))
+        if (p->in({Function, Class, TypeAlias}))
         {
           auto pred = p / TypePred;
 
@@ -99,7 +99,7 @@ namespace verona
         auto r = rhs_pending.back();
         rhs_pending.pop_back();
 
-        if (r->type() == TypeUnion)
+        if (r == TypeUnion)
         {
           // Π ⊩ Γ ⊢ Δ, A, B
           // ---
@@ -109,7 +109,7 @@ namespace verona
           for (auto& t : *r->node)
             rhs_pending.push_back(r->make(t));
         }
-        else if (r->type() == TypeIsect)
+        else if (r == TypeIsect)
         {
           // Π ⊩ Γ ⊢ Δ, A
           // Π ⊩ Γ ⊢ Δ, B
@@ -128,7 +128,7 @@ namespace verona
 
           return true;
         }
-        else if (r->type() == TypeAlias)
+        else if (r == TypeAlias)
         {
           // Demand that we satisfy the type predicate, which is a split.
           Sequent seq(*this);
@@ -141,7 +141,7 @@ namespace verona
           rhs_pending.push_back(r->field(Type));
           rhs_atomic.push_back(r);
         }
-        else if (r->type() == TypeView)
+        else if (r == TypeView)
         {
           auto [rr, done] = reduce_view(r);
 
@@ -150,7 +150,7 @@ namespace verona
           else
             rhs_pending.push_back(rr);
         }
-        else if (r->type() == Self)
+        else if (r == Self)
         {
           // Try both Self and the current self type.
           rhs_atomic.push_back(r);
@@ -169,7 +169,7 @@ namespace verona
         auto l = lhs_pending.back();
         lhs_pending.pop_back();
 
-        if (l->type() == TypeSubtype)
+        if (l == TypeSubtype)
         {
           // Π, A < B ⊩ Γ ⊢ Δ, A
           // Π, A < B ⊩ Γ, B ⊢ Δ
@@ -185,7 +185,7 @@ namespace verona
 
           lhs_pending.push_back(l->field(Rhs));
         }
-        else if (l->type() == TypeIsect)
+        else if (l == TypeIsect)
         {
           // Γ, A, B ⊢ Δ
           // ---
@@ -195,7 +195,7 @@ namespace verona
           for (auto& t : *l->node)
             lhs_pending.push_back(l->make(t));
         }
-        else if (l->type() == TypeUnion)
+        else if (l == TypeUnion)
         {
           // Γ, A ⊢ Δ
           // Γ, B ⊢ Δ
@@ -214,7 +214,7 @@ namespace verona
 
           return true;
         }
-        else if (l->type() == TypeAlias)
+        else if (l == TypeAlias)
         {
           // Assume that we've satisfied the type predicate.
           lhs_pending.push_back(l->field(TypePred));
@@ -223,7 +223,7 @@ namespace verona
           lhs_pending.push_back(l->field(Type));
           lhs_atomic.push_back(l);
         }
-        else if (l->type() == TypeView)
+        else if (l == TypeView)
         {
           auto [ll, done] = reduce_view(l);
 
@@ -232,7 +232,7 @@ namespace verona
           else
             rhs_pending.push_back(ll);
         }
-        else if (l->type() == Self)
+        else if (l == Self)
         {
           // Try both Self and the current self type.
           lhs_atomic.push_back(l);
@@ -273,27 +273,27 @@ namespace verona
     bool subtype_one(Btype& l, Btype& r)
     {
       // TypeFalse is a subtype of everything.
-      if (l->type() == TypeFalse)
+      if (l == TypeFalse)
         return true;
 
       // Everything is a subtype of TypeTrue.
-      if (r->type() == TypeTrue)
+      if (r == TypeTrue)
         return true;
 
       // Skip TypeVar on either side.
-      if ((l->type() == TypeVar) || (r->type() == TypeVar))
+      if ((l == TypeVar) || (r == TypeVar))
         return false;
 
       // These must be the same type.
       // TODO: region tracking
-      if (r->type().in({Iso, Mut, Imm, Self}))
+      if (r->in({Iso, Mut, Imm, Self}))
         return l->type() == r->type();
 
       // Tuples must be the same arity and each element must be a subtype.
       // TODO: remove TypeTuple from the language, use a trait
-      if (r->type() == TypeTuple)
+      if (r == TypeTuple)
       {
-        return (l->type() == TypeTuple) &&
+        return (l == TypeTuple) &&
           std::equal(
                  l->node->begin(),
                  l->node->end(),
@@ -307,28 +307,28 @@ namespace verona
       // Nothing is a subtype of a TypeList. Two TypeLists may have
       // different instantiated arity, even if they have the same bounds.
       // Use a TypeParam with a TypeList upper bounds to get subtyping.
-      if (r->type() == TypeList)
+      if (r == TypeList)
         return false;
 
       // Check for the same definition site.
-      if (r->type() == TypeParam)
+      if (r == TypeParam)
         return same_def_site(l, r);
 
       // Check for the same definition site with invariant typeargs.
-      if (r->type().in({TypeAlias, Class}))
+      if (r->in({TypeAlias, Class}))
         return same_def_site(l, r) && invariant_typeargs(l, r);
 
       // A package resolves to a class. Once we have package resolution,
       // compare the classes, as different strings could resolve to the
       // same package.
-      if (r->type() == Package)
+      if (r == Package)
       {
-        return (l->type() == Package) &&
+        return (l == Package) &&
           ((l->node / Ident)->location() == (r->node / Ident)->location());
       }
 
       // Check predicate subtyping.
-      if (r->type() == TypeSubtype)
+      if (r == TypeSubtype)
       {
         // ⊩ Π, A ⊢ B
         // ---
@@ -341,9 +341,9 @@ namespace verona
       }
 
       // Check structural subtyping.
-      if (r->type() == Trait)
+      if (r == Trait)
       {
-        if (!l->type().in({Class, Trait}))
+        if (!l->in({Class, Trait}))
           return false;
 
         // If any assumption is true, the trait is satisfied.
@@ -361,7 +361,7 @@ namespace verona
 
         push_assume(l, r);
 
-        if (l->type() == Class)
+        if (l == Class)
           push_self(l);
 
         bool ok = true;
@@ -369,7 +369,7 @@ namespace verona
 
         for (auto rf : *rbody)
         {
-          if (rf->type() != Function)
+          if (rf != Function)
             continue;
 
           // At this point, traits have been decomposed into intersections of
@@ -377,11 +377,9 @@ namespace verona
           auto id = (rf / Ident)->location();
           auto arity = (rf / Params)->size();
           auto lfs = l->node->lookdown(id);
-          auto it = std::find_if(
-            lfs.begin(), lfs.end(), [&](auto& lf) {
-              return (lf->type() == Function) &&
-                ((lf / Params)->size() == arity);
-            });
+          auto it = std::find_if(lfs.begin(), lfs.end(), [&](auto& lf) {
+            return (lf == Function) && ((lf / Params)->size() == arity);
+          });
 
           if (it == lfs.end())
           {
@@ -433,14 +431,14 @@ namespace verona
         // TODO: If the check succeeded, memoize it.
         pop_assume();
 
-        if (l->type() == Class)
+        if (l == Class)
           pop_self();
 
         return ok;
       }
 
       // TODO: handle viewpoint adaptation
-      if (r->type() == TypeView)
+      if (r == TypeView)
       {
         // TODO: the end of a TypeView can be a TypeParam. If it is, we need to
         // be able to use that to fulfill Class / Trait / etc if the TypeView is
@@ -456,13 +454,13 @@ namespace verona
     {
       bool ok = false;
 
-      if (l->type() == TypeVar)
+      if (l == TypeVar)
       {
         // TODO: l.upper += r
         ok = true;
       }
 
-      if (r->type() == TypeVar)
+      if (r == TypeVar)
       {
         // TODO: r.lower += l
         ok = true;
@@ -484,7 +482,7 @@ namespace verona
 
       while (node)
       {
-        if (node->type().in({Class, TypeAlias, Function}))
+        if (node->in({Class, TypeAlias, Function}))
         {
           for (auto& tp : *(node / TypeParams))
           {
@@ -504,7 +502,7 @@ namespace verona
 
     std::pair<Btype, bool> reduce_view(Btype& t)
     {
-      assert(t->type() == TypeView);
+      assert(t == TypeView);
       auto start = t->node->begin();
       auto end = t->node->end();
 
@@ -514,7 +512,7 @@ namespace verona
         auto rhs = NodeRange{it + 1, end};
         auto r = t->make(*it);
 
-        if (r->type().in(
+        if (r->in(
               {Package, Class, Trait, TypeTuple, TypeTrue, TypeFalse}))
         {
           // The viewpoint path can be discarded.
@@ -524,7 +522,7 @@ namespace verona
           // There is no view through this type, so treat it as true, i.e. top.
           return {t->make(TypeTrue), false};
         }
-        else if (r->type() == TypeList)
+        else if (r == TypeList)
         {
           // A.(B...) = (A.B)...
           if (*it == t->node->back())
@@ -535,7 +533,7 @@ namespace verona
           // There is no view through this type, so treat it as true, i.e. top.
           return {t->make(TypeTrue), false};
         }
-        else if (r->type().in({TypeUnion, TypeIsect}))
+        else if (r->in({TypeUnion, TypeIsect}))
         {
           // A.(B | C).D = A.B.D | A.C.D
           // A.(B & C).D = A.B.D & A.C.D
@@ -546,12 +544,12 @@ namespace verona
 
           return {r->make(node), false};
         }
-        else if (r->type() == TypeAlias)
+        else if (r == TypeAlias)
         {
           return {
             r->field(Type)->make(TypeView << -lhs << -r->node << -rhs), false};
         }
-        else if (r->type() == TypeView)
+        else if (r == TypeView)
         {
           // A.(B.C).D = A.B.C.D
           auto node = TypeView << -lhs;

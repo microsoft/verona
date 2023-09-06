@@ -28,8 +28,8 @@ namespace verona
             for (auto def : defs)
             {
               if (
-                (def != f) && (def->type() == Function) &&
-                ((def / Ref)->type() != Rhs) &&
+                (def != f) && (def == Function) &&
+                ((def / Ref) != Rhs) &&
                 ((def / Ident)->location() == id->location()) &&
                 ((def / Params)->size() == params->size()))
               {

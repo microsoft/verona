@@ -11,7 +11,7 @@ namespace verona
       {
         (T(FieldLet) / T(FieldVar) / T(Function))[Op] >> ([](Match& _) -> Node {
           auto f = _(Op);
-          bool implicit = (f / Implicit)->type() == Implicit;
+          bool implicit = (f / Implicit) == Implicit;
           auto defs = f->scope()->lookdown((f / Ident)->location());
           Nodes conflicts;
 
@@ -20,7 +20,7 @@ namespace verona
             if (!conflict(f, def))
               continue;
 
-            if (implicit == ((def / Implicit)->type() == Implicit))
+            if (implicit == ((def / Implicit) == Implicit))
             {
               // If both are implicit or both are explicit, it's an error.
               if (def->precedes(f))
@@ -44,7 +44,7 @@ namespace verona
             Node e = Error;
             auto p = f->parent({Class, Trait});
 
-            if (p->type() == Class)
+            if (p == Class)
               e << (ErrorMsg ^ "Member conflict in this class")
                 << (ErrorAst ^ (p / Ident));
             else

@@ -17,7 +17,7 @@ namespace verona
             auto field = _(Op);
             auto id = _(Ident);
             auto self_id = _.fresh(l_self);
-            Token hand = (field->type() == FieldVar) ? Lhs : Rhs;
+            Token hand = (field == FieldVar) ? Lhs : Rhs;
             auto expr = FieldRef << (RefLet << (Ident ^ self_id)) << clone(id);
 
             if (hand == Rhs)

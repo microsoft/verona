@@ -17,14 +17,14 @@ namespace verona
             // If we're inside a TypeIsect, put the new traits inside it.
             // Otherwise, create a new TypeIsect.
             Node r =
-              (_(Trait)->parent()->type() == TypeIsect) ? Seq : TypeIsect;
+              (_(Trait)->parent() == TypeIsect) ? Seq : TypeIsect;
 
             Node base = ClassBody;
             r << (Trait << _(Ident) << base);
 
             for (auto& member : *_(ClassBody))
             {
-              if (member->type() == Function)
+              if (member == Function)
               {
                 // Strip any default implementation.
                 (member / Block) = DontCare;

@@ -11,7 +11,7 @@ namespace verona
 
     // This function extracts all typeparams from a type `t` that are defined
     // within `scope` and appends them to `tp` if they aren't already present.
-    if (t->type().in(
+    if (t->in(
           {Type,
            TypeArgs,
            TypeUnion,
@@ -23,17 +23,17 @@ namespace verona
       for (auto& tt : *t)
         extract_typeparams(scope, tt, tp);
     }
-    else if (t->type().in({TypeClassName, TypeAliasName, TypeTraitName}))
+    else if (t->in({TypeClassName, TypeAliasName, TypeTraitName}))
     {
       extract_typeparams(scope, t / Lhs, tp);
       extract_typeparams(scope, t / TypeArgs, tp);
     }
-    else if (t->type() == TypeParamName)
+    else if (t == TypeParamName)
     {
       auto id = t / Ident;
       auto defs = id->lookup(scope);
 
-      if ((defs.size() == 1) && ((*defs.begin())->type() == TypeParam))
+      if ((defs.size() == 1) && ((*defs.begin()) == TypeParam))
       {
         if (!std::any_of(tp->begin(), tp->end(), [&](auto& p) {
               return (p / Ident)->location() == id->location();
@@ -52,7 +52,7 @@ namespace verona
   {
     // This finds all typeparams in a Class or Function definition and builds
     // a TypeArgs that contains all of them, in order.
-    if (!node->type().in({Class, Function}))
+    if (!node->in({Class, Function}))
       return typeargs;
 
     for (auto typeparam : *(node / TypeParams))
@@ -103,7 +103,7 @@ namespace verona
 
             for (auto def : defs)
             {
-              if ((def == f) || (def->type() != Function))
+              if ((def == f) || (def != Function))
                 continue;
 
               auto arity = (def / Params)->size();

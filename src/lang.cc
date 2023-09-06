@@ -119,24 +119,24 @@ namespace verona
   {
     // `op` must already be in the AST in order to resolve the FQFunction.
     // If not, it won't be treated as an LLVM call.
-    if (op->type() != FQFunction)
+    if (op != FQFunction)
       return false;
 
     auto l = resolve_fq(op);
 
-    return l.def && (l.def->type() == Function) &&
-      ((l.def / LLVMFuncType)->type() == LLVMFuncType);
+    return l.def && (l.def == Function) &&
+      ((l.def / LLVMFuncType) == LLVMFuncType);
   }
 
   static Node arg(Node args, Node arg)
   {
     if (arg)
     {
-      if (arg->type() == Tuple)
+      if (arg == Tuple)
         args->push_back({arg->begin(), arg->end()});
-      else if (arg->type() == Expr)
+      else if (arg == Expr)
         args << arg;
-      else if (arg->type() != Unit)
+      else if (arg != Unit)
         args << (Expr << arg);
     }
 
@@ -145,11 +145,11 @@ namespace verona
 
   Node call(Node op, Node lhs, Node rhs, bool post_nlr)
   {
-    assert(op->type().in({FQFunction, Selector}));
+    assert(op->in({FQFunction, Selector}));
     auto args = arg(arg(Args, lhs), rhs);
     auto arity = Int ^ std::to_string(args->size());
 
-    if (op->type() == FQFunction)
+    if (op == FQFunction)
       (op / Selector / Int) = arity;
     else
       (op / Int) = arity;
@@ -164,10 +164,10 @@ namespace verona
 
   Node call_lhs(Node call)
   {
-    assert(call->type() == Call);
+    assert(call == Call);
     auto f = call / Selector;
 
-    if (f->type() == FQFunction)
+    if (f == FQFunction)
       f = f / Selector;
 
     (f / Ref) = Lhs;
@@ -183,17 +183,17 @@ namespace verona
   bool is_implicit(Node n)
   {
     auto f = n->parent(Function);
-    return f && ((f / Implicit)->type() == Implicit);
+    return f && ((f / Implicit) == Implicit);
   }
 
   static Token handed(Node& node)
   {
-    assert(node->type().in({FieldLet, FieldVar, Function}));
+    assert(node->in({FieldLet, FieldVar, Function}));
 
     // Return Op to mean both.
-    if (node->type() == FieldVar)
+    if (node == FieldVar)
       return Op;
-    else if (node->type() == FieldLet)
+    else if (node == FieldLet)
       return Lhs;
     else
       return (node / Ref)->type();
@@ -201,9 +201,9 @@ namespace verona
 
   static std::pair<size_t, size_t> arity(Node& node)
   {
-    assert(node->type().in({FieldLet, FieldVar, Function}));
+    assert(node->in({FieldLet, FieldVar, Function}));
 
-    if (node->type() != Function)
+    if (node != Function)
       return {1, 1};
 
     auto params = node / Params;
@@ -212,7 +212,7 @@ namespace verona
 
     for (auto& param : *params)
     {
-      if ((param / Default)->type() != DontCare)
+      if ((param / Default) != DontCare)
         break;
 
       arity_lo++;
@@ -279,6 +279,7 @@ namespace verona
         {"defbeforeuse", defbeforeuse(), wfPassANF},
         {"drop", drop(), wfPassDrop},
         {"validtypeargs", validtypeargs(), wfPassDrop},
+        {"typeinfer", typeinfer(), wfPassDrop},
       });
 
     return d;

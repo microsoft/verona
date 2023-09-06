@@ -17,7 +17,7 @@ namespace verona
 
           for (auto& node : *class_body)
           {
-            if (node->type().in({FieldLet, FieldVar}))
+            if (node->in({FieldLet, FieldVar}))
             {
               auto id = node / Ident;
               auto ty = node / Type;

@@ -8,7 +8,7 @@ namespace verona
   {
     if (!name)
       name = Ident ^ l_apply;
-    else if (name->type() == Symbol)
+    else if (name == Symbol)
       name = Ident ^ name;
 
     return name;
@@ -26,7 +26,7 @@ namespace verona
                     End)) *
                T(Group)++[Rhs])) >>
         [](Match& _) {
-          Node node = _(Let)->type() == Let ? FieldLet : FieldVar;
+          Node node = _(Let) == Let ? FieldLet : FieldVar;
           return node << Explicit << _(Ident) << typevar(_, Type)
                       << (Lambda << TypeParams << Params << typevar(_)
                                  << typepred()
@@ -40,7 +40,7 @@ namespace verona
            << ((T(Let) / T(Var))[Let] * T(Ident)[Ident] * ~T(Type)[Type] *
                End)) >>
         [](Match& _) {
-          Node node = _(Let)->type() == Let ? FieldLet : FieldVar;
+          Node node = _(Let) == Let ? FieldLet : FieldVar;
           return node << Explicit << _(Ident) << typevar(_, Type) << DontCare;
         },
 
@@ -151,7 +151,7 @@ namespace verona
       In(Params) * T(Group)
           << ((T(Ident) / T(DontCare))[Ident] * ~T(Type)[Type] * End) >>
         [](Match& _) {
-          auto id = (_(Ident)->type() == DontCare) ?
+          auto id = (_(Ident) == DontCare) ?
             (Ident ^ _.fresh(l_param)) :
             _(Ident);
           return Param << id << typevar(_, Type) << DontCare;
@@ -163,7 +163,7 @@ namespace verona
                << ((T(Ident) / T(DontCare))[Ident] * ~T(Type)[Type] * End)) *
               T(Group)++[Expr]) >>
         [](Match& _) {
-          auto id = (_(Ident)->type() == DontCare) ?
+          auto id = (_(Ident) == DontCare) ?
             (Ident ^ _.fresh(l_param)) :
             _(Ident);
           return Param << id << typevar(_, Type)

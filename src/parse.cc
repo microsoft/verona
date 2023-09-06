@@ -176,21 +176,24 @@ namespace verona
         "(?:true|false)\\b" >> [](auto& m) { m.add(Bool); },
 
         // Hex float.
-        "0x[[:xdigit:]]+\\.[[:xdigit:]]+(?:p[+-][[:digit:]]+)?\\b" >>
+        "0x[_[:xdigit:]]+\\.[_[:xdigit:]]+(?:p[+-][_[:digit:]]+)?\\b" >>
           [](auto& m) { m.add(HexFloat); },
 
         // Hex.
         "0x[_[:xdigit:]]+\\b" >> [](auto& m) { m.add(Hex); },
 
+        // Oct.
+        "0o[_01234567]+\\b" >> [](auto& m) { m.add(Oct); },
+
         // Bin.
         "0b[_01]+\\b" >> [](auto& m) { m.add(Bin); },
 
         // Float.
-        "[[:digit:]]+\\.[[:digit:]]+(?:e[+-]?[[:digit:]]+)?\\b" >>
+        "[:digit:][_[:digit:]]*\\.[_[:digit:]]+(?:e[+-]?[_[:digit:]]+)?\\b" >>
           [](auto& m) { m.add(Float); },
 
         // Int.
-        "[[:digit:]]+\\b" >> [](auto& m) { m.add(Int); },
+        "[:digit:][_[:digit:]]*\\b" >> [](auto& m) { m.add(Int); },
 
         // Escaped string.
         "\"((?:\\\"|[^\"])*?)\"" >> [](auto& m) { m.add(Escaped, 1); },

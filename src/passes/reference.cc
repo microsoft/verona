@@ -67,7 +67,7 @@ namespace verona
 
             auto fq = make_fq(def);
 
-            if (fq->type() == FQType)
+            if (fq == FQType)
               return fq;
           }
 
@@ -115,7 +115,7 @@ namespace verona
           }
 
           if (std::any_of(defs.begin(), defs.end(), [](auto& d) {
-                return d.def->type() != Function;
+                return d.def != Function;
               }))
           {
             // If there are multiple definitions, and at least one of them is
