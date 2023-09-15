@@ -23,7 +23,8 @@ namespace verona
   inline const auto DoubleColon = TokenDef("doublecolon");
   inline const auto TripleColon = TokenDef("triplecolon");
   inline const auto Arrow = TokenDef("arrow");
-  inline const auto Bool = TokenDef("bool", flag::print);
+  inline const auto True = TokenDef("true");
+  inline const auto False = TokenDef("false");
   inline const auto Hex = TokenDef("hex", flag::print);
   inline const auto Oct = TokenDef("oct", flag::print);
   inline const auto Bin = TokenDef("bin", flag::print);
@@ -159,15 +160,15 @@ namespace verona
   inline const auto TypeStruct = In(Type) / In(TypeList) / In(TypeTuple) /
     In(TypeView) / In(TypeUnion) / In(TypeIsect) / In(TypeSubtype);
   inline const auto TypeCaps = T(Iso) / T(Mut) / T(Imm);
-  inline const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) /
-    T(Hex) / T(Oct) / T(Bin) / T(Int) / T(Float) / T(HexFloat) / T(LLVM);
+  inline const auto Literal = T(String) / T(Escaped) / T(Char) / T(Hex) /
+    T(Oct) / T(Bin) / T(Int) / T(Float) / T(HexFloat) / T(LLVM);
   inline const auto TypeElem = T(Type) / TypeCaps / T(FQType) / T(Trait) /
     T(TypeTuple) / T(Self) / T(TypeList) / T(TypeView) / T(TypeIsect) /
     T(TypeUnion) / T(TypeVar) / T(Package) / T(TypeSubtype) / T(TypeTrue) /
     T(TypeFalse);
   inline const auto Object0 = Literal / T(RefVar) / T(RefVarLHS) / T(RefLet) /
-    T(Unit) / T(Tuple) / T(Lambda) / T(Call) / T(NLRCheck) / T(Assign) /
-    T(Expr) / T(ExprSeq) / T(DontCare) / T(Conditional) / T(TypeTest) / T(Cast);
+    T(Unit) / T(Tuple) / T(Call) / T(NLRCheck) / T(Assign) / T(Expr) /
+    T(ExprSeq) / T(DontCare) / T(Conditional) / T(TypeTest) / T(Cast);
   inline const auto Object = Object0 / (T(TypeAssert) << (Object0 * T(Type)));
   inline const auto Operator = T(FQFunction) / T(Selector);
   inline const auto RhsCall = T(Call)
@@ -187,7 +188,11 @@ namespace verona
   Node nonlocal(Match& _);
   Node unittype();
   Node unit();
+  Node booltype();
+  Node booltrue();
+  Node boolfalse();
   Node cell();
+  Node reftype(Node t);
   Node selector(Node name, Node ta = TypeArgs);
   Node selector(Location name, Node ta = TypeArgs);
   bool is_llvm_call(Node op);

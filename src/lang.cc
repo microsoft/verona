@@ -69,37 +69,72 @@ namespace verona
                     << (TypeClassName << (Ident ^ l_builtin) << TypeArgs);
   }
 
+  static Node builtin_type(const Location& name, Node ta = TypeArgs)
+  {
+    return FQType << builtin_path() << (TypeClassName << (Ident ^ name) << ta);
+  }
+
+  static Node call0(Node type, const Location& loc)
+  {
+    return call(FQFunction << type << selector(loc));
+  }
+
+  static Node create0(Node type)
+  {
+    return call0(type, l_create);
+  }
+
   Node nonlocal(Match& _)
   {
     // Pin the type argument to a specific type variable.
     static Location l_nonlocal("nonlocal");
-    return FQType << builtin_path()
-                  << (TypeClassName << (Ident ^ l_nonlocal)
-                                    << (TypeArgs << typevar(_)));
+    return builtin_type(l_nonlocal, TypeArgs << typevar(_));
   }
 
   Node unittype()
   {
     static Location l_unit("unit");
-    return FQType << builtin_path()
-                  << (TypeClassName << (Ident ^ l_unit) << TypeArgs);
+    return builtin_type(l_unit);
   }
 
   Node unit()
   {
-    return call(FQFunction << unittype() << selector(l_create));
+    return create0(unittype());
+  }
+
+  Node booltype()
+  {
+    static Location l_bool("Bool");
+    return builtin_type(l_bool);
+  }
+
+  Node booltrue()
+  {
+    static Location l_true("make_true");
+    return call0(booltype(), l_true);
+  }
+
+  Node boolfalse()
+  {
+    static Location l_false("make_false");
+    return call0(booltype(), l_false);
   }
 
   Node celltype()
   {
-    static Location l_cell("cell");
-    return FQType << builtin_path()
-                  << (TypeClassName << (Ident ^ l_cell) << TypeArgs);
+    static Location l_cell("Cell");
+    return builtin_type(l_cell);
   }
 
   Node cell()
   {
-    return call(FQFunction << celltype() << selector(l_create));
+    return create0(celltype());
+  }
+
+  Node reftype(Node t)
+  {
+    static Location l_ref("Ref");
+    return builtin_type(l_ref, TypeArgs << -t);
   }
 
   Node selector(Node name, Node ta)

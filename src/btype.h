@@ -85,11 +85,6 @@ namespace verona
       return make(t, bindings);
     }
 
-    Btype field(const Token& f)
-    {
-      return make(node / f, bindings);
-    }
-
     const Token& type() const
     {
       return node->type();
@@ -139,6 +134,11 @@ namespace verona
   inline Btype make_btype(Node t)
   {
     return BtypeDef::make(t, {});
+  }
+
+  inline Btype operator/(Btype& b, const Token& f)
+  {
+    return b->make(b->node / f);
   }
 
   inline bool operator==(const Btype& b, const Token& type)

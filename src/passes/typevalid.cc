@@ -164,7 +164,7 @@ namespace verona
       }
       else if (t == TypeAlias)
       {
-        worklist.push_back(t->field(Type));
+        worklist.push_back(t / Type);
       }
       else
       {
@@ -206,7 +206,7 @@ namespace verona
       }
       else if (t == TypeAlias)
       {
-        worklist.push_back(t->field(Type));
+        worklist.push_back(t / Type);
       }
       else
       {

@@ -12,6 +12,14 @@ namespace verona
 {
   using namespace trieste;
 
-  bool subtype(Node sub, Node sup);
+  struct Bound
+  {
+    std::vector<Btype> lower;
+    std::vector<Btype> upper;
+  };
+
+  using Bounds = std::map<Location, Bound>;
+
   bool subtype(Btype sub, Btype sup);
+  bool subtype(Btype sub, Btype sup, Bounds& bounds);
 }

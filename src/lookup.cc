@@ -9,6 +9,36 @@
 
 namespace verona
 {
+  size_t Lookup::sub(Node& node)
+  {
+    // Substitutes inside of `node`, but not `node` itself.
+    size_t changes = 0;
+
+    for (auto child : *node)
+    {
+      while ((child == FQType) && ((child / Type) == TypeParamName))
+      {
+        auto l = resolve_fq(child);
+        auto it = bindings.find(l.def);
+
+        if (it == bindings.end())
+          break;
+
+        auto bind = clone(it->second);
+
+        if (bind == Type)
+          bind = bind / Type;
+
+        node->replace(child, bind);
+        child = bind;
+      }
+
+      changes += sub(child);
+    }
+
+    return changes;
+  }
+
   static void apply_typeargs(Lookup& lookup, Node ta)
   {
     if (!lookup.def->in({Class, TypeAlias, Function}))
@@ -215,8 +245,7 @@ namespace verona
 
   static bool resolve_typename(Lookup& p, Node n)
   {
-    assert(n->in(
-      {TypeClassName, TypeAliasName, TypeParamName, TypeTraitName}));
+    assert(n->in({TypeClassName, TypeAliasName, TypeParamName, TypeTraitName}));
 
     if (!p.def)
       return false;
@@ -341,8 +370,7 @@ namespace verona
     std::reverse(path->begin(), path->end());
     node = path->pop_back();
 
-    if (node->in(
-          {TypeClassName, TypeAliasName, TypeParamName, TypeTraitName}))
+    if (node->in({TypeClassName, TypeAliasName, TypeParamName, TypeTraitName}))
       return FQType << path << node;
 
     assert(!path->empty());

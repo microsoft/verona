@@ -12,37 +12,6 @@ namespace verona
     Nodes deps;
   };
 
-  size_t type_substitution(NodeMap<Node>& bindings, Node& node)
-  {
-    // Substitutes inside of `node`, but not `node` itself.
-    size_t changes = 0;
-
-    for (auto child : *node)
-    {
-      while ((child == FQType) &&
-             ((child / Type) == TypeParamName))
-      {
-        auto l = resolve_fq(child);
-        auto it = bindings.find(l.def);
-
-        if (it == bindings.end())
-          break;
-
-        auto bind = clone(it->second);
-
-        if (bind == Type)
-          bind = bind / Type;
-
-        node->replace(child, bind);
-        child = bind;
-      }
-
-      changes += type_substitution(bindings, child);
-    }
-
-    return changes;
-  }
-
   PassDef codereuse()
   {
     auto pending = std::make_shared<NodeMap<Pending>>();
@@ -147,7 +116,7 @@ namespace verona
             changes++;
 
             // Type substitution in the inherited member.
-            changes += type_substitution(from.bindings, f);
+            changes += from.sub(f);
           }
         }
 

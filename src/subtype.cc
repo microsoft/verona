@@ -6,6 +6,27 @@
 
 namespace verona
 {
+  void merge(Bounds& lhs, Bounds& rhs)
+  {
+    for (auto& [k, v] : rhs)
+    {
+      auto it = lhs.find(k);
+
+      if (it == lhs.end())
+      {
+        lhs[k] = v;
+      }
+      else
+      {
+        // TODO: subsume bounds?
+        it->second.lower.insert(
+          it->second.lower.end(), v.lower.begin(), v.lower.end());
+        it->second.upper.insert(
+          it->second.upper.end(), v.upper.begin(), v.upper.end());
+      }
+    }
+  }
+
   struct Assume
   {
     Btype sub;
@@ -27,6 +48,7 @@ namespace verona
     Btypes self;
     Btypes predicates;
     std::vector<Assume> assumptions;
+    Bounds bounds;
 
     Sequent() = default;
 
@@ -37,7 +59,8 @@ namespace verona
       rhs_atomic(rhs.rhs_atomic),
       self(rhs.self),
       predicates(rhs.predicates),
-      assumptions(rhs.assumptions)
+      assumptions(rhs.assumptions),
+      bounds(rhs.bounds)
     {}
 
     void push_assume(Btype sub, Btype sup)
@@ -81,6 +104,8 @@ namespace verona
 
     bool reduce(Btype l, Btype r)
     {
+      // Start a fresh reduction, keeping the existing Self binding, predicates,
+      // and assumptions.
       Sequent seq;
       seq.lhs_pending.push_back(l);
       seq.rhs_pending.push_back(r);
@@ -89,7 +114,36 @@ namespace verona
       seq.assumptions = assumptions;
       seq.add_predicates(l);
       seq.add_predicates(r);
-      return seq.reduce();
+
+      if (!seq.reduce())
+        return false;
+
+      merge(bounds, seq.bounds);
+      return true;
+    }
+
+    bool lhs_reduce(Btype t)
+    {
+      Sequent seq(*this);
+      seq.lhs_pending.push_back(t);
+
+      if (!seq.reduce())
+        return false;
+
+      merge(bounds, seq.bounds);
+      return true;
+    }
+
+    bool rhs_reduce(Btype t)
+    {
+      Sequent seq(*this);
+      seq.rhs_pending.push_back(t);
+
+      if (!seq.reduce())
+        return false;
+
+      merge(bounds, seq.bounds);
+      return true;
     }
 
     bool reduce()
@@ -119,10 +173,7 @@ namespace verona
           // RHS isect is a sequent split.
           for (auto& t : *r->node)
           {
-            Sequent seq(*this);
-            seq.rhs_pending.push_back(r->make(t));
-
-            if (!seq.reduce())
+            if (!rhs_reduce(r->make(t)))
               return false;
           }
 
@@ -131,14 +182,11 @@ namespace verona
         else if (r == TypeAlias)
         {
           // Demand that we satisfy the type predicate, which is a split.
-          Sequent seq(*this);
-          seq.rhs_pending.push_back(r->field(TypePred));
-
-          if (!seq.reduce())
+          if (!rhs_reduce(r / TypePred))
             return false;
 
           // Try both the typealias and the underlying type.
-          rhs_pending.push_back(r->field(Type));
+          rhs_pending.push_back(r / Type);
           rhs_atomic.push_back(r);
         }
         else if (r == TypeView)
@@ -177,13 +225,10 @@ namespace verona
           // Π ⊩ Γ, A < B ⊢ Δ
           predicates.push_back(l);
 
-          Sequent seq(*this);
-          seq.rhs_pending.push_back(l->field(Lhs));
-
-          if (!seq.reduce())
+          if (!rhs_reduce(l / Lhs))
             return false;
 
-          lhs_pending.push_back(l->field(Rhs));
+          lhs_pending.push_back(l / Rhs);
         }
         else if (l == TypeIsect)
         {
@@ -205,10 +250,7 @@ namespace verona
           // LHS union is a sequent split.
           for (auto& t : *l->node)
           {
-            Sequent seq(*this);
-            seq.lhs_pending.push_back(l->make(t));
-
-            if (!seq.reduce())
+            if (!lhs_reduce(l->make(t)))
               return false;
           }
 
@@ -217,10 +259,10 @@ namespace verona
         else if (l == TypeAlias)
         {
           // Assume that we've satisfied the type predicate.
-          lhs_pending.push_back(l->field(TypePred));
+          lhs_pending.push_back(l / TypePred);
 
           // Try both the typealias and the underlying type.
-          lhs_pending.push_back(l->field(Type));
+          lhs_pending.push_back(l / Type);
           lhs_atomic.push_back(l);
         }
         else if (l == TypeView)
@@ -335,9 +377,15 @@ namespace verona
         // Π ⊩ Γ ⊢ Δ, A < B
         Sequent seq;
         seq.lhs_pending = predicates;
-        seq.lhs_pending.push_back(r->field(Lhs));
-        seq.rhs_pending.push_back(r->field(Rhs));
-        return seq.reduce();
+        seq.lhs_pending.push_back(r / Lhs);
+        seq.rhs_pending.push_back(r / Rhs);
+        seq.bounds = bounds;
+
+        if (!seq.reduce())
+          return false;
+
+        merge(bounds, seq.bounds);
+        return true;
       }
 
       // Check structural subtyping.
@@ -457,12 +505,14 @@ namespace verona
       if (l == TypeVar)
       {
         // TODO: l.upper += r
+        bounds[l->node->location()].upper.push_back(r);
         ok = true;
       }
 
       if (r == TypeVar)
       {
         // TODO: r.lower += l
+        bounds[r->node->location()].lower.push_back(l);
         ok = true;
       }
 
@@ -512,8 +562,7 @@ namespace verona
         auto rhs = NodeRange{it + 1, end};
         auto r = t->make(*it);
 
-        if (r->in(
-              {Package, Class, Trait, TypeTuple, TypeTrue, TypeFalse}))
+        if (r->in({Package, Class, Trait, TypeTuple, TypeTrue, TypeFalse}))
         {
           // The viewpoint path can be discarded.
           if (*it == t->node->back())
@@ -547,7 +596,7 @@ namespace verona
         else if (r == TypeAlias)
         {
           return {
-            r->field(Type)->make(TypeView << -lhs << -r->node << -rhs), false};
+            (r / Type)->make(TypeView << -lhs << -r->node << -rhs), false};
         }
         else if (r == TypeView)
         {
@@ -570,6 +619,7 @@ namespace verona
         auto r = t->make(*it);
 
         // If any step in the view is Imm, the whole view is Imm.
+        // TODO: if r is a TypeVar, this will bind it to `imm` and succeed.
         if (reduce(r, t_imm))
         {
           if (*it == t->node->back())
@@ -584,15 +634,28 @@ namespace verona
     }
   };
 
-  bool subtype(Node sub, Node sup)
-  {
-    Sequent seq;
-    return seq.reduce(make_btype(sub), make_btype(sup));
-  }
-
   bool subtype(Btype sub, Btype sup)
   {
     Sequent seq;
-    return seq.reduce(sub, sup);
+    seq.lhs_pending.push_back(sub);
+    seq.rhs_pending.push_back(sup);
+    seq.add_predicates(sub);
+    seq.add_predicates(sub);
+    return seq.reduce();
+  }
+
+  bool subtype(Btype sub, Btype sup, Bounds& bounds)
+  {
+    Sequent seq;
+    seq.lhs_pending.push_back(sub);
+    seq.rhs_pending.push_back(sup);
+    seq.add_predicates(sub);
+    seq.add_predicates(sub);
+
+    if (!seq.reduce())
+      return false;
+
+    merge(bounds, seq.bounds);
+    return true;
   }
 }

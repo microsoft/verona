@@ -27,6 +27,8 @@ namespace verona
     {
       return (def < other.def) && (bindings < other.bindings);
     }
+
+    size_t sub(Node& node);
   };
 
   using Lookups = std::set<Lookup>;

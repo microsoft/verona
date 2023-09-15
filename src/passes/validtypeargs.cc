@@ -24,7 +24,7 @@ namespace verona
           if (!bt->in({Class, TypeAlias, Function}))
             return NoChange;
 
-          if (!subtype(make_btype(TypeTrue), bt->field(TypePred)))
+          if (!subtype(make_btype(TypeTrue), bt / TypePred))
             return err(tn, "Invalid type arguments");
 
           return NoChange;

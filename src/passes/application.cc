@@ -92,8 +92,14 @@ namespace verona
           return Let << (Ident ^ _.fresh());
         },
 
-      // Turn remaining uses of Unit into std::builtin::Unit::create()
+      // Turn Unit into std::builtin::Unit::create()
       T(Unit) >> [](Match&) { return unit(); },
+
+      // Turn True into std::builtin::Bool::make_true()
+      T(True) >> [](Match&) { return booltrue(); },
+
+      // Turn False into std::builtin::Bool::make_false()
+      T(False) >> [](Match&) { return boolfalse(); },
 
       T(Ellipsis) >>
         [](Match& _) {

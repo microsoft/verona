@@ -34,8 +34,7 @@ namespace verona
           // Create the `new` function, with default arguments set to the field
           // initializers. Mark `new` as explicit, so that errors when type
           // checking `new` are reported.
-          auto body = ClassBody
-            << *_[ClassBody]
+          class_body
             << (Function << Explicit << Rhs << (Ident ^ l_new) << TypeParams
                          << new_params << typevar(_) << DontCare << typepred()
                          << (Block << (Expr << unit())));
@@ -44,16 +43,16 @@ namespace verona
           if (class_body->parent()->lookdown(l_create).empty())
           {
             // Create the `create` function.
-            auto fq_new = append_fq(local_fq(_(ClassBody)), selector(l_new));
+            auto fq_new = append_fq(local_fq(class_body), selector(l_new));
 
-            body
+            class_body
               << (Function << Implicit << Rhs << (Ident ^ l_create)
                            << TypeParams << clone(new_params) << typevar(_)
                            << DontCare << typepred()
                            << (Block << (Expr << call(fq_new, new_args))));
           }
 
-          return body;
+          return NoChange;
         }),
 
         // Strip the default field values.
