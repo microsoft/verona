@@ -18,7 +18,7 @@ namespace verona
     auto ready = std::make_shared<Nodes>();
 
     PassDef codereuse = {
-      dir::topdown | dir::once,
+      dir::bottomup | dir::once,
       {
         T(Class)[Class]
             << (T(Ident)[Ident] * T(TypeParams) *

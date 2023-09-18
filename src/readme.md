@@ -1,5 +1,7 @@
 # To Do
 
+- change T(A) / T(B) to T(A, B)
+
 - Could we...
   - Lift lambdas during or immediately after structure.
     - Requires checking for `try { e }` before or during lifting.

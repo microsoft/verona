@@ -7,7 +7,7 @@ namespace verona
   PassDef nlrcheck()
   {
     return {
-      dir::topdown | dir::once,
+      dir::bottomup | dir::once,
       {
         T(NLRCheck)
             << (IsImplicit[Implicit] *

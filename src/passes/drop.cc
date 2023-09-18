@@ -223,7 +223,7 @@ namespace verona
     auto drop_map = std::make_shared<std::vector<track>>();
 
     PassDef drop = {
-      dir::topdown | dir::once,
+      dir::bottomup | dir::once,
       {
         (T(Param) / T(Bind)) << T(Ident)[Ident] >>
           ([drop_map](Match& _) -> Node {

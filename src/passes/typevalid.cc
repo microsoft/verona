@@ -220,7 +220,7 @@ namespace verona
   PassDef typevalid()
   {
     return {
-      dir::once | dir::topdown,
+      dir::bottomup | dir::once,
       {
         T(TypeAlias)[TypeAlias] >> ([](Match& _) -> Node {
           if (recursive_typealias(_(TypeAlias)))

@@ -10,7 +10,7 @@ namespace verona
     // late so that fields have already been turned into accessor functions and
     // partial application functions have already been generated.
     return {
-      dir::once | dir::topdown,
+      dir::bottomup | dir::once,
       {
         T(Trait)[Trait] << (T(Ident)[Ident] * T(ClassBody)[ClassBody]) >>
           [](Match& _) {

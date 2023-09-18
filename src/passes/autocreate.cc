@@ -8,7 +8,7 @@ namespace verona
   PassDef autocreate()
   {
     return {
-      dir::topdown | dir::once,
+      dir::bottomup | dir::once,
       {
         In(Class) * T(ClassBody)[ClassBody] >> ([](Match& _) -> Node {
           auto class_body = _(ClassBody);

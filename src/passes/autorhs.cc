@@ -8,7 +8,7 @@ namespace verona
   PassDef autorhs()
   {
     return {
-      dir::topdown | dir::once,
+      dir::bottomup | dir::once,
       {
         T(Function)[Function]
             << (IsImplicit * T(Lhs) * T(Ident)[Ident] *

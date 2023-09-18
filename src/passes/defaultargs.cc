@@ -8,7 +8,7 @@ namespace verona
   PassDef defaultargs()
   {
     return {
-      dir::topdown | dir::once,
+      dir::bottomup | dir::once,
       {
         T(Function)[Function]
             << (T(Explicit) * Hand[Ref] * T(Ident)[Ident] *

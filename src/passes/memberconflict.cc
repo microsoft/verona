@@ -7,7 +7,7 @@ namespace verona
   PassDef memberconflict()
   {
     return {
-      dir::topdown | dir::once,
+      dir::bottomup | dir::once,
       {
         (T(FieldLet) / T(FieldVar) / T(Function))[Op] >> ([](Match& _) -> Node {
           auto f = _(Op);

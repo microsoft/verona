@@ -7,7 +7,7 @@ namespace verona
   PassDef autofields()
   {
     return {
-      dir::topdown | dir::once,
+      dir::bottomup | dir::once,
       {
         (T(FieldVar) / T(FieldLet))[Op] << (T(Ident)[Ident] * T(Type)[Type]) >>
           ([](Match& _) -> Node {
