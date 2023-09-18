@@ -34,8 +34,7 @@ namespace verona
         },
 
       // Dot notation. Use `Ident` as a selector, even if it's in scope.
-      In(Expr) * T(Dot) * (T(Ident) / T(Symbol))[Ident] *
-          ~T(TypeArgs)[TypeArgs] >>
+      In(Expr) * T(Dot) * T(Ident, Symbol)[Ident] * ~T(TypeArgs)[TypeArgs] >>
         [](Match& _) { return Seq << Dot << selector(_(Ident), _(TypeArgs)); },
 
       // Local reference.
@@ -49,7 +48,7 @@ namespace verona
         [](Match& _) { return RefLet << _(Ident); },
 
       // Unscoped reference.
-      In(Expr) * (T(Ident) / T(Symbol))[Ident] * ~T(TypeArgs)[TypeArgs] >>
+      In(Expr) * T(Ident, Symbol)[Ident] * ~T(TypeArgs)[TypeArgs] >>
         [](Match& _) {
           auto id = _(Ident);
           auto ta = _(TypeArgs);
@@ -89,7 +88,7 @@ namespace verona
 
       // Scoped reference.
       In(Expr) *
-          (T(FQType)[Lhs] * T(DoubleColon) * (T(Ident) / T(Symbol))[Ident] *
+          (T(FQType)[Lhs] * T(DoubleColon) * T(Ident, Symbol)[Ident] *
            ~T(TypeArgs)[TypeArgs]) >>
         [](Match& _) {
           auto id = _(Ident);
@@ -140,8 +139,7 @@ namespace verona
 
       // Error out on invalid scoped references.
       In(Expr) *
-          (T(DoubleColon) * ~(T(Ident) / T(Symbol)) *
-           ~T(TypeArgs))[DoubleColon] >>
+          (T(DoubleColon) * ~T(Ident, Symbol) * ~T(TypeArgs))[DoubleColon] >>
         [](Match& _) {
           return err(_(DoubleColon), "Expected a scoped reference");
         },

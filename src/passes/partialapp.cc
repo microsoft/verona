@@ -82,8 +82,7 @@ namespace verona
         T(Function)[Function]
             << (IsImplicit * Hand[Ref] * T(Ident)[Ident] *
                 T(TypeParams)[TypeParams] * T(Params)[Params] * T(Type) *
-                T(DontCare) * T(TypePred)[TypePred] *
-                (T(Block) / T(DontCare))) >>
+                T(DontCare) * T(TypePred)[TypePred] * T(Block, DontCare)) >>
           ([](Match& _) -> Node {
             auto f = _(Function);
             auto parent = f->parent({Class, Trait});

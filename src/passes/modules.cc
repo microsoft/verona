@@ -35,22 +35,22 @@ namespace verona
       // Otherwise end the type at a Where, Brace, or TripleColon.
       T(Colon) *
           (~T(Brace) *
-           (((T(Symbol) / T(Dot)) * T(Brace)) /
-            (!(T(Where) / T(Brace) / T(TripleColon))))++)[Type] >>
+           ((T(Symbol, Dot) * T(Brace)) /
+            (!T(Where, Brace, TripleColon)))++)[Type] >>
         [](Match& _) { return Type << (_[Type] || DontCare); },
 
       // Type predicate.
       T(Where) *
           (~T(Brace) *
-           (((T(Symbol) / T(Dot)) * T(Brace)) /
-            (!(T(Where) / T(Brace) / T(TripleColon))))++)[Type] >>
+           ((T(Symbol, Dot) * T(Brace)) /
+            (!T(Where, Brace, TripleColon)))++)[Type] >>
         [](Match& _) { return TypePred << (Type << (_[Type] || TypeTrue)); },
 
       T(TripleColon) *
           (T(Paren)
-           << ((T(List) << (T(Group) << (T(Ident) / T(LLVM)))++[Args]) /
-               ~(T(Group) << (T(Ident) / T(LLVM)))[Args])) *
-          T(Symbol, "->") * (T(Ident) / T(LLVM))[Return] >>
+           << ((T(List) << (T(Group) << T(Ident, LLVM))++[Args]) /
+               ~(T(Group) << T(Ident, LLVM))[Args])) *
+          T(Symbol, "->") * T(Ident, LLVM)[Return] >>
         [](Match& _) {
           return LLVMFuncType << (LLVMList << *_[Args]) << _(Return);
         },

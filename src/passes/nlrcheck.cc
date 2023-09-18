@@ -11,8 +11,7 @@ namespace verona
       {
         T(NLRCheck)
             << (IsImplicit[Implicit] *
-                (T(Call)[Call]
-                 << ((T(Selector) / T(FQFunction))[Op] * T(Args)))) >>
+                (T(Call)[Call] << (T(Selector, FQFunction)[Op] * T(Args)))) >>
           [](Match& _) {
             auto call = _(Call);
 

@@ -9,7 +9,7 @@ namespace verona
     return {
       dir::bottomup | dir::once,
       {
-        (T(FieldVar) / T(FieldLet))[Op] << (T(Ident)[Ident] * T(Type)[Type]) >>
+        T(FieldVar, FieldLet)[Op] << (T(Ident)[Ident] * T(Type)[Type]) >>
           ([](Match& _) -> Node {
             // If it's a FieldLet, generate only an RHS function. If it's a
             // FieldVar, generate an LHS function, which will autogenerate an

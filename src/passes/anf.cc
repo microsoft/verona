@@ -4,8 +4,8 @@
 
 namespace verona
 {
-  inline const auto Liftable = T(Tuple) / T(Call) / T(Conditional) /
-    T(FieldRef) / T(TypeTest) / T(Cast) / T(Selector) / Literal;
+  inline const auto Liftable =
+    Literal / T(Tuple, Call, Conditional, FieldRef, TypeTest, Cast, Selector);
 
   PassDef anf()
   {
@@ -22,7 +22,7 @@ namespace verona
         },
 
       // Lift RefLet and Return.
-      T(Expr) << (T(RefLet) / T(Return))[Op] >> [](Match& _) { return _(Op); },
+      T(Expr) << T(RefLet, Return)[Op] >> [](Match& _) { return _(Op); },
 
       // Lift LLVM literals that are at the block level.
       In(Block) * (T(Expr) << T(LLVM)[LLVM]) >>

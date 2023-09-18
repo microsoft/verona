@@ -10,7 +10,7 @@ namespace verona
     return {
       dir::bottomup | dir::once,
       {
-        (T(FQType) / T(FQFunction))[Type] >> ([](Match& _) -> Node {
+        T(FQType, FQFunction)[Type] >> ([](Match& _) -> Node {
           auto tn = _(Type);
 
           if (is_implicit(tn))

@@ -225,11 +225,10 @@ namespace verona
     PassDef drop = {
       dir::bottomup | dir::once,
       {
-        (T(Param) / T(Bind)) << T(Ident)[Ident] >>
-          ([drop_map](Match& _) -> Node {
-            drop_map->back().gen(_(Ident)->location());
-            return NoChange;
-          }),
+        T(Param, Bind) << T(Ident)[Ident] >> ([drop_map](Match& _) -> Node {
+          drop_map->back().gen(_(Ident)->location());
+          return NoChange;
+        }),
 
         T(RefLet)[RefLet] << T(Ident)[Ident] >> ([drop_map](Match& _) -> Node {
           drop_map->back().ref(_(Ident)->location(), _(RefLet));

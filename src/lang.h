@@ -155,22 +155,48 @@ namespace verona
   inline const auto l_create = Location("create");
 
   // Helper patterns.
-  inline const auto IsImplicit = T(Implicit) / T(Explicit);
-  inline const auto Hand = T(Lhs) / T(Rhs);
-  inline const auto TypeStruct = In(Type) / In(TypeList) / In(TypeTuple) /
-    In(TypeView) / In(TypeUnion) / In(TypeIsect) / In(TypeSubtype);
-  inline const auto TypeCaps = T(Iso) / T(Mut) / T(Imm);
-  inline const auto Literal = T(String) / T(Escaped) / T(Char) / T(Hex) /
-    T(Oct) / T(Bin) / T(Int) / T(Float) / T(HexFloat) / T(LLVM);
-  inline const auto TypeElem = T(Type) / TypeCaps / T(FQType) / T(Trait) /
-    T(TypeTuple) / T(Self) / T(TypeList) / T(TypeView) / T(TypeIsect) /
-    T(TypeUnion) / T(TypeVar) / T(Package) / T(TypeSubtype) / T(TypeTrue) /
-    T(TypeFalse);
-  inline const auto Object0 = Literal / T(RefVar) / T(RefVarLHS) / T(RefLet) /
-    T(Unit) / T(Tuple) / T(Call) / T(NLRCheck) / T(Assign) / T(Expr) /
-    T(ExprSeq) / T(DontCare) / T(Conditional) / T(TypeTest) / T(Cast);
+  inline const auto IsImplicit = T(Implicit, Explicit);
+  inline const auto Hand = T(Lhs, Rhs);
+  inline const auto TypeStruct =
+    In(Type, TypeList, TypeTuple, TypeView, TypeUnion, TypeIsect, TypeSubtype);
+  inline const auto TypeCaps = T(Iso, Mut, Imm);
+  inline const auto Literal =
+    T(String, Escaped, Char, Hex, Oct, Bin, Int, Float, HexFloat, LLVM);
+
+  inline const auto TypeElem = TypeCaps /
+    T(Type,
+      FQType,
+      Trait,
+      TypeTuple,
+      Self,
+      TypeList,
+      TypeView,
+      TypeIsect,
+      TypeUnion,
+      TypeVar,
+      Package,
+      TypeSubtype,
+      TypeTrue,
+      TypeFalse);
+
+  inline const auto Object0 = Literal /
+    T(RefVar,
+      RefVarLHS,
+      RefLet,
+      Unit,
+      Tuple,
+      Call,
+      NLRCheck,
+      Assign,
+      Expr,
+      ExprSeq,
+      DontCare,
+      Conditional,
+      TypeTest,
+      Cast);
+
   inline const auto Object = Object0 / (T(TypeAssert) << (Object0 * T(Type)));
-  inline const auto Operator = T(FQFunction) / T(Selector);
+  inline const auto Operator = T(FQFunction, Selector);
   inline const auto RhsCall = T(Call)
     << ((T(Selector) << T(Rhs)) /
         (T(FQFunction) << (T(FQType) * (T(Selector) << T(Rhs)))));

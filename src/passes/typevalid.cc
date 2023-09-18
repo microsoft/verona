@@ -26,15 +26,12 @@ namespace verona
       {
         worklist.emplace_back(set, lookup.make(lookup.def / Type));
       }
-      else if (lookup.def->in(
-                 {TypeTuple, TypeUnion, TypeIsect, TypeView}))
+      else if (lookup.def->in({TypeTuple, TypeUnion, TypeIsect, TypeView}))
       {
         for (auto& t : *lookup.def)
           worklist.emplace_back(set, lookup.make(t));
       }
-      else if (
-        (lookup.def == FQType) &&
-        ((lookup.def / Type) == TypeAliasName))
+      else if ((lookup.def == FQType) && ((lookup.def / Type) == TypeAliasName))
       {
         auto l = resolve_fq(lookup.def);
 
@@ -47,9 +44,7 @@ namespace verona
           worklist.emplace_back(set, l);
         }
       }
-      else if (
-        (lookup.def == FQType) &&
-        ((lookup.def / Type) == TypeParamName))
+      else if ((lookup.def == FQType) && ((lookup.def / Type) == TypeParamName))
       {
         auto l = resolve_fq(lookup.def);
 
@@ -88,9 +83,7 @@ namespace verona
         for (auto& t : *lookup.def)
           worklist.emplace_back(set, lookup.make(t));
       }
-      else if (
-        (lookup.def == FQType) &&
-        ((lookup.def / Type) == TypeClassName))
+      else if ((lookup.def == FQType) && ((lookup.def / Type) == TypeClassName))
       {
         auto l = resolve_fq(lookup.def);
 
@@ -105,18 +98,14 @@ namespace verona
           worklist.emplace_back(set, inherit / Inherit);
         }
       }
-      else if (
-        (lookup.def == FQType) &&
-        ((lookup.def / Type) == TypeAliasName))
+      else if ((lookup.def == FQType) && ((lookup.def / Type) == TypeAliasName))
       {
         auto l = resolve_fq(lookup.def);
 
         if (l.def)
           worklist.emplace_back(set, l);
       }
-      else if (
-        (lookup.def == FQType) &&
-        ((lookup.def / Type) == TypeParamName))
+      else if ((lookup.def == FQType) && ((lookup.def / Type) == TypeParamName))
       {
         auto l = resolve_fq(lookup.def);
 
@@ -245,8 +234,9 @@ namespace verona
           }),
 
         In(TypePred)++ * --(In(TypeSubtype, TypeArgs)++) *
-            (TypeCaps / T(Trait) / T(TypeTuple) / T(Self) / T(TypeList) /
-             T(TypeView) / T(TypeVar) / T(Package))[Type] >>
+            (TypeCaps /
+             T(Trait, TypeTuple, Self, TypeList, TypeView, TypeVar, Package))
+              [Type] >>
           [](Match& _) {
             return err(_(Type), "Can't put this in a type predicate");
           },
@@ -260,9 +250,17 @@ namespace verona
           }),
 
         In(Inherit)++ * --(In(TypeArgs)++) *
-            (TypeCaps / T(TypeTuple) / T(Self) / T(TypeList) / T(TypeView) /
-             T(TypeUnion) / T(TypeVar) / T(Package) / T(TypeSubtype) /
-             T(TypeTrue) / T(TypeFalse))[Type] >>
+            (TypeCaps /
+             T(TypeTuple,
+               Self,
+               TypeList,
+               TypeView,
+               TypeUnion,
+               TypeVar,
+               Package,
+               TypeSubtype,
+               TypeTrue,
+               TypeFalse))[Type] >>
           [](Match& _) { return err(_(Type), "Can't inherit from this type"); },
       }};
   }

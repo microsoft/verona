@@ -18,7 +18,7 @@ namespace verona
                      (T(Param) << (T(Ident) * T(Type) * T(NLRCheck)))++[Rhs] *
                      End)) *
                 T(Type)[Type] * T(DontCare) * T(TypePred)[TypePred] *
-                (T(Block) / T(DontCare))[Block]) >>
+                T(Block, DontCare)[Block]) >>
           [](Match& _) {
             Node seq = Seq;
             auto hand = _(Ref);

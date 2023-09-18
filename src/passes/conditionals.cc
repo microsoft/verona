@@ -106,7 +106,7 @@ namespace verona
         },
 
       // Strip implicit/explicit marker from fields.
-      (T(FieldLet) / T(FieldVar))[FieldLet]
+      T(FieldLet, FieldVar)[FieldLet]
           << (IsImplicit * T(Ident)[Ident] * T(Type)[Type] * Any[Default]) >>
         [](Match& _) {
           Node field = _(FieldLet)->type();

@@ -9,7 +9,7 @@ namespace verona
     return {
       dir::bottomup | dir::once,
       {
-        (T(FieldLet) / T(FieldVar) / T(Function))[Op] >> ([](Match& _) -> Node {
+        T(FieldLet, FieldVar, Function)[Op] >> ([](Match& _) -> Node {
           auto f = _(Op);
           bool implicit = (f / Implicit) == Implicit;
           auto defs = f->scope()->lookdown((f / Ident)->location());
