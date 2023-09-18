@@ -185,6 +185,7 @@ namespace verona
       RefLet,
       Unit,
       Tuple,
+      Lambda,
       Call,
       NLRCheck,
       Assign,

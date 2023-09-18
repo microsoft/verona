@@ -171,6 +171,16 @@ namespace verona
       In(Params) * (!T(Param))[Param] >>
         [](Match& _) { return err(_(Param), "Expected a parameter"); },
 
+      (T(Param)[Lhs] << (T(Ident) * T(Type) * T(Lambda))) *
+          (T(Param)[Rhs] << (T(Ident) * T(Type) * T(DontCare))) >>
+        [](Match& _) {
+          return err(
+                   _(Lhs),
+                   "Can't put a parameter with a default value before a "
+                   "parameter without one")
+            << (ErrorMsg ^ "This parameter has no default value") << _(Rhs);
+        },
+
       // Use.
       In(ClassBody, Block) * T(Group) << T(Use)[Use] * (Any++)[Type] >>
         [](Match& _) {
@@ -340,8 +350,7 @@ namespace verona
       // (brace (list|group) (group arrow) ...)
       In(Expr) *
           (T(Brace)
-           << (T(List, Group)[Params] * (T(Group) << T(Arrow)) *
-               Any++[Rhs])) >>
+           << (T(List, Group)[Params] * (T(Group) << T(Arrow)) * Any++[Rhs])) >>
         [](Match& _) {
           return Lambda << TypeParams << (Params << _[Params]) << typevar(_)
                         << typepred() << (Block << _[Rhs]);
@@ -387,8 +396,7 @@ namespace verona
           return Expr << (TypeAssert << (Expr << _[Expr]) << _(Type));
         },
 
-      In(Expr) *
-          (TypeCaps / T(TypePred, Self, Arrow, LLVMFuncType))[Expr] >>
+      In(Expr) * (TypeCaps / T(TypePred, Self, Arrow, LLVMFuncType))[Expr] >>
         [](Match& _) {
           return err(_(Expr), "Can't put this in an expression");
         },

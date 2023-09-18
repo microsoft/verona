@@ -1,6 +1,7 @@
 # To Do
 
 - Could we...
+  - NO: can't do free variable analysis.
   - Lift lambdas during or immediately after structure.
     - Requires checking for `try { e }` before or during lifting.
     - Requires extra work generating `f(_, x)`.

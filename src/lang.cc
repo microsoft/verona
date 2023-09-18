@@ -306,7 +306,7 @@ namespace verona
         {"lambda", lambda(), wfPassLambda},
         {"autofields", autofields(), wfPassAutoFields},
         {"autorhs", autorhs(), wfPassAutoFields},
-        {"autocreate", autocreate(), wfPassAutoCreate},
+        {"autocreate", autocreate(), wfPassAutoFields},
         {"defaultargs", defaultargs(), wfPassDefaultArgs},
         {"partialapp", partialapp(), wfPassDefaultArgs},
         {"traitisect", traitisect(), wfPassDefaultArgs},

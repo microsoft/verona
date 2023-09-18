@@ -27,7 +27,8 @@ namespace verona
               // function parameters.
               new_args << (Expr << (RefLet << clone(id)));
               new_params
-                << ((Param ^ def_arg) << clone(id) << clone(ty) << def_arg);
+                << ((Param ^ def_arg)
+                    << clone(id) << clone(ty) << clone(def_arg));
             }
           }
 
@@ -54,13 +55,6 @@ namespace verona
 
           return NoChange;
         }),
-
-        // Strip the default field values.
-        T(FieldLet) << (T(Ident)[Ident] * T(Type)[Type] * Any) >>
-          [](Match& _) { return FieldLet << _(Ident) << _(Type); },
-
-        T(FieldVar) << (T(Ident)[Ident] * T(Type)[Type] * Any) >>
-          [](Match& _) { return FieldVar << _(Ident) << _(Type); },
       }};
   }
 }

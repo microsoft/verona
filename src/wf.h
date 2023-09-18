@@ -315,16 +315,10 @@ namespace verona
   // clang-format on
 
   // clang-format off
-  inline const auto wfPassAutoCreate =
+  inline const auto wfPassDefaultArgs =
       wfPassAutoFields
     | (FieldLet <<= Ident * Type)[Ident]
     | (FieldVar <<= Ident * Type)[Ident]
-    ;
-  // clang-format on
-
-  // clang-format off
-  inline const auto wfPassDefaultArgs =
-      wfPassAutoCreate
     | (Param <<= Ident * Type)[Ident]
     ;
   // clang-format on

@@ -11,20 +11,22 @@ namespace verona
       dir::bottomup | dir::once,
       {
         T(Function)[Function]
-            << (T(Explicit) * Hand[Ref] * T(Ident)[Ident] *
+            << (IsImplicit[Implicit] * Hand[Ref] * T(Ident)[Ident] *
                 T(TypeParams)[TypeParams] *
                 (T(Params)
                  << ((T(Param) << (T(Ident) * T(Type) * T(DontCare)))++[Lhs] *
                      (T(Param) << (T(Ident) * T(Type) * T(NLRCheck)))++[Rhs] *
                      End)) *
-                T(Type)[Type] * T(DontCare) * T(TypePred)[TypePred] *
-                T(Block, DontCare)[Block]) >>
+                T(Type)[Type] * T(LLVMFuncType, DontCare)[LLVMFuncType] *
+                T(TypePred)[TypePred] * T(Block, DontCare)[Block]) >>
           [](Match& _) {
             Node seq = Seq;
-            auto hand = _(Ref);
+            auto implicit = _(Implicit)->type();
+            auto hand = _(Ref)->type();
             auto id = _(Ident);
             auto tp = _(TypeParams);
             auto ty = _(Type);
+            auto llvmty = _(LLVMFuncType);
             auto pred = _(TypePred);
             auto lhs = _[Lhs];
             auto rhs = _[Rhs];
@@ -56,8 +58,9 @@ namespace verona
               // arguments are reported.
               seq
                 << (Function
-                    << Explicit << clone(hand) << clone(id) << clone(tp)
-                    << clone(params) << clone(ty) << DontCare << clone(pred)
+                    << implicit << hand << clone(id) << clone(tp)
+                    << clone(params) << clone(ty) << clone(llvmty)
+                    << clone(pred)
                     << (Block << (Expr << (call(clone(fq), clone(args))))));
 
               // Add a parameter.
@@ -71,19 +74,16 @@ namespace verona
 
             // The original function, with no default arguments.
             return seq
-              << (Function << Explicit << hand << id << tp << params << ty
-                           << DontCare << pred << _(Block));
+              << (Function << implicit << hand << id << tp << params << ty
+                           << llvmty << pred << _(Block));
           },
 
-        T(Param) << (T(Ident)[Ident] * T(Type)[Type] * T(DontCare)) >>
-          [](Match& _) { return Param << _(Ident) << _(Type); },
+        // Strip the default field values.
+        T(FieldLet) << (T(Ident)[Ident] * T(Type)[Type] * Any) >>
+          [](Match& _) { return FieldLet << _(Ident) << _(Type); },
 
-        T(Param)[Param] << (T(Ident) * T(Type) * T(NLRCheck)) >>
-          [](Match& _) {
-            return err(
-              _(Param),
-              "Can't put a default value before a non-defaulted value");
-          },
+        T(FieldVar) << (T(Ident)[Ident] * T(Type)[Type] * Any) >>
+          [](Match& _) { return FieldVar << _(Ident) << _(Type); },
       }};
   }
 }
