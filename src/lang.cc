@@ -287,6 +287,7 @@ namespace verona
       {
         {"modules", modules(), wfPassModules},
         {"structure", structure(), wfPassStructure},
+        {"conditionals", conditionals(), wfPassConditionals},
         {"typenames", typenames(), wfPassTypeNames},
         {"typeview", typeview(), wfPassTypeView},
         {"typefunc", typefunc(), wfPassTypeFunc},
@@ -296,7 +297,7 @@ namespace verona
         {"reference", reference(), wfPassReference},
         {"codereuse", codereuse(), wfPassReference},
         {"memberconflict", memberconflict(), wfPassReference},
-        {"conditionals", conditionals(), wfPassConditionals},
+        {"resetimplicit", resetimplicit(), wfPassResetImplicit},
         {"reverseapp", reverseapp(), wfPassReverseApp},
         {"application", application(), wfPassApplication},
         {"assignlhs", assignlhs(), wfPassAssignLHS},

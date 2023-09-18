@@ -102,13 +102,27 @@ namespace verona
     ;
   // clang-format on
 
+  // Remove If, Else. Add Conditional, TypeTest, Cast.
+  inline const auto wfExprConditionals =
+    (wfExprStructure - (If | Else)) | Conditional | TypeTest | Cast;
+
+  // clang-format off
+  inline const auto wfPassConditionals =
+      wfPassStructure
+    | (Conditional <<= (If >>= Expr) * Block * Block)
+    | (TypeTest <<= Expr * Type)
+    | (Cast <<= Expr * Type)
+    | (Expr <<= wfExprConditionals++[1])
+    ;
+  // clang-format on
+
   // Remove DontCare, Ident. Add FQType.
   inline const auto wfTypeNames =
     (wfTypeStructure - (DontCare | Ident)) | FQType;
 
   // clang-format off
   inline const auto wfPassTypeNames =
-      wfPassStructure
+      wfPassConditionals
     | (FQType <<=
         TypePath *
         (Type >>=
@@ -183,7 +197,7 @@ namespace verona
   // Remove TypeArgs, New, Ident, Symbol, DoubleColon.
   // Add RefVar, RefLet, Selector, FQFunction.
   inline const auto wfExprReference =
-    (wfExprStructure - (TypeArgs | New | Ident | Symbol | DoubleColon)) |
+    (wfExprConditionals - (TypeArgs | New | Ident | Symbol | DoubleColon)) |
     RefVar | RefLet | Selector | FQFunction;
 
   // clang-format off
@@ -196,32 +210,21 @@ namespace verona
     ;
   // clang-format on
 
-  // Remove If, Else. Add Conditional, TypeTest, Cast.
-  inline const auto wfExprConditionals =
-    (wfExprReference - (If | Else)) | Conditional | TypeTest | Cast;
-
   // clang-format off
-  inline const auto wfPassConditionals =
+  inline const auto wfPassResetImplicit =
       wfPassReference
-    | (Conditional <<= (If >>= Expr) * Block * Block)
-    | (TypeTest <<= Expr * Type)
-    | (Cast <<= Expr * Type)
-
-    // Remove implicit marker.
     | (FieldLet <<= Ident * Type * wfDefault)[Ident]
     | (FieldVar <<= Ident * Type * wfDefault)[Ident]
-
-    | (Expr <<= wfExprConditionals++[1])
     ;
   // clang-format on
 
   // Remove Dot. Add Call, NLRCheck.
   inline const auto wfExprReverseApp =
-    (wfExprConditionals - Dot) | Call | NLRCheck;
+    (wfExprReference - Dot) | Call | NLRCheck;
 
   // clang-format off
   inline const auto wfPassReverseApp =
-      wfPassConditionals
+      wfPassResetImplicit
 
     // Remove Use.
     | (ClassBody <<= (Class | TypeAlias | FieldLet | FieldVar | Function)++)

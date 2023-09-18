@@ -6,7 +6,7 @@ add_executable(verona
   subtype.cc
   passes/modules.cc
   passes/structure.cc
-  passes/memberconflict.cc
+  passes/conditionals.cc
   passes/typenames.cc
   passes/typeview.cc
   passes/typefunc.cc
@@ -14,7 +14,8 @@ add_executable(verona
   passes/typeflat.cc
   passes/typevalid.cc
   passes/codereuse.cc
-  passes/conditionals.cc
+  passes/memberconflict.cc
+  passes/resetimplicit.cc
   passes/reference.cc
   passes/reverseapp.cc
   passes/application.cc

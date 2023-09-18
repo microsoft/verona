@@ -232,7 +232,7 @@ namespace verona
   Parse parser();
   PassDef modules();
   PassDef structure();
-  PassDef memberconflict();
+  PassDef conditionals();
   PassDef typenames();
   PassDef typeview();
   PassDef typefunc();
@@ -240,7 +240,8 @@ namespace verona
   PassDef typeflat();
   PassDef typevalid();
   PassDef codereuse();
-  PassDef conditionals();
+  PassDef memberconflict();
+  PassDef resetimplicit();
   PassDef reference();
   PassDef reverseapp();
   PassDef application();
