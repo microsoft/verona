@@ -1,5 +1,7 @@
 # To Do
 
+- Separate reference pass? Do non-types first, then lambda lift, then types, then type references?
+
 - Could we...
   - NO: can't do free variable analysis.
   - Lift lambdas during or immediately after structure.

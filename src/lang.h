@@ -234,6 +234,7 @@ namespace verona
   PassDef modules();
   PassDef structure();
   PassDef conditionals();
+  PassDef reference();
   PassDef typenames();
   PassDef typeview();
   PassDef typefunc();
@@ -243,7 +244,7 @@ namespace verona
   PassDef codereuse();
   PassDef memberconflict();
   PassDef resetimplicit();
-  PassDef reference();
+  PassDef typereference();
   PassDef reverseapp();
   PassDef application();
   PassDef assignlhs();

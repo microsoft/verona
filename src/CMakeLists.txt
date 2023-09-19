@@ -7,16 +7,17 @@ add_executable(verona
   passes/modules.cc
   passes/structure.cc
   passes/conditionals.cc
+  passes/reference.cc
   passes/typenames.cc
   passes/typeview.cc
   passes/typefunc.cc
   passes/typealg.cc
   passes/typeflat.cc
   passes/typevalid.cc
+  passes/typereference.cc
   passes/codereuse.cc
   passes/memberconflict.cc
   passes/resetimplicit.cc
-  passes/reference.cc
   passes/reverseapp.cc
   passes/application.cc
   passes/assignlhs.cc
