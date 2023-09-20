@@ -8,7 +8,7 @@ namespace verona
 {
   using namespace wf::ops;
 
-  inline const auto wfImplicit = Implicit >>= Implicit | Explicit;
+  inline const auto wfImplicit = Implicit >>= Implicit | Explicit | LambdaFunc;
   inline const auto wfHand = Ref >>= Lhs | Rhs;
 
   inline const auto wfParserTokens = True | False | Int | Hex | Oct | Bin |
@@ -130,13 +130,17 @@ namespace verona
     ;
   // clang-format on
 
-  // Remove DontCare, Ident. Add FQType.
-  inline const auto wfTypeNames =
-    (wfTypeStructure - (DontCare | Ident)) | FQType;
+  // Remove Lambda. Add FQFunction, Call, NLRCheck.
+  inline const auto wfExprLambda =
+    (wfExprConditionals - Lambda) | FQFunction | Call | NLRCheck;
+  inline const auto wfNLRDefault = Default >>= NLRCheck | DontCare;
 
   // clang-format off
-  inline const auto wfPassTypeNames =
+  inline const auto wfPassLambda =
       wfPassConditionals
+    | (FieldLet <<= wfImplicit * Ident * Type * wfNLRDefault)[Ident]
+    | (FieldVar <<= wfImplicit * Ident * Type * wfNLRDefault)[Ident]
+    | (Param <<= Ident * Type * wfNLRDefault)[Ident]
     | (FQType <<=
         TypePath *
         (Type >>=
@@ -148,6 +152,21 @@ namespace verona
     | (TypeAliasName <<= Ident * TypeArgs)
     | (TypeParamName <<= Ident)
     | (TypeTraitName <<= Ident)
+    | (FQFunction <<= FQType * Selector)
+    | (Call <<= (Selector >>= (Selector | FQFunction)) * Args)
+    | (Args <<= Expr++)
+    | (NLRCheck <<= Call)
+    | (Expr <<= wfExprLambda++[1])
+    ;
+  // clang-format on
+
+  // Remove DontCare, Ident. Add FQType.
+  inline const auto wfTypeNames =
+    (wfTypeStructure - (DontCare | Ident)) | FQType;
+
+  // clang-format off
+  inline const auto wfPassTypeNames =
+      wfPassLambda
     | (Type <<= wfTypeNames++)
     ;
   // clang-format on
@@ -208,15 +227,12 @@ namespace verona
   // clang-format on
 
   // Remove New, Ident, Symbol, DoubleColon, TypeArgs.
-  // Add FQFunction.
   inline const auto wfExprTypeReference =
-    (wfExprConditionals - (New | Ident | Symbol | DoubleColon | TypeArgs)) |
-    FQFunction;
+    wfExprLambda - (New | Ident | Symbol | DoubleColon | TypeArgs);
 
   // clang-format off
   inline const auto wfPassTypeReference =
       wfPassTypeFlat
-    | (FQFunction <<= FQType * Selector)
     | (Expr <<= wfExprTypeReference++[1])
     ;
 
@@ -229,8 +245,7 @@ namespace verona
   // clang-format on
 
   // Remove Dot. Add Call, NLRCheck.
-  inline const auto wfExprReverseApp =
-    (wfExprTypeReference - Dot) | Call | NLRCheck;
+  inline const auto wfExprReverseApp = wfExprTypeReference - Dot;
 
   // clang-format off
   inline const auto wfPassReverseApp =
@@ -239,9 +254,6 @@ namespace verona
     // Remove Use.
     | (ClassBody <<= (Class | TypeAlias | FieldLet | FieldVar | Function)++)
     | (Block <<= (Class | TypeAlias | Expr)++[1])
-    | (Call <<= (Selector >>= (Selector | FQFunction)) * Args)
-    | (Args <<= Expr++)
-    | (NLRCheck <<= wfImplicit * Call)
     | (Expr <<= wfExprReverseApp++[1])
     ;
   // clang-format on
@@ -288,37 +300,23 @@ namespace verona
   // clang-format on
 
   // Remove Assign, Let, TupleLHS. Add Bind.
-  inline const auto wfExprBind =
+  inline const auto wfExprAssignment =
     (wfExprAssign - (Assign | Let | TupleLHS)) | Bind;
 
   // clang-format off
   inline const auto wfPassAssignment =
       wfPassLocalVar
     | (Bind <<= Ident * Type * Expr)[Ident]
-    | (Expr <<= wfExprBind)
-    ;
-  // clang-format on
-
-  // Remove Lambda.
-  inline const auto wfExprLambda = wfExprBind - Lambda;
-  inline const auto wfNLRDefault = Default >>= NLRCheck | DontCare;
-
-  // clang-format off
-  inline const auto wfPassLambda =
-      wfPassAssignment
-    | (FieldLet <<= Ident * Type * wfNLRDefault)[Ident]
-    | (FieldVar <<= Ident * Type * wfNLRDefault)[Ident]
-    | (Param <<= Ident * Type * wfNLRDefault)[Ident]
-    | (Expr <<= wfExprLambda)
+    | (Expr <<= wfExprAssignment)
     ;
   // clang-format on
 
   // Add FieldRef.
-  inline const auto wfExprAutoFields = wfExprLambda | FieldRef;
+  inline const auto wfExprAutoFields = wfExprAssignment | FieldRef;
 
   // clang-format off
   inline const auto wfPassAutoFields =
-      wfPassLambda
+      wfPassAssignment
     | (FieldRef <<= RefLet * Ident)
     | (Expr <<= wfExprAutoFields)
     ;

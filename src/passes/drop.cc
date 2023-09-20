@@ -230,11 +230,6 @@ namespace verona
           return NoChange;
         }),
 
-        T(RefLet)[RefLet] << T(Ident)[Ident] >> ([drop_map](Match& _) -> Node {
-          drop_map->back().ref(_(Ident)->location(), _(RefLet));
-          return NoChange;
-        }),
-
         T(LLVM) >> ([drop_map](Match&) -> Node {
           drop_map->back().llvm = true;
           return NoChange;
@@ -249,19 +244,26 @@ namespace verona
           }),
       }};
 
+    drop.pre(Function, [drop_map](Node f) {
+      auto llvm = (f / LLVMFuncType) == LLVMFuncType;
+      drop_map->push_back(track(llvm));
+      return 0;
+    });
+
     drop.pre(Block, [drop_map](Node node) {
       drop_map->back().pre_block(node);
       return 0;
     });
 
-    drop.post(Block, [drop_map](Node) {
-      drop_map->back().post_block();
+    drop.post(RefLet, [drop_map](Node node) {
+      // RefLet is handled with a post-order step to avoid an immediate RefLet
+      // that precedes a nested RefLet being handled after the nested RefLet.
+      drop_map->back().ref((node / Ident)->location(), node);
       return 0;
     });
 
-    drop.pre(Function, [drop_map](Node f) {
-      auto llvm = (f / LLVMFuncType) == LLVMFuncType;
-      drop_map->push_back(track(llvm));
+    drop.post(Block, [drop_map](Node) {
+      drop_map->back().post_block();
       return 0;
     });
 

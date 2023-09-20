@@ -10,8 +10,7 @@ namespace verona
       dir::bottomup | dir::once,
       {
         T(NLRCheck)
-            << (IsImplicit[Implicit] *
-                (T(Call)[Call] << (T(Selector, FQFunction)[Op] * T(Args)))) >>
+            << (T(Call)[Call] << (T(Selector, FQFunction)[Op] * T(Args))) >>
           [](Match& _) {
             auto call = _(Call);
 
@@ -26,10 +25,10 @@ namespace verona
             auto nlr = Type << nonlocal(_);
             Node ret = Cast << ref << nlr;
 
-            // Unwrap if we're in a function (Explicit), but not if we're in a
-            // lambda (Implicit).
-            if (_(Implicit) == Explicit)
-              ret = load(ret, true);
+            // Unwrap if we're in a function, but not if we're in a lambda.
+            // Remove the NLRCheck around the load call.
+            if (call->parent(Function) / Implicit != LambdaFunc)
+              ret = load(ret) / Call;
 
             return ExprSeq << (Expr
                                << (Bind << (Ident ^ id) << typevar(_)

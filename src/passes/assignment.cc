@@ -14,7 +14,7 @@ namespace verona
           (T(Expr)
            << ((T(Let) << T(Ident)[Ident]) /
                (T(TypeAssert)
-                << (T(Let) << T(Ident)[Ident]) * T(Type)[Type]))) *
+                << (T(Expr) << (T(Let) << T(Ident)[Ident])) * T(Type)[Type]))) *
           T(Expr)[Rhs] * End >>
         [](Match& _) {
           return Expr << (Bind << _(Ident) << typevar(_, Type) << _(Rhs));

@@ -1,32 +1,9 @@
 # To Do
 
-- Separate reference pass? Do non-types first, then lambda lift, then types, then type references?
-
 - Could we...
-  - NO: can't do free variable analysis.
-  - Lift lambdas during or immediately after structure.
-    - Requires checking for `try { e }` before or during lifting.
-    - Requires extra work generating `f(_, x)`.
   - Put all types in a function "up at" the function symbol table.
-    - These types will all either have fresh names (traits) or will be inside lambdas that were already lifted, giving a unique path.
+  - These types will all either have fresh names (traits) or will be inside lambdas that were already lifted, giving a unique path.
 
-- Lambda.
-  - Can't just lift Class to a Block when inside a Function?
-  - The Block has a symbol table, can't find the class with `FQType`.
-  - The same goes for Class nodes inside a Function: they're in the Block symbol table instead of the Function symbol table.
-  - Needed in `resolve_fq`, which is needed in: `lookdown`, `is_llvm_call`, `Lookup::sub`, `Btype`, `codereuse`, `reference`, `typeinfer`, `typenames`, `typevalid`.
-  - Which implies this should be done in `structure`. But then classes in lambdas with conflicting names will cause problems.
-  - What about a trait defined in a type position that has a class in it? How do we find the class? Could mention the class in the trait. It's ok in a type alias (the traits are in the type alias symbol table), but not in another type position.
-    - Ok in type aliases: in the type alias symbol table.
-    - Ok in field types: in the class/trait symbol table.
-    - Ok in parameters, return types: in the function symbol table.
-    - Not ok in type test, type assertion: in the block symbol table.
-    - Not ok in a lambda: in the block symbol table. Will get a `FQType` that says it's in the function, but it will end up in an anonymous class inside the function.
-- Uni-traits.
-  - `FQType` to a trait is wrong after it's been broken up.
-  - Can't break up before generating `FQType`, because we need `use`, `class`, `type` in the traits.
-  - Want to keep arity together, i.e., f/1 with f/2, so it should be exactly where it is (immediately after `partialapp`).
-  - Rewrite `FQType`?
 - Blocks.
   - Enforce `Return | Move | LLVM` at the end?
 - Type inference.
@@ -35,7 +12,6 @@
     - Lambda free variable types.
     - `DontCare` syntactically in a type (remove this?).
     - Unspecified field types, parameter types, function return types.
-  - Build something that prints constraints.
 - Free variables in object literals.
 - Tuples as traits.
 - Pattern matching.

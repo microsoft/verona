@@ -47,14 +47,22 @@ namespace verona
         },
 
       // Local reference.
-      In(Expr) *
-          T(Ident)[Ident]([](auto& n) { return lookup_type(n, {Var}); }) >>
-        [](Match& _) { return RefVar << _(Ident); },
+      In(Expr) * T(Ident)[Ident] >> ([](Match& _) -> Node {
+        auto id = _(Ident);
 
-      In(Expr) * T(Ident)[Ident]([](auto& n) {
-        return lookup_type(n, {Let, Param});
-      }) >>
-        [](Match& _) { return RefLet << _(Ident); },
+        if (lookup_type(id, {Var}))
+          return RefVar << id;
+        else if (lookup_type(id, {Let, Param}))
+          return RefLet << id;
+
+        return NoChange;
+      }),
+
+      // Given `try { ... }`, apply the lambda.
+      In(Expr) * T(Try)[Try] * T(Lambda)[Lambda] * --T(Dot) >>
+        [](Match& _) {
+          return Seq << Try << _(Lambda) << Dot << selector(l_apply);
+        },
     };
   }
 }

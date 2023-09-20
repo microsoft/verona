@@ -178,7 +178,7 @@ namespace verona
     return args;
   }
 
-  Node call(Node op, Node lhs, Node rhs, bool post_nlr)
+  Node call(Node op, Node lhs, Node rhs)
   {
     assert(op->in({FQFunction, Selector}));
     auto args = arg(arg(Args, lhs), rhs);
@@ -189,12 +189,7 @@ namespace verona
     else
       (op / Int) = arity;
 
-    auto ret = Call << op << args;
-
-    if (!post_nlr)
-      ret = NLRCheck << Explicit << ret;
-
-    return ret;
+    return NLRCheck << (Call << op << args);
   }
 
   Node call_lhs(Node call)
@@ -209,10 +204,10 @@ namespace verona
     return call;
   }
 
-  Node load(Node arg, bool post_nlr)
+  Node load(Node arg)
   {
     static Location l_load("load");
-    return call(selector(l_load), arg, {}, post_nlr);
+    return call(selector(l_load), arg);
   }
 
   bool is_implicit(Node n)
@@ -289,6 +284,7 @@ namespace verona
         {"structure", structure(), wfPassStructure},
         {"reference", reference(), wfPassReference},
         {"conditionals", conditionals(), wfPassConditionals},
+        {"lambda", lambda(), wfPassLambda},
         {"typenames", typenames(), wfPassTypeNames},
         {"typeview", typeview(), wfPassTypeView},
         {"typefunc", typefunc(), wfPassTypeFunc},
@@ -304,7 +300,6 @@ namespace verona
         {"assignlhs", assignlhs(), wfPassAssignLHS},
         {"localvar", localvar(), wfPassLocalVar},
         {"assignment", assignment(), wfPassAssignment},
-        {"lambda", lambda(), wfPassLambda},
         {"autofields", autofields(), wfPassAutoFields},
         {"autorhs", autorhs(), wfPassAutoFields},
         {"autocreate", autocreate(), wfPassAutoFields},

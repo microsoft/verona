@@ -152,9 +152,17 @@ namespace verona
 
             // Create a unique anonymous class name for each arity.
             Nodes names;
+            auto basename = std::string("partial.")
+                              .append(hand.str())
+                              .append(".")
+                              .append(id->location().view())
+                              .append("/");
 
             for (auto arity = start_arity; arity < end_arity; ++arity)
-              names.push_back(Ident ^ _.fresh(l_class));
+            {
+              names.push_back(
+                Ident ^ _.fresh(basename + std::to_string(arity)));
+            }
 
             auto fq_parent = local_fq(parent);
             Nodes fqs;

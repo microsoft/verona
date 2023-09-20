@@ -324,7 +324,7 @@ namespace verona
       // Object literal.
       In(Expr) * T(New) * T(Brace)[ClassBody] >>
         [](Match& _) {
-          auto class_id = _.fresh(l_class);
+          auto class_id = _.fresh(l_objlit);
           return Seq << (Lift << Block
                               << (Class << (Ident ^ class_id) << TypeParams
                                         << inherit() << typepred()
