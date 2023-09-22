@@ -10,14 +10,10 @@ namespace verona
     return {
       dir::bottomup | dir::once,
       {
-        T(Function)[Function]
+        T(Function)
             << (IsImplicit[Implicit] * Hand[Ref] * T(Ident)[Ident] *
-                T(TypeParams)[TypeParams] *
-                (T(Params)
-                 << ((T(Param) << (T(Ident) * T(Type) * T(DontCare)))++[Lhs] *
-                     (T(Param) << (T(Ident) * T(Type) * T(NLRCheck)))++[Rhs] *
-                     End)) *
-                T(Type)[Type] * T(LLVMFuncType, DontCare)[LLVMFuncType] *
+                T(TypeParams)[TypeParams] * T(Params)[Params] * T(Type)[Type] *
+                T(LLVMFuncType, DontCare)[LLVMFuncType] *
                 T(TypePred)[TypePred] * T(Block, DontCare)[Block]) >>
           [](Match& _) {
             Node seq = Seq;
@@ -25,65 +21,81 @@ namespace verona
             auto hand = _(Ref)->type();
             auto id = _(Ident);
             auto tp = _(TypeParams);
+            auto params = _(Params);
             auto ty = _(Type);
             auto llvmty = _(LLVMFuncType);
             auto pred = _(TypePred);
-            auto lhs = _[Lhs];
-            auto rhs = _[Rhs];
 
-            auto fq = local_fq(_(Function));
-            Node params = Params;
+            Node new_params = Params;
             Node args = Tuple;
+            bool has_default = false;
 
-            // Start with parameters that have no default value.
-            for (auto it = lhs.first; it != lhs.second; ++it)
+            for (auto& param : *params)
             {
-              auto param_id = *it / Ident;
-              params << (Param << clone(param_id) << clone(*it / Type));
+              auto param_id = param / Ident;
+              auto block = param / Default;
+              new_params << (Param << clone(param_id) << clone(param / Type));
               args << (Expr << (RefLet << clone(param_id)));
-            }
 
-            for (auto it = rhs.first; it != rhs.second; ++it)
-            {
-              // At this point, the default argument is a create call on the
-              // anonymous class derived from the lambda. Apply the created
-              // lambda to get the default argument.
-              auto def_arg = call(selector(l_apply), (*it / Default));
+              if (block == DontCare)
+              {
+                if (has_default)
+                {
+                  params->replace(
+                    param,
+                    err(
+                      param,
+                      "Can't put a parameter with no default value after a "
+                      "parameter with one"));
+                }
+              }
+              else
+              {
+                has_default = true;
+                auto def_arg = block->back();
 
-              // Add the default argument to the forwarding call.
-              args << (Expr << def_arg);
+                // Syntactically, the last statement in the block is the default
+                // argument expression. WF doesn't enforce this.
+                if (def_arg == Expr)
+                  block->pop_back();
+                else
+                  def_arg = Expr << Unit;
 
-              // Add a new function that calls the arity+1 function. Mark it as
-              // explicit, so that errors when type checking the default
-              // arguments are reported.
-              seq
-                << (Function
-                    << implicit << hand << clone(id) << clone(tp)
-                    << clone(params) << clone(ty) << clone(llvmty)
-                    << clone(pred)
-                    << (Block << (Expr << (call(clone(fq), clone(args))))));
+                // Evaluate the default argument and call the arity+1 function.
+                block << (Expr
+                          << (Assign << (Expr << (Let << (Ident ^ param_id)))
+                                     << def_arg))
+                      << (Expr << Self << DoubleColon << selector(id)
+                               << tuple_to_args(clone(args)));
 
-              // Add a parameter.
-              auto param_id = *it / Ident;
-              params << (Param << clone(param_id) << clone(*it / Type));
-
-              // Replace the last argument with a reference to the parameter.
-              args->pop_back();
-              args << (Expr << (RefLet << clone(param_id)));
+                // Add a new function that calls the arity+1 function. Mark it
+                // as explicit, so that errors when type checking the default
+                // arguments are reported.
+                seq
+                  << (Function << implicit << hand << clone(id) << clone(tp)
+                               << clone(new_params) << clone(ty)
+                               << clone(llvmty) << clone(pred) << block);
+              }
             }
 
             // The original function, with no default arguments.
             return seq
-              << (Function << implicit << hand << id << tp << params << ty
+              << (Function << implicit << hand << id << tp << new_params << ty
                            << llvmty << pred << _(Block));
           },
 
         // Strip the default field values.
-        T(FieldLet) << (T(Ident)[Ident] * T(Type)[Type] * Any) >>
-          [](Match& _) { return FieldLet << _(Ident) << _(Type); },
+        T(FieldLet)
+            << (IsImplicit[Implicit] * T(Ident)[Ident] * T(Type)[Type] * Any) >>
+          [](Match& _) {
+            return FieldLet << _(Implicit) << _(Ident) << _(Type);
+          },
 
-        T(FieldVar) << (T(Ident)[Ident] * T(Type)[Type] * Any) >>
-          [](Match& _) { return FieldVar << _(Ident) << _(Type); },
+        T(FieldVar)
+            << (IsImplicit[Implicit] * T(Ident)[Ident] * T(Type)[Type] * Any) >>
+          [](Match& _) {
+            return FieldVar << _(Implicit) << _(Ident) << _(Type);
+          },
       }};
   }
 }

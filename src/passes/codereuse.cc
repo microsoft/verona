@@ -104,7 +104,7 @@ namespace verona
 
             // If we have an explicit version that conflicts, don't inherit.
             auto defs = cls->lookdown((f / Ident)->location());
-            if (std::any_of(defs.begin(), defs.end(), [&](Node& def) -> bool {
+            if (std::any_of(defs.begin(), defs.end(), [&](Node& def) {
                   return conflict(f, def);
                 }))
               continue;

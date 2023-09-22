@@ -23,12 +23,11 @@ namespace verona
             if (hand == Rhs)
               expr = load(expr);
 
-            auto f = Function << Implicit << hand << clone(id) << TypeParams
-                              << (Params
-                                  << (Param << (Ident ^ self_id)
-                                            << (Type << Self) << DontCare))
-                              << clone(_(Type)) << DontCare << typepred()
-                              << (Block << (Expr << expr));
+            auto f = Function
+              << Implicit << hand << clone(id) << TypeParams
+              << (Params << (Param << (Ident ^ self_id) << (Type << Self)))
+              << clone(_(Type)) << DontCare << typepred()
+              << (Block << (Expr << expr));
 
             return Seq << field << f;
           }),

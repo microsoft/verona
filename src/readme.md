@@ -1,8 +1,7 @@
 # To Do
 
 - Could we...
-  - Put all types in a function "up at" the function symbol table.
-  - These types will all either have fresh names (traits) or will be inside lambdas that were already lifted, giving a unique path.
+  - Don't need arity overlap in `codereuse` or `memberconflict`.
 
 - Blocks.
   - Enforce `Return | Move | LLVM` at the end?

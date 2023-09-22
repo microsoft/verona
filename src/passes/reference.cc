@@ -40,12 +40,6 @@ namespace verona
           return Seq << _(Dot) << selector(_(Ident), _(TypeArgs));
         },
 
-      // Error out on invalid scoped references.
-      In(Expr) * (T(DoubleColon) * !T(Selector))[DoubleColon] >>
-        [](Match& _) {
-          return err(_(DoubleColon), "Expected a scoped reference");
-        },
-
       // Local reference.
       In(Expr) * T(Ident)[Ident] >> ([](Match& _) -> Node {
         auto id = _(Ident);

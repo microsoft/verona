@@ -28,9 +28,7 @@ namespace verona
         [](Match& _) {
           Node node = _(Let) == Let ? FieldLet : FieldVar;
           return node << Explicit << _(Ident) << typevar(_, Type)
-                      << (Lambda << TypeParams << Params << typevar(_)
-                                 << typepred()
-                                 << (Block << (Expr << (Default << _[Rhs]))));
+                      << (Block << (Expr << (Default << _[Rhs])));
         },
 
       // Field without a default value.
@@ -128,7 +126,7 @@ namespace verona
               T(Group)++[Rhs]) >>
         [](Match& _) {
           return ValueParam << _(Ident) << _(Type)
-                            << (Expr << (Default << _[Rhs]));
+                            << (Block << (Expr << (Default << _[Rhs])));
         },
 
       In(TypeParams) * (!T(TypeParam, ValueParam))[TypeParam] >>
@@ -163,23 +161,11 @@ namespace verona
           auto id =
             (_(Ident) == DontCare) ? (Ident ^ _.fresh(l_param)) : _(Ident);
           return Param << id << typevar(_, Type)
-                       << (Lambda << TypeParams << Params << typevar(_)
-                                  << typepred()
-                                  << (Block << (Expr << (Default << _[Expr]))));
+                       << (Block << (Expr << (Default << _[Expr])));
         },
 
       In(Params) * (!T(Param))[Param] >>
         [](Match& _) { return err(_(Param), "Expected a parameter"); },
-
-      (T(Param)[Lhs] << (T(Ident) * T(Type) * T(Lambda))) *
-          (T(Param)[Rhs] << (T(Ident) * T(Type) * T(DontCare))) >>
-        [](Match& _) {
-          return err(
-                   _(Lhs),
-                   "Can't put a parameter with a default value before a "
-                   "parameter without one")
-            << (ErrorMsg ^ "This parameter has no default value") << _(Rhs);
-        },
 
       // Use.
       In(ClassBody, Block) * T(Group) << T(Use)[Use] * (Any++)[Type] >>
@@ -396,7 +382,7 @@ namespace verona
           return Expr << (TypeAssert << (Expr << _[Expr]) << _(Type));
         },
 
-      In(Expr) * (TypeCaps / T(TypePred, Self, Arrow, LLVMFuncType))[Expr] >>
+      In(Expr) * (TypeCaps / T(TypePred, Arrow, LLVMFuncType))[Expr] >>
         [](Match& _) {
           return err(_(Expr), "Can't put this in an expression");
         },

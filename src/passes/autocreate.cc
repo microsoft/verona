@@ -17,19 +17,19 @@ namespace verona
 
           for (auto& node : *class_body)
           {
-            if (node->in({FieldLet, FieldVar}))
-            {
-              auto id = node / Ident;
-              auto ty = node / Type;
-              auto def_arg = node / Default;
+            if (!node->in({FieldLet, FieldVar}))
+              continue;
 
-              // Add each field in order to the call to `new` and the create
-              // function parameters.
-              new_args << (Expr << (RefLet << clone(id)));
-              new_params
-                << ((Param ^ def_arg)
-                    << clone(id) << clone(ty) << clone(def_arg));
-            }
+            auto id = node / Ident;
+            auto ty = node / Type;
+            auto def_arg = node / Default;
+
+            // Add each field in order to the call to `new` and the create
+            // function parameters.
+            new_args << (Expr << (RefLet << clone(id)));
+            new_params
+              << ((Param ^ def_arg)
+                  << clone(id) << clone(ty) << clone(def_arg));
           }
 
           // Create the `new` function, with default arguments set to the field
@@ -38,19 +38,17 @@ namespace verona
           class_body
             << (Function << Explicit << Rhs << (Ident ^ l_new) << TypeParams
                          << new_params << typevar(_) << DontCare << typepred()
-                         << (Block << (Expr << unit())));
+                         << (Block << (Expr << Unit)));
 
           // If we already have a create function, don't emit one.
           if (class_body->parent()->lookdown(l_create).empty())
           {
-            // Create the `create` function.
-            auto fq_new = append_fq(local_fq(class_body), selector(l_new));
-
             class_body
               << (Function << Implicit << Rhs << (Ident ^ l_create)
                            << TypeParams << clone(new_params) << typevar(_)
                            << DontCare << typepred()
-                           << (Block << (Expr << call(fq_new, new_args))));
+                           << (Block
+                               << (Expr << New << tuple_to_args(new_args))));
           }
 
           return NoChange;

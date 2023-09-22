@@ -74,11 +74,20 @@ namespace verona
 
   Lookups lookup(Node id, Node ta)
   {
-    assert(id->in({Ident, Symbol}));
+    assert(id->in({Ident, Symbol, Self}));
     assert(!ta || (ta == TypeArgs));
+    Lookups result;
+
+    if (id == Self)
+    {
+      auto def = id->parent({Class, Trait});
+      Lookup l(def);
+      apply_typeargs(l, ta);
+      result.emplace(l);
+      return result;
+    }
 
     auto defs = id->lookup();
-    Lookups result;
 
     for (auto& def : defs)
     {
@@ -246,12 +255,17 @@ namespace verona
   static bool resolve_typename(Lookup& p, Node n)
   {
     assert(n->in({TypeClassName, TypeAliasName, TypeParamName, TypeTraitName}));
+    auto def = p.def;
 
-    if (!p.def)
+    if (!def)
       return false;
 
+    // This allows types inside of functions to be resolved.
+    if (def == Function)
+      def = def / Block;
+
     auto id = n / Ident;
-    auto defs = p.def->lookdown(id->location());
+    auto defs = def->lookdown(id->location());
 
     if (defs.size() != 1)
       return false;
@@ -395,14 +409,26 @@ namespace verona
 
   Node append_fq(Node fq, Node node)
   {
-    assert(fq == FQType);
+    assert(fq->type().in({FQType, FQFunction}));
+    assert(node->in(
+      {TypeClassName, TypeAliasName, TypeParamName, TypeTraitName, Selector}));
 
+    if (fq == FQFunction)
+    {
+      // FQFunction + Selector = not allowed
+      assert(node != Selector);
+
+      // FQFunction + Type = FQType
+      return FQType << (clone(fq / FQType / TypePath)
+                        << clone(fq / FQType / Type) << clone(fq / Selector))
+                    << node;
+    }
+
+    // FQType + Selector = FQFunction
     if (node == Selector)
       return FQFunction << clone(fq) << node;
 
-    assert(
-      node->in({TypeClassName, TypeAliasName, TypeParamName, TypeTraitName}));
-
+    // FQType + Type = FQType
     return FQType << (clone(fq / TypePath) << clone(fq / Type)) << node;
   }
 }

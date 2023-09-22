@@ -56,11 +56,12 @@ namespace verona
     Ellipsis | Ident | Symbol | Dot | DoubleColon;
 
   inline const auto wfExprStructure = Expr | ExprSeq | Unit | Tuple | Assign |
-    TypeArgs | If | Else | Lambda | Let | Var | New | Try | Ref | DontCare |
-    Ellipsis | Dot | Ident | Symbol | DoubleColon | True | False | Int | Hex |
-    Oct | Bin | Float | HexFloat | Char | Escaped | String | LLVM | TypeAssert;
+    TypeArgs | Self | If | Else | Lambda | Let | Var | New | Try | Ref |
+    DontCare | Ellipsis | Dot | Ident | Symbol | DoubleColon | True | False |
+    Int | Hex | Oct | Bin | Float | HexFloat | Char | Escaped | String | LLVM |
+    TypeAssert;
 
-  inline const auto wfDefault = Default >>= Lambda | DontCare;
+  inline const auto wfDefault = Default >>= Block | DontCare;
 
   // clang-format off
   inline const auto wfPassStructure =
@@ -130,17 +131,32 @@ namespace verona
     ;
   // clang-format on
 
-  // Remove Lambda. Add FQFunction, Call, NLRCheck.
-  inline const auto wfExprLambda =
-    (wfExprConditionals - Lambda) | FQFunction | Call | NLRCheck;
-  inline const auto wfNLRDefault = Default >>= NLRCheck | DontCare;
+  // Remove Lambda.
+  inline const auto wfExprLambda = wfExprConditionals - Lambda;
 
   // clang-format off
   inline const auto wfPassLambda =
       wfPassConditionals
-    | (FieldLet <<= wfImplicit * Ident * Type * wfNLRDefault)[Ident]
-    | (FieldVar <<= wfImplicit * Ident * Type * wfNLRDefault)[Ident]
-    | (Param <<= Ident * Type * wfNLRDefault)[Ident]
+    | (Expr <<= wfExprLambda++[1])
+    ;
+  // clang-format on
+
+  // clang-format off
+  inline const auto wfPassDefaultArgs =
+      wfPassLambda
+    | (FieldLet <<= wfImplicit * Ident * Type)[Ident]
+    | (FieldVar <<= wfImplicit * Ident * Type)[Ident]
+    | (Param <<= Ident * Type)[Ident]
+    ;
+  // clang-format on
+
+  // Remove DontCare, Ident. Add FQType.
+  inline const auto wfTypeNames =
+    (wfTypeStructure - (DontCare | Ident)) | FQType;
+
+  // clang-format off
+  inline const auto wfPassTypeNames =
+      wfPassDefaultArgs
     | (FQType <<=
         TypePath *
         (Type >>=
@@ -152,21 +168,6 @@ namespace verona
     | (TypeAliasName <<= Ident * TypeArgs)
     | (TypeParamName <<= Ident)
     | (TypeTraitName <<= Ident)
-    | (FQFunction <<= FQType * Selector)
-    | (Call <<= (Selector >>= (Selector | FQFunction)) * Args)
-    | (Args <<= Expr++)
-    | (NLRCheck <<= Call)
-    | (Expr <<= wfExprLambda++[1])
-    ;
-  // clang-format on
-
-  // Remove DontCare, Ident. Add FQType.
-  inline const auto wfTypeNames =
-    (wfTypeStructure - (DontCare | Ident)) | FQType;
-
-  // clang-format off
-  inline const auto wfPassTypeNames =
-      wfPassLambda
     | (Type <<= wfTypeNames++)
     ;
   // clang-format on
@@ -226,26 +227,29 @@ namespace verona
     ;
   // clang-format on
 
-  // Remove New, Ident, Symbol, DoubleColon, TypeArgs.
+  // Remove New, Ident, Symbol, Self, DoubleColon, TypeArgs. Add FQFunction.
   inline const auto wfExprTypeReference =
-    wfExprLambda - (New | Ident | Symbol | DoubleColon | TypeArgs);
+    (wfExprLambda - (New | Ident | Symbol | Self | DoubleColon | TypeArgs)) |
+    FQFunction;
 
   // clang-format off
   inline const auto wfPassTypeReference =
       wfPassTypeFlat
+    | (FQFunction <<= FQType * Selector)
     | (Expr <<= wfExprTypeReference++[1])
     ;
 
   // clang-format off
   inline const auto wfPassResetImplicit =
       wfPassTypeReference
-    | (FieldLet <<= Ident * Type * wfDefault)[Ident]
-    | (FieldVar <<= Ident * Type * wfDefault)[Ident]
+    | (FieldLet <<= Ident * Type)[Ident]
+    | (FieldVar <<= Ident * Type)[Ident]
     ;
   // clang-format on
 
   // Remove Dot. Add Call, NLRCheck.
-  inline const auto wfExprReverseApp = wfExprTypeReference - Dot;
+  inline const auto wfExprReverseApp =
+    (wfExprTypeReference - Dot) | Call | NLRCheck;
 
   // clang-format off
   inline const auto wfPassReverseApp =
@@ -254,6 +258,9 @@ namespace verona
     // Remove Use.
     | (ClassBody <<= (Class | TypeAlias | FieldLet | FieldVar | Function)++)
     | (Block <<= (Class | TypeAlias | Expr)++[1])
+    | (Call <<= (Selector >>= (Selector | FQFunction)) * Args)
+    | (Args <<= Expr++)
+    | (NLRCheck <<= Call)
     | (Expr <<= wfExprReverseApp++[1])
     ;
   // clang-format on
@@ -322,21 +329,12 @@ namespace verona
     ;
   // clang-format on
 
-  // clang-format off
-  inline const auto wfPassDefaultArgs =
-      wfPassAutoFields
-    | (FieldLet <<= Ident * Type)[Ident]
-    | (FieldVar <<= Ident * Type)[Ident]
-    | (Param <<= Ident * Type)[Ident]
-    ;
-  // clang-format on
-
   // Remove NLRCheck.
   inline const auto wfExprNLRCheck = wfExprAutoFields - NLRCheck;
 
   // clang-format off
   inline const auto wfPassNLRCheck =
-      wfPassDefaultArgs
+      wfPassAutoFields
 
     // Add Return.
     | (Block <<= (Class | TypeAlias | Expr | Return)++[1])

@@ -52,17 +52,17 @@ namespace verona
                    T(Expr)++))[Args]) >>
         [](Match& _) {
           // Create the anonymous type name.
+          bool in_nlrcheck = _(Call)->parent() == NLRCheck;
           auto class_id = _.fresh(l_lambda);
 
           // Build an FQType for the anonymous type.
           auto fq = append_fq(
-            local_fq(_(Call)->parent({Class, Trait})),
+            local_fq(_(Call)->parent(Function)),
             TypeClassName << (Ident ^ class_id) << TypeArgs);
 
           // Start with a Self parameter.
           Node params = Params
-            << (Param << (Ident ^ _.fresh(l_self)) << (Type << Self)
-                      << DontCare);
+            << (Param << (Ident ^ _.fresh(l_self)) << (Type << Self));
           Node args = Tuple;
 
           for (auto& arg : *_(Args))
@@ -72,13 +72,13 @@ namespace verona
             if (expr == DontCare)
             {
               auto id = _.fresh(l_param);
-              params << (Param << (Ident ^ id) << typevar(_) << DontCare);
+              params << (Param << (Ident ^ id) << typevar(_));
               args << (Expr << (RefLet << (Ident ^ id)));
             }
             else if (expr == TypeAssert)
             {
               auto id = _.fresh(l_param);
-              params << (Param << (Ident ^ id) << (expr / Type) << DontCare);
+              params << (Param << (Ident ^ id) << (expr / Type));
               args << (Expr << (RefLet << (Ident ^ id)));
             }
             else
@@ -102,8 +102,12 @@ namespace verona
                                 << (Inherit << DontCare) << typepred()
                                 << (ClassBody << create_func << apply_func);
 
-          return Seq << (Lift << Block << classdef)
-                     << call(append_fq(fq, selector(l_create)));
+          auto create = call(append_fq(fq, selector(l_create)));
+
+          if (in_nlrcheck)
+            create = create / Call;
+
+          return Seq << (Lift << Block << classdef) << create;
         },
 
       // Remaining DontCare are discarded bindings.

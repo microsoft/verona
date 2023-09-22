@@ -137,6 +137,17 @@ namespace verona
     return builtin_type(l_ref, TypeArgs << -t);
   }
 
+  Node tuple_to_args(Node n)
+  {
+    assert(n == Tuple);
+    if (n->size() == 0)
+      return Unit;
+    else if (n->size() == 1)
+      return n->front();
+    else
+      return n;
+  }
+
   Node selector(Node name, Node ta)
   {
     return selector(name->location(), ta);
@@ -229,41 +240,26 @@ namespace verona
       return (node / Ref)->type();
   }
 
-  static std::pair<size_t, size_t> arity(Node& node)
+  static size_t arity(Node& node)
   {
     assert(node->in({FieldLet, FieldVar, Function}));
-
-    if (node != Function)
-      return {1, 1};
-
-    auto params = node / Params;
-    auto arity_hi = params->size();
-    auto arity_lo = 0;
-
-    for (auto& param : *params)
-    {
-      if ((param / Default) != DontCare)
-        break;
-
-      arity_lo++;
-    }
-
-    return {arity_lo, arity_hi};
+    return (node == Function) ? (node / Params)->size() : 1;
   }
 
   bool conflict(Node& a, Node& b)
   {
-    // Check for handedness overlap.
+    assert(a->in({FieldLet, FieldVar, Function}));
+    assert(b->in({FieldLet, FieldVar, Function}));
+
+    // Check for handedness conflict.
     auto a_hand = handed(a);
     auto b_hand = handed(b);
 
     if ((a_hand != b_hand) && (a_hand != Op) && (b_hand != Op))
       return false;
 
-    // Check for arity overlap.
-    auto [a_lo, a_hi] = arity(a);
-    auto [b_lo, b_hi] = arity(b);
-    return (b_hi >= a_lo) && (a_hi >= b_lo);
+    // Check for arity conflict.
+    return arity(a) == arity(b);
   }
 
   Options& options()
@@ -285,6 +281,8 @@ namespace verona
         {"reference", reference(), wfPassReference},
         {"conditionals", conditionals(), wfPassConditionals},
         {"lambda", lambda(), wfPassLambda},
+        {"autocreate", autocreate(), wfPassLambda},
+        {"defaultargs", defaultargs(), wfPassDefaultArgs},
         {"typenames", typenames(), wfPassTypeNames},
         {"typeview", typeview(), wfPassTypeView},
         {"typefunc", typefunc(), wfPassTypeFunc},
@@ -302,10 +300,8 @@ namespace verona
         {"assignment", assignment(), wfPassAssignment},
         {"autofields", autofields(), wfPassAutoFields},
         {"autorhs", autorhs(), wfPassAutoFields},
-        {"autocreate", autocreate(), wfPassAutoFields},
-        {"defaultargs", defaultargs(), wfPassDefaultArgs},
-        {"partialapp", partialapp(), wfPassDefaultArgs},
-        {"traitisect", traitisect(), wfPassDefaultArgs},
+        {"partialapp", partialapp(), wfPassAutoFields},
+        {"traitisect", traitisect(), wfPassAutoFields},
         {"nlrcheck", nlrcheck(), wfPassNLRCheck},
         {"anf", anf(), wfPassANF},
         {"defbeforeuse", defbeforeuse(), wfPassANF},

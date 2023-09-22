@@ -9,21 +9,15 @@ namespace verona
     return {
       dir::bottomup | dir::once,
       {
-        // Strip implicit/explicit marker from fields.
-        T(FieldLet, FieldVar)[FieldLet]
-            << (IsImplicit * T(Ident)[Ident] * T(Type)[Type] * Any[Default]) >>
-          [](Match& _) {
-            Node field = _(FieldLet)->type();
-            return field << _(Ident) << _(Type) << _(Default);
-          },
+        // Reset everything marked as implicit to be explicit.
+        T(Implicit) >> ([](Match&) -> Node { return Explicit; }),
 
-        // Reset functions marked as implicit to be explicit.
-        T(Function)[Function] << T(Implicit) >>
-          [](Match& _) {
-            auto f = _(Function);
-            (f / Implicit) = Explicit;
-            return f;
-          },
+        // Strip implicit/explicit marker from fields.
+        T(FieldLet) << (IsImplicit * T(Ident)[Ident] * T(Type)[Type]) >>
+          [](Match& _) { return FieldLet << _(Ident) << _(Type); },
+
+        T(FieldVar) << (IsImplicit * T(Ident)[Ident] * T(Type)[Type]) >>
+          [](Match& _) { return FieldVar << _(Ident) << _(Type); },
       }};
   }
 }

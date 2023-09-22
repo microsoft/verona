@@ -9,7 +9,7 @@ namespace verona
   {
     return {
       // Unscoped reference.
-      In(Expr) * T(Ident, Symbol)[Ident] * ~T(TypeArgs)[TypeArgs] >>
+      In(Expr) * T(Ident, Symbol, Self)[Ident] * ~T(TypeArgs)[TypeArgs] >>
         [](Match& _) {
           auto id = _(Ident);
           auto ta = _(TypeArgs);
@@ -95,6 +95,12 @@ namespace verona
             });
 
           return make_fq(l);
+        },
+
+      // Error out on invalid scoped references.
+      In(Expr) * T(DoubleColon)[DoubleColon] >>
+        [](Match& _) {
+          return err(_(DoubleColon), "Expected a scoped reference");
         },
 
       // Lone TypeArgs are typeargs on apply.
