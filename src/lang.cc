@@ -307,7 +307,7 @@ namespace verona
         {"defbeforeuse", defbeforeuse(), wfPassANF},
         {"drop", drop(), wfPassDrop},
         {"validtypeargs", validtypeargs(), wfPassDrop},
-        {"typeinfer", typeinfer(), wfPassDrop},
+        // {"typeinfer", typeinfer(), wfPassDrop},
       });
 
     return d;

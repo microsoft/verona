@@ -18,6 +18,11 @@ namespace verona
 
         T(FieldVar) << (IsImplicit * T(Ident)[Ident] * T(Type)[Type]) >>
           [](Match& _) { return FieldVar << _(Ident) << _(Type); },
+
+        // Remove all `use` statements.
+        In(ClassBody) * T(Use) >> ([](Match&) -> Node { return {}; }),
+
+        In(Block) * T(Use) >> ([](Match&) -> Node { return Expr << Unit; }),
       }};
   }
 }

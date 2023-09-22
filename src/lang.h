@@ -76,8 +76,7 @@ namespace verona
     TokenDef("valueparam", flag::lookup | flag::lookdown | flag::shadowing);
   inline const auto Params = TokenDef("params");
   inline const auto Param = TokenDef("param", flag::lookup | flag::shadowing);
-  inline const auto Block =
-    TokenDef("block", flag::symtab | flag::defbeforeuse);
+  inline const auto Block = TokenDef("block");
 
   // Type structure.
   inline const auto Type = TokenDef("type");

@@ -260,10 +260,6 @@ namespace verona
     if (!def)
       return false;
 
-    // This allows types inside of functions to be resolved.
-    if (def == Function)
-      def = def / Block;
-
     auto id = n / Ident;
     auto defs = def->lookdown(id->location());
 

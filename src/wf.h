@@ -209,7 +209,7 @@ namespace verona
     ;
   // clang-format on
 
-  // Remove Type.
+  // Remove Type. Types are no longer sequences.
   inline const auto wfType = wfTypeAlg - Type;
 
   // clang-format off
@@ -221,8 +221,6 @@ namespace verona
     | (TypeSubtype <<= (Lhs >>= wfType) * (Rhs >>= wfType))
     | (TypeUnion <<= (wfType - TypeUnion)++[2])
     | (TypeIsect <<= (wfType - TypeIsect)++[2])
-
-    // Types are no longer sequences.
     | (Type <<= wfType)
     ;
   // clang-format on
@@ -239,9 +237,12 @@ namespace verona
     | (Expr <<= wfExprTypeReference++[1])
     ;
 
+  // Remove Use. Remove implicit marker on fields.
   // clang-format off
   inline const auto wfPassResetImplicit =
       wfPassTypeReference
+    | (ClassBody <<= (Class | TypeAlias | FieldLet | FieldVar | Function)++)
+    | (Block <<= (Class | TypeAlias | Expr)++[1])
     | (FieldLet <<= Ident * Type)[Ident]
     | (FieldVar <<= Ident * Type)[Ident]
     ;
@@ -254,10 +255,6 @@ namespace verona
   // clang-format off
   inline const auto wfPassReverseApp =
       wfPassResetImplicit
-
-    // Remove Use.
-    | (ClassBody <<= (Class | TypeAlias | FieldLet | FieldVar | Function)++)
-    | (Block <<= (Class | TypeAlias | Expr)++[1])
     | (Call <<= (Selector >>= (Selector | FQFunction)) * Args)
     | (Args <<= Expr++)
     | (NLRCheck <<= Call)
