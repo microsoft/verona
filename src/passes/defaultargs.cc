@@ -34,7 +34,6 @@ namespace verona
             {
               auto param_id = param / Ident;
               auto block = param / Default;
-              new_params << (Param << clone(param_id) << clone(param / Type));
               args << (Expr << (RefLet << clone(param_id)));
 
               if (block == DontCare)
@@ -76,6 +75,9 @@ namespace verona
                                << clone(new_params) << clone(ty)
                                << clone(llvmty) << clone(pred) << block);
               }
+
+              // Add the parameter to the new parameter list.
+              new_params << (Param << clone(param_id) << clone(param / Type));
             }
 
             // The original function, with no default arguments.

@@ -1,8 +1,5 @@
 # To Do
 
-- Could we...
-  - Don't need arity overlap in `codereuse` or `memberconflict`.
-
 - Blocks.
   - Enforce `Return | Move | LLVM` at the end?
 - Type inference.

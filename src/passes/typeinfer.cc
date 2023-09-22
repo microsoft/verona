@@ -8,6 +8,7 @@ namespace verona
   Node gamma(Node node)
   {
     // TODO: Move vs Copy type.
+    // when testing, this may not resolve
     return (node / Ident)->lookup().front() / Type;
   }
 
