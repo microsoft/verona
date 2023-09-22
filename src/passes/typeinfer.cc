@@ -84,6 +84,7 @@ namespace verona
 
             if (sel == FQFunction)
             {
+              // TODO: may not have a function of this arity
               auto l = resolve_fq(sel);
               auto params = clone(l.def / Params);
               auto ret = clone(l.def / Type);
@@ -91,7 +92,7 @@ namespace verona
               l.sub(params);
               l.sub(ret);
 
-              std::equal(
+              (void)std::equal(
                 params->begin(),
                 params->end(),
                 args->begin(),
