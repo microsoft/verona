@@ -33,6 +33,7 @@ namespace verona
             for (auto& param : *params)
             {
               auto param_id = param / Ident;
+              auto param_type = param / Type;
               auto block = param / Default;
               args << (Expr << (RefLet << clone(param_id)));
 
@@ -77,7 +78,7 @@ namespace verona
               }
 
               // Add the parameter to the new parameter list.
-              new_params << (Param << clone(param_id) << clone(param / Type));
+              new_params << (Param << clone(param_id) << clone(param_type));
             }
 
             // The original function, with no default arguments.
