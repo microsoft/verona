@@ -282,7 +282,7 @@ namespace verona
         resetimplicit(), reverseapp(),    application(),   assignlhs(),
         localvar(),      assignment(),    autofields(),    autorhs(),
         partialapp(),    traitisect(),    nlrcheck(),      anf(),
-        defbeforeuse(),  drop(),          validtypeargs(), typeinfer(),
+        defbeforeuse(),  drop(),          validtypeargs(), // typeinfer(),
       });
 
     return d;

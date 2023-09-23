@@ -9,6 +9,7 @@
     - Lambda free variable types.
     - `DontCare` syntactically in a type (remove this?).
     - Unspecified field types, parameter types, function return types.
+- Check that `var` is stored to before it's loaded.
 - Free variables in object literals.
 - Tuples as traits.
 - Pattern matching.
