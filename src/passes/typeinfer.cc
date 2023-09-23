@@ -14,12 +14,13 @@ namespace verona
 
   struct Infer
   {
+    Btypes& preds;
     Bounds& bounds;
     Node cls;
     Btype ret_type;
     Btype bool_type;
 
-    Infer(Node f, Bounds& b) : bounds(b)
+    Infer(Node f, Btypes& p, Bounds& b) : preds(p), bounds(b)
     {
       cls = f->parent(Class);
       ret_type = make_btype(f / Type);
@@ -29,7 +30,7 @@ namespace verona
 
     void check(Btype ltype, Btype rtype)
     {
-      if (!subtype(ltype, rtype, bounds))
+      if (!subtype(preds, ltype, rtype, bounds))
       {
         // TODO:
         std::cout << "subtype failed" << std::endl
@@ -151,18 +152,40 @@ namespace verona
 
   PassDef typeinfer()
   {
+    auto preds = std::make_shared<Btypes>();
     auto bounds = std::make_shared<Bounds>();
 
-    PassDef typeinfer = {
+    PassDef pass = {
       dir::bottomup | dir::once,
       {
+        T(Class, TypeAlias) >> ([=](Match&) -> Node {
+          preds->pop_back();
+          return NoChange;
+        }),
+
         T(Function)[Function] >> ([=](Match& _) -> Node {
-          Infer infer(_(Function), *bounds);
+          Infer infer(_(Function), *preds, *bounds);
+          preds->pop_back();
           return NoChange;
         }),
       }};
 
-    typeinfer.post([=](Node) {
+    pass.pre(Class, [=](Node n) {
+      preds->push_back(make_btype(n / TypePred));
+      return 0;
+    });
+
+    pass.pre(TypeAlias, [=](Node n) {
+      preds->push_back(make_btype(n / TypePred));
+      return 0;
+    });
+
+    pass.pre(Function, [=](Node n) {
+      preds->push_back(make_btype(n / TypePred));
+      return 0;
+    });
+
+    pass.post([=](Node) {
       for (auto& [typevar, bound] : *bounds)
       {
         std::cout << typevar.view() << std::endl << "--lower--" << std::endl;
@@ -181,6 +204,6 @@ namespace verona
       return 0;
     });
 
-    return typeinfer;
+    return pass;
   }
 }
