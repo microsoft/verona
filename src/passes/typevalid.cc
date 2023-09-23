@@ -1,6 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "../btype.h"
+#include "../wf.h"
 
 namespace verona
 {
@@ -209,6 +210,8 @@ namespace verona
   PassDef typevalid()
   {
     return {
+      "typevalid",
+      wfPassTypeFlat,
       dir::bottomup | dir::once,
       {
         T(TypeAlias)[TypeAlias] >> ([](Match& _) -> Node {

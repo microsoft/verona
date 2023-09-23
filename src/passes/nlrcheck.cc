@@ -1,12 +1,15 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
+#include "../wf.h"
 
 namespace verona
 {
   PassDef nlrcheck()
   {
     return {
+      "nlrcheck",
+      wfPassNLRCheck,
       dir::bottomup | dir::once,
       {
         T(NLRCheck)

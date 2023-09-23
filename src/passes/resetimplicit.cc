@@ -1,12 +1,15 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
+#include "../wf.h"
 
 namespace verona
 {
   PassDef resetimplicit()
   {
     return {
+      "resetimplicit",
+      wfPassResetImplicit,
       dir::bottomup | dir::once,
       {
         // Reset everything marked as implicit to be explicit.

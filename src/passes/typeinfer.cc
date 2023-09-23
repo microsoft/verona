@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
 #include "../subtype.h"
+#include "../wf.h"
 
 namespace verona
 {
@@ -33,6 +34,7 @@ namespace verona
       if (!subtype(preds, ltype, rtype, bounds))
       {
         // TODO:
+        subtype(preds, ltype, rtype, bounds);
         std::cout << "subtype failed" << std::endl
                   << "---" << std::endl
                   << ltype << "---" << std::endl
@@ -156,6 +158,8 @@ namespace verona
     auto bounds = std::make_shared<Bounds>();
 
     PassDef pass = {
+      "typeinfer",
+      wfPassDrop,
       dir::bottomup | dir::once,
       {
         T(Class, TypeAlias) >> ([=](Match&) -> Node {

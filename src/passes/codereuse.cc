@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
 #include "../lookup.h"
+#include "../wf.h"
 
 namespace verona
 {
@@ -18,6 +19,8 @@ namespace verona
     auto ready = std::make_shared<Nodes>();
 
     PassDef codereuse = {
+      "codereuse",
+      wfPassTypeReference,
       dir::bottomup | dir::once,
       {
         T(Class)[Class]

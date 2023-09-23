@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
 #include "../subtype.h"
+#include "../wf.h"
 
 namespace verona
 {
@@ -10,6 +11,8 @@ namespace verona
     auto preds = std::make_shared<Btypes>();
 
     PassDef pass = {
+      "validtypeargs",
+      wfPassDrop,
       dir::bottomup | dir::once,
       {
         T(Class, TypeAlias, Function) >> ([=](Match&) -> Node {

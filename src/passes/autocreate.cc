@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
 #include "../lookup.h"
+#include "../wf.h"
 
 namespace verona
 {
   PassDef autocreate()
   {
     return {
+      "autocreate",
+      wfPassLambda,
       dir::bottomup | dir::once,
       {
         In(Class) * T(ClassBody)[ClassBody] >> ([](Match& _) -> Node {

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
 #include "../lookup.h"
+#include "../wf.h"
 
 namespace verona
 {
@@ -42,27 +43,32 @@ namespace verona
   PassDef typenames()
   {
     return {
-      TypeStruct * T(DontCare)[DontCare] >> [](Match& _) { return typevar(_); },
+      "typenames",
+      wfPassTypeNames,
+      dir::topdown,
+      {
+        TypeStruct * T(DontCare)[DontCare] >>
+          [](Match& _) { return typevar(_); },
 
-      // Names on their own must be types.
-      TypeStruct * T(Ident)[Ident] * ~T(TypeArgs)[TypeArgs] >>
-        [](Match& _) {
-          auto id = _(Ident);
-          auto ta = _(TypeArgs);
-          auto defs = lookup(id, ta);
-          return check_type(defs, id, ta);
-        },
+        // Names on their own must be types.
+        TypeStruct * T(Ident)[Ident] * ~T(TypeArgs)[TypeArgs] >>
+          [](Match& _) {
+            auto id = _(Ident);
+            auto ta = _(TypeArgs);
+            auto defs = lookup(id, ta);
+            return check_type(defs, id, ta);
+          },
 
-      // Scoping binds most tightly.
-      TypeStruct * T(FQType)[FQType] * T(DoubleColon) * T(Ident)[Ident] *
-          ~T(TypeArgs)[TypeArgs] >>
-        [](Match& _) {
-          auto id = _(Ident);
-          auto ta = _(TypeArgs);
-          auto l = resolve_fq(_(FQType));
-          auto defs = lookdown(l, id, ta);
-          return check_type(defs, id, ta);
-        },
-    };
+        // Scoping binds most tightly.
+        TypeStruct * T(FQType)[FQType] * T(DoubleColon) * T(Ident)[Ident] *
+            ~T(TypeArgs)[TypeArgs] >>
+          [](Match& _) {
+            auto id = _(Ident);
+            auto ta = _(TypeArgs);
+            auto l = resolve_fq(_(FQType));
+            auto defs = lookdown(l, id, ta);
+            return check_type(defs, id, ta);
+          },
+      }};
   }
 }

@@ -29,6 +29,14 @@ namespace verona
         if (bind == Type)
           bind = bind / Type;
 
+        if ((bind == FQType) && ((bind / Type) == TypeParamName))
+        {
+          auto l_bind = resolve_fq(bind);
+
+          if (l.def == l_bind.def)
+            break;
+        }
+
         node->replace(child, bind);
         child = bind;
       }
@@ -277,7 +285,7 @@ namespace verona
   static Lookup resolve_fqtype(Node fq)
   {
     assert(fq == FQType);
-    Lookup p(fq->parent(Top));
+    Lookup p(ast::top());
     auto path = fq / TypePath;
 
     for (auto& n : *path)

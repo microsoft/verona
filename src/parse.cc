@@ -1,6 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "lang.h"
+#include "wf.h"
 
 #include <fmt/core.h>
 #include <random>
@@ -43,7 +44,7 @@ namespace verona
       size_t end = 0;
     };
 
-    Parse p(depth::subdirectories);
+    Parse p(depth::subdirectories, wfParser);
     auto re_dir = std::make_shared<RE2>("[_[:alpha:]][_[:alnum:]]*?");
     auto depth = std::make_shared<size_t>(0);
     auto str = std::make_shared<Str>();

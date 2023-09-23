@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
 #include "../lookup.h"
+#include "../wf.h"
 
 namespace verona
 {
   PassDef autorhs()
   {
     return {
+      "autorhs",
+      wfPassAutoFields,
       dir::bottomup | dir::once,
       {
         T(Function)[Function]

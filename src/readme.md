@@ -1,5 +1,6 @@
 # To Do
 
+- `partialapp` needs to use FQN when extracting type parameters.
 - Blocks.
   - Enforce `Return | Move | LLVM` at the end?
 - Type inference.

@@ -1,6 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
+#include "../wf.h"
 
 namespace verona
 {
@@ -223,6 +224,8 @@ namespace verona
     auto drop_map = std::make_shared<std::vector<track>>();
 
     PassDef drop = {
+      "drop",
+      wfPassDrop,
       dir::bottomup | dir::once,
       {
         T(Param, Bind) << T(Ident)[Ident] >> ([drop_map](Match& _) -> Node {
