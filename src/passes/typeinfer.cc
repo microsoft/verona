@@ -18,57 +18,76 @@ namespace verona
     Btypes& preds;
     Bounds& bounds;
     Node cls;
-    Btype ret_type;
+    Node ret_type;
     Btype bool_type;
 
     Infer(Node f, Btypes& p, Bounds& b) : preds(p), bounds(b)
     {
       cls = f->parent(Class);
-      ret_type = make_btype(f / Type);
+      ret_type = f / Type;
       bool_type = make_btype(booltype());
-      check(do_block(f / Block), ret_type);
+      do_block(f / Block, ret_type);
     }
 
-    void check(Btype ltype, Btype rtype)
+    void check_t_sub_bool(Node from, Node type)
     {
-      if (!subtype(preds, ltype, rtype, bounds))
+      if (type && !subtype(preds, make_btype(type), bool_type, bounds))
       {
-        // TODO:
-        subtype(preds, ltype, rtype, bounds);
-        std::cout << "subtype failed" << std::endl
-                  << "---" << std::endl
-                  << ltype << "---" << std::endl
-                  << rtype;
+        from->parent()->replace(
+          from,
+          err(from, "type mismatch")
+            << clone(type)
+            << (ErrorMsg ^ "is not a subtype of std::builtin::Bool"));
       }
     }
 
-    void check(Node ltype, Btype rtype)
+    void check_bool_sub_t(Node from, Node type)
     {
-      if (ltype)
-        check(make_btype(ltype), rtype);
+      if (type && !subtype(preds, bool_type, make_btype(type), bounds))
+      {
+        from->parent()->replace(
+          from,
+          err(from, "type mismatch, std::builtin::Bool is not a subtype of")
+            << clone(type));
+      }
     }
 
-    Node do_block(Node& block)
+    void check(Node from, Node ltype, Node rtype)
+    {
+      if (
+        ltype && rtype &&
+        !subtype(preds, make_btype(ltype), make_btype(rtype), bounds))
+      {
+        from->parent()->replace(
+          from,
+          err(from, "type mismatch")
+            << clone(ltype) << (ErrorMsg ^ "is not a subtype of")
+            << clone(rtype));
+      }
+    }
+
+    void do_block(Node& block, Node block_type)
     {
       for (auto stmt : *block)
       {
         if (stmt == Bind)
         {
-          // TODO: literals
           auto rhs = stmt / Rhs;
-          auto type = make_btype(stmt / Type);
+          auto type = stmt / Type;
 
           if (rhs == TypeTest)
-            check(bool_type, type);
+            check_bool_sub_t(stmt, type);
           else if (rhs == Cast)
-            check(rhs / Type, type);
+            check(stmt, rhs / Type, type);
           else if (rhs->in({Move, Copy}))
-            check(gamma(rhs), type);
+            check(stmt, gamma(rhs), type);
           else if (rhs == FieldRef)
           {
             // TODO: Self substitution?
-            // this is failing when `type` is a TypeVar, unclear why
+            // may not need this if we set the return type of autofields
+            // functions correctly
             check(
+              stmt,
               TypeView << -gamma(rhs / Ref)
                        << reftype(
                             cls->lookdown((rhs / Ident)->location()).front() /
@@ -77,9 +96,10 @@ namespace verona
           }
           else if (rhs == Conditional)
           {
-            check(gamma(rhs / If), bool_type);
-            check(do_block(rhs / True), type);
-            check(do_block(rhs / False), type);
+            auto cond = rhs / If;
+            check_t_sub_bool(cond, gamma(cond));
+            do_block(rhs / True, type);
+            do_block(rhs / False, type);
           }
           else if (rhs == Call)
           {
@@ -87,25 +107,28 @@ namespace verona
 
             if (sel == FQFunction)
             {
-              // TODO: may not have a function of this arity
               auto l = resolve_fq(sel);
+
+              if (!l.def)
+              {
+                block->replace(stmt, err(stmt, "too many arguments"));
+                continue;
+              }
+
               auto params = clone(l.def / Params);
               auto ret = clone(l.def / Type);
               auto args = rhs / Args;
+              auto arg = args->begin();
+              assert(params->size() == args->size());
+
               l.sub(params);
               l.sub(ret);
 
-              (void)std::equal(
-                params->begin(),
-                params->end(),
-                args->begin(),
-                args->end(),
-                [&](Node& param, Node& arg) {
-                  check(gamma(arg), make_btype(param / Type));
-                  return true;
-                });
+              std::for_each(params->begin(), params->end(), [&](Node& param) {
+                check(stmt, gamma(*arg++), param / Type);
+              });
 
-              check(ret, type);
+              check(stmt, ret, type);
             }
             else
             {
@@ -135,20 +158,18 @@ namespace verona
         else if (stmt == Return)
         {
           assert(stmt == block->back());
-          check(gamma(stmt / Ref), ret_type);
+          check(stmt, gamma(stmt / Ref), ret_type);
         }
         else if (stmt == Move)
         {
           assert(stmt == block->back());
-          return gamma(stmt);
+          check(stmt, gamma(stmt), block_type);
         }
         else
         {
           assert(stmt->in({Class, TypeAlias, LLVM, Drop}));
         }
       }
-
-      return {};
     }
   };
 
@@ -190,20 +211,21 @@ namespace verona
     });
 
     pass.post([=](Node) {
-      for (auto& [typevar, bound] : *bounds)
-      {
-        std::cout << typevar.view() << std::endl << "--lower--" << std::endl;
+      // // TODO: resolve types instead of just printing bounds
+      // for (auto& [typevar, bound] : *bounds)
+      // {
+      //   std::cout << typevar.view() << std::endl << "--lower--" << std::endl;
 
-        for (auto& b : bound.lower)
-          std::cout << b << std::endl;
+      //   for (auto& b : bound.lower)
+      //     std::cout << b << std::endl;
 
-        std::cout << "--upper--" << std::endl;
+      //   std::cout << "--upper--" << std::endl;
 
-        for (auto& b : bound.upper)
-          std::cout << b << std::endl;
+      //   for (auto& b : bound.upper)
+      //     std::cout << b << std::endl;
 
-        std::cout << "--done--" << std::endl;
-      }
+      //   std::cout << "--done--" << std::endl;
+      // }
 
       return 0;
     });
