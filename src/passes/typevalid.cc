@@ -8,7 +8,7 @@ namespace verona
   {
     // This detects cycles in type aliases, which are not allowed. This happens
     // after type names are turned into FQType.
-    assert(node->type() == TypeAlias);
+    assert(node == TypeAlias);
 
     // Each element in the worklist carries a set of nodes that have been
     // visited, a type node, and a map of typeparam bindings.
@@ -22,19 +22,16 @@ namespace verona
       auto& lookup = work.second;
       worklist.pop_back();
 
-      if (lookup.def->type() == Type)
+      if (lookup.def == Type)
       {
         worklist.emplace_back(set, lookup.make(lookup.def / Type));
       }
-      else if (lookup.def->type().in(
-                 {TypeTuple, TypeUnion, TypeIsect, TypeView}))
+      else if (lookup.def->in({TypeTuple, TypeUnion, TypeIsect, TypeView}))
       {
         for (auto& t : *lookup.def)
           worklist.emplace_back(set, lookup.make(t));
       }
-      else if (
-        (lookup.def->type() == FQType) &&
-        ((lookup.def / Type)->type() == TypeAliasName))
+      else if ((lookup.def == FQType) && ((lookup.def / Type) == TypeAliasName))
       {
         auto l = resolve_fq(lookup.def);
 
@@ -47,9 +44,7 @@ namespace verona
           worklist.emplace_back(set, l);
         }
       }
-      else if (
-        (lookup.def->type() == FQType) &&
-        ((lookup.def / Type)->type() == TypeParamName))
+      else if ((lookup.def == FQType) && ((lookup.def / Type) == TypeParamName))
       {
         auto l = resolve_fq(lookup.def);
 
@@ -68,7 +63,7 @@ namespace verona
 
   bool recursive_inherit(Node node)
   {
-    assert(node->type() == Inherit);
+    assert(node == Inherit);
     std::vector<std::pair<NodeSet, Lookup>> worklist;
     worklist.emplace_back(NodeSet{node}, node / Inherit);
 
@@ -79,18 +74,16 @@ namespace verona
       auto& lookup = work.second;
       worklist.pop_back();
 
-      if (lookup.def->type() == Type)
+      if (lookup.def == Type)
       {
         worklist.emplace_back(set, lookup.make(lookup.def / Type));
       }
-      else if (lookup.def->type() == TypeIsect)
+      else if (lookup.def == TypeIsect)
       {
         for (auto& t : *lookup.def)
           worklist.emplace_back(set, lookup.make(t));
       }
-      else if (
-        (lookup.def->type() == FQType) &&
-        ((lookup.def / Type)->type() == TypeClassName))
+      else if ((lookup.def == FQType) && ((lookup.def / Type) == TypeClassName))
       {
         auto l = resolve_fq(lookup.def);
 
@@ -98,25 +91,21 @@ namespace verona
         {
           Node inherit = l.def / Inherit;
 
-          if ((inherit->type() != Inherit) || set.contains(inherit))
+          if ((inherit != Inherit) || set.contains(inherit))
             return true;
 
           set.insert(inherit);
           worklist.emplace_back(set, inherit / Inherit);
         }
       }
-      else if (
-        (lookup.def->type() == FQType) &&
-        ((lookup.def / Type)->type() == TypeAliasName))
+      else if ((lookup.def == FQType) && ((lookup.def / Type) == TypeAliasName))
       {
         auto l = resolve_fq(lookup.def);
 
         if (l.def)
           worklist.emplace_back(set, l);
       }
-      else if (
-        (lookup.def->type() == FQType) &&
-        ((lookup.def / Type)->type() == TypeParamName))
+      else if ((lookup.def == FQType) && ((lookup.def / Type) == TypeParamName))
       {
         auto l = resolve_fq(lookup.def);
 
@@ -140,7 +129,7 @@ namespace verona
     // that expand to predicates.
     Btype t = make_btype(fq);
 
-    if (t->type() != TypeAlias)
+    if (t != TypeAlias)
       return false;
 
     Btypes worklist;
@@ -151,20 +140,20 @@ namespace verona
       t = worklist.back();
       worklist.pop_back();
 
-      if (t->type() == TypeSubtype)
+      if (t == TypeSubtype)
       {
         // Do nothing.
       }
-      else if (t->type().in({TypeUnion, TypeIsect}))
+      else if (t->in({TypeUnion, TypeIsect}))
       {
         // Check that all children are valid predicates.
         std::for_each(t->node->begin(), t->node->end(), [&](auto& n) {
           worklist.push_back(t->make(n));
         });
       }
-      else if (t->type() == TypeAlias)
+      else if (t == TypeAlias)
       {
-        worklist.push_back(t->field(Type));
+        worklist.push_back(t / Type);
       }
       else
       {
@@ -182,7 +171,7 @@ namespace verona
     // valid inherit clauses.
     Btype t = make_btype(fq);
 
-    if (!t->type().in({Class, Trait, TypeAlias}))
+    if (!t->in({Class, Trait, TypeAlias}))
       return false;
 
     Btypes worklist;
@@ -193,20 +182,20 @@ namespace verona
       t = worklist.back();
       worklist.pop_back();
 
-      if (t->type().in({Class, Trait}))
+      if (t->in({Class, Trait}))
       {
         // Do nothing.
       }
-      else if (t->type().in({Type, TypeIsect}))
+      else if (t->in({Type, TypeIsect}))
       {
         // Check that all children are valid for code reuse.
         std::for_each(t->node->begin(), t->node->end(), [&](auto& n) {
           worklist.push_back(t->make(n));
         });
       }
-      else if (t->type() == TypeAlias)
+      else if (t == TypeAlias)
       {
-        worklist.push_back(t->field(Type));
+        worklist.push_back(t / Type);
       }
       else
       {
@@ -220,7 +209,7 @@ namespace verona
   PassDef typevalid()
   {
     return {
-      dir::once | dir::topdown,
+      dir::bottomup | dir::once,
       {
         T(TypeAlias)[TypeAlias] >> ([](Match& _) -> Node {
           if (recursive_typealias(_(TypeAlias)))
@@ -245,8 +234,9 @@ namespace verona
           }),
 
         In(TypePred)++ * --(In(TypeSubtype, TypeArgs)++) *
-            (TypeCaps / T(FQType) / T(Trait) / T(TypeTuple) / T(Self) /
-             T(TypeList) / T(TypeView) / T(TypeVar) / T(Package))[Type] >>
+            (TypeCaps /
+             T(Trait, TypeTuple, Self, TypeList, TypeView, TypeVar, Package))
+              [Type] >>
           [](Match& _) {
             return err(_(Type), "Can't put this in a type predicate");
           },
@@ -260,9 +250,17 @@ namespace verona
           }),
 
         In(Inherit)++ * --(In(TypeArgs)++) *
-            (TypeCaps / T(TypeTuple) / T(Self) / T(TypeList) / T(TypeView) /
-             T(TypeUnion) / T(TypeVar) / T(Package) / T(TypeSubtype) /
-             T(TypeTrue) / T(TypeFalse))[Type] >>
+            (TypeCaps /
+             T(TypeTuple,
+               Self,
+               TypeList,
+               TypeView,
+               TypeUnion,
+               TypeVar,
+               Package,
+               TypeSubtype,
+               TypeTrue,
+               TypeFalse))[Type] >>
           [](Match& _) { return err(_(Type), "Can't inherit from this type"); },
       }};
   }

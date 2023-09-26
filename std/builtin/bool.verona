@@ -11,6 +11,18 @@ class Bool
     from.bool()
   }
 
+  make_true(): Bool
+  {
+    let a = :[i1 1]:
+    Dyn::from_bool(a)
+  }
+
+  make_false(): Bool
+  {
+    let a = :[i1 0]:
+    Dyn::from_bool(a)
+  }
+
   bool(self: Bool): Bool
   {
     self

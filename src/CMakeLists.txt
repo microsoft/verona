@@ -6,16 +6,18 @@ add_executable(verona
   subtype.cc
   passes/modules.cc
   passes/structure.cc
-  passes/memberconflict.cc
+  passes/conditionals.cc
+  passes/reference.cc
   passes/typenames.cc
   passes/typeview.cc
   passes/typefunc.cc
   passes/typealg.cc
   passes/typeflat.cc
   passes/typevalid.cc
+  passes/typereference.cc
   passes/codereuse.cc
-  passes/conditionals.cc
-  passes/reference.cc
+  passes/memberconflict.cc
+  passes/resetimplicit.cc
   passes/reverseapp.cc
   passes/application.cc
   passes/assignlhs.cc
@@ -33,6 +35,7 @@ add_executable(verona
   passes/defbeforeuse.cc
   passes/drop.cc
   passes/validtypeargs.cc
+  passes/typeinfer.cc
 )
 
 target_precompile_headers(verona

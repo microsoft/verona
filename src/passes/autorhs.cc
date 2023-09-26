@@ -8,13 +8,12 @@ namespace verona
   PassDef autorhs()
   {
     return {
-      dir::topdown | dir::once,
+      dir::bottomup | dir::once,
       {
         T(Function)[Function]
             << (IsImplicit * T(Lhs) * T(Ident)[Ident] *
                 T(TypeParams)[TypeParams] * T(Params)[Params] * T(Type)[Type] *
-                T(DontCare) * T(TypePred)[TypePred] *
-                (T(Block) / T(DontCare))) >>
+                T(DontCare) * T(TypePred)[TypePred] * T(Block, DontCare)) >>
           ([](Match& _) -> Node {
             auto f = _(Function);
             auto id = _(Ident);
@@ -28,8 +27,7 @@ namespace verona
             for (auto def : defs)
             {
               if (
-                (def != f) && (def->type() == Function) &&
-                ((def / Ref)->type() != Rhs) &&
+                (def != f) && (def == Function) && ((def / Ref) != Rhs) &&
                 ((def / Ident)->location() == id->location()) &&
                 ((def / Params)->size() == params->size()))
               {

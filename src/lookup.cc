@@ -9,9 +9,39 @@
 
 namespace verona
 {
+  size_t Lookup::sub(Node& node)
+  {
+    // Substitutes inside of `node`, but not `node` itself.
+    size_t changes = 0;
+
+    for (auto child : *node)
+    {
+      while ((child == FQType) && ((child / Type) == TypeParamName))
+      {
+        auto l = resolve_fq(child);
+        auto it = bindings.find(l.def);
+
+        if (it == bindings.end())
+          break;
+
+        auto bind = clone(it->second);
+
+        if (bind == Type)
+          bind = bind / Type;
+
+        node->replace(child, bind);
+        child = bind;
+      }
+
+      changes += sub(child);
+    }
+
+    return changes;
+  }
+
   static void apply_typeargs(Lookup& lookup, Node ta)
   {
-    if (!lookup.def->type().in({Class, TypeAlias, Function}))
+    if (!lookup.def->in({Class, TypeAlias, Function}))
       return;
 
     auto tp = lookup.def / TypeParams;
@@ -39,23 +69,29 @@ namespace verona
       tp->begin() + n,
       tp->end(),
       std::inserter(lookup.bindings, lookup.bindings.end()),
-      [](auto param) {
-        return std::make_pair(
-          param, Type << (TypeVar ^ param->fresh(l_typevar)));
-      });
+      [](auto param) { return std::make_pair(param, typevar(param)); });
   }
 
   Lookups lookup(Node id, Node ta)
   {
-    assert(id->type().in({Ident, Symbol}));
-    assert(!ta || (ta->type() == TypeArgs));
+    assert(id->in({Ident, Symbol, Self}));
+    assert(!ta || (ta == TypeArgs));
+    Lookups result;
+
+    if (id == Self)
+    {
+      auto def = id->parent({Class, Trait});
+      Lookup l(def);
+      apply_typeargs(l, ta);
+      result.emplace(l);
+      return result;
+    }
 
     auto defs = id->lookup();
-    Lookups result;
 
     for (auto& def : defs)
     {
-      if (def->type() == Use)
+      if (def == Use)
       {
         // Expand Use nodes by looking down into the target type.
         if (def->precedes(id))
@@ -89,7 +125,7 @@ namespace verona
       if (!inserted.second)
         return {};
 
-      if (lookup.def->type().in({Class, Trait, Function}))
+      if (lookup.def->in({Class, Trait, Function}))
       {
         // Return all lookdowns in the found class, trait, or function.
         Lookups result;
@@ -107,45 +143,43 @@ namespace verona
 
         return result;
       }
-      else if (lookup.def->type() == TypeAlias)
+      else if (lookup.def == TypeAlias)
       {
         // Replace the def with our type alias and try again.
         lookup.def = lookup.def / Type;
       }
-      else if (lookup.def->type() == TypeParam)
+      else if (lookup.def == TypeParam)
       {
         // Replace the typeparam with the bound typearg and try again.
         auto it = lookup.bindings.find(lookup.def);
 
         // Except in testing, there should always be a binding. If it's bound
         // to itself, then we're done.
-        if (
-          (it == lookup.bindings.end()) ||
-          (it->second->type() == TypeParamBind))
+        if ((it == lookup.bindings.end()) || (it->second == TypeParamBind))
           return {};
 
         lookup.def = it->second;
       }
       // The remainder of cases arise from a Use, a TypeAlias, or a TypeParam.
       // They will all result in some number of name resolutions.
-      else if (lookup.def->type() == Type)
+      else if (lookup.def == Type)
       {
         // Replace the def with the content of the type and try again.
         // Use `front()` instead of `def / Type` to allow looking up in `use`
         // directives before Type is no longer a sequence.
         lookup.def = lookup.def->front();
       }
-      else if (lookup.def->type().in({FQType, FQFunction}))
+      else if (lookup.def->in({FQType, FQFunction}))
       {
         // Resolve the name and try again.
         lookup = resolve_fq(lookup.def);
       }
-      else if (lookup.def->type() == TypeView)
+      else if (lookup.def == TypeView)
       {
         // Replace the def with the rhs of the view and try again.
         lookup.def = lookup.def->back();
       }
-      else if (lookup.def->type() == TypeIsect)
+      else if (lookup.def == TypeIsect)
       {
         // Return everything we find.
         Lookups result;
@@ -159,12 +193,12 @@ namespace verona
 
         return result;
       }
-      else if (lookup.def->type() == TypeUnion)
+      else if (lookup.def == TypeUnion)
       {
         // TODO: return only things that are identical in all disjunctions
         return {};
       }
-      else if (lookup.def->type().in({TypeList, TypeTuple, TypeVar}))
+      else if (lookup.def->in({TypeList, TypeTuple, TypeVar}))
       {
         // Nothing to do here.
         return {};
@@ -180,7 +214,7 @@ namespace verona
   bool lookup_type(Node id, std::initializer_list<Token> t)
   {
     auto defs = lookup(id, {});
-    return (defs.size() == 1) && defs.begin()->def->type().in(t);
+    return (defs.size() == 1) && defs.begin()->def->in(t);
   }
 
   bool lookup_type(const NodeRange& n, std::initializer_list<Token> t)
@@ -190,13 +224,12 @@ namespace verona
 
   static bool resolve_selector(Lookup& p, Node n)
   {
-    assert(n->type() == Selector);
+    assert(n == Selector);
 
     if (!p.def)
       return false;
 
     auto hand = (n / Ref)->type();
-
     auto id = n / Ident;
     auto defs = p.def->lookdown(id->location());
 
@@ -207,7 +240,7 @@ namespace verona
     for (auto& def : defs)
     {
       if (
-        (def->type() == Function) && ((def / Ref)->type() == hand) &&
+        (def == Function) && ((def / Ref) == hand) &&
         ((def / Params)->size() == arity))
       {
         p = p.make(def);
@@ -221,21 +254,21 @@ namespace verona
 
   static bool resolve_typename(Lookup& p, Node n)
   {
-    assert(n->type().in(
-      {TypeClassName, TypeAliasName, TypeParamName, TypeTraitName}));
+    assert(n->in({TypeClassName, TypeAliasName, TypeParamName, TypeTraitName}));
+    auto def = p.def;
 
-    if (!p.def)
+    if (!def)
       return false;
 
     auto id = n / Ident;
-    auto defs = p.def->lookdown(id->location());
+    auto defs = def->lookdown(id->location());
 
     if (defs.size() != 1)
       return false;
 
     p = p.make(*defs.begin());
 
-    if (n->type().in({TypeClassName, TypeAliasName}))
+    if (n->in({TypeClassName, TypeAliasName}))
       apply_typeargs(p, n / TypeArgs);
 
     return true;
@@ -243,18 +276,18 @@ namespace verona
 
   static Lookup resolve_fqtype(Node fq)
   {
-    assert(fq->type() == FQType);
+    assert(fq == FQType);
     Lookup p(fq->parent(Top));
     auto path = fq / TypePath;
 
     for (auto& n : *path)
     {
-      if (n->type() == Selector)
+      if (n == Selector)
       {
         if (!resolve_selector(p, n))
           return {};
       }
-      else if (n->type().in(
+      else if (n->in(
                  {TypeClassName, TypeAliasName, TypeParamName, TypeTraitName}))
       {
         if (!resolve_typename(p, n))
@@ -270,10 +303,10 @@ namespace verona
 
   Lookup resolve_fq(Node fq)
   {
-    if (fq->type() == FQType)
+    if (fq == FQType)
       return resolve_fqtype(fq);
 
-    assert(fq->type() == FQFunction);
+    assert(fq == FQFunction);
     auto p = resolve_fqtype(fq / FQType);
 
     if (!resolve_selector(p, fq / Selector))
@@ -294,7 +327,7 @@ namespace verona
       if (it != lookup.bindings.end())
         ta << clone(it->second);
       else if (fresh)
-        ta << (Type << (TypeVar ^ node->fresh(l_typevar)));
+        ta << typevar(node);
       else
         ta << TypeParamBind;
     }
@@ -304,7 +337,7 @@ namespace verona
 
   static Node make_fq(Lookup& lookup, bool fresh)
   {
-    if (!lookup.def->type().in({Class, TypeAlias, TypeParam, Trait, Function}))
+    if (!lookup.def->in({Class, TypeAlias, TypeParam, Trait, Function}))
       return lookup.def;
 
     Node path = TypePath;
@@ -312,27 +345,27 @@ namespace verona
 
     while (node)
     {
-      if (node->type() == Class)
+      if (node == Class)
       {
         path
           << (TypeClassName << clone(node / Ident)
                             << make_typeargs(node, lookup, fresh));
       }
-      else if (node->type() == TypeAlias)
+      else if (node == TypeAlias)
       {
         path
           << (TypeAliasName << clone(node / Ident)
                             << make_typeargs(node, lookup, fresh));
       }
-      else if (node->type() == TypeParam)
+      else if (node == TypeParam)
       {
         path << (TypeParamName << clone(node / Ident));
       }
-      else if (node->type() == Trait)
+      else if (node == Trait)
       {
         path << (TypeTraitName << clone(node / Ident));
       }
-      else if (node->type() == Function)
+      else if (node == Function)
       {
         auto arity = std::to_string((node / Params)->size());
 
@@ -347,8 +380,7 @@ namespace verona
     std::reverse(path->begin(), path->end());
     node = path->pop_back();
 
-    if (node->type().in(
-          {TypeClassName, TypeAliasName, TypeParamName, TypeTraitName}))
+    if (node->in({TypeClassName, TypeAliasName, TypeParamName, TypeTraitName}))
       return FQType << path << node;
 
     assert(!path->empty());
@@ -364,7 +396,7 @@ namespace verona
   Node local_fq(Node node)
   {
     // Build an FQType for the local type.
-    if (!node->type().in({Class, TypeAlias, TypeParam, Trait, Function}))
+    if (!node->in({Class, TypeAlias, TypeParam, Trait, Function}))
       node = node->parent({Class, TypeAlias, TypeParam, Trait, Function});
 
     Lookup l(node);
@@ -373,14 +405,26 @@ namespace verona
 
   Node append_fq(Node fq, Node node)
   {
-    assert(fq->type() == FQType);
+    assert(fq->type().in({FQType, FQFunction}));
+    assert(node->in(
+      {TypeClassName, TypeAliasName, TypeParamName, TypeTraitName, Selector}));
 
-    if (node->type() == Selector)
+    if (fq == FQFunction)
+    {
+      // FQFunction + Selector = not allowed
+      assert(node != Selector);
+
+      // FQFunction + Type = FQType
+      return FQType << (clone(fq / FQType / TypePath)
+                        << clone(fq / FQType / Type) << clone(fq / Selector))
+                    << node;
+    }
+
+    // FQType + Selector = FQFunction
+    if (node == Selector)
       return FQFunction << clone(fq) << node;
 
-    assert(node->type().in(
-      {TypeClassName, TypeAliasName, TypeParamName, TypeTraitName}));
-
+    // FQType + Type = FQType
     return FQType << (clone(fq / TypePath) << clone(fq / Type)) << node;
   }
 }

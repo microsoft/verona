@@ -31,21 +31,16 @@ namespace verona
           return Expr << (TypeAssert << call_lhs(_(Call)) << _(Type));
         },
 
-      on_lhs(
-        T(Expr) << (T(NLRCheck) << (IsImplicit[Implicit] * RhsCall[Call]))) >>
-        [](Match& _) {
-          return Expr << (NLRCheck << _(Implicit) << call_lhs(_(Call)));
-        },
+      on_lhs(T(Expr) << (T(NLRCheck) << RhsCall[Call])) >>
+        [](Match& _) { return Expr << (NLRCheck << call_lhs(_(Call))); },
 
       on_lhs(
         T(Expr)
         << (T(TypeAssert)
-            << ((T(NLRCheck) << (IsImplicit[Implicit] * RhsCall[Call])) *
-                T(Type)[Type]))) >>
+            << ((T(NLRCheck) << RhsCall[Call]) * T(Type)[Type]))) >>
         [](Match& _) {
           return Expr
-            << (TypeAssert << (NLRCheck << _(Implicit) << call_lhs(_(Call)))
-                           << _(Type));
+            << (TypeAssert << (NLRCheck << call_lhs(_(Call))) << _(Type));
         },
 
       // Turn a RefVar on the LHS of an assignment into a RefVarLHS.

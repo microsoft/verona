@@ -32,7 +32,7 @@ namespace verona
 
     auto fq = make_fq(def);
 
-    if (fq->type() != FQType)
+    if (fq != FQType)
       return Error << (ErrorMsg ^ "type name is not a type")
                    << ((ErrorAst ^ id) << id << ta);
 

@@ -13,9 +13,19 @@ namespace verona
     return Error << (ErrorMsg ^ msg) << node;
   }
 
+  Node typevar(Location loc)
+  {
+    return Type << (TypeVar ^ loc);
+  }
+
+  Node typevar(Node& node)
+  {
+    return typevar(node->fresh(l_typevar));
+  }
+
   Node typevar(Match& _)
   {
-    return Type << (TypeVar ^ _.fresh(l_typevar));
+    return typevar(_.fresh(l_typevar));
   }
 
   Node typevar(Match& _, const Token& t)
@@ -59,37 +69,83 @@ namespace verona
                     << (TypeClassName << (Ident ^ l_builtin) << TypeArgs);
   }
 
+  static Node builtin_type(const Location& name, Node ta = TypeArgs)
+  {
+    return FQType << builtin_path() << (TypeClassName << (Ident ^ name) << ta);
+  }
+
+  static Node call0(Node type, const Location& loc)
+  {
+    return call(FQFunction << type << selector(loc));
+  }
+
+  static Node create0(Node type)
+  {
+    return call0(type, l_create);
+  }
+
   Node nonlocal(Match& _)
   {
     // Pin the type argument to a specific type variable.
     static Location l_nonlocal("nonlocal");
-    return FQType << builtin_path()
-                  << (TypeClassName << (Ident ^ l_nonlocal)
-                                    << (TypeArgs << typevar(_)));
+    return builtin_type(l_nonlocal, TypeArgs << typevar(_));
   }
 
   Node unittype()
   {
     static Location l_unit("unit");
-    return FQType << builtin_path()
-                  << (TypeClassName << (Ident ^ l_unit) << TypeArgs);
+    return builtin_type(l_unit);
   }
 
   Node unit()
   {
-    return call(FQFunction << unittype() << selector(l_create));
+    return create0(unittype());
+  }
+
+  Node booltype()
+  {
+    static Location l_bool("Bool");
+    return builtin_type(l_bool);
+  }
+
+  Node booltrue()
+  {
+    static Location l_true("make_true");
+    return call0(booltype(), l_true);
+  }
+
+  Node boolfalse()
+  {
+    static Location l_false("make_false");
+    return call0(booltype(), l_false);
   }
 
   Node celltype()
   {
-    static Location l_cell("cell");
-    return FQType << builtin_path()
-                  << (TypeClassName << (Ident ^ l_cell) << TypeArgs);
+    static Location l_cell("Cell");
+    return builtin_type(l_cell);
   }
 
   Node cell()
   {
-    return call(FQFunction << celltype() << selector(l_create));
+    return create0(celltype());
+  }
+
+  Node reftype(Node t)
+  {
+    static Location l_ref("Ref");
+    return builtin_type(l_ref, TypeArgs << -t);
+  }
+
+  Node tuple_to_args(Node n)
+  {
+    assert(n == Tuple);
+    if (n->size() == 0)
+      return Unit;
+    else if (n->size() == 1)
+      return n->front();
+    else
+      return n;
   }
 
   Node selector(Node name, Node ta)
@@ -109,119 +165,101 @@ namespace verona
   {
     // `op` must already be in the AST in order to resolve the FQFunction.
     // If not, it won't be treated as an LLVM call.
-    if (op->type() != FQFunction)
+    if (op != FQFunction)
       return false;
 
     auto l = resolve_fq(op);
 
-    return l.def && (l.def->type() == Function) &&
-      ((l.def / LLVMFuncType)->type() == LLVMFuncType);
+    return l.def && (l.def == Function) &&
+      ((l.def / LLVMFuncType) == LLVMFuncType);
   }
 
   static Node arg(Node args, Node arg)
   {
     if (arg)
     {
-      if (arg->type() == Tuple)
+      if (arg == Tuple)
         args->push_back({arg->begin(), arg->end()});
-      else if (arg->type() == Expr)
+      else if (arg == Expr)
         args << arg;
-      else if (arg->type() != Unit)
+      else if (arg != Unit)
         args << (Expr << arg);
     }
 
     return args;
   }
 
-  Node call(Node op, Node lhs, Node rhs, bool post_nlr)
+  Node call(Node op, Node lhs, Node rhs)
   {
-    assert(op->type().in({FQFunction, Selector}));
+    assert(op->in({FQFunction, Selector}));
     auto args = arg(arg(Args, lhs), rhs);
     auto arity = Int ^ std::to_string(args->size());
 
-    if (op->type() == FQFunction)
+    if (op == FQFunction)
       (op / Selector / Int) = arity;
     else
       (op / Int) = arity;
 
-    auto ret = Call << op << args;
-
-    if (!post_nlr)
-      ret = NLRCheck << Explicit << ret;
-
-    return ret;
+    return NLRCheck << (Call << op << args);
   }
 
   Node call_lhs(Node call)
   {
-    assert(call->type() == Call);
+    assert(call == Call);
     auto f = call / Selector;
 
-    if (f->type() == FQFunction)
+    if (f == FQFunction)
       f = f / Selector;
 
     (f / Ref) = Lhs;
     return call;
   }
 
-  Node load(Node arg, bool post_nlr)
+  Node load(Node arg)
   {
     static Location l_load("load");
-    return call(selector(l_load), arg, {}, post_nlr);
+    return call(selector(l_load), arg);
   }
 
   bool is_implicit(Node n)
   {
     auto f = n->parent(Function);
-    return f && ((f / Implicit)->type() == Implicit);
+    return f && ((f / Implicit) == Implicit);
   }
 
   static Token handed(Node& node)
   {
-    assert(node->type().in({FieldLet, FieldVar, Function}));
+    assert(node->in({FieldLet, FieldVar, Function}));
 
     // Return Op to mean both.
-    if (node->type() == FieldVar)
+    if (node == FieldVar)
       return Op;
-    else if (node->type() == FieldLet)
+    else if (node == FieldLet)
       return Lhs;
     else
       return (node / Ref)->type();
   }
 
-  static std::pair<size_t, size_t> arity(Node& node)
+  static size_t arity(Node& node)
   {
-    assert(node->type().in({FieldLet, FieldVar, Function}));
-
-    if (node->type() != Function)
-      return {1, 1};
-
-    auto params = node / Params;
-    auto arity_hi = params->size();
-    auto arity_lo = arity_hi;
-
-    for (auto& param : *params)
-    {
-      if ((param / Default)->type() != DontCare)
-        arity_lo--;
-    }
-
-    return {arity_lo, arity_hi};
+    assert(node->in({FieldLet, FieldVar, Function}));
+    return (node == Function) ? (node / Params)->size() : 1;
   }
 
   bool conflict(Node& a, Node& b)
   {
-    // Check for handedness overlap.
+    assert(a->in({FieldLet, FieldVar, Function}));
+    assert(b->in({FieldLet, FieldVar, Function}));
+
+    // Check for handedness conflict.
     auto a_hand = handed(a);
     auto b_hand = handed(b);
 
     if ((a_hand != b_hand) && (a_hand != Op) && (b_hand != Op))
       return false;
 
-    // Check for arity overlap.
-    auto [a_lo, a_hi] = arity(a);
-    auto [b_lo, b_hi] = arity(b);
-    return (b_hi >= a_lo) && (a_hi >= b_lo);
+    // Check for arity conflict.
+    return arity(a) == arity(b);
   }
 
   Options& options()
@@ -240,33 +278,36 @@ namespace verona
       {
         {"modules", modules(), wfPassModules},
         {"structure", structure(), wfPassStructure},
+        {"reference", reference(), wfPassReference},
+        {"conditionals", conditionals(), wfPassConditionals},
+        {"lambda", lambda(), wfPassLambda},
+        {"autocreate", autocreate(), wfPassLambda},
+        {"defaultargs", defaultargs(), wfPassDefaultArgs},
         {"typenames", typenames(), wfPassTypeNames},
         {"typeview", typeview(), wfPassTypeView},
         {"typefunc", typefunc(), wfPassTypeFunc},
         {"typealg", typealg(), wfPassTypeAlg},
         {"typeflat", typeflat(), wfPassTypeFlat},
         {"typevalid", typevalid(), wfPassTypeFlat},
-        {"reference", reference(), wfPassReference},
-        {"codereuse", codereuse(), wfPassReference},
-        {"memberconflict", memberconflict(), wfPassReference},
-        {"conditionals", conditionals(), wfPassConditionals},
+        {"typereference", typereference(), wfPassTypeReference},
+        {"codereuse", codereuse(), wfPassTypeReference},
+        {"memberconflict", memberconflict(), wfPassTypeReference},
+        {"resetimplicit", resetimplicit(), wfPassResetImplicit},
         {"reverseapp", reverseapp(), wfPassReverseApp},
         {"application", application(), wfPassApplication},
         {"assignlhs", assignlhs(), wfPassAssignLHS},
         {"localvar", localvar(), wfPassLocalVar},
         {"assignment", assignment(), wfPassAssignment},
-        {"lambda", lambda(), wfPassLambda},
         {"autofields", autofields(), wfPassAutoFields},
         {"autorhs", autorhs(), wfPassAutoFields},
-        {"autocreate", autocreate(), wfPassAutoCreate},
-        {"defaultargs", defaultargs(), wfPassDefaultArgs},
-        {"partialapp", partialapp(), wfPassDefaultArgs},
-        {"traitisect", traitisect(), wfPassDefaultArgs},
+        {"partialapp", partialapp(), wfPassAutoFields},
+        {"traitisect", traitisect(), wfPassAutoFields},
         {"nlrcheck", nlrcheck(), wfPassNLRCheck},
         {"anf", anf(), wfPassANF},
         {"defbeforeuse", defbeforeuse(), wfPassANF},
         {"drop", drop(), wfPassDrop},
         {"validtypeargs", validtypeargs(), wfPassDrop},
+        // {"typeinfer", typeinfer(), wfPassDrop},
       });
 
     return d;

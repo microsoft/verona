@@ -23,8 +23,10 @@ namespace verona
   inline const auto DoubleColon = TokenDef("doublecolon");
   inline const auto TripleColon = TokenDef("triplecolon");
   inline const auto Arrow = TokenDef("arrow");
-  inline const auto Bool = TokenDef("bool", flag::print);
+  inline const auto True = TokenDef("true");
+  inline const auto False = TokenDef("false");
   inline const auto Hex = TokenDef("hex", flag::print);
+  inline const auto Oct = TokenDef("oct", flag::print);
   inline const auto Bin = TokenDef("bin", flag::print);
   inline const auto Int = TokenDef("int", flag::print);
   inline const auto HexFloat = TokenDef("hexfloat", flag::print);
@@ -74,8 +76,7 @@ namespace verona
     TokenDef("valueparam", flag::lookup | flag::lookdown | flag::shadowing);
   inline const auto Params = TokenDef("params");
   inline const auto Param = TokenDef("param", flag::lookup | flag::shadowing);
-  inline const auto Block =
-    TokenDef("block", flag::symtab | flag::defbeforeuse);
+  inline const auto Block = TokenDef("block");
 
   // Type structure.
   inline const auto Type = TokenDef("type");
@@ -138,43 +139,74 @@ namespace verona
   // Rewrite identifiers.
   inline const auto Implicit = TokenDef("implicit");
   inline const auto Explicit = TokenDef("explicit");
-  inline const auto Lhs = TokenDef("Lhs");
-  inline const auto Rhs = TokenDef("Rhs");
-  inline const auto Op = TokenDef("Op");
+  inline const auto LambdaFunc = TokenDef("lambdafunc");
+  inline const auto Lhs = TokenDef("lhs");
+  inline const auto Rhs = TokenDef("rhs");
+  inline const auto Op = TokenDef("op");
 
   // Sythetic locations.
   inline const auto l_typevar = Location("typevar");
   inline const auto l_param = Location("param");
   inline const auto l_trait = Location("trait");
-  inline const auto l_class = Location("class");
+  inline const auto l_objlit = Location("objlit");
+  inline const auto l_lambda = Location("lambda");
   inline const auto l_self = Location("self");
   inline const auto l_new = Location("new");
   inline const auto l_apply = Location("apply");
   inline const auto l_create = Location("create");
 
   // Helper patterns.
-  inline const auto IsImplicit = T(Implicit) / T(Explicit);
-  inline const auto Hand = T(Lhs) / T(Rhs);
-  inline const auto TypeStruct = In(Type) / In(TypeList) / In(TypeTuple) /
-    In(TypeView) / In(TypeUnion) / In(TypeIsect) / In(TypeSubtype);
-  inline const auto TypeCaps = T(Iso) / T(Mut) / T(Imm);
-  inline const auto Literal = T(String) / T(Escaped) / T(Char) / T(Bool) /
-    T(Hex) / T(Bin) / T(Int) / T(Float) / T(HexFloat) / T(LLVM);
-  inline const auto TypeElem = T(Type) / TypeCaps / T(FQType) / T(Trait) /
-    T(TypeTuple) / T(Self) / T(TypeList) / T(TypeView) / T(TypeIsect) /
-    T(TypeUnion) / T(TypeVar) / T(Package) / T(TypeSubtype) / T(TypeTrue) /
-    T(TypeFalse);
-  inline const auto Object0 = Literal / T(RefVar) / T(RefVarLHS) / T(RefLet) /
-    T(Unit) / T(Tuple) / T(Lambda) / T(Call) / T(NLRCheck) / T(Assign) /
-    T(Expr) / T(ExprSeq) / T(DontCare) / T(Conditional) / T(TypeTest) / T(Cast);
+  inline const auto IsImplicit = T(Implicit, Explicit, LambdaFunc);
+  inline const auto Hand = T(Lhs, Rhs);
+  inline const auto TypeStruct =
+    In(Type, TypeList, TypeTuple, TypeView, TypeUnion, TypeIsect, TypeSubtype);
+  inline const auto TypeCaps = T(Iso, Mut, Imm);
+  inline const auto Literal =
+    T(String, Escaped, Char, Hex, Oct, Bin, Int, Float, HexFloat, LLVM);
+
+  inline const auto TypeElem = TypeCaps /
+    T(Type,
+      FQType,
+      Trait,
+      TypeTuple,
+      Self,
+      TypeList,
+      TypeView,
+      TypeIsect,
+      TypeUnion,
+      TypeVar,
+      Package,
+      TypeSubtype,
+      TypeTrue,
+      TypeFalse);
+
+  inline const auto Object0 = Literal /
+    T(RefVar,
+      RefVarLHS,
+      RefLet,
+      Unit,
+      Tuple,
+      Lambda,
+      Call,
+      NLRCheck,
+      Assign,
+      Expr,
+      ExprSeq,
+      DontCare,
+      Conditional,
+      TypeTest,
+      Cast);
+
   inline const auto Object = Object0 / (T(TypeAssert) << (Object0 * T(Type)));
-  inline const auto Operator = T(FQFunction) / T(Selector);
+  inline const auto Operator = T(FQFunction, Selector);
   inline const auto RhsCall = T(Call)
     << ((T(Selector) << T(Rhs)) /
         (T(FQFunction) << (T(FQType) * (T(Selector) << T(Rhs)))));
 
   // Helper functions for generating AST fragments.
   Node err(Node node, const std::string& msg);
+  Node typevar(Location loc);
+  Node typevar(Node& node);
   Node typevar(Match& _);
   Node typevar(Match& _, const Token& t);
   Node inherit();
@@ -184,13 +216,18 @@ namespace verona
   Node nonlocal(Match& _);
   Node unittype();
   Node unit();
+  Node booltype();
+  Node booltrue();
+  Node boolfalse();
   Node cell();
+  Node reftype(Node t);
+  Node tuple_to_args(Node n);
   Node selector(Node name, Node ta = TypeArgs);
   Node selector(Location name, Node ta = TypeArgs);
   bool is_llvm_call(Node op);
-  Node call(Node op, Node lhs = {}, Node rhs = {}, bool post_nlr = false);
+  Node call(Node op, Node lhs = {}, Node rhs = {});
   Node call_lhs(Node call);
-  Node load(Node arg, bool post_nlr = false);
+  Node load(Node arg);
   bool is_implicit(Node n);
   bool conflict(Node& a, Node& b);
 
@@ -198,7 +235,8 @@ namespace verona
   Parse parser();
   PassDef modules();
   PassDef structure();
-  PassDef memberconflict();
+  PassDef conditionals();
+  PassDef reference();
   PassDef typenames();
   PassDef typeview();
   PassDef typefunc();
@@ -206,8 +244,9 @@ namespace verona
   PassDef typeflat();
   PassDef typevalid();
   PassDef codereuse();
-  PassDef conditionals();
-  PassDef reference();
+  PassDef memberconflict();
+  PassDef resetimplicit();
+  PassDef typereference();
   PassDef reverseapp();
   PassDef application();
   PassDef assignlhs();
@@ -226,6 +265,7 @@ namespace verona
   PassDef drop();
   PassDef namearity();
   PassDef validtypeargs();
+  PassDef typeinfer();
 
   struct Options : public trieste::Options
   {

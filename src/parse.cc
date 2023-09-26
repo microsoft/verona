@@ -173,24 +173,28 @@ namespace verona
           },
 
         // Bool.
-        "(?:true|false)\\b" >> [](auto& m) { m.add(Bool); },
+        "true\\b" >> [](auto& m) { m.add(True); },
+        "false\\b" >> [](auto& m) { m.add(False); },
 
         // Hex float.
-        "0x[[:xdigit:]]+\\.[[:xdigit:]]+(?:p[+-][[:digit:]]+)?\\b" >>
+        "0x[_[:xdigit:]]+\\.[_[:xdigit:]]+(?:p[+-][_[:digit:]]+)?\\b" >>
           [](auto& m) { m.add(HexFloat); },
 
-        // Hex.
-        "0x[_[:xdigit:]]+\\b" >> [](auto& m) { m.add(Hex); },
+        // Float.
+        "[[:digit:]][_[:digit:]]*\\.[_[:digit:]]+(?:e[+-]?[_[:digit:]]+)?\\b" >>
+          [](auto& m) { m.add(Float); },
 
         // Bin.
         "0b[_01]+\\b" >> [](auto& m) { m.add(Bin); },
 
-        // Float.
-        "[[:digit:]]+\\.[[:digit:]]+(?:e[+-]?[[:digit:]]+)?\\b" >>
-          [](auto& m) { m.add(Float); },
+        // Oct.
+        "0o[_01234567]+\\b" >> [](auto& m) { m.add(Oct); },
+
+        // Hex.
+        "0x[_[:xdigit:]]+\\b" >> [](auto& m) { m.add(Hex); },
 
         // Int.
-        "[[:digit:]]+\\b" >> [](auto& m) { m.add(Int); },
+        "[[:digit:]][_[:digit:]]*\\b" >> [](auto& m) { m.add(Int); },
 
         // Escaped string.
         "\"((?:\\\"|[^\"])*?)\"" >> [](auto& m) { m.add(Escaped, 1); },
@@ -334,7 +338,6 @@ namespace verona
     });
 
     p.gen({
-      Bool >> [](auto& rnd) { return rnd() % 2 ? "true" : "false"; },
       Int >> [](auto& rnd) { return std::to_string(rnd()); },
       Hex >> [](auto& rnd) { return fmt::format("{:#x}", rnd()); },
       Bin >> [](auto& rnd) { return fmt::format("{:#b}", rnd()); },

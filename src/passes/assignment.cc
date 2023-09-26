@@ -14,7 +14,7 @@ namespace verona
           (T(Expr)
            << ((T(Let) << T(Ident)[Ident]) /
                (T(TypeAssert)
-                << (T(Let) << T(Ident)[Ident]) * T(Type)[Type]))) *
+                << (T(Expr) << (T(Let) << T(Ident)[Ident])) * T(Type)[Type]))) *
           T(Expr)[Rhs] * End >>
         [](Match& _) {
           return Expr << (Bind << _(Ident) << typevar(_, Type) << _(Rhs));
@@ -43,7 +43,7 @@ namespace verona
           {
             auto lhs_e = lhs_child->front();
 
-            if (lhs_e->type() == Let)
+            if (lhs_e == Let)
             {
               // lhs_child is already a Let.
               lhs_tuple << (Expr << (RefLet << clone(lhs_e / Ident)));
@@ -71,7 +71,7 @@ namespace verona
 
           // TypeAssert comes after the let bindings for the LHS.
           if (ty)
-            seq << (Expr << (TypeAssert << lhs_tuple << ty));
+            seq << (Expr << (TypeAssert << (Expr << lhs_tuple) << ty));
 
           // The RHS tuple is the last expression in the sequence.
           return Expr << (seq << rhs_e << (Expr << rhs_tuple));

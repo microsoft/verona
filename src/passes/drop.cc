@@ -51,13 +51,13 @@ namespace verona
         return true;
 
       // Only check parents and successors if this isn't an early return.
-      return (block->back()->type() != Return) &&
+      return (block->back() != Return) &&
         (is_parent(of, block) || is_successor_or_child(of, block));
     }
 
     bool is_parent(Node of, Node block)
     {
-      if (of->parent()->type() == Function)
+      if (of->parent() == Function)
         return false;
 
       auto& parent = parents.at(of);
@@ -129,7 +129,7 @@ namespace verona
           {
             auto ref = it->second;
             auto parent = ref->parent();
-            bool immediate = parent->type() == Block;
+            bool immediate = parent == Block;
 
             if (immediate && (parent->back() != ref))
               parent->replace(ref);
@@ -151,7 +151,7 @@ namespace verona
           auto ref = it->second;
           auto id = ref / Ident;
           auto parent = ref->parent()->shared_from_this();
-          bool immediate = parent->type() == Block;
+          bool immediate = parent == Block;
           bool discharging = true;
 
           // We're the last use if there is no following use in this or any
@@ -223,16 +223,10 @@ namespace verona
     auto drop_map = std::make_shared<std::vector<track>>();
 
     PassDef drop = {
-      dir::topdown | dir::once,
+      dir::bottomup | dir::once,
       {
-        (T(Param) / T(Bind)) << T(Ident)[Ident] >>
-          ([drop_map](Match& _) -> Node {
-            drop_map->back().gen(_(Ident)->location());
-            return NoChange;
-          }),
-
-        T(RefLet)[RefLet] << T(Ident)[Ident] >> ([drop_map](Match& _) -> Node {
-          drop_map->back().ref(_(Ident)->location(), _(RefLet));
+        T(Param, Bind) << T(Ident)[Ident] >> ([drop_map](Match& _) -> Node {
+          drop_map->back().gen(_(Ident)->location());
           return NoChange;
         }),
 
@@ -250,19 +244,26 @@ namespace verona
           }),
       }};
 
+    drop.pre(Function, [drop_map](Node f) {
+      auto llvm = (f / LLVMFuncType) == LLVMFuncType;
+      drop_map->push_back(track(llvm));
+      return 0;
+    });
+
     drop.pre(Block, [drop_map](Node node) {
       drop_map->back().pre_block(node);
       return 0;
     });
 
-    drop.post(Block, [drop_map](Node) {
-      drop_map->back().post_block();
+    drop.post(RefLet, [drop_map](Node node) {
+      // RefLet is handled with a post-order step to avoid an immediate RefLet
+      // that precedes a nested RefLet being handled after the nested RefLet.
+      drop_map->back().ref((node / Ident)->location(), node);
       return 0;
     });
 
-    drop.pre(Function, [drop_map](Node f) {
-      auto llvm = (f / LLVMFuncType)->type() == LLVMFuncType;
-      drop_map->push_back(track(llvm));
+    drop.post(Block, [drop_map](Node) {
+      drop_map->back().post_block();
       return 0;
     });
 

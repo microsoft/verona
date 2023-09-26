@@ -11,7 +11,7 @@ namespace verona
 
     // This function extracts all typeparams from a type `t` that are defined
     // within `scope` and appends them to `tp` if they aren't already present.
-    if (t->type().in(
+    if (t->in(
           {Type,
            TypeArgs,
            TypeUnion,
@@ -23,17 +23,17 @@ namespace verona
       for (auto& tt : *t)
         extract_typeparams(scope, tt, tp);
     }
-    else if (t->type().in({TypeClassName, TypeAliasName, TypeTraitName}))
+    else if (t->in({TypeClassName, TypeAliasName, TypeTraitName}))
     {
       extract_typeparams(scope, t / Lhs, tp);
       extract_typeparams(scope, t / TypeArgs, tp);
     }
-    else if (t->type() == TypeParamName)
+    else if (t == TypeParamName)
     {
       auto id = t / Ident;
       auto defs = id->lookup(scope);
 
-      if ((defs.size() == 1) && ((*defs.begin())->type() == TypeParam))
+      if ((defs.size() == 1) && ((*defs.begin()) == TypeParam))
       {
         if (!std::any_of(tp->begin(), tp->end(), [&](auto& p) {
               return (p / Ident)->location() == id->location();
@@ -52,7 +52,7 @@ namespace verona
   {
     // This finds all typeparams in a Class or Function definition and builds
     // a TypeArgs that contains all of them, in order.
-    if (!node->type().in({Class, Function}))
+    if (!node->in({Class, Function}))
       return typeargs;
 
     for (auto typeparam : *(node / TypeParams))
@@ -82,15 +82,13 @@ namespace verona
         T(Function)[Function]
             << (IsImplicit * Hand[Ref] * T(Ident)[Ident] *
                 T(TypeParams)[TypeParams] * T(Params)[Params] * T(Type) *
-                T(DontCare) * T(TypePred)[TypePred] *
-                (T(Block) / T(DontCare))) >>
-          [](Match& _) {
+                T(DontCare) * T(TypePred)[TypePred] * T(Block, DontCare)) >>
+          ([](Match& _) -> Node {
             auto f = _(Function);
+            auto parent = f->parent({Class, Trait});
+            auto hand = _(Ref)->type();
             auto id = _(Ident);
             auto params = _(Params);
-            auto parent = f->parent({Class, Trait});
-            auto fq_f = local_fq(f);
-            auto fq_parent = local_fq(parent);
 
             // Find the lowest arity that is not already defined. If an arity 5
             // and an arity 3 function `f` are provided, an arity 4 partial
@@ -103,7 +101,7 @@ namespace verona
 
             for (auto def : defs)
             {
-              if ((def == f) || (def->type() != Function))
+              if ((def == f) || (def != Function))
                 continue;
 
               auto arity = (def / Params)->size();
@@ -112,14 +110,61 @@ namespace verona
                 start_arity = std::max(start_arity, arity + 1);
             }
 
+            if (start_arity == end_arity)
+              return NoChange;
+
+            // We will be returning the original function, plus some number of
+            // partial application functions and their anonymous classes. Make
+            // the local FQ before putting `f` into the Seq node.
+            auto fq_f = local_fq(f);
+            Node ret = Seq << f;
+
+            // If the parent is a trait, generate the partial application
+            // function prototypes, but no implementations.
+            if (parent == Trait)
+            {
+              for (auto arity = start_arity; arity < end_arity; ++arity)
+              {
+                Node func_tp = TypeParams;
+                Node func_params = Params;
+
+                for (size_t i = 0; i < arity; ++i)
+                {
+                  auto param = params->at(i);
+                  auto param_id = param / Ident;
+                  auto param_type = param / Type;
+
+                  // Add any needed typeparams.
+                  extract_typeparams(f, param_type, func_tp);
+
+                  // Add the parameter to the partial function.
+                  func_params << clone(param);
+                }
+
+                ret
+                  << (Function << Implicit << hand << clone(id) << func_tp
+                               << func_params << typevar(_) << DontCare
+                               << typepred() << DontCare);
+              }
+
+              return ret;
+            }
+
             // Create a unique anonymous class name for each arity.
             Nodes names;
+            auto basename = std::string("partial.")
+                              .append(hand.str())
+                              .append(".")
+                              .append(id->location().view())
+                              .append("/");
 
             for (auto arity = start_arity; arity < end_arity; ++arity)
-              names.push_back(Ident ^ _.fresh(l_class));
+            {
+              names.push_back(
+                Ident ^ _.fresh(basename + std::to_string(arity)));
+            }
 
-            Node ret = Seq << f;
-            auto hand = _(Ref)->type();
+            auto fq_parent = local_fq(parent);
             Nodes fqs;
             Nodes classbodies;
 
@@ -141,6 +186,7 @@ namespace verona
               // The anonymous class has fields for each supplied argument and a
               // create function that captures the supplied arguments.
               auto fq_new = append_fq(fq_class, selector(l_new));
+              Node new_params = Params;
               Node new_args = Tuple;
 
               // Find all needed typeparams and add them.
@@ -169,6 +215,7 @@ namespace verona
                 // Add the argument to the `new` call inside the class create
                 // function.
                 new_args << (Expr << (RefLet << clone(param_id)));
+                new_params << (Param << clone(param_id) << clone(param_type));
 
                 // Add the parameter to the partial function.
                 func_params << clone(param);
@@ -183,6 +230,12 @@ namespace verona
                 << create_params << typevar(_) << DontCare << typepred()
                 << (Block << (Expr << call(fq_new, new_args)));
               classbody << create_func;
+
+              // Create the `new` function.
+              classbody
+                << (Function << Explicit << Rhs << (Ident ^ l_new) << TypeParams
+                             << new_params << typevar(_) << DontCare
+                             << typepred() << (Block << (Expr << unit())));
 
               // Create the partial function that returns the anonymous class.
               auto fq_create = append_fq(
@@ -266,7 +319,7 @@ namespace verona
             }
 
             return ret;
-          },
+          }),
       }};
   }
 }
