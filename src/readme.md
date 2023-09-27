@@ -1,5 +1,6 @@
 # To Do
 
+- `partialapp` needs to use FQN when extracting type parameters.
 - Blocks.
   - Enforce `Return | Move | LLVM` at the end?
 - Type inference.
@@ -8,6 +9,7 @@
     - Lambda free variable types.
     - `DontCare` syntactically in a type (remove this?).
     - Unspecified field types, parameter types, function return types.
+- Check that `var` is stored to before it's loaded.
 - Free variables in object literals.
 - Tuples as traits.
 - Pattern matching.

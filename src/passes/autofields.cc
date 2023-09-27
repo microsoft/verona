@@ -1,12 +1,15 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
+#include "../wf.h"
 
 namespace verona
 {
   PassDef autofields()
   {
     return {
+      "autofields",
+      wfPassAutoFields,
       dir::bottomup | dir::once,
       {
         T(FieldVar, FieldLet)[Op] << (T(Ident)[Ident] * T(Type)[Type]) >>

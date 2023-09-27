@@ -1,6 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
+#include "../wf.h"
 
 namespace verona
 {
@@ -76,34 +77,41 @@ namespace verona
   PassDef conditionals()
   {
     return {
-      // Conditionals are right-associative.
-      In(Expr) * T(If) * (!T(Lambda) * (!T(Lambda))++)[Expr] * T(Lambda)[Lhs] *
-          ((T(Else) * T(If) * (!T(Lambda) * (!T(Lambda))++) * T(Lambda))++ *
-           ~(T(Else) * T(Lambda)))[Rhs] >>
-        [](Match& _) { return make_conditional(_); },
+      "conditionals",
+      wfPassConditionals,
+      dir::topdown,
+      {
+        // Conditionals are right-associative.
+        In(Expr) * T(If) * (!T(Lambda) * (!T(Lambda))++)[Expr] *
+            T(Lambda)[Lhs] *
+            ((T(Else) * T(If) * (!T(Lambda) * (!T(Lambda))++) * T(Lambda))++ *
+             ~(T(Else) * T(Lambda)))[Rhs] >>
+          [](Match& _) { return make_conditional(_); },
 
-      T(Conditional)
-          << ((T(Else) * T(If) * (!T(Lambda) * (!T(Lambda))++)[Expr] *
-               T(Lambda)[Lhs]) *
-              Any++[Rhs]) >>
-        [](Match& _) { return make_conditional(_); },
+        T(Conditional)
+            << ((T(Else) * T(If) * (!T(Lambda) * (!T(Lambda))++)[Expr] *
+                 T(Lambda)[Lhs]) *
+                Any++[Rhs]) >>
+          [](Match& _) { return make_conditional(_); },
 
-      T(Conditional) << (T(Else) * T(Lambda)[Rhs] * End) >>
-        [](Match& _) { return Seq << _(Rhs) << Unit; },
+        T(Conditional) << (T(Else) * T(Lambda)[Rhs] * End) >>
+          [](Match& _) { return Seq << _(Rhs) << Unit; },
 
-      T(Conditional) << End >> ([](Match&) -> Node { return Unit; }),
+        T(Conditional) << End >> ([](Match&) -> Node { return Unit; }),
 
-      T(If)[If] >>
-        [](Match& _) {
-          return err(_(If), "`if` must be followed by a condition and braces");
-        },
+        T(If)[If] >>
+          [](Match& _) {
+            return err(
+              _(If), "`if` must be followed by a condition and braces");
+          },
 
-      T(Else)[Else] >>
-        [](Match& _) {
-          return err(
-            _(Else),
-            "`else` must follow an `if` and be followed by an `if` or braces");
-        },
-    };
+        T(Else)[Else] >>
+          [](Match& _) {
+            return err(
+              _(Else),
+              "`else` must follow an `if` and be followed by an `if` or "
+              "braces");
+          },
+      }};
   }
 }

@@ -62,7 +62,7 @@ namespace verona
 
             it = bindings.find(node);
 
-            if (it == bindings.end())
+            if ((it == bindings.end()) || (it->second->type() == TypeParamBind))
               return;
           }
 

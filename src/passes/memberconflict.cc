@@ -1,12 +1,15 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
+#include "../wf.h"
 
 namespace verona
 {
   PassDef memberconflict()
   {
     return {
+      "memberconflict",
+      wfPassTypeReference,
       dir::bottomup | dir::once,
       {
         T(FieldLet, FieldVar, Function)[Op] >> ([](Match& _) -> Node {

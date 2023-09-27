@@ -84,24 +84,6 @@ namespace verona
       self.pop_back();
     }
 
-    void add_predicates(Btype& t)
-    {
-      auto p = t->node;
-
-      while (p)
-      {
-        if (p->in({Function, Class, TypeAlias}))
-        {
-          auto pred = p / TypePred;
-
-          if (pred->precedes(t->node))
-            predicates.push_back(t->make(pred));
-        }
-
-        p = p->parent({Function, Class, TypeAlias});
-      }
-    }
-
     bool reduce(Btype l, Btype r)
     {
       // Start a fresh reduction, keeping the existing Self binding, predicates,
@@ -112,8 +94,6 @@ namespace verona
       seq.self = self;
       seq.predicates = predicates;
       seq.assumptions = assumptions;
-      seq.add_predicates(l);
-      seq.add_predicates(r);
 
       if (!seq.reduce())
         return false;
@@ -634,23 +614,23 @@ namespace verona
     }
   };
 
-  bool subtype(Btype sub, Btype sup)
+  bool subtype(Btypes& predicates, Btype sub, Btype sup)
   {
     Sequent seq;
+    seq.lhs_pending.insert(
+      seq.lhs_pending.end(), predicates.begin(), predicates.end());
     seq.lhs_pending.push_back(sub);
     seq.rhs_pending.push_back(sup);
-    seq.add_predicates(sub);
-    seq.add_predicates(sub);
     return seq.reduce();
   }
 
-  bool subtype(Btype sub, Btype sup, Bounds& bounds)
+  bool subtype(Btypes& predicates, Btype sub, Btype sup, Bounds& bounds)
   {
     Sequent seq;
+    seq.lhs_pending.insert(
+      seq.lhs_pending.end(), predicates.begin(), predicates.end());
     seq.lhs_pending.push_back(sub);
     seq.rhs_pending.push_back(sup);
-    seq.add_predicates(sub);
-    seq.add_predicates(sub);
 
     if (!seq.reduce())
       return false;

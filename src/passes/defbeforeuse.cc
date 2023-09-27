@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
 #include "../lookup.h"
+#include "../wf.h"
 
 namespace verona
 {
   PassDef defbeforeuse()
   {
     return {
+      "defbeforeuse",
+      wfPassANF,
       dir::bottomup | dir::once,
       {
         T(RefLet) << T(Ident)[Ident] >> ([](Match& _) -> Node {

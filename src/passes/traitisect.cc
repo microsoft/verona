@@ -1,6 +1,7 @@
 // Copyright Microsoft and Project Verona Contributors.
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
+#include "../wf.h"
 
 namespace verona
 {
@@ -10,6 +11,8 @@ namespace verona
     // late so that fields have already been turned into accessor functions and
     // partial application functions have already been generated.
     return {
+      "traitisect",
+      wfPassAutoFields,
       dir::bottomup | dir::once,
       {
         T(Trait)[Trait] << (T(Ident)[Ident] * T(ClassBody)[ClassBody]) >>

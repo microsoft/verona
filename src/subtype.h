@@ -20,6 +20,6 @@ namespace verona
 
   using Bounds = std::map<Location, Bound>;
 
-  bool subtype(Btype sub, Btype sup);
-  bool subtype(Btype sub, Btype sup, Bounds& bounds);
+  bool subtype(Btypes& predicates, Btype sub, Btype sup);
+  bool subtype(Btypes& predicates, Btype sub, Btype sup, Bounds& bounds);
 }

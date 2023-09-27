@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
 #include "../lookup.h"
+#include "../wf.h"
 
 namespace verona
 {
@@ -11,6 +12,8 @@ namespace verona
 
     PassDef lambda =
       {
+        "lambda",
+        wfPassLambda,
         dir::bottomup | dir::once,
         {
           T(RefLet) << T(Ident)[Ident] >> ([freevars](Match& _) -> Node {

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "../lang.h"
 #include "../lookup.h"
+#include "../wf.h"
 
 namespace verona
 {
@@ -77,6 +78,8 @@ namespace verona
     // but instead has to be anonymous classes. There's no need to check for
     // non-local returns.
     return {
+      "partialapp",
+      wfPassAutoFields,
       dir::bottomup | dir::once,
       {
         T(Function)[Function]
