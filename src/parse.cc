@@ -57,13 +57,13 @@ namespace verona
       return RE2::FullMatch(path.filename().string(), *re_dir);
     });
 
-    p.postparse([](auto& p, auto& path, auto ast) {
+    p.postparse([](auto& pp, auto& path, auto ast) {
       if (options().no_std)
         return;
 
-      auto stdlib = p.executable().parent_path() / "std";
+      auto stdlib = pp.executable().parent_path() / "std";
       if (path != stdlib)
-        ast << p.sub_parse(stdlib);
+        ast << pp.sub_parse(stdlib);
     });
 
     p.postfile([indent, depth](auto&, auto&, auto) {

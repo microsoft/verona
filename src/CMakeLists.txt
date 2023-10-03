@@ -53,6 +53,15 @@ target_link_libraries(verona
   trieste::trieste
 )
 
+if (VERONA_SANITIZER)
+  target_compile_options(verona PUBLIC
+    -fsanitize=${VERONA_SANITIZER} -g -fno-omit-frame-pointer
+  )
+  target_link_options(verona PUBLIC
+    -fsanitize=${VERONA_SANITIZER}
+  )
+endif()
+
 add_test(NAME verona COMMAND verona test -f)
 
 install(TARGETS verona RUNTIME DESTINATION verona)

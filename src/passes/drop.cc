@@ -17,7 +17,7 @@ namespace verona
     NodeMap<Nodes> successors;
     bool llvm;
 
-    track(bool llvm) : llvm(llvm) {}
+    track(bool llvm_) : llvm(llvm_) {}
 
     void gen(const Location& loc)
     {

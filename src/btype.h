@@ -57,7 +57,8 @@ namespace verona
           // If it's bound to itself, check the next binding.
           if (it->second->type() == TypeParamBind)
           {
-            for (auto& bind : it->second->bindings)
+            auto bound = it->second;
+            for (auto& bind : bound->bindings)
               bindings[bind.first] = bind.second;
 
             it = bindings.find(node);
