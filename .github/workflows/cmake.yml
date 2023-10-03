@@ -32,11 +32,13 @@ jobs:
           dependencies: "sudo apt install ninja-build"
         - platform: "ubuntu-latest"
           variant: "asan"
-          extra-cmake-flags: "-G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DVERONA_SANITIZER=address"
+          cmake-flags: "-G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang"
+          extra-cmake-flags: "-DVERONA_SANITIZER=address"
           dependencies: "sudo apt install ninja-build"
         - platform: "ubuntu-latest"
           variant: "ubsan"
-          extra-cmake-flags: "-G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DVERONA_SANITIZER=undefined"
+          cmake-flags: "-G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang"
+          extra-cmake-flags: "-DVERONA_SANITIZER=undefined"
           dependencies: "sudo apt install ninja-build"
   
       fail-fast: false
@@ -50,7 +52,7 @@ jobs:
       run: ${{ matrix.dependencies }}
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build-type}} ${{matrix.cmake-flags}}
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build-type}} ${{matrix.cmake-flags}} ${{matrix.extra-cmake-flags}}
 
     - name: Build
       # Build your program with the given configuration
