@@ -62,3 +62,29 @@ jobs:
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest -C ${{matrix.build-type}} --output-on-failure --timeout 400 --interactive-debug-mode 0 
 
+  # Job to run clang-format and report errors
+  format:
+    runs-on: ubuntu-22.04
+    # We don't need to do the build for this job, but we need to configure it to get the clang-format target
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install clang-tidy and clang-format
+      run: |
+        sudo apt update
+        sudo apt install clang-tidy-15 clang-format-15
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build
+    # Run the clang-format check and error if it generates a diff
+    - name: Run clang-format
+      working-directory: ${{github.workspace}}/build
+      run: |
+        set -eo pipefail
+        make clangformat
+        git diff --exit-code
+
+  all-checks:
+    needs: [format, build-test]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Dummy step
+      run: true
