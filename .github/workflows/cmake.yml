@@ -13,15 +13,36 @@ jobs:
         platform: [ "ubuntu-latest", "macos-latest", "windows-latest" ]
         build-type: [ "Release", "Debug" ]
   
+        # Extra cmake flags.  GitHub Actions matrix overloads `include` to mean
+        # 'add extra things to a job' and 'add jobs'.  You can add extra things
+        # to a job by specifying things that exist in a job created from the
+        # matrix definition and adding things.  You can specify extra jobs by
+        # specifying properties that don't match existing jobs.  We use
+        # `cmake-flags` to add cmake flags to all jobs matching a pattern and
+        # `extra-cmake-flags` to specify a new job with custom CMake flags.
+        extra-cmake-flags: [ "" ]
+
         include:
         - platform: "ubuntu-latest"
           cmake-flags: "-G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang"
+          dependencies: "sudo apt install ninja-build"
+        - platform: "ubuntu-latest"
+          variant: "GCC"
+          cmake-flags: "-G Ninja"
+          dependencies: "sudo apt install ninja-build"
+        - platform: "ubuntu-latest"
+          variant: "asan"
+          cmake-flags: "-G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DVERONA_SANITIZER=address"
+          dependencies: "sudo apt install ninja-build"
+        - platform: "ubuntu-latest"
+          variant: "ubsan"
+          cmake-flags: "-G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DVERONA_SANITIZER=undefined"
           dependencies: "sudo apt install ninja-build"
   
       fail-fast: false
   
     runs-on: ${{matrix.platform}}
-
+    name: ${{ matrix.platform }} ${{ matrix.build-type }} ${{ matrix.variant }}
     steps:
     - uses: actions/checkout@v3
     
