@@ -32,7 +32,7 @@ namespace verona
     Btype sub;
     Btype sup;
 
-    Assume(Btype sub, Btype sup) : sub(sub), sup(sup)
+    Assume(Btype sub_, Btype sup_) : sub(sub_), sup(sup_)
     {
       assert(sub->in({Class, Trait}));
       assert(sup == Trait);
