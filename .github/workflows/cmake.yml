@@ -32,11 +32,11 @@ jobs:
           dependencies: "sudo apt install ninja-build"
         - platform: "ubuntu-latest"
           variant: "asan"
-          cmake-flags: "-G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DVERONA_SANITIZER=address"
+          extra-cmake-flags: "-G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DVERONA_SANITIZER=address"
           dependencies: "sudo apt install ninja-build"
         - platform: "ubuntu-latest"
           variant: "ubsan"
-          cmake-flags: "-G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DVERONA_SANITIZER=undefined"
+          extra-cmake-flags: "-G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DVERONA_SANITIZER=undefined"
           dependencies: "sudo apt install ninja-build"
   
       fail-fast: false
