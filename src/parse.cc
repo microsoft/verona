@@ -75,21 +75,21 @@ namespace verona
     p("start",
       {
         // Blank lines terminate.
-        "\n(?:[[:blank:]]*\n)+([[:blank:]]*)" >>
+        "(\r\n|\n)(?:[[:blank:]]*(\r\n|\n))+([[:blank:]]*)" >>
           [indent](auto& m) {
             indent->back() = m.match(1).len;
             m.term(terminators);
           },
 
         // A newline that starts a brace block doesn't terminate.
-        "\n([[:blank:]]*(\\{)[[:blank:]]*)" >>
+        "(\r\n|\n)([[:blank:]]*(\\{)[[:blank:]]*)" >>
           [indent](auto& m) {
             indent->push_back(m.match(1).len);
             m.push(Brace, 2);
           },
 
         // A newline sometimes terminates.
-        "\n([[:blank:]]*)" >>
+        "(\r\n|\n)([[:blank:]]*)" >>
           [indent](auto& m) {
             size_t col = m.match(1).len;
 
@@ -216,7 +216,7 @@ namespace verona
         ":\\[((?:[^\\]]|\\][^:])*)\\]:" >> [](auto& m) { m.add(LLVM, 1); },
 
         // Line comment.
-        "//[^\n]*" >> [](auto&) {},
+        "//[^(\r\n|\n)]*" >> [](auto&) {},
 
         // Nested comment.
         "/\\*" >>
