@@ -1,0 +1,5 @@
+class None {
+  create() : None {
+    new ()
+  }
+}
