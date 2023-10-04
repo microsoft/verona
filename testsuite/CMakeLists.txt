@@ -9,6 +9,8 @@ endif()
 
 set(DISABLED_TESTS)
 
+set(GOLDEN_DIR_SUFFIX "_out")
+
 set(VERONA_LOCAL_DIST ${CMAKE_BINARY_DIR}/dist)
 message("Verona local dist: ${VERONA_LOCAL_DIST}")
 
@@ -59,7 +61,7 @@ foreach(TOOL ${TOOL_FOLDERS})
     endif()
 
     # Create command to create the output for this test.
-    set (output_dir ${CMAKE_CURRENT_BINARY_DIR}/${test_path}.out)
+    set (output_dir ${CMAKE_CURRENT_BINARY_DIR}/${test_path}${GOLDEN_DIR_SUFFIX})
     set (test_output_cmd 
       ${CMAKE_COMMAND}
         -DTESTFILE=${test_file}
@@ -71,7 +73,7 @@ foreach(TOOL ${TOOL_FOLDERS})
     )
 
     # Add test that rebuilds the compiler output
-    add_test(NAME ${test_path}.out
+    add_test(NAME ${test_path}${GOLDEN_DIR_SUFFIX}
       COMMAND ${test_output_cmd}
     )
 
@@ -84,7 +86,7 @@ foreach(TOOL ${TOOL_FOLDERS})
 
     # Add output comparison for each golden / output file
     message("Test: ${test_path}")
-    set (golden_dir  ${CMAKE_CURRENT_SOURCE_DIR}/${test_path}.out )
+    set (golden_dir  ${CMAKE_CURRENT_SOURCE_DIR}/${test_path}${GOLDEN_DIR_SUFFIX} )
     file (GLOB_RECURSE results CONFIGURE_DEPENDS RELATIVE ${golden_dir} ${golden_dir}/*)
     # Check if there are any files to compare for this test.
     list(LENGTH results res_length)
@@ -109,7 +111,7 @@ foreach(TOOL ${TOOL_FOLDERS})
     else()
       foreach (result ${results})
         # Check each file is correct as a test target
-        add_test (NAME ${test_path}.out/${result}
+        add_test (NAME ${test_path}${GOLDEN_DIR_SUFFIX}/${result}
           COMMAND 
             ${CMAKE_COMMAND}
               -Doriginal_file=${golden_dir}/${result} 
@@ -117,7 +119,7 @@ foreach(TOOL ${TOOL_FOLDERS})
               -Ddiff_tool=${DIFF_TOOL}
               -P ${CMAKE_CURRENT_SOURCE_DIR}/compare.cmake
         )
-        set_tests_properties(${test_path}.out/${result} PROPERTIES DEPENDS ${test_path}.out)
+        set_tests_properties(${test_path}${GOLDEN_DIR_SUFFIX}/${result} PROPERTIES DEPENDS ${test_path}${GOLDEN_DIR_SUFFIX})
 
         # Override out of date files.
         add_custom_command(OUTPUT ${test_path}
