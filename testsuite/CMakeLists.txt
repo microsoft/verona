@@ -67,6 +67,7 @@ foreach(TOOL ${TOOL_FOLDERS})
         -DTESTFILE=${test_file}
         -DWORKING_DIR=${TOOL_FOLDER}/${test_dir}
         -DTOOLNAME=${TOOL}
+        -DCMAKE_EXECUTABLE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}
         -DVERONA_LOCAL_DIST=${VERONA_LOCAL_DIST}
         -DOUTPUT_DIR=${output_dir}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/run_command.cmake
@@ -85,7 +86,6 @@ foreach(TOOL ${TOOL_FOLDERS})
     list(APPEND test_set ${test_path})
 
     # Add output comparison for each golden / output file
-    message("Test: ${test_path}")
     set (golden_dir  ${CMAKE_CURRENT_SOURCE_DIR}/${test_path}${GOLDEN_DIR_SUFFIX} )
     file (GLOB_RECURSE results CONFIGURE_DEPENDS RELATIVE ${golden_dir} ${golden_dir}/*)
     # Check if there are any files to compare for this test.
@@ -143,10 +143,8 @@ foreach(TOOL ${TOOL_FOLDERS})
 
     endif()
   endforeach()
-  message("Test set: ${test_set} for ${TOOL}")
   add_custom_target("update-dump-${TOOL}" DEPENDS ${test_set})
   list(APPEND UPDATE_DUMPS_TARGETS "update-dump-${TOOL}")
 endforeach()
 
-message("Dump targets: ${UPDATE_DUMPS_TARGETS}")
 add_custom_target(update-dump DEPENDS ${UPDATE_DUMPS_TARGETS})
