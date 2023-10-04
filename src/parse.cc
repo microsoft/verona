@@ -75,7 +75,7 @@ namespace verona
     p("start",
       {
         // Blank lines terminate.
-        "\r?\n(?:[[:blank:]]*(\r\n|\n))+([[:blank:]]*)" >>
+        "\r?\n(?:[[:blank:]]*\r?\n)+([[:blank:]]*)" >>
           [indent](auto& m) {
             indent->back() = m.match(1).len;
             m.term(terminators);
