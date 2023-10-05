@@ -44,3 +44,4 @@ install(DIRECTORY std DESTINATION verona)
 
 enable_testing()
 add_subdirectory(src)
+add_subdirectory(testsuite)
