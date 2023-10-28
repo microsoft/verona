@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include <trieste/driver.h>
+#include <trieste/trieste.h>
 
 namespace verona
 {
@@ -271,12 +271,9 @@ namespace verona
   {
     bool no_std = false;
 
-    void configure(CLI::App& cli) override
-    {
-      cli.add_flag("--no-std", no_std, "Don't import the standard library.");
-    }
+    void configure(CLI::App& cli) override;
   };
 
   Options& options();
-  Driver& driver();
+  std::vector<Pass> passes();
 }
