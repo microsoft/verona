@@ -1,0 +1,19 @@
+Verona
+parse
+(top
+  {}
+  (file
+    (group
+      (class
+        {})
+      (ident 4:None)
+      (brace
+        (group
+          (ident 6:create)
+          (paren)
+          (colon)
+          (ident 4:None)
+          (brace
+            (group
+              (new)
+              (paren))))))))

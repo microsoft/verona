@@ -1,0 +1,102 @@
+Verona
+defaultargs
+(top
+  {
+    ex1 = class}
+  (class
+    {
+      None = class
+      create = function
+      new = function
+      include ex1}
+    (ident 3:ex1)
+    (typeparams)
+    (inherit
+      (dontcare))
+    (typepred
+      (type
+        (typetrue)))
+    (classbody
+      (use
+        (type
+          (ident 3:std)
+          (doublecolon)
+          (ident 7:builtin)))
+      (class
+        {
+          create = function
+          new = function}
+        (ident 4:None)
+        (typeparams)
+        (inherit
+          (dontcare))
+        (typepred
+          (type
+            (typetrue)))
+        (classbody
+          (function
+            {}
+            (explicit)
+            (rhs)
+            (ident 6:create)
+            (typeparams)
+            (params)
+            (type
+              (ident 4:None))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (new)
+                (unit))))
+          (function
+            {}
+            (explicit)
+            (rhs)
+            (ident 3:new)
+            (typeparams)
+            (params)
+            (type
+              (typevar 9:typevar$0))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (unit))))))
+      (function
+        {}
+        (explicit)
+        (rhs)
+        (ident 3:new)
+        (typeparams)
+        (params)
+        (type
+          (typevar 9:typevar$1))
+        (dontcare)
+        (typepred
+          (type
+            (typetrue)))
+        (block
+          (expr
+            (unit))))
+      (function
+        {}
+        (implicit)
+        (rhs)
+        (ident 6:create)
+        (typeparams)
+        (params)
+        (type
+          (typevar 9:typevar$2))
+        (dontcare)
+        (typepred
+          (type
+            (typetrue)))
+        (block
+          (expr
+            (new)
+            (unit)))))))

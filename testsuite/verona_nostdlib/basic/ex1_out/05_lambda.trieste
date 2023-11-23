@@ -1,0 +1,50 @@
+Verona
+lambda
+(top
+  {
+    ex1 = class}
+  (class
+    {
+      None = class
+      include ex1}
+    (ident 3:ex1)
+    (typeparams)
+    (inherit
+      (dontcare))
+    (typepred
+      (type
+        (typetrue)))
+    (classbody
+      (use
+        (type
+          (ident 3:std)
+          (doublecolon)
+          (ident 7:builtin)))
+      (class
+        {
+          create = function}
+        (ident 4:None)
+        (typeparams)
+        (inherit
+          (dontcare))
+        (typepred
+          (type
+            (typetrue)))
+        (classbody
+          (function
+            {}
+            (explicit)
+            (rhs)
+            (ident 6:create)
+            (typeparams)
+            (params)
+            (type
+              (ident 4:None))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (new)
+                (unit)))))))))

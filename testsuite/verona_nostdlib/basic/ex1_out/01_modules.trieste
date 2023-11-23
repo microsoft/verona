@@ -1,0 +1,28 @@
+Verona
+modules
+(top
+  {}
+  (group
+    (class
+      {})
+    (ident 3:ex1)
+    (brace
+      (group
+        (use)
+        (ident 3:std)
+        (doublecolon)
+        (ident 7:builtin))
+      (group
+        (class
+          {})
+        (ident 4:None)
+        (brace
+          (group
+            (ident 6:create)
+            (paren)
+            (type
+              (ident 4:None))
+            (brace
+              (group
+                (new)
+                (paren)))))))))
