@@ -14,10 +14,7 @@ namespace verona
 int main(int argc, char** argv)
 {
   trieste::Driver d(
-      "Verona",
-      &verona::options(),
-      verona::parser(),
-      verona::passes());
+    "Verona", &verona::options(), verona::parser(), verona::passes());
 
   return d.run(argc, argv);
 }

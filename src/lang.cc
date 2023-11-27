@@ -271,14 +271,14 @@ namespace verona
   std::vector<Pass> passes()
   {
     return {
-        modules(),       structure(),     reference(),     conditionals(),
-        lambda(),        autocreate(),    defaultargs(),   typenames(),
-        typeview(),      typefunc(),      typealg(),       typeflat(),
-        typevalid(),     typereference(), codereuse(),     memberconflict(),
-        resetimplicit(), reverseapp(),    application(),   assignlhs(),
-        localvar(),      assignment(),    autofields(),    autorhs(),
-        partialapp(),    traitisect(),    nlrcheck(),      anf(),
-        defbeforeuse(),  drop(),          validtypeargs(), // typeinfer(),
-      };
+      modules(),       structure(),     reference(),     conditionals(),
+      lambda(),        autocreate(),    defaultargs(),   typenames(),
+      typeview(),      typefunc(),      typealg(),       typeflat(),
+      typevalid(),     typereference(), codereuse(),     memberconflict(),
+      resetimplicit(), reverseapp(),    application(),   assignlhs(),
+      localvar(),      assignment(),    autofields(),    autorhs(),
+      partialapp(),    traitisect(),    nlrcheck(),      anf(),
+      defbeforeuse(),  drop(),          validtypeargs(), // typeinfer(),
+    };
   }
 }
