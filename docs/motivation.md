@@ -29,6 +29,8 @@ type Number = {
 Traits also support default implementations. E.g. we can add a default
 implementation of multiplication as
 
+* TODO finish paragraph
+
 
 ### Conjunction types
 We can easily combine traits using conjunctions, so if we e.g. want to describe
@@ -43,6 +45,7 @@ intuitive syntax. E.g. if we want to describe the type signature of a function
 together, this would be
 ```verona
 f(n1: Number & ToString, n2: Number & ToString) : Number
+// TODO add ToStringNumber version
 ```
 
 In contrast, in a nominal system like java, we would have to define a new
