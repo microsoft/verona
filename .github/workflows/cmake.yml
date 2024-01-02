@@ -51,7 +51,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - uses: mjp41/workaround8649@7929373c0fe5caf844d8115adccef39e3b5362e7
+    - uses: mjp41/workaround8649@c8550b715ccdc17f89c8d5c28d7a48eeff9c94a8
       with:
         os: ${{ matrix.platform }}
 
