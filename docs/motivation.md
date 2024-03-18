@@ -1,6 +1,6 @@
-# The Verona language: Features and Motivation 
+# The Verona language: Features and Motivation
 
-Verona is an object oriented reference capability language with structural
+Verona is an object-oriented reference capability language with structural
 subtyping and bounded polymorphism. Here we summarize each part and try to
 motivate the design decisions taken so far. We also pose design questions that
 are yet to be answered.
@@ -12,35 +12,35 @@ we find it more flexible.
 
 ### Traits
 Verona is a structural trait based type system, i.e. types can be described
-using combination of methods on an object. E.g. we can describe a type
+using combinations of methods on an object. For example, we can describe a type
 implementing a `toString` method as
 ```verona
 type ToString = {
     toString(self: Self): String
 }
 ```
-and a typed describing numbers implementing addition and subtraction with
+A type describing numbers implementing addition and subtraction can be described with
 ```verona
 type Number = {
     add(self: Self, other: Number): Number
     sub(self: Self, other: Number): Number
 }
 ```
-Traits also support default implementations. E.g. we can add a default
+Traits also support default implementations. For example, we can add a default
 implementation of multiplication as
 
 * TODO finish paragraph
 
 
 ### Conjunction types
-We can easily combine traits using conjunctions, so if we e.g. want to describe
+We can easily combine traits using conjunctions, so if we, e.g., want to describe
 something implementing both `ToString` and `Number`, this can be written as
 ```verona
 type ToStringNumber = ToString & Number
 ```
 
-This gives us a flexible way to define combinations types on the fly, with an
-intuitive syntax. E.g. if we want to describe the type signature of a function
+This gives us a flexible way to define combinations of types on the fly, with an
+intuitive syntax. For example, if we want to describe the type signature of a function
 `f` printing two numbers and then returning the result of adding them
 together, this would be
 ```verona
@@ -48,7 +48,7 @@ f(n1: Number & ToString, n2: Number & ToString) : Number
 // TODO add ToStringNumber version
 ```
 
-In contrast, in a nominal system like java, we would have to define a new
+In contrast, in a nominal system like Java, we would have to define a new
 interface `ToStringNumber` that extends both `Number` and `ToString`:
 ```java
 interface ToStringNumber extends Number, ToString { ... }
@@ -60,7 +60,7 @@ class C {
 
 In Verona, a trait with multiple methods can be further simplified by breaking
 up each method into what we call an "atomic" trait and combining them with a
-conjunction. E.g. the definition of `Number` above is simply syntactic sugar for
+conjunction. For example, the definition of `Number` above is simply syntactic sugar for
 ```verona
 type Number = {
     add(self: Self, other: Number): Number
@@ -70,14 +70,14 @@ type Number = {
 ```
 
 #### Capabilities and conjunction
-In Verona, each concrete type is tagged with a capability. This reference
-capability decides what operations are permitted through and with a reference
-depending on the viewpoint. E.g. a reference with capability `mut` allows us to
+In Verona, each concrete type is tagged with a *reference capability*. The reference
+capability decides which operations are permitted through and with a reference
+depending on the viewpoint. For example, a reference with capability `mut` allows us to
 read and mutate the object, while a capability `iso` is unique and opaque to all
 read/write operations.
 
 The conjunction type operator plays well together with capabilities, allowing us
-to express capability tags as part of the regular typesystem. E.g. given a class
+to express capability tags as part of the regular type system. For example, given a class
 `C` we can express the type of a reference to an object of class type `C` with
 reference capability `mut` as
 ```verona
@@ -85,9 +85,9 @@ type CMut = C & mut
 ```
 
 By extension this means that polymorphism in Verona doesn't need special
-handling of capabilities in type parameters. A type `A[T]` paramaterized on `T`
+handling of capabilities in type parameters. A type `A[T]` parameterized on `T`
 can simply be instantiated with a type like `C & mut`. The method types of `A`
-are then able to express further restrictions on `T` that allows us to define
+are then able to express further restrictions on `T` that allow us to define
 operations for each instantiation.
 ```verona
 type A[T] = {
@@ -108,9 +108,9 @@ define the new type
 type COrD = C | D
 ```
 
-Since in Verona there is no inheritance between classes, this will allow us to
-check that a pattern match is exhaustive, and furthermore matching on concrete
-type will allow us to do implicit type filtering. E.g. imagine a case match like
+Since in Verona there is no inheritance between classes, this allows us to
+check that a pattern match is exhaustive, and furthermore matching on a concrete
+type allows us to do implicit type filtering. For example, imagine a case match like
 this
 ```verona
 // C, D, E are classes
@@ -120,7 +120,7 @@ f(x : C | D | E, g : (D | E) -> S) : S {
         (y : C) => { // y : C
             ...
         }
-        _ => { // x : D | E 
+        _ => { // x : D | E
             g x
         }
     }
@@ -162,7 +162,7 @@ type S = A | B
 ```
 
 #### Explicit nullability
-Specifically, we can easily encode nullability with a class `None`
+We can easily encode nullability with a class `None`
 ```verona
 type A
 class None {}
@@ -180,11 +180,11 @@ f(x : A | None) : S {
 ```
 
 ### Subtyping and inheritance
-Verona is an object oriented system with subtyping with classes and traits. In
-short, classes are treated nominally, and traits treated structurally.
-Furthermore there is no subtype inheritance between classes. This means a class
+Verona is an object-oriented system with classes and traits. When it comes to
+subtyping, classes are treated nominally, and traits are treated structurally.
+Furthermore there is no subtyping between classes. This means a class
 can be a subtype of a trait, but never a subtype of a class other than itself.
-E.g. given the definitions
+For example, given the definitions
 ```verona
 class C {
     equal(self: C, other: C): Bool {...}
@@ -203,11 +203,11 @@ both `C` and `D` are subtypes of `Eq`, but neither `C` or `D` are subtypes of
 the other.
 
 #### Inheritance
-There are two forms of what can be classified as inheritance considered in
+There are two forms of inheritance in
 Verona. One between classes and one between class and trait.
 
 ##### Class inheritance
-Inheritance between classes would work as you would expect in a language like
+Inheritance between classes works as you would expect in a language like
 Java, with the exception that it does not imply subtyping. As an example,
 consider
 ```verona
@@ -216,7 +216,7 @@ class C {
     f(...) : ... {...}
 }
 
-// here we want to reuse functionality of C in D, specifically the method f, but
+// here we reuse functionality of C in D, specifically the method f, but
 // we do not get a subtyping relation D <: C
 class D : C {
     equal(self: D, other: D): Bool {...}
@@ -232,7 +232,7 @@ subtyping them under a trait.
   a positive. The question if we want to allow it remains open.
 
 ##### Trait inheritance
-Traits can also give us a form of inheritance with their default methods.
+Traits can be used for inheritance with their default methods.
 ```verona
 type ToString = {
     toString(s: Self) : String
@@ -273,12 +273,12 @@ class C : Printable
 
 #### Self types
 In Verona we explicitly declare a Self type when the corresponding method should
-be dynamically dispatched. I.e. in traits, if we declare the first argument to
+be dynamically dispatched. Specifically, in traits, if we declare the first argument to
 be of type Self, any time we call this method on a value with this trait type,
 it will lead to dynamic dispatch.
 
 In Verona, the Self type represents the concrete type of which the object is
-part. I.e. when defining class types, Self mereley acts as an alias for the
+part. When defining class types, Self mereley acts as an alias for the
 instantiation of this class type itself:
 ```verona
 class C {
@@ -288,7 +288,7 @@ class C {
 }
 ```
 
-For trait types Self acts as as a reference to the underlying type. This allows us to write e.g.
+For trait types Self acts as as a reference to the underlying type. This allows us to write, e.g.,
 ```verona
 type Collection[T] = {
     add(self: Self, e: T) : Self
@@ -300,7 +300,7 @@ where the `add` method returns something of the concrete type.
   ```verona
     type A[T] = {
         f(self: Self) : { g(self: Self /* Self1 */) : Self /* Self2 */ }
-        // if we want Self1 and Self2 to refer to different types, can we write e.g.
+        // if we want Self1 and Self2 to refer to different types, can we write, e.g.,
         // A[T].Self?
     }
   ```
@@ -319,11 +319,11 @@ where the `add` method returns something of the concrete type.
 
 ## Dynamic and static dispatch
 Method calls can be dynamically or statically dispatched based on the type of
-the reciever. If the reciever is a concrete class type, the compiler will
-produce a static dispatch. If on the other hand, it is more complex, e.g. a
+the receiver. If the receiver is a concrete class type, the compiler will
+produce a static dispatch. If on the other hand, it is something more complex, e.g., a
 disjunction type or a trait type, the method call will be dispatched
 dynamically. The compiler will of course try to optimize if the complex type is
-simple enough, e.g. `C | D` in the example below, but this happens on a case by
+simple enough, e.g., `C | D` in the example below, but this happens on a case by
 case basis and the language specification will promise no such thing.
 ```verona
 // classes C and D has method toString
@@ -343,10 +343,10 @@ let u = z.toString() // dynamic dispatch, since ToString is an open type
 ```
 
 ### Type predicates
-Type predicates allows us to describe assumptions about subtyping. These can be
+Type predicates allow us to describe assumptions about subtyping. These can be
 written on both type and method level, and both has their distinct uses.
 Specifically, predicates on type level allow us to express F-bounded
-polymorphism, while method level predicates are useful in reducing code
+polymorphism, while method-level predicates are useful in reducing code
 duplication, somewhat akin to type classes.
 
 In verona these predicates can be added to types and method signatures using the
@@ -420,7 +420,7 @@ type ValueGraph[V, N, E] = Graph[N, E] & (N < Container[V])
 Note that we can simply combine the previous definition of `Graph[N, E]` with a
 new constraint describing the new constraint on nodes.
 
-We can write a simple search algorithm polymorphic in the type of nodes and edges.
+We can write a simple search algorithm that is polymorphic in the type of nodes and edges.
 ```verona
 searchGraph[V, N, E](n : N, v : V) : Option[N]
     where ValueGraph[V, N, E] & (V <: Equal[V]) & (N <: Comparable[N])
@@ -449,9 +449,9 @@ searchGraph[V, N, E](n : N, v : V) : Option[N]
 ```
 
 #### Method-level `where` clauses
-Adding type constraints to methods, we can condition the existance of a method
+Adding type constraints to methods, we can condition the existence of a method
 depending on the specific type parameters. Going back to the red-black tree
-example above, we could add a `print` method that will exist only when the
+example above, we can add a `print` method that will exist only when the
 type parameter to `RBTree` implements the `Printable` trait:
 ```verona
 class RBTree[T] where (T <: Comparable[T]) {
@@ -463,7 +463,7 @@ class RBTree[T] where (T <: Comparable[T]) {
 ```
 
 ##### `where` clauses and capabilities
-Another use for method-level where clauses is to restrict what methods can be
+Another use for method-level `where` clauses is to restrict which methods can be
 called depending the capabilities of type parameters.
 ```verona
 class Ref[T] {
@@ -495,9 +495,9 @@ class HashMap[K, T] {
 }
 ```
 In a system without method-level `where` clauses, we would need to bifurcate each
-class on whether the class should be able to handle iso values or not, e.g.
+class on whether the class should be able to handle iso values or not, e.g.,
 having to define both `IsoRef[T]` and `Ref[T]`. Furthermore, `where` clauses on
-methods are very intentional, and allows us to give better error messages. E.g.
+methods are very intentional, and allows us to give better error messages. For example,
 "`Ref[iso & A]::get()` not available since `iso & A </: imm | mut`" will
 hopefully help the programmer more than "`Ref[iso & A]` is not a valid
 instantiation of `Ref[T]`".
