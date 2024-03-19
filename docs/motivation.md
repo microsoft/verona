@@ -1,18 +1,32 @@
-# The Verona language: Features and Motivation
+# The Verona language: Core type system
 
-Verona is an object-oriented reference capability language with structural
-subtyping and bounded polymorphism. Here we summarize each part and try to
-motivate the design decisions taken so far. We also pose design questions that
-are yet to be answered.
+Verona is a language with a behaviour-oriented concurrency model and a region abstraction for ownership.
+These are fundamentally new abstractions in language design and are covered separately.
+This document aims to cover the parts of the type system that are similar to (though in some places diverge in interesting ways from) other languages.
+
+Verona is an object oriented reference capability language with structural
+subtyping and bounded polymorphism. This document aims to describe the aspects
+of the type system that are independent from both the concurrency model and
+reference capabilities.
 
 ## Structural type system
 
-We use a structural and algebraic type system rather than a nominal one, since
-we find it more flexible.
+A type system is all about managing a complexity budget. Make it too complicated
+and programmers will find it difficult to use and be less productive. Make it too
+simple and it will give you less guarantees to lean on as a programmer.
+
+We opt to use a structural type system since we beleive it simplifies some parts
+of reasoning, e.g. we don't need co/contra-variance notation on type parameters.
+This allows us to spend this complexity elsewhere, e.g. introducing reference
+capabilities to enforce isolation and region topology.
+
+We do however treat classes nominally and have opted to not have inheritance
+subtyping. This means that there is never any subtyping between two distinct
+classes.
 
 ### Traits
-Verona is a structural trait based type system, i.e. types can be described
-using combinations of methods on an object. For example, we can describe a type
+Verona is a structural type system based on traits, i.e. types can be described
+using combination of methods on an object. E.g. we can describe a type
 implementing a `toString` method as
 ```verona
 type ToString = {
@@ -26,10 +40,7 @@ type Number = {
     sub(self: Self, other: Number): Number
 }
 ```
-Traits also support default implementations. For example, we can add a default
-implementation of multiplication as
-
-* TODO finish paragraph
+Traits also support default implementation as described below in section [Trait Inheritance](#trait-inheritance).
 
 
 ### Conjunction types
@@ -57,6 +68,8 @@ class C {
     static Number f(ToStringNumber n1, ToStringNumber n2) { ... }
 }
 ```
+Furthermore we would have to change the definition of every class that we want
+to implement this new trait.
 
 In Verona, a trait with multiple methods can be further simplified by breaking
 up each method into what we call an "atomic" trait and combining them with a
@@ -102,16 +115,20 @@ type A[T] = {
     - C#: extension methods
 
 ### Disjunction types
-Verona also includes disjunction types. Assuming two classes `C` and `D` we can
+Verona also includes disjunction types. Assuming two types `C` and `D` we can
 define the new type
 ```verona
 type COrD = C | D
 ```
+This describes the union of the two types.
 
-Since in Verona there is no inheritance between classes, this allows us to
-check that a pattern match is exhaustive, and furthermore matching on a concrete
-type allows us to do implicit type filtering. For example, imagine a case match like
-this
+If we assume `C` and `D` above are classes, we can furthermore write pattern
+matches to distinguish between the two types dynamically.
+
+Since in Verona there is no subtyping between classes, we are able to check that
+a pattern match is exhaustive, and furthermore matching on concrete types will
+allow us to do implicit type filtering over match cases. E.g. imagine a case
+match like this
 ```verona
 // C, D, E are classes
 
@@ -266,17 +283,12 @@ class C {
 }
 
 // file 2
-// declaration that C implements Printable together with its default method
-class C : Printable
+// declaration that C implements ToString together with its default print method
+class C : ToString
 ```
 
 
 #### Self types
-In Verona we explicitly declare a Self type when the corresponding method should
-be dynamically dispatched. Specifically, in traits, if we declare the first argument to
-be of type Self, any time we call this method on a value with this trait type,
-it will lead to dynamic dispatch.
-
 In Verona, the Self type represents the concrete type of which the object is
 part. When defining class types, Self mereley acts as an alias for the
 instantiation of this class type itself:
@@ -288,33 +300,14 @@ class C {
 }
 ```
 
-For trait types Self acts as as a reference to the underlying type. This allows us to write, e.g.,
+For trait types, Self acts as as a reference to the underlying concrete type of the instantiation. This allows us to write e.g.
 ```verona
 type Collection[T] = {
     add(self: Self, e: T) : Self
 }
 ```
-where the `add` method returns something of the concrete type.
-
-* Question: If we have multiple self types, how do we refer to them?
-  ```verona
-    type A[T] = {
-        f(self: Self) : { g(self: Self /* Self1 */) : Self /* Self2 */ }
-        // if we want Self1 and Self2 to refer to different types, can we write, e.g.,
-        // A[T].Self?
-    }
-  ```
-  The above example could probably be desugared into
-  ```verona
-    type A[T] = {
-        type Self
-        type Anon = {
-            type Self
-            g(self: A[T].Anon.Self) : A[T].Anon.Self
-        }
-        f(self: A[T].Self) : A[T].Anon
-    }
-  ```
+where the `add` method returns something of the concrete type, e.g.
+`list.add(x)` returns the type `List[T]` rather than `Collection[T]`.
 
 
 ## Dynamic and static dispatch
@@ -345,16 +338,16 @@ let u = z.toString() // dynamic dispatch, since ToString is an open type
 ### Type predicates
 Type predicates allow us to describe assumptions about subtyping. These can be
 written on both type and method level, and both has their distinct uses.
-Specifically, predicates on type level allow us to express F-bounded
-polymorphism, while method-level predicates are useful in reducing code
-duplication, somewhat akin to type classes.
+Specifically, predicates on both type and method level allow us to express
+F-bounded polymorphism, while method level predicates are further useful in
+reducing code duplication, somewhat akin to type classes.
 
 In verona these predicates can be added to types and method signatures using the
 keyword `where`. Here are a couple of examples:
 ```verona
-// type Hashable
-// type Eq
-// type ToString
+type Hashable
+type Eq
+type ToString
 
 class HashMap[K, T] where (K <: Hashable & Eq) { // type level where clause
     ...
@@ -415,7 +408,7 @@ type Equal[V] = {
     equals(v1: V, v2: V) : Bool
 }
 
-type ValueGraph[V, N, E] = Graph[N, E] & (N < Container[V])
+type ValueGraph[V, N, E] = Graph[N, E] & (N <: Container[V])
 ```
 Note that we can simply combine the previous definition of `Graph[N, E]` with a
 new constraint describing the new constraint on nodes.
@@ -533,3 +526,25 @@ class D {
 ```
 Here both `C` and `D` are subtypes of `Printable`, but only `C` inherits its
 default implementation.
+
+
+# Questions
+* Question: If we have multiple self types, how do we refer to them?
+  ```verona
+    type A[T] = {
+        f(self: Self) : { g(self: Self /* Self1 */) : Self /* Self2 */ }
+        // if we want Self1 and Self2 to refer to different types, can we write e.g.
+        // A[T].Self?
+    }
+  ```
+  The above example could probably be desugared into
+  ```verona
+    type A[T] = {
+        type Self
+        type Anon = {
+            type Self
+            g(self: A[T].Anon.Self) : A[T].Anon.Self
+        }
+        f(self: A[T].Self) : A[T].Anon
+    }
+  ```
