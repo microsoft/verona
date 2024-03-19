@@ -56,7 +56,10 @@ intuitive syntax. For example, if we want to describe the type signature of a fu
 together, this would be
 ```verona
 f(n1: Number & ToString, n2: Number & ToString) : Number
-// TODO add ToStringNumber version
+```
+or equivalently
+```verona
+f(n1: ToStringNumber, n2: ToStringNumber) : Number
 ```
 
 In contrast, in a nominal system like Java, we would have to define a new
@@ -244,9 +247,9 @@ class D : C {
 If we want to describe a relation between `C` and `D`, we can only do so by
 subtyping them under a trait.
 
-* Question: There is a case to be made for not allowing inheritance from a
+There is a case to be made for not allowing inheritance from a
   class, since this allows unanticipated code reuse. This might however also be
-  a positive. The question if we want to allow it remains open.
+  a positive.
 
 ##### Trait inheritance
 Traits can be used for inheritance with their default methods.
