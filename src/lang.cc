@@ -6,8 +6,30 @@
 #include "subtype.h"
 #include "wf.h"
 
+#include <charconv>
+
 namespace verona
 {
+  static Node make_int0()
+  {
+    static Location l_int0("0");
+    return Int ^ l_int0;
+  }
+
+  Node make_int(size_t i)
+  {
+    return Int ^ std::to_string(i);
+  }
+
+  size_t parse_int(Node i)
+  {
+    assert(i->type() == Int);
+    size_t arity = 0;
+    auto view = i->location().view();
+    std::from_chars(view.data(), view.data() + view.size(), arity);
+    return arity;
+  }
+
   Node err(Node node, const std::string& msg)
   {
     return Error << (ErrorMsg ^ msg) << node;
@@ -53,12 +75,6 @@ namespace verona
   {
     auto n = _(t);
     return n ? n : typepred();
-  }
-
-  static Node int0()
-  {
-    static Location l_int0("0");
-    return Int ^ l_int0;
   }
 
   static Node builtin_path()
@@ -134,7 +150,7 @@ namespace verona
   Node reftype(Node t)
   {
     static Location l_ref("Ref");
-    return builtin_type(l_ref, TypeArgs << -t);
+    return builtin_type(l_ref, TypeArgs << t);
   }
 
   Node tuple_to_args(Node n)
@@ -158,7 +174,7 @@ namespace verona
     if (!ta)
       ta = TypeArgs;
 
-    return Selector << Rhs << (Ident ^ name) << int0() << ta;
+    return Selector << Rhs << (Ident ^ name) << make_int0() << ta;
   }
 
   bool is_llvm_call(Node op)
@@ -260,6 +276,21 @@ namespace verona
 
     // Check for arity conflict.
     return arity(a) == arity(b);
+  }
+
+  Nodes all_predicates(Node node)
+  {
+    assert(node->in({Class, TypeAlias, Function}));
+    Nodes preds;
+
+    while (node)
+    {
+      preds.push_back(node / TypePred);
+      node = node->parent({Class, TypeAlias, Function});
+    }
+
+    std::reverse(preds.begin(), preds.end());
+    return preds;
   }
 
   Options& options()

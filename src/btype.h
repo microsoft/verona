@@ -21,7 +21,7 @@ namespace verona
       // Keep unwinding until done.
       NodeSet set;
 
-      while (true)
+      while (node)
       {
         if (node->in({Type, TypePred}))
         {
@@ -147,6 +147,11 @@ namespace verona
     return b->type() == type;
   }
 
+  inline bool operator!=(const Btype& b, const Token& type)
+  {
+    return b->type() != type;
+  }
+
   inline std::ostream& operator<<(std::ostream& out, const Btype& b)
   {
     b->str(out, 0);
@@ -156,5 +161,11 @@ namespace verona
   [[gnu::used]] inline void print(const Btype& b)
   {
     std::cout << b;
+  }
+
+  [[gnu::used]] inline void print(const Btypes& bs)
+  {
+    for (auto& b : bs)
+      std::cout << b;
   }
 }

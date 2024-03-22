@@ -8,19 +8,14 @@ namespace verona
 {
   PassDef validtypeargs()
   {
-    auto preds = std::make_shared<Btypes>();
+    auto assume = std::make_shared<Btypes>();
 
     PassDef pass = {
       "validtypeargs",
       wfPassDrop,
       dir::bottomup | dir::once,
       {
-        T(Class, TypeAlias, Function) >> ([=](Match&) -> Node {
-          preds->pop_back();
-          return NoChange;
-        }),
-
-        T(FQType, FQFunction)[Type] >> ([=](Match& _) -> Node {
+        !In(FQFunction) * T(FQType)[Type] >> ([=](Match& _) -> Node {
           auto tn = _(Type);
 
           if (is_implicit(tn))
@@ -34,25 +29,34 @@ namespace verona
           if (!bt->in({Class, TypeAlias, Function}))
             return NoChange;
 
-          if (!subtype(*preds, make_btype(TypeTrue), bt / TypePred))
-            return err(tn, "Invalid type arguments");
+          auto preds = all_predicates(bt->node);
+          Nodes errs;
 
-          return NoChange;
+          for (auto& pred : preds)
+          {
+            if (!subtype(*assume, bt->make(pred)))
+              errs.push_back(clone(pred));
+          }
+
+          if (errs.empty())
+            return NoChange;
+
+          auto e = err(tn, "Invalid type arguments");
+
+          for (auto& err : errs)
+            e << (ErrorMsg ^ "this predicate isn't satisfied") << err;
+
+          return e;
         }),
       }};
 
-    pass.pre(Class, [=](Node n) {
-      preds->push_back(make_btype(n / TypePred));
+    pass.pre({Class, TypeAlias, Function}, [=](Node n) {
+      assume->push_back(make_btype(n / TypePred));
       return 0;
     });
 
-    pass.pre(TypeAlias, [=](Node n) {
-      preds->push_back(make_btype(n / TypePred));
-      return 0;
-    });
-
-    pass.pre(Function, [=](Node n) {
-      preds->push_back(make_btype(n / TypePred));
+    pass.post({Class, TypeAlias, Function}, [=](Node) {
+      assume->pop_back();
       return 0;
     });
 

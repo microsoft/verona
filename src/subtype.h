@@ -12,14 +12,15 @@ namespace verona
 {
   using namespace trieste;
 
-  struct Bound
-  {
-    std::vector<Btype> lower;
-    std::vector<Btype> upper;
-  };
+  struct Sequent;
+  using SequentPtr = std::shared_ptr<Sequent>;
+  using SequentPtrs = std::vector<SequentPtr>;
 
-  using Bounds = std::map<Location, Bound>;
+  bool subtype(Btypes& assume, Btype prove);
+  bool subtype(Btypes& assume, Btype prove, SequentPtrs& delayed);
 
-  bool subtype(Btypes& predicates, Btype sub, Btype sup);
-  bool subtype(Btypes& predicates, Btype sub, Btype sup, Bounds& bounds);
+  bool subtype(Btype sub, Btype sup);
+  bool subtype(Btypes& assume, Btype sub, Btype sup, SequentPtrs& delayed);
+
+  bool infer_types(SequentPtrs& delayed);
 }

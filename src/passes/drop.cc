@@ -129,13 +129,14 @@ namespace verona
           for (auto it = list.begin(); it != list.end(); ++it)
           {
             auto ref = it->second;
+            auto id = ref / Ident;
             auto parent = ref->parent();
             bool immediate = parent == Block;
 
             if (immediate && (parent->back() != ref))
               parent->replace(ref);
             else
-              parent->replace(ref, Move << (ref / Ident));
+              parent->replace(ref, (Move ^ id) << id);
 
             changes++;
           }
@@ -167,15 +168,15 @@ namespace verona
           }
 
           if (discharging && immediate && (parent->back() == ref))
-            parent->replace(ref, Move << id);
+            parent->replace(ref, (Move ^ id) << id);
           else if (discharging && immediate)
-            parent->replace(ref, Drop << id);
+            parent->replace(ref, (Drop ^ id) << id);
           else if (discharging)
-            parent->replace(ref, Move << id);
+            parent->replace(ref, (Move ^ id) << id);
           else if (immediate)
             parent->replace(ref);
           else
-            parent->replace(ref, Copy << id);
+            parent->replace(ref, (Copy ^ id) << id);
 
           // If this is a discharging use, mark the variable as discharged in
           // all predecessor and successor blocks.

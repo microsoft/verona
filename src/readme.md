@@ -1,14 +1,19 @@
 # To Do
 
-- `partialapp` needs to use FQN when extracting type parameters.
-- Blocks.
-  - Enforce `Return | Move | LLVM` at the end?
+- `new` having a `typevar` as the return type is causing circular constraints.
+  - `typevar` circularity implies equality?
+
 - Type inference.
   - Uses of `typevar`:
     - Return type of `new`, auto-create, lambda create, lambda apply, partial functions, partial app class create, partial app class apply.
     - Lambda free variable types.
     - `DontCare` syntactically in a type (remove this?).
     - Unspecified field types, parameter types, function return types.
+
+- `partialapp` needs to use FQN when extracting type parameters.
+  - `partialapp` `FQType` type parameters need to be relative to the new function.
+- Blocks.
+  - Enforce `Return | Move | LLVM` at the end?
 - Check that `var` is stored to before it's loaded.
 - Free variables in object literals.
 - Tuples as traits.
