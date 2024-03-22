@@ -381,4 +381,10 @@ namespace verona
     | (Bind <<= Ident * Type * (Rhs >>= wfExprDrop))[Ident]
     ;
   // clang-format on
+
+  // clang-format off
+  inline const auto wfPassTypeInfer =
+      wfPassDrop
+    | (InferSelector <<= Selector * (Params >>= TypeTuple) * (Type >>= wfType))
+    ;
 }

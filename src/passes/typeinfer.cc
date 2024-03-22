@@ -9,19 +9,41 @@ namespace verona
   Node gamma(Node node)
   {
     // TODO: Move vs Copy type.
-    // when testing, this may not resolve
-    return (node / Ident)->lookup().front() / Type;
+    auto l = (node / Ident)->lookup();
+
+    // When testing, this may not resolve, so we just return a typevar.
+    if (l.empty())
+      return typevar(node);
+
+    return l.front() / Type;
   }
+
+  struct Check
+  {
+    Node type;
+    Btype btype;
+
+    template<typename T>
+    Check(T type_) : type(type_), btype(make_btype(type))
+    {}
+
+    Check(Btype source, Node& type_) : type(type_), btype(source->make(type)) {}
+
+    operator bool() const
+    {
+      return bool(type);
+    }
+  };
 
   struct Infer
   {
-    Btypes& preds;
-    Bounds& bounds;
+    Btypes& assume;
+    SequentPtrs& delayed;
     Node cls;
     Node ret_type;
     Btype bool_type;
 
-    Infer(Node f, Btypes& p, Bounds& b) : preds(p), bounds(b)
+    Infer(Node f, Btypes& a, SequentPtrs& d) : assume(a), delayed(d)
     {
       cls = f->parent(Class);
       ret_type = f / Type;
@@ -29,40 +51,38 @@ namespace verona
       do_block(f / Block, ret_type);
     }
 
-    void check_t_sub_bool(Node from, Node type)
+    void check_t_sub_bool(Node from, Check type)
     {
-      if (type && !subtype(preds, make_btype(type), bool_type, bounds))
+      if (type && !subtype(assume, type.btype, bool_type, delayed))
       {
         from->parent()->replace(
           from,
           err(from, "type mismatch")
-            << clone(type)
+            << clone(type.type)
             << (ErrorMsg ^ "is not a subtype of std::builtin::Bool"));
       }
     }
 
-    void check_bool_sub_t(Node from, Node type)
+    void check_bool_sub_t(Node from, Check type)
     {
-      if (type && !subtype(preds, bool_type, make_btype(type), bounds))
+      if (type && !subtype(assume, bool_type, type.btype, delayed))
       {
         from->parent()->replace(
           from,
           err(from, "type mismatch, std::builtin::Bool is not a subtype of")
-            << clone(type));
+            << clone(type.type));
       }
     }
 
-    void check(Node from, Node ltype, Node rtype)
+    void check(Node from, Check ltype, Check rtype)
     {
-      if (
-        ltype && rtype &&
-        !subtype(preds, make_btype(ltype), make_btype(rtype), bounds))
+      if (ltype && rtype && !subtype(assume, ltype.btype, rtype.btype, delayed))
       {
         from->parent()->replace(
           from,
           err(from, "type mismatch")
-            << clone(ltype) << (ErrorMsg ^ "is not a subtype of")
-            << clone(rtype));
+            << clone(ltype.type) << (ErrorMsg ^ "is not a subtype of")
+            << clone(rtype.type));
       }
     }
 
@@ -72,27 +92,26 @@ namespace verona
       {
         if (stmt == Bind)
         {
-          auto rhs = stmt / Rhs;
           auto type = stmt / Type;
+          auto rhs = stmt / Rhs;
 
           if (rhs == TypeTest)
-            check_bool_sub_t(stmt, type);
+            type = Type << booltype();
           else if (rhs == Cast)
-            check(stmt, rhs / Type, type);
+            type = clone(rhs / Type);
           else if (rhs->in({Move, Copy}))
-            check(stmt, gamma(rhs), type);
+            type = clone(gamma(rhs));
           else if (rhs == FieldRef)
           {
             // TODO: Self substitution?
             // may not need this if we set the return type of autofields
             // functions correctly
-            check(
-              stmt,
-              TypeView << -gamma(rhs / Ref)
-                       << reftype(
-                            cls->lookdown((rhs / Ident)->location()).front() /
-                            Type),
-              type);
+            type = Type
+              << (TypeView
+                  << clone(gamma(rhs / Ref) / Type)
+                  << reftype(clone(
+                       cls->lookdown((rhs / Ident)->location()).front() /
+                       Type)));
           }
           else if (rhs == Conditional)
           {
@@ -107,32 +126,63 @@ namespace verona
 
             if (sel == FQFunction)
             {
-              auto l = resolve_fq(sel);
+              auto bt = make_btype(sel);
 
-              if (!l.def)
+              if (bt != Function)
               {
+                // In testing, this may also be a non-existant function.
                 block->replace(stmt, err(stmt, "too many arguments"));
                 continue;
               }
 
-              auto params = clone(l.def / Params);
-              auto ret = clone(l.def / Type);
+              // Gather all the predicates we will need to prove.
+              auto preds = all_predicates(bt->node);
+              Nodes errs;
+
+              for (auto& pred : preds)
+              {
+                if (!subtype(assume, bt->make(pred), delayed))
+                  errs.push_back(clone(pred));
+              }
+
+              if (!errs.empty())
+              {
+                auto e = err(clone(rhs), "function call predicate errors");
+                rhs << e;
+
+                for (auto& ee : errs)
+                  e << (ErrorMsg ^ "this predicate isn't satisfied") << ee;
+              }
+
+              auto params = bt->node / Params;
               auto args = rhs / Args;
               auto arg = args->begin();
-              assert(params->size() == args->size());
 
-              l.sub(params);
-              l.sub(ret);
+              // This will only be false in testing.
+              if (params->size() == args->size())
+              {
+                std::for_each(params->begin(), params->end(), [&](Node& param) {
+                  check(*arg, gamma(*arg), {bt, param / Type});
+                  arg++;
+                });
+              }
 
-              std::for_each(params->begin(), params->end(), [&](Node& param) {
-                check(stmt, gamma(*arg++), param / Type);
-              });
-
-              check(stmt, ret, type);
+              // Check the function return type.
+              check(sel, {bt, bt->node / Type}, type);
             }
             else
             {
-              // TODO: selector
+              auto args = rhs / Args;
+              assert(!args->empty());
+              Node params = TypeTuple;
+
+              std::for_each(args->begin(), args->end(), [&](Node& arg) {
+                params << clone(gamma(arg));
+              });
+
+              // Check the receiver against the selector.
+              auto infer = InferSelector << clone(sel) << params << clone(type);
+              check(sel, gamma(args->front()), infer);
             }
           }
           else if (rhs->in(
@@ -175,57 +225,39 @@ namespace verona
 
   PassDef typeinfer()
   {
-    auto preds = std::make_shared<Btypes>();
-    auto bounds = std::make_shared<Bounds>();
+    auto assume = std::make_shared<Btypes>();
+    auto delayed = std::make_shared<SequentPtrs>();
 
     PassDef pass = {
       "typeinfer",
-      wfPassDrop,
+      wfPassTypeInfer,
       dir::bottomup | dir::once,
       {
-        T(Class, TypeAlias) >> ([=](Match&) -> Node {
-          preds->pop_back();
-          return NoChange;
-        }),
-
         T(Function)[Function] >> ([=](Match& _) -> Node {
-          Infer infer(_(Function), *preds, *bounds);
-          preds->pop_back();
+          // Our local predicate has already been popped. Add it back.
+          auto f = _(Function);
+          assume->push_back(make_btype(f / TypePred));
+          Infer infer(f, *assume, *delayed);
+          assume->pop_back();
           return NoChange;
         }),
       }};
 
-    pass.pre(Class, [=](Node n) {
-      preds->push_back(make_btype(n / TypePred));
+    pass.pre({Class, TypeAlias, Function}, [=](Node n) {
+      assume->push_back(make_btype(n / TypePred));
       return 0;
     });
 
-    pass.pre(TypeAlias, [=](Node n) {
-      preds->push_back(make_btype(n / TypePred));
-      return 0;
-    });
-
-    pass.pre(Function, [=](Node n) {
-      preds->push_back(make_btype(n / TypePred));
+    pass.post({Class, TypeAlias, Function}, [=](Node) {
+      assume->pop_back();
       return 0;
     });
 
     pass.post([=](Node) {
-      // // TODO: resolve types instead of just printing bounds
-      // for (auto& [typevar, bound] : *bounds)
-      // {
-      //   std::cout << typevar.view() << std::endl << "--lower--" << std::endl;
-
-      //   for (auto& b : bound.lower)
-      //     std::cout << b << std::endl;
-
-      //   std::cout << "--upper--" << std::endl;
-
-      //   for (auto& b : bound.upper)
-      //     std::cout << b << std::endl;
-
-      //   std::cout << "--done--" << std::endl;
-      // }
+      if (!infer_types(*delayed))
+      {
+        // TODO:
+      }
 
       return 0;
     });

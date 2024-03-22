@@ -5,7 +5,6 @@
 #include "lang.h"
 
 #include <cassert>
-#include <charconv>
 
 namespace verona
 {
@@ -240,10 +239,7 @@ namespace verona
     auto hand = (n / Ref)->type();
     auto id = n / Ident;
     auto defs = p.def->lookdown(id->location());
-
-    size_t arity = 0;
-    auto view = (n / Int)->location().view();
-    std::from_chars(view.data(), view.data() + view.size(), arity);
+    auto arity = parse_int(n / Int);
 
     for (auto& def : defs)
     {

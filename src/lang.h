@@ -98,6 +98,7 @@ namespace verona
   inline const auto TypeParamBind = TokenDef("typeparambind");
   inline const auto FQType = TokenDef("fqtype");
   inline const auto FQFunction = TokenDef("fqfunction");
+  inline const auto InferSelector = TokenDef("inferselector");
 
   // Expression structure.
   inline const auto Expr = TokenDef("expr");
@@ -204,6 +205,8 @@ namespace verona
         (T(FQFunction) << (T(FQType) * (T(Selector) << T(Rhs)))));
 
   // Helper functions for generating AST fragments.
+  Node make_int(size_t i);
+  size_t parse_int(Node i);
   Node err(Node node, const std::string& msg);
   Node typevar(Location loc);
   Node typevar(Node& node);
@@ -230,6 +233,7 @@ namespace verona
   Node load(Node arg);
   bool is_implicit(Node n);
   bool conflict(Node& a, Node& b);
+  Nodes all_predicates(Node node);
 
   // Pass definitions.
   Parse parser();

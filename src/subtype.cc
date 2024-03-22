@@ -6,25 +6,29 @@
 
 namespace verona
 {
-  void merge(Bounds& lhs, Bounds& rhs)
-  {
-    for (auto& [k, v] : rhs)
-    {
-      auto it = lhs.find(k);
+  using Constraint = std::vector<Btypes>;
+  using Constraints = std::map<Location, Constraint>;
 
-      if (it == lhs.end())
-      {
-        lhs[k] = v;
-      }
-      else
-      {
-        // TODO: subsume bounds?
-        it->second.lower.insert(
-          it->second.lower.end(), v.lower.begin(), v.lower.end());
-        it->second.upper.insert(
-          it->second.upper.end(), v.upper.begin(), v.upper.end());
-      }
-    }
+  template<class InputIt, class UnaryPredicate>
+  InputIt one_of(InputIt begin, InputIt end, UnaryPredicate p)
+  {
+    auto it = std::find_if(begin, end, p);
+
+    if ((it == end) || (std::find_if(it + 1, end, p) != end))
+      return end;
+
+    return it;
+  }
+
+  template<class InputIt, class UnaryFunction>
+  bool if_one_typevar(InputIt begin, InputIt end, UnaryFunction f)
+  {
+    auto it = one_of(begin, end, [&](auto& t) { return t == TypeVar; });
+
+    if (it == end)
+      return false;
+
+    return f(*it);
   }
 
   struct Assume
@@ -48,20 +52,32 @@ namespace verona
     Btypes self;
     Btypes predicates;
     std::vector<Assume> assumptions;
-    Bounds bounds;
+    SequentPtrs* delayed = nullptr;
+    Constraints* constraints = nullptr;
 
-    Sequent() = default;
+    void str(std::ostream& out, size_t level) const
+    {
+      out << indent(level) << "sequent: {" << std::endl
+          << indent(level + 1) << "lhs: {" << std::endl;
 
-    Sequent(Sequent& rhs)
-    : lhs_pending(rhs.lhs_pending),
-      rhs_pending(rhs.rhs_pending),
-      lhs_atomic(rhs.lhs_atomic),
-      rhs_atomic(rhs.rhs_atomic),
-      self(rhs.self),
-      predicates(rhs.predicates),
-      assumptions(rhs.assumptions),
-      bounds(rhs.bounds)
-    {}
+      for (auto& l : lhs_atomic)
+        l->str(out, level + 2);
+
+      out << indent(level + 1) << "}," << std::endl
+          << indent(level + 1) << "rhs: {" << std::endl;
+
+      for (auto& r : rhs_atomic)
+        r->str(out, level + 2);
+
+      out << indent(level + 1) << "}," << std::endl
+          << indent(level + 1) << "preds: {" << std::endl;
+
+      for (auto& p : predicates)
+        p->str(out, level + 2);
+
+      out << indent(level + 1) << "}," << std::endl
+          << indent(level) << "}" << std::endl;
+    }
 
     void push_assume(Btype sub, Btype sup)
     {
@@ -94,36 +110,23 @@ namespace verona
       seq.self = self;
       seq.predicates = predicates;
       seq.assumptions = assumptions;
-
-      if (!seq.reduce())
-        return false;
-
-      merge(bounds, seq.bounds);
-      return true;
+      seq.delayed = delayed;
+      seq.constraints = constraints;
+      return seq.reduce();
     }
 
-    bool lhs_reduce(Btype t)
+    bool reduce(Constraints& c, SequentPtrs* d = nullptr)
     {
-      Sequent seq(*this);
-      seq.lhs_pending.push_back(t);
-
-      if (!seq.reduce())
-        return false;
-
-      merge(bounds, seq.bounds);
-      return true;
-    }
-
-    bool rhs_reduce(Btype t)
-    {
-      Sequent seq(*this);
-      seq.rhs_pending.push_back(t);
-
-      if (!seq.reduce())
-        return false;
-
-      merge(bounds, seq.bounds);
-      return true;
+      // Try again, using a constraint map for TypeVars.
+      lhs_pending = std::move(lhs_atomic);
+      rhs_pending = std::move(rhs_atomic);
+      auto prev_delayed = delayed;
+      delayed = d;
+      constraints = &c;
+      auto ok = reduce();
+      delayed = prev_delayed;
+      constraints = nullptr;
+      return ok;
     }
 
     bool reduce()
@@ -153,7 +156,10 @@ namespace verona
           // RHS isect is a sequent split.
           for (auto& t : *r->node)
           {
-            if (!rhs_reduce(r->make(t)))
+            Sequent seq(*this);
+            seq.rhs_pending.push_back(r->make(t));
+
+            if (!seq.reduce())
               return false;
           }
 
@@ -161,10 +167,6 @@ namespace verona
         }
         else if (r == TypeAlias)
         {
-          // Demand that we satisfy the type predicate, which is a split.
-          if (!rhs_reduce(r / TypePred))
-            return false;
-
           // Try both the typealias and the underlying type.
           rhs_pending.push_back(r / Type);
           rhs_atomic.push_back(r);
@@ -186,8 +188,15 @@ namespace verona
           if (!self.empty())
             rhs_atomic.push_back(self.back());
         }
+        else if (r == TypeFalse)
+        {
+          // Only bother with TypeFalse if we have nothing else.
+          if (rhs_atomic.empty())
+            rhs_atomic.push_back(r);
+        }
         else
         {
+          // Don't do TypeVar reduction on the RHS.
           rhs_atomic.push_back(r);
         }
       }
@@ -205,7 +214,10 @@ namespace verona
           // Π ⊩ Γ, A < B ⊢ Δ
           predicates.push_back(l);
 
-          if (!rhs_reduce(l / Lhs))
+          Sequent seq(*this);
+          seq.rhs_pending.push_back(l / Lhs);
+
+          if (!seq.reduce())
             return false;
 
           lhs_pending.push_back(l / Rhs);
@@ -230,7 +242,10 @@ namespace verona
           // LHS union is a sequent split.
           for (auto& t : *l->node)
           {
-            if (!lhs_reduce(l->make(t)))
+            Sequent seq(*this);
+            seq.lhs_pending.push_back(l->make(t));
+
+            if (!seq.reduce())
               return false;
           }
 
@@ -262,6 +277,39 @@ namespace verona
           if (!self.empty())
             lhs_atomic.push_back(self.back());
         }
+        else if (constraints && (l == TypeVar))
+        {
+          // TypeVar reduction.
+          auto it = constraints->find(l->node->location());
+
+          if (it == constraints->end())
+          {
+            // No constraints.
+            lhs_atomic.push_back(l);
+          }
+          else
+          {
+            // Constraints are a disjunction of conjunctions. Each conjunction
+            // is a sequent split.
+            for (auto& isect : it->second)
+            {
+              Sequent seq(*this);
+              seq.lhs_pending.insert(
+                seq.lhs_pending.end(), isect.begin(), isect.end());
+
+              if (!seq.reduce())
+                return false;
+            }
+
+            return true;
+          }
+        }
+        else if (l == TypeTrue)
+        {
+          // Only bother with TypeTrue if we have nothing else.
+          if (lhs_atomic.empty())
+            lhs_atomic.push_back(l);
+        }
         else
         {
           lhs_atomic.push_back(l);
@@ -272,8 +320,7 @@ namespace verona
       if (lhs_atomic.empty() || rhs_atomic.empty())
         return false;
 
-      // First try without checking any TypeVars.
-      // G, A |- D, A
+      // If anything on the LHS proves anything on the RHS, we're done.
       if (std::any_of(lhs_atomic.begin(), lhs_atomic.end(), [&](Btype& l) {
             return std::any_of(
               rhs_atomic.begin(), rhs_atomic.end(), [&](Btype& r) {
@@ -284,12 +331,20 @@ namespace verona
         return true;
       }
 
-      // TODO: accumulate bounds on TypeVars. This isn't right, yet.
-      return std::any_of(lhs_atomic.begin(), lhs_atomic.end(), [&](Btype& l) {
-        return std::any_of(rhs_atomic.begin(), rhs_atomic.end(), [&](Btype& r) {
-          return typevar_bounds(l, r);
-        });
-      });
+      // If there are any TypeVars, then lhs may eventually be a subtype of rhs.
+      auto is_typevar = [](Btype& t) { return t == TypeVar; };
+
+      if (
+        std::any_of(lhs_atomic.begin(), lhs_atomic.end(), is_typevar) ||
+        std::any_of(rhs_atomic.begin(), rhs_atomic.end(), is_typevar))
+      {
+        if (delayed)
+          delayed->push_back(std::make_shared<Sequent>(std::move(*this)));
+
+        return true;
+      }
+
+      return false;
     }
 
     bool subtype_one(Btype& l, Btype& r)
@@ -302,9 +357,12 @@ namespace verona
       if (r == TypeTrue)
         return true;
 
-      // Skip TypeVar on either side.
+      // TypeVars must be an exact match.
       if ((l == TypeVar) || (r == TypeVar))
-        return false;
+      {
+        return (l->type() == r->type()) &&
+          (l->node->location() == r->node->location());
+      }
 
       // These must be the same type.
       // TODO: region tracking
@@ -352,20 +410,17 @@ namespace verona
       // Check predicate subtyping.
       if (r == TypeSubtype)
       {
-        // ⊩ Π, A ⊢ B
+
+        // A < B ⊩ Π, A ⊢ B
         // ---
         // Π ⊩ Γ ⊢ Δ, A < B
         Sequent seq;
+        seq.predicates.push_back(r);
         seq.lhs_pending = predicates;
         seq.lhs_pending.push_back(r / Lhs);
         seq.rhs_pending.push_back(r / Rhs);
-        seq.bounds = bounds;
-
-        if (!seq.reduce())
-          return false;
-
-        merge(bounds, seq.bounds);
-        return true;
+        seq.delayed = delayed;
+        return seq.reduce();
       }
 
       // Check structural subtyping.
@@ -402,11 +457,13 @@ namespace verona
 
           // At this point, traits have been decomposed into intersections of
           // single-function traits.
+          auto hand = (rf / Ref)->type();
           auto id = (rf / Ident)->location();
           auto arity = (rf / Params)->size();
           auto lfs = l->node->lookdown(id);
           auto it = std::find_if(lfs.begin(), lfs.end(), [&](auto& lf) {
-            return (lf == Function) && ((lf / Params)->size() == arity);
+            return (lf == Function) && ((lf / Ref) == hand) &&
+              ((lf / Params)->size() == arity);
           });
 
           if (it == lfs.end())
@@ -465,6 +522,58 @@ namespace verona
         return ok;
       }
 
+      if (r == InferSelector)
+      {
+        if (!l->in({Class, Trait}))
+          return false;
+
+        if (l == Class)
+          push_self(l);
+
+        auto hand = (r->node / Selector / Ref)->type();
+        auto id = (r->node / Selector / Ident)->location();
+        auto arity = (r->node / Params)->size();
+        auto lfs = l->node->lookdown(id);
+        auto it = std::find_if(lfs.begin(), lfs.end(), [&](auto& lf) {
+          return (lf == Function) && ((lf / Ref) == hand) &&
+            ((lf / Params)->size() == arity);
+        });
+
+        if (it == lfs.end())
+          return false;
+
+        auto lf = *it;
+
+        // Prove the predicate.
+        if (!reduce(r->make(TypeTrue), l->make(lf / TypePred)))
+          return false;
+
+        // Contravariant parameters.
+        auto rparams = r->node / Params;
+        auto lparams = lf / Params;
+
+        if (!std::equal(
+              rparams->begin(),
+              rparams->end(),
+              lparams->begin(),
+              lparams->end(),
+              [&](auto& rparam, auto& lparam) {
+                return reduce(r->make(rparam), l->make(lparam / Type));
+              }))
+        {
+          return false;
+        }
+
+        // Covariant result.
+        if (!reduce(l->make(lf / Type), r->make(r->node / Type)))
+          return false;
+
+        if (l == Class)
+          pop_self();
+
+        return true;
+      }
+
       // TODO: handle viewpoint adaptation
       if (r == TypeView)
       {
@@ -476,27 +585,6 @@ namespace verona
 
       // Shouldn't get here in non-testing code.
       return false;
-    }
-
-    bool typevar_bounds(Btype& l, Btype& r)
-    {
-      bool ok = false;
-
-      if (l == TypeVar)
-      {
-        // TODO: l.upper += r
-        bounds[l->node->location()].upper.push_back(r);
-        ok = true;
-      }
-
-      if (r == TypeVar)
-      {
-        // TODO: r.lower += l
-        bounds[r->node->location()].lower.push_back(l);
-        ok = true;
-      }
-
-      return ok;
     }
 
     bool same_def_site(Btype& l, Btype& r)
@@ -614,28 +702,340 @@ namespace verona
     }
   };
 
-  bool subtype(Btypes& predicates, Btype sub, Btype sup)
+  bool subtype(Btypes& assume, Btype prove)
   {
     Sequent seq;
-    seq.lhs_pending.insert(
-      seq.lhs_pending.end(), predicates.begin(), predicates.end());
+    seq.lhs_pending = assume;
+    seq.rhs_pending.push_back(prove);
+    return seq.reduce();
+  }
+
+  bool subtype(Btypes& assume, Btype prove, SequentPtrs& delayed)
+  {
+    Sequent seq;
+    seq.lhs_pending = assume;
+    seq.rhs_pending.push_back(prove);
+    seq.delayed = &delayed;
+    return seq.reduce();
+  }
+
+  bool subtype(Btype sub, Btype sup)
+  {
+    Sequent seq;
     seq.lhs_pending.push_back(sub);
     seq.rhs_pending.push_back(sup);
     return seq.reduce();
   }
 
-  bool subtype(Btypes& predicates, Btype sub, Btype sup, Bounds& bounds)
+  bool subtype(Btypes& assume, Btype sub, Btype sup, SequentPtrs& delayed)
   {
     Sequent seq;
-    seq.lhs_pending.insert(
-      seq.lhs_pending.end(), predicates.begin(), predicates.end());
+    seq.lhs_pending = assume;
     seq.lhs_pending.push_back(sub);
     seq.rhs_pending.push_back(sup);
+    seq.delayed = &delayed;
+    return seq.reduce();
+  }
 
-    if (!seq.reduce())
+  template<class InputIt, class BinaryPredicate>
+  constexpr bool
+  any_of_compare(InputIt first, InputIt last, InputIt ref, BinaryPredicate p)
+  {
+    if (ref == last)
       return false;
 
-    merge(bounds, seq.bounds);
+    for (; first != last; ++first)
+    {
+      if (ref == first)
+        continue;
+
+      if (p(*ref, *first))
+        return true;
+    }
+
+    return false;
+  }
+
+  static bool simplify_constraint(Constraint& constraint)
+  {
+    // Discard uninhabited intersection types.
+    auto end =
+      std::remove_if(constraint.begin(), constraint.end(), [&](Btypes& isect) {
+        // If there's a TypeFalse, the conjunction is uninhabited.
+        if (std::find(isect.begin(), isect.end(), TypeFalse) != isect.end())
+          return true;
+
+        // If there's a class, classes and traits can't conflict.
+        auto cls = std::find(isect.begin(), isect.end(), Class);
+
+        if (any_of_compare(
+              isect.begin(), isect.end(), cls, [&](Btype& cls, Btype& other) {
+                return other->in({Class, Trait}) && !subtype(cls, other);
+              }))
+          return true;
+
+        // If there's a cap, caps can't conflict.
+        auto cap = std::find_if(isect.begin(), isect.end(), [&](Btype& t) {
+          return t->in({Iso, Mut, Imm});
+        });
+
+        if (any_of_compare(
+              isect.begin(), isect.end(), cap, [&](Btype& cap, Btype& other) {
+                return other->in({Iso, Mut, Imm}) && !subtype(cap, other);
+              }))
+          return true;
+
+        if (cls != isect.end())
+        {
+          // Discard traits and other classes if there's a class.
+          auto bcls = *cls;
+          auto end = std::remove_if(isect.begin(), isect.end(), [&](Btype& t) {
+            return (t != bcls) && t->in({Class, Trait});
+          });
+
+          isect.erase(end, isect.end());
+        }
+
+        if (cap != isect.end())
+        {
+          // Discard other caps if there's a cap.
+          auto bcap = *cap;
+          auto end = std::remove_if(isect.begin(), isect.end(), [&](Btype& t) {
+            return (t != bcap) && t->in({Iso, Mut, Imm});
+          });
+
+          isect.erase(end, isect.end());
+        }
+
+        // Discard TypeTrue.
+        isect.erase(
+          std::remove(isect.begin(), isect.end(), TypeTrue), isect.end());
+
+        // TODO:
+        // check trait subtyping, discard if subsumed
+
+        // Discard empty conjunctions.
+        return isect.empty();
+      });
+
+    constraint.erase(end, constraint.end());
+
+    // TODO: simplify union types
+    // discard conjunctions contained in other conjunctions
+
+    // Return failure if the constraint is empty.
+    return !constraint.empty();
+  }
+
+  static bool simplify_constraints(Constraints& constraints)
+  {
+    // Simplify each constraint.
+    bool ok = true;
+
+    std::for_each(
+      constraints.begin(), constraints.end(), [&](auto& constraint) {
+        if (!simplify_constraint(constraint.second))
+        {
+          // TODO: An empty constraint is uninhabitable, so it's an error.
+          ok = false;
+          std::cout << constraint.first.view() << " is uninhabitable"
+                    << std::endl;
+        }
+      });
+
+    return ok;
+  }
+
+  static std::vector<Btypes> constrain_union(std::vector<Btypes>& a, Btypes& b)
+  {
+    std::vector<Btypes> result;
+
+    if (a.empty())
+    {
+      // Change to DNF.
+      for (auto& bb : b)
+        result.push_back({bb});
+
+      return result;
+    }
+
+    if (b.empty())
+      return a;
+
+    for (auto& aa : a)
+    {
+      for (auto& bb : b)
+      {
+        // Add each element as a conjunction to each disjunction.
+        Btypes seq;
+        seq.insert(seq.end(), aa.begin(), aa.end());
+        seq.push_back(bb);
+        result.push_back(seq);
+      }
+    }
+
+    return result;
+  }
+
+  void one_rhs_typevar(Constraints& constraints, SequentPtrs& seqs)
+  {
+    // Find one TypeVar on the RHS. LHS is an isect constraint.
+    auto end = std::remove_if(seqs.begin(), seqs.end(), [&](auto& seq) {
+      return if_one_typevar(
+        seq->rhs_atomic.begin(), seq->rhs_atomic.end(), [&](auto& typevar) {
+          constraints[typevar->node->location()].push_back(seq->lhs_atomic);
+          return true;
+        });
+    });
+
+    seqs.erase(end, seqs.end());
+  }
+
+  void one_lhs_typevar_constrained(Constraints& constraints, SequentPtrs& seqs)
+  {
+    // Try to solve remaining Sequents if (a) they are one-LHS and (b) the LHS
+    // typevar has a constraint.
+    SequentPtrs accum;
+
+    while (true)
+    {
+      auto end = std::remove_if(seqs.begin(), seqs.end(), [&](auto& seq) {
+        return if_one_typevar(
+          seq->lhs_atomic.begin(), seq->lhs_atomic.end(), [&](auto& typevar) {
+            if (
+              constraints.find(typevar->node->location()) == constraints.end())
+              return false;
+
+            return seq->reduce(constraints, &accum);
+          });
+      });
+
+      seqs.erase(end, seqs.end());
+
+      if (accum.empty())
+        return;
+
+      one_rhs_typevar(constraints, accum);
+      seqs.insert(seqs.end(), accum.begin(), accum.end());
+      accum.clear();
+    }
+  }
+
+  void
+  one_lhs_typevar_unconstrained(Constraints& constraints, SequentPtrs& seqs)
+  {
+    // Combine remaining one-LHS Sequents into a single constraint.
+    auto end = std::remove_if(seqs.begin(), seqs.end(), [&](auto& seq) {
+      return if_one_typevar(
+        seq->lhs_atomic.begin(), seq->lhs_atomic.end(), [&](auto& typevar) {
+          constraints[typevar->node->location()] = constrain_union(
+            constraints[typevar->node->location()], seq->rhs_atomic);
+          return true;
+        });
+    });
+
+    seqs.erase(end, seqs.end());
+  }
+
+  void print(const Constraints& constraints);
+
+  bool infer_types(SequentPtrs& delayed)
+  {
+    Constraints constraints;
+
+    one_rhs_typevar(constraints, delayed);
+
+    // TODO: remove this
+    print(constraints);
     return true;
+
+    one_lhs_typevar_constrained(constraints, delayed);
+    one_lhs_typevar_unconstrained(constraints, delayed);
+
+    if (!simplify_constraints(constraints))
+      return false;
+
+    // Prove remaining Sequents.
+    auto end = std::remove_if(delayed.begin(), delayed.end(), [&](auto& seq) {
+      return seq->reduce(constraints);
+    });
+
+    delayed.erase(end, delayed.end());
+
+    // TODO: shouldn't have any Sequents left. Anything left is an unprovable
+    // error. Emit errors.
+    if (!delayed.empty())
+      std::cout << "unprovable sequents: " << delayed.size() << std::endl;
+
+    // TODO: print constraints, remove this
+    std::for_each(
+      constraints.begin(), constraints.end(), [&](auto& constraint) {
+        std::cout << constraint.first.view() << " = {" << std::endl;
+        std::for_each(
+          constraint.second.begin(), constraint.second.end(), [&](auto& isect) {
+            std::cout << "{";
+            std::for_each(
+              isect.begin(), isect.end(), [&](auto& t) { std::cout << t; });
+            std::cout << "}" << std::endl;
+          });
+        std::cout << "}" << std::endl;
+      });
+
+    // TODO: feed constraints back into the AST
+    return true;
+  }
+
+  inline std::ostream& operator<<(std::ostream& out, const Sequent& seq)
+  {
+    seq.str(out, 0);
+    return out;
+  }
+
+  [[gnu::used]] inline void print(const Sequent& seq)
+  {
+    std::cout << seq;
+  }
+
+  [[gnu::used]] inline void print(const SequentPtr& seq)
+  {
+    std::cout << *seq;
+  }
+
+  [[gnu::used]] inline void print(const SequentPtrs& seqs)
+  {
+    std::for_each(seqs.begin(), seqs.end(), [](auto& seq) { print(seq); });
+  }
+
+  [[gnu::used]] inline void print(const Constraint& c)
+  {
+    std::cout << "constraint: {" << std::endl;
+    std::for_each(c.begin(), c.end(), [](auto& isect) { print(isect); });
+    std::cout << "}" << std::endl;
+  }
+
+  [[gnu::used]] inline void print(const Constraints& constraints)
+  {
+    std::for_each(constraints.begin(), constraints.end(), [](auto& constraint) {
+      std::cout << constraint.first.view() << " = {" << std::endl;
+      std::for_each(
+        constraint.second.begin(), constraint.second.end(), [](auto& isect) {
+          std::cout << "{";
+          std::for_each(
+            isect.begin(), isect.end(), [](auto& t) { std::cout << t; });
+          std::cout << "}" << std::endl;
+        });
+      std::cout << "}" << std::endl;
+    });
+  }
+
+  [[gnu::used]] inline Constraint
+  get(const Constraints& constraints, const Btype& t)
+  {
+    auto it = constraints.find(t->node->location());
+
+    if (it != constraints.end())
+      return it->second;
+
+    return {};
   }
 }
