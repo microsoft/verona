@@ -11,7 +11,7 @@ set(TRIESTE_BUILD_SAMPLES OFF)
 FetchContent_Declare(
   trieste
   GIT_REPOSITORY https://github.com/microsoft/trieste
-  GIT_TAG 0b2ec3c5ea7bf52b0f6b2ed9e4f9d571aba47a8b
+  GIT_TAG fac9e4c84de192ee53051be32c5426256cd1086e
   GIT_SHALLOW TRUE
 )
 
