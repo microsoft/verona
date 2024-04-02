@@ -1,5 +1,10 @@
 # Verona Language Spec
 
+This document is a work in progress. It is intended to be a comprehensive guide to the Verona programming language. It is not intended to be a tutorial, but rather a reference for those who are already familiar with the language.  In time, we will provide other documents to motivate and "sell" the language design.
+
+> [Notes from discussion:] Should contain "rationale subsections" to explain why things are the way they are.
+
+
 ## Lexical Elements
 
 ### Comments
@@ -8,20 +13,25 @@
 
 - `_` as "don't care".
 
-### Strings
-
-### Constants
+### Primitive literals
 
 - Boolean
 - Various integers and floats
 
-> How to talk about integer literals not having a type yet?
+> [TODO:] How to talk about integer literals not having a type yet?  That is, 0 is zero, not a particular type of 0.  https://www.haskell.org/tutorial/numbers.html  
+
+### Array literals
+
+### String literals
+
+> [TODO:] String literals are not for a specific text encoding, like 0 is the zero it needs to be (float, signed, unsigned, 1/2/4/8/16/32/64bit, etc.).
 
 ### Lambdas
 
 ### Object Literals
 
-- Open issues: code reuse, possible conflict with "real" `new`.
+> [Open issues:]  code reuse, possible conflict with "real" `new`.
+> Note that the parser current uses `new { ... }` as an object literal, which might conflict with object allocation.
 
 ### Expression Termination
 
@@ -63,6 +73,15 @@
 - Selectors
 - Reverse application
 
+### Object allocation/construction
+
+> [Notes from discussion:] 
+> * Static initialisers in other languages, and when things happen.
+> * Immutable static data initialisation, probably not a problem here.
+> * Initialisation order is complex in some languages.
+> * `create` as a factory method, and allocates after it has found all the bits. 
+>   So create can fail, make sure we allow failure returns from create.
+
 ### Universal Call Syntax
 
 - Object-like vs. operator-like local names
@@ -83,6 +102,8 @@
 - Left and right side expressions
 - Returning the previous value
 
+> [Notes from discussion:] Should this mention `Store` types?
+
 ### Partial Application
 
 - Implicit.
@@ -99,6 +120,13 @@
 ### Pattern Matching
 
 - Do we need to talk about type lists here?
+
+## Region Model
+
+> [Notes from discussion:] 
+> * Describe the region model before the types to capture and enforce it.
+> * Object model section before types - pretty pictures
+> * Types turn pretty pictures into maths.
 
 ## Types
 
