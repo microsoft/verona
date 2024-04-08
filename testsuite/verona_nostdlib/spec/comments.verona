@@ -1,0 +1,28 @@
+// Comment
+class A {
+  /* comment 
+  class B {
+    // comment
+  }
+  */
+}
+
+class B {
+    // Comment
+}
+
+// /* comment opening inside comment ignored
+
+/* // line comment inside comment ignored */
+
+let a = "// not a comment!"
+
+let b = "/* not a comment start"
+
+let c = "not a comment end */"
+
+/* Nested comments /* like this work */ as you would expect.*/
+
+/* Quotes don't affect the nesting. "/*" */ */
+
+//
