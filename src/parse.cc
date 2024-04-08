@@ -221,6 +221,7 @@ namespace verona
         // Nested comment.
         "/\\*" >>
           [depth](auto& m) {
+            assert(*depth == 0);
             ++(*depth);
             m.mode("comment");
           },
@@ -329,6 +330,8 @@ namespace verona
           },
 
         "." >> [](auto&) {},
+
+        "\r?\n" >> [](auto&) {},
       });
 
     p.done([](auto& m) {
