@@ -335,8 +335,11 @@ namespace verona
       });
 
     p.done([](auto& m) {
-      if (m.mode() != "start")
+      if (m.mode() == "comment")
         m.error("unterminated comment at end of file");
+
+      if (m.mode() == "string")
+        m.error("unterminated string at end of file");
 
       m.term(terminators);
     });
