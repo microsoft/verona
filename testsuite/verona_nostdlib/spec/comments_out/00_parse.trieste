@@ -3,16 +3,6 @@ parse
 (top
   {}
   (file
-    (group
-      (class
-        {})
-      (ident 1:A)
-      (brace))
-    (group
-      (class
-        {})
-      (ident 1:B)
-      (brace))
     (equals
       (group
         (let)

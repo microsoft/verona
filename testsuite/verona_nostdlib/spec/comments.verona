@@ -1,28 +1,38 @@
 // Comment
-class A {
-  /* comment 
-  class B {
-    // comment
-  }
-  */
-}
 
-class B {
-    // Comment
-}
+// Comment /* with nested comment */
 
-// /* comment opening inside comment ignored
+// Comment with "quotes"
+
+// Comment with "quotes /* and nested comment */"
+
+// Comment with "quotes /* and nested comment */" and more text
+
+/* Single-line comment */
+/**/
+/* Single-line comment with /*Nested comment*/ */
+
+/* Multi-line
+   comment */
+/*
+
+*/
+/* Multi-line
+   comment /* with nested comment */
+*/
+
+
+// /* Comment opening inside comment ignored
 
 /* // line comment inside comment ignored */
 
+// Interaction with strings:
 let a = "// not a comment!"
 
 let b = "/* not a comment start"
 
 let c = "not a comment end */"
 
-/* Nested comments /* like this work */ as you would expect.*/
-
 /* Quotes don't affect the nesting. "/*" */ */
 
-//
+// Comment doesn't need a new line to terminate it
