@@ -1,0 +1,6 @@
+Errors:
+unterminated comment at end of file/home/mjp41/verona/testsuite/verona_nostdlib/spec/comments_broken_nest.verona:1:38
+/* Nested comments /* like this work */
+                                     ~~
+Pass parse failed with 1 errors
+

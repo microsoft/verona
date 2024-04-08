@@ -1,0 +1,9 @@
+Verona
+defaultargs
+(top
+  {}
+  (file
+    (group
+      (error
+        (errormsg 35:unterminated comment at end of file)
+        (errorast)))))
