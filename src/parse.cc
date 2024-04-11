@@ -324,6 +324,7 @@ namespace verona
 
     p("comment",
       {
+        "[^/\\*]+" >> [](auto&) {},
         "/\\*" >> [depth](auto&) { ++(*depth); },
 
         "\\*/" >>
@@ -332,9 +333,7 @@ namespace verona
               m.mode("start");
           },
 
-        "." >> [](auto&) {},
-
-        "\r?\n" >> [](auto&) {},
+        "[/\\*]" >> [](auto&) {},
       });
 
     p.done([start_location](auto& m) {
