@@ -340,7 +340,7 @@ namespace verona
     p.done([start_location](auto& m) {
       if (m.mode() == "comment")
         m.error("Unterminated comment starting at ", *start_location);
-        
+
       if (m.mode() == "string")
         m.error("Unterminated string starting at ", *start_location);
 
