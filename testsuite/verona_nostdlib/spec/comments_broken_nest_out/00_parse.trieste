@@ -1,0 +1,9 @@
+Verona
+parse
+(top
+  {}
+  (file
+    (group
+      (error
+        (errormsg 33:Unterminated comment starting at )
+        (errorast)))))

@@ -1,0 +1,23 @@
+Verona
+parse
+(top
+  {}
+  (file
+    (equals
+      (group
+        (let)
+        (ident 1:a))
+      (group
+        (escaped 17:// not a comment!)))
+    (equals
+      (group
+        (let)
+        (ident 1:b))
+      (group
+        (escaped 22:/* not a comment start)))
+    (equals
+      (group
+        (let)
+        (ident 1:c))
+      (group
+        (escaped 20:not a comment end */)))))

@@ -91,7 +91,7 @@ foreach(TOOL ${TOOL_FOLDERS})
     # Check if there are any files to compare for this test.
     list(LENGTH results res_length)
     if(res_length EQUAL 0)
-      message(WARNING "Test does not have results directory: ${golden_dir}")
+      message(WARNING "Test does not have results directory: ${golden_dir}\nRun `update-dump` to generate golden files.")
       # Add to generate golden output target
       add_custom_command(OUTPUT ${test_path}
         COMMAND

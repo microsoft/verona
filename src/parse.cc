@@ -49,6 +49,7 @@ namespace verona
     auto depth = std::make_shared<size_t>(0);
     auto str = std::make_shared<Str>();
     auto indent = std::make_shared<std::vector<size_t>>();
+    auto start_location = std::make_shared<Location>();
     indent->push_back(restart);
 
     p.prefile([](auto&, auto& path) { return path.extension() == ".verona"; });
@@ -202,10 +203,11 @@ namespace verona
 
         // Unescaped string.
         "([']+)\"([^\"]*)" >>
-          [str](auto& m) {
+          [str, start_location](auto& m) {
             str->start = m.match(1).len;
             str->end = 0;
             m.add(String, 2);
+            *start_location = m.match(1);
             m.mode("string");
           },
 
@@ -220,8 +222,10 @@ namespace verona
 
         // Nested comment.
         "/\\*" >>
-          [depth](auto& m) {
+          [depth, start_location](auto& m) {
+            assert(*depth == 0);
             ++(*depth);
+            *start_location = m.match();
             m.mode("comment");
           },
 
@@ -320,6 +324,7 @@ namespace verona
 
     p("comment",
       {
+        "[^/\\*]+" >> [](auto&) {},
         "/\\*" >> [depth](auto&) { ++(*depth); },
 
         "\\*/" >>
@@ -328,12 +333,15 @@ namespace verona
               m.mode("start");
           },
 
-        "." >> [](auto&) {},
+        "[/\\*]" >> [](auto&) {},
       });
 
-    p.done([](auto& m) {
-      if (m.mode() != "start")
-        m.error("unterminated comment at end of file");
+    p.done([start_location](auto& m) {
+      if (m.mode() == "comment")
+        m.error("Unterminated comment starting at ", *start_location);
+
+      if (m.mode() == "string")
+        m.error("Unterminated string starting at ", *start_location);
 
       m.term(terminators);
     });

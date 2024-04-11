@@ -1,0 +1,8 @@
+Errors:
+Unterminated comment starting at 
+-- comments_broken_nest.verona:1:1
+/* Nested comments /* like this need well bracketed termination */
+~~
+
+Pass parse failed with 1 error!
+
