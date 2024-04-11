@@ -8,6 +8,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(TRIESTE_BUILD_SAMPLES OFF)
 
+option(VERONA_GENERATE_LAUNCH_JSON "Generate a launch.json file for debugging in VSCode" OFF)
+
 FetchContent_Declare(
   trieste
   GIT_REPOSITORY https://github.com/microsoft/trieste

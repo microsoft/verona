@@ -85,6 +85,23 @@ foreach(TOOL ${TOOL_FOLDERS})
     set_source_files_properties(${test_path} PROPERTIES SYMBOLIC "true")
     list(APPEND test_set ${test_path})
 
+    # Make json for debugging.
+    toolinvoke(launch_json_args ${VERONA_LOCAL_DIST} ${test_file} ${output_dir})
+    list(POP_FRONT launch_json_args launch_json_prog)
+    # Convert to a json format list.
+    string(REPLACE "\"" "\\\"" launch_json_args "${launch_json_args}")
+    string(REPLACE ";" "\", \"" launch_json_args "${launch_json_args}")
+    list(APPEND LAUNCH_JSON
+"    {
+      \"name\": \"${test_path}\",
+      \"type\": \"cppdbg\",
+      \"request\": \"launch\",
+      \"program\": \"${launch_json_prog}\",
+      \"args\": [\"${launch_json_args}\"],
+      \"stopAtEntry\": false,
+      \"cwd\": \"${TOOL_FOLDER}/${test_dir}\",
+    },")
+
     # Add output comparison for each golden / output file
     set (golden_dir  ${CMAKE_CURRENT_SOURCE_DIR}/${test_path}${GOLDEN_DIR_SUFFIX} )
     file (GLOB_RECURSE results CONFIGURE_DEPENDS RELATIVE ${golden_dir} ${golden_dir}/*)
@@ -146,5 +163,18 @@ foreach(TOOL ${TOOL_FOLDERS})
   add_custom_target("update-dump-${TOOL}" DEPENDS ${test_set})
   list(APPEND UPDATE_DUMPS_TARGETS "update-dump-${TOOL}")
 endforeach()
+
+string(REPLACE ";" "\n" LAUNCH_JSON "${LAUNCH_JSON}")
+
+if (VERONA_GENERATE_LAUNCH_JSON)
+  file(WRITE ${CMAKE_SOURCE_DIR}/.vscode/launch.json
+"{
+  \"version\": \"0.2.0\",
+  \"configurations\": [
+    ${LAUNCH_JSON}
+  ]
+}")
+endif()
+
 
 add_custom_target(update-dump DEPENDS ${UPDATE_DUMPS_TARGETS})
