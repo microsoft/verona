@@ -4,5 +4,5 @@ Unterminated comment starting at
 /* Nested comments /* like this work */
 ~~
 
-Pass parse failed with 1 errors
+Pass parse failed with 1 error!
 
