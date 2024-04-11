@@ -1,0 +1,11 @@
+class Subtype[S, T] where (S < T) {}
+
+type Copyable[Slf] = {
+  copy(self: Slf) : Slf
+} & (Slf < Copyable[Slf])
+
+class C {
+  copy(self: C): C
+}
+
+let x : Subtype[C, Copyable[C]]
