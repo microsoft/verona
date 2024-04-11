@@ -5,5 +5,5 @@ parse
   (file
     (group
       (error
-        (errormsg 35:unterminated comment at end of file)
+        (errormsg 33:Unterminated comment starting at )
         (errorast)))))
