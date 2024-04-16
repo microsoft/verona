@@ -1,5 +1,9 @@
 ## Lexical Elements
 
+This section explains the lexical elements of the Verona language.
+It forms part of the [language specification](spec.md),
+which is intended to be a comprehensive guide to the Verona programming language.
+
 ### Comments
 
 Verona supports two types of comments.
