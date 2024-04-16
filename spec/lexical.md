@@ -2,6 +2,45 @@
 
 ### Comments
 
+Verona supports two types of comments.
+The first type is a single line comment:
+```
+// Single line comments
+```
+These start with a `//` and continue to the end of the line.
+The termination of the comment is the end of the line or the end of file, which ever occurs sooner.
+
+The second type of comment is a block comment:
+```
+/* Block comments */
+```
+These comments begin with a `/*` and end with a `*/`.
+They can span multiple lines.
+```
+/*
+   This is a multi-
+   line block comment.
+ */
+```
+
+The block comment is nestable, meaning that you can have a block comment within a block comment.
+```
+/* Block comments can contain commented code.
+   /* This is a block comment */
+   f(x,y,z)
+   /* with another block comment */
+   g(x,y,z)
+ */
+```
+There is no limit to the nesting depth of block comments.
+
+Block comments must be correctly terminated.
+That is every `/*` must have a corresponding `*/`.
+A non-terminated block comment is a syntax error.
+
+> [TODO:] Explain interaction with string literals.
+>         Possibly, here or in string section.
+
 ### Identifiers and Symbols
 
 - `_` as "don't care".
