@@ -17,7 +17,8 @@ parse
             (ident 4:copy)
             (paren
               (group
-                (ident 4:self)
+                (typealias
+                  {})
                 (colon)
                 (Self)))
             (colon)

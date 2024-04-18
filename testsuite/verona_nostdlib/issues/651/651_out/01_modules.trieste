@@ -26,7 +26,8 @@ modules
               (ident 4:copy)
               (paren
                 (group
-                  (ident 4:self)
+                  (typealias
+                    {})
                   (type
                     (Self))))
               (type

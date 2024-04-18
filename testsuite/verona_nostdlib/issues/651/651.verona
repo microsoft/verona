@@ -1,3 +1,4 @@
-type Copyable[Self] = { // This loops forever due to parameter name self
-  copy(self: Self) : Self
+// Using reserved keyword in parameter and type parameter should result in errors.
+type Copyable[Self] = {
+  copy(type: Self) : Self
 } & (Self < Copyable[Self])

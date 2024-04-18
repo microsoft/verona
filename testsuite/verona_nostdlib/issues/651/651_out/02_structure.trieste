@@ -39,18 +39,19 @@ structure
             (ident 7:trait$0)
             (classbody
               (function
-                {
-                  self = param}
+                {}
                 (explicit)
                 (rhs)
                 (ident 4:copy)
                 (typeparams)
                 (params
-                  (param
-                    (ident 4:self)
-                    (type
-                      (Self))
-                    (dontcare)))
+                  (error
+                    (errormsg 20:Expected a parameter)
+                    (group
+                      (typealias
+                        {})
+                      (type
+                        (Self)))))
                 (type
                   (Self))
                 (dontcare)
