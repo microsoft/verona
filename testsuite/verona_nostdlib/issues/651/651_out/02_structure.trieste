@@ -1,0 +1,70 @@
+Verona
+structure
+(top
+  {
+    651 = class}
+  (class
+    {
+      Copyable = typealias
+      include 651}
+    (ident 3:651)
+    (typeparams)
+    (inherit
+      (dontcare))
+    (typepred
+      (type
+        (typetrue)))
+    (classbody
+      (use
+        (type
+          (ident 3:std)
+          (doublecolon)
+          (ident 7:builtin)))
+      (typealias
+        {
+          trait$0 = typetrait}
+        (ident 8:Copyable)
+        (typeparams
+          (error
+            (errormsg 46:Expected a type parameter or a value parameter)
+            (group
+              (Self))))
+        (typepred
+          (type
+            (typetrue)))
+        (type
+          (typetrait
+            {
+              copy = function}
+            (ident 7:trait$0)
+            (classbody
+              (function
+                {
+                  self = param}
+                (explicit)
+                (rhs)
+                (ident 4:copy)
+                (typeparams)
+                (params
+                  (param
+                    (ident 4:self)
+                    (type
+                      (Self))
+                    (dontcare)))
+                (type
+                  (Self))
+                (dontcare)
+                (typepred
+                  (type
+                    (typetrue)))
+                (dontcare))))
+          (symbol 1:&)
+          (type
+            (typetuple
+              (type
+                (Self)
+                (symbol 1:<)
+                (ident 8:Copyable)
+                (typeargs
+                  (type
+                    (Self)))))))))))
