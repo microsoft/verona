@@ -1,0 +1,244 @@
+Verona
+lambda
+(top
+  {
+    668 = class}
+  (class
+    {
+      None0 = class
+      None1 = class
+      None2 = class
+      None3 = class
+      None4 = class
+      include 668}
+    (ident 3:668)
+    (typeparams)
+    (inherit
+      (dontcare))
+    (typepred
+      (type
+        (typetrue)))
+    (classbody
+      (use
+        (type
+          (ident 3:std)
+          (doublecolon)
+          (ident 7:builtin)))
+      (class
+        {
+          test = function}
+        (ident 5:None0)
+        (typeparams)
+        (inherit
+          (dontcare))
+        (typepred
+          (type
+            (typetrue)))
+        (classbody
+          (function
+            {
+              x = param
+              y = param}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params
+              (param
+                (ident 1:x)
+                (type
+                  (ident 5:None0))
+                (dontcare))
+              (param
+                (ident 1:y)
+                (type
+                  (ident 5:None0))
+                (dontcare)))
+            (type
+              (ident 5:None0))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (reflet
+                  (ident 1:x)))))))
+      (class
+        {
+          test = function}
+        (ident 5:None1)
+        (typeparams)
+        (inherit
+          (dontcare))
+        (typepred
+          (type
+            (typetrue)))
+        (classbody
+          (function
+            {
+              x = param
+              y = param}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params
+              (param
+                (ident 1:x)
+                (type
+                  (ident 5:None1))
+                (block
+                  (expr
+                    (ident 5:None1))))
+              (param
+                (ident 1:y)
+                (type
+                  (ident 5:None1))
+                (dontcare)))
+            (type
+              (ident 5:None1))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (reflet
+                  (ident 1:x)))))))
+      (class
+        {
+          test = function}
+        (ident 5:None2)
+        (typeparams)
+        (inherit
+          (dontcare))
+        (typepred
+          (type
+            (typetrue)))
+        (classbody
+          (function
+            {
+              x = param
+              y = param}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params
+              (param
+                (ident 1:x)
+                (type
+                  (ident 5:None2))
+                (dontcare))
+              (param
+                (ident 1:y)
+                (type
+                  (ident 5:None2))
+                (block
+                  (expr
+                    (ident 5:None2)))))
+            (type
+              (ident 5:None2))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (reflet
+                  (ident 1:x)))))))
+      (class
+        {
+          test = function}
+        (ident 5:None3)
+        (typeparams)
+        (inherit
+          (dontcare))
+        (typepred
+          (type
+            (typetrue)))
+        (classbody
+          (function
+            {
+              x = param
+              y = param}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params
+              (param
+                (ident 1:x)
+                (type
+                  (ident 5:None3))
+                (block
+                  (expr
+                    (ident 5:None3))))
+              (param
+                (ident 1:y)
+                (type
+                  (ident 5:None3))
+                (block
+                  (expr
+                    (ident 5:None3)))))
+            (type
+              (ident 5:None3))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (reflet
+                  (ident 1:x)))))))
+      (class
+        {
+          test = function}
+        (ident 5:None4)
+        (typeparams)
+        (inherit
+          (dontcare))
+        (typepred
+          (type
+            (typetrue)))
+        (classbody
+          (function
+            {
+              x = param
+              y = param
+              z = param}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params
+              (param
+                (ident 1:x)
+                (type
+                  (ident 5:None4))
+                (block
+                  (expr
+                    (ident 5:None4))))
+              (param
+                (ident 1:y)
+                (type
+                  (ident 5:None4))
+                (dontcare))
+              (param
+                (ident 1:z)
+                (type
+                  (ident 5:None4))
+                (block
+                  (expr
+                    (ident 5:None4)))))
+            (type
+              (ident 5:None4))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (reflet
+                  (ident 1:x))))))))))

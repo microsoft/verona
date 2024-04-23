@@ -1,0 +1,622 @@
+Verona
+defaultargs
+(top
+  {
+    668 = class}
+  (class
+    {
+      None0 = class
+      None1 = class
+      None2 = class
+      None3 = class
+      None4 = class
+      create = function
+      new = function
+      include 668}
+    (ident 3:668)
+    (typeparams)
+    (inherit
+      (dontcare))
+    (typepred
+      (type
+        (typetrue)))
+    (classbody
+      (use
+        (type
+          (ident 3:std)
+          (doublecolon)
+          (ident 7:builtin)))
+      (class
+        {
+          create = function
+          new = function
+          test = function}
+        (ident 5:None0)
+        (typeparams)
+        (inherit
+          (dontcare))
+        (typepred
+          (type
+            (typetrue)))
+        (classbody
+          (function
+            {
+              x = param
+              y = param}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params
+              (param
+                (ident 1:x)
+                (type
+                  (ident 5:None0)))
+              (param
+                (ident 1:y)
+                (type
+                  (ident 5:None0))))
+            (type
+              (ident 5:None0))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (reflet
+                  (ident 1:x)))))
+          (function
+            {}
+            (explicit)
+            (rhs)
+            (ident 3:new)
+            (typeparams)
+            (params)
+            (type
+              (typevar 9:typevar$0))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (unit))))
+          (function
+            {}
+            (implicit)
+            (rhs)
+            (ident 6:create)
+            (typeparams)
+            (params)
+            (type
+              (typevar 9:typevar$1))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (new)
+                (unit))))))
+      (class
+        {
+          create = function
+          new = function
+          test =
+            function
+            function}
+        (ident 5:None1)
+        (typeparams)
+        (inherit
+          (dontcare))
+        (typepred
+          (type
+            (typetrue)))
+        (classbody
+          (function
+            {
+              x = let}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params)
+            (type
+              (ident 5:None1))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (assign
+                  (expr
+                    (let
+                      (ident 1:x)))
+                  (expr
+                    (ident 5:None1))))
+              (expr
+                (Self)
+                (doublecolon)
+                (selector
+                  (rhs)
+                  (ident 4:test)
+                  (int 1:0)
+                  (typeargs))
+                (expr
+                  (reflet
+                    (ident 1:x))))))
+          (function
+            {
+              x = param}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params
+              (param
+                (ident 1:x)
+                (type
+                  (ident 5:None1)))
+              (error
+                (errormsg 70:Can't put a parameter with no default value after a parameter with one)
+                (param
+                  (ident 1:y)
+                  (type
+                    (ident 5:None1))
+                  (dontcare))))
+            (type
+              (ident 5:None1))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (reflet
+                  (ident 1:x)))))
+          (function
+            {}
+            (explicit)
+            (rhs)
+            (ident 3:new)
+            (typeparams)
+            (params)
+            (type
+              (typevar 9:typevar$2))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (unit))))
+          (function
+            {}
+            (implicit)
+            (rhs)
+            (ident 6:create)
+            (typeparams)
+            (params)
+            (type
+              (typevar 9:typevar$3))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (new)
+                (unit))))))
+      (class
+        {
+          create = function
+          new = function
+          test =
+            function
+            function}
+        (ident 5:None2)
+        (typeparams)
+        (inherit
+          (dontcare))
+        (typepred
+          (type
+            (typetrue)))
+        (classbody
+          (function
+            {
+              x = param
+              y = let}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params
+              (param
+                (ident 1:x)
+                (type
+                  (ident 5:None2))))
+            (type
+              (ident 5:None2))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (assign
+                  (expr
+                    (let
+                      (ident 1:y)))
+                  (expr
+                    (ident 5:None2))))
+              (expr
+                (Self)
+                (doublecolon)
+                (selector
+                  (rhs)
+                  (ident 4:test)
+                  (int 1:0)
+                  (typeargs))
+                (tuple
+                  (expr
+                    (reflet
+                      (ident 1:x)))
+                  (expr
+                    (reflet
+                      (ident 1:y)))))))
+          (function
+            {
+              x = param
+              y = param}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params
+              (param
+                (ident 1:x)
+                (type
+                  (ident 5:None2)))
+              (param
+                (ident 1:y)
+                (type
+                  (ident 5:None2))))
+            (type
+              (ident 5:None2))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (reflet
+                  (ident 1:x)))))
+          (function
+            {}
+            (explicit)
+            (rhs)
+            (ident 3:new)
+            (typeparams)
+            (params)
+            (type
+              (typevar 9:typevar$4))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (unit))))
+          (function
+            {}
+            (implicit)
+            (rhs)
+            (ident 6:create)
+            (typeparams)
+            (params)
+            (type
+              (typevar 9:typevar$5))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (new)
+                (unit))))))
+      (class
+        {
+          create = function
+          new = function
+          test =
+            function
+            function
+            function}
+        (ident 5:None3)
+        (typeparams)
+        (inherit
+          (dontcare))
+        (typepred
+          (type
+            (typetrue)))
+        (classbody
+          (function
+            {
+              x = let}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params)
+            (type
+              (ident 5:None3))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (assign
+                  (expr
+                    (let
+                      (ident 1:x)))
+                  (expr
+                    (ident 5:None3))))
+              (expr
+                (Self)
+                (doublecolon)
+                (selector
+                  (rhs)
+                  (ident 4:test)
+                  (int 1:0)
+                  (typeargs))
+                (expr
+                  (reflet
+                    (ident 1:x))))))
+          (function
+            {
+              x = param
+              y = let}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params
+              (param
+                (ident 1:x)
+                (type
+                  (ident 5:None3))))
+            (type
+              (ident 5:None3))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (assign
+                  (expr
+                    (let
+                      (ident 1:y)))
+                  (expr
+                    (ident 5:None3))))
+              (expr
+                (Self)
+                (doublecolon)
+                (selector
+                  (rhs)
+                  (ident 4:test)
+                  (int 1:0)
+                  (typeargs))
+                (tuple
+                  (expr
+                    (reflet
+                      (ident 1:x)))
+                  (expr
+                    (reflet
+                      (ident 1:y)))))))
+          (function
+            {
+              x = param
+              y = param}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params
+              (param
+                (ident 1:x)
+                (type
+                  (ident 5:None3)))
+              (param
+                (ident 1:y)
+                (type
+                  (ident 5:None3))))
+            (type
+              (ident 5:None3))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (reflet
+                  (ident 1:x)))))
+          (function
+            {}
+            (explicit)
+            (rhs)
+            (ident 3:new)
+            (typeparams)
+            (params)
+            (type
+              (typevar 9:typevar$6))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (unit))))
+          (function
+            {}
+            (implicit)
+            (rhs)
+            (ident 6:create)
+            (typeparams)
+            (params)
+            (type
+              (typevar 9:typevar$7))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (new)
+                (unit))))))
+      (class
+        {
+          create = function
+          new = function
+          test =
+            function
+            function}
+        (ident 5:None4)
+        (typeparams)
+        (inherit
+          (dontcare))
+        (typepred
+          (type
+            (typetrue)))
+        (classbody
+          (function
+            {
+              x = let}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params)
+            (type
+              (ident 5:None4))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (assign
+                  (expr
+                    (let
+                      (ident 1:x)))
+                  (expr
+                    (ident 5:None4))))
+              (expr
+                (Self)
+                (doublecolon)
+                (selector
+                  (rhs)
+                  (ident 4:test)
+                  (int 1:0)
+                  (typeargs))
+                (expr
+                  (reflet
+                    (ident 1:x))))))
+          (function
+            {
+              x = param}
+            (explicit)
+            (rhs)
+            (ident 4:test)
+            (typeparams)
+            (params
+              (param
+                (ident 1:x)
+                (type
+                  (ident 5:None4)))
+              (error
+                (errormsg 70:Can't put a parameter with no default value after a parameter with one)
+                (param
+                  (ident 1:y)
+                  (type
+                    (ident 5:None4))
+                  (dontcare))))
+            (type
+              (ident 5:None4))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (reflet
+                  (ident 1:x)))))
+          (function
+            {}
+            (explicit)
+            (rhs)
+            (ident 3:new)
+            (typeparams)
+            (params)
+            (type
+              (typevar 9:typevar$8))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (unit))))
+          (function
+            {}
+            (implicit)
+            (rhs)
+            (ident 6:create)
+            (typeparams)
+            (params)
+            (type
+              (typevar 9:typevar$9))
+            (dontcare)
+            (typepred
+              (type
+                (typetrue)))
+            (block
+              (expr
+                (new)
+                (unit))))))
+      (function
+        {}
+        (explicit)
+        (rhs)
+        (ident 3:new)
+        (typeparams)
+        (params)
+        (type
+          (typevar 10:typevar$10))
+        (dontcare)
+        (typepred
+          (type
+            (typetrue)))
+        (block
+          (expr
+            (unit))))
+      (function
+        {}
+        (implicit)
+        (rhs)
+        (ident 6:create)
+        (typeparams)
+        (params)
+        (type
+          (typevar 10:typevar$11))
+        (dontcare)
+        (typepred
+          (type
+            (typetrue)))
+        (block
+          (expr
+            (new)
+            (unit)))))))

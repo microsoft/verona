@@ -13,7 +13,7 @@ option(VERONA_GENERATE_LAUNCH_JSON "Generate a launch.json file for debugging in
 FetchContent_Declare(
   trieste
   GIT_REPOSITORY https://github.com/microsoft/trieste
-  GIT_TAG 1e1448ca9e4ac158492bf8dbbd86b407c452fc0c
+  GIT_TAG f63eda3dddedaf65def0f237b566fa7e239e6a1c
   GIT_SHALLOW FALSE
 )
 

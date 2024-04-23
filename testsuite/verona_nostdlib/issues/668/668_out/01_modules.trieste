@@ -1,0 +1,146 @@
+Verona
+modules
+(top
+  {}
+  (group
+    (class
+      {})
+    (ident 3:668)
+    (brace
+      (group
+        (use)
+        (ident 3:std)
+        (doublecolon)
+        (ident 7:builtin))
+      (group
+        (class
+          {})
+        (ident 5:None0)
+        (brace
+          (group
+            (ident 4:test)
+            (paren
+              (list
+                (group
+                  (ident 1:x)
+                  (type
+                    (ident 5:None0)))
+                (group
+                  (ident 1:y)
+                  (type
+                    (ident 5:None0)))))
+            (type
+              (ident 5:None0))
+            (brace
+              (group
+                (ident 1:x))))))
+      (group
+        (class
+          {})
+        (ident 5:None1)
+        (brace
+          (group
+            (ident 4:test)
+            (paren
+              (list
+                (equals
+                  (group
+                    (ident 1:x)
+                    (type
+                      (ident 5:None1)))
+                  (group
+                    (ident 5:None1)))
+                (group
+                  (ident 1:y)
+                  (type
+                    (ident 5:None1)))))
+            (type
+              (ident 5:None1))
+            (brace
+              (group
+                (ident 1:x))))))
+      (group
+        (class
+          {})
+        (ident 5:None2)
+        (brace
+          (group
+            (ident 4:test)
+            (paren
+              (list
+                (group
+                  (ident 1:x)
+                  (type
+                    (ident 5:None2)))
+                (equals
+                  (group
+                    (ident 1:y)
+                    (type
+                      (ident 5:None2)))
+                  (group
+                    (ident 5:None2)))))
+            (type
+              (ident 5:None2))
+            (brace
+              (group
+                (ident 1:x))))))
+      (group
+        (class
+          {})
+        (ident 5:None3)
+        (brace
+          (group
+            (ident 4:test)
+            (paren
+              (list
+                (equals
+                  (group
+                    (ident 1:x)
+                    (type
+                      (ident 5:None3)))
+                  (group
+                    (ident 5:None3)))
+                (equals
+                  (group
+                    (ident 1:y)
+                    (type
+                      (ident 5:None3)))
+                  (group
+                    (ident 5:None3)))))
+            (type
+              (ident 5:None3))
+            (brace
+              (group
+                (ident 1:x))))))
+      (group
+        (class
+          {})
+        (ident 5:None4)
+        (brace
+          (group
+            (ident 4:test)
+            (paren
+              (list
+                (equals
+                  (group
+                    (ident 1:x)
+                    (type
+                      (ident 5:None4)))
+                  (group
+                    (ident 5:None4)))
+                (group
+                  (ident 1:y)
+                  (type
+                    (ident 5:None4)))
+                (equals
+                  (group
+                    (ident 1:z)
+                    (type
+                      (ident 5:None4)))
+                  (group
+                    (ident 5:None4)))))
+            (type
+              (ident 5:None4))
+            (brace
+              (group
+                (ident 1:x)))))))))
