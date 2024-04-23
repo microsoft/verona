@@ -1,0 +1,14 @@
+Errors:
+Can't put a parameter with no default value after a parameter with one
+-- 668.verona:12:27
+  test(x : None1 = None1, y : None1) : None1
+                          ~~~~~~~~~
+
+----------------
+Can't put a parameter with no default value after a parameter with one
+-- 668.verona:36:27
+  test(x : None4 = None4, y : None4, z : None4 = None4) : None4
+                          ~~~~~~~~~
+
+Pass defaultargs failed with 2 errors!
+

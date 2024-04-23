@@ -1,0 +1,40 @@
+// Default args need to be later arguments
+class None0
+{
+  test(x : None0, y : None0) : None0
+  {
+    x
+  }
+}
+
+class None1
+{
+  test(x : None1 = None1, y : None1) : None1
+  {
+    x
+  }
+}
+
+class None2
+{
+  test(x : None2, y : None2 = None2) : None2
+  {
+    x
+  }
+}
+
+class None3
+{
+  test(x : None3 = None3, y : None3 = None3) : None3
+  {
+    x
+  }
+}
+
+class None4
+{
+  test(x : None4 = None4, y : None4, z : None4 = None4) : None4
+  {
+    x
+  }
+}

@@ -1,0 +1,137 @@
+Verona
+parse
+(top
+  {}
+  (file
+    (group
+      (class
+        {})
+      (ident 5:None0)
+      (brace
+        (group
+          (ident 4:test)
+          (paren
+            (list
+              (group
+                (ident 1:x)
+                (colon)
+                (ident 5:None0))
+              (group
+                (ident 1:y)
+                (colon)
+                (ident 5:None0))))
+          (colon)
+          (ident 5:None0)
+          (brace
+            (group
+              (ident 1:x))))))
+    (group
+      (class
+        {})
+      (ident 5:None1)
+      (brace
+        (group
+          (ident 4:test)
+          (paren
+            (list
+              (equals
+                (group
+                  (ident 1:x)
+                  (colon)
+                  (ident 5:None1))
+                (group
+                  (ident 5:None1)))
+              (group
+                (ident 1:y)
+                (colon)
+                (ident 5:None1))))
+          (colon)
+          (ident 5:None1)
+          (brace
+            (group
+              (ident 1:x))))))
+    (group
+      (class
+        {})
+      (ident 5:None2)
+      (brace
+        (group
+          (ident 4:test)
+          (paren
+            (list
+              (group
+                (ident 1:x)
+                (colon)
+                (ident 5:None2))
+              (equals
+                (group
+                  (ident 1:y)
+                  (colon)
+                  (ident 5:None2))
+                (group
+                  (ident 5:None2)))))
+          (colon)
+          (ident 5:None2)
+          (brace
+            (group
+              (ident 1:x))))))
+    (group
+      (class
+        {})
+      (ident 5:None3)
+      (brace
+        (group
+          (ident 4:test)
+          (paren
+            (list
+              (equals
+                (group
+                  (ident 1:x)
+                  (colon)
+                  (ident 5:None3))
+                (group
+                  (ident 5:None3)))
+              (equals
+                (group
+                  (ident 1:y)
+                  (colon)
+                  (ident 5:None3))
+                (group
+                  (ident 5:None3)))))
+          (colon)
+          (ident 5:None3)
+          (brace
+            (group
+              (ident 1:x))))))
+    (group
+      (class
+        {})
+      (ident 5:None4)
+      (brace
+        (group
+          (ident 4:test)
+          (paren
+            (list
+              (equals
+                (group
+                  (ident 1:x)
+                  (colon)
+                  (ident 5:None4))
+                (group
+                  (ident 5:None4)))
+              (group
+                (ident 1:y)
+                (colon)
+                (ident 5:None4))
+              (equals
+                (group
+                  (ident 1:z)
+                  (colon)
+                  (ident 5:None4))
+                (group
+                  (ident 5:None4)))))
+          (colon)
+          (ident 5:None4)
+          (brace
+            (group
+              (ident 1:x))))))))
