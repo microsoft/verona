@@ -44,11 +44,10 @@ namespace verona
               {
                 if (has_default)
                 {
-                  new_params << 
-                    err(
-                      param,
-                      "Can't put a parameter with no default value after a "
-                      "parameter with one");
+                  new_params << err(
+                    param,
+                    "Can't put a parameter with no default value after a "
+                    "parameter with one");
                   // Do not process further to prevent duplicate errors.
                   break;
                 }
