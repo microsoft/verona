@@ -1,0 +1,43 @@
+Verona
+modules
+(top
+  {}
+  (group
+    (class
+      {})
+    (ident 3:651)
+    (brace
+      (group
+        (use)
+        (ident 3:std)
+        (doublecolon)
+        (ident 7:builtin))
+      (equals
+        (group
+          (typealias
+            {})
+          (ident 8:Copyable)
+          (square
+            (group
+              (Self))))
+        (group
+          (brace
+            (group
+              (ident 4:copy)
+              (paren
+                (group
+                  (typealias
+                    {})
+                  (type
+                    (Self))))
+              (type
+                (Self))))
+          (symbol 1:&)
+          (paren
+            (group
+              (Self)
+              (symbol 1:<)
+              (ident 8:Copyable)
+              (square
+                (group
+                  (Self))))))))))

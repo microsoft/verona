@@ -1,0 +1,14 @@
+Errors:
+Expected a type parameter or a value parameter
+-- 651.verona:2:15
+type Copyable[Self] = {
+              ~~~~
+
+----------------
+Expected a parameter
+-- 651.verona:3:8
+  copy(type: Self) : Self
+       ~~~~~~~~~~
+
+Pass structure failed with 2 errors!
+

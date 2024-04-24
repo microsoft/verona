@@ -1,0 +1,34 @@
+Verona
+parse
+(top
+  {}
+  (file
+    (equals
+      (group
+        (typealias
+          {})
+        (ident 8:Copyable)
+        (square
+          (group
+            (Self))))
+      (group
+        (brace
+          (group
+            (ident 4:copy)
+            (paren
+              (group
+                (typealias
+                  {})
+                (colon)
+                (Self)))
+            (colon)
+            (Self)))
+        (symbol 1:&)
+        (paren
+          (group
+            (Self)
+            (symbol 1:<)
+            (ident 8:Copyable)
+            (square
+              (group
+                (Self)))))))))

@@ -1,0 +1,4 @@
+// Using reserved keyword in parameter and type parameter should result in errors.
+type Copyable[Self] = {
+  copy(type: Self) : Self
+} & (Self < Copyable[Self])
