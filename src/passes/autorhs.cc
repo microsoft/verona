@@ -21,7 +21,7 @@ namespace verona
             auto f = _(Function);
             auto id = _(Ident);
             auto params = _(Params);
-            auto parent = f->parent()->parent()->shared_from_this();
+            auto parent = f->parent()->parent()->intrusive_ptr_from_this();
             auto tn = parent / Ident;
             auto defs = parent->lookdown(id->location());
             auto found = false;

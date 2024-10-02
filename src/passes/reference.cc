@@ -22,7 +22,7 @@ namespace verona
                        .append(" %")
                        .append(_(Lhs)->location().view());
 
-            for (auto& i = rhs.first; i != rhs.second; ++i)
+            for (auto i = rhs.begin(); i != rhs.end(); ++i)
               s.append(", %").append((*i)->location().view());
 
             return LLVM ^ s;

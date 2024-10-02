@@ -226,7 +226,7 @@ namespace verona
 
   bool lookup_type(const NodeRange& n, std::initializer_list<Token> t)
   {
-    return lookup_type(*n.first, t);
+    return lookup_type(*n.begin(), t);
   }
 
   static bool resolve_selector(Lookup& p, Node n)

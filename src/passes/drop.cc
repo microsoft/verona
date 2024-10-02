@@ -152,7 +152,7 @@ namespace verona
           auto refblock = it->first;
           auto ref = it->second;
           auto id = ref / Ident;
-          auto parent = ref->parent()->shared_from_this();
+          auto parent = ref->parent()->intrusive_ptr_from_this();
           bool immediate = parent == Block;
           bool discharging = true;
 

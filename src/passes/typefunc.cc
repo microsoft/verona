@@ -31,8 +31,8 @@ namespace verona
                 << (Param << (Ident ^ _.fresh(l_param))
                           << (Type << clone(_(Lhs))) << DontCare);
 
-              auto it = _[Op].first;
-              auto end = _[Op].second;
+              auto it = _[Op].begin();
+              auto end = _[Op].end();
 
               while (it != end)
               {
