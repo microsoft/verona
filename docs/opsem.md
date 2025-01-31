@@ -2,12 +2,13 @@
 
 Still to do:
 * Type tests and `typeof` for Ref Type.
+* Embedded object fields?
 * Arrays? Or model them as objects?
 * For a reference to a primitive on the stack, build a wrapper object.
 * Undecided region.
-* Region extraction.
 * Region entry points.
 * Region deallocation.
+* Region extraction.
 * Immutability.
 * Behaviors.
 * GC or RC cycle detection.
@@ -16,7 +17,9 @@ Still to do:
 
 ```rs
 
+n ∈ ℕ
 x, y, z ∈ Ident
+xs, ys, zs ∈ 𝒫(Ident)
 τ ∈ TypeId
 𝕗 ∈ FuncId
 ρ ∈ RegionId
@@ -50,7 +53,6 @@ P ∈ Program =
 𝕣 ∈ Reference = {object: ObjectId, field: Ident}
 p ∈ Primitive = Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ
 v ∈ Value = ObjectId | Primitive | Reference
-// TODO: this doesn't allow embedded object fields
 ω ∈ Object = Ident ↦ Value
 
 ϕ ∈ Frame = {
@@ -85,12 +87,18 @@ R ∈ RegionType = RegionRC | RegionGC | RegionArena
 
 Heap, Stack, Statement* ⇝ Heap, Stack, Statement*
 
+```
+
+## Helpers
+
+```rs
+
 // Frame variables.
 x ∈ φ ≝ x ∈ dom(φ.vars)
 φ(x) = φ.vars(x)
 φ[x↦v] = φ[vars(x)↦v]
-φ\x = φ[vars\{x}]
-φ\{x} = φ[vars\{x}]
+φ\x = φ\{x}
+φ\xs = φ[vars\xs]
 
 // Heap objects.
 ι ∈ χ ≝ ι ∈ dom(χ.data)
@@ -107,11 +115,17 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 χ\Φ = {χ.data, χ.metadata, χ.frames\{Φ}, χ.regions}
 
 // Stack deallocation.
-χ\ι = {χ.data\{ι}, χ.metadata\{ι}, χ.frames, χ.regions}
-χ\{ιs} = {χ.data\ιs, χ.metadata\ιs, χ.frames, χ.regions}
+χ\ι = χ\{ι}
+χ\ιs = {χ.data\ιs, χ.metadata\ιs, χ.frames, χ.regions}
 
 // Object in region deallocation.
 χ\(ι, ρ) = {χ.data\{ι}, χ.metadata\{ι}, χ.frames, χ.regions[ρ\{ι}]}
+
+```
+
+## Dynamic Types
+
+```rs
 
 // Dynamic type of a value.
 typeof(χ, v) =
@@ -120,12 +134,18 @@ typeof(χ, v) =
   P.primitives(Unsigned × ℕ) if v ∈ Unsigned × ℕ
   P.primitives(Float × ℕ) if v ∈ Float × ℕ
   χ.metadata(ι).type if ι = v
-  // TODO: dynamic type of a reference is not a τ !!
   Ref typeof(χ, χ(𝕣.object)(𝕣.field)) if 𝕣 = v
 
 // Subtype test.
-// TODO: what if it's a reference?
-typetest(χ, v, T) = T ∈ P.types(typeof(χ, v)).supertypes
+typetest(χ, v, T) =
+  T = typeof(χ, v) if v ∈ Reference
+  T ∈ P.types(typeof(χ, v)).supertypes otherwise
+
+```
+
+## Reachability and Safety
+
+```rs
 
 // Transitive closure.
 reachable(χ, v) = reachable(χ, v, ∅)
@@ -140,7 +160,6 @@ reachable(χ, ι, ιs) =
     ιs₀ = ιs ∧
     ∀i ∈ 0 .. n . ιsᵢ₊₁ = reachable(ιsᵢ, χ(ι)(xsᵢ))
 
-
 // It's safe to return an object from a function if it's:
 // * in a region, or
 // * in a parent frame on the same stack, or
@@ -150,7 +169,12 @@ returnable(χ, σ, ι) =
   ∃ϕ ∈ σ . χ.metadata(ι).location = ϕ.id ∨
   ((χ.metadata(ι).location = ι′) ∧ returnable(χ, σ, ι′))
 
-// Reference counting.
+```
+
+## Reference counting.
+
+```rs
+
 inc(χ, p) = χ
 inc(χ, 𝕣) = dec(χ, 𝕣.object)
 inc(χ, ι) =
@@ -190,10 +214,6 @@ free(χ, ρ, ι) = χₙ[ρ\ι] where
 
 ```rs
 
-x ∉ φ
---- [new primitive]
-χ, σ;φ, bind x (primitive p);stmt* ⇝ χ, σ;φ[x↦p], stmt*
-
 newobject(χ, τ, (y, z)*) =
   ω where
     f = P.types(τ).fields ∧
@@ -202,6 +222,10 @@ newobject(χ, τ, (y, z)*) =
     |zs| = |dom(f)| ∧
     ω = {y ↦ φ(z) | y ∈ (y, z)*} ∧
     ∀y ∈ dom(ω) . typetest(χ, f(y).type, ω(y))
+
+x ∉ φ
+--- [new primitive]
+χ, σ;φ, bind x (primitive p);stmt* ⇝ χ, σ;φ[x↦p], stmt*
 
 x ∉ φ
 ι ∉ χ
@@ -227,6 +251,8 @@ x ∉ φ
 
 ## Drop, Duplicate
 
+Local variables are consumed on use. To keep them, `dup` them first.
+
 ```rs
 
 --- [drop]
@@ -241,6 +267,8 @@ x ∉ ϕ
 
 ## Fields
 
+> Could add stack references. Instead of an object container, it would be a frame container.
+
 ```rs
 
 // TODO: should this consume y instead of inc?
@@ -252,8 +280,7 @@ z ∈ dom(P.types(typeof(χ, ι)).fields)
 χ, σ;ϕ, bind x (ref y z);stmt* ⇝ inc(χ, ι), σ;ϕ[x↦𝕣], stmt*
 
 x ∉ ϕ
-𝕣 = ϕ(y)
-𝕣 = {object: ι, field: z}
+ϕ(y) = {object: ι, field: z}
 z ∈ dom(P.types(typeof(χ, ι)).fields)
 v = χ(ι)(z)
 --- [bind load]
@@ -290,7 +317,7 @@ v = typetest(χ, φ(y), T)
 --- [cond true]
 χ, σ;φ, cond x stmt₀* stmt₁*;stmt₂* ⇝ χ, σ;φ, stmt₀*;stmt₂*
 
-Θ(x) = false
+φ(x) = false
 --- [cond false]
 χ, σ;φ, cond x stmt₀* stmt₁*;stmt₂* ⇝ χ, σ;φ, stmt₁*;stmt₂*
 
@@ -326,12 +353,14 @@ F = P.funcs(P.types(τ).methods(y))
 
 ## Return
 
+This checks that only the return value remains in the frame, and that the return value and everything it references is safe to return.
+
 ```rs
 
 |dom(φ₁)| = 1
 ιs = {ι | χ.metadata(ι).location = φ₁}
 ∀ι ∈ reachable(χ, φ₁(x)) . returnable(χ, σ, ι)
 --- [return]
-χ, σ;φ₀;φ₁, return x;stmt* ⇝ (χ\ιs)\φ₁.id, σ;φ₀[φ₁.ret↦φ₁(x)], ϕ₁.cont
+χ, σ;φ₀;φ₁, return x;stmt* ⇝ (χ\ιs)\(φ₁.id), σ;φ₀[φ₁.ret↦φ₁(x)], ϕ₁.cont
 
 ```
