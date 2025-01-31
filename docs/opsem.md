@@ -4,7 +4,8 @@ Still to do:
 * Type tests and `typeof` for Ref Type.
 * Embedded object fields?
 * Arrays? Or model them as objects?
-* For a reference to a primitive on the stack, build a wrapper object.
+* Stack references? The container is a frame instead of an object.
+* Region safety.
 * Undecided region.
 * Region entry points.
 * Region deallocation.
@@ -12,6 +13,7 @@ Still to do:
 * Immutability.
 * Behaviors.
 * GC or RC cycle detection.
+* Non-local returns.
 
 ## Shape
 
