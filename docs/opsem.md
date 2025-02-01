@@ -5,7 +5,6 @@ Still to do:
 * Undecided region.
 * Region entry points.
 * Region deallocation.
-* Region extraction.
 * Immutability.
 * Behaviors and cowns.
 * Embedded object fields?
@@ -386,5 +385,23 @@ This checks that:
 ∀ι ∈ ιs . χ.frames(φ₁.id).members(ι) = 0
 --- [return]
 χ, σ;φ₀;φ₁, return x;stmt* ⇝ (χ\ιs)\(φ₁.id), σ;φ₀[φ₁.ret↦φ₁(x)], ϕ₁.cont
+
+```
+
+## Extract
+
+```rs
+
+x ∉ φ
+ι = φ(y)
+ρ₀ = χ₀.metadata(ι).location
+ρ₁ ∉ χ₀
+ιs = reachable(χ, ι)
+∀ι′ ∈ χ₀.regions(ρ₀).members . (ι′ ∉ ιs ⇒ ∀z ∈ dom(χ₀(ι′)) . χ₀(ι′)(z) ∉ ιs)
+χ₁ = χ₀[regions(ρ₀).members\ιs]
+       [regions(ρ₁)↦{type: χ₀.regions(ρ₀).type, members: ιs}]
+       [∀ι′ ∈ ιs . χ₀.metadata(ι′).location↦ρ₁]
+--- [extract]
+χ₀, σ;φ, bind x (extract y);stmt* ⇝ χ₁, σ;φ[x↦ι]\y, stmt*
 
 ```
