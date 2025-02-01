@@ -168,6 +168,7 @@ reachable(χ, ι, ιs) =
 // TODO: this doesn't allow a region to reference another region
 // TODO: this doesn't require other regions or stacks not to reference this region
 dischargeable(χ, ρ) =
+  ∀ι ∈ χ . ι ∉ ιs ⇒ ∀z ∈ dom(χ(ι)) . χ(ι)(z) ∉ ιs ∧
   ∀ι ∈ ιs . reachable(χ, ι) ⊆ ιs
   where
     ιs = χ.regions(ρ).members
@@ -286,6 +287,7 @@ x ∉ ϕ
 ```rs
 
 // TODO: ref can't be in a frame yet
+// tricky: inc/dec, typeof, reachable take a heap but not a stack
 x ∉ ϕ
 y ∈ φ
 𝕣 = {object: φ.id, field: z}
