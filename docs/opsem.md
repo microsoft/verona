@@ -1,17 +1,16 @@
 # Operational Semantics
 
 Still to do:
-* Type tests and `typeof` for Ref Type.
-* Embedded object fields?
-* Arrays? Or model them as objects?
-* Stack references? The container is a frame instead of an object.
 * Region safety.
 * Undecided region.
 * Region entry points.
 * Region deallocation.
 * Region extraction.
 * Immutability.
-* Behaviors.
+* Behaviors and cowns.
+* Embedded object fields?
+* Arrays? Or model them as objects?
+* Stack references? The container is a frame instead of an object.
 * GC or RC cycle detection.
 * Non-local returns.
 
@@ -57,8 +56,9 @@ p ∈ Primitive = Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ
 v ∈ Value = ObjectId | Primitive | Reference
 ω ∈ Object = Ident ↦ Value
 
-ϕ ∈ Frame = {
-      id = FrameId,
+ϕ ∈ Frame =
+    {
+      id: FrameId,
       vars: Ident ↦ Value,
       ret: Ident,
       cont: Statement*
@@ -83,7 +83,7 @@ R ∈ RegionType = RegionRC | RegionGC | RegionArena
     {
       data: ObjectId ↦ Object,
       metadata: ObjectId ↦ Metadata
-      frames: 𝒫(FrameId),
+      frames: FrameId ↦ {members: ObjectId ↦ ℕ}
       regions: RegionId ↦ Region
     }
 
@@ -105,16 +105,16 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 // Heap objects.
 ι ∈ χ ≝ ι ∈ dom(χ.data)
 χ(ι) = χ.data(ι)
-χ[ι↦(ω, τ, Φ)] = χ[data(ι)↦ω, metadata(ι)↦(τ, Φ)]
+χ[ι↦(ω, τ, Φ)] = χ[data(ι)↦ω, metadata(ι)↦(τ, Φ), frames(Φ).members[ι↦1]]
 χ[ι↦(ω, τ, ρ)] = χ[data(ι)↦ω, metadata(ι)↦(τ, ρ), regions(ρ).members[ι↦1]]
 
 // Regions.
 ρ ∈ χ ≝ ρ ∈ dom(χ.regions)
 χ[ρ↦R] = χ[regions(ρ)↦(R, ∅)]
 
-// Frame management.
-χ∪Φ = {χ.data, χ.metadata, χ.frames∪{Φ}, χ.regions}
-χ\Φ = {χ.data, χ.metadata, χ.frames\{Φ}, χ.regions}
+// Frames.
+χ∪Φ = {χ.data, χ.metadata, χ.frames[Φ↦∅], χ.regions}
+χ\Φ = {χ.data, χ.metadata, χ.frames\Φ, χ.regions}
 
 // Stack deallocation.
 χ\ι = χ\{ι}
@@ -162,53 +162,67 @@ reachable(χ, ι, ιs) =
     ιs₀ = ιs ∧
     ∀i ∈ 0 .. n . ιsᵢ₊₁ = reachable(ιsᵢ, χ(ι)(xsᵢ))
 
-// It's safe to return an object from a function if it's:
-// * in a region, or
-// * in a parent frame on the same stack, or
-// * embedded in an object that is safe to return.
-returnable(χ, σ, ι) =
-  χ.metadata(ι).location = ρ ∨
-  ∃ϕ ∈ σ . χ.metadata(ι).location = ϕ.id ∨
-  ((χ.metadata(ι).location = ι′) ∧ returnable(χ, σ, ι′))
+// This checks that it's safe to discharge a region, including:
+// * deallocate the region, or
+// * freeze the region, or
+// * send the region to a behavior.
+// TODO: this doesn't allow a region to reference another region
+// TODO: this doesn't require other regions or stacks not to reference this region
+dischargeable(χ, ρ) =
+  ∀ι ∈ ιs . reachable(χ, ι) ⊆ ιs
+  where
+    ιs = χ.regions(ρ).members
 
 ```
 
 ## Reference counting.
+
+Reference counting is a no-op on `RegionGC` and `RegionArena`. It's tracked on stack allocations to ensure that no allocations on a frame that is being torn down are returned.
 
 ```rs
 
 inc(χ, p) = χ
 inc(χ, 𝕣) = dec(χ, 𝕣.object)
 inc(χ, ι) =
-  χ if χ.metadata(ι).location = Φ
   inc(χ, ι′) if χ.metadata(ι).location = ι′
-  incref(χ, ι) if χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC
+  incref(χ, ρ, ι) if χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC
+  incref(χ, Φ, ι) if χ.metadata(ι).location = Φ
+  χ otherwise
 
 dec(χ, p) = χ
 dec(χ, 𝕣) = dec(χ, 𝕣.object)
 dec(χ, ι) =
-  χ if χ.metadata(ι).location = Φ
   dec(χ, ι′) if χ.metadata(ι).location = ι′
-  decref(χ, ι) if χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC
+  decref(χ, ρ, ι) if χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC
+  decref(χ, Φ, ι) if χ.metadata(ι).location = Φ
+  χ otherwise
 
-incref(χ, ι) =
-  χ[ρ↦χ(ρ)[members(ι)↦(rc + 1)]]
+incref(χ, Φ, ι) =
+  χ[frames(Φ)↦χ(Φ)[members(ι)↦(rc + 1)]]
   where
-    ρ = χ.metadata(ι).location ∧
+    rc = χ(Φ).members(ι)
+
+incref(χ, ρ, ι) =
+  χ[regions(ρ)↦χ.regions(ρ)[members(ι)↦(rc + 1)]]
+  where
     rc = χ(ρ).members(ι)
 
-decref(χ, ι) =
-  free(χ, ρ, ι) if rc = 1
-  χ[ρ↦χ(ρ)[members(ι)↦(rc - 1)]] otherwise
+decref(χ, Φ, ι) =
+  χ[frames(Φ)↦χ.frames(Φ)[members(ι)↦(rc - 1)]]
   where
-    ρ = χ.metadata(ι).location ∧
+    rc = χ(Φ).members(ι)
+
+decref(χ, ρ, ι) =
+  free(χ, ρ, ι) if rc = 1
+  χ[regions(ρ)↦χ.regions(ρ)[members(ι)↦(rc - 1)]] otherwise
+  where
     rc = χ(ρ).members(ι)
 
 free(χ, ρ, ι) = χₙ[ρ\ι] where
-  χ₀ = χ ∧
-  n = |xs| ∧
   xs = [x | x ∈ dom(χ(ι))] ∧
-  ∀i ∈ 0 .. n . χᵢ₊₁ = dec(χᵢ, χ(ι)(xsᵢ))
+  n = |xs| ∧
+  χ₀ = χ ∧
+  ∀i ∈ 0 .. (n - 1) . χᵢ₊₁ = dec(χᵢ, χ(ι)(xsᵢ))
 
 ```
 
@@ -219,35 +233,36 @@ free(χ, ρ, ι) = χₙ[ρ\ι] where
 newobject(χ, τ, (y, z)*) =
   ω where
     f = P.types(τ).fields ∧
-    ys = {y | y ∈ (y, z)*} = dom(f) ∧
-    zs = {z | z ∈ (y, z)*} ∧
-    |zs| = |dom(f)| ∧
+    {y | y ∈ (y, z)*} = dom(f) ∧
     ω = {y ↦ φ(z) | y ∈ (y, z)*} ∧
     ∀y ∈ dom(ω) . typetest(χ, f(y).type, ω(y))
 
 x ∉ φ
 --- [new primitive]
-χ, σ;φ, bind x (primitive p);stmt* ⇝ χ, σ;φ[x↦p], stmt*
+χ, σ;φ, bind x (new p);stmt* ⇝ χ, σ;φ[x↦p], stmt*
 
 x ∉ φ
 ι ∉ χ
+zs = {z | z ∈ (y, z)*} ∧ |zs| = |(y, z)*|
 ω = newobject(χ, τ, (y, z)*)
 --- [new stack]
-χ, σ;φ, bind x (new τ (y, z)*);stmt* ⇝ χ[ι↦(ω, τ, φ.id], σ;φ[x↦ι], stmt*
+χ, σ;φ, bind x (new τ (y, z)*);stmt* ⇝ χ[ι↦(ω, τ, φ.id)], σ;φ[x↦ι]\zs, stmt*
 
 x ∉ φ
 ι ∉ χ
 ρ = χ.metadata(φ(y)).location
+zs = {z | z ∈ (y, z)*} ∧ |zs| = |(y, z)*|
 ω = newobject(χ, τ, (y, z)*)
 --- [new heap]
-χ, σ;φ, bind x (new y τ (y, z)*);stmt* ⇝ χ[ι↦(ω, τ, ρ)], σ;φ[x↦ι], stmt*
+χ, σ;φ, bind x (new y τ (y, z)*);stmt* ⇝ χ[ι↦(ω, τ, ρ)], σ;φ[x↦ι]\zs, stmt*
 
 x ∉ φ
 ι ∉ χ
 ρ ∉ χ
+zs = {z | z ∈ (y, z)*} ∧ |zs| = |(y, z)*|
 ω = newobject(χ, τ, (y, z)*)
 --- [new region]
-χ, σ;φ, bind x (new R τ (y, z)*);stmt* ⇝ χ[ρ↦R][ι↦(ω, τ, ρ)], σ;φ[x↦ι], stmt*
+χ, σ;φ, bind x (new R τ (y, z)*);stmt* ⇝ χ[ρ↦R][ι↦(ω, τ, ρ)], σ;φ[x↦ι]\zs, stmt*
 
 ```
 
@@ -269,16 +284,21 @@ x ∉ ϕ
 
 ## Fields
 
-> Could add stack references. Instead of an object container, it would be a frame container.
-
 ```rs
+
+// TODO: ref can't be in a frame yet
+x ∉ ϕ
+y ∈ φ
+𝕣 = {object: φ.id, field: z}
+--- [bind stack ref]
+χ, σ;ϕ, bind x (ref y);stmt* ⇝ inc(χ, ι), σ;ϕ[x↦𝕣], stmt*
 
 // TODO: should this consume y instead of inc?
 x ∉ ϕ
 ι = ϕ(y)
 z ∈ dom(P.types(typeof(χ, ι)).fields)
 𝕣 = {object: ι, field: z}
---- [bind ref]
+--- [bind field ref]
 χ, σ;ϕ, bind x (ref y z);stmt* ⇝ inc(χ, ι), σ;ϕ[x↦𝕣], stmt*
 
 x ∉ ϕ
@@ -355,13 +375,15 @@ F = P.funcs(P.types(τ).methods(y))
 
 ## Return
 
-This checks that only the return value remains in the frame, and that the return value and everything it references is safe to return.
+This checks that:
+* only the return value remains in the frame, to ensure proper reference counting, and
+* that the reference count of everything allocated on this frame has dropped to zero, which ensures that no dangling references are returned.
 
 ```rs
 
 |dom(φ₁)| = 1
 ιs = {ι | χ.metadata(ι).location = φ₁}
-∀ι ∈ reachable(χ, φ₁(x)) . returnable(χ, σ, ι)
+∀ι ∈ ιs . χ.frames(φ₁.id).members(ι) = 0
 --- [return]
 χ, σ;φ₀;φ₁, return x;stmt* ⇝ (χ\ιs)\(φ₁.id), σ;φ₀[φ₁.ret↦φ₁(x)], ϕ₁.cont
 
