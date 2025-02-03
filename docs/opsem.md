@@ -2,10 +2,11 @@
 
 Still to do:
 * Region safety.
-* Undecided region.
 * Region entry points.
 * Region deallocation.
 * Immutability.
+  * SCCs? No, keep it abstract. Use same cycle detection algo as RC/GC.
+* Undecided region.
 * Behaviors and cowns.
 * Embedded object fields?
 * Arrays? Or model them as objects?
@@ -67,8 +68,7 @@ v ∈ Value = ObjectId | Primitive | Reference
 
 R ∈ RegionType = RegionRC | RegionGC | RegionArena
     Region = {
-      type: RegionType,
-      members: ObjectId ↦ ℕ
+      type: RegionType
     }
 
     // An object located in another object is an embedded field.
@@ -76,14 +76,15 @@ R ∈ RegionType = RegionRC | RegionGC | RegionArena
     {
       type: TypeId,
       location: RegionId | FrameId | ObjectId
+      rc: ℕ
     }
 
 χ ∈ Heap =
     {
       data: ObjectId ↦ Object,
-      metadata: ObjectId ↦ Metadata
-      frames: FrameId ↦ {members: ObjectId ↦ ℕ}
-      regions: RegionId ↦ Region
+      metadata: ObjectId ↦ Metadata,
+      regions: RegionId ↦ Region,
+      frames: 𝒫(FrameId)
     }
 
 Heap, Stack, Statement* ⇝ Heap, Stack, Statement*
@@ -104,23 +105,20 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 // Heap objects.
 ι ∈ χ ≝ ι ∈ dom(χ.data)
 χ(ι) = χ.data(ι)
-χ[ι↦(ω, τ, Φ)] = χ[data(ι)↦ω, metadata(ι)↦(τ, Φ), frames(Φ).members[ι↦1]]
-χ[ι↦(ω, τ, ρ)] = χ[data(ι)↦ω, metadata(ι)↦(τ, ρ), regions(ρ).members[ι↦1]]
+χ[ι↦(ω, τ, Φ)] = χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: Φ, rc: 1}]
+χ[ι↦(ω, τ, ρ)] = χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: ρ, rc: 1}]
 
 // Regions.
 ρ ∈ χ ≝ ρ ∈ dom(χ.regions)
 χ[ρ↦R] = χ[regions(ρ)↦(R, ∅)]
 
 // Frames.
-χ∪Φ = {χ.data, χ.metadata, χ.frames[Φ↦∅], χ.regions}
-χ\Φ = {χ.data, χ.metadata, χ.frames\Φ, χ.regions}
+χ∪Φ = χ[frames = frames ∪ Φ]
+χ\Φ = χ[frames = frames \ Φ]
 
-// Stack deallocation.
+// Deallocation.
 χ\ι = χ\{ι}
-χ\ιs = {χ.data\ιs, χ.metadata\ιs, χ.frames, χ.regions}
-
-// Object in region deallocation.
-χ\(ι, ρ) = {χ.data\{ι}, χ.metadata\{ι}, χ.frames, χ.regions[ρ\{ι}]}
+χ\ιs = χ[data = data\ιs, metadata = metadata\ιs]
 
 ```
 
@@ -159,19 +157,20 @@ reachable(χ, ι, ιs) =
     xs = [x | x ∈ dom(χ(ι))] ∧
     n = |xs| ∧
     ιs₀ = ιs ∧
-    ∀i ∈ 0 .. n . ιsᵢ₊₁ = reachable(ιsᵢ, χ(ι)(xsᵢ))
+    ∀i ∈ 0 .. (n - 1) . ιsᵢ₊₁ = reachable(ιsᵢ, χ(ι)(xsᵢ))
 
 // This checks that it's safe to discharge a region, including:
 // * deallocate the region, or
 // * freeze the region, or
 // * send the region to a behavior.
 // TODO: this doesn't allow a region to reference another region
-// TODO: this doesn't require other regions or stacks not to reference this region
+// needs to allow references in to immutable objects.
+// TODO: this doesn't require stacks not to reference this region
 dischargeable(χ, ρ) =
   ∀ι ∈ χ . ι ∉ ιs ⇒ ∀z ∈ dom(χ(ι)) . χ(ι)(z) ∉ ιs ∧
   ∀ι ∈ ιs . reachable(χ, ι) ⊆ ιs
   where
-    ιs = χ.regions(ρ).members
+    ιs = {ι | χ.metadata(ι).location = ρ}
 
 ```
 
@@ -185,40 +184,24 @@ inc(χ, p) = χ
 inc(χ, 𝕣) = dec(χ, 𝕣.object)
 inc(χ, ι) =
   inc(χ, ι′) if χ.metadata(ι).location = ι′
-  incref(χ, ρ, ι) if χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC
-  incref(χ, Φ, ι) if χ.metadata(ι).location = Φ
+  χ[metadata(ι)[rc↦metadata(ι).rc + 1]] if
+    χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC ∨
+    χ.metadata(ι).location = Φ
   χ otherwise
 
 dec(χ, p) = χ
 dec(χ, 𝕣) = dec(χ, 𝕣.object)
 dec(χ, ι) =
   dec(χ, ι′) if χ.metadata(ι).location = ι′
-  decref(χ, ρ, ι) if χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC
-  decref(χ, Φ, ι) if χ.metadata(ι).location = Φ
+  free(χ, ρ, ι) if
+    χ.metadata(ι).rc = 1 ∧
+    χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC
+  χ[metadata(ι)[rc↦metata(ι).rc - 1]] if
+    χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC ∨
+    χ.metadata(ι).location = Φ
   χ otherwise
 
-incref(χ, Φ, ι) =
-  χ[frames(Φ)↦χ(Φ)[members(ι)↦(rc + 1)]]
-  where
-    rc = χ(Φ).members(ι)
-
-incref(χ, ρ, ι) =
-  χ[regions(ρ)↦χ.regions(ρ)[members(ι)↦(rc + 1)]]
-  where
-    rc = χ(ρ).members(ι)
-
-decref(χ, Φ, ι) =
-  χ[frames(Φ)↦χ.frames(Φ)[members(ι)↦(rc - 1)]]
-  where
-    rc = χ(Φ).members(ι)
-
-decref(χ, ρ, ι) =
-  free(χ, ρ, ι) if rc = 1
-  χ[regions(ρ)↦χ.regions(ρ)[members(ι)↦(rc - 1)]] otherwise
-  where
-    rc = χ(ρ).members(ι)
-
-free(χ, ρ, ι) = χₙ[ρ\ι] where
+free(χ, ρ, ι) = χₙ\ι where
   xs = [x | x ∈ dom(χ(ι))] ∧
   n = |xs| ∧
   χ₀ = χ ∧
@@ -288,6 +271,8 @@ x ∉ ϕ
 
 // TODO: ref can't be in a frame yet
 // tricky: inc/dec, typeof, reachable take a heap but not a stack
+// all variables in a frame could be contained in an object
+// - but then frame variable access requires the heap
 x ∉ ϕ
 y ∈ φ
 𝕣 = {object: φ.id, field: z}
@@ -384,13 +369,15 @@ This checks that:
 
 |dom(φ₁)| = 1
 ιs = {ι | χ.metadata(ι).location = φ₁}
-∀ι ∈ ιs . χ.frames(φ₁.id).members(ι) = 0
+∀ι ∈ ιs . χ.metadata(ι).rc = 0
 --- [return]
 χ, σ;φ₀;φ₁, return x;stmt* ⇝ (χ\ιs)\(φ₁.id), σ;φ₀[φ₁.ret↦φ₁(x)], ϕ₁.cont
 
 ```
 
 ## Extract
+
+> Doesn't work. Doesn't allow sub-regions or immutable objects.
 
 ```rs
 
