@@ -1,12 +1,33 @@
 # Operational Semantics
 
 Still to do:
-* Region safety.
 * Region entry points.
-* Region deallocation.
-* Immutability.
-  * SCCs? No, keep it abstract. Use same cycle detection algo as RC/GC.
+  * Track a region's parent region?
+  * Prevent references from other than the stack or parent region?
+  * Track external (stack or parent region) RC to the region?
+  * Non-RC parent regions?
+    * RC inc child region on load.
+    * On store:
+      * Old value has RC moved from the parent region to the stack.
+        * If we allow more than one parent to child reference, how do we know when to clear the parent region?
+        * Could track stack RC separately from parent RC.
+      * New value has RC moved from the stack to the parent region.
+    * Need to `dec` child regions on `free`.
+* Region send and free.
+  * When external RC is 0?
+  * Could do freeze this way too? Only needed with a static type checker.
+  * If external region RC is limited to 1, we can check send-ability statically.
+    * But we can also delay send or free until RC is 0.
+* Freeze.
+  * For a static type checker, how do we know there are no `mut` aliases?
+  * Could error if external RC isn't 0 or 1?
+    * Or delay?
+  * Extract and then freeze for sub-graphs. The extract could fail.
 * Undecided region.
+  * Is this a per-stack region, where we extract from it?
+* Efficient frame teardown.
+  * Disallow heap and "earlier frame" objects from referencing frame objects?
+  * All function arguments and return values are "heap or earlier frame".
 * Behaviors and cowns.
 * Embedded object fields?
 * Arrays? Or model them as objects?
@@ -141,11 +162,12 @@ typetest(χ, v, T) =
 
 ```
 
-## Reachability and Safety
+## Reachability
 
 ```rs
 
 // Transitive closure.
+reachable(χ, σs) = ∀σ ∈ σs . ⋃{reachable(χ, σ)}
 reachable(χ, σ) = ∀φ ∈ σ . ⋃{reachable(χ, φ)}
 reachable(χ, φ) = ∀x ∈ dom(φ) . ⋃{reachable(χ, φ(x))}
 reachable(χ, v) = reachable(χ, v, ∅)
@@ -161,17 +183,12 @@ reachable(χ, ι, ιs) =
     ∀i ∈ 0 .. (n - 1) . ιsᵢ₊₁ = reachable(χ, χ(ι)(xsᵢ), ιsᵢ)
 
 // Mutability.
+mut(χ, p) = false
+mut(χ, 𝕣) = mut(χ, 𝕣.object)
 mut(χ, ι) = χ.metadata(ι).location ≠ Immutable
 mut-reachable(χ, σ) = {ι′ | ι′ ∈ reachable(χ, σ) ∧ mut(χ, ι′)}
 mut-reachable(χ, φ) = {ι′ | ι′ ∈ reachable(χ, φ) ∧ mut(χ, ι′)}
 mut-reachable(χ, ι) = {ι′ | ι′ ∈ reachable(χ, ι) ∧ mut(χ, ι′)}
-
-// Safe to send or deallocate.
-dischargeable(χ, σ, ι) =
-  ∀ι′ ∈ χ . ι′ ∉ ιs ⇒ (∀z ∈ dom(χ(ι′)) . χ(ι′)(z) ∉ ιs) ∧
-  ∀φ ∈ σ . (∀x ∈ dom(φ.vars) . φ(x) ∉ ιs)
-  where
-    ιs = mut-reachable(χ, ι)
 
 ```
 
@@ -184,9 +201,14 @@ wf_immutable(χ) =
   ∀ι ∈ χ . ¬mut(χ, ι) ⇒ (mut-reachable(χ, ι) = ∅)
 
 // Data-race freedom.
-// TODO: apply this with concurrent semantics to expose multiple stacks.
 wf_racefree(χ, σs) =
   ∀σ₀, σ₁ ∈ σs . σ₀ ≠ σ₁ ⇒ (mut-reachable(σ₀) ∩ mut-reachable(σ₁) = ∅)
+
+// Stack allocations are reachable only from that stack.
+wf_stacklocal(χ, σs) =
+  ∀σ₀, σ₁ ∈ σs . ∀φ ∈ σ₀ . (reachable(χ, σ₁) ∩ ιs = ∅)
+  where
+    ιs = {ι | χ.metadata(ι).location = φ.id}
 
 ```
 
@@ -224,6 +246,8 @@ free(χ, ι) = χₙ\ι where
 ```
 
 ## New
+
+For an "address-taken" local variable, i.e. a `var` as opposed to a `let`, allocate an object in the frame with a single field to hold the value.
 
 ```rs
 
@@ -368,6 +392,8 @@ This checks that:
 * Only the return value remains in the frame, to ensure proper reference counting.
 * No objects that will survive the frame reference any object allocated on the frame, to prevent dangling references.
 
+> TODO: how to make this efficient?
+
 ```rs
 
 dom(φ₁.vars) = {x}
@@ -393,7 +419,7 @@ x ∉ φ
 
 ## Extract
 
-> Doesn't work. Doesn't allow sub-regions or immutable objects.
+> TODO: Doesn't work. Doesn't allow sub-regions or immutable objects.
 
 ```rs
 
