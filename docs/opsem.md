@@ -10,7 +10,6 @@ Still to do:
 * Behaviors and cowns.
 * Embedded object fields?
 * Arrays? Or model them as objects?
-* Stack references? The container is a frame instead of an object.
 * GC or RC cycle detection.
 * Non-local returns.
 
@@ -19,12 +18,12 @@ Still to do:
 ```rs
 
 n ∈ ℕ
-x, y, z ∈ Ident
+w, x, y, z ∈ Ident
 xs, ys, zs ∈ 𝒫(Ident)
 τ ∈ TypeId
 𝕗 ∈ FuncId
 ρ ∈ RegionId
-Φ ∈ FrameId
+𝔽 ∈ FrameId
 ι ∈ ObjectId
 ιs ∈ 𝒫(ObjectId)
 
@@ -75,7 +74,7 @@ R ∈ RegionType = RegionRC | RegionGC | RegionArena
     Metadata =
     {
       type: TypeId,
-      location: RegionId | FrameId | ObjectId
+      location: RegionId | FrameId | ObjectId,
       rc: ℕ
     }
 
@@ -95,26 +94,26 @@ Heap, Stack, Statement* ⇝ Heap, Stack, Statement*
 
 ```rs
 
-// Frame variables.
+// Frames.
 x ∈ φ ≝ x ∈ dom(φ.vars)
 φ(x) = φ.vars(x)
 φ[x↦v] = φ[vars(x)↦v]
 φ\x = φ\{x}
 φ\xs = φ[vars\xs]
 
+𝔽 ∈ χ ≝ φ ∈ dom(χ.frames)
+χ∪𝔽 = χ[frames∪𝔽]
+χ\𝔽 = χ[frames\𝔽]
+
 // Heap objects.
 ι ∈ χ ≝ ι ∈ dom(χ.data)
 χ(ι) = χ.data(ι)
-χ[ι↦(ω, τ, Φ)] = χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: Φ, rc: 1}]
+χ[ι↦(ω, τ, 𝔽)] = χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: 𝔽, rc: 1}]
 χ[ι↦(ω, τ, ρ)] = χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: ρ, rc: 1}]
 
 // Regions.
 ρ ∈ χ ≝ ρ ∈ dom(χ.regions)
 χ[ρ↦R] = χ[regions(ρ)↦(R, ∅)]
-
-// Frames.
-χ∪Φ = χ[frames = frames ∪ Φ]
-χ\Φ = χ[frames = frames \ Φ]
 
 // Deallocation.
 χ\ι = χ\{ι}
@@ -159,6 +158,13 @@ reachable(χ, ι, ιs) =
     ιs₀ = ιs ∧
     ∀i ∈ 0 .. (n - 1) . ιsᵢ₊₁ = reachable(ιsᵢ, χ(ι)(xsᵢ))
 
+// Tree structured regions.
+// TODO: stack references?
+regiondom(χ, ρ₀, ρ₁) =
+  ∀ι₀, ι₁ ∈ χ .
+    (∃z . χ(ι₀)(z) = ι₁) ∧ (χ.metadata(ι₁).location = ρ₁) ⇒
+    χ.metadata(ι₀).location ∈ {ρ₀, ρ₁}
+
 // This checks that it's safe to discharge a region, including:
 // * deallocate the region, or
 // * freeze the region, or
@@ -176,7 +182,7 @@ dischargeable(χ, ρ) =
 
 ## Reference counting.
 
-Reference counting is a no-op on `RegionGC` and `RegionArena`. It's tracked on stack allocations to ensure that no allocations on a frame that is being torn down are returned.
+Reference counting is a no-op unless the object is in a `RegionRC`.
 
 ```rs
 
@@ -185,8 +191,7 @@ inc(χ, 𝕣) = dec(χ, 𝕣.object)
 inc(χ, ι) =
   inc(χ, ι′) if χ.metadata(ι).location = ι′
   χ[metadata(ι)[rc↦metadata(ι).rc + 1]] if
-    χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC ∨
-    χ.metadata(ι).location = Φ
+    χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC
   χ otherwise
 
 dec(χ, p) = χ
@@ -197,8 +202,7 @@ dec(χ, ι) =
     χ.metadata(ι).rc = 1 ∧
     χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC
   χ[metadata(ι)[rc↦metata(ι).rc - 1]] if
-    χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC ∨
-    χ.metadata(ι).location = Φ
+    χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC
   χ otherwise
 
 free(χ, ρ, ι) = χₙ\ι where
@@ -256,7 +260,7 @@ Local variables are consumed on use. To keep them, `dup` them first.
 ```rs
 
 --- [drop]
-χ, σ;φ, drop x;stmt* ⇝ dec(χ, φ, φ(x)), σ;ϕ\x, stmt*
+χ, σ;φ, drop x;stmt* ⇝ dec(χ, φ(x)), σ;ϕ\x, stmt*
 
 x ∉ ϕ
 ϕ(y) = v
@@ -267,42 +271,30 @@ x ∉ ϕ
 
 ## Fields
 
+The `load` statement is the only operation other than `dup` or `drop` that can change the reference count of an object.
+
 ```rs
 
-// TODO: ref can't be in a frame yet
-// tricky: inc/dec, typeof, reachable take a heap but not a stack
-// all variables in a frame could be contained in an object
-// - but then frame variable access requires the heap
-x ∉ ϕ
-y ∈ φ
-𝕣 = {object: φ.id, field: z}
---- [bind stack ref]
-χ, σ;ϕ, bind x (ref y);stmt* ⇝ inc(χ, ι), σ;ϕ[x↦𝕣], stmt*
-
-// TODO: should this consume y instead of inc?
 x ∉ ϕ
 ι = ϕ(y)
-z ∈ dom(P.types(typeof(χ, ι)).fields)
-𝕣 = {object: ι, field: z}
+w ∈ dom(P.types(typeof(χ, ι)).fields)
+𝕣 = {object: ι, field: w}
 --- [bind field ref]
-χ, σ;ϕ, bind x (ref y z);stmt* ⇝ inc(χ, ι), σ;ϕ[x↦𝕣], stmt*
+χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦𝕣]\y, stmt*
 
 x ∉ ϕ
-ϕ(y) = {object: ι, field: z}
-z ∈ dom(P.types(typeof(χ, ι)).fields)
-v = χ(ι)(z)
+ϕ(y) = {object: ι, field: w}
+w ∈ dom(P.types(typeof(χ, ι)).fields)
+v = χ(ι)(w)
 --- [bind load]
 χ, σ;ϕ, bind x (load y);stmt* ⇝ inc(χ, v), σ;ϕ[x↦v], stmt*
 
-// TODO: should this consume z instead of inc?
 x ∉ ϕ
-ϕ(y) = {object: ι, field: z}
-z ∈ dom(P.types(typeof(χ, ι)).fields)
-v₀ = χ(ι)(z)
-v₁ = φ(z)
-χ₁ = χ₀[ι↦χ₀(ι)[z↦v₁]]
+ϕ(y) = {object: ι, field: w}
+w ∈ dom(P.types(typeof(χ, ι)).fields)
+v = χ(ι)(w)
 --- [bind store]
-χ₀, σ;ϕ, bind x (store y z);stmt* ⇝ inc(χ₁, v₁), σ;ϕ[x↦v₀], stmt*
+χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ[ι↦χ(ι)[w↦φ(z)]], σ;ϕ[x↦v]\z, stmt*
 
 ```
 
@@ -338,9 +330,9 @@ All arguments are consumed. To keep them, `dup` them first. As such, an identifi
 ```rs
 
 newframe(χ, ϕ, F, x, y*, stmt*) =
-  {id: Φ, vars: F.paramsᵢ.name ↦ ϕ(yᵢ) | i ∈ 0 .. |y*|, ret: x, cont: stmt*}
+  {id: 𝔽, vars: F.paramsᵢ.name ↦ ϕ(yᵢ) | i ∈ 0 .. |y*|, ret: x, cont: stmt*}
   where
-  Φ ∉ dom(χ.metadata.frames) ∧
+  𝔽 ∉ dom(χ.frames) ∧
   |F.params| = |y*| = |{y*}| ∧
   ∀i ∈ 0 .. |y*| . typetest(χ, φ(yᵢ), F.paramsᵢ.type)
 
@@ -348,28 +340,28 @@ x ∉ φ₀
 F = P.funcs(𝕗)
 φ₁ = newframe(χ, φ₀, F, x, y*, stmt*)
 --- [call static]
-χ, σ;φ₀, bind x (call 𝕗 y*);stmt* ⇝ χ∪φ₁.id, σ;φ₀;φ₁\{y*}, F.body
+χ, σ;φ₀, bind x (call 𝕗 y*);stmt* ⇝ χ∪(φ₁.id), σ;φ₀\{y*};φ₁, F.body
 
 x ∉ φ₀
 τ = typeof(χ, φ(z₀))
 F = P.funcs(P.types(τ).methods(y))
 φ₁ = newframe(χ, φ₀, F, x, z*, stmt*)
 --- [call dynamic]
-χ, σ;φ₀, bind x (call y z*);stmt* ⇝ χ∪φ₁.id, σ;φ₀;φ₁\{z*}, F.body
+χ, σ;φ₀, bind x (call y z*);stmt* ⇝ χ∪(φ₁.id), σ;φ₀\{z*};φ₁, F.body
 
 ```
 
 ## Return
 
 This checks that:
-* only the return value remains in the frame, to ensure proper reference counting, and
-* that the reference count of everything allocated on this frame has dropped to zero, which ensures that no dangling references are returned.
+* Only the return value remains in the frame, to ensure proper reference counting.
+* No objects that will survive the frame reference any object allocated on the frame, to prevent dangling references.
 
 ```rs
 
-|dom(φ₁)| = 1
-ιs = {ι | χ.metadata(ι).location = φ₁}
-∀ι ∈ ιs . χ.metadata(ι).rc = 0
+dom(φ₁.vars) = {x}
+ιs = {ι | χ.metadata(ι).location = φ₁.id}
+∀ι ∈ χ . ι ∉ ιs ⇒ (∀z ∈ dom(χ(ι)) . χ(ι)(z) ∉ ιs)
 --- [return]
 χ, σ;φ₀;φ₁, return x;stmt* ⇝ (χ\ιs)\(φ₁.id), σ;φ₀[φ₁.ret↦φ₁(x)], ϕ₁.cont
 
@@ -381,8 +373,8 @@ This checks that:
 
 ```rs
 
-x ∉ φ
-ι = φ(y)
+x ∉ χ(φ)
+ι = χ(φ, y)
 ρ₀ = χ₀.metadata(ι).location
 ρ₁ ∉ χ₀
 ιs = reachable(χ, ι)
@@ -391,6 +383,6 @@ x ∉ φ
        [regions(ρ₁)↦{type: χ₀.regions(ρ₀).type, members: ιs}]
        [∀ι′ ∈ ιs . χ₀.metadata(ι′).location↦ρ₁]
 --- [extract]
-χ₀, σ;φ, bind x (extract y);stmt* ⇝ χ₁, σ;φ[x↦ι]\y, stmt*
+χ₀, σ;φ, bind x (extract y);stmt* ⇝ χ₁[φ\y][φ(x)↦ι], σ;φ, stmt*
 
 ```
