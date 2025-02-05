@@ -74,9 +74,8 @@ R ∈ RegionType = RegionRC | RegionGC | RegionArena
     Metadata =
     {
       type: TypeId,
-      location: RegionId | FrameId | ObjectId,
-      rc: ℕ,
-      mutable: Bool
+      location: RegionId | FrameId | ObjectId | Immutable,
+      rc: ℕ
     }
 
 χ ∈ Heap =
@@ -109,10 +108,8 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 // Heap objects.
 ι ∈ χ ≝ ι ∈ dom(χ.data)
 χ(ι) = χ.data(ι)
-χ[ι↦(ω, τ, 𝔽)] =
-  χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: 𝔽, rc: 1, mutable: true}]
-χ[ι↦(ω, τ, ρ)] =
-  χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: ρ, rc: 1, mutable: true}]
+χ[ι↦(ω, τ, 𝔽)] = χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: 𝔽, rc: 1}]
+χ[ι↦(ω, τ, ρ)] = χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: ρ, rc: 1}]
 
 // Regions.
 ρ ∈ χ ≝ ρ ∈ dom(χ.regions)
@@ -164,7 +161,7 @@ reachable(χ, ι, ιs) =
     ∀i ∈ 0 .. (n - 1) . ιsᵢ₊₁ = reachable(χ, χ(ι)(xsᵢ), ιsᵢ)
 
 // Mutability.
-mut(χ, ι) = χ.metadata(ι).mutable
+mut(χ, ι) = χ.metadata(ι).location ≠ Immutable
 mut-reachable(χ, σ) = {ι′ | ι′ ∈ reachable(χ, σ) ∧ mut(χ, ι′)}
 mut-reachable(χ, φ) = {ι′ | ι′ ∈ reachable(χ, φ) ∧ mut(χ, ι′)}
 mut-reachable(χ, ι) = {ι′ | ι′ ∈ reachable(χ, ι) ∧ mut(χ, ι′)}
@@ -195,30 +192,30 @@ wf_racefree(χ, σs) =
 
 ## Reference Counting
 
-Reference counting is a no-op unless the object is in a `RegionRC`.
+Reference counting is a no-op unless the object is in a `RegionRC` or is `Immutable`.
 
 ```rs
+
+enable-rc(χ, ι) =
+  (χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC) ∨
+  χ.metadata(ι).location = Immutable
 
 inc(χ, p) = χ
 inc(χ, 𝕣) = dec(χ, 𝕣.object)
 inc(χ, ι) =
   inc(χ, ι′) if χ.metadata(ι).location = ι′
-  χ[metadata(ι)[rc↦metadata(ι).rc + 1]] if
-    χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC
+  χ[metadata(ι)[rc↦metadata(ι).rc + 1]] if enable-rc(χ, ι)
   χ otherwise
 
 dec(χ, p) = χ
 dec(χ, 𝕣) = dec(χ, 𝕣.object)
 dec(χ, ι) =
   dec(χ, ι′) if χ.metadata(ι).location = ι′
-  free(χ, ρ, ι) if
-    χ.metadata(ι).rc = 1 ∧
-    χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC
-  χ[metadata(ι)[rc↦metata(ι).rc - 1]] if
-    χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC
+  free(χ, ι) if enable-rc(χ, ι) ∧ (χ.metadata(ι).rc = 1)
+  χ[metadata(ι)[rc↦metata(ι).rc - 1]] if enable-rc(χ, ι)
   χ otherwise
 
-free(χ, ρ, ι) = χₙ\ι where
+free(χ, ι) = χₙ\ι where
   xs = [x | x ∈ dom(χ(ι))] ∧
   n = |xs| ∧
   χ₀ = χ ∧
@@ -305,7 +302,7 @@ v = χ(ι)(w)
 x ∉ ϕ
 ϕ(y) = {object: ι, field: w}
 w ∈ dom(P.types(typeof(χ, ι)).fields)
-χ.metadata(ι).mutable = true
+mut(χ, ι)
 v = χ(ι)(w)
 --- [bind store]
 χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ[ι↦χ(ι)[w↦φ(z)]], σ;ϕ[x↦v]\z, stmt*
@@ -388,7 +385,7 @@ dom(φ₁.vars) = {x}
 x ∉ φ
 ι = φ(y)
 ιs = mut-reachable(χ, ι)
-χ₁ = χ₀[∀ι′ ∈ ιs . metadata(ι′)[mutable↦false]]
+χ₁ = χ₀[∀ι′ ∈ ιs . metadata(ι′)[location↦Immutable]]
 --- [freeze]
 χ₀, σ;φ, bind x (freeze y);stmt* ⇝ χ₁, σ;φ[x↦ι]\y, stmt*
 
