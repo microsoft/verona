@@ -75,7 +75,8 @@ R ∈ RegionType = RegionRC | RegionGC | RegionArena
     {
       type: TypeId,
       location: RegionId | FrameId | ObjectId,
-      rc: ℕ
+      rc: ℕ,
+      mutable: Bool
     }
 
 χ ∈ Heap =
@@ -108,8 +109,10 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 // Heap objects.
 ι ∈ χ ≝ ι ∈ dom(χ.data)
 χ(ι) = χ.data(ι)
-χ[ι↦(ω, τ, 𝔽)] = χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: 𝔽, rc: 1}]
-χ[ι↦(ω, τ, ρ)] = χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: ρ, rc: 1}]
+χ[ι↦(ω, τ, 𝔽)] =
+  χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: 𝔽, rc: 1, mutable: true}]
+χ[ι↦(ω, τ, ρ)] =
+  χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: ρ, rc: 1, mutable: true}]
 
 // Regions.
 ρ ∈ χ ≝ ρ ∈ dom(χ.regions)
@@ -146,6 +149,8 @@ typetest(χ, v, T) =
 ```rs
 
 // Transitive closure.
+reachable(χ, σ) = ∀φ ∈ σ . ⋃{reachable(χ, φ)}
+reachable(χ, φ) = ∀x ∈ dom(φ) . ⋃{reachable(χ, φ(x))}
 reachable(χ, v) = reachable(χ, v, ∅)
 reachable(χ, p, ιs) = ιs
 reachable(χ, 𝕣, ιs) = reachable(χ, 𝕣.object, ιs)
@@ -155,32 +160,40 @@ reachable(χ, ι, ιs) =
   where
     xs = [x | x ∈ dom(χ(ι))] ∧
     n = |xs| ∧
-    ιs₀ = ιs ∧
-    ∀i ∈ 0 .. (n - 1) . ιsᵢ₊₁ = reachable(ιsᵢ, χ(ι)(xsᵢ))
+    ιs₀ = (ι ∪ ιs) ∧
+    ∀i ∈ 0 .. (n - 1) . ιsᵢ₊₁ = reachable(χ, χ(ι)(xsᵢ), ιsᵢ)
 
-// Tree structured regions.
-// TODO: stack references?
-regiondom(χ, ρ₀, ρ₁) =
-  ∀ι₀, ι₁ ∈ χ .
-    (∃z . χ(ι₀)(z) = ι₁) ∧ (χ.metadata(ι₁).location = ρ₁) ⇒
-    χ.metadata(ι₀).location ∈ {ρ₀, ρ₁}
+// Mutability.
+mut(χ, ι) = χ.metadata(ι).mutable
+mut-reachable(χ, σ) = {ι′ | ι′ ∈ reachable(χ, σ) ∧ mut(χ, ι′)}
+mut-reachable(χ, φ) = {ι′ | ι′ ∈ reachable(χ, φ) ∧ mut(χ, ι′)}
+mut-reachable(χ, ι) = {ι′ | ι′ ∈ reachable(χ, ι) ∧ mut(χ, ι′)}
 
-// This checks that it's safe to discharge a region, including:
-// * deallocate the region, or
-// * freeze the region, or
-// * send the region to a behavior.
-// TODO: this doesn't allow a region to reference another region
-// needs to allow references in to immutable objects.
-// TODO: this doesn't require stacks not to reference this region
-dischargeable(χ, ρ) =
-  ∀ι ∈ χ . ι ∉ ιs ⇒ ∀z ∈ dom(χ(ι)) . χ(ι)(z) ∉ ιs ∧
-  ∀ι ∈ ιs . reachable(χ, ι) ⊆ ιs
+// Safe to send or deallocate.
+dischargeable(χ, σ, ι) =
+  ∀ι′ ∈ χ . ι′ ∉ ιs ⇒ (∀z ∈ dom(χ(ι′)) . χ(ι′)(z) ∉ ιs) ∧
+  ∀φ ∈ σ . (∀x ∈ dom(φ.vars) . φ(x) ∉ ιs)
   where
-    ιs = {ι | χ.metadata(ι).location = ρ}
+    ιs = mut-reachable(χ, ι)
 
 ```
 
-## Reference counting.
+## Well-Formedness
+
+```rs
+
+// Deep immutability.
+wf_immutable(χ) =
+  ∀ι ∈ χ . ¬mut(χ, ι) ⇒ (mut-reachable(χ, ι) = ∅)
+
+// Data-race freedom.
+// TODO: apply this with concurrent semantics to expose multiple stacks.
+wf_racefree(χ, σs) =
+  ∀σ₀, σ₁ ∈ σs . σ₀ ≠ σ₁ ⇒ (mut-reachable(σ₀) ∩ mut-reachable(σ₁) = ∅)
+
+```
+
+## Reference Counting
 
 Reference counting is a no-op unless the object is in a `RegionRC`.
 
@@ -292,6 +305,7 @@ v = χ(ι)(w)
 x ∉ ϕ
 ϕ(y) = {object: ι, field: w}
 w ∈ dom(P.types(typeof(χ, ι)).fields)
+χ.metadata(ι).mutable = true
 v = χ(ι)(w)
 --- [bind store]
 χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ[ι↦χ(ι)[w↦φ(z)]], σ;ϕ[x↦v]\z, stmt*
@@ -367,6 +381,19 @@ dom(φ₁.vars) = {x}
 
 ```
 
+## Freeze
+
+```rs
+
+x ∉ φ
+ι = φ(y)
+ιs = mut-reachable(χ, ι)
+χ₁ = χ₀[∀ι′ ∈ ιs . metadata(ι′)[mutable↦false]]
+--- [freeze]
+χ₀, σ;φ, bind x (freeze y);stmt* ⇝ χ₁, σ;φ[x↦ι]\y, stmt*
+
+```
+
 ## Extract
 
 > Doesn't work. Doesn't allow sub-regions or immutable objects.
@@ -374,7 +401,7 @@ dom(φ₁.vars) = {x}
 ```rs
 
 x ∉ χ(φ)
-ι = χ(φ, y)
+ι = φ(y)
 ρ₀ = χ₀.metadata(ι).location
 ρ₁ ∉ χ₀
 ιs = reachable(χ, ι)
