@@ -180,7 +180,7 @@ reachable(χ, ι, ιs) =
     xs = [x | x ∈ dom(χ(ι))] ∧
     n = |xs| ∧
     ιs₀ = (ι ∪ ιs) ∧
-    ∀i ∈ 0 .. (n - 1) . ιsᵢ₊₁ = reachable(χ, χ(ι)(xsᵢ), ιsᵢ)
+    ∀i ∈ 1 .. n . ιsᵢ = reachable(χ, χ(ι)(xsᵢ), ιsᵢ₋₁)
 
 // Mutability.
 mut(χ, p) = false
@@ -241,7 +241,7 @@ free(χ, ι) = χₙ\ι where
   xs = [x | x ∈ dom(χ(ι))] ∧
   n = |xs| ∧
   χ₀ = χ ∧
-  ∀i ∈ 0 .. (n - 1) . χᵢ₊₁ = dec(χᵢ, χ(ι)(xsᵢ))
+  ∀i ∈ 1 .. n . χᵢ₊₁ = dec(χᵢ, χ(ι)(xsᵢ))
 
 ```
 
@@ -307,6 +307,8 @@ x ∉ ϕ
 
 The `load` statement is the only operation other than `dup` or `drop` that can change the reference count of an object.
 
+The containing object in `load` and `store` is not consumed.
+
 ```rs
 
 x ∉ ϕ
@@ -335,6 +337,8 @@ v = χ(ι)(w)
 
 ## Type Test
 
+The local variable being type-tested is not consumed.
+
 ```rs
 
 x ∉ ϕ
@@ -345,6 +349,8 @@ v = typetest(χ, φ(y), T)
 ```
 
 ## Conditional
+
+The condition is not consumed.
 
 ```rs
 
@@ -365,11 +371,11 @@ All arguments are consumed. To keep them, `dup` them first. As such, an identifi
 ```rs
 
 newframe(χ, ϕ, F, x, y*, stmt*) =
-  {id: 𝔽, vars: F.paramsᵢ.name ↦ ϕ(yᵢ) | i ∈ 0 .. |y*|, ret: x, cont: stmt*}
+  {id: 𝔽, vars: {F.paramsᵢ.name ↦ ϕ(yᵢ) | i ∈ 1 .. |y*|}, ret: x, cont: stmt*}
   where
   𝔽 ∉ dom(χ.frames) ∧
   |F.params| = |y*| = |{y*}| ∧
-  ∀i ∈ 0 .. |y*| . typetest(χ, φ(yᵢ), F.paramsᵢ.type)
+  ∀i ∈ 1 .. |y*| . typetest(χ, φ(yᵢ), F.paramsᵢ.type)
 
 x ∉ φ₀
 F = P.funcs(𝕗)
@@ -378,11 +384,11 @@ F = P.funcs(𝕗)
 χ, σ;φ₀, bind x (call 𝕗 y*);stmt* ⇝ χ∪(φ₁.id), σ;φ₀\{y*};φ₁, F.body
 
 x ∉ φ₀
-τ = typeof(χ, φ(z₀))
-F = P.funcs(P.types(τ).methods(y))
-φ₁ = newframe(χ, φ₀, F, x, z*, stmt*)
+τ = typeof(χ, φ(y₀))
+F = P.funcs(P.types(τ).methods(w))
+φ₁ = newframe(χ, φ₀, F, x, y*, stmt*)
 --- [call dynamic]
-χ, σ;φ₀, bind x (call y z*);stmt* ⇝ χ∪(φ₁.id), σ;φ₀\{z*};φ₁, F.body
+χ, σ;φ₀, bind x (call w y*);stmt* ⇝ χ∪(φ₁.id), σ;φ₀\{y*};φ₁, F.body
 
 ```
 
@@ -406,13 +412,16 @@ dom(φ₁.vars) = {x}
 
 ## Freeze
 
+Dynamic freeze is suitable for a dynamic type checker. A static type checker will have incorrect mutability information if there are mutable aliases.
+
 ```rs
 
 x ∉ φ
 ι = φ(y)
 ιs = mut-reachable(χ, ι)
+∀ι′ ∈ ιs . χ.metadata(ι′).location ∉ FrameId
 χ₁ = χ₀[∀ι′ ∈ ιs . metadata(ι′)[location↦Immutable]]
---- [freeze]
+--- [dynamic freeze]
 χ₀, σ;φ, bind x (freeze y);stmt* ⇝ χ₁, σ;φ[x↦ι]\y, stmt*
 
 ```
@@ -423,7 +432,7 @@ x ∉ φ
 
 ```rs
 
-x ∉ χ(φ)
+x ∉ φ
 ι = φ(y)
 ρ₀ = χ₀.metadata(ι).location
 ρ₁ ∉ χ₀
