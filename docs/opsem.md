@@ -1,18 +1,7 @@
 # Operational Semantics
 
 Still to do:
-* Region entry points.
-  * Track a region's parent region?
-  * Prevent references from other than the stack or parent region?
-  * Track external (stack or parent region) RC to the region?
-  * Non-RC parent regions?
-    * RC inc child region on load.
-    * On store:
-      * Old value has RC moved from the parent region to the stack.
-        * If we allow more than one parent to child reference, how do we know when to clear the parent region?
-        * Could track stack RC separately from parent RC.
-      * New value has RC moved from the stack to the parent region.
-    * Need to `dec` child regions on `free`.
+* Do we need to prevent cyclic regions?
 * Region send and free.
   * When external RC is 0?
   * Could do freeze this way too? Only needed with a static type checker.
@@ -23,11 +12,19 @@ Still to do:
   * Could error if external RC isn't 0 or 1?
     * Or delay?
   * Extract and then freeze for sub-graphs. The extract could fail.
+* Merge.
+  * External RC from the destination is removed.
+  * Other external RC is added to the destination.
+  * If tracking on a per-parent basis, this is easy.
 * Undecided region.
   * Is this a per-stack region, where we extract from it?
+  * Could be implemented as "allocate in many regions" and "merge often".
+  * How to distinguish a merge from a subregion reference? Only need to do this at the language level, the semantics can be explicit.
 * Efficient frame teardown.
   * Disallow heap and "earlier frame" objects from referencing frame objects?
   * All function arguments and return values are "heap or earlier frame".
+  * Treat each frame as a region, external RC is 0?
+  * Each frame could be an Arena, disallowing extract, not needing ref counting.
 * Behaviors and cowns.
 * Embedded object fields?
 * Arrays? Or model them as objects?
@@ -88,7 +85,9 @@ v ∈ Value = ObjectId | Primitive | Reference
 
 R ∈ RegionType = RegionRC | RegionGC | RegionArena
     Region = {
-      type: RegionType
+      type: RegionType,
+      heap_rc: RegionId ↦ ℕ,
+      stack_rc: ℕ
     }
 
     // An object located in another object is an embedded field.
@@ -182,10 +181,17 @@ reachable(χ, ι, ιs) =
     ιs₀ = (ι ∪ ιs) ∧
     ∀i ∈ 1 .. n . ιsᵢ = reachable(χ, χ(ι)(xsᵢ), ιsᵢ₋₁)
 
+// Region.
+loc(χ, p) = Immutable
+loc(χ, 𝕣) = loc(χ, 𝕣.object)
+loc(χ, ι) = χ.metadata(ι).location
+
+same_loc(χ, v₀, v₁) = (loc(χ, v₀) = loc(χ, v₁))
+
 // Mutability.
 mut(χ, p) = false
 mut(χ, 𝕣) = mut(χ, 𝕣.object)
-mut(χ, ι) = χ.metadata(ι).location ≠ Immutable
+mut(χ, ι) = loc(χ, ι) ≠ Immutable
 mut-reachable(χ, σ) = {ι′ | ι′ ∈ reachable(χ, σ) ∧ mut(χ, ι′)}
 mut-reachable(χ, φ) = {ι′ | ι′ ∈ reachable(χ, φ) ∧ mut(χ, ι′)}
 mut-reachable(χ, ι) = {ι′ | ι′ ∈ reachable(χ, ι) ∧ mut(χ, ι′)}
@@ -208,7 +214,7 @@ wf_racefree(χ, σs) =
 wf_stacklocal(χ, σs) =
   ∀σ₀, σ₁ ∈ σs . ∀φ ∈ σ₀ . (reachable(χ, σ₁) ∩ ιs = ∅)
   where
-    ιs = {ι | χ.metadata(ι).location = φ.id}
+    ιs = {ι | loc(χ, ι) = φ.id}
 
 ```
 
@@ -218,21 +224,58 @@ Reference counting is a no-op unless the object is in a `RegionRC` or is `Immuta
 
 ```rs
 
+region_stack_inc(χ, p) = χ
+region_stack_inc(χ, 𝕣) = region_stack_inc(χ, 𝕣.object)
+region_stack_inc(χ, ι) =
+  χ if loc(χ, ι) = Immutable
+  χ[regions(ρ)[stack_rc↦(rc + 1)]] otherwise
+  where
+    loc(χ, ι) = ρ ∧
+    χ.regions(ρ).stack_rc = rc
+
+region_stack_dec(χ, p) = χ
+region_stack_dec(χ, 𝕣) = region_stack_dec(χ, 𝕣.object)
+region_stack_dec(χ, ι) =
+  χ if loc(χ, ι) = Immutable
+  χ[regions(ρ)[stack_rc↦(rc - 1)]] otherwise
+  where
+    loc(χ, ι) = ρ ∧
+    χ.regions(ρ).stack_rc = rc
+
+region_heap_inc(χ, ι, p) = χ
+region_heap_inc(χ, ι, 𝕣) = region_heap_inc(χ, ι, 𝕣.object)
+region_heap_inc(χ, ι, ι′) =
+  χ if loc(χ, ι′) = Immutable
+  χ if same_loc(χ, ι, ι′)
+  χ[regions(ρ′)[heap_rc(ρ)↦(rc + 1)]] otherwise
+  where
+    (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧
+    χ.regions(ρ′).heap_rc(ρ) = rc
+
+region_heap_dec(χ, ι, p) = χ
+region_heap_dec(χ, ι, 𝕣) = region_heap_dec(χ, ι, 𝕣.object)
+region_heap_dec(χ, ι, ι′) =
+  χ if loc(χ, ι′) = Immutable
+  χ if same_loc(χ, ι, ι′)
+  χ[regions(ρ′)[heap_rc(ρ)↦(rc - 1)]] otherwise
+  where
+    (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧
+    χ.regions(ρ′).heap_rc(ρ) = rc
+
 enable-rc(χ, ι) =
-  (χ.metadata(ι).location = ρ ∧ ρ.type = RegionRC) ∨
-  χ.metadata(ι).location = Immutable
+  (loc(χ, ι) = ρ ∧ ρ.type = RegionRC) ∨ (loc(χ, ι) = Immutable)
 
 inc(χ, p) = χ
 inc(χ, 𝕣) = dec(χ, 𝕣.object)
 inc(χ, ι) =
-  inc(χ, ι′) if χ.metadata(ι).location = ι′
+  inc(χ, ι′) if loc(χ, ι) = ι′
   χ[metadata(ι)[rc↦metadata(ι).rc + 1]] if enable-rc(χ, ι)
   χ otherwise
 
 dec(χ, p) = χ
 dec(χ, 𝕣) = dec(χ, 𝕣.object)
 dec(χ, ι) =
-  dec(χ, ι′) if χ.metadata(ι).location = ι′
+  dec(χ, ι′) if loc(χ, ι) = ι′
   free(χ, ι) if enable-rc(χ, ι) ∧ (χ.metadata(ι).rc = 1)
   χ[metadata(ι)[rc↦metata(ι).rc - 1]] if enable-rc(χ, ι)
   χ otherwise
@@ -241,7 +284,7 @@ free(χ, ι) = χₙ\ι where
   xs = [x | x ∈ dom(χ(ι))] ∧
   n = |xs| ∧
   χ₀ = χ ∧
-  ∀i ∈ 1 .. n . χᵢ₊₁ = dec(χᵢ, χ(ι)(xsᵢ))
+  ∀i ∈ 1 .. n . (ιᵢ = χ(ι)(xsᵢ)) ∧ χᵢ₊₁ = dec(region_heap_dec(χᵢ, ι, ιᵢ), ιᵢ)
 
 ```
 
@@ -271,11 +314,11 @@ zs = {z | z ∈ (y, z)*} ∧ |zs| = |(y, z)*|
 
 x ∉ φ
 ι ∉ χ
-ρ = χ.metadata(φ(y)).location
+ρ = loc(χ, φ(w))
 zs = {z | z ∈ (y, z)*} ∧ |zs| = |(y, z)*|
 ω = newobject(χ, τ, (y, z)*)
 --- [new heap]
-χ, σ;φ, bind x (new y τ (y, z)*);stmt* ⇝ χ[ι↦(ω, τ, ρ)], σ;φ[x↦ι]\zs, stmt*
+χ, σ;φ, bind x (new w τ (y, z)*);stmt* ⇝ χ[ι↦(ω, τ, ρ)], σ;φ[x↦ι]\zs, stmt*
 
 x ∉ φ
 ι ∉ χ
@@ -293,13 +336,18 @@ Local variables are consumed on use. To keep them, `dup` them first.
 
 ```rs
 
+φ(x) = v
+χ₁ = region_stack_dec(χ₀, v)
+χ₂ = dec(χ₁, v)
 --- [drop]
-χ, σ;φ, drop x;stmt* ⇝ dec(χ, φ(x)), σ;ϕ\x, stmt*
+χ₀, σ;φ, drop x;stmt* ⇝ χ₂, σ;ϕ\x, stmt*
 
 x ∉ ϕ
 ϕ(y) = v
+χ₁ = region_stack_inc(χ₀, v)
+χ₂ = inc(χ₁, v)
 --- [dup]
-χ, σ;φ, bind x (dup y);stmt* ⇝ inc(χ, v), σ;φ[x↦v], stmt*
+χ₀, σ;φ, bind x (dup y);stmt* ⇝ χ₂, σ;φ[x↦v], stmt*
 
 ```
 
@@ -320,18 +368,26 @@ w ∈ dom(P.types(typeof(χ, ι)).fields)
 
 x ∉ ϕ
 ϕ(y) = {object: ι, field: w}
-w ∈ dom(P.types(typeof(χ, ι)).fields)
-v = χ(ι)(w)
+w ∈ dom(P.types(typeof(χ₀, ι)).fields)
+v = χ₀(ι)(w)
+χ₁ = region_stack_inc(χ₀, v)
+χ₂ = inc(χ₁, v)
 --- [bind load]
-χ, σ;ϕ, bind x (load y);stmt* ⇝ inc(χ, v), σ;ϕ[x↦v], stmt*
+χ₀, σ;ϕ, bind x (load y);stmt* ⇝ χ₂, σ;ϕ[x↦v], stmt*
 
 x ∉ ϕ
 ϕ(y) = {object: ι, field: w}
-w ∈ dom(P.types(typeof(χ, ι)).fields)
-mut(χ, ι)
-v = χ(ι)(w)
+w ∈ dom(P.types(typeof(χ₀, ι)).fields)
+mut(χ₀, ι)
+v₀ = χ₀(ι)(w)
+v₁ = φ(z)
+ω = χ₀(ι)[w↦v₁]
+χ₁ = region_stack_inc(χ₀, v₀)
+χ₂ = region_heap_inc(χ₁, ι, v₁)
+χ₃ = region_stack_dec(χ₂, v₁)
+χ₄ = region_heap_dec(χ₃, ι, v₀)
 --- [bind store]
-χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ[ι↦χ(ι)[w↦φ(z)]], σ;ϕ[x↦v]\z, stmt*
+χ₀, σ;ϕ, bind x (store y z);stmt* ⇝ χ₄[ι↦ω], σ;ϕ[x↦v₀]\z, stmt*
 
 ```
 
@@ -403,7 +459,7 @@ This checks that:
 ```rs
 
 dom(φ₁.vars) = {x}
-ιs = {ι | χ.metadata(ι).location = φ₁.id}
+ιs = {ι | loc(χ, ι) = φ₁.id}
 ∀ι ∈ χ . ι ∉ ιs ⇒ (∀z ∈ dom(χ(ι)) . χ(ι)(z) ∉ ιs)
 --- [return]
 χ, σ;φ₀;φ₁, return x;stmt* ⇝ (χ\ιs)\(φ₁.id), σ;φ₀[φ₁.ret↦φ₁(x)], ϕ₁.cont
@@ -419,7 +475,7 @@ Dynamic freeze is suitable for a dynamic type checker. A static type checker wil
 x ∉ φ
 ι = φ(y)
 ιs = mut-reachable(χ, ι)
-∀ι′ ∈ ιs . χ.metadata(ι′).location ∉ FrameId
+∀ι′ ∈ ιs . loc(χ, ι′) ∉ FrameId
 χ₁ = χ₀[∀ι′ ∈ ιs . metadata(ι′)[location↦Immutable]]
 --- [dynamic freeze]
 χ₀, σ;φ, bind x (freeze y);stmt* ⇝ χ₁, σ;φ[x↦ι]\y, stmt*
@@ -434,13 +490,13 @@ x ∉ φ
 
 x ∉ φ
 ι = φ(y)
-ρ₀ = χ₀.metadata(ι).location
+ρ₀ = loc(χ₀, ι)
 ρ₁ ∉ χ₀
 ιs = reachable(χ, ι)
 ∀ι′ ∈ χ₀.regions(ρ₀).members . (ι′ ∉ ιs ⇒ ∀z ∈ dom(χ₀(ι′)) . χ₀(ι′)(z) ∉ ιs)
 χ₁ = χ₀[regions(ρ₀).members\ιs]
        [regions(ρ₁)↦{type: χ₀.regions(ρ₀).type, members: ιs}]
-       [∀ι′ ∈ ιs . χ₀.metadata(ι′).location↦ρ₁]
+       [∀ι′ ∈ ιs . metadata(ι′).location↦ρ₁]
 --- [extract]
 χ₀, σ;φ, bind x (extract y);stmt* ⇝ χ₁[φ\y][φ(x)↦ι], σ;φ, stmt*
 
