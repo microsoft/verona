@@ -1,35 +1,46 @@
 # Operational Semantics
 
 Still to do:
-* Do we need to prevent cyclic regions?
-* Region send and free.
-  * When external RC is 0?
-  * Could do freeze this way too? Only needed with a static type checker.
-  * If external region RC is limited to 1, we can check send-ability statically.
-    * But we can also delay send or free until RC is 0.
-* Freeze.
-  * For a static type checker, how do we know there are no `mut` aliases?
-  * Could error if external RC isn't 0 or 1?
-    * Or delay?
-  * Extract and then freeze for sub-graphs. The extract could fail.
-* Merge.
-  * External RC from the destination is removed.
-  * Other external RC is added to the destination.
-  * If tracking on a per-parent basis, this is easy.
+* Add destructors explicitly in the semantics.
+* Extract.
+* Discharge (send/free/freeze?) when stack RC for the region and all children (recursively) is 0.
+  * Could optimize by tracking the count of "busy" child regions.
+  * Can we still have an Arena per frame?
+    * Frame Arenas can't be discharged anyway.
+* Efficient frame teardown.
+  * Each frame could be an Arena.
+  * References from a frame Arena to another region (including another frame Arena) would be tracked as stack RC.
+  * A frame Arena must reach external RC 0 at `return`.
+  * Prevent heap or "older frame" regions from referencing a frame Arena?
+    * Any region other than the current frame Arena can't reference the current frame Arena?
+* How are Arenas different from uncounted regions?
+  * How should they treat changing region type?
+  * How should they treat merging, freezing, extract?
 * Undecided region.
   * Is this a per-stack region, where we extract from it?
   * Could be implemented as "allocate in many regions" and "merge often".
-  * How to distinguish a merge from a subregion reference? Only need to do this at the language level, the semantics can be explicit.
-* Efficient frame teardown.
-  * Disallow heap and "earlier frame" objects from referencing frame objects?
-  * All function arguments and return values are "heap or earlier frame".
-  * Treat each frame as a region, external RC is 0?
-  * Each frame could be an Arena, disallowing extract, not needing ref counting.
+  * How to distinguish a merge from a subregion reference? Only need to do this at the language level, the semantics can be explicit?
 * Behaviors and cowns.
 * Embedded object fields?
 * Arrays? Or model them as objects?
 * GC or RC cycle detection.
 * Non-local returns.
+
+Dynamic failures:
+* `store`:
+  * `w` is not a field of the target.
+  * `store` to an immutable object.
+  * `store` a region that already has a parent.
+  * `store` a region that would create a cycle.
+  * TODO: frame references?
+* `call dynamic`:
+  * `w` is not a method of the target.
+* `merge`:
+  * Trying to merge a value that isn't an object in a region.
+  * Trying to merge a region that is a child of a region other than the destination region.
+  * Trying to merge a region that would create a cycle.
+* `freeze`:
+  * Trying to freeze a value that is not an object in a region.
 
 ## Shape
 
@@ -84,9 +95,11 @@ v ∈ Value = ObjectId | Primitive | Reference
 σ ∈ Stack = Frame*
 
 R ∈ RegionType = RegionRC | RegionGC | RegionArena
+
+    // The size of the parents set will be at most 1.
     Region = {
       type: RegionType,
-      heap_rc: RegionId ↦ ℕ,
+      parents: 𝒫(RegionId),
       stack_rc: ℕ
     }
 
@@ -134,6 +147,7 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 // Regions.
 ρ ∈ χ ≝ ρ ∈ dom(χ.regions)
 χ[ρ↦R] = χ[regions(ρ)↦(R, ∅)]
+χ\ρ = χ[regions\ρ]
 
 // Deallocation.
 χ\ι = χ\{ι}
@@ -184,7 +198,9 @@ reachable(χ, ι, ιs) =
 // Region.
 loc(χ, p) = Immutable
 loc(χ, 𝕣) = loc(χ, 𝕣.object)
-loc(χ, ι) = χ.metadata(ι).location
+loc(χ, ι) =
+  loc(χ, ι′) if χ.metadata(ι).location = ι′
+  χ.metadata(ι).location otherwise
 
 same_loc(χ, v₀, v₁) = (loc(χ, v₀) = loc(χ, v₁))
 
@@ -195,6 +211,32 @@ mut(χ, ι) = loc(χ, ι) ≠ Immutable
 mut-reachable(χ, σ) = {ι′ | ι′ ∈ reachable(χ, σ) ∧ mut(χ, ι′)}
 mut-reachable(χ, φ) = {ι′ | ι′ ∈ reachable(χ, φ) ∧ mut(χ, ι′)}
 mut-reachable(χ, ι) = {ι′ | ι′ ∈ reachable(χ, ι) ∧ mut(χ, ι′)}
+
+// Region parents.
+parents(χ, ρ) = χ.regions(ρ).parents
+
+// Check if ρ₀ is an ancestor of ρ₁.
+is_ancestor(χ, ρ₀, ρ₁) =
+  ρ₀ ∈ parents(χ, ρ₁) ∨
+  (∀ρ ∈ parents(χ, ρ₁) . is_ancestor(χ, ρ₀, ρ))
+
+```
+
+## Safety
+
+This enforces a tree-shaped region graph, with a single reference from parent to child.
+
+```rs
+
+safe_store(χ, ι, v) =
+  false if loc(χ, ι) = Immutable
+  true if loc(χ, v) = Immutable
+  // TODO: more precise frame references?
+  true if loc(χ, ι) = 𝔽
+  true if same_loc(χ, ι, v)
+  true if (ρ₀ = loc(χ, ι)) ∧ (ρ₁ = loc(χ, v)) ∧
+          (parents(χ, ρ₁) = ∅) ∧ ¬is_ancestor(χ, ρ₁, ρ₀)
+  false otherwise
 
 ```
 
@@ -216,6 +258,13 @@ wf_stacklocal(χ, σs) =
   where
     ιs = {ι | loc(χ, ι) = φ.id}
 
+// The region graph is a tree.
+// TODO: examine all references
+wf_regiontree(χ) =
+  ∀ρ₀, ρ₁ ∈ χ .
+    (|parents(χ, ρ₀)| ≤ 1) ∧
+    (ρ₀ ∈ parents(χ, ρ₁) ⇒ (ρ₀ ≠ ρ₁) ∧ ¬is_ancestor(χ, ρ₁, ρ₀))
+
 ```
 
 ## Reference Counting
@@ -227,40 +276,30 @@ Reference counting is a no-op unless the object is in a `RegionRC` or is `Immuta
 region_stack_inc(χ, p) = χ
 region_stack_inc(χ, 𝕣) = region_stack_inc(χ, 𝕣.object)
 region_stack_inc(χ, ι) =
-  χ if loc(χ, ι) = Immutable
-  χ[regions(ρ)[stack_rc↦(rc + 1)]] otherwise
-  where
-    loc(χ, ι) = ρ ∧
-    χ.regions(ρ).stack_rc = rc
+  χ[regions(ρ)[stack_rc↦(stack_rc + 1)]] if loc(χ, ι) = ρ
+  χ otherwise
 
 region_stack_dec(χ, p) = χ
 region_stack_dec(χ, 𝕣) = region_stack_dec(χ, 𝕣.object)
 region_stack_dec(χ, ι) =
-  χ if loc(χ, ι) = Immutable
-  χ[regions(ρ)[stack_rc↦(rc - 1)]] otherwise
-  where
-    loc(χ, ι) = ρ ∧
-    χ.regions(ρ).stack_rc = rc
+  χ[regions(ρ)[stack_rc↦(stack_rc - 1)]] if loc(χ, ι) = ρ
+  χ otherwise
 
-region_heap_inc(χ, ι, p) = χ
-region_heap_inc(χ, ι, 𝕣) = region_heap_inc(χ, ι, 𝕣.object)
-region_heap_inc(χ, ι, ι′) =
-  χ if loc(χ, ι′) = Immutable
-  χ if same_loc(χ, ι, ι′)
-  χ[regions(ρ′)[heap_rc(ρ)↦(rc + 1)]] otherwise
-  where
-    (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧
-    χ.regions(ρ′).heap_rc(ρ) = rc
+// TODO: what if ι is in a frame?
+region_add_parent(χ, ι, p) = χ
+region_add_parent(χ, ι, 𝕣) = region_add_parent(χ, ι, 𝕣.object)
+region_add_parent(χ, ι, ι′) =
+  χ[regions(ρ)[parents ∪ {ρ′})]] if
+    (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
+  χ otherwise
 
-region_heap_dec(χ, ι, p) = χ
-region_heap_dec(χ, ι, 𝕣) = region_heap_dec(χ, ι, 𝕣.object)
-region_heap_dec(χ, ι, ι′) =
-  χ if loc(χ, ι′) = Immutable
-  χ if same_loc(χ, ι, ι′)
-  χ[regions(ρ′)[heap_rc(ρ)↦(rc - 1)]] otherwise
-  where
-    (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧
-    χ.regions(ρ′).heap_rc(ρ) = rc
+// TODO: what if ι is in a frame?
+region_remove_parent(χ, ι, p) = χ
+region_remove_parent(χ, ι, 𝕣) = region_remove_parent(χ, ι, 𝕣.object)
+region_remove_parent(χ, ι, ι′) =
+  χ[regions(ρ)[parents \ {ρ′})]] if
+    (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
+  χ otherwise
 
 enable-rc(χ, ι) =
   (loc(χ, ι) = ρ ∧ ρ.type = RegionRC) ∨ (loc(χ, ι) = Immutable)
@@ -268,23 +307,85 @@ enable-rc(χ, ι) =
 inc(χ, p) = χ
 inc(χ, 𝕣) = dec(χ, 𝕣.object)
 inc(χ, ι) =
-  inc(χ, ι′) if loc(χ, ι) = ι′
+  inc(χ, ι′) if χ.metadata(ι).location = ι′
   χ[metadata(ι)[rc↦metadata(ι).rc + 1]] if enable-rc(χ, ι)
   χ otherwise
 
 dec(χ, p) = χ
 dec(χ, 𝕣) = dec(χ, 𝕣.object)
 dec(χ, ι) =
-  dec(χ, ι′) if loc(χ, ι) = ι′
+  dec(χ, ι′) if χ.metadata(ι).location = ι′
   free(χ, ι) if enable-rc(χ, ι) ∧ (χ.metadata(ι).rc = 1)
   χ[metadata(ι)[rc↦metata(ι).rc - 1]] if enable-rc(χ, ι)
   χ otherwise
 
+// TODO: free entire region?
 free(χ, ι) = χₙ\ι where
   xs = [x | x ∈ dom(χ(ι))] ∧
   n = |xs| ∧
   χ₀ = χ ∧
-  ∀i ∈ 1 .. n . (ιᵢ = χ(ι)(xsᵢ)) ∧ χᵢ₊₁ = dec(region_heap_dec(χᵢ, ι, ιᵢ), ιᵢ)
+  ∀i ∈ 1 .. n .
+    (ιᵢ = χ(ι)(xsᵢ)) ∧
+    (χᵢ₊₁ = dec(region_remove_parent(χᵢ, ι, ιᵢ), ιᵢ))
+
+```
+
+## Region Type Change
+
+```rs
+
+region_type_change(χ, σ, ∅, R) = χ
+region_type_change(χ, σ, {ρ} ∪ ρs, R) =
+  region_type_change(χ′, σ, ρs, R)
+  where
+    χ′ = region_type_change(χ, σ, ρ, R)
+
+region_type_change(χ, σ, ρ, R) =
+  calc_rc(χ′, σ, ρ) if (R′ ≠ RegionRC) ∧ (R = RegionRC)
+  χ′ otherwise
+  where
+    R′ = χ.regions(ρ).type ∧
+    χ′ = χ[regions(ρ)[type↦R]]
+
+calc_rc(χ, σ, ρ) =
+  χ[∀ι ∈ ιs . metadata(ι).rc↦calc_rc(χ, σ, ι)]
+  where
+    ιs = {ι | loc(χ, ι) = ρ}
+
+calc_rc(χ, σ, ι) =
+  χ[metadata(ι)[rc↦calc_stack_rc(χ, σ, ι) + calc_heap_rc(χ, ι)]]
+
+calc_stack_rc(χ, ∅, ι) = 0
+calc_stack_rc(χ, σ;φ, ι) =
+  |{x | φ(x) = ι}| + calc_stack_rc(χ, σ, ι)
+
+// The heap RC for the parent region will be zero or one.
+calc_heap_rc(χ, ι) =
+  calc_heap_rc(χ, ρ, ι) + calc_heap_rc(χ, ρ′, ι)
+  where
+    (ρ = loc(χ, ι)) ∧ ({ρ′} = parents(χ, ρ))
+
+calc_heap_rc(χ, ρ, ι) =
+  |{(ι′, w) | (ι′ ∈ ιs) ∧ (w ∈ dom(χ(ι′)) ∧ (χ(ι′)(w) = ι))}|
+  where
+    ιs = {ι′ | loc(χ, ι′) = ρ}
+
+```
+
+## Garbage Collection
+
+```rs
+
+gc_roots(χ, σ, ρ) =
+  {ι | ι ∈ ιs ∧ ((calc_stack_rc(χ, σ, ι) > 0) ∨ (calc_heap_rc(χ, ρ′, ι) > 0))}
+  where
+    {ρ′} = parents(χ, ρ) ∧
+    ιs = {ι | loc(χ, ι) = ρ}
+
+// TODO:
+gc(χ, σ, ρ) =
+  where
+    ιs = gc_roots(χ, σ, ρ) ∧
 
 ```
 
@@ -330,17 +431,11 @@ zs = {z | z ∈ (y, z)*} ∧ |zs| = |(y, z)*|
 
 ```
 
-## Drop, Duplicate
+## Duplicate, Drop
 
 Local variables are consumed on use. To keep them, `dup` them first.
 
 ```rs
-
-φ(x) = v
-χ₁ = region_stack_dec(χ₀, v)
-χ₂ = dec(χ₁, v)
---- [drop]
-χ₀, σ;φ, drop x;stmt* ⇝ χ₂, σ;ϕ\x, stmt*
 
 x ∉ ϕ
 ϕ(y) = v
@@ -349,13 +444,17 @@ x ∉ ϕ
 --- [dup]
 χ₀, σ;φ, bind x (dup y);stmt* ⇝ χ₂, σ;φ[x↦v], stmt*
 
+φ(x) = v
+χ₁ = region_stack_dec(χ₀, v)
+χ₂ = dec(χ₁, v)
+--- [drop]
+χ₀, σ;φ, drop x;stmt* ⇝ χ₂, σ;ϕ\x, stmt*
+
 ```
 
 ## Fields
 
-The `load` statement is the only operation other than `dup` or `drop` that can change the reference count of an object.
-
-The containing object in `load` and `store` is not consumed.
+The `load` statement is the only operation other than `dup` or `drop` that can change the reference count of an object. The containing object in `load` and `store` is not consumed.
 
 ```rs
 
@@ -363,7 +462,7 @@ x ∉ ϕ
 ι = ϕ(y)
 w ∈ dom(P.types(typeof(χ, ι)).fields)
 𝕣 = {object: ι, field: w}
---- [bind field ref]
+--- [field ref]
 χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦𝕣]\y, stmt*
 
 x ∉ ϕ
@@ -372,21 +471,22 @@ w ∈ dom(P.types(typeof(χ₀, ι)).fields)
 v = χ₀(ι)(w)
 χ₁ = region_stack_inc(χ₀, v)
 χ₂ = inc(χ₁, v)
---- [bind load]
+--- [load]
 χ₀, σ;ϕ, bind x (load y);stmt* ⇝ χ₂, σ;ϕ[x↦v], stmt*
 
+// TODO: what happens if safe_store is false?
 x ∉ ϕ
 ϕ(y) = {object: ι, field: w}
 w ∈ dom(P.types(typeof(χ₀, ι)).fields)
-mut(χ₀, ι)
 v₀ = χ₀(ι)(w)
 v₁ = φ(z)
+safe_store(χ₀, ι, v₁)
 ω = χ₀(ι)[w↦v₁]
-χ₁ = region_stack_inc(χ₀, v₀)
-χ₂ = region_heap_inc(χ₁, ι, v₁)
+χ₁ = region_remove_parent(χ₀, ι, v₀)
+χ₂ = region_stack_inc(χ₁, v₀)
 χ₃ = region_stack_dec(χ₂, v₁)
-χ₄ = region_heap_dec(χ₃, ι, v₀)
---- [bind store]
+χ₄ = region_add_parent(χ₃, ι, v₁)
+--- [store]
 χ₀, σ;ϕ, bind x (store y z);stmt* ⇝ χ₄[ι↦ω], σ;ϕ[x↦v₀]\z, stmt*
 
 ```
@@ -466,19 +566,55 @@ dom(φ₁.vars) = {x}
 
 ```
 
+## Merge
+
+This allows merging two regions. The region being merged must either have no parent, or be a child of the region it's being merged into. If there are other stack references to the region being merged, a static type system may have the wrong region information for them.
+
+> TODO: disallow merging a region that has a parent? Disallow merging a region that has other stack references?
+
+```rs
+
+x ∉ φ
+loc(χ₀, φ(w)) = ρ₀
+loc(χ₀, φ(y)) = ρ₁
+(ρ₀ ≠ ρ₁) ∧ ¬is_ancestor(χ₀, ρ₁, ρ₀) ∧ ({ρ₀} ⊇ parents(χ₀, ρ₁))
+ιs = {ι | loc(χ₀, ι) = ρ₁}
+χ₁ = χ₀[∀ι ∈ ιs . metadata(ι)[location↦ρ₀]]
+       [regions(ρ₀)[stack_rc += regions(ρ₁).stack_rc)]]
+--- [merge true]
+χ₀, σ;φ, bind x (merge w y);stmt* ⇝ χ₁\ρ₁, σ;φ[x↦true], stmt*
+
+x ∉ φ
+(loc(χ, φ(w)) ≠ ρ₀) ∨
+(loc(χ, φ(y)) ≠ ρ₁) ∨
+(ρ₀ = ρ₁) ∨ is_ancestor(χ₀, ρ₁, ρ₀) ∨ ({ρ₀} ̸⊇ parents(χ, ρ₁))
+--- [merge false]
+χ, σ;φ, bind x (merge w y);stmt* ⇝ χ, σ;φ[x↦false], stmt*
+
+```
+
 ## Freeze
 
-Dynamic freeze is suitable for a dynamic type checker. A static type checker will have incorrect mutability information if there are mutable aliases.
+If the region being frozen has a parent, a static type system may have the wrong type for the incoming reference. If there are other stack references to the region being frozen or any of its children, a static type system may have the wrong type for them.
+
+> TODO: disallow freezing a region that has a parent? Disallow freezing a region that has other stack references?
 
 ```rs
 
 x ∉ φ
 ι = φ(y)
-ιs = mut-reachable(χ, ι)
-∀ι′ ∈ ιs . loc(χ, ι′) ∉ FrameId
-χ₁ = χ₀[∀ι′ ∈ ιs . metadata(ι′)[location↦Immutable]]
---- [dynamic freeze]
-χ₀, σ;φ, bind x (freeze y);stmt* ⇝ χ₁, σ;φ[x↦ι]\y, stmt*
+ρ = loc(χ₀, ι)
+ρs = {ρ} ∪ {ρ′ | (ρ′ ∈ χ.regions) ∧ is_ancestor(χ₀, ρ, ρ′)}
+χ₁ = region_type_change(χ₀, σ;φ, ρs, RegionRC)
+ιs = {ι′ | loc(χ₀, ι′) ∈ ρs}
+χ₂ = χ₁[∀ι′ ∈ ιs . metadata(ι′)[location↦Immutable]]
+--- [freeze true]
+χ₀, σ;φ, bind x (freeze y);stmt* ⇝ χ₂\ρs, σ;φ[x↦true], stmt*
+
+x ∉ φ
+loc(χ, φ(y)) ≠ ρ
+--- [freeze false]
+χ, σ;φ, bind x (freeze y);stmt* ⇝ χ, σ;φ[x↦false], stmt*
 
 ```
 
