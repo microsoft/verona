@@ -1,9 +1,11 @@
 # Operational Semantics
 
 Still to do:
-* Add destructors explicitly in the semantics.
-* Extract.
+* WIP: Extract.
+* Add finalizers explicitly in the semantics.
+  * Set the objects being finalized to `Immutable`?
 * Discharge (send/free/freeze?) when stack RC for the region and all children (recursively) is 0.
+  * Can free even if child regions have stack RC.
   * Could optimize by tracking the count of "busy" child regions.
   * Can we still have an Arena per frame?
     * Frame Arenas can't be discharged anyway.
@@ -16,10 +18,6 @@ Still to do:
 * How are Arenas different from uncounted regions?
   * How should they treat changing region type?
   * How should they treat merging, freezing, extract?
-* Undecided region.
-  * Is this a per-stack region, where we extract from it?
-  * Could be implemented as "allocate in many regions" and "merge often".
-  * How to distinguish a merge from a subregion reference? Only need to do this at the language level, the semantics can be explicit?
 * Behaviors and cowns.
 * Embedded object fields?
 * Arrays? Or model them as objects?
@@ -143,15 +141,13 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 χ(ι) = χ.data(ι)
 χ[ι↦(ω, τ, 𝔽)] = χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: 𝔽, rc: 1}]
 χ[ι↦(ω, τ, ρ)] = χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: ρ, rc: 1}]
+χ\ι = χ\{ι}
+χ\ιs = χ[data = data\ιs, metadata = metadata\ιs]
 
 // Regions.
 ρ ∈ χ ≝ ρ ∈ dom(χ.regions)
 χ[ρ↦R] = χ[regions(ρ)↦(R, ∅)]
 χ\ρ = χ[regions\ρ]
-
-// Deallocation.
-χ\ι = χ\{ι}
-χ\ιs = χ[data = data\ιs, metadata = metadata\ιs]
 
 ```
 
@@ -183,34 +179,32 @@ typetest(χ, v, T) =
 reachable(χ, σs) = ∀σ ∈ σs . ⋃{reachable(χ, σ)}
 reachable(χ, σ) = ∀φ ∈ σ . ⋃{reachable(χ, φ)}
 reachable(χ, φ) = ∀x ∈ dom(φ) . ⋃{reachable(χ, φ(x))}
+
+reachable(χ, ∅) = ∅
+reachable(χ, {v} ∪ vs) = reachable(χ, v) ∪ reachable(χ, vs)
+
 reachable(χ, v) = reachable(χ, v, ∅)
 reachable(χ, p, ιs) = ιs
 reachable(χ, 𝕣, ιs) = reachable(χ, 𝕣.object, ιs)
 reachable(χ, ι, ιs) =
   ιs if ι ∈ ιs
-  ιsₙ otherwise
-  where
-    xs = [x | x ∈ dom(χ(ι))] ∧
-    n = |xs| ∧
-    ιs₀ = (ι ∪ ιs) ∧
-    ∀i ∈ 1 .. n . ιsᵢ = reachable(χ, χ(ι)(xsᵢ), ιsᵢ₋₁)
+  reachable(χ, ι, {ι} ∪ ιs, dom(χ(ι))) otherwise
+
+reachable(χ, ι, ιs, ∅) = ιs
+reachable(χ, ι, ιs, {w} ∪ ws) =
+  reachable(χ, ι, ιs, w) ∪ reachable(χ, ι, ιs, ws)
+reachable(χ, ι, ιs, w) = reachable(χ, χ(ι)(w), ιs)
 
 // Region.
 loc(χ, p) = Immutable
 loc(χ, 𝕣) = loc(χ, 𝕣.object)
 loc(χ, ι) =
   loc(χ, ι′) if χ.metadata(ι).location = ι′
-  χ.metadata(ι).location otherwise
+  χ.metadata(ι).location if ι ∈ χ
+  Immutable otherwise
 
 same_loc(χ, v₀, v₁) = (loc(χ, v₀) = loc(χ, v₁))
-
-// Mutability.
-mut(χ, p) = false
-mut(χ, 𝕣) = mut(χ, 𝕣.object)
-mut(χ, ι) = loc(χ, ι) ≠ Immutable
-mut-reachable(χ, σ) = {ι′ | ι′ ∈ reachable(χ, σ) ∧ mut(χ, ι′)}
-mut-reachable(χ, φ) = {ι′ | ι′ ∈ reachable(χ, φ) ∧ mut(χ, ι′)}
-mut-reachable(χ, ι) = {ι′ | ι′ ∈ reachable(χ, ι) ∧ mut(χ, ι′)}
+members(χ, ρ) = {ι | (ι ∈ χ) ∧ (loc(χ, ι) = ρ)}
 
 // Region parents.
 parents(χ, ρ) = χ.regions(ρ).parents
@@ -246,13 +240,18 @@ safe_store(χ, ι, v) =
 
 // Deep immutability.
 wf_immutable(χ) =
-  ∀ι ∈ χ . ¬mut(χ, ι) ⇒ (mut-reachable(χ, ι) = ∅)
+  ∀ι₀, ι₁ ∈ χ .
+    (loc(χ, ι₀) = Immutable) ∧ (ι₁ ∈ reachable(χ, ι₀)) ⇒
+    (loc(χ, ι₁) = Immutable)
 
 // Data-race freedom.
 wf_racefree(χ, σs) =
-  ∀σ₀, σ₁ ∈ σs . σ₀ ≠ σ₁ ⇒ (mut-reachable(σ₀) ∩ mut-reachable(σ₁) = ∅)
+  ∀σ₀, σ₁ ∈ σs . ∀ι ∈ χ .
+    (ι ∈ reachable(χ, σ₀)) ∧ (ι ∈ reachable(χ, σ₁)) ⇒
+    (σ₀ = σ₁) ∨ (loc(χ, ι) = Immutable)
 
 // Stack allocations are reachable only from that stack.
+// TODO:
 wf_stacklocal(χ, σs) =
   ∀σ₀, σ₁ ∈ σs . ∀φ ∈ σ₀ . (reachable(χ, σ₁) ∩ ιs = ∅)
   where
@@ -264,69 +263,6 @@ wf_regiontree(χ) =
   ∀ρ₀, ρ₁ ∈ χ .
     (|parents(χ, ρ₀)| ≤ 1) ∧
     (ρ₀ ∈ parents(χ, ρ₁) ⇒ (ρ₀ ≠ ρ₁) ∧ ¬is_ancestor(χ, ρ₁, ρ₀))
-
-```
-
-## Reference Counting
-
-Reference counting is a no-op unless the object is in a `RegionRC` or is `Immutable`.
-
-```rs
-
-region_stack_inc(χ, p) = χ
-region_stack_inc(χ, 𝕣) = region_stack_inc(χ, 𝕣.object)
-region_stack_inc(χ, ι) =
-  χ[regions(ρ)[stack_rc↦(stack_rc + 1)]] if loc(χ, ι) = ρ
-  χ otherwise
-
-region_stack_dec(χ, p) = χ
-region_stack_dec(χ, 𝕣) = region_stack_dec(χ, 𝕣.object)
-region_stack_dec(χ, ι) =
-  χ[regions(ρ)[stack_rc↦(stack_rc - 1)]] if loc(χ, ι) = ρ
-  χ otherwise
-
-// TODO: what if ι is in a frame?
-region_add_parent(χ, ι, p) = χ
-region_add_parent(χ, ι, 𝕣) = region_add_parent(χ, ι, 𝕣.object)
-region_add_parent(χ, ι, ι′) =
-  χ[regions(ρ)[parents ∪ {ρ′})]] if
-    (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
-  χ otherwise
-
-// TODO: what if ι is in a frame?
-region_remove_parent(χ, ι, p) = χ
-region_remove_parent(χ, ι, 𝕣) = region_remove_parent(χ, ι, 𝕣.object)
-region_remove_parent(χ, ι, ι′) =
-  χ[regions(ρ)[parents \ {ρ′})]] if
-    (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
-  χ otherwise
-
-enable-rc(χ, ι) =
-  (loc(χ, ι) = ρ ∧ ρ.type = RegionRC) ∨ (loc(χ, ι) = Immutable)
-
-inc(χ, p) = χ
-inc(χ, 𝕣) = dec(χ, 𝕣.object)
-inc(χ, ι) =
-  inc(χ, ι′) if χ.metadata(ι).location = ι′
-  χ[metadata(ι)[rc↦metadata(ι).rc + 1]] if enable-rc(χ, ι)
-  χ otherwise
-
-dec(χ, p) = χ
-dec(χ, 𝕣) = dec(χ, 𝕣.object)
-dec(χ, ι) =
-  dec(χ, ι′) if χ.metadata(ι).location = ι′
-  free(χ, ι) if enable-rc(χ, ι) ∧ (χ.metadata(ι).rc = 1)
-  χ[metadata(ι)[rc↦metata(ι).rc - 1]] if enable-rc(χ, ι)
-  χ otherwise
-
-// TODO: free entire region?
-free(χ, ι) = χₙ\ι where
-  xs = [x | x ∈ dom(χ(ι))] ∧
-  n = |xs| ∧
-  χ₀ = χ ∧
-  ∀i ∈ 1 .. n .
-    (ιᵢ = χ(ι)(xsᵢ)) ∧
-    (χᵢ₊₁ = dec(region_remove_parent(χᵢ, ι, ιᵢ), ιᵢ))
 
 ```
 
@@ -347,13 +283,14 @@ region_type_change(χ, σ, ρ, R) =
     R′ = χ.regions(ρ).type ∧
     χ′ = χ[regions(ρ)[type↦R]]
 
-calc_rc(χ, σ, ρ) =
-  χ[∀ι ∈ ιs . metadata(ι).rc↦calc_rc(χ, σ, ι)]
+calc_rc(χ, σ, ρ) = calc_rc(χ, σ, members(χ, ρ))
+calc_rc(χ, σ, ∅) = χ
+calc_rc(χ, σ, {ι} ∪ ιs) =
+  calc_rc(χ′, σ, ιs)
   where
-    ιs = {ι | loc(χ, ι) = ρ}
-
+    χ′ = calc_rc(χ, σ, ι)
 calc_rc(χ, σ, ι) =
-  χ[metadata(ι)[rc↦calc_stack_rc(χ, σ, ι) + calc_heap_rc(χ, ι)]]
+  χ[metadata(ι)[rc = calc_stack_rc(χ, σ, ι) + calc_heap_rc(χ, ι)]]
 
 calc_stack_rc(χ, ∅, ι) = 0
 calc_stack_rc(χ, σ;φ, ι) =
@@ -361,14 +298,73 @@ calc_stack_rc(χ, σ;φ, ι) =
 
 // The heap RC for the parent region will be zero or one.
 calc_heap_rc(χ, ι) =
-  calc_heap_rc(χ, ρ, ι) + calc_heap_rc(χ, ρ′, ι)
+  calc_heap_rc(χ, {ρ} ∪ ρs, ι)
   where
-    (ρ = loc(χ, ι)) ∧ ({ρ′} = parents(χ, ρ))
+    (ρ = loc(χ, ι)) ∧ (ρs = parents(χ, ρ))
 
+calc_heap_rc(χ, ∅, ι) = 0
+calc_heap_rc(χ, {ρ} ∪ ρs, ι) = calc_heap_rc(χ, ρ, ι) + calc_heap_rc(χ, ρs, ι)
 calc_heap_rc(χ, ρ, ι) =
-  |{(ι′, w) | (ι′ ∈ ιs) ∧ (w ∈ dom(χ(ι′)) ∧ (χ(ι′)(w) = ι))}|
-  where
-    ιs = {ι′ | loc(χ, ι′) = ρ}
+  |{(ι′, w) |
+    (ι′ ∈ members(χ, ρ)) ∧
+    (w ∈ dom(χ(ι′))) ∧
+    ((χ(ι′)(w) = ι)) ∨ ((χ(ι′)(w) = 𝕣) ∧ (𝕣.object = ι))}|
+
+```
+
+## Reference Counting
+
+Reference counting is a no-op unless the object is in a `RegionRC` or is `Immutable`.
+
+```rs
+
+enable-rc(χ, ι) =
+  (loc(χ, ι) = ρ ∧ ρ.type = RegionRC) ∨ (loc(χ, ι) = Immutable)
+
+region_stack_inc(χ, p) = χ
+region_stack_inc(χ, 𝕣) = region_stack_inc(χ, 𝕣.object)
+region_stack_inc(χ, ι) =
+  χ[regions(ρ)[stack_rc = stack_rc + 1]] if loc(χ, ι) = ρ
+  χ otherwise
+
+region_stack_dec(χ, p) = χ
+region_stack_dec(χ, 𝕣) = region_stack_dec(χ, 𝕣.object)
+region_stack_dec(χ, ι) =
+  free_region(χ, ρ) if
+    (loc(χ, ι) = ρ) ∧
+    (parents(χ, ρ) = ∅) ∧
+    (χ.regions(ρ).stack_rc = 1)
+  χ[regions(ρ)[stack_rc = stack_rc - 1]] if loc(χ, ι) = ρ
+  χ otherwise
+
+region_add_parent(χ, ι, p) = χ
+region_add_parent(χ, ι, 𝕣) = region_add_parent(χ, ι, 𝕣.object)
+region_add_parent(χ, ι, ι′) =
+  χ[regions(ρ)[parents = parents ∪ {ρ′})]] if
+    (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
+  χ otherwise
+
+region_remove_parent(χ, ι, p) = χ
+region_remove_parent(χ, ι, 𝕣) = region_remove_parent(χ, ι, 𝕣.object)
+region_remove_parent(χ, ι, ι′) =
+  χ[regions(ρ)[parents = parents \ {ρ′})]] if
+    (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
+  χ otherwise
+
+inc(χ, p) = χ
+inc(χ, 𝕣) = dec(χ, 𝕣.object)
+inc(χ, ι) =
+  inc(χ, ι′) if χ.metadata(ι).location = ι′
+  χ[metadata(ι)[rc = rc + 1]] if enable-rc(χ, ι)
+  χ otherwise
+
+dec(χ, p) = χ
+dec(χ, 𝕣) = dec(χ, 𝕣.object)
+dec(χ, ι) =
+  dec(χ, ι′) if χ.metadata(ι).location = ι′
+  free(χ, ι) if enable-rc(χ, ι) ∧ (χ.metadata(ι).rc = 1)
+  χ[metadata(ι)[rc = rc - 1]] if enable-rc(χ, ι)
+  χ otherwise
 
 ```
 
@@ -376,16 +372,114 @@ calc_heap_rc(χ, ρ, ι) =
 
 ```rs
 
-gc_roots(χ, σ, ρ) =
-  {ι | ι ∈ ιs ∧ ((calc_stack_rc(χ, σ, ι) > 0) ∨ (calc_heap_rc(χ, ρ′, ι) > 0))}
-  where
-    {ρ′} = parents(χ, ρ) ∧
-    ιs = {ι | loc(χ, ι) = ρ}
+// GC on RegionRC is cycle detection.
+enable-gc(χ, ρ) = χ.regions(ρ).type ∈ {RegionGC, RegionRC}
 
-// TODO:
-gc(χ, σ, ρ) =
+gc(χ₀, σ, ρ) =
+  χ₃ \ ιs₀ if enable-gc(χ₃, ρ)
+  χ₀ otherwise
   where
-    ιs = gc_roots(χ, σ, ρ) ∧
+    ιs = members(χ₀, ρ) ∧
+    ιs₀ = ιs \ reachable(χ₀, gc_roots(χ₀, σ, ρ)) ∧
+    ιs₁ = ιs \ ιs₀ ∧
+    χ₁, ρs = gc_dec(χ₀, ιs₀, ιs₁) ∧
+    χ₂ = finalize(χ₁, ιs₀) ∧
+    χ₃ = free_regions(χ₂, ρs)
+
+gc_roots(χ, σ, ρ) =
+  {ι | (ι ∈ ιs) ∧ ((calc_stack_rc(χ, σ, ι) > 0) ∨ (calc_heap_rc(χ, ρs, ι) > 0))}
+  where
+    ρs = parents(χ, ρ) ∧ ιs = members(χ, ρ)
+
+gc_dec(χ, ∅, ιs₁) = χ, ∅
+gc_dec(χ₀, {ι} ∪ ιs₀, ιs₁) =
+  χ₂, ρ₁ ∪ ρs₂
+  where
+    χ₁, ρs₁ = gc_dec_fields(χ₀, ι, dom(χ₀(ι)), ιs₁) ∧
+    χ₂, ρs₂ = gc_dec(χ₁, ιs₀, ιs₁)
+  
+gc_dec_fields(χ, ι, ∅, ιs₁) = χ, ∅
+gc_dec_fields(χ₀, ι, {w} ∪ ws, ιs₁) =
+  χ₂, ρs₁ ∪ ρs₂
+  where
+    χ₁, ρs₁ = gc_dec_field(χ₀, ι, χ(ι)(w), ιs₁) ∧
+    χ₂, ρs₂ = gc_dec_fields(χ₁, ι, ws, ιs₁)
+
+gc_dec_field(χ, ι, p, ιs₁) = χ
+gc_dec_field(χ, ι, 𝕣, ιs₁) = gc_dec_field(χ, ι, 𝕣.object)
+gc_dec_field(χ, ι, ι′, ιs₁) =
+  dec(χ, ι′), ∅ if (ι′ ∈ ιs₁) ∨ (loc(χ, ι′) = Immutable)
+  χ, {ρ} if
+    (loc(χ, ι′) = ρ) ∧ ¬same_loc(χ, ι, ι′) ∧ (χ.regions(ρ).stack_rc = 0)
+  region_remove_parent(χ, ι, ι′), ∅ if
+    (loc(χ, ι′) = ρ) ∧ ¬same_loc(χ, ι, ι′) ∧ (χ.regions(ρ).stack_rc > 0)
+  χ, ∅ otherwise
+
+```
+
+## Free
+
+```rs
+
+free_regions(χ, ∅) = χ
+free_regions(χ, {ρ} ∪ ρs) =
+  free_regions(χ′, ρs)
+  where
+    χ′ = free_region(χ, ρ)
+
+free_region(χ₀, ρ) =
+  χ₂ \ ιs \ ρ
+  where
+    ρs = {ρ′ | (ρ′ ∈ χ) ∧ is_ancestor(χ₀, ρ, ρ′)} ∧
+    ιs = members(χ₀, ρ)
+    χ₁ = finalize(χ₀, ιs) ∧
+    χ₂ = free_regions(χ₁, ρs)
+
+free(χ₀, ι) =
+  χ₃ \ ιs
+  where
+    χ₁, ιs, ρs = free_fields(χ₀, {ι}, ι) ∧
+    χ₂ = finalize(χ₁, ιs) ∧
+    χ₃ = free_regions(χ₂, ρs)
+
+free_fields(χ, ιs, ι) = free_fields(χ, ιs, ι, dom(χ(ι)))
+free_fields(χ, ιs, ι, ∅) = χ, ιs, ∅
+free_fields(χ₀, ιs₀, ι, {w} ∪ ws) =
+  χ₂, ιs₂, ρs₁ ∪ ρs₂
+  where
+    χ₁, ιs₁, ρs₁ = free_field(χ₀, ιs₀, ι, w) ∧
+    χ₂, ιs₂, ρs₂ = free_fields(χ₁, ιs₁, ι, ws)
+
+free_field(χ, ιs, ι, p) = χ, ιs, ∅
+free_field(χ, ιs, ι, 𝕣) = free_field(χ, ιs, ι, 𝕣.object)
+free_field(χ, ιs, ι, ι′) =
+  χ, ιs, ∅ if ι′ ∈ ιs
+  free_fields(χ, {ι′} ∪ ιs, ι′), {ι′} ∪ ιs, ∅ if
+    (same_loc(χ, ι, ι′) ∨ (loc(χ, ι′) = Immutable)) ∧
+    (χ.metadata(ι′).rc = 1)
+  χ[metadata(ι′)[rc = rc - 1]], ιs, ∅ if
+    (same_loc(χ, ι, ι′) ∨ (loc(χ, ι′) = Immutable)) ∧
+    (χ.metadata(ι′).rc > 1)
+  free_fields(χ, {ι′} ∪ ιs, ι′), {ι} ∪ ιs, ∅ if χ.metadata(ι′).location = ι
+  χ, ιs, {ρ} if
+    (loc(χ, ι′) = ρ) ∧ ¬same_loc(χ, ι, ι′) ∧ (χ.regions(ρ).stack_rc = 0)
+  region_remove_parent(χ, ι, ι′), ιs, ∅ if
+    (loc(χ, ι′) = ρ) ∧ ¬same_loc(χ, ι, ι′) ∧ (χ.regions(ρ).stack_rc > 0)
+  χ, ιs, ∅ otherwise
+
+```
+
+## Finalization
+
+```rs
+
+finalize(χ, ∅) = χ
+finalize(χ₀, {ι} ∪ ιs) =
+  finalize(χ₁, ιs)
+  where
+    χ₁ = finalize(χ₀, ι)
+finalize(χ, ι) =
+  // TODO: make sure this is read-only to be resurrection-free.
 
 ```
 
@@ -482,10 +576,10 @@ v₀ = χ₀(ι)(w)
 v₁ = φ(z)
 safe_store(χ₀, ι, v₁)
 ω = χ₀(ι)[w↦v₁]
-χ₁ = region_remove_parent(χ₀, ι, v₀)
-χ₂ = region_stack_inc(χ₁, v₀)
-χ₃ = region_stack_dec(χ₂, v₁)
-χ₄ = region_add_parent(χ₃, ι, v₁)
+χ₁ = region_stack_inc(χ₀, v₀)
+χ₂ = region_remove_parent(χ₁, ι, v₀)
+χ₃ = region_add_parent(χ₂, ι, v₁)
+χ₄ = region_stack_dec(χ₃, v₁)
 --- [store]
 χ₀, σ;ϕ, bind x (store y z);stmt* ⇝ χ₄[ι↦ω], σ;ϕ[x↦v₀]\z, stmt*
 
@@ -578,7 +672,7 @@ x ∉ φ
 loc(χ₀, φ(w)) = ρ₀
 loc(χ₀, φ(y)) = ρ₁
 (ρ₀ ≠ ρ₁) ∧ ¬is_ancestor(χ₀, ρ₁, ρ₀) ∧ ({ρ₀} ⊇ parents(χ₀, ρ₁))
-ιs = {ι | loc(χ₀, ι) = ρ₁}
+ιs = members(χ₀, ρ₁)
 χ₁ = χ₀[∀ι ∈ ιs . metadata(ι)[location↦ρ₀]]
        [regions(ρ₀)[stack_rc += regions(ρ₁).stack_rc)]]
 --- [merge true]
