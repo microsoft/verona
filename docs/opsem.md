@@ -21,7 +21,6 @@ Still to do:
 * Behaviors and cowns.
 * Embedded object fields?
 * Arrays? Or model them as objects?
-* GC or RC cycle detection.
 * Non-local returns.
 
 Dynamic failures:
@@ -623,9 +622,9 @@ All arguments are consumed. To keep them, `dup` them first. As such, an identifi
 newframe(χ, ϕ, F, x, y*, stmt*) =
   {id: 𝔽, vars: {F.paramsᵢ.name ↦ ϕ(yᵢ) | i ∈ 1 .. |y*|}, ret: x, cont: stmt*}
   where
-  𝔽 ∉ dom(χ.frames) ∧
-  |F.params| = |y*| = |{y*}| ∧
-  ∀i ∈ 1 .. |y*| . typetest(χ, φ(yᵢ), F.paramsᵢ.type)
+    𝔽 ∉ dom(χ.frames) ∧
+    |F.params| = |y*| = |{y*}| ∧
+    ∀i ∈ 1 .. |y*| . typetest(χ, φ(yᵢ), F.paramsᵢ.type)
 
 x ∉ φ₀
 F = P.funcs(𝕗)
