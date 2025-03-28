@@ -2,8 +2,6 @@
 
 Still to do:
 * WIP: Extract.
-* Add finalizers explicitly in the semantics.
-  * Set the objects being finalized to `Immutable`?
 * Discharge (send/free/freeze?) when stack RC for the region and all children (recursively) is 0.
   * Can free even if child regions have stack RC.
   * Could optimize by tracking the count of "busy" child regions.
@@ -32,6 +30,13 @@ Dynamic failures:
   * TODO: frame references?
 * `call dynamic`:
   * `w` is not a method of the target.
+  * Arguments don't type check.
+* `call static`:
+  * Arguments don't type check.
+* `return`:
+  * The return value is not the only thing in the frame.
+  * The return value can't escape the frame.
+  * The return value doesn't type check.
 * `merge`:
   * Trying to merge a value that isn't an object in a region.
   * Trying to merge a region that is a child of a region other than the destination region.
@@ -113,7 +118,11 @@ R ∈ RegionType = RegionRC | RegionGC | RegionArena
       data: ObjectId ↦ Object,
       metadata: ObjectId ↦ Metadata,
       regions: RegionId ↦ Region,
-      frames: 𝒫(FrameId)
+      frames: 𝒫(FrameId),
+      pre_final: 𝒫(ObjectId),
+      post_final: 𝒫(ObjectId),
+      pre_final_r: 𝒫(RegionId),
+      post_final_r: 𝒫(RegionId)
     }
 
 Heap, Stack, Statement* ⇝ Heap, Stack, Statement*
@@ -145,7 +154,7 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 
 // Regions.
 ρ ∈ χ ≝ ρ ∈ dom(χ.regions)
-χ[ρ↦R] = χ[regions(ρ)↦(R, ∅)]
+χ[ρ↦R] = χ[regions(ρ)↦{type: R, parents: ∅, stack_rc: 1}]
 χ\ρ = χ[regions\ρ]
 
 ```
@@ -222,6 +231,7 @@ This enforces a tree-shaped region graph, with a single reference from parent to
 ```rs
 
 safe_store(χ, ι, v) =
+  false if finalizing(ι) ∨ finalizing(v)
   false if loc(χ, ι) = Immutable
   true if loc(χ, v) = Immutable
   // TODO: more precise frame references?
@@ -230,6 +240,10 @@ safe_store(χ, ι, v) =
   true if (ρ₀ = loc(χ, ι)) ∧ (ρ₁ = loc(χ, v)) ∧
           (parents(χ, ρ₁) = ∅) ∧ ¬is_ancestor(χ, ρ₁, ρ₀)
   false otherwise
+
+finalizing(χ, p) = false
+finalizing(χ, 𝕣) = finalizing(χ, 𝕣.object)
+finalizing(χ, ι) = (ι ∈ χ.pre_final) ∨ (ι ∈ χ.post_final)
 
 ```
 
@@ -280,7 +294,7 @@ region_type_change(χ, σ, ρ, R) =
   χ′ otherwise
   where
     R′ = χ.regions(ρ).type ∧
-    χ′ = χ[regions(ρ)[type↦R]]
+    χ′ = χ[regions(ρ)[type = R]]
 
 calc_rc(χ, σ, ρ) = calc_rc(χ, σ, members(χ, ρ))
 calc_rc(χ, σ, ∅) = χ
@@ -323,30 +337,30 @@ enable-rc(χ, ι) =
 region_stack_inc(χ, p) = χ
 region_stack_inc(χ, 𝕣) = region_stack_inc(χ, 𝕣.object)
 region_stack_inc(χ, ι) =
-  χ[regions(ρ)[stack_rc = stack_rc + 1]] if loc(χ, ι) = ρ
+  χ[regions(ρ)[stack_rc += 1]] if loc(χ, ι) = ρ
   χ otherwise
 
 region_stack_dec(χ, p) = χ
 region_stack_dec(χ, 𝕣) = region_stack_dec(χ, 𝕣.object)
 region_stack_dec(χ, ι) =
-  free_region(χ, ρ) if
+  χ[pre_final_r ∪= {ρ}] if
     (loc(χ, ι) = ρ) ∧
     (parents(χ, ρ) = ∅) ∧
     (χ.regions(ρ).stack_rc = 1)
-  χ[regions(ρ)[stack_rc = stack_rc - 1]] if loc(χ, ι) = ρ
+  χ[regions(ρ)[stack_rc -= 1]] if loc(χ, ι) = ρ
   χ otherwise
 
 region_add_parent(χ, ι, p) = χ
 region_add_parent(χ, ι, 𝕣) = region_add_parent(χ, ι, 𝕣.object)
 region_add_parent(χ, ι, ι′) =
-  χ[regions(ρ)[parents = parents ∪ {ρ′})]] if
+  χ[regions(ρ)[parents ∪= {ρ′})]] if
     (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
   χ otherwise
 
 region_remove_parent(χ, ι, p) = χ
 region_remove_parent(χ, ι, 𝕣) = region_remove_parent(χ, ι, 𝕣.object)
 region_remove_parent(χ, ι, ι′) =
-  χ[regions(ρ)[parents = parents \ {ρ′})]] if
+  χ[regions(ρ)[parents \= {ρ′})]] if
     (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
   χ otherwise
 
@@ -354,7 +368,7 @@ inc(χ, p) = χ
 inc(χ, 𝕣) = dec(χ, 𝕣.object)
 inc(χ, ι) =
   inc(χ, ι′) if χ.metadata(ι).location = ι′
-  χ[metadata(ι)[rc = rc + 1]] if enable-rc(χ, ι)
+  χ[metadata(ι)[rc += 1]] if enable-rc(χ, ι)
   χ otherwise
 
 dec(χ, p) = χ
@@ -362,7 +376,7 @@ dec(χ, 𝕣) = dec(χ, 𝕣.object)
 dec(χ, ι) =
   dec(χ, ι′) if χ.metadata(ι).location = ι′
   free(χ, ι) if enable-rc(χ, ι) ∧ (χ.metadata(ι).rc = 1)
-  χ[metadata(ι)[rc = rc - 1]] if enable-rc(χ, ι)
+  χ[metadata(ι)[rc -= 1]] if enable-rc(χ, ι)
   χ otherwise
 
 ```
@@ -374,45 +388,37 @@ dec(χ, ι) =
 // GC on RegionRC is cycle detection.
 enable-gc(χ, ρ) = χ.regions(ρ).type ∈ {RegionGC, RegionRC}
 
-gc(χ₀, σ, ρ) =
-  χ₃ \ ιs₀ if enable-gc(χ₃, ρ)
-  χ₀ otherwise
+gc(χ, σ, ρ) =
+  χ′[pre_final ∪= ιs₀] if enable-gc(χ₃, ρ)
+  χ otherwise
   where
     ιs = members(χ₀, ρ) ∧
-    ιs₀ = ιs \ reachable(χ₀, gc_roots(χ₀, σ, ρ)) ∧
+    ιs₀ ⊆ ιs \ reachable(χ₀, gc_roots(χ₀, σ, ρ)) ∧
     ιs₁ = ιs \ ιs₀ ∧
-    χ₁, ρs = gc_dec(χ₀, ιs₀, ιs₁) ∧
-    χ₂ = finalize(χ₁, ιs₀) ∧
-    χ₃ = free_regions(χ₂, ρs)
+    χ′ = gc_dec(χ, ιs₀, ιs₁)
 
 gc_roots(χ, σ, ρ) =
   {ι | (ι ∈ ιs) ∧ ((calc_stack_rc(χ, σ, ι) > 0) ∨ (calc_heap_rc(χ, ρs, ι) > 0))}
   where
     ρs = parents(χ, ρ) ∧ ιs = members(χ, ρ)
 
-gc_dec(χ, ∅, ιs₁) = χ, ∅
-gc_dec(χ₀, {ι} ∪ ιs₀, ιs₁) =
-  χ₂, ρ₁ ∪ ρs₂
+gc_dec(χ, ∅, ιs₁) = χ
+gc_dec(χ, {ι} ∪ ιs₀, ιs₁) =
+  gc_dec(χ′, ιs₀, ιs₁)
   where
-    χ₁, ρs₁ = gc_dec_fields(χ₀, ι, dom(χ₀(ι)), ιs₁) ∧
-    χ₂, ρs₂ = gc_dec(χ₁, ιs₀, ιs₁)
+    χ′ = gc_dec_fields(χ, ι, dom(χ₀(ι)), ιs₁) ∧
   
-gc_dec_fields(χ, ι, ∅, ιs₁) = χ, ∅
-gc_dec_fields(χ₀, ι, {w} ∪ ws, ιs₁) =
-  χ₂, ρs₁ ∪ ρs₂
+gc_dec_fields(χ, ι, ∅, ιs₁) = χ
+gc_dec_fields(χ, ι, {w} ∪ ws, ιs₁) =
+  gc_dec_fields(χ′, ι, ws, ιs₁)
   where
-    χ₁, ρs₁ = gc_dec_field(χ₀, ι, χ(ι)(w), ιs₁) ∧
-    χ₂, ρs₂ = gc_dec_fields(χ₁, ι, ws, ιs₁)
+    χ′ = gc_dec_field(χ₀, ι, χ(ι)(w), ιs₁) ∧
 
 gc_dec_field(χ, ι, p, ιs₁) = χ
 gc_dec_field(χ, ι, 𝕣, ιs₁) = gc_dec_field(χ, ι, 𝕣.object)
 gc_dec_field(χ, ι, ι′, ιs₁) =
-  dec(χ, ι′), ∅ if (ι′ ∈ ιs₁) ∨ (loc(χ, ι′) = Immutable)
-  χ, {ρ} if
-    (loc(χ, ι′) = ρ) ∧ ¬same_loc(χ, ι, ι′) ∧ (χ.regions(ρ).stack_rc = 0)
-  region_remove_parent(χ, ι, ι′), ∅ if
-    (loc(χ, ι′) = ρ) ∧ ¬same_loc(χ, ι, ι′) ∧ (χ.regions(ρ).stack_rc > 0)
-  χ, ∅ otherwise
+  dec(χ, ι′) if (ι′ ∈ ιs₁) ∨ (loc(χ, ι′) = Immutable)
+  χ otherwise
 
 ```
 
@@ -420,65 +426,30 @@ gc_dec_field(χ, ι, ι′, ιs₁) =
 
 ```rs
 
-free_regions(χ, ∅) = χ
-free_regions(χ, {ρ} ∪ ρs) =
-  free_regions(χ′, ρs)
+free(χ, ι) =
+  χ′[pre_final ∪= ιs]
   where
-    χ′ = free_region(χ, ρ)
-
-free_region(χ₀, ρ) =
-  χ₂ \ ιs \ ρ
-  where
-    ρs = {ρ′ | (ρ′ ∈ χ) ∧ is_ancestor(χ₀, ρ, ρ′)} ∧
-    ιs = members(χ₀, ρ)
-    χ₁ = finalize(χ₀, ιs) ∧
-    χ₂ = free_regions(χ₁, ρs)
-
-free(χ₀, ι) =
-  χ₃ \ ιs
-  where
-    χ₁, ιs, ρs = free_fields(χ₀, {ι}, ι) ∧
-    χ₂ = finalize(χ₁, ιs) ∧
-    χ₃ = free_regions(χ₂, ρs)
+    χ′, ιs = free_fields(χ, {ι}, ι)
 
 free_fields(χ, ιs, ι) = free_fields(χ, ιs, ι, dom(χ(ι)))
-free_fields(χ, ιs, ι, ∅) = χ, ιs, ∅
-free_fields(χ₀, ιs₀, ι, {w} ∪ ws) =
-  χ₂, ιs₂, ρs₁ ∪ ρs₂
+free_fields(χ, ιs, ι, ∅) = χ, ιs
+free_fields(χ, ιs, ι, {w} ∪ ws) =
+  free_fields(χ′, ιs′, ι, ws)
   where
-    χ₁, ιs₁, ρs₁ = free_field(χ₀, ιs₀, ι, w) ∧
-    χ₂, ιs₂, ρs₂ = free_fields(χ₁, ιs₁, ι, ws)
+    χ₁′ ιs′ = free_field(χ, ιs, ι, w)
 
-free_field(χ, ιs, ι, p) = χ, ιs, ∅
+free_field(χ, ιs, ι, p) = χ, ιs
 free_field(χ, ιs, ι, 𝕣) = free_field(χ, ιs, ι, 𝕣.object)
 free_field(χ, ιs, ι, ι′) =
-  χ, ιs, ∅ if ι′ ∈ ιs
-  free_fields(χ, {ι′} ∪ ιs, ι′), {ι′} ∪ ιs, ∅ if
+  χ, ιs if ι′ ∈ ιs
+  free_fields(χ, {ι′} ∪ ιs, ι′), {ι′} ∪ ιs if
     (same_loc(χ, ι, ι′) ∨ (loc(χ, ι′) = Immutable)) ∧
     (χ.metadata(ι′).rc = 1)
-  χ[metadata(ι′)[rc = rc - 1]], ιs, ∅ if
+  χ[metadata(ι′)[rc -= 1]], ιs if
     (same_loc(χ, ι, ι′) ∨ (loc(χ, ι′) = Immutable)) ∧
     (χ.metadata(ι′).rc > 1)
-  free_fields(χ, {ι′} ∪ ιs, ι′), {ι} ∪ ιs, ∅ if χ.metadata(ι′).location = ι
-  χ, ιs, {ρ} if
-    (loc(χ, ι′) = ρ) ∧ ¬same_loc(χ, ι, ι′) ∧ (χ.regions(ρ).stack_rc = 0)
-  region_remove_parent(χ, ι, ι′), ιs, ∅ if
-    (loc(χ, ι′) = ρ) ∧ ¬same_loc(χ, ι, ι′) ∧ (χ.regions(ρ).stack_rc > 0)
+  free_fields(χ, {ι′} ∪ ιs, ι′), {ι} ∪ ιs if χ.metadata(ι′).location = ι
   χ, ιs, ∅ otherwise
-
-```
-
-## Finalization
-
-```rs
-
-finalize(χ, ∅) = χ
-finalize(χ₀, {ι} ∪ ιs) =
-  finalize(χ₁, ιs)
-  where
-    χ₁ = finalize(χ₀, ι)
-finalize(χ, ι) =
-  // TODO: make sure this is read-only to be resurrection-free.
 
 ```
 
@@ -601,6 +572,8 @@ v = typetest(χ, φ(y), T)
 
 The condition is not consumed.
 
+> TODO: bind a result?
+
 ```rs
 
 φ(x) = true
@@ -651,7 +624,9 @@ This checks that:
 
 ```rs
 
+// TODO: What if the return value doesn't type check?
 dom(φ₁.vars) = {x}
+typetest(χ, φ₁(x), F.result)
 ιs = {ι | loc(χ, ι) = φ₁.id}
 ∀ι ∈ χ . ι ∉ ιs ⇒ (∀z ∈ dom(χ(ι)) . χ(ι)(z) ∉ ιs)
 --- [return]
@@ -672,7 +647,7 @@ loc(χ₀, φ(w)) = ρ₀
 loc(χ₀, φ(y)) = ρ₁
 (ρ₀ ≠ ρ₁) ∧ ¬is_ancestor(χ₀, ρ₁, ρ₀) ∧ ({ρ₀} ⊇ parents(χ₀, ρ₁))
 ιs = members(χ₀, ρ₁)
-χ₁ = χ₀[∀ι ∈ ιs . metadata(ι)[location↦ρ₀]]
+χ₁ = χ₀[∀ι ∈ ιs . metadata(ι)[location = ρ₀]]
        [regions(ρ₀)[stack_rc += regions(ρ₁).stack_rc)]]
 --- [merge true]
 χ₀, σ;φ, bind x (merge w y);stmt* ⇝ χ₁\ρ₁, σ;φ[x↦true], stmt*
@@ -700,7 +675,7 @@ x ∉ φ
 ρs = {ρ} ∪ {ρ′ | (ρ′ ∈ χ.regions) ∧ is_ancestor(χ₀, ρ, ρ′)}
 χ₁ = region_type_change(χ₀, σ;φ, ρs, RegionRC)
 ιs = {ι′ | loc(χ₀, ι′) ∈ ρs}
-χ₂ = χ₁[∀ι′ ∈ ιs . metadata(ι′)[location↦Immutable]]
+χ₂ = χ₁[∀ι′ ∈ ιs . metadata(ι′)[location = Immutable]]
 --- [freeze true]
 χ₀, σ;φ, bind x (freeze y);stmt* ⇝ χ₂\ρs, σ;φ[x↦true], stmt*
 
@@ -717,16 +692,70 @@ loc(χ, φ(y)) ≠ ρ
 
 ```rs
 
+// TODO: stack rc
 x ∉ φ
 ι = φ(y)
 ρ₀ = loc(χ₀, ι)
+R = χ.regions(ρ₀).type
 ρ₁ ∉ χ₀
-ιs = reachable(χ, ι)
+ιs = {ι′ | ι′ ∈ reachable(χ, ι) ∧ (loc(χ₀, ι′) = ρ₀)}
+
+
 ∀ι′ ∈ χ₀.regions(ρ₀).members . (ι′ ∉ ιs ⇒ ∀z ∈ dom(χ₀(ι′)) . χ₀(ι′)(z) ∉ ιs)
 χ₁ = χ₀[regions(ρ₀).members\ιs]
        [regions(ρ₁)↦{type: χ₀.regions(ρ₀).type, members: ιs}]
-       [∀ι′ ∈ ιs . metadata(ι′).location↦ρ₁]
+       [∀ι′ ∈ ιs . metadata(ι′).location = ρ₁]
 --- [extract]
-χ₀, σ;φ, bind x (extract y);stmt* ⇝ χ₁[φ\y][φ(x)↦ι], σ;φ, stmt*
+χ₀, σ;φ, bind x (extract y);stmt* ⇝ χ₁[ρ₁↦R], σ;φ, stmt*
+
+```
+
+## Garbage
+
+```rs
+
+region_fields(χ, ι) =
+  χ[∀ρ′ ∈ ρs . regions(ρ′)[parents \= {ρ}], pre_final_r ∪= ρs′]
+  where
+    ρ = loc(χ, ι) ∧
+    ws = dom(χ(ι)) ∧
+    ρs = {ρ′ | w ∈ ws ∧ (χ(ι)(w) = ι′) ∧ (ρ′ = loc(χ, ι′)) ∧ (ρ ≠ ρ′)} ∧
+    ρs′ = {ρ′ | ρ′ ∈ ρs ∧ χ.regions(ρ′).stack_rc = 0}
+
+χ₀.pre_final = {ι} ∪ ιs
+τ = typeof(χ, ι)
+F = P.funcs(P.types(τ).methods(final))
+|F.params| = 1
+typetest(χ, ι, F.params₀.type)
+𝔽 ∉ dom(χ.frames)
+φ₁ = {id: 𝔽, vars: {F.paramsᵢ.name ↦ ι}, ret: final, cont: (drop final;stmt*)}
+χ₁ = region_fields(χ₀, ι)
+χ₂ = χ₁[frames ∪= 𝔽, pre_final = ιs, post_final ∪= {ι}]
+--- [finalize true]
+χ₀, σ;φ₀, stmt* ⇝ χ₂, σ;φ₀;φ₁, F.body
+
+χ₀.pre_final = {ι} ∪ ιs
+τ = typeof(χ, ι)
+final ∉ dom(P.types(τ).methods)
+χ₁ = region_fields(χ₀, ι)
+χ₂ = χ₁[pre_final = ιs, post_final ∪= {ι}]
+--- [finalize false]
+χ₀, σ;φ, stmt* ⇝ χ₂, σ;φ, stmt*
+
+χ.pre_final = ∅
+χ.post_final = {ι} ∪ ιs
+--- [collect object]
+χ, σ;φ, stmt* ⇝ χ[post_final = ιs]\ι, σ;φ, stmt*
+
+χ.pre_final = ∅
+χ.pre_final_r = {ρ} ∪ {ρs}
+χ′ = χ[pre_final = members(χ, ρ), pre_final_r \= {ρ}, post_final_r ∪= ρ]
+--- [finalize region]
+χ, σ;φ, stmt* ⇝ χ′, σ;φ, stmt*
+
+χ.pre_final = ∅
+χ.post_final_r = {ρ} ∪ {ρs}
+--- [collect region]
+χ, σ;φ, stmt* ⇝ χ[post_final_r = ρs]\ρ, σ;φ, stmt*
 
 ```
