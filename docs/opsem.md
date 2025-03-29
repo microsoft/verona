@@ -1,7 +1,6 @@
 # Operational Semantics
 
 Still to do:
-* WIP: Extract.
 * Discharge (send/free/freeze?) when stack RC for the region and all children (recursively) is 0.
   * Can free even if child regions have stack RC.
   * Could optimize by tracking the count of "busy" child regions.
@@ -304,6 +303,10 @@ calc_rc(χ, σ, {ι} ∪ ιs) =
     χ′ = calc_rc(χ, σ, ι)
 calc_rc(χ, σ, ι) =
   χ[metadata(ι)[rc = calc_stack_rc(χ, σ, ι) + calc_heap_rc(χ, ι)]]
+
+calc_stack_rc(χ, σ, ∅) = 0
+calc_stack_rc(χ, σ, {ι} ∪ ιs) =
+  calc_stack_rc(χ, σ, ι) + calc_stack_rc(χ, σ, ιs)
 
 calc_stack_rc(χ, ∅, ι) = 0
 calc_stack_rc(χ, σ;φ, ι) =
@@ -688,29 +691,32 @@ loc(χ, φ(y)) ≠ ρ
 
 ## Extract
 
-> TODO: Doesn't work. Doesn't allow sub-regions or immutable objects.
-
 ```rs
 
-// TODO: stack rc
 x ∉ φ
 ι = φ(y)
 ρ₀ = loc(χ₀, ι)
-R = χ.regions(ρ₀).type
 ρ₁ ∉ χ₀
-ιs = {ι′ | ι′ ∈ reachable(χ, ι) ∧ (loc(χ₀, ι′) = ρ₀)}
+ιs = reachable(χ, ι) ∩ members(χ₀, ρ₀)
+ρs = {ρ |
+      (ι ∈ ιs) ∧ (w ∈ dom(χ(ι))) ∧ (χ(ι)(w) = ι′) ∧
+      (ρ = loc(χ, ι′)) ∧ (ρ ≠ ρ₀)}
+rc = calc_stack_rc(χ₀, σ;φ, ιs)
+χ₁ = χ₀[regions(ρ₀)[stack_rc -= rc],
+        regions(ρ₁)↦{type: χ.regions(ρ₀).type, parents: {ρ₀}, stack_rc: rc},
+        ∀ι′ ∈ ιs . metadata(ι′)[location = ρ₁],
+        ∀ρ ∈ ρs . regions(ρ)[parents = {ρ₁}]]
+--- [extract true]
+χ₀, σ;φ, bind x (extract y);stmt* ⇝ χ₁, σ;φ[x↦true], stmt*
 
-
-∀ι′ ∈ χ₀.regions(ρ₀).members . (ι′ ∉ ιs ⇒ ∀z ∈ dom(χ₀(ι′)) . χ₀(ι′)(z) ∉ ιs)
-χ₁ = χ₀[regions(ρ₀).members\ιs]
-       [regions(ρ₁)↦{type: χ₀.regions(ρ₀).type, members: ιs}]
-       [∀ι′ ∈ ιs . metadata(ι′).location = ρ₁]
---- [extract]
-χ₀, σ;φ, bind x (extract y);stmt* ⇝ χ₁[ρ₁↦R], σ;φ, stmt*
+x ∉ φ
+ρ ≠ loc(χ, φ(y))
+--- [extract false]
+χ, σ;φ, bind x (extract y);stmt* ⇝ χ, σ;φ[x↦false], stmt*
 
 ```
 
-## Garbage
+## Finalization
 
 ```rs
 
