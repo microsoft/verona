@@ -6,12 +6,6 @@ Still to do:
   * Could optimize by tracking the count of "busy" child regions.
   * Can we still have an Arena per frame?
     * Frame Arenas can't be discharged anyway.
-* Efficient frame teardown.
-  * Each frame could be an Arena.
-  * References from a frame Arena to another region (including another frame Arena) would be tracked as stack RC.
-  * A frame Arena must reach external RC 0 at `return`.
-  * Prevent heap or "older frame" regions from referencing a frame Arena?
-    * Any region other than the current frame Arena can't reference the current frame Arena?
 * How are Arenas different from uncounted regions?
   * How should they treat changing region type?
   * How should they treat merging, freezing, extract?
@@ -23,10 +17,12 @@ Still to do:
 Dynamic failures:
 * `store`:
   * `w` is not a field of the target.
-  * `store` to an immutable object.
-  * `store` a region that already has a parent.
-  * `store` a region that would create a cycle.
-  * TODO: frame references?
+  * Store to a finalizing object.
+  * Store a finalizing object.
+  * Store to an immutable object.
+  * Store a region that already has a parent.
+  * Store a region that would create a cycle.
+  * Store a frame value in a region or in a predecessor frame.
 * `call dynamic`:
   * `w` is not a method of the target.
   * Arguments don't type check.
@@ -34,7 +30,7 @@ Dynamic failures:
   * Arguments don't type check.
 * `return`:
   * The return value is not the only thing in the frame.
-  * The return value can't escape the frame.
+  * The return value is allocated on the frame.
   * The return value doesn't type check.
 * `merge`:
   * Trying to merge a value that isn't an object in a region.
@@ -233,8 +229,8 @@ safe_store(χ, ι, v) =
   false if finalizing(ι) ∨ finalizing(v)
   false if loc(χ, ι) = Immutable
   true if loc(χ, v) = Immutable
-  // TODO: more precise frame references?
-  true if loc(χ, ι) = 𝔽
+  true if loc(χ, ι) = 𝔽 ∧ (loc(χ, v) = ρ)
+  true if loc(χ, ι) = 𝔽 ∧ (loc(χ, v) = 𝔽′) ∧ (𝔽 >= 𝔽′)
   true if same_loc(χ, ι, v)
   true if (ρ₀ = loc(χ, ι)) ∧ (ρ₁ = loc(χ, v)) ∧
           (parents(χ, ρ₁) = ∅) ∧ ¬is_ancestor(χ, ρ₁, ρ₀)
@@ -356,8 +352,9 @@ region_stack_dec(χ, ι) =
 region_add_parent(χ, ι, p) = χ
 region_add_parent(χ, ι, 𝕣) = region_add_parent(χ, ι, 𝕣.object)
 region_add_parent(χ, ι, ι′) =
-  χ[regions(ρ)[parents ∪= {ρ′})]] if
+  χ[regions(ρ′)[parents ∪= {ρ})]] if
     (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
+  χ[regions(ρ′)[stack_rc += 1]] if (loc(χ, ι) = 𝔽) ∧ (loc(χ, ι′) = ρ′)
   χ otherwise
 
 region_remove_parent(χ, ι, p) = χ
@@ -365,6 +362,7 @@ region_remove_parent(χ, ι, 𝕣) = region_remove_parent(χ, ι, 𝕣.object)
 region_remove_parent(χ, ι, ι′) =
   χ[regions(ρ)[parents \= {ρ′})]] if
     (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
+  χ[regions(ρ′)[stack_rc -= 1]] if (loc(χ, ι) = 𝔽) ∧ (loc(χ, ι′) = ρ′)
   χ otherwise
 
 inc(χ, p) = χ
@@ -598,7 +596,8 @@ All arguments are consumed. To keep them, `dup` them first. As such, an identifi
 newframe(χ, ϕ, F, x, y*, stmt*) =
   {id: 𝔽, vars: {F.paramsᵢ.name ↦ ϕ(yᵢ) | i ∈ 1 .. |y*|}, ret: x, cont: stmt*}
   where
-    𝔽 ∉ dom(χ.frames) ∧
+    (𝔽 ∉ dom(χ.frames)) ∧
+    (𝔽 > φ.id) ∧
     |F.params| = |y*| = |{y*}| ∧
     ∀i ∈ 1 .. |y*| . typetest(χ, φ(yᵢ), F.paramsᵢ.type)
 
@@ -619,21 +618,14 @@ F = P.funcs(P.types(τ).methods(w))
 
 ## Return
 
-This checks that:
-* Only the return value remains in the frame, to ensure proper reference counting.
-* No objects that will survive the frame reference any object allocated on the frame, to prevent dangling references.
-
-> TODO: how to make this efficient?
-
 ```rs
 
-// TODO: What if the return value doesn't type check?
 dom(φ₁.vars) = {x}
-typetest(χ, φ₁(x), F.result)
-ιs = {ι | loc(χ, ι) = φ₁.id}
-∀ι ∈ χ . ι ∉ ιs ⇒ (∀z ∈ dom(χ(ι)) . χ(ι)(z) ∉ ιs)
+v = φ₁(x)
+loc(χ, v) ≠ φ₁.id
+typetest(χ, v, F.result)
 --- [return]
-χ, σ;φ₀;φ₁, return x;stmt* ⇝ (χ\ιs)\(φ₁.id), σ;φ₀[φ₁.ret↦φ₁(x)], ϕ₁.cont
+χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ\(φ₁.id), σ;φ₀[φ₁.ret↦v], ϕ₁.cont
 
 ```
 
@@ -734,6 +726,7 @@ F = P.funcs(P.types(τ).methods(final))
 |F.params| = 1
 typetest(χ, ι, F.params₀.type)
 𝔽 ∉ dom(χ.frames)
+𝔽 > φ₀.id
 φ₁ = {id: 𝔽, vars: {F.paramsᵢ.name ↦ ι}, ret: final, cont: (drop final;stmt*)}
 χ₁ = region_fields(χ₀, ι)
 χ₂ = χ₁[frames ∪= 𝔽, pre_final = ιs, post_final ∪= {ι}]
