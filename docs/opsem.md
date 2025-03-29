@@ -258,18 +258,25 @@ wf_racefree(χ, σs) =
     (ι ∈ reachable(χ, σ₀)) ∧ (ι ∈ reachable(χ, σ₁)) ⇒
     (σ₀ = σ₁) ∨ (loc(χ, ι) = Immutable)
 
-// Stack allocations are reachable only from that stack.
-// TODO:
+// Frame allocations are reachable only from that frame or antecedent frames.
 wf_stacklocal(χ, σs) =
-  ∀σ₀, σ₁ ∈ σs . ∀φ ∈ σ₀ . (reachable(χ, σ₁) ∩ ιs = ∅)
-  where
-    ιs = {ι | loc(χ, ι) = φ.id}
+  ∀ι ∈ χ .
+    (loc(χ, ι) = 𝔽) ⇒ ∀ι′ ∈ χ .
+      ι ∈ reachable(χ, ι′) ⇒
+        (loc(χ, ι′) = 𝔽′) ∧ (𝔽 <= 𝔽′)
+
+// Regions are externally unique.
+wf_regionunique(χ) =
+  ∀ρ ∈ χ . (|ιs₂| ≤ 1) ∧ (|ρs| ≤ 1) ∧ (ρs = parents(χ, ρ))
+    where
+      ιs₀ = members(χ, ρ) ∧
+      ιs₁ = {ι | (ι ∈ χ) ∧ (loc(χ, ι) = ρ′) ∧ (ρ ≠ ρ′)} ∧
+      ιs₂ = {ι | (ι ∈ ιs₁) ∧ (w ∈ dom(χ(ι))) ∧ (χ(ι)(w) ∈ ιs₀)} ∧
+      ρs = {ρ′ | (ι ∈ ιs₂) ∧ (loc(χ, ι) = ρ′)}
 
 // The region graph is a tree.
-// TODO: examine all references
 wf_regiontree(χ) =
   ∀ρ₀, ρ₁ ∈ χ .
-    (|parents(χ, ρ₀)| ≤ 1) ∧
     (ρ₀ ∈ parents(χ, ρ₁) ⇒ (ρ₀ ≠ ρ₁) ∧ ¬is_ancestor(χ, ρ₁, ρ₀))
 
 ```
@@ -539,7 +546,6 @@ v = χ₀(ι)(w)
 --- [load]
 χ₀, σ;ϕ, bind x (load y);stmt* ⇝ χ₂, σ;ϕ[x↦v], stmt*
 
-// TODO: what happens if safe_store is false?
 x ∉ ϕ
 ϕ(y) = {object: ι, field: w}
 w ∈ dom(P.types(typeof(χ₀, ι)).fields)
