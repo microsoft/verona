@@ -1,28 +1,25 @@
 # Operational Semantics
 
 Still to do:
-* Discharge (send/free/freeze?) when stack RC for the region and all children (recursively) is 0.
-  * Can free even if child regions have stack RC.
+* Discharge (send/freeze?) when stack RC for the region and all children (recursively) is 0.
   * Could optimize by tracking the count of "busy" child regions.
-  * Can we still have an Arena per frame?
-    * Frame Arenas can't be discharged anyway.
 * How are Arenas different from uncounted regions?
   * How should they treat changing region type?
   * How should they treat merging, freezing, extract?
 * Behaviors and cowns.
 * Embedded object fields?
 * Arrays? Or model them as objects?
-* Non-local returns.
 
 Dynamic failures:
 * `store`:
   * `w` is not a field of the target.
-  * Store to a finalizing object.
-  * Store a finalizing object.
-  * Store to an immutable object.
-  * Store a region that already has a parent.
-  * Store a region that would create a cycle.
-  * Store a frame value in a region or in a predecessor frame.
+  * Unsafe store:
+    * Store to a finalizing object.
+    * Store a finalizing object.
+    * Store to an immutable object.
+    * Store a region that already has a parent.
+    * Store a region that would create a cycle.
+    * Store a frame value in a region or in a predecessor frame.
 * `call dynamic`:
   * `w` is not a method of the target.
   * Arguments don't type check.
@@ -81,12 +78,14 @@ p ∈ Primitive = Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ
 v ∈ Value = ObjectId | Primitive | Reference
 ω ∈ Object = Ident ↦ Value
 
+    Condition = Return | Raise | Throw
 ϕ ∈ Frame =
     {
       id: FrameId,
       vars: Ident ↦ Value,
       ret: Ident,
-      cont: Statement*
+      cont: Statement*,
+      condition: Condition
     }
 
 σ ∈ Stack = Frame*
@@ -579,8 +578,6 @@ v = typetest(χ, φ(y), T)
 
 The condition is not consumed.
 
-> TODO: bind a result?
-
 ```rs
 
 φ(x) = true
@@ -600,7 +597,8 @@ All arguments are consumed. To keep them, `dup` them first. As such, an identifi
 ```rs
 
 newframe(χ, ϕ, F, x, y*, stmt*) =
-  {id: 𝔽, vars: {F.paramsᵢ.name ↦ ϕ(yᵢ) | i ∈ 1 .. |y*|}, ret: x, cont: stmt*}
+  { id: 𝔽, vars: {F.paramsᵢ.name ↦ ϕ(yᵢ) | i ∈ 1 .. |y*|},
+    ret: x, cont: stmt*, condition: Return}
   where
     (𝔽 ∉ dom(χ.frames)) ∧
     (𝔽 > φ.id) ∧
@@ -632,6 +630,48 @@ loc(χ, v) ≠ φ₁.id
 typetest(χ, v, F.result)
 --- [return]
 χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ\(φ₁.id), σ;φ₀[φ₁.ret↦v], ϕ₁.cont
+
+```
+
+## Non-Local Return
+
+Use `setreturn` before a return for a standard return. Use `setraise` for a non-local return, and `setthrow` for an error.
+
+Use `checkblock` after a `call` from inside a Smalltalk style block, such as a Verona lambda. If it's true, return the call result to propagate a non-local return out of a collection of blocks to the calling function, i.e. the syntactically enclosing scope.
+
+Use `checkfunc` after a `call` from inside a function. If it's true, return the call result to turn a non-local return into a local return, and to propagate an error.
+
+To catch errors, don't check the call condition.
+
+```rs
+
+--- [set return]
+χ, σ;φ, setreturn;stmt* ⇝ χ, σ;φ[condition = Return], stmt*
+
+--- [set raise]
+χ, σ;φ, setraise;stmt* ⇝ χ, σ;φ[condition = Raise], stmt*
+
+--- [set throw]
+χ, σ;φ, setthrow;stmt* ⇝ χ, σ;φ[condition = Throw], stmt*
+
+x ∉ φ
+--- [check block]
+χ, σ;φ, bind x checkblock;stmt* ⇝ χ, σ;φ[x↦condition ≠ Return], stmt*
+
+x ∉ φ
+φ.condition = Return
+--- [check function]
+χ, σ;φ, bind x checkfunc;stmt* ⇝ χ, σ;φ[x↦false], stmt*
+
+x ∉ φ
+φ.condition = Raise
+--- [check function]
+χ, σ;φ, bind x checkfunc;stmt* ⇝ χ, σ;φ[x↦true, condition = Return], stmt*
+
+x ∉ φ
+φ.condition = Throw
+--- [check function]
+χ, σ;φ, bind x checkfunc;stmt* ⇝ χ, σ;φ[x↦true], stmt*
 
 ```
 
@@ -716,6 +756,8 @@ x ∉ φ
 
 ## Finalization
 
+These steps can be taken regardless of what statement is pending.
+
 ```rs
 
 region_fields(χ, ι) =
@@ -733,7 +775,8 @@ F = P.funcs(P.types(τ).methods(final))
 typetest(χ, ι, F.params₀.type)
 𝔽 ∉ dom(χ.frames)
 𝔽 > φ₀.id
-φ₁ = {id: 𝔽, vars: {F.paramsᵢ.name ↦ ι}, ret: final, cont: (drop final;stmt*)}
+φ₁ = { id: 𝔽, vars: {F.paramsᵢ.name ↦ ι},
+       ret: final, cont: (drop final;stmt*), condition: Return}
 χ₁ = region_fields(χ₀, ι)
 χ₂ = χ₁[frames ∪= 𝔽, pre_final = ιs, post_final ∪= {ι}]
 --- [finalize true]
