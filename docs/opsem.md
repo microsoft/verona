@@ -12,7 +12,6 @@ Still to do:
 
 Dynamic failures:
 * `store`:
-  * `w` is not a field of the target.
   * Unsafe store:
     * Store to a finalizing object.
     * Store a finalizing object.
@@ -20,15 +19,6 @@ Dynamic failures:
     * Store a region that already has a parent.
     * Store a region that would create a cycle.
     * Store a frame value in a region or in a predecessor frame.
-* `call dynamic`:
-  * `w` is not a method of the target.
-  * Arguments don't type check.
-* `call static`:
-  * Arguments don't type check.
-* `return`:
-  * The return value is not the only thing in the frame.
-  * The return value is allocated on the frame.
-  * The return value doesn't type check.
 * `merge`:
   * Trying to merge a value that isn't an object in a region.
   * Trying to merge a region that is a child of a region other than the destination region.
@@ -38,6 +28,14 @@ Dynamic failures:
 * `extract`:
   * Trying to extract a value that is not an object in a region.
   * Trying to extract a graph that is reachable from the region.
+
+Error values:
+* Bad target.
+* Bad field.
+* Bad method.
+* Bad argument type.
+* Bad return location.
+* Bad return type.
 
 ## Shape
 
@@ -228,7 +226,7 @@ This enforces a tree-shaped region graph, with a single reference from parent to
 ```rs
 
 safe_store(χ, ι, v) =
-  false if finalizing(ι) ∨ finalizing(v)
+  false if finalizing(ι) ⊻ finalizing(v)
   false if loc(χ, ι) = Immutable
   true if loc(χ, v) = Immutable
   true if loc(χ, ι) = 𝔽 ∧ (loc(χ, v) = ρ)
@@ -536,12 +534,24 @@ x ∉ ϕ
 ι = ϕ(y)
 w ∈ dom(P.types(typeof(χ, ι)).fields)
 𝕣 = {object: ι, field: w}
---- [field ref]
+--- [fieldref]
 χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦𝕣]\y, stmt*
 
 x ∉ ϕ
+ϕ(y) ∉ ObjectId
+v = // TODO: bad target error
+--- [fieldref bad-target]
+χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦v]\y, setthrow;return x
+
+x ∉ ϕ
+ι = ϕ(y)
+w ∉ dom(P.types(typeof(χ, ι)).fields)
+v = // TODO: bad field error
+--- [fieldref bad-field]
+χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦v]\y, setthrow;return x
+
+x ∉ ϕ
 ϕ(y) = {object: ι, field: w}
-w ∈ dom(P.types(typeof(χ₀, ι)).fields)
 v = χ₀(ι)(w)
 χ₁ = region_stack_inc(χ₀, v)
 χ₂ = inc(χ₁, v)
@@ -550,7 +560,6 @@ v = χ₀(ι)(w)
 
 x ∉ ϕ
 ϕ(y) = {object: ι, field: w}
-w ∈ dom(P.types(typeof(χ₀, ι)).fields)
 v₀ = χ₀(ι)(w)
 v₁ = φ(z)
 safe_store(χ₀, ι, v₁)
@@ -603,27 +612,54 @@ newframe(χ, ϕ, F, x, y*, stmt*) =
   { id: 𝔽, vars: {F.paramsᵢ.name ↦ ϕ(yᵢ) | i ∈ 1 .. |y*|},
     ret: x, cont: stmt*, condition: Return}
   where
-    (𝔽 ∉ dom(χ.frames)) ∧
-    (𝔽 > φ.id) ∧
-    |F.params| = |y*| = |{y*}| ∧
-    ∀i ∈ 1 .. |y*| . typetest(χ, φ(yᵢ), F.paramsᵢ.type)
+    (𝔽 ∉ dom(χ.frames)) ∧ (𝔽 > φ.id)
+
+typecheck(χ, φ, F, y*) =
+  |F.params| = |y*| = |{y*}| ∧
+  ∀i ∈ 1 .. |y*| . typetest(χ, φ(yᵢ), F.paramsᵢ.type)
 
 x ∉ φ₀
 F = P.funcs(𝕗)
+typecheck(χ, φ₀, F, y*)
 φ₁ = newframe(χ, φ₀, F, x, y*, stmt*)
 --- [call static]
 χ, σ;φ₀, bind x (call 𝕗 y*);stmt* ⇝ χ∪(φ₁.id), σ;φ₀\{y*};φ₁, F.body
 
+x ∉ φ
+F = P.funcs(𝕗)
+¬typecheck(χ, φ, F, y*)
+v = // TODO: bad args error
+--- [call static bad-args]
+χ, σ;φ, bind x (call w y*);stmt* ⇝ χ, σ;φ[x↦v], setthrow;return x
+
 x ∉ φ₀
-τ = typeof(χ, φ(y₀))
+τ = typeof(χ, φ₀(y₁))
 F = P.funcs(P.types(τ).methods(w))
+typecheck(χ, φ₀, F, y*)
 φ₁ = newframe(χ, φ₀, F, x, y*, stmt*)
 --- [call dynamic]
 χ, σ;φ₀, bind x (call w y*);stmt* ⇝ χ∪(φ₁.id), σ;φ₀\{y*};φ₁, F.body
 
+x ∉ φ
+τ = typeof(χ, φ(y₁))
+w ∉ P.types(τ).methods
+v = // TODO: bad method error
+--- [call dynamic bad-method]
+χ, σ;φ, bind x (call w y*);stmt* ⇝ χ, σ;φ[x↦v], setthrow;return x
+
+x ∉ φ
+τ = typeof(χ, φ(y₁))
+F = P.funcs(P.types(τ).methods(w))
+¬typecheck(χ, φ, F, y*)
+v = // TODO: bad args error
+--- [call dynamic bad-args]
+χ, σ;φ, bind x (call w y*);stmt* ⇝ χ, σ;φ[x↦v], setthrow;return x
+
 ```
 
 ## Return
+
+This drops any remaining frame variables other than the return value.
 
 ```rs
 
@@ -633,6 +669,25 @@ loc(χ, v) ≠ φ₁.id
 typetest(χ, v, F.result)
 --- [return]
 χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ\(φ₁.id), σ;φ₀[φ₁.ret↦v], ϕ₁.cont
+
+dom(φ.vars) = {x, y} ∪ zs
+--- [return]
+χ, σ;φ, return x;stmt* ⇝ χ, σ;φ, drop y;return x
+
+dom(φ₁.vars) = {x}
+v₀ = φ₁(x)
+loc(χ, v₀) = φ₁.id
+v₁ = // TODO: bad return loc error
+--- [return bad-loc]
+χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ, σ;φ₀;φ₁[y↦v₁], drop x;setthrow;return y
+
+dom(φ₁.vars) = {x}
+v₀ = φ₁(x)
+loc(χ, v₀) ≠ φ₁.id
+¬typetest(χ, v₀, F.result)
+v₁ = // TODO: bad return type error
+--- [return bad-type]
+χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ, σ;φ₀;φ₁[y↦v₁], drop x;setthrow;return y
 
 ```
 
