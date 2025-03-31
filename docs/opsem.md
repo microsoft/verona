@@ -35,6 +35,9 @@ Dynamic failures:
   * Trying to merge a region that would create a cycle.
 * `freeze`:
   * Trying to freeze a value that is not an object in a region.
+* `extract`:
+  * Trying to extract a value that is not an object in a region.
+  * Trying to extract a graph that is reachable from the region.
 
 ## Shape
 
@@ -736,12 +739,14 @@ x ∉ φ
 ρ₀ = loc(χ₀, ι)
 ρ₁ ∉ χ₀
 ιs = reachable(χ, ι) ∩ members(χ₀, ρ₀)
+|{ι | (ι ∈ members(χ₀, ρ₀)) ∧ (w ∈ dom(χ₀(ι))) ∧
+      (χ₀(ι)(w) = ι′) ∧ (ι′ ∈ \ios)}| = 0
 ρs = {ρ |
       (ι ∈ ιs) ∧ (w ∈ dom(χ(ι))) ∧ (χ(ι)(w) = ι′) ∧
       (ρ = loc(χ, ι′)) ∧ (ρ ≠ ρ₀)}
 rc = calc_stack_rc(χ₀, σ;φ, ιs)
 χ₁ = χ₀[regions(ρ₀)[stack_rc -= rc],
-        regions(ρ₁)↦{type: χ.regions(ρ₀).type, parents: {ρ₀}, stack_rc: rc},
+        regions(ρ₁)↦{type: χ.regions(ρ₀).type, parents: ∅, stack_rc: rc},
         ∀ι′ ∈ ιs . metadata(ι′)[location = ρ₁],
         ∀ρ ∈ ρs . regions(ρ)[parents = {ρ₁}]]
 --- [extract true]
