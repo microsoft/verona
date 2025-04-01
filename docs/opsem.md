@@ -10,32 +10,12 @@ Still to do:
 * Embedded object fields?
 * Arrays? Or model them as objects?
 
-Dynamic failures:
-* `store`:
-  * Unsafe store:
-    * Store to a finalizing object.
-    * Store a finalizing object.
-    * Store to an immutable object.
-    * Store a region that already has a parent.
-    * Store a region that would create a cycle.
-    * Store a frame value in a region or in a predecessor frame.
-* `merge`:
-  * Trying to merge a value that isn't an object in a region.
-  * Trying to merge a region that is a child of a region other than the destination region.
-  * Trying to merge a region that would create a cycle.
-* `freeze`:
-  * Trying to freeze a value that is not an object in a region.
-* `extract`:
-  * Trying to extract a value that is not an object in a region.
-  * Trying to extract a graph that is reachable from the region.
+## Type Checker as Optimizer
 
-Error values:
-* Bad target.
-* Bad field.
-* Bad method.
-* Bad argument type.
-* Bad return location.
-* Bad return type.
+Dynamic failures that aren't trivial to eliminate with a type checker:
+* `BadStore`.
+* `BadReturnLoc`.
+* Merge, freeze, extract failures.
 
 ## Shape
 
@@ -75,7 +55,9 @@ P ∈ Program =
     }
 
 𝕣 ∈ Reference = {object: ObjectId, field: Ident}
-p ∈ Primitive = Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ
+    Error = BadTarget | BadField | BadStore | BadMethod | BadArgs
+          | BadReturnLoc | BadReturnType
+p ∈ Primitive = Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ | Error
 v ∈ Value = ObjectId | Primitive | Reference
 ω ∈ Object = Ident ↦ Value
 
@@ -164,6 +146,7 @@ typeof(χ, v) =
   P.primitives(Signed × ℕ) if v ∈ Signed × ℕ
   P.primitives(Unsigned × ℕ) if v ∈ Unsigned × ℕ
   P.primitives(Float × ℕ) if v ∈ Float × ℕ
+  P.primitives(Error) if v ∈ Error
   χ.metadata(ι).type if ι = v
   Ref typeof(χ, χ(𝕣.object)(𝕣.field)) if 𝕣 = v
 
@@ -539,16 +522,14 @@ w ∈ dom(P.types(typeof(χ, ι)).fields)
 
 x ∉ ϕ
 ϕ(y) ∉ ObjectId
-v = // TODO: bad target error
 --- [fieldref bad-target]
-χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦v]\y, setthrow;return x
+χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦BadTarget]\y, throw;return x
 
 x ∉ ϕ
 ι = ϕ(y)
 w ∉ dom(P.types(typeof(χ, ι)).fields)
-v = // TODO: bad field error
 --- [fieldref bad-field]
-χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦v]\y, setthrow;return x
+χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦BadField]\y, throw;return x
 
 x ∉ ϕ
 ϕ(y) = {object: ι, field: w}
@@ -557,6 +538,11 @@ v = χ₀(ι)(w)
 χ₂ = inc(χ₁, v)
 --- [load]
 χ₀, σ;ϕ, bind x (load y);stmt* ⇝ χ₂, σ;ϕ[x↦v], stmt*
+
+x ∉ ϕ
+ϕ(y) ∉ Reference
+--- [load bad-target]
+χ, σ;ϕ, bind x (load y);stmt* ⇝ χ, σ;ϕ[x↦BadTarget], throw;return x
 
 x ∉ ϕ
 ϕ(y) = {object: ι, field: w}
@@ -570,6 +556,18 @@ safe_store(χ₀, ι, v₁)
 χ₄ = region_stack_dec(χ₃, v₁)
 --- [store]
 χ₀, σ;ϕ, bind x (store y z);stmt* ⇝ χ₄[ι↦ω], σ;ϕ[x↦v₀]\z, stmt*
+
+x ∉ ϕ
+ϕ(y) ∉ Reference
+--- [store bad-target]
+χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ, σ;ϕ[x↦BadTarget], throw;return x
+
+x ∉ ϕ
+ϕ(y) = {object: ι, field: w}
+v = φ(z)
+¬safe_store(χ₀, ι, v₁)
+--- [store]
+χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ, σ;ϕ[x↦BadStore], throw;return x
 
 ```
 
@@ -628,9 +626,8 @@ typecheck(χ, φ₀, F, y*)
 x ∉ φ
 F = P.funcs(𝕗)
 ¬typecheck(χ, φ, F, y*)
-v = // TODO: bad args error
 --- [call static bad-args]
-χ, σ;φ, bind x (call w y*);stmt* ⇝ χ, σ;φ[x↦v], setthrow;return x
+χ, σ;φ, bind x (call w y*);stmt* ⇝ χ, σ;φ[x↦BadArgs], throw;return x
 
 x ∉ φ₀
 τ = typeof(χ, φ₀(y₁))
@@ -643,17 +640,15 @@ typecheck(χ, φ₀, F, y*)
 x ∉ φ
 τ = typeof(χ, φ(y₁))
 w ∉ P.types(τ).methods
-v = // TODO: bad method error
 --- [call dynamic bad-method]
-χ, σ;φ, bind x (call w y*);stmt* ⇝ χ, σ;φ[x↦v], setthrow;return x
+χ, σ;φ, bind x (call w y*);stmt* ⇝ χ, σ;φ[x↦BadMethod], throw;return x
 
 x ∉ φ
 τ = typeof(χ, φ(y₁))
 F = P.funcs(P.types(τ).methods(w))
 ¬typecheck(χ, φ, F, y*)
-v = // TODO: bad args error
 --- [call dynamic bad-args]
-χ, σ;φ, bind x (call w y*);stmt* ⇝ χ, σ;φ[x↦v], setthrow;return x
+χ, σ;φ, bind x (call w y*);stmt* ⇝ χ, σ;φ[x↦BadArgs], throw;return x
 
 ```
 
@@ -667,69 +662,72 @@ dom(φ₁.vars) = {x}
 v = φ₁(x)
 loc(χ, v) ≠ φ₁.id
 typetest(χ, v, F.result)
+φ₂ = φ₀[φ₁.ret↦v, condition = φ₁.condition]
 --- [return]
-χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ\(φ₁.id), σ;φ₀[φ₁.ret↦v], ϕ₁.cont
+χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, ϕ₁.cont
 
 dom(φ.vars) = {x, y} ∪ zs
 --- [return]
 χ, σ;φ, return x;stmt* ⇝ χ, σ;φ, drop y;return x
 
 dom(φ₁.vars) = {x}
-v₀ = φ₁(x)
-loc(χ, v₀) = φ₁.id
-v₁ = // TODO: bad return loc error
+v = φ₁(x)
+loc(χ, v) = φ₁.id
 --- [return bad-loc]
-χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ, σ;φ₀;φ₁[y↦v₁], drop x;setthrow;return y
+χ, σ;φ₀;φ₁, return x;stmt* ⇝
+  χ, σ;φ₀;φ₁[y↦BadReturnLoc], drop x;throw;return y
 
 dom(φ₁.vars) = {x}
-v₀ = φ₁(x)
-loc(χ, v₀) ≠ φ₁.id
-¬typetest(χ, v₀, F.result)
-v₁ = // TODO: bad return type error
+v = φ₁(x)
+loc(χ, v) ≠ φ₁.id
+¬typetest(χ, v, F.result)
 --- [return bad-type]
-χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ, σ;φ₀;φ₁[y↦v₁], drop x;setthrow;return y
+χ, σ;φ₀;φ₁, return x;stmt* ⇝
+  χ, σ;φ₀;φ₁[y↦BadReturnType], drop x;throw;return y
 
 ```
 
 ## Non-Local Return
 
-Use `setreturn` before a return for a standard return. Use `setraise` for a non-local return, and `setthrow` for an error.
+Use `raise` before a return for a non-local return, and `throw` for an error.
 
-Use `checkblock` after a `call` from inside a Smalltalk style block, such as a Verona lambda. If it's true, return the call result to propagate a non-local return out of a collection of blocks to the calling function, i.e. the syntactically enclosing scope.
-
-Use `checkfunc` after a `call` from inside a function. If it's true, return the call result to turn a non-local return into a local return, and to propagate an error.
-
-To catch errors, don't check the call condition.
+Use `reraise` after a `call` from inside a Smalltalk style block, such as a Verona lambda. This propagates both non-local returns and errors. Use `rethrow` after a `call` from inside a function. This returns a non-local return as local, and propagates errors. Use `catch` instead of either to capture a non-local return or error without propagating it.
 
 ```rs
 
---- [set return]
-χ, σ;φ, setreturn;stmt* ⇝ χ, σ;φ[condition = Return], stmt*
+--- [raise]
+χ, σ;φ, raise;stmt* ⇝ χ, σ;φ[condition = Raise], stmt*
 
---- [set raise]
-χ, σ;φ, setraise;stmt* ⇝ χ, σ;φ[condition = Raise], stmt*
+--- [throw]
+χ, σ;φ, throw;stmt* ⇝ χ, σ;φ[condition = Throw], stmt*
 
---- [set throw]
-χ, σ;φ, setthrow;stmt* ⇝ χ, σ;φ[condition = Throw], stmt*
+--- [catch]
+χ, σ;φ, catch;stmt* ⇝ χ, σ;φ[condition = Return], stmt*
 
-x ∉ φ
---- [check block]
-χ, σ;φ, bind x checkblock;stmt* ⇝ χ, σ;φ[x↦condition ≠ Return], stmt*
+x ∈ φ
+φ.condition = Return
+--- [reraise]
+χ, σ;φ, reraise x;stmt* ⇝ χ, σ;φ, stmt*
+
+x ∈ φ
+φ.condition ≠ Return
+--- [reraise]
+χ, σ;φ, reraise x;stmt* ⇝ χ, σ;φ, return x
 
 x ∉ φ
 φ.condition = Return
---- [check function]
-χ, σ;φ, bind x checkfunc;stmt* ⇝ χ, σ;φ[x↦false], stmt*
+--- [rethrow]
+χ, σ;φ, rethrow x;stmt* ⇝ χ, σ;φ, stmt*
 
 x ∉ φ
 φ.condition = Raise
---- [check function]
-χ, σ;φ, bind x checkfunc;stmt* ⇝ χ, σ;φ[x↦true, condition = Return], stmt*
+--- [rethrow]
+χ, σ;φ, rethrow x;stmt* ⇝ χ, σ;φ[condition = Return], return x
 
 x ∉ φ
 φ.condition = Throw
---- [check function]
-χ, σ;φ, bind x checkfunc;stmt* ⇝ χ, σ;φ[x↦true], stmt*
+--- [rethrow]
+χ, σ;φ, rethrow x;stmt* ⇝ χ, σ;φ, return x
 
 ```
 
@@ -747,16 +745,16 @@ loc(χ₀, φ(y)) = ρ₁
 (ρ₀ ≠ ρ₁) ∧ ¬is_ancestor(χ₀, ρ₁, ρ₀) ∧ ({ρ₀} ⊇ parents(χ₀, ρ₁))
 ιs = members(χ₀, ρ₁)
 χ₁ = χ₀[∀ι ∈ ιs . metadata(ι)[location = ρ₀]]
-       [regions(ρ₀)[stack_rc += regions(ρ₁).stack_rc)]]
---- [merge true]
-χ₀, σ;φ, bind x (merge w y);stmt* ⇝ χ₁\ρ₁, σ;φ[x↦true], stmt*
+       [regions(ρ₀)[stack_rc += regions(ρ₁).stack_rc]]
+--- [merge]
+χ₀, σ;φ, bind x (merge w y);stmt* ⇝ χ₁\ρ₁, σ;φ[x↦φ(y)], stmt*
 
 x ∉ φ
 (loc(χ, φ(w)) ≠ ρ₀) ∨
 (loc(χ, φ(y)) ≠ ρ₁) ∨
 (ρ₀ = ρ₁) ∨ is_ancestor(χ₀, ρ₁, ρ₀) ∨ ({ρ₀} ̸⊇ parents(χ, ρ₁))
---- [merge false]
-χ, σ;φ, bind x (merge w y);stmt* ⇝ χ, σ;φ[x↦false], stmt*
+--- [merge bad-target]
+χ, σ;φ, bind x (merge w y);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
 
 ```
 
@@ -795,7 +793,7 @@ x ∉ φ
 ρ₁ ∉ χ₀
 ιs = reachable(χ, ι) ∩ members(χ₀, ρ₀)
 |{ι | (ι ∈ members(χ₀, ρ₀)) ∧ (w ∈ dom(χ₀(ι))) ∧
-      (χ₀(ι)(w) = ι′) ∧ (ι′ ∈ \ios)}| = 0
+      (χ₀(ι)(w) = ι′) ∧ (ι′ ∈ ιs)}| = 0
 ρs = {ρ |
       (ι ∈ ιs) ∧ (w ∈ dom(χ(ι))) ∧ (χ(ι)(w) = ι′) ∧
       (ρ = loc(χ, ι′)) ∧ (ρ ≠ ρ₀)}
@@ -804,13 +802,22 @@ rc = calc_stack_rc(χ₀, σ;φ, ιs)
         regions(ρ₁)↦{type: χ.regions(ρ₀).type, parents: ∅, stack_rc: rc},
         ∀ι′ ∈ ιs . metadata(ι′)[location = ρ₁],
         ∀ρ ∈ ρs . regions(ρ)[parents = {ρ₁}]]
---- [extract true]
-χ₀, σ;φ, bind x (extract y);stmt* ⇝ χ₁, σ;φ[x↦true], stmt*
+--- [extract]
+χ₀, σ;φ, bind x (extract y);stmt* ⇝ χ₁, σ;φ[x↦ι]\y, stmt*
 
 x ∉ φ
 ρ ≠ loc(χ, φ(y))
---- [extract false]
-χ, σ;φ, bind x (extract y);stmt* ⇝ χ, σ;φ[x↦false], stmt*
+--- [extract bad-target]
+χ, σ;φ, bind x (extract y);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
+
+x ∉ φ
+ι = φ(y)
+ρ₀ = loc(χ₀, ι)
+ιs = reachable(χ, ι) ∩ members(χ₀, ρ₀)
+|{ι | (ι ∈ members(χ₀, ρ₀)) ∧ (w ∈ dom(χ₀(ι))) ∧
+      (χ₀(ι)(w) = ι′) ∧ (ι′ ∈ ιs)}| > 0
+--- [extract bad-target]
+χ, σ;φ, bind x (extract y);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
 
 ```
 
