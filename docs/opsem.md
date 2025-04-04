@@ -23,15 +23,19 @@ Dynamic failures that aren't trivial to eliminate with a type checker:
 
 n ∈ ℕ
 w, x, y, z ∈ Ident
-xs, ys, zs ∈ 𝒫(Ident)
+ws, xs, ys, zs ∈ 𝒫(Ident)
 τ ∈ TypeId
-𝕗 ∈ FuncId
+𝕗 ∈ FunctionId
 ρ ∈ RegionId
 𝔽 ∈ FrameId
 ι ∈ ObjectId
 ιs ∈ 𝒫(ObjectId)
+π ∈ CownId
+𝛽 ∈ BehaviorId
+θ ∈ ThreadId
 
 T ∈ Type = Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ | TypeId | Ref TypeId
+         | Cown TypeId
 
 𝕥 ∈ TypeDesc =
     {
@@ -40,7 +44,7 @@ T ∈ Type = Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ | TypeId | Re
       methods: Ident ↦ FuncId
     }
 
-F ∈ Func =
+F ∈ Function =
     {
       params: {name: Ident, type: Type}*,
       result: Type,
@@ -49,16 +53,16 @@ F ∈ Func =
 
 P ∈ Program =
     {
-      primitives: Type ↦ TypeDesc,
+      primitives: Type ↦ TypeId,
       types: TypeId ↦ TypeDesc,
-      funcs: FuncId ↦ Func
+      functions: FunctionId ↦ Function
     }
 
-𝕣 ∈ Reference = {object: ObjectId, field: Ident}
-    Error = BadTarget | BadField | BadStore | BadMethod | BadArgs
+𝕣 ∈ Reference = {object: ObjectId | CownId, field: Ident}
+    Error = BadType | BadTarget | BadField | BadStore | BadMethod | BadArgs
           | BadReturnLoc | BadReturnType
 p ∈ Primitive = Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ | Error
-v ∈ Value = ObjectId | Primitive | Reference
+v ∈ Value = ObjectId | Primitive | Reference | CownId
 ω ∈ Object = Ident ↦ Value
 
     Condition = Return | Raise | Throw
@@ -67,6 +71,7 @@ v ∈ Value = ObjectId | Primitive | Reference
       id: FrameId,
       vars: Ident ↦ Value,
       ret: Ident,
+      type: Type,
       cont: Statement*,
       condition: Condition
     }
@@ -95,11 +100,39 @@ R ∈ RegionType = RegionRC | RegionGC | RegionArena
       data: ObjectId ↦ Object,
       metadata: ObjectId ↦ Metadata,
       regions: RegionId ↦ Region,
+      cowns: CownId ↦ Cown,
+      behaviors: BehaviorId ↦ Behavior,
+      threads: ThreadId ↦ Thread,
       frames: 𝒫(FrameId),
       pre_final: 𝒫(ObjectId),
       post_final: 𝒫(ObjectId),
       pre_final_r: 𝒫(RegionId),
       post_final_r: 𝒫(RegionId)
+    }
+
+Π ∈ Cown =
+    {
+      type: Type,
+      content: Value,
+      queue: BehaviorId*,
+      read: ℕ,
+      rc: ℕ
+    }
+
+B ∈ Behavior =
+    {
+      read: Ident ↦ CownId,
+      write: Ident ↦ CownId,
+      capture: Ident ↦ Value,
+      body: Statement*,
+      result: CownId
+    }
+
+Θ ∈ Thread =
+    {
+      stack: Frame*,
+      cont: Statement*,
+      result: CownId
     }
 
 Heap, Stack, Statement* ⇝ Heap, Stack, Statement*
@@ -124,15 +157,19 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 // Heap objects.
 ι ∈ χ ≝ ι ∈ dom(χ.data)
 χ(ι) = χ.data(ι)
+χ[ι↦ω] = χ[data(ι)↦ω]
 χ[ι↦(ω, τ, 𝔽)] = χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: 𝔽, rc: 1}]
-χ[ι↦(ω, τ, ρ)] = χ[data(ι)↦ω, metadata(ι)↦{type: τ, location: ρ, rc: 1}]
+χ[ι↦(ω, τ, ρ)] = χ[data(ι)↦ω,
+                   metadata(ι)↦{type: τ, location: ρ, rc: 1},
+                   regions(ρ)[stack_rc += 1]]
 χ\ι = χ\{ι}
 χ\ιs = χ[data = data\ιs, metadata = metadata\ιs]
 
 // Regions.
 ρ ∈ χ ≝ ρ ∈ dom(χ.regions)
-χ[ρ↦R] = χ[regions(ρ)↦{type: R, parents: ∅, stack_rc: 1}]
-χ\ρ = χ[regions\ρ]
+χ[ρ↦R] = χ[regions(ρ)↦{type: R, parents: ∅, stack_rc: 0}]
+χ\ρ = χ\{ρ}
+χ\ρs = χ[regions\ρs]
 
 ```
 
@@ -148,11 +185,13 @@ typeof(χ, v) =
   P.primitives(Float × ℕ) if v ∈ Float × ℕ
   P.primitives(Error) if v ∈ Error
   χ.metadata(ι).type if ι = v
-  Ref typeof(χ, χ(𝕣.object)(𝕣.field)) if 𝕣 = v
+  Ref P.types(typeof(χ, ι).field(𝕣.field).type if (𝕣 = v) ∧ (𝕣.object = ι)
+  Ref χ(π).type if (𝕣 = v) ∧ (𝕣.object = π)
+  Cown χ(π).type if π = v
 
 // Subtype test.
 typetest(χ, v, T) =
-  T = typeof(χ, v) if v ∈ Reference
+  T = typeof(χ, v) if (v ∈ Reference) ∨ (v ∈ CownId)
   T ∈ P.types(typeof(χ, v)).supertypes otherwise
 
 ```
@@ -171,10 +210,12 @@ reachable(χ, {v} ∪ vs) = reachable(χ, v) ∪ reachable(χ, vs)
 
 reachable(χ, v) = reachable(χ, v, ∅)
 reachable(χ, p, ιs) = ιs
+reachable(χ, π, ιs) = ιs
 reachable(χ, 𝕣, ιs) = reachable(χ, 𝕣.object, ιs)
 reachable(χ, ι, ιs) =
   ιs if ι ∈ ιs
   reachable(χ, ι, {ι} ∪ ιs, dom(χ(ι))) otherwise
+reachable(χ, π, ιs) = ιs
 
 reachable(χ, ι, ιs, ∅) = ιs
 reachable(χ, ι, ιs, {w} ∪ ws) =
@@ -183,11 +224,13 @@ reachable(χ, ι, ιs, w) = reachable(χ, χ(ι)(w), ιs)
 
 // Region.
 loc(χ, p) = Immutable
+loc(χ, π) = Immutable
 loc(χ, 𝕣) = loc(χ, 𝕣.object)
 loc(χ, ι) =
   loc(χ, ι′) if χ.metadata(ι).location = ι′
   χ.metadata(ι).location if ι ∈ χ
   Immutable otherwise
+loc(χ, π) = Immutable
 
 same_loc(χ, v₀, v₁) = (loc(χ, v₀) = loc(χ, v₁))
 members(χ, ρ) = {ι | (ι ∈ χ) ∧ (loc(χ, ι) = ρ)}
@@ -208,20 +251,30 @@ This enforces a tree-shaped region graph, with a single reference from parent to
 
 ```rs
 
-safe_store(χ, ι, v) =
-  false if finalizing(ι) ⊻ finalizing(v)
-  false if loc(χ, ι) = Immutable
+// TODO: v = π
+safe_store(χ, Immutable, v) = false
+safe_store(χ, 𝔽, v) =
   true if loc(χ, v) = Immutable
-  true if loc(χ, ι) = 𝔽 ∧ (loc(χ, v) = ρ)
-  true if loc(χ, ι) = 𝔽 ∧ (loc(χ, v) = 𝔽′) ∧ (𝔽 >= 𝔽′)
-  true if same_loc(χ, ι, v)
-  true if (ρ₀ = loc(χ, ι)) ∧ (ρ₁ = loc(χ, v)) ∧
-          (parents(χ, ρ₁) = ∅) ∧ ¬is_ancestor(χ, ρ₁, ρ₀)
+  true if loc(χ, v) = ρ
+  true if (loc(χ, v) = 𝔽′) ∧ (𝔽 >= 𝔽′)
+  false otherwise
+safe_store(χ, ρ, v) =
+  false if finalizing(χ, v)
+  true if loc(χ, v) = Immutable
+  true if loc(χ, v) = ρ
+  true if (loc(χ, v) = ρ′) ∧ (parents(χ, ρ′) = ∅) ∧ ¬is_ancestor(χ, ρ′, ρ)
+  false otherwise
+safe_store(χ, μ, v) =
+  false if finalizing(χ, v)
+  true if loc(χ, v) = Immutable
+  true if (loc(χ, v) = ρ) ∧ (parents(χ, ρ) = ∅)
   false otherwise
 
 finalizing(χ, p) = false
+finalizing(χ, π) = false
 finalizing(χ, 𝕣) = finalizing(χ, 𝕣.object)
 finalizing(χ, ι) = (ι ∈ χ.pre_final) ∨ (ι ∈ χ.post_final)
+finalizing(χ, π) = false
 
 ```
 
@@ -261,6 +314,8 @@ wf_regionunique(χ) =
 wf_regiontree(χ) =
   ∀ρ₀, ρ₁ ∈ χ .
     (ρ₀ ∈ parents(χ, ρ₁) ⇒ (ρ₀ ≠ ρ₁) ∧ ¬is_ancestor(χ, ρ₁, ρ₀))
+
+// TODO: a cown contains an immutable object or a region with no parents.
 
 ```
 
@@ -324,12 +379,14 @@ enable-rc(χ, ι) =
   (loc(χ, ι) = ρ ∧ ρ.type = RegionRC) ∨ (loc(χ, ι) = Immutable)
 
 region_stack_inc(χ, p) = χ
+region_stack_inc(χ, π) = χ
 region_stack_inc(χ, 𝕣) = region_stack_inc(χ, 𝕣.object)
 region_stack_inc(χ, ι) =
   χ[regions(ρ)[stack_rc += 1]] if loc(χ, ι) = ρ
   χ otherwise
 
 region_stack_dec(χ, p) = χ
+region_stack_dec(χ, π) = χ
 region_stack_dec(χ, 𝕣) = region_stack_dec(χ, 𝕣.object)
 region_stack_dec(χ, ι) =
   χ[pre_final_r ∪= {ρ}] if
@@ -340,6 +397,7 @@ region_stack_dec(χ, ι) =
   χ otherwise
 
 region_add_parent(χ, ι, p) = χ
+region_add_parent(χ, ι, π) = χ
 region_add_parent(χ, ι, 𝕣) = region_add_parent(χ, ι, 𝕣.object)
 region_add_parent(χ, ι, ι′) =
   χ[regions(ρ′)[parents ∪= {ρ})]] if
@@ -348,6 +406,7 @@ region_add_parent(χ, ι, ι′) =
   χ otherwise
 
 region_remove_parent(χ, ι, p) = χ
+region_remove_parent(χ, ι, π) = χ
 region_remove_parent(χ, ι, 𝕣) = region_remove_parent(χ, ι, 𝕣.object)
 region_remove_parent(χ, ι, ι′) =
   χ[regions(ρ)[parents \= {ρ′})]] if
@@ -356,6 +415,7 @@ region_remove_parent(χ, ι, ι′) =
   χ otherwise
 
 inc(χ, p) = χ
+inc(χ, π) = χ[cowns(π)[rc += 1]]
 inc(χ, 𝕣) = dec(χ, 𝕣.object)
 inc(χ, ι) =
   inc(χ, ι′) if χ.metadata(ι).location = ι′
@@ -363,10 +423,11 @@ inc(χ, ι) =
   χ otherwise
 
 dec(χ, p) = χ
+dec(χ, π) = χ[cowns(π)[rc -= 1]] // TODO: free
 dec(χ, 𝕣) = dec(χ, 𝕣.object)
 dec(χ, ι) =
   dec(χ, ι′) if χ.metadata(ι).location = ι′
-  free(χ, ι) if enable-rc(χ, ι) ∧ (χ.metadata(ι).rc = 1)
+  χ[pre_final ∪= {ι}] if enable-rc(χ, ι) ∧ (χ.metadata(ι).rc = 1)
   χ[metadata(ι)[rc -= 1]] if enable-rc(χ, ι)
   χ otherwise
 
@@ -384,6 +445,9 @@ gc(χ, σ, ρ) =
   χ otherwise
   where
     ιs = members(χ₀, ρ) ∧
+    // TODO: doesn't work with finalization.
+    // need to keep everything we might look at during finalization alive.
+    // if A can reach B, and we select B but not A, then we can't finalize A.
     ιs₀ ⊆ ιs \ reachable(χ₀, gc_roots(χ₀, σ, ρ)) ∧
     ιs₁ = ιs \ ιs₀ ∧
     χ′ = gc_dec(χ, ιs₀, ιs₁)
@@ -406,6 +470,7 @@ gc_dec_fields(χ, ι, {w} ∪ ws, ιs₁) =
     χ′ = gc_dec_field(χ₀, ι, χ(ι)(w), ιs₁) ∧
 
 gc_dec_field(χ, ι, p, ιs₁) = χ
+gc_dec_field(χ, ι, π, ιs₁) = χ
 gc_dec_field(χ, ι, 𝕣, ιs₁) = gc_dec_field(χ, ι, 𝕣.object)
 gc_dec_field(χ, ι, ι′, ιs₁) =
   dec(χ, ι′) if (ι′ ∈ ιs₁) ∨ (loc(χ, ι′) = Immutable)
@@ -417,6 +482,8 @@ gc_dec_field(χ, ι, ι′, ιs₁) =
 
 ```rs
 
+// TODO: only call free_fields after finalizing the object.
+// remove this, put object into pre_final directly from `dec`.
 free(χ, ι) =
   χ′[pre_final ∪= ιs]
   where
@@ -430,6 +497,7 @@ free_fields(χ, ιs, ι, {w} ∪ ws) =
     χ₁′ ιs′ = free_field(χ, ιs, ι, w)
 
 free_field(χ, ιs, ι, p) = χ, ιs
+free_field(χ, ιs, ι, π) = χ, ιs
 free_field(χ, ιs, ι, 𝕣) = free_field(χ, ιs, ι, 𝕣.object)
 free_field(χ, ιs, ι, ι′) =
   χ, ιs if ι′ ∈ ιs
@@ -450,12 +518,14 @@ For an "address-taken" local variable, i.e. a `var` as opposed to a `let`, alloc
 
 ```rs
 
-newobject(χ, τ, (y, z)*) =
-  ω where
-    f = P.types(τ).fields ∧
-    {y | y ∈ (y, z)*} = dom(f) ∧
-    ω = {y ↦ φ(z) | y ∈ (y, z)*} ∧
-    ∀y ∈ dom(ω) . typetest(χ, f(y).type, ω(y))
+once(x*) = |{x | x ∈ x*}| = |x*|
+once((x, y)*) = |{y | y ∈ (x, y)*}| = |(x, y)*|
+
+newobject(φ, (y, z)*) = {y ↦ φ(z) | y ∈ (y, z)*}
+
+typecheck(χ, τ, ω) =
+  (dom(P.types(τ).fields) = dom(ω)) ∧
+  ∀w ∈ dom(ω) . typetest(χ, P.types(τ).fields(w), ω(w))
 
 x ∉ φ
 --- [new primitive]
@@ -463,26 +533,71 @@ x ∉ φ
 
 x ∉ φ
 ι ∉ χ
-zs = {z | z ∈ (y, z)*} ∧ |zs| = |(y, z)*|
-ω = newobject(χ, τ, (y, z)*)
+once((y, z)*)
+∀z ∈ (y, z)* . safe_store(χ, φ.id, φ(z))
+ω = newobject(φ, (y, z)*)
+typecheck(χ, τ, ω)
 --- [new stack]
 χ, σ;φ, bind x (new τ (y, z)*);stmt* ⇝ χ[ι↦(ω, τ, φ.id)], σ;φ[x↦ι]\zs, stmt*
 
 x ∉ φ
+∃z ∈ (y, z)* . ¬safe_store(χ, φ.id, φ(z))
+--- [new stack bad-store]
+χ, σ;φ, bind x (new τ (y, z)*);stmt* ⇝ χ, σ;φ[x↦BadStore], throw;return x
+
+x ∉ φ
+ω = newobject(φ, (y, z)*)
+¬once((y, z)*) ∨ ¬typecheck(χ, τ, ω)
+--- [new stack bad-type]
+χ, σ;φ, bind x (new τ (y, z)*);stmt* ⇝ χ, σ;φ[x↦BadType], throw;return x
+
+x ∉ φ
 ι ∉ χ
 ρ = loc(χ, φ(w))
-zs = {z | z ∈ (y, z)*} ∧ |zs| = |(y, z)*|
-ω = newobject(χ, τ, (y, z)*)
+once((y, z)*)
+ω = newobject(φ, (y, z)*)
+typecheck(χ, τ, ω)
 --- [new heap]
 χ, σ;φ, bind x (new w τ (y, z)*);stmt* ⇝ χ[ι↦(ω, τ, ρ)], σ;φ[x↦ι]\zs, stmt*
 
 x ∉ φ
+ρ ≠ loc(χ, φ(w))
+--- [new heap bad-target]
+χ, σ;φ, bind x (new w τ (y, z)*);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
+
+x ∉ φ
+ρ = loc(χ, φ(w))
+∃z ∈ (y, z)* . ¬safe_store(χ, ρ, φ(z))
+--- [new heap bad-store]
+χ, σ;φ, bind x (new τ (y, z)*);stmt* ⇝ χ, σ;φ[x↦BadStore], throw;return x
+
+x ∉ φ
+ρ = loc(χ, φ(w))
+ω = newobject(φ, (y, z)*)
+¬once((y, z)*) ∨ ¬typecheck(χ, τ, ω)
+--- [new heap bad-type]
+χ, σ;φ, bind x (new w τ (y, z)*);stmt* ⇝ χ, σ;φ[x↦BadType], throw;return x
+
+x ∉ φ
 ι ∉ χ
 ρ ∉ χ
-zs = {z | z ∈ (y, z)*} ∧ |zs| = |(y, z)*|
-ω = newobject(χ, τ, (y, z)*)
+once((y, z)*)
+ω = newobject(φ, (y, z)*)
+typecheck(χ, τ, ω)
 --- [new region]
 χ, σ;φ, bind x (new R τ (y, z)*);stmt* ⇝ χ[ρ↦R][ι↦(ω, τ, ρ)], σ;φ[x↦ι]\zs, stmt*
+
+x ∉ φ
+ρ ∉ χ
+∃z ∈ (y, z)* . ¬safe_store(χ, ρ, φ(z))
+--- [new heap bad-store]
+χ, σ;φ, bind x (new R τ (y, z)*);stmt* ⇝ χ, σ;φ[x↦BadStore], throw;return x
+
+x ∉ φ
+ω = newobject(φ, (y, z)*)
+¬once((y, z)*) ∨ ¬typecheck(χ, τ, ω)
+--- [new region bad-type]
+χ, σ;φ, bind x (new R τ (y, z)*);stmt* ⇝ χ, σ;φ[x↦BadType], throw;return x
 
 ```
 
@@ -532,8 +647,8 @@ w ∉ dom(P.types(typeof(χ, ι)).fields)
 χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦BadField]\y, throw;return x
 
 x ∉ ϕ
-ϕ(y) = {object: ι, field: w}
-v = χ₀(ι)(w)
+v = χ₀(ι)(w) if ϕ(y) = {object: ι, field: w}
+    χ₀.cowns(π).value if ϕ(y) = {object: π, field: w}
 χ₁ = region_stack_inc(χ₀, v)
 χ₂ = inc(χ₁, v)
 --- [load]
@@ -545,10 +660,10 @@ x ∉ ϕ
 χ, σ;ϕ, bind x (load y);stmt* ⇝ χ, σ;ϕ[x↦BadTarget], throw;return x
 
 x ∉ ϕ
-ϕ(y) = {object: ι, field: w}
-v₀ = χ₀(ι)(w)
+v₀ = χ₀(ι)(w) if ϕ(y) = {object: ι, field: w}
+     χ₀.cowns(π).value if ϕ(y) = {object: π, field: w}
 v₁ = φ(z)
-safe_store(χ₀, ι, v₁)
+safe_store(χ₀, loc(χ₀, ι), v₁)
 ω = χ₀(ι)[w↦v₁]
 χ₁ = region_stack_inc(χ₀, v₀)
 χ₂ = region_remove_parent(χ₁, ι, v₀)
@@ -565,7 +680,7 @@ x ∉ ϕ
 x ∉ ϕ
 ϕ(y) = {object: ι, field: w}
 v = φ(z)
-¬safe_store(χ₀, ι, v₁)
+¬safe_store(χ₀, loc(χ, ι), v₁)
 --- [store]
 χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ, σ;ϕ[x↦BadStore], throw;return x
 
@@ -608,44 +723,49 @@ All arguments are consumed. To keep them, `dup` them first. As such, an identifi
 
 newframe(χ, ϕ, F, x, y*, stmt*) =
   { id: 𝔽, vars: {F.paramsᵢ.name ↦ ϕ(yᵢ) | i ∈ 1 .. |y*|},
-    ret: x, cont: stmt*, condition: Return}
+    ret: x, type: F.result, cont: stmt*, condition: Return}
   where
     (𝔽 ∉ dom(χ.frames)) ∧ (𝔽 > φ.id)
 
 typecheck(χ, φ, F, y*) =
-  |F.params| = |y*| = |{y*}| ∧
+  |F.params| = |y*| ∧
   ∀i ∈ 1 .. |y*| . typetest(χ, φ(yᵢ), F.paramsᵢ.type)
 
 x ∉ φ₀
-F = P.funcs(𝕗)
+once(y*)
+F = P.functions(𝕗)
 typecheck(χ, φ₀, F, y*)
 φ₁ = newframe(χ, φ₀, F, x, y*, stmt*)
 --- [call static]
 χ, σ;φ₀, bind x (call 𝕗 y*);stmt* ⇝ χ∪(φ₁.id), σ;φ₀\{y*};φ₁, F.body
 
 x ∉ φ
-F = P.funcs(𝕗)
+once(y*)
+F = P.functions(𝕗)
 ¬typecheck(χ, φ, F, y*)
 --- [call static bad-args]
 χ, σ;φ, bind x (call w y*);stmt* ⇝ χ, σ;φ[x↦BadArgs], throw;return x
 
 x ∉ φ₀
+once(y*)
 τ = typeof(χ, φ₀(y₁))
-F = P.funcs(P.types(τ).methods(w))
+F = P.functions(P.types(τ).methods(w))
 typecheck(χ, φ₀, F, y*)
 φ₁ = newframe(χ, φ₀, F, x, y*, stmt*)
 --- [call dynamic]
 χ, σ;φ₀, bind x (call w y*);stmt* ⇝ χ∪(φ₁.id), σ;φ₀\{y*};φ₁, F.body
 
 x ∉ φ
+once(y*)
 τ = typeof(χ, φ(y₁))
 w ∉ P.types(τ).methods
 --- [call dynamic bad-method]
 χ, σ;φ, bind x (call w y*);stmt* ⇝ χ, σ;φ[x↦BadMethod], throw;return x
 
 x ∉ φ
+once(y*)
 τ = typeof(χ, φ(y₁))
-F = P.funcs(P.types(τ).methods(w))
+F = P.functions(P.types(τ).methods(w))
 ¬typecheck(χ, φ, F, y*)
 --- [call dynamic bad-args]
 χ, σ;φ, bind x (call w y*);stmt* ⇝ χ, σ;φ[x↦BadArgs], throw;return x
@@ -661,29 +781,36 @@ This drops any remaining frame variables other than the return value.
 dom(φ₁.vars) = {x}
 v = φ₁(x)
 loc(χ, v) ≠ φ₁.id
-typetest(χ, v, F.result)
+typetest(χ, v, φ.type)
 φ₂ = φ₀[φ₁.ret↦v, condition = φ₁.condition]
 --- [return]
 χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, ϕ₁.cont
+
+dom(φ.vars) = {x}
+v = φ(x)
+loc(χ, v) ≠ φ.id
+typetest(χ, v, φ.type)
+// TODO: put v in the result cown?
+// safe_store to result cown
+--- [return]
+χ, φ, return x;stmt* ⇝ χ\(φ.id), ∅, ∅
 
 dom(φ.vars) = {x, y} ∪ zs
 --- [return]
 χ, σ;φ, return x;stmt* ⇝ χ, σ;φ, drop y;return x
 
-dom(φ₁.vars) = {x}
-v = φ₁(x)
-loc(χ, v) = φ₁.id
+dom(φ.vars) = {x}
+v = φ(x)
+loc(χ, v) = φ.id
 --- [return bad-loc]
-χ, σ;φ₀;φ₁, return x;stmt* ⇝
-  χ, σ;φ₀;φ₁[y↦BadReturnLoc], drop x;throw;return y
+χ, σ;φ, return x;stmt* ⇝ χ, σ;φ[y↦BadReturnLoc], drop x;throw;return y
 
-dom(φ₁.vars) = {x}
-v = φ₁(x)
-loc(χ, v) ≠ φ₁.id
+dom(φ.vars) = {x}
+v = φ(x)
+loc(χ, v) ≠ φ.id
 ¬typetest(χ, v, F.result)
 --- [return bad-type]
-χ, σ;φ₀;φ₁, return x;stmt* ⇝
-  χ, σ;φ₀;φ₁[y↦BadReturnType], drop x;throw;return y
+χ, σ;φ, return x;stmt* ⇝ χ, σ;φ[y↦BadReturnType], drop x;throw;return y
 
 ```
 
@@ -837,13 +964,13 @@ region_fields(χ, ι) =
 
 χ₀.pre_final = {ι} ∪ ιs
 τ = typeof(χ, ι)
-F = P.funcs(P.types(τ).methods(final))
+F = P.functions(P.types(τ).methods(final))
 |F.params| = 1
 typetest(χ, ι, F.params₀.type)
 𝔽 ∉ dom(χ.frames)
 𝔽 > φ₀.id
 φ₁ = { id: 𝔽, vars: {F.paramsᵢ.name ↦ ι},
-       ret: final, cont: (drop final;stmt*), condition: Return}
+       ret: final, type: F.result, cont: (drop final;stmt*), condition: Return}
 χ₁ = region_fields(χ₀, ι)
 χ₂ = χ₁[frames ∪= 𝔽, pre_final = ιs, post_final ∪= {ι}]
 --- [finalize true]
@@ -872,5 +999,85 @@ final ∉ dom(P.types(τ).methods)
 χ.post_final_r = {ρ} ∪ {ρs}
 --- [collect region]
 χ, σ;φ, stmt* ⇝ χ[post_final_r = ρs]\ρ, σ;φ, stmt*
+
+```
+
+## Behaviors
+
+A `when` creates a behavior and returns a cown.
+The cown that's created has no value until the `when` completes, and is busy in the meantime. It has the behavior ID in its queue.
+Put the behavior ID at the end of a behavior queue for each cown.
+The frame will start by moving captures and cowns into frame variables with the same names as the object fields, then destroying the object and its region.
+
+When all of a behavior's cowns have the behavior at the front of their queue, the behavior executes. The behavior is taken out of the pending set. When the behavior finishes executing, the front of each cown's queue is popped.
+
+```rs
+
+ready(χ, 𝛽) =
+  (∀π ∈ πs . χ(π).queue = 𝛽;𝛽*) ∧
+  (∀π ∈ χ(𝛽).write . χ(π).read = 0)
+  where
+    πs = {π | π ∈ (χ(𝛽).read ∪ χ(𝛽).write ∪ {χ(𝛽).result})}
+
+// TODO: return some "read-only" view of the value.
+// no rc ops for read-only.
+read-acquire(χ, π) =
+  inc(χ′, v), v if loc(χ, v) = Immutable
+  // TODO:
+  where
+    (χ.cowns(π).queue = 𝛽;𝛽*) ∧
+    (χ′ = χ[cowns(π)[queue = 𝛽*, read += 1]]) ∧
+    (v = χ.cowns(π).value)
+
+write-acquire(χ, π) =
+  inc(χ′, π), {object: π, field: final}
+  where
+    (χ.cowns(π).queue = 𝛽;𝛽*) ∧
+    (χ′ = χ[cowns(π)[queue = 𝛽*]])
+
+// TODO:
+// regions put in a behavior need to set a parent to prevent them being put anywhere else.
+// delay until all captured regions have stack_rc = 0?
+// has to check child regions as well.
+x ∉ φ
+𝛽 ∉ dom(χ.behaviors)
+π ∉ dom(χ.cowns)
+once(w*;y*;z*)
+∀w ∈ w* . φ(w) ∈ CownId
+∀y ∈ y* . φ(y) ∈ CownId
+∀z ∈ z* . safe_store(χ, 𝛽, φ(z))
+χ′ = χ[∀π′ ∈ {φ(x′) | (x′ ∈ w*;y*)} . cowns(π′)[queue ++ 𝛽]]
+Π = { type: T, value: false, queue: 𝛽 }
+B = { read: {w ↦ φ(w) | w ∈ w*},
+      write: {y ↦ φ(y) | y ∈ y*},
+      capture: {z ↦ φ(z) | z ∈ z*},
+      body: stmt₀*,
+      result: π }
+--- [when]
+χ, σ;φ, bind x (when T (read w*) (write y*) (capture z*) stmt₀*);stmt₁* ⇝
+  χ′[cowns(π)↦Π, behaviors(𝛽)↦B]∪𝔽, σ;φ[x↦π]\(w*;y*;z*), stmt₁*
+
+𝛽 ∈ dom(χ.behaviors)
+θ ∉ dom(χ.threads)
+𝔽 ∉ χ
+ready(χ, 𝛽)
+B = χ.behaviors(𝛽)
+φ = { id: 𝔽,
+      vars: {x ↦ B.capture(x) | x ∈ dom(B.capture)},
+      ret: final,
+      cont: ∅,
+      condition: Return }
+      [∀w ∈ dom(B.read) . vars(w)↦read-acquire(vars(w))]
+      [∀y ∈ dom(B.write) . vars(y)↦write-acquire(vars(w))]
+Θ = { stack: φ, cont: B.body, result: π }
+--- [start behavior]
+χ ⇝ χ[behaviors \= {𝛽}, threads(θ)↦Θ]
+
+// TODO: how do we end a behavior
+θ ∈ χ.threads
+χ.threads(θ) = {σ, stmt*, π}
+χ, σ, stmt* ⇝ χ′, σ′, stmt′*
+--- [step behavior]
+χ ⇝ χ′[threads(θ)↦{σ′, stmt′*, π}]
 
 ```
