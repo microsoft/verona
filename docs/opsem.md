@@ -34,8 +34,10 @@ ws, xs, ys, zs ∈ 𝒫(Ident)
 𝛽 ∈ BehaviorId
 θ ∈ ThreadId
 
-T ∈ Type = Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ | TypeId | Ref TypeId
-         | Cown TypeId
+T ∈ Type = Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ | TypeId
+         | Cown TypeId | Ref TypeId | Ref Cown TypeId
+         | Readonly TypeId | Readonly Cown TypeId
+         | Ref Readonly TypeId | | Ref Readonly Cown TypeId
 
 𝕥 ∈ TypeDesc =
     {
@@ -63,6 +65,7 @@ P ∈ Program =
           | BadReturnLoc | BadReturnType
 p ∈ Primitive = Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ | Error
 v ∈ Value = ObjectId | Primitive | Reference | CownId
+          | Readonly ObjectId | Readonly CownId
 ω ∈ Object = Ident ↦ Value
 
     Condition = Return | Raise | Throw
@@ -206,9 +209,14 @@ typeof(χ, v) =
   P.primitives(Float × ℕ) if v ∈ Float × ℕ
   P.primitives(Error) if v ∈ Error
   χ.metadata(ι).type if ι = v
+  Readonly χ.metadata(ι).type if Readonly ι = v
   Ref P.types(typeof(χ, ι).field(𝕣.field).type if (𝕣 = v) ∧ (𝕣.object = ι)
-  Ref χ(π).type if (𝕣 = v) ∧ (𝕣.object = π)
+  Readonly Ref P.types(typeof(χ, ι).field(𝕣.field).type if
+    (𝕣 = v) ∧ (𝕣.object = Readonly ι)
   Cown χ(π).type if π = v
+  Readonly Cown χ(π).type if Readonly π = v
+  Ref Cown χ(π).type if (𝕣 = v) ∧ (𝕣.object = π)
+  Ref Readonly Cown χ(π).type if (𝕣 = v) ∧ (𝕣.object = Readonly π)
 
 // Subtype test.
 typetest(χ, v, T) =
@@ -247,6 +255,7 @@ reachable(χ, ι, ιs, w) = reachable(χ, χ(ι)(w), ιs)
 loc(χ, p) = Immutable
 loc(χ, π) = Immutable
 loc(χ, 𝕣) = loc(χ, 𝕣.object)
+loc(χ, Readonly ι) = loc(χ, ι)
 loc(χ, ι) =
   loc(χ, ι′) if χ.metadata(ι).location = ι′
   χ.metadata(ι).location if ι ∈ χ
@@ -272,20 +281,24 @@ This enforces a tree-shaped region graph, with a single reference from parent to
 
 ```rs
 
-// TODO: v = π
 safe_store(χ, Immutable, v) = false
 safe_store(χ, 𝔽, v) =
   true if loc(χ, v) = Immutable
-  true if loc(χ, v) = ρ
+  true if (loc(χ, v) = ρ)
   true if (loc(χ, v) = 𝔽′) ∧ (𝔽 >= 𝔽′)
   false otherwise
 safe_store(χ, ρ, v) =
   false if finalizing(χ, v)
-  true if loc(χ, v) = Immutable
+  true if loc(χ, v) = Immutable)
   true if loc(χ, v) = ρ
   true if (loc(χ, v) = ρ′) ∧ (parents(χ, ρ′) = ∅) ∧ ¬is_ancestor(χ, ρ′, ρ)
   false otherwise
-safe_store(χ, μ, v) =
+safe_store(χ, π, v) =
+  false if finalizing(χ, v)
+  true if loc(χ, v) = Immutable
+  true if (loc(χ, v) = ρ) ∧ (parents(χ, ρ) = ∅)
+  false otherwise
+safe_store(χ, 𝛽, v) =
   false if finalizing(χ, v)
   true if loc(χ, v) = Immutable
   true if (loc(χ, v) = ρ) ∧ (parents(χ, ρ) = ∅)
@@ -397,29 +410,32 @@ Reference counting is a no-op unless the object is in a `RegionRC` or is `Immuta
 ```rs
 
 enable-rc(χ, ι) =
-  (loc(χ, ι) = ρ ∧ ρ.type = RegionRC) ∨ (loc(χ, ι) = Immutable)
+  ((loc(χ, ι)) = ρ ∧ (ρ.type = RegionRC)) ∨ (loc(χ, ι) = Immutable)
 
 region_stack_inc(χ, p) = χ
 region_stack_inc(χ, π) = χ
 region_stack_inc(χ, 𝕣) = region_stack_inc(χ, 𝕣.object)
+region_stack_inc(χ, Readonly ι) = χ
 region_stack_inc(χ, ι) =
-  χ[regions(ρ)[stack_rc += 1]] if loc(χ, ι) = ρ
+  χ[regions(ρ)[stack_rc += 1]] if (loc(χ, ι) = ρ)
   χ otherwise
 
 region_stack_dec(χ, p) = χ
 region_stack_dec(χ, π) = χ
 region_stack_dec(χ, 𝕣) = region_stack_dec(χ, 𝕣.object)
+region_stack_dec(χ, Readonly ι) = χ
 region_stack_dec(χ, ι) =
   χ[pre_final_r ∪= {ρ}] if
     (loc(χ, ι) = ρ) ∧
     (parents(χ, ρ) = ∅) ∧
     (χ.regions(ρ).stack_rc = 1)
-  χ[regions(ρ)[stack_rc -= 1]] if loc(χ, ι) = ρ
+  χ[regions(ρ)[stack_rc -= 1]] if (loc(χ, ι) = ρ)
   χ otherwise
 
 region_add_parent(χ, ι, p) = χ
 region_add_parent(χ, ι, π) = χ
 region_add_parent(χ, ι, 𝕣) = region_add_parent(χ, ι, 𝕣.object)
+region_add_parent(χ, ι, Readonly ι′) = χ
 region_add_parent(χ, ι, ι′) =
   χ[regions(ρ′)[parents ∪= {ρ})]] if
     (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
@@ -429,6 +445,7 @@ region_add_parent(χ, ι, ι′) =
 region_remove_parent(χ, ι, p) = χ
 region_remove_parent(χ, ι, π) = χ
 region_remove_parent(χ, ι, 𝕣) = region_remove_parent(χ, ι, 𝕣.object)
+region_remove_parent(χ, ι, Readonly ι′) = χ
 region_remove_parent(χ, ι, ι′) =
   χ[regions(ρ)[parents \= {ρ′})]] if
     (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
@@ -438,6 +455,7 @@ region_remove_parent(χ, ι, ι′) =
 inc(χ, p) = χ
 inc(χ, π) = χ[cowns(π)[rc += 1]]
 inc(χ, 𝕣) = dec(χ, 𝕣.object)
+inc(χ, Readonly ι) = χ
 inc(χ, ι) =
   inc(χ, ι′) if χ.metadata(ι).location = ι′
   χ[metadata(ι)[rc += 1]] if enable-rc(χ, ι)
@@ -446,6 +464,7 @@ inc(χ, ι) =
 dec(χ, p) = χ
 dec(χ, π) = χ[cowns(π)[rc -= 1]] // TODO: free
 dec(χ, 𝕣) = dec(χ, 𝕣.object)
+dec(χ, Readonly ι) = χ
 dec(χ, ι) =
   dec(χ, ι′) if χ.metadata(ι).location = ι′
   χ[pre_final ∪= {ι}] if enable-rc(χ, ι) ∧ (χ.metadata(ι).rc = 1)
@@ -574,7 +593,8 @@ x ∉ φ
 
 x ∉ φ
 ι ∉ χ
-ρ = loc(χ, φ(w))
+ι′ = φ(w)
+ρ = loc(χ, ι′)
 once((y, z)*)
 ω = newobject(φ, (y, z)*)
 typecheck(χ, τ, ω)
@@ -582,18 +602,20 @@ typecheck(χ, τ, ω)
 χ, σ;φ, bind x (new w τ (y, z)*);stmt* ⇝ χ[ι↦(ω, τ, ρ)], σ;φ[x↦ι]\zs, stmt*
 
 x ∉ φ
-ρ ≠ loc(χ, φ(w))
+(ι′ ≠ φ(w)) ∨ (ρ ≠ loc(χ, ι′))
 --- [new heap bad-target]
 χ, σ;φ, bind x (new w τ (y, z)*);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
 
 x ∉ φ
-ρ = loc(χ, φ(w))
+ι′ = φ(w)
+ρ = loc(χ, ι′)
 ∃z ∈ (y, z)* . ¬safe_store(χ, ρ, φ(z))
 --- [new heap bad-store]
 χ, σ;φ, bind x (new τ (y, z)*);stmt* ⇝ χ, σ;φ[x↦BadStore], throw;return x
 
 x ∉ φ
-ρ = loc(χ, φ(w))
+ι′ = φ(w)
+ρ = loc(χ, ι′)
 ω = newobject(φ, (y, z)*)
 ¬once((y, z)*) ∨ ¬typecheck(χ, τ, ω)
 --- [new heap bad-type]
@@ -649,27 +671,38 @@ The `load` statement is the only operation other than `dup` or `drop` that can c
 
 ```rs
 
+readonly(χ, p) = p
+readonly(χ, {object: ι, field: w}) = {object: readonly(χ, ι), field: w}
+readonly(χ, {object: Readonly ι, field: w}) = {object: Readonly ι, field: w}
+readonly(χ, {object: π, field: w}) = {object: Readonly π, field: w}
+readonly(ι) = Readonly ι
+readonly(Readonly ι) = Readonly ι
+readonly(π) = π
+
 x ∉ ϕ
-ι = ϕ(y)
+(ι = ϕ(y)) ∨ (Readonly ι = ϕ(y))
 w ∈ dom(P.types(typeof(χ, ι)).fields)
-𝕣 = {object: ι, field: w}
---- [fieldref]
+𝕣 = {object: ϕ(y), field: w}
+--- [ref]
 χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦𝕣]\y, stmt*
 
 x ∉ ϕ
-ϕ(y) ∉ ObjectId
---- [fieldref bad-target]
+(ϕ(y) ∉ ObjectId) ∧ (ϕ(y) ∉ Readonly ObjectId)
+--- [ref bad-target]
 χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦BadTarget]\y, throw;return x
 
 x ∉ ϕ
-ι = ϕ(y)
+(ι = ϕ(y)) ∨ (Readonly ι = ϕ(y))
 w ∉ dom(P.types(typeof(χ, ι)).fields)
---- [fieldref bad-field]
+--- [ref bad-field]
 χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦BadField]\y, throw;return x
 
 x ∉ ϕ
-v = χ₀(ι)(w) if ϕ(y) = {object: ι, field: w}
-    χ₀(π).value if ϕ(y) = {object: π, field: w}
+𝕣 = φ(y)
+v = χ₀(ι)(w) if 𝕣 = {object: ι, field: w}
+    readonly(χ, χ₀(ι)(w)) if 𝕣 = {object: Readonly ι, field: w}
+    χ₀(π).value if 𝕣 = {object: π, field: w}
+    readonly(χ₀(π).value) if 𝕣 = {object: Readonly π, field: w}
 χ₁ = region_stack_inc(χ₀, v)
 χ₂ = inc(χ₁, v)
 --- [load]
@@ -681,27 +714,28 @@ x ∉ ϕ
 χ, σ;ϕ, bind x (load y);stmt* ⇝ χ, σ;ϕ[x↦BadTarget], throw;return x
 
 x ∉ ϕ
-v₀ = χ₀(ι)(w) if ϕ(y) = {object: ι, field: w}
-     χ₀(π).value if ϕ(y) = {object: π, field: w}
+𝕣 = φ(y)
+v₀ = χ₀(ι)(w) if 𝕣 = {object: ι, field: w}
+     χ₀(π).value if 𝕣 = {object: π, field: w}
 v₁ = φ(z)
-safe_store(χ₀, loc(χ₀, ι), v₁)
-ω = χ₀(ι)[w↦v₁]
+safe_store(χ₀, loc(χ₀, 𝕣.object), v₁)
+ω = χ₀(ι)[w↦v₁] // TODO: what if it's a cown?
 χ₁ = region_stack_inc(χ₀, v₀)
-χ₂ = region_remove_parent(χ₁, ι, v₀)
-χ₃ = region_add_parent(χ₂, ι, v₁)
+χ₂ = region_remove_parent(χ₁, 𝕣.object, v₀)
+χ₃ = region_add_parent(χ₂, 𝕣.object, v₁)
 χ₄ = region_stack_dec(χ₃, v₁)
 --- [store]
 χ₀, σ;ϕ, bind x (store y z);stmt* ⇝ χ₄[ι↦ω], σ;ϕ[x↦v₀]\z, stmt*
 
 x ∉ ϕ
-ϕ(y) ∉ Reference
+(ϕ(y) ∉ Reference) ∨ (φ(y).object = Readonly ι) ∨ (φ(y).object = Readonly π)
 --- [store bad-target]
 χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ, σ;ϕ[x↦BadTarget], throw;return x
 
 x ∉ ϕ
-ϕ(y) = {object: ι, field: w}
+𝕣 = φ(y)
 v = φ(z)
-¬safe_store(χ₀, loc(χ, ι), v₁)
+¬safe_store(χ₀, loc(χ, 𝕣.object), v₁)
 --- [store]
 χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ, σ;ϕ[x↦BadStore], throw;return x
 
@@ -887,8 +921,10 @@ This allows merging two regions. The region being merged must either have no par
 ```rs
 
 x ∉ φ
-loc(χ₀, φ(w)) = ρ₀
-loc(χ₀, φ(y)) = ρ₁
+ι₀ = φ(w)
+ι₁ = φ(y)
+loc(χ₀, ι₀) = ρ₀
+loc(χ₀, ι₁) = ρ₁
 (ρ₀ ≠ ρ₁) ∧ ¬is_ancestor(χ₀, ρ₁, ρ₀) ∧ ({ρ₀} ⊇ parents(χ₀, ρ₁))
 ιs = members(χ₀, ρ₁)
 χ₁ = χ₀[∀ι ∈ ιs . metadata(ι)[location = ρ₀]]
@@ -897,8 +933,8 @@ loc(χ₀, φ(y)) = ρ₁
 χ₀, σ;φ, bind x (merge w y);stmt* ⇝ χ₁\ρ₁, σ;φ[x↦φ(y)], stmt*
 
 x ∉ φ
-(loc(χ, φ(w)) ≠ ρ₀) ∨
-(loc(χ, φ(y)) ≠ ρ₁) ∨
+(ι₀ ≠ φ(w)) ∨ (ι₁ ≠ φ(y)) ∨
+(loc(χ, φ(w)) ≠ ρ₀) ∨ (loc(χ, φ(y)) ≠ ρ₁) ∨
 (ρ₀ = ρ₁) ∨ is_ancestor(χ₀, ρ₁, ρ₀) ∨ ({ρ₀} ̸⊇ parents(χ, ρ₁))
 --- [merge bad-target]
 χ, σ;φ, bind x (merge w y);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
@@ -921,12 +957,12 @@ x ∉ φ
 ιs = {ι′ | loc(χ₀, ι′) ∈ ρs}
 χ₂ = χ₁[∀ι′ ∈ ιs . metadata(ι′)[location = Immutable]]
 --- [freeze true]
-χ₀, σ;φ, bind x (freeze y);stmt* ⇝ χ₂\ρs, σ;φ[x↦true], stmt*
+χ₀, σ;φ, bind x (freeze y);stmt* ⇝ χ₂\ρs, σ;φ[x↦ι]\y, stmt*
 
 x ∉ φ
-loc(χ, φ(y)) ≠ ρ
+(ι ≠ φ(y)) ∨ (loc(χ, ι) ≠ ρ)
 --- [freeze false]
-χ, σ;φ, bind x (freeze y);stmt* ⇝ χ, σ;φ[x↦false], stmt*
+χ, σ;φ, bind x (freeze y);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
 
 ```
 
@@ -953,16 +989,16 @@ rc = calc_stack_rc(χ₀, σ;φ, ιs)
 χ₀, σ;φ, bind x (extract y);stmt* ⇝ χ₁, σ;φ[x↦ι]\y, stmt*
 
 x ∉ φ
-ρ ≠ loc(χ, φ(y))
+(ι ≠ φ(y)) ∨ (ρ ≠ loc(χ, φ(y)))
 --- [extract bad-target]
 χ, σ;φ, bind x (extract y);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
 
 x ∉ φ
 ι = φ(y)
-ρ₀ = loc(χ₀, ι)
-ιs = reachable(χ, ι) ∩ members(χ₀, ρ₀)
-|{ι | (ι ∈ members(χ₀, ρ₀)) ∧ (w ∈ dom(χ₀(ι))) ∧
-      (χ₀(ι)(w) = ι′) ∧ (ι′ ∈ ιs)}| > 0
+ρ = loc(χ, ι)
+ιs = reachable(χ, ι) ∩ members(χ, ρ)
+|{ι | (ι ∈ members(χ, ρ)) ∧ (w ∈ dom(χ(ι))) ∧
+      (χ(ι)(w) = ι′) ∧ (ι′ ∈ ιs)}| > 0
 --- [extract bad-target]
 χ, σ;φ, bind x (extract y);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
 
@@ -1073,17 +1109,13 @@ write-dec(χ, {π} ∪ πs) =
     χ′ = write-dec(χ, π)
 write-dec(χ, π) = χ[cowns(π)[rc -= 1, write -= 1]] // TODO: free
 
-// TODO: return some "read-only" view of the value.
-// no rc ops for read-only? any other way to make a read-only view?
 read-acquire(χ, φ, ∅) = χ, φ
 read-acquire(χ, φ, ω) =
   read-acquire(χ′, φ′, ω\x)
   where
     x ∈ dom(ω) ∧
     π = ω(x) ∧
-    v = χ(π).value ∧
-    χ′, φ′ = inc(χ, v), φ[x↦v] if loc(χ, v) = Immutable
-           = /* TODO: */ otherwise
+    φ′ = φ[x↦readonly(χ(π).value)]
 
 write-acquire(χ, φ, ∅) = χ, φ
 write-acquire(χ, φ, ω) =
