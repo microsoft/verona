@@ -116,6 +116,7 @@ R ∈ RegionType = RegionRC | RegionGC | RegionArena
       content: Value,
       queue: BehaviorId*,
       read: ℕ,
+      write: ℕ,
       rc: ℕ
     }
 
@@ -132,6 +133,8 @@ B ∈ Behavior =
     {
       stack: Frame*,
       cont: Statement*,
+      read: 𝒫(CownId),
+      write: 𝒫(CownId),
       result: CownId
     }
 
@@ -148,11 +151,11 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 φ(x) = φ.vars(x)
 φ[x↦v] = φ[vars(x)↦v]
 φ\x = φ\{x}
-φ\xs = φ[vars\xs]
+φ\xs = φ[vars \= xs]
 
 𝔽 ∈ χ ≝ φ ∈ dom(χ.frames)
-χ∪𝔽 = χ[frames∪𝔽]
-χ\𝔽 = χ[frames\𝔽]
+χ∪𝔽 = χ[frames ∪= 𝔽]
+χ\𝔽 = χ[frames \= 𝔽]
 
 // Heap objects.
 ι ∈ χ ≝ ι ∈ dom(χ.data)
@@ -163,13 +166,31 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
                    metadata(ι)↦{type: τ, location: ρ, rc: 1},
                    regions(ρ)[stack_rc += 1]]
 χ\ι = χ\{ι}
-χ\ιs = χ[data = data\ιs, metadata = metadata\ιs]
+χ\ιs = χ[data \= ιs, metadata \= ιs]
 
 // Regions.
 ρ ∈ χ ≝ ρ ∈ dom(χ.regions)
 χ[ρ↦R] = χ[regions(ρ)↦{type: R, parents: ∅, stack_rc: 0}]
 χ\ρ = χ\{ρ}
-χ\ρs = χ[regions\ρs]
+χ\ρs = χ[regions \= ρs]
+
+// Cowns.
+π ∈ χ ≝ π ∈ dom(χ.cowns)
+χ(π) = χ.cowns(π)
+χ[π↦P] = χ[cowns(π)↦P]
+χ\π = χ[cowns \= {π}]
+
+// Behaviors.
+𝛽 ∈ χ ≝ 𝛽 ∈ dom(χ.behaviors)
+χ(𝛽) = χ.behaviors(𝛽)
+χ[𝛽↦B] = χ[behaviors(𝛽)↦B]
+χ\𝛽 = χ[behaviors \= {𝛽}]
+
+// Threads.
+θ ∈ χ ≝ θ ∈ dom(χ.threads)
+χ(θ) = χ.threads(θ)
+χ[θ↦Θ] = χ[threads(θ)↦Θ]
+χ\θ = χ[threads \= {θ}]
 
 ```
 
@@ -648,7 +669,7 @@ w ∉ dom(P.types(typeof(χ, ι)).fields)
 
 x ∉ ϕ
 v = χ₀(ι)(w) if ϕ(y) = {object: ι, field: w}
-    χ₀.cowns(π).value if ϕ(y) = {object: π, field: w}
+    χ₀(π).value if ϕ(y) = {object: π, field: w}
 χ₁ = region_stack_inc(χ₀, v)
 χ₂ = inc(χ₁, v)
 --- [load]
@@ -661,7 +682,7 @@ x ∉ ϕ
 
 x ∉ ϕ
 v₀ = χ₀(ι)(w) if ϕ(y) = {object: ι, field: w}
-     χ₀.cowns(π).value if ϕ(y) = {object: π, field: w}
+     χ₀(π).value if ϕ(y) = {object: π, field: w}
 v₁ = φ(z)
 safe_store(χ₀, loc(χ₀, ι), v₁)
 ω = χ₀(ι)[w↦v₁]
@@ -781,7 +802,7 @@ This drops any remaining frame variables other than the return value.
 dom(φ₁.vars) = {x}
 v = φ₁(x)
 loc(χ, v) ≠ φ₁.id
-typetest(χ, v, φ.type)
+typetest(χ, v, φ.type) // TODO: typetest depends on condition
 φ₂ = φ₀[φ₁.ret↦v, condition = φ₁.condition]
 --- [return]
 χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, ϕ₁.cont
@@ -789,11 +810,10 @@ typetest(χ, v, φ.type)
 dom(φ.vars) = {x}
 v = φ(x)
 loc(χ, v) ≠ φ.id
-typetest(χ, v, φ.type)
-// TODO: put v in the result cown?
-// safe_store to result cown
+typetest(χ, v, φ.type) // TODO: typetest depends on condition
+// TODO: safe_store to result cown
 --- [return]
-χ, φ, return x;stmt* ⇝ χ\(φ.id), ∅, ∅
+χ, φ, return x;stmt* ⇝ χ\(φ.id), φ[final↦v]\x, ∅
 
 dom(φ.vars) = {x, y} ∪ zs
 --- [return]
@@ -1014,39 +1034,69 @@ When all of a behavior's cowns have the behavior at the front of their queue, th
 ```rs
 
 ready(χ, 𝛽) =
-  (∀π ∈ πs . χ(π).queue = 𝛽;𝛽*) ∧
+  (∀π ∈ πs . (χ(π).queue = 𝛽;𝛽*) ∧ χ(π).write = 0) ∧
   (∀π ∈ χ(𝛽).write . χ(π).read = 0)
   where
     πs = {π | π ∈ (χ(𝛽).read ∪ χ(𝛽).write ∪ {χ(𝛽).result})}
 
+read-inc(χ, ∅) = χ
+read-inc(χ, {π} ∪ πs) =
+  read-inc(χ′, πs)
+  where
+    χ′ = read-inc(χ, π)
+read-inc(χ, π) =
+  χ[cowns(π)[queue = 𝛽*, read += 1]]
+  where
+    χ(π).queue = 𝛽;𝛽*
+
+write-inc(χ, ∅) = χ
+write-inc(χ, {π} ∪ πs) =
+  write-inc(χ′, πs)
+  where
+    χ′ = write-inc(χ, π)
+write-inc(χ, π) =
+  χ[cowns(π)[queue = 𝛽*, write += 1]]
+  where
+    χ(π).queue = 𝛽;𝛽*
+
+read-dec(χ, ∅) = χ
+read-dec(χ, {π} ∪ πs) =
+  read-dec(χ′, πs)
+  where
+    χ′ = read-dec(χ, π)
+read-dec(χ, π) = χ[cowns(π)[rc -= 1, read -= 1]] // TODO: free
+
+write-dec(χ, ∅) = χ
+write-dec(χ, {π} ∪ πs) =
+  write-dec(χ′, πs)
+  where
+    χ′ = write-dec(χ, π)
+write-dec(χ, π) = χ[cowns(π)[rc -= 1, write -= 1]] // TODO: free
+
 // TODO: return some "read-only" view of the value.
 // no rc ops for read-only.
 read-acquire(χ, π) =
-  inc(χ′, v), v if loc(χ, v) = Immutable
+  inc(χ, v), v if loc(χ, v) = Immutable
   // TODO:
   where
-    (χ.cowns(π).queue = 𝛽;𝛽*) ∧
-    (χ′ = χ[cowns(π)[queue = 𝛽*, read += 1]]) ∧
-    (v = χ.cowns(π).value)
+    (v = χ(π).value)
 
 write-acquire(χ, π) =
-  inc(χ′, π), {object: π, field: final}
-  where
-    (χ.cowns(π).queue = 𝛽;𝛽*) ∧
-    (χ′ = χ[cowns(π)[queue = 𝛽*]])
+  inc(χ, π), {object: π, field: final}
 
 // TODO:
 // regions put in a behavior need to set a parent to prevent them being put anywhere else.
 // delay until all captured regions have stack_rc = 0?
 // has to check child regions as well.
 x ∉ φ
-𝛽 ∉ dom(χ.behaviors)
-π ∉ dom(χ.cowns)
+𝛽 ∉ χ
+π ∉ χ
 once(w*;y*;z*)
 ∀w ∈ w* . φ(w) ∈ CownId
 ∀y ∈ y* . φ(y) ∈ CownId
 ∀z ∈ z* . safe_store(χ, 𝛽, φ(z))
-χ′ = χ[∀π′ ∈ {φ(x′) | (x′ ∈ w*;y*)} . cowns(π′)[queue ++ 𝛽]]
+πs = {φ(x′) | (x′ ∈ w*;y*)} ∪ {π}
+χ′ = χ[∀π′ ∈ πs . cowns(π′)[queue ++ 𝛽]]
 Π = { type: T, value: false, queue: 𝛽 }
 B = { read: {w ↦ φ(w) | w ∈ w*},
       write: {y ↦ φ(y) | y ∈ y*},
@@ -1055,29 +1105,42 @@ B = { read: {w ↦ φ(w) | w ∈ w*},
       result: π }
 --- [when]
 χ, σ;φ, bind x (when T (read w*) (write y*) (capture z*) stmt₀*);stmt₁* ⇝
-  χ′[cowns(π)↦Π, behaviors(𝛽)↦B]∪𝔽, σ;φ[x↦π]\(w*;y*;z*), stmt₁*
+  χ′[π↦Π, 𝛽↦B]∪𝔽, σ;φ[x↦π]\(w*;y*;z*), stmt₁*
 
-𝛽 ∈ dom(χ.behaviors)
-θ ∉ dom(χ.threads)
+𝛽 ∈ χ
+θ ∉ χ
 𝔽 ∉ χ
 ready(χ, 𝛽)
-B = χ.behaviors(𝛽)
+π = χ(𝛽).result
 φ = { id: 𝔽,
-      vars: {x ↦ B.capture(x) | x ∈ dom(B.capture)},
+      vars: {x ↦ χ(𝛽).capture(x) | x ∈ dom(χ(𝛽).capture)},
       ret: final,
+      type: χ(π).type,
       cont: ∅,
       condition: Return }
-      [∀w ∈ dom(B.read) . vars(w)↦read-acquire(vars(w))]
-      [∀y ∈ dom(B.write) . vars(y)↦write-acquire(vars(w))]
-Θ = { stack: φ, cont: B.body, result: π }
---- [start behavior]
-χ ⇝ χ[behaviors \= {𝛽}, threads(θ)↦Θ]
+      [∀w ∈ dom(χ(𝛽).read) . vars(w)↦read-acquire(χ(𝛽).read(w))]
+      [∀y ∈ dom(χ(𝛽).write) . vars(y)↦write-acquire(χ(𝛽).write(y))]
+Θ = { stack: φ,
+      cont: χ(𝛽).body,
+      read: {π′ | π′ ∈ χ(𝛽).read}
+      write: {π′ | π′ ∈ χ(𝛽).write}
+      result: π }
+χ₁ = read-inc(χ, Θ.read)
+χ₂ = write-inc(χ₁, Θ.write ∪ {π})
+--- [start thread]
+χ ⇝ χ₂[θ↦Θ]\𝛽
 
-// TODO: how do we end a behavior
-θ ∈ χ.threads
-χ.threads(θ) = {σ, stmt*, π}
+θ ∈ χ
+χ(θ) = {σ, stmt*, π}
 χ, σ, stmt* ⇝ χ′, σ′, stmt′*
---- [step behavior]
-χ ⇝ χ′[threads(θ)↦{σ′, stmt′*, π}]
+--- [step thread]
+χ ⇝ χ′[θ↦{stack: σ′, cont: stmt′*, result: π}]
+
+θ ∈ χ
+χ(θ) = {stack: φ, cont: ∅, read: πs₀, write: πs₁, result: π}
+χ₁ = read-dec(χ, πs₀)
+χ₂ = write-dec(χ₁, πs₁ ∪ {π})
+--- [end thread]
+χ ⇝ χ₂[cowns(π)[value = φ(final)]]\θ
 
 ```
