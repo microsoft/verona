@@ -1074,15 +1074,25 @@ write-dec(χ, {π} ∪ πs) =
 write-dec(χ, π) = χ[cowns(π)[rc -= 1, write -= 1]] // TODO: free
 
 // TODO: return some "read-only" view of the value.
-// no rc ops for read-only.
-read-acquire(χ, π) =
-  inc(χ, v), v if loc(χ, v) = Immutable
-  // TODO:
+// no rc ops for read-only? any other way to make a read-only view?
+read-acquire(χ, φ, ∅) = χ, φ
+read-acquire(χ, φ, ω) =
+  read-acquire(χ′, φ′, ω\x)
   where
-    (v = χ(π).value)
+    x ∈ dom(ω) ∧
+    π = ω(x) ∧
+    v = χ(π).value ∧
+    χ′, φ′ = inc(χ, v), φ[x↦v] if loc(χ, v) = Immutable
+           = /* TODO: */ otherwise
 
-write-acquire(χ, π) =
-  inc(χ, π), {object: π, field: final}
+write-acquire(χ, φ, ∅) = χ, φ
+write-acquire(χ, φ, ω) =
+  write-acquire(χ′, φ′, ω\x)
+  where
+    x ∈ dom(ω) ∧
+    π = ω(x) ∧
+    χ′ = inc(χ, π) ∧
+    φ′ = φ[x↦{object: π, field: final}]
 
 // TODO:
 // regions put in a behavior need to set a parent to prevent them being put anywhere else.
@@ -1118,15 +1128,15 @@ ready(χ, 𝛽)
       type: χ(π).type,
       cont: ∅,
       condition: Return }
-      [∀w ∈ dom(χ(𝛽).read) . vars(w)↦read-acquire(χ(𝛽).read(w))]
-      [∀y ∈ dom(χ(𝛽).write) . vars(y)↦write-acquire(χ(𝛽).write(y))]
-Θ = { stack: φ,
+χ₁, φ₁ = read-acquire(χ, φ, χ(𝛽).read)
+χ₂, φ₂ = write-acquire(χ₁, φ₁, χ(𝛽).write)
+χ₃ = read-inc(χ₂, Θ.read)
+χ₄ = write-inc(χ₃, Θ.write ∪ {π})
+Θ = { stack: φ₂,
       cont: χ(𝛽).body,
       read: {π′ | π′ ∈ χ(𝛽).read}
       write: {π′ | π′ ∈ χ(𝛽).write}
       result: π }
-χ₁ = read-inc(χ, Θ.read)
-χ₂ = write-inc(χ₁, Θ.write ∪ {π})
 --- [start thread]
 χ ⇝ χ₂[θ↦Θ]\𝛽
 
