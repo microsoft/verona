@@ -351,7 +351,11 @@ wf_regiontree(χ) =
   ∀ρ₀, ρ₁ ∈ χ .
     (ρ₀ = parent(χ, ρ₁)) ⇒ (ρ₀ ≠ ρ₁) ∧ ¬is_ancestor(χ, ρ₁, ρ₀)
 
-// TODO: a cown contains an immutable object or a region with no parent.
+// A cown contains an immutable value or a region bound to that cown.
+wf_cownvalue(χ) =
+  ∀π ∈ χ .
+    (loc(χ(π).value) = Immutable) ∨
+    ((loc(χ(π).value) = ρ) ∧ (parent(χ, ρ) = π))
 
 ```
 
@@ -452,7 +456,7 @@ region_add_parent(χ, π, ι) =
 region_remove_parent(χ, ι, p) = χ
 region_remove_parent(χ, ι, 𝕣) = region_remove_parent(χ, ι, 𝕣.object)
 region_remove_parent(χ, ι, ι′) =
-  χ[regions(ρ)[parent = None]] if
+  χ[regions(ρ′)[parent = None]] if
     (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
   χ[regions(ρ′)[stack_rc -= 1]] if (loc(χ, ι) = 𝔽) ∧ (loc(χ, ι′) = ρ′)
   χ otherwise
@@ -726,17 +730,18 @@ x ∉ ϕ
 
 x ∉ ϕ
 𝕣 = φ(y)
-v₀ = χ₀(ι)(w) if 𝕣 = {object: ι, field: w}
-     χ₀(π).value if 𝕣 = {object: π, field: w}
-v₁ = φ(z)
-safe_store(χ₀, loc(χ₀, 𝕣.object), v₁)
-ω = χ₀(ι)[w↦v₁] // TODO: what if it's a cown?
-χ₁ = region_stack_inc(χ₀, v₀)
-χ₂ = region_remove_parent(χ₁, 𝕣.object, v₀)
-χ₃ = region_add_parent(χ₂, 𝕣.object, v₁)
-χ₄ = region_stack_dec(χ₃, v₁)
+v₀ = φ(z)
+safe_store(χ₀, loc(χ₀, 𝕣.object), v₀)
+v₁, χ₁ = ω(w), χ₀[ι↦ω[w↦v₀]] if
+            (𝕣 = {object: ι, field: w}) ∧ (ω = χ₀(ι))
+         Π.value, χ₀[π↦Π[value↦v₀]] if
+            (𝕣 = {object: π, field: w}) ∧ (Π = χ₀(π))
+χ₂ = region_stack_inc(χ₁, v₁)
+χ₃ = region_remove_parent(χ₃, 𝕣.object, v₁)
+χ₄ = region_add_parent(χ₃, 𝕣.object, v₀)
+χ₅ = region_stack_dec(χ₄, v₀)
 --- [store]
-χ₀, σ;ϕ, bind x (store y z);stmt* ⇝ χ₄[ι↦ω], σ;ϕ[x↦v₀]\z, stmt*
+χ₀, σ;ϕ, bind x (store y z);stmt* ⇝ χ₅, σ;ϕ[x↦v₁]\z, stmt*
 
 x ∉ ϕ
 (ϕ(y) ∉ Reference) ∨ (φ(y).object = Readonly ι) ∨ (φ(y).object = Readonly π)
@@ -1135,7 +1140,8 @@ write-acquire(χ, φ, ω) =
     φ′ = φ[x↦{object: π, field: final}]
 
 // TODO: regions put in a behavior need to set a parent to prevent them being put anywhere else.
-// what if z* contains multiple objects in the same region, and that region has no parent?
+// what if z* contains multiple objects in the same region, and that region has no parent? is that ok?
+// stack_rc isn't going to 0 here, as it's being moved to the new thread.
 x ∉ φ
 𝛽 ∉ χ
 π ∉ χ
