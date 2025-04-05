@@ -63,7 +63,7 @@ P ∈ Program =
 𝕣 ∈ Reference = {object: ObjectId | CownId, field: Ident}
     Error = BadType | BadTarget | BadField | BadStore | BadMethod | BadArgs
           | BadReturnLoc | BadReturnType
-p ∈ Primitive = Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ | Error
+p ∈ Primitive = None | Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ | Error
 v ∈ Value = ObjectId | Primitive | Reference | CownId
           | Readonly ObjectId | Readonly CownId
 ω ∈ Object = Ident ↦ Value
@@ -83,10 +83,9 @@ v ∈ Value = ObjectId | Primitive | Reference | CownId
 
 R ∈ RegionType = RegionRC | RegionGC | RegionArena
 
-    // The size of the parents set will be at most 1.
     Region = {
       type: RegionType,
-      parents: 𝒫(RegionId),
+      parent: RegionId | CownId | BehaviorId | None,
       stack_rc: ℕ
     }
 
@@ -173,7 +172,7 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 
 // Regions.
 ρ ∈ χ ≝ ρ ∈ dom(χ.regions)
-χ[ρ↦R] = χ[regions(ρ)↦{type: R, parents: ∅, stack_rc: 0}]
+χ[ρ↦R] = χ[regions(ρ)↦{type: R, parent: None, stack_rc: 0}]
 χ\ρ = χ\{ρ}
 χ\ρs = χ[regions \= ρs]
 
@@ -265,13 +264,13 @@ loc(χ, π) = Immutable
 same_loc(χ, v₀, v₁) = (loc(χ, v₀) = loc(χ, v₁))
 members(χ, ρ) = {ι | (ι ∈ χ) ∧ (loc(χ, ι) = ρ)}
 
-// Region parents.
-parents(χ, ρ) = χ.regions(ρ).parents
+// Region parent.
+parent(χ, ρ) = χ.regions(ρ).parent
 
 // Check if ρ₀ is an ancestor of ρ₁.
 is_ancestor(χ, ρ₀, ρ₁) =
-  ρ₀ ∈ parents(χ, ρ₁) ∨
-  (∀ρ ∈ parents(χ, ρ₁) . is_ancestor(χ, ρ₀, ρ))
+  (ρ₀ = parent(χ, ρ₁)) ∨
+  ((ρ = parent(χ, ρ₁) ∧ is_ancestor(χ, ρ₀, ρ)))
 
 ```
 
@@ -291,17 +290,17 @@ safe_store(χ, ρ, v) =
   false if finalizing(χ, v)
   true if loc(χ, v) = Immutable)
   true if loc(χ, v) = ρ
-  true if (loc(χ, v) = ρ′) ∧ (parents(χ, ρ′) = ∅) ∧ ¬is_ancestor(χ, ρ′, ρ)
+  true if (loc(χ, v) = ρ′) ∧ (parent(χ, ρ′) = None) ∧ ¬is_ancestor(χ, ρ′, ρ)
   false otherwise
 safe_store(χ, π, v) =
   false if finalizing(χ, v)
   true if loc(χ, v) = Immutable
-  true if (loc(χ, v) = ρ) ∧ (parents(χ, ρ) = ∅)
+  true if (loc(χ, v) = ρ) ∧ (parent(χ, ρ) = None)
   false otherwise
 safe_store(χ, 𝛽, v) =
   false if finalizing(χ, v)
   true if loc(χ, v) = Immutable
-  true if (loc(χ, v) = ρ) ∧ (parents(χ, ρ) = ∅)
+  true if (loc(χ, v) = ρ) ∧ (parent(χ, ρ) = None)
   false otherwise
 
 finalizing(χ, p) = false
@@ -337,7 +336,10 @@ wf_stacklocal(χ, σs) =
 
 // Regions are externally unique.
 wf_regionunique(χ) =
-  ∀ρ ∈ χ . (|ιs₂| ≤ 1) ∧ (|ρs| ≤ 1) ∧ (ρs = parents(χ, ρ))
+  ∀ρ ∈ χ .
+    (|ιs₂| ≤ 1) ∧ (|ρs| ≤ 1) ∧
+    ((ρs = {ρ′}) ⇒ (ρ′ = parent(χ, ρ))) ∧
+    ((ρs = ∅) ⇒ (parent(χ, ρ) ∉ RegionId))
     where
       ιs₀ = members(χ, ρ) ∧
       ιs₁ = {ι | (ι ∈ χ) ∧ (loc(χ, ι) = ρ′) ∧ (ρ ≠ ρ′)} ∧
@@ -347,9 +349,9 @@ wf_regionunique(χ) =
 // The region graph is a tree.
 wf_regiontree(χ) =
   ∀ρ₀, ρ₁ ∈ χ .
-    (ρ₀ ∈ parents(χ, ρ₁) ⇒ (ρ₀ ≠ ρ₁) ∧ ¬is_ancestor(χ, ρ₁, ρ₀))
+    (ρ₀ = parent(χ, ρ₁)) ⇒ (ρ₀ ≠ ρ₁) ∧ ¬is_ancestor(χ, ρ₁, ρ₀)
 
-// TODO: a cown contains an immutable object or a region with no parents.
+// TODO: a cown contains an immutable object or a region with no parent.
 
 ```
 
@@ -387,14 +389,15 @@ calc_stack_rc(χ, ∅, ι) = 0
 calc_stack_rc(χ, σ;φ, ι) =
   |{x | φ(x) = ι}| + calc_stack_rc(χ, σ, ι)
 
-// The heap RC for the parent region will be zero or one.
+// The heap RC from the parent region will be zero or one.
 calc_heap_rc(χ, ι) =
-  calc_heap_rc(χ, {ρ} ∪ ρs, ι)
+  calc_heap_rc(χ, ρ, ι) + calc_heap_rc(χ, parent(χ, ρ), ι)
   where
-    (ρ = loc(χ, ι)) ∧ (ρs = parents(χ, ρ))
+    ρ = loc(χ, ι)
 
-calc_heap_rc(χ, ∅, ι) = 0
-calc_heap_rc(χ, {ρ} ∪ ρs, ι) = calc_heap_rc(χ, ρ, ι) + calc_heap_rc(χ, ρs, ι)
+calc_heap_rc(χ, None, ι) = 0
+calc_heap_rc(χ, 𝛽, ι) = 0
+calc_heap_rc(χ, π, ι) = 0
 calc_heap_rc(χ, ρ, ι) =
   |{(ι′, w) |
     (ι′ ∈ members(χ, ρ)) ∧
@@ -427,29 +430,37 @@ region_stack_dec(χ, Readonly ι) = χ
 region_stack_dec(χ, ι) =
   χ[pre_final_r ∪= {ρ}] if
     (loc(χ, ι) = ρ) ∧
-    (parents(χ, ρ) = ∅) ∧
+    (parent(χ, ρ) = None) ∧
     (χ.regions(ρ).stack_rc = 1)
   χ[regions(ρ)[stack_rc -= 1]] if (loc(χ, ι) = ρ)
   χ otherwise
 
 region_add_parent(χ, ι, p) = χ
-region_add_parent(χ, ι, π) = χ
 region_add_parent(χ, ι, 𝕣) = region_add_parent(χ, ι, 𝕣.object)
-region_add_parent(χ, ι, Readonly ι′) = χ
 region_add_parent(χ, ι, ι′) =
-  χ[regions(ρ′)[parents ∪= {ρ})]] if
+  χ[regions(ρ′)[parent = ρ]] if
     (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
   χ[regions(ρ′)[stack_rc += 1]] if (loc(χ, ι) = 𝔽) ∧ (loc(χ, ι′) = ρ′)
   χ otherwise
 
+region_add_parent(χ, π, p) = χ
+region_add_parent(χ, π, 𝕣) = region_add_parent(χ, ι, 𝕣.object)
+region_add_parent(χ, π, ι) =
+  χ[regions(ρ)[parent = π]] if loc(χ, ι) = ρ
+  χ otherwise
+
 region_remove_parent(χ, ι, p) = χ
-region_remove_parent(χ, ι, π) = χ
 region_remove_parent(χ, ι, 𝕣) = region_remove_parent(χ, ι, 𝕣.object)
-region_remove_parent(χ, ι, Readonly ι′) = χ
 region_remove_parent(χ, ι, ι′) =
-  χ[regions(ρ)[parents \= {ρ′})]] if
+  χ[regions(ρ)[parent = None]] if
     (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
   χ[regions(ρ′)[stack_rc -= 1]] if (loc(χ, ι) = 𝔽) ∧ (loc(χ, ι′) = ρ′)
+  χ otherwise
+
+region_remove_parent(χ, π, p) = χ
+region_remove_parent(χ, π, 𝕣) = region_remove_parent(χ, ι, 𝕣.object)
+region_remove_parent(χ, π, ι) =
+  χ[regions(ρ)[parent = None]] if loc(χ, ι) = ρ
   χ otherwise
 
 inc(χ, p) = χ
@@ -493,9 +504,9 @@ gc(χ, σ, ρ) =
     χ′ = gc_dec(χ, ιs₀, ιs₁)
 
 gc_roots(χ, σ, ρ) =
-  {ι | (ι ∈ ιs) ∧ ((calc_stack_rc(χ, σ, ι) > 0) ∨ (calc_heap_rc(χ, ρs, ι) > 0))}
-  where
-    ρs = parents(χ, ρ) ∧ ιs = members(χ, ρ)
+  {ι | (ι ∈ members(χ, ρ)) ∧
+       ((calc_stack_rc(χ, σ, ι) > 0) ∨
+        (calc_heap_rc(χ, parent(χ, ρ), ι) > 0))}
 
 gc_dec(χ, ∅, ιs₁) = χ
 gc_dec(χ, {ι} ∪ ιs₀, ιs₁) =
@@ -916,7 +927,7 @@ x ∉ φ
 
 This allows merging two regions. The region being merged must either have no parent, or be a child of the region it's being merged into. If there are other stack references to the region being merged, a static type system may have the wrong region information for them.
 
-> TODO: disallow merging a region that has a parent? Disallow merging a region that has other stack references?
+> TODO: Disallow merging a region that has other stack references?
 
 ```rs
 
@@ -925,7 +936,7 @@ x ∉ φ
 ι₁ = φ(y)
 loc(χ₀, ι₀) = ρ₀
 loc(χ₀, ι₁) = ρ₁
-(ρ₀ ≠ ρ₁) ∧ ¬is_ancestor(χ₀, ρ₁, ρ₀) ∧ ({ρ₀} ⊇ parents(χ₀, ρ₁))
+(ρ₀ ≠ ρ₁) ∧ (parent(χ₀, ρ₁) = None)
 ιs = members(χ₀, ρ₁)
 χ₁ = χ₀[∀ι ∈ ιs . metadata(ι)[location = ρ₀]]
        [regions(ρ₀)[stack_rc += regions(ρ₁).stack_rc]]
@@ -935,7 +946,7 @@ loc(χ₀, ι₁) = ρ₁
 x ∉ φ
 (ι₀ ≠ φ(w)) ∨ (ι₁ ≠ φ(y)) ∨
 (loc(χ, φ(w)) ≠ ρ₀) ∨ (loc(χ, φ(y)) ≠ ρ₁) ∨
-(ρ₀ = ρ₁) ∨ is_ancestor(χ₀, ρ₁, ρ₀) ∨ ({ρ₀} ̸⊇ parents(χ, ρ₁))
+(ρ₀ = ρ₁) ∨ (parent(χ, ρ₁) ≠ None)
 --- [merge bad-target]
 χ, σ;φ, bind x (merge w y);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
 
@@ -945,13 +956,14 @@ x ∉ φ
 
 If the region being frozen has a parent, a static type system may have the wrong type for the incoming reference. If there are other stack references to the region being frozen or any of its children, a static type system may have the wrong type for them.
 
-> TODO: disallow freezing a region that has a parent? Disallow freezing a region that has other stack references?
+> TODO: Disallow freezing a region that has other stack references?
 
 ```rs
 
 x ∉ φ
 ι = φ(y)
 ρ = loc(χ₀, ι)
+parent(χ₀, ρ) = None
 ρs = {ρ} ∪ {ρ′ | (ρ′ ∈ χ.regions) ∧ is_ancestor(χ₀, ρ, ρ′)}
 χ₁ = region_type_change(χ₀, σ;φ, ρs, RegionRC)
 ιs = {ι′ | loc(χ₀, ι′) ∈ ρs}
@@ -960,7 +972,7 @@ x ∉ φ
 χ₀, σ;φ, bind x (freeze y);stmt* ⇝ χ₂\ρs, σ;φ[x↦ι]\y, stmt*
 
 x ∉ φ
-(ι ≠ φ(y)) ∨ (loc(χ, ι) ≠ ρ)
+(ι ≠ φ(y)) ∨ (loc(χ, ι) ≠ ρ) ∨ (parent(χ, ρ) ≠ None)
 --- [freeze false]
 χ, σ;φ, bind x (freeze y);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
 
@@ -982,9 +994,9 @@ x ∉ φ
       (ρ = loc(χ, ι′)) ∧ (ρ ≠ ρ₀)}
 rc = calc_stack_rc(χ₀, σ;φ, ιs)
 χ₁ = χ₀[regions(ρ₀)[stack_rc -= rc],
-        regions(ρ₁)↦{type: χ.regions(ρ₀).type, parents: ∅, stack_rc: rc},
+        regions(ρ₁)↦{type: χ.regions(ρ₀).type, parent: None, stack_rc: rc},
         ∀ι′ ∈ ιs . metadata(ι′)[location = ρ₁],
-        ∀ρ ∈ ρs . regions(ρ)[parents = {ρ₁}]]
+        ∀ρ ∈ ρs . regions(ρ)[parent = ρ₁]]
 --- [extract]
 χ₀, σ;φ, bind x (extract y);stmt* ⇝ χ₁, σ;φ[x↦ι]\y, stmt*
 
@@ -1011,7 +1023,7 @@ These steps can be taken regardless of what statement is pending.
 ```rs
 
 region_fields(χ, ι) =
-  χ[∀ρ′ ∈ ρs . regions(ρ′)[parents \= {ρ}], pre_final_r ∪= ρs′]
+  χ[∀ρ′ ∈ ρs . regions(ρ′)[parent = None], pre_final_r ∪= ρs′]
   where
     ρ = loc(χ, ι) ∧
     ws = dom(χ(ι)) ∧
@@ -1060,20 +1072,16 @@ final ∉ dom(P.types(τ).methods)
 
 ## Behaviors
 
-A `when` creates a behavior and returns a cown.
-The cown that's created has no value until the `when` completes, and is busy in the meantime. It has the behavior ID in its queue.
-Put the behavior ID at the end of a behavior queue for each cown.
-The frame will start by moving captures and cowns into frame variables with the same names as the object fields, then destroying the object and its region.
-
-When all of a behavior's cowns have the behavior at the front of their queue, the behavior executes. The behavior is taken out of the pending set. When the behavior finishes executing, the front of each cown's queue is popped.
-
 ```rs
 
 ready(χ, 𝛽) =
   (∀π ∈ πs . (χ(π).queue = 𝛽;𝛽*) ∧ χ(π).write = 0) ∧
-  (∀π ∈ χ(𝛽).write . χ(π).read = 0)
+  (∀π ∈ χ(𝛽).write . χ(π).read = 0) ∧
+  (∀ρ ∈ ρs′ . χ(ρ).stack_rc = 0)
   where
-    πs = {π | π ∈ (χ(𝛽).read ∪ χ(𝛽).write ∪ {χ(𝛽).result})}
+    (πs = {π | π ∈ (χ(𝛽).read ∪ χ(𝛽).write ∪ {χ(𝛽).result})}) ∧
+    (ρs = {ρ | (ι ∈ χ(𝛽).capture) ∧ (loc(χ, ι) = ρ)}) ∧
+    (ρs′ = {ρ′| (ρ ∈ ρs) ∧ (ρ′ ∈ χ) ∧ is_ancestor(χ, ρ, ρ′)})
 
 read-inc(χ, ∅) = χ
 read-inc(χ, {π} ∪ πs) =
@@ -1126,10 +1134,8 @@ write-acquire(χ, φ, ω) =
     χ′ = inc(χ, π) ∧
     φ′ = φ[x↦{object: π, field: final}]
 
-// TODO:
-// regions put in a behavior need to set a parent to prevent them being put anywhere else.
-// delay until all captured regions have stack_rc = 0?
-// has to check child regions as well.
+// TODO: regions put in a behavior need to set a parent to prevent them being put anywhere else.
+// what if z* contains multiple objects in the same region, and that region has no parent?
 x ∉ φ
 𝛽 ∉ χ
 π ∉ χ
