@@ -733,9 +733,11 @@ x ∉ ϕ
 v₀ = φ(z)
 safe_store(χ₀, loc(χ₀, 𝕣.object), v₀)
 v₁, χ₁ = ω(w), χ₀[ι↦ω[w↦v₀]] if
-            (𝕣 = {object: ι, field: w}) ∧ (ω = χ₀(ι))
+            (𝕣 = {object: ι, field: w}) ∧ (ω = χ₀(ι)) ∧
+            typetest(χ₀, v₀, P.types(typeof(χ₀, ι)).fields(w))
          Π.value, χ₀[π↦Π[value↦v₀]] if
-            (𝕣 = {object: π, field: w}) ∧ (Π = χ₀(π))
+            (𝕣 = {object: π, field: w}) ∧ (Π = χ₀(π)) ∧
+            typetest(χ₀, v₀, Π.type)
 χ₂ = region_stack_inc(χ₁, v₁)
 χ₃ = region_remove_parent(χ₃, 𝕣.object, v₁)
 χ₄ = region_add_parent(χ₃, 𝕣.object, v₀)
@@ -752,8 +754,18 @@ x ∉ ϕ
 𝕣 = φ(y)
 v = φ(z)
 ¬safe_store(χ₀, loc(χ, 𝕣.object), v₁)
---- [store]
+--- [store bad-store]
 χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ, σ;ϕ[x↦BadStore], throw;return x
+
+x ∉ ϕ
+𝕣 = φ(y)
+v = φ(z)
+((𝕣 = {object: ι, field: w}) ∧
+  ¬typetest(χ₀, v, P.types(typeof(χ₀, 𝕣.object)).fields(w))) ∨
+((𝕣 = {object: π, field: w}) ∧
+  ¬typetest(χ₀, v₀, Π.type))
+--- [store bad-type]
+χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ, σ;ϕ[x↦BadType], throw;return x
 
 ```
 
@@ -859,11 +871,15 @@ typetest(χ, v, φ.type) // TODO: typetest depends on condition
 
 dom(φ.vars) = {x}
 v = φ(x)
-loc(χ, v) ≠ φ.id
-typetest(χ, v, φ.type) // TODO: typetest depends on condition
-// TODO: safe_store to result cown
+loc(χ₀, v) ≠ φ.id
+typetest(χ₀, v, φ.type) // TODO: typetest depends on condition
+π = φ(final)
+safe_store(χ₀, π, v)
+χ₁ = χ₀[cowns(π)[value↦v]]
+χ₂ = region_add_parent(χ₁, π, v)
+χ₃ = region_stack_dec(χ₂, v)
 --- [return]
-χ, φ, return x;stmt* ⇝ χ\(φ.id), φ[final↦v]\x, ∅
+χ₀, φ, return x;stmt* ⇝ χ₃\φ.id, ∅, ∅
 
 dom(φ.vars) = {x, y} ∪ zs
 --- [return]
@@ -1151,7 +1167,7 @@ once(w*;y*;z*)
 ∀z ∈ z* . safe_store(χ, 𝛽, φ(z))
 πs = {φ(x′) | (x′ ∈ w*;y*)} ∪ {π}
 χ′ = χ[∀π′ ∈ πs . cowns(π′)[queue ++ 𝛽]]
-Π = { type: T, value: false, queue: 𝛽 }
+Π = { type: T, value: None, queue: 𝛽 }
 B = { read: {w ↦ φ(w) | w ∈ w*},
       write: {y ↦ φ(y) | y ∈ y*},
       capture: {z ↦ φ(z) | z ∈ z*},
@@ -1166,17 +1182,17 @@ B = { read: {w ↦ φ(w) | w ∈ w*},
 𝔽 ∉ χ
 ready(χ, 𝛽)
 π = χ(𝛽).result
-φ = { id: 𝔽,
-      vars: {x ↦ χ(𝛽).capture(x) | x ∈ dom(χ(𝛽).capture)},
-      ret: final,
-      type: χ(π).type,
-      cont: ∅,
-      condition: Return }
-χ₁, φ₁ = read-acquire(χ, φ, χ(𝛽).read)
+φ₀ = { id: 𝔽,
+       vars: {x ↦ χ(𝛽).capture(x) | x ∈ dom(χ(𝛽).capture)},
+       ret: final,
+       type: χ(π).type,
+       cont: ∅,
+       condition: Return }
+χ₁, φ₁ = read-acquire(χ, φ₀, χ(𝛽).read)
 χ₂, φ₂ = write-acquire(χ₁, φ₁, χ(𝛽).write)
 χ₃ = read-inc(χ₂, Θ.read)
 χ₄ = write-inc(χ₃, Θ.write ∪ {π})
-Θ = { stack: φ₂,
+Θ = { stack: φ₂[final↦π],
       cont: χ(𝛽).body,
       read: {π′ | π′ ∈ χ(𝛽).read}
       write: {π′ | π′ ∈ χ(𝛽).write}
@@ -1191,10 +1207,10 @@ ready(χ, 𝛽)
 χ ⇝ χ′[θ↦{stack: σ′, cont: stmt′*, result: π}]
 
 θ ∈ χ
-χ(θ) = {stack: φ, cont: ∅, read: πs₀, write: πs₁, result: π}
-χ₁ = read-dec(χ, πs₀)
+χ(θ) = {stack: ∅, cont: ∅, read: πs₀, write: πs₁, result: π}
+χ₁ = read-dec(χ₀, πs₀)
 χ₂ = write-dec(χ₁, πs₁ ∪ {π})
 --- [end thread]
-χ ⇝ χ₂[cowns(π)[value = φ(final)]]\θ
+χ₀ ⇝ χ₂\θ
 
 ```
