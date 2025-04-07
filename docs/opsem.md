@@ -1,6 +1,8 @@
 # Operational Semantics
 
 Still to do:
+* Should type checks be entirely removed from the semantics?
+  * Or make them more powerful, able to check mutability and more?
 * Discharge (send/freeze?) when stack RC for the region and all children (recursively) is 0.
   * Could optimize by tracking the count of "busy" child regions.
 * How are Arenas different from uncounted regions?
@@ -35,9 +37,8 @@ ws, xs, ys, zs ∈ 𝒫(Ident)
 θ ∈ ThreadId
 
 T ∈ Type = Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ | TypeId
-         | Cown TypeId | Ref TypeId | Ref Cown TypeId
-         | Readonly TypeId | Readonly Cown TypeId
-         | Ref Readonly TypeId | | Ref Readonly Cown TypeId
+         | Cown Type | Ref Type
+         | Union Type Type | Raise Type | Throw Type
 
 𝕥 ∈ TypeDesc =
     {
@@ -57,15 +58,15 @@ P ∈ Program =
     {
       primitives: Type ↦ TypeId,
       types: TypeId ↦ TypeDesc,
-      functions: FunctionId ↦ Function
+      functions: FunctionId ↦ Function,
+      globals: Ident ↦ Value
     }
 
-𝕣 ∈ Reference = {object: ObjectId | CownId, field: Ident}
+𝕣 ∈ Reference = {target: ObjectId | CownId, field: Ident}
     Error = BadType | BadTarget | BadField | BadStore | BadMethod | BadArgs
           | BadReturnLoc | BadReturnType
 p ∈ Primitive = None | Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ | Error
 v ∈ Value = ObjectId | Primitive | Reference | CownId
-          | Readonly ObjectId | Readonly CownId
 ω ∈ Object = Ident ↦ Value
 
     Condition = Return | Raise | Throw
@@ -86,7 +87,8 @@ R ∈ RegionType = RegionRC | RegionGC | RegionArena
     Region = {
       type: RegionType,
       parent: RegionId | CownId | BehaviorId | None,
-      stack_rc: ℕ
+      stack_rc: ℕ,
+      readonly: Bool
     }
 
     // An object located in another object is an embedded field.
@@ -172,7 +174,7 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 
 // Regions.
 ρ ∈ χ ≝ ρ ∈ dom(χ.regions)
-χ[ρ↦R] = χ[regions(ρ)↦{type: R, parent: None, stack_rc: 0}]
+χ[ρ↦R] = χ[regions(ρ)↦{type: R, parent: None, stack_rc: 0, readonly: false}]
 χ\ρ = χ\{ρ}
 χ\ρs = χ[regions \= ρs]
 
@@ -208,19 +210,18 @@ typeof(χ, v) =
   P.primitives(Float × ℕ) if v ∈ Float × ℕ
   P.primitives(Error) if v ∈ Error
   χ.metadata(ι).type if ι = v
-  Readonly χ.metadata(ι).type if Readonly ι = v
-  Ref P.types(typeof(χ, ι).field(𝕣.field).type if (𝕣 = v) ∧ (𝕣.object = ι)
-  Readonly Ref P.types(typeof(χ, ι).field(𝕣.field).type if
-    (𝕣 = v) ∧ (𝕣.object = Readonly ι)
   Cown χ(π).type if π = v
-  Readonly Cown χ(π).type if Readonly π = v
-  Ref Cown χ(π).type if (𝕣 = v) ∧ (𝕣.object = π)
-  Ref Readonly Cown χ(π).type if (𝕣 = v) ∧ (𝕣.object = Readonly π)
+  Ref P.types(typeof(χ, ι).field(𝕣.field).type if (𝕣 = v) ∧ (𝕣.target = ι)
+  Ref χ(π).type if (𝕣 = v) ∧ (𝕣.target = π)
 
-// Subtype test.
-typetest(χ, v, T) =
-  T = typeof(χ, v) if (v ∈ Reference) ∨ (v ∈ CownId)
-  T ∈ P.types(typeof(χ, v)).supertypes otherwise
+typetest(T₀, T₁) =
+  typetest(T₂, T₁) ∧ typetest(T₃, T₁) if T₀ = Union T₂ T₃
+  typetest(T₀, T₂) ∨ typetest(T₀, T₃) if T₁ = Union T₂ T₃
+  T₀ = T₁ if (T₀ ∈ Ref T) ∨ (T₀ ∈ CownId T) ∨ (T₁ ∈ Ref T) ∨ (T₁ ∈ CownId T)
+  T₁ ∈ P.types(τ).supertypes if T₀ = τ
+  false otherwise
+
+typetest(χ, v, T) = typetest(typeof(χ, v), T)
 
 ```
 
@@ -239,7 +240,7 @@ reachable(χ, {v} ∪ vs) = reachable(χ, v) ∪ reachable(χ, vs)
 reachable(χ, v) = reachable(χ, v, ∅)
 reachable(χ, p, ιs) = ιs
 reachable(χ, π, ιs) = ιs
-reachable(χ, 𝕣, ιs) = reachable(χ, 𝕣.object, ιs)
+reachable(χ, 𝕣, ιs) = reachable(χ, 𝕣.target, ιs)
 reachable(χ, ι, ιs) =
   ιs if ι ∈ ιs
   reachable(χ, ι, {ι} ∪ ιs, dom(χ(ι))) otherwise
@@ -250,16 +251,16 @@ reachable(χ, ι, ιs, {w} ∪ ws) =
   reachable(χ, ι, ιs, w) ∪ reachable(χ, ι, ιs, ws)
 reachable(χ, ι, ιs, w) = reachable(χ, χ(ι)(w), ιs)
 
-// Region.
+// Location of a value.
 loc(χ, p) = Immutable
 loc(χ, π) = Immutable
-loc(χ, 𝕣) = loc(χ, 𝕣.object)
-loc(χ, Readonly ι) = loc(χ, ι)
+loc(χ, 𝕣) =
+  loc(χ, 𝕣.target) if ι = 𝕣.target
+  π if π = 𝕣.target
 loc(χ, ι) =
   loc(χ, ι′) if χ.metadata(ι).location = ι′
   χ.metadata(ι).location if ι ∈ χ
   Immutable otherwise
-loc(χ, π) = Immutable
 
 same_loc(χ, v₀, v₁) = (loc(χ, v₀) = loc(χ, v₁))
 members(χ, ρ) = {ι | (ι ∈ χ) ∧ (loc(χ, ι) = ρ)}
@@ -283,29 +284,31 @@ This enforces a tree-shaped region graph, with a single reference from parent to
 safe_store(χ, Immutable, v) = false
 safe_store(χ, 𝔽, v) =
   true if loc(χ, v) = Immutable
-  true if (loc(χ, v) = ρ)
+  true if loc(χ, v) = π
+  true if loc(χ, v) = ρ
   true if (loc(χ, v) = 𝔽′) ∧ (𝔽 >= 𝔽′)
   false otherwise
 safe_store(χ, ρ, v) =
+  false if χ(ρ).readonly
+  false if (loc(χ, v) = ρ′) ∧ χ(ρ′).readonly
   false if finalizing(χ, v)
-  true if loc(χ, v) = Immutable)
-  true if loc(χ, v) = ρ
+  true if loc(χ, v) = Immutable
+  true if (loc(χ, v) = ρ)
   true if (loc(χ, v) = ρ′) ∧ (parent(χ, ρ′) = None) ∧ ¬is_ancestor(χ, ρ′, ρ)
   false otherwise
 safe_store(χ, π, v) =
-  false if finalizing(χ, v)
   true if loc(χ, v) = Immutable
-  true if (loc(χ, v) = ρ) ∧ (parent(χ, ρ) = None)
+  true if (loc(χ, v) = ρ) ∧ (parent(χ, ρ) = None) ∧
+          ¬finalizing(χ, v) ∧ ¬χ(ρ).readonly
   false otherwise
 safe_store(χ, 𝛽, v) =
-  false if finalizing(χ, v)
   true if loc(χ, v) = Immutable
-  true if (loc(χ, v) = ρ) ∧ (parent(χ, ρ) = None)
+  true if (loc(χ, v) = ρ) ∧ (parent(χ, ρ) = None) ∧
+          ¬finalizing(χ, v) ∧ ¬χ(ρ).readonly
   false otherwise
 
 finalizing(χ, p) = false
-finalizing(χ, π) = false
-finalizing(χ, 𝕣) = finalizing(χ, 𝕣.object)
+finalizing(χ, 𝕣) = finalizing(χ, 𝕣.target)
 finalizing(χ, ι) = (ι ∈ χ.pre_final) ∨ (ι ∈ χ.post_final)
 finalizing(χ, π) = false
 
@@ -314,6 +317,10 @@ finalizing(χ, π) = false
 ## Well-Formedness
 
 ```rs
+
+// Globals are immutable.
+wf_globals(χ) =
+  ∀w ∈ dom(P.globals) . (loc(χ, P.globals(w)) = Immutable)
 
 // Deep immutability.
 wf_immutable(χ) =
@@ -356,6 +363,12 @@ wf_cownvalue(χ) =
   ∀π ∈ χ .
     (loc(χ(π).value) = Immutable) ∨
     ((loc(χ(π).value) = ρ) ∧ (parent(χ, ρ) = π))
+
+// Fields don't have Raise or Throw types.
+wf_fieldtypes(P) =
+  ∀τ ∈ dom(P.types) .
+    ∀w ∈ dom(P.types(τ).fields) .
+      P.types(τ).fields(w) ∉ {Raise T, Throw T}
 
 ```
 
@@ -406,7 +419,7 @@ calc_heap_rc(χ, ρ, ι) =
   |{(ι′, w) |
     (ι′ ∈ members(χ, ρ)) ∧
     (w ∈ dom(χ(ι′))) ∧
-    ((χ(ι′)(w) = ι)) ∨ ((χ(ι′)(w) = 𝕣) ∧ (𝕣.object = ι))}|
+    ((χ(ι′)(w) = ι)) ∨ ((χ(ι′)(w) = 𝕣) ∧ (𝕣.target = ι))}|
 
 ```
 
@@ -417,20 +430,19 @@ Reference counting is a no-op unless the object is in a `RegionRC` or is `Immuta
 ```rs
 
 enable-rc(χ, ι) =
-  ((loc(χ, ι)) = ρ ∧ (ρ.type = RegionRC)) ∨ (loc(χ, ι) = Immutable)
+  ((loc(χ, ι)) = ρ ∧ (ρ.readonly = false) ∧ (ρ.type = RegionRC)) ∨
+  (loc(χ, ι) = Immutable)
 
 region_stack_inc(χ, p) = χ
 region_stack_inc(χ, π) = χ
-region_stack_inc(χ, 𝕣) = region_stack_inc(χ, 𝕣.object)
-region_stack_inc(χ, Readonly ι) = χ
+region_stack_inc(χ, 𝕣) = region_stack_inc(χ, 𝕣.target)
 region_stack_inc(χ, ι) =
   χ[regions(ρ)[stack_rc += 1]] if (loc(χ, ι) = ρ)
   χ otherwise
 
 region_stack_dec(χ, p) = χ
 region_stack_dec(χ, π) = χ
-region_stack_dec(χ, 𝕣) = region_stack_dec(χ, 𝕣.object)
-region_stack_dec(χ, Readonly ι) = χ
+region_stack_dec(χ, 𝕣) = region_stack_dec(χ, 𝕣.target)
 region_stack_dec(χ, ι) =
   χ[pre_final_r ∪= {ρ}] if
     (loc(χ, ι) = ρ) ∧
@@ -440,7 +452,8 @@ region_stack_dec(χ, ι) =
   χ otherwise
 
 region_add_parent(χ, ι, p) = χ
-region_add_parent(χ, ι, 𝕣) = region_add_parent(χ, ι, 𝕣.object)
+region_add_parent(χ, ι, π) = χ
+region_add_parent(χ, ι, 𝕣) = region_add_parent(χ, ι, 𝕣.target)
 region_add_parent(χ, ι, ι′) =
   χ[regions(ρ′)[parent = ρ]] if
     (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
@@ -448,13 +461,15 @@ region_add_parent(χ, ι, ι′) =
   χ otherwise
 
 region_add_parent(χ, π, p) = χ
-region_add_parent(χ, π, 𝕣) = region_add_parent(χ, ι, 𝕣.object)
+region_add_parent(χ, π, π′) = χ
+region_add_parent(χ, π, 𝕣) = region_add_parent(χ, ι, 𝕣.target)
 region_add_parent(χ, π, ι) =
   χ[regions(ρ)[parent = π]] if loc(χ, ι) = ρ
   χ otherwise
 
 region_remove_parent(χ, ι, p) = χ
-region_remove_parent(χ, ι, 𝕣) = region_remove_parent(χ, ι, 𝕣.object)
+region_remove_parent(χ, ι, π) = χ
+region_remove_parent(χ, ι, 𝕣) = region_remove_parent(χ, ι, 𝕣.target)
 region_remove_parent(χ, ι, ι′) =
   χ[regions(ρ′)[parent = None]] if
     (loc(χ, ι) = ρ) ∧ (loc(χ, ι′) = ρ′) ∧ (ρ ≠ ρ′)
@@ -462,15 +477,17 @@ region_remove_parent(χ, ι, ι′) =
   χ otherwise
 
 region_remove_parent(χ, π, p) = χ
-region_remove_parent(χ, π, 𝕣) = region_remove_parent(χ, ι, 𝕣.object)
+region_remove_parent(χ, π, π′) = χ
+region_remove_parent(χ, π, 𝕣) = region_remove_parent(χ, ι, 𝕣.target)
 region_remove_parent(χ, π, ι) =
   χ[regions(ρ)[parent = None]] if loc(χ, ι) = ρ
   χ otherwise
 
 inc(χ, p) = χ
 inc(χ, π) = χ[cowns(π)[rc += 1]]
-inc(χ, 𝕣) = dec(χ, 𝕣.object)
-inc(χ, Readonly ι) = χ
+inc(χ, 𝕣) =
+  inc(χ, 𝕣.target) if ι = 𝕣.target
+  χ if π = 𝕣.target
 inc(χ, ι) =
   inc(χ, ι′) if χ.metadata(ι).location = ι′
   χ[metadata(ι)[rc += 1]] if enable-rc(χ, ι)
@@ -478,8 +495,9 @@ inc(χ, ι) =
 
 dec(χ, p) = χ
 dec(χ, π) = χ[cowns(π)[rc -= 1]] // TODO: free
-dec(χ, 𝕣) = dec(χ, 𝕣.object)
-dec(χ, Readonly ι) = χ
+dec(χ, 𝕣) =
+  dec(χ, 𝕣.target) if ι = 𝕣.target
+  χ if π = 𝕣.target
 dec(χ, ι) =
   dec(χ, ι′) if χ.metadata(ι).location = ι′
   χ[pre_final ∪= {ι}] if enable-rc(χ, ι) ∧ (χ.metadata(ι).rc = 1)
@@ -526,7 +544,7 @@ gc_dec_fields(χ, ι, {w} ∪ ws, ιs₁) =
 
 gc_dec_field(χ, ι, p, ιs₁) = χ
 gc_dec_field(χ, ι, π, ιs₁) = χ
-gc_dec_field(χ, ι, 𝕣, ιs₁) = gc_dec_field(χ, ι, 𝕣.object)
+gc_dec_field(χ, ι, 𝕣, ιs₁) = gc_dec_field(χ, ι, 𝕣.target)
 gc_dec_field(χ, ι, ι′, ιs₁) =
   dec(χ, ι′) if (ι′ ∈ ιs₁) ∨ (loc(χ, ι′) = Immutable)
   χ otherwise
@@ -553,7 +571,7 @@ free_fields(χ, ιs, ι, {w} ∪ ws) =
 
 free_field(χ, ιs, ι, p) = χ, ιs
 free_field(χ, ιs, ι, π) = χ, ιs
-free_field(χ, ιs, ι, 𝕣) = free_field(χ, ιs, ι, 𝕣.object)
+free_field(χ, ιs, ι, 𝕣) = free_field(χ, ιs, ι, 𝕣.target)
 free_field(χ, ιs, ι, ι′) =
   χ, ιs if ι′ ∈ ιs
   free_fields(χ, {ι′} ∪ ιs, ι′), {ι′} ∪ ιs if
@@ -564,6 +582,18 @@ free_field(χ, ιs, ι, ι′) =
     (χ.metadata(ι′).rc > 1)
   free_fields(χ, {ι′} ∪ ιs, ι′), {ι} ∪ ιs if χ.metadata(ι′).location = ι
   χ, ιs, ∅ otherwise
+
+```
+
+## Global Values
+
+```rs
+
+x ∉ φ
+v = P.globals(y)
+χ₁ = inc(χ₀, v)
+--- [global]
+χ₀, σ;φ, bind x (global y);stmt* ⇝ χ₁, σ;φ[x↦v], stmt*
 
 ```
 
@@ -580,7 +610,7 @@ newobject(φ, (y, z)*) = {y ↦ φ(z) | y ∈ (y, z)*}
 
 typecheck(χ, τ, ω) =
   (dom(P.types(τ).fields) = dom(ω)) ∧
-  ∀w ∈ dom(ω) . typetest(χ, P.types(τ).fields(w), ω(w))
+  ∀w ∈ dom(ω) . typetest(χ, ω(w), P.types(τ).fields(w))
 
 x ∉ φ
 --- [new primitive]
@@ -686,38 +716,28 @@ The `load` statement is the only operation other than `dup` or `drop` that can c
 
 ```rs
 
-readonly(χ, p) = p
-readonly(χ, {object: ι, field: w}) = {object: readonly(χ, ι), field: w}
-readonly(χ, {object: Readonly ι, field: w}) = {object: Readonly ι, field: w}
-readonly(χ, {object: π, field: w}) = {object: Readonly π, field: w}
-readonly(ι) = Readonly ι
-readonly(Readonly ι) = Readonly ι
-readonly(π) = π
-
 x ∉ ϕ
-(ι = ϕ(y)) ∨ (Readonly ι = ϕ(y))
+ι = ϕ(y)
 w ∈ dom(P.types(typeof(χ, ι)).fields)
-𝕣 = {object: ϕ(y), field: w}
+𝕣 = {target: ϕ(y), field: w}
 --- [ref]
 χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦𝕣]\y, stmt*
 
 x ∉ ϕ
-(ϕ(y) ∉ ObjectId) ∧ (ϕ(y) ∉ Readonly ObjectId)
+ϕ(y) ∉ ObjectId
 --- [ref bad-target]
 χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦BadTarget]\y, throw;return x
 
 x ∉ ϕ
-(ι = ϕ(y)) ∨ (Readonly ι = ϕ(y))
+ι = ϕ(y)
 w ∉ dom(P.types(typeof(χ, ι)).fields)
 --- [ref bad-field]
 χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦BadField]\y, throw;return x
 
 x ∉ ϕ
 𝕣 = φ(y)
-v = χ₀(ι)(w) if 𝕣 = {object: ι, field: w}
-    readonly(χ, χ₀(ι)(w)) if 𝕣 = {object: Readonly ι, field: w}
-    χ₀(π).value if 𝕣 = {object: π, field: w}
-    readonly(χ₀(π).value) if 𝕣 = {object: Readonly π, field: w}
+v = χ₀(ι)(w) if 𝕣 = {target: ι, field: w}
+    χ₀(π).value if 𝕣 = {target: π, field: w}
 χ₁ = region_stack_inc(χ₀, v)
 χ₂ = inc(χ₁, v)
 --- [load]
@@ -731,38 +751,38 @@ x ∉ ϕ
 x ∉ ϕ
 𝕣 = φ(y)
 v₀ = φ(z)
-safe_store(χ₀, loc(χ₀, 𝕣.object), v₀)
+safe_store(χ₀, loc(χ₀, 𝕣.target), v₀)
 v₁, χ₁ = ω(w), χ₀[ι↦ω[w↦v₀]] if
-            (𝕣 = {object: ι, field: w}) ∧ (ω = χ₀(ι)) ∧
+            (𝕣 = {target: ι, field: w}) ∧ (ω = χ₀(ι)) ∧
             typetest(χ₀, v₀, P.types(typeof(χ₀, ι)).fields(w))
          Π.value, χ₀[π↦Π[value↦v₀]] if
-            (𝕣 = {object: π, field: w}) ∧ (Π = χ₀(π)) ∧
+            (𝕣 = {target: π, field: w}) ∧ (Π = χ₀(π)) ∧
             typetest(χ₀, v₀, Π.type)
 χ₂ = region_stack_inc(χ₁, v₁)
-χ₃ = region_remove_parent(χ₃, 𝕣.object, v₁)
-χ₄ = region_add_parent(χ₃, 𝕣.object, v₀)
+χ₃ = region_remove_parent(χ₃, 𝕣.target, v₁)
+χ₄ = region_add_parent(χ₃, 𝕣.target, v₀)
 χ₅ = region_stack_dec(χ₄, v₀)
 --- [store]
 χ₀, σ;ϕ, bind x (store y z);stmt* ⇝ χ₅, σ;ϕ[x↦v₁]\z, stmt*
 
 x ∉ ϕ
-(ϕ(y) ∉ Reference) ∨ (φ(y).object = Readonly ι) ∨ (φ(y).object = Readonly π)
+ϕ(y) ∉ Reference
 --- [store bad-target]
 χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ, σ;ϕ[x↦BadTarget], throw;return x
 
 x ∉ ϕ
 𝕣 = φ(y)
 v = φ(z)
-¬safe_store(χ₀, loc(χ, 𝕣.object), v₁)
+¬safe_store(χ₀, loc(χ, 𝕣.target), v₁)
 --- [store bad-store]
 χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ, σ;ϕ[x↦BadStore], throw;return x
 
 x ∉ ϕ
 𝕣 = φ(y)
 v = φ(z)
-((𝕣 = {object: ι, field: w}) ∧
-  ¬typetest(χ₀, v, P.types(typeof(χ₀, 𝕣.object)).fields(w))) ∨
-((𝕣 = {object: π, field: w}) ∧
+((𝕣 = {target: ι, field: w}) ∧
+  ¬typetest(χ₀, v, P.types(typeof(χ₀, 𝕣.target)).fields(w))) ∨
+((𝕣 = {target: π, field: w}) ∧
   ¬typetest(χ₀, v₀, Π.type))
 --- [store bad-type]
 χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ, σ;ϕ[x↦BadType], throw;return x
@@ -840,6 +860,12 @@ typecheck(χ, φ₀, F, y*)
 
 x ∉ φ
 once(y*)
+τ ≠ typeof(χ, φ(y₁))
+--- [call dynamic bad-target]
+χ, σ;φ, bind x (call w y*);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
+
+x ∉ φ
+once(y*)
 τ = typeof(χ, φ(y₁))
 w ∉ P.types(τ).methods
 --- [call dynamic bad-method]
@@ -864,7 +890,10 @@ This drops any remaining frame variables other than the return value.
 dom(φ₁.vars) = {x}
 v = φ₁(x)
 loc(χ, v) ≠ φ₁.id
-typetest(χ, v, φ.type) // TODO: typetest depends on condition
+T = typeof(χ, v) if φ₁.condition = Return
+    Raise typeof(χ, v) if φ₁.condition = Raise
+    Throw typeof(χ, v) if φ₁.condition = Throw
+typetest(T, φ.type)
 φ₂ = φ₀[φ₁.ret↦v, condition = φ₁.condition]
 --- [return]
 χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, ϕ₁.cont
@@ -872,7 +901,10 @@ typetest(χ, v, φ.type) // TODO: typetest depends on condition
 dom(φ.vars) = {x}
 v = φ(x)
 loc(χ₀, v) ≠ φ.id
-typetest(χ₀, v, φ.type) // TODO: typetest depends on condition
+T = typeof(χ, v) if φ₁.condition = Return
+    Raise typeof(χ, v) if φ₁.condition = Raise
+    Throw typeof(χ, v) if φ₁.condition = Throw
+typetest(T, φ.type)
 π = φ(final)
 safe_store(χ₀, π, v)
 χ₁ = χ₀[cowns(π)[value↦v]]
@@ -887,16 +919,19 @@ dom(φ.vars) = {x, y} ∪ zs
 
 dom(φ.vars) = {x}
 v = φ(x)
-loc(χ, v) = φ.id
+(loc(χ, v) = φ.id) ∨ ((π = φ(final)) ∧ ¬safe_store(χ, π, v))
 --- [return bad-loc]
-χ, σ;φ, return x;stmt* ⇝ χ, σ;φ[y↦BadReturnLoc], drop x;throw;return y
+χ, σ;φ, return x;stmt* ⇝ χ, σ;φ[y↦BadReturnLoc], throw;return y
 
 dom(φ.vars) = {x}
 v = φ(x)
 loc(χ, v) ≠ φ.id
-¬typetest(χ, v, F.result)
+T = typeof(χ, v) if φ₁.condition = Return
+    Raise typeof(χ, v) if φ₁.condition = Raise
+    Throw typeof(χ, v) if φ₁.condition = Throw
+¬typetest(T, φ.type)
 --- [return bad-type]
-χ, σ;φ, return x;stmt* ⇝ χ, σ;φ[y↦BadReturnType], drop x;throw;return y
+χ, σ;φ, return x;stmt* ⇝ χ, σ;φ[y↦BadReturnType], throw;return y
 
 ```
 
@@ -1015,7 +1050,8 @@ x ∉ φ
       (ρ = loc(χ, ι′)) ∧ (ρ ≠ ρ₀)}
 rc = calc_stack_rc(χ₀, σ;φ, ιs)
 χ₁ = χ₀[regions(ρ₀)[stack_rc -= rc],
-        regions(ρ₁)↦{type: χ.regions(ρ₀).type, parent: None, stack_rc: rc},
+        regions(ρ₁)↦{ type: χ.regions(ρ₀).type, parent: None,
+                       stack_rc: rc, readonly: false },
         ∀ι′ ∈ ιs . metadata(ι′)[location = ρ₁],
         ∀ρ ∈ ρs . regions(ρ)[parent = ρ₁]]
 --- [extract]
@@ -1104,15 +1140,36 @@ ready(χ, 𝛽) =
     (ρs = {ρ | (ι ∈ χ(𝛽).capture) ∧ (loc(χ, ι) = ρ)}) ∧
     (ρs′ = {ρ′| (ρ ∈ ρs) ∧ (ρ′ ∈ χ) ∧ is_ancestor(χ, ρ, ρ′)})
 
+mark-readonly(χ, π) =
+  mark-readonly(χ, {ρ} ∪ {ρ′ | ρ′ ∈ χ ∧ is_ancestor(ρ, ρ′)}) if
+    ρ = loc(χ, χ(π).value)
+  χ otherwise
+mark-readonly(χ, {ρ} ∪ ρs) =
+  mark-readonly(χ′, ρs)
+  where
+    χ′ = mark-readonly(χ, ρ)
+mark-readonly(χ, ρ) = χ[regions(ρ)[readonly = true]]
+
+unmark-readonly(χ, π) =
+  unmark-readonly(χ, {ρ} ∪ {ρ′ | ρ′ ∈ χ ∧ is_ancestor(ρ, ρ′)}) if
+    ρ = loc(χ, χ(π).value)
+  χ otherwise
+unmark-readonly(χ, {ρ} ∪ ρs) =
+  unmark-readonly(χ′, ρs)
+  where
+    χ′ = unmark-readonly(χ, ρ)
+unmark-readonly(χ, ρ) = χ[regions(ρ)[readonly = false]]
+
 read-inc(χ, ∅) = χ
 read-inc(χ, {π} ∪ πs) =
   read-inc(χ′, πs)
   where
     χ′ = read-inc(χ, π)
 read-inc(χ, π) =
-  χ[cowns(π)[queue = 𝛽*, read += 1]]
+  χ′[cowns(π)[queue = 𝛽*, read += 1]]
   where
-    χ(π).queue = 𝛽;𝛽*
+    χ(π).queue = 𝛽;𝛽 ∧
+    χ′ = mark-readonly(χ, π)
 
 write-inc(χ, ∅) = χ
 write-inc(χ, {π} ∪ πs) =
@@ -1129,7 +1186,10 @@ read-dec(χ, {π} ∪ πs) =
   read-dec(χ′, πs)
   where
     χ′ = read-dec(χ, π)
-read-dec(χ, π) = χ[cowns(π)[rc -= 1, read -= 1]] // TODO: free
+read-dec(χ, π) =
+  χ′[cowns(π)[rc -= 1, read -= 1]] // TODO: free
+  where
+    χ′ = unmark-readonly(χ, π)
 
 write-dec(χ, ∅) = χ
 write-dec(χ, {π} ∪ πs) =
@@ -1138,22 +1198,21 @@ write-dec(χ, {π} ∪ πs) =
     χ′ = write-dec(χ, π)
 write-dec(χ, π) = χ[cowns(π)[rc -= 1, write -= 1]] // TODO: free
 
-read-acquire(χ, φ, ∅) = χ, φ
-read-acquire(χ, φ, ω) =
-  read-acquire(χ′, φ′, ω\x)
+read-acquire(φ, ∅) = φ
+read-acquire(φ, ω) =
+  read-acquire(φ′, ω\x)
   where
     x ∈ dom(ω) ∧
     π = ω(x) ∧
-    φ′ = φ[x↦readonly(χ(π).value)]
+    φ′ = φ[x↦χ(π).value]
 
-write-acquire(χ, φ, ∅) = χ, φ
-write-acquire(χ, φ, ω) =
-  write-acquire(χ′, φ′, ω\x)
+write-acquire(φ, ∅) = φ
+write-acquire(φ, ω) =
+  write-acquire(φ′, ω\x)
   where
     x ∈ dom(ω) ∧
     π = ω(x) ∧
-    χ′ = inc(χ, π) ∧
-    φ′ = φ[x↦{object: π, field: final}]
+    φ′ = φ[x↦{target: π, field: final}]
 
 // TODO: regions put in a behavior need to set a parent to prevent them being put anywhere else.
 // what if z* contains multiple objects in the same region, and that region has no parent? is that ok?
@@ -1177,34 +1236,35 @@ B = { read: {w ↦ φ(w) | w ∈ w*},
 χ, σ;φ, bind x (when T (read w*) (write y*) (capture z*) stmt₀*);stmt₁* ⇝
   χ′[π↦Π, 𝛽↦B]∪𝔽, σ;φ[x↦π]\(w*;y*;z*), stmt₁*
 
-𝛽 ∈ χ
-θ ∉ χ
-𝔽 ∉ χ
-ready(χ, 𝛽)
-π = χ(𝛽).result
+𝛽 ∈ χ₀
+θ ∉ χ₀
+𝔽 ∉ χ₀
+ready(χ₀, 𝛽)
+πs₀ = {π′ | π′ ∈ χ₀(𝛽).read} \ πs₁
+πs₁ = {π′ | π′ ∈ χ₀(𝛽).write}
+π = χ₀(𝛽).result
 φ₀ = { id: 𝔽,
-       vars: {x ↦ χ(𝛽).capture(x) | x ∈ dom(χ(𝛽).capture)},
+       vars: {x ↦ χ₀(𝛽).capture(x) | x ∈ dom(χ₀(𝛽).capture)},
        ret: final,
-       type: χ(π).type,
+       type: χ₀(π).type,
        cont: ∅,
        condition: Return }
-χ₁, φ₁ = read-acquire(χ, φ₀, χ(𝛽).read)
-χ₂, φ₂ = write-acquire(χ₁, φ₁, χ(𝛽).write)
-χ₃ = read-inc(χ₂, Θ.read)
-χ₄ = write-inc(χ₃, Θ.write ∪ {π})
 Θ = { stack: φ₂[final↦π],
-      cont: χ(𝛽).body,
-      read: {π′ | π′ ∈ χ(𝛽).read}
-      write: {π′ | π′ ∈ χ(𝛽).write}
+      cont: χ₀(𝛽).body,
+      read: πs₀
+      write: πs₁
       result: π }
+φ₁ = read-acquire(φ₀, χ₀(𝛽).read)
+φ₂ = write-acquire(φ₁, χ₀(𝛽).write)
+χ₁ = read-inc(χ₀, Θ.read)
+χ₂ = write-inc(χ₁, Θ.write ∪ {π})
 --- [start thread]
-χ ⇝ χ₂[θ↦Θ]\𝛽
+χ₀ ⇝ χ₂[θ↦Θ]\𝛽
 
 θ ∈ χ
-χ(θ) = {σ, stmt*, π}
-χ, σ, stmt* ⇝ χ′, σ′, stmt′*
+χ, χ(θ).stack, χ(θ).cont ⇝ χ′, σ′, stmt′*
 --- [step thread]
-χ ⇝ χ′[θ↦{stack: σ′, cont: stmt′*, result: π}]
+χ ⇝ χ′[threads(θ)[stack = σ′, cont = stmt′*]]
 
 θ ∈ χ
 χ(θ) = {stack: ∅, cont: ∅, read: πs₀, write: πs₁, result: π}
