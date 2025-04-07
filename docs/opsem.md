@@ -8,7 +8,6 @@ Still to do:
 * How are Arenas different from uncounted regions?
   * How should they treat changing region type?
   * How should they treat merging, freezing, extract?
-* Behaviors and cowns.
 * Embedded object fields?
 * Arrays? Or model them as objects?
 
