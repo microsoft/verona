@@ -61,6 +61,7 @@ P ∈ Program =
       globals: Ident ↦ Value
     }
 
+// mjp: What is a reference to a Cown usage?
 𝕣 ∈ Reference = {target: ObjectId | CownId, field: Ident}
     Error = BadType | BadTarget | BadField | BadStore | BadMethod | BadArgs
           | BadReturnLoc | BadReturnType
@@ -277,27 +278,25 @@ typetest(χ, v, T) = typetest(typeof(χ, v), T)
 //     ...
 reachable(χ, σs) = ∀σ ∈ σs . ⋃{reachable(χ, σ)}
 reachable(χ, σ) = ∀φ ∈ σ . ⋃{reachable(χ, φ)}
-reachable(χ, φ) = ∀x ∈ φ . ⋃{reachable(χ, φ(x))}
+reachable(χ, φ) = ∀x ∈ φ . ⋃{reachable(χ, φ(x), ∅)}
 
-reachable(χ, ∅) = ∅
-reachable(χ, {v} ∪ vs) = reachable(χ, v) ∪ reachable(χ, vs)
+reachable(χ, ∅, ιs) = ιs
+// mjp: Technically need to show this is a function as the choice of v is arbitrary.  Would need to show order is irrelevant.
+reachable(χ, {v} ⊎ vs, ιs) = reachable(χ, vs, reachable(χ, v, ιs))
 
-reachable(χ, v) = reachable(χ, v, ∅)
 reachable(χ, p, ιs) = ιs
 reachable(χ, π, ιs) = ιs
 reachable(χ, 𝕣, ιs) = reachable(χ, 𝕣.target, ιs)
 reachable(χ, ι, ιs) =
   ιs if ι ∈ ιs
-  reachable(χ, ι, {ι} ∪ ιs, dom(χ(ι))) otherwise
+  reachable(χ, ⋃_(w ∈ dom(χ(ι))) χ(ι)(w), {ι} ∪ ιs) otherwise
 reachable(χ, π, ιs) = ιs
 
-reachable(χ, ι, ιs, ∅) = ιs
-reachable(χ, ι, ιs, {w} ∪ ws) =
-  reachable(χ, ι, ιs, w) ∪ reachable(χ, ι, ιs, ws)
-reachable(χ, ι, ιs, w) = reachable(χ, χ(ι)(w), ιs)
-
+// mjp: I wonder if location is the right name here?  Location has a lot of connotations of address to me, which is not what you mean.
+// I wonder if `owner` is a better term: "the owner of primitive values is the Immutable region", "the owner of a nested object is the containing object", etc.
 // Location of a value.
 loc(χ, p) = Immutable
+// mjp:  Cown being Immutable, makes me think we should call this Sharable.
 loc(χ, π) = Immutable
 loc(χ, 𝕣) =
   loc(χ, 𝕣.target) if ι = 𝕣.target
@@ -325,6 +324,7 @@ is_ancestor(χ, ρ₀, ρ₁) =
 This enforces a tree-shaped region graph, with a single reference from parent to child.
 
 ```rs
+// mjp:  Does this need to account for nested/embedded objects?
 safe_store(χ, Immutable, v) = false
 safe_store(χ, 𝔽, v) =
   true if loc(χ, v) = Immutable
@@ -553,6 +553,9 @@ dec(χ, ι) =
 ## Garbage Collection
 
 ```rs
+
+// mjp: Should we consider behaviours as roots too?
+// mjp: Should we consider cowns as roots, or should we track there reachability?
 
 // GC on RegionRC is cycle detection.
 enable-gc(χ, ρ) = χ.regions(ρ).type ∈ {RegionGC, RegionRC}
