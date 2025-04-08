@@ -96,11 +96,11 @@ namespace verona
           auto rhs = stmt / Rhs;
 
           if (rhs == TypeTest)
-            type = Type << booltype();
+            type = Type << booltype(); // FIXED
           else if (rhs == Cast)
-            type = clone(rhs / Type);
+            type = clone(rhs / Type); // FIXED
           else if (rhs->in({Move, Copy}))
-            type = clone(gamma(rhs));
+            type = clone(gamma(rhs)); // FIXED
           else if (rhs == FieldRef)
           {
             // TODO: Self substitution?
@@ -228,19 +228,81 @@ namespace verona
     auto assume = std::make_shared<Btypes>();
     auto delayed = std::make_shared<SequentPtrs>();
 
+    // Block: Bind, Return, Move, Drop, TypeAlias, Class, LLVM.
+    // Bind: Copy, Move, TypeTest, Cast.
+    //   To do: FieldRef, Call, Literal, Tuple, LLVM.
+
     PassDef pass = {
       "typeinfer",
       wfPassTypeInfer,
       dir::bottomup | dir::once,
       {
-        T(Function)[Function] >> ([=](Match& _) -> Node {
-          // Our local predicate has already been popped. Add it back.
-          auto f = _(Function);
-          assume->push_back(make_btype(f / TypePred));
-          Infer infer(f, *assume, *delayed);
-          assume->pop_back();
+        T(Bind)[Bind] << (T(Ident) * T(Type) * T(TypeTest)) >>
+          ([](Match& _) -> Node {
+            // Alter in place to maintain symbol table.
+            _(Bind) / Type = booltype();
+            return NoChange;
+          }),
+
+        T(Bind)
+            << (T(Ident) * T(Type) *
+                (T(Cast) << (T(Copy, Move) * T(Type)[Type]))) >>
+          ([](Match& _) -> Node {
+            // Alter in place to maintain symbol table.
+            _(Bind) / Type = clone(_(Type));
+            return NoChange;
+          }),
+
+        T(Bind) << (T(Ident) * T(Type) * (T(Move, Copy))[Move]) >>
+          ([](Match& _) -> Node {
+            // Alter in place to maintain symbol table.
+            _(Bind) / Type = clone(gamma(_(Move)));
+            return NoChange;
+          }),
+
+        T(Bind)
+            << (T(Ident)[Ident] * T(Type) *
+                (T(Conditional)
+                 << (T(Move, Copy)[If] * T(Block)[True] * T(Block)[False]))) >>
+          ([](Match& _) -> Node {
+            // TODO: gamma(_(If)) <: bool
+            // TODO: type = True | False
+            return NoChange;
+          }),
+
+        T(Return) << T(Move)[Move] >> ([](Match& _) -> Node {
+          // TODO: gamma(_(Move)) <: ret_type
           return NoChange;
         }),
+
+        In(Block) * T(Move)[Move] >> ([](Match& _) -> Node {
+          // TODO: gamma(_(Move)) <: block_type
+          return NoChange;
+        }),
+
+        In(Function) * T(Block) >> ([=](Match& _) -> Node {
+          // TODO: block_type <: ret_type
+          return NoChange;
+        }),
+
+        T(Call) << (T(FQFunction)[FQFunction] * T(Args)[Args]) >>
+          ([](Match& _) -> Node {
+            // TODO: Lookup FQFunction.
+            // Prove all predicates. This may involve inferring type arguments.
+            // Check all arguments against the function parameters. This may
+            // also involve inferring type arguments. Check the function return
+            // type against the call site.
+            return NoChange;
+          }),
+
+        // T(Function)[Function] >> ([=](Match& _) -> Node {
+        //   // Our local predicate has already been popped. Add it back.
+        //   auto f = _(Function);
+        //   assume->push_back(make_btype(f / TypePred));
+        //   Infer infer(f, *assume, *delayed);
+        //   assume->pop_back();
+        //   return NoChange;
+        // }),
       }};
 
     pass.pre({Class, TypeAlias, Function}, [=](Node n) {
