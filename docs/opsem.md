@@ -64,7 +64,15 @@ P ∈ Program =
 𝕣 ∈ Reference = {target: ObjectId | CownId, field: Ident}
     Error = BadType | BadTarget | BadField | BadStore | BadMethod | BadArgs
           | BadReturnLoc | BadReturnType
+
+// mjp: Is this primitive values, or the type names?
+// There is a confusion here.  Does `Bool` mean the type or the set of 
+// values of the type?  Earlier is was the type, but here I think it is the values?
+// Perhaps use NoneV, BoolV, ... instead of None, Bool, ...?
+// mjp: Signed × ℕ is this a product type or the inhabitants of the type.
+// /Not sure what a good syntax here is
 p ∈ Primitive = None | Bool | Signed × ℕ | Unsigned × ℕ | Float × ℕ | Error
+   
 v ∈ Value = ObjectId | Primitive | Reference | CownId
 ω ∈ Object = Ident ↦ Value
 
@@ -90,11 +98,15 @@ R ∈ RegionType = RegionRC | RegionGC | RegionArena
       readonly: Bool
     }
 
+    // mjp: Factored this out as a lot of the helpers use this.
+    // mjp:  Should this have CownId?
+    Location = RegionId | FrameId | ObjectId | Immutable
+
     // An object located in another object is an embedded field.
     Metadata =
     {
       type: TypeId,
-      location: RegionId | FrameId | ObjectId | Immutable,
+      location: Location,
       rc: ℕ
     }
 
@@ -146,19 +158,44 @@ Heap, Stack, Statement* ⇝ Heap, Stack, Statement*
 ```
 
 ## Helpers
-
+We use `.` notation for accessing fields of a record:
 ```rs
+{label0↦value0, ... labeln↦valuen}.labeli = valuei
+```
 
+We use `[.. ↦ ..]` notation for updating a record:
+```rs
+r[labeli  ↦ value] = {label0 ↦ r(label0), ..., labeli ↦ value, ..., labeln ↦ r(labeln)}
+  where r = {label0↦value0, ... labeln↦valuen}
+```
+
+We use `[..(..) ↦ ..]` notation for updating an element of a function component of a record:
+```rs
+r[label(idx) ↦ v] = r[label ↦ r(label)[idx ↦ v]]
+```
+
+We use `[.. op= ..]` notation for updating a component of a record with a specific operation:
+```rs
+r[labeli op= value] = r[labeli ↦ r(labeli) op value]
+```
+
+We compose updates with `[.., ..]`:
+```rs
+r[upd1, upd2] = r[upd1][upd2]
+```
+
+mjp: You use ϕ for frames, but here I think you are using φ for frames.  Should we just use one?
+```rs
 // Frames.
 x ∈ φ ≝ x ∈ dom(φ.vars)
 φ(x) = φ.vars(x)
 φ[x↦v] = φ[vars(x)↦v]
-φ\x = φ\{x}
 φ\xs = φ[vars \= xs]
+φ\x = φ\{x}
 
 𝔽 ∈ χ ≝ φ ∈ dom(χ.frames)
-χ∪𝔽 = χ[frames ∪= 𝔽]
-χ\𝔽 = χ[frames \= 𝔽]
+χ∪𝔽 = χ[frames ∪= {𝔽}]
+χ\𝔽 = χ[frames \= {𝔽}]
 
 // Heap objects.
 ι ∈ χ ≝ ι ∈ dom(χ.data)
@@ -174,8 +211,8 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 // Regions.
 ρ ∈ χ ≝ ρ ∈ dom(χ.regions)
 χ[ρ↦R] = χ[regions(ρ)↦{type: R, parent: None, stack_rc: 0, readonly: false}]
-χ\ρ = χ\{ρ}
 χ\ρs = χ[regions \= ρs]
+χ\ρ = χ\{ρ}
 
 // Cowns.
 π ∈ χ ≝ π ∈ dom(χ.cowns)
@@ -198,25 +235,31 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 ```
 
 ## Dynamic Types
+The following definition are all implicitly passed the current program, `P`.
 
 ```rs
 
 // Dynamic type of a value.
 typeof(χ, v) =
+  // mjp: Perhaps BoolV based on comment above of dual use of Bool here.
   P.primitives(Bool) if v ∈ Bool
+  // mjp: Signed × ℕ shouldn't this be an element of the type? (Signed,n) rather than the product itself?
   P.primitives(Signed × ℕ) if v ∈ Signed × ℕ
   P.primitives(Unsigned × ℕ) if v ∈ Unsigned × ℕ
   P.primitives(Float × ℕ) if v ∈ Float × ℕ
   P.primitives(Error) if v ∈ Error
   χ.metadata(ι).type if ι = v
   Cown χ(π).type if π = v
-  Ref P.types(typeof(χ, ι).field(𝕣.field).type if (𝕣 = v) ∧ (𝕣.target = ι)
+  // mjp: Is the recursion well-founded here?  The argument is not clear to me, the semantics allows references in fields?
+  // This definition might need to be coinductive if that is the case.
+  Ref P.types(typeof(χ, ι).field(𝕣.field).type) if (𝕣 = v) ∧ (𝕣.target = ι)
   Ref χ(π).type if (𝕣 = v) ∧ (𝕣.target = π)
 
 typetest(T₀, T₁) =
   typetest(T₂, T₁) ∧ typetest(T₃, T₁) if T₀ = Union T₂ T₃
   typetest(T₀, T₂) ∨ typetest(T₀, T₃) if T₁ = Union T₂ T₃
   T₀ = T₁ if (T₀ ∈ Ref T) ∨ (T₀ ∈ CownId T) ∨ (T₁ ∈ Ref T) ∨ (T₁ ∈ CownId T)
+  // mjp: Is supertypes transitive? Does it need to be here?
   T₁ ∈ P.types(τ).supertypes if T₀ = τ
   false otherwise
 
@@ -229,9 +272,12 @@ typetest(χ, v, T) = typetest(typeof(χ, v), T)
 ```rs
 
 // Transitive closure.
+// mjp: Do you really mean forall here?  Is this a predicate?  Or is this really:
+//     ⋃_(σ ∈ σs) {reachable(χ, σ)}
+//     ...
 reachable(χ, σs) = ∀σ ∈ σs . ⋃{reachable(χ, σ)}
 reachable(χ, σ) = ∀φ ∈ σ . ⋃{reachable(χ, φ)}
-reachable(χ, φ) = ∀x ∈ dom(φ) . ⋃{reachable(χ, φ(x))}
+reachable(χ, φ) = ∀x ∈ φ . ⋃{reachable(χ, φ(x))}
 
 reachable(χ, ∅) = ∅
 reachable(χ, {v} ∪ vs) = reachable(χ, v) ∪ reachable(χ, vs)
@@ -279,13 +325,12 @@ is_ancestor(χ, ρ₀, ρ₁) =
 This enforces a tree-shaped region graph, with a single reference from parent to child.
 
 ```rs
-
 safe_store(χ, Immutable, v) = false
 safe_store(χ, 𝔽, v) =
   true if loc(χ, v) = Immutable
   true if loc(χ, v) = π
   true if loc(χ, v) = ρ
-  true if (loc(χ, v) = 𝔽′) ∧ (𝔽 >= 𝔽′)
+  true if (loc(χ, v) = 𝔽′) ∧ (𝔽 >= 𝔽′)  // MJP: What is the order on FrameIds? Is this coming from the stack in χ?
   false otherwise
 safe_store(χ, ρ, v) =
   false if χ(ρ).readonly
