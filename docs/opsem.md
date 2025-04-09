@@ -79,7 +79,7 @@ v ∈ Value = ObjectId | Primitive | Reference | CownId
 ω ∈ Object = Ident ↦ Value
 
     Condition = Return | Raise | Throw
-ϕ ∈ Frame =
+φ ∈ Frame =
     {
       id: FrameId,
       vars: Ident ↦ Value,
@@ -194,7 +194,6 @@ We compose updates with `[.., ..]`:
 r[upd1, upd2] = r[upd1][upd2]
 ```
 
-mjp: You use ϕ for frames, but here I think you are using φ for frames.  Should we just use one?
 ```rs
 // Frames.
 x ∈ φ ≝ x ∈ dom(φ.vars)
@@ -755,8 +754,8 @@ Local variables are consumed on use. To keep them, `dup` them first.
 
 ```rs
 
-x ∉ ϕ
-ϕ(y) = v
+x ∉ φ
+φ(y) = v
 χ₁ = region_stack_inc(χ₀, v)
 χ₂ = inc(χ₁, v)
 --- [dup]
@@ -766,7 +765,7 @@ x ∉ ϕ
 χ₁ = region_stack_dec(χ₀, v)
 χ₂ = dec(χ₁, v)
 --- [drop]
-χ₀, σ;φ, drop x;stmt* ⇝ χ₂, σ;ϕ\x, stmt*
+χ₀, σ;φ, drop x;stmt* ⇝ χ₂, σ;φ\x, stmt*
 
 ```
 
@@ -776,39 +775,39 @@ The `load` statement is the only operation other than `dup` or `drop` that can c
 
 ```rs
 
-x ∉ ϕ
-ι = ϕ(y)
+x ∉ φ
+ι = φ(y)
 w ∈ dom(P.types(typeof(χ, ι)).fields)
-𝕣 = {target: ϕ(y), field: w}
+𝕣 = {target: φ(y), field: w}
 --- [ref]
-χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦𝕣]\y, stmt*
+χ, σ;φ, bind x (ref y w);stmt* ⇝ χ, σ;φ[x↦𝕣]\y, stmt*
 
-x ∉ ϕ
-ϕ(y) ∉ ObjectId
+x ∉ φ
+φ(y) ∉ ObjectId
 --- [ref bad-target]
-χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦BadTarget]\y, throw;return x
+χ, σ;φ, bind x (ref y w);stmt* ⇝ χ, σ;φ[x↦BadTarget]\y, throw;return x
 
-x ∉ ϕ
-ι = ϕ(y)
+x ∉ φ
+ι = φ(y)
 w ∉ dom(P.types(typeof(χ, ι)).fields)
 --- [ref bad-field]
-χ, σ;ϕ, bind x (ref y w);stmt* ⇝ χ, σ;ϕ[x↦BadField]\y, throw;return x
+χ, σ;φ, bind x (ref y w);stmt* ⇝ χ, σ;φ[x↦BadField]\y, throw;return x
 
-x ∉ ϕ
+x ∉ φ
 𝕣 = φ(y)
 v = χ₀(ι)(w) if 𝕣 = {target: ι, field: w}
     χ₀(π).value if 𝕣 = {target: π, field: w}
 χ₁ = region_stack_inc(χ₀, v)
 χ₂ = inc(χ₁, v)
 --- [load]
-χ₀, σ;ϕ, bind x (load y);stmt* ⇝ χ₂, σ;ϕ[x↦v], stmt*
+χ₀, σ;φ, bind x (load y);stmt* ⇝ χ₂, σ;φ[x↦v], stmt*
 
-x ∉ ϕ
-ϕ(y) ∉ Reference
+x ∉ φ
+φ(y) ∉ Reference
 --- [load bad-target]
-χ, σ;ϕ, bind x (load y);stmt* ⇝ χ, σ;ϕ[x↦BadTarget], throw;return x
+χ, σ;φ, bind x (load y);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
 
-x ∉ ϕ
+x ∉ φ
 𝕣 = φ(y)
 v₀ = φ(z)
 safe_store(χ₀, loc(χ₀, 𝕣.target), v₀)
@@ -823,21 +822,21 @@ v₁, χ₁ = ω(w), χ₀[ι↦ω[w↦v₀]] if
 χ₄ = region_add_parent(χ₃, 𝕣.target, v₀)
 χ₅ = region_stack_dec(χ₄, v₀)
 --- [store]
-χ₀, σ;ϕ, bind x (store y z);stmt* ⇝ χ₅, σ;ϕ[x↦v₁]\z, stmt*
+χ₀, σ;φ, bind x (store y z);stmt* ⇝ χ₅, σ;φ[x↦v₁]\z, stmt*
 
-x ∉ ϕ
-ϕ(y) ∉ Reference
+x ∉ φ
+φ(y) ∉ Reference
 --- [store bad-target]
-χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ, σ;ϕ[x↦BadTarget], throw;return x
+χ, σ;φ, bind x (store y z);stmt* ⇝ χ, σ;φ[x↦BadTarget], throw;return x
 
-x ∉ ϕ
+x ∉ φ
 𝕣 = φ(y)
 v = φ(z)
 ¬safe_store(χ₀, loc(χ, 𝕣.target), v₁)
 --- [store bad-store]
-χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ, σ;ϕ[x↦BadStore], throw;return x
+χ, σ;φ, bind x (store y z);stmt* ⇝ χ, σ;φ[x↦BadStore], throw;return x
 
-x ∉ ϕ
+x ∉ φ
 𝕣 = φ(y)
 v = φ(z)
 ((𝕣 = {target: ι, field: w}) ∧
@@ -845,7 +844,7 @@ v = φ(z)
 ((𝕣 = {target: π, field: w}) ∧
   ¬typetest(χ₀, v₀, Π.type))
 --- [store bad-type]
-χ, σ;ϕ, bind x (store y z);stmt* ⇝ χ, σ;ϕ[x↦BadType], throw;return x
+χ, σ;φ, bind x (store y z);stmt* ⇝ χ, σ;φ[x↦BadType], throw;return x
 
 ```
 
@@ -855,7 +854,7 @@ The local variable being type-tested is not consumed.
 
 ```rs
 
-x ∉ ϕ
+x ∉ φ
 v = typetest(χ, φ(y), T)
 --- [typetest]
 χ, σ;φ, bind x (typetest T y);stmt* ⇝ χ, σ;φ[x↦v], stmt*
@@ -884,8 +883,8 @@ All arguments are consumed. To keep them, `dup` them first. As such, an identifi
 
 ```rs
 
-newframe(χ, ϕ, F, x, y*, stmt*) =
-  { id: 𝔽, vars: {F.paramsᵢ.name ↦ ϕ(yᵢ) | i ∈ 1 .. |y*|},
+newframe(χ, φ, F, x, y*, stmt*) =
+  { id: 𝔽, vars: {F.paramsᵢ.name ↦ φ(yᵢ) | i ∈ 1 .. |y*|},
     ret: x, type: F.result, cont: stmt*, condition: Return}
   where
     (𝔽 ∉ dom(χ.frames)) ∧ (𝔽 > φ.id)
@@ -956,7 +955,7 @@ T = typeof(χ, v) if φ₁.condition = Return
 typetest(T, φ.type)
 φ₂ = φ₀[φ₁.ret↦v, condition = φ₁.condition]
 --- [return]
-χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, ϕ₁.cont
+χ, σ;φ₀;φ₁, return x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, φ₁.cont
 
 dom(φ.vars) = {x}
 v = φ(x)
