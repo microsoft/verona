@@ -61,7 +61,8 @@ P ∈ Program =
       globals: Ident ↦ Value
     }
 
-// mjp: What is a reference to a Cown usage?
+// When a Cown is write-acquired, the behavior gets a reference to the value of
+// the Cown, allowing it to be replaced entirely.
 𝕣 ∈ Reference = {target: ObjectId | CownId, field: Ident}
     Error = BadType | BadTarget | BadField | BadStore | BadMethod | BadArgs
           | BadReturnLoc | BadReturnType
@@ -99,8 +100,11 @@ R ∈ RegionType = RegionRC | RegionGC | RegionArena
       readonly: Bool
     }
 
-    // mjp: Factored this out as a lot of the helpers use this.
-    // mjp:  Should this have CownId?
+    // This is the location of an object. An obect on the heap is either in a
+    // region or immutable. An object in a frame is on the stack. An object in
+    // another object is an mebedded field. Objects are not in Cowns, even
+    // though Cowns have a value - that value is either in a region or
+    // immutable.
     Location = RegionId | FrameId | ObjectId | Immutable
 
     // An object located in another object is an embedded field.
@@ -154,11 +158,16 @@ B ∈ Behavior =
       result: CownId
     }
 
+// Sequential semantics.
 Heap, Stack, Statement* ⇝ Heap, Stack, Statement*
+
+// Concurrent semantics.
+Heap ⇝ Heap
 
 ```
 
 ## Helpers
+
 We use `.` notation for accessing fields of a record:
 ```rs
 {label0↦value0, ... labeln↦valuen}.labeli = valuei
@@ -236,7 +245,8 @@ x ∈ φ ≝ x ∈ dom(φ.vars)
 ```
 
 ## Dynamic Types
-The following definition are all implicitly passed the current program, `P`.
+
+The following definitions are all implicitly passed the current program, `P`. Super-types are abstract, and are not recursively followed. Reference types depend on field types, and as such are not co-inductive.
 
 ```rs
 
@@ -251,8 +261,6 @@ typeof(χ, v) =
   P.primitives(Error) if v ∈ Error
   χ.metadata(ι).type if ι = v
   Cown χ(π).type if π = v
-  // mjp: Is the recursion well-founded here?  The argument is not clear to me, the semantics allows references in fields?
-  // This definition might need to be coinductive if that is the case.
   Ref P.types(typeof(χ, ι).field(𝕣.field).type) if (𝕣 = v) ∧ (𝕣.target = ι)
   Ref χ(π).type if (𝕣 = v) ∧ (𝕣.target = π)
 
@@ -260,7 +268,6 @@ typetest(T₀, T₁) =
   typetest(T₂, T₁) ∧ typetest(T₃, T₁) if T₀ = Union T₂ T₃
   typetest(T₀, T₂) ∨ typetest(T₀, T₃) if T₁ = Union T₂ T₃
   T₀ = T₁ if (T₀ ∈ Ref T) ∨ (T₀ ∈ CownId T) ∨ (T₁ ∈ Ref T) ∨ (T₁ ∈ CownId T)
-  // mjp: Is supertypes transitive? Does it need to be here?
   T₁ ∈ P.types(τ).supertypes if T₀ = τ
   false otherwise
 
@@ -321,7 +328,7 @@ is_ancestor(χ, ρ₀, ρ₁) =
 
 ## Safety
 
-This enforces a tree-shaped region graph, with a single reference from parent to child.
+This enforces a tree-shaped region graph, with a single reference from parent to child. Frame ID order is enforced, such that successor frames have higher IDs than their predecessors.
 
 ```rs
 // mjp:  Does this need to account for nested/embedded objects?
@@ -330,7 +337,7 @@ safe_store(χ, 𝔽, v) =
   true if loc(χ, v) = Immutable
   true if loc(χ, v) = π
   true if loc(χ, v) = ρ
-  true if (loc(χ, v) = 𝔽′) ∧ (𝔽 >= 𝔽′)  // MJP: What is the order on FrameIds? Is this coming from the stack in χ?
+  true if (loc(χ, v) = 𝔽′) ∧ (𝔽 >= 𝔽′)
   false otherwise
 safe_store(χ, ρ, v) =
   false if χ(ρ).readonly
@@ -377,6 +384,12 @@ wf_racefree(χ, σs) =
   ∀σ₀, σ₁ ∈ σs . ∀ι ∈ χ .
     (ι ∈ reachable(χ, σ₀)) ∧ (ι ∈ reachable(χ, σ₁)) ⇒
     (σ₀ = σ₁) ∨ (loc(χ, ι) = Immutable)
+
+// Frame IDs are ordered.
+wf_frameorder(χ, σs) =
+  ∀σ ∈ σs .
+    ∀i ∈ 1 .. |σ| .
+      (σᵢ.id = 𝔽) ⇒ (∀j ∈ (i + 1) .. |σ| . σⱼ.id > 𝔽)
 
 // Frame allocations are reachable only from that frame or antecedent frames.
 wf_stacklocal(χ, σs) =
