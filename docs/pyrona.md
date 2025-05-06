@@ -22,6 +22,48 @@ It is based on the ideas of ownership and concurrency that we are exploring in P
 This prototype has given us confidence in the conceptual ideas behind our ownership model, and has allowed us to explore the design space of ownership in a dynamic language.
 It has also helped us explain our ideas and the different design decisions to people outside the Project Verona team.
 
+
+FrankenScript generates a series of mermaid diagrams that show the region structure of the program.  An example of this is shown below:
+```mermaid
+%%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '16px' }}}%%
+graph TD
+  id0(None):::immutable
+id1[0x60800000cfa0&#13;<br/>rc=1]
+id1--> |#95;#95;proto#95;#95;| id2[#91;Frame#93;&#13;<br/>rc=2 #40;global#41;]
+  linkStyle 0 stroke:#777777,stroke-width:2px
+id1-.-> |z| id3[0x607000009a20&#13;<br/>rc=2]
+  linkStyle 1 stroke:orange,stroke-width:2px
+id3--> |a| id4[0x607000009cc0&#13;<br/>rc=1]
+  linkStyle 2 stroke:#777777,stroke-width:2px
+id1-.-> |r| id5[\0x607000009f60&#13;<br/>lrc=2&#13;<br/>sbrc=0&#13;<br/>rc=1/]
+  linkStyle 3 stroke:orange,stroke-width:2px
+id5--> |#95;#95;proto#95;#95;| id6(#91;RegionObject#93;&#13;<br/>rc=2 #40;global#41;):::immutable
+  linkStyle 4 stroke:#76c5cc,stroke-width:2px
+id5--> |f| id3
+  linkStyle 5 stroke:#777777,stroke-width:2px
+id3
+id4
+id5
+id1
+subgraph LocalReg["Local region"]
+  id1
+  id2
+end
+style LocalReg fill:#eefcdd
+subgraph reg0x60800000d420[" "]
+  id3
+  id4
+  id5
+end
+style reg0x60800000d420 fill:#fcfbdd
+classDef unreachable stroke-width:2px,stroke:red
+classDef highlight stroke-width:4px,stroke:yellow
+classDef error stroke-width:4px,stroke:red
+classDef tainted fill:#8e84cc
+classDef immutable fill:#94f7ff
+```
+
+
 ### Engaging with the Python community
 
 Over the last two years, we have been engaging with the Faster CPython team at Microsoft as a sounding board for our ideas.
@@ -38,7 +80,9 @@ The first step is actually to build a concept of deep immutability into Python. 
 * Deep Immutability: We are starting with a deep immutability model, we have been drafting a [PEP](https://github.com/TobiasWrigstad/peps/pull/8) to describe this model.
   The current prototype is in a PR to a fork of CPython: https://github.com/mjp41/cpython/pull/51
 
-* SCC work and atomic RC
+* Manage cyclic immutable garbage with reference counting and 
+  atomic reference counting of immutable objects. This will enable objects to be moved between sub-interpreters as they will no longer be managed by the interpreter local cycle collector.
+  The current prototype is on the following branch: https://github.com/mjp41/cpython/tree/scc, which is based on top of the PR 51 mentioned above.
 
 * Integration with message passing between sub-interpreters ([PEP734](https://peps.python.org/pep-0734/)).  This will enable us to get parallel performance even though we are technically not losing the GIL.
 
@@ -64,6 +108,12 @@ Bringing an ownership model to Python will help to make it easier to write concu
 
 This is a perfect opportunity to influence the future of Python, and to help make programming experience better for everyone.
 
+### Why not threads and locks?
+
+We are initially exploring using message passing between sub-interpreters.  However, we could also apply the region ideas to locks, and provide a lock that gives temporary access to a region of memory associated with that lock.
+
+We have sketched out a design for how to integrate with the full PEP 703 work, but have not attempted to implement that yet.
+
 ### Why not simply use Rust's ownership model?
 
 Rust's ownership model is designed for a statically typed language, and restricts the type of object graphs that can be used in the language.
@@ -88,3 +138,10 @@ You can try our toy language, [FrankenScript](https://github.com/fxpl/frankenscr
 
 We are also working on several forks of Python that implement our ideas, these are currently on [GitHub](https://github.com/mjp41/cpython).
 
+
+### How can I get involved?  Who can I talk to?
+
+We have listed a few places where you can find parts of the project that are available.
+If you want to find out more about those, raise issues on the appropriate GitHub repo. 
+
+If it is more general, please raise an issue on the [Project Verona Github repo](https://github.com/microsoft/verona/) until we have a more centralised discussion forum.

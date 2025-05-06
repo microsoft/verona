@@ -15,8 +15,13 @@ This page contains the papers related to Project Verona. They are grouped by top
 
 ## Concurrency
 
+The concurrency model develop by Project Verona is called Behaviour-Oriented Concurrency. It is described in the following paper:
 - [When Concurrency Matters: Behaviour-Oriented Concurrency](https://www.microsoft.com/en-us/research/publication/when-concurrency-matters-behaviour-oriented-concurrency)
   Luke Cheeseman, Matthew J. Parkinson, Sylvan Clebsch, Marios Kogias, Sophia Drossopoulou, David Chisnall, Tobias Wrigstad and Paul Liétar, OOPSLA 2024.
+
+It has been applied to build deterministic parallel execution in the following paper:
+- [DORADD: Deterministic Parallel Execution in the Era of Microsecond-Scale Computing](https://doi.org/10.1145/3710848.3710872)
+  Zhengqing Liu, Musa Unal, Matthew J. Parkinson and Marios Kogias, PPoPP 2025
 
 
 ## Reference counting
@@ -33,7 +38,7 @@ snmalloc is a memory allocator that is used in Project Verona. You can read more
 - [snmalloc: A message passing Allocator](https://www.microsoft.com/en-us/research/publication/issm-2019-proceedings-of-the-2019-acm-sigplan-international-symposium-on-memory-management/)
   David Chisnall, Sylvan Clebsch, Sophia Drossopoulou, Juliana Vicente Franco, Paul Lietar, Matthew J. Parkinson, Alex Shamis and Christoph  M. Wintersteiger, ISMM 2019.
 
-It is available on [Github](https://github.com/microsoft/snmalloc) and is used in many other projects, and has a active usage in the Rust community [snmalloc-rs](https://crates.io/crates/snmalloc-rs).
+It is available on [Github](https://github.com/microsoft/snmalloc) and is used in many other projects, and has an active usage in the Rust community [snmalloc-rs](https://crates.io/crates/snmalloc-rs).
 
 
 ## Precursor works
