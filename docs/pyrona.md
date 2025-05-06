@@ -7,7 +7,7 @@ title: Pyrona - Fearless Concurrency for Python
 
 As part of Project Verona, we have been developing a new ownership model for Python, called Lungfish.
 This model is designed to provide a safe and efficient way to manage memory and concurrency in Python programs.
-Pyrona is our experiments to develop this approach.
+Pyrona is our experiment to develop this approach.
 
 
 ## Plan for Python
@@ -20,6 +20,7 @@ FrankenScript is a small language that is designed to be easy to modify and exte
 It is based on the ideas of ownership and concurrency that we are exploring in Project Verona, but where all the checks are dynamic.
 
 This prototype has given us confidence in the conceptual ideas behind our ownership model, and has allowed us to explore the design space of ownership in a dynamic language.
+It has also helped us explain our ideas and the different design decisions to people outside the Project Verona team.
 
 ### Engaging with the Python community
 
@@ -35,15 +36,16 @@ Building an ownership model for Python is a complex task, and we are taking a st
 The first step is actually to build a concept of deep immutability into Python.  This can be split into three parts:
 
 * Deep Immutability: We are starting with a deep immutability model, we have been drafting a [PEP](https://github.com/TobiasWrigstad/peps/pull/8) to describe this model.
+  The current prototype is in a PR to a fork of CPython: https://github.com/mjp41/cpython/pull/51
 
 * SCC work and atomic RC
 
-* Integration with message passing between sub-interpreters
+* Integration with message passing between sub-interpreters ([PEP734](https://peps.python.org/pep-0734/)).  This will enable us to get parallel performance even though we are technically not losing the GIL.
 
-Deep Immutability is a key part of any ownership model as we need concurrent threads to be able to share type information.
-As types in Python are objects, we need a way to share these objects between threads.
+Deep Immutability is a key part of any ownership model as we need concurrent threads to be able to share type information without risking it being mutated under foot.
+As types in Python are mutable objects, we need a way to share these objects between threads.
 
-Once the immutability model is in place, then we can start applying the region-based ownership model to Python.
+Once the immutability model is in place, then we can start applying the region-based ownership model to Python to permit safe sharing and transfer of mutable state.
 This involves applying the ideas developed in the FrankenScript prototype to Python.
 We have made progress on this in our prototyping ideas on CPython, but nothing is ready to try yet.
 
@@ -64,11 +66,11 @@ This is a perfect opportunity to influence the future of Python, and to help mak
 
 ### Why not simply use Rust's ownership model?
 
-Rusts ownership model is designed for a statically typed language, and restricts the type of object graphs that can be used in the language.
+Rust's ownership model is designed for a statically typed language, and restricts the type of object graphs that can be used in the language.
 There is so much existing code in Python that the restrictions of Rust's ownership model would be too limiting.
 We are designing a new ownership model based on regions that is designed to work with Python's dynamic typing and existing object graphs.
 
-Our approach draws heavily from the experience of languages with ownership models like Rust, Cyclone and Pony, but is based completely on dynamic checks.  This completely alters the kind of things that can be checked in comparison to a statically typed approach.
+Our approach draws heavily from the experience of languages with ownership models like Rust, Cyclone Encore, and Pony, but is based completely on dynamic checks.  This completely alters the kind of things that can be checked in comparison to a statically typed approach.
 
 ### What has Project Verona learnt from Pyrona?
 
