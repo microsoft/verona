@@ -50,10 +50,6 @@ jobs:
     name: ${{ matrix.platform }} ${{ matrix.build-type }} ${{ matrix.variant }}
     steps:
     - uses: actions/checkout@v3
-    
-    - uses: mjp41/workaround8649@c8550b715ccdc17f89c8d5c28d7a48eeff9c94a8
-      with:
-        os: ${{ matrix.platform }}
 
     - name: Install build dependencies
       run: ${{ matrix.dependencies }}
