@@ -4,3 +4,5 @@ description: Research programming language for concurrent ownership
 markdown: kramdown
 kramdown:
   toc_levels: "2,3"
+include:
+  - _images

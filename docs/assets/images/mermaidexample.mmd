@@ -1,0 +1,37 @@
+%%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '16px' }}}%%
+graph TD
+  id0(None):::immutable
+id1[0x60800000cfa0&#13;<br/>rc=1]
+id1--> |#95;#95;proto#95;#95;| id2[#91;Frame#93;&#13;<br/>rc=2 #40;global#41;]
+  linkStyle 0 stroke:#777777,stroke-width:2px
+id1-.-> |z| id3[0x607000009a20&#13;<br/>rc=2]
+  linkStyle 1 stroke:orange,stroke-width:2px
+id3--> |a| id4[0x607000009cc0&#13;<br/>rc=1]
+  linkStyle 2 stroke:#777777,stroke-width:2px
+id1-.-> |r| id5[\0x607000009f60&#13;<br/>lrc=2&#13;<br/>sbrc=0&#13;<br/>rc=1/]
+  linkStyle 3 stroke:orange,stroke-width:2px
+id5--> |#95;#95;proto#95;#95;| id6(#91;RegionObject#93;&#13;<br/>rc=2 #40;global#41;):::immutable
+  linkStyle 4 stroke:#76c5cc,stroke-width:2px
+id5--> |f| id3
+  linkStyle 5 stroke:#777777,stroke-width:2px
+id3
+id4
+id5
+id1
+subgraph LocalReg["Local region"]
+  id1
+  id2
+end
+style LocalReg fill:#eefcdd
+subgraph reg0x60800000d420[" "]
+  id3
+  id4
+  id5
+end
+style reg0x60800000d420 fill:#fcfbdd
+classDef unreachable stroke-width:2px,stroke:red
+classDef highlight stroke-width:4px,stroke:yellow
+classDef error stroke-width:4px,stroke:red
+classDef tainted fill:#8e84cc
+classDef immutable fill:#94f7ff
+
