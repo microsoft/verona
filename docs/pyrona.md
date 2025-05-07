@@ -24,7 +24,8 @@ It has also helped us explain our ideas and the different design decisions to pe
 
 
 FrankenScript generates a series of mermaid diagrams that show the region structure of the program.  An example of this is shown below:
-```mermaid
+
+<pre class="mermaid">
 %%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '16px' }}}%%
 graph TD
   id0(None):::immutable
@@ -61,8 +62,8 @@ classDef highlight stroke-width:4px,stroke:yellow
 classDef error stroke-width:4px,stroke:red
 classDef tainted fill:#8e84cc
 classDef immutable fill:#94f7ff
-```
-
+</pre>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
 
 ### Engaging with the Python community
 
@@ -131,7 +132,7 @@ We are currently re-evaluating the balance between the static and dynamic checks
 
 ### Where can I find out more?
 
-We have a detailed list of publications related to Project Verona on our [publications page](/publications.html).
+We have a detailed list of publications related to Project Verona on our [publications page](./publications.html).
 The most relevant paper to Pyrona is [Dynamic Region Ownership for Concurrency Safety](https://www.microsoft.com/en-us/research/publication/dynamic-region-ownership-for-concurrency-safety/).
 
 You can try our toy language, [FrankenScript](https://github.com/fxpl/frankenscript).
