@@ -25,7 +25,7 @@ It has also helped us explain our ideas and the different design decisions to pe
 
 FrankenScript generates a series of mermaid diagrams that show the region structure of the program.  An example of this is shown below:
 
-![mermaidexample](images/mermaidexample.svg)
+![mermaidexample](assets/images/mermaidexample.svg)
 
 ### Engaging with the Python community
 
