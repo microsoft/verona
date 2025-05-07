@@ -5,4 +5,4 @@ markdown: kramdown
 kramdown:
   toc_levels: "2,3"
 include:
-  - _images
+  - images
