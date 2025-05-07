@@ -1,3 +1,5 @@
+- name: Home
+  file: /
 - name: Publications
   file: /publications.html
 - name: FAQ
