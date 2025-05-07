@@ -25,7 +25,7 @@ It has also helped us explain our ideas and the different design decisions to pe
 
 FrankenScript generates a series of mermaid diagrams that show the region structure of the program.  An example of this is shown below:
 
-<pre class="mermaid">
+```mermaid!
 %%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '16px' }}}%%
 graph TD
   id0(None):::immutable
@@ -62,8 +62,7 @@ classDef highlight stroke-width:4px,stroke:yellow
 classDef error stroke-width:4px,stroke:red
 classDef tainted fill:#8e84cc
 classDef immutable fill:#94f7ff
-</pre>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+```
 
 ### Engaging with the Python community
 
