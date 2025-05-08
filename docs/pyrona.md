@@ -1,13 +1,13 @@
 ---
 layout: default
-title: Pyrona - Fearless Concurrency for Python
+title: Fearless Concurrency for Python
 ---
 
-# Pyrona - Fearless Concurrency for Python
+# Fearless Concurrency for Python
 
 As part of Project Verona, we have been developing a new ownership model for Python, called Lungfish.
 This model is designed to provide a safe and efficient way to manage memory and concurrency in Python programs.
-Pyrona is our experiment to develop this approach.
+This page explains our experiments to develop this approach.
 
 
 ## Plan for Python
@@ -41,7 +41,7 @@ Building an ownership model for Python is a complex task, and we are taking a st
 The first step is actually to build a concept of deep immutability into Python.  This can be split into three parts:
 
 * Deep Immutability: We are starting with a deep immutability model, we have been drafting a [PEP](https://github.com/TobiasWrigstad/peps/pull/8) to describe this model.
-  The current prototype is in a PR to a fork of CPython: https://github.com/mjp41/cpython/pull/51
+  The current prototype is in a PR to a fork of CPython 3.12: https://github.com/mjp41/cpython/pull/51
 
 * Manage cyclic immutable garbage with reference counting and 
   atomic reference counting of immutable objects. This will enable objects to be moved between sub-interpreters as they will no longer be managed by the interpreter local cycle collector.
@@ -57,10 +57,6 @@ This involves applying the ideas developed in the FrankenScript prototype to Pyt
 We have made progress on this in our prototyping ideas on CPython, but nothing is ready to try yet.
 
 ## FAQ
-
-### What is Pyrona?
-
-It is our approach to bringing region based ownership to Python.
 
 ### Why Python?
 
@@ -85,7 +81,7 @@ We are designing a new ownership model based on regions that is designed to work
 
 Our approach draws heavily from the experience of languages with ownership models like Rust, Cyclone Encore, and Pony, but is based completely on dynamic checks.  This completely alters the kind of things that can be checked in comparison to a statically typed approach.
 
-### What has Project Verona learnt from Pyrona?
+### What has Project Verona learnt from this work?
 
 Performing ownership research in a dynamically typed language has been a massive learning experience for the Project Verona team.
 It has challenged every assumption we have made about ownership and concurrency in a statically typed language.
@@ -95,9 +91,10 @@ We are currently re-evaluating the balance between the static and dynamic checks
 ### Where can I find out more?
 
 We have a detailed list of publications related to Project Verona on our [publications page](./publications.html).
-The most relevant paper to Pyrona is [Dynamic Region Ownership for Concurrency Safety](https://www.microsoft.com/en-us/research/publication/dynamic-region-ownership-for-concurrency-safety/).
+The most relevant paper to this work is [Dynamic Region Ownership for Concurrency Safety](https://www.microsoft.com/en-us/research/publication/dynamic-region-ownership-for-concurrency-safety/).
 
 You can try our toy language, [FrankenScript](https://github.com/fxpl/frankenscript).
+We also provide a [docker container](https://github.com/microsoft/verona-artifacts/tree/main/frankenscript) to test FrankenScript quickly.
 
 We are also working on several forks of Python that implement our ideas, these are currently on [GitHub](https://github.com/mjp41/cpython).
 

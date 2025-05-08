@@ -9,7 +9,7 @@ This page contains the papers related to Project Verona. They are grouped by top
 ## Ownership
 
 - [Dynamic Region Ownership for Concurrency Safety](https://www.microsoft.com/en-us/research/publication/dynamic-region-ownership-for-concurrency-safety/)
-  Fridtjof Peer Stoldt, Brandt Bucher, Sylvan Clebsch, Matthew Johnson, Matthew J. Parkinson, Guido Van Rossum, Eric Snow and Tobias Wrigstad, PLDI 2025.
+  Fridtjof Stoldt, Brandt Bucher, Sylvan Clebsch, Matthew Johnson, Matthew J. Parkinson, Guido Van Rossum, Eric Snow and Tobias Wrigstad, PLDI 2025.
 - [Reference Capabilities for Flexible Memory Management](https://www.microsoft.com/en-us/research/publication/reference-capabilities-for-flexible-memory-management/)
   Ellen Arvidsson, Elias Castegren, Sylvan Clebsch, Sophia Drossopoulou, Matthew J. Parkinson, James Noble and Tobias Wrigstad, OOPSLA 2024.
 
