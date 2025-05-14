@@ -31,8 +31,8 @@ FrankenScript generates a series of mermaid diagrams that show the region struct
 
 Over the last two years, we have been engaging with the Faster CPython team at Microsoft as a sounding board for our ideas.
 In May 2025, we will be taking our first steps into the boarder Python community at the [Python Language Summit](https://us.pycon.org/2025/events/language-summit/).
-We will be presenting our ideas and seeking feedback from the core developers of the language.
-
+The presentation that we gave on the Python language summit can be found [here](https://wrigstad.com/summit-presentation-final.pdf).
+We are seeking feedback from the core developers and broader community behind the language.
 
 ### Steps to a new ownership model
 
@@ -104,4 +104,5 @@ We are also working on several forks of Python that implement our ideas, these a
 We have listed a few places where you can find parts of the project that are available.
 If you want to find out more about those, raise issues on the appropriate GitHub repo. 
 
-If it is more general, please raise an issue on the [Project Verona Github repo](https://github.com/microsoft/verona/) until we have a more centralised discussion forum.
+If it is more general, please raise an issue on the [Project Verona Github repo](https://github.com/microsoft/verona/),
+or you can join our discussions list [lungfish@lists.uu.se](https://lists.uu.se/sympa/info/lungfish).
