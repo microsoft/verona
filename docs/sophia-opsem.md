@@ -83,7 +83,6 @@ Frame :=
       type: Type,
       cont: Statement*,
       calltype: CallType
-      subcall: Bool // are we in a subcall
     }
 φ ∈ Frame
 
