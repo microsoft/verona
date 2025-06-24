@@ -173,7 +173,7 @@ x ∉ φ₀
 F = φ₀(f)
 y* = get_idents(pr*)
 typecheck (Χ,φ₀,F,y*)
-φ₂,φ₁ = newframe(χ, φ₀, F, x, y*, stmt*, Return) 
+φ₂,φ₁ = newframe(χ, φ₀, F, x, y*, stmt*, Call) 
 --------------------------------------------------------------------------[call]
 χ, σ;φ₀, (bind x (call f pr*));stmt* ⇝ χ ∪ (φ₁.id), σ;φ₂ ;φ₁, F.body
 
@@ -182,7 +182,7 @@ x ∉ φ₀
 F = φ₀(f)
 y* = get_idents(pr*)
 typecheck (Χ,φ₀,F,y*)
-φ₂,φ₁ = newframe(χ, φ₀, F, x, y*, stmt*,Raise) 
+φ₂,φ₁ = newframe(χ, φ₀, F, x, y*, stmt*,Subcall) 
 -------------------------------------------------------------------------[subcall]
 χ, σ;φ₀, (bind x (subcall f pr*));stmt* ⇝ χ ∪ (φ₁.id), σ;φ₂;φ₁, F.body
 
@@ -191,7 +191,7 @@ x ∉ φ₀
 F = φ₀(f)
 y* = get_idents(pr*)
 typecheck (Χ,φ₀,F,y*)
-φ₂,φ₁ = newframe(χ, φ₀, F, x, y*, stmt*,Catch) 
+φ₂,φ₁ = newframe(χ, φ₀, F, x, y*, stmt*,Try) 
 ---------------------------------------------------------------------[try]
 χ, σ;φ₀, (bind x (try f pr*));stmt* ⇝ χ ∪ (φ₁.id), σ;φ₂;φ₁, F.body
 
@@ -261,7 +261,7 @@ typetest(typof(χ,v),φ₁.type.Throw)
 φ₀.calltype  = Try 
 φ₂ = φ₀[φ₁.ret ↦ v] 
 --------------------------------------------------------------[throw]
-χ, σ;φ₀;φ₁,raise x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, φ₁.cont
+χ, σ;φ₀;φ₁,throw x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, φ₁.cont
 
 
 dom(φ.vars) = {x,y} ∪ zs
@@ -361,4 +361,10 @@ def foo3 x =
 
     z = call bar3 x 
     return 2
+
+
+// Maybe try to implement:
+Generators? 
+Coroutines?
+
 ```
