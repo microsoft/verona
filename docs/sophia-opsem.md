@@ -163,8 +163,8 @@ get_idents([]) = []
 
 
 // There are three ways to call: 
-// bind x (call f pr*) will return anything raised by f, and throw anything thrown by f
-// bind x (subcall f pr*) will raise anything raised by f and throw anything thrown by f 
+// bind x (call f pr*) will return anything raised by f, throw anything thrown by f, and bind x to the return value of f if f returns
+// bind x (subcall f pr*) will raise anything raised by f, throw anything thrown by f, and bind x to the return value of f if f returns
 // bind x (try f pr*) will treat throws and raises by f as returns, and so will bind the value thrown, raised, or returned to x.
  
 
@@ -215,7 +215,7 @@ dom(φ.vars) = {x,y} ∪ zs
 dom(φ₁.vars) = {x}
 v = φ₁(x)
 typetest(typof(χ,v),φ₁.type.Raise) 
-φ₁.calltype = Subcall // Called as a subcall, so should raise from a level up
+φ₁.calltype = Subcall
 φ₂ = φ₀[φ₁.ret ↦ v] 
 --------------------------------------------------------------[raise]
 χ, σ;φ₀;φ₁, raise x; stmt* ⇝ χ\(φ₁.id), σ;φ₂, raise φ₁.ret
@@ -306,13 +306,6 @@ def div acc x =
 sequence_of_divs_ok = fold_left div (Some 600) [10;5;4;3] //This should go through the whole thing
 sequence_of_divs_early_return = fold_left div (Some 600) [10;0;4;3]//This should raise 0 after hitting the second element, forcing fold_left to exit early (returning none)
 
-//Control Flow (If/Else primitive using raise)
-
-```
-
-
-
-```rs
 // Behavior of call vs subcall vs try
 def daz y = 
     raise 0
@@ -360,10 +353,5 @@ def foo3 x =
 
     z = call bar3 x 
     return 2
-
-
-// Maybe try to implement:
-Generators? 
-Coroutines?
 
 ```
