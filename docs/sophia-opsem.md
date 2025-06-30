@@ -27,7 +27,7 @@ ws, xs, ys, zs ∈ 𝒫(Ident)
 Stmt := //Give the list of statements here
 
 
-Type := TNone | Bool | TypeId  // No refs for now, may add
+Type := TNone | Bool | TypeId  // No refs for now 
 T ∈ Type
 // User Defined Types
 TypeDesc := 
@@ -61,7 +61,7 @@ P ∈ Program
 Primitive := PNone | PTrue | PFalse  // Drop None from here?
 p ∈ Primitive
 
-Values := ObjectId | Primitive | FunctionID 
+Values := ObjectId | Primitive | FunctionId 
 v ∈ Value
 
 
@@ -106,7 +106,7 @@ Implicit program P
 typeof(χ, PTrue) = P.primitives(Bool)
 typeof(χ, PFalse) = P.primitives(Bool)
 typeof(χ, ι) = χ.metadata(ι).type
-typeof(χ, 𝕗) = // ?? what is type of function? do we need to actually have a function type [t*] -> {return : , raise: , throw :}?, or should this error? 
+typeof(χ, 𝕗) = // ?? what is type of function? do we need to actually have a function type [T*] -> {return : , raise: , throw :}?, or should this error? 
 typeof(χ, PNone) = P.primitives(TNone)
 //typetest (T₀,T₁) Checks whether T₀ is of type T₁
 typetest(T₀,None) = False //Need these to deal with function types that could be empty
@@ -178,6 +178,9 @@ CallTerm = call | subcall | try
 call_term_to_call_type(call) = Call
 call_term_to_call_type(subcall) = Subcall
 call_term_to_call_type(try) = Try
+
+
+
 x ∉ φ₀
 F = P.functions(φ₀(f))
 y* = get_idents(pr*)
@@ -196,66 +199,42 @@ typecheck (Χ,φ₀,F,y*)
 
 
 ReturnTerm = return | NonLocal
-NonLocal = raise | Throw
+rt ∈ ReturnTerm
+NonLocal = raise | throw
+nl ∈ NonLocal
 
-
-// REGULAR RETURN (behaves the same way regardless of how we were called)
+// If the callee returns, or the caller tries, we continue at the 
 
 dom(φ₁.vars) = {x}
 v = φ₁(x)
-typetest(typeof(χ,v),φ₁.type.return)
+typetest(typeof(χ,v),φ₁.type.rt)
+(rt = return) ∨ (φ₁.calltype = Try)
 φ₂ = φ₀[φ₁.ret ↦ v] 
 ----------------------------------------------------------[return/raise/throw] 
-χ, σ;φ₀;φ₁,return x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, φ₁.cont
+χ, σ;φ₀;φ₁,rt x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, φ₁.cont
 
 
+// All the other rules unwrap (based on the combination of the call type and return type)
+unwrap(call,throw) = throw
+unwrap(call,raise) = return
+unwrap(subcall,throw) = throw
+unwrap(subcall,raise) = raise 
 
-// Called as Try (behaves the same way regardless of how we are returning) 
 
 dom(φ₁.vars) = {x}
 v = φ₁(x)
-typetest(typof(χ,v),φ₁.type.ReturnTerm) // A bit overloaded here
-φ₁.calltype = Try 
-φ₂ = φ₀[φ₁.ret ↦ v] 
--------------------------------------------------------[return/raise/raise]
-χ, σ;φ₀;φ₁,ReturnTerm x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, φ₁.cont
-
-
-// Called as Subcall with either raise or throw (return covered by the first rule)
-dom(φ₁.vars) = {x}
-v = φ₁(x)
-typetest(typof(χ,v),φ₁.type.NonLocal) 
-φ₁.calltype = Subcall
-φ₂ = φ₀[φ₁.ret ↦ v] 
---------------------------------------------------------------[return/raise/throw]
-χ, σ;φ₀;φ₁, NonLocal x; stmt* ⇝ χ\(φ₁.id), σ;φ₂, NonLocal φ₁.ret
-
-
-
-// Called as regular Call with raise
-dom(φ₁.vars) = {x}
-v = φ₁(x)
-typetest(typof(χ,v),φ₁.type.Raise) 
-φ₀.calltype = Call 
-φ₂ = φ₀[φ₁.ret ↦ v] 
---------------------------------------------------------------[return/raise/throw] 
-χ, σ;φ₀;φ₁, raise x; stmt* ⇝ χ\(φ₁.id), σ;φ₂, return φ₁.ret
-
-// Called as regular Call with throw
-dom(φ₁.vars) = {x}
-v = φ₁(x)
-typetest(typof(χ,v),φ₁.type.Throw) 
-φ₀.calltype = Call 
-φ₂ = φ₀[φ₁.ret ↦ v] 
---------------------------------------------------------------[return/raise/throw]
-χ, σ;φ₀;φ₁, throw x; stmt* ⇝ χ\(φ₁.id), σ;φ₂, throw φ₁.ret
+typetest(typeof(χ,v),φ₁.type.nl)
+rt = unwrap(φ.calltype,nl)
+φ₂ = φ₀[φ₁.ret ↦ v]
+---------------------------------------------------------------[return/raise/throw]
+χ, σ;φ₀;φ₁, nl x; stmt* ⇝ χ\(φ₁.id), σ;φ₂, rt φ₁.ret
 
 
 
 // Drop other frame variables
 dom(φ.vars) = {x,y} ∪ zs
 ----------------------------------------------------------[return/raise/throw]
-χ, σ;φ, ReturnTerm x;stmt* ⇝ χ, σ;φ, drop y;ReturnTerm x
+χ, σ;φ, rt x;stmt* ⇝ χ, σ;φ, drop y;rt x
 ```
 
 ## Lookup-FunctionPtr 
