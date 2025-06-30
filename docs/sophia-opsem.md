@@ -173,7 +173,7 @@ get_idents([]) = []
 
 
 CallTerm = call | subcall | try 
-
+ct ∈ CallTerm
 
 call_term_to_call_type(call) = Call
 call_term_to_call_type(subcall) = Subcall
@@ -185,9 +185,9 @@ x ∉ φ₀
 F = P.functions(φ₀(f))
 y* = get_idents(pr*)
 typecheck (Χ,φ₀,F,y*)
-φ₂,φ₁ = newframe(χ, φ₀, F, x, y*, stmt*, call_term_to_call_type(CallTerm)) 
+φ₂,φ₁ = newframe(χ, φ₀, F, x, pr*, stmt*, call_term_to_call_type(ct)) 
 --------------------------------------------------------------------------[call/subcall/try]
-χ, σ;φ₀, (bind x (CallTerm f pr*));stmt* ⇝ χ ∪ (φ₁.id), σ;φ₂ ;φ₁, F.body
+χ, σ;φ₀, (bind x (ct f pr*));stmt* ⇝ χ ∪ (φ₁.id), σ;φ₂ ;φ₁, F.body
 
 
 
