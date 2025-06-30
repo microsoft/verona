@@ -27,7 +27,7 @@ ws, xs, ys, zs ∈ 𝒫(Ident)
 Stmt := //Give the list of statements here
 
 
-Type := Bool | TypeId  // No refs for now, may add
+Type := TNone | Bool | TypeId  // No refs for now, may add
 T ∈ Type
 // User Defined Types
 TypeDesc := 
@@ -36,11 +36,11 @@ TypeDesc :=
     fields : Ident ↦ Type 
     methods: Ident ↦ FunctionId
 }
-// Each function output type is given as a tuple: the type the function can return, the type the function could raise, and the type the function can throw. All are optional (if a function only returns and never raises, it should only be given a return type, and None for the others etc)
+// Each function output type is given as a record: the type the function can return, the type the function could raise, and the type the function can throw. All are optional (if a function only returns and never raises, it should only be given a return type, and None for the others etc)
 Function := 
     {
         params : {name : Ident, type : T}* //input params x:T
-        result : (Return : Opt Type * Raise : Opt Type * Throw :Opt Type) // return, raise, and throw types for the function
+        result : {return : Opt T, raise : Opt T, throw : Opt T} // return, raise, and throw types for the function (None or Some T, where None and Some are on the meta level, not on the type level)
         body : Stmt* //body of function
     }
 
@@ -48,7 +48,7 @@ F ∈ Function
 
 Program := 
     {
-        primitives :  Type ↦ TypeId // Gives names to primitive types
+        primitives :  Type ↦ TypeId 
         types : TypeId ↦ TypeDesc // Type Defs
         functions: FunctionId ↦ Function // Function Defs
         globals : Ident ↦ Value // Global vars
@@ -57,12 +57,11 @@ Program :=
 P ∈ Program
 
 
-//Original had error as a primitive, but no error type? 
 
-Primitive := None | True | False  // Why was Bool a primitive value before?
+Primitive := PNone | PTrue | PFalse  // Drop None from here?
 p ∈ Primitive
 
-Values := ObjectId | Primitive | Function
+Values := ObjectId | Primitive | FunctionID 
 v ∈ Value
 
 
@@ -104,15 +103,18 @@ Heap :=
 Implicit program P
 ```rs
 
-typeof(Χ, True) = P.primitives(Bool)
-typeof(Χ, False) = P.primitives(Bool)
-typeof(Χ, ι) = Χ.metadata(ι).type
-
+typeof(χ, PTrue) = P.primitives(Bool)
+typeof(χ, PFalse) = P.primitives(Bool)
+typeof(χ, ι) = χ.metadata(ι).type
+typeof(χ, 𝕗) = // ?? what is type of function? do we need to actually have a function type [t*] -> {return : , raise: , throw :}?, or should this error? 
+typeof(χ, PNone) = P.primitives(TNone)
 //typetest (T₀,T₁) Checks whether T₀ is of type T₁
-typetest(τ₀,None) = False //Need these to deal with function types that could be empty
-typetest(τ₀, Some τ₁) = typetest(τ₀,τ₁)
-typetest(τ₀,τ₁) = τ₁ ∈ P.types(τ₀).supertypes
+typetest(T₀,None) = False //Need these to deal with function types that could be empty
+typetest(T₀, Some T₁) = typetest(T₀,T₁)
+typetest(τ₀,T₁) = T₁ ∈ P.types(τ₀).supertypes
 
+
+typetest(χ,v,τ) = (typeof(χ,v),τ)
 ```
 
 ## Call
@@ -124,7 +126,7 @@ pr ∈ Params
 
 typecheck(χ, φ, F, y*) =
   |F.params| = |y*| ∧
-  ∀i ∈ 1 .. |y*| . typetest(χ, φ(yᵢ), F.paramsᵢ.type)
+  ∀i ∈ 1 .. |y*| . typetest(χ, φ(yᵢ), F.paramsᵢ.type) 
 
 newframe_init(χ, φ, F, x, stmt*,calltype) =
     {id: 𝔽, vars:{},
@@ -154,130 +156,117 @@ move_fun_arg (φₒ,φₙ,y,z) =
     (φₒ\{y},φₙ[z ↦ φₒ(y)])
 
 copy_fun_arg (φₒ,φₙ,y,z) = 
-    φₙ[z ↦ φₒ(y)] // should this increase ref count?
+    φₙ[z ↦ φₒ(y)] // This should increase ref count
 
 
 //Get the identifiers out of input params to pass to new frame
 get_idents(Move y; pr*) = y;get_names(pr*)
+get_idents(Copy y; pr*) = y;get_names(pr*)
 get_idents([]) = []
+
 
 
 // There are three ways to call: 
 // bind x (call f pr*) will return anything raised by f, throw anything thrown by f, and bind x to the return value of f if f returns
 // bind x (subcall f pr*) will raise anything raised by f, throw anything thrown by f, and bind x to the return value of f if f returns
 // bind x (try f pr*) will treat throws and raises by f as returns, and so will bind the value thrown, raised, or returned to x.
- 
 
+
+CallTerm = call | subcall | try 
+
+
+call_term_to_call_type(call) = Call
+call_term_to_call_type(subcall) = Subcall
+call_term_to_call_type(try) = Try
 x ∉ φ₀
-F = φ₀(f)
+F = P.functions(φ₀(f))
 y* = get_idents(pr*)
 typecheck (Χ,φ₀,F,y*)
-φ₂,φ₁ = newframe(χ, φ₀, F, x, y*, stmt*, Call) 
---------------------------------------------------------------------------[call]
-χ, σ;φ₀, (bind x (call f pr*));stmt* ⇝ χ ∪ (φ₁.id), σ;φ₂ ;φ₁, F.body
+φ₂,φ₁ = newframe(χ, φ₀, F, x, y*, stmt*, call_term_to_call_type(CallTerm)) 
+--------------------------------------------------------------------------[call/subcall/try]
+χ, σ;φ₀, (bind x (CallTerm f pr*));stmt* ⇝ χ ∪ (φ₁.id), σ;φ₂ ;φ₁, F.body
 
 
-x ∉ φ₀
-F = φ₀(f)
-y* = get_idents(pr*)
-typecheck (Χ,φ₀,F,y*)
-φ₂,φ₁ = newframe(χ, φ₀, F, x, y*, stmt*,Subcall) 
--------------------------------------------------------------------------[subcall]
-χ, σ;φ₀, (bind x (subcall f pr*));stmt* ⇝ χ ∪ (φ₁.id), σ;φ₂;φ₁, F.body
-
-
-x ∉ φ₀
-F = φ₀(f)
-y* = get_idents(pr*)
-typecheck (Χ,φ₀,F,y*)
-φ₂,φ₁ = newframe(χ, φ₀, F, x, y*, stmt*,Try) 
----------------------------------------------------------------------[try]
-χ, σ;φ₀, (bind x (try f pr*));stmt* ⇝ χ ∪ (φ₁.id), σ;φ₂;φ₁, F.body
 
 ```
 ## Return
 
 ```rs
 // Three forms of return: return, raise, and throw. Return is a local return. Raise is a non-local return. It will return at a place where the caller used standard call. It can also be captured into a binder if the caller used try. Throw should be used in the case of an error, and will propogate upwards unless captured by a try.
+
+
+ReturnTerm = return | NonLocal
+NonLocal = raise | Throw
+
+
+// REGULAR RETURN (behaves the same way regardless of how we were called)
+
 dom(φ₁.vars) = {x}
 v = φ₁(x)
-typetest(typeof(χ,v),φ₁.type.Return)
+typetest(typeof(χ,v),φ₁.type.return)
 φ₂ = φ₀[φ₁.ret ↦ v] 
-----------------------------------------------------------[return]
+----------------------------------------------------------[return/raise/throw] 
 χ, σ;φ₀;φ₁,return x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, φ₁.cont
 
 
-// Drop other frame variables
-dom(φ.vars) = {x,y} ∪ zs
---------------------------------------------------[return]
-χ, σ;φ, return x;stmt* ⇝ χ, σ;φ, drop y;return x
+
+// Called as Try (behaves the same way regardless of how we are returning) 
 
 dom(φ₁.vars) = {x}
 v = φ₁(x)
-typetest(typof(χ,v),φ₁.type.Raise) 
+typetest(typof(χ,v),φ₁.type.ReturnTerm) // A bit overloaded here
+φ₁.calltype = Try 
+φ₂ = φ₀[φ₁.ret ↦ v] 
+-------------------------------------------------------[return/raise/raise]
+χ, σ;φ₀;φ₁,ReturnTerm x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, φ₁.cont
+
+
+// Called as Subcall with either raise or throw (return covered by the first rule)
+dom(φ₁.vars) = {x}
+v = φ₁(x)
+typetest(typof(χ,v),φ₁.type.NonLocal) 
 φ₁.calltype = Subcall
 φ₂ = φ₀[φ₁.ret ↦ v] 
---------------------------------------------------------------[raise]
-χ, σ;φ₀;φ₁, raise x; stmt* ⇝ χ\(φ₁.id), σ;φ₂, raise φ₁.ret
+--------------------------------------------------------------[return/raise/throw]
+χ, σ;φ₀;φ₁, NonLocal x; stmt* ⇝ χ\(φ₁.id), σ;φ₂, NonLocal φ₁.ret
 
 
+
+// Called as regular Call with raise
 dom(φ₁.vars) = {x}
 v = φ₁(x)
 typetest(typof(χ,v),φ₁.type.Raise) 
 φ₀.calltype = Call 
 φ₂ = φ₀[φ₁.ret ↦ v] 
---------------------------------------------------------------[raise] 
+--------------------------------------------------------------[return/raise/throw] 
 χ, σ;φ₀;φ₁, raise x; stmt* ⇝ χ\(φ₁.id), σ;φ₂, return φ₁.ret
 
-
-dom(φ₁.vars) = {x}
-v = φ₁(x)
-typetest(typof(χ,v),φ₁.type.Raise) 
-φ₁.calltype = Try 
-φ₂ = φ₀[φ₁.ret ↦ v] 
--------------------------------------------------------[raise]
-χ, σ;φ₀;φ₁,raise x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, φ₁.cont
-
-
-
-dom(φ.vars) = {x,y} ∪ zs
---------------------------------------------------[raise]
-χ, σ;φ, raise x;stmt* ⇝ χ, σ;φ, drop y;raise x
-
-
+// Called as regular Call with throw
 dom(φ₁.vars) = {x}
 v = φ₁(x)
 typetest(typof(χ,v),φ₁.type.Throw) 
-φ₀.calltype = Call | Subcall
+φ₀.calltype = Call 
 φ₂ = φ₀[φ₁.ret ↦ v] 
---------------------------------------------------------------[throw]
+--------------------------------------------------------------[return/raise/throw]
 χ, σ;φ₀;φ₁, throw x; stmt* ⇝ χ\(φ₁.id), σ;φ₂, throw φ₁.ret
 
 
-dom(φ₁.vars) = {x}
-v = φ₁(x)
-typetest(typof(χ,v),φ₁.type.Throw) 
-φ₀.calltype  = Try 
-φ₂ = φ₀[φ₁.ret ↦ v] 
---------------------------------------------------------------[throw]
-χ, σ;φ₀;φ₁,throw x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, φ₁.cont
 
-
+// Drop other frame variables
 dom(φ.vars) = {x,y} ∪ zs
---------------------------------------------------[throw]
-χ, σ;φ, throw x;stmt* ⇝ χ, σ;φ, drop y;throw x
+----------------------------------------------------------[return/raise/throw]
+χ, σ;φ, ReturnTerm x;stmt* ⇝ χ, σ;φ, drop y;ReturnTerm x
 ```
 
 ## Lookup-FunctionPtr 
 ```rs
 x ∉ φ
-F = P.functions(𝐟)
 -----------------------------------------------------------------[lookup-static]
-Χ,σ;φ bind x (lookup 𝐟);stmt* ⇝ Χ,σ,φ[x ↦ F],stmt*
+Χ,σ;φ bind x (lookup 𝐟);stmt* ⇝ Χ,σ,φ[x ↦ 𝐟],stmt*
 
 x ∉ φ
 τ = typeof(χ, φ(y))
-F = P.functions(P.types(τ).methods(w))
+𝐟 = (P.types(τ).methods(w))
 ----------------------------------------------------------------[lookup-dynamic]
 Χ,σ;φ bind x (lookup w y);stmt* ⇝ Χ,σ,φ[x ↦ F],stmt*
 
