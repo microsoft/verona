@@ -27,7 +27,7 @@ ws, xs, ys, zs ∈ 𝒫(Ident)
 Stmt := //Give the list of statements here
 
 
-Type := TNone | Bool | TypeId  // No refs for now 
+Type := TNone | Bool | TypeId | Fun (Type * Type * ... Type) * Type // No refs for now 
 T ∈ Type
 // User Defined Types
 TypeDesc := 
@@ -37,19 +37,22 @@ TypeDesc :=
     methods: Ident ↦ FunctionId
 }
 // Each function output type is given as a record: the type the function can return, the type the function could raise, and the type the function can throw. All are optional (if a function only returns and never raises, it should only be given a return type, and None for the others etc)
-Function := 
+Function_Body := 
     {
         params : {name : Ident, type : T}* //input params x:T
         result : {return : Opt T, raise : Opt T, throw : Opt T} // return, raise, and throw types for the function (None or Some T, where None and Some are on the meta level, not on the type level)
         body : Stmt* //body of function
     }
-
+Function_Type := 
+    params : T*
+    result :  {return : Opt T, raise : Opt T, throw : Opt T} // Not quite a union type? 
 F ∈ Function
 
 Program := 
     {
         primitives :  Type ↦ TypeId 
         types : TypeId ↦ TypeDesc // Type Defs
+        function_types : FunctionId ↦ 
         functions: FunctionId ↦ Function // Function Defs
         globals : Ident ↦ Value // Global vars
     }
@@ -72,7 +75,7 @@ Object := Ident ↦ Value
 ObjectInformation = 
     {type : TypeID}
 
-CallType = Call | Subcall | Try
+CallType = Call | Subcall | Catch
 
 Frame :=
     {
@@ -93,7 +96,7 @@ Heap :=
         // Each ObjectId maps to an object 
         data : ObjectId ↦ Object 
         // Each ObjectId is also associated with some information about that object
-        metadata : ObjectId ↦ ObjectInformation
+        metadata_obj : ObjectId ↦ ObjectInformation
         frames : 𝒫(FrameId)
     }
 Χ ∈ Heap
@@ -106,7 +109,7 @@ Implicit program P
 typeof(χ, PTrue) = P.primitives(Bool)
 typeof(χ, PFalse) = P.primitives(Bool)
 typeof(χ, ι) = χ.metadata(ι).type
-typeof(χ, 𝕗) = // ?? what is type of function? do we need to actually have a function type [T*] -> {return : , raise: , throw :}?, or should this error? 
+typeof(χ, 𝕗) =  
 typeof(χ, PNone) = P.primitives(TNone)
 //typetest (T₀,T₁) Checks whether T₀ is of type T₁
 typetest(T₀,None) = False //Need these to deal with function types that could be empty
@@ -156,7 +159,7 @@ move_fun_arg (φₒ,φₙ,y,z) =
     (φₒ\{y},φₙ[z ↦ φₒ(y)])
 
 copy_fun_arg (φₒ,φₙ,y,z) = 
-    φₙ[z ↦ φₒ(y)] // This should increase ref count
+    φₙ[z ↦ φₒ(y)] // This should eventually increase ref count (once this actually contains ref count)
 
 
 //Get the identifiers out of input params to pass to new frame
@@ -169,15 +172,15 @@ get_idents([]) = []
 // There are three ways to call: 
 // bind x (call f pr*) will return anything raised by f, throw anything thrown by f, and bind x to the return value of f if f returns
 // bind x (subcall f pr*) will raise anything raised by f, throw anything thrown by f, and bind x to the return value of f if f returns
-// bind x (try f pr*) will treat throws and raises by f as returns, and so will bind the value thrown, raised, or returned to x.
+// bind x (catch f pr*) will treat throws and raises by f as returns, and so will bind the value thrown, raised, or returned to x.
 
 
-CallTerm = call | subcall | try 
+CallTerm = call | subcall | catch
 ct ∈ CallTerm
 
 call_term_to_call_type(call) = Call
 call_term_to_call_type(subcall) = Subcall
-call_term_to_call_type(try) = Try
+call_term_to_call_type(catch) = Catch
 
 
 
@@ -186,7 +189,7 @@ F = P.functions(φ₀(f))
 y* = get_idents(pr*)
 typecheck (Χ,φ₀,F,y*)
 φ₂,φ₁ = newframe(χ, φ₀, F, x, pr*, stmt*, call_term_to_call_type(ct)) 
---------------------------------------------------------------------------[call/subcall/try]
+--------------------------------------------------------------------------[call/subcall/catch]
 χ, σ;φ₀, (bind x (ct f pr*));stmt* ⇝ χ ∪ (φ₁.id), σ;φ₂ ;φ₁, F.body
 
 
@@ -195,7 +198,7 @@ typecheck (Χ,φ₀,F,y*)
 ## Return
 
 ```rs
-// Three forms of return: return, raise, and throw. Return is a local return. Raise is a non-local return. It will return at a place where the caller used standard call. It can also be captured into a binder if the caller used try. Throw should be used in the case of an error, and will propogate upwards unless captured by a try.
+// Three forms of return: return, raise, and throw. Return is a local return. Raise is a non-local return. It will return at a place where the caller used standard call. It can also be captured into a binder if the caller used catch. Throw should be used in the case of an error, and will propogate upwards unless captured by a catch.
 
 
 ReturnTerm = return | NonLocal
@@ -203,12 +206,12 @@ rt ∈ ReturnTerm
 NonLocal = raise | throw
 nl ∈ NonLocal
 
-// If the callee returns, or the caller tries, we continue at the 
+// Capture Rule (regular return and any catch)
 
 dom(φ₁.vars) = {x}
 v = φ₁(x)
 typetest(typeof(χ,v),φ₁.type.rt)
-(rt = return) ∨ (φ₁.calltype = Try)
+(rt = return) ∨ (φ₁.calltype = Catch)
 φ₂ = φ₀[φ₁.ret ↦ v] 
 ----------------------------------------------------------[return/raise/throw] 
 χ, σ;φ₀;φ₁,rt x;stmt* ⇝ χ\(φ₁.id), σ;φ₂, φ₁.cont
@@ -224,7 +227,7 @@ unwrap(subcall,raise) = raise
 dom(φ₁.vars) = {x}
 v = φ₁(x)
 typetest(typeof(χ,v),φ₁.type.nl)
-rt = unwrap(φ.calltype,nl)
+rt = unwrap(φ₁.calltype,nl)
 φ₂ = φ₀[φ₁.ret ↦ v]
 ---------------------------------------------------------------[return/raise/throw]
 χ, σ;φ₀;φ₁, nl x; stmt* ⇝ χ\(φ₁.id), σ;φ₂, rt φ₁.ret
@@ -241,13 +244,13 @@ dom(φ.vars) = {x,y} ∪ zs
 ```rs
 x ∉ φ
 -----------------------------------------------------------------[lookup-static]
-Χ,σ;φ bind x (lookup 𝐟);stmt* ⇝ Χ,σ,φ[x ↦ 𝐟],stmt*
+Χ,σ;φ bind x 𝐟;stmt* ⇝ Χ,σ,φ[x ↦ 𝐟],stmt*
 
 x ∉ φ
 τ = typeof(χ, φ(y))
 𝐟 = (P.types(τ).methods(w))
 ----------------------------------------------------------------[lookup-dynamic]
-Χ,σ;φ bind x (lookup w y);stmt* ⇝ Χ,σ,φ[x ↦ F],stmt*
+Χ,σ;φ bind x (lookup w y);stmt* ⇝ Χ,σ,φ[x ↦ 𝐟],stmt*
 
 
 
@@ -262,7 +265,10 @@ x ∉ φ
 def fold_left f acc l = 
     match l with
     |[] -> return (acc)
-    |h ::t -> return (fold_left f (f acc h) t)
+    |h ::t -> x = call f acc h
+              y = call fold_left f x t
+              return y
+    
 
 def div acc x = 
   if x == 0 then raise (None) 
@@ -271,10 +277,10 @@ def div acc x =
     |None -> raise (None)
     |Some n -> return (Some (n/x))
 
-sequence_of_divs_ok = fold_left div (Some 600) [10;5;4;3] //This should go through the whole thing
-sequence_of_divs_early_return = fold_left div (Some 600) [10;0;4;3]//This should raise 0 after hitting the second element, forcing fold_left to exit early (returning none)
+sequence_of_divs_ok =  call fold_left div (Some 600) [10;5;4;3] //This should go through the whole thing
+sequence_of_divs_early_return = call fold_left div (Some 600) [10;0;4;3]//This should raise 0 after hitting the second element, forcing fold_left to exit early (returning none)
 
-// Behavior of call vs subcall vs try
+// Behavior of call vs subcall vs catch
 def daz y = 
     raise 0
 
@@ -308,7 +314,7 @@ def foo2 x =
  
  
 // foo3 calls bar3 (if bar3 raises, foo3 returns)
-// bar3 calls daz but in a try (if daz raises, w will be bound to the value that daz raises)
+// bar3 calls daz but in a catch (if daz raises, w will be bound to the value that daz raises)
 // daz raises 0
 // w is bound to 0 
 // bar3 returns 1
@@ -316,7 +322,7 @@ def foo2 x =
 // foo3 returns 2 
 def foo3 x = 
     def bar3 y = 
-        w = try daz y 
+        w = catch daz y 
         return 1
 
     z = call bar3 x 
