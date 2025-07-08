@@ -18,13 +18,13 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 ## Style
 
-We use `clang-format-9` on our CI bots, which will fail the pull request if the code is not formatted as expected.
+We use `clang-format-15` on our CI bots, which will fail the pull request if the code is not formatted as expected.
 
 The `clang-format` tool doesn't guarantee backward or forward compatibility, so we have to fix a version for our CI and local development.
 
 Both versions 8 and 10 (and therefore any other version) is incompatible with version 9 and *will* break the build, so you must download and use version 9.
 
-To do so, you can choose a number of ways to download it (ex. [npm](https://www.npmjs.com/package/clang-format), [releases](https://releases.llvm.org/), [apt](https://packages.ubuntu.com/search?suite=default&section=all&arch=any&keywords=clang-format-9&searchon=names), [Arch AUR](https://aur.archlinux.org/packages/clang-format-static-bin/), etc), then put on your PATH *before* you run CMake.
+To do so, you can choose a number of ways to download it (ex. [npm](https://www.npmjs.com/package/clang-format), [releases](https://releases.llvm.org/), [apt](https://packages.ubuntu.com/search?suite=default&section=all&arch=any&keywords=clang-format-15&searchon=names), [Arch AUR](https://aur.archlinux.org/packages/clang-format-static-bin/), etc), then put on your PATH *before* you run CMake.
 
 A `clangformat` target will be created and you can make sure you won't break the build by running that target.
 
