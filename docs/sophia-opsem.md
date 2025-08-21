@@ -87,7 +87,8 @@ Region :=
 {
     type: RegionType
     parent: RegionId | None | FrameId // (Frame id if local region only) 
-    stack_rc : ℕ // if type is not RegionRC (can be arbitrary if not a ref counted region)
+    stack_rc : ℕ // if type is RegionRC (can be arbitrary if not a ref counted region)
+    readonly : 𝔹 // if this region is referenced from a read only cown, then no object in it should be writeable, frame local regions should always be writeable
 }
 R ∈ Region
 
@@ -132,6 +133,17 @@ Heap :=
         regions : RegionId ↦ Region
     }
 Χ ∈ Heap
+
+ReadWrite = Free | Write | Read ℕ // write and read acquisitions are mutually exclusive, so either 1 behavior has write access, or n have read access, or no access
+
+Π ∈ Cown =
+    {
+      type: Type, 
+      content: Value,
+      queue: BehaviorId*, //queue of waiting behaviors
+      read-write: ReadWrite, 
+      rc: ℕ
+    }
 
 ```
 ## Typing 
