@@ -1,10 +1,6 @@
 # Operational Semantics 
 No finalization right now
-Immediate TODOs:
-* Get required definitions from opsem doc
-* Rewrite Call semantics to split lookup and call 
-* Probably want some other blocks so that non local return actually makes sense
-* Non Local Return
+
 
 
 ## Definitions 
@@ -544,7 +540,7 @@ write_barrier_cown(χ,π,ι) =
     Some χ if Lₚ = loc(χ,ι) // old loc same as new loc, can't store frame local in cown, so we know ι is also not frame local
     clear_parent(χ₂,Lₚ) if ρ = loc(χ,ι) ∧ islocal(χ,ρ) ∧ χ₁ = χ[ρₙ ↦ {type:RegionRC,parent:π,stack_rc:1,readonly:False}] ∧ Some χ₂ = drag_non_local(χ₁,ι,ρₙ)  // new loc is frame local. Make a new region, drag everything into it, write that into the cown
     where ρₙ ∉ χ 
-    clear_parent(set_parent(χ,ρ,π),Lₚ) if ρ = loc(χ,ι) ∧ ~islocal(χ,ρ) ∧ χ(ρ).parent = None 
+    Some clear_parent(set_parent(χ,ρ,π),Lₚ) if ρ = loc(χ,ι) ∧ ~islocal(χ,ρ) ∧ χ(ρ).parent = None 
 
 
 
