@@ -26,9 +26,12 @@ ws, xs, ys, zs ∈ 𝒫(Ident)
 ι ∈ ObjectId
 ρ ∈ RegionId
 𝔽 ∈ FrameId
+
 ιs ∈ 𝒫(ObjectId)
 Stmt := //Give the list of statements here
 
+Reference = {target: ObjectId | CownId, field: Ident}
+𝕣 ∈ Reference
 
 Type := TNone | Bool | TypeId | Fun (Type * Type * ... Type) * Type // No refs for now 
 T ∈ Type
@@ -76,17 +79,17 @@ v ∈ Value
 RegionType := RegionRC | RegionArena
 RT ∈ RegionType
 
-// None not really a location
+// None not really a location, but used for write barrier to indicate nothing was previously stored
 
 Location := None | RegionId | Immutable | FrameId // Maybe find better name, still don't like location
-L ∈ Locatio
+L ∈ Location
 
 
 
 Region := 
 {
     type: RegionType
-    parent: RegionId | None | FrameId // (Frame id if local region only) 
+    parent: RegionId | None | FrameId | CownId// (Frame id if local region only) 
     stack_rc : ℕ // if type is RegionRC (can be arbitrary if not a ref counted region)
     readonly : 𝔹 // if this region is referenced from a read only cown, then no object in it should be writeable, frame local regions should always be writeable
 }
@@ -129,18 +132,19 @@ Heap :=
         data : ObjectId ↦ Object 
         // Each ObjectId is also associated with some information about that object
         metadata_obj : ObjectId ↦ ObjectInformation
+        cowns : CownId ↦ cown
         frames : 𝒫(FrameId)
         regions : RegionId ↦ Region
     }
 Χ ∈ Heap
 
-ReadWrite = Free | Write | Read ℕ // write and read acquisitions are mutually exclusive, so either 1 behavior has write access, or n have read access, or no access
+ReadWrite = Free | Write | Read ℕ // write and read acquisitions are mutually exclusive, so either 1 behavior has write access, or n have read access, or no behaviors have access
 
 Π ∈ Cown =
     {
       type: Type, 
       content: Value,
-      queue: BehaviorId*, //queue of waiting behaviors
+      queue: BehaviorId*, //queue of waiting behaviors: TODO: actually do behaviors
       read-write: ReadWrite, 
       rc: ℕ
     }
@@ -416,7 +420,8 @@ get_all_draggables(χ,∅,ρ,n,ιsₜ,ρs) = Some (ιsₜ,ρs,n)
 
 
 
-
+parent_region(χ,ρ₁,π) = 
+    χ(ρ₁)[parent ↦ π]
 
 // precondition: ρ₁ and ρ are not frame local
 parent_region(χ,ρ₁,ρ) = 
@@ -466,7 +471,9 @@ drag(χ,ι,ρ) =
   
 
 clear_parent(χ,L) = 
-    stack_dec(χ,χ(ρ).parent,1)(ρ).parent = None if L = ρ ∧ χ(ρ).parent ∈ RegionId 
+    stack_dec(χ,χ(ρ).parent,1)(ρ)[parent ↦ None]  if L = ρ ∧ χ(ρ).parent ∈ RegionId 
+    χ(ρ)[parent ↦ None] if L = ρ ∧ χ(ρ).parent ∈ CownId
+
     χ otherwise
 
 
@@ -517,6 +524,7 @@ write_barrier_real_region(χ,Lₚ,ρ,ι₁) =
 
 write_barrier(χ,Lₚ,L,ι₁) = 
     None if Immutable = L 
+    None if ρ = L ∧ χ(ρ).readonly = True
     write_from_frame(χ,𝔽,ι₁) if 𝔽 = L 
     write_barrier_local(χ,ρ,ι₁) if ρ = L ∧ islocal(χ,ρ)
     write_barrier_real_region(χ,Lₚ,L,ι₁) if ρ = L ∧ ~islocal(χ,ρ)
@@ -530,15 +538,27 @@ write_barrier(χ,Lₚ,L,ι₁) =
 
 write_barrier_fields(χ,_,ι,∅) = χ
 
+write_barrier_cown(χ,π,ι) = 
+    V = χ(π).value 
+    Lₚ = loc(χ,V) 
+    Some χ if Lₚ = loc(χ,ι) // old loc same as new loc, can't store frame local in cown, so we know ι is also not frame local
+    clear_parent(χ₂,Lₚ) if ρ = loc(χ,ι) ∧ islocal(χ,ρ) ∧ χ₁ = χ[ρₙ ↦ {type:RegionRC,parent:π,stack_rc:1,readonly:False}] ∧ Some χ₂ = drag_non_local(χ₁,ι,ρₙ)  // new loc is frame local. Make a new region, drag everything into it, write that into the cown
+    where ρₙ ∉ χ 
+    clear_parent(set_parent(χ,ρ,π),Lₚ) if ρ = loc(χ,ι) ∧ ~islocal(χ,ρ) ∧ χ(ρ).parent = None 
+
+
+
+
+//TODO change this to be any value rather than just objects
 write_barrier_ref(χ,𝕣,ι) = 
     Lₚ = loc(χ,𝕣.field) // previous location 
     L = loc(χ,𝕣.target) // location of object this is a reference into 
-    write_barrier(χ,Lₚ,L,ι)
+    write_barrier(χ,Lₚ,L,ι) if ιₚ = 𝕣.target
+    // Since we have a reference to the cown (not just the cown), must be a write accessible cown
 
-write_barrier_ref_cown(χ,)
+    write_barrier_cown(χ,π,ι) if π = 𝕣.target
 
 
-write_cown(χ,π,)
 ```
 
 ## New Objects
