@@ -359,18 +359,24 @@ frame_locals_nl(χ,ι,ρ,ιsₜ,n) =
 frame_locals_nl(χ,ι,⋅,ρ,ιs,n) = (ιs,n)
 
 
-// all the fields of the object that are in real regions, cannot be a set, because if an object appears twice, we need to process it twice
+// all the fields of the object that are in real regions, as field names to ensure that 
+// we see when two objects are in the same region
 region_fields(χ,ω,ρ) = 
     {x | x ∈ dom(ω) ∧ ω(x) = ι ∧ ρₓ = loc(χ,ι) ∧ ~islocal(χ,ρₓ) ∧ ρₓ ≠ ρ}
 
 
 
-// precondition: all χ(ι)(x) are in real regions, and not in ρ (so ρ ≠ ρ₁) // need to go object by object, to ensure that no region apeears twice, so maintain list of field ids rather than object identifiers 
-parent_regions_ok(χ,ι,x;xs,ρs,ρ) = 
+// precondition: all χ(ι)(x) are in real regions, and not in ρ (so ρ ≠ ρ₁) // need to go object by object, to ensure that no region apears twice, so maintain list of field ids rather than object identifiers, 
+parent_regions_ok(χ,ι,x;xs,ρs,ρ,Lₚ,𝔹) = 
     ω = χ(ι)
-    ρ₁ = loc(χ,ω(x)) ∉ ρs ∧ (χ(ρ₁).parent = None) ∧ ~is_ancestor_of(χ,ρ₁,ρ) ∧ parent_regions_ok(χ,ι,xs,ρs ∪ {ρ₁}, ρ)
+    ρ₁ = loc(χ,ω(x)) ∉ ρs
+    parent_regions_ok(χ,ι,xs,ρs ∪ {ρ₁}, ρ,true) if ρ₁ = Lₚ ∧ ~𝔹
+            
+    (χ(ρ₁).parent = None) ∧ ~is_ancestor_of(χ,ρ₁,ρ) ∧ parent_regions_ok(χ,ι,xs,ρs ∪ {ρ₁}, ρ,𝔹) otherwise
 
-parent_regions_ok(χ,ι,⋅,ρs,ρ) = true
+
+
+parent_regions_ok(χ,ι,⋅,ρs,ρ,𝔹) = true
 
 //regions that the objects ιs live in precondition: all χ(ι)(x) are in real regions
 get_regions(χ,ι,x;xs) = 
@@ -380,8 +386,10 @@ get_regions(χ,ι,⋅) = ∅
 
     
 
-add_regions(χ,ι,xs,ρs,ρ) = 
-    Some (get_regions(χ,ι,xs) ∪ ρs) if parent_regions_ok(χ,ι,xs,ρs,ρ)
+add_regions(χ,ι,xs,ρs,ρ,Lₚ) = 
+
+    Some (get_regions(χ,ι,xs) ∪ ρs) if Lₚ ∈ ρs ∧ parent_regions_ok(χ,ι,xs,ρs,ρ,true)
+    Some (get_regions(χ,ι,xs) ∪ ρs) if Lₚ ∉ ρs ∧ parent_regions_ok(χ,ι,xs,ρs,ρ,false)
     None otherwise
 
 
@@ -400,7 +408,7 @@ is_ancestor_of(χ,ρ₀,ρ) =
 //ρ = the region we want to drag objects into
 //χ = the heap
 //ρs = the real regions that we visit during the traversal
-get_all_draggables(χ,ι;ιsₕ,ρ,n,ιsₜ,ρs) = 
+get_all_draggables(χ,ι;ιsₕ,ρ,n,ιsₜ,ρs, Lₚ) = 
     ω = χ(ι) // the source object we want to drag
     ρ₀ = loc(χ,ι) // the location of the object
     (ιsₜ₀,n₀) = frame_locals_nl(χ,ι,dom(ω),ρ,n,ιsₜ)// total set of objects now tracked, new internal ref count
@@ -409,7 +417,7 @@ get_all_draggables(χ,ι;ιsₕ,ρ,n,ιsₜ,ρs) =
 
     xsᵣ = region_fields(χ,ι,ρ) //fields of ι which are in real regions that are not ρ this needs to be a list, because if a region appears more than once, we need to fail
 
-    get_all_draggables(χ,ιsₕ ∪ ιsₙ,n₀, ρ, ιsₜ₀,ρs₁)  if add_regions(χ,ι,xsᵣ,ρs,ρ) = Some ρs₁
+    get_all_draggables(χ,ιsₕ ∪ ιsₙ,n₀, ρ, ιsₜ₀,ρs₁)  if add_regions(χ,ι,xsᵣ,ρs,ρ,Lₚ) = Some ρs₁
     None otherwise
    
 get_all_draggables(χ,∅,ρ,n,ιsₜ,ρs) = Some (ιsₜ,ρs,n)
@@ -436,11 +444,11 @@ update_ref_counts(χ,ρ,n,ι;ιs) =
 update_ref_counts(χ,ρ,n,∅) = stack_dec(χ,ρ,n)
     
 //precondition: ι is in frame local region, ρ is a non local region
-drag_non_local(χ,ι,ρ) = 
+drag_non_local(χ,ι,ρ, Lₚ) = 
     χ₁ = move_objects(χ,ιs,ρ)
     χ₂ = parent_regions(χ₁,ρs,ρ)   
     Some (update_ref_counts(χ₂,ρ,n,ιs))
-        if get_all_draggables(χ,{ι},ρ,0,{ι},∅) = Some (ιs,ρs,n) // things to drag, regions to parent, internal ref count of things getting dragged
+        if get_all_draggables(χ,{ι},ρ,0,{ι},∅,Lₚ) = Some (ιs,ρs,n) // things to drag, regions to parent, internal ref count of things getting dragged
     None otherwise
 
 
