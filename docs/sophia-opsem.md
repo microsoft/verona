@@ -260,7 +260,7 @@ nl ∈ NonLocal
 
 heap_after_return(χ,ι,𝔽,φ) = 
     ρ = χ.metadata_obj(ι) 
-    drag(χ,ι,φ.region) if islocal(χ,ρ) ∧ ρ.parent = 𝔽
+    drag_local(χ,ι,φ.region) if islocal(χ,ρ) ∧ ρ.parent = 𝔽
 
 heap_after_return(χ,_,𝔽,φ) = Some χ
 // Capture Rule (regular return and any catch)
@@ -367,16 +367,14 @@ region_fields(χ,ω,ρ) =
 
 
 // precondition: all χ(ι)(x) are in real regions, and not in ρ (so ρ ≠ ρ₁) // need to go object by object, to ensure that no region apears twice, so maintain list of field ids rather than object identifiers, 
-parent_regions_ok(χ,ι,x;xs,ρs,ρ,Lₚ,𝔹) = 
+parent_regions_ok(χ,ι,x;xs,ρs,ρ) = 
     ω = χ(ι)
-    ρ₁ = loc(χ,ω(x)) ∉ ρs
-    parent_regions_ok(χ,ι,xs,ρs ∪ {ρ₁}, ρ,true) if ρ₁ = Lₚ ∧ ~𝔹
-            
-    (χ(ρ₁).parent = None) ∧ ~is_ancestor_of(χ,ρ₁,ρ) ∧ parent_regions_ok(χ,ι,xs,ρs ∪ {ρ₁}, ρ,𝔹) otherwise
+    ρ₁ = loc(χ,ω(x)) ∉ ρs      
+    (χ(ρ₁).parent = None) ∧ ~is_ancestor_of(χ,ρ₁,ρ) ∧ parent_regions_ok(χ,ι,xs,ρs ∪ {ρ₁}, ρ) 
 
 
 
-parent_regions_ok(χ,ι,⋅,ρs,ρ,𝔹) = true
+parent_regions_ok(χ,ι,⋅,ρs,ρ) = true
 
 //regions that the objects ιs live in precondition: all χ(ι)(x) are in real regions
 get_regions(χ,ι,x;xs) = 
@@ -386,10 +384,9 @@ get_regions(χ,ι,⋅) = ∅
 
     
 
-add_regions(χ,ι,xs,ρs,ρ,Lₚ) = 
+add_regions(χ,ι,xs,ρs,ρ) = 
 
-    Some (get_regions(χ,ι,xs) ∪ ρs) if Lₚ ∈ ρs ∧ parent_regions_ok(χ,ι,xs,ρs,ρ,true)
-    Some (get_regions(χ,ι,xs) ∪ ρs) if Lₚ ∉ ρs ∧ parent_regions_ok(χ,ι,xs,ρs,ρ,false)
+    Some (get_regions(χ,ι,xs) ∪ ρs) if  parent_regions_ok(χ,ι,xs,ρs,ρ)
     None otherwise
 
 
@@ -408,7 +405,7 @@ is_ancestor_of(χ,ρ₀,ρ) =
 //ρ = the region we want to drag objects into
 //χ = the heap
 //ρs = the real regions that we visit during the traversal
-get_all_draggables(χ,ι;ιsₕ,ρ,n,ιsₜ,ρs, Lₚ) = 
+get_all_draggables(χ,ι;ιsₕ,ρ,n,ιsₜ,ρs) = 
     ω = χ(ι) // the source object we want to drag
     ρ₀ = loc(χ,ι) // the location of the object
     (ιsₜ₀,n₀) = frame_locals_nl(χ,ι,dom(ω),ρ,n,ιsₜ)// total set of objects now tracked, new internal ref count
@@ -417,7 +414,7 @@ get_all_draggables(χ,ι;ιsₕ,ρ,n,ιsₜ,ρs, Lₚ) =
 
     xsᵣ = region_fields(χ,ι,ρ) //fields of ι which are in real regions that are not ρ this needs to be a list, because if a region appears more than once, we need to fail
 
-    get_all_draggables(χ,ιsₕ ∪ ιsₙ,n₀, ρ, ιsₜ₀,ρs₁)  if add_regions(χ,ι,xsᵣ,ρs,ρ,Lₚ) = Some ρs₁
+    get_all_draggables(χ,ιsₕ ∪ ιsₙ,n₀, ρ, ιsₜ₀,ρs₁)  if add_regions(χ,ι,xsᵣ,ρs,ρ) = Some ρs₁
     None otherwise
    
 get_all_draggables(χ,∅,ρ,n,ιsₜ,ρs) = Some (ιsₜ,ρs,n)
@@ -444,11 +441,11 @@ update_ref_counts(χ,ρ,n,ι;ιs) =
 update_ref_counts(χ,ρ,n,∅) = stack_dec(χ,ρ,n)
     
 //precondition: ι is in frame local region, ρ is a non local region
-drag_non_local(χ,ι,ρ, Lₚ) = 
+drag_non_local(χ,ι,ρ) = 
     χ₁ = move_objects(χ,ιs,ρ)
     χ₂ = parent_regions(χ₁,ρs,ρ)   
     Some (update_ref_counts(χ₂,ρ,n,ιs))
-        if get_all_draggables(χ,{ι},ρ,0,{ι},∅,Lₚ) = Some (ιs,ρs,n) // things to drag, regions to parent, internal ref count of things getting dragged
+        if get_all_draggables(χ,{ι},ρ,0,{ι},∅) = Some (ιs,ρs,n)  // things to drag, regions to parent, internal ref count of things getting dragged
     None otherwise
 
 
@@ -465,14 +462,6 @@ drag_local(χ,ι;ιs,ρ) =
 
 
 drag_local(χ,∅,ρ) = χ
-
-
-drag(χ,ι,ρ) = 
-    drag_local(χ,{ι},ρ) if islocal(χ,ρ)
-    drag_non_local(χ,ι,ρ) otherwise
-
-  
-  
 
 clear_parent(χ,L) = 
     stack_dec(χ,χ(ρ).parent,1)(ρ)[parent ↦ None]  if L = ρ ∧ χ(ρ).parent ∈ RegionId 
@@ -502,7 +491,7 @@ safe_from_local(χ,ρ,ι₁) =
 write_barrier_local(χ,ρ,ι₁) = 
     None if 𝔽 = loc(χ,ι₁) 
     Some χ if ρ₁| Immutable = loc(χ,ι₁) ∧ safe_from_local(χ,ρ,ι₁)
-    Some drag(χ,ι,ρ) otherwise
+    Some drag_local(χ,ι,ρ) otherwise
 
 
 
@@ -522,7 +511,7 @@ write_barrier_real_region(χ,Lₚ,ρ,ι₁) =
 
     Some stack_dec(parent_region(clear_parent(stack_inc(χ,Lₚ,1),Lₚ),ρ₁,ρ),ρ₁,1) if ρ₁ = loc(χ,ι₁) ∧ ~islocal(χ,ρ₁) ∧ ρ₁ ≠ ρ ≠ Lₚ ∧ χ.ρ₁.parent = None ∧ ~is_ancestor(ρ₁,ρ)
 
-    Some stack_inc(χ₁,Lₚ,1) if ρ₁ = loc(χ,ι₁) ∧ islocal(χ,ρ₁) ∧ Some χ₁ = drag(χ,ι₁,ρ) 
+    Some stack_inc(χ₁,Lₚ,1) if ρ₁ = loc(χ,ι₁) ∧ islocal(χ,ρ₁) ∧ Some χ₁ = drag_non_local(clear_parent(χ,Lₚ),ι₁,ρ) 
 
 
 
@@ -542,13 +531,17 @@ write_barrier(χ,Lₚ,L,ι₁) =
 
 write_barrier_fields(χ,_,ι,∅) = χ
 
-write_barrier_cown(χ,π,ι) = 
+
+// Shoudl this be a write barrier as well, or should the store actually happen here?
+cown_store(χ,π,ι) = 
     V = χ(π).value 
     Lₚ = loc(χ,V) 
-    Some χ if Lₚ = loc(χ,ι) // old loc same as new loc, can't store frame local in cown, so we know ι is also not frame local
-    clear_parent(χ₂,Lₚ) if ρ = loc(χ,ι) ∧ islocal(χ,ρ) ∧ χ₁ = χ[ρₙ ↦ {type:RegionRC,parent:π,stack_rc:1,readonly:False}] ∧ Some χ₂ = drag_non_local(χ₁,ι,ρₙ)  // new loc is frame local. Make a new region, drag everything into it, write that into the cown
+
+    Some χ[π.content ↦ ι] if Lₚ = loc(χ,ι) // old loc same as new loc, can't store frame local in cown, so we know ι is also not frame local
+
+    χ₂[π.content ↦ ι] if ρ = loc(χ,ι) ∧ islocal(χ,ρ) ∧ χ₁ = χ[ρₙ ↦ {type:RegionRC,parent:π,stack_rc:1,readonly:False}] ∧ Some χ₂ = drag_non_local(clear_parent(χ₁,Lₚ),ι,ρₙ)  // new loc is frame local. Make a new region, drag everything into it, write that into the cown
     where ρₙ ∉ χ 
-    Some clear_parent(set_parent(χ,ρ,π),Lₚ) if ρ = loc(χ,ι) ∧ ~islocal(χ,ρ) ∧ χ(ρ).parent = None 
+    Some clear_parent(set_parent(χ,ρ,π),Lₚ)[π.content ↦ ι] if ρ = loc(χ,ι) ∧ ~islocal(χ,ρ) ∧ χ(ρ).parent = None 
 
 
 
@@ -558,9 +551,7 @@ write_barrier_ref(χ,𝕣,ι) =
     Lₚ = loc(χ,𝕣.field) // previous location 
     L = loc(χ,𝕣.target) // location of object this is a reference into 
     write_barrier(χ,Lₚ,L,ι) if ιₚ = 𝕣.target
-    // Since we have a reference to the cown (not just the cown), must be a write accessible cown
-
-    write_barrier_cown(χ,π,ι) if π = 𝕣.target
+   
 
 
 ```
