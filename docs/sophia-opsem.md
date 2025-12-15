@@ -532,16 +532,22 @@ write_barrier(χ,Lₚ,L,ι₁) =
 write_barrier_fields(χ,_,ι,∅) = χ
 
 
-// Shoudl this be a write barrier as well, or should the store actually happen here?
-cown_store(χ,π,ι) = 
+write_barrier_cown(χ,π,ι)
     V = χ(π).value 
-    Lₚ = loc(χ,V) 
+    Lₚ = loc(χ,V)
 
-    Some χ[π.content ↦ ι] if Lₚ = loc(χ,ι) // old loc same as new loc, can't store frame local in cown, so we know ι is also not frame local
+    Some χ if Lₚ = loc(χ,ι) //old loc same as new, can't store frame local in cown, so we know ι is also not frame local 
 
-    χ₂[π.content ↦ ι] if ρ = loc(χ,ι) ∧ islocal(χ,ρ) ∧ χ₁ = χ[ρₙ ↦ {type:RegionRC,parent:π,stack_rc:1,readonly:False}] ∧ Some χ₂ = drag_non_local(clear_parent(χ₁,Lₚ),ι,ρₙ)  // new loc is frame local. Make a new region, drag everything into it, write that into the cown
-    where ρₙ ∉ χ 
-    Some clear_parent(set_parent(χ,ρ,π),Lₚ)[π.content ↦ ι] if ρ = loc(χ,ι) ∧ ~islocal(χ,ρ) ∧ χ(ρ).parent = None 
+    drag_non_local(clear_parent(stack_inc(χ₁,Lₚ,1),Lₚ),ι,ρₙ) if ρ = loc(χ,ι) ∧ islocal(χ,ρ)  where ρₙ ∉ χ,  χ₁ = χ[ρₙ ↦ {type:RegionRC,parent:π,stack_rc:0,readonly:False}] //new location is frame local, make new region, drag everything into it
+
+    Some clear_parent(stack_inc(set_parent(χ,ρ,π),Lₚ,1),Lₚ) if ρ = loc(χ,ι) ∧ ~islocal(χ,ρ) ∧ χ(ρ).parent = None 
+
+    Some clear_parent(stack_inc(χ,Lₚ),Lₚ) if Immutable = loc(χ,ι) ∧ ρ = Lₚ
+    Some χ if Immutable = loc(χ,ι) ∧ ρ ≠ Lₚ
+
+    None otherwise
+
+   
 
 
 
@@ -568,11 +574,14 @@ newobject(χ,φ,⋅) = (χ,φ,∅)
 
 newobject(χ,φ,(y₁,copy z);(y,pr)*) =  
         χ₁ = inc(χ,φ(z))
-        χ₂ = stack_inc(χ,loc(χ,φ(z)),1)
+        χ₂ = stack_inc(χ,loc(χ,φ(z)),1) // do we actually do a stack inc here or is it just the inc? 
         ω₁ = {y₁ ↦ φ(z)}
         (χ₃,φ₂,ω₂) = newobject(χ₂,φ₁,(y,pr)*) 
         (χ₃,φ₂,ω₁ ∪ ω₂)
 
+
+
+// Can probably combine into 1, which takes the operator and produces the region you write to 
 
 ι ∉ χ
 ρ ∉ χ
@@ -595,7 +604,7 @@ typecheck(χ, τ, ω)
 χ₁ = χ[ι ↦ ω] 
 χ₂ = χ.metadata_obj[ι] = {type:τ, location:ρ,rc : 1} 
 χ₃ = write_barrier_fields(χ₂,ρ,ι) //can't just do a for all on the args because heap updated for every field
------------------------------------------------------------------
+-----------------------------------------------------------------[heap]
 χ,σ;φ,bind x (heap w τ (y,pr)*) stmt* ⇝ χ₃,σ;φ₁, stmt*
 
 
@@ -604,9 +613,9 @@ typecheck(χ, τ, ω)
 φ₁,ω = newobject(φ, (y, pr)*) 
 typecheck(χ, τ, ω)
 χ₁ = χ[ι ↦ ω] 
-χ₂ = χ.metadata_obj[ι] = {type:τ, location:ρ,rc : 1} 
+χ₂ = χ.metadata_obj[ι] = {type:τ, location:φ₁.region,rc : 1} 
 χ₃ = write_barrier_fields(χ₂,ρ,ι) //can't just do a for all on the args because heap updated for every field
------------------------------------------------------------------
+-----------------------------------------------------------------[new]
 χ,σ;φ,bind x (new τ (y,pr)*) stmt* ⇝ χ₃,σ;φ₁, stmt*
 
 
@@ -615,10 +624,24 @@ typecheck(χ, τ, ω)
 ```rs
 x ∉ φ
 𝕣 = φ(y)
+ι = φ(z)
+χ₁ = write_barrier_ref(χ,𝕣,ι)
+φ₁ = φ\w 
+φ₂ = φ₁[x ↦ ι]
 
 
------------------------------------------------------------------- store 
-χ,σ;φ, (bind x (store y z));stmt* ⇝ 
+------------------------------------------------------------------ field-store-move 
+χ,σ;φ, (bind x (store y (z,move)));stmt* ⇝ 
+
+x ∉ φ
+𝕣 = φ(y)
+(w,false) = pr
+ι = φ(z)
+χ₁ = write_barrier_ref(χ,𝕣,ι)
+χ₂ = χ₁[ι]{rc : rc + 1}
+// increase stack rc of ι if this is a copy to a stack? 
+------------------------------------------------------------------ field-store-copy
+χ,σ;φ, (bind x (store y (z,copy)));stmt* ⇝ 
 ```
 ## Ref Counting Helpers 
 ```rs
