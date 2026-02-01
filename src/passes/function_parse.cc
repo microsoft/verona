@@ -15,10 +15,7 @@ PassDef get_function_parse_pass() {
           },
 
           In(TypeParams) * T(Group)[Group] >>
-              [](auto &_) -> Node { return Seq << *_[Group]; },
-
-          In(TypeParams) * T(Name)[Name] >>
-              [](auto &_) -> Node { return TypeParam << _(Name); },
+              [](auto &_) -> Node { return TypeParam << *_[Group]; },
 
           In(Function) * T(Lhs, Rhs)[Lhs] *
                   (T(Group, Paren) << (T(Name)[Name] * T(Colon) * ~T(Hat)[Hat] *

@@ -6,20 +6,28 @@
 #include <unordered_set>
 #include <vector>
 
-namespace infix {
-enum class ResolutionKind {
-  // Not yet processed.
-  Uninitialized,
-  // Currently being processed, and in the worklist,
-  // or cannot be resolved.
-  Active,
-  // Currently being processed, but not in the worklist.
-  // Is in at least one blocked_on set.
-  Blocked,
-  // Successfully resolved.
-  Resolved,
-};
+#include "node_worker.h"
 
+/**
+ * To handle generics correctly, we need to handle resolutions to be arbitrary types,
+ * we need to perform a rebase operation, that takes two types:
+ *  1) The first has to be a type lookup
+ *  2) Can be an arbitrary type.
+ * 
+ * We then need to effectively substitute inside the second type all type lookups to
+ * initially have the path of the first type lookup.
+ * 
+ * For example:
+ * 
+ *    ..::..::A[..::B]   +++   ..::C::D[..::E]  ==>   ..::..::A[..::B]::..::C::D[..::..::A[..::B]::E]
+ *    ==>  ..::..::C::D[..::B]
+ *
+ * This is pervasive through the whole reolution.
+ *
+ * This should be implemented as a function on a clone of a Node, that returns a new Node.
+ */
+
+namespace infix {
 struct RelativePath {
   // How many levels up to search; -1 means search all enclosing scopes.
   int lookup_levels{-1};
@@ -44,7 +52,10 @@ std::ostream &operator<<(std::ostream &os, RelativePath const &rrn) {
 
 auto ambiguous_lookup_error(Node symtab, Node node) {
   auto results = symtab->look(node->location());
-  assert(results.size() > 1);
+
+  if (results.size() == 0)
+    std::cerr << "Internal error: ambiguous_lookup_error called with no results " << std::endl
+              << node->location().str() << std::endl;
 
   Node error_node = Error << (ErrorMsg ^ "Ambiguous lookup:")
                           << (ErrorMsg ^ node->location().str())
@@ -77,15 +88,6 @@ std::string type_lookup_to_str(Node type_lookup) {
   return oss.str();
 }
 
-struct ResolutionStatus {
-  ResolutionKind kind{ResolutionKind::Uninitialized};
-  // Remaining portion that still needs resolution (list of path segment nodes).
-  std::deque<Node> pending_suffix;
-  // The resolution of the name.
-  RelativePath path;
-  // Dependents blocked on this entry completing.
-  std::unordered_set<Node> dependents;
-};
 // Worklist of unresolved `use` and `type` bodies gathered during the pass.
 std::deque<Node> lookup_worklist;
 
@@ -172,251 +174,279 @@ PassDef get_resolve_types_pass() {
 
   // Debug: dump the gathered bodies after the pass finishes.
   pass.post([](Node) {
-    // The core algorithm here requires a worklist of all the things that need
-    // resolving. Dependents waiting on a node are tracked in that node's
-    // ResolutionStatus.
-    NodeMap<ResolutionStatus> resolution_state_;
-    std::deque<Node> worklist;
-
-    auto resolution_state = [&](const Node& n) -> ResolutionStatus& {
-      assert(n == TypeLookup);
-      return resolution_state_[n];
+    struct ResolutionState : NodeWorkerState {
+      // Remaining portion that still needs resolution (list of path segment
+      // nodes). This augments the base NodeWorkerState used by NodeWorker.
+      std::deque<Node> pending_suffix;
+      // The resolution of the name.
+      RelativePath path;
     };
 
-    auto use_to_type_lookup = [](const Node &use_node) -> Node {
-      Node type_node = use_node / Type;
-      assert(type_node->size() == 1);
-      Node type_lookup = type_node->at(0);
-      assert(type_lookup == TypeLookup);
-      return type_lookup;
-    };
+    // Core algorithm: maintain a worklist of type lookups to resolve and track
+    // dependents via NodeWorkerState. Blocking/unblocking is managed by
+    // NodeWorker.
+    struct ResolveWork {
+      using State = ResolutionState;
 
-    // This brings a node into the algorithm's scope.
-    // If it is already known, nothing happens.
-    auto add_to_worklist = [&](const Node &n) {
-      assert(n == TypeLookup);
-      auto &state = resolution_state(n);
-      
-      assert(state.kind == ResolutionKind::Uninitialized);
-      // Ensure an initial state exists; seed pending suffix with a clone of
-      // the entry for first-time processing.
-      // TODO sanity checking here for different terms
-      // TODO generics here.
-      for (auto &child : *n) {
-        state.pending_suffix.push_back(child);
-      }
-      worklist.push_back(n);
-      resolution_state(n).kind = ResolutionKind::Active;
-    };
-
-    auto wait_for = [&](const Node &dependent, const Node &origin) {
-      if (resolution_state(origin).kind == ResolutionKind::Resolved) {
-        return false;
-      }
-      // Record that the dependent is waiting on the origin.
-      resolution_state(origin).dependents.insert(dependent);
-      resolution_state(dependent).kind = ResolutionKind::Blocked;
-      return true;
-    };
-
-    auto unblock_dependents = [&](const Node &resolved) {
-      auto &waiting = resolution_state(resolved).dependents;
-      if (waiting.empty()) {
-        return;
+      static Node use_to_type_lookup(const Node &use_node) {
+        Node type_node = use_node / Type;
+        assert(type_node->size() == 1);
+        Node type_lookup = type_node->at(0);
+        assert(type_lookup == TypeLookup);
+        return type_lookup;
       }
 
-      for (const auto &dependent : waiting) {
-        if (resolution_state(dependent).kind == ResolutionKind::Blocked) {
-          worklist.push_back(dependent);
-          resolution_state(dependent).kind = ResolutionKind::Active;
-        }
-      }
-
-      waiting.clear();
-    };
-
-    auto lookup_levels_up = [&](const Node &name, const Node &entry) -> RelativePath {
-      Node scope = name->scope();
-      Nodes using_type_lookups;
-      int levels = 0;
-      while (scope) {
-        auto results = scope->look(name->location());
-        if (results.size() > 1) {
-          ambiguous_lookup_error(scope, name);
-          break;
-        }
-        if (results.size() == 1) {
-          RelativePath result;
-          result.lookup_levels = levels;
-          result.prefix = {};
-          result.node = scope;
-          return result;
-        }
-        // Not found, check the resolved `use` statements in this scope.
-        auto current_using = scope->includes();
-        for (const auto &u : current_using) {
-          // Check if current scope has been resolved
-          Node u_node = use_to_type_lookup(u);
-          auto &u_state = resolution_state(u_node);
-          if (u_state.kind != ResolutionKind::Resolved) {
-            // Not resolved add to list to block on.
-            assert(u_node == TypeLookup);
-            using_type_lookups.push_back(u_node);
-            continue;
+      static void rebase_path(RelativePath &target,
+                              const RelativePath &source) {
+        // Rebase alias resolution into the current context, adjusting lookup
+        // levels and prefix to account for the relative jump.
+        if (target.prefix.size() > source.lookup_levels) {
+          for (size_t i = 0; i < source.lookup_levels; i++) {
+            target.prefix.pop_back();
           }
+        } else {
+          auto prefix_size = target.prefix.size();
+          target.lookup_levels += source.lookup_levels - prefix_size;
+          target.prefix.clear();
+        }
 
-          auto found = u_state.path.node->look(name->location());
-          if (found.size() > 1) {
-            ambiguous_lookup_error(u_state.path.node, name);
-            continue;
+        // if ((target.prefix.size() != 0) && (source.prefix.size() == 1)) {
+        //   // Check if this is type parameter
+        //   Node first = source.prefix.front();
+        //   Nodes lookup = source.node->look(first->location());
+        //   if (lookup.size() == 1 && lookup.front() == TypeParam) {
+        //     Node type_params = source.node / TypeParams;
+        //     for (size_t i = 0; i < type_params->size(); i++) {
+        //       Node tp = type_params->at(i);
+        //       if (tp == first) {
+        //         // Find the i-th type parameter of this term, and replace the target with this term.
+        //         auto t_args = target.prefix.back() / TypeArgs;
+        //         t_args[i]
+
+        //         return;
+        //       }
+        //     }
+        //     // This is probably an error.
+
+        //     return;
+        //   }
+        // }
+
+        target.prefix.insert(target.prefix.end(), source.prefix.begin(),
+                             source.prefix.end());
+        target.node = source.node;
+      }
+
+      RelativePath lookup_levels_up(const Node &name, const Node &entry,
+                                    NodeWorker<ResolveWork> &worker) const {
+        Node scope = name->scope();
+        Nodes unresolved_use_types;
+        int levels = 0;
+        while (scope) {
+          auto results = scope->look(name->location());
+          if (results.size() > 1) {
+            ambiguous_lookup_error(scope, name);
+            break;
           }
-
-          if (found.size() == 1) {
-            // Return found result, and adjust levels according to how far up
-            // the using statement was, and add the found name to the prefix.
-            RelativePath result = u_state.path;
-            result.lookup_levels += levels;
+          if (results.size() == 1) {
+            RelativePath result;
+            result.lookup_levels = levels;
+            result.prefix = {};
+            result.node = scope;
             return result;
           }
+          // Not found, check the resolved `use` statements in this scope.
+          auto current_using = scope->includes();
+          for (const auto &u : current_using) {
+            // Check if current use has been fully resolved
+            // including all sub type lookups.
+            Node u_type = u / Type;
+            if (!worker.is_resolved(u_type)) {
+              // Not resolved add to list to block on.
+              unresolved_use_types.push_back(u_type);
+              continue;
+            }
+
+            auto u_lookup = use_to_type_lookup(u);
+            // It should not be possible for the surrounding type lookup to be resolved,
+            // without all the sub terms being resolved.
+            assert(worker.is_resolved(u_lookup));
+
+            auto &u_lookup_state = worker.state(u_lookup);
+            auto found = u_lookup_state.path.node->look(name->location());
+            if (found.size() > 1) {
+              ambiguous_lookup_error(u_lookup_state.path.node, name);
+              continue;
+            }
+
+            if (found.size() == 1) {
+              // Return found result, and adjust levels according to how far up
+              // the using statement was, then add the found name to the prefix.
+              RelativePath result = u_lookup_state.path;
+              result.lookup_levels += levels;
+              return result;
+            }
+          }
+
+          scope = scope->scope();
+          levels++;
         }
 
-        scope = scope->scope();
-        levels++;
+        // We reach the top without finding it; wait on unresolved uses. If
+        // none are pending, resolution will ultimately fail when processing
+        // completes.
+        worker.block_on_any(entry, unresolved_use_types);
+        return {};
       }
 
-      // We reach the top without finding it. We need to wait for all the using
-      // scopes we found that were unresolved. Note that if there were no
-      // unresolved scopes, then the context will stop looking for this, and it
-      // will be an error when we complete the resolution.
-      for (const auto &u : using_type_lookups) {
-        wait_for(entry, u);
-      }
-      return {};
-    };
+      void seed(const Node &n, State &state) {
+        if (n == Type)
+          // Type are just containers for TypeLookup nodes.
+          // They just form joins in the worklist.
+          return;
 
-    auto resolve_use = [&](const Node &entry) {
-      auto &state = resolution_state(entry);
-
-      // If already resolved, nothing to do.
-      if (state.kind == ResolutionKind::Resolved) {
-        return true;
+        for (auto &child : *n) {
+          state.pending_suffix.push_back(child);
+        }
+        // TODO sanity checking here for different terms, and handle generics.
       }
 
-      while (!state.pending_suffix.empty()) {
-        Node head = state.pending_suffix.front();
-
-        if (state.path.lookup_levels == -1) {
-          state.path = lookup_levels_up(head, entry);
-          if (state.path.lookup_levels == -1) {
-            // Not found in currently resolved scopes;
-            // lookup_level will have added unresolved `use` statements to wait
-            // on.
+      bool process(const Node &entry, NodeWorker<ResolveWork> &worker) {
+        auto &state = worker.state(entry);
+        // If terms is a Type node, then find all type lookups inside and wait for them all to be resolved.
+        if (entry == Type)
+        {
+          // use traverse to find all TypeLookup nodes inside entry
+          std::vector<Node> type_lookups;
+          entry->traverse([&](Node &current) {
+            if (current == TypeLookup) {
+              if (!worker.is_resolved(current)) {
+                type_lookups.push_back(current);
+              }
+            }
+            return true;
+          });
+          if (!type_lookups.empty()) {
+            worker.block_on_all(entry, type_lookups);
             return false;
           }
+          // All type lookups are resolved, we can consider this entry resolved.
+          return true;
         }
 
-        auto found = state.path.node->look(head->location());
-        // Should fine either a module/struct or a type alias.
-        if (found.size() != 1) {
-          ambiguous_lookup_error(state.path.node, head);
+        assert(entry == TypeLookup);
+        while (!state.pending_suffix.empty()) {
+          Node reference = state.pending_suffix.front();
+          Node head = reference / Name;
+
+          if (state.path.lookup_levels == -1) {
+            state.path = lookup_levels_up(head, entry, worker);
+            if (state.path.lookup_levels == -1) {
+              // Not found in currently resolved scopes; lookup_level will have
+              // added unresolved `use` statements to wait on.
+              return false;
+            }
+          }
+
+          auto found = state.path.node->look(head->location());
+          // Should find either a module/struct, a type alias, or a type
+          // parameter.
+          if (found.size() != 1) {
+            ambiguous_lookup_error(state.path.node, head);
+            return false;
+          }
+
+          if (found.front() == TypeAlias) {
+            // This effectively `rebase`s the alias body into the current
+            // context. Resolve the type alias to continue lookups.
+            Node alias_type = found.front() / Type;
+
+            std::cout << "Resolving type alias during lookup: "
+                      << type_lookup_to_str(entry) << " alias body: "
+                      << alias_type->str() << std::endl;
+
+            if ((alias_type->size() != 1)) {
+              head << (Error << (ErrorMsg ^ "Invalid type alias body for lookup")
+                             << (ErrorAst << head) << (ErrorAst << alias_type));
+              return false;
+            }
+
+            if (worker.block_on(entry, alias_type))
+              return false;
+
+            Node alias_body = alias_type->at(0);
+            // If alias not yet resolved, attempt to resolve it; otherwise
+            // block until it completes.
+            if (worker.block_on_any(entry, {alias_body})) {
+              return false;
+            }
+
+            auto &resolved_alias = worker.state(alias_body);
+            // Alias is resolved, add it to the resolved prefix and continue.
+            // This involves substitution and adjustments for relative paths.
+            // TODO, we need to apply rebase_path to all the type lookups inside the
+            // resolved alias body.
+
+            rebase_path(state.path, resolved_alias.path);
+//            state.pending_suffix.pop_front();
+            continue;
+          }
+
+          if (found.front() == Module || found.front() == Struct) {
+            state.path.prefix.push_back(reference);
+            state.pending_suffix.pop_front();
+            state.path.node = found.front();
+            continue;
+          }
+
+          if (found.front() == TypeParam) {
+            // We don't allow lookup on a type parameter.
+            if (state.pending_suffix.size() != 1) {
+              head << (Error << (ErrorMsg ^ "Cannot resolve type lookup with additional segments after type parameter")
+                             << (ErrorAst << head));
+              return false;
+            }
+            // Type parameters aren't fields of the current scope.
+            if (state.path.prefix.size() > 0) {
+              head << (Error << (ErrorMsg ^ "Cannot resolve type lookup with prefix before type parameter")
+                             << (ErrorAst << head));
+              return false;
+            }
+
+            state.path.prefix.push_back(reference);
+            state.pending_suffix.pop_front();
+            continue;
+          }
+
+          // Unhandled candidate type will fail resolution at this level.
+          // TODO: extend to functions/variables if resolution is unified.
           return false;
         }
 
-        if (found.front() == TypeAlias) {
-          // Resolve the type alias to continue lookups.
-          Node alias_type = found.front() / Type;
-          if ((alias_type->size() != 1) && (alias_type->at(0) != TypeLookup)) {
-            head << (Error << (ErrorMsg ^ "Invalid type alias body for lookup")
-                           << (ErrorAst << head) << (ErrorAst << alias_type));
-            return false;
-          }
-
-          Node alias_body = alias_type->at(0);
-          // If alias not yet resolved, attempt to resolve it; otherwise block
-          // until it completes.
-          if (wait_for(entry, alias_body))
-            return false;
-
-          auto &resolved_alias = resolution_state(alias_body);
-          
-          // Alias is resolved, add it to the resolved prefix and continue.
-          // This involves some form of substitution, and adjustments for
-          // relative paths.
-          if (state.path.prefix.size() >
-              resolved_alias.path.lookup_levels) {
-            // Swollow the relative path if there is enough prefix to do so.
-            for (size_t i = 0; i < resolved_alias.path.lookup_levels;
-                 i++) {
-              state.path.prefix.pop_back();
-            }
-          } else {
-            // If there is not enough prefix to swollow, adjust the lookup
-            // levels accordingly.
-            auto prefix_size = state.path.prefix.size();
-            state.path.lookup_levels +=
-                resolved_alias.path.lookup_levels - prefix_size;
-            state.path.prefix.clear();
-          }
-          // Add the new prefix segments
-          state.path.prefix.insert(
-              state.path.prefix.end(),
-              resolved_alias.path.prefix.begin(),
-              resolved_alias.path.prefix.end());
-          // Remove alias name.
-          state.pending_suffix.pop_front();
-          // Update the resolved_node to the alias's resolved node.
-          state.path.node = resolved_alias.path.node;
-          continue;
-        }
-
-        if (found.front() == Module || found.front() == Struct) {
-          // Just a module/struct, extend the resolved prefix and continue.
-          state.path.prefix.push_back(head);
-          state.pending_suffix.pop_front();
-          state.path.node = found.front();
-          // TODO: generics need to be handled here?
-          continue;
-        }
-
-        // Unhandled candidate type.
-        // This will result in a failure to resolve, and hence error at the next
-        // level.
-        // TODO : Here is where would extend to functions and variables if we
-        // combine all the resolution into one pass.
-        return false;
+        return true;
       }
-
-      return true;
     };
 
+    NodeWorker<ResolveWork> worker(ResolveWork{});
+
     for (const auto &item : lookup_worklist) {
-      add_to_worklist(item);
+      worker.add(item);
     }
 
-    while (!worklist.empty()) {
-      auto entry = worklist.front();
-      worklist.pop_front();
-      // During resolution leave as Active status to avoid re-adding cycles.
-      assert(resolution_state(entry).kind == ResolutionKind::Active);
+    worker.run();
 
-      const bool resolved = resolve_use(entry);
-
-      if (resolved) {
-        resolution_state(entry).kind = ResolutionKind::Resolved;
-        unblock_dependents(entry);
-      }
-    }
-
-    // Replace all the terms with their resolved names.
-    for (const auto &pair : resolution_state_) {
+    for (const auto &pair : worker.states()) {
       auto &name = pair.first;
       auto &status = pair.second;
-      if (status.kind != ResolutionKind::Resolved) {
+      if (status.kind != WorkerStatus::Resolved) {
         name << (Error << (ErrorMsg ^ "Failed to resolve name:")
-                           << (ErrorMsg ^ name->location().str()));
+                       << (ErrorMsg ^ name->location().str()));
+
         continue;
       }
 
+      if (name != TypeLookup)
+        continue;
       name->erase(name->begin(), name->end());
       for (size_t i = 0; i < status.path.lookup_levels; i++) {
         name << (Parent);

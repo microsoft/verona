@@ -1,3 +1,5 @@
+#pragma once
+
 #include <optional>
 
 #include <trieste/trieste.h>
@@ -9,7 +11,7 @@ inline const auto Function =
     TokenDef("function", flag::lookup | flag::lookdown | flag::symtab);
 inline const auto Struct =
     TokenDef("struct", flag::symtab | flag::lookup | flag::lookdown);
-inline const auto Type = TokenDef("type", flag::lookup | flag::lookdown);
+inline const auto Type = TokenDef("type", flag::lookup | flag::lookdown | flag::symtab);
 inline const auto TypeAlias = TokenDef("type_alias");
 inline const auto Where = TokenDef("where");
 inline const auto Module =
@@ -36,6 +38,9 @@ inline const auto LeftArrow = TokenDef("left_arrow");
 inline const auto Backtick = TokenDef("Backtick");
 
 inline const auto TypeLookup = TokenDef("type_lookup");
+inline const auto TypeReference = TokenDef("type_reference");
+inline const auto TypeArgs = TokenDef("type_args");
+inline const auto TypeArg = TokenDef("type_arg");
 
 inline const auto Mode = TokenDef("mode");
 inline const auto CBN = TokenDef("cbn");
@@ -94,7 +99,7 @@ inline const auto wf_operator_defn =
 inline const auto wf_decls = Struct | TypeAlias | Function | Module | Use;
 
 inline const auto wf_term = Paren | Name | Group | Indent | Dot | Arrow |
-                            LeftArrow | Colon | Lookup | Eq | SemiColon;
+                            LeftArrow | Colon | Lookup | Eq | SemiColon | Square;
 
 inline const auto wf_function_parse =
     (Top <<= File) | (File <<= wf_decls++) |
@@ -109,8 +114,9 @@ inline const auto wf_function_parse =
     (Mode <<= CBN | CBV) | (TypeParams <<= TypeParam++) |
     (TypeParam <<= Name)[Name] | (Square <<= wf_term++) | (Fields <<= Field++) |
     (Field <<= Name * Type)[Name] | (Where <<= wf_term++) |
-    (Module <<= Name * Body)[Name] | (Use <<= Type)[Include] | 
-    (TypeLookup <<= (Name | Parent)++) | (Name <<= Type++);
+    (Module <<= Name * TypeParams * Body)[Name] | (Use <<= Type)[Include] | 
+    (TypeLookup <<= (Parent | TypeReference)++) | (TypeReference <<= Name * TypeArgs) |
+    (TypeArgs <<= Type++);
 
 Parse parser();
 std::vector<Pass> passes();

@@ -19,8 +19,8 @@ FetchContent_MakeAvailable(cmake_utils)
 
 FetchContent_Declare(
   trieste
-  GIT_REPOSITORY https://github.com/microsoft/trieste
-  GIT_TAG        d28fa438a32487035d49bba79c0e43b53c398d85
+  GIT_REPOSITORY https://github.com/mjp41/trieste
+  GIT_TAG        infix-wip
 )
 
 set(TRIESTE_BUILD_SAMPLES OFF)

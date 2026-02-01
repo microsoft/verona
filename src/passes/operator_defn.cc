@@ -16,7 +16,11 @@ PassDef get_operator_defn_pass() {
        T(Paren)[Paren] << (T(Group)[Group] * End) >>
            [](auto &_) -> Node { return (Paren ^ _(Paren)) << *_(Group); },
 
-       T(Group) << (T(Paren)[Paren] * End) >> [](auto &_) -> Node { return _(Paren); },
+       T(Group) << (T(Paren)[Paren] * End) >>
+           [](auto &_) -> Node { return _(Paren); },
+
+       T(Group) << (T(Square)[Square] * End) >>
+           [](auto &_) -> Node { return _(Square); },
 
        // Detect offside indentation in the body of a function,
        // struct or module.
@@ -50,9 +54,12 @@ PassDef get_operator_defn_pass() {
                 << _[Name] << (TypeParams << *_[Square]) << (Type << _[Body]);
        },
 
-       T(Module)[Module] << (T(Name)[Name] * (--T(Body) * Any++)[Body] * End) >>
+       T(Module)[Module] << (T(Name)[Name] * ~T(Square)[TypeParams] *
+                             (--T(Body, TypeParams) * Any++)[Body] * End) >>
            [](auto &_) -> Node {
-         auto result =  (Module ^ _(Module)) << _(Name) << (Body << _[Body]);
+         auto result = (Module ^ _(Module))
+                       << _(Name) << (TypeParams << *_[TypeParams])
+                       << (Body << _[Body]);
          return result;
        },
 
