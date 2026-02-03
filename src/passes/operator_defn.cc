@@ -10,7 +10,7 @@ PassDef get_operator_defn_pass() {
       wf::empty,
       dir::topdown,
       {T(Group) << (Decls[Lhs] * Any++[Rhs]) >> [](auto &_) -> Node {
-         auto result = Lhs << (+ _[Rhs]);
+         auto result = _(Lhs) << (+ _[Rhs]);
          return result;
        },
        T(Paren)[Paren] << (T(Group)[Group] * End) >>

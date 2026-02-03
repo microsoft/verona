@@ -11,8 +11,8 @@ inline const auto Function =
     TokenDef("function", flag::lookup | flag::lookdown | flag::symtab);
 inline const auto Struct =
     TokenDef("struct", flag::symtab | flag::lookup | flag::lookdown);
-inline const auto Type = TokenDef("type", flag::lookup | flag::lookdown | flag::symtab);
-inline const auto TypeAlias = TokenDef("type_alias");
+inline const auto Type = TokenDef("type");
+inline const auto TypeAlias = TokenDef("type_alias",  flag::symtab |  flag::lookup | flag::lookdown);
 inline const auto Where = TokenDef("where");
 inline const auto Module =
     TokenDef("module", flag::symtab | flag::lookup | flag::lookdown);
