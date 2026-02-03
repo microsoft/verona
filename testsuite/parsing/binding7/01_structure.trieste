@@ -11,11 +11,13 @@ structure
     (module
       {}
       (name 7:Module1)
+      (type_params)
       (body
         (indent
           (module
             {}
             (name 7:Module3)
+            (type_params)
             (body
               (indent
                 (function
@@ -31,6 +33,7 @@ structure
                   (name 1:x)
                   (name 3:inc)))))
           (type_alias
+            {}
             (name 3:Foo)
             (type_params)
             (type
@@ -38,6 +41,7 @@ structure
     (module
       {}
       (name 4:Test)
+      (type_params)
       (body
         (indent
           (use

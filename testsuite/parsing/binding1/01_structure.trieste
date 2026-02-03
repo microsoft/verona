@@ -11,6 +11,7 @@ structure
     (module
       {}
       (name 7:Module3)
+      (type_params)
       (body
         (indent
           (function
@@ -28,6 +29,7 @@ structure
     (module
       {}
       (name 4:Test)
+      (type_params)
       (body
         (indent
           (use

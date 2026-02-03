@@ -11,9 +11,11 @@ structure
     (module
       {}
       (name 7:Module3)
+      (type_params)
       (body
         (indent
           (type_alias
+            {}
             (name 3:Bar)
             (type_params)
             (type
@@ -25,9 +27,11 @@ structure
     (module
       {}
       (name 7:Module1)
+      (type_params)
       (body
         (indent
           (type_alias
+            {}
             (name 3:Foo)
             (type_params)
             (type

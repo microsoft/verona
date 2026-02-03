@@ -14,6 +14,7 @@ structure
       (type_params)
       (fields))
     (type_alias
+      {}
       (name 4:Bool)
       (type_params)
       (type
@@ -192,6 +193,7 @@ structure
               (group
                 (name 1:T)))))))
     (type_alias
+      {}
       (name 4:List)
       (type_params
         (group

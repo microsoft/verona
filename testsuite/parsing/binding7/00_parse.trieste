@@ -32,7 +32,8 @@ parse
               (name 1:x)
               (name 3:inc))))
         (group
-          (type_alias)
+          (type_alias
+            {})
           (name 3:Foo)
           (eq)
           (name 7:Module3))))

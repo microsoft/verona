@@ -1,9 +1,0 @@
-else1.infix:10:24: unexpected group, expected a type, 
-function[P] (lhs: Some[P]) else (value: ^P) : P = lhs.value
-                       ~
-(group
-  (name 1:P))
-
-
-Errors:Pass parse_types failed with 0 error!
-

@@ -110,7 +110,8 @@ parse
       (eq)
       (name 5:abort))
     (group
-      (type_alias)
+      (type_alias
+        {})
       (name 4:Expr)
       (eq)
       (name 3:Add)
@@ -234,7 +235,8 @@ parse
           (Colon)
           (name 4:Expr))))
     (group
-      (type_alias)
+      (type_alias
+        {})
       (name 5:Expr2)
       (eq)
       (name 3:Add)

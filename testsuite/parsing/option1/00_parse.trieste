@@ -20,7 +20,8 @@ parse
           (Colon)
           (name 1:P))))
     (group
-      (type_alias)
+      (type_alias
+        {})
       (name 6:Option)
       (square
         (group

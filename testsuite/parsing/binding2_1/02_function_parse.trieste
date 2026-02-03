@@ -15,12 +15,14 @@ function_parse
       {
         Module3 = module}
       (name 7:Module1)
+      (type_params)
       (body
         (indent
           (module
             {
               inc = function}
             (name 7:Module3)
+            (type_params)
             (body
               (indent
                 (function
@@ -49,6 +51,7 @@ function_parse
         include use Module1
         include use Module3}
       (name 4:Test)
+      (type_params)
       (body
         (indent
           (use

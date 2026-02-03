@@ -160,6 +160,7 @@ function_parse
         (expr_stack)
         (name 5:abort)))
     (type_alias
+      {}
       (name 4:Expr)
       (type_params)
       (type
@@ -303,6 +304,7 @@ function_parse
           (type
             (name 4:Expr)))))
     (type_alias
+      {}
       (name 5:Expr2)
       (type_params)
       (type

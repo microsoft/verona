@@ -5,6 +5,11 @@ structure
   (file
     (struct
       {}
+      (name 3:Int)
+      (type_params)
+      (fields))
+    (struct
+      {}
       (name 4:Void)
       (type_params)
       (fields))

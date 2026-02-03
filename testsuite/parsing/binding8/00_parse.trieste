@@ -31,12 +31,14 @@ parse
           (use)
           (name 1:C))
         (group
-          (type_alias)
+          (type_alias
+            {})
           (name 2:T2)
           (eq)
           (name 3:Foo))
         (group
-          (type_alias)
+          (type_alias
+            {})
           (name 2:T4)
           (eq)
           (name 3:Bar))))
@@ -54,12 +56,14 @@ parse
           (use)
           (name 1:C))
         (group
-          (type_alias)
+          (type_alias
+            {})
           (name 2:T1)
           (eq)
           (name 3:Foo))
         (group
-          (type_alias)
+          (type_alias
+            {})
           (name 2:T3)
           (eq)
           (name 3:Bar))))))

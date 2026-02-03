@@ -10,7 +10,6 @@ function_parse
     ListNode = struct
     None = struct
     Some = struct
-    T = type_param
     True = struct
     abort = function
     else =
@@ -42,6 +41,7 @@ function_parse
       (type_params)
       (fields))
     (type_alias
+      {}
       (name 4:Bool)
       (type_params)
       (type
@@ -294,6 +294,8 @@ function_parse
               (group
                 (name 1:T)))))))
     (type_alias
+      {
+        T = type_param}
       (name 4:List)
       (type_params
         (type_param

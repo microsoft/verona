@@ -1,7 +1,0 @@
-Errors:
-Failed to resolve name:
-struct Some[P] (value: P)
-                       ~
-
-Pass resolve_types failed with 1 error!
-

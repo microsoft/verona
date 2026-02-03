@@ -40,7 +40,8 @@ parse
           (use)
           (name 7:Module2))
         (group
-          (type_alias)
+          (type_alias
+            {})
           (name 3:Foo)
           (eq)
           (name 7:Module3))))

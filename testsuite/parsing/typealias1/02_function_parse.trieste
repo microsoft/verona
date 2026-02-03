@@ -17,6 +17,7 @@ function_parse
       (type_params)
       (fields))
     (type_alias
+      {}
       (name 4:Bool)
       (type_params)
       (type

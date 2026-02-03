@@ -4,7 +4,6 @@ resolve_types
   {
     None = struct
     Option = type_alias
-    P = type_param
     Some = struct}
   (file
     (struct
@@ -25,20 +24,22 @@ resolve_types
           (name 5:value)
           (type
             (type_lookup
-              (name 1:P)
-              (error
-                (errormsg 23:Failed to resolve name:)
-                (errormsg 51:struct Some[P] (value: P)
-                       ~
-)))))))
+              (type_reference
+                (name 1:P)
+                (type_args)))))))
     (type_alias
+      {
+        P = type_param}
       (name 6:Option)
       (type_params
         (type_param
           (name 1:P)))
       (type
         (type_lookup
-          (name 4:None))
+          (../)
+          (type_reference
+            (name 4:None)
+            (type_args)))
         (name 1:|)
         (name 4:Some)
         (square

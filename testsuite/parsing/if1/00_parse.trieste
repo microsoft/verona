@@ -12,7 +12,8 @@ parse
         {})
       (name 5:False))
     (group
-      (type_alias)
+      (type_alias
+        {})
       (name 4:Bool)
       (eq)
       (name 4:True)

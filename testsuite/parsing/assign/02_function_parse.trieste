@@ -3,6 +3,7 @@ function_parse
 (top
   {
     Cell = struct
+    Int = struct
     Void = struct
     assoc = function
     crazy1 = function
@@ -14,6 +15,11 @@ function_parse
     test = function
     update = function}
   (file
+    (struct
+      {}
+      (name 3:Int)
+      (type_params)
+      (fields))
     (struct
       {}
       (name 4:Void)

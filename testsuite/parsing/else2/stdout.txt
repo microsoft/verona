@@ -1,9 +1,0 @@
-else2.infix:11:15: unexpected group, expected a type, 
-    lhs: Some[P]
-              ~
-(group
-  (name 1:P))
-
-
-Errors:Pass parse_types failed with 0 error!
-

@@ -1,5 +1,5 @@
 infix
-parse_types
+resolve_types
 (top
   {
     Bool = type_alias
@@ -22,11 +22,15 @@ parse_types
       (type_params)
       (fields))
     (type_alias
+      {}
       (name 4:Bool)
       (type_params)
       (type
         (type_lookup
-          (name 4:True))
+          (../)
+          (type_reference
+            (name 4:True)
+            (type_args)))
         (name 1:|)
         (name 5:False)))
     (struct
@@ -47,7 +51,9 @@ parse_types
           (name 5:value)
           (type
             (type_lookup
-              (name 1:P))))))
+              (type_reference
+                (name 1:P)
+                (type_args)))))))
     (function
       {
         P = type_param
@@ -65,19 +71,34 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 4:True))))
+              (../)
+              (type_reference
+                (name 4:True)
+                (type_args)))))
         (param
           (name 10:thenBranch)
           (mode
             (cbn))
           (type
             (type_lookup
-              (name 1:P)))))
+              (type_reference
+                (name 1:P)
+                (type_args))))))
       (type
         (type_lookup
-          (name 8:Option[P
-            (group
-              (name 1:P)))))
+          (type_reference
+            (name 6:Option)
+            (type_args
+              (type
+                (type_lookup
+                  (type_reference
+                    (name 1:P)
+                    (type_args))))))
+          (error
+            (errormsg 23:Failed to resolve name:)
+            (errormsg 141:function[P] if (condition: True) (thenBranch: ^P) : Option[P] = Some thenBranch
+                                                          ~~
+))))
       (where)
       (body
         (expr_stack)
@@ -100,19 +121,34 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 5:False))))
+              (../)
+              (type_reference
+                (name 5:False)
+                (type_args)))))
         (param
           (name 10:thenBranch)
           (mode
             (cbn))
           (type
             (type_lookup
-              (name 1:P)))))
+              (type_reference
+                (name 1:P)
+                (type_args))))))
       (type
         (type_lookup
-          (name 8:Option[P
-            (group
-              (name 1:P)))))
+          (type_reference
+            (name 6:Option)
+            (type_args
+              (type
+                (type_lookup
+                  (type_reference
+                    (name 1:P)
+                    (type_args))))))
+          (error
+            (errormsg 23:Failed to resolve name:)
+            (errormsg 132:function[P] if (condition: False) (thenBranch: ^P) : Option[P] = None
+                                                           ~~
+))))
       (where)
       (body
         (expr_stack)

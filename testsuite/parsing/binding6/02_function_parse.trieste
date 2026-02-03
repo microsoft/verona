@@ -16,12 +16,14 @@ function_parse
       {
         Module3 = module}
       (name 7:Module2)
+      (type_params)
       (body
         (indent
           (module
             {
               inc = function}
             (name 7:Module3)
+            (type_params)
             (body
               (indent
                 (function
@@ -49,12 +51,14 @@ function_parse
         Foo = type_alias
         include use Module2}
       (name 7:Module1)
+      (type_params)
       (body
         (indent
           (use
             (type
               (name 7:Module2)))
           (type_alias
+            {}
             (name 3:Foo)
             (type_params)
             (type
@@ -64,6 +68,7 @@ function_parse
         test = function
         include use Module1::Foo}
       (name 4:Test)
+      (type_params)
       (body
         (indent
           (use

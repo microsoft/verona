@@ -361,9 +361,9 @@ PassDef get_resolve_types_pass() {
             // context. Resolve the type alias to continue lookups.
             Node alias_type = found.front() / Type;
 
-            std::cout << "Resolving type alias during lookup: "
-                      << type_lookup_to_str(entry) << " alias body: "
-                      << alias_type->str() << std::endl;
+            // std::cout << "Resolving type alias during lookup: "
+            //           << type_lookup_to_str(entry) << " alias body: "
+            //           << alias_type->str() << std::endl;
 
             if ((alias_type->size() != 1)) {
               head << (Error << (ErrorMsg ^ "Invalid type alias body for lookup")
@@ -386,9 +386,10 @@ PassDef get_resolve_types_pass() {
             // This involves substitution and adjustments for relative paths.
             // TODO, we need to apply rebase_path to all the type lookups inside the
             // resolved alias body.
-
+            // Need to add the term we just looked up incase there are any type args that are needed.
+            state.path.prefix.push_back(reference);
+            state.pending_suffix.pop_front();
             rebase_path(state.path, resolved_alias.path);
-//            state.pending_suffix.pop_front();
             continue;
           }
 

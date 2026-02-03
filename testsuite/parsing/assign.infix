@@ -1,3 +1,4 @@
+struct Int
 struct Void
 struct Cell[P]
   value: P

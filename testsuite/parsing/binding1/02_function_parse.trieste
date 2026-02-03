@@ -15,6 +15,7 @@ function_parse
       {
         inc = function}
       (name 7:Module3)
+      (type_params)
       (body
         (indent
           (function
@@ -42,6 +43,7 @@ function_parse
         test = function
         include use Module3}
       (name 4:Test)
+      (type_params)
       (body
         (indent
           (use

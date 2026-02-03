@@ -1,16 +1,12 @@
-if2.infix:14:12: unexpected group, expected a type, 
+Errors:
+Failed to resolve name:
   : Option[P] = Some thenBranch
-           ~
-(group
-  (name 1:P))
+          ~~
 
-
-if2.infix:20:12: unexpected group, expected a type, 
+----------------
+Failed to resolve name:
   : Option[P] = None
-           ~
-(group
-  (name 1:P))
+          ~~
 
-
-Errors:Pass parse_types failed with 0 error!
+Pass resolve_types failed with 2 errors!
 

@@ -20,6 +20,7 @@ structure
           (type
             (name 1:P)))))
     (type_alias
+      {}
       (name 6:Option)
       (type_params
         (group

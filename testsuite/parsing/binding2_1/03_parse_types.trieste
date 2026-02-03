@@ -15,12 +15,14 @@ parse_types
       {
         Module3 = module}
       (name 7:Module1)
+      (type_params)
       (body
         (indent
           (module
             {
               inc = function}
             (name 7:Module3)
+            (type_params)
             (body
               (indent
                 (function
@@ -34,12 +36,16 @@ parse_types
                         (cbv))
                       (type
                         (type_lookup
-                          (name 3:Int)))))
+                          (type_reference
+                            (name 3:Int)
+                            (type_args))))))
                   (name 3:inc)
                   (rhs)
                   (type
                     (type_lookup
-                      (name 3:Int)))
+                      (type_reference
+                        (name 3:Int)
+                        (type_args))))
                   (where)
                   (body
                     (expr_stack)
@@ -51,16 +57,21 @@ parse_types
         include use Module1
         include use Module3}
       (name 4:Test)
+      (type_params)
       (body
         (indent
           (use
             (type
               (type_lookup
-                (name 7:Module1))))
+                (type_reference
+                  (name 7:Module1)
+                  (type_args)))))
           (use
             (type
               (type_lookup
-                (name 7:Module3))))
+                (type_reference
+                  (name 7:Module3)
+                  (type_args)))))
           (function
             {
               x = param}
@@ -74,10 +85,14 @@ parse_types
                   (cbv))
                 (type
                   (type_lookup
-                    (name 3:Int)))))
+                    (type_reference
+                      (name 3:Int)
+                      (type_args))))))
             (type
               (type_lookup
-                (name 3:Int)))
+                (type_reference
+                  (name 3:Int)
+                  (type_args))))
             (where)
             (body
               (expr_stack)

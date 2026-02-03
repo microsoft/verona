@@ -5,8 +5,18 @@ Failed to resolve name:
 
 ----------------
 Failed to resolve name:
+  type Bar = Module1::Foo::F
+             ~~~~~~~~~~~~~~~
+
+----------------
+Failed to resolve name:
   type Foo = Module3::Bar::F
              ~~~~~~~~~~~~~~~
 
-Pass resolve_types failed with 2 errors!
+----------------
+Failed to resolve name:
+  type Foo = Module3::Bar::F
+             ~~~~~~~~~~~~~~~
+
+Pass resolve_types failed with 4 errors!
 

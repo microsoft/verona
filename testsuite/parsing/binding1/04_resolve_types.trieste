@@ -15,6 +15,7 @@ resolve_types
       {
         inc = function}
       (name 7:Module3)
+      (type_params)
       (body
         (indent
           (function
@@ -30,14 +31,18 @@ resolve_types
                   (type_lookup
                     (../)
                     (../)
-                    (name 3:Int)))))
+                    (type_reference
+                      (name 3:Int)
+                      (type_args))))))
             (name 3:inc)
             (rhs)
             (type
               (type_lookup
                 (../)
                 (../)
-                (name 3:Int)))
+                (type_reference
+                  (name 3:Int)
+                  (type_args))))
             (where)
             (body
               (expr_stack)
@@ -48,13 +53,16 @@ resolve_types
         test = function
         include use Module3}
       (name 4:Test)
+      (type_params)
       (body
         (indent
           (use
             (type
               (type_lookup
                 (../)
-                (name 7:Module3))))
+                (type_reference
+                  (name 7:Module3)
+                  (type_args)))))
           (function
             {
               x = param}
@@ -70,12 +78,16 @@ resolve_types
                   (type_lookup
                     (../)
                     (../)
-                    (name 3:Int)))))
+                    (type_reference
+                      (name 3:Int)
+                      (type_args))))))
             (type
               (type_lookup
                 (../)
                 (../)
-                (name 3:Int)))
+                (type_reference
+                  (name 3:Int)
+                  (type_args))))
             (where)
             (body
               (expr_stack)

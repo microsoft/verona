@@ -3,6 +3,7 @@ parse_types
 (top
   {
     Cell = struct
+    Int = struct
     Void = struct
     assoc = function
     crazy1 = function
@@ -14,6 +15,11 @@ parse_types
     test = function
     update = function}
   (file
+    (struct
+      {}
+      (name 3:Int)
+      (type_params)
+      (fields))
     (struct
       {}
       (name 4:Void)
@@ -32,7 +38,9 @@ parse_types
           (name 5:value)
           (type
             (type_lookup
-              (name 1:P))))))
+              (type_reference
+                (name 1:P)
+                (type_args)))))))
     (function
       {
         P = type_param
@@ -50,19 +58,28 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 6:Cell[P
-                (group
-                  (name 1:P))))))
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args)))))))))
         (param
           (name 1:v)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 1:P)))))
+              (type_reference
+                (name 1:P)
+                (type_args))))))
       (type
         (type_lookup
-          (name 4:Void)))
+          (type_reference
+            (name 4:Void)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -91,21 +108,33 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 6:Cell[P
-                (group
-                  (name 1:P))))))
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args)))))))))
         (param
           (name 2:c2)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 6:Cell[P
-                (group
-                  (name 1:P)))))))
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args))))))))))
       (type
         (type_lookup
-          (name 4:Void)))
+          (type_reference
+            (name 4:Void)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -142,21 +171,33 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 6:Cell[P
-                (group
-                  (name 1:P))))))
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args)))))))))
         (param
           (name 2:c2)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 6:Cell[P
-                (group
-                  (name 1:P)))))))
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args))))))))))
       (type
         (type_lookup
-          (name 4:Void)))
+          (type_reference
+            (name 4:Void)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -195,21 +236,33 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 6:Cell[P
-                (group
-                  (name 1:P))))))
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args)))))))))
         (param
           (name 2:c2)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 6:Cell[P
-                (group
-                  (name 1:P)))))))
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args))))))))))
       (type
         (type_lookup
-          (name 4:Void)))
+          (type_reference
+            (name 4:Void)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -248,21 +301,33 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 6:Cell[P
-                (group
-                  (name 1:P))))))
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args)))))))))
         (param
           (name 2:c2)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 6:Cell[P
-                (group
-                  (name 1:P)))))))
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args))))))))))
       (type
         (type_lookup
-          (name 4:Void)))
+          (type_reference
+            (name 4:Void)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -364,17 +429,23 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int))))
+              (type_reference
+                (name 3:Int)
+                (type_args)))))
         (param
           (name 2:c2)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)))))
+              (type_reference
+                (name 3:Int)
+                (type_args))))))
       (type
         (type_lookup
-          (name 3:Int)))
+          (type_reference
+            (name 3:Int)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -396,26 +467,37 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 8:Cell[Int
-                (group
-                  (name 3:Int))))))
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 3:Int)
+                        (type_args)))))))))
         (param
           (name 2:i1)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 3:Int))))
+              (type_reference
+                (name 3:Int)
+                (type_args)))))
         (param
           (name 2:i2)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)))))
+              (type_reference
+                (name 3:Int)
+                (type_args))))))
       (type
         (type_lookup
-          (name 4:Void)))
+          (type_reference
+            (name 4:Void)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -444,26 +526,37 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 8:Cell[Int
-                (group
-                  (name 3:Int))))))
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 3:Int)
+                        (type_args)))))))))
         (param
           (name 2:i1)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 3:Int))))
+              (type_reference
+                (name 3:Int)
+                (type_args)))))
         (param
           (name 2:i2)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)))))
+              (type_reference
+                (name 3:Int)
+                (type_args))))))
       (type
         (type_lookup
-          (name 3:Int)))
+          (type_reference
+            (name 3:Int)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -512,21 +605,33 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 6:Cell[P
-                (group
-                  (name 1:P))))))
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args)))))))))
         (param
           (name 2:c2)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 6:Cell[P
-                (group
-                  (name 1:P)))))))
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args))))))))))
       (type
         (type_lookup
-          (name 4:Void)))
+          (type_reference
+            (name 4:Void)
+            (type_args))))
       (where)
       (body
         (expr_stack)

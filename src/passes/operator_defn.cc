@@ -51,7 +51,7 @@ PassDef get_operator_defn_pass() {
                                    T(Eq) * Any++[Body] * End) >>
            [](auto &_) -> Node {
          return (TypeAlias ^ _(TypeAlias))
-                << _[Name] << (TypeParams << *_[Square]) << (Type << _[Body]);
+                << _[Name] << (TypeParams << *_[Square]) << (Type << + _[Body]);
        },
 
        T(Module)[Module] << (T(Name)[Name] * ~T(Square)[TypeParams] *

@@ -12,7 +12,8 @@ parse
         {})
       (name 5:False))
     (group
-      (type_alias)
+      (type_alias
+        {})
       (name 4:Bool)
       (eq)
       (name 4:True)
@@ -208,7 +209,8 @@ parse
             (group
               (name 1:T))))))
     (group
-      (type_alias)
+      (type_alias
+        {})
       (name 4:List)
       (square
         (group

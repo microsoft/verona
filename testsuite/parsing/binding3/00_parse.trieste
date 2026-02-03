@@ -32,7 +32,8 @@ parse
       (name 7:Module1)
       (indent
         (group
-          (type_alias)
+          (type_alias
+            {})
           (name 3:Foo)
           (eq)
           (name 7:Module3))))

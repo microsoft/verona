@@ -98,6 +98,7 @@ structure
       (eq)
       (name 5:abort))
     (type_alias
+      {}
       (name 4:Expr)
       (type_params)
       (type
@@ -216,6 +217,7 @@ structure
           (type
             (name 4:Expr)))))
     (type_alias
+      {}
       (name 5:Expr2)
       (type_params)
       (type
