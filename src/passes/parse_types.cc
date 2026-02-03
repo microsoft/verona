@@ -14,8 +14,8 @@ PassDef get_parse_types_pass() {
                    // Start of a type: Name [Square]? -> Lookup(Name, Args).
                    In(Type, Use) * Start * T(Name)[Name] * ~T(Square)[Args] >>
                        [](auto &_) {
-                         return TypeLookup <= (TypeReference <= _(Name) <=
-                                               (TypeArgs <= *_[Args]));
+                         return TypeLookup << (+ (TypeReference <<  (+ _(Name))))
+                                           << (+ (TypeArgs << (+ *_[Args])));
                        },
 
                    // Extend lookup chain: Lookup :: Name [Square]? ->
@@ -23,8 +23,8 @@ PassDef get_parse_types_pass() {
                    In(Type, Use) * T(TypeLookup)[Lhs] * T(DoubleColon) *
                            T(Name)[Name] * ~T(Square)[Args] >>
                        [](auto &_) {
-                         return _(Lhs) <= (TypeReference <= _(Name) <=
-                                           (TypeArgs <= *_[Args]));
+                         return _(Lhs) << (+ (TypeReference <<  (+ _(Name))))
+                                       << (+ (TypeArgs << (+ *_[Args])));
                        },
 
                    In(TypeArgs) * T(Group)[Group] >>

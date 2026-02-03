@@ -6,7 +6,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "node_worker.h"
+#include <trieste/nodeworker.h>
 
 /**
  * To handle generics correctly, we need to handle resolutions to be arbitrary types,
