@@ -37,12 +37,7 @@ resolve_types
                   (errormsg 23:Failed to resolve name:)
                   (errormsg 58:  type Bar = Module1::Foo::F
              ~~~~~~~~~~~~~~~
-)))
-              (error
-                (errormsg 23:Failed to resolve name:)
-                (errormsg 58:  type Bar = Module1::Foo::F
-             ~~~~~~~~~~~~~~~
-)))))))
+))))))))
     (module
       {
         Foo = type_alias}
@@ -69,9 +64,4 @@ resolve_types
                   (errormsg 23:Failed to resolve name:)
                   (errormsg 58:  type Foo = Module3::Bar::F
              ~~~~~~~~~~~~~~~
-)))
-              (error
-                (errormsg 23:Failed to resolve name:)
-                (errormsg 58:  type Foo = Module3::Bar::F
-             ~~~~~~~~~~~~~~~
-)))))))))
+))))))))))
