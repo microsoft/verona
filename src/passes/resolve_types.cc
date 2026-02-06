@@ -134,6 +134,7 @@ RelativePath type_lookup_to_relative_path(const Node &base,
     // After we start seeing references, Parents are unexpected in the
     // grammar; treat them as part of the prefix to avoid dropping segments.
     seen_reference = true;
+    std::cout << "  cloning segment: " << child << std::endl;
     rp.prefix.push_back(child->clone());
     // std::cout << "  prefix segment: " << child->str() << std::endl;
   }
@@ -362,8 +363,16 @@ PassDef get_resolve_types_pass() {
           //           << type_lookup_to_str(source) << " in " << prefix.node <<
           //           std::endl;
           auto lookups = prefix.node->look(source->front()->location());
-          assert(lookups.size() > 0);
+          if (lookups.size() == 0) {
+            std::cout << "[rebase_path] error: failed to rebase path, segment "
+                         "not found: "
+                      << source->front()->str() << std::endl
+                      << "Looking in node: " << prefix.node->str() << std::endl;
+            assert(false);
+          }
+
           assert(lookups.size() == 1);
+
           Node lookup = lookups.front();
 
           if (lookup != TypeParam) {
@@ -523,9 +532,25 @@ PassDef get_resolve_types_pass() {
           return true;
         }
 
+        std::cout << "Processing type lookup: " << entry << std::endl;
+
         assert(entry == TypeLookup);
         while (!state.pending_suffix.empty()) {
           Node reference = state.pending_suffix.front();
+          assert(reference == TypeReference);
+          Node type_args = reference / TypeArgs;
+          if (type_args) {
+            std::vector<Node> unresolved_args;
+            for (auto &arg : *type_args) {
+              if (!worker.is_resolved(arg))
+                unresolved_args.push_back(arg);
+            }
+            if (!unresolved_args.empty()) {
+              worker.block_on_all(entry, unresolved_args);
+              return false;
+            }
+          }
+
           Node head = reference / Name;
 
           if (state.path.lookup_levels == -1) {
@@ -546,6 +571,8 @@ PassDef get_resolve_types_pass() {
           }
 
           if (found.front() == TypeAlias) {
+            std::cout << "Found type alias during lookup: " << type_lookup_to_str(entry) << std::endl
+                      << " alias: " << found.front()->str() << std::endl;
             if ((state.pending_suffix.size() == 1) && !state.expand_aliases) {
               // Don't expand the alias if it's the last element of a
               // TypeLookup.
@@ -629,7 +656,12 @@ PassDef get_resolve_types_pass() {
           return false;
         }
 
+
+        assert(!worker.is_resolved(entry));
         // Perform the substitution of the resolved path into the type lookup.
+        std::cout << "Resolved type lookup: " << entry << std::endl
+                  << " to path: " << std::endl
+                  << state.path << std::endl << "---------" << std::endl;
         entry->erase(entry->begin(), entry->end());
         for (size_t i = 0; i < state.path.lookup_levels; i++) {
           entry << (Parent);
@@ -637,6 +669,8 @@ PassDef get_resolve_types_pass() {
         for (const auto &seg : state.path.prefix) {
           entry << seg->clone();
         }
+
+        std::cout << "After substitution: " << entry << std::endl;
 
         assert(!ast_has_cycle(entry));
 
