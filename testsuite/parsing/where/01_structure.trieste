@@ -30,6 +30,7 @@ structure
           (type
             (name 1:P)))))
     (type_alias
+      {}
       (name 4:Bool)
       (type_params)
       (type

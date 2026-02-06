@@ -14,6 +14,7 @@ structure
       (type_params)
       (fields))
     (type_alias
+      {}
       (name 4:Bool)
       (type_params)
       (type
@@ -35,6 +36,19 @@ structure
         (field
           (name 5:value)
           (type
+            (name 1:P)))))
+    (type_alias
+      {}
+      (name 6:Option)
+      (type_params
+        (group
+          (name 1:P)))
+      (type
+        (name 4:None)
+        (name 1:|)
+        (name 4:Some)
+        (square
+          (group
             (name 1:P)))))
     (function
       {}

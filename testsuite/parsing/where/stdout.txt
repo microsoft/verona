@@ -1,37 +1,12 @@
-where.infix:13:46: unexpected group, expected a type, 
+Errors:
+Failed to resolve name:
 function[P] if (b: True) (then: ^P) : Option[P] = Some(then)
-                                             ~
-(group
-  (name 1:P))
+                                            ~~
 
-
-where.infix:14:47: unexpected group, expected a type, 
+----------------
+Failed to resolve name:
 function[P] if (b: False) (then: ^P) : Option[P] = None
-                                              ~
-(group
-  (name 1:P))
+                                             ~~
 
-
-where.infix:16:25: unexpected group, expected a type, 
-function[P] (prev: Some[P]) else (next: ^P) : P = prev.value 
-                        ~
-(group
-  (name 1:P))
-
-
-where.infix:18:26: unexpected group, expected a type, 
-function[P] (cell1: Cell[P]) == (cell2: Cell[P]) : Bool where ==: P -> Bool <- P 
-                         ~
-(group
-  (name 1:P))
-
-
-where.infix:18:46: unexpected group, expected a type, 
-function[P] (cell1: Cell[P]) == (cell2: Cell[P]) : Bool where ==: P -> Bool <- P 
-                                             ~
-(group
-  (name 1:P))
-
-
-Errors:Pass parse_types failed with 0 error!
+Pass resolve_types failed with 2 errors!
 

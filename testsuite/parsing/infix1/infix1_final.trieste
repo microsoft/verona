@@ -17,7 +17,9 @@ resolve_types
       (rhs)
       (type
         (type_lookup
-          (name 1:T)
+          (type_reference
+            (name 1:T)
+            (type_args))
           (error
             (errormsg 23:Failed to resolve name:)
             (errormsg 46:function abort : T = abort
@@ -39,7 +41,9 @@ resolve_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)
+              (type_reference
+                (name 3:Int)
+                (type_args))
               (error
                 (errormsg 23:Failed to resolve name:)
                 (errormsg 60:function (a: Int) + (b: Int) : Int = abort
@@ -53,7 +57,9 @@ resolve_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)
+              (type_reference
+                (name 3:Int)
+                (type_args))
               (error
                 (errormsg 23:Failed to resolve name:)
                 (errormsg 71:function (a: Int) + (b: Int) : Int = abort
@@ -61,7 +67,9 @@ resolve_types
 ))))))
       (type
         (type_lookup
-          (name 3:Int)
+          (type_reference
+            (name 3:Int)
+            (type_args))
           (error
             (errormsg 23:Failed to resolve name:)
             (errormsg 78:function (a: Int) + (b: Int) : Int = abort
@@ -86,7 +94,9 @@ resolve_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)
+              (type_reference
+                (name 3:Int)
+                (type_args))
               (error
                 (errormsg 23:Failed to resolve name:)
                 (errormsg 72:function test (a : Int) (b: Int) (c: Int): Int =
@@ -98,7 +108,9 @@ resolve_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)
+              (type_reference
+                (name 3:Int)
+                (type_args))
               (error
                 (errormsg 23:Failed to resolve name:)
                 (errormsg 81:function test (a : Int) (b: Int) (c: Int): Int =
@@ -110,7 +122,9 @@ resolve_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)
+              (type_reference
+                (name 3:Int)
+                (type_args))
               (error
                 (errormsg 23:Failed to resolve name:)
                 (errormsg 90:function test (a : Int) (b: Int) (c: Int): Int =
@@ -118,7 +132,9 @@ resolve_types
 ))))))
       (type
         (type_lookup
-          (name 3:Int)
+          (type_reference
+            (name 3:Int)
+            (type_args))
           (error
             (errormsg 23:Failed to resolve name:)
             (errormsg 96:function test (a : Int) (b: Int) (c: Int): Int =
@@ -149,7 +165,9 @@ resolve_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)
+              (type_reference
+                (name 3:Int)
+                (type_args))
               (error
                 (errormsg 23:Failed to resolve name:)
                 (errormsg 72:function test (a : Int) (b: Int) (c: Int): Int =
@@ -161,7 +179,9 @@ resolve_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)
+              (type_reference
+                (name 3:Int)
+                (type_args))
               (error
                 (errormsg 23:Failed to resolve name:)
                 (errormsg 81:function test (a : Int) (b: Int) (c: Int): Int =
@@ -173,7 +193,9 @@ resolve_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)
+              (type_reference
+                (name 3:Int)
+                (type_args))
               (error
                 (errormsg 23:Failed to resolve name:)
                 (errormsg 90:function test (a : Int) (b: Int) (c: Int): Int =
@@ -181,7 +203,9 @@ resolve_types
 ))))))
       (type
         (type_lookup
-          (name 3:Int)
+          (type_reference
+            (name 3:Int)
+            (type_args))
           (error
             (errormsg 23:Failed to resolve name:)
             (errormsg 96:function test (a : Int) (b: Int) (c: Int): Int =
@@ -213,7 +237,9 @@ resolve_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)
+              (type_reference
+                (name 3:Int)
+                (type_args))
               (error
                 (errormsg 23:Failed to resolve name:)
                 (errormsg 72:function test (a : Int) (b: Int) (c: Int): Int =
@@ -225,7 +251,9 @@ resolve_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)
+              (type_reference
+                (name 3:Int)
+                (type_args))
               (error
                 (errormsg 23:Failed to resolve name:)
                 (errormsg 81:function test (a : Int) (b: Int) (c: Int): Int =
@@ -237,7 +265,9 @@ resolve_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)
+              (type_reference
+                (name 3:Int)
+                (type_args))
               (error
                 (errormsg 23:Failed to resolve name:)
                 (errormsg 90:function test (a : Int) (b: Int) (c: Int): Int =
@@ -245,7 +275,9 @@ resolve_types
 ))))))
       (type
         (type_lookup
-          (name 3:Int)
+          (type_reference
+            (name 3:Int)
+            (type_args))
           (error
             (errormsg 23:Failed to resolve name:)
             (errormsg 96:function test (a : Int) (b: Int) (c: Int): Int =

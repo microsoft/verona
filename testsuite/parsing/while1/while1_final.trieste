@@ -1,10 +1,11 @@
 infix
-parse_types
+resolve_types
 (top
   {
     Bool = type_alias
     False = struct
     None = struct
+    Option = type_alias
     Some = struct
     True = struct
     else =
@@ -29,11 +30,15 @@ parse_types
       (type_params)
       (fields))
     (type_alias
+      {}
       (name 4:Bool)
       (type_params)
       (type
         (type_lookup
-          (name 4:True))
+          (../)
+          (type_reference
+            (name 4:True)
+            (type_args)))
         (name 1:|)
         (name 5:False)))
     (struct
@@ -54,7 +59,27 @@ parse_types
           (name 5:value)
           (type
             (type_lookup
-              (name 1:P))))))
+              (type_reference
+                (name 1:P)
+                (type_args)))))))
+    (type_alias
+      {
+        P = type_param}
+      (name 6:Option)
+      (type_params
+        (type_param
+          (name 1:P)))
+      (type
+        (type_lookup
+          (../)
+          (type_reference
+            (name 4:None)
+            (type_args)))
+        (name 1:|)
+        (name 4:Some)
+        (square
+          (group
+            (name 1:P)))))
     (function
       {
         P = type_param
@@ -72,19 +97,30 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 4:True))))
+              (../)
+              (type_reference
+                (name 4:True)
+                (type_args)))))
         (param
           (name 10:thenBranch)
           (mode
             (cbn))
           (type
             (type_lookup
-              (name 1:P)))))
+              (type_reference
+                (name 1:P)
+                (type_args))))))
       (type
         (type_lookup
-          (name 8:Option[P
-            (group
-              (name 1:P)))))
+          (../)
+          (type_reference
+            (name 6:Option)
+            (type_args
+              (type
+                (type_lookup
+                  (type_reference
+                    (name 1:P)
+                    (type_args))))))))
       (where)
       (body
         (expr_stack)
@@ -107,19 +143,30 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 5:False))))
+              (../)
+              (type_reference
+                (name 5:False)
+                (type_args)))))
         (param
           (name 10:thenBranch)
           (mode
             (cbn))
           (type
             (type_lookup
-              (name 1:P)))))
+              (type_reference
+                (name 1:P)
+                (type_args))))))
       (type
         (type_lookup
-          (name 8:Option[P
-            (group
-              (name 1:P)))))
+          (../)
+          (type_reference
+            (name 6:Option)
+            (type_args
+              (type
+                (type_lookup
+                  (type_reference
+                    (name 1:P)
+                    (type_args))))))))
       (where)
       (body
         (expr_stack)
@@ -137,10 +184,16 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 4:True)))))
+              (../)
+              (type_reference
+                (name 4:True)
+                (type_args))))))
       (type
         (type_lookup
-          (name 5:False)))
+          (../)
+          (type_reference
+            (name 5:False)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -158,10 +211,16 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 5:False)))))
+              (../)
+              (type_reference
+                (name 5:False)
+                (type_args))))))
       (type
         (type_lookup
-          (name 4:True)))
+          (../)
+          (type_reference
+            (name 4:True)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -181,9 +240,15 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 6:Some[P
-                (group
-                  (name 1:P)))))))
+              (../)
+              (type_reference
+                (name 4:Some)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args))))))))))
       (name 4:else)
       (rhs
         (param
@@ -192,10 +257,14 @@ parse_types
             (cbn))
           (type
             (type_lookup
-              (name 1:P)))))
+              (type_reference
+                (name 1:P)
+                (type_args))))))
       (type
         (type_lookup
-          (name 1:P)))
+          (type_reference
+            (name 1:P)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -218,7 +287,10 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 4:None)))))
+              (../)
+              (type_reference
+                (name 4:None)
+                (type_args))))))
       (name 4:else)
       (rhs
         (param
@@ -227,10 +299,14 @@ parse_types
             (cbn))
           (type
             (type_lookup
-              (name 1:P)))))
+              (type_reference
+                (name 1:P)
+                (type_args))))))
       (type
         (type_lookup
-          (name 1:P)))
+          (type_reference
+            (name 1:P)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -253,19 +329,30 @@ parse_types
             (cbn))
           (type
             (type_lookup
-              (name 4:Bool))))
+              (../)
+              (type_reference
+                (name 4:Bool)
+                (type_args)))))
         (param
           (name 4:body)
           (mode
             (cbn))
           (type
             (type_lookup
-              (name 1:P)))))
+              (type_reference
+                (name 1:P)
+                (type_args))))))
       (type
         (type_lookup
-          (name 8:Option[P
-            (group
-              (name 1:P)))))
+          (../)
+          (type_reference
+            (name 6:Option)
+            (type_args
+              (type
+                (type_lookup
+                  (type_reference
+                    (name 1:P)
+                    (type_args))))))))
       (where)
       (body
         (expr_stack)
@@ -283,14 +370,30 @@ parse_types
                   (cbv))
                 (type
                   (type_lookup
-                    (name 8:Option[P
-                      (group
-                        (name 1:P)))))))
+                    (../)
+                    (../)
+                    (type_reference
+                      (name 6:Option)
+                      (type_args
+                        (type
+                          (type_lookup
+                            (../)
+                            (type_reference
+                              (name 1:P)
+                              (type_args))))))))))
             (type
               (type_lookup
-                (name 8:Option[P
-                  (group
-                    (name 1:P)))))
+                (../)
+                (../)
+                (type_reference
+                  (name 6:Option)
+                  (type_args
+                    (type
+                      (type_lookup
+                        (../)
+                        (type_reference
+                          (name 1:P)
+                          (type_args))))))))
             (where)
             (body
               (expr_stack)

@@ -1,12 +1,11 @@
-// Example of binding
-
+# Example of binding
 module Module1[T1]
   module Module2[T2]
     type Bar = T2
   type Foo = Module2[T1]
 
 module Module3
-  function (x: Int) inc = x + 1
+  struct Int
 
 module Test
   # This brings inc into scope.
@@ -17,6 +16,6 @@ module Test
   ##  Module3
   ##  So inc is now in scope.
 
-  function test(): Int =
+  function test: Int =
     1 inc
 

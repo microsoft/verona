@@ -5,6 +5,7 @@ function_parse
     Bool = type_alias
     False = struct
     None = struct
+    Option = type_alias
     Some = struct
     True = struct
     else =
@@ -29,6 +30,7 @@ function_parse
       (type_params)
       (fields))
     (type_alias
+      {}
       (name 4:Bool)
       (type_params)
       (type
@@ -52,6 +54,20 @@ function_parse
         (field
           (name 5:value)
           (type
+            (name 1:P)))))
+    (type_alias
+      {
+        P = type_param}
+      (name 6:Option)
+      (type_params
+        (type_param
+          (name 1:P)))
+      (type
+        (name 4:None)
+        (name 1:|)
+        (name 4:Some)
+        (square
+          (group
             (name 1:P)))))
     (function
       {

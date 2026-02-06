@@ -362,6 +362,7 @@ PassDef get_resolve_types_pass() {
           //           << type_lookup_to_str(source) << " in " << prefix.node <<
           //           std::endl;
           auto lookups = prefix.node->look(source->front()->location());
+          assert(lookups.size() > 0);
           assert(lookups.size() == 1);
           Node lookup = lookups.front();
 

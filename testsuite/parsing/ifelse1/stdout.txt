@@ -1,23 +1,17 @@
-ifelse1.infix:10:60: unexpected group, expected a type, 
+Errors:
+Failed to resolve name:
 function[P] if (condition: True) (thenBranch: ^P) : Option[P] = Some thenBranch
-                                                           ~
-(group
-  (name 1:P))
+                                                          ~~
 
-
-ifelse1.infix:11:61: unexpected group, expected a type, 
+----------------
+Failed to resolve name:
 function[P] if (condition: False) (thenBranch: ^P) : Option[P] = None
-                                                            ~
-(group
-  (name 1:P))
+                                                           ~~
 
+----------------
+Failed to resolve name:
+function test: Int =
+               ~~~
 
-ifelse1.infix:16:24: unexpected group, expected a type, 
-function[P] (lhs: Some[P]) else (value: ^P) : P = lhs.value
-                       ~
-(group
-  (name 1:P))
-
-
-Errors:Pass parse_types failed with 0 error!
+Pass resolve_types failed with 3 errors!
 

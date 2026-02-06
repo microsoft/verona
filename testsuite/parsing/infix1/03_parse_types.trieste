@@ -17,7 +17,9 @@ parse_types
       (rhs)
       (type
         (type_lookup
-          (name 1:T)))
+          (type_reference
+            (name 1:T)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -34,7 +36,9 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)))))
+              (type_reference
+                (name 3:Int)
+                (type_args))))))
       (name 1:+)
       (rhs
         (param
@@ -43,10 +47,14 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)))))
+              (type_reference
+                (name 3:Int)
+                (type_args))))))
       (type
         (type_lookup
-          (name 3:Int)))
+          (type_reference
+            (name 3:Int)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -66,24 +74,32 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int))))
+              (type_reference
+                (name 3:Int)
+                (type_args)))))
         (param
           (name 1:b)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 3:Int))))
+              (type_reference
+                (name 3:Int)
+                (type_args)))))
         (param
           (name 1:c)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)))))
+              (type_reference
+                (name 3:Int)
+                (type_args))))))
       (type
         (type_lookup
-          (name 3:Int)))
+          (type_reference
+            (name 3:Int)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -109,24 +125,32 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int))))
+              (type_reference
+                (name 3:Int)
+                (type_args)))))
         (param
           (name 1:b)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 3:Int))))
+              (type_reference
+                (name 3:Int)
+                (type_args)))))
         (param
           (name 1:c)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)))))
+              (type_reference
+                (name 3:Int)
+                (type_args))))))
       (type
         (type_lookup
-          (name 3:Int)))
+          (type_reference
+            (name 3:Int)
+            (type_args))))
       (where)
       (body
         (expr_stack)
@@ -153,24 +177,32 @@ parse_types
             (cbv))
           (type
             (type_lookup
-              (name 3:Int))))
+              (type_reference
+                (name 3:Int)
+                (type_args)))))
         (param
           (name 1:b)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 3:Int))))
+              (type_reference
+                (name 3:Int)
+                (type_args)))))
         (param
           (name 1:c)
           (mode
             (cbv))
           (type
             (type_lookup
-              (name 3:Int)))))
+              (type_reference
+                (name 3:Int)
+                (type_args))))))
       (type
         (type_lookup
-          (name 3:Int)))
+          (type_reference
+            (name 3:Int)
+            (type_args))))
       (where)
       (body
         (expr_stack)
