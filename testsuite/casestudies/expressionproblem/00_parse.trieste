@@ -6,6 +6,10 @@ parse
     (group
       (struct
         {})
+      (name 3:Int))
+    (group
+      (struct
+        {})
       (name 3:Add)
       (square
         (group

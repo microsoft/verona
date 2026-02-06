@@ -12,6 +12,23 @@ parse
         {})
       (name 5:False))
     (group
+      (struct
+        {})
+      (name 3:Int))
+    (group
+      (struct
+        {})
+      (name 3:Fun)
+      (square
+        (group
+          (name 1:P))
+        (group
+          (name 1:Q))))
+    (group
+      (struct
+        {})
+      (name 6:String))
+    (group
       (type_alias
         {})
       (name 4:Bool)
@@ -34,6 +51,20 @@ parse
         (group
           (name 5:value)
           (Colon)
+          (name 1:P))))
+    (group
+      (type_alias
+        {})
+      (name 6:Option)
+      (square
+        (group
+          (name 1:P)))
+      (eq)
+      (name 4:None)
+      (name 1:|)
+      (name 4:Some)
+      (square
+        (group
           (name 1:P))))
     (group
       (function

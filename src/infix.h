@@ -1,6 +1,8 @@
 #pragma once
 
+#include <functional>
 #include <optional>
+#include <unordered_set>
 
 #include <trieste/trieste.h>
 
@@ -124,6 +126,9 @@ std::vector<Pass> passes();
 // Utility functions
 Nodes lookup_all(Node n);
 std::optional<size_t> lookup_levels_up(Node n);
+Node bottom_up_map(Node root,
+                   const std::function<Node(Node, const Node &)> &fn);
+bool ast_has_cycle(Node root);
 
 // PassDef factory functions
 PassDef get_operator_defn_pass();

@@ -8,6 +8,7 @@ parse_types
     Add = struct
     Expr = type_alias
     Expr2 = type_alias
+    Int = struct
     IntLiteral = struct
     Mul = struct
     Sub = struct
@@ -20,6 +21,11 @@ parse_types
     test1 = function
     test2 = function}
   (file
+    (struct
+      {}
+      (name 3:Int)
+      (type_params)
+      (fields))
     (struct
       {
         Expr = type_param

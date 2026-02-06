@@ -6,10 +6,14 @@ parse_types
     Bool = type_alias
     EmptyList = struct
     False = struct
+    Fun = struct
+    Int = struct
     List = type_alias
     ListNode = struct
     None = struct
+    Option = type_alias
     Some = struct
+    String = struct
     True = struct
     abort = function
     else =
@@ -38,6 +42,27 @@ parse_types
     (struct
       {}
       (name 5:False)
+      (type_params)
+      (fields))
+    (struct
+      {}
+      (name 3:Int)
+      (type_params)
+      (fields))
+    (struct
+      {
+        P = type_param
+        Q = type_param}
+      (name 3:Fun)
+      (type_params
+        (type_param
+          (name 1:P))
+        (type_param
+          (name 1:Q)))
+      (fields))
+    (struct
+      {}
+      (name 6:String)
       (type_params)
       (fields))
     (type_alias
@@ -72,6 +97,23 @@ parse_types
               (type_reference
                 (name 1:P)
                 (type_args)))))))
+    (type_alias
+      {
+        P = type_param}
+      (name 6:Option)
+      (type_params
+        (type_param
+          (name 1:P)))
+      (type
+        (type_lookup
+          (type_reference
+            (name 4:None)
+            (type_args)))
+        (name 1:|)
+        (name 4:Some)
+        (square
+          (group
+            (name 1:P)))))
     (function
       {
         P = type_param

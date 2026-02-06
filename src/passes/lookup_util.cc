@@ -1,6 +1,71 @@
 #include "../infix.h"
 
+#include <unordered_set>
+#include <vector>
+
 namespace infix {
+
+// Bottom-up map over the AST using trieste's non-recursive traverse.
+// The mapper receives (1) a mutable clone of the current node's header with
+// already-mapped children attached, and (2) the original node for context. It
+// should return the replacement node (or nullptr to delete this sub-tree).
+// Returns the mapped root (or nullptr if the root is removed).
+Node bottom_up_map(Node root,
+                   const std::function<Node(Node, const Node &)> &fn) {
+  if (!root || !fn)
+    return root;
+
+  std::vector<Node> stack;
+  Node result;
+
+  root->traverse(
+      [&](Node &current) {
+        // Pre-order: allocate a partial node matching the current node's
+        // header; children will be filled in on post-order.
+        stack.push_back(NodeDef::create(current->type(), current->location()));
+        return true;
+      },
+      [&](Node &current) {
+        Node partial = std::move(stack.back());
+        stack.pop_back();
+
+        Node mapped = fn(partial, current);
+
+        if (stack.empty()) {
+          result = mapped;
+          return;
+        }
+
+        if (mapped)
+          stack.back()->push_back(mapped);
+      });
+
+  return result;
+}
+
+bool ast_has_cycle(Node root) {
+  if (!root)
+    return false;
+
+  std::unordered_set<NodeDef *> in_path;
+  bool has_cycle = false;
+
+  root->traverse(
+      [&](Node &current) {
+        NodeDef *ptr = current.get();
+        if (in_path.find(ptr) != in_path.end()) {
+          has_cycle = true;
+          return false; // Detected a cycle; do not descend further.
+        }
+        in_path.insert(ptr);
+        return true;
+      },
+      [&](Node &current) {
+        in_path.erase(current.get());
+      });
+
+  return has_cycle;
+}
 
 Nodes lookup_all(Node n) {
   Nodes result;
@@ -63,12 +128,10 @@ std::optional<size_t> lookup_levels_up(Node n) {
 
   while (scope) {
     Nodes matches;
-    scope->get_symbols(n->location(), matches,
-                       [&](auto &node) {
-                         return (node->type() & flag::lookup) &&
-                                (!(scope->type() & flag::defbeforeuse) ||
-                                 node->precedes(n));
-                       });
+    scope->get_symbols(n->location(), matches, [&](auto &node) {
+      return (node->type() & flag::lookup) &&
+             (!(scope->type() & flag::defbeforeuse) || node->precedes(n));
+    });
 
     if (!matches.empty())
       return levels;

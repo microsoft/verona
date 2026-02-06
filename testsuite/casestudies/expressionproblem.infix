@@ -1,3 +1,5 @@
+struct Int
+
 # Basic syntax.  Uses generics to enable extension
 struct Add[Expr]
   left: Expr

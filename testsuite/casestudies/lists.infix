@@ -1,11 +1,16 @@
 struct True
 struct False
+struct Int
+struct Fun[P, Q]
+struct String
 
 type Bool = True | False
 
 struct None
 struct Some[P]
   value: P
+
+type Option[P] = None | Some[P]
 
 function[P] if (condition: True) (thenBranch: ^P) : Option[P] = Some thenBranch
 function[P] if (condition: False) (thenBranch: ^P) : Option[P] = None
