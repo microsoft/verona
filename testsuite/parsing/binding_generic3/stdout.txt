@@ -1,0 +1,56 @@
+[rebase_path] error: failed to rebase path, segment not found: (type_reference
+  (name 7:Module2)
+  (type_args
+    (type
+      (type_lookup
+        (../)
+        (type_reference
+          (name 7:Module3)
+          (type_args))))))
+Looking in node: (module
+  {
+    Foo = type_alias
+    Module2 = module
+    T1 = type_param}
+  (name 7:Module1)
+  (type_params
+    (type_param
+      (name 2:T1)))
+  (body
+    (indent
+      (module
+        {
+          Bar = type_alias
+          T2 = type_param}
+        (name 7:Module2)
+        (type_params
+          (type_param
+            (name 2:T2)))
+        (body
+          (indent
+            (type_alias
+              {}
+              (name 3:Bar)
+              (type_params)
+              (type
+                (type_lookup
+                  (../)
+                  (type_reference
+                    (name 2:T2)
+                    (type_args))))))))
+      (type_alias
+        {}
+        (name 3:Foo)
+        (type_params)
+        (type
+          (type_lookup
+            (../)
+            (type_reference
+              (name 7:Module2)
+              (type_args
+                (type
+                  (type_lookup
+                    (../)
+                    (type_reference
+                      (name 2:T1)
+                      (type_args))))))))))))

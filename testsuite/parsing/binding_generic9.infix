@@ -1,0 +1,28 @@
+struct True
+struct False
+
+type Bool = True | False
+
+struct None
+struct Some[P]
+  value: P
+
+type Option[P] = None | Some[P]
+
+function[P] if (condition: True) (thenBranch: ^P) : Option[P] = Some thenBranch
+function[P] if (condition: False) (thenBranch: ^P) : Option[P] = None
+
+function not (b: True) : False = False
+function not (b: False) : True = True
+
+function[P] (lhs: Some[P]) else (value: ^P) : P = lhs.value
+function[P] (lhs: None) else (value: ^P) : P = value
+
+function[P] while (c: ^Bool) (body: ^P) : Option[P] =
+  function inner (previous: Option[P]) : Option[P] =
+    if not c
+      previous
+    else
+      inner (Some body)
+  inner
+    None

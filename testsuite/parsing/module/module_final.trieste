@@ -1,0 +1,475 @@
+infix
+resolve_types
+(top
+  {
+    BoolModule = module
+    IfElseModule = module
+    OptionModule = module
+    WhileModule = module}
+  (file
+    (module
+      {
+        Bool = type_alias
+        False = struct
+        True = struct}
+      (name 10:BoolModule)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 4:True)
+            (type_params)
+            (fields))
+          (struct
+            {}
+            (name 5:False)
+            (type_params)
+            (fields))
+          (type_alias
+            {}
+            (name 4:Bool)
+            (type_params)
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 4:True)
+                  (type_args)))
+              (name 1:|)
+              (name 5:False))))))
+    (module
+      {
+        None = struct
+        Option = type_alias
+        Some = struct}
+      (name 12:OptionModule)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 4:None)
+            (type_params)
+            (fields))
+          (struct
+            {
+              T = type_param
+              value = field}
+            (name 4:Some)
+            (type_params
+              (type_param
+                (name 1:T)))
+            (fields
+              (field
+                (name 5:value)
+                (type
+                  (type_lookup
+                    (type_reference
+                      (name 1:T)
+                      (type_args)))))))
+          (type_alias
+            {
+              T = type_param}
+            (name 6:Option)
+            (type_params
+              (type_param
+                (name 1:T)))
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 4:None)
+                  (type_args)))
+              (name 1:|)
+              (name 4:Some)
+              (square
+                (group
+                  (name 1:T))))))))
+    (module
+      {
+        else =
+          function
+          function
+        if =
+          function
+          function
+        include use OptionModule
+        include use BoolModule}
+      (name 12:IfElseModule)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 12:OptionModule)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 10:BoolModule)
+                  (type_args)))))
+          (function
+            {
+              P = type_param
+              cond = param
+              then = param}
+            (type_params
+              (type_param
+                (name 1:P)))
+            (lhs)
+            (name 2:if)
+            (rhs
+              (param
+                (name 4:cond)
+                (mode
+                  (cbv))
+                (type
+                  (type_lookup
+                    (../)
+                    (../)
+                    (type_reference
+                      (name 10:BoolModule)
+                      (type_args))
+                    (type_reference
+                      (name 4:True)
+                      (type_args)))))
+              (param
+                (name 4:then)
+                (mode
+                  (cbn))
+                (type
+                  (type_lookup
+                    (type_reference
+                      (name 1:P)
+                      (type_args))))))
+            (type
+              (type_lookup
+                (../)
+                (../)
+                (type_reference
+                  (name 12:OptionModule)
+                  (type_args))
+                (type_reference
+                  (name 6:Option)
+                  (type_args
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 1:P)
+                          (type_args))))))))
+            (where)
+            (body
+              (expr_stack)
+              (name 4:Some)
+              (name 4:then)))
+          (function
+            {
+              P = type_param
+              cond = param
+              then = param}
+            (type_params
+              (type_param
+                (name 1:P)))
+            (lhs)
+            (name 2:if)
+            (rhs
+              (param
+                (name 4:cond)
+                (mode
+                  (cbv))
+                (type
+                  (type_lookup
+                    (../)
+                    (../)
+                    (type_reference
+                      (name 10:BoolModule)
+                      (type_args))
+                    (type_reference
+                      (name 5:False)
+                      (type_args)))))
+              (param
+                (name 4:then)
+                (mode
+                  (cbn))
+                (type
+                  (type_lookup
+                    (type_reference
+                      (name 1:P)
+                      (type_args))))))
+            (type
+              (type_lookup
+                (../)
+                (../)
+                (type_reference
+                  (name 12:OptionModule)
+                  (type_args))
+                (type_reference
+                  (name 6:Option)
+                  (type_args
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 1:P)
+                          (type_args))))))))
+            (where)
+            (body
+              (expr_stack)
+              (name 4:None)))
+          (function
+            {
+              default = param
+              then = param}
+            (type_params)
+            (lhs
+              (param
+                (name 4:then)
+                (mode
+                  (cbv))
+                (type
+                  (type_lookup
+                    (../)
+                    (../)
+                    (type_reference
+                      (name 12:OptionModule)
+                      (type_args))
+                    (type_reference
+                      (name 4:None)
+                      (type_args))))))
+            (name 4:else)
+            (rhs
+              (param
+                (name 7:default)
+                (mode
+                  (cbv))
+                (type
+                  (type_lookup
+                    (type_reference
+                      (name 1:P)
+                      (type_args))
+                    (error
+                      (errormsg 23:Failed to resolve name:)
+                      (errormsg 97:  function (then: None) else (default: P) : P = default
+                                       ~
+))))))
+            (type
+              (type_lookup
+                (type_reference
+                  (name 1:P)
+                  (type_args))
+                (error
+                  (errormsg 23:Failed to resolve name:)
+                  (errormsg 102:  function (then: None) else (default: P) : P = default
+                                            ~
+))))
+            (where)
+            (body
+              (expr_stack)
+              (name 7:default)))
+          (function
+            {
+              P = type_param
+              default = param
+              then = param}
+            (type_params
+              (type_param
+                (name 1:P)))
+            (lhs
+              (param
+                (name 4:then)
+                (mode
+                  (cbv))
+                (type
+                  (type_lookup
+                    (../)
+                    (../)
+                    (type_reference
+                      (name 12:OptionModule)
+                      (type_args))
+                    (type_reference
+                      (name 4:Some)
+                      (type_args
+                        (type
+                          (type_lookup
+                            (type_reference
+                              (name 1:P)
+                              (type_args))))))))))
+            (name 4:else)
+            (rhs
+              (param
+                (name 7:default)
+                (mode
+                  (cbn))
+                (type
+                  (type_lookup
+                    (type_reference
+                      (name 1:P)
+                      (type_args))))))
+            (type
+              (type_lookup
+                (type_reference
+                  (name 1:P)
+                  (type_args))))
+            (where)
+            (body
+              (expr_stack)
+              (lookup
+                (name 5:value)
+                (args
+                  (name 4:then))))))))
+    (module
+      {
+        while = function
+        include use BoolModule
+        include use IfElseModule
+        include use OptionModule}
+      (name 11:WhileModule)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 10:BoolModule)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 12:IfElseModule)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 12:OptionModule)
+                  (type_args)))))
+          (function
+            {
+              P = type_param
+              body = param
+              cond = param
+              inner = function}
+            (type_params
+              (type_param
+                (name 1:P)))
+            (lhs)
+            (name 5:while)
+            (rhs
+              (param
+                (name 4:cond)
+                (mode
+                  (cbn))
+                (type
+                  (type_lookup
+                    (../)
+                    (../)
+                    (type_reference
+                      (name 10:BoolModule)
+                      (type_args))
+                    (type_reference
+                      (name 4:Bool)
+                      (type_args)))))
+              (param
+                (name 4:body)
+                (mode
+                  (cbn))
+                (type
+                  (type_lookup
+                    (type_reference
+                      (name 1:P)
+                      (type_args))))))
+            (type
+              (type_lookup
+                (../)
+                (../)
+                (type_reference
+                  (name 12:OptionModule)
+                  (type_args))
+                (type_reference
+                  (name 6:Option)
+                  (type_args
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 1:P)
+                          (type_args))))))))
+            (where)
+            (body
+              (expr_stack)
+              (indent
+                (function
+                  {
+                    def = param}
+                  (type_params)
+                  (lhs)
+                  (name 5:inner)
+                  (rhs
+                    (param
+                      (name 3:def)
+                      (mode
+                        (cbv))
+                      (type
+                        (type_lookup
+                          (../)
+                          (../)
+                          (../)
+                          (type_reference
+                            (name 12:OptionModule)
+                            (type_args))
+                          (type_reference
+                            (name 6:Option)
+                            (type_args
+                              (type
+                                (type_lookup
+                                  (../)
+                                  (type_reference
+                                    (name 1:P)
+                                    (type_args))))))))))
+                  (type
+                    (type_lookup
+                      (../)
+                      (../)
+                      (../)
+                      (type_reference
+                        (name 12:OptionModule)
+                        (type_args))
+                      (type_reference
+                        (name 6:Option)
+                        (type_args
+                          (type
+                            (type_lookup
+                              (../)
+                              (type_reference
+                                (name 1:P)
+                                (type_args))))))))
+                  (where)
+                  (body
+                    (expr_stack)
+                    (indent
+                      (group
+                        (name 2:if)
+                        (name 4:cond)
+                        (indent
+                          (group
+                            (name 5:inner)
+                            (paren
+                              (name 4:Some)
+                              (name 4:body)))))
+                      (group
+                        (name 4:else)
+                        (indent
+                          (group
+                            (name 3:def)))))))
+                (group
+                  (name 5:inner)
+                  (name 4:None))))))))))

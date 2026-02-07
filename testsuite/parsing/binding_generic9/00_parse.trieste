@@ -1,0 +1,243 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (struct
+        {})
+      (name 4:True))
+    (group
+      (struct
+        {})
+      (name 5:False))
+    (group
+      (type_alias
+        {})
+      (name 4:Bool)
+      (eq)
+      (name 4:True)
+      (name 1:|)
+      (name 5:False))
+    (group
+      (struct
+        {})
+      (name 4:None))
+    (group
+      (struct
+        {})
+      (name 4:Some)
+      (square
+        (group
+          (name 1:P)))
+      (indent
+        (group
+          (name 5:value)
+          (Colon)
+          (name 1:P))))
+    (group
+      (type_alias
+        {})
+      (name 6:Option)
+      (square
+        (group
+          (name 1:P)))
+      (eq)
+      (name 4:None)
+      (name 1:|)
+      (name 4:Some)
+      (square
+        (group
+          (name 1:P))))
+    (group
+      (function
+        {})
+      (square
+        (group
+          (name 1:P)))
+      (name 2:if)
+      (paren
+        (group
+          (name 9:condition)
+          (Colon)
+          (name 4:True)))
+      (paren
+        (group
+          (name 10:thenBranch)
+          (Colon)
+          (hat)
+          (name 1:P)))
+      (Colon)
+      (name 6:Option)
+      (square
+        (group
+          (name 1:P)))
+      (eq)
+      (name 4:Some)
+      (name 10:thenBranch))
+    (group
+      (function
+        {})
+      (square
+        (group
+          (name 1:P)))
+      (name 2:if)
+      (paren
+        (group
+          (name 9:condition)
+          (Colon)
+          (name 5:False)))
+      (paren
+        (group
+          (name 10:thenBranch)
+          (Colon)
+          (hat)
+          (name 1:P)))
+      (Colon)
+      (name 6:Option)
+      (square
+        (group
+          (name 1:P)))
+      (eq)
+      (name 4:None))
+    (group
+      (function
+        {})
+      (name 3:not)
+      (paren
+        (group
+          (name 1:b)
+          (Colon)
+          (name 4:True)))
+      (Colon)
+      (name 5:False)
+      (eq)
+      (name 5:False))
+    (group
+      (function
+        {})
+      (name 3:not)
+      (paren
+        (group
+          (name 1:b)
+          (Colon)
+          (name 5:False)))
+      (Colon)
+      (name 4:True)
+      (eq)
+      (name 4:True))
+    (group
+      (function
+        {})
+      (square
+        (group
+          (name 1:P)))
+      (paren
+        (group
+          (name 3:lhs)
+          (Colon)
+          (name 4:Some)
+          (square
+            (group
+              (name 1:P)))))
+      (name 4:else)
+      (paren
+        (group
+          (name 5:value)
+          (Colon)
+          (hat)
+          (name 1:P)))
+      (Colon)
+      (name 1:P)
+      (eq)
+      (name 3:lhs)
+      (dot)
+      (name 5:value))
+    (group
+      (function
+        {})
+      (square
+        (group
+          (name 1:P)))
+      (paren
+        (group
+          (name 3:lhs)
+          (Colon)
+          (name 4:None)))
+      (name 4:else)
+      (paren
+        (group
+          (name 5:value)
+          (Colon)
+          (hat)
+          (name 1:P)))
+      (Colon)
+      (name 1:P)
+      (eq)
+      (name 5:value))
+    (group
+      (function
+        {})
+      (square
+        (group
+          (name 1:P)))
+      (name 5:while)
+      (paren
+        (group
+          (name 1:c)
+          (Colon)
+          (hat)
+          (name 4:Bool)))
+      (paren
+        (group
+          (name 4:body)
+          (Colon)
+          (hat)
+          (name 1:P)))
+      (Colon)
+      (name 6:Option)
+      (square
+        (group
+          (name 1:P)))
+      (eq)
+      (indent
+        (group
+          (function
+            {})
+          (name 5:inner)
+          (paren
+            (group
+              (name 8:previous)
+              (Colon)
+              (name 6:Option)
+              (square
+                (group
+                  (name 1:P)))))
+          (Colon)
+          (name 6:Option)
+          (square
+            (group
+              (name 1:P)))
+          (eq)
+          (indent
+            (group
+              (name 2:if)
+              (name 3:not)
+              (name 1:c)
+              (indent
+                (group
+                  (name 8:previous))))
+            (group
+              (name 4:else)
+              (indent
+                (group
+                  (name 5:inner)
+                  (paren
+                    (group
+                      (name 4:Some)
+                      (name 4:body))))))))
+        (group
+          (name 5:inner)
+          (indent
+            (group
+              (name 4:None))))))))

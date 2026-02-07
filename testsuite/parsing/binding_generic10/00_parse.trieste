@@ -1,0 +1,88 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (struct
+        {})
+      (name 3:Int))
+    (group
+      (struct
+        {})
+      (name 4:Pair)
+      (square
+        (group
+          (name 1:A))
+        (group
+          (name 1:B)))
+      (indent
+        (group
+          (name 5:first)
+          (Colon)
+          (name 1:A))
+        (group
+          (name 6:second)
+          (Colon)
+          (name 1:B))))
+    (group
+      (struct
+        {})
+      (name 4:Some)
+      (square
+        (group
+          (name 1:A)))
+      (indent
+        (group
+          (name 5:value)
+          (Colon)
+          (name 1:A))))
+    (group
+      (struct
+        {})
+      (name 4:None))
+    (group
+      (type_alias
+        {})
+      (name 6:Option)
+      (square
+        (group
+          (name 1:A)))
+      (eq)
+      (name 4:None)
+      (name 1:|)
+      (name 4:Some)
+      (square
+        (group
+          (name 1:A))))
+    (group
+      (type_alias
+        {})
+      (name 4:List)
+      (square
+        (group
+          (name 1:A)))
+      (eq)
+      (name 6:Option)
+      (square
+        (group
+          (name 4:Pair)
+          (square
+            (group
+              (name 1:A))
+            (group
+              (name 4:List)
+              (square
+                (group
+                  (name 1:A))))))))
+    (group
+      (module
+        {})
+      (name 7:Module1)
+      (indent
+        (group
+          (use)
+          (name 4:List)
+          (square
+            (group
+              (name 3:Int))))))))

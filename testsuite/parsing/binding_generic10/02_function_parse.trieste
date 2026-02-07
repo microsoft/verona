@@ -1,0 +1,103 @@
+infix
+function_parse
+(top
+  {
+    Int = struct
+    List = type_alias
+    Module1 = module
+    None = struct
+    Option = type_alias
+    Pair = struct
+    Some = struct}
+  (file
+    (struct
+      {}
+      (name 3:Int)
+      (type_params)
+      (fields))
+    (struct
+      {
+        A = type_param
+        B = type_param
+        first = field
+        second = field}
+      (name 4:Pair)
+      (type_params
+        (type_param
+          (name 1:A))
+        (type_param
+          (name 1:B)))
+      (fields
+        (field
+          (name 5:first)
+          (type
+            (name 1:A)))
+        (field
+          (name 6:second)
+          (type
+            (name 1:B)))))
+    (struct
+      {
+        A = type_param
+        value = field}
+      (name 4:Some)
+      (type_params
+        (type_param
+          (name 1:A)))
+      (fields
+        (field
+          (name 5:value)
+          (type
+            (name 1:A)))))
+    (struct
+      {}
+      (name 4:None)
+      (type_params)
+      (fields))
+    (type_alias
+      {
+        A = type_param}
+      (name 6:Option)
+      (type_params
+        (type_param
+          (name 1:A)))
+      (type
+        (name 4:None)
+        (name 1:|)
+        (name 4:Some)
+        (square
+          (group
+            (name 1:A)))))
+    (type_alias
+      {
+        A = type_param}
+      (name 4:List)
+      (type_params
+        (type_param
+          (name 1:A)))
+      (type
+        (name 6:Option)
+        (square
+          (group
+            (name 4:Pair)
+            (square
+              (group
+                (name 1:A))
+              (group
+                (name 4:List)
+                (square
+                  (group
+                    (name 1:A)))))))))
+    (module
+      {
+        include use List[Int}
+      (name 7:Module1)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 4:List)
+              (square
+                (group
+                  (name 3:Int))))))))))

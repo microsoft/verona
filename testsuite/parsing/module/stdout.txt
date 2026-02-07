@@ -1,0 +1,12 @@
+Errors:
+Failed to resolve name:
+  function (then: None) else (default: P) : P = default
+                                       ~
+
+----------------
+Failed to resolve name:
+  function (then: None) else (default: P) : P = default
+                                            ~
+
+Pass resolve_types failed with 2 errors!
+

@@ -1,0 +1,85 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (name 2://)
+      (name 7:Example)
+      (name 2:of)
+      (name 7:binding))
+    (group
+      (module
+        {})
+      (name 7:Module1)
+      (square
+        (group
+          (name 2:T1)))
+      (where)
+      (name 2:T1)
+      (DoubleColon)
+      (name 3:Bar)
+      (Colon)
+      (name 4:Type)
+      (indent
+        (group
+          (type_alias
+            {})
+          (name 3:Foo)
+          (eq)
+          (name 2:T1)
+          (DoubleColon)
+          (name 3:Bar))
+        (group
+          (type_alias
+            {})
+          (name 3:Bar)
+          (eq)
+          (name 2:T1))))
+    (group
+      (module
+        {})
+      (name 7:Module3)
+      (indent
+        (group
+          (function
+            {})
+          (paren
+            (group
+              (name 1:x)
+              (Colon)
+              (name 3:Int)))
+          (name 3:inc)
+          (eq)
+          (name 1:x)
+          (name 1:+)
+          (name 1:1))))
+    (group
+      (module
+        {})
+      (name 4:Test)
+      (indent
+        (group
+          (use)
+          (name 7:Module1)
+          (square
+            (group
+              (name 7:Module1)
+              (square
+                (group
+                  (name 7:Module3)))
+              (DoubleColon)
+              (name 3:Foo)))
+          (DoubleColon)
+          (name 3:Bar))
+        (group
+          (function
+            {})
+          (name 4:test)
+          (Colon)
+          (name 3:Int)
+          (eq)
+          (indent
+            (group
+              (name 1:1)
+              (name 3:inc))))))))

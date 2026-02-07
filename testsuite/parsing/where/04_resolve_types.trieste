@@ -1,0 +1,340 @@
+infix
+resolve_types
+(top
+  {
+    == = function
+    Bool = type_alias
+    Cell = struct
+    False = struct
+    None = struct
+    Some = struct
+    True = struct
+    else =
+      function
+      function
+    if =
+      function
+      function}
+  (file
+    (struct
+      {}
+      (name 4:True)
+      (type_params)
+      (fields))
+    (struct
+      {}
+      (name 5:False)
+      (type_params)
+      (fields))
+    (struct
+      {}
+      (name 4:None)
+      (type_params)
+      (fields))
+    (struct
+      {
+        P = type_param
+        value = field}
+      (name 4:Some)
+      (type_params
+        (type_param
+          (name 1:P)))
+      (fields
+        (field
+          (name 5:value)
+          (type
+            (type_lookup
+              (type_reference
+                (name 1:P)
+                (type_args)))))))
+    (type_alias
+      {}
+      (name 4:Bool)
+      (type_params)
+      (type
+        (type_lookup
+          (../)
+          (type_reference
+            (name 4:True)
+            (type_args)))
+        (name 1:|)
+        (name 5:False)))
+    (struct
+      {
+        P = type_param
+        value = field}
+      (name 4:Cell)
+      (type_params
+        (type_param
+          (name 1:P)))
+      (fields
+        (field
+          (name 5:value)
+          (type
+            (type_lookup
+              (type_reference
+                (name 1:P)
+                (type_args)))))))
+    (function
+      {
+        P = type_param
+        b = param
+        then = param}
+      (type_params
+        (type_param
+          (name 1:P)))
+      (lhs)
+      (name 2:if)
+      (rhs
+        (param
+          (name 1:b)
+          (mode
+            (cbv))
+          (type
+            (type_lookup
+              (../)
+              (type_reference
+                (name 4:True)
+                (type_args)))))
+        (param
+          (name 4:then)
+          (mode
+            (cbn))
+          (type
+            (type_lookup
+              (type_reference
+                (name 1:P)
+                (type_args))))))
+      (type
+        (type_lookup
+          (type_reference
+            (name 6:Option)
+            (type_args
+              (type
+                (type_lookup
+                  (type_reference
+                    (name 1:P)
+                    (type_args))))))
+          (error
+            (errormsg 23:Failed to resolve name:)
+            (errormsg 108:function[P] if (b: True) (then: ^P) : Option[P] = Some(then)
+                                            ~~
+))))
+      (where)
+      (body
+        (expr_stack)
+        (name 4:Some)
+        (paren
+          (name 4:then))))
+    (function
+      {
+        P = type_param
+        b = param
+        then = param}
+      (type_params
+        (type_param
+          (name 1:P)))
+      (lhs)
+      (name 2:if)
+      (rhs
+        (param
+          (name 1:b)
+          (mode
+            (cbv))
+          (type
+            (type_lookup
+              (../)
+              (type_reference
+                (name 5:False)
+                (type_args)))))
+        (param
+          (name 4:then)
+          (mode
+            (cbn))
+          (type
+            (type_lookup
+              (type_reference
+                (name 1:P)
+                (type_args))))))
+      (type
+        (type_lookup
+          (type_reference
+            (name 6:Option)
+            (type_args
+              (type
+                (type_lookup
+                  (type_reference
+                    (name 1:P)
+                    (type_args))))))
+          (error
+            (errormsg 23:Failed to resolve name:)
+            (errormsg 104:function[P] if (b: False) (then: ^P) : Option[P] = None
+                                             ~~
+))))
+      (where)
+      (body
+        (expr_stack)
+        (name 4:None)))
+    (function
+      {
+        P = type_param
+        next = param
+        prev = param}
+      (type_params
+        (type_param
+          (name 1:P)))
+      (lhs
+        (param
+          (name 4:prev)
+          (mode
+            (cbv))
+          (type
+            (type_lookup
+              (../)
+              (type_reference
+                (name 4:None)
+                (type_args))))))
+      (name 4:else)
+      (rhs
+        (param
+          (name 4:next)
+          (mode
+            (cbn))
+          (type
+            (type_lookup
+              (type_reference
+                (name 1:P)
+                (type_args))))))
+      (type
+        (type_lookup
+          (type_reference
+            (name 1:P)
+            (type_args))))
+      (where)
+      (body
+        (expr_stack)
+        (name 4:next)))
+    (function
+      {
+        P = type_param
+        next = param
+        prev = param}
+      (type_params
+        (type_param
+          (name 1:P)))
+      (lhs
+        (param
+          (name 4:prev)
+          (mode
+            (cbv))
+          (type
+            (type_lookup
+              (../)
+              (type_reference
+                (name 4:Some)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args))))))))))
+      (name 4:else)
+      (rhs
+        (param
+          (name 4:next)
+          (mode
+            (cbn))
+          (type
+            (type_lookup
+              (type_reference
+                (name 1:P)
+                (type_args))))))
+      (type
+        (type_lookup
+          (type_reference
+            (name 1:P)
+            (type_args))))
+      (where)
+      (body
+        (expr_stack)
+        (lookup
+          (name 5:value)
+          (args
+            (name 4:prev)))))
+    (function
+      {
+        P = type_param
+        cell1 = param
+        cell2 = param}
+      (type_params
+        (type_param
+          (name 1:P)))
+      (lhs
+        (param
+          (name 5:cell1)
+          (mode
+            (cbv))
+          (type
+            (type_lookup
+              (../)
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args))))))))))
+      (name 2:==)
+      (rhs
+        (param
+          (name 5:cell2)
+          (mode
+            (cbv))
+          (type
+            (type_lookup
+              (../)
+              (type_reference
+                (name 4:Cell)
+                (type_args
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:P)
+                        (type_args))))))))))
+      (type
+        (type_lookup
+          (../)
+          (type_reference
+            (name 4:Bool)
+            (type_args))))
+      (where
+        (name 2:==)
+        (Colon)
+        (name 1:P)
+        (arrow)
+        (name 4:Bool)
+        (left_arrow)
+        (name 1:P))
+      (body
+        (expr_stack)
+        (group
+          (name 2:if)
+          (paren
+            (lookup
+              (name 5:value)
+              (args
+                (name 5:cell1)))
+            (name 2:==)
+            (lookup
+              (name 5:value)
+              (args
+                (name 5:cell2))))
+          (indent
+            (group
+              (name 4:True))))
+        (group
+          (name 4:else)
+          (indent
+            (group
+              (name 5:False))))))))

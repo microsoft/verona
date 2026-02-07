@@ -1,0 +1,5 @@
+infix
+structure
+(top
+  {}
+  (file))

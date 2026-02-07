@@ -1,0 +1,26 @@
+infix
+resolve_types
+(top
+  {
+    Int = struct
+    Module3 = module}
+  (file
+    (struct
+      {}
+      (name 3:Int)
+      (type_params)
+      (fields))
+    (module
+      {
+        include use Int}
+      (name 7:Module3)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 3:Int)
+                  (type_args))))))))))

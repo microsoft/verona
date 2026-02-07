@@ -29,25 +29,77 @@
  */
 
 namespace infix {
+
+// Count the number of leading Parent tokens in a node's children.
+size_t count_leading_parents(const Node &type_lookup) {
+  size_t count = 0;
+  for (auto &child : *type_lookup) {
+    if (child == Parent)
+      count++;
+    else
+      break;
+  }
+  return count;
+}
+
+// A view into a TypeLookup's children representing a resolved path.
+// The range includes any leading Parent tokens which represent scope levels.
+// This avoids copying path segments during resolution.
 struct RelativePath {
-  // How many levels up to search; -1 means search all enclosing scopes.
-  int lookup_levels{-1};
-  // Resolved portion of the path so far (list of path segment nodes).
-  Nodes prefix;
-  // The final resolved node, if resolution is complete.  This is where the
-  // symbol table for the resolved name can be found.  The prefix is required to
-  // understand the meaning of generic parameters.  That is this is the module
-  // or struct.
+  // The TypeLookup node this path references (may be null for empty paths).
+  Node type_lookup{nullptr};
+  // Range [0, resolved_end) within type_lookup's children is the resolved portion.
+  // This includes any leading Parent tokens.
+  size_t resolved_end{0};
+  // The final resolved scope node for symbol lookup.
   Node node{nullptr};
+
+  // Check if this path is uninitialized (sentinel for "search all scopes").
+  bool is_uninitialized() const { return node == nullptr && resolved_end == 0; }
+
+  // Count leading Parent tokens in the resolved portion.
+  size_t parent_count() const {
+    if (!type_lookup)
+      return 0;
+    size_t count = 0;
+    for (size_t i = 0; i < resolved_end && i < type_lookup->size(); ++i) {
+      if (type_lookup->at(i) == Parent)
+        count++;
+      else
+        break;
+    }
+    return count;
+  }
+
+  // Get the first non-Parent index in the resolved portion.
+  size_t first_segment_index() const { return parent_count(); }
+
+  // Get a segment at a given index within the resolved portion (after Parents).
+  Node segment_at(size_t idx) const {
+    size_t actual_idx = first_segment_index() + idx;
+    if (actual_idx < resolved_end && type_lookup)
+      return type_lookup->at(actual_idx);
+    return nullptr;
+  }
+
+  // Number of non-Parent segments in the resolved portion.
+  size_t segment_count() const {
+    size_t parents = parent_count();
+    return (resolved_end > parents) ? (resolved_end - parents) : 0;
+  }
+
+  // Get the last segment (for accessing TypeArgs during generic substitution).
+  Node back_segment() const {
+    if (segment_count() == 0)
+      return nullptr;
+    return type_lookup->at(resolved_end - 1);
+  }
 };
 
-std::ostream &operator<<(std::ostream &os, RelativePath const &rrn) {
-  os << "RelativeResolvedName(lookup_levels=" << rrn.lookup_levels
-     << ", prefix=[";
-  for (auto &p : rrn.prefix) {
-    os << p->str();
-  }
-  os << "])";
+std::ostream &operator<<(std::ostream &os, RelativePath const &rp) {
+  os << "RelativePath(parents=" << rp.parent_count()
+     << ", segments=" << rp.segment_count() << ", resolved_end=" << rp.resolved_end
+     << ", node=" << (rp.node ? rp.node->str() : "<null>") << ")";
   return os;
 }
 
@@ -107,123 +159,64 @@ std::optional<size_t> child_index_in_parent(const Node &child) {
   return std::nullopt;
 }
 
-// Convert a syntactic TypeLookup node into a RelativePath. Leading Parent
-// segments become lookup_levels; the remaining segments are cloned into the
-// prefix. The node field is resolved by walking the prefix from the adjusted
-// scope; this assumes the lookup is already resolved.
+// Convert a syntactic TypeLookup node into a RelativePath.
+// This creates a range-based view into the TypeLookup rather than copying.
+// The node field is resolved by walking the path from the adjusted scope;
+// this assumes the lookup is already resolved.
 RelativePath type_lookup_to_relative_path(const Node &base,
                                           const Node &type_lookup) {
   assert(type_lookup == TypeLookup);
 
-  // std::cout << "[resolve_types] type_lookup_to_relative_path start: "
-  //           << type_lookup_to_str(type_lookup) << " @ "
-  //           << type_lookup->location().str() << std::endl;
-
   RelativePath rp;
-  rp.lookup_levels = 0;
+  rp.type_lookup = type_lookup;
+  rp.resolved_end = type_lookup->size(); // Entire path is resolved
 
-  bool seen_reference = false;
-  for (auto &child : *type_lookup) {
-    if (!seen_reference && child == Parent) {
-      rp.lookup_levels++;
-      // std::cout << "  parent segment -> lookup_levels=" << rp.lookup_levels
-      //           << std::endl;
-      continue;
-    }
+  // Count leading Parents for scope walking
+  size_t parent_count = rp.parent_count();
 
-    // After we start seeing references, Parents are unexpected in the
-    // grammar; treat them as part of the prefix to avoid dropping segments.
-    seen_reference = true;
-    std::cout << "  cloning segment: " << child << std::endl;
-    rp.prefix.push_back(child->clone());
-    // std::cout << "  prefix segment: " << child->str() << std::endl;
-  }
-
-  // Resolve the node by walking the prefix from the adjusted scope, assuming
-  // the lookup is already fully resolved.
-  // std::cout << "  resolving from type_lookup: "
-  //           << type_lookup << std::endl;
-
-  // std::cout << "  base for resolution: "
-  //           << base << std::endl;
-
+  // Walk up the scope chain by the number of Parent tokens
   Node scope = base->scope();
-
-  // std::cout << "  initial scope: "
-  //           << scope
-  //           << std::endl;
-
-  for (int i = 0; i < rp.lookup_levels && scope; ++i) {
+  for (size_t i = 0; i < parent_count && scope; ++i) {
     scope = scope->scope();
-    // std::cout << "  ascend scope step " << i + 1
-    //           << " -> " << scope
-    //           << std::endl;
   }
 
   assert(scope != nullptr);
 
-  if (rp.prefix.empty()) {
+  // If only Parents (no segments), the scope itself is the result
+  if (rp.segment_count() == 0) {
     rp.node = scope;
-    // std::cout << "  no prefix; node resolved to current scope: "
-    //           << (rp.node ? rp.node->str() : std::string("<null>"))
-    //           << std::endl;
     return rp;
   }
 
-  for (auto &seg : rp.prefix) {
+  // Walk each segment to resolve the final node
+  for (size_t i = 0; i < rp.segment_count(); ++i) {
+    Node seg = rp.segment_at(i);
     Node name = seg / Name;
     if (!name) {
-      // std::cout << "  segment missing Name: " << seg->str() << std::endl;
       rp.node = nullptr;
       return rp;
     }
 
     auto matches = scope->look(name->location());
-    // std::cout << "  resolving segment " << name->str() << " found "
-    //           << matches.size() << " candidates" << std::endl;
-
     if (matches.size() != 1) {
       rp.node = nullptr;
       return rp;
     }
     scope = matches.front();
-    // std::cout << "    chose: " << scope->str() << std::endl;
   }
 
   rp.node = scope;
-
-  // std::ostringstream prefix_ss;
-  // bool first = true;
-  // for (auto &seg : rp.prefix) {
-  //   if (!first)
-  //     prefix_ss << "::";
-  //   first = false;
-  //   prefix_ss << seg->str();
-  // }
-
-  // std::cout << "[resolve_types] type_lookup_to_relative_path done: levels="
-  //           << rp.lookup_levels << " prefix=" << prefix_ss.str()
-  //           << " node=" << (rp.node ? rp.node->str() : "<null>")
-  //           << std::endl;
   return rp;
 }
 
-// Worklist of unresolved `use` and `type` bodies gathered during the pass.
-std::deque<Node> lookup_worklist;
-
 struct ResolutionState : NodeWorkerState {
-  // Remaining portion that still needs resolution (list of path segment
-  // nodes). This augments the base NodeWorkerState used by NodeWorker.
-  std::deque<Node> pending_suffix;
-  // The resolution of the name.
+  // The resolution of the name. path.resolved_end tracks how much of the
+  // TypeLookup has been resolved; the rest is the pending suffix.
   RelativePath path;
-  // Expand aliases
+  // Expand aliases - true for `use` statement bodies
   bool expand_aliases{false};
-  // Sub-terms blocked on
   // Used to detect if we have already waited for all subterms.
   bool blocked_on_subterms{false};
-
-  bool first_pass_of_type_lookup{true};
 };
 
 // Core algorithm: maintain a worklist of type lookups to resolve and track
@@ -247,79 +240,94 @@ struct ResolveWork {
       return source;
     }
 
-    std::cout << "[rebase_path] start: source=" << type_lookup_to_str(source)
-              << " prefix=" << prefix_ << std::endl;
+    // We work with a mutable copy of the prefix boundaries.
+    // As we consume Parents from source, we shrink resolved_end.
+    Node prefix_lookup = prefix_.type_lookup;
+    size_t prefix_resolved_end = prefix_.resolved_end;
+    size_t prefix_parents = prefix_.parent_count();
+    Node prefix_node = prefix_.node;
 
-    // std::cout << "[rebase_path] rebasing type lookup: "
-    //           << type_lookup_to_str(source) << " in " << prefix_.node <<
-    //           std::endl;
+    // Helper to get the current segment count
+    auto current_segment_count = [&]() {
+      size_t first_seg = prefix_parents;
+      return (prefix_resolved_end > first_seg) ? (prefix_resolved_end - first_seg) : 0;
+    };
 
-    RelativePath prefix = prefix_;
+    // Helper to get segment at index (relative to first non-Parent)
+    auto segment_at = [&](size_t idx) -> Node {
+      size_t actual_idx = prefix_parents + idx;
+      if (actual_idx < prefix_resolved_end && prefix_lookup)
+        return prefix_lookup->at(actual_idx);
+      return nullptr;
+    };
+
+    // Helper to get back segment
+    auto back_segment = [&]() -> Node {
+      if (current_segment_count() == 0)
+        return nullptr;
+      return prefix_lookup->at(prefix_resolved_end - 1);
+    };
 
     while (true) {
-      if (prefix.prefix.empty()) {
-        for (size_t i = 0; i < prefix.lookup_levels; i++) {
+      // If no segments left, just prepend the Parents
+      if (current_segment_count() == 0) {
+        for (size_t i = 0; i < prefix_parents; i++) {
           source->insert(source->begin(), Parent);
         }
         return source;
       }
 
+      // If source is empty, prepend the entire prefix
       if (source->empty()) {
-        for (auto it = prefix.prefix.rbegin(); it != prefix.prefix.rend();
-             ++it) {
-          source->insert(source->begin(), (*it)->clone());
+        // Insert segments in reverse order (to maintain order after insertions at begin)
+        for (size_t i = current_segment_count(); i > 0; --i) {
+          source->insert(source->begin(), segment_at(i - 1)->clone());
         }
-
-        for (size_t i = 0; i < prefix.lookup_levels; i++) {
+        for (size_t i = 0; i < prefix_parents; i++) {
           source->insert(source->begin(), Parent);
         }
         return source;
       }
 
       if (source->front() == Parent) {
-        // std::cout << "[rebase_path] moving up a level" << std::endl;
+        // Consume Parent from source by shrinking prefix
         source->erase(source->begin(), source->begin() + 1);
-        prefix.node = prefix.node->scope();
-        prefix.prefix.pop_back();
+        prefix_node = prefix_node->scope();
+        prefix_resolved_end--; // Remove last segment
         continue;
       }
 
       assert(source->front() == TypeReference);
       // Determine if this is a type parameter.
-      // std::cout << "[rebase_path] rebasing type lookup: "
-      //           << type_lookup_to_str(source) << " in " << prefix.node <<
-      //           std::endl;
-      auto lookups = prefix.node->look(source->front()->location());
+      auto lookups = prefix_node->look(source->front()->location());
       if (lookups.size() == 0) {
         std::cout << "[rebase_path] error: failed to rebase path, segment "
                      "not found: "
                   << source->front()->str() << std::endl
-                  << "Looking in node: " << prefix.node->str() << std::endl;
+                  << "Looking in node: " << prefix_node->str() << std::endl;
         assert(false);
       }
 
       assert(lookups.size() == 1);
-
       Node lookup = lookups.front();
 
       if (lookup != TypeParam) {
-        // Not a type parameter; we can just prepend the prefix and return.
-        source->insert(source->begin(), prefix.prefix.begin(),
-                       prefix.prefix.end());
-        for (size_t i = 0; i < prefix.lookup_levels; i++) {
+        // Not a type parameter; prepend the prefix and return.
+        for (size_t i = current_segment_count(); i > 0; --i) {
+          source->insert(source->begin(), segment_at(i - 1)->clone());
+        }
+        for (size_t i = 0; i < prefix_parents; i++) {
           source->insert(source->begin(), Parent);
         }
         return source;
       }
 
       // It's a type parameter; we need to rebase it.
-      // Find which child of the prefix.node is the TypeParam.
       auto index = child_index_in_parent(lookup);
-
       assert(index.has_value());
 
-      // Get the ith generic argument from the prefix.
-      Node generic_args = prefix.prefix.back() / TypeArgs;
+      // Get the ith generic argument from the last prefix segment.
+      Node generic_args = back_segment() / TypeArgs;
 
       if (generic_args->size() <= index.value()) {
         std::cout << "[rebase_path] error: not enough generic arguments to "
@@ -335,17 +343,25 @@ struct ResolveWork {
 
       // Remove the front of the source.
       source->erase(source->begin(), source->begin() + 1);
-      // Replace prefix with the the type argument.
-      prefix = type_lookup_to_relative_path(base, lookup_arg);
+      // Replace prefix with the type argument.
+      RelativePath new_prefix = type_lookup_to_relative_path(base, lookup_arg);
+      prefix_lookup = new_prefix.type_lookup;
+      prefix_resolved_end = new_prefix.resolved_end;
+      prefix_parents = new_prefix.parent_count();
+      prefix_node = new_prefix.node;
       continue;
     };
   }
 
+  // Find a name by searching up the scope chain.
+  // Returns a RelativePath pointing to the entry TypeLookup with resolved_end
+  // set to the number of Parent tokens that should prefix the path.
+  // The 'levels' count becomes Parent tokens that we'll insert into entry.
   RelativePath lookup_levels_up(const Node &name, const Node &entry,
                                 NodeWorker<ResolveWork> &worker) const {
     Node scope = name->scope();
     Nodes unresolved_use_types;
-    int levels = 0;
+    size_t levels = 0;
     while (scope) {
       auto results = scope->look(name->location());
       if (results.size() > 1) {
@@ -353,9 +369,15 @@ struct ResolveWork {
         break;
       }
       if (results.size() == 1) {
+        // Found directly in scope chain.
+        // We need to insert 'levels' Parent tokens at the start of entry.
+        // For now, we'll do that and return a path referencing entry.
+        for (size_t i = 0; i < levels; ++i) {
+          entry->insert(entry->begin(), Parent);
+        }
         RelativePath result;
-        result.lookup_levels = levels;
-        result.prefix = {};
+        result.type_lookup = entry;
+        result.resolved_end = levels; // Only the Parents are "resolved" so far
         result.node = scope;
         return result;
       }
@@ -384,10 +406,28 @@ struct ResolveWork {
         }
 
         if (found.size() == 1) {
-          // Return found result, and adjust levels according to how far up
-          // the using statement was, then add the found name to the prefix.
-          RelativePath result = u_lookup_state.path;
-          result.lookup_levels += levels;
+          // Found via a use statement.
+          // We need to copy the use's resolved path into entry, plus extra Parents.
+          // Insert the use's path into entry at the beginning.
+          const RelativePath &use_path = u_lookup_state.path;
+          
+          // Insert segments from the use path (in reverse to maintain order)
+          for (size_t i = use_path.segment_count(); i > 0; --i) {
+            entry->insert(entry->begin(), use_path.segment_at(i - 1)->clone());
+          }
+          // Insert Parents from the use path
+          for (size_t i = 0; i < use_path.parent_count(); ++i) {
+            entry->insert(entry->begin(), Parent);
+          }
+          // Insert additional Parents for levels we walked up
+          for (size_t i = 0; i < levels; ++i) {
+            entry->insert(entry->begin(), Parent);
+          }
+          
+          RelativePath result;
+          result.type_lookup = entry;
+          result.resolved_end = levels + use_path.parent_count() + use_path.segment_count();
+          result.node = u_lookup_state.path.node;
           return result;
         }
       }
@@ -400,7 +440,7 @@ struct ResolveWork {
     // none are pending, resolution will ultimately fail when processing
     // completes.
     worker.block_on_any(entry, unresolved_use_types);
-    return {};
+    return {}; // Uninitialized path signals "not found yet"
   }
 
   void seed(const Node &n, State &state) {
@@ -410,6 +450,10 @@ struct ResolveWork {
       return;
 
     assert(n == TypeLookup);
+
+    // Initialize the path to reference this TypeLookup
+    state.path.type_lookup = n;
+    state.path.resolved_end = 0; // Nothing resolved yet
 
     if (n->parent() && n->parent()->type() == Type) {
       if (n->parent()->parent() && n->parent()->parent()->type() == Use) {
@@ -451,7 +495,6 @@ struct ResolveWork {
     // Check if we have already blocked on subterms, if we haven't
     // wait for all subterms to be resolved.
     if (!state.blocked_on_subterms) {
-      std::cout << "Block on subterms for type lookup: " << entry << std::endl;
       state.blocked_on_subterms = true;
       if (wait_on_subterms(entry, worker)) {
         return false;
@@ -464,89 +507,75 @@ struct ResolveWork {
       return true;
     }
 
-    if (state.first_pass_of_type_lookup) {
-      std::cout << "Processing type lookup: " << entry << std::endl;
+    assert(entry == TypeLookup);
 
-      if (entry->front() != TypeReference) {
-        for (auto &child : *entry) {
-          if (child == Parent) {
-            state.path.lookup_levels++;
-          } else {
-            state.path.prefix.push_back(child);
-          }
-        }
-      } else {
-        for (auto &child : *entry) {
-          state.pending_suffix.push_back(child);
-        }
-      }
+    // Helper to count remaining unresolved elements
+    auto remaining = [&]() {
+      return entry->size() - state.path.resolved_end;
+    };
 
-      state.first_pass_of_type_lookup = false;
+    // Helper to get the next unresolved element
+    auto current = [&]() -> Node {
+      if (state.path.resolved_end < entry->size())
+        return entry->at(state.path.resolved_end);
+      return nullptr;
+    };
+
+    // Process any leading Parents first (if starting fresh)
+    while (current() == Parent) {
+      state.path.resolved_end++;
     }
 
-    std::cout << "Processing type lookup: " << entry << std::endl;
-
-    assert(entry == TypeLookup);
-    while (!state.pending_suffix.empty()) {
-      Node reference = state.pending_suffix.front();
-      assert(reference == TypeReference);
-      Node type_args = reference / TypeArgs;
-      if (type_args) {
-        std::vector<Node> unresolved_args;
-        for (auto &arg : *type_args) {
-          if (!worker.is_resolved(arg))
-            unresolved_args.push_back(arg);
-        }
-        if (!unresolved_args.empty()) {
-          worker.block_on_all(entry, unresolved_args);
-          return false;
-        }
+    // Main resolution loop
+    while (remaining() > 0) {
+      Node reference = current();
+      
+      // Should be a TypeReference at this point
+      if (reference != TypeReference) {
+        return false;
       }
 
       Node head = reference / Name;
 
-      if (state.path.lookup_levels == -1) {
+      // If path is uninitialized, look up the first name
+      if (state.path.is_uninitialized()) {
         state.path = lookup_levels_up(head, entry, worker);
-        if (state.path.lookup_levels == -1) {
-          // Not found in currently resolved scopes; lookup_level will
+        if (state.path.is_uninitialized()) {
+          // Not found in currently resolved scopes; lookup_levels_up will
           // have added unresolved `use` statements to wait on.
           return false;
         }
+        // lookup_levels_up may have inserted Parents at the beginning,
+        // so we need to skip past them
+        while (current() == Parent) {
+          state.path.resolved_end++;
+        }
+        // Also skip any segments that lookup_levels_up copied from a use
+        // (resolved_end was already set by lookup_levels_up)
       }
 
+      // Now look up the current segment
       auto found = state.path.node->look(head->location());
-      // Should find either a module/struct, a type alias, or a type
-      // parameter.
+      // Should find either a module/struct, a type alias, or a type parameter.
       if (found.size() != 1) {
         ambiguous_lookup_error(state.path.node, head);
         return false;
       }
 
       if (found.front() == TypeAlias) {
-        std::cout << "Found type alias during lookup: "
-                  << type_lookup_to_str(entry) << std::endl
-                  << " alias: " << found.front()->str() << std::endl;
-        if ((state.pending_suffix.size() == 1) && !state.expand_aliases) {
-          // Don't expand the alias if it's the last element of a
-          // TypeLookup.
-          state.path.prefix.push_back(reference);
-          state.pending_suffix.pop_front();
-          continue;
-        }
-
-        // This effectively `rebase`s the alias body into the current
-        // context. Resolve the type alias to continue lookups.
         Node alias_type = found.front() / Type;
-
-        // std::cout << "Resolving type alias during lookup: "
-        //           << type_lookup_to_str(entry) << " alias body: "
-        //           << alias_type->str() << std::endl;
-
-        if ((alias_type->size() != 1)) {
-          head << (Error << (ErrorMsg ^ "Invalid type alias body for lookup")
-                         << (ErrorMsg ^ head->location().str())
-                         << (ErrorMsg ^ alias_type->location().str()));
-          return false;
+        
+        // Can only expand if the alias body is a single TypeLookup
+        bool can_expand = (alias_type->size() == 1) && 
+                          (alias_type->at(0) == TypeLookup);
+        
+        if (!can_expand || ((remaining() == 1) && !state.expand_aliases)) {
+          // Don't expand the alias if:
+          // 1) The alias body is not a simple path (e.g., it's a union type), OR
+          // 2) It's the last element of a TypeLookup and we're not in expand mode.
+          state.path.resolved_end++;
+          state.path.node = found.front();
+          continue;
         }
 
         if (worker.block_on(entry, alias_type))
@@ -558,49 +587,106 @@ struct ResolveWork {
         // enclosing type.
         assert(worker.is_resolved(alias_body));
 
-        // Alias is resolved, add it to the resolved prefix and continue.
-        // This involves substitution and adjustments for relative paths.
-        // TODO, we need to apply rebase_path to all the type lookups
-        // inside the resolved alias body. Need to add the term we just
-        // looked up incase there are any type args that are needed.
-        state.path.prefix.push_back(reference);
-        state.path.node = found.front();
-        state.pending_suffix.pop_front();
+        // For rebasing, we need the path UP TO (but not including) the alias
+        // reference. The current reference (Foo) will be replaced by the alias body.
+        // Create a temporary path that includes the alias reference for rebase
+        // context (needed for generic substitution).
+        RelativePath rebase_prefix = state.path;
+        rebase_prefix.resolved_end++; // Include the alias reference temporarily
+        rebase_prefix.node = found.front();
+        
+        // Rebase the alias body into the current context
         Node rebased_alias =
             bottom_up_map(alias_body, [&](Node n, const Node &) {
-              return rebase_path(entry, state.path, n);
+              return rebase_path(entry, rebase_prefix, n);
             });
-        // Process back into the current state.
-        state.path = type_lookup_to_relative_path(entry, rebased_alias);
+        
+        // The rebased alias REPLACES the entire resolved prefix plus the alias reference.
+        // The rebase_prefix included resolved_end+1, so we erase the entire path
+        // up to and including the alias reference.
+        entry->erase(entry->begin(), entry->begin() + rebase_prefix.resolved_end);
+        // Insert the rebased alias children at the beginning
+        size_t insert_pos = 0;
+        for (auto &child : *rebased_alias) {
+          entry->insert(entry->begin() + insert_pos, child->clone());
+          insert_pos++;
+        }
+        // Reset resolved_end since we've replaced everything
+        state.path.resolved_end = 0;
+        
+        // Normalize the path: if the rebased alias starts with Parents, they need
+        // to "consume" segments from the prefix. Move Parents to the front.
+        // Start from resolved_end and process any leading Parents in the appended content.
+        while (state.path.resolved_end < entry->size() && 
+               entry->at(state.path.resolved_end) == Parent) {
+          auto parent_pos = entry->begin() + state.path.resolved_end;
+          // A Parent "consumes" the last resolved segment
+          if (state.path.resolved_end > state.path.parent_count()) {
+            // There's a segment to consume - remove the Parent and last segment
+            auto seg_pos = entry->begin() + state.path.resolved_end - 1;
+            entry->erase(parent_pos, parent_pos + 1); // Remove the Parent
+            entry->erase(seg_pos, seg_pos + 1); // Remove last segment
+            state.path.resolved_end--;
+          } else {
+            // No more segments to consume - move Parent to the front
+            entry->erase(parent_pos, parent_pos + 1);
+            entry->insert(entry->begin(), Parent);
+            // The Parent is now part of the resolved prefix
+            state.path.resolved_end++;
+          }
+        }
+        
+        // Update path.node to reflect the current resolved position.
+        // Walk from entry's scope up by parent_count, then down through
+        // any resolved segments.
+        {
+          Node scope = entry->scope();
+          size_t parents = state.path.parent_count();
+          for (size_t i = 0; i < parents && scope; ++i) {
+            scope = scope->scope();
+          }
+          // Walk through resolved segments (after Parents)
+          size_t first_seg = parents;
+          for (size_t i = first_seg; i < state.path.resolved_end; ++i) {
+            Node seg = entry->at(i);
+            if (seg == TypeReference) {
+              Node name = seg / Name;
+              auto matches = scope->look(name->location());
+              if (matches.size() == 1) {
+                scope = matches.front();
+              }
+            }
+          }
+          state.path.node = scope;
+        }
         continue;
       }
 
       if (found.front() == Module || found.front() == Struct) {
-        state.path.prefix.push_back(reference);
-        state.pending_suffix.pop_front();
+        state.path.resolved_end++;
         state.path.node = found.front();
         continue;
       }
 
       if (found.front() == TypeParam) {
         // We don't allow lookup on a type parameter.
-        if (state.pending_suffix.size() != 1) {
+        if (remaining() != 1) {
           head << (Error << (ErrorMsg ^
                              "Cannot resolve type lookup with additional "
                              "segments after type parameter")
                          << (ErrorMsg ^ head->location().str()));
           return false;
         }
-        // Type parameters aren't fields of the current scope.
-        if (state.path.prefix.size() > 0) {
+        // Type parameters shouldn't have a resolved prefix before them
+        // (they're references within the current scope)
+        if (state.path.segment_count() > 0) {
           head << (Error << (ErrorMsg ^ "Cannot resolve type lookup with "
                                         "prefix before type parameter")
                          << (ErrorMsg ^ head->location().str()));
           return false;
         }
 
-        state.path.prefix.push_back(reference);
-        state.pending_suffix.pop_front();
+        state.path.resolved_end++;
         continue;
       }
 
@@ -609,21 +695,8 @@ struct ResolveWork {
     }
 
     assert(!worker.is_resolved(entry));
-    // Perform the substitution of the resolved path into the type lookup.
-    std::cout << "Resolved type lookup: " << entry << std::endl
-              << " to path: " << std::endl
-              << state.path << std::endl
-              << "---------" << std::endl;
-    entry->erase(entry->begin(), entry->end());
-    for (size_t i = 0; i < state.path.lookup_levels; i++) {
-      entry << (Parent);
-    }
-    for (const auto &seg : state.path.prefix) {
-      entry << seg->clone();
-    }
 
-    std::cout << "After substitution: " << entry << std::endl;
-
+    // The entry has been modified in-place; no final substitution needed.
     assert(!ast_has_cycle(entry));
 
     return true;

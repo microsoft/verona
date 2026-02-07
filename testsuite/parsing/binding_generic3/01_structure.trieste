@@ -1,0 +1,73 @@
+infix
+structure
+(top
+  {}
+  (file
+    (module
+      {}
+      (name 7:Module1)
+      (type_params
+        (group
+          (name 2:T1)))
+      (body
+        (indent
+          (module
+            {}
+            (name 7:Module2)
+            (type_params
+              (group
+                (name 2:T2)))
+            (body
+              (indent
+                (type_alias
+                  {}
+                  (name 3:Bar)
+                  (type_params)
+                  (type
+                    (name 2:T2))))))
+          (type_alias
+            {}
+            (name 3:Foo)
+            (type_params)
+            (type
+              (name 7:Module2)
+              (square
+                (group
+                  (name 2:T1))))))))
+    (module
+      {}
+      (name 7:Module3)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 3:Int)
+            (type_params)
+            (fields)))))
+    (module
+      {}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 7:Module1)
+              (square
+                (group
+                  (name 7:Module3)))
+              (DoubleColon)
+              (name 3:Foo)
+              (DoubleColon)
+              (name 3:Bar)))
+          (function
+            {}
+            (name 4:test)
+            (Colon)
+            (name 3:Int)
+            (eq)
+            (indent
+              (group
+                (name 1:1)
+                (name 3:inc)))))))))

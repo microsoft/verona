@@ -1,0 +1,94 @@
+infix
+function_parse
+(top
+  {
+    Module1 = module
+    Module3 = module
+    Test = module}
+  (file
+    (module
+      {
+        Foo = type_alias
+        Module2 = module
+        T1 = type_param}
+      (name 7:Module1)
+      (type_params
+        (type_param
+          (name 2:T1)))
+      (body
+        (indent
+          (module
+            {
+              Bar = type_alias}
+            (name 7:Module2)
+            (type_params)
+            (body
+              (indent
+                (type_alias
+                  {}
+                  (name 3:Bar)
+                  (type_params)
+                  (type
+                    (name 2:T1))))))
+          (type_alias
+            {}
+            (name 3:Foo)
+            (type_params)
+            (type
+              (name 7:Module2))))))
+    (module
+      {
+        inc = function}
+      (name 7:Module3)
+      (type_params)
+      (body
+        (indent
+          (function
+            {
+              x = param}
+            (type_params)
+            (lhs
+              (param
+                (name 1:x)
+                (mode
+                  (cbv))
+                (type
+                  (name 3:Int))))
+            (name 3:inc)
+            (rhs)
+            (eq)
+            (name 1:x)
+            (name 1:+)
+            (name 1:1)))))
+    (module
+      {
+        test = function
+        include use Module1[Module3]::Foo::Bar}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 7:Module1)
+              (square
+                (group
+                  (name 7:Module3)))
+              (DoubleColon)
+              (name 3:Foo)
+              (DoubleColon)
+              (name 3:Bar)))
+          (function
+            {}
+            (type_params)
+            (lhs)
+            (name 4:test)
+            (rhs)
+            (paren)
+            (Colon)
+            (name 3:Int)
+            (eq)
+            (indent
+              (group
+                (name 1:1)
+                (name 3:inc)))))))))

@@ -1,0 +1,5 @@
+infix
+resolve_types
+(top
+  {}
+  (file))

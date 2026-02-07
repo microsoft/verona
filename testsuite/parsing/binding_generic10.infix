@@ -1,0 +1,16 @@
+struct Int
+
+struct Pair[A, B]
+  first: A
+  second: B
+
+struct Some[A]
+  value: A
+struct None
+
+type Option[A] = None | Some[A]
+
+type List[A] = Option[Pair[A, List[A]]]
+
+module Module1
+  use List[Int]

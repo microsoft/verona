@@ -1,0 +1,5 @@
+# Example of binding
+struct Int
+
+module Module3
+  use Int

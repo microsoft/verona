@@ -1,0 +1,70 @@
+binding_generic8.infix:1:1: unexpected group, expected a struct, type_alias, function, module or use
+// Example of binding
+~~~~~~~~~~~~~~~~~~~~~
+(group
+  (name 2://)
+  (name 7:Example)
+  (name 2:of)
+  (name 7:binding))
+
+
+binding_generic8.infix:3:20: unexpected where, expected a paren, name, group, indent, dot, arrow, left_arrow, Colon, lookup, eq, SemiColon, square or expr_stack
+module Module1[T1] where T1::Bar: Type
+                   ~~~~~
+(where)
+
+
+binding_generic8.infix:3:28: unexpected DoubleColon, expected a paren, name, group, indent, dot, arrow, left_arrow, Colon, lookup, eq, SemiColon, square or expr_stack
+module Module1[T1] where T1::Bar: Type
+                           ~~
+(DoubleColon)
+
+
+binding_generic8.infix:8:25: unexpected eq, expected a type, 
+  function (x: Int) inc = x + 1
+                        ~
+(eq)
+
+
+binding_generic8.infix:8:27: unexpected name, expected a where, 
+  function (x: Int) inc = x + 1
+                          ~
+(name 1:x)
+
+
+binding_generic8.infix:8:29: unexpected name, expected a body, 
+  function (x: Int) inc = x + 1
+                            ~
+(name 1:+)
+
+
+binding_generic8.infix:8:3: expected 7 children, found 8
+  function (x: Int) inc = x + 1
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(function
+  {
+    x = param}
+  (type_params)
+  (lhs
+    (param
+      (name 1:x)
+      (mode
+        (cbv))
+      (type
+        (name 3:Int))))
+  (name 3:inc)
+  (rhs)
+  (eq)
+  (name 1:x)
+  (name 1:+)
+  (name 1:1))
+
+
+binding_generic8.infix:12:31: unexpected DoubleColon, expected a struct, type_alias, function, module, use, paren, name, group, indent, dot, arrow, left_arrow, Colon, lookup, eq, SemiColon or square
+  use Module1[Module1[Module3]::Foo]::Bar
+                              ~~
+(DoubleColon)
+
+
+Errors:Pass function_parse failed with 0 error!
+
