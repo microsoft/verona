@@ -354,11 +354,12 @@ struct ResolveWork {
   }
 
   // Find a name by searching up the scope chain.
-  // Returns a RelativePath pointing to the entry TypeLookup with resolved_end
-  // set to the number of Parent tokens that should prefix the path.
-  // The 'levels' count becomes Parent tokens that we'll insert into entry.
-  RelativePath lookup_levels_up(const Node &name, const Node &entry,
-                                NodeWorker<ResolveWork> &worker) const {
+  // Modifies the entry TypeLookup in-place, inserting Parent tokens and/or
+  // segments from use statements. Updates state.path accordingly.
+  // Returns true if found, false if blocked waiting on unresolved uses.
+  bool lookup_levels_up(const Node &name, State &state,
+                        NodeWorker<ResolveWork> &worker) const {
+    Node entry = state.path.type_lookup;
     Node scope = name->scope();
     Nodes unresolved_use_types;
     size_t levels = 0;
@@ -370,16 +371,13 @@ struct ResolveWork {
       }
       if (results.size() == 1) {
         // Found directly in scope chain.
-        // We need to insert 'levels' Parent tokens at the start of entry.
-        // For now, we'll do that and return a path referencing entry.
+        // Insert 'levels' Parent tokens at the start of entry.
         for (size_t i = 0; i < levels; ++i) {
           entry->insert(entry->begin(), Parent);
         }
-        RelativePath result;
-        result.type_lookup = entry;
-        result.resolved_end = levels; // Only the Parents are "resolved" so far
-        result.node = scope;
-        return result;
+        state.path.resolved_end = levels; // Only the Parents are "resolved" so far
+        state.path.node = scope;
+        return true;
       }
       // Not found, check the resolved `use` statements in this scope.
       auto current_using = scope->includes();
@@ -407,8 +405,7 @@ struct ResolveWork {
 
         if (found.size() == 1) {
           // Found via a use statement.
-          // We need to copy the use's resolved path into entry, plus extra Parents.
-          // Insert the use's path into entry at the beginning.
+          // Copy the use's resolved path into entry, plus extra Parents.
           const RelativePath &use_path = u_lookup_state.path;
           
           // Insert segments from the use path (in reverse to maintain order)
@@ -424,11 +421,9 @@ struct ResolveWork {
             entry->insert(entry->begin(), Parent);
           }
           
-          RelativePath result;
-          result.type_lookup = entry;
-          result.resolved_end = levels + use_path.parent_count() + use_path.segment_count();
-          result.node = u_lookup_state.path.node;
-          return result;
+          state.path.resolved_end = levels + use_path.parent_count() + use_path.segment_count();
+          state.path.node = u_lookup_state.path.node;
+          return true;
         }
       }
 
@@ -440,7 +435,7 @@ struct ResolveWork {
     // none are pending, resolution will ultimately fail when processing
     // completes.
     worker.block_on_any(entry, unresolved_use_types);
-    return {}; // Uninitialized path signals "not found yet"
+    return false; // Not found yet
   }
 
   void seed(const Node &n, State &state) {
@@ -539,8 +534,7 @@ struct ResolveWork {
 
       // If path is uninitialized, look up the first name
       if (state.path.is_uninitialized()) {
-        state.path = lookup_levels_up(head, entry, worker);
-        if (state.path.is_uninitialized()) {
+        if (!lookup_levels_up(head, state, worker)) {
           // Not found in currently resolved scopes; lookup_levels_up will
           // have added unresolved `use` statements to wait on.
           return false;
