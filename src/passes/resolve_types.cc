@@ -103,6 +103,96 @@ std::ostream &operator<<(std::ostream &os, RelativePath const &rp) {
   return os;
 }
 
+// Prepend Parents and optionally segments from a path to a TypeLookup.
+// Inserts `extra_parents` Parent tokens, plus the contents of `path` if provided.
+// Returns the total number of elements inserted.
+size_t prepend_to_type_lookup(Node entry, size_t extra_parents,
+                              const RelativePath *path = nullptr) {
+  size_t inserted = 0;
+
+  // Insert segments from path (in reverse to maintain order after insertions at begin)
+  if (path) {
+    for (size_t i = path->segment_count(); i > 0; --i) {
+      entry->insert(entry->begin(), path->segment_at(i - 1)->clone());
+      inserted++;
+    }
+    // Insert Parents from path
+    for (size_t i = 0; i < path->parent_count(); ++i) {
+      entry->insert(entry->begin(), Parent);
+      inserted++;
+    }
+  }
+
+  // Insert extra Parents
+  for (size_t i = 0; i < extra_parents; ++i) {
+    entry->insert(entry->begin(), Parent);
+    inserted++;
+  }
+
+  return inserted;
+}
+
+// Overload for rebase_path: prepend segments and parents from raw values.
+// Used when working with mutable prefix state during rebasing.
+void prepend_segments_and_parents(Node entry, size_t parent_count,
+                                  size_t segment_count,
+                                  std::function<Node(size_t)> segment_at) {
+  // Insert segments in reverse order (to maintain order after insertions at begin)
+  for (size_t i = segment_count; i > 0; --i) {
+    entry->insert(entry->begin(), segment_at(i - 1)->clone());
+  }
+  // Insert Parents
+  for (size_t i = 0; i < parent_count; i++) {
+    entry->insert(entry->begin(), Parent);
+  }
+}
+
+// Normalize leading Parents in entry starting at resolved_end.
+// Parents either consume the last resolved segment, or move to the front.
+// Updates path.resolved_end accordingly.
+void normalize_leading_parents(Node entry, RelativePath &path) {
+  while (path.resolved_end < entry->size() &&
+         entry->at(path.resolved_end) == Parent) {
+    auto parent_pos = entry->begin() + path.resolved_end;
+    // A Parent "consumes" the last resolved segment
+    if (path.resolved_end > path.parent_count()) {
+      // There's a segment to consume - remove the Parent and last segment
+      auto seg_pos = entry->begin() + path.resolved_end - 1;
+      entry->erase(parent_pos, parent_pos + 1); // Remove the Parent
+      entry->erase(seg_pos, seg_pos + 1);       // Remove last segment
+      path.resolved_end--;
+    } else {
+      // No more segments to consume - move Parent to the front
+      entry->erase(parent_pos, parent_pos + 1);
+      entry->insert(entry->begin(), Parent);
+      // The Parent is now part of the resolved prefix
+      path.resolved_end++;
+    }
+  }
+}
+
+// Update path.node by walking the scope chain based on the resolved portion.
+// Walks up by parent_count, then down through resolved segments.
+void update_path_node(Node entry, RelativePath &path) {
+  Node scope = entry->scope();
+  size_t parents = path.parent_count();
+  for (size_t i = 0; i < parents && scope; ++i) {
+    scope = scope->scope();
+  }
+  // Walk through resolved segments (after Parents)
+  for (size_t i = parents; i < path.resolved_end; ++i) {
+    Node seg = entry->at(i);
+    if (seg == TypeReference) {
+      Node name = seg / Name;
+      auto matches = scope->look(name->location());
+      if (matches.size() == 1) {
+        scope = matches.front();
+      }
+    }
+  }
+  path.node = scope;
+}
+
 auto ambiguous_lookup_error(Node symtab, Node node) {
   auto results = symtab->look(node->location());
 
@@ -271,21 +361,13 @@ struct ResolveWork {
     while (true) {
       // If no segments left, just prepend the Parents
       if (current_segment_count() == 0) {
-        for (size_t i = 0; i < prefix_parents; i++) {
-          source->insert(source->begin(), Parent);
-        }
+        prepend_segments_and_parents(source, prefix_parents, 0, segment_at);
         return source;
       }
 
       // If source is empty, prepend the entire prefix
       if (source->empty()) {
-        // Insert segments in reverse order (to maintain order after insertions at begin)
-        for (size_t i = current_segment_count(); i > 0; --i) {
-          source->insert(source->begin(), segment_at(i - 1)->clone());
-        }
-        for (size_t i = 0; i < prefix_parents; i++) {
-          source->insert(source->begin(), Parent);
-        }
+        prepend_segments_and_parents(source, prefix_parents, current_segment_count(), segment_at);
         return source;
       }
 
@@ -313,12 +395,7 @@ struct ResolveWork {
 
       if (lookup != TypeParam) {
         // Not a type parameter; prepend the prefix and return.
-        for (size_t i = current_segment_count(); i > 0; --i) {
-          source->insert(source->begin(), segment_at(i - 1)->clone());
-        }
-        for (size_t i = 0; i < prefix_parents; i++) {
-          source->insert(source->begin(), Parent);
-        }
+        prepend_segments_and_parents(source, prefix_parents, current_segment_count(), segment_at);
         return source;
       }
 
@@ -371,10 +448,7 @@ struct ResolveWork {
       }
       if (results.size() == 1) {
         // Found directly in scope chain.
-        // Insert 'levels' Parent tokens at the start of entry.
-        for (size_t i = 0; i < levels; ++i) {
-          entry->insert(entry->begin(), Parent);
-        }
+        prepend_to_type_lookup(entry, levels, nullptr);
         state.path.resolved_end = levels; // Only the Parents are "resolved" so far
         state.path.node = scope;
         return true;
@@ -407,21 +481,7 @@ struct ResolveWork {
           // Found via a use statement.
           // Copy the use's resolved path into entry, plus extra Parents.
           const RelativePath &use_path = u_lookup_state.path;
-          
-          // Insert segments from the use path (in reverse to maintain order)
-          for (size_t i = use_path.segment_count(); i > 0; --i) {
-            entry->insert(entry->begin(), use_path.segment_at(i - 1)->clone());
-          }
-          // Insert Parents from the use path
-          for (size_t i = 0; i < use_path.parent_count(); ++i) {
-            entry->insert(entry->begin(), Parent);
-          }
-          // Insert additional Parents for levels we walked up
-          for (size_t i = 0; i < levels; ++i) {
-            entry->insert(entry->begin(), Parent);
-          }
-          
-          state.path.resolved_end = levels + use_path.parent_count() + use_path.segment_count();
+          state.path.resolved_end = prepend_to_type_lookup(entry, levels, &use_path);
           state.path.node = u_lookup_state.path.node;
           return true;
         }
@@ -608,51 +668,9 @@ struct ResolveWork {
         // Reset resolved_end since we've replaced everything
         state.path.resolved_end = 0;
         
-        // Normalize the path: if the rebased alias starts with Parents, they need
-        // to "consume" segments from the prefix. Move Parents to the front.
-        // Start from resolved_end and process any leading Parents in the appended content.
-        while (state.path.resolved_end < entry->size() && 
-               entry->at(state.path.resolved_end) == Parent) {
-          auto parent_pos = entry->begin() + state.path.resolved_end;
-          // A Parent "consumes" the last resolved segment
-          if (state.path.resolved_end > state.path.parent_count()) {
-            // There's a segment to consume - remove the Parent and last segment
-            auto seg_pos = entry->begin() + state.path.resolved_end - 1;
-            entry->erase(parent_pos, parent_pos + 1); // Remove the Parent
-            entry->erase(seg_pos, seg_pos + 1); // Remove last segment
-            state.path.resolved_end--;
-          } else {
-            // No more segments to consume - move Parent to the front
-            entry->erase(parent_pos, parent_pos + 1);
-            entry->insert(entry->begin(), Parent);
-            // The Parent is now part of the resolved prefix
-            state.path.resolved_end++;
-          }
-        }
-        
-        // Update path.node to reflect the current resolved position.
-        // Walk from entry's scope up by parent_count, then down through
-        // any resolved segments.
-        {
-          Node scope = entry->scope();
-          size_t parents = state.path.parent_count();
-          for (size_t i = 0; i < parents && scope; ++i) {
-            scope = scope->scope();
-          }
-          // Walk through resolved segments (after Parents)
-          size_t first_seg = parents;
-          for (size_t i = first_seg; i < state.path.resolved_end; ++i) {
-            Node seg = entry->at(i);
-            if (seg == TypeReference) {
-              Node name = seg / Name;
-              auto matches = scope->look(name->location());
-              if (matches.size() == 1) {
-                scope = matches.front();
-              }
-            }
-          }
-          state.path.node = scope;
-        }
+        // Normalize leading Parents and update path.node
+        normalize_leading_parents(entry, state.path);
+        update_path_node(entry, state.path);
         continue;
       }
 

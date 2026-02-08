@@ -1,1 +1,1 @@
-infixlang: /workspaces/verona/src/passes/resolve_types.cc:308: static trieste::Node infix::ResolveWork::rebase_path(const trieste::Node&, const infix::RelativePath&, trieste::Node): Assertion `false' failed.
+infixlang: /workspaces/verona/src/passes/resolve_types.cc:390: static trieste::Node infix::ResolveWork::rebase_path(const trieste::Node&, const infix::RelativePath&, trieste::Node): Assertion `false' failed.
