@@ -132,21 +132,6 @@ size_t prepend_to_type_lookup(Node entry, size_t extra_parents,
   return inserted;
 }
 
-// Overload for rebase_path: prepend segments and parents from raw values.
-// Used when working with mutable prefix state during rebasing.
-void prepend_segments_and_parents(Node entry, size_t parent_count,
-                                  size_t segment_count,
-                                  std::function<Node(size_t)> segment_at) {
-  // Insert segments in reverse order (to maintain order after insertions at begin)
-  for (size_t i = segment_count; i > 0; --i) {
-    entry->insert(entry->begin(), segment_at(i - 1)->clone());
-  }
-  // Insert Parents
-  for (size_t i = 0; i < parent_count; i++) {
-    entry->insert(entry->begin(), Parent);
-  }
-}
-
 // Normalize leading Parents in entry starting at resolved_end.
 // Parents either consume the last resolved segment, or move to the front.
 // Updates path.resolved_end accordingly.
@@ -323,6 +308,63 @@ struct ResolveWork {
     return type_lookup;
   }
 
+// Normalize Parents at a boundary position in a TypeLookup.
+// Parents at `boundary` either consume the last segment before them,
+// or move to the front if no segments remain.
+// Returns the new boundary position after normalization.
+// Get the TypeArgs from the last TypeReference before a given position.
+static Node get_type_args_before(const Node &entry, size_t pos) {
+  for (size_t i = pos; i > 0; --i) {
+    Node seg = entry->at(i - 1);
+    if (seg == TypeReference) {
+      return seg / TypeArgs;
+    }
+  }
+  return nullptr;
+}
+
+// Normalize a path by processing Parents that follow segments.
+// A Parent after a segment consumes that segment (A::B::.. -> A::).
+// A Parent at the front stays at the front.
+static void normalize_path(Node entry) {
+  // Use a stack-based approach: segments go on stack, Parents pop from stack
+  std::vector<Node> stack;
+  size_t extra_parents = 0;  // Parents that couldn't pop anything
+  
+  for (size_t i = 0; i < entry->size(); ++i) {
+    Node elem = entry->at(i);
+    if (elem == Parent) {
+      if (!stack.empty()) {
+        // Pop the last segment (consume it)
+        stack.pop_back();
+      } else {
+        // No segment to consume - this becomes a leading Parent
+        extra_parents++;
+      }
+    } else {
+      // It's a segment - push it
+      stack.push_back(elem);
+    }
+  }
+  
+  // Rebuild entry: [extra_parents Parents] [stack contents]
+  // First clear entry
+  while (entry->size() > 0) {
+    auto pos = entry->begin();
+    entry->erase(pos, pos + 1);
+  }
+  
+  // Add leading Parents
+  for (size_t i = 0; i < extra_parents; ++i) {
+    entry->push_back(Parent);
+  }
+  
+  // Add segments from stack
+  for (const auto& seg : stack) {
+    entry->push_back(seg->clone());
+  }
+}
+
   static Node rebase_path(const Node &base, const RelativePath &prefix_,
                           Node source) {
     // Only rebase type lookups.
@@ -330,104 +372,93 @@ struct ResolveWork {
       return source;
     }
 
-    // We work with a mutable copy of the prefix boundaries.
-    // As we consume Parents from source, we shrink resolved_end.
-    Node prefix_lookup = prefix_.type_lookup;
-    size_t prefix_resolved_end = prefix_.resolved_end;
-    size_t prefix_parents = prefix_.parent_count();
-    Node prefix_node = prefix_.node;
-
-    // Helper to get the current segment count
-    auto current_segment_count = [&]() {
-      size_t first_seg = prefix_parents;
-      return (prefix_resolved_end > first_seg) ? (prefix_resolved_end - first_seg) : 0;
-    };
-
-    // Helper to get segment at index (relative to first non-Parent)
-    auto segment_at = [&](size_t idx) -> Node {
-      size_t actual_idx = prefix_parents + idx;
-      if (actual_idx < prefix_resolved_end && prefix_lookup)
-        return prefix_lookup->at(actual_idx);
-      return nullptr;
-    };
-
-    // Helper to get back segment
-    auto back_segment = [&]() -> Node {
-      if (current_segment_count() == 0)
-        return nullptr;
-      return prefix_lookup->at(prefix_resolved_end - 1);
-    };
-
+    // Step 1: Prepend the prefix to source
+    for (size_t i = prefix_.segment_count(); i > 0; --i) {
+      source->insert(source->begin(), prefix_.segment_at(i - 1)->clone());
+    }
+    for (size_t i = 0; i < prefix_.parent_count(); ++i) {
+      source->insert(source->begin(), Parent);
+    }
+    
+    // Step 2: Normalize all internal Parents
+    normalize_path(source);
+    
+    // Step 3: Substitute TypeParams iteratively
     while (true) {
-      // If no segments left, just prepend the Parents
-      if (current_segment_count() == 0) {
-        prepend_segments_and_parents(source, prefix_parents, 0, segment_at);
-        return source;
+      // Resolve the path from base's scope to find scope at each position
+      Node scope = base->scope();
+      size_t parents = count_leading_parents(source);
+      
+      // Walk past leading Parents
+      for (size_t i = 0; i < parents && scope; ++i) {
+        scope = scope->scope();
       }
-
-      // If source is empty, prepend the entire prefix
-      if (source->empty()) {
-        prepend_segments_and_parents(source, prefix_parents, current_segment_count(), segment_at);
-        return source;
+      
+      if (!scope) break;
+      
+      // Walk through segments, checking each for TypeParam
+      bool found_type_param = false;
+      for (size_t i = parents; i < source->size() && scope; ++i) {
+        Node seg = source->at(i);
+        if (seg != TypeReference) break;
+        
+        Node name = seg / Name;
+        auto lookups = scope->look(name->location());
+        if (lookups.size() != 1) break;
+        
+        Node lookup = lookups.front();
+        
+        if (lookup == TypeParam) {
+          // Found a TypeParam - substitute it
+          // The type arg replaces the entire path up to and including this TypeParam.
+          // Any remaining segments after the TypeParam stay.
+          auto index = child_index_in_parent(lookup);
+          assert(index.has_value());
+          
+          Node type_args = get_type_args_before(source, i);
+          if (!type_args || type_args->size() <= index.value()) {
+            std::cout << "[rebase_path] error: not enough generic arguments"
+                      << std::endl;
+            assert(false);
+          }
+          
+          Node arg = type_args->at(index.value());
+          assert(arg == Type);
+          Node lookup_arg = arg->at(0);
+          assert(lookup_arg == TypeLookup);
+          
+          // Remove everything from 0 to i (inclusive) - this is the "prefix"
+          // that gets replaced by the type argument
+          while (i >= 0) {
+            source->erase(source->begin(), source->begin() + 1);
+            if (i == 0) break;
+            i--;
+          }
+          
+          // Insert the type argument's content at the beginning
+          for (size_t j = lookup_arg->size(); j > 0; --j) {
+            source->insert(source->begin(), lookup_arg->at(j - 1)->clone());
+          }
+          
+          // Normalize again since we inserted new content
+          // (the type arg may have Parents that consume remaining segments)
+          normalize_path(source);
+          
+          found_type_param = true;
+          break;  // Restart the outer loop
+        }
+        
+        // Not a TypeParam - continue walking through this segment
+        scope = lookup;
       }
-
-      if (source->front() == Parent) {
-        // Consume Parent from source by shrinking prefix
-        source->erase(source->begin(), source->begin() + 1);
-        prefix_node = prefix_node->scope();
-        prefix_resolved_end--; // Remove last segment
-        continue;
+      
+      if (!found_type_param) {
+        // No more TypeParams to substitute
+        break;
       }
-
-      assert(source->front() == TypeReference);
-      // Determine if this is a type parameter.
-      auto lookups = prefix_node->look(source->front()->location());
-      if (lookups.size() == 0) {
-        std::cout << "[rebase_path] error: failed to rebase path, segment "
-                     "not found: "
-                  << source->front()->str() << std::endl
-                  << "Looking in node: " << prefix_node->str() << std::endl;
-        assert(false);
-      }
-
-      assert(lookups.size() == 1);
-      Node lookup = lookups.front();
-
-      if (lookup != TypeParam) {
-        // Not a type parameter; prepend the prefix and return.
-        prepend_segments_and_parents(source, prefix_parents, current_segment_count(), segment_at);
-        return source;
-      }
-
-      // It's a type parameter; we need to rebase it.
-      auto index = child_index_in_parent(lookup);
-      assert(index.has_value());
-
-      // Get the ith generic argument from the last prefix segment.
-      Node generic_args = back_segment() / TypeArgs;
-
-      if (generic_args->size() <= index.value()) {
-        std::cout << "[rebase_path] error: not enough generic arguments to "
-                     "bind type parameter "
-                  << generic_args << std::endl
-                  << "Looking for " << index.value() << std::endl;
-        assert(false);
-      }
-      Node arg = generic_args->at(index.value());
-      assert(arg == Type);
-      Node lookup_arg = arg->at(0);
-      assert(lookup_arg == TypeLookup);
-
-      // Remove the front of the source.
-      source->erase(source->begin(), source->begin() + 1);
-      // Replace prefix with the type argument.
-      RelativePath new_prefix = type_lookup_to_relative_path(base, lookup_arg);
-      prefix_lookup = new_prefix.type_lookup;
-      prefix_resolved_end = new_prefix.resolved_end;
-      prefix_parents = new_prefix.parent_count();
-      prefix_node = new_prefix.node;
-      continue;
-    };
+    }
+    
+    return source;
   }
 
   // Find a name by searching up the scope chain.
