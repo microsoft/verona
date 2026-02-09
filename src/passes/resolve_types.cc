@@ -373,11 +373,8 @@ static void normalize_path(Node entry) {
     }
 
     // Step 1: Prepend the prefix to source
-    for (size_t i = prefix_.segment_count(); i > 0; --i) {
-      source->insert(source->begin(), prefix_.segment_at(i - 1)->clone());
-    }
-    for (size_t i = 0; i < prefix_.parent_count(); ++i) {
-      source->insert(source->begin(), Parent);
+    for (size_t i = prefix_.resolved_end; i > 0; --i) {
+      source->insert(source->begin(), prefix_.type_lookup->at(i - 1)->clone());
     }
     
     // Step 2: Normalize all internal Parents
@@ -387,18 +384,19 @@ static void normalize_path(Node entry) {
     while (true) {
       // Resolve the path from base's scope to find scope at each position
       Node scope = base->scope();
-      size_t parents = count_leading_parents(source);
       
-      // Walk past leading Parents
-      for (size_t i = 0; i < parents && scope; ++i) {
+      // Walk past leading Parents, moving up scope chain
+      size_t i = 0;
+      while (i < source->size() && source->at(i) == Parent && scope) {
         scope = scope->scope();
+        i++;
       }
       
       if (!scope) break;
       
       // Walk through segments, checking each for TypeParam
       bool found_type_param = false;
-      for (size_t i = parents; i < source->size() && scope; ++i) {
+      for (; i < source->size() && scope; ++i) {
         Node seg = source->at(i);
         if (seg != TypeReference) break;
         
@@ -436,13 +434,8 @@ static void normalize_path(Node entry) {
           }
           
           // Insert the type argument's content at the beginning
-          for (size_t j = lookup_arg->size(); j > 0; --j) {
-            source->insert(source->begin(), lookup_arg->at(j - 1)->clone());
-          }
-          
-          // Normalize again since we inserted new content
-          // (the type arg may have Parents that consume remaining segments)
-          normalize_path(source);
+          // (no clone needed - the erase above removed it from the AST)
+          source->insert(source->begin(), lookup_arg->begin(), lookup_arg->end());
           
           found_type_param = true;
           break;  // Restart the outer loop
