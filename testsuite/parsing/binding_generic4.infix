@@ -6,7 +6,7 @@ module Module1[T1]
   type Foo = Module2
 
 module Module3
-  function (x: Int) inc = x + 1
+  struct Int
 
 module Test
   # This brings inc into scope.
@@ -15,8 +15,6 @@ module Test
   ##  Module1[Module3]::Module2::Bar
   ##  Reduces to 
   ##  Module3
-  ##  So inc is now in scope.
+  ##  So Int is now in scope.
 
-  function test(): Int =
-    1 inc
-
+  use Int

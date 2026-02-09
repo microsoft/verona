@@ -4,10 +4,6 @@ parse
   {}
   (file
     (group
-      (struct
-        {})
-      (name 3:Int))
-    (group
       (module
         {})
       (name 7:Module1)
@@ -18,19 +14,9 @@ parse
           (name 7:Module3)
           (indent
             (group
-              (function
+              (struct
                 {})
-              (paren
-                (group
-                  (name 1:x)
-                  (Colon)
-                  (name 3:Int)))
-              (name 3:inc)
-              (Colon)
-              (name 3:Int)
-              (eq)
-              (name 1:x)
-              (name 3:inc))))
+              (name 3:Int))))
         (group
           (type_alias
             {})
@@ -48,18 +34,5 @@ parse
           (DoubleColon)
           (name 3:Foo))
         (group
-          (function
-            {})
-          (name 4:test)
-          (paren
-            (group
-              (name 1:x)
-              (Colon)
-              (name 3:Int)))
-          (Colon)
-          (name 3:Int)
-          (eq)
-          (indent
-            (group
-              (name 1:x)
-              (name 3:inc))))))))
+          (use)
+          (name 3:Int))))))

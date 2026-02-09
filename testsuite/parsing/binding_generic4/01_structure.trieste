@@ -35,17 +35,11 @@ structure
       (type_params)
       (body
         (indent
-          (function
+          (struct
             {}
-            (paren
-              (name 1:x)
-              (Colon)
-              (name 3:Int))
-            (name 3:inc)
-            (eq)
-            (name 1:x)
-            (name 1:+)
-            (name 1:1)))))
+            (name 3:Int)
+            (type_params)
+            (fields)))))
     (module
       {}
       (name 4:Test)
@@ -62,14 +56,6 @@ structure
               (name 3:Foo)
               (DoubleColon)
               (name 3:Bar)))
-          (function
-            {}
-            (name 4:test)
-            (paren)
-            (Colon)
-            (name 3:Int)
-            (eq)
-            (indent
-              (group
-                (name 1:1)
-                (name 3:inc)))))))))
+          (use
+            (type
+              (name 3:Int))))))))

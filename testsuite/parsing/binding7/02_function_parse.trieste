@@ -2,15 +2,9 @@ infix
 function_parse
 (top
   {
-    Int = struct
     Module1 = module
     Test = module}
   (file
-    (struct
-      {}
-      (name 3:Int)
-      (type_params)
-      (fields))
     (module
       {
         Foo = type_alias
@@ -21,31 +15,16 @@ function_parse
         (indent
           (module
             {
-              inc = function}
+              Int = struct}
             (name 7:Module3)
             (type_params)
             (body
               (indent
-                (function
-                  {
-                    x = param}
+                (struct
+                  {}
+                  (name 3:Int)
                   (type_params)
-                  (lhs
-                    (param
-                      (name 1:x)
-                      (mode
-                        (cbv))
-                      (type
-                        (name 3:Int))))
-                  (name 3:inc)
-                  (rhs)
-                  (type
-                    (name 3:Int))
-                  (where)
-                  (body
-                    (expr_stack)
-                    (name 1:x)
-                    (name 3:inc))))))
+                  (fields)))))
           (type_alias
             {}
             (name 3:Foo)
@@ -54,8 +33,8 @@ function_parse
               (name 7:Module3))))))
     (module
       {
-        test = function
-        include use Module1::Foo}
+        include use Module1::Foo
+        include use Int}
       (name 4:Test)
       (type_params)
       (body
@@ -65,25 +44,6 @@ function_parse
               (name 7:Module1)
               (DoubleColon)
               (name 3:Foo)))
-          (function
-            {
-              x = param}
-            (type_params)
-            (lhs)
-            (name 4:test)
-            (rhs
-              (param
-                (name 1:x)
-                (mode
-                  (cbv))
-                (type
-                  (name 3:Int))))
+          (use
             (type
-              (name 3:Int))
-            (where)
-            (body
-              (expr_stack)
-              (indent
-                (group
-                  (name 1:x)
-                  (name 3:inc))))))))))
+              (name 3:Int))))))))
