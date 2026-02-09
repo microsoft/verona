@@ -308,60 +308,86 @@ struct ResolveWork {
     return type_lookup;
   }
 
-// Normalize Parents at a boundary position in a TypeLookup.
-// Parents at `boundary` either consume the last segment before them,
-// or move to the front if no segments remain.
-// Returns the new boundary position after normalization.
-// Get the TypeArgs from the last TypeReference before a given position.
-static Node get_type_args_before(const Node &entry, size_t pos) {
-  for (size_t i = pos; i > 0; --i) {
-    Node seg = entry->at(i - 1);
-    if (seg == TypeReference) {
-      return seg / TypeArgs;
-    }
-  }
-  return nullptr;
-}
-
-// Normalize a path by processing Parents that follow segments.
+// Normalize a path by processing Parents and substituting TypeParams.
+// Takes a base node for scope lookups.
 // A Parent after a segment consumes that segment (A::B::.. -> A::).
-// A Parent at the front stays at the front.
-static void normalize_path(Node entry) {
-  // Use a stack-based approach: segments go on stack, Parents pop from stack
-  std::vector<Node> stack;
-  size_t extra_parents = 0;  // Parents that couldn't pop anything
+// A Parent at the front stays at the front and moves up the scope chain.
+// When a TypeParam is found, it's substituted with the corresponding type arg.
+//
+// Invariant: segment_count tracks the number of TypeReference segments in
+// entry[0..i). When segment_count > 0, the last segment is at entry[i-1].
+// This works because a Parent always immediately follows a segment (after
+// normalization), so when we remove a segment+Parent pair, the new last
+// segment is still at i-1 (after adjusting i).
+static void normalize_path(Node entry, const Node &base) {
+  Node scope = base->scope();
+  size_t segment_count = 0;
+  size_t i = 0;
   
-  for (size_t i = 0; i < entry->size(); ++i) {
+  while (i < entry->size()) {
     Node elem = entry->at(i);
+    
     if (elem == Parent) {
-      if (!stack.empty()) {
-        // Pop the last segment (consume it)
-        stack.pop_back();
-      } else {
-        // No segment to consume - this becomes a leading Parent
-        extra_parents++;
+      // Always move up scope chain
+      if (scope) scope = scope->scope();
+      
+      if (segment_count > 0) {
+        // Delete the previous segment (at i-1) and this Parent
+        entry->erase(entry->begin() + i - 1, entry->begin() + i + 1);
+        segment_count--;
+        i--;
+        continue;
       }
-    } else {
-      // It's a segment - push it
-      stack.push_back(elem);
+      i++;
+      continue;
     }
-  }
-  
-  // Rebuild entry: [extra_parents Parents] [stack contents]
-  // First clear entry
-  while (entry->size() > 0) {
-    auto pos = entry->begin();
-    entry->erase(pos, pos + 1);
-  }
-  
-  // Add leading Parents
-  for (size_t i = 0; i < extra_parents; ++i) {
-    entry->push_back(Parent);
-  }
-  
-  // Add segments from stack
-  for (const auto& seg : stack) {
-    entry->push_back(seg->clone());
+    
+    assert(elem == TypeReference);
+    
+    // Check if it's a TypeParam
+    if (scope) {
+      Node name = elem / Name;
+      auto lookups = scope->look(name->location());
+      
+      if (lookups.size() == 1 && lookups.front() == TypeParam) {
+        auto index = child_index_in_parent(lookups.front());
+        assert(index.has_value());
+        
+        // Get type args from previous segment (at i-1)
+        Node type_args = nullptr;
+        if (segment_count > 0 && entry->at(i - 1) == TypeReference) {
+          type_args = entry->at(i - 1) / TypeArgs;
+        }
+        
+        if (!type_args || type_args->size() <= index.value()) {
+          std::cout << "[normalize_path] error: not enough generic arguments"
+                    << std::endl;
+          assert(false);
+        }
+        
+        Node arg = type_args->at(index.value());
+        assert(arg == Type);
+        Node lookup_arg = arg->at(0);
+        assert(lookup_arg == TypeLookup);
+        
+        // Replace prefix (0 to i inclusive) with type arg content
+        entry->erase(entry->begin(), entry->begin() + i + 1);
+        entry->insert(entry->begin(), lookup_arg->begin(), lookup_arg->end());
+        
+        // Restart from the beginning
+        scope = base->scope();
+        segment_count = 0;
+        i = 0;
+        continue;
+      }
+      
+      if (lookups.size() == 1) {
+        scope = lookups.front();
+      }
+    }
+    
+    segment_count++;
+    i++;
   }
 }
 
@@ -377,79 +403,8 @@ static void normalize_path(Node entry) {
       source->insert(source->begin(), prefix_.type_lookup->at(i - 1)->clone());
     }
     
-    // Step 2: Normalize all internal Parents
-    normalize_path(source);
-    
-    // Step 3: Substitute TypeParams iteratively
-    while (true) {
-      // Resolve the path from base's scope to find scope at each position
-      Node scope = base->scope();
-      
-      // Walk past leading Parents, moving up scope chain
-      size_t i = 0;
-      while (i < source->size() && source->at(i) == Parent && scope) {
-        scope = scope->scope();
-        i++;
-      }
-      
-      if (!scope) break;
-      
-      // Walk through segments, checking each for TypeParam
-      bool found_type_param = false;
-      for (; i < source->size() && scope; ++i) {
-        Node seg = source->at(i);
-        if (seg != TypeReference) break;
-        
-        Node name = seg / Name;
-        auto lookups = scope->look(name->location());
-        if (lookups.size() != 1) break;
-        
-        Node lookup = lookups.front();
-        
-        if (lookup == TypeParam) {
-          // Found a TypeParam - substitute it
-          // The type arg replaces the entire path up to and including this TypeParam.
-          // Any remaining segments after the TypeParam stay.
-          auto index = child_index_in_parent(lookup);
-          assert(index.has_value());
-          
-          Node type_args = get_type_args_before(source, i);
-          if (!type_args || type_args->size() <= index.value()) {
-            std::cout << "[rebase_path] error: not enough generic arguments"
-                      << std::endl;
-            assert(false);
-          }
-          
-          Node arg = type_args->at(index.value());
-          assert(arg == Type);
-          Node lookup_arg = arg->at(0);
-          assert(lookup_arg == TypeLookup);
-          
-          // Remove everything from 0 to i (inclusive) - this is the "prefix"
-          // that gets replaced by the type argument
-          while (i >= 0) {
-            source->erase(source->begin(), source->begin() + 1);
-            if (i == 0) break;
-            i--;
-          }
-          
-          // Insert the type argument's content at the beginning
-          // (no clone needed - the erase above removed it from the AST)
-          source->insert(source->begin(), lookup_arg->begin(), lookup_arg->end());
-          
-          found_type_param = true;
-          break;  // Restart the outer loop
-        }
-        
-        // Not a TypeParam - continue walking through this segment
-        scope = lookup;
-      }
-      
-      if (!found_type_param) {
-        // No more TypeParams to substitute
-        break;
-      }
-    }
+    // Step 2: Normalize (handles Parents and TypeParam substitution)
+    normalize_path(source, base);
     
     return source;
   }
@@ -684,11 +639,8 @@ static void normalize_path(Node entry) {
         // up to and including the alias reference.
         entry->erase(entry->begin(), entry->begin() + rebase_prefix.resolved_end);
         // Insert the rebased alias children at the beginning
-        size_t insert_pos = 0;
-        for (auto &child : *rebased_alias) {
-          entry->insert(entry->begin() + insert_pos, child->clone());
-          insert_pos++;
-        }
+        // (no clone needed - rebased_alias is already a fresh copy from bottom_up_map)
+        entry->insert(entry->begin(), rebased_alias->begin(), rebased_alias->end());
         // Reset resolved_end since we've replaced everything
         state.path.resolved_end = 0;
         
