@@ -303,46 +303,48 @@ static void normalize_path(Node entry, const Node &base) {
     
     assert(elem == TypeReference);
     
+    assert(scope);
+
     // Check if it's a TypeParam
-    if (scope) {
-      Node name = elem / Name;
-      auto lookups = scope->look(name->location());
+    Node name = elem / Name;
+    auto lookups = scope->look(name->location());
+    
+    if (lookups.size() == 1 && lookups.front() == TypeParam) {
+      auto index = child_index_in_parent(lookups.front());
+      assert(index.has_value());
       
-      if (lookups.size() == 1 && lookups.front() == TypeParam) {
-        auto index = child_index_in_parent(lookups.front());
-        assert(index.has_value());
-        
-        // Get type args from previous segment (at i-1)
-        Node type_args = nullptr;
-        if (segment_count > 0 && entry->at(i - 1) == TypeReference) {
-          type_args = entry->at(i - 1) / TypeArgs;
-        }
-        
-        if (!type_args || type_args->size() <= index.value()) {
-          std::cout << "[normalize_path] error: not enough generic arguments"
-                    << std::endl;
-          assert(false);
-        }
-        
-        Node arg = type_args->at(index.value());
-        assert(arg == Type);
-        Node lookup_arg = arg->at(0);
-        assert(lookup_arg == TypeLookup);
-        
-        // Replace prefix (0 to i inclusive) with type arg content
-        entry->erase(entry->begin(), entry->begin() + i + 1);
-        entry->insert(entry->begin(), lookup_arg->begin(), lookup_arg->end());
-        
-        // Restart from the beginning
-        scope = base->scope();
-        segment_count = 0;
-        i = 0;
-        continue;
+      std::cout << "Normalise TypeParam " << name->str() << " at index " << index.value() << std::endl;
+
+      // Get type args from previous segment (at i-1)
+      Node type_args = nullptr;
+      if (segment_count > 0 && entry->at(i - 1) == TypeReference) {
+        type_args = entry->at(i - 1) / TypeArgs;
       }
       
-      if (lookups.size() == 1) {
-        scope = lookups.front();
+      if (!type_args || type_args->size() <= index.value()) {
+        std::cout << "[normalize_path] error: not enough generic arguments"
+                  << std::endl;
+        assert(false);
       }
+      
+      Node arg = type_args->at(index.value());
+      assert(arg == Type);
+      Node lookup_arg = arg->at(0);
+      assert(lookup_arg == TypeLookup);
+      
+      // Replace prefix (0 to i inclusive) with type arg content
+      entry->erase(entry->begin(), entry->begin() + i + 1);
+      entry->insert(entry->begin(), lookup_arg->begin(), lookup_arg->end());
+      
+      // Restart from the beginning
+      scope = base->scope();
+      segment_count = 0;
+      i = 0;
+      continue;
+    }
+    
+    if (lookups.size() == 1) {
+      scope = lookups.front();
     }
     
     segment_count++;
@@ -357,6 +359,9 @@ static void normalize_path(Node entry, const Node &base) {
       return source;
     }
 
+    // std::cout << "[rebase_path] rebasing " << type_lookup_to_str(source) << std::endl
+    //           << " with prefix " << prefix_ << std::endl;
+
     // Step 1: Prepend the prefix to source
     for (size_t i = prefix_.resolved_end; i > 0; --i) {
       source->insert(source->begin(), prefix_.type_lookup->at(i - 1)->clone());
@@ -364,7 +369,9 @@ static void normalize_path(Node entry, const Node &base) {
     
     // Step 2: Normalize (handles Parents and TypeParam substitution)
     normalize_path(source, base);
-    
+
+    // std::cout << "[rebase_path] result: " << type_lookup_to_str(source) << std::endl;
+
     return source;
   }
 
@@ -416,6 +423,8 @@ static void normalize_path(Node entry, const Node &base) {
         }
 
         if (found.size() == 1) {
+          std::cout << "Found " << name->str() << " in use " << u
+                    << " with resolved path " << u_lookup_state.path << std::endl;
           // Found via a use statement.
           // Copy the use's resolved path into entry, plus extra Parents.
           const RelativePath &use_path = u_lookup_state.path;
@@ -551,7 +560,8 @@ static void normalize_path(Node entry, const Node &base) {
 
       if (found.front() == TypeAlias) {
         Node alias_type = found.front() / Type;
-        
+        Node name = found.front() / Name;
+
         // Can only expand if the alias body is a single TypeLookup
         bool can_expand = (alias_type->size() == 1) && 
                           (alias_type->at(0) == TypeLookup);
@@ -569,6 +579,11 @@ static void normalize_path(Node entry, const Node &base) {
           return false;
 
         Node alias_body = alias_type->at(0);
+
+        std::cout << "Subst TypeAlias " << std::endl << name << std::endl
+                  << " with body " << alias_body << std::endl;
+
+        std::cout << "Current entry before alias subst: " << entry << std::endl;
 
         // The alias body must be resolved now, as we have waited for the
         // enclosing type.
@@ -598,6 +613,8 @@ static void normalize_path(Node entry, const Node &base) {
         
         // The rebased alias is already normalized (Parents at front).
         init_path(entry, state.path);
+
+        std::cout << "Entry after alias subst" << entry << std::endl;
         continue;
       }
 
@@ -610,6 +627,7 @@ static void normalize_path(Node entry, const Node &base) {
       if (found.front() == TypeParam) {
         // TODO if we add bounds/assumptions on a TypeParam, then we may have to
         // change this.
+        std::cout << "Resolved TypeParam " << head << std::endl;
 
         // We don't allow lookup on a type parameter.
         if (remaining() != 1) {
@@ -641,6 +659,7 @@ static void normalize_path(Node entry, const Node &base) {
     // The entry has been modified in-place; no final substitution needed.
     assert(!ast_has_cycle(entry));
 
+    std::cout << "Resolved: " << entry << std::endl;
     return true;
   }
 };
