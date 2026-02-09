@@ -30,17 +30,7 @@
 
 namespace infix {
 
-// Count the number of leading Parent tokens in a node's children.
-size_t count_leading_parents(const Node &type_lookup) {
-  size_t count = 0;
-  for (auto &child : *type_lookup) {
-    if (child == Parent)
-      count++;
-    else
-      break;
-  }
-  return count;
-}
+
 
 // A view into a TypeLookup's children representing a resolved path.
 // The range includes any leading Parent tokens which represent scope levels.
@@ -132,49 +122,18 @@ size_t prepend_to_type_lookup(Node entry, size_t extra_parents,
   return inserted;
 }
 
-// Normalize leading Parents in entry starting at resolved_end.
-// Parents either consume the last resolved segment, or move to the front.
-// Updates path.resolved_end accordingly.
-void normalize_leading_parents(Node entry, RelativePath &path) {
-  while (path.resolved_end < entry->size() &&
-         entry->at(path.resolved_end) == Parent) {
-    auto parent_pos = entry->begin() + path.resolved_end;
-    // A Parent "consumes" the last resolved segment
-    if (path.resolved_end > path.parent_count()) {
-      // There's a segment to consume - remove the Parent and last segment
-      auto seg_pos = entry->begin() + path.resolved_end - 1;
-      entry->erase(parent_pos, parent_pos + 1); // Remove the Parent
-      entry->erase(seg_pos, seg_pos + 1);       // Remove last segment
-      path.resolved_end--;
-    } else {
-      // No more segments to consume - move Parent to the front
-      entry->erase(parent_pos, parent_pos + 1);
-      entry->insert(entry->begin(), Parent);
-      // The Parent is now part of the resolved prefix
-      path.resolved_end++;
-    }
-  }
-}
-
-// Update path.node by walking the scope chain based on the resolved portion.
-// Walks up by parent_count, then down through resolved segments.
-void update_path_node(Node entry, RelativePath &path) {
+// Initialize path by counting leading Parents and walking up the scope chain.
+void init_path(Node entry, RelativePath &path) {
+  path.resolved_end = 0;
   Node scope = entry->scope();
-  size_t parents = path.parent_count();
-  for (size_t i = 0; i < parents && scope; ++i) {
-    scope = scope->scope();
+  
+  for (auto &child : *entry) {
+    if (child != Parent)
+      break;
+    path.resolved_end++;
+    if (scope) scope = scope->scope();
   }
-  // Walk through resolved segments (after Parents)
-  for (size_t i = parents; i < path.resolved_end; ++i) {
-    Node seg = entry->at(i);
-    if (seg == TypeReference) {
-      Node name = seg / Name;
-      auto matches = scope->look(name->location());
-      if (matches.size() == 1) {
-        scope = matches.front();
-      }
-    }
-  }
+  
   path.node = scope;
 }
 
@@ -555,11 +514,6 @@ static void normalize_path(Node entry, const Node &base) {
       return nullptr;
     };
 
-    // Process any leading Parents first (if starting fresh)
-    while (current() == Parent) {
-      state.path.resolved_end++;
-    }
-
     // Main resolution loop
     while (remaining() > 0) {
       Node reference = current();
@@ -641,12 +595,9 @@ static void normalize_path(Node entry, const Node &base) {
         // Insert the rebased alias children at the beginning
         // (no clone needed - rebased_alias is already a fresh copy from bottom_up_map)
         entry->insert(entry->begin(), rebased_alias->begin(), rebased_alias->end());
-        // Reset resolved_end since we've replaced everything
-        state.path.resolved_end = 0;
         
-        // Normalize leading Parents and update path.node
-        normalize_leading_parents(entry, state.path);
-        update_path_node(entry, state.path);
+        // The rebased alias is already normalized (Parents at front).
+        init_path(entry, state.path);
         continue;
       }
 
@@ -657,6 +608,9 @@ static void normalize_path(Node entry, const Node &base) {
       }
 
       if (found.front() == TypeParam) {
+        // TODO if we add bounds/assumptions on a TypeParam, then we may have to
+        // change this.
+
         // We don't allow lookup on a type parameter.
         if (remaining() != 1) {
           head << (Error << (ErrorMsg ^
