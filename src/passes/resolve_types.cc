@@ -68,9 +68,9 @@ struct RelativePath {
 // Uses bottom_up_map to perform the cloning.
 Node prepend_parents(Node source, size_t count) {
   return bottom_up_map(source, [count](Node n, const Node &) {
-    if (n == TypeLookup) {
-      n->insert(n->begin(), count, Parent);
-    }
+    if (!(n == TypeLookup))
+      return n;
+    n->insert(n->begin(), count, Parent);
     return n;
   });
 }
@@ -79,34 +79,13 @@ Node prepend_parents(Node source, size_t count) {
 // Clones the path contents and applies extra_parents to any nested TypeLookups.
 // Returns the total number of elements inserted.
 size_t prepend_to_type_lookup(Node entry, size_t extra_parents,
-                              Node path = nullptr) {
-  if (path) {
-    assert(path == TypeLookup);
-    // Clone path and add extra_parents to all TypeLookups (including path itself)
-    Node cloned_path = prepend_parents(path, extra_parents);
-    // Insert all children from cloned path
-    entry->insert(entry->begin(), cloned_path->begin(), cloned_path->end());
-    return cloned_path->size();
-  }
-
-  // No path, just insert extra Parents
-  entry->insert(entry->begin(), extra_parents, Parent);
-  return extra_parents;
-}
-
-// Initialize path by counting leading Parents and walking up the scope chain.
-void init_path(Node entry, RelativePath &path) {
-  path.resolved_end = 0;
-  Node scope = entry->scope();
-  
-  for (auto &child : *entry) {
-    if (child != Parent)
-      break;
-    path.resolved_end++;
-    if (scope) scope = scope->scope();
-  }
-  
-  path.node = scope;
+                              Node path) {
+  assert(path == TypeLookup);
+  // Clone path and add extra_parents to all TypeLookups (including path itself)
+  Node cloned_path = prepend_parents(path, extra_parents);
+  // Insert all children from cloned path
+  entry->insert(entry->begin(), cloned_path->begin(), cloned_path->end());
+  return cloned_path->size();
 }
 
 auto ambiguous_lookup_error(Node symtab, Node node) {
@@ -187,6 +166,7 @@ struct ResolveWork {
 // segment is still at i-1 (after adjusting i).
 static void normalize_path(Node entry, const Node &base) {
   Node scope = base->scope();
+  assert(scope);
   size_t segment_count = 0;
   size_t i = 0;
   
@@ -195,16 +175,17 @@ static void normalize_path(Node entry, const Node &base) {
     
     if (elem == Parent) {
       // Always move up scope chain
-      if (scope) scope = scope->scope();
-      
-      if (segment_count > 0) {
-        // Delete the previous segment (at i-1) and this Parent
-        entry->erase(entry->begin() + i - 1, entry->begin() + i + 1);
-        segment_count--;
-        i--;
-        continue;
-      }
+      scope = scope->scope();
+      assert(scope);
       i++;
+
+      if (segment_count == 0)
+        continue;
+
+      // Delete the previous segment (at i-2) and this Parent
+      entry->erase(entry->begin() + i - 2, entry->begin() + i);
+      segment_count--;
+      i -= 2;
       continue;
     }
     
@@ -287,7 +268,7 @@ static void normalize_path(Node entry, const Node &base) {
       }
       if (results.size() == 1) {
         // Found directly in scope chain.
-        prepend_to_type_lookup(entry, levels, nullptr);
+        entry->insert(entry->begin(), levels, Parent);
         state.path.resolved_end = levels; // Only the Parents are "resolved" so far
         state.path.node = scope;
         return true;
@@ -409,23 +390,25 @@ static void normalize_path(Node entry, const Node &base) {
       return entry->size() - state.path.resolved_end;
     };
 
-    // Helper to get the next unresolved element
-    auto current = [&]() -> Node {
-      if (state.path.resolved_end < entry->size())
-        return entry->at(state.path.resolved_end);
-      return nullptr;
-    };
-
     // Main resolution loop
     while (remaining() > 0) {
-      Node reference = current();
+      Node current = entry->at(state.path.resolved_end);
       
-      // Should be a TypeReference at this point
-      if (reference != TypeReference) {
-        return false;
+      if (current == Parent)
+      {
+        if (state.path.is_uninitialized())
+          state.path.node = entry->scope();
+        // Parents at the front just move up the scope chain, they don't
+        // need to be resolved.
+        state.path.resolved_end++;
+        state.path.node = state.path.node->scope();
+        continue;
       }
 
-      Node head = reference / Name;
+      // Should be a TypeReference at this point
+      assert (current == TypeReference);
+
+      Node head = current / Name;
 
       // If path is uninitialized, look up the first name
       if (state.path.is_uninitialized()) {
@@ -434,13 +417,6 @@ static void normalize_path(Node entry, const Node &base) {
           // have added unresolved `use` statements to wait on.
           return false;
         }
-        // lookup_levels_up may have inserted Parents at the beginning,
-        // so we need to skip past them
-        while (current() == Parent) {
-          state.path.resolved_end++;
-        }
-        // Also skip any segments that lookup_levels_up copied from a use
-        // (resolved_end was already set by lookup_levels_up)
       }
 
       // Now look up the current segment
@@ -500,8 +476,9 @@ static void normalize_path(Node entry, const Node &base) {
         entry->insert(entry->begin(), rebased_alias->begin(), rebased_alias->end());
         
         // The rebased alias is already normalized (Parents at front).
-        init_path(entry, state.path);
-
+        // After rebasing, we need to re-resolve from the start of the new path
+        state.path.resolved_end = 0;
+        state.path.node = entry->scope();
         continue;
       }
 
