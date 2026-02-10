@@ -1,0 +1,52 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (module
+        {})
+      (name 8:Internal)
+      (indent
+        (group
+          (struct
+            {})
+          (name 10:PrivateInt))
+        (group
+          (struct
+            {})
+          (name 11:PrivateBool))))
+    (group
+      (module
+        {})
+      (name 6:Public)
+      (indent
+        (group
+          (use)
+          (name 8:Internal))
+        (group
+          (type_alias
+            {})
+          (name 3:Int)
+          (eq)
+          (name 10:PrivateInt))
+        (group
+          (type_alias
+            {})
+          (name 4:Bool)
+          (eq)
+          (name 11:PrivateBool))))
+    (group
+      (module
+        {})
+      (name 8:Consumer)
+      (indent
+        (group
+          (use)
+          (name 6:Public))
+        (group
+          (use)
+          (name 3:Int))
+        (group
+          (use)
+          (name 4:Bool))))))

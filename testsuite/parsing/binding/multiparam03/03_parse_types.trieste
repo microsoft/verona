@@ -1,0 +1,209 @@
+infix
+parse_types
+(top
+  {
+    BoolModule = module
+    IntModule = module
+    Outer = module
+    StringModule = module
+    Test = module}
+  (file
+    (module
+      {
+        Int = struct}
+      (name 9:IntModule)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 3:Int)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Bool = struct}
+      (name 10:BoolModule)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 4:Bool)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        String = struct}
+      (name 12:StringModule)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 6:String)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        A = type_param
+        B = type_param
+        Inner = module}
+      (name 5:Outer)
+      (type_params
+        (type_param
+          (name 1:A))
+        (type_param
+          (name 1:B)))
+      (body
+        (indent
+          (module
+            {
+              C = type_param
+              InnerC = type_alias
+              OuterA = type_alias
+              OuterB = type_alias}
+            (name 5:Inner)
+            (type_params
+              (type_param
+                (name 1:C)))
+            (body
+              (indent
+                (type_alias
+                  {}
+                  (name 6:OuterA)
+                  (type_params)
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:A)
+                        (type_args)))))
+                (type_alias
+                  {}
+                  (name 6:OuterB)
+                  (type_params)
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:B)
+                        (type_args)))))
+                (type_alias
+                  {}
+                  (name 6:InnerC)
+                  (type_params)
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 1:C)
+                        (type_args)))))))))))
+    (module
+      {
+        include use Outer[IntModule, BoolModule]::Inner[StringModule]::OuterA
+        include use Outer[IntModule, BoolModule]::Inner[StringModule]::OuterB
+        include use Outer[IntModule, BoolModule]::Inner[StringModule]::InnerC
+        include use Int
+        include use Bool
+        include use String}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 5:Outer)
+                  (type_args
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 9:IntModule)
+                          (type_args))))
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 10:BoolModule)
+                          (type_args))))))
+                (type_reference
+                  (name 5:Inner)
+                  (type_args
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 12:StringModule)
+                          (type_args))))))
+                (type_reference
+                  (name 6:OuterA)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 5:Outer)
+                  (type_args
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 9:IntModule)
+                          (type_args))))
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 10:BoolModule)
+                          (type_args))))))
+                (type_reference
+                  (name 5:Inner)
+                  (type_args
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 12:StringModule)
+                          (type_args))))))
+                (type_reference
+                  (name 6:OuterB)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 5:Outer)
+                  (type_args
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 9:IntModule)
+                          (type_args))))
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 10:BoolModule)
+                          (type_args))))))
+                (type_reference
+                  (name 5:Inner)
+                  (type_args
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 12:StringModule)
+                          (type_args))))))
+                (type_reference
+                  (name 6:InnerC)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 3:Int)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 4:Bool)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 6:String)
+                  (type_args))))))))))

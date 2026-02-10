@@ -1,0 +1,45 @@
+infix
+structure
+(top
+  {}
+  (file
+    (module
+      {}
+      (name 4:Defs)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 1:A)
+            (type_params)
+            (fields))
+          (module
+            {}
+            (name 3:Sub)
+            (type_params)
+            (body
+              (indent
+                (struct
+                  {}
+                  (name 1:B)
+                  (type_params)
+                  (fields))))))))
+    (module
+      {}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 4:Defs)))
+          (use
+            (type
+              (name 3:Sub)))
+          (use
+            (type
+              (name 1:A)))
+          (use
+            (type
+              (name 1:B))))))))

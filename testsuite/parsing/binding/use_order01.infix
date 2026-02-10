@@ -1,0 +1,17 @@
+# Use statements must be processed in definition order
+module Defs
+  struct A
+  module Sub
+    struct B
+
+module Test
+  # First use brings Sub into scope
+  use Defs
+  # Now we can reference Sub directly
+  use Sub
+  ## After resolution:
+  ##   use ..::Defs
+  ##   use ..::Defs::Sub
+
+  use A
+  use B

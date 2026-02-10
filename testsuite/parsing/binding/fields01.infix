@@ -1,0 +1,15 @@
+# Struct field referencing type from different module
+module Types
+  struct Int
+  struct String
+
+module Data
+  use Types
+
+  struct Person
+    age: Int
+    name: String
+
+module Test
+  use Data
+  use Person

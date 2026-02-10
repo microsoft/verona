@@ -1,0 +1,21 @@
+# Chain of re-exports
+module Level0
+  struct Origin
+
+module Level1
+  use Level0
+  type Alias1 = Origin
+
+module Level2
+  use Level1
+  type Alias2 = Alias1
+
+module Level3
+  use Level2
+  type Alias3 = Alias2
+
+module Test
+  use Level3::Alias3
+  ## Should resolve through the chain back to Level0::Origin
+
+  use Origin

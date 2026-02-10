@@ -1,0 +1,67 @@
+infix
+structure
+(top
+  {}
+  (file
+    (module
+      {}
+      (name 4:Base)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 10:SharedType)
+            (type_params)
+            (fields)))))
+    (module
+      {}
+      (name 4:Left)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 4:Base)))
+          (type_alias
+            {}
+            (name 9:LeftAlias)
+            (type_params)
+            (type
+              (name 10:SharedType))))))
+    (module
+      {}
+      (name 5:Right)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 4:Base)))
+          (type_alias
+            {}
+            (name 10:RightAlias)
+            (type_params)
+            (type
+              (name 10:SharedType))))))
+    (module
+      {}
+      (name 3:Top)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 4:Left)))
+          (use
+            (type
+              (name 5:Right)))
+          (use
+            (type
+              (name 9:LeftAlias)))
+          (use
+            (type
+              (name 10:RightAlias)))
+          (use
+            (type
+              (name 10:SharedType))))))))

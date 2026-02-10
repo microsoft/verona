@@ -1,0 +1,20 @@
+# Diamond dependency pattern
+module Base
+  struct SharedType
+
+module Left
+  use Base
+  type LeftAlias = SharedType
+
+module Right
+  use Base
+  type RightAlias = SharedType
+
+module Top
+  use Left
+  use Right
+  # Both LeftAlias and RightAlias should resolve to Base::SharedType
+  use LeftAlias
+  use RightAlias
+
+  use SharedType

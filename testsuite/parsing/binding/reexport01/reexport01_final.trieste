@@ -1,0 +1,106 @@
+infix
+resolve_types
+(top
+  {
+    Consumer = module
+    Internal = module
+    Public = module}
+  (file
+    (module
+      {
+        PrivateBool = struct
+        PrivateInt = struct}
+      (name 8:Internal)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 10:PrivateInt)
+            (type_params)
+            (fields))
+          (struct
+            {}
+            (name 11:PrivateBool)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Bool = type_alias
+        Int = type_alias
+        include use Internal}
+      (name 6:Public)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 8:Internal)
+                  (type_args)))))
+          (type_alias
+            {}
+            (name 3:Int)
+            (type_params)
+            (type
+              (type_lookup
+                (../)
+                (../)
+                (type_reference
+                  (name 8:Internal)
+                  (type_args))
+                (type_reference
+                  (name 10:PrivateInt)
+                  (type_args)))))
+          (type_alias
+            {}
+            (name 4:Bool)
+            (type_params)
+            (type
+              (type_lookup
+                (../)
+                (../)
+                (type_reference
+                  (name 8:Internal)
+                  (type_args))
+                (type_reference
+                  (name 11:PrivateBool)
+                  (type_args))))))))
+    (module
+      {
+        include use Public
+        include use Int
+        include use Bool}
+      (name 8:Consumer)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 6:Public)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 8:Internal)
+                  (type_args))
+                (type_reference
+                  (name 10:PrivateInt)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 8:Internal)
+                  (type_args))
+                (type_reference
+                  (name 11:PrivateBool)
+                  (type_args))))))))))

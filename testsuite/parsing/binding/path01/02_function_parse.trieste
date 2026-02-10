@@ -1,0 +1,60 @@
+infix
+function_parse
+(top
+  {
+    Level1 = module
+    Test = module}
+  (file
+    (module
+      {
+        Level2 = module}
+      (name 6:Level1)
+      (type_params)
+      (body
+        (indent
+          (module
+            {
+              Level3 = module}
+            (name 6:Level2)
+            (type_params)
+            (body
+              (indent
+                (module
+                  {
+                    Level4 = module}
+                  (name 6:Level3)
+                  (type_params)
+                  (body
+                    (indent
+                      (module
+                        {
+                          DeepType = struct}
+                        (name 6:Level4)
+                        (type_params)
+                        (body
+                          (indent
+                            (struct
+                              {}
+                              (name 8:DeepType)
+                              (type_params)
+                              (fields))))))))))))))
+    (module
+      {
+        include use Level1::Level2::Level3::Level4
+        include use DeepType}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 6:Level1)
+              (DoubleColon)
+              (name 6:Level2)
+              (DoubleColon)
+              (name 6:Level3)
+              (DoubleColon)
+              (name 6:Level4)))
+          (use
+            (type
+              (name 8:DeepType))))))))

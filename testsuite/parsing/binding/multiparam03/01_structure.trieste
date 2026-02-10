@@ -1,0 +1,134 @@
+infix
+structure
+(top
+  {}
+  (file
+    (module
+      {}
+      (name 9:IntModule)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 3:Int)
+            (type_params)
+            (fields)))))
+    (module
+      {}
+      (name 10:BoolModule)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 4:Bool)
+            (type_params)
+            (fields)))))
+    (module
+      {}
+      (name 12:StringModule)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 6:String)
+            (type_params)
+            (fields)))))
+    (module
+      {}
+      (name 5:Outer)
+      (type_params
+        (group
+          (name 1:A))
+        (group
+          (name 1:B)))
+      (body
+        (indent
+          (module
+            {}
+            (name 5:Inner)
+            (type_params
+              (group
+                (name 1:C)))
+            (body
+              (indent
+                (type_alias
+                  {}
+                  (name 6:OuterA)
+                  (type_params)
+                  (type
+                    (name 1:A)))
+                (type_alias
+                  {}
+                  (name 6:OuterB)
+                  (type_params)
+                  (type
+                    (name 1:B)))
+                (type_alias
+                  {}
+                  (name 6:InnerC)
+                  (type_params)
+                  (type
+                    (name 1:C)))))))))
+    (module
+      {}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 5:Outer)
+              (square
+                (group
+                  (name 9:IntModule))
+                (group
+                  (name 10:BoolModule)))
+              (DoubleColon)
+              (name 5:Inner)
+              (square
+                (group
+                  (name 12:StringModule)))
+              (DoubleColon)
+              (name 6:OuterA)))
+          (use
+            (type
+              (name 5:Outer)
+              (square
+                (group
+                  (name 9:IntModule))
+                (group
+                  (name 10:BoolModule)))
+              (DoubleColon)
+              (name 5:Inner)
+              (square
+                (group
+                  (name 12:StringModule)))
+              (DoubleColon)
+              (name 6:OuterB)))
+          (use
+            (type
+              (name 5:Outer)
+              (square
+                (group
+                  (name 9:IntModule))
+                (group
+                  (name 10:BoolModule)))
+              (DoubleColon)
+              (name 5:Inner)
+              (square
+                (group
+                  (name 12:StringModule)))
+              (DoubleColon)
+              (name 6:InnerC)))
+          (use
+            (type
+              (name 3:Int)))
+          (use
+            (type
+              (name 4:Bool)))
+          (use
+            (type
+              (name 6:String))))))))

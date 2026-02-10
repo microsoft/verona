@@ -1,0 +1,50 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (module
+        {})
+      (name 5:Types)
+      (indent
+        (group
+          (struct
+            {})
+          (name 3:Int))
+        (group
+          (struct
+            {})
+          (name 6:String))))
+    (group
+      (module
+        {})
+      (name 4:Data)
+      (indent
+        (group
+          (use)
+          (name 5:Types))
+        (group
+          (struct
+            {})
+          (name 6:Person)
+          (indent
+            (group
+              (name 3:age)
+              (Colon)
+              (name 3:Int))
+            (group
+              (name 4:name)
+              (Colon)
+              (name 6:String))))))
+    (group
+      (module
+        {})
+      (name 4:Test)
+      (indent
+        (group
+          (use)
+          (name 4:Data))
+        (group
+          (use)
+          (name 6:Person))))))

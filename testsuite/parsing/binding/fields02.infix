@@ -1,0 +1,14 @@
+# Struct field using generic instantiation
+struct Int
+
+struct None
+struct Some[T]
+  value: T
+type Option[T] = None | Some[T]
+
+struct Container[T]
+  current: T
+  next: Option[Container[T]]
+
+module Test
+  use Container[Int]

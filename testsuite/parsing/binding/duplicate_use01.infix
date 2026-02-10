@@ -1,0 +1,11 @@
+# Importing the same scope twice directly
+module Source
+  struct Target
+
+module Test
+  use Source
+  use Source
+  # The second use should not cause issues
+  # Target should still be resolvable
+
+  use Target

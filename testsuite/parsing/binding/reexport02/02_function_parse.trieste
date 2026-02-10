@@ -1,0 +1,89 @@
+infix
+function_parse
+(top
+  {
+    Level0 = module
+    Level1 = module
+    Level2 = module
+    Level3 = module
+    Test = module}
+  (file
+    (module
+      {
+        Origin = struct}
+      (name 6:Level0)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 6:Origin)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Alias1 = type_alias
+        include use Level0}
+      (name 6:Level1)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 6:Level0)))
+          (type_alias
+            {}
+            (name 6:Alias1)
+            (type_params)
+            (type
+              (name 6:Origin))))))
+    (module
+      {
+        Alias2 = type_alias
+        include use Level1}
+      (name 6:Level2)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 6:Level1)))
+          (type_alias
+            {}
+            (name 6:Alias2)
+            (type_params)
+            (type
+              (name 6:Alias1))))))
+    (module
+      {
+        Alias3 = type_alias
+        include use Level2}
+      (name 6:Level3)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 6:Level2)))
+          (type_alias
+            {}
+            (name 6:Alias3)
+            (type_params)
+            (type
+              (name 6:Alias2))))))
+    (module
+      {
+        include use Level3::Alias3
+        include use Origin}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 6:Level3)
+              (DoubleColon)
+              (name 6:Alias3)))
+          (use
+            (type
+              (name 6:Origin))))))))

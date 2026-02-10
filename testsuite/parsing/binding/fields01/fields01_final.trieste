@@ -1,0 +1,97 @@
+infix
+resolve_types
+(top
+  {
+    Data = module
+    Test = module
+    Types = module}
+  (file
+    (module
+      {
+        Int = struct
+        String = struct}
+      (name 5:Types)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 3:Int)
+            (type_params)
+            (fields))
+          (struct
+            {}
+            (name 6:String)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Person = struct
+        include use Types}
+      (name 4:Data)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 5:Types)
+                  (type_args)))))
+          (struct
+            {
+              age = field
+              name = field}
+            (name 6:Person)
+            (type_params)
+            (fields
+              (field
+                (name 3:age)
+                (type
+                  (type_lookup
+                    (../)
+                    (../)
+                    (type_reference
+                      (name 5:Types)
+                      (type_args))
+                    (type_reference
+                      (name 3:Int)
+                      (type_args)))))
+              (field
+                (name 4:name)
+                (type
+                  (type_lookup
+                    (../)
+                    (../)
+                    (type_reference
+                      (name 5:Types)
+                      (type_args))
+                    (type_reference
+                      (name 6:String)
+                      (type_args))))))))))
+    (module
+      {
+        include use Data
+        include use Person}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 4:Data)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 4:Data)
+                  (type_args))
+                (type_reference
+                  (name 6:Person)
+                  (type_args))))))))))

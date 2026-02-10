@@ -1,0 +1,41 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (module
+        {})
+      (name 6:Source)
+      (indent
+        (group
+          (struct
+            {})
+          (name 6:Target))))
+    (group
+      (module
+        {})
+      (name 5:Alias)
+      (indent
+        (group
+          (use)
+          (name 6:Source))
+        (group
+          (type_alias
+            {})
+          (name 3:Ref)
+          (eq)
+          (name 6:Target))))
+    (group
+      (module
+        {})
+      (name 4:Test)
+      (indent
+        (group
+          (use)
+          (name 5:Alias)
+          (DoubleColon)
+          (name 3:Ref))
+        (group
+          (use)
+          (name 6:Target))))))

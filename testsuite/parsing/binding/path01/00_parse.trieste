@@ -1,0 +1,46 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (module
+        {})
+      (name 6:Level1)
+      (indent
+        (group
+          (module
+            {})
+          (name 6:Level2)
+          (indent
+            (group
+              (module
+                {})
+              (name 6:Level3)
+              (indent
+                (group
+                  (module
+                    {})
+                  (name 6:Level4)
+                  (indent
+                    (group
+                      (struct
+                        {})
+                      (name 8:DeepType))))))))))
+    (group
+      (module
+        {})
+      (name 4:Test)
+      (indent
+        (group
+          (use)
+          (name 6:Level1)
+          (DoubleColon)
+          (name 6:Level2)
+          (DoubleColon)
+          (name 6:Level3)
+          (DoubleColon)
+          (name 6:Level4))
+        (group
+          (use)
+          (name 8:DeepType))))))

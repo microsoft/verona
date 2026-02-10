@@ -1,0 +1,72 @@
+infix
+structure
+(top
+  {}
+  (file
+    (struct
+      {}
+      (name 3:Int)
+      (type_params)
+      (fields))
+    (struct
+      {}
+      (name 4:None)
+      (type_params)
+      (fields))
+    (struct
+      {}
+      (name 4:Some)
+      (type_params
+        (group
+          (name 1:T)))
+      (fields
+        (field
+          (name 5:value)
+          (type
+            (name 1:T)))))
+    (type_alias
+      {}
+      (name 6:Option)
+      (type_params
+        (group
+          (name 1:T)))
+      (type
+        (name 4:None)
+        (name 1:|)
+        (name 4:Some)
+        (square
+          (group
+            (name 1:T)))))
+    (struct
+      {}
+      (name 9:Container)
+      (type_params
+        (group
+          (name 1:T)))
+      (fields
+        (field
+          (name 7:current)
+          (type
+            (name 1:T)))
+        (field
+          (name 4:next)
+          (type
+            (name 6:Option)
+            (square
+              (group
+                (name 9:Container)
+                (square
+                  (group
+                    (name 1:T)))))))))
+    (module
+      {}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 9:Container)
+              (square
+                (group
+                  (name 3:Int))))))))))

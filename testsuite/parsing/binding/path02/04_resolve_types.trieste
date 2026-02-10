@@ -1,0 +1,125 @@
+infix
+resolve_types
+(top
+  {
+    A = module
+    Test = module
+    X = module
+    Y = module}
+  (file
+    (module
+      {
+        B = module}
+      (name 1:A)
+      (type_params)
+      (body
+        (indent
+          (module
+            {
+              C = module}
+            (name 1:B)
+            (type_params)
+            (body
+              (indent
+                (module
+                  {
+                    Target = struct}
+                  (name 1:C)
+                  (type_params)
+                  (body
+                    (indent
+                      (struct
+                        {}
+                        (name 6:Target)
+                        (type_params)
+                        (fields)))))))))))
+    (module
+      {
+        AliasToB = type_alias}
+      (name 1:X)
+      (type_params)
+      (body
+        (indent
+          (type_alias
+            {}
+            (name 8:AliasToB)
+            (type_params)
+            (type
+              (type_lookup
+                (../)
+                (../)
+                (type_reference
+                  (name 1:A)
+                  (type_args))
+                (type_reference
+                  (name 1:B)
+                  (type_args))))))))
+    (module
+      {
+        AliasToC = type_alias
+        include use X}
+      (name 1:Y)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 1:X)
+                  (type_args)))))
+          (type_alias
+            {}
+            (name 8:AliasToC)
+            (type_params)
+            (type
+              (type_lookup
+                (../)
+                (../)
+                (type_reference
+                  (name 1:A)
+                  (type_args))
+                (type_reference
+                  (name 1:B)
+                  (type_args))
+                (type_reference
+                  (name 1:C)
+                  (type_args))))))))
+    (module
+      {
+        include use Y::AliasToC
+        include use Target}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 1:A)
+                  (type_args))
+                (type_reference
+                  (name 1:B)
+                  (type_args))
+                (type_reference
+                  (name 1:C)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 1:A)
+                  (type_args))
+                (type_reference
+                  (name 1:B)
+                  (type_args))
+                (type_reference
+                  (name 1:C)
+                  (type_args))
+                (type_reference
+                  (name 6:Target)
+                  (type_args))))))))))

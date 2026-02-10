@@ -1,0 +1,46 @@
+infix
+parse_types
+(top
+  {
+    Source = module
+    Test = module}
+  (file
+    (module
+      {
+        Target = struct}
+      (name 6:Source)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 6:Target)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        include use Source
+        include use Source
+        include use Target}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 6:Source)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 6:Source)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 6:Target)
+                  (type_args))))))))))

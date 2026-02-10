@@ -1,0 +1,18 @@
+# Type alias chain through multiple modules
+module A
+  module B
+    module C
+      struct Target
+
+module X
+  type AliasToB = A::B
+
+module Y
+  use X
+  type AliasToC = AliasToB::C
+
+module Test
+  use Y::AliasToC
+  ## Should resolve through the chain to A::B::C
+
+  use Target

@@ -1,0 +1,20 @@
+# Module with 2+ type parameters
+
+module IntModule
+  struct Int
+
+module BoolModule
+  struct Bool
+
+module Pair[A, B]
+  type First = A
+  type Second = B
+
+module Test
+  use Pair[IntModule, BoolModule]::First
+  use Pair[IntModule, BoolModule]::Second
+  ## First should resolve to Int
+  ## Second should resolve to Bool
+
+  use Int
+  use Bool

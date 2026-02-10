@@ -1,0 +1,13 @@
+# Very deep module nesting (4+ levels)
+module Level1
+  module Level2
+    module Level3
+      module Level4
+        struct DeepType
+
+module Test
+  use Level1::Level2::Level3::Level4
+  ## After resolution this should be:
+  ##   use ..::Level1::Level2::Level3::Level4
+
+  use DeepType

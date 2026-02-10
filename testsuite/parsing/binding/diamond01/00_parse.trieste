@@ -1,0 +1,62 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (module
+        {})
+      (name 4:Base)
+      (indent
+        (group
+          (struct
+            {})
+          (name 10:SharedType))))
+    (group
+      (module
+        {})
+      (name 4:Left)
+      (indent
+        (group
+          (use)
+          (name 4:Base))
+        (group
+          (type_alias
+            {})
+          (name 9:LeftAlias)
+          (eq)
+          (name 10:SharedType))))
+    (group
+      (module
+        {})
+      (name 5:Right)
+      (indent
+        (group
+          (use)
+          (name 4:Base))
+        (group
+          (type_alias
+            {})
+          (name 10:RightAlias)
+          (eq)
+          (name 10:SharedType))))
+    (group
+      (module
+        {})
+      (name 3:Top)
+      (indent
+        (group
+          (use)
+          (name 4:Left))
+        (group
+          (use)
+          (name 5:Right))
+        (group
+          (use)
+          (name 9:LeftAlias))
+        (group
+          (use)
+          (name 10:RightAlias))
+        (group
+          (use)
+          (name 10:SharedType))))))

@@ -1,0 +1,15 @@
+# Generic with type param used as argument to another generic
+module IntModule
+  struct Int
+
+module Wrapper[T]
+  type Inner = T
+
+module Container[T]
+  type Wrapped = Wrapper[T]
+
+module Test
+  use Container[IntModule]::Wrapped::Inner
+  ## Should resolve to IntModule through the chain
+
+  use Int

@@ -1,0 +1,103 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (module
+        {})
+      (name 9:IntModule)
+      (indent
+        (group
+          (struct
+            {})
+          (name 3:Int))))
+    (group
+      (module
+        {})
+      (name 10:BoolModule)
+      (indent
+        (group
+          (struct
+            {})
+          (name 4:Bool))))
+    (group
+      (module
+        {})
+      (name 12:StringModule)
+      (indent
+        (group
+          (struct
+            {})
+          (name 6:String))))
+    (group
+      (module
+        {})
+      (name 9:Container)
+      (square
+        (group
+          (name 1:T)))
+      (indent
+        (group
+          (type_alias
+            {})
+          (name 4:Left)
+          (eq)
+          (name 1:T))
+        (group
+          (type_alias
+            {})
+          (name 5:Right)
+          (eq)
+          (name 1:T))
+        (group
+          (module
+            {})
+          (name 5:Inner)
+          (indent
+            (group
+              (type_alias
+                {})
+              (name 4:Also)
+              (eq)
+              (name 1:T))))))
+    (group
+      (module
+        {})
+      (name 4:Test)
+      (indent
+        (group
+          (use)
+          (name 9:Container)
+          (square
+            (group
+              (name 9:IntModule)))
+          (DoubleColon)
+          (name 4:Left))
+        (group
+          (use)
+          (name 9:Container)
+          (square
+            (group
+              (name 10:BoolModule)))
+          (DoubleColon)
+          (name 5:Right))
+        (group
+          (use)
+          (name 9:Container)
+          (square
+            (group
+              (name 12:StringModule)))
+          (DoubleColon)
+          (name 5:Inner)
+          (DoubleColon)
+          (name 4:Also))
+        (group
+          (use)
+          (name 3:Int))
+        (group
+          (use)
+          (name 4:Bool))
+        (group
+          (use)
+          (name 6:String))))))

@@ -1,0 +1,11 @@
+# Type alias to union type with module paths
+# Tests that union types can be defined using types from imported modules
+module Types
+  struct A
+  struct B
+  struct C
+
+module Defs
+  use Types
+  # This union type uses A, B, C brought in from Types
+  type Choice = A | B | C

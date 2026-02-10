@@ -1,0 +1,16 @@
+# Module that uses and re-exports types
+module Internal
+  struct PrivateInt
+  struct PrivateBool
+
+module Public
+  use Internal
+  # Re-export by creating aliases
+  type Int = PrivateInt
+  type Bool = PrivateBool
+
+module Consumer
+  use Public
+  ## Consumer can access Int and Bool through Public
+  use Int
+  use Bool

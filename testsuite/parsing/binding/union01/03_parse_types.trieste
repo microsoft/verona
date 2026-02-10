@@ -1,0 +1,58 @@
+infix
+parse_types
+(top
+  {
+    Defs = module
+    Types = module}
+  (file
+    (module
+      {
+        A = struct
+        B = struct
+        C = struct}
+      (name 5:Types)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 1:A)
+            (type_params)
+            (fields))
+          (struct
+            {}
+            (name 1:B)
+            (type_params)
+            (fields))
+          (struct
+            {}
+            (name 1:C)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Choice = type_alias
+        include use Types}
+      (name 4:Defs)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 5:Types)
+                  (type_args)))))
+          (type_alias
+            {}
+            (name 6:Choice)
+            (type_params)
+            (type
+              (type_lookup
+                (type_reference
+                  (name 1:A)
+                  (type_args)))
+              (name 1:|)
+              (name 1:B)
+              (name 1:|)
+              (name 1:C))))))))

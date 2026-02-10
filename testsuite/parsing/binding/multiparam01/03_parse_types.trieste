@@ -1,0 +1,125 @@
+infix
+parse_types
+(top
+  {
+    BoolModule = module
+    IntModule = module
+    Pair = module
+    Test = module}
+  (file
+    (module
+      {
+        Int = struct}
+      (name 9:IntModule)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 3:Int)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Bool = struct}
+      (name 10:BoolModule)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 4:Bool)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        A = type_param
+        B = type_param
+        First = type_alias
+        Second = type_alias}
+      (name 4:Pair)
+      (type_params
+        (type_param
+          (name 1:A))
+        (type_param
+          (name 1:B)))
+      (body
+        (indent
+          (type_alias
+            {}
+            (name 5:First)
+            (type_params)
+            (type
+              (type_lookup
+                (type_reference
+                  (name 1:A)
+                  (type_args)))))
+          (type_alias
+            {}
+            (name 6:Second)
+            (type_params)
+            (type
+              (type_lookup
+                (type_reference
+                  (name 1:B)
+                  (type_args))))))))
+    (module
+      {
+        include use Pair[IntModule, BoolModule]::First
+        include use Pair[IntModule, BoolModule]::Second
+        include use Int
+        include use Bool}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 4:Pair)
+                  (type_args
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 9:IntModule)
+                          (type_args))))
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 10:BoolModule)
+                          (type_args))))))
+                (type_reference
+                  (name 5:First)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 4:Pair)
+                  (type_args
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 9:IntModule)
+                          (type_args))))
+                    (type
+                      (type_lookup
+                        (type_reference
+                          (name 10:BoolModule)
+                          (type_args))))))
+                (type_reference
+                  (name 6:Second)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 3:Int)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 4:Bool)
+                  (type_args))))))))))

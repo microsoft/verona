@@ -1,0 +1,13 @@
+# Type alias depends on prior use statement
+module Source
+  struct Target
+
+module Alias
+  use Source
+  type Ref = Target
+
+module Test
+  use Alias::Ref
+  ## Ref should resolve to Source::Target
+
+  use Target

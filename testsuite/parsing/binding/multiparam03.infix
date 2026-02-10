@@ -1,0 +1,25 @@
+# Type parameters in nested generic modules
+module IntModule
+  struct Int
+
+module BoolModule
+  struct Bool
+
+module StringModule
+  struct String
+
+module Outer[A, B]
+  module Inner[C]
+    type OuterA = A
+    type OuterB = B
+    type InnerC = C
+
+module Test
+  use Outer[IntModule, BoolModule]::Inner[StringModule]::OuterA
+  use Outer[IntModule, BoolModule]::Inner[StringModule]::OuterB
+  use Outer[IntModule, BoolModule]::Inner[StringModule]::InnerC
+  ## OuterA -> IntModule, OuterB -> BoolModule, InnerC -> StringModule
+
+  use Int
+  use Bool
+  use String

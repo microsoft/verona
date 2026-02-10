@@ -1,0 +1,69 @@
+infix
+structure
+(top
+  {}
+  (file
+    (module
+      {}
+      (name 9:IntModule)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 3:Int)
+            (type_params)
+            (fields)))))
+    (module
+      {}
+      (name 10:BoolModule)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 4:Bool)
+            (type_params)
+            (fields)))))
+    (module
+      {}
+      (name 3:Box)
+      (type_params
+        (group
+          (name 1:T)))
+      (body
+        (indent
+          (type_alias
+            {}
+            (name 8:Contents)
+            (type_params)
+            (type
+              (name 1:T))))))
+    (module
+      {}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 3:Box)
+              (square
+                (group
+                  (name 9:IntModule)))
+              (DoubleColon)
+              (name 8:Contents)))
+          (use
+            (type
+              (name 3:Box)
+              (square
+                (group
+                  (name 10:BoolModule)))
+              (DoubleColon)
+              (name 8:Contents)))
+          (use
+            (type
+              (name 3:Int)))
+          (use
+            (type
+              (name 4:Bool))))))))

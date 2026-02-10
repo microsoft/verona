@@ -1,0 +1,69 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (module
+        {})
+      (name 6:Level0)
+      (indent
+        (group
+          (struct
+            {})
+          (name 6:Origin))))
+    (group
+      (module
+        {})
+      (name 6:Level1)
+      (indent
+        (group
+          (use)
+          (name 6:Level0))
+        (group
+          (type_alias
+            {})
+          (name 6:Alias1)
+          (eq)
+          (name 6:Origin))))
+    (group
+      (module
+        {})
+      (name 6:Level2)
+      (indent
+        (group
+          (use)
+          (name 6:Level1))
+        (group
+          (type_alias
+            {})
+          (name 6:Alias2)
+          (eq)
+          (name 6:Alias1))))
+    (group
+      (module
+        {})
+      (name 6:Level3)
+      (indent
+        (group
+          (use)
+          (name 6:Level2))
+        (group
+          (type_alias
+            {})
+          (name 6:Alias3)
+          (eq)
+          (name 6:Alias2))))
+    (group
+      (module
+        {})
+      (name 4:Test)
+      (indent
+        (group
+          (use)
+          (name 6:Level3)
+          (DoubleColon)
+          (name 6:Alias3))
+        (group
+          (use)
+          (name 6:Origin))))))

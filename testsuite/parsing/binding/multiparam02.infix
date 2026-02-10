@@ -1,0 +1,26 @@
+# Type params used in multiple positions
+module IntModule
+  struct Int
+
+module BoolModule
+  struct Bool
+
+module StringModule
+  struct String
+
+module Container[T]
+  type Left = T
+  type Right = T
+  module Inner
+    type Also = T
+
+module Test
+  use Container[IntModule]::Left
+  use Container[BoolModule]::Right
+  use Container[StringModule]::Inner::Also
+  ## All three uses of T should substitute correctly
+  ## Left -> IntModule, Right -> BoolModule, Also -> StringModule
+
+  use Int
+  use Bool
+  use String

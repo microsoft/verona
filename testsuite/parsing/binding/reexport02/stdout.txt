@@ -1,0 +1,7 @@
+Errors:
+Failed to resolve name:
+  use Origin
+      ~~~~~~
+
+Pass resolve_types failed with 1 error!
+

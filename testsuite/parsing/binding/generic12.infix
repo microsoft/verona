@@ -1,0 +1,17 @@
+# Multiple generic instantiations of same module
+module IntModule
+  struct Int
+
+module BoolModule
+  struct Bool
+
+module Box[T]
+  type Contents = T
+
+module Test
+  use Box[IntModule]::Contents
+  use Box[BoolModule]::Contents
+  ## Both instantiations should work independently
+
+  use Int
+  use Bool
