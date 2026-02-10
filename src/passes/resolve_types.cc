@@ -8,45 +8,9 @@
 
 #include <trieste/nodeworker.h>
 
-/**
- * To handle generics correctly, we need to handle resolutions to be arbitrary
- * types, we need to perform a rebase operation, that takes two types: 1) The
- * first has to be a type lookup 2) Can be an arbitrary type.
- *
- * We then need to effectively substitute inside the second type all type
- * lookups to initially have the path of the first type lookup.
- *
- * For example:
- *
- *    ..::..::A[..::B]   +++   ..::C::D[..::E]  ==>
- * ..::..::A[..::B]::..::C::D[..::..::A[..::B]::E]
- *    ==>  ..::..::C::D[..::B]
- *
- * This is pervasive through the whole reolution.
- *
- * This should be implemented as a function on a clone of a Node, that returns a
- * new Node.
- */
-
 namespace infix {
 
-
-
-// A view into a TypeLookup's children representing a resolved path.
-// The range includes any leading Parent tokens which represent scope levels.
-// This avoids copying path segments during resolution.
-struct RelativePath {
-  // Range [0, resolved_end) within type_lookup's children is the resolved portion.
-  // This includes any leading Parent tokens.
-  size_t resolved_end{0};
-  // The final resolved scope node for symbol lookup.
-  Node node{nullptr};
-
-  // Check if this path is uninitialized (sentinel for "search all scopes").
-  bool is_uninitialized() const { return node == nullptr && resolved_end == 0; }
-};
-
-Node clone_type_lookup_prefix(const Node& type_lookup, size_t count) {
+Node clone_type_lookup_prefix(const Node &type_lookup, size_t count) {
   Node cloned = TypeLookup;
   for (size_t i = 0; i < count && i < type_lookup->size(); ++i) {
     cloned->push_back(type_lookup->at(i)->clone());
@@ -54,8 +18,8 @@ Node clone_type_lookup_prefix(const Node& type_lookup, size_t count) {
   return cloned;
 }
 
-// Clone a node and add count Parent tokens at the beginning of any TypeLookup nodes.
-// Uses bottom_up_map to perform the cloning.
+// Clone a node and add count Parent tokens at the beginning of any TypeLookup
+// nodes. Uses bottom_up_map to perform the cloning.
 Node prepend_parents(Node source, size_t count) {
   return bottom_up_map(source, [count](Node n, const Node &) {
     if (!(n == TypeLookup))
@@ -107,13 +71,21 @@ std::optional<size_t> child_index_in_parent(const Node &child) {
 }
 
 struct ResolutionState : NodeWorkerState {
-  // The resolution of the name. path.resolved_end tracks how much of the
-  // TypeLookup has been resolved; the rest is the pending suffix.
-  RelativePath path;
+  // Range [0, resolved_end) within type_lookup's children is the resolved
+  // portion. This includes any leading Parent tokens.
+  size_t resolved_end{0};
+
+  // The final resolved scope node for symbol lookup.
+  Node node{nullptr};
+
   // Expand aliases - true for `use` statement bodies
   bool expand_aliases{false};
+
   // Used to detect if we have already waited for all subterms.
   bool blocked_on_subterms{false};
+
+  // Check if this path is uninitialized (sentinel for "search all scopes").
+  bool is_uninitialized() const { return node == nullptr && resolved_end == 0; }
 };
 
 // Core algorithm: maintain a worklist of type lookups to resolve and track
@@ -130,93 +102,93 @@ struct ResolveWork {
     return type_lookup;
   }
 
-// Normalize a path by processing Parents and substituting TypeParams.
-// Takes a base node for scope lookups.
-// A Parent after a segment consumes that segment (A::B::.. -> A::).
-// A Parent at the front stays at the front and moves up the scope chain.
-// When a TypeParam is found, it's substituted with the corresponding type arg.
-//
-// Invariant: segment_count tracks the number of TypeReference segments in
-// entry[0..i). When segment_count > 0, the last segment is at entry[i-1].
-// This works because a Parent always immediately follows a segment (after
-// normalization), so when we remove a segment+Parent pair, the new last
-// segment is still at i-1 (after adjusting i).
-static void normalize_path(Node entry, const Node &base) {
-  Node scope = base->scope();
-  assert(scope);
-  size_t segment_count = 0;
-  size_t i = 0;
-  
-  while (i < entry->size()) {
-    Node elem = entry->at(i);
-    
-    if (elem == Parent) {
-      // Always move up scope chain
-      scope = scope->scope();
-      assert(scope);
-      i++;
-
-      if (segment_count == 0)
-        continue;
-
-      // Delete the previous segment (at i-2) and this Parent
-      entry->erase(entry->begin() + i - 2, entry->begin() + i);
-      segment_count--;
-      i -= 2;
-      continue;
-    }
-    
-    assert(elem == TypeReference);
-    
+  // Normalize a path by processing Parents and substituting TypeParams.
+  // Takes a base node for scope lookups.
+  // A Parent after a segment consumes that segment (A::B::.. -> A::).
+  // A Parent at the front stays at the front and moves up the scope chain.
+  // When a TypeParam is found, it's substituted with the corresponding type
+  // arg.
+  //
+  // Invariant: segment_count tracks the number of TypeReference segments in
+  // entry[0..i). When segment_count > 0, the last segment is at entry[i-1].
+  // This works because a Parent always immediately follows a segment (after
+  // normalization), so when we remove a segment+Parent pair, the new last
+  // segment is still at i-1 (after adjusting i).
+  static void normalize_path(Node entry, const Node &base) {
+    Node scope = base->scope();
     assert(scope);
+    size_t segment_count = 0;
+    size_t i = 0;
 
-    // Check if it's a TypeParam
-    Node name = elem / Name;
-    auto lookups = scope->look(name->location());
-    
-    if (lookups.size() == 1 && lookups.front() == TypeParam) {
-      auto index = child_index_in_parent(lookups.front());
-      assert(index.has_value());
+    while (i < entry->size()) {
+      Node elem = entry->at(i);
 
-      // Get type args from previous segment (at i-1)
-      Node type_args = nullptr;
-      if (segment_count > 0 && entry->at(i - 1) == TypeReference) {
-        type_args = entry->at(i - 1) / TypeArgs;
+      if (elem == Parent) {
+        // Always move up scope chain
+        scope = scope->scope();
+        assert(scope);
+        i++;
+
+        if (segment_count == 0)
+          continue;
+
+        // Delete the previous segment (at i-2) and this Parent
+        entry->erase(entry->begin() + i - 2, entry->begin() + i);
+        segment_count--;
+        i -= 2;
+        continue;
       }
-      
-      if (!type_args || type_args->size() <= index.value()) {
-        std::cout << "[normalize_path] error: not enough generic arguments"
-                  << std::endl;
-        assert(false);
+
+      assert(elem == TypeReference);
+
+      assert(scope);
+
+      // Check if it's a TypeParam
+      Node name = elem / Name;
+      auto lookups = scope->look(name->location());
+
+      if (lookups.size() == 1 && lookups.front() == TypeParam) {
+        auto index = child_index_in_parent(lookups.front());
+        assert(index.has_value());
+
+        // Get type args from previous segment (at i-1)
+        Node type_args = nullptr;
+        if (segment_count > 0 && entry->at(i - 1) == TypeReference) {
+          type_args = entry->at(i - 1) / TypeArgs;
+        }
+
+        if (!type_args || type_args->size() <= index.value()) {
+          std::cout << "[normalize_path] error: not enough generic arguments"
+                    << std::endl;
+          assert(false);
+        }
+
+        Node arg = type_args->at(index.value());
+        assert(arg == Type);
+        Node lookup_arg = arg->at(0);
+        assert(lookup_arg == TypeLookup);
+
+        // Replace prefix (0 to i inclusive) with type arg content
+        entry->erase(entry->begin(), entry->begin() + i + 1);
+        entry->insert(entry->begin(), lookup_arg->begin(), lookup_arg->end());
+
+        // Restart from the beginning
+        scope = base->scope();
+        segment_count = 0;
+        i = 0;
+        continue;
       }
-      
-      Node arg = type_args->at(index.value());
-      assert(arg == Type);
-      Node lookup_arg = arg->at(0);
-      assert(lookup_arg == TypeLookup);
-      
-      // Replace prefix (0 to i inclusive) with type arg content
-      entry->erase(entry->begin(), entry->begin() + i + 1);
-      entry->insert(entry->begin(), lookup_arg->begin(), lookup_arg->end());
-      
-      // Restart from the beginning
-      scope = base->scope();
-      segment_count = 0;
-      i = 0;
-      continue;
+
+      if (lookups.size() == 1) {
+        scope = lookups.front();
+      }
+
+      segment_count++;
+      i++;
     }
-    
-    if (lookups.size() == 1) {
-      scope = lookups.front();
-    }
-    
-    segment_count++;
-    i++;
   }
-}
 
-  static Node rebase_path(const Node &base, size_t prefix_count,
-                          Node source) {
+  static Node rebase_path(const Node &base, size_t prefix_count, Node source) {
     // Only rebase type lookups.
     if (source != TypeLookup) {
       return source;
@@ -229,14 +201,13 @@ static void normalize_path(Node entry, const Node &base) {
 
   // Find a name by searching up the scope chain.
   // Modifies the entry TypeLookup in-place, inserting Parent tokens and/or
-  // segments from use statements. Updates state.path accordingly.
+  // segments from use statements. The worker state for this node accordingly.
   // Returns true if found, false if blocked waiting on unresolved uses.
-  bool lookup_levels_up(Node entry,
-                        NodeWorker<ResolveWork> &worker) const {
+  bool lookup_levels_up(Node entry, NodeWorker<ResolveWork> &worker) const {
 
     Node scope = entry->scope();
-    auto& state = worker.state(entry);
-    assert(state.path.resolved_end == 0);
+    auto &state = worker.state(entry);
+    assert(state.resolved_end == 0);
     Node name = entry->front() / Name;
     Nodes unresolved_use_types;
     size_t levels = 0;
@@ -249,8 +220,8 @@ static void normalize_path(Node entry, const Node &base) {
       if (results.size() == 1) {
         // Found directly in scope chain.
         entry->insert(entry->begin(), levels, Parent);
-        state.path.resolved_end = levels; // Only the Parents are "resolved" so far
-        state.path.node = scope;
+        state.resolved_end = levels; // Only the Parents are "resolved" so far
+        state.node = scope;
         return true;
       }
       // Not found, check the resolved `use` statements in this scope.
@@ -271,9 +242,9 @@ static void normalize_path(Node entry, const Node &base) {
         assert(worker.is_resolved(u_lookup));
 
         auto &u_lookup_state = worker.state(u_lookup);
-        auto found = u_lookup_state.path.node->look(name->location());
+        auto found = u_lookup_state.node->look(name->location());
         if (found.size() > 1) {
-          ambiguous_lookup_error(u_lookup_state.path.node, name);
+          ambiguous_lookup_error(u_lookup_state.node, name);
           continue;
         }
 
@@ -282,9 +253,10 @@ static void normalize_path(Node entry, const Node &base) {
           // Copy the use's resolved path into entry, plus extra Parents.
           Node cloned_path = prepend_parents(u_lookup, levels);
           // Insert all children from cloned path
-          entry->insert(entry->begin(), cloned_path->begin(), cloned_path->end());
-          state.path.resolved_end = cloned_path->size();
-          state.path.node = u_lookup_state.path.node;
+          entry->insert(entry->begin(), cloned_path->begin(),
+                        cloned_path->end());
+          state.resolved_end = cloned_path->size();
+          state.node = u_lookup_state.node;
           return true;
         }
       }
@@ -300,25 +272,7 @@ static void normalize_path(Node entry, const Node &base) {
     return false; // Not found yet
   }
 
-  void seed(const Node &n, State &state) {
-    if (n == Type)
-      // Type are just containers for TypeLookup nodes.
-      // They just form joins in the worklist.
-      return;
-
-    assert(n == TypeLookup);
-
-    // Initialize the path to reference this TypeLookup
-    state.path.resolved_end = 0; // Nothing resolved yet
-
-    if (n->parent() && n->parent()->type() == Type) {
-      if (n->parent()->parent() && n->parent()->parent()->type() == Use) {
-        // This is a type lookup that is the body of a `use`. We want to
-        // expand it completely to work out what names are in scope.
-        state.expand_aliases = true;
-      }
-    }
-  }
+  void seed(const Node &n, State &state) {}
 
   bool wait_on_subterms(const Node &n, NodeWorker<ResolveWork> &worker) {
     // Wait on all subterms to be resolved before processing this node. This
@@ -366,43 +320,40 @@ static void normalize_path(Node entry, const Node &base) {
     assert(entry == TypeLookup);
 
     // Helper to count remaining unresolved elements
-    auto remaining = [&]() {
-      return entry->size() - state.path.resolved_end;
-    };
+    auto remaining = [&]() { return entry->size() - state.resolved_end; };
 
     // Main resolution loop
     while (remaining() > 0) {
-      Node current = entry->at(state.path.resolved_end);
-      
-      if (current == Parent)
-      {
-        if (state.path.is_uninitialized())
-          state.path.node = entry->scope();
+      Node current = entry->at(state.resolved_end);
+
+      if (current == Parent) {
+        if (state.node == nullptr)
+          state.node = entry->scope();
         // Parents at the front just move up the scope chain, they don't
         // need to be resolved.
-        state.path.resolved_end++;
-        state.path.node = state.path.node->scope();
+        state.resolved_end++;
+        state.node = state.node->scope();
         continue;
       }
 
       // Should be a TypeReference at this point
-      assert (current == TypeReference);
+      assert(current == TypeReference);
 
       // If path is uninitialized, look up the first name
-      if (state.path.is_uninitialized()) {
+      if (state.node == nullptr) {
         if (!lookup_levels_up(entry, worker)) {
           // Not found in currently resolved scopes; lookup_levels_up will
           // have added unresolved `use` statements to wait on.
           return false;
         }
       }
-      assert(state.path.node != nullptr);
+      assert(state.node != nullptr);
       Node head = current / Name;
       // Now look up the current segment
-      auto found = state.path.node->look(head->location());
+      auto found = state.node->look(head->location());
       // Should find either a module/struct, a type alias, or a type parameter.
       if (found.size() != 1) {
-        ambiguous_lookup_error(state.path.node, head);
+        ambiguous_lookup_error(state.node, head);
         return false;
       }
 
@@ -411,15 +362,16 @@ static void normalize_path(Node entry, const Node &base) {
         Node name = found.front() / Name;
 
         // Can only expand if the alias body is a single TypeLookup
-        bool can_expand = (alias_type->size() == 1) && 
-                          (alias_type->at(0) == TypeLookup);
-        
+        bool can_expand =
+            (alias_type->size() == 1) && (alias_type->at(0) == TypeLookup);
+
         if (!can_expand || ((remaining() == 1) && !state.expand_aliases)) {
           // Don't expand the alias if:
-          // 1) The alias body is not a simple path (e.g., it's a union type), OR
-          // 2) It's the last element of a TypeLookup and we're not in expand mode.
-          state.path.resolved_end++;
-          state.path.node = found.front();
+          // 1) The alias body is not a simple path (e.g., it's a union type),
+          // OR 2) It's the last element of a TypeLookup and we're not in expand
+          // mode.
+          state.resolved_end++;
+          state.node = found.front();
           continue;
         }
 
@@ -433,36 +385,38 @@ static void normalize_path(Node entry, const Node &base) {
         assert(worker.is_resolved(alias_body));
 
         // For rebasing, we need the path UP TO (but not including) the alias
-        // reference. The current reference (Foo) will be replaced by the alias body.
-        // Create a temporary path that includes the alias reference for rebase
-        // context (needed for generic substitution).
-        state.path.resolved_end++; // Include the alias reference temporarily
-        state.path.node = found.front();
-        
+        // reference. The current reference (Foo) will be replaced by the alias
+        // body. Create a temporary path that includes the alias reference for
+        // rebase context (needed for generic substitution).
+        state.resolved_end++; // Include the alias reference temporarily
+        state.node = found.front();
+
         // Rebase the alias body into the current context
         Node rebased_alias =
             bottom_up_map(alias_body, [&](Node n, const Node &) {
-              return rebase_path(entry, state.path.resolved_end, n);
+              return rebase_path(entry, state.resolved_end, n);
             });
-        
-        // The rebased alias REPLACES the entire resolved prefix plus the alias reference.
-        // The rebase_prefix included resolved_end+1, so we erase the entire path
-        // up to and including the alias reference.
-        entry->erase(entry->begin(), entry->begin() + state.path.resolved_end);
+
+        // The rebased alias REPLACES the entire resolved prefix plus the alias
+        // reference. The rebase_prefix included resolved_end+1, so we erase the
+        // entire path up to and including the alias reference.
+        entry->erase(entry->begin(), entry->begin() + state.resolved_end);
         // Insert the rebased alias children at the beginning
-        // (no clone needed - rebased_alias is already a fresh copy from bottom_up_map)
-        entry->insert(entry->begin(), rebased_alias->begin(), rebased_alias->end());
-        
+        // (no clone needed - rebased_alias is already a fresh copy from
+        // bottom_up_map)
+        entry->insert(entry->begin(), rebased_alias->begin(),
+                      rebased_alias->end());
+
         // The rebased alias is already normalized (Parents at front).
         // After rebasing, we need to re-resolve from the start of the new path
-        state.path.resolved_end = 0;
-        state.path.node = entry->scope();
+        state.resolved_end = 0;
+        state.node = entry->scope();
         continue;
       }
 
       if (found.front() == Module || found.front() == Struct) {
-        state.path.resolved_end++;
-        state.path.node = found.front();
+        state.resolved_end++;
+        state.node = found.front();
         continue;
       }
 
@@ -479,7 +433,7 @@ static void normalize_path(Node entry, const Node &base) {
           return false;
         }
 
-        state.path.resolved_end++;
+        state.resolved_end++;
         continue;
       }
 
@@ -496,87 +450,33 @@ static void normalize_path(Node entry, const Node &base) {
 };
 
 PassDef get_resolve_types_pass() {
-  // Replace names used in types and uses with the fully relative qualified
-  // names of their definitions. We only perform this for using definitions:
-  //
-  // module A[T]
-  //   module B
-  //     type Foo = T::F
-  // module C[U]
-  //   use A[U]
-  //   type Da = B
-  // module D[V]
-  //   use C[V]::Da
-  //   type F = Foo
-  // module E
-  //   type G = D[D[Int]]::F
-  //
-  // In this example we need to resolve generic parameters, but some are also
-  // shared.  This allows us to normalise the paths correctly, and share names
-  // where possible.  The following illustrates the various steps each name
-  // should go through:
-  //
-  // module A[T]
-  //   module B
-  //     type Foo = T::F
-  // module C[U]
-  //   use ..::A[U]
-  //   type Da = B
-  // module D[V]
-  //   use ..::C[V]::Da
-  //   use ..::C[V]::B
-  //   use ..::C[V]::..::A[..::C[V]::U]::B
-  //   use ..::A[..::C[V]::U]::B
-  //   use ..::A[V]::B
-  //   type F = Foo
-  // module E
-  //   type G = D[D[Int]]::F
-  //
-  // Should we update the aliases we resolve on the way?
-  // Implementation note:
-  //  The pass requires a complex handling of cyclic dependences between name
-  //  resolution of using statements and type aliases. Consider the following:
-  //
-  // module A
-  //   use B::Foo
-  //   type Bar = Foo
-  //
-  // module B
-  //   use A::Bar
-  //   type Foo = Bar
-  //
-  // In this case there is a cycle between the two modules A and B, and their
-  // type aliases Foo and Bar. The resolution must ensure that both type aliases
-  // are resolved to the same final type. To handle this we may need to perform
-  // multiple passes until a fixed point is reached.
-  //
-  // module A
-  //   use ..::B::Foo
-  //   use ..::A::Bar
-  //   use ..::B::Foo
-  //   use ..::A::Bar
-  //   ...
-  //   type Bar = ..::B::Foo
-  //
-  // module B
-  //   use ..::A::Bar
-  //   ...
-  //   type Foo = ..::A::Bar
-  //
-  // There are cases where this does not lead to a cycle, for instance.
-
   auto worker = std::make_shared<NodeWorker<ResolveWork>>(ResolveWork{});
 
-  PassDef pass{"resolve_types",
-               wf_function_parse,
-               dir::bottomup | dir::once,
-               {
-                   // Capture the path body for every `use` statement.
-                   T(TypeLookup)[TypeLookup] >> [worker](auto &_) -> Node {
-                     worker->add(_(TypeLookup));
-                     return NoChange;
-                   },
-               }};
+  PassDef pass{
+      "resolve_types",
+      wf_function_parse,
+      dir::bottomup | dir::once,
+      {
+          T(Use) << (T(Type) << (T(TypeLookup)[TypeLookup])) >> [worker](auto &_) -> Node {
+            // For each use statement, we need to resolve the type lookup
+            // in its type. This will allow us to rebase the used module's
+            // contents into the current scope when processing the use.
+            Node type_lookup = _(TypeLookup);
+            worker->add(type_lookup);
+            // For use statements, we want to expand the aliases even at the head of the term.
+            worker->state(type_lookup).expand_aliases = true;
+            return NoChange;
+          },
+
+          T(TypeLookup)[TypeLookup] >> [worker](auto &_) -> Node {
+            // For each type lookup, we need to resolve it to the final scope
+            // node it refers to. This will allow us to rebase type aliases
+            // correctly when processing the type lookup.
+            Node type_lookup = _(TypeLookup);
+            worker->add(type_lookup);
+            return NoChange;
+          },
+      }};
 
   // Debug: dump the gathered bodies after the pass finishes.
   pass.post([worker](Node) {
