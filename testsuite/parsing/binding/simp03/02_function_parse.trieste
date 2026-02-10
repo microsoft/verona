@@ -1,0 +1,42 @@
+infix
+function_parse
+(top
+  {
+    Module1 = module
+    Test = module}
+  (file
+    (module
+      {
+        Module3 = module}
+      (name 7:Module1)
+      (type_params)
+      (body
+        (indent
+          (module
+            {
+              Int = struct}
+            (name 7:Module3)
+            (type_params)
+            (body
+              (indent
+                (struct
+                  {}
+                  (name 3:Int)
+                  (type_params)
+                  (fields))))))))
+    (module
+      {
+        include use Module1::Module3
+        include use Int}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 7:Module1)
+              (DoubleColon)
+              (name 7:Module3)))
+          (use
+            (type
+              (name 3:Int))))))))

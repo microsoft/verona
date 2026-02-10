@@ -1,8 +1,0 @@
-binding_generic8.infix:5:20: unexpected where, expected a paren, name, group, indent, dot, arrow, left_arrow, Colon, lookup, eq, SemiColon, square, DoubleColon or expr_stack
-module Module1[T1] where T1::Bar: Type
-                   ~~~~~
-(where)
-
-
-Errors:Pass function_parse failed with 0 error!
-

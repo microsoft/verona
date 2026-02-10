@@ -1,0 +1,53 @@
+infix
+parse_types
+(top
+  {
+    Module1 = module
+    Test = module}
+  (file
+    (module
+      {
+        Module3 = module}
+      (name 7:Module1)
+      (type_params)
+      (body
+        (indent
+          (module
+            {
+              Int = struct}
+            (name 7:Module3)
+            (type_params)
+            (body
+              (indent
+                (struct
+                  {}
+                  (name 3:Int)
+                  (type_params)
+                  (fields))))))))
+    (module
+      {
+        include use Module1
+        include use Module3
+        include use Int}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 7:Module1)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 7:Module3)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 3:Int)
+                  (type_args))))))))))

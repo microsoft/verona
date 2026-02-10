@@ -1,0 +1,33 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (module
+        {})
+      (name 7:Module1)
+      (indent
+        (group
+          (module
+            {})
+          (name 7:Module3)
+          (indent
+            (group
+              (struct
+                {})
+              (name 3:Int))))))
+    (group
+      (module
+        {})
+      (name 4:Test)
+      (indent
+        (group
+          (use)
+          (name 7:Module1))
+        (group
+          (use)
+          (name 7:Module3))
+        (group
+          (use)
+          (name 3:Int))))))
