@@ -1,15 +1,13 @@
 # Example of binding
-struct Int
 
 module Module1
   module Module3
-    function (x: Int) inc : Int = x inc # Loop to avoid definition
+    struct Int
 
 module Test
-  # This brings inc into scope.
+  # This brings Int into scope.
   use Module1::Module3
   ## After resolution this should be:
   ##   use ..::Module1::Module3
 
-  function test (x: Int): Int =
-    x inc
+  use Int

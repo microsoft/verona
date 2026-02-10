@@ -1,0 +1,11 @@
+# Example of binding
+module Module3
+  struct Int
+
+module Test
+  # This brings Int into scope.
+  use Module3
+  ## After resolution this should be:
+  ##   use ..::Module3
+
+  use Int
