@@ -36,8 +36,6 @@ namespace infix {
 // The range includes any leading Parent tokens which represent scope levels.
 // This avoids copying path segments during resolution.
 struct RelativePath {
-  // The TypeLookup node this path references (may be null for empty paths).
-  Node type_lookup{nullptr};
   // Range [0, resolved_end) within type_lookup's children is the resolved portion.
   // This includes any leading Parent tokens.
   size_t resolved_end{0};
@@ -46,23 +44,15 @@ struct RelativePath {
 
   // Check if this path is uninitialized (sentinel for "search all scopes").
   bool is_uninitialized() const { return node == nullptr && resolved_end == 0; }
-
-  // Check if the entire path has been resolved (resolved_end covers all elements).
-  bool is_fully_resolved() const {
-    return type_lookup && resolved_end == type_lookup->size();
-  }
-
-  // Clone the resolved portion of the path (up to resolved_end) into a new TypeLookup node.
-  Node clone() const {
-    if (!type_lookup)
-      return nullptr;
-    Node cloned = TypeLookup;
-    for (size_t i = 0; i < resolved_end; ++i) {
-      cloned->push_back(type_lookup->at(i)->clone());
-    }
-    return cloned;
-  }
 };
+
+Node clone_type_lookup_prefix(const Node& type_lookup, size_t count) {
+  Node cloned = TypeLookup;
+  for (size_t i = 0; i < count && i < type_lookup->size(); ++i) {
+    cloned->push_back(type_lookup->at(i)->clone());
+  }
+  return cloned;
+}
 
 // Clone a node and add count Parent tokens at the beginning of any TypeLookup nodes.
 // Uses bottom_up_map to perform the cloning.
@@ -73,19 +63,6 @@ Node prepend_parents(Node source, size_t count) {
     n->insert(n->begin(), count, Parent);
     return n;
   });
-}
-
-// Prepend a TypeLookup path to another TypeLookup entry.
-// Clones the path contents and applies extra_parents to any nested TypeLookups.
-// Returns the total number of elements inserted.
-size_t prepend_to_type_lookup(Node entry, size_t extra_parents,
-                              Node path) {
-  assert(path == TypeLookup);
-  // Clone path and add extra_parents to all TypeLookups (including path itself)
-  Node cloned_path = prepend_parents(path, extra_parents);
-  // Insert all children from cloned path
-  entry->insert(entry->begin(), cloned_path->begin(), cloned_path->end());
-  return cloned_path->size();
 }
 
 auto ambiguous_lookup_error(Node symtab, Node node) {
@@ -238,13 +215,13 @@ static void normalize_path(Node entry, const Node &base) {
   }
 }
 
-  static Node rebase_path(const Node &base, const RelativePath &prefix_,
+  static Node rebase_path(const Node &base, size_t prefix_count,
                           Node source) {
     // Only rebase type lookups.
     if (source != TypeLookup) {
       return source;
     }
-    Node prefix = prefix_.clone();
+    Node prefix = clone_type_lookup_prefix(base, prefix_count);
     source->insert(source->begin(), prefix->begin(), prefix->end());
     normalize_path(source, base);
     return source;
@@ -254,10 +231,13 @@ static void normalize_path(Node entry, const Node &base) {
   // Modifies the entry TypeLookup in-place, inserting Parent tokens and/or
   // segments from use statements. Updates state.path accordingly.
   // Returns true if found, false if blocked waiting on unresolved uses.
-  bool lookup_levels_up(const Node &name, State &state,
+  bool lookup_levels_up(Node entry,
                         NodeWorker<ResolveWork> &worker) const {
-    Node entry = state.path.type_lookup;
-    Node scope = name->scope();
+
+    Node scope = entry->scope();
+    auto& state = worker.state(entry);
+    assert(state.path.resolved_end == 0);
+    Node name = entry->front() / Name;
     Nodes unresolved_use_types;
     size_t levels = 0;
     while (scope) {
@@ -300,9 +280,10 @@ static void normalize_path(Node entry, const Node &base) {
         if (found.size() == 1) {
           // Found via a use statement.
           // Copy the use's resolved path into entry, plus extra Parents.
-          const RelativePath &use_path = u_lookup_state.path;
-          assert(use_path.is_fully_resolved());
-          state.path.resolved_end = prepend_to_type_lookup(entry, levels, u_lookup);
+          Node cloned_path = prepend_parents(u_lookup, levels);
+          // Insert all children from cloned path
+          entry->insert(entry->begin(), cloned_path->begin(), cloned_path->end());
+          state.path.resolved_end = cloned_path->size();
           state.path.node = u_lookup_state.path.node;
           return true;
         }
@@ -328,7 +309,6 @@ static void normalize_path(Node entry, const Node &base) {
     assert(n == TypeLookup);
 
     // Initialize the path to reference this TypeLookup
-    state.path.type_lookup = n;
     state.path.resolved_end = 0; // Nothing resolved yet
 
     if (n->parent() && n->parent()->type() == Type) {
@@ -408,17 +388,16 @@ static void normalize_path(Node entry, const Node &base) {
       // Should be a TypeReference at this point
       assert (current == TypeReference);
 
-      Node head = current / Name;
-
       // If path is uninitialized, look up the first name
       if (state.path.is_uninitialized()) {
-        if (!lookup_levels_up(head, state, worker)) {
+        if (!lookup_levels_up(entry, worker)) {
           // Not found in currently resolved scopes; lookup_levels_up will
           // have added unresolved `use` statements to wait on.
           return false;
         }
       }
-
+      assert(state.path.node != nullptr);
+      Node head = current / Name;
       // Now look up the current segment
       auto found = state.path.node->look(head->location());
       // Should find either a module/struct, a type alias, or a type parameter.
@@ -457,20 +436,19 @@ static void normalize_path(Node entry, const Node &base) {
         // reference. The current reference (Foo) will be replaced by the alias body.
         // Create a temporary path that includes the alias reference for rebase
         // context (needed for generic substitution).
-        RelativePath rebase_prefix = state.path;
-        rebase_prefix.resolved_end++; // Include the alias reference temporarily
-        rebase_prefix.node = found.front();
+        state.path.resolved_end++; // Include the alias reference temporarily
+        state.path.node = found.front();
         
         // Rebase the alias body into the current context
         Node rebased_alias =
             bottom_up_map(alias_body, [&](Node n, const Node &) {
-              return rebase_path(entry, rebase_prefix, n);
+              return rebase_path(entry, state.path.resolved_end, n);
             });
         
         // The rebased alias REPLACES the entire resolved prefix plus the alias reference.
         // The rebase_prefix included resolved_end+1, so we erase the entire path
         // up to and including the alias reference.
-        entry->erase(entry->begin(), entry->begin() + rebase_prefix.resolved_end);
+        entry->erase(entry->begin(), entry->begin() + state.path.resolved_end);
         // Insert the rebased alias children at the beginning
         // (no clone needed - rebased_alias is already a fresh copy from bottom_up_map)
         entry->insert(entry->begin(), rebased_alias->begin(), rebased_alias->end());
@@ -513,8 +491,6 @@ static void normalize_path(Node entry, const Node &base) {
 
     // The entry has been modified in-place; no final substitution needed.
     assert(!ast_has_cycle(entry));
-    assert(state.path.is_fully_resolved());
-
     return true;
   }
 };
