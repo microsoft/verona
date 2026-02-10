@@ -1,15 +1,11 @@
-// Example of binding
-
 module Module1[T1]
   type Foo = T1
 
 module Module3
-  function (x: Int) inc = x + 1
+  struct Int
 
 module Test
-  # This brings inc into scope.
+  # This brings Int into scope.
   use Module1[Module1[Module3]]::Foo::Foo
 
-  function test: Int =
-    1 inc
-
+  use Int
