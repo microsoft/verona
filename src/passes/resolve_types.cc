@@ -84,6 +84,11 @@ struct RelativePath {
       return nullptr;
     return type_lookup->at(resolved_end - 1);
   }
+
+  // Check if the entire path has been resolved (resolved_end covers all elements).
+  bool is_fully_resolved() const {
+    return type_lookup && resolved_end == type_lookup->size();
+  }
 };
 
 std::ostream &operator<<(std::ostream &os, RelativePath const &rp) {
@@ -99,6 +104,7 @@ std::ostream &operator<<(std::ostream &os, RelativePath const &rp) {
 size_t prepend_to_type_lookup(Node entry, size_t extra_parents,
                               const RelativePath *path = nullptr) {
   size_t inserted = 0;
+  assert(path == nullptr || path->is_fully_resolved());
 
   // Insert segments from path (in reverse to maintain order after insertions at begin)
   if (path) {
@@ -172,21 +178,6 @@ auto ambiguous_lookup_error(Node symtab, Node node) {
   return symtab << error_node;
 }
 
-std::string type_lookup_to_str(Node type_lookup) {
-  std::ostringstream oss;
-  bool first = true;
-  assert(type_lookup == TypeLookup);
-  for (auto &child : *type_lookup) {
-    if (!first) {
-      oss << "::";
-    } else {
-      first = false;
-    }
-    oss << child->str();
-  }
-  return oss.str();
-}
-
 // Return the index of `child` within its parent, if any.
 std::optional<size_t> child_index_in_parent(const Node &child) {
   Node parent = child ? child->parent() : nullptr;
@@ -201,56 +192,6 @@ std::optional<size_t> child_index_in_parent(const Node &child) {
   }
 
   return std::nullopt;
-}
-
-// Convert a syntactic TypeLookup node into a RelativePath.
-// This creates a range-based view into the TypeLookup rather than copying.
-// The node field is resolved by walking the path from the adjusted scope;
-// this assumes the lookup is already resolved.
-RelativePath type_lookup_to_relative_path(const Node &base,
-                                          const Node &type_lookup) {
-  assert(type_lookup == TypeLookup);
-
-  RelativePath rp;
-  rp.type_lookup = type_lookup;
-  rp.resolved_end = type_lookup->size(); // Entire path is resolved
-
-  // Count leading Parents for scope walking
-  size_t parent_count = rp.parent_count();
-
-  // Walk up the scope chain by the number of Parent tokens
-  Node scope = base->scope();
-  for (size_t i = 0; i < parent_count && scope; ++i) {
-    scope = scope->scope();
-  }
-
-  assert(scope != nullptr);
-
-  // If only Parents (no segments), the scope itself is the result
-  if (rp.segment_count() == 0) {
-    rp.node = scope;
-    return rp;
-  }
-
-  // Walk each segment to resolve the final node
-  for (size_t i = 0; i < rp.segment_count(); ++i) {
-    Node seg = rp.segment_at(i);
-    Node name = seg / Name;
-    if (!name) {
-      rp.node = nullptr;
-      return rp;
-    }
-
-    auto matches = scope->look(name->location());
-    if (matches.size() != 1) {
-      rp.node = nullptr;
-      return rp;
-    }
-    scope = matches.front();
-  }
-
-  rp.node = scope;
-  return rp;
 }
 
 struct ResolutionState : NodeWorkerState {
@@ -428,6 +369,7 @@ static void normalize_path(Node entry, const Node &base) {
           // Found via a use statement.
           // Copy the use's resolved path into entry, plus extra Parents.
           const RelativePath &use_path = u_lookup_state.path;
+          assert(use_path.is_fully_resolved());
           state.path.resolved_end = prepend_to_type_lookup(entry, levels, &use_path);
           state.path.node = u_lookup_state.path.node;
           return true;
@@ -643,6 +585,7 @@ static void normalize_path(Node entry, const Node &base) {
 
     // The entry has been modified in-place; no final substitution needed.
     assert(!ast_has_cycle(entry));
+    assert(state.path.is_fully_resolved());
 
     return true;
   }
