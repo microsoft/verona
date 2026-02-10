@@ -1,4 +1,4 @@
-# Example of binding with generic parameters
+# Parameterized modules with inner/outer type params
 
 struct Int
 struct Bool

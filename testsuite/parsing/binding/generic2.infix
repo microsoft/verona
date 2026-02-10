@@ -1,5 +1,4 @@
-# Example of binding
-
+# Nested generic modules with type param substitution
 
 module Module1[T1]
   type Foo = T1

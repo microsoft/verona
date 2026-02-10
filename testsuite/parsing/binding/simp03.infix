@@ -1,4 +1,4 @@
-# Example of binding
+# Direct qualified path Module1::Module3
 
 module Module1
   module Module3

@@ -1,3 +1,4 @@
+# While loops and Option types - functional patterns
 struct True
 struct False
 

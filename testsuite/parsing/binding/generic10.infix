@@ -1,3 +1,4 @@
+# Recursive types - List[A] = Option[Pair[A, List[A]]]
 struct Int
 
 struct Pair[A, B]

@@ -1,4 +1,4 @@
-# Example of binding
+# Simple cyclic type alias reference (should be detected as error)
 struct Int
 
 module Module3

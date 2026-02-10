@@ -1,3 +1,4 @@
+# Generic modules with multiple type aliases
 module Module1[T1]
   type Foo = T1
   type Bar = T1

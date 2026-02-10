@@ -1,3 +1,4 @@
+# Mutual use between modules - breaking simple cycles
 # This example contains a cycle if you have to resolve modules as a whole
 # It should be possible to resolve this without getting stuck in a loop
 # First T1 and T2 are resolved using `use C`, but without using 

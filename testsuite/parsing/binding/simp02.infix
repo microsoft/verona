@@ -1,4 +1,4 @@
-# Example of binding
+# Nested module access through chained use statements
 module Module1
   module Module3
     struct Int

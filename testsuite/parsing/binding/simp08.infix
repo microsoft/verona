@@ -1,4 +1,4 @@
-# Example of binding
+# Type alias to nested module using relative path
 
 module Module1
   module Module3

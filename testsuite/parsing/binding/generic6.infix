@@ -1,3 +1,4 @@
+# Nested generic instantiation Module1[Module1[Module3]]
 module Module1[T1]
   type Foo = T1
 

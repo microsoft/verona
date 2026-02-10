@@ -1,4 +1,4 @@
-# Example of binding
+# Nested generic modules with inner generic module
 module Module1[T1]
   module Module2[T2]
     type Bar = T2

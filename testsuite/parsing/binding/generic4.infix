@@ -1,4 +1,4 @@
-# Example of binding
+# Non-generic inner module accessing outer type param
 
 module Module1[T1]
   module Module2

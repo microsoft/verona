@@ -1,4 +1,4 @@
-# Example of binding
+# Use bringing module into scope, type alias using brought-in name
 module Module2
   module Module3
     struct Int

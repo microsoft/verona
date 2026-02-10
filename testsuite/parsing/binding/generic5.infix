@@ -1,4 +1,4 @@
-# Example of binding
+# Generic module use with type alias from brought-in scope
 
 module Module2[T2]
   type Bar = T2

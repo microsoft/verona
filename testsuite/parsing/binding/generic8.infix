@@ -1,3 +1,4 @@
+# Lookup on TypeParams with where clause (not yet supported)
 # This example is supporting lookup on TypeParams.
 # This is not currently supported.
 # Revisit this example when that feature is implemented.
