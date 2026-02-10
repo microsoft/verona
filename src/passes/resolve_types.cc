@@ -89,6 +89,17 @@ struct RelativePath {
   bool is_fully_resolved() const {
     return type_lookup && resolved_end == type_lookup->size();
   }
+
+  // Clone the resolved portion of the path (up to resolved_end) into a new TypeLookup node.
+  Node clone() const {
+    if (!type_lookup)
+      return nullptr;
+    Node cloned = TypeLookup;
+    for (size_t i = 0; i < resolved_end; ++i) {
+      cloned->push_back(type_lookup->at(i)->clone());
+    }
+    return cloned;
+  }
 };
 
 std::ostream &operator<<(std::ostream &os, RelativePath const &rp) {
@@ -98,44 +109,34 @@ std::ostream &operator<<(std::ostream &os, RelativePath const &rp) {
   return os;
 }
 
-// Prepend Parents and optionally segments from a path to a TypeLookup.
-// Inserts `extra_parents` Parent tokens, plus the contents of `path` if provided.
+// Clone a node and add count Parent tokens at the beginning of any TypeLookup nodes.
+// Uses bottom_up_map to perform the cloning.
+Node prepend_parents(Node source, size_t count) {
+  return bottom_up_map(source, [count](Node n, const Node &) {
+    if (n == TypeLookup) {
+      n->insert(n->begin(), count, Parent);
+    }
+    return n;
+  });
+}
+
+// Prepend a TypeLookup path to another TypeLookup entry.
+// Clones the path contents and applies extra_parents to any nested TypeLookups.
 // Returns the total number of elements inserted.
 size_t prepend_to_type_lookup(Node entry, size_t extra_parents,
-                              const RelativePath *path = nullptr) {
-  size_t inserted = 0;
-  assert(path == nullptr || path->is_fully_resolved());
-
-  // Insert segments from path (in reverse to maintain order after insertions at begin)
+                              Node path = nullptr) {
   if (path) {
-    for (size_t i = path->segment_count(); i > 0; --i) {
-      // We need to clone the segment and apply extra_parents to and TypeLookup inside it, if present.
-      Node t = bottom_up_map(path->segment_at(i - 1), [&](Node n, const Node &) {
-        if (n == TypeLookup) {
-          // Insert extra Parents into the segment's TypeLookup
-          for (size_t j = 0; j < extra_parents; ++j) {
-            n->insert(n->begin(), Parent);
-          }
-        }
-        return n;
-      });
-      entry->insert(entry->begin(), t);
-      inserted++;
-    }
-    // Insert Parents from path
-    for (size_t i = 0; i < path->parent_count(); ++i) {
-      entry->insert(entry->begin(), Parent);
-      inserted++;
-    }
+    assert(path == TypeLookup);
+    // Clone path and add extra_parents to all TypeLookups (including path itself)
+    Node cloned_path = prepend_parents(path, extra_parents);
+    // Insert all children from cloned path
+    entry->insert(entry->begin(), cloned_path->begin(), cloned_path->end());
+    return cloned_path->size();
   }
 
-  // Insert extra Parents
-  for (size_t i = 0; i < extra_parents; ++i) {
-    entry->insert(entry->begin(), Parent);
-    inserted++;
-  }
-
-  return inserted;
+  // No path, just insert extra Parents
+  entry->insert(entry->begin(), extra_parents, Parent);
+  return extra_parents;
 }
 
 // Initialize path by counting leading Parents and walking up the scope chain.
@@ -307,14 +308,9 @@ static void normalize_path(Node entry, const Node &base) {
     if (source != TypeLookup) {
       return source;
     }
-    // Step 1: Prepend the prefix to source
-    for (size_t i = prefix_.resolved_end; i > 0; --i) {
-      source->insert(source->begin(), prefix_.type_lookup->at(i - 1)->clone());
-    }
-    
-    // Step 2: Normalize (handles Parents and TypeParam substitution)
+    Node prefix = prefix_.clone();
+    source->insert(source->begin(), prefix->begin(), prefix->end());
     normalize_path(source, base);
-
     return source;
   }
 
@@ -370,7 +366,7 @@ static void normalize_path(Node entry, const Node &base) {
           // Copy the use's resolved path into entry, plus extra Parents.
           const RelativePath &use_path = u_lookup_state.path;
           assert(use_path.is_fully_resolved());
-          state.path.resolved_end = prepend_to_type_lookup(entry, levels, &use_path);
+          state.path.resolved_end = prepend_to_type_lookup(entry, levels, use_path.type_lookup);
           state.path.node = u_lookup_state.path.node;
           return true;
         }
