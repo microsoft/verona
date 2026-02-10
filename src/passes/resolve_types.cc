@@ -47,44 +47,6 @@ struct RelativePath {
   // Check if this path is uninitialized (sentinel for "search all scopes").
   bool is_uninitialized() const { return node == nullptr && resolved_end == 0; }
 
-  // Count leading Parent tokens in the resolved portion.
-  size_t parent_count() const {
-    if (!type_lookup)
-      return 0;
-    size_t count = 0;
-    for (size_t i = 0; i < resolved_end && i < type_lookup->size(); ++i) {
-      if (type_lookup->at(i) == Parent)
-        count++;
-      else
-        break;
-    }
-    return count;
-  }
-
-  // Get the first non-Parent index in the resolved portion.
-  size_t first_segment_index() const { return parent_count(); }
-
-  // Get a segment at a given index within the resolved portion (after Parents).
-  Node segment_at(size_t idx) const {
-    size_t actual_idx = first_segment_index() + idx;
-    if (actual_idx < resolved_end && type_lookup)
-      return type_lookup->at(actual_idx);
-    return nullptr;
-  }
-
-  // Number of non-Parent segments in the resolved portion.
-  size_t segment_count() const {
-    size_t parents = parent_count();
-    return (resolved_end > parents) ? (resolved_end - parents) : 0;
-  }
-
-  // Get the last segment (for accessing TypeArgs during generic substitution).
-  Node back_segment() const {
-    if (segment_count() == 0)
-      return nullptr;
-    return type_lookup->at(resolved_end - 1);
-  }
-
   // Check if the entire path has been resolved (resolved_end covers all elements).
   bool is_fully_resolved() const {
     return type_lookup && resolved_end == type_lookup->size();
@@ -101,13 +63,6 @@ struct RelativePath {
     return cloned;
   }
 };
-
-std::ostream &operator<<(std::ostream &os, RelativePath const &rp) {
-  os << "RelativePath(parents=" << rp.parent_count()
-     << ", segments=" << rp.segment_count() << ", resolved_end=" << rp.resolved_end
-     << ", node=" << (rp.node ? rp.node->str() : "<null>") << ")";
-  return os;
-}
 
 // Clone a node and add count Parent tokens at the beginning of any TypeLookup nodes.
 // Uses bottom_up_map to perform the cloning.
@@ -366,7 +321,7 @@ static void normalize_path(Node entry, const Node &base) {
           // Copy the use's resolved path into entry, plus extra Parents.
           const RelativePath &use_path = u_lookup_state.path;
           assert(use_path.is_fully_resolved());
-          state.path.resolved_end = prepend_to_type_lookup(entry, levels, use_path.type_lookup);
+          state.path.resolved_end = prepend_to_type_lookup(entry, levels, u_lookup);
           state.path.node = u_lookup_state.path.node;
           return true;
         }
