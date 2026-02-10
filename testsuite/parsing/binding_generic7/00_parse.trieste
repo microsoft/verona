@@ -4,11 +4,6 @@ parse
   {}
   (file
     (group
-      (name 2://)
-      (name 7:Example)
-      (name 2:of)
-      (name 7:binding))
-    (group
       (module
         {})
       (name 7:Module1)
@@ -34,18 +29,9 @@ parse
       (name 7:Module3)
       (indent
         (group
-          (function
+          (struct
             {})
-          (paren
-            (group
-              (name 1:x)
-              (Colon)
-              (name 3:Int)))
-          (name 3:inc)
-          (eq)
-          (name 1:x)
-          (name 1:+)
-          (name 1:1))))
+          (name 3:Int))))
     (group
       (module
         {})
@@ -65,13 +51,5 @@ parse
           (DoubleColon)
           (name 3:Bar))
         (group
-          (function
-            {})
-          (name 4:test)
-          (Colon)
-          (name 3:Int)
-          (eq)
-          (indent
-            (group
-              (name 1:1)
-              (name 3:inc))))))))
+          (use)
+          (name 3:Int))))))

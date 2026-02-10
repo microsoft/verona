@@ -101,7 +101,7 @@ inline const auto wf_operator_defn =
 inline const auto wf_decls = Struct | TypeAlias | Function | Module | Use;
 
 inline const auto wf_term = Paren | Name | Group | Indent | Dot | Arrow |
-                            LeftArrow | Colon | Lookup | Eq | SemiColon | Square;
+                            LeftArrow | Colon | Lookup | Eq | SemiColon | Square | DoubleColon;
 
 inline const auto wf_function_parse =
     (Top <<= File) | (File <<= wf_decls++) |

@@ -630,14 +630,6 @@ static void normalize_path(Node entry, const Node &base) {
                          << (ErrorMsg ^ head->location().str()));
           return false;
         }
-        // Type parameters shouldn't have a resolved prefix before them
-        // (they're references within the current scope)
-        if (state.path.segment_count() > 0) {
-          head << (Error << (ErrorMsg ^ "Cannot resolve type lookup with "
-                                        "prefix before type parameter")
-                         << (ErrorMsg ^ head->location().str()));
-          return false;
-        }
 
         state.path.resolved_end++;
         continue;

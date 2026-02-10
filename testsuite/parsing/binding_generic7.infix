@@ -1,20 +1,18 @@
-// Example of binding
-
 module Module1[T1]
   type Foo = T1
   type Bar = T1
 
 module Module3
-  function (x: Int) inc = x + 1
+  struct Int
 
 module Test
-  # This brings inc into scope.
+  # This brings Int into scope.
   use Module1[Module1[Module3]::Foo]::Bar
   ##  Reduces to
   ##  Module1[Module3]::Foo
   ##  Reduces to
   ##  Module3
-  ##  So inc is now in scope.
+  ##  So Int is now in scope.
   ## There are two orders of evaluation here:
   ##  Reduces to
   ##  Module1[Module3]::Bar
@@ -23,5 +21,4 @@ module Test
   ## Interesting design on which makes most sense.
   ## Evaluating the argument first might not be needed, but
   ## If it is used more than once, then it would be less efficient.
-  function test: Int =
-    1 inc
+  use Int
