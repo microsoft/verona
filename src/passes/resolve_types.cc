@@ -103,7 +103,17 @@ size_t prepend_to_type_lookup(Node entry, size_t extra_parents,
   // Insert segments from path (in reverse to maintain order after insertions at begin)
   if (path) {
     for (size_t i = path->segment_count(); i > 0; --i) {
-      entry->insert(entry->begin(), path->segment_at(i - 1)->clone());
+      // We need to clone the segment and apply extra_parents to and TypeLookup inside it, if present.
+      Node t = bottom_up_map(path->segment_at(i - 1), [&](Node n, const Node &) {
+        if (n == TypeLookup) {
+          // Insert extra Parents into the segment's TypeLookup
+          for (size_t j = 0; j < extra_parents; ++j) {
+            n->insert(n->begin(), Parent);
+          }
+        }
+        return n;
+      });
+      entry->insert(entry->begin(), t);
       inserted++;
     }
     // Insert Parents from path
@@ -312,8 +322,6 @@ static void normalize_path(Node entry, const Node &base) {
     if (lookups.size() == 1 && lookups.front() == TypeParam) {
       auto index = child_index_in_parent(lookups.front());
       assert(index.has_value());
-      
-      std::cout << "Normalise TypeParam " << name->str() << " at index " << index.value() << std::endl;
 
       // Get type args from previous segment (at i-1)
       Node type_args = nullptr;
@@ -358,10 +366,6 @@ static void normalize_path(Node entry, const Node &base) {
     if (source != TypeLookup) {
       return source;
     }
-
-    // std::cout << "[rebase_path] rebasing " << type_lookup_to_str(source) << std::endl
-    //           << " with prefix " << prefix_ << std::endl;
-
     // Step 1: Prepend the prefix to source
     for (size_t i = prefix_.resolved_end; i > 0; --i) {
       source->insert(source->begin(), prefix_.type_lookup->at(i - 1)->clone());
@@ -369,8 +373,6 @@ static void normalize_path(Node entry, const Node &base) {
     
     // Step 2: Normalize (handles Parents and TypeParam substitution)
     normalize_path(source, base);
-
-    // std::cout << "[rebase_path] result: " << type_lookup_to_str(source) << std::endl;
 
     return source;
   }
@@ -423,8 +425,6 @@ static void normalize_path(Node entry, const Node &base) {
         }
 
         if (found.size() == 1) {
-          std::cout << "Found " << name->str() << " in use " << u
-                    << " with resolved path " << u_lookup_state.path << std::endl;
           // Found via a use statement.
           // Copy the use's resolved path into entry, plus extra Parents.
           const RelativePath &use_path = u_lookup_state.path;
@@ -580,11 +580,6 @@ static void normalize_path(Node entry, const Node &base) {
 
         Node alias_body = alias_type->at(0);
 
-        std::cout << "Subst TypeAlias " << std::endl << name << std::endl
-                  << " with body " << alias_body << std::endl;
-
-        std::cout << "Current entry before alias subst: " << entry << std::endl;
-
         // The alias body must be resolved now, as we have waited for the
         // enclosing type.
         assert(worker.is_resolved(alias_body));
@@ -614,7 +609,6 @@ static void normalize_path(Node entry, const Node &base) {
         // The rebased alias is already normalized (Parents at front).
         init_path(entry, state.path);
 
-        std::cout << "Entry after alias subst" << entry << std::endl;
         continue;
       }
 
@@ -627,7 +621,6 @@ static void normalize_path(Node entry, const Node &base) {
       if (found.front() == TypeParam) {
         // TODO if we add bounds/assumptions on a TypeParam, then we may have to
         // change this.
-        std::cout << "Resolved TypeParam " << head << std::endl;
 
         // We don't allow lookup on a type parameter.
         if (remaining() != 1) {
@@ -659,7 +652,6 @@ static void normalize_path(Node entry, const Node &base) {
     // The entry has been modified in-place; no final substitution needed.
     assert(!ast_has_cycle(entry));
 
-    std::cout << "Resolved: " << entry << std::endl;
     return true;
   }
 };
