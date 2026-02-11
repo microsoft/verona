@@ -1,0 +1,11 @@
+# Accessing a type parameter on a Type.
+
+
+module Module1
+  struct Int
+
+module Module2[T]
+
+module Test
+  use Module2[Module1]::T
+  use Int

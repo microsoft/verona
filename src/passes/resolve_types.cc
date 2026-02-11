@@ -114,7 +114,8 @@ struct ResolveWork {
   // This works because a Parent always immediately follows a segment (after
   // normalization), so when we remove a segment+Parent pair, the new last
   // segment is still at i-1 (after adjusting i).
-  static void normalize_path(Node entry, const Node &base) {
+  static bool normalize_path(Node entry, const Node &base) {
+    bool performed_work = false;
     Node scope = base->scope();
     assert(scope);
     size_t segment_count = 0;
@@ -132,6 +133,7 @@ struct ResolveWork {
         if (segment_count == 0)
           continue;
 
+        performed_work = true;
         // Delete the previous segment (at i-2) and this Parent
         entry->erase(entry->begin() + i - 2, entry->begin() + i);
         segment_count--;
@@ -162,6 +164,7 @@ struct ResolveWork {
                     << std::endl;
           assert(false);
         }
+        performed_work = true;
 
         Node arg = type_args->at(index.value());
         assert(arg == Type);
@@ -186,6 +189,8 @@ struct ResolveWork {
       segment_count++;
       i++;
     }
+
+    return performed_work;
   }
 
   static Node rebase_path(const Node &base, size_t prefix_count, Node source) {
@@ -433,8 +438,22 @@ struct ResolveWork {
           return false;
         }
 
-        state.resolved_end++;
-        continue;
+        if ((state.resolved_end == 0) ||
+            (entry->at(state.resolved_end - 1) == Parent)) {
+          state.resolved_end++;
+          continue;
+        }
+
+        bool performed_work = normalize_path(entry, entry);
+        if (performed_work) {
+          // If we performed any normalization work, we need to restart
+          // resolution from the beginning of the path, since the normalization
+          // may have changed the path structure (e.g., by consuming Parents or
+          // substituting type args).
+          state.resolved_end = 0;
+          state.node = entry->scope();
+          continue;
+        }
       }
 
       // Unhandled candidate type will fail resolution at this level.
