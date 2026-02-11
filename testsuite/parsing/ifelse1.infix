@@ -1,25 +1,38 @@
-struct True
-struct False
+module Boolean
+  struct True
+  struct False
 
-type Bool = True | False
+  type Bool = True | False
 
-struct None
-struct Some[P]
-  value: P
+  function not (b: True) : False = False
+  function not (b: False) : True = True
 
-function[P] if (condition: True) (thenBranch: ^P) : Option[P] = Some thenBranch
-function[P] if (condition: False) (thenBranch: ^P) : Option[P] = None
+module Optional
+  struct None
+  struct Some[P]
+    value: P
 
-function not (b: True) : False = False
-function not (b: False) : True = True
+  type Option[P] = Some[P] | None
 
-function[P] (lhs: Some[P]) else (value: ^P) : P = lhs.value
-function[P] (lhs: None) else (value: ^P) : P = value
+module Conditional
+  use Boolean
+  use Optional
 
-function test: Int =
-  if True 
-    None
-  else if False
-    Some True
-  else
-    None
+  function[P] if (condition: True) (thenBranch: ^P) : Option[P] = Some thenBranch
+  function[P] if (condition: False) (thenBranch: ^P) : Option[P] = None
+
+  function[P] (lhs: Some[P]) else (value: ^P) : P = lhs.value
+  function[P] (lhs: None) else (value: ^P) : P = value
+
+module Test
+  use Conditional
+  use Boolean
+  use Optional
+
+  function test: Option[Bool] =
+    if True 
+      None
+    else if False
+      Some True
+    else
+      None

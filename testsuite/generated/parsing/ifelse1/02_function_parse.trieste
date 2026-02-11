@@ -2,253 +2,319 @@ infix
 function_parse
 (top
   {
-    Bool = type_alias
-    False = struct
-    None = struct
-    Some = struct
-    True = struct
-    else =
-      function
-      function
-    if =
-      function
-      function
-    not =
-      function
-      function
-    test = function}
+    Boolean = module
+    Conditional = module
+    Optional = module
+    Test = module}
   (file
-    (struct
-      {}
-      (name 4:True)
-      (type_params)
-      (fields))
-    (struct
-      {}
-      (name 5:False)
-      (type_params)
-      (fields))
-    (type_alias
-      {}
-      (name 4:Bool)
-      (type_params)
-      (type
-        (name 4:True)
-        (name 1:|)
-        (name 5:False)))
-    (struct
-      {}
-      (name 4:None)
-      (type_params)
-      (fields))
-    (struct
+    (module
       {
-        P = type_param
-        value = field}
-      (name 4:Some)
-      (type_params
-        (type_param
-          (name 1:P)))
-      (fields
-        (field
-          (name 5:value)
-          (type
-            (name 1:P)))))
-    (function
-      {
-        P = type_param
-        condition = param
-        thenBranch = param}
-      (type_params
-        (type_param
-          (name 1:P)))
-      (lhs)
-      (name 2:if)
-      (rhs
-        (param
-          (name 9:condition)
-          (mode
-            (cbv))
-          (type
-            (name 4:True)))
-        (param
-          (name 10:thenBranch)
-          (mode
-            (cbn))
-          (type
-            (name 1:P))))
-      (type
-        (name 6:Option)
-        (square
-          (group
-            (name 1:P))))
-      (where)
-      (body
-        (expr_stack)
-        (name 4:Some)
-        (name 10:thenBranch)))
-    (function
-      {
-        P = type_param
-        condition = param
-        thenBranch = param}
-      (type_params
-        (type_param
-          (name 1:P)))
-      (lhs)
-      (name 2:if)
-      (rhs
-        (param
-          (name 9:condition)
-          (mode
-            (cbv))
-          (type
-            (name 5:False)))
-        (param
-          (name 10:thenBranch)
-          (mode
-            (cbn))
-          (type
-            (name 1:P))))
-      (type
-        (name 6:Option)
-        (square
-          (group
-            (name 1:P))))
-      (where)
-      (body
-        (expr_stack)
-        (name 4:None)))
-    (function
-      {
-        b = param}
+        Bool = type_alias
+        False = struct
+        True = struct
+        not =
+          function
+          function}
+      (name 7:Boolean)
       (type_params)
-      (lhs)
-      (name 3:not)
-      (rhs
-        (param
-          (name 1:b)
-          (mode
-            (cbv))
-          (type
-            (name 4:True))))
-      (type
-        (name 5:False))
-      (where)
       (body
-        (expr_stack)
-        (name 5:False)))
-    (function
-      {
-        b = param}
-      (type_params)
-      (lhs)
-      (name 3:not)
-      (rhs
-        (param
-          (name 1:b)
-          (mode
-            (cbv))
-          (type
-            (name 5:False))))
-      (type
-        (name 4:True))
-      (where)
-      (body
-        (expr_stack)
-        (name 4:True)))
-    (function
-      {
-        P = type_param
-        lhs = param
-        value = param}
-      (type_params
-        (type_param
-          (name 1:P)))
-      (lhs
-        (param
-          (name 3:lhs)
-          (mode
-            (cbv))
-          (type
-            (name 4:Some)
-            (square
-              (group
-                (name 1:P))))))
-      (name 4:else)
-      (rhs
-        (param
-          (name 5:value)
-          (mode
-            (cbn))
-          (type
-            (name 1:P))))
-      (type
-        (name 1:P))
-      (where)
-      (body
-        (expr_stack)
-        (lookup
-          (name 5:value)
-          (args
-            (name 3:lhs)))))
-    (function
-      {
-        P = type_param
-        lhs = param
-        value = param}
-      (type_params
-        (type_param
-          (name 1:P)))
-      (lhs
-        (param
-          (name 3:lhs)
-          (mode
-            (cbv))
-          (type
-            (name 4:None))))
-      (name 4:else)
-      (rhs
-        (param
-          (name 5:value)
-          (mode
-            (cbn))
-          (type
-            (name 1:P))))
-      (type
-        (name 1:P))
-      (where)
-      (body
-        (expr_stack)
-        (name 5:value)))
-    (function
-      {}
-      (type_params)
-      (lhs)
-      (name 4:test)
-      (rhs)
-      (type
-        (name 3:Int))
-      (where)
-      (body
-        (expr_stack)
         (indent
-          (group
-            (name 2:if)
+          (struct
+            {}
             (name 4:True)
-            (indent
-              (group
-                (name 4:None))))
-          (group
-            (name 4:else)
-            (name 2:if)
+            (type_params)
+            (fields))
+          (struct
+            {}
             (name 5:False)
-            (indent
-              (group
-                (name 4:Some)
-                (name 4:True))))
-          (group
+            (type_params)
+            (fields))
+          (type_alias
+            {}
+            (name 4:Bool)
+            (type_params)
+            (type
+              (name 4:True)
+              (name 1:|)
+              (name 5:False)))
+          (function
+            {
+              b = param}
+            (type_params)
+            (lhs)
+            (name 3:not)
+            (rhs
+              (param
+                (name 1:b)
+                (mode
+                  (cbv))
+                (type
+                  (name 4:True))))
+            (type
+              (name 5:False))
+            (where)
+            (body
+              (expr_stack)
+              (name 5:False)))
+          (function
+            {
+              b = param}
+            (type_params)
+            (lhs)
+            (name 3:not)
+            (rhs
+              (param
+                (name 1:b)
+                (mode
+                  (cbv))
+                (type
+                  (name 5:False))))
+            (type
+              (name 4:True))
+            (where)
+            (body
+              (expr_stack)
+              (name 4:True))))))
+    (module
+      {
+        None = struct
+        Option = type_alias
+        Some = struct}
+      (name 8:Optional)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 4:None)
+            (type_params)
+            (fields))
+          (struct
+            {
+              P = type_param
+              value = field}
+            (name 4:Some)
+            (type_params
+              (type_param
+                (name 1:P)))
+            (fields
+              (field
+                (name 5:value)
+                (type
+                  (name 1:P)))))
+          (type_alias
+            {
+              P = type_param}
+            (name 6:Option)
+            (type_params
+              (type_param
+                (name 1:P)))
+            (type
+              (name 4:Some)
+              (square
+                (group
+                  (name 1:P)))
+              (name 1:|)
+              (name 4:None))))))
+    (module
+      {
+        else =
+          function
+          function
+        if =
+          function
+          function
+        include use Boolean
+        include use Optional}
+      (name 11:Conditional)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 7:Boolean)))
+          (use
+            (type
+              (name 8:Optional)))
+          (function
+            {
+              P = type_param
+              condition = param
+              thenBranch = param}
+            (type_params
+              (type_param
+                (name 1:P)))
+            (lhs)
+            (name 2:if)
+            (rhs
+              (param
+                (name 9:condition)
+                (mode
+                  (cbv))
+                (type
+                  (name 4:True)))
+              (param
+                (name 10:thenBranch)
+                (mode
+                  (cbn))
+                (type
+                  (name 1:P))))
+            (type
+              (name 6:Option)
+              (square
+                (group
+                  (name 1:P))))
+            (where)
+            (body
+              (expr_stack)
+              (name 4:Some)
+              (name 10:thenBranch)))
+          (function
+            {
+              P = type_param
+              condition = param
+              thenBranch = param}
+            (type_params
+              (type_param
+                (name 1:P)))
+            (lhs)
+            (name 2:if)
+            (rhs
+              (param
+                (name 9:condition)
+                (mode
+                  (cbv))
+                (type
+                  (name 5:False)))
+              (param
+                (name 10:thenBranch)
+                (mode
+                  (cbn))
+                (type
+                  (name 1:P))))
+            (type
+              (name 6:Option)
+              (square
+                (group
+                  (name 1:P))))
+            (where)
+            (body
+              (expr_stack)
+              (name 4:None)))
+          (function
+            {
+              P = type_param
+              lhs = param
+              value = param}
+            (type_params
+              (type_param
+                (name 1:P)))
+            (lhs
+              (param
+                (name 3:lhs)
+                (mode
+                  (cbv))
+                (type
+                  (name 4:Some)
+                  (square
+                    (group
+                      (name 1:P))))))
             (name 4:else)
-            (indent
-              (group
-                (name 4:None)))))))))
+            (rhs
+              (param
+                (name 5:value)
+                (mode
+                  (cbn))
+                (type
+                  (name 1:P))))
+            (type
+              (name 1:P))
+            (where)
+            (body
+              (expr_stack)
+              (lookup
+                (name 5:value)
+                (args
+                  (name 3:lhs)))))
+          (function
+            {
+              P = type_param
+              lhs = param
+              value = param}
+            (type_params
+              (type_param
+                (name 1:P)))
+            (lhs
+              (param
+                (name 3:lhs)
+                (mode
+                  (cbv))
+                (type
+                  (name 4:None))))
+            (name 4:else)
+            (rhs
+              (param
+                (name 5:value)
+                (mode
+                  (cbn))
+                (type
+                  (name 1:P))))
+            (type
+              (name 1:P))
+            (where)
+            (body
+              (expr_stack)
+              (name 5:value))))))
+    (module
+      {
+        test = function
+        include use Conditional
+        include use Boolean
+        include use Optional}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 11:Conditional)))
+          (use
+            (type
+              (name 7:Boolean)))
+          (use
+            (type
+              (name 8:Optional)))
+          (function
+            {}
+            (type_params)
+            (lhs)
+            (name 4:test)
+            (rhs)
+            (type
+              (name 6:Option)
+              (square
+                (group
+                  (name 4:Bool))))
+            (where)
+            (body
+              (expr_stack)
+              (indent
+                (group
+                  (name 2:if)
+                  (name 4:True)
+                  (indent
+                    (group
+                      (name 4:None))))
+                (group
+                  (name 4:else)
+                  (name 2:if)
+                  (name 5:False)
+                  (indent
+                    (group
+                      (name 4:Some)
+                      (name 4:True))))
+                (group
+                  (name 4:else)
+                  (indent
+                    (group
+                      (name 4:None))))))))))))
