@@ -15,5 +15,5 @@ function (test_output_dir out test)
   get_filename_component(test_dir ${test} DIRECTORY)
   get_filename_component(test_name ${test} NAME_WE)
   # Create the output directory relative to the test directory
-  set(${out} "${test_dir}/${test_name}/" PARENT_SCOPE)
+  set(${out} "generated/${test_dir}/${test_name}/" PARENT_SCOPE)
 endfunction()
