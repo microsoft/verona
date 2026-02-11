@@ -1,0 +1,37 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (module
+        {})
+      (name 7:Module3))
+    (group
+      (module
+        {})
+      (name 4:Main)
+      (square
+        (group
+          (name 2:T1)))
+      (indent
+        (group
+          (type_alias
+            {})
+          (name 3:Foo)
+          (eq)
+          (name 2:T1))))
+    (group
+      (use)
+      (name 4:Main)
+      (square
+        (group
+          (name 7:Module3))))
+    (group
+      (module
+        {})
+      (name 4:Test)
+      (indent
+        (group
+          (use)
+          (name 3:Foo))))))

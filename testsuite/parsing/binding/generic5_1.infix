@@ -1,0 +1,22 @@
+# This example shows the need for adding Parent tokens to the nested paths.
+
+module Module3
+
+module Main[T1]
+  type Foo = T1
+
+use Main[Module3]
+# This resolves to Main[Module3] as both at at this level.
+
+module Test
+  use Foo
+  # This should resolve to 
+  #   ..::Main[..::Module3]::Foo
+  # Without care the Type Argument will not have the correct relative path.
+  # this is due to the use being at a higher level, so we need to apply the Parent tokens
+  # to the nested paths inside the type arguments.
+  # The lookup of Foo should yield
+  #   ..::Module3
+  # but without the Parent tokens, the lookup of Foo will yield
+  #   Module3
+

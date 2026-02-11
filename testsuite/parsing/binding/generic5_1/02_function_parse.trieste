@@ -1,0 +1,46 @@
+infix
+function_parse
+(top
+  {
+    Main = module
+    Module3 = module
+    Test = module
+    include use Main[Module3}
+  (file
+    (module
+      {}
+      (name 7:Module3)
+      (type_params)
+      (body))
+    (module
+      {
+        Foo = type_alias
+        T1 = type_param}
+      (name 4:Main)
+      (type_params
+        (type_param
+          (name 2:T1)))
+      (body
+        (indent
+          (type_alias
+            {}
+            (name 3:Foo)
+            (type_params)
+            (type
+              (name 2:T1))))))
+    (use
+      (type
+        (name 4:Main)
+        (square
+          (group
+            (name 7:Module3)))))
+    (module
+      {
+        include use Foo}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 3:Foo))))))))

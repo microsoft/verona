@@ -1,0 +1,39 @@
+infix
+structure
+(top
+  {}
+  (file
+    (module
+      {}
+      (name 7:Module3)
+      (type_params)
+      (body))
+    (module
+      {}
+      (name 4:Main)
+      (type_params
+        (group
+          (name 2:T1)))
+      (body
+        (indent
+          (type_alias
+            {}
+            (name 3:Foo)
+            (type_params)
+            (type
+              (name 2:T1))))))
+    (use
+      (type
+        (name 4:Main)
+        (square
+          (group
+            (name 7:Module3)))))
+    (module
+      {}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 3:Foo))))))))
