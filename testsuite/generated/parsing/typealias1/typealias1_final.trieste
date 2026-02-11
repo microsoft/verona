@@ -21,10 +21,14 @@ resolve_types
       (name 4:Bool)
       (type_params)
       (type
-        (type_lookup
-          (../)
-          (type_reference
-            (name 4:True)
-            (type_args)))
-        (name 1:|)
-        (name 5:False)))))
+        (type_or
+          (type_lookup
+            (../)
+            (type_reference
+              (name 4:True)
+              (type_args)))
+          (type_lookup
+            (../)
+            (type_reference
+              (name 5:False)
+              (type_args))))))))

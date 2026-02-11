@@ -71,15 +71,20 @@ parse_types
         (type_param
           (name 1:A)))
       (type
-        (type_lookup
-          (type_reference
-            (name 4:None)
-            (type_args)))
-        (name 1:|)
-        (name 4:Some)
-        (square
-          (group
-            (name 1:A)))))
+        (type_or
+          (type_lookup
+            (type_reference
+              (name 4:None)
+              (type_args)))
+          (type_lookup
+            (type_reference
+              (name 4:Some)
+              (type_args
+                (type
+                  (type_lookup
+                    (type_reference
+                      (name 1:A)
+                      (type_args))))))))))
     (type_alias
       {
         A = type_param}

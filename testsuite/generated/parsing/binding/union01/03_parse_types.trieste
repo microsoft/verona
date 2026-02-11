@@ -48,11 +48,16 @@ parse_types
             (name 6:Choice)
             (type_params)
             (type
-              (type_lookup
-                (type_reference
-                  (name 1:A)
-                  (type_args)))
-              (name 1:|)
-              (name 1:B)
-              (name 1:|)
-              (name 1:C))))))))
+              (type_or
+                (type_lookup
+                  (type_reference
+                    (name 1:A)
+                    (type_args)))
+                (type_lookup
+                  (type_reference
+                    (name 1:B)
+                    (type_args)))
+                (type_lookup
+                  (type_reference
+                    (name 1:C)
+                    (type_args)))))))))))

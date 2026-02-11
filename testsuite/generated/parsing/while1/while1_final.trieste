@@ -34,13 +34,17 @@ resolve_types
       (name 4:Bool)
       (type_params)
       (type
-        (type_lookup
-          (../)
-          (type_reference
-            (name 4:True)
-            (type_args)))
-        (name 1:|)
-        (name 5:False)))
+        (type_or
+          (type_lookup
+            (../)
+            (type_reference
+              (name 4:True)
+              (type_args)))
+          (type_lookup
+            (../)
+            (type_reference
+              (name 5:False)
+              (type_args))))))
     (struct
       {}
       (name 4:None)
@@ -70,16 +74,22 @@ resolve_types
         (type_param
           (name 1:P)))
       (type
-        (type_lookup
-          (../)
-          (type_reference
-            (name 4:None)
-            (type_args)))
-        (name 1:|)
-        (name 4:Some)
-        (square
-          (group
-            (name 1:P)))))
+        (type_or
+          (type_lookup
+            (../)
+            (type_reference
+              (name 4:None)
+              (type_args)))
+          (type_lookup
+            (../)
+            (type_reference
+              (name 4:Some)
+              (type_args
+                (type
+                  (type_lookup
+                    (type_reference
+                      (name 1:P)
+                      (type_args))))))))))
     (function
       {
         P = type_param

@@ -43,6 +43,7 @@ inline const auto TypeLookup = TokenDef("type_lookup");
 inline const auto TypeReference = TokenDef("type_reference");
 inline const auto TypeArgs = TokenDef("type_args");
 inline const auto TypeArg = TokenDef("type_arg");
+inline const auto TypeOr = TokenDef("type_or");
 
 inline const auto Mode = TokenDef("mode");
 inline const auto CBN = TokenDef("cbn");
@@ -110,7 +111,7 @@ inline const auto wf_function_parse =
     (Paren <<= (wf_decls | wf_term)++) | (Indent <<= (wf_decls | wf_term)++) |
     (Group <<= (wf_decls | wf_term)++) |
     (Function <<= TypeParams * Lhs * Name * Rhs * Type * Where * Body)[Name] |
-    (Body <<= (ExprStack | wf_term)++) | (Type <<= (Name | Square | Arrow | DoubleColon | TypeLookup)++) |
+    (Body <<= (ExprStack | wf_term)++) | (Type <<= (Name | Square | Arrow | DoubleColon | TypeLookup | TypeOr)++) |
     (Lhs <<= Param++) | (Rhs <<= Param++) | (Lookup <<= Name * Args) |
     (Args <<= wf_term) | (Param <<= Name * Mode * Type)[Name] |
     (Mode <<= CBN | CBV) | (TypeParams <<= TypeParam++) |
@@ -118,7 +119,7 @@ inline const auto wf_function_parse =
     (Field <<= Name * Type)[Name] | (Where <<= wf_term++) |
     (Module <<= Name * TypeParams * Body)[Name] | (Use <<= Type)[Include] | 
     (TypeLookup <<= (Parent | TypeReference)++) | (TypeReference <<= Name * TypeArgs) |
-    (TypeArgs <<= Type++);
+    (TypeArgs <<= Type++) | (TypeOr <<= TypeLookup++);
 
 Parse parser();
 std::vector<Pass> passes();

@@ -215,22 +215,29 @@ parse_types
       (name 4:Expr)
       (type_params)
       (type
-        (type_lookup
-          (type_reference
-            (name 3:Add)
-            (type_args
-              (type
-                (type_lookup
-                  (type_reference
-                    (name 4:Expr)
-                    (type_args)))))))
-        (name 1:|)
-        (name 3:Sub)
-        (square
-          (group
-            (name 4:Expr)))
-        (name 1:|)
-        (name 10:IntLiteral)))
+        (type_or
+          (type_lookup
+            (type_reference
+              (name 3:Add)
+              (type_args
+                (type
+                  (type_lookup
+                    (type_reference
+                      (name 4:Expr)
+                      (type_args)))))))
+          (type_lookup
+            (type_reference
+              (name 3:Sub)
+              (type_args
+                (type
+                  (type_lookup
+                    (type_reference
+                      (name 4:Expr)
+                      (type_args)))))))
+          (type_lookup
+            (type_reference
+              (name 10:IntLiteral)
+              (type_args))))))
     (function
       {
         expr = param}
@@ -392,27 +399,38 @@ parse_types
       (name 5:Expr2)
       (type_params)
       (type
-        (type_lookup
-          (type_reference
-            (name 3:Add)
-            (type_args
-              (type
-                (type_lookup
-                  (type_reference
-                    (name 5:Expr2)
-                    (type_args)))))))
-        (name 1:|)
-        (name 3:Sub)
-        (square
-          (group
-            (name 5:Expr2)))
-        (name 1:|)
-        (name 3:Mul)
-        (square
-          (group
-            (name 5:Expr2)))
-        (name 1:|)
-        (name 3:Int)))
+        (type_or
+          (type_lookup
+            (type_reference
+              (name 3:Add)
+              (type_args
+                (type
+                  (type_lookup
+                    (type_reference
+                      (name 5:Expr2)
+                      (type_args)))))))
+          (type_lookup
+            (type_reference
+              (name 3:Sub)
+              (type_args
+                (type
+                  (type_lookup
+                    (type_reference
+                      (name 5:Expr2)
+                      (type_args)))))))
+          (type_lookup
+            (type_reference
+              (name 3:Mul)
+              (type_args
+                (type
+                  (type_lookup
+                    (type_reference
+                      (name 5:Expr2)
+                      (type_args)))))))
+          (type_lookup
+            (type_reference
+              (name 3:Int)
+              (type_args))))))
     (function
       {
         E = type_param
