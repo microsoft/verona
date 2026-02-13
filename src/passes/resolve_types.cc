@@ -351,12 +351,15 @@ struct ResolveWork {
           // have added unresolved `use` statements to wait on.
           return false;
         }
+        continue;
       }
+
       assert(state.node != nullptr);
       Node head = current / Name;
       // Now look up the current segment
       auto found = state.node->look(head->location());
-      // Should find either a module/struct, a type alias, or a type parameter.
+      // Should find either a module/struct, a type alias, or a type
+      // parameter.
       if (found.size() != 1) {
         ambiguous_lookup_error(state.node, head);
         return false;
@@ -372,9 +375,9 @@ struct ResolveWork {
 
         if (!can_expand || ((remaining() == 1) && !state.expand_aliases)) {
           // Don't expand the alias if:
-          // 1) The alias body is not a simple path (e.g., it's a union type),
-          // OR 2) It's the last element of a TypeLookup and we're not in expand
-          // mode.
+          // 1) The alias body is not a simple path (e.g., it's a union
+          // type), OR 2) It's the last element of a TypeLookup and we're
+          // not in expand mode.
           state.resolved_end++;
           state.node = found.front();
           continue;
@@ -389,10 +392,10 @@ struct ResolveWork {
         // enclosing type.
         assert(worker.is_resolved(alias_body));
 
-        // For rebasing, we need the path UP TO (but not including) the alias
-        // reference. The current reference (Foo) will be replaced by the alias
-        // body. Create a temporary path that includes the alias reference for
-        // rebase context (needed for generic substitution).
+        // For rebasing, we need the path UP TO (but not including) the
+        // alias reference. The current reference (Foo) will be replaced by
+        // the alias body. Create a temporary path that includes the alias
+        // reference for rebase context (needed for generic substitution).
         state.resolved_end++; // Include the alias reference temporarily
         state.node = found.front();
 
@@ -402,9 +405,9 @@ struct ResolveWork {
               return rebase_path(entry, state.resolved_end, n);
             });
 
-        // The rebased alias REPLACES the entire resolved prefix plus the alias
-        // reference. The rebase_prefix included resolved_end+1, so we erase the
-        // entire path up to and including the alias reference.
+        // The rebased alias REPLACES the entire resolved prefix plus the
+        // alias reference. The rebase_prefix included resolved_end+1, so we
+        // erase the entire path up to and including the alias reference.
         entry->erase(entry->begin(), entry->begin() + state.resolved_end);
         // Insert the rebased alias children at the beginning
         // (no clone needed - rebased_alias is already a fresh copy from
@@ -413,7 +416,8 @@ struct ResolveWork {
                       rebased_alias->end());
 
         // The rebased alias is already normalized (Parents at front).
-        // After rebasing, we need to re-resolve from the start of the new path
+        // After rebasing, we need to re-resolve from the start of the new
+        // path
         state.resolved_end = 0;
         state.node = entry->scope();
         continue;
@@ -426,8 +430,8 @@ struct ResolveWork {
       }
 
       if (found.front() == TypeParam) {
-        // TODO if we add bounds/assumptions on a TypeParam, then we may have to
-        // change this.
+        // TODO if we add bounds/assumptions on a TypeParam, then we may
+        // have to change this.
 
         // We don't allow lookup on a type parameter.
         if (remaining() != 1) {
@@ -447,9 +451,9 @@ struct ResolveWork {
         bool performed_work = normalize_path(entry, entry);
         if (performed_work) {
           // If we performed any normalization work, we need to restart
-          // resolution from the beginning of the path, since the normalization
-          // may have changed the path structure (e.g., by consuming Parents or
-          // substituting type args).
+          // resolution from the beginning of the path, since the
+          // normalization may have changed the path structure (e.g., by
+          // consuming Parents or substituting type args).
           state.resolved_end = 0;
           state.node = entry->scope();
           continue;
@@ -471,31 +475,34 @@ struct ResolveWork {
 PassDef get_resolve_types_pass() {
   auto worker = std::make_shared<NodeWorker<ResolveWork>>(ResolveWork{});
 
-  PassDef pass{
-      "resolve_types",
-      wf_function_parse,
-      dir::bottomup | dir::once,
-      {
-          T(Use) << (T(Type) << (T(TypeLookup)[TypeLookup])) >> [worker](auto &_) -> Node {
-            // For each use statement, we need to resolve the type lookup
-            // in its type. This will allow us to rebase the used module's
-            // contents into the current scope when processing the use.
-            Node type_lookup = _(TypeLookup);
-            worker->add(type_lookup);
-            // For use statements, we want to expand the aliases even at the head of the term.
-            worker->state(type_lookup).expand_aliases = true;
-            return NoChange;
-          },
+  PassDef pass{"resolve_types",
+               wf_function_parse,
+               dir::bottomup | dir::once,
+               {
+                   T(Use) << (T(Type) << (T(TypeLookup)[TypeLookup])) >>
+                       [worker](auto &_) -> Node {
+                     // For each use statement, we need to resolve the type
+                     // lookup in its type. This will allow us to rebase the
+                     // used module's contents into the current scope when
+                     // processing the use.
+                     Node type_lookup = _(TypeLookup);
+                     worker->add(type_lookup);
+                     // For use statements, we want to expand the aliases
+                     // even at the head of the term.
+                     worker->state(type_lookup).expand_aliases = true;
+                     return NoChange;
+                   },
 
-          T(TypeLookup)[TypeLookup] >> [worker](auto &_) -> Node {
-            // For each type lookup, we need to resolve it to the final scope
-            // node it refers to. This will allow us to rebase type aliases
-            // correctly when processing the type lookup.
-            Node type_lookup = _(TypeLookup);
-            worker->add(type_lookup);
-            return NoChange;
-          },
-      }};
+                   T(TypeLookup)[TypeLookup] >> [worker](auto &_) -> Node {
+                     // For each type lookup, we need to resolve it to the
+                     // final scope node it refers to. This will allow us to
+                     // rebase type aliases correctly when processing the
+                     // type lookup.
+                     Node type_lookup = _(TypeLookup);
+                     worker->add(type_lookup);
+                     return NoChange;
+                   },
+               }};
 
   // Debug: dump the gathered bodies after the pass finishes.
   pass.post([worker](Node) {
