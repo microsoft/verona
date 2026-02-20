@@ -5,6 +5,34 @@ This is an experiment in language design.  The aim is explore two things
 * Using only union types and dispatch on unions instead of either pattern matching or dynamic dispatch.
 * Using an early parse phase to determine the arity and infix nature of functions.
 
+## Building and Testing
+
+```bash
+# Configure and build
+cmake -S . -B build -G Ninja
+cd build
+ninja
+
+# Run all tests (compares output against golden files in testsuite/generated/)
+ctest
+
+# Update golden files after making changes
+ninja update-dump
+```
+
+### Test workflow
+
+1. Create a new `.infix` file under `testsuite/` (e.g. `testsuite/parsing/binding/mytest.infix`).
+2. Run `ninja update-dump` in the build directory. This both builds and runs `infixlang` on every test, writing golden output files directly into `testsuite/generated/`. There is no need to copy files manually — `update-dump` places them in the correct location.
+3. Run `ctest` to verify all tests pass by comparing current output against the golden files.
+4. Commit both the `.infix` source file and its generated golden directory.
+
+### Test structure
+
+- **Test discovery**: All `*.infix` files under `testsuite/` are found automatically.
+- **Golden output**: For each test `testsuite/path/to/name.infix`, golden files live in `testsuite/generated/path/to/name/` and include per-pass `.trieste` dumps, `exit_code.txt`, `stdout.txt`, and `stderr.txt`.
+- **Exit codes**: `0` = success, `1` = expected errors (resolution failures, cycles, etc.).
+
 ## VS Code Extensions
 
 This project includes VS Code extensions for syntax highlighting:
