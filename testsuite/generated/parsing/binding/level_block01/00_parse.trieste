@@ -1,0 +1,60 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (struct
+        {})
+      (name 4:Item))
+    (group
+      (module
+        {})
+      (name 4:Defs)
+      (indent
+        (group
+          (module
+            {})
+          (name 6:Source)
+          (indent
+            (group
+              (module
+                {})
+              (name 4:Item)
+              (indent
+                (group
+                  (struct
+                    {})
+                  (name 6:Nested))))))))
+    (group
+      (module
+        {})
+      (name 8:Indirect)
+      (indent
+        (group
+          (use)
+          (name 4:Defs))
+        (group
+          (type_alias
+            {})
+          (name 5:Alias)
+          (eq)
+          (name 6:Source))))
+    (group
+      (module
+        {})
+      (name 4:Test)
+      (indent
+        (group
+          (use)
+          (name 8:Indirect)
+          (DoubleColon)
+          (name 5:Alias))
+        (group
+          (type_alias
+            {})
+          (name 5:Found)
+          (eq)
+          (name 4:Item)
+          (DoubleColon)
+          (name 6:Nested))))))

@@ -1,0 +1,15 @@
+# Test: A use statement AFTER a reference does not contribute to ambiguity.
+# SourceA provides Target and precedes the type alias.
+# SourceB also provides Target but comes AFTER the type alias.
+# Since SourceB doesn't precede the reference, there is no ambiguity
+# and Target resolves through SourceA.
+module SourceA
+  struct Target
+
+module SourceB
+  struct Target
+
+module Test
+  use SourceA
+  type Alias = Target
+  use SourceB

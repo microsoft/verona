@@ -1,0 +1,19 @@
+Errors:
+Failed to resolve name:
+  use Target
+      ~~~~~~
+
+----------------
+Ambiguous lookup:
+  use Target
+      ~~~~~~
+
+ found in multiple use statements:
+  use Source
+  ~~~~~~~~~~
+
+  use Source
+  ~~~~~~~~~~
+
+Pass resolve_types failed with 2 errors!
+

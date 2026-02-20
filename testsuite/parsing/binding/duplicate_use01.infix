@@ -1,11 +1,11 @@
-# Importing the same scope twice directly
+# Importing the same scope twice directly.
+# This is an ambiguity error since both use statements
+# bring Target into scope.
 module Source
   struct Target
 
 module Test
   use Source
   use Source
-  # The second use should not cause issues
-  # Target should still be resolvable
 
   use Target

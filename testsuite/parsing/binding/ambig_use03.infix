@@ -1,0 +1,17 @@
+# Test: Ambiguity with three use statements, two of which conflict.
+# SourceA and SourceC both define Conflict. SourceB does not.
+# The ambiguity should be detected between SourceA and SourceC.
+module SourceA
+  struct Conflict
+
+module SourceB
+  struct Other
+
+module SourceC
+  struct Conflict
+
+module Test
+  use SourceA
+  use SourceB
+  use SourceC
+  type Alias = Conflict

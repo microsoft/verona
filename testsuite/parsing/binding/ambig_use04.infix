@@ -1,0 +1,14 @@
+# Test: Local definition shadows use-imported names, no ambiguity.
+# Even though both uses bring Item, the local struct Item takes priority
+# (found directly in scope chain before checking uses).
+module SourceA
+  struct Item
+
+module SourceB
+  struct Item
+
+module Test
+  struct Item
+  use SourceA
+  use SourceB
+  type Alias = Item

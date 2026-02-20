@@ -40,49 +40,55 @@ resolve_types
               (type_lookup
                 (../)
                 (type_reference
-                  (name 1:C)
+                  (name 1:B)
                   (type_args))
                 (type_reference
-                  (name 3:Foo)
-                  (type_args)))))
+                  (name 2:T1)
+                  (type_args))
+                (error
+                  (errormsg 23:Failed to resolve name:)
+                  (errormsg 24:  use B::T1
+      ~~~~~
+)))))
           (use
             (type
               (type_lookup
-                (../)
                 (type_reference
                   (name 1:C)
-                  (type_args)))))
+                  (type_args))
+                (error
+                  (errormsg 23:Failed to resolve name:)
+                  (errormsg 16:  use C
+      ~
+)))))
           (type_alias
             {}
             (name 2:T2)
             (type_params)
             (type
               (type_lookup
-                (../)
-                (../)
-                (type_reference
-                  (name 1:C)
-                  (type_args))
                 (type_reference
                   (name 3:Foo)
-                  (type_args)))))
+                  (type_args))
+                (error
+                  (errormsg 23:Failed to resolve name:)
+                  (errormsg 32:  type T2 = Foo
+            ~~~
+)))))
           (type_alias
             {}
             (name 2:T4)
             (type_params)
             (type
               (type_lookup
-                (../)
-                (../)
-                (type_reference
-                  (name 1:C)
-                  (type_args))
-                (type_reference
-                  (name 3:Foo)
-                  (type_args))
                 (type_reference
                   (name 3:Bar)
-                  (type_args))))))))
+                  (type_args))
+                (error
+                  (errormsg 23:Failed to resolve name:)
+                  (errormsg 32:  type T4 = Bar
+            ~~~
+))))))))
     (module
       {
         T1 = type_alias
@@ -98,46 +104,52 @@ resolve_types
               (type_lookup
                 (../)
                 (type_reference
-                  (name 1:C)
+                  (name 1:A)
                   (type_args))
                 (type_reference
-                  (name 3:Foo)
-                  (type_args)))))
+                  (name 2:T2)
+                  (type_args))
+                (error
+                  (errormsg 23:Failed to resolve name:)
+                  (errormsg 24:  use A::T2
+      ~~~~~
+)))))
           (use
             (type
               (type_lookup
-                (../)
                 (type_reference
                   (name 1:C)
-                  (type_args)))))
+                  (type_args))
+                (error
+                  (errormsg 23:Failed to resolve name:)
+                  (errormsg 16:  use C
+      ~
+)))))
           (type_alias
             {}
             (name 2:T1)
             (type_params)
             (type
               (type_lookup
-                (../)
-                (../)
-                (type_reference
-                  (name 1:C)
-                  (type_args))
                 (type_reference
                   (name 3:Foo)
-                  (type_args)))))
+                  (type_args))
+                (error
+                  (errormsg 23:Failed to resolve name:)
+                  (errormsg 32:  type T1 = Foo
+            ~~~
+)))))
           (type_alias
             {}
             (name 2:T3)
             (type_params)
             (type
               (type_lookup
-                (../)
-                (../)
-                (type_reference
-                  (name 1:C)
-                  (type_args))
-                (type_reference
-                  (name 3:Foo)
-                  (type_args))
                 (type_reference
                   (name 3:Bar)
-                  (type_args))))))))))
+                  (type_args))
+                (error
+                  (errormsg 23:Failed to resolve name:)
+                  (errormsg 32:  type T3 = Bar
+            ~~~
+))))))))))

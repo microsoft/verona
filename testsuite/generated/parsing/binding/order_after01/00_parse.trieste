@@ -1,0 +1,28 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (module
+        {})
+      (name 6:Source)
+      (indent
+        (group
+          (struct
+            {})
+          (name 6:Target))))
+    (group
+      (module
+        {})
+      (name 4:Test)
+      (indent
+        (group
+          (type_alias
+            {})
+          (name 3:Foo)
+          (eq)
+          (name 6:Target))
+        (group
+          (use)
+          (name 6:Source))))))

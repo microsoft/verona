@@ -1,0 +1,81 @@
+infix
+resolve_types
+(top
+  {
+    SourceA = module
+    SourceB = module
+    Test = module}
+  (file
+    (module
+      {
+        Conflict = struct}
+      (name 7:SourceA)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 8:Conflict)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Conflict = struct}
+      (name 7:SourceB)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 8:Conflict)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Alias = type_alias
+        include use SourceA
+        include use SourceB}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 7:SourceA)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 7:SourceB)
+                  (type_args)))))
+          (type_alias
+            {}
+            (name 5:Alias)
+            (type_params)
+            (type
+              (type_lookup
+                (type_reference
+                  (name 8:Conflict)
+                  (type_args))
+                (error
+                  (errormsg 23:Failed to resolve name:)
+                  (errormsg 48:  type Alias = Conflict
+               ~~~~~~~~
+)))))))
+      (error
+        (errormsg 17:Ambiguous lookup:)
+        (errormsg 48:  type Alias = Conflict
+               ~~~~~~~~
+)
+        (errormsg 34: found in multiple use statements:)
+        (errormsg 28:  use SourceA
+  ~~~~~~~~~~~
+)
+        (errormsg 28:  use SourceB
+  ~~~~~~~~~~~
+)))))

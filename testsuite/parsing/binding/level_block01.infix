@@ -1,0 +1,20 @@
+# Test: level blocking waits for ALL preceding uses before going up.
+# Item exists at the parent scope as a bare struct.
+# At Test's level, use Indirect depends on use Defs resolving first.
+# If the resolver doesn't wait for use Indirect, it would skip to
+# the parent and find the wrong Item (bare struct, no Nested).
+# Correct behavior: wait for both uses, find Item from Indirect (a module).
+struct Item
+
+module Defs
+  module Source
+    module Item
+      struct Nested
+
+module Indirect
+  use Defs
+  type Alias = Source
+
+module Test
+  use Indirect::Alias
+  type Found = Item::Nested

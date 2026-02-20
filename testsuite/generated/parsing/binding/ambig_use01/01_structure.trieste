@@ -1,0 +1,45 @@
+infix
+structure
+(top
+  {}
+  (file
+    (module
+      {}
+      (name 7:SourceA)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 8:Conflict)
+            (type_params)
+            (fields)))))
+    (module
+      {}
+      (name 7:SourceB)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 8:Conflict)
+            (type_params)
+            (fields)))))
+    (module
+      {}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 7:SourceA)))
+          (use
+            (type
+              (name 7:SourceB)))
+          (type_alias
+            {}
+            (name 5:Alias)
+            (type_params)
+            (type
+              (name 8:Conflict))))))))

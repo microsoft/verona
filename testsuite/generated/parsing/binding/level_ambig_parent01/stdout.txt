@@ -1,0 +1,19 @@
+Errors:
+Failed to resolve name:
+    type Alias = Widget
+                 ~~~~~~
+
+----------------
+Ambiguous lookup:
+    type Alias = Widget
+                 ~~~~~~
+
+ found in multiple use statements:
+  use SourceA
+  ~~~~~~~~~~~
+
+  use SourceB
+  ~~~~~~~~~~~
+
+Pass resolve_types failed with 2 errors!
+

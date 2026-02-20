@@ -1,0 +1,69 @@
+infix
+parse
+(top
+  {}
+  (file
+    (group
+      (module
+        {})
+      (name 1:C)
+      (indent
+        (group
+          (module
+            {})
+          (name 3:Foo)
+          (indent
+            (group
+              (module
+                {})
+              (name 3:Bar))))))
+    (group
+      (module
+        {})
+      (name 1:A)
+      (indent
+        (group
+          (use)
+          (name 1:C))
+        (group
+          (type_alias
+            {})
+          (name 2:T2)
+          (eq)
+          (name 3:Foo))
+        (group
+          (use)
+          (name 1:B)
+          (DoubleColon)
+          (name 2:T1))
+        (group
+          (type_alias
+            {})
+          (name 2:T4)
+          (eq)
+          (name 3:Bar))))
+    (group
+      (module
+        {})
+      (name 1:B)
+      (indent
+        (group
+          (use)
+          (name 1:C))
+        (group
+          (type_alias
+            {})
+          (name 2:T1)
+          (eq)
+          (name 3:Foo))
+        (group
+          (use)
+          (name 1:A)
+          (DoubleColon)
+          (name 2:T2))
+        (group
+          (type_alias
+            {})
+          (name 2:T3)
+          (eq)
+          (name 3:Bar))))))

@@ -1,0 +1,7 @@
+Errors:
+Failed to resolve name:
+  type Foo = Target
+             ~~~~~~
+
+Pass resolve_types failed with 1 error!
+

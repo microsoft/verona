@@ -1,0 +1,54 @@
+infix
+resolve_types
+(top
+  {
+    SourceA = module
+    Target = struct
+    Test = module}
+  (file
+    (struct
+      {}
+      (name 6:Target)
+      (type_params)
+      (fields))
+    (module
+      {
+        Target = struct}
+      (name 7:SourceA)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 6:Target)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Alias = type_alias
+        include use SourceA}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 7:SourceA)
+                  (type_args)))))
+          (type_alias
+            {}
+            (name 5:Alias)
+            (type_params)
+            (type
+              (type_lookup
+                (../)
+                (../)
+                (type_reference
+                  (name 7:SourceA)
+                  (type_args))
+                (type_reference
+                  (name 6:Target)
+                  (type_args))))))))))

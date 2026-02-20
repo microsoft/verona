@@ -1,0 +1,92 @@
+infix
+parse_types
+(top
+  {
+    Defs = module
+    Indirect = module
+    Item = struct
+    Test = module}
+  (file
+    (struct
+      {}
+      (name 4:Item)
+      (type_params)
+      (fields))
+    (module
+      {
+        Source = module}
+      (name 4:Defs)
+      (type_params)
+      (body
+        (indent
+          (module
+            {
+              Item = module}
+            (name 6:Source)
+            (type_params)
+            (body
+              (indent
+                (module
+                  {
+                    Nested = struct}
+                  (name 4:Item)
+                  (type_params)
+                  (body
+                    (indent
+                      (struct
+                        {}
+                        (name 6:Nested)
+                        (type_params)
+                        (fields)))))))))))
+    (module
+      {
+        Alias = type_alias
+        include use Defs}
+      (name 8:Indirect)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 4:Defs)
+                  (type_args)))))
+          (type_alias
+            {}
+            (name 5:Alias)
+            (type_params)
+            (type
+              (type_lookup
+                (type_reference
+                  (name 6:Source)
+                  (type_args))))))))
+    (module
+      {
+        Found = type_alias
+        include use Indirect::Alias}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 8:Indirect)
+                  (type_args))
+                (type_reference
+                  (name 5:Alias)
+                  (type_args)))))
+          (type_alias
+            {}
+            (name 5:Found)
+            (type_params)
+            (type
+              (type_lookup
+                (type_reference
+                  (name 4:Item)
+                  (type_args))
+                (type_reference
+                  (name 6:Nested)
+                  (type_args))))))))))

@@ -1,0 +1,42 @@
+infix
+function_parse
+(top
+  {
+    SourceA = module
+    Target = struct
+    Test = module}
+  (file
+    (struct
+      {}
+      (name 6:Target)
+      (type_params)
+      (fields))
+    (module
+      {
+        Target = struct}
+      (name 7:SourceA)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 6:Target)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Alias = type_alias
+        include use SourceA}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 7:SourceA)))
+          (type_alias
+            {}
+            (name 5:Alias)
+            (type_params)
+            (type
+              (name 6:Target))))))))

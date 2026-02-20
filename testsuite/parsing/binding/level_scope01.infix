@@ -1,0 +1,15 @@
+# Test: level-by-level blocking ensures use at current scope is checked
+# before going up to the parent scope.
+# Parent has a struct named Item.
+# Source module has a module named Item containing a nested struct.
+# With level blocking: waits for use Source, finds Item from Source, succeeds.
+# Without level blocking: would find parent's Item (a bare struct), fail on Nested.
+struct Item
+
+module Source
+  module Item
+    struct Nested
+
+module Test
+  use Source
+  type Found = Item::Nested

@@ -1,0 +1,72 @@
+infix
+parse_types
+(top
+  {
+    SourceA = module
+    SourceB = module
+    Test = module}
+  (file
+    (module
+      {
+        TypeA = struct}
+      (name 7:SourceA)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 5:TypeA)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        TypeB = struct}
+      (name 7:SourceB)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 5:TypeB)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        AliasA = type_alias
+        AliasB = type_alias
+        include use SourceA
+        include use SourceB}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 7:SourceA)
+                  (type_args)))))
+          (type_alias
+            {}
+            (name 6:AliasA)
+            (type_params)
+            (type
+              (type_lookup
+                (type_reference
+                  (name 5:TypeA)
+                  (type_args)))))
+          (type_alias
+            {}
+            (name 6:AliasB)
+            (type_params)
+            (type
+              (type_lookup
+                (type_reference
+                  (name 5:TypeB)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 7:SourceB)
+                  (type_args))))))))))

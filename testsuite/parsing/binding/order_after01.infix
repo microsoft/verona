@@ -1,0 +1,8 @@
+# Test: use statement appearing AFTER a type alias should NOT help resolve it.
+# The precedes check means Target is not visible to type Foo.
+module Source
+  struct Target
+
+module Test
+  type Foo = Target
+  use Source

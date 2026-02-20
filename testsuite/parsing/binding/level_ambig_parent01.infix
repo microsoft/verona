@@ -1,0 +1,16 @@
+# Test: Ambiguity at a parent scope level is still detected.
+# Widget is not available at Test's level (no local use).
+# Walking up finds Widget in Outer's scope, where it is ambiguous
+# from two use statements — this is an ambiguity error.
+module SourceA
+  struct Widget
+
+module SourceB
+  struct Widget
+
+module Outer
+  use SourceA
+  use SourceB
+
+  module Test
+    type Alias = Widget

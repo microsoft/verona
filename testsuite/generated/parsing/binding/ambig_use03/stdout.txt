@@ -1,0 +1,19 @@
+Errors:
+Failed to resolve name:
+  type Alias = Conflict
+               ~~~~~~~~
+
+----------------
+Ambiguous lookup:
+  type Alias = Conflict
+               ~~~~~~~~
+
+ found in multiple use statements:
+  use SourceA
+  ~~~~~~~~~~~
+
+  use SourceC
+  ~~~~~~~~~~~
+
+Pass resolve_types failed with 2 errors!
+

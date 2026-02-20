@@ -1,0 +1,88 @@
+infix
+resolve_types
+(top
+  {
+    Outer = module
+    SourceA = module
+    SourceB = module}
+  (file
+    (module
+      {
+        Widget = struct}
+      (name 7:SourceA)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 6:Widget)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Widget = struct}
+      (name 7:SourceB)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 6:Widget)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Test = module
+        include use SourceA
+        include use SourceB}
+      (name 5:Outer)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 7:SourceA)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (../)
+                (type_reference
+                  (name 7:SourceB)
+                  (type_args)))))
+          (module
+            {
+              Alias = type_alias}
+            (name 4:Test)
+            (type_params)
+            (body
+              (indent
+                (type_alias
+                  {}
+                  (name 5:Alias)
+                  (type_params)
+                  (type
+                    (type_lookup
+                      (type_reference
+                        (name 6:Widget)
+                        (type_args))
+                      (error
+                        (errormsg 23:Failed to resolve name:)
+                        (errormsg 48:    type Alias = Widget
+                 ~~~~~~
+))))))))))
+      (error
+        (errormsg 17:Ambiguous lookup:)
+        (errormsg 48:    type Alias = Widget
+                 ~~~~~~
+)
+        (errormsg 34: found in multiple use statements:)
+        (errormsg 28:  use SourceA
+  ~~~~~~~~~~~
+)
+        (errormsg 28:  use SourceB
+  ~~~~~~~~~~~
+)))))

@@ -1,0 +1,14 @@
+# Test: mixed use ordering - first use precedes both aliases, second use follows.
+# AliasA should resolve (use SourceA precedes it).
+# AliasB should FAIL (use SourceB does not precede it).
+module SourceA
+  struct TypeA
+
+module SourceB
+  struct TypeB
+
+module Test
+  use SourceA
+  type AliasA = TypeA
+  type AliasB = TypeB
+  use SourceB

@@ -1,9 +1,9 @@
-# Mutual use between modules - breaking simple cycles
-# This example contains a cycle if you have to resolve modules as a whole
-# It should be possible to resolve this without getting stuck in a loop
-# First T1 and T2 are resolved using `use C`, but without using 
-# `B::T1` or `A::T2`
-# Then T3 and T4 are resolved using the already resolved T1 and T2
+# Mutual use between modules creates a deadlock.
+# In module A, resolving `use C` blocks on the preceding `use B::T1`,
+# which transitively depends on `use A::T2` in module B, which blocks
+# on the preceding `use C` in B, creating a circular dependency.
+# Reordering `use C` before the cross-module use would break the cycle
+# (see mutual_use01.infix).
 module C
   module Foo
     module Bar

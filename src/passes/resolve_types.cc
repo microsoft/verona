@@ -230,8 +230,15 @@ struct ResolveWork {
         return true;
       }
       // Not found, check the resolved `use` statements in this scope.
+      // We must wait for ALL preceding uses to resolve before checking any,
+      // so we can detect ambiguity when multiple uses bring the same name
+      // into scope.
       auto current_using = scope->includes();
       for (const auto &u : current_using) {
+        // Only consider using statements that precede the current entry in program order.
+        if (!u->precedes(entry))
+          continue;
+
         // Check if current use has been fully resolved
         // including all sub type lookups.
         Node u_type = u / Type;
@@ -240,10 +247,28 @@ struct ResolveWork {
           unresolved_use_types.push_back(u_type);
           continue;
         }
+      }
+
+      if (unresolved_use_types.size() > 0) {
+        // We have some unresolved use statements in this scope, we need to
+        // block on them before we can continue searching up the scope chain.
+        worker.block_on_all(entry, unresolved_use_types);
+        // TODO: We could look to cache which scope we are looking in, so restarting doesn't recheck
+        // the scopes we have already looked in.
+        return false;
+      }
+
+      // All preceding use statements at this level are resolved.
+      // Now check all of them for the name, collecting matches to detect
+      // ambiguity.
+      Node matched_lookup = nullptr;
+      Node matched_scope = nullptr;
+      Nodes matching_uses;
+      for (const auto &u : current_using) {
+        if (!u->precedes(entry))
+          continue;
 
         auto u_lookup = use_to_type_lookup(u);
-        // It should not be possible for the surrounding type lookup to be
-        // resolved, without all the sub terms being resolved.
         assert(worker.is_resolved(u_lookup));
 
         auto &u_lookup_state = worker.state(u_lookup);
@@ -254,26 +279,41 @@ struct ResolveWork {
         }
 
         if (found.size() == 1) {
-          // Found via a use statement.
-          // Copy the use's resolved path into entry, plus extra Parents.
-          Node cloned_path = prepend_parents(u_lookup, levels);
-          // Insert all children from cloned path
-          entry->insert(entry->begin(), cloned_path->begin(),
-                        cloned_path->end());
-          state.resolved_end = cloned_path->size();
-          state.node = u_lookup_state.node;
-          return true;
+          matching_uses.push_back(u);
+          matched_lookup = u_lookup;
+          matched_scope = u_lookup_state.node;
         }
+      }
+
+      if (matching_uses.size() > 1) {
+        // Multiple use statements at this scope level bring the same name
+        // into scope. Report an ambiguity error listing the use statements.
+        Node error_node = Error << (ErrorMsg ^ "Ambiguous lookup:")
+                                << (ErrorMsg ^ name->location().str())
+                                << (ErrorMsg ^ " found in multiple use statements:");
+        for (auto &u : matching_uses) {
+          error_node << (ErrorMsg ^ u->location().str());
+        }
+        scope << error_node;
+        return false;
+      }
+
+      if (matched_lookup != nullptr) {
+        // Found via a use statement.
+        // Copy the use's resolved path into entry, plus extra Parents.
+        Node cloned_path = prepend_parents(matched_lookup, levels);
+        // Insert all children from cloned path
+        entry->insert(entry->begin(), cloned_path->begin(),
+                      cloned_path->end());
+        state.resolved_end = cloned_path->size();
+        state.node = matched_scope;
+        return true;
       }
 
       scope = scope->scope();
       levels++;
     }
 
-    // We reach the top without finding it; wait on unresolved uses. If
-    // none are pending, resolution will ultimately fail when processing
-    // completes.
-    worker.block_on_any(entry, unresolved_use_types);
     return false; // Not found yet
   }
 

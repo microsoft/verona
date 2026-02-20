@@ -1,0 +1,12 @@
+# Test: Name found via use at inner level, same name defined two levels up.
+# No ambiguity because they are at different scope levels.
+# The use-imported name at Test's level is found first.
+module Outer
+  struct Item
+
+  module Source
+    struct Item
+
+  module Test
+    use Source
+    type Alias = Item

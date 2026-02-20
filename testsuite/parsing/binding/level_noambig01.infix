@@ -1,0 +1,12 @@
+# Test: Same name available at different scope levels is not ambiguous.
+# The outer scope defines Target directly, and SourceA also provides Target
+# via a use statement inside Test. The local use takes priority (found at
+# the current level) without ambiguity with the outer definition.
+struct Target
+
+module SourceA
+  struct Target
+
+module Test
+  use SourceA
+  type Alias = Target

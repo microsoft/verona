@@ -1,0 +1,42 @@
+Errors:
+Failed to resolve name:
+  use B::T1
+      ~~~~~
+
+----------------
+Failed to resolve name:
+  use C
+      ~
+
+----------------
+Failed to resolve name:
+  type T2 = Foo
+            ~~~
+
+----------------
+Failed to resolve name:
+  type T4 = Bar
+            ~~~
+
+----------------
+Failed to resolve name:
+  use A::T2
+      ~~~~~
+
+----------------
+Failed to resolve name:
+  use C
+      ~
+
+----------------
+Failed to resolve name:
+  type T1 = Foo
+            ~~~
+
+----------------
+Failed to resolve name:
+  type T3 = Bar
+            ~~~
+
+Pass resolve_types failed with 8 errors!
+

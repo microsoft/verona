@@ -1,0 +1,12 @@
+# Test: Two use statements bring the same name into scope from different modules.
+# Both SourceA and SourceB define Conflict, so this should be ambiguous.
+module SourceA
+  struct Conflict
+
+module SourceB
+  struct Conflict
+
+module Test
+  use SourceA
+  use SourceB
+  type Alias = Conflict

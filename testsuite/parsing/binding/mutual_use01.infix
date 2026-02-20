@@ -1,0 +1,20 @@
+# Mutual use between modules, resolved by careful ordering.
+# By placing `use C` first and defining T2/T1 before the cross-module use,
+# the Foo aliases resolve with only `use C` preceding them.
+# Then `use B::T1` / `use A::T2` can resolve because T1/T2 are ready.
+# Finally T4/T3 resolve via the cross-module use bringing Foo::Bar into scope.
+module C
+  module Foo
+    module Bar
+
+module A
+  use C
+  type T2 = Foo
+  use B::T1
+  type T4 = Bar
+
+module B
+  use C
+  type T1 = Foo
+  use A::T2
+  type T3 = Bar

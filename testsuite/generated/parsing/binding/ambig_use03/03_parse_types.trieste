@@ -1,0 +1,82 @@
+infix
+parse_types
+(top
+  {
+    SourceA = module
+    SourceB = module
+    SourceC = module
+    Test = module}
+  (file
+    (module
+      {
+        Conflict = struct}
+      (name 7:SourceA)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 8:Conflict)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Other = struct}
+      (name 7:SourceB)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 5:Other)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Conflict = struct}
+      (name 7:SourceC)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 8:Conflict)
+            (type_params)
+            (fields)))))
+    (module
+      {
+        Alias = type_alias
+        include use SourceA
+        include use SourceB
+        include use SourceC}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 7:SourceA)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 7:SourceB)
+                  (type_args)))))
+          (use
+            (type
+              (type_lookup
+                (type_reference
+                  (name 7:SourceC)
+                  (type_args)))))
+          (type_alias
+            {}
+            (name 5:Alias)
+            (type_params)
+            (type
+              (type_lookup
+                (type_reference
+                  (name 8:Conflict)
+                  (type_args))))))))))

@@ -1,0 +1,51 @@
+infix
+structure
+(top
+  {}
+  (file
+    (module
+      {}
+      (name 7:SourceA)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 5:TypeA)
+            (type_params)
+            (fields)))))
+    (module
+      {}
+      (name 7:SourceB)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 5:TypeB)
+            (type_params)
+            (fields)))))
+    (module
+      {}
+      (name 4:Test)
+      (type_params)
+      (body
+        (indent
+          (use
+            (type
+              (name 7:SourceA)))
+          (type_alias
+            {}
+            (name 6:AliasA)
+            (type_params)
+            (type
+              (name 5:TypeA)))
+          (type_alias
+            {}
+            (name 6:AliasB)
+            (type_params)
+            (type
+              (name 5:TypeB)))
+          (use
+            (type
+              (name 7:SourceB))))))))

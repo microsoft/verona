@@ -1,0 +1,49 @@
+infix
+function_parse
+(top
+  {
+    Outer = module}
+  (file
+    (module
+      {
+        Item = struct
+        Source = module
+        Test = module}
+      (name 5:Outer)
+      (type_params)
+      (body
+        (indent
+          (struct
+            {}
+            (name 4:Item)
+            (type_params)
+            (fields))
+          (module
+            {
+              Item = struct}
+            (name 6:Source)
+            (type_params)
+            (body
+              (indent
+                (struct
+                  {}
+                  (name 4:Item)
+                  (type_params)
+                  (fields)))))
+          (module
+            {
+              Alias = type_alias
+              include use Source}
+            (name 4:Test)
+            (type_params)
+            (body
+              (indent
+                (use
+                  (type
+                    (name 6:Source)))
+                (type_alias
+                  {}
+                  (name 5:Alias)
+                  (type_params)
+                  (type
+                    (name 4:Item)))))))))))

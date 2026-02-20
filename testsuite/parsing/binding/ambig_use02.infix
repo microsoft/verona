@@ -1,0 +1,12 @@
+# Test: Only one use statement provides the name, no ambiguity.
+# SourceA has Target, SourceB does not. Should resolve fine.
+module SourceA
+  struct Target
+
+module SourceB
+  struct Other
+
+module Test
+  use SourceA
+  use SourceB
+  type Alias = Target
