@@ -1,9 +1,20 @@
 # TODO
 
 * Parsing
+  * Lookup
+    * Semantics
+      - Local first, 
+      - use second,
+      - if not in either then move up a level.
+      - ambiguity if multiple definitions at a level, or multiple definitions brought into scope at a level.
+
+    * Move up a level once all the `use` statements at that level have been resolved. 
+    * Look inside all `use` at a level to check for ambiguity.
+
   * Lookdown
     * `use T1::T2::...::Tn` brings the symbol table in Tn into the current scope.
     * `use T1::T2::...::Tn as Alias` brings the symbol table in Tn into the current scope under the name Alias.
+    * Second not needed, that is just `type Alias = T1::..::Tn`
   * Lazy
     * Prevent ambiguous overloading with different lazyness
     * 
