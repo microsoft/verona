@@ -11,37 +11,37 @@ resolve_types
     (module
       {
         Int = struct}
-      (name 9:IntModule)
+      (bname 9:IntModule)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 3:Int)
+            (bname 3:Int)
             (type_params)
             (fields)))))
     (module
       {
         Bool = struct}
-      (name 10:BoolModule)
+      (bname 10:BoolModule)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 4:Bool)
+            (bname 4:Bool)
             (type_params)
             (fields)))))
     (module
       {
         String = struct}
-      (name 12:StringModule)
+      (bname 12:StringModule)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 6:String)
+            (bname 6:String)
             (type_params)
             (fields)))))
     (module
@@ -49,12 +49,12 @@ resolve_types
         A = type_param
         B = type_param
         Inner = module}
-      (name 5:Outer)
+      (bname 5:Outer)
       (type_params
         (type_param
-          (name 1:A))
+          (bname 1:A))
         (type_param
-          (name 1:B)))
+          (bname 1:B)))
       (body
         (indent
           (module
@@ -63,42 +63,42 @@ resolve_types
               InnerC = type_alias
               OuterA = type_alias
               OuterB = type_alias}
-            (name 5:Inner)
+            (bname 5:Inner)
             (type_params
               (type_param
-                (name 1:C)))
+                (bname 1:C)))
             (body
               (indent
                 (type_alias
                   {}
-                  (name 6:OuterA)
+                  (bname 6:OuterA)
                   (type_params)
                   (type
-                    (type_lookup
+                    (lookup
                       (../)
                       (../)
-                      (type_reference
+                      (reference
                         (name 1:A)
                         (type_args)))))
                 (type_alias
                   {}
-                  (name 6:OuterB)
+                  (bname 6:OuterB)
                   (type_params)
                   (type
-                    (type_lookup
+                    (lookup
                       (../)
                       (../)
-                      (type_reference
+                      (reference
                         (name 1:B)
                         (type_args)))))
                 (type_alias
                   {}
-                  (name 6:InnerC)
+                  (bname 6:InnerC)
                   (type_params)
                   (type
-                    (type_lookup
+                    (lookup
                       (../)
-                      (type_reference
+                      (reference
                         (name 1:C)
                         (type_args)))))))))))
     (module
@@ -109,58 +109,58 @@ resolve_types
         include use Int
         include use Bool
         include use String}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 9:IntModule)
                   (type_args)))))
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 10:BoolModule)
                   (type_args)))))
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 12:StringModule)
                   (type_args)))))
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 9:IntModule)
                   (type_args))
-                (type_reference
+                (reference
                   (name 3:Int)
                   (type_args)))))
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 10:BoolModule)
                   (type_args))
-                (type_reference
+                (reference
                   (name 4:Bool)
                   (type_args)))))
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 12:StringModule)
                   (type_args))
-                (type_reference
+                (reference
                   (name 6:String)
                   (type_args))))))))))

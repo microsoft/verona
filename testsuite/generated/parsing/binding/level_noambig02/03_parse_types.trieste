@@ -9,47 +9,47 @@ parse_types
         Item = struct
         Source = module
         Test = module}
-      (name 5:Outer)
+      (bname 5:Outer)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 4:Item)
+            (bname 4:Item)
             (type_params)
             (fields))
           (module
             {
               Item = struct}
-            (name 6:Source)
+            (bname 6:Source)
             (type_params)
             (body
               (indent
                 (struct
                   {}
-                  (name 4:Item)
+                  (bname 4:Item)
                   (type_params)
                   (fields)))))
           (module
             {
               Alias = type_alias
               include use Source}
-            (name 4:Test)
+            (bname 4:Test)
             (type_params)
             (body
               (indent
                 (use
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 6:Source)
                         (type_args)))))
                 (type_alias
                   {}
-                  (name 5:Alias)
+                  (bname 5:Alias)
                   (type_params)
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 4:Item)
                         (type_args)))))))))))))

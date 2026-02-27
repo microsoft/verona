@@ -8,13 +8,13 @@ function_parse
     (module
       {
         Target = struct}
-      (name 6:Source)
+      (bname 6:Source)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 6:Target)
+            (bname 6:Target)
             (type_params)
             (fields)))))
     (module
@@ -22,7 +22,7 @@ function_parse
         include use Source
         include use Source
         include use Target}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent

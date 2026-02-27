@@ -9,25 +9,25 @@ parse_types
       {
         A = struct
         Sub = module}
-      (name 4:Defs)
+      (bname 4:Defs)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 1:A)
+            (bname 1:A)
             (type_params)
             (fields))
           (module
             {
               B = struct}
-            (name 3:Sub)
+            (bname 3:Sub)
             (type_params)
             (body
               (indent
                 (struct
                   {}
-                  (name 1:B)
+                  (bname 1:B)
                   (type_params)
                   (fields))))))))
     (module
@@ -36,31 +36,31 @@ parse_types
         include use Sub
         include use A
         include use B}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 4:Defs)
                   (type_args)))))
           (use
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 3:Sub)
                   (type_args)))))
           (use
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 1:A)
                   (type_args)))))
           (use
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 1:B)
                   (type_args))))))))))

@@ -8,14 +8,13 @@ module Module3
   struct Int
 
 module Test
-  # This brings inc into scope.
+  # This brings Int into scope.
   use Module1[Module3]::Foo::Bar
   ##  Reduces to 
   ##  Module1[Module3]::Module2[Module3]::Bar
   ##  Reduces to 
   ##  Module3
-  ##  So inc is now in scope.
+  ##  So Int is now in scope.
 
-  function test: Int =
-    1 inc
+  use Int
 

@@ -1,4 +1,4 @@
-generic8.infix:6:20: unexpected where, expected a paren, name, group, indent, dot, arrow, left_arrow, Colon, lookup, eq, SemiColon, square, DoubleColon or expr_stack
+generic8.infix:6:20: unexpected where, expected a paren, name, group, indent, dot, arrow, left_arrow, Colon, access, eq, SemiColon, square, DoubleColon, lookup or expr_stack
 module Module1[T1] where T1::Bar: Type
                    ~~~~~
 (where)

@@ -12,7 +12,7 @@ function_parse
   (file
     (struct
       {}
-      (name 3:Int)
+      (bname 3:Int)
       (type_params)
       (fields))
     (struct
@@ -21,46 +21,46 @@ function_parse
         B = type_param
         first = field
         second = field}
-      (name 4:Pair)
+      (bname 4:Pair)
       (type_params
         (type_param
-          (name 1:A))
+          (bname 1:A))
         (type_param
-          (name 1:B)))
+          (bname 1:B)))
       (fields
         (field
-          (name 5:first)
+          (bname 5:first)
           (type
             (name 1:A)))
         (field
-          (name 6:second)
+          (bname 6:second)
           (type
             (name 1:B)))))
     (struct
       {
         A = type_param
         value = field}
-      (name 4:Some)
+      (bname 4:Some)
       (type_params
         (type_param
-          (name 1:A)))
+          (bname 1:A)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
             (name 1:A)))))
     (struct
       {}
-      (name 4:None)
+      (bname 4:None)
       (type_params)
       (fields))
     (type_alias
       {
         A = type_param}
-      (name 6:Option)
+      (bname 6:Option)
       (type_params
         (type_param
-          (name 1:A)))
+          (bname 1:A)))
       (type
         (name 4:None)
         (name 1:|)
@@ -71,10 +71,10 @@ function_parse
     (type_alias
       {
         A = type_param}
-      (name 4:List)
+      (bname 4:List)
       (type_params
         (type_param
-          (name 1:A)))
+          (bname 1:A)))
       (type
         (name 6:Option)
         (square
@@ -91,7 +91,7 @@ function_parse
     (module
       {
         include use List[Int}
-      (name 7:Module1)
+      (bname 7:Module1)
       (type_params)
       (body
         (indent

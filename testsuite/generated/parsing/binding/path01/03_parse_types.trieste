@@ -8,62 +8,62 @@ parse_types
     (module
       {
         Level2 = module}
-      (name 6:Level1)
+      (bname 6:Level1)
       (type_params)
       (body
         (indent
           (module
             {
               Level3 = module}
-            (name 6:Level2)
+            (bname 6:Level2)
             (type_params)
             (body
               (indent
                 (module
                   {
                     Level4 = module}
-                  (name 6:Level3)
+                  (bname 6:Level3)
                   (type_params)
                   (body
                     (indent
                       (module
                         {
                           DeepType = struct}
-                        (name 6:Level4)
+                        (bname 6:Level4)
                         (type_params)
                         (body
                           (indent
                             (struct
                               {}
-                              (name 8:DeepType)
+                              (bname 8:DeepType)
                               (type_params)
                               (fields))))))))))))))
     (module
       {
         include use Level1::Level2::Level3::Level4
         include use DeepType}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 6:Level1)
                   (type_args))
-                (type_reference
+                (reference
                   (name 6:Level2)
                   (type_args))
-                (type_reference
+                (reference
                   (name 6:Level3)
                   (type_args))
-                (type_reference
+                (reference
                   (name 6:Level4)
                   (type_args)))))
           (use
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 8:DeepType)
                   (type_args))))))))))

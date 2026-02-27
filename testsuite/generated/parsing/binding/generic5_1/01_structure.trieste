@@ -5,12 +5,12 @@ structure
   (file
     (module
       {}
-      (name 7:Module3)
+      (bname 7:Module3)
       (type_params)
       (body))
     (module
       {}
-      (name 4:Main)
+      (bname 4:Main)
       (type_params
         (group
           (name 2:T1)))
@@ -18,7 +18,7 @@ structure
         (indent
           (type_alias
             {}
-            (name 3:Foo)
+            (bname 3:Foo)
             (type_params)
             (type
               (name 2:T1))))))
@@ -30,7 +30,7 @@ structure
             (name 7:Module3)))))
     (module
       {}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent

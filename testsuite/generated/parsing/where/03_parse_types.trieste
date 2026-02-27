@@ -18,63 +18,63 @@ parse_types
   (file
     (struct
       {}
-      (name 4:True)
+      (bname 4:True)
       (type_params)
       (fields))
     (struct
       {}
-      (name 5:False)
+      (bname 5:False)
       (type_params)
       (fields))
     (struct
       {}
-      (name 4:None)
+      (bname 4:None)
       (type_params)
       (fields))
     (struct
       {
         P = type_param
         value = field}
-      (name 4:Some)
+      (bname 4:Some)
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args)))))))
     (type_alias
       {}
-      (name 4:Bool)
+      (bname 4:Bool)
       (type_params)
       (type
-        (type_or
-          (type_lookup
-            (type_reference
-              (name 4:True)
-              (type_args)))
-          (type_lookup
-            (type_reference
-              (name 5:False)
-              (type_args))))))
+        (lookup
+          (reference
+            (name 4:True)
+            (type_args)))
+        (type_or)
+        (lookup
+          (reference
+            (name 5:False)
+            (type_args)))))
     (struct
       {
         P = type_param
         value = field}
-      (name 4:Cell)
+      (bname 4:Cell)
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args)))))))
     (function
@@ -84,44 +84,50 @@ parse_types
         then = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 2:if)
+      (bname 2:if)
       (rhs
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 4:True)
                 (type_args)))))
         (param
-          (name 4:then)
+          (bname 4:then)
           (mode
             (cbn))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 6:Option)
             (type_args
               (type
-                (type_lookup
-                  (type_reference
+                (lookup
+                  (reference
                     (name 1:P)
                     (type_args))))))))
       (where)
       (body
         (expr_stack)
-        (name 4:Some)
+        (lookup
+          (reference
+            (name 4:Some)
+            (type_args)))
         (paren
-          (name 4:then))))
+          (lookup
+            (reference
+              (name 4:then)
+              (type_args))))))
     (function
       {
         P = type_param
@@ -129,42 +135,45 @@ parse_types
         then = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 2:if)
+      (bname 2:if)
       (rhs
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 5:False)
                 (type_args)))))
         (param
-          (name 4:then)
+          (bname 4:then)
           (mode
             (cbn))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 6:Option)
             (type_args
               (type
-                (type_lookup
-                  (type_reference
+                (lookup
+                  (reference
                     (name 1:P)
                     (type_args))))))))
       (where)
       (body
         (expr_stack)
-        (name 4:None)))
+        (lookup
+          (reference
+            (name 4:None)
+            (type_args)))))
     (function
       {
         P = type_param
@@ -172,83 +181,89 @@ parse_types
         prev = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs
         (param
-          (name 4:prev)
+          (bname 4:prev)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 4:None)
                 (type_args))))))
-      (name 4:else)
+      (bname 4:else)
       (rhs
         (param
-          (name 4:next)
+          (bname 4:next)
           (mode
             (cbn))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args))))))
       (type
-        (type_lookup
-          (type_reference
-            (name 1:P)
-            (type_args))))
-      (where)
-      (body
-        (expr_stack)
-        (name 4:next)))
-    (function
-      {
-        P = type_param
-        next = param
-        prev = param}
-      (type_params
-        (type_param
-          (name 1:P)))
-      (lhs
-        (param
-          (name 4:prev)
-          (mode
-            (cbv))
-          (type
-            (type_lookup
-              (type_reference
-                (name 4:Some)
-                (type_args
-                  (type
-                    (type_lookup
-                      (type_reference
-                        (name 1:P)
-                        (type_args))))))))))
-      (name 4:else)
-      (rhs
-        (param
-          (name 4:next)
-          (mode
-            (cbn))
-          (type
-            (type_lookup
-              (type_reference
-                (name 1:P)
-                (type_args))))))
-      (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 1:P)
             (type_args))))
       (where)
       (body
         (expr_stack)
         (lookup
-          (name 5:value)
+          (reference
+            (name 4:next)
+            (type_args)))))
+    (function
+      {
+        P = type_param
+        next = param
+        prev = param}
+      (type_params
+        (type_param
+          (bname 1:P)))
+      (lhs
+        (param
+          (bname 4:prev)
+          (mode
+            (cbv))
+          (type
+            (lookup
+              (reference
+                (name 4:Some)
+                (type_args
+                  (type
+                    (lookup
+                      (reference
+                        (name 1:P)
+                        (type_args))))))))))
+      (bname 4:else)
+      (rhs
+        (param
+          (bname 4:next)
+          (mode
+            (cbn))
+          (type
+            (lookup
+              (reference
+                (name 1:P)
+                (type_args))))))
+      (type
+        (lookup
+          (reference
+            (name 1:P)
+            (type_args))))
+      (where)
+      (body
+        (expr_stack)
+        (access
+          (bname 5:value)
           (args
-            (name 4:prev)))))
+            (lookup
+              (reference
+                (name 4:prev)
+                (type_args)))))))
     (function
       {
         P = type_param
@@ -256,70 +271,103 @@ parse_types
         cell2 = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs
         (param
-          (name 5:cell1)
+          (bname 5:cell1)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args))))))))))
-      (name 2:==)
+      (bname 2:==)
       (rhs
         (param
-          (name 5:cell2)
+          (bname 5:cell2)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args))))))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 4:Bool)
             (type_args))))
       (where
-        (name 2:==)
+        (lookup
+          (reference
+            (name 2:==)
+            (type_args)))
         (Colon)
-        (name 1:P)
+        (lookup
+          (reference
+            (name 1:P)
+            (type_args)))
         (arrow)
-        (name 4:Bool)
+        (lookup
+          (reference
+            (name 4:Bool)
+            (type_args)))
         (left_arrow)
-        (name 1:P))
+        (lookup
+          (reference
+            (name 1:P)
+            (type_args))))
       (body
         (expr_stack)
         (group
-          (name 2:if)
+          (lookup
+            (reference
+              (name 2:if)
+              (type_args)))
           (paren
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 5:cell1)))
-            (name 2:==)
+                (lookup
+                  (reference
+                    (name 5:cell1)
+                    (type_args)))))
             (lookup
-              (name 5:value)
+              (reference
+                (name 2:==)
+                (type_args)))
+            (access
+              (bname 5:value)
               (args
-                (name 5:cell2))))
+                (lookup
+                  (reference
+                    (name 5:cell2)
+                    (type_args))))))
           (indent
             (group
-              (name 4:True))))
+              (lookup
+                (reference
+                  (name 4:True)
+                  (type_args))))))
         (group
-          (name 4:else)
+          (lookup
+            (reference
+              (name 4:else)
+              (type_args)))
           (indent
             (group
-              (name 5:False))))))))
+              (lookup
+                (reference
+                  (name 5:False)
+                  (type_args))))))))))

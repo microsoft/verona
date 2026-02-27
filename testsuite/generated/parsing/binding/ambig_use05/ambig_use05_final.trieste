@@ -9,25 +9,25 @@ resolve_types
     (module
       {
         Target = struct}
-      (name 7:SourceA)
+      (bname 7:SourceA)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 6:Target)
+            (bname 6:Target)
             (type_params)
             (fields)))))
     (module
       {
         Target = struct}
-      (name 7:SourceB)
+      (bname 7:SourceB)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 6:Target)
+            (bname 6:Target)
             (type_params)
             (fields)))))
     (module
@@ -35,35 +35,35 @@ resolve_types
         Alias = type_alias
         include use SourceA
         include use SourceB}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 7:SourceA)
                   (type_args)))))
           (type_alias
             {}
-            (name 5:Alias)
+            (bname 5:Alias)
             (type_params)
             (type
-              (type_lookup
+              (lookup
                 (../)
                 (../)
-                (type_reference
+                (reference
                   (name 7:SourceA)
                   (type_args))
-                (type_reference
+                (reference
                   (name 6:Target)
                   (type_args)))))
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 7:SourceB)
                   (type_args))))))))))

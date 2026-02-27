@@ -5,23 +5,23 @@ structure
   (file
     (module
       {}
-      (name 5:Types)
+      (bname 5:Types)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 3:Int)
+            (bname 3:Int)
             (type_params)
             (fields))
           (struct
             {}
-            (name 6:String)
+            (bname 6:String)
             (type_params)
             (fields)))))
     (module
       {}
-      (name 4:Data)
+      (bname 4:Data)
       (type_params)
       (body
         (indent
@@ -30,20 +30,20 @@ structure
               (name 5:Types)))
           (struct
             {}
-            (name 6:Person)
+            (bname 6:Person)
             (type_params)
             (fields
               (field
-                (name 3:age)
+                (bname 3:age)
                 (type
                   (name 3:Int)))
               (field
-                (name 4:name)
+                (bname 4:name)
                 (type
                   (name 6:String))))))))
     (module
       {}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent

@@ -10,39 +10,39 @@ function_parse
     (module
       {
         B = module}
-      (name 1:A)
+      (bname 1:A)
       (type_params)
       (body
         (indent
           (module
             {
               C = module}
-            (name 1:B)
+            (bname 1:B)
             (type_params)
             (body
               (indent
                 (module
                   {
                     Target = struct}
-                  (name 1:C)
+                  (bname 1:C)
                   (type_params)
                   (body
                     (indent
                       (struct
                         {}
-                        (name 6:Target)
+                        (bname 6:Target)
                         (type_params)
                         (fields)))))))))))
     (module
       {
         AliasToB = type_alias}
-      (name 1:X)
+      (bname 1:X)
       (type_params)
       (body
         (indent
           (type_alias
             {}
-            (name 8:AliasToB)
+            (bname 8:AliasToB)
             (type_params)
             (type
               (name 1:A)
@@ -52,7 +52,7 @@ function_parse
       {
         AliasToC = type_alias
         include use X}
-      (name 1:Y)
+      (bname 1:Y)
       (type_params)
       (body
         (indent
@@ -61,7 +61,7 @@ function_parse
               (name 1:X)))
           (type_alias
             {}
-            (name 8:AliasToC)
+            (bname 8:AliasToC)
             (type_params)
             (type
               (name 8:AliasToB)
@@ -71,7 +71,7 @@ function_parse
       {
         include use Y::AliasToC
         include use Target}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent

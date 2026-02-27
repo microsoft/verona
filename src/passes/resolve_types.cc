@@ -11,7 +11,7 @@
 namespace infix {
 
 Node clone_type_lookup_prefix(const Node &type_lookup, size_t count) {
-  Node cloned = TypeLookup;
+  Node cloned = Lookup;
   for (size_t i = 0; i < count && i < type_lookup->size(); ++i) {
     cloned->push_back(type_lookup->at(i)->clone());
   }
@@ -22,7 +22,7 @@ Node clone_type_lookup_prefix(const Node &type_lookup, size_t count) {
 // nodes. Uses bottom_up_map to perform the cloning.
 Node prepend_parents(Node source, size_t count) {
   return bottom_up_map(source, [count](Node n, const Node &) {
-    if (!(n == TypeLookup))
+    if (!(n == Lookup))
       return n;
     n->insert(n->begin(), count, Parent);
     return n;
@@ -52,6 +52,14 @@ auto ambiguous_lookup_error(Node symtab, Node node) {
   }
 
   return symtab << error_node;
+}
+
+// Check if all nodes in a lookup result set are overloadable (Function).
+// Multiple definitions of these are valid overloads, not ambiguity errors.
+bool all_overloadable(const Nodes &results) {
+  return std::all_of(results.begin(), results.end(), [](const Node &n) {
+    return n == Function;
+  });
 }
 
 // Return the index of `child` within its parent, if any.
@@ -98,7 +106,7 @@ struct ResolveWork {
     Node type_node = use_node / Type;
     assert(type_node->size() == 1);
     Node type_lookup = type_node->at(0);
-    assert(type_lookup == TypeLookup);
+    assert(type_lookup == Lookup);
     return type_lookup;
   }
 
@@ -141,7 +149,7 @@ struct ResolveWork {
         continue;
       }
 
-      assert(elem == TypeReference);
+      assert(elem == Reference);
 
       assert(scope);
 
@@ -155,7 +163,7 @@ struct ResolveWork {
 
         // Get type args from previous segment (at i-1)
         Node type_args = nullptr;
-        if (segment_count > 0 && entry->at(i - 1) == TypeReference) {
+        if (segment_count > 0 && entry->at(i - 1) == Reference) {
           type_args = entry->at(i - 1) / TypeArgs;
         }
 
@@ -169,7 +177,7 @@ struct ResolveWork {
         Node arg = type_args->at(index.value());
         assert(arg == Type);
         Node lookup_arg = arg->at(0);
-        assert(lookup_arg == TypeLookup);
+        assert(lookup_arg == Lookup);
 
         // Replace prefix (0 to i inclusive) with type arg content
         entry->erase(entry->begin(), entry->begin() + i + 1);
@@ -195,7 +203,7 @@ struct ResolveWork {
 
   static Node rebase_path(const Node &base, size_t prefix_count, Node source) {
     // Only rebase type lookups.
-    if (source != TypeLookup) {
+    if (source != Lookup) {
       return source;
     }
     Node prefix = clone_type_lookup_prefix(base, prefix_count);
@@ -218,11 +226,11 @@ struct ResolveWork {
     size_t levels = 0;
     while (scope) {
       auto results = scope->look(name->location());
-      if (results.size() > 1) {
+      if (results.size() > 1 && !all_overloadable(results)) {
         ambiguous_lookup_error(scope, name);
         break;
       }
-      if (results.size() == 1) {
+      if (results.size() >= 1) {
         // Found directly in scope chain.
         entry->insert(entry->begin(), levels, Parent);
         state.resolved_end = levels; // Only the Parents are "resolved" so far
@@ -273,12 +281,12 @@ struct ResolveWork {
 
         auto &u_lookup_state = worker.state(u_lookup);
         auto found = u_lookup_state.node->look(name->location());
-        if (found.size() > 1) {
+        if (found.size() > 1 && !all_overloadable(found)) {
           ambiguous_lookup_error(u_lookup_state.node, name);
           continue;
         }
 
-        if (found.size() == 1) {
+        if (found.size() >= 1) {
           matching_uses.push_back(u);
           matched_lookup = u_lookup;
           matched_scope = u_lookup_state.node;
@@ -287,15 +295,27 @@ struct ResolveWork {
 
       if (matching_uses.size() > 1) {
         // Multiple use statements at this scope level bring the same name
-        // into scope. Report an ambiguity error listing the use statements.
-        Node error_node = Error << (ErrorMsg ^ "Ambiguous lookup:")
-                                << (ErrorMsg ^ name->location().str())
-                                << (ErrorMsg ^ " found in multiple use statements:");
-        for (auto &u : matching_uses) {
-          error_node << (ErrorMsg ^ u->location().str());
+        // into scope. Check if all matches are overloadable functions.
+        bool all_uses_overloadable = true;
+        for (const auto &u : matching_uses) {
+          auto u_lookup = use_to_type_lookup(u);
+          auto &u_lookup_state = worker.state(u_lookup);
+          auto found = u_lookup_state.node->look(name->location());
+          if (!all_overloadable(found)) {
+            all_uses_overloadable = false;
+            break;
+          }
         }
-        scope << error_node;
-        return false;
+        if (!all_uses_overloadable) {
+          Node error_node = Error << (ErrorMsg ^ "Ambiguous lookup:")
+                                  << (ErrorMsg ^ name->location().str())
+                                  << (ErrorMsg ^ " found in multiple use statements:");
+          for (auto &u : matching_uses) {
+            error_node << (ErrorMsg ^ u->location().str());
+          }
+          scope << error_node;
+          return false;
+        }
       }
 
       if (matched_lookup != nullptr) {
@@ -328,7 +348,7 @@ struct ResolveWork {
     n->traverse([&](Node &current) {
       if (current == n)
         return true;
-      if (current == Type || current == TypeLookup) {
+      if (current == Type || current == Lookup) {
         if (!worker.is_resolved(current)) {
           subterms_to_wait_on.push_back(current);
         }
@@ -362,7 +382,7 @@ struct ResolveWork {
       return true;
     }
 
-    assert(entry == TypeLookup);
+    assert(entry == Lookup);
 
     // Helper to count remaining unresolved elements
     auto remaining = [&]() { return entry->size() - state.resolved_end; };
@@ -381,8 +401,8 @@ struct ResolveWork {
         continue;
       }
 
-      // Should be a TypeReference at this point
-      assert(current == TypeReference);
+      // Should be a Reference at this point
+      assert(current == Reference);
 
       // If path is uninitialized, look up the first name
       if (state.node == nullptr) {
@@ -398,20 +418,21 @@ struct ResolveWork {
       Node head = current / Name;
       // Now look up the current segment
       auto found = state.node->look(head->location());
-      // Should find either a module/struct, a type alias, or a type
-      // parameter.
-      if (found.size() != 1) {
+      if (found.size() == 0) {
+        // Not found at this level.
+        return false;
+      }
+      if (found.size() > 1 && !all_overloadable(found)) {
         ambiguous_lookup_error(state.node, head);
         return false;
       }
 
       if (found.front() == TypeAlias) {
         Node alias_type = found.front() / Type;
-        Node name = found.front() / Name;
 
         // Can only expand if the alias body is a single TypeLookup
         bool can_expand =
-            (alias_type->size() == 1) && (alias_type->at(0) == TypeLookup);
+            (alias_type->size() == 1) && (alias_type->at(0) == Lookup);
 
         if (!can_expand || ((remaining() == 1) && !state.expand_aliases)) {
           // Don't expand the alias if:
@@ -500,6 +521,24 @@ struct ResolveWork {
         }
       }
 
+      // Terminal value-level endpoints: Param, Function, Field.
+      // These cannot be descended into with further :: segments.
+      if (found.front() == Param || found.front() == Function ||
+          found.front() == Field) {
+        if (remaining() != 1) {
+          head << (Error << (ErrorMsg ^
+                             "Cannot resolve lookup with additional "
+                             "segments after " +
+                             std::string(found.front()->type().str()))
+                         << (ErrorMsg ^ head->location().str()));
+          return false;
+        }
+
+        state.resolved_end++;
+        state.node = found.front();
+        continue;
+      }
+
       // Unhandled candidate type will fail resolution at this level.
       return false;
     }
@@ -519,27 +558,23 @@ PassDef get_resolve_types_pass() {
                wf_function_parse,
                dir::bottomup | dir::once,
                {
-                   T(Use) << (T(Type) << (T(TypeLookup)[TypeLookup])) >>
+                   T(Use) << (T(Type) << (T(Lookup)[Lookup])) >>
                        [worker](auto &_) -> Node {
                      // For each use statement, we need to resolve the type
                      // lookup in its type. This will allow us to rebase the
                      // used module's contents into the current scope when
                      // processing the use.
-                     Node type_lookup = _(TypeLookup);
-                     worker->add(type_lookup);
+                     Node lookup = _(Lookup);
+                     worker->add(lookup);
                      // For use statements, we want to expand the aliases
                      // even at the head of the term.
-                     worker->state(type_lookup).expand_aliases = true;
+                     worker->state(lookup).expand_aliases = true;
                      return NoChange;
                    },
 
-                   T(TypeLookup)[TypeLookup] >> [worker](auto &_) -> Node {
-                     // For each type lookup, we need to resolve it to the
-                     // final scope node it refers to. This will allow us to
-                     // rebase type aliases correctly when processing the
-                     // type lookup.
-                     Node type_lookup = _(TypeLookup);
-                     worker->add(type_lookup);
+                   T(Lookup)[Lookup] >> [worker](auto &_) -> Node {
+                     Node lookup = _(Lookup);
+                     worker->add(lookup);
                      return NoChange;
                    },
                }};
@@ -551,7 +586,7 @@ PassDef get_resolve_types_pass() {
     for (const auto &pair : worker->states()) {
       auto &name = pair.first;
       auto &status = pair.second;
-      if (pair.first != TypeLookup) {
+      if (pair.first != Lookup) {
         continue;
       }
 

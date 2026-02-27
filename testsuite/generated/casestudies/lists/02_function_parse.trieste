@@ -36,38 +36,38 @@ function_parse
   (file
     (struct
       {}
-      (name 4:True)
+      (bname 4:True)
       (type_params)
       (fields))
     (struct
       {}
-      (name 5:False)
+      (bname 5:False)
       (type_params)
       (fields))
     (struct
       {}
-      (name 3:Int)
+      (bname 3:Int)
       (type_params)
       (fields))
     (struct
       {
         P = type_param
         Q = type_param}
-      (name 3:Fun)
+      (bname 3:Fun)
       (type_params
         (type_param
-          (name 1:P))
+          (bname 1:P))
         (type_param
-          (name 1:Q)))
+          (bname 1:Q)))
       (fields))
     (struct
       {}
-      (name 6:String)
+      (bname 6:String)
       (type_params)
       (fields))
     (type_alias
       {}
-      (name 4:Bool)
+      (bname 4:Bool)
       (type_params)
       (type
         (name 4:True)
@@ -75,29 +75,29 @@ function_parse
         (name 5:False)))
     (struct
       {}
-      (name 4:None)
+      (bname 4:None)
       (type_params)
       (fields))
     (struct
       {
         P = type_param
         value = field}
-      (name 4:Some)
+      (bname 4:Some)
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
             (name 1:P)))))
     (type_alias
       {
         P = type_param}
-      (name 6:Option)
+      (bname 6:Option)
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (type
         (name 4:None)
         (name 1:|)
@@ -112,18 +112,18 @@ function_parse
         thenBranch = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 2:if)
+      (bname 2:if)
       (rhs
         (param
-          (name 9:condition)
+          (bname 9:condition)
           (mode
             (cbv))
           (type
             (name 4:True)))
         (param
-          (name 10:thenBranch)
+          (bname 10:thenBranch)
           (mode
             (cbn))
           (type
@@ -145,18 +145,18 @@ function_parse
         thenBranch = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 2:if)
+      (bname 2:if)
       (rhs
         (param
-          (name 9:condition)
+          (bname 9:condition)
           (mode
             (cbv))
           (type
             (name 5:False)))
         (param
-          (name 10:thenBranch)
+          (bname 10:thenBranch)
           (mode
             (cbn))
           (type
@@ -175,10 +175,10 @@ function_parse
         b = param}
       (type_params)
       (lhs)
-      (name 3:not)
+      (bname 3:not)
       (rhs
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
@@ -194,10 +194,10 @@ function_parse
         b = param}
       (type_params)
       (lhs)
-      (name 3:not)
+      (bname 3:not)
       (rhs
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
@@ -215,10 +215,10 @@ function_parse
         value = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs
         (param
-          (name 3:lhs)
+          (bname 3:lhs)
           (mode
             (cbv))
           (type
@@ -226,10 +226,10 @@ function_parse
             (square
               (group
                 (name 1:P))))))
-      (name 4:else)
+      (bname 4:else)
       (rhs
         (param
-          (name 5:value)
+          (bname 5:value)
           (mode
             (cbn))
           (type
@@ -239,8 +239,8 @@ function_parse
       (where)
       (body
         (expr_stack)
-        (lookup
-          (name 5:value)
+        (access
+          (bname 5:value)
           (args
             (name 3:lhs)))))
     (function
@@ -250,18 +250,18 @@ function_parse
         value = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs
         (param
-          (name 3:lhs)
+          (bname 3:lhs)
           (mode
             (cbv))
           (type
             (name 4:None))))
-      (name 4:else)
+      (bname 4:else)
       (rhs
         (param
-          (name 5:value)
+          (bname 5:value)
           (mode
             (cbn))
           (type
@@ -277,9 +277,9 @@ function_parse
         T = type_param}
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (lhs)
-      (name 5:abort)
+      (bname 5:abort)
       (rhs)
       (type
         (name 1:T))
@@ -293,12 +293,12 @@ function_parse
       (type_params)
       (lhs
         (param
-          (name 1:i)
+          (bname 1:i)
           (mode
             (cbv))
           (type
             (name 3:Int))))
-      (name 8:toString)
+      (bname 8:toString)
       (rhs)
       (type
         (name 6:String))
@@ -308,7 +308,7 @@ function_parse
         (name 5:abort)))
     (struct
       {}
-      (name 9:EmptyList)
+      (bname 9:EmptyList)
       (type_params)
       (fields))
     (struct
@@ -316,17 +316,17 @@ function_parse
         T = type_param
         next = field
         value = field}
-      (name 8:ListNode)
+      (bname 8:ListNode)
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
             (name 1:T)))
         (field
-          (name 4:next)
+          (bname 4:next)
           (type
             (name 4:List)
             (square
@@ -335,10 +335,10 @@ function_parse
     (type_alias
       {
         T = type_param}
-      (name 4:List)
+      (bname 4:List)
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (type
         (name 9:EmptyList)
         (name 1:|)
@@ -352,12 +352,12 @@ function_parse
       (type_params)
       (lhs
         (param
-          (name 1:l)
+          (bname 1:l)
           (mode
             (cbv))
           (type
             (name 9:EmptyList))))
-      (name 7:isEmpty)
+      (bname 7:isEmpty)
       (rhs)
       (type
         (name 4:Bool))
@@ -371,10 +371,10 @@ function_parse
         l = param}
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (lhs
         (param
-          (name 1:l)
+          (bname 1:l)
           (mode
             (cbv))
           (type
@@ -382,7 +382,7 @@ function_parse
             (square
               (group
                 (name 1:T))))))
-      (name 7:isEmpty)
+      (bname 7:isEmpty)
       (rhs)
       (type
         (name 4:Bool))
@@ -396,12 +396,12 @@ function_parse
         l = param}
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (lhs)
-      (name 4:test)
+      (bname 4:test)
       (rhs
         (param
-          (name 1:l)
+          (bname 1:l)
           (mode
             (cbv))
           (type
@@ -436,12 +436,12 @@ function_parse
         x = param}
       (type_params
         (type_param
-          (name 1:P))
+          (bname 1:P))
         (type_param
-          (name 1:Q)))
+          (bname 1:Q)))
       (lhs
         (param
-          (name 1:f)
+          (bname 1:f)
           (mode
             (cbv))
           (type
@@ -451,10 +451,10 @@ function_parse
                 (name 1:P))
               (group
                 (name 1:Q))))))
-      (name 1:@)
+      (bname 1:@)
       (rhs
         (param
-          (name 1:x)
+          (bname 1:x)
           (mode
             (cbv))
           (type
@@ -476,12 +476,12 @@ function_parse
         l = param}
       (type_params
         (type_param
-          (name 1:P))
+          (bname 1:P))
         (type_param
-          (name 1:Q)))
+          (bname 1:Q)))
       (lhs
         (param
-          (name 1:l)
+          (bname 1:l)
           (mode
             (cbv))
           (type
@@ -489,10 +489,10 @@ function_parse
             (square
               (group
                 (name 1:P))))))
-      (name 3:map)
+      (bname 3:map)
       (rhs
         (param
-          (name 1:f)
+          (bname 1:f)
           (mode
             (cbv))
           (type
@@ -516,10 +516,10 @@ function_parse
               l = param}
             (type_params)
             (lhs)
-            (name 5:inner)
+            (bname 5:inner)
             (rhs
               (param
-                (name 1:l)
+                (bname 1:l)
                 (mode
                   (cbv))
                 (type
@@ -538,10 +538,10 @@ function_parse
               l = param}
             (type_params)
             (lhs)
-            (name 5:inner)
+            (bname 5:inner)
             (rhs
               (param
-                (name 1:l)
+                (bname 1:l)
                 (mode
                   (cbv))
                 (type
@@ -563,14 +563,14 @@ function_parse
                   (paren
                     (name 1:f)
                     (name 1:@)
-                    (lookup
-                      (name 5:value)
+                    (access
+                      (bname 5:value)
                       (args
                         (name 1:l))))
                   (paren
                     (name 5:inner)
-                    (lookup
-                      (name 4:next)
+                    (access
+                      (bname 4:next)
                       (args
                         (name 1:l))))))))
           (group
@@ -586,16 +586,16 @@ function_parse
         l = param}
       (type_params
         (type_param
-          (name 1:P))
+          (bname 1:P))
         (type_param
-          (name 1:Q))
+          (bname 1:Q))
         (type_param
-          (name 1:R)))
+          (bname 1:R)))
       (lhs)
-      (name 4:test)
+      (bname 4:test)
       (rhs
         (param
-          (name 1:l)
+          (bname 1:l)
           (mode
             (cbv))
           (type
@@ -604,7 +604,7 @@ function_parse
               (group
                 (name 1:P)))))
         (param
-          (name 1:f)
+          (bname 1:f)
           (mode
             (cbv))
           (type
@@ -615,7 +615,7 @@ function_parse
               (group
                 (name 1:Q)))))
         (param
-          (name 1:g)
+          (bname 1:g)
           (mode
             (cbv))
           (type

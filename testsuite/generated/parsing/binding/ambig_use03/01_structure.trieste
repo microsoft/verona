@@ -5,40 +5,40 @@ structure
   (file
     (module
       {}
-      (name 7:SourceA)
+      (bname 7:SourceA)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 8:Conflict)
+            (bname 8:Conflict)
             (type_params)
             (fields)))))
     (module
       {}
-      (name 7:SourceB)
+      (bname 7:SourceB)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 5:Other)
+            (bname 5:Other)
             (type_params)
             (fields)))))
     (module
       {}
-      (name 7:SourceC)
+      (bname 7:SourceC)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 8:Conflict)
+            (bname 8:Conflict)
             (type_params)
             (fields)))))
     (module
       {}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent
@@ -53,7 +53,7 @@ structure
               (name 7:SourceC)))
           (type_alias
             {}
-            (name 5:Alias)
+            (bname 5:Alias)
             (type_params)
             (type
               (name 8:Conflict))))))))

@@ -8,46 +8,46 @@ resolve_types
   (file
     (struct
       {}
-      (name 4:None)
+      (bname 4:None)
       (type_params)
       (fields))
     (struct
       {
         P = type_param
         value = field}
-      (name 4:Some)
+      (bname 4:Some)
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args)))))))
     (type_alias
       {
         P = type_param}
-      (name 6:Option)
+      (bname 6:Option)
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (type
-        (type_or
-          (type_lookup
-            (../)
-            (type_reference
-              (name 4:None)
-              (type_args)))
-          (type_lookup
-            (../)
-            (type_reference
-              (name 4:Some)
-              (type_args
-                (type
-                  (type_lookup
-                    (type_reference
-                      (name 1:P)
-                      (type_args))))))))))))
+        (lookup
+          (../)
+          (reference
+            (name 4:None)
+            (type_args)))
+        (type_or)
+        (lookup
+          (../)
+          (reference
+            (name 4:Some)
+            (type_args
+              (type
+                (lookup
+                  (reference
+                    (name 1:P)
+                    (type_args)))))))))))

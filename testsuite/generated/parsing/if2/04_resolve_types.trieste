@@ -13,49 +13,49 @@ resolve_types
   (file
     (struct
       {}
-      (name 4:True)
+      (bname 4:True)
       (type_params)
       (fields))
     (struct
       {}
-      (name 5:False)
+      (bname 5:False)
       (type_params)
       (fields))
     (type_alias
       {}
-      (name 4:Bool)
+      (bname 4:Bool)
       (type_params)
       (type
-        (type_or
-          (type_lookup
-            (../)
-            (type_reference
-              (name 4:True)
-              (type_args)))
-          (type_lookup
-            (../)
-            (type_reference
-              (name 5:False)
-              (type_args))))))
+        (lookup
+          (../)
+          (reference
+            (name 4:True)
+            (type_args)))
+        (type_or)
+        (lookup
+          (../)
+          (reference
+            (name 5:False)
+            (type_args)))))
     (struct
       {}
-      (name 4:None)
+      (bname 4:None)
       (type_params)
       (fields))
     (struct
       {
         P = type_param
         value = field}
-      (name 4:Some)
+      (bname 4:Some)
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args)))))))
     (function
@@ -65,37 +65,37 @@ resolve_types
         thenBranch = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 2:if)
+      (bname 2:if)
       (rhs
         (param
-          (name 9:condition)
+          (bname 9:condition)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:True)
                 (type_args)))))
         (param
-          (name 10:thenBranch)
+          (bname 10:thenBranch)
           (mode
             (cbn))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 6:Option)
             (type_args
               (type
-                (type_lookup
-                  (type_reference
+                (lookup
+                  (reference
                     (name 1:P)
                     (type_args))))))
           (error
@@ -106,8 +106,15 @@ resolve_types
       (where)
       (body
         (expr_stack)
-        (name 4:Some)
-        (name 10:thenBranch)))
+        (lookup
+          (../)
+          (reference
+            (name 4:Some)
+            (type_args)))
+        (lookup
+          (reference
+            (name 10:thenBranch)
+            (type_args)))))
     (function
       {
         P = type_param
@@ -115,37 +122,37 @@ resolve_types
         thenBranch = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 2:if)
+      (bname 2:if)
       (rhs
         (param
-          (name 9:condition)
+          (bname 9:condition)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 5:False)
                 (type_args)))))
         (param
-          (name 10:thenBranch)
+          (bname 10:thenBranch)
           (mode
             (cbn))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 6:Option)
             (type_args
               (type
-                (type_lookup
-                  (type_reference
+                (lookup
+                  (reference
                     (name 1:P)
                     (type_args))))))
           (error
@@ -156,4 +163,8 @@ resolve_types
       (where)
       (body
         (expr_stack)
-        (name 4:None)))))
+        (lookup
+          (../)
+          (reference
+            (name 4:None)
+            (type_args)))))))

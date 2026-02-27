@@ -320,7 +320,7 @@ parse
       (eq)
       (indent
         (group
-          (name 2:c1)
+          (name 1:c)
           (dot)
           (name 5:value)
           (eq)

@@ -11,101 +11,101 @@ parse_types
   (file
     (struct
       {}
-      (name 3:Int)
+      (bname 3:Int)
       (type_params)
       (fields))
     (struct
       {}
-      (name 4:None)
+      (bname 4:None)
       (type_params)
       (fields))
     (struct
       {
         T = type_param
         value = field}
-      (name 4:Some)
+      (bname 4:Some)
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:T)
                 (type_args)))))))
     (type_alias
       {
         T = type_param}
-      (name 6:Option)
+      (bname 6:Option)
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (type
-        (type_or
-          (type_lookup
-            (type_reference
-              (name 4:None)
-              (type_args)))
-          (type_lookup
-            (type_reference
-              (name 4:Some)
-              (type_args
-                (type
-                  (type_lookup
-                    (type_reference
-                      (name 1:T)
-                      (type_args))))))))))
+        (lookup
+          (reference
+            (name 4:None)
+            (type_args)))
+        (type_or)
+        (lookup
+          (reference
+            (name 4:Some)
+            (type_args
+              (type
+                (lookup
+                  (reference
+                    (name 1:T)
+                    (type_args)))))))))
     (struct
       {
         T = type_param
         current = field
         next = field}
-      (name 9:Container)
+      (bname 9:Container)
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (fields
         (field
-          (name 7:current)
+          (bname 7:current)
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:T)
                 (type_args)))))
         (field
-          (name 4:next)
+          (bname 4:next)
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 6:Option)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 9:Container)
                         (type_args
                           (type
-                            (type_lookup
-                              (type_reference
+                            (lookup
+                              (reference
                                 (name 1:T)
                                 (type_args)))))))))))))))
     (module
       {
         include use Container[Int}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 9:Container)
                   (type_args
                     (type
-                      (type_lookup
-                        (type_reference
+                      (lookup
+                        (reference
                           (name 3:Int)
                           (type_args))))))))))))))

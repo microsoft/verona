@@ -9,22 +9,22 @@ function_parse
   (file
     (module
       {}
-      (name 7:Module3)
+      (bname 7:Module3)
       (type_params)
       (body))
     (module
       {
         Foo = type_alias
         T1 = type_param}
-      (name 4:Main)
+      (bname 4:Main)
       (type_params
         (type_param
-          (name 2:T1)))
+          (bname 2:T1)))
       (body
         (indent
           (type_alias
             {}
-            (name 3:Foo)
+            (bname 3:Foo)
             (type_params)
             (type
               (name 2:T1))))))
@@ -37,7 +37,7 @@ function_parse
     (module
       {
         include use Foo}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent

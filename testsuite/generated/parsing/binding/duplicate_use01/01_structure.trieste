@@ -5,18 +5,18 @@ structure
   (file
     (module
       {}
-      (name 6:Source)
+      (bname 6:Source)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 6:Target)
+            (bname 6:Target)
             (type_params)
             (fields)))))
     (module
       {}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent

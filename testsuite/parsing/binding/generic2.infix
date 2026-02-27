@@ -13,6 +13,4 @@ module Test
   # This brings Int into scope.
   use Module1[Module2[Module3]]::Foo::Bar
 
-  function test: Int =
-    1
-
+  use Int

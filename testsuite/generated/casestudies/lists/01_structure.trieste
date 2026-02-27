@@ -5,22 +5,22 @@ structure
   (file
     (struct
       {}
-      (name 4:True)
+      (bname 4:True)
       (type_params)
       (fields))
     (struct
       {}
-      (name 5:False)
+      (bname 5:False)
       (type_params)
       (fields))
     (struct
       {}
-      (name 3:Int)
+      (bname 3:Int)
       (type_params)
       (fields))
     (struct
       {}
-      (name 3:Fun)
+      (bname 3:Fun)
       (type_params
         (group
           (name 1:P))
@@ -29,12 +29,12 @@ structure
       (fields))
     (struct
       {}
-      (name 6:String)
+      (bname 6:String)
       (type_params)
       (fields))
     (type_alias
       {}
-      (name 4:Bool)
+      (bname 4:Bool)
       (type_params)
       (type
         (name 4:True)
@@ -42,23 +42,23 @@ structure
         (name 5:False)))
     (struct
       {}
-      (name 4:None)
+      (bname 4:None)
       (type_params)
       (fields))
     (struct
       {}
-      (name 4:Some)
+      (bname 4:Some)
       (type_params
         (group
           (name 1:P)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
             (name 1:P)))))
     (type_alias
       {}
-      (name 6:Option)
+      (bname 6:Option)
       (type_params
         (group
           (name 1:P)))
@@ -157,8 +157,8 @@ structure
       (Colon)
       (name 1:P)
       (eq)
-      (lookup
-        (name 5:value)
+      (access
+        (bname 5:value)
         (args
           (name 3:lhs))))
     (function
@@ -203,22 +203,22 @@ structure
       (name 5:abort))
     (struct
       {}
-      (name 9:EmptyList)
+      (bname 9:EmptyList)
       (type_params)
       (fields))
     (struct
       {}
-      (name 8:ListNode)
+      (bname 8:ListNode)
       (type_params
         (group
           (name 1:T)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
             (name 1:T)))
         (field
-          (name 4:next)
+          (bname 4:next)
           (type
             (name 4:List)
             (square
@@ -226,7 +226,7 @@ structure
                 (name 1:T)))))))
     (type_alias
       {}
-      (name 4:List)
+      (bname 4:List)
       (type_params
         (group
           (name 1:T)))
@@ -387,14 +387,14 @@ structure
               (paren
                 (name 1:f)
                 (name 1:@)
-                (lookup
-                  (name 5:value)
+                (access
+                  (bname 5:value)
                   (args
                     (name 1:l))))
               (paren
                 (name 5:inner)
-                (lookup
-                  (name 4:next)
+                (access
+                  (bname 4:next)
                   (args
                     (name 1:l)))))))
         (group

@@ -5,28 +5,28 @@ structure
   (file
     (module
       {}
-      (name 5:Types)
+      (bname 5:Types)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 1:A)
+            (bname 1:A)
             (type_params)
             (fields))
           (struct
             {}
-            (name 1:B)
+            (bname 1:B)
             (type_params)
             (fields))
           (struct
             {}
-            (name 1:C)
+            (bname 1:C)
             (type_params)
             (fields)))))
     (module
       {}
-      (name 4:Defs)
+      (bname 4:Defs)
       (type_params)
       (body
         (indent
@@ -35,7 +35,7 @@ structure
               (name 5:Types)))
           (type_alias
             {}
-            (name 6:Choice)
+            (bname 6:Choice)
             (type_params)
             (type
               (name 1:A)

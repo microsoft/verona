@@ -59,12 +59,5 @@ parse
           (DoubleColon)
           (name 3:Bar))
         (group
-          (function
-            {})
-          (name 4:test)
-          (Colon)
-          (name 3:Int)
-          (eq)
-          (indent
-            (group
-              (name 1:1))))))))
+          (use)
+          (name 3:Int))))))

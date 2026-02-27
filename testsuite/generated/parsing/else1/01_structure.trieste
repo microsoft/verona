@@ -5,17 +5,17 @@ structure
   (file
     (struct
       {}
-      (name 4:True)
+      (bname 4:True)
       (type_params)
       (fields))
     (struct
       {}
-      (name 5:False)
+      (bname 5:False)
       (type_params)
       (fields))
     (type_alias
       {}
-      (name 4:Bool)
+      (bname 4:Bool)
       (type_params)
       (type
         (name 4:True)
@@ -23,18 +23,18 @@ structure
         (name 5:False)))
     (struct
       {}
-      (name 4:None)
+      (bname 4:None)
       (type_params)
       (fields))
     (struct
       {}
-      (name 4:Some)
+      (bname 4:Some)
       (type_params
         (group
           (name 1:P)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
             (name 1:P)))))
     (function
@@ -58,8 +58,8 @@ structure
       (Colon)
       (name 1:P)
       (eq)
-      (lookup
-        (name 5:value)
+      (access
+        (bname 5:value)
         (args
           (name 3:lhs))))
     (function

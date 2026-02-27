@@ -39,8 +39,8 @@ inline const auto Arrow = TokenDef("arrow");
 inline const auto LeftArrow = TokenDef("left_arrow");
 inline const auto Backtick = TokenDef("Backtick");
 
-inline const auto TypeLookup = TokenDef("type_lookup");
-inline const auto TypeReference = TokenDef("type_reference");
+inline const auto Lookup = TokenDef("lookup");
+inline const auto Reference = TokenDef("reference");
 inline const auto TypeArgs = TokenDef("type_args");
 inline const auto TypeArg = TokenDef("type_arg");
 inline const auto TypeOr = TokenDef("type_or");
@@ -54,6 +54,7 @@ inline const auto Create = TokenDef("create");
 inline const auto Args = TokenDef("args");
 
 inline const auto Name = TokenDef("name", flag::print);
+inline const auto BName = TokenDef("bname", flag::print);
 inline const auto String = TokenDef("string", flag::print);
 
 inline const auto Lhs = TokenDef("lhs");
@@ -69,11 +70,10 @@ inline const auto Field = TokenDef("field", flag::lookup);
 inline const auto Param = TokenDef("param", flag::lookup);
 inline const auto Body = TokenDef("body");
 inline const auto Expr = TokenDef("expr");
-inline const auto Lookup = TokenDef("lookup");
+inline const auto Access = TokenDef("access");
 inline const auto ExprStack = TokenDef("expr_stack");
 inline const auto Assign = TokenDef("assign");
-inline const auto OperatorDef =
-    TokenDef("operator_def", flag::lookup | flag::lookdown);
+
 
 using namespace wf::ops;
 inline const auto wf_parse_tokens =
@@ -93,33 +93,45 @@ inline const auto wf_parse_tokens_no_op =
     Square | Underscore | Arrow | Backtick | String | Hat;
 
 inline const auto wf_operator_defn =
-    (Top <<= File) | (File <<= (Group | OperatorDef)++) |
+    (Top <<= File) | (File <<= Group++) |
     (Paren <<= wf_parse_tokens_no_op++) | (Square <<= wf_parse_tokens_no_op++) |
     (Group <<= wf_parse_tokens_no_op++) | (Indent <<= wf_parse_tokens++) |
-    (OperatorDef <<= Name * Lhs * Rhs)[Name] | (Lhs <<= Underscore++) |
+    (Lhs <<= Underscore++) |
     (Rhs <<= Underscore++);
 
 inline const auto wf_decls = Struct | TypeAlias | Function | Module | Use;
 
 inline const auto wf_term = Paren | Name | Group | Indent | Dot | Arrow |
-                            LeftArrow | Colon | Lookup | Eq | SemiColon | Square | DoubleColon;
+                            LeftArrow | Colon | Access | Eq | SemiColon | Square | DoubleColon | Lookup;
 
 inline const auto wf_function_parse =
-    (Top <<= File) | (File <<= wf_decls++) |
-    (Struct <<= Name * TypeParams * Fields)[Name] |
-    (TypeAlias <<= Name * TypeParams * Type)[Name] |
-    (Paren <<= (wf_decls | wf_term)++) | (Indent <<= (wf_decls | wf_term)++) |
+    (Top <<= File) |
+    (File <<= wf_decls++) |
+    (Struct <<= BName * TypeParams * Fields)[BName] |
+    (TypeAlias <<= BName * TypeParams * Type)[BName] |
+    (Paren <<= (wf_decls | wf_term)++) |
+    (Indent <<= (wf_decls | wf_term)++) |
     (Group <<= (wf_decls | wf_term)++) |
-    (Function <<= TypeParams * Lhs * Name * Rhs * Type * Where * Body)[Name] |
-    (Body <<= (ExprStack | wf_term)++) | (Type <<= (Name | Square | Arrow | DoubleColon | TypeLookup | TypeOr)++) |
-    (Lhs <<= Param++) | (Rhs <<= Param++) | (Lookup <<= Name * Args) |
-    (Args <<= wf_term) | (Param <<= Name * Mode * Type)[Name] |
-    (Mode <<= CBN | CBV) | (TypeParams <<= TypeParam++) |
-    (TypeParam <<= Name)[Name] | (Square <<= wf_term++) | (Fields <<= Field++) |
-    (Field <<= Name * Type)[Name] | (Where <<= wf_term++) |
-    (Module <<= Name * TypeParams * Body)[Name] | (Use <<= Type)[Include] | 
-    (TypeLookup <<= (Parent | TypeReference)++) | (TypeReference <<= Name * TypeArgs) |
-    (TypeArgs <<= Type++) | (TypeOr <<= TypeLookup++);
+    (Function <<= TypeParams * Lhs * BName * Rhs * Type * Where * Body)[BName] |
+    (Body <<= (ExprStack | wf_term)++) |
+    (Type <<= (Name | Square | Arrow | DoubleColon | Lookup | TypeOr)++) |
+    (Lhs <<= Param++) |
+    (Rhs <<= Param++) |
+    (Access <<= BName * Args) |
+    (Args <<= wf_term) |
+    (Param <<= BName * Mode * Type)[BName] |
+    (Mode <<= CBN | CBV) |
+    (TypeParams <<= TypeParam++) |
+    (TypeParam <<= BName)[BName] |
+    (Square <<= wf_term++) |
+    (Fields <<= Field++) |
+    (Field <<= BName * Type)[BName] |
+    (Where <<= wf_term++) |
+    (Module <<= BName * TypeParams * Body)[BName] |
+    (Use <<= Type)[Include] | 
+    (Lookup <<= (Parent | Reference)++) |
+    (Reference <<= Name * TypeArgs) |
+    (TypeArgs <<= Type++) | (TypeOr <<= Lookup++);
 
 Parse parser();
 std::vector<Pass> passes();

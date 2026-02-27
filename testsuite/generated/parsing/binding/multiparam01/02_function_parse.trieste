@@ -10,25 +10,25 @@ function_parse
     (module
       {
         Int = struct}
-      (name 9:IntModule)
+      (bname 9:IntModule)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 3:Int)
+            (bname 3:Int)
             (type_params)
             (fields)))))
     (module
       {
         Bool = struct}
-      (name 10:BoolModule)
+      (bname 10:BoolModule)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 4:Bool)
+            (bname 4:Bool)
             (type_params)
             (fields)))))
     (module
@@ -37,23 +37,23 @@ function_parse
         B = type_param
         First = type_alias
         Second = type_alias}
-      (name 4:Pair)
+      (bname 4:Pair)
       (type_params
         (type_param
-          (name 1:A))
+          (bname 1:A))
         (type_param
-          (name 1:B)))
+          (bname 1:B)))
       (body
         (indent
           (type_alias
             {}
-            (name 5:First)
+            (bname 5:First)
             (type_params)
             (type
               (name 1:A)))
           (type_alias
             {}
-            (name 6:Second)
+            (bname 6:Second)
             (type_params)
             (type
               (name 1:B))))))
@@ -63,7 +63,7 @@ function_parse
         include use Pair[IntModule, BoolModule]::Second
         include use Int
         include use Bool}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent

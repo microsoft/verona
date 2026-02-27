@@ -31,7 +31,7 @@ function[P] assoc (c1: Cell[P]) (c2: Cell[P]) : Void =
 function right2 (c1: Int) (c2: Int) : Int = right2 c1 c2
 
 function test (c: Cell[Int]) (i1: Int) (i2: Int) : Void =
-  c1.value = right2 i1 i2
+  c.value = right2 i1 i2
 
 function crazy1 (c: Cell[Int]) (i1: Int) (i2: Int): Int =
   # This is assign c with i1, and then return i2 to be assigned to c.

@@ -5,23 +5,23 @@ structure
   (file
     (struct
       {}
-      (name 4:None)
+      (bname 4:None)
       (type_params)
       (fields))
     (struct
       {}
-      (name 4:Some)
+      (bname 4:Some)
       (type_params
         (group
           (name 1:P)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
             (name 1:P)))))
     (type_alias
       {}
-      (name 6:Option)
+      (bname 6:Option)
       (type_params
         (group
           (name 1:P)))

@@ -5,12 +5,12 @@ structure
   (file
     (struct
       {}
-      (name 3:Int)
+      (bname 3:Int)
       (type_params)
       (fields))
     (struct
       {}
-      (name 4:Pair)
+      (bname 4:Pair)
       (type_params
         (group
           (name 1:A))
@@ -18,32 +18,32 @@ structure
           (name 1:B)))
       (fields
         (field
-          (name 5:first)
+          (bname 5:first)
           (type
             (name 1:A)))
         (field
-          (name 6:second)
+          (bname 6:second)
           (type
             (name 1:B)))))
     (struct
       {}
-      (name 4:Some)
+      (bname 4:Some)
       (type_params
         (group
           (name 1:A)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
             (name 1:A)))))
     (struct
       {}
-      (name 4:None)
+      (bname 4:None)
       (type_params)
       (fields))
     (type_alias
       {}
-      (name 6:Option)
+      (bname 6:Option)
       (type_params
         (group
           (name 1:A)))
@@ -56,7 +56,7 @@ structure
             (name 1:A)))))
     (type_alias
       {}
-      (name 4:List)
+      (bname 4:List)
       (type_params
         (group
           (name 1:A)))
@@ -75,7 +75,7 @@ structure
                     (name 1:A)))))))))
     (module
       {}
-      (name 7:Module1)
+      (bname 7:Module1)
       (type_params)
       (body
         (indent

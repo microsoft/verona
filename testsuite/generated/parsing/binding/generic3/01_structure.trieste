@@ -5,7 +5,7 @@ structure
   (file
     (module
       {}
-      (name 7:Module1)
+      (bname 7:Module1)
       (type_params
         (group
           (name 2:T1)))
@@ -13,7 +13,7 @@ structure
         (indent
           (module
             {}
-            (name 7:Module2)
+            (bname 7:Module2)
             (type_params
               (group
                 (name 2:T2)))
@@ -21,13 +21,13 @@ structure
               (indent
                 (type_alias
                   {}
-                  (name 3:Bar)
+                  (bname 3:Bar)
                   (type_params)
                   (type
                     (name 2:T2))))))
           (type_alias
             {}
-            (name 3:Foo)
+            (bname 3:Foo)
             (type_params)
             (type
               (name 7:Module2)
@@ -36,18 +36,18 @@ structure
                   (name 2:T1))))))))
     (module
       {}
-      (name 7:Module3)
+      (bname 7:Module3)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 3:Int)
+            (bname 3:Int)
             (type_params)
             (fields)))))
     (module
       {}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent
@@ -61,13 +61,6 @@ structure
               (name 3:Foo)
               (DoubleColon)
               (name 3:Bar)))
-          (function
-            {}
-            (name 4:test)
-            (Colon)
-            (name 3:Int)
-            (eq)
-            (indent
-              (group
-                (name 1:1)
-                (name 3:inc)))))))))
+          (use
+            (type
+              (name 3:Int))))))))

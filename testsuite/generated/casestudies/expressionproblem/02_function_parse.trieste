@@ -23,7 +23,7 @@ function_parse
   (file
     (struct
       {}
-      (name 3:Int)
+      (bname 3:Int)
       (type_params)
       (fields))
     (struct
@@ -31,17 +31,17 @@ function_parse
         Expr = type_param
         left = field
         right = field}
-      (name 3:Add)
+      (bname 3:Add)
       (type_params
         (type_param
-          (name 4:Expr)))
+          (bname 4:Expr)))
       (fields
         (field
-          (name 4:left)
+          (bname 4:left)
           (type
             (name 4:Expr)))
         (field
-          (name 5:right)
+          (bname 5:right)
           (type
             (name 4:Expr)))))
     (struct
@@ -49,27 +49,27 @@ function_parse
         Expr = type_param
         left = field
         right = field}
-      (name 3:Sub)
+      (bname 3:Sub)
       (type_params
         (type_param
-          (name 4:Expr)))
+          (bname 4:Expr)))
       (fields
         (field
-          (name 4:left)
+          (bname 4:left)
           (type
             (name 4:Expr)))
         (field
-          (name 5:right)
+          (bname 5:right)
           (type
             (name 4:Expr)))))
     (struct
       {
         value = field}
-      (name 10:IntLiteral)
+      (bname 10:IntLiteral)
       (type_params)
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
             (name 3:Int)))))
     (function
@@ -77,9 +77,9 @@ function_parse
         T = type_param}
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (lhs)
-      (name 5:abort)
+      (bname 5:abort)
       (rhs)
       (type
         (name 1:T))
@@ -94,15 +94,15 @@ function_parse
       (type_params)
       (lhs
         (param
-          (name 1:x)
+          (bname 1:x)
           (mode
             (cbv))
           (type
             (name 3:Int))))
-      (name 1:+)
+      (bname 1:+)
       (rhs
         (param
-          (name 1:y)
+          (bname 1:y)
           (mode
             (cbv))
           (type
@@ -120,15 +120,15 @@ function_parse
       (type_params)
       (lhs
         (param
-          (name 1:x)
+          (bname 1:x)
           (mode
             (cbv))
           (type
             (name 3:Int))))
-      (name 1:-)
+      (bname 1:-)
       (rhs
         (param
-          (name 1:y)
+          (bname 1:y)
           (mode
             (cbv))
           (type
@@ -146,15 +146,15 @@ function_parse
       (type_params)
       (lhs
         (param
-          (name 1:x)
+          (bname 1:x)
           (mode
             (cbv))
           (type
             (name 3:Int))))
-      (name 1:*)
+      (bname 1:*)
       (rhs
         (param
-          (name 1:y)
+          (bname 1:y)
           (mode
             (cbv))
           (type
@@ -167,7 +167,7 @@ function_parse
         (name 5:abort)))
     (type_alias
       {}
-      (name 4:Expr)
+      (bname 4:Expr)
       (type_params)
       (type
         (name 3:Add)
@@ -186,10 +186,10 @@ function_parse
         expr = param}
       (type_params)
       (lhs)
-      (name 4:eval)
+      (bname 4:eval)
       (rhs
         (param
-          (name 4:expr)
+          (bname 4:expr)
           (mode
             (cbv))
           (type
@@ -199,8 +199,8 @@ function_parse
       (where)
       (body
         (expr_stack)
-        (lookup
-          (name 5:value)
+        (access
+          (bname 5:value)
           (args
             (name 4:expr)))))
     (function
@@ -209,12 +209,12 @@ function_parse
         expr = param}
       (type_params
         (type_param
-          (name 1:E)))
+          (bname 1:E)))
       (lhs)
-      (name 4:eval)
+      (bname 4:eval)
       (rhs
         (param
-          (name 4:expr)
+          (bname 4:expr)
           (mode
             (cbv))
           (type
@@ -236,15 +236,15 @@ function_parse
           (group
             (paren
               (name 4:eval)
-              (lookup
-                (name 4:left)
+              (access
+                (bname 4:left)
                 (args
                   (name 4:expr))))
             (name 1:+)
             (paren
               (name 4:eval)
-              (lookup
-                (name 5:right)
+              (access
+                (bname 5:right)
                 (args
                   (name 4:expr))))))))
     (function
@@ -253,12 +253,12 @@ function_parse
         expr = param}
       (type_params
         (type_param
-          (name 1:E)))
+          (bname 1:E)))
       (lhs)
-      (name 4:eval)
+      (bname 4:eval)
       (rhs
         (param
-          (name 4:expr)
+          (bname 4:expr)
           (mode
             (cbv))
           (type
@@ -280,15 +280,15 @@ function_parse
           (group
             (paren
               (name 4:eval)
-              (lookup
-                (name 4:left)
+              (access
+                (bname 4:left)
                 (args
                   (name 4:expr))))
             (name 1:-)
             (paren
               (name 4:eval)
-              (lookup
-                (name 5:right)
+              (access
+                (bname 5:right)
                 (args
                   (name 4:expr))))))))
     (struct
@@ -296,22 +296,22 @@ function_parse
         Expr = type_param
         left = field
         right = field}
-      (name 3:Mul)
+      (bname 3:Mul)
       (type_params
         (type_param
-          (name 4:Expr)))
+          (bname 4:Expr)))
       (fields
         (field
-          (name 4:left)
+          (bname 4:left)
           (type
             (name 4:Expr)))
         (field
-          (name 5:right)
+          (bname 5:right)
           (type
             (name 4:Expr)))))
     (type_alias
       {}
-      (name 5:Expr2)
+      (bname 5:Expr2)
       (type_params)
       (type
         (name 3:Add)
@@ -336,12 +336,12 @@ function_parse
         expr = param}
       (type_params
         (type_param
-          (name 1:E)))
+          (bname 1:E)))
       (lhs)
-      (name 4:eval)
+      (bname 4:eval)
       (rhs
         (param
-          (name 4:expr)
+          (bname 4:expr)
           (mode
             (cbv))
           (type
@@ -363,15 +363,15 @@ function_parse
           (group
             (paren
               (name 4:eval)
-              (lookup
-                (name 4:left)
+              (access
+                (bname 4:left)
                 (args
                   (name 4:expr))))
             (name 1:*)
             (paren
               (name 4:eval)
-              (lookup
-                (name 5:right)
+              (access
+                (bname 5:right)
                 (args
                   (name 4:expr))))))))
     (function
@@ -379,10 +379,10 @@ function_parse
         x = param}
       (type_params)
       (lhs)
-      (name 5:test1)
+      (bname 5:test1)
       (rhs
         (param
-          (name 1:x)
+          (bname 1:x)
           (mode
             (cbv))
           (type
@@ -401,10 +401,10 @@ function_parse
         x = param}
       (type_params)
       (lhs)
-      (name 5:test2)
+      (bname 5:test2)
       (rhs
         (param
-          (name 1:x)
+          (bname 1:x)
           (mode
             (cbv))
           (type

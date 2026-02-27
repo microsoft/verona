@@ -13,7 +13,7 @@ function_parse
       {}
       (type_params)
       (lhs)
-      (name 5:abort)
+      (bname 5:abort)
       (rhs)
       (type
         (name 1:T))
@@ -28,15 +28,15 @@ function_parse
       (type_params)
       (lhs
         (param
-          (name 1:a)
+          (bname 1:a)
           (mode
             (cbv))
           (type
             (name 3:Int))))
-      (name 1:+)
+      (bname 1:+)
       (rhs
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
@@ -54,22 +54,22 @@ function_parse
         c = param}
       (type_params)
       (lhs)
-      (name 4:test)
+      (bname 4:test)
       (rhs
         (param
-          (name 1:a)
+          (bname 1:a)
           (mode
             (cbv))
           (type
             (name 3:Int)))
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
             (name 3:Int)))
         (param
-          (name 1:c)
+          (bname 1:c)
           (mode
             (cbv))
           (type
@@ -93,22 +93,22 @@ function_parse
         c = param}
       (type_params)
       (lhs)
-      (name 4:test)
+      (bname 4:test)
       (rhs
         (param
-          (name 1:a)
+          (bname 1:a)
           (mode
             (cbv))
           (type
             (name 3:Int)))
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
             (name 3:Int)))
         (param
-          (name 1:c)
+          (bname 1:c)
           (mode
             (cbv))
           (type
@@ -133,22 +133,22 @@ function_parse
         c = param}
       (type_params)
       (lhs)
-      (name 4:test)
+      (bname 4:test)
       (rhs
         (param
-          (name 1:a)
+          (bname 1:a)
           (mode
             (cbv))
           (type
             (name 3:Int)))
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
             (name 3:Int)))
         (param
-          (name 1:c)
+          (bname 1:c)
           (mode
             (cbv))
           (type

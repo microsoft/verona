@@ -10,18 +10,18 @@ function_parse
       {
         PrivateBool = struct
         PrivateInt = struct}
-      (name 8:Internal)
+      (bname 8:Internal)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 10:PrivateInt)
+            (bname 10:PrivateInt)
             (type_params)
             (fields))
           (struct
             {}
-            (name 11:PrivateBool)
+            (bname 11:PrivateBool)
             (type_params)
             (fields)))))
     (module
@@ -29,7 +29,7 @@ function_parse
         Bool = type_alias
         Int = type_alias
         include use Internal}
-      (name 6:Public)
+      (bname 6:Public)
       (type_params)
       (body
         (indent
@@ -38,13 +38,13 @@ function_parse
               (name 8:Internal)))
           (type_alias
             {}
-            (name 3:Int)
+            (bname 3:Int)
             (type_params)
             (type
               (name 10:PrivateInt)))
           (type_alias
             {}
-            (name 4:Bool)
+            (bname 4:Bool)
             (type_params)
             (type
               (name 11:PrivateBool))))))
@@ -53,7 +53,7 @@ function_parse
         include use Public
         include use Int
         include use Bool}
-      (name 8:Consumer)
+      (bname 8:Consumer)
       (type_params)
       (body
         (indent

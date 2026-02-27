@@ -9,40 +9,40 @@ function_parse
   (file
     (struct
       {}
-      (name 4:Item)
+      (bname 4:Item)
       (type_params)
       (fields))
     (module
       {
         Source = module}
-      (name 4:Defs)
+      (bname 4:Defs)
       (type_params)
       (body
         (indent
           (module
             {
               Item = module}
-            (name 6:Source)
+            (bname 6:Source)
             (type_params)
             (body
               (indent
                 (module
                   {
                     Nested = struct}
-                  (name 4:Item)
+                  (bname 4:Item)
                   (type_params)
                   (body
                     (indent
                       (struct
                         {}
-                        (name 6:Nested)
+                        (bname 6:Nested)
                         (type_params)
                         (fields)))))))))))
     (module
       {
         Alias = type_alias
         include use Defs}
-      (name 8:Indirect)
+      (bname 8:Indirect)
       (type_params)
       (body
         (indent
@@ -51,7 +51,7 @@ function_parse
               (name 4:Defs)))
           (type_alias
             {}
-            (name 5:Alias)
+            (bname 5:Alias)
             (type_params)
             (type
               (name 6:Source))))))
@@ -59,7 +59,7 @@ function_parse
       {
         Found = type_alias
         include use Indirect::Alias}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent
@@ -70,7 +70,7 @@ function_parse
               (name 5:Alias)))
           (type_alias
             {}
-            (name 5:Found)
+            (bname 5:Found)
             (type_params)
             (type
               (name 4:Item)

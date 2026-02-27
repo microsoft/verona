@@ -11,124 +11,124 @@ resolve_types
     (module
       {
         Origin = struct}
-      (name 6:Level0)
+      (bname 6:Level0)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 6:Origin)
+            (bname 6:Origin)
             (type_params)
             (fields)))))
     (module
       {
         Alias1 = type_alias
         include use Level0}
-      (name 6:Level1)
+      (bname 6:Level1)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 6:Level0)
                   (type_args)))))
           (type_alias
             {}
-            (name 6:Alias1)
+            (bname 6:Alias1)
             (type_params)
             (type
-              (type_lookup
+              (lookup
                 (../)
                 (../)
-                (type_reference
+                (reference
                   (name 6:Level0)
                   (type_args))
-                (type_reference
+                (reference
                   (name 6:Origin)
                   (type_args))))))))
     (module
       {
         Alias2 = type_alias
         include use Level1}
-      (name 6:Level2)
+      (bname 6:Level2)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 6:Level1)
                   (type_args)))))
           (type_alias
             {}
-            (name 6:Alias2)
+            (bname 6:Alias2)
             (type_params)
             (type
-              (type_lookup
+              (lookup
                 (../)
                 (../)
-                (type_reference
+                (reference
                   (name 6:Level1)
                   (type_args))
-                (type_reference
+                (reference
                   (name 6:Alias1)
                   (type_args))))))))
     (module
       {
         Alias3 = type_alias
         include use Level2}
-      (name 6:Level3)
+      (bname 6:Level3)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 6:Level2)
                   (type_args)))))
           (type_alias
             {}
-            (name 6:Alias3)
+            (bname 6:Alias3)
             (type_params)
             (type
-              (type_lookup
+              (lookup
                 (../)
                 (../)
-                (type_reference
+                (reference
                   (name 6:Level2)
                   (type_args))
-                (type_reference
+                (reference
                   (name 6:Alias2)
                   (type_args))))))))
     (module
       {
         include use Level3::Alias3
         include use Origin}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 6:Level0)
                   (type_args))
-                (type_reference
+                (reference
                   (name 6:Origin)
                   (type_args)))))
           (use
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 6:Origin)
                   (type_args))
                 (error

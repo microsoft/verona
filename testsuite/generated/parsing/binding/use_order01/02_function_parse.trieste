@@ -9,25 +9,25 @@ function_parse
       {
         A = struct
         Sub = module}
-      (name 4:Defs)
+      (bname 4:Defs)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 1:A)
+            (bname 1:A)
             (type_params)
             (fields))
           (module
             {
               B = struct}
-            (name 3:Sub)
+            (bname 3:Sub)
             (type_params)
             (body
               (indent
                 (struct
                   {}
-                  (name 1:B)
+                  (bname 1:B)
                   (type_params)
                   (fields))))))))
     (module
@@ -36,7 +36,7 @@ function_parse
         include use Sub
         include use A
         include use B}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent

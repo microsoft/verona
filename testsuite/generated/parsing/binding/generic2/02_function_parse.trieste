@@ -11,15 +11,15 @@ function_parse
       {
         Foo = type_alias
         T1 = type_param}
-      (name 7:Module1)
+      (bname 7:Module1)
       (type_params
         (type_param
-          (name 2:T1)))
+          (bname 2:T1)))
       (body
         (indent
           (type_alias
             {}
-            (name 3:Foo)
+            (bname 3:Foo)
             (type_params)
             (type
               (name 2:T1))))))
@@ -27,35 +27,35 @@ function_parse
       {
         Bar = type_alias
         T2 = type_param}
-      (name 7:Module2)
+      (bname 7:Module2)
       (type_params
         (type_param
-          (name 2:T2)))
+          (bname 2:T2)))
       (body
         (indent
           (type_alias
             {}
-            (name 3:Bar)
+            (bname 3:Bar)
             (type_params)
             (type
               (name 2:T2))))))
     (module
       {
         Int = struct}
-      (name 7:Module3)
+      (bname 7:Module3)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 3:Int)
+            (bname 3:Int)
             (type_params)
             (fields)))))
     (module
       {
-        test = function
-        include use Module1[Module2[Module3]]::Foo::Bar}
-      (name 4:Test)
+        include use Module1[Module2[Module3]]::Foo::Bar
+        include use Int}
+      (bname 4:Test)
       (type_params)
       (body
         (indent
@@ -72,17 +72,6 @@ function_parse
               (name 3:Foo)
               (DoubleColon)
               (name 3:Bar)))
-          (function
-            {}
-            (type_params)
-            (lhs)
-            (name 4:test)
-            (rhs)
+          (use
             (type
-              (name 3:Int))
-            (where)
-            (body
-              (expr_stack)
-              (indent
-                (group
-                  (name 1:1))))))))))
+              (name 3:Int))))))))

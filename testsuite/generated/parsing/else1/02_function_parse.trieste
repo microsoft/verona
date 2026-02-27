@@ -13,17 +13,17 @@ function_parse
   (file
     (struct
       {}
-      (name 4:True)
+      (bname 4:True)
       (type_params)
       (fields))
     (struct
       {}
-      (name 5:False)
+      (bname 5:False)
       (type_params)
       (fields))
     (type_alias
       {}
-      (name 4:Bool)
+      (bname 4:Bool)
       (type_params)
       (type
         (name 4:True)
@@ -31,20 +31,20 @@ function_parse
         (name 5:False)))
     (struct
       {}
-      (name 4:None)
+      (bname 4:None)
       (type_params)
       (fields))
     (struct
       {
         P = type_param
         value = field}
-      (name 4:Some)
+      (bname 4:Some)
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
             (name 1:P)))))
     (function
@@ -54,10 +54,10 @@ function_parse
         value = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs
         (param
-          (name 3:lhs)
+          (bname 3:lhs)
           (mode
             (cbv))
           (type
@@ -65,10 +65,10 @@ function_parse
             (square
               (group
                 (name 1:P))))))
-      (name 4:else)
+      (bname 4:else)
       (rhs
         (param
-          (name 5:value)
+          (bname 5:value)
           (mode
             (cbn))
           (type
@@ -78,8 +78,8 @@ function_parse
       (where)
       (body
         (expr_stack)
-        (lookup
-          (name 5:value)
+        (access
+          (bname 5:value)
           (args
             (name 3:lhs)))))
     (function
@@ -89,18 +89,18 @@ function_parse
         value = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs
         (param
-          (name 3:lhs)
+          (bname 3:lhs)
           (mode
             (cbv))
           (type
             (name 4:None))))
-      (name 4:else)
+      (bname 4:else)
       (rhs
         (param
-          (name 5:value)
+          (bname 5:value)
           (mode
             (cbn))
           (type

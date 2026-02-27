@@ -5,29 +5,29 @@ structure
   (file
     (module
       {}
-      (name 5:Outer)
+      (bname 5:Outer)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 4:Item)
+            (bname 4:Item)
             (type_params)
             (fields))
           (module
             {}
-            (name 6:Source)
+            (bname 6:Source)
             (type_params)
             (body
               (indent
                 (struct
                   {}
-                  (name 4:Item)
+                  (bname 4:Item)
                   (type_params)
                   (fields)))))
           (module
             {}
-            (name 4:Test)
+            (bname 4:Test)
             (type_params)
             (body
               (indent
@@ -36,7 +36,7 @@ structure
                     (name 6:Source)))
                 (type_alias
                   {}
-                  (name 5:Alias)
+                  (bname 5:Alias)
                   (type_params)
                   (type
                     (name 4:Item)))))))))))

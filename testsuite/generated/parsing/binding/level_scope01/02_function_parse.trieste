@@ -8,33 +8,33 @@ function_parse
   (file
     (struct
       {}
-      (name 4:Item)
+      (bname 4:Item)
       (type_params)
       (fields))
     (module
       {
         Item = module}
-      (name 6:Source)
+      (bname 6:Source)
       (type_params)
       (body
         (indent
           (module
             {
               Nested = struct}
-            (name 4:Item)
+            (bname 4:Item)
             (type_params)
             (body
               (indent
                 (struct
                   {}
-                  (name 6:Nested)
+                  (bname 6:Nested)
                   (type_params)
                   (fields))))))))
     (module
       {
         Found = type_alias
         include use Source}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent
@@ -43,7 +43,7 @@ function_parse
               (name 6:Source)))
           (type_alias
             {}
-            (name 5:Found)
+            (bname 5:Found)
             (type_params)
             (type
               (name 4:Item)

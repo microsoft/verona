@@ -5,46 +5,46 @@ structure
   (file
     (struct
       {}
-      (name 3:Int)
+      (bname 3:Int)
       (type_params)
       (fields))
     (struct
       {}
-      (name 3:Add)
+      (bname 3:Add)
       (type_params
         (group
           (name 4:Expr)))
       (fields
         (field
-          (name 4:left)
+          (bname 4:left)
           (type
             (name 4:Expr)))
         (field
-          (name 5:right)
+          (bname 5:right)
           (type
             (name 4:Expr)))))
     (struct
       {}
-      (name 3:Sub)
+      (bname 3:Sub)
       (type_params
         (group
           (name 4:Expr)))
       (fields
         (field
-          (name 4:left)
+          (bname 4:left)
           (type
             (name 4:Expr)))
         (field
-          (name 5:right)
+          (bname 5:right)
           (type
             (name 4:Expr)))))
     (struct
       {}
-      (name 10:IntLiteral)
+      (bname 10:IntLiteral)
       (type_params)
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
             (name 3:Int)))))
     (function
@@ -104,7 +104,7 @@ structure
       (name 5:abort))
     (type_alias
       {}
-      (name 4:Expr)
+      (bname 4:Expr)
       (type_params)
       (type
         (name 3:Add)
@@ -128,8 +128,8 @@ structure
       (Colon)
       (name 3:Int)
       (eq)
-      (lookup
-        (name 5:value)
+      (access
+        (bname 5:value)
         (args
           (name 4:expr))))
     (function
@@ -158,15 +158,15 @@ structure
         (group
           (paren
             (name 4:eval)
-            (lookup
-              (name 4:left)
+            (access
+              (bname 4:left)
               (args
                 (name 4:expr))))
           (name 1:+)
           (paren
             (name 4:eval)
-            (lookup
-              (name 5:right)
+            (access
+              (bname 5:right)
               (args
                 (name 4:expr)))))))
     (function
@@ -195,35 +195,35 @@ structure
         (group
           (paren
             (name 4:eval)
-            (lookup
-              (name 4:left)
+            (access
+              (bname 4:left)
               (args
                 (name 4:expr))))
           (name 1:-)
           (paren
             (name 4:eval)
-            (lookup
-              (name 5:right)
+            (access
+              (bname 5:right)
               (args
                 (name 4:expr)))))))
     (struct
       {}
-      (name 3:Mul)
+      (bname 3:Mul)
       (type_params
         (group
           (name 4:Expr)))
       (fields
         (field
-          (name 4:left)
+          (bname 4:left)
           (type
             (name 4:Expr)))
         (field
-          (name 5:right)
+          (bname 5:right)
           (type
             (name 4:Expr)))))
     (type_alias
       {}
-      (name 5:Expr2)
+      (bname 5:Expr2)
       (type_params)
       (type
         (name 3:Add)
@@ -268,15 +268,15 @@ structure
         (group
           (paren
             (name 4:eval)
-            (lookup
-              (name 4:left)
+            (access
+              (bname 4:left)
               (args
                 (name 4:expr))))
           (name 1:*)
           (paren
             (name 4:eval)
-            (lookup
-              (name 5:right)
+            (access
+              (bname 5:right)
               (args
                 (name 4:expr)))))))
     (function

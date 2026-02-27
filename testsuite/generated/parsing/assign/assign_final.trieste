@@ -17,28 +17,28 @@ resolve_types
   (file
     (struct
       {}
-      (name 3:Int)
+      (bname 3:Int)
       (type_params)
       (fields))
     (struct
       {}
-      (name 4:Void)
+      (bname 4:Void)
       (type_params)
       (fields))
     (struct
       {
         P = type_param
         value = field}
-      (name 4:Cell)
+      (bname 4:Cell)
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args)))))))
     (function
@@ -48,38 +48,38 @@ resolve_types
         v = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 6:update)
+      (bname 6:update)
       (rhs
         (param
-          (name 1:c)
+          (bname 1:c)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args)))))))))
         (param
-          (name 1:v)
+          (bname 1:v)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args))))))
       (type
-        (type_lookup
+        (lookup
           (../)
-          (type_reference
+          (reference
             (name 4:Void)
             (type_args))))
       (where)
@@ -87,12 +87,18 @@ resolve_types
         (expr_stack)
         (indent
           (group
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 1:c)))
+                (lookup
+                  (reference
+                    (name 1:c)
+                    (type_args)))))
             (eq)
-            (name 1:v)))))
+            (lookup
+              (reference
+                (name 1:v)
+                (type_args)))))))
     (function
       {
         P = type_param
@@ -100,44 +106,44 @@ resolve_types
         c2 = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 5:swap1)
+      (bname 5:swap1)
       (rhs
         (param
-          (name 2:c1)
+          (bname 2:c1)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args)))))))))
         (param
-          (name 2:c2)
+          (bname 2:c2)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args))))))))))
       (type
-        (type_lookup
+        (lookup
           (../)
-          (type_reference
+          (reference
             (name 4:Void)
             (type_args))))
       (where)
@@ -145,20 +151,29 @@ resolve_types
         (expr_stack)
         (indent
           (group
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1)))
+                (lookup
+                  (reference
+                    (name 2:c1)
+                    (type_args)))))
             (eq)
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c2)))
+                (lookup
+                  (reference
+                    (name 2:c2)
+                    (type_args)))))
             (eq)
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1)))))))
+                (lookup
+                  (reference
+                    (name 2:c1)
+                    (type_args)))))))))
     (function
       {
         P = type_param
@@ -166,44 +181,44 @@ resolve_types
         c2 = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 5:swap2)
+      (bname 5:swap2)
       (rhs
         (param
-          (name 2:c1)
+          (bname 2:c1)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args)))))))))
         (param
-          (name 2:c2)
+          (bname 2:c2)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args))))))))))
       (type
-        (type_lookup
+        (lookup
           (../)
-          (type_reference
+          (reference
             (name 4:Void)
             (type_args))))
       (where)
@@ -211,22 +226,31 @@ resolve_types
         (expr_stack)
         (indent
           (group
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1))))
+                (lookup
+                  (reference
+                    (name 2:c1)
+                    (type_args))))))
           (group
             (eq)
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c2))))
+                (lookup
+                  (reference
+                    (name 2:c2)
+                    (type_args))))))
           (group
             (eq)
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1)))))))
+                (lookup
+                  (reference
+                    (name 2:c1)
+                    (type_args)))))))))
     (function
       {
         P = type_param
@@ -234,44 +258,44 @@ resolve_types
         c2 = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 5:swap3)
+      (bname 5:swap3)
       (rhs
         (param
-          (name 2:c1)
+          (bname 2:c1)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args)))))))))
         (param
-          (name 2:c2)
+          (bname 2:c2)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args))))))))))
       (type
-        (type_lookup
+        (lookup
           (../)
-          (type_reference
+          (reference
             (name 4:Void)
             (type_args))))
       (where)
@@ -279,22 +303,31 @@ resolve_types
         (expr_stack)
         (indent
           (group
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1)))
+                (lookup
+                  (reference
+                    (name 2:c1)
+                    (type_args)))))
             (eq))
           (group
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c2)))
+                (lookup
+                  (reference
+                    (name 2:c2)
+                    (type_args)))))
             (eq))
           (group
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1)))))))
+                (lookup
+                  (reference
+                    (name 2:c1)
+                    (type_args)))))))))
     (function
       {
         P = type_param
@@ -302,44 +335,44 @@ resolve_types
         c2 = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 5:assoc)
+      (bname 5:assoc)
       (rhs
         (param
-          (name 2:c1)
+          (bname 2:c1)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args)))))))))
         (param
-          (name 2:c2)
+          (bname 2:c2)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args))))))))))
       (type
-        (type_lookup
+        (lookup
           (../)
-          (type_reference
+          (reference
             (name 4:Void)
             (type_args))))
       (where)
@@ -347,128 +380,183 @@ resolve_types
         (expr_stack)
         (indent
           (group
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1)))
+                (lookup
+                  (reference
+                    (name 2:c1)
+                    (type_args)))))
             (eq)
             (paren
-              (lookup
-                (name 5:value)
+              (access
+                (bname 5:value)
                 (args
-                  (name 2:c2)))
+                  (lookup
+                    (reference
+                      (name 2:c2)
+                      (type_args)))))
               (eq)
-              (lookup
-                (name 5:value)
+              (access
+                (bname 5:value)
                 (args
-                  (name 2:c1)))))
+                  (lookup
+                    (reference
+                      (name 2:c1)
+                      (type_args)))))))
           (group
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1)))
+                (lookup
+                  (reference
+                    (name 2:c1)
+                    (type_args)))))
             (eq)
             (paren
               (paren
-                (lookup
-                  (name 5:value)
+                (access
+                  (bname 5:value)
                   (args
-                    (name 2:c2)))
+                    (lookup
+                      (reference
+                        (name 2:c2)
+                        (type_args)))))
                 (eq)
-                (lookup
-                  (name 5:value)
+                (access
+                  (bname 5:value)
                   (args
-                    (name 2:c1))))))
+                    (lookup
+                      (reference
+                        (name 2:c1)
+                        (type_args))))))))
           (group
             (paren
-              (lookup
-                (name 5:value)
+              (access
+                (bname 5:value)
                 (args
-                  (name 2:c1)))
+                  (lookup
+                    (reference
+                      (name 2:c1)
+                      (type_args)))))
               (eq)
-              (lookup
-                (name 5:value)
+              (access
+                (bname 5:value)
                 (args
-                  (name 2:c2))))
+                  (lookup
+                    (reference
+                      (name 2:c2)
+                      (type_args))))))
             (eq)
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1))))
+                (lookup
+                  (reference
+                    (name 2:c1)
+                    (type_args))))))
           (group
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1)))
+                (lookup
+                  (reference
+                    (name 2:c1)
+                    (type_args)))))
             (eq)
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c2)))
+                (lookup
+                  (reference
+                    (name 2:c2)
+                    (type_args)))))
             (eq)
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1))))
+                (lookup
+                  (reference
+                    (name 2:c1)
+                    (type_args))))))
           (group
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1)))
+                (lookup
+                  (reference
+                    (name 2:c1)
+                    (type_args)))))
             (eq)
             (indent
               (group
-                (lookup
-                  (name 5:value)
+                (access
+                  (bname 5:value)
                   (args
-                    (name 2:c2)))
+                    (lookup
+                      (reference
+                        (name 2:c2)
+                        (type_args)))))
                 (eq)
                 (indent
                   (group
-                    (lookup
-                      (name 5:value)
+                    (access
+                      (bname 5:value)
                       (args
-                        (name 2:c1)))))))))))
+                        (lookup
+                          (reference
+                            (name 2:c1)
+                            (type_args)))))))))))))
     (function
       {
         c1 = param
         c2 = param}
       (type_params)
       (lhs)
-      (name 6:right2)
+      (bname 6:right2)
       (rhs
         (param
-          (name 2:c1)
+          (bname 2:c1)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 3:Int)
                 (type_args)))))
         (param
-          (name 2:c2)
+          (bname 2:c2)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 3:Int)
                 (type_args))))))
       (type
-        (type_lookup
+        (lookup
           (../)
-          (type_reference
+          (reference
             (name 3:Int)
             (type_args))))
       (where)
       (body
         (expr_stack)
-        (name 6:right2)
-        (name 2:c1)
-        (name 2:c2)))
+        (lookup
+          (../)
+          (reference
+            (name 6:right2)
+            (type_args)))
+        (lookup
+          (reference
+            (name 2:c1)
+            (type_args)))
+        (lookup
+          (reference
+            (name 2:c2)
+            (type_args)))))
     (function
       {
         c = param
@@ -476,48 +564,48 @@ resolve_types
         i2 = param}
       (type_params)
       (lhs)
-      (name 4:test)
+      (bname 4:test)
       (rhs
         (param
-          (name 1:c)
+          (bname 1:c)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
+                    (lookup
                       (../)
-                      (type_reference
+                      (reference
                         (name 3:Int)
                         (type_args)))))))))
         (param
-          (name 2:i1)
+          (bname 2:i1)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 3:Int)
                 (type_args)))))
         (param
-          (name 2:i2)
+          (bname 2:i2)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 3:Int)
                 (type_args))))))
       (type
-        (type_lookup
+        (lookup
           (../)
-          (type_reference
+          (reference
             (name 4:Void)
             (type_args))))
       (where)
@@ -525,14 +613,27 @@ resolve_types
         (expr_stack)
         (indent
           (group
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1)))
+                (lookup
+                  (reference
+                    (name 1:c)
+                    (type_args)))))
             (eq)
-            (name 6:right2)
-            (name 2:i1)
-            (name 2:i2)))))
+            (lookup
+              (../)
+              (reference
+                (name 6:right2)
+                (type_args)))
+            (lookup
+              (reference
+                (name 2:i1)
+                (type_args)))
+            (lookup
+              (reference
+                (name 2:i2)
+                (type_args)))))))
     (function
       {
         c = param
@@ -540,48 +641,48 @@ resolve_types
         i2 = param}
       (type_params)
       (lhs)
-      (name 6:crazy1)
+      (bname 6:crazy1)
       (rhs
         (param
-          (name 1:c)
+          (bname 1:c)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
+                    (lookup
                       (../)
-                      (type_reference
+                      (reference
                         (name 3:Int)
                         (type_args)))))))))
         (param
-          (name 2:i1)
+          (bname 2:i1)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 3:Int)
                 (type_args)))))
         (param
-          (name 2:i2)
+          (bname 2:i2)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 3:Int)
                 (type_args))))))
       (type
-        (type_lookup
+        (lookup
           (../)
-          (type_reference
+          (reference
             (name 3:Int)
             (type_args))))
       (where)
@@ -589,32 +690,68 @@ resolve_types
         (expr_stack)
         (indent
           (group
-            (name 1:c)
+            (lookup
+              (reference
+                (name 1:c)
+                (type_args)))
             (eq)
             (paren
-              (name 1:c)
+              (lookup
+                (reference
+                  (name 1:c)
+                  (type_args)))
               (eq)
-              (name 2:i1)
-              (name 2:i2)))
+              (lookup
+                (reference
+                  (name 2:i1)
+                  (type_args)))
+              (lookup
+                (reference
+                  (name 2:i2)
+                  (type_args)))))
           (group
-            (name 1:c)
+            (lookup
+              (reference
+                (name 1:c)
+                (type_args)))
             (eq)
             (paren
-              (name 1:c)
+              (lookup
+                (reference
+                  (name 1:c)
+                  (type_args)))
               (eq)
-              (name 2:i1)
+              (lookup
+                (reference
+                  (name 2:i1)
+                  (type_args)))
               (SemiColon)
-              (name 2:i2)))
+              (lookup
+                (reference
+                  (name 2:i2)
+                  (type_args)))))
           (group
-            (name 1:c)
+            (lookup
+              (reference
+                (name 1:c)
+                (type_args)))
             (eq)
             (indent
               (group
-                (name 1:c)
+                (lookup
+                  (reference
+                    (name 1:c)
+                    (type_args)))
                 (eq)
-                (name 2:i1))
+                (lookup
+                  (reference
+                    (name 2:i1)
+                    (type_args))))
               (group
-                (name 2:i2)))))))
+                (lookup
+                  (reference
+                    (name 2:i2)
+                    (type_args)))))))))
     (function
       {
         P = type_param
@@ -622,44 +759,44 @@ resolve_types
         c2 = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 6:failed)
+      (bname 6:failed)
       (rhs
         (param
-          (name 2:c1)
+          (bname 2:c1)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args)))))))))
         (param
-          (name 2:c2)
+          (bname 2:c2)
           (mode
             (cbv))
           (type
-            (type_lookup
+            (lookup
               (../)
-              (type_reference
+              (reference
                 (name 4:Cell)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args))))))))))
       (type
-        (type_lookup
+        (lookup
           (../)
-          (type_reference
+          (reference
             (name 4:Void)
             (type_args))))
       (where)
@@ -667,21 +804,30 @@ resolve_types
         (expr_stack)
         (indent
           (group
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
-                (name 2:c1)))
+                (lookup
+                  (reference
+                    (name 2:c1)
+                    (type_args)))))
             (indent
               (group
                 (eq)
-                (lookup
-                  (name 5:value)
+                (access
+                  (bname 5:value)
                   (args
-                    (name 2:c2)))
+                    (lookup
+                      (reference
+                        (name 2:c2)
+                        (type_args)))))
                 (indent
                   (group
                     (eq)
-                    (lookup
-                      (name 5:value)
+                    (access
+                      (bname 5:value)
                       (args
-                        (name 2:c1)))))))))))))
+                        (lookup
+                          (reference
+                            (name 2:c1)
+                            (type_args)))))))))))))))

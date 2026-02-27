@@ -9,20 +9,20 @@ function_parse
     (module
       {
         Foo = module}
-      (name 1:C)
+      (bname 1:C)
       (type_params)
       (body
         (indent
           (module
             {
               Bar = module}
-            (name 3:Foo)
+            (bname 3:Foo)
             (type_params)
             (body
               (indent
                 (module
                   {}
-                  (name 3:Bar)
+                  (bname 3:Bar)
                   (type_params)
                   (body))))))))
     (module
@@ -31,7 +31,7 @@ function_parse
         T4 = type_alias
         include use B::T1
         include use C}
-      (name 1:A)
+      (bname 1:A)
       (type_params)
       (body
         (indent
@@ -45,13 +45,13 @@ function_parse
               (name 1:C)))
           (type_alias
             {}
-            (name 2:T2)
+            (bname 2:T2)
             (type_params)
             (type
               (name 3:Foo)))
           (type_alias
             {}
-            (name 2:T4)
+            (bname 2:T4)
             (type_params)
             (type
               (name 3:Bar))))))
@@ -61,7 +61,7 @@ function_parse
         T3 = type_alias
         include use A::T2
         include use C}
-      (name 1:B)
+      (bname 1:B)
       (type_params)
       (body
         (indent
@@ -75,13 +75,13 @@ function_parse
               (name 1:C)))
           (type_alias
             {}
-            (name 2:T1)
+            (bname 2:T1)
             (type_params)
             (type
               (name 3:Foo)))
           (type_alias
             {}
-            (name 2:T3)
+            (bname 2:T3)
             (type_params)
             (type
               (name 3:Bar))))))))

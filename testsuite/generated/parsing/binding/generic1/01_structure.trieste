@@ -5,17 +5,17 @@ structure
   (file
     (struct
       {}
-      (name 3:Int)
+      (bname 3:Int)
       (type_params)
       (fields))
     (struct
       {}
-      (name 4:Bool)
+      (bname 4:Bool)
       (type_params)
       (fields))
     (module
       {}
-      (name 5:Outer)
+      (bname 5:Outer)
       (type_params
         (group
           (name 2:T1)))
@@ -23,7 +23,7 @@ structure
         (indent
           (module
             {}
-            (name 5:Inner)
+            (bname 5:Inner)
             (type_params
               (group
                 (name 2:T2)))
@@ -31,19 +31,19 @@ structure
               (indent
                 (type_alias
                   {}
-                  (name 10:outer_type)
+                  (bname 10:outer_type)
                   (type_params)
                   (type
                     (name 2:T1)))
                 (type_alias
                   {}
-                  (name 10:inner_type)
+                  (bname 10:inner_type)
                   (type_params)
                   (type
                     (name 2:T2)))))))))
     (module
       {}
-      (name 4:User)
+      (bname 4:User)
       (type_params)
       (body
         (indent

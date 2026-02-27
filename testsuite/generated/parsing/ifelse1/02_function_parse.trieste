@@ -15,23 +15,23 @@ function_parse
         not =
           function
           function}
-      (name 7:Boolean)
+      (bname 7:Boolean)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 4:True)
+            (bname 4:True)
             (type_params)
             (fields))
           (struct
             {}
-            (name 5:False)
+            (bname 5:False)
             (type_params)
             (fields))
           (type_alias
             {}
-            (name 4:Bool)
+            (bname 4:Bool)
             (type_params)
             (type
               (name 4:True)
@@ -42,10 +42,10 @@ function_parse
               b = param}
             (type_params)
             (lhs)
-            (name 3:not)
+            (bname 3:not)
             (rhs
               (param
-                (name 1:b)
+                (bname 1:b)
                 (mode
                   (cbv))
                 (type
@@ -61,10 +61,10 @@ function_parse
               b = param}
             (type_params)
             (lhs)
-            (name 3:not)
+            (bname 3:not)
             (rhs
               (param
-                (name 1:b)
+                (bname 1:b)
                 (mode
                   (cbv))
                 (type
@@ -80,35 +80,35 @@ function_parse
         None = struct
         Option = type_alias
         Some = struct}
-      (name 8:Optional)
+      (bname 8:Optional)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 4:None)
+            (bname 4:None)
             (type_params)
             (fields))
           (struct
             {
               P = type_param
               value = field}
-            (name 4:Some)
+            (bname 4:Some)
             (type_params
               (type_param
-                (name 1:P)))
+                (bname 1:P)))
             (fields
               (field
-                (name 5:value)
+                (bname 5:value)
                 (type
                   (name 1:P)))))
           (type_alias
             {
               P = type_param}
-            (name 6:Option)
+            (bname 6:Option)
             (type_params
               (type_param
-                (name 1:P)))
+                (bname 1:P)))
             (type
               (name 4:Some)
               (square
@@ -126,7 +126,7 @@ function_parse
           function
         include use Boolean
         include use Optional}
-      (name 11:Conditional)
+      (bname 11:Conditional)
       (type_params)
       (body
         (indent
@@ -143,18 +143,18 @@ function_parse
               thenBranch = param}
             (type_params
               (type_param
-                (name 1:P)))
+                (bname 1:P)))
             (lhs)
-            (name 2:if)
+            (bname 2:if)
             (rhs
               (param
-                (name 9:condition)
+                (bname 9:condition)
                 (mode
                   (cbv))
                 (type
                   (name 4:True)))
               (param
-                (name 10:thenBranch)
+                (bname 10:thenBranch)
                 (mode
                   (cbn))
                 (type
@@ -176,18 +176,18 @@ function_parse
               thenBranch = param}
             (type_params
               (type_param
-                (name 1:P)))
+                (bname 1:P)))
             (lhs)
-            (name 2:if)
+            (bname 2:if)
             (rhs
               (param
-                (name 9:condition)
+                (bname 9:condition)
                 (mode
                   (cbv))
                 (type
                   (name 5:False)))
               (param
-                (name 10:thenBranch)
+                (bname 10:thenBranch)
                 (mode
                   (cbn))
                 (type
@@ -208,10 +208,10 @@ function_parse
               value = param}
             (type_params
               (type_param
-                (name 1:P)))
+                (bname 1:P)))
             (lhs
               (param
-                (name 3:lhs)
+                (bname 3:lhs)
                 (mode
                   (cbv))
                 (type
@@ -219,10 +219,10 @@ function_parse
                   (square
                     (group
                       (name 1:P))))))
-            (name 4:else)
+            (bname 4:else)
             (rhs
               (param
-                (name 5:value)
+                (bname 5:value)
                 (mode
                   (cbn))
                 (type
@@ -232,8 +232,8 @@ function_parse
             (where)
             (body
               (expr_stack)
-              (lookup
-                (name 5:value)
+              (access
+                (bname 5:value)
                 (args
                   (name 3:lhs)))))
           (function
@@ -243,18 +243,18 @@ function_parse
               value = param}
             (type_params
               (type_param
-                (name 1:P)))
+                (bname 1:P)))
             (lhs
               (param
-                (name 3:lhs)
+                (bname 3:lhs)
                 (mode
                   (cbv))
                 (type
                   (name 4:None))))
-            (name 4:else)
+            (bname 4:else)
             (rhs
               (param
-                (name 5:value)
+                (bname 5:value)
                 (mode
                   (cbn))
                 (type
@@ -271,7 +271,7 @@ function_parse
         include use Conditional
         include use Boolean
         include use Optional}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent
@@ -288,7 +288,7 @@ function_parse
             {}
             (type_params)
             (lhs)
-            (name 4:test)
+            (bname 4:test)
             (rhs)
             (type
               (name 6:Option)

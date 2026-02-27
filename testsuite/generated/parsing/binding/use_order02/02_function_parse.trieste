@@ -9,20 +9,20 @@ function_parse
     (module
       {
         Target = struct}
-      (name 6:Source)
+      (bname 6:Source)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 6:Target)
+            (bname 6:Target)
             (type_params)
             (fields)))))
     (module
       {
         Ref = type_alias
         include use Source}
-      (name 5:Alias)
+      (bname 5:Alias)
       (type_params)
       (body
         (indent
@@ -31,7 +31,7 @@ function_parse
               (name 6:Source)))
           (type_alias
             {}
-            (name 3:Ref)
+            (bname 3:Ref)
             (type_params)
             (type
               (name 6:Target))))))
@@ -39,7 +39,7 @@ function_parse
       {
         include use Alias::Ref
         include use Target}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent

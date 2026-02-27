@@ -8,27 +8,27 @@ resolve_types
   (file
     (struct
       {}
-      (name 4:True)
+      (bname 4:True)
       (type_params)
       (fields))
     (struct
       {}
-      (name 5:False)
+      (bname 5:False)
       (type_params)
       (fields))
     (type_alias
       {}
-      (name 4:Bool)
+      (bname 4:Bool)
       (type_params)
       (type
-        (type_or
-          (type_lookup
-            (../)
-            (type_reference
-              (name 4:True)
-              (type_args)))
-          (type_lookup
-            (../)
-            (type_reference
-              (name 5:False)
-              (type_args))))))))
+        (lookup
+          (../)
+          (reference
+            (name 4:True)
+            (type_args)))
+        (type_or)
+        (lookup
+          (../)
+          (reference
+            (name 5:False)
+            (type_args)))))))

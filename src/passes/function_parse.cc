@@ -14,15 +14,15 @@ PassDef get_function_parse_pass() {
             return Seq << (TypeParams << *_[Square]) << Lhs;
           },
 
-          In(TypeParams) * T(Group)[Group] >>
-              [](auto &_) -> Node { return TypeParam << *_[Group]; },
+          In(TypeParams) * (T(Group) << (T(Name)[Name] * End)) >>
+              [](auto &_) -> Node { return TypeParam << (BName ^ _(Name)); },
 
           In(Function) * T(Lhs, Rhs)[Lhs] *
                   (T(Group, Paren) << (T(Name)[Name] * T(Colon) * ~T(Hat)[Hat] *
                                        Any++[Type])) >>
               [](auto &_) {
                 return _(Lhs)
-                       << (Param << _(Name) << (Mode << (_(Hat) ? CBN : CBV))
+                       << (Param << (BName ^ _(Name)) << (Mode << (_(Hat) ? CBN : CBV))
                                  << (Type << _[Type]));
               },
 
@@ -31,7 +31,7 @@ PassDef get_function_parse_pass() {
               [](auto &_) { return Seq << _(Lhs) << *_(Group); },
 
           In(Function) * T(Lhs)[Lhs] * T(Name)[Name] * --T(Rhs) >>
-              [](auto &_) { return Seq << _(Lhs) << _(Name) << Rhs; },
+              [](auto &_) { return Seq << _(Lhs) << (BName ^ _(Name)) << Rhs; },
 
           In(Function) * T(Rhs)[Rhs] * T(Colon) >>
               [](auto &_) { return Seq << _(Rhs) << Type; },

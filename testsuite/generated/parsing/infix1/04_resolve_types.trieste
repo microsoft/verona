@@ -13,11 +13,11 @@ resolve_types
       {}
       (type_params)
       (lhs)
-      (name 5:abort)
+      (bname 5:abort)
       (rhs)
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 1:T)
             (type_args))
           (error
@@ -28,7 +28,11 @@ resolve_types
       (where)
       (body
         (expr_stack)
-        (name 5:abort)))
+        (lookup
+          (../)
+          (reference
+            (name 5:abort)
+            (type_args)))))
     (function
       {
         a = param
@@ -36,12 +40,12 @@ resolve_types
       (type_params)
       (lhs
         (param
-          (name 1:a)
+          (bname 1:a)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Int)
                 (type_args))
               (error
@@ -49,15 +53,15 @@ resolve_types
                 (errormsg 60:function (a: Int) + (b: Int) : Int = abort
              ~~~
 ))))))
-      (name 1:+)
+      (bname 1:+)
       (rhs
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Int)
                 (type_args))
               (error
@@ -66,8 +70,8 @@ resolve_types
                         ~~~
 ))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 3:Int)
             (type_args))
           (error
@@ -78,7 +82,11 @@ resolve_types
       (where)
       (body
         (expr_stack)
-        (name 5:abort)))
+        (lookup
+          (../)
+          (reference
+            (name 5:abort)
+            (type_args)))))
     (function
       {
         a = param
@@ -86,15 +94,15 @@ resolve_types
         c = param}
       (type_params)
       (lhs)
-      (name 4:test)
+      (bname 4:test)
       (rhs
         (param
-          (name 1:a)
+          (bname 1:a)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Int)
                 (type_args))
               (error
@@ -103,12 +111,12 @@ resolve_types
                    ~~~
 )))))
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Int)
                 (type_args))
               (error
@@ -117,12 +125,12 @@ resolve_types
                             ~~~
 )))))
         (param
-          (name 1:c)
+          (bname 1:c)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Int)
                 (type_args))
               (error
@@ -131,8 +139,8 @@ resolve_types
                                      ~~~
 ))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 3:Int)
             (type_args))
           (error
@@ -145,11 +153,28 @@ resolve_types
         (expr_stack)
         (indent
           (group
-            (name 1:a)
-            (name 1:+)
-            (name 1:b)
-            (name 1:+)
-            (name 1:c)))))
+            (lookup
+              (reference
+                (name 1:a)
+                (type_args)))
+            (lookup
+              (../)
+              (reference
+                (name 1:+)
+                (type_args)))
+            (lookup
+              (reference
+                (name 1:b)
+                (type_args)))
+            (lookup
+              (../)
+              (reference
+                (name 1:+)
+                (type_args)))
+            (lookup
+              (reference
+                (name 1:c)
+                (type_args)))))))
     (function
       {
         a = param
@@ -157,15 +182,15 @@ resolve_types
         c = param}
       (type_params)
       (lhs)
-      (name 4:test)
+      (bname 4:test)
       (rhs
         (param
-          (name 1:a)
+          (bname 1:a)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Int)
                 (type_args))
               (error
@@ -174,12 +199,12 @@ resolve_types
                    ~~~
 )))))
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Int)
                 (type_args))
               (error
@@ -188,12 +213,12 @@ resolve_types
                             ~~~
 )))))
         (param
-          (name 1:c)
+          (bname 1:c)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Int)
                 (type_args))
               (error
@@ -202,8 +227,8 @@ resolve_types
                                      ~~~
 ))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 3:Int)
             (type_args))
           (error
@@ -217,11 +242,28 @@ resolve_types
         (indent
           (group
             (paren
-              (name 1:a)
-              (name 1:+)
-              (name 1:b))
-            (name 1:+)
-            (name 1:c)))))
+              (lookup
+                (reference
+                  (name 1:a)
+                  (type_args)))
+              (lookup
+                (../)
+                (reference
+                  (name 1:+)
+                  (type_args)))
+              (lookup
+                (reference
+                  (name 1:b)
+                  (type_args))))
+            (lookup
+              (../)
+              (reference
+                (name 1:+)
+                (type_args)))
+            (lookup
+              (reference
+                (name 1:c)
+                (type_args)))))))
     (function
       {
         a = param
@@ -229,15 +271,15 @@ resolve_types
         c = param}
       (type_params)
       (lhs)
-      (name 4:test)
+      (bname 4:test)
       (rhs
         (param
-          (name 1:a)
+          (bname 1:a)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Int)
                 (type_args))
               (error
@@ -246,12 +288,12 @@ resolve_types
                    ~~~
 )))))
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Int)
                 (type_args))
               (error
@@ -260,12 +302,12 @@ resolve_types
                             ~~~
 )))))
         (param
-          (name 1:c)
+          (bname 1:c)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Int)
                 (type_args))
               (error
@@ -274,8 +316,8 @@ resolve_types
                                      ~~~
 ))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 3:Int)
             (type_args))
           (error
@@ -288,9 +330,26 @@ resolve_types
         (expr_stack)
         (indent
           (group
-            (name 1:a)
-            (name 1:+)
+            (lookup
+              (reference
+                (name 1:a)
+                (type_args)))
+            (lookup
+              (../)
+              (reference
+                (name 1:+)
+                (type_args)))
             (paren
-              (name 1:b)
-              (name 1:+)
-              (name 1:c))))))))
+              (lookup
+                (reference
+                  (name 1:b)
+                  (type_args)))
+              (lookup
+                (../)
+                (reference
+                  (name 1:+)
+                  (type_args)))
+              (lookup
+                (reference
+                  (name 1:c)
+                  (type_args))))))))))

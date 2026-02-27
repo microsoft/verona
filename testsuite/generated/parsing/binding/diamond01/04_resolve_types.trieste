@@ -10,71 +10,71 @@ resolve_types
     (module
       {
         SharedType = struct}
-      (name 4:Base)
+      (bname 4:Base)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 10:SharedType)
+            (bname 10:SharedType)
             (type_params)
             (fields)))))
     (module
       {
         LeftAlias = type_alias
         include use Base}
-      (name 4:Left)
+      (bname 4:Left)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 4:Base)
                   (type_args)))))
           (type_alias
             {}
-            (name 9:LeftAlias)
+            (bname 9:LeftAlias)
             (type_params)
             (type
-              (type_lookup
+              (lookup
                 (../)
                 (../)
-                (type_reference
+                (reference
                   (name 4:Base)
                   (type_args))
-                (type_reference
+                (reference
                   (name 10:SharedType)
                   (type_args))))))))
     (module
       {
         RightAlias = type_alias
         include use Base}
-      (name 5:Right)
+      (bname 5:Right)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 4:Base)
                   (type_args)))))
           (type_alias
             {}
-            (name 10:RightAlias)
+            (bname 10:RightAlias)
             (type_params)
             (type
-              (type_lookup
+              (lookup
                 (../)
                 (../)
-                (type_reference
+                (reference
                   (name 4:Base)
                   (type_args))
-                (type_reference
+                (reference
                   (name 10:SharedType)
                   (type_args))))))))
     (module
@@ -84,48 +84,48 @@ resolve_types
         include use LeftAlias
         include use RightAlias
         include use SharedType}
-      (name 3:Top)
+      (bname 3:Top)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 4:Left)
                   (type_args)))))
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 5:Right)
                   (type_args)))))
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 4:Base)
                   (type_args))
-                (type_reference
+                (reference
                   (name 10:SharedType)
                   (type_args)))))
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 4:Base)
                   (type_args))
-                (type_reference
+                (reference
                   (name 10:SharedType)
                   (type_args)))))
           (use
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 10:SharedType)
                   (type_args))
                 (error

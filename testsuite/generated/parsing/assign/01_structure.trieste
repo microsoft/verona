@@ -5,23 +5,23 @@ structure
   (file
     (struct
       {}
-      (name 3:Int)
+      (bname 3:Int)
       (type_params)
       (fields))
     (struct
       {}
-      (name 4:Void)
+      (bname 4:Void)
       (type_params)
       (fields))
     (struct
       {}
-      (name 4:Cell)
+      (bname 4:Cell)
       (type_params
         (group
           (name 1:P)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
             (name 1:P)))))
     (function
@@ -46,8 +46,8 @@ structure
       (eq)
       (indent
         (group
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 1:c)))
           (eq)
@@ -77,18 +77,18 @@ structure
       (eq)
       (indent
         (group
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c1)))
           (eq)
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c2)))
           (eq)
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c1))))))
     (function
@@ -116,20 +116,20 @@ structure
       (eq)
       (indent
         (group
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c1))))
         (group
           (eq)
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c2))))
         (group
           (eq)
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c1))))))
     (function
@@ -157,20 +157,20 @@ structure
       (eq)
       (indent
         (group
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c1)))
           (eq))
         (group
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c2)))
           (eq))
         (group
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c1))))))
     (function
@@ -198,86 +198,86 @@ structure
       (eq)
       (indent
         (group
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c1)))
           (eq)
           (paren
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
                 (name 2:c2)))
             (eq)
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
                 (name 2:c1)))))
         (group
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c1)))
           (eq)
           (paren
             (paren
-              (lookup
-                (name 5:value)
+              (access
+                (bname 5:value)
                 (args
                   (name 2:c2)))
               (eq)
-              (lookup
-                (name 5:value)
+              (access
+                (bname 5:value)
                 (args
                   (name 2:c1))))))
         (group
           (paren
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
                 (name 2:c1)))
             (eq)
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
                 (name 2:c2))))
           (eq)
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c1))))
         (group
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c1)))
           (eq)
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c2)))
           (eq)
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c1))))
         (group
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c1)))
           (eq)
           (indent
             (group
-              (lookup
-                (name 5:value)
+              (access
+                (bname 5:value)
                 (args
                   (name 2:c2)))
               (eq)
               (indent
                 (group
-                  (lookup
-                    (name 5:value)
+                  (access
+                    (bname 5:value)
                     (args
                       (name 2:c1))))))))))
     (function
@@ -320,10 +320,10 @@ structure
       (eq)
       (indent
         (group
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
-              (name 2:c1)))
+              (name 1:c)))
           (eq)
           (name 6:right2)
           (name 2:i1)
@@ -402,21 +402,21 @@ structure
       (eq)
       (indent
         (group
-          (lookup
-            (name 5:value)
+          (access
+            (bname 5:value)
             (args
               (name 2:c1)))
           (indent
             (group
               (eq)
-              (lookup
-                (name 5:value)
+              (access
+                (bname 5:value)
                 (args
                   (name 2:c2)))
               (indent
                 (group
                   (eq)
-                  (lookup
-                    (name 5:value)
+                  (access
+                    (bname 5:value)
                     (args
                       (name 2:c1))))))))))))

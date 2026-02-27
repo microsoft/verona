@@ -36,92 +36,92 @@ parse_types
   (file
     (struct
       {}
-      (name 4:True)
+      (bname 4:True)
       (type_params)
       (fields))
     (struct
       {}
-      (name 5:False)
+      (bname 5:False)
       (type_params)
       (fields))
     (struct
       {}
-      (name 3:Int)
+      (bname 3:Int)
       (type_params)
       (fields))
     (struct
       {
         P = type_param
         Q = type_param}
-      (name 3:Fun)
+      (bname 3:Fun)
       (type_params
         (type_param
-          (name 1:P))
+          (bname 1:P))
         (type_param
-          (name 1:Q)))
+          (bname 1:Q)))
       (fields))
     (struct
       {}
-      (name 6:String)
+      (bname 6:String)
       (type_params)
       (fields))
     (type_alias
       {}
-      (name 4:Bool)
+      (bname 4:Bool)
       (type_params)
       (type
-        (type_or
-          (type_lookup
-            (type_reference
-              (name 4:True)
-              (type_args)))
-          (type_lookup
-            (type_reference
-              (name 5:False)
-              (type_args))))))
+        (lookup
+          (reference
+            (name 4:True)
+            (type_args)))
+        (type_or)
+        (lookup
+          (reference
+            (name 5:False)
+            (type_args)))))
     (struct
       {}
-      (name 4:None)
+      (bname 4:None)
       (type_params)
       (fields))
     (struct
       {
         P = type_param
         value = field}
-      (name 4:Some)
+      (bname 4:Some)
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args)))))))
     (type_alias
       {
         P = type_param}
-      (name 6:Option)
+      (bname 6:Option)
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (type
-        (type_or
-          (type_lookup
-            (type_reference
-              (name 4:None)
-              (type_args)))
-          (type_lookup
-            (type_reference
-              (name 4:Some)
-              (type_args
-                (type
-                  (type_lookup
-                    (type_reference
-                      (name 1:P)
-                      (type_args))))))))))
+        (lookup
+          (reference
+            (name 4:None)
+            (type_args)))
+        (type_or)
+        (lookup
+          (reference
+            (name 4:Some)
+            (type_args
+              (type
+                (lookup
+                  (reference
+                    (name 1:P)
+                    (type_args)))))))))
     (function
       {
         P = type_param
@@ -129,43 +129,49 @@ parse_types
         thenBranch = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 2:if)
+      (bname 2:if)
       (rhs
         (param
-          (name 9:condition)
+          (bname 9:condition)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 4:True)
                 (type_args)))))
         (param
-          (name 10:thenBranch)
+          (bname 10:thenBranch)
           (mode
             (cbn))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 6:Option)
             (type_args
               (type
-                (type_lookup
-                  (type_reference
+                (lookup
+                  (reference
                     (name 1:P)
                     (type_args))))))))
       (where)
       (body
         (expr_stack)
-        (name 4:Some)
-        (name 10:thenBranch)))
+        (lookup
+          (reference
+            (name 4:Some)
+            (type_args)))
+        (lookup
+          (reference
+            (name 10:thenBranch)
+            (type_args)))))
     (function
       {
         P = type_param
@@ -173,92 +179,101 @@ parse_types
         thenBranch = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs)
-      (name 2:if)
+      (bname 2:if)
       (rhs
         (param
-          (name 9:condition)
+          (bname 9:condition)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 5:False)
                 (type_args)))))
         (param
-          (name 10:thenBranch)
+          (bname 10:thenBranch)
           (mode
             (cbn))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 6:Option)
             (type_args
               (type
-                (type_lookup
-                  (type_reference
+                (lookup
+                  (reference
                     (name 1:P)
                     (type_args))))))))
       (where)
       (body
         (expr_stack)
-        (name 4:None)))
+        (lookup
+          (reference
+            (name 4:None)
+            (type_args)))))
     (function
       {
         b = param}
       (type_params)
       (lhs)
-      (name 3:not)
+      (bname 3:not)
       (rhs
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 4:True)
                 (type_args))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 5:False)
             (type_args))))
       (where)
       (body
         (expr_stack)
-        (name 5:False)))
+        (lookup
+          (reference
+            (name 5:False)
+            (type_args)))))
     (function
       {
         b = param}
       (type_params)
       (lhs)
-      (name 3:not)
+      (bname 3:not)
       (rhs
         (param
-          (name 1:b)
+          (bname 1:b)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 5:False)
                 (type_args))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 4:True)
             (type_args))))
       (where)
       (body
         (expr_stack)
-        (name 4:True)))
+        (lookup
+          (reference
+            (name 4:True)
+            (type_args)))))
     (function
       {
         P = type_param
@@ -266,129 +281,141 @@ parse_types
         value = param}
       (type_params
         (type_param
-          (name 1:P)))
+          (bname 1:P)))
       (lhs
         (param
-          (name 3:lhs)
+          (bname 3:lhs)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 4:Some)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args))))))))))
-      (name 4:else)
+      (bname 4:else)
       (rhs
         (param
-          (name 5:value)
+          (bname 5:value)
           (mode
             (cbn))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
+            (name 1:P)
+            (type_args))))
+      (where)
+      (body
+        (expr_stack)
+        (access
+          (bname 5:value)
+          (args
+            (lookup
+              (reference
+                (name 3:lhs)
+                (type_args)))))))
+    (function
+      {
+        P = type_param
+        lhs = param
+        value = param}
+      (type_params
+        (type_param
+          (bname 1:P)))
+      (lhs
+        (param
+          (bname 3:lhs)
+          (mode
+            (cbv))
+          (type
+            (lookup
+              (reference
+                (name 4:None)
+                (type_args))))))
+      (bname 4:else)
+      (rhs
+        (param
+          (bname 5:value)
+          (mode
+            (cbn))
+          (type
+            (lookup
+              (reference
+                (name 1:P)
+                (type_args))))))
+      (type
+        (lookup
+          (reference
             (name 1:P)
             (type_args))))
       (where)
       (body
         (expr_stack)
         (lookup
-          (name 5:value)
-          (args
-            (name 3:lhs)))))
-    (function
-      {
-        P = type_param
-        lhs = param
-        value = param}
-      (type_params
-        (type_param
-          (name 1:P)))
-      (lhs
-        (param
-          (name 3:lhs)
-          (mode
-            (cbv))
-          (type
-            (type_lookup
-              (type_reference
-                (name 4:None)
-                (type_args))))))
-      (name 4:else)
-      (rhs
-        (param
-          (name 5:value)
-          (mode
-            (cbn))
-          (type
-            (type_lookup
-              (type_reference
-                (name 1:P)
-                (type_args))))))
-      (type
-        (type_lookup
-          (type_reference
-            (name 1:P)
-            (type_args))))
-      (where)
-      (body
-        (expr_stack)
-        (name 5:value)))
+          (reference
+            (name 5:value)
+            (type_args)))))
     (function
       {
         T = type_param}
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (lhs)
-      (name 5:abort)
+      (bname 5:abort)
       (rhs)
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 1:T)
             (type_args))))
       (where)
       (body
         (expr_stack)
-        (name 5:abort)))
+        (lookup
+          (reference
+            (name 5:abort)
+            (type_args)))))
     (function
       {
         i = param}
       (type_params)
       (lhs
         (param
-          (name 1:i)
+          (bname 1:i)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Int)
                 (type_args))))))
-      (name 8:toString)
+      (bname 8:toString)
       (rhs)
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 6:String)
             (type_args))))
       (where)
       (body
         (expr_stack)
-        (name 5:abort)))
+        (lookup
+          (reference
+            (name 5:abort)
+            (type_args)))))
     (struct
       {}
-      (name 9:EmptyList)
+      (bname 9:EmptyList)
       (type_params)
       (fields))
     (struct
@@ -396,137 +423,143 @@ parse_types
         T = type_param
         next = field
         value = field}
-      (name 8:ListNode)
+      (bname 8:ListNode)
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (fields
         (field
-          (name 5:value)
+          (bname 5:value)
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:T)
                 (type_args)))))
         (field
-          (name 4:next)
+          (bname 4:next)
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 4:List)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:T)
                         (type_args)))))))))))
     (type_alias
       {
         T = type_param}
-      (name 4:List)
+      (bname 4:List)
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (type
-        (type_or
-          (type_lookup
-            (type_reference
-              (name 9:EmptyList)
-              (type_args)))
-          (type_lookup
-            (type_reference
-              (name 8:ListNode)
-              (type_args
-                (type
-                  (type_lookup
-                    (type_reference
-                      (name 1:T)
-                      (type_args))))))))))
+        (lookup
+          (reference
+            (name 9:EmptyList)
+            (type_args)))
+        (type_or)
+        (lookup
+          (reference
+            (name 8:ListNode)
+            (type_args
+              (type
+                (lookup
+                  (reference
+                    (name 1:T)
+                    (type_args)))))))))
     (function
       {
         l = param}
       (type_params)
       (lhs
         (param
-          (name 1:l)
+          (bname 1:l)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 9:EmptyList)
                 (type_args))))))
-      (name 7:isEmpty)
+      (bname 7:isEmpty)
       (rhs)
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 4:Bool)
             (type_args))))
       (where)
       (body
         (expr_stack)
-        (name 4:True)))
+        (lookup
+          (reference
+            (name 4:True)
+            (type_args)))))
     (function
       {
         T = type_param
         l = param}
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (lhs
         (param
-          (name 1:l)
+          (bname 1:l)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 8:ListNode)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:T)
                         (type_args))))))))))
-      (name 7:isEmpty)
+      (bname 7:isEmpty)
       (rhs)
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 4:Bool)
             (type_args))))
       (where)
       (body
         (expr_stack)
-        (name 5:False)))
+        (lookup
+          (reference
+            (name 5:False)
+            (type_args)))))
     (function
       {
         T = type_param
         l = param}
       (type_params
         (type_param
-          (name 1:T)))
+          (bname 1:T)))
       (lhs)
-      (name 4:test)
+      (bname 4:test)
       (rhs
         (param
-          (name 1:l)
+          (bname 1:l)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 4:List)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:T)
                         (type_args))))))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 4:None)
             (type_args))))
       (where)
@@ -534,18 +567,36 @@ parse_types
         (expr_stack)
         (indent
           (group
-            (name 2:if)
+            (lookup
+              (reference
+                (name 2:if)
+                (type_args)))
             (paren
-              (name 1:l)
-              (name 7:isEmpty))
+              (lookup
+                (reference
+                  (name 1:l)
+                  (type_args)))
+              (lookup
+                (reference
+                  (name 7:isEmpty)
+                  (type_args))))
             (indent
               (group
-                (name 4:True))))
+                (lookup
+                  (reference
+                    (name 4:True)
+                    (type_args))))))
           (group
-            (name 4:else)
+            (lookup
+              (reference
+                (name 4:else)
+                (type_args)))
             (indent
               (group
-                (name 5:False)))))))
+                (lookup
+                  (reference
+                    (name 5:False)
+                    (type_args)))))))))
     (function
       {
         P = type_param
@@ -554,49 +605,52 @@ parse_types
         x = param}
       (type_params
         (type_param
-          (name 1:P))
+          (bname 1:P))
         (type_param
-          (name 1:Q)))
+          (bname 1:Q)))
       (lhs
         (param
-          (name 1:f)
+          (bname 1:f)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Fun)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args))))
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:Q)
                         (type_args))))))))))
-      (name 1:@)
+      (bname 1:@)
       (rhs
         (param
-          (name 1:x)
+          (bname 1:x)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 1:P)
                 (type_args))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 1:Q)
             (type_args))))
       (where)
       (body
         (expr_stack)
-        (name 5:abort)))
+        (lookup
+          (reference
+            (name 5:abort)
+            (type_args)))))
     (function
       {
         P = type_param
@@ -608,53 +662,53 @@ parse_types
         l = param}
       (type_params
         (type_param
-          (name 1:P))
+          (bname 1:P))
         (type_param
-          (name 1:Q)))
+          (bname 1:Q)))
       (lhs
         (param
-          (name 1:l)
+          (bname 1:l)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 4:List)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args))))))))))
-      (name 3:map)
+      (bname 3:map)
       (rhs
         (param
-          (name 1:f)
+          (bname 1:f)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Fun)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args))))
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:Q)
                         (type_args))))))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 4:List)
             (type_args
               (type
-                (type_lookup
-                  (type_reference
+                (lookup
+                  (reference
                     (name 1:Q)
                     (type_args))))))))
       (where)
@@ -666,60 +720,63 @@ parse_types
               l = param}
             (type_params)
             (lhs)
-            (name 5:inner)
+            (bname 5:inner)
             (rhs
               (param
-                (name 1:l)
+                (bname 1:l)
                 (mode
                   (cbv))
                 (type
-                  (type_lookup
-                    (type_reference
+                  (lookup
+                    (reference
                       (name 9:EmptyList)
                       (type_args))))))
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 4:List)
                   (type_args
                     (type
-                      (type_lookup
-                        (type_reference
+                      (lookup
+                        (reference
                           (name 1:Q)
                           (type_args))))))))
             (where)
             (body
               (expr_stack)
-              (name 9:EmptyList)))
+              (lookup
+                (reference
+                  (name 9:EmptyList)
+                  (type_args)))))
           (function
             {
               l = param}
             (type_params)
             (lhs)
-            (name 5:inner)
+            (bname 5:inner)
             (rhs
               (param
-                (name 1:l)
+                (bname 1:l)
                 (mode
                   (cbv))
                 (type
-                  (type_lookup
-                    (type_reference
+                  (lookup
+                    (reference
                       (name 8:ListNode)
                       (type_args
                         (type
-                          (type_lookup
-                            (type_reference
+                          (lookup
+                            (reference
                               (name 1:P)
                               (type_args))))))))))
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 4:List)
                   (type_args
                     (type
-                      (type_lookup
-                        (type_reference
+                      (lookup
+                        (reference
                           (name 1:Q)
                           (type_args))))))))
             (where)
@@ -727,23 +784,47 @@ parse_types
               (expr_stack)
               (indent
                 (group
-                  (name 8:ListNode)
+                  (lookup
+                    (reference
+                      (name 8:ListNode)
+                      (type_args)))
                   (paren
-                    (name 1:f)
-                    (name 1:@)
                     (lookup
-                      (name 5:value)
+                      (reference
+                        (name 1:f)
+                        (type_args)))
+                    (lookup
+                      (reference
+                        (name 1:@)
+                        (type_args)))
+                    (access
+                      (bname 5:value)
                       (args
-                        (name 1:l))))
+                        (lookup
+                          (reference
+                            (name 1:l)
+                            (type_args))))))
                   (paren
-                    (name 5:inner)
                     (lookup
-                      (name 4:next)
+                      (reference
+                        (name 5:inner)
+                        (type_args)))
+                    (access
+                      (bname 4:next)
                       (args
-                        (name 1:l))))))))
+                        (lookup
+                          (reference
+                            (name 1:l)
+                            (type_args))))))))))
           (group
-            (name 5:inner)
-            (name 1:l)))))
+            (lookup
+              (reference
+                (name 5:inner)
+                (type_args)))
+            (lookup
+              (reference
+                (name 1:l)
+                (type_args)))))))
     (function
       {
         P = type_param
@@ -754,74 +835,74 @@ parse_types
         l = param}
       (type_params
         (type_param
-          (name 1:P))
+          (bname 1:P))
         (type_param
-          (name 1:Q))
+          (bname 1:Q))
         (type_param
-          (name 1:R)))
+          (bname 1:R)))
       (lhs)
-      (name 4:test)
+      (bname 4:test)
       (rhs
         (param
-          (name 1:l)
+          (bname 1:l)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 4:List)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args)))))))))
         (param
-          (name 1:f)
+          (bname 1:f)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Fun)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:P)
                         (type_args))))
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:Q)
                         (type_args)))))))))
         (param
-          (name 1:g)
+          (bname 1:g)
           (mode
             (cbv))
           (type
-            (type_lookup
-              (type_reference
+            (lookup
+              (reference
                 (name 3:Fun)
                 (type_args
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:Q)
                         (type_args))))
                   (type
-                    (type_lookup
-                      (type_reference
+                    (lookup
+                      (reference
                         (name 1:R)
                         (type_args))))))))))
       (type
-        (type_lookup
-          (type_reference
+        (lookup
+          (reference
             (name 4:List)
             (type_args
               (type
-                (type_lookup
-                  (type_reference
+                (lookup
+                  (reference
                     (name 1:R)
                     (type_args))))))))
       (where)
@@ -829,8 +910,23 @@ parse_types
         (expr_stack)
         (indent
           (group
-            (name 1:l)
-            (name 3:map)
-            (name 1:f)
-            (name 3:map)
-            (name 1:g)))))))
+            (lookup
+              (reference
+                (name 1:l)
+                (type_args)))
+            (lookup
+              (reference
+                (name 3:map)
+                (type_args)))
+            (lookup
+              (reference
+                (name 1:f)
+                (type_args)))
+            (lookup
+              (reference
+                (name 3:map)
+                (type_args)))
+            (lookup
+              (reference
+                (name 1:g)
+                (type_args)))))))))

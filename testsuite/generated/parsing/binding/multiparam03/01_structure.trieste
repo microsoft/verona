@@ -5,40 +5,40 @@ structure
   (file
     (module
       {}
-      (name 9:IntModule)
+      (bname 9:IntModule)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 3:Int)
+            (bname 3:Int)
             (type_params)
             (fields)))))
     (module
       {}
-      (name 10:BoolModule)
+      (bname 10:BoolModule)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 4:Bool)
+            (bname 4:Bool)
             (type_params)
             (fields)))))
     (module
       {}
-      (name 12:StringModule)
+      (bname 12:StringModule)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 6:String)
+            (bname 6:String)
             (type_params)
             (fields)))))
     (module
       {}
-      (name 5:Outer)
+      (bname 5:Outer)
       (type_params
         (group
           (name 1:A))
@@ -48,7 +48,7 @@ structure
         (indent
           (module
             {}
-            (name 5:Inner)
+            (bname 5:Inner)
             (type_params
               (group
                 (name 1:C)))
@@ -56,25 +56,25 @@ structure
               (indent
                 (type_alias
                   {}
-                  (name 6:OuterA)
+                  (bname 6:OuterA)
                   (type_params)
                   (type
                     (name 1:A)))
                 (type_alias
                   {}
-                  (name 6:OuterB)
+                  (bname 6:OuterB)
                   (type_params)
                   (type
                     (name 1:B)))
                 (type_alias
                   {}
-                  (name 6:InnerC)
+                  (bname 6:InnerC)
                   (type_params)
                   (type
                     (name 1:C)))))))))
     (module
       {}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent

@@ -9,20 +9,20 @@ parse_types
     (module
       {
         Foo = module}
-      (name 1:C)
+      (bname 1:C)
       (type_params)
       (body
         (indent
           (module
             {
               Bar = module}
-            (name 3:Foo)
+            (bname 3:Foo)
             (type_params)
             (body
               (indent
                 (module
                   {}
-                  (name 3:Bar)
+                  (bname 3:Bar)
                   (type_params)
                   (body))))))))
     (module
@@ -31,41 +31,41 @@ parse_types
         T4 = type_alias
         include use C
         include use B::T1}
-      (name 1:A)
+      (bname 1:A)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 1:C)
                   (type_args)))))
           (type_alias
             {}
-            (name 2:T2)
+            (bname 2:T2)
             (type_params)
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 3:Foo)
                   (type_args)))))
           (use
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 1:B)
                   (type_args))
-                (type_reference
+                (reference
                   (name 2:T1)
                   (type_args)))))
           (type_alias
             {}
-            (name 2:T4)
+            (bname 2:T4)
             (type_params)
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 3:Bar)
                   (type_args))))))))
     (module
@@ -74,40 +74,40 @@ parse_types
         T3 = type_alias
         include use C
         include use A::T2}
-      (name 1:B)
+      (bname 1:B)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 1:C)
                   (type_args)))))
           (type_alias
             {}
-            (name 2:T1)
+            (bname 2:T1)
             (type_params)
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 3:Foo)
                   (type_args)))))
           (use
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 1:A)
                   (type_args))
-                (type_reference
+                (reference
                   (name 2:T2)
                   (type_args)))))
           (type_alias
             {}
-            (name 2:T3)
+            (bname 2:T3)
             (type_params)
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 3:Bar)
                   (type_args))))))))))

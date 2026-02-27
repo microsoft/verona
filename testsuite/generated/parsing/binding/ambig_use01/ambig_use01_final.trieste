@@ -9,25 +9,25 @@ resolve_types
     (module
       {
         Conflict = struct}
-      (name 7:SourceA)
+      (bname 7:SourceA)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 8:Conflict)
+            (bname 8:Conflict)
             (type_params)
             (fields)))))
     (module
       {
         Conflict = struct}
-      (name 7:SourceB)
+      (bname 7:SourceB)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 8:Conflict)
+            (bname 8:Conflict)
             (type_params)
             (fields)))))
     (module
@@ -35,31 +35,31 @@ resolve_types
         Alias = type_alias
         include use SourceA
         include use SourceB}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 7:SourceA)
                   (type_args)))))
           (use
             (type
-              (type_lookup
+              (lookup
                 (../)
-                (type_reference
+                (reference
                   (name 7:SourceB)
                   (type_args)))))
           (type_alias
             {}
-            (name 5:Alias)
+            (bname 5:Alias)
             (type_params)
             (type
-              (type_lookup
-                (type_reference
+              (lookup
+                (reference
                   (name 8:Conflict)
                   (type_args))
                 (error

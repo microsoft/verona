@@ -36,29 +36,29 @@ PassDef get_operator_defn_pass() {
        T(Struct)[Struct] << (T(Name)[Name] * (~T(Square))[Square] *
                              T(Group, Paren)++[Group] * End) >>
            [](auto &_) -> Node {
-         return (Struct ^ _(Struct)) << (_[Name]) << (TypeParams << *_[Square])
+         return (Struct ^ _(Struct)) << (BName ^ _(Name)) << (TypeParams << *_[Square])
                                      << (Fields << _[Group]);
        },
 
        Any[Lhs] * T(Dot) * T(Name)[Name] >>
-           [](auto &_) { return Lookup << _(Name) << (Args << _(Lhs)); },
+           [](auto &_) { return Access << (BName ^ _(Name)) << (Args << _(Lhs)); },
 
        In(Fields) * T(Group, Paren)
                << (T(Name)[Name] * T(Colon) * Any++[Type]) >>
-           [](auto &_) { return Field << _(Name) << (Type << _[Type]); },
+           [](auto &_) { return Field << (BName ^ _(Name)) << (Type << _[Type]); },
 
        T(TypeAlias)[TypeAlias] << (T(Name)[Name] * (~T(Square))[Square] *
                                    T(Eq) * Any++[Body] * End) >>
            [](auto &_) -> Node {
          return (TypeAlias ^ _(TypeAlias))
-                << _[Name] << (TypeParams << *_[Square]) << (Type << + _[Body]);
+                << (BName ^ _(Name)) << (TypeParams << *_[Square]) << (Type << + _[Body]);
        },
 
        T(Module)[Module] << (T(Name)[Name] * ~T(Square)[TypeParams] *
                              (--T(Body, TypeParams) * Any++)[Body] * End) >>
            [](auto &_) -> Node {
          auto result = (Module ^ _(Module))
-                       << _(Name) << (TypeParams << *_[TypeParams])
+                       << (BName ^ _(Name)) << (TypeParams << *_[TypeParams])
                        << (Body << _[Body]);
          return result;
        },

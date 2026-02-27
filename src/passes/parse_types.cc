@@ -12,21 +12,24 @@ PassDef get_parse_types_pass() {
       wf_function_parse,
       dir::topdown,
       {
+          In(Type)++ * T(Name, "\\|")[Name] >>
+                [](auto &_) { return TypeOr ^ _(Name); },
+
           // Start of a type: Name [Square]? -> Lookup(Name, Args).
-          In(Type, Use) * Start * ~T(TypeOr)[TypeOr] * T(Name)[Name] * ~T(Square)[Args] >>
+            (--T(DoubleColon)) * T(Name)[Name] * ~T(Square)[Args] * (--(In(Reference))) >>
               [](auto &_) {
-                auto reference = TypeReference << _(Name)
+                auto reference = Reference << _(Name)
                                                << (+(TypeArgs << +(*_[Args])));
-                auto result = TypeLookup << +reference;
+                auto result = Lookup << +reference;
                 return Seq << _[TypeOr] << result;
               },
 
           // Extend lookup chain: Lookup :: Name [Square]? ->
           // Lookup Lookup.
-          In(Type, Use) * T(TypeLookup)[Lhs] * T(DoubleColon) * T(Name)[Name] *
+          T(Lookup)[Lhs] * T(DoubleColon) * T(Name)[Name] *
                   ~T(Square)[Args] >>
               [](auto &_) {
-                auto extension = TypeReference << (+_(Name))
+                auto extension = Reference << (+_(Name))
                                                << (+(TypeArgs << +(*_[Args])));
                 auto result = _(Lhs) << (+extension);
                 return result;
@@ -34,12 +37,6 @@ PassDef get_parse_types_pass() {
 
           In(TypeArgs) * T(Group)[Group] >>
               [](auto &_) { return Type << (*_(Group)); },
-
-          Start * T(TypeLookup)[Lhs] * T(Name, "\\|")>>
-              [](auto &_) { return TypeOr << _(Lhs); },
-
-          T(TypeOr)[Lhs] * T(TypeLookup)[Rhs] * (T(Name, "\\|") / End) >>
-              [](auto &_) { return _(Lhs) << _[Rhs]; },
 
       }};
   return pass;

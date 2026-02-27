@@ -10,37 +10,37 @@ function_parse
     (module
       {
         Conflict = struct}
-      (name 7:SourceA)
+      (bname 7:SourceA)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 8:Conflict)
+            (bname 8:Conflict)
             (type_params)
             (fields)))))
     (module
       {
         Other = struct}
-      (name 7:SourceB)
+      (bname 7:SourceB)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 5:Other)
+            (bname 5:Other)
             (type_params)
             (fields)))))
     (module
       {
         Conflict = struct}
-      (name 7:SourceC)
+      (bname 7:SourceC)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 8:Conflict)
+            (bname 8:Conflict)
             (type_params)
             (fields)))))
     (module
@@ -49,7 +49,7 @@ function_parse
         include use SourceA
         include use SourceB
         include use SourceC}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent
@@ -64,7 +64,7 @@ function_parse
               (name 7:SourceC)))
           (type_alias
             {}
-            (name 5:Alias)
+            (bname 5:Alias)
             (type_params)
             (type
               (name 8:Conflict))))))))

@@ -5,18 +5,18 @@ structure
   (file
     (module
       {}
-      (name 6:Level0)
+      (bname 6:Level0)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 6:Origin)
+            (bname 6:Origin)
             (type_params)
             (fields)))))
     (module
       {}
-      (name 6:Level1)
+      (bname 6:Level1)
       (type_params)
       (body
         (indent
@@ -25,13 +25,13 @@ structure
               (name 6:Level0)))
           (type_alias
             {}
-            (name 6:Alias1)
+            (bname 6:Alias1)
             (type_params)
             (type
               (name 6:Origin))))))
     (module
       {}
-      (name 6:Level2)
+      (bname 6:Level2)
       (type_params)
       (body
         (indent
@@ -40,13 +40,13 @@ structure
               (name 6:Level1)))
           (type_alias
             {}
-            (name 6:Alias2)
+            (bname 6:Alias2)
             (type_params)
             (type
               (name 6:Alias1))))))
     (module
       {}
-      (name 6:Level3)
+      (bname 6:Level3)
       (type_params)
       (body
         (indent
@@ -55,13 +55,13 @@ structure
               (name 6:Level2)))
           (type_alias
             {}
-            (name 6:Alias3)
+            (bname 6:Alias3)
             (type_params)
             (type
               (name 6:Alias2))))))
     (module
       {}
-      (name 4:Test)
+      (bname 4:Test)
       (type_params)
       (body
         (indent

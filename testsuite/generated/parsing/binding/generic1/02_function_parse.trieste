@@ -9,22 +9,22 @@ function_parse
   (file
     (struct
       {}
-      (name 3:Int)
+      (bname 3:Int)
       (type_params)
       (fields))
     (struct
       {}
-      (name 4:Bool)
+      (bname 4:Bool)
       (type_params)
       (fields))
     (module
       {
         Inner = module
         T1 = type_param}
-      (name 5:Outer)
+      (bname 5:Outer)
       (type_params
         (type_param
-          (name 2:T1)))
+          (bname 2:T1)))
       (body
         (indent
           (module
@@ -32,21 +32,21 @@ function_parse
               T2 = type_param
               inner_type = type_alias
               outer_type = type_alias}
-            (name 5:Inner)
+            (bname 5:Inner)
             (type_params
               (type_param
-                (name 2:T2)))
+                (bname 2:T2)))
             (body
               (indent
                 (type_alias
                   {}
-                  (name 10:outer_type)
+                  (bname 10:outer_type)
                   (type_params)
                   (type
                     (name 2:T1)))
                 (type_alias
                   {}
-                  (name 10:inner_type)
+                  (bname 10:inner_type)
                   (type_params)
                   (type
                     (name 2:T2)))))))))
@@ -54,7 +54,7 @@ function_parse
       {
         include use Outer[Int]::Inner[Bool]::outer_type
         include use Outer[Int]::Inner[Bool]::inner_type}
-      (name 4:User)
+      (bname 4:User)
       (type_params)
       (body
         (indent

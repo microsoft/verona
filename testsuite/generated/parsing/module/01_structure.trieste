@@ -5,23 +5,23 @@ structure
   (file
     (module
       {}
-      (name 10:BoolModule)
+      (bname 10:BoolModule)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 4:True)
+            (bname 4:True)
             (type_params)
             (fields))
           (struct
             {}
-            (name 5:False)
+            (bname 5:False)
             (type_params)
             (fields))
           (type_alias
             {}
-            (name 4:Bool)
+            (bname 4:Bool)
             (type_params)
             (type
               (name 4:True)
@@ -29,29 +29,29 @@ structure
               (name 5:False))))))
     (module
       {}
-      (name 12:OptionModule)
+      (bname 12:OptionModule)
       (type_params)
       (body
         (indent
           (struct
             {}
-            (name 4:None)
+            (bname 4:None)
             (type_params)
             (fields))
           (struct
             {}
-            (name 4:Some)
+            (bname 4:Some)
             (type_params
               (group
                 (name 1:T)))
             (fields
               (field
-                (name 5:value)
+                (bname 5:value)
                 (type
                   (name 1:T)))))
           (type_alias
             {}
-            (name 6:Option)
+            (bname 6:Option)
             (type_params
               (group
                 (name 1:T)))
@@ -64,7 +64,7 @@ structure
                   (name 1:T))))))))
     (module
       {}
-      (name 12:IfElseModule)
+      (bname 12:IfElseModule)
       (type_params)
       (body
         (indent
@@ -155,13 +155,13 @@ structure
             (Colon)
             (name 1:P)
             (eq)
-            (lookup
-              (name 5:value)
+            (access
+              (bname 5:value)
               (args
                 (name 4:then)))))))
     (module
       {}
-      (name 11:WhileModule)
+      (bname 11:WhileModule)
       (type_params)
       (body
         (indent
