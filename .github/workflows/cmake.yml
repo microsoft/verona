@@ -49,7 +49,7 @@ jobs:
     runs-on: ${{matrix.platform}}
     name: ${{ matrix.platform }} ${{ matrix.build-type }} ${{ matrix.variant }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
 
     - name: Install build dependencies
       run: ${{ matrix.dependencies }}
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-22.04
     # We don't need to do the build for this job, but we need to configure it to get the clang-format target
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
     - name: Install clang-tidy and clang-format
       run: |
         sudo apt update
