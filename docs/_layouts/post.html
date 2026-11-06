@@ -1,0 +1,41 @@
+---
+layout: default
+---
+<div class="blognav">
+  {% if page.previous.url %}
+    <a class="prev" href="{{page.previous.url | relative_url}}">{{page.previous.title}}</a>
+  {% endif %}
+  {% if page.next.url %}
+    <a class="next" href="{{page.next.url | relative_url}}">{{page.next.title}}</a>
+  {% endif %}
+</div>
+<h1 class="blog">{{ page.date | date: "%Y-%b-%d" }}: {{ page.title }}</h1>
+{% if page.author %}
+  {% assign author = site.data.people | find: 'name', page.author %}
+<p class="author">
+  {% if author.url %}
+<a href="{{author.url}}">{{page.author}}</a>
+  {% else %}
+{{ page.author }}
+  {% endif %}
+</p>
+{% elsif page.authors %}
+<p class="author">
+  {% assign authors = '' | split: '' %}
+  {% for name in page.authors %}
+    {% assign author = site.data.people | find: 'name', name %}
+    {% assign authors = authors | push: author %}
+  {% endfor %}
+
+  {% assign sorted_authors = authors | sort: 'sort-key' %}
+
+  {% for author in sorted_authors %}
+    {% if author.url %}
+<span class="author"><a href="{{author.url}}">{{author.name}}</a></span>
+    {% else %}
+<span class="author">{{ author.name }}</span>
+    {% endif %}
+  {% endfor %}
+</p>
+{% endif %}
+{{ content }}

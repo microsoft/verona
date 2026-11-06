@@ -1,0 +1,7 @@
+<nav class="navbar">
+<p>
+{% for link in site.data.navbar %}
+<a href={{ link.file | relative_url }}>{{ link.name }}</a>
+{% endfor %}
+</p>
+</nav>

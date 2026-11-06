@@ -1,0 +1,8 @@
+- name: Home
+  file: /
+- name: Publications
+  file: /publications.html
+- name: FAQ
+  file: /faq.html
+- name: Python
+  file: /pyrona.html

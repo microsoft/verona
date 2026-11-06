@@ -8,6 +8,12 @@ Verona Bytecode (VBC).
 **Current:** VBC is the supported output and runs on VBCI. VIRC's compilation
 model is output-neutral so additional emitters can be added separately.
 
+**Migration:** The `main` branch preserves the development history of
+[sylvanc/verona-bc](https://github.com/sylvanc/verona-bc), independently of the
+original Verona history. The original code is archived on `old_main`.
+The Project Verona website is retained in `docs/` alongside the toolchain
+documentation.
+
 ## Quick Start
 
 Configure and build in the `build` directory, then run the test suite:
