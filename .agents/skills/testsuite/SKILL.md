@@ -22,13 +22,19 @@ Each test produces `exit_code.txt`, `stdout.txt`, and `stderr.txt` in its output
 
 ## Running Tests
 
+Require CMake 3.28+ and Ninja. Configure with `cmake --preset debug` and build
+with `cmake --build --preset debug` from the repository root before testing.
+Build presets include installation. Use the equivalent `release` presets for
+Release; the two configurations coexist in `build/debug/` and `build/release/`.
+
 ### Full test suite
 ```bash
-cd build && ctest --output-on-failure -j$(nproc)
+ctest --preset debug -j$(nproc)
+```
 
 ### Run specific test(s) by name
 ```bash
-cd build && ctest --output-on-failure -R "^vbc/<name>" -j$(nproc)
+ctest --preset debug -R "^vbc/v/<name>/" -j$(nproc)
 ```
 
 The `^vbc/` prefix matches both compile and run tests for a given name. For example, `^vbc/hello` matches:
@@ -40,13 +46,13 @@ The `^vbc/` prefix matches both compile and run tests for a given name. For exam
 
 ### Run only compile or only runtime tests
 ```bash
-cd build && ctest --output-on-failure -R "compile" -j$(nproc)   # all compile tests
-cd build && ctest --output-on-failure -R "run" -j$(nproc)       # all runtime tests
+ctest --preset debug -R "compile" -j$(nproc)   # all compile tests
+ctest --preset debug -R "run" -j$(nproc)       # all runtime tests
 ```
 
 ### List available tests without running
 ```bash
-cd build && ctest -N | grep <name>
+ctest --preset debug -N | grep <name>
 ```
 
 ## Golden Files
@@ -98,7 +104,7 @@ stderr.txt                # Expected stderr (usually empty)
 When source code changes, the golden files must be regenerated:
 
 ```bash
-cd build
+cd build/debug
 ninja install && ninja update-dump
 ```
 
@@ -110,7 +116,7 @@ ninja install && ninja update-dump
 Adding or modifying a `.v` file under `vc/_builtin/` changes compilation output for EVERY test, because `_builtin` is always parsed. In this case, you MUST regenerate ALL golden files:
 
 ```bash
-cd build && ninja install && ninja update-dump
+cmake --build --preset debug && ninja -C build/debug update-dump
 ```
 
 This can take a while. All golden file changes must be committed.
@@ -127,7 +133,7 @@ After generating golden files, verify the `compile/` directory has all 14 pass d
 
 **Debugging missing passes:**
 ```bash
-cd build && dist/vc/vc build ../testsuite/v/<name> --dump_passes=dump_<name>
+cd build/debug && dist/vc/vc build ../../testsuite/v/<name> --dump_passes=dump_<name>
 ```
 This dumps each pass output to the given directory. Check which pass produces the last `.trieste` file — the next pass is the one that fails.
 
@@ -178,13 +184,13 @@ CTest runs and verifies compilation first.
 
 ## Common Pitfalls
 
-1. **Forgot `ninja install`**: The build binary at `build/vc/vc` does NOT have `_builtin` next to it. Only `build/dist/vc/vc` does. Always `ninja install` before `update-dump`.
+1. **Forgot installation**: The uninstalled compiler does NOT have `_builtin` next to it. Use the active build directory's `dist/vc/vc`. Build presets include installation; always build before `update-dump`.
 
 2. **Build was not regenerated**: Re-run `ninja` after adding a test so CMake's configured file globs discover it.
 
 3. **Stale golden files**: Remove files explicitly when they are no longer declared as golden outputs.
 
-4. **Hidden `.vbc` file**: Running `vc build .` from inside a test directory produces `.vbc` (hidden file) because the project name is ".". Always run from `build/`: `dist/vc/vc build ../testsuite/v/<name>`.
+4. **Hidden `.vbc` file**: Running `vc build .` from inside a test directory produces `.vbc` (hidden file) because the project name is ".". Run from the active build directory, e.g. `build/debug/`: `dist/vc/vc build ../../testsuite/v/<name>`.
 
 5. **Timeout failures**: Tests that hang (infinite loops, deadlocks) are killed after 20 seconds and produce a non-zero exit code. The `exit_code.txt` will contain a timeout error string, not a number.
 

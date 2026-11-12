@@ -1,5 +1,13 @@
-cmake_minimum_required(VERSION 3.14.0)
+cmake_minimum_required(VERSION 3.28)
 project(vbc VERSION 1.0.0 LANGUAGES CXX)
+
+get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(NOT is_multi_config AND NOT CMAKE_BUILD_TYPE)
+  message(FATAL_ERROR
+    "A build type is required for single-configuration generators. "
+    "Use cmake --preset debug or cmake --preset release, or set "
+    "-DCMAKE_BUILD_TYPE explicitly.")
+endif()
 
 include(FetchContent)
 find_package(Threads REQUIRED)

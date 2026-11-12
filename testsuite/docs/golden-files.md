@@ -16,6 +16,12 @@ fixture output directory to compare the final optimized IR as a golden.
 Fixtures without this file retain only the standard process-result checks.
 Reconfigure CMake after adding or removing an optional IR golden.
 
-Run `ninja update-dump` from `build/` only when intentionally regenerating
-goldens. A normal validation uses `ninja install` and `ctest`; it must not modify
-expected output.
+Run `ninja -C build/debug update-dump` from the repository root only when
+intentionally regenerating goldens. A normal validation uses
+`cmake --build --preset debug` (including installation) and
+`ctest --preset debug`; it must not modify expected output.
+
+VC compile nodes normalize installation-dependent source-location prefixes
+to `_builtin/` before comparison and updates. Builtin-relative filenames,
+line/column numbers, diagnostic text, and exit codes remain checked. Do not
+regenerate goldens just to change a developer's build path.

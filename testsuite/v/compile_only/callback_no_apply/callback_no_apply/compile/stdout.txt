@@ -1,6 +1,6 @@
 Errors:
 make_callback requires a type with an 'apply' method
--- ../../../../build/dist/vc/_builtin/ffi/callback.v:13:39
+-- _builtin/ffi/callback.v:13:39
     new { _callable = callable, _cb = :::make_callback(callable) }
                                       ~~~~~~~~~~~~~~~~~~~~~~~~~
 

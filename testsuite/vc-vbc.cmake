@@ -32,6 +32,7 @@ function(vc_test_define test)
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${test_dir}"
     TIMEOUT 60
     GOLDENS exit_code.txt stderr.txt stdout.txt
+    VALIDATOR "${CMAKE_CURRENT_SOURCE_DIR}/cmake/normalize_diagnostics.cmake"
     ${artifact_metadata}
     COMMAND
       "${CMAKE_INSTALL_PREFIX}/vc/vc"

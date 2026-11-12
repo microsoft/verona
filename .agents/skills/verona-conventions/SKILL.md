@@ -32,13 +32,13 @@ user-invocable: false
 
 ## Build & Test
 
-- Build in `build/` directory. `ninja install` to build. Use `dist/vc/vc` and `dist/vbci/vbci` (installed binaries have `_builtin`).
-- Rebuild with `ninja install` before debugging or validating compiler/runtime behavior on the current branch.
-- Run `vc` from `build/`: `dist/vc/vc build ../testsuite/v/hello`. Do NOT cd into source dir.
+- From the repository root, use `cmake --preset debug`, `cmake --build --preset debug` (includes installation), and `ctest --preset debug`. Require CMake 3.28+ and Ninja. Use the `release` presets for performance work; builds coexist in `build/debug/` and `build/release/`.
+- Rebuild and install with the active build preset before debugging or validating compiler/runtime behavior on the current branch.
+- Run `vc` from the active build directory, e.g. from `build/debug/`: `dist/vc/vc build ../../testsuite/v/hello`. Do NOT cd into source dir.
 - Debug with the binaries under the active build directory's `dist/` tree. Do not use non-installed build outputs when validating behavior.
-- `ctest --output-on-failure -j$(nproc)` for full test suite.
+- `ctest --preset debug -j$(nproc)` from the repository root for the full Debug test suite.
 - `-p <passname>` stops after a pass. `--dump_passes=<dir>` dumps intermediate ASTs.
-- Golden files: `ninja update-dump`
+- Golden files: `ninja -C build/debug update-dump` (only for intentional golden changes).
 - `exit_code.txt` has NO trailing newline (`printf '0'`, not `echo`).
 - Treat compile-time and runtime test failures as real regressions until they are investigated on the current baseline. Do not assume a failure predates your change without verification.
 
