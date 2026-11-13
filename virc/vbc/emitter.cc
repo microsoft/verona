@@ -1,7 +1,8 @@
+#include "emitter.h"
+
 #include "../lang.h"
 #include "debug_info.h"
 #include "encoder.h"
-#include "emitter.h"
 #include "instruction_encoder.h"
 #include "string_table.h"
 #include "type_encoding.h"

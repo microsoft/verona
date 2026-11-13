@@ -1018,122 +1018,122 @@ namespace vbci
     {
       case Op::Const:
       {
-        process(
-          [](Thread& self, Register& dst, Constant<PrimitiveType> t) INLINE {
-          switch (t)
-          {
-            case PrimitiveType::None:
-              dst = ValueImmortal(Value::none());
-              break;
+        process([](Thread& self, Register& dst, Constant<PrimitiveType> t)
+                  INLINE {
+                    switch (t)
+                    {
+                      case PrimitiveType::None:
+                        dst = ValueImmortal(Value::none());
+                        break;
 
-            case PrimitiveType::Bool:
-            {
-              auto value = self.leb<bool>();
-              dst = ValueImmortal(value);
-              break;
-            }
+                      case PrimitiveType::Bool:
+                      {
+                        auto value = self.leb<bool>();
+                        dst = ValueImmortal(value);
+                        break;
+                      }
 
-            case PrimitiveType::I8:
-            {
-              auto value = self.leb<int8_t>();
-              dst = ValueImmortal(value);
-              break;
-            }
+                      case PrimitiveType::I8:
+                      {
+                        auto value = self.leb<int8_t>();
+                        dst = ValueImmortal(value);
+                        break;
+                      }
 
-            case PrimitiveType::I16:
-            {
-              auto value = self.leb<int16_t>();
-              dst = ValueImmortal(value);
-              break;
-            }
+                      case PrimitiveType::I16:
+                      {
+                        auto value = self.leb<int16_t>();
+                        dst = ValueImmortal(value);
+                        break;
+                      }
 
-            case PrimitiveType::I32:
-            {
-              auto value = self.leb<int32_t>();
-              dst = ValueImmortal(value);
-              break;
-            }
+                      case PrimitiveType::I32:
+                      {
+                        auto value = self.leb<int32_t>();
+                        dst = ValueImmortal(value);
+                        break;
+                      }
 
-            case PrimitiveType::I64:
-            {
-              auto value = self.leb<int64_t>();
-              dst = ValueImmortal(value);
-              break;
-            }
+                      case PrimitiveType::I64:
+                      {
+                        auto value = self.leb<int64_t>();
+                        dst = ValueImmortal(value);
+                        break;
+                      }
 
-            case PrimitiveType::U8:
-            {
-              auto value = self.leb<uint8_t>();
-              dst = ValueImmortal(value);
-              break;
-            }
+                      case PrimitiveType::U8:
+                      {
+                        auto value = self.leb<uint8_t>();
+                        dst = ValueImmortal(value);
+                        break;
+                      }
 
-            case PrimitiveType::U16:
-            {
-              auto value = self.leb<uint16_t>();
-              dst = ValueImmortal(value);
-              break;
-            }
+                      case PrimitiveType::U16:
+                      {
+                        auto value = self.leb<uint16_t>();
+                        dst = ValueImmortal(value);
+                        break;
+                      }
 
-            case PrimitiveType::U32:
-            {
-              auto value = self.leb<uint32_t>();
-              dst = ValueImmortal(value);
-              break;
-            }
+                      case PrimitiveType::U32:
+                      {
+                        auto value = self.leb<uint32_t>();
+                        dst = ValueImmortal(value);
+                        break;
+                      }
 
-            case PrimitiveType::U64:
-            {
-              auto value = self.leb<uint64_t>();
-              dst = ValueImmortal(value);
-              break;
-            }
+                      case PrimitiveType::U64:
+                      {
+                        auto value = self.leb<uint64_t>();
+                        dst = ValueImmortal(value);
+                        break;
+                      }
 
-            case PrimitiveType::ILong:
-            {
-              auto value = self.leb<int64_t>();
-              dst = Value::from_ffi(value_type(t), value);
-              break;
-            }
-            case PrimitiveType::ISize:
-            {
-              auto value = self.leb<int64_t>();
-              dst = Value::from_ffi(value_type(t), value);
-              break;
-            }
+                      case PrimitiveType::ILong:
+                      {
+                        auto value = self.leb<int64_t>();
+                        dst = Value::from_ffi(value_type(t), value);
+                        break;
+                      }
+                      case PrimitiveType::ISize:
+                      {
+                        auto value = self.leb<int64_t>();
+                        dst = Value::from_ffi(value_type(t), value);
+                        break;
+                      }
 
-            case PrimitiveType::ULong:
-            {
-              auto value = self.leb<uint64_t>();
-              dst = Value::from_ffi(value_type(t), value);
-              break;
-            }
+                      case PrimitiveType::ULong:
+                      {
+                        auto value = self.leb<uint64_t>();
+                        dst = Value::from_ffi(value_type(t), value);
+                        break;
+                      }
 
-            case PrimitiveType::USize:
-            {
-              auto value = self.leb<uint64_t>();
-              dst = Value::from_ffi(value_type(t), value);
-              break;
-            }
+                      case PrimitiveType::USize:
+                      {
+                        auto value = self.leb<uint64_t>();
+                        dst = Value::from_ffi(value_type(t), value);
+                        break;
+                      }
 
-            case PrimitiveType::F32:
-            {
-              auto value = self.leb<float>();
-              dst = ValueImmortal(value);
-              break;
-            }
+                      case PrimitiveType::F32:
+                      {
+                        auto value = self.leb<float>();
+                        dst = ValueImmortal(value);
+                        break;
+                      }
 
-            case PrimitiveType::F64:
-            {
-              auto value = self.leb<double>();
-              dst = ValueImmortal(value);
-              break;
-            }
+                      case PrimitiveType::F64:
+                      {
+                        auto value = self.leb<double>();
+                        dst = ValueImmortal(value);
+                        break;
+                      }
 
-            default:
-              Value::error(Error::BadConversion);
-          }
-          });
+                      default:
+                        Value::error(Error::BadConversion);
+                    }
+                  });
         break;
       }
 
@@ -2555,8 +2555,7 @@ namespace vbci
           auto h = closure->get_header();
           auto r = h->region();
           LOG(Error) << "Closure argument is not sendable: " << closure.borrow()
-                     << " in region " << r
-                     << " stack_rc=" << r->get_stack_rc()
+                     << " in region " << r << " stack_rc=" << r->get_stack_rc()
                      << " has_parent=" << r->has_parent()
                      << " has_cown=" << r->has_cown_owner()
                      << " frame_local=" << r->is_frame_local();

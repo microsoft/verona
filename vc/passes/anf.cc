@@ -629,8 +629,8 @@ namespace vc
             (T(TypedMove)[TypedMove]
              << (T(Ident)[Ident] * T(LocalId)[Rhs] * T(Type)[Type])) >>
           [](Match& _) {
-            return (TypedMove ^ _(TypedMove)) << (LocalId ^ _(Ident)) << _(Rhs)
-                                             << _(Type);
+            return (TypedMove ^ _(TypedMove))
+              << (LocalId ^ _(Ident)) << _(Rhs) << _(Type);
           },
 
         // Lift variable declarations. If the Var has an explicit type
@@ -860,23 +860,18 @@ namespace vc
           [](Match& _) {
             auto copy_id = _.fresh(l_local);
             auto frozen_id = _.fresh(l_local);
-            return Seq
-              << (Lift << Body
-                       << (Copy << (LocalId ^ copy_id) << _(Rhs)))
-              << (Lift << Body
-                       << (Freeze << (LocalId ^ frozen_id)
-                                  << (LocalId ^ copy_id)))
-              << (LocalId ^ frozen_id);
+            return Seq << (Lift << Body
+                                << (Copy << (LocalId ^ copy_id) << _(Rhs)))
+                       << (Lift << Body
+                                << (Freeze << (LocalId ^ frozen_id)
+                                           << (LocalId ^ copy_id)))
+                       << (LocalId ^ frozen_id);
           },
 
         // Other single-arg builtin operations (already a LocalId after earlier
         // rules extract expressions to locals).
         In(Expr, Lhs) *
-              T(MakeCallback,
-                CodePtrCallback,
-                FreeCallback,
-                Pin,
-                Unpin)[Lhs]
+              T(MakeCallback, CodePtrCallback, FreeCallback, Pin, Unpin)[Lhs]
             << (T(Args) << (T(Arg) << (T(ArgCopy) * T(LocalId)[Rhs]))) >>
           [](Match& _) {
             auto id = _.fresh(l_local);

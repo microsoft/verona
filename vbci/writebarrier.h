@@ -181,8 +181,7 @@ namespace vbci::writebarrier
 
       // Save the header for potential reparenting (before the register is
       // cleared during a move).
-      Header* in_header =
-        need_in_parent ? in->get_base_header() : nullptr;
+      Header* in_header = need_in_parent ? in->get_base_header() : nullptr;
 
       // Drag the incoming value.
       if (need_in_drag)

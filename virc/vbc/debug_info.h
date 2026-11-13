@@ -26,8 +26,7 @@ namespace virc::vbc_backend
 
   public:
     DebugInfo(
-      ByteBuffer& code,
-      const std::vector<std::filesystem::path>& source_paths)
+      ByteBuffer& code, const std::vector<std::filesystem::path>& source_paths)
     : code(code), source_paths(source_paths)
     {}
 
@@ -38,7 +37,7 @@ namespace virc::vbc_backend
     void record_explicit_offset(size_t offset);
     void record_statement(trieste::Node statement);
     void finish_function(trieste::Node terminator);
-    void write_to(
-      std::ofstream& output, const std::filesystem::path& output_path);
+    void
+    write_to(std::ofstream& output, const std::filesystem::path& output_path);
   };
 }

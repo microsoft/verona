@@ -20,8 +20,7 @@ namespace virc
   CompileResult compile(Node reified_vir)
   {
     auto state = std::make_shared<Compilation>();
-    auto process =
-      Rewriter{"VIRC", pipeline(state), wfIR}.rewrite(reified_vir);
+    auto process = Rewriter{"VIRC", pipeline(state), wfIR}.rewrite(reified_vir);
     return {std::move(process), std::move(state)};
   }
 }
