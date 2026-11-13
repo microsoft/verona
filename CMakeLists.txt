@@ -68,6 +68,29 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable_ExcludeFromAll(trieste)
 
+function(verona_clangformat_targets)
+  find_program(VERONA_CLANG_FORMAT NAMES clang-format-20)
+  if(NOT VERONA_CLANG_FORMAT)
+    message(STATUS "Not generating Verona formatting targets: clang-format-20 not found")
+    return()
+  endif()
+
+  # Use Verona's formatter without changing the dependency's cached selection.
+  set(CLANG_FORMAT "${VERONA_CLANG_FORMAT}")
+  clangformat_targets(
+    VERSION 20
+    TARGET_NAME verona-clangformat
+    INCLUDE_PATTERNS
+      include/*.h
+      vbci/*.cc vbci/*.h
+      vc/*.cc vc/*.h
+      virc/*.cc virc/*.h
+      testsuite/*.cc testsuite/*.h
+  )
+endfunction()
+
+verona_clangformat_targets()
+
 set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 
 # Installation instructions

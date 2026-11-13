@@ -93,17 +93,14 @@ jobs:
         sudo apt update
         sudo apt install clang-format-20 libzstd-dev libffi-dev libgit2-dev
 
-    # We don't need to do the build for this job, but we need to configure it to get the clangformat
-    # and copyright targets
+    # Configure the project-owned formatting target without building the compiler.
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build
 
-    - name: Run clangformat
-      working-directory: ${{github.workspace}}/build
+    - name: Check Verona formatting
       run: |
-        set -eo pipefail
-        make clangformat
-        git diff --exit-code
+        clang-format-20 --version
+        cmake --build ${{github.workspace}}/build --target verona-clangformat-check
 
   all-checks:
     needs: [ build-test, format ]
