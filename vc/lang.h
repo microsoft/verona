@@ -326,12 +326,13 @@ namespace vc
   // clang-format on
 
   inline const auto wfBodyANF = Const | ConstStr | Convert | Copy | Move |
-    TypedMove | RegisterRef | FieldRef | ArrayRef | ArrayRefConst | New | Stack |
-    NewArray | NewArrayConst | Load | Store | Lookup | Call | CallDyn |
+    TypedMove | RegisterRef | FieldRef | ArrayRef | ArrayRefConst | New |
+    Stack | NewArray | NewArrayConst | Load | Store | Lookup | Call | CallDyn |
     TryCallDyn | Var | When | wfBinop | wfUnop | wfNulop | FFI | Typetest |
     TypeAssertion | GetRaise | SetRaise | SplatOp | ArrayRefFromEnd |
-    MakeCallback | CodePtrCallback | FreeCallback | Freeze | Pin | Unpin | Merge |
-    FFIStruct | FFILoad | FFIStore | ArrayCopy | ArrayFill | ArrayCompare;
+    MakeCallback | CodePtrCallback | FreeCallback | Freeze | Pin | Unpin |
+    Merge | FFIStruct | FFILoad | FFIStore | ArrayCopy | ArrayFill |
+    ArrayCompare;
 
   // clang-format off
   inline const auto wfPassANF =

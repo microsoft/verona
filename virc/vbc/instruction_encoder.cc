@@ -77,7 +77,8 @@ namespace virc::vbc_backend
 
       void binary(Node statement, Op op)
       {
-        output << uleb(+op) << dst(statement) << lhs(statement) << rhs(statement);
+        output << uleb(+op) << dst(statement) << lhs(statement)
+               << rhs(statement);
       }
 
       void unary(Node statement, Op op)
@@ -378,7 +379,8 @@ namespace virc::vbc_backend
         {
           arguments(statement / Args);
           output << uleb(+Op::WhenStatic) << dst(statement)
-                 << uleb(compilation.type_id(statement / Cown)) << fn(statement);
+                 << uleb(compilation.type_id(statement / Cown))
+                 << fn(statement);
         }
         else if (statement == WhenDyn)
         {

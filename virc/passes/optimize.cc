@@ -505,8 +505,7 @@ namespace virc
             {
               // Most statements define their first LocalId. Statements that
               // only consume registers have no destination to skip.
-              size_t first_use =
-                s->in({Drop, AtTeardown}) ? 0 : 1;
+              size_t first_use = s->in({Drop, AtTeardown}) ? 0 : 1;
 
               for (size_t i = first_use; i < s->size(); i++)
               {

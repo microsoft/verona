@@ -1021,8 +1021,9 @@ namespace vbci
     }
     catch (const Value& err)
     {
-      LOG(Error) << file << ": couldn't calculate class size: "
-                 << err.to_string() << std::endl;
+      LOG(Error) << file
+                 << ": couldn't calculate class size: " << err.to_string()
+                 << std::endl;
       return false;
     }
 
