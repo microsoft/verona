@@ -1,6 +1,7 @@
 #pragma once
 
 #include "sequent.h"
+
 #include <vir.h>
 
 namespace virc

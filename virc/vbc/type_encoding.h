@@ -8,5 +8,6 @@
 namespace virc::vbc_backend
 {
   uleb<size_t> encode_region(trieste::Node node);
-  void encode_type_table(ByteBuffer& output, const std::vector<TypeInfo>& types);
+  void
+  encode_type_table(ByteBuffer& output, const std::vector<TypeInfo>& types);
 }
