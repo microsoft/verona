@@ -2338,19 +2338,11 @@ namespace vc
       if (it == env.end())
         return false;
 
-      auto current_prim = extract_primitive(it->second.type);
       bool compatible = (it->second.type->front() == DefaultInt &&
                          expected_prim->in(integer_types)) ||
         (it->second.type->front() == DefaultFloat &&
-         expected_prim->in(float_types)) ||
-        (current_prim && current_prim->in(integer_types) &&
-         expected_prim->in(integer_types)) ||
-        (current_prim && current_prim->in(float_types) &&
          expected_prim->in(float_types));
       if (!compatible)
-        return false;
-
-      if (current_prim && current_prim->type() == expected_prim->type())
         return false;
 
       it->second.type = primitive_or_ffi_type(expected_prim->type());
