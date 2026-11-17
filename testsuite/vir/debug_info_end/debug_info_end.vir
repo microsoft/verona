@@ -28,3 +28,7 @@ func @main(): none
 
 func @following($x: i32): i32
   ret $x
+
+// Keep the following function emitted after dead-function elimination.
+primitive i32
+  @following @following

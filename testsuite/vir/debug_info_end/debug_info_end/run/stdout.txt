@@ -1,7 +1,7 @@
 bad type
  --> expected.vir:0
 Stack trace:
-  at @main (pc=150)
+  at @main (pc=144)
  --> expected.vir:0
 bad type
  --> expected.vir:0

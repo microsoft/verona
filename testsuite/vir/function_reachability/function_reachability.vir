@@ -1,0 +1,19 @@
+func @dead_a(): none
+  tailcall @dead_b()
+
+func @main(): none
+  tailcall @forward()
+
+func @dead_b(): none
+  tailcall @dead_a()
+
+func @forward(): none
+  jump ^done
+^done
+  tailcall @leaf()
+
+func @leaf(): none
+  jump ^done
+^done
+  $result = const none
+  ret $result

@@ -2,6 +2,55 @@
 
 namespace virc
 {
+  static void eliminate_dead_functions(Node top, Compilation& state)
+  {
+    std::vector<bool> reachable(state.functions.size());
+    std::vector<size_t> pending{MainFunctionId};
+    reachable[MainFunctionId] = true;
+
+    auto visit = [&](Node& node) {
+      if (node == FunctionId)
+      {
+        auto id = *state.get_func_id(node);
+
+        if (!reachable[id])
+        {
+          reachable[id] = true;
+          pending.push_back(id);
+        }
+      }
+
+      return true;
+    };
+
+    // Method tables and memo initializers are runtime roots, even without
+    // a direct call from main.
+    for (auto& node : *top)
+      if (node != Func)
+        node->traverse(visit);
+
+    for (size_t i = 0; i < pending.size(); ++i)
+      (state.functions[pending[i]].func / Labels)->traverse(visit);
+
+    std::erase_if(state.functions, [&](const auto& func) {
+      if (reachable[state.func_ids.at(func.name)])
+        return false;
+
+      auto key = std::string((func.func / FunctionId)->location().view());
+      state.func_types.erase(key);
+      state.func_lookups.erase(key);
+      top->replace(func.func);
+      return true;
+    });
+
+    // Preserve function state and order, including main at ID zero, while
+    // making the IDs dense again for bytecode emission.
+    state.func_ids.clear();
+
+    for (size_t i = 0; i < state.functions.size(); ++i)
+      state.func_ids.emplace(state.functions[i].name, i);
+  }
+
   PassDef optimize(std::shared_ptr<Compilation> state)
   {
     PassDef p{
@@ -574,6 +623,7 @@ namespace virc
         }
       }
 
+      eliminate_dead_functions(top, *state);
       return 0;
     });
 

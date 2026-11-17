@@ -3,7 +3,7 @@ bad ref target
   |   arr.each i ->
   |            ^
 Stack trace:
-  at @main (pc=444)
+  at @main (pc=364)
  --> each_loop.v:12:12
   |   arr.each i ->
   |            ^

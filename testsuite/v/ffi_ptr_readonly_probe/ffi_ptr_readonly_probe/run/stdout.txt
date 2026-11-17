@@ -3,7 +3,7 @@ bad store
   |     :::read(:::ptr(from))
   |     ^
 Stack trace:
-  at @main (pc=111)
+  at @main (pc=83)
  --> _builtin/ffi/ptr.v:10:5
   |     :::read(:::ptr(from))
   |     ^
