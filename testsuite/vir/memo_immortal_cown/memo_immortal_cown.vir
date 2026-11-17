@@ -69,11 +69,11 @@ func @replace_payload($owner: ref @Payload): @Marker
   ret $marker
 
 func @main(): none
+  $running = const i32 7
+  $_ = ffi @set_exit_code($running)
   $owner = call @owner()
   $replacement = when @replace_payload($owner): @Marker
   drop $owner
   drop $replacement
-  $running = const i32 7
-  $_ = ffi @set_exit_code($running)
   $_none = const none
   ret $_none
