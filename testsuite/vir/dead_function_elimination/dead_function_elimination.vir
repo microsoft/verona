@@ -1,0 +1,7 @@
+func @helper(): none
+  $value = const none
+  ret $value
+
+func @main(): none
+  $result = call @helper()
+  ret $result

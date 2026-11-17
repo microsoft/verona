@@ -23,10 +23,15 @@ function(vir_test_define test)
     set(artifact_metadata ARTIFACTS "${test_name}.vbc")
   endif()
 
+  set(compile_goldens exit_code.txt stderr.txt stdout.txt)
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${compile_node}/${test_name}_final.trieste")
+    list(APPEND compile_goldens "${test_name}_final.trieste")
+  endif()
+
   testsuite_add_test(
     NAME "${compile_node}"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${test_dir}"
-    GOLDENS exit_code.txt stderr.txt stdout.txt
+    GOLDENS ${compile_goldens}
     ${artifact_metadata}
     COMMAND
       "${CMAKE_INSTALL_PREFIX}/virc/$<TARGET_FILE_NAME:virc>"

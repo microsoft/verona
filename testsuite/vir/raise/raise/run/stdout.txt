@@ -3,7 +3,7 @@ bad type
   |   ret $_none
   |   ^
 Stack trace:
-  at @main (pc=137)
+  at @main (pc=129)
  --> raise.vir:34:3
   |   ret $_none
   |   ^

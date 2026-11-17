@@ -1,0 +1,20 @@
+virc
+liveness
+(top
+  {
+    @main = func}
+  (func 29:dead_function_elimination.vir|57|18
+    (functionid |62|5:@main)
+    (params |57|18)
+    (none |71|4)
+    (vars |57|18)
+    (labels |57|18
+      (label
+        (labelid 5:^main)
+        (body
+          (const 29:dead_function_elimination.vir|23|19
+            (localid 7:$result)
+            (none |23|19)
+            (none |23|19)))
+        (ret 29:dead_function_elimination.vir|105|11
+          (localid |109|7:$result))))))

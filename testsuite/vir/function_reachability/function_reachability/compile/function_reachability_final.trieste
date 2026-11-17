@@ -1,0 +1,56 @@
+virc
+liveness
+(top
+  {
+    @forward = func
+    @leaf = func
+    @main = func}
+  (func 25:function_reachability.vir|43|18
+    (functionid |48|5:@main)
+    (params |43|18)
+    (none |57|4)
+    (vars |43|18)
+    (labels |43|18
+      (label
+        (labelid 5:^main)
+        (body)
+        (tailcall 25:function_reachability.vir|64|19
+          (functionid |73|8:@forward)
+          (moveargs |64|19)))))
+  (func 25:function_reachability.vir|128|21
+    (functionid |133|8:@forward)
+    (params |128|21)
+    (none |145|4)
+    (vars |128|21)
+    (labels |128|21
+      (label
+        (labelid 8:^forward)
+        (body)
+        (jump 25:function_reachability.vir|152|10
+          (labelid |157|5:^done)))
+      (label |163|24
+        (labelid |163|5:^done)
+        (body |163|24)
+        (tailcall |171|16
+          (functionid |180|5:@leaf)
+          (moveargs |171|16)))))
+  (func 25:function_reachability.vir|189|18
+    (functionid |194|5:@leaf)
+    (params |189|18)
+    (none |203|4)
+    (vars |189|18)
+    (labels |189|18
+      (label
+        (labelid 5:^leaf)
+        (body)
+        (jump 25:function_reachability.vir|210|10
+          (labelid |215|5:^done)))
+      (label |221|42
+        (labelid |221|5:^done)
+        (body |221|42
+          (const |229|20
+            (localid |229|7:$result)
+            (none |229|20)
+            (none |229|20)))
+        (ret |252|11
+          (localid |256|7:$result))))))
