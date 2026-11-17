@@ -16,21 +16,38 @@ documentation.
 
 ## Quick Start
 
-Configure and build in the `build` directory, then run the test suite:
+Use CMake 3.28 or newer (also required by the pinned Trieste dependency) and
+Ninja. From the repository root, configure, build and install, then test:
 
 ```sh
-cmake -S . -B build -G Ninja
-ninja -C build install
-ctest --test-dir build --output-on-failure
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug
+
+cmake --preset release
+cmake --build --preset release
+ctest --preset release
 ```
+
+Debug and Release coexist in `build/debug/` and `build/release/`, each with its
+own installed `dist/` tree. Build presets include installation: the compiler
+needs `_builtin` beside its executable to run correctly. Use Debug for
+development and invariant checks, and Release for performance measurements.
+Add `--parallel N` to build commands or `-j N` to test commands as appropriate.
 
 Build and run the hello fixture through the default VBC path:
 
 ```sh
-cd build
-dist/vc/vc build ../testsuite/v/hello
+cd build/debug
+dist/vc/vc build ../../testsuite/v/hello
 dist/vbci/vbci hello.vbc
 ```
+
+Manual CMake configurations remain supported, but single-configuration
+generators require an explicit `-DCMAKE_BUILD_TYPE` (for example `Debug`,
+`Release`, `RelWithDebInfo`, or `MinSizeRel`). Multi-configuration generators
+select the configuration at build/test time as usual. Existing `build/` trees
+can remain in place; the presets create separate subdirectories.
 
 See [Toolchain Usage](vc/docs/21-toolchain-usage.md) for standalone VIRC
 commands.

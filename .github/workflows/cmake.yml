@@ -24,19 +24,16 @@ jobs:
         platform: [ "ubuntu-latest", "ubuntu-24.04-arm", "macos-latest" ]
 
 
-        build-type: [ "Release", "Debug" ]
+        preset: [ "release", "debug" ]
                 
         include:
           - platform: "ubuntu-latest"
-            cmake-flags: "-G Ninja"
             dependencies: "sudo apt update && sudo apt install ninja-build libzstd-dev libffi-dev libgit2-dev"
 
           - platform: "ubuntu-24.04-arm"
-            cmake-flags: "-G Ninja"
             dependencies: "sudo apt update && sudo apt install ninja-build libzstd-dev libffi-dev libgit2-dev"
 
           - platform: "macos-latest"
-            cmake-flags: "-G Ninja"
             dependencies: |
               brew install ninja libffi libgit2 zstd openssl pkg-config
               echo "PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$(brew --prefix zstd)/lib/pkgconfig:$(brew --prefix libgit2)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
@@ -44,20 +41,20 @@ jobs:
 
           - variant: "Clang"
             platform: "ubuntu-latest"
-            build-type: "Release"
-            cmake-flags: "-G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang"
+            preset: "release"
+            cmake-flags: "-DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang"
             dependencies: "sudo apt update && sudo apt install ninja-build libzstd-dev libffi-dev libgit2-dev"
 
           - variant: "Sanitizer"
             platform: "ubuntu-latest"
-            build-type: "Release"
-            cmake-flags: "-G Ninja -DSANITIZER=address,undefined -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang"
+            preset: "release"
+            cmake-flags: "-DSANITIZER=address,undefined -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang"
             dependencies: "sudo apt update && sudo apt install ninja-build libzstd-dev libffi-dev libgit2-dev"
 
           - variant: "Sanitizer"
             platform: "ubuntu-24.04-arm"
-            build-type: "Release"
-            cmake-flags: "-G Ninja -DSANITIZER=address,undefined -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang"
+            preset: "release"
+            cmake-flags: "-DSANITIZER=address,undefined -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang"
             dependencies: "sudo apt update && sudo apt install ninja-build libzstd-dev libffi-dev libgit2-dev"
       # Don't abort runners if a single one fails
       fail-fast: false
@@ -70,17 +67,13 @@ jobs:
       run: ${{ matrix.dependencies }}
     
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DVERONA_CI_BUILD=On ${{matrix.cmake-flags}}
+      run: cmake --preset ${{ matrix.preset }} -DVERONA_CI_BUILD=On ${{ matrix.cmake-flags }}
 
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{matrix.build-type}} --parallel 4
-
-    - name: Install
-      run: cmake --install ${{github.workspace}}/build --config ${{matrix.build-type}}
+    - name: Build and install
+      run: cmake --build --preset ${{ matrix.preset }} --parallel 4
 
     - name: Test
-      working-directory: ${{github.workspace}}/build/
-      run: ctest -C ${{matrix.build-type}} -j 4 ${{matrix.ctest-flags}} --output-on-failure --timeout 400 --interactive-debug-mode 0 
+      run: ctest --preset ${{ matrix.preset }} -j 4 ${{ matrix.ctest-flags }} --timeout 400 --interactive-debug-mode 0
 
   # Job to run clang-format and report errors
   format:
@@ -91,16 +84,16 @@ jobs:
     - name: Install build dependencies
       run: |
         sudo apt update
-        sudo apt install clang-format-20 libzstd-dev libffi-dev libgit2-dev
+        sudo apt install clang-format-20 ninja-build libzstd-dev libffi-dev libgit2-dev
 
     # Configure the project-owned formatting target without building the compiler.
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build
+      run: cmake --preset debug
 
     - name: Check Verona formatting
       run: |
         clang-format-20 --version
-        cmake --build ${{github.workspace}}/build --target verona-clangformat-check
+        cmake --build build/debug --target verona-clangformat-check
 
   all-checks:
     needs: [ build-test, format ]
