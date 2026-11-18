@@ -3,7 +3,7 @@ bad type
   |   :::set_exit_code(code)
   |   ^
 Stack trace:
-  at @main (pc=248)
+  at @main (pc=235)
  --> _builtin/ffi/exit.v:8:3
   |   :::set_exit_code(code)
   |   ^

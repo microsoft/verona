@@ -1,0 +1,18 @@
+primitive i32
+  @first @first
+  @second @second
+
+func @main(): none
+  $result = const none
+  ret $result
+
+// Keep mutually recursive methods reachable without executing them.
+func @first($x: i32): i32
+  $method = lookup $x @second
+  $result = call $method($x)
+  ret $result
+
+func @second($x: i32): i32
+  $method = lookup $x @first
+  $result = call $method($x)
+  ret $result

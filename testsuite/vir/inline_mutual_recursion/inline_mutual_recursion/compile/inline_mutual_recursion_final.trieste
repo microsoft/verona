@@ -1,0 +1,73 @@
+virc
+liveness
+(top
+  {
+    @first = func
+    @main = func
+    @second = func}
+  (primitive 27:inline_mutual_recursion.vir|0|13
+    (i32 |10|3)
+    (methods |0|13
+      (method
+        (methodid 27:inline_mutual_recursion.vir|16|6:@first)
+        (functionid 27:inline_mutual_recursion.vir|23|6:@first))
+      (method
+        (methodid 27:inline_mutual_recursion.vir|32|7:@second)
+        (functionid 27:inline_mutual_recursion.vir|40|7:@second))))
+  (func 27:inline_mutual_recursion.vir|49|18
+    (functionid |54|5:@main)
+    (params |49|18)
+    (none |63|4)
+    (vars |49|18)
+    (labels |49|18
+      (label
+        (labelid 5:^main)
+        (body
+          (const 27:inline_mutual_recursion.vir|70|20
+            (localid |70|7:$result)
+            (none |70|20)
+            (none |70|20)))
+        (ret 27:inline_mutual_recursion.vir|93|11
+          (localid |97|7:$result)))))
+  (func 27:inline_mutual_recursion.vir|175|25
+    (functionid |180|6:@first)
+    (params |175|25
+      (param |187|7
+        (localid |187|2:$x)
+        (i32 |191|3)))
+    (i32 |197|3)
+    (vars |175|25)
+    (labels |175|25
+      (label
+        (labelid 6:^first)
+        (body
+          (call
+            (localid 7:$result)
+            (functionid 27:inline_mutual_recursion.vir|23|6:@first)
+            (args 27:inline_mutual_recursion.vir|333|26
+              (arg |333|26
+                (argmove)
+                (localid 2:$x)))))
+        (ret 27:inline_mutual_recursion.vir|262|11
+          (localid |266|7:$result)))))
+  (func 27:inline_mutual_recursion.vir|275|26
+    (functionid |280|7:@second)
+    (params |275|26
+      (param |288|7
+        (localid |288|2:$x)
+        (i32 |292|3)))
+    (i32 |298|3)
+    (vars |275|26)
+    (labels |275|26
+      (label
+        (labelid 7:^second)
+        (body
+          (call
+            (localid 7:$result)
+            (functionid 27:inline_mutual_recursion.vir|23|6:@first)
+            (args 27:inline_mutual_recursion.vir|333|26
+              (arg |333|26
+                (argmove)
+                (localid 2:$x)))))
+        (ret 27:inline_mutual_recursion.vir|362|11
+          (localid |366|7:$result))))))
