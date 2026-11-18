@@ -183,13 +183,7 @@ namespace virc
 
         auto func_key =
           std::string((func_node / FunctionId)->location().view());
-        auto lookups_it = state->func_lookups.find(func_key);
-
-        // Empty lookup map for functions with no Lookup statements.
-        std::unordered_map<std::string, LookupInfo> empty_lookups;
-        auto& lookups = (lookups_it != state->func_lookups.end()) ?
-          lookups_it->second :
-          empty_lookups;
+        auto& lookups = state->func_lookups[func_key];
 
         // Collect dead lookup register names (Phase C will remove them).
         std::set<std::string> dead_lookups;
@@ -197,104 +191,110 @@ namespace virc
         auto& func_state = state->get_func(func_node / FunctionId);
         auto caller_vars = func_node / Vars;
 
-        // Phase A: Devirtualize.
-        // Phase B: Inline trivial calls.
-        // We do both in a single pass through each label's body, since
-        // Phase A produces Call nodes that Phase B can immediately inline.
         for (auto& label : *(func_node / Labels))
         {
           auto body = label / Body;
+          std::unordered_map<Node, std::set<std::string>> inline_ancestors;
 
-          // Collect replacements (can't mutate during iteration).
-          std::vector<std::pair<Node, Node>> replacements;
-
-          for (auto& stmt : *body)
-          {
-            // Phase A: Devirtualize CallDyn.
-            if (stmt == CallDyn || stmt == TryCallDyn)
-            {
-              auto fn_ptr_name = std::string((stmt / Rhs)->location().view());
-              auto it = lookups.find(fn_ptr_name);
-
-              if (it == lookups.end())
-                continue;
-
-              auto& info = it->second;
-              auto func_id = resolve_method(info.src_type, info.method_id);
-
-              if (stmt == CallDyn)
-              {
-                if (!func_id)
-                  continue;
-
-                // Replace CallDyn with Call.
-                Node call = Call << clone(stmt / LocalId) << clone(func_id)
-                                 << clone(stmt / Args);
-                replacements.push_back({stmt, call});
-                dead_lookups.insert(fn_ptr_name);
-              }
-              else // TryCallDyn
-              {
-                if (func_id)
-                {
-                  // Method exists — replace with Call.
-                  Node call = Call << clone(stmt / LocalId) << clone(func_id)
-                                   << clone(stmt / Args);
-                  replacements.push_back({stmt, call});
-                }
-                else if (
-                  info.src_type && info.src_type != Union &&
-                  info.src_type != Dyn)
-                {
-                  // Known non-union type, method doesn't exist — produce
-                  // none.
-                  Node none_const = Const << clone(stmt / LocalId) << None
-                                          << None;
-                  replacements.push_back({stmt, none_const});
-                }
-                else
-                {
-                  continue;
-                }
-                dead_lookups.insert(fn_ptr_name);
-              }
-            }
-            // Phase A: Devirtualize WhenDyn.
-            else if (stmt == WhenDyn)
-            {
-              auto fn_ptr_name = std::string((stmt / Rhs)->location().view());
-              auto it = lookups.find(fn_ptr_name);
-
-              if (it == lookups.end())
-                continue;
-
-              auto& info = it->second;
-              auto func_id = resolve_method(info.src_type, info.method_id);
-
-              if (!func_id)
-                continue;
-
-              // Replace WhenDyn with When.
-              Node when = When << clone(stmt / LocalId) << clone(func_id)
-                               << clone(stmt / Args) << clone(stmt / Cown);
-              replacements.push_back({stmt, when});
-              dead_lookups.insert(fn_ptr_name);
-            }
-          }
-
-          // Apply Phase A replacements.
-          for (auto& [old_node, new_node] : replacements)
-            old_node->parent()->replace(old_node, new_node);
-
-          // Phase B: Inline single-label functions.
-          // Fixpoint loop: repeat until no more calls are inlined.
-          // Each iteration may expose new Call targets from inlined bodies.
+          // Inlining can expose more dynamic calls, so repeat both phases.
           bool inline_changed = true;
 
           while (inline_changed)
           {
             inline_changed = false;
 
+            // Collect replacements (can't mutate during iteration).
+            std::vector<std::pair<Node, Node>> replacements;
+
+            for (auto& stmt : *body)
+            {
+              // Phase A: Devirtualize CallDyn.
+              if (stmt == CallDyn || stmt == TryCallDyn)
+              {
+                auto fn_ptr_name = std::string((stmt / Rhs)->location().view());
+                auto it = lookups.find(fn_ptr_name);
+
+                if (it == lookups.end())
+                  continue;
+
+                auto& info = it->second;
+                auto func_id = resolve_method(info.src_type, info.method_id);
+
+                if (stmt == CallDyn)
+                {
+                  if (!func_id)
+                    continue;
+
+                  // Replace CallDyn with Call.
+                  Node call = Call << clone(stmt / LocalId) << clone(func_id)
+                                   << clone(stmt / Args);
+                  replacements.push_back({stmt, call});
+                  dead_lookups.insert(fn_ptr_name);
+                }
+                else // TryCallDyn
+                {
+                  if (func_id)
+                  {
+                    // Method exists — replace with Call.
+                    Node call = Call << clone(stmt / LocalId) << clone(func_id)
+                                     << clone(stmt / Args);
+                    replacements.push_back({stmt, call});
+                  }
+                  else if (
+                    info.src_type && info.src_type != Union &&
+                    info.src_type != Dyn)
+                  {
+                    // Known non-union type, method doesn't exist — produce
+                    // none.
+                    Node none_const = Const << clone(stmt / LocalId) << None
+                                            << None;
+                    replacements.push_back({stmt, none_const});
+                  }
+                  else
+                  {
+                    continue;
+                  }
+                  dead_lookups.insert(fn_ptr_name);
+                }
+              }
+              // Phase A: Devirtualize WhenDyn.
+              else if (stmt == WhenDyn)
+              {
+                auto fn_ptr_name = std::string((stmt / Rhs)->location().view());
+                auto it = lookups.find(fn_ptr_name);
+
+                if (it == lookups.end())
+                  continue;
+
+                auto& info = it->second;
+                auto func_id = resolve_method(info.src_type, info.method_id);
+
+                if (!func_id)
+                  continue;
+
+                // Replace WhenDyn with When.
+                Node when = When << clone(stmt / LocalId) << clone(func_id)
+                                 << clone(stmt / Args) << clone(stmt / Cown);
+                replacements.push_back({stmt, when});
+                dead_lookups.insert(fn_ptr_name);
+              }
+            }
+
+            // Apply Phase A replacements.
+            for (auto& [old_node, new_node] : replacements)
+            {
+              auto ancestors = inline_ancestors.extract(old_node);
+
+              if (!ancestors.empty())
+              {
+                ancestors.key() = new_node;
+                inline_ancestors.insert(std::move(ancestors));
+              }
+
+              old_node->parent()->replace(old_node, new_node);
+            }
+
+            // Phase B: Inline single-label functions.
             for (size_t si = 0; si < body->size(); si++)
             {
               auto stmt = body->at(si);
@@ -341,6 +341,15 @@ namespace virc
               if (params->size() != args->size())
                 continue;
 
+              // Stop recursive expansion even when the cycle spans callees.
+              auto target_name =
+                std::string((target / FunctionId)->location().view());
+              auto ancestors = inline_ancestors[stmt];
+
+              if (!ancestors.insert(target_name).second)
+                continue;
+
+              auto& target_lookups = state->func_lookups[target_name];
               std::unordered_map<std::string, std::string> param_map;
               auto p_it = params->begin();
               auto a_it = args->begin();
@@ -394,6 +403,7 @@ namespace virc
                   Node copy = Copy << (LocalId ^ call_dst_name)
                                    << (LocalId ^ ret_it->second);
                   body->replace(stmt, copy);
+                  inline_ancestors.erase(stmt);
                   inline_changed = true;
                 }
                 continue;
@@ -478,6 +488,20 @@ namespace virc
               {
                 Node cloned = clone(ts);
                 remap(cloned);
+
+                if (ts == Lookup)
+                {
+                  auto info = target_lookups.find(
+                    std::string((ts / LocalId)->location().view()));
+
+                  if (info != target_lookups.end())
+                    lookups[std::string(
+                      (cloned / LocalId)->location().view())] = info->second;
+                }
+
+                if (cloned->in({Call, CallDyn, TryCallDyn}))
+                  inline_ancestors[cloned] = ancestors;
+
                 inlined_stmts.push_back(cloned);
               }
 
@@ -500,6 +524,7 @@ namespace virc
                 it = body->insert(++it, is);
 
               body->erase(body->find(stmt), std::next(body->find(stmt)));
+              inline_ancestors.erase(stmt);
 
               // Restart the scan — inlined body may contain new Calls.
               inline_changed = true;
@@ -508,17 +533,27 @@ namespace virc
           } // while (inline_changed)
 
           // Phase C: Remove dead Lookups and Drops.
-          // Only remove a Lookup if no remaining statement uses it.
+          // Check all labels and terminators, ignoring definitions and Drops.
           std::set<std::string> still_used;
 
-          for (auto& stmt : *body)
-          {
-            if (stmt->type().in({CallDyn, TryCallDyn, WhenDyn}))
+          (func_node / Labels)->traverse([&](Node& node) {
+            if (node == Drop)
+              return false;
+
+            if (node == LocalId)
             {
-              auto name = std::string((stmt / Rhs)->location().view());
-              still_used.insert(name);
+              auto parent = node->parent();
+
+              if (
+                parent->parent() == Body && parent != AtTeardown &&
+                parent->front() == node)
+                return true;
+
+              still_used.insert(std::string(node->location().view()));
             }
-          }
+
+            return true;
+          });
 
           std::vector<Node> to_remove;
 

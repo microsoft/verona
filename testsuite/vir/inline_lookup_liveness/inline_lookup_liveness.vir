@@ -1,0 +1,32 @@
+lib
+  @set_exit_code = "set_exit_code"(i32): none
+
+primitive i32
+  @plus @plus
+
+func @main(): none
+  $a = const i32 3
+  $b = const i32 7
+  jump ^produce
+// Visit the consumer before inlining produces lookup metadata.
+^consume
+  $saved = copy $method
+  $second = call $saved($a, $b)
+  $sum = add $first $second
+  $expected = const i32 20
+  $code = sub $sum $expected
+  $_exit = ffi @set_exit_code($code)
+  $_none = const none
+  ret $_none
+^produce
+  $method = call @get_method($a)
+  $first = call $method($a, $b)
+  jump ^consume
+
+func @get_method($a: i32): dyn
+  $method = lookup $a @plus
+  ret $method
+
+func @plus($a: i32, $b: i32): i32
+  $result = add $a $b
+  ret $result
