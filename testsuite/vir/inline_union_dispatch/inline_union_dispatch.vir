@@ -1,0 +1,33 @@
+lib
+  @set_exit_code = "set_exit_code"(i32): none
+
+primitive i32
+  @value @i32_value
+
+primitive i64
+  @value @i64_value
+
+func @main(): none
+  $a = const i32 1
+  $b = const i64 2
+  $first = call @dispatch($a)
+  $second = call @dispatch($b)
+  $sum = add $first $second
+  $expected = const i32 16
+  $code = sub $sum $expected
+  $_exit = ffi @set_exit_code($code)
+  $_none = const none
+  ret $_none
+
+func @dispatch($x: i32 | i64): i32
+  $method = lookup $x @value
+  $result = call $method($x)
+  ret $result
+
+func @i32_value($x: i32): i32
+  $result = const i32 7
+  ret $result
+
+func @i64_value($x: i64): i32
+  $result = const i32 9
+  ret $result

@@ -1,0 +1,88 @@
+virc
+liveness
+(top
+  {
+    @main = func
+    @plus = func}
+  (lib 27:missed_devirtualization.vir|142|3
+    (string 0:)
+    (symbols |142|3
+      (symbol |148|43
+        (symbolid |148|14:@set_exit_code)
+        (string |166|13:set_exit_code)
+        (string 0:)
+        (none |148|43)
+        (ffiparams |148|43
+          (i32 |181|3))
+        (none |187|4))))
+  (primitive 27:missed_devirtualization.vir|193|13
+    (i32 |203|3)
+    (methods |193|13
+      (method
+        (methodid 27:missed_devirtualization.vir|209|5:@plus)
+        (functionid 27:missed_devirtualization.vir|215|5:@plus))))
+  (func 27:missed_devirtualization.vir|222|18
+    (functionid |227|5:@main)
+    (params |222|18)
+    (none |236|4)
+    (vars |222|18)
+    (labels |222|18
+      (label
+        (labelid 5:^main)
+        (body
+          (const 27:missed_devirtualization.vir|365|16
+            (localid 6:$opt_0)
+            (i32 |376|3)
+            (int |380|1:3))
+          (const 27:missed_devirtualization.vir|384|16
+            (localid 6:$opt_1)
+            (i32 |395|3)
+            (int |399|1:7))
+          (add 27:missed_devirtualization.vir|523|3
+            (localid 7:$result)
+            (localid 6:$opt_0)
+            (localid 6:$opt_1))
+          (drop
+            (localid 6:$opt_0))
+          (drop
+            (localid 6:$opt_1))
+          (ffi 27:missed_devirtualization.vir|270|36
+            (localid |270|6:$_exit)
+            (symbolid |283|14:@set_exit_code)
+            (args |270|36
+              (arg |270|36
+                (argmove)
+                (localid |298|7:$result))))
+          (drop
+            (localid 27:missed_devirtualization.vir|270|6:$_exit))
+          (const 27:missed_devirtualization.vir|309|19
+            (localid |309|6:$_none)
+            (none |309|19)
+            (none |309|19)))
+        (ret 27:missed_devirtualization.vir|331|10
+          (localid |335|6:$_none)))))
+  (func 27:missed_devirtualization.vir|477|33
+    (functionid |482|5:@plus)
+    (params |477|33
+      (param |488|7
+        (localid |488|2:$a)
+        (i32 |492|3))
+      (param |497|7
+        (localid |497|2:$b)
+        (i32 |501|3)))
+    (i32 |507|3)
+    (vars |477|33)
+    (labels |477|33
+      (label
+        (labelid 5:^plus)
+        (body
+          (add 27:missed_devirtualization.vir|523|3
+            (localid |513|7:$result)
+            (localid |527|2:$a)
+            (localid |530|2:$b))
+          (drop
+            (localid 27:missed_devirtualization.vir|530|2:$b))
+          (drop
+            (localid 27:missed_devirtualization.vir|527|2:$a)))
+        (ret 27:missed_devirtualization.vir|535|11
+          (localid |539|7:$result))))))

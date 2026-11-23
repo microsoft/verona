@@ -1,0 +1,25 @@
+// @main is optimized before @helper. Inlining should expose a direct add,
+// not leave a dynamically dispatched call on known i32 operands.
+
+lib
+  @set_exit_code = "set_exit_code"(i32): none
+
+primitive i32
+  @plus @plus
+
+func @main(): none
+  $result = call @helper()
+  $_exit = ffi @set_exit_code($result)
+  $_none = const none
+  ret $_none
+
+func @helper(): i32
+  $a = const i32 3
+  $b = const i32 7
+  $method = lookup $a @plus
+  $result = call $method($a, $b)
+  ret $result
+
+func @plus($a: i32, $b: i32): i32
+  $result = add $a $b
+  ret $result
